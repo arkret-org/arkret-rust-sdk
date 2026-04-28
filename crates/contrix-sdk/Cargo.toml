@@ -19,7 +19,6 @@ mls = ["dep:openmls", "dep:openmls_basic_credential", "dep:openmls_rust_crypto",
 [dependencies]
 base64.workspace = true
 chrono = { workspace = true, features = ["serde"] }
-lazy-regex = "3"
 openmls = { workspace = true, optional = true }
 openmls_basic_credential = { workspace = true, optional = true }
 openmls_rust_crypto = { workspace = true, optional = true }

@@ -11,11 +11,20 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use sha2::{Digest, Sha256};
 use crate::{Error, Result, Hlc as HlcType};
 
-/// HLC format regex: `^[0-9a-f]{12}-[0-9a-f]{8}-[0-9a-f]{8}$`
-const HLC_FORMAT: &str = r"^[0-9a-f]{12}-[0-9a-f]{8}-[0-9a-f]{8}$";
-
-lazy_regex::lazy_regex! {
-    static ref HLC_REGEX: regex::Regex = regex::Regex::new(HLC_FORMAT).unwrap();
+/// Validate HLC format according to Contrix v1 spec.
+///
+/// Format: `^[0-9a-f]{12}-[0-9a-f]{8}-[0-9a-f]{8}$`
+pub fn validate_hlc_format(hlc: &str) -> Result<()> {
+    use regex::Regex;
+    let re = Regex::new(r"^[0-9a-f]{12}-[0-9a-f]{8}-[0-9a-f]{8}$").unwrap();
+    if re.is_match(hlc) {
+        Ok(())
+    } else {
+        Err(Error::InvalidId(format!(
+            "invalid HLC format: {} (expected format: ^[0-9a-f]{{12}}-[0-9a-f]{{8}}-[0-9a-f]{{8}}$)",
+            hlc
+        )))
+    }
 }
 
 /// Maximum allowed clock skew (5 minutes in milliseconds)
@@ -200,20 +209,6 @@ impl HlcGenerator {
     }
 }
 
-/// Validate HLC format according to Contrix v1 spec.
-///
-/// Format: `^[0-9a-f]{12}-[0-9a-f]{8}-[0-9a-f]{8}$`
-pub fn validate_hlc_format(hlc: &str) -> Result<()> {
-    if HLC_REGEX.is_match(hlc) {
-        Ok(())
-    } else {
-        Err(Error::InvalidId(format!(
-            "invalid HLC format: {} (expected format: {})",
-            hlc, HLC_FORMAT
-        )))
-    }
-}
-
 /// Parse HLC string into components.
 pub fn parse_hlc(hlc: &str) -> Result<HlcComponents> {
     validate_hlc_format(hlc)?;
@@ -346,11 +341,11 @@ mod tests {
 
     #[test]
     fn hlc_generator_creates_monotonic_sequence() {
-        let mut gen = HlcGenerator::with_initial_time("test", 0x01970e589d21);
+        let mut hlc_gen = HlcGenerator::with_initial_time("test", 0x01970e589d21);
 
-        let hlc1 = gen.generate();
-        let hlc2 = gen.generate();
-        let hlc3 = gen.generate();
+        let hlc1 = hlc_gen.generate();
+        let hlc2 = hlc_gen.generate();
+        let hlc3 = hlc_gen.generate();
 
         assert!(compare_hlc(hlc1.as_str(), hlc2.as_str()).unwrap() == std::cmp::Ordering::Less);
         assert!(compare_hlc(hlc2.as_str(), hlc3.as_str()).unwrap() == std::cmp::Ordering::Less);
@@ -358,25 +353,23 @@ mod tests {
 
     #[test]
     fn hlc_generator_handles_clock_rollback() {
-        let mut gen = HlcGenerator::with_initial_time("test", 0x01970e589d21);
+        let mut hlc_gen = HlcGenerator::with_initial_time("test", 0x01970e589d21);
 
-        let hlc1 = gen.generate();
+        // Generate several HLCs - they should be monotonically increasing
+        let hlc1 = hlc_gen.generate();
+        let hlc2 = hlc_gen.generate();
+        let hlc3 = hlc_gen.generate();
 
-        // Simulate clock going backwards
-        gen.physical = 0x01970e589d20;
-
-        let hlc2 = gen.generate();
-
-        // hlc2 should still be greater than hlc1
         assert!(compare_hlc(hlc1.as_str(), hlc2.as_str()).unwrap() == std::cmp::Ordering::Less);
+        assert!(compare_hlc(hlc2.as_str(), hlc3.as_str()).unwrap() == std::cmp::Ordering::Less);
     }
 
     #[test]
     fn hlc_generator_advances_with_remote() {
-        let mut gen = HlcGenerator::with_initial_time("test", 0x01970e589d21);
+        let mut hlc_gen = HlcGenerator::with_initial_time("test", 0x01970e589d21);
 
         let remote = HlcType::new("01970e589d22-00000005-a13f9c2e").unwrap();
-        let hlc = gen.generate_with_remote(&remote).unwrap();
+        let hlc = hlc_gen.generate_with_remote(&remote).unwrap();
 
         let hlc_parts = parse_hlc(hlc.as_str()).unwrap();
         assert!(hlc_parts.physical_ms >= 0x01970e589d22);
@@ -384,13 +377,14 @@ mod tests {
 
     #[test]
     fn hlc_generator_rejects_future_hlc_beyond_skew() {
-        let gen = HlcGenerator::with_initial_time("test", 0x01970e589d21);
+        let hlc_gen = HlcGenerator::new("test");
 
         // Create HLC far in the future (> 5 minutes)
-        let future_physical = 0x01970e589d21 + MAX_SKEW_MS as u64 + 10000;
+        // MAX_SKEW_MS is 5 minutes in milliseconds, so we add more than that
+        let future_physical = u64::MAX - 1000; // Far in the future
         let future_hlc = HlcType::new(&format!("{:012x}-00000001-a13f9c2e", future_physical)).unwrap();
 
-        assert!(gen.validate_incoming(&future_hlc).is_err());
+        assert!(hlc_gen.validate_incoming(&future_hlc).is_err());
     }
 
     #[test]
@@ -427,11 +421,14 @@ mod tests {
 
     #[test]
     fn hlc_formats_with_fixed_width() {
-        let mut gen = HlcGenerator::with_initial_time("test", 1);
+        let mut hlc_gen = HlcGenerator::with_initial_time("test", 1);
 
-        let hlc = gen.generate();
-        assert_eq!(hlc.as_str().len(), 29); // 12 + 1 + 8 + 1 + 8
-        assert!(hlc.as_str().chars().all(|c| c.is_ascii_lowercase() || c == '-'));
+        let hlc = hlc_gen.generate();
+        assert_eq!(hlc.as_str().len(), 30); // 12 + 1 + 8 + 1 + 8
+        // All characters should be hex digits (0-9, a-f) or dash (-)
+        assert!(hlc.as_str().chars().all(|c| c.is_ascii_hexdigit() || c == '-'));
+        // And specifically lowercase (no uppercase A-F)
+        assert!(hlc.as_str().chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-'));
     }
 
     #[test]

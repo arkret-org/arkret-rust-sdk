@@ -178,7 +178,8 @@ impl Cursor {
         if !space_id.starts_with("cx:space:") {
             return Err(crate::Error::InvalidId(space_id.to_owned()));
         }
-        if space_id.len() != 32 { // cx:space: + 26 chars
+        // Space IDs should be at least "cx:space:" + 1 char
+        if space_id.len() <= 9 {
             return Err(crate::Error::InvalidId(space_id.to_owned()));
         }
         Ok(())
@@ -188,11 +189,11 @@ impl Cursor {
         // Validate HLC format
         Hlc::new(&pos.order)?;
 
-        // Validate state hash format
+        // Validate state hash format: sha256: + 64 hex chars
         if !pos.h.starts_with("sha256:") {
             return Err(crate::Error::InvalidId(pos.h.clone()));
         }
-        if pos.h.len() != 75 { // sha256: + 64 hex chars
+        if pos.h.len() != 71 { // sha256: (7) + 64 hex chars
             return Err(crate::Error::InvalidId(pos.h.clone()));
         }
 
@@ -216,9 +217,9 @@ impl Cursor {
     }
 
     fn validate_event_id(event_id: &str) -> Result<()> {
-        // Accept both cx:event:* and sha256:* formats
-        let is_valid = event_id.starts_with("cx:event:") && event_id.len() > 10
-            || event_id.starts_with("sha256:") && event_id.len() == 75;
+        // Accept cx:evt:*, cx:event:*, and sha256:* formats
+        let is_valid = (event_id.starts_with("cx:evt:") || event_id.starts_with("cx:event:")) && event_id.len() > 10
+            || event_id.starts_with("sha256:") && event_id.len() == 71;
 
         if !is_valid {
             return Err(crate::Error::InvalidId(event_id.to_owned()));
@@ -378,8 +379,8 @@ mod tests {
             "cx:space:01JS0SP000000000000000000",
             SpacePosition {
                 p: vec!["cx:evt:01JS0EV000000000000000000".to_owned()],
-                order: "01970e589d21-0004-a13f9c2e".to_owned(),
-                h: "sha256:abc123def4567890123456789012345678901234567890123456789012345678".to_owned(),
+                order: "01970e589d21-00000004-a13f9c2e".to_owned(),
+                h: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef".to_owned(),
             },
         );
 
@@ -424,7 +425,7 @@ mod tests {
     fn cursor_expires_after_7_days() {
         let mut cursor = Cursor::new();
         // Simulate a cursor from 1 day ago
-        cursor.x -= (6 * 24 * 60 * 60 * 1000);
+        cursor.x -= 6 * 24 * 60 * 60 * 1000;
 
         assert!(!cursor.is_expired());
         assert!(cursor.time_until_expiration().is_some());
@@ -452,4 +453,5 @@ mod tests {
 
         assert_eq!(extracted.spaces.len(), positions.spaces.len());
         assert_eq!(extracted.devices, positions.devices);
-    
+    }
+}
