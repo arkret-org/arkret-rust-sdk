@@ -191,7 +191,7 @@ mod tests {
 
         manager.process_notification(TypingNotification {
             space_id: space_id.clone(),
-            user_id: alice.clone(),
+            user_id: alice,
             device_id: device("phone"),
             is_typing: false,
             expires_at: Utc::now(),

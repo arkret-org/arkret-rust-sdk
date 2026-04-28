@@ -808,20 +808,38 @@ impl Space {
     }
 }
 
+/// Input for creating a relation operation.
+#[derive(Clone, Debug)]
+pub struct RelationOperationInput {
+    pub relation_kind: RelationKind,
+    pub from_entity_id: Option<EntityId>,
+    pub from_actor_id: Option<Did>,
+    pub from_space_id: Option<SpaceId>,
+    pub to_entity_id: Option<EntityId>,
+    pub to_actor_id: Option<Did>,
+    pub to_space_id: Option<SpaceId>,
+    pub fields: BTreeMap<String, Value>,
+}
+
+impl RelationOperationInput {
+    pub fn new(relation_kind: RelationKind) -> Self {
+        Self {
+            relation_kind,
+            from_entity_id: None,
+            from_actor_id: None,
+            from_space_id: None,
+            to_entity_id: None,
+            to_actor_id: None,
+            to_space_id: None,
+            fields: BTreeMap::new(),
+        }
+    }
+}
+
 /// Relation operations within a space.
 impl Space {
     /// Create a relation creation operation.
-    pub fn create_relation_operation(
-        &self,
-        relation_kind: RelationKind,
-        from_entity_id: Option<EntityId>,
-        from_actor_id: Option<Did>,
-        from_space_id: Option<SpaceId>,
-        to_entity_id: Option<EntityId>,
-        to_actor_id: Option<Did>,
-        to_space_id: Option<SpaceId>,
-        fields: BTreeMap<String, Value>,
-    ) -> Result<Operation> {
+    pub fn create_relation_operation(&self, input: RelationOperationInput) -> Result<Operation> {
         let _session_meta = self
             .base_client
             .session_meta()
@@ -832,29 +850,29 @@ impl Space {
 
         let mut payload = json!({
             "id": relation_id.as_str(),
-            "relation_kind": serde_json::to_value(relation_kind)?,
+            "relation_kind": serde_json::to_value(input.relation_kind)?,
         });
 
-        if let Some(from_entity_id) = &from_entity_id {
+        if let Some(from_entity_id) = &input.from_entity_id {
             payload["from_entity_id"] = json!(from_entity_id.as_str());
         }
-        if let Some(from_actor_id) = &from_actor_id {
+        if let Some(from_actor_id) = &input.from_actor_id {
             payload["from_actor_id"] = json!(from_actor_id.as_str());
         }
-        if let Some(from_space_id) = &from_space_id {
+        if let Some(from_space_id) = &input.from_space_id {
             payload["from_space_id"] = json!(from_space_id.as_str());
         }
-        if let Some(to_entity_id) = &to_entity_id {
+        if let Some(to_entity_id) = &input.to_entity_id {
             payload["to_entity_id"] = json!(to_entity_id.as_str());
         }
-        if let Some(to_actor_id) = &to_actor_id {
+        if let Some(to_actor_id) = &input.to_actor_id {
             payload["to_actor_id"] = json!(to_actor_id.as_str());
         }
-        if let Some(to_space_id) = &to_space_id {
+        if let Some(to_space_id) = &input.to_space_id {
             payload["to_space_id"] = json!(to_space_id.as_str());
         }
-        if !fields.is_empty() {
-            payload["fields"] = json!(fields);
+        if !input.fields.is_empty() {
+            payload["fields"] = json!(input.fields);
         }
 
         Ok(Operation::create(operation_id, self.space_id.clone(), "relation.create", payload))
@@ -1166,18 +1184,10 @@ mod tests {
         let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
         let space = Space::new(space_id.clone(), base_client);
 
-        let op = space
-            .create_relation_operation(
-                RelationKind::DependsOn,
-                Some(EntityId::new("cx:entity:01JS0EN000000000000000001").unwrap()),
-                None,
-                None,
-                Some(EntityId::new("cx:entity:01JS0EN000000000000000002").unwrap()),
-                None,
-                None,
-                BTreeMap::new(),
-            )
-            .unwrap();
+        let mut input = RelationOperationInput::new(RelationKind::DependsOn);
+        input.from_entity_id = Some(EntityId::new("cx:entity:01JS0EN000000000000000001").unwrap());
+        input.to_entity_id = Some(EntityId::new("cx:entity:01JS0EN000000000000000002").unwrap());
+        let op = space.create_relation_operation(input).unwrap();
 
         assert_eq!(op.operation_type, OperationType::Create);
         assert_eq!(op.space_id, space_id);

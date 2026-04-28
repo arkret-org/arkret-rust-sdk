@@ -3,9 +3,9 @@ use std::collections::{BTreeMap, VecDeque};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::{Commit, CommitId, Error, Hash, Operation, OperationId, Result};
+use crate::{Commit, CommitId, Error, Hash, Operation, OperationId, Result, crypto};
 
-pub trait RepoStore {
+pub trait RepoStore: Send + Sync {
     fn put_operation(&mut self, operation: Operation) -> Result<()>;
     fn put_commit(&mut self, commit: Commit) -> Result<()>;
     fn operation(&self, operation_id: &OperationId) -> Option<&Operation>;
@@ -114,12 +114,12 @@ impl MemoryRepoStore {
             ));
         }
 
-        if let Some(last_seq) = self.author_seq.get(commit.author.as_str()) {
-            if commit.author_seq <= *last_seq {
-                return Err(Error::Protocol(
-                    "commit author_seq must be monotonically increasing".to_owned(),
-                ));
-            }
+        if let Some(last_seq) = self.author_seq.get(commit.author.as_str())
+            && commit.author_seq <= *last_seq
+        {
+            return Err(Error::Protocol(
+                "commit author_seq must be monotonically increasing".to_owned(),
+            ));
         }
 
         for operation_digest in &commit.operations {
@@ -228,15 +228,17 @@ impl SqliteRepoStore {
 impl RepoStore for SqliteRepoStore {
     fn put_operation(&mut self, operation: Operation) -> Result<()> {
         let digest = operation.operation_digest()?;
-        self.inner.put_operation(operation.clone())?;
-        self.operation_index.insert(digest, operation.operation_id.clone());
+        let operation_id = operation.operation_id.clone();
+        self.inner.put_operation(operation)?;
+        self.operation_index.insert(digest, operation_id);
         Ok(())
     }
 
     fn put_commit(&mut self, commit: Commit) -> Result<()> {
         let digest = commit.commit_digest()?;
-        self.inner.put_commit(commit.clone())?;
-        self.commit_index.insert(digest, commit.commit_id.clone());
+        let commit_id = commit.commit_id.clone();
+        self.inner.put_commit(commit)?;
+        self.commit_index.insert(digest, commit_id);
         Ok(())
     }
 
@@ -343,8 +345,8 @@ impl StoreEncryptionKey {
         Self(key)
     }
 
-    fn apply(&self, bytes: &[u8]) -> Vec<u8> {
-        xor_sha256_stream(bytes, &self.0)
+    fn seal(&self, bytes: &[u8], aad: &[u8]) -> Result<Vec<u8>> {
+        crypto::seal(bytes, &self.0, aad)
     }
 }
 
@@ -382,13 +384,15 @@ impl EncryptedMemoryRepoStore {
 impl RepoStore for EncryptedMemoryRepoStore {
     fn put_operation(&mut self, operation: Operation) -> Result<()> {
         let bytes = serde_json::to_vec(&operation)?;
-        self.encrypted_operations.insert(operation.operation_id.clone(), self.key.apply(&bytes));
+        let encrypted = self.key.seal(&bytes, operation.operation_id.as_str().as_bytes())?;
+        self.encrypted_operations.insert(operation.operation_id.clone(), encrypted);
         self.inner.put_operation(operation)
     }
 
     fn put_commit(&mut self, commit: Commit) -> Result<()> {
         let bytes = serde_json::to_vec(&commit)?;
-        self.encrypted_commits.insert(commit.commit_id.clone(), self.key.apply(&bytes));
+        let encrypted = self.key.seal(&bytes, commit.commit_id.as_str().as_bytes())?;
+        self.encrypted_commits.insert(commit.commit_id.clone(), encrypted);
         self.inner.put_commit(commit)
     }
 
@@ -453,22 +457,6 @@ where
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
-}
-
-fn xor_sha256_stream(input: &[u8], key: &[u8]) -> Vec<u8> {
-    let mut output = Vec::with_capacity(input.len());
-    let mut counter = 0u64;
-    for chunk in input.chunks(32) {
-        let mut hasher = Sha256::new();
-        hasher.update(key);
-        hasher.update(counter.to_le_bytes());
-        let stream = hasher.finalize();
-        for (index, byte) in chunk.iter().enumerate() {
-            output.push(byte ^ stream[index]);
-        }
-        counter += 1;
-    }
-    output
 }
 
 #[cfg(test)]

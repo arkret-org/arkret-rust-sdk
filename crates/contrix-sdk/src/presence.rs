@@ -126,7 +126,7 @@ mod tests {
             status_msg: None,
         };
 
-        manager.set(presence.clone()).unwrap();
+        manager.set(presence).unwrap();
 
         let retrieved = manager.get(&user_id).unwrap();
         assert_eq!(retrieved.status, PresenceStatus::Online);

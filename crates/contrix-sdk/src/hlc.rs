@@ -100,12 +100,6 @@ impl HlcGenerator {
             self.logical = self.logical.saturating_add(1);
         }
 
-        // Handle logical counter overflow by advancing physical time
-        if self.logical > MAX_LOGICAL {
-            self.physical = self.physical.saturating_add(1);
-            self.logical = 0;
-        }
-
         // Ensure physical time doesn't exceed maximum
         if self.physical > MAX_PHYSICAL {
             self.physical = MAX_PHYSICAL;
@@ -135,10 +129,8 @@ impl HlcGenerator {
         }
 
         // If remote HLC has same physical time, ensure we're ahead
-        if remote_parts.physical_ms == self.physical {
-            if remote_parts.logical >= self.logical {
-                self.logical = remote_parts.logical.saturating_add(1);
-            }
+        if remote_parts.physical_ms == self.physical && remote_parts.logical >= self.logical {
+            self.logical = remote_parts.logical.saturating_add(1);
         }
 
         HlcType::new(self.format())
@@ -207,7 +199,7 @@ pub fn parse_hlc(hlc: &str) -> Result<HlcComponents> {
     let logical = u32::from_str_radix(parts[1], 16)
         .map_err(|_| Error::InvalidId(format!("invalid logical counter: {}", parts[1])))?;
 
-    let node_id = parts[2].to_string();
+    let node_id = parts[2].to_owned();
 
     Ok(HlcComponents { physical_ms, logical, node_id })
 }
@@ -360,7 +352,7 @@ mod tests {
         // MAX_SKEW_MS is 5 minutes in milliseconds, so we add more than that
         let future_physical = HlcGenerator::current_time_ms() + MAX_SKEW_MS as u64 + 1000;
         let future_hlc =
-            HlcType::new(&format!("{:012x}-00000001-a13f9c2e", future_physical)).unwrap();
+            HlcType::new(format!("{:012x}-00000001-a13f9c2e", future_physical)).unwrap();
 
         assert!(hlc_gen.validate_incoming(&future_hlc).is_err());
     }

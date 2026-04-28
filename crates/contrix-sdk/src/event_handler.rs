@@ -81,6 +81,7 @@ impl EventHandlerRegistry {
     }
 
     /// Async-compatible processing entry point.
+    #[allow(clippy::unused_async)]
     pub async fn process_event_async(&self, event: ClientEvent) -> Vec<String> {
         self.process_event(&event)
     }

@@ -19,6 +19,20 @@ pub enum AgentMemoryState {
     Rejected,
 }
 
+/// Agent memory layer — the four-layer memory model from the spec.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MemoryLayer {
+    /// Temporary working memory for current task context.
+    Working,
+    /// Episodic memory — what happened (events, interactions).
+    Episodic,
+    /// Semantic memory — what is known (facts, knowledge).
+    Semantic,
+    /// Task memory — what needs to happen (goals, plans).
+    Task,
+}
+
 /// Agent memory record.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AgentMemory {
@@ -27,8 +41,40 @@ pub struct AgentMemory {
     pub content: Value,
     pub importance: u8,
     pub state: AgentMemoryState,
+    /// Memory layer classification.
+    #[serde(default = "default_memory_layer")]
+    pub memory_layer: MemoryLayer,
+    /// Memory kind — semantic category (e.g. "fact", "preference", "skill").
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub memory_kind: Option<String>,
+    /// Subject reference — DID or entity this memory is about.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subject_ref: Option<String>,
+    /// Source references — events, documents, or entities that produced this memory.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub source_refs: Vec<String>,
+    /// Confidence score (0-100).
+    #[serde(default = "default_confidence")]
+    pub confidence: u8,
+    /// Memory this supersedes (for memory updates/corrections).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub supersedes: Option<String>,
+    /// When this memory becomes valid.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub valid_from: Option<DateTime<Utc>>,
+    /// When this memory expires.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub valid_until: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+fn default_memory_layer() -> MemoryLayer {
+    MemoryLayer::Working
+}
+
+fn default_confidence() -> u8 {
+    100
 }
 
 /// Review decision.
@@ -56,14 +102,23 @@ impl AgentMemoryStore {
 
     /// Store a draft memory.
     pub fn add_memory(&mut self, agent_id: Did, content: Value, importance: u8) -> AgentMemory {
+        let now = Utc::now();
         let memory = AgentMemory {
             memory_id: format!("mem_{}", Ulid::new()),
             agent_id,
             content,
             importance,
             state: AgentMemoryState::Draft,
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
+            memory_layer: MemoryLayer::Working,
+            memory_kind: None,
+            subject_ref: None,
+            source_refs: Vec::new(),
+            confidence: 100,
+            supersedes: None,
+            valid_from: None,
+            valid_until: None,
+            created_at: now,
+            updated_at: now,
         };
         self.memories.insert(memory.memory_id.clone(), memory.clone());
         memory

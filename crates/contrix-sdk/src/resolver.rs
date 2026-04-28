@@ -130,12 +130,43 @@ impl SpaceState {
     /// Process the content of an event and update state.
     fn process_event_content(&mut self, event: &Event) -> Result<()> {
         match event.kind.as_str() {
+            // Entity lifecycle
             "cx.entity.create" => self.create_entity(event)?,
             "cx.entity.update" => self.update_entity(event)?,
             "cx.entity.delete" => self.delete_entity(event)?,
+            "cx.entity.restore" => self.restore_entity(event)?,
             "cx.entity.redact" => self.redact_entity(event)?,
+
+            // Relation lifecycle
             "cx.relation.create" => self.create_relation(event)?,
             "cx.relation.delete" => self.delete_relation(event)?,
+            "cx.relation.move" => self.move_relation(event)?,
+
+            // Task operations (entity-type-specific wrappers)
+            "cx.task.create" => self.create_entity(event)?,
+            "cx.task.update" => self.update_entity(event)?,
+            "cx.task.move" => self.update_entity(event)?,
+
+            // View operations
+            "cx.view.create" => self.create_view(event)?,
+            "cx.view.update" => self.update_view(event)?,
+            "cx.view.reconcile" => self.reconcile_view(event)?,
+
+            // Space lifecycle — generic state reduction
+            "cx.space.create"
+            | "cx.space.update"
+            | "cx.space.organization"
+            | "cx.space.child"
+            | "cx.space.parent"
+            | "cx.space.inheritance_policy"
+            | "cx.space.join_rule"
+            | "cx.space.history_visibility"
+            | "cx.space.discovery"
+            | "cx.space.archive"
+            | "cx.space.freeze"
+            | "cx.space.destroy" => self.reduce_space_lifecycle_event(event)?,
+
+            // Member / capability / invite / policy / read-marker state
             "cx.member.state"
             | "cx.capability.grant"
             | "cx.capability.delegate"
@@ -146,12 +177,26 @@ impl SpaceState {
             | "cx.invite.cancel"
             | "cx.invite.accept"
             | "cx.read.marker" => self.reduce_generic_state_event(event)?,
+
+            // Message timeline
             "cx.message.create" => self.create_message(event)?,
             "cx.message.revise" => self.revise_message(event)?,
             "cx.message.redact" => self.redact_message(event)?,
+
+            // Reactions
             "cx.reaction.add" | "cx.reaction.remove" => self.reduce_reaction(event)?,
+
+            // Space upgrade / tombstone
             "cx.space.upgrade" => self.upgrade_space(event)?,
             "cx.space.tombstone" => self.tombstone_space(event)?,
+
+            // Generic redaction
+            "cx.redaction" => {
+                if let Some(redacted_ref) = &event.redacts {
+                    self.redact_event(redacted_ref)?;
+                }
+            }
+
             _ => {
                 // Unknown event type - ignore for forward compatibility
             }
@@ -312,6 +357,74 @@ impl SpaceState {
             relation.state = Some(crate::RelationState::Deleted);
         }
         Ok(())
+    }
+
+    /// Restore a previously deleted/archived entity back to active state.
+    fn restore_entity(&mut self, event: &Event) -> Result<()> {
+        let entity_id_str = self.extract_entity_id(&event.content)?;
+        let actor_id = event.actor_id.clone();
+        let created_at = event.created_at;
+        if let Some(entity) = self.entities.get_mut(&entity_id_str) {
+            entity.state = Some(crate::ObjectState::Active);
+            entity.updated_by = Some(actor_id);
+            entity.updated_at = Some(created_at);
+            if let Some(version) = entity.version {
+                entity.version = Some(version + 1);
+            }
+        }
+        Ok(())
+    }
+
+    /// Move a relation by updating its endpoints.
+    fn move_relation(&mut self, event: &Event) -> Result<()> {
+        let relation_id_str = self.extract_relation_id(&event.content)?;
+        let actor_id = event.actor_id.clone();
+        let created_at = event.created_at;
+        let new_to = self.extract_optional_field::<String>(&event.content, "to_entity_id");
+        let new_from = self.extract_optional_field::<String>(&event.content, "from_entity_id");
+
+        if let Some(relation) = self.relations.get_mut(&relation_id_str) {
+            if let Some(new_to) = new_to {
+                relation.to_entity_id = Some(EntityId::new(new_to)?);
+            }
+            if let Some(new_from) = new_from {
+                relation.from_entity_id = Some(EntityId::new(new_from)?);
+            }
+            relation.created_by = actor_id;
+            relation.created_at = created_at;
+        }
+        Ok(())
+    }
+
+    /// Create a view (stored as resolved state).
+    fn create_view(&mut self, event: &Event) -> Result<()> {
+        self.reduce_generic_state_event(event)
+    }
+
+    /// Update a view (stored as resolved state).
+    fn update_view(&mut self, event: &Event) -> Result<()> {
+        self.reduce_generic_state_event(event)
+    }
+
+    /// Reconcile a view (stored as resolved state).
+    fn reconcile_view(&mut self, event: &Event) -> Result<()> {
+        self.reduce_generic_state_event(event)
+    }
+
+    /// Reduce space lifecycle events into resolved state.
+    fn reduce_space_lifecycle_event(&mut self, event: &Event) -> Result<()> {
+        // Space lifecycle events update the space version and are stored as resolved state.
+        if (event.kind == "cx.space.create" || event.kind == "cx.space.update")
+            && let Some(version) =
+                self.extract_optional_field::<String>(&event.content, "space_version")
+        {
+            self.space_version = version;
+        }
+        if event.kind == "cx.space.destroy" {
+            // Treat destroy as tombstone
+            self.tombstone_event_id = Some(event.event_id.clone());
+        }
+        self.reduce_generic_state_event(event)
     }
 
     fn reduce_generic_state_event(&mut self, event: &Event) -> Result<()> {
@@ -537,6 +650,9 @@ impl SpaceState {
                 | "cx.space.export"
                 | "cx.space.legal_hold"
                 | "cx.space.migration_proof"
+                | "cx.space.upgrade"
+                | "cx.space.destroy"
+                | "cx.redaction"
         ) || event.redacts.is_some()
     }
 
@@ -583,7 +699,7 @@ impl SpaceState {
         &self,
         content: &serde_json::Value,
     ) -> Result<BTreeMap<String, serde_json::Value>> {
-        Ok(self.extract_optional_field(content, "fields").unwrap_or_else(|| BTreeMap::new()))
+        Ok(self.extract_optional_field(content, "fields").unwrap_or_default())
     }
 
     fn state_key_for_event(&self, event: &Event) -> Result<String> {
@@ -623,6 +739,20 @@ impl SpaceState {
                 .or_else(|| self.extract_optional_field::<String>(&event.content, "target_ref"))
                 .ok_or_else(|| {
                     Error::Protocol("read marker requires scope or target_ref".to_owned())
+                }),
+            // Space lifecycle events use the space_id as state key
+            "cx.space.create" | "cx.space.update" | "cx.space.organization" | "cx.space.child"
+            | "cx.space.parent" | "cx.space.inheritance_policy" | "cx.space.join_rule"
+            | "cx.space.history_visibility" | "cx.space.discovery" | "cx.space.archive"
+            | "cx.space.freeze" | "cx.space.destroy" => {
+                Ok(event.space_id.as_str().to_owned())
+            }
+            // View events use view_id as state key
+            "cx.view.create" | "cx.view.update" | "cx.view.reconcile" => self
+                .extract_optional_field::<String>(&event.content, "view_id")
+                .or_else(|| self.extract_optional_field::<String>(&event.content, "id"))
+                .ok_or_else(|| {
+                    Error::Protocol("view event requires view_id or id".to_owned())
                 }),
             _ => Ok(String::new()),
         }
@@ -841,10 +971,10 @@ mod tests {
             kind: "cx.entity.create".to_owned(),
             space_id: SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
             space_version: "1".to_owned(),
-            actor_id: actor_id.clone(),
+            actor_id,
             actor_seq: 1,
             created_at: chrono::Utc::now(),
-            hlc: hlc.clone(),
+            hlc,
             prev_refs: vec![],
             auth_refs: vec![],
             redacts: None,
@@ -875,7 +1005,7 @@ mod tests {
             actor_id: actor_id.clone(),
             actor_seq: 1,
             created_at: chrono::Utc::now(),
-            hlc: hlc2.clone(), // Later HLC
+            hlc: hlc2, // Later HLC
             prev_refs: vec![],
             auth_refs: vec![],
             redacts: None,
@@ -893,10 +1023,10 @@ mod tests {
             kind: "cx.entity.create".to_owned(),
             space_id: SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
             space_version: "1".to_owned(),
-            actor_id: actor_id.clone(),
+            actor_id,
             actor_seq: 2,
             created_at: chrono::Utc::now(),
-            hlc: hlc1.clone(), // Earlier HLC
+            hlc: hlc1, // Earlier HLC
             prev_refs: vec![],
             auth_refs: vec![],
             redacts: None,

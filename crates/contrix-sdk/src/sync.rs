@@ -263,21 +263,16 @@ pub enum BackfillFrom {
 }
 
 /// Backfill direction.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum BackfillDirection {
     /// Backward (newer to older)
+    #[default]
     Backward,
     /// Forward (older to newer)
     Forward,
     /// Both directions
     Both,
-}
-
-impl Default for BackfillDirection {
-    fn default() -> Self {
-        Self::Backward
-    }
 }
 
 /// Backfill response.
@@ -301,7 +296,7 @@ pub struct SyncClient {
     /// Current sync token
     current_token: Option<String>,
     /// Device ID
-    device_id: String,
+    _device_id: String,
     /// Active subscriptions
     subscriptions: HashMap<SpaceId, SpaceSubscription>,
 }
@@ -309,7 +304,7 @@ pub struct SyncClient {
 impl SyncClient {
     /// Create a new sync client.
     pub fn new(device_id: String) -> Self {
-        Self { current_token: None, device_id, subscriptions: HashMap::new() }
+        Self { current_token: None, _device_id: device_id, subscriptions: HashMap::new() }
     }
 
     /// Get the current sync token.

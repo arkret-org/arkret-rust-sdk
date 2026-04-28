@@ -6,9 +6,9 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::{Did, Error, Result};
+use crate::{AEAD_ALGORITHM, Did, Error, Result, crypto};
 
-pub const TEST_ONLY_KEY_BACKUP_ALGORITHM: &str = "xorsha256.test-only.v1";
+pub const KEY_BACKUP_ALGORITHM: &str = AEAD_ALGORITHM;
 
 /// E2EE group state.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -256,11 +256,7 @@ impl E2eeManager {
         Ok(bytes)
     }
 
-    /// Create an encrypted backup of selected keys.
-    ///
-    /// This helper is intentionally marked test-only: it protects against
-    /// accidental plaintext storage in examples, but it is not authenticated
-    /// encryption and must not be used for production key backup.
+    /// Create an authenticated encrypted backup of selected keys.
     pub fn backup_keys(
         &mut self,
         backup_id: impl Into<String>,
@@ -280,7 +276,7 @@ impl E2eeManager {
         let backup = E2eeKeyBackup {
             backup_id: backup_id.into(),
             key_ids,
-            ciphertext: xor_sha256_stream(&plaintext, backup_key),
+            ciphertext: crypto::seal(&plaintext, backup_key, b"contrix-e2ee-key-backup-v1")?,
             plaintext_sha256: sha256_hex(&plaintext),
         };
         self.log(AuditAction::KeyBackedUp, Some(actor), None, "keys backed up");
@@ -289,7 +285,8 @@ impl E2eeManager {
 
     /// Restore a key backup payload.
     pub fn restore_backup(&self, backup: &E2eeKeyBackup, backup_key: &[u8]) -> Result<Vec<u8>> {
-        let plaintext = xor_sha256_stream(&backup.ciphertext, backup_key);
+        let plaintext =
+            crypto::open(&backup.ciphertext, backup_key, b"contrix-e2ee-key-backup-v1")?;
         if sha256_hex(&plaintext) == backup.plaintext_sha256 {
             Ok(plaintext)
         } else {
@@ -409,22 +406,6 @@ fn message_digest(
 
 fn sha256_hex(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
-}
-
-fn xor_sha256_stream(input: &[u8], key: &[u8]) -> Vec<u8> {
-    let mut output = Vec::with_capacity(input.len());
-    let mut counter = 0u64;
-    for chunk in input.chunks(32) {
-        let mut hasher = Sha256::new();
-        hasher.update(key);
-        hasher.update(counter.to_le_bytes());
-        let stream = hasher.finalize();
-        for (index, byte) in chunk.iter().enumerate() {
-            output.push(byte ^ stream[index]);
-        }
-        counter += 1;
-    }
-    output
 }
 
 #[cfg(test)]

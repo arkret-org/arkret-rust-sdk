@@ -1,5 +1,10 @@
 # Contrix Rust SDK
 
+Release status: release candidate for Contrix v1 SDK `0.1.0`. The crate exposes
+protocol types, client/server bindings and authenticated local encryption
+helpers. Production deployments should still use platform key storage and run
+service-level conformance tests.
+
 This crate is the Contrix v1 SDK entry point. It exposes the protocol model
 directly:
 

@@ -1,0 +1,40 @@
+name: Release crates.io
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run cargo publish without uploading"
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish contrix-sdk
+    runs-on: ubuntu-latest
+    environment: crates-io
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.92"
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --all-features --all-targets -- -D warnings
+      - run: cargo test --all-features
+      - run: cargo publish -p contrix-sdk --dry-run --locked
+      - run: cargo publish -p contrix-sdk --locked --token "$CARGO_REGISTRY_TOKEN"
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == 'false')
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}

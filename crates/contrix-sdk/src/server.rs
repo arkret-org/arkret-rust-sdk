@@ -57,7 +57,7 @@ pub const ENDPOINT_CONTRACTS: &[EndpointContract] = &[
         path: "/api/v1/server/describe",
     },
     EndpointContract {
-        operation_id: "cx.identity.describe",
+        operation_id: "cx.identity.describe_registry",
         method: EndpointMethod::Get,
         path: "/api/v1/identity/describe",
     },
@@ -172,7 +172,7 @@ pub const ENDPOINT_CONTRACTS: &[EndpointContract] = &[
         path: "/api/v1/index/describe",
     },
     EndpointContract {
-        operation_id: "cx.index.entity",
+        operation_id: "cx.index.get_entity",
         method: EndpointMethod::Get,
         path: "/api/v1/index/entity",
     },
@@ -302,7 +302,7 @@ pub const ENDPOINT_CONTRACTS: &[EndpointContract] = &[
         path: "/api/v1/keys/claim",
     },
     EndpointContract {
-        operation_id: "cx.authz.effective_grants",
+        operation_id: "cx.authz.get_effective_grants",
         method: EndpointMethod::Get,
         path: "/api/v1/authz/effective-grants",
     },
@@ -357,9 +357,19 @@ pub const ENDPOINT_CONTRACTS: &[EndpointContract] = &[
         path: "/api/v1/applet/spaces/{space_id_or_alias}",
     },
     EndpointContract {
-        operation_id: "cx.applet.query_protocol",
+        operation_id: "cx.applet.protocol_metadata",
         method: EndpointMethod::Get,
         path: "/api/v1/applet/protocols/{protocol}",
+    },
+    EndpointContract {
+        operation_id: "cx.applet.third_party_users",
+        method: EndpointMethod::Get,
+        path: "/api/v1/applet/third_party/users",
+    },
+    EndpointContract {
+        operation_id: "cx.applet.third_party_locations",
+        method: EndpointMethod::Get,
+        path: "/api/v1/applet/third_party/locations",
     },
 ];
 
@@ -404,7 +414,7 @@ pub enum ServerRequest {
     FederationVerifyActor(FederationVerifyActorRequest),
     IndexDescribe,
     IndexEntity { entity_id: String, space_id: Option<String>, at: Option<String> },
-    IndexQuery(QueryRequest),
+    IndexQuery(Box<QueryRequest>),
     IndexThread { topic_id: String, cursor: Option<String>, limit: Option<u32> },
     IndexNotifications { cursor: Option<String>, state: Option<String>, limit: Option<u32> },
     IndexInbox { scope: Option<String>, cursor: Option<String>, limit: Option<u32> },
@@ -441,6 +451,8 @@ pub enum ServerRequest {
     AppletActor { actor_id: String },
     AppletSpace { space_id_or_alias: String },
     AppletProtocol { protocol: String },
+    AppletThirdPartyUsers,
+    AppletThirdPartyLocations,
 }
 
 #[derive(Clone, Debug)]
@@ -506,6 +518,8 @@ pub enum ServerResponse {
     AppletActor(AppletActorResponse),
     AppletSpace(AppletSpaceResponse),
     AppletProtocol(AppletProtocolResponse),
+    AppletThirdPartyUsers(Value),
+    AppletThirdPartyLocations(Value),
 }
 
 pub trait EndpointHandler {
@@ -628,5 +642,43 @@ mod tests {
         assert!(document["paths"]["/api/v1/sync"]["post"]["responses"]["429"].is_object());
         assert!(document["components"]["responses"]["ErrorEnvelope"].is_object());
         assert!(document["components"]["securitySchemes"].get("queryToken").is_none());
+    }
+
+    #[test]
+    fn framework_independent_handler_shape_can_be_mocked() {
+        struct MockHandler;
+
+        impl EndpointHandler for MockHandler {
+            fn handle(&mut self, request: ServerRequest) -> Result<ServerResponse> {
+                match request {
+                    ServerRequest::ServerDescribe => {
+                        Ok(ServerResponse::ServerDescription(ServerDescription {
+                            service_did: crate::Did::new("did:web:svc.example").unwrap(),
+                            service_type: "principal_server".to_owned(),
+                            protocol_version: crate::PROTOCOL_VERSION.to_owned(),
+                            supported_profiles: vec![],
+                            supported_features: vec![],
+                            supported_operations: endpoint_contracts()
+                                .iter()
+                                .map(|endpoint| endpoint.operation_id.to_owned())
+                                .collect(),
+                            supported_bindings: vec![],
+                            supported_reducer_profiles: vec![],
+                            supported_schema_profiles: vec![],
+                            auth_metadata: Value::Null,
+                            limits: Value::Null,
+                        }))
+                    }
+                    _ => Err(crate::Error::Protocol("mock endpoint not implemented".to_owned())),
+                }
+            }
+        }
+
+        let mut handler = MockHandler;
+        let response = handler.handle(ServerRequest::ServerDescribe).unwrap();
+        let ServerResponse::ServerDescription(description) = response else {
+            panic!("unexpected response");
+        };
+        assert!(description.supported_operations.contains(&"cx.sync.client_sync".to_owned()));
     }
 }

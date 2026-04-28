@@ -570,7 +570,7 @@ mod tests {
         let s4 = SpaceId::new("cx:space:01JS0SP000000000000000004").unwrap();
 
         let mut sliding = SlidingSync::new();
-        sliding.set_space_list(vec![s1.clone(), s2.clone(), s3.clone()]);
+        sliding.set_space_list(vec![s1.clone(), s2.clone(), s3]);
         sliding.set_windows(vec![SlidingWindow::new(0, 2).unwrap()]);
         sliding.apply_delta(&[s1], vec![(1, s4.clone())]);
 

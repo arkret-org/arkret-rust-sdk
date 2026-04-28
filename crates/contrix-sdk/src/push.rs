@@ -6,9 +6,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
-use crate::{DeviceId, Did, EventId, SpaceId};
+use crate::{AEAD_ALGORITHM, DeviceId, Did, EventId, Result, SpaceId, crypto};
 
-pub const TEST_ONLY_PUSH_ENCRYPTION_ALGORITHM: &str = "xorsha256.test-only.v1";
+pub const PUSH_ENCRYPTION_ALGORITHM: &str = AEAD_ALGORITHM;
 
 /// Push platform.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -177,18 +177,15 @@ impl PushGateway {
         }
     }
 
-    /// Encrypt a push payload for E2EE transport.
-    ///
-    /// This is a test-only redaction helper, not production authenticated
-    /// encryption. Platform push integrations should use an audited AEAD.
-    pub fn encrypt_payload(payload: &PushPayload, key: &[u8]) -> EncryptedPushPayload {
+    /// Encrypt a push payload for E2EE transport using authenticated encryption.
+    pub fn encrypt_payload(payload: &PushPayload, key: &[u8]) -> Result<EncryptedPushPayload> {
         let plaintext = serde_json::to_vec(payload).unwrap_or_default();
-        let ciphertext = xor_sha256_stream(&plaintext, key);
-        EncryptedPushPayload {
-            algorithm: TEST_ONLY_PUSH_ENCRYPTION_ALGORITHM.to_owned(),
+        let ciphertext = crypto::seal(&plaintext, key, b"contrix-push-payload-v1")?;
+        Ok(EncryptedPushPayload {
+            algorithm: PUSH_ENCRYPTION_ALGORITHM.to_owned(),
             digest: sha256_hex(&plaintext),
             ciphertext,
-        }
+        })
     }
 
     fn match_rule(&self, event_kind: &str) -> Option<&PushRule> {
@@ -205,22 +202,6 @@ fn truncate(value: &str, max: usize) -> String {
 
 fn sha256_hex(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
-}
-
-fn xor_sha256_stream(input: &[u8], key: &[u8]) -> Vec<u8> {
-    let mut output = Vec::with_capacity(input.len());
-    let mut counter = 0u64;
-    for chunk in input.chunks(32) {
-        let mut hasher = Sha256::new();
-        hasher.update(key);
-        hasher.update(counter.to_le_bytes());
-        let stream = hasher.finalize();
-        for (index, byte) in chunk.iter().enumerate() {
-            output.push(byte ^ stream[index]);
-        }
-        counter += 1;
-    }
-    output
 }
 
 #[cfg(test)]
@@ -290,7 +271,7 @@ mod tests {
 
         let payload = gateway.process_event(&event(true)).pop().unwrap();
         assert_eq!(payload.body, "Encrypted message");
-        let encrypted = PushGateway::encrypt_payload(&payload, b"push-key");
+        let encrypted = PushGateway::encrypt_payload(&payload, b"push-key").unwrap();
         assert_ne!(encrypted.ciphertext, serde_json::to_vec(&payload).unwrap());
     }
 

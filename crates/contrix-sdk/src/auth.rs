@@ -242,10 +242,10 @@ impl AuthManager {
         let session_ids = self.sessions_by_user.entry(user_id).or_default();
         session_ids.push_back(session.session_id.clone());
         while session_ids.len() > self.session_limit {
-            if let Some(oldest) = session_ids.pop_front() {
-                if let Some(session) = self.sessions.get_mut(&oldest) {
-                    session.revoked = true;
-                }
+            if let Some(oldest) = session_ids.pop_front()
+                && let Some(session) = self.sessions.get_mut(&oldest)
+            {
+                session.revoked = true;
             }
         }
         Ok(session)

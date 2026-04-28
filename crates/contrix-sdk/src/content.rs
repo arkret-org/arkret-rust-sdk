@@ -298,8 +298,7 @@ impl ReactionManager {
 
 fn parse_heading(line: &str) -> Option<(u8, String)> {
     let hashes = line.bytes().take_while(|byte| *byte == b'#').count();
-    if !(1..=6).contains(&hashes) || !line.as_bytes().get(hashes).is_some_and(|byte| *byte == b' ')
-    {
+    if !(1..=6).contains(&hashes) || line.as_bytes().get(hashes).is_none_or(|byte| *byte != b' ') {
         return None;
     }
     Some((hashes as u8, line[hashes + 1..].to_owned()))

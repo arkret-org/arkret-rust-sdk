@@ -1,5 +1,11 @@
 # Contrix Rust SDK
 
+Release status: release candidate for Contrix v1 SDK `0.1.0`. The SDK includes
+authenticated local encryption helpers based on XChaCha20-Poly1305, OpenMLS MLS
+group encryption, framework-independent server contracts, HTTP client bindings
+and conformance-oriented tests. Before a stable non-0.x guarantee, run an
+external security review and at least one real server interoperability suite.
+
 This repository contains the Rust SDK for Contrix v1. The public SDK surface is
 centered on:
 
@@ -32,6 +38,8 @@ cargo test
 - [API and error handling](docs/api-and-errors.md)
 - [Authentication flows](docs/authentication.md)
 - [Sync best practices](docs/sync-best-practices.md)
+- [Feature matrix](docs/feature-matrix.md)
+- [Release readiness](docs/release-readiness.md)
 - [Matrix migration notes](docs/migration-from-matrix.md)
 - [Security audit checklist](docs/security-audit.md)
 - [Conformance certification](docs/conformance-certification.md)
@@ -54,8 +62,8 @@ The first Contrix crate currently includes:
 - OpenMLS-backed group creation, member add, Welcome join, payload encryption and decryption
 - in-memory Repo store with idempotent operation/commit insertion and conflict detection
 - Server description and profile version checks
-- HTTP client methods for `/server`, `/repo`, `/sync`, `/index`, `/authz`, `/blob`,
-  `/keys` and `/device_messages`
+- HTTP client methods for the Contrix v1 service HTTP binding
+- framework-independent server endpoint registry and OpenAPI export helper
 - high-level sync loop, membership, devices, receipts, notifications, content,
   media, profile/settings, discovery, E2EE, auth/identity, federation, push,
   typing, WebRTC, store and event-handler helpers

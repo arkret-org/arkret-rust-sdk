@@ -1,5 +1,6 @@
 use reqwest::{Method, RequestBuilder};
 use serde::{Serialize, de::DeserializeOwned};
+use serde_json::Value;
 use url::Url;
 
 use crate::{
@@ -687,6 +688,16 @@ impl Client {
         reject_path_segment(protocol)?;
         let path = format!("/api/v1/applet/protocols/{protocol}");
         self.get(&path).await
+    }
+
+    /// Query third-party users for an applet.
+    pub async fn applet_third_party_users(&self) -> Result<Value> {
+        self.get("/api/v1/applet/third_party/users").await
+    }
+
+    /// Query third-party locations for an applet.
+    pub async fn applet_third_party_locations(&self) -> Result<Value> {
+        self.get("/api/v1/applet/third_party/locations").await
     }
 
     pub async fn get<T: DeserializeOwned>(&self, path: &str) -> Result<T> {

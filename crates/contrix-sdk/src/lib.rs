@@ -14,6 +14,7 @@ pub mod canonical;
 #[cfg(feature = "client")]
 pub mod client;
 pub mod content;
+pub mod crypto;
 pub mod crypto_store;
 pub mod cursor;
 pub mod devices;
@@ -52,7 +53,7 @@ pub mod webrtc;
 pub use account::AccountDataManager;
 pub use agent::{
     AgentMemory, AgentMemoryReview, AgentMemoryState, AgentMemoryStore, AgentProtocol,
-    AgentProtocolBridge, AgentProtocolMessage, ExternalAgent,
+    AgentProtocolBridge, AgentProtocolMessage, ExternalAgent, MemoryLayer,
 };
 pub use applet::{
     AppletPermission, AppletPortal, AppletPortalManager, AppletRegistry, AppletSchema,
@@ -73,6 +74,7 @@ pub use content::{
     LinkPreview, MarkdownDocument, Mention, Reaction, ReactionManager, ReactionSummary,
     RichTextBlock, extract_link_previews, parse_mentions,
 };
+pub use crypto::AEAD_ALGORITHM;
 pub use crypto_store::{
     CryptoStore, MemoryCryptoStore, MlsEpochSecretRecord, MlsGroupStateRecord, MlsRecoveryAction,
     MlsRecoveryPlan, StoredDeviceVerification,
@@ -134,7 +136,7 @@ pub use settings::{
 };
 pub use space::{
     BatchCreateEntity, BatchUpdateEntity, EntityAggregation, EntityQuery, EntityVersion,
-    EntityVersionDiff, GraphTraversal, Space,
+    EntityVersionDiff, GraphTraversal, RelationOperationInput, Space,
 };
 pub use store::{
     AcceptUnsignedCommitProofs, CommitProofVerifier, EncryptedMemoryRepoStore, IndexedDbRepoStore,

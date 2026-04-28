@@ -317,17 +317,30 @@ pub enum RelationKind {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ViewKind {
+    // Work-object views
     Kanban,
     List,
     Table,
     Calendar,
-    Gantt,
-    Chat,
-    Thread,
-    Forum,
-    Tree,
-    Graph,
     Timeline,
+    Graph,
+    Tree,
+    Gantt,
+    Matrix,
+    Document,
+    Dashboard,
+    // Conversation views
+    Chat,
+    Forum,
+    Thread,
+    Activity,
+    Inbox,
+    Notifications,
+    // Review / agent views
+    MemoryReview,
+    AgentRuns,
+    ContextTimeline,
+    // Legacy alias
     ReviewQueue,
 }
 
@@ -442,6 +455,28 @@ pub enum ReadScope {
     Entity,
 }
 
+/// Channel kind for conversation entities.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ChannelKind {
+    Chat,
+    Announce,
+    Support,
+    Activity,
+}
+
+/// Account lifecycle states.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AccountState {
+    Active,
+    SoftLoggedOut,
+    Locked,
+    Suspended,
+    Deactivated,
+    Erased,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum OperationType {
@@ -506,6 +541,64 @@ pub enum RelationDirection {
     Out,
     In,
     Both,
+}
+
+/// Audience policy mode for social graph content.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AudiencePolicyMode {
+    Public,
+    Followers,
+    Contacts,
+    Circle,
+    Organization,
+    SpaceMembers,
+    Direct,
+    Private,
+}
+
+/// Interaction controls for audience policy.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct AudienceInteractionPolicy {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reply: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub react: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reshare: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quote: Option<String>,
+}
+
+/// Indexing controls for audience policy.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct AudienceIndexingPolicy {
+    #[serde(default)]
+    pub public_search: bool,
+    #[serde(default)]
+    pub directory_preview: bool,
+    #[serde(default)]
+    pub external_crawlers: bool,
+}
+
+/// Audience policy for social graph content.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AudiencePolicy {
+    pub mode: AudiencePolicyMode,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub owner: Option<Did>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub circle_refs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub actor_refs: Vec<Did>,
+    #[serde(default)]
+    pub interaction: AudienceInteractionPolicy,
+    #[serde(default)]
+    pub indexing: AudienceIndexingPolicy,
+    /// If true, freeze audience at publish time — removing someone later
+    /// does not grant access to historical content.
+    #[serde(default)]
+    pub snapshot_at_publish: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

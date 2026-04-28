@@ -6,12 +6,7 @@
 //! - Timeline gaps
 //! - Latest event tracking
 
-use std::{
-    collections::{BTreeMap, VecDeque},
-    sync::Arc,
-};
-
-use serde_json::Value;
+use std::{collections::VecDeque, sync::Arc};
 
 use crate::{
     Result,
@@ -96,7 +91,7 @@ pub struct Timeline {
     /// Space ID
     space_id: SpaceId,
     /// Base client reference
-    base_client: Arc<BaseClient>,
+    _base_client: Arc<BaseClient>,
     /// Events in the timeline
     events: VecDeque<TimelineEvent>,
     /// Known gaps in the timeline
@@ -114,7 +109,7 @@ impl Timeline {
     pub fn new(space_id: SpaceId, base_client: Arc<BaseClient>) -> Self {
         Self {
             space_id,
-            base_client,
+            _base_client: base_client,
             events: VecDeque::with_capacity(100),
             gaps: Vec::new(),
             latest_event_id: None,
@@ -188,7 +183,7 @@ impl Timeline {
 
             // Trim if exceeds max size
             while self.events.len() > self.max_size {
-                if let Some(removed) = self.events.pop_front() {
+                if let Some(_removed) = self.events.pop_front() {
                     self.oldest_event_id = self.events.front().map(|te| te.event.event_id.clone());
                 }
             }
@@ -340,7 +335,7 @@ impl Timeline {
         let len = self.events.len();
         for (index, te) in self.events.iter_mut().enumerate() {
             te.position.index = index;
-            te.position.is_latest = (index == len - 1);
+            te.position.is_latest = index == len - 1;
         }
     }
 
@@ -356,19 +351,21 @@ impl Timeline {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{DeviceId, Did, Hlc, base::SessionMeta};
+    use std::collections::BTreeMap;
+
+    use crate::{Did, Hlc};
     use serde_json::json;
 
     fn create_test_event(space_id: &SpaceId, index: u32) -> Event {
         Event {
-            event_id: EventId::new(&format!("cx:event:{:04x}", index)).unwrap(),
+            event_id: EventId::new(format!("cx:event:{:04x}", index)).unwrap(),
             kind: "cx.entity.create".to_owned(),
             space_id: space_id.clone(),
             space_version: "1".to_owned(),
             actor_id: Did::new("did:web:alice.example.com").unwrap(),
             actor_seq: index as u64,
             created_at: chrono::Utc::now(),
-            hlc: Hlc::new(&format!("01970e589d21-000000{:02x}-a13f9c2e", index)).unwrap(),
+            hlc: Hlc::new(format!("01970e589d21-000000{:02x}-a13f9c2e", index)).unwrap(),
             prev_refs: vec![],
             auth_refs: vec![],
             redacts: None,
@@ -474,7 +471,7 @@ mod tests {
     fn timeline_tracks_gaps() {
         let base_client = Arc::new(BaseClient::new());
         let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
-        let mut timeline = Timeline::new(space_id.clone(), base_client);
+        let mut timeline = Timeline::new(space_id, base_client);
 
         let prev_id = EventId::new("cx:event:0001").unwrap();
         let next_id = EventId::new("cx:event:0003").unwrap();
@@ -491,7 +488,7 @@ mod tests {
     fn timeline_clears_gaps() {
         let base_client = Arc::new(BaseClient::new());
         let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
-        let mut timeline = Timeline::new(space_id.clone(), base_client);
+        let mut timeline = Timeline::new(space_id, base_client);
 
         timeline.record_gap(None, None, Some(10));
         assert_eq!(timeline.gaps().len(), 1);

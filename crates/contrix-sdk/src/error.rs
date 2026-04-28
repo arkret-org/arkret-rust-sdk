@@ -18,6 +18,9 @@ pub enum Error {
     #[error("canonical JSON serialization failed: {0}")]
     CanonicalJson(#[from] serde_json::Error),
 
+    #[error("cryptographic operation failed: {0}")]
+    Crypto(String),
+
     #[cfg(feature = "client")]
     #[error("invalid service URL: {0}")]
     Url(#[from] url::ParseError),

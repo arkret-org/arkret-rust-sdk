@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  rust:
+    name: Rust checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.92"
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all -- --check
+      - run: cargo check --no-default-features
+      - run: cargo check --no-default-features --features client
+      - run: cargo check --no-default-features --features server
+      - run: cargo check --no-default-features --features mls
+      - run: cargo check --all-features
+      - run: cargo clippy --all-features --all-targets -- -D warnings
+      - run: cargo test --all-features
+      - run: cargo run --example export_openapi --features server
+
+  publish-dry-run:
+    name: crates.io dry run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.92"
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo publish -p contrix-sdk --dry-run --locked

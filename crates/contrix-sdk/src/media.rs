@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::{BlobRef, Did, Error, Result};
+use crate::{AEAD_ALGORITHM, BlobRef, Did, Error, Result, crypto};
 
 /// Stored media metadata.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -142,7 +142,7 @@ impl MemoryBlobStore {
         self.blobs.insert(blob_ref.clone(), preview.clone());
 
         let thumbnail = Thumbnail {
-            blob_ref: blob_ref.clone(),
+            blob_ref,
             source_blob_ref: source_blob_ref.clone(),
             media_type: "image/preview".to_owned(),
             width,
@@ -188,7 +188,7 @@ impl MemoryBlobStore {
         self.attachments.get(id).and_then(|attachment| self.download(&attachment.blob_ref))
     }
 
-    /// Upload an encrypted attachment using a deterministic local XOR stream.
+    /// Upload an encrypted attachment using authenticated encryption.
     pub fn upload_encrypted_attachment(
         &mut self,
         id: impl Into<String>,
@@ -199,7 +199,7 @@ impl MemoryBlobStore {
         uploaded_by: Did,
     ) -> Result<Attachment> {
         let plaintext = plaintext.as_ref();
-        let ciphertext = xor_sha256_stream(plaintext, key);
+        let ciphertext = crypto::seal(plaintext, key, b"contrix-media-attachment-v1")?;
         let filename = filename.into();
         let media_type = media_type.into();
         let metadata = self.upload(
@@ -215,7 +215,7 @@ impl MemoryBlobStore {
             media_type,
             size: plaintext.len() as u64,
             encryption: Some(EncryptedAttachment {
-                algorithm: "xorsha256.v1".to_owned(),
+                algorithm: AEAD_ALGORITHM.to_owned(),
                 key_sha256: sha256_hex(key),
                 plaintext_sha256: sha256_hex(plaintext),
             }),
@@ -240,7 +240,10 @@ impl MemoryBlobStore {
         let ciphertext = self
             .download(&attachment.blob_ref)
             .ok_or_else(|| Error::Protocol("attachment blob not found".to_owned()))?;
-        let plaintext = xor_sha256_stream(ciphertext, key);
+        if encryption.algorithm != AEAD_ALGORITHM {
+            return Err(Error::Protocol("unsupported attachment encryption algorithm".to_owned()));
+        }
+        let plaintext = crypto::open(ciphertext, key, b"contrix-media-attachment-v1")?;
         if encryption.plaintext_sha256 != sha256_hex(&plaintext) {
             return Err(Error::Protocol("attachment digest mismatch".to_owned()));
         }
@@ -259,22 +262,6 @@ fn blob_ref_for(bytes: &[u8]) -> Result<BlobRef> {
 
 fn sha256_hex(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
-}
-
-fn xor_sha256_stream(input: &[u8], key: &[u8]) -> Vec<u8> {
-    let mut output = Vec::with_capacity(input.len());
-    let mut counter = 0u64;
-    for chunk in input.chunks(32) {
-        let mut hasher = Sha256::new();
-        hasher.update(key);
-        hasher.update(counter.to_le_bytes());
-        let stream = hasher.finalize();
-        for (index, byte) in chunk.iter().enumerate() {
-            output.push(byte ^ stream[index]);
-        }
-        counter += 1;
-    }
-    output
 }
 
 #[cfg(test)]

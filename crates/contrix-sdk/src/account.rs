@@ -9,7 +9,7 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use serde_json::Value;
 
-use crate::{Result, base::BaseClient, model::Did};
+use crate::{Result, base::BaseClient};
 
 /// Account data entry.
 #[derive(Clone, Debug)]
@@ -24,7 +24,7 @@ pub struct AccountData {
 #[derive(Clone)]
 pub struct AccountDataManager {
     /// Base client reference
-    base_client: Arc<BaseClient>,
+    _base_client: Arc<BaseClient>,
     /// Account data by type
     account_data: Arc<std::sync::RwLock<BTreeMap<String, AccountData>>>,
 }
@@ -32,7 +32,10 @@ pub struct AccountDataManager {
 impl AccountDataManager {
     /// Create a new account data manager.
     pub fn new(base_client: Arc<BaseClient>) -> Self {
-        Self { base_client, account_data: Arc::new(std::sync::RwLock::new(BTreeMap::new())) }
+        Self {
+            _base_client: base_client,
+            account_data: Arc::new(std::sync::RwLock::new(BTreeMap::new())),
+        }
     }
 
     /// Get account data by type.
