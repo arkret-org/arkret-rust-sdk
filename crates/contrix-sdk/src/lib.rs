@@ -14,6 +14,7 @@ pub mod canonical;
 #[cfg(feature = "client")]
 pub mod client;
 pub mod content;
+pub mod crypto_store;
 pub mod cursor;
 pub mod devices;
 pub mod discovery;
@@ -72,10 +73,14 @@ pub use content::{
     LinkPreview, MarkdownDocument, Mention, Reaction, ReactionManager, ReactionSummary,
     RichTextBlock, extract_link_previews, parse_mentions,
 };
+pub use crypto_store::{
+    CryptoStore, MemoryCryptoStore, MlsEpochSecretRecord, MlsGroupStateRecord, MlsRecoveryAction,
+    MlsRecoveryPlan, StoredDeviceVerification,
+};
 pub use cursor::{Cursor, SpacePosition, SyncPositions, SyncTracker};
 pub use devices::{
-    Device, DeviceChange, DeviceManager, DeviceMetadata, DeviceVerificationState, KeyBackup,
-    ToDeviceEnvelope,
+    Device, DeviceChange, DeviceManager, DeviceMetadata, DeviceVerificationChallenge,
+    DeviceVerificationState, KeyBackup, ToDeviceEnvelope,
 };
 pub use discovery::{DirectoryService, DirectoryUser, OpenGraphPreview, UrlPreviewCache};
 pub use e2ee::{
@@ -119,7 +124,10 @@ pub use receipts::{ReadMarker, ReadReceipt, ReceiptManager, ReceiptVisibility};
 pub use resolver::{SpaceState, StateSnapshot};
 pub use search::{SpaceSearchEntry, SpaceSearchIndex, SpaceSearchQuery};
 #[cfg(feature = "server")]
-pub use server::{EndpointContract, EndpointMethod, endpoint_contracts};
+pub use server::{
+    EndpointContract, EndpointHandler, EndpointMethod, ServerRequest, ServerResponse,
+    endpoint_contracts, openapi_document,
+};
 pub use service::{ServiceRequirements, ServiceType};
 pub use settings::{
     ClientSettings, NotificationPreferences, PrivacySettings, SettingsManager, ThemeSetting,

@@ -8,11 +8,13 @@ use openmls::prelude::{
 use openmls_basic_credential::SignatureKeyPair;
 use openmls_rust_crypto::OpenMlsRustCrypto;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use tls_codec::{Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait};
 
 use crate::{
     DeviceId, Did, EncryptedPayload, EncryptedPayloadScheme, Error, Hash, MlsCommitEnvelope,
-    MlsKeyPackageRecord, MlsWelcomeEnvelope, Result, canonical,
+    MlsKeyPackageRecord, MlsWelcomeEnvelope, Operation, OperationId, Result, SpaceId,
+    ToDeviceMessage, canonical,
 };
 
 pub const CONTRIX_MLS_ALGORITHM: &str = "cx.mls.v1";
@@ -36,6 +38,38 @@ pub struct ContrixMlsGroup {
 pub struct MlsAddMemberResult {
     pub commit: MlsCommitEnvelope,
     pub welcome: MlsWelcomeEnvelope,
+}
+
+impl MlsAddMemberResult {
+    pub fn commit_operation(
+        &self,
+        operation_id: OperationId,
+        space_id: SpaceId,
+    ) -> Result<Operation> {
+        let mut operation = Operation::create(
+            operation_id,
+            space_id,
+            "mls_commit",
+            serde_json::to_value(&self.commit)?,
+        );
+        operation.object_id = Some(format!("{}:{}", self.commit.group_id, self.commit.epoch));
+        Ok(operation)
+    }
+
+    pub fn welcome_to_device_message(&self) -> Result<ToDeviceMessage> {
+        Ok(ToDeviceMessage {
+            message_type: "cx.mls.welcome.v1".to_owned(),
+            content: json!({
+                "group_id": self.welcome.group_id,
+                "epoch": self.welcome.epoch,
+                "recipient_principal_id": self.welcome.recipient_principal_id,
+                "recipient_device_id": self.welcome.recipient_device_id,
+                "welcome": self.welcome.welcome,
+                "welcome_hash": self.welcome.welcome_hash,
+                "ratchet_tree": self.welcome.ratchet_tree,
+            }),
+        })
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -454,6 +488,35 @@ mod tests {
     }
 
     #[test]
+    fn add_member_result_projects_to_repo_operation_and_to_device_message() {
+        let alice = ContrixMlsIdentity::new_basic(
+            Did::new("did:web:alice.example").unwrap(),
+            DeviceId::new("dev_alice_1").unwrap(),
+        )
+        .unwrap();
+        let bob = ContrixMlsIdentity::new_basic(
+            Did::new("did:web:bob.example").unwrap(),
+            DeviceId::new("dev_bob_1").unwrap(),
+        )
+        .unwrap();
+        let bob_key_package = bob.key_package_record().unwrap();
+
+        let mut alice_group = alice.create_group(b"cx:space:mls-workflow").unwrap();
+        let add_result = alice_group.add_member(&bob_key_package).unwrap();
+        let operation = add_result
+            .commit_operation(
+                OperationId::new("cx:operation:mls_commit_1").unwrap(),
+                SpaceId::new("cx:space:mls-workflow").unwrap(),
+            )
+            .unwrap();
+        let to_device = add_result.welcome_to_device_message().unwrap();
+
+        assert_eq!(operation.object_type, "mls_commit");
+        assert_eq!(to_device.message_type, "cx.mls.welcome.v1");
+        assert_eq!(to_device.content["recipient_device_id"], "dev_bob_1");
+    }
+
+    #[test]
     fn message_crypto_preserves_encrypted_payload_without_available_key() {
         let alice = ContrixMlsIdentity::new_basic(
             Did::new("did:web:alice.example").unwrap(),
@@ -480,6 +543,38 @@ mod tests {
         assert!(matches!(reason, MessageCryptoUnavailable::NoSession));
         assert_eq!(payload.payload_digest, expected_digest);
         assert_eq!(payload.ciphertext, expected_ciphertext);
+    }
+
+    #[test]
+    fn encrypted_timeline_preserves_then_decrypts_after_welcome_arrives() {
+        let alice = ContrixMlsIdentity::new_basic(
+            Did::new("did:web:alice.example").unwrap(),
+            DeviceId::new("dev_alice_1").unwrap(),
+        )
+        .unwrap();
+        let bob = ContrixMlsIdentity::new_basic(
+            Did::new("did:web:bob.example").unwrap(),
+            DeviceId::new("dev_bob_1").unwrap(),
+        )
+        .unwrap();
+        let bob_key_package = bob.key_package_record().unwrap();
+
+        let mut alice_group = alice.create_group(b"cx:space:encrypted-timeline").unwrap();
+        let add_result = alice_group.add_member(&bob_key_package).unwrap();
+        let encrypted = MessageCrypto::encrypt(
+            &mut alice_group,
+            "cx:event:encrypted-1",
+            "application/vnd.contrix.message+json",
+            br#"{"body":"arrives before local key"}"#,
+        )
+        .unwrap();
+
+        let preserved = MessageCrypto::decrypt_or_preserve(None, encrypted.clone()).unwrap();
+        assert!(matches!(preserved, MessageCryptoDecrypt::Encrypted { .. }));
+
+        let mut bob_group = ContrixMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
+        let decrypted = MessageCrypto::decrypt(&mut bob_group, &encrypted).unwrap();
+        assert_eq!(decrypted, br#"{"body":"arrives before local key"}"#);
     }
 
     #[test]

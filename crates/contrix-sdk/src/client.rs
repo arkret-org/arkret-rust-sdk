@@ -1,14 +1,35 @@
 use reqwest::{Method, RequestBuilder};
 use serde::{Serialize, de::DeserializeOwned};
-use serde_json::Value;
 use url::Url;
 
 use crate::{
-    AuthzCheckRequest, AuthzCheckResponse, BlobMetadata, BlobRef, Commit,
-    DeviceMessagesReceiveResponse, DeviceMessagesSendRequest, DeviceMessagesSendResponse, Error,
-    ErrorEnvelope, KeysClaimRequest, KeysClaimResponse, KeysQueryRequest, KeysQueryResponse,
-    KeysUploadRequest, KeysUploadResponse, QueryRequest, QueryResponse, Result, ServerDescription,
-    ServiceRequirements, SubmitCommitResponse, SyncRequest, SyncResponse,
+    AppletActorResponse, AppletDescription, AppletPingResponse, AppletProtocolResponse,
+    AppletSpaceResponse, AppletTransactionRequest, AppletTransactionResponse, AuthzCheckRequest,
+    AuthzCheckResponse, AuthzInvitesResponse, BlobMetadata, BlobRef, BlobUploadMetadata,
+    BlobUploadResponse, Commit, DeviceMessagesReceiveResponse, DeviceMessagesSendRequest,
+    DeviceMessagesSendResponse, DirectoryDescription, DirectoryResolveHandleRequest,
+    DirectoryResolveHandleResponse, DirectoryResolveOrganizationRequest,
+    DirectoryResolveOrganizationResponse, DirectoryResolveSpaceRequest,
+    DirectoryResolveSpaceResponse, DirectorySearchActorsRequest, DirectorySearchActorsResponse,
+    DirectorySearchOrganizationsRequest, DirectorySearchOrganizationsResponse,
+    DirectorySearchSpacesRequest, DirectorySearchSpacesResponse, DirectorySearchUsersResponse,
+    EffectiveGrantsResponse, Error, ErrorEnvelope, FederationPullOperationsResponse,
+    FederationPushOperationsRequest, FederationPushOperationsResponse,
+    FederationSpaceMembersResponse, FederationTransactionRequest, FederationTransactionResponse,
+    FederationVerifyActorRequest, FederationVerifyActorResponse, IdentityDescription,
+    IdentityDocumentResponse, IdentityLogResponse, IdentityReceiptsResponse,
+    IdentityResolveRequest, IdentityResolveResponse, IndexDescription, IndexEntityResponse,
+    IndexInboxResponse, IndexNotificationsResponse, IndexSearchRequest, IndexSearchResponse,
+    IndexSpaceHierarchyResponse, IndexThreadResponse, KeysClaimRequest, KeysClaimResponse,
+    KeysQueryRequest, KeysQueryResponse, KeysUploadRequest, KeysUploadResponse,
+    MediaIceConfigRequest, MediaIceConfigResponse, ModerationReportRequest,
+    ModerationReportResponse, OkResponse, PolicyCheckRequest, PolicyCheckResponse,
+    PushNotifyRequest, PushNotifyResponse, PushRegisterDeviceRequest, PushRegisterDeviceResponse,
+    PushUnregisterDeviceRequest, QueryRequest, QueryResponse, RepoCommitResponse,
+    RepoCommitsResponse, RepoDescription, RepoOperationsRequest, RepoOperationsResponse,
+    RepoSyncRequest, RepoSyncResponse, Result, ServerDescription, ServiceRequirements,
+    SubmitCommitResponse, SubmitDidOperationRequest, SubmitDidOperationResponse,
+    SyncBackfillResponse, SyncDescription, SyncRequest, SyncResponse, SyncSnapshotHeadResponse,
 };
 
 #[derive(Clone, Debug)]
@@ -89,22 +110,22 @@ impl Client {
         self.post("/api/v1/repo/submit-commit", commit).await
     }
 
-    pub async fn identity_describe(&self) -> Result<Value> {
+    pub async fn identity_describe(&self) -> Result<IdentityDescription> {
         self.get("/api/v1/identity/describe").await
     }
 
-    pub async fn identity_resolve<T: Serialize, R: DeserializeOwned>(
+    pub async fn identity_resolve(
         &self,
-        request: &T,
-    ) -> Result<R> {
+        request: &IdentityResolveRequest,
+    ) -> Result<IdentityResolveResponse> {
         self.post("/api/v1/identity/resolve", request).await
     }
 
-    pub async fn identity_document<R: DeserializeOwned>(
+    pub async fn identity_document(
         &self,
         did: &str,
         version: Option<&str>,
-    ) -> Result<R> {
+    ) -> Result<IdentityDocumentResponse> {
         let mut builder =
             self.request(Method::GET, "/api/v1/identity/document")?.query(&[("did", did)]);
         if let Some(version) = version {
@@ -113,12 +134,12 @@ impl Client {
         self.send_json(builder).await
     }
 
-    pub async fn identity_log<R: DeserializeOwned>(
+    pub async fn identity_log(
         &self,
         did: &str,
         cursor: Option<&str>,
         limit: Option<u32>,
-    ) -> Result<R> {
+    ) -> Result<IdentityLogResponse> {
         let mut builder = self.request(Method::GET, "/api/v1/identity/log")?.query(&[("did", did)]);
         if let Some(cursor) = cursor {
             builder = builder.query(&[("cursor", cursor)]);
@@ -129,21 +150,25 @@ impl Client {
         self.send_json(builder).await
     }
 
-    pub async fn identity_submit_did_operation<T: Serialize, R: DeserializeOwned>(
+    pub async fn identity_submit_did_operation(
         &self,
-        request: &T,
-    ) -> Result<R> {
+        request: &SubmitDidOperationRequest,
+    ) -> Result<SubmitDidOperationResponse> {
         self.post("/api/v1/identity/submit-did-operation", request).await
     }
 
-    pub async fn identity_receipts<R: DeserializeOwned>(&self, did: &str, head: &str) -> Result<R> {
+    pub async fn identity_receipts(
+        &self,
+        did: &str,
+        head: &str,
+    ) -> Result<IdentityReceiptsResponse> {
         let builder = self
             .request(Method::GET, "/api/v1/identity/receipts")?
             .query(&[("did", did), ("head", head)]);
         self.send_json(builder).await
     }
 
-    pub async fn repo_describe<R: DeserializeOwned>(&self, repo_id: Option<&str>) -> Result<R> {
+    pub async fn repo_describe(&self, repo_id: Option<&str>) -> Result<RepoDescription> {
         let mut builder = self.request(Method::GET, "/api/v1/repo/describe")?;
         if let Some(repo_id) = repo_id {
             builder = builder.query(&[("repo_id", repo_id)]);
@@ -151,12 +176,12 @@ impl Client {
         self.send_json(builder).await
     }
 
-    pub async fn repo_commits<R: DeserializeOwned>(
+    pub async fn repo_commits(
         &self,
         repo_id: &str,
         cursor: Option<&str>,
         limit: Option<u32>,
-    ) -> Result<R> {
+    ) -> Result<RepoCommitsResponse> {
         let mut builder =
             self.request(Method::GET, "/api/v1/repo/commits")?.query(&[("repo_id", repo_id)]);
         if let Some(cursor) = cursor {
@@ -168,11 +193,11 @@ impl Client {
         self.send_json(builder).await
     }
 
-    pub async fn repo_commit<R: DeserializeOwned>(
+    pub async fn repo_commit(
         &self,
         commit_id: &str,
         repo_id: Option<&str>,
-    ) -> Result<R> {
+    ) -> Result<RepoCommitResponse> {
         let mut builder =
             self.request(Method::GET, "/api/v1/repo/commit")?.query(&[("commit_id", commit_id)]);
         if let Some(repo_id) = repo_id {
@@ -181,14 +206,14 @@ impl Client {
         self.send_json(builder).await
     }
 
-    pub async fn repo_operations<T: Serialize, R: DeserializeOwned>(
+    pub async fn repo_operations(
         &self,
-        request: &T,
-    ) -> Result<R> {
+        request: &RepoOperationsRequest,
+    ) -> Result<RepoOperationsResponse> {
         self.post("/api/v1/repo/operations", request).await
     }
 
-    pub async fn repo_sync<T: Serialize, R: DeserializeOwned>(&self, request: &T) -> Result<R> {
+    pub async fn repo_sync(&self, request: &RepoSyncRequest) -> Result<RepoSyncResponse> {
         self.post("/api/v1/repo/sync", request).await
     }
 
@@ -196,29 +221,29 @@ impl Client {
         self.post("/api/v1/sync", request).await
     }
 
-    pub async fn sync_describe(&self) -> Result<Value> {
+    pub async fn sync_describe(&self) -> Result<SyncDescription> {
         self.get("/api/v1/sync/describe").await
     }
 
-    pub async fn sync_subscribe<R: DeserializeOwned>(
+    pub async fn sync_subscribe_stream(
         &self,
         space_id: &str,
         cursor: Option<&str>,
-    ) -> Result<R> {
+    ) -> Result<reqwest::Response> {
         let mut builder =
             self.request(Method::GET, "/api/v1/sync/subscribe")?.query(&[("space_id", space_id)]);
         if let Some(cursor) = cursor {
             builder = builder.query(&[("cursor", cursor)]);
         }
-        self.send_json(builder).await
+        self.send_response(builder).await
     }
 
-    pub async fn sync_backfill<R: DeserializeOwned>(
+    pub async fn sync_backfill(
         &self,
         space_id: &str,
         cursor: Option<&str>,
         limit: Option<u32>,
-    ) -> Result<R> {
+    ) -> Result<SyncBackfillResponse> {
         let mut builder =
             self.request(Method::GET, "/api/v1/sync/backfill")?.query(&[("space_id", space_id)]);
         if let Some(cursor) = cursor {
@@ -230,7 +255,7 @@ impl Client {
         self.send_json(builder).await
     }
 
-    pub async fn sync_snapshot_head<R: DeserializeOwned>(&self, space_id: &str) -> Result<R> {
+    pub async fn sync_snapshot_head(&self, space_id: &str) -> Result<SyncSnapshotHeadResponse> {
         let builder = self
             .request(Method::GET, "/api/v1/sync/snapshot-head")?
             .query(&[("space_id", space_id)]);
@@ -252,12 +277,12 @@ impl Client {
         self.post("/api/v1/authz/check", request).await
     }
 
-    pub async fn authz_effective_grants<R: DeserializeOwned>(
+    pub async fn authz_effective_grants(
         &self,
         space_id: &str,
         subject: &str,
         at: Option<&str>,
-    ) -> Result<R> {
+    ) -> Result<EffectiveGrantsResponse> {
         let mut builder = self
             .request(Method::GET, "/api/v1/authz/effective-grants")?
             .query(&[("space_id", space_id), ("subject", subject)]);
@@ -267,12 +292,12 @@ impl Client {
         self.send_json(builder).await
     }
 
-    pub async fn authz_invites<R: DeserializeOwned>(
+    pub async fn authz_invites(
         &self,
         subject: &str,
         space_id: Option<&str>,
         cursor: Option<&str>,
-    ) -> Result<R> {
+    ) -> Result<AuthzInvitesResponse> {
         let mut builder =
             self.request(Method::GET, "/api/v1/authz/invites")?.query(&[("subject", subject)]);
         if let Some(space_id) = space_id {
@@ -298,8 +323,40 @@ impl Client {
         self.send_empty(builder).await
     }
 
-    pub async fn blob_upload<T: Serialize, R: DeserializeOwned>(&self, body: &T) -> Result<R> {
+    pub async fn blob_upload(&self, body: &BlobUploadMetadata) -> Result<BlobUploadResponse> {
         self.post("/api/v1/blob/upload", body).await
+    }
+
+    pub async fn blob_upload_bytes(
+        &self,
+        metadata: &BlobUploadMetadata,
+        bytes: Vec<u8>,
+    ) -> Result<BlobUploadResponse> {
+        let mut builder = self
+            .request(Method::POST, "/api/v1/blob/upload")?
+            .header("X-Contrix-Blob-Metadata", serde_json::to_string(metadata)?);
+        if let Some(media_type) = &metadata.media_type {
+            builder = builder.header("Content-Type", media_type);
+        }
+        if let Some(filename) = &metadata.filename {
+            builder = builder
+                .header("Content-Disposition", format!("attachment; filename=\"{filename}\""));
+        }
+        if let Some(sha256) = &metadata.sha256 {
+            builder = builder.header("Digest", sha256.as_str());
+        }
+        self.send_json(builder.body(bytes)).await
+    }
+
+    pub async fn blob_download(&self, blob_ref: &BlobRef, range: Option<&str>) -> Result<Vec<u8>> {
+        let mut builder = self
+            .request(Method::GET, "/api/v1/blob/get")?
+            .query(&[("blob_ref", blob_ref.as_str())]);
+        if let Some(range) = range {
+            builder = builder.header("Range", range);
+        }
+        let response = self.send_response(builder).await?;
+        Ok(response.bytes().await?.to_vec())
     }
 
     pub async fn keys_upload(&self, request: &KeysUploadRequest) -> Result<KeysUploadResponse> {
@@ -339,29 +396,29 @@ impl Client {
         self.send_json(builder).await
     }
 
-    pub async fn federation_transaction<T: Serialize, R: DeserializeOwned>(
+    pub async fn federation_transaction(
         &self,
         txn_id: &str,
-        request: &T,
-    ) -> Result<R> {
+        request: &FederationTransactionRequest,
+    ) -> Result<FederationTransactionResponse> {
         reject_path_segment(txn_id)?;
         let path = format!("/api/v1/federation/transactions/{txn_id}");
         self.put(&path, request).await
     }
 
-    pub async fn federation_push_operations<T: Serialize, R: DeserializeOwned>(
+    pub async fn federation_push_operations(
         &self,
-        request: &T,
-    ) -> Result<R> {
+        request: &FederationPushOperationsRequest,
+    ) -> Result<FederationPushOperationsResponse> {
         self.post("/api/v1/federation/push-operations", request).await
     }
 
-    pub async fn federation_pull_operations<R: DeserializeOwned>(
+    pub async fn federation_pull_operations(
         &self,
         space_id: &str,
         after_cursor: Option<&str>,
         limit: Option<u32>,
-    ) -> Result<R> {
+    ) -> Result<FederationPullOperationsResponse> {
         let mut builder = self
             .request(Method::GET, "/api/v1/federation/pull-operations")?
             .query(&[("space_id", space_id)]);
@@ -374,12 +431,12 @@ impl Client {
         self.send_json(builder).await
     }
 
-    pub async fn federation_space_members<R: DeserializeOwned>(
+    pub async fn federation_space_members(
         &self,
         space_id: &str,
         cursor: Option<&str>,
         limit: Option<u32>,
-    ) -> Result<R> {
+    ) -> Result<FederationSpaceMembersResponse> {
         let mut builder = self
             .request(Method::GET, "/api/v1/federation/space-members")?
             .query(&[("space_id", space_id)]);
@@ -392,23 +449,23 @@ impl Client {
         self.send_json(builder).await
     }
 
-    pub async fn federation_verify_actor<T: Serialize, R: DeserializeOwned>(
+    pub async fn federation_verify_actor(
         &self,
-        request: &T,
-    ) -> Result<R> {
+        request: &FederationVerifyActorRequest,
+    ) -> Result<FederationVerifyActorResponse> {
         self.post("/api/v1/federation/verify-actor", request).await
     }
 
-    pub async fn index_describe(&self) -> Result<Value> {
+    pub async fn index_describe(&self) -> Result<IndexDescription> {
         self.get("/api/v1/index/describe").await
     }
 
-    pub async fn index_entity<R: DeserializeOwned>(
+    pub async fn index_entity(
         &self,
         entity_id: &str,
         space_id: Option<&str>,
         at: Option<&str>,
-    ) -> Result<R> {
+    ) -> Result<IndexEntityResponse> {
         let mut builder =
             self.request(Method::GET, "/api/v1/index/entity")?.query(&[("entity_id", entity_id)]);
         if let Some(space_id) = space_id {
@@ -420,12 +477,12 @@ impl Client {
         self.send_json(builder).await
     }
 
-    pub async fn index_thread<R: DeserializeOwned>(
+    pub async fn index_thread(
         &self,
         topic_id: &str,
         cursor: Option<&str>,
         limit: Option<u32>,
-    ) -> Result<R> {
+    ) -> Result<IndexThreadResponse> {
         let mut builder =
             self.request(Method::GET, "/api/v1/index/thread")?.query(&[("topic_id", topic_id)]);
         if let Some(cursor) = cursor {
@@ -437,12 +494,12 @@ impl Client {
         self.send_json(builder).await
     }
 
-    pub async fn index_notifications<R: DeserializeOwned>(
+    pub async fn index_notifications(
         &self,
         cursor: Option<&str>,
         state: Option<&str>,
         limit: Option<u32>,
-    ) -> Result<R> {
+    ) -> Result<IndexNotificationsResponse> {
         let mut builder = self.request(Method::GET, "/api/v1/index/notifications")?;
         if let Some(cursor) = cursor {
             builder = builder.query(&[("cursor", cursor)]);
@@ -456,12 +513,12 @@ impl Client {
         self.send_json(builder).await
     }
 
-    pub async fn index_inbox<R: DeserializeOwned>(
+    pub async fn index_inbox(
         &self,
         scope: Option<&str>,
         cursor: Option<&str>,
         limit: Option<u32>,
-    ) -> Result<R> {
+    ) -> Result<IndexInboxResponse> {
         let mut builder = self.request(Method::GET, "/api/v1/index/inbox")?;
         if let Some(scope) = scope {
             builder = builder.query(&[("scope", scope)]);
@@ -475,16 +532,16 @@ impl Client {
         self.send_json(builder).await
     }
 
-    pub async fn index_search<T: Serialize, R: DeserializeOwned>(&self, request: &T) -> Result<R> {
+    pub async fn index_search(&self, request: &IndexSearchRequest) -> Result<IndexSearchResponse> {
         self.post("/api/v1/index/search", request).await
     }
 
-    pub async fn index_space_hierarchy<R: DeserializeOwned>(
+    pub async fn index_space_hierarchy(
         &self,
         space_id: &str,
         depth: Option<u32>,
         include_unconfirmed: Option<bool>,
-    ) -> Result<R> {
+    ) -> Result<IndexSpaceHierarchyResponse> {
         let mut builder = self
             .request(Method::GET, "/api/v1/index/space-hierarchy")?
             .query(&[("space_id", space_id)]);
@@ -497,51 +554,51 @@ impl Client {
         self.send_json(builder).await
     }
 
-    pub async fn directory_describe(&self) -> Result<Value> {
+    pub async fn directory_describe(&self) -> Result<DirectoryDescription> {
         self.get("/api/v1/directory/describe").await
     }
 
-    pub async fn directory_search_spaces<T: Serialize, R: DeserializeOwned>(
+    pub async fn directory_search_spaces(
         &self,
-        request: &T,
-    ) -> Result<R> {
+        request: &DirectorySearchSpacesRequest,
+    ) -> Result<DirectorySearchSpacesResponse> {
         self.post("/api/v1/directory/search-spaces", request).await
     }
 
-    pub async fn directory_resolve_space<T: Serialize, R: DeserializeOwned>(
+    pub async fn directory_resolve_space(
         &self,
-        request: &T,
-    ) -> Result<R> {
+        request: &DirectoryResolveSpaceRequest,
+    ) -> Result<DirectoryResolveSpaceResponse> {
         self.post("/api/v1/directory/resolve-space", request).await
     }
 
-    pub async fn directory_search_organizations<T: Serialize, R: DeserializeOwned>(
+    pub async fn directory_search_organizations(
         &self,
-        request: &T,
-    ) -> Result<R> {
+        request: &DirectorySearchOrganizationsRequest,
+    ) -> Result<DirectorySearchOrganizationsResponse> {
         self.post("/api/v1/directory/search-organizations", request).await
     }
 
-    pub async fn directory_resolve_organization<T: Serialize, R: DeserializeOwned>(
+    pub async fn directory_resolve_organization(
         &self,
-        request: &T,
-    ) -> Result<R> {
+        request: &DirectoryResolveOrganizationRequest,
+    ) -> Result<DirectoryResolveOrganizationResponse> {
         self.post("/api/v1/directory/resolve-organization", request).await
     }
 
-    pub async fn directory_search_actors<T: Serialize, R: DeserializeOwned>(
+    pub async fn directory_search_actors(
         &self,
-        request: &T,
-    ) -> Result<R> {
+        request: &DirectorySearchActorsRequest,
+    ) -> Result<DirectorySearchActorsResponse> {
         self.post("/api/v1/directory/search-actors", request).await
     }
 
-    pub async fn directory_search_users<R: DeserializeOwned>(
+    pub async fn directory_search_users(
         &self,
         q: &str,
         space_id: Option<&str>,
         limit: Option<u32>,
-    ) -> Result<R> {
+    ) -> Result<DirectorySearchUsersResponse> {
         let mut builder =
             self.request(Method::GET, "/api/v1/directory/search-users")?.query(&[("q", q)]);
         if let Some(space_id) = space_id {
@@ -553,80 +610,80 @@ impl Client {
         self.send_json(builder).await
     }
 
-    pub async fn directory_resolve_handle<T: Serialize, R: DeserializeOwned>(
+    pub async fn directory_resolve_handle(
         &self,
-        request: &T,
-    ) -> Result<R> {
+        request: &DirectoryResolveHandleRequest,
+    ) -> Result<DirectoryResolveHandleResponse> {
         self.post("/api/v1/directory/resolve-handle", request).await
     }
 
-    pub async fn push_register_device<T: Serialize, R: DeserializeOwned>(
+    pub async fn push_register_device(
         &self,
-        request: &T,
-    ) -> Result<R> {
+        request: &PushRegisterDeviceRequest,
+    ) -> Result<PushRegisterDeviceResponse> {
         self.post("/api/v1/push/register-device", request).await
     }
 
-    pub async fn push_unregister_device<T: Serialize, R: DeserializeOwned>(
+    pub async fn push_unregister_device(
         &self,
-        request: &T,
-    ) -> Result<R> {
+        request: &PushUnregisterDeviceRequest,
+    ) -> Result<OkResponse> {
         self.post("/api/v1/push/unregister-device", request).await
     }
 
-    pub async fn push_notify<T: Serialize, R: DeserializeOwned>(&self, request: &T) -> Result<R> {
+    pub async fn push_notify(&self, request: &PushNotifyRequest) -> Result<PushNotifyResponse> {
         self.post("/api/v1/push/notify", request).await
     }
 
-    pub async fn policy_check<T: Serialize, R: DeserializeOwned>(&self, request: &T) -> Result<R> {
+    pub async fn policy_check(&self, request: &PolicyCheckRequest) -> Result<PolicyCheckResponse> {
         self.post("/contrix/v1/check", request).await
     }
 
-    pub async fn media_ice_config<T: Serialize, R: DeserializeOwned>(
+    pub async fn media_ice_config(
         &self,
-        request: &T,
-    ) -> Result<R> {
+        request: &MediaIceConfigRequest,
+    ) -> Result<MediaIceConfigResponse> {
         self.post("/contrix/v1/ice-config", request).await
     }
 
-    pub async fn moderation_report<T: Serialize, R: DeserializeOwned>(
+    pub async fn moderation_report(
         &self,
-        request: &T,
-    ) -> Result<R> {
+        request: &ModerationReportRequest,
+    ) -> Result<ModerationReportResponse> {
         self.post("/api/v1/moderation/report", request).await
     }
 
-    pub async fn applet_ping(&self) -> Result<Value> {
+    pub async fn applet_ping(&self) -> Result<AppletPingResponse> {
         self.get("/api/v1/applet/ping").await
     }
 
-    pub async fn applet_describe(&self) -> Result<Value> {
+    pub async fn applet_describe(&self) -> Result<AppletDescription> {
         self.get("/api/v1/applet/describe").await
     }
 
-    pub async fn applet_transaction<T: Serialize, R: DeserializeOwned>(
+    pub async fn applet_transaction(
         &self,
         txn_id: &str,
-        request: &T,
-    ) -> Result<R> {
+        request: &AppletTransactionRequest,
+    ) -> Result<AppletTransactionResponse> {
         reject_path_segment(txn_id)?;
         let path = format!("/api/v1/applet/transactions/{txn_id}");
         self.put(&path, request).await
     }
 
-    pub async fn applet_actor<R: DeserializeOwned>(&self, actor_id: &str) -> Result<R> {
+    pub async fn applet_actor(&self, actor_id: &str) -> Result<AppletActorResponse> {
         reject_path_segment(actor_id)?;
         let path = format!("/api/v1/applet/actors/{actor_id}");
         self.get(&path).await
     }
 
-    pub async fn applet_space<R: DeserializeOwned>(&self, space_id_or_alias: &str) -> Result<R> {
+    pub async fn applet_space(&self, space_id_or_alias: &str) -> Result<AppletSpaceResponse> {
         reject_path_segment(space_id_or_alias)?;
         let path = format!("/api/v1/applet/spaces/{space_id_or_alias}");
         self.get(&path).await
     }
 
-    pub async fn applet_protocol<R: DeserializeOwned>(&self, protocol: &str) -> Result<R> {
+    pub async fn applet_protocol(&self, protocol: &str) -> Result<AppletProtocolResponse> {
         reject_path_segment(protocol)?;
         let path = format!("/api/v1/applet/protocols/{protocol}");
         self.get(&path).await
@@ -682,9 +739,13 @@ impl Client {
     }
 
     async fn send_empty(&self, builder: RequestBuilder) -> Result<reqwest::header::HeaderMap> {
+        let response = self.send_response(builder).await?;
+        Ok(response.headers().clone())
+    }
+
+    async fn send_response(&self, builder: RequestBuilder) -> Result<reqwest::Response> {
         let response = builder.send().await?;
         let status = response.status();
-        let headers = response.headers().clone();
         if !status.is_success() {
             let error = response.json::<ErrorEnvelope>().await.unwrap_or_else(|_| ErrorEnvelope {
                 errcode: "cx.error.http_status".to_owned(),
@@ -695,7 +756,7 @@ impl Client {
             return Err(Error::Api { status: status.as_u16(), error });
         }
 
-        Ok(headers)
+        Ok(response)
     }
 }
 

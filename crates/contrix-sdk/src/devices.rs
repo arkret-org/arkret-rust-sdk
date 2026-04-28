@@ -65,6 +65,16 @@ pub struct DeviceChange {
     pub removed: bool,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeviceVerificationChallenge {
+    pub transaction_id: String,
+    pub user_id: Did,
+    pub device_id: DeviceId,
+    pub method: String,
+    pub challenge: String,
+    pub created_at: DateTime<Utc>,
+}
+
 /// To-device message.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ToDeviceEnvelope {
@@ -103,6 +113,7 @@ pub struct DeviceManager {
     changes: Vec<DeviceChange>,
     to_device_queue: VecDeque<ToDeviceEnvelope>,
     key_backups: BTreeMap<String, KeyBackup>,
+    verification_challenges: BTreeMap<String, DeviceVerificationChallenge>,
 }
 
 impl DeviceManager {
@@ -197,6 +208,42 @@ impl DeviceManager {
     /// Start device verification.
     pub fn start_verification(&mut self, user_id: &Did, device_id: &DeviceId) -> Result<()> {
         self.set_verification(user_id, device_id, DeviceVerificationState::VerificationStarted)
+    }
+
+    pub fn begin_verification_flow(
+        &mut self,
+        user_id: &Did,
+        device_id: &DeviceId,
+        method: impl Into<String>,
+        challenge: impl Into<String>,
+    ) -> Result<DeviceVerificationChallenge> {
+        self.start_verification(user_id, device_id)?;
+        let challenge = DeviceVerificationChallenge {
+            transaction_id: format!("cx:verify:{}:{}", user_id.as_str(), device_id.as_str()),
+            user_id: user_id.clone(),
+            device_id: device_id.clone(),
+            method: method.into(),
+            challenge: challenge.into(),
+            created_at: Utc::now(),
+        };
+        self.verification_challenges.insert(challenge.transaction_id.clone(), challenge.clone());
+        Ok(challenge)
+    }
+
+    pub fn confirm_verification_flow(
+        &mut self,
+        transaction_id: &str,
+        response: &str,
+        cross_signing_key: Option<String>,
+    ) -> Result<()> {
+        let challenge = self
+            .verification_challenges
+            .remove(transaction_id)
+            .ok_or_else(|| Error::Protocol("verification transaction not found".to_owned()))?;
+        if challenge.challenge != response {
+            return Err(Error::Protocol("verification challenge mismatch".to_owned()));
+        }
+        self.verify_device(&challenge.user_id, &challenge.device_id, cross_signing_key)
     }
 
     /// Mark a device verified with cross-signing material.
@@ -346,6 +393,29 @@ mod tests {
         manager.block_device(&alice, &device_id).unwrap();
         manager.delete_device(&alice, &device_id).unwrap();
         assert!(manager.device(&alice, &device_id).is_none());
+    }
+
+    #[test]
+    fn devices_run_challenge_response_verification_flow() {
+        let alice = did("alice");
+        let device_id = device("desktop");
+        let mut manager = DeviceManager::new();
+        manager.upsert_device(
+            alice.clone(),
+            device_id.clone(),
+            DeviceMetadata { name: None, model: None, os: None, last_seen_at: None },
+        );
+
+        let challenge =
+            manager.begin_verification_flow(&alice, &device_id, "sas", "123456").unwrap();
+        manager
+            .confirm_verification_flow(&challenge.transaction_id, "123456", Some("key".to_owned()))
+            .unwrap();
+
+        assert_eq!(
+            manager.device(&alice, &device_id).unwrap().verification,
+            DeviceVerificationState::Verified
+        );
     }
 
     #[test]

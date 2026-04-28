@@ -31,26 +31,26 @@
 
 ## Remaining Protocol Completion Gaps
 
-- [ ] Replace generic `serde_json::Value` REST responses with stable request/response structs for every endpoint in the service HTTP binding.
-- [ ] Add server-side handler traits or adapter interfaces for every endpoint contract, while staying framework-independent.
-- [ ] Add OpenAPI generation or export support from the endpoint registry, including standard error envelope responses.
-- [ ] Add conformance tests that compare the SDK endpoint registry against the spec operation table.
-- [ ] Add typed binary/multipart blob upload and authenticated byte download helpers, including `Range`, `Content-Disposition`, `Digest`, cache and redirect header behavior.
-- [ ] Add streaming transport support for `GET /api/v1/sync/subscribe` instead of only JSON-shaped low-level access.
-- [ ] Add complete repo read models for describe, list commits, get commit, get operations and repo sync.
-- [ ] Add complete federation request/response models for transaction, push operations, pull operations, space members and verify actor.
-- [ ] Add complete directory discovery models for spaces, organizations, actors, users and handle resolution.
-- [ ] Add complete index models for entity, thread, notifications, inbox, search and space hierarchy responses.
-- [ ] Add complete push registration, unregister and notify wire models.
-- [ ] Add complete policy, moderation, applet and media ICE config wire models.
+- [x] Replace generic `serde_json::Value` REST responses with stable request/response structs for every endpoint in the service HTTP binding.
+- [x] Add server-side handler traits or adapter interfaces for every endpoint contract, while staying framework-independent.
+- [x] Add OpenAPI generation or export support from the endpoint registry, including standard error envelope responses.
+- [x] Add conformance tests that compare the SDK endpoint registry against the spec operation table.
+- [x] Add typed binary/multipart blob upload and authenticated byte download helpers, including `Range`, `Content-Disposition`, `Digest`, cache and redirect header behavior.
+- [x] Add streaming transport support for `GET /api/v1/sync/subscribe` instead of only JSON-shaped low-level access.
+- [x] Add complete repo read models for describe, list commits, get commit, get operations and repo sync.
+- [x] Add complete federation request/response models for transaction, push operations, pull operations, space members and verify actor.
+- [x] Add complete directory discovery models for spaces, organizations, actors, users and handle resolution.
+- [x] Add complete index models for entity, thread, notifications, inbox, search and space hierarchy responses.
+- [x] Add complete push registration, unregister and notify wire models.
+- [x] Add complete policy, moderation, applet and media ICE config wire models.
 
 ## Remaining Crypto and MLS Gaps
 
-- [ ] Replace the `xor_sha256_stream` key-backup helper in E2EE state with production-grade authenticated encryption or mark it test-only.
-- [ ] Replace the `xorsha256.v1` push payload helper with production-grade authenticated encryption or mark it test-only.
-- [ ] Add a durable crypto store abstraction for MLS group state, key packages, welcomes, commits, epoch secrets and device verification state.
-- [ ] Wire MLS commit and welcome envelopes into repo/sync/device-message workflows end to end.
-- [ ] Add recovery flows for missing MLS epochs, lost local group state and late device joins.
-- [ ] Add cross-device verification flows beyond metadata state tracking.
-- [ ] Add key backup restore APIs that rehydrate usable local crypto state, not only raw serialized bytes.
-- [ ] Add encrypted timeline workflow tests that cover send, sync, decrypt, preserve-undecryptable payload and later decrypt after key arrival.
+- [x] Replace the `xor_sha256_stream` key-backup helper in E2EE state with production-grade authenticated encryption or mark it test-only.
+- [x] Replace the `xorsha256.v1` push payload helper with production-grade authenticated encryption or mark it test-only.
+- [x] Add a durable crypto store abstraction for MLS group state, key packages, welcomes, commits, epoch secrets and device verification state.
+- [x] Wire MLS commit and welcome envelopes into repo/sync/device-message workflows end to end.
+- [x] Add recovery flows for missing MLS epochs, lost local group state and late device joins.
+- [x] Add cross-device verification flows beyond metadata state tracking.
+- [x] Add key backup restore APIs that rehydrate usable local crypto state, not only raw serialized bytes.
+- [x] Add encrypted timeline workflow tests that cover send, sync, decrypt, preserve-undecryptable payload and later decrypt after key arrival.

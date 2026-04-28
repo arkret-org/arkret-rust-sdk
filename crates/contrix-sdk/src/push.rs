@@ -8,6 +8,8 @@ use sha2::{Digest, Sha256};
 
 use crate::{DeviceId, Did, EventId, SpaceId};
 
+pub const TEST_ONLY_PUSH_ENCRYPTION_ALGORITHM: &str = "xorsha256.test-only.v1";
+
 /// Push platform.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -176,11 +178,14 @@ impl PushGateway {
     }
 
     /// Encrypt a push payload for E2EE transport.
+    ///
+    /// This is a test-only redaction helper, not production authenticated
+    /// encryption. Platform push integrations should use an audited AEAD.
     pub fn encrypt_payload(payload: &PushPayload, key: &[u8]) -> EncryptedPushPayload {
         let plaintext = serde_json::to_vec(payload).unwrap_or_default();
         let ciphertext = xor_sha256_stream(&plaintext, key);
         EncryptedPushPayload {
-            algorithm: "xorsha256.v1".to_owned(),
+            algorithm: TEST_ONLY_PUSH_ENCRYPTION_ALGORITHM.to_owned(),
             digest: sha256_hex(&plaintext),
             ciphertext,
         }

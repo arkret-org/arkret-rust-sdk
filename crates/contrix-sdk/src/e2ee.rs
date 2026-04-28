@@ -8,6 +8,8 @@ use sha2::{Digest, Sha256};
 
 use crate::{Did, Error, Result};
 
+pub const TEST_ONLY_KEY_BACKUP_ALGORITHM: &str = "xorsha256.test-only.v1";
+
 /// E2EE group state.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct E2eeGroup {
@@ -255,6 +257,10 @@ impl E2eeManager {
     }
 
     /// Create an encrypted backup of selected keys.
+    ///
+    /// This helper is intentionally marked test-only: it protects against
+    /// accidental plaintext storage in examples, but it is not authenticated
+    /// encryption and must not be used for production key backup.
     pub fn backup_keys(
         &mut self,
         backup_id: impl Into<String>,

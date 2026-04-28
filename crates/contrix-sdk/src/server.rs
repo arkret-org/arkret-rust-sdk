@@ -4,6 +4,37 @@
 //! contracts to keep route registration and advertised operation IDs aligned
 //! with the protocol without pulling a web stack into the SDK.
 
+use serde_json::{Value, json};
+
+use crate::{
+    AppletActorResponse, AppletDescription, AppletPingResponse, AppletProtocolResponse,
+    AppletSpaceResponse, AppletTransactionRequest, AppletTransactionResponse, AuthzCheckRequest,
+    AuthzCheckResponse, AuthzInvitesResponse, BlobMetadata, BlobUploadMetadata, BlobUploadResponse,
+    DeviceMessagesReceiveResponse, DeviceMessagesSendRequest, DeviceMessagesSendResponse,
+    DirectoryDescription, DirectoryResolveHandleRequest, DirectoryResolveHandleResponse,
+    DirectoryResolveOrganizationRequest, DirectoryResolveOrganizationResponse,
+    DirectoryResolveSpaceRequest, DirectoryResolveSpaceResponse, DirectorySearchActorsRequest,
+    DirectorySearchActorsResponse, DirectorySearchOrganizationsRequest,
+    DirectorySearchOrganizationsResponse, DirectorySearchSpacesRequest,
+    DirectorySearchSpacesResponse, DirectorySearchUsersResponse, EffectiveGrantsResponse,
+    FederationPullOperationsResponse, FederationPushOperationsRequest,
+    FederationPushOperationsResponse, FederationSpaceMembersResponse, FederationTransactionRequest,
+    FederationTransactionResponse, FederationVerifyActorRequest, FederationVerifyActorResponse,
+    IdentityDescription, IdentityDocumentResponse, IdentityLogResponse, IdentityReceiptsResponse,
+    IdentityResolveRequest, IdentityResolveResponse, IndexDescription, IndexEntityResponse,
+    IndexInboxResponse, IndexNotificationsResponse, IndexSearchRequest, IndexSearchResponse,
+    IndexSpaceHierarchyResponse, IndexThreadResponse, KeysClaimRequest, KeysClaimResponse,
+    KeysQueryRequest, KeysQueryResponse, KeysUploadRequest, KeysUploadResponse,
+    MediaIceConfigRequest, MediaIceConfigResponse, ModerationReportRequest,
+    ModerationReportResponse, OkResponse, PolicyCheckRequest, PolicyCheckResponse,
+    PushNotifyRequest, PushNotifyResponse, PushRegisterDeviceRequest, PushRegisterDeviceResponse,
+    PushUnregisterDeviceRequest, QueryRequest, QueryResponse, RepoCommitResponse,
+    RepoCommitsResponse, RepoDescription, RepoOperationsRequest, RepoOperationsResponse,
+    RepoSyncRequest, RepoSyncResponse, Result, ServerDescription, SubmitCommitResponse,
+    SubmitDidOperationRequest, SubmitDidOperationResponse, SyncBackfillResponse, SyncDescription,
+    SyncRequest, SyncResponse, SyncSnapshotHeadResponse,
+};
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EndpointMethod {
     Get,
@@ -336,9 +367,216 @@ pub fn endpoint_contracts() -> &'static [EndpointContract] {
     ENDPOINT_CONTRACTS
 }
 
+impl EndpointMethod {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Get => "get",
+            Self::Head => "head",
+            Self::Post => "post",
+            Self::Put => "put",
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum ServerRequest {
+    ServerDescribe,
+    IdentityDescribe,
+    IdentityResolve(IdentityResolveRequest),
+    IdentityDocument { did: String, version: Option<String> },
+    IdentityLog { did: String, cursor: Option<String>, limit: Option<u32> },
+    IdentitySubmitDidOperation(SubmitDidOperationRequest),
+    IdentityReceipts { did: String, head: String },
+    RepoDescribe { repo_id: Option<String> },
+    RepoCommits { repo_id: String, cursor: Option<String>, limit: Option<u32> },
+    RepoCommit { commit_id: String, repo_id: Option<String> },
+    RepoOperations(RepoOperationsRequest),
+    RepoSync(RepoSyncRequest),
+    RepoSubmitCommit(crate::Commit),
+    Sync(SyncRequest),
+    SyncDescribe,
+    SyncBackfill { space_id: String, cursor: Option<String>, limit: Option<u32> },
+    SyncSnapshotHead { space_id: String },
+    FederationTransaction { txn_id: String, request: FederationTransactionRequest },
+    FederationPushOperations(FederationPushOperationsRequest),
+    FederationPullOperations { space_id: String, after_cursor: Option<String>, limit: Option<u32> },
+    FederationSpaceMembers { space_id: String, cursor: Option<String>, limit: Option<u32> },
+    FederationVerifyActor(FederationVerifyActorRequest),
+    IndexDescribe,
+    IndexEntity { entity_id: String, space_id: Option<String>, at: Option<String> },
+    IndexQuery(QueryRequest),
+    IndexThread { topic_id: String, cursor: Option<String>, limit: Option<u32> },
+    IndexNotifications { cursor: Option<String>, state: Option<String>, limit: Option<u32> },
+    IndexInbox { scope: Option<String>, cursor: Option<String>, limit: Option<u32> },
+    IndexSearch(IndexSearchRequest),
+    IndexSpaceHierarchy { space_id: String, depth: Option<u32>, include_unconfirmed: Option<bool> },
+    DirectoryDescribe,
+    DirectorySearchSpaces(DirectorySearchSpacesRequest),
+    DirectoryResolveSpace(DirectoryResolveSpaceRequest),
+    DirectorySearchOrganizations(DirectorySearchOrganizationsRequest),
+    DirectoryResolveOrganization(DirectoryResolveOrganizationRequest),
+    DirectorySearchActors(DirectorySearchActorsRequest),
+    DirectorySearchUsers { q: String, space_id: Option<String>, limit: Option<u32> },
+    DirectoryResolveHandle(DirectoryResolveHandleRequest),
+    BlobUpload { metadata: BlobUploadMetadata, bytes: Option<Vec<u8>> },
+    BlobHead { blob_ref: String },
+    BlobGet { blob_ref: String, range: Option<String> },
+    PushRegisterDevice(PushRegisterDeviceRequest),
+    PushUnregisterDevice(PushUnregisterDeviceRequest),
+    PushNotify(PushNotifyRequest),
+    DeviceMessagesPut { txn_id: String, request: DeviceMessagesSendRequest },
+    DeviceMessagesGet { from: Option<String>, limit: Option<u32> },
+    KeysUpload(KeysUploadRequest),
+    KeysQuery(KeysQueryRequest),
+    KeysClaim(KeysClaimRequest),
+    AuthzEffectiveGrants { space_id: String, subject: String, at: Option<String> },
+    AuthzInvites { subject: String, space_id: Option<String>, cursor: Option<String> },
+    AuthzCheck(AuthzCheckRequest),
+    PolicyCheck(PolicyCheckRequest),
+    MediaIceConfig(MediaIceConfigRequest),
+    ModerationReport(ModerationReportRequest),
+    AppletPing,
+    AppletDescribe,
+    AppletTransaction { txn_id: String, request: AppletTransactionRequest },
+    AppletActor { actor_id: String },
+    AppletSpace { space_id_or_alias: String },
+    AppletProtocol { protocol: String },
+}
+
+#[derive(Clone, Debug)]
+pub enum ServerResponse {
+    ServerDescription(ServerDescription),
+    IdentityDescription(IdentityDescription),
+    IdentityResolve(IdentityResolveResponse),
+    IdentityDocument(IdentityDocumentResponse),
+    IdentityLog(IdentityLogResponse),
+    SubmitDidOperation(SubmitDidOperationResponse),
+    IdentityReceipts(IdentityReceiptsResponse),
+    RepoDescription(RepoDescription),
+    RepoCommits(RepoCommitsResponse),
+    RepoCommit(RepoCommitResponse),
+    RepoOperations(RepoOperationsResponse),
+    RepoSync(RepoSyncResponse),
+    SubmitCommit(SubmitCommitResponse),
+    Sync(SyncResponse),
+    SyncDescription(SyncDescription),
+    SyncBackfill(SyncBackfillResponse),
+    SyncSnapshotHead(SyncSnapshotHeadResponse),
+    FederationTransaction(FederationTransactionResponse),
+    FederationPushOperations(FederationPushOperationsResponse),
+    FederationPullOperations(FederationPullOperationsResponse),
+    FederationSpaceMembers(FederationSpaceMembersResponse),
+    FederationVerifyActor(FederationVerifyActorResponse),
+    IndexDescription(IndexDescription),
+    IndexEntity(IndexEntityResponse),
+    IndexQuery(QueryResponse<Value>),
+    IndexThread(IndexThreadResponse),
+    IndexNotifications(IndexNotificationsResponse),
+    IndexInbox(IndexInboxResponse),
+    IndexSearch(IndexSearchResponse),
+    IndexSpaceHierarchy(IndexSpaceHierarchyResponse),
+    DirectoryDescription(DirectoryDescription),
+    DirectorySearchSpaces(DirectorySearchSpacesResponse),
+    DirectoryResolveSpace(DirectoryResolveSpaceResponse),
+    DirectorySearchOrganizations(DirectorySearchOrganizationsResponse),
+    DirectoryResolveOrganization(DirectoryResolveOrganizationResponse),
+    DirectorySearchActors(DirectorySearchActorsResponse),
+    DirectorySearchUsers(DirectorySearchUsersResponse),
+    DirectoryResolveHandle(DirectoryResolveHandleResponse),
+    BlobUpload(BlobUploadResponse),
+    BlobHead(BlobMetadata),
+    BlobBytes(Vec<u8>),
+    PushRegisterDevice(PushRegisterDeviceResponse),
+    Ok(OkResponse),
+    PushNotify(PushNotifyResponse),
+    DeviceMessagesSend(DeviceMessagesSendResponse),
+    DeviceMessagesReceive(DeviceMessagesReceiveResponse),
+    KeysUpload(KeysUploadResponse),
+    KeysQuery(KeysQueryResponse),
+    KeysClaim(KeysClaimResponse),
+    EffectiveGrants(EffectiveGrantsResponse),
+    AuthzInvites(AuthzInvitesResponse),
+    AuthzCheck(AuthzCheckResponse),
+    PolicyCheck(PolicyCheckResponse),
+    MediaIceConfig(MediaIceConfigResponse),
+    ModerationReport(ModerationReportResponse),
+    AppletPing(AppletPingResponse),
+    AppletDescription(AppletDescription),
+    AppletTransaction(AppletTransactionResponse),
+    AppletActor(AppletActorResponse),
+    AppletSpace(AppletSpaceResponse),
+    AppletProtocol(AppletProtocolResponse),
+}
+
+pub trait EndpointHandler {
+    fn handle(&mut self, request: ServerRequest) -> Result<ServerResponse>;
+}
+
+pub fn openapi_document() -> Value {
+    let mut paths = serde_json::Map::new();
+    for endpoint in endpoint_contracts() {
+        let mut methods = paths
+            .remove(endpoint.path)
+            .and_then(|value| value.as_object().cloned())
+            .unwrap_or_default();
+        methods.insert(
+            endpoint.method.as_str().to_owned(),
+            json!({
+                "operationId": endpoint.operation_id,
+                "responses": {
+                    "200": { "description": "Successful Contrix response" },
+                    "400": { "$ref": "#/components/responses/ErrorEnvelope" },
+                    "401": { "$ref": "#/components/responses/ErrorEnvelope" },
+                    "403": { "$ref": "#/components/responses/ErrorEnvelope" },
+                    "404": { "$ref": "#/components/responses/ErrorEnvelope" },
+                    "405": { "$ref": "#/components/responses/ErrorEnvelope" },
+                    "429": { "$ref": "#/components/responses/ErrorEnvelope" },
+                    "503": { "$ref": "#/components/responses/ErrorEnvelope" }
+                }
+            }),
+        );
+        paths.insert(endpoint.path.to_owned(), Value::Object(methods));
+    }
+
+    json!({
+        "openapi": "3.1.0",
+        "info": {
+            "title": "Contrix v1 Service HTTP Binding",
+            "version": "1.0"
+        },
+        "paths": paths,
+        "components": {
+            "responses": {
+                "ErrorEnvelope": {
+                    "description": "Standard Contrix error envelope",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["errcode", "error"],
+                                "properties": {
+                                    "errcode": { "type": "string" },
+                                    "error": { "type": "string" },
+                                    "retry_after_ms": { "type": "integer", "minimum": 0 }
+                                },
+                                "additionalProperties": true
+                            }
+                        }
+                    }
+                }
+            },
+            "securitySchemes": {
+                "bearer": { "type": "http", "scheme": "bearer" },
+                "deviceProof": { "type": "apiKey", "in": "header", "name": "X-Contrix-Device-Proof" },
+                "serviceSignature": { "type": "apiKey", "in": "header", "name": "Signature" }
+            }
+        }
+    })
+}
+
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeSet;
+    use std::collections::{BTreeMap, BTreeSet};
 
     use super::*;
 
@@ -351,5 +589,44 @@ mod tests {
                 endpoint.path.starts_with("/api/v1/") || endpoint.path.starts_with("/contrix/v1/")
             );
         }
+    }
+
+    #[test]
+    fn endpoint_registry_matches_required_spec_operations() {
+        let actual = endpoint_contracts()
+            .iter()
+            .map(|endpoint| (endpoint.operation_id, endpoint.path))
+            .collect::<BTreeMap<_, _>>();
+        for (operation_id, path) in [
+            ("cx.identity.resolve", "/api/v1/identity/resolve"),
+            ("cx.repo.submit_commit", "/api/v1/repo/submit-commit"),
+            ("cx.repo.get_operations", "/api/v1/repo/operations"),
+            ("cx.sync.client_sync", "/api/v1/sync"),
+            ("cx.sync.subscribe", "/api/v1/sync/subscribe"),
+            ("cx.sync.backfill", "/api/v1/sync/backfill"),
+            ("cx.federation.transaction", "/api/v1/federation/transactions/{txn_id}"),
+            ("cx.index.query", "/api/v1/index/query"),
+            ("cx.directory.resolve_handle", "/api/v1/directory/resolve-handle"),
+            ("cx.blob.upload", "/api/v1/blob/upload"),
+            ("cx.push.register_device", "/api/v1/push/register-device"),
+            ("cx.device_messages.put", "/api/v1/device_messages/{txn_id}"),
+            ("cx.keys.upload", "/api/v1/keys/upload"),
+            ("cx.authz.check", "/api/v1/authz/check"),
+            ("cx.policy.check", "/contrix/v1/check"),
+            ("cx.media.ice_config", "/contrix/v1/ice-config"),
+            ("cx.moderation.report", "/api/v1/moderation/report"),
+            ("cx.applet.transaction", "/api/v1/applet/transactions/{txn_id}"),
+        ] {
+            assert_eq!(actual.get(operation_id), Some(&path), "{operation_id}");
+        }
+    }
+
+    #[test]
+    fn openapi_document_contains_standard_error_envelope() {
+        let document = openapi_document();
+        assert_eq!(document["openapi"], "3.1.0");
+        assert!(document["paths"]["/api/v1/sync"]["post"]["responses"]["429"].is_object());
+        assert!(document["components"]["responses"]["ErrorEnvelope"].is_object());
+        assert!(document["components"]["securitySchemes"].get("queryToken").is_none());
     }
 }
