@@ -1,119 +1,80 @@
 # Architecture
 
-The SDK is split into multiple layers:
+The workspace is intentionally small. The protocol crate is the SDK boundary,
+and all public types should map directly to Contrix v1 concepts.
 
-```
-    WASM (external crate matrix-rust-sdk-crypto-wasm)
-      /
-     /     uniffi
-    /     /
-   /     bindings (matrix-sdk-ffi)
- crypto   |
-bindings  |
-   |      |
-   |     UI (matrix-sdk-ui)
-   |      \
-   |       \
-   |   main (matrix-sdk)
-   | /     /
-crypto    /
-     \   /
-      store (matrix-sdk-base, + all the store impls)
-        |
-      common (matrix-sdk-common)
+```text
+application
+    |
+contrix-sdk
+    |-- model: wire-safe protocol data structures and digest payloads
+    |-- canonical: deterministic JSON and SHA-256 helpers
+    |-- client: HTTP client for Contrix service endpoints
+    |-- mls: OpenMLS-backed group encryption and epoch handling
+    |-- service: service description and profile verification
+    `-- store: local Repo persistence traits and in-memory implementation
 ```
 
-Where the store implementations are `matrix-sdk-sqlite` and `matrix-sdk-indexeddb` as well as
-`MemoryStore` which is defined in `matrix-sdk-base`.
+## Protocol Model
 
-## `crates/matrix-sdk`
+`crates/contrix-sdk/src/model.rs` owns protocol identifiers, HLC ordering,
+object state enums, Space / ActorProfile / Entity / Relation / View objects,
+signed Events, canonical Operations, signed Operation envelopes, Commits,
+capability grants, policies, invites, read markers, notifications, blob
+metadata and service request/response envelopes.
 
-This is the main crate, and one that is expected to be used by most consumers. Notable data types
-include:
+Model types should remain stable, explicit and serializable. Validation that is
+required for protocol safety belongs close to these types, especially when it
+protects canonical digests, authorization bindings or graph endpoint semantics.
 
-- the `Client`, which can run room-independent requests: logging in/out, creating rooms, running
-  sync, etc.
-- the `Room`, which represents a room and its state (notably via the observable `RoomInfo`), and
-  allows running queries that are room-specific, notably sending events.
+## Canonical Digests
 
-## `crates/matrix-sdk-base`
+`crates/contrix-sdk/src/canonical.rs` implements deterministic JSON encoding and
+digest calculation. Signed payloads must use this module instead of ad-hoc JSON
+formatting so that different clients compute identical hashes.
 
-A *sans I/O* crate to represent the base data types persisted in the SDK. No network or storage I/O
-happens in this crate, although it defines traits (`StateStore` and `EventCacheStore`) representing
-storage backends, as well as dummy in-memory implementations of these traits.
+The current canonical encoder sorts object keys, preserves array order, emits
+integer numbers only and rejects floating point values.
 
-## `crates/matrix-sdk-common`
+## Client Layer
 
-Common helpers used by most of the other crates; almost a leaf in the dependency tree of our own
-crates (the only crate it's using is test helpers).
+`crates/contrix-sdk/src/client.rs` is a thin HTTP adapter. It is responsible for
+base URL handling, authentication headers, JSON transport, service description
+verification and Contrix error envelope parsing.
 
-## `crates/matrix-sdk-crypto`
+It must not hide protocol concepts behind application-specific abstractions.
+Higher-level workflows can be added as helpers, but the low-level endpoints
+should remain available.
 
-A *sans I/O* implementation of a state machine that handles end-to-end encryption for Matrix
-clients. It defines a `CryptoStore` trait representing storage backends that will perform the
-actual storage I/O later, as well as a dummy in-memory implementation of this trait.
+## MLS Layer
 
-## `crates/matrix-sdk-indexeddb`
+`crates/contrix-sdk/src/mls.rs` binds Contrix encrypted Spaces to OpenMLS. It
+creates device KeyPackages, creates MLS groups, adds members, consumes Welcome
+messages, emits Commit / Welcome envelopes and encrypts application payloads
+into Contrix `EncryptedPayload` values.
 
-Implementations of `EventCacheStore`, `StateStore` and `CryptoStore` for a
-indexeddb backend (for use in Web browsers, via WebAssembly).
+The SDK treats MLS state as local cryptographic state. Repo and Sync services
+carry Commit, Welcome and encrypted application bytes, but they do not decrypt
+payloads or gain group secrets.
 
-## `crates/matrix-sdk-qrcode`
+Encrypted payload integrity follows the Contrix envelope rule:
+`sha256(canonical_json(cleartext_metadata) || ciphertext_bytes)`. The SDK does
+not hash plaintext payloads into `payload_digest`.
 
-Implementation of QR codes for interactive verifications, used in the crypto crate.
+## Service Profiles
 
-## `crates/matrix-sdk-sqlite`
+`crates/contrix-sdk/src/service.rs` verifies that a remote service advertises
+the expected service type, protocol version, schema profile, reducer profile and
+required operations before a client depends on it.
 
-Implementations of `EventCacheStore`, `StateStore` and `CryptoStore` for a
-SQLite backend.
+This keeps service discovery explicit and prevents silent downgrade or partial
+implementation mistakes.
 
-## `crates/matrix-sdk-store-encryption`
+## Store Layer
 
-Low-level primitives for encrypting/decrypting/hashing values. Store implementations that
-implement encryption at rest can use those primitives.
+`crates/contrix-sdk/src/store.rs` defines local Repo storage behavior. Stores
+must be idempotent for repeated identical Operations or Commits and must report
+conflicts when an existing identifier is reused with a different digest.
 
-## `crates/matrix-sdk-ui`
-
-Very high-level primitives implementing the best practices and cutting-edge Matrix tech:
-
-- `EncryptionSyncService`: a specialized service running simplified sliding sync (MSC4186) for
-  everything related to crypto and E2EE for the current `Client`.
-- `RoomListService`: a specialized service running simplified sliding sync (MSC4186) for
-  retrieving the list of current rooms, and exposing its entries.
-- `SyncService`: a wrapper for the two previous services, coordinating their running and shutting
-  down.
-- `Timeline`: a high-level view for a `Room`'s timeline of events, grouping related events
-  (aggregations) into single timeline items.
-
-## `bindings/matrix-sdk-crypto-ffi/`
-
-FFI bindings for the crypto crate, used in a Web browser context via WebAssembly. These use
-`wasm-bindgen` to generate the bindings. These bindings are used in Element Web and the legacy
-Element apps, as of 2024-11-07.
-
-## `bindings/matrix-sdk-ffi/`
-
-FFI bindings for important concepts in `matrix-sdk-ui` and `matrix-sdk`, generated with
-[UniFFI](https://github.com/mozilla/uniffi-rs) and to be used from other languages like
-Swift/Go/Kotlin. These bindings are used in the ElementX apps, as of 2024-11-07.
-
-## `bindings/matrix-sdk-ffi-macros/`
-
-Macros used in `bindings/matrix-sdk-ffi`.
-
-## `testing/matrix-sdk-test/`
-
-Common test helpers, used by all the other crates.
-
-## `testing/matrix-sdk-test-macros/`
-
-Implementation of the `#[async_test]` test macro.
-
-## `testing/matrix-sdk-integration-testing/`
-
-Fully-fledged integration tests that require spawning a Synapse instance to run. A docker-compose
-setup is provided to ease running the tests, and it is compatible for running with Podman too.
-
-# Inspiration
-
-This document has been inspired by the reading of this [blog post](https://matklad.github.io/2021/02/06/ARCHITECTURE.md.html).
+Persistent stores should implement the same trait contract as the in-memory
+store before they are exposed publicly.

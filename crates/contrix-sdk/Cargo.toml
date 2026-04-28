@@ -1,0 +1,39 @@
+[package]
+authors = ["Chris Young <chris@sonc.ai>"]
+description = "Contrix v1 decentralized collaboration protocol SDK."
+edition = "2024"
+homepage = "https://github.com/contrix/contrix-rust-sdk"
+keywords = ["contrix", "collaboration", "did", "sdk"]
+license = "Apache-2.0"
+name = "contrix-sdk"
+readme = "README.md"
+repository = "https://github.com/contrix/contrix-rust-sdk"
+rust-version.workspace = true
+version = "0.1.0"
+
+[features]
+default = ["client", "mls"]
+client = ["dep:reqwest", "dep:url"]
+mls = ["dep:openmls", "dep:openmls_basic_credential", "dep:openmls_rust_crypto", "dep:tls_codec"]
+
+[dependencies]
+base64.workspace = true
+chrono = { workspace = true, features = ["serde"] }
+lazy-regex = "3"
+openmls = { workspace = true, optional = true }
+openmls_basic_credential = { workspace = true, optional = true }
+openmls_rust_crypto = { workspace = true, optional = true }
+regex.workspace = true
+reqwest = { workspace = true, optional = true, features = ["json", "gzip", "http2"] }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+tls_codec = { workspace = true, optional = true }
+url = { workspace = true, optional = true, features = ["serde"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt"] }
+
+[lints]
+workspace = true

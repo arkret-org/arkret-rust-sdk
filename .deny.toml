@@ -37,20 +37,4 @@ wildcards = "allow"
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
-
-allow-git = [
-    # A patch override for the bindings fixing a bug for Android before upstream
-    # releases a new version.
-    "https://github.com/tokio-rs/tracing.git",
-    # Well, it's Ruma.
-    "https://github.com/ruma/ruma",
-    # A patch override for the bindings: https://github.com/rodrimati1992/const_panic/pull/10
-    "https://github.com/jplatte/const_panic",
-    # A patch override for the bindings: https://github.com/smol-rs/async-compat/pull/22
-    "https://github.com/element-hq/async-compat",
-    # We can release vodozemac whenever we need but let's not block development
-    # on releases.
-    "https://github.com/matrix-org/vodozemac",
-    # A patch override for the bindings: https://github.com/Alorel/rust-indexed-db/pull/72
-    "https://github.com/matrix-org/rust-indexed-db"
-]
+allow-git = []
