@@ -36,6 +36,8 @@ pub mod push;
 pub mod receipts;
 pub mod resolver;
 pub mod search;
+#[cfg(feature = "server")]
+pub mod server;
 pub mod service;
 pub mod settings;
 pub mod space;
@@ -116,6 +118,8 @@ pub use push::{
 pub use receipts::{ReadMarker, ReadReceipt, ReceiptManager, ReceiptVisibility};
 pub use resolver::{SpaceState, StateSnapshot};
 pub use search::{SpaceSearchEntry, SpaceSearchIndex, SpaceSearchQuery};
+#[cfg(feature = "server")]
+pub use server::{EndpointContract, EndpointMethod, endpoint_contracts};
 pub use service::{ServiceRequirements, ServiceType};
 pub use settings::{
     ClientSettings, NotificationPreferences, PrivacySettings, SettingsManager, ThemeSetting,

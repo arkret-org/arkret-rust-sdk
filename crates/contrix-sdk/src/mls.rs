@@ -7,6 +7,7 @@ use openmls::prelude::{
 };
 use openmls_basic_credential::SignatureKeyPair;
 use openmls_rust_crypto::OpenMlsRustCrypto;
+use serde::{Deserialize, Serialize};
 use tls_codec::{Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait};
 
 use crate::{
@@ -37,27 +38,19 @@ pub struct MlsAddMemberResult {
     pub welcome: MlsWelcomeEnvelope,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EncryptedMessage {
     pub message_id: String,
     pub payload: EncryptedPayload,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MessageCryptoDecrypt {
-    Plaintext {
-        message_id: String,
-        content_type: String,
-        plaintext: Vec<u8>,
-    },
-    Encrypted {
-        message_id: String,
-        payload: EncryptedPayload,
-        reason: MessageCryptoUnavailable,
-    },
+    Plaintext { message_id: String, content_type: String, plaintext: Vec<u8> },
+    Encrypted { message_id: String, payload: EncryptedPayload, reason: MessageCryptoUnavailable },
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MessageCryptoUnavailable {
     NoSession,
     KeyUnavailable(String),
@@ -83,10 +76,7 @@ impl MessageCrypto {
         message.payload.verify_mls_payload_digest(&ciphertext_bytes)
     }
 
-    pub fn decrypt(
-        group: &mut ContrixMlsGroup,
-        message: &EncryptedMessage,
-    ) -> Result<Vec<u8>> {
+    pub fn decrypt(group: &mut ContrixMlsGroup, message: &EncryptedMessage) -> Result<Vec<u8>> {
         Self::verify_opaque_payload_digest(message)?;
         group.decrypt_payload(&message.payload)
     }
@@ -108,11 +98,9 @@ impl MessageCrypto {
         };
 
         match group.decrypt_payload(&message.payload) {
-            Ok(plaintext) => Ok(MessageCryptoDecrypt::Plaintext {
-                message_id,
-                content_type,
-                plaintext,
-            }),
+            Ok(plaintext) => {
+                Ok(MessageCryptoDecrypt::Plaintext { message_id, content_type, plaintext })
+            }
             Err(error) => Ok(MessageCryptoDecrypt::Encrypted {
                 message_id,
                 payload: message.payload,
@@ -432,6 +420,66 @@ mod tests {
         assert_eq!(encrypted.scheme, EncryptedPayloadScheme::MlsRfc9420);
         assert_eq!(encrypted.epoch, alice_group.epoch());
         assert_eq!(bob_group.epoch(), alice_group.epoch());
+    }
+
+    #[test]
+    fn message_crypto_encrypts_decrypts_and_verifies_opaque_digest() {
+        let alice = ContrixMlsIdentity::new_basic(
+            Did::new("did:web:alice.example").unwrap(),
+            DeviceId::new("dev_alice_1").unwrap(),
+        )
+        .unwrap();
+        let bob = ContrixMlsIdentity::new_basic(
+            Did::new("did:web:bob.example").unwrap(),
+            DeviceId::new("dev_bob_1").unwrap(),
+        )
+        .unwrap();
+        let bob_key_package = bob.key_package_record().unwrap();
+
+        let mut alice_group = alice.create_group(b"cx:space:message-workflow").unwrap();
+        let add_result = alice_group.add_member(&bob_key_package).unwrap();
+        let mut bob_group = ContrixMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
+
+        let encrypted = MessageCrypto::encrypt(
+            &mut alice_group,
+            "cx:message:01",
+            "application/vnd.contrix.message+json",
+            br#"{"body":"hello secure workflow"}"#,
+        )
+        .unwrap();
+
+        MessageCrypto::verify_opaque_payload_digest(&encrypted).unwrap();
+        let decrypted = MessageCrypto::decrypt(&mut bob_group, &encrypted).unwrap();
+        assert_eq!(decrypted, br#"{"body":"hello secure workflow"}"#);
+    }
+
+    #[test]
+    fn message_crypto_preserves_encrypted_payload_without_available_key() {
+        let alice = ContrixMlsIdentity::new_basic(
+            Did::new("did:web:alice.example").unwrap(),
+            DeviceId::new("dev_alice_1").unwrap(),
+        )
+        .unwrap();
+        let mut alice_group = alice.create_group(b"cx:space:message-workflow").unwrap();
+        let encrypted = MessageCrypto::encrypt(
+            &mut alice_group,
+            "cx:message:02",
+            "application/json",
+            br#"{"body":"keep ciphertext"}"#,
+        )
+        .unwrap();
+        let expected_digest = encrypted.payload.payload_digest.clone();
+        let expected_ciphertext = encrypted.payload.ciphertext.clone();
+
+        let result = MessageCrypto::decrypt_or_preserve(None, encrypted).unwrap();
+
+        let MessageCryptoDecrypt::Encrypted { message_id, payload, reason } = result else {
+            panic!("message should stay encrypted without a local MLS session");
+        };
+        assert_eq!(message_id, "cx:message:02");
+        assert!(matches!(reason, MessageCryptoUnavailable::NoSession));
+        assert_eq!(payload.payload_digest, expected_digest);
+        assert_eq!(payload.ciphertext, expected_ciphertext);
     }
 
     #[test]

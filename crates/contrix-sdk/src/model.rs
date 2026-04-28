@@ -1287,7 +1287,7 @@ pub struct BlobMetadata {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EncryptedPayload {
     pub scheme: EncryptedPayloadScheme,
     pub group_id: String,

@@ -1,5 +1,6 @@
 use reqwest::{Method, RequestBuilder};
 use serde::{Serialize, de::DeserializeOwned};
+use serde_json::Value;
 use url::Url;
 
 use crate::{
@@ -88,8 +89,152 @@ impl Client {
         self.post("/api/v1/repo/submit-commit", commit).await
     }
 
+    pub async fn identity_describe(&self) -> Result<Value> {
+        self.get("/api/v1/identity/describe").await
+    }
+
+    pub async fn identity_resolve<T: Serialize, R: DeserializeOwned>(
+        &self,
+        request: &T,
+    ) -> Result<R> {
+        self.post("/api/v1/identity/resolve", request).await
+    }
+
+    pub async fn identity_document<R: DeserializeOwned>(
+        &self,
+        did: &str,
+        version: Option<&str>,
+    ) -> Result<R> {
+        let mut builder =
+            self.request(Method::GET, "/api/v1/identity/document")?.query(&[("did", did)]);
+        if let Some(version) = version {
+            builder = builder.query(&[("version", version)]);
+        }
+        self.send_json(builder).await
+    }
+
+    pub async fn identity_log<R: DeserializeOwned>(
+        &self,
+        did: &str,
+        cursor: Option<&str>,
+        limit: Option<u32>,
+    ) -> Result<R> {
+        let mut builder = self.request(Method::GET, "/api/v1/identity/log")?.query(&[("did", did)]);
+        if let Some(cursor) = cursor {
+            builder = builder.query(&[("cursor", cursor)]);
+        }
+        if let Some(limit) = limit {
+            builder = builder.query(&[("limit", limit)]);
+        }
+        self.send_json(builder).await
+    }
+
+    pub async fn identity_submit_did_operation<T: Serialize, R: DeserializeOwned>(
+        &self,
+        request: &T,
+    ) -> Result<R> {
+        self.post("/api/v1/identity/submit-did-operation", request).await
+    }
+
+    pub async fn identity_receipts<R: DeserializeOwned>(&self, did: &str, head: &str) -> Result<R> {
+        let builder = self
+            .request(Method::GET, "/api/v1/identity/receipts")?
+            .query(&[("did", did), ("head", head)]);
+        self.send_json(builder).await
+    }
+
+    pub async fn repo_describe<R: DeserializeOwned>(&self, repo_id: Option<&str>) -> Result<R> {
+        let mut builder = self.request(Method::GET, "/api/v1/repo/describe")?;
+        if let Some(repo_id) = repo_id {
+            builder = builder.query(&[("repo_id", repo_id)]);
+        }
+        self.send_json(builder).await
+    }
+
+    pub async fn repo_commits<R: DeserializeOwned>(
+        &self,
+        repo_id: &str,
+        cursor: Option<&str>,
+        limit: Option<u32>,
+    ) -> Result<R> {
+        let mut builder =
+            self.request(Method::GET, "/api/v1/repo/commits")?.query(&[("repo_id", repo_id)]);
+        if let Some(cursor) = cursor {
+            builder = builder.query(&[("cursor", cursor)]);
+        }
+        if let Some(limit) = limit {
+            builder = builder.query(&[("limit", limit)]);
+        }
+        self.send_json(builder).await
+    }
+
+    pub async fn repo_commit<R: DeserializeOwned>(
+        &self,
+        commit_id: &str,
+        repo_id: Option<&str>,
+    ) -> Result<R> {
+        let mut builder =
+            self.request(Method::GET, "/api/v1/repo/commit")?.query(&[("commit_id", commit_id)]);
+        if let Some(repo_id) = repo_id {
+            builder = builder.query(&[("repo_id", repo_id)]);
+        }
+        self.send_json(builder).await
+    }
+
+    pub async fn repo_operations<T: Serialize, R: DeserializeOwned>(
+        &self,
+        request: &T,
+    ) -> Result<R> {
+        self.post("/api/v1/repo/operations", request).await
+    }
+
+    pub async fn repo_sync<T: Serialize, R: DeserializeOwned>(&self, request: &T) -> Result<R> {
+        self.post("/api/v1/repo/sync", request).await
+    }
+
     pub async fn sync(&self, request: &SyncRequest) -> Result<SyncResponse> {
         self.post("/api/v1/sync", request).await
+    }
+
+    pub async fn sync_describe(&self) -> Result<Value> {
+        self.get("/api/v1/sync/describe").await
+    }
+
+    pub async fn sync_subscribe<R: DeserializeOwned>(
+        &self,
+        space_id: &str,
+        cursor: Option<&str>,
+    ) -> Result<R> {
+        let mut builder =
+            self.request(Method::GET, "/api/v1/sync/subscribe")?.query(&[("space_id", space_id)]);
+        if let Some(cursor) = cursor {
+            builder = builder.query(&[("cursor", cursor)]);
+        }
+        self.send_json(builder).await
+    }
+
+    pub async fn sync_backfill<R: DeserializeOwned>(
+        &self,
+        space_id: &str,
+        cursor: Option<&str>,
+        limit: Option<u32>,
+    ) -> Result<R> {
+        let mut builder =
+            self.request(Method::GET, "/api/v1/sync/backfill")?.query(&[("space_id", space_id)]);
+        if let Some(cursor) = cursor {
+            builder = builder.query(&[("cursor", cursor)]);
+        }
+        if let Some(limit) = limit {
+            builder = builder.query(&[("limit", limit)]);
+        }
+        self.send_json(builder).await
+    }
+
+    pub async fn sync_snapshot_head<R: DeserializeOwned>(&self, space_id: &str) -> Result<R> {
+        let builder = self
+            .request(Method::GET, "/api/v1/sync/snapshot-head")?
+            .query(&[("space_id", space_id)]);
+        self.send_json(builder).await
     }
 
     pub async fn index_query<T: DeserializeOwned>(
@@ -107,11 +252,54 @@ impl Client {
         self.post("/api/v1/authz/check", request).await
     }
 
+    pub async fn authz_effective_grants<R: DeserializeOwned>(
+        &self,
+        space_id: &str,
+        subject: &str,
+        at: Option<&str>,
+    ) -> Result<R> {
+        let mut builder = self
+            .request(Method::GET, "/api/v1/authz/effective-grants")?
+            .query(&[("space_id", space_id), ("subject", subject)]);
+        if let Some(at) = at {
+            builder = builder.query(&[("at", at)]);
+        }
+        self.send_json(builder).await
+    }
+
+    pub async fn authz_invites<R: DeserializeOwned>(
+        &self,
+        subject: &str,
+        space_id: Option<&str>,
+        cursor: Option<&str>,
+    ) -> Result<R> {
+        let mut builder =
+            self.request(Method::GET, "/api/v1/authz/invites")?.query(&[("subject", subject)]);
+        if let Some(space_id) = space_id {
+            builder = builder.query(&[("space_id", space_id)]);
+        }
+        if let Some(cursor) = cursor {
+            builder = builder.query(&[("cursor", cursor)]);
+        }
+        self.send_json(builder).await
+    }
+
     pub async fn blob_metadata(&self, blob_ref: &BlobRef) -> Result<BlobMetadata> {
         let builder = self
             .request(Method::GET, "/api/v1/blob/get")?
             .query(&[("blob_ref", blob_ref.as_str())]);
         self.send_json(builder).await
+    }
+
+    pub async fn blob_head(&self, blob_ref: &BlobRef) -> Result<reqwest::header::HeaderMap> {
+        let builder = self
+            .request(Method::HEAD, "/api/v1/blob/get")?
+            .query(&[("blob_ref", blob_ref.as_str())]);
+        self.send_empty(builder).await
+    }
+
+    pub async fn blob_upload<T: Serialize, R: DeserializeOwned>(&self, body: &T) -> Result<R> {
+        self.post("/api/v1/blob/upload", body).await
     }
 
     pub async fn keys_upload(&self, request: &KeysUploadRequest) -> Result<KeysUploadResponse> {
@@ -149,6 +337,299 @@ impl Client {
             builder = builder.query(&[("limit", limit)]);
         }
         self.send_json(builder).await
+    }
+
+    pub async fn federation_transaction<T: Serialize, R: DeserializeOwned>(
+        &self,
+        txn_id: &str,
+        request: &T,
+    ) -> Result<R> {
+        reject_path_segment(txn_id)?;
+        let path = format!("/api/v1/federation/transactions/{txn_id}");
+        self.put(&path, request).await
+    }
+
+    pub async fn federation_push_operations<T: Serialize, R: DeserializeOwned>(
+        &self,
+        request: &T,
+    ) -> Result<R> {
+        self.post("/api/v1/federation/push-operations", request).await
+    }
+
+    pub async fn federation_pull_operations<R: DeserializeOwned>(
+        &self,
+        space_id: &str,
+        after_cursor: Option<&str>,
+        limit: Option<u32>,
+    ) -> Result<R> {
+        let mut builder = self
+            .request(Method::GET, "/api/v1/federation/pull-operations")?
+            .query(&[("space_id", space_id)]);
+        if let Some(after_cursor) = after_cursor {
+            builder = builder.query(&[("after_cursor", after_cursor)]);
+        }
+        if let Some(limit) = limit {
+            builder = builder.query(&[("limit", limit)]);
+        }
+        self.send_json(builder).await
+    }
+
+    pub async fn federation_space_members<R: DeserializeOwned>(
+        &self,
+        space_id: &str,
+        cursor: Option<&str>,
+        limit: Option<u32>,
+    ) -> Result<R> {
+        let mut builder = self
+            .request(Method::GET, "/api/v1/federation/space-members")?
+            .query(&[("space_id", space_id)]);
+        if let Some(cursor) = cursor {
+            builder = builder.query(&[("cursor", cursor)]);
+        }
+        if let Some(limit) = limit {
+            builder = builder.query(&[("limit", limit)]);
+        }
+        self.send_json(builder).await
+    }
+
+    pub async fn federation_verify_actor<T: Serialize, R: DeserializeOwned>(
+        &self,
+        request: &T,
+    ) -> Result<R> {
+        self.post("/api/v1/federation/verify-actor", request).await
+    }
+
+    pub async fn index_describe(&self) -> Result<Value> {
+        self.get("/api/v1/index/describe").await
+    }
+
+    pub async fn index_entity<R: DeserializeOwned>(
+        &self,
+        entity_id: &str,
+        space_id: Option<&str>,
+        at: Option<&str>,
+    ) -> Result<R> {
+        let mut builder =
+            self.request(Method::GET, "/api/v1/index/entity")?.query(&[("entity_id", entity_id)]);
+        if let Some(space_id) = space_id {
+            builder = builder.query(&[("space_id", space_id)]);
+        }
+        if let Some(at) = at {
+            builder = builder.query(&[("at", at)]);
+        }
+        self.send_json(builder).await
+    }
+
+    pub async fn index_thread<R: DeserializeOwned>(
+        &self,
+        topic_id: &str,
+        cursor: Option<&str>,
+        limit: Option<u32>,
+    ) -> Result<R> {
+        let mut builder =
+            self.request(Method::GET, "/api/v1/index/thread")?.query(&[("topic_id", topic_id)]);
+        if let Some(cursor) = cursor {
+            builder = builder.query(&[("cursor", cursor)]);
+        }
+        if let Some(limit) = limit {
+            builder = builder.query(&[("limit", limit)]);
+        }
+        self.send_json(builder).await
+    }
+
+    pub async fn index_notifications<R: DeserializeOwned>(
+        &self,
+        cursor: Option<&str>,
+        state: Option<&str>,
+        limit: Option<u32>,
+    ) -> Result<R> {
+        let mut builder = self.request(Method::GET, "/api/v1/index/notifications")?;
+        if let Some(cursor) = cursor {
+            builder = builder.query(&[("cursor", cursor)]);
+        }
+        if let Some(state) = state {
+            builder = builder.query(&[("state", state)]);
+        }
+        if let Some(limit) = limit {
+            builder = builder.query(&[("limit", limit)]);
+        }
+        self.send_json(builder).await
+    }
+
+    pub async fn index_inbox<R: DeserializeOwned>(
+        &self,
+        scope: Option<&str>,
+        cursor: Option<&str>,
+        limit: Option<u32>,
+    ) -> Result<R> {
+        let mut builder = self.request(Method::GET, "/api/v1/index/inbox")?;
+        if let Some(scope) = scope {
+            builder = builder.query(&[("scope", scope)]);
+        }
+        if let Some(cursor) = cursor {
+            builder = builder.query(&[("cursor", cursor)]);
+        }
+        if let Some(limit) = limit {
+            builder = builder.query(&[("limit", limit)]);
+        }
+        self.send_json(builder).await
+    }
+
+    pub async fn index_search<T: Serialize, R: DeserializeOwned>(&self, request: &T) -> Result<R> {
+        self.post("/api/v1/index/search", request).await
+    }
+
+    pub async fn index_space_hierarchy<R: DeserializeOwned>(
+        &self,
+        space_id: &str,
+        depth: Option<u32>,
+        include_unconfirmed: Option<bool>,
+    ) -> Result<R> {
+        let mut builder = self
+            .request(Method::GET, "/api/v1/index/space-hierarchy")?
+            .query(&[("space_id", space_id)]);
+        if let Some(depth) = depth {
+            builder = builder.query(&[("depth", depth)]);
+        }
+        if let Some(include_unconfirmed) = include_unconfirmed {
+            builder = builder.query(&[("include_unconfirmed", include_unconfirmed)]);
+        }
+        self.send_json(builder).await
+    }
+
+    pub async fn directory_describe(&self) -> Result<Value> {
+        self.get("/api/v1/directory/describe").await
+    }
+
+    pub async fn directory_search_spaces<T: Serialize, R: DeserializeOwned>(
+        &self,
+        request: &T,
+    ) -> Result<R> {
+        self.post("/api/v1/directory/search-spaces", request).await
+    }
+
+    pub async fn directory_resolve_space<T: Serialize, R: DeserializeOwned>(
+        &self,
+        request: &T,
+    ) -> Result<R> {
+        self.post("/api/v1/directory/resolve-space", request).await
+    }
+
+    pub async fn directory_search_organizations<T: Serialize, R: DeserializeOwned>(
+        &self,
+        request: &T,
+    ) -> Result<R> {
+        self.post("/api/v1/directory/search-organizations", request).await
+    }
+
+    pub async fn directory_resolve_organization<T: Serialize, R: DeserializeOwned>(
+        &self,
+        request: &T,
+    ) -> Result<R> {
+        self.post("/api/v1/directory/resolve-organization", request).await
+    }
+
+    pub async fn directory_search_actors<T: Serialize, R: DeserializeOwned>(
+        &self,
+        request: &T,
+    ) -> Result<R> {
+        self.post("/api/v1/directory/search-actors", request).await
+    }
+
+    pub async fn directory_search_users<R: DeserializeOwned>(
+        &self,
+        q: &str,
+        space_id: Option<&str>,
+        limit: Option<u32>,
+    ) -> Result<R> {
+        let mut builder =
+            self.request(Method::GET, "/api/v1/directory/search-users")?.query(&[("q", q)]);
+        if let Some(space_id) = space_id {
+            builder = builder.query(&[("space_id", space_id)]);
+        }
+        if let Some(limit) = limit {
+            builder = builder.query(&[("limit", limit)]);
+        }
+        self.send_json(builder).await
+    }
+
+    pub async fn directory_resolve_handle<T: Serialize, R: DeserializeOwned>(
+        &self,
+        request: &T,
+    ) -> Result<R> {
+        self.post("/api/v1/directory/resolve-handle", request).await
+    }
+
+    pub async fn push_register_device<T: Serialize, R: DeserializeOwned>(
+        &self,
+        request: &T,
+    ) -> Result<R> {
+        self.post("/api/v1/push/register-device", request).await
+    }
+
+    pub async fn push_unregister_device<T: Serialize, R: DeserializeOwned>(
+        &self,
+        request: &T,
+    ) -> Result<R> {
+        self.post("/api/v1/push/unregister-device", request).await
+    }
+
+    pub async fn push_notify<T: Serialize, R: DeserializeOwned>(&self, request: &T) -> Result<R> {
+        self.post("/api/v1/push/notify", request).await
+    }
+
+    pub async fn policy_check<T: Serialize, R: DeserializeOwned>(&self, request: &T) -> Result<R> {
+        self.post("/contrix/v1/check", request).await
+    }
+
+    pub async fn media_ice_config<T: Serialize, R: DeserializeOwned>(
+        &self,
+        request: &T,
+    ) -> Result<R> {
+        self.post("/contrix/v1/ice-config", request).await
+    }
+
+    pub async fn moderation_report<T: Serialize, R: DeserializeOwned>(
+        &self,
+        request: &T,
+    ) -> Result<R> {
+        self.post("/api/v1/moderation/report", request).await
+    }
+
+    pub async fn applet_ping(&self) -> Result<Value> {
+        self.get("/api/v1/applet/ping").await
+    }
+
+    pub async fn applet_describe(&self) -> Result<Value> {
+        self.get("/api/v1/applet/describe").await
+    }
+
+    pub async fn applet_transaction<T: Serialize, R: DeserializeOwned>(
+        &self,
+        txn_id: &str,
+        request: &T,
+    ) -> Result<R> {
+        reject_path_segment(txn_id)?;
+        let path = format!("/api/v1/applet/transactions/{txn_id}");
+        self.put(&path, request).await
+    }
+
+    pub async fn applet_actor<R: DeserializeOwned>(&self, actor_id: &str) -> Result<R> {
+        reject_path_segment(actor_id)?;
+        let path = format!("/api/v1/applet/actors/{actor_id}");
+        self.get(&path).await
+    }
+
+    pub async fn applet_space<R: DeserializeOwned>(&self, space_id_or_alias: &str) -> Result<R> {
+        reject_path_segment(space_id_or_alias)?;
+        let path = format!("/api/v1/applet/spaces/{space_id_or_alias}");
+        self.get(&path).await
+    }
+
+    pub async fn applet_protocol<R: DeserializeOwned>(&self, protocol: &str) -> Result<R> {
+        reject_path_segment(protocol)?;
+        let path = format!("/api/v1/applet/protocols/{protocol}");
+        self.get(&path).await
     }
 
     pub async fn get<T: DeserializeOwned>(&self, path: &str) -> Result<T> {
@@ -198,6 +679,23 @@ impl Client {
         }
 
         Ok(response.json().await?)
+    }
+
+    async fn send_empty(&self, builder: RequestBuilder) -> Result<reqwest::header::HeaderMap> {
+        let response = builder.send().await?;
+        let status = response.status();
+        let headers = response.headers().clone();
+        if !status.is_success() {
+            let error = response.json::<ErrorEnvelope>().await.unwrap_or_else(|_| ErrorEnvelope {
+                errcode: "cx.error.http_status".to_owned(),
+                error: format!("HTTP request failed with status {status}"),
+                retry_after_ms: None,
+                extra: Default::default(),
+            });
+            return Err(Error::Api { status: status.as_u16(), error });
+        }
+
+        Ok(headers)
     }
 }
 
