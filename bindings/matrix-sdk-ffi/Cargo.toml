@@ -1,0 +1,136 @@
+[package]
+name = "matrix-sdk-ffi"
+version = "0.16.0"
+edition = "2021"
+homepage = "https://github.com/matrix-org/matrix-rust-sdk"
+keywords = ["matrix", "chat", "messaging", "ffi"]
+license = "Apache-2.0"
+readme = "README.md"
+rust-version.workspace = true
+repository = "https://github.com/matrix-org/matrix-rust-sdk"
+publish = false
+
+[package.metadata.release]
+release = true
+
+[lib]
+crate-type = [
+  # Needed by uniffi for Android bindings
+  "cdylib",
+  # Needed by uniffi for iOS bindings
+  "staticlib",
+  # Needed by uniffi for JS/Wasm bindings, which use rust as an intermediate language
+  "lib"
+]
+
+[features]
+default = ["bundled-sqlite", "unstable-msc4274", "experimental-element-recent-emojis"]
+# Use SQLite for the session storage.
+sqlite = ["matrix-sdk/sqlite"]
+# Use an embedded version of SQLite.
+bundled-sqlite = ["sqlite", "matrix-sdk/bundled-sqlite"]
+# Use IndexedDB for the session storage.
+indexeddb = ["matrix-sdk/indexeddb"]
+unstable-msc4274 = ["matrix-sdk-ui/unstable-msc4274"]
+# Required when targeting a Javascript environment, like Wasm in a browser.
+js = ["matrix-sdk-ui/js"]
+# Use the TLS implementation provided by the host system, necessary on iOS and Wasm platforms.
+native-tls = ["matrix-sdk/native-tls", "sentry?/native-tls"]
+# Use Rustls as the TLS implementation, necessary on Android platforms.
+rustls-tls = ["matrix-sdk/rustls-tls", "sentry?/rustls"]
+# Enable sentry error monitoring, not compatible with Wasm platforms.
+sentry = ["dep:sentry", "dep:sentry-tracing"]
+
+experimental-element-recent-emojis = ["matrix-sdk/experimental-element-recent-emojis"]
+
+[dependencies]
+anyhow.workspace = true
+extension-trait = "1.0.2"
+eyeball-im.workspace = true
+futures-util.workspace = true
+language-tags = "0.3.2"
+log-panics = { version = "2.1.0", default-features = false, features = ["with-backtrace"] }
+matrix-sdk = { workspace = true, features = [
+    "anyhow",
+    "e2e-encryption",
+    "experimental-widgets",
+    "markdown",
+    "socks",
+    "uniffi",
+    "federation-api",
+] }
+matrix-sdk-base.workspace = true
+matrix-sdk-common.workspace = true
+matrix-sdk-ffi-macros.workspace = true
+matrix-sdk-ui = { workspace = true, features = ["uniffi"] }
+mime = { version = "0.3.17", default-features = false }
+once_cell.workspace = true
+ruma = { workspace = true, features = [
+    "html",
+    "unstable-msc3488",
+    "compat-unset-avatar",
+    "unstable-msc3245-v1-compat",
+    "unstable-msc4278",
+    "unstable-msc3230",
+    # Audio event type
+    "unstable-msc3927",
+    # File event type
+    "unstable-msc3551",
+    # Image event type
+    "unstable-msc3552",
+    # Video event type
+    "unstable-msc3553",
+    # Voice event type
+    "unstable-msc3245",
+    # Emote event type
+    "unstable-msc3954",
+    # Image pack event type
+    "unstable-msc2545",
+    # Room language event type
+    "unstable-msc4334",
+] }
+serde.workspace = true
+serde_json.workspace = true
+sentry = { workspace = true, optional = true, features = [
+  # Most default features enabled otherwise.
+  "backtrace",
+  "contexts",
+  "debug-images",
+  "panic",
+  "reqwest",
+  "sentry-debug-images",
+] }
+sentry-tracing = { workspace = true, optional = true }
+thiserror.workspace = true
+tracing.workspace = true
+tracing-appender.workspace = true
+tracing-core.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+url.workspace = true
+uuid = { version = "1.4.1", default-features = false, features = ["std", "v4"] }
+zeroize.workspace = true
+oauth2.workspace = true
+
+[target.'cfg(target_family = "wasm")'.dependencies]
+console_error_panic_hook = { version = "0.1.7", default-features = false }
+tokio = { workspace = true, features = ["sync", "macros"] }
+uniffi = { workspace = true, features = ["wasm-unstable-single-threaded"] }
+futures-executor.workspace = true
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+async-compat.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+uniffi = { workspace = true, features = ["tokio"] }
+
+[target.'cfg(target_os = "android")'.dependencies]
+paranoid-android = { version = "0.2.2", default-features = false }
+
+[dev-dependencies]
+similar-asserts.workspace = true
+
+[build-dependencies]
+uniffi = { workspace = true, features = ["build"] }
+vergen-gitcl = { workspace = true, features = ["build"] }
+
+[lints]
+workspace = true
