@@ -7,17 +7,17 @@
 //! - Latest event tracking
 
 use std::{
-    collections::{VecDeque, BTreeMap},
+    collections::{BTreeMap, VecDeque},
     sync::Arc,
 };
 
 use serde_json::Value;
 
 use crate::{
+    Result,
     base::BaseClient,
     model::{Event, EventId, SpaceId},
     sync::{BackfillDirection, BackfillFrom, BackfillRequest},
-    Result,
 };
 
 /// Configuration for timeline queries.
@@ -33,11 +33,7 @@ pub struct TimelineOptions {
 
 impl Default for TimelineOptions {
     fn default() -> Self {
-        Self {
-            limit: 50,
-            direction: TimelineDirection::Backward,
-            from: TimelineFrom::Latest,
-        }
+        Self { limit: 50, direction: TimelineDirection::Backward, from: TimelineFrom::Latest }
     }
 }
 
@@ -160,10 +156,7 @@ impl Timeline {
 
     /// Get a specific event by ID.
     pub fn get_event(&self, event_id: &EventId) -> Option<TimelineEvent> {
-        self.events
-            .iter()
-            .find(|te| &te.event.event_id == event_id)
-            .cloned()
+        self.events.iter().find(|te| &te.event.event_id == event_id).cloned()
     }
 
     /// Get the latest event.
@@ -180,19 +173,16 @@ impl Timeline {
     pub fn append_events(&mut self, events: Vec<Event>) -> Result<()> {
         for event in events {
             // Update latest event ID
-            if self.latest_event_id.is_none() || event.hlc.as_str() > self.latest_event_id.as_ref().map(|id| id.as_str()).unwrap_or("") {
+            if self.latest_event_id.is_none()
+                || event.hlc.as_str()
+                    > self.latest_event_id.as_ref().map(|id| id.as_str()).unwrap_or("")
+            {
                 self.latest_event_id = Some(event.event_id.clone());
             }
 
-            let position = TimelinePosition {
-                index: self.events.len(),
-                is_latest: true,
-            };
+            let position = TimelinePosition { index: self.events.len(), is_latest: true };
 
-            let timeline_event = TimelineEvent {
-                event,
-                position,
-            };
+            let timeline_event = TimelineEvent { event, position };
 
             self.events.push_back(timeline_event);
 
@@ -214,17 +204,15 @@ impl Timeline {
     pub fn prepend_events(&mut self, events: Vec<Event>) -> Result<()> {
         for event in events.into_iter().rev() {
             // Update oldest event ID
-            if self.oldest_event_id.is_none() || event.hlc.as_str() < self.oldest_event_id.as_ref().map(|id| id.as_str()).unwrap_or("") {
+            if self.oldest_event_id.is_none()
+                || event.hlc.as_str()
+                    < self.oldest_event_id.as_ref().map(|id| id.as_str()).unwrap_or("")
+            {
                 self.oldest_event_id = Some(event.event_id.clone());
             }
 
-            let timeline_event = TimelineEvent {
-                event,
-                position: TimelinePosition {
-                    index: 0,
-                    is_latest: false,
-                },
-            };
+            let timeline_event =
+                TimelineEvent { event, position: TimelinePosition { index: 0, is_latest: false } };
 
             self.events.push_front(timeline_event);
 
@@ -264,7 +252,8 @@ impl Timeline {
                 }
             }
             TimelineFrom::EventId(event_id) => {
-                if let Some(start_idx) = events.iter().position(|te| &te.event.event_id == event_id) {
+                if let Some(start_idx) = events.iter().position(|te| &te.event.event_id == event_id)
+                {
                     match options.direction {
                         TimelineDirection::Backward => {
                             // Return events before start_idx
@@ -286,7 +275,8 @@ impl Timeline {
                         TimelineDirection::Both => {
                             // Return events around start_idx
                             let before = start_idx.saturating_sub(options.limit as usize / 2);
-                            let after = (start_idx + options.limit as usize / 2 + 1).min(events.len());
+                            let after =
+                                (start_idx + options.limit as usize / 2 + 1).min(events.len());
                             events[before..after].to_vec()
                         }
                     }
@@ -295,12 +285,8 @@ impl Timeline {
                     Vec::new()
                 }
             }
-            TimelineFrom::Beginning => {
-                events.into_iter().take(options.limit as usize).collect()
-            }
-            TimelineFrom::End => {
-                events.into_iter().rev().take(options.limit as usize).collect()
-            }
+            TimelineFrom::Beginning => events.into_iter().take(options.limit as usize).collect(),
+            TimelineFrom::End => events.into_iter().rev().take(options.limit as usize).collect(),
         }
     }
 
@@ -328,12 +314,14 @@ impl Timeline {
     }
 
     /// Record a gap in the timeline.
-    pub fn record_gap(&mut self, prev_event_id: Option<EventId>, next_event_id: Option<EventId>, estimated_count: Option<u64>) {
-        let gap = TimelineGap {
-            prev_event_id,
-            next_event_id,
-            estimated_gap_count: estimated_count,
-        };
+    pub fn record_gap(
+        &mut self,
+        prev_event_id: Option<EventId>,
+        next_event_id: Option<EventId>,
+        estimated_count: Option<u64>,
+    ) {
+        let gap =
+            TimelineGap { prev_event_id, next_event_id, estimated_gap_count: estimated_count };
         self.gaps.push(gap);
     }
 
@@ -425,17 +413,11 @@ mod tests {
         let mut timeline = Timeline::new(space_id.clone(), base_client);
 
         // First append some events
-        let events1 = vec![
-            create_test_event(&space_id, 4),
-            create_test_event(&space_id, 5),
-        ];
+        let events1 = vec![create_test_event(&space_id, 4), create_test_event(&space_id, 5)];
         timeline.append_events(events1).unwrap();
 
         // Then prepend older events
-        let events2 = vec![
-            create_test_event(&space_id, 2),
-            create_test_event(&space_id, 3),
-        ];
+        let events2 = vec![create_test_event(&space_id, 2), create_test_event(&space_id, 3)];
         timeline.prepend_events(events2).unwrap();
 
         assert_eq!(timeline.len(), 4);

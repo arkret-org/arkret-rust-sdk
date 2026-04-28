@@ -4,12 +4,12 @@
 //! the protocol documentation. Cursors are opaque tokens used for incremental
 //! synchronization between clients and servers.
 
+use base64::Engine as _;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, HashMap},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
-use serde::{Deserialize, Serialize};
-use base64::Engine as _;
 
 use crate::{Hlc, Result};
 
@@ -54,10 +54,7 @@ impl Cursor {
 
     /// Create a new cursor with current timestamp and default expiration.
     pub fn new() -> Self {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as i64;
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as i64;
 
         Self {
             v: "1".to_owned(),
@@ -84,8 +81,7 @@ impl Cursor {
         device_id: impl Into<String>,
         message_id: impl Into<String>,
     ) -> Self {
-        self.d.get_or_insert_with(BTreeMap::new)
-            .insert(device_id.into(), message_id.into());
+        self.d.get_or_insert_with(BTreeMap::new).insert(device_id.into(), message_id.into());
         self
     }
 
@@ -101,9 +97,11 @@ impl Cursor {
         let json = crate::canonical::canonical_json_bytes(self)?;
 
         if json.len() > Self::MAX_ENCODED_SIZE {
-            return Err(crate::Error::Protocol(
-                format!("cursor too large: {} bytes (max {})", json.len(), Self::MAX_ENCODED_SIZE)
-            ));
+            return Err(crate::Error::Protocol(format!(
+                "cursor too large: {} bytes (max {})",
+                json.len(),
+                Self::MAX_ENCODED_SIZE
+            )));
         }
 
         // Encode to Base64URL without padding
@@ -128,6 +126,7 @@ impl Cursor {
 
         let json = base64::engine::general_purpose::URL_SAFE_NO_PAD
             .decode(encoded)
+            .or_else(|_| base64::engine::general_purpose::URL_SAFE.decode(encoded))
             .map_err(|_| crate::Error::Protocol("invalid Base64URL encoding".to_owned()))?;
 
         let cursor: Cursor = serde_json::from_slice(&json)
@@ -142,16 +141,11 @@ impl Cursor {
     fn validate(&self) -> Result<()> {
         // Check version
         if self.v != "1" {
-            return Err(crate::Error::Protocol(
-                format!("unsupported cursor version: {}", self.v)
-            ));
+            return Err(crate::Error::Protocol(format!("unsupported cursor version: {}", self.v)));
         }
 
         // Check expiration
-        let now_ms = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as i64;
+        let now_ms = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as i64;
 
         if self.x < now_ms {
             return Err(crate::Error::Protocol("cursor has expired".to_owned()));
@@ -167,7 +161,7 @@ impl Cursor {
         if let Some(devices) = &self.d {
             for (device_id, message_id) in devices {
                 Self::validate_device_id(device_id)?;
-                Self::validate_event_id(message_id)?;
+                Self::validate_device_message_id(message_id)?;
             }
         }
 
@@ -175,11 +169,7 @@ impl Cursor {
     }
 
     fn validate_space_id(space_id: &str) -> Result<()> {
-        if !space_id.starts_with("cx:space:") {
-            return Err(crate::Error::InvalidId(space_id.to_owned()));
-        }
-        // Space IDs should be at least "cx:space:" + 1 char
-        if space_id.len() <= 9 {
+        if !has_prefixed_ulid(space_id, "cx:space:") {
             return Err(crate::Error::InvalidId(space_id.to_owned()));
         }
         Ok(())
@@ -189,11 +179,7 @@ impl Cursor {
         // Validate HLC format
         Hlc::new(&pos.order)?;
 
-        // Validate state hash format: sha256: + 64 hex chars
-        if !pos.h.starts_with("sha256:") {
-            return Err(crate::Error::InvalidId(pos.h.clone()));
-        }
-        if pos.h.len() != 71 { // sha256: (7) + 64 hex chars
+        if !is_sha256_hash(&pos.h) {
             return Err(crate::Error::InvalidId(pos.h.clone()));
         }
 
@@ -206,9 +192,8 @@ impl Cursor {
     }
 
     fn validate_device_id(device_id: &str) -> Result<()> {
-        // Accept both dev_* and cx:device:* formats
         let is_valid = device_id.starts_with("dev_") && device_id.len() > 4
-            || device_id.starts_with("cx:device:") && device_id.len() > 10;
+            || has_prefixed_ulid(device_id, "cx:device:");
 
         if !is_valid {
             return Err(crate::Error::InvalidId(device_id.to_owned()));
@@ -217,9 +202,10 @@ impl Cursor {
     }
 
     fn validate_event_id(event_id: &str) -> Result<()> {
-        // Accept cx:evt:*, cx:event:*, and sha256:* formats
-        let is_valid = (event_id.starts_with("cx:evt:") || event_id.starts_with("cx:event:")) && event_id.len() > 10
-            || event_id.starts_with("sha256:") && event_id.len() == 71;
+        let is_valid = has_prefixed_ulid(event_id, "cx:evt:")
+            || has_prefixed_ulid(event_id, "cx:event:")
+            || has_prefixed_ulid(event_id, "cx:operation:")
+            || is_sha256_hash(event_id);
 
         if !is_valid {
             return Err(crate::Error::InvalidId(event_id.to_owned()));
@@ -227,16 +213,25 @@ impl Cursor {
         Ok(())
     }
 
+    fn validate_device_message_id(message_id: &str) -> Result<()> {
+        if has_prefixed_ulid(message_id, "cx:devmsg:")
+            || has_prefixed_ulid(message_id, "cx:device_message:")
+        {
+            Ok(())
+        } else {
+            Err(crate::Error::InvalidId(message_id.to_owned()))
+        }
+    }
+
     /// Create a cursor from sync positions.
     pub fn from_positions(positions: SyncPositions) -> Self {
         let mut cursor = Self::new();
 
         for (space_id, pos) in positions.spaces {
-            cursor = cursor.with_space_position(space_id, SpacePosition {
-                p: pos.frontier,
-                order: pos.timeline_order,
-                h: pos.state_hash,
-            });
+            cursor = cursor.with_space_position(
+                space_id,
+                SpacePosition { p: pos.frontier, order: pos.timeline_order, h: pos.state_hash },
+            );
         }
 
         if let Some(devices) = positions.devices {
@@ -276,25 +271,15 @@ impl Cursor {
 
     /// Check if the cursor is expired.
     pub fn is_expired(&self) -> bool {
-        let now_ms = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as i64;
+        let now_ms = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as i64;
         self.x < now_ms
     }
 
     /// Get the remaining time before expiration.
     pub fn time_until_expiration(&self) -> Option<Duration> {
-        let now_ms = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as i64;
+        let now_ms = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as i64;
 
-        if self.x > now_ms {
-            Some(Duration::from_millis((self.x - now_ms) as u64))
-        } else {
-            None
-        }
+        if self.x > now_ms { Some(Duration::from_millis((self.x - now_ms) as u64)) } else { None }
     }
 }
 
@@ -302,6 +287,28 @@ impl Default for Cursor {
     fn default() -> Self {
         Self::new()
     }
+}
+
+fn has_prefixed_ulid(value: &str, prefix: &str) -> bool {
+    let Some(suffix) = value.strip_prefix(prefix) else {
+        return false;
+    };
+    suffix.len() == 26
+        && suffix.bytes().all(|b| {
+            b.is_ascii_digit()
+                || matches!(
+                    b.to_ascii_lowercase(),
+                    b'a'..=b'h' | b'j'..=b'k' | b'm'..=b'n' | b'p'..=b'z'
+                )
+        })
+}
+
+fn is_sha256_hash(value: &str) -> bool {
+    value.len() == 71
+        && value.starts_with("sha256:")
+        && value["sha256:".len()..]
+            .bytes()
+            .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
 }
 
 /// Sync positions extracted from a cursor.
@@ -337,10 +344,7 @@ impl SyncTracker {
     /// Create a new sync tracker.
     pub fn new() -> Self {
         Self {
-            positions: SyncPositions {
-                spaces: BTreeMap::new(),
-                devices: None,
-            },
+            positions: SyncPositions { spaces: BTreeMap::new(), devices: None },
             sync_tokens: HashMap::new(),
         }
     }
@@ -376,11 +380,12 @@ mod tests {
     fn cursor_encode_decode_roundtrip() {
         let mut cursor = Cursor::new();
         cursor = cursor.with_space_position(
-            "cx:space:01JS0SP000000000000000000",
+            "cx:space:01js0sp0000000000000000000",
             SpacePosition {
-                p: vec!["cx:evt:01JS0EV000000000000000000".to_owned()],
+                p: vec!["cx:evt:01js0ev0000000000000000000".to_owned()],
                 order: "01970e589d21-00000004-a13f9c2e".to_owned(),
-                h: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef".to_owned(),
+                h: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                    .to_owned(),
             },
         );
 
@@ -435,16 +440,18 @@ mod tests {
     fn sync_positions_roundtrip() {
         let positions = SyncPositions {
             spaces: BTreeMap::from([(
-                "cx:space:01JS0SP000000000000000000".to_owned(),
+                "cx:space:01js0sp0000000000000000000".to_owned(),
                 SpaceSyncPosition {
-                    frontier: vec!["cx:evt:01JS0EV000000000000000000".to_owned()],
-                    timeline_order: "01970e589d21-0004-a13f9c2e".to_owned(),
-                    state_hash: "sha256:abc123...".to_owned(),
+                    frontier: vec!["cx:evt:01js0ev0000000000000000000".to_owned()],
+                    timeline_order: "01970e589d21-00000004-a13f9c2e".to_owned(),
+                    state_hash:
+                        "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                            .to_owned(),
                 },
             )]),
             devices: Some(BTreeMap::from([(
                 "device-laptop".to_owned(),
-                "cx:devmsg:01JS0DM000000000000000000".to_owned(),
+                "cx:devmsg:01js0dm0000000000000000000".to_owned(),
             )])),
         };
 

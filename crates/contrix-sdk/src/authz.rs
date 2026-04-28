@@ -6,11 +6,11 @@
 //! - Grant validation and enforcement
 //! - Delegation tracking
 
-use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
-use crate::{Error, Result, SpaceId, Did};
+use crate::{Did, Error, Result, SpaceId};
 
 /// Authorization decision result.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -39,21 +39,11 @@ pub enum ResourceSelector {
     /// Space selector
     Space { space_id: String },
     /// Entity selector
-    Entity {
-        space_id: String,
-        entity_type: Option<String>,
-        entity_id: Option<String>,
-    },
+    Entity { space_id: String, entity_type: Option<String>, entity_id: Option<String> },
     /// Relation selector
-    Relation {
-        space_id: String,
-        relation_kind: String,
-    },
+    Relation { space_id: String, relation_kind: String },
     /// View selector
-    View {
-        space_id: String,
-        view_id: Option<String>,
-    },
+    View { space_id: String, view_id: Option<String> },
     /// Wildcard selector (all resources)
     Wildcard,
 }
@@ -71,7 +61,11 @@ impl ResourceSelector {
             // Entity selector
             (
                 Self::Entity { space_id, entity_type, entity_id },
-                Resource::Entity { space_id: target_space, entity_type: target_type, entity_id: target_id }
+                Resource::Entity {
+                    space_id: target_space,
+                    entity_type: target_type,
+                    entity_id: target_id,
+                },
             ) => {
                 let space_match = space_id == target_space || space_id == "*";
                 let type_match = entity_type.as_ref().map_or(true, |t| t == target_type);
@@ -83,7 +77,7 @@ impl ResourceSelector {
             // Relation selector
             (
                 Self::Relation { space_id, relation_kind },
-                Resource::Relation { space_id: target_space, relation_kind: target_kind }
+                Resource::Relation { space_id: target_space, relation_kind: target_kind },
             ) => {
                 let space_match = space_id == target_space || space_id == "*";
                 space_match && relation_kind == target_kind
@@ -93,7 +87,7 @@ impl ResourceSelector {
             // View selector
             (
                 Self::View { space_id, view_id },
-                Resource::View { space_id: target_space, view_id: target_id }
+                Resource::View { space_id: target_space, view_id: target_id },
             ) => {
                 let space_match = space_id == target_space || space_id == "*";
                 let id_match = view_id.as_ref().map_or(true, |id| id == target_id);
@@ -124,9 +118,7 @@ impl ResourceSelector {
         let remainder = parts[1];
 
         match selector_type {
-            "space" => {
-                Ok(Self::Space { space_id: remainder.to_owned() })
-            }
+            "space" => Ok(Self::Space { space_id: remainder.to_owned() }),
             "entity" => {
                 // Format: entity:cx:space:ULID:entity_type[:entity_id] OR entity:cx:space:ULID:*
                 // The space_id is cx:space:ULID (including the ULID part)
@@ -136,7 +128,8 @@ impl ResourceSelector {
                 }
 
                 // Reconstruct space_id as "cx:space:ULID"
-                let space_id = format!("{}:{}:{}", entity_parts[0], entity_parts[1], entity_parts[2]);
+                let space_id =
+                    format!("{}:{}:{}", entity_parts[0], entity_parts[1], entity_parts[2]);
 
                 // entity_type comes after the space ULID
                 let entity_type = if entity_parts.len() > 3 && entity_parts[3] != "*" {
@@ -157,7 +150,10 @@ impl ResourceSelector {
                 // Format: relation:space_id:relation_kind
                 let relation_parts: Vec<&str> = remainder.splitn(2, ':').collect();
                 if relation_parts.len() != 2 {
-                    return Err(Error::Protocol(format!("invalid relation selector: {}", selector)));
+                    return Err(Error::Protocol(format!(
+                        "invalid relation selector: {}",
+                        selector
+                    )));
                 }
                 Ok(Self::Relation {
                     space_id: relation_parts[0].to_owned(),
@@ -188,21 +184,11 @@ pub enum Resource {
     /// Space resource
     Space { space_id: String },
     /// Entity resource
-    Entity {
-        space_id: String,
-        entity_type: String,
-        entity_id: String,
-    },
+    Entity { space_id: String, entity_type: String, entity_id: String },
     /// Relation resource
-    Relation {
-        space_id: String,
-        relation_kind: String,
-    },
+    Relation { space_id: String, relation_kind: String },
     /// View resource
-    View {
-        space_id: String,
-        view_id: String,
-    },
+    View { space_id: String, view_id: String },
 }
 
 impl Resource {
@@ -231,11 +217,7 @@ pub enum Constraint {
         recurrence: Option<Recurrence>,
     },
     /// Field access constraint
-    FieldAccess {
-        effect: ConstraintEffect,
-        scope: FieldScope,
-        fields: Vec<String>,
-    },
+    FieldAccess { effect: ConstraintEffect, scope: FieldScope, fields: Vec<String> },
     /// Type restriction constraint
     TypeRestriction {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -267,10 +249,7 @@ pub enum Constraint {
         timeout: Option<ConstraintDuration>,
     },
     /// Claim-based constraint
-    ClaimBased {
-        requires_claims: Vec<ClaimRequirement>,
-        trusted_issuers: Vec<Did>,
-    },
+    ClaimBased { requires_claims: Vec<ClaimRequirement>, trusted_issuers: Vec<Did> },
     /// Accountability constraint
     Accountability {
         #[serde(default = "default_false")]
@@ -376,11 +355,7 @@ pub struct ConstraintEntry {
 impl ConstraintEntry {
     /// Create a new constraint entry.
     pub fn new(constraint: Constraint) -> Self {
-        Self {
-            constraint_id: None,
-            constraint,
-            priority: 0,
-        }
+        Self { constraint_id: None, constraint, priority: 0 }
     }
 
     /// Set the priority.
@@ -465,10 +440,7 @@ struct CachedDecision {
 impl AuthzEngine {
     /// Create a new authorization engine.
     pub fn new() -> Self {
-        Self {
-            cache: HashMap::new(),
-            max_cache_size: 1000,
-        }
+        Self { cache: HashMap::new(), max_cache_size: 1000 }
     }
 
     /// Check authorization for a context against a list of grants.
@@ -507,9 +479,7 @@ impl AuthzEngine {
 
         // If no matching grants, deny
         if matching_grants.is_empty() {
-            return AuthzDecision::Deny {
-                reason: "no matching grant".to_owned(),
-            };
+            return AuthzDecision::Deny { reason: "no matching grant".to_owned() };
         }
 
         // Check action match
@@ -519,9 +489,7 @@ impl AuthzEngine {
             .collect();
 
         if action_grants.is_empty() {
-            return AuthzDecision::Deny {
-                reason: format!("action '{}' not granted", ctx.action),
-            };
+            return AuthzDecision::Deny { reason: format!("action '{}' not granted", ctx.action) };
         }
 
         // Evaluate constraints for all matching grants
@@ -559,13 +527,11 @@ impl AuthzEngine {
     fn evaluate_constraints(&self, ctx: &AuthzContext, grant: &CapabilityGrant) -> AuthzDecision {
         // Sort constraints by effect: deny > quarantine > require_review > allow
         let mut constraints = grant.constraints.clone();
-        constraints.sort_by_key(|c| {
-            match c.effect() {
-                ConstraintEffect::Deny => 0,
-                ConstraintEffect::Quarantine => 1,
-                ConstraintEffect::RequireReview => 2,
-                ConstraintEffect::Allow => 3,
-            }
+        constraints.sort_by_key(|c| match c.effect() {
+            ConstraintEffect::Deny => 0,
+            ConstraintEffect::Quarantine => 1,
+            ConstraintEffect::RequireReview => 2,
+            ConstraintEffect::Allow => 3,
         });
 
         for entry in &constraints {
@@ -649,9 +615,7 @@ impl AuthzEngine {
             }
             Constraint::ApprovalWorkflow { approval_required, .. } => {
                 if *approval_required {
-                    AuthzDecision::RequireReview {
-                        reason: "approval required".to_owned(),
-                    }
+                    AuthzDecision::RequireReview { reason: "approval required".to_owned() }
                 } else {
                     AuthzDecision::Allow
                 }
@@ -688,11 +652,14 @@ impl AuthzEngine {
             self.cache.clear();
         }
 
-        self.cache.insert(key, CachedDecision {
-            decision: decision.clone(),
-            cached_at: ctx.now,
-            valid_until: None, // TODO: Calculate from temporal constraints
-        });
+        self.cache.insert(
+            key,
+            CachedDecision {
+                decision: decision.clone(),
+                cached_at: ctx.now,
+                valid_until: None, // TODO: Calculate from temporal constraints
+            },
+        );
     }
 
     /// Clear the cache.
@@ -728,19 +695,23 @@ mod tests {
     #[test]
     fn resource_selector_parse_space() {
         let selector = ResourceSelector::parse("space:cx:space:01JS0SP000000000000000000").unwrap();
-        assert_eq!(selector, ResourceSelector::Space {
-            space_id: "cx:space:01JS0SP000000000000000000".to_owned()
-        });
+        assert_eq!(
+            selector,
+            ResourceSelector::Space { space_id: "cx:space:01JS0SP000000000000000000".to_owned() }
+        );
     }
 
     #[test]
     fn resource_selector_parse_entity() {
         let selector = ResourceSelector::parse("entity:cx:space:...:task").unwrap();
-        assert_eq!(selector, ResourceSelector::Entity {
-            space_id: "cx:space:...".to_owned(),
-            entity_type: Some("task".to_owned()),
-            entity_id: None,
-        });
+        assert_eq!(
+            selector,
+            ResourceSelector::Entity {
+                space_id: "cx:space:...".to_owned(),
+                entity_type: Some("task".to_owned()),
+                entity_id: None,
+            }
+        );
     }
 
     #[test]
@@ -756,9 +727,7 @@ mod tests {
 
     #[test]
     fn space_selector_matches_space() {
-        let selector = ResourceSelector::Space {
-            space_id: "cx:space:A".to_owned(),
-        };
+        let selector = ResourceSelector::Space { space_id: "cx:space:A".to_owned() };
         assert!(selector.matches(&Resource::Space { space_id: "cx:space:A".to_owned() }));
         assert!(!selector.matches(&Resource::Space { space_id: "cx:space:B".to_owned() }));
     }
@@ -809,9 +778,7 @@ mod tests {
             issuer: Did::new("did:web:authority.example.com").unwrap(),
             subject: Did::new("did:web:alice.example.com").unwrap(),
             actions: vec!["read".to_owned()],
-            resources: vec![ResourceSelector::Space {
-                space_id: "cx:space:A".to_owned(),
-            }],
+            resources: vec![ResourceSelector::Space { space_id: "cx:space:A".to_owned() }],
             constraints: vec![],
             delegable: false,
         };
@@ -834,9 +801,7 @@ mod tests {
             issuer: Did::new("did:web:authority.example.com").unwrap(),
             subject: Did::new("did:web:alice.example.com").unwrap(),
             actions: vec!["read".to_owned()],
-            resources: vec![ResourceSelector::Space {
-                space_id: "cx:space:A".to_owned(),
-            }],
+            resources: vec![ResourceSelector::Space { space_id: "cx:space:A".to_owned() }],
             constraints: vec![],
             delegable: false,
         };
@@ -859,9 +824,7 @@ mod tests {
             issuer: Did::new("did:web:authority.example.com").unwrap(),
             subject: Did::new("did:web:alice.example.com").unwrap(),
             actions: vec!["read".to_owned()],
-            resources: vec![ResourceSelector::Space {
-                space_id: "cx:space:A".to_owned(),
-            }],
+            resources: vec![ResourceSelector::Space { space_id: "cx:space:A".to_owned() }],
             constraints: vec![ConstraintEntry::new(Constraint::Temporal {
                 not_before: None,
                 expires_at: Some(Utc::now() - chrono::Duration::hours(1)),

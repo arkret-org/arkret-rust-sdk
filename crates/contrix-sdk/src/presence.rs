@@ -6,19 +6,11 @@
 //! - Device-specific presence
 //! - Presence status updates
 
-use std::{
-    collections::BTreeMap,
-    sync::Arc,
-};
+use std::{collections::BTreeMap, sync::Arc};
 
 use chrono::{DateTime, Utc};
 
-use crate::{
-    base::BaseClient,
-    model::Did,
-    sync::PresenceStatus,
-    Result,
-};
+use crate::{Result, base::BaseClient, model::Did, sync::PresenceStatus};
 
 /// Presence information for a user.
 #[derive(Clone, Debug)]
@@ -47,43 +39,31 @@ pub struct PresenceManager {
 impl PresenceManager {
     /// Create a new presence manager.
     pub fn new(base_client: Arc<BaseClient>) -> Self {
-        Self {
-            base_client,
-            presence: Arc::new(std::sync::RwLock::new(BTreeMap::new())),
-        }
+        Self { base_client, presence: Arc::new(std::sync::RwLock::new(BTreeMap::new())) }
     }
 
     /// Get presence for a user.
     pub fn get(&self, user_id: &Did) -> Option<Presence> {
-        self.presence
-            .read()
-            .unwrap()
-            .get(user_id.as_str())
-            .cloned()
+        self.presence.read().unwrap().get(user_id.as_str()).cloned()
     }
 
     /// Set presence for a user.
     pub fn set(&self, presence: Presence) -> Result<()> {
         let user_id = presence.user_id.as_str().to_owned();
-        self.presence
-            .write()
-            .unwrap()
-            .insert(user_id, presence);
+        self.presence.write().unwrap().insert(user_id, presence);
         Ok(())
     }
 
     /// Update presence status for a user.
     pub fn update_status(&self, user_id: &Did, status: PresenceStatus) -> Result<()> {
         let mut presence_map = self.presence.write().unwrap();
-        let entry = presence_map
-            .entry(user_id.as_str().to_owned())
-            .or_insert_with(|| Presence {
-                user_id: user_id.clone(),
-                status: PresenceStatus::Offline,
-                last_active: None,
-                active_device: None,
-                status_msg: None,
-            });
+        let entry = presence_map.entry(user_id.as_str().to_owned()).or_insert_with(|| Presence {
+            user_id: user_id.clone(),
+            status: PresenceStatus::Offline,
+            last_active: None,
+            active_device: None,
+            status_msg: None,
+        });
 
         entry.status = status;
         entry.last_active = Some(Utc::now());
@@ -113,13 +93,7 @@ impl PresenceManager {
 
     /// Get all users with a specific status.
     pub fn users_with_status(&self, status: PresenceStatus) -> Vec<Presence> {
-        self.presence
-            .read()
-            .unwrap()
-            .values()
-            .filter(|p| p.status == status)
-            .cloned()
-            .collect()
+        self.presence.read().unwrap().values().filter(|p| p.status == status).cloned().collect()
     }
 
     /// Get all presence data.

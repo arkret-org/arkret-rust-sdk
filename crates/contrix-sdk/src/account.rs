@@ -5,18 +5,11 @@
 //! - Client-specific data
 //! - Account data synchronization
 
-use std::{
-    collections::BTreeMap,
-    sync::Arc,
-};
+use std::{collections::BTreeMap, sync::Arc};
 
 use serde_json::Value;
 
-use crate::{
-    base::BaseClient,
-    model::Did,
-    Result,
-};
+use crate::{Result, base::BaseClient, model::Did};
 
 /// Account data entry.
 #[derive(Clone, Debug)]
@@ -39,40 +32,24 @@ pub struct AccountDataManager {
 impl AccountDataManager {
     /// Create a new account data manager.
     pub fn new(base_client: Arc<BaseClient>) -> Self {
-        Self {
-            base_client,
-            account_data: Arc::new(std::sync::RwLock::new(BTreeMap::new())),
-        }
+        Self { base_client, account_data: Arc::new(std::sync::RwLock::new(BTreeMap::new())) }
     }
 
     /// Get account data by type.
     pub fn get(&self, data_type: &str) -> Option<AccountData> {
-        self.account_data
-            .read()
-            .unwrap()
-            .get(data_type)
-            .cloned()
+        self.account_data.read().unwrap().get(data_type).cloned()
     }
 
     /// Set account data.
     pub fn set(&self, data_type: String, content: Value) -> Result<()> {
-        let account_data = AccountData {
-            data_type: data_type.clone(),
-            content,
-        };
-        self.account_data
-            .write()
-            .unwrap()
-            .insert(data_type, account_data);
+        let account_data = AccountData { data_type: data_type.clone(), content };
+        self.account_data.write().unwrap().insert(data_type, account_data);
         Ok(())
     }
 
     /// Remove account data.
     pub fn remove(&self, data_type: &str) -> Result<()> {
-        self.account_data
-            .write()
-            .unwrap()
-            .remove(data_type);
+        self.account_data.write().unwrap().remove(data_type);
         Ok(())
     }
 

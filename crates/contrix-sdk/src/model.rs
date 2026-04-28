@@ -128,7 +128,11 @@ impl Hlc {
             .and_then(|part| parse_lower_hex(part, value))?;
         let node = parts.next().ok_or_else(|| Error::InvalidId(value.to_owned()))?;
         if parts.next().is_some()
+            || value.len() != 30
+            || value.as_bytes().get(12) != Some(&b'-')
+            || value.as_bytes().get(21) != Some(&b'-')
             || node.is_empty()
+            || node.len() != 8
             || !node.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
         {
             return Err(Error::InvalidId(value.to_owned()));
@@ -168,7 +172,10 @@ impl Ord for Hlc {
 }
 
 fn parse_lower_hex(part: &str, original: &str) -> Result<u64> {
-    if part.is_empty() || !part.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase()) {
+    if part.is_empty()
+        || !matches!(part.len(), 8 | 12)
+        || !part.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+    {
         return Err(Error::InvalidId(original.to_owned()));
     }
     u64::from_str_radix(part, 16).map_err(|_| Error::InvalidId(original.to_owned()))
@@ -1442,6 +1449,8 @@ pub struct SyncRequest {
 pub struct SyncResponse {
     pub next_batch: String,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub spaces: BTreeMap<SpaceId, SyncSpace>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub rooms: BTreeMap<SpaceId, SyncSpace>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub to_device: Vec<Value>,
@@ -1453,6 +1462,13 @@ pub struct SyncResponse {
     pub presence: Vec<Value>,
     #[serde(default, skip_serializing_if = "is_false")]
     pub partial: bool,
+}
+
+impl SyncResponse {
+    /// Native Contrix space map, falling back to Matrix bridge-compatible rooms.
+    pub fn effective_spaces(&self) -> &BTreeMap<SpaceId, SyncSpace> {
+        if self.spaces.is_empty() { &self.rooms } else { &self.spaces }
+    }
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -1625,7 +1641,7 @@ mod tests {
             SpaceId::new("cx:space:01js0ke000000000000000000").unwrap(),
             Did::new("did:web:alice.example").unwrap(),
             1,
-            Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
+            Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap(),
             json!({ "body": "hello" }),
         )
         .unwrap();
@@ -1646,7 +1662,7 @@ mod tests {
             actor_id: Did::new("did:web:alice.example").unwrap(),
             actor_seq: 1,
             created_at: "2026-04-26T00:00:00Z".parse().unwrap(),
-            hlc: Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
+            hlc: Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap(),
             prev_refs: Vec::new(),
             auth_refs: Vec::new(),
             redacts: None,
@@ -1657,7 +1673,7 @@ mod tests {
 
         assert_eq!(
             event.event_digest().unwrap(),
-            "sha256:eb874f42a73755f5e77d3815a9cefa19487d84e12459d9c53766fdd6dc43cc5a"
+            "sha256:c0ee4d7b3fb0d6353d1a39bba417d49c8a0b7b2d37fa50a93819c03fa51a6fce"
         );
     }
 
@@ -1734,10 +1750,10 @@ mod tests {
     #[test]
     fn hlc_sorts_by_structured_parts() {
         let mut hlcs = [
-            "01970e589d21-0004-bbbbbbbb",
-            "01970e589d20-0009-ffffffff",
-            "01970e589d21-0003-ffffffff",
-            "01970e589d21-0004-a13f9c2e",
+            "01970e589d21-00000004-bbbbbbbb",
+            "01970e589d20-00000009-ffffffff",
+            "01970e589d21-00000003-ffffffff",
+            "01970e589d21-00000004-a13f9c2e",
         ]
         .map(|value| Hlc::new(value).unwrap());
         hlcs.sort();
@@ -1745,10 +1761,10 @@ mod tests {
         assert_eq!(
             actual,
             [
-                "01970e589d20-0009-ffffffff",
-                "01970e589d21-0003-ffffffff",
-                "01970e589d21-0004-a13f9c2e",
-                "01970e589d21-0004-bbbbbbbb",
+                "01970e589d20-00000009-ffffffff",
+                "01970e589d21-00000003-ffffffff",
+                "01970e589d21-00000004-a13f9c2e",
+                "01970e589d21-00000004-bbbbbbbb",
             ]
         );
     }
@@ -1822,10 +1838,10 @@ mod tests {
     }
 
     #[test]
-    fn sync_response_uses_rooms_key_not_spaces() {
+    fn sync_response_uses_native_spaces_and_bridge_rooms() {
         let response = SyncResponse {
             next_batch: "cx:sync:abc".to_owned(),
-            rooms: BTreeMap::from([(
+            spaces: BTreeMap::from([(
                 SpaceId::new("cx:space:01").unwrap(),
                 SyncSpace {
                     timeline: Some(SyncTimeline {
@@ -1839,6 +1855,7 @@ mod tests {
                     unread: Value::Null,
                 },
             )]),
+            rooms: BTreeMap::new(),
             to_device: Vec::new(),
             device_lists: Value::Null,
             account_data: Vec::new(),
@@ -1848,7 +1865,7 @@ mod tests {
 
         let value = serde_json::to_value(response).unwrap();
 
-        assert!(value.get("rooms").unwrap().is_object());
-        assert!(value.get("spaces").is_none());
+        assert!(value.get("spaces").unwrap().is_object());
+        assert!(value.get("rooms").is_none());
     }
 }

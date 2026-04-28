@@ -14,11 +14,11 @@ use std::{
 };
 
 use crate::{
+    Result,
     cursor::SyncTracker,
-    model::{Did, DeviceId, Event, SpaceId},
+    model::{DeviceId, Did, Event, SpaceId},
     resolver::SpaceState,
     store::{MemoryRepoStore, RepoStore},
-    Result,
 };
 
 /// Session metadata for the authenticated user.
@@ -37,21 +37,12 @@ pub struct SessionMeta {
 impl SessionMeta {
     /// Create new session metadata.
     pub fn new(user_id: Did, device_id: DeviceId) -> Self {
-        Self {
-            user_id,
-            device_id,
-            access_token: None,
-            expires_at: None,
-        }
+        Self { user_id, device_id, access_token: None, expires_at: None }
     }
 
     /// Check if the session is expired.
     pub fn is_expired(&self) -> bool {
-        if let Some(expires_at) = self.expires_at {
-            chrono::Utc::now() > expires_at
-        } else {
-            false
-        }
+        if let Some(expires_at) = self.expires_at { chrono::Utc::now() > expires_at } else { false }
     }
 }
 
@@ -173,31 +164,19 @@ impl BaseClient {
     /// Get all joined spaces.
     pub fn joined_spaces(&self) -> Vec<ClientSpace> {
         let spaces = self.spaces.read().unwrap();
-        spaces
-            .values()
-            .filter(|s| s.state == SpaceStateType::Joined)
-            .cloned()
-            .collect()
+        spaces.values().filter(|s| s.state == SpaceStateType::Joined).cloned().collect()
     }
 
     /// Get all invited spaces.
     pub fn invited_spaces(&self) -> Vec<ClientSpace> {
         let spaces = self.spaces.read().unwrap();
-        spaces
-            .values()
-            .filter(|s| s.state == SpaceStateType::Invited)
-            .cloned()
-            .collect()
+        spaces.values().filter(|s| s.state == SpaceStateType::Invited).cloned().collect()
     }
 
     /// Get all left spaces.
     pub fn left_spaces(&self) -> Vec<ClientSpace> {
         let spaces = self.spaces.read().unwrap();
-        spaces
-            .values()
-            .filter(|s| s.state == SpaceStateType::Left)
-            .cloned()
-            .collect()
+        spaces.values().filter(|s| s.state == SpaceStateType::Left).cloned().collect()
     }
 
     /// Process events and update space states.

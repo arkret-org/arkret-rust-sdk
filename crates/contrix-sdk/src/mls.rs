@@ -37,6 +37,91 @@ pub struct MlsAddMemberResult {
     pub welcome: MlsWelcomeEnvelope,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct EncryptedMessage {
+    pub message_id: String,
+    pub payload: EncryptedPayload,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum MessageCryptoDecrypt {
+    Plaintext {
+        message_id: String,
+        content_type: String,
+        plaintext: Vec<u8>,
+    },
+    Encrypted {
+        message_id: String,
+        payload: EncryptedPayload,
+        reason: MessageCryptoUnavailable,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum MessageCryptoUnavailable {
+    NoSession,
+    KeyUnavailable(String),
+}
+
+pub struct MessageCrypto;
+
+impl MessageCrypto {
+    pub fn encrypt(
+        group: &mut ContrixMlsGroup,
+        message_id: impl Into<String>,
+        content_type: impl Into<String>,
+        plaintext: &[u8],
+    ) -> Result<EncryptedMessage> {
+        Ok(EncryptedMessage {
+            message_id: message_id.into(),
+            payload: group.encrypt_payload(content_type, plaintext)?,
+        })
+    }
+
+    pub fn verify_opaque_payload_digest(message: &EncryptedMessage) -> Result<()> {
+        let ciphertext_bytes = decode(&message.payload.ciphertext)?;
+        message.payload.verify_mls_payload_digest(&ciphertext_bytes)
+    }
+
+    pub fn decrypt(
+        group: &mut ContrixMlsGroup,
+        message: &EncryptedMessage,
+    ) -> Result<Vec<u8>> {
+        Self::verify_opaque_payload_digest(message)?;
+        group.decrypt_payload(&message.payload)
+    }
+
+    pub fn decrypt_or_preserve(
+        group: Option<&mut ContrixMlsGroup>,
+        message: EncryptedMessage,
+    ) -> Result<MessageCryptoDecrypt> {
+        Self::verify_opaque_payload_digest(&message)?;
+        let message_id = message.message_id.clone();
+        let content_type = message.payload.content_type.clone();
+
+        let Some(group) = group else {
+            return Ok(MessageCryptoDecrypt::Encrypted {
+                message_id,
+                payload: message.payload,
+                reason: MessageCryptoUnavailable::NoSession,
+            });
+        };
+
+        match group.decrypt_payload(&message.payload) {
+            Ok(plaintext) => Ok(MessageCryptoDecrypt::Plaintext {
+                message_id,
+                content_type,
+                plaintext,
+            }),
+            Err(error) => Ok(MessageCryptoDecrypt::Encrypted {
+                message_id,
+                payload: message.payload,
+                reason: MessageCryptoUnavailable::KeyUnavailable(error.to_string()),
+            }),
+        }
+    }
+}
+
 impl ContrixMlsIdentity {
     pub fn new_basic(principal_id: Did, device_id: DeviceId) -> Result<Self> {
         let provider = OpenMlsRustCrypto::default();

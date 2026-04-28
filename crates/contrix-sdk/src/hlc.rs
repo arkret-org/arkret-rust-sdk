@@ -7,9 +7,9 @@
 //! - Node ID calculation from DIDs
 //! - Monotonic HLC generation
 
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use crate::{Error, Hlc as HlcType, Result};
 use sha2::{Digest, Sha256};
-use crate::{Error, Result, Hlc as HlcType};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 /// Validate HLC format according to Contrix v1 spec.
 ///
@@ -70,11 +70,7 @@ impl HlcGenerator {
         let node_id = Self::compute_node_id(node_identifier);
         let physical = Self::current_time_ms();
 
-        Self {
-            physical,
-            logical: 0,
-            node_id,
-        }
+        Self { physical, logical: 0, node_id }
     }
 
     /// Create a new HLC generator with a custom initial time.
@@ -83,11 +79,7 @@ impl HlcGenerator {
     pub fn with_initial_time(node_identifier: &str, initial_time_ms: u64) -> Self {
         let node_id = Self::compute_node_id(node_identifier);
 
-        Self {
-            physical: initial_time_ms,
-            logical: 0,
-            node_id,
-        }
+        Self { physical: initial_time_ms, logical: 0, node_id }
     }
 
     /// Generate the next HLC value.
@@ -186,26 +178,17 @@ impl HlcGenerator {
     /// Takes first 8 hex chars (32 bits) of SHA256 hash.
     fn compute_node_id(identifier: &str) -> String {
         let hash = Sha256::digest(identifier.as_bytes());
-        hash[0..4]
-            .iter()
-            .map(|b| format!("{:02x}", b))
-            .collect()
+        hash[0..4].iter().map(|b| format!("{:02x}", b)).collect()
     }
 
     /// Get current physical time in milliseconds since Unix epoch.
     fn current_time_ms() -> u64 {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as u64
+        SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64
     }
 
     /// Format current HLC as string.
     fn format(&self) -> String {
-        format!(
-            "{:012x}-{:08x}-{}",
-            self.physical, self.logical, self.node_id
-        )
+        format!("{:012x}-{:08x}-{}", self.physical, self.logical, self.node_id)
     }
 }
 
@@ -215,10 +198,7 @@ pub fn parse_hlc(hlc: &str) -> Result<HlcComponents> {
 
     let parts: Vec<&str> = hlc.split('-').collect();
     if parts.len() != 3 {
-        return Err(Error::InvalidId(format!(
-            "invalid HLC: wrong number of parts: {}",
-            hlc
-        )));
+        return Err(Error::InvalidId(format!("invalid HLC: wrong number of parts: {}", hlc)));
     }
 
     let physical_ms = u64::from_str_radix(parts[0], 16)
@@ -229,11 +209,7 @@ pub fn parse_hlc(hlc: &str) -> Result<HlcComponents> {
 
     let node_id = parts[2].to_string();
 
-    Ok(HlcComponents {
-        physical_ms,
-        logical,
-        node_id,
-    })
+    Ok(HlcComponents { physical_ms, logical, node_id })
 }
 
 /// Compare two HLC values.
@@ -248,13 +224,11 @@ pub fn compare_hlc(hlc1: &str, hlc2: &str) -> Result<std::cmp::Ordering> {
     let parts2 = parse_hlc(hlc2)?;
 
     // Lexicographic comparison: physical, then logical, then node_id
-    Ok(
-        parts1
-            .physical_ms
-            .cmp(&parts2.physical_ms)
-            .then_with(|| parts1.logical.cmp(&parts2.logical))
-            .then_with(|| parts1.node_id.cmp(&parts2.node_id)),
-    )
+    Ok(parts1
+        .physical_ms
+        .cmp(&parts2.physical_ms)
+        .then_with(|| parts1.logical.cmp(&parts2.logical))
+        .then_with(|| parts1.node_id.cmp(&parts2.node_id)))
 }
 
 /// Check if HLC is within acceptable clock skew window.
@@ -322,19 +296,22 @@ mod tests {
     fn compare_hlc_lexicographic() {
         // Physical time takes precedence
         assert_eq!(
-            compare_hlc("01970e589d21-00000001-a13f9c2e", "01970e589d22-00000000-a13f9c2e").unwrap(),
+            compare_hlc("01970e589d21-00000001-a13f9c2e", "01970e589d22-00000000-a13f9c2e")
+                .unwrap(),
             std::cmp::Ordering::Less
         );
 
         // Logical counter breaks ties
         assert_eq!(
-            compare_hlc("01970e589d21-00000001-a13f9c2e", "01970e589d21-00000002-a13f9c2e").unwrap(),
+            compare_hlc("01970e589d21-00000001-a13f9c2e", "01970e589d21-00000002-a13f9c2e")
+                .unwrap(),
             std::cmp::Ordering::Less
         );
 
         // Node ID breaks ties
         assert_eq!(
-            compare_hlc("01970e589d21-00000001-a13f9c2e", "01970e589d21-00000001-b13f9c2e").unwrap(),
+            compare_hlc("01970e589d21-00000001-a13f9c2e", "01970e589d21-00000001-b13f9c2e")
+                .unwrap(),
             std::cmp::Ordering::Less
         );
     }
@@ -381,8 +358,9 @@ mod tests {
 
         // Create HLC far in the future (> 5 minutes)
         // MAX_SKEW_MS is 5 minutes in milliseconds, so we add more than that
-        let future_physical = u64::MAX - 1000; // Far in the future
-        let future_hlc = HlcType::new(&format!("{:012x}-00000001-a13f9c2e", future_physical)).unwrap();
+        let future_physical = HlcGenerator::current_time_ms() + MAX_SKEW_MS as u64 + 1000;
+        let future_hlc =
+            HlcType::new(&format!("{:012x}-00000001-a13f9c2e", future_physical)).unwrap();
 
         assert!(hlc_gen.validate_incoming(&future_hlc).is_err());
     }
@@ -428,16 +406,18 @@ mod tests {
         // All characters should be hex digits (0-9, a-f) or dash (-)
         assert!(hlc.as_str().chars().all(|c| c.is_ascii_hexdigit() || c == '-'));
         // And specifically lowercase (no uppercase A-F)
-        assert!(hlc.as_str().chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-'));
+        assert!(
+            hlc.as_str().chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+        );
     }
 
     #[test]
     fn hlc_string_sorting_matches_numeric_sorting() {
         let mut hlcs = vec![
-            "01970e589d21-0004-bbbbbbbb",
-            "01970e589d20-0009-ffffffff",
-            "01970e589d21-0003-ffffffff",
-            "01970e589d21-0004-a13f9c2e",
+            "01970e589d21-00000004-bbbbbbbb",
+            "01970e589d20-00000009-ffffffff",
+            "01970e589d21-00000003-ffffffff",
+            "01970e589d21-00000004-a13f9c2e",
         ];
 
         hlcs.sort();
@@ -445,10 +425,10 @@ mod tests {
         assert_eq!(
             hlcs,
             vec![
-                "01970e589d20-0009-ffffffff",
-                "01970e589d21-0003-ffffffff",
-                "01970e589d21-0004-a13f9c2e",
-                "01970e589d21-0004-bbbbbbbb",
+                "01970e589d20-00000009-ffffffff",
+                "01970e589d21-00000003-ffffffff",
+                "01970e589d21-00000004-a13f9c2e",
+                "01970e589d21-00000004-bbbbbbbb",
             ]
         );
     }

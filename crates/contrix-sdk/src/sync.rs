@@ -6,12 +6,12 @@
 //! - Device message handling
 //! - Filter and subscription support
 
-use std::collections::{BTreeMap, HashMap};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::{BTreeMap, HashMap};
 
-use crate::{SpaceId, EventId};
+use crate::{EventId, SpaceId};
 
 /// Sync request for incremental synchronization.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -41,6 +41,9 @@ pub struct SyncResponse {
     /// Space sync results
     #[serde(default)]
     pub spaces: BTreeMap<String, SyncSpace>,
+    /// Matrix bridge compatibility. Native Contrix implementations should use `spaces`.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub rooms: BTreeMap<String, SyncSpace>,
     /// To-device messages
     #[serde(default)]
     pub to_device: Vec<ToDeviceMessage>,
@@ -306,11 +309,7 @@ pub struct SyncClient {
 impl SyncClient {
     /// Create a new sync client.
     pub fn new(device_id: String) -> Self {
-        Self {
-            current_token: None,
-            device_id,
-            subscriptions: HashMap::new(),
-        }
+        Self { current_token: None, device_id, subscriptions: HashMap::new() }
     }
 
     /// Get the current sync token.
@@ -357,7 +356,8 @@ impl SyncClient {
 
         // Extract updates
         let mut space_updates = Vec::new();
-        for (space_id, sync_space) in response.spaces {
+        let spaces = if response.spaces.is_empty() { response.rooms } else { response.spaces };
+        for (space_id, sync_space) in spaces {
             space_updates.push(SpaceUpdate {
                 space_id: SpaceId::new(space_id).unwrap(),
                 timeline: sync_space.timeline,
@@ -505,6 +505,7 @@ mod tests {
         let response = SyncResponse {
             next_batch: "token456".to_owned(),
             spaces: BTreeMap::new(),
+            rooms: BTreeMap::new(),
             to_device: vec![],
             device_lists: DeviceListChanges::default(),
             presence: vec![],

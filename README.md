@@ -26,6 +26,17 @@ cargo check
 cargo test
 ```
 
+## Guides
+
+- [Quick start](docs/quick-start.md)
+- [API and error handling](docs/api-and-errors.md)
+- [Authentication flows](docs/authentication.md)
+- [Sync best practices](docs/sync-best-practices.md)
+- [Matrix migration notes](docs/migration-from-matrix.md)
+- [Security audit checklist](docs/security-audit.md)
+- [Conformance certification](docs/conformance-certification.md)
+- [LTS policy](docs/lts-policy.md)
+
 ## Implemented Contrix Surface
 
 The first Contrix crate currently includes:
@@ -45,6 +56,9 @@ The first Contrix crate currently includes:
 - Server description and profile version checks
 - HTTP client methods for `/server`, `/repo`, `/sync`, `/index`, `/authz`, `/blob`,
   `/keys` and `/device_messages`
+- high-level sync loop, membership, devices, receipts, notifications, content,
+  media, profile/settings, discovery, E2EE, auth/identity, federation, push,
+  typing, WebRTC, store and event-handler helpers
 
 ## License
 

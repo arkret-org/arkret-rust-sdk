@@ -10,6 +10,12 @@ contrix-sdk
     |-- model: wire-safe protocol data structures and digest payloads
     |-- canonical: deterministic JSON and SHA-256 helpers
     |-- client: HTTP client for Contrix service endpoints
+    |-- base: local client state, sessions and resolved space state
+    |-- sync_client: long-poll loop, response processing and sliding sync
+    |-- membership/devices/receipts/notifications: core client business state
+    |-- content/media/profile/settings/search/discovery: feature helpers
+    |-- auth/identity/e2ee/federation/push: production protocol services
+    |-- typing/webrtc/event_handler: realtime client features
     |-- mls: OpenMLS-backed group encryption and epoch handling
     |-- service: service description and profile verification
     `-- store: local Repo persistence traits and in-memory implementation
@@ -78,3 +84,27 @@ conflicts when an existing identifier is reused with a different digest.
 
 Persistent stores should implement the same trait contract as the in-memory
 store before they are exposed publicly.
+
+## Data Flow
+
+```text
+HTTP client / federation / push
+    -> sync protocol responses
+    -> sync_client::SyncResponseProcessor
+    -> base::BaseClient state
+    -> high-level managers (Space, Timeline, Presence, Receipts, Notifications)
+    -> application event handlers
+```
+
+Managers are intentionally IO-light. Network transports, platform push
+providers, platform WebRTC stacks and real SQLite/IndexedDB adapters can wrap
+these state machines without changing SDK-facing types.
+
+## Security Notes
+
+- Use canonical digests for any signed payload.
+- Validate service profiles before depending on remote capabilities.
+- Treat E2EE, identity and federation helpers as state/control-plane helpers;
+  production deployments should connect them to platform-grade key storage and
+  cryptographic signing.
+- Keep push payloads redacted for encrypted events.
