@@ -741,19 +741,23 @@ impl SpaceState {
                     Error::Protocol("read marker requires scope or target_ref".to_owned())
                 }),
             // Space lifecycle events use the space_id as state key
-            "cx.space.create" | "cx.space.update" | "cx.space.organization" | "cx.space.child"
-            | "cx.space.parent" | "cx.space.inheritance_policy" | "cx.space.join_rule"
-            | "cx.space.history_visibility" | "cx.space.discovery" | "cx.space.archive"
-            | "cx.space.freeze" | "cx.space.destroy" => {
-                Ok(event.space_id.as_str().to_owned())
-            }
+            "cx.space.create"
+            | "cx.space.update"
+            | "cx.space.organization"
+            | "cx.space.child"
+            | "cx.space.parent"
+            | "cx.space.inheritance_policy"
+            | "cx.space.join_rule"
+            | "cx.space.history_visibility"
+            | "cx.space.discovery"
+            | "cx.space.archive"
+            | "cx.space.freeze"
+            | "cx.space.destroy" => Ok(event.space_id.as_str().to_owned()),
             // View events use view_id as state key
             "cx.view.create" | "cx.view.update" | "cx.view.reconcile" => self
                 .extract_optional_field::<String>(&event.content, "view_id")
                 .or_else(|| self.extract_optional_field::<String>(&event.content, "id"))
-                .ok_or_else(|| {
-                    Error::Protocol("view event requires view_id or id".to_owned())
-                }),
+                .ok_or_else(|| Error::Protocol("view event requires view_id or id".to_owned())),
             _ => Ok(String::new()),
         }
     }

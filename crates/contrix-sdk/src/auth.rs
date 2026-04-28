@@ -49,11 +49,41 @@ pub struct MfaChallenge {
     pub verified: bool,
 }
 
+/// Account recovery method types.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AccountRecoveryMethod {
+    DidProof { verification_method: String },
+    PasswordReset { reset_token_hash: String },
+    PasskeyWebAuthnRebinding { credential_id: String },
+}
+
+/// Account recovery request tracked by the auth layer.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AccountRecoveryRequest {
+    pub request_id: String,
+    pub user_id: Did,
+    pub method: AccountRecoveryMethod,
+    pub expires_at: DateTime<Utc>,
+    pub completed_at: Option<DateTime<Utc>>,
+}
+
+/// Session-to-DID principal binding.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionPrincipalBinding {
+    pub session_id: String,
+    pub principal_id: Did,
+    pub device_id: DeviceId,
+    pub created_at: DateTime<Utc>,
+    pub valid_until: DateTime<Utc>,
+}
+
 /// Authenticated session.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AuthSession {
     pub session_id: String,
     pub user_id: Did,
+    pub principal_id: Did,
     pub device_id: DeviceId,
     pub access_token: String,
     pub refresh_token: String,
@@ -236,6 +266,7 @@ impl AuthManager {
             revoked: false,
             created_at: Utc::now(),
             user_id: user_id.clone(),
+            principal_id: user_id.clone(),
             device_id,
         };
         self.sessions.insert(session.session_id.clone(), session.clone());
@@ -295,6 +326,39 @@ impl AuthManager {
             })
             .unwrap_or_default()
     }
+
+    /// Create a DID principal binding for an active session.
+    pub fn session_principal_binding(&self, session_id: &str) -> Result<SessionPrincipalBinding> {
+        let session = self
+            .sessions
+            .get(session_id)
+            .ok_or_else(|| Error::Protocol("session not found".to_owned()))?;
+        if session.revoked || session.expires_at <= Utc::now() {
+            return Err(Error::Protocol("session inactive".to_owned()));
+        }
+        Ok(SessionPrincipalBinding {
+            session_id: session.session_id.clone(),
+            principal_id: session.principal_id.clone(),
+            device_id: session.device_id.clone(),
+            created_at: session.created_at,
+            valid_until: session.expires_at,
+        })
+    }
+
+    /// Start account recovery with a supported recovery method.
+    pub fn start_recovery(
+        &self,
+        user_id: Did,
+        method: AccountRecoveryMethod,
+    ) -> AccountRecoveryRequest {
+        AccountRecoveryRequest {
+            request_id: format!("recovery_{}", Ulid::new()),
+            user_id,
+            method,
+            expires_at: Utc::now() + Duration::minutes(15),
+            completed_at: None,
+        }
+    }
 }
 
 impl Default for AuthManager {
@@ -333,6 +397,8 @@ mod tests {
         let second = auth.login_password("alice", "secret", device("2")).unwrap();
 
         assert_eq!(auth.active_sessions(&alice).len(), 1);
+        let binding = auth.session_principal_binding(&second.session_id).unwrap();
+        assert_eq!(binding.principal_id, alice);
         assert!(auth.refresh_session(&second.session_id, &second.refresh_token).is_ok());
         assert!(auth.refresh_session(&first.session_id, &first.refresh_token).is_err());
         auth.revoke_session(&second.session_id).unwrap();
@@ -351,5 +417,18 @@ mod tests {
         let response = sha256_hex(challenge.challenge.as_bytes());
         let session = auth.verify_passkey(&alice, &response, device("passkey")).unwrap();
         assert_eq!(session.user_id, alice);
+    }
+
+    #[test]
+    fn auth_models_account_recovery_methods() {
+        let auth = AuthManager::default();
+        let request = auth.start_recovery(
+            did("alice"),
+            AccountRecoveryMethod::DidProof {
+                verification_method: "did:web:alice.example#key-1".to_owned(),
+            },
+        );
+        assert!(request.request_id.starts_with("recovery_"));
+        assert!(request.completed_at.is_none());
     }
 }

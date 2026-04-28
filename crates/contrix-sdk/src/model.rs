@@ -308,8 +308,13 @@ pub enum RelationKind {
     Used,
     TriggeredBy,
     HasLog,
+    Follows,
+    Contact,
+    CircleMember,
+    BlocksSocial,
     Reposts,
     Quotes,
+    Likes,
     #[serde(untagged)]
     Custom(String),
 }

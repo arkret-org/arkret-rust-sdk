@@ -60,12 +60,13 @@ pub use applet::{
     OpenApiBinding, PortalMode,
 };
 pub use auth::{
-    AuthManager, AuthSession, MfaChallenge, OidcAuthRequest, PasskeyChallenge, PasswordUser,
+    AccountRecoveryMethod, AccountRecoveryRequest, AuthManager, AuthSession, MfaChallenge,
+    OidcAuthRequest, PasskeyChallenge, PasswordUser, SessionPrincipalBinding,
 };
 pub use authz::{
-    AuthzContext, AuthzDecision, AuthzEngine, CapabilityGrant, ClaimRequirement, Constraint,
-    ConstraintDuration, ConstraintEffect, ConstraintEntry, FieldScope, RateLimitScope, Recurrence,
-    Resource, ResourceSelector,
+    ApprovalMode, AuthzContext, AuthzDecision, AuthzEngine, CapabilityGrant, ClaimRequirement,
+    Constraint, ConstraintDuration, ConstraintEffect, ConstraintEntry, FieldScope, RateLimitScope,
+    Recurrence, Resource, ResourceSelector, ScopeLimitation, VerifiedClaim,
 };
 pub use base::{BaseClient, ClientSpace, SessionMeta, SpaceStateType};
 #[cfg(feature = "client")]

@@ -85,20 +85,32 @@ impl ResourceSelector {
             // Board selector — matches entities with entity_type="board"
             (
                 Self::Board { space_id, board_id },
-                Resource::Entity { space_id: target_space, entity_type: target_type, entity_id: target_id },
+                Resource::Entity {
+                    space_id: target_space,
+                    entity_type: target_type,
+                    entity_id: target_id,
+                },
             ) => {
                 let space_match = space_id == target_space || space_id == "*";
-                space_match && target_type == "board" && board_id.as_ref().is_none_or(|id| id == target_id)
+                space_match
+                    && target_type == "board"
+                    && board_id.as_ref().is_none_or(|id| id == target_id)
             }
             (Self::Board { .. }, _) => false,
 
             // Collection selector — matches entities with entity_type="collection"
             (
                 Self::Collection { space_id, collection_id },
-                Resource::Entity { space_id: target_space, entity_type: target_type, entity_id: target_id },
+                Resource::Entity {
+                    space_id: target_space,
+                    entity_type: target_type,
+                    entity_id: target_id,
+                },
             ) => {
                 let space_match = space_id == target_space || space_id == "*";
-                space_match && target_type == "collection" && collection_id.as_ref().is_none_or(|id| id == target_id)
+                space_match
+                    && target_type == "collection"
+                    && collection_id.as_ref().is_none_or(|id| id == target_id)
             }
             (Self::Collection { .. }, _) => false,
 
@@ -121,40 +133,64 @@ impl ResourceSelector {
             // Comment selector — matches entities with entity_type="comment"
             (
                 Self::Comment { space_id, comment_id },
-                Resource::Entity { space_id: target_space, entity_type: target_type, entity_id: target_id },
+                Resource::Entity {
+                    space_id: target_space,
+                    entity_type: target_type,
+                    entity_id: target_id,
+                },
             ) => {
                 let space_match = space_id == target_space || space_id == "*";
-                space_match && target_type == "comment" && comment_id.as_ref().is_none_or(|id| id == target_id)
+                space_match
+                    && target_type == "comment"
+                    && comment_id.as_ref().is_none_or(|id| id == target_id)
             }
             (Self::Comment { .. }, _) => false,
 
             // Channel selector — matches entities with entity_type="channel"
             (
                 Self::Channel { space_id, channel_id },
-                Resource::Entity { space_id: target_space, entity_type: target_type, entity_id: target_id },
+                Resource::Entity {
+                    space_id: target_space,
+                    entity_type: target_type,
+                    entity_id: target_id,
+                },
             ) => {
                 let space_match = space_id == target_space || space_id == "*";
-                space_match && target_type == "channel" && channel_id.as_ref().is_none_or(|id| id == target_id)
+                space_match
+                    && target_type == "channel"
+                    && channel_id.as_ref().is_none_or(|id| id == target_id)
             }
             (Self::Channel { .. }, _) => false,
 
             // Topic selector — matches entities with entity_type="topic"
             (
                 Self::Topic { space_id, topic_id },
-                Resource::Entity { space_id: target_space, entity_type: target_type, entity_id: target_id },
+                Resource::Entity {
+                    space_id: target_space,
+                    entity_type: target_type,
+                    entity_id: target_id,
+                },
             ) => {
                 let space_match = space_id == target_space || space_id == "*";
-                space_match && target_type == "topic" && topic_id.as_ref().is_none_or(|id| id == target_id)
+                space_match
+                    && target_type == "topic"
+                    && topic_id.as_ref().is_none_or(|id| id == target_id)
             }
             (Self::Topic { .. }, _) => false,
 
             // Message selector — matches entities with entity_type="message"
             (
                 Self::Message { space_id, message_id },
-                Resource::Entity { space_id: target_space, entity_type: target_type, entity_id: target_id },
+                Resource::Entity {
+                    space_id: target_space,
+                    entity_type: target_type,
+                    entity_id: target_id,
+                },
             ) => {
                 let space_match = space_id == target_space || space_id == "*";
-                space_match && target_type == "message" && message_id.as_ref().is_none_or(|id| id == target_id)
+                space_match
+                    && target_type == "message"
+                    && message_id.as_ref().is_none_or(|id| id == target_id)
             }
             (Self::Message { .. }, _) => false,
 
@@ -182,20 +218,32 @@ impl ResourceSelector {
             // Run selector — matches entities with entity_type="run"
             (
                 Self::Run { space_id, run_id },
-                Resource::Entity { space_id: target_space, entity_type: target_type, entity_id: target_id },
+                Resource::Entity {
+                    space_id: target_space,
+                    entity_type: target_type,
+                    entity_id: target_id,
+                },
             ) => {
                 let space_match = space_id == target_space || space_id == "*";
-                space_match && target_type == "run" && run_id.as_ref().is_none_or(|id| id == target_id)
+                space_match
+                    && target_type == "run"
+                    && run_id.as_ref().is_none_or(|id| id == target_id)
             }
             (Self::Run { .. }, _) => false,
 
             // Memory selector — matches entities with entity_type="memory"
             (
                 Self::Memory { space_id, memory_id },
-                Resource::Entity { space_id: target_space, entity_type: target_type, entity_id: target_id },
+                Resource::Entity {
+                    space_id: target_space,
+                    entity_type: target_type,
+                    entity_id: target_id,
+                },
             ) => {
                 let space_match = space_id == target_space || space_id == "*";
-                space_match && target_type == "memory" && memory_id.as_ref().is_none_or(|id| id == target_id)
+                space_match
+                    && target_type == "memory"
+                    && memory_id.as_ref().is_none_or(|id| id == target_id)
             }
             (Self::Memory { .. }, _) => false,
 
@@ -230,10 +278,7 @@ impl ResourceSelector {
             (Self::Invite { .. }, _) => false,
 
             // Read marker selector
-            (
-                Self::ReadMarker { space_id },
-                Resource::ReadMarker { space_id: target_space },
-            ) => {
+            (Self::ReadMarker { space_id }, Resource::ReadMarker { space_id: target_space }) => {
                 space_id == target_space || space_id == "*"
             }
             (Self::ReadMarker { .. }, _) => false,
@@ -490,6 +535,8 @@ pub enum Constraint {
         entity_type_allow: Option<Vec<String>>,
         #[serde(skip_serializing_if = "Option::is_none")]
         entity_type_deny: Option<Vec<String>>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        scope_limitation: Option<ScopeLimitation>,
     },
     /// Delegation control constraint
     DelegationControl {
@@ -513,9 +560,24 @@ pub enum Constraint {
         approval_actor_refs: Option<Vec<Did>>,
         #[serde(skip_serializing_if = "Option::is_none")]
         timeout: Option<ConstraintDuration>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        approval_mode: Option<ApprovalMode>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        approval_relation: Option<String>,
+        #[serde(default)]
+        guardian_approval_required: bool,
+        #[serde(default)]
+        controller_approval_required: bool,
     },
     /// Claim-based constraint
-    ClaimBased { requires_claims: Vec<ClaimRequirement>, trusted_issuers: Vec<Did> },
+    ClaimBased {
+        requires_claims: Vec<ClaimRequirement>,
+        trusted_issuers: Vec<Did>,
+        #[serde(default)]
+        claim_refresh_required: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        claim_max_age: Option<ConstraintDuration>,
+    },
     /// Accountability constraint
     Accountability {
         #[serde(default = "default_false")]
@@ -529,6 +591,10 @@ pub enum Constraint {
         encryption_required: bool,
         #[serde(skip_serializing_if = "Option::is_none")]
         min_encryption_level: Option<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        memory_kind_allow: Vec<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        memory_kind_deny: Vec<String>,
     },
 }
 
@@ -581,12 +647,48 @@ pub enum RateLimitScope {
     Global,
 }
 
+/// Scope limitation type for grant constraints.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ScopeLimitation {
+    Space,
+    Channel,
+    Topic,
+    Thread,
+    View,
+    Entity,
+    Relation,
+    Policy,
+}
+
+/// Approval semantics for approval workflow constraints.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ApprovalMode {
+    Any,
+    All,
+    Threshold { count: u32 },
+    Guardian,
+    Controller,
+}
+
 fn default_rate_limit_scope() -> RateLimitScope {
     RateLimitScope::Global
 }
 
 fn default_false() -> bool {
     false
+}
+
+fn max_age_contains(age: chrono::Duration, max_age: &ConstraintDuration) -> bool {
+    let allowed = match max_age.unit.as_str() {
+        "s" => chrono::Duration::seconds(max_age.value as i64),
+        "m" => chrono::Duration::minutes(max_age.value as i64),
+        "h" => chrono::Duration::hours(max_age.value as i64),
+        "d" => chrono::Duration::days(max_age.value as i64),
+        _ => return false,
+    };
+    age <= allowed
 }
 
 /// Claim requirement.
@@ -601,6 +703,21 @@ pub struct ClaimRequirement {
     pub status: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub roles: Option<Vec<String>>,
+}
+
+/// Verified claim evidence supplied by the caller during authorization.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct VerifiedClaim {
+    pub claim_type: String,
+    pub issuer: Did,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub organization: Option<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub roles: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refreshed_at: Option<DateTime<Utc>>,
 }
 
 /// Grant constraint with priority.
@@ -660,6 +777,21 @@ pub struct AuthzContext {
     /// Fields being written
     #[serde(default)]
     pub write_fields: Vec<String>,
+    /// Current delegation depth of the grant being evaluated. Root grants are depth 0.
+    #[serde(default)]
+    pub delegation_depth: u32,
+    /// Operation count already observed in the current rate-limit window.
+    #[serde(default)]
+    pub rate_limit_count: Option<u64>,
+    /// Verified claims available for claim-based constraints.
+    #[serde(default)]
+    pub verified_claims: Vec<VerifiedClaim>,
+    /// Whether the operation has an accountable audit/log record.
+    #[serde(default)]
+    pub accountability_logged: bool,
+    /// Encryption level of the target operation/payload, if already verified.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub encryption_level: Option<String>,
 }
 
 impl AuthzContext {
@@ -673,12 +805,47 @@ impl AuthzContext {
             resource,
             read_fields: Vec::new(),
             write_fields: Vec::new(),
+            delegation_depth: 0,
+            rate_limit_count: None,
+            verified_claims: Vec::new(),
+            accountability_logged: false,
+            encryption_level: None,
         }
     }
 
     /// Set the space ID.
     pub fn with_space_id(mut self, space_id: SpaceId) -> Self {
         self.space_id = Some(space_id);
+        self
+    }
+
+    /// Set current delegation depth for delegation-control constraints.
+    pub fn with_delegation_depth(mut self, depth: u32) -> Self {
+        self.delegation_depth = depth;
+        self
+    }
+
+    /// Set the observed operation count for rate-limit constraints.
+    pub fn with_rate_limit_count(mut self, count: u64) -> Self {
+        self.rate_limit_count = Some(count);
+        self
+    }
+
+    /// Add a verified claim for claim-based constraints.
+    pub fn with_verified_claim(mut self, claim: VerifiedClaim) -> Self {
+        self.verified_claims.push(claim);
+        self
+    }
+
+    /// Mark that accountability logging has been completed.
+    pub fn with_accountability_logged(mut self, logged: bool) -> Self {
+        self.accountability_logged = logged;
+        self
+    }
+
+    /// Set the verified encryption level for the target resource.
+    pub fn with_encryption_level(mut self, level: impl Into<String>) -> Self {
+        self.encryption_level = Some(level.into());
         self
     }
 }
@@ -803,9 +970,7 @@ impl AuthzEngine {
                 ConstraintEffect::RequireReview => 2,
                 ConstraintEffect::Allow => 3,
             };
-            effect_a
-                .cmp(&effect_b)
-                .then_with(|| b.priority.cmp(&a.priority))
+            effect_a.cmp(&effect_b).then_with(|| b.priority.cmp(&a.priority))
         });
 
         for entry in &constraints {
@@ -860,7 +1025,29 @@ impl AuthzEngine {
                 }
                 AuthzDecision::Allow
             }
-            Constraint::TypeRestriction { entity_type_allow, entity_type_deny } => {
+            Constraint::TypeRestriction {
+                entity_type_allow,
+                entity_type_deny,
+                scope_limitation,
+            } => {
+                if let Some(scope_limitation) = scope_limitation {
+                    let scope_matches = matches!(
+                        (scope_limitation, &ctx.resource),
+                        (ScopeLimitation::Space, Resource::Space { .. })
+                            | (ScopeLimitation::Entity, Resource::Entity { .. })
+                            | (ScopeLimitation::Relation, Resource::Relation { .. })
+                            | (ScopeLimitation::View, Resource::View { .. })
+                            | (ScopeLimitation::Policy, Resource::Policy { .. })
+                    );
+                    if !scope_matches {
+                        return AuthzDecision::Deny {
+                            reason: format!(
+                                "resource does not match scope limitation: {:?}",
+                                scope_limitation
+                            ),
+                        };
+                    }
+                }
                 if let Resource::Entity { entity_type, .. } = &ctx.resource {
                     if let Some(deny_list) = entity_type_deny
                         && deny_list.contains(entity_type)
@@ -880,37 +1067,49 @@ impl AuthzEngine {
                 AuthzDecision::Allow
             }
             Constraint::DelegationControl { max_delegation_depth, prohibit_subdelegation } => {
-                if *prohibit_subdelegation {
-                    return AuthzDecision::Deny {
-                        reason: "subdelegation prohibited".to_owned(),
-                    };
+                if *prohibit_subdelegation && ctx.delegation_depth > 0 {
+                    return AuthzDecision::Deny { reason: "subdelegation prohibited".to_owned() };
                 }
                 if let Some(max_depth) = max_delegation_depth {
-                    // The grant's parent chain depth is checked against the limit.
-                    // A grant at depth 0 is an original grant; depth 1 is first delegation, etc.
-                    // If the current delegation depth exceeds the max, deny.
-                    if *max_depth == 0 {
+                    if ctx.delegation_depth > *max_depth {
                         return AuthzDecision::Deny {
-                            reason: "delegation depth exhausted (max=0)".to_owned(),
+                            reason: format!(
+                                "delegation depth {} exceeds max {}",
+                                ctx.delegation_depth, max_depth
+                            ),
                         };
                     }
                 }
                 AuthzDecision::Allow
             }
             Constraint::RateLimiting { max_operations, period, scope } => {
-                // Rate limiting requires external state (operation counters).
-                // The constraint is structurally validated here; actual enforcement
-                // is delegated to the caller via the rate limit metadata.
-                // If max_operations is 0, deny immediately as a safety measure.
                 if *max_operations == 0 {
                     return AuthzDecision::Deny {
                         reason: "rate limit: max_operations is 0".to_owned(),
                     };
                 }
-                let _ = (period, scope);
-                AuthzDecision::Allow
+                match ctx.rate_limit_count {
+                    Some(count) if count >= *max_operations => AuthzDecision::Deny {
+                        reason: format!(
+                            "rate limit exceeded: {}/{} operations in {}{} {:?} scope",
+                            count, max_operations, period.value, period.unit, scope
+                        ),
+                    },
+                    Some(_) => AuthzDecision::Allow,
+                    None => AuthzDecision::RequireReview {
+                        reason: "rate limit counter unavailable".to_owned(),
+                    },
+                }
             }
-            Constraint::ApprovalWorkflow { approval_required, approval_actor_refs, timeout } => {
+            Constraint::ApprovalWorkflow {
+                approval_required,
+                approval_actor_refs,
+                timeout,
+                approval_mode,
+                approval_relation,
+                guardian_approval_required,
+                controller_approval_required,
+            } => {
                 if *approval_required {
                     let reason = if let Some(approvers) = approval_actor_refs {
                         format!(
@@ -920,20 +1119,27 @@ impl AuthzEngine {
                     } else {
                         "approval required".to_owned()
                     };
-                    let _ = timeout;
+                    let _ = (
+                        timeout,
+                        approval_mode,
+                        approval_relation,
+                        guardian_approval_required,
+                        controller_approval_required,
+                    );
                     AuthzDecision::RequireReview { reason }
                 } else {
                     AuthzDecision::Allow
                 }
             }
-            Constraint::ClaimBased { requires_claims, trusted_issuers } => {
-                // Claim verification requires external claim providers.
-                // Structurally validate that claims are specified.
+            Constraint::ClaimBased {
+                requires_claims,
+                trusted_issuers,
+                claim_refresh_required,
+                claim_max_age,
+            } => {
                 if requires_claims.is_empty() {
                     return AuthzDecision::Allow;
                 }
-                // If claims are required but no trusted issuers are specified,
-                // the constraint cannot be satisfied — require review.
                 if trusted_issuers.is_empty() {
                     return AuthzDecision::RequireReview {
                         reason: format!(
@@ -946,17 +1152,45 @@ impl AuthzEngine {
                         ),
                     };
                 }
-                // Actual claim verification is performed by the caller using
-                // the claim metadata; this constraint signals the requirement.
+                for requirement in requires_claims {
+                    let satisfied = ctx.verified_claims.iter().any(|claim| {
+                        claim.claim_type == requirement.claim_type
+                            && trusted_issuers.contains(&claim.issuer)
+                            && requirement
+                                .issuer
+                                .as_ref()
+                                .is_none_or(|issuer| issuer == &claim.issuer)
+                            && requirement
+                                .organization
+                                .as_ref()
+                                .is_none_or(|org| claim.organization.as_ref() == Some(org))
+                            && requirement
+                                .status
+                                .as_ref()
+                                .is_none_or(|status| claim.status.as_ref() == Some(status))
+                            && requirement.roles.as_ref().is_none_or(|roles| {
+                                roles.iter().all(|role| claim.roles.contains(role))
+                            })
+                            && (!*claim_refresh_required || claim.refreshed_at.is_some())
+                            && claim_max_age.as_ref().is_none_or(|max_age| {
+                                claim.refreshed_at.is_some_and(|refreshed_at| {
+                                    max_age_contains(ctx.now - refreshed_at, max_age)
+                                })
+                            })
+                    });
+                    if !satisfied {
+                        return AuthzDecision::Deny {
+                            reason: format!(
+                                "required claim not satisfied: {}",
+                                requirement.claim_type
+                            ),
+                        };
+                    }
+                }
                 AuthzDecision::Allow
             }
-            Constraint::Accountability {
-                accountability_required,
-                responsible_actor,
-            } => {
+            Constraint::Accountability { accountability_required, responsible_actor } => {
                 if *accountability_required {
-                    // If a responsible actor is specified, verify the requesting actor
-                    // is the accountable party or is acting on their behalf.
                     if let Some(responsible) = responsible_actor
                         && ctx.actor_id != *responsible
                     {
@@ -967,27 +1201,46 @@ impl AuthzEngine {
                             ),
                         };
                     }
-                    // Accountability logging is enforced by the caller.
-                    AuthzDecision::Allow
+                    if ctx.accountability_logged {
+                        AuthzDecision::Allow
+                    } else {
+                        AuthzDecision::RequireReview {
+                            reason: "accountability log missing".to_owned(),
+                        }
+                    }
                 } else {
                     AuthzDecision::Allow
                 }
             }
-            Constraint::EncryptionRequirement { encryption_required, min_encryption_level } => {
+            Constraint::EncryptionRequirement {
+                encryption_required,
+                min_encryption_level,
+                memory_kind_allow,
+                memory_kind_deny,
+            } => {
+                if let Resource::Entity { entity_type, .. } = &ctx.resource
+                    && entity_type == "memory"
+                {
+                    if memory_kind_deny.iter().any(|kind| kind == "*") {
+                        return AuthzDecision::Deny { reason: "memory kind denied".to_owned() };
+                    }
+                    let _ = memory_kind_allow;
+                }
                 if *encryption_required {
-                    // Check if the resource carries encryption metadata.
-                    // In a full implementation, this would verify the resource's
-                    // encryption envelope matches the minimum level.
                     let level = min_encryption_level.as_deref().unwrap_or("mls_rfc9420");
-                    // If the requirement is for MLS encryption, we need the resource
-                    // to be encrypted. For now, we signal the requirement and let the
-                    // caller verify the actual encryption state.
-                    let _ = level;
-                    // Resources that are inherently plaintext (like read_markers)
-                    // should not be blocked by encryption requirements.
-                    match &ctx.resource {
-                        Resource::ReadMarker { .. } => AuthzDecision::Allow,
-                        _ => AuthzDecision::Allow,
+                    match ctx.encryption_level.as_deref() {
+                        Some(actual) if actual == level || actual == "stronger" => {
+                            AuthzDecision::Allow
+                        }
+                        Some(actual) => AuthzDecision::Deny {
+                            reason: format!(
+                                "encryption level '{}' does not satisfy '{}'",
+                                actual, level
+                            ),
+                        },
+                        None => AuthzDecision::Deny {
+                            reason: format!("encryption required: {}", level),
+                        },
                     }
                 } else {
                     AuthzDecision::Allow
@@ -998,7 +1251,17 @@ impl AuthzEngine {
 
     /// Generate a cache key for the context.
     fn cache_key(&self, ctx: &AuthzContext) -> String {
-        format!("{}:{}:{}", ctx.actor_id, ctx.action, ctx.resource.space_id())
+        format!(
+            "{}:{}:{}:{}:{:?}:{:?}:{}:{}",
+            ctx.actor_id,
+            ctx.action,
+            ctx.resource.space_id(),
+            ctx.delegation_depth,
+            ctx.rate_limit_count,
+            ctx.encryption_level,
+            ctx.verified_claims.len(),
+            ctx.accountability_logged
+        )
     }
 
     /// Cache a decision.
@@ -1034,6 +1297,8 @@ impl Default for AuthzEngine {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CapabilityGrant {
     pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub space_id: Option<SpaceId>,
     pub issuer: Did,
     pub subject: Did,
     pub actions: Vec<String>,
@@ -1042,11 +1307,39 @@ pub struct CapabilityGrant {
     pub constraints: Vec<ConstraintEntry>,
     #[serde(default)]
     pub delegable: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent_grant_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub valid_from: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub valid_until: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub revoked_by: Option<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub revoked_at: Option<DateTime<Utc>>,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn grant_for(action: &str, resource: ResourceSelector) -> CapabilityGrant {
+        CapabilityGrant {
+            id: "grant-1".to_owned(),
+            space_id: None,
+            issuer: Did::new("did:web:authority.example.com").unwrap(),
+            subject: Did::new("did:web:alice.example.com").unwrap(),
+            actions: vec![action.to_owned()],
+            resources: vec![resource],
+            constraints: vec![],
+            delegable: false,
+            parent_grant_id: None,
+            valid_from: None,
+            valid_until: None,
+            revoked_by: None,
+            revoked_at: None,
+        }
+    }
 
     #[test]
     fn resource_selector_parse_space() {
@@ -1129,15 +1422,8 @@ mod tests {
             Resource::Space { space_id: "cx:space:A".to_owned() },
         );
 
-        let grant = CapabilityGrant {
-            id: "grant-1".to_owned(),
-            issuer: Did::new("did:web:authority.example.com").unwrap(),
-            subject: Did::new("did:web:alice.example.com").unwrap(),
-            actions: vec!["read".to_owned()],
-            resources: vec![ResourceSelector::Space { space_id: "cx:space:A".to_owned() }],
-            constraints: vec![],
-            delegable: false,
-        };
+        let grant =
+            grant_for("read", ResourceSelector::Space { space_id: "cx:space:A".to_owned() });
 
         let decision = engine.check_authorization(&ctx, &[grant]);
         assert!(decision.is_allowed());
@@ -1152,15 +1438,8 @@ mod tests {
             Resource::Space { space_id: "cx:space:A".to_owned() },
         );
 
-        let grant = CapabilityGrant {
-            id: "grant-1".to_owned(),
-            issuer: Did::new("did:web:authority.example.com").unwrap(),
-            subject: Did::new("did:web:alice.example.com").unwrap(),
-            actions: vec!["read".to_owned()],
-            resources: vec![ResourceSelector::Space { space_id: "cx:space:A".to_owned() }],
-            constraints: vec![],
-            delegable: false,
-        };
+        let grant =
+            grant_for("read", ResourceSelector::Space { space_id: "cx:space:A".to_owned() });
 
         let decision = engine.check_authorization(&ctx, &[grant]);
         assert!(!decision.is_allowed());
@@ -1175,19 +1454,13 @@ mod tests {
             Resource::Space { space_id: "cx:space:A".to_owned() },
         );
 
-        let grant = CapabilityGrant {
-            id: "grant-1".to_owned(),
-            issuer: Did::new("did:web:authority.example.com").unwrap(),
-            subject: Did::new("did:web:alice.example.com").unwrap(),
-            actions: vec!["read".to_owned()],
-            resources: vec![ResourceSelector::Space { space_id: "cx:space:A".to_owned() }],
-            constraints: vec![ConstraintEntry::new(Constraint::Temporal {
-                not_before: None,
-                expires_at: Some(Utc::now() - chrono::Duration::hours(1)),
-                recurrence: None,
-            })],
-            delegable: false,
-        };
+        let mut grant =
+            grant_for("read", ResourceSelector::Space { space_id: "cx:space:A".to_owned() });
+        grant.constraints = vec![ConstraintEntry::new(Constraint::Temporal {
+            not_before: None,
+            expires_at: Some(Utc::now() - chrono::Duration::hours(1)),
+            recurrence: None,
+        })];
 
         let decision = engine.check_authorization(&ctx, &[grant]);
         assert!(!decision.is_allowed());
@@ -1207,25 +1480,120 @@ mod tests {
         );
         ctx.write_fields = vec!["id".to_owned(), "title".to_owned()];
 
-        let grant = CapabilityGrant {
-            id: "grant-1".to_owned(),
-            issuer: Did::new("did:web:authority.example.com").unwrap(),
-            subject: Did::new("did:web:alice.example.com").unwrap(),
-            actions: vec!["update".to_owned()],
-            resources: vec![ResourceSelector::Entity {
+        let mut grant = grant_for(
+            "update",
+            ResourceSelector::Entity {
                 space_id: "cx:space:A".to_owned(),
                 entity_type: Some("task".to_owned()),
                 entity_id: None,
-            }],
-            constraints: vec![ConstraintEntry::new(Constraint::FieldAccess {
-                effect: ConstraintEffect::Deny,
-                scope: FieldScope::Write,
-                fields: vec!["id".to_owned(), "created_by".to_owned()],
-            })],
-            delegable: false,
-        };
+            },
+        );
+        grant.constraints = vec![ConstraintEntry::new(Constraint::FieldAccess {
+            effect: ConstraintEffect::Deny,
+            scope: FieldScope::Write,
+            fields: vec!["id".to_owned(), "created_by".to_owned()],
+        })];
 
         let decision = engine.check_authorization(&ctx, &[grant]);
         assert!(!decision.is_allowed());
+    }
+
+    #[test]
+    fn authz_engine_enforces_runtime_constraints() {
+        let mut engine = AuthzEngine::new();
+        let ctx = AuthzContext::new(
+            Did::new("did:web:alice.example.com").unwrap(),
+            "send".to_owned(),
+            Resource::Entity {
+                space_id: "cx:space:A".to_owned(),
+                entity_type: "message".to_owned(),
+                entity_id: "cx:entity:123".to_owned(),
+            },
+        )
+        .with_delegation_depth(2)
+        .with_rate_limit_count(3)
+        .with_accountability_logged(true)
+        .with_encryption_level("mls_rfc9420")
+        .with_verified_claim(VerifiedClaim {
+            claim_type: "employee".to_owned(),
+            issuer: Did::new("did:web:issuer.example.com").unwrap(),
+            organization: Some(Did::new("did:web:org.example.com").unwrap()),
+            status: Some("active".to_owned()),
+            roles: vec!["writer".to_owned()],
+            refreshed_at: None,
+        });
+        let mut grant = grant_for(
+            "send",
+            ResourceSelector::Entity {
+                space_id: "cx:space:A".to_owned(),
+                entity_type: Some("message".to_owned()),
+                entity_id: None,
+            },
+        );
+        grant.constraints = vec![
+            ConstraintEntry::new(Constraint::DelegationControl {
+                max_delegation_depth: Some(2),
+                prohibit_subdelegation: false,
+            }),
+            ConstraintEntry::new(Constraint::RateLimiting {
+                max_operations: 4,
+                period: ConstraintDuration { value: 1, unit: "m".to_owned() },
+                scope: RateLimitScope::PerSpace,
+            }),
+            ConstraintEntry::new(Constraint::ClaimBased {
+                requires_claims: vec![ClaimRequirement {
+                    claim_type: "employee".to_owned(),
+                    issuer: None,
+                    organization: Some(Did::new("did:web:org.example.com").unwrap()),
+                    status: Some("active".to_owned()),
+                    roles: Some(vec!["writer".to_owned()]),
+                }],
+                trusted_issuers: vec![Did::new("did:web:issuer.example.com").unwrap()],
+                claim_refresh_required: false,
+                claim_max_age: None,
+            }),
+            ConstraintEntry::new(Constraint::Accountability {
+                accountability_required: true,
+                responsible_actor: Some(Did::new("did:web:alice.example.com").unwrap()),
+            }),
+            ConstraintEntry::new(Constraint::EncryptionRequirement {
+                encryption_required: true,
+                min_encryption_level: Some("mls_rfc9420".to_owned()),
+                memory_kind_allow: Vec::new(),
+                memory_kind_deny: Vec::new(),
+            }),
+        ];
+
+        assert!(engine.check_authorization(&ctx, &[grant]).is_allowed());
+    }
+
+    #[test]
+    fn authz_engine_denies_missing_encryption() {
+        let mut engine = AuthzEngine::new();
+        let ctx = AuthzContext::new(
+            Did::new("did:web:alice.example.com").unwrap(),
+            "send".to_owned(),
+            Resource::Entity {
+                space_id: "cx:space:A".to_owned(),
+                entity_type: "message".to_owned(),
+                entity_id: "cx:entity:123".to_owned(),
+            },
+        );
+        let mut grant = grant_for(
+            "send",
+            ResourceSelector::Entity {
+                space_id: "cx:space:A".to_owned(),
+                entity_type: Some("message".to_owned()),
+                entity_id: None,
+            },
+        );
+        grant.constraints = vec![ConstraintEntry::new(Constraint::EncryptionRequirement {
+            encryption_required: true,
+            min_encryption_level: Some("mls_rfc9420".to_owned()),
+            memory_kind_allow: Vec::new(),
+            memory_kind_deny: Vec::new(),
+        })];
+
+        assert!(!engine.check_authorization(&ctx, &[grant]).is_allowed());
     }
 }
