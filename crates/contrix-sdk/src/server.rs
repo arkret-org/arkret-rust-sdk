@@ -665,6 +665,12 @@ pub fn protocol_golden_vectors() -> Vec<ProtocolGoldenVector> {
             expected: json!({"valid": true, "algorithm": "sha256"}),
         },
         ProtocolGoldenVector {
+            name: "canonical_json_object_order".to_owned(),
+            profile: "cx.conformance.canonical_json.v1".to_owned(),
+            input: json!({"b": 2, "a": 1}),
+            expected: json!({"canonical": "{\"a\":1,\"b\":2}"}),
+        },
+        ProtocolGoldenVector {
             name: "hlc_shape".to_owned(),
             profile: "cx.conformance.hlc.v1".to_owned(),
             input: json!({"hlc": "2026-04-29T00:00:00.000Z-0000-node"}),
@@ -696,6 +702,49 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
             expected_errcode: "cx.error.invalid_path_segment".to_owned(),
         },
         WireConformanceVector {
+            name: "identity_invalid_did_rejected".to_owned(),
+            method: "POST".to_owned(),
+            path: "/api/v1/identity/resolve".to_owned(),
+            query: BTreeMap::new(),
+            headers: BTreeMap::from([("Authorization".to_owned(), "Bearer redacted".to_owned())]),
+            body: json!({"did": "alice.example"}),
+            expected_status: 400,
+            expected_errcode: "cx.error.invalid_id".to_owned(),
+        },
+        WireConformanceVector {
+            name: "sync_stale_cursor_rejected".to_owned(),
+            method: "POST".to_owned(),
+            path: "/api/v1/sync".to_owned(),
+            query: BTreeMap::new(),
+            headers: BTreeMap::from([("Authorization".to_owned(), "Bearer redacted".to_owned())]),
+            body: json!({"since": "cx:cursor:expired"}),
+            expected_status: 410,
+            expected_errcode: "cx.error.stale_cursor".to_owned(),
+        },
+        WireConformanceVector {
+            name: "index_query_auth_rejected".to_owned(),
+            method: "GET".to_owned(),
+            path: "/api/v1/index/entity".to_owned(),
+            query: BTreeMap::from([
+                ("entity_id".to_owned(), "cx:entity:1".to_owned()),
+                ("access_token".to_owned(), "redacted".to_owned()),
+            ]),
+            headers: BTreeMap::new(),
+            body: Value::Null,
+            expected_status: 400,
+            expected_errcode: "cx.error.query_auth_forbidden".to_owned(),
+        },
+        WireConformanceVector {
+            name: "directory_invalid_handle_rejected".to_owned(),
+            method: "POST".to_owned(),
+            path: "/api/v1/directory/resolve-handle".to_owned(),
+            query: BTreeMap::new(),
+            headers: BTreeMap::from([("Authorization".to_owned(), "Bearer redacted".to_owned())]),
+            body: json!({"handle": ""}),
+            expected_status: 400,
+            expected_errcode: "cx.error.bad_request".to_owned(),
+        },
+        WireConformanceVector {
             name: "stale_cursor_rejected".to_owned(),
             method: "GET".to_owned(),
             path: "/api/v1/federation/pull-operations".to_owned(),
@@ -717,6 +766,86 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
             body: json!({"size": 4}),
             expected_status: 400,
             expected_errcode: "cx.error.bad_digest".to_owned(),
+        },
+        WireConformanceVector {
+            name: "push_bad_auth_rejected".to_owned(),
+            method: "POST".to_owned(),
+            path: "/api/v1/push/register-device".to_owned(),
+            query: BTreeMap::new(),
+            headers: BTreeMap::from([("Authorization".to_owned(), "Bearer ".to_owned())]),
+            body: json!({}),
+            expected_status: 401,
+            expected_errcode: "cx.error.unauthorized".to_owned(),
+        },
+        WireConformanceVector {
+            name: "device_messages_invalid_txn_rejected".to_owned(),
+            method: "PUT".to_owned(),
+            path: "/api/v1/device_messages/txn_%2Fescape".to_owned(),
+            query: BTreeMap::new(),
+            headers: BTreeMap::from([("Authorization".to_owned(), "Bearer redacted".to_owned())]),
+            body: json!({"messages": {}}),
+            expected_status: 400,
+            expected_errcode: "cx.error.invalid_path_segment".to_owned(),
+        },
+        WireConformanceVector {
+            name: "keys_missing_auth_rejected".to_owned(),
+            method: "POST".to_owned(),
+            path: "/api/v1/keys/query".to_owned(),
+            query: BTreeMap::new(),
+            headers: BTreeMap::new(),
+            body: json!({"device_keys": {}}),
+            expected_status: 401,
+            expected_errcode: "cx.error.unauthorized".to_owned(),
+        },
+        WireConformanceVector {
+            name: "authz_invalid_actor_rejected".to_owned(),
+            method: "POST".to_owned(),
+            path: "/api/v1/authz/check".to_owned(),
+            query: BTreeMap::new(),
+            headers: BTreeMap::from([("Authorization".to_owned(), "Bearer redacted".to_owned())]),
+            body: json!({"actor_id": "alice", "action": "read", "resource": {}}),
+            expected_status: 400,
+            expected_errcode: "cx.error.invalid_id".to_owned(),
+        },
+        WireConformanceVector {
+            name: "policy_bad_digest_rejected".to_owned(),
+            method: "POST".to_owned(),
+            path: "/contrix/v1/check".to_owned(),
+            query: BTreeMap::new(),
+            headers: BTreeMap::from([("Authorization".to_owned(), "Bearer redacted".to_owned())]),
+            body: json!({"request_canonical_hash": "sha256:not-hex"}),
+            expected_status: 400,
+            expected_errcode: "cx.error.bad_digest".to_owned(),
+        },
+        WireConformanceVector {
+            name: "media_missing_auth_rejected".to_owned(),
+            method: "POST".to_owned(),
+            path: "/contrix/v1/ice-config".to_owned(),
+            query: BTreeMap::new(),
+            headers: BTreeMap::new(),
+            body: json!({}),
+            expected_status: 401,
+            expected_errcode: "cx.error.unauthorized".to_owned(),
+        },
+        WireConformanceVector {
+            name: "moderation_invalid_space_rejected".to_owned(),
+            method: "POST".to_owned(),
+            path: "/api/v1/moderation/report".to_owned(),
+            query: BTreeMap::new(),
+            headers: BTreeMap::from([("Authorization".to_owned(), "Bearer redacted".to_owned())]),
+            body: json!({"space_id": "room", "target_ref": "x", "reason": "spam", "reporter": "did:web:alice.example"}),
+            expected_status: 400,
+            expected_errcode: "cx.error.invalid_id".to_owned(),
+        },
+        WireConformanceVector {
+            name: "applet_invalid_txn_rejected".to_owned(),
+            method: "PUT".to_owned(),
+            path: "/api/v1/applet/transactions/txn_%2Fescape".to_owned(),
+            query: BTreeMap::new(),
+            headers: BTreeMap::from([("Authorization".to_owned(), "Bearer redacted".to_owned())]),
+            body: json!({}),
+            expected_status: 400,
+            expected_errcode: "cx.error.invalid_path_segment".to_owned(),
         },
         WireConformanceVector {
             name: "missing_auth_rejected".to_owned(),
@@ -1017,7 +1146,7 @@ fn match_path_template(template: &str, path: &str) -> Option<BTreeMap<String, St
 }
 
 pub fn openapi_document() -> Value {
-    let mut paths = serde_json::Map::new();
+    let mut paths = Map::new();
     for endpoint in endpoint_contracts() {
         let binding = endpoint_schema_binding(endpoint);
         let mut methods = paths
@@ -1539,15 +1668,17 @@ mod tests {
             })
         };
 
-        let response = service
-            .call(HttpAdapterRequest {
+        let response = TowerLikeEndpointService::call(
+            &mut service,
+            HttpAdapterRequest {
                 method: EndpointMethod::Get,
                 path: "/api/v1/server/describe".to_owned(),
                 query: BTreeMap::new(),
                 headers: BTreeMap::new(),
                 body: Vec::new(),
-            })
-            .unwrap();
+            },
+        )
+        .unwrap();
         assert_eq!(response.headers["X-Contrix-Operation-Id"], "cx.server.describe");
     }
 
@@ -1599,4 +1730,6 @@ mod tests {
         let ServerResponse::ServerDescription(description) = response else {
             panic!("unexpected response");
         };
-        assert!(description.supported_operations.contains(&"cx.sync.client_sync".
+        assert!(description.supported_operations.contains(&"cx.sync.client_sync".to_owned()));
+    }
+}

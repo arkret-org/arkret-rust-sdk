@@ -11,7 +11,8 @@ use chrono::{
 };
 use chrono_tz::Tz;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use serde_json::Value;
+use std::collections::{HashMap, HashSet};
 
 use crate::{Did, Error, Result, SpaceId};
 
@@ -311,23 +312,11 @@ impl ResourceSelector {
         match selector_type {
             "space" => Ok(Self::Space { space_id: remainder.to_owned() }),
             "board" => {
-                let parts: Vec<&str> = remainder.splitn(2, ':').collect();
-                let space_id = parts[0].to_owned();
-                let board_id = if parts.len() > 1 && !parts[1].is_empty() {
-                    Some(parts[1].to_owned())
-                } else {
-                    None
-                };
+                let (space_id, board_id) = split_space_tail(remainder, selector)?;
                 Ok(Self::Board { space_id, board_id })
             }
             "collection" => {
-                let parts: Vec<&str> = remainder.splitn(2, ':').collect();
-                let space_id = parts[0].to_owned();
-                let collection_id = if parts.len() > 1 && !parts[1].is_empty() {
-                    Some(parts[1].to_owned())
-                } else {
-                    None
-                };
+                let (space_id, collection_id) = split_space_tail(remainder, selector)?;
                 Ok(Self::Collection { space_id, collection_id })
             }
             "entity" => {
@@ -358,118 +347,53 @@ impl ResourceSelector {
                 Ok(Self::Entity { space_id, entity_type, entity_id })
             }
             "comment" => {
-                let parts: Vec<&str> = remainder.splitn(2, ':').collect();
-                let space_id = parts[0].to_owned();
-                let comment_id = if parts.len() > 1 && !parts[1].is_empty() {
-                    Some(parts[1].to_owned())
-                } else {
-                    None
-                };
+                let (space_id, comment_id) = split_space_tail(remainder, selector)?;
                 Ok(Self::Comment { space_id, comment_id })
             }
             "channel" => {
-                let parts: Vec<&str> = remainder.splitn(2, ':').collect();
-                let space_id = parts[0].to_owned();
-                let channel_id = if parts.len() > 1 && !parts[1].is_empty() {
-                    Some(parts[1].to_owned())
-                } else {
-                    None
-                };
+                let (space_id, channel_id) = split_space_tail(remainder, selector)?;
                 Ok(Self::Channel { space_id, channel_id })
             }
             "topic" => {
-                let parts: Vec<&str> = remainder.splitn(2, ':').collect();
-                let space_id = parts[0].to_owned();
-                let topic_id = if parts.len() > 1 && !parts[1].is_empty() {
-                    Some(parts[1].to_owned())
-                } else {
-                    None
-                };
+                let (space_id, topic_id) = split_space_tail(remainder, selector)?;
                 Ok(Self::Topic { space_id, topic_id })
             }
             "message" => {
-                let parts: Vec<&str> = remainder.splitn(2, ':').collect();
-                let space_id = parts[0].to_owned();
-                let message_id = if parts.len() > 1 && !parts[1].is_empty() {
-                    Some(parts[1].to_owned())
-                } else {
-                    None
-                };
+                let (space_id, message_id) = split_space_tail(remainder, selector)?;
                 Ok(Self::Message { space_id, message_id })
             }
             "relation" => {
-                // Format: relation:space_id:relation_kind
-                let relation_parts: Vec<&str> = remainder.splitn(2, ':').collect();
-                if relation_parts.len() != 2 {
+                let (space_id, relation_kind) = split_space_tail(remainder, selector)?;
+                let Some(relation_kind) = relation_kind else {
                     return Err(Error::Protocol(format!(
                         "invalid relation selector: {}",
                         selector
                     )));
-                }
-                Ok(Self::Relation {
-                    space_id: relation_parts[0].to_owned(),
-                    relation_kind: relation_parts[1].to_owned(),
-                })
+                };
+                Ok(Self::Relation { space_id, relation_kind })
             }
             "view" => {
-                // Format: view:space_id[:view_id]
-                let view_parts: Vec<&str> = remainder.splitn(2, ':').collect();
-                let space_id = view_parts[0].to_owned();
-                let view_id = if view_parts.len() > 1 && !view_parts[1].is_empty() {
-                    Some(view_parts[1].to_owned())
-                } else {
-                    None
-                };
+                let (space_id, view_id) = split_space_tail(remainder, selector)?;
                 Ok(Self::View { space_id, view_id })
             }
             "run" => {
-                let parts: Vec<&str> = remainder.splitn(2, ':').collect();
-                let space_id = parts[0].to_owned();
-                let run_id = if parts.len() > 1 && !parts[1].is_empty() {
-                    Some(parts[1].to_owned())
-                } else {
-                    None
-                };
+                let (space_id, run_id) = split_space_tail(remainder, selector)?;
                 Ok(Self::Run { space_id, run_id })
             }
             "memory" => {
-                let parts: Vec<&str> = remainder.splitn(2, ':').collect();
-                let space_id = parts[0].to_owned();
-                let memory_id = if parts.len() > 1 && !parts[1].is_empty() {
-                    Some(parts[1].to_owned())
-                } else {
-                    None
-                };
+                let (space_id, memory_id) = split_space_tail(remainder, selector)?;
                 Ok(Self::Memory { space_id, memory_id })
             }
             "schema" => {
-                let parts: Vec<&str> = remainder.splitn(2, ':').collect();
-                let space_id = parts[0].to_owned();
-                let schema_id = if parts.len() > 1 && !parts[1].is_empty() {
-                    Some(parts[1].to_owned())
-                } else {
-                    None
-                };
+                let (space_id, schema_id) = split_space_tail(remainder, selector)?;
                 Ok(Self::Schema { space_id, schema_id })
             }
             "policy" => {
-                let parts: Vec<&str> = remainder.splitn(2, ':').collect();
-                let space_id = parts[0].to_owned();
-                let policy_id = if parts.len() > 1 && !parts[1].is_empty() {
-                    Some(parts[1].to_owned())
-                } else {
-                    None
-                };
+                let (space_id, policy_id) = split_space_tail(remainder, selector)?;
                 Ok(Self::Policy { space_id, policy_id })
             }
             "invite" => {
-                let parts: Vec<&str> = remainder.splitn(2, ':').collect();
-                let space_id = parts[0].to_owned();
-                let invite_id = if parts.len() > 1 && !parts[1].is_empty() {
-                    Some(parts[1].to_owned())
-                } else {
-                    None
-                };
+                let (space_id, invite_id) = split_space_tail(remainder, selector)?;
                 Ok(Self::Invite { space_id, invite_id })
             }
             "read_marker" => Ok(Self::ReadMarker { space_id: remainder.to_owned() }),
@@ -477,6 +401,28 @@ impl ResourceSelector {
             _ => Err(Error::Protocol(format!("unknown selector type: {}", selector))),
         }
     }
+}
+
+fn split_space_tail(remainder: &str, selector: &str) -> Result<(String, Option<String>)> {
+    if remainder == "*" {
+        return Ok(("*".to_owned(), None));
+    }
+    if let Some(tail) = remainder.strip_prefix("*:") {
+        return Ok(("*".to_owned(), if tail.is_empty() { None } else { Some(tail.to_owned()) }));
+    }
+
+    let parts = remainder.split(':').collect::<Vec<_>>();
+    if parts.len() < 3 || parts[0] != "cx" || parts[1] != "space" || parts[2].is_empty() {
+        return Err(Error::Protocol(format!("invalid space-scoped selector: {selector}")));
+    }
+    let space_id = format!("{}:{}:{}", parts[0], parts[1], parts[2]);
+    let tail = if parts.len() > 3 {
+        let tail = parts[3..].join(":");
+        if tail.is_empty() { None } else { Some(tail) }
+    } else {
+        None
+    };
+    Ok((space_id, tail))
 }
 
 /// Resource being accessed.
@@ -953,6 +899,9 @@ pub struct ClaimRequirement {
 /// Verified claim evidence supplied by the caller during authorization.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct VerifiedClaim {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub claim_id: Option<String>,
+    pub subject: Did,
     pub claim_type: String,
     pub issuer: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -961,6 +910,12 @@ pub struct VerifiedClaim {
     pub status: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub roles: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub issued_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub revoked_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub refreshed_at: Option<DateTime<Utc>>,
 }
@@ -1031,6 +986,9 @@ pub struct AuthzContext {
     /// Verified claims available for claim-based constraints.
     #[serde(default)]
     pub verified_claims: Vec<VerifiedClaim>,
+    /// Claim IDs that are revoked at the current causal frontier.
+    #[serde(default)]
+    pub revoked_claim_ids: Vec<String>,
     /// Whether the operation has an accountable audit/log record.
     #[serde(default)]
     pub accountability_logged: bool,
@@ -1053,6 +1011,7 @@ impl AuthzContext {
             delegation_depth: 0,
             rate_limit_count: None,
             verified_claims: Vec::new(),
+            revoked_claim_ids: Vec::new(),
             accountability_logged: false,
             encryption_level: None,
         }
@@ -1082,6 +1041,12 @@ impl AuthzContext {
         self
     }
 
+    /// Add a revoked claim ID for fail-closed claim validation.
+    pub fn with_revoked_claim_id(mut self, claim_id: impl Into<String>) -> Self {
+        self.revoked_claim_ids.push(claim_id.into());
+        self
+    }
+
     /// Mark that accountability logging has been completed.
     pub fn with_accountability_logged(mut self, logged: bool) -> Self {
         self.accountability_logged = logged;
@@ -1093,6 +1058,66 @@ impl AuthzContext {
         self.encryption_level = Some(level.into());
         self
     }
+}
+
+/// Policy-server response for `cx.policy.check`.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum PolicyServerEffect {
+    /// No policy restriction. This never grants access by itself.
+    NoAction,
+    Deny,
+    Quarantine,
+    RequireReview,
+}
+
+/// Interoperable request model for policy checks.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PolicyCheckRequest {
+    pub operation: String,
+    pub context: AuthzContext,
+}
+
+impl PolicyCheckRequest {
+    pub fn new(context: AuthzContext) -> Self {
+        Self { operation: "cx.policy.check".to_owned(), context }
+    }
+}
+
+/// Interoperable response model for policy checks.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PolicyCheckResponse {
+    pub operation: String,
+    pub effect: PolicyServerEffect,
+    pub reason: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub policy_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub moderation_report_id: Option<String>,
+}
+
+impl PolicyCheckResponse {
+    pub fn no_action() -> Self {
+        Self {
+            operation: "cx.policy.check".to_owned(),
+            effect: PolicyServerEffect::NoAction,
+            reason: "no policy restriction".to_owned(),
+            policy_id: None,
+            moderation_report_id: None,
+        }
+    }
+}
+
+/// Moderation report bound to a restrictive policy outcome.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ModerationReport {
+    pub report_id: String,
+    pub policy_id: Option<String>,
+    pub actor_id: Did,
+    pub resource: Resource,
+    pub effect: PolicyServerEffect,
+    pub reason: String,
+    pub created_at: DateTime<Utc>,
 }
 
 /// Authorization engine.
@@ -1151,6 +1176,19 @@ impl AuthzEngine {
                 AuthzDecision::Deny { reason: format!("invalid capability state: {}", err) }
             }
         }
+    }
+
+    /// Combine local capability authorization with a policy-server response.
+    ///
+    /// Policy servers can only further restrict access. `NoAction` falls back to
+    /// the local capability decision and cannot turn a deny into an allow.
+    pub fn check_authorization_with_policy(
+        &mut self,
+        ctx: &AuthzContext,
+        grants: &[CapabilityGrant],
+        policy: &PolicyCheckResponse,
+    ) -> AuthzDecision {
+        apply_policy_response(self.check_authorization(ctx, grants), policy)
     }
 
     /// Evaluate all grants and return the combined decision.
@@ -1446,7 +1484,13 @@ impl AuthzEngine {
                 }
                 for requirement in requires_claims {
                     let satisfied = ctx.verified_claims.iter().any(|claim| {
+                        let claim_id_active = claim
+                            .claim_id
+                            .as_ref()
+                            .is_none_or(|claim_id| !ctx.revoked_claim_ids.contains(claim_id));
+                        let freshness_basis = claim.refreshed_at.or(claim.issued_at);
                         claim.claim_type == requirement.claim_type
+                            && claim.subject == ctx.actor_id
                             && trusted_issuers.contains(&claim.issuer)
                             && requirement
                                 .issuer
@@ -1463,11 +1507,13 @@ impl AuthzEngine {
                             && requirement.roles.as_ref().is_none_or(|roles| {
                                 roles.iter().all(|role| claim.roles.contains(role))
                             })
+                            && claim_id_active
+                            && claim.revoked_at.is_none_or(|revoked_at| revoked_at > ctx.now)
+                            && claim.expires_at.is_none_or(|expires_at| expires_at > ctx.now)
                             && (!*claim_refresh_required || claim.refreshed_at.is_some())
                             && claim_max_age.as_ref().is_none_or(|max_age| {
-                                claim.refreshed_at.is_some_and(|refreshed_at| {
-                                    max_age_contains(ctx.now - refreshed_at, max_age)
-                                })
+                                freshness_basis
+                                    .is_some_and(|basis| max_age_contains(ctx.now - basis, max_age))
                             })
                     });
                     if !satisfied {
@@ -1545,6 +1591,9 @@ impl AuthzEngine {
     fn cache_key(&self, ctx: &AuthzContext, grants: &[CapabilityGrant]) -> String {
         let grants_digest = crate::canonical::canonical_sha256(&grants)
             .unwrap_or_else(|_| format!("grant-count:{}", grants.len()));
+        let claims_digest =
+            crate::canonical::canonical_sha256(&(&ctx.verified_claims, &ctx.revoked_claim_ids))
+                .unwrap_or_else(|_| format!("claim-count:{}", ctx.verified_claims.len()));
         format!(
             "{}:{}:{}:{}:{:?}:{:?}:{}:{}:{}",
             ctx.actor_id,
@@ -1553,7 +1602,7 @@ impl AuthzEngine {
             ctx.delegation_depth,
             ctx.rate_limit_count,
             ctx.encryption_level,
-            ctx.verified_claims.len(),
+            claims_digest,
             ctx.accountability_logged,
             grants_digest
         )
@@ -1621,6 +1670,44 @@ impl Default for AuthzEngine {
     }
 }
 
+pub fn apply_policy_response(
+    capability_decision: AuthzDecision,
+    policy: &PolicyCheckResponse,
+) -> AuthzDecision {
+    match policy.effect {
+        PolicyServerEffect::NoAction => capability_decision,
+        PolicyServerEffect::Deny => AuthzDecision::Deny { reason: policy.reason.clone() },
+        PolicyServerEffect::Quarantine => {
+            AuthzDecision::Quarantine { reason: policy.reason.clone() }
+        }
+        PolicyServerEffect::RequireReview => {
+            AuthzDecision::RequireReview { reason: policy.reason.clone() }
+        }
+    }
+}
+
+pub fn moderation_report_for_policy_outcome(
+    ctx: &AuthzContext,
+    policy: &PolicyCheckResponse,
+    now: DateTime<Utc>,
+) -> Option<ModerationReport> {
+    if policy.effect == PolicyServerEffect::NoAction {
+        return None;
+    }
+    Some(ModerationReport {
+        report_id: policy
+            .moderation_report_id
+            .clone()
+            .unwrap_or_else(|| format!("cx:moderation:{}", now.timestamp_millis())),
+        policy_id: policy.policy_id.clone(),
+        actor_id: ctx.actor_id.clone(),
+        resource: ctx.resource.clone(),
+        effect: policy.effect.clone(),
+        reason: policy.reason.clone(),
+        created_at: now,
+    })
+}
+
 /// Capability grant.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CapabilityGrant {
@@ -1645,6 +1732,205 @@ pub struct CapabilityGrant {
     pub revoked_by: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub revoked_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CapabilityFrontierValidation {
+    pub checked_grants: usize,
+    pub max_delegation_depth: u32,
+}
+
+/// Validate capability frontier invariants before using reduced grants.
+pub fn validate_capability_frontier(
+    grants: &[CapabilityGrant],
+) -> Result<CapabilityFrontierValidation> {
+    let mut by_id = HashMap::new();
+    for grant in grants {
+        if grant.id.trim().is_empty() {
+            return Err(Error::Protocol("capability grant id is empty".to_owned()));
+        }
+        if grant.actions.is_empty() {
+            return Err(Error::Protocol(format!("capability grant '{}' has no actions", grant.id)));
+        }
+        if grant.resources.is_empty() {
+            return Err(Error::Protocol(format!(
+                "capability grant '{}' has no resources",
+                grant.id
+            )));
+        }
+        if by_id.insert(grant.id.clone(), grant).is_some() {
+            return Err(Error::Protocol(format!("duplicate capability grant id '{}'", grant.id)));
+        }
+    }
+
+    let mut max_depth = 0;
+    for grant in grants {
+        let depth = validate_delegation_chain(grant, &by_id)?;
+        max_depth = max_depth.max(depth);
+    }
+
+    Ok(CapabilityFrontierValidation {
+        checked_grants: grants.len(),
+        max_delegation_depth: max_depth,
+    })
+}
+
+/// Reject unknown critical constraint objects in wire JSON before typed deserialization.
+pub fn reject_unknown_critical_constraints(value: &Value, supported: &[&str]) -> Result<()> {
+    let Some(constraints) = value.get("constraints").and_then(Value::as_array) else {
+        return Ok(());
+    };
+    for constraint in constraints {
+        let critical = constraint.get("critical").and_then(Value::as_bool).unwrap_or(false);
+        if !critical {
+            continue;
+        }
+        let constraint_type = constraint
+            .get("type")
+            .and_then(Value::as_str)
+            .map(ToOwned::to_owned)
+            .or_else(|| {
+                constraint.as_object().and_then(|object| {
+                    object
+                        .keys()
+                        .find(|key| {
+                            !matches!(
+                                key.as_str(),
+                                "critical" | "constraint_id" | "priority" | "effect"
+                            )
+                        })
+                        .cloned()
+                })
+            })
+            .ok_or_else(|| Error::Protocol("critical constraint is missing a type".to_owned()))?;
+        if !supported.iter().any(|supported| *supported == constraint_type) {
+            return Err(Error::Protocol(format!("unknown critical constraint: {constraint_type}")));
+        }
+    }
+    Ok(())
+}
+
+fn validate_delegation_chain(
+    grant: &CapabilityGrant,
+    by_id: &HashMap<String, &CapabilityGrant>,
+) -> Result<u32> {
+    let mut depth = 0;
+    let mut seen = HashSet::new();
+    let mut child = grant;
+    while let Some(parent_id) = &child.parent_grant_id {
+        if !seen.insert(child.id.clone()) {
+            return Err(Error::Protocol("capability delegation cycle detected".to_owned()));
+        }
+        let parent = by_id.get(parent_id).ok_or_else(|| {
+            Error::Protocol(format!(
+                "capability grant '{}' references missing parent '{}'",
+                child.id, parent_id
+            ))
+        })?;
+        if !parent.delegable {
+            return Err(Error::Protocol(format!(
+                "capability parent '{}' is not delegable",
+                parent.id
+            )));
+        }
+        if child.issuer != parent.subject {
+            return Err(Error::Protocol(format!(
+                "capability grant '{}' issuer does not match parent subject",
+                child.id
+            )));
+        }
+        if !actions_are_narrowed(&child.actions, &parent.actions) {
+            return Err(Error::Protocol(format!(
+                "capability grant '{}' widens delegated actions",
+                child.id
+            )));
+        }
+        if !resources_are_narrowed(&child.resources, &parent.resources) {
+            return Err(Error::Protocol(format!(
+                "capability grant '{}' widens delegated resources",
+                child.id
+            )));
+        }
+        if let (Some(child_from), Some(parent_from)) = (child.valid_from, parent.valid_from)
+            && child_from < parent_from
+        {
+            return Err(Error::Protocol(format!(
+                "capability grant '{}' starts before parent",
+                child.id
+            )));
+        }
+        if let (Some(child_until), Some(parent_until)) = (child.valid_until, parent.valid_until)
+            && child_until > parent_until
+        {
+            return Err(Error::Protocol(format!(
+                "capability grant '{}' expires after parent",
+                child.id
+            )));
+        }
+        depth += 1;
+        child = parent;
+    }
+    Ok(depth)
+}
+
+fn actions_are_narrowed(child: &[String], parent: &[String]) -> bool {
+    parent.iter().any(|action| action == "*")
+        || child.iter().all(|action| parent.iter().any(|parent| parent == action))
+}
+
+fn resources_are_narrowed(child: &[ResourceSelector], parent: &[ResourceSelector]) -> bool {
+    child.iter().all(|child| parent.iter().any(|parent| resource_is_narrowed(child, parent)))
+}
+
+fn resource_is_narrowed(child: &ResourceSelector, parent: &ResourceSelector) -> bool {
+    if matches!(parent, ResourceSelector::Wildcard) || child == parent {
+        return true;
+    }
+    match (child, parent) {
+        (
+            ResourceSelector::Entity {
+                space_id,
+                entity_type,
+                entity_id,
+            },
+            ResourceSelector::Entity {
+                space_id: parent_space,
+                entity_type: parent_type,
+                entity_id: parent_id,
+            },
+        ) => {
+            space_narrowed(space_id, parent_space)
+                && option_narrowed(entity_type.as_ref(), parent_type.as_ref())
+                && option_narrowed(entity_id.as_ref(), parent_id.as_ref())
+        }
+        (ResourceSelector::Message { space_id, message_id }, ResourceSelector::Message {
+            space_id: parent_space,
+            message_id: parent_id,
+        }) => space_narrowed(space_id, parent_space) && option_narrowed(message_id.as_ref(), parent_id.as_ref()),
+        (ResourceSelector::Policy { space_id, policy_id }, ResourceSelector::Policy {
+            space_id: parent_space,
+            policy_id: parent_id,
+        }) => space_narrowed(space_id, parent_space) && option_narrowed(policy_id.as_ref(), parent_id.as_ref()),
+        (ResourceSelector::Invite { space_id, invite_id }, ResourceSelector::Invite {
+            space_id: parent_space,
+            invite_id: parent_id,
+        }) => space_narrowed(space_id, parent_space) && option_narrowed(invite_id.as_ref(), parent_id.as_ref()),
+        (ResourceSelector::Space { space_id }, ResourceSelector::Space { space_id: parent_space }) => {
+            space_narrowed(space_id, parent_space)
+        }
+        _ => false,
+    }
+}
+
+fn space_narrowed(child: &str, parent: &str) -> bool {
+    parent == "*" || child == parent
+}
+
+fn option_narrowed(child: Option<&String>, parent: Option<&String>) -> bool {
+    match parent {
+        None => true,
+        Some(parent) => child.is_some_and(|child| child == parent),
+    }
 }
 
 /// Extract active grant/delegate capability events from a resolved space state.
@@ -2302,11 +2588,16 @@ mod tests {
         .with_accountability_logged(true)
         .with_encryption_level("mls_rfc9420")
         .with_verified_claim(VerifiedClaim {
+            claim_id: None,
+            subject: Did::new("did:web:alice.example.com").unwrap(),
             claim_type: "employee".to_owned(),
             issuer: Did::new("did:web:issuer.example.com").unwrap(),
             organization: Some(Did::new("did:web:org.example.com").unwrap()),
             status: Some("active".to_owned()),
             roles: vec!["writer".to_owned()],
+            issued_at: None,
+            expires_at: None,
+            revoked_at: None,
             refreshed_at: None,
         });
         let mut grant = grant_for(

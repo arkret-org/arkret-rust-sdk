@@ -239,7 +239,7 @@ pub enum TimelineFilter {
 }
 
 /// Backfill request for historical events.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BackfillRequest {
     /// Space ID to backfill
     pub space_id: SpaceId,

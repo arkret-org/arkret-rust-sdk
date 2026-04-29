@@ -216,7 +216,7 @@ impl TimelineItem {
 }
 
 /// Result of focused event loading from local timeline state.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FocusedTimeline {
     /// Requested target event.
     pub target_event_id: EventId,
@@ -821,6 +821,151 @@ impl Timeline {
         }
     }
 
+    fn insert_event(&mut self, event: Event) -> Result<()> {
+        if self.event_ids.contains(&event.event_id) {
+            return Ok(());
+        }
+
+        let depth = causal_depth_for(&event, &self.event_depths);
+        let order = TimelineOrderKey::from_event(&event, depth);
+        self.event_ids.insert(event.event_id.clone());
+        self.event_depths.insert(event.event_id.clone(), depth);
+        self.apply_event_to_items(&event, order.clone());
+        self.events.push_back(TimelineEvent {
+            event,
+            order,
+            position: TimelinePosition { index: 0, is_latest: false },
+        });
+        self.sort_events();
+        self.update_positions();
+        self.rebuild_item_order();
+        Ok(())
+    }
+
+    fn apply_event_to_items(&mut self, event: &Event, order: TimelineOrderKey) {
+        match event.kind.as_str() {
+            "cx.message.create" => {
+                let item = TimelineItem::from_event(event, order, TimelineItemKind::Message);
+                self.event_to_item.insert(event.event_id.clone(), item.item_id.clone());
+                self.items.entry(item.item_id.clone()).or_insert(item);
+            }
+            "cx.message.revise" => self.apply_message_edit(event, order),
+            "cx.message.redact" => self.apply_message_redaction(event, order),
+            "cx.reaction.add" | "cx.reaction.remove" => self.apply_reaction(event),
+            _ if event.redacts.is_some() => self.apply_message_redaction(event, order),
+            _ => {
+                let item = TimelineItem::from_event(event, order, TimelineItemKind::Event);
+                self.event_to_item.insert(event.event_id.clone(), item.item_id.clone());
+                self.items.entry(item.item_id.clone()).or_insert(item);
+            }
+        }
+    }
+
+    fn apply_message_edit(&mut self, event: &Event, order: TimelineOrderKey) {
+        let Some(item_id) = target_message_id(event) else {
+            return;
+        };
+        self.event_to_item.insert(event.event_id.clone(), item_id.clone());
+        if let Some(item) = self.items.get_mut(&item_id) {
+            if order >= item.latest_order {
+                item.latest_event_id = event.event_id.clone();
+                item.latest_order = order;
+                item.content =
+                    event.content.get("content").cloned().unwrap_or_else(|| event.content.clone());
+                item.redacted = false;
+                item.redacted_by = None;
+            }
+            item.edit_event_ids.push(event.event_id.clone());
+        }
+    }
+
+    fn apply_message_redaction(&mut self, event: &Event, order: TimelineOrderKey) {
+        let item_id = event
+            .redacts
+            .as_ref()
+            .and_then(|event_id| self.event_to_item.get(event_id).cloned())
+            .or_else(|| target_message_id(event));
+        let Some(item_id) = item_id else {
+            return;
+        };
+        self.event_to_item.insert(event.event_id.clone(), item_id.clone());
+        if let Some(item) = self.items.get_mut(&item_id) {
+            if order >= item.latest_order {
+                item.latest_event_id = event.event_id.clone();
+                item.latest_order = order;
+                item.content = Value::Object(Default::default());
+                item.redacted = true;
+                item.redacted_by = Some(event.event_id.clone());
+            }
+            item.edit_event_ids.push(event.event_id.clone());
+        }
+    }
+
+    fn apply_reaction(&mut self, event: &Event) {
+        let Some(item_id) = target_message_id(event) else {
+            return;
+        };
+        let Some(reaction_key) = event.content.get("reaction_key").and_then(Value::as_str) else {
+            return;
+        };
+        let active = event.kind == "cx.reaction.add";
+        self.event_to_item.insert(event.event_id.clone(), item_id.clone());
+        self.reaction_index
+            .insert((item_id.clone(), event.actor_id.clone(), reaction_key.to_owned()), active);
+        self.rebuild_reactions(&item_id);
+    }
+
+    fn rebuild_reactions(&mut self, item_id: &str) {
+        let mut summaries: BTreeMap<String, BTreeSet<Did>> = BTreeMap::new();
+        for ((reaction_item_id, actor_id, reaction_key), active) in &self.reaction_index {
+            if reaction_item_id == item_id && *active {
+                summaries.entry(reaction_key.clone()).or_default().insert(actor_id.clone());
+            }
+        }
+        if let Some(item) = self.items.get_mut(item_id) {
+            item.reactions = summaries
+                .into_iter()
+                .map(|(reaction_key, senders)| {
+                    let senders: Vec<_> = senders.into_iter().collect();
+                    (
+                        reaction_key.clone(),
+                        TimelineReactionSummary {
+                            reaction_key,
+                            count: senders.len() as u64,
+                            senders,
+                        },
+                    )
+                })
+                .collect();
+        }
+    }
+
+    fn sort_events(&mut self) {
+        self.events.make_contiguous().sort_by(|left, right| left.order.cmp(&right.order));
+    }
+
+    fn rebuild_item_order(&mut self) {
+        let mut items: Vec<_> = self.items.values().collect();
+        items.sort_by(|left, right| {
+            left.order.cmp(&right.order).then(left.item_id.cmp(&right.item_id))
+        });
+        self.item_order = items.into_iter().map(|item| item.item_id.clone()).collect();
+    }
+
+    fn trim_front(&mut self) {
+        while self.events.len() > self.max_size {
+            self.events.pop_front();
+        }
+        self.update_positions();
+    }
+
+    fn trim_back(&mut self) {
+        while self.events.len() > self.max_size {
+            self.events.pop_back();
+        }
+        self.update_positions();
+    }
+
     /// Update positions for all events in the timeline.
     fn update_positions(&mut self) {
         let len = self.events.len();
@@ -828,15 +973,215 @@ impl Timeline {
             te.position.index = index;
             te.position.is_latest = index == len - 1;
         }
+        self.oldest_event_id = self.events.front().map(|event| event.event.event_id.clone());
+        self.latest_event_id = self.events.back().map(|event| event.event.event_id.clone());
+    }
+
+    fn insert_event(&mut self, event: Event) -> Result<()> {
+        if !self.event_ids.insert(event.event_id.clone()) {
+            return Ok(());
+        }
+
+        let depth = causal_depth_for(&event, &self.event_depths);
+        let order = TimelineOrderKey::from_event(&event, depth);
+        self.event_depths.insert(event.event_id.clone(), depth);
+        self.apply_item_event(&event, order.clone());
+
+        let entry = TimelineEvent {
+            event,
+            order: order.clone(),
+            position: TimelinePosition { index: 0, is_latest: false },
+        };
+        let insert_at = self.events.iter().position(|existing| existing.order > order);
+        if let Some(index) = insert_at {
+            self.events.insert(index, entry);
+        } else {
+            self.events.push_back(entry);
+        }
+        self.update_positions();
+        Ok(())
+    }
+
+    fn trim_front(&mut self) {
+        while self.events.len() > self.max_size {
+            if let Some(event) = self.events.pop_front() {
+                self.event_ids.remove(&event.event.event_id);
+                self.event_depths.remove(&event.event.event_id);
+            }
+        }
+        self.update_positions();
+    }
+
+    fn trim_back(&mut self) {
+        while self.events.len() > self.max_size {
+            if let Some(event) = self.events.pop_back() {
+                self.event_ids.remove(&event.event.event_id);
+                self.event_depths.remove(&event.event.event_id);
+            }
+        }
+        self.update_positions();
+    }
+
+    fn apply_item_event(&mut self, event: &Event, order: TimelineOrderKey) {
+        match event.kind.as_str() {
+            "cx.message.create" => self.upsert_message_item(event, order),
+            "cx.message.revise" => self.apply_message_revision(event, order),
+            "cx.message.redact" | "cx.redaction" => self.apply_message_redaction(event, order),
+            "cx.reaction.add" | "cx.reaction.remove" => self.apply_reaction(event),
+            _ => self.upsert_generic_item(event, order),
+        }
+    }
+
+    fn upsert_message_item(&mut self, event: &Event, order: TimelineOrderKey) {
+        let item = TimelineItem::from_event(event, order, TimelineItemKind::Message);
+        self.insert_item_for_event(event.event_id.clone(), item);
+    }
+
+    fn upsert_generic_item(&mut self, event: &Event, order: TimelineOrderKey) {
+        let item = TimelineItem::from_event(event, order, TimelineItemKind::Event);
+        self.insert_item_for_event(event.event_id.clone(), item);
+    }
+
+    fn insert_item_for_event(&mut self, event_id: EventId, item: TimelineItem) {
+        let item_id = item.item_id.clone();
+        if !self.items.contains_key(&item_id) {
+            self.item_order.push(item_id.clone());
+        }
+        self.event_to_item.insert(event_id, item_id.clone());
+        self.items.insert(item_id, item);
+    }
+
+    fn apply_message_revision(&mut self, event: &Event, order: TimelineOrderKey) {
+        let Some(item_id) = self.target_item_id(event) else {
+            return;
+        };
+        let Some(item) = self.items.get_mut(&item_id) else {
+            return;
+        };
+
+        item.latest_event_id = event.event_id.clone();
+        item.latest_order = order;
+        item.content = event
+            .content
+            .get("content")
+            .filter(|content| content.is_object())
+            .cloned()
+            .unwrap_or_else(|| event.content.clone());
+        item.edit_event_ids.push(event.event_id.clone());
+        item.redacted = false;
+        item.redacted_by = None;
+        self.event_to_item.insert(event.event_id.clone(), item_id);
+    }
+
+    fn apply_message_redaction(&mut self, event: &Event, order: TimelineOrderKey) {
+        let Some(item_id) = self.target_item_id(event).or_else(|| {
+            event.redacts.as_ref().and_then(|event_id| self.event_to_item.get(event_id).cloned())
+        }) else {
+            return;
+        };
+        let Some(item) = self.items.get_mut(&item_id) else {
+            return;
+        };
+
+        item.latest_event_id = event.event_id.clone();
+        item.latest_order = order;
+        item.content = Value::Object(Default::default());
+        item.redacted = true;
+        item.redacted_by = Some(event.event_id.clone());
+        self.event_to_item.insert(event.event_id.clone(), item_id);
+    }
+
+    fn apply_reaction(&mut self, event: &Event) {
+        let Some(item_id) = self.target_item_id(event) else {
+            return;
+        };
+        if !self.items.contains_key(&item_id) {
+            return;
+        }
+        let Some(reaction_key) = string_content_field(event, "reaction_key") else {
+            return;
+        };
+
+        let active = event.kind == "cx.reaction.add";
+        self.reaction_index
+            .insert((item_id.clone(), event.actor_id.clone(), reaction_key.clone()), active);
+        self.recompute_reaction_summary(&item_id, &reaction_key);
+        self.event_to_item.insert(event.event_id.clone(), item_id);
+    }
+
+    fn recompute_reaction_summary(&mut self, item_id: &str, reaction_key: &str) {
+        let mut senders: Vec<Did> = self
+            .reaction_index
+            .iter()
+            .filter_map(|((candidate_item_id, sender, candidate_reaction), active)| {
+                (candidate_item_id == item_id && candidate_reaction == reaction_key && *active)
+                    .then(|| sender.clone())
+            })
+            .collect();
+        senders.sort();
+        senders.dedup();
+
+        if let Some(item) = self.items.get_mut(item_id) {
+            if senders.is_empty() {
+                item.reactions.remove(reaction_key);
+            } else {
+                item.reactions.insert(
+                    reaction_key.to_owned(),
+                    TimelineReactionSummary {
+                        reaction_key: reaction_key.to_owned(),
+                        count: senders.len() as u64,
+                        senders,
+                    },
+                );
+            }
+        }
+    }
+
+    fn target_item_id(&self, event: &Event) -> Option<String> {
+        string_content_field(event, "target_message_id")
+            .or_else(|| string_content_field(event, "message_id"))
+            .or_else(|| {
+                string_content_field(event, "target_event_id").and_then(|event_id| {
+                    EventId::new(event_id)
+                        .ok()
+                        .and_then(|event_id| self.event_to_item.get(&event_id).cloned())
+                })
+            })
     }
 
     /// Clear the timeline.
     pub fn clear(&mut self) {
         self.events.clear();
+        self.event_ids.clear();
+        self.event_depths.clear();
+        self.items.clear();
+        self.item_order.clear();
+        self.event_to_item.clear();
+        self.reaction_index.clear();
+        self.typing.clear();
         self.gaps.clear();
         self.latest_event_id = None;
         self.oldest_event_id = None;
     }
+}
+
+fn causal_depth_for(event: &Event, depths: &BTreeMap<EventId, u64>) -> u64 {
+    event
+        .prev_refs
+        .iter()
+        .filter_map(|event_id| depths.get(event_id))
+        .copied()
+        .max()
+        .map(|depth| depth.saturating_add(1))
+        .unwrap_or(0)
+}
+
+fn message_id(event: &Event) -> Option<String> {
+    string_content_field(event, "message_id")
+}
+
+fn string_content_field(event: &Event, field: &str) -> Option<String> {
+    event.content.get(field)?.as_str().map(str::to_owned)
 }
 
 #[cfg(test)]
@@ -982,4 +1327,112 @@ mod tests {
         let mut timeline = Timeline::new(space_id, base_client);
 
         timeline.record_gap(None, None, Some(10));
-        assert_eq
+        assert_eq!(timeline.gaps().len(), 1);
+
+        timeline.clear_gaps();
+        assert_eq!(timeline.gaps().len(), 0);
+    }
+
+    #[test]
+    fn timeline_builds_stable_items_and_aggregates_edits_redactions_and_reactions() {
+        let base_client = Arc::new(BaseClient::new());
+        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let mut timeline = Timeline::new(space_id.clone(), base_client);
+        let mut message = create_test_event(&space_id, 1);
+        message.kind = "cx.message.create".to_owned();
+        message.content = json!({"message_id":"m1","body":"hello"});
+        let mut edit = create_test_event(&space_id, 2);
+        edit.kind = "cx.message.revise".to_owned();
+        edit.content = json!({"target_message_id":"m1","content":{"body":"hi"}});
+        let mut reaction = create_test_event(&space_id, 3);
+        reaction.kind = "cx.reaction.add".to_owned();
+        reaction.content = json!({"message_id":"m1","reaction_key":"+1"});
+        let mut redaction = create_test_event(&space_id, 4);
+        redaction.kind = "cx.message.redact".to_owned();
+        redaction.content = json!({"target_message_id":"m1"});
+
+        timeline.append_events(vec![message, edit, reaction]).unwrap();
+
+        let item = timeline.get_item("m1").unwrap();
+        assert_eq!(timeline.items().len(), 1);
+        assert_eq!(item.content, json!({"body":"hi"}));
+        assert_eq!(item.edit_event_ids.len(), 1);
+        assert_eq!(item.reactions["+1"].count, 1);
+
+        timeline.append_events(vec![redaction]).unwrap();
+        let redacted = timeline.get_item("m1").unwrap();
+        assert!(redacted.redacted);
+        assert_eq!(redacted.content, json!({}));
+    }
+
+    #[test]
+    fn timeline_applies_read_receipts_typing_and_focused_loading() {
+        let base_client = Arc::new(BaseClient::new());
+        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let mut timeline = Timeline::new(space_id.clone(), base_client);
+        let mut message = create_test_event(&space_id, 1);
+        message.kind = "cx.message.create".to_owned();
+        message.content = json!({"message_id":"m1","body":"hello"});
+        let event_id = message.event_id.clone();
+        let actor = Did::new("did:web:alice.example.com").unwrap();
+
+        timeline.append_events(vec![message]).unwrap();
+        timeline.apply_read_receipt(ReadReceipt {
+            space_id: space_id.clone(),
+            user_id: actor.clone(),
+            event_id: event_id.clone(),
+            visibility: ReceiptVisibility::Public,
+            thread_id: None,
+            received_at: chrono::Utc::now(),
+        });
+        timeline.apply_typing(TypingNotification {
+            space_id,
+            user_id: actor.clone(),
+            device_id: crate::DeviceId::new("dev_123").unwrap(),
+            is_typing: true,
+            expires_at: chrono::Utc::now() + chrono::Duration::seconds(30),
+            updated_at: chrono::Utc::now(),
+        });
+
+        let focused = timeline.focused_window(event_id, 1, 1);
+
+        assert_eq!(timeline.get_item("m1").unwrap().read_receipts.len(), 1);
+        assert_eq!(timeline.active_typers_at(chrono::Utc::now()), vec![actor]);
+        assert!(focused.target.is_some());
+        assert!(focused.backfill_request.is_some());
+    }
+
+    #[test]
+    fn event_cache_deduplicates_records_limited_gaps_and_reconciles_backfill() {
+        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let event = create_test_event(&space_id, 1);
+        let raw = serde_json::to_value(&event).unwrap();
+        let timeline_section = SyncTimeline {
+            events: vec![raw.clone()],
+            limited: true,
+            prev_batch: Some("prev".to_owned()),
+        };
+        let mut cache = EventCache::new();
+
+        let update = cache.apply_sync_timeline(space_id.clone(), &timeline_section).unwrap();
+        let duplicate = cache.apply_sync_timeline(space_id.clone(), &timeline_section).unwrap();
+        let request = cache.next_gap_backfill_request(&space_id, 10).unwrap();
+        cache.store_processed_items(
+            space_id.clone(),
+            vec![TimelineItem::from_event(
+                &event,
+                TimelineOrderKey::from_event(&event, 0),
+                TimelineItemKind::Message,
+            )],
+        );
+        let backfill = cache
+            .reconcile_backfill(space_id.clone(), vec![create_test_event(&space_id, 0)])
+            .unwrap();
+
+        assert_eq!(update.inserted, vec![event.event_id.clone()]);
+        assert_eq!(duplicate.duplicate_event_ids, vec![event.event_id]);
+        assert!(matches!(request.from, BackfillFrom::Cursor { .. }));
+        assert_eq!(cache.processed_items(&space_id).len(), 1);
+        assert!(backfill.gaps.is_empty());
+    }
+}

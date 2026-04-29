@@ -1,12 +1,13 @@
 //! Authentication flow and session management helpers.
 
 use std::{
-    collections::{BTreeMap, VecDeque},
+    collections::{BTreeMap, BTreeSet, VecDeque},
     fmt,
 };
 
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use sha2::{Digest, Sha256};
 use ulid::Ulid;
 
@@ -109,6 +110,72 @@ pub struct AccountRecoveryRequest {
     pub method: AccountRecoveryMethod,
     pub expires_at: DateTime<Utc>,
     pub completed_at: Option<DateTime<Utc>>,
+}
+
+/// Account state enforced before issuing or refreshing sessions.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AccountAuthState {
+    Active,
+    SoftLoggedOut,
+    Locked,
+    Suspended,
+    Deactivated,
+}
+
+impl AccountAuthState {
+    pub fn is_active(self) -> bool {
+        matches!(self, Self::Active)
+    }
+}
+
+/// Refresh/access token metadata safe for durable storage.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RefreshTokenMetadata {
+    pub session_id: String,
+    pub user_id: Did,
+    pub device_id: DeviceId,
+    pub access_token_hash: String,
+    pub refresh_token_hash: String,
+    pub issued_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub revoked_at: Option<DateTime<Utc>>,
+}
+
+/// Durable revocation-list entry for a session.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionRevocation {
+    pub session_id: String,
+    pub user_id: Did,
+    pub device_id: DeviceId,
+    pub revoked_at: DateTime<Utc>,
+    pub reason: String,
+}
+
+/// Persisted session metadata. Token material is represented only by hashes.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PersistedAuthSession {
+    pub session_id: String,
+    pub user_id: Did,
+    pub principal_id: Did,
+    pub device_id: DeviceId,
+    pub expires_at: DateTime<Utc>,
+    pub revoked: bool,
+    pub created_at: DateTime<Utc>,
+    pub access_token_hash: String,
+    pub refresh_token_hash: String,
+}
+
+/// Auth state contract for applications that back `AuthManager` with durable storage.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AuthStateSnapshot {
+    pub password_users: BTreeMap<String, PasswordUser>,
+    pub sessions: Vec<PersistedAuthSession>,
+    pub account_states: BTreeMap<Did, AccountAuthState>,
+    pub refresh_tokens: BTreeMap<String, RefreshTokenMetadata>,
+    pub revoked_sessions: BTreeMap<String, SessionRevocation>,
+    pub recovery_requests: BTreeMap<String, AccountRecoveryRequest>,
 }
 
 /// Session-to-DID principal binding.
@@ -334,6 +401,255 @@ where
     }
 }
 
+/// Standard claim type names used by auth and progressive disclosure helpers.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuthClaimType {
+    VerifiedHandle,
+    EmailDomain,
+    OrganizationMembership,
+    OrganizationRole,
+    DeviceTrust,
+    MfaLevel,
+    RiskLevel,
+}
+
+impl AuthClaimType {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::VerifiedHandle => "verified_handle",
+            Self::EmailDomain => "email_domain",
+            Self::OrganizationMembership => "organization_membership",
+            Self::OrganizationRole => "organization_role",
+            Self::DeviceTrust => "device_trust",
+            Self::MfaLevel => "mfa_level",
+            Self::RiskLevel => "risk_level",
+        }
+    }
+}
+
+/// Claim presented to satisfy an auth or policy disclosure request.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PresentedClaim {
+    pub claim_id: String,
+    pub subject: Did,
+    pub issuer: Did,
+    pub claim_type: String,
+    pub value: Value,
+    pub issued_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refreshed_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub revoked_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub disclosed_fields: BTreeSet<String>,
+}
+
+impl PresentedClaim {
+    pub fn new(
+        claim_id: impl Into<String>,
+        subject: Did,
+        issuer: Did,
+        claim_type: impl Into<String>,
+        value: Value,
+    ) -> Self {
+        Self {
+            claim_id: claim_id.into(),
+            subject,
+            issuer,
+            claim_type: claim_type.into(),
+            value,
+            issued_at: Utc::now(),
+            refreshed_at: None,
+            expires_at: None,
+            revoked_at: None,
+            disclosed_fields: BTreeSet::new(),
+        }
+    }
+
+    pub fn verified_handle(
+        claim_id: impl Into<String>,
+        subject: Did,
+        issuer: Did,
+        handle: impl Into<String>,
+    ) -> Self {
+        Self::new(
+            claim_id,
+            subject,
+            issuer,
+            AuthClaimType::VerifiedHandle.as_str(),
+            serde_json::json!({ "handle": handle.into() }),
+        )
+    }
+
+    pub fn email_domain(
+        claim_id: impl Into<String>,
+        subject: Did,
+        issuer: Did,
+        domain: impl Into<String>,
+    ) -> Self {
+        Self::new(
+            claim_id,
+            subject,
+            issuer,
+            AuthClaimType::EmailDomain.as_str(),
+            serde_json::json!({ "domain": domain.into() }),
+        )
+    }
+
+    pub fn organization_membership(
+        claim_id: impl Into<String>,
+        subject: Did,
+        issuer: Did,
+        organization: Did,
+        roles: Vec<String>,
+    ) -> Self {
+        Self::new(
+            claim_id,
+            subject,
+            issuer,
+            AuthClaimType::OrganizationMembership.as_str(),
+            serde_json::json!({ "organization": organization, "roles": roles }),
+        )
+    }
+
+    pub fn device_trust(
+        claim_id: impl Into<String>,
+        subject: Did,
+        issuer: Did,
+        device_id: DeviceId,
+        trust_state: impl Into<String>,
+    ) -> Self {
+        Self::new(
+            claim_id,
+            subject,
+            issuer,
+            AuthClaimType::DeviceTrust.as_str(),
+            serde_json::json!({ "device_id": device_id, "trust_state": trust_state.into() }),
+        )
+    }
+
+    pub fn mfa_level(
+        claim_id: impl Into<String>,
+        subject: Did,
+        issuer: Did,
+        level: impl Into<String>,
+    ) -> Self {
+        Self::new(
+            claim_id,
+            subject,
+            issuer,
+            AuthClaimType::MfaLevel.as_str(),
+            serde_json::json!({ "level": level.into() }),
+        )
+    }
+
+    pub fn risk_level(
+        claim_id: impl Into<String>,
+        subject: Did,
+        issuer: Did,
+        level: impl Into<String>,
+    ) -> Self {
+        Self::new(
+            claim_id,
+            subject,
+            issuer,
+            AuthClaimType::RiskLevel.as_str(),
+            serde_json::json!({ "level": level.into() }),
+        )
+    }
+}
+
+/// One claim requested by a progressive disclosure policy.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClaimDisclosureRequirement {
+    pub claim_type: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub trusted_issuers: Vec<Did>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reveal_fields: Vec<String>,
+    #[serde(default = "default_true")]
+    pub required: bool,
+}
+
+/// Policy describing the minimum claims to disclose for a flow.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DisclosurePolicy {
+    pub policy_id: String,
+    pub requirements: Vec<ClaimDisclosureRequirement>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_age: Option<Duration>,
+    #[serde(default = "default_true")]
+    pub fail_closed: bool,
+}
+
+/// Presentation request sent to a wallet or identity provider.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PresentationRequest {
+    pub request_id: String,
+    pub subject: Did,
+    pub audience: String,
+    pub nonce: String,
+    pub policy: DisclosurePolicy,
+    pub created_at: DateTime<Utc>,
+}
+
+/// Rejected claim detail.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RejectedClaim {
+    pub claim_id: String,
+    pub claim_type: String,
+    pub reason: String,
+}
+
+/// Progressive disclosure validation result.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PresentationValidation {
+    pub accepted: bool,
+    pub disclosed_claims: Vec<PresentedClaim>,
+    pub missing_required: Vec<String>,
+    pub rejected_claims: Vec<RejectedClaim>,
+}
+
+/// Validate claims against issuer trust, subject, expiry, revocation and disclosure policy.
+pub fn validate_presentation(
+    request: &PresentationRequest,
+    claims: &[PresentedClaim],
+    revoked_claim_ids: &BTreeSet<String>,
+    now: DateTime<Utc>,
+) -> PresentationValidation {
+    let mut disclosed_claims = Vec::new();
+    let mut missing_required = Vec::new();
+    let mut rejected_claims = Vec::new();
+
+    for requirement in &request.policy.requirements {
+        let mut matched = false;
+        for claim in claims.iter().filter(|claim| claim.claim_type == requirement.claim_type) {
+            match validate_presented_claim(request, requirement, claim, revoked_claim_ids, now) {
+                Ok(()) => {
+                    disclosed_claims.push(disclose_claim(claim, &requirement.reveal_fields));
+                    matched = true;
+                    break;
+                }
+                Err(reason) => rejected_claims.push(RejectedClaim {
+                    claim_id: claim.claim_id.clone(),
+                    claim_type: claim.claim_type.clone(),
+                    reason,
+                }),
+            }
+        }
+        if !matched && requirement.required {
+            missing_required.push(requirement.claim_type.clone());
+        }
+    }
+
+    let accepted =
+        missing_required.is_empty() && (!request.policy.fail_closed || rejected_claims.is_empty());
+    PresentationValidation { accepted, disclosed_claims, missing_required, rejected_claims }
+}
+
 /// Authenticated session.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AuthSession {
@@ -370,6 +686,9 @@ pub struct AuthManager {
     password_users: BTreeMap<String, PasswordUser>,
     sessions: BTreeMap<String, AuthSession>,
     sessions_by_user: BTreeMap<Did, VecDeque<String>>,
+    account_states: BTreeMap<Did, AccountAuthState>,
+    refresh_tokens: BTreeMap<String, RefreshTokenMetadata>,
+    revoked_sessions: BTreeMap<String, SessionRevocation>,
     passkey_challenges: BTreeMap<Did, PasskeyChallenge>,
     mfa_challenges: BTreeMap<Did, MfaChallenge>,
     recovery_requests: BTreeMap<String, AccountRecoveryRequest>,
@@ -384,6 +703,9 @@ impl AuthManager {
             password_users: BTreeMap::new(),
             sessions: BTreeMap::new(),
             sessions_by_user: BTreeMap::new(),
+            account_states: BTreeMap::new(),
+            refresh_tokens: BTreeMap::new(),
+            revoked_sessions: BTreeMap::new(),
             passkey_challenges: BTreeMap::new(),
             mfa_challenges: BTreeMap::new(),
             recovery_requests: BTreeMap::new(),
@@ -430,6 +752,7 @@ impl AuthManager {
             password_hash: password_hash.into(),
             mfa_enabled: false,
         };
+        self.account_states.entry(user.user_id.clone()).or_insert(AccountAuthState::Active);
         self.password_users.insert(username, user.clone());
         Ok(user)
     }
@@ -700,17 +1023,32 @@ impl AuthManager {
 
     /// Create a session and enforce the concurrent session limit.
     pub fn create_session(&mut self, user_id: Did, device_id: DeviceId) -> Result<AuthSession> {
+        self.ensure_account_active(&user_id)?;
+        let now = Utc::now();
         let session = AuthSession {
             session_id: format!("sess_{}", Ulid::new()),
             access_token: format!("atk_{}", Ulid::new()),
             refresh_token: format!("rtk_{}", Ulid::new()),
-            expires_at: Utc::now() + Duration::hours(1),
+            expires_at: now + Duration::hours(1),
             revoked: false,
-            created_at: Utc::now(),
+            created_at: now,
             user_id: user_id.clone(),
             principal_id: user_id.clone(),
-            device_id,
+            device_id: device_id.clone(),
         };
+        self.refresh_tokens.insert(
+            session.session_id.clone(),
+            RefreshTokenMetadata {
+                session_id: session.session_id.clone(),
+                user_id: user_id.clone(),
+                device_id,
+                access_token_hash: sha256_hex(session.access_token.as_bytes()),
+                refresh_token_hash: sha256_hex(session.refresh_token.as_bytes()),
+                issued_at: now,
+                expires_at: session.expires_at,
+                revoked_at: None,
+            },
+        );
         self.sessions.insert(session.session_id.clone(), session.clone());
         let session_ids = self.sessions_by_user.entry(user_id).or_default();
         session_ids.push_back(session.session_id.clone());
@@ -719,6 +1057,19 @@ impl AuthManager {
                 && let Some(session) = self.sessions.get_mut(&oldest)
             {
                 session.revoked = true;
+                if let Some(metadata) = self.refresh_tokens.get_mut(&oldest) {
+                    metadata.revoked_at = Some(now);
+                }
+                self.revoked_sessions.insert(
+                    oldest.clone(),
+                    SessionRevocation {
+                        session_id: oldest,
+                        user_id: session.user_id.clone(),
+                        device_id: session.device_id.clone(),
+                        revoked_at: now,
+                        reason: "session limit exceeded".to_owned(),
+                    },
+                );
             }
         }
         Ok(session)
@@ -730,18 +1081,42 @@ impl AuthManager {
         session_id: &str,
         refresh_token: &str,
     ) -> Result<AuthSession> {
+        let snapshot = self
+            .sessions
+            .get(session_id)
+            .ok_or_else(|| Error::Protocol("session not found".to_owned()))?;
+        self.ensure_account_active(&snapshot.user_id)?;
+        if snapshot.revoked || self.revoked_sessions.contains_key(session_id) {
+            return Err(Error::Protocol("session revoked".to_owned()));
+        }
+        if snapshot.expires_at <= Utc::now() {
+            return Err(Error::Protocol("session expired".to_owned()));
+        }
+        let supplied_hash = sha256_hex(refresh_token.as_bytes());
+        if let Some(metadata) = self.refresh_tokens.get(session_id) {
+            if metadata.revoked_at.is_some() {
+                return Err(Error::Protocol("session revoked".to_owned()));
+            }
+            if !constant_time_eq(&metadata.refresh_token_hash, &supplied_hash) {
+                return Err(Error::Protocol("invalid refresh token".to_owned()));
+            }
+        } else if !constant_time_eq(&snapshot.refresh_token, refresh_token) {
+            return Err(Error::Protocol("invalid refresh token".to_owned()));
+        }
         let session = self
             .sessions
             .get_mut(session_id)
             .ok_or_else(|| Error::Protocol("session not found".to_owned()))?;
-        if session.revoked {
-            return Err(Error::Protocol("session revoked".to_owned()));
-        }
-        if !constant_time_eq(&session.refresh_token, refresh_token) {
-            return Err(Error::Protocol("invalid refresh token".to_owned()));
-        }
         session.access_token = format!("atk_{}", Ulid::new());
+        if session.refresh_token == "<redacted>" {
+            session.refresh_token = refresh_token.to_owned();
+        }
         session.expires_at = Utc::now() + Duration::hours(1);
+        if let Some(metadata) = self.refresh_tokens.get_mut(session_id) {
+            metadata.access_token_hash = sha256_hex(session.access_token.as_bytes());
+            metadata.refresh_token_hash = supplied_hash;
+            metadata.expires_at = session.expires_at;
+        }
         Ok(session.clone())
     }
 
@@ -752,6 +1127,20 @@ impl AuthManager {
             .get_mut(session_id)
             .ok_or_else(|| Error::Protocol("session not found".to_owned()))?;
         session.revoked = true;
+        let revoked_at = Utc::now();
+        if let Some(metadata) = self.refresh_tokens.get_mut(session_id) {
+            metadata.revoked_at = Some(revoked_at);
+        }
+        self.revoked_sessions.insert(
+            session_id.to_owned(),
+            SessionRevocation {
+                session_id: session_id.to_owned(),
+                user_id: session.user_id.clone(),
+                device_id: session.device_id.clone(),
+                revoked_at,
+                reason: "explicit revoke".to_owned(),
+            },
+        );
         Ok(())
     }
 
@@ -785,6 +1174,125 @@ impl AuthManager {
             created_at: session.created_at,
             valid_until: session.expires_at,
         })
+    }
+
+    /// Validate access-token and device binding for an active session.
+    pub fn validate_session(
+        &self,
+        session_id: &str,
+        access_token: &str,
+        device_id: &DeviceId,
+    ) -> Result<SessionPrincipalBinding> {
+        let session = self
+            .sessions
+            .get(session_id)
+            .ok_or_else(|| Error::Protocol("session not found".to_owned()))?;
+        self.ensure_account_active(&session.user_id)?;
+        if session.revoked || self.revoked_sessions.contains_key(session_id) {
+            return Err(Error::Protocol("session revoked".to_owned()));
+        }
+        if session.expires_at <= Utc::now() {
+            return Err(Error::Protocol("session expired".to_owned()));
+        }
+        if &session.device_id != device_id {
+            return Err(Error::Protocol("session device binding mismatch".to_owned()));
+        }
+        let supplied_hash = sha256_hex(access_token.as_bytes());
+        if let Some(metadata) = self.refresh_tokens.get(session_id) {
+            if !constant_time_eq(&metadata.access_token_hash, &supplied_hash) {
+                return Err(Error::Protocol("invalid access token".to_owned()));
+            }
+        } else if !constant_time_eq(&session.access_token, access_token) {
+            return Err(Error::Protocol("invalid access token".to_owned()));
+        }
+        self.session_principal_binding(session_id)
+    }
+
+    /// Set an account state. Non-active states fail closed for login and refresh.
+    pub fn set_account_state(&mut self, user_id: Did, state: AccountAuthState) {
+        self.account_states.insert(user_id, state);
+    }
+
+    /// Current account state. Missing state defaults to active for legacy callers.
+    pub fn account_state(&self, user_id: &Did) -> AccountAuthState {
+        self.account_states.get(user_id).copied().unwrap_or(AccountAuthState::Active)
+    }
+
+    /// Export durable auth state without raw access or refresh token material.
+    pub fn export_state(&self) -> AuthStateSnapshot {
+        let sessions = self
+            .sessions
+            .values()
+            .map(|session| {
+                let metadata = self.refresh_tokens.get(&session.session_id);
+                PersistedAuthSession {
+                    session_id: session.session_id.clone(),
+                    user_id: session.user_id.clone(),
+                    principal_id: session.principal_id.clone(),
+                    device_id: session.device_id.clone(),
+                    expires_at: session.expires_at,
+                    revoked: session.revoked,
+                    created_at: session.created_at,
+                    access_token_hash: metadata
+                        .map(|metadata| metadata.access_token_hash.clone())
+                        .unwrap_or_else(|| sha256_hex(session.access_token.as_bytes())),
+                    refresh_token_hash: metadata
+                        .map(|metadata| metadata.refresh_token_hash.clone())
+                        .unwrap_or_else(|| sha256_hex(session.refresh_token.as_bytes())),
+                }
+            })
+            .collect();
+        AuthStateSnapshot {
+            password_users: self.password_users.clone(),
+            sessions,
+            account_states: self.account_states.clone(),
+            refresh_tokens: self.refresh_tokens.clone(),
+            revoked_sessions: self.revoked_sessions.clone(),
+            recovery_requests: self.recovery_requests.clone(),
+        }
+    }
+
+    /// Import durable auth state exported by `export_state`.
+    pub fn import_state(&mut self, snapshot: AuthStateSnapshot) -> Result<()> {
+        self.password_users = snapshot.password_users;
+        self.sessions.clear();
+        self.sessions_by_user.clear();
+        self.account_states = snapshot.account_states;
+        self.refresh_tokens = snapshot.refresh_tokens;
+        self.revoked_sessions = snapshot.revoked_sessions;
+        self.recovery_requests = snapshot.recovery_requests;
+
+        for persisted in snapshot.sessions {
+            let session = AuthSession {
+                session_id: persisted.session_id.clone(),
+                user_id: persisted.user_id.clone(),
+                principal_id: persisted.principal_id,
+                device_id: persisted.device_id.clone(),
+                access_token: "<redacted>".to_owned(),
+                refresh_token: "<redacted>".to_owned(),
+                expires_at: persisted.expires_at,
+                revoked: persisted.revoked,
+                created_at: persisted.created_at,
+            };
+            self.refresh_tokens.entry(persisted.session_id.clone()).or_insert(
+                RefreshTokenMetadata {
+                    session_id: persisted.session_id.clone(),
+                    user_id: persisted.user_id.clone(),
+                    device_id: persisted.device_id,
+                    access_token_hash: persisted.access_token_hash,
+                    refresh_token_hash: persisted.refresh_token_hash,
+                    issued_at: persisted.created_at,
+                    expires_at: persisted.expires_at,
+                    revoked_at: if persisted.revoked { Some(Utc::now()) } else { None },
+                },
+            );
+            self.sessions_by_user
+                .entry(persisted.user_id)
+                .or_default()
+                .push_back(persisted.session_id.clone());
+            self.sessions.insert(persisted.session_id, session);
+        }
+        Ok(())
     }
 
     /// Start account recovery with a supported recovery method.
@@ -917,12 +1425,82 @@ impl AuthManager {
         }
         Ok(())
     }
+
+    fn ensure_account_active(&self, user_id: &Did) -> Result<()> {
+        let state = self.account_state(user_id);
+        if state.is_active() {
+            Ok(())
+        } else {
+            Err(Error::Protocol(format!("account is not active: {state:?}")))
+        }
+    }
 }
 
 impl Default for AuthManager {
     fn default() -> Self {
         Self::new(8)
     }
+}
+
+fn default_true() -> bool {
+    true
+}
+
+fn validate_presented_claim(
+    request: &PresentationRequest,
+    requirement: &ClaimDisclosureRequirement,
+    claim: &PresentedClaim,
+    revoked_claim_ids: &BTreeSet<String>,
+    now: DateTime<Utc>,
+) -> std::result::Result<(), String> {
+    if claim.subject != request.subject {
+        return Err("claim subject mismatch".to_owned());
+    }
+    if !requirement.trusted_issuers.is_empty()
+        && !requirement.trusted_issuers.contains(&claim.issuer)
+    {
+        return Err("claim issuer is not trusted".to_owned());
+    }
+    if revoked_claim_ids.contains(&claim.claim_id) {
+        return Err("claim is revoked".to_owned());
+    }
+    if claim.revoked_at.is_some_and(|revoked_at| revoked_at <= now) {
+        return Err("claim is revoked".to_owned());
+    }
+    if claim.expires_at.is_some_and(|expires_at| expires_at <= now) {
+        return Err("claim is expired".to_owned());
+    }
+    if let Some(max_age) = request.policy.max_age {
+        let basis = claim.refreshed_at.unwrap_or(claim.issued_at);
+        if now - basis > max_age {
+            return Err("claim is stale".to_owned());
+        }
+    }
+    Ok(())
+}
+
+fn disclose_claim(claim: &PresentedClaim, reveal_fields: &[String]) -> PresentedClaim {
+    let mut disclosed = claim.clone();
+    disclosed.disclosed_fields = reveal_fields.iter().cloned().collect();
+    if reveal_fields.is_empty() {
+        disclosed.value = Value::Null;
+        return disclosed;
+    }
+    if reveal_fields.iter().any(|field| field == "*") {
+        return disclosed;
+    }
+    let Some(object) = claim.value.as_object() else {
+        disclosed.value = Value::Null;
+        return disclosed;
+    };
+    let mut filtered = serde_json::Map::new();
+    for field in reveal_fields {
+        if let Some(value) = object.get(field) {
+            filtered.insert(field.clone(), value.clone());
+        }
+    }
+    disclosed.value = Value::Object(filtered);
+    disclosed
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {
@@ -1143,6 +1721,98 @@ mod tests {
             .unwrap();
         assert!(completed.completed_at.is_some());
         assert!(auth.complete_recovery(&request.request_id, "wrong").is_err());
+    }
+
+    #[test]
+    fn auth_exports_safe_state_and_enforces_device_binding_and_account_state() {
+        let alice = did("alice");
+        let mut auth = AuthManager::default();
+        auth.register_password_user("alice", "secret", alice.clone()).unwrap();
+
+        let session = auth.login_password("alice", "secret", device("desktop")).unwrap();
+        auth.validate_session(&session.session_id, &session.access_token, &device("desktop"))
+            .unwrap();
+        assert!(
+            auth.validate_session(&session.session_id, &session.access_token, &device("phone"))
+                .is_err()
+        );
+
+        let snapshot = auth.export_state();
+        assert_eq!(snapshot.sessions.len(), 1);
+        assert!(!serde_json::to_string(&snapshot).unwrap().contains(&session.refresh_token));
+
+        let mut restored = AuthManager::default();
+        restored.import_state(snapshot).unwrap();
+        restored
+            .validate_session(&session.session_id, &session.access_token, &device("desktop"))
+            .unwrap();
+        restored.set_account_state(alice, AccountAuthState::Locked);
+        assert!(restored.refresh_session(&session.session_id, &session.refresh_token).is_err());
+    }
+
+    #[test]
+    fn auth_validates_progressive_disclosure_claims_fail_closed() {
+        let alice = did("alice");
+        let issuer = did("issuer");
+        let org = did("org");
+        let request = PresentationRequest {
+            request_id: "presentation-1".to_owned(),
+            subject: alice.clone(),
+            audience: "contrix-auth".to_owned(),
+            nonce: "nonce".to_owned(),
+            policy: DisclosurePolicy {
+                policy_id: "policy-1".to_owned(),
+                requirements: vec![
+                    ClaimDisclosureRequirement {
+                        claim_type: AuthClaimType::VerifiedHandle.as_str().to_owned(),
+                        trusted_issuers: vec![issuer.clone()],
+                        reveal_fields: vec!["handle".to_owned()],
+                        required: true,
+                    },
+                    ClaimDisclosureRequirement {
+                        claim_type: AuthClaimType::OrganizationMembership.as_str().to_owned(),
+                        trusted_issuers: vec![issuer.clone()],
+                        reveal_fields: vec!["organization".to_owned()],
+                        required: true,
+                    },
+                ],
+                max_age: Some(Duration::days(1)),
+                fail_closed: true,
+            },
+            created_at: Utc::now(),
+        };
+        let mut handle =
+            PresentedClaim::verified_handle("claim-handle", alice.clone(), issuer.clone(), "alice");
+        handle.issued_at = Utc::now();
+        let membership = PresentedClaim::organization_membership(
+            "claim-org",
+            alice.clone(),
+            issuer.clone(),
+            org,
+            vec!["writer".to_owned()],
+        );
+
+        let accepted = validate_presentation(
+            &request,
+            &[handle.clone(), membership],
+            &BTreeSet::new(),
+            Utc::now(),
+        );
+        assert!(accepted.accepted);
+        assert_eq!(accepted.disclosed_claims[0].value, serde_json::json!({"handle": "alice"}));
+        assert_eq!(
+            accepted.disclosed_claims[1].value,
+            serde_json::json!({"organization": "did:web:org.example"})
+        );
+
+        let rejected = validate_presentation(
+            &request,
+            &[handle],
+            &BTreeSet::from(["claim-handle".to_owned()]),
+            Utc::now(),
+        );
+        assert!(!rejected.accepted);
+        assert!(rejected.rejected_claims.iter().any(|claim| claim.reason == "claim is revoked"));
     }
 
     #[test]

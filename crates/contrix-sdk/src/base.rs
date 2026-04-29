@@ -13,12 +13,13 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
     Result,
-    cursor::SyncTracker,
+    cursor::{SyncPositions, SyncTracker},
     media::{Attachment, MediaMetadata, MemoryBlobStore},
     model::{BlobRef, DeviceId, Did, Event, SpaceId},
     presence::Presence,
@@ -39,7 +40,7 @@ pub struct SessionMeta {
     /// Access token (if using token-based auth)
     pub access_token: Option<String>,
     /// Session expiration
-    pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub expires_at: Option<DateTime<Utc>>,
 }
 
 impl SessionMeta {
@@ -50,7 +51,7 @@ impl SessionMeta {
 
     /// Check if the session is expired.
     pub fn is_expired(&self) -> bool {
-        if let Some(expires_at) = self.expires_at { chrono::Utc::now() > expires_at } else { false }
+        if let Some(expires_at) = self.expires_at { Utc::now() > expires_at } else { false }
     }
 }
 
@@ -90,6 +91,124 @@ pub enum SpaceStateType {
     Left,
     /// User is invited to the space
     Invited,
+}
+
+/// Bootstrap sequence step.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BootstrapStepKind {
+    /// Resolve the principal DID and account context.
+    Resolve,
+    /// Discover sync/repo/snapshot services.
+    DiscoverServices,
+    /// Fetch invites and grants needed to enter spaces.
+    FetchInvitesAndGrants,
+    /// Fetch and verify a reducer snapshot.
+    FetchSnapshot,
+    /// Pull increments after the snapshot cursor.
+    PullIncrements,
+    /// Run the reducer over snapshot plus increments.
+    RunReducer,
+    /// Enter cursor subscription / long-poll sync.
+    EnterCursorSubscription,
+}
+
+/// Bootstrap step status.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BootstrapStepStatus {
+    /// Not started.
+    Pending,
+    /// Running now.
+    Running,
+    /// Completed.
+    Complete,
+}
+
+/// One bootstrap step with status metadata.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BootstrapStep {
+    /// Step kind.
+    pub kind: BootstrapStepKind,
+    /// Current status.
+    pub status: BootstrapStepStatus,
+    /// Last status transition.
+    pub updated_at: DateTime<Utc>,
+}
+
+/// Client bootstrap sequence model.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BootstrapSequence {
+    /// Principal being bootstrapped.
+    pub principal_id: Did,
+    /// Device being bootstrapped.
+    pub device_id: DeviceId,
+    /// Optional target space.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub space_id: Option<SpaceId>,
+    /// Discovered sync service.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub service_id: Option<Did>,
+    /// Ordered bootstrap steps.
+    pub steps: Vec<BootstrapStep>,
+    /// Sync token after entering cursor subscription.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sync_token: Option<String>,
+}
+
+impl BootstrapSequence {
+    /// Create a bootstrap sequence with the protocol-defined step order.
+    pub fn new(principal_id: Did, device_id: DeviceId, space_id: Option<SpaceId>) -> Self {
+        let now = Utc::now();
+        let steps = [
+            BootstrapStepKind::Resolve,
+            BootstrapStepKind::DiscoverServices,
+            BootstrapStepKind::FetchInvitesAndGrants,
+            BootstrapStepKind::FetchSnapshot,
+            BootstrapStepKind::PullIncrements,
+            BootstrapStepKind::RunReducer,
+            BootstrapStepKind::EnterCursorSubscription,
+        ]
+        .into_iter()
+        .map(|kind| BootstrapStep { kind, status: BootstrapStepStatus::Pending, updated_at: now })
+        .collect();
+
+        Self { principal_id, device_id, space_id, service_id: None, steps, sync_token: None }
+    }
+
+    /// Mark a step as running.
+    pub fn mark_running(&mut self, kind: BootstrapStepKind) -> Result<()> {
+        self.update_step(kind, BootstrapStepStatus::Running)
+    }
+
+    /// Mark a step as complete.
+    pub fn mark_complete(&mut self, kind: BootstrapStepKind) -> Result<()> {
+        self.update_step(kind, BootstrapStepStatus::Complete)
+    }
+
+    /// Next pending step.
+    pub fn next_pending(&self) -> Option<BootstrapStepKind> {
+        self.steps
+            .iter()
+            .find(|step| step.status == BootstrapStepStatus::Pending)
+            .map(|step| step.kind)
+    }
+
+    /// True once every step is complete.
+    pub fn is_complete(&self) -> bool {
+        self.steps.iter().all(|step| step.status == BootstrapStepStatus::Complete)
+    }
+
+    fn update_step(&mut self, kind: BootstrapStepKind, status: BootstrapStepStatus) -> Result<()> {
+        let step = self
+            .steps
+            .iter_mut()
+            .find(|step| step.kind == kind)
+            .ok_or_else(|| crate::Error::Protocol("bootstrap step not found".to_owned()))?;
+        step.status = status;
+        step.updated_at = Utc::now();
+        Ok(())
+    }
 }
 
 /// Base client state machine.
@@ -157,7 +276,7 @@ impl BaseClient {
         user_id: Did,
         device_id: DeviceId,
         access_token: Option<String>,
-        expires_at: Option<chrono::DateTime<chrono::Utc>>,
+        expires_at: Option<DateTime<Utc>>,
     ) -> Result<SessionMeta> {
         let meta = SessionMeta { user_id, device_id, access_token, expires_at };
         self.set_session_meta(meta.clone())?;
@@ -230,6 +349,32 @@ impl BaseClient {
     pub fn current_cursor(&self) -> Result<crate::Cursor> {
         let tracker = self.sync_tracker.read().unwrap();
         tracker.current_cursor()
+    }
+
+    /// Persist sync positions in the local client state machine.
+    pub fn save_sync_positions(&self, positions: SyncPositions) -> Result<()> {
+        self.sync_tracker.write().unwrap().positions = positions;
+        Ok(())
+    }
+
+    /// Get the current sync positions.
+    pub fn sync_positions(&self) -> SyncPositions {
+        self.sync_tracker.read().unwrap().positions.clone()
+    }
+
+    /// Bind a sync token to a service key.
+    pub fn bind_sync_token(
+        &self,
+        service_key: impl Into<String>,
+        token: impl Into<String>,
+    ) -> Result<()> {
+        self.sync_tracker.write().unwrap().sync_tokens.insert(service_key.into(), token.into());
+        Ok(())
+    }
+
+    /// Get a sync token by service key.
+    pub fn sync_token_for(&self, service_key: &str) -> Option<String> {
+        self.sync_tracker.read().unwrap().sync_tokens.get(service_key).cloned()
     }
 
     /// Get a space by ID.
@@ -352,7 +497,7 @@ impl BaseClient {
         profile.avatar_url = avatar_url;
         profile.bio = bio;
         profile.version += 1;
-        profile.updated_at = chrono::Utc::now();
+        profile.updated_at = Utc::now();
         profiles.insert(session.user_id.as_str().to_owned(), profile.clone());
         Ok(profile)
     }
@@ -383,7 +528,7 @@ impl BaseClient {
         let presence = Presence {
             user_id: user_id.clone(),
             status,
-            last_active: Some(chrono::Utc::now()),
+            last_active: Some(Utc::now()),
             active_device: None,
             status_msg,
         };
@@ -516,7 +661,7 @@ mod tests {
             user_id: Did::new("did:web:alice.example.com").unwrap(),
             device_id: DeviceId::new("dev_123").unwrap(),
             access_token: Some("token".to_owned()),
-            expires_at: Some(chrono::Utc::now() - chrono::Duration::hours(1)),
+            expires_at: Some(Utc::now() - chrono::Duration::hours(1)),
         };
 
         assert!(meta.is_expired());
@@ -528,7 +673,7 @@ mod tests {
             user_id: Did::new("did:web:alice.example.com").unwrap(),
             device_id: DeviceId::new("dev_123").unwrap(),
             access_token: Some("token".to_owned()),
-            expires_at: Some(chrono::Utc::now() + chrono::Duration::hours(1)),
+            expires_at: Some(Utc::now() + chrono::Duration::hours(1)),
         };
 
         assert!(!meta.is_expired());
@@ -597,6 +742,56 @@ mod tests {
             Did::new("did:web:alice.example.com").unwrap()
         );
         assert_eq!(client.sync_token(), Some("s123".to_owned()));
+    }
+
+    #[test]
+    fn base_client_persists_sync_positions_and_service_tokens() {
+        let client = BaseClient::new();
+        let positions = SyncPositions {
+            spaces: BTreeMap::from([(
+                "cx:space:01js0sp0000000000000000000".to_owned(),
+                crate::cursor::SpaceSyncPosition {
+                    frontier: vec!["cx:event:01js0ev0000000000000000000".to_owned()],
+                    timeline_order: "01970e589d21-00000004-a13f9c2e".to_owned(),
+                    state_hash:
+                        "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                            .to_owned(),
+                },
+            )]),
+            devices: None,
+        };
+
+        client.save_sync_positions(positions.clone()).unwrap();
+        client.bind_sync_token("did:web:sync.example", "sync-token").unwrap();
+
+        assert_eq!(client.sync_positions().spaces.len(), 1);
+        assert_eq!(client.current_cursor().unwrap().s.len(), 1);
+        assert_eq!(client.sync_token_for("did:web:sync.example"), Some("sync-token".to_owned()));
+    }
+
+    #[test]
+    fn bootstrap_sequence_tracks_ordered_runtime_steps() {
+        let principal = Did::new("did:web:alice.example.com").unwrap();
+        let device = DeviceId::new("dev_123").unwrap();
+        let mut sequence = BootstrapSequence::new(principal, device, None);
+
+        assert_eq!(sequence.next_pending(), Some(BootstrapStepKind::Resolve));
+        sequence.mark_running(BootstrapStepKind::Resolve).unwrap();
+        sequence.mark_complete(BootstrapStepKind::Resolve).unwrap();
+        assert_eq!(sequence.next_pending(), Some(BootstrapStepKind::DiscoverServices));
+
+        for kind in [
+            BootstrapStepKind::DiscoverServices,
+            BootstrapStepKind::FetchInvitesAndGrants,
+            BootstrapStepKind::FetchSnapshot,
+            BootstrapStepKind::PullIncrements,
+            BootstrapStepKind::RunReducer,
+            BootstrapStepKind::EnterCursorSubscription,
+        ] {
+            sequence.mark_complete(kind).unwrap();
+        }
+
+        assert!(sequence.is_complete());
     }
 
     #[test]

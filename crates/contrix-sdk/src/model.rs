@@ -717,14 +717,14 @@ impl EncryptedPayloadScheme {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Audience {
     Single(String),
     Multiple(Vec<String>),
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Proof {
     pub kind: String,
     pub alg: String,
@@ -950,7 +950,7 @@ impl Relation {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Event {
     pub event_id: EventId,
     pub kind: String,
@@ -2498,7 +2498,7 @@ pub struct AppletDescription {
     pub auth: Value,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AppletTransactionRequest {
     pub source_service_did: Did,
     #[serde(default)]
@@ -2507,7 +2507,7 @@ pub struct AppletTransactionRequest {
     pub ephemeral: Value,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AppletTransactionResponse {
     pub ok: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -2516,7 +2516,7 @@ pub struct AppletTransactionResponse {
     pub retry_after_ms: Option<u64>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AppletActorResponse {
     pub exists: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -2527,7 +2527,7 @@ pub struct AppletActorResponse {
     pub external_ref: Value,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AppletSpaceResponse {
     pub exists: bool,
     #[serde(skip_serializing_if = "Option::is_none")]

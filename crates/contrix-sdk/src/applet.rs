@@ -313,14 +313,14 @@ impl AppserviceRouteSet {
 }
 
 /// Appservice transaction with an explicit idempotency key.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppserviceTransaction {
     pub transaction_id: String,
     pub request: AppletTransactionRequest,
 }
 
 /// Result of recording an idempotent transaction.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum AppserviceTransactionRecord {
     New(AppletTransactionResponse),
     Duplicate(AppletTransactionResponse),
@@ -421,7 +421,7 @@ pub struct ThirdPartyLookupRequest {
 }
 
 /// Third-party lookup response.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ThirdPartyLookupResponse {
     User(AppletActorResponse),
     Location(AppletSpaceResponse),

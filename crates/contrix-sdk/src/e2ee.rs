@@ -47,12 +47,27 @@ pub struct E2eeKeyRecord {
 pub struct E2eeKeyBackup {
     /// Backup ID.
     pub backup_id: String,
+    /// Backup format version.
+    pub version: u32,
+    /// Backup algorithm.
+    pub algorithm: String,
+    /// DID that created the backup.
+    pub sender: Did,
+    /// Optional previous backup version for rotation chains.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub previous_backup_id: Option<String>,
     /// Key IDs included in the backup.
     pub key_ids: Vec<String>,
     /// Encrypted payload.
     pub ciphertext: Vec<u8>,
     /// Plaintext digest.
     pub plaintext_sha256: String,
+    /// Ciphertext digest.
+    pub ciphertext_sha256: String,
+    /// Canonical AAD digest used to authenticate backup metadata.
+    pub aad_sha256: String,
+    /// Creation time.
+    pub created_at: DateTime<Utc>,
 }
 
 /// E2EE message envelope.
@@ -84,6 +99,7 @@ pub enum AuditAction {
     KeyRotated,
     KeyExported,
     KeyBackedUp,
+    KeyRestored,
     MessageValidated,
 }
 
@@ -100,6 +116,41 @@ pub struct AuditEntry {
     pub group_id: Option<String>,
     /// Detail string.
     pub detail: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+struct E2eeKeyBackupPlaintext {
+    version: u32,
+    records: Vec<E2eeKeyRecord>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+struct E2eeKeyBackupAad {
+    backup_id: String,
+    version: u32,
+    algorithm: String,
+    sender: Did,
+    previous_backup_id: Option<String>,
+    key_ids: Vec<String>,
+}
+
+/// Structured reason for rejecting an encrypted E2EE message before decryption.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "type")]
+pub enum E2eeMessageValidationFailure {
+    UnknownGroup,
+    WrongSender,
+    WrongEpoch { local_epoch: u64, message_epoch: u64 },
+    IntegrityMismatch,
+    Replay,
+}
+
+/// Non-mutating message validation result.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "status")]
+pub enum E2eeMessageValidation {
+    Valid,
+    Invalid { failure: E2eeMessageValidationFailure },
 }
 
 /// E2EE manager.
@@ -264,20 +315,52 @@ impl E2eeManager {
         backup_key: &[u8],
         actor: Did,
     ) -> Result<E2eeKeyBackup> {
-        let mut plaintext = Vec::new();
+        self.backup_keys_with_rotation(backup_id, 1, None, key_ids, backup_key, actor)
+    }
+
+    /// Create an authenticated encrypted backup and link it to a previous version.
+    pub fn backup_keys_with_rotation(
+        &mut self,
+        backup_id: impl Into<String>,
+        version: u32,
+        previous_backup_id: Option<String>,
+        key_ids: Vec<String>,
+        backup_key: &[u8],
+        actor: Did,
+    ) -> Result<E2eeKeyBackup> {
+        if version == 0 {
+            return Err(Error::Protocol("key backup version must be non-zero".to_owned()));
+        }
+        let backup_id = backup_id.into();
+        let mut records = Vec::new();
         for key_id in &key_ids {
             let key =
                 self.keys.get(key_id).ok_or_else(|| Error::Protocol("key not found".to_owned()))?;
-            plaintext.extend_from_slice(key_id.as_bytes());
-            plaintext.push(0);
-            plaintext.extend_from_slice(&key.key_bytes);
-            plaintext.push(0xff);
+            records.push(key.clone());
         }
+        let plaintext = serde_json::to_vec(&E2eeKeyBackupPlaintext { version, records })?;
+        let aad = E2eeKeyBackupAad {
+            backup_id: backup_id.clone(),
+            version,
+            algorithm: KEY_BACKUP_ALGORITHM.to_owned(),
+            sender: actor.clone(),
+            previous_backup_id,
+            key_ids: key_ids.clone(),
+        };
+        let aad_bytes = crate::canonical::canonical_json_bytes(&aad)?;
+        let ciphertext = crypto::seal(&plaintext, backup_key, &aad_bytes)?;
         let backup = E2eeKeyBackup {
-            backup_id: backup_id.into(),
+            backup_id,
+            version,
+            algorithm: KEY_BACKUP_ALGORITHM.to_owned(),
+            sender: actor.clone(),
+            previous_backup_id: aad.previous_backup_id,
             key_ids,
-            ciphertext: crypto::seal(&plaintext, backup_key, b"contrix-e2ee-key-backup-v1")?,
+            ciphertext_sha256: sha256_hex(&ciphertext),
+            ciphertext,
             plaintext_sha256: sha256_hex(&plaintext),
+            aad_sha256: sha256_hex(&aad_bytes),
+            created_at: Utc::now(),
         };
         self.log(AuditAction::KeyBackedUp, Some(actor), None, "keys backed up");
         Ok(backup)
@@ -285,13 +368,71 @@ impl E2eeManager {
 
     /// Restore a key backup payload.
     pub fn restore_backup(&self, backup: &E2eeKeyBackup, backup_key: &[u8]) -> Result<Vec<u8>> {
-        let plaintext =
-            crypto::open(&backup.ciphertext, backup_key, b"contrix-e2ee-key-backup-v1")?;
+        let plaintext = self.open_backup_plaintext(backup, backup_key, None)?;
         if sha256_hex(&plaintext) == backup.plaintext_sha256 {
             Ok(plaintext)
         } else {
             Err(Error::Protocol("key backup digest mismatch".to_owned()))
         }
+    }
+
+    /// Restore usable key records from a backup and validate the expected backup sender.
+    pub fn restore_key_records_from_backup(
+        &mut self,
+        backup: &E2eeKeyBackup,
+        backup_key: &[u8],
+        expected_sender: &Did,
+    ) -> Result<Vec<E2eeKeyRecord>> {
+        let plaintext = self.open_backup_plaintext(backup, backup_key, Some(expected_sender))?;
+        let bundle: E2eeKeyBackupPlaintext = serde_json::from_slice(&plaintext)?;
+        if bundle.version != backup.version {
+            return Err(Error::Protocol("key backup version mismatch".to_owned()));
+        }
+        let mut restored = Vec::new();
+        for record in bundle.records {
+            if !backup.key_ids.contains(&record.key_id) {
+                return Err(Error::Protocol("key backup contains unexpected key".to_owned()));
+            }
+            self.keys.insert(record.key_id.clone(), record.clone());
+            restored.push(record);
+        }
+        self.log(
+            AuditAction::KeyRestored,
+            Some(expected_sender.clone()),
+            None,
+            "keys restored from backup",
+        );
+        Ok(restored)
+    }
+
+    /// Validate backup metadata without decrypting the payload.
+    pub fn validate_backup_authenticity(
+        &self,
+        backup: &E2eeKeyBackup,
+        expected_sender: &Did,
+    ) -> Result<()> {
+        if &backup.sender != expected_sender {
+            return Err(Error::Protocol("key backup sender mismatch".to_owned()));
+        }
+        if backup.algorithm != KEY_BACKUP_ALGORITHM {
+            return Err(Error::Protocol("unsupported key backup algorithm".to_owned()));
+        }
+        if sha256_hex(&backup.ciphertext) != backup.ciphertext_sha256 {
+            return Err(Error::Protocol("key backup ciphertext digest mismatch".to_owned()));
+        }
+        let aad = E2eeKeyBackupAad {
+            backup_id: backup.backup_id.clone(),
+            version: backup.version,
+            algorithm: backup.algorithm.clone(),
+            sender: backup.sender.clone(),
+            previous_backup_id: backup.previous_backup_id.clone(),
+            key_ids: backup.key_ids.clone(),
+        };
+        let aad_bytes = crate::canonical::canonical_json_bytes(&aad)?;
+        if sha256_hex(&aad_bytes) != backup.aad_sha256 {
+            return Err(Error::Protocol("key backup AAD digest mismatch".to_owned()));
+        }
+        Ok(())
     }
 
     /// Build an E2EE message envelope.
@@ -320,15 +461,41 @@ impl E2eeManager {
 
     /// Validate sender membership, epoch, integrity and replay.
     pub fn validate_message(&mut self, message: &E2eeMessage) -> Result<()> {
-        let group = self
-            .groups
-            .get(&message.group_id)
-            .ok_or_else(|| Error::Protocol("group not found".to_owned()))?;
+        match self.inspect_message(message) {
+            E2eeMessageValidation::Valid => {}
+            E2eeMessageValidation::Invalid { failure } => {
+                return Err(Error::Protocol(format!("message validation failed: {failure:?}")));
+            }
+        }
+        self.seen_messages.insert(message.message_id.clone());
+        self.log(
+            AuditAction::MessageValidated,
+            Some(message.sender.clone()),
+            Some(message.group_id.clone()),
+            "message validated",
+        );
+        Ok(())
+    }
+
+    /// Inspect a message without mutating replay state.
+    pub fn inspect_message(&self, message: &E2eeMessage) -> E2eeMessageValidation {
+        let Some(group) = self.groups.get(&message.group_id) else {
+            return E2eeMessageValidation::Invalid {
+                failure: E2eeMessageValidationFailure::UnknownGroup,
+            };
+        };
         if !group.members.contains(&message.sender) {
-            return Err(Error::Protocol("sender is not a group member".to_owned()));
+            return E2eeMessageValidation::Invalid {
+                failure: E2eeMessageValidationFailure::WrongSender,
+            };
         }
         if group.epoch != message.epoch {
-            return Err(Error::Protocol("message epoch mismatch".to_owned()));
+            return E2eeMessageValidation::Invalid {
+                failure: E2eeMessageValidationFailure::WrongEpoch {
+                    local_epoch: group.epoch,
+                    message_epoch: message.epoch,
+                },
+            };
         }
         let expected = message_digest(
             &message.message_id,
@@ -338,18 +505,16 @@ impl E2eeManager {
             &message.ciphertext,
         );
         if expected != message.digest {
-            return Err(Error::Protocol("message integrity mismatch".to_owned()));
+            return E2eeMessageValidation::Invalid {
+                failure: E2eeMessageValidationFailure::IntegrityMismatch,
+            };
         }
-        if !self.seen_messages.insert(message.message_id.clone()) {
-            return Err(Error::Protocol("replayed message".to_owned()));
+        if self.seen_messages.contains(&message.message_id) {
+            return E2eeMessageValidation::Invalid {
+                failure: E2eeMessageValidationFailure::Replay,
+            };
         }
-        self.log(
-            AuditAction::MessageValidated,
-            Some(message.sender.clone()),
-            Some(message.group_id.clone()),
-            "message validated",
-        );
-        Ok(())
+        E2eeMessageValidation::Valid
     }
 
     /// Get a group.
@@ -369,6 +534,37 @@ impl E2eeManager {
 
     fn group_mut(&mut self, group_id: &str) -> Result<&mut E2eeGroup> {
         self.groups.get_mut(group_id).ok_or_else(|| Error::Protocol("group not found".to_owned()))
+    }
+
+    fn open_backup_plaintext(
+        &self,
+        backup: &E2eeKeyBackup,
+        backup_key: &[u8],
+        expected_sender: Option<&Did>,
+    ) -> Result<Vec<u8>> {
+        if let Some(expected_sender) = expected_sender {
+            self.validate_backup_authenticity(backup, expected_sender)?;
+        } else if sha256_hex(&backup.ciphertext) != backup.ciphertext_sha256 {
+            return Err(Error::Protocol("key backup ciphertext digest mismatch".to_owned()));
+        }
+        let aad = E2eeKeyBackupAad {
+            backup_id: backup.backup_id.clone(),
+            version: backup.version,
+            algorithm: backup.algorithm.clone(),
+            sender: backup.sender.clone(),
+            previous_backup_id: backup.previous_backup_id.clone(),
+            key_ids: backup.key_ids.clone(),
+        };
+        let aad_bytes = crate::canonical::canonical_json_bytes(&aad)?;
+        if sha256_hex(&aad_bytes) != backup.aad_sha256 {
+            return Err(Error::Protocol("key backup AAD digest mismatch".to_owned()));
+        }
+        let plaintext = crypto::open(&backup.ciphertext, backup_key, &aad_bytes)?;
+        if sha256_hex(&plaintext) == backup.plaintext_sha256 {
+            Ok(plaintext)
+        } else {
+            Err(Error::Protocol("key backup digest mismatch".to_owned()))
+        }
     }
 
     fn log(
@@ -448,8 +644,37 @@ mod tests {
 
         let backup = manager.backup_keys("b1", vec![key.key_id], b"backup-key", alice).unwrap();
         let restored = manager.restore_backup(&backup, b"backup-key").unwrap();
-        assert!(String::from_utf8_lossy(&restored).contains("secret-key"));
+        assert!(serde_json::from_slice::<E2eeKeyBackupPlaintext>(&restored).is_ok());
         assert!(manager.restore_backup(&backup, b"wrong").is_err());
+    }
+
+    #[test]
+    fn e2ee_restores_key_records_and_rejects_wrong_sender() {
+        let alice = did("alice");
+        let bob = did("bob");
+        let mut manager = E2eeManager::new();
+        manager.create_group("g1", alice.clone(), BTreeSet::new());
+
+        let key = manager.rotate_key("g1", alice.clone(), b"secret-key".to_vec()).unwrap();
+        let backup = manager
+            .backup_keys_with_rotation(
+                "b2",
+                2,
+                Some("b1".to_owned()),
+                vec![key.key_id.clone()],
+                b"backup-key",
+                alice.clone(),
+            )
+            .unwrap();
+
+        assert_eq!(backup.previous_backup_id.as_deref(), Some("b1"));
+        assert!(manager.validate_backup_authenticity(&backup, &alice).is_ok());
+        assert!(manager.validate_backup_authenticity(&backup, &bob).is_err());
+
+        let mut restored = E2eeManager::new();
+        let records =
+            restored.restore_key_records_from_backup(&backup, b"backup-key", &alice).unwrap();
+        assert_eq!(records[0].key_bytes, b"secret-key");
     }
 
     #[test]
@@ -459,13 +684,22 @@ mod tests {
         manager.create_group("g1", alice.clone(), BTreeSet::new());
 
         let message = manager.create_message("m1", "g1", alice, b"ciphertext".to_vec()).unwrap();
+        assert_eq!(manager.inspect_message(&message), E2eeMessageValidation::Valid);
         manager.validate_message(&message).unwrap();
-        assert!(manager.validate_message(&message).is_err());
+        assert_eq!(
+            manager.inspect_message(&message),
+            E2eeMessageValidation::Invalid { failure: E2eeMessageValidationFailure::Replay }
+        );
 
         let mut tampered = message.clone();
         tampered.message_id = "m2".to_owned();
         tampered.ciphertext = b"changed".to_vec();
-        assert!(manager.validate_message(&tampered).is_err());
+        assert_eq!(
+            manager.inspect_message(&tampered),
+            E2eeMessageValidation::Invalid {
+                failure: E2eeMessageValidationFailure::IntegrityMismatch
+            }
+        );
     }
 
     #[test]

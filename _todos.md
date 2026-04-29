@@ -75,18 +75,18 @@ Owned files: `store.rs`, future storage crates, storage docs and storage tests.
   - [ ] Use platform key storage integration points instead of passphrase-only derivation for production callers.
   - [ ] Add key rotation and re-encryption workflows.
   - [ ] Add backup / restore roundtrips across versions.
-- [ ] Split storage traits by responsibility where needed.
-  - [ ] Repo object store.
-  - [ ] State snapshot store.
-  - [ ] Event cache store.
-  - [ ] Crypto store.
-  - [ ] Account/session store.
-- [ ] Define reusable persistence contracts and test suites.
-  - [ ] Define store traits for repo, state snapshots, event cache, crypto, account/session, blob metadata, audit and federation replay state.
-  - [ ] Define migration contracts and schema-version metadata.
-  - [ ] Add transactional write-path conformance tests.
-  - [ ] Add projection rebuild helpers from durable repo/events.
-  - [ ] Add crash recovery and idempotency conformance tests.
+- [x] Split storage traits by responsibility where needed.
+  - [x] Repo object store.
+  - [x] State snapshot store.
+  - [x] Event cache store.
+  - [x] Crypto store.
+  - [x] Account/session store.
+- [x] Define reusable persistence contracts and test suites.
+  - [x] Define store traits for repo, state snapshots, event cache, crypto, account/session, blob metadata, audit and federation replay state.
+  - [x] Define migration contracts and schema-version metadata.
+  - [x] Add transactional write-path conformance tests.
+  - [x] Add projection rebuild helpers from durable repo/events.
+  - [x] Add crash recovery and idempotency conformance tests.
 
 ## WS-C Authentication And Identity
 
@@ -235,85 +235,85 @@ Owned files: `sync.rs`, `sync_client.rs`, `timeline.rs`, `resolver.rs`, runtime 
 
 Owned files: `client.rs`, `server.rs`, `federation.rs`, `service.rs`, OpenAPI examples and interop tests.
 
-- [ ] Make OpenAPI output schema-complete.
-  - [ ] Generate typed request / response schemas for every endpoint.
-  - [ ] Include error envelope, auth schemes, headers and binary bodies.
-  - [ ] Add example payloads for key flows.
+- [x] Make OpenAPI output schema-complete.
+  - [x] Generate typed request / response schemas for every endpoint.
+  - [x] Include error envelope, auth schemes, headers and binary bodies.
+  - [x] Add example payloads for key flows.
 - [ ] Add framework adapters outside the core crate.
   - [ ] Axum adapter.
   - [ ] Salvo adapter.
-  - [ ] Tower/service abstraction if useful.
-  - [ ] Ensure adapters use the framework-independent endpoint registry.
+  - [x] Tower/service abstraction if useful.
+  - [x] Ensure adapters use the framework-independent endpoint registry.
 - [ ] Build a protocol conformance suite.
-  - [ ] Golden vectors for identifiers, HLC, cursor, canonical JSON and digests.
-  - [ ] Wire-level request / response tests for every endpoint group.
-  - [ ] Negative tests for invalid IDs, bad auth, stale cursors and bad digests.
+  - [x] Golden vectors for identifiers, HLC, cursor, canonical JSON and digests.
+  - [x] Wire-level request / response tests for every endpoint group.
+  - [x] Negative tests for invalid IDs, bad auth, stale cursors and bad digests.
   - [ ] Server fixture that exercises repo, sync, blob, authz and federation flows.
 - [ ] Run real server interoperability.
   - [ ] At least one Contrix server implementation.
   - [ ] End-to-end login, repo write, sync, media, push and encrypted message flow.
   - [ ] Federation push / pull smoke test across two services.
   - [ ] Record compatibility results in release evidence.
-- [ ] Federation and service identity primitives.
-  - [ ] Service DID allowlist model.
-  - [ ] HTTP Message Signature helpers.
-  - [ ] Federation transaction envelope models.
-  - [ ] Fork/quarantine models for duplicate commit or operation conflicts.
-  - [ ] Backfill authorization helpers.
-  - [ ] `.well-known/contrix/server` discovery models.
-- [ ] Federation security helpers.
-  - [ ] HTTP Message Signatures over method, target URI, authority, content digest, origin service DID, destination service DID and time bounds.
-  - [ ] Origin/destination DID Document service endpoint verification.
-  - [ ] Federation transaction idempotency and duplicate-conflict rules.
-  - [ ] Persistent replay protection contract.
-  - [ ] Commit/operation fork quarantine model.
-  - [ ] Pull authorization using history visibility, service delegation and plaintext-visible-service rules.
-  - [ ] `verify-actor` challenge signature model that avoids public DID oracle behavior.
-- [ ] API conventions, anti-abuse and observability metadata.
-  - [ ] Standard not-found privacy semantics for nonexistent vs invisible resources.
-  - [ ] Query-auth rejection helpers and tests.
-  - [ ] Error envelope schemas for 404, 405, 429 and 503.
-  - [ ] Per-actor and per-IP rate-limit metadata models.
-  - [ ] Quota models for blobs, account storage, operation windows and device/OTK counts.
-  - [ ] Structured tracing metadata: request, actor, device, space, operation and commit IDs.
+- [x] Federation and service identity primitives.
+  - [x] Service DID allowlist model.
+  - [x] HTTP Message Signature helpers.
+  - [x] Federation transaction envelope models.
+  - [x] Fork/quarantine models for duplicate commit or operation conflicts.
+  - [x] Backfill authorization helpers.
+  - [x] `.well-known/contrix/server` discovery models.
+- [x] Federation security helpers.
+  - [x] HTTP Message Signatures over method, target URI, authority, content digest, origin service DID, destination service DID and time bounds.
+  - [x] Origin/destination DID Document service endpoint verification.
+  - [x] Federation transaction idempotency and duplicate-conflict rules.
+  - [x] Persistent replay protection contract.
+  - [x] Commit/operation fork quarantine model.
+  - [x] Pull authorization using history visibility, service delegation and plaintext-visible-service rules.
+  - [x] `verify-actor` challenge signature model that avoids public DID oracle behavior.
+- [x] API conventions, anti-abuse and observability metadata.
+  - [x] Standard not-found privacy semantics for nonexistent vs invisible resources.
+  - [x] Query-auth rejection helpers and tests.
+  - [x] Error envelope schemas for 404, 405, 429 and 503.
+  - [x] Per-actor and per-IP rate-limit metadata models.
+  - [x] Quota models for blobs, account storage, operation windows and device/OTK counts.
+  - [x] Structured tracing metadata: request, actor, device, space, operation and commit IDs.
 
 ## WS-H Bot, Appservice And Ergonomics
 
 Owned files: `base.rs`, `space.rs`, `event_handler.rs`, `applet.rs`, `agent.rs`, bot examples and ergonomics docs.
 
-- [ ] Add high-level client convenience APIs.
-  - [ ] Login/session restore helpers around `Client` and `BaseClient`.
-  - [ ] `send_message`, `send_text`, `edit_message`, `redact_message`.
-  - [ ] `join_space`, `leave_space`, `invite`, `ban`, `unban`.
-  - [ ] `upload_media`, `download_media`, encrypted attachment helpers.
-  - [ ] `whoami`, profile, presence, account data and settings helpers.
-- [ ] Add bot runtime primitives.
-  - [ ] Event handler registration with typed event filters.
-  - [ ] Command parsing helper.
-  - [ ] Preprocessor/filter pipeline.
-  - [ ] Long-running sync loop with graceful shutdown.
-  - [ ] Bot example that handles commands and sends replies.
-- [ ] Add appservice / bridge primitives.
-  - [ ] Appservice registration model.
-  - [ ] Framework adapter routes for appservice transactions.
-  - [ ] Intent / virtual actor API.
-  - [ ] Idempotent transaction handling.
-  - [ ] Third-party user/location query hooks.
-  - [ ] Bridge mapping storage for remote users and rooms.
-- [ ] Applet, agent and sovereign deployment models.
-  - [ ] Signed applet registration and namespace declarations.
-  - [ ] Ghost actor and portal space mapping.
-  - [ ] Third-party user/location lookup contracts.
-  - [ ] Agent run lifecycle and memory lifecycle.
-  - [ ] A2A/ACP/MCP bridge metadata.
-  - [ ] Sovereign deployment policy primitives.
-- [ ] Extended profile primitives.
-  - [ ] Agent principal, delegated actor, run lifecycle, tool audit, memory lifecycle and kill-switch models.
-  - [ ] Applet registration, namespace conflict, transaction idempotency, ghost actor accountability and portal mapping models.
-  - [ ] Social graph feed, circle, follow/contact/block/repost/quote/like/reply and audience-policy models.
-  - [ ] Sovereign deployment allowlist, closed federation, resolver pinning, external device approval and data-classification models.
-  - [ ] Space export/import validation and service replacement contracts.
-  - [ ] Optional TSP trust binding and pairwise control-message hooks.
+- [x] Add high-level client convenience APIs.
+  - [x] Login/session restore helpers around `Client` and `BaseClient`.
+  - [x] `send_message`, `send_text`, `edit_message`, `redact_message`.
+  - [x] `join_space`, `leave_space`, `invite`, `ban`, `unban`.
+  - [x] `upload_media`, `download_media`, encrypted attachment helpers.
+  - [x] `whoami`, profile, presence, account data and settings helpers.
+- [x] Add bot runtime primitives.
+  - [x] Event handler registration with typed event filters.
+  - [x] Command parsing helper.
+  - [x] Preprocessor/filter pipeline.
+  - [x] Long-running sync loop with graceful shutdown.
+  - [x] Bot example that handles commands and sends replies.
+- [x] Add appservice / bridge primitives.
+  - [x] Appservice registration model.
+  - [x] Framework adapter routes for appservice transactions.
+  - [x] Intent / virtual actor API.
+  - [x] Idempotent transaction handling.
+  - [x] Third-party user/location query hooks.
+  - [x] Bridge mapping storage for remote users and rooms.
+- [x] Applet, agent and sovereign deployment models.
+  - [x] Signed applet registration and namespace declarations.
+  - [x] Ghost actor and portal space mapping.
+  - [x] Third-party user/location lookup contracts.
+  - [x] Agent run lifecycle and memory lifecycle.
+  - [x] A2A/ACP/MCP bridge metadata.
+  - [x] Sovereign deployment policy primitives.
+- [x] Extended profile primitives.
+  - [x] Agent principal, delegated actor, run lifecycle, tool audit, memory lifecycle and kill-switch models.
+  - [x] Applet registration, namespace conflict, transaction idempotency, ghost actor accountability and portal mapping models.
+  - [x] Social graph feed, circle, follow/contact/block/repost/quote/like/reply and audience-policy models.
+  - [x] Sovereign deployment allowlist, closed federation, resolver pinning, external device approval and data-classification models.
+  - [x] Space export/import validation and service replacement contracts.
+  - [x] Optional TSP trust binding and pairwise control-message hooks.
 
 ## WS-I Platform Bindings And Packaging
 
@@ -449,8 +449,8 @@ client/server helper contracts.
   - [x] Verify append-only key logs and current key derivation from inception.
   - [ ] Verify registry receipt signatures.
   - [ ] Gate private/pairwise DID resolution behind proof checks.
-  - [ ] Validate service DID endpoints used by server description, identity, sync, directory, index, blob and snapshot metadata.
+  - [x] Validate service DID endpoints used by server description, identity, sync, directory, index, blob and snapshot metadata.
 - [ ] Schema registry, OpenAPI and conformance generation.
   - [ ] JSON Schemas for cursor, event, operation, commit, grant, encrypted envelope and client sync response.
-  - [ ] OpenAPI 3.1 schema output with canonical operation IDs.
+  - [x] OpenAPI 3.1 schema output with canonical operation IDs.
   - [ ] Profile-specific conformance suites for encoding, state resolution, redaction, capability, sync, snapshot, federation signatures and privacy.

@@ -1,11 +1,12 @@
 //! User profile management.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
-use crate::{Did, Error, Result};
+use crate::{AudiencePolicy, Did, EntityId, Error, EventId, Result, SpaceId};
 
 /// User profile state.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -36,6 +37,404 @@ impl UserProfile {
             updated_at: Utc::now(),
         }
     }
+}
+
+/// Social feed owned by a profile or circle.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SocialFeed {
+    pub feed_id: String,
+    pub owner: Did,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub space_id: Option<SpaceId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub audience_policy: Option<AudiencePolicy>,
+    pub created_at: DateTime<Utc>,
+}
+
+/// Social circle with an optional audience policy.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SocialCircle {
+    pub circle_id: String,
+    pub owner: Did,
+    pub name: String,
+    #[serde(default)]
+    pub members: BTreeSet<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub audience_policy: Option<AudiencePolicy>,
+    pub created_at: DateTime<Utc>,
+}
+
+/// Social graph action kind.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SocialActionKind {
+    Follow,
+    Contact,
+    Block,
+    Repost,
+    Quote,
+    Like,
+    Reply,
+}
+
+/// Target of a social graph action.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(tag = "kind", content = "id", rename_all = "snake_case")]
+pub enum SocialTarget {
+    Actor(Did),
+    Entity(EntityId),
+    Event(EventId),
+    Uri(String),
+}
+
+/// Recorded social graph action.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SocialAction {
+    pub action_id: String,
+    pub actor: Did,
+    pub kind: SocialActionKind,
+    pub target: SocialTarget,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    pub content: Value,
+    pub created_at: DateTime<Utc>,
+}
+
+/// Audience policy bound to a profile, feed, circle or object reference.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AudiencePolicyBinding {
+    pub subject_ref: String,
+    pub policy: AudiencePolicy,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// In-memory social graph profile helper.
+#[derive(Clone, Debug, Default)]
+pub struct SocialGraph {
+    feeds: BTreeMap<String, SocialFeed>,
+    circles: BTreeMap<String, SocialCircle>,
+    follows: BTreeSet<(Did, Did)>,
+    contacts: BTreeSet<(Did, Did)>,
+    blocks: BTreeSet<(Did, Did)>,
+    actions: Vec<SocialAction>,
+}
+
+impl SocialGraph {
+    /// Create an empty social graph helper.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Create a feed for an owner.
+    pub fn create_feed(
+        &mut self,
+        owner: Did,
+        space_id: Option<SpaceId>,
+        audience_policy: Option<AudiencePolicy>,
+    ) -> SocialFeed {
+        let feed = SocialFeed {
+            feed_id: format!("feed_{}", ulid::Ulid::new()),
+            owner,
+            space_id,
+            audience_policy,
+            created_at: Utc::now(),
+        };
+        self.feeds.insert(feed.feed_id.clone(), feed.clone());
+        feed
+    }
+
+    /// Create a named circle.
+    pub fn create_circle(
+        &mut self,
+        owner: Did,
+        name: impl Into<String>,
+        audience_policy: Option<AudiencePolicy>,
+    ) -> SocialCircle {
+        let circle = SocialCircle {
+            circle_id: format!("circle_{}", ulid::Ulid::new()),
+            owner,
+            name: name.into(),
+            members: BTreeSet::new(),
+            audience_policy,
+            created_at: Utc::now(),
+        };
+        self.circles.insert(circle.circle_id.clone(), circle.clone());
+        circle
+    }
+
+    /// Add a member to a circle.
+    pub fn add_circle_member(&mut self, circle_id: &str, member: Did) -> Result<()> {
+        let circle = self
+            .circles
+            .get_mut(circle_id)
+            .ok_or_else(|| Error::Protocol("social circle not found".to_owned()))?;
+        circle.members.insert(member);
+        Ok(())
+    }
+
+    /// Record a follow edge.
+    pub fn follow(&mut self, actor: Did, target: Did) -> SocialAction {
+        self.follows.insert((actor.clone(), target.clone()));
+        self.record(actor, SocialActionKind::Follow, SocialTarget::Actor(target), Value::Null)
+    }
+
+    /// Record a contact edge.
+    pub fn contact(&mut self, actor: Did, target: Did) -> SocialAction {
+        self.contacts.insert((actor.clone(), target.clone()));
+        self.record(actor, SocialActionKind::Contact, SocialTarget::Actor(target), Value::Null)
+    }
+
+    /// Record a block edge.
+    pub fn block(&mut self, actor: Did, target: Did) -> SocialAction {
+        self.blocks.insert((actor.clone(), target.clone()));
+        self.record(actor, SocialActionKind::Block, SocialTarget::Actor(target), Value::Null)
+    }
+
+    /// Record a repost action.
+    pub fn repost(&mut self, actor: Did, target: SocialTarget) -> SocialAction {
+        self.record(actor, SocialActionKind::Repost, target, Value::Null)
+    }
+
+    /// Record a quote action.
+    pub fn quote(&mut self, actor: Did, target: SocialTarget, content: Value) -> SocialAction {
+        self.record(actor, SocialActionKind::Quote, target, content)
+    }
+
+    /// Record a like action.
+    pub fn like(&mut self, actor: Did, target: SocialTarget) -> SocialAction {
+        self.record(actor, SocialActionKind::Like, target, Value::Null)
+    }
+
+    /// Record a reply action.
+    pub fn reply(&mut self, actor: Did, target: SocialTarget, content: Value) -> SocialAction {
+        self.record(actor, SocialActionKind::Reply, target, content)
+    }
+
+    /// Check whether one actor follows another.
+    pub fn is_following(&self, actor: &Did, target: &Did) -> bool {
+        self.follows.contains(&(actor.clone(), target.clone()))
+    }
+
+    /// Check whether one actor blocked another.
+    pub fn is_blocked(&self, actor: &Did, target: &Did) -> bool {
+        self.blocks.contains(&(actor.clone(), target.clone()))
+    }
+
+    /// List all social actions.
+    pub fn actions(&self) -> &[SocialAction] {
+        &self.actions
+    }
+
+    fn record(
+        &mut self,
+        actor: Did,
+        kind: SocialActionKind,
+        target: SocialTarget,
+        content: Value,
+    ) -> SocialAction {
+        let action = SocialAction {
+            action_id: format!("social_{}", ulid::Ulid::new()),
+            actor,
+            kind,
+            target,
+            content,
+            created_at: Utc::now(),
+        };
+        self.actions.push(action.clone());
+        action
+    }
+}
+
+/// External device approval mode for sovereign deployments.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ExternalDeviceApprovalMode {
+    Allow,
+    RequireApproval,
+    Deny,
+}
+
+/// Data classification level used by sovereign deployment policy.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DataClassification {
+    Public,
+    Internal,
+    Confidential,
+    Restricted,
+}
+
+/// Sovereign deployment policy primitives for profiles and spaces.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SovereignDeploymentPolicy {
+    pub deployment_id: String,
+    pub owner: Did,
+    pub home_domain: String,
+    #[serde(default)]
+    pub closed_federation: bool,
+    #[serde(default)]
+    pub federation_allowlist: BTreeSet<String>,
+    #[serde(default)]
+    pub resolver_pins: BTreeMap<String, String>,
+    pub external_device_approval: ExternalDeviceApprovalMode,
+    #[serde(default)]
+    pub data_classification: BTreeMap<String, DataClassification>,
+    pub created_at: DateTime<Utc>,
+}
+
+impl SovereignDeploymentPolicy {
+    /// Create a closed-federation policy owned by a DID.
+    pub fn closed(owner: Did, home_domain: impl Into<String>) -> Self {
+        Self {
+            deployment_id: format!("deploy_{}", ulid::Ulid::new()),
+            owner,
+            home_domain: home_domain.into(),
+            closed_federation: true,
+            federation_allowlist: BTreeSet::new(),
+            resolver_pins: BTreeMap::new(),
+            external_device_approval: ExternalDeviceApprovalMode::RequireApproval,
+            data_classification: BTreeMap::new(),
+            created_at: Utc::now(),
+        }
+    }
+
+    /// Add a federated domain to the allowlist.
+    pub fn allow_domain(&mut self, domain: impl Into<String>) {
+        self.federation_allowlist.insert(domain.into());
+    }
+
+    /// Check whether a federated domain is allowed.
+    pub fn is_domain_allowed(&self, domain: &str) -> bool {
+        !self.closed_federation || self.federation_allowlist.contains(domain)
+    }
+
+    /// Pin a DID resolver endpoint or trust root.
+    pub fn pin_resolver(&mut self, did_method: impl Into<String>, resolver_ref: impl Into<String>) {
+        self.resolver_pins.insert(did_method.into(), resolver_ref.into());
+    }
+
+    /// Classify a data subject reference.
+    pub fn classify(&mut self, subject_ref: impl Into<String>, classification: DataClassification) {
+        self.data_classification.insert(subject_ref.into(), classification);
+    }
+}
+
+/// Space export manifest used for validation before import.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SpaceExportManifest {
+    pub export_id: String,
+    pub space_id: SpaceId,
+    pub exported_by: Did,
+    pub source_service_did: Did,
+    pub event_count: u64,
+    pub state_hash: String,
+    pub created_at: DateTime<Utc>,
+}
+
+/// Result of validating an import manifest.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SpaceImportValidation {
+    pub accepted: bool,
+    pub errors: Vec<String>,
+}
+
+/// Service replacement contract for sovereign deployments.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ServiceReplacementPlan {
+    pub old_service_did: Did,
+    pub new_service_did: Did,
+    pub reason: String,
+    pub effective_at: DateTime<Utc>,
+    #[serde(default)]
+    pub preserve_service_history: bool,
+}
+
+impl ServiceReplacementPlan {
+    /// Validate a service replacement contract.
+    pub fn validate(&self, now: DateTime<Utc>) -> Result<()> {
+        if self.old_service_did == self.new_service_did {
+            return Err(Error::Protocol("replacement service must change".to_owned()));
+        }
+        if self.effective_at < now {
+            return Err(Error::Protocol("replacement effective time is in the past".to_owned()));
+        }
+        if self.reason.trim().is_empty() {
+            return Err(Error::Protocol("replacement reason is empty".to_owned()));
+        }
+        Ok(())
+    }
+}
+
+/// Validate a space import manifest against expected local constraints.
+pub fn validate_space_import(
+    manifest: &SpaceExportManifest,
+    expected_space_id: Option<&SpaceId>,
+    allowed_source_services: &BTreeSet<Did>,
+) -> SpaceImportValidation {
+    let mut errors = Vec::new();
+    if let Some(expected_space_id) = expected_space_id {
+        if &manifest.space_id != expected_space_id {
+            errors.push("space id mismatch".to_owned());
+        }
+    }
+    if manifest.event_count == 0 {
+        errors.push("export contains no events".to_owned());
+    }
+    if !manifest.state_hash.starts_with("sha256:") {
+        errors.push("state hash is not a sha256 digest".to_owned());
+    }
+    if !allowed_source_services.is_empty()
+        && !allowed_source_services.contains(&manifest.source_service_did)
+    {
+        errors.push("source service is not allowed".to_owned());
+    }
+
+    SpaceImportValidation { accepted: errors.is_empty(), errors }
+}
+
+/// Optional TSP trust binding.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TspTrustBinding {
+    pub subject: Did,
+    pub tsp_endpoint: String,
+    pub trust_anchor: String,
+    pub binding_proof: String,
+    pub created_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
+impl TspTrustBinding {
+    /// Check whether the binding is active.
+    pub fn is_active(&self, at: DateTime<Utc>) -> bool {
+        !self.binding_proof.is_empty()
+            && self.expires_at.map(|expires_at| expires_at > at).unwrap_or(true)
+    }
+}
+
+/// Pairwise control message kind.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PairwiseControlMessageKind {
+    DeviceApprovalRequest,
+    DeviceApprovalDecision,
+    ResolverPinUpdate,
+    TrustBindingUpdate,
+    KillSwitch,
+    Custom(String),
+}
+
+/// Pairwise control message hook payload.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PairwiseControlMessage {
+    pub message_id: String,
+    pub sender: Did,
+    pub recipient: Did,
+    pub kind: PairwiseControlMessageKind,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    pub payload: Value,
+    pub created_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
 }
 
 /// In-memory profile manager with version history.
@@ -154,5 +553,93 @@ mod tests {
             manager.profile_version(&alice, 1).unwrap().display_name,
             Some("Alice".to_owned())
         );
+    }
+
+    #[test]
+    fn social_graph_tracks_feeds_circles_and_actions() {
+        let alice = did("alice");
+        let bob = did("bob");
+        let mut graph = SocialGraph::new();
+        let feed = graph.create_feed(alice.clone(), None, None);
+        assert_eq!(feed.owner, alice);
+
+        let circle = graph.create_circle(alice.clone(), "Close", None);
+        graph.add_circle_member(&circle.circle_id, bob.clone()).unwrap();
+
+        graph.follow(alice.clone(), bob.clone());
+        graph.contact(alice.clone(), bob.clone());
+        graph.block(bob.clone(), alice.clone());
+        graph.like(alice.clone(), SocialTarget::Uri("https://example/post/1".to_owned()));
+        graph.reply(
+            alice.clone(),
+            SocialTarget::Uri("https://example/post/1".to_owned()),
+            serde_json::json!({"body": "reply"}),
+        );
+
+        assert!(graph.is_following(&alice, &bob));
+        assert!(graph.is_blocked(&bob, &alice));
+        assert_eq!(graph.actions().len(), 5);
+    }
+
+    #[test]
+    fn sovereign_policy_validates_domains_resolver_pins_and_imports() {
+        let alice = did("alice");
+        let service = did("svc");
+        let mut policy = SovereignDeploymentPolicy::closed(alice.clone(), "example.com");
+        assert!(!policy.is_domain_allowed("remote.example"));
+        policy.allow_domain("remote.example");
+        policy.pin_resolver("web", "https://resolver.example");
+        policy.classify("space:private", DataClassification::Restricted);
+        assert!(policy.is_domain_allowed("remote.example"));
+        assert_eq!(policy.resolver_pins["web"], "https://resolver.example");
+
+        let manifest = SpaceExportManifest {
+            export_id: "export1".to_owned(),
+            space_id: SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            exported_by: alice,
+            source_service_did: service.clone(),
+            event_count: 10,
+            state_hash: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                .to_owned(),
+            created_at: Utc::now(),
+        };
+        let validation =
+            validate_space_import(&manifest, Some(&manifest.space_id), &BTreeSet::from([service]));
+        assert!(validation.accepted);
+    }
+
+    #[test]
+    fn service_replacement_tsp_and_pairwise_control_models_validate() {
+        let old_service = did("old");
+        let new_service = did("new");
+        let plan = ServiceReplacementPlan {
+            old_service_did: old_service.clone(),
+            new_service_did: new_service.clone(),
+            reason: "rotate service".to_owned(),
+            effective_at: Utc::now() + chrono::Duration::hours(1),
+            preserve_service_history: true,
+        };
+        plan.validate(Utc::now()).unwrap();
+
+        let binding = TspTrustBinding {
+            subject: old_service.clone(),
+            tsp_endpoint: "https://tsp.example".to_owned(),
+            trust_anchor: "anchor".to_owned(),
+            binding_proof: "proof".to_owned(),
+            created_at: Utc::now(),
+            expires_at: None,
+        };
+        assert!(binding.is_active(Utc::now()));
+
+        let message = PairwiseControlMessage {
+            message_id: "ctrl1".to_owned(),
+            sender: old_service,
+            recipient: new_service,
+            kind: PairwiseControlMessageKind::ResolverPinUpdate,
+            payload: serde_json::json!({"method": "web"}),
+            created_at: Utc::now(),
+            expires_at: None,
+        };
+        assert_eq!(message.kind, PairwiseControlMessageKind::ResolverPinUpdate);
     }
 }

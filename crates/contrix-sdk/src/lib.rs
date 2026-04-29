@@ -6,6 +6,7 @@
 
 pub mod account;
 pub mod agent;
+#[cfg(feature = "applet-runtime")]
 pub mod applet;
 pub mod auth;
 pub mod authz;
@@ -45,19 +46,29 @@ pub mod settings;
 pub mod space;
 pub mod store;
 pub mod sync;
+#[cfg(feature = "sync-runtime")]
 pub mod sync_client;
+#[cfg(feature = "timeline-runtime")]
 pub mod timeline;
 pub mod typing;
 pub mod webrtc;
 
 pub use account::AccountDataManager;
 pub use agent::{
-    AgentMemory, AgentMemoryReview, AgentMemoryState, AgentMemoryStore, AgentProtocol,
-    AgentProtocolBridge, AgentProtocolMessage, ExternalAgent, MemoryLayer,
+    AgentBridgeMetadata, AgentMemory, AgentMemoryReview, AgentMemoryState, AgentMemoryStore,
+    AgentPrincipal, AgentProtocol, AgentProtocolBridge, AgentProtocolEndpoint,
+    AgentProtocolMessage, AgentRun, AgentRunManager, AgentRunState, AgentToolAuditAction,
+    AgentToolAuditEntry, AgentToolAuditLog, DelegatedActor, ExternalAgent, MemoryLayer,
 };
+#[cfg(feature = "applet-runtime")]
 pub use applet::{
-    AppletPermission, AppletPortal, AppletPortalManager, AppletRegistry, AppletSchema,
-    OpenApiBinding, PortalMode,
+    AppletNamespaceConflict, AppletNamespaceDeclaration, AppletNamespaceKind, AppletPermission,
+    AppletPortal, AppletPortalManager, AppletRegistry, AppletSchema, AppserviceIntent,
+    AppserviceRegistration, AppserviceRoute, AppserviceRouteSet, AppserviceTransaction,
+    AppserviceTransactionRecord, AppserviceTransactionStore, BridgeMappingStore,
+    GhostActorAccountability, OpenApiBinding, PortalMode, PortalSpaceMapping, RemoteSpaceMapping,
+    RemoteUserMapping, SignedAppletRegistration, ThirdPartyLookupKind, ThirdPartyLookupRequest,
+    ThirdPartyLookupResponse, VirtualActor,
 };
 pub use auth::{
     AccountRecoveryMethod, AccountRecoveryRequest, AuthManager, AuthRateLimitAction,
@@ -74,7 +85,10 @@ pub use authz::{
     Recurrence, Resource, ResourceSelector, ScopeLimitation, VerifiedClaim,
     capability_grants_from_space_state,
 };
-pub use base::{BaseClient, ClientSpace, SessionMeta, SpaceStateType};
+pub use base::{
+    BaseClient, BootstrapSequence, BootstrapStep, BootstrapStepKind, BootstrapStepStatus,
+    ClientSpace, SessionMeta, SessionRestore, SpaceStateType,
+};
 #[cfg(feature = "client")]
 pub use client::{Auth, Client, ClientBuilder};
 pub use content::{
@@ -96,14 +110,17 @@ pub use e2ee::{
     AuditAction, AuditEntry, E2eeGroup, E2eeKeyBackup, E2eeKeyRecord, E2eeManager, E2eeMessage,
 };
 pub use error::{Error, Result};
-pub use event_handler::{BuiltInEventHandlers, ClientEvent, EventHandlerRegistry, HandlerGuard};
+pub use event_handler::{
+    BotCommand, BotCommandParser, BotRuntime, BotRuntimeReport, BotRuntimeShutdown,
+    BuiltInEventHandlers, ClientEvent, ClientEventFilter, ClientEventKind, EventHandlerRegistry,
+    EventPipeline, HandlerGuard,
+};
 pub use federation::{
     FederationBackfillAuthorization, FederationManager, FederationQuarantineKind,
-    FederationQuarantineRecord, FederationReplayDecision, FederationReplayRecord,
-    FederationReplayStore, FederationRequest, FederationTransaction, FederationTransactionEnvelope,
-    HttpMessageSignature, HttpMessageSignatureInput, ServerInfo, ServiceEndpointDescriptor,
-    SovereignDeployment, TrustAnchor, VerifyActorChallenge, VerifyActorChallengeSignature,
-    WellKnownContrixServer, check_replay, content_digest_sha256,
+    FederationQuarantineRecord, FederationReplayDecision, FederationRequest, FederationTransaction,
+    FederationTransactionEnvelope, HttpMessageSignature, HttpMessageSignatureInput, ServerInfo,
+    ServiceEndpointDescriptor, SovereignDeployment, TrustAnchor, VerifyActorChallenge,
+    VerifyActorChallengeSignature, WellKnownContrixServer, content_digest_sha256,
     did_document_service_endpoint_matches, duplicate_transaction_quarantine,
     fork_quarantine_record, http_message_signature_base, sign_http_message,
     sign_verify_actor_challenge, verify_actor_challenge_signature, verify_http_message_signature,
@@ -135,7 +152,13 @@ pub use performance::{
     RobustnessTarget, TraceContext, TraceSpanKind, ZeroCopyJson,
 };
 pub use presence::{Presence, PresenceManager};
-pub use profile::{ProfileManager, UserProfile};
+pub use profile::{
+    AudiencePolicyBinding, DataClassification, ExternalDeviceApprovalMode, PairwiseControlMessage,
+    PairwiseControlMessageKind, ProfileManager, ServiceReplacementPlan, SocialAction,
+    SocialActionKind, SocialCircle, SocialFeed, SocialGraph, SocialTarget,
+    SovereignDeploymentPolicy, SpaceExportManifest, SpaceImportValidation, TspTrustBinding,
+    UserProfile, validate_space_import,
+};
 pub use push::{
     EncryptedPushPayload, PushEvent, PushGateway, PushPayload, PushPlatform, PushPriority,
     PushRule, PushToken,
@@ -172,24 +195,31 @@ pub use space::{
 };
 pub use store::{
     AcceptUnsignedCommitProofs, AccountSessionStore, AuditLogStore, BlobMetadataStore,
-    CommitProofVerifier, EncryptedMemoryRepoStore, EventCacheStore, FederationReplayRecord,
-    FederationReplayStore, IndexedDbRepoStore, MemoryPersistenceStore, MemoryRepoStore,
-    RepoObjectStore, RepoStore, RepoWriteBatch, RepoWriteReceipt, SqliteRepoStore,
-    StateSnapshotStore, StoreCache, StoreEncryptionKey, StoreMigration, StoreMigrationMetadata,
-    StoreSchemaMetadata, StoreSnapshot, StoredAccountData, TransactionalRepoStore,
-    rebuild_space_state_from_events, restore_space_state_from_persistence,
+    CommitProofVerifier, EncryptedMemoryRepoStore, EventCacheStore, IndexedDbRepoStore,
+    MemoryPersistenceStore, MemoryRepoStore, RepoObjectStore, RepoStore, RepoWriteBatch,
+    RepoWriteReceipt, SqliteRepoStore, StateSnapshotStore, StoreCache, StoreEncryptionKey,
+    StoreMigration, StoreMigrationMetadata, StoreSchemaMetadata, StoreSnapshot, StoredAccountData,
+    TransactionalRepoStore, rebuild_space_state_from_events, restore_space_state_from_persistence,
 };
 pub use sync::{
-    BackfillDirection, BackfillFrom, BackfillRequest, BackfillResponse, PresenceStatus,
-    SpaceSubscription, SpaceUpdate, SubscriptionConfig, SyncClient, SyncFilter, SyncRequest,
-    SyncResponse, SyncUpdates, TimelineFilter,
+    BackfillDirection, BackfillFrom, BackfillRequest, BackfillResponse, BucketedSpaceUpdate,
+    LimitedTimelineState, MembershipBucket, PresenceStatus, SpaceSubscription, SpaceUpdate,
+    SubscriptionConfig, SyncClient, SyncFilter, SyncGap, SyncGapReason, SyncMode, SyncRequest,
+    SyncResponse, SyncSemantics, SyncStreamPosition, SyncTokenBinding, SyncUpdates, TimelineFilter,
+    TimelineOrderKey, ToDeviceAck, ToDeviceAckStatus, WaitForFrontier, sync_filter_hash,
 };
+#[cfg(feature = "sync-runtime")]
 pub use sync_client::{
-    BackoffConfig, ExponentialBackoff, ProcessedSpace, SlidingSync, SlidingWindow, SyncLoop,
-    SyncLoopStep, SyncResponseProcessor, SyncTransport,
+    BackoffConfig, ExponentialBackoff, LocalEcho, ProcessedSpace, SendQueue, SendQueueItem,
+    SendQueueItemKind, SendQueueSnapshot, SendQueueStatus, SlidingSync, SlidingWindow,
+    SpaceListChange, SpaceListEntry, SpaceListFilter, SpaceListService, SpaceListSnapshot,
+    SpaceListSort, SyncLoop, SyncLoopStep, SyncResponseProcessor, SyncTransport,
 };
+#[cfg(feature = "timeline-runtime")]
 pub use timeline::{
-    Timeline, TimelineDirection, TimelineEvent, TimelineFrom, TimelineGap, TimelineOptions,
+    CachedEvent, EventCache, EventCacheInsert, EventCacheUpdate, FocusedTimeline, Timeline,
+    TimelineDirection, TimelineEvent, TimelineFrom, TimelineGap, TimelineItem, TimelineItemKind,
+    TimelineOptions, TimelineReactionSummary, TimelineReadReceipt, TimelineTypingUpdate,
 };
 pub use typing::{TypingManager, TypingNotification};
 pub use webrtc::{

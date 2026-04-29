@@ -1496,4 +1496,3 @@ mod tests {
         assert_eq!(cache.len(), 2);
     }
 }
-          
