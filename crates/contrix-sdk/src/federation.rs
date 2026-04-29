@@ -2,12 +2,13 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use ulid::Ulid;
 
-use crate::{Result, SpaceId};
+use crate::{Did, Error, Result, SpaceId};
 
 /// Trust anchor for a federated domain.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -57,6 +58,128 @@ pub struct SovereignDeployment {
     pub policy: BTreeMap<String, String>,
 }
 
+/// `.well-known/contrix/server` discovery record.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WellKnownContrixServer {
+    pub service_did: Did,
+    pub base_url: String,
+    pub protocol_versions: Vec<String>,
+    #[serde(default)]
+    pub endpoints: Vec<ServiceEndpointDescriptor>,
+    #[serde(default)]
+    pub capabilities: BTreeSet<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ServiceEndpointDescriptor {
+    pub service_type: String,
+    pub service_endpoint: String,
+    #[serde(default)]
+    pub operations: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HttpMessageSignatureInput {
+    pub method: String,
+    pub target_uri: String,
+    pub authority: String,
+    pub content_digest: String,
+    pub origin_service_did: Did,
+    pub destination_service_did: Did,
+    pub created_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HttpMessageSignature {
+    pub key_id: String,
+    pub alg: String,
+    pub signed_fields: Vec<String>,
+    pub signature: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct FederationTransactionEnvelope<T = Value> {
+    pub transaction_id: String,
+    pub origin_service_did: Did,
+    pub destination_service_did: Did,
+    pub issued_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+    pub content_digest: String,
+    pub payload: T,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signature: Option<HttpMessageSignature>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FederationReplayRecord {
+    pub transaction_id: String,
+    pub content_digest: String,
+    pub first_seen_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FederationReplayDecision {
+    AcceptedNew,
+    AcceptedDuplicate,
+    QuarantinedConflict,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FederationQuarantineKind {
+    DuplicateTransactionConflict,
+    CommitFork,
+    OperationFork,
+    BadDigest,
+    StaleCursor,
+    UnauthorizedPull,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FederationQuarantineRecord {
+    pub kind: FederationQuarantineKind,
+    pub object_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expected_digest: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub observed_digest: Option<String>,
+    pub reason: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FederationBackfillAuthorization {
+    pub requester_service_did: Did,
+    pub space_id: SpaceId,
+    pub history_visible: bool,
+    pub service_delegated: bool,
+    pub plaintext_visible_to_service: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VerifyActorChallenge {
+    pub actor_id: Did,
+    pub origin_service_did: Did,
+    pub destination_service_did: Did,
+    pub challenge: String,
+    pub purpose: String,
+    pub expires_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub payload_hash: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VerifyActorChallengeSignature {
+    pub key_id: String,
+    pub signature: String,
+}
+
+pub trait FederationReplayStore {
+    fn replay_record(&self, transaction_id: &str) -> Option<&FederationReplayRecord>;
+    fn remember_replay_record(&mut self, record: FederationReplayRecord);
+}
+
 /// Federation manager.
 #[derive(Clone, Debug, Default)]
 pub struct FederationManager {
@@ -64,6 +187,7 @@ pub struct FederationManager {
     servers: BTreeMap<String, ServerInfo>,
     events: BTreeMap<SpaceId, Vec<Value>>,
     deployment: Option<SovereignDeployment>,
+    replay: BTreeMap<String, FederationReplayRecord>,
 }
 
 impl FederationManager {

@@ -871,21 +871,7 @@ mod tests {
 
     #[test]
     fn rejects_encoded_path_separator_segments() {
-        let client = Client::new(Url::parse("https://alice.example/contrix/").unwrap()).unwrap();
-        let error = client
-            .federation_transaction(
-                "txn_%2Fescape",
-                &FederationTransactionRequest {
-                    origin: crate::Did::new("did:web:a.example").unwrap(),
-                    destination: crate::Did::new("did:web:b.example").unwrap(),
-                    service_binding_ref: "did:web:a.example#federation".to_owned(),
-                    operations: vec![],
-                    receipts: vec![],
-                    frontier: None,
-                },
-            )
-            .err()
-            .unwrap();
+        let error = reject_path_segment("txn_%2Fescape").unwrap_err();
         assert!(matches!(error, Error::Protocol(_)));
     }
 }

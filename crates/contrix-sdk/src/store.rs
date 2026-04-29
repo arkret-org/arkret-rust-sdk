@@ -982,6 +982,56 @@ mod tests {
         ObjectState, SpaceId, resolver::SnapshotRestoreSource,
     };
 
+    fn test_commit(commit_id: &str, author_seq: u64, operations: Vec<Hash>) -> Commit {
+        let mut commit = Commit::new(
+            CommitId::new(commit_id).unwrap(),
+            "did:web:alice.example",
+            Did::new("did:web:alice.example").unwrap(),
+            author_seq,
+        );
+        commit.operations = operations;
+        commit
+    }
+
+    fn entity_event(event_id: &str, title: &str) -> Event {
+        Event {
+            event_id: EventId::new(event_id).unwrap(),
+            kind: "cx.entity.create".to_owned(),
+            space_id: SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            space_version: "1".to_owned(),
+            actor_id: Did::new("did:web:alice.example.com").unwrap(),
+            actor_seq: 1,
+            created_at: Utc::now(),
+            hlc: Hlc::new("01970e589d22-00000009-11111111").unwrap(),
+            prev_refs: vec![],
+            auth_refs: vec![],
+            redacts: None,
+            content: json!({
+                "id": "cx:entity:01JS0SNAPENTITY00000000000",
+                "entity_type": "task",
+                "title": title
+            }),
+            unsigned: BTreeMap::new(),
+            proofs: vec![],
+        }
+    }
+
+    fn blob_metadata(blob_ref: BlobRef, size: u64) -> BlobMetadata {
+        BlobMetadata {
+            schema: BLOB_SCHEMA.to_owned(),
+            blob_ref,
+            object_type: "blob".to_owned(),
+            sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned(),
+            size,
+            media_type: "text/plain".to_owned(),
+            filename: Some("note.txt".to_owned()),
+            encryption: json!({"scheme": "none"}),
+            thumbnail_ref: None,
+            created_by: Did::new("did:web:alice.example").unwrap(),
+            created_at: Utc::now(),
+        }
+    }
+
     #[test]
     fn operation_put_is_idempotent_for_same_bytes() {
         let mut store = MemoryRepoStore::new();
@@ -1150,6 +1200,236 @@ mod tests {
     }
 
     #[test]
+    fn migration_metadata_records_schema_version_and_checksums() {
+        let mut store = SqliteRepoStore::new();
+        let metadata = store
+            .apply_migration_checked(StoreMigration {
+                version: 1,
+                statements: vec!["create table operations".to_owned()],
+            })
+            .unwrap();
+
+        assert_eq!(metadata.version, 1);
+        assert!(metadata.checksum.starts_with("sha256:"));
+        assert_eq!(store.schema_metadata().schema_version, 1);
+        assert_eq!(store.schema_metadata().applied_migrations.len(), 1);
+        assert!(matches!(
+            store.apply_migration_checked(StoreMigration {
+                version: 1,
+                statements: vec!["create table commits".to_owned()],
+            }),
+            Err(Error::Protocol(_))
+        ));
+    }
+
+    #[test]
+    fn transactional_batch_writes_operations_and_commits_atomically() {
+        let mut store = MemoryRepoStore::new();
+        let operation = Operation::create(
+            OperationId::new("cx:operation:txn").unwrap(),
+            SpaceId::new("cx:space:txn").unwrap(),
+            "entity",
+            json!({"id":"cx:entity:txn"}),
+        );
+        let operation_digest = Hash::new(operation.operation_digest().unwrap()).unwrap();
+        let commit = test_commit("cx:commit:txn", 1, vec![operation_digest]);
+
+        let receipt = store
+            .write_batch(
+                RepoWriteBatch::new().with_operation(operation.clone()).with_commit(commit.clone()),
+            )
+            .unwrap();
+
+        assert_eq!(receipt.operations_written, 1);
+        assert_eq!(receipt.commits_written, 1);
+        assert!(store.operation(&operation.operation_id).is_some());
+        assert!(store.commit(&commit.commit_id).is_some());
+
+        let idempotent_receipt = store
+            .write_batch(RepoWriteBatch::new().with_operation(operation).with_commit(commit))
+            .unwrap();
+        assert_eq!(idempotent_receipt.operations_written, 0);
+        assert_eq!(idempotent_receipt.commits_written, 0);
+    }
+
+    #[test]
+    fn transactional_batch_rolls_back_partial_operation_on_commit_failure() {
+        let mut store = MemoryRepoStore::new();
+        let operation = Operation::create(
+            OperationId::new("cx:operation:txn-rollback").unwrap(),
+            SpaceId::new("cx:space:txn").unwrap(),
+            "entity",
+            json!({"id":"cx:entity:txn"}),
+        );
+        let commit = test_commit(
+            "cx:commit:txn-rollback",
+            1,
+            vec![
+                Hash::new(
+                    "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+                )
+                .unwrap(),
+            ],
+        );
+
+        assert!(matches!(
+            store.write_batch(
+                RepoWriteBatch::new().with_operation(operation.clone()).with_commit(commit)
+            ),
+            Err(Error::Protocol(_))
+        ));
+        assert!(store.operation(&operation.operation_id).is_none());
+        assert_eq!(store.operations_len(), 0);
+        assert_eq!(store.commits_len(), 0);
+    }
+
+    #[test]
+    fn snapshot_recovery_rebuilds_indexes_and_rejects_bad_head() {
+        let mut store = SqliteRepoStore::new();
+        let operation = Operation::create(
+            OperationId::new("cx:operation:recover").unwrap(),
+            SpaceId::new("cx:space:recover").unwrap(),
+            "entity",
+            json!({"id":"cx:entity:recover"}),
+        );
+        let operation_digest = operation.operation_digest().unwrap();
+        let commit = test_commit(
+            "cx:commit:recover",
+            1,
+            vec![Hash::new(operation_digest.clone()).unwrap()],
+        );
+        store
+            .write_batch(RepoWriteBatch::new().with_operation(operation.clone()).with_commit(commit))
+            .unwrap();
+
+        let snapshot = store.export_snapshot();
+        let recovered = SqliteRepoStore::recover_from_snapshot(snapshot.clone()).unwrap();
+        assert_eq!(
+            recovered.operation_by_digest(&operation_digest).unwrap().operation_id,
+            operation.operation_id
+        );
+
+        let mut bad_snapshot = snapshot;
+        bad_snapshot.head = Some(
+            Hash::new("sha256:2222222222222222222222222222222222222222222222222222222222222222")
+                .unwrap(),
+        );
+        assert!(matches!(
+            SqliteRepoStore::recover_from_snapshot(bad_snapshot),
+            Err(Error::Protocol(_))
+        ));
+    }
+
+    #[test]
+    fn projection_rebuild_helpers_replay_event_cache_and_use_valid_snapshot() {
+        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let event = entity_event("cx:event:01JS0STORE0000000000000001", "Stored task");
+        let mut store = MemoryPersistenceStore::new();
+        store.put_event(event.clone()).unwrap();
+        store.put_event(event.clone()).unwrap();
+
+        let mut conflicting = event.clone();
+        conflicting.content = json!({
+            "id": "cx:entity:01JS0SNAPENTITY00000000000",
+            "entity_type": "task",
+            "title": "Changed"
+        });
+        assert!(matches!(store.put_event(conflicting), Err(Error::IdempotencyConflict(_))));
+
+        let state = rebuild_space_state_from_events(&store, &space_id, "1").unwrap();
+        assert_eq!(state.entities.len(), 1);
+        assert_eq!(
+            state
+                .entities
+                .get("cx:entity:01JS0SNAPENTITY00000000000")
+                .unwrap()
+                .state,
+            Some(ObjectState::Active)
+        );
+
+        store.put_state_snapshot(state.snapshot()).unwrap();
+        let restored = restore_space_state_from_persistence(&store, &space_id, "1").unwrap();
+        assert_eq!(restored.source, SnapshotRestoreSource::Snapshot);
+        assert_eq!(restored.state.entities.len(), 1);
+    }
+
+    #[test]
+    fn memory_persistence_store_roundtrips_auxiliary_records() {
+        let mut store = MemoryPersistenceStore::new();
+        let principal_id = Did::new("did:web:alice.example").unwrap();
+        let device_id = DeviceId::new("dev_phone").unwrap();
+        let session = AuthSession {
+            session_id: "sess-1".to_owned(),
+            user_id: principal_id.clone(),
+            principal_id: principal_id.clone(),
+            device_id,
+            access_token: "access".to_owned(),
+            refresh_token: "refresh".to_owned(),
+            expires_at: Utc::now(),
+            revoked: false,
+            created_at: Utc::now(),
+        };
+        store.put_session(session.clone()).unwrap();
+        store.put_session(session).unwrap();
+        assert_eq!(store.sessions_for_principal(&principal_id).len(), 1);
+        store.revoke_session("sess-1").unwrap();
+        assert!(store.session("sess-1").unwrap().revoked);
+
+        store
+            .put_account_data(StoredAccountData {
+                principal_id: principal_id.clone(),
+                data_type: "settings".to_owned(),
+                content: json!({"theme": "dark"}),
+                updated_at: Utc::now(),
+            })
+            .unwrap();
+        assert_eq!(
+            store.account_data(&principal_id, "settings").unwrap().content,
+            json!({"theme": "dark"})
+        );
+
+        let blob_ref = BlobRef::new(
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        )
+        .unwrap();
+        let metadata = blob_metadata(blob_ref.clone(), 12);
+        store.put_blob_metadata(metadata.clone()).unwrap();
+        store.put_blob_metadata(metadata.clone()).unwrap();
+        let mut conflicting_metadata = metadata;
+        conflicting_metadata.size = 13;
+        assert!(matches!(
+            store.put_blob_metadata(conflicting_metadata),
+            Err(Error::IdempotencyConflict(_))
+        ));
+        assert_eq!(store.blob_metadata(&blob_ref).unwrap().size, 12);
+
+        store
+            .append_audit_entry(AuditEntry {
+                timestamp: Utc::now(),
+                action: AuditAction::KeyBackedUp,
+                actor: Some(principal_id.clone()),
+                group_id: Some("group1".to_owned()),
+                detail: "backup".to_owned(),
+            })
+            .unwrap();
+        assert_eq!(store.audit_entries().len(), 1);
+
+        let replay = FederationReplayRecord {
+            transaction_id: "txn-1".to_owned(),
+            origin: principal_id.clone(),
+            destination: Did::new("did:web:bob.example").unwrap(),
+            request_digest:
+                "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                    .to_owned(),
+            response_digest: None,
+            seen_at: Utc::now(),
+        };
+        store.put_federation_replay(replay.clone()).unwrap();
+        store.put_federation_replay(replay).unwrap();
+        assert!(store.has_federation_replay("txn-1"));
+    }
+
+    #[test]
     fn sqlite_store_applies_migrations_indexes_and_snapshots() {
         let mut store = SqliteRepoStore::new();
         store.apply_migration(StoreMigration {
@@ -1217,5 +1497,4 @@ mod tests {
         cache.insert("b", 2);
         cache.insert("c", 3);
 
-        assert!(cache.get(&"a").is_none());
-   
+        assert!(cache.get(&"a").is_none

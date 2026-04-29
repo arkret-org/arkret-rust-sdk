@@ -1054,3 +1054,489 @@ pub struct SpaceListService {
 impl SpaceListService {
     /// Create an empty list service.
     pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Restore service state from a snapshot.
+    pub fn from_snapshot(snapshot: SpaceListSnapshot) -> Self {
+        Self {
+            entries: snapshot.entries,
+            ordered: snapshot.ordered,
+            sort: snapshot.sort,
+            filter: snapshot.filter,
+        }
+    }
+
+    /// Export list state for persistence by the embedding application.
+    pub fn snapshot(&self) -> SpaceListSnapshot {
+        SpaceListSnapshot {
+            entries: self.entries.clone(),
+            ordered: self.ordered.clone(),
+            sort: self.sort,
+            filter: self.filter.clone(),
+        }
+    }
+
+    /// Current ordered visible entries.
+    pub fn entries(&self) -> Vec<&SpaceListEntry> {
+        self.ordered.iter().filter_map(|space_id| self.entries.get(space_id)).collect()
+    }
+
+    /// Set sort mode and return the resulting delta.
+    pub fn set_sort(&mut self, sort: SpaceListSort) -> SpaceListUpdate {
+        let previous = self.visible_entries();
+        self.sort = sort;
+        self.rebuild_update(previous)
+    }
+
+    /// Set filter and return the resulting delta.
+    pub fn set_filter(&mut self, filter: SpaceListFilter) -> SpaceListUpdate {
+        let previous = self.visible_entries();
+        self.filter = filter;
+        self.rebuild_update(previous)
+    }
+
+    /// Insert or update one entry.
+    pub fn upsert(&mut self, entry: SpaceListEntry) -> SpaceListUpdate {
+        let previous = self.visible_entries();
+        self.entries.insert(entry.space_id.clone(), entry);
+        self.rebuild_update(previous)
+    }
+
+    /// Remove one entry.
+    pub fn remove(&mut self, space_id: &SpaceId) -> SpaceListUpdate {
+        let previous = self.visible_entries();
+        self.entries.remove(space_id);
+        self.rebuild_update(previous)
+    }
+
+    /// Apply a processed sync update to list metadata.
+    pub fn apply_space_update(
+        &mut self,
+        update: &SpaceUpdate,
+        membership: MembershipBucket,
+    ) -> SpaceListUpdate {
+        let mut entry = self
+            .entries
+            .get(&update.space_id)
+            .cloned()
+            .unwrap_or_else(|| SpaceListEntry::joined(update.space_id.clone()));
+        entry.membership = membership;
+        if let Some(name) = update
+            .summary
+            .get("name")
+            .or_else(|| update.summary.get("title"))
+            .and_then(Value::as_str)
+        {
+            entry.name = Some(name.to_owned());
+        }
+        if let Some(favorite) = update.summary.get("favorite").and_then(Value::as_bool) {
+            entry.favorite = favorite;
+        }
+        if let Some(category) = update.summary.get("category").and_then(Value::as_str) {
+            entry.category = Some(category.to_owned());
+        }
+        if let Some(unread_count) = update.summary.get("unread_count").and_then(Value::as_u64) {
+            entry.unread_count = unread_count;
+        }
+        if let Some(highlight_count) = update.summary.get("highlight_count").and_then(Value::as_u64)
+        {
+            entry.highlight_count = highlight_count;
+        }
+        if let Some(timeline) = &update.timeline {
+            if let Some(event) = timeline.events.last().and_then(|value| serde_json::from_value::<Event>(value.clone()).ok()) {
+                entry.last_event_id = Some(event.event_id.clone());
+                entry.last_activity = Some(TimelineOrderKey::from_event(&event, event.prev_refs.len() as u64));
+            }
+        }
+        self.upsert(entry)
+    }
+
+    fn rebuild_update(&mut self, previous: Vec<SpaceListEntry>) -> SpaceListUpdate {
+        let current = self.rebuild_order();
+        let changes = diff_space_lists(&previous, &current);
+        SpaceListUpdate {
+            ordered: current.iter().map(|entry| entry.space_id.clone()).collect(),
+            changes,
+        }
+    }
+
+    fn rebuild_order(&mut self) -> Vec<SpaceListEntry> {
+        let mut entries = self.visible_entries();
+        entries.sort_by(|left, right| compare_space_entries(left, right, self.sort));
+        self.ordered = entries.iter().map(|entry| entry.space_id.clone()).collect();
+        entries
+    }
+
+    fn visible_entries(&self) -> Vec<SpaceListEntry> {
+        self.entries
+            .values()
+            .filter(|entry| self.filter.matches(entry))
+            .cloned()
+            .collect()
+    }
+}
+
+fn compare_space_entries(
+    left: &SpaceListEntry,
+    right: &SpaceListEntry,
+    sort: SpaceListSort,
+) -> std::cmp::Ordering {
+    let name_order = left.name.cmp(&right.name).then_with(|| left.space_id.cmp(&right.space_id));
+    match sort {
+        SpaceListSort::Recency => right.last_activity.cmp(&left.last_activity).then(name_order),
+        SpaceListSort::Name => name_order,
+        SpaceListSort::Unread => right
+            .highlight_count
+            .cmp(&left.highlight_count)
+            .then_with(|| right.unread_count.cmp(&left.unread_count))
+            .then_with(|| right.last_activity.cmp(&left.last_activity))
+            .then(name_order),
+        SpaceListSort::Favorite => right
+            .favorite
+            .cmp(&left.favorite)
+            .then_with(|| right.last_activity.cmp(&left.last_activity))
+            .then(name_order),
+    }
+}
+
+fn diff_space_lists(previous: &[SpaceListEntry], current: &[SpaceListEntry]) -> Vec<SpaceListChange> {
+    let previous_index: BTreeMap<_, _> = previous
+        .iter()
+        .enumerate()
+        .map(|(index, entry)| (entry.space_id.clone(), (index, entry)))
+        .collect();
+    let current_index: BTreeMap<_, _> = current
+        .iter()
+        .enumerate()
+        .map(|(index, entry)| (entry.space_id.clone(), (index, entry)))
+        .collect();
+    let mut changes = Vec::new();
+
+    for (space_id, (old_index, _)) in &previous_index {
+        if !current_index.contains_key(space_id) {
+            changes.push(SpaceListChange::Removed {
+                old_index: *old_index,
+                space_id: space_id.clone(),
+            });
+        }
+    }
+    for (space_id, (new_index, entry)) in &current_index {
+        match previous_index.get(space_id) {
+            None => changes.push(SpaceListChange::Inserted {
+                index: *new_index,
+                entry: (*entry).clone(),
+            }),
+            Some((old_index, previous_entry)) if *old_index != *new_index => {
+                changes.push(SpaceListChange::Moved {
+                    old_index: *old_index,
+                    new_index: *new_index,
+                    space_id: space_id.clone(),
+                });
+                if *previous_entry != *entry {
+                    changes.push(SpaceListChange::Updated {
+                        index: *new_index,
+                        entry: (*entry).clone(),
+                    });
+                }
+            }
+            Some((_, previous_entry)) if *previous_entry != *entry => {
+                changes.push(SpaceListChange::Updated {
+                    index: *new_index,
+                    entry: (*entry).clone(),
+                });
+            }
+            _ => {}
+        }
+    }
+    changes
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+
+    use serde_json::json;
+
+    use super::*;
+    use crate::sync::{DeviceListChanges, SyncSpace, UnreadCounts};
+
+    fn sync_response(next_batch: &str) -> SyncResponse {
+        SyncResponse {
+            next_batch: next_batch.to_owned(),
+            spaces: BTreeMap::new(),
+            rooms: BTreeMap::new(),
+            to_device: Vec::new(),
+            device_lists: DeviceListChanges::default(),
+            presence: Vec::new(),
+            account_data: Vec::new(),
+            notifications: Vec::new(),
+            partial: false,
+        }
+    }
+
+    #[test]
+    fn backoff_grows_until_capped() {
+        let mut backoff = ExponentialBackoff::new(BackoffConfig {
+            initial_delay: Duration::from_millis(100),
+            max_delay: Duration::from_millis(250),
+            multiplier: 2,
+        });
+
+        assert_eq!(backoff.record_failure(), Duration::from_millis(100));
+        assert_eq!(backoff.record_failure(), Duration::from_millis(200));
+        assert_eq!(backoff.record_failure(), Duration::from_millis(250));
+        backoff.reset();
+        assert_eq!(backoff.current_delay(), Duration::ZERO);
+    }
+
+    #[test]
+    fn sync_loop_recovers_after_failure() {
+        let mut calls = 0;
+        let mut transport = |request: SyncRequest| {
+            calls += 1;
+            if calls == 1 {
+                assert_eq!(request.timeout_ms, Some(30_000));
+                Err(Error::Protocol("network down".to_owned()))
+            } else {
+                assert!(request.since.is_none());
+                Ok(sync_response("s1"))
+            }
+        };
+        let mut sync_loop = SyncLoop::new();
+
+        assert!(matches!(sync_loop.step(&mut transport), SyncLoopStep::Retry { .. }));
+        assert!(matches!(sync_loop.step(&mut transport), SyncLoopStep::Updates(_)));
+        assert_eq!(sync_loop.token(), Some("s1"));
+    }
+
+    #[test]
+    fn sync_loop_includes_wait_for_frontier() {
+        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let wait_for = WaitForFrontier {
+            positions: vec![crate::sync::SyncStreamPosition {
+                space_id,
+                frontier: Vec::new(),
+                timeline_order: crate::Hlc::new("01970e589d21-00000000-a13f9c2e").unwrap(),
+                state_hash:
+                    "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                        .to_owned(),
+            }],
+            timeout_ms: 5000,
+        };
+
+        let request = SyncLoop::new().with_wait_for(wait_for.clone()).next_request();
+
+        assert_eq!(request.wait_for, Some(wait_for));
+    }
+
+    #[test]
+    fn processor_dispatches_all_update_categories() {
+        let space_id = "cx:space:01JS0SP000000000000000000";
+        let mut response = sync_response("s2");
+        response.spaces.insert(
+            space_id.to_owned(),
+            SyncSpace {
+                timeline: None,
+                state: vec![json!({"kind":"state"})],
+                summary: json!({"name":"space"}),
+                ephemeral: Vec::new(),
+                unread: UnreadCounts { notification_count: 3, highlight_count: 1 },
+            },
+        );
+        response.to_device.push(ToDeviceMessage {
+            message_type: "m.test".to_owned(),
+            content: json!({"ok":true}),
+        });
+        response.device_lists.changed.push("did:web:alice.example".to_owned());
+        response.presence.push(PresenceEvent {
+            user_id: "did:web:alice.example".to_owned(),
+            presence: PresenceStatus::Online,
+            last_active: None,
+            device_id: None,
+        });
+        response.account_data.push(AccountData {
+            data_type: "cx.settings".to_owned(),
+            content: json!({"theme":"light"}),
+        });
+        response.notifications.push(NotificationDelta {
+            id: "n1".to_owned(),
+            notification_type: "mention".to_owned(),
+            action: "add".to_owned(),
+            data: None,
+        });
+
+        let mut processor = SyncResponseProcessor::new();
+        let updates = processor.process(response).unwrap();
+        let parsed_space_id = SpaceId::new(space_id).unwrap();
+
+        assert_eq!(updates.space_updates.len(), 1);
+        assert_eq!(processor.space(&parsed_space_id).unwrap().notification_count, 3);
+        assert_eq!(processor.drain_to_device().len(), 1);
+        assert!(processor.presence("did:web:alice.example").is_some());
+        assert!(processor.account_data("cx.settings").is_some());
+        assert!(processor.notification("n1").is_some());
+        assert_eq!(processor.device_lists().changed.len(), 1);
+    }
+
+    #[test]
+    fn processor_tracks_limited_timelines_and_to_device_ack() {
+        let space_id = "cx:space:01JS0SP000000000000000000";
+        let parsed_space_id = SpaceId::new(space_id).unwrap();
+        let event = Event::new(
+            "cx.message.create",
+            parsed_space_id.clone(),
+            Did::new("did:web:alice.example").unwrap(),
+            1,
+            crate::Hlc::new("01970e589d21-00000000-a13f9c2e").unwrap(),
+            json!({"body":"hello"}),
+        )
+        .unwrap();
+        let mut response = sync_response("s3");
+        response.spaces.insert(
+            space_id.to_owned(),
+            SyncSpace {
+                timeline: Some(SyncTimeline {
+                    events: vec![serde_json::to_value(event).unwrap()],
+                    limited: true,
+                    prev_batch: Some("prev".to_owned()),
+                }),
+                state: Vec::new(),
+                summary: json!({}),
+                ephemeral: Vec::new(),
+                unread: UnreadCounts::default(),
+            },
+        );
+
+        let mut processor = SyncResponseProcessor::new();
+        processor.process(response).unwrap();
+        let ack = processor.acknowledge_to_device(
+            "devmsg1",
+            DeviceId::new("dev_123").unwrap(),
+            ToDeviceAckStatus::Processed,
+        );
+
+        assert_eq!(processor.space(&parsed_space_id).unwrap().limited_timeline_count, 1);
+        assert_eq!(processor.limited_timelines().len(), 1);
+        assert_eq!(processor.to_device_ack("devmsg1"), Some(&ack));
+    }
+
+    #[test]
+    fn send_queue_is_idempotent_orders_dependencies_and_snapshots() {
+        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let mut queue = SendQueue::new();
+        let message = queue
+            .enqueue_message(Some("txn1".to_owned()), space_id.clone(), json!({"body":"hello"}))
+            .unwrap();
+        let duplicate = queue
+            .enqueue_message(Some("txn1".to_owned()), space_id.clone(), json!({"body":"hello"}))
+            .unwrap();
+        let edit = queue
+            .enqueue_edit(
+                Some("txn2".to_owned()),
+                space_id,
+                EventId::new("cx:event:0001").unwrap(),
+                json!({"content":{"body":"hi"}}),
+                vec!["txn1".to_owned()],
+            )
+            .unwrap();
+
+        assert_eq!(message.payload_hash, duplicate.payload_hash);
+        assert_eq!(queue.ready_batch(Utc::now(), 10), vec![message.clone()]);
+
+        queue.mark_sending("txn1").unwrap();
+        queue.mark_sent("txn1", EventId::new("cx:event:0001").unwrap()).unwrap();
+        assert_eq!(queue.ready_batch(Utc::now(), 10), vec![edit.clone()]);
+
+        let restored = SendQueue::from_snapshot(queue.snapshot()).unwrap();
+        assert_eq!(restored.len(), 2);
+        assert_eq!(restored.get("txn1").unwrap().status, SendQueueStatus::Sent);
+    }
+
+    #[test]
+    fn send_queue_cancels_dependent_edit_redaction_and_reaction() {
+        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let event_id = EventId::new("cx:event:0001").unwrap();
+        let mut queue = SendQueue::new();
+        queue
+            .enqueue_message(Some("txn1".to_owned()), space_id.clone(), json!({"body":"hello"}))
+            .unwrap();
+        queue
+            .enqueue_redaction(
+                Some("txn2".to_owned()),
+                space_id.clone(),
+                event_id.clone(),
+                None,
+                vec!["txn1".to_owned()],
+            )
+            .unwrap();
+        queue
+            .enqueue_reaction(
+                Some("txn3".to_owned()),
+                space_id,
+                event_id,
+                "+1".to_owned(),
+                true,
+                vec!["txn2".to_owned()],
+            )
+            .unwrap();
+
+        queue.cancel("txn1", true).unwrap();
+
+        assert_eq!(queue.get("txn1").unwrap().status, SendQueueStatus::Cancelled);
+        assert_eq!(queue.get("txn2").unwrap().status, SendQueueStatus::Cancelled);
+        assert_eq!(queue.get("txn3").unwrap().status, SendQueueStatus::Cancelled);
+    }
+
+    #[test]
+    fn sliding_sync_builds_windowed_subscriptions_and_applies_deltas() {
+        let s1 = SpaceId::new("cx:space:01JS0SP000000000000000001").unwrap();
+        let s2 = SpaceId::new("cx:space:01JS0SP000000000000000002").unwrap();
+        let s3 = SpaceId::new("cx:space:01JS0SP000000000000000003").unwrap();
+        let s4 = SpaceId::new("cx:space:01JS0SP000000000000000004").unwrap();
+
+        let mut sliding = SlidingSync::new();
+        sliding.set_space_list(vec![s1.clone(), s2.clone(), s3]);
+        sliding.set_windows(vec![SlidingWindow::new(0, 2).unwrap()]);
+        sliding.apply_delta(&[s1], vec![(1, s4.clone())]);
+
+        let config = sliding.subscription_config();
+
+        assert_eq!(config.subscriptions.len(), 2);
+        assert_eq!(config.subscriptions[0].space_id, s2);
+        assert_eq!(config.subscriptions[1].space_id, s4);
+        assert!(sliding.is_subscribed(&s4));
+    }
+
+    #[test]
+    fn space_list_sorts_filters_and_reports_incremental_changes() {
+        let s1 = SpaceId::new("cx:space:01JS0SP000000000000000001").unwrap();
+        let s2 = SpaceId::new("cx:space:01JS0SP000000000000000002").unwrap();
+        let mut list = SpaceListService::new();
+        let mut alpha = SpaceListEntry::joined(s1.clone());
+        alpha.name = Some("Alpha".to_owned());
+        alpha.unread_count = 1;
+        let mut beta = SpaceListEntry::joined(s2.clone());
+        beta.name = Some("Beta".to_owned());
+        beta.favorite = true;
+        beta.unread_count = 5;
+
+        let first = list.upsert(alpha);
+        let second = list.upsert(beta);
+        let sorted = list.set_sort(SpaceListSort::Unread);
+        let filtered = list.set_filter(SpaceListFilter {
+            unread_only: true,
+            ..SpaceListFilter::default()
+        });
+
+        assert!(matches!(first.changes[0], SpaceListChange::Inserted { .. }));
+        assert!(second.changes.iter().any(|change| matches!(change, SpaceListChange::Inserted { .. })));
+        assert_eq!(sorted.ordered[0], s2);
+        assert_eq!(filtered.ordered.len(), 2);
+
+        let snapshot = list.snapshot();
+        let restored = SpaceListService::from_snapshot(snapshot);
+        assert_eq!(restored.entries().len(), 2);
+        assert_eq!(restored.entries()[0].space_id, s2);
+    }
+}
