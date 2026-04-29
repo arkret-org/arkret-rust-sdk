@@ -65,8 +65,10 @@ timeline items should be retained and retried after keys arrive.
 ### Write A Server Adapter
 
 Use the framework-independent endpoint registry and `EndpointHandler` shape.
-Frameworks such as Axum or Salvo should adapt HTTP requests into
-`ServerRequest` and serialize `ServerResponse` without changing operation IDs.
+The SDK ships an Axum adapter behind the `axum-adapter` feature. Salvo is
+explicitly deferred to server repositories for now; those repos should adapt
+Salvo requests into `ServerRequest` and serialize `ServerResponse` without
+changing operation IDs.
 
 ### Migrate From Matrix Concepts
 

@@ -3,6 +3,64 @@
 //! This crate exposes Contrix protocol concepts directly. The source of truth
 //! is signed Events / Operations in append-only Repos; Views are derived
 //! projections.
+//!
+//! # Examples
+//!
+//! Build a local operation and commit using the model-only surface:
+//!
+//! ```rust
+//! use contrix_sdk::{Commit, Did, Hash, Operation, OperationId, SpaceId};
+//! use serde_json::json;
+//!
+//! # fn main() -> contrix_sdk::Result<()> {
+//! let operation = Operation::create(
+//!     OperationId::new("cx:operation:example")?,
+//!     SpaceId::new("cx:space:example")?,
+//!     "entity",
+//!     json!({"id": "cx:entity:example"}),
+//! );
+//! let operation_hash = Hash::new(operation.operation_digest()?)?;
+//! let mut commit = Commit::new(
+//!     contrix_sdk::CommitId::new("cx:commit:example")?,
+//!     "did:web:alice.example",
+//!     Did::new("did:web:alice.example")?,
+//!     1,
+//! );
+//! commit.operations.push(operation_hash);
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! Run one in-memory sync-loop step:
+//!
+//! ```rust
+//! use contrix_sdk::{SyncLoop, SyncLoopStep, SyncRequest, SyncResponse};
+//!
+//! # fn main() {
+//! let mut sync_loop = SyncLoop::new();
+//! let mut transport = |_request: SyncRequest| {
+//!     Ok(SyncResponse {
+//!         next_batch: "s1".to_owned(),
+//!         spaces: Default::default(),
+//!         rooms: Default::default(),
+//!         to_device: Vec::new(),
+//!         device_lists: Default::default(),
+//!         presence: Vec::new(),
+//!         account_data: Vec::new(),
+//!         notifications: Vec::new(),
+//!         partial: false,
+//!     })
+//! };
+//! assert!(matches!(sync_loop.step(&mut transport), SyncLoopStep::Updates(_)));
+//! # }
+//! ```
+//!
+//! Invalid typed IDs should be constructed with validators, not assigned from
+//! raw strings:
+//!
+//! ```compile_fail
+//! let did: contrix_sdk::Did = "did:web:alice.example";
+//! ```
 
 #[cfg(feature = "full-surface")]
 pub mod account;
@@ -112,14 +170,19 @@ pub use applet::{
 pub use auth::{
     AccountAuthState, AccountRecoveryMethod, AccountRecoveryRequest, AuthClaimType, AuthManager,
     AuthRateLimitAction, AuthRateLimitContext, AuthRateLimitHook, AuthSession, AuthStateSnapshot,
-    ClaimDisclosureRequirement, DidProofVerification, DidProofVerificationRequest,
-    DidProofVerifier, DisclosurePolicy, MfaChallenge, OidcAuthRequest, OidcCredential,
+    CONTRIX_DEVICE_SCOPE_PREFIX, ClaimDisclosureRequirement, DidProofVerification,
+    DidProofVerificationRequest, DidProofVerifier, DisclosurePolicy,
+    DisclosureProofAdapterBoundary, DisclosureProofFormat, LEGACY_MATRIX_DEVICE_SCOPE_PREFIX,
+    LEGACY_MATRIX_MSC2967_DEVICE_SCOPE_PREFIX, MfaChallenge, OidcAuthRequest, OidcCredential,
     OidcIssuerMetadata, OidcJwks, OidcVerificationRequest, OidcVerifiedIdentity, OidcVerifier,
     PasskeyChallenge, PasskeyVerification, PasskeyVerificationRequest, PasskeyVerifier,
     PasswordHashAlgorithm, PasswordHashVerifier, PasswordUser, PasswordVerification,
     PasswordVerificationRequest, PersistedAuthSession, PresentationRequest, PresentationValidation,
-    PresentedClaim, RefreshTokenMetadata, RejectedClaim, SessionPrincipalBinding,
-    SessionRevocation, WebAuthnPasskeyResponse, validate_presentation,
+    PresentedClaim, PrincipalSessionGrantNotification, PrincipalSessionGrantNotificationResponse,
+    PrincipalSessionGrantNotifier, RefreshTokenMetadata, RejectedClaim, SessionGrant,
+    SessionGrantNotificationKind, SessionGrantPayload, SessionGrantRecord, SessionPrincipalBinding,
+    SessionRevocation, WebAuthnPasskeyResponse, contrix_device_scope, device_id_from_scope_token,
+    primary_device_id_from_scopes, validate_presentation,
 };
 #[cfg(feature = "full-surface")]
 pub use authz::{
@@ -138,7 +201,7 @@ pub use base::{
     ClientSpace, SessionMeta, SessionRestore, SpaceStateType,
 };
 #[cfg(feature = "client")]
-pub use client::{Auth, Client, ClientBuilder};
+pub use client::{Auth, Client, ClientBuilder, ClientRequestOptions, RetryConfig};
 #[cfg(feature = "full-surface")]
 pub use content::{
     LinkPreview, MarkdownDocument, Mention, MentionTarget, Reaction, ReactionManager,
@@ -179,13 +242,14 @@ pub use event_handler::{
 #[cfg(feature = "full-surface")]
 pub use federation::{
     FederationBackfillAuthorization, FederationManager, FederationQuarantineKind,
-    FederationQuarantineRecord, FederationReplayDecision, FederationRequest, FederationTransaction,
-    FederationTransactionEnvelope, HttpMessageSignature, HttpMessageSignatureInput, ServerInfo,
-    ServiceEndpointDescriptor, SovereignDeployment, TrustAnchor, VerifyActorChallenge,
-    VerifyActorChallengeSignature, WellKnownContrixServer, content_digest_sha256,
-    did_document_service_endpoint_matches, duplicate_transaction_quarantine,
-    fork_quarantine_record, http_message_signature_base, sign_http_message,
-    sign_verify_actor_challenge, verify_actor_challenge_signature, verify_http_message_signature,
+    FederationQuarantineRecord, FederationReplayDecision, FederationReplayRecord,
+    FederationReplayStore, FederationRequest, FederationTransaction, FederationTransactionEnvelope,
+    HttpMessageSignature, HttpMessageSignatureInput, ServerInfo, ServiceEndpointDescriptor,
+    SovereignDeployment, TrustAnchor, VerifyActorChallenge, VerifyActorChallengeSignature,
+    WellKnownContrixServer, content_digest_sha256, did_document_service_endpoint_matches,
+    duplicate_transaction_quarantine, fork_quarantine_record, http_message_signature_base,
+    sign_http_message, sign_verify_actor_challenge, verify_actor_challenge_signature,
+    verify_http_message_signature,
 };
 #[cfg(feature = "full-surface")]
 pub use hlc::{
@@ -194,12 +258,15 @@ pub use hlc::{
 };
 #[cfg(feature = "full-surface")]
 pub use identity::{
-    CompositeDidResolver, DidDocument, DidKeriResolver, DidKeyLogEntry, DidKeyLogOperation,
-    DidKeyResolver, DidMigration, DidRegistryReceipt, DidResolver, DidUuidResolver, DidVisibility,
-    DidWebResolver, HandleAttestation, HandleClaim, IdentityManager, PairwiseDidBinding,
-    PairwiseDidResolutionProof, PairwiseDidStore, VerifiedDidKeyLog, did_key_log_proof,
-    did_registry_receipt_signature, handle_claim_proof, pairwise_resolution_proof,
-    verify_did_key_log,
+    CompositeDidResolver, DID_WEB_MAX_DOCUMENT_BYTES, DidDocument, DidKeriResolver, DidKeyLogEntry,
+    DidKeyLogOperation, DidKeyResolver, DidMigration, DidRegistryReceipt, DidResolver,
+    DidUuidResolver, DidVisibility, DidWebDocumentResponse, DidWebResolver, ExternalHandleProof,
+    HandleAttestation, HandleClaim, HandleProofProfile, IdentityManager,
+    InMemoryStaridRegistryAdapter, PairwiseDidBinding, PairwiseDidResolutionProof,
+    PairwiseDidStore, StaridControlProofRequest, StaridControlProofVerification,
+    StaridRegistryAdapter, StaridRegistryRecord, VerifiedDidKeyLog, did_key_log_proof,
+    did_registry_receipt_signature, handle_claim_proof, handle_dns_txt_name, handle_well_known_url,
+    pairwise_resolution_proof, starid_control_proof, verify_did_key_log,
 };
 #[cfg(feature = "full-surface")]
 pub use media::{
@@ -288,9 +355,11 @@ pub use store::{
     AcceptUnsignedCommitProofs, AccountSessionStore, AuditLogStore, BlobMetadataStore,
     CommitProofVerifier, EncryptedMemoryRepoStore, EventCacheStore, IndexedDbRepoStore,
     MemoryPersistenceStore, MemoryRepoStore, RepoObjectStore, RepoStore, RepoWriteBatch,
-    RepoWriteReceipt, SqliteRepoStore, StateSnapshotStore, StoreCache, StoreEncryptionKey,
+    RepoWriteReceipt, SqliteRepoStore, StateSnapshotStore, StoreCache, StoreConformanceReport,
+    StoreConformanceResult, StoreConformanceTarget, StoreConformanceVector, StoreEncryptionKey,
     StoreMigration, StoreMigrationMetadata, StoreSchemaMetadata, StoreSnapshot, StoredAccountData,
     TransactionalRepoStore, rebuild_space_state_from_events, restore_space_state_from_persistence,
+    run_store_conformance_suite,
 };
 #[cfg(feature = "full-surface")]
 pub use sync::{

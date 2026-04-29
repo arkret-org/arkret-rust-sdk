@@ -8,6 +8,8 @@ use sha2::{Digest, Sha256};
 
 use crate::{Did, Error, Result};
 
+pub const DID_WEB_MAX_DOCUMENT_BYTES: usize = 64 * 1024;
+
 /// Resolve DID documents for one or more DID methods.
 pub trait DidResolver {
     /// Return whether this resolver can handle the DID method or concrete DID.
@@ -129,6 +131,14 @@ pub struct DidWebResolver {
     documents: BTreeMap<Did, DidDocument>,
 }
 
+/// Host-fetched `did:web` document response validated by the SDK.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DidWebDocumentResponse {
+    pub url: String,
+    pub content_type: String,
+    pub body: Vec<u8>,
+}
+
 impl DidWebResolver {
     /// Create an empty `did:web` resolver.
     pub fn new() -> Self {
@@ -149,6 +159,30 @@ impl DidWebResolver {
     pub fn document_url(did: &Did) -> Result<String> {
         did_web_document_url(did)
             .ok_or_else(|| Error::Protocol("unsupported did:web form".to_owned()))
+    }
+
+    /// Validate a host-fetched HTTPS response and cache the DID document.
+    pub fn insert_from_https_response(
+        &mut self,
+        did: &Did,
+        response: DidWebDocumentResponse,
+    ) -> Result<DidDocument> {
+        let expected_url = Self::document_url(did)?;
+        if response.url != expected_url {
+            return Err(Error::Protocol("did:web response URL mismatch".to_owned()));
+        }
+        if !is_allowed_did_web_content_type(&response.content_type) {
+            return Err(Error::Protocol("unsupported did:web content type".to_owned()));
+        }
+        if response.body.len() > DID_WEB_MAX_DOCUMENT_BYTES {
+            return Err(Error::Protocol("did:web document exceeds size limit".to_owned()));
+        }
+        let document: DidDocument = serde_json::from_slice(&response.body)?;
+        if &document.id != did {
+            return Err(Error::Protocol("did:web document id mismatch".to_owned()));
+        }
+        self.insert(document.clone())?;
+        Ok(document)
     }
 }
 
@@ -207,7 +241,7 @@ impl DidResolver for DidKeriResolver {
     }
 }
 
-/// Temporary test resolver for `did:key` identifiers.
+/// Resolver for `did:key` identifiers with base58btc multicodec validation.
 #[derive(Clone, Debug, Default)]
 pub struct DidKeyResolver;
 
@@ -559,6 +593,166 @@ pub fn did_registry_receipt_signature(
     sha256_hex(format!("{payload}|{registry_public_key}").as_bytes())
 }
 
+/// Resolved StarID/DID registry record.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StaridRegistryRecord {
+    pub did: Did,
+    pub registry_did: Did,
+    pub document: DidDocument,
+    pub key_log_head: String,
+    pub current_control_key: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub receipt: Option<DidRegistryReceipt>,
+    pub resolved_at: DateTime<Utc>,
+}
+
+impl StaridRegistryRecord {
+    pub fn validate(&self) -> Result<()> {
+        if self.did != self.document.id {
+            return Err(Error::Protocol("StarID record document DID mismatch".to_owned()));
+        }
+        if self.key_log_head.trim().is_empty() {
+            return Err(Error::Protocol("StarID record key_log_head is empty".to_owned()));
+        }
+        if self.current_control_key.trim().is_empty() {
+            return Err(Error::Protocol("StarID record current_control_key is empty".to_owned()));
+        }
+        self.document.validate()
+    }
+}
+
+/// Request to prove control of a DID resolved from a StarID registry.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StaridControlProofRequest {
+    pub did: Did,
+    pub verification_method: String,
+    pub challenge: String,
+    pub proof: String,
+}
+
+/// Verified DID control proof result.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StaridControlProofVerification {
+    pub did: Did,
+    pub verification_method: String,
+    pub verified_at: DateTime<Utc>,
+}
+
+/// Compute the deterministic StarID control proof used by local test adapters.
+pub fn starid_control_proof(
+    did: &Did,
+    verification_method: &str,
+    challenge: &str,
+    public_key: &str,
+) -> String {
+    sha256_hex(format!("{did}|{verification_method}|{challenge}|{public_key}").as_bytes())
+}
+
+/// Registry-backed DID resolver boundary for StarID-style deployments.
+///
+/// TODO: production adapters must fetch from the configured registry network,
+/// enforce response size/content-type limits, validate signed key-log receipts
+/// and fail closed on stale or conflicting heads. This trait intentionally
+/// captures the stable SDK API before binding to a concrete HTTP client.
+pub trait StaridRegistryAdapter: DidResolver {
+    fn resolve_registry_record(&self, did: &Did) -> Result<StaridRegistryRecord>;
+
+    fn current_key_log_head(&self, did: &Did) -> Result<String> {
+        Ok(self.resolve_registry_record(did)?.key_log_head)
+    }
+
+    fn current_control_key(&self, did: &Did) -> Result<String> {
+        Ok(self.resolve_registry_record(did)?.current_control_key)
+    }
+
+    fn verify_control_proof(
+        &self,
+        request: &StaridControlProofRequest,
+    ) -> Result<StaridControlProofVerification>;
+
+    fn verify_registry_receipt(
+        &self,
+        did: &Did,
+        registry_public_key: &str,
+    ) -> Result<Option<DidRegistryReceipt>> {
+        let record = self.resolve_registry_record(did)?;
+        if let Some(receipt) = &record.receipt {
+            receipt.verify(registry_public_key)?;
+        }
+        Ok(record.receipt)
+    }
+}
+
+/// In-memory StarID adapter for tests and offline development.
+#[derive(Clone, Debug)]
+pub struct InMemoryStaridRegistryAdapter {
+    registry_did: Did,
+    records: BTreeMap<Did, StaridRegistryRecord>,
+}
+
+impl InMemoryStaridRegistryAdapter {
+    pub fn new(registry_did: Did) -> Self {
+        Self { registry_did, records: BTreeMap::new() }
+    }
+
+    pub fn registry_did(&self) -> &Did {
+        &self.registry_did
+    }
+
+    pub fn insert(&mut self, record: StaridRegistryRecord) -> Result<()> {
+        record.validate()?;
+        if record.registry_did != self.registry_did {
+            return Err(Error::Protocol("StarID record registry DID mismatch".to_owned()));
+        }
+        self.records.insert(record.did.clone(), record);
+        Ok(())
+    }
+}
+
+impl DidResolver for InMemoryStaridRegistryAdapter {
+    fn supports(&self, did: &Did) -> bool {
+        did.is_uuid() || did.method() == "web" || self.records.contains_key(did)
+    }
+
+    fn resolve_did(&self, did: &Did) -> Result<DidDocument> {
+        Ok(self.resolve_registry_record(did)?.document)
+    }
+}
+
+impl StaridRegistryAdapter for InMemoryStaridRegistryAdapter {
+    fn resolve_registry_record(&self, did: &Did) -> Result<StaridRegistryRecord> {
+        self.records
+            .get(did)
+            .cloned()
+            .ok_or_else(|| Error::Protocol("StarID registry record not found".to_owned()))
+    }
+
+    fn verify_control_proof(
+        &self,
+        request: &StaridControlProofRequest,
+    ) -> Result<StaridControlProofVerification> {
+        let record = self.resolve_registry_record(&request.did)?;
+        let public_key =
+            record.document.verification_methods.get(&request.verification_method).ok_or_else(
+                || Error::Protocol("StarID control proof verification method not found".to_owned()),
+            )?;
+        let expected = starid_control_proof(
+            &request.did,
+            &request.verification_method,
+            &request.challenge,
+            public_key,
+        );
+        if request.proof != expected {
+            return Err(Error::Protocol("invalid StarID control proof".to_owned()));
+        }
+        Ok(StaridControlProofVerification {
+            did: request.did.clone(),
+            verification_method: request.verification_method.clone(),
+            verified_at: Utc::now(),
+        })
+    }
+}
+
 /// Visibility scope for a DID.
 ///
 /// Controls whether a DID is globally public, scoped to a specific peer
@@ -846,6 +1040,35 @@ pub struct HandleClaim {
     pub attestation: Option<HandleAttestation>,
 }
 
+/// External proof profile for handle ownership.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HandleProofProfile {
+    DnsTxt,
+    WellKnown,
+}
+
+/// Host-fetched DNS TXT or well-known handle proof validated by the SDK.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExternalHandleProof {
+    pub profile: HandleProofProfile,
+    pub handle: String,
+    pub user_id: Did,
+    pub challenge: String,
+    pub proof: String,
+}
+
+impl ExternalHandleProof {
+    pub fn validate(&self) -> Result<()> {
+        let expected = handle_claim_proof(&self.handle, &self.user_id, &self.challenge);
+        if self.proof.trim() == expected {
+            Ok(())
+        } else {
+            Err(Error::Protocol("handle proof mismatch".to_owned()))
+        }
+    }
+}
+
 /// Identity manager.
 #[derive(Clone, Debug, Default)]
 pub struct IdentityManager {
@@ -1032,6 +1255,35 @@ pub fn handle_claim_proof(handle: &str, user_id: &Did, challenge: &str) -> Strin
     sha256_hex(format!("{}:{}:{}", normalize_handle(handle), user_id, challenge).as_bytes())
 }
 
+/// DNS TXT name that should contain the Contrix handle proof.
+pub fn handle_dns_txt_name(handle: &str) -> Result<String> {
+    let (local, domain) = split_domain_handle(handle)?;
+    Ok(format!("_contrix-handle.{local}.{domain}"))
+}
+
+/// HTTPS well-known URL that should return the Contrix handle proof.
+pub fn handle_well_known_url(handle: &str) -> Result<String> {
+    let (local, domain) = split_domain_handle(handle)?;
+    Ok(format!("https://{domain}/.well-known/contrix/handle/{local}.json"))
+}
+
+fn split_domain_handle(handle: &str) -> Result<(String, String)> {
+    let normalized = normalize_handle(handle);
+    let Some((local, domain)) = normalized.split_once('@') else {
+        return Err(Error::Protocol("handle proof requires local@domain form".to_owned()));
+    };
+    if local.is_empty()
+        || domain.is_empty()
+        || !domain.contains('.')
+        || local.contains('/')
+        || domain.contains('/')
+        || domain.contains("..")
+    {
+        return Err(Error::Protocol("invalid domain handle".to_owned()));
+    }
+    Ok((local.to_owned(), domain.to_owned()))
+}
+
 fn normalize_handle(handle: &str) -> String {
     handle.trim().trim_start_matches('@').to_lowercase()
 }
@@ -1064,17 +1316,79 @@ fn did_web_document_url(did: &Did) -> Option<String> {
     Some(format!("https://{host}/{}/did.json", parts[1..].join("/")))
 }
 
+fn is_allowed_did_web_content_type(content_type: &str) -> bool {
+    let media_type = content_type.split(';').next().unwrap_or("").trim().to_ascii_lowercase();
+    matches!(media_type.as_str(), "application/did+json" | "application/json")
+}
+
 fn did_key_material(did: &Did) -> Option<String> {
     let method_id = did.as_str().strip_prefix("did:key:")?;
-    if method_id.len() < 2
-        || !method_id.starts_with('z')
-        || !method_id
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() && !matches!(b, b'0' | b'O' | b'I' | b'l'))
-    {
+    let encoded = method_id.strip_prefix('z')?;
+    let decoded = decode_base58btc(encoded)?;
+    if !is_supported_did_key_multicodec(&decoded) {
         return None;
     }
     Some(method_id.to_owned())
+}
+
+fn decode_base58btc(input: &str) -> Option<Vec<u8>> {
+    if input.is_empty() {
+        return None;
+    }
+    let mut output = Vec::<u8>::new();
+    for byte in input.bytes() {
+        let mut carry = base58btc_value(byte)?;
+        for item in output.iter_mut().rev() {
+            let value = u32::from(*item) * 58 + carry;
+            *item = (value & 0xff) as u8;
+            carry = value >> 8;
+        }
+        while carry > 0 {
+            output.insert(0, (carry & 0xff) as u8);
+            carry >>= 8;
+        }
+    }
+    let leading_zeroes = input.bytes().take_while(|byte| *byte == b'1').count();
+    for _ in 0..leading_zeroes {
+        output.insert(0, 0);
+    }
+    Some(output)
+}
+
+fn base58btc_value(byte: u8) -> Option<u32> {
+    const ALPHABET: &[u8; 58] = b"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+    ALPHABET.iter().position(|candidate| *candidate == byte).map(|index| index as u32)
+}
+
+fn is_supported_did_key_multicodec(bytes: &[u8]) -> bool {
+    let Some((code, offset)) = decode_multicodec_varint(bytes) else {
+        return false;
+    };
+    let key = &bytes[offset..];
+    match code {
+        0xec | 0xed => key.len() == 32,           // X25519-pub / Ed25519-pub
+        0xe7 | 0x1200 => key.len() == 33,         // secp256k1-pub / P-256-pub
+        0x1201 => key.len() == 49,                // P-384-pub
+        0x1202 => (66..=67).contains(&key.len()), // P-521-pub
+        0x1205 => key.len() >= 64,                // RSA-pub
+        _ => false,
+    }
+}
+
+fn decode_multicodec_varint(bytes: &[u8]) -> Option<(u64, usize)> {
+    let mut value = 0u64;
+    let mut shift = 0u32;
+    for (index, byte) in bytes.iter().copied().enumerate() {
+        value |= u64::from(byte & 0x7f) << shift;
+        if byte & 0x80 == 0 {
+            return Some((value, index + 1));
+        }
+        shift += 7;
+        if shift >= 64 {
+            return None;
+        }
+    }
+    None
 }
 
 fn operation_payload(operation: &DidKeyLogOperation) -> String {
@@ -1181,12 +1495,46 @@ mod tests {
     }
 
     #[test]
+    fn handle_external_proof_profiles_validate_dns_and_well_known_shapes() {
+        let alice = did("alice");
+        let challenge = "challenge-1";
+        let handle = "alice@example.com";
+        let proof = handle_claim_proof(handle, &alice, challenge);
+
+        assert_eq!(handle_dns_txt_name(handle).unwrap(), "_contrix-handle.alice.example.com");
+        assert_eq!(
+            handle_well_known_url(handle).unwrap(),
+            "https://example.com/.well-known/contrix/handle/alice.json"
+        );
+        ExternalHandleProof {
+            profile: HandleProofProfile::DnsTxt,
+            handle: handle.to_owned(),
+            user_id: alice.clone(),
+            challenge: challenge.to_owned(),
+            proof: proof.clone(),
+        }
+        .validate()
+        .unwrap();
+        assert!(
+            ExternalHandleProof {
+                profile: HandleProofProfile::WellKnown,
+                handle: handle.to_owned(),
+                user_id: alice,
+                challenge: challenge.to_owned(),
+                proof: "bad-proof".to_owned(),
+            }
+            .validate()
+            .is_err()
+        );
+    }
+
+    #[test]
     fn did_resolver_adapters_resolve_uuid_web_key_and_keri() {
         let uuid = Did::new("did:uuid:550e8400-e29b-41d4-a716-446655440000").unwrap();
         let web = Did::new("did:web:alice.example").unwrap();
         let web_path = Did::new("did:web:example.com:users:alice").unwrap();
         let keri = Did::new("did:keri:E123456789abcdef").unwrap();
-        let key = Did::new("did:key:z6MkiTestKeyMateriaa").unwrap();
+        let key = Did::new("did:key:z6MkeTG3bFFSLYVU7VqhgZxqr6YzpaGrQtFMh1uvqGy1vDnP").unwrap();
 
         let mut uuid_resolver = DidUuidResolver::new();
         uuid_resolver.insert(DidDocument::new(uuid.clone(), "root", "uuid-key")).unwrap();
@@ -1203,6 +1551,43 @@ mod tests {
         assert_eq!(
             DidWebResolver::document_url(&web_path).unwrap(),
             "https://example.com/users/alice/did.json"
+        );
+        let mut web_https_resolver = DidWebResolver::new();
+        let web_body =
+            serde_json::to_vec(&DidDocument::new(web.clone(), "owner", "web-key")).unwrap();
+        web_https_resolver
+            .insert_from_https_response(
+                &web,
+                DidWebDocumentResponse {
+                    url: DidWebResolver::document_url(&web).unwrap(),
+                    content_type: "application/did+json; charset=utf-8".to_owned(),
+                    body: web_body,
+                },
+            )
+            .unwrap();
+        assert!(
+            web_https_resolver
+                .insert_from_https_response(
+                    &web,
+                    DidWebDocumentResponse {
+                        url: DidWebResolver::document_url(&web).unwrap(),
+                        content_type: "text/plain".to_owned(),
+                        body: b"{}".to_vec(),
+                    },
+                )
+                .is_err()
+        );
+        assert!(
+            web_https_resolver
+                .insert_from_https_response(
+                    &web,
+                    DidWebDocumentResponse {
+                        url: DidWebResolver::document_url(&web).unwrap(),
+                        content_type: "application/json".to_owned(),
+                        body: vec![b' '; DID_WEB_MAX_DOCUMENT_BYTES + 1],
+                    },
+                )
+                .is_err()
         );
 
         let mut resolver = CompositeDidResolver::new();
@@ -1223,8 +1608,9 @@ mod tests {
         assert!(
             key_doc
                 .verification_methods
-                .contains_key("did:key:z6MkiTestKeyMateriaa#z6MkiTestKeyMateriaa")
+                .contains_key("did:key:z6MkeTG3bFFSLYVU7VqhgZxqr6YzpaGrQtFMh1uvqGy1vDnP#z6MkeTG3bFFSLYVU7VqhgZxqr6YzpaGrQtFMh1uvqGy1vDnP")
         );
+        assert!(DidKeyResolver::new().resolve_did(&Did::new("did:key:z1111").unwrap()).is_err());
     }
 
     #[test]
@@ -1346,6 +1732,59 @@ mod tests {
             "registry-public-key",
         );
         assert_eq!(receipt.signature, expected);
+    }
+
+    #[test]
+    fn starid_registry_adapter_resolves_records_and_control_proofs() {
+        let alice = Did::new("did:uuid:550e8400-e29b-41d4-a716-446655440000").unwrap();
+        let registry = did("registry");
+        let document = DidDocument::new(alice.clone(), "root", "alice-public-key");
+        let receipt = DidRegistryReceipt::signed(
+            alice.clone(),
+            registry.clone(),
+            "sha256:abc",
+            "did:web:registry.example#key-1",
+            "registry-public-key",
+        );
+        let record = StaridRegistryRecord {
+            did: alice.clone(),
+            registry_did: registry.clone(),
+            document,
+            key_log_head: "sha256:abc".to_owned(),
+            current_control_key: "root".to_owned(),
+            receipt: Some(receipt),
+            resolved_at: Utc::now(),
+        };
+
+        let mut adapter = InMemoryStaridRegistryAdapter::new(registry);
+        adapter.insert(record).unwrap();
+        assert_eq!(adapter.resolve_did(&alice).unwrap().primary_key().unwrap().0, "root");
+        assert_eq!(adapter.current_key_log_head(&alice).unwrap(), "sha256:abc");
+        assert_eq!(adapter.current_control_key(&alice).unwrap(), "root");
+        adapter.verify_registry_receipt(&alice, "registry-public-key").unwrap();
+
+        let challenge = "challenge-1";
+        let proof = starid_control_proof(&alice, "root", challenge, "alice-public-key");
+        let verified = adapter
+            .verify_control_proof(&StaridControlProofRequest {
+                did: alice.clone(),
+                verification_method: "root".to_owned(),
+                challenge: challenge.to_owned(),
+                proof,
+            })
+            .unwrap();
+        assert_eq!(verified.did, alice);
+
+        assert!(
+            adapter
+                .verify_control_proof(&StaridControlProofRequest {
+                    did: verified.did,
+                    verification_method: "root".to_owned(),
+                    challenge: challenge.to_owned(),
+                    proof: "bad".to_owned(),
+                })
+                .is_err()
+        );
     }
 
     #[test]

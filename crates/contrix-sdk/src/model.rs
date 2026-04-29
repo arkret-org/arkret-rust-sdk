@@ -1,4 +1,9 @@
-use std::{cmp::Ordering, collections::BTreeMap, fmt, str::FromStr};
+use std::{
+    cmp::Ordering,
+    collections::{BTreeMap, BTreeSet},
+    fmt,
+    str::FromStr,
+};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -10,6 +15,8 @@ use crate::{Error, Result, canonical};
 pub const PROTOCOL_VERSION: &str = "1.0";
 pub const CORE_SCHEMA_PROFILE: &str = "cx.schema.core.v1";
 pub const CORE_REDUCER_PROFILE: &str = "cx.reducer.v1";
+pub const BUILT_IN_CONFORMANCE_FIXTURES_VERSION: &str = "contrix-sdk-builtin-v1";
+pub const SCHEMA_COMPATIBILITY_PROFILE: &str = "cx.schema.compatibility.v1";
 
 pub const CURSOR_SCHEMA: &str = "cx.schema.cursor.v1";
 pub const SPACE_SCHEMA: &str = "cx.schema.space.v1";
@@ -317,12 +324,139 @@ pub fn operation_kind_conformance_vectors() -> Vec<OperationKindConformanceVecto
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProtocolSchemaRegistry {
     schemas: BTreeMap<String, Value>,
+    trusted_extension_prefixes: Vec<String>,
+}
+
+/// JSON value type rule extracted from a supported JSON Schema document.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum GeneratedSchemaValueType {
+    Any,
+    Array,
+    Boolean,
+    Integer,
+    Null,
+    Number,
+    Object,
+    String,
+}
+
+impl GeneratedSchemaValueType {
+    fn from_schema(value: &Value) -> Self {
+        match value.get("type").and_then(Value::as_str) {
+            Some("array") => Self::Array,
+            Some("boolean") => Self::Boolean,
+            Some("integer") => Self::Integer,
+            Some("null") => Self::Null,
+            Some("number") => Self::Number,
+            Some("object") => Self::Object,
+            Some("string") => Self::String,
+            _ => Self::Any,
+        }
+    }
+
+    fn matches(&self, value: &Value) -> bool {
+        match self {
+            Self::Any => true,
+            Self::Array => value.is_array(),
+            Self::Boolean => value.is_boolean(),
+            Self::Integer => value.as_i64().is_some() || value.as_u64().is_some(),
+            Self::Null => value.is_null(),
+            Self::Number => value.is_number(),
+            Self::Object => value.is_object(),
+            Self::String => value.is_string(),
+        }
+    }
+
+    fn as_schema_type(&self) -> &'static str {
+        match self {
+            Self::Any => "any",
+            Self::Array => "array",
+            Self::Boolean => "boolean",
+            Self::Integer => "integer",
+            Self::Null => "null",
+            Self::Number => "number",
+            Self::Object => "object",
+            Self::String => "string",
+        }
+    }
+}
+
+/// One field rule in a generated schema validator.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GeneratedSchemaField {
+    pub name: String,
+    pub value_type: GeneratedSchemaValueType,
+    pub required: bool,
+}
+
+/// Runtime validator generated from the JSON Schema subset supported by the SDK.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GeneratedSchemaValidator {
+    pub schema_id: String,
+    pub fields: Vec<GeneratedSchemaField>,
+    pub additional_properties: bool,
+    pub trusted_extension_prefixes: Vec<String>,
+}
+
+impl GeneratedSchemaValidator {
+    /// Validate one JSON object using the generated field rules.
+    pub fn validate(&self, value: &Value) -> Result<()> {
+        let object = value
+            .as_object()
+            .ok_or_else(|| Error::Protocol("schema target must be a JSON object".to_owned()))?;
+        for field in &self.fields {
+            match object.get(&field.name) {
+                Some(field_value) if field.value_type.matches(field_value) => {}
+                Some(_) => {
+                    return Err(Error::Protocol(format!(
+                        "schema '{}' field '{}' must be JSON type '{}'",
+                        self.schema_id,
+                        field.name,
+                        field.value_type.as_schema_type()
+                    )));
+                }
+                None if field.required => {
+                    return Err(Error::Protocol(format!(
+                        "schema '{}' requires field '{}'",
+                        self.schema_id, field.name
+                    )));
+                }
+                None => {}
+            }
+        }
+
+        if !self.additional_properties {
+            for field in object.keys() {
+                if !self.fields.iter().any(|known| known.name == *field) {
+                    return Err(Error::Protocol(format!(
+                        "schema '{}' rejects additional field '{}'",
+                        self.schema_id, field
+                    )));
+                }
+            }
+        }
+
+        for field in object.keys() {
+            if !is_security_sensitive_extension(field) {
+                continue;
+            }
+            let trusted =
+                self.trusted_extension_prefixes.iter().any(|prefix| field.starts_with(prefix));
+            if !trusted {
+                return Err(Error::Protocol(format!(
+                    "schema '{}' rejects unknown security-sensitive extension '{}'",
+                    self.schema_id, field
+                )));
+            }
+        }
+        Ok(())
+    }
 }
 
 impl ProtocolSchemaRegistry {
     /// Create an empty schema registry.
     pub fn new() -> Self {
-        Self { schemas: BTreeMap::new() }
+        Self { schemas: BTreeMap::new(), trusted_extension_prefixes: Vec::new() }
     }
 
     /// Register a schema document by `$id`.
@@ -340,8 +474,57 @@ impl ProtocolSchemaRegistry {
         self.schemas.keys().map(String::as_str)
     }
 
-    /// Validate required fields using the registered schema document.
-    pub fn validate_required_fields(&self, schema_id: &str, value: &Value) -> Result<()> {
+    /// Trust a security-sensitive extension prefix for fail-closed validation.
+    pub fn trust_extension_prefix(&mut self, prefix: impl Into<String>) {
+        self.trusted_extension_prefixes.push(prefix.into());
+    }
+
+    /// Generate a runtime Rust validator from the supported JSON Schema subset.
+    pub fn generated_validator(&self, schema_id: &str) -> Result<GeneratedSchemaValidator> {
+        let schema = self
+            .schema(schema_id)
+            .ok_or_else(|| Error::Protocol(format!("unknown schema '{schema_id}'")))?;
+        let required = schema
+            .get("required")
+            .and_then(Value::as_array)
+            .ok_or_else(|| Error::Protocol("schema is missing required field list".to_owned()))?
+            .iter()
+            .filter_map(Value::as_str)
+            .map(str::to_owned)
+            .collect::<BTreeSet<_>>();
+        let mut fields = Vec::new();
+        if let Some(properties) = schema.get("properties").and_then(Value::as_object) {
+            for (name, property_schema) in properties {
+                fields.push(GeneratedSchemaField {
+                    name: name.clone(),
+                    value_type: GeneratedSchemaValueType::from_schema(property_schema),
+                    required: required.contains(name),
+                });
+            }
+        }
+        for name in required {
+            if !fields.iter().any(|field| field.name == name) {
+                fields.push(GeneratedSchemaField {
+                    name,
+                    value_type: GeneratedSchemaValueType::Any,
+                    required: true,
+                });
+            }
+        }
+        fields.sort_by(|left, right| left.name.cmp(&right.name));
+        Ok(GeneratedSchemaValidator {
+            schema_id: schema_id.to_owned(),
+            fields,
+            additional_properties: schema
+                .get("additionalProperties")
+                .and_then(Value::as_bool)
+                .unwrap_or(true),
+            trusted_extension_prefixes: self.trusted_extension_prefixes.clone(),
+        })
+    }
+
+    /// Validate required fields and basic JSON Schema `type` constraints.
+    pub fn validate_value(&self, schema_id: &str, value: &Value) -> Result<()> {
         let schema = self
             .schema(schema_id)
             .ok_or_else(|| Error::Protocol(format!("unknown schema '{schema_id}'")))?;
@@ -356,6 +539,42 @@ impl ProtocolSchemaRegistry {
             if !object.contains_key(field) {
                 return Err(Error::Protocol(format!(
                     "schema '{schema_id}' requires field '{field}'"
+                )));
+            }
+        }
+        if let Some(properties) = schema.get("properties").and_then(Value::as_object) {
+            for (field, property_schema) in properties {
+                if let Some(field_value) = object.get(field) {
+                    validate_json_schema_type(schema_id, field, property_schema, field_value)?;
+                }
+            }
+        }
+        self.validate_security_extensions(schema_id, object)?;
+        Ok(())
+    }
+
+    /// Validate required fields using the registered schema document.
+    ///
+    /// Kept as a compatibility wrapper for callers that adopted the early SDK
+    /// API name before basic type validation was added.
+    pub fn validate_required_fields(&self, schema_id: &str, value: &Value) -> Result<()> {
+        self.validate_value(schema_id, value)
+    }
+
+    fn validate_security_extensions(
+        &self,
+        schema_id: &str,
+        object: &serde_json::Map<String, Value>,
+    ) -> Result<()> {
+        for field in object.keys() {
+            if !is_security_sensitive_extension(field) {
+                continue;
+            }
+            let trusted =
+                self.trusted_extension_prefixes.iter().any(|prefix| field.starts_with(prefix));
+            if !trusted {
+                return Err(Error::Protocol(format!(
+                    "schema '{schema_id}' rejects unknown security-sensitive extension '{field}'"
                 )));
             }
         }
@@ -476,11 +695,58 @@ fn object_schema(schema_id: &str, required: &[&str], properties: &[(&str, &str)]
     })
 }
 
+fn is_security_sensitive_extension(field: &str) -> bool {
+    matches!(
+        field,
+        "x-authz"
+            | "x-policy"
+            | "x-security"
+            | "x-contrix-authz"
+            | "x-contrix-policy"
+            | "x-contrix-security"
+    ) || field.starts_with("x-authz-")
+        || field.starts_with("x-policy-")
+        || field.starts_with("x-security-")
+        || field.starts_with("x-contrix-authz-")
+        || field.starts_with("x-contrix-policy-")
+        || field.starts_with("x-contrix-security-")
+}
+
+fn validate_json_schema_type(
+    schema_id: &str,
+    field: &str,
+    property_schema: &Value,
+    value: &Value,
+) -> Result<()> {
+    let Some(kind) = property_schema.get("type").and_then(Value::as_str) else {
+        return Ok(());
+    };
+    let matches = match kind {
+        "array" => value.is_array(),
+        "boolean" => value.is_boolean(),
+        "integer" => value.as_i64().is_some() || value.as_u64().is_some(),
+        "null" => value.is_null(),
+        "number" => value.is_number(),
+        "object" => value.is_object(),
+        "string" => value.is_string(),
+        _ => true,
+    };
+    if matches {
+        Ok(())
+    } else {
+        Err(Error::Protocol(format!(
+            "schema '{schema_id}' field '{field}' must be JSON type '{kind}'"
+        )))
+    }
+}
+
 /// Profile-specific protocol conformance domains.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ConformanceProfile {
     Encoding,
+    Hlc,
+    Cursor,
     StateResolution,
     Redaction,
     Capability,
@@ -488,6 +754,7 @@ pub enum ConformanceProfile {
     Snapshot,
     FederationSignatures,
     Privacy,
+    Security,
 }
 
 /// One conformance test case descriptor.
@@ -506,6 +773,126 @@ pub struct ConformanceSuite {
     pub cases: Vec<ConformanceCase>,
 }
 
+/// Version compatibility for one protocol schema.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SchemaCompatibilityEntry {
+    pub schema_id: String,
+    pub current_version: String,
+    pub compatible_since: String,
+    pub migration_required: bool,
+}
+
+/// Published schema compatibility table for SDK consumers.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SchemaCompatibilityTable {
+    pub profile: String,
+    pub entries: Vec<SchemaCompatibilityEntry>,
+}
+
+/// Compatibility table for built-in schemas.
+pub fn schema_version_compatibility_table() -> SchemaCompatibilityTable {
+    SchemaCompatibilityTable {
+        profile: SCHEMA_COMPATIBILITY_PROFILE.to_owned(),
+        entries: [
+            CURSOR_SCHEMA,
+            EVENT_SCHEMA,
+            OPERATION_SCHEMA,
+            COMMIT_SCHEMA,
+            CAPABILITY_SCHEMA,
+            ENCRYPTED_PAYLOAD_SCHEMA,
+            CLIENT_SYNC_RESPONSE_SCHEMA,
+        ]
+        .into_iter()
+        .map(|schema_id| SchemaCompatibilityEntry {
+            schema_id: schema_id.to_owned(),
+            current_version: "1".to_owned(),
+            compatible_since: "0.1.0".to_owned(),
+            migration_required: false,
+        })
+        .collect(),
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConformanceCaseResult {
+    pub profile: ConformanceProfile,
+    pub case_id: String,
+    pub passed: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConformanceProfileCoverage {
+    pub profile: ConformanceProfile,
+    pub cases_total: usize,
+    pub cases_passed: usize,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConformanceReport {
+    pub fixture_version: String,
+    pub passed: bool,
+    pub coverage: Vec<ConformanceProfileCoverage>,
+    pub results: Vec<ConformanceCaseResult>,
+}
+
+/// Loadable conformance fixture set used by SDK and external fixtures.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ConformanceFixtureSet {
+    pub fixture_version: String,
+    pub suites: Vec<ConformanceSuite>,
+}
+
+impl ConformanceFixtureSet {
+    /// Built-in fixtures shipped with the SDK.
+    pub fn builtin() -> Self {
+        Self {
+            fixture_version: BUILT_IN_CONFORMANCE_FIXTURES_VERSION.to_owned(),
+            suites: profile_conformance_suites(),
+        }
+    }
+
+    /// Decode a fixture set from JSON.
+    pub fn from_json(value: Value) -> Result<Self> {
+        let fixtures: Self = serde_json::from_value(value)?;
+        fixtures.validate()?;
+        Ok(fixtures)
+    }
+
+    /// Validate fixture shape before execution.
+    pub fn validate(&self) -> Result<()> {
+        if self.fixture_version.trim().is_empty() {
+            return Err(Error::Protocol("fixture_version must be non-empty".to_owned()));
+        }
+        if self.suites.is_empty() {
+            return Err(Error::Protocol("fixture set must contain at least one suite".to_owned()));
+        }
+        for suite in &self.suites {
+            if suite.cases.is_empty() {
+                return Err(Error::Protocol(format!(
+                    "conformance suite {:?} must contain cases",
+                    suite.profile
+                )));
+            }
+            for case in &suite.cases {
+                if case.case_id.trim().is_empty() {
+                    return Err(Error::Protocol(
+                        "conformance case id must be non-empty".to_owned(),
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Execute the fixture set against SDK validators.
+    pub fn run(&self) -> ConformanceReport {
+        let registry = ProtocolSchemaRegistry::default();
+        run_conformance_suites(&registry, self.fixture_version.clone(), &self.suites)
+    }
+}
+
 /// Built-in profile-specific conformance suites.
 pub fn profile_conformance_suites() -> Vec<ConformanceSuite> {
     vec![
@@ -515,6 +902,20 @@ pub fn profile_conformance_suites() -> Vec<ConformanceSuite> {
             "Canonical JSON and digest vectors reject ambiguous encodings.",
             Some(OPERATION_SCHEMA),
             json!({"input": {"b": 2, "a": 1}, "digest_required": true}),
+        ),
+        conformance_suite(
+            ConformanceProfile::Hlc,
+            "hlc-monotonic-canonical-form",
+            "HLC values use fixed-width lowercase hex and preserve causal ordering.",
+            None,
+            json!({"fixed_width": true, "lowercase": true, "causal_ordering": true}),
+        ),
+        conformance_suite(
+            ConformanceProfile::Cursor,
+            "cursor-token-binding-and-expiry",
+            "Cursor tokens bind positions and reject stale or malformed encodings.",
+            Some(CURSOR_SCHEMA),
+            json!({"binds_positions": true, "expires": true, "rejects_malformed": true}),
         ),
         conformance_suite(
             ConformanceProfile::StateResolution,
@@ -565,6 +966,13 @@ pub fn profile_conformance_suites() -> Vec<ConformanceSuite> {
             None,
             json!({"privacy_preserving_not_found": true, "requires_resolution_proof": true}),
         ),
+        conformance_suite(
+            ConformanceProfile::Security,
+            "proof-policy-and-redaction-fail-closed",
+            "Security-sensitive schema extensions, proof bindings and log payloads fail closed.",
+            Some(ENCRYPTED_PAYLOAD_SCHEMA),
+            json!({"fail_closed_extensions": true, "proof_binding": true, "redact_secrets": true}),
+        ),
     ]
 }
 
@@ -584,6 +992,72 @@ fn conformance_suite(
             vector,
         }],
     }
+}
+
+/// Execute the SDK's built-in conformance descriptors and return a
+/// machine-readable report that downstream projects can store as release
+/// evidence. Official external fixtures can be loaded by callers into the same
+/// report shape.
+pub fn run_builtin_conformance_report() -> ConformanceReport {
+    ConformanceFixtureSet::builtin().run()
+}
+
+fn run_conformance_suites(
+    registry: &ProtocolSchemaRegistry,
+    fixture_version: String,
+    suites: &[ConformanceSuite],
+) -> ConformanceReport {
+    let mut results = Vec::new();
+
+    for suite in suites {
+        for case in &suite.cases {
+            let error =
+                validate_conformance_case(registry, case).err().map(|error| error.to_string());
+            results.push(ConformanceCaseResult {
+                profile: suite.profile,
+                case_id: case.case_id.clone(),
+                passed: error.is_none(),
+                error,
+            });
+        }
+    }
+
+    let coverage = suites
+        .iter()
+        .map(|suite| {
+            let cases_total =
+                results.iter().filter(|result| result.profile == suite.profile).count();
+            let cases_passed = results
+                .iter()
+                .filter(|result| result.profile == suite.profile && result.passed)
+                .count();
+            ConformanceProfileCoverage { profile: suite.profile, cases_total, cases_passed }
+        })
+        .collect::<Vec<_>>();
+    let passed = results.iter().all(|result| result.passed);
+
+    ConformanceReport { fixture_version, passed, coverage, results }
+}
+
+fn validate_conformance_case(
+    registry: &ProtocolSchemaRegistry,
+    case: &ConformanceCase,
+) -> Result<()> {
+    if case.case_id.trim().is_empty() {
+        return Err(Error::Protocol("conformance case id must be non-empty".to_owned()));
+    }
+    if case.vector.is_null() {
+        return Err(Error::Protocol(format!(
+            "conformance case '{}' must contain a vector payload",
+            case.case_id
+        )));
+    }
+    if let Some(schema_id) = &case.schema_id {
+        registry
+            .schema(schema_id)
+            .ok_or_else(|| Error::Protocol(format!("unknown conformance schema '{schema_id}'")))?;
+    }
+    Ok(())
 }
 
 macro_rules! id_type {
@@ -2152,6 +2626,115 @@ impl OperationEnvelope {
             }
         }
         Ok(())
+    }
+}
+
+/// Registry-backed builder for [`OperationEnvelope`].
+#[derive(Clone, Debug)]
+pub struct OperationEnvelopeBuilder {
+    operation_id: OperationId,
+    space_id: SpaceId,
+    actor_id: Did,
+    kind: String,
+    target_ref: Option<String>,
+    deps: Vec<OperationId>,
+    hlc: Hlc,
+    actor_seq: u64,
+    content: Value,
+    authz_ref: Option<GrantId>,
+    proofs: Vec<Proof>,
+    profile: OperationCompatibilityProfile,
+}
+
+impl OperationEnvelopeBuilder {
+    /// Create a builder for one registered operation kind.
+    pub fn new(
+        operation_id: OperationId,
+        space_id: SpaceId,
+        actor_id: Did,
+        kind: impl Into<String>,
+        actor_seq: u64,
+        hlc: Hlc,
+    ) -> Self {
+        Self {
+            operation_id,
+            space_id,
+            actor_id,
+            kind: kind.into(),
+            target_ref: None,
+            deps: Vec::new(),
+            hlc,
+            actor_seq,
+            content: Value::Object(Default::default()),
+            authz_ref: None,
+            proofs: Vec::new(),
+            profile: OperationCompatibilityProfile::CanonicalOnly,
+        }
+    }
+
+    /// Allow legacy bare-name operation kinds for this builder.
+    pub fn with_compatibility_profile(mut self, profile: OperationCompatibilityProfile) -> Self {
+        self.profile = profile;
+        self
+    }
+
+    /// Set a target reference.
+    pub fn with_target_ref(mut self, target_ref: impl Into<String>) -> Self {
+        self.target_ref = Some(target_ref.into());
+        self
+    }
+
+    /// Add a causal dependency.
+    pub fn with_dependency(mut self, dependency: OperationId) -> Self {
+        self.deps.push(dependency);
+        self
+    }
+
+    /// Replace the content object.
+    pub fn with_content(mut self, content: Value) -> Self {
+        self.content = content;
+        self
+    }
+
+    /// Insert one content field.
+    pub fn with_content_field(mut self, field: impl Into<String>, value: Value) -> Self {
+        if !self.content.is_object() {
+            self.content = Value::Object(Default::default());
+        }
+        if let Value::Object(content) = &mut self.content {
+            content.insert(field.into(), value);
+        }
+        self
+    }
+
+    /// Attach an authorization reference.
+    pub fn with_authz_ref(mut self, authz_ref: GrantId) -> Self {
+        self.authz_ref = Some(authz_ref);
+        self
+    }
+
+    /// Attach a proof.
+    pub fn with_proof(mut self, proof: Proof) -> Self {
+        self.proofs.push(proof);
+        self
+    }
+
+    /// Build and validate the operation envelope against a registry.
+    pub fn build(self, registry: &OperationKindRegistry) -> Result<OperationEnvelope> {
+        let validation = registry.canonicalize(&self.kind, self.profile)?;
+        let envelope = OperationEnvelope {
+            operation_id: self.operation_id,
+            space_id: self.space_id,
+            actor_id: self.actor_id,
+            kind: validation.canonical_kind,
+            target_ref: self.target_ref,
+            causal: CausalRef { deps: self.deps, hlc: self.hlc, actor_seq: self.actor_seq },
+            content: self.content,
+            authz_ref: self.authz_ref,
+            proofs: self.proofs,
+        };
+        registry.validate_envelope(&envelope, OperationCompatibilityProfile::CanonicalOnly)?;
+        Ok(envelope)
     }
 }
 
@@ -3794,6 +4377,61 @@ mod tests {
     }
 
     #[test]
+    fn operation_envelope_builder_covers_every_builtin_kind() {
+        let registry = OperationKindRegistry::default();
+        let space_id = SpaceId::new("cx:space:01js0ke000000000000000000").unwrap();
+        let actor_id = Did::new("did:web:alice.example").unwrap();
+        let hlc = Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap();
+
+        for (index, kind) in BUILT_IN_OPERATION_KINDS.iter().enumerate() {
+            let mut builder = OperationEnvelopeBuilder::new(
+                OperationId::new(format!("cx:operation:builder-{index}")).unwrap(),
+                space_id.clone(),
+                actor_id.clone(),
+                *kind,
+                index as u64 + 1,
+                hlc.clone(),
+            );
+            for field in required_fields_for_operation_kind(kind) {
+                builder = builder.with_content_field(field, json!("value"));
+            }
+            let envelope = builder.build(&registry).unwrap();
+            assert_eq!(envelope.kind, *kind);
+            registry
+                .validate_envelope(&envelope, OperationCompatibilityProfile::CanonicalOnly)
+                .unwrap();
+        }
+    }
+
+    #[test]
+    fn operation_envelope_builder_requires_registered_kind_and_payload_fields() {
+        let registry = OperationKindRegistry::default();
+        let builder = OperationEnvelopeBuilder::new(
+            OperationId::new("cx:operation:builder-message").unwrap(),
+            SpaceId::new("cx:space:01js0ke000000000000000000").unwrap(),
+            Did::new("did:web:alice.example").unwrap(),
+            "message_create",
+            1,
+            Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap(),
+        )
+        .with_compatibility_profile(OperationCompatibilityProfile::LegacyBareNames);
+
+        assert!(builder.clone().build(&registry).is_err());
+        let envelope = builder.with_content_field("body", json!("hello")).build(&registry).unwrap();
+        assert_eq!(envelope.kind, OP_MESSAGE_CREATE);
+
+        let unknown = OperationEnvelopeBuilder::new(
+            OperationId::new("cx:operation:builder-unknown").unwrap(),
+            SpaceId::new("cx:space:01js0ke000000000000000000").unwrap(),
+            Did::new("did:web:alice.example").unwrap(),
+            "unknown",
+            1,
+            Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap(),
+        );
+        assert!(unknown.build(&registry).is_err());
+    }
+
+    #[test]
     fn operation_kind_conformance_vectors_cover_every_builtin() {
         let vectors = operation_kind_conformance_vectors();
         assert_eq!(vectors.len(), BUILT_IN_OPERATION_KINDS.len() * 2);
@@ -3829,7 +4467,7 @@ mod tests {
         registry
             .validate_required_fields(
                 CLIENT_SYNC_RESPONSE_SCHEMA,
-                &json!({"next_batch": "s1", "spaces": {}}),
+                &json!({"next_batch": "s1", "spaces": {}, "unknown_future_field": true}),
             )
             .unwrap();
         assert!(
@@ -3837,6 +4475,124 @@ mod tests {
                 .validate_required_fields(CLIENT_SYNC_RESPONSE_SCHEMA, &json!({"spaces": {}}))
                 .is_err()
         );
+        assert!(
+            registry
+                .validate_value(
+                    CLIENT_SYNC_RESPONSE_SCHEMA,
+                    &json!({"next_batch": 1, "spaces": {}})
+                )
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn schema_registry_generates_runtime_validators_from_supported_schema_subset() {
+        let mut registry = ProtocolSchemaRegistry::default();
+        let validator = registry.generated_validator(OPERATION_SCHEMA).unwrap();
+        assert!(validator.fields.iter().any(|field| {
+            field.name == "operation_id"
+                && field.required
+                && field.value_type == GeneratedSchemaValueType::String
+        }));
+
+        let operation = json!({
+            "operation_id": "cx:operation:01",
+            "space_id": "cx:space:01",
+            "actor_id": "did:web:alice.example",
+            "kind": "cx.message.create",
+            "causal": {},
+            "content": {},
+            "unknown_future_field": true
+        });
+        validator.validate(&operation).unwrap();
+
+        let wrong_type = json!({
+            "operation_id": "cx:operation:01",
+            "space_id": "cx:space:01",
+            "actor_id": "did:web:alice.example",
+            "kind": "cx.message.create",
+            "causal": [],
+            "content": {}
+        });
+        assert!(validator.validate(&wrong_type).is_err());
+
+        let sensitive_extension = json!({
+            "operation_id": "cx:operation:01",
+            "space_id": "cx:space:01",
+            "actor_id": "did:web:alice.example",
+            "kind": "cx.message.create",
+            "causal": {},
+            "content": {},
+            "x-policy-critical": {}
+        });
+        assert!(validator.validate(&sensitive_extension).is_err());
+        registry.trust_extension_prefix("x-policy-critical");
+        registry
+            .generated_validator(OPERATION_SCHEMA)
+            .unwrap()
+            .validate(&sensitive_extension)
+            .unwrap();
+
+        registry.register(
+            "cx.schema.strict.v1",
+            json!({
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "$id": "cx.schema.strict.v1",
+                "type": "object",
+                "required": ["id"],
+                "properties": {"id": {"type": "string"}},
+                "additionalProperties": false
+            }),
+        );
+        assert!(
+            registry
+                .generated_validator("cx.schema.strict.v1")
+                .unwrap()
+                .validate(&json!({"id": "1", "extra": true}))
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn schema_registry_fails_closed_for_unknown_security_extensions() {
+        let mut registry = ProtocolSchemaRegistry::default();
+        let value = json!({
+            "operation_id": "cx:operation:01",
+            "space_id": "cx:space:01",
+            "actor_id": "did:web:alice.example",
+            "kind": "cx.message.create",
+            "causal": {},
+            "content": {},
+            "x-security-critical": {"unknown": true}
+        });
+
+        assert!(registry.validate_value(OPERATION_SCHEMA, &value).is_err());
+        registry.trust_extension_prefix("x-security-critical");
+        registry.validate_value(OPERATION_SCHEMA, &value).unwrap();
+
+        let ordinary_extension = json!({
+            "operation_id": "cx:operation:01",
+            "space_id": "cx:space:01",
+            "actor_id": "did:web:alice.example",
+            "kind": "cx.message.create",
+            "causal": {},
+            "content": {},
+            "x-ui-hint": {"preserved": true}
+        });
+        registry.validate_value(OPERATION_SCHEMA, &ordinary_extension).unwrap();
+    }
+
+    #[test]
+    fn schema_compatibility_table_lists_builtin_schemas() {
+        let table = schema_version_compatibility_table();
+
+        assert_eq!(table.profile, SCHEMA_COMPATIBILITY_PROFILE);
+        assert!(table.entries.iter().any(|entry| {
+            entry.schema_id == OPERATION_SCHEMA
+                && entry.current_version == "1"
+                && !entry.migration_required
+        }));
+        assert!(table.entries.iter().any(|entry| entry.schema_id == CLIENT_SYNC_RESPONSE_SCHEMA));
     }
 
     #[test]
@@ -3844,6 +4600,8 @@ mod tests {
         let suites = profile_conformance_suites();
         for profile in [
             ConformanceProfile::Encoding,
+            ConformanceProfile::Hlc,
+            ConformanceProfile::Cursor,
             ConformanceProfile::StateResolution,
             ConformanceProfile::Redaction,
             ConformanceProfile::Capability,
@@ -3851,9 +4609,57 @@ mod tests {
             ConformanceProfile::Snapshot,
             ConformanceProfile::FederationSignatures,
             ConformanceProfile::Privacy,
+            ConformanceProfile::Security,
         ] {
             assert!(suites.iter().any(|suite| suite.profile == profile && !suite.cases.is_empty()));
         }
+    }
+
+    #[test]
+    fn builtin_conformance_report_is_machine_readable_and_covers_profiles() {
+        let report = run_builtin_conformance_report();
+
+        assert_eq!(report.fixture_version, BUILT_IN_CONFORMANCE_FIXTURES_VERSION);
+        assert!(report.passed);
+        for profile in [
+            ConformanceProfile::Encoding,
+            ConformanceProfile::Hlc,
+            ConformanceProfile::Cursor,
+            ConformanceProfile::StateResolution,
+            ConformanceProfile::Redaction,
+            ConformanceProfile::Capability,
+            ConformanceProfile::Sync,
+            ConformanceProfile::Snapshot,
+            ConformanceProfile::FederationSignatures,
+            ConformanceProfile::Privacy,
+            ConformanceProfile::Security,
+        ] {
+            let coverage =
+                report.coverage.iter().find(|coverage| coverage.profile == profile).unwrap();
+            assert!(coverage.cases_total > 0);
+            assert_eq!(coverage.cases_total, coverage.cases_passed);
+        }
+
+        let encoded = serde_json::to_value(report).unwrap();
+        assert!(encoded["fixture_version"].is_string());
+        assert!(encoded["results"].is_array());
+    }
+
+    #[test]
+    fn conformance_fixture_set_loads_and_reports_external_json() {
+        let encoded = serde_json::to_value(ConformanceFixtureSet::builtin()).unwrap();
+        let fixtures = ConformanceFixtureSet::from_json(encoded).unwrap();
+        let report = fixtures.run();
+
+        assert!(report.passed);
+        assert_eq!(report.fixture_version, BUILT_IN_CONFORMANCE_FIXTURES_VERSION);
+
+        let empty = serde_json::from_value::<ConformanceFixtureSet>(json!({
+            "fixture_version": "",
+            "suites": []
+        }))
+        .unwrap();
+        assert!(empty.validate().is_err());
     }
 
     #[test]

@@ -1,4 +1,9 @@
-use reqwest::{Method, RequestBuilder};
+use std::time::Duration;
+
+use reqwest::{
+    Method, RequestBuilder, Response, StatusCode,
+    header::{HeaderMap, HeaderValue, RETRY_AFTER, USER_AGENT},
+};
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use url::Url;
@@ -33,6 +38,22 @@ use crate::{
     SyncBackfillResponse, SyncDescription, SyncRequest, SyncResponse, SyncSnapshotHeadResponse,
 };
 
+pub const HEADER_REQUEST_ID: &str = "X-Contrix-Request-Id";
+pub const HEADER_WAIT_FOR: &str = "X-Contrix-Wait-For";
+pub const HEADER_IDEMPOTENCY_KEY: &str = "Idempotency-Key";
+
+const QUERY_AUTH_KEYS: &[&str] = &[
+    "access_token",
+    "auth",
+    "authorization",
+    "bearer",
+    "id_token",
+    "refresh_token",
+    "session",
+    "session_token",
+    "token",
+];
+
 #[derive(Clone, Debug)]
 pub enum Auth {
     Bearer(String),
@@ -40,11 +61,72 @@ pub enum Auth {
     ServiceSignature(String),
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ClientRequestOptions {
+    pub request_id: Option<String>,
+    pub idempotency_key: Option<String>,
+    pub wait_for: Option<String>,
+}
+
+impl ClientRequestOptions {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn request_id(mut self, request_id: impl Into<String>) -> Self {
+        self.request_id = Some(request_id.into());
+        self
+    }
+
+    pub fn idempotency_key(mut self, idempotency_key: impl Into<String>) -> Self {
+        self.idempotency_key = Some(idempotency_key.into());
+        self
+    }
+
+    pub fn wait_for(mut self, wait_for: impl Into<String>) -> Self {
+        self.wait_for = Some(wait_for.into());
+        self
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RetryConfig {
+    pub max_retries: usize,
+    pub retry_statuses: Vec<u16>,
+    pub retry_network_errors: bool,
+}
+
+impl RetryConfig {
+    pub fn disabled() -> Self {
+        Self {
+            max_retries: 0,
+            retry_statuses: standard_retry_statuses(),
+            retry_network_errors: true,
+        }
+    }
+
+    pub fn standard(max_retries: usize) -> Self {
+        Self { max_retries, retry_statuses: standard_retry_statuses(), retry_network_errors: true }
+    }
+
+    fn should_retry_status(&self, status: StatusCode) -> bool {
+        self.retry_statuses.contains(&status.as_u16())
+    }
+}
+
+impl Default for RetryConfig {
+    fn default() -> Self {
+        Self::disabled()
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Client {
     base_url: Url,
     http: reqwest::Client,
     auth: Option<Auth>,
+    retry: RetryConfig,
+    user_agent: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -53,11 +135,22 @@ pub struct ClientBuilder {
     http: Option<reqwest::Client>,
     auth: Option<Auth>,
     allow_insecure_localhost: bool,
+    timeout: Option<Duration>,
+    retry: RetryConfig,
+    user_agent: Option<String>,
 }
 
 impl ClientBuilder {
     pub fn new(base_url: Url) -> Self {
-        Self { base_url, http: None, auth: None, allow_insecure_localhost: false }
+        Self {
+            base_url,
+            http: None,
+            auth: None,
+            allow_insecure_localhost: false,
+            timeout: None,
+            retry: RetryConfig::default(),
+            user_agent: None,
+        }
     }
 
     pub fn http_client(mut self, http: reqwest::Client) -> Self {
@@ -75,12 +168,46 @@ impl ClientBuilder {
         self
     }
 
+    pub fn timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = Some(timeout);
+        self
+    }
+
+    pub fn retry(mut self, retry: RetryConfig) -> Self {
+        self.retry = retry;
+        self
+    }
+
+    pub fn user_agent(mut self, user_agent: impl Into<String>) -> Self {
+        self.user_agent = Some(user_agent.into());
+        self
+    }
+
     pub fn build(self) -> Result<Client> {
         validate_base_url(&self.base_url, self.allow_insecure_localhost)?;
         if let Some(auth) = &self.auth {
             validate_auth(auth)?;
         }
-        Ok(Client { base_url: self.base_url, http: self.http.unwrap_or_default(), auth: self.auth })
+        if let Some(user_agent) = &self.user_agent {
+            validate_header_value("user agent", user_agent)?;
+        }
+        let http = match self.http {
+            Some(http) => http,
+            None => {
+                let mut builder = reqwest::Client::builder();
+                if let Some(timeout) = self.timeout {
+                    builder = builder.timeout(timeout);
+                }
+                builder.build()?
+            }
+        };
+        Ok(Client {
+            base_url: self.base_url,
+            http,
+            auth: self.auth,
+            retry: self.retry,
+            user_agent: self.user_agent,
+        })
     }
 }
 
@@ -95,6 +222,10 @@ impl Client {
 
     pub fn base_url(&self) -> &Url {
         &self.base_url
+    }
+
+    pub fn retry_config(&self) -> &RetryConfig {
+        &self.retry
     }
 
     pub async fn describe(&self) -> Result<ServerDescription> {
@@ -233,7 +364,7 @@ impl Client {
         &self,
         space_id: &str,
         cursor: Option<&str>,
-    ) -> Result<reqwest::Response> {
+    ) -> Result<Response> {
         let mut builder =
             self.request(Method::GET, "/api/v1/sync/subscribe")?.query(&[("space_id", space_id)]);
         if let Some(cursor) = cursor {
@@ -271,9 +402,11 @@ impl Client {
         request: &QueryRequest,
     ) -> Result<QueryResponse<T>> {
         let mut builder = self.request(Method::POST, "/api/v1/index/query")?;
+        let mut options = ClientRequestOptions::new();
         if let Some(consistency) = &request.consistency {
-            builder = builder.header("X-Contrix-Wait-For", &consistency.wait_for);
+            options = options.wait_for(&consistency.wait_for);
         }
+        builder = self.apply_request_options(builder, &options)?;
         self.send_json(builder.json(request)).await
     }
 
@@ -320,7 +453,7 @@ impl Client {
         self.send_json(builder).await
     }
 
-    pub async fn blob_head(&self, blob_ref: &BlobRef) -> Result<reqwest::header::HeaderMap> {
+    pub async fn blob_head(&self, blob_ref: &BlobRef) -> Result<HeaderMap> {
         let builder = self
             .request(Method::HEAD, "/api/v1/blob/get")?
             .query(&[("blob_ref", blob_ref.as_str())]);
@@ -708,9 +841,28 @@ impl Client {
         self.send_json(builder).await
     }
 
+    pub async fn get_with_options<T: DeserializeOwned>(
+        &self,
+        path: &str,
+        options: &ClientRequestOptions,
+    ) -> Result<T> {
+        let builder = self.apply_request_options(self.request(Method::GET, path)?, options)?;
+        self.send_json(builder).await
+    }
+
     pub async fn post<T: Serialize, R: DeserializeOwned>(&self, path: &str, body: &T) -> Result<R> {
         let builder = self.request(Method::POST, path)?.json(body);
         self.send_json(builder).await
+    }
+
+    pub async fn post_with_options<T: Serialize, R: DeserializeOwned>(
+        &self,
+        path: &str,
+        body: &T,
+        options: &ClientRequestOptions,
+    ) -> Result<R> {
+        let builder = self.apply_request_options(self.request(Method::POST, path)?, options)?;
+        self.send_json(builder.json(body)).await
     }
 
     pub async fn put<T: Serialize, R: DeserializeOwned>(&self, path: &str, body: &T) -> Result<R> {
@@ -718,10 +870,24 @@ impl Client {
         self.send_json(builder).await
     }
 
+    pub async fn put_with_options<T: Serialize, R: DeserializeOwned>(
+        &self,
+        path: &str,
+        body: &T,
+        options: &ClientRequestOptions,
+    ) -> Result<R> {
+        let builder = self.apply_request_options(self.request(Method::PUT, path)?, options)?;
+        self.send_json(builder.json(body)).await
+    }
+
     fn request(&self, method: Method, path: &str) -> Result<RequestBuilder> {
         reject_absolute_path(path)?;
         let url = self.base_url.join(path.trim_start_matches('/'))?;
-        let builder = self.http.request(method, url).header("Accept", "application/json");
+        reject_query_auth_in_url(&url)?;
+        let mut builder = self.http.request(method, url).header("Accept", "application/json");
+        if let Some(user_agent) = &self.user_agent {
+            builder = builder.header(USER_AGENT, user_agent);
+        }
         Ok(self.apply_auth(builder))
     }
 
@@ -736,45 +902,92 @@ impl Client {
         }
     }
 
+    fn apply_request_options(
+        &self,
+        mut builder: RequestBuilder,
+        options: &ClientRequestOptions,
+    ) -> Result<RequestBuilder> {
+        if let Some(request_id) = &options.request_id {
+            validate_header_value(HEADER_REQUEST_ID, request_id)?;
+            builder = builder.header(HEADER_REQUEST_ID, request_id);
+        }
+        if let Some(idempotency_key) = &options.idempotency_key {
+            validate_header_value(HEADER_IDEMPOTENCY_KEY, idempotency_key)?;
+            builder = builder.header(HEADER_IDEMPOTENCY_KEY, idempotency_key);
+        }
+        if let Some(wait_for) = &options.wait_for {
+            validate_header_value(HEADER_WAIT_FOR, wait_for)?;
+            builder = builder.header(HEADER_WAIT_FOR, wait_for);
+        }
+        Ok(builder)
+    }
+
     async fn send_json<T: DeserializeOwned>(&self, builder: RequestBuilder) -> Result<T> {
-        let response = builder.send().await?;
+        let response = self.execute(builder).await?;
         let status = response.status();
         if !status.is_success() {
-            let error = response.json::<ErrorEnvelope>().await.unwrap_or_else(|_| ErrorEnvelope {
-                errcode: "cx.error.http_status".to_owned(),
-                error: format!("HTTP request failed with status {status}"),
-                retry_after_ms: None,
-                extra: Default::default(),
-            });
+            let error = error_envelope_from_response(response).await;
             return Err(Error::Api { status: status.as_u16(), error });
         }
 
         Ok(response.json().await?)
     }
 
-    async fn send_empty(&self, builder: RequestBuilder) -> Result<reqwest::header::HeaderMap> {
+    async fn send_empty(&self, builder: RequestBuilder) -> Result<HeaderMap> {
         let response = self.send_response(builder).await?;
         Ok(response.headers().clone())
     }
 
-    async fn send_response(&self, builder: RequestBuilder) -> Result<reqwest::Response> {
-        let response = builder.send().await?;
+    async fn send_response(&self, builder: RequestBuilder) -> Result<Response> {
+        let response = self.execute(builder).await?;
         let status = response.status();
         if !status.is_success() {
-            let error = response.json::<ErrorEnvelope>().await.unwrap_or_else(|_| ErrorEnvelope {
-                errcode: "cx.error.http_status".to_owned(),
-                error: format!("HTTP request failed with status {status}"),
-                retry_after_ms: None,
-                extra: Default::default(),
-            });
+            let error = error_envelope_from_response(response).await;
             return Err(Error::Api { status: status.as_u16(), error });
         }
 
         Ok(response)
     }
+
+    async fn execute(&self, builder: RequestBuilder) -> Result<Response> {
+        validate_request_builder(&builder)?;
+        if self.retry.max_retries == 0 {
+            return Ok(builder.send().await?);
+        }
+
+        let Some(template) = builder.try_clone() else {
+            return Ok(builder.send().await?);
+        };
+
+        let mut attempts = 0usize;
+        loop {
+            let attempt_builder = template.try_clone().ok_or_else(|| {
+                Error::Protocol("retryable request could not be cloned".to_owned())
+            })?;
+            match attempt_builder.send().await {
+                Ok(response)
+                    if attempts < self.retry.max_retries
+                        && self.retry.should_retry_status(response.status()) =>
+                {
+                    attempts += 1;
+                }
+                Ok(response) => return Ok(response),
+                Err(error)
+                    if attempts < self.retry.max_retries && self.retry.retry_network_errors =>
+                {
+                    attempts += 1;
+                    if !error.is_connect() && !error.is_timeout() {
+                        return Err(error.into());
+                    }
+                }
+                Err(error) => return Err(error.into()),
+            }
+        }
+    }
 }
 
 fn validate_base_url(url: &Url, allow_insecure_localhost: bool) -> Result<()> {
+    reject_query_auth_in_url(url)?;
     if url.scheme() == "https" {
         return Ok(());
     }
@@ -790,8 +1003,12 @@ fn validate_auth(auth: &Auth) -> Result<()> {
     let value = match auth {
         Auth::Bearer(token) | Auth::DeviceProof(token) | Auth::ServiceSignature(token) => token,
     };
-    if value.trim().is_empty() || value.contains('\r') || value.contains('\n') {
-        return Err(Error::Protocol("auth material must be non-empty and header-safe".to_owned()));
+    validate_header_value("auth material", value)
+}
+
+fn validate_header_value(name: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() || HeaderValue::from_str(value).is_err() {
+        return Err(Error::Protocol(format!("{name} must be non-empty and header-safe")));
     }
     Ok(())
 }
@@ -807,6 +1024,55 @@ fn reject_absolute_path(path: &str) -> Result<()> {
         ));
     }
     Ok(())
+}
+
+fn reject_query_auth_in_url(url: &Url) -> Result<()> {
+    for (key, _) in url.query_pairs() {
+        if QUERY_AUTH_KEYS.contains(&key.to_ascii_lowercase().as_str()) {
+            return Err(Error::Protocol(
+                "query string authentication material is not allowed".to_owned(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_request_builder(builder: &RequestBuilder) -> Result<()> {
+    if let Some(clone) = builder.try_clone() {
+        let request = clone.build()?;
+        reject_query_auth_in_url(request.url())?;
+    }
+    Ok(())
+}
+
+async fn error_envelope_from_response(response: Response) -> ErrorEnvelope {
+    let status = response.status();
+    let retry_after_ms = retry_after_ms(response.headers());
+    let mut error = response.json::<ErrorEnvelope>().await.unwrap_or_else(|_| ErrorEnvelope {
+        errcode: "cx.error.http_status".to_owned(),
+        error: format!("HTTP request failed with status {status}"),
+        retry_after_ms: None,
+        extra: Default::default(),
+    });
+    if error.retry_after_ms.is_none() {
+        error.retry_after_ms = retry_after_ms;
+    }
+    error
+}
+
+fn retry_after_ms(headers: &HeaderMap) -> Option<u64> {
+    headers
+        .get(RETRY_AFTER)?
+        .to_str()
+        .ok()?
+        .trim()
+        .parse::<u64>()
+        .ok()
+        .and_then(|seconds| seconds.checked_mul(1000))
+}
+
+fn standard_retry_statuses() -> Vec<u16> {
+    vec![408, 429, 500, 502, 503, 504]
 }
 
 fn reject_path_segment(segment: &str) -> Result<()> {
@@ -846,6 +1112,7 @@ mod tests {
     fn allows_insecure_localhost_when_explicit() {
         let client = Client::builder(Url::parse("http://127.0.0.1:8080/").unwrap())
             .allow_insecure_localhost()
+            .timeout(Duration::from_secs(5))
             .build()
             .unwrap();
         assert_eq!(client.base_url().scheme(), "http");
@@ -871,5 +1138,75 @@ mod tests {
     fn rejects_encoded_path_separator_segments() {
         let error = reject_path_segment("txn_%2Fescape").unwrap_err();
         assert!(matches!(error, Error::Protocol(_)));
+    }
+
+    #[test]
+    fn request_options_add_standard_headers() {
+        let client = Client::builder(Url::parse("https://alice.example/contrix/").unwrap())
+            .user_agent("contrix-sdk-test/1")
+            .build()
+            .unwrap();
+        let options = ClientRequestOptions::new()
+            .request_id("req-1")
+            .idempotency_key("idem-1")
+            .wait_for("cx:cursor:01");
+        let request = client
+            .apply_request_options(client.request(Method::PUT, "/api/v1/sync").unwrap(), &options)
+            .unwrap()
+            .build()
+            .unwrap();
+
+        assert_eq!(request.headers()[USER_AGENT], "contrix-sdk-test/1");
+        assert_eq!(request.headers()[HEADER_REQUEST_ID], "req-1");
+        assert_eq!(request.headers()[HEADER_IDEMPOTENCY_KEY], "idem-1");
+        assert_eq!(request.headers()[HEADER_WAIT_FOR], "cx:cursor:01");
+    }
+
+    #[test]
+    fn request_options_reject_header_injection() {
+        let client = Client::new(Url::parse("https://alice.example/contrix/").unwrap()).unwrap();
+        let options = ClientRequestOptions::new().request_id("req\r\nX-Evil: true");
+
+        let error = client
+            .apply_request_options(
+                client.request(Method::GET, "/api/v1/server/describe").unwrap(),
+                &options,
+            )
+            .unwrap_err();
+        assert!(matches!(error, Error::Protocol(_)));
+    }
+
+    #[test]
+    fn rejects_query_auth_on_base_path_and_built_request() {
+        assert!(
+            Client::new(Url::parse("https://alice.example/contrix/?access_token=secret").unwrap())
+                .is_err()
+        );
+
+        let client = Client::new(Url::parse("https://alice.example/contrix/").unwrap()).unwrap();
+        let builder = client
+            .request(Method::GET, "/api/v1/index/entity")
+            .unwrap()
+            .query(&[("access_token", "secret")]);
+
+        let error = validate_request_builder(&builder).unwrap_err();
+        assert!(matches!(error, Error::Protocol(_)));
+    }
+
+    #[test]
+    fn retry_after_seconds_are_reported_as_millis() {
+        let mut headers = HeaderMap::new();
+        headers.insert(RETRY_AFTER, HeaderValue::from_static("3"));
+
+        assert_eq!(retry_after_ms(&headers), Some(3000));
+    }
+
+    #[test]
+    fn standard_retry_config_covers_transient_statuses() {
+        let retry = RetryConfig::standard(2);
+
+        assert!(retry.should_retry_status(StatusCode::TOO_MANY_REQUESTS));
+        assert!(retry.should_retry_status(StatusCode::SERVICE_UNAVAILABLE));
+        assert!(!retry.should_retry_status(StatusCode::BAD_REQUEST));
     }
 }

@@ -340,6 +340,205 @@ pub struct StoreSnapshot {
     pub head: Option<Hash>,
 }
 
+/// Store implementations covered by the SDK conformance suite.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StoreConformanceTarget {
+    Memory,
+    SqliteFacade,
+    IndexedDbFacade,
+}
+
+/// Store conformance vectors executed by this crate.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StoreConformanceVector {
+    SameTraitBehavior,
+    CrashPartialWrite,
+    MigrationCompatibility,
+}
+
+/// Result for one store conformance vector.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StoreConformanceResult {
+    pub target: StoreConformanceTarget,
+    pub vector: StoreConformanceVector,
+    pub passed: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+/// Machine-readable store conformance report.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StoreConformanceReport {
+    pub passed: bool,
+    pub results: Vec<StoreConformanceResult>,
+}
+
+/// Run the dependency-free store conformance suite.
+///
+/// This validates shared trait semantics for memory, SQLite-compatible and
+/// IndexedDB-compatible stores. It does not claim that the facade stores are
+/// production durable adapters.
+pub fn run_store_conformance_suite() -> StoreConformanceReport {
+    let mut results = Vec::new();
+    for target in [
+        StoreConformanceTarget::Memory,
+        StoreConformanceTarget::SqliteFacade,
+        StoreConformanceTarget::IndexedDbFacade,
+    ] {
+        results.push(store_conformance_result(
+            target,
+            StoreConformanceVector::SameTraitBehavior,
+            run_same_trait_behavior(target),
+        ));
+        results.push(store_conformance_result(
+            target,
+            StoreConformanceVector::CrashPartialWrite,
+            run_crash_partial_write_vector(target),
+        ));
+    }
+    results.push(store_conformance_result(
+        StoreConformanceTarget::SqliteFacade,
+        StoreConformanceVector::MigrationCompatibility,
+        run_migration_compatibility_vector(),
+    ));
+    let passed = results.iter().all(|result| result.passed);
+    StoreConformanceReport { passed, results }
+}
+
+fn store_conformance_result(
+    target: StoreConformanceTarget,
+    vector: StoreConformanceVector,
+    result: Result<()>,
+) -> StoreConformanceResult {
+    StoreConformanceResult {
+        target,
+        vector,
+        passed: result.is_ok(),
+        error: result.err().map(|error| error.to_string()),
+    }
+}
+
+fn run_same_trait_behavior(target: StoreConformanceTarget) -> Result<()> {
+    match target {
+        StoreConformanceTarget::Memory => same_trait_behavior(MemoryRepoStore::new()),
+        StoreConformanceTarget::SqliteFacade => same_trait_behavior(SqliteRepoStore::new()),
+        StoreConformanceTarget::IndexedDbFacade => {
+            same_trait_behavior(IndexedDbRepoStore::new(64 * 1024))
+        }
+    }
+}
+
+fn same_trait_behavior<S>(mut store: S) -> Result<()>
+where
+    S: TransactionalRepoStore,
+{
+    let operation = conformance_operation("same");
+    let operation_digest = Hash::new(operation.operation_digest()?)?;
+    let commit = conformance_commit("same", 1, vec![operation_digest]);
+    let receipt = store.write_batch(
+        RepoWriteBatch::new().with_operation(operation.clone()).with_commit(commit.clone()),
+    )?;
+    if receipt.operations_written != 1 || receipt.commits_written != 1 {
+        return Err(Error::Protocol("store conformance receipt count mismatch".to_owned()));
+    }
+    if store.load_operation(&operation.operation_id).is_none()
+        || store.load_commit(&commit.commit_id).is_none()
+        || store.repo_head().is_none()
+    {
+        return Err(Error::Protocol("store conformance object lookup failed".to_owned()));
+    }
+    let idempotent =
+        store.write_batch(RepoWriteBatch::new().with_operation(operation).with_commit(commit))?;
+    if idempotent.operations_written != 0 || idempotent.commits_written != 0 {
+        return Err(Error::Protocol("store conformance idempotency mismatch".to_owned()));
+    }
+    Ok(())
+}
+
+fn run_crash_partial_write_vector(target: StoreConformanceTarget) -> Result<()> {
+    match target {
+        StoreConformanceTarget::Memory => crash_partial_write_vector(MemoryRepoStore::new()),
+        StoreConformanceTarget::SqliteFacade => crash_partial_write_vector(SqliteRepoStore::new()),
+        StoreConformanceTarget::IndexedDbFacade => {
+            crash_partial_write_vector(IndexedDbRepoStore::new(64 * 1024))
+        }
+    }
+}
+
+fn crash_partial_write_vector<S>(mut store: S) -> Result<()>
+where
+    S: TransactionalRepoStore,
+{
+    let operation = conformance_operation("rollback");
+    let bad_commit = conformance_commit(
+        "rollback",
+        1,
+        vec![
+            Hash::new("sha256:1111111111111111111111111111111111111111111111111111111111111111")
+                .unwrap(),
+        ],
+    );
+    if store
+        .write_batch(
+            RepoWriteBatch::new().with_operation(operation.clone()).with_commit(bad_commit),
+        )
+        .is_ok()
+    {
+        return Err(Error::Protocol("store conformance accepted bad partial batch".to_owned()));
+    }
+    if store.load_operation(&operation.operation_id).is_some() || store.repo_head().is_some() {
+        return Err(Error::Protocol("store conformance leaked partial write".to_owned()));
+    }
+    Ok(())
+}
+
+fn run_migration_compatibility_vector() -> Result<()> {
+    let mut store = SqliteRepoStore::new();
+    store.apply_migration_checked(StoreMigration {
+        version: 1,
+        statements: vec!["create table operations".to_owned()],
+    })?;
+    store.apply_migration_checked(StoreMigration {
+        version: 2,
+        statements: vec!["create index operations_digest".to_owned()],
+    })?;
+    if store.schema_metadata().applied_migrations.len() != 2 {
+        return Err(Error::Protocol("store migration metadata was not recorded".to_owned()));
+    }
+    if store
+        .apply_migration_checked(StoreMigration {
+            version: 2,
+            statements: vec!["duplicate version".to_owned()],
+        })
+        .is_ok()
+    {
+        return Err(Error::Protocol("store accepted duplicate migration version".to_owned()));
+    }
+    Ok(())
+}
+
+fn conformance_operation(suffix: &str) -> Operation {
+    Operation::create(
+        OperationId::new(format!("cx:operation:conformance-{suffix}")).unwrap(),
+        SpaceId::new("cx:space:conformance").unwrap(),
+        "entity",
+        serde_json::json!({"id": format!("cx:entity:conformance-{suffix}")}),
+    )
+}
+
+fn conformance_commit(suffix: &str, author_seq: u64, operations: Vec<Hash>) -> Commit {
+    let mut commit = Commit::new(
+        CommitId::new(format!("cx:commit:conformance-{suffix}")).unwrap(),
+        "did:web:conformance.example",
+        Did::new("did:web:conformance.example").unwrap(),
+        author_seq,
+    );
+    commit.operations = operations;
+    commit
+}
+
 /// Lightweight SQLite-compatible store facade.
 ///
 /// The SDK keeps this implementation dependency-free. It models the SQLite
@@ -1467,6 +1666,32 @@ mod tests {
 
         store.enqueue_background_sync(operation.operation_id.to_string());
         assert_eq!(store.pop_background_sync(), Some("cx:operation:03".to_owned()));
+    }
+
+    #[test]
+    fn store_conformance_suite_covers_memory_sqlite_and_indexeddb() {
+        let report = run_store_conformance_suite();
+
+        assert!(report.passed);
+        for target in [
+            StoreConformanceTarget::Memory,
+            StoreConformanceTarget::SqliteFacade,
+            StoreConformanceTarget::IndexedDbFacade,
+        ] {
+            assert!(report.results.iter().any(|result| {
+                result.target == target
+                    && result.vector == StoreConformanceVector::SameTraitBehavior
+            }));
+            assert!(report.results.iter().any(|result| {
+                result.target == target
+                    && result.vector == StoreConformanceVector::CrashPartialWrite
+            }));
+        }
+        assert!(report.results.iter().any(|result| {
+            result.target == StoreConformanceTarget::SqliteFacade
+                && result.vector == StoreConformanceVector::MigrationCompatibility
+        }));
+        assert!(serde_json::to_value(report).unwrap()["results"].is_array());
     }
 
     #[test]

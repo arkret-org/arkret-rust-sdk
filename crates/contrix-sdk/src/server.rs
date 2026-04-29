@@ -154,11 +154,22 @@ pub struct WireConformanceVector {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ProtocolFixtureFlow {
+    Server,
+    Identity,
     Repo,
     Sync,
     Blob,
     Authz,
     Federation,
+    Index,
+    Directory,
+    Push,
+    DeviceMessages,
+    Keys,
+    Policy,
+    Media,
+    Moderation,
+    Applet,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -194,11 +205,22 @@ impl ProtocolServerFixture {
 
     pub fn all_flows() -> Self {
         Self::new([
+            ProtocolFixtureFlow::Server,
+            ProtocolFixtureFlow::Identity,
             ProtocolFixtureFlow::Repo,
             ProtocolFixtureFlow::Sync,
             ProtocolFixtureFlow::Blob,
             ProtocolFixtureFlow::Authz,
             ProtocolFixtureFlow::Federation,
+            ProtocolFixtureFlow::Index,
+            ProtocolFixtureFlow::Directory,
+            ProtocolFixtureFlow::Push,
+            ProtocolFixtureFlow::DeviceMessages,
+            ProtocolFixtureFlow::Keys,
+            ProtocolFixtureFlow::Policy,
+            ProtocolFixtureFlow::Media,
+            ProtocolFixtureFlow::Moderation,
+            ProtocolFixtureFlow::Applet,
         ])
     }
 
@@ -236,6 +258,15 @@ impl Default for ProtocolServerFixture {
 
 fn fixture_operations(flow: ProtocolFixtureFlow) -> &'static [&'static str] {
     match flow {
+        ProtocolFixtureFlow::Server => &["cx.server.describe"],
+        ProtocolFixtureFlow::Identity => &[
+            "cx.identity.describe_registry",
+            "cx.identity.resolve",
+            "cx.identity.get_document",
+            "cx.identity.get_log",
+            "cx.identity.submit_did_operation",
+            "cx.identity.get_receipts",
+        ],
         ProtocolFixtureFlow::Repo => {
             &["cx.repo.describe", "cx.repo.submit_commit", "cx.repo.get_operations", "cx.repo.sync"]
         }
@@ -255,6 +286,46 @@ fn fixture_operations(flow: ProtocolFixtureFlow) -> &'static [&'static str] {
             "cx.federation.pull_operations",
             "cx.federation.space_members",
             "cx.federation.verify_actor",
+        ],
+        ProtocolFixtureFlow::Index => &[
+            "cx.index.describe",
+            "cx.index.get_entity",
+            "cx.index.query",
+            "cx.index.thread",
+            "cx.index.notifications",
+            "cx.index.inbox",
+            "cx.index.search",
+            "cx.index.space_hierarchy",
+        ],
+        ProtocolFixtureFlow::Directory => &[
+            "cx.directory.describe",
+            "cx.directory.search_spaces",
+            "cx.directory.resolve_space",
+            "cx.directory.search_organizations",
+            "cx.directory.resolve_organization",
+            "cx.directory.search_actors",
+            "cx.directory.search_users",
+            "cx.directory.resolve_handle",
+        ],
+        ProtocolFixtureFlow::Push => {
+            &["cx.push.register_device", "cx.push.unregister_device", "cx.push.notify"]
+        }
+        ProtocolFixtureFlow::DeviceMessages => {
+            &["cx.device_messages.put", "cx.device_messages.get"]
+        }
+        ProtocolFixtureFlow::Keys => &["cx.keys.upload", "cx.keys.query", "cx.keys.claim"],
+        ProtocolFixtureFlow::Policy => &["cx.policy.check"],
+        ProtocolFixtureFlow::Media => &["cx.media.ice_config"],
+        ProtocolFixtureFlow::Moderation => &["cx.moderation.report"],
+        ProtocolFixtureFlow::Applet => &[
+            "cx.applet.ping",
+            "cx.applet.describe",
+            "cx.applet.transaction",
+            "cx.applet.query_actor",
+            "cx.applet.query_space",
+            "cx.applet.protocol_metadata",
+            "cx.applet.third_party_users",
+            "cx.applet.third_party_locations",
         ],
     }
 }
@@ -1808,11 +1879,22 @@ mod tests {
         let report = ProtocolServerFixture::default().run().unwrap();
 
         for flow in [
+            ProtocolFixtureFlow::Server,
+            ProtocolFixtureFlow::Identity,
             ProtocolFixtureFlow::Repo,
             ProtocolFixtureFlow::Sync,
             ProtocolFixtureFlow::Blob,
             ProtocolFixtureFlow::Authz,
             ProtocolFixtureFlow::Federation,
+            ProtocolFixtureFlow::Index,
+            ProtocolFixtureFlow::Directory,
+            ProtocolFixtureFlow::Push,
+            ProtocolFixtureFlow::DeviceMessages,
+            ProtocolFixtureFlow::Keys,
+            ProtocolFixtureFlow::Policy,
+            ProtocolFixtureFlow::Media,
+            ProtocolFixtureFlow::Moderation,
+            ProtocolFixtureFlow::Applet,
         ] {
             assert!(report.covers(flow));
         }

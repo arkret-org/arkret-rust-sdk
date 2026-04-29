@@ -188,6 +188,253 @@ pub struct SessionPrincipalBinding {
     pub valid_until: DateTime<Utc>,
 }
 
+/// Canonical OAuth2 scope prefix for binding a Contrix client device to a session.
+pub const CONTRIX_DEVICE_SCOPE_PREFIX: &str = "urn:contrix:client:device:";
+/// Legacy Matrix device scope accepted only by compatibility adapters.
+pub const LEGACY_MATRIX_DEVICE_SCOPE_PREFIX: &str = "urn:matrix:client:device:";
+/// Legacy MSC2967 Matrix device scope accepted only by compatibility adapters.
+pub const LEGACY_MATRIX_MSC2967_DEVICE_SCOPE_PREFIX: &str =
+    "urn:matrix:org.matrix.msc2967.client:device:";
+
+/// Build the canonical Contrix device scope token for a device.
+pub fn contrix_device_scope(device_id: &DeviceId) -> String {
+    format!("{CONTRIX_DEVICE_SCOPE_PREFIX}{device_id}")
+}
+
+/// Extract a device ID from a Contrix device scope token.
+///
+/// When `allow_legacy_matrix` is true, Matrix compatibility device scopes are
+/// also accepted so existing deployments can migrate without preserving Matrix
+/// naming in new API surfaces.
+pub fn device_id_from_scope_token(
+    scope_token: &str,
+    allow_legacy_matrix: bool,
+) -> Option<DeviceId> {
+    let raw = scope_token
+        .strip_prefix(CONTRIX_DEVICE_SCOPE_PREFIX)
+        .or_else(|| {
+            allow_legacy_matrix
+                .then(|| scope_token.strip_prefix(LEGACY_MATRIX_DEVICE_SCOPE_PREFIX))
+                .flatten()
+        })
+        .or_else(|| {
+            allow_legacy_matrix
+                .then(|| scope_token.strip_prefix(LEGACY_MATRIX_MSC2967_DEVICE_SCOPE_PREFIX))
+                .flatten()
+        })?;
+    DeviceId::new(raw).ok()
+}
+
+/// Return the first device ID encoded in a set of scope tokens.
+pub fn primary_device_id_from_scopes<I, S>(scopes: I, allow_legacy_matrix: bool) -> Option<DeviceId>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    scopes
+        .into_iter()
+        .find_map(|scope| device_id_from_scope_token(scope.as_ref(), allow_legacy_matrix))
+}
+
+/// Session grant payload issued by an identity provider to a Principal Server.
+///
+/// This is the stable contract shared by coauth, soland and admin tooling. It
+/// intentionally excludes private session key material.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionGrantPayload {
+    pub issuer: Did,
+    pub subject: Did,
+    pub principal_id: Did,
+    pub device_id: DeviceId,
+    pub audience: Vec<String>,
+    pub scopes: Vec<String>,
+    pub session_id: String,
+    pub grant_jti: String,
+    pub issued_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+    pub revocation_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_public_key: Option<String>,
+}
+
+impl SessionGrantPayload {
+    /// Validate the payload before it is signed or persisted.
+    pub fn validate(&self) -> Result<()> {
+        if self.audience.is_empty() {
+            return Err(Error::Protocol("session grant audience must not be empty".to_owned()));
+        }
+        if self.scopes.is_empty() {
+            return Err(Error::Protocol("session grant scopes must not be empty".to_owned()));
+        }
+        if self.session_id.trim().is_empty() {
+            return Err(Error::Protocol("session grant session_id must not be empty".to_owned()));
+        }
+        if self.grant_jti.trim().is_empty() {
+            return Err(Error::Protocol("session grant grant_jti must not be empty".to_owned()));
+        }
+        if self.revocation_ref.trim().is_empty() {
+            return Err(Error::Protocol(
+                "session grant revocation_ref must not be empty".to_owned(),
+            ));
+        }
+        if self.expires_at <= self.issued_at {
+            return Err(Error::Protocol(
+                "session grant expires_at must be after issued_at".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Return the Principal Server session binding represented by this grant.
+    pub fn principal_binding(&self) -> SessionPrincipalBinding {
+        SessionPrincipalBinding {
+            session_id: self.session_id.clone(),
+            principal_id: self.principal_id.clone(),
+            device_id: self.device_id.clone(),
+            created_at: self.issued_at,
+            valid_until: self.expires_at,
+        }
+    }
+}
+
+/// Issued session grant. Debug output redacts the serialized grant token.
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionGrant {
+    pub payload: SessionGrantPayload,
+    pub grant_jwt: String,
+    pub grant_hash: String,
+}
+
+impl fmt::Debug for SessionGrant {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SessionGrant")
+            .field("payload", &self.payload)
+            .field("grant_jwt", &"<redacted>")
+            .field("grant_hash", &self.grant_hash)
+            .finish()
+    }
+}
+
+impl SessionGrant {
+    /// Create a grant and hash the serialized grant token for durable storage.
+    pub fn new(payload: SessionGrantPayload, grant_jwt: impl Into<String>) -> Result<Self> {
+        payload.validate()?;
+        let grant_jwt = grant_jwt.into();
+        if grant_jwt.trim().is_empty() {
+            return Err(Error::Protocol("session grant JWT must not be empty".to_owned()));
+        }
+        let grant_hash = sha256_hex(grant_jwt.as_bytes());
+        Ok(Self { payload, grant_jwt, grant_hash })
+    }
+
+    /// Convert this issued grant into a durable record without token material.
+    pub fn into_record(self) -> SessionGrantRecord {
+        SessionGrantRecord {
+            payload: self.payload,
+            grant_hash: self.grant_hash,
+            created_at: Utc::now(),
+            revoked_at: None,
+            revoke_reason: None,
+        }
+    }
+}
+
+/// Durable session grant record. Token material is represented by hash only.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionGrantRecord {
+    pub payload: SessionGrantPayload,
+    pub grant_hash: String,
+    pub created_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub revoked_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub revoke_reason: Option<String>,
+}
+
+impl SessionGrantRecord {
+    pub fn active(&self, now: DateTime<Utc>) -> bool {
+        self.revoked_at.is_none() && now < self.payload.expires_at
+    }
+
+    pub fn revoke(&mut self, revoked_at: DateTime<Utc>, reason: impl Into<String>) {
+        self.revoked_at = Some(revoked_at);
+        self.revoke_reason = Some(reason.into());
+    }
+}
+
+/// Principal Server notification type for session grant lifecycle changes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SessionGrantNotificationKind {
+    Created,
+    Revoked,
+}
+
+/// Idempotent notification sent from an identity provider to Principal Servers.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PrincipalSessionGrantNotification {
+    pub request_id: String,
+    pub kind: SessionGrantNotificationKind,
+    pub record: SessionGrantRecord,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub admin_actor: Option<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+impl PrincipalSessionGrantNotification {
+    pub fn validate(&self) -> Result<()> {
+        if self.request_id.trim().is_empty() {
+            return Err(Error::Protocol(
+                "session grant notification request_id is empty".to_owned(),
+            ));
+        }
+        self.record.payload.validate()?;
+        if matches!(self.kind, SessionGrantNotificationKind::Revoked)
+            && self.record.revoked_at.is_none()
+        {
+            return Err(Error::Protocol(
+                "revoked session grant notification must include revoked_at".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Principal Server response for a session grant notification.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PrincipalSessionGrantNotificationResponse {
+    pub accepted: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub audit_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retry_after_ms: Option<u64>,
+}
+
+/// Host-supplied notifier for Principal Server session-grant propagation.
+///
+/// TODO: real coauth/soland integrations should wrap this trait with a durable
+/// outbox, idempotency-key persistence and retry/backoff policy. The SDK only
+/// defines the stable request/response contract.
+pub trait PrincipalSessionGrantNotifier {
+    fn notify_session_grant(
+        &self,
+        notification: &PrincipalSessionGrantNotification,
+    ) -> Result<PrincipalSessionGrantNotificationResponse>;
+}
+
+impl<F> PrincipalSessionGrantNotifier for F
+where
+    F: Fn(&PrincipalSessionGrantNotification) -> Result<PrincipalSessionGrantNotificationResponse>,
+{
+    fn notify_session_grant(
+        &self,
+        notification: &PrincipalSessionGrantNotification,
+    ) -> Result<PrincipalSessionGrantNotificationResponse> {
+        self(notification)
+    }
+}
+
 /// Auth operation category supplied to rate-limit hooks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -409,6 +656,7 @@ pub enum AuthClaimType {
     EmailDomain,
     OrganizationMembership,
     OrganizationRole,
+    GuardianController,
     DeviceTrust,
     MfaLevel,
     RiskLevel,
@@ -421,6 +669,7 @@ impl AuthClaimType {
             Self::EmailDomain => "email_domain",
             Self::OrganizationMembership => "organization_membership",
             Self::OrganizationRole => "organization_role",
+            Self::GuardianController => "guardian_controller",
             Self::DeviceTrust => "device_trust",
             Self::MfaLevel => "mfa_level",
             Self::RiskLevel => "risk_level",
@@ -531,6 +780,22 @@ impl PresentedClaim {
         )
     }
 
+    pub fn guardian_controller(
+        claim_id: impl Into<String>,
+        subject: Did,
+        issuer: Did,
+        guardian: Did,
+        controller: Did,
+    ) -> Self {
+        Self::new(
+            claim_id,
+            subject,
+            issuer,
+            AuthClaimType::GuardianController.as_str(),
+            serde_json::json!({ "guardian": guardian, "controller": controller }),
+        )
+    }
+
     pub fn mfa_level(
         claim_id: impl Into<String>,
         subject: Did,
@@ -594,6 +859,53 @@ pub struct PresentationRequest {
     pub nonce: String,
     pub policy: DisclosurePolicy,
     pub created_at: DateTime<Utc>,
+}
+
+/// External selective-disclosure proof format accepted through an adapter boundary.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DisclosureProofFormat {
+    SdJwt,
+    Bbs,
+    Custom(String),
+}
+
+/// Format-neutral boundary object passed to SD-JWT, BBS or host-provided verifiers.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DisclosureProofAdapterBoundary {
+    pub format: DisclosureProofFormat,
+    pub holder: Did,
+    pub issuer: Did,
+    pub audience: String,
+    pub nonce: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub domain: Option<String>,
+    pub encoded_presentation: String,
+}
+
+impl DisclosureProofAdapterBoundary {
+    /// Validate request binding before delegating to a format-specific verifier.
+    pub fn validate_request_binding(
+        &self,
+        request: &PresentationRequest,
+        expected_domain: Option<&str>,
+    ) -> Result<()> {
+        if self.holder != request.subject {
+            return Err(Error::Protocol("disclosure proof holder mismatch".to_owned()));
+        }
+        if self.audience != request.audience {
+            return Err(Error::Protocol("disclosure proof audience mismatch".to_owned()));
+        }
+        if self.nonce != request.nonce {
+            return Err(Error::Protocol("disclosure proof nonce mismatch".to_owned()));
+        }
+        if expected_domain != self.domain.as_deref() {
+            return Err(Error::Protocol("disclosure proof domain mismatch".to_owned()));
+        }
+        if self.encoded_presentation.trim().is_empty() {
+            return Err(Error::Protocol("disclosure proof payload is empty".to_owned()));
+        }
+        Ok(())
+    }
 }
 
 /// Rejected claim detail.
@@ -1751,10 +2063,75 @@ mod tests {
     }
 
     #[test]
+    fn session_grant_contract_redacts_and_notifies_principal_servers() {
+        let now = Utc::now();
+        let payload = SessionGrantPayload {
+            issuer: did("coauth"),
+            subject: did("alice"),
+            principal_id: did("alice"),
+            device_id: device("desktop"),
+            audience: vec!["did:web:soland.example".to_owned()],
+            scopes: vec!["urn:contrix:principal-server:session.bind".to_owned()],
+            session_id: "browser-session-1".to_owned(),
+            grant_jti: "grant-1".to_owned(),
+            issued_at: now,
+            expires_at: now + Duration::minutes(10),
+            revocation_ref: "https://coauth.example/api/admin/v1/session-grants/grant-1".to_owned(),
+            session_public_key: Some("session-public-key".to_owned()),
+        };
+        payload.validate().unwrap();
+        let binding = payload.principal_binding();
+        assert_eq!(binding.device_id, device("desktop"));
+
+        let grant = SessionGrant::new(payload, "signed.jwt.value").unwrap();
+        assert!(!format!("{grant:?}").contains("signed.jwt.value"));
+        let mut record = grant.into_record();
+        assert!(record.active(now));
+        record.revoke(now + Duration::minutes(1), "logout");
+
+        let notification = PrincipalSessionGrantNotification {
+            request_id: "request-1".to_owned(),
+            kind: SessionGrantNotificationKind::Revoked,
+            record,
+            admin_actor: Some(did("admin")),
+            reason: Some("logout".to_owned()),
+        };
+        notification.validate().unwrap();
+
+        let notifier = |notification: &PrincipalSessionGrantNotification| {
+            notification.validate()?;
+            Ok(PrincipalSessionGrantNotificationResponse {
+                accepted: true,
+                audit_id: Some("audit-1".to_owned()),
+                retry_after_ms: None,
+            })
+        };
+        let response = notifier.notify_session_grant(&notification).unwrap();
+        assert!(response.accepted);
+    }
+
+    #[test]
+    fn device_scope_helpers_prefer_contrix_and_gate_legacy_matrix() {
+        let device = device("phone");
+        let scope = contrix_device_scope(&device);
+        assert_eq!(device_id_from_scope_token(&scope, false).unwrap(), device);
+        assert_eq!(
+            primary_device_id_from_scopes(["openid", scope.as_str()], false).unwrap(),
+            device
+        );
+
+        let legacy = "urn:matrix:client:device:dev_phone";
+        assert!(device_id_from_scope_token(legacy, false).is_none());
+        assert_eq!(device_id_from_scope_token(legacy, true).unwrap(), device);
+    }
+
+    #[test]
     fn auth_validates_progressive_disclosure_claims_fail_closed() {
         let alice = did("alice");
         let issuer = did("issuer");
         let org = did("org");
+        let guardian = did("guardian");
+        let controller = did("controller");
         let request = PresentationRequest {
             request_id: "presentation-1".to_owned(),
             subject: alice.clone(),
@@ -1775,6 +2152,12 @@ mod tests {
                         reveal_fields: vec!["organization".to_owned()],
                         required: true,
                     },
+                    ClaimDisclosureRequirement {
+                        claim_type: AuthClaimType::GuardianController.as_str().to_owned(),
+                        trusted_issuers: vec![issuer.clone()],
+                        reveal_fields: vec!["guardian".to_owned(), "controller".to_owned()],
+                        required: true,
+                    },
                 ],
                 max_age: Some(Duration::days(1)),
                 fail_closed: true,
@@ -1786,15 +2169,22 @@ mod tests {
         handle.issued_at = Utc::now();
         let membership = PresentedClaim::organization_membership(
             "claim-org",
-            alice,
-            issuer,
+            alice.clone(),
+            issuer.clone(),
             org,
             vec!["writer".to_owned()],
+        );
+        let guardian_controller = PresentedClaim::guardian_controller(
+            "claim-guardian",
+            alice.clone(),
+            issuer.clone(),
+            guardian.clone(),
+            controller.clone(),
         );
 
         let accepted = validate_presentation(
             &request,
-            &[handle.clone(), membership],
+            &[handle.clone(), membership, guardian_controller],
             &BTreeSet::new(),
             Utc::now(),
         );
@@ -1804,6 +2194,26 @@ mod tests {
             accepted.disclosed_claims[1].value,
             serde_json::json!({"organization": "did:web:org.example"})
         );
+        assert_eq!(
+            accepted.disclosed_claims[2].value,
+            serde_json::json!({
+                "guardian": guardian,
+                "controller": controller
+            })
+        );
+        let boundary = DisclosureProofAdapterBoundary {
+            format: DisclosureProofFormat::SdJwt,
+            holder: alice,
+            issuer,
+            audience: request.audience.clone(),
+            nonce: request.nonce.clone(),
+            domain: Some("contrix-auth".to_owned()),
+            encoded_presentation: "compact.sd-jwt".to_owned(),
+        };
+        boundary.validate_request_binding(&request, Some("contrix-auth")).unwrap();
+        let mut wrong_audience = boundary.clone();
+        wrong_audience.audience = "other-audience".to_owned();
+        assert!(wrong_audience.validate_request_binding(&request, Some("contrix-auth")).is_err());
 
         let rejected = validate_presentation(
             &request,

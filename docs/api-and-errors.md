@@ -22,3 +22,21 @@ Common error categories:
 Practical rule: validate identifiers at boundaries, use canonical digest helpers
 before signing, and preserve `Error::Api` details when surfacing server failures
 to applications.
+
+## Cross-Service Contracts
+
+The auth surface exposes `SessionGrantPayload`, `SessionGrantRecord` and
+`PrincipalSessionGrantNotification` so coauth can issue auditable session grants
+and soland can consume grant-created / grant-revoked notifications without
+copying private key material into persistence. `SessionGrant` redacts the
+serialized grant token in `Debug`; durable stores should persist `grant_hash`.
+
+Device binding scopes should use `urn:contrix:client:device:{id}`. Legacy Matrix
+device scopes are only parsed when callers explicitly opt in to compatibility
+with `device_id_from_scope_token(..., true)`.
+
+The identity surface exposes `StaridRegistryAdapter` and
+`StaridRegistryRecord` as the registry-backed DID boundary. The in-memory
+adapter is for tests and offline development only; production adapters still
+need registry-network fetching, key-log receipt validation, stale-head handling
+and bounded response parsing.
