@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use chrono::Utc;
 use openmls::prelude::{
@@ -12,14 +14,15 @@ use serde_json::json;
 use tls_codec::{Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait};
 
 use crate::{
-    DeviceId, Did, EncryptedPayload, EncryptedPayloadScheme, Error, Hash, MlsCommitEnvelope,
-    MlsKeyPackageRecord, MlsWelcomeEnvelope, Operation, OperationId, Result, SpaceId,
-    ToDeviceMessage, canonical,
+    CryptoStore, DeviceId, Did, EncryptedPayload, EncryptedPayloadScheme, Error, Hash,
+    MlsCommitEnvelope, MlsGroupStateRecord, MlsKeyPackageRecord, MlsWelcomeEnvelope, Operation,
+    OperationId, Result, SpaceId, ToDeviceMessage, canonical,
 };
 
 pub const CONTRIX_MLS_ALGORITHM: &str = "cx.mls.v1";
 pub const CONTRIX_MLS_CIPHERSUITE: Ciphersuite =
     Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;
+const CONTRIX_OPENMLS_STATE_SNAPSHOT: &str = "contrix-openmls-provider-state-v1";
 
 pub struct ContrixMlsIdentity {
     pub principal_id: Did,
@@ -38,6 +41,37 @@ pub struct ContrixMlsGroup {
 pub struct MlsAddMemberResult {
     pub commit: MlsCommitEnvelope,
     pub welcome: MlsWelcomeEnvelope,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+struct OpenMlsStateSnapshot {
+    context: String,
+    group_id: String,
+    epoch: u64,
+    principal_id: Did,
+    device_id: DeviceId,
+    signer_public_key: String,
+    storage_entries: BTreeMap<String, String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MlsDeviceWorkflowAction {
+    PublishKeyPackage,
+    RevokeKeyPackage,
+    ConsumeWelcome,
+    ApplyCommit,
+    RequestEpochRecovery,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MlsDeviceWorkflowStep {
+    pub action: MlsDeviceWorkflowAction,
+    pub principal_id: Did,
+    pub device_id: DeviceId,
+    pub group_id: Option<String>,
+    pub from_epoch: Option<u64>,
+    pub to_epoch: Option<u64>,
 }
 
 impl MlsAddMemberResult {
@@ -87,6 +121,8 @@ pub enum MessageCryptoDecrypt {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MessageCryptoUnavailable {
     NoSession,
+    WrongGroup { expected: String, actual: String },
+    EpochUnavailable { local_epoch: u64, required_epoch: u64 },
     KeyUnavailable(String),
 }
 
@@ -105,9 +141,41 @@ impl MessageCrypto {
         })
     }
 
+    pub fn encrypt_with_aad(
+        group: &mut ContrixMlsGroup,
+        message_id: impl Into<String>,
+        content_type: impl Into<String>,
+        aad: serde_json::Value,
+        plaintext: &[u8],
+    ) -> Result<EncryptedMessage> {
+        Ok(EncryptedMessage {
+            message_id: message_id.into(),
+            payload: group.encrypt_payload_with_aad(content_type, Some(aad), plaintext)?,
+        })
+    }
+
     pub fn verify_opaque_payload_digest(message: &EncryptedMessage) -> Result<()> {
         let ciphertext_bytes = decode(&message.payload.ciphertext)?;
         message.payload.verify_mls_payload_digest(&ciphertext_bytes)
+    }
+
+    pub fn verify_payload_and_aad_digest(
+        message: &EncryptedMessage,
+        expected_aad_digest: Option<&str>,
+    ) -> Result<()> {
+        Self::verify_opaque_payload_digest(message)?;
+        if let Some(expected) = expected_aad_digest {
+            let aad = message
+                .payload
+                .aad
+                .as_ref()
+                .ok_or_else(|| Error::Protocol("encrypted payload AAD is missing".to_owned()))?;
+            let actual = crate::crypto::json_aad_digest(aad)?;
+            if actual != expected {
+                return Err(Error::Protocol("encrypted payload AAD digest mismatch".to_owned()));
+            }
+        }
+        Ok(())
     }
 
     pub fn decrypt(group: &mut ContrixMlsGroup, message: &EncryptedMessage) -> Result<Vec<u8>> {
@@ -131,6 +199,27 @@ impl MessageCrypto {
             });
         };
 
+        if message.payload.group_id != group.group_id() {
+            return Ok(MessageCryptoDecrypt::Encrypted {
+                message_id,
+                payload: message.payload.clone(),
+                reason: MessageCryptoUnavailable::WrongGroup {
+                    expected: group.group_id(),
+                    actual: message.payload.group_id,
+                },
+            });
+        }
+        if message.payload.epoch > group.epoch() {
+            return Ok(MessageCryptoDecrypt::Encrypted {
+                message_id,
+                payload: message.payload.clone(),
+                reason: MessageCryptoUnavailable::EpochUnavailable {
+                    local_epoch: group.epoch(),
+                    required_epoch: message.payload.epoch,
+                },
+            });
+        }
+
         match group.decrypt_payload(&message.payload) {
             Ok(plaintext) => {
                 Ok(MessageCryptoDecrypt::Plaintext { message_id, content_type, plaintext })
@@ -149,6 +238,7 @@ impl ContrixMlsIdentity {
         let provider = OpenMlsRustCrypto::default();
         let signer = SignatureKeyPair::new(CONTRIX_MLS_CIPHERSUITE.signature_algorithm())
             .map_err(mls_error)?;
+        signer.store(provider.storage()).map_err(mls_error)?;
         let credential = CredentialWithKey {
             credential: BasicCredential::new(principal_id.as_str().as_bytes().to_vec()).into(),
             signature_key: signer.public().into(),
@@ -176,6 +266,20 @@ impl ContrixMlsIdentity {
             revoked: false,
             device_signature: None,
         })
+    }
+
+    pub fn publish_key_package_step(
+        &self,
+        group_id: Option<String>,
+    ) -> MlsDeviceWorkflowStep {
+        MlsDeviceWorkflowStep {
+            action: MlsDeviceWorkflowAction::PublishKeyPackage,
+            principal_id: self.principal_id.clone(),
+            device_id: self.device_id.clone(),
+            group_id,
+            from_epoch: None,
+            to_epoch: None,
+        }
     }
 
     pub fn create_group(self, group_id: impl AsRef<[u8]>) -> Result<ContrixMlsGroup> {
@@ -212,6 +316,79 @@ impl ContrixMlsGroup {
     pub fn ratchet_tree(&self) -> Result<String> {
         let bytes = self.group.export_ratchet_tree().tls_serialize_detached().map_err(mls_error)?;
         Ok(encode(&bytes))
+    }
+
+    pub fn export_state_record(&self) -> Result<MlsGroupStateRecord> {
+        let snapshot = OpenMlsStateSnapshot {
+            context: CONTRIX_OPENMLS_STATE_SNAPSHOT.to_owned(),
+            group_id: self.group_id(),
+            epoch: self.epoch(),
+            principal_id: self.identity.principal_id.clone(),
+            device_id: self.identity.device_id.clone(),
+            signer_public_key: encode(self.identity.signer.public()),
+            storage_entries: snapshot_provider_storage(&self.identity.provider)?,
+        };
+        Ok(MlsGroupStateRecord {
+            group_id: snapshot.group_id.clone(),
+            principal_id: snapshot.principal_id.clone(),
+            device_id: snapshot.device_id.clone(),
+            epoch: snapshot.epoch,
+            serialized_state: serde_json::to_vec(&snapshot)?,
+            updated_at: Utc::now(),
+        })
+    }
+
+    pub fn persist_state(&self, store: &mut impl CryptoStore) -> Result<MlsGroupStateRecord> {
+        let record = self.export_state_record()?;
+        store.put_mls_group_state(record.clone())?;
+        Ok(record)
+    }
+
+    pub fn restore_from_state_record(record: &MlsGroupStateRecord) -> Result<Self> {
+        let snapshot: OpenMlsStateSnapshot = serde_json::from_slice(&record.serialized_state)?;
+        if snapshot.context != CONTRIX_OPENMLS_STATE_SNAPSHOT {
+            return Err(Error::Protocol("unsupported OpenMLS state snapshot".to_owned()));
+        }
+        if snapshot.group_id != record.group_id
+            || snapshot.epoch != record.epoch
+            || snapshot.principal_id != record.principal_id
+            || snapshot.device_id != record.device_id
+        {
+            return Err(Error::Protocol("OpenMLS state snapshot metadata mismatch".to_owned()));
+        }
+
+        let provider = OpenMlsRustCrypto::default();
+        restore_provider_storage(&provider, &snapshot.storage_entries)?;
+        let signer_public_key = decode(&snapshot.signer_public_key)?;
+        let signer = SignatureKeyPair::read(
+            provider.storage(),
+            &signer_public_key,
+            CONTRIX_MLS_CIPHERSUITE.signature_algorithm(),
+        )
+        .ok_or_else(|| Error::Protocol("OpenMLS signer is missing from snapshot".to_owned()))?;
+        let credential = CredentialWithKey {
+            credential: BasicCredential::new(record.principal_id.as_str().as_bytes().to_vec())
+                .into(),
+            signature_key: signer.public().into(),
+        };
+        let group_id = GroupId::from_slice(&decode(&record.group_id)?);
+        let group = MlsGroup::load(provider.storage(), &group_id)
+            .map_err(mls_error)?
+            .ok_or_else(|| Error::Protocol("OpenMLS group state is missing".to_owned()))?;
+        if group.epoch().as_u64() != record.epoch {
+            return Err(Error::Protocol("OpenMLS restored epoch mismatch".to_owned()));
+        }
+
+        Ok(Self {
+            identity: ContrixMlsIdentity {
+                principal_id: record.principal_id.clone(),
+                device_id: record.device_id.clone(),
+                provider,
+                signer,
+                credential,
+            },
+            group,
+        })
     }
 
     pub fn add_member(
@@ -309,6 +486,15 @@ impl ContrixMlsGroup {
         content_type: impl Into<String>,
         plaintext: &[u8],
     ) -> Result<EncryptedPayload> {
+        self.encrypt_payload_with_aad(content_type, None, plaintext)
+    }
+
+    pub fn encrypt_payload_with_aad(
+        &mut self,
+        content_type: impl Into<String>,
+        aad: Option<serde_json::Value>,
+        plaintext: &[u8],
+    ) -> Result<EncryptedPayload> {
         let content_type = content_type.into();
         let message = self
             .group
@@ -317,7 +503,7 @@ impl ContrixMlsGroup {
         let message_bytes = message.tls_serialize_detached().map_err(mls_error)?;
         let epoch = self.epoch();
         let payload_digest =
-            EncryptedPayload::mls_payload_digest(epoch, &content_type, None, &message_bytes)?;
+            EncryptedPayload::mls_payload_digest(epoch, &content_type, aad.as_ref(), &message_bytes)?;
 
         Ok(EncryptedPayload {
             scheme: EncryptedPayloadScheme::MlsRfc9420,
@@ -325,7 +511,7 @@ impl ContrixMlsGroup {
             epoch,
             content_type,
             ciphertext: encode(&message_bytes),
-            aad: None,
+            aad,
             payload_digest,
             key_ref: Some(format!("mls_epoch:{epoch}")),
         })
@@ -395,6 +581,18 @@ impl ContrixMlsGroup {
             _ => Err(Error::Protocol("expected MLS Commit".to_owned())),
         }
     }
+
+    pub fn apply_commits(&mut self, envelopes: &[MlsCommitEnvelope]) -> Result<u64> {
+        let mut sorted = envelopes.iter().collect::<Vec<_>>();
+        sorted.sort_by_key(|envelope| envelope.epoch);
+        for envelope in sorted {
+            if envelope.epoch <= self.epoch() {
+                continue;
+            }
+            self.apply_commit(envelope)?;
+        }
+        Ok(self.epoch())
+    }
 }
 
 fn decode_key_package(
@@ -410,6 +608,71 @@ fn decode_key_package(
     let key_package_in =
         KeyPackageIn::tls_deserialize_exact(bytes.as_slice()).map_err(mls_error)?;
     key_package_in.validate(provider.crypto(), ProtocolVersion::Mls10).map_err(mls_error)
+}
+
+pub fn revoke_key_package(record: &mut MlsKeyPackageRecord) -> MlsDeviceWorkflowStep {
+    record.revoked = true;
+    MlsDeviceWorkflowStep {
+        action: MlsDeviceWorkflowAction::RevokeKeyPackage,
+        principal_id: record.principal_id.clone(),
+        device_id: record.device_id.clone(),
+        group_id: None,
+        from_epoch: None,
+        to_epoch: None,
+    }
+}
+
+pub fn late_device_join_steps(welcome: &MlsWelcomeEnvelope) -> Vec<MlsDeviceWorkflowStep> {
+    vec![MlsDeviceWorkflowStep {
+        action: MlsDeviceWorkflowAction::ConsumeWelcome,
+        principal_id: welcome.recipient_principal_id.clone(),
+        device_id: welcome.recipient_device_id.clone(),
+        group_id: Some(welcome.group_id.clone()),
+        from_epoch: None,
+        to_epoch: Some(welcome.epoch),
+    }]
+}
+
+pub fn epoch_recovery_step(
+    principal_id: Did,
+    device_id: DeviceId,
+    group_id: impl Into<String>,
+    from_epoch: u64,
+    to_epoch: u64,
+) -> MlsDeviceWorkflowStep {
+    MlsDeviceWorkflowStep {
+        action: MlsDeviceWorkflowAction::RequestEpochRecovery,
+        principal_id,
+        device_id,
+        group_id: Some(group_id.into()),
+        from_epoch: Some(from_epoch),
+        to_epoch: Some(to_epoch),
+    }
+}
+
+fn snapshot_provider_storage(provider: &OpenMlsRustCrypto) -> Result<BTreeMap<String, String>> {
+    let values = provider
+        .storage()
+        .values
+        .read()
+        .map_err(|_| Error::Protocol("OpenMLS storage lock poisoned".to_owned()))?;
+    Ok(values.iter().map(|(key, value)| (encode(key), encode(value))).collect())
+}
+
+fn restore_provider_storage(
+    provider: &OpenMlsRustCrypto,
+    entries: &BTreeMap<String, String>,
+) -> Result<()> {
+    let mut values = provider
+        .storage()
+        .values
+        .write()
+        .map_err(|_| Error::Protocol("OpenMLS storage lock poisoned".to_owned()))?;
+    values.clear();
+    for (key, value) in entries {
+        values.insert(decode(key)?, decode(value)?);
+    }
+    Ok(())
 }
 
 fn encode(bytes: &[u8]) -> String {
@@ -485,6 +748,121 @@ mod tests {
         MessageCrypto::verify_opaque_payload_digest(&encrypted).unwrap();
         let decrypted = MessageCrypto::decrypt(&mut bob_group, &encrypted).unwrap();
         assert_eq!(decrypted, br#"{"body":"hello secure workflow"}"#);
+    }
+
+    #[test]
+    fn message_crypto_encrypts_with_aad_and_verifies_digest() {
+        let alice = ContrixMlsIdentity::new_basic(
+            Did::new("did:web:alice.example").unwrap(),
+            DeviceId::new("dev_alice_1").unwrap(),
+        )
+        .unwrap();
+        let bob = ContrixMlsIdentity::new_basic(
+            Did::new("did:web:bob.example").unwrap(),
+            DeviceId::new("dev_bob_1").unwrap(),
+        )
+        .unwrap();
+        let bob_key_package = bob.key_package_record().unwrap();
+
+        let mut alice_group = alice.create_group(b"cx:space:message-aad").unwrap();
+        let add_result = alice_group.add_member(&bob_key_package).unwrap();
+        let mut bob_group = ContrixMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
+        let aad = serde_json::json!({
+            "space_id": "cx:space:message-aad",
+            "event_type": "cx.message.create",
+            "event_id": "cx:event:encrypted-aad",
+            "causal_refs": []
+        });
+        let aad_digest = crate::crypto::json_aad_digest(&aad).unwrap();
+
+        let encrypted = MessageCrypto::encrypt_with_aad(
+            &mut alice_group,
+            "cx:message:aad",
+            "application/json",
+            aad,
+            br#"{"body":"aad bound"}"#,
+        )
+        .unwrap();
+        MessageCrypto::verify_payload_and_aad_digest(&encrypted, Some(&aad_digest)).unwrap();
+        assert_eq!(
+            MessageCrypto::decrypt(&mut bob_group, &encrypted).unwrap(),
+            br#"{"body":"aad bound"}"#
+        );
+    }
+
+    #[test]
+    fn openmls_state_persists_through_crypto_store_record() {
+        let alice = ContrixMlsIdentity::new_basic(
+            Did::new("did:web:alice.example").unwrap(),
+            DeviceId::new("dev_alice_1").unwrap(),
+        )
+        .unwrap();
+        let bob = ContrixMlsIdentity::new_basic(
+            Did::new("did:web:bob.example").unwrap(),
+            DeviceId::new("dev_bob_1").unwrap(),
+        )
+        .unwrap();
+        let bob_key_package = bob.key_package_record().unwrap();
+
+        let mut alice_group = alice.create_group(b"cx:space:persisted-mls").unwrap();
+        let add_result = alice_group.add_member(&bob_key_package).unwrap();
+        let mut bob_group = ContrixMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
+        let mut store = crate::MemoryCryptoStore::new();
+        let record = bob_group.persist_state(&mut store).unwrap();
+        let mut restored_bob = ContrixMlsGroup::restore_from_state_record(&record).unwrap();
+
+        assert_eq!(restored_bob.epoch(), bob_group.epoch());
+        assert_eq!(store.mls_group_state(&record.group_id).unwrap().epoch, record.epoch);
+
+        let encrypted =
+            alice_group.encrypt_payload("application/json", br#"{"body":"after restore"}"#).unwrap();
+        assert_eq!(
+            restored_bob.decrypt_payload(&encrypted).unwrap(),
+            br#"{"body":"after restore"}"#
+        );
+    }
+
+    #[test]
+    fn multi_device_workflow_applies_missed_commits_and_models_recovery() {
+        let alice = ContrixMlsIdentity::new_basic(
+            Did::new("did:web:alice.example").unwrap(),
+            DeviceId::new("dev_alice_1").unwrap(),
+        )
+        .unwrap();
+        let bob = ContrixMlsIdentity::new_basic(
+            Did::new("did:web:bob.example").unwrap(),
+            DeviceId::new("dev_bob_1").unwrap(),
+        )
+        .unwrap();
+        let charlie = ContrixMlsIdentity::new_basic(
+            Did::new("did:web:charlie.example").unwrap(),
+            DeviceId::new("dev_charlie_1").unwrap(),
+        )
+        .unwrap();
+        let bob_key_package = bob.key_package_record().unwrap();
+        let charlie_key_package = charlie.key_package_record().unwrap();
+        let mut revoked_package = charlie_key_package.clone();
+        let revoke_step = revoke_key_package(&mut revoked_package);
+        assert!(revoked_package.revoked);
+        assert_eq!(revoke_step.action, MlsDeviceWorkflowAction::RevokeKeyPackage);
+
+        let mut alice_group = alice.create_group(b"cx:space:offline-commits").unwrap();
+        let bob_add = alice_group.add_member(&bob_key_package).unwrap();
+        let mut bob_group = ContrixMlsGroup::join_from_welcome(bob, &bob_add.welcome).unwrap();
+        let charlie_add = alice_group.add_member(&charlie_key_package).unwrap();
+        let workflow = late_device_join_steps(&charlie_add.welcome);
+        assert_eq!(workflow[0].action, MlsDeviceWorkflowAction::ConsumeWelcome);
+
+        bob_group.apply_commits(std::slice::from_ref(&charlie_add.commit)).unwrap();
+        assert_eq!(bob_group.epoch(), alice_group.epoch());
+        let recovery = epoch_recovery_step(
+            Did::new("did:web:bob.example").unwrap(),
+            DeviceId::new("dev_bob_1").unwrap(),
+            bob_group.group_id(),
+            bob_group.epoch() + 1,
+            bob_group.epoch() + 3,
+        );
+        assert_eq!(recovery.action, MlsDeviceWorkflowAction::RequestEpochRecovery);
     }
 
     #[test]

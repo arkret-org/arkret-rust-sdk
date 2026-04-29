@@ -193,43 +193,43 @@ Owned files: `sync.rs`, `sync_client.rs`, `timeline.rs`, `resolver.rs`, runtime 
   - [ ] Streaming support for `GET /api/v1/sync/subscribe`.
   - [ ] Cancellation, backpressure and retry policy.
   - [ ] Token persistence and reset-on-gap strategy.
-- [ ] Build an event cache layer.
-  - [ ] Deduplicate events by event ID and digest.
-  - [ ] Store raw events and processed timeline items.
-  - [ ] Reconcile limited timelines and backfilled chunks.
-  - [ ] Persist gaps and paginate through them.
-- [ ] Add send queue support.
-  - [ ] Local echo for outbound messages.
-  - [ ] Idempotent transaction IDs.
-  - [ ] Offline queue persistence.
-  - [ ] Retry, cancellation and dependent-event ordering.
-  - [ ] Edit/redact/reaction queue semantics.
-- [ ] Improve timeline APIs.
-  - [ ] Stable timeline item model for UI consumers.
-  - [ ] Message edit and redaction aggregation.
-  - [ ] Reaction summary updates.
-  - [ ] Read receipt and typing ephemeral updates.
-  - [ ] Pinned/focused event loading.
-- [ ] Build a room / space list service.
-  - [ ] Sliding-window subscriptions backed by persisted list state.
-  - [ ] Sorting by recency/name/unread/favorite.
-  - [ ] Filtering by joined/invited/left/favorite/unread/category.
-  - [ ] Incremental updates suitable for UI bindings.
-- [ ] Snapshot and bootstrap contract.
+- [x] Build an event cache layer.
+  - [x] Deduplicate events by event ID and digest.
+  - [x] Store raw events and processed timeline items.
+  - [x] Reconcile limited timelines and backfilled chunks.
+  - [x] Persist gaps and paginate through them.
+- [x] Add send queue support.
+  - [x] Local echo for outbound messages.
+  - [x] Idempotent transaction IDs.
+  - [x] Offline queue persistence.
+  - [x] Retry, cancellation and dependent-event ordering.
+  - [x] Edit/redact/reaction queue semantics.
+- [x] Improve timeline APIs.
+  - [x] Stable timeline item model for UI consumers.
+  - [x] Message edit and redaction aggregation.
+  - [x] Reaction summary updates.
+  - [x] Read receipt and typing ephemeral updates.
+  - [x] Pinned/focused event loading.
+- [x] Build a room / space list service.
+  - [x] Sliding-window subscriptions backed by persisted list state.
+  - [x] Sorting by recency/name/unread/favorite.
+  - [x] Filtering by joined/invited/left/favorite/unread/category.
+  - [x] Incremental updates suitable for UI bindings.
+- [x] Snapshot and bootstrap contract.
   - [x] Reducer snapshot manifest fields and signature model.
   - [x] Snapshot chunk digest verification.
   - [x] State hash / Merkle root helpers.
-  - [ ] Bootstrap sequence: resolve, discover services, fetch invite/grants, fetch snapshot, pull increments, run reducer, enter cursor subscription.
+  - [x] Bootstrap sequence: resolve, discover services, fetch invite/grants, fetch snapshot, pull increments, run reducer, enter cursor subscription.
   - [x] Client fallback-to-repo-replay behavior when snapshot verification fails.
-- [ ] Client sync correctness contract.
-  - [ ] Bind sync tokens to principal, device, service, filter hash, stream positions and expiry.
-  - [ ] Persist sync positions.
-  - [ ] Specify initial and incremental sync semantics.
-  - [ ] Model join, invite, knock and leave buckets.
-  - [ ] Specify deterministic timeline order using causal depth, HLC, actor ID, actor sequence and event ID.
-  - [ ] Model `timeline.limited`, backfill gaps and token expiry errors.
-  - [ ] Specify `X-Contrix-Wait-For` frontier wait and timeout behavior.
-  - [ ] Specify to-device delivery and acknowledgement semantics.
+- [x] Client sync correctness contract.
+  - [x] Bind sync tokens to principal, device, service, filter hash, stream positions and expiry.
+  - [x] Persist sync positions.
+  - [x] Specify initial and incremental sync semantics.
+  - [x] Model join, invite, knock and leave buckets.
+  - [x] Specify deterministic timeline order using causal depth, HLC, actor ID, actor sequence and event ID.
+  - [x] Model `timeline.limited`, backfill gaps and token expiry errors.
+  - [x] Specify `X-Contrix-Wait-For` frontier wait and timeout behavior.
+  - [x] Specify to-device delivery and acknowledgement semantics.
 
 ## WS-G HTTP, Federation And Interop
 

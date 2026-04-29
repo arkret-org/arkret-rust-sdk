@@ -1888,11 +1888,7 @@ fn resource_is_narrowed(child: &ResourceSelector, parent: &ResourceSelector) -> 
     }
     match (child, parent) {
         (
-            ResourceSelector::Entity {
-                space_id,
-                entity_type,
-                entity_id,
-            },
+            ResourceSelector::Entity { space_id, entity_type, entity_id },
             ResourceSelector::Entity {
                 space_id: parent_space,
                 entity_type: parent_type,
@@ -1903,21 +1899,31 @@ fn resource_is_narrowed(child: &ResourceSelector, parent: &ResourceSelector) -> 
                 && option_narrowed(entity_type.as_ref(), parent_type.as_ref())
                 && option_narrowed(entity_id.as_ref(), parent_id.as_ref())
         }
-        (ResourceSelector::Message { space_id, message_id }, ResourceSelector::Message {
-            space_id: parent_space,
-            message_id: parent_id,
-        }) => space_narrowed(space_id, parent_space) && option_narrowed(message_id.as_ref(), parent_id.as_ref()),
-        (ResourceSelector::Policy { space_id, policy_id }, ResourceSelector::Policy {
-            space_id: parent_space,
-            policy_id: parent_id,
-        }) => space_narrowed(space_id, parent_space) && option_narrowed(policy_id.as_ref(), parent_id.as_ref()),
-        (ResourceSelector::Invite { space_id, invite_id }, ResourceSelector::Invite {
-            space_id: parent_space,
-            invite_id: parent_id,
-        }) => space_narrowed(space_id, parent_space) && option_narrowed(invite_id.as_ref(), parent_id.as_ref()),
-        (ResourceSelector::Space { space_id }, ResourceSelector::Space { space_id: parent_space }) => {
+        (
+            ResourceSelector::Message { space_id, message_id },
+            ResourceSelector::Message { space_id: parent_space, message_id: parent_id },
+        ) => {
             space_narrowed(space_id, parent_space)
+                && option_narrowed(message_id.as_ref(), parent_id.as_ref())
         }
+        (
+            ResourceSelector::Policy { space_id, policy_id },
+            ResourceSelector::Policy { space_id: parent_space, policy_id: parent_id },
+        ) => {
+            space_narrowed(space_id, parent_space)
+                && option_narrowed(policy_id.as_ref(), parent_id.as_ref())
+        }
+        (
+            ResourceSelector::Invite { space_id, invite_id },
+            ResourceSelector::Invite { space_id: parent_space, invite_id: parent_id },
+        ) => {
+            space_narrowed(space_id, parent_space)
+                && option_narrowed(invite_id.as_ref(), parent_id.as_ref())
+        }
+        (
+            ResourceSelector::Space { space_id },
+            ResourceSelector::Space { space_id: parent_space },
+        ) => space_narrowed(space_id, parent_space),
         _ => false,
     }
 }
@@ -2145,6 +2151,26 @@ mod tests {
     }
 
     #[test]
+    fn resource_selector_parse_space_scoped_resources_with_colon_ids() {
+        assert_eq!(
+            ResourceSelector::parse("policy:cx:space:01JS0SP000000000000000000:policy-main")
+                .unwrap(),
+            ResourceSelector::Policy {
+                space_id: "cx:space:01JS0SP000000000000000000".to_owned(),
+                policy_id: Some("policy-main".to_owned()),
+            }
+        );
+        assert_eq!(
+            ResourceSelector::parse("relation:cx:space:01JS0SP000000000000000000:assigned_to")
+                .unwrap(),
+            ResourceSelector::Relation {
+                space_id: "cx:space:01JS0SP000000000000000000".to_owned(),
+                relation_kind: "assigned_to".to_owned(),
+            }
+        );
+    }
+
+    #[test]
     fn resource_selector_wildcard_matches_all() {
         let selector = ResourceSelector::Wildcard;
         assert!(selector.matches(&Resource::Space { space_id: "test".to_owned() }));
@@ -2361,6 +2387,104 @@ mod tests {
 
         let decision = engine.check_authorization(&ctx, &[grant]);
         assert!(!decision.is_allowed());
+    }
+
+    #[test]
+    fn policy_server_no_action_never_grants_without_capability() {
+        let mut engine = AuthzEngine::new();
+        let ctx = AuthzContext::new(
+            Did::new("did:web:alice.example.com").unwrap(),
+            "read".to_owned(),
+            Resource::Space { space_id: "cx:space:A".to_owned() },
+        );
+
+        let allow_policy = PolicyCheckResponse::no_action();
+        assert!(!engine.check_authorization_with_policy(&ctx, &[], &allow_policy).is_allowed());
+
+        let grant =
+            grant_for("read", ResourceSelector::Space { space_id: "cx:space:A".to_owned() });
+        assert!(engine.check_authorization_with_policy(&ctx, &[grant], &allow_policy).is_allowed());
+    }
+
+    #[test]
+    fn policy_server_denies_quarantines_and_reports_moderation_outcomes() {
+        let mut engine = AuthzEngine::new();
+        let ctx = AuthzContext::new(
+            Did::new("did:web:alice.example.com").unwrap(),
+            "post".to_owned(),
+            Resource::Entity {
+                space_id: "cx:space:A".to_owned(),
+                entity_type: "message".to_owned(),
+                entity_id: "cx:entity:1".to_owned(),
+            },
+        );
+        let grant =
+            grant_for("post", ResourceSelector::Entity {
+                space_id: "cx:space:A".to_owned(),
+                entity_type: Some("message".to_owned()),
+                entity_id: None,
+            });
+        let policy = PolicyCheckResponse {
+            operation: "cx.policy.check".to_owned(),
+            effect: PolicyServerEffect::Quarantine,
+            reason: "possible abuse".to_owned(),
+            policy_id: Some("policy-abuse".to_owned()),
+            moderation_report_id: Some("report-1".to_owned()),
+        };
+
+        let decision = engine.check_authorization_with_policy(&ctx, &[grant], &policy);
+        assert!(matches!(decision, AuthzDecision::Quarantine { .. }));
+        let report = moderation_report_for_policy_outcome(&ctx, &policy, utc("2026-04-29T00:00:00Z"))
+            .unwrap();
+        assert_eq!(report.report_id, "report-1");
+        assert_eq!(report.effect, PolicyServerEffect::Quarantine);
+    }
+
+    #[test]
+    fn capability_frontier_rejects_cycles_widening_and_unknown_critical_constraints() {
+        let authority = Did::new("did:web:authority.example.com").unwrap();
+        let alice = Did::new("did:web:alice.example.com").unwrap();
+        let bob = Did::new("did:web:bob.example.com").unwrap();
+        let mut root =
+            grant_for("message.send", ResourceSelector::Message {
+                space_id: "cx:space:A".to_owned(),
+                message_id: None,
+            });
+        root.id = "root".to_owned();
+        root.issuer = authority;
+        root.subject = alice.clone();
+        root.delegable = true;
+        let child = CapabilityGrant {
+            id: "child".to_owned(),
+            space_id: None,
+            issuer: alice,
+            subject: bob,
+            actions: vec!["message.send".to_owned()],
+            resources: vec![ResourceSelector::Message {
+                space_id: "cx:space:A".to_owned(),
+                message_id: Some("message-1".to_owned()),
+            }],
+            constraints: Vec::new(),
+            delegable: false,
+            parent_grant_id: Some("root".to_owned()),
+            valid_from: None,
+            valid_until: None,
+            revoked_by: None,
+            revoked_at: None,
+        };
+        let validation = validate_capability_frontier(&[root.clone(), child.clone()]).unwrap();
+        assert_eq!(validation.max_delegation_depth, 1);
+
+        let mut widened = child;
+        widened.actions = vec!["message.delete".to_owned()];
+        assert!(validate_capability_frontier(&[root, widened]).is_err());
+
+        let wire = json!({
+            "constraints": [
+                {"type": "future_constraint", "critical": true}
+            ]
+        });
+        assert!(reject_unknown_critical_constraints(&wire, &["temporal"]).is_err());
     }
 
     #[test]
@@ -2643,6 +2767,72 @@ mod tests {
         ];
 
         assert!(engine.check_authorization(&ctx, &[grant]).is_allowed());
+    }
+
+    #[test]
+    fn authz_claim_constraints_fail_closed_on_subject_time_and_revocation() {
+        let mut engine = AuthzEngine::new();
+        let base_claim = VerifiedClaim {
+            claim_id: Some("claim-1".to_owned()),
+            subject: Did::new("did:web:alice.example.com").unwrap(),
+            claim_type: "employee".to_owned(),
+            issuer: Did::new("did:web:issuer.example.com").unwrap(),
+            organization: None,
+            status: Some("active".to_owned()),
+            roles: vec![],
+            issued_at: Some(utc("2026-04-28T00:00:00Z")),
+            expires_at: Some(utc("2026-04-30T00:00:00Z")),
+            revoked_at: None,
+            refreshed_at: None,
+        };
+        let ctx = ctx_at(
+            "2026-04-29T00:00:00Z",
+            "send",
+            Resource::Entity {
+                space_id: "cx:space:A".to_owned(),
+                entity_type: "message".to_owned(),
+                entity_id: "cx:entity:123".to_owned(),
+            },
+        )
+        .with_verified_claim(base_claim.clone());
+        let mut grant = grant_for(
+            "send",
+            ResourceSelector::Entity {
+                space_id: "cx:space:A".to_owned(),
+                entity_type: Some("message".to_owned()),
+                entity_id: None,
+            },
+        );
+        grant.constraints = vec![ConstraintEntry::new(Constraint::ClaimBased {
+            requires_claims: vec![ClaimRequirement {
+                claim_type: "employee".to_owned(),
+                issuer: None,
+                organization: None,
+                status: Some("active".to_owned()),
+                roles: None,
+            }],
+            trusted_issuers: vec![Did::new("did:web:issuer.example.com").unwrap()],
+            claim_refresh_required: false,
+            claim_max_age: Some(ConstraintDuration { value: 2, unit: "d".to_owned() }),
+        })];
+
+        assert!(engine.check_authorization(&ctx, &[grant.clone()]).is_allowed());
+        let revoked_ctx = ctx.clone().with_revoked_claim_id("claim-1");
+        assert!(!engine.check_authorization(&revoked_ctx, &[grant.clone()]).is_allowed());
+
+        let mut wrong_subject = base_claim;
+        wrong_subject.subject = Did::new("did:web:bob.example.com").unwrap();
+        let wrong_subject_ctx = ctx_at(
+            "2026-04-29T00:00:00Z",
+            "send",
+            Resource::Entity {
+                space_id: "cx:space:A".to_owned(),
+                entity_type: "message".to_owned(),
+                entity_id: "cx:entity:123".to_owned(),
+            },
+        )
+        .with_verified_claim(wrong_subject);
+        assert!(!engine.check_authorization(&wrong_subject_ctx, &[grant]).is_allowed());
     }
 
     #[test]

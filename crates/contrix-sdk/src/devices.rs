@@ -2,11 +2,12 @@
 
 use std::collections::{BTreeMap, VecDeque};
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 
-use crate::{DeviceId, Did, Error, Result};
+use crate::{DeviceId, Did, Error, Result, canonical};
 
 /// User-visible device metadata.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -35,6 +36,12 @@ pub enum DeviceVerificationState {
     Blocked,
     /// Device was deleted locally.
     Deleted,
+    /// Verification failed due to mismatch.
+    VerificationFailed,
+    /// Verification was cancelled before completion.
+    VerificationCancelled,
+    /// Verification expired before completion.
+    VerificationExpired,
 }
 
 /// Device record.
@@ -72,7 +79,20 @@ pub struct DeviceVerificationChallenge {
     pub device_id: DeviceId,
     pub method: String,
     pub challenge: String,
+    pub commitment: String,
     pub created_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+}
+
+/// QR payload shown to scanners during device verification.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct QrVerificationPayload {
+    pub version: u32,
+    pub transaction_id: String,
+    pub user_id: Did,
+    pub device_id: DeviceId,
+    pub method: String,
+    pub commitment: String,
 }
 
 /// To-device message.
@@ -100,8 +120,16 @@ pub struct KeyBackup {
     pub version: String,
     /// Backup algorithm.
     pub algorithm: String,
+    /// Sender that uploaded the backup.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sender: Option<Did>,
+    /// Previous version, if this backup rotates a prior one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub previous_version: Option<String>,
     /// Opaque encrypted backup payload.
     pub payload: Value,
+    /// Canonical payload digest.
+    pub payload_sha256: String,
     /// Upload time.
     pub uploaded_at: DateTime<Utc>,
 }
@@ -218,16 +246,77 @@ impl DeviceManager {
         challenge: impl Into<String>,
     ) -> Result<DeviceVerificationChallenge> {
         self.start_verification(user_id, device_id)?;
+        let method = method.into();
+        let challenge_value = challenge.into();
+        let created_at = Utc::now();
+        let expires_at = created_at + Duration::minutes(10);
+        let transaction_id = format!(
+            "cx:verify:{}:{}:{}",
+            user_id.as_str(),
+            device_id.as_str(),
+            created_at.timestamp_millis()
+        );
         let challenge = DeviceVerificationChallenge {
-            transaction_id: format!("cx:verify:{}:{}", user_id.as_str(), device_id.as_str()),
+            transaction_id,
             user_id: user_id.clone(),
             device_id: device_id.clone(),
-            method: method.into(),
-            challenge: challenge.into(),
-            created_at: Utc::now(),
+            method,
+            commitment: device_verification_commitment(
+                user_id,
+                device_id,
+                &challenge_value,
+                created_at,
+            )?,
+            challenge: challenge_value,
+            created_at,
+            expires_at,
         };
         self.verification_challenges.insert(challenge.transaction_id.clone(), challenge.clone());
         Ok(challenge)
+    }
+
+    /// Start a SAS-style verification flow with a canonical commitment.
+    pub fn begin_sas_verification(
+        &mut self,
+        user_id: &Did,
+        device_id: &DeviceId,
+        sas_code: impl Into<String>,
+    ) -> Result<DeviceVerificationChallenge> {
+        self.begin_verification_flow(user_id, device_id, "sas_v1", sas_code)
+    }
+
+    /// Return a scanner-facing QR payload for a pending verification transaction.
+    pub fn qr_verification_payload(&self, transaction_id: &str) -> Result<QrVerificationPayload> {
+        let challenge = self
+            .verification_challenges
+            .get(transaction_id)
+            .ok_or_else(|| Error::Protocol("verification transaction not found".to_owned()))?;
+        Ok(QrVerificationPayload {
+            version: 1,
+            transaction_id: challenge.transaction_id.clone(),
+            user_id: challenge.user_id.clone(),
+            device_id: challenge.device_id.clone(),
+            method: challenge.method.clone(),
+            commitment: challenge.commitment.clone(),
+        })
+    }
+
+    /// Validate a scanned QR payload against the expected device.
+    pub fn validate_qr_verification_payload(
+        payload: &QrVerificationPayload,
+        expected_user: &Did,
+        expected_device: &DeviceId,
+    ) -> Result<()> {
+        if payload.version != 1 {
+            return Err(Error::Protocol("unsupported verification QR version".to_owned()));
+        }
+        if &payload.user_id != expected_user || &payload.device_id != expected_device {
+            return Err(Error::Protocol("verification QR device mismatch".to_owned()));
+        }
+        if payload.commitment.trim().is_empty() {
+            return Err(Error::Protocol("verification QR commitment is empty".to_owned()));
+        }
+        Ok(())
     }
 
     pub fn confirm_verification_flow(
@@ -240,10 +329,67 @@ impl DeviceManager {
             .verification_challenges
             .remove(transaction_id)
             .ok_or_else(|| Error::Protocol("verification transaction not found".to_owned()))?;
+        if challenge.expires_at <= Utc::now() {
+            self.set_verification(
+                &challenge.user_id,
+                &challenge.device_id,
+                DeviceVerificationState::VerificationExpired,
+            )?;
+            return Err(Error::Protocol("verification transaction expired".to_owned()));
+        }
         if challenge.challenge != response {
+            self.set_verification(
+                &challenge.user_id,
+                &challenge.device_id,
+                DeviceVerificationState::VerificationFailed,
+            )?;
             return Err(Error::Protocol("verification challenge mismatch".to_owned()));
         }
+        let expected =
+            device_verification_commitment(&challenge.user_id, &challenge.device_id, response, challenge.created_at)?;
+        if expected != challenge.commitment {
+            self.set_verification(
+                &challenge.user_id,
+                &challenge.device_id,
+                DeviceVerificationState::VerificationFailed,
+            )?;
+            return Err(Error::Protocol("verification commitment mismatch".to_owned()));
+        }
         self.verify_device(&challenge.user_id, &challenge.device_id, cross_signing_key)
+    }
+
+    /// Cancel a pending verification flow.
+    pub fn cancel_verification_flow(&mut self, transaction_id: &str) -> Result<()> {
+        let challenge = self
+            .verification_challenges
+            .remove(transaction_id)
+            .ok_or_else(|| Error::Protocol("verification transaction not found".to_owned()))?;
+        self.set_verification(
+            &challenge.user_id,
+            &challenge.device_id,
+            DeviceVerificationState::VerificationCancelled,
+        )
+    }
+
+    /// Mark all expired pending verification flows as expired.
+    pub fn expire_verification_challenges(&mut self, now: DateTime<Utc>) -> Result<usize> {
+        let expired = self
+            .verification_challenges
+            .iter()
+            .filter_map(|(id, challenge)| {
+                if challenge.expires_at <= now { Some(id.clone()) } else { None }
+            })
+            .collect::<Vec<_>>();
+        for transaction_id in &expired {
+            if let Some(challenge) = self.verification_challenges.remove(transaction_id) {
+                self.set_verification(
+                    &challenge.user_id,
+                    &challenge.device_id,
+                    DeviceVerificationState::VerificationExpired,
+                )?;
+            }
+        }
+        Ok(expired.len())
     }
 
     /// Mark a device verified with cross-signing material.
@@ -265,6 +411,26 @@ impl DeviceManager {
         self.set_verification(user_id, device_id, DeviceVerificationState::Blocked)
     }
 
+    /// Propagate trust from an already verified device to another device of the same user.
+    pub fn propagate_trust(
+        &mut self,
+        user_id: &Did,
+        trusted_device_id: &DeviceId,
+        target_device_id: &DeviceId,
+    ) -> Result<()> {
+        let trusted = self
+            .device(user_id, trusted_device_id)
+            .ok_or_else(|| Error::Protocol("trusted device not found".to_owned()))?;
+        if trusted.verification != DeviceVerificationState::Verified {
+            return Err(Error::Protocol("source device is not verified".to_owned()));
+        }
+        let cross_signing_key = trusted
+            .cross_signing_key
+            .clone()
+            .or_else(|| Some(format!("trusted-by:{}", trusted_device_id.as_str())));
+        self.verify_device(user_id, target_device_id, cross_signing_key)
+    }
+
     /// Upload or replace a key backup.
     pub fn upload_key_backup(
         &mut self,
@@ -272,9 +438,26 @@ impl DeviceManager {
         algorithm: impl Into<String>,
         payload: Value,
     ) -> KeyBackup {
+        self.upload_authenticated_key_backup(version, algorithm, payload, None, None)
+    }
+
+    /// Upload a key backup with sender identity and optional rotation link.
+    pub fn upload_authenticated_key_backup(
+        &mut self,
+        version: impl Into<String>,
+        algorithm: impl Into<String>,
+        payload: Value,
+        sender: Option<Did>,
+        previous_version: Option<String>,
+    ) -> KeyBackup {
+        let payload_sha256 = canonical::canonical_sha256(&payload)
+            .unwrap_or_else(|_| format!("sha256:{:x}", Sha256::digest(payload.to_string())));
         let backup = KeyBackup {
             version: version.into(),
             algorithm: algorithm.into(),
+            sender,
+            previous_version,
+            payload_sha256,
             payload,
             uploaded_at: Utc::now(),
         };
@@ -289,10 +472,29 @@ impl DeviceManager {
 
     /// Restore a key backup payload.
     pub fn restore_key_backup(&self, version: &str) -> Result<Value> {
-        self.key_backups
+        let backup = self
+            .key_backups
             .get(version)
-            .map(|backup| backup.payload.clone())
-            .ok_or_else(|| Error::Protocol("key backup not found".to_owned()))
+            .ok_or_else(|| Error::Protocol("key backup not found".to_owned()))?;
+        validate_key_backup_payload(backup)?;
+        Ok(backup.payload.clone())
+    }
+
+    /// Restore a key backup only if it was uploaded by the expected sender.
+    pub fn restore_key_backup_from_sender(
+        &self,
+        version: &str,
+        expected_sender: &Did,
+    ) -> Result<Value> {
+        let backup = self
+            .key_backups
+            .get(version)
+            .ok_or_else(|| Error::Protocol("key backup not found".to_owned()))?;
+        validate_key_backup_payload(backup)?;
+        if backup.sender.as_ref() != Some(expected_sender) {
+            return Err(Error::Protocol("key backup sender mismatch".to_owned()));
+        }
+        Ok(backup.payload.clone())
     }
 
     fn set_verification(
@@ -312,6 +514,32 @@ impl DeviceManager {
             .get_mut(user_id)
             .and_then(|devices| devices.get_mut(device_id))
             .ok_or_else(|| Error::Protocol("device not found".to_owned()))
+    }
+}
+
+pub fn device_verification_commitment(
+    user_id: &Did,
+    device_id: &DeviceId,
+    challenge: &str,
+    created_at: DateTime<Utc>,
+) -> Result<String> {
+    let payload = serde_json::json!({
+        "context": "contrix-device-verification-v1",
+        "user_id": user_id,
+        "device_id": device_id,
+        "challenge": challenge,
+        "created_at": created_at,
+    });
+    canonical::canonical_sha256(&payload)
+}
+
+fn validate_key_backup_payload(backup: &KeyBackup) -> Result<()> {
+    let actual = canonical::canonical_sha256(&backup.payload)
+        .unwrap_or_else(|_| format!("sha256:{:x}", Sha256::digest(backup.payload.to_string())));
+    if actual == backup.payload_sha256 {
+        Ok(())
+    } else {
+        Err(Error::Protocol("key backup payload digest mismatch".to_owned()))
     }
 }
 
@@ -419,6 +647,41 @@ mod tests {
     }
 
     #[test]
+    fn devices_support_sas_qr_mismatch_and_trust_propagation() {
+        let alice = did("alice");
+        let phone = device("phone");
+        let laptop = device("laptop");
+        let mut manager = DeviceManager::new();
+        for device_id in [&phone, &laptop] {
+            manager.upsert_device(
+                alice.clone(),
+                device_id.clone(),
+                DeviceMetadata { name: None, model: None, os: None, last_seen_at: None },
+            );
+        }
+
+        let challenge = manager.begin_sas_verification(&alice, &phone, "123456").unwrap();
+        assert!(challenge.commitment.starts_with("sha256:"));
+        let qr = manager.qr_verification_payload(&challenge.transaction_id).unwrap();
+        DeviceManager::validate_qr_verification_payload(&qr, &alice, &phone).unwrap();
+        assert!(manager
+            .confirm_verification_flow(&challenge.transaction_id, "000000", None)
+            .is_err());
+        assert_eq!(
+            manager.device(&alice, &phone).unwrap().verification,
+            DeviceVerificationState::VerificationFailed
+        );
+
+        manager.start_verification(&alice, &phone).unwrap();
+        manager.verify_device(&alice, &phone, Some("master-key".to_owned())).unwrap();
+        manager.propagate_trust(&alice, &phone, &laptop).unwrap();
+        assert_eq!(
+            manager.device(&alice, &laptop).unwrap().verification,
+            DeviceVerificationState::Verified
+        );
+    }
+
+    #[test]
     fn devices_uploads_downloads_and_restores_key_backup() {
         let mut manager = DeviceManager::new();
         manager.upload_key_backup("1", "m.megolm_backup.v1", json!({"ciphertext":"abc"}));
@@ -426,5 +689,32 @@ mod tests {
         assert!(manager.download_key_backup("1").is_some());
         assert_eq!(manager.restore_key_backup("1").unwrap(), json!({"ciphertext":"abc"}));
         assert!(manager.restore_key_backup("missing").is_err());
+    }
+
+    #[test]
+    fn devices_rotate_and_validate_authenticated_key_backups() {
+        let alice = did("alice");
+        let mut manager = DeviceManager::new();
+        manager.upload_authenticated_key_backup(
+            "1",
+            "m.megolm_backup.v1",
+            json!({"ciphertext":"abc"}),
+            Some(alice.clone()),
+            None,
+        );
+        let rotated = manager.upload_authenticated_key_backup(
+            "2",
+            "m.megolm_backup.v1",
+            json!({"ciphertext":"def"}),
+            Some(alice.clone()),
+            Some("1".to_owned()),
+        );
+
+        assert_eq!(rotated.previous_version.as_deref(), Some("1"));
+        assert_eq!(
+            manager.restore_key_backup_from_sender("2", &alice).unwrap(),
+            json!({"ciphertext":"def"})
+        );
+        assert!(manager.restore_key_backup_from_sender("2", &did("bob")).is_err());
     }
 }
