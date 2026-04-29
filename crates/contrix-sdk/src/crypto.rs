@@ -75,6 +75,11 @@ pub struct KeyLifecycleHook {
     pub reason: String,
 }
 
+/// Encrypt plaintext with XChaCha20-Poly1305 using the given key material and AAD.
+///
+/// The key material is hashed with SHA-256 before use. The output contains the
+/// 24-byte nonce followed by the AEAD ciphertext+tag.
+#[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(plaintext_len = plaintext.len())))]
 pub fn seal(plaintext: &[u8], key_material: &[u8], aad: &[u8]) -> Result<Vec<u8>> {
     let key = Sha256::digest(key_material);
     let cipher = XChaCha20Poly1305::new(Key::from_slice(&key));
@@ -89,6 +94,8 @@ pub fn seal(plaintext: &[u8], key_material: &[u8], aad: &[u8]) -> Result<Vec<u8>
     Ok(envelope)
 }
 
+/// Decrypt an AEAD envelope produced by `seal`.
+#[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(envelope_len = envelope.len())))]
 pub fn open(envelope: &[u8], key_material: &[u8], aad: &[u8]) -> Result<Vec<u8>> {
     if envelope.len() < NONCE_LEN {
         return Err(Error::Crypto("AEAD envelope is shorter than nonce".to_owned()));
@@ -232,5 +239,148 @@ mod tests {
             item.area == "external audit"
                 && item.status == SecurityReviewStatus::ExternalAuditRequired
         }));
+    }
+
+    // Property-style tests: exercise many inputs to verify invariants.
+
+    #[test]
+    fn seal_open_roundtrips_for_various_plaintext_sizes() {
+        let key = b"test-key-material-for-property-tests";
+        let aad = b"test-aad";
+        // Test a range of plaintext sizes including edge cases.
+        let sizes: Vec<usize> = vec![0, 1, 15, 16, 17, 23, 31, 32, 63, 64, 127, 128, 255, 256, 512, 1024];
+        for size in sizes {
+            let plaintext: Vec<u8> = (0..size).map(|i| (i % 256) as u8).collect();
+            let sealed = seal(&plaintext, key, aad).unwrap();
+            assert!(sealed.len() > plaintext.len(), "sealed must be larger than plaintext for size {size}");
+            let opened = open(&sealed, key, aad).unwrap();
+            assert_eq!(opened, plaintext, "roundtrip failed for plaintext size {size}");
+        }
+    }
+
+    #[test]
+    fn seal_open_roundtrips_for_various_key_materials() {
+        let aad = b"aad";
+        let plaintext = b"fixed plaintext for key variation test";
+        // Test various key material lengths.
+        let keys: Vec<Vec<u8>> = vec![
+            vec![0u8; 1],
+            vec![0u8; 16],
+            vec![0u8; 32],
+            vec![0xffu8; 32],
+            vec![0u8; 64],
+            (0..128u8).collect(),
+        ];
+        for key in &keys {
+            let sealed = seal(plaintext, key, aad).unwrap();
+            let opened = open(&sealed, key, aad).unwrap();
+            assert_eq!(opened, plaintext, "roundtrip failed for key length {}", key.len());
+        }
+    }
+
+    #[test]
+    fn seal_open_roundtrips_for_various_aad_values() {
+        let key = b"test-key";
+        let plaintext = b"plaintext with varying AAD";
+        let aads: Vec<Vec<u8>> = vec![
+            vec![],
+            vec![0],
+            b"context".to_vec(),
+            b"longer-context-with-special-chars!@#$".to_vec(),
+            vec![0xffu8; 256],
+        ];
+        for aad in &aads {
+            let sealed = seal(plaintext, key, aad).unwrap();
+            let opened = open(&sealed, key, aad).unwrap();
+            assert_eq!(opened, plaintext, "roundtrip failed for AAD length {}", aad.len());
+        }
+    }
+
+    #[test]
+    fn seal_produces_unique_ciphertext_for_same_input() {
+        let key = b"test-key";
+        let aad = b"aad";
+        let plaintext = b"same plaintext";
+        let sealed1 = seal(plaintext, key, aad).unwrap();
+        let sealed2 = seal(plaintext, key, aad).unwrap();
+        // Different nonces should produce different ciphertexts.
+        assert_ne!(sealed1, sealed2, "two seals of the same plaintext must differ (unique nonce)");
+        // Both should decrypt to the same plaintext.
+        assert_eq!(open(&sealed1, key, aad).unwrap(), plaintext);
+        assert_eq!(open(&sealed2, key, aad).unwrap(), plaintext);
+    }
+
+    #[test]
+    fn open_fails_on_tampered_ciphertext() {
+        let key = b"test-key";
+        let aad = b"aad";
+        let plaintext = b"integrity test";
+        let mut sealed = seal(plaintext, key, aad).unwrap();
+        // Tamper with a byte in the ciphertext portion (after the 24-byte nonce).
+        if sealed.len() > 25 {
+            sealed[25] ^= 0xff;
+        }
+        assert!(open(&sealed, key, aad).is_err(), "tampered ciphertext must fail to open");
+    }
+
+    #[test]
+    fn open_fails_on_truncated_envelope() {
+        let key = b"test-key";
+        let aad = b"aad";
+        let sealed = seal(b"test", key, aad).unwrap();
+        // Truncate to less than nonce length.
+        for len in 0..NONCE_LEN {
+            assert!(open(&sealed[..len], key, aad).is_err(), "truncated envelope of length {len} must fail");
+        }
+    }
+
+    #[test]
+    fn canonical_digest_is_deterministic_for_same_input() {
+        let aad = EncryptedEnvelopeAad {
+            space_id: "cx:space:test".to_owned(),
+            event_type: "cx.message.create".to_owned(),
+            event_id: "cx:event:test".to_owned(),
+            causal_refs: vec![],
+        };
+        let digest1 = envelope_aad_digest(&aad).unwrap();
+        let digest2 = envelope_aad_digest(&aad).unwrap();
+        assert_eq!(digest1, digest2, "canonical digest must be deterministic");
+        assert!(digest1.starts_with("sha256:"));
+    }
+
+    #[test]
+    fn canonical_digest_differs_for_different_inputs() {
+        let aad1 = EncryptedEnvelopeAad {
+            space_id: "cx:space:A".to_owned(),
+            event_type: "cx.message.create".to_owned(),
+            event_id: "cx:event:1".to_owned(),
+            causal_refs: vec![],
+        };
+        let aad2 = EncryptedEnvelopeAad {
+            space_id: "cx:space:B".to_owned(),
+            event_type: "cx.message.create".to_owned(),
+            event_id: "cx:event:1".to_owned(),
+            causal_refs: vec![],
+        };
+        let digest1 = envelope_aad_digest(&aad1).unwrap();
+        let digest2 = envelope_aad_digest(&aad2).unwrap();
+        assert_ne!(digest1, digest2, "different AADs must produce different digests");
+    }
+
+    #[test]
+    fn constant_time_eq_matches_standard_equality() {
+        let pairs: Vec<(&str, &str)> = vec![
+            ("", ""),
+            ("a", "a"),
+            ("abc", "abc"),
+            ("abc", "abd"),
+            ("abc", "ab"),
+            ("", "a"),
+        ];
+        for (left, right) in pairs {
+            let ct_result = constant_time_eq(left, right);
+            let eq_result = left == right;
+            assert_eq!(ct_result, eq_result, "constant_time_eq({left:?}, {right:?}) != standard ==");
+        }
     }
 }

@@ -48,6 +48,43 @@ impl DidDocument {
         }
         Ok(())
     }
+
+    /// Return the DID method (e.g., `"uuid"`, `"web"`, `"key"`).
+    pub fn method(&self) -> &str {
+        let remainder = &self.id.as_str()[4..];
+        remainder.split(':').next().unwrap_or("")
+    }
+
+    /// Return all key IDs and their public key material.
+    pub fn control_keys(&self) -> &BTreeMap<String, String> {
+        &self.verification_methods
+    }
+
+    /// Return the first verification method (key ID, public key), if any.
+    pub fn primary_key(&self) -> Option<(&str, &str)> {
+        self.verification_methods
+            .iter()
+            .next()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+    }
+
+    /// Return `also_known_as` entries that look like handles (not URLs).
+    pub fn handles(&self) -> Vec<&str> {
+        self.also_known_as
+            .iter()
+            .filter(|entry| !entry.starts_with("http://") && !entry.starts_with("https://"))
+            .map(String::as_str)
+            .collect()
+    }
+
+    /// Return `also_known_as` entries that are URLs.
+    pub fn service_urls(&self) -> Vec<&str> {
+        self.also_known_as
+            .iter()
+            .filter(|entry| entry.starts_with("http://") || entry.starts_with("https://"))
+            .map(String::as_str)
+            .collect()
+    }
 }
 
 /// In-memory resolver for registered `did:uuid` documents.
@@ -451,6 +488,162 @@ pub fn did_key_log_proof(
     sha256_hex(format!("{payload}|{signer_public_key}").as_bytes())
 }
 
+/// Visibility scope for a DID.
+///
+/// Controls whether a DID is globally public, scoped to a specific peer
+/// relationship (pairwise), or private to the local device/user.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DidVisibility {
+    /// DID is globally resolvable and publicly visible.
+    Public,
+    /// DID is scoped to a specific peer relationship (pairwise).
+    Pairwise,
+    /// DID is private to the local device or user only.
+    Private,
+}
+
+/// Pairwise DID binding: a unique DID derived for a specific peer relationship.
+///
+/// Pairwise DIDs prevent correlation across different peers. Each user derives
+/// a distinct DID for each counterparty, so a compromised pairwise DID does not
+/// expose the user's activity with other peers.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PairwiseDidBinding {
+    /// The pairwise DID (unique per peer relationship).
+    pub pairwise_did: Did,
+    /// The real/parent DID that this pairwise DID represents.
+    pub parent_did: Did,
+    /// The counterparty DID this pairwise binding is scoped to.
+    pub peer_did: Did,
+    /// Optional space or context this binding is limited to.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope: Option<String>,
+    /// When this pairwise binding was created.
+    pub created_at: DateTime<Utc>,
+    /// When this pairwise binding expires (if applicable).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
+impl PairwiseDidBinding {
+    /// Create a new pairwise DID binding.
+    pub fn new(
+        pairwise_did: Did,
+        parent_did: Did,
+        peer_did: Did,
+        scope: Option<String>,
+    ) -> Self {
+        Self {
+            pairwise_did,
+            parent_did,
+            peer_did,
+            scope,
+            created_at: Utc::now(),
+            expires_at: None,
+        }
+    }
+
+    /// Set an expiration time for this pairwise binding.
+    pub fn with_expiry(mut self, expires_at: DateTime<Utc>) -> Self {
+        self.expires_at = Some(expires_at);
+        self
+    }
+
+    /// Check whether this binding has expired.
+    pub fn is_expired(&self) -> bool {
+        self.expires_at.is_some_and(|exp| Utc::now() >= exp)
+    }
+
+    /// Derive a deterministic pairwise DID from parent, peer, and optional scope.
+    ///
+    /// Uses SHA-256(parent + ":" + peer + ":" + scope) to produce a `did:uuid`
+    /// form that is unique per peer relationship.
+    pub fn derive_pairwise_did(parent: &Did, peer: &Did, scope: Option<&str>) -> Result<Did> {
+        let input = format!("{}:{}:{}", parent, peer, scope.unwrap_or(""));
+        let hash = Sha256::digest(input.as_bytes());
+        let mut bytes = [0u8; 16];
+        bytes.copy_from_slice(&hash[..16]);
+        // Set version 4 (random-like, derived from SHA-256) and variant bits
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        let uuid = format!(
+            "{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
+            bytes[0], bytes[1], bytes[2], bytes[3],
+            bytes[4], bytes[5], bytes[6], bytes[7],
+            bytes[8], bytes[9], bytes[10], bytes[11],
+            bytes[12], bytes[13], bytes[14], bytes[15]
+        );
+        Did::new(format!("did:uuid:{uuid}"))
+    }
+}
+
+/// Manages pairwise DID bindings for privacy-preserving identity.
+#[derive(Clone, Debug, Default)]
+pub struct PairwiseDidStore {
+    /// Bindings indexed by pairwise DID.
+    by_pairwise: BTreeMap<Did, PairwiseDidBinding>,
+    /// Reverse index: parent DID → all its pairwise DIDs.
+    by_parent: BTreeMap<Did, Vec<Did>>,
+}
+
+impl PairwiseDidStore {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Register a pairwise DID binding.
+    pub fn insert(&mut self, binding: PairwiseDidBinding) -> Result<()> {
+        let pairwise = binding.pairwise_did.clone();
+        let parent = binding.parent_did.clone();
+        self.by_pairwise.insert(pairwise.clone(), binding);
+        self.by_parent.entry(parent).or_default().push(pairwise);
+        Ok(())
+    }
+
+    /// Look up the binding for a pairwise DID.
+    pub fn get(&self, pairwise_did: &Did) -> Option<&PairwiseDidBinding> {
+        self.by_pairwise.get(pairwise_did)
+    }
+
+    /// Resolve a pairwise DID to its parent DID.
+    pub fn resolve_parent(&self, pairwise_did: &Did) -> Option<&Did> {
+        self.by_pairwise.get(pairwise_did).map(|b| &b.parent_did)
+    }
+
+    /// Check if a pairwise DID is valid (exists and not expired).
+    pub fn is_valid(&self, pairwise_did: &Did) -> bool {
+        self.by_pairwise
+            .get(pairwise_did)
+            .is_some_and(|b| !b.is_expired())
+    }
+
+    /// List all pairwise DIDs for a parent DID.
+    pub fn pairwise_dids_for(&self, parent: &Did) -> Vec<&PairwiseDidBinding> {
+        self.by_parent
+            .get(parent)
+            .map(|ids| ids.iter().filter_map(|id| self.by_pairwise.get(id)).collect())
+            .unwrap_or_default()
+    }
+
+    /// Remove expired bindings.
+    pub fn purge_expired(&mut self) {
+        let expired: Vec<Did> = self
+            .by_pairwise
+            .iter()
+            .filter(|(_, b)| b.is_expired())
+            .map(|(id, _)| id.clone())
+            .collect();
+        for id in expired {
+            if let Some(binding) = self.by_pairwise.remove(&id) {
+                if let Some(parent_ids) = self.by_parent.get_mut(&binding.parent_did) {
+                    parent_ids.retain(|pid| pid != &id);
+                }
+            }
+        }
+    }
+}
+
 /// DID migration record.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DidMigration {
@@ -592,6 +785,81 @@ impl IdentityManager {
     /// Get a handle claim.
     pub fn handle_claim(&self, handle: &str) -> Option<&HandleClaim> {
         self.handles.get(&normalize_handle(handle))
+    }
+
+    /// Verify a handle through bidirectional `also_known_as` linking.
+    ///
+    /// This checks that:
+    /// 1. The DID document for `user_id` exists and lists the handle in `also_known_as`.
+    /// 2. A handle claim exists linking the handle to the same `user_id`.
+    /// 3. The handle claim has been verified through a proof challenge.
+    ///
+    /// If both conditions hold, the handle is considered bidirectionally verified:
+    /// the DID document asserts the handle, and the handle claim proves the DID.
+    pub fn verify_handle_bidirectional(&self, handle: &str, user_id: &Did) -> Result<()> {
+        let normalized = normalize_handle(handle);
+        let document = self
+            .documents
+            .get(user_id)
+            .ok_or_else(|| Error::Protocol("DID document not found for user".to_owned()))?;
+
+        // Check that the DID document lists the handle in also_known_as
+        let handle_variants: Vec<String> = vec![
+            normalized.clone(),
+            format!("@{normalized}"),
+        ];
+        let listed_in_document = document.also_known_as.iter().any(|aka| {
+            let normalized_aka = normalize_handle(aka);
+            handle_variants.contains(&normalized_aka)
+        });
+        if !listed_in_document {
+            return Err(Error::Protocol(format!(
+                "handle '{}' is not listed in DID document also_known_as for {}",
+                normalized, user_id
+            )));
+        }
+
+        // Check that the handle claim exists and is verified
+        let claim = self
+            .handles
+            .get(&normalized)
+            .ok_or_else(|| Error::Protocol(format!("handle claim not found for '{}'", normalized)))?;
+        if claim.user_id != *user_id {
+            return Err(Error::Protocol(format!(
+                "handle claim links to {} but expected {}",
+                claim.user_id, user_id
+            )));
+        }
+        if !claim.verified {
+            return Err(Error::Protocol(format!(
+                "handle '{}' claim for {} is not yet verified",
+                normalized, user_id
+            )));
+        }
+
+        Ok(())
+    }
+
+    /// Return all handles listed in a DID document's `also_known_as` that
+    /// are not yet claimed in this manager.
+    pub fn unclaimed_handles_for_did(&self, did: &Did) -> Vec<String> {
+        let Some(document) = self.documents.get(did) else {
+            return Vec::new();
+        };
+        document
+            .also_known_as
+            .iter()
+            .filter(|aka| {
+                let normalized = normalize_handle(aka);
+                // Only return entries that look like handles (not URLs)
+                !normalized.contains("://") && !normalized.is_empty()
+            })
+            .filter(|aka| {
+                let normalized = normalize_handle(aka);
+                !self.handles.contains_key(&normalized)
+            })
+            .cloned()
+            .collect()
     }
 
     /// Migration records.
@@ -893,5 +1161,191 @@ mod tests {
         let mut tampered = inception;
         tampered.proof = "bad-proof".to_owned();
         assert!(verify_did_key_log(&[tampered]).is_err());
+    }
+
+    #[test]
+    fn handle_bidirectional_verification_succeeds_with_also_known_as() {
+        let alice = did("alice");
+        let mut manager = IdentityManager::new();
+
+        // Create DID document with also_known_as listing the handle
+        let mut doc = DidDocument::new(alice.clone(), "key-1", "pubkey-1");
+        doc.also_known_as = vec!["@alice".to_owned()];
+        manager.upsert_document(doc).unwrap();
+
+        // Bind and verify handle
+        let claim = manager.bind_handle("@alice", alice.clone());
+        let proof = handle_claim_proof("alice", &alice, &claim.challenge);
+        manager.validate_handle_claim("alice", &proof).unwrap();
+
+        // Bidirectional verification should succeed
+        assert!(manager.verify_handle_bidirectional("alice", &alice).is_ok());
+    }
+
+    #[test]
+    fn handle_bidirectional_verification_fails_without_also_known_as() {
+        let alice = did("alice");
+        let mut manager = IdentityManager::new();
+
+        // DID document without also_known_as
+        manager.upsert_document(DidDocument::new(alice.clone(), "key-1", "pubkey-1")).unwrap();
+
+        let claim = manager.bind_handle("@alice", alice.clone());
+        let proof = handle_claim_proof("alice", &alice, &claim.challenge);
+        manager.validate_handle_claim("alice", &proof).unwrap();
+
+        // Should fail because handle is not in also_known_as
+        assert!(manager.verify_handle_bidirectional("alice", &alice).is_err());
+    }
+
+    #[test]
+    fn handle_bidirectional_verification_fails_when_claim_not_verified() {
+        let alice = did("alice");
+        let mut manager = IdentityManager::new();
+
+        let mut doc = DidDocument::new(alice.clone(), "key-1", "pubkey-1");
+        doc.also_known_as = vec!["@alice".to_owned()];
+        manager.upsert_document(doc).unwrap();
+
+        // Bind handle but don't verify it
+        manager.bind_handle("@alice", alice.clone());
+
+        // Should fail because claim is not verified
+        assert!(manager.verify_handle_bidirectional("alice", &alice).is_err());
+    }
+
+    #[test]
+    fn handle_bidirectional_verification_fails_for_wrong_did() {
+        let alice = did("alice");
+        let bob = did("bob");
+        let mut manager = IdentityManager::new();
+
+        let mut doc = DidDocument::new(alice.clone(), "key-1", "pubkey-1");
+        doc.also_known_as = vec!["@alice".to_owned()];
+        manager.upsert_document(doc).unwrap();
+
+        let claim = manager.bind_handle("@alice", alice.clone());
+        let proof = handle_claim_proof("alice", &alice, &claim.challenge);
+        manager.validate_handle_claim("alice", &proof).unwrap();
+
+        // Should fail because handle belongs to alice, not bob
+        assert!(manager.verify_handle_bidirectional("alice", &bob).is_err());
+    }
+
+    #[test]
+    fn unclaimed_handles_for_did_returns_unlisted_handles() {
+        let alice = did("alice");
+        let mut manager = IdentityManager::new();
+
+        let mut doc = DidDocument::new(alice.clone(), "key-1", "pubkey-1");
+        doc.also_known_as = vec!["@alice".to_owned(), "@alice_alt".to_owned()];
+        manager.upsert_document(doc).unwrap();
+
+        // Claim one handle
+        manager.bind_handle("@alice", alice.clone());
+
+        // Should return the unclaimed one
+        let unclaimed = manager.unclaimed_handles_for_did(&alice);
+        assert_eq!(unclaimed.len(), 1);
+        assert_eq!(unclaimed[0], "@alice_alt");
+    }
+
+    #[test]
+    fn unclaimed_handles_excludes_urls() {
+        let alice = did("alice");
+        let mut manager = IdentityManager::new();
+
+        let mut doc = DidDocument::new(alice.clone(), "key-1", "pubkey-1");
+        doc.also_known_as = vec!["@alice".to_owned(), "https://alice.example".to_owned()];
+        manager.upsert_document(doc).unwrap();
+
+        let unclaimed = manager.unclaimed_handles_for_did(&alice);
+        assert_eq!(unclaimed.len(), 1);
+        assert_eq!(unclaimed[0], "@alice");
+    }
+
+    #[test]
+    fn handle_bidirectional_with_case_insensitive_matching() {
+        let alice = did("alice");
+        let mut manager = IdentityManager::new();
+
+        let mut doc = DidDocument::new(alice.clone(), "key-1", "pubkey-1");
+        doc.also_known_as = vec!["@Alice".to_owned()];
+        manager.upsert_document(doc).unwrap();
+
+        let claim = manager.bind_handle("@alice", alice.clone());
+        let proof = handle_claim_proof("alice", &alice, &claim.challenge);
+        manager.validate_handle_claim("alice", &proof).unwrap();
+
+        // Should succeed despite case difference
+        assert!(manager.verify_handle_bidirectional("@Alice", &alice).is_ok());
+    }
+
+    #[test]
+    fn pairwise_did_derivation_is_deterministic_and_unique() {
+        let alice = Did::new("did:web:alice.example").unwrap();
+        let bob = Did::new("did:web:bob.example").unwrap();
+        let charlie = Did::new("did:web:charlie.example").unwrap();
+
+        let ab1 = PairwiseDidBinding::derive_pairwise_did(&alice, &bob, None).unwrap();
+        let ab2 = PairwiseDidBinding::derive_pairwise_did(&alice, &bob, None).unwrap();
+        assert_eq!(ab1, ab2, "pairwise DID derivation must be deterministic");
+
+        let ac = PairwiseDidBinding::derive_pairwise_did(&alice, &charlie, None).unwrap();
+        assert_ne!(ab1, ac, "different peers must produce different pairwise DIDs");
+
+        let ba = PairwiseDidBinding::derive_pairwise_did(&bob, &alice, None).unwrap();
+        assert_ne!(ab1, ba, "asymmetric peer pairs must produce different pairwise DIDs");
+    }
+
+    #[test]
+    fn pairwise_did_with_scope_varies() {
+        let alice = Did::new("did:web:alice.example").unwrap();
+        let bob = Did::new("did:web:bob.example").unwrap();
+
+        let no_scope = PairwiseDidBinding::derive_pairwise_did(&alice, &bob, None).unwrap();
+        let with_scope =
+            PairwiseDidBinding::derive_pairwise_did(&alice, &bob, Some("space:01")).unwrap();
+        assert_ne!(no_scope, with_scope, "scope must change the derived DID");
+    }
+
+    #[test]
+    fn pairwise_did_store_insert_resolve_and_purge() {
+        let alice = Did::new("did:web:alice.example").unwrap();
+        let bob = Did::new("did:web:bob.example").unwrap();
+        let pairwise = PairwiseDidBinding::derive_pairwise_did(&alice, &bob, None).unwrap();
+
+        let binding = PairwiseDidBinding::new(pairwise.clone(), alice.clone(), bob.clone(), None);
+        let mut store = PairwiseDidStore::new();
+        store.insert(binding).unwrap();
+
+        assert_eq!(store.resolve_parent(&pairwise), Some(&alice));
+        assert!(store.is_valid(&pairwise));
+        assert_eq!(store.pairwise_dids_for(&alice).len(), 1);
+
+        // Expired binding is invalid
+        let pairwise2 = PairwiseDidBinding::derive_pairwise_did(&alice, &bob, Some("x")).unwrap();
+        let expired = PairwiseDidBinding::new(
+            pairwise2.clone(),
+            alice.clone(),
+            bob.clone(),
+            Some("x".to_owned()),
+        )
+        .with_expiry("2020-01-01T00:00:00Z".parse().unwrap());
+        store.insert(expired).unwrap();
+        assert!(!store.is_valid(&pairwise2));
+
+        store.purge_expired();
+        assert!(store.get(&pairwise2).is_none());
+        assert!(store.get(&pairwise).is_some());
+    }
+
+    #[test]
+    fn pairwise_did_visibility_enum_roundtrips() {
+        let vis = DidVisibility::Pairwise;
+        let json = serde_json::to_string(&vis).unwrap();
+        assert_eq!(json, "\"pairwise\"");
+        let back: DidVisibility = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, DidVisibility::Pairwise);
     }
 }

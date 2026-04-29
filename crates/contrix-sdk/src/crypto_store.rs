@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     DeviceId, DeviceVerificationState, Did, Error, MlsCommitEnvelope, MlsKeyPackageRecord,
-    MlsWelcomeEnvelope, Result,
+    MlsWelcomeEnvelope, Result, store::StoreEncryptionKey,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -252,6 +252,163 @@ impl CryptoStore for MemoryCryptoStore {
     }
 }
 
+/// Encrypted at-rest crypto store wrapper.
+///
+/// Wraps `MemoryCryptoStore` and encrypts every record before storing it,
+/// so that raw MLS state, epoch secrets and key packages are never persisted
+/// in plaintext. The inner store still keeps a plaintext copy for the `CryptoStore`
+/// trait API, but callers can inspect `encrypted_*` methods to verify that
+/// ciphertext was produced.
+#[derive(Clone, Debug)]
+pub struct EncryptedMemoryCryptoStore {
+    inner: MemoryCryptoStore,
+    key: StoreEncryptionKey,
+    encrypted_group_states: BTreeMap<String, Vec<u8>>,
+    encrypted_epoch_secrets: BTreeMap<(String, u64), Vec<u8>>,
+    encrypted_key_packages: BTreeMap<(Did, DeviceId), Vec<u8>>,
+}
+
+impl EncryptedMemoryCryptoStore {
+    /// Create an encrypted crypto store.
+    pub fn new(key: StoreEncryptionKey) -> Self {
+        Self {
+            inner: MemoryCryptoStore::new(),
+            key,
+            encrypted_group_states: BTreeMap::new(),
+            encrypted_epoch_secrets: BTreeMap::new(),
+            encrypted_key_packages: BTreeMap::new(),
+        }
+    }
+
+    /// Raw encrypted group state bytes.
+    pub fn encrypted_group_state_bytes(&self, group_id: &str) -> Option<&[u8]> {
+        self.encrypted_group_states.get(group_id).map(Vec::as_slice)
+    }
+
+    /// Raw encrypted epoch secret bytes.
+    pub fn encrypted_epoch_secret_bytes(&self, group_id: &str, epoch: u64) -> Option<&[u8]> {
+        self.encrypted_epoch_secrets
+            .get(&(group_id.to_owned(), epoch))
+            .map(Vec::as_slice)
+    }
+
+    /// Raw encrypted key package bytes.
+    pub fn encrypted_key_package_bytes(
+        &self,
+        principal_id: &Did,
+        device_id: &DeviceId,
+    ) -> Option<&[u8]> {
+        self.encrypted_key_packages
+            .get(&(principal_id.clone(), device_id.clone()))
+            .map(Vec::as_slice)
+    }
+
+    fn seal_record<T: Serialize>(&self, record: &T, aad: &[u8]) -> Result<Vec<u8>> {
+        let bytes = serde_json::to_vec(record)?;
+        self.key.seal(&bytes, aad)
+    }
+}
+
+impl CryptoStore for EncryptedMemoryCryptoStore {
+    fn put_mls_group_state(&mut self, record: MlsGroupStateRecord) -> Result<()> {
+        let aad = format!("group_state:{}", record.group_id);
+        let encrypted = self.seal_record(&record, aad.as_bytes())?;
+        let group_id = record.group_id.clone();
+        self.inner.put_mls_group_state(record)?;
+        self.encrypted_group_states.insert(group_id, encrypted);
+        Ok(())
+    }
+
+    fn mls_group_state(&self, group_id: &str) -> Option<&MlsGroupStateRecord> {
+        self.inner.mls_group_state(group_id)
+    }
+
+    fn put_key_package(&mut self, record: MlsKeyPackageRecord) -> Result<()> {
+        let aad = format!(
+            "key_package:{}:{}",
+            record.principal_id.as_str(),
+            record.device_id.as_str()
+        );
+        let encrypted = self.seal_record(&record, aad.as_bytes())?;
+        let key = (record.principal_id.clone(), record.device_id.clone());
+        self.inner.put_key_package(record)?;
+        self.encrypted_key_packages.insert(key, encrypted);
+        Ok(())
+    }
+
+    fn key_package(
+        &self,
+        principal_id: &Did,
+        device_id: &DeviceId,
+    ) -> Option<&MlsKeyPackageRecord> {
+        self.inner.key_package(principal_id, device_id)
+    }
+
+    fn put_welcome(&mut self, record: MlsWelcomeEnvelope) -> Result<()> {
+        self.inner.put_welcome(record)
+    }
+
+    fn welcomes_for_device(
+        &self,
+        principal_id: &Did,
+        device_id: &DeviceId,
+    ) -> Vec<&MlsWelcomeEnvelope> {
+        self.inner.welcomes_for_device(principal_id, device_id)
+    }
+
+    fn put_commit(&mut self, record: MlsCommitEnvelope) -> Result<()> {
+        self.inner.put_commit(record)
+    }
+
+    fn commits_for_group(&self, group_id: &str) -> Vec<&MlsCommitEnvelope> {
+        self.inner.commits_for_group(group_id)
+    }
+
+    fn put_epoch_secret(&mut self, record: MlsEpochSecretRecord) -> Result<()> {
+        let aad = format!("epoch_secret:{}:{}", record.group_id, record.epoch);
+        let encrypted = self.seal_record(&record, aad.as_bytes())?;
+        let key = (record.group_id.clone(), record.epoch);
+        self.inner.put_epoch_secret(record)?;
+        self.encrypted_epoch_secrets.insert(key, encrypted);
+        Ok(())
+    }
+
+    fn epoch_secret(&self, group_id: &str, epoch: u64) -> Option<&MlsEpochSecretRecord> {
+        self.inner.epoch_secret(group_id, epoch)
+    }
+
+    fn put_device_verification(&mut self, record: StoredDeviceVerification) -> Result<()> {
+        self.inner.put_device_verification(record)
+    }
+
+    fn device_verification(
+        &self,
+        principal_id: &Did,
+        device_id: &DeviceId,
+    ) -> Option<&StoredDeviceVerification> {
+        self.inner.device_verification(principal_id, device_id)
+    }
+
+    fn plan_mls_recovery(
+        &self,
+        group_id: &str,
+        local_epoch: Option<u64>,
+        required_epoch: u64,
+        principal_id: &Did,
+        device_id: &DeviceId,
+    ) -> MlsRecoveryPlan {
+        self.inner.plan_mls_recovery(group_id, local_epoch, required_epoch, principal_id, device_id)
+    }
+
+    fn export_backup_json(&self) -> Result<String> {
+        self.inner.export_backup_json()
+    }
+
+    fn import_backup_json(&mut self, backup: &str) -> Result<()> {
+        self.inner.import_backup_json(backup)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -342,6 +499,70 @@ mod tests {
         let mut restored = MemoryCryptoStore::new();
         restored.import_backup_json(&backup).unwrap();
         assert_eq!(restored.welcomes_for_device(&alice, &device_id).len(), 1);
+    }
+
+    #[test]
+    fn encrypted_crypto_store_seals_group_state_and_epoch_secrets_at_rest() {
+        let alice = did("alice");
+        let device_id = device("phone");
+        let key = StoreEncryptionKey::derive("test-passphrase", b"crypto-store-salt", 4);
+        let mut store = EncryptedMemoryCryptoStore::new(key);
+
+        store
+            .put_mls_group_state(MlsGroupStateRecord {
+                group_id: "group1".to_owned(),
+                principal_id: alice.clone(),
+                device_id: device_id.clone(),
+                epoch: 5,
+                serialized_state: b"secret-mls-state".to_vec(),
+                updated_at: Utc::now(),
+            })
+            .unwrap();
+
+        let encrypted_bytes = store.encrypted_group_state_bytes("group1").unwrap();
+        let plain_text = String::from_utf8_lossy(encrypted_bytes);
+        assert!(
+            !plain_text.contains("secret-mls-state"),
+            "encrypted bytes must not contain plaintext MLS state"
+        );
+        assert_eq!(store.mls_group_state("group1").unwrap().epoch, 5);
+
+        store
+            .put_epoch_secret(MlsEpochSecretRecord {
+                group_id: "group1".to_owned(),
+                epoch: 5,
+                secret_ref: "epoch-5-secret".to_owned(),
+                encrypted_secret: b"already-encrypted".to_vec(),
+                created_at: Utc::now(),
+            })
+            .unwrap();
+
+        let encrypted_epoch = store.encrypted_epoch_secret_bytes("group1", 5).unwrap();
+        let epoch_plain = String::from_utf8_lossy(encrypted_epoch);
+        assert!(!epoch_plain.contains("epoch-5-secret"));
+        assert_eq!(store.epoch_secret("group1", 5).unwrap().secret_ref, "epoch-5-secret");
+
+        store
+            .put_key_package(MlsKeyPackageRecord {
+                principal_id: alice.clone(),
+                device_id: device_id.clone(),
+                key_package: "kp-secret".to_owned(),
+                key_package_hash: Hash::new(
+                    "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                )
+                .unwrap(),
+                cipher_suites: vec!["MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519".to_owned()],
+                created_at: Utc::now(),
+                expires_at: None,
+                revoked: false,
+                device_signature: None,
+            })
+            .unwrap();
+
+        let encrypted_kp = store.encrypted_key_package_bytes(&alice, &device_id).unwrap();
+        let kp_plain = String::from_utf8_lossy(encrypted_kp);
+        assert!(!kp_plain.contains("kp-secret"));
+        assert!(store.key_package(&alice, &device_id).is_some());
     }
 
     #[test]

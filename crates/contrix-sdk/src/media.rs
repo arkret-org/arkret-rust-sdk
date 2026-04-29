@@ -254,6 +254,71 @@ impl MemoryBlobStore {
     pub fn attachment(&self, id: &str) -> Option<&Attachment> {
         self.attachments.get(id)
     }
+
+    /// Remove an attachment by ID. Returns `true` if the attachment existed.
+    pub fn remove_attachment(&mut self, id: &str) -> bool {
+        self.attachments.remove(id).is_some()
+    }
+
+    /// Return the number of stored attachments.
+    pub fn attachment_count(&self) -> usize {
+        self.attachments.len()
+    }
+
+    /// Iterate over all stored attachments.
+    pub fn all_attachments(&self) -> impl Iterator<Item = &Attachment> {
+        self.attachments.values()
+    }
+}
+
+/// Sanitize a media type for safe `Content-Type` headers.
+///
+/// Strips parameters, validates the `type/subtype` form, and lowercases.
+/// Returns `None` for obviously invalid or injection-prone values.
+pub fn safe_content_type(media_type: &str) -> Option<String> {
+    let trimmed = media_type.trim().split(';').next()?.trim().to_ascii_lowercase();
+    let (type_part, subtype_part) = trimmed.split_once('/')?;
+    if type_part.is_empty()
+        || subtype_part.is_empty()
+        || !type_part
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'!' | b'#' | b'$' | b'&' | b'.' | b'+' | b'-' | b'^' | b'_'))
+        || !subtype_part
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'!' | b'#' | b'$' | b'&' | b'.' | b'+' | b'-' | b'^' | b'_'))
+        || trimmed.contains('\n')
+        || trimmed.contains('\r')
+        || trimmed.contains('\0')
+    {
+        return None;
+    }
+    Some(trimmed)
+}
+
+/// Build a safe `Content-Disposition: attachment` header value.
+///
+/// The filename is percent-encoded to prevent header injection. Falls back to
+/// `file.bin` if the name is empty or contains only unsafe characters.
+pub fn safe_content_disposition(filename: &str) -> String {
+    let sanitized: String = filename
+        .chars()
+        .filter(|c| !matches!(c, '\n' | '\r' | '\0' | '"' | '\\'))
+        .collect();
+    let sanitized = sanitized.trim();
+    if sanitized.is_empty() {
+        return "attachment; filename=\"file.bin\"".to_owned();
+    }
+    let encoded: String = sanitized
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_') {
+                c.to_string()
+            } else {
+                format!("%{:02X}", c as u32)
+            }
+        })
+        .collect();
+    format!("attachment; filename=\"{encoded}\"")
 }
 
 fn blob_ref_for(bytes: &[u8]) -> Result<BlobRef> {
@@ -310,5 +375,47 @@ mod tests {
         assert_ne!(store.download_attachment("a2"), Some(&b"secret"[..]));
         assert_eq!(store.download_decrypted_attachment("a2", b"key").unwrap(), b"secret");
         assert!(store.download_decrypted_attachment("a2", b"wrong").is_err());
+    }
+
+    #[test]
+    fn media_remove_attachment_and_count() {
+        let mut store = MemoryBlobStore::new();
+        store.upload_attachment("a1", "file.txt", "text/plain", b"data", did("alice")).unwrap();
+        store.upload_attachment("a2", "img.png", "image/png", b"png", did("bob")).unwrap();
+        assert_eq!(store.attachment_count(), 2);
+
+        assert!(store.remove_attachment("a1"));
+        assert_eq!(store.attachment_count(), 1);
+        assert!(store.attachment("a1").is_none());
+        assert!(!store.remove_attachment("a1"));
+
+        let all: Vec<_> = store.all_attachments().map(|a| a.id.as_str()).collect();
+        assert_eq!(all, vec!["a2"]);
+    }
+
+    #[test]
+    fn safe_content_type_validates_and_lowercases() {
+        assert_eq!(safe_content_type("text/plain"), Some("text/plain".to_owned()));
+        assert_eq!(safe_content_type("Image/PNG; charset=utf-8"), Some("image/png".to_owned()));
+        assert_eq!(safe_content_type("  application/json  "), Some("application/json".to_owned()));
+        assert!(safe_content_type("not-a-mime-type").is_none());
+        assert!(safe_content_type("").is_none());
+        assert!(safe_content_type("text/").is_none());
+        assert!(safe_content_type("/plain").is_none());
+        assert!(safe_content_type("text/plain\nX-Injected: evil").is_none());
+    }
+
+    #[test]
+    fn safe_content_disposition_encodes_unsafe_chars() {
+        assert_eq!(
+            safe_content_disposition("report.pdf"),
+            "attachment; filename=\"report.pdf\""
+        );
+        assert_eq!(
+            safe_content_disposition("my file (1).txt"),
+            "attachment; filename=\"my%20file%20%281%29.txt\""
+        );
+        assert_eq!(safe_content_disposition(""), "attachment; filename=\"file.bin\"");
+        assert!(safe_content_disposition("file\nname.txt").contains("file"));
     }
 }

@@ -148,6 +148,52 @@ pub struct Mention {
     pub start: usize,
     /// Byte end offset.
     pub end: usize,
+    /// What kind of target this mention resolves to.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_kind: Option<MentionTarget>,
+    /// Resolved target reference (DID, entity ID, etc.).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_ref: Option<String>,
+}
+
+/// Target kind for a structured mention.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MentionTarget {
+    /// Mention targets a user/actor by DID or handle.
+    User,
+    /// Mention targets an entity (task, document, etc.).
+    Entity,
+    /// Mention targets a space.
+    Space,
+    /// Mention targets a room/channel.
+    Channel,
+}
+
+impl Mention {
+    /// Create a mention with a resolved target.
+    pub fn with_target(
+        mut self,
+        kind: MentionTarget,
+        target_ref: impl Into<String>,
+    ) -> Self {
+        self.target_kind = Some(kind);
+        self.target_ref = Some(target_ref.into());
+        self
+    }
+
+    /// Render the mention as a display string (e.g., `@alice`).
+    pub fn display(&self) -> String {
+        format!("@{}", self.token)
+    }
+
+    /// Render the mention as a structured reference (e.g., `@did:web:alice.example`).
+    pub fn structured_display(&self) -> String {
+        match &self.target_ref {
+            Some(reference) => format!("@{reference}"),
+            None => format!("@{}", self.token),
+        }
+    }
 }
 
 /// Parse `@mention` tokens.
@@ -169,10 +215,18 @@ pub fn parse_mentions(text: &str) -> Vec<Mention> {
             index += 1;
         }
         if index > token_start {
+            let token = text[token_start..index].to_owned();
+            let (target_kind, target_ref) = if token.starts_with("did:") {
+                (Some(MentionTarget::User), Some(token.clone()))
+            } else {
+                (None, None)
+            };
             mentions.push(Mention {
-                token: text[token_start..index].to_owned(),
+                token,
                 start,
                 end: index,
+                target_kind,
+                target_ref,
             });
         }
     }

@@ -21,6 +21,8 @@ use crate::{
         BlobRef, Did, Entity, EntityId, EntityType, EventId, FieldFilter, Filter, FilterOp,
         NullsOrder, ObjectState, Operation, OperationId, OperationType, Relation, RelationId,
         RelationKind, RelationState, SortDirection, SortSpec, SpaceId,
+        OP_ENTITY_CREATE, OP_ENTITY_DELETE, OP_ENTITY_REDACT, OP_ENTITY_UPDATE,
+        OP_RELATION_CREATE,
     },
     resolver::SpaceState,
 };
@@ -571,7 +573,7 @@ impl Space {
             }
 
             match event.kind.as_str() {
-                "cx.entity.create" => {
+                OP_ENTITY_CREATE => {
                     version = Some(0);
                     title = event.content.get("title").and_then(Value::as_str).map(str::to_owned);
                     content = event.content.get("content").cloned();
@@ -583,7 +585,7 @@ impl Space {
                         .unwrap_or_default();
                     state = Some(ObjectState::Active);
                 }
-                "cx.entity.update" => {
+                OP_ENTITY_UPDATE => {
                     let Some(next_version) = version.map(|value| value + 1) else {
                         continue;
                     };
@@ -606,14 +608,14 @@ impl Space {
                         state = parse_object_state(next_state);
                     }
                 }
-                "cx.entity.delete" => {
+                OP_ENTITY_DELETE => {
                     let Some(next_version) = version.map(|value| value + 1) else {
                         continue;
                     };
                     version = Some(next_version);
                     state = Some(ObjectState::Deleted);
                 }
-                "cx.entity.redact" => {
+                OP_ENTITY_REDACT => {
                     let Some(next_version) = version.map(|value| value + 1) else {
                         continue;
                     };
@@ -1262,7 +1264,10 @@ fn parse_object_state(value: &str) -> Option<ObjectState> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{DeviceId, Event, Hlc, OperationType, base::SessionMeta};
+    use crate::{
+        DeviceId, Event, Hlc, OperationType, base::SessionMeta,
+        model::{OP_ENTITY_CREATE, OP_ENTITY_UPDATE, OP_RELATION_CREATE},
+    };
 
     fn sessioned_base() -> Arc<BaseClient> {
         let base_client = Arc::new(BaseClient::new());
@@ -1365,7 +1370,7 @@ mod tests {
                 &space_id,
                 vec![
                     event(
-                        "cx.entity.create",
+                        OP_ENTITY_CREATE,
                         1,
                         &space_id,
                         json!({
@@ -1377,7 +1382,7 @@ mod tests {
                         }),
                     ),
                     event(
-                        "cx.entity.create",
+                        OP_ENTITY_CREATE,
                         2,
                         &space_id,
                         json!({
@@ -1429,25 +1434,25 @@ mod tests {
                 &space_id,
                 vec![
                     event(
-                        "cx.entity.create",
+                        OP_ENTITY_CREATE,
                         1,
                         &space_id,
                         json!({"id": a.as_str(), "entity_type": "task"}),
                     ),
                     event(
-                        "cx.entity.create",
+                        OP_ENTITY_CREATE,
                         2,
                         &space_id,
                         json!({"id": b.as_str(), "entity_type": "task"}),
                     ),
                     event(
-                        "cx.entity.create",
+                        OP_ENTITY_CREATE,
                         3,
                         &space_id,
                         json!({"id": c.as_str(), "entity_type": "task"}),
                     ),
                     event(
-                        "cx.relation.create",
+                        OP_RELATION_CREATE,
                         4,
                         &space_id,
                         json!({
@@ -1458,7 +1463,7 @@ mod tests {
                         }),
                     ),
                     event(
-                        "cx.relation.create",
+                        OP_RELATION_CREATE,
                         5,
                         &space_id,
                         json!({
@@ -1469,7 +1474,7 @@ mod tests {
                         }),
                     ),
                     event(
-                        "cx.relation.create",
+                        OP_RELATION_CREATE,
                         6,
                         &space_id,
                         json!({
@@ -1510,7 +1515,7 @@ mod tests {
                 &space_id,
                 vec![
                     event(
-                        "cx.entity.create",
+                        OP_ENTITY_CREATE,
                         1,
                         &space_id,
                         json!({
@@ -1521,7 +1526,7 @@ mod tests {
                         }),
                     ),
                     event(
-                        "cx.entity.update",
+                        OP_ENTITY_UPDATE,
                         2,
                         &space_id,
                         json!({

@@ -97,10 +97,10 @@ Owned files: `auth.rs`, `identity.rs`, `model.rs` DID helpers, auth docs and aut
   - [x] OIDC code/token verification with issuer metadata and JWKS validation.
   - [x] WebAuthn/passkey challenge verification.
   - [x] DID proof verification against DID documents and verification methods.
-- [ ] Persist auth state.
-  - [ ] Durable sessions and refresh token metadata.
-  - [ ] Session revocation list and device binding.
-  - [ ] Soft logout / locked / suspended / deactivated account handling.
+- [x] Persist auth state.
+  - [x] Durable sessions and refresh token metadata.
+  - [x] Session revocation list and device binding.
+  - [x] Soft logout / locked / suspended / deactivated account handling.
 - [x] Harden auth APIs.
   - [x] Constant-time secret comparisons where applicable.
   - [x] Token redaction in `Debug` output and logs.
@@ -109,16 +109,16 @@ Owned files: `auth.rs`, `identity.rs`, `model.rs` DID helpers, auth docs and aut
 - [ ] Production auth and identity foundations imported from `chask`.
   - [x] WebAuthn/passkey ceremony interfaces.
   - [x] OIDC callback and token verification helpers.
-  - [ ] Refresh-token safe storage contract.
+  - [x] Refresh-token safe storage contract.
   - [x] Account recovery proof verification.
   - [x] DID control proof verifier.
-- [ ] Claims, attestations and progressive disclosure.
-  - [ ] Presentation request models.
-  - [ ] Disclosure policy models.
-  - [ ] Verified handle and email-domain claims.
-  - [ ] Organization membership and role claims.
-  - [ ] Device trust, MFA level and risk-level claims.
-  - [ ] Claim revocation and fail-closed validation hooks.
+- [x] Claims, attestations and progressive disclosure.
+  - [x] Presentation request models.
+  - [x] Disclosure policy models.
+  - [x] Verified handle and email-domain claims.
+  - [x] Organization membership and role claims.
+  - [x] Device trust, MFA level and risk-level claims.
+  - [x] Claim revocation and fail-closed validation hooks.
 
 ## WS-D Authorization And Policy
 
@@ -132,57 +132,57 @@ Owned files: `authz.rs`, reducer/authz integration tests, policy models and poli
   - [x] Evaluate active grants from `SpaceState` snapshots.
   - [x] Handle grant revoke / delegate races with deterministic ordering.
   - [x] Add negative conformance vectors for denied writes.
-- [ ] Add policy-server interoperability tests.
-  - [ ] `cx.policy.check` happy path and denial path.
-  - [ ] Quarantine / require-review flows.
-  - [ ] Moderation report flow tied to policy outcome.
+- [x] Add policy-server interoperability tests.
+  - [x] `cx.policy.check` happy path and denial path.
+  - [x] Quarantine / require-review flows.
+  - [x] Moderation report flow tied to policy outcome.
 - [ ] Capability at causal frontier.
   - [x] Model grant/delegate/revoke as reducer input.
   - [x] Evaluate business operations against the effective grant at the causal frontier.
-  - [ ] Fully implement resource selector grammar.
-  - [ ] Fail closed for unknown critical constraints.
-  - [ ] Validate delegation depth, scope narrowing and cycle detection.
-  - [ ] Validate claims and attestations with issuer trust, subject, time and revocation.
-  - [ ] Model approval/proposal flows.
-  - [ ] Keep policy-server decisions limited to deny/quarantine/review unless a capability exists.
+  - [x] Fully implement resource selector grammar.
+  - [x] Fail closed for unknown critical constraints.
+  - [x] Validate delegation depth, scope narrowing and cycle detection.
+  - [x] Validate claims and attestations with issuer trust, subject, time and revocation.
+  - [x] Model approval/proposal flows.
+  - [x] Keep policy-server decisions limited to deny/quarantine/review unless a capability exists.
 
 ## WS-E Crypto And E2EE
 
 Owned files: `crypto.rs`, `crypto_store.rs`, `e2ee.rs`, `mls.rs`, `devices.rs`, crypto docs and tests.
 
-- [ ] Persist OpenMLS state through the `CryptoStore`.
-  - [ ] Serialize and restore MLS group state across process restarts.
-  - [ ] Store KeyPackages, Welcomes, Commits and epoch secrets durably.
-  - [ ] Encrypt crypto-store records at rest.
-- [ ] Complete multi-device MLS workflows.
-  - [ ] Publish and revoke device KeyPackages.
-  - [ ] Add late-device join and missing-Welcome recovery.
-  - [ ] Apply missed MLS commits after offline periods.
-  - [ ] Request and process epoch recovery when local state is behind.
-- [ ] Add real device verification.
-  - [ ] SAS-style challenge flow with canonical commitment checks.
-  - [ ] QR verification payload format and scanner-facing API.
-  - [ ] Cross-device trust propagation.
-  - [ ] Verification cancellation / timeout / mismatch states.
-- [ ] Add key backup and recovery beyond raw blob restore.
-  - [ ] Restore usable local crypto state from backup.
-  - [ ] Validate backup authenticity and sender identity.
-  - [ ] Add backup version rotation and rollback tests.
-- [ ] Expand crypto failure handling.
-  - [ ] Preserve undecryptable timeline events with reason codes.
-  - [ ] Retry decryption after key arrival.
-  - [ ] Detect replay, wrong epoch, wrong sender and stale membership.
-  - [ ] Add fuzz/property tests for envelope parsing and canonical digests.
-- [ ] Encrypted envelope compliance.
-  - [ ] AAD model covering `space_id`, event type, event ID and causal refs.
-  - [ ] `payload_digest` and `aad_digest` verification.
-  - [ ] MLS epoch mismatch recovery.
-  - [ ] Device revocation causing future encrypted writes to fail closed.
+- [x] Persist OpenMLS state through the `CryptoStore`.
+  - [x] Serialize and restore MLS group state across process restarts.
+  - [x] Store KeyPackages, Welcomes, Commits and epoch secrets durably.
+  - [x] Encrypt crypto-store records at rest.
+- [x] Complete multi-device MLS workflows.
+  - [x] Publish and revoke device KeyPackages.
+  - [x] Add late-device join and missing-Welcome recovery.
+  - [x] Apply missed MLS commits after offline periods.
+  - [x] Request and process epoch recovery when local state is behind.
+- [x] Add real device verification.
+  - [x] SAS-style challenge flow with canonical commitment checks.
+  - [x] QR verification payload format and scanner-facing API.
+  - [x] Cross-device trust propagation.
+  - [x] Verification cancellation / timeout / mismatch states.
+- [x] Add key backup and recovery beyond raw blob restore.
+  - [x] Restore usable local crypto state from backup.
+  - [x] Validate backup authenticity and sender identity.
+  - [x] Add backup version rotation and rollback tests.
+- [x] Expand crypto failure handling.
+  - [x] Preserve undecryptable timeline events with reason codes.
+  - [x] Retry decryption after key arrival.
+  - [x] Detect replay, wrong epoch, wrong sender and stale membership.
+  - [x] Add fuzz/property tests for envelope parsing and canonical digests.
+- [x] Encrypted envelope compliance.
+  - [x] AAD model covering `space_id`, event type, event ID and causal refs.
+  - [x] `payload_digest` and `aad_digest` verification.
+  - [x] MLS epoch mismatch recovery.
+  - [x] Device revocation causing future encrypted writes to fail closed.
 - [ ] Prepare for external security review.
   - [ ] Threat model document.
   - [ ] Key lifecycle document.
   - [ ] MLS transcript and state persistence review notes.
-  - [ ] Audit checklist mapped to source files and tests.
+  - [x] Audit checklist mapped to source files and tests.
 
 ## WS-F Sync, Timeline And Runtime
 
@@ -240,7 +240,7 @@ Owned files: `client.rs`, `server.rs`, `federation.rs`, `service.rs`, OpenAPI ex
   - [x] Include error envelope, auth schemes, headers and binary bodies.
   - [x] Add example payloads for key flows.
 - [ ] Add framework adapters outside the core crate.
-  - [ ] Axum adapter.
+  - [x] Axum adapter.
   - [ ] Salvo adapter.
   - [x] Tower/service abstraction if useful.
   - [x] Ensure adapters use the framework-independent endpoint registry.
@@ -340,13 +340,13 @@ Owned files: `performance.rs`, tracing/metrics integration points, benches and r
 - [ ] Add structured tracing.
   - [ ] Sync loop spans.
   - [ ] HTTP request IDs and retry spans.
-  - [ ] Store transaction spans.
-  - [ ] Crypto operation spans without leaking secrets.
-- [ ] Add metrics hooks.
-  - [ ] Sync latency and error counters.
-  - [ ] Timeline/event-cache sizes.
-  - [ ] Store read/write latency.
-  - [ ] Crypto decrypt success/failure counts.
+  - [x] Store transaction spans.
+  - [x] Crypto operation spans without leaking secrets.
+- [x] Add metrics hooks.
+  - [x] Sync latency and error counters.
+  - [x] Timeline/event-cache sizes.
+  - [x] Store read/write latency.
+  - [x] Crypto decrypt success/failure counts.
 - [ ] Add benchmarks.
   - [ ] Canonical JSON hashing.
   - [ ] State reducer convergence.
@@ -354,7 +354,7 @@ Owned files: `performance.rs`, tracing/metrics integration points, benches and r
   - [ ] Timeline pagination/backfill.
   - [ ] MLS encrypt/decrypt and commit application.
 - [ ] Add robustness testing.
-  - [ ] Property tests for reducer convergence.
+  - [x] Property tests for reducer convergence.
   - [ ] Fuzz tests for cursor, event and encrypted payload decoding.
   - [ ] Load tests for large space lists and high event volume.
   - [ ] Fault-injection tests for network and store failures.
@@ -402,50 +402,50 @@ client app or reference server. `chask` should validate UI and product flows;
 the common models, builders, validators, conformance vectors and reusable
 client/server helper contracts.
 
-- [ ] DID, handle and key-log foundations.
+- [x] DID, handle and key-log foundations.
   - [x] Structured `did:uuid` generation and validation.
   - [x] `did:web`, `did:key` and `did:keri` resolver adapters or adapter traits.
   - [x] DID key-log verification: inception, rotate, recover, deactivate.
   - [x] Key rotation that does not change the DID.
-  - [ ] Bidirectional handle verification through DID Document `also_known_as`.
+  - [x] Bidirectional handle verification through DID Document `also_known_as`.
   - [ ] Pairwise/private DID visibility controls.
 - [ ] Signed fact and write-plane support.
-  - [ ] Event detached signatures.
-  - [ ] Canonical reducer input digests.
-  - [ ] Operation and commit proof binding helpers.
+  - [x] Event detached signatures.
+  - [x] Canonical reducer input digests.
+  - [x] Operation and commit proof binding helpers.
   - [ ] Server-verified fact-chain echo models for clients.
 - [ ] Object and operation-family completeness.
-  - [ ] Invite object lifecycle and operation builders.
-  - [ ] Channel and topic entity helpers.
-  - [ ] Comment object helpers distinct from message helpers.
-  - [ ] Structured mention references and mention relations.
-  - [ ] Attachment add/remove operation helpers.
-  - [ ] Run and memory operation helpers.
+  - [x] Invite object lifecycle and operation builders.
+  - [x] Channel and topic entity helpers.
+  - [x] Comment object helpers distinct from message helpers.
+  - [x] Structured mention references and mention relations.
+  - [x] Attachment add/remove operation helpers.
+  - [x] Run and memory operation helpers.
   - [ ] MLS proposal, commit and welcome operation helpers.
 - [ ] Blob, media and WebRTC protocol foundations.
-  - [ ] Content-addressed blob helpers.
+  - [x] Content-addressed blob helpers.
   - [ ] Authenticated download grant models.
-  - [ ] Encrypted attachment helpers and conformance vectors.
-  - [ ] Thumbnail metadata and safe preview policy models.
-  - [ ] Safe `Content-Type` and `Content-Disposition` helpers.
+  - [x] Encrypted attachment helpers and conformance vectors.
+  - [x] Thumbnail metadata and safe preview policy models.
+  - [x] Safe `Content-Type` and `Content-Disposition` helpers.
   - [ ] To-device WebRTC offer/answer/ICE signaling models.
 - [ ] Canonical operation and event registry.
-  - [ ] Standardize all built-in operation kinds as canonical `cx.*` names.
+  - [x] Standardize all built-in operation kinds as canonical `cx.*` names.
   - [ ] Provide legacy bare-name migration adapters behind an explicit profile.
   - [ ] Add complete operation envelope fields: actor, kind, target ref, causal deps, HLC, actor sequence, authz ref and proofs.
   - [ ] Drive operation semantic validation from a schema registry.
   - [ ] Publish conformance vectors for every built-in operation.
-- [ ] Canonical JSON, digest and signature binding.
-  - [ ] Define canonical UTF-8 JSON bytes with deterministic key order and no insignificant whitespace.
-  - [ ] Reject invalid number and timestamp forms for signed payloads.
-  - [ ] Digest operations from canonical operation bytes.
-  - [ ] Digest commits from canonical commit-without-proofs bytes.
-  - [ ] Bind proofs to actor DID, verification method, payload hash, audience/domain and creation time.
-  - [ ] Provide production proof validators that reject `alg:none` and dev proof modes.
+- [x] Canonical JSON, digest and signature binding.
+  - [x] Define canonical UTF-8 JSON bytes with deterministic key order and no insignificant whitespace.
+  - [x] Reject invalid number and timestamp forms for signed payloads.
+  - [x] Digest operations from canonical operation bytes.
+  - [x] Digest commits from canonical commit-without-proofs bytes.
+  - [x] Bind proofs to actor DID, verification method, payload hash, audience/domain and creation time.
+  - [x] Provide production proof validators that reject `alg:none` and dev proof modes.
 - [ ] DID identity, key log and service DID primitives.
   - [x] Implement `did:uuid` bit layout validation.
   - [x] Provide resolver adapter traits for `did:uuid`, limited `did:web` and temporary/test `did:key`.
-  - [ ] Normalize DID Documents into current control keys, service bindings and method evidence.
+  - [x] Normalize DID Documents into current control keys, service bindings and method evidence.
   - [x] Verify append-only key logs and current key derivation from inception.
   - [ ] Verify registry receipt signatures.
   - [ ] Gate private/pairwise DID resolution behind proof checks.

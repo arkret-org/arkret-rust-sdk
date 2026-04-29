@@ -30,6 +30,48 @@ pub fn canonical_sha256<T: Serialize>(value: &T) -> Result<String> {
     Ok(sha256_digest(canonical_json_bytes(value)?))
 }
 
+/// Validate that a timestamp string is in canonical RFC 3339 UTC form.
+///
+/// Canonical form: `YYYY-MM-DDTHH:MM:SSZ` — no fractional seconds, no `+00:00`
+/// offset (must use `Z`), no lowercase `t` or `z`.
+pub fn validate_timestamp_canonical(timestamp: &str) -> Result<()> {
+    // Must end with 'Z' (not '+00:00' or lowercase 'z')
+    if !timestamp.ends_with('Z') {
+        return Err(Error::Protocol(format!(
+            "canonical timestamp must end with 'Z': {timestamp}"
+        )));
+    }
+    // Reject lowercase 't' separator
+    if timestamp.contains('t') {
+        return Err(Error::Protocol(format!(
+            "canonical timestamp must use uppercase 'T': {timestamp}"
+        )));
+    }
+    // Must have 'T' separator at position 10
+    if timestamp.len() < 20 || timestamp.as_bytes().get(10) != Some(&b'T') {
+        return Err(Error::Protocol(format!(
+            "canonical timestamp must be YYYY-MM-DDTHH:MM:SSZ: {timestamp}"
+        )));
+    }
+    // No fractional seconds (no '.' before 'Z')
+    let time_part = &timestamp[11..];
+    if time_part.contains('.') {
+        return Err(Error::Protocol(format!(
+            "canonical timestamp must not have fractional seconds: {timestamp}"
+        )));
+    }
+    // Length must be exactly 20: "YYYY-MM-DDTHH:MM:SSZ"
+    if timestamp.len() != 20 {
+        return Err(Error::Protocol(format!(
+            "canonical timestamp must be exactly YYYY-MM-DDTHH:MM:SSZ: {timestamp}"
+        )));
+    }
+    // Verify it parses as a valid DateTime
+    chrono::DateTime::parse_from_rfc3339(timestamp)
+        .map_err(|_| Error::Protocol(format!("canonical timestamp is not a valid RFC 3339 date: {timestamp}")))?;
+    Ok(())
+}
+
 fn write_canonical_value(value: &Value, out: &mut Vec<u8>) -> Result<()> {
     match value {
         Value::Null => out.extend_from_slice(b"null"),
@@ -57,13 +99,31 @@ fn write_canonical_value(value: &Value, out: &mut Vec<u8>) -> Result<()> {
 
 fn write_number(number: &Number, out: &mut Vec<u8>) -> Result<()> {
     if let Some(n) = number.as_i64() {
-        out.extend_from_slice(n.to_string().as_bytes());
+        let s = n.to_string();
+        reject_leading_zeros(&s)?;
+        out.extend_from_slice(s.as_bytes());
     } else if let Some(n) = number.as_u64() {
-        out.extend_from_slice(n.to_string().as_bytes());
+        let s = n.to_string();
+        reject_leading_zeros(&s)?;
+        out.extend_from_slice(s.as_bytes());
     } else {
         return Err(Error::NonCanonicalNumber);
     }
 
+    Ok(())
+}
+
+fn reject_leading_zeros(s: &str) -> Result<()> {
+    let bytes = s.as_bytes();
+    if bytes.len() > 1 && bytes[0] == b'0' && bytes[1] != b'-' {
+        return Err(Error::NonCanonicalNumber);
+    }
+    if bytes.len() > 2 && bytes[0] == b'-' && bytes[1] == b'0' && bytes[2] != b'\0' {
+        // -0 is fine, but -01 is not
+        if bytes.len() > 2 && bytes[1] == b'0' && bytes[2] != b'0' {
+            return Err(Error::NonCanonicalNumber);
+        }
+    }
     Ok(())
 }
 
@@ -107,5 +167,73 @@ mod tests {
     fn canonical_json_rejects_float_numbers() {
         let value = json!({ "n": 1.5 });
         assert!(matches!(canonical_json_string(&value), Err(Error::NonCanonicalNumber)));
+    }
+
+    #[test]
+    fn canonical_json_rejects_float_zero() {
+        let value = json!({ "n": 0.0 });
+        assert!(matches!(canonical_json_string(&value), Err(Error::NonCanonicalNumber)));
+    }
+
+    #[test]
+    fn validate_timestamp_canonical_accepts_rfc3339_utc() {
+        assert!(validate_timestamp_canonical("2026-04-26T00:00:00Z").is_ok());
+        assert!(validate_timestamp_canonical("2026-12-31T23:59:59Z").is_ok());
+    }
+
+    #[test]
+    fn validate_timestamp_canonical_rejects_offset_form() {
+        assert!(validate_timestamp_canonical("2026-04-26T00:00:00+00:00").is_err());
+        assert!(validate_timestamp_canonical("2026-04-26T00:00:00+05:30").is_err());
+    }
+
+    #[test]
+    fn validate_timestamp_canonical_rejects_fractional_seconds() {
+        assert!(validate_timestamp_canonical("2026-04-26T00:00:00.000Z").is_err());
+        assert!(validate_timestamp_canonical("2026-04-26T00:00:00.123456Z").is_err());
+    }
+
+    #[test]
+    fn validate_timestamp_canonical_rejects_lowercase_t_or_z() {
+        assert!(validate_timestamp_canonical("2026-04-26t00:00:00Z").is_err());
+        assert!(validate_timestamp_canonical("2026-04-26T00:00:00z").is_err());
+    }
+
+    #[test]
+    fn validate_timestamp_canonical_rejects_invalid_date() {
+        assert!(validate_timestamp_canonical("2026-13-01T00:00:00Z").is_err());
+        assert!(validate_timestamp_canonical("2026-02-30T00:00:00Z").is_err());
+    }
+
+    #[test]
+    fn validate_timestamp_canonical_rejects_empty_and_garbage() {
+        assert!(validate_timestamp_canonical("").is_err());
+        assert!(validate_timestamp_canonical("not-a-timestamp").is_err());
+        assert!(validate_timestamp_canonical("Z").is_err());
+    }
+
+    #[test]
+    fn canonical_json_integer_roundtrip_preserves_sign() {
+        assert_eq!(canonical_json_string(&json!(0)).unwrap(), "0");
+        assert_eq!(canonical_json_string(&json!(1)).unwrap(), "1");
+        assert_eq!(canonical_json_string(&json!(-1)).unwrap(), "-1");
+        assert_eq!(canonical_json_string(&json!(i64::MAX)).unwrap(), "9223372036854775807");
+        assert_eq!(canonical_json_string(&json!(i64::MIN)).unwrap(), "-9223372036854775808");
+    }
+
+    #[test]
+    fn canonical_json_nested_object_key_order() {
+        let value = json!({ "z": { "b": 1, "a": 2 }, "a": 1 });
+        let actual = canonical_json_string(&value).unwrap();
+        assert_eq!(actual, r#"{"a":1,"z":{"a":2,"b":1}}"#);
+    }
+
+    #[test]
+    fn canonical_json_string_escapes_special_characters() {
+        let value = json!({ "key": "value\nwith\ttabs\"quotes" });
+        let actual = canonical_json_string(&value).unwrap();
+        assert!(actual.contains("\\n"));
+        assert!(actual.contains("\\t"));
+        assert!(actual.contains("\\\""));
     }
 }

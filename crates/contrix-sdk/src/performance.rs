@@ -293,6 +293,86 @@ impl MetricSample {
     }
 }
 
+/// Backend-agnostic metrics collector trait.
+///
+/// Implementors bridge SDK metric samples to their chosen backend
+/// (Prometheus, OpenTelemetry, StatsD, logging, etc.).
+pub trait MetricsCollector: Send + Sync {
+    /// Record a single metric sample.
+    fn record(&self, sample: MetricSample);
+
+    /// Record a sync latency in milliseconds.
+    fn record_sync_latency(&self, ms: f64) {
+        self.record(MetricSample::new(MetricName::SyncLatencyMs, ms));
+    }
+
+    /// Record a sync error.
+    fn record_sync_error(&self) {
+        self.record(MetricSample::new(MetricName::SyncErrors, 1.0));
+    }
+
+    /// Record timeline / event-cache size.
+    fn record_timeline_cache_size(&self, size: usize) {
+        self.record(MetricSample::new(MetricName::TimelineEventCacheSize, size as f64));
+    }
+
+    /// Record store read latency in milliseconds.
+    fn record_store_read_latency(&self, ms: f64) {
+        self.record(MetricSample::new(MetricName::StoreReadLatencyMs, ms));
+    }
+
+    /// Record store write latency in milliseconds.
+    fn record_store_write_latency(&self, ms: f64) {
+        self.record(MetricSample::new(MetricName::StoreWriteLatencyMs, ms));
+    }
+
+    /// Record a successful crypto decrypt.
+    fn record_crypto_decrypt_success(&self) {
+        self.record(MetricSample::new(MetricName::CryptoDecryptSuccess, 1.0));
+    }
+
+    /// Record a failed crypto decrypt.
+    fn record_crypto_decrypt_failure(&self) {
+        self.record(MetricSample::new(MetricName::CryptoDecryptFailure, 1.0));
+    }
+}
+
+/// No-op metrics collector for testing or when metrics are disabled.
+#[derive(Clone, Debug, Default)]
+pub struct NoopMetricsCollector;
+
+impl MetricsCollector for NoopMetricsCollector {
+    fn record(&self, _sample: MetricSample) {}
+}
+
+/// In-memory metrics collector for testing.
+#[derive(Clone, Debug, Default)]
+pub struct MemoryMetricsCollector {
+    samples: std::sync::Arc<std::sync::Mutex<Vec<MetricSample>>>,
+}
+
+impl MemoryMetricsCollector {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Drain all recorded samples.
+    pub fn drain(&self) -> Vec<MetricSample> {
+        self.samples.lock().unwrap().drain(..).collect()
+    }
+
+    /// Return the number of recorded samples.
+    pub fn count(&self) -> usize {
+        self.samples.lock().unwrap().len()
+    }
+}
+
+impl MetricsCollector for MemoryMetricsCollector {
+    fn record(&self, sample: MetricSample) {
+        self.samples.lock().unwrap().push(sample);
+    }
+}
+
 /// Benchmark coverage targets maintained by this crate.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum BenchmarkTarget {

@@ -204,6 +204,7 @@ impl MemoryRepoStore {
 }
 
 impl RepoStore for MemoryRepoStore {
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(operation_id = %operation.operation_id)))]
     fn put_operation(&mut self, operation: Operation) -> Result<()> {
         let digest = operation.operation_digest()?;
         match self.operations.get(&operation.operation_id) {
@@ -216,6 +217,7 @@ impl RepoStore for MemoryRepoStore {
         }
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(commit_id = %commit.commit_id, author = %commit.author)))]
     fn put_commit(&mut self, commit: Commit) -> Result<()> {
         let digest = commit.commit_digest()?;
         match self.commits.get(&commit.commit_id) {
@@ -625,7 +627,7 @@ impl StoreEncryptionKey {
         Self(key)
     }
 
-    fn seal(&self, bytes: &[u8], aad: &[u8]) -> Result<Vec<u8>> {
+    pub fn seal(&self, bytes: &[u8], aad: &[u8]) -> Result<Vec<u8>> {
         crypto::seal(bytes, &self.0, aad)
     }
 }

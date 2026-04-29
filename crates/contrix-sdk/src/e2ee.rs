@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::{AEAD_ALGORITHM, Did, Error, Result, crypto};
+use crate::{AEAD_ALGORITHM, DeviceId, Did, Error, Result, crypto};
 
 pub const KEY_BACKUP_ALGORITHM: &str = AEAD_ALGORITHM;
 
@@ -160,6 +160,8 @@ pub struct E2eeManager {
     keys: BTreeMap<String, E2eeKeyRecord>,
     seen_messages: BTreeSet<String>,
     audit: Vec<AuditEntry>,
+    /// Devices revoked from encrypted writes. Key is (principal_id, device_id).
+    revoked_devices: BTreeMap<(Did, DeviceId), DateTime<Utc>>,
 }
 
 impl E2eeManager {
@@ -522,6 +524,37 @@ impl E2eeManager {
         self.groups.get(group_id)
     }
 
+    /// Revoke a device, causing all future encrypted writes from it to fail closed.
+    pub fn revoke_device(&mut self, principal_id: &Did, device_id: &DeviceId) {
+        self.revoked_devices
+            .insert((principal_id.clone(), device_id.clone()), Utc::now());
+    }
+
+    /// Check if a device is revoked.
+    pub fn is_device_revoked(&self, principal_id: &Did, device_id: &DeviceId) -> bool {
+        self.revoked_devices
+            .contains_key(&(principal_id.clone(), device_id.clone()))
+    }
+
+    /// Build an E2EE message envelope from a specific device, failing closed if the
+    /// device is revoked.
+    pub fn create_message_from_device(
+        &self,
+        message_id: impl Into<String>,
+        group_id: &str,
+        sender: Did,
+        device_id: &DeviceId,
+        ciphertext: Vec<u8>,
+    ) -> Result<E2eeMessage> {
+        if self.is_device_revoked(&sender, device_id) {
+            return Err(Error::Protocol(format!(
+                "device {} is revoked; encrypted writes fail closed",
+                device_id.as_str()
+            )));
+        }
+        self.create_message(message_id, group_id, sender, ciphertext)
+    }
+
     /// Export audit entries.
     pub fn audit_entries(&self) -> &[AuditEntry] {
         &self.audit
@@ -700,6 +733,35 @@ mod tests {
                 failure: E2eeMessageValidationFailure::IntegrityMismatch
             }
         );
+    }
+
+    #[test]
+    fn e2ee_device_revocation_fails_closed_on_encrypted_writes() {
+        let alice = did("alice");
+        let device_id = DeviceId::new("dev_phone").unwrap();
+        let mut manager = E2eeManager::new();
+        manager.create_group("g1", alice.clone(), BTreeSet::new());
+
+        // Before revocation, message creation succeeds.
+        let msg = manager
+            .create_message_from_device("m1", "g1", alice.clone(), &device_id, b"ciphertext".to_vec())
+            .unwrap();
+        assert_eq!(msg.sender, alice);
+
+        // Revoke the device.
+        manager.revoke_device(&alice, &device_id);
+        assert!(manager.is_device_revoked(&alice, &device_id));
+
+        // After revocation, encrypted writes fail closed.
+        let result = manager.create_message_from_device(
+            "m2",
+            "g1",
+            alice.clone(),
+            &device_id,
+            b"ciphertext".to_vec(),
+        );
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("revoked"));
     }
 
     #[test]

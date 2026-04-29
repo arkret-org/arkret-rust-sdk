@@ -28,6 +28,73 @@ pub const BLOB_SCHEMA: &str = "cx.schema.blob.v1";
 pub const ENCRYPTED_PAYLOAD_SCHEMA: &str = "cx.schema.encrypted_payload.v1";
 pub const CLIENT_SYNC_RESPONSE_SCHEMA: &str = "cx.schema.client_sync_response.v1";
 
+// ── Canonical cx.* operation kinds ──────────────────────────────────────────
+/// Entity CRUD operations.
+pub const OP_ENTITY_CREATE: &str = "cx.entity.create";
+pub const OP_ENTITY_UPDATE: &str = "cx.entity.update";
+pub const OP_ENTITY_DELETE: &str = "cx.entity.delete";
+pub const OP_ENTITY_RESTORE: &str = "cx.entity.restore";
+pub const OP_ENTITY_REDACT: &str = "cx.entity.redact";
+
+/// Relation operations.
+pub const OP_RELATION_CREATE: &str = "cx.relation.create";
+pub const OP_RELATION_DELETE: &str = "cx.relation.delete";
+pub const OP_RELATION_MOVE: &str = "cx.relation.move";
+
+/// Task-specific operations.
+pub const OP_TASK_CREATE: &str = "cx.task.create";
+pub const OP_TASK_UPDATE: &str = "cx.task.update";
+pub const OP_TASK_MOVE: &str = "cx.task.move";
+
+/// View operations.
+pub const OP_VIEW_CREATE: &str = "cx.view.create";
+pub const OP_VIEW_UPDATE: &str = "cx.view.update";
+pub const OP_VIEW_RECONCILE: &str = "cx.view.reconcile";
+
+/// Space management operations.
+pub const OP_SPACE_CREATE: &str = "cx.space.create";
+pub const OP_SPACE_UPDATE: &str = "cx.space.update";
+pub const OP_SPACE_ORGANIZATION: &str = "cx.space.organization";
+pub const OP_SPACE_CHILD: &str = "cx.space.child";
+
+/// Message operations.
+pub const OP_MESSAGE_CREATE: &str = "cx.message.create";
+
+/// Server, sync and federation operations.
+pub const OP_SERVER_DESCRIBE: &str = "cx.server.describe";
+pub const OP_IDENTITY_RESOLVE: &str = "cx.identity.resolve";
+pub const OP_REPO_DESCRIBE: &str = "cx.repo.describe";
+pub const OP_REPO_SYNC: &str = "cx.repo.sync";
+pub const OP_SYNC_DESCRIBE: &str = "cx.sync.describe";
+pub const OP_SYNC_SUBSCRIBE: &str = "cx.sync.subscribe";
+pub const OP_SYNC_BACKFILL: &str = "cx.sync.backfill";
+pub const OP_FEDERATION_TRANSACTION: &str = "cx.federation.transaction";
+
+/// Index and search operations.
+pub const OP_INDEX_DESCRIBE: &str = "cx.index.describe";
+pub const OP_INDEX_QUERY: &str = "cx.index.query";
+pub const OP_INDEX_THREAD: &str = "cx.index.thread";
+pub const OP_INDEX_NOTIFICATIONS: &str = "cx.index.notifications";
+pub const OP_INDEX_INBOX: &str = "cx.index.inbox";
+pub const OP_INDEX_SEARCH: &str = "cx.index.search";
+
+/// Directory operations.
+pub const OP_DIRECTORY_DESCRIBE: &str = "cx.directory.describe";
+
+/// Blob operations.
+pub const OP_BLOB_UPLOAD: &str = "cx.blob.upload";
+pub const OP_BLOB_HEAD: &str = "cx.blob.head";
+pub const OP_BLOB_GET: &str = "cx.blob.get";
+
+/// Push and key operations.
+pub const OP_PUSH_NOTIFY: &str = "cx.push.notify";
+pub const OP_KEYS_UPLOAD: &str = "cx.keys.upload";
+pub const OP_KEYS_QUERY: &str = "cx.keys.query";
+pub const OP_KEYS_CLAIM: &str = "cx.keys.claim";
+
+/// Authorization check.
+pub const OP_AUTHZ_CHECK: &str = "cx.authz.check";
+
 macro_rules! id_type {
     ($name:ident, $expect:expr) => {
         #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -143,6 +210,17 @@ id_type!(DeviceId, |value: &str| (value.starts_with("dev_") && value.len() > "de
     || (value.starts_with("cx:device:") && value.len() > "cx:device:".len()));
 id_type!(PolicyId, has_prefix("cx:policy:"));
 id_type!(BlobRef, |value: &str| value.starts_with("cx:blob:") || is_hash(value));
+
+impl BlobRef {
+    /// Create a content-addressed `sha256:…` blob reference from raw bytes.
+    pub fn from_bytes(bytes: &[u8]) -> Self {
+        use sha2::{Digest, Sha256};
+        let digest = format!("sha256:{:x}", Sha256::digest(bytes));
+        // Safety: the digest is always a valid sha256:hash form.
+        Self(digest)
+    }
+}
+
 id_type!(ViewId, has_prefix("cx:view:"));
 id_type!(Hash, is_hash);
 id_type!(Cursor, has_prefix("cx:cursor:"));
@@ -369,6 +447,7 @@ pub enum ActorStatus {
 pub enum EntityType {
     Board,
     Collection,
+    Comment,
     Task,
     Message,
     Topic,
@@ -738,6 +817,12 @@ pub struct Proof {
     pub jws: String,
 }
 
+/// Allowed proof algorithms for production use.
+const PRODUCTION_ALGORITHMS: &[&str] = &["EdDSA", "ES256", "ES256K", "RS256", "PS256"];
+
+/// Proof kinds that indicate development/test mode and are rejected in production.
+const DEV_PROOF_KINDS: &[&str] = &["dev", "test", "mock", "stub", "dummy"];
+
 impl Proof {
     pub fn binding_payload(&self, actor_id: &Did) -> SignatureBindingPayload {
         SignatureBindingPayload {
@@ -748,6 +833,106 @@ impl Proof {
             domain: self.domain.clone(),
             audience: self.audience.clone(),
         }
+    }
+
+    /// Validate proof structural requirements.
+    ///
+    /// Rejects `alg:none`, empty verification methods, empty JWS, and
+    /// empty kind.
+    pub fn validate(&self) -> Result<()> {
+        if self.alg.eq_ignore_ascii_case("none") {
+            return Err(Error::Protocol("proof algorithm 'none' is not allowed".to_owned()));
+        }
+        if self.alg.is_empty() {
+            return Err(Error::Protocol("proof algorithm must not be empty".to_owned()));
+        }
+        if self.verification_method.is_empty() {
+            return Err(Error::Protocol("proof verification_method must not be empty".to_owned()));
+        }
+        if self.jws.is_empty() {
+            return Err(Error::Protocol("proof JWS must not be empty".to_owned()));
+        }
+        if self.kind.is_empty() {
+            return Err(Error::Protocol("proof kind must not be empty".to_owned()));
+        }
+        Ok(())
+    }
+
+    /// Validate that this proof uses a production-grade algorithm and kind.
+    ///
+    /// Rejects `alg:none`, unknown algorithms, and dev/test proof kinds.
+    pub fn validate_production(&self) -> Result<()> {
+        self.validate()?;
+        if DEV_PROOF_KINDS.iter().any(|k| self.kind.eq_ignore_ascii_case(k)) {
+            return Err(Error::Protocol(format!(
+                "production proofs must not use dev/test kind: {}",
+                self.kind
+            )));
+        }
+        if !PRODUCTION_ALGORITHMS.iter().any(|a| self.alg.eq_ignore_ascii_case(a)) {
+            return Err(Error::Protocol(format!(
+                "unsupported production proof algorithm: {}",
+                self.alg
+            )));
+        }
+        Ok(())
+    }
+
+    /// Validate that the proof's structural fields match the expected binding.
+    ///
+    /// Checks: verification_method, payload_hash, created_at (within tolerance),
+    /// domain, and audience.
+    pub fn validate_binding(&self, expected: &SignatureBindingPayload) -> Result<()> {
+        self.validate()?;
+        if self.verification_method != expected.verification_method {
+            return Err(Error::Protocol(format!(
+                "proof verification_method '{}' does not match expected '{}'",
+                self.verification_method, expected.verification_method
+            )));
+        }
+        if self.payload_hash != expected.payload_hash {
+            return Err(Error::Protocol(
+                "proof payload_hash does not match expected digest".to_owned(),
+            ));
+        }
+        // Allow 5-minute clock skew tolerance for created_at
+        let diff = if self.created_at > expected.created_at {
+            self.created_at - expected.created_at
+        } else {
+            expected.created_at - self.created_at
+        };
+        if diff.num_minutes() > 5 {
+            return Err(Error::Protocol(format!(
+                "proof created_at differs from expected by {} minutes (max 5)",
+                diff.num_minutes()
+            )));
+        }
+        if self.domain != expected.domain {
+            return Err(Error::Protocol(format!(
+                "proof domain {:?} does not match expected {:?}",
+                self.domain, expected.domain
+            )));
+        }
+        if self.audience != expected.audience {
+            return Err(Error::Protocol(format!(
+                "proof audience {:?} does not match expected {:?}",
+                self.audience, expected.audience
+            )));
+        }
+        Ok(())
+    }
+
+    /// Validate that the proof's payload_hash matches the canonical digest of a payload.
+    pub fn validate_payload_digest(&self, payload: &impl Serialize) -> Result<()> {
+        let computed = canonical::canonical_sha256(payload)?;
+        let expected = Hash::new(computed)?;
+        if self.payload_hash != expected {
+            return Err(Error::Protocol(format!(
+                "proof payload_hash '{}' does not match computed digest '{}'",
+                self.payload_hash, expected
+            )));
+        }
+        Ok(())
     }
 }
 
@@ -901,6 +1086,102 @@ impl Entity {
             Some(_) => Err(Error::Protocol("entity content must be a JSON object".to_owned())),
         }
     }
+
+    /// Create a channel entity.
+    pub fn channel(
+        entity_id: EntityId,
+        space_id: SpaceId,
+        title: impl Into<String>,
+        created_by: Did,
+        channel_kind: ChannelKind,
+    ) -> Self {
+        let mut fields = BTreeMap::new();
+        fields.insert("channel_kind".to_owned(), serde_json::to_value(channel_kind).unwrap_or_default());
+        Self {
+            schema: ENTITY_SCHEMA.to_owned(),
+            id: entity_id,
+            object_type: "entity".to_owned(),
+            space_id,
+            entity_type: EntityType::Channel,
+            title: Some(title.into()),
+            content: None,
+            fields,
+            state: Some(ObjectState::Active),
+            version: Some(1),
+            created_by,
+            created_at: Utc::now(),
+            updated_by: None,
+            updated_at: None,
+            labels: Vec::new(),
+            metadata: BTreeMap::new(),
+            extra: BTreeMap::new(),
+        }
+    }
+
+    /// Create a topic entity.
+    pub fn topic(
+        entity_id: EntityId,
+        space_id: SpaceId,
+        title: impl Into<String>,
+        created_by: Did,
+    ) -> Self {
+        Self {
+            schema: ENTITY_SCHEMA.to_owned(),
+            id: entity_id,
+            object_type: "entity".to_owned(),
+            space_id,
+            entity_type: EntityType::Topic,
+            title: Some(title.into()),
+            content: None,
+            fields: BTreeMap::new(),
+            state: Some(ObjectState::Active),
+            version: Some(1),
+            created_by,
+            created_at: Utc::now(),
+            updated_by: None,
+            updated_at: None,
+            labels: Vec::new(),
+            metadata: BTreeMap::new(),
+            extra: BTreeMap::new(),
+        }
+    }
+
+    /// Create a comment entity.
+    pub fn comment(
+        entity_id: EntityId,
+        space_id: SpaceId,
+        created_by: Did,
+        content: Value,
+    ) -> Self {
+        Self {
+            schema: ENTITY_SCHEMA.to_owned(),
+            id: entity_id,
+            object_type: "entity".to_owned(),
+            space_id,
+            entity_type: EntityType::Comment,
+            title: None,
+            content: Some(content),
+            fields: BTreeMap::new(),
+            state: Some(ObjectState::Active),
+            version: Some(1),
+            created_by,
+            created_at: Utc::now(),
+            updated_by: None,
+            updated_at: None,
+            labels: Vec::new(),
+            metadata: BTreeMap::new(),
+            extra: BTreeMap::new(),
+        }
+    }
+
+    /// Get the channel kind if this is a channel entity.
+    pub fn channel_kind(&self) -> Option<&Value> {
+        if self.entity_type == EntityType::Channel {
+            self.fields.get("channel_kind")
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -991,6 +1272,25 @@ impl Event {
         }
         if !self.content.is_object() {
             return Err(Error::Protocol("event content must be a JSON object".to_owned()));
+        }
+        Ok(())
+    }
+
+    /// Validate that all proofs bind to this event's digest.
+    ///
+    /// Checks each proof's `payload_hash` matches the canonical event digest,
+    /// and that each proof is structurally valid.
+    pub fn validate_proof_bindings(&self) -> Result<()> {
+        let digest = self.event_digest()?;
+        let expected_hash = Hash::new(digest)?;
+        for proof in &self.proofs {
+            proof.validate()?;
+            if proof.payload_hash != expected_hash {
+                return Err(Error::Protocol(format!(
+                    "event proof payload_hash '{}' does not match event digest '{}'",
+                    proof.payload_hash, expected_hash
+                )));
+            }
         }
         Ok(())
     }
@@ -1297,6 +1597,22 @@ impl OperationEnvelope {
         }
         Ok(())
     }
+
+    /// Validate that all proofs bind to this operation's digest.
+    pub fn validate_proof_bindings(&self) -> Result<()> {
+        let digest = self.operation_digest()?;
+        let expected_hash = Hash::new(digest)?;
+        for proof in &self.proofs {
+            proof.validate()?;
+            if proof.payload_hash != expected_hash {
+                return Err(Error::Protocol(format!(
+                    "operation proof payload_hash '{}' does not match operation digest '{}'",
+                    proof.payload_hash, expected_hash
+                )));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1368,6 +1684,22 @@ impl Commit {
             return Err(Error::Protocol(
                 "commit proofs must contain at least one proof".to_owned(),
             ));
+        }
+        Ok(())
+    }
+
+    /// Validate that all proofs bind to this commit's digest.
+    pub fn validate_proof_bindings(&self) -> Result<()> {
+        let digest = self.commit_digest()?;
+        let expected_hash = Hash::new(digest)?;
+        for proof in &self.proofs {
+            proof.validate()?;
+            if proof.payload_hash != expected_hash {
+                return Err(Error::Protocol(format!(
+                    "commit proof payload_hash '{}' does not match commit digest '{}'",
+                    proof.payload_hash, expected_hash
+                )));
+            }
         }
         Ok(())
     }
@@ -1579,7 +1911,7 @@ pub struct MlsKeyPackageRecord {
     pub device_signature: Option<Proof>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MlsCommitEnvelope {
     pub group_id: String,
     pub epoch: u64,
@@ -1589,7 +1921,7 @@ pub struct MlsCommitEnvelope {
     pub ratchet_tree: Option<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MlsWelcomeEnvelope {
     pub group_id: String,
     pub epoch: u64,
@@ -1599,6 +1931,28 @@ pub struct MlsWelcomeEnvelope {
     pub welcome_hash: Hash,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ratchet_tree: Option<String>,
+}
+
+/// Verification state for a device.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DeviceVerificationState {
+    /// Device has not been verified.
+    Unverified,
+    /// Verification is in progress.
+    VerificationStarted,
+    /// Device has been verified.
+    Verified,
+    /// Device is blocked.
+    Blocked,
+    /// Device was deleted locally.
+    Deleted,
+    /// Verification failed due to mismatch.
+    VerificationFailed,
+    /// Verification was cancelled before completion.
+    VerificationCancelled,
+    /// Verification expired before completion.
+    VerificationExpired,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2988,5 +3342,297 @@ mod tests {
 
         assert!(value.get("spaces").unwrap().is_object());
         assert!(value.get("rooms").is_none());
+    }
+
+    fn valid_proof() -> Proof {
+        Proof {
+            kind: "detached_jws".to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method: "did:web:alice.example#key-1".to_owned(),
+            payload_hash: Hash::new(
+                "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+            )
+            .unwrap(),
+            created_at: "2026-04-26T00:00:00Z".parse().unwrap(),
+            domain: None,
+            audience: None,
+            jws: "header.payload.signature".to_owned(),
+        }
+    }
+
+    #[test]
+    fn proof_validate_rejects_alg_none() {
+        let mut proof = valid_proof();
+        proof.alg = "none".to_owned();
+        assert!(proof.validate().is_err());
+        assert!(proof.validate().unwrap_err().to_string().contains("'none'"));
+    }
+
+    #[test]
+    fn proof_validate_rejects_none_case_insensitive() {
+        let mut proof = valid_proof();
+        proof.alg = "NONE".to_owned();
+        assert!(proof.validate().is_err());
+    }
+
+    #[test]
+    fn proof_validate_rejects_empty_fields() {
+        let mut proof = valid_proof();
+        proof.alg = "".to_owned();
+        assert!(proof.validate().is_err());
+
+        let mut proof = valid_proof();
+        proof.verification_method = "".to_owned();
+        assert!(proof.validate().is_err());
+
+        let mut proof = valid_proof();
+        proof.jws = "".to_owned();
+        assert!(proof.validate().is_err());
+
+        let mut proof = valid_proof();
+        proof.kind = "".to_owned();
+        assert!(proof.validate().is_err());
+    }
+
+    #[test]
+    fn proof_validate_accepts_valid_proof() {
+        assert!(valid_proof().validate().is_ok());
+    }
+
+    #[test]
+    fn proof_validate_production_rejects_dev_kinds() {
+        for kind in &["dev", "test", "mock", "stub", "dummy"] {
+            let mut proof = valid_proof();
+            proof.kind = kind.to_string();
+            assert!(
+                proof.validate_production().is_err(),
+                "should reject kind: {kind}"
+            );
+        }
+    }
+
+    #[test]
+    fn proof_validate_production_rejects_unsupported_algorithms() {
+        let mut proof = valid_proof();
+        proof.alg = "HS256".to_owned();
+        assert!(proof.validate_production().is_err());
+
+        let mut proof = valid_proof();
+        proof.alg = "RSASSA-PKCS1-v1_5".to_owned();
+        assert!(proof.validate_production().is_err());
+    }
+
+    #[test]
+    fn proof_validate_production_accepts_known_algorithms() {
+        for alg in &["EdDSA", "ES256", "ES256K", "RS256", "PS256"] {
+            let mut proof = valid_proof();
+            proof.alg = alg.to_string();
+            assert!(
+                proof.validate_production().is_ok(),
+                "should accept algorithm: {alg}"
+            );
+        }
+    }
+
+    #[test]
+    fn proof_validate_binding_matches_expected_fields() {
+        let proof = valid_proof();
+        let expected = proof.binding_payload(&Did::new("did:web:alice.example").unwrap());
+        assert!(proof.validate_binding(&expected).is_ok());
+    }
+
+    #[test]
+    fn proof_validate_binding_rejects_mismatched_verification_method() {
+        let proof = valid_proof();
+        let mut expected = proof.binding_payload(&Did::new("did:web:alice.example").unwrap());
+        expected.verification_method = "did:web:bob.example#key-1".to_owned();
+        assert!(proof.validate_binding(&expected).is_err());
+    }
+
+    #[test]
+    fn proof_validate_binding_rejects_mismatched_payload_hash() {
+        let proof = valid_proof();
+        let mut expected = proof.binding_payload(&Did::new("did:web:alice.example").unwrap());
+        expected.payload_hash = Hash::new(
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        )
+        .unwrap();
+        assert!(proof.validate_binding(&expected).is_err());
+    }
+
+    #[test]
+    fn proof_validate_binding_rejects_mismatched_domain() {
+        let proof = valid_proof();
+        let mut expected = proof.binding_payload(&Did::new("did:web:alice.example").unwrap());
+        expected.domain = Some("other.example".to_owned());
+        assert!(proof.validate_binding(&expected).is_err());
+    }
+
+    #[test]
+    fn proof_validate_binding_rejects_mismatched_audience() {
+        let mut proof = valid_proof();
+        proof.audience = Some(Audience::Single("svc-a".to_owned()));
+        let mut expected = proof.binding_payload(&Did::new("did:web:alice.example").unwrap());
+        expected.audience = Some(Audience::Single("svc-b".to_owned()));
+        assert!(proof.validate_binding(&expected).is_err());
+    }
+
+    #[test]
+    fn proof_validate_binding_rejects_excessive_time_drift() {
+        let proof = valid_proof();
+        let mut expected = proof.binding_payload(&Did::new("did:web:alice.example").unwrap());
+        expected.created_at = "2026-04-26T01:00:00Z".parse().unwrap();
+        assert!(proof.validate_binding(&expected).is_err());
+    }
+
+    #[test]
+    fn event_validate_proof_bindings_checks_digest_match() {
+        let event = Event::new(
+            "cx.message.create",
+            SpaceId::new("cx:space:01js0ke000000000000000000").unwrap(),
+            Did::new("did:web:alice.example").unwrap(),
+            1,
+            Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap(),
+            json!({ "body": "hello" }),
+        )
+        .unwrap();
+
+        let digest = event.event_digest().unwrap();
+        let proof = Proof {
+            kind: "detached_jws".to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method: "did:web:alice.example#key-1".to_owned(),
+            payload_hash: Hash::new(digest).unwrap(),
+            created_at: Utc::now(),
+            domain: None,
+            audience: None,
+            jws: "sig".to_owned(),
+        };
+
+        let mut signed_event = event.clone();
+        signed_event.proofs = vec![proof];
+        assert!(signed_event.validate_proof_bindings().is_ok());
+    }
+
+    #[test]
+    fn event_validate_proof_bindings_rejects_mismatched_digest() {
+        let event = Event::new(
+            "cx.message.create",
+            SpaceId::new("cx:space:01js0ke000000000000000000").unwrap(),
+            Did::new("did:web:alice.example").unwrap(),
+            1,
+            Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap(),
+            json!({ "body": "hello" }),
+        )
+        .unwrap();
+
+        let bad_proof = Proof {
+            kind: "detached_jws".to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method: "did:web:alice.example#key-1".to_owned(),
+            payload_hash: Hash::new(
+                "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+            )
+            .unwrap(),
+            created_at: Utc::now(),
+            domain: None,
+            audience: None,
+            jws: "sig".to_owned(),
+        };
+
+        let mut signed_event = event;
+        signed_event.proofs = vec![bad_proof];
+        assert!(signed_event.validate_proof_bindings().is_err());
+    }
+
+    #[test]
+    fn commit_validate_proof_bindings_checks_digest_match() {
+        let commit = Commit {
+            schema: COMMIT_SCHEMA.to_owned(),
+            commit_id: CommitId::new("cx:commit:01js0ke000000000000000000").unwrap(),
+            object_type: "commit".to_owned(),
+            repo_id: "did:web:alice.example".to_owned(),
+            author: Did::new("did:web:alice.example").unwrap(),
+            author_seq: 1,
+            prev_commit: None,
+            operations: vec![],
+            created_at: "2026-04-26T00:00:00Z".parse().unwrap(),
+            proofs: vec![],
+        };
+
+        let digest = commit.commit_digest().unwrap();
+        let proof = Proof {
+            kind: "detached_jws".to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method: "did:web:alice.example#key-1".to_owned(),
+            payload_hash: Hash::new(digest).unwrap(),
+            created_at: "2026-04-26T00:00:00Z".parse().unwrap(),
+            domain: None,
+            audience: None,
+            jws: "sig".to_owned(),
+        };
+
+        let mut signed_commit = commit;
+        signed_commit.proofs = vec![proof];
+        assert!(signed_commit.validate_proof_bindings().is_ok());
+    }
+
+    #[test]
+    fn entity_channel_constructor_sets_type_and_kind() {
+        let entity = Entity::channel(
+            EntityId::new("cx:entity:ch01").unwrap(),
+            SpaceId::new("cx:space:01").unwrap(),
+            "General",
+            Did::new("did:web:alice.example").unwrap(),
+            ChannelKind::Chat,
+        );
+        assert_eq!(entity.entity_type, EntityType::Channel);
+        assert_eq!(entity.title, Some("General".to_owned()));
+        assert_eq!(entity.state, Some(ObjectState::Active));
+        assert!(entity.channel_kind().is_some());
+    }
+
+    #[test]
+    fn entity_topic_constructor_sets_type() {
+        let entity = Entity::topic(
+            EntityId::new("cx:entity:tp01").unwrap(),
+            SpaceId::new("cx:space:01").unwrap(),
+            "Design Discussion",
+            Did::new("did:web:alice.example").unwrap(),
+        );
+        assert_eq!(entity.entity_type, EntityType::Topic);
+        assert_eq!(entity.title, Some("Design Discussion".to_owned()));
+    }
+
+    #[test]
+    fn entity_comment_constructor_sets_type_and_content() {
+        let entity = Entity::comment(
+            EntityId::new("cx:entity:cm01").unwrap(),
+            SpaceId::new("cx:space:01").unwrap(),
+            Did::new("did:web:alice.example").unwrap(),
+            json!({"body": "hello world"}),
+        );
+        assert_eq!(entity.entity_type, EntityType::Comment);
+        assert!(entity.title.is_none());
+        assert_eq!(entity.content, Some(json!({"body": "hello world"})));
+    }
+
+    #[test]
+    fn entity_channel_kind_returns_none_for_non_channel() {
+        let entity = Entity::topic(
+            EntityId::new("cx:entity:tp02").unwrap(),
+            SpaceId::new("cx:space:01").unwrap(),
+            "Topic",
+            Did::new("did:web:alice.example").unwrap(),
+        );
+        assert!(entity.channel_kind().is_none());
+    }
+
+    #[test]
+    fn entity_type_comment_roundtrips() {
+        let json = serde_json::to_string(&EntityType::Comment).unwrap();
+        assert_eq!(json, "\"comment\"");
+        let back: EntityType = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, EntityType::Comment);
     }
 }

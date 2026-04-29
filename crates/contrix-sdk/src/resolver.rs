@@ -12,6 +12,12 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::{
     Audience, Did, Entity, EntityId, Error, Event, EventId, Relation, RelationId, Result, SpaceId,
     canonical::{canonical_json_bytes, sha256_digest},
+    model::{
+        OP_ENTITY_CREATE, OP_ENTITY_DELETE, OP_ENTITY_REDACT, OP_ENTITY_RESTORE, OP_ENTITY_UPDATE,
+        OP_RELATION_CREATE, OP_RELATION_DELETE, OP_RELATION_MOVE, OP_SPACE_CHILD,
+        OP_SPACE_CREATE, OP_SPACE_ORGANIZATION, OP_SPACE_UPDATE, OP_TASK_CREATE, OP_TASK_MOVE,
+        OP_TASK_UPDATE, OP_VIEW_CREATE, OP_VIEW_RECONCILE, OP_VIEW_UPDATE,
+    },
 };
 
 pub const REDUCER_SNAPSHOT_SCHEMA: &str = "cx.schema.reducer_snapshot.v1";
@@ -134,32 +140,32 @@ impl SpaceState {
     fn process_event_content(&mut self, event: &Event) -> Result<()> {
         match event.kind.as_str() {
             // Entity lifecycle
-            "cx.entity.create" => self.create_entity(event)?,
-            "cx.entity.update" => self.update_entity(event)?,
-            "cx.entity.delete" => self.delete_entity(event)?,
-            "cx.entity.restore" => self.restore_entity(event)?,
-            "cx.entity.redact" => self.redact_entity(event)?,
+            OP_ENTITY_CREATE => self.create_entity(event)?,
+            OP_ENTITY_UPDATE => self.update_entity(event)?,
+            OP_ENTITY_DELETE => self.delete_entity(event)?,
+            OP_ENTITY_RESTORE => self.restore_entity(event)?,
+            OP_ENTITY_REDACT => self.redact_entity(event)?,
 
             // Relation lifecycle
-            "cx.relation.create" => self.create_relation(event)?,
-            "cx.relation.delete" => self.delete_relation(event)?,
-            "cx.relation.move" => self.move_relation(event)?,
+            OP_RELATION_CREATE => self.create_relation(event)?,
+            OP_RELATION_DELETE => self.delete_relation(event)?,
+            OP_RELATION_MOVE => self.move_relation(event)?,
 
             // Task operations (entity-type-specific wrappers)
-            "cx.task.create" => self.create_entity(event)?,
-            "cx.task.update" => self.update_entity(event)?,
-            "cx.task.move" => self.update_entity(event)?,
+            OP_TASK_CREATE => self.create_entity(event)?,
+            OP_TASK_UPDATE => self.update_entity(event)?,
+            OP_TASK_MOVE => self.update_entity(event)?,
 
             // View operations
-            "cx.view.create" => self.create_view(event)?,
-            "cx.view.update" => self.update_view(event)?,
-            "cx.view.reconcile" => self.reconcile_view(event)?,
+            OP_VIEW_CREATE => self.create_view(event)?,
+            OP_VIEW_UPDATE => self.update_view(event)?,
+            OP_VIEW_RECONCILE => self.reconcile_view(event)?,
 
             // Space lifecycle — generic state reduction
-            "cx.space.create"
-            | "cx.space.update"
-            | "cx.space.organization"
-            | "cx.space.child"
+            OP_SPACE_CREATE
+            | OP_SPACE_UPDATE
+            | OP_SPACE_ORGANIZATION
+            | OP_SPACE_CHILD
             | "cx.space.parent"
             | "cx.space.inheritance_policy"
             | "cx.space.join_rule"
@@ -1676,5 +1682,58 @@ mod tests {
             unsigned: BTreeMap::new(),
             proofs: vec![],
         }
+    }
+
+    #[test]
+    fn reducer_convergence_is_order_independent() {
+        // Property: applying the same events in any permutation produces the same
+        // final state, because the reducer sorts by HLC before applying.
+        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let actor = Did::new("did:web:alice.example.com").unwrap();
+
+        let events: Vec<Event> = (0..5)
+            .map(|i| {
+                let hlc = Hlc::new(format!("01970e589d22-{i:08x}-11111111")).unwrap();
+                Event {
+                    event_id: EventId::new(format!("cx:event:01JS0CONV{i:022}")).unwrap(),
+                    kind: OP_ENTITY_CREATE.to_owned(),
+                    space_id: space_id.clone(),
+                    space_version: "1".to_owned(),
+                    actor_id: actor.clone(),
+                    actor_seq: i as u64 + 1,
+                    created_at: chrono::Utc::now(),
+                    hlc,
+                    prev_refs: vec![],
+                    auth_refs: vec![],
+                    redacts: None,
+                    content: json!({
+                        "id": format!("cx:entity:01JS0CONVENTITY{i:018}"),
+                        "entity_type": "task",
+                        "title": format!("Task {i}")
+                    }),
+                    unsigned: BTreeMap::new(),
+                    proofs: vec![],
+                }
+            })
+            .collect();
+
+        // Apply in original order.
+        let mut state_a = SpaceState::new(space_id.clone(), "1".to_owned());
+        state_a.apply_events(&events).unwrap();
+
+        // Apply in reversed order.
+        let mut reversed = events.clone();
+        reversed.reverse();
+        let mut state_b = SpaceState::new(space_id.clone(), "1".to_owned());
+        state_b.apply_events(&reversed).unwrap();
+
+        // Both must converge to the same entity set and frontier.
+        assert_eq!(state_a.entities.len(), state_b.entities.len());
+        for (id, entity_a) in &state_a.entities {
+            let entity_b = state_b.entities.get(id).unwrap();
+            assert_eq!(entity_a.title, entity_b.title);
+            assert_eq!(entity_a.version, entity_b.version);
+        }
+        assert_eq!(state_a.frontier, state_b.frontier);
     }
 }

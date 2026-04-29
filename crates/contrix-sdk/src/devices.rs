@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
-use crate::{DeviceId, Did, Error, Result, canonical};
+use crate::{DeviceId, DeviceVerificationState, Did, Error, Result, canonical};
 
 /// User-visible device metadata.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -20,28 +20,6 @@ pub struct DeviceMetadata {
     pub os: Option<String>,
     /// Last seen time.
     pub last_seen_at: Option<DateTime<Utc>>,
-}
-
-/// Verification state for a device.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DeviceVerificationState {
-    /// Device has not been verified.
-    Unverified,
-    /// Verification is in progress.
-    VerificationStarted,
-    /// Device has been verified.
-    Verified,
-    /// Device is blocked.
-    Blocked,
-    /// Device was deleted locally.
-    Deleted,
-    /// Verification failed due to mismatch.
-    VerificationFailed,
-    /// Verification was cancelled before completion.
-    VerificationCancelled,
-    /// Verification expired before completion.
-    VerificationExpired,
 }
 
 /// Device record.
@@ -142,6 +120,7 @@ pub struct DeviceManager {
     to_device_queue: VecDeque<ToDeviceEnvelope>,
     key_backups: BTreeMap<String, KeyBackup>,
     verification_challenges: BTreeMap<String, DeviceVerificationChallenge>,
+    revoked_devices: BTreeMap<Did, BTreeMap<DeviceId, DateTime<Utc>>>,
 }
 
 impl DeviceManager {
@@ -415,6 +394,30 @@ impl DeviceManager {
     /// Block a device.
     pub fn block_device(&mut self, user_id: &Did, device_id: &DeviceId) -> Result<()> {
         self.set_verification(user_id, device_id, DeviceVerificationState::Blocked)
+    }
+
+    /// Revoke a device, causing all future encrypted writes from it to fail closed.
+    pub fn revoke_device(&mut self, user_id: &Did, device_id: &DeviceId) {
+        self.revoked_devices
+            .entry(user_id.clone())
+            .or_default()
+            .insert(device_id.clone(), Utc::now());
+    }
+
+    /// Check if a device has been revoked.
+    pub fn is_device_revoked(&self, user_id: &Did, device_id: &DeviceId) -> bool {
+        self.revoked_devices
+            .get(user_id)
+            .and_then(|devices| devices.get(device_id))
+            .is_some()
+    }
+
+    /// Get all revoked devices for a user.
+    pub fn revoked_devices_for_user(&self, user_id: &Did) -> Vec<(&DeviceId, &DateTime<Utc>)> {
+        self.revoked_devices
+            .get(user_id)
+            .map(|devices| devices.iter().collect())
+            .unwrap_or_default()
     }
 
     /// Propagate trust from an already verified device to another device of the same user.
@@ -695,6 +698,23 @@ mod tests {
         assert!(manager.download_key_backup("1").is_some());
         assert_eq!(manager.restore_key_backup("1").unwrap(), json!({"ciphertext":"abc"}));
         assert!(manager.restore_key_backup("missing").is_err());
+    }
+
+    #[test]
+    fn devices_revoke_and_fail_closed() {
+        let alice = did("alice");
+        let device_id = device("phone");
+        let mut manager = DeviceManager::new();
+        manager.upsert_device(
+            alice.clone(),
+            device_id.clone(),
+            DeviceMetadata { name: None, model: None, os: None, last_seen_at: None },
+        );
+
+        assert!(!manager.is_device_revoked(&alice, &device_id));
+        manager.revoke_device(&alice, &device_id);
+        assert!(manager.is_device_revoked(&alice, &device_id));
+        assert_eq!(manager.revoked_devices_for_user(&alice).len(), 1);
     }
 
     #[test]

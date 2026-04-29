@@ -121,6 +121,23 @@ pub struct Invite {
     pub accepted: bool,
     /// Whether the invite was rejected.
     pub rejected: bool,
+    /// Whether the invite was revoked.
+    pub revoked: bool,
+    /// Optional expiration time.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
+impl Invite {
+    /// Whether this invite is still pending (not accepted, rejected, revoked, or expired).
+    pub fn is_pending(&self) -> bool {
+        !self.accepted && !self.rejected && !self.revoked
+    }
+
+    /// Whether this invite has expired.
+    pub fn is_expired(&self) -> bool {
+        self.expires_at.is_some_and(|exp| Utc::now() >= exp)
+    }
 }
 
 /// In-memory membership manager.
@@ -293,8 +310,24 @@ impl MembershipManager {
             created_at: Utc::now(),
             accepted: false,
             rejected: false,
+            revoked: false,
+            expires_at: None,
         };
         self.upsert_member(user_id, MembershipState::Invited, role, None);
+        self.invites.insert(invite.invite_id.clone(), invite.clone());
+        Ok(invite)
+    }
+
+    /// Send a DID invite with an expiration time.
+    pub fn send_invite_with_expiry(
+        &mut self,
+        user_id: Did,
+        invited_by: Did,
+        role: MemberRole,
+        expires_at: DateTime<Utc>,
+    ) -> Result<Invite> {
+        let mut invite = self.send_invite(user_id, invited_by, role)?;
+        invite.expires_at = Some(expires_at);
         self.invites.insert(invite.invite_id.clone(), invite.clone());
         Ok(invite)
     }
@@ -315,9 +348,72 @@ impl MembershipManager {
             created_at: Utc::now(),
             accepted: false,
             rejected: false,
+            revoked: false,
+            expires_at: None,
         };
         self.invites.insert(invite.invite_id.clone(), invite.clone());
         Ok(invite)
+    }
+
+    /// Revoke a pending invite.
+    pub fn revoke_invite(&mut self, invite_id: &InviteId) -> Result<()> {
+        let invite = self
+            .invites
+            .get(invite_id)
+            .ok_or_else(|| Error::Protocol("invite not found".to_owned()))?;
+        if invite.accepted {
+            return Err(Error::Protocol("accepted invite cannot be revoked".to_owned()));
+        }
+        if invite.revoked {
+            return Err(Error::Protocol("invite is already revoked".to_owned()));
+        }
+        let user_id = invite.user_id.clone();
+        let role = invite.role;
+        self.invites.get_mut(invite_id).expect("invite exists").revoked = true;
+        if let Some(user_id) = user_id {
+            self.upsert_member(user_id, MembershipState::Left, role, None);
+        }
+        Ok(())
+    }
+
+    /// Expire all invites whose expiration time has passed.
+    ///
+    /// Returns the number of invites that were expired.
+    pub fn expire_invites(&mut self) -> usize {
+        let now = Utc::now();
+        // Collect the IDs and user info of invites to expire to avoid borrow conflict.
+        let to_expire: Vec<(InviteId, Option<Did>, MemberRole)> = self
+            .invites
+            .iter()
+            .filter(|(_, i)| {
+                !i.accepted
+                    && !i.rejected
+                    && !i.revoked
+                    && i.expires_at.is_some_and(|exp| now >= exp)
+            })
+            .map(|(id, i)| (id.clone(), i.user_id.clone(), i.role))
+            .collect();
+
+        let count = to_expire.len();
+        for (invite_id, user_id, role) in to_expire {
+            if let Some(invite) = self.invites.get_mut(&invite_id) {
+                invite.revoked = true;
+            }
+            if let Some(user_id) = user_id {
+                self.upsert_member(user_id, MembershipState::Left, role, None);
+            }
+        }
+        count
+    }
+
+    /// List all pending (non-expired, non-revoked) invites.
+    pub fn pending_invites(&self) -> Vec<&Invite> {
+        self.invites.values().filter(|i| i.is_pending()).collect()
+    }
+
+    /// Get an invite by ID.
+    pub fn invite(&self, invite_id: &InviteId) -> Option<&Invite> {
+        self.invites.get(invite_id)
     }
 
     /// Accept an invite for a DID.
@@ -329,6 +425,12 @@ impl MembershipManager {
                 .ok_or_else(|| Error::Protocol("invite not found".to_owned()))?;
             if invite.rejected {
                 return Err(Error::Protocol("rejected invite cannot be accepted".to_owned()));
+            }
+            if invite.revoked {
+                return Err(Error::Protocol("revoked invite cannot be accepted".to_owned()));
+            }
+            if invite.is_expired() {
+                return Err(Error::Protocol("expired invite cannot be accepted".to_owned()));
             }
             invite.accepted = true;
             invite.user_id = Some(user_id.clone());
@@ -347,6 +449,9 @@ impl MembershipManager {
                 .ok_or_else(|| Error::Protocol("invite not found".to_owned()))?;
             if invite.accepted {
                 return Err(Error::Protocol("accepted invite cannot be rejected".to_owned()));
+            }
+            if invite.revoked {
+                return Err(Error::Protocol("revoked invite cannot be rejected".to_owned()));
             }
             invite.rejected = true;
             invite.user_id.clone().map(|user_id| (user_id, invite.role))
@@ -464,5 +569,80 @@ mod tests {
             )
             .unwrap();
         manager.reject_invite(&third_party.invite_id).unwrap();
+    }
+
+    #[test]
+    fn invite_revocation_blocks_acceptance() {
+        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let alice = did("alice");
+        let bob = did("bob");
+        let mut manager = MembershipManager::new(space_id, alice.clone());
+
+        let invite = manager.send_invite(bob.clone(), alice, MemberRole::Member).unwrap();
+        manager.revoke_invite(&invite.invite_id).unwrap();
+
+        let stored = manager.invite(&invite.invite_id).unwrap();
+        assert!(stored.revoked);
+        assert!(!stored.is_pending());
+
+        // Trying to accept a revoked invite should fail (it's treated as rejected)
+        assert!(manager.accept_invite(&invite.invite_id, bob).is_err());
+    }
+
+    #[test]
+    fn invite_cannot_revoke_accepted() {
+        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let alice = did("alice");
+        let bob = did("bob");
+        let mut manager = MembershipManager::new(space_id, alice.clone());
+
+        let invite = manager.send_invite(bob.clone(), alice, MemberRole::Member).unwrap();
+        manager.accept_invite(&invite.invite_id, bob).unwrap();
+        assert!(manager.revoke_invite(&invite.invite_id).is_err());
+    }
+
+    #[test]
+    fn invite_expiration_marks_revoked() {
+        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let alice = did("alice");
+        let bob = did("bob");
+        let mut manager = MembershipManager::new(space_id, alice.clone());
+
+        // Invite that already expired
+        let past = "2020-01-01T00:00:00Z".parse().unwrap();
+        let invite =
+            manager.send_invite_with_expiry(bob.clone(), alice, MemberRole::Member, past).unwrap();
+
+        assert!(invite.is_expired());
+        assert!(invite.is_pending()); // Not yet processed
+
+        let expired_count = manager.expire_invites();
+        assert_eq!(expired_count, 1);
+
+        let stored = manager.invite(&invite.invite_id).unwrap();
+        assert!(stored.revoked);
+        assert!(!stored.is_pending());
+    }
+
+    #[test]
+    fn invite_pending_invites_excludes_expired_and_revoked() {
+        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let alice = did("alice");
+        let bob = did("bob");
+        let carol = did("carol");
+        let mut manager = MembershipManager::new(space_id, alice.clone());
+
+        // Pending invite
+        let invite1 = manager.send_invite(bob, alice.clone(), MemberRole::Member).unwrap();
+        // Expired invite
+        let past = "2020-01-01T00:00:00Z".parse().unwrap();
+        let _invite2 = manager
+            .send_invite_with_expiry(carol, alice, MemberRole::Member, past)
+            .unwrap();
+
+        assert_eq!(manager.pending_invites().len(), 2); // Both still pending until expire runs
+        manager.expire_invites();
+        assert_eq!(manager.pending_invites().len(), 1);
+        assert_eq!(manager.pending_invites()[0].invite_id, invite1.invite_id);
     }
 }

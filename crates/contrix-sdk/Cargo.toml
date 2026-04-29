@@ -16,12 +16,16 @@ default = ["client", "mls"]
 client = ["dep:reqwest", "dep:url"]
 server = []
 mls = ["dep:openmls", "dep:openmls_basic_credential", "dep:openmls_rust_crypto", "dep:tls_codec"]
+full-surface = []
+tracing = ["dep:tracing"]
+axum-adapter = ["dep:axum", "server"]
 applet-runtime = []
 device-runtime = []
 sync-runtime = []
 timeline-runtime = []
 
 [dependencies]
+axum = { workspace = true, optional = true }
 base64.workspace = true
 chacha20poly1305.workspace = true
 chrono = { workspace = true, features = ["serde"] }
@@ -37,6 +41,7 @@ serde_json.workspace = true
 sha2.workspace = true
 thiserror.workspace = true
 tls_codec = { workspace = true, optional = true }
+tracing = { workspace = true, optional = true }
 ulid.workspace = true
 url = { workspace = true, optional = true, features = ["serde"] }
 

@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use ulid::Ulid;
 
-use crate::{Did, Error, Result};
+use crate::{Did, Error, Result, model::{Operation, OperationId, SpaceId}};
 
 /// Agent memory lifecycle state.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -213,6 +213,38 @@ impl AgentMemoryStore {
             .get_mut(memory_id)
             .ok_or_else(|| Error::Protocol("agent memory not found".to_owned()))
     }
+
+    /// Build an `agent.memory.create` operation for a new memory.
+    pub fn create_memory_operation(
+        &self,
+        space_id: SpaceId,
+        agent_id: &Did,
+        content: &Value,
+        importance: u8,
+    ) -> Result<Operation> {
+        let operation_id = OperationId::new(format!("cx:operation:{}", Ulid::new()))?;
+        let payload = serde_json::json!({
+            "agent_id": agent_id.as_str(),
+            "content": content,
+            "importance": importance,
+        });
+        Ok(Operation::create(operation_id, space_id, "agent.memory.create", payload))
+    }
+
+    /// Build an `agent.memory.promote` operation.
+    pub fn promote_memory_operation(
+        &self,
+        space_id: SpaceId,
+        memory_id: &str,
+    ) -> Result<Operation> {
+        let memory = self.memories.get(memory_id).ok_or_else(|| Error::Protocol("memory not found".to_owned()))?;
+        let operation_id = OperationId::new(format!("cx:operation:{}", Ulid::new()))?;
+        let payload = serde_json::json!({
+            "memory_id": memory.memory_id,
+            "agent_id": memory.agent_id.as_str(),
+        });
+        Ok(Operation::create(operation_id, space_id, "agent.memory.promote", payload))
+    }
 }
 
 /// Agent principal profile.
@@ -363,6 +395,41 @@ impl AgentRunManager {
     /// Get a run.
     pub fn run(&self, run_id: &str) -> Option<&AgentRun> {
         self.runs.get(run_id)
+    }
+
+    /// Build an `agent.run.create` operation for a new run.
+    pub fn create_run_operation(
+        &self,
+        space_id: SpaceId,
+        agent_id: &Did,
+        principal_id: &Did,
+        input: &Value,
+    ) -> Result<Operation> {
+        let run_id = &self.runs.iter().next().map(|(k, _)| k.clone()).unwrap_or_default();
+        let operation_id = OperationId::new(format!("cx:operation:{}", Ulid::new()))?;
+        let payload = serde_json::json!({
+            "agent_id": agent_id.as_str(),
+            "principal_id": principal_id.as_str(),
+            "input": input,
+        });
+        Ok(Operation::create(operation_id, space_id, "agent.run.create", payload))
+    }
+
+    /// Build an `agent.run.complete` operation for a finished run.
+    pub fn complete_run_operation(
+        &self,
+        space_id: SpaceId,
+        run_id: &str,
+        output: &Value,
+    ) -> Result<Operation> {
+        let run = self.runs.get(run_id).ok_or_else(|| Error::Protocol("run not found".to_owned()))?;
+        let operation_id = OperationId::new(format!("cx:operation:{}", Ulid::new()))?;
+        let payload = serde_json::json!({
+            "run_id": run.run_id,
+            "agent_id": run.agent_id.as_str(),
+            "output": output,
+        });
+        Ok(Operation::create(operation_id, space_id, "agent.run.complete", payload))
     }
 }
 

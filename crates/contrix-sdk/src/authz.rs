@@ -958,6 +958,234 @@ impl ConstraintEntry {
     }
 }
 
+/// Status of a grant proposal.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProposalStatus {
+    /// Proposal is pending approvals.
+    Pending,
+    /// Proposal has been approved and the grant is active.
+    Approved,
+    /// Proposal was rejected.
+    Rejected,
+    /// Proposal expired before receiving enough approvals.
+    Expired,
+    /// Proposal was cancelled by the proposer.
+    Cancelled,
+}
+
+/// A proposed grant that requires approval before it becomes active.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct GrantProposal {
+    /// Unique proposal ID.
+    pub proposal_id: String,
+    /// The proposed grant.
+    pub grant: CapabilityGrant,
+    /// Actor who proposed the grant.
+    pub proposer: Did,
+    /// Required approvers.
+    pub required_approvers: Vec<Did>,
+    /// Approval mode.
+    pub approval_mode: ApprovalMode,
+    /// Current status.
+    pub status: ProposalStatus,
+    /// Collected approvals.
+    pub approvals: Vec<ProposalApproval>,
+    /// Creation time.
+    pub created_at: DateTime<Utc>,
+    /// Expiration time.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+    /// Resolution time (when status became terminal).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolved_at: Option<DateTime<Utc>>,
+}
+
+/// An individual approval or rejection of a grant proposal.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ProposalApproval {
+    /// The proposal this approval is for.
+    pub proposal_id: String,
+    /// Actor providing the approval.
+    pub approver: Did,
+    /// Whether this is an approval or rejection.
+    pub approved: bool,
+    /// Optional reason.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    /// Time of the approval.
+    pub created_at: DateTime<Utc>,
+}
+
+/// Manages the lifecycle of grant proposals and approvals.
+#[derive(Clone, Debug, Default)]
+pub struct ApprovalFlowManager {
+    proposals: std::collections::BTreeMap<String, GrantProposal>,
+}
+
+impl ApprovalFlowManager {
+    /// Create a new approval flow manager.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Submit a new grant proposal for approval.
+    pub fn submit_proposal(
+        &mut self,
+        grant: CapabilityGrant,
+        proposer: Did,
+        required_approvers: Vec<Did>,
+        approval_mode: ApprovalMode,
+        expires_at: Option<DateTime<Utc>>,
+    ) -> GrantProposal {
+        let proposal_id = format!("cx:proposal:{}", grant.id);
+        let proposal = GrantProposal {
+            proposal_id: proposal_id.clone(),
+            grant,
+            proposer,
+            required_approvers,
+            approval_mode,
+            status: ProposalStatus::Pending,
+            approvals: Vec::new(),
+            created_at: Utc::now(),
+            expires_at,
+            resolved_at: None,
+        };
+        self.proposals.insert(proposal_id, proposal.clone());
+        proposal
+    }
+
+    /// Record an approval or rejection for a proposal.
+    pub fn record_approval(
+        &mut self,
+        proposal_id: &str,
+        approver: Did,
+        approved: bool,
+        reason: Option<String>,
+    ) -> Result<GrantProposal> {
+        let now = Utc::now();
+        let proposal = self
+            .proposals
+            .get_mut(proposal_id)
+            .ok_or_else(|| Error::Protocol("proposal not found".to_owned()))?;
+
+        if proposal.status != ProposalStatus::Pending {
+            return Err(Error::Protocol(format!(
+                "proposal {} is not pending (status: {:?})",
+                proposal_id, proposal.status
+            )));
+        }
+
+        if let Some(expires_at) = proposal.expires_at
+            && now >= expires_at
+        {
+            proposal.status = ProposalStatus::Expired;
+            proposal.resolved_at = Some(now);
+            return Err(Error::Protocol("proposal has expired".to_owned()));
+        }
+
+        if !proposal.required_approvers.contains(&approver) {
+            return Err(Error::Protocol("approver is not in the required approvers list".to_owned()));
+        }
+
+        if proposal.approvals.iter().any(|a| a.approver == approver) {
+            return Err(Error::Protocol("approver has already responded".to_owned()));
+        }
+
+        proposal.approvals.push(ProposalApproval {
+            proposal_id: proposal_id.to_owned(),
+            approver,
+            approved,
+            reason,
+            created_at: now,
+        });
+
+        self.evaluate_proposal_status(proposal_id);
+        Ok(self.proposals.get(proposal_id).cloned().unwrap())
+    }
+
+    /// Check if a proposal is approved.
+    pub fn is_proposal_approved(&self, proposal_id: &str) -> bool {
+        self.proposals
+            .get(proposal_id)
+            .is_some_and(|p| p.status == ProposalStatus::Approved)
+    }
+
+    /// Get a proposal by ID.
+    pub fn proposal(&self, proposal_id: &str) -> Option<&GrantProposal> {
+        self.proposals.get(proposal_id)
+    }
+
+    /// Expire all proposals that have passed their expiration time.
+    pub fn expire_proposals(&mut self) -> usize {
+        let now = Utc::now();
+        let expired: Vec<String> = self
+            .proposals
+            .iter()
+            .filter(|(_, p)| {
+                p.status == ProposalStatus::Pending
+                    && p.expires_at.is_some_and(|exp| now >= exp)
+            })
+            .map(|(id, _)| id.clone())
+            .collect();
+
+        let count = expired.len();
+        for proposal_id in &expired {
+            if let Some(proposal) = self.proposals.get_mut(proposal_id) {
+                proposal.status = ProposalStatus::Expired;
+                proposal.resolved_at = Some(now);
+            }
+        }
+        count
+    }
+
+    /// Check if a grant has been approved through a proposal.
+    pub fn is_grant_approved(&self, grant_id: &str) -> bool {
+        let proposal_id = format!("cx:proposal:{grant_id}");
+        self.is_proposal_approved(&proposal_id)
+    }
+
+    fn evaluate_proposal_status(&mut self, proposal_id: &str) {
+        let Some(proposal) = self.proposals.get(proposal_id) else {
+            return;
+        };
+
+        let approvals: Vec<Did> = proposal
+            .approvals
+            .iter()
+            .filter(|a| a.approved)
+            .map(|a| a.approver.clone())
+            .collect();
+        let rejections = proposal.approvals.iter().filter(|a| !a.approved).count();
+
+        let approved = match &proposal.approval_mode {
+            ApprovalMode::Any => !approvals.is_empty(),
+            ApprovalMode::All => approvals.len() >= proposal.required_approvers.len(),
+            ApprovalMode::Threshold { count } => approvals.len() >= *count as usize,
+            ApprovalMode::Guardian => proposal.approvals.iter().any(|a| a.approved),
+            ApprovalMode::Controller => proposal.approvals.iter().any(|a| a.approved),
+        };
+
+        let Some(proposal) = self.proposals.get_mut(proposal_id) else {
+            return;
+        };
+
+        if approved {
+            proposal.status = ProposalStatus::Approved;
+            proposal.resolved_at = Some(Utc::now());
+        } else if rejections > 0 {
+            // For threshold/all modes, a single rejection can veto.
+            match &proposal.approval_mode {
+                ApprovalMode::Any => {} // Any rejection doesn't veto in "any" mode
+                _ => {
+                    proposal.status = ProposalStatus::Rejected;
+                    proposal.resolved_at = Some(Utc::now());
+                }
+            }
+        }
+    }
+}
+
 /// Authorization context for evaluation.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AuthzContext {
@@ -1189,6 +1417,44 @@ impl AuthzEngine {
         policy: &PolicyCheckResponse,
     ) -> AuthzDecision {
         apply_policy_response(self.check_authorization(ctx, grants), policy)
+    }
+
+    /// Check authorization, filtering out grants that require approval but have
+    /// not been approved through the given `ApprovalFlowManager`.
+    ///
+    /// Grants with `ApprovalWorkflow { approval_required: true }` are only
+    /// included if a matching approved proposal exists. Once approved, the
+    /// approval constraint is stripped so that `evaluate_grants` does not
+    /// return `RequireReview` for already-approved grants.
+    pub fn check_authorization_with_approvals(
+        &mut self,
+        ctx: &AuthzContext,
+        grants: &[CapabilityGrant],
+        approvals: &ApprovalFlowManager,
+    ) -> AuthzDecision {
+        let eligible_grants: Vec<CapabilityGrant> = grants
+            .iter()
+            .filter_map(|grant| {
+                if grant_requires_approval(grant) {
+                    if approvals.is_grant_approved(&grant.id) {
+                        // Strip the approval constraint since it is already satisfied.
+                        let mut approved = grant.clone();
+                        approved.constraints.retain(|entry| {
+                            !matches!(
+                                &entry.constraint,
+                                Constraint::ApprovalWorkflow { approval_required: true, .. }
+                            )
+                        });
+                        Some(approved)
+                    } else {
+                        None
+                    }
+                } else {
+                    Some(grant.clone())
+                }
+            })
+            .collect();
+        self.check_authorization(ctx, &eligible_grants)
     }
 
     /// Evaluate all grants and return the combined decision.
@@ -1686,6 +1952,19 @@ pub fn apply_policy_response(
     }
 }
 
+/// Check if a grant requires approval through the proposal flow.
+pub fn grant_requires_approval(grant: &CapabilityGrant) -> bool {
+    grant.constraints.iter().any(|entry| {
+        matches!(
+            &entry.constraint,
+            Constraint::ApprovalWorkflow {
+                approval_required: true,
+                ..
+            }
+        )
+    })
+}
+
 pub fn moderation_report_for_policy_outcome(
     ctx: &AuthzContext,
     policy: &PolicyCheckResponse,
@@ -1996,7 +2275,7 @@ fn capability_grant_from_resolved_event(
         actions,
         resources,
         constraints: optional_from_value(content.get("constraints"))?.unwrap_or_default(),
-        delegable: content.get("delegable").and_then(serde_json::Value::as_bool).unwrap_or(false),
+        delegable: content.get("delegable").and_then(Value::as_bool).unwrap_or(false),
         parent_grant_id: optional_string(content, "parent_grant_id"),
         valid_from: optional_from_value(content.get("valid_from"))?,
         valid_until: optional_from_value(content.get("valid_until"))?,
@@ -2005,47 +2284,35 @@ fn capability_grant_from_resolved_event(
     })
 }
 
-fn optional_string(
-    content: &serde_json::Map<String, serde_json::Value>,
-    field: &str,
-) -> Option<String> {
-    content.get(field).and_then(serde_json::Value::as_str).map(ToOwned::to_owned)
+fn optional_string(content: &serde_json::Map<String, Value>, field: &str) -> Option<String> {
+    content.get(field).and_then(Value::as_str).map(ToOwned::to_owned)
 }
 
-fn optional_did(
-    content: &serde_json::Map<String, serde_json::Value>,
-    field: &str,
-) -> Result<Option<Did>> {
+fn optional_did(content: &serde_json::Map<String, Value>, field: &str) -> Result<Option<Did>> {
     optional_string(content, field).map(Did::new).transpose()
 }
 
 fn optional_space_id(
-    content: &serde_json::Map<String, serde_json::Value>,
+    content: &serde_json::Map<String, Value>,
     field: &str,
 ) -> Result<Option<SpaceId>> {
     optional_string(content, field).map(SpaceId::new).transpose()
 }
 
-fn optional_from_value<T: serde::de::DeserializeOwned>(
-    value: Option<&serde_json::Value>,
-) -> Result<Option<T>> {
+fn optional_from_value<T: serde::de::DeserializeOwned>(value: Option<&Value>) -> Result<Option<T>> {
     value.map(|value| serde_json::from_value(value.clone()).map_err(Error::from)).transpose()
 }
 
-fn string_array(value: Option<&serde_json::Value>) -> Option<Vec<String>> {
+fn string_array(value: Option<&Value>) -> Option<Vec<String>> {
     value
-        .and_then(serde_json::Value::as_array)
+        .and_then(Value::as_array)
         .map(|items| {
-            items
-                .iter()
-                .filter_map(serde_json::Value::as_str)
-                .map(ToOwned::to_owned)
-                .collect::<Vec<_>>()
+            items.iter().filter_map(Value::as_str).map(ToOwned::to_owned).collect::<Vec<_>>()
         })
         .filter(|items| !items.is_empty())
 }
 
-fn resource_selectors(value: Option<&serde_json::Value>) -> Result<Option<Vec<ResourceSelector>>> {
+fn resource_selectors(value: Option<&Value>) -> Result<Option<Vec<ResourceSelector>>> {
     let Some(value) = value else {
         return Ok(None);
     };
@@ -2108,7 +2375,7 @@ mod tests {
         kind: &str,
         actor_seq: u64,
         hlc: &str,
-        content: serde_json::Value,
+        content: Value,
     ) -> Event {
         Event {
             event_id: EventId::new(event_id).unwrap(),
@@ -2865,5 +3132,138 @@ mod tests {
         })];
 
         assert!(!engine.check_authorization(&ctx, &[grant]).is_allowed());
+    }
+
+    #[test]
+    fn approval_flow_manager_submits_records_and_resolves_proposals() {
+        let mut manager = ApprovalFlowManager::new();
+        let proposer = Did::new("did:web:alice.example.com").unwrap();
+        let approver1 = Did::new("did:web:bob.example.com").unwrap();
+        let approver2 = Did::new("did:web:carol.example.com").unwrap();
+
+        let mut grant = grant_for(
+            "send",
+            ResourceSelector::Entity {
+                space_id: "cx:space:A".to_owned(),
+                entity_type: Some("message".to_owned()),
+                entity_id: None,
+            },
+        );
+        grant.constraints = vec![ConstraintEntry::new(Constraint::ApprovalWorkflow {
+            approval_required: true,
+            approval_actor_refs: Some(vec![approver1.clone(), approver2.clone()]),
+            timeout: None,
+            approval_mode: Some(ApprovalMode::All),
+            approval_relation: None,
+            guardian_approval_required: false,
+            controller_approval_required: false,
+        })];
+
+        let proposal = manager.submit_proposal(
+            grant.clone(),
+            proposer,
+            vec![approver1.clone(), approver2.clone()],
+            ApprovalMode::All,
+            None,
+        );
+        assert_eq!(proposal.status, ProposalStatus::Pending);
+
+        // First approval is not enough for ApprovalMode::All.
+        let updated = manager.record_approval(&proposal.proposal_id, approver1.clone(), true, None).unwrap();
+        assert_eq!(updated.status, ProposalStatus::Pending);
+        assert!(!manager.is_grant_approved(&grant.id));
+
+        // Second approval completes the proposal.
+        let updated = manager.record_approval(&proposal.proposal_id, approver2.clone(), true, None).unwrap();
+        assert_eq!(updated.status, ProposalStatus::Approved);
+        assert!(manager.is_grant_approved(&grant.id));
+    }
+
+    #[test]
+    fn approval_flow_rejects_unauthorized_approvers_and_duplicate_responses() {
+        let mut manager = ApprovalFlowManager::new();
+        let proposer = Did::new("did:web:alice.example.com").unwrap();
+        let approver = Did::new("did:web:bob.example.com").unwrap();
+        let outsider = Did::new("did:web:eve.example.com").unwrap();
+
+        let grant = grant_for(
+            "send",
+            ResourceSelector::Entity {
+                space_id: "cx:space:A".to_owned(),
+                entity_type: Some("message".to_owned()),
+                entity_id: None,
+            },
+        );
+
+        let proposal = manager.submit_proposal(
+            grant,
+            proposer,
+            vec![approver.clone()],
+            ApprovalMode::Any,
+            None,
+        );
+
+        // Outsider cannot approve.
+        assert!(manager.record_approval(&proposal.proposal_id, outsider, true, None).is_err());
+
+        // Approver can approve once.
+        assert!(manager.record_approval(&proposal.proposal_id, approver.clone(), true, None).is_ok());
+
+        // Duplicate response is rejected.
+        assert!(manager.record_approval(&proposal.proposal_id, approver, true, None).is_err());
+    }
+
+    #[test]
+    fn authz_engine_filters_unapproved_grants_with_approval_flow() {
+        let mut engine = AuthzEngine::new();
+        let mut approvals = ApprovalFlowManager::new();
+        let proposer = Did::new("did:web:alice.example.com").unwrap();
+        let approver = Did::new("did:web:bob.example.com").unwrap();
+
+        let ctx = ctx_at(
+            "2026-04-29T12:00:00Z",
+            "send",
+            Resource::Entity {
+                space_id: "cx:space:A".to_owned(),
+                entity_type: "message".to_owned(),
+                entity_id: "cx:entity:123".to_owned(),
+            },
+        );
+
+        let mut grant = grant_for(
+            "send",
+            ResourceSelector::Entity {
+                space_id: "cx:space:A".to_owned(),
+                entity_type: Some("message".to_owned()),
+                entity_id: None,
+            },
+        );
+        grant.constraints = vec![ConstraintEntry::new(Constraint::ApprovalWorkflow {
+            approval_required: true,
+            approval_actor_refs: Some(vec![approver.clone()]),
+            timeout: None,
+            approval_mode: Some(ApprovalMode::Any),
+            approval_relation: None,
+            guardian_approval_required: false,
+            controller_approval_required: false,
+        })];
+
+        // Without approval, the grant is filtered out.
+        let decision = engine.check_authorization_with_approvals(&ctx, &[grant.clone()], &approvals);
+        assert!(!decision.is_allowed());
+
+        // Submit and approve the proposal.
+        let proposal = approvals.submit_proposal(
+            grant.clone(),
+            proposer,
+            vec![approver.clone()],
+            ApprovalMode::Any,
+            None,
+        );
+        approvals.record_approval(&proposal.proposal_id, approver, true, None).unwrap();
+
+        // With approval, the grant is included.
+        let decision = engine.check_authorization_with_approvals(&ctx, &[grant], &approvals);
+        assert!(decision.is_allowed());
     }
 }

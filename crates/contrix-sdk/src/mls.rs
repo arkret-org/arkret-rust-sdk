@@ -650,6 +650,116 @@ pub fn epoch_recovery_step(
     }
 }
 
+/// Request for epoch recovery sent to a group member that has the missing commits.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EpochRecoveryRequest {
+    /// Group that needs recovery.
+    pub group_id: String,
+    /// Device requesting recovery.
+    pub requesting_principal: Did,
+    pub requesting_device: DeviceId,
+    /// The epoch the device is currently at.
+    pub local_epoch: u64,
+    /// The epoch the device needs to reach.
+    pub target_epoch: u64,
+}
+
+/// Response containing the commits needed for epoch recovery.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EpochRecoveryResponse {
+    /// Group that was recovered.
+    pub group_id: String,
+    /// The commits from `local_epoch + 1` through `target_epoch`.
+    pub commits: Vec<MlsCommitEnvelope>,
+    /// Optional updated ratchet tree.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ratchet_tree: Option<String>,
+    /// Epoch the responder is at.
+    pub responder_epoch: u64,
+}
+
+impl EpochRecoveryRequest {
+    /// Create a new epoch recovery request.
+    pub fn new(
+        group_id: impl Into<String>,
+        requesting_principal: Did,
+        requesting_device: DeviceId,
+        local_epoch: u64,
+        target_epoch: u64,
+    ) -> Self {
+        Self {
+            group_id: group_id.into(),
+            requesting_principal,
+            requesting_device,
+            local_epoch,
+            target_epoch,
+        }
+    }
+
+    /// Validate the request is well-formed.
+    pub fn validate(&self) -> Result<()> {
+        if self.group_id.is_empty() {
+            return Err(Error::Protocol("epoch recovery group_id is empty".to_owned()));
+        }
+        if self.local_epoch >= self.target_epoch {
+            return Err(Error::Protocol(
+                "epoch recovery local_epoch must be less than target_epoch".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl EpochRecoveryResponse {
+    /// Apply all commits in this recovery response to a group.
+    pub fn apply_to_group(&self, group: &mut ContrixMlsGroup) -> Result<u64> {
+        group.apply_commits(&self.commits)
+    }
+
+    /// Validate that the response covers the requested epoch range.
+    pub fn validate_range(&self, request: &EpochRecoveryRequest) -> Result<()> {
+        if self.group_id != request.group_id {
+            return Err(Error::Protocol("epoch recovery response group_id mismatch".to_owned()));
+        }
+        for commit in &self.commits {
+            if commit.epoch <= request.local_epoch || commit.epoch > request.target_epoch {
+                return Err(Error::Protocol(format!(
+                    "epoch recovery commit epoch {} is outside requested range ({}, {}]",
+                    commit.epoch, request.local_epoch, request.target_epoch
+                )));
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Build an epoch recovery response from a group that has the needed commits.
+pub fn build_epoch_recovery_response(
+    group: &ContrixMlsGroup,
+    store: &impl CryptoStore,
+    request: &EpochRecoveryRequest,
+) -> Result<EpochRecoveryResponse> {
+    request.validate()?;
+
+    let commits = store.commits_for_group(&request.group_id);
+    let recovery_commits: Vec<MlsCommitEnvelope> = commits
+        .into_iter()
+        .filter(|commit| commit.epoch > request.local_epoch && commit.epoch <= request.target_epoch)
+        .cloned()
+        .collect();
+
+    if recovery_commits.is_empty() {
+        return Err(Error::Protocol("no commits available for epoch recovery".to_owned()));
+    }
+
+    Ok(EpochRecoveryResponse {
+        group_id: request.group_id.clone(),
+        commits: recovery_commits,
+        ratchet_tree: Some(group.ratchet_tree()?),
+        responder_epoch: group.epoch(),
+    })
+}
+
 fn snapshot_provider_storage(provider: &OpenMlsRustCrypto) -> Result<BTreeMap<String, String>> {
     let values = provider
         .storage()
@@ -806,7 +916,7 @@ mod tests {
 
         let mut alice_group = alice.create_group(b"cx:space:persisted-mls").unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
-        let mut bob_group = ContrixMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
+        let bob_group = ContrixMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
         let mut store = crate::MemoryCryptoStore::new();
         let record = bob_group.persist_state(&mut store).unwrap();
         let mut restored_bob = ContrixMlsGroup::restore_from_state_record(&record).unwrap();
@@ -954,6 +1064,90 @@ mod tests {
         let mut bob_group = ContrixMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
         let decrypted = MessageCrypto::decrypt(&mut bob_group, &encrypted).unwrap();
         assert_eq!(decrypted, br#"{"body":"arrives before local key"}"#);
+    }
+
+    #[test]
+    fn epoch_recovery_request_and_response_catch_up_offline_device() {
+        let alice = ContrixMlsIdentity::new_basic(
+            Did::new("did:web:alice.example").unwrap(),
+            DeviceId::new("dev_alice_1").unwrap(),
+        )
+        .unwrap();
+        let bob = ContrixMlsIdentity::new_basic(
+            Did::new("did:web:bob.example").unwrap(),
+            DeviceId::new("dev_bob_1").unwrap(),
+        )
+        .unwrap();
+        let charlie = ContrixMlsIdentity::new_basic(
+            Did::new("did:web:charlie.example").unwrap(),
+            DeviceId::new("dev_charlie_1").unwrap(),
+        )
+        .unwrap();
+
+        let bob_kp = bob.key_package_record().unwrap();
+        let charlie_kp = charlie.key_package_record().unwrap();
+
+        // Alice creates group and adds Bob and Charlie.
+        let mut alice_group = alice.create_group(b"cx:space:recovery-test").unwrap();
+        let bob_add = alice_group.add_member(&bob_kp).unwrap();
+        let mut bob_group = ContrixMlsGroup::join_from_welcome(bob, &bob_add.welcome).unwrap();
+        let charlie_add = alice_group.add_member(&charlie_kp).unwrap();
+
+        // Bob is now offline. Alice adds Charlie (epoch advances).
+        // Bob's local epoch is behind.
+        let bob_epoch_before = bob_group.epoch();
+
+        // Create a recovery request.
+        let request = EpochRecoveryRequest::new(
+            bob_group.group_id(),
+            Did::new("did:web:bob.example").unwrap(),
+            DeviceId::new("dev_bob_1").unwrap(),
+            bob_epoch_before,
+            alice_group.epoch(),
+        );
+        request.validate().unwrap();
+
+        // Store the commits in a crypto store so we can build a response.
+        let mut store = crate::MemoryCryptoStore::new();
+        store.put_commit(charlie_add.commit.clone()).unwrap();
+
+        // Alice (who has the commits) builds the recovery response.
+        let response =
+            build_epoch_recovery_response(&alice_group, &store, &request).unwrap();
+        response.validate_range(&request).unwrap();
+        assert!(!response.commits.is_empty());
+
+        // Bob applies the recovery response.
+        let new_epoch = response.apply_to_group(&mut bob_group).unwrap();
+        assert_eq!(new_epoch, alice_group.epoch());
+
+        // Bob can now decrypt messages from the current epoch.
+        let encrypted = alice_group
+            .encrypt_payload("application/json", br#"{"body":"after recovery"}"#)
+            .unwrap();
+        let decrypted = bob_group.decrypt_payload(&encrypted).unwrap();
+        assert_eq!(decrypted, br#"{"body":"after recovery"}"#);
+    }
+
+    #[test]
+    fn epoch_recovery_request_validates_range() {
+        let request = EpochRecoveryRequest::new(
+            "",
+            Did::new("did:web:alice.example").unwrap(),
+            DeviceId::new("dev_alice_1").unwrap(),
+            5,
+            3,
+        );
+        assert!(request.validate().is_err());
+
+        let request = EpochRecoveryRequest::new(
+            "group1",
+            Did::new("did:web:alice.example").unwrap(),
+            DeviceId::new("dev_alice_1").unwrap(),
+            5,
+            5,
+        );
+        assert!(request.validate().is_err());
     }
 
     #[test]
