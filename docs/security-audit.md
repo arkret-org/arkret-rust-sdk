@@ -2,6 +2,17 @@
 
 This SDK audit checklist is intended for release review.
 
+## Threat Model
+
+- Attackers may control network transport, replay old sync responses, submit
+  malformed events and attempt to correlate private identifiers.
+- Attackers may compromise a device after historical encrypted events were
+  received; recovery and backup flows must preserve forward-secret boundaries.
+- Servers are not trusted to forge actor intent. Signed protocol objects,
+  capability checks and canonical digests are the authority boundary.
+- Local storage may be copied while the application is stopped; production
+  deployments must bind encrypted stores to platform key protection.
+
 ## Canonical Data
 
 - All signed protocol objects must use `canonical` helpers.
@@ -24,6 +35,25 @@ This SDK audit checklist is intended for release review.
 - Local XOR/SHA helpers are deterministic SDK test envelopes, not a replacement
   for platform cryptography in production storage.
 
+## Key Lifecycle
+
+- Device keys are registered per device and should be revoked before future
+  encrypted writes are accepted from that device.
+- MLS KeyPackages, Welcomes, Commits and epoch secrets must be stored in a
+  durable crypto store before a client acknowledges sync.
+- Backup metadata must bind sender identity, key version and creation time.
+- Key rotation should not change a stable DID unless the DID method requires a
+  method-specific migration.
+
+## MLS Transcript And State Persistence
+
+- Commit and Welcome records must survive process restart before local state
+  advances to a new epoch.
+- Clients that miss a Welcome should retain undecryptable timeline events and
+  retry once the recovery path supplies the missing epoch state.
+- Epoch mismatch, replay, wrong sender and stale membership checks should fail
+  closed and keep raw encrypted events for later diagnosis.
+
 ## Federation
 
 - Federation transactions require configured trust anchors.
@@ -37,3 +67,14 @@ This SDK audit checklist is intended for release review.
 - Review warnings and public API changes.
 - Review dependency updates.
 - Re-run protocol conformance vectors.
+
+## Source Mapping
+
+| Area | Source |
+| --- | --- |
+| Canonical JSON and digests | `crates/contrix-sdk/src/canonical.rs`, `model.rs` |
+| Auth and recovery | `crates/contrix-sdk/src/auth.rs`, `identity.rs` |
+| Capability decisions | `crates/contrix-sdk/src/authz.rs`, `resolver.rs` |
+| Repo and crypto stores | `crates/contrix-sdk/src/store.rs`, `crypto_store.rs` |
+| E2EE and MLS | `crates/contrix-sdk/src/e2ee.rs`, `mls.rs`, `devices.rs` |
+| Federation and service identity | `crates/contrix-sdk/src/federation.rs`, `service.rs` |

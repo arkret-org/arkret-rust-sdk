@@ -16,10 +16,11 @@ use ulid::Ulid;
 use crate::{
     Result,
     base::{BaseClient, SpaceStateType},
+    media::{Attachment, MediaMetadata},
     model::{
-        Did, Entity, EntityId, EntityType, EventId, FieldFilter, Filter, FilterOp, NullsOrder,
-        ObjectState, Operation, OperationId, Relation, RelationId, RelationKind, RelationState,
-        SortDirection, SortSpec, SpaceId,
+        BlobRef, Did, Entity, EntityId, EntityType, EventId, FieldFilter, Filter, FilterOp,
+        NullsOrder, ObjectState, Operation, OperationId, OperationType, Relation, RelationId,
+        RelationKind, RelationState, SortDirection, SortSpec, SpaceId,
     },
     resolver::SpaceState,
 };
@@ -292,6 +293,110 @@ impl Space {
     /// Apply events to update the space state.
     pub fn apply_events(&self, events: Vec<crate::model::Event>) -> Result<()> {
         self.base_client.process_events(&self.space_id, events)
+    }
+
+    /// Create a local message send operation using a structured message content object.
+    pub fn send_message(&self, content: Value) -> Result<Operation> {
+        let mut fields = BTreeMap::new();
+        fields.insert("message_kind".to_owned(), json!("custom"));
+        self.create_entity_operation(EntityType::Message, None, Some(content), fields)
+    }
+
+    /// Create a local plain-text message send operation.
+    pub fn send_text(&self, body: impl Into<String>) -> Result<Operation> {
+        let body = body.into();
+        let mut fields = BTreeMap::new();
+        fields.insert("message_kind".to_owned(), json!("text"));
+        self.create_entity_operation(
+            EntityType::Message,
+            None,
+            Some(json!({
+                "msgtype": "m.text",
+                "body": body,
+            })),
+            fields,
+        )
+    }
+
+    /// Create a local message edit operation.
+    pub fn edit_message(&self, message_id: EntityId, content: Value) -> Result<Operation> {
+        let mut fields = BTreeMap::new();
+        fields.insert("edited".to_owned(), json!(true));
+        let mut operation =
+            self.update_entity_operation(message_id.clone(), None, Some(content), Some(fields))?;
+        operation.object_type = "message.edit".to_owned();
+        operation.object_id = Some(message_id.as_str().to_owned());
+        operation.payload["relates_to"] = json!({
+            "rel_type": "m.replace",
+            "event_id": message_id.as_str(),
+        });
+        operation.payload["edited_at"] = json!(Utc::now().to_rfc3339());
+        Ok(operation)
+    }
+
+    /// Create a local message redaction operation.
+    pub fn redact_message(
+        &self,
+        message_id: EntityId,
+        reason: Option<String>,
+    ) -> Result<Operation> {
+        self.base_client.whoami()?;
+        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let mut payload = json!({
+            "id": message_id.as_str(),
+        });
+        if let Some(reason) = reason {
+            payload["reason"] = json!(reason);
+        }
+        let mut operation =
+            Operation::create(operation_id, self.space_id.clone(), "message.redact", payload);
+        operation.operation_type = OperationType::Redact;
+        operation.object_id = Some(message_id.as_str().to_owned());
+        Ok(operation)
+    }
+
+    /// Upload media into the base client's local in-memory media store.
+    pub fn upload_media(
+        &self,
+        bytes: impl AsRef<[u8]>,
+        media_type: impl Into<String>,
+        filename: Option<String>,
+    ) -> Result<MediaMetadata> {
+        self.base_client.upload_media(bytes, media_type, filename)
+    }
+
+    /// Download media from the base client's local in-memory media store.
+    pub fn download_media(&self, blob_ref: &BlobRef) -> Option<Vec<u8>> {
+        self.base_client.download_media(blob_ref)
+    }
+
+    /// Upload an attachment into the base client's local in-memory media store.
+    pub fn upload_attachment(
+        &self,
+        id: impl Into<String>,
+        filename: impl Into<String>,
+        media_type: impl Into<String>,
+        bytes: impl AsRef<[u8]>,
+    ) -> Result<Attachment> {
+        self.base_client.upload_attachment(id, filename, media_type, bytes)
+    }
+
+    /// Upload an encrypted attachment into the base client's local in-memory media store.
+    pub fn upload_encrypted_attachment(
+        &self,
+        id: impl Into<String>,
+        filename: impl Into<String>,
+        media_type: impl Into<String>,
+        plaintext: impl AsRef<[u8]>,
+        key: &[u8],
+    ) -> Result<Attachment> {
+        self.base_client
+            .upload_encrypted_attachment(id, filename, media_type, plaintext, key)
+    }
+
+    /// Download and decrypt an encrypted attachment from the base client.
+    pub fn download_decrypted_attachment(&self, id: &str, key: &[u8]) -> Result<Vec<u8>> {
+        self.base_client.download_decrypted_attachment(id, key)
     }
 }
 
@@ -673,6 +778,25 @@ impl Space {
 
 /// Space membership operations.
 impl Space {
+    /// Create a join operation and update local membership state to joined.
+    pub fn join_space(&self) -> Result<Operation> {
+        let operation = self.create_join_operation()?;
+        self.base_client.update_space_state(&self.space_id, SpaceStateType::Joined)?;
+        Ok(operation)
+    }
+
+    /// Create a leave operation and update local membership state to left.
+    pub fn leave_space(&self) -> Result<Operation> {
+        let operation = self.create_leave_operation()?;
+        self.base_client.update_space_state(&self.space_id, SpaceStateType::Left)?;
+        Ok(operation)
+    }
+
+    /// Create an invite operation.
+    pub fn invite(&self, user_id: Did, role: Option<String>) -> Result<Operation> {
+        self.create_invite_operation(user_id, role)
+    }
+
     /// Create an invite operation for a user to join this space.
     pub fn create_invite_operation(&self, user_id: Did, role: Option<String>) -> Result<Operation> {
         let session_meta = self
@@ -721,6 +845,43 @@ impl Space {
         });
 
         Ok(Operation::create(operation_id, self.space_id.clone(), "leave", payload))
+    }
+
+    /// Create a ban operation for a user in this space.
+    pub fn ban(&self, user_id: Did, reason: Option<String>) -> Result<Operation> {
+        let session_meta = self
+            .base_client
+            .session_meta()
+            .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
+
+        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let mut payload = json!({
+            "target_did": user_id.as_str(),
+            "space_id": self.space_id.as_str(),
+            "actor_id": session_meta.user_id.as_str(),
+        });
+        if let Some(reason) = reason {
+            payload["reason"] = json!(reason);
+        }
+
+        Ok(Operation::create(operation_id, self.space_id.clone(), "ban", payload))
+    }
+
+    /// Create an unban operation for a user in this space.
+    pub fn unban(&self, user_id: Did) -> Result<Operation> {
+        let session_meta = self
+            .base_client
+            .session_meta()
+            .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
+
+        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let payload = json!({
+            "target_did": user_id.as_str(),
+            "space_id": self.space_id.as_str(),
+            "actor_id": session_meta.user_id.as_str(),
+        });
+
+        Ok(Operation::create(operation_id, self.space_id.clone(), "unban", payload))
     }
 }
 
@@ -1430,5 +1591,46 @@ mod tests {
             ])
             .unwrap();
         assert_eq!(deletes.len(), 1);
+    }
+
+    #[test]
+    fn space_provides_message_membership_and_media_convenience_helpers() {
+        let base_client = sessioned_base();
+        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let space = Space::new(space_id.clone(), base_client.clone());
+        let bob = Did::new("did:web:bob.example.com").unwrap();
+
+        let text = space.send_text("hello").unwrap();
+        assert_eq!(text.object_type, "entity.create");
+        assert_eq!(text.payload["entity_type"], "message");
+        assert_eq!(text.payload["content"]["body"], "hello");
+
+        let message_id = EntityId::new(text.payload["id"].as_str().unwrap()).unwrap();
+        let edit = space.edit_message(message_id.clone(), json!({"body": "updated"})).unwrap();
+        assert_eq!(edit.object_type, "message.edit");
+        assert_eq!(edit.object_id, Some(message_id.as_str().to_owned()));
+
+        let redact = space.redact_message(message_id, Some("cleanup".to_owned())).unwrap();
+        assert_eq!(redact.operation_type, OperationType::Redact);
+
+        let join = space.join_space().unwrap();
+        assert_eq!(join.object_type, "join");
+        assert_eq!(base_client.get_space(&space_id).unwrap().state, SpaceStateType::Joined);
+
+        let leave = space.leave_space().unwrap();
+        assert_eq!(leave.object_type, "leave");
+        assert_eq!(base_client.get_space(&space_id).unwrap().state, SpaceStateType::Left);
+
+        assert_eq!(space.invite(bob.clone(), Some("member".to_owned())).unwrap().object_type, "invite");
+        assert_eq!(space.ban(bob.clone(), Some("spam".to_owned())).unwrap().object_type, "ban");
+        assert_eq!(space.unban(bob).unwrap().object_type, "unban");
+
+        let media = space.upload_media(b"bytes", "text/plain", Some("note.txt".to_owned())).unwrap();
+        assert_eq!(space.download_media(&media.blob_ref).unwrap(), b"bytes");
+
+        space
+            .upload_encrypted_attachment("att1", "secret.txt", "text/plain", b"secret", b"key")
+            .unwrap();
+        assert_eq!(space.download_decrypted_attachment("att1", b"key").unwrap(), b"secret");
     }
 }

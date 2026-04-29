@@ -36,3 +36,40 @@ Run verification:
 ```sh
 cargo test
 ```
+
+## Task Guides
+
+### Build A Simple Client
+
+Use `BaseClient` for local session and space state, then enable the `client`
+feature when the application is ready to call a Contrix service over HTTP.
+
+### Build A Bot
+
+Register typed handlers with `EventHandlerRegistry`, filter incoming
+`ClientEvent` values and send replies through the host application's transport
+or high-level client facade.
+
+### Run Sync With Durable Storage
+
+Persist repo objects, sync positions and state snapshots through the storage
+traits before entering a long-running sync loop. On a gap or invalid snapshot,
+replay repo events and reset the cursor to the verified frontier.
+
+### Send And Receive Encrypted Messages
+
+Enable the `mls` feature, publish device key packages, process Welcomes, and
+store group state in a durable `CryptoStore` implementation. Undecryptable
+timeline items should be retained and retried after keys arrive.
+
+### Write A Server Adapter
+
+Use the framework-independent endpoint registry and `EndpointHandler` shape.
+Frameworks such as Axum or Salvo should adapt HTTP requests into
+`ServerRequest` and serialize `ServerResponse` without changing operation IDs.
+
+### Migrate From Matrix Concepts
+
+See `docs/migration-from-matrix.md` for the Matrix-to-Contrix mapping. Treat
+Contrix spaces as signed reducer state over repos rather than mutable room
+state snapshots.

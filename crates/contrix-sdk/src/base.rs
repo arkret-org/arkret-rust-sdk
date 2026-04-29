@@ -13,16 +13,24 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
 use crate::{
     Result,
     cursor::SyncTracker,
-    model::{DeviceId, Did, Event, SpaceId},
+    media::{Attachment, MemoryBlobStore, MediaMetadata},
+    model::{BlobRef, DeviceId, Did, Event, SpaceId},
+    presence::Presence,
+    profile::UserProfile,
     resolver::SpaceState,
+    settings::ClientSettings,
     store::{MemoryRepoStore, RepoStore},
+    sync::PresenceStatus,
 };
 
 /// Session metadata for the authenticated user.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SessionMeta {
     /// User DID
     pub user_id: Did,
@@ -44,6 +52,16 @@ impl SessionMeta {
     pub fn is_expired(&self) -> bool {
         if let Some(expires_at) = self.expires_at { chrono::Utc::now() > expires_at } else { false }
     }
+}
+
+/// Serializable state required to restore a local authenticated session.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionRestore {
+    /// Session metadata.
+    pub session: SessionMeta,
+    /// Last known sync token for the default sync stream.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sync_token: Option<String>,
 }
 
 /// Space state in the client.
@@ -88,6 +106,16 @@ pub struct BaseClient {
     spaces: Arc<RwLock<BTreeMap<String, ClientSpace>>>,
     /// Repo store
     store: Arc<dyn RepoStore>,
+    /// Local profile cache.
+    profiles: Arc<RwLock<BTreeMap<String, UserProfile>>>,
+    /// Local presence cache.
+    presence: Arc<RwLock<BTreeMap<String, Presence>>>,
+    /// Local account data cache.
+    account_data: Arc<RwLock<BTreeMap<String, Value>>>,
+    /// Local settings cache.
+    settings: Arc<RwLock<BTreeMap<String, ClientSettings>>>,
+    /// Local in-memory media store for no-IO facade helpers.
+    media: Arc<RwLock<MemoryBlobStore>>,
 }
 
 impl BaseClient {
@@ -103,6 +131,11 @@ impl BaseClient {
             sync_tracker: Arc::new(RwLock::new(SyncTracker::new())),
             spaces: Arc::new(RwLock::new(BTreeMap::new())),
             store,
+            profiles: Arc::new(RwLock::new(BTreeMap::new())),
+            presence: Arc::new(RwLock::new(BTreeMap::new())),
+            account_data: Arc::new(RwLock::new(BTreeMap::new())),
+            settings: Arc::new(RwLock::new(BTreeMap::new())),
+            media: Arc::new(RwLock::new(MemoryBlobStore::new())),
         }
     }
 
@@ -118,6 +151,47 @@ impl BaseClient {
         Ok(())
     }
 
+    /// Create and store session metadata after an authentication flow succeeds.
+    pub fn login_with_session(
+        &self,
+        user_id: Did,
+        device_id: DeviceId,
+        access_token: Option<String>,
+        expires_at: Option<chrono::DateTime<chrono::Utc>>,
+    ) -> Result<SessionMeta> {
+        let meta = SessionMeta { user_id, device_id, access_token, expires_at };
+        self.set_session_meta(meta.clone())?;
+        Ok(meta)
+    }
+
+    /// Restore a previously persisted local session.
+    pub fn restore_session(&self, restore: SessionRestore) -> Result<()> {
+        if restore.session.is_expired() {
+            return Err(crate::Error::Protocol("cannot restore expired session".to_owned()));
+        }
+
+        self.set_session_meta(restore.session)?;
+        if let Some(sync_token) = restore.sync_token {
+            self.set_sync_token(sync_token);
+        }
+        Ok(())
+    }
+
+    /// Capture the current local session restore payload.
+    pub fn session_restore(&self) -> Option<SessionRestore> {
+        self.session_meta().map(|session| SessionRestore {
+            session,
+            sync_token: self.sync_token(),
+        })
+    }
+
+    /// Return the authenticated session or fail when the client is logged out.
+    pub fn whoami(&self) -> Result<SessionMeta> {
+        self.session_meta()
+            .filter(|meta| !meta.is_expired())
+            .ok_or_else(|| crate::Error::Protocol("no active session".to_owned()))
+    }
+
     /// Clear the session (logout).
     pub fn clear_session(&self) -> Result<()> {
         let mut session = self.session.write().unwrap();
@@ -126,6 +200,7 @@ impl BaseClient {
         // Clear sync state
         let mut tracker = self.sync_tracker.write().unwrap();
         tracker.clear();
+        tracker.sync_tokens.clear();
 
         // Clear all spaces
         let mut spaces = self.spaces.write().unwrap();
@@ -147,6 +222,11 @@ impl BaseClient {
     pub fn sync_token(&self) -> Option<String> {
         let tracker = self.sync_tracker.read().unwrap();
         tracker.sync_tokens.get("default").cloned()
+    }
+
+    /// Set the default sync token.
+    pub fn set_sync_token(&self, token: impl Into<String>) {
+        self.sync_tracker.write().unwrap().sync_tokens.insert("default".to_owned(), token.into());
     }
 
     /// Get the current cursor for resuming sync.
@@ -253,6 +333,174 @@ impl BaseClient {
     pub fn store(&self) -> Arc<dyn RepoStore> {
         self.store.clone()
     }
+
+    /// Get a cached profile.
+    pub fn profile(&self, user_id: &Did) -> Option<UserProfile> {
+        self.profiles.read().unwrap().get(user_id.as_str()).cloned()
+    }
+
+    /// Replace cached profile fields for the current user.
+    pub fn update_my_profile(
+        &self,
+        display_name: Option<String>,
+        avatar_url: Option<String>,
+        bio: Option<String>,
+    ) -> Result<UserProfile> {
+        let session = self.whoami()?;
+        let mut profiles = self.profiles.write().unwrap();
+        let mut profile = profiles
+            .remove(session.user_id.as_str())
+            .unwrap_or_else(|| UserProfile::new(session.user_id.clone()));
+        profile.display_name = display_name;
+        profile.avatar_url = avatar_url;
+        profile.bio = bio;
+        profile.version += 1;
+        profile.updated_at = chrono::Utc::now();
+        profiles.insert(session.user_id.as_str().to_owned(), profile.clone());
+        Ok(profile)
+    }
+
+    /// Set the current user's display name.
+    pub fn set_my_display_name(&self, display_name: impl Into<String>) -> Result<UserProfile> {
+        let session = self.whoami()?;
+        let current = self.profile(&session.user_id);
+        self.update_my_profile(
+            Some(display_name.into()),
+            current.as_ref().and_then(|profile| profile.avatar_url.clone()),
+            current.and_then(|profile| profile.bio),
+        )
+    }
+
+    /// Get cached presence for a user.
+    pub fn presence(&self, user_id: &Did) -> Option<Presence> {
+        self.presence.read().unwrap().get(user_id.as_str()).cloned()
+    }
+
+    /// Set cached presence for any user.
+    pub fn set_presence(
+        &self,
+        user_id: Did,
+        status: PresenceStatus,
+        status_msg: Option<String>,
+    ) -> Result<Presence> {
+        let presence = Presence {
+            user_id: user_id.clone(),
+            status,
+            last_active: Some(chrono::Utc::now()),
+            active_device: None,
+            status_msg,
+        };
+        self.presence.write().unwrap().insert(user_id.as_str().to_owned(), presence.clone());
+        Ok(presence)
+    }
+
+    /// Set cached presence for the current user.
+    pub fn set_my_presence(
+        &self,
+        status: PresenceStatus,
+        status_msg: Option<String>,
+    ) -> Result<Presence> {
+        let session = self.whoami()?;
+        self.set_presence(session.user_id, status, status_msg)
+    }
+
+    /// Store current-user account data by type.
+    pub fn set_account_data(&self, data_type: impl Into<String>, content: Value) -> Result<()> {
+        self.whoami()?;
+        self.account_data.write().unwrap().insert(data_type.into(), content);
+        Ok(())
+    }
+
+    /// Get current-user account data by type.
+    pub fn account_data(&self, data_type: &str) -> Option<Value> {
+        self.account_data.read().unwrap().get(data_type).cloned()
+    }
+
+    /// Get all current-user account data.
+    pub fn all_account_data(&self) -> BTreeMap<String, Value> {
+        self.account_data.read().unwrap().clone()
+    }
+
+    /// Get cached settings for a user, returning defaults when no cache exists.
+    pub fn settings(&self, user_id: &Did) -> ClientSettings {
+        self.settings
+            .read()
+            .unwrap()
+            .get(user_id.as_str())
+            .cloned()
+            .unwrap_or_else(|| ClientSettings::new(user_id.clone()))
+    }
+
+    /// Get settings for the current user.
+    pub fn my_settings(&self) -> Result<ClientSettings> {
+        let session = self.whoami()?;
+        Ok(self.settings(&session.user_id))
+    }
+
+    /// Replace cached settings for a user.
+    pub fn update_settings(&self, settings: ClientSettings) -> Result<()> {
+        self.settings.write().unwrap().insert(settings.user_id.as_str().to_owned(), settings);
+        Ok(())
+    }
+
+    /// Upload media bytes into the local in-memory media store.
+    pub fn upload_media(
+        &self,
+        bytes: impl AsRef<[u8]>,
+        media_type: impl Into<String>,
+        filename: Option<String>,
+    ) -> Result<MediaMetadata> {
+        let session = self.whoami()?;
+        self.media.write().unwrap().upload(bytes, media_type, filename, session.user_id)
+    }
+
+    /// Download media bytes from the local in-memory media store.
+    pub fn download_media(&self, blob_ref: &BlobRef) -> Option<Vec<u8>> {
+        self.media.read().unwrap().download(blob_ref).map(<[u8]>::to_vec)
+    }
+
+    /// Upload an attachment into the local in-memory media store.
+    pub fn upload_attachment(
+        &self,
+        id: impl Into<String>,
+        filename: impl Into<String>,
+        media_type: impl Into<String>,
+        bytes: impl AsRef<[u8]>,
+    ) -> Result<Attachment> {
+        let session = self.whoami()?;
+        self.media.write().unwrap().upload_attachment(
+            id,
+            filename,
+            media_type,
+            bytes,
+            session.user_id,
+        )
+    }
+
+    /// Upload an encrypted attachment into the local in-memory media store.
+    pub fn upload_encrypted_attachment(
+        &self,
+        id: impl Into<String>,
+        filename: impl Into<String>,
+        media_type: impl Into<String>,
+        plaintext: impl AsRef<[u8]>,
+        key: &[u8],
+    ) -> Result<Attachment> {
+        let session = self.whoami()?;
+        self.media.write().unwrap().upload_encrypted_attachment(
+            id,
+            filename,
+            media_type,
+            plaintext,
+            key,
+            session.user_id,
+        )
+    }
+
+    /// Download and decrypt a local encrypted attachment.
+    pub fn download_decrypted_attachment(&self, id: &str, key: &[u8]) -> Result<Vec<u8>> {
+        self.media.read().unwrap().download_decrypted_attachment(id, key)
+    }
 }
 
 impl Default for BaseClient {
@@ -325,6 +573,65 @@ mod tests {
 
         client.clear_session().unwrap();
         assert!(!client.is_logged_in());
+    }
+
+    #[test]
+    fn base_client_restores_session_and_whoami() {
+        let client = BaseClient::new();
+        let meta = client
+            .login_with_session(
+                Did::new("did:web:alice.example.com").unwrap(),
+                DeviceId::new("dev_123").unwrap(),
+                Some("token".to_owned()),
+                None,
+            )
+            .unwrap();
+        client.set_sync_token("s123");
+
+        let restore = client.session_restore().unwrap();
+        assert_eq!(restore.session, meta);
+        assert_eq!(restore.sync_token, Some("s123".to_owned()));
+
+        client.clear_session().unwrap();
+        assert!(client.sync_token().is_none());
+        client.restore_session(restore).unwrap();
+        assert_eq!(client.whoami().unwrap().user_id, Did::new("did:web:alice.example.com").unwrap());
+        assert_eq!(client.sync_token(), Some("s123".to_owned()));
+    }
+
+    #[test]
+    fn base_client_exposes_profile_presence_account_settings_and_media_helpers() {
+        let client = BaseClient::new();
+        let alice = Did::new("did:web:alice.example.com").unwrap();
+        client
+            .login_with_session(alice.clone(), DeviceId::new("dev_123").unwrap(), None, None)
+            .unwrap();
+
+        let profile = client.set_my_display_name("Alice").unwrap();
+        assert_eq!(profile.display_name, Some("Alice".to_owned()));
+        assert_eq!(client.profile(&alice).unwrap().version, 1);
+
+        let presence = client
+            .set_my_presence(PresenceStatus::Online, Some("available".to_owned()))
+            .unwrap();
+        assert_eq!(presence.status, PresenceStatus::Online);
+        assert_eq!(client.presence(&alice).unwrap().status_msg, Some("available".to_owned()));
+
+        client.set_account_data("theme", serde_json::json!({"value": "dark"})).unwrap();
+        assert_eq!(client.account_data("theme").unwrap()["value"], "dark");
+
+        let mut settings = client.my_settings().unwrap();
+        settings.language = "zh-CN".to_owned();
+        client.update_settings(settings).unwrap();
+        assert_eq!(client.my_settings().unwrap().language, "zh-CN");
+
+        let metadata = client.upload_media(b"hello", "text/plain", Some("hello.txt".to_owned())).unwrap();
+        assert_eq!(client.download_media(&metadata.blob_ref).unwrap(), b"hello");
+
+        client
+            .upload_encrypted_attachment("a1", "secret.txt", "text/plain", b"secret", b"key")
+            .unwrap();
+        assert_eq!(client.download_decrypted_attachment("a1", b"key").unwrap(), b"secret");
     }
 
     #[test]

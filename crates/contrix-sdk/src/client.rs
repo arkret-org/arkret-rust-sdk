@@ -77,6 +77,9 @@ impl ClientBuilder {
 
     pub fn build(self) -> Result<Client> {
         validate_base_url(&self.base_url, self.allow_insecure_localhost)?;
+        if let Some(auth) = &self.auth {
+            validate_auth(auth)?;
+        }
         Ok(Client { base_url: self.base_url, http: self.http.unwrap_or_default(), auth: self.auth })
     }
 }
@@ -783,6 +786,18 @@ fn validate_base_url(url: &Url, allow_insecure_localhost: bool) -> Result<()> {
     Err(Error::InsecureUrl(url.to_string()))
 }
 
+fn validate_auth(auth: &Auth) -> Result<()> {
+    let value = match auth {
+        Auth::Bearer(token) | Auth::DeviceProof(token) | Auth::ServiceSignature(token) => token,
+    };
+    if value.trim().is_empty() || value.contains('\r') || value.contains('\n') {
+        return Err(Error::Protocol(
+            "auth material must be non-empty and header-safe".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
 fn is_localhost(url: &Url) -> bool {
     matches!(url.host_str(), Some("localhost" | "127.0.0.1" | "::1"))
 }
@@ -801,6 +816,10 @@ fn reject_path_segment(segment: &str) -> Result<()> {
         || segment.contains('/')
         || segment.contains('\\')
         || segment.contains('?')
+        || segment.contains('#')
+        || segment.contains('%')
+        || segment == "."
+        || segment == ".."
     {
         return Err(Error::Protocol("path segment contains reserved characters".to_owned()));
     }
@@ -838,6 +857,35 @@ mod tests {
     fn rejects_absolute_request_paths() {
         let client = Client::new(Url::parse("https://alice.example/contrix/").unwrap()).unwrap();
         let error = client.request(Method::GET, "https://evil.example/api").unwrap_err();
+        assert!(matches!(error, Error::Protocol(_)));
+    }
+
+    #[test]
+    fn rejects_header_unsafe_auth_material() {
+        let error = Client::builder(Url::parse("https://alice.example/contrix/").unwrap())
+            .auth(Auth::Bearer("token\r\nX-Evil: true".to_owned()))
+            .build()
+            .unwrap_err();
+        assert!(matches!(error, Error::Protocol(_)));
+    }
+
+    #[test]
+    fn rejects_encoded_path_separator_segments() {
+        let client = Client::new(Url::parse("https://alice.example/contrix/").unwrap()).unwrap();
+        let error = client
+            .federation_transaction(
+                "txn_%2Fescape",
+                &FederationTransactionRequest {
+                    origin: crate::Did::new("did:web:a.example").unwrap(),
+                    destination: crate::Did::new("did:web:b.example").unwrap(),
+                    service_binding_ref: "did:web:a.example#federation".to_owned(),
+                    operations: vec![],
+                    receipts: vec![],
+                    frontier: None,
+                },
+            )
+            .err()
+            .unwrap();
         assert!(matches!(error, Error::Protocol(_)));
     }
 }

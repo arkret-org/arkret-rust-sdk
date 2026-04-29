@@ -1,11 +1,13 @@
-#[cfg(feature = "server")]
 fn main() {
-    let document = contrix_sdk::openapi_document();
-    println!("{}", serde_json::to_string_pretty(&document).expect("OpenAPI JSON"));
-}
+    #[cfg(feature = "server")]
+    {
+        let document = contrix_sdk::openapi_document();
+        println!("{}", serde_json::to_string_pretty(&document).expect("serialize OpenAPI document"));
+    }
 
-#[cfg(not(feature = "server"))]
-fn main() {
-    eprintln!("enable the `server` feature to export OpenAPI");
-    std::process::exit(1);
+    #[cfg(not(feature = "server"))]
+    {
+        eprintln!("enable the `server` feature to export OpenAPI");
+        std::process::exit(1);
+    }
 }

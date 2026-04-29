@@ -9,9 +9,9 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
-use crate::{EventId, SpaceId};
+use crate::{DeviceId, Did, Error, Event, EventId, Hlc, Result, SpaceId, canonical};
 
 /// Sync request for incremental synchronization.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -31,6 +31,9 @@ pub struct SyncRequest {
     /// Space subscriptions
     #[serde(skip_serializing_if = "Option::is_none")]
     pub subscriptions: Option<SubscriptionConfig>,
+    /// Optional frontier that the server should wait to observe before replying.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wait_for: Option<WaitForFrontier>,
 }
 
 /// Sync response from the server.
@@ -291,6 +294,340 @@ pub struct BackfillResponse {
     pub end_of_history: bool,
 }
 
+/// Deterministic order key for timeline events.
+///
+/// Events sort by causal depth, HLC, actor ID, actor sequence and event ID. The
+/// caller supplies causal depth because it depends on the known event graph.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct TimelineOrderKey {
+    /// Transitive causal depth in the local event graph.
+    pub causal_depth: u64,
+    /// Hybrid logical clock for the event.
+    pub hlc: Hlc,
+    /// Event actor.
+    pub actor_id: Did,
+    /// Actor-local sequence.
+    pub actor_seq: u64,
+    /// Event ID tie-breaker.
+    pub event_id: EventId,
+}
+
+impl TimelineOrderKey {
+    /// Build an order key from an event and a caller-computed causal depth.
+    pub fn from_event(event: &Event, causal_depth: u64) -> Self {
+        Self {
+            causal_depth,
+            hlc: event.hlc.clone(),
+            actor_id: event.actor_id.clone(),
+            actor_seq: event.actor_seq,
+            event_id: event.event_id.clone(),
+        }
+    }
+}
+
+/// Stream position for one space at a sync boundary.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SyncStreamPosition {
+    /// Space covered by this position.
+    pub space_id: SpaceId,
+    /// Causal frontier event IDs.
+    #[serde(default)]
+    pub frontier: Vec<EventId>,
+    /// Last deterministic timeline order key observed for this space.
+    pub timeline_order: Hlc,
+    /// State hash or Merkle root at this point.
+    pub state_hash: String,
+}
+
+impl SyncStreamPosition {
+    /// Return true when this position covers the required frontier.
+    pub fn covers(&self, required: &Self) -> bool {
+        if self.space_id != required.space_id || self.timeline_order < required.timeline_order {
+            return false;
+        }
+        if !required.state_hash.is_empty() && self.state_hash != required.state_hash {
+            return false;
+        }
+
+        let frontier: BTreeSet<_> = self.frontier.iter().collect();
+        required.frontier.iter().all(|event_id| frontier.contains(event_id))
+    }
+}
+
+/// Hash the request filter and subscriptions for token binding.
+pub fn sync_filter_hash(
+    filter: Option<&SyncFilter>,
+    subscriptions: Option<&SubscriptionConfig>,
+) -> Result<String> {
+    canonical::canonical_sha256(&serde_json::json!({
+        "filter": filter,
+        "subscriptions": subscriptions,
+    }))
+}
+
+/// Sync token binding context.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SyncTokenBinding {
+    /// Opaque token received from the sync service.
+    pub token: String,
+    /// Principal this token belongs to.
+    pub principal_id: Did,
+    /// Device this token belongs to.
+    pub device_id: DeviceId,
+    /// Service that minted the token.
+    pub service_id: Did,
+    /// Canonical hash of filter and subscription shape.
+    pub filter_hash: String,
+    /// Stream positions captured by the token.
+    #[serde(default)]
+    pub positions: Vec<SyncStreamPosition>,
+    /// Expiry time for the token.
+    pub expires_at: DateTime<Utc>,
+}
+
+impl SyncTokenBinding {
+    /// Create a binding for a concrete request context.
+    pub fn for_request(
+        token: String,
+        principal_id: Did,
+        device_id: DeviceId,
+        service_id: Did,
+        filter: Option<&SyncFilter>,
+        subscriptions: Option<&SubscriptionConfig>,
+        positions: Vec<SyncStreamPosition>,
+        expires_at: DateTime<Utc>,
+    ) -> Result<Self> {
+        Ok(Self {
+            token,
+            principal_id,
+            device_id,
+            service_id,
+            filter_hash: sync_filter_hash(filter, subscriptions)?,
+            positions,
+            expires_at,
+        })
+    }
+
+    /// Validate that the token is being resumed by the same principal/device/service/filter.
+    pub fn validate_context(
+        &self,
+        principal_id: &Did,
+        device_id: &DeviceId,
+        service_id: &Did,
+        filter_hash: &str,
+        now: DateTime<Utc>,
+    ) -> Result<()> {
+        if self.expires_at <= now {
+            return Err(Error::Protocol("sync token has expired".to_owned()));
+        }
+        if &self.principal_id != principal_id
+            || &self.device_id != device_id
+            || &self.service_id != service_id
+            || self.filter_hash != filter_hash
+        {
+            return Err(Error::Protocol("sync token binding mismatch".to_owned()));
+        }
+        Ok(())
+    }
+
+    /// Whether the token has expired at `now`.
+    pub fn is_expired_at(&self, now: DateTime<Utc>) -> bool {
+        self.expires_at <= now
+    }
+}
+
+/// Whether a request starts from scratch or resumes an existing token.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SyncMode {
+    /// No `since` token. The response should establish full local state.
+    Initial,
+    /// A `since` token is present. The response is an incremental delta.
+    Incremental,
+}
+
+/// Client-visible sync semantics for one request.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SyncSemantics {
+    /// Initial or incremental.
+    pub mode: SyncMode,
+    /// Token used for incremental sync, if any.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub since: Option<String>,
+    /// Initial sync establishes state for the requested scope.
+    pub expects_full_state: bool,
+    /// Incremental sync requires the token binding context to match.
+    pub requires_token_binding: bool,
+}
+
+impl SyncSemantics {
+    /// Derive semantics from a request.
+    pub fn from_request(request: &SyncRequest) -> Self {
+        let mode = if request.since.is_some() { SyncMode::Incremental } else { SyncMode::Initial };
+        Self {
+            mode,
+            since: request.since.clone(),
+            expects_full_state: mode == SyncMode::Initial,
+            requires_token_binding: mode == SyncMode::Incremental,
+        }
+    }
+}
+
+/// Space membership bucket in sync responses and list projections.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MembershipBucket {
+    /// Joined spaces.
+    Joined,
+    /// Invited spaces.
+    Invited,
+    /// Spaces where the user has knocked/requested access.
+    Knocked,
+    /// Left spaces.
+    Left,
+}
+
+/// A sync update assigned to one membership bucket.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct BucketedSpaceUpdate {
+    /// Bucket name.
+    pub bucket: MembershipBucket,
+    /// Updated space ID.
+    pub space_id: SpaceId,
+    /// Raw update payload.
+    pub update: SyncSpace,
+}
+
+/// Reason a timeline gap exists locally.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SyncGapReason {
+    /// Server returned `timeline.limited`.
+    Limited,
+    /// Sync token expired and local state must be reset or replayed.
+    TokenExpired,
+    /// Historical backfill is still pending.
+    Backfill,
+}
+
+/// Backfill gap descriptor created from a limited timeline or token expiry.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SyncGap {
+    /// Space containing the gap.
+    pub space_id: SpaceId,
+    /// Older edge event if known.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prev_event_id: Option<EventId>,
+    /// Newer edge event if known.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_event_id: Option<EventId>,
+    /// Backfill token supplied by the server.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prev_batch: Option<String>,
+    /// Why the gap exists.
+    pub reason: SyncGapReason,
+}
+
+/// Model for `timeline.limited` and the backfill work it creates.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LimitedTimelineState {
+    /// Space containing the limited timeline.
+    pub space_id: SpaceId,
+    /// Whether the timeline was limited.
+    pub limited: bool,
+    /// Previous batch token for historical pagination.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prev_batch: Option<String>,
+    /// Gap to persist and backfill, if limited.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gap: Option<SyncGap>,
+}
+
+impl LimitedTimelineState {
+    /// Build limited timeline state from a sync timeline section.
+    pub fn from_timeline(space_id: SpaceId, timeline: &SyncTimeline) -> Self {
+        let prev_event_id = timeline.events.first().and_then(event_id_from_value);
+        let next_event_id = timeline.events.last().and_then(event_id_from_value);
+        let gap = timeline.limited.then(|| SyncGap {
+            space_id: space_id.clone(),
+            prev_event_id,
+            next_event_id,
+            prev_batch: timeline.prev_batch.clone(),
+            reason: SyncGapReason::Limited,
+        });
+
+        Self { space_id, limited: timeline.limited, prev_batch: timeline.prev_batch.clone(), gap }
+    }
+
+    /// Convert this limited section into a backfill request, if one is needed.
+    pub fn backfill_request(&self, limit: u32) -> Option<BackfillRequest> {
+        let gap = self.gap.as_ref()?;
+        Some(BackfillRequest {
+            space_id: self.space_id.clone(),
+            from: gap
+                .prev_batch
+                .as_ref()
+                .map(|cursor| BackfillFrom::Cursor { cursor: cursor.clone() })
+                .or_else(|| {
+                    gap.prev_event_id
+                        .as_ref()
+                        .map(|event_id| BackfillFrom::EventId { event_id: event_id.clone() })
+                })
+                .unwrap_or(BackfillFrom::Beginning),
+            direction: BackfillDirection::Backward,
+            limit: Some(limit),
+        })
+    }
+}
+
+/// `X-Contrix-Wait-For` frontier wait request.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WaitForFrontier {
+    /// Required positions before the server should return.
+    #[serde(default)]
+    pub positions: Vec<SyncStreamPosition>,
+    /// Maximum wait time in milliseconds.
+    pub timeout_ms: u64,
+}
+
+impl WaitForFrontier {
+    /// Return true when the current positions satisfy every requested frontier.
+    pub fn is_satisfied_by(&self, current: &[SyncStreamPosition]) -> bool {
+        self.positions.iter().all(|required| {
+            current.iter().any(|position| position.covers(required))
+        })
+    }
+}
+
+/// To-device delivery acknowledgement state.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ToDeviceAckStatus {
+    /// Message was received by the client SDK.
+    Received,
+    /// Message was decrypted and handed to the consumer.
+    Processed,
+    /// Message failed permanently.
+    Failed,
+}
+
+/// Acknowledgement for one to-device message.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ToDeviceAck {
+    /// Message ID from to-device content.
+    pub message_id: String,
+    /// Local device acknowledging the message.
+    pub device_id: DeviceId,
+    /// Acknowledgement status.
+    pub status: ToDeviceAckStatus,
+    /// Client acknowledgement time.
+    pub acknowledged_at: DateTime<Utc>,
+}
+
+fn event_id_from_value(value: &Value) -> Option<EventId> {
+    serde_json::from_value::<Event>(value.clone()).ok().map(|event| event.event_id)
+}
+
 /// Sync client for managing incremental synchronization.
 pub struct SyncClient {
     /// Current sync token
@@ -325,6 +662,7 @@ impl SyncClient {
             set_presence: Some(PresenceStatus::Online),
             filter: None,
             subscriptions: None,
+            wait_for: None,
         }
     }
 
@@ -341,6 +679,7 @@ impl SyncClient {
             set_presence: Some(PresenceStatus::Online),
             filter,
             subscriptions,
+            wait_for: None,
         }
     }
 
@@ -439,6 +778,7 @@ mod tests {
             set_presence: Some(PresenceStatus::Online),
             filter: None,
             subscriptions: None,
+            wait_for: None,
         };
 
         let json = serde_json::to_string(&request).unwrap();
@@ -525,5 +865,147 @@ mod tests {
         let json = serde_json::to_string(&request).unwrap();
         assert!(json.contains("\"space_id\""));
         assert!(json.contains("\"direction\":\"backward\""));
+    }
+
+    #[test]
+    fn sync_semantics_distinguish_initial_and_incremental() {
+        let mut request = SyncClient::new("device1".to_owned()).create_request();
+        let initial = SyncSemantics::from_request(&request);
+
+        assert_eq!(initial.mode, SyncMode::Initial);
+        assert!(initial.expects_full_state);
+        assert!(!initial.requires_token_binding);
+
+        request.since = Some("token123".to_owned());
+        let incremental = SyncSemantics::from_request(&request);
+
+        assert_eq!(incremental.mode, SyncMode::Incremental);
+        assert!(!incremental.expects_full_state);
+        assert!(incremental.requires_token_binding);
+    }
+
+    #[test]
+    fn token_binding_checks_principal_device_service_filter_and_expiry() {
+        let principal = Did::new("did:web:alice.example").unwrap();
+        let device = DeviceId::new("dev_123").unwrap();
+        let service = Did::new("did:web:sync.example").unwrap();
+        let filter = SyncFilter {
+            space_ids: vec![SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap()],
+            entity_types: vec!["message".to_owned()],
+            relation_types: Vec::new(),
+            min_hlc: None,
+            limit: Some(20),
+        };
+        let filter_hash = sync_filter_hash(Some(&filter), None).unwrap();
+        let binding = SyncTokenBinding::for_request(
+            "token123".to_owned(),
+            principal.clone(),
+            device.clone(),
+            service.clone(),
+            Some(&filter),
+            None,
+            Vec::new(),
+            Utc::now() + chrono::Duration::minutes(5),
+        )
+        .unwrap();
+
+        binding
+            .validate_context(&principal, &device, &service, &filter_hash, Utc::now())
+            .unwrap();
+        assert!(
+            binding
+                .validate_context(
+                    &principal,
+                    &device,
+                    &service,
+                    "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+                    Utc::now(),
+                )
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn timeline_order_key_uses_causal_depth_then_hlc_actor_sequence_and_event() {
+        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let actor = Did::new("did:web:alice.example").unwrap();
+        let mut newer_hlc = Event::new(
+            "cx.message.create",
+            space_id.clone(),
+            actor.clone(),
+            2,
+            Hlc::new("01970e589d22-00000000-a13f9c2e").unwrap(),
+            serde_json::json!({"body":"newer"}),
+        )
+        .unwrap();
+        newer_hlc.event_id = EventId::new("cx:event:0002").unwrap();
+        let mut deeper = Event::new(
+            "cx.message.create",
+            space_id,
+            actor,
+            1,
+            Hlc::new("01970e589d21-00000000-a13f9c2e").unwrap(),
+            serde_json::json!({"body":"deeper"}),
+        )
+        .unwrap();
+        deeper.event_id = EventId::new("cx:event:0001").unwrap();
+
+        let mut keys = vec![
+            TimelineOrderKey::from_event(&newer_hlc, 0),
+            TimelineOrderKey::from_event(&deeper, 1),
+        ];
+        keys.sort();
+
+        assert_eq!(keys[0].event_id, newer_hlc.event_id);
+        assert_eq!(keys[1].event_id, deeper.event_id);
+    }
+
+    #[test]
+    fn wait_for_frontier_requires_covering_positions() {
+        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let event_id = EventId::new("cx:event:0001").unwrap();
+        let required = SyncStreamPosition {
+            space_id: space_id.clone(),
+            frontier: vec![event_id.clone()],
+            timeline_order: Hlc::new("01970e589d21-00000000-a13f9c2e").unwrap(),
+            state_hash: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                .to_owned(),
+        };
+        let wait_for = WaitForFrontier { positions: vec![required], timeout_ms: 1500 };
+        let current = SyncStreamPosition {
+            space_id,
+            frontier: vec![event_id],
+            timeline_order: Hlc::new("01970e589d22-00000000-a13f9c2e").unwrap(),
+            state_hash: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                .to_owned(),
+        };
+
+        assert!(wait_for.is_satisfied_by(&[current]));
+    }
+
+    #[test]
+    fn limited_timeline_creates_backfill_gap_and_request() {
+        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let event = Event::new(
+            "cx.message.create",
+            space_id.clone(),
+            Did::new("did:web:alice.example").unwrap(),
+            1,
+            Hlc::new("01970e589d21-00000000-a13f9c2e").unwrap(),
+            serde_json::json!({"body":"hello"}),
+        )
+        .unwrap();
+        let timeline = SyncTimeline {
+            events: vec![serde_json::to_value(event).unwrap()],
+            limited: true,
+            prev_batch: Some("backfill-token".to_owned()),
+        };
+
+        let state = LimitedTimelineState::from_timeline(space_id, &timeline);
+        let request = state.backfill_request(25).unwrap();
+
+        assert!(state.gap.is_some());
+        assert!(matches!(request.from, BackfillFrom::Cursor { .. }));
+        assert_eq!(request.limit, Some(25));
     }
 }

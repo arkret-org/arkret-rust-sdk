@@ -4,7 +4,10 @@
 //! contracts to keep route registration and advertised operation IDs aligned
 //! with the protocol without pulling a web stack into the SDK.
 
-use serde_json::{Value, json};
+use std::collections::{BTreeMap, BTreeSet};
+
+use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value, json};
 
 use crate::{
     AppletActorResponse, AppletDescription, AppletPingResponse, AppletProtocolResponse,
@@ -48,6 +51,104 @@ pub struct EndpointContract {
     pub operation_id: &'static str,
     pub method: EndpointMethod,
     pub path: &'static str,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EndpointParameterLocation {
+    Path,
+    Query,
+    Header,
+}
+
+impl EndpointParameterLocation {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Path => "path",
+            Self::Query => "query",
+            Self::Header => "header",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct EndpointParameter {
+    pub name: &'static str,
+    pub location: EndpointParameterLocation,
+    pub required: bool,
+    pub schema: &'static str,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct EndpointSchemaBinding {
+    pub operation_id: &'static str,
+    pub request_schema: &'static str,
+    pub response_schema: &'static str,
+    pub request_body_content_type: Option<&'static str>,
+    pub response_body_content_type: Option<&'static str>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HttpAdapterRequest {
+    pub method: EndpointMethod,
+    pub path: String,
+    pub query: BTreeMap<String, String>,
+    pub headers: BTreeMap<String, String>,
+    pub body: Vec<u8>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HttpAdapterResponse {
+    pub status: u16,
+    pub headers: BTreeMap<String, String>,
+    pub body: Vec<u8>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MatchedEndpoint<'a> {
+    pub contract: &'a EndpointContract,
+    pub path_parameters: BTreeMap<String, String>,
+}
+
+pub trait TowerLikeEndpointService {
+    type Request;
+    type Response;
+
+    fn call(&mut self, request: Self::Request) -> Result<Self::Response>;
+}
+
+impl<F> TowerLikeEndpointService for F
+where
+    F: FnMut(HttpAdapterRequest) -> Result<HttpAdapterResponse>,
+{
+    type Request = HttpAdapterRequest;
+    type Response = HttpAdapterResponse;
+
+    fn call(&mut self, request: Self::Request) -> Result<Self::Response> {
+        self(request)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ProtocolGoldenVector {
+    pub name: String,
+    pub profile: String,
+    pub input: Value,
+    pub expected: Value,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct WireConformanceVector {
+    pub name: String,
+    pub method: String,
+    pub path: String,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub query: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub headers: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    pub body: Value,
+    pub expected_status: u16,
+    pub expected_errcode: String,
 }
 
 pub const ENDPOINT_CONTRACTS: &[EndpointContract] = &[
@@ -388,6 +489,251 @@ impl EndpointMethod {
     }
 }
 
+pub fn endpoint_schema_bindings() -> Vec<EndpointSchemaBinding> {
+    endpoint_contracts().iter().map(endpoint_schema_binding).collect()
+}
+
+pub fn endpoint_schema_binding(endpoint: &EndpointContract) -> EndpointSchemaBinding {
+    let (request_schema, response_schema) = match endpoint.operation_id {
+        "cx.server.describe" => ("ServerDescribeRequest", "ServerDescription"),
+        "cx.identity.describe_registry" => ("IdentityDescribeRequest", "IdentityDescription"),
+        "cx.identity.resolve" => ("IdentityResolveRequest", "IdentityResolveResponse"),
+        "cx.identity.get_document" => ("IdentityDocumentQuery", "IdentityDocumentResponse"),
+        "cx.identity.get_log" => ("IdentityLogQuery", "IdentityLogResponse"),
+        "cx.identity.submit_did_operation" => {
+            ("SubmitDidOperationRequest", "SubmitDidOperationResponse")
+        }
+        "cx.identity.get_receipts" => ("IdentityReceiptsQuery", "IdentityReceiptsResponse"),
+        "cx.repo.describe" => ("RepoDescribeQuery", "RepoDescription"),
+        "cx.repo.list_commits" => ("RepoCommitsQuery", "RepoCommitsResponse"),
+        "cx.repo.get_commit" => ("RepoCommitQuery", "RepoCommitResponse"),
+        "cx.repo.get_operations" => ("RepoOperationsRequest", "RepoOperationsResponse"),
+        "cx.repo.sync" => ("RepoSyncRequest", "RepoSyncResponse"),
+        "cx.repo.submit_commit" => ("Commit", "SubmitCommitResponse"),
+        "cx.sync.client_sync" => ("SyncRequest", "SyncResponse"),
+        "cx.sync.describe" => ("SyncDescribeRequest", "SyncDescription"),
+        "cx.sync.subscribe" => ("SyncSubscribeQuery", "SyncSubscribeFrame"),
+        "cx.sync.backfill" => ("SyncBackfillQuery", "SyncBackfillResponse"),
+        "cx.sync.get_snapshot_head" => ("SyncSnapshotHeadQuery", "SyncSnapshotHeadResponse"),
+        "cx.federation.transaction" => {
+            ("FederationTransactionRequest", "FederationTransactionResponse")
+        }
+        "cx.federation.push_operations" => {
+            ("FederationPushOperationsRequest", "FederationPushOperationsResponse")
+        }
+        "cx.federation.pull_operations" => {
+            ("FederationPullOperationsQuery", "FederationPullOperationsResponse")
+        }
+        "cx.federation.space_members" => {
+            ("FederationSpaceMembersQuery", "FederationSpaceMembersResponse")
+        }
+        "cx.federation.verify_actor" => {
+            ("FederationVerifyActorRequest", "FederationVerifyActorResponse")
+        }
+        "cx.index.describe" => ("IndexDescribeRequest", "IndexDescription"),
+        "cx.index.get_entity" => ("IndexEntityQuery", "IndexEntityResponse"),
+        "cx.index.query" => ("QueryRequest", "QueryResponse"),
+        "cx.index.thread" => ("IndexThreadQuery", "IndexThreadResponse"),
+        "cx.index.notifications" => ("IndexNotificationsQuery", "IndexNotificationsResponse"),
+        "cx.index.inbox" => ("IndexInboxQuery", "IndexInboxResponse"),
+        "cx.index.search" => ("IndexSearchRequest", "IndexSearchResponse"),
+        "cx.index.space_hierarchy" => ("IndexSpaceHierarchyQuery", "IndexSpaceHierarchyResponse"),
+        "cx.directory.describe" => ("DirectoryDescribeRequest", "DirectoryDescription"),
+        "cx.directory.search_spaces" => {
+            ("DirectorySearchSpacesRequest", "DirectorySearchSpacesResponse")
+        }
+        "cx.directory.resolve_space" => {
+            ("DirectoryResolveSpaceRequest", "DirectoryResolveSpaceResponse")
+        }
+        "cx.directory.search_organizations" => {
+            ("DirectorySearchOrganizationsRequest", "DirectorySearchOrganizationsResponse")
+        }
+        "cx.directory.resolve_organization" => {
+            ("DirectoryResolveOrganizationRequest", "DirectoryResolveOrganizationResponse")
+        }
+        "cx.directory.search_actors" => {
+            ("DirectorySearchActorsRequest", "DirectorySearchActorsResponse")
+        }
+        "cx.directory.search_users" => ("DirectorySearchUsersQuery", "DirectorySearchUsersResponse"),
+        "cx.directory.resolve_handle" => {
+            ("DirectoryResolveHandleRequest", "DirectoryResolveHandleResponse")
+        }
+        "cx.blob.upload" => ("BlobUploadMetadata", "BlobUploadResponse"),
+        "cx.blob.head" => ("BlobGetQuery", "BlobMetadataHeaders"),
+        "cx.blob.get" => ("BlobGetQuery", "BinaryBlobBody"),
+        "cx.push.register_device" => ("PushRegisterDeviceRequest", "PushRegisterDeviceResponse"),
+        "cx.push.unregister_device" => ("PushUnregisterDeviceRequest", "OkResponse"),
+        "cx.push.notify" => ("PushNotifyRequest", "PushNotifyResponse"),
+        "cx.device_messages.put" => ("DeviceMessagesSendRequest", "DeviceMessagesSendResponse"),
+        "cx.device_messages.get" => ("DeviceMessagesGetQuery", "DeviceMessagesReceiveResponse"),
+        "cx.keys.upload" => ("KeysUploadRequest", "KeysUploadResponse"),
+        "cx.keys.query" => ("KeysQueryRequest", "KeysQueryResponse"),
+        "cx.keys.claim" => ("KeysClaimRequest", "KeysClaimResponse"),
+        "cx.authz.get_effective_grants" => {
+            ("AuthzEffectiveGrantsQuery", "EffectiveGrantsResponse")
+        }
+        "cx.authz.get_invites" => ("AuthzInvitesQuery", "AuthzInvitesResponse"),
+        "cx.authz.check" => ("AuthzCheckRequest", "AuthzCheckResponse"),
+        "cx.policy.check" => ("PolicyCheckRequest", "PolicyCheckResponse"),
+        "cx.media.ice_config" => ("MediaIceConfigRequest", "MediaIceConfigResponse"),
+        "cx.moderation.report" => ("ModerationReportRequest", "ModerationReportResponse"),
+        "cx.applet.ping" => ("AppletPingRequest", "AppletPingResponse"),
+        "cx.applet.describe" => ("AppletDescribeRequest", "AppletDescription"),
+        "cx.applet.transaction" => ("AppletTransactionRequest", "AppletTransactionResponse"),
+        "cx.applet.query_actor" => ("AppletActorPath", "AppletActorResponse"),
+        "cx.applet.query_space" => ("AppletSpacePath", "AppletSpaceResponse"),
+        "cx.applet.protocol_metadata" => ("AppletProtocolPath", "AppletProtocolResponse"),
+        "cx.applet.third_party_users" => ("AppletThirdPartyUsersRequest", "JsonValue"),
+        "cx.applet.third_party_locations" => ("AppletThirdPartyLocationsRequest", "JsonValue"),
+        _ => ("JsonValue", "JsonValue"),
+    };
+
+    EndpointSchemaBinding {
+        operation_id: endpoint.operation_id,
+        request_schema,
+        response_schema,
+        request_body_content_type: request_body_content_type(endpoint),
+        response_body_content_type: response_body_content_type(endpoint),
+    }
+}
+
+pub fn endpoint_parameters(endpoint: &EndpointContract) -> Vec<EndpointParameter> {
+    let mut parameters = path_parameters(endpoint.path);
+    parameters.extend(query_parameters(endpoint.operation_id));
+    parameters.extend(header_parameters(endpoint.operation_id));
+    parameters.push(EndpointParameter {
+        name: "X-Contrix-Request-Id",
+        location: EndpointParameterLocation::Header,
+        required: false,
+        schema: "String",
+    });
+    parameters.push(EndpointParameter {
+        name: "Traceparent",
+        location: EndpointParameterLocation::Header,
+        required: false,
+        schema: "String",
+    });
+    parameters
+}
+
+pub fn match_endpoint(method: EndpointMethod, path: &str) -> Option<MatchedEndpoint<'static>> {
+    endpoint_contracts()
+        .iter()
+        .filter(|endpoint| endpoint.method == method)
+        .find_map(|endpoint| {
+            match_path_template(endpoint.path, path)
+                .map(|path_parameters| MatchedEndpoint { contract: endpoint, path_parameters })
+        })
+}
+
+pub fn reject_query_auth(parameters: &BTreeMap<String, String>) -> Result<()> {
+    for name in parameters.keys() {
+        let lower = name.to_ascii_lowercase();
+        if matches!(
+            lower.as_str(),
+            "access_token"
+                | "auth"
+                | "authorization"
+                | "bearer"
+                | "device_proof"
+                | "service_signature"
+                | "signature"
+        ) {
+            return Err(crate::Error::Protocol(
+                "authentication material must be sent in headers, not query parameters".to_owned(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+pub fn protocol_golden_vectors() -> Vec<ProtocolGoldenVector> {
+    vec![
+        ProtocolGoldenVector {
+            name: "did_uuid_v4_layout".to_owned(),
+            profile: "cx.conformance.identifiers.v1".to_owned(),
+            input: json!({"did": "did:uuid:550e8400-e29b-41d4-a716-446655440000"}),
+            expected: json!({"valid": true, "method": "uuid"}),
+        },
+        ProtocolGoldenVector {
+            name: "cursor_prefix".to_owned(),
+            profile: "cx.conformance.cursor.v1".to_owned(),
+            input: json!({"cursor": "cx:cursor:sync:01JS0SP000000000000000000"}),
+            expected: json!({"valid": true}),
+        },
+        ProtocolGoldenVector {
+            name: "canonical_digest_prefix".to_owned(),
+            profile: "cx.conformance.digest.v1".to_owned(),
+            input: json!({"hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000"}),
+            expected: json!({"valid": true, "algorithm": "sha256"}),
+        },
+        ProtocolGoldenVector {
+            name: "hlc_shape".to_owned(),
+            profile: "cx.conformance.hlc.v1".to_owned(),
+            input: json!({"hlc": "2026-04-29T00:00:00.000Z-0000-node"}),
+            expected: json!({"valid": true, "monotonic_components": ["wall_time", "counter", "node"]}),
+        },
+    ]
+}
+
+pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
+    vec![
+        WireConformanceVector {
+            name: "query_auth_rejected".to_owned(),
+            method: "GET".to_owned(),
+            path: "/api/v1/server/describe".to_owned(),
+            query: BTreeMap::from([("access_token".to_owned(), "redacted".to_owned())]),
+            headers: BTreeMap::new(),
+            body: Value::Null,
+            expected_status: 400,
+            expected_errcode: "cx.error.query_auth_forbidden".to_owned(),
+        },
+        WireConformanceVector {
+            name: "encoded_path_separator_rejected".to_owned(),
+            method: "PUT".to_owned(),
+            path: "/api/v1/federation/transactions/txn_%2Fescape".to_owned(),
+            query: BTreeMap::new(),
+            headers: BTreeMap::new(),
+            body: json!({}),
+            expected_status: 400,
+            expected_errcode: "cx.error.invalid_path_segment".to_owned(),
+        },
+        WireConformanceVector {
+            name: "stale_cursor_rejected".to_owned(),
+            method: "GET".to_owned(),
+            path: "/api/v1/federation/pull-operations".to_owned(),
+            query: BTreeMap::from([
+                ("space_id".to_owned(), "cx:space:01JS0SP000000000000000000".to_owned()),
+                ("after_cursor".to_owned(), "cx:cursor:expired".to_owned()),
+            ]),
+            headers: BTreeMap::new(),
+            body: Value::Null,
+            expected_status: 410,
+            expected_errcode: "cx.error.stale_cursor".to_owned(),
+        },
+        WireConformanceVector {
+            name: "bad_digest_rejected".to_owned(),
+            method: "POST".to_owned(),
+            path: "/api/v1/blob/upload".to_owned(),
+            query: BTreeMap::new(),
+            headers: BTreeMap::from([("Digest".to_owned(), "sha256:not-hex".to_owned())]),
+            body: json!({"size": 4}),
+            expected_status: 400,
+            expected_errcode: "cx.error.bad_digest".to_owned(),
+        },
+        WireConformanceVector {
+            name: "missing_auth_rejected".to_owned(),
+            method: "POST".to_owned(),
+            path: "/api/v1/repo/submit-commit".to_owned(),
+            query: BTreeMap::new(),
+            headers: BTreeMap::new(),
+            body: json!({}),
+            expected_status: 401,
+            expected_errcode: "cx.error.unauthorized".to_owned(),
+        },
+    ]
+}
+
 #[derive(Clone, Debug)]
 pub enum ServerRequest {
     ServerDescribe,
@@ -526,29 +872,191 @@ pub trait EndpointHandler {
     fn handle(&mut self, request: ServerRequest) -> Result<ServerResponse>;
 }
 
+fn request_body_content_type(endpoint: &EndpointContract) -> Option<&'static str> {
+    match endpoint.method {
+        EndpointMethod::Post | EndpointMethod::Put => Some("application/json"),
+        EndpointMethod::Get | EndpointMethod::Head => None,
+    }
+}
+
+fn response_body_content_type(endpoint: &EndpointContract) -> Option<&'static str> {
+    match endpoint.operation_id {
+        "cx.blob.head" => None,
+        "cx.blob.get" => Some("application/octet-stream"),
+        "cx.sync.subscribe" => Some("application/x-ndjson"),
+        _ => Some("application/json"),
+    }
+}
+
+fn path_parameters(path: &'static str) -> Vec<EndpointParameter> {
+    path.split('/')
+        .filter_map(|segment| {
+            if segment.starts_with('{') && segment.ends_with('}') {
+                Some(EndpointParameter {
+                    name: &segment[1..segment.len() - 1],
+                    location: EndpointParameterLocation::Path,
+                    required: true,
+                    schema: "String",
+                })
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+fn query_parameters(operation_id: &str) -> Vec<EndpointParameter> {
+    let query: &[(&str, bool, &str)] = match operation_id {
+        "cx.identity.get_document" => &[("did", true, "Did"), ("version", false, "String")],
+        "cx.identity.get_log" => {
+            &[("did", true, "Did"), ("cursor", false, "String"), ("limit", false, "Limit")]
+        }
+        "cx.identity.get_receipts" => &[("did", true, "Did"), ("head", true, "Hash")],
+        "cx.repo.describe" => &[("repo_id", false, "Did")],
+        "cx.repo.list_commits" => {
+            &[("repo_id", true, "Did"), ("cursor", false, "String"), ("limit", false, "Limit")]
+        }
+        "cx.repo.get_commit" => &[("commit_id", true, "String"), ("repo_id", false, "Did")],
+        "cx.sync.subscribe" => &[("space_id", true, "SpaceId"), ("cursor", false, "String")],
+        "cx.sync.backfill" => {
+            &[("space_id", true, "SpaceId"), ("cursor", false, "String"), ("limit", false, "Limit")]
+        }
+        "cx.sync.get_snapshot_head" => &[("space_id", true, "SpaceId")],
+        "cx.federation.pull_operations" => {
+            &[("space_id", true, "SpaceId"), ("after_cursor", false, "String"), ("limit", false, "Limit")]
+        }
+        "cx.federation.space_members" => {
+            &[("space_id", true, "SpaceId"), ("cursor", false, "String"), ("limit", false, "Limit")]
+        }
+        "cx.index.get_entity" => {
+            &[("entity_id", true, "String"), ("space_id", false, "SpaceId"), ("at", false, "String")]
+        }
+        "cx.index.thread" => {
+            &[("topic_id", true, "String"), ("cursor", false, "String"), ("limit", false, "Limit")]
+        }
+        "cx.index.notifications" => {
+            &[("cursor", false, "String"), ("state", false, "String"), ("limit", false, "Limit")]
+        }
+        "cx.index.inbox" => {
+            &[("scope", false, "String"), ("cursor", false, "String"), ("limit", false, "Limit")]
+        }
+        "cx.index.space_hierarchy" => {
+            &[("space_id", true, "SpaceId"), ("depth", false, "Limit"), ("include_unconfirmed", false, "Bool")]
+        }
+        "cx.directory.search_users" => {
+            &[("q", true, "String"), ("space_id", false, "SpaceId"), ("limit", false, "Limit")]
+        }
+        "cx.blob.head" | "cx.blob.get" => &[("blob_ref", true, "BlobRef")],
+        "cx.device_messages.get" => &[("from", false, "String"), ("limit", false, "Limit")],
+        "cx.authz.get_effective_grants" => {
+            &[("space_id", true, "SpaceId"), ("subject", true, "Did"), ("at", false, "String")]
+        }
+        "cx.authz.get_invites" => {
+            &[("subject", true, "Did"), ("space_id", false, "SpaceId"), ("cursor", false, "String")]
+        }
+        _ => &[],
+    };
+
+    query
+        .iter()
+        .map(|(name, required, schema)| EndpointParameter {
+            name,
+            location: EndpointParameterLocation::Query,
+            required: *required,
+            schema,
+        })
+        .collect()
+}
+
+fn header_parameters(operation_id: &str) -> Vec<EndpointParameter> {
+    let headers: &[(&str, bool, &str)] = match operation_id {
+        "cx.index.query" => &[("X-Contrix-Wait-For", false, "String")],
+        "cx.blob.upload" => &[
+            ("X-Contrix-Blob-Metadata", false, "BlobUploadMetadata"),
+            ("Content-Type", false, "String"),
+            ("Content-Disposition", false, "String"),
+            ("Digest", false, "Hash"),
+        ],
+        "cx.blob.get" => &[("Range", false, "String")],
+        _ => &[],
+    };
+
+    headers
+        .iter()
+        .map(|(name, required, schema)| EndpointParameter {
+            name,
+            location: EndpointParameterLocation::Header,
+            required: *required,
+            schema,
+        })
+        .collect()
+}
+
+fn match_path_template(template: &str, path: &str) -> Option<BTreeMap<String, String>> {
+    let template_segments = template.trim_matches('/').split('/');
+    let path_segments = path.trim_matches('/').split('/');
+    let mut parameters = BTreeMap::new();
+
+    for (template_segment, path_segment) in template_segments.zip(path_segments) {
+        if template_segment.starts_with('{') && template_segment.ends_with('}') {
+            let name = &template_segment[1..template_segment.len() - 1];
+            parameters.insert(name.to_owned(), path_segment.to_owned());
+        } else if template_segment != path_segment {
+            return None;
+        }
+    }
+
+    if template.trim_matches('/').split('/').count() != path.trim_matches('/').split('/').count() {
+        return None;
+    }
+
+    Some(parameters)
+}
+
 pub fn openapi_document() -> Value {
     let mut paths = serde_json::Map::new();
     for endpoint in endpoint_contracts() {
+        let binding = endpoint_schema_binding(endpoint);
         let mut methods = paths
             .remove(endpoint.path)
             .and_then(|value| value.as_object().cloned())
             .unwrap_or_default();
-        methods.insert(
-            endpoint.method.as_str().to_owned(),
-            json!({
-                "operationId": endpoint.operation_id,
-                "responses": {
-                    "200": { "description": "Successful Contrix response" },
-                    "400": { "$ref": "#/components/responses/ErrorEnvelope" },
-                    "401": { "$ref": "#/components/responses/ErrorEnvelope" },
-                    "403": { "$ref": "#/components/responses/ErrorEnvelope" },
-                    "404": { "$ref": "#/components/responses/ErrorEnvelope" },
-                    "405": { "$ref": "#/components/responses/ErrorEnvelope" },
-                    "429": { "$ref": "#/components/responses/ErrorEnvelope" },
-                    "503": { "$ref": "#/components/responses/ErrorEnvelope" }
-                }
-            }),
+
+        let mut operation = Map::new();
+        operation.insert("operationId".to_owned(), json!(endpoint.operation_id));
+        operation.insert("tags".to_owned(), json!([endpoint_tag(endpoint.operation_id)]));
+        operation.insert(
+            "x-contrix-request-schema".to_owned(),
+            json!(format!("#/components/schemas/{}", binding.request_schema)),
         );
+        operation.insert(
+            "x-contrix-response-schema".to_owned(),
+            json!(format!("#/components/schemas/{}", binding.response_schema)),
+        );
+        operation.insert("security".to_owned(), operation_security(endpoint.operation_id));
+        operation.insert(
+            "parameters".to_owned(),
+            Value::Array(
+                endpoint_parameters(endpoint)
+                    .into_iter()
+                    .map(openapi_parameter)
+                    .collect(),
+            ),
+        );
+
+        if let Some(content_type) = binding.request_body_content_type {
+            operation.insert(
+                "requestBody".to_owned(),
+                openapi_request_body(content_type, binding.request_schema, endpoint.operation_id),
+            );
+        }
+
+        operation.insert(
+            "responses".to_owned(),
+            openapi_responses(binding.response_body_content_type, binding.response_schema),
+        );
+
+        methods.insert(endpoint.method.as_str().to_owned(), Value::Object(operation));
         paths.insert(endpoint.path.to_owned(), Value::Object(methods));
     }
 
@@ -560,25 +1068,10 @@ pub fn openapi_document() -> Value {
         },
         "paths": paths,
         "components": {
-            "responses": {
-                "ErrorEnvelope": {
-                    "description": "Standard Contrix error envelope",
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "required": ["errcode", "error"],
-                                "properties": {
-                                    "errcode": { "type": "string" },
-                                    "error": { "type": "string" },
-                                    "retry_after_ms": { "type": "integer", "minimum": 0 }
-                                },
-                                "additionalProperties": true
-                            }
-                        }
-                    }
-                }
-            },
+            "schemas": openapi_schema_components(),
+            "responses": openapi_response_components(),
+            "parameters": openapi_parameter_components(),
+            "examples": openapi_examples(),
             "securitySchemes": {
                 "bearer": { "type": "http", "scheme": "bearer" },
                 "deviceProof": { "type": "apiKey", "in": "header", "name": "X-Contrix-Device-Proof" },
@@ -588,10 +1081,368 @@ pub fn openapi_document() -> Value {
     })
 }
 
+fn endpoint_tag(operation_id: &str) -> &str {
+    operation_id
+        .strip_prefix("cx.")
+        .and_then(|rest| rest.split_once('.').map(|(tag, _)| tag))
+        .unwrap_or("core")
+}
+
+fn operation_security(operation_id: &str) -> Value {
+    if matches!(
+        operation_id,
+        "cx.server.describe"
+            | "cx.identity.describe_registry"
+            | "cx.sync.describe"
+            | "cx.index.describe"
+            | "cx.directory.describe"
+            | "cx.applet.ping"
+            | "cx.applet.describe"
+    ) {
+        json!([{}])
+    } else if operation_id.starts_with("cx.federation.") {
+        json!([{ "serviceSignature": [] }])
+    } else {
+        json!([{ "bearer": [] }, { "deviceProof": [] }, { "serviceSignature": [] }])
+    }
+}
+
+fn openapi_parameter(parameter: EndpointParameter) -> Value {
+    let schema = parameter_schema(parameter.schema);
+    json!({
+        "name": parameter.name,
+        "in": parameter.location.as_str(),
+        "required": parameter.required,
+        "schema": schema
+    })
+}
+
+fn parameter_schema(name: &str) -> Value {
+    match name {
+        "Bool" => json!({ "type": "boolean" }),
+        "Limit" => json!({ "type": "integer", "minimum": 1, "maximum": 1000 }),
+        "String" => json!({ "type": "string" }),
+        _ => json!({ "$ref": format!("#/components/schemas/{name}") }),
+    }
+}
+
+fn openapi_request_body(content_type: &str, schema: &str, operation_id: &str) -> Value {
+    if operation_id == "cx.blob.upload" {
+        return json!({
+            "required": true,
+            "content": {
+                "application/json": {
+                    "schema": { "$ref": "#/components/schemas/BlobUploadMetadata" },
+                    "examples": {
+                        "blobUpload": { "$ref": "#/components/examples/BlobUploadMetadata" }
+                    }
+                },
+                "application/octet-stream": {
+                    "schema": { "$ref": "#/components/schemas/BinaryBlobBody" }
+                }
+            }
+        });
+    }
+
+    let mut content = Map::new();
+    let mut media = Map::new();
+    media.insert("schema".to_owned(), json!({ "$ref": format!("#/components/schemas/{schema}") }));
+
+    if let Some(example) = request_example_ref(operation_id) {
+        media.insert("examples".to_owned(), json!({ "default": { "$ref": example } }));
+    }
+
+    content.insert(content_type.to_owned(), Value::Object(media));
+    json!({ "required": true, "content": content })
+}
+
+fn openapi_responses(content_type: Option<&str>, schema: &str) -> Value {
+    let success = if let Some(content_type) = content_type {
+        json!({
+            "description": "Successful Contrix response",
+            "content": {
+                content_type: {
+                    "schema": { "$ref": format!("#/components/schemas/{schema}") }
+                }
+            }
+        })
+    } else {
+        json!({ "description": "Successful Contrix response with headers only" })
+    };
+
+    json!({
+        "200": success,
+        "400": { "$ref": "#/components/responses/BadRequestError" },
+        "401": { "$ref": "#/components/responses/UnauthorizedError" },
+        "403": { "$ref": "#/components/responses/ForbiddenError" },
+        "404": { "$ref": "#/components/responses/NotFoundPrivacyError" },
+        "405": { "$ref": "#/components/responses/MethodNotAllowedError" },
+        "410": { "$ref": "#/components/responses/StaleCursorError" },
+        "429": { "$ref": "#/components/responses/RateLimitedError" },
+        "503": { "$ref": "#/components/responses/UnavailableError" }
+    })
+}
+
+fn openapi_schema_components() -> Value {
+    let mut schema_names = BTreeSet::from([
+        "ApiConventionMetadata",
+        "BinaryBlobBody",
+        "BlobMetadataHeaders",
+        "Bool",
+        "Commit",
+        "Did",
+        "ErrorEnvelope",
+        "Hash",
+        "HttpMessageSignature",
+        "HttpTraceMetadata",
+        "JsonValue",
+        "Limit",
+        "QuotaMetadata",
+        "RateLimitMetadata",
+        "ServiceDidAllowlist",
+        "SpaceId",
+        "String",
+        "WellKnownContrixServer",
+    ]);
+
+    for binding in endpoint_schema_bindings() {
+        schema_names.insert(binding.request_schema);
+        schema_names.insert(binding.response_schema);
+    }
+
+    let mut schemas = Map::new();
+    for name in schema_names {
+        schemas.insert(name.to_owned(), generic_schema(name));
+    }
+
+    schemas.insert(
+        "Did".to_owned(),
+        json!({ "type": "string", "pattern": "^did:[a-z0-9]+:.+$" }),
+    );
+    schemas.insert(
+        "SpaceId".to_owned(),
+        json!({ "type": "string", "pattern": "^cx:space:.+$" }),
+    );
+    schemas.insert(
+        "Hash".to_owned(),
+        json!({ "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }),
+    );
+    schemas.insert("String".to_owned(), json!({ "type": "string" }));
+    schemas.insert("Bool".to_owned(), json!({ "type": "boolean" }));
+    schemas.insert(
+        "Limit".to_owned(),
+        json!({ "type": "integer", "minimum": 1, "maximum": 1000 }),
+    );
+    schemas.insert(
+        "JsonValue".to_owned(),
+        json!({ "description": "Arbitrary JSON value accepted by extension points" }),
+    );
+    schemas.insert(
+        "BinaryBlobBody".to_owned(),
+        json!({ "type": "string", "format": "binary" }),
+    );
+    schemas.insert(
+        "ErrorEnvelope".to_owned(),
+        json!({
+            "type": "object",
+            "required": ["errcode", "error"],
+            "properties": {
+                "errcode": { "type": "string" },
+                "error": { "type": "string" },
+                "retry_after_ms": { "type": "integer", "minimum": 0 },
+                "trace": { "$ref": "#/components/schemas/HttpTraceMetadata" },
+                "rate_limit": { "$ref": "#/components/schemas/RateLimitMetadata" },
+                "quota": { "$ref": "#/components/schemas/QuotaMetadata" }
+            },
+            "additionalProperties": true
+        }),
+    );
+    schemas.insert(
+        "ServerDescription".to_owned(),
+        json!({
+            "type": "object",
+            "required": ["service_did", "service_type", "protocol_version"],
+            "properties": {
+                "service_did": { "$ref": "#/components/schemas/Did" },
+                "service_type": { "type": "string" },
+                "protocol_version": { "type": "string" },
+                "supported_operations": { "type": "array", "items": { "type": "string" } },
+                "auth_metadata": { "$ref": "#/components/schemas/JsonValue" },
+                "limits": { "$ref": "#/components/schemas/JsonValue" }
+            },
+            "additionalProperties": true
+        }),
+    );
+    schemas.insert(
+        "FederationTransactionRequest".to_owned(),
+        json!({
+            "type": "object",
+            "required": ["origin", "destination", "service_binding_ref", "operations"],
+            "properties": {
+                "origin": { "$ref": "#/components/schemas/Did" },
+                "destination": { "$ref": "#/components/schemas/Did" },
+                "service_binding_ref": { "type": "string" },
+                "operations": { "type": "array", "items": { "$ref": "#/components/schemas/JsonValue" } },
+                "receipts": { "type": "array", "items": { "$ref": "#/components/schemas/JsonValue" } },
+                "frontier": { "type": "string" }
+            },
+            "additionalProperties": false
+        }),
+    );
+    schemas.insert(
+        "HttpTraceMetadata".to_owned(),
+        json!({
+            "type": "object",
+            "properties": {
+                "request_id": { "type": "string" },
+                "actor_id": { "$ref": "#/components/schemas/Did" },
+                "device_id": { "type": "string" },
+                "space_id": { "$ref": "#/components/schemas/SpaceId" },
+                "operation_id": { "type": "string" },
+                "commit_id": { "type": "string" }
+            },
+            "additionalProperties": false
+        }),
+    );
+
+    Value::Object(schemas)
+}
+
+fn generic_schema(name: &str) -> Value {
+    json!({
+        "type": "object",
+        "description": format!("Contrix SDK model {name}. Field-level validation lives in the Rust type and protocol validators."),
+        "x-contrix-rust-type": name,
+        "additionalProperties": true
+    })
+}
+
+fn openapi_response_components() -> Value {
+    let error_response = |description: &str, example: &str| {
+        json!({
+            "description": description,
+            "content": {
+                "application/json": {
+                    "schema": { "$ref": "#/components/schemas/ErrorEnvelope" },
+                    "examples": {
+                        "default": { "$ref": format!("#/components/examples/{example}") }
+                    }
+                }
+            }
+        })
+    };
+
+    json!({
+        "BadRequestError": error_response("Malformed request or protocol validation failure", "BadRequestError"),
+        "UnauthorizedError": error_response("Authentication is missing or invalid", "UnauthorizedError"),
+        "ForbiddenError": error_response("Authenticated principal is not authorized", "ForbiddenError"),
+        "NotFoundPrivacyError": error_response("Resource is nonexistent or invisible under privacy-preserving not-found semantics", "NotFoundPrivacyError"),
+        "MethodNotAllowedError": error_response("HTTP method is not registered for this endpoint", "MethodNotAllowedError"),
+        "StaleCursorError": error_response("Cursor is expired or no longer replayable", "StaleCursorError"),
+        "RateLimitedError": error_response("Request was rate limited", "RateLimitedError"),
+        "UnavailableError": error_response("Service is temporarily unavailable", "UnavailableError"),
+        "ErrorEnvelope": error_response("Standard Contrix error envelope", "BadRequestError")
+    })
+}
+
+fn openapi_parameter_components() -> Value {
+    json!({
+        "RequestId": {
+            "name": "X-Contrix-Request-Id",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" }
+        },
+        "Traceparent": {
+            "name": "Traceparent",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" }
+        }
+    })
+}
+
+fn openapi_examples() -> Value {
+    json!({
+        "ServerDescription": {
+            "summary": "Principal service description",
+            "value": {
+                "service_did": "did:web:svc.example",
+                "service_type": "principal_server",
+                "protocol_version": crate::PROTOCOL_VERSION,
+                "supported_operations": ["cx.server.describe", "cx.sync.client_sync"]
+            }
+        },
+        "SyncRequest": {
+            "summary": "Incremental sync request",
+            "value": {
+                "since": "cx:cursor:sync:01JS0SP000000000000000000",
+                "space_ids": ["cx:space:01JS0SP000000000000000000"],
+                "timeout_ms": 30000
+            }
+        },
+        "FederationTransactionRequest": {
+            "summary": "Federated operation transaction",
+            "value": {
+                "origin": "did:web:a.example",
+                "destination": "did:web:b.example",
+                "service_binding_ref": "did:web:a.example#contrix-federation",
+                "operations": [],
+                "frontier": "cx:cursor:federation:01JS0SP000000000000000000"
+            }
+        },
+        "BlobUploadMetadata": {
+            "summary": "Blob upload metadata",
+            "value": {
+                "space_id": "cx:space:01JS0SP000000000000000000",
+                "size": 4,
+                "media_type": "text/plain",
+                "sha256": "sha256:3a6eb0790f39ac87c94f3856b2dd2c5d110e6811602261a9a923d3bb23adc8b7"
+            }
+        },
+        "BadRequestError": {
+            "value": { "errcode": "cx.error.bad_request", "error": "Malformed Contrix request" }
+        },
+        "UnauthorizedError": {
+            "value": { "errcode": "cx.error.unauthorized", "error": "Authentication required" }
+        },
+        "ForbiddenError": {
+            "value": { "errcode": "cx.error.forbidden", "error": "Not authorized" }
+        },
+        "NotFoundPrivacyError": {
+            "value": { "errcode": "cx.error.not_found", "error": "Resource not found" }
+        },
+        "MethodNotAllowedError": {
+            "value": { "errcode": "cx.error.method_not_allowed", "error": "Method not allowed" }
+        },
+        "StaleCursorError": {
+            "value": { "errcode": "cx.error.stale_cursor", "error": "Cursor is expired" }
+        },
+        "RateLimitedError": {
+            "value": {
+                "errcode": "cx.error.rate_limited",
+                "error": "Too many requests",
+                "retry_after_ms": 1000,
+                "rate_limit": { "scope": "actor", "limit": 60, "remaining": 0 }
+            }
+        },
+        "UnavailableError": {
+            "value": { "errcode": "cx.error.unavailable", "error": "Service unavailable" }
+        }
+    })
+}
+
+fn request_example_ref(operation_id: &str) -> Option<&'static str> {
+    match operation_id {
+        "cx.sync.client_sync" => Some("#/components/examples/SyncRequest"),
+        "cx.federation.transaction" => Some("#/components/examples/FederationTransactionRequest"),
+        "cx.blob.upload" => Some("#/components/examples/BlobUploadMetadata"),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use std::collections::{BTreeMap, BTreeSet};
-
     use super::*;
 
     #[test]

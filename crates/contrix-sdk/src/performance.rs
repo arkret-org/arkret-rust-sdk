@@ -1,6 +1,7 @@
 //! Performance-oriented helpers for pooling, batching and build planning.
 
 use std::{
+    collections::BTreeMap,
     collections::VecDeque,
     sync::{Arc, Mutex},
     thread,
@@ -195,6 +196,171 @@ impl Default for PerformanceConfig {
     }
 }
 
+/// Structured trace metadata shared by SDK runtimes and host applications.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TraceContext {
+    pub request_id: Option<String>,
+    pub actor_id: Option<String>,
+    pub device_id: Option<String>,
+    pub space_id: Option<String>,
+    pub operation_id: Option<String>,
+    pub commit_id: Option<String>,
+    pub event_id: Option<String>,
+    pub span_kind: TraceSpanKind,
+    pub labels: BTreeMap<String, String>,
+}
+
+impl TraceContext {
+    pub fn request(request_id: impl Into<String>) -> Self {
+        Self { request_id: Some(request_id.into()), ..Self::default() }
+    }
+
+    pub fn with_actor(mut self, actor_id: impl Into<String>) -> Self {
+        self.actor_id = Some(actor_id.into());
+        self
+    }
+
+    pub fn with_device(mut self, device_id: impl Into<String>) -> Self {
+        self.device_id = Some(device_id.into());
+        self
+    }
+
+    pub fn with_space(mut self, space_id: impl Into<String>) -> Self {
+        self.space_id = Some(space_id.into());
+        self
+    }
+
+    pub fn with_operation(mut self, operation_id: impl Into<String>) -> Self {
+        self.operation_id = Some(operation_id.into());
+        self
+    }
+
+    pub fn with_commit(mut self, commit_id: impl Into<String>) -> Self {
+        self.commit_id = Some(commit_id.into());
+        self
+    }
+
+    pub fn with_event(mut self, event_id: impl Into<String>) -> Self {
+        self.event_id = Some(event_id.into());
+        self
+    }
+
+    pub fn with_label(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.labels.insert(key.into(), value.into());
+        self
+    }
+}
+
+/// Runtime span classes callers can map to `tracing`, OpenTelemetry or logs.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TraceSpanKind {
+    #[default]
+    Runtime,
+    SyncLoop,
+    HttpRequest,
+    StoreTransaction,
+    CryptoOperation,
+}
+
+/// Metric names exposed by the SDK without choosing a metrics backend.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum MetricName {
+    SyncLatencyMs,
+    SyncErrors,
+    TimelineEventCacheSize,
+    StoreReadLatencyMs,
+    StoreWriteLatencyMs,
+    CryptoDecryptSuccess,
+    CryptoDecryptFailure,
+}
+
+/// A backend-agnostic metric sample.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct MetricSample {
+    pub name: MetricName,
+    pub value: f64,
+    pub labels: BTreeMap<String, String>,
+}
+
+impl MetricSample {
+    pub fn new(name: MetricName, value: f64) -> Self {
+        Self { name, value, labels: BTreeMap::new() }
+    }
+
+    pub fn with_label(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.labels.insert(key.into(), value.into());
+        self
+    }
+}
+
+/// Benchmark coverage targets maintained by this crate.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum BenchmarkTarget {
+    CanonicalJsonHashing,
+    StateReducerConvergence,
+    StoreInsertQuery,
+    TimelinePaginationBackfill,
+    MlsEncryptDecrypt,
+    MlsCommitApplication,
+}
+
+/// Benchmark plan used by CI or host projects to keep coverage stable.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BenchmarkPlan {
+    pub targets: Vec<BenchmarkTarget>,
+    pub max_input_size: usize,
+}
+
+impl Default for BenchmarkPlan {
+    fn default() -> Self {
+        Self {
+            targets: vec![
+                BenchmarkTarget::CanonicalJsonHashing,
+                BenchmarkTarget::StateReducerConvergence,
+                BenchmarkTarget::StoreInsertQuery,
+                BenchmarkTarget::TimelinePaginationBackfill,
+                BenchmarkTarget::MlsEncryptDecrypt,
+                BenchmarkTarget::MlsCommitApplication,
+            ],
+            max_input_size: 10_000,
+        }
+    }
+}
+
+/// Robustness and fault-injection targets tracked by the SDK.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum RobustnessTarget {
+    ReducerConvergenceProperty,
+    CursorEventEnvelopeFuzzing,
+    LargeSpaceListLoad,
+    HighEventVolumeLoad,
+    NetworkFaultInjection,
+    StoreFaultInjection,
+}
+
+/// Backend-neutral robustness plan.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RobustnessPlan {
+    pub targets: Vec<RobustnessTarget>,
+    pub fail_closed: bool,
+}
+
+impl Default for RobustnessPlan {
+    fn default() -> Self {
+        Self {
+            targets: vec![
+                RobustnessTarget::ReducerConvergenceProperty,
+                RobustnessTarget::CursorEventEnvelopeFuzzing,
+                RobustnessTarget::LargeSpaceListLoad,
+                RobustnessTarget::HighEventVolumeLoad,
+                RobustnessTarget::NetworkFaultInjection,
+                RobustnessTarget::StoreFaultInjection,
+            ],
+            fail_closed: true,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
@@ -240,5 +406,36 @@ mod tests {
             .with_feature("client");
         assert!(plan.wasm_enabled);
         assert_eq!(PerformanceConfig::default().lock_shards, 16);
+    }
+
+    #[test]
+    fn observability_models_trace_and_metrics_without_backend() {
+        let trace = TraceContext::request("req-1")
+            .with_actor("did:web:alice.example")
+            .with_device("dev_desktop")
+            .with_space("cx:space:01JS0SP000000000000000000")
+            .with_operation("cx.operation:01JS0OP000000000000000001")
+            .with_commit("cx:commit:01JS0CM000000000000000001")
+            .with_event("cx:event:01JS0EV000000000000000001")
+            .with_label("component", "sync");
+        assert_eq!(trace.labels["component"], "sync");
+
+        let sample = MetricSample::new(MetricName::SyncLatencyMs, 12.0)
+            .with_label("space", "cx:space:01JS0SP000000000000000000");
+        assert_eq!(sample.name, MetricName::SyncLatencyMs);
+        assert_eq!(sample.labels["space"], "cx:space:01JS0SP000000000000000000");
+    }
+
+    #[test]
+    fn benchmark_and_robustness_plans_cover_required_targets() {
+        let benchmark = BenchmarkPlan::default();
+        assert!(benchmark.targets.contains(&BenchmarkTarget::CanonicalJsonHashing));
+        assert!(benchmark.targets.contains(&BenchmarkTarget::TimelinePaginationBackfill));
+        assert!(benchmark.targets.contains(&BenchmarkTarget::MlsCommitApplication));
+
+        let robustness = RobustnessPlan::default();
+        assert!(robustness.fail_closed);
+        assert!(robustness.targets.contains(&RobustnessTarget::CursorEventEnvelopeFuzzing));
+        assert!(robustness.targets.contains(&RobustnessTarget::StoreFaultInjection));
     }
 }

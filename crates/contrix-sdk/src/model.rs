@@ -1256,21 +1256,46 @@ impl Operation {
 pub struct OperationEnvelope {
     pub operation_id: OperationId,
     pub space_id: SpaceId,
-    pub actor: Did,
-    #[serde(rename = "type")]
-    pub event_type: String,
+    #[serde(alias = "actor")]
+    pub actor_id: Did,
+    #[serde(alias = "type")]
+    pub kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub target_ref: Option<String>,
     pub causal: CausalRef,
-    pub body: Value,
+    #[serde(alias = "body")]
+    pub content: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub authz_ref: Option<GrantId>,
-    pub signature: OperationSignature,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub proofs: Vec<Proof>,
 }
 
 impl OperationEnvelope {
+    pub fn digest_payload(&self) -> Result<Value> {
+        let mut value = serde_json::to_value(self)?;
+        if let Value::Object(map) = &mut value {
+            map.remove("proofs");
+        }
+        Ok(value)
+    }
+
     pub fn operation_digest(&self) -> Result<String> {
-        canonical::canonical_sha256(self)
+        canonical::canonical_sha256(&self.digest_payload()?)
+    }
+
+    pub fn validate_for_submit(&self) -> Result<()> {
+        if self.proofs.is_empty() {
+            return Err(Error::Protocol(
+                "operation envelope proofs must contain at least one proof".to_owned(),
+            ));
+        }
+        if !self.content.is_object() {
+            return Err(Error::Protocol(
+                "operation envelope content must be a JSON object".to_owned(),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -2698,6 +2723,79 @@ mod tests {
             event.event_digest().unwrap(),
             "sha256:c0ee4d7b3fb0d6353d1a39bba417d49c8a0b7b2d37fa50a93819c03fa51a6fce"
         );
+    }
+
+    #[test]
+    fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
+        let proof = Proof {
+            kind: "detached_jws".to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method: "did:web:alice.example#device-1".to_owned(),
+            payload_hash: Hash::new(
+                "sha256:43258cff783fe7036d8a43033f830adfc60ec037382473548ac742b888292777",
+            )
+            .unwrap(),
+            created_at: "2026-04-26T00:00:00Z".parse().unwrap(),
+            domain: None,
+            audience: None,
+            jws: "sig-a".to_owned(),
+        };
+        let envelope = OperationEnvelope {
+            operation_id: OperationId::new("cx:operation:01js0op000000000000000000").unwrap(),
+            space_id: SpaceId::new("cx:space:01js0ke000000000000000000").unwrap(),
+            actor_id: Did::new("did:web:alice.example").unwrap(),
+            kind: "cx.message.create".to_owned(),
+            target_ref: Some("cx:thread:general".to_owned()),
+            causal: CausalRef {
+                deps: vec![OperationId::new("cx:operation:01js0oo000000000000000000").unwrap()],
+                hlc: Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap(),
+                actor_seq: 7,
+            },
+            content: json!({"body": "hello"}),
+            authz_ref: None,
+            proofs: vec![proof.clone()],
+        };
+        let mut different_proof = envelope.clone();
+        different_proof.proofs = vec![Proof { jws: "sig-b".to_owned(), ..proof }];
+
+        assert_eq!(
+            envelope.operation_digest().unwrap(),
+            different_proof.operation_digest().unwrap()
+        );
+        envelope.validate_for_submit().unwrap();
+
+        let encoded = serde_json::to_value(&envelope).unwrap();
+        assert_eq!(encoded["actor_id"], "did:web:alice.example");
+        assert_eq!(encoded["kind"], "cx.message.create");
+        assert_eq!(encoded["content"]["body"], "hello");
+        assert!(encoded.get("actor").is_none());
+        assert!(encoded.get("type").is_none());
+        assert!(encoded.get("body").is_none());
+        assert!(encoded.get("signature").is_none());
+    }
+
+    #[test]
+    fn operation_envelope_accepts_legacy_field_aliases() {
+        let envelope: OperationEnvelope = serde_json::from_value(json!({
+            "operation_id": "cx:operation:01js0op000000000000000000",
+            "space_id": "cx:space:01js0ke000000000000000000",
+            "actor": "did:web:alice.example",
+            "type": "cx.message.create",
+            "target_ref": "cx:thread:general",
+            "causal": {
+                "deps": [],
+                "hlc": "01970e589d21-00000004-a13f9c2e",
+                "actor_seq": 7
+            },
+            "body": {"body": "hello"},
+            "proofs": []
+        }))
+        .unwrap();
+
+        assert_eq!(envelope.actor_id.as_str(), "did:web:alice.example");
+        assert_eq!(envelope.kind, "cx.message.create");
+        assert_eq!(envelope.content["body"], "hello");
+        assert!(envelope.validate_for_submit().is_err());
     }
 
     #[test]

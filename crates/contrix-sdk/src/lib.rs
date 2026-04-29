@@ -123,8 +123,9 @@ pub use notifications::{
     NotificationAction, NotificationCounts, NotificationItem, NotificationManager, NotificationRule,
 };
 pub use performance::{
-    CompileOptimizationPlan, ObjectPool, ParallelProcessor, PerformanceConfig, RequestBatch,
-    RequestBatcher, ZeroCopyJson,
+    BenchmarkPlan, BenchmarkTarget, CompileOptimizationPlan, MetricName, MetricSample, ObjectPool,
+    ParallelProcessor, PerformanceConfig, RequestBatch, RequestBatcher, RobustnessPlan,
+    RobustnessTarget, TraceContext, TraceSpanKind, ZeroCopyJson,
 };
 pub use presence::{Presence, PresenceManager};
 pub use profile::{ProfileManager, UserProfile};

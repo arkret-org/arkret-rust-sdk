@@ -1,9 +1,16 @@
 use std::collections::{BTreeMap, VecDeque};
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use sha2::{Digest, Sha256};
 
-use crate::{Commit, CommitId, Error, Hash, Operation, OperationId, Result, crypto};
+use crate::{
+    auth::AuthSession, crypto, e2ee::AuditEntry, model::BlobMetadata,
+    resolver::{SnapshotRestore, SpaceState, StateSnapshot},
+    BlobRef, Commit, CommitId, DeviceId, Did, Error, Event, EventId, Hash, Operation, OperationId,
+    Result, SpaceId,
+};
 
 pub trait RepoStore: Send + Sync {
     fn put_operation(&mut self, operation: Operation) -> Result<()>;
@@ -11,6 +18,134 @@ pub trait RepoStore: Send + Sync {
     fn operation(&self, operation_id: &OperationId) -> Option<&Operation>;
     fn commit(&self, commit_id: &CommitId) -> Option<&Commit>;
     fn head(&self) -> Option<&Hash>;
+}
+
+pub trait RepoObjectStore: Send + Sync {
+    fn store_operation(&mut self, operation: Operation) -> Result<()>;
+    fn store_commit(&mut self, commit: Commit) -> Result<()>;
+    fn load_operation(&self, operation_id: &OperationId) -> Option<&Operation>;
+    fn load_commit(&self, commit_id: &CommitId) -> Option<&Commit>;
+    fn repo_head(&self) -> Option<&Hash>;
+}
+
+impl<T> RepoObjectStore for T
+where
+    T: RepoStore,
+{
+    fn store_operation(&mut self, operation: Operation) -> Result<()> {
+        self.put_operation(operation)
+    }
+
+    fn store_commit(&mut self, commit: Commit) -> Result<()> {
+        self.put_commit(commit)
+    }
+
+    fn load_operation(&self, operation_id: &OperationId) -> Option<&Operation> {
+        self.operation(operation_id)
+    }
+
+    fn load_commit(&self, commit_id: &CommitId) -> Option<&Commit> {
+        self.commit(commit_id)
+    }
+
+    fn repo_head(&self) -> Option<&Hash> {
+        self.head()
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct RepoWriteBatch {
+    pub operations: Vec<Operation>,
+    pub commits: Vec<Commit>,
+}
+
+impl RepoWriteBatch {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn with_operation(mut self, operation: Operation) -> Self {
+        self.operations.push(operation);
+        self
+    }
+
+    pub fn with_commit(mut self, commit: Commit) -> Self {
+        self.commits.push(commit);
+        self
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.operations.is_empty() && self.commits.is_empty()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RepoWriteReceipt {
+    pub operations_written: usize,
+    pub commits_written: usize,
+    pub head: Option<Hash>,
+}
+
+pub trait TransactionalRepoStore: RepoObjectStore {
+    fn write_batch(&mut self, batch: RepoWriteBatch) -> Result<RepoWriteReceipt>;
+}
+
+pub trait StateSnapshotStore: Send + Sync {
+    fn put_state_snapshot(&mut self, snapshot: StateSnapshot) -> Result<()>;
+    fn state_snapshot(&self, space_id: &SpaceId) -> Option<&StateSnapshot>;
+    fn remove_state_snapshot(&mut self, space_id: &SpaceId) -> Result<()>;
+}
+
+pub trait EventCacheStore: Send + Sync {
+    fn put_event(&mut self, event: Event) -> Result<()>;
+    fn event(&self, event_id: &EventId) -> Option<&Event>;
+    fn events_for_space(&self, space_id: &SpaceId) -> Vec<&Event>;
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct StoredAccountData {
+    pub principal_id: Did,
+    pub data_type: String,
+    pub content: Value,
+    pub updated_at: DateTime<Utc>,
+}
+
+pub trait AccountSessionStore: Send + Sync {
+    fn put_session(&mut self, session: AuthSession) -> Result<()>;
+    fn session(&self, session_id: &str) -> Option<&AuthSession>;
+    fn sessions_for_principal(&self, principal_id: &Did) -> Vec<&AuthSession>;
+    fn revoke_session(&mut self, session_id: &str) -> Result<()>;
+    fn put_account_data(&mut self, data: StoredAccountData) -> Result<()>;
+    fn account_data(&self, principal_id: &Did, data_type: &str) -> Option<&StoredAccountData>;
+}
+
+pub trait BlobMetadataStore: Send + Sync {
+    fn put_blob_metadata(&mut self, metadata: BlobMetadata) -> Result<()>;
+    fn blob_metadata(&self, blob_ref: &BlobRef) -> Option<&BlobMetadata>;
+}
+
+pub trait AuditLogStore: Send + Sync {
+    fn append_audit_entry(&mut self, entry: AuditEntry) -> Result<()>;
+    fn audit_entries(&self) -> Vec<&AuditEntry>;
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FederationReplayRecord {
+    pub transaction_id: String,
+    pub origin: Did,
+    pub destination: Did,
+    pub request_digest: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub response_digest: Option<String>,
+    pub seen_at: DateTime<Utc>,
+}
+
+pub trait FederationReplayStore: Send + Sync {
+    fn put_federation_replay(&mut self, record: FederationReplayRecord) -> Result<()>;
+    fn federation_replay(&self, transaction_id: &str) -> Option<&FederationReplayRecord>;
+    fn has_federation_replay(&self, transaction_id: &str) -> bool {
+        self.federation_replay(transaction_id).is_some()
+    }
 }
 
 pub trait CommitProofVerifier {
@@ -26,7 +161,7 @@ impl CommitProofVerifier for AcceptUnsignedCommitProofs {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct MemoryRepoStore {
     operations: BTreeMap<OperationId, (String, Operation)>,
     commits: BTreeMap<CommitId, (String, Commit)>,
@@ -106,6 +241,26 @@ impl RepoStore for MemoryRepoStore {
     }
 }
 
+impl TransactionalRepoStore for MemoryRepoStore {
+    fn write_batch(&mut self, batch: RepoWriteBatch) -> Result<RepoWriteReceipt> {
+        let mut candidate = self.clone();
+        for operation in batch.operations {
+            RepoStore::put_operation(&mut candidate, operation)?;
+        }
+        for commit in batch.commits {
+            RepoStore::put_commit(&mut candidate, commit)?;
+        }
+
+        let receipt = RepoWriteReceipt {
+            operations_written: candidate.operations.len().saturating_sub(self.operations.len()),
+            commits_written: candidate.commits.len().saturating_sub(self.commits.len()),
+            head: candidate.head.clone(),
+        };
+        *self = candidate;
+        Ok(receipt)
+    }
+}
+
 impl MemoryRepoStore {
     fn validate_commit_append(&self, commit: &Commit) -> Result<()> {
         if commit.prev_commit.as_ref() != self.head.as_ref() {
@@ -146,6 +301,31 @@ pub struct StoreMigration {
     pub statements: Vec<String>,
 }
 
+impl StoreMigration {
+    pub fn applied_metadata(&self, applied_at: DateTime<Utc>) -> Result<StoreMigrationMetadata> {
+        Ok(StoreMigrationMetadata {
+            version: self.version,
+            checksum: crate::canonical::canonical_sha256(self)?,
+            applied_at,
+        })
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StoreMigrationMetadata {
+    pub version: u32,
+    pub checksum: String,
+    pub applied_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StoreSchemaMetadata {
+    pub store_name: String,
+    pub schema_version: u32,
+    pub migration_profile: String,
+    pub applied_migrations: Vec<StoreMigrationMetadata>,
+}
+
 /// Serializable store snapshot used for persistence and import/export.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StoreSnapshot {
@@ -160,11 +340,12 @@ pub struct StoreSnapshot {
 /// The SDK keeps this implementation dependency-free. It models the SQLite
 /// storage contract (schema version, migrations, indexes and snapshots) so an
 /// application can back it with a real SQLite adapter without changing callers.
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct SqliteRepoStore {
     inner: MemoryRepoStore,
     schema_version: u32,
     migrations: Vec<StoreMigration>,
+    migration_metadata: Vec<StoreMigrationMetadata>,
     operation_index: BTreeMap<String, OperationId>,
     commit_index: BTreeMap<String, CommitId>,
 }
@@ -178,12 +359,44 @@ impl SqliteRepoStore {
     /// Apply a migration.
     pub fn apply_migration(&mut self, migration: StoreMigration) {
         self.schema_version = self.schema_version.max(migration.version);
+        let metadata = migration
+            .applied_metadata(Utc::now())
+            .expect("store migration metadata serializes");
+        self.migration_metadata.push(metadata);
         self.migrations.push(migration);
+    }
+
+    /// Apply a migration and reject duplicate or out-of-order versions.
+    pub fn apply_migration_checked(
+        &mut self,
+        migration: StoreMigration,
+    ) -> Result<StoreMigrationMetadata> {
+        if migration.version <= self.schema_version {
+            return Err(Error::Protocol(format!(
+                "migration version {} is not greater than current schema version {}",
+                migration.version, self.schema_version
+            )));
+        }
+        let metadata = migration.applied_metadata(Utc::now())?;
+        self.schema_version = migration.version;
+        self.migration_metadata.push(metadata.clone());
+        self.migrations.push(migration);
+        Ok(metadata)
     }
 
     /// Current schema version.
     pub fn schema_version(&self) -> u32 {
         self.schema_version
+    }
+
+    /// Current schema metadata suitable for durable adapters.
+    pub fn schema_metadata(&self) -> StoreSchemaMetadata {
+        StoreSchemaMetadata {
+            store_name: "sqlite_repo_store".to_owned(),
+            schema_version: self.schema_version,
+            migration_profile: "cx.store.sqlite.repo.v1".to_owned(),
+            applied_migrations: self.migration_metadata.clone(),
+        }
     }
 
     /// Export a persistence snapshot.
@@ -203,15 +416,32 @@ impl SqliteRepoStore {
 
     /// Import a persistence snapshot.
     pub fn import_snapshot(&mut self, snapshot: StoreSnapshot) -> Result<()> {
-        self.schema_version = snapshot.schema_version;
+        let mut candidate = Self::new();
+        candidate.schema_version = snapshot.schema_version;
+        candidate.migrations = self.migrations.clone();
+        candidate.migration_metadata = self.migration_metadata.clone();
         for operation in snapshot.operations {
-            self.put_operation(operation)?;
+            candidate.put_operation(operation)?;
         }
         for commit in snapshot.commits {
-            self.put_commit(commit)?;
+            candidate.put_commit(commit)?;
         }
-        self.inner.head = snapshot.head;
+        if let Some(snapshot_head) = snapshot.head
+            && candidate.head() != Some(&snapshot_head)
+        {
+            return Err(Error::Protocol(
+                "store snapshot head does not match imported commits".to_owned(),
+            ));
+        }
+        *self = candidate;
         Ok(())
+    }
+
+    /// Build a store from a snapshot while rebuilding indexes and head.
+    pub fn recover_from_snapshot(snapshot: StoreSnapshot) -> Result<Self> {
+        let mut store = Self::new();
+        store.import_snapshot(snapshot)?;
+        Ok(store)
     }
 
     /// Lookup an operation by digest index.
@@ -255,8 +485,32 @@ impl RepoStore for SqliteRepoStore {
     }
 }
 
+impl TransactionalRepoStore for SqliteRepoStore {
+    fn write_batch(&mut self, batch: RepoWriteBatch) -> Result<RepoWriteReceipt> {
+        let mut candidate = self.clone();
+        for operation in batch.operations {
+            RepoStore::put_operation(&mut candidate, operation)?;
+        }
+        for commit in batch.commits {
+            RepoStore::put_commit(&mut candidate, commit)?;
+        }
+
+        let receipt = RepoWriteReceipt {
+            operations_written: candidate
+                .inner
+                .operations
+                .len()
+                .saturating_sub(self.inner.operations.len()),
+            commits_written: candidate.inner.commits.len().saturating_sub(self.inner.commits.len()),
+            head: candidate.inner.head.clone(),
+        };
+        *self = candidate;
+        Ok(receipt)
+    }
+}
+
 /// IndexedDB-compatible WASM store facade with quota and background sync state.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct IndexedDbRepoStore {
     inner: MemoryRepoStore,
     quota_bytes: usize,
@@ -325,6 +579,30 @@ impl RepoStore for IndexedDbRepoStore {
     }
 }
 
+impl TransactionalRepoStore for IndexedDbRepoStore {
+    fn write_batch(&mut self, batch: RepoWriteBatch) -> Result<RepoWriteReceipt> {
+        let mut candidate = self.clone();
+        for operation in batch.operations {
+            RepoStore::put_operation(&mut candidate, operation)?;
+        }
+        for commit in batch.commits {
+            RepoStore::put_commit(&mut candidate, commit)?;
+        }
+
+        let receipt = RepoWriteReceipt {
+            operations_written: candidate
+                .inner
+                .operations
+                .len()
+                .saturating_sub(self.inner.operations.len()),
+            commits_written: candidate.inner.commits.len().saturating_sub(self.inner.commits.len()),
+            head: candidate.inner.head.clone(),
+        };
+        *self = candidate;
+        Ok(receipt)
+    }
+}
+
 /// Store encryption key derived from a passphrase and salt.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StoreEncryptionKey([u8; 32]);
@@ -351,7 +629,7 @@ impl StoreEncryptionKey {
 }
 
 /// Encrypted in-memory repo store.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct EncryptedMemoryRepoStore {
     inner: MemoryRepoStore,
     key: StoreEncryptionKey,
@@ -385,15 +663,19 @@ impl RepoStore for EncryptedMemoryRepoStore {
     fn put_operation(&mut self, operation: Operation) -> Result<()> {
         let bytes = serde_json::to_vec(&operation)?;
         let encrypted = self.key.seal(&bytes, operation.operation_id.as_str().as_bytes())?;
-        self.encrypted_operations.insert(operation.operation_id.clone(), encrypted);
-        self.inner.put_operation(operation)
+        let operation_id = operation.operation_id.clone();
+        self.inner.put_operation(operation)?;
+        self.encrypted_operations.entry(operation_id).or_insert(encrypted);
+        Ok(())
     }
 
     fn put_commit(&mut self, commit: Commit) -> Result<()> {
         let bytes = serde_json::to_vec(&commit)?;
         let encrypted = self.key.seal(&bytes, commit.commit_id.as_str().as_bytes())?;
-        self.encrypted_commits.insert(commit.commit_id.clone(), encrypted);
-        self.inner.put_commit(commit)
+        let commit_id = commit.commit_id.clone();
+        self.inner.put_commit(commit)?;
+        self.encrypted_commits.entry(commit_id).or_insert(encrypted);
+        Ok(())
     }
 
     fn operation(&self, operation_id: &OperationId) -> Option<&Operation> {
@@ -407,6 +689,234 @@ impl RepoStore for EncryptedMemoryRepoStore {
     fn head(&self) -> Option<&Hash> {
         self.inner.head()
     }
+}
+
+impl TransactionalRepoStore for EncryptedMemoryRepoStore {
+    fn write_batch(&mut self, batch: RepoWriteBatch) -> Result<RepoWriteReceipt> {
+        let mut candidate = self.clone();
+        for operation in batch.operations {
+            RepoStore::put_operation(&mut candidate, operation)?;
+        }
+        for commit in batch.commits {
+            RepoStore::put_commit(&mut candidate, commit)?;
+        }
+
+        let receipt = RepoWriteReceipt {
+            operations_written: candidate
+                .inner
+                .operations
+                .len()
+                .saturating_sub(self.inner.operations.len()),
+            commits_written: candidate.inner.commits.len().saturating_sub(self.inner.commits.len()),
+            head: candidate.inner.head.clone(),
+        };
+        *self = candidate;
+        Ok(receipt)
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct MemoryPersistenceStore {
+    snapshots: BTreeMap<SpaceId, StateSnapshot>,
+    events: BTreeMap<SpaceId, BTreeMap<EventId, (String, Event)>>,
+    event_index: BTreeMap<EventId, SpaceId>,
+    sessions: BTreeMap<String, AuthSession>,
+    sessions_by_principal: BTreeMap<Did, Vec<String>>,
+    account_data: BTreeMap<(Did, String), StoredAccountData>,
+    blob_metadata: BTreeMap<BlobRef, (String, BlobMetadata)>,
+    audit_entries: Vec<AuditEntry>,
+    federation_replay: BTreeMap<String, FederationReplayRecord>,
+}
+
+impl MemoryPersistenceStore {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl StateSnapshotStore for MemoryPersistenceStore {
+    fn put_state_snapshot(&mut self, snapshot: StateSnapshot) -> Result<()> {
+        snapshot.verify()?;
+        self.snapshots.insert(snapshot.space_id.clone(), snapshot);
+        Ok(())
+    }
+
+    fn state_snapshot(&self, space_id: &SpaceId) -> Option<&StateSnapshot> {
+        self.snapshots.get(space_id)
+    }
+
+    fn remove_state_snapshot(&mut self, space_id: &SpaceId) -> Result<()> {
+        self.snapshots.remove(space_id);
+        Ok(())
+    }
+}
+
+impl EventCacheStore for MemoryPersistenceStore {
+    fn put_event(&mut self, event: Event) -> Result<()> {
+        let digest = event.event_digest()?;
+        if let Some(existing_space_id) = self.event_index.get(&event.event_id) {
+            let existing_digest = self
+                .events
+                .get(existing_space_id)
+                .and_then(|events| events.get(&event.event_id))
+                .map(|(digest, _)| digest);
+            return match existing_digest {
+                Some(existing_digest) if existing_digest == &digest => Ok(()),
+                _ => Err(Error::IdempotencyConflict(event.event_id.to_string())),
+            };
+        }
+
+        self.event_index.insert(event.event_id.clone(), event.space_id.clone());
+        self.events
+            .entry(event.space_id.clone())
+            .or_default()
+            .insert(event.event_id.clone(), (digest, event));
+        Ok(())
+    }
+
+    fn event(&self, event_id: &EventId) -> Option<&Event> {
+        self.event_index.get(event_id).and_then(|space_id| {
+            self.events
+                .get(space_id)
+                .and_then(|events| events.get(event_id))
+                .map(|(_, event)| event)
+        })
+    }
+
+    fn events_for_space(&self, space_id: &SpaceId) -> Vec<&Event> {
+        self.events
+            .get(space_id)
+            .map(|events| events.values().map(|(_, event)| event).collect())
+            .unwrap_or_default()
+    }
+}
+
+impl AccountSessionStore for MemoryPersistenceStore {
+    fn put_session(&mut self, session: AuthSession) -> Result<()> {
+        if let Some(existing) = self.sessions.get(&session.session_id) {
+            return if existing == &session {
+                Ok(())
+            } else {
+                Err(Error::IdempotencyConflict(session.session_id))
+            };
+        }
+
+        self.sessions_by_principal
+            .entry(session.principal_id.clone())
+            .or_default()
+            .push(session.session_id.clone());
+        self.sessions.insert(session.session_id.clone(), session);
+        Ok(())
+    }
+
+    fn session(&self, session_id: &str) -> Option<&AuthSession> {
+        self.sessions.get(session_id)
+    }
+
+    fn sessions_for_principal(&self, principal_id: &Did) -> Vec<&AuthSession> {
+        self.sessions_by_principal
+            .get(principal_id)
+            .into_iter()
+            .flat_map(|session_ids| session_ids.iter())
+            .filter_map(|session_id| self.sessions.get(session_id))
+            .collect()
+    }
+
+    fn revoke_session(&mut self, session_id: &str) -> Result<()> {
+        let session = self
+            .sessions
+            .get_mut(session_id)
+            .ok_or_else(|| Error::Protocol(format!("session not found: {session_id}")))?;
+        session.revoked = true;
+        Ok(())
+    }
+
+    fn put_account_data(&mut self, data: StoredAccountData) -> Result<()> {
+        self.account_data
+            .insert((data.principal_id.clone(), data.data_type.clone()), data);
+        Ok(())
+    }
+
+    fn account_data(&self, principal_id: &Did, data_type: &str) -> Option<&StoredAccountData> {
+        self.account_data.get(&(principal_id.clone(), data_type.to_owned()))
+    }
+}
+
+impl BlobMetadataStore for MemoryPersistenceStore {
+    fn put_blob_metadata(&mut self, metadata: BlobMetadata) -> Result<()> {
+        let digest = crate::canonical::canonical_sha256(&metadata)?;
+        match self.blob_metadata.get(&metadata.blob_ref) {
+            Some((existing_digest, _)) if existing_digest == &digest => Ok(()),
+            Some(_) => Err(Error::IdempotencyConflict(metadata.blob_ref.to_string())),
+            None => {
+                self.blob_metadata.insert(metadata.blob_ref.clone(), (digest, metadata));
+                Ok(())
+            }
+        }
+    }
+
+    fn blob_metadata(&self, blob_ref: &BlobRef) -> Option<&BlobMetadata> {
+        self.blob_metadata.get(blob_ref).map(|(_, metadata)| metadata)
+    }
+}
+
+impl AuditLogStore for MemoryPersistenceStore {
+    fn append_audit_entry(&mut self, entry: AuditEntry) -> Result<()> {
+        self.audit_entries.push(entry);
+        Ok(())
+    }
+
+    fn audit_entries(&self) -> Vec<&AuditEntry> {
+        self.audit_entries.iter().collect()
+    }
+}
+
+impl FederationReplayStore for MemoryPersistenceStore {
+    fn put_federation_replay(&mut self, record: FederationReplayRecord) -> Result<()> {
+        match self.federation_replay.get(&record.transaction_id) {
+            Some(existing) if existing == &record => Ok(()),
+            Some(_) => Err(Error::IdempotencyConflict(record.transaction_id)),
+            None => {
+                self.federation_replay.insert(record.transaction_id.clone(), record);
+                Ok(())
+            }
+        }
+    }
+
+    fn federation_replay(&self, transaction_id: &str) -> Option<&FederationReplayRecord> {
+        self.federation_replay.get(transaction_id)
+    }
+}
+
+pub fn rebuild_space_state_from_events<S>(
+    store: &S,
+    space_id: &SpaceId,
+    space_version: impl Into<String>,
+) -> Result<SpaceState>
+where
+    S: EventCacheStore,
+{
+    let events: Vec<Event> = store.events_for_space(space_id).into_iter().cloned().collect();
+    let mut state = SpaceState::new(space_id.clone(), space_version.into());
+    state.apply_events(&events)?;
+    Ok(state)
+}
+
+pub fn restore_space_state_from_persistence<S>(
+    store: &S,
+    space_id: &SpaceId,
+    space_version: impl Into<String>,
+) -> Result<SnapshotRestore>
+where
+    S: EventCacheStore + StateSnapshotStore,
+{
+    let events: Vec<Event> = store.events_for_space(space_id).into_iter().cloned().collect();
+    SpaceState::restore_snapshot_or_replay(
+        store.state_snapshot(space_id).cloned(),
+        space_id.clone(),
+        space_version,
+        &events,
+    )
 }
 
 /// Small LRU cache for store objects.
@@ -461,11 +971,16 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
     use chrono::Utc;
     use serde_json::json;
 
     use super::*;
-    use crate::{COMMIT_SCHEMA, Did, SpaceId};
+    use crate::{
+        AuditAction, BLOB_SCHEMA, BlobRef, COMMIT_SCHEMA, DeviceId, Did, EventId, Hlc,
+        ObjectState, SpaceId, resolver::SnapshotRestoreSource,
+    };
 
     #[test]
     fn operation_put_is_idempotent_for_same_bytes() {
@@ -703,7 +1218,4 @@ mod tests {
         cache.insert("c", 3);
 
         assert!(cache.get(&"a").is_none());
-        assert_eq!(cache.get(&"b"), Some(&2));
-        assert_eq!(cache.len(), 2);
-    }
-}
+   
