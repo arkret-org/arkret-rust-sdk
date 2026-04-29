@@ -19,10 +19,9 @@ use crate::{
     media::{Attachment, MediaMetadata},
     model::{
         BlobRef, Did, Entity, EntityId, EntityType, EventId, FieldFilter, Filter, FilterOp,
-        NullsOrder, ObjectState, Operation, OperationId, OperationType, Relation, RelationId,
-        RelationKind, RelationState, SortDirection, SortSpec, SpaceId,
-        OP_ENTITY_CREATE, OP_ENTITY_DELETE, OP_ENTITY_REDACT, OP_ENTITY_UPDATE,
-        OP_RELATION_CREATE,
+        NullsOrder, OP_ENTITY_CREATE, OP_ENTITY_DELETE, OP_ENTITY_REDACT, OP_ENTITY_UPDATE,
+        ObjectState, Operation, OperationId, OperationType, Relation, RelationId, RelationKind,
+        RelationState, SortDirection, SortSpec, SpaceId,
     },
     resolver::SpaceState,
 };
@@ -1265,7 +1264,8 @@ fn parse_object_state(value: &str) -> Option<ObjectState> {
 mod tests {
     use super::*;
     use crate::{
-        DeviceId, Event, Hlc, OperationType, base::SessionMeta,
+        DeviceId, Event, Hlc, OperationType,
+        base::SessionMeta,
         model::{OP_ENTITY_CREATE, OP_ENTITY_UPDATE, OP_RELATION_CREATE},
     };
 

@@ -37,9 +37,7 @@ pub fn canonical_sha256<T: Serialize>(value: &T) -> Result<String> {
 pub fn validate_timestamp_canonical(timestamp: &str) -> Result<()> {
     // Must end with 'Z' (not '+00:00' or lowercase 'z')
     if !timestamp.ends_with('Z') {
-        return Err(Error::Protocol(format!(
-            "canonical timestamp must end with 'Z': {timestamp}"
-        )));
+        return Err(Error::Protocol(format!("canonical timestamp must end with 'Z': {timestamp}")));
     }
     // Reject lowercase 't' separator
     if timestamp.contains('t') {
@@ -67,8 +65,9 @@ pub fn validate_timestamp_canonical(timestamp: &str) -> Result<()> {
         )));
     }
     // Verify it parses as a valid DateTime
-    chrono::DateTime::parse_from_rfc3339(timestamp)
-        .map_err(|_| Error::Protocol(format!("canonical timestamp is not a valid RFC 3339 date: {timestamp}")))?;
+    chrono::DateTime::parse_from_rfc3339(timestamp).map_err(|_| {
+        Error::Protocol(format!("canonical timestamp is not a valid RFC 3339 date: {timestamp}"))
+    })?;
     Ok(())
 }
 

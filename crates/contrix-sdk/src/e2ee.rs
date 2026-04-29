@@ -526,14 +526,12 @@ impl E2eeManager {
 
     /// Revoke a device, causing all future encrypted writes from it to fail closed.
     pub fn revoke_device(&mut self, principal_id: &Did, device_id: &DeviceId) {
-        self.revoked_devices
-            .insert((principal_id.clone(), device_id.clone()), Utc::now());
+        self.revoked_devices.insert((principal_id.clone(), device_id.clone()), Utc::now());
     }
 
     /// Check if a device is revoked.
     pub fn is_device_revoked(&self, principal_id: &Did, device_id: &DeviceId) -> bool {
-        self.revoked_devices
-            .contains_key(&(principal_id.clone(), device_id.clone()))
+        self.revoked_devices.contains_key(&(principal_id.clone(), device_id.clone()))
     }
 
     /// Build an E2EE message envelope from a specific device, failing closed if the
@@ -694,7 +692,7 @@ mod tests {
                 "b2",
                 2,
                 Some("b1".to_owned()),
-                vec![key.key_id.clone()],
+                vec![key.key_id],
                 b"backup-key",
                 alice.clone(),
             )
@@ -744,7 +742,13 @@ mod tests {
 
         // Before revocation, message creation succeeds.
         let msg = manager
-            .create_message_from_device("m1", "g1", alice.clone(), &device_id, b"ciphertext".to_vec())
+            .create_message_from_device(
+                "m1",
+                "g1",
+                alice.clone(),
+                &device_id,
+                b"ciphertext".to_vec(),
+            )
             .unwrap();
         assert_eq!(msg.sender, alice);
 

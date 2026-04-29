@@ -172,11 +172,7 @@ pub enum MentionTarget {
 
 impl Mention {
     /// Create a mention with a resolved target.
-    pub fn with_target(
-        mut self,
-        kind: MentionTarget,
-        target_ref: impl Into<String>,
-    ) -> Self {
+    pub fn with_target(mut self, kind: MentionTarget, target_ref: impl Into<String>) -> Self {
         self.target_kind = Some(kind);
         self.target_ref = Some(target_ref.into());
         self
@@ -221,13 +217,7 @@ pub fn parse_mentions(text: &str) -> Vec<Mention> {
             } else {
                 (None, None)
             };
-            mentions.push(Mention {
-                token,
-                start,
-                end: index,
-                target_kind,
-                target_ref,
-            });
+            mentions.push(Mention { token, start, end: index, target_kind, target_ref });
         }
     }
     mentions

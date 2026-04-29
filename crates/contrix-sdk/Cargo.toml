@@ -12,17 +12,31 @@ rust-version.workspace = true
 version = "0.1.0"
 
 [features]
-default = ["client", "mls"]
+default = [
+    "client",
+    "mls",
+    "full-surface",
+    "applet-runtime",
+    "device-runtime",
+    "sync-runtime",
+    "timeline-runtime",
+]
 client = ["dep:reqwest", "dep:url"]
-server = []
-mls = ["dep:openmls", "dep:openmls_basic_credential", "dep:openmls_rust_crypto", "dep:tls_codec"]
+server = ["full-surface"]
+mls = [
+    "full-surface",
+    "dep:openmls",
+    "dep:openmls_basic_credential",
+    "dep:openmls_rust_crypto",
+    "dep:tls_codec",
+]
 full-surface = []
 tracing = ["dep:tracing"]
 axum-adapter = ["dep:axum", "server"]
-applet-runtime = []
-device-runtime = []
-sync-runtime = []
-timeline-runtime = []
+applet-runtime = ["full-surface"]
+device-runtime = ["full-surface"]
+sync-runtime = ["full-surface"]
+timeline-runtime = ["full-surface"]
 
 [dependencies]
 axum = { workspace = true, optional = true }
@@ -47,6 +61,14 @@ url = { workspace = true, optional = true, features = ["serde"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt"] }
+
+[[example]]
+name = "export_openapi"
+required-features = ["server"]
+
+[[example]]
+name = "server_endpoint_adapter"
+required-features = ["server"]
 
 [lints]
 workspace = true

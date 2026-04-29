@@ -6,8 +6,6 @@
 
 #[cfg(feature = "full-surface")]
 pub mod account;
-#[cfg(all(feature = "full-surface", feature = "axum-adapter"))]
-pub mod axum_adapter;
 #[cfg(feature = "full-surface")]
 pub mod agent;
 #[cfg(all(feature = "full-surface", feature = "applet-runtime"))]
@@ -16,6 +14,8 @@ pub mod applet;
 pub mod auth;
 #[cfg(feature = "full-surface")]
 pub mod authz;
+#[cfg(all(feature = "full-surface", feature = "axum-adapter"))]
+pub mod axum_adapter;
 #[cfg(feature = "full-surface")]
 pub mod base;
 pub mod canonical;
@@ -55,6 +55,8 @@ pub mod model;
 pub mod notifications;
 #[cfg(feature = "full-surface")]
 pub mod performance;
+#[cfg(feature = "full-surface")]
+pub mod platform;
 #[cfg(feature = "full-surface")]
 pub mod presence;
 #[cfg(feature = "full-surface")]
@@ -193,14 +195,16 @@ pub use hlc::{
 #[cfg(feature = "full-surface")]
 pub use identity::{
     CompositeDidResolver, DidDocument, DidKeriResolver, DidKeyLogEntry, DidKeyLogOperation,
-    DidKeyResolver, DidMigration, DidResolver, DidUuidResolver, DidVisibility, DidWebResolver,
-    HandleAttestation, HandleClaim, IdentityManager, PairwiseDidBinding, PairwiseDidStore,
-    VerifiedDidKeyLog, did_key_log_proof, handle_claim_proof, verify_did_key_log,
+    DidKeyResolver, DidMigration, DidRegistryReceipt, DidResolver, DidUuidResolver, DidVisibility,
+    DidWebResolver, HandleAttestation, HandleClaim, IdentityManager, PairwiseDidBinding,
+    PairwiseDidResolutionProof, PairwiseDidStore, VerifiedDidKeyLog, did_key_log_proof,
+    did_registry_receipt_signature, handle_claim_proof, pairwise_resolution_proof,
+    verify_did_key_log,
 };
 #[cfg(feature = "full-surface")]
 pub use media::{
-    Attachment, EncryptedAttachment, MediaMetadata, MemoryBlobStore, Thumbnail,
-    safe_content_disposition, safe_content_type,
+    Attachment, AuthenticatedDownloadGrant, DownloadGrantScope, EncryptedAttachment, MediaMetadata,
+    MemoryBlobStore, Thumbnail, safe_content_disposition, safe_content_type,
 };
 #[cfg(feature = "full-surface")]
 pub use membership::{
@@ -216,10 +220,17 @@ pub use notifications::{
 };
 #[cfg(feature = "full-surface")]
 pub use performance::{
-    BenchmarkPlan, BenchmarkTarget, CompileOptimizationPlan, MemoryMetricsCollector, MetricName,
-    MetricSample, MetricsCollector, NoopMetricsCollector, ObjectPool, ParallelProcessor,
-    PerformanceConfig, RequestBatch, RequestBatcher, RobustnessPlan, RobustnessTarget,
+    BenchmarkHarness, BenchmarkMeasurement, BenchmarkPlan, BenchmarkTarget,
+    CompileOptimizationPlan, MemoryMetricsCollector, MetricName, MetricSample, MetricsCollector,
+    NoopMetricsCollector, ObjectPool, ParallelProcessor, PerformanceConfig, RequestBatch,
+    RequestBatcher, RobustnessHarness, RobustnessOutcome, RobustnessPlan, RobustnessTarget,
     TraceContext, TraceSpanKind, ZeroCopyJson,
+};
+#[cfg(feature = "full-surface")]
+pub use platform::{
+    EmbeddingSupportLevel, EmbeddingTarget, EmbeddingTargetDecision, FfiCallbackAction,
+    FfiCallbackResult, FfiCancellationHandle, FfiError, FfiErrorCode, FfiEvent, FfiEventSink,
+    FfiHandle, FfiHandleKind, embedding_target_decisions,
 };
 #[cfg(feature = "full-surface")]
 pub use presence::{Presence, PresenceManager};
@@ -251,10 +262,11 @@ pub use search::{SpaceSearchEntry, SpaceSearchIndex, SpaceSearchQuery};
 pub use server::{
     EndpointContract, EndpointHandler, EndpointMethod, EndpointParameter,
     EndpointParameterLocation, EndpointSchemaBinding, HttpAdapterRequest, HttpAdapterResponse,
-    MatchedEndpoint, ProtocolGoldenVector, ServerRequest, ServerResponse, TowerLikeEndpointService,
-    WireConformanceVector, endpoint_contracts, endpoint_parameters, endpoint_schema_binding,
-    endpoint_schema_bindings, match_endpoint, openapi_document, protocol_golden_vectors,
-    reject_query_auth, wire_negative_vectors,
+    MatchedEndpoint, ProtocolFixtureFlow, ProtocolFixtureReport, ProtocolFixtureStep,
+    ProtocolGoldenVector, ProtocolServerFixture, ServerRequest, ServerResponse,
+    TowerLikeEndpointService, WireConformanceVector, endpoint_contracts, endpoint_parameters,
+    endpoint_schema_binding, endpoint_schema_bindings, match_endpoint, openapi_document,
+    protocol_golden_vectors, reject_query_auth, wire_negative_vectors,
 };
 pub use service::{
     ApiConventionMetadata, HttpTraceMetadata, NotFoundPrivacy, QuotaKind, QuotaMetadata,
@@ -290,10 +302,12 @@ pub use sync::{
 };
 #[cfg(all(feature = "full-surface", feature = "sync-runtime"))]
 pub use sync_client::{
-    BackoffConfig, ExponentialBackoff, LocalEcho, ProcessedSpace, SendQueue, SendQueueItem,
-    SendQueueItemKind, SendQueueSnapshot, SendQueueStatus, SlidingSync, SlidingWindow,
-    SpaceListChange, SpaceListEntry, SpaceListFilter, SpaceListService, SpaceListSnapshot,
-    SpaceListSort, SyncLoop, SyncLoopStep, SyncResponseProcessor, SyncTransport,
+    AsyncSyncTransport, BackoffConfig, BackpressureConfig, BoxSyncFuture, CancellationToken,
+    ExponentialBackoff, LocalEcho, ProcessedSpace, SendQueue, SendQueueItem, SendQueueItemKind,
+    SendQueueSnapshot, SendQueueStatus, SlidingSync, SlidingWindow, SpaceListChange,
+    SpaceListEntry, SpaceListFilter, SpaceListService, SpaceListSnapshot, SpaceListSort,
+    SyncGapStrategy, SyncLoop, SyncLoopControl, SyncLoopSnapshot, SyncLoopStep,
+    SyncResponseProcessor, SyncSubscribeTransport, SyncTransport,
 };
 #[cfg(all(feature = "full-surface", feature = "timeline-runtime"))]
 pub use timeline::{
@@ -307,4 +321,5 @@ pub use typing::{TypingManager, TypingNotification};
 pub use webrtc::{
     CallState, ConferenceMode, ConferenceSession, IceCandidate, IceServer, IceServerKind,
     MediaTrack, MediaTrackKind, SdpType, SessionDescription, WebRtcCall, WebRtcManager,
+    WebRtcSignalKind, WebRtcSignalMessage,
 };

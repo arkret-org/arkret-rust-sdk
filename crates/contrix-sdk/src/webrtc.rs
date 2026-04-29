@@ -31,6 +31,112 @@ pub struct IceCandidate {
     pub sdp_mline_index: Option<u32>,
 }
 
+/// To-device WebRTC signaling message kind.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WebRtcSignalKind {
+    Offer,
+    Answer,
+    IceCandidate,
+}
+
+/// To-device WebRTC offer/answer/ICE signaling envelope.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WebRtcSignalMessage {
+    pub message_id: String,
+    pub call_id: String,
+    pub space_id: SpaceId,
+    pub sender: Did,
+    pub recipient: Did,
+    pub kind: WebRtcSignalKind,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_description: Option<SessionDescription>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ice_candidate: Option<IceCandidate>,
+    pub created_at: DateTime<Utc>,
+}
+
+impl WebRtcSignalMessage {
+    /// Build an offer signaling message.
+    pub fn offer(
+        space_id: SpaceId,
+        call_id: impl Into<String>,
+        sender: Did,
+        recipient: Did,
+        sdp: impl Into<String>,
+    ) -> Self {
+        Self::with_session_description(
+            space_id,
+            call_id,
+            sender,
+            recipient,
+            SessionDescription { sdp_type: SdpType::Offer, sdp: sdp.into() },
+        )
+    }
+
+    /// Build an answer signaling message.
+    pub fn answer(
+        space_id: SpaceId,
+        call_id: impl Into<String>,
+        sender: Did,
+        recipient: Did,
+        sdp: impl Into<String>,
+    ) -> Self {
+        Self::with_session_description(
+            space_id,
+            call_id,
+            sender,
+            recipient,
+            SessionDescription { sdp_type: SdpType::Answer, sdp: sdp.into() },
+        )
+    }
+
+    /// Build an ICE-candidate signaling message.
+    pub fn ice_candidate(
+        space_id: SpaceId,
+        call_id: impl Into<String>,
+        sender: Did,
+        recipient: Did,
+        ice_candidate: IceCandidate,
+    ) -> Self {
+        Self {
+            message_id: format!("webrtc_{}", Ulid::new()),
+            call_id: call_id.into(),
+            space_id,
+            sender,
+            recipient,
+            kind: WebRtcSignalKind::IceCandidate,
+            session_description: None,
+            ice_candidate: Some(ice_candidate),
+            created_at: Utc::now(),
+        }
+    }
+
+    fn with_session_description(
+        space_id: SpaceId,
+        call_id: impl Into<String>,
+        sender: Did,
+        recipient: Did,
+        session_description: SessionDescription,
+    ) -> Self {
+        let kind = match session_description.sdp_type {
+            SdpType::Offer => WebRtcSignalKind::Offer,
+            SdpType::Answer => WebRtcSignalKind::Answer,
+        };
+        Self {
+            message_id: format!("webrtc_{}", Ulid::new()),
+            call_id: call_id.into(),
+            space_id,
+            sender,
+            recipient,
+            kind,
+            session_description: Some(session_description),
+            ice_candidate: None,
+            created_at: Utc::now(),
+        }
+    }
+}
+
 /// Call state.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -307,5 +413,30 @@ mod tests {
 
         assert_eq!(manager.stun_servers().len(), 1);
         assert_eq!(manager.turn_servers().len(), 1);
+    }
+
+    #[test]
+    fn webrtc_builds_to_device_signaling_messages() {
+        let offer =
+            WebRtcSignalMessage::offer(space(), "call1", did("alice"), did("bob"), "offer-sdp");
+        let answer =
+            WebRtcSignalMessage::answer(space(), "call1", did("bob"), did("alice"), "answer-sdp");
+        let ice = WebRtcSignalMessage::ice_candidate(
+            space(),
+            "call1",
+            did("alice"),
+            did("bob"),
+            IceCandidate {
+                candidate: "candidate".to_owned(),
+                sdp_mid: Some("0".to_owned()),
+                sdp_mline_index: Some(0),
+            },
+        );
+
+        assert_eq!(offer.kind, WebRtcSignalKind::Offer);
+        assert_eq!(offer.session_description.as_ref().unwrap().sdp_type, SdpType::Offer);
+        assert_eq!(answer.kind, WebRtcSignalKind::Answer);
+        assert_eq!(ice.kind, WebRtcSignalKind::IceCandidate);
+        assert!(ice.ice_candidate.is_some());
     }
 }

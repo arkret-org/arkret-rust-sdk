@@ -811,7 +811,7 @@ mod tests {
             sign_verify_actor_challenge(&challenge, "did:web:actor.example#key", "actor-key");
         assert!(verify_actor_challenge_signature(&challenge, &signature, "actor-key", now));
 
-        let mut tampered = challenge.clone();
+        let mut tampered = challenge;
         tampered.challenge = "public-oracle-probe".to_owned();
         assert!(!verify_actor_challenge_signature(&tampered, &signature, "actor-key", now));
     }

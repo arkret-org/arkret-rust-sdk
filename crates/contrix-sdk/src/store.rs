@@ -1330,7 +1330,7 @@ mod tests {
         store.put_event(event.clone()).unwrap();
         store.put_event(event.clone()).unwrap();
 
-        let mut conflicting = event.clone();
+        let mut conflicting = event;
         conflicting.content = json!({
             "id": "cx:entity:01JS0SNAPENTITY00000000000",
             "entity_type": "task",
@@ -1413,7 +1413,7 @@ mod tests {
 
         let replay = FederationReplayRecord {
             transaction_id: "txn-1".to_owned(),
-            origin: principal_id.clone(),
+            origin: principal_id,
             destination: Did::new("did:web:bob.example").unwrap(),
             request_digest:
                 "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_owned(),

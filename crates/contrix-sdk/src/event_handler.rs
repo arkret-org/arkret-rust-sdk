@@ -47,8 +47,9 @@ pub enum ClientEventKind {
 }
 
 /// Handler filter over typed client events.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub enum ClientEventFilter {
+    #[default]
     All,
     Kinds(BTreeSet<ClientEventKind>),
 }
@@ -81,12 +82,6 @@ impl ClientEventFilter {
                 _ => kinds.contains(&event.kind()),
             },
         }
-    }
-}
-
-impl Default for ClientEventFilter {
-    fn default() -> Self {
-        Self::All
     }
 }
 

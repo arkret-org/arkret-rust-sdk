@@ -1786,8 +1786,8 @@ mod tests {
         handle.issued_at = Utc::now();
         let membership = PresentedClaim::organization_membership(
             "claim-org",
-            alice.clone(),
-            issuer.clone(),
+            alice,
+            issuer,
             org,
             vec!["writer".to_owned()],
         );

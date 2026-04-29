@@ -287,9 +287,7 @@ impl EncryptedMemoryCryptoStore {
 
     /// Raw encrypted epoch secret bytes.
     pub fn encrypted_epoch_secret_bytes(&self, group_id: &str, epoch: u64) -> Option<&[u8]> {
-        self.encrypted_epoch_secrets
-            .get(&(group_id.to_owned(), epoch))
-            .map(Vec::as_slice)
+        self.encrypted_epoch_secrets.get(&(group_id.to_owned(), epoch)).map(Vec::as_slice)
     }
 
     /// Raw encrypted key package bytes.
@@ -324,11 +322,8 @@ impl CryptoStore for EncryptedMemoryCryptoStore {
     }
 
     fn put_key_package(&mut self, record: MlsKeyPackageRecord) -> Result<()> {
-        let aad = format!(
-            "key_package:{}:{}",
-            record.principal_id.as_str(),
-            record.device_id.as_str()
-        );
+        let aad =
+            format!("key_package:{}:{}", record.principal_id.as_str(), record.device_id.as_str());
         let encrypted = self.seal_record(&record, aad.as_bytes())?;
         let key = (record.principal_id.clone(), record.device_id.clone());
         self.inner.put_key_package(record)?;

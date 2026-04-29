@@ -761,7 +761,7 @@ mod tests {
             devices: None,
         };
 
-        client.save_sync_positions(positions.clone()).unwrap();
+        client.save_sync_positions(positions).unwrap();
         client.bind_sync_token("did:web:sync.example", "sync-token").unwrap();
 
         assert_eq!(client.sync_positions().spaces.len(), 1);

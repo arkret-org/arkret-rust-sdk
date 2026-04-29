@@ -1109,11 +1109,10 @@ mod tests {
 
         // Store the commits in a crypto store so we can build a response.
         let mut store = crate::MemoryCryptoStore::new();
-        store.put_commit(charlie_add.commit.clone()).unwrap();
+        store.put_commit(charlie_add.commit).unwrap();
 
         // Alice (who has the commits) builds the recovery response.
-        let response =
-            build_epoch_recovery_response(&alice_group, &store, &request).unwrap();
+        let response = build_epoch_recovery_response(&alice_group, &store, &request).unwrap();
         response.validate_range(&request).unwrap();
         assert!(!response.commits.is_empty());
 

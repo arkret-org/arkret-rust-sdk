@@ -6,11 +6,17 @@
 //! # Example
 //!
 //! ```no_run
-//! use axum::{Router, routing::get, response::IntoResponse};
-//! use contrix_sdk::axum_adapter::{contrix_handler, contrix_router};
+//! use std::collections::BTreeMap;
+//! use axum::{body::Body, extract::Request};
+//! use contrix_sdk::{
+//!     axum_adapter::contrix_handler,
+//!     server::{HttpAdapterRequest, HttpAdapterResponse},
+//! };
 //!
-//! // Build a Contrix-backed Axum router
-//! let app: Router = contrix_router();
+//! let handler = contrix_handler(|_request: HttpAdapterRequest| {
+//!     Ok(HttpAdapterResponse { status: 200, headers: BTreeMap::new(), body: Vec::new() })
+//! });
+//! let _response = handler(Request::new(Body::empty()));
 //! ```
 
 use std::collections::BTreeMap;
@@ -107,9 +113,7 @@ where
             headers: request
                 .headers()
                 .iter()
-                .filter_map(|(k, v)| {
-                    v.to_str().ok().map(|v| (k.as_str().to_owned(), v.to_owned()))
-                })
+                .filter_map(|(k, v)| v.to_str().ok().map(|v| (k.as_str().to_owned(), v.to_owned())))
                 .collect(),
             body: Vec::new(), // Sync handler doesn't read body
         };

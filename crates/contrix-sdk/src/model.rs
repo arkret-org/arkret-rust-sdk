@@ -2,7 +2,7 @@ use std::{cmp::Ordering, collections::BTreeMap, fmt, str::FromStr};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
 use crate::{Error, Result, canonical};
@@ -11,6 +11,7 @@ pub const PROTOCOL_VERSION: &str = "1.0";
 pub const CORE_SCHEMA_PROFILE: &str = "cx.schema.core.v1";
 pub const CORE_REDUCER_PROFILE: &str = "cx.reducer.v1";
 
+pub const CURSOR_SCHEMA: &str = "cx.schema.cursor.v1";
 pub const SPACE_SCHEMA: &str = "cx.schema.space.v1";
 pub const ACTOR_PROFILE_SCHEMA: &str = "cx.schema.actor_profile.v1";
 pub const ENTITY_SCHEMA: &str = "cx.schema.entity.v1";
@@ -94,6 +95,496 @@ pub const OP_KEYS_CLAIM: &str = "cx.keys.claim";
 
 /// Authorization check.
 pub const OP_AUTHZ_CHECK: &str = "cx.authz.check";
+
+/// Canonical operation kinds built into this SDK.
+pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
+    OP_ENTITY_CREATE,
+    OP_ENTITY_UPDATE,
+    OP_ENTITY_DELETE,
+    OP_ENTITY_RESTORE,
+    OP_ENTITY_REDACT,
+    OP_RELATION_CREATE,
+    OP_RELATION_DELETE,
+    OP_RELATION_MOVE,
+    OP_TASK_CREATE,
+    OP_TASK_UPDATE,
+    OP_TASK_MOVE,
+    OP_VIEW_CREATE,
+    OP_VIEW_UPDATE,
+    OP_VIEW_RECONCILE,
+    OP_SPACE_CREATE,
+    OP_SPACE_UPDATE,
+    OP_SPACE_ORGANIZATION,
+    OP_SPACE_CHILD,
+    OP_MESSAGE_CREATE,
+    OP_SERVER_DESCRIBE,
+    OP_IDENTITY_RESOLVE,
+    OP_REPO_DESCRIBE,
+    OP_REPO_SYNC,
+    OP_SYNC_DESCRIBE,
+    OP_SYNC_SUBSCRIBE,
+    OP_SYNC_BACKFILL,
+    OP_FEDERATION_TRANSACTION,
+    OP_INDEX_DESCRIBE,
+    OP_INDEX_QUERY,
+    OP_INDEX_THREAD,
+    OP_INDEX_NOTIFICATIONS,
+    OP_INDEX_INBOX,
+    OP_INDEX_SEARCH,
+    OP_DIRECTORY_DESCRIBE,
+    OP_BLOB_UPLOAD,
+    OP_BLOB_HEAD,
+    OP_BLOB_GET,
+    OP_PUSH_NOTIFY,
+    OP_KEYS_UPLOAD,
+    OP_KEYS_QUERY,
+    OP_KEYS_CLAIM,
+    OP_AUTHZ_CHECK,
+];
+
+/// Compatibility profile for operation kind parsing.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OperationCompatibilityProfile {
+    /// Accept only canonical `cx.*` operation names.
+    #[default]
+    CanonicalOnly,
+    /// Accept legacy bare aliases and map them to canonical `cx.*` names.
+    LegacyBareNames,
+}
+
+/// Registry entry for one operation kind.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperationKindSpec {
+    pub kind: String,
+    pub schema: String,
+    #[serde(default)]
+    pub legacy_aliases: Vec<String>,
+    #[serde(default)]
+    pub required_content_fields: Vec<String>,
+}
+
+/// Result of validating an operation kind against the registry.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperationKindValidation {
+    pub canonical_kind: String,
+    pub legacy_alias_used: Option<String>,
+}
+
+/// Canonical operation registry with explicit legacy migration aliases.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperationKindRegistry {
+    specs: BTreeMap<String, OperationKindSpec>,
+    legacy_aliases: BTreeMap<String, String>,
+}
+
+impl OperationKindRegistry {
+    /// Create an empty registry.
+    pub fn new() -> Self {
+        Self { specs: BTreeMap::new(), legacy_aliases: BTreeMap::new() }
+    }
+
+    /// Register one operation kind.
+    pub fn register(&mut self, spec: OperationKindSpec) {
+        for alias in &spec.legacy_aliases {
+            self.legacy_aliases.insert(alias.clone(), spec.kind.clone());
+        }
+        self.specs.insert(spec.kind.clone(), spec);
+    }
+
+    /// Return the spec for a canonical kind.
+    pub fn spec(&self, kind: &str) -> Option<&OperationKindSpec> {
+        self.specs.get(kind)
+    }
+
+    /// Resolve a kind to canonical form under the chosen compatibility profile.
+    pub fn canonicalize(
+        &self,
+        kind: &str,
+        profile: OperationCompatibilityProfile,
+    ) -> Result<OperationKindValidation> {
+        if self.specs.contains_key(kind) {
+            return Ok(OperationKindValidation {
+                canonical_kind: kind.to_owned(),
+                legacy_alias_used: None,
+            });
+        }
+        if profile == OperationCompatibilityProfile::LegacyBareNames
+            && let Some(canonical) = self.legacy_aliases.get(kind)
+        {
+            return Ok(OperationKindValidation {
+                canonical_kind: canonical.clone(),
+                legacy_alias_used: Some(kind.to_owned()),
+            });
+        }
+        Err(Error::Protocol(format!("unknown operation kind '{kind}'")))
+    }
+
+    /// Validate an operation envelope against registered semantic requirements.
+    pub fn validate_envelope(
+        &self,
+        envelope: &OperationEnvelope,
+        profile: OperationCompatibilityProfile,
+    ) -> Result<OperationKindValidation> {
+        let validation = self.canonicalize(&envelope.kind, profile)?;
+        let spec = self
+            .specs
+            .get(&validation.canonical_kind)
+            .ok_or_else(|| Error::Protocol("operation kind registry is inconsistent".to_owned()))?;
+        let Some(content) = envelope.content.as_object() else {
+            return Err(Error::Protocol(
+                "operation envelope content must be a JSON object".to_owned(),
+            ));
+        };
+        for field in &spec.required_content_fields {
+            if !content.contains_key(field) {
+                return Err(Error::Protocol(format!(
+                    "operation kind '{}' requires content field '{}'",
+                    spec.kind, field
+                )));
+            }
+        }
+        Ok(validation)
+    }
+
+    /// Iterate registered canonical operation kinds.
+    pub fn kinds(&self) -> impl Iterator<Item = &str> {
+        self.specs.keys().map(String::as_str)
+    }
+}
+
+impl Default for OperationKindRegistry {
+    fn default() -> Self {
+        let mut registry = Self::new();
+        for kind in BUILT_IN_OPERATION_KINDS {
+            registry.register(OperationKindSpec {
+                kind: (*kind).to_owned(),
+                schema: OPERATION_SCHEMA.to_owned(),
+                legacy_aliases: vec![legacy_alias_for_operation_kind(kind)],
+                required_content_fields: required_fields_for_operation_kind(kind),
+            });
+        }
+        registry
+    }
+}
+
+fn legacy_alias_for_operation_kind(kind: &str) -> String {
+    kind.strip_prefix("cx.").unwrap_or(kind).replace('.', "_")
+}
+
+fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
+    match kind {
+        OP_ENTITY_CREATE | OP_ENTITY_UPDATE | OP_ENTITY_DELETE | OP_ENTITY_RESTORE
+        | OP_ENTITY_REDACT => vec!["entity_id".to_owned()],
+        OP_RELATION_CREATE | OP_RELATION_DELETE | OP_RELATION_MOVE => {
+            vec!["relation_id".to_owned()]
+        }
+        OP_MESSAGE_CREATE => vec!["body".to_owned()],
+        _ => Vec::new(),
+    }
+}
+
+/// Operation registry conformance vector.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperationKindConformanceVector {
+    pub input_kind: String,
+    pub profile: OperationCompatibilityProfile,
+    pub canonical_kind: String,
+}
+
+/// Conformance vectors for every built-in operation kind and its legacy alias.
+pub fn operation_kind_conformance_vectors() -> Vec<OperationKindConformanceVector> {
+    BUILT_IN_OPERATION_KINDS
+        .iter()
+        .flat_map(|kind| {
+            [
+                OperationKindConformanceVector {
+                    input_kind: (*kind).to_owned(),
+                    profile: OperationCompatibilityProfile::CanonicalOnly,
+                    canonical_kind: (*kind).to_owned(),
+                },
+                OperationKindConformanceVector {
+                    input_kind: legacy_alias_for_operation_kind(kind),
+                    profile: OperationCompatibilityProfile::LegacyBareNames,
+                    canonical_kind: (*kind).to_owned(),
+                },
+            ]
+        })
+        .collect()
+}
+
+/// Protocol JSON Schema registry.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ProtocolSchemaRegistry {
+    schemas: BTreeMap<String, Value>,
+}
+
+impl ProtocolSchemaRegistry {
+    /// Create an empty schema registry.
+    pub fn new() -> Self {
+        Self { schemas: BTreeMap::new() }
+    }
+
+    /// Register a schema document by `$id`.
+    pub fn register(&mut self, schema_id: impl Into<String>, schema: Value) {
+        self.schemas.insert(schema_id.into(), schema);
+    }
+
+    /// Return one schema by ID.
+    pub fn schema(&self, schema_id: &str) -> Option<&Value> {
+        self.schemas.get(schema_id)
+    }
+
+    /// Iterate schema IDs.
+    pub fn schema_ids(&self) -> impl Iterator<Item = &str> {
+        self.schemas.keys().map(String::as_str)
+    }
+
+    /// Validate required fields using the registered schema document.
+    pub fn validate_required_fields(&self, schema_id: &str, value: &Value) -> Result<()> {
+        let schema = self
+            .schema(schema_id)
+            .ok_or_else(|| Error::Protocol(format!("unknown schema '{schema_id}'")))?;
+        let object = value
+            .as_object()
+            .ok_or_else(|| Error::Protocol("schema target must be a JSON object".to_owned()))?;
+        let required = schema
+            .get("required")
+            .and_then(Value::as_array)
+            .ok_or_else(|| Error::Protocol("schema is missing required field list".to_owned()))?;
+        for field in required.iter().filter_map(Value::as_str) {
+            if !object.contains_key(field) {
+                return Err(Error::Protocol(format!(
+                    "schema '{schema_id}' requires field '{field}'"
+                )));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl Default for ProtocolSchemaRegistry {
+    fn default() -> Self {
+        let mut registry = Self::new();
+        registry.register(
+            CURSOR_SCHEMA,
+            object_schema(
+                CURSOR_SCHEMA,
+                &["v", "iat", "pos"],
+                &[("v", "string"), ("iat", "string"), ("pos", "object")],
+            ),
+        );
+        registry.register(
+            EVENT_SCHEMA,
+            object_schema(
+                EVENT_SCHEMA,
+                &["schema", "event_id", "space_id", "actor_id", "kind", "content"],
+                &[
+                    ("schema", "string"),
+                    ("event_id", "string"),
+                    ("space_id", "string"),
+                    ("actor_id", "string"),
+                    ("kind", "string"),
+                    ("content", "object"),
+                ],
+            ),
+        );
+        registry.register(
+            OPERATION_SCHEMA,
+            object_schema(
+                OPERATION_SCHEMA,
+                &["operation_id", "space_id", "actor_id", "kind", "causal", "content"],
+                &[
+                    ("operation_id", "string"),
+                    ("space_id", "string"),
+                    ("actor_id", "string"),
+                    ("kind", "string"),
+                    ("causal", "object"),
+                    ("content", "object"),
+                ],
+            ),
+        );
+        registry.register(
+            COMMIT_SCHEMA,
+            object_schema(
+                COMMIT_SCHEMA,
+                &["schema", "commit_id", "repo_id", "author", "author_seq", "operations"],
+                &[
+                    ("schema", "string"),
+                    ("commit_id", "string"),
+                    ("repo_id", "string"),
+                    ("author", "string"),
+                    ("author_seq", "integer"),
+                    ("operations", "array"),
+                ],
+            ),
+        );
+        registry.register(
+            CAPABILITY_SCHEMA,
+            object_schema(
+                CAPABILITY_SCHEMA,
+                &["schema", "id", "issuer", "subject", "actions", "resources"],
+                &[
+                    ("schema", "string"),
+                    ("id", "string"),
+                    ("issuer", "string"),
+                    ("subject", "object"),
+                    ("actions", "array"),
+                    ("resources", "array"),
+                ],
+            ),
+        );
+        registry.register(
+            ENCRYPTED_PAYLOAD_SCHEMA,
+            object_schema(
+                ENCRYPTED_PAYLOAD_SCHEMA,
+                &["scheme", "group_id", "epoch", "content_type", "ciphertext", "payload_digest"],
+                &[
+                    ("scheme", "string"),
+                    ("group_id", "string"),
+                    ("epoch", "integer"),
+                    ("content_type", "string"),
+                    ("ciphertext", "string"),
+                    ("payload_digest", "string"),
+                ],
+            ),
+        );
+        registry.register(
+            CLIENT_SYNC_RESPONSE_SCHEMA,
+            object_schema(
+                CLIENT_SYNC_RESPONSE_SCHEMA,
+                &["next_batch", "spaces"],
+                &[("next_batch", "string"), ("spaces", "object")],
+            ),
+        );
+        registry
+    }
+}
+
+fn object_schema(schema_id: &str, required: &[&str], properties: &[(&str, &str)]) -> Value {
+    let properties: serde_json::Map<String, Value> = properties
+        .iter()
+        .map(|(name, kind)| ((*name).to_owned(), json!({ "type": kind })))
+        .collect();
+    json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": schema_id,
+        "type": "object",
+        "required": required,
+        "properties": properties,
+        "additionalProperties": true,
+    })
+}
+
+/// Profile-specific protocol conformance domains.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConformanceProfile {
+    Encoding,
+    StateResolution,
+    Redaction,
+    Capability,
+    Sync,
+    Snapshot,
+    FederationSignatures,
+    Privacy,
+}
+
+/// One conformance test case descriptor.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ConformanceCase {
+    pub case_id: String,
+    pub description: String,
+    pub schema_id: Option<String>,
+    pub vector: Value,
+}
+
+/// Conformance suite for one protocol profile.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ConformanceSuite {
+    pub profile: ConformanceProfile,
+    pub cases: Vec<ConformanceCase>,
+}
+
+/// Built-in profile-specific conformance suites.
+pub fn profile_conformance_suites() -> Vec<ConformanceSuite> {
+    vec![
+        conformance_suite(
+            ConformanceProfile::Encoding,
+            "canonical-json-digest",
+            "Canonical JSON and digest vectors reject ambiguous encodings.",
+            Some(OPERATION_SCHEMA),
+            json!({"input": {"b": 2, "a": 1}, "digest_required": true}),
+        ),
+        conformance_suite(
+            ConformanceProfile::StateResolution,
+            "state-reducer-convergence",
+            "Reducer inputs with different insertion order converge to the same state hash.",
+            Some(EVENT_SCHEMA),
+            json!({"order_independent": true, "requires_merkle_root": true}),
+        ),
+        conformance_suite(
+            ConformanceProfile::Redaction,
+            "redaction-preserves-auth-fields",
+            "Redaction removes content while preserving IDs, actor, HLC and auth references.",
+            Some(EVENT_SCHEMA),
+            json!({"preserve": ["event_id", "actor_id", "hlc", "auth_refs"]}),
+        ),
+        conformance_suite(
+            ConformanceProfile::Capability,
+            "capability-frontier-validation",
+            "Capability checks run at the causal frontier and fail closed on unknown critical constraints.",
+            Some(CAPABILITY_SCHEMA),
+            json!({"fail_closed": true, "frontier_bound": true}),
+        ),
+        conformance_suite(
+            ConformanceProfile::Sync,
+            "sync-token-binding",
+            "Sync tokens bind principal, device, service, filter hash and stream positions.",
+            Some(CLIENT_SYNC_RESPONSE_SCHEMA),
+            json!({"binds_filter": true, "binds_positions": true}),
+        ),
+        conformance_suite(
+            ConformanceProfile::Snapshot,
+            "snapshot-chunk-digests",
+            "Snapshot manifests verify chunk digests before reducer restore.",
+            None,
+            json!({"chunk_digest": "sha256", "restore_requires_all_chunks": true}),
+        ),
+        conformance_suite(
+            ConformanceProfile::FederationSignatures,
+            "http-message-signature-binding",
+            "Federation signatures bind method, target URI, authority, digest and service DIDs.",
+            None,
+            json!({"requires_origin_did": true, "requires_destination_did": true}),
+        ),
+        conformance_suite(
+            ConformanceProfile::Privacy,
+            "not-found-and-private-did-privacy",
+            "Invisible resources and private DID lookups avoid oracle behavior.",
+            None,
+            json!({"privacy_preserving_not_found": true, "requires_resolution_proof": true}),
+        ),
+    ]
+}
+
+fn conformance_suite(
+    profile: ConformanceProfile,
+    case_id: &str,
+    description: &str,
+    schema_id: Option<&str>,
+    vector: Value,
+) -> ConformanceSuite {
+    ConformanceSuite {
+        profile,
+        cases: vec![ConformanceCase {
+            case_id: case_id.to_owned(),
+            description: description.to_owned(),
+            schema_id: schema_id.map(str::to_owned),
+            vector,
+        }],
+    }
+}
 
 macro_rules! id_type {
     ($name:ident, $expect:expr) => {
@@ -936,6 +1427,56 @@ impl Proof {
     }
 }
 
+/// Server-verified fact-chain echo returned to clients after write admission.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct FactChainEcho {
+    pub echo_id: String,
+    pub subject_ref: String,
+    pub server_did: Did,
+    pub operation_hash: Hash,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub commit_hash: Option<Hash>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub previous_echo_hash: Option<Hash>,
+    pub observed_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub proofs: Vec<Proof>,
+}
+
+impl FactChainEcho {
+    /// Build the canonical payload signed by a server.
+    pub fn digest_payload(&self) -> Result<Value> {
+        let mut value = serde_json::to_value(self)?;
+        if let Value::Object(map) = &mut value {
+            map.remove("proofs");
+        }
+        Ok(value)
+    }
+
+    /// Compute the canonical digest for this echo.
+    pub fn echo_digest(&self) -> Result<String> {
+        canonical::canonical_sha256(&self.digest_payload()?)
+    }
+
+    /// Validate server proofs against this echo's digest.
+    pub fn validate_server_proofs(&self) -> Result<()> {
+        if self.proofs.is_empty() {
+            return Err(Error::Protocol("fact-chain echo has no server proof".to_owned()));
+        }
+        let expected = Hash::new(self.echo_digest()?)?;
+        for proof in &self.proofs {
+            proof.validate_production()?;
+            if proof.payload_hash != expected {
+                return Err(Error::Protocol(format!(
+                    "fact-chain proof payload_hash '{}' does not match echo digest '{}'",
+                    proof.payload_hash, expected
+                )));
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SignatureBindingPayload {
     pub payload_hash: Hash,
@@ -1096,7 +1637,10 @@ impl Entity {
         channel_kind: ChannelKind,
     ) -> Self {
         let mut fields = BTreeMap::new();
-        fields.insert("channel_kind".to_owned(), serde_json::to_value(channel_kind).unwrap_or_default());
+        fields.insert(
+            "channel_kind".to_owned(),
+            serde_json::to_value(channel_kind).unwrap_or_default(),
+        );
         Self {
             schema: ENTITY_SCHEMA.to_owned(),
             id: entity_id,
@@ -1176,11 +1720,7 @@ impl Entity {
 
     /// Get the channel kind if this is a channel entity.
     pub fn channel_kind(&self) -> Option<&Value> {
-        if self.entity_type == EntityType::Channel {
-            self.fields.get("channel_kind")
-        } else {
-            None
-        }
+        if self.entity_type == EntityType::Channel { self.fields.get("channel_kind") } else { None }
     }
 }
 
@@ -1912,6 +2452,28 @@ pub struct MlsKeyPackageRecord {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MlsProposalEnvelope {
+    pub group_id: String,
+    pub epoch: u64,
+    pub proposal_type: String,
+    pub proposal: String,
+    pub proposal_hash: Hash,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ratchet_tree: Option<String>,
+}
+
+impl MlsProposalEnvelope {
+    /// Build a repo operation that carries this MLS proposal.
+    pub fn operation(&self, operation_id: OperationId, space_id: SpaceId) -> Result<Operation> {
+        let mut operation =
+            Operation::create(operation_id, space_id, "mls_proposal", serde_json::to_value(self)?);
+        operation.object_id =
+            Some(format!("{}:{}:{}", self.group_id, self.epoch, self.proposal_type));
+        Ok(operation)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MlsCommitEnvelope {
     pub group_id: String,
     pub epoch: u64,
@@ -1919,6 +2481,16 @@ pub struct MlsCommitEnvelope {
     pub commit_hash: Hash,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ratchet_tree: Option<String>,
+}
+
+impl MlsCommitEnvelope {
+    /// Build a repo operation that carries this MLS commit.
+    pub fn operation(&self, operation_id: OperationId, space_id: SpaceId) -> Result<Operation> {
+        let mut operation =
+            Operation::create(operation_id, space_id, "mls_commit", serde_json::to_value(self)?);
+        operation.object_id = Some(format!("{}:{}", self.group_id, self.epoch));
+        Ok(operation)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1931,6 +2503,19 @@ pub struct MlsWelcomeEnvelope {
     pub welcome_hash: Hash,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ratchet_tree: Option<String>,
+}
+
+impl MlsWelcomeEnvelope {
+    /// Build a repo operation that records this MLS welcome delivery.
+    pub fn operation(&self, operation_id: OperationId, space_id: SpaceId) -> Result<Operation> {
+        let mut operation =
+            Operation::create(operation_id, space_id, "mls_welcome", serde_json::to_value(self)?);
+        operation.object_id = Some(format!(
+            "{}:{}:{}:{}",
+            self.group_id, self.epoch, self.recipient_principal_id, self.recipient_device_id
+        ));
+        Ok(operation)
+    }
 }
 
 /// Verification state for a device.
@@ -3153,6 +3738,125 @@ mod tests {
     }
 
     #[test]
+    fn operation_kind_registry_canonicalizes_legacy_aliases_explicitly() {
+        let registry = OperationKindRegistry::default();
+
+        let canonical = registry
+            .canonicalize(OP_MESSAGE_CREATE, OperationCompatibilityProfile::CanonicalOnly)
+            .unwrap();
+        assert_eq!(canonical.canonical_kind, OP_MESSAGE_CREATE);
+        assert!(canonical.legacy_alias_used.is_none());
+
+        assert!(
+            registry
+                .canonicalize("message_create", OperationCompatibilityProfile::CanonicalOnly)
+                .is_err()
+        );
+        let legacy = registry
+            .canonicalize("message_create", OperationCompatibilityProfile::LegacyBareNames)
+            .unwrap();
+        assert_eq!(legacy.canonical_kind, OP_MESSAGE_CREATE);
+        assert_eq!(legacy.legacy_alias_used.as_deref(), Some("message_create"));
+        assert_eq!(registry.kinds().count(), BUILT_IN_OPERATION_KINDS.len());
+    }
+
+    #[test]
+    fn operation_kind_registry_drives_envelope_semantics() {
+        let registry = OperationKindRegistry::default();
+        let envelope = OperationEnvelope {
+            operation_id: OperationId::new("cx:operation:01js0op000000000000000000").unwrap(),
+            space_id: SpaceId::new("cx:space:01js0ke000000000000000000").unwrap(),
+            actor_id: Did::new("did:web:alice.example").unwrap(),
+            kind: "message_create".to_owned(),
+            target_ref: None,
+            causal: CausalRef {
+                deps: Vec::new(),
+                hlc: Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap(),
+                actor_seq: 1,
+            },
+            content: json!({"body": "hello"}),
+            authz_ref: None,
+            proofs: Vec::new(),
+        };
+
+        let validation = registry
+            .validate_envelope(&envelope, OperationCompatibilityProfile::LegacyBareNames)
+            .unwrap();
+        assert_eq!(validation.canonical_kind, OP_MESSAGE_CREATE);
+
+        let mut missing_body = envelope;
+        missing_body.content = json!({});
+        assert!(
+            registry
+                .validate_envelope(&missing_body, OperationCompatibilityProfile::LegacyBareNames)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn operation_kind_conformance_vectors_cover_every_builtin() {
+        let vectors = operation_kind_conformance_vectors();
+        assert_eq!(vectors.len(), BUILT_IN_OPERATION_KINDS.len() * 2);
+        for kind in BUILT_IN_OPERATION_KINDS {
+            assert!(vectors.iter().any(|vector| {
+                vector.input_kind == *kind
+                    && vector.profile == OperationCompatibilityProfile::CanonicalOnly
+                    && vector.canonical_kind == *kind
+            }));
+            assert!(vectors.iter().any(|vector| {
+                vector.input_kind == legacy_alias_for_operation_kind(kind)
+                    && vector.profile == OperationCompatibilityProfile::LegacyBareNames
+                    && vector.canonical_kind == *kind
+            }));
+        }
+    }
+
+    #[test]
+    fn protocol_schema_registry_publishes_core_json_schemas() {
+        let registry = ProtocolSchemaRegistry::default();
+        for schema_id in [
+            CURSOR_SCHEMA,
+            EVENT_SCHEMA,
+            OPERATION_SCHEMA,
+            COMMIT_SCHEMA,
+            CAPABILITY_SCHEMA,
+            ENCRYPTED_PAYLOAD_SCHEMA,
+            CLIENT_SYNC_RESPONSE_SCHEMA,
+        ] {
+            assert!(registry.schema(schema_id).is_some());
+        }
+
+        registry
+            .validate_required_fields(
+                CLIENT_SYNC_RESPONSE_SCHEMA,
+                &json!({"next_batch": "s1", "spaces": {}}),
+            )
+            .unwrap();
+        assert!(
+            registry
+                .validate_required_fields(CLIENT_SYNC_RESPONSE_SCHEMA, &json!({"spaces": {}}))
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn profile_conformance_suites_cover_required_domains() {
+        let suites = profile_conformance_suites();
+        for profile in [
+            ConformanceProfile::Encoding,
+            ConformanceProfile::StateResolution,
+            ConformanceProfile::Redaction,
+            ConformanceProfile::Capability,
+            ConformanceProfile::Sync,
+            ConformanceProfile::Snapshot,
+            ConformanceProfile::FederationSignatures,
+            ConformanceProfile::Privacy,
+        ] {
+            assert!(suites.iter().any(|suite| suite.profile == profile && !suite.cases.is_empty()));
+        }
+    }
+
+    #[test]
     fn commit_digest_uses_canonical_payload_without_proofs() {
         let commit = Commit {
             schema: COMMIT_SCHEMA.to_owned(),
@@ -3207,6 +3911,47 @@ mod tests {
     }
 
     #[test]
+    fn fact_chain_echo_validates_server_proof_binding() {
+        let mut echo = FactChainEcho {
+            echo_id: "echo1".to_owned(),
+            subject_ref: "cx:event:01".to_owned(),
+            server_did: Did::new("did:web:server.example").unwrap(),
+            operation_hash: Hash::new(
+                "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            )
+            .unwrap(),
+            commit_hash: Some(
+                Hash::new(
+                    "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+                )
+                .unwrap(),
+            ),
+            previous_echo_hash: None,
+            observed_at: "2026-04-26T00:00:00Z".parse().unwrap(),
+            proofs: Vec::new(),
+        };
+        let digest = Hash::new(echo.echo_digest().unwrap()).unwrap();
+        echo.proofs.push(Proof {
+            kind: "detached_jws".to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method: "did:web:server.example#key-1".to_owned(),
+            payload_hash: digest,
+            created_at: echo.observed_at,
+            domain: None,
+            audience: None,
+            jws: "server.signature".to_owned(),
+        });
+
+        echo.validate_server_proofs().unwrap();
+
+        let mut tampered = echo;
+        tampered.proofs[0].payload_hash =
+            Hash::new("sha256:3333333333333333333333333333333333333333333333333333333333333333")
+                .unwrap();
+        assert!(tampered.validate_server_proofs().is_err());
+    }
+
+    #[test]
     fn encrypted_payload_digest_matches_conformance_vector() {
         let digest = EncryptedPayload::mls_payload_digest(
             7,
@@ -3220,6 +3965,64 @@ mod tests {
             digest.as_str(),
             "sha256:3bef5270548d5b2c14e46ac1c9a801376d243ca6d71b914ec1d3283268a981fa"
         );
+    }
+
+    #[test]
+    fn mls_envelopes_build_protocol_operations() {
+        let space_id = SpaceId::new("cx:space:01js0ke000000000000000000").unwrap();
+        let hash =
+            Hash::new("sha256:1111111111111111111111111111111111111111111111111111111111111111")
+                .unwrap();
+        let proposal = MlsProposalEnvelope {
+            group_id: "group1".to_owned(),
+            epoch: 1,
+            proposal_type: "add".to_owned(),
+            proposal: "proposal-bytes".to_owned(),
+            proposal_hash: hash.clone(),
+            ratchet_tree: None,
+        };
+        let commit = MlsCommitEnvelope {
+            group_id: "group1".to_owned(),
+            epoch: 2,
+            commit: "commit-bytes".to_owned(),
+            commit_hash: hash.clone(),
+            ratchet_tree: None,
+        };
+        let welcome = MlsWelcomeEnvelope {
+            group_id: "group1".to_owned(),
+            epoch: 2,
+            recipient_principal_id: Did::new("did:web:bob.example").unwrap(),
+            recipient_device_id: DeviceId::new("dev_bob").unwrap(),
+            welcome: "welcome-bytes".to_owned(),
+            welcome_hash: hash,
+            ratchet_tree: None,
+        };
+
+        let proposal_op = proposal
+            .operation(
+                OperationId::new("cx:operation:01js0op000000000000000001").unwrap(),
+                space_id.clone(),
+            )
+            .unwrap();
+        let commit_op = commit
+            .operation(
+                OperationId::new("cx:operation:01js0op000000000000000002").unwrap(),
+                space_id.clone(),
+            )
+            .unwrap();
+        let welcome_op = welcome
+            .operation(
+                OperationId::new("cx:operation:01js0op000000000000000003").unwrap(),
+                space_id,
+            )
+            .unwrap();
+
+        assert_eq!(proposal_op.object_type, "mls_proposal");
+        assert_eq!(commit_op.object_type, "mls_commit");
+        assert_eq!(welcome_op.object_type, "mls_welcome");
+        assert_eq!(proposal_op.payload["proposal_type"], "add");
+        assert_eq!(commit_op.payload["epoch"], 2);
+        assert_eq!(welcome_op.payload["recipient_device_id"], "dev_bob");
     }
 
     #[test]
@@ -3404,10 +4207,7 @@ mod tests {
         for kind in &["dev", "test", "mock", "stub", "dummy"] {
             let mut proof = valid_proof();
             proof.kind = kind.to_string();
-            assert!(
-                proof.validate_production().is_err(),
-                "should reject kind: {kind}"
-            );
+            assert!(proof.validate_production().is_err(), "should reject kind: {kind}");
         }
     }
 
@@ -3427,10 +4227,7 @@ mod tests {
         for alg in &["EdDSA", "ES256", "ES256K", "RS256", "PS256"] {
             let mut proof = valid_proof();
             proof.alg = alg.to_string();
-            assert!(
-                proof.validate_production().is_ok(),
-                "should accept algorithm: {alg}"
-            );
+            assert!(proof.validate_production().is_ok(), "should accept algorithm: {alg}");
         }
     }
 
@@ -3453,10 +4250,9 @@ mod tests {
     fn proof_validate_binding_rejects_mismatched_payload_hash() {
         let proof = valid_proof();
         let mut expected = proof.binding_payload(&Did::new("did:web:alice.example").unwrap());
-        expected.payload_hash = Hash::new(
-            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        )
-        .unwrap();
+        expected.payload_hash =
+            Hash::new("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+                .unwrap();
         assert!(proof.validate_binding(&expected).is_err());
     }
 
@@ -3509,7 +4305,7 @@ mod tests {
             jws: "sig".to_owned(),
         };
 
-        let mut signed_event = event.clone();
+        let mut signed_event = event;
         signed_event.proofs = vec![proof];
         assert!(signed_event.validate_proof_bindings().is_ok());
     }

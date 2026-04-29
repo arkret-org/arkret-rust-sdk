@@ -151,6 +151,114 @@ pub struct WireConformanceVector {
     pub expected_errcode: String,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProtocolFixtureFlow {
+    Repo,
+    Sync,
+    Blob,
+    Authz,
+    Federation,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProtocolFixtureStep {
+    pub flow: ProtocolFixtureFlow,
+    pub operation_id: String,
+    pub method: String,
+    pub path: String,
+    pub request_schema: String,
+    pub response_schema: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProtocolFixtureReport {
+    pub steps: Vec<ProtocolFixtureStep>,
+}
+
+impl ProtocolFixtureReport {
+    pub fn covers(&self, flow: ProtocolFixtureFlow) -> bool {
+        self.steps.iter().any(|step| step.flow == flow)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ProtocolServerFixture {
+    flows: BTreeSet<ProtocolFixtureFlow>,
+}
+
+impl ProtocolServerFixture {
+    pub fn new(flows: impl IntoIterator<Item = ProtocolFixtureFlow>) -> Self {
+        Self { flows: flows.into_iter().collect() }
+    }
+
+    pub fn all_flows() -> Self {
+        Self::new([
+            ProtocolFixtureFlow::Repo,
+            ProtocolFixtureFlow::Sync,
+            ProtocolFixtureFlow::Blob,
+            ProtocolFixtureFlow::Authz,
+            ProtocolFixtureFlow::Federation,
+        ])
+    }
+
+    pub fn run(&self) -> Result<ProtocolFixtureReport> {
+        let contracts_by_operation: BTreeMap<_, _> =
+            endpoint_contracts().iter().map(|contract| (contract.operation_id, contract)).collect();
+        let mut steps = Vec::new();
+        for flow in &self.flows {
+            for operation_id in fixture_operations(*flow) {
+                let contract = contracts_by_operation.get(operation_id).ok_or_else(|| {
+                    crate::Error::Protocol(format!(
+                        "fixture operation '{operation_id}' is missing from endpoint registry"
+                    ))
+                })?;
+                let binding = endpoint_schema_binding(contract);
+                steps.push(ProtocolFixtureStep {
+                    flow: *flow,
+                    operation_id: (*operation_id).to_owned(),
+                    method: contract.method.as_str().to_owned(),
+                    path: contract.path.to_owned(),
+                    request_schema: binding.request_schema.to_owned(),
+                    response_schema: binding.response_schema.to_owned(),
+                });
+            }
+        }
+        Ok(ProtocolFixtureReport { steps })
+    }
+}
+
+impl Default for ProtocolServerFixture {
+    fn default() -> Self {
+        Self::all_flows()
+    }
+}
+
+fn fixture_operations(flow: ProtocolFixtureFlow) -> &'static [&'static str] {
+    match flow {
+        ProtocolFixtureFlow::Repo => {
+            &["cx.repo.describe", "cx.repo.submit_commit", "cx.repo.get_operations", "cx.repo.sync"]
+        }
+        ProtocolFixtureFlow::Sync => &[
+            "cx.sync.client_sync",
+            "cx.sync.subscribe",
+            "cx.sync.backfill",
+            "cx.sync.get_snapshot_head",
+        ],
+        ProtocolFixtureFlow::Blob => &["cx.blob.upload", "cx.blob.head", "cx.blob.get"],
+        ProtocolFixtureFlow::Authz => {
+            &["cx.authz.get_effective_grants", "cx.authz.get_invites", "cx.authz.check"]
+        }
+        ProtocolFixtureFlow::Federation => &[
+            "cx.federation.transaction",
+            "cx.federation.push_operations",
+            "cx.federation.pull_operations",
+            "cx.federation.space_members",
+            "cx.federation.verify_actor",
+        ],
+    }
+}
+
 pub const ENDPOINT_CONTRACTS: &[EndpointContract] = &[
     EndpointContract {
         operation_id: "cx.server.describe",
@@ -1693,6 +1801,30 @@ mod tests {
 
         let golden = protocol_golden_vectors();
         assert!(golden.iter().any(|vector| vector.profile == "cx.conformance.digest.v1"));
+    }
+
+    #[test]
+    fn protocol_server_fixture_covers_core_flow_groups() {
+        let report = ProtocolServerFixture::default().run().unwrap();
+
+        for flow in [
+            ProtocolFixtureFlow::Repo,
+            ProtocolFixtureFlow::Sync,
+            ProtocolFixtureFlow::Blob,
+            ProtocolFixtureFlow::Authz,
+            ProtocolFixtureFlow::Federation,
+        ] {
+            assert!(report.covers(flow));
+        }
+        assert!(report.steps.iter().any(|step| {
+            step.flow == ProtocolFixtureFlow::Blob
+                && step.operation_id == "cx.blob.get"
+                && step.response_schema == "BinaryBlobBody"
+        }));
+        assert!(report.steps.iter().any(|step| {
+            step.flow == ProtocolFixtureFlow::Federation
+                && step.operation_id == "cx.federation.push_operations"
+        }));
     }
 
     #[test]

@@ -14,9 +14,9 @@ use crate::{
     canonical::{canonical_json_bytes, sha256_digest},
     model::{
         OP_ENTITY_CREATE, OP_ENTITY_DELETE, OP_ENTITY_REDACT, OP_ENTITY_RESTORE, OP_ENTITY_UPDATE,
-        OP_RELATION_CREATE, OP_RELATION_DELETE, OP_RELATION_MOVE, OP_SPACE_CHILD,
-        OP_SPACE_CREATE, OP_SPACE_ORGANIZATION, OP_SPACE_UPDATE, OP_TASK_CREATE, OP_TASK_MOVE,
-        OP_TASK_UPDATE, OP_VIEW_CREATE, OP_VIEW_RECONCILE, OP_VIEW_UPDATE,
+        OP_RELATION_CREATE, OP_RELATION_DELETE, OP_RELATION_MOVE, OP_SPACE_CHILD, OP_SPACE_CREATE,
+        OP_SPACE_ORGANIZATION, OP_SPACE_UPDATE, OP_TASK_CREATE, OP_TASK_MOVE, OP_TASK_UPDATE,
+        OP_VIEW_CREATE, OP_VIEW_RECONCILE, OP_VIEW_UPDATE,
     },
 };
 
@@ -1724,7 +1724,7 @@ mod tests {
         // Apply in reversed order.
         let mut reversed = events.clone();
         reversed.reverse();
-        let mut state_b = SpaceState::new(space_id.clone(), "1".to_owned());
+        let mut state_b = SpaceState::new(space_id, "1".to_owned());
         state_b.apply_events(&reversed).unwrap();
 
         // Both must converge to the same entity set and frontier.

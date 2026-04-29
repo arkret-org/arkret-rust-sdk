@@ -610,8 +610,7 @@ mod tests {
 
         // Invite that already expired
         let past = "2020-01-01T00:00:00Z".parse().unwrap();
-        let invite =
-            manager.send_invite_with_expiry(bob.clone(), alice, MemberRole::Member, past).unwrap();
+        let invite = manager.send_invite_with_expiry(bob, alice, MemberRole::Member, past).unwrap();
 
         assert!(invite.is_expired());
         assert!(invite.is_pending()); // Not yet processed
@@ -636,9 +635,8 @@ mod tests {
         let invite1 = manager.send_invite(bob, alice.clone(), MemberRole::Member).unwrap();
         // Expired invite
         let past = "2020-01-01T00:00:00Z".parse().unwrap();
-        let _invite2 = manager
-            .send_invite_with_expiry(carol, alice, MemberRole::Member, past)
-            .unwrap();
+        let _invite2 =
+            manager.send_invite_with_expiry(carol, alice, MemberRole::Member, past).unwrap();
 
         assert_eq!(manager.pending_invites().len(), 2); // Both still pending until expire runs
         manager.expire_invites();

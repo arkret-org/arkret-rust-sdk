@@ -248,11 +248,15 @@ mod tests {
         let key = b"test-key-material-for-property-tests";
         let aad = b"test-aad";
         // Test a range of plaintext sizes including edge cases.
-        let sizes: Vec<usize> = vec![0, 1, 15, 16, 17, 23, 31, 32, 63, 64, 127, 128, 255, 256, 512, 1024];
+        let sizes: Vec<usize> =
+            vec![0, 1, 15, 16, 17, 23, 31, 32, 63, 64, 127, 128, 255, 256, 512, 1024];
         for size in sizes {
             let plaintext: Vec<u8> = (0..size).map(|i| (i % 256) as u8).collect();
             let sealed = seal(&plaintext, key, aad).unwrap();
-            assert!(sealed.len() > plaintext.len(), "sealed must be larger than plaintext for size {size}");
+            assert!(
+                sealed.len() > plaintext.len(),
+                "sealed must be larger than plaintext for size {size}"
+            );
             let opened = open(&sealed, key, aad).unwrap();
             assert_eq!(opened, plaintext, "roundtrip failed for plaintext size {size}");
         }
@@ -330,7 +334,10 @@ mod tests {
         let sealed = seal(b"test", key, aad).unwrap();
         // Truncate to less than nonce length.
         for len in 0..NONCE_LEN {
-            assert!(open(&sealed[..len], key, aad).is_err(), "truncated envelope of length {len} must fail");
+            assert!(
+                open(&sealed[..len], key, aad).is_err(),
+                "truncated envelope of length {len} must fail"
+            );
         }
     }
 
@@ -369,18 +376,15 @@ mod tests {
 
     #[test]
     fn constant_time_eq_matches_standard_equality() {
-        let pairs: Vec<(&str, &str)> = vec![
-            ("", ""),
-            ("a", "a"),
-            ("abc", "abc"),
-            ("abc", "abd"),
-            ("abc", "ab"),
-            ("", "a"),
-        ];
+        let pairs: Vec<(&str, &str)> =
+            vec![("", ""), ("a", "a"), ("abc", "abc"), ("abc", "abd"), ("abc", "ab"), ("", "a")];
         for (left, right) in pairs {
             let ct_result = constant_time_eq(left, right);
             let eq_result = left == right;
-            assert_eq!(ct_result, eq_result, "constant_time_eq({left:?}, {right:?}) != standard ==");
+            assert_eq!(
+                ct_result, eq_result,
+                "constant_time_eq({left:?}, {right:?}) != standard =="
+            );
         }
     }
 }

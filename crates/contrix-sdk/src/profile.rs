@@ -371,10 +371,10 @@ pub fn validate_space_import(
     allowed_source_services: &BTreeSet<Did>,
 ) -> SpaceImportValidation {
     let mut errors = Vec::new();
-    if let Some(expected_space_id) = expected_space_id {
-        if &manifest.space_id != expected_space_id {
-            errors.push("space id mismatch".to_owned());
-        }
+    if let Some(expected_space_id) = expected_space_id
+        && &manifest.space_id != expected_space_id
+    {
+        errors.push("space id mismatch".to_owned());
     }
     if manifest.event_count == 0 {
         errors.push("export contains no events".to_owned());

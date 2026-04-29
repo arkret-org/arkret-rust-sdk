@@ -72,6 +72,56 @@ pub struct EncryptedAttachment {
     pub plaintext_sha256: String,
 }
 
+/// Authenticated download grant scope.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DownloadGrantScope {
+    Blob,
+    Attachment,
+}
+
+/// Time- and use-bound grant for authenticated blob downloads.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AuthenticatedDownloadGrant {
+    pub grant_id: String,
+    pub blob_ref: BlobRef,
+    pub subject: Did,
+    pub issuer: Did,
+    pub scope: DownloadGrantScope,
+    pub issued_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+    pub max_uses: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proof: Option<String>,
+}
+
+impl AuthenticatedDownloadGrant {
+    /// Validate the grant against a caller, target blob and observed use count.
+    pub fn validate(
+        &self,
+        subject: &Did,
+        blob_ref: &BlobRef,
+        at: DateTime<Utc>,
+        uses: u32,
+    ) -> Result<()> {
+        if &self.subject != subject {
+            return Err(Error::Protocol("download grant subject mismatch".to_owned()));
+        }
+        if &self.blob_ref != blob_ref {
+            return Err(Error::Protocol("download grant blob mismatch".to_owned()));
+        }
+        if at > self.expires_at {
+            return Err(Error::Protocol("download grant expired".to_owned()));
+        }
+        if let Some(max_uses) = self.max_uses
+            && uses >= max_uses
+        {
+            return Err(Error::Protocol("download grant use limit exceeded".to_owned()));
+        }
+        Ok(())
+    }
+}
+
 /// In-memory blob and media store.
 #[derive(Clone, Debug, Default)]
 pub struct MemoryBlobStore {
@@ -79,6 +129,8 @@ pub struct MemoryBlobStore {
     metadata: BTreeMap<BlobRef, MediaMetadata>,
     thumbnails: BTreeMap<BlobRef, Thumbnail>,
     attachments: BTreeMap<String, Attachment>,
+    download_grants: BTreeMap<String, AuthenticatedDownloadGrant>,
+    download_grant_uses: BTreeMap<String, u32>,
 }
 
 impl MemoryBlobStore {
@@ -269,6 +321,62 @@ impl MemoryBlobStore {
     pub fn all_attachments(&self) -> impl Iterator<Item = &Attachment> {
         self.attachments.values()
     }
+
+    /// Issue an authenticated download grant for an existing blob.
+    pub fn issue_download_grant(
+        &mut self,
+        grant_id: impl Into<String>,
+        blob_ref: BlobRef,
+        subject: Did,
+        issuer: Did,
+        expires_at: DateTime<Utc>,
+        max_uses: Option<u32>,
+    ) -> Result<AuthenticatedDownloadGrant> {
+        if !self.blobs.contains_key(&blob_ref) {
+            return Err(Error::Protocol("download grant target blob not found".to_owned()));
+        }
+        if expires_at <= Utc::now() {
+            return Err(Error::Protocol("download grant expires in the past".to_owned()));
+        }
+        let grant = AuthenticatedDownloadGrant {
+            grant_id: grant_id.into(),
+            blob_ref,
+            subject,
+            issuer,
+            scope: DownloadGrantScope::Blob,
+            issued_at: Utc::now(),
+            expires_at,
+            max_uses,
+            proof: None,
+        };
+        self.download_grant_uses.insert(grant.grant_id.clone(), 0);
+        self.download_grants.insert(grant.grant_id.clone(), grant.clone());
+        Ok(grant)
+    }
+
+    /// Download blob bytes through an authenticated grant.
+    pub fn download_with_grant(
+        &mut self,
+        grant_id: &str,
+        subject: &Did,
+        at: DateTime<Utc>,
+    ) -> Result<&[u8]> {
+        let grant = self
+            .download_grants
+            .get(grant_id)
+            .cloned()
+            .ok_or_else(|| Error::Protocol("download grant not found".to_owned()))?;
+        let uses = self.download_grant_uses.get(grant_id).copied().unwrap_or_default();
+        grant.validate(subject, &grant.blob_ref, at, uses)?;
+        *self.download_grant_uses.entry(grant_id.to_owned()).or_default() += 1;
+        self.download(&grant.blob_ref)
+            .ok_or_else(|| Error::Protocol("download grant target blob not found".to_owned()))
+    }
+
+    /// Get a stored authenticated download grant.
+    pub fn download_grant(&self, grant_id: &str) -> Option<&AuthenticatedDownloadGrant> {
+        self.download_grants.get(grant_id)
+    }
 }
 
 /// Sanitize a media type for safe `Content-Type` headers.
@@ -280,12 +388,14 @@ pub fn safe_content_type(media_type: &str) -> Option<String> {
     let (type_part, subtype_part) = trimmed.split_once('/')?;
     if type_part.is_empty()
         || subtype_part.is_empty()
-        || !type_part
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'!' | b'#' | b'$' | b'&' | b'.' | b'+' | b'-' | b'^' | b'_'))
-        || !subtype_part
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'!' | b'#' | b'$' | b'&' | b'.' | b'+' | b'-' | b'^' | b'_'))
+        || !type_part.bytes().all(|b| {
+            b.is_ascii_alphanumeric()
+                || matches!(b, b'!' | b'#' | b'$' | b'&' | b'.' | b'+' | b'-' | b'^' | b'_')
+        })
+        || !subtype_part.bytes().all(|b| {
+            b.is_ascii_alphanumeric()
+                || matches!(b, b'!' | b'#' | b'$' | b'&' | b'.' | b'+' | b'-' | b'^' | b'_')
+        })
         || trimmed.contains('\n')
         || trimmed.contains('\r')
         || trimmed.contains('\0')
@@ -300,10 +410,8 @@ pub fn safe_content_type(media_type: &str) -> Option<String> {
 /// The filename is percent-encoded to prevent header injection. Falls back to
 /// `file.bin` if the name is empty or contains only unsafe characters.
 pub fn safe_content_disposition(filename: &str) -> String {
-    let sanitized: String = filename
-        .chars()
-        .filter(|c| !matches!(c, '\n' | '\r' | '\0' | '"' | '\\'))
-        .collect();
+    let sanitized: String =
+        filename.chars().filter(|c| !matches!(c, '\n' | '\r' | '\0' | '"' | '\\')).collect();
     let sanitized = sanitized.trim();
     if sanitized.is_empty() {
         return "attachment; filename=\"file.bin\"".to_owned();
@@ -394,6 +502,44 @@ mod tests {
     }
 
     #[test]
+    fn media_download_grants_validate_subject_expiry_and_use_limit() {
+        let mut store = MemoryBlobStore::new();
+        let metadata = store
+            .upload(b"download", "text/plain", Some("d.txt".to_owned()), did("alice"))
+            .unwrap();
+        let expires_at = Utc::now() + chrono::Duration::minutes(5);
+        let subject = did("bob");
+        let grant = store
+            .issue_download_grant(
+                "grant1",
+                metadata.blob_ref.clone(),
+                subject.clone(),
+                did("alice"),
+                expires_at,
+                Some(1),
+            )
+            .unwrap();
+
+        assert_eq!(store.download_grant("grant1"), Some(&grant));
+        assert_eq!(
+            store.download_with_grant("grant1", &subject, Utc::now()).unwrap(),
+            &b"download"[..]
+        );
+        assert!(store.download_with_grant("grant1", &subject, Utc::now()).is_err());
+        assert!(grant.validate(&did("mallory"), &metadata.blob_ref, Utc::now(), 0).is_err());
+        assert!(
+            grant
+                .validate(
+                    &subject,
+                    &metadata.blob_ref,
+                    Utc::now() + chrono::Duration::minutes(10),
+                    0,
+                )
+                .is_err()
+        );
+    }
+
+    #[test]
     fn safe_content_type_validates_and_lowercases() {
         assert_eq!(safe_content_type("text/plain"), Some("text/plain".to_owned()));
         assert_eq!(safe_content_type("Image/PNG; charset=utf-8"), Some("image/png".to_owned()));
@@ -407,10 +553,7 @@ mod tests {
 
     #[test]
     fn safe_content_disposition_encodes_unsafe_chars() {
-        assert_eq!(
-            safe_content_disposition("report.pdf"),
-            "attachment; filename=\"report.pdf\""
-        );
+        assert_eq!(safe_content_disposition("report.pdf"), "attachment; filename=\"report.pdf\"");
         assert_eq!(
             safe_content_disposition("my file (1).txt"),
             "attachment; filename=\"my%20file%20%281%29.txt\""

@@ -7,7 +7,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use ulid::Ulid;
 
-use crate::{Did, Error, Result, model::{Operation, OperationId, SpaceId}};
+use crate::{
+    Did, Error, Result,
+    model::{Operation, OperationId, SpaceId},
+};
 
 /// Agent memory lifecycle state.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -237,7 +240,10 @@ impl AgentMemoryStore {
         space_id: SpaceId,
         memory_id: &str,
     ) -> Result<Operation> {
-        let memory = self.memories.get(memory_id).ok_or_else(|| Error::Protocol("memory not found".to_owned()))?;
+        let memory = self
+            .memories
+            .get(memory_id)
+            .ok_or_else(|| Error::Protocol("memory not found".to_owned()))?;
         let operation_id = OperationId::new(format!("cx:operation:{}", Ulid::new()))?;
         let payload = serde_json::json!({
             "memory_id": memory.memory_id,
@@ -405,7 +411,6 @@ impl AgentRunManager {
         principal_id: &Did,
         input: &Value,
     ) -> Result<Operation> {
-        let run_id = &self.runs.iter().next().map(|(k, _)| k.clone()).unwrap_or_default();
         let operation_id = OperationId::new(format!("cx:operation:{}", Ulid::new()))?;
         let payload = serde_json::json!({
             "agent_id": agent_id.as_str(),
@@ -422,7 +427,8 @@ impl AgentRunManager {
         run_id: &str,
         output: &Value,
     ) -> Result<Operation> {
-        let run = self.runs.get(run_id).ok_or_else(|| Error::Protocol("run not found".to_owned()))?;
+        let run =
+            self.runs.get(run_id).ok_or_else(|| Error::Protocol("run not found".to_owned()))?;
         let operation_id = OperationId::new(format!("cx:operation:{}", Ulid::new()))?;
         let payload = serde_json::json!({
             "run_id": run.run_id,
@@ -474,6 +480,7 @@ impl AgentToolAuditLog {
     }
 
     /// Append an audit entry.
+    #[allow(clippy::too_many_arguments)]
     pub fn record(
         &mut self,
         run_id: impl Into<String>,

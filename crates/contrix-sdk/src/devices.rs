@@ -406,10 +406,7 @@ impl DeviceManager {
 
     /// Check if a device has been revoked.
     pub fn is_device_revoked(&self, user_id: &Did, device_id: &DeviceId) -> bool {
-        self.revoked_devices
-            .get(user_id)
-            .and_then(|devices| devices.get(device_id))
-            .is_some()
+        self.revoked_devices.get(user_id).and_then(|devices| devices.get(device_id)).is_some()
     }
 
     /// Get all revoked devices for a user.

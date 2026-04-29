@@ -6,6 +6,12 @@
 
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
+    future::Future,
+    pin::Pin,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+    },
     time::Duration,
 };
 
@@ -14,7 +20,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
-    DeviceId, Did, Error, Event, EventId, Result, SpaceId, canonical,
+    DeviceId, Error, Event, EventId, Result, SpaceId, canonical,
     sync::{
         AccountData, DeviceListChanges, LimitedTimelineState, MembershipBucket, NotificationDelta,
         PresenceEvent, PresenceStatus, SpaceSubscription, SpaceUpdate, SubscriptionConfig,
@@ -98,6 +104,10 @@ pub enum SyncLoopStep {
     Updates(SyncUpdates),
     /// Sync failed; caller should wait for `retry_after` before trying again.
     Retry { retry_after: Duration, error: String },
+    /// The caller requested cancellation before a transport request started.
+    Cancelled,
+    /// A request was deferred because the configured in-flight limit was reached.
+    Backpressure { retry_after: Duration },
 }
 
 /// Minimal transport abstraction used by [`SyncLoop`].
@@ -115,6 +125,209 @@ where
     }
 }
 
+/// Boxed future returned by async sync transports.
+pub type BoxSyncFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + Send + 'a>>;
+
+/// Async transport abstraction used by [`SyncLoop::step_async`].
+pub trait AsyncSyncTransport {
+    /// Execute one async sync request.
+    fn sync_async<'a>(&'a self, request: SyncRequest) -> BoxSyncFuture<'a, SyncResponse>;
+}
+
+impl<F, Fut> AsyncSyncTransport for F
+where
+    F: Fn(SyncRequest) -> Fut + Send + Sync,
+    Fut: Future<Output = Result<SyncResponse>> + Send + 'static,
+{
+    fn sync_async<'a>(&'a self, request: SyncRequest) -> BoxSyncFuture<'a, SyncResponse> {
+        Box::pin(self(request))
+    }
+}
+
+/// Async streaming transport abstraction for `/api/v1/sync/subscribe`.
+pub trait SyncSubscribeTransport {
+    /// Streaming response type chosen by the concrete HTTP backend.
+    type StreamResponse;
+
+    /// Open a server-side sync subscription stream.
+    fn sync_subscribe<'a>(
+        &'a self,
+        space_id: &'a str,
+        cursor: Option<&'a str>,
+    ) -> BoxSyncFuture<'a, Self::StreamResponse>;
+}
+
+#[cfg(feature = "client")]
+impl AsyncSyncTransport for crate::Client {
+    fn sync_async<'a>(&'a self, request: SyncRequest) -> BoxSyncFuture<'a, SyncResponse> {
+        Box::pin(async move { self.sync(&request).await })
+    }
+}
+
+#[cfg(feature = "client")]
+impl SyncSubscribeTransport for crate::Client {
+    type StreamResponse = reqwest::Response;
+
+    fn sync_subscribe<'a>(
+        &'a self,
+        space_id: &'a str,
+        cursor: Option<&'a str>,
+    ) -> BoxSyncFuture<'a, Self::StreamResponse> {
+        Box::pin(async move { self.sync_subscribe_stream(space_id, cursor).await })
+    }
+}
+
+/// Cancellation token that stays independent of a specific async runtime.
+#[derive(Clone, Debug, Default)]
+pub struct CancellationToken {
+    cancelled: Arc<AtomicBool>,
+}
+
+impl CancellationToken {
+    /// Create a non-cancelled token.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Request cancellation for future sync work.
+    pub fn cancel(&self) {
+        self.cancelled.store(true, Ordering::SeqCst);
+    }
+
+    /// Clear a previous cancellation request.
+    pub fn reset(&self) {
+        self.cancelled.store(false, Ordering::SeqCst);
+    }
+
+    /// Whether cancellation has been requested.
+    pub fn is_cancelled(&self) -> bool {
+        self.cancelled.load(Ordering::SeqCst)
+    }
+}
+
+/// Async sync backpressure settings.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BackpressureConfig {
+    /// Maximum number of concurrent transport requests.
+    pub max_in_flight_requests: usize,
+    /// Delay returned when a caller should retry after backpressure.
+    pub retry_after: Duration,
+}
+
+impl Default for BackpressureConfig {
+    fn default() -> Self {
+        Self { max_in_flight_requests: 1, retry_after: Duration::from_millis(100) }
+    }
+}
+
+/// Runtime-neutral async sync loop controls.
+#[derive(Clone, Debug)]
+pub struct SyncLoopControl {
+    cancellation: CancellationToken,
+    backpressure: BackpressureConfig,
+    in_flight: Arc<AtomicUsize>,
+}
+
+impl SyncLoopControl {
+    /// Create controls with default cancellation and single-flight backpressure.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Attach an existing cancellation token.
+    pub fn with_cancellation(mut self, cancellation: CancellationToken) -> Self {
+        self.cancellation = cancellation;
+        self
+    }
+
+    /// Set backpressure behavior.
+    pub fn with_backpressure(mut self, backpressure: BackpressureConfig) -> Self {
+        self.backpressure = backpressure;
+        self
+    }
+
+    /// Request cancellation.
+    pub fn cancel(&self) {
+        self.cancellation.cancel();
+    }
+
+    /// Clear cancellation.
+    pub fn reset_cancellation(&self) {
+        self.cancellation.reset();
+    }
+
+    /// Whether cancellation has been requested.
+    pub fn is_cancelled(&self) -> bool {
+        self.cancellation.is_cancelled()
+    }
+
+    /// Configured retry delay for backpressure responses.
+    pub fn backpressure_retry_after(&self) -> Duration {
+        self.backpressure.retry_after
+    }
+
+    fn try_acquire(&self) -> Option<InFlightPermit> {
+        let max = self.backpressure.max_in_flight_requests.max(1);
+        let mut current = self.in_flight.load(Ordering::SeqCst);
+        loop {
+            if current >= max {
+                return None;
+            }
+            match self.in_flight.compare_exchange(
+                current,
+                current + 1,
+                Ordering::SeqCst,
+                Ordering::SeqCst,
+            ) {
+                Ok(_) => return Some(InFlightPermit { in_flight: Arc::clone(&self.in_flight) }),
+                Err(observed) => current = observed,
+            }
+        }
+    }
+}
+
+impl Default for SyncLoopControl {
+    fn default() -> Self {
+        Self {
+            cancellation: CancellationToken::default(),
+            backpressure: BackpressureConfig::default(),
+            in_flight: Arc::new(AtomicUsize::new(0)),
+        }
+    }
+}
+
+struct InFlightPermit {
+    in_flight: Arc<AtomicUsize>,
+}
+
+impl Drop for InFlightPermit {
+    fn drop(&mut self) {
+        self.in_flight.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
+/// Strategy used when a limited timeline indicates a sync gap.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SyncGapStrategy {
+    /// Preserve the token and let the caller backfill gaps explicitly.
+    #[default]
+    PreserveTokenAndBackfill,
+    /// Clear the token so the next sync restarts from an initial snapshot.
+    ResetTokenOnLimitedTimeline,
+}
+
+/// Serializable sync loop state for durable token persistence.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SyncLoopSnapshot {
+    /// Last accepted sync token.
+    pub token: Option<String>,
+    /// Long-poll timeout persisted as milliseconds for portability.
+    pub timeout_ms: u64,
+    /// Gap handling strategy used by the loop.
+    pub gap_strategy: SyncGapStrategy,
+}
+
 /// Long-polling sync loop state.
 pub struct SyncLoop {
     token: Option<String>,
@@ -125,6 +338,7 @@ pub struct SyncLoop {
     wait_for: Option<WaitForFrontier>,
     backoff: ExponentialBackoff,
     processor: SyncResponseProcessor,
+    gap_strategy: SyncGapStrategy,
 }
 
 impl SyncLoop {
@@ -139,7 +353,17 @@ impl SyncLoop {
             wait_for: None,
             backoff: ExponentialBackoff::default(),
             processor: SyncResponseProcessor::new(),
+            gap_strategy: SyncGapStrategy::PreserveTokenAndBackfill,
         }
+    }
+
+    /// Restore a loop from a previously persisted snapshot.
+    pub fn from_snapshot(snapshot: SyncLoopSnapshot) -> Self {
+        let mut sync_loop = Self::new()
+            .with_timeout(Duration::from_millis(snapshot.timeout_ms))
+            .with_gap_strategy(snapshot.gap_strategy);
+        sync_loop.token = snapshot.token;
+        sync_loop
     }
 
     /// Set the long-poll timeout.
@@ -166,6 +390,18 @@ impl SyncLoop {
         self
     }
 
+    /// Set the gap strategy used after limited timelines.
+    pub fn with_gap_strategy(mut self, strategy: SyncGapStrategy) -> Self {
+        self.gap_strategy = strategy;
+        self
+    }
+
+    /// Set retry backoff configuration.
+    pub fn with_backoff_config(mut self, config: BackoffConfig) -> Self {
+        self.backoff = ExponentialBackoff::new(config);
+        self
+    }
+
     /// Build the next long-poll request.
     pub fn next_request(&self) -> SyncRequest {
         let timeout_ms = self.timeout.as_millis().min(u128::from(u64::MAX)) as u64;
@@ -179,6 +415,27 @@ impl SyncLoop {
         }
     }
 
+    fn handle_response(&mut self, response: SyncResponse) -> SyncLoopStep {
+        self.backoff.reset();
+        self.token = Some(response.next_batch.clone());
+        match self.processor.process(response) {
+            Ok(updates) => {
+                if self.gap_strategy == SyncGapStrategy::ResetTokenOnLimitedTimeline
+                    && updates.space_updates.iter().any(|update| {
+                        update.timeline.as_ref().is_some_and(|timeline| timeline.limited)
+                    })
+                {
+                    self.token = None;
+                }
+                SyncLoopStep::Updates(updates)
+            }
+            Err(error) => {
+                let retry_after = self.backoff.record_failure();
+                SyncLoopStep::Retry { retry_after, error: error.to_string() }
+            }
+        }
+    }
+
     /// Execute one loop iteration.
     ///
     /// The caller owns sleeping and cancellation. This keeps the type portable
@@ -189,17 +446,41 @@ impl SyncLoop {
     {
         let request = self.next_request();
         match transport.sync(request) {
-            Ok(response) => {
-                self.backoff.reset();
-                self.token = Some(response.next_batch.clone());
-                match self.processor.process(response) {
-                    Ok(updates) => SyncLoopStep::Updates(updates),
-                    Err(error) => {
-                        let retry_after = self.backoff.record_failure();
-                        SyncLoopStep::Retry { retry_after, error: error.to_string() }
-                    }
-                }
+            Ok(response) => self.handle_response(response),
+            Err(error) => {
+                let retry_after = self.backoff.record_failure();
+                SyncLoopStep::Retry { retry_after, error: error.to_string() }
             }
+        }
+    }
+
+    /// Execute one async loop iteration with default controls.
+    pub async fn step_async<T>(&mut self, transport: &T) -> SyncLoopStep
+    where
+        T: AsyncSyncTransport + ?Sized,
+    {
+        let control = SyncLoopControl::default();
+        self.step_async_with_control(transport, &control).await
+    }
+
+    /// Execute one async loop iteration with cancellation and backpressure.
+    pub async fn step_async_with_control<T>(
+        &mut self,
+        transport: &T,
+        control: &SyncLoopControl,
+    ) -> SyncLoopStep
+    where
+        T: AsyncSyncTransport + ?Sized,
+    {
+        if control.is_cancelled() {
+            return SyncLoopStep::Cancelled;
+        }
+        let Some(_permit) = control.try_acquire() else {
+            return SyncLoopStep::Backpressure { retry_after: control.backpressure_retry_after() };
+        };
+        let request = self.next_request();
+        match transport.sync_async(request).await {
+            Ok(response) => self.handle_response(response),
             Err(error) => {
                 let retry_after = self.backoff.record_failure();
                 SyncLoopStep::Retry { retry_after, error: error.to_string() }
@@ -210,6 +491,24 @@ impl SyncLoop {
     /// Current sync token.
     pub fn token(&self) -> Option<&str> {
         self.token.as_deref()
+    }
+
+    /// Export durable sync loop state.
+    pub fn snapshot(&self) -> SyncLoopSnapshot {
+        SyncLoopSnapshot {
+            token: self.token.clone(),
+            timeout_ms: self.timeout.as_millis().min(u128::from(u64::MAX)) as u64,
+            gap_strategy: self.gap_strategy,
+        }
+    }
+
+    /// Restore durable token state on an existing loop.
+    pub fn restore_snapshot(&mut self, snapshot: SyncLoopSnapshot) {
+        self.token = snapshot.token;
+        self.timeout = Duration::from_millis(snapshot.timeout_ms);
+        self.gap_strategy = snapshot.gap_strategy;
+        self.processor.clear();
+        self.backoff.reset();
     }
 
     /// Reset the loop after unrecoverable state loss.
@@ -393,7 +692,7 @@ pub struct ProcessedSpace {
     /// Total state events processed.
     pub state_events: usize,
     /// Last summary object.
-    pub summary: serde_json::Value,
+    pub summary: Value,
     /// Current notification count.
     pub notification_count: u64,
     /// Current highlight count.
@@ -1153,16 +1452,15 @@ impl SpaceListService {
         {
             entry.highlight_count = highlight_count;
         }
-        if let Some(timeline) = &update.timeline {
-            if let Some(event) = timeline
+        if let Some(timeline) = &update.timeline
+            && let Some(event) = timeline
                 .events
                 .last()
                 .and_then(|value| serde_json::from_value::<Event>(value.clone()).ok())
-            {
-                entry.last_event_id = Some(event.event_id.clone());
-                entry.last_activity =
-                    Some(TimelineOrderKey::from_event(&event, event.prev_refs.len() as u64));
-            }
+        {
+            entry.last_event_id = Some(event.event_id.clone());
+            entry.last_activity =
+                Some(TimelineOrderKey::from_event(&event, event.prev_refs.len() as u64));
         }
         self.upsert(entry)
     }
@@ -1269,6 +1567,7 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+    use crate::Did;
     use crate::sync::{DeviceListChanges, SyncSpace, UnreadCounts};
 
     fn sync_response(next_batch: &str) -> SyncResponse {
@@ -1318,6 +1617,79 @@ mod tests {
         assert!(matches!(sync_loop.step(&mut transport), SyncLoopStep::Retry { .. }));
         assert!(matches!(sync_loop.step(&mut transport), SyncLoopStep::Updates(_)));
         assert_eq!(sync_loop.token(), Some("s1"));
+    }
+
+    #[tokio::test]
+    async fn async_sync_loop_uses_transport_and_persists_token() {
+        let transport = |request: SyncRequest| async move {
+            assert_eq!(request.timeout_ms, Some(15));
+            assert!(request.since.is_none());
+            Ok(sync_response("async1"))
+        };
+        let mut sync_loop = SyncLoop::new().with_timeout(Duration::from_millis(15));
+
+        assert!(matches!(sync_loop.step_async(&transport).await, SyncLoopStep::Updates(_)));
+        let snapshot = sync_loop.snapshot();
+        assert_eq!(snapshot.token.as_deref(), Some("async1"));
+
+        let restored = SyncLoop::from_snapshot(snapshot);
+        assert_eq!(restored.next_request().since.as_deref(), Some("async1"));
+    }
+
+    #[tokio::test]
+    async fn async_sync_loop_honors_cancellation() {
+        let transport = |_request: SyncRequest| async { Ok(sync_response("unused")) };
+        let control = SyncLoopControl::new();
+        control.cancel();
+
+        let mut sync_loop = SyncLoop::new();
+
+        assert!(matches!(
+            sync_loop.step_async_with_control(&transport, &control).await,
+            SyncLoopStep::Cancelled
+        ));
+        assert!(sync_loop.token().is_none());
+    }
+
+    #[test]
+    fn sync_loop_control_applies_backpressure() {
+        let control = SyncLoopControl::new().with_backpressure(BackpressureConfig {
+            max_in_flight_requests: 1,
+            retry_after: Duration::from_millis(25),
+        });
+        let permit = control.try_acquire().unwrap();
+
+        assert!(control.try_acquire().is_none());
+        assert_eq!(control.backpressure_retry_after(), Duration::from_millis(25));
+
+        drop(permit);
+        assert!(control.try_acquire().is_some());
+    }
+
+    #[test]
+    fn sync_loop_can_reset_token_on_limited_timeline_gap() {
+        let space_id = "cx:space:01JS0SP000000000000000000";
+        let mut response = sync_response("gap-token");
+        response.spaces.insert(
+            space_id.to_owned(),
+            SyncSpace {
+                timeline: Some(SyncTimeline {
+                    events: Vec::new(),
+                    limited: true,
+                    prev_batch: Some("prev".to_owned()),
+                }),
+                state: Vec::new(),
+                summary: json!({}),
+                ephemeral: Vec::new(),
+                unread: UnreadCounts::default(),
+            },
+        );
+        let mut transport = |_request: SyncRequest| Ok(response.clone());
+        let mut sync_loop =
+            SyncLoop::new().with_gap_strategy(SyncGapStrategy::ResetTokenOnLimitedTimeline);
+
+        assert!(matches!(sync_loop.step(&mut transport), SyncLoopStep::Updates(_)));
+        assert!(sync_loop.token().is_none());
     }
 
     #[test]
@@ -1452,11 +1824,11 @@ mod tests {
             .unwrap();
 
         assert_eq!(message.payload_hash, duplicate.payload_hash);
-        assert_eq!(queue.ready_batch(Utc::now(), 10), vec![message.clone()]);
+        assert_eq!(queue.ready_batch(Utc::now(), 10), vec![message]);
 
         queue.mark_sending("txn1").unwrap();
         queue.mark_sent("txn1", EventId::new("cx:event:0001").unwrap()).unwrap();
-        assert_eq!(queue.ready_batch(Utc::now(), 10), vec![edit.clone()]);
+        assert_eq!(queue.ready_batch(Utc::now(), 10), vec![edit]);
 
         let restored = SendQueue::from_snapshot(queue.snapshot()).unwrap();
         assert_eq!(restored.len(), 2);
@@ -1523,7 +1895,7 @@ mod tests {
         let s1 = SpaceId::new("cx:space:01JS0SP000000000000000001").unwrap();
         let s2 = SpaceId::new("cx:space:01JS0SP000000000000000002").unwrap();
         let mut list = SpaceListService::new();
-        let mut alpha = SpaceListEntry::joined(s1.clone());
+        let mut alpha = SpaceListEntry::joined(s1);
         alpha.name = Some("Alpha".to_owned());
         alpha.unread_count = 1;
         let mut beta = SpaceListEntry::joined(s2.clone());

@@ -217,12 +217,16 @@ impl AppletRegistry {
             .iter()
             .flat_map(|candidate| {
                 self.namespaces.iter().filter_map(move |(applet_id, existing)| {
-                    candidate.conflicts_with(existing).then(|| AppletNamespaceConflict {
-                        kind: candidate.kind.clone(),
-                        pattern: candidate.pattern.clone(),
-                        conflicting_applet_id: applet_id.clone(),
-                        conflicting_pattern: existing.pattern.clone(),
-                    })
+                    if candidate.conflicts_with(existing) {
+                        Some(AppletNamespaceConflict {
+                            kind: candidate.kind.clone(),
+                            pattern: candidate.pattern.clone(),
+                            conflicting_applet_id: applet_id.clone(),
+                            conflicting_pattern: existing.pattern.clone(),
+                        })
+                    } else {
+                        None
+                    }
                 })
             })
             .collect()

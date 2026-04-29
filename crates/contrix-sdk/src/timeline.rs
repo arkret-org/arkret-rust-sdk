@@ -356,7 +356,10 @@ impl EventCache {
                 prev_batch: timeline.prev_batch.clone(),
                 reason: SyncGapReason::Limited,
             };
-            self.gaps.entry(space_id.clone()).or_default().push(gap);
+            let gaps = self.gaps.entry(space_id.clone()).or_default();
+            if !gaps.contains(&gap) {
+                gaps.push(gap);
+            }
         }
         update.gaps = self.gaps(&space_id);
         Ok(update)
@@ -379,10 +382,10 @@ impl EventCache {
                 }
             }
         }
-        if let Some(gaps) = self.gaps.get_mut(&space_id) {
-            if !gaps.is_empty() {
-                gaps.remove(0);
-            }
+        if let Some(gaps) = self.gaps.get_mut(&space_id)
+            && !gaps.is_empty()
+        {
+            gaps.remove(0);
         }
         update.gaps = self.gaps(&space_id);
         Ok(update)
@@ -908,7 +911,7 @@ impl Timeline {
             self.event_to_item.insert(event_id, item_id);
             return;
         }
-        self.event_to_item.insert(event_id, item_id.clone());
+        self.event_to_item.insert(event_id, item_id);
     }
 
     fn apply_message_revision(&mut self, event: &Event, order: TimelineOrderKey) {
@@ -979,8 +982,11 @@ impl Timeline {
             .reaction_index
             .iter()
             .filter_map(|((candidate_item_id, sender, candidate_reaction), active)| {
-                (candidate_item_id == item_id && candidate_reaction == reaction_key && *active)
-                    .then(|| sender.clone())
+                if candidate_item_id == item_id && candidate_reaction == reaction_key && *active {
+                    Some(sender.clone())
+                } else {
+                    None
+                }
             })
             .collect();
         senders.sort();
@@ -1067,7 +1073,8 @@ mod tests {
     use super::*;
     use std::collections::BTreeMap;
 
-    use crate::{Did, Hlc};
+    use crate::{DeviceId, Did, Hlc};
+    use chrono::Duration;
     use serde_json::json;
 
     fn create_test_event(space_id: &SpaceId, index: u32) -> Event {
@@ -1078,7 +1085,7 @@ mod tests {
             space_version: "1".to_owned(),
             actor_id: Did::new("did:web:alice.example.com").unwrap(),
             actor_seq: index as u64,
-            created_at: chrono::Utc::now(),
+            created_at: Utc::now(),
             hlc: Hlc::new(format!("01970e589d21-000000{:02x}-a13f9c2e", index)).unwrap(),
             prev_refs: vec![],
             auth_refs: vec![],
@@ -1261,21 +1268,21 @@ mod tests {
             event_id: event_id.clone(),
             visibility: ReceiptVisibility::Public,
             thread_id: None,
-            received_at: chrono::Utc::now(),
+            received_at: Utc::now(),
         });
         timeline.apply_typing(TypingNotification {
             space_id,
             user_id: actor.clone(),
-            device_id: crate::DeviceId::new("dev_123").unwrap(),
+            device_id: DeviceId::new("dev_123").unwrap(),
             is_typing: true,
-            expires_at: chrono::Utc::now() + chrono::Duration::seconds(30),
-            updated_at: chrono::Utc::now(),
+            expires_at: Utc::now() + Duration::seconds(30),
+            updated_at: Utc::now(),
         });
 
         let focused = timeline.focused_window(event_id, 1, 1);
 
         assert_eq!(timeline.get_item("m1").unwrap().read_receipts.len(), 1);
-        assert_eq!(timeline.active_typers_at(chrono::Utc::now()), vec![actor]);
+        assert_eq!(timeline.active_typers_at(Utc::now()), vec![actor]);
         assert!(focused.target.is_some());
         assert!(focused.backfill_request.is_some());
     }
@@ -1285,11 +1292,8 @@ mod tests {
         let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
         let event = create_test_event(&space_id, 1);
         let raw = serde_json::to_value(&event).unwrap();
-        let timeline_section = SyncTimeline {
-            events: vec![raw.clone()],
-            limited: true,
-            prev_batch: Some("prev".to_owned()),
-        };
+        let timeline_section =
+            SyncTimeline { events: vec![raw], limited: true, prev_batch: Some("prev".to_owned()) };
         let mut cache = EventCache::new();
 
         let update = cache.apply_sync_timeline(space_id.clone(), &timeline_section).unwrap();

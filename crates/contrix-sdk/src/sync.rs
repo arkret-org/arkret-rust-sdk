@@ -387,6 +387,7 @@ pub struct SyncTokenBinding {
 
 impl SyncTokenBinding {
     /// Create a binding for a concrete request context.
+    #[allow(clippy::too_many_arguments)]
     pub fn for_request(
         token: String,
         principal_id: Did,
@@ -948,10 +949,8 @@ mod tests {
         .unwrap();
         deeper.event_id = EventId::new("cx:event:0001").unwrap();
 
-        let mut keys = vec![
-            TimelineOrderKey::from_event(&newer_hlc, 0),
-            TimelineOrderKey::from_event(&deeper, 1),
-        ];
+        let mut keys =
+            [TimelineOrderKey::from_event(&newer_hlc, 0), TimelineOrderKey::from_event(&deeper, 1)];
         keys.sort();
 
         assert_eq!(keys[0].event_id, newer_hlc.event_id);

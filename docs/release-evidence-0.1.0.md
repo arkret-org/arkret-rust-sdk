@@ -11,15 +11,18 @@ recorded.
 The release gate is complete only when every command below passes on the
 candidate revision:
 
-- [ ] `cargo fmt --all -- --check`
-- [ ] `cargo check --no-default-features`
-- [ ] `cargo check --no-default-features --features client`
-- [ ] `cargo check --no-default-features --features server`
-- [ ] `cargo check --no-default-features --features mls`
-- [ ] `cargo check --all-features`
-- [ ] `cargo clippy --all-features --all-targets -- -D warnings`
-- [ ] `cargo test --all-features`
-- [ ] `cargo run --example export_openapi --features server`
+- [x] `cargo fmt --all -- --check`
+- [x] `cargo check --no-default-features`
+- [x] `cargo check --no-default-features --features client`
+- [x] `cargo check --no-default-features --features server`
+- [x] `cargo check --no-default-features --features mls`
+- [x] `cargo check --all-features`
+- [x] `cargo clippy --all-features --all-targets -- -D warnings`
+- [x] `cargo test --all-features`
+- [x] `cargo test --all-features --examples`
+- [x] `cargo test --examples`
+- [x] `cargo run --example export_openapi --features server`
+- [x] `git diff --check`
 
 ## External Gates
 

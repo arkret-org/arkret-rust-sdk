@@ -62,10 +62,7 @@ impl DidDocument {
 
     /// Return the first verification method (key ID, public key), if any.
     pub fn primary_key(&self) -> Option<(&str, &str)> {
-        self.verification_methods
-            .iter()
-            .next()
-            .map(|(k, v)| (k.as_str(), v.as_str()))
+        self.verification_methods.iter().next().map(|(k, v)| (k.as_str(), v.as_str()))
     }
 
     /// Return `also_known_as` entries that look like handles (not URLs).
@@ -488,6 +485,80 @@ pub fn did_key_log_proof(
     sha256_hex(format!("{payload}|{signer_public_key}").as_bytes())
 }
 
+/// Signed receipt from an external DID registry.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DidRegistryReceipt {
+    pub did: Did,
+    pub registry_did: Did,
+    pub operation_hash: String,
+    pub verification_method: String,
+    pub issued_at: DateTime<Utc>,
+    pub signature: String,
+}
+
+impl DidRegistryReceipt {
+    /// Build a deterministic signed receipt for tests and local adapters.
+    pub fn signed(
+        did: Did,
+        registry_did: Did,
+        operation_hash: impl Into<String>,
+        verification_method: impl Into<String>,
+        registry_public_key: &str,
+    ) -> Self {
+        let operation_hash = operation_hash.into();
+        let verification_method = verification_method.into();
+        let issued_at = Utc::now();
+        let signature = did_registry_receipt_signature(
+            &did,
+            &registry_did,
+            &operation_hash,
+            &verification_method,
+            issued_at,
+            registry_public_key,
+        );
+        Self { did, registry_did, operation_hash, verification_method, issued_at, signature }
+    }
+
+    /// Verify this receipt against the registry's public key material.
+    pub fn verify(&self, registry_public_key: &str) -> Result<()> {
+        if self.operation_hash.trim().is_empty() {
+            return Err(Error::Protocol("registry receipt operation hash is empty".to_owned()));
+        }
+        let expected = did_registry_receipt_signature(
+            &self.did,
+            &self.registry_did,
+            &self.operation_hash,
+            &self.verification_method,
+            self.issued_at,
+            registry_public_key,
+        );
+        if self.signature != expected {
+            return Err(Error::Protocol("invalid registry receipt signature".to_owned()));
+        }
+        Ok(())
+    }
+}
+
+/// Compute the deterministic signature binding for a DID registry receipt.
+pub fn did_registry_receipt_signature(
+    did: &Did,
+    registry_did: &Did,
+    operation_hash: &str,
+    verification_method: &str,
+    issued_at: DateTime<Utc>,
+    registry_public_key: &str,
+) -> String {
+    let payload = format!(
+        "{}|{}|{}|{}|{}",
+        did,
+        registry_did,
+        operation_hash,
+        verification_method,
+        issued_at.to_rfc3339()
+    );
+    sha256_hex(format!("{payload}|{registry_public_key}").as_bytes())
+}
+
 /// Visibility scope for a DID.
 ///
 /// Controls whether a DID is globally public, scoped to a specific peer
@@ -526,22 +597,23 @@ pub struct PairwiseDidBinding {
     pub expires_at: Option<DateTime<Utc>>,
 }
 
+/// Proof required before revealing a pairwise DID's parent DID.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PairwiseDidResolutionProof {
+    pub pairwise_did: Did,
+    pub requester: Did,
+    pub peer_did: Did,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope: Option<String>,
+    pub challenge: String,
+    pub proof: String,
+    pub created_at: DateTime<Utc>,
+}
+
 impl PairwiseDidBinding {
     /// Create a new pairwise DID binding.
-    pub fn new(
-        pairwise_did: Did,
-        parent_did: Did,
-        peer_did: Did,
-        scope: Option<String>,
-    ) -> Self {
-        Self {
-            pairwise_did,
-            parent_did,
-            peer_did,
-            scope,
-            created_at: Utc::now(),
-            expires_at: None,
-        }
+    pub fn new(pairwise_did: Did, parent_did: Did, peer_did: Did, scope: Option<String>) -> Self {
+        Self { pairwise_did, parent_did, peer_did, scope, created_at: Utc::now(), expires_at: None }
     }
 
     /// Set an expiration time for this pairwise binding.
@@ -569,13 +641,69 @@ impl PairwiseDidBinding {
         bytes[8] = (bytes[8] & 0x3f) | 0x80;
         let uuid = format!(
             "{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
-            bytes[0], bytes[1], bytes[2], bytes[3],
-            bytes[4], bytes[5], bytes[6], bytes[7],
-            bytes[8], bytes[9], bytes[10], bytes[11],
-            bytes[12], bytes[13], bytes[14], bytes[15]
+            bytes[0],
+            bytes[1],
+            bytes[2],
+            bytes[3],
+            bytes[4],
+            bytes[5],
+            bytes[6],
+            bytes[7],
+            bytes[8],
+            bytes[9],
+            bytes[10],
+            bytes[11],
+            bytes[12],
+            bytes[13],
+            bytes[14],
+            bytes[15]
         );
         Did::new(format!("did:uuid:{uuid}"))
     }
+
+    /// Build a deterministic proof allowing a scoped peer to resolve this binding.
+    pub fn resolution_proof(
+        &self,
+        requester: Did,
+        challenge: impl Into<String>,
+    ) -> PairwiseDidResolutionProof {
+        let challenge = challenge.into();
+        let proof = pairwise_resolution_proof(
+            &self.pairwise_did,
+            &requester,
+            &self.peer_did,
+            self.scope.as_deref(),
+            &challenge,
+        );
+        PairwiseDidResolutionProof {
+            pairwise_did: self.pairwise_did.clone(),
+            requester,
+            peer_did: self.peer_did.clone(),
+            scope: self.scope.clone(),
+            challenge,
+            proof,
+            created_at: Utc::now(),
+        }
+    }
+}
+
+/// Compute the deterministic proof for gated pairwise DID resolution.
+pub fn pairwise_resolution_proof(
+    pairwise_did: &Did,
+    requester: &Did,
+    peer_did: &Did,
+    scope: Option<&str>,
+    challenge: &str,
+) -> String {
+    let payload = format!(
+        "{}|{}|{}|{}|{}",
+        pairwise_did,
+        requester,
+        peer_did,
+        scope.unwrap_or(""),
+        challenge
+    );
+    sha256_hex(payload.as_bytes())
 }
 
 /// Manages pairwise DID bindings for privacy-preserving identity.
@@ -611,11 +739,46 @@ impl PairwiseDidStore {
         self.by_pairwise.get(pairwise_did).map(|b| &b.parent_did)
     }
 
+    /// Resolve a pairwise DID to its parent DID only after validating proof.
+    pub fn resolve_parent_with_proof(
+        &self,
+        pairwise_did: &Did,
+        proof: &PairwiseDidResolutionProof,
+    ) -> Result<&Did> {
+        let binding = self
+            .by_pairwise
+            .get(pairwise_did)
+            .ok_or_else(|| Error::Protocol("pairwise DID binding not found".to_owned()))?;
+        if binding.is_expired() {
+            return Err(Error::Protocol("pairwise DID binding expired".to_owned()));
+        }
+        if &proof.pairwise_did != pairwise_did {
+            return Err(Error::Protocol("pairwise DID proof target mismatch".to_owned()));
+        }
+        if proof.requester != binding.peer_did && proof.requester != binding.parent_did {
+            return Err(Error::Protocol(
+                "pairwise DID proof requester is not authorized".to_owned(),
+            ));
+        }
+        if proof.peer_did != binding.peer_did || proof.scope != binding.scope {
+            return Err(Error::Protocol("pairwise DID proof scope mismatch".to_owned()));
+        }
+        let expected = pairwise_resolution_proof(
+            pairwise_did,
+            &proof.requester,
+            &binding.peer_did,
+            binding.scope.as_deref(),
+            &proof.challenge,
+        );
+        if proof.proof != expected {
+            return Err(Error::Protocol("invalid pairwise DID resolution proof".to_owned()));
+        }
+        Ok(&binding.parent_did)
+    }
+
     /// Check if a pairwise DID is valid (exists and not expired).
     pub fn is_valid(&self, pairwise_did: &Did) -> bool {
-        self.by_pairwise
-            .get(pairwise_did)
-            .is_some_and(|b| !b.is_expired())
+        self.by_pairwise.get(pairwise_did).is_some_and(|b| !b.is_expired())
     }
 
     /// List all pairwise DIDs for a parent DID.
@@ -635,10 +798,10 @@ impl PairwiseDidStore {
             .map(|(id, _)| id.clone())
             .collect();
         for id in expired {
-            if let Some(binding) = self.by_pairwise.remove(&id) {
-                if let Some(parent_ids) = self.by_parent.get_mut(&binding.parent_did) {
-                    parent_ids.retain(|pid| pid != &id);
-                }
+            if let Some(binding) = self.by_pairwise.remove(&id)
+                && let Some(parent_ids) = self.by_parent.get_mut(&binding.parent_did)
+            {
+                parent_ids.retain(|pid| pid != &id);
             }
         }
     }
@@ -804,10 +967,7 @@ impl IdentityManager {
             .ok_or_else(|| Error::Protocol("DID document not found for user".to_owned()))?;
 
         // Check that the DID document lists the handle in also_known_as
-        let handle_variants: Vec<String> = vec![
-            normalized.clone(),
-            format!("@{normalized}"),
-        ];
+        let handle_variants: Vec<String> = vec![normalized.clone(), format!("@{normalized}")];
         let listed_in_document = document.also_known_as.iter().any(|aka| {
             let normalized_aka = normalize_handle(aka);
             handle_variants.contains(&normalized_aka)
@@ -820,10 +980,9 @@ impl IdentityManager {
         }
 
         // Check that the handle claim exists and is verified
-        let claim = self
-            .handles
-            .get(&normalized)
-            .ok_or_else(|| Error::Protocol(format!("handle claim not found for '{}'", normalized)))?;
+        let claim = self.handles.get(&normalized).ok_or_else(|| {
+            Error::Protocol(format!("handle claim not found for '{}'", normalized))
+        })?;
         if claim.user_id != *user_id {
             return Err(Error::Protocol(format!(
                 "handle claim links to {} but expected {}",
@@ -1164,6 +1323,32 @@ mod tests {
     }
 
     #[test]
+    fn did_registry_receipt_verifies_signature_binding() {
+        let alice = did("alice");
+        let registry = did("registry");
+        let receipt = DidRegistryReceipt::signed(
+            alice.clone(),
+            registry,
+            "sha256:abc",
+            "did:web:registry.example#key-1",
+            "registry-public-key",
+        );
+
+        receipt.verify("registry-public-key").unwrap();
+        assert!(receipt.verify("wrong-key").is_err());
+
+        let expected = did_registry_receipt_signature(
+            &alice,
+            &receipt.registry_did,
+            &receipt.operation_hash,
+            &receipt.verification_method,
+            receipt.issued_at,
+            "registry-public-key",
+        );
+        assert_eq!(receipt.signature, expected);
+    }
+
+    #[test]
     fn handle_bidirectional_verification_succeeds_with_also_known_as() {
         let alice = did("alice");
         let mut manager = IdentityManager::new();
@@ -1325,19 +1510,42 @@ mod tests {
 
         // Expired binding is invalid
         let pairwise2 = PairwiseDidBinding::derive_pairwise_did(&alice, &bob, Some("x")).unwrap();
-        let expired = PairwiseDidBinding::new(
-            pairwise2.clone(),
-            alice.clone(),
-            bob.clone(),
-            Some("x".to_owned()),
-        )
-        .with_expiry("2020-01-01T00:00:00Z".parse().unwrap());
+        let expired = PairwiseDidBinding::new(pairwise2.clone(), alice, bob, Some("x".to_owned()))
+            .with_expiry("2020-01-01T00:00:00Z".parse().unwrap());
         store.insert(expired).unwrap();
         assert!(!store.is_valid(&pairwise2));
 
         store.purge_expired();
         assert!(store.get(&pairwise2).is_none());
         assert!(store.get(&pairwise).is_some());
+    }
+
+    #[test]
+    fn pairwise_did_resolution_requires_valid_proof() {
+        let alice = Did::new("did:web:alice.example").unwrap();
+        let bob = Did::new("did:web:bob.example").unwrap();
+        let mallory = Did::new("did:web:mallory.example").unwrap();
+        let pairwise =
+            PairwiseDidBinding::derive_pairwise_did(&alice, &bob, Some("space:01")).unwrap();
+        let binding = PairwiseDidBinding::new(
+            pairwise.clone(),
+            alice.clone(),
+            bob.clone(),
+            Some("space:01".to_owned()),
+        );
+        let proof = binding.resolution_proof(bob, "challenge-1");
+        let mut store = PairwiseDidStore::new();
+        store.insert(binding).unwrap();
+
+        assert_eq!(store.resolve_parent_with_proof(&pairwise, &proof).unwrap(), &alice);
+
+        let mut bad_proof = proof.clone();
+        bad_proof.requester = mallory;
+        assert!(store.resolve_parent_with_proof(&pairwise, &bad_proof).is_err());
+
+        let mut tampered = proof;
+        tampered.proof = "bad".to_owned();
+        assert!(store.resolve_parent_with_proof(&pairwise, &tampered).is_err());
     }
 
     #[test]

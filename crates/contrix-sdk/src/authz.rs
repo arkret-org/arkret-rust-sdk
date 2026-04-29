@@ -1085,7 +1085,9 @@ impl ApprovalFlowManager {
         }
 
         if !proposal.required_approvers.contains(&approver) {
-            return Err(Error::Protocol("approver is not in the required approvers list".to_owned()));
+            return Err(Error::Protocol(
+                "approver is not in the required approvers list".to_owned(),
+            ));
         }
 
         if proposal.approvals.iter().any(|a| a.approver == approver) {
@@ -1106,9 +1108,7 @@ impl ApprovalFlowManager {
 
     /// Check if a proposal is approved.
     pub fn is_proposal_approved(&self, proposal_id: &str) -> bool {
-        self.proposals
-            .get(proposal_id)
-            .is_some_and(|p| p.status == ProposalStatus::Approved)
+        self.proposals.get(proposal_id).is_some_and(|p| p.status == ProposalStatus::Approved)
     }
 
     /// Get a proposal by ID.
@@ -1123,8 +1123,7 @@ impl ApprovalFlowManager {
             .proposals
             .iter()
             .filter(|(_, p)| {
-                p.status == ProposalStatus::Pending
-                    && p.expires_at.is_some_and(|exp| now >= exp)
+                p.status == ProposalStatus::Pending && p.expires_at.is_some_and(|exp| now >= exp)
             })
             .map(|(id, _)| id.clone())
             .collect();
@@ -1150,12 +1149,8 @@ impl ApprovalFlowManager {
             return;
         };
 
-        let approvals: Vec<Did> = proposal
-            .approvals
-            .iter()
-            .filter(|a| a.approved)
-            .map(|a| a.approver.clone())
-            .collect();
+        let approvals: Vec<Did> =
+            proposal.approvals.iter().filter(|a| a.approved).map(|a| a.approver.clone()).collect();
         let rejections = proposal.approvals.iter().filter(|a| !a.approved).count();
 
         let approved = match &proposal.approval_mode {
@@ -1955,13 +1950,7 @@ pub fn apply_policy_response(
 /// Check if a grant requires approval through the proposal flow.
 pub fn grant_requires_approval(grant: &CapabilityGrant) -> bool {
     grant.constraints.iter().any(|entry| {
-        matches!(
-            &entry.constraint,
-            Constraint::ApprovalWorkflow {
-                approval_required: true,
-                ..
-            }
-        )
+        matches!(&entry.constraint, Constraint::ApprovalWorkflow { approval_required: true, .. })
     })
 }
 
@@ -3169,12 +3158,14 @@ mod tests {
         assert_eq!(proposal.status, ProposalStatus::Pending);
 
         // First approval is not enough for ApprovalMode::All.
-        let updated = manager.record_approval(&proposal.proposal_id, approver1.clone(), true, None).unwrap();
+        let updated =
+            manager.record_approval(&proposal.proposal_id, approver1, true, None).unwrap();
         assert_eq!(updated.status, ProposalStatus::Pending);
         assert!(!manager.is_grant_approved(&grant.id));
 
         // Second approval completes the proposal.
-        let updated = manager.record_approval(&proposal.proposal_id, approver2.clone(), true, None).unwrap();
+        let updated =
+            manager.record_approval(&proposal.proposal_id, approver2, true, None).unwrap();
         assert_eq!(updated.status, ProposalStatus::Approved);
         assert!(manager.is_grant_approved(&grant.id));
     }
@@ -3207,7 +3198,9 @@ mod tests {
         assert!(manager.record_approval(&proposal.proposal_id, outsider, true, None).is_err());
 
         // Approver can approve once.
-        assert!(manager.record_approval(&proposal.proposal_id, approver.clone(), true, None).is_ok());
+        assert!(
+            manager.record_approval(&proposal.proposal_id, approver.clone(), true, None).is_ok()
+        );
 
         // Duplicate response is rejected.
         assert!(manager.record_approval(&proposal.proposal_id, approver, true, None).is_err());
@@ -3249,7 +3242,8 @@ mod tests {
         })];
 
         // Without approval, the grant is filtered out.
-        let decision = engine.check_authorization_with_approvals(&ctx, &[grant.clone()], &approvals);
+        let decision =
+            engine.check_authorization_with_approvals(&ctx, &[grant.clone()], &approvals);
         assert!(!decision.is_allowed());
 
         // Submit and approve the proposal.

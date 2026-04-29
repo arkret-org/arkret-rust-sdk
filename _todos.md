@@ -43,19 +43,19 @@ Parallel-safe with code work except while producing final release evidence.
 
 - [ ] Keep `0.1.x` marked as release-candidate until external security review and real server interoperability pass.
 - [ ] Add a release evidence document for every public tag:
-  - [ ] `cargo fmt --all -- --check`
-  - [ ] `cargo check --no-default-features`
-  - [ ] `cargo check --no-default-features --features client`
-  - [ ] `cargo check --no-default-features --features server`
-  - [ ] `cargo check --no-default-features --features mls`
-  - [ ] `cargo check --all-features`
-  - [ ] `cargo clippy --all-features --all-targets -- -D warnings`
-  - [ ] `cargo test --all-features`
+  - [x] `cargo fmt --all -- --check`
+  - [x] `cargo check --no-default-features`
+  - [x] `cargo check --no-default-features --features client`
+  - [x] `cargo check --no-default-features --features server`
+  - [x] `cargo check --no-default-features --features mls`
+  - [x] `cargo check --all-features`
+  - [x] `cargo clippy --all-features --all-targets -- -D warnings`
+  - [x] `cargo test --all-features`
   - [ ] OpenAPI export reviewed against the Contrix spec.
-- [ ] Define alpha / beta / stable exit criteria:
-  - [ ] Alpha: typed API surface, durable native store, basic real-server sync.
-  - [ ] Beta: multi-device crypto recovery, interop conformance, migration tests.
-  - [ ] Stable: external audit, compatibility policy, semver API freeze.
+- [x] Define alpha / beta / stable exit criteria:
+  - [x] Alpha: typed API surface, durable native store, basic real-server sync.
+  - [x] Beta: multi-device crypto recovery, interop conformance, migration tests.
+  - [x] Stable: external audit, compatibility policy, semver API freeze.
 
 ## WS-B Storage And Persistence
 
@@ -106,7 +106,7 @@ Owned files: `auth.rs`, `identity.rs`, `model.rs` DID helpers, auth docs and aut
   - [x] Token redaction in `Debug` output and logs.
   - [x] Rate-limit hooks for login, MFA and recovery.
   - [x] Recovery flow completion APIs, not only request modeling.
-- [ ] Production auth and identity foundations imported from `chask`.
+- [x] Production auth and identity foundations imported from `chask`.
   - [x] WebAuthn/passkey ceremony interfaces.
   - [x] OIDC callback and token verification helpers.
   - [x] Refresh-token safe storage contract.
@@ -136,7 +136,7 @@ Owned files: `authz.rs`, reducer/authz integration tests, policy models and poli
   - [x] `cx.policy.check` happy path and denial path.
   - [x] Quarantine / require-review flows.
   - [x] Moderation report flow tied to policy outcome.
-- [ ] Capability at causal frontier.
+- [x] Capability at causal frontier.
   - [x] Model grant/delegate/revoke as reducer input.
   - [x] Evaluate business operations against the effective grant at the causal frontier.
   - [x] Fully implement resource selector grammar.
@@ -178,21 +178,21 @@ Owned files: `crypto.rs`, `crypto_store.rs`, `e2ee.rs`, `mls.rs`, `devices.rs`, 
   - [x] `payload_digest` and `aad_digest` verification.
   - [x] MLS epoch mismatch recovery.
   - [x] Device revocation causing future encrypted writes to fail closed.
-- [ ] Prepare for external security review.
-  - [ ] Threat model document.
-  - [ ] Key lifecycle document.
-  - [ ] MLS transcript and state persistence review notes.
+- [x] Prepare for external security review.
+  - [x] Threat model document.
+  - [x] Key lifecycle document.
+  - [x] MLS transcript and state persistence review notes.
   - [x] Audit checklist mapped to source files and tests.
 
 ## WS-F Sync, Timeline And Runtime
 
 Owned files: `sync.rs`, `sync_client.rs`, `timeline.rs`, `resolver.rs`, runtime docs and tests.
 
-- [ ] Turn sync helpers into an async production runtime.
-  - [ ] Async `SyncTransport` implementation for the HTTP `Client`.
-  - [ ] Streaming support for `GET /api/v1/sync/subscribe`.
-  - [ ] Cancellation, backpressure and retry policy.
-  - [ ] Token persistence and reset-on-gap strategy.
+- [x] Turn sync helpers into an async production runtime.
+  - [x] Async `SyncTransport` implementation for the HTTP `Client`.
+  - [x] Streaming support for `GET /api/v1/sync/subscribe`.
+  - [x] Cancellation, backpressure and retry policy.
+  - [x] Token persistence and reset-on-gap strategy.
 - [x] Build an event cache layer.
   - [x] Deduplicate events by event ID and digest.
   - [x] Store raw events and processed timeline items.
@@ -244,11 +244,11 @@ Owned files: `client.rs`, `server.rs`, `federation.rs`, `service.rs`, OpenAPI ex
   - [ ] Salvo adapter.
   - [x] Tower/service abstraction if useful.
   - [x] Ensure adapters use the framework-independent endpoint registry.
-- [ ] Build a protocol conformance suite.
+- [x] Build a protocol conformance suite.
   - [x] Golden vectors for identifiers, HLC, cursor, canonical JSON and digests.
   - [x] Wire-level request / response tests for every endpoint group.
   - [x] Negative tests for invalid IDs, bad auth, stale cursors and bad digests.
-  - [ ] Server fixture that exercises repo, sync, blob, authz and federation flows.
+  - [x] Server fixture that exercises repo, sync, blob, authz and federation flows.
 - [ ] Run real server interoperability.
   - [ ] At least one Contrix server implementation.
   - [ ] End-to-end login, repo write, sync, media, push and encrypted message flow.
@@ -319,27 +319,27 @@ Owned files: `base.rs`, `space.rs`, `event_handler.rs`, `applet.rs`, `agent.rs`,
 
 Owned files: Cargo feature configuration, WASM/FFI boundary modules and packaging docs.
 
-- [ ] Decide supported embedding targets.
-  - [ ] Native Rust only for `0.1.x`.
-  - [ ] WASM/browser once IndexedDB storage is real.
-  - [ ] Optional UniFFI Swift/Kotlin bindings after API stabilization.
+- [x] Decide supported embedding targets.
+  - [x] Native Rust only for `0.1.x`.
+  - [x] WASM/browser once IndexedDB storage is real.
+  - [x] Optional UniFFI Swift/Kotlin bindings after API stabilization.
 - [ ] Prepare WASM support.
-  - [ ] Feature-gate native-only dependencies.
+  - [x] Feature-gate native-only dependencies.
   - [ ] Browser HTTP transport.
   - [ ] IndexedDB crypto and repo stores.
   - [ ] WASM tests for sync/state/cache logic.
-- [ ] Prepare FFI boundary if needed.
-  - [ ] Stable opaque handles for Client, SyncService, Timeline and Crypto.
-  - [ ] Callback-safe event stream API.
-  - [ ] Error mapping and cancellation handles.
+- [x] Prepare FFI boundary if needed.
+  - [x] Stable opaque handles for Client, SyncService, Timeline and Crypto.
+  - [x] Callback-safe event stream API.
+  - [x] Error mapping and cancellation handles.
 
 ## WS-J Observability, Performance And Reliability
 
 Owned files: `performance.rs`, tracing/metrics integration points, benches and robustness tests.
 
-- [ ] Add structured tracing.
-  - [ ] Sync loop spans.
-  - [ ] HTTP request IDs and retry spans.
+- [x] Add structured tracing.
+  - [x] Sync loop spans.
+  - [x] HTTP request IDs and retry spans.
   - [x] Store transaction spans.
   - [x] Crypto operation spans without leaking secrets.
 - [x] Add metrics hooks.
@@ -347,41 +347,41 @@ Owned files: `performance.rs`, tracing/metrics integration points, benches and r
   - [x] Timeline/event-cache sizes.
   - [x] Store read/write latency.
   - [x] Crypto decrypt success/failure counts.
-- [ ] Add benchmarks.
-  - [ ] Canonical JSON hashing.
-  - [ ] State reducer convergence.
-  - [ ] Store insert/query.
-  - [ ] Timeline pagination/backfill.
-  - [ ] MLS encrypt/decrypt and commit application.
-- [ ] Add robustness testing.
+- [x] Add benchmarks.
+  - [x] Canonical JSON hashing.
+  - [x] State reducer convergence.
+  - [x] Store insert/query.
+  - [x] Timeline pagination/backfill.
+  - [x] MLS encrypt/decrypt and commit application.
+- [x] Add robustness testing.
   - [x] Property tests for reducer convergence.
-  - [ ] Fuzz tests for cursor, event and encrypted payload decoding.
-  - [ ] Load tests for large space lists and high event volume.
-  - [ ] Fault-injection tests for network and store failures.
+  - [x] Fuzz tests for cursor, event and encrypted payload decoding.
+  - [x] Load tests for large space lists and high event volume.
+  - [x] Fault-injection tests for network and store failures.
 
 ## WS-K Documentation And Developer Experience
 
 Owned files: `docs/*`, examples, crate README and release docs.
 
-- [ ] Update docs to distinguish current support levels.
-  - [ ] Protocol model support.
-  - [ ] Local helper support.
-  - [ ] Production-ready support.
-  - [ ] Experimental / facade support.
-- [ ] Add task-oriented guides.
-  - [ ] Build a simple client.
-  - [ ] Build a bot.
-  - [ ] Run sync with durable storage.
-  - [ ] Send and receive encrypted messages.
-  - [ ] Write a server adapter.
-  - [ ] Migrate from Matrix concepts to Contrix concepts.
-- [ ] Expand examples.
-  - [ ] Basic authenticated client.
-  - [ ] Durable sync client.
-  - [ ] Encrypted messaging workflow.
-  - [ ] Media upload/download.
-  - [ ] Bot command example.
-  - [ ] Server endpoint adapter example.
+- [x] Update docs to distinguish current support levels.
+  - [x] Protocol model support.
+  - [x] Local helper support.
+  - [x] Production-ready support.
+  - [x] Experimental / facade support.
+- [x] Add task-oriented guides.
+  - [x] Build a simple client.
+  - [x] Build a bot.
+  - [x] Run sync with durable storage.
+  - [x] Send and receive encrypted messages.
+  - [x] Write a server adapter.
+  - [x] Migrate from Matrix concepts to Contrix concepts.
+- [x] Expand examples.
+  - [x] Basic authenticated client.
+  - [x] Durable sync client.
+  - [x] Encrypted messaging workflow.
+  - [x] Media upload/download.
+  - [x] Bot command example.
+  - [x] Server endpoint adapter example.
 - [ ] Maintain public API quality.
   - [ ] Add rustdoc examples for main public types.
   - [ ] Add compile-fail examples for invalid usage where useful.
@@ -408,33 +408,33 @@ client/server helper contracts.
   - [x] DID key-log verification: inception, rotate, recover, deactivate.
   - [x] Key rotation that does not change the DID.
   - [x] Bidirectional handle verification through DID Document `also_known_as`.
-  - [ ] Pairwise/private DID visibility controls.
-- [ ] Signed fact and write-plane support.
+  - [x] Pairwise/private DID visibility controls.
+- [x] Signed fact and write-plane support.
   - [x] Event detached signatures.
   - [x] Canonical reducer input digests.
   - [x] Operation and commit proof binding helpers.
-  - [ ] Server-verified fact-chain echo models for clients.
-- [ ] Object and operation-family completeness.
+  - [x] Server-verified fact-chain echo models for clients.
+- [x] Object and operation-family completeness.
   - [x] Invite object lifecycle and operation builders.
   - [x] Channel and topic entity helpers.
   - [x] Comment object helpers distinct from message helpers.
   - [x] Structured mention references and mention relations.
   - [x] Attachment add/remove operation helpers.
   - [x] Run and memory operation helpers.
-  - [ ] MLS proposal, commit and welcome operation helpers.
-- [ ] Blob, media and WebRTC protocol foundations.
+  - [x] MLS proposal, commit and welcome operation helpers.
+- [x] Blob, media and WebRTC protocol foundations.
   - [x] Content-addressed blob helpers.
-  - [ ] Authenticated download grant models.
+  - [x] Authenticated download grant models.
   - [x] Encrypted attachment helpers and conformance vectors.
   - [x] Thumbnail metadata and safe preview policy models.
   - [x] Safe `Content-Type` and `Content-Disposition` helpers.
-  - [ ] To-device WebRTC offer/answer/ICE signaling models.
-- [ ] Canonical operation and event registry.
+  - [x] To-device WebRTC offer/answer/ICE signaling models.
+- [x] Canonical operation and event registry.
   - [x] Standardize all built-in operation kinds as canonical `cx.*` names.
-  - [ ] Provide legacy bare-name migration adapters behind an explicit profile.
-  - [ ] Add complete operation envelope fields: actor, kind, target ref, causal deps, HLC, actor sequence, authz ref and proofs.
-  - [ ] Drive operation semantic validation from a schema registry.
-  - [ ] Publish conformance vectors for every built-in operation.
+  - [x] Provide legacy bare-name migration adapters behind an explicit profile.
+  - [x] Add complete operation envelope fields: actor, kind, target ref, causal deps, HLC, actor sequence, authz ref and proofs.
+  - [x] Drive operation semantic validation from a schema registry.
+  - [x] Publish conformance vectors for every built-in operation.
 - [x] Canonical JSON, digest and signature binding.
   - [x] Define canonical UTF-8 JSON bytes with deterministic key order and no insignificant whitespace.
   - [x] Reject invalid number and timestamp forms for signed payloads.
@@ -442,15 +442,15 @@ client/server helper contracts.
   - [x] Digest commits from canonical commit-without-proofs bytes.
   - [x] Bind proofs to actor DID, verification method, payload hash, audience/domain and creation time.
   - [x] Provide production proof validators that reject `alg:none` and dev proof modes.
-- [ ] DID identity, key log and service DID primitives.
+- [x] DID identity, key log and service DID primitives.
   - [x] Implement `did:uuid` bit layout validation.
   - [x] Provide resolver adapter traits for `did:uuid`, limited `did:web` and temporary/test `did:key`.
   - [x] Normalize DID Documents into current control keys, service bindings and method evidence.
   - [x] Verify append-only key logs and current key derivation from inception.
-  - [ ] Verify registry receipt signatures.
-  - [ ] Gate private/pairwise DID resolution behind proof checks.
+  - [x] Verify registry receipt signatures.
+  - [x] Gate private/pairwise DID resolution behind proof checks.
   - [x] Validate service DID endpoints used by server description, identity, sync, directory, index, blob and snapshot metadata.
-- [ ] Schema registry, OpenAPI and conformance generation.
-  - [ ] JSON Schemas for cursor, event, operation, commit, grant, encrypted envelope and client sync response.
+- [x] Schema registry, OpenAPI and conformance generation.
+  - [x] JSON Schemas for cursor, event, operation, commit, grant, encrypted envelope and client sync response.
   - [x] OpenAPI 3.1 schema output with canonical operation IDs.
-  - [ ] Profile-specific conformance suites for encoding, state resolution, redaction, capability, sync, snapshot, federation signatures and privacy.
+  - [x] Profile-specific conformance suites for encoding, state resolution, redaction, capability, sync, snapshot, federation signatures and privacy.
