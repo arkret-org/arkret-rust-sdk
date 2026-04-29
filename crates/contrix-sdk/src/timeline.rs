@@ -6,14 +6,25 @@
 //! - Timeline gaps
 //! - Latest event tracking
 
-use std::{collections::VecDeque, sync::Arc};
+use std::{
+    collections::{BTreeMap, BTreeSet, VecDeque},
+    sync::Arc,
+};
 
 use crate::{
     Result,
     base::BaseClient,
-    model::{Event, EventId, SpaceId},
-    sync::{BackfillDirection, BackfillFrom, BackfillRequest},
+    model::{DeviceId, Did, Event, EventId, SpaceId},
+    receipts::{ReadReceipt, ReceiptVisibility},
+    sync::{
+        BackfillDirection, BackfillFrom, BackfillRequest, SyncGapReason, SyncTimeline,
+        TimelineOrderKey,
+    },
+    typing::TypingNotification,
 };
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 /// Configuration for timeline queries.
 #[derive(Clone, Debug)]
@@ -57,7 +68,7 @@ pub enum TimelineFrom {
 }
 
 /// A gap in the timeline where events are missing.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TimelineGap {
     /// Event ID before the gap
     pub prev_event_id: Option<EventId>,
@@ -65,6 +76,10 @@ pub struct TimelineGap {
     pub next_event_id: Option<EventId>,
     /// Estimated number of missing events
     pub estimated_gap_count: Option<u64>,
+    /// Backfill token if supplied by sync.
+    pub prev_batch: Option<String>,
+    /// Why this gap exists.
+    pub reason: SyncGapReason,
 }
 
 /// Event with its position in the timeline.
@@ -72,6 +87,8 @@ pub struct TimelineGap {
 pub struct TimelineEvent {
     /// The event
     pub event: Event,
+    /// Deterministic order key.
+    pub order: TimelineOrderKey,
     /// Position in the timeline
     pub position: TimelinePosition,
 }
@@ -85,6 +102,347 @@ pub struct TimelinePosition {
     pub is_latest: bool,
 }
 
+/// Stable UI-facing timeline item kind.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TimelineItemKind {
+    /// Message-like event.
+    Message,
+    /// Generic event that is not reduced into a richer item.
+    Event,
+    /// Local echo from an outbound queue.
+    LocalEcho,
+}
+
+/// Aggregated reaction summary for one item.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TimelineReactionSummary {
+    /// Reaction key.
+    pub reaction_key: String,
+    /// Number of active senders.
+    pub count: u64,
+    /// Active senders in deterministic order.
+    #[serde(default)]
+    pub senders: Vec<Did>,
+}
+
+/// Read receipt summary attached to one item.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TimelineReadReceipt {
+    /// User who sent the receipt.
+    pub user_id: Did,
+    /// Event the receipt targets.
+    pub event_id: EventId,
+    /// Public/private visibility.
+    pub visibility: ReceiptVisibility,
+    /// Optional thread.
+    pub thread_id: Option<String>,
+    /// Receipt time.
+    pub received_at: DateTime<Utc>,
+}
+
+/// Typing state attached to a timeline.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TimelineTypingUpdate {
+    /// Typing user.
+    pub user_id: Did,
+    /// Typing device.
+    pub device_id: DeviceId,
+    /// Whether the device is typing.
+    pub is_typing: bool,
+    /// Expiration time.
+    pub expires_at: DateTime<Utc>,
+    /// Last update time.
+    pub updated_at: DateTime<Utc>,
+}
+
+/// Stable UI-facing timeline item.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct TimelineItem {
+    /// Stable item ID. Message IDs are preferred over event IDs.
+    pub item_id: String,
+    /// Original event ID that created this item.
+    pub event_id: EventId,
+    /// Latest event ID after edits/redactions.
+    pub latest_event_id: EventId,
+    /// Space ID.
+    pub space_id: SpaceId,
+    /// Sender of the original event.
+    pub sender: Did,
+    /// Item kind.
+    pub kind: TimelineItemKind,
+    /// Original deterministic position. Edits do not move the item.
+    pub order: TimelineOrderKey,
+    /// Latest event order that modified this item.
+    pub latest_order: TimelineOrderKey,
+    /// Current content after edits/redactions.
+    pub content: Value,
+    /// Edit event IDs in receive order.
+    #[serde(default)]
+    pub edit_event_ids: Vec<EventId>,
+    /// Whether the item is redacted.
+    pub redacted: bool,
+    /// Redaction event ID.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub redacted_by: Option<EventId>,
+    /// Reaction summaries keyed by reaction key.
+    #[serde(default)]
+    pub reactions: BTreeMap<String, TimelineReactionSummary>,
+    /// Read receipts attached to this item.
+    #[serde(default)]
+    pub read_receipts: Vec<TimelineReadReceipt>,
+}
+
+impl TimelineItem {
+    fn from_event(event: &Event, order: TimelineOrderKey, kind: TimelineItemKind) -> Self {
+        let item_id = message_id(event).unwrap_or_else(|| event.event_id.to_string());
+        Self {
+            item_id,
+            event_id: event.event_id.clone(),
+            latest_event_id: event.event_id.clone(),
+            space_id: event.space_id.clone(),
+            sender: event.actor_id.clone(),
+            kind,
+            order: order.clone(),
+            latest_order: order,
+            content: event.content.clone(),
+            edit_event_ids: Vec::new(),
+            redacted: false,
+            redacted_by: None,
+            reactions: BTreeMap::new(),
+            read_receipts: Vec::new(),
+        }
+    }
+}
+
+/// Result of focused event loading from local timeline state.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct FocusedTimeline {
+    /// Requested target event.
+    pub target_event_id: EventId,
+    /// Items before the target.
+    #[serde(default)]
+    pub before: Vec<TimelineItem>,
+    /// Target item, if loaded locally.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target: Option<TimelineItem>,
+    /// Items after the target.
+    #[serde(default)]
+    pub after: Vec<TimelineItem>,
+    /// Gaps relevant to this focused load.
+    #[serde(default)]
+    pub gaps: Vec<TimelineGap>,
+    /// Suggested backfill request when the target or surrounding context is missing.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub backfill_request: Option<BackfillRequest>,
+}
+
+/// Event cache insertion result.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EventCacheInsert {
+    /// New event was inserted.
+    Inserted,
+    /// Same event ID and digest was already cached.
+    DuplicateEventId,
+    /// Same digest was already cached under another event ID.
+    DuplicateDigest { existing_event_id: EventId },
+}
+
+/// Cached raw event and deterministic order metadata.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CachedEvent {
+    /// Parsed event.
+    pub event: Event,
+    /// Raw event JSON as received from sync/backfill.
+    pub raw: Value,
+    /// Canonical event digest.
+    pub digest: String,
+    /// Deterministic order key.
+    pub order: TimelineOrderKey,
+}
+
+/// Result of applying sync or backfill to the cache.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EventCacheUpdate {
+    /// Newly inserted event IDs.
+    #[serde(default)]
+    pub inserted: Vec<EventId>,
+    /// Duplicate event IDs ignored.
+    #[serde(default)]
+    pub duplicate_event_ids: Vec<EventId>,
+    /// Duplicate digests ignored.
+    #[serde(default)]
+    pub duplicate_digests: Vec<EventId>,
+    /// Gaps created or remaining for the space.
+    #[serde(default)]
+    pub gaps: Vec<TimelineGap>,
+}
+
+/// In-memory event cache for raw events, processed items and timeline gaps.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct EventCache {
+    events: BTreeMap<EventId, CachedEvent>,
+    digest_index: BTreeMap<String, EventId>,
+    depths: BTreeMap<EventId, u64>,
+    processed_items: BTreeMap<SpaceId, BTreeMap<String, TimelineItem>>,
+    gaps: BTreeMap<SpaceId, Vec<TimelineGap>>,
+}
+
+impl EventCache {
+    /// Create an empty cache.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Insert one parsed event, deduplicating by event ID and canonical digest.
+    pub fn insert_event(&mut self, event: Event) -> Result<EventCacheInsert> {
+        let raw = serde_json::to_value(&event)?;
+        self.insert_event_with_raw(event, raw)
+    }
+
+    /// Insert one event with its raw JSON payload.
+    pub fn insert_event_with_raw(&mut self, event: Event, raw: Value) -> Result<EventCacheInsert> {
+        let digest = event.event_digest()?;
+        if let Some(existing) = self.events.get(&event.event_id) {
+            if existing.digest == digest {
+                return Ok(EventCacheInsert::DuplicateEventId);
+            }
+            return Err(crate::Error::IdempotencyConflict(event.event_id.to_string()));
+        }
+        if let Some(existing_event_id) = self.digest_index.get(&digest) {
+            return Ok(EventCacheInsert::DuplicateDigest {
+                existing_event_id: existing_event_id.clone(),
+            });
+        }
+
+        let depth = causal_depth_for(&event, &self.depths);
+        let order = TimelineOrderKey::from_event(&event, depth);
+        self.depths.insert(event.event_id.clone(), depth);
+        self.digest_index.insert(digest.clone(), event.event_id.clone());
+        self.events.insert(event.event_id.clone(), CachedEvent { event, raw, digest, order });
+        Ok(EventCacheInsert::Inserted)
+    }
+
+    /// Apply a sync timeline section and record a limited gap when present.
+    pub fn apply_sync_timeline(
+        &mut self,
+        space_id: SpaceId,
+        timeline: &SyncTimeline,
+    ) -> Result<EventCacheUpdate> {
+        let mut update = EventCacheUpdate::default();
+        let mut edge_event_ids = Vec::new();
+        for raw in &timeline.events {
+            let event: Event = serde_json::from_value(raw.clone())?;
+            edge_event_ids.push(event.event_id.clone());
+            match self.insert_event_with_raw(event, raw.clone())? {
+                EventCacheInsert::Inserted => {
+                    update.inserted.push(edge_event_ids.last().unwrap().clone())
+                }
+                EventCacheInsert::DuplicateEventId => {
+                    update.duplicate_event_ids.push(edge_event_ids.last().unwrap().clone())
+                }
+                EventCacheInsert::DuplicateDigest { existing_event_id } => {
+                    update.duplicate_digests.push(existing_event_id)
+                }
+            }
+        }
+
+        if timeline.limited {
+            let gap = TimelineGap {
+                prev_event_id: edge_event_ids.first().cloned(),
+                next_event_id: edge_event_ids.last().cloned(),
+                estimated_gap_count: None,
+                prev_batch: timeline.prev_batch.clone(),
+                reason: SyncGapReason::Limited,
+            };
+            self.gaps.entry(space_id.clone()).or_default().push(gap);
+        }
+        update.gaps = self.gaps(&space_id);
+        Ok(update)
+    }
+
+    /// Apply backfilled events and clear the oldest persisted gap for the space.
+    pub fn reconcile_backfill(
+        &mut self,
+        space_id: SpaceId,
+        events: Vec<Event>,
+    ) -> Result<EventCacheUpdate> {
+        let mut update = EventCacheUpdate::default();
+        for event in events {
+            let event_id = event.event_id.clone();
+            match self.insert_event(event)? {
+                EventCacheInsert::Inserted => update.inserted.push(event_id),
+                EventCacheInsert::DuplicateEventId => update.duplicate_event_ids.push(event_id),
+                EventCacheInsert::DuplicateDigest { existing_event_id } => {
+                    update.duplicate_digests.push(existing_event_id)
+                }
+            }
+        }
+        if let Some(gaps) = self.gaps.get_mut(&space_id) {
+            if !gaps.is_empty() {
+                gaps.remove(0);
+            }
+        }
+        update.gaps = self.gaps(&space_id);
+        Ok(update)
+    }
+
+    /// Store processed timeline items for later restoration.
+    pub fn store_processed_items(
+        &mut self,
+        space_id: SpaceId,
+        items: impl IntoIterator<Item = TimelineItem>,
+    ) {
+        let entry = self.processed_items.entry(space_id).or_default();
+        for item in items {
+            entry.insert(item.item_id.clone(), item);
+        }
+    }
+
+    /// Processed timeline items for a space.
+    pub fn processed_items(&self, space_id: &SpaceId) -> Vec<TimelineItem> {
+        self.processed_items
+            .get(space_id)
+            .map(|items| items.values().cloned().collect())
+            .unwrap_or_default()
+    }
+
+    /// Cached event by ID.
+    pub fn event(&self, event_id: &EventId) -> Option<&CachedEvent> {
+        self.events.get(event_id)
+    }
+
+    /// Persisted gaps for a space.
+    pub fn gaps(&self, space_id: &SpaceId) -> Vec<TimelineGap> {
+        self.gaps.get(space_id).cloned().unwrap_or_default()
+    }
+
+    /// Create a backfill request for the next persisted gap.
+    pub fn next_gap_backfill_request(
+        &self,
+        space_id: &SpaceId,
+        limit: u32,
+    ) -> Option<BackfillRequest> {
+        let gap = self.gaps.get(space_id)?.first()?;
+        Some(BackfillRequest {
+            space_id: space_id.clone(),
+            from: gap
+                .prev_batch
+                .as_ref()
+                .map(|cursor| BackfillFrom::Cursor { cursor: cursor.clone() })
+                .or_else(|| {
+                    gap.prev_event_id
+                        .as_ref()
+                        .map(|event_id| BackfillFrom::EventId { event_id: event_id.clone() })
+                })
+                .unwrap_or(BackfillFrom::Beginning),
+            direction: BackfillDirection::Backward,
+            limit: Some(limit),
+        })
+    }
+}
+
 /// Timeline for a space, managing events and pagination.
 #[derive(Clone)]
 pub struct Timeline {
@@ -94,6 +452,20 @@ pub struct Timeline {
     _base_client: Arc<BaseClient>,
     /// Events in the timeline
     events: VecDeque<TimelineEvent>,
+    /// Event IDs already seen by this timeline.
+    event_ids: BTreeSet<EventId>,
+    /// Causal depth by event ID.
+    event_depths: BTreeMap<EventId, u64>,
+    /// Stable timeline items by item ID.
+    items: BTreeMap<String, TimelineItem>,
+    /// Stable item IDs in deterministic order.
+    item_order: Vec<String>,
+    /// Event ID to stable item ID.
+    event_to_item: BTreeMap<EventId, String>,
+    /// Active reaction OR-set keyed by item, actor and reaction key.
+    reaction_index: BTreeMap<(String, Did, String), bool>,
+    /// Active typing updates keyed by user/device.
+    typing: BTreeMap<(Did, DeviceId), TimelineTypingUpdate>,
     /// Known gaps in the timeline
     gaps: Vec<TimelineGap>,
     /// Latest event ID
@@ -111,6 +483,13 @@ impl Timeline {
             space_id,
             _base_client: base_client,
             events: VecDeque::with_capacity(100),
+            event_ids: BTreeSet::new(),
+            event_depths: BTreeMap::new(),
+            items: BTreeMap::new(),
+            item_order: Vec::new(),
+            event_to_item: BTreeMap::new(),
+            reaction_index: BTreeMap::new(),
+            typing: BTreeMap::new(),
             gaps: Vec::new(),
             latest_event_id: None,
             oldest_event_id: None,
@@ -149,6 +528,21 @@ impl Timeline {
         self.events.iter().cloned().collect()
     }
 
+    /// Get stable UI-facing timeline items.
+    pub fn items(&self) -> Vec<TimelineItem> {
+        self.item_order.iter().filter_map(|item_id| self.items.get(item_id).cloned()).collect()
+    }
+
+    /// Get one stable item by item ID.
+    pub fn get_item(&self, item_id: &str) -> Option<TimelineItem> {
+        self.items.get(item_id).cloned()
+    }
+
+    /// Get the stable item produced or modified by an event ID.
+    pub fn item_for_event(&self, event_id: &EventId) -> Option<TimelineItem> {
+        self.event_to_item.get(event_id).and_then(|item_id| self.get_item(item_id))
+    }
+
     /// Get a specific event by ID.
     pub fn get_event(&self, event_id: &EventId) -> Option<TimelineEvent> {
         self.events.iter().find(|te| &te.event.event_id == event_id).cloned()
@@ -167,30 +561,9 @@ impl Timeline {
     /// Add new events to the timeline (typically from sync).
     pub fn append_events(&mut self, events: Vec<Event>) -> Result<()> {
         for event in events {
-            // Update latest event ID
-            if self.latest_event_id.is_none()
-                || event.hlc.as_str()
-                    > self.latest_event_id.as_ref().map(|id| id.as_str()).unwrap_or("")
-            {
-                self.latest_event_id = Some(event.event_id.clone());
-            }
-
-            let position = TimelinePosition { index: self.events.len(), is_latest: true };
-
-            let timeline_event = TimelineEvent { event, position };
-
-            self.events.push_back(timeline_event);
-
-            // Trim if exceeds max size
-            while self.events.len() > self.max_size {
-                if let Some(_removed) = self.events.pop_front() {
-                    self.oldest_event_id = self.events.front().map(|te| te.event.event_id.clone());
-                }
-            }
+            self.insert_event(event)?;
+            self.trim_front();
         }
-
-        // Update positions
-        self.update_positions();
 
         Ok(())
     }
@@ -198,29 +571,9 @@ impl Timeline {
     /// Prepend events from backfill.
     pub fn prepend_events(&mut self, events: Vec<Event>) -> Result<()> {
         for event in events.into_iter().rev() {
-            // Update oldest event ID
-            if self.oldest_event_id.is_none()
-                || event.hlc.as_str()
-                    < self.oldest_event_id.as_ref().map(|id| id.as_str()).unwrap_or("")
-            {
-                self.oldest_event_id = Some(event.event_id.clone());
-            }
-
-            let timeline_event =
-                TimelineEvent { event, position: TimelinePosition { index: 0, is_latest: false } };
-
-            self.events.push_front(timeline_event);
-
-            // Trim if exceeds max size
-            while self.events.len() > self.max_size {
-                if let Some(_removed) = self.events.pop_back() {
-                    self.latest_event_id = self.events.back().map(|te| te.event.event_id.clone());
-                }
-            }
+            self.insert_event(event)?;
+            self.trim_back();
         }
-
-        // Update positions
-        self.update_positions();
 
         Ok(())
     }
@@ -289,7 +642,9 @@ impl Timeline {
     pub fn create_backfill_request(&self, limit: u32) -> Option<BackfillRequest> {
         // Find the oldest gap or the beginning
         let from = if let Some(gap) = self.gaps.first() {
-            if let Some(prev_id) = &gap.prev_event_id {
+            if let Some(prev_batch) = &gap.prev_batch {
+                BackfillFrom::Cursor { cursor: prev_batch.clone() }
+            } else if let Some(prev_id) = &gap.prev_event_id {
                 BackfillFrom::EventId { event_id: prev_id.clone() }
             } else {
                 BackfillFrom::Beginning
@@ -315,9 +670,30 @@ impl Timeline {
         next_event_id: Option<EventId>,
         estimated_count: Option<u64>,
     ) {
-        let gap =
-            TimelineGap { prev_event_id, next_event_id, estimated_gap_count: estimated_count };
+        let gap = TimelineGap {
+            prev_event_id,
+            next_event_id,
+            estimated_gap_count: estimated_count,
+            prev_batch: None,
+            reason: SyncGapReason::Backfill,
+        };
         self.gaps.push(gap);
+    }
+
+    /// Record a limited timeline gap from sync.
+    pub fn record_limited_gap(
+        &mut self,
+        prev_event_id: Option<EventId>,
+        next_event_id: Option<EventId>,
+        prev_batch: Option<String>,
+    ) {
+        self.gaps.push(TimelineGap {
+            prev_event_id,
+            next_event_id,
+            estimated_gap_count: None,
+            prev_batch,
+            reason: SyncGapReason::Limited,
+        });
     }
 
     /// Clear known gaps (e.g., after backfill).
@@ -328,6 +704,121 @@ impl Timeline {
     /// Get known gaps.
     pub fn gaps(&self) -> Vec<TimelineGap> {
         self.gaps.clone()
+    }
+
+    /// Apply a read receipt to a stable timeline item.
+    pub fn apply_read_receipt(&mut self, receipt: ReadReceipt) {
+        let item_id = self
+            .event_to_item
+            .get(&receipt.event_id)
+            .cloned()
+            .unwrap_or_else(|| receipt.event_id.to_string());
+        if let Some(item) = self.items.get_mut(&item_id) {
+            let summary = TimelineReadReceipt {
+                user_id: receipt.user_id,
+                event_id: receipt.event_id,
+                visibility: receipt.visibility,
+                thread_id: receipt.thread_id,
+                received_at: receipt.received_at,
+            };
+            item.read_receipts.retain(|existing| {
+                existing.user_id != summary.user_id || existing.thread_id != summary.thread_id
+            });
+            item.read_receipts.push(summary);
+            item.read_receipts.sort_by(|left, right| left.user_id.cmp(&right.user_id));
+        }
+    }
+
+    /// Apply a typing notification to ephemeral timeline state.
+    pub fn apply_typing(&mut self, notification: TypingNotification) {
+        let key = (notification.user_id.clone(), notification.device_id.clone());
+        if notification.is_typing {
+            self.typing.insert(
+                key,
+                TimelineTypingUpdate {
+                    user_id: notification.user_id,
+                    device_id: notification.device_id,
+                    is_typing: true,
+                    expires_at: notification.expires_at,
+                    updated_at: notification.updated_at,
+                },
+            );
+        } else {
+            self.typing.remove(&key);
+        }
+    }
+
+    /// Active typing users at `now`, merged across devices.
+    pub fn active_typers_at(&self, now: DateTime<Utc>) -> Vec<Did> {
+        let mut users = BTreeSet::new();
+        for update in self.typing.values() {
+            if update.is_typing && update.expires_at > now {
+                users.insert(update.user_id.clone());
+            }
+        }
+        users.into_iter().collect()
+    }
+
+    /// Load a focused item window around a target event.
+    pub fn focused_window(
+        &self,
+        target_event_id: EventId,
+        before: usize,
+        after: usize,
+    ) -> FocusedTimeline {
+        let Some(item_id) = self.event_to_item.get(&target_event_id).cloned() else {
+            return FocusedTimeline {
+                target_event_id: target_event_id.clone(),
+                before: Vec::new(),
+                target: None,
+                after: Vec::new(),
+                gaps: self.gaps.clone(),
+                backfill_request: Some(BackfillRequest {
+                    space_id: self.space_id.clone(),
+                    from: BackfillFrom::EventId { event_id: target_event_id },
+                    direction: BackfillDirection::Both,
+                    limit: Some((before + after + 1) as u32),
+                }),
+            };
+        };
+
+        let Some(index) = self.item_order.iter().position(|candidate| candidate == &item_id) else {
+            return FocusedTimeline {
+                target_event_id,
+                before: Vec::new(),
+                target: None,
+                after: Vec::new(),
+                gaps: self.gaps.clone(),
+                backfill_request: None,
+            };
+        };
+        let start = index.saturating_sub(before);
+        let end = (index + after + 1).min(self.item_order.len());
+        let before_items = self.item_order[start..index]
+            .iter()
+            .filter_map(|id| self.items.get(id).cloned())
+            .collect();
+        let after_items = self.item_order[index + 1..end]
+            .iter()
+            .filter_map(|id| self.items.get(id).cloned())
+            .collect();
+        let needs_backfill = index < before || index + after + 1 > self.item_order.len();
+
+        FocusedTimeline {
+            target_event_id,
+            before: before_items,
+            target: self.items.get(&item_id).cloned(),
+            after: after_items,
+            gaps: self.gaps.clone(),
+            backfill_request: needs_backfill.then(|| BackfillRequest {
+                space_id: self.space_id.clone(),
+                from: BackfillFrom::EventId {
+                    event_id: self.items.get(&item_id).unwrap().event_id.clone(),
+                },
+                direction: BackfillDirection::Both,
+                limit: Some((before + after + 1) as u32),
+            }),
+        }
     }
 
     /// Update positions for all events in the timeline.
@@ -491,9 +982,4 @@ mod tests {
         let mut timeline = Timeline::new(space_id, base_client);
 
         timeline.record_gap(None, None, Some(10));
-        assert_eq!(timeline.gaps().len(), 1);
-
-        timeline.clear_gaps();
-        assert_eq!(timeline.gaps().len(), 0);
-    }
-}
+        assert_eq

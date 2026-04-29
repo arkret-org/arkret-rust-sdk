@@ -262,6 +262,27 @@ impl FederationManager {
         FederationRequest { request_id, origin, destination, path, payload, signature }
     }
 
+    /// Verify a signed cross-domain request using the origin trust anchor.
+    pub fn verify_request(&self, request: &FederationRequest) -> bool {
+        self.trust_anchors
+            .get(&request.origin)
+            .map(|anchor| {
+                request.signature
+                    == federation_signature(
+                        &request.request_id,
+                        &request.origin,
+                        &request.destination,
+                        &format!(
+                            "{}:{}",
+                            request.path,
+                            serde_json::to_string(&request.payload).unwrap_or_default()
+                        ),
+                        &anchor.public_key,
+                    )
+            })
+            .unwrap_or(false)
+    }
+
     /// Register server discovery information.
     pub fn register_server(&mut self, info: ServerInfo) {
         self.servers.insert(info.domain.clone(), info);
@@ -329,6 +350,236 @@ impl FederationManager {
         self.deployment = serde_json::from_str(json)?;
         Ok(())
     }
+
+    /// Check and remember federation transaction replay state.
+    pub fn check_transaction_replay(
+        &mut self,
+        transaction_id: impl Into<String>,
+        content_digest: impl Into<String>,
+        now: DateTime<Utc>,
+    ) -> FederationReplayDecision {
+        check_replay(self, transaction_id.into(), content_digest.into(), now)
+    }
+}
+
+impl FederationReplayStore for FederationManager {
+    fn replay_record(&self, transaction_id: &str) -> Option<&FederationReplayRecord> {
+        self.replay.get(transaction_id)
+    }
+
+    fn remember_replay_record(&mut self, record: FederationReplayRecord) {
+        self.replay.insert(record.transaction_id.clone(), record);
+    }
+}
+
+impl<T> FederationTransactionEnvelope<T>
+where
+    T: Serialize,
+{
+    pub fn new(
+        transaction_id: impl Into<String>,
+        origin_service_did: Did,
+        destination_service_did: Did,
+        issued_at: DateTime<Utc>,
+        expires_at: DateTime<Utc>,
+        payload: T,
+    ) -> Result<Self> {
+        let content_digest = content_digest_sha256(&serde_json::to_vec(&payload)?);
+        Ok(Self {
+            transaction_id: transaction_id.into(),
+            origin_service_did,
+            destination_service_did,
+            issued_at,
+            expires_at,
+            content_digest,
+            payload,
+            signature: None,
+        })
+    }
+
+    pub fn with_signature(mut self, signature: HttpMessageSignature) -> Self {
+        self.signature = Some(signature);
+        self
+    }
+}
+
+impl FederationBackfillAuthorization {
+    pub fn allows_pull(&self) -> bool {
+        self.history_visible && (self.service_delegated || self.plaintext_visible_to_service)
+    }
+}
+
+pub fn content_digest_sha256(bytes: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    format!("sha256:{:x}", hasher.finalize())
+}
+
+pub fn http_message_signature_base(input: &HttpMessageSignatureInput) -> String {
+    format!(
+        "method:{}\ntarget-uri:{}\nauthority:{}\ncontent-digest:{}\norigin-service-did:{}\ndestination-service-did:{}\ncreated:{}\nexpires:{}",
+        input.method.to_ascii_uppercase(),
+        input.target_uri,
+        input.authority,
+        input.content_digest,
+        input.origin_service_did,
+        input.destination_service_did,
+        input.created_at.to_rfc3339(),
+        input.expires_at.to_rfc3339()
+    )
+}
+
+pub fn sign_http_message(
+    input: &HttpMessageSignatureInput,
+    key_id: impl Into<String>,
+    signing_key: &str,
+) -> HttpMessageSignature {
+    HttpMessageSignature {
+        key_id: key_id.into(),
+        alg: "cx-sha256-test".to_owned(),
+        signed_fields: vec![
+            "method".to_owned(),
+            "target-uri".to_owned(),
+            "authority".to_owned(),
+            "content-digest".to_owned(),
+            "origin-service-did".to_owned(),
+            "destination-service-did".to_owned(),
+            "created".to_owned(),
+            "expires".to_owned(),
+        ],
+        signature: signature_digest(&http_message_signature_base(input), signing_key),
+    }
+}
+
+pub fn verify_http_message_signature(
+    input: &HttpMessageSignatureInput,
+    signature: &HttpMessageSignature,
+    verification_key: &str,
+    now: DateTime<Utc>,
+) -> bool {
+    if now < input.created_at || now > input.expires_at {
+        return false;
+    }
+    signature.alg == "cx-sha256-test"
+        && signature.signature
+            == signature_digest(&http_message_signature_base(input), verification_key)
+}
+
+pub fn did_document_service_endpoint_matches(
+    did_document: &Value,
+    service_did: &Did,
+    service_type: &str,
+    endpoint: &str,
+) -> bool {
+    did_document.get("id").and_then(Value::as_str) == Some(service_did.as_str())
+        && did_document
+            .get("service")
+            .map(|services| match services {
+                Value::Array(values) => values
+                    .iter()
+                    .any(|service| service_endpoint_matches(service, service_type, endpoint)),
+                Value::Object(_) => service_endpoint_matches(services, service_type, endpoint),
+                _ => false,
+            })
+            .unwrap_or(false)
+}
+
+pub fn check_replay<S>(
+    store: &mut S,
+    transaction_id: String,
+    content_digest: String,
+    now: DateTime<Utc>,
+) -> FederationReplayDecision
+where
+    S: FederationReplayStore,
+{
+    if let Some(record) = store.replay_record(&transaction_id) {
+        return if record.content_digest == content_digest {
+            FederationReplayDecision::AcceptedDuplicate
+        } else {
+            FederationReplayDecision::QuarantinedConflict
+        };
+    }
+
+    store.remember_replay_record(FederationReplayRecord {
+        transaction_id,
+        content_digest,
+        first_seen_at: now,
+    });
+    FederationReplayDecision::AcceptedNew
+}
+
+pub fn duplicate_transaction_quarantine(
+    transaction_id: impl Into<String>,
+    expected_digest: impl Into<String>,
+    observed_digest: impl Into<String>,
+) -> FederationQuarantineRecord {
+    FederationQuarantineRecord {
+        kind: FederationQuarantineKind::DuplicateTransactionConflict,
+        object_id: transaction_id.into(),
+        expected_digest: Some(expected_digest.into()),
+        observed_digest: Some(observed_digest.into()),
+        reason: "idempotent transaction id was reused with different bytes".to_owned(),
+    }
+}
+
+pub fn fork_quarantine_record(
+    kind: FederationQuarantineKind,
+    object_id: impl Into<String>,
+    expected_digest: impl Into<String>,
+    observed_digest: impl Into<String>,
+) -> Result<FederationQuarantineRecord> {
+    if !matches!(
+        kind,
+        FederationQuarantineKind::CommitFork | FederationQuarantineKind::OperationFork
+    ) {
+        return Err(Error::Protocol(
+            "fork quarantine requires commit or operation kind".to_owned(),
+        ));
+    }
+
+    Ok(FederationQuarantineRecord {
+        kind,
+        object_id: object_id.into(),
+        expected_digest: Some(expected_digest.into()),
+        observed_digest: Some(observed_digest.into()),
+        reason: "same logical object observed with conflicting digest".to_owned(),
+    })
+}
+
+pub fn verify_actor_challenge_payload(challenge: &VerifyActorChallenge) -> String {
+    format!(
+        "verify-actor|actor:{}|origin:{}|destination:{}|challenge:{}|purpose:{}|expires:{}|payload-hash:{}",
+        challenge.actor_id,
+        challenge.origin_service_did,
+        challenge.destination_service_did,
+        challenge.challenge,
+        challenge.purpose,
+        challenge.expires_at.to_rfc3339(),
+        challenge.payload_hash.as_deref().unwrap_or("")
+    )
+}
+
+pub fn sign_verify_actor_challenge(
+    challenge: &VerifyActorChallenge,
+    key_id: impl Into<String>,
+    signing_key: &str,
+) -> VerifyActorChallengeSignature {
+    VerifyActorChallengeSignature {
+        key_id: key_id.into(),
+        signature: signature_digest(&verify_actor_challenge_payload(challenge), signing_key),
+    }
+}
+
+pub fn verify_actor_challenge_signature(
+    challenge: &VerifyActorChallenge,
+    signature: &VerifyActorChallengeSignature,
+    verification_key: &str,
+    now: DateTime<Utc>,
+) -> bool {
+    now <= challenge.expires_at
+        && signature.signature
+            == signature_digest(&verify_actor_challenge_payload(challenge), verification_key)
 }
 
 fn federation_signature(
@@ -345,6 +596,24 @@ fn federation_signature(
     hasher.update(payload.as_bytes());
     hasher.update(key.as_bytes());
     format!("{:x}", hasher.finalize())
+}
+
+fn signature_digest(payload: &str, key: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(payload.as_bytes());
+    hasher.update(key.as_bytes());
+    format!("{:x}", hasher.finalize())
+}
+
+fn service_endpoint_matches(service: &Value, service_type: &str, endpoint: &str) -> bool {
+    service.get("type").and_then(Value::as_str) == Some(service_type)
+        && match service.get("serviceEndpoint") {
+            Some(Value::String(value)) => value == endpoint,
+            Some(Value::Array(values)) => {
+                values.iter().any(|value| value.as_str() == Some(endpoint))
+            }
+            _ => false,
+        }
 }
 
 #[cfg(test)]
@@ -377,6 +646,7 @@ mod tests {
             "shared-key",
         );
         assert_eq!(request.origin, "a.example");
+        assert!(manager.verify_request(&request));
     }
 
     #[test]
@@ -424,5 +694,125 @@ mod tests {
         let mut imported = FederationManager::new();
         imported.import_deployment(&exported).unwrap();
         assert!(imported.federation_allowed("b.example"));
+    }
+
+    #[test]
+    fn http_message_signature_binds_service_dids_digest_and_time() {
+        let now = Utc::now();
+        let input = HttpMessageSignatureInput {
+            method: "post".to_owned(),
+            target_uri: "https://b.example/api/v1/federation/push-operations".to_owned(),
+            authority: "b.example".to_owned(),
+            content_digest: content_digest_sha256(br#"{"ok":true}"#),
+            origin_service_did: Did::new("did:web:a.example").unwrap(),
+            destination_service_did: Did::new("did:web:b.example").unwrap(),
+            created_at: now,
+            expires_at: now + chrono::Duration::minutes(5),
+        };
+
+        let signature = sign_http_message(&input, "did:web:a.example#svc", "shared-key");
+        assert!(verify_http_message_signature(&input, &signature, "shared-key", now));
+
+        let mut tampered = input.clone();
+        tampered.destination_service_did = Did::new("did:web:evil.example").unwrap();
+        assert!(!verify_http_message_signature(&tampered, &signature, "shared-key", now));
+        assert!(!verify_http_message_signature(
+            &input,
+            &signature,
+            "shared-key",
+            now + chrono::Duration::minutes(6)
+        ));
+    }
+
+    #[test]
+    fn did_document_service_endpoint_verifies_origin_binding() {
+        let did = Did::new("did:web:a.example").unwrap();
+        let document = json!({
+            "id": did.as_str(),
+            "service": [{
+                "id": "did:web:a.example#contrix-federation",
+                "type": "ContrixFederation",
+                "serviceEndpoint": "https://a.example/api/v1/federation"
+            }]
+        });
+
+        assert!(did_document_service_endpoint_matches(
+            &document,
+            &did,
+            "ContrixFederation",
+            "https://a.example/api/v1/federation"
+        ));
+        assert!(!did_document_service_endpoint_matches(
+            &document,
+            &Did::new("did:web:b.example").unwrap(),
+            "ContrixFederation",
+            "https://a.example/api/v1/federation"
+        ));
+    }
+
+    #[test]
+    fn replay_and_fork_conflicts_are_quarantined() {
+        let now = Utc::now();
+        let mut manager = FederationManager::new();
+
+        assert_eq!(
+            manager.check_transaction_replay("txn-1", "sha256:first", now),
+            FederationReplayDecision::AcceptedNew
+        );
+        assert_eq!(
+            manager.check_transaction_replay("txn-1", "sha256:first", now),
+            FederationReplayDecision::AcceptedDuplicate
+        );
+        assert_eq!(
+            manager.check_transaction_replay("txn-1", "sha256:second", now),
+            FederationReplayDecision::QuarantinedConflict
+        );
+
+        let record = duplicate_transaction_quarantine("txn-1", "sha256:first", "sha256:second");
+        assert_eq!(record.kind, FederationQuarantineKind::DuplicateTransactionConflict);
+        let fork = fork_quarantine_record(
+            FederationQuarantineKind::OperationFork,
+            "cx:operation:1",
+            "sha256:first",
+            "sha256:second",
+        )
+        .unwrap();
+        assert_eq!(fork.kind, FederationQuarantineKind::OperationFork);
+    }
+
+    #[test]
+    fn backfill_and_verify_actor_helpers_fail_closed() {
+        let authorization = FederationBackfillAuthorization {
+            requester_service_did: Did::new("did:web:b.example").unwrap(),
+            space_id: SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            history_visible: true,
+            service_delegated: false,
+            plaintext_visible_to_service: true,
+        };
+        assert!(authorization.allows_pull());
+
+        let blocked = FederationBackfillAuthorization {
+            plaintext_visible_to_service: false,
+            ..authorization
+        };
+        assert!(!blocked.allows_pull());
+
+        let now = Utc::now();
+        let challenge = VerifyActorChallenge {
+            actor_id: Did::new("did:web:actor.example").unwrap(),
+            origin_service_did: Did::new("did:web:a.example").unwrap(),
+            destination_service_did: Did::new("did:web:b.example").unwrap(),
+            challenge: "chal_123".to_owned(),
+            purpose: "federation.verify_actor".to_owned(),
+            expires_at: now + chrono::Duration::minutes(5),
+            payload_hash: Some(content_digest_sha256(b"actor-proof")),
+        };
+        let signature =
+            sign_verify_actor_challenge(&challenge, "did:web:actor.example#key", "actor-key");
+        assert!(verify_actor_challenge_signature(&challenge, &signature, "actor-key", now));
+
+        let mut tampered = challenge.clone();
+        tampered.challenge = "public-oracle-probe".to_owned();
+        assert!(!verify_actor_challenge_signature(&tampered, &signature, "actor-key", now));
     }
 }

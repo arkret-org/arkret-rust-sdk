@@ -16,11 +16,10 @@ use serde_json::Value;
 use crate::{
     DeviceId, Did, Error, Event, EventId, Result, SpaceId, canonical,
     sync::{
-        AccountData, DeviceListChanges, NotificationDelta, PresenceEvent, PresenceStatus,
-        LimitedTimelineState, MembershipBucket, SpaceSubscription, SpaceUpdate,
-        SubscriptionConfig, SyncFilter, SyncRequest, SyncResponse, SyncTimeline, SyncUpdates,
-        TimelineFilter, TimelineOrderKey, ToDeviceAck, ToDeviceAckStatus, ToDeviceMessage,
-        WaitForFrontier,
+        AccountData, DeviceListChanges, LimitedTimelineState, MembershipBucket, NotificationDelta,
+        PresenceEvent, PresenceStatus, SpaceSubscription, SpaceUpdate, SubscriptionConfig,
+        SyncFilter, SyncRequest, SyncResponse, SyncTimeline, SyncUpdates, TimelineFilter,
+        TimelineOrderKey, ToDeviceAck, ToDeviceAckStatus, ToDeviceMessage, WaitForFrontier,
     },
 };
 
@@ -330,7 +329,12 @@ impl SyncResponseProcessor {
         status: ToDeviceAckStatus,
     ) -> ToDeviceAck {
         let message_id = message_id.into();
-        let ack = ToDeviceAck { message_id: message_id.clone(), device_id, status, acknowledged_at: Utc::now() };
+        let ack = ToDeviceAck {
+            message_id: message_id.clone(),
+            device_id,
+            status,
+            acknowledged_at: Utc::now(),
+        };
         self.to_device_acks.insert(message_id, ack.clone());
         ack
     }
@@ -600,7 +604,8 @@ impl SendQueue {
         reason: Option<String>,
         depends_on: Vec<String>,
     ) -> Result<SendQueueItem> {
-        let content = reason.map(|reason| serde_json::json!({ "reason": reason })).unwrap_or(Value::Null);
+        let content =
+            reason.map(|reason| serde_json::json!({ "reason": reason })).unwrap_or(Value::Null);
         self.enqueue(
             transaction_id,
             space_id,
@@ -639,9 +644,8 @@ impl SendQueue {
         depends_on: Vec<String>,
     ) -> Result<SendQueueItem> {
         let payload_hash = queue_payload_hash(&space_id, &kind, &content, &depends_on)?;
-        let transaction_id = transaction_id.unwrap_or_else(|| {
-            format!("txn_{}", payload_hash.trim_start_matches("sha256:"))
-        });
+        let transaction_id = transaction_id
+            .unwrap_or_else(|| format!("txn_{}", payload_hash.trim_start_matches("sha256:")));
 
         if let Some(existing) = self.items.get(&transaction_id) {
             if existing.payload_hash == payload_hash {
@@ -740,7 +744,9 @@ impl SendQueue {
             let dependents: Vec<_> = self
                 .items
                 .values()
-                .filter(|item| item.depends_on.iter().any(|dependency| dependency == transaction_id))
+                .filter(|item| {
+                    item.depends_on.iter().any(|dependency| dependency == transaction_id)
+                })
                 .map(|item| item.transaction_id.clone())
                 .collect();
             for dependent in dependents {
@@ -766,9 +772,9 @@ impl SendQueue {
     }
 
     fn item_mut(&mut self, transaction_id: &str) -> Result<&mut SendQueueItem> {
-        self.items
-            .get_mut(transaction_id)
-            .ok_or_else(|| Error::Protocol(format!("send queue transaction not found: {}", transaction_id)))
+        self.items.get_mut(transaction_id).ok_or_else(|| {
+            Error::Protocol(format!("send queue transaction not found: {}", transaction_id))
+        })
     }
 
     fn cancel_one(&mut self, transaction_id: &str) -> Result<()> {
@@ -954,7 +960,11 @@ impl SpaceListFilter {
         (self.memberships.is_empty() || self.memberships.contains(&entry.membership))
             && self.favorite.map(|favorite| entry.favorite == favorite).unwrap_or(true)
             && (!self.unread_only || entry.unread_count > 0 || entry.highlight_count > 0)
-            && self.category.as_ref().map(|category| entry.category.as_ref() == Some(category)).unwrap_or(true)
+            && self
+                .category
+                .as_ref()
+                .map(|category| entry.category.as_ref() == Some(category))
+                .unwrap_or(true)
     }
 }
 
@@ -1144,9 +1154,14 @@ impl SpaceListService {
             entry.highlight_count = highlight_count;
         }
         if let Some(timeline) = &update.timeline {
-            if let Some(event) = timeline.events.last().and_then(|value| serde_json::from_value::<Event>(value.clone()).ok()) {
+            if let Some(event) = timeline
+                .events
+                .last()
+                .and_then(|value| serde_json::from_value::<Event>(value.clone()).ok())
+            {
                 entry.last_event_id = Some(event.event_id.clone());
-                entry.last_activity = Some(TimelineOrderKey::from_event(&event, event.prev_refs.len() as u64));
+                entry.last_activity =
+                    Some(TimelineOrderKey::from_event(&event, event.prev_refs.len() as u64));
             }
         }
         self.upsert(entry)
@@ -1169,11 +1184,7 @@ impl SpaceListService {
     }
 
     fn visible_entries(&self) -> Vec<SpaceListEntry> {
-        self.entries
-            .values()
-            .filter(|entry| self.filter.matches(entry))
-            .cloned()
-            .collect()
+        self.entries.values().filter(|entry| self.filter.matches(entry)).cloned().collect()
     }
 }
 
@@ -1200,7 +1211,10 @@ fn compare_space_entries(
     }
 }
 
-fn diff_space_lists(previous: &[SpaceListEntry], current: &[SpaceListEntry]) -> Vec<SpaceListChange> {
+fn diff_space_lists(
+    previous: &[SpaceListEntry],
+    current: &[SpaceListEntry],
+) -> Vec<SpaceListChange> {
     let previous_index: BTreeMap<_, _> = previous
         .iter()
         .enumerate()
@@ -1223,10 +1237,8 @@ fn diff_space_lists(previous: &[SpaceListEntry], current: &[SpaceListEntry]) -> 
     }
     for (space_id, (new_index, entry)) in &current_index {
         match previous_index.get(space_id) {
-            None => changes.push(SpaceListChange::Inserted {
-                index: *new_index,
-                entry: (*entry).clone(),
-            }),
+            None => changes
+                .push(SpaceListChange::Inserted { index: *new_index, entry: (*entry).clone() }),
             Some((old_index, previous_entry)) if *old_index != *new_index => {
                 changes.push(SpaceListChange::Moved {
                     old_index: *old_index,
@@ -1241,10 +1253,8 @@ fn diff_space_lists(previous: &[SpaceListEntry], current: &[SpaceListEntry]) -> 
                 }
             }
             Some((_, previous_entry)) if *previous_entry != *entry => {
-                changes.push(SpaceListChange::Updated {
-                    index: *new_index,
-                    entry: (*entry).clone(),
-                });
+                changes
+                    .push(SpaceListChange::Updated { index: *new_index, entry: (*entry).clone() });
             }
             _ => {}
         }
@@ -1524,13 +1534,13 @@ mod tests {
         let first = list.upsert(alpha);
         let second = list.upsert(beta);
         let sorted = list.set_sort(SpaceListSort::Unread);
-        let filtered = list.set_filter(SpaceListFilter {
-            unread_only: true,
-            ..SpaceListFilter::default()
-        });
+        let filtered =
+            list.set_filter(SpaceListFilter { unread_only: true, ..SpaceListFilter::default() });
 
         assert!(matches!(first.changes[0], SpaceListChange::Inserted { .. }));
-        assert!(second.changes.iter().any(|change| matches!(change, SpaceListChange::Inserted { .. })));
+        assert!(
+            second.changes.iter().any(|change| matches!(change, SpaceListChange::Inserted { .. }))
+        );
         assert_eq!(sorted.ordered[0], s2);
         assert_eq!(filtered.ordered.len(), 2);
 

@@ -55,7 +55,7 @@ pub struct StoredDeviceVerification {
     pub updated_at: DateTime<Utc>,
 }
 
-pub trait CryptoStore {
+pub trait CryptoStore: Send + Sync {
     fn put_mls_group_state(&mut self, record: MlsGroupStateRecord) -> Result<()>;
     fn mls_group_state(&self, group_id: &str) -> Option<&MlsGroupStateRecord>;
     fn put_key_package(&mut self, record: MlsKeyPackageRecord) -> Result<()>;
@@ -129,6 +129,24 @@ impl CryptoStore for MemoryCryptoStore {
     }
 
     fn put_welcome(&mut self, record: MlsWelcomeEnvelope) -> Result<()> {
+        if record.group_id.is_empty() {
+            return Err(Error::Protocol("MLS welcome group_id is empty".to_owned()));
+        }
+        if let Some(existing) = self.welcomes.iter().find(|welcome| {
+            welcome.group_id == record.group_id
+                && welcome.epoch == record.epoch
+                && welcome.recipient_principal_id == record.recipient_principal_id
+                && welcome.recipient_device_id == record.recipient_device_id
+        }) {
+            return if existing.welcome_hash == record.welcome_hash {
+                Ok(())
+            } else {
+                Err(Error::IdempotencyConflict(format!(
+                    "welcome:{}:{}:{}",
+                    record.group_id, record.epoch, record.recipient_device_id
+                )))
+            };
+        }
         self.welcomes.push(record);
         Ok(())
     }
@@ -151,7 +169,17 @@ impl CryptoStore for MemoryCryptoStore {
         if record.group_id.is_empty() {
             return Err(Error::Protocol("MLS commit group_id is empty".to_owned()));
         }
-        self.commits.entry(record.group_id.clone()).or_default().push(record);
+        let commits = self.commits.entry(record.group_id.clone()).or_default();
+        if commits.iter().any(|commit| commit.commit_hash == record.commit_hash) {
+            return Ok(());
+        }
+        if commits.iter().any(|commit| commit.epoch == record.epoch) {
+            return Err(Error::IdempotencyConflict(format!(
+                "commit:{}:{}",
+                record.group_id, record.epoch
+            )));
+        }
+        commits.push(record);
         Ok(())
     }
 
@@ -314,5 +342,57 @@ mod tests {
         let mut restored = MemoryCryptoStore::new();
         restored.import_backup_json(&backup).unwrap();
         assert_eq!(restored.welcomes_for_device(&alice, &device_id).len(), 1);
+    }
+
+    #[test]
+    fn memory_crypto_store_deduplicates_welcomes_and_commits() {
+        let alice = did("alice");
+        let device_id = device("phone");
+        let mut store = MemoryCryptoStore::new();
+        let welcome = MlsWelcomeEnvelope {
+            group_id: "group1".to_owned(),
+            epoch: 1,
+            recipient_principal_id: alice.clone(),
+            recipient_device_id: device_id.clone(),
+            welcome: "welcome".to_owned(),
+            welcome_hash: Hash::new(
+                "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            )
+            .unwrap(),
+            ratchet_tree: None,
+        };
+
+        store.put_welcome(welcome.clone()).unwrap();
+        store.put_welcome(welcome.clone()).unwrap();
+        assert_eq!(store.welcomes_for_device(&alice, &device_id).len(), 1);
+
+        let mut conflicting_welcome = welcome;
+        conflicting_welcome.welcome_hash =
+            Hash::new("sha256:3333333333333333333333333333333333333333333333333333333333333333")
+                .unwrap();
+        assert!(matches!(
+            store.put_welcome(conflicting_welcome),
+            Err(Error::IdempotencyConflict(_))
+        ));
+
+        let commit = MlsCommitEnvelope {
+            group_id: "group1".to_owned(),
+            epoch: 2,
+            commit: "commit".to_owned(),
+            commit_hash: Hash::new(
+                "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+            )
+            .unwrap(),
+            ratchet_tree: None,
+        };
+        store.put_commit(commit.clone()).unwrap();
+        store.put_commit(commit.clone()).unwrap();
+        assert_eq!(store.commits_for_group("group1").len(), 1);
+
+        let mut conflicting_commit = commit;
+        conflicting_commit.commit_hash =
+            Hash::new("sha256:5555555555555555555555555555555555555555555555555555555555555555")
+                .unwrap();
+        assert!(matches!(store.put_commit(conflicting_commit), Err(Error::IdempotencyConflict(_))));
     }
 }

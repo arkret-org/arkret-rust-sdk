@@ -593,9 +593,9 @@ pub struct WaitForFrontier {
 impl WaitForFrontier {
     /// Return true when the current positions satisfy every requested frontier.
     pub fn is_satisfied_by(&self, current: &[SyncStreamPosition]) -> bool {
-        self.positions.iter().all(|required| {
-            current.iter().any(|position| position.covers(required))
-        })
+        self.positions
+            .iter()
+            .all(|required| current.iter().any(|position| position.covers(required)))
     }
 }
 
@@ -909,9 +909,7 @@ mod tests {
         )
         .unwrap();
 
-        binding
-            .validate_context(&principal, &device, &service, &filter_hash, Utc::now())
-            .unwrap();
+        binding.validate_context(&principal, &device, &service, &filter_hash, Utc::now()).unwrap();
         assert!(
             binding
                 .validate_context(

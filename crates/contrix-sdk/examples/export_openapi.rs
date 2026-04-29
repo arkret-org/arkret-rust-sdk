@@ -2,7 +2,10 @@ fn main() {
     #[cfg(feature = "server")]
     {
         let document = contrix_sdk::openapi_document();
-        println!("{}", serde_json::to_string_pretty(&document).expect("serialize OpenAPI document"));
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&document).expect("serialize OpenAPI document")
+        );
     }
 
     #[cfg(not(feature = "server"))]

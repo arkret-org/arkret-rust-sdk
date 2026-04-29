@@ -554,7 +554,9 @@ pub fn endpoint_schema_binding(endpoint: &EndpointContract) -> EndpointSchemaBin
         "cx.directory.search_actors" => {
             ("DirectorySearchActorsRequest", "DirectorySearchActorsResponse")
         }
-        "cx.directory.search_users" => ("DirectorySearchUsersQuery", "DirectorySearchUsersResponse"),
+        "cx.directory.search_users" => {
+            ("DirectorySearchUsersQuery", "DirectorySearchUsersResponse")
+        }
         "cx.directory.resolve_handle" => {
             ("DirectoryResolveHandleRequest", "DirectoryResolveHandleResponse")
         }
@@ -569,9 +571,7 @@ pub fn endpoint_schema_binding(endpoint: &EndpointContract) -> EndpointSchemaBin
         "cx.keys.upload" => ("KeysUploadRequest", "KeysUploadResponse"),
         "cx.keys.query" => ("KeysQueryRequest", "KeysQueryResponse"),
         "cx.keys.claim" => ("KeysClaimRequest", "KeysClaimResponse"),
-        "cx.authz.get_effective_grants" => {
-            ("AuthzEffectiveGrantsQuery", "EffectiveGrantsResponse")
-        }
+        "cx.authz.get_effective_grants" => ("AuthzEffectiveGrantsQuery", "EffectiveGrantsResponse"),
         "cx.authz.get_invites" => ("AuthzInvitesQuery", "AuthzInvitesResponse"),
         "cx.authz.check" => ("AuthzCheckRequest", "AuthzCheckResponse"),
         "cx.policy.check" => ("PolicyCheckRequest", "PolicyCheckResponse"),
@@ -617,13 +617,10 @@ pub fn endpoint_parameters(endpoint: &EndpointContract) -> Vec<EndpointParameter
 }
 
 pub fn match_endpoint(method: EndpointMethod, path: &str) -> Option<MatchedEndpoint<'static>> {
-    endpoint_contracts()
-        .iter()
-        .filter(|endpoint| endpoint.method == method)
-        .find_map(|endpoint| {
-            match_path_template(endpoint.path, path)
-                .map(|path_parameters| MatchedEndpoint { contract: endpoint, path_parameters })
-        })
+    endpoint_contracts().iter().filter(|endpoint| endpoint.method == method).find_map(|endpoint| {
+        match_path_template(endpoint.path, path)
+            .map(|path_parameters| MatchedEndpoint { contract: endpoint, path_parameters })
+    })
 }
 
 pub fn reject_query_auth(parameters: &BTreeMap<String, String>) -> Result<()> {
@@ -922,15 +919,19 @@ fn query_parameters(operation_id: &str) -> Vec<EndpointParameter> {
             &[("space_id", true, "SpaceId"), ("cursor", false, "String"), ("limit", false, "Limit")]
         }
         "cx.sync.get_snapshot_head" => &[("space_id", true, "SpaceId")],
-        "cx.federation.pull_operations" => {
-            &[("space_id", true, "SpaceId"), ("after_cursor", false, "String"), ("limit", false, "Limit")]
-        }
+        "cx.federation.pull_operations" => &[
+            ("space_id", true, "SpaceId"),
+            ("after_cursor", false, "String"),
+            ("limit", false, "Limit"),
+        ],
         "cx.federation.space_members" => {
             &[("space_id", true, "SpaceId"), ("cursor", false, "String"), ("limit", false, "Limit")]
         }
-        "cx.index.get_entity" => {
-            &[("entity_id", true, "String"), ("space_id", false, "SpaceId"), ("at", false, "String")]
-        }
+        "cx.index.get_entity" => &[
+            ("entity_id", true, "String"),
+            ("space_id", false, "SpaceId"),
+            ("at", false, "String"),
+        ],
         "cx.index.thread" => {
             &[("topic_id", true, "String"), ("cursor", false, "String"), ("limit", false, "Limit")]
         }
@@ -940,9 +941,11 @@ fn query_parameters(operation_id: &str) -> Vec<EndpointParameter> {
         "cx.index.inbox" => {
             &[("scope", false, "String"), ("cursor", false, "String"), ("limit", false, "Limit")]
         }
-        "cx.index.space_hierarchy" => {
-            &[("space_id", true, "SpaceId"), ("depth", false, "Limit"), ("include_unconfirmed", false, "Bool")]
-        }
+        "cx.index.space_hierarchy" => &[
+            ("space_id", true, "SpaceId"),
+            ("depth", false, "Limit"),
+            ("include_unconfirmed", false, "Bool"),
+        ],
         "cx.directory.search_users" => {
             &[("q", true, "String"), ("space_id", false, "SpaceId"), ("limit", false, "Limit")]
         }
@@ -1037,10 +1040,7 @@ pub fn openapi_document() -> Value {
         operation.insert(
             "parameters".to_owned(),
             Value::Array(
-                endpoint_parameters(endpoint)
-                    .into_iter()
-                    .map(openapi_parameter)
-                    .collect(),
+                endpoint_parameters(endpoint).into_iter().map(openapi_parameter).collect(),
             ),
         );
 
@@ -1215,32 +1215,18 @@ fn openapi_schema_components() -> Value {
         schemas.insert(name.to_owned(), generic_schema(name));
     }
 
-    schemas.insert(
-        "Did".to_owned(),
-        json!({ "type": "string", "pattern": "^did:[a-z0-9]+:.+$" }),
-    );
-    schemas.insert(
-        "SpaceId".to_owned(),
-        json!({ "type": "string", "pattern": "^cx:space:.+$" }),
-    );
-    schemas.insert(
-        "Hash".to_owned(),
-        json!({ "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }),
-    );
+    schemas.insert("Did".to_owned(), json!({ "type": "string", "pattern": "^did:[a-z0-9]+:.+$" }));
+    schemas.insert("SpaceId".to_owned(), json!({ "type": "string", "pattern": "^cx:space:.+$" }));
+    schemas
+        .insert("Hash".to_owned(), json!({ "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }));
     schemas.insert("String".to_owned(), json!({ "type": "string" }));
     schemas.insert("Bool".to_owned(), json!({ "type": "boolean" }));
-    schemas.insert(
-        "Limit".to_owned(),
-        json!({ "type": "integer", "minimum": 1, "maximum": 1000 }),
-    );
+    schemas.insert("Limit".to_owned(), json!({ "type": "integer", "minimum": 1, "maximum": 1000 }));
     schemas.insert(
         "JsonValue".to_owned(),
         json!({ "description": "Arbitrary JSON value accepted by extension points" }),
     );
-    schemas.insert(
-        "BinaryBlobBody".to_owned(),
-        json!({ "type": "string", "format": "binary" }),
-    );
+    schemas.insert("BinaryBlobBody".to_owned(), json!({ "type": "string", "format": "binary" }));
     schemas.insert(
         "ErrorEnvelope".to_owned(),
         json!({
@@ -1491,8 +1477,91 @@ mod tests {
         let document = openapi_document();
         assert_eq!(document["openapi"], "3.1.0");
         assert!(document["paths"]["/api/v1/sync"]["post"]["responses"]["429"].is_object());
-        assert!(document["components"]["responses"]["ErrorEnvelope"].is_object());
+        assert!(document["components"]["schemas"]["ErrorEnvelope"].is_object());
+        assert!(document["components"]["responses"]["RateLimitedError"].is_object());
         assert!(document["components"]["securitySchemes"].get("queryToken").is_none());
+    }
+
+    #[test]
+    fn openapi_document_has_schema_binding_for_every_endpoint() {
+        let document = openapi_document();
+        for endpoint in endpoint_contracts() {
+            let binding = endpoint_schema_binding(endpoint);
+            assert!(
+                document["components"]["schemas"].get(binding.request_schema).is_some(),
+                "{} request schema {}",
+                endpoint.operation_id,
+                binding.request_schema
+            );
+            assert!(
+                document["components"]["schemas"].get(binding.response_schema).is_some(),
+                "{} response schema {}",
+                endpoint.operation_id,
+                binding.response_schema
+            );
+            assert_eq!(
+                document["paths"][endpoint.path][endpoint.method.as_str()]["operationId"],
+                endpoint.operation_id
+            );
+        }
+        assert!(
+            document["paths"]["/api/v1/federation/transactions/{txn_id}"]["put"]["requestBody"]
+                .is_object()
+        );
+        assert!(
+            document["components"]["examples"]["FederationTransactionRequest"]["value"].is_object()
+        );
+    }
+
+    #[test]
+    fn endpoint_matcher_extracts_path_parameters_for_framework_adapters() {
+        let matched =
+            match_endpoint(EndpointMethod::Put, "/api/v1/applet/transactions/txn_123").unwrap();
+        assert_eq!(matched.contract.operation_id, "cx.applet.transaction");
+        assert_eq!(matched.path_parameters["txn_id"], "txn_123");
+        assert!(
+            match_endpoint(EndpointMethod::Get, "/api/v1/applet/transactions/txn_123").is_none()
+        );
+    }
+
+    #[test]
+    fn tower_like_endpoint_service_can_wrap_framework_closure() {
+        let mut service = |request: HttpAdapterRequest| {
+            let matched = match_endpoint(request.method, &request.path)
+                .ok_or_else(|| crate::Error::Protocol("no route".to_owned()))?;
+            Ok(HttpAdapterResponse {
+                status: 200,
+                headers: BTreeMap::from([(
+                    "X-Contrix-Operation-Id".to_owned(),
+                    matched.contract.operation_id.to_owned(),
+                )]),
+                body: Vec::new(),
+            })
+        };
+
+        let response = service
+            .call(HttpAdapterRequest {
+                method: EndpointMethod::Get,
+                path: "/api/v1/server/describe".to_owned(),
+                query: BTreeMap::new(),
+                headers: BTreeMap::new(),
+                body: Vec::new(),
+            })
+            .unwrap();
+        assert_eq!(response.headers["X-Contrix-Operation-Id"], "cx.server.describe");
+    }
+
+    #[test]
+    fn query_auth_and_wire_negative_vectors_are_available() {
+        let query = BTreeMap::from([("access_token".to_owned(), "secret".to_owned())]);
+        assert!(reject_query_auth(&query).is_err());
+
+        let vectors = wire_negative_vectors();
+        assert!(vectors.iter().any(|vector| vector.name == "query_auth_rejected"));
+        assert!(vectors.iter().any(|vector| vector.expected_errcode == "cx.error.bad_digest"));
+
+        let golden = protocol_golden_vectors();
+        assert!(golden.iter().any(|vector| vector.profile == "cx.conformance.digest.v1"));
     }
 
     #[test]
@@ -1530,6 +1599,4 @@ mod tests {
         let ServerResponse::ServerDescription(description) = response else {
             panic!("unexpected response");
         };
-        assert!(description.supported_operations.contains(&"cx.sync.client_sync".to_owned()));
-    }
-}
+        assert!(description.supported_operations.contains(&"cx.sync.client_sync".

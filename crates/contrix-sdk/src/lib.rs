@@ -98,8 +98,15 @@ pub use e2ee::{
 pub use error::{Error, Result};
 pub use event_handler::{BuiltInEventHandlers, ClientEvent, EventHandlerRegistry, HandlerGuard};
 pub use federation::{
-    FederationManager, FederationRequest, FederationTransaction, ServerInfo, SovereignDeployment,
-    TrustAnchor,
+    FederationBackfillAuthorization, FederationManager, FederationQuarantineKind,
+    FederationQuarantineRecord, FederationReplayDecision, FederationReplayRecord,
+    FederationReplayStore, FederationRequest, FederationTransaction, FederationTransactionEnvelope,
+    HttpMessageSignature, HttpMessageSignatureInput, ServerInfo, ServiceEndpointDescriptor,
+    SovereignDeployment, TrustAnchor, VerifyActorChallenge, VerifyActorChallengeSignature,
+    WellKnownContrixServer, check_replay, content_digest_sha256,
+    did_document_service_endpoint_matches, duplicate_transaction_quarantine,
+    fork_quarantine_record, http_message_signature_base, sign_http_message,
+    sign_verify_actor_challenge, verify_actor_challenge_signature, verify_http_message_signature,
 };
 pub use hlc::{
     HlcComponents, HlcGenerator, compare_hlc, is_clock_skew_acceptable, parse_hlc, time_until_hlc,
@@ -143,10 +150,19 @@ pub use resolver::{
 pub use search::{SpaceSearchEntry, SpaceSearchIndex, SpaceSearchQuery};
 #[cfg(feature = "server")]
 pub use server::{
-    EndpointContract, EndpointHandler, EndpointMethod, ServerRequest, ServerResponse,
-    endpoint_contracts, openapi_document,
+    EndpointContract, EndpointHandler, EndpointMethod, EndpointParameter,
+    EndpointParameterLocation, EndpointSchemaBinding, HttpAdapterRequest, HttpAdapterResponse,
+    MatchedEndpoint, ProtocolGoldenVector, ServerRequest, ServerResponse, TowerLikeEndpointService,
+    WireConformanceVector, endpoint_contracts, endpoint_parameters, endpoint_schema_binding,
+    endpoint_schema_bindings, match_endpoint, openapi_document, protocol_golden_vectors,
+    reject_query_auth, wire_negative_vectors,
 };
-pub use service::{ServiceRequirements, ServiceType};
+pub use service::{
+    ApiConventionMetadata, HttpTraceMetadata, NotFoundPrivacy, QuotaKind, QuotaMetadata,
+    RateLimitMetadata, RateLimitScopeKind, ServiceDidAllowlist, ServiceEndpointBinding,
+    ServiceRequirements, ServiceType, privacy_preserving_not_found, quota_exceeded_error,
+    rate_limited_error,
+};
 pub use settings::{
     ClientSettings, NotificationPreferences, PrivacySettings, SettingsManager, ThemeSetting,
 };
@@ -155,9 +171,13 @@ pub use space::{
     EntityVersionDiff, GraphTraversal, RelationOperationInput, Space,
 };
 pub use store::{
-    AcceptUnsignedCommitProofs, CommitProofVerifier, EncryptedMemoryRepoStore, IndexedDbRepoStore,
-    MemoryRepoStore, RepoStore, SqliteRepoStore, StoreCache, StoreEncryptionKey, StoreMigration,
-    StoreSnapshot,
+    AcceptUnsignedCommitProofs, AccountSessionStore, AuditLogStore, BlobMetadataStore,
+    CommitProofVerifier, EncryptedMemoryRepoStore, EventCacheStore, FederationReplayRecord,
+    FederationReplayStore, IndexedDbRepoStore, MemoryPersistenceStore, MemoryRepoStore,
+    RepoObjectStore, RepoStore, RepoWriteBatch, RepoWriteReceipt, SqliteRepoStore,
+    StateSnapshotStore, StoreCache, StoreEncryptionKey, StoreMigration, StoreMigrationMetadata,
+    StoreSchemaMetadata, StoreSnapshot, StoredAccountData, TransactionalRepoStore,
+    rebuild_space_state_from_events, restore_space_state_from_persistence,
 };
 pub use sync::{
     BackfillDirection, BackfillFrom, BackfillRequest, BackfillResponse, PresenceStatus,

@@ -1,6 +1,13 @@
-use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
-use crate::{Error, PROTOCOL_VERSION, Result, ServerDescription};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+use crate::{
+    CommitId, DeviceId, Did, Error, ErrorEnvelope, OperationId, PROTOCOL_VERSION, Result,
+    ServerDescription, SpaceId,
+};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -47,6 +54,181 @@ impl ServiceType {
             Self::TurnService => "turn_service",
             Self::ModerationService => "moderation_service",
         }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ServiceEndpointBinding {
+    pub service_did: Did,
+    pub service_type: ServiceType,
+    pub endpoint: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub operations: Vec<String>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ServiceDidAllowlist {
+    #[serde(default)]
+    pub services: BTreeMap<Did, ServiceEndpointBinding>,
+}
+
+impl ServiceDidAllowlist {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn allow(mut self, binding: ServiceEndpointBinding) -> Self {
+        self.services.insert(binding.service_did.clone(), binding);
+        self
+    }
+
+    pub fn insert(&mut self, binding: ServiceEndpointBinding) {
+        self.services.insert(binding.service_did.clone(), binding);
+    }
+
+    pub fn contains(&self, service_did: &Did) -> bool {
+        self.services.contains_key(service_did)
+    }
+
+    pub fn binding(&self, service_did: &Did) -> Option<&ServiceEndpointBinding> {
+        self.services.get(service_did)
+    }
+
+    pub fn verify_description(&self, description: &ServerDescription) -> Result<()> {
+        let binding = self.services.get(&description.service_did).ok_or_else(|| {
+            Error::Protocol(format!("service DID {} is not allowlisted", description.service_did))
+        })?;
+        if description.service_type != binding.service_type.as_str() {
+            return Err(Error::Protocol(format!(
+                "service DID {} is allowlisted as {}, not {}",
+                description.service_did,
+                binding.service_type.as_str(),
+                description.service_type
+            )));
+        }
+        for operation in &binding.operations {
+            if !description.supported_operations.iter().any(|actual| actual == operation) {
+                return Err(Error::Protocol(format!(
+                    "allowlisted service {} does not advertise operation {operation}",
+                    description.service_did
+                )));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NotFoundPrivacy {
+    HideNonexistentAndInvisible,
+    RevealForbiddenWhenAuthenticated,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RateLimitScopeKind {
+    Actor,
+    Ip,
+    Device,
+    ServiceDid,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RateLimitMetadata {
+    pub scope: RateLimitScopeKind,
+    pub subject: String,
+    pub limit: u64,
+    pub remaining: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reset_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retry_after_ms: Option<u64>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum QuotaKind {
+    BlobBytes,
+    AccountStorageBytes,
+    OperationWindow,
+    DeviceCount,
+    OneTimeKeyCount,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct QuotaMetadata {
+    pub quota: QuotaKind,
+    pub subject: String,
+    pub limit: u64,
+    pub used: u64,
+    pub unit: String,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HttpTraceMetadata {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub request_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub actor_id: Option<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub device_id: Option<DeviceId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub space_id: Option<SpaceId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub operation_id: Option<OperationId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub commit_id: Option<CommitId>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ApiConventionMetadata {
+    pub not_found_privacy: NotFoundPrivacy,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rate_limits: Vec<RateLimitMetadata>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub quotas: Vec<QuotaMetadata>,
+    #[serde(default)]
+    pub trace: HttpTraceMetadata,
+}
+
+pub fn privacy_preserving_not_found(trace: Option<HttpTraceMetadata>) -> ErrorEnvelope {
+    let mut extra = BTreeMap::from([(
+        "not_found_privacy".to_owned(),
+        Value::String("hide_nonexistent_and_invisible".to_owned()),
+    )]);
+    if let Some(trace) = trace {
+        extra.insert("trace".to_owned(), serde_json::to_value(trace).unwrap_or(Value::Null));
+    }
+    ErrorEnvelope {
+        errcode: "cx.error.not_found".to_owned(),
+        error: "Resource not found".to_owned(),
+        retry_after_ms: None,
+        extra,
+    }
+}
+
+pub fn rate_limited_error(metadata: RateLimitMetadata) -> ErrorEnvelope {
+    ErrorEnvelope {
+        errcode: "cx.error.rate_limited".to_owned(),
+        error: "Too many requests".to_owned(),
+        retry_after_ms: metadata.retry_after_ms,
+        extra: BTreeMap::from([(
+            "rate_limit".to_owned(),
+            serde_json::to_value(metadata).unwrap_or(Value::Null),
+        )]),
+    }
+}
+
+pub fn quota_exceeded_error(metadata: QuotaMetadata) -> ErrorEnvelope {
+    ErrorEnvelope {
+        errcode: "cx.error.quota_exceeded".to_owned(),
+        error: "Quota exceeded".to_owned(),
+        retry_after_ms: None,
+        extra: BTreeMap::from([(
+            "quota".to_owned(),
+            serde_json::to_value(metadata).unwrap_or(Value::Null),
+        )]),
     }
 }
 
@@ -146,7 +328,7 @@ mod tests {
     use serde_json::Value;
 
     use super::*;
-    use crate::Did;
+    use crate::{Did, SpaceId};
 
     #[test]
     fn verifies_required_service_profile_and_operation() {
@@ -172,5 +354,67 @@ mod tests {
             .operation("cx.index.query")
             .verify(&description)
             .unwrap();
+    }
+
+    #[test]
+    fn service_did_allowlist_verifies_description_and_operations() {
+        let service_did = Did::new("did:web:svc.example").unwrap();
+        let allowlist = ServiceDidAllowlist::new().allow(ServiceEndpointBinding {
+            service_did: service_did.clone(),
+            service_type: ServiceType::IndexNode,
+            endpoint: "https://svc.example/api/v1/index".to_owned(),
+            operations: vec!["cx.index.query".to_owned()],
+        });
+        let description = ServerDescription {
+            service_did,
+            service_type: "index_node".to_owned(),
+            protocol_version: "1.0".to_owned(),
+            supported_profiles: vec![],
+            supported_features: vec![],
+            supported_operations: vec!["cx.index.query".to_owned()],
+            supported_bindings: vec![],
+            supported_reducer_profiles: vec![],
+            supported_schema_profiles: vec![],
+            auth_metadata: Value::Null,
+            limits: Value::Null,
+        };
+
+        allowlist.verify_description(&description).unwrap();
+    }
+
+    #[test]
+    fn api_metadata_errors_carry_privacy_rate_limit_quota_and_trace() {
+        let trace = HttpTraceMetadata {
+            request_id: Some("req_123".to_owned()),
+            actor_id: Some(Did::new("did:web:alice.example").unwrap()),
+            device_id: None,
+            space_id: Some(SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap()),
+            operation_id: None,
+            commit_id: None,
+        };
+        let not_found = privacy_preserving_not_found(Some(trace));
+        assert_eq!(not_found.errcode, "cx.error.not_found");
+        assert_eq!(not_found.extra["not_found_privacy"], "hide_nonexistent_and_invisible");
+        assert!(not_found.extra["trace"].is_object());
+
+        let rate_limited = rate_limited_error(RateLimitMetadata {
+            scope: RateLimitScopeKind::Actor,
+            subject: "did:web:alice.example".to_owned(),
+            limit: 60,
+            remaining: 0,
+            reset_at: None,
+            retry_after_ms: Some(1000),
+        });
+        assert_eq!(rate_limited.retry_after_ms, Some(1000));
+        assert_eq!(rate_limited.extra["rate_limit"]["scope"], "actor");
+
+        let quota = quota_exceeded_error(QuotaMetadata {
+            quota: QuotaKind::BlobBytes,
+            subject: "did:web:alice.example".to_owned(),
+            limit: 1024,
+            used: 2048,
+            unit: "bytes".to_owned(),
+        });
+        assert_eq!(quota.extra["quota"]["quota"], "blob_bytes");
     }
 }

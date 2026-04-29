@@ -791,9 +791,7 @@ fn validate_auth(auth: &Auth) -> Result<()> {
         Auth::Bearer(token) | Auth::DeviceProof(token) | Auth::ServiceSignature(token) => token,
     };
     if value.trim().is_empty() || value.contains('\r') || value.contains('\n') {
-        return Err(Error::Protocol(
-            "auth material must be non-empty and header-safe".to_owned(),
-        ));
+        return Err(Error::Protocol("auth material must be non-empty and header-safe".to_owned()));
     }
     Ok(())
 }

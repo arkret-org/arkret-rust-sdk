@@ -296,12 +296,7 @@ impl BotCommandParser {
         let mut parts = command_text.split_whitespace();
         let name = parts.next()?.to_ascii_lowercase();
         let args = parts.map(str::to_owned).collect();
-        Some(BotCommand {
-            prefix: prefix.clone(),
-            name,
-            args,
-            raw: trimmed.to_owned(),
-        })
+        Some(BotCommand { prefix: prefix.clone(), name, args, raw: trimmed.to_owned() })
     }
 
     /// Parse a command from a custom message event payload.
@@ -600,7 +595,10 @@ mod tests {
         let shutdown = runtime.shutdown_handle();
         let mut events = vec![
             ClientEvent::Custom { kind: "drop".to_owned(), payload: Value::Null },
-            ClientEvent::Custom { kind: "upper".to_owned(), payload: serde_json::json!({"body": "ok"}) },
+            ClientEvent::Custom {
+                kind: "upper".to_owned(),
+                payload: serde_json::json!({"body": "ok"}),
+            },
         ]
         .into_iter();
 

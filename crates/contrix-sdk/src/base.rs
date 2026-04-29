@@ -19,7 +19,7 @@ use serde_json::Value;
 use crate::{
     Result,
     cursor::SyncTracker,
-    media::{Attachment, MemoryBlobStore, MediaMetadata},
+    media::{Attachment, MediaMetadata, MemoryBlobStore},
     model::{BlobRef, DeviceId, Did, Event, SpaceId},
     presence::Presence,
     profile::UserProfile,
@@ -179,10 +179,7 @@ impl BaseClient {
 
     /// Capture the current local session restore payload.
     pub fn session_restore(&self) -> Option<SessionRestore> {
-        self.session_meta().map(|session| SessionRestore {
-            session,
-            sync_token: self.sync_token(),
-        })
+        self.session_meta().map(|session| SessionRestore { session, sync_token: self.sync_token() })
     }
 
     /// Return the authenticated session or fail when the client is logged out.
@@ -595,7 +592,10 @@ mod tests {
         client.clear_session().unwrap();
         assert!(client.sync_token().is_none());
         client.restore_session(restore).unwrap();
-        assert_eq!(client.whoami().unwrap().user_id, Did::new("did:web:alice.example.com").unwrap());
+        assert_eq!(
+            client.whoami().unwrap().user_id,
+            Did::new("did:web:alice.example.com").unwrap()
+        );
         assert_eq!(client.sync_token(), Some("s123".to_owned()));
     }
 
@@ -611,9 +611,8 @@ mod tests {
         assert_eq!(profile.display_name, Some("Alice".to_owned()));
         assert_eq!(client.profile(&alice).unwrap().version, 1);
 
-        let presence = client
-            .set_my_presence(PresenceStatus::Online, Some("available".to_owned()))
-            .unwrap();
+        let presence =
+            client.set_my_presence(PresenceStatus::Online, Some("available".to_owned())).unwrap();
         assert_eq!(presence.status, PresenceStatus::Online);
         assert_eq!(client.presence(&alice).unwrap().status_msg, Some("available".to_owned()));
 
@@ -625,7 +624,8 @@ mod tests {
         client.update_settings(settings).unwrap();
         assert_eq!(client.my_settings().unwrap().language, "zh-CN");
 
-        let metadata = client.upload_media(b"hello", "text/plain", Some("hello.txt".to_owned())).unwrap();
+        let metadata =
+            client.upload_media(b"hello", "text/plain", Some("hello.txt".to_owned())).unwrap();
         assert_eq!(client.download_media(&metadata.blob_ref).unwrap(), b"hello");
 
         client

@@ -4,12 +4,76 @@ use chacha20poly1305::{
     Key, XChaCha20Poly1305, XNonce,
     aead::{Aead, KeyInit, Payload},
 };
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 use crate::{Error, Result};
 
 pub const AEAD_ALGORITHM: &str = "xchacha20poly1305-sha256-key-v1";
+pub const ENCRYPTED_ENVELOPE_AAD_CONTEXT: &str = "contrix-encrypted-envelope-aad-v1";
 const NONCE_LEN: usize = 24;
+
+/// Canonical AAD shape for encrypted timeline and operation envelopes.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EncryptedEnvelopeAad {
+    pub space_id: String,
+    pub event_type: String,
+    pub event_id: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub causal_refs: Vec<String>,
+}
+
+/// Digest report used by callers that store AAD digest separately from ciphertext.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EncryptedEnvelopeDigestReport {
+    pub ciphertext_sha256: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub aad_sha256: Option<String>,
+}
+
+/// Security review status for internal pre-audit checklists.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SecurityReviewStatus {
+    Planned,
+    Modeled,
+    Tested,
+    ExternalAuditRequired,
+}
+
+/// Structured security review item mapped to SDK source and tests.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SecurityReviewItem {
+    pub area: String,
+    pub source_files: Vec<String>,
+    pub test_targets: Vec<String>,
+    pub status: SecurityReviewStatus,
+    pub notes: String,
+}
+
+/// Key lifecycle phase modeled by SDK crypto helpers.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum KeyLifecyclePhase {
+    Created,
+    Published,
+    Used,
+    Rotated,
+    BackedUp,
+    Recovered,
+    Revoked,
+    Destroyed,
+}
+
+/// Hook record for applications that mirror key lifecycle events into audit logs.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KeyLifecycleHook {
+    pub key_ref: String,
+    pub phase: KeyLifecyclePhase,
+    pub actor: String,
+    pub reason: String,
+}
 
 pub fn seal(plaintext: &[u8], key_material: &[u8], aad: &[u8]) -> Result<Vec<u8>> {
     let key = Sha256::digest(key_material);
@@ -37,6 +101,101 @@ pub fn open(envelope: &[u8], key_material: &[u8], aad: &[u8]) -> Result<Vec<u8>>
         .map_err(|_| Error::Crypto("AEAD decryption failed".to_owned()))
 }
 
+/// Canonicalize encrypted-envelope AAD and bind it to a domain-separated context.
+pub fn canonical_envelope_aad(aad: &EncryptedEnvelopeAad) -> Result<Vec<u8>> {
+    let mut bytes = ENCRYPTED_ENVELOPE_AAD_CONTEXT.as_bytes().to_vec();
+    bytes.push(0);
+    bytes.extend_from_slice(&crate::canonical::canonical_json_bytes(aad)?);
+    Ok(bytes)
+}
+
+/// Compute a SHA-256 digest over canonical encrypted-envelope AAD.
+pub fn envelope_aad_digest(aad: &EncryptedEnvelopeAad) -> Result<String> {
+    Ok(sha256_prefixed(&canonical_envelope_aad(aad)?))
+}
+
+/// Compute a SHA-256 digest over arbitrary JSON AAD using canonical JSON.
+pub fn json_aad_digest(aad: &Value) -> Result<String> {
+    let mut bytes = ENCRYPTED_ENVELOPE_AAD_CONTEXT.as_bytes().to_vec();
+    bytes.push(0);
+    bytes.extend_from_slice(&crate::canonical::canonical_json_bytes(aad)?);
+    Ok(sha256_prefixed(&bytes))
+}
+
+/// Fail closed if the supplied AAD digest does not match the canonical AAD.
+pub fn verify_envelope_aad_digest(aad: &EncryptedEnvelopeAad, expected: &str) -> Result<()> {
+    let actual = envelope_aad_digest(aad)?;
+    if constant_time_eq(&actual, expected) {
+        Ok(())
+    } else {
+        Err(Error::Protocol("encrypted envelope AAD digest mismatch".to_owned()))
+    }
+}
+
+/// Produce ciphertext and optional AAD digests for encrypted-envelope compliance checks.
+pub fn encrypted_envelope_digest_report(
+    ciphertext: &[u8],
+    aad: Option<&EncryptedEnvelopeAad>,
+) -> Result<EncryptedEnvelopeDigestReport> {
+    Ok(EncryptedEnvelopeDigestReport {
+        ciphertext_sha256: sha256_prefixed(ciphertext),
+        aad_sha256: aad.map(envelope_aad_digest).transpose()?,
+    })
+}
+
+/// Baseline internal checklist. This is not an external audit attestation.
+pub fn security_review_checklist() -> Vec<SecurityReviewItem> {
+    vec![
+        SecurityReviewItem {
+            area: "encrypted envelope compliance".to_owned(),
+            source_files: vec!["crypto.rs".to_owned(), "mls.rs".to_owned(), "e2ee.rs".to_owned()],
+            test_targets: vec![
+                "crypto::tests::encrypted_envelope_aad_digest_is_canonical".to_owned(),
+                "mls::tests::message_crypto_encrypts_with_aad_and_verifies_digest".to_owned(),
+            ],
+            status: SecurityReviewStatus::Tested,
+            notes: "payload and AAD digests are modeled and verified before decrypt".to_owned(),
+        },
+        SecurityReviewItem {
+            area: "key lifecycle".to_owned(),
+            source_files: vec!["e2ee.rs".to_owned(), "devices.rs".to_owned(), "mls.rs".to_owned()],
+            test_targets: vec![
+                "e2ee::tests::e2ee_restores_key_records_and_rejects_wrong_sender".to_owned(),
+                "devices::tests::devices_rotate_and_validate_authenticated_key_backups".to_owned(),
+            ],
+            status: SecurityReviewStatus::Modeled,
+            notes: "creation, publication, rotation, backup, recovery and revocation hooks exist"
+                .to_owned(),
+        },
+        SecurityReviewItem {
+            area: "external audit".to_owned(),
+            source_files: Vec::new(),
+            test_targets: Vec::new(),
+            status: SecurityReviewStatus::ExternalAuditRequired,
+            notes: "external review remains intentionally unclaimed by SDK tests".to_owned(),
+        },
+    ]
+}
+
+fn sha256_prefixed(bytes: &[u8]) -> String {
+    format!("sha256:{:x}", Sha256::digest(bytes))
+}
+
+fn constant_time_eq(left: &str, right: &str) -> bool {
+    let left = left.as_bytes();
+    let right = right.as_bytes();
+    let max_len = left.len().max(right.len());
+    let mut diff = left.len() ^ right.len();
+
+    for idx in 0..max_len {
+        let left_byte = left.get(idx).copied().unwrap_or(0);
+        let right_byte = right.get(idx).copied().unwrap_or(0);
+        diff |= (left_byte ^ right_byte) as usize;
+    }
+
+    diff == 0
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -47,5 +206,31 @@ mod tests {
         assert_ne!(sealed, b"secret");
         assert_eq!(open(&sealed, b"passphrase", b"context").unwrap(), b"secret");
         assert!(open(&sealed, b"passphrase", b"wrong-context").is_err());
+    }
+
+    #[test]
+    fn encrypted_envelope_aad_digest_is_canonical() {
+        let aad = EncryptedEnvelopeAad {
+            space_id: "cx:space:01JS0SP000000000000000000".to_owned(),
+            event_type: "cx.message.create".to_owned(),
+            event_id: "cx:event:01JS0EV000000000000000000".to_owned(),
+            causal_refs: vec!["cx:event:01JS0PARENT0000000000000".to_owned()],
+        };
+        let digest = envelope_aad_digest(&aad).unwrap();
+        verify_envelope_aad_digest(&aad, &digest).unwrap();
+        assert!(verify_envelope_aad_digest(&aad, "sha256:bad").is_err());
+
+        let report = encrypted_envelope_digest_report(b"ciphertext", Some(&aad)).unwrap();
+        assert_eq!(report.aad_sha256, Some(digest));
+        assert!(report.ciphertext_sha256.starts_with("sha256:"));
+    }
+
+    #[test]
+    fn security_review_checklist_does_not_claim_external_audit() {
+        let checklist = security_review_checklist();
+        assert!(checklist.iter().any(|item| {
+            item.area == "external audit"
+                && item.status == SecurityReviewStatus::ExternalAuditRequired
+        }));
     }
 }

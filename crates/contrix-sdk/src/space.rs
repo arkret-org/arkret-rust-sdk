@@ -390,8 +390,7 @@ impl Space {
         plaintext: impl AsRef<[u8]>,
         key: &[u8],
     ) -> Result<Attachment> {
-        self.base_client
-            .upload_encrypted_attachment(id, filename, media_type, plaintext, key)
+        self.base_client.upload_encrypted_attachment(id, filename, media_type, plaintext, key)
     }
 
     /// Download and decrypt an encrypted attachment from the base client.
@@ -1621,11 +1620,15 @@ mod tests {
         assert_eq!(leave.object_type, "leave");
         assert_eq!(base_client.get_space(&space_id).unwrap().state, SpaceStateType::Left);
 
-        assert_eq!(space.invite(bob.clone(), Some("member".to_owned())).unwrap().object_type, "invite");
+        assert_eq!(
+            space.invite(bob.clone(), Some("member".to_owned())).unwrap().object_type,
+            "invite"
+        );
         assert_eq!(space.ban(bob.clone(), Some("spam".to_owned())).unwrap().object_type, "ban");
         assert_eq!(space.unban(bob).unwrap().object_type, "unban");
 
-        let media = space.upload_media(b"bytes", "text/plain", Some("note.txt".to_owned())).unwrap();
+        let media =
+            space.upload_media(b"bytes", "text/plain", Some("note.txt".to_owned())).unwrap();
         assert_eq!(space.download_media(&media.blob_ref).unwrap(), b"bytes");
 
         space

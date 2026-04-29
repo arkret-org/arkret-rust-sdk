@@ -6,10 +6,13 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 use crate::{
-    auth::AuthSession, crypto, e2ee::AuditEntry, model::BlobMetadata,
+    BlobRef, Commit, CommitId, Did, Error, Event, EventId, Hash, Operation, OperationId, Result,
+    SpaceId,
+    auth::AuthSession,
+    crypto,
+    e2ee::AuditEntry,
+    model::BlobMetadata,
     resolver::{SnapshotRestore, SpaceState, StateSnapshot},
-    BlobRef, Commit, CommitId, DeviceId, Did, Error, Event, EventId, Hash, Operation, OperationId,
-    Result, SpaceId,
 };
 
 pub trait RepoStore: Send + Sync {
@@ -359,9 +362,8 @@ impl SqliteRepoStore {
     /// Apply a migration.
     pub fn apply_migration(&mut self, migration: StoreMigration) {
         self.schema_version = self.schema_version.max(migration.version);
-        let metadata = migration
-            .applied_metadata(Utc::now())
-            .expect("store migration metadata serializes");
+        let metadata =
+            migration.applied_metadata(Utc::now()).expect("store migration metadata serializes");
         self.migration_metadata.push(metadata);
         self.migrations.push(migration);
     }
@@ -832,8 +834,7 @@ impl AccountSessionStore for MemoryPersistenceStore {
     }
 
     fn put_account_data(&mut self, data: StoredAccountData) -> Result<()> {
-        self.account_data
-            .insert((data.principal_id.clone(), data.data_type.clone()), data);
+        self.account_data.insert((data.principal_id.clone(), data.data_type.clone()), data);
         Ok(())
     }
 
@@ -978,8 +979,8 @@ mod tests {
 
     use super::*;
     use crate::{
-        AuditAction, BLOB_SCHEMA, BlobRef, COMMIT_SCHEMA, DeviceId, Did, EventId, Hlc,
-        ObjectState, SpaceId, resolver::SnapshotRestoreSource,
+        AuditAction, BLOB_SCHEMA, BlobRef, COMMIT_SCHEMA, DeviceId, Did, EventId, Hlc, ObjectState,
+        SpaceId, resolver::SnapshotRestoreSource,
     };
 
     fn test_commit(commit_id: &str, author_seq: u64, operations: Vec<Hash>) -> Commit {
@@ -1293,13 +1294,12 @@ mod tests {
             json!({"id":"cx:entity:recover"}),
         );
         let operation_digest = operation.operation_digest().unwrap();
-        let commit = test_commit(
-            "cx:commit:recover",
-            1,
-            vec![Hash::new(operation_digest.clone()).unwrap()],
-        );
+        let commit =
+            test_commit("cx:commit:recover", 1, vec![Hash::new(operation_digest.clone()).unwrap()]);
         store
-            .write_batch(RepoWriteBatch::new().with_operation(operation.clone()).with_commit(commit))
+            .write_batch(
+                RepoWriteBatch::new().with_operation(operation.clone()).with_commit(commit),
+            )
             .unwrap();
 
         let snapshot = store.export_snapshot();
@@ -1339,11 +1339,7 @@ mod tests {
         let state = rebuild_space_state_from_events(&store, &space_id, "1").unwrap();
         assert_eq!(state.entities.len(), 1);
         assert_eq!(
-            state
-                .entities
-                .get("cx:entity:01JS0SNAPENTITY00000000000")
-                .unwrap()
-                .state,
+            state.entities.get("cx:entity:01JS0SNAPENTITY00000000000").unwrap().state,
             Some(ObjectState::Active)
         );
 
@@ -1388,10 +1384,9 @@ mod tests {
             json!({"theme": "dark"})
         );
 
-        let blob_ref = BlobRef::new(
-            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        )
-        .unwrap();
+        let blob_ref =
+            BlobRef::new("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+                .unwrap();
         let metadata = blob_metadata(blob_ref.clone(), 12);
         store.put_blob_metadata(metadata.clone()).unwrap();
         store.put_blob_metadata(metadata.clone()).unwrap();
@@ -1419,8 +1414,7 @@ mod tests {
             origin: principal_id.clone(),
             destination: Did::new("did:web:bob.example").unwrap(),
             request_digest:
-                "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-                    .to_owned(),
+                "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_owned(),
             response_digest: None,
             seen_at: Utc::now(),
         };
@@ -1497,4 +1491,9 @@ mod tests {
         cache.insert("b", 2);
         cache.insert("c", 3);
 
-        assert!(cache.get(&"a").is_none
+        assert!(cache.get(&"a").is_none());
+        assert_eq!(cache.get(&"b"), Some(&2));
+        assert_eq!(cache.len(), 2);
+    }
+}
+          
