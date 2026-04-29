@@ -165,11 +165,10 @@ impl MessageCrypto {
     ) -> Result<()> {
         Self::verify_opaque_payload_digest(message)?;
         if let Some(expected) = expected_aad_digest {
-            let aad = message
-                .payload
-                .aad
-                .as_ref()
-                .ok_or_else(|| Error::Protocol("encrypted payload AAD is missing".to_owned()))?;
+            let aad =
+                message.payload.aad.as_ref().ok_or_else(|| {
+                    Error::Protocol("encrypted payload AAD is missing".to_owned())
+                })?;
             let actual = crate::crypto::json_aad_digest(aad)?;
             if actual != expected {
                 return Err(Error::Protocol("encrypted payload AAD digest mismatch".to_owned()));
@@ -268,10 +267,7 @@ impl ContrixMlsIdentity {
         })
     }
 
-    pub fn publish_key_package_step(
-        &self,
-        group_id: Option<String>,
-    ) -> MlsDeviceWorkflowStep {
+    pub fn publish_key_package_step(&self, group_id: Option<String>) -> MlsDeviceWorkflowStep {
         MlsDeviceWorkflowStep {
             action: MlsDeviceWorkflowAction::PublishKeyPackage,
             principal_id: self.principal_id.clone(),
@@ -502,8 +498,12 @@ impl ContrixMlsGroup {
             .map_err(mls_error)?;
         let message_bytes = message.tls_serialize_detached().map_err(mls_error)?;
         let epoch = self.epoch();
-        let payload_digest =
-            EncryptedPayload::mls_payload_digest(epoch, &content_type, aad.as_ref(), &message_bytes)?;
+        let payload_digest = EncryptedPayload::mls_payload_digest(
+            epoch,
+            &content_type,
+            aad.as_ref(),
+            &message_bytes,
+        )?;
 
         Ok(EncryptedPayload {
             scheme: EncryptedPayloadScheme::MlsRfc9420,
@@ -814,8 +814,9 @@ mod tests {
         assert_eq!(restored_bob.epoch(), bob_group.epoch());
         assert_eq!(store.mls_group_state(&record.group_id).unwrap().epoch, record.epoch);
 
-        let encrypted =
-            alice_group.encrypt_payload("application/json", br#"{"body":"after restore"}"#).unwrap();
+        let encrypted = alice_group
+            .encrypt_payload("application/json", br#"{"body":"after restore"}"#)
+            .unwrap();
         assert_eq!(
             restored_bob.decrypt_payload(&encrypted).unwrap(),
             br#"{"body":"after restore"}"#

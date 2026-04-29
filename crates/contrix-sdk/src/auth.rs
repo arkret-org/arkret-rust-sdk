@@ -273,7 +273,7 @@ pub struct OidcIssuerMetadata {
 /// JWKS material fetched or pinned by the embedding application.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OidcJwks {
-    pub keys: serde_json::Value,
+    pub keys: Value,
 }
 
 /// OIDC credential presented for verification.

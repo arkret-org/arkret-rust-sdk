@@ -2418,12 +2418,14 @@ mod tests {
                 entity_id: "cx:entity:1".to_owned(),
             },
         );
-        let grant =
-            grant_for("post", ResourceSelector::Entity {
+        let grant = grant_for(
+            "post",
+            ResourceSelector::Entity {
                 space_id: "cx:space:A".to_owned(),
                 entity_type: Some("message".to_owned()),
                 entity_id: None,
-            });
+            },
+        );
         let policy = PolicyCheckResponse {
             operation: "cx.policy.check".to_owned(),
             effect: PolicyServerEffect::Quarantine,
@@ -2434,8 +2436,9 @@ mod tests {
 
         let decision = engine.check_authorization_with_policy(&ctx, &[grant], &policy);
         assert!(matches!(decision, AuthzDecision::Quarantine { .. }));
-        let report = moderation_report_for_policy_outcome(&ctx, &policy, utc("2026-04-29T00:00:00Z"))
-            .unwrap();
+        let report =
+            moderation_report_for_policy_outcome(&ctx, &policy, utc("2026-04-29T00:00:00Z"))
+                .unwrap();
         assert_eq!(report.report_id, "report-1");
         assert_eq!(report.effect, PolicyServerEffect::Quarantine);
     }
@@ -2445,11 +2448,10 @@ mod tests {
         let authority = Did::new("did:web:authority.example.com").unwrap();
         let alice = Did::new("did:web:alice.example.com").unwrap();
         let bob = Did::new("did:web:bob.example.com").unwrap();
-        let mut root =
-            grant_for("message.send", ResourceSelector::Message {
-                space_id: "cx:space:A".to_owned(),
-                message_id: None,
-            });
+        let mut root = grant_for(
+            "message.send",
+            ResourceSelector::Message { space_id: "cx:space:A".to_owned(), message_id: None },
+        );
         root.id = "root".to_owned();
         root.issuer = authority;
         root.subject = alice.clone();

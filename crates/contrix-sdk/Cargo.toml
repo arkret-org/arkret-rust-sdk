@@ -17,6 +17,7 @@ client = ["dep:reqwest", "dep:url"]
 server = []
 mls = ["dep:openmls", "dep:openmls_basic_credential", "dep:openmls_rust_crypto", "dep:tls_codec"]
 applet-runtime = []
+device-runtime = []
 sync-runtime = []
 timeline-runtime = []
 

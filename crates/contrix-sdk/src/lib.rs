@@ -18,6 +18,7 @@ pub mod content;
 pub mod crypto;
 pub mod crypto_store;
 pub mod cursor;
+#[cfg(feature = "device-runtime")]
 pub mod devices;
 pub mod discovery;
 pub mod e2ee;
@@ -71,19 +72,25 @@ pub use applet::{
     ThirdPartyLookupResponse, VirtualActor,
 };
 pub use auth::{
-    AccountRecoveryMethod, AccountRecoveryRequest, AuthManager, AuthRateLimitAction,
-    AuthRateLimitContext, AuthRateLimitHook, AuthSession, DidProofVerification,
-    DidProofVerificationRequest, DidProofVerifier, MfaChallenge, OidcAuthRequest, OidcCredential,
+    AccountAuthState, AccountRecoveryMethod, AccountRecoveryRequest, AuthClaimType, AuthManager,
+    AuthRateLimitAction, AuthRateLimitContext, AuthRateLimitHook, AuthSession, AuthStateSnapshot,
+    ClaimDisclosureRequirement, DidProofVerification, DidProofVerificationRequest,
+    DidProofVerifier, DisclosurePolicy, MfaChallenge, OidcAuthRequest, OidcCredential,
     OidcIssuerMetadata, OidcJwks, OidcVerificationRequest, OidcVerifiedIdentity, OidcVerifier,
     PasskeyChallenge, PasskeyVerification, PasskeyVerificationRequest, PasskeyVerifier,
     PasswordHashAlgorithm, PasswordHashVerifier, PasswordUser, PasswordVerification,
-    PasswordVerificationRequest, SessionPrincipalBinding, WebAuthnPasskeyResponse,
+    PasswordVerificationRequest, PersistedAuthSession, PresentationRequest, PresentationValidation,
+    PresentedClaim, RefreshTokenMetadata, RejectedClaim, SessionPrincipalBinding,
+    SessionRevocation, WebAuthnPasskeyResponse, validate_presentation,
 };
 pub use authz::{
-    ApprovalMode, AuthzContext, AuthzDecision, AuthzEngine, CapabilityGrant, ClaimRequirement,
-    Constraint, ConstraintDuration, ConstraintEffect, ConstraintEntry, FieldScope, RateLimitScope,
-    Recurrence, Resource, ResourceSelector, ScopeLimitation, VerifiedClaim,
-    capability_grants_from_space_state,
+    ApprovalMode, AuthzContext, AuthzDecision, AuthzEngine, CapabilityFrontierValidation,
+    CapabilityGrant, ClaimRequirement, Constraint, ConstraintDuration, ConstraintEffect,
+    ConstraintEntry, FieldScope, ModerationReport, PolicyCheckRequest, PolicyCheckResponse,
+    PolicyServerEffect, RateLimitScope, Recurrence, Resource, ResourceSelector, ScopeLimitation,
+    VerifiedClaim, apply_policy_response, capability_grants_from_space_state,
+    moderation_report_for_policy_outcome, reject_unknown_critical_constraints,
+    validate_capability_frontier,
 };
 pub use base::{
     BaseClient, BootstrapSequence, BootstrapStep, BootstrapStepKind, BootstrapStepStatus,
@@ -95,19 +102,26 @@ pub use content::{
     LinkPreview, MarkdownDocument, Mention, Reaction, ReactionManager, ReactionSummary,
     RichTextBlock, extract_link_previews, parse_mentions,
 };
-pub use crypto::AEAD_ALGORITHM;
+pub use crypto::{
+    AEAD_ALGORITHM, EncryptedEnvelopeAad, EncryptedEnvelopeDigestReport, KeyLifecycleHook,
+    KeyLifecyclePhase, SecurityReviewItem, SecurityReviewStatus, encrypted_envelope_digest_report,
+    envelope_aad_digest, json_aad_digest, security_review_checklist, verify_envelope_aad_digest,
+};
 pub use crypto_store::{
     CryptoStore, MemoryCryptoStore, MlsEpochSecretRecord, MlsGroupStateRecord, MlsRecoveryAction,
     MlsRecoveryPlan, StoredDeviceVerification,
 };
 pub use cursor::{Cursor, SpacePosition, SyncPositions, SyncTracker};
+#[cfg(feature = "device-runtime")]
 pub use devices::{
     Device, DeviceChange, DeviceManager, DeviceMetadata, DeviceVerificationChallenge,
-    DeviceVerificationState, KeyBackup, ToDeviceEnvelope,
+    DeviceVerificationState, KeyBackup, QrVerificationPayload, ToDeviceEnvelope,
+    device_verification_commitment,
 };
 pub use discovery::{DirectoryService, DirectoryUser, OpenGraphPreview, UrlPreviewCache};
 pub use e2ee::{
     AuditAction, AuditEntry, E2eeGroup, E2eeKeyBackup, E2eeKeyRecord, E2eeManager, E2eeMessage,
+    E2eeMessageValidation, E2eeMessageValidationFailure,
 };
 pub use error::{Error, Result};
 pub use event_handler::{

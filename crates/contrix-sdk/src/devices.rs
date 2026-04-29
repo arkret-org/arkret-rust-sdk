@@ -345,8 +345,12 @@ impl DeviceManager {
             )?;
             return Err(Error::Protocol("verification challenge mismatch".to_owned()));
         }
-        let expected =
-            device_verification_commitment(&challenge.user_id, &challenge.device_id, response, challenge.created_at)?;
+        let expected = device_verification_commitment(
+            &challenge.user_id,
+            &challenge.device_id,
+            response,
+            challenge.created_at,
+        )?;
         if expected != challenge.commitment {
             self.set_verification(
                 &challenge.user_id,
@@ -376,9 +380,11 @@ impl DeviceManager {
         let expired = self
             .verification_challenges
             .iter()
-            .filter_map(|(id, challenge)| {
-                if challenge.expires_at <= now { Some(id.clone()) } else { None }
-            })
+            .filter_map(
+                |(id, challenge)| {
+                    if challenge.expires_at <= now { Some(id.clone()) } else { None }
+                },
+            )
             .collect::<Vec<_>>();
         for transaction_id in &expired {
             if let Some(challenge) = self.verification_challenges.remove(transaction_id) {
@@ -664,9 +670,9 @@ mod tests {
         assert!(challenge.commitment.starts_with("sha256:"));
         let qr = manager.qr_verification_payload(&challenge.transaction_id).unwrap();
         DeviceManager::validate_qr_verification_payload(&qr, &alice, &phone).unwrap();
-        assert!(manager
-            .confirm_verification_flow(&challenge.transaction_id, "000000", None)
-            .is_err());
+        assert!(
+            manager.confirm_verification_flow(&challenge.transaction_id, "000000", None).is_err()
+        );
         assert_eq!(
             manager.device(&alice, &phone).unwrap().verification,
             DeviceVerificationState::VerificationFailed
