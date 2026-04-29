@@ -10,9 +10,12 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{
-    Did, Entity, EntityId, Error, Event, EventId, Relation, RelationId, Result, SpaceId,
-    canonical::sha256_digest,
+    Audience, Did, Entity, EntityId, Error, Event, EventId, Relation, RelationId, Result, SpaceId,
+    canonical::{canonical_json_bytes, sha256_digest},
 };
+
+pub const REDUCER_SNAPSHOT_SCHEMA: &str = "cx.schema.reducer_snapshot.v1";
+pub const REDUCER_SNAPSHOT_PROFILE: &str = "cx.reducer.v1";
 
 /// Current state of a Space.
 #[derive(Clone, Debug)]
@@ -805,7 +808,7 @@ impl SpaceState {
 
     /// Create a state snapshot at the current point.
     pub fn snapshot(&self) -> StateSnapshot {
-        StateSnapshot {
+        let mut snapshot = StateSnapshot {
             space_id: self.space_id.clone(),
             space_version: self.space_version.clone(),
             frontier: self.frontier.clone(),
@@ -817,7 +820,10 @@ impl SpaceState {
             state_hash: self.compute_state_hash(),
             snapshot_timestamp: chrono::Utc::now(),
             tombstone_event_id: self.tombstone_event_id.clone(),
-        }
+            manifest: None,
+        };
+        snapshot.manifest = Some(snapshot.manifest());
+        snapshot
     }
 
     pub fn effective_capability(&self, capability_id: &str) -> Option<&ResolvedStateEvent> {
@@ -838,20 +844,87 @@ impl SpaceState {
     }
 
     /// Compute state hash for verification.
-    fn compute_state_hash(&self) -> String {
-        let payload = serde_json::json!({
-            "space_id": self.space_id,
-            "space_version": self.space_version,
-            "frontier": self.frontier,
-            "entities": self.entities,
-            "relations": self.relations,
-            "resolved_state": self.resolved_state,
-            "messages": self.messages,
-            "reactions": self.reactions,
-            "tombstone_event_id": self.tombstone_event_id,
-        });
-        crate::canonical::canonical_sha256(&payload)
-            .unwrap_or_else(|_| sha256_digest(format!("{:?}", self.frontier)))
+    pub fn compute_state_hash(&self) -> String {
+        crate::canonical::canonical_sha256(&state_hash_payload(StateHashInput {
+            space_id: &self.space_id,
+            space_version: &self.space_version,
+            frontier: &self.frontier,
+            entities: &self.entities,
+            relations: &self.relations,
+            resolved_state: &self.resolved_state,
+            messages: &self.messages,
+            reactions: &self.reactions,
+            tombstone_event_id: &self.tombstone_event_id,
+        }))
+        .unwrap_or_else(|_| sha256_digest(format!("{:?}", self.frontier)))
+    }
+
+    pub fn state_merkle_root(&self) -> Result<String> {
+        state_merkle_root(&state_hash_payload(StateHashInput {
+            space_id: &self.space_id,
+            space_version: &self.space_version,
+            frontier: &self.frontier,
+            entities: &self.entities,
+            relations: &self.relations,
+            resolved_state: &self.resolved_state,
+            messages: &self.messages,
+            reactions: &self.reactions,
+            tombstone_event_id: &self.tombstone_event_id,
+        }))
+    }
+
+    fn from_snapshot(snapshot: StateSnapshot) -> Self {
+        Self {
+            space_id: snapshot.space_id,
+            space_version: snapshot.space_version,
+            entities: snapshot.entities,
+            relations: snapshot.relations,
+            resolved_state: snapshot.resolved_state,
+            messages: snapshot.messages,
+            reactions: snapshot.reactions,
+            conflict_records: Vec::new(),
+            frontier: snapshot.frontier,
+            state_events: Vec::new(),
+            processed_events: BTreeMap::new(),
+            redacted_events: BTreeSet::new(),
+            tombstone_event_id: snapshot.tombstone_event_id,
+        }
+    }
+
+    pub fn restore_snapshot_or_replay(
+        snapshot: Option<StateSnapshot>,
+        space_id: SpaceId,
+        space_version: impl Into<String>,
+        repo_events: &[Event],
+    ) -> Result<SnapshotRestore> {
+        if let Some(snapshot) = snapshot {
+            match snapshot.verify() {
+                Ok(()) => {
+                    return Ok(SnapshotRestore {
+                        state: Self::from_snapshot(snapshot),
+                        source: SnapshotRestoreSource::Snapshot,
+                        snapshot_error: None,
+                    });
+                }
+                Err(err) => {
+                    let mut state = Self::new(space_id, space_version.into());
+                    state.apply_events(repo_events)?;
+                    return Ok(SnapshotRestore {
+                        state,
+                        source: SnapshotRestoreSource::RepoReplay,
+                        snapshot_error: Some(err.to_string()),
+                    });
+                }
+            }
+        }
+
+        let mut state = Self::new(space_id, space_version.into());
+        state.apply_events(repo_events)?;
+        Ok(SnapshotRestore {
+            state,
+            source: SnapshotRestoreSource::RepoReplay,
+            snapshot_error: None,
+        })
     }
 }
 
@@ -870,6 +943,86 @@ pub struct StateSnapshot {
     pub snapshot_timestamp: chrono::DateTime<chrono::Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tombstone_event_id: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manifest: Option<ReducerSnapshotManifest>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ReducerSnapshotManifest {
+    pub schema: String,
+    pub reducer_profile: String,
+    pub space_id: SpaceId,
+    pub space_version: String,
+    pub frontier: Vec<EventId>,
+    pub state_hash: String,
+    pub merkle_root: String,
+    pub chunk_count: u32,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub chunks: Vec<SnapshotChunkManifest>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub signatures: Vec<SnapshotSignature>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SnapshotChunkManifest {
+    pub index: u32,
+    pub digest: String,
+    pub byte_len: usize,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SnapshotSignature {
+    pub kind: String,
+    pub alg: String,
+    pub verification_method: String,
+    pub payload_hash: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub domain: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub audience: Option<Audience>,
+    pub signature: String,
+}
+
+impl SnapshotSignature {
+    pub fn manifest_binding_payload(
+        &self,
+        manifest: &ReducerSnapshotManifest,
+    ) -> Result<SnapshotSignatureBindingPayload> {
+        Ok(SnapshotSignatureBindingPayload {
+            payload_hash: crate::canonical::canonical_sha256(&manifest.signature_payload())?,
+            verification_method: self.verification_method.clone(),
+            created_at: self.created_at,
+            domain: self.domain.clone(),
+            audience: self.audience.clone(),
+        })
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SnapshotSignatureBindingPayload {
+    pub payload_hash: String,
+    pub verification_method: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub domain: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub audience: Option<Audience>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SnapshotRestoreSource {
+    Snapshot,
+    RepoReplay,
+}
+
+#[derive(Clone, Debug)]
+pub struct SnapshotRestore {
+    pub state: SpaceState,
+    pub source: SnapshotRestoreSource,
+    pub snapshot_error: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -929,19 +1082,224 @@ fn membership_rank(content: &serde_json::Value) -> u8 {
 impl StateSnapshot {
     /// Verify the state hash.
     pub fn verify_hash(&self) -> Result<bool> {
-        let payload = serde_json::json!({
-            "space_id": self.space_id,
-            "space_version": self.space_version,
-            "frontier": self.frontier,
-            "entities": self.entities,
-            "relations": self.relations,
-            "resolved_state": self.resolved_state,
-            "messages": self.messages,
-            "reactions": self.reactions,
-            "tombstone_event_id": self.tombstone_event_id,
-        });
-        Ok(crate::canonical::canonical_sha256(&payload)? == self.state_hash)
+        Ok(self.compute_state_hash()? == self.state_hash)
     }
+
+    pub fn compute_state_hash(&self) -> Result<String> {
+        crate::canonical::canonical_sha256(&self.state_payload())
+    }
+
+    pub fn state_merkle_root(&self) -> Result<String> {
+        state_merkle_root(&self.state_payload())
+    }
+
+    pub fn canonical_snapshot_bytes(&self) -> Result<Vec<u8>> {
+        canonical_json_bytes(&self.state_payload())
+    }
+
+    pub fn chunk_manifest(&self, chunk_size: usize) -> Result<Vec<SnapshotChunkManifest>> {
+        if chunk_size == 0 {
+            return Err(Error::Protocol(
+                "snapshot chunk size must be greater than zero".to_owned(),
+            ));
+        }
+        let bytes = self.canonical_snapshot_bytes()?;
+        Ok(bytes
+            .chunks(chunk_size)
+            .enumerate()
+            .map(|(index, chunk)| SnapshotChunkManifest {
+                index: index as u32,
+                digest: sha256_digest(chunk),
+                byte_len: chunk.len(),
+            })
+            .collect())
+    }
+
+    pub fn manifest(&self) -> ReducerSnapshotManifest {
+        let merkle_root = self
+            .state_merkle_root()
+            .unwrap_or_else(|_| sha256_digest(format!("{:?}", self.frontier)));
+        ReducerSnapshotManifest {
+            schema: REDUCER_SNAPSHOT_SCHEMA.to_owned(),
+            reducer_profile: REDUCER_SNAPSHOT_PROFILE.to_owned(),
+            space_id: self.space_id.clone(),
+            space_version: self.space_version.clone(),
+            frontier: self.frontier.clone(),
+            state_hash: self.state_hash.clone(),
+            merkle_root,
+            chunk_count: 0,
+            chunks: Vec::new(),
+            created_at: self.snapshot_timestamp,
+            signatures: Vec::new(),
+        }
+    }
+
+    pub fn manifest_with_chunks(&self, chunk_size: usize) -> Result<ReducerSnapshotManifest> {
+        let chunks = self.chunk_manifest(chunk_size)?;
+        let mut manifest = self.manifest();
+        manifest.chunk_count = chunks.len() as u32;
+        manifest.chunks = chunks;
+        Ok(manifest)
+    }
+
+    pub fn verify(&self) -> Result<()> {
+        if !self.verify_hash()? {
+            return Err(Error::Protocol("snapshot state hash mismatch".to_owned()));
+        }
+        let actual_root = self.state_merkle_root()?;
+        if let Some(manifest) = &self.manifest {
+            manifest.verify_against_snapshot(self, &actual_root)?;
+        }
+        Ok(())
+    }
+
+    fn state_payload(&self) -> serde_json::Value {
+        state_hash_payload(StateHashInput {
+            space_id: &self.space_id,
+            space_version: &self.space_version,
+            frontier: &self.frontier,
+            entities: &self.entities,
+            relations: &self.relations,
+            resolved_state: &self.resolved_state,
+            messages: &self.messages,
+            reactions: &self.reactions,
+            tombstone_event_id: &self.tombstone_event_id,
+        })
+    }
+}
+
+impl ReducerSnapshotManifest {
+    pub fn verify_against_snapshot(
+        &self,
+        snapshot: &StateSnapshot,
+        actual_merkle_root: &str,
+    ) -> Result<()> {
+        if self.schema != REDUCER_SNAPSHOT_SCHEMA {
+            return Err(Error::Protocol("snapshot manifest schema mismatch".to_owned()));
+        }
+        if self.reducer_profile != REDUCER_SNAPSHOT_PROFILE {
+            return Err(Error::Protocol("snapshot manifest reducer profile mismatch".to_owned()));
+        }
+        if self.space_id != snapshot.space_id
+            || self.space_version != snapshot.space_version
+            || self.frontier != snapshot.frontier
+            || self.state_hash != snapshot.state_hash
+        {
+            return Err(Error::Protocol("snapshot manifest does not match snapshot".to_owned()));
+        }
+        if self.merkle_root != actual_merkle_root {
+            return Err(Error::Protocol("snapshot manifest merkle root mismatch".to_owned()));
+        }
+        if self.chunk_count as usize != self.chunks.len() {
+            return Err(Error::Protocol("snapshot manifest chunk count mismatch".to_owned()));
+        }
+        Ok(())
+    }
+
+    pub fn verify_chunks<I, B>(&self, chunks: I) -> Result<()>
+    where
+        I: IntoIterator<Item = B>,
+        B: AsRef<[u8]>,
+    {
+        let chunks: Vec<B> = chunks.into_iter().collect();
+        if chunks.len() != self.chunks.len() {
+            return Err(Error::Protocol("snapshot chunk count mismatch".to_owned()));
+        }
+        for (expected, chunk) in self.chunks.iter().zip(chunks.iter()) {
+            let chunk = chunk.as_ref();
+            if expected.byte_len != chunk.len() {
+                return Err(Error::Protocol(format!(
+                    "snapshot chunk {} length mismatch",
+                    expected.index
+                )));
+            }
+            let actual = sha256_digest(chunk);
+            if expected.digest != actual {
+                return Err(Error::Protocol(format!(
+                    "snapshot chunk {} digest mismatch",
+                    expected.index
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn signature_payload(&self) -> serde_json::Value {
+        let mut value = serde_json::to_value(self).unwrap_or_else(|_| serde_json::json!({}));
+        if let serde_json::Value::Object(map) = &mut value {
+            map.remove("signatures");
+        }
+        value
+    }
+}
+
+pub fn verify_snapshot_chunks<I, B>(manifest: &ReducerSnapshotManifest, chunks: I) -> Result<()>
+where
+    I: IntoIterator<Item = B>,
+    B: AsRef<[u8]>,
+{
+    manifest.verify_chunks(chunks)
+}
+
+pub fn state_merkle_root(payload: &serde_json::Value) -> Result<String> {
+    let serde_json::Value::Object(map) = payload else {
+        return Err(Error::Protocol("state merkle payload must be an object".to_owned()));
+    };
+    let leaves = map
+        .iter()
+        .map(|(key, value)| {
+            crate::canonical::canonical_sha256(&serde_json::json!({
+                "key": key,
+                "value": value,
+            }))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    merkle_root(leaves)
+}
+
+pub fn merkle_root(mut leaves: Vec<String>) -> Result<String> {
+    if leaves.is_empty() {
+        return Ok(sha256_digest([]));
+    }
+    leaves.sort();
+    while leaves.len() > 1 {
+        let mut next = Vec::with_capacity(leaves.len().div_ceil(2));
+        for pair in leaves.chunks(2) {
+            let right = pair.get(1).unwrap_or(&pair[0]);
+            next.push(crate::canonical::canonical_sha256(&serde_json::json!({
+                "left": pair[0],
+                "right": right,
+            }))?);
+        }
+        leaves = next;
+    }
+    Ok(leaves.remove(0))
+}
+
+struct StateHashInput<'a> {
+    space_id: &'a SpaceId,
+    space_version: &'a str,
+    frontier: &'a [EventId],
+    entities: &'a BTreeMap<String, Entity>,
+    relations: &'a BTreeMap<String, Relation>,
+    resolved_state: &'a BTreeMap<String, ResolvedStateEvent>,
+    messages: &'a BTreeMap<String, ResolvedMessage>,
+    reactions: &'a BTreeMap<String, ResolvedReaction>,
+    tombstone_event_id: &'a Option<EventId>,
+}
+
+fn state_hash_payload(input: StateHashInput<'_>) -> serde_json::Value {
+    serde_json::json!({
+        "space_id": input.space_id,
+        "space_version": input.space_version,
+        "frontier": input.frontier,
+        "entities": input.entities,
+        "relations": input.relations,
+        "resolved_state": input.resolved_state,
+        "messages": input.messages,
+        "reactions": input.reactions,
+        "tombstone_event_id": input.tombstone_event_id,
+    })
 }
 
 #[cfg(test)]
@@ -1067,14 +1425,14 @@ mod tests {
             kind: "cx.member.state".to_owned(),
             space_id: space_id.clone(),
             space_version: "1".to_owned(),
-            actor_id: Did::new("did:uuid:admin_b").unwrap(),
+            actor_id: Did::new("did:web:admin-b.example").unwrap(),
             actor_seq: 1,
             created_at: chrono::Utc::now(),
             hlc: Hlc::new("01970e589d21-00000004-a13f9d2e").unwrap(),
             prev_refs: vec![],
             auth_refs: vec![],
             redacts: None,
-            content: json!({ "state_key": "did:uuid:alice", "membership": "leave" }),
+            content: json!({ "state_key": "did:web:alice.example", "membership": "leave" }),
             unsigned: BTreeMap::new(),
             proofs: vec![],
         };
@@ -1083,21 +1441,21 @@ mod tests {
             kind: "cx.member.state".to_owned(),
             space_id,
             space_version: "1".to_owned(),
-            actor_id: Did::new("did:uuid:admin_a").unwrap(),
+            actor_id: Did::new("did:web:admin-a.example").unwrap(),
             actor_seq: 1,
             created_at: chrono::Utc::now(),
             hlc: Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap(),
             prev_refs: vec![],
             auth_refs: vec![],
             redacts: None,
-            content: json!({ "state_key": "did:uuid:alice", "membership": "ban" }),
+            content: json!({ "state_key": "did:web:alice.example", "membership": "ban" }),
             unsigned: BTreeMap::new(),
             proofs: vec![],
         };
 
         state.apply_events(&[leave, ban]).unwrap();
 
-        let resolved = state.resolved_state.get("cx.member.state|did:uuid:alice").unwrap();
+        let resolved = state.resolved_state.get("cx.member.state|did:web:alice.example").unwrap();
         assert_eq!(resolved.content["membership"], "ban");
         assert_eq!(resolved.source_event_id.as_str(), "cx:event:01JS0M1B000000000000000000");
         assert_eq!(state.conflict_records.len(), 1);
@@ -1110,7 +1468,7 @@ mod tests {
             "1".to_owned(),
         );
         let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
-        let actor_id = Did::new("did:uuid:moderator").unwrap();
+        let actor_id = Did::new("did:web:moderator.example").unwrap();
 
         let revoke = Event {
             event_id: EventId::new("cx:event:01JS0R1E000000000000000000").unwrap(),
@@ -1142,7 +1500,7 @@ mod tests {
             redacts: None,
             content: json!({
                 "capability_id": "cap-chan-post",
-                "subject": "did:uuid:alice",
+                "subject": "did:web:alice.example",
                 "actions": ["message.send", "message.react"]
             }),
             unsigned: BTreeMap::new(),
@@ -1223,5 +1581,100 @@ mod tests {
 
         let reaction = state.reactions.get("m1|did:web:alice.example|+1").unwrap();
         assert!(reaction.active);
+    }
+
+    #[test]
+    fn snapshot_manifest_tracks_state_hash_and_merkle_root() {
+        let mut state = SpaceState::new(
+            SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            "1".to_owned(),
+        );
+        let event = entity_event("cx:event:01JS0SNAP00000000000000001", "Snapshot task");
+
+        state.apply_events(std::slice::from_ref(&event)).unwrap();
+        let snapshot = state.snapshot();
+        let manifest = snapshot.manifest.as_ref().unwrap();
+
+        assert_eq!(manifest.schema, REDUCER_SNAPSHOT_SCHEMA);
+        assert_eq!(manifest.reducer_profile, REDUCER_SNAPSHOT_PROFILE);
+        assert_eq!(manifest.state_hash, snapshot.state_hash);
+        assert_eq!(manifest.merkle_root, snapshot.state_merkle_root().unwrap());
+        snapshot.verify().unwrap();
+    }
+
+    #[test]
+    fn snapshot_chunk_manifest_verifies_digests() {
+        let state = SpaceState::new(
+            SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            "1".to_owned(),
+        );
+        let snapshot = state.snapshot();
+        let manifest = snapshot.manifest_with_chunks(16).unwrap();
+        let bytes = snapshot.canonical_snapshot_bytes().unwrap();
+        let chunks: Vec<Vec<u8>> = bytes.chunks(16).map(|chunk| chunk.to_vec()).collect();
+
+        verify_snapshot_chunks(&manifest, chunks.clone()).unwrap();
+
+        let mut tampered = chunks;
+        tampered[0][0] ^= 1;
+        assert!(verify_snapshot_chunks(&manifest, tampered).is_err());
+    }
+
+    #[test]
+    fn merkle_root_is_order_independent_for_leaf_hashes() {
+        let a = merkle_root(vec![
+            "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_owned(),
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned(),
+        ])
+        .unwrap();
+        let b = merkle_root(vec![
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned(),
+            "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_owned(),
+        ])
+        .unwrap();
+
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn restore_snapshot_or_replay_falls_back_on_verification_failure() {
+        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let event = entity_event("cx:event:01JS0SNAP00000000000000002", "Replayed task");
+        let mut state = SpaceState::new(space_id.clone(), "1".to_owned());
+        state.apply_events(std::slice::from_ref(&event)).unwrap();
+        let mut snapshot = state.snapshot();
+        snapshot.state_hash =
+            "sha256:0000000000000000000000000000000000000000000000000000000000000000".to_owned();
+
+        let restored =
+            SpaceState::restore_snapshot_or_replay(Some(snapshot), space_id, "1", &[event])
+                .unwrap();
+
+        assert_eq!(restored.source, SnapshotRestoreSource::RepoReplay);
+        assert!(restored.snapshot_error.unwrap().contains("state hash mismatch"));
+        assert_eq!(restored.state.entities.len(), 1);
+    }
+
+    fn entity_event(event_id: &str, title: &str) -> Event {
+        Event {
+            event_id: EventId::new(event_id).unwrap(),
+            kind: "cx.entity.create".to_owned(),
+            space_id: SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            space_version: "1".to_owned(),
+            actor_id: Did::new("did:web:alice.example.com").unwrap(),
+            actor_seq: 1,
+            created_at: chrono::Utc::now(),
+            hlc: Hlc::new("01970e589d22-00000009-11111111").unwrap(),
+            prev_refs: vec![],
+            auth_refs: vec![],
+            redacts: None,
+            content: json!({
+                "id": "cx:entity:01JS0SNAPENTITY00000000000",
+                "entity_type": "task",
+                "title": title
+            }),
+            unsigned: BTreeMap::new(),
+            proofs: vec![],
+        }
     }
 }

@@ -60,13 +60,19 @@ pub use applet::{
     OpenApiBinding, PortalMode,
 };
 pub use auth::{
-    AccountRecoveryMethod, AccountRecoveryRequest, AuthManager, AuthSession, MfaChallenge,
-    OidcAuthRequest, PasskeyChallenge, PasswordUser, SessionPrincipalBinding,
+    AccountRecoveryMethod, AccountRecoveryRequest, AuthManager, AuthRateLimitAction,
+    AuthRateLimitContext, AuthRateLimitHook, AuthSession, DidProofVerification,
+    DidProofVerificationRequest, DidProofVerifier, MfaChallenge, OidcAuthRequest, OidcCredential,
+    OidcIssuerMetadata, OidcJwks, OidcVerificationRequest, OidcVerifiedIdentity, OidcVerifier,
+    PasskeyChallenge, PasskeyVerification, PasskeyVerificationRequest, PasskeyVerifier,
+    PasswordHashAlgorithm, PasswordHashVerifier, PasswordUser, PasswordVerification,
+    PasswordVerificationRequest, SessionPrincipalBinding, WebAuthnPasskeyResponse,
 };
 pub use authz::{
     ApprovalMode, AuthzContext, AuthzDecision, AuthzEngine, CapabilityGrant, ClaimRequirement,
     Constraint, ConstraintDuration, ConstraintEffect, ConstraintEntry, FieldScope, RateLimitScope,
     Recurrence, Resource, ResourceSelector, ScopeLimitation, VerifiedClaim,
+    capability_grants_from_space_state,
 };
 pub use base::{BaseClient, ClientSpace, SessionMeta, SpaceStateType};
 #[cfg(feature = "client")]
@@ -100,7 +106,10 @@ pub use hlc::{
     validate_hlc_format,
 };
 pub use identity::{
-    DidDocument, DidMigration, HandleAttestation, HandleClaim, IdentityManager, handle_claim_proof,
+    CompositeDidResolver, DidDocument, DidKeriResolver, DidKeyLogEntry, DidKeyLogOperation,
+    DidKeyResolver, DidMigration, DidResolver, DidUuidResolver, DidWebResolver, HandleAttestation,
+    HandleClaim, IdentityManager, VerifiedDidKeyLog, did_key_log_proof, handle_claim_proof,
+    verify_did_key_log,
 };
 pub use media::{Attachment, EncryptedAttachment, MediaMetadata, MemoryBlobStore, Thumbnail};
 pub use membership::{
@@ -124,7 +133,12 @@ pub use push::{
     PushRule, PushToken,
 };
 pub use receipts::{ReadMarker, ReadReceipt, ReceiptManager, ReceiptVisibility};
-pub use resolver::{SpaceState, StateSnapshot};
+pub use resolver::{
+    REDUCER_SNAPSHOT_PROFILE, REDUCER_SNAPSHOT_SCHEMA, ReducerSnapshotManifest,
+    SnapshotChunkManifest, SnapshotRestore, SnapshotRestoreSource, SnapshotSignature,
+    SnapshotSignatureBindingPayload, SpaceState, StateSnapshot, merkle_root, state_merkle_root,
+    verify_snapshot_chunks,
+};
 pub use search::{SpaceSearchEntry, SpaceSearchIndex, SpaceSearchQuery};
 #[cfg(feature = "server")]
 pub use server::{

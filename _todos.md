@@ -1,157 +1,456 @@
-# Contrix Rust SDK Completion TODOs
+# Contrix Rust SDK Parallel Roadmap
 
-## Protocol Core
+Status: post-`0.1.0` release-candidate follow-up plan.
 
-- [x] Make HLC validation match Contrix v1 fixed-width format everywhere.
-- [x] Align client sync wire models with the spec: native `spaces`, optional Matrix bridge `rooms`.
-- [x] Implement cursor validation against the v1 cursor schema, including event / operation / device-message IDs and hash checks.
-- [x] Replace placeholder state-resolution logic with deterministic event ordering, processed-event tracking, frontier computation, redaction handling, tombstone state, and stable state hashes.
-- [x] Add conformance-style tests for HLC, cursor, sync wire compatibility, and state reducer convergence.
+This file is organized by parallel workstream. Items in different workstreams
+may be implemented concurrently when their write scopes do not overlap. Items
+inside the same workstream usually share ownership boundaries and should be
+sequenced by that workstream owner.
 
-## Business Logic Follow-Ups
+## Current Parallel Batch
 
-- [x] Expand reducer coverage for membership, capability grant/revoke/delegate, invite/read marker, and policy state events.
-- [x] Expand reducer coverage for message/reaction revision, redaction, and OR-Set semantics.
-- [x] Connect authz decisions to reducer ordering so revokes and grants converge with business writes.
-- [x] Add durable store adapters or explicit adapter traits for SQLite/IndexedDB instead of dependency-free facades.
-- [x] Add repo commit chain verification: prev hash, author sequence monotonicity, operation digest presence, and signature hooks.
-- [x] Add Matrix-migration parity checks against Ruma / matrix-rust-sdk areas: timeline, room/space list, encryption, device verification, account data, and event cache.
-- [x] Add SDK repo-store list helpers needed by serverx repo read endpoints.
-- [x] Re-run SDK tests after serverx/clientx integration changes.
+These are the next SDK-owned items selected from the backlog because they are
+small enough to complete independently in this repository without pretending to
+finish external audits, real deployment interop, or full durable database work.
 
-## Feature Split and API Surface Gaps
+- [x] WS-C Auth: provider-backed authentication interfaces.
+  - [x] Password hashing verifier using Argon2id or an app-supplied verifier.
+  - [x] OIDC code/token verification contract with issuer metadata and JWKS hooks.
+  - [x] WebAuthn/passkey ceremony verification contract.
+  - [x] DID proof verification against DID documents and verification methods.
+- [x] WS-L Identity: DID resolver and key-log foundations.
+  - [x] Implement `did:uuid` bit layout validation.
+  - [x] Structured `did:uuid` generation and validation.
+  - [x] `did:web`, `did:key` and `did:keri` resolver adapter traits.
+  - [x] DID key-log verification: inception, rotate, recover, deactivate.
+  - [x] Key rotation that does not change the DID.
+- [x] WS-F Sync/Snapshot: snapshot manifest and chunk verification.
+  - [x] Reducer snapshot manifest fields and signature model.
+  - [x] Snapshot chunk digest verification.
+  - [x] State hash / Merkle root helpers.
+  - [x] Client fallback-to-repo-replay behavior when snapshot verification fails.
+- [x] WS-D Authz: reducer-backed authorization.
+  - [x] Implement recurrence matching for temporal constraints.
+  - [x] Calculate authz cache `valid_until` from temporal constraints.
+  - [x] Add tests for recurrence, daylight-boundary and expiry edge cases.
+  - [x] Evaluate active grants from `SpaceState` snapshots.
+  - [x] Handle grant revoke / delegate races with deterministic ordering.
+  - [x] Add negative conformance vectors for denied writes.
 
-- [x] Audit the SDK against `E:\Works\contrix-dev\contrix-spec` and `E:\Works\palpo-im\ruma` feature organization.
-- [x] Add a dedicated `server` Cargo feature so server-side protocol helpers can be gated separately from the reqwest HTTP `client` feature.
-- [x] Add a framework-free server endpoint registry with stable operation IDs, methods and paths for the protocol HTTP binding.
-- [x] Expand the HTTP client with named entry points for the missing REST endpoint groups: identity, repo read/sync, sync describe/subscribe/backfill/snapshot-head, federation, index, directory, blob head/upload entry, push, authz effective grants/invites, policy, media ICE config, moderation and applet.
-- [x] Verify `server` feature compilation with `cargo check --no-default-features --features server`.
-- [x] Verify `client` feature compilation with `cargo check --no-default-features --features client`.
-- [x] Verify combined feature compilation with `cargo check --all-features`.
+## WS-A Release Gates
 
-## Remaining Protocol Completion Gaps
+Parallel-safe with code work except while producing final release evidence.
 
-- [x] Replace generic `serde_json::Value` REST responses with stable request/response structs for every endpoint in the service HTTP binding.
-- [x] Add server-side handler traits or adapter interfaces for every endpoint contract, while staying framework-independent.
-- [x] Add OpenAPI generation or export support from the endpoint registry, including standard error envelope responses.
-- [x] Add conformance tests that compare the SDK endpoint registry against the spec operation table.
-- [x] Add typed binary/multipart blob upload and authenticated byte download helpers, including `Range`, `Content-Disposition`, `Digest`, cache and redirect header behavior.
-- [x] Add streaming transport support for `GET /api/v1/sync/subscribe` instead of only JSON-shaped low-level access.
-- [x] Add complete repo read models for describe, list commits, get commit, get operations and repo sync.
-- [x] Add complete federation request/response models for transaction, push operations, pull operations, space members and verify actor.
-- [x] Add complete directory discovery models for spaces, organizations, actors, users and handle resolution.
-- [x] Add complete index models for entity, thread, notifications, inbox, search and space hierarchy responses.
-- [x] Add complete push registration, unregister and notify wire models.
-- [x] Add complete policy, moderation, applet and media ICE config wire models.
+- [ ] Keep `0.1.x` marked as release-candidate until external security review and real server interoperability pass.
+- [ ] Add a release evidence document for every public tag:
+  - [ ] `cargo fmt --all -- --check`
+  - [ ] `cargo check --no-default-features`
+  - [ ] `cargo check --no-default-features --features client`
+  - [ ] `cargo check --no-default-features --features server`
+  - [ ] `cargo check --no-default-features --features mls`
+  - [ ] `cargo check --all-features`
+  - [ ] `cargo clippy --all-features --all-targets -- -D warnings`
+  - [ ] `cargo test --all-features`
+  - [ ] OpenAPI export reviewed against the Contrix spec.
+- [ ] Define alpha / beta / stable exit criteria:
+  - [ ] Alpha: typed API surface, durable native store, basic real-server sync.
+  - [ ] Beta: multi-device crypto recovery, interop conformance, migration tests.
+  - [ ] Stable: external audit, compatibility policy, semver API freeze.
 
-## Remaining Crypto and MLS Gaps
+## WS-B Storage And Persistence
 
-- [x] Replace the legacy key-backup helper in E2EE state with production-grade authenticated encryption.
-- [x] Replace the legacy push payload helper with production-grade authenticated encryption.
-- [x] Add a durable crypto store abstraction for MLS group state, key packages, welcomes, commits, epoch secrets and device verification state.
-- [x] Wire MLS commit and welcome envelopes into repo/sync/device-message workflows end to end.
-- [x] Add recovery flows for missing MLS epochs, lost local group state and late device joins.
-- [x] Add cross-device verification flows beyond metadata state tracking.
-- [x] Add key backup restore APIs that rehydrate usable local crypto state, not only raw serialized bytes.
-- [x] Add encrypted timeline workflow tests that cover send, sync, decrypt, preserve-undecryptable payload and later decrypt after key arrival.
+Owned files: `store.rs`, future storage crates, storage docs and storage tests.
 
-## Release Readiness Before Public Alpha
+- [ ] Replace dependency-free store facades with real durable adapters.
+  - [ ] Implement `SqliteRepoStore` on top of SQLite transactions.
+  - [ ] Implement SQLite schema migrations with versioned migration files.
+  - [ ] Add indexed lookups for operations, commits, cursors, spaces and events.
+  - [ ] Add crash-recovery tests for partial commit / operation writes.
+  - [ ] Add concurrent writer / reader tests and lock strategy documentation.
+- [ ] Implement a real browser `IndexedDbRepoStore`.
+  - [ ] Persist repo objects, sync cursors and space state snapshots.
+  - [ ] Add quota handling that survives browser restarts.
+  - [ ] Add WASM/browser integration tests.
+- [ ] Add encrypted-at-rest storage paths.
+  - [ ] Use platform key storage integration points instead of passphrase-only derivation for production callers.
+  - [ ] Add key rotation and re-encryption workflows.
+  - [ ] Add backup / restore roundtrips across versions.
+- [ ] Split storage traits by responsibility where needed.
+  - [ ] Repo object store.
+  - [ ] State snapshot store.
+  - [ ] Event cache store.
+  - [ ] Crypto store.
+  - [ ] Account/session store.
+- [ ] Define reusable persistence contracts and test suites.
+  - [ ] Define store traits for repo, state snapshots, event cache, crypto, account/session, blob metadata, audit and federation replay state.
+  - [ ] Define migration contracts and schema-version metadata.
+  - [ ] Add transactional write-path conformance tests.
+  - [ ] Add projection rebuild helpers from durable repo/events.
+  - [ ] Add crash recovery and idempotency conformance tests.
 
-- [x] Document the release status as a 0.1.0 release candidate and explicitly state external security review / interoperability gates.
-- [x] Add a release readiness checklist covering CI, docs, OpenAPI, conformance and security gates.
-- [x] Add a feature matrix that explains `client`, `server`, `mls`, default and model-only builds.
-- [x] Add CI workflow coverage for `fmt`, all feature combinations and all-feature tests on Rust 1.92.
-- [x] Add an OpenAPI export example so the endpoint registry can produce a reviewable artifact.
-- [x] Add a server handler mock conformance test that exercises the framework-independent adapter shape.
-- [x] Remove existing compiler warnings from release-check builds.
-- [x] Run final release-check commands and record them here: `cargo fmt --all -- --check`; `cargo check --no-default-features`; `cargo check --no-default-features --features client`; `cargo check --no-default-features --features server`; `cargo check --no-default-features --features mls`; `cargo check --all-features`; `cargo test --all-features`; `cargo run --example export_openapi --features server`.
+## WS-C Authentication And Identity
 
-## Production Crypto Release Hardening
+Owned files: `auth.rs`, `identity.rs`, `model.rs` DID helpers, auth docs and auth tests.
 
-- [x] Remove all legacy placeholder encryption helpers from SDK code paths.
-- [x] Add a shared XChaCha20-Poly1305 AEAD helper with random nonces and AAD authentication.
-- [x] Use authenticated encryption for E2EE key backup.
-- [x] Use authenticated encryption for push payload encryption.
-- [x] Use authenticated encryption for encrypted media attachments.
-- [x] Use authenticated encryption for encrypted repo-store bytes.
-- [x] Update release docs to 0.1.0 release-candidate language with external review gates.
-- [x] Add clippy `-D warnings` to release/CI checks.
+- [x] Replace local test verifiers with provider-backed interfaces.
+  - [x] Password hashing verifier using Argon2id or an app-supplied verifier.
+  - [x] OIDC code/token verification with issuer metadata and JWKS validation.
+  - [x] WebAuthn/passkey challenge verification.
+  - [x] DID proof verification against DID documents and verification methods.
+- [ ] Persist auth state.
+  - [ ] Durable sessions and refresh token metadata.
+  - [ ] Session revocation list and device binding.
+  - [ ] Soft logout / locked / suspended / deactivated account handling.
+- [x] Harden auth APIs.
+  - [x] Constant-time secret comparisons where applicable.
+  - [x] Token redaction in `Debug` output and logs.
+  - [x] Rate-limit hooks for login, MFA and recovery.
+  - [x] Recovery flow completion APIs, not only request modeling.
+- [ ] Production auth and identity foundations imported from `chask`.
+  - [x] WebAuthn/passkey ceremony interfaces.
+  - [x] OIDC callback and token verification helpers.
+  - [ ] Refresh-token safe storage contract.
+  - [x] Account recovery proof verification.
+  - [x] DID control proof verifier.
+- [ ] Claims, attestations and progressive disclosure.
+  - [ ] Presentation request models.
+  - [ ] Disclosure policy models.
+  - [ ] Verified handle and email-domain claims.
+  - [ ] Organization membership and role claims.
+  - [ ] Device trust, MFA level and risk-level claims.
+  - [ ] Claim revocation and fail-closed validation hooks.
 
-## Spec Compliance Gaps — Resolver Event Coverage
+## WS-D Authorization And Policy
 
-The resolver currently handles 23 of 44 registered event kinds. The following 21 core lifecycle events are missing:
+Owned files: `authz.rs`, reducer/authz integration tests, policy models and policy docs.
 
-- [x] Add `cx.space.create` and `cx.space.update` event handling to the resolver.
-- [x] Add `cx.space.organization`, `cx.space.child`, `cx.space.parent` event handling.
-- [x] Add `cx.space.inheritance_policy`, `cx.space.join_rule`, `cx.space.history_visibility`, `cx.space.discovery` event handling.
-- [x] Add `cx.space.archive`, `cx.space.freeze`, `cx.space.destroy` event handling.
-- [x] Add `cx.entity.restore` event handling to the resolver.
-- [x] Add `cx.relation.move` event handling to the resolver.
-- [x] Add `cx.task.create`, `cx.task.update`, `cx.task.move` event handling.
-- [x] Add `cx.view.create`, `cx.view.update`, `cx.view.reconcile` event handling.
-- [x] Add `cx.redaction` generic redaction event handling.
+- [x] Finish remaining constraint behavior.
+  - [x] Implement recurrence matching for temporal constraints.
+  - [x] Calculate authz cache `valid_until` from temporal constraints.
+  - [x] Add tests for recurrence, daylight-boundary and expiry edge cases.
+- [x] Connect authz decisions to real reducer state.
+  - [x] Evaluate active grants from `SpaceState` snapshots.
+  - [x] Handle grant revoke / delegate races with deterministic ordering.
+  - [x] Add negative conformance vectors for denied writes.
+- [ ] Add policy-server interoperability tests.
+  - [ ] `cx.policy.check` happy path and denial path.
+  - [ ] Quarantine / require-review flows.
+  - [ ] Moderation report flow tied to policy outcome.
+- [ ] Capability at causal frontier.
+  - [x] Model grant/delegate/revoke as reducer input.
+  - [x] Evaluate business operations against the effective grant at the causal frontier.
+  - [ ] Fully implement resource selector grammar.
+  - [ ] Fail closed for unknown critical constraints.
+  - [ ] Validate delegation depth, scope narrowing and cycle detection.
+  - [ ] Validate claims and attestations with issuer trust, subject, time and revocation.
+  - [ ] Model approval/proposal flows.
+  - [ ] Keep policy-server decisions limited to deny/quarantine/review unless a capability exists.
 
-## Spec Compliance Gaps — ViewKind Expansion
+## WS-E Crypto And E2EE
 
-The spec defines 22 view kinds; the SDK has 12. Missing 10:
+Owned files: `crypto.rs`, `crypto_store.rs`, `e2ee.rs`, `mls.rs`, `devices.rs`, crypto docs and tests.
 
-- [x] Add `Matrix`, `Document`, `Dashboard` work-object view kinds to `ViewKind` enum.
-- [x] Add `Activity`, `Inbox`, `Notifications` conversation view kinds to `ViewKind` enum.
-- [x] Add `MemoryReview`, `AgentRuns`, `ContextTimeline` review/agent view kinds to `ViewKind` enum.
+- [ ] Persist OpenMLS state through the `CryptoStore`.
+  - [ ] Serialize and restore MLS group state across process restarts.
+  - [ ] Store KeyPackages, Welcomes, Commits and epoch secrets durably.
+  - [ ] Encrypt crypto-store records at rest.
+- [ ] Complete multi-device MLS workflows.
+  - [ ] Publish and revoke device KeyPackages.
+  - [ ] Add late-device join and missing-Welcome recovery.
+  - [ ] Apply missed MLS commits after offline periods.
+  - [ ] Request and process epoch recovery when local state is behind.
+- [ ] Add real device verification.
+  - [ ] SAS-style challenge flow with canonical commitment checks.
+  - [ ] QR verification payload format and scanner-facing API.
+  - [ ] Cross-device trust propagation.
+  - [ ] Verification cancellation / timeout / mismatch states.
+- [ ] Add key backup and recovery beyond raw blob restore.
+  - [ ] Restore usable local crypto state from backup.
+  - [ ] Validate backup authenticity and sender identity.
+  - [ ] Add backup version rotation and rollback tests.
+- [ ] Expand crypto failure handling.
+  - [ ] Preserve undecryptable timeline events with reason codes.
+  - [ ] Retry decryption after key arrival.
+  - [ ] Detect replay, wrong epoch, wrong sender and stale membership.
+  - [ ] Add fuzz/property tests for envelope parsing and canonical digests.
+- [ ] Encrypted envelope compliance.
+  - [ ] AAD model covering `space_id`, event type, event ID and causal refs.
+  - [ ] `payload_digest` and `aad_digest` verification.
+  - [ ] MLS epoch mismatch recovery.
+  - [ ] Device revocation causing future encrypted writes to fail closed.
+- [ ] Prepare for external security review.
+  - [ ] Threat model document.
+  - [ ] Key lifecycle document.
+  - [ ] MLS transcript and state persistence review notes.
+  - [ ] Audit checklist mapped to source files and tests.
 
-## Spec Compliance Gaps — ResourceSelector Expansion
+## WS-F Sync, Timeline And Runtime
 
-The spec defines 15 resource selector kinds; the SDK has 5. Missing 10:
+Owned files: `sync.rs`, `sync_client.rs`, `timeline.rs`, `resolver.rs`, runtime docs and tests.
 
-- [x] Add `Board`, `Collection`, `Comment` resource selector kinds.
-- [x] Add `Channel`, `Topic`, `Message` resource selector kinds.
-- [x] Add `Run`, `Memory` resource selector kinds.
-- [x] Add `Schema`, `Policy`, `Invite`, `ReadMarker` resource selector kinds.
+- [ ] Turn sync helpers into an async production runtime.
+  - [ ] Async `SyncTransport` implementation for the HTTP `Client`.
+  - [ ] Streaming support for `GET /api/v1/sync/subscribe`.
+  - [ ] Cancellation, backpressure and retry policy.
+  - [ ] Token persistence and reset-on-gap strategy.
+- [ ] Build an event cache layer.
+  - [ ] Deduplicate events by event ID and digest.
+  - [ ] Store raw events and processed timeline items.
+  - [ ] Reconcile limited timelines and backfilled chunks.
+  - [ ] Persist gaps and paginate through them.
+- [ ] Add send queue support.
+  - [ ] Local echo for outbound messages.
+  - [ ] Idempotent transaction IDs.
+  - [ ] Offline queue persistence.
+  - [ ] Retry, cancellation and dependent-event ordering.
+  - [ ] Edit/redact/reaction queue semantics.
+- [ ] Improve timeline APIs.
+  - [ ] Stable timeline item model for UI consumers.
+  - [ ] Message edit and redaction aggregation.
+  - [ ] Reaction summary updates.
+  - [ ] Read receipt and typing ephemeral updates.
+  - [ ] Pinned/focused event loading.
+- [ ] Build a room / space list service.
+  - [ ] Sliding-window subscriptions backed by persisted list state.
+  - [ ] Sorting by recency/name/unread/favorite.
+  - [ ] Filtering by joined/invited/left/favorite/unread/category.
+  - [ ] Incremental updates suitable for UI bindings.
+- [ ] Snapshot and bootstrap contract.
+  - [x] Reducer snapshot manifest fields and signature model.
+  - [x] Snapshot chunk digest verification.
+  - [x] State hash / Merkle root helpers.
+  - [ ] Bootstrap sequence: resolve, discover services, fetch invite/grants, fetch snapshot, pull increments, run reducer, enter cursor subscription.
+  - [x] Client fallback-to-repo-replay behavior when snapshot verification fails.
+- [ ] Client sync correctness contract.
+  - [ ] Bind sync tokens to principal, device, service, filter hash, stream positions and expiry.
+  - [ ] Persist sync positions.
+  - [ ] Specify initial and incremental sync semantics.
+  - [ ] Model join, invite, knock and leave buckets.
+  - [ ] Specify deterministic timeline order using causal depth, HLC, actor ID, actor sequence and event ID.
+  - [ ] Model `timeline.limited`, backfill gaps and token expiry errors.
+  - [ ] Specify `X-Contrix-Wait-For` frontier wait and timeout behavior.
+  - [ ] Specify to-device delivery and acknowledgement semantics.
 
-## Spec Compliance Gaps — Authz Constraint Evaluation
+## WS-G HTTP, Federation And Interop
 
-Five constraint types have TODO stubs that always return Allow:
+Owned files: `client.rs`, `server.rs`, `federation.rs`, `service.rs`, OpenAPI examples and interop tests.
 
-- [x] Implement `DelegationControl` constraint evaluation (depth tracking, scope narrowing).
-- [x] Implement `RateLimiting` constraint evaluation (operation counting, period windows).
-- [x] Implement `ClaimBased` constraint evaluation (claim type matching, issuer validation).
-- [x] Implement `Accountability` constraint evaluation (responsible actor check, logging).
-- [x] Fix `EncryptionRequirement` constraint evaluation (currently no-op, should verify encryption).
-- [x] Add missing constraint fields: `scope_limitation` type, `approval_mode`, `approval_relation`, `guardian_approval_required`, `controller_approval_required`, `claim_refresh_required`, `claim_max_age`, `memory_kind_allow/deny`.
+- [ ] Make OpenAPI output schema-complete.
+  - [ ] Generate typed request / response schemas for every endpoint.
+  - [ ] Include error envelope, auth schemes, headers and binary bodies.
+  - [ ] Add example payloads for key flows.
+- [ ] Add framework adapters outside the core crate.
+  - [ ] Axum adapter.
+  - [ ] Salvo adapter.
+  - [ ] Tower/service abstraction if useful.
+  - [ ] Ensure adapters use the framework-independent endpoint registry.
+- [ ] Build a protocol conformance suite.
+  - [ ] Golden vectors for identifiers, HLC, cursor, canonical JSON and digests.
+  - [ ] Wire-level request / response tests for every endpoint group.
+  - [ ] Negative tests for invalid IDs, bad auth, stale cursors and bad digests.
+  - [ ] Server fixture that exercises repo, sync, blob, authz and federation flows.
+- [ ] Run real server interoperability.
+  - [ ] At least one Contrix server implementation.
+  - [ ] End-to-end login, repo write, sync, media, push and encrypted message flow.
+  - [ ] Federation push / pull smoke test across two services.
+  - [ ] Record compatibility results in release evidence.
+- [ ] Federation and service identity primitives.
+  - [ ] Service DID allowlist model.
+  - [ ] HTTP Message Signature helpers.
+  - [ ] Federation transaction envelope models.
+  - [ ] Fork/quarantine models for duplicate commit or operation conflicts.
+  - [ ] Backfill authorization helpers.
+  - [ ] `.well-known/contrix/server` discovery models.
+- [ ] Federation security helpers.
+  - [ ] HTTP Message Signatures over method, target URI, authority, content digest, origin service DID, destination service DID and time bounds.
+  - [ ] Origin/destination DID Document service endpoint verification.
+  - [ ] Federation transaction idempotency and duplicate-conflict rules.
+  - [ ] Persistent replay protection contract.
+  - [ ] Commit/operation fork quarantine model.
+  - [ ] Pull authorization using history visibility, service delegation and plaintext-visible-service rules.
+  - [ ] `verify-actor` challenge signature model that avoids public DID oracle behavior.
+- [ ] API conventions, anti-abuse and observability metadata.
+  - [ ] Standard not-found privacy semantics for nonexistent vs invisible resources.
+  - [ ] Query-auth rejection helpers and tests.
+  - [ ] Error envelope schemas for 404, 405, 429 and 503.
+  - [ ] Per-actor and per-IP rate-limit metadata models.
+  - [ ] Quota models for blobs, account storage, operation windows and device/OTK counts.
+  - [ ] Structured tracing metadata: request, actor, device, space, operation and commit IDs.
 
-## Spec Compliance Gaps — Server Endpoint Alignment
+## WS-H Bot, Appservice And Ergonomics
 
-- [x] Fix 7 operation_id mismatches between SDK server registry and spec.
-- [x] Add missing `cx.applet.third_party_users` endpoint.
-- [x] Add missing `cx.applet.third_party_locations` endpoint.
+Owned files: `base.rs`, `space.rs`, `event_handler.rs`, `applet.rs`, `agent.rs`, bot examples and ergonomics docs.
 
-## Spec Compliance Gaps — Model Field Gaps
+- [ ] Add high-level client convenience APIs.
+  - [ ] Login/session restore helpers around `Client` and `BaseClient`.
+  - [ ] `send_message`, `send_text`, `edit_message`, `redact_message`.
+  - [ ] `join_space`, `leave_space`, `invite`, `ban`, `unban`.
+  - [ ] `upload_media`, `download_media`, encrypted attachment helpers.
+  - [ ] `whoami`, profile, presence, account data and settings helpers.
+- [ ] Add bot runtime primitives.
+  - [ ] Event handler registration with typed event filters.
+  - [ ] Command parsing helper.
+  - [ ] Preprocessor/filter pipeline.
+  - [ ] Long-running sync loop with graceful shutdown.
+  - [ ] Bot example that handles commands and sends replies.
+- [ ] Add appservice / bridge primitives.
+  - [ ] Appservice registration model.
+  - [ ] Framework adapter routes for appservice transactions.
+  - [ ] Intent / virtual actor API.
+  - [ ] Idempotent transaction handling.
+  - [ ] Third-party user/location query hooks.
+  - [ ] Bridge mapping storage for remote users and rooms.
+- [ ] Applet, agent and sovereign deployment models.
+  - [ ] Signed applet registration and namespace declarations.
+  - [ ] Ghost actor and portal space mapping.
+  - [ ] Third-party user/location lookup contracts.
+  - [ ] Agent run lifecycle and memory lifecycle.
+  - [ ] A2A/ACP/MCP bridge metadata.
+  - [ ] Sovereign deployment policy primitives.
+- [ ] Extended profile primitives.
+  - [ ] Agent principal, delegated actor, run lifecycle, tool audit, memory lifecycle and kill-switch models.
+  - [ ] Applet registration, namespace conflict, transaction idempotency, ghost actor accountability and portal mapping models.
+  - [ ] Social graph feed, circle, follow/contact/block/repost/quote/like/reply and audience-policy models.
+  - [ ] Sovereign deployment allowlist, closed federation, resolver pinning, external device approval and data-classification models.
+  - [ ] Space export/import validation and service replacement contracts.
+  - [ ] Optional TSP trust binding and pairwise control-message hooks.
 
-- [x] Add `space_id`, `revoked_by`, `revoked_at`, `parent_grant_id`, `valid_from`, `valid_until` fields to `CapabilityGrant`.
-- [x] Add `scope` enum (space/channel/topic/thread/view/entity) to `ReadMarker` model.
-- [x] Add `space_version` field to `Space` model.
-- [x] Add `ChannelKind` enum (chat/announce/support/activity) to model.
-- [x] Add `InviteState` enum variants: `rejected`, `expired`.
+## WS-I Platform Bindings And Packaging
 
-## Spec Compliance Gaps — Account Lifecycle
+Owned files: Cargo feature configuration, WASM/FFI boundary modules and packaging docs.
 
-- [x] Add `AccountState` enum: `soft_logged_out`, `locked`, `suspended`, `deactivated`, `erased`.
-- [x] Add account recovery method types: DID proof, password reset, passkey/WebAuthn rebinding.
-- [x] Add session-to-DID-principal binding model.
+- [ ] Decide supported embedding targets.
+  - [ ] Native Rust only for `0.1.x`.
+  - [ ] WASM/browser once IndexedDB storage is real.
+  - [ ] Optional UniFFI Swift/Kotlin bindings after API stabilization.
+- [ ] Prepare WASM support.
+  - [ ] Feature-gate native-only dependencies.
+  - [ ] Browser HTTP transport.
+  - [ ] IndexedDB crypto and repo stores.
+  - [ ] WASM tests for sync/state/cache logic.
+- [ ] Prepare FFI boundary if needed.
+  - [ ] Stable opaque handles for Client, SyncService, Timeline and Crypto.
+  - [ ] Callback-safe event stream API.
+  - [ ] Error mapping and cancellation handles.
 
-## Spec Compliance Gaps — Social Graph
+## WS-J Observability, Performance And Reliability
 
-- [x] Add `AudiencePolicy` struct with mode, interaction controls, indexing controls.
-- [x] Add `AudiencePolicyMode` enum: public/followers/contacts/circle/organization/space_members/direct/private.
-- [x] Add social graph relation kinds to resolver: `follows`, `contact`, `circle_member`, `blocks_social`, `reposts`, `quotes`, `likes`.
+Owned files: `performance.rs`, tracing/metrics integration points, benches and robustness tests.
 
-## Spec Compliance Gaps — Agent Memory Layers
+- [ ] Add structured tracing.
+  - [ ] Sync loop spans.
+  - [ ] HTTP request IDs and retry spans.
+  - [ ] Store transaction spans.
+  - [ ] Crypto operation spans without leaking secrets.
+- [ ] Add metrics hooks.
+  - [ ] Sync latency and error counters.
+  - [ ] Timeline/event-cache sizes.
+  - [ ] Store read/write latency.
+  - [ ] Crypto decrypt success/failure counts.
+- [ ] Add benchmarks.
+  - [ ] Canonical JSON hashing.
+  - [ ] State reducer convergence.
+  - [ ] Store insert/query.
+  - [ ] Timeline pagination/backfill.
+  - [ ] MLS encrypt/decrypt and commit application.
+- [ ] Add robustness testing.
+  - [ ] Property tests for reducer convergence.
+  - [ ] Fuzz tests for cursor, event and encrypted payload decoding.
+  - [ ] Load tests for large space lists and high event volume.
+  - [ ] Fault-injection tests for network and store failures.
 
-- [x] Add `MemoryLayer` enum: `working`, `episodic`, `semantic`, `task`.
-- [x] Expand `AgentMemory` with `memory_kind`, `subject_ref`, `source_refs`, `confidence`, `valid_from`, `valid_until`, `supersedes` fields.
+## WS-K Documentation And Developer Experience
 
-## Spec Compliance Gaps — Cursor Encoding
+Owned files: `docs/*`, examples, crate README and release docs.
 
-- [x] Add structured cursor encoding: JSON → canonical JSON → Base64URL.
-- [x] Add cursor fields: `v`, `t`, `s` (per-space positions), `d` (device positions), `x` (expiry).
-- [x] Add cursor TTL validation (recommended 7 days).
+- [ ] Update docs to distinguish current support levels.
+  - [ ] Protocol model support.
+  - [ ] Local helper support.
+  - [ ] Production-ready support.
+  - [ ] Experimental / facade support.
+- [ ] Add task-oriented guides.
+  - [ ] Build a simple client.
+  - [ ] Build a bot.
+  - [ ] Run sync with durable storage.
+  - [ ] Send and receive encrypted messages.
+  - [ ] Write a server adapter.
+  - [ ] Migrate from Matrix concepts to Contrix concepts.
+- [ ] Expand examples.
+  - [ ] Basic authenticated client.
+  - [ ] Durable sync client.
+  - [ ] Encrypted messaging workflow.
+  - [ ] Media upload/download.
+  - [ ] Bot command example.
+  - [ ] Server endpoint adapter example.
+- [ ] Maintain public API quality.
+  - [ ] Add rustdoc examples for main public types.
+  - [ ] Add compile-fail examples for invalid usage where useful.
+  - [ ] Run `cargo semver-checks` before non-patch releases.
+  - [ ] Keep changelog entries tied to public API changes.
+
+## WS-L Cross-Project Protocol Integration
+
+Source files reviewed:
+
+- `E:\Works\contrix-dev\chask\_todos.md`
+- `E:\Works\contrix-dev\soland\_todos.md`
+
+These items were imported because they are shared protocol/runtime foundations
+that should live in the SDK instead of being independently reimplemented by the
+client app or reference server. `chask` should validate UI and product flows;
+`soland` should validate server persistence and interop. The SDK should provide
+the common models, builders, validators, conformance vectors and reusable
+client/server helper contracts.
+
+- [ ] DID, handle and key-log foundations.
+  - [x] Structured `did:uuid` generation and validation.
+  - [x] `did:web`, `did:key` and `did:keri` resolver adapters or adapter traits.
+  - [x] DID key-log verification: inception, rotate, recover, deactivate.
+  - [x] Key rotation that does not change the DID.
+  - [ ] Bidirectional handle verification through DID Document `also_known_as`.
+  - [ ] Pairwise/private DID visibility controls.
+- [ ] Signed fact and write-plane support.
+  - [ ] Event detached signatures.
+  - [ ] Canonical reducer input digests.
+  - [ ] Operation and commit proof binding helpers.
+  - [ ] Server-verified fact-chain echo models for clients.
+- [ ] Object and operation-family completeness.
+  - [ ] Invite object lifecycle and operation builders.
+  - [ ] Channel and topic entity helpers.
+  - [ ] Comment object helpers distinct from message helpers.
+  - [ ] Structured mention references and mention relations.
+  - [ ] Attachment add/remove operation helpers.
+  - [ ] Run and memory operation helpers.
+  - [ ] MLS proposal, commit and welcome operation helpers.
+- [ ] Blob, media and WebRTC protocol foundations.
+  - [ ] Content-addressed blob helpers.
+  - [ ] Authenticated download grant models.
+  - [ ] Encrypted attachment helpers and conformance vectors.
+  - [ ] Thumbnail metadata and safe preview policy models.
+  - [ ] Safe `Content-Type` and `Content-Disposition` helpers.
+  - [ ] To-device WebRTC offer/answer/ICE signaling models.
+- [ ] Canonical operation and event registry.
+  - [ ] Standardize all built-in operation kinds as canonical `cx.*` names.
+  - [ ] Provide legacy bare-name migration adapters behind an explicit profile.
+  - [ ] Add complete operation envelope fields: actor, kind, target ref, causal deps, HLC, actor sequence, authz ref and proofs.
+  - [ ] Drive operation semantic validation from a schema registry.
+  - [ ] Publish conformance vectors for every built-in operation.
+- [ ] Canonical JSON, digest and signature binding.
+  - [ ] Define canonical UTF-8 JSON bytes with deterministic key order and no insignificant whitespace.
+  - [ ] Reject invalid number and timestamp forms for signed payloads.
+  - [ ] Digest operations from canonical operation bytes.
+  - [ ] Digest commits from canonical commit-without-proofs bytes.
+  - [ ] Bind proofs to actor DID, verification method, payload hash, audience/domain and creation time.
+  - [ ] Provide production proof validators that reject `alg:none` and dev proof modes.
+- [ ] DID identity, key log and service DID primitives.
+  - [x] Implement `did:uuid` bit layout validation.
+  - [x] Provide resolver adapter traits for `did:uuid`, limited `did:web` and temporary/test `did:key`.
+  - [ ] Normalize DID Documents into current control keys, service bindings and method evidence.
+  - [x] Verify append-only key logs and current key derivation from inception.
+  - [ ] Verify registry receipt signatures.
+  - [ ] Gate private/pairwise DID resolution behind proof checks.
+  - [ ] Validate service DID endpoints used by server description, identity, sync, directory, index, blob and snapshot metadata.
+- [ ] Schema registry, OpenAPI and conformance generation.
+  - [ ] JSON Schemas for cursor, event, operation, commit, grant, encrypted envelope and client sync response.
+  - [ ] OpenAPI 3.1 schema output with canonical operation IDs.
+  - [ ] Profile-specific conformance suites for encoding, state resolution, redaction, capability, sync, snapshot, federation signatures and privacy.

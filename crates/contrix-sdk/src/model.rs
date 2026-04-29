@@ -69,7 +69,53 @@ macro_rules! id_type {
 }
 
 fn is_did(value: &str) -> bool {
-    value.starts_with("did:") && value.len() > 4
+    let Some(remainder) = value.strip_prefix("did:") else {
+        return false;
+    };
+    let Some((method, method_specific_id)) = remainder.split_once(':') else {
+        return false;
+    };
+    if method.is_empty()
+        || method_specific_id.is_empty()
+        || !method.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+    {
+        return false;
+    }
+
+    if method == "uuid" {
+        return is_canonical_uuid(method_specific_id);
+    }
+
+    true
+}
+
+fn is_canonical_uuid(value: &str) -> bool {
+    if value.len() != 36
+        || value.as_bytes().get(8) != Some(&b'-')
+        || value.as_bytes().get(13) != Some(&b'-')
+        || value.as_bytes().get(18) != Some(&b'-')
+        || value.as_bytes().get(23) != Some(&b'-')
+    {
+        return false;
+    }
+
+    let mut non_zero = false;
+    for (idx, byte) in value.bytes().enumerate() {
+        if matches!(idx, 8 | 13 | 18 | 23) {
+            continue;
+        }
+        if !byte.is_ascii_hexdigit() || byte.is_ascii_uppercase() {
+            return false;
+        }
+        non_zero |= byte != b'0';
+    }
+    if !non_zero {
+        return false;
+    }
+
+    let version = value.as_bytes()[14];
+    let variant = value.as_bytes()[19];
+    matches!(version, b'4' | b'7') && matches!(variant, b'8' | b'9' | b'a' | b'b')
 }
 
 fn is_hash(value: &str) -> bool {
@@ -100,6 +146,57 @@ id_type!(BlobRef, |value: &str| value.starts_with("cx:blob:") || is_hash(value))
 id_type!(ViewId, has_prefix("cx:view:"));
 id_type!(Hash, is_hash);
 id_type!(Cursor, has_prefix("cx:cursor:"));
+
+impl Did {
+    /// Generate a random canonical `did:uuid` value using UUIDv4 layout.
+    pub fn new_uuid_v4() -> Result<Self> {
+        let mut bytes = [0u8; 16];
+        getrandom::fill(&mut bytes).map_err(|error| Error::Crypto(error.to_string()))?;
+        Self::uuid_v4_from_bytes(bytes)
+    }
+
+    /// Build a canonical `did:uuid` value from raw UUIDv4 bytes.
+    pub fn uuid_v4_from_bytes(mut bytes: [u8; 16]) -> Result<Self> {
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        Self::new(format!("did:uuid:{}", format_uuid_bytes(bytes)))
+    }
+
+    /// Return the DID method name.
+    pub fn method(&self) -> &str {
+        self.0
+            .strip_prefix("did:")
+            .and_then(|remainder| remainder.split_once(':').map(|(method, _)| method))
+            .expect("DID constructed with method")
+    }
+
+    /// Return whether this DID uses the canonical `did:uuid` method form.
+    pub fn is_uuid(&self) -> bool {
+        self.method() == "uuid"
+    }
+}
+
+fn format_uuid_bytes(bytes: [u8; 16]) -> String {
+    format!(
+        "{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
+        bytes[0],
+        bytes[1],
+        bytes[2],
+        bytes[3],
+        bytes[4],
+        bytes[5],
+        bytes[6],
+        bytes[7],
+        bytes[8],
+        bytes[9],
+        bytes[10],
+        bytes[11],
+        bytes[12],
+        bytes[13],
+        bytes[14],
+        bytes[15]
+    )
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -2510,6 +2607,29 @@ mod tests {
     fn did_validation_rejects_handles() {
         assert!(Did::new("did:web:alice.example").is_ok());
         assert!(Did::new("alice.example").is_err());
+    }
+
+    #[test]
+    fn did_uuid_validation_checks_uuid_layout() {
+        let did = Did::new("did:uuid:550e8400-e29b-41d4-a716-446655440000").unwrap();
+        assert_eq!(did.method(), "uuid");
+        assert!(did.is_uuid());
+
+        assert!(Did::new("did:uuid:550e8400-e29b-11d4-a716-446655440000").is_err());
+        assert!(Did::new("did:uuid:550e8400-e29b-41d4-c716-446655440000").is_err());
+        assert!(Did::new("did:uuid:550E8400-e29b-41d4-a716-446655440000").is_err());
+        assert!(Did::new("did:uuid:00000000-0000-4000-8000-000000000000").is_ok());
+        assert!(Did::new("did:uuid:00000000-0000-0000-0000-000000000000").is_err());
+    }
+
+    #[test]
+    fn did_uuid_generation_sets_version_and_variant_bits() {
+        let did = Did::uuid_v4_from_bytes([0xff; 16]).unwrap();
+        assert_eq!(did.as_str(), "did:uuid:ffffffff-ffff-4fff-bfff-ffffffffffff");
+        assert!(did.is_uuid());
+
+        let generated = Did::new_uuid_v4().unwrap();
+        assert!(generated.is_uuid());
     }
 
     #[test]

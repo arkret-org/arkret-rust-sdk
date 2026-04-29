@@ -6,7 +6,10 @@
 //! - Grant validation and enforcement
 //! - Delegation tracking
 
-use chrono::{DateTime, Utc};
+use chrono::{
+    DateTime, Datelike, FixedOffset, LocalResult, NaiveDate, NaiveTime, TimeZone, Utc, Weekday,
+};
+use chrono_tz::Tz;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -691,6 +694,248 @@ fn max_age_contains(age: chrono::Duration, max_age: &ConstraintDuration) -> bool
     age <= allowed
 }
 
+#[derive(Clone, Copy)]
+enum RecurrenceZone {
+    Named(Tz),
+    Fixed(FixedOffset),
+}
+
+impl RecurrenceZone {
+    fn local_parts(&self, now: DateTime<Utc>) -> (NaiveDate, Weekday, NaiveTime) {
+        match self {
+            Self::Named(tz) => {
+                let local = now.with_timezone(tz);
+                (local.date_naive(), local.weekday(), local.time())
+            }
+            Self::Fixed(offset) => {
+                let local = now.with_timezone(offset);
+                (local.date_naive(), local.weekday(), local.time())
+            }
+        }
+    }
+
+    fn local_to_utc_candidates(&self, date: NaiveDate, time: NaiveTime) -> Vec<DateTime<Utc>> {
+        let local = date.and_time(time);
+        match self {
+            Self::Named(tz) => match tz.from_local_datetime(&local) {
+                LocalResult::Single(value) => vec![value.with_timezone(&Utc)],
+                LocalResult::Ambiguous(first, second) => {
+                    vec![first.with_timezone(&Utc), second.with_timezone(&Utc)]
+                }
+                LocalResult::None => Vec::new(),
+            },
+            Self::Fixed(offset) => match offset.from_local_datetime(&local) {
+                LocalResult::Single(value) => vec![value.with_timezone(&Utc)],
+                LocalResult::Ambiguous(first, second) => {
+                    vec![first.with_timezone(&Utc), second.with_timezone(&Utc)]
+                }
+                LocalResult::None => Vec::new(),
+            },
+        }
+    }
+}
+
+fn recurrence_allows(
+    now: DateTime<Utc>,
+    recurrence: &Recurrence,
+) -> std::result::Result<(), String> {
+    let zone = parse_recurrence_zone(recurrence.timezone.as_deref())?;
+    let (_, weekday, local_time) = zone.local_parts(now);
+
+    recurrence_frequency_allows(recurrence.frequency.as_deref(), weekday)?;
+
+    if let Some(days) = &recurrence.days
+        && !days.is_empty()
+    {
+        let allowed_days = days
+            .iter()
+            .map(|day| parse_recurrence_day(day))
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        if !allowed_days.contains(&weekday) {
+            return Err(format!("outside recurrence days: {:?}", weekday));
+        }
+    }
+
+    let window_start = recurrence.window_start.as_deref().map(parse_recurrence_time).transpose()?;
+    let window_end = recurrence.window_end.as_deref().map(parse_recurrence_time).transpose()?;
+
+    if !recurrence_window_contains(local_time, window_start, window_end) {
+        return Err("outside recurrence window".to_owned());
+    }
+
+    Ok(())
+}
+
+fn recurrence_next_transition_after(
+    now: DateTime<Utc>,
+    recurrence: &Recurrence,
+) -> std::result::Result<Option<DateTime<Utc>>, String> {
+    let zone = parse_recurrence_zone(recurrence.timezone.as_deref())?;
+    let (local_date, _, _) = zone.local_parts(now);
+    let window_start = recurrence.window_start.as_deref().map(parse_recurrence_time).transpose()?;
+    let window_end = recurrence.window_end.as_deref().map(parse_recurrence_time).transpose()?;
+    let has_window = window_start.is_some() || window_end.is_some();
+    let has_day_boundary = has_window || recurrence_uses_day_boundaries(recurrence);
+    let midnight =
+        NaiveTime::from_hms_opt(0, 0, 0).expect("00:00:00 must be a valid recurrence boundary");
+
+    let mut candidates = Vec::new();
+    for day_offset in 0..=8 {
+        let Some(date) = local_date.checked_add_signed(chrono::Duration::days(day_offset)) else {
+            continue;
+        };
+
+        if day_offset > 0 && has_day_boundary {
+            candidates.extend(zone.local_to_utc_candidates(date, midnight));
+        }
+        if let Some(start) = window_start {
+            candidates.extend(zone.local_to_utc_candidates(date, start));
+        }
+        if let Some(end) = window_end {
+            candidates.extend(zone.local_to_utc_candidates(date, end));
+        }
+    }
+
+    Ok(candidates.into_iter().filter(|candidate| *candidate > now).min())
+}
+
+fn parse_recurrence_zone(timezone: Option<&str>) -> std::result::Result<RecurrenceZone, String> {
+    let value = timezone.unwrap_or("UTC").trim();
+    if value.is_empty()
+        || value.eq_ignore_ascii_case("utc")
+        || value.eq_ignore_ascii_case("etc/utc")
+        || value == "Z"
+    {
+        return Ok(RecurrenceZone::Fixed(
+            FixedOffset::east_opt(0).expect("zero offset must be valid"),
+        ));
+    }
+
+    if let Ok(tz) = value.parse::<Tz>() {
+        return Ok(RecurrenceZone::Named(tz));
+    }
+
+    parse_fixed_offset(value)
+        .map(RecurrenceZone::Fixed)
+        .ok_or_else(|| format!("unsupported recurrence timezone: {}", value))
+}
+
+fn parse_fixed_offset(value: &str) -> Option<FixedOffset> {
+    let value = value.trim();
+    let without_utc = if value.len() >= 3 && value[..3].eq_ignore_ascii_case("utc") {
+        &value[3..]
+    } else {
+        value
+    };
+    let (sign, rest) = if let Some(rest) = without_utc.strip_prefix('+') {
+        (1, rest)
+    } else if let Some(rest) = without_utc.strip_prefix('-') {
+        (-1, rest)
+    } else {
+        return None;
+    };
+
+    let (hours, minutes) = if let Some((hours, minutes)) = rest.split_once(':') {
+        (hours.parse::<i32>().ok()?, minutes.parse::<i32>().ok()?)
+    } else if rest.len() == 4 {
+        (rest[..2].parse::<i32>().ok()?, rest[2..].parse::<i32>().ok()?)
+    } else {
+        (rest.parse::<i32>().ok()?, 0)
+    };
+
+    if !(0..=23).contains(&hours) || !(0..=59).contains(&minutes) {
+        return None;
+    }
+
+    FixedOffset::east_opt(sign * ((hours * 60 * 60) + (minutes * 60)))
+}
+
+fn parse_recurrence_day(day: &str) -> std::result::Result<Weekday, String> {
+    match day.trim().to_ascii_lowercase().as_str() {
+        "mon" | "monday" | "1" => Ok(Weekday::Mon),
+        "tue" | "tues" | "tuesday" | "2" => Ok(Weekday::Tue),
+        "wed" | "wednesday" | "3" => Ok(Weekday::Wed),
+        "thu" | "thur" | "thurs" | "thursday" | "4" => Ok(Weekday::Thu),
+        "fri" | "friday" | "5" => Ok(Weekday::Fri),
+        "sat" | "saturday" | "6" => Ok(Weekday::Sat),
+        "sun" | "sunday" | "0" | "7" => Ok(Weekday::Sun),
+        _ => Err(format!("unsupported recurrence day: {}", day)),
+    }
+}
+
+fn parse_recurrence_time(value: &str) -> std::result::Result<NaiveTime, String> {
+    let value = value.trim();
+    NaiveTime::parse_from_str(value, "%H:%M:%S")
+        .or_else(|_| NaiveTime::parse_from_str(value, "%H:%M"))
+        .map_err(|_| format!("unsupported recurrence time: {}", value))
+}
+
+fn recurrence_frequency_allows(
+    frequency: Option<&str>,
+    weekday: Weekday,
+) -> std::result::Result<(), String> {
+    let Some(frequency) = frequency.map(str::trim).filter(|value| !value.is_empty()) else {
+        return Ok(());
+    };
+
+    match frequency.to_ascii_lowercase().as_str() {
+        "always" | "daily" | "weekly" => Ok(()),
+        "weekdays" => {
+            if matches!(
+                weekday,
+                Weekday::Mon | Weekday::Tue | Weekday::Wed | Weekday::Thu | Weekday::Fri
+            ) {
+                Ok(())
+            } else {
+                Err(format!("outside weekday recurrence: {:?}", weekday))
+            }
+        }
+        "weekends" => {
+            if matches!(weekday, Weekday::Sat | Weekday::Sun) {
+                Ok(())
+            } else {
+                Err(format!("outside weekend recurrence: {:?}", weekday))
+            }
+        }
+        _ => Err(format!("unsupported recurrence frequency: {}", frequency)),
+    }
+}
+
+fn recurrence_uses_day_boundaries(recurrence: &Recurrence) -> bool {
+    recurrence.days.as_ref().is_some_and(|days| !days.is_empty())
+        || recurrence.frequency.as_deref().is_some_and(|frequency| {
+            matches!(frequency.trim().to_ascii_lowercase().as_str(), "weekdays" | "weekends")
+        })
+}
+
+fn recurrence_window_contains(
+    time: NaiveTime,
+    start: Option<NaiveTime>,
+    end: Option<NaiveTime>,
+) -> bool {
+    match (start, end) {
+        (None, None) => true,
+        (Some(start), None) => time >= start,
+        (None, Some(end)) => time < end,
+        (Some(start), Some(end)) if start == end => true,
+        (Some(start), Some(end)) if start < end => time >= start && time < end,
+        (Some(start), Some(end)) => time >= start || time < end,
+    }
+}
+
+fn update_earliest_future(
+    earliest: &mut Option<DateTime<Utc>>,
+    now: DateTime<Utc>,
+    candidate: Option<DateTime<Utc>>,
+) {
+    if let Some(candidate) = candidate
+        && candidate > now
+        && earliest.is_none_or(|current| candidate < current)
+    {
+        *earliest = Some(candidate);
+    }
+}
+
 /// Claim requirement.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ClaimRequirement {
@@ -878,7 +1123,7 @@ impl AuthzEngine {
         grants: &[CapabilityGrant],
     ) -> AuthzDecision {
         // Check cache first
-        let cache_key = self.cache_key(ctx);
+        let cache_key = self.cache_key(ctx, grants);
         if let Some(cached) = self.cache.get(&cache_key)
             && cached.valid_until.as_ref().is_none_or(|valid| &ctx.now < valid)
         {
@@ -889,9 +1134,23 @@ impl AuthzEngine {
         let decision = self.evaluate_grants(ctx, grants);
 
         // Cache the result
-        self.cache_decision(cache_key, &decision, ctx);
+        self.cache_decision(cache_key, &decision, ctx, grants);
 
         decision
+    }
+
+    /// Check authorization against grants reduced into a `SpaceState` snapshot.
+    pub fn check_authorization_from_space_state(
+        &mut self,
+        ctx: &AuthzContext,
+        state: &crate::SpaceState,
+    ) -> AuthzDecision {
+        match capability_grants_from_space_state(state) {
+            Ok(grants) => self.check_authorization(ctx, &grants),
+            Err(err) => {
+                AuthzDecision::Deny { reason: format!("invalid capability state: {}", err) }
+            }
+        }
     }
 
     /// Evaluate all grants and return the combined decision.
@@ -900,7 +1159,10 @@ impl AuthzEngine {
 
         // Find grants that match the resource
         for grant in grants {
-            if self.grant_matches_resource(ctx, grant) {
+            if self.grant_matches_actor(ctx, grant)
+                && self.grant_is_active(ctx, grant)
+                && self.grant_matches_resource(ctx, grant)
+            {
                 matching_grants.push(grant);
             }
         }
@@ -949,6 +1211,34 @@ impl AuthzEngine {
     /// Check if a grant matches the resource.
     fn grant_matches_resource(&self, ctx: &AuthzContext, grant: &CapabilityGrant) -> bool {
         grant.resources.iter().any(|selector| selector.matches(&ctx.resource))
+    }
+
+    /// Check if a grant applies to the requesting actor.
+    fn grant_matches_actor(&self, ctx: &AuthzContext, grant: &CapabilityGrant) -> bool {
+        grant.subject == ctx.actor_id
+    }
+
+    /// Check if a grant is currently usable.
+    fn grant_is_active(&self, ctx: &AuthzContext, grant: &CapabilityGrant) -> bool {
+        if grant.revoked_by.is_some() {
+            return false;
+        }
+        if let Some(revoked_at) = grant.revoked_at
+            && ctx.now >= revoked_at
+        {
+            return false;
+        }
+        if let Some(valid_from) = grant.valid_from
+            && ctx.now < valid_from
+        {
+            return false;
+        }
+        if let Some(valid_until) = grant.valid_until
+            && ctx.now > valid_until
+        {
+            return false;
+        }
+        true
     }
 
     /// Evaluate all constraints for a grant.
@@ -1001,8 +1291,10 @@ impl AuthzEngine {
                         reason: format!("after expires_at: {}", expires_at),
                     };
                 }
-                if let Some(_recurrence) = recurrence {
-                    // TODO: Implement recurrence matching
+                if let Some(recurrence) = recurrence
+                    && let Err(reason) = recurrence_allows(ctx.now, recurrence)
+                {
+                    return AuthzDecision::Deny { reason };
                 }
                 AuthzDecision::Allow
             }
@@ -1070,15 +1362,15 @@ impl AuthzEngine {
                 if *prohibit_subdelegation && ctx.delegation_depth > 0 {
                     return AuthzDecision::Deny { reason: "subdelegation prohibited".to_owned() };
                 }
-                if let Some(max_depth) = max_delegation_depth {
-                    if ctx.delegation_depth > *max_depth {
-                        return AuthzDecision::Deny {
-                            reason: format!(
-                                "delegation depth {} exceeds max {}",
-                                ctx.delegation_depth, max_depth
-                            ),
-                        };
-                    }
+                if let Some(max_depth) = max_delegation_depth
+                    && ctx.delegation_depth > *max_depth
+                {
+                    return AuthzDecision::Deny {
+                        reason: format!(
+                            "delegation depth {} exceeds max {}",
+                            ctx.delegation_depth, max_depth
+                        ),
+                    };
                 }
                 AuthzDecision::Allow
             }
@@ -1250,9 +1542,11 @@ impl AuthzEngine {
     }
 
     /// Generate a cache key for the context.
-    fn cache_key(&self, ctx: &AuthzContext) -> String {
+    fn cache_key(&self, ctx: &AuthzContext, grants: &[CapabilityGrant]) -> String {
+        let grants_digest = crate::canonical::canonical_sha256(&grants)
+            .unwrap_or_else(|_| format!("grant-count:{}", grants.len()));
         format!(
-            "{}:{}:{}:{}:{:?}:{:?}:{}:{}",
+            "{}:{}:{}:{}:{:?}:{:?}:{}:{}:{}",
             ctx.actor_id,
             ctx.action,
             ctx.resource.space_id(),
@@ -1260,25 +1554,59 @@ impl AuthzEngine {
             ctx.rate_limit_count,
             ctx.encryption_level,
             ctx.verified_claims.len(),
-            ctx.accountability_logged
+            ctx.accountability_logged,
+            grants_digest
         )
     }
 
     /// Cache a decision.
-    fn cache_decision(&mut self, key: String, decision: &AuthzDecision, ctx: &AuthzContext) {
+    fn cache_decision(
+        &mut self,
+        key: String,
+        decision: &AuthzDecision,
+        ctx: &AuthzContext,
+        grants: &[CapabilityGrant],
+    ) {
         // Evict old entries if cache is full
         if self.cache.len() >= self.max_cache_size {
             self.cache.clear();
         }
 
+        let valid_until = self.cache_valid_until(ctx, grants);
         self.cache.insert(
             key,
-            CachedDecision {
-                decision: decision.clone(),
-                _cached_at: ctx.now,
-                valid_until: None, // TODO: Calculate from temporal constraints
-            },
+            CachedDecision { decision: decision.clone(), _cached_at: ctx.now, valid_until },
         );
+    }
+
+    fn cache_valid_until(
+        &self,
+        ctx: &AuthzContext,
+        grants: &[CapabilityGrant],
+    ) -> Option<DateTime<Utc>> {
+        let mut valid_until = None;
+
+        for grant in grants {
+            update_earliest_future(&mut valid_until, ctx.now, grant.valid_from);
+            update_earliest_future(&mut valid_until, ctx.now, grant.valid_until);
+            update_earliest_future(&mut valid_until, ctx.now, grant.revoked_at);
+
+            for entry in &grant.constraints {
+                if let Constraint::Temporal { not_before, expires_at, recurrence } =
+                    &entry.constraint
+                {
+                    update_earliest_future(&mut valid_until, ctx.now, *not_before);
+                    update_earliest_future(&mut valid_until, ctx.now, *expires_at);
+                    if let Some(recurrence) = recurrence
+                        && let Ok(next) = recurrence_next_transition_after(ctx.now, recurrence)
+                    {
+                        update_earliest_future(&mut valid_until, ctx.now, next);
+                    }
+                }
+            }
+        }
+
+        valid_until
     }
 
     /// Clear the cache.
@@ -1319,9 +1647,137 @@ pub struct CapabilityGrant {
     pub revoked_at: Option<DateTime<Utc>>,
 }
 
+/// Extract active grant/delegate capability events from a resolved space state.
+pub fn capability_grants_from_space_state(
+    state: &crate::SpaceState,
+) -> Result<Vec<CapabilityGrant>> {
+    let mut grants = Vec::new();
+
+    for event in state.resolved_state.values() {
+        if !matches!(event.kind.as_str(), "cx.capability.grant" | "cx.capability.delegate") {
+            continue;
+        }
+        grants.push(capability_grant_from_resolved_event(event, Some(state.space_id.clone()))?);
+    }
+
+    Ok(grants)
+}
+
+fn capability_grant_from_resolved_event(
+    event: &crate::resolver::ResolvedStateEvent,
+    default_space_id: Option<SpaceId>,
+) -> Result<CapabilityGrant> {
+    let content = event
+        .content
+        .as_object()
+        .ok_or_else(|| Error::Protocol("capability content must be an object".to_owned()))?;
+    let id = optional_string(content, "capability_id")
+        .or_else(|| optional_string(content, "id"))
+        .unwrap_or_else(|| event.state_key.clone());
+    let issuer = optional_did(content, "issuer")?.unwrap_or_else(|| event.actor_id.clone());
+    let subject = match optional_did(content, "subject")? {
+        Some(subject) => subject,
+        None => optional_did(content, "subject_id")?
+            .ok_or_else(|| Error::Protocol("capability grant requires subject".to_owned()))?,
+    };
+    let actions = string_array(content.get("actions"))
+        .ok_or_else(|| Error::Protocol("capability grant requires actions".to_owned()))?;
+    let resources =
+        resource_selectors(content.get("resources").or_else(|| content.get("resource_selectors")))?
+            .unwrap_or_else(|| {
+                default_space_id
+                    .as_ref()
+                    .map(|space_id| {
+                        vec![ResourceSelector::Space { space_id: space_id.as_str().to_owned() }]
+                    })
+                    .unwrap_or_default()
+            });
+    if resources.is_empty() {
+        return Err(Error::Protocol("capability grant requires resources".to_owned()));
+    }
+
+    Ok(CapabilityGrant {
+        id,
+        space_id: optional_space_id(content, "space_id")?.or(default_space_id),
+        issuer,
+        subject,
+        actions,
+        resources,
+        constraints: optional_from_value(content.get("constraints"))?.unwrap_or_default(),
+        delegable: content.get("delegable").and_then(serde_json::Value::as_bool).unwrap_or(false),
+        parent_grant_id: optional_string(content, "parent_grant_id"),
+        valid_from: optional_from_value(content.get("valid_from"))?,
+        valid_until: optional_from_value(content.get("valid_until"))?,
+        revoked_by: optional_did(content, "revoked_by")?,
+        revoked_at: optional_from_value(content.get("revoked_at"))?,
+    })
+}
+
+fn optional_string(
+    content: &serde_json::Map<String, serde_json::Value>,
+    field: &str,
+) -> Option<String> {
+    content.get(field).and_then(serde_json::Value::as_str).map(ToOwned::to_owned)
+}
+
+fn optional_did(
+    content: &serde_json::Map<String, serde_json::Value>,
+    field: &str,
+) -> Result<Option<Did>> {
+    optional_string(content, field).map(Did::new).transpose()
+}
+
+fn optional_space_id(
+    content: &serde_json::Map<String, serde_json::Value>,
+    field: &str,
+) -> Result<Option<SpaceId>> {
+    optional_string(content, field).map(SpaceId::new).transpose()
+}
+
+fn optional_from_value<T: serde::de::DeserializeOwned>(
+    value: Option<&serde_json::Value>,
+) -> Result<Option<T>> {
+    value.map(|value| serde_json::from_value(value.clone()).map_err(Error::from)).transpose()
+}
+
+fn string_array(value: Option<&serde_json::Value>) -> Option<Vec<String>> {
+    value
+        .and_then(serde_json::Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(serde_json::Value::as_str)
+                .map(ToOwned::to_owned)
+                .collect::<Vec<_>>()
+        })
+        .filter(|items| !items.is_empty())
+}
+
+fn resource_selectors(value: Option<&serde_json::Value>) -> Result<Option<Vec<ResourceSelector>>> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    let array = value
+        .as_array()
+        .ok_or_else(|| Error::Protocol("capability resources must be an array".to_owned()))?;
+    let mut selectors = Vec::with_capacity(array.len());
+    for item in array {
+        let selector = if let Some(selector) = item.as_str() {
+            ResourceSelector::parse(selector)?
+        } else {
+            serde_json::from_value(item.clone())?
+        };
+        selectors.push(selector);
+    }
+    Ok(Some(selectors))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{Event, EventId, Hlc, SpaceState};
+    use serde_json::json;
+    use std::collections::BTreeMap;
 
     fn grant_for(action: &str, resource: ResourceSelector) -> CapabilityGrant {
         CapabilityGrant {
@@ -1338,6 +1794,45 @@ mod tests {
             valid_until: None,
             revoked_by: None,
             revoked_at: None,
+        }
+    }
+
+    fn utc(value: &str) -> DateTime<Utc> {
+        DateTime::parse_from_rfc3339(value).unwrap().with_timezone(&Utc)
+    }
+
+    fn ctx_at(value: &str, action: &str, resource: Resource) -> AuthzContext {
+        let mut ctx = AuthzContext::new(
+            Did::new("did:web:alice.example.com").unwrap(),
+            action.to_owned(),
+            resource,
+        );
+        ctx.now = utc(value);
+        ctx
+    }
+
+    fn capability_event(
+        event_id: &str,
+        kind: &str,
+        actor_seq: u64,
+        hlc: &str,
+        content: serde_json::Value,
+    ) -> Event {
+        Event {
+            event_id: EventId::new(event_id).unwrap(),
+            kind: kind.to_owned(),
+            space_id: SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            space_version: "1".to_owned(),
+            actor_id: Did::new("did:web:authority.example.com").unwrap(),
+            actor_seq,
+            created_at: utc("2026-04-29T00:00:00Z"),
+            hlc: Hlc::new(hlc).unwrap(),
+            prev_refs: vec![],
+            auth_refs: vec![],
+            redacts: None,
+            content,
+            unsigned: BTreeMap::new(),
+            proofs: vec![],
         }
     }
 
@@ -1446,6 +1941,143 @@ mod tests {
     }
 
     #[test]
+    fn authz_engine_evaluates_grants_from_space_state() {
+        let mut state = SpaceState::new(
+            SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            "1".to_owned(),
+        );
+        let grant = capability_event(
+            "cx:event:01JS0AUTHZ000000000000000001",
+            "cx.capability.grant",
+            1,
+            "01970e589d21-00000004-a13f9c2e",
+            json!({
+                "capability_id": "cap-message-send",
+                "subject": "did:web:alice.example.com",
+                "actions": ["message.send"],
+                "resources": ["entity:cx:space:01JS0SP000000000000000000:message"]
+            }),
+        );
+        state.apply_events(&[grant]).unwrap();
+
+        let ctx = ctx_at(
+            "2026-04-29T01:00:00Z",
+            "message.send",
+            Resource::Entity {
+                space_id: "cx:space:01JS0SP000000000000000000".to_owned(),
+                entity_type: "message".to_owned(),
+                entity_id: "cx:entity:01JS0MSG000000000000000001".to_owned(),
+            },
+        );
+
+        let mut engine = AuthzEngine::new();
+        assert!(engine.check_authorization_from_space_state(&ctx, &state).is_allowed());
+    }
+
+    #[test]
+    fn authz_engine_denies_after_revoke_wins_in_space_state() {
+        let mut state = SpaceState::new(
+            SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            "1".to_owned(),
+        );
+        let grant = capability_event(
+            "cx:event:01JS0AUTHZ000000000000000002",
+            "cx.capability.grant",
+            1,
+            "01970e589d21-00000004-a13f9c2e",
+            json!({
+                "capability_id": "cap-message-send",
+                "subject": "did:web:alice.example.com",
+                "actions": ["message.send"],
+                "resources": ["entity:cx:space:01JS0SP000000000000000000:message"]
+            }),
+        );
+        let revoke = capability_event(
+            "cx:event:01JS0AUTHZ000000000000000003",
+            "cx.capability.revoke",
+            2,
+            "01970e589d22-00000004-a13f9c2e",
+            json!({ "target_capability_id": "cap-message-send" }),
+        );
+        state.apply_events(&[grant, revoke]).unwrap();
+
+        let ctx = ctx_at(
+            "2026-04-29T01:00:00Z",
+            "message.send",
+            Resource::Entity {
+                space_id: "cx:space:01JS0SP000000000000000000".to_owned(),
+                entity_type: "message".to_owned(),
+                entity_id: "cx:entity:01JS0MSG000000000000000001".to_owned(),
+            },
+        );
+
+        let mut engine = AuthzEngine::new();
+        assert!(!engine.check_authorization_from_space_state(&ctx, &state).is_allowed());
+    }
+
+    #[test]
+    fn authz_engine_denies_after_delegate_revoke_wins_in_space_state() {
+        let mut state = SpaceState::new(
+            SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            "1".to_owned(),
+        );
+        let delegate = capability_event(
+            "cx:event:01JS0AUTHZ000000000000000004",
+            "cx.capability.delegate",
+            1,
+            "01970e589d21-00000004-a13f9c2e",
+            json!({
+                "capability_id": "cap-message-delegate",
+                "parent_grant_id": "cap-root",
+                "subject": "did:web:alice.example.com",
+                "actions": ["message.send"],
+                "resources": ["entity:cx:space:01JS0SP000000000000000000:message"]
+            }),
+        );
+        state.apply_events(std::slice::from_ref(&delegate)).unwrap();
+
+        let ctx = ctx_at(
+            "2026-04-29T01:00:00Z",
+            "message.send",
+            Resource::Entity {
+                space_id: "cx:space:01JS0SP000000000000000000".to_owned(),
+                entity_type: "message".to_owned(),
+                entity_id: "cx:entity:01JS0MSG000000000000000001".to_owned(),
+            },
+        );
+
+        let mut engine = AuthzEngine::new();
+        assert!(engine.check_authorization_from_space_state(&ctx, &state).is_allowed());
+
+        let revoke = capability_event(
+            "cx:event:01JS0AUTHZ000000000000000005",
+            "cx.capability.revoke",
+            2,
+            "01970e589d22-00000004-a13f9c2e",
+            json!({ "target_capability_id": "cap-message-delegate" }),
+        );
+        state.apply_events(&[revoke]).unwrap();
+
+        assert!(!engine.check_authorization_from_space_state(&ctx, &state).is_allowed());
+    }
+
+    #[test]
+    fn authz_engine_denies_wrong_subject() {
+        let mut engine = AuthzEngine::new();
+        let ctx = AuthzContext::new(
+            Did::new("did:web:bob.example.com").unwrap(),
+            "read".to_owned(),
+            Resource::Space { space_id: "cx:space:A".to_owned() },
+        );
+
+        let grant =
+            grant_for("read", ResourceSelector::Space { space_id: "cx:space:A".to_owned() });
+
+        let decision = engine.check_authorization(&ctx, &[grant]);
+        assert!(!decision.is_allowed());
+    }
+
+    #[test]
     fn authz_engine_temporal_constraint_expires() {
         let mut engine = AuthzEngine::new();
         let ctx = AuthzContext::new(
@@ -1464,6 +2096,161 @@ mod tests {
 
         let decision = engine.check_authorization(&ctx, &[grant]);
         assert!(!decision.is_allowed());
+    }
+
+    #[test]
+    fn authz_engine_temporal_recurrence_allows_weekday_window_in_timezone() {
+        let mut engine = AuthzEngine::new();
+        let ctx = ctx_at(
+            "2026-04-29T02:30:00Z",
+            "read",
+            Resource::Space { space_id: "cx:space:A".to_owned() },
+        );
+        let mut grant =
+            grant_for("read", ResourceSelector::Space { space_id: "cx:space:A".to_owned() });
+        grant.constraints = vec![ConstraintEntry::new(Constraint::Temporal {
+            not_before: None,
+            expires_at: None,
+            recurrence: Some(Recurrence {
+                frequency: Some("weekly".to_owned()),
+                days: Some(vec!["wed".to_owned()]),
+                window_start: Some("09:00".to_owned()),
+                window_end: Some("17:00".to_owned()),
+                timezone: Some("Asia/Shanghai".to_owned()),
+            }),
+        })];
+
+        assert!(engine.check_authorization(&ctx, &[grant]).is_allowed());
+    }
+
+    #[test]
+    fn authz_engine_temporal_recurrence_denies_outside_window() {
+        let mut engine = AuthzEngine::new();
+        let ctx = ctx_at(
+            "2026-04-29T11:30:00Z",
+            "read",
+            Resource::Space { space_id: "cx:space:A".to_owned() },
+        );
+        let mut grant =
+            grant_for("read", ResourceSelector::Space { space_id: "cx:space:A".to_owned() });
+        grant.constraints = vec![ConstraintEntry::new(Constraint::Temporal {
+            not_before: None,
+            expires_at: None,
+            recurrence: Some(Recurrence {
+                frequency: Some("daily".to_owned()),
+                days: None,
+                window_start: Some("09:00".to_owned()),
+                window_end: Some("17:00".to_owned()),
+                timezone: Some("Asia/Shanghai".to_owned()),
+            }),
+        })];
+
+        assert!(!engine.check_authorization(&ctx, &[grant]).is_allowed());
+    }
+
+    #[test]
+    fn authz_engine_temporal_recurrence_allows_cross_midnight_window() {
+        let mut engine = AuthzEngine::new();
+        let ctx = ctx_at(
+            "2026-04-29T15:30:00Z",
+            "read",
+            Resource::Space { space_id: "cx:space:A".to_owned() },
+        );
+        let mut grant =
+            grant_for("read", ResourceSelector::Space { space_id: "cx:space:A".to_owned() });
+        grant.constraints = vec![ConstraintEntry::new(Constraint::Temporal {
+            not_before: None,
+            expires_at: None,
+            recurrence: Some(Recurrence {
+                frequency: Some("daily".to_owned()),
+                days: None,
+                window_start: Some("22:00".to_owned()),
+                window_end: Some("06:00".to_owned()),
+                timezone: Some("+08:00".to_owned()),
+            }),
+        })];
+
+        assert!(engine.check_authorization(&ctx, &[grant]).is_allowed());
+    }
+
+    #[test]
+    fn authz_engine_temporal_recurrence_handles_dst_boundary() {
+        let mut engine = AuthzEngine::new();
+        let mut grant =
+            grant_for("read", ResourceSelector::Space { space_id: "cx:space:A".to_owned() });
+        grant.constraints = vec![ConstraintEntry::new(Constraint::Temporal {
+            not_before: None,
+            expires_at: None,
+            recurrence: Some(Recurrence {
+                frequency: Some("weekly".to_owned()),
+                days: Some(vec!["sun".to_owned()]),
+                window_start: Some("01:00".to_owned()),
+                window_end: Some("04:00".to_owned()),
+                timezone: Some("America/New_York".to_owned()),
+            }),
+        })];
+
+        let before_jump = ctx_at(
+            "2026-03-08T06:30:00Z",
+            "read",
+            Resource::Space { space_id: "cx:space:A".to_owned() },
+        );
+        let after_jump = ctx_at(
+            "2026-03-08T07:30:00Z",
+            "read",
+            Resource::Space { space_id: "cx:space:A".to_owned() },
+        );
+
+        assert!(engine.check_authorization(&before_jump, &[grant.clone()]).is_allowed());
+        assert!(engine.check_authorization(&after_jump, &[grant]).is_allowed());
+    }
+
+    #[test]
+    fn authz_cache_expires_at_temporal_boundaries() {
+        let mut engine = AuthzEngine::new();
+        let mut grant =
+            grant_for("read", ResourceSelector::Space { space_id: "cx:space:A".to_owned() });
+        grant.constraints = vec![ConstraintEntry::new(Constraint::Temporal {
+            not_before: None,
+            expires_at: Some(utc("2026-04-29T03:00:00Z")),
+            recurrence: None,
+        })];
+
+        let before_expiry = ctx_at(
+            "2026-04-29T02:30:00Z",
+            "read",
+            Resource::Space { space_id: "cx:space:A".to_owned() },
+        );
+        let after_expiry = ctx_at(
+            "2026-04-29T03:30:00Z",
+            "read",
+            Resource::Space { space_id: "cx:space:A".to_owned() },
+        );
+
+        assert!(engine.check_authorization(&before_expiry, &[grant.clone()]).is_allowed());
+        assert!(!engine.check_authorization(&after_expiry, &[grant]).is_allowed());
+    }
+
+    #[test]
+    fn authz_cache_rechecks_future_not_before_grants() {
+        let mut engine = AuthzEngine::new();
+        let mut grant =
+            grant_for("read", ResourceSelector::Space { space_id: "cx:space:A".to_owned() });
+        grant.valid_from = Some(utc("2026-04-29T03:00:00Z"));
+
+        let before_valid = ctx_at(
+            "2026-04-29T02:30:00Z",
+            "read",
+            Resource::Space { space_id: "cx:space:A".to_owned() },
+        );
+        let after_valid = ctx_at(
+            "2026-04-29T03:30:00Z",
+            "read",
+            Resource::Space { space_id: "cx:space:A".to_owned() },
+        );
+
+        assert!(!engine.check_authorization(&before_valid, &[grant.clone()]).is_allowed());
+        assert!(engine.check_authorization(&after_valid, &[grant]).is_allowed());
     }
 
     #[test]
