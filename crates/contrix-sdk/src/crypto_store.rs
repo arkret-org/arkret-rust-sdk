@@ -14,6 +14,94 @@ use crate::{
     MlsWelcomeEnvelope, Result, store::StoreEncryptionKey,
 };
 
+pub const CRYPTO_STORE_BACKUP_VERSION: &str = "contrix.crypto_store.backup.v1";
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PlatformKeyStoreKind {
+    IosKeychain,
+    AndroidKeystore,
+    WebCrypto,
+    NativeKeychain,
+    ExternalHsm,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlatformKeyStoreDescriptor {
+    pub kind: PlatformKeyStoreKind,
+    pub key_ref: String,
+    pub hardware_backed: bool,
+    pub exportable: bool,
+}
+
+impl PlatformKeyStoreDescriptor {
+    pub fn validate(&self) -> Result<()> {
+        if self.key_ref.trim().is_empty() {
+            return Err(Error::Protocol("platform key store key_ref is required".to_owned()));
+        }
+        if self.hardware_backed && self.exportable {
+            return Err(Error::Protocol(
+                "hardware-backed key store keys must not be exportable".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CryptoStoreKeyRotation {
+    pub previous_key_version: u64,
+    pub new_key_version: u64,
+    pub rotated_at: DateTime<Utc>,
+    pub reason: String,
+}
+
+impl CryptoStoreKeyRotation {
+    pub fn validate(&self) -> Result<()> {
+        if self.new_key_version <= self.previous_key_version {
+            return Err(Error::Protocol(
+                "crypto store key rotation must advance key version".to_owned(),
+            ));
+        }
+        if self.reason.trim().is_empty() {
+            return Err(Error::Protocol("crypto store key rotation reason is required".to_owned()));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CryptoStoreBackupEnvelope {
+    pub version: String,
+    pub key_version: u64,
+    pub exported_at: DateTime<Utc>,
+    pub payload_json: String,
+    pub payload_digest: String,
+}
+
+impl CryptoStoreBackupEnvelope {
+    pub fn new(key_version: u64, payload_json: String, exported_at: DateTime<Utc>) -> Result<Self> {
+        let payload_digest = crate::canonical::sha256_digest(payload_json.as_bytes());
+        Ok(Self {
+            version: CRYPTO_STORE_BACKUP_VERSION.to_owned(),
+            key_version,
+            exported_at,
+            payload_json,
+            payload_digest,
+        })
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.version != CRYPTO_STORE_BACKUP_VERSION {
+            return Err(Error::Protocol("unsupported crypto store backup version".to_owned()));
+        }
+        if self.payload_digest != crate::canonical::sha256_digest(self.payload_json.as_bytes()) {
+            return Err(Error::Protocol("crypto store backup digest mismatch".to_owned()));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MlsRecoveryAction {
     UseLocalState,
@@ -87,6 +175,13 @@ pub trait CryptoStore: Send + Sync {
     ) -> MlsRecoveryPlan;
     fn export_backup_json(&self) -> Result<String>;
     fn import_backup_json(&mut self, backup: &str) -> Result<()>;
+    fn export_backup_envelope(&self, key_version: u64) -> Result<CryptoStoreBackupEnvelope> {
+        CryptoStoreBackupEnvelope::new(key_version, self.export_backup_json()?, Utc::now())
+    }
+    fn import_backup_envelope(&mut self, envelope: &CryptoStoreBackupEnvelope) -> Result<()> {
+        envelope.validate()?;
+        self.import_backup_json(&envelope.payload_json)
+    }
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -107,6 +202,13 @@ impl MemoryCryptoStore {
 
 impl CryptoStore for MemoryCryptoStore {
     fn put_mls_group_state(&mut self, record: MlsGroupStateRecord) -> Result<()> {
+        if let Some(existing) = self.group_states.get(&record.group_id)
+            && record.epoch < existing.epoch
+        {
+            return Err(Error::Protocol(
+                "MLS group state rollback protection rejected older epoch".to_owned(),
+            ));
+        }
         self.group_states.insert(record.group_id.clone(), record);
         Ok(())
     }
@@ -263,6 +365,9 @@ impl CryptoStore for MemoryCryptoStore {
 pub struct EncryptedMemoryCryptoStore {
     inner: MemoryCryptoStore,
     key: StoreEncryptionKey,
+    key_version: u64,
+    key_store: Option<PlatformKeyStoreDescriptor>,
+    rotations: Vec<CryptoStoreKeyRotation>,
     encrypted_group_states: BTreeMap<String, Vec<u8>>,
     encrypted_epoch_secrets: BTreeMap<(String, u64), Vec<u8>>,
     encrypted_key_packages: BTreeMap<(Did, DeviceId), Vec<u8>>,
@@ -274,10 +379,56 @@ impl EncryptedMemoryCryptoStore {
         Self {
             inner: MemoryCryptoStore::new(),
             key,
+            key_version: 1,
+            key_store: None,
+            rotations: Vec::new(),
             encrypted_group_states: BTreeMap::new(),
             encrypted_epoch_secrets: BTreeMap::new(),
             encrypted_key_packages: BTreeMap::new(),
         }
+    }
+
+    /// Attach a platform key store descriptor; key material remains host-owned.
+    pub fn with_platform_key_store(
+        mut self,
+        descriptor: PlatformKeyStoreDescriptor,
+    ) -> Result<Self> {
+        descriptor.validate()?;
+        self.key_store = Some(descriptor);
+        Ok(self)
+    }
+
+    pub fn key_version(&self) -> u64 {
+        self.key_version
+    }
+
+    pub fn platform_key_store(&self) -> Option<&PlatformKeyStoreDescriptor> {
+        self.key_store.as_ref()
+    }
+
+    pub fn rotations(&self) -> &[CryptoStoreKeyRotation] {
+        &self.rotations
+    }
+
+    /// Rotate the at-rest key and reseal existing protected records.
+    pub fn rotate_key(
+        &mut self,
+        new_key: StoreEncryptionKey,
+        new_key_version: u64,
+        reason: impl Into<String>,
+    ) -> Result<CryptoStoreKeyRotation> {
+        let rotation = CryptoStoreKeyRotation {
+            previous_key_version: self.key_version,
+            new_key_version,
+            rotated_at: Utc::now(),
+            reason: reason.into(),
+        };
+        rotation.validate()?;
+        self.key = new_key;
+        self.key_version = new_key_version;
+        self.rotations.push(rotation.clone());
+        self.reseal_all()?;
+        Ok(rotation)
     }
 
     /// Raw encrypted group state bytes.
@@ -304,6 +455,37 @@ impl EncryptedMemoryCryptoStore {
     fn seal_record<T: Serialize>(&self, record: &T, aad: &[u8]) -> Result<Vec<u8>> {
         let bytes = serde_json::to_vec(record)?;
         self.key.seal(&bytes, aad)
+    }
+
+    fn reseal_all(&mut self) -> Result<()> {
+        self.encrypted_group_states.clear();
+        self.encrypted_epoch_secrets.clear();
+        self.encrypted_key_packages.clear();
+
+        for record in self.inner.group_states.values() {
+            let aad = format!("group_state:{}", record.group_id);
+            self.encrypted_group_states
+                .insert(record.group_id.clone(), self.seal_record(record, aad.as_bytes())?);
+        }
+        for record in self.inner.epoch_secrets.values() {
+            let aad = format!("epoch_secret:{}:{}", record.group_id, record.epoch);
+            self.encrypted_epoch_secrets.insert(
+                (record.group_id.clone(), record.epoch),
+                self.seal_record(record, aad.as_bytes())?,
+            );
+        }
+        for record in self.inner.key_packages.values() {
+            let aad = format!(
+                "key_package:{}:{}",
+                record.principal_id.as_str(),
+                record.device_id.as_str()
+            );
+            self.encrypted_key_packages.insert(
+                (record.principal_id.clone(), record.device_id.clone()),
+                self.seal_record(record, aad.as_bytes())?,
+            );
+        }
+        Ok(())
     }
 }
 
@@ -400,7 +582,8 @@ impl CryptoStore for EncryptedMemoryCryptoStore {
     }
 
     fn import_backup_json(&mut self, backup: &str) -> Result<()> {
-        self.inner.import_backup_json(backup)
+        self.inner.import_backup_json(backup)?;
+        self.reseal_all()
     }
 }
 
@@ -465,6 +648,36 @@ mod tests {
             store.device_verification(&alice, &device_id).unwrap().state,
             DeviceVerificationState::Verified
         );
+    }
+
+    #[test]
+    fn crypto_store_rejects_group_state_rollback() {
+        let alice = did("alice");
+        let device_id = device("phone");
+        let mut store = MemoryCryptoStore::new();
+        store
+            .put_mls_group_state(MlsGroupStateRecord {
+                group_id: "group1".to_owned(),
+                principal_id: alice.clone(),
+                device_id: device_id.clone(),
+                epoch: 5,
+                serialized_state: b"newer".to_vec(),
+                updated_at: Utc::now(),
+            })
+            .unwrap();
+        assert!(
+            store
+                .put_mls_group_state(MlsGroupStateRecord {
+                    group_id: "group1".to_owned(),
+                    principal_id: alice,
+                    device_id,
+                    epoch: 4,
+                    serialized_state: b"older".to_vec(),
+                    updated_at: Utc::now(),
+                })
+                .is_err()
+        );
+        assert_eq!(store.mls_group_state("group1").unwrap().epoch, 5);
     }
 
     #[test]
@@ -558,6 +771,66 @@ mod tests {
         let kp_plain = String::from_utf8_lossy(encrypted_kp);
         assert!(!kp_plain.contains("kp-secret"));
         assert!(store.key_package(&alice, &device_id).is_some());
+    }
+
+    #[test]
+    fn encrypted_crypto_store_supports_keychain_rotation_backup_and_restore() {
+        let alice = did("alice");
+        let device_id = device("phone");
+        let descriptor = PlatformKeyStoreDescriptor {
+            kind: PlatformKeyStoreKind::NativeKeychain,
+            key_ref: "contrix-crypto-root".to_owned(),
+            hardware_backed: true,
+            exportable: false,
+        };
+        let key = StoreEncryptionKey::derive("test-passphrase", b"crypto-store-salt", 4);
+        let mut store =
+            EncryptedMemoryCryptoStore::new(key).with_platform_key_store(descriptor).unwrap();
+        assert!(store.platform_key_store().is_some());
+
+        store
+            .put_mls_group_state(MlsGroupStateRecord {
+                group_id: "group1".to_owned(),
+                principal_id: alice.clone(),
+                device_id: device_id.clone(),
+                epoch: 7,
+                serialized_state: b"rotatable-state".to_vec(),
+                updated_at: Utc::now(),
+            })
+            .unwrap();
+        let before_rotation = store.encrypted_group_state_bytes("group1").unwrap().to_vec();
+        let rotation = store
+            .rotate_key(
+                StoreEncryptionKey::derive("new-passphrase", b"crypto-store-salt", 4),
+                2,
+                "scheduled rotation",
+            )
+            .unwrap();
+        assert_eq!(rotation.previous_key_version, 1);
+        assert_eq!(store.key_version(), 2);
+        assert_eq!(store.rotations().len(), 1);
+        assert_ne!(before_rotation, store.encrypted_group_state_bytes("group1").unwrap());
+
+        let backup = store.export_backup_envelope(store.key_version()).unwrap();
+        backup.validate().unwrap();
+        let mut restored = EncryptedMemoryCryptoStore::new(StoreEncryptionKey::derive(
+            "restore-passphrase",
+            b"crypto-store-salt",
+            4,
+        ));
+        restored.import_backup_envelope(&backup).unwrap();
+        assert_eq!(restored.mls_group_state("group1").unwrap().epoch, 7);
+
+        assert!(
+            PlatformKeyStoreDescriptor {
+                kind: PlatformKeyStoreKind::NativeKeychain,
+                key_ref: "bad".to_owned(),
+                hardware_backed: true,
+                exportable: true,
+            }
+            .validate()
+            .is_err()
+        );
     }
 
     #[test]

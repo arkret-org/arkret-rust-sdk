@@ -4,15 +4,21 @@
 //! supported embedding targets and provides backend-neutral shapes that future
 //! UniFFI or WASM bindings can map onto without exposing Rust internals.
 
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
+use std::{
+    collections::BTreeMap,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
 };
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{Error, Result};
+
+/// Version tag for the FFI API freeze review artifact.
+pub const FFI_API_FREEZE_REVIEW_VERSION: &str = "contrix.ffi.api_freeze_review.v1";
 
 /// Host embedding targets tracked by the SDK.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -69,6 +75,279 @@ pub fn embedding_target_decisions() -> Vec<EmbeddingTargetDecision> {
             prerequisite: Some("semver-stable public API and callback contract review".to_owned()),
         },
     ]
+}
+
+/// Freeze status for the FFI and mobile API surface.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FfiApiFreezeStatus {
+    /// The surface has been reviewed for shape and safety but is not semver-frozen.
+    ReviewedButUnfrozen,
+    /// The surface is stable enough for generated mobile bindings.
+    Frozen,
+}
+
+/// Remaining blockers before publishing Swift/Kotlin bindings.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FfiApiFreezeBlocker {
+    SemverPolicy,
+    GeneratedBindingReview,
+    CallbackBackpressureReview,
+    PersistentStoreInterop,
+    ExternalSecurityAudit,
+}
+
+/// One public FFI surface area included in the freeze review.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FfiApiSurfaceItem {
+    pub name: String,
+    pub purpose: String,
+}
+
+/// Review artifact for mobile/UniFFI publication decisions.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FfiApiFreezeReview {
+    pub version: String,
+    pub target: EmbeddingTarget,
+    pub status: FfiApiFreezeStatus,
+    pub reviewed: Vec<FfiApiSurfaceItem>,
+    pub blockers: Vec<FfiApiFreezeBlocker>,
+}
+
+impl FfiApiFreezeReview {
+    /// Validate that the review artifact covers the minimum mobile boundary.
+    pub fn validate(&self) -> Result<()> {
+        if self.version != FFI_API_FREEZE_REVIEW_VERSION {
+            return Err(Error::Protocol("unsupported FFI API freeze review version".to_owned()));
+        }
+        if self.target != EmbeddingTarget::UniffiSwiftKotlin {
+            return Err(Error::Protocol(
+                "FFI API freeze review must target UniFFI mobile".to_owned(),
+            ));
+        }
+        if self.reviewed.is_empty() {
+            return Err(Error::Protocol(
+                "FFI API freeze review must list reviewed surfaces".to_owned(),
+            ));
+        }
+        for item in &self.reviewed {
+            if item.name.trim().is_empty() || item.purpose.trim().is_empty() {
+                return Err(Error::Protocol(
+                    "FFI API freeze review items must be named".to_owned(),
+                ));
+            }
+        }
+        if self.status == FfiApiFreezeStatus::Frozen && !self.blockers.is_empty() {
+            return Err(Error::Protocol("frozen FFI API review cannot have blockers".to_owned()));
+        }
+        Ok(())
+    }
+}
+
+/// Current mobile/UniFFI API freeze review.
+///
+/// The `0.1.x` SDK has reviewed callback-safe shapes, opaque handles and error
+/// mapping, but generated Swift/Kotlin bindings stay unpublished until the
+/// blocker list is empty.
+pub fn ffi_api_freeze_review() -> FfiApiFreezeReview {
+    FfiApiFreezeReview {
+        version: FFI_API_FREEZE_REVIEW_VERSION.to_owned(),
+        target: EmbeddingTarget::UniffiSwiftKotlin,
+        status: FfiApiFreezeStatus::ReviewedButUnfrozen,
+        reviewed: vec![
+            FfiApiSurfaceItem {
+                name: "FfiHandle".to_owned(),
+                purpose: "stable opaque host-map handle with generation counters".to_owned(),
+            },
+            FfiApiSurfaceItem {
+                name: "FfiError".to_owned(),
+                purpose: "layout-stable error code and message payload".to_owned(),
+            },
+            FfiApiSurfaceItem {
+                name: "FfiEventSink".to_owned(),
+                purpose: "callback-safe event stream boundary".to_owned(),
+            },
+            FfiApiSurfaceItem {
+                name: "FfiCancellationHandle".to_owned(),
+                purpose: "runtime-neutral cancellation flag for long-running calls".to_owned(),
+            },
+        ],
+        blockers: vec![
+            FfiApiFreezeBlocker::SemverPolicy,
+            FfiApiFreezeBlocker::GeneratedBindingReview,
+            FfiApiFreezeBlocker::CallbackBackpressureReview,
+            FfiApiFreezeBlocker::PersistentStoreInterop,
+            FfiApiFreezeBlocker::ExternalSecurityAudit,
+        ],
+    }
+}
+
+/// Browser HTTP request shape for WASM transports.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WasmHttpRequest {
+    pub method: String,
+    pub url: String,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub headers: BTreeMap<String, String>,
+    pub body: Vec<u8>,
+}
+
+impl WasmHttpRequest {
+    pub fn validate(&self) -> Result<()> {
+        if self.method.trim().is_empty() {
+            return Err(Error::Protocol("WASM HTTP method must not be empty".to_owned()));
+        }
+        if !(self.url.starts_with("https://") || self.url.starts_with("http://localhost")) {
+            return Err(Error::Protocol("WASM HTTP URL must be HTTPS or localhost".to_owned()));
+        }
+        Ok(())
+    }
+}
+
+/// Browser HTTP response shape returned by WASM transports.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WasmHttpResponse {
+    pub status: u16,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub headers: BTreeMap<String, String>,
+    pub body: Vec<u8>,
+}
+
+/// Host-provided browser transport boundary.
+pub trait WasmBrowserHttpTransport {
+    fn send_wasm_http(&self, request: WasmHttpRequest) -> Result<WasmHttpResponse>;
+}
+
+impl<F> WasmBrowserHttpTransport for F
+where
+    F: Fn(WasmHttpRequest) -> Result<WasmHttpResponse>,
+{
+    fn send_wasm_http(&self, request: WasmHttpRequest) -> Result<WasmHttpResponse> {
+        self(request)
+    }
+}
+
+/// IndexedDB store role tracked by WASM embeddings.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IndexedDbStoreKind {
+    Repo,
+    Crypto,
+}
+
+/// IndexedDB database/object-store contract.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IndexedDbStoreDescriptor {
+    pub kind: IndexedDbStoreKind,
+    pub database: String,
+    pub object_store: String,
+    pub schema_version: u32,
+    pub quota_bytes: Option<u64>,
+}
+
+impl IndexedDbStoreDescriptor {
+    pub fn validate(&self) -> Result<()> {
+        if self.database.trim().is_empty() || self.object_store.trim().is_empty() {
+            return Err(Error::Protocol("IndexedDB names must not be empty".to_owned()));
+        }
+        if self.schema_version == 0 {
+            return Err(Error::Protocol("IndexedDB schema version must be non-zero".to_owned()));
+        }
+        Ok(())
+    }
+}
+
+/// WebCrypto operation requested by WASM crypto-store adapters.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WebCryptoOperation {
+    Encrypt,
+    Decrypt,
+    Sign,
+    Verify,
+    DeriveBits,
+}
+
+/// WebCrypto key boundary; browser key material stays outside Rust memory.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WebCryptoKeyHandle {
+    pub key_id: String,
+    pub algorithm: String,
+    pub extractable: bool,
+    pub usages: Vec<WebCryptoOperation>,
+}
+
+impl WebCryptoKeyHandle {
+    pub fn validate(&self) -> Result<()> {
+        if self.key_id.trim().is_empty() || self.algorithm.trim().is_empty() {
+            return Err(Error::Protocol("WebCrypto key id and algorithm are required".to_owned()));
+        }
+        if self.usages.is_empty() {
+            return Err(Error::Protocol("WebCrypto key usages must not be empty".to_owned()));
+        }
+        Ok(())
+    }
+}
+
+/// WASM runtime contract bundle used by app and browser tests.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WasmRuntimeContract {
+    pub http_transport: bool,
+    pub repo_store: IndexedDbStoreDescriptor,
+    pub crypto_store: IndexedDbStoreDescriptor,
+    pub webcrypto_key: WebCryptoKeyHandle,
+    pub sync_state_cache: String,
+}
+
+impl Default for WasmRuntimeContract {
+    fn default() -> Self {
+        Self {
+            http_transport: true,
+            repo_store: IndexedDbStoreDescriptor {
+                kind: IndexedDbStoreKind::Repo,
+                database: "contrix-repo".to_owned(),
+                object_store: "objects".to_owned(),
+                schema_version: 1,
+                quota_bytes: Some(64 * 1024 * 1024),
+            },
+            crypto_store: IndexedDbStoreDescriptor {
+                kind: IndexedDbStoreKind::Crypto,
+                database: "contrix-crypto".to_owned(),
+                object_store: "records".to_owned(),
+                schema_version: 1,
+                quota_bytes: Some(16 * 1024 * 1024),
+            },
+            webcrypto_key: WebCryptoKeyHandle {
+                key_id: "contrix-webcrypto-root".to_owned(),
+                algorithm: "AES-GCM".to_owned(),
+                extractable: false,
+                usages: vec![WebCryptoOperation::Encrypt, WebCryptoOperation::Decrypt],
+            },
+            sync_state_cache: "contrix-sync-state".to_owned(),
+        }
+    }
+}
+
+impl WasmRuntimeContract {
+    pub fn validate(&self) -> Result<()> {
+        if !self.http_transport {
+            return Err(Error::Protocol("WASM browser HTTP transport is required".to_owned()));
+        }
+        self.repo_store.validate()?;
+        self.crypto_store.validate()?;
+        if self.repo_store.kind != IndexedDbStoreKind::Repo {
+            return Err(Error::Protocol("WASM repo store descriptor has wrong kind".to_owned()));
+        }
+        if self.crypto_store.kind != IndexedDbStoreKind::Crypto {
+            return Err(Error::Protocol("WASM crypto store descriptor has wrong kind".to_owned()));
+        }
+        self.webcrypto_key.validate()?;
+        if self.sync_state_cache.trim().is_empty() {
+            return Err(Error::Protocol("WASM sync state cache name must not be empty".to_owned()));
+        }
+        Ok(())
+    }
 }
 
 /// Opaque handle families exposed over an FFI boundary.
@@ -281,5 +560,53 @@ mod tests {
         assert!(cancellation.is_cancelled());
         cancellation.reset();
         assert!(!cancellation.is_cancelled());
+    }
+
+    #[test]
+    fn wasm_runtime_contract_covers_browser_http_indexeddb_webcrypto_and_sync_cache() {
+        let contract = WasmRuntimeContract::default();
+        contract.validate().unwrap();
+        assert_eq!(contract.repo_store.kind, IndexedDbStoreKind::Repo);
+        assert_eq!(contract.crypto_store.kind, IndexedDbStoreKind::Crypto);
+        assert!(!contract.webcrypto_key.extractable);
+
+        let transport = |request: WasmHttpRequest| {
+            request.validate()?;
+            Ok(WasmHttpResponse {
+                status: 200,
+                headers: BTreeMap::from([(
+                    "content-type".to_owned(),
+                    "application/json".to_owned(),
+                )]),
+                body: br#"{"ok":true}"#.to_vec(),
+            })
+        };
+        let response = transport
+            .send_wasm_http(WasmHttpRequest {
+                method: "POST".to_owned(),
+                url: "https://sync.example/contrix/v1/sync".to_owned(),
+                headers: BTreeMap::new(),
+                body: Vec::new(),
+            })
+            .unwrap();
+        assert_eq!(response.status, 200);
+
+        let mut invalid = contract;
+        invalid.crypto_store.kind = IndexedDbStoreKind::Repo;
+        assert!(invalid.validate().is_err());
+    }
+
+    #[test]
+    fn ffi_api_freeze_review_records_mobile_publication_blockers() {
+        let review = ffi_api_freeze_review();
+        review.validate().unwrap();
+        assert_eq!(review.target, EmbeddingTarget::UniffiSwiftKotlin);
+        assert_eq!(review.status, FfiApiFreezeStatus::ReviewedButUnfrozen);
+        assert!(review.reviewed.iter().any(|item| item.name == "FfiHandle"));
+        assert!(review.blockers.contains(&FfiApiFreezeBlocker::GeneratedBindingReview));
+
+        let mut invalid = review.clone();
+        invalid.status = FfiApiFreezeStatus::Frozen;
+        assert!(invalid.validate().is_err());
     }
 }

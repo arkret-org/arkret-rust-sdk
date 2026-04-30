@@ -1511,7 +1511,7 @@ mod tests {
             handle: handle.to_owned(),
             user_id: alice.clone(),
             challenge: challenge.to_owned(),
-            proof: proof.clone(),
+            proof,
         }
         .validate()
         .unwrap();

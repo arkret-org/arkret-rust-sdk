@@ -339,6 +339,74 @@ impl SessionGrant {
     }
 }
 
+/// Host-owned JWS signer for session grants.
+pub trait SessionGrantSigner {
+    fn sign_session_grant(&self, payload: &SessionGrantPayload) -> Result<String>;
+}
+
+impl<F> SessionGrantSigner for F
+where
+    F: Fn(&SessionGrantPayload) -> Result<String>,
+{
+    fn sign_session_grant(&self, payload: &SessionGrantPayload) -> Result<String> {
+        self(payload)
+    }
+}
+
+/// Verified session grant returned by a host-owned JWS verifier.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionGrantVerification {
+    pub payload: SessionGrantPayload,
+    pub grant_hash: String,
+    pub verified: bool,
+}
+
+impl SessionGrantVerification {
+    pub fn validate(&self) -> Result<()> {
+        self.payload.validate()?;
+        if !self.verified {
+            return Err(Error::Protocol("session grant JWS was not verified".to_owned()));
+        }
+        if self.grant_hash.trim().is_empty() {
+            return Err(Error::Protocol("session grant hash must not be empty".to_owned()));
+        }
+        Ok(())
+    }
+}
+
+/// Host-owned JWS verifier for session grants.
+pub trait SessionGrantVerifier {
+    fn verify_session_grant(&self, grant_jwt: &str) -> Result<SessionGrantVerification>;
+}
+
+impl<F> SessionGrantVerifier for F
+where
+    F: Fn(&str) -> Result<SessionGrantVerification>,
+{
+    fn verify_session_grant(&self, grant_jwt: &str) -> Result<SessionGrantVerification> {
+        self(grant_jwt)
+    }
+}
+
+/// Issue a session grant through a host-owned JWS signer.
+pub fn issue_session_grant_with_signer(
+    payload: SessionGrantPayload,
+    signer: &impl SessionGrantSigner,
+) -> Result<SessionGrant> {
+    let grant_jwt = signer.sign_session_grant(&payload)?;
+    SessionGrant::new(payload, grant_jwt)
+}
+
+/// Verify a serialized grant through a host-owned JWS verifier.
+pub fn verify_session_grant_with_verifier(
+    grant_jwt: &str,
+    verifier: &impl SessionGrantVerifier,
+) -> Result<SessionGrantVerification> {
+    let verification = verifier.verify_session_grant(grant_jwt)?;
+    verification.validate()?;
+    Ok(verification)
+}
+
 /// Durable session grant record. Token material is represented by hash only.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SessionGrantRecord {
@@ -409,6 +477,119 @@ pub struct PrincipalSessionGrantNotificationResponse {
     pub audit_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after_ms: Option<u64>,
+}
+
+/// Delivery state for a service-owned session grant outbox entry.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SessionGrantOutboxState {
+    Pending,
+    Delivered,
+    Failed,
+    DeadLettered,
+}
+
+/// Retry policy metadata for durable service-owned outboxes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionGrantRetryPolicy {
+    pub initial_backoff_ms: u64,
+    pub max_backoff_ms: u64,
+    pub max_attempts: u32,
+}
+
+impl Default for SessionGrantRetryPolicy {
+    fn default() -> Self {
+        Self { initial_backoff_ms: 1_000, max_backoff_ms: 60_000, max_attempts: 8 }
+    }
+}
+
+impl SessionGrantRetryPolicy {
+    pub fn next_delay_ms(&self, attempts: u32) -> Option<u64> {
+        if attempts >= self.max_attempts {
+            return None;
+        }
+        let shift = attempts.min(31);
+        Some(self.initial_backoff_ms.saturating_mul(1u64 << shift).min(self.max_backoff_ms))
+    }
+}
+
+/// Durable outbox item shape; services own persistence and scheduling.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionGrantOutboxEntry {
+    pub notification: PrincipalSessionGrantNotification,
+    pub state: SessionGrantOutboxState,
+    pub attempts: u32,
+    pub next_attempt_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_error: Option<String>,
+}
+
+impl SessionGrantOutboxEntry {
+    pub fn new(
+        notification: PrincipalSessionGrantNotification,
+        now: DateTime<Utc>,
+    ) -> Result<Self> {
+        notification.validate()?;
+        Ok(Self {
+            notification,
+            state: SessionGrantOutboxState::Pending,
+            attempts: 0,
+            next_attempt_at: now,
+            last_error: None,
+        })
+    }
+
+    pub fn due(&self, now: DateTime<Utc>) -> bool {
+        matches!(self.state, SessionGrantOutboxState::Pending | SessionGrantOutboxState::Failed)
+            && self.next_attempt_at <= now
+    }
+
+    pub fn record_delivery(&mut self) {
+        self.state = SessionGrantOutboxState::Delivered;
+        self.last_error = None;
+    }
+
+    pub fn record_failure(
+        &mut self,
+        error: impl Into<String>,
+        now: DateTime<Utc>,
+        policy: SessionGrantRetryPolicy,
+    ) {
+        self.attempts = self.attempts.saturating_add(1);
+        self.last_error = Some(error.into());
+        if let Some(delay_ms) = policy.next_delay_ms(self.attempts) {
+            self.state = SessionGrantOutboxState::Failed;
+            self.next_attempt_at = now + Duration::milliseconds(delay_ms as i64);
+        } else {
+            self.state = SessionGrantOutboxState::DeadLettered;
+            self.next_attempt_at = now;
+        }
+    }
+}
+
+/// In-memory contract helper for tests; production services should persist this queue.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MemorySessionGrantOutbox {
+    entries: VecDeque<SessionGrantOutboxEntry>,
+}
+
+impl MemorySessionGrantOutbox {
+    pub fn enqueue(
+        &mut self,
+        notification: PrincipalSessionGrantNotification,
+        now: DateTime<Utc>,
+    ) -> Result<()> {
+        self.entries.push_back(SessionGrantOutboxEntry::new(notification, now)?);
+        Ok(())
+    }
+
+    pub fn due(&self, now: DateTime<Utc>) -> Vec<&SessionGrantOutboxEntry> {
+        self.entries.iter().filter(|entry| entry.due(now)).collect()
+    }
+
+    pub fn entries(&self) -> impl Iterator<Item = &SessionGrantOutboxEntry> {
+        self.entries.iter()
+    }
 }
 
 /// Host-supplied notifier for Principal Server session-grant propagation.
@@ -2083,6 +2264,21 @@ mod tests {
         let binding = payload.principal_binding();
         assert_eq!(binding.device_id, device("desktop"));
 
+        let signer = |payload: &SessionGrantPayload| {
+            payload.validate()?;
+            Ok(format!("signed.{}.jwt", payload.grant_jti))
+        };
+        let issued = issue_session_grant_with_signer(payload.clone(), &signer).unwrap();
+        let verifier = |grant_jwt: &str| {
+            Ok(SessionGrantVerification {
+                payload: payload.clone(),
+                grant_hash: sha256_hex(grant_jwt.as_bytes()),
+                verified: grant_jwt.starts_with("signed."),
+            })
+        };
+        let verified = verify_session_grant_with_verifier(&issued.grant_jwt, &verifier).unwrap();
+        assert_eq!(verified.grant_hash, issued.grant_hash);
+
         let grant = SessionGrant::new(payload, "signed.jwt.value").unwrap();
         assert!(!format!("{grant:?}").contains("signed.jwt.value"));
         let mut record = grant.into_record();
@@ -2108,6 +2304,20 @@ mod tests {
         };
         let response = notifier.notify_session_grant(&notification).unwrap();
         assert!(response.accepted);
+
+        let mut outbox = MemorySessionGrantOutbox::default();
+        outbox.enqueue(notification, now).unwrap();
+        assert_eq!(outbox.due(now).len(), 1);
+        let policy = SessionGrantRetryPolicy {
+            initial_backoff_ms: 10,
+            max_backoff_ms: 100,
+            max_attempts: 2,
+        };
+        let mut entry = outbox.entries().next().unwrap().clone();
+        entry.record_failure("temporary", now, policy);
+        assert_eq!(entry.state, SessionGrantOutboxState::Failed);
+        entry.record_failure("still failing", now, policy);
+        assert_eq!(entry.state, SessionGrantOutboxState::DeadLettered);
     }
 
     #[test]
@@ -2211,7 +2421,7 @@ mod tests {
             encoded_presentation: "compact.sd-jwt".to_owned(),
         };
         boundary.validate_request_binding(&request, Some("contrix-auth")).unwrap();
-        let mut wrong_audience = boundary.clone();
+        let mut wrong_audience = boundary;
         wrong_audience.audience = "other-audience".to_owned();
         assert!(wrong_audience.validate_request_binding(&request, Some("contrix-auth")).is_err());
 

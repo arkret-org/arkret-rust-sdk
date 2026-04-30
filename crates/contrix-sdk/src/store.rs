@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, VecDeque};
+use std::{
+    collections::{BTreeMap, VecDeque},
+    sync::{Arc, RwLock},
+};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -340,6 +343,16 @@ pub struct StoreSnapshot {
     pub head: Option<Hash>,
 }
 
+/// Serializable IndexedDB state used to survive browser restarts.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct IndexedDbPersistentState {
+    pub repo: StoreSnapshot,
+    pub sync_cursors: BTreeMap<String, String>,
+    pub state_snapshots: BTreeMap<SpaceId, StateSnapshot>,
+    pub used_bytes: usize,
+    pub pending_sync: Vec<String>,
+}
+
 /// Store implementations covered by the SDK conformance suite.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -554,6 +567,42 @@ pub struct SqliteRepoStore {
     commit_index: BTreeMap<String, CommitId>,
 }
 
+/// Shared SQLite-compatible store handle for concurrent reader/writer tests.
+#[derive(Clone, Debug, Default)]
+pub struct SharedSqliteRepoStore {
+    inner: Arc<RwLock<SqliteRepoStore>>,
+}
+
+impl SharedSqliteRepoStore {
+    pub fn new(store: SqliteRepoStore) -> Self {
+        Self { inner: Arc::new(RwLock::new(store)) }
+    }
+
+    pub fn read_snapshot(&self) -> Result<StoreSnapshot> {
+        let guard = self
+            .inner
+            .read()
+            .map_err(|_| Error::Protocol("sqlite shared read lock poisoned".to_owned()))?;
+        Ok(guard.export_snapshot())
+    }
+
+    pub fn write_batch(&self, batch: RepoWriteBatch) -> Result<RepoWriteReceipt> {
+        let mut guard = self
+            .inner
+            .write()
+            .map_err(|_| Error::Protocol("sqlite shared write lock poisoned".to_owned()))?;
+        TransactionalRepoStore::write_batch(&mut *guard, batch)
+    }
+
+    pub fn schema_metadata(&self) -> Result<StoreSchemaMetadata> {
+        let guard = self
+            .inner
+            .read()
+            .map_err(|_| Error::Protocol("sqlite shared read lock poisoned".to_owned()))?;
+        Ok(guard.schema_metadata())
+    }
+}
+
 impl SqliteRepoStore {
     /// Create an empty store.
     pub fn new() -> Self {
@@ -719,6 +768,8 @@ pub struct IndexedDbRepoStore {
     quota_bytes: usize,
     used_bytes: usize,
     pending_sync: VecDeque<String>,
+    sync_cursors: BTreeMap<String, String>,
+    state_snapshots: BTreeMap<SpaceId, StateSnapshot>,
 }
 
 impl IndexedDbRepoStore {
@@ -729,6 +780,8 @@ impl IndexedDbRepoStore {
             quota_bytes,
             used_bytes: 0,
             pending_sync: VecDeque::new(),
+            sync_cursors: BTreeMap::new(),
+            state_snapshots: BTreeMap::new(),
         }
     }
 
@@ -745,6 +798,101 @@ impl IndexedDbRepoStore {
     /// Pop the next background sync object.
     pub fn pop_background_sync(&mut self) -> Option<String> {
         self.pending_sync.pop_front()
+    }
+
+    /// Persist a sync cursor by stream name.
+    pub fn put_sync_cursor(
+        &mut self,
+        stream: impl Into<String>,
+        cursor: impl Into<String>,
+    ) -> Result<()> {
+        let stream = stream.into();
+        let cursor = cursor.into();
+        if stream.trim().is_empty() || cursor.trim().is_empty() {
+            return Err(Error::Protocol(
+                "IndexedDB sync cursor requires stream and value".to_owned(),
+            ));
+        }
+        self.sync_cursors.insert(stream, cursor);
+        Ok(())
+    }
+
+    /// Load a persisted sync cursor.
+    pub fn sync_cursor(&self, stream: &str) -> Option<&str> {
+        self.sync_cursors.get(stream).map(String::as_str)
+    }
+
+    /// Persist a verified state snapshot.
+    pub fn put_state_snapshot(&mut self, snapshot: StateSnapshot) -> Result<()> {
+        snapshot.verify()?;
+        self.state_snapshots.insert(snapshot.space_id.clone(), snapshot);
+        Ok(())
+    }
+
+    /// Load a persisted state snapshot.
+    pub fn state_snapshot(&self, space_id: &SpaceId) -> Option<&StateSnapshot> {
+        self.state_snapshots.get(space_id)
+    }
+
+    /// Export all IndexedDB facade state for restart survival tests.
+    pub fn export_persistent_state(&self) -> IndexedDbPersistentState {
+        IndexedDbPersistentState {
+            repo: StoreSnapshot {
+                schema_version: 1,
+                operations: self
+                    .inner
+                    .operations
+                    .values()
+                    .map(|(_, operation)| operation.clone())
+                    .collect(),
+                commits: self.inner.commits.values().map(|(_, commit)| commit.clone()).collect(),
+                head: self.inner.head.clone(),
+            },
+            sync_cursors: self.sync_cursors.clone(),
+            state_snapshots: self.state_snapshots.clone(),
+            used_bytes: self.used_bytes,
+            pending_sync: self.pending_sync.iter().cloned().collect(),
+        }
+    }
+
+    /// Restore all IndexedDB facade state after a browser restart.
+    pub fn import_persistent_state(&mut self, state: IndexedDbPersistentState) -> Result<()> {
+        let mut candidate = Self::new(self.quota_bytes);
+        for operation in state.repo.operations {
+            RepoStore::put_operation(&mut candidate, operation)?;
+        }
+        for commit in state.repo.commits {
+            RepoStore::put_commit(&mut candidate, commit)?;
+        }
+        if let Some(snapshot_head) = state.repo.head
+            && candidate.head() != Some(&snapshot_head)
+        {
+            return Err(Error::Protocol(
+                "indexeddb persistent state head does not match commits".to_owned(),
+            ));
+        }
+        for snapshot in state.state_snapshots.values() {
+            snapshot.verify()?;
+        }
+        candidate.sync_cursors = state.sync_cursors;
+        candidate.state_snapshots = state.state_snapshots;
+        candidate.pending_sync = state.pending_sync.into();
+        candidate.used_bytes = state.used_bytes.max(candidate.used_bytes);
+        if candidate.used_bytes > candidate.quota_bytes {
+            return Err(Error::Protocol("indexeddb persistent state exceeds quota".to_owned()));
+        }
+        *self = candidate;
+        Ok(())
+    }
+
+    /// Build a store from exported IndexedDB state.
+    pub fn recover_from_persistent_state(
+        quota_bytes: usize,
+        state: IndexedDbPersistentState,
+    ) -> Result<Self> {
+        let mut store = Self::new(quota_bytes);
+        store.import_persistent_state(state)?;
+        Ok(store)
     }
 
     fn reserve(&mut self, bytes: usize) -> Result<()> {
@@ -1173,7 +1321,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
+    use std::{collections::BTreeMap, thread};
 
     use chrono::Utc;
     use serde_json::json;
@@ -1653,6 +1801,34 @@ mod tests {
     }
 
     #[test]
+    fn sqlite_shared_store_supports_concurrent_reader_writer_behavior() {
+        let shared = SharedSqliteRepoStore::new(SqliteRepoStore::new());
+        let reader = shared.clone();
+        let writer = shared.clone();
+
+        let read_before = thread::spawn(move || reader.read_snapshot().unwrap());
+        assert_eq!(read_before.join().unwrap().operations.len(), 0);
+
+        let write = thread::spawn(move || {
+            let operation = Operation::create(
+                OperationId::new("cx:operation:shared").unwrap(),
+                SpaceId::new("cx:space:shared").unwrap(),
+                "entity",
+                json!({"id":"cx:entity:shared"}),
+            );
+            let operation_digest = Hash::new(operation.operation_digest().unwrap()).unwrap();
+            let commit = test_commit("cx:commit:shared", 1, vec![operation_digest]);
+            writer.write_batch(RepoWriteBatch::new().with_operation(operation).with_commit(commit))
+        });
+        let receipt = write.join().unwrap().unwrap();
+        assert_eq!(receipt.operations_written, 1);
+
+        let after = shared.read_snapshot().unwrap();
+        assert_eq!(after.operations.len(), 1);
+        assert_eq!(after.commits.len(), 1);
+    }
+
+    #[test]
     fn indexeddb_store_enforces_quota_and_background_sync() {
         let mut store = IndexedDbRepoStore::new(4096);
         let operation = Operation::create(
@@ -1666,6 +1842,44 @@ mod tests {
 
         store.enqueue_background_sync(operation.operation_id.to_string());
         assert_eq!(store.pop_background_sync(), Some("cx:operation:03".to_owned()));
+    }
+
+    #[test]
+    fn indexeddb_store_persists_repo_cursors_snapshots_and_survives_restart() {
+        let mut store = IndexedDbRepoStore::new(16 * 1024);
+        let operation = Operation::create(
+            OperationId::new("cx:operation:indexeddb-restart").unwrap(),
+            SpaceId::new("cx:space:01").unwrap(),
+            "entity",
+            json!({"id":"cx:entity:indexeddb-restart"}),
+        );
+        let operation_digest = Hash::new(operation.operation_digest().unwrap()).unwrap();
+        let commit = test_commit("cx:commit:indexeddb-restart", 1, vec![operation_digest]);
+        store
+            .write_batch(
+                RepoWriteBatch::new().with_operation(operation.clone()).with_commit(commit.clone()),
+            )
+            .unwrap();
+        store.put_sync_cursor("main", "cx:cursor:indexeddb").unwrap();
+
+        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let event = entity_event("cx:event:01JS0INDEXEDDB0000000001", "IndexedDB task");
+        let mut state = SpaceState::new(space_id.clone(), "1".to_owned());
+        state.apply_events(&[event]).unwrap();
+        store.put_state_snapshot(state.snapshot()).unwrap();
+        store.enqueue_background_sync("cx:operation:indexeddb-restart");
+
+        let persistent = store.export_persistent_state();
+        let recovered =
+            IndexedDbRepoStore::recover_from_persistent_state(16 * 1024, persistent).unwrap();
+        assert!(recovered.operation(&operation.operation_id).is_some());
+        assert!(recovered.commit(&commit.commit_id).is_some());
+        assert_eq!(recovered.sync_cursor("main"), Some("cx:cursor:indexeddb"));
+        assert!(recovered.state_snapshot(&space_id).is_some());
+        assert_eq!(
+            recovered.clone().pop_background_sync(),
+            Some("cx:operation:indexeddb-restart".to_owned())
+        );
     }
 
     #[test]

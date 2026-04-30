@@ -6,9 +6,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
-use crate::{AEAD_ALGORITHM, DeviceId, Did, EventId, Result, SpaceId, crypto};
+use crate::{AEAD_ALGORITHM, DeviceId, Did, Error, EventId, Result, SpaceId, crypto};
 
 pub const PUSH_ENCRYPTION_ALGORITHM: &str = AEAD_ALGORITHM;
+pub const CHIME_PUSH_REGISTRATION_VERSION: &str = "chime.push.registration.v1";
 
 /// Push platform.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -36,6 +37,56 @@ pub struct PushToken {
     pub device_id: DeviceId,
     pub platform: PushPlatform,
     pub token: String,
+}
+
+/// Chime gateway registration payload accepted by SDK helpers.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChimePushRegistration {
+    pub version: String,
+    pub user_id: Did,
+    pub device_id: DeviceId,
+    pub platform: PushPlatform,
+    pub token: String,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub metadata: BTreeMap<String, String>,
+}
+
+impl ChimePushRegistration {
+    pub fn new(
+        user_id: Did,
+        device_id: DeviceId,
+        platform: PushPlatform,
+        token: impl Into<String>,
+    ) -> Self {
+        Self {
+            version: CHIME_PUSH_REGISTRATION_VERSION.to_owned(),
+            user_id,
+            device_id,
+            platform,
+            token: token.into(),
+            metadata: BTreeMap::new(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.version != CHIME_PUSH_REGISTRATION_VERSION {
+            return Err(Error::Protocol("unsupported chime push registration version".to_owned()));
+        }
+        if self.token.trim().is_empty() {
+            return Err(Error::Protocol("chime push token must not be empty".to_owned()));
+        }
+        Ok(())
+    }
+
+    pub fn into_push_token(self) -> Result<PushToken> {
+        self.validate()?;
+        Ok(PushToken {
+            user_id: self.user_id,
+            device_id: self.device_id,
+            platform: self.platform,
+            token: self.token,
+        })
+    }
 }
 
 /// Push rule.
@@ -99,6 +150,12 @@ impl PushGateway {
             !(existing.device_id == token.device_id && existing.platform == token.platform)
         });
         tokens.push(token);
+    }
+
+    /// Register a token using a Chime gateway payload.
+    pub fn register_chime_payload(&mut self, registration: ChimePushRegistration) -> Result<()> {
+        self.register_token(registration.into_push_token()?);
+        Ok(())
     }
 
     /// Unregister a push token.
@@ -286,5 +343,41 @@ mod tests {
             token: "token3".to_owned(),
         });
         assert!(gateway.unregister_token(&alice, &device("android"), PushPlatform::Fcm));
+    }
+
+    #[test]
+    fn push_registers_chime_payloads() {
+        let alice = did("alice");
+        let mut gateway = PushGateway::new();
+        gateway
+            .register_chime_payload(ChimePushRegistration::new(
+                alice.clone(),
+                device("ios"),
+                PushPlatform::Apns,
+                "chime-token",
+            ))
+            .unwrap();
+        gateway.upsert_rule(PushRule {
+            rule_id: "all".to_owned(),
+            enabled: true,
+            event_kind: None,
+            priority: PushPriority::Normal,
+            redact_content: false,
+        });
+
+        let payload = gateway.process_event(&event(false)).pop().unwrap();
+        assert_eq!(payload.token, "chime-token");
+        assert!(
+            gateway
+                .register_chime_payload(ChimePushRegistration {
+                    version: "old".to_owned(),
+                    user_id: alice,
+                    device_id: device("ios"),
+                    platform: PushPlatform::Apns,
+                    token: "token".to_owned(),
+                    metadata: BTreeMap::new(),
+                })
+                .is_err()
+        );
     }
 }

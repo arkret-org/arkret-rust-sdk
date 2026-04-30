@@ -47,12 +47,27 @@ pub const OP_ENTITY_REDACT: &str = "cx.entity.redact";
 /// Relation operations.
 pub const OP_RELATION_CREATE: &str = "cx.relation.create";
 pub const OP_RELATION_DELETE: &str = "cx.relation.delete";
-pub const OP_RELATION_MOVE: &str = "cx.relation.move";
+pub const OP_CONTAINER_MOVE_ITEM: &str = "cx.container.move_item";
+pub const OP_CONTAINER_REBALANCE: &str = "cx.container.rebalance";
+
+/// Field-position operations.
+pub const OP_FIELD_POSITION_MOVE: &str = "cx.field_position.move";
+pub const OP_FIELD_POSITION_REORDER: &str = "cx.field_position.reorder";
 
 /// Task-specific operations.
 pub const OP_TASK_CREATE: &str = "cx.task.create";
 pub const OP_TASK_UPDATE: &str = "cx.task.update";
-pub const OP_TASK_MOVE: &str = "cx.task.move";
+
+/// Legacy operation kind aliases retained for explicit compatibility profiles.
+pub const OP_LEGACY_RELATION_MOVE: &str = "cx.relation.move";
+pub const OP_LEGACY_RELATION_REBALANCE: &str = "cx.relation.rebalance";
+pub const OP_LEGACY_TASK_MOVE: &str = "cx.task.move";
+pub const OP_LEGACY_TASK_REORDER: &str = "cx.task.reorder";
+
+#[deprecated(note = "use OP_CONTAINER_MOVE_ITEM; cx.relation.move is a legacy alias")]
+pub const OP_RELATION_MOVE: &str = OP_LEGACY_RELATION_MOVE;
+#[deprecated(note = "use OP_FIELD_POSITION_MOVE; cx.task.move is a legacy alias")]
+pub const OP_TASK_MOVE: &str = OP_LEGACY_TASK_MOVE;
 
 /// View operations.
 pub const OP_VIEW_CREATE: &str = "cx.view.create";
@@ -112,10 +127,12 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_ENTITY_REDACT,
     OP_RELATION_CREATE,
     OP_RELATION_DELETE,
-    OP_RELATION_MOVE,
+    OP_CONTAINER_MOVE_ITEM,
+    OP_CONTAINER_REBALANCE,
     OP_TASK_CREATE,
     OP_TASK_UPDATE,
-    OP_TASK_MOVE,
+    OP_FIELD_POSITION_MOVE,
+    OP_FIELD_POSITION_REORDER,
     OP_VIEW_CREATE,
     OP_VIEW_UPDATE,
     OP_VIEW_RECONCILE,
@@ -267,7 +284,7 @@ impl Default for OperationKindRegistry {
             registry.register(OperationKindSpec {
                 kind: (*kind).to_owned(),
                 schema: OPERATION_SCHEMA.to_owned(),
-                legacy_aliases: vec![legacy_alias_for_operation_kind(kind)],
+                legacy_aliases: legacy_aliases_for_operation_kind(kind),
                 required_content_fields: required_fields_for_operation_kind(kind),
             });
         }
@@ -275,17 +292,59 @@ impl Default for OperationKindRegistry {
     }
 }
 
-fn legacy_alias_for_operation_kind(kind: &str) -> String {
-    kind.strip_prefix("cx.").unwrap_or(kind).replace('.', "_")
+fn legacy_aliases_for_operation_kind(kind: &str) -> Vec<String> {
+    let mut aliases = vec![kind.strip_prefix("cx.").unwrap_or(kind).replace('.', "_")];
+    match kind {
+        OP_FIELD_POSITION_MOVE => {
+            aliases.extend(["task_move", OP_LEGACY_TASK_MOVE].into_iter().map(str::to_owned));
+        }
+        OP_FIELD_POSITION_REORDER => {
+            aliases.extend(["task_reorder", OP_LEGACY_TASK_REORDER].into_iter().map(str::to_owned));
+        }
+        OP_CONTAINER_MOVE_ITEM => {
+            aliases
+                .extend(["relation_move", OP_LEGACY_RELATION_MOVE].into_iter().map(str::to_owned));
+        }
+        OP_CONTAINER_REBALANCE => {
+            aliases.extend(
+                ["relation_rebalance", OP_LEGACY_RELATION_REBALANCE].into_iter().map(str::to_owned),
+            );
+        }
+        _ => {}
+    }
+    aliases
 }
 
 fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
     match kind {
         OP_ENTITY_CREATE | OP_ENTITY_UPDATE | OP_ENTITY_DELETE | OP_ENTITY_RESTORE
         | OP_ENTITY_REDACT => vec!["entity_id".to_owned()],
-        OP_RELATION_CREATE | OP_RELATION_DELETE | OP_RELATION_MOVE => {
+        OP_RELATION_CREATE | OP_RELATION_DELETE => {
             vec!["relation_id".to_owned()]
         }
+        OP_FIELD_POSITION_MOVE => ["entity_id", "view_id", "group_by", "to_value", "rank"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
+        OP_FIELD_POSITION_REORDER => {
+            ["entity_id", "view_id", "group_by", "rank"].into_iter().map(str::to_owned).collect()
+        }
+        OP_CONTAINER_MOVE_ITEM => {
+            ["scope_container_id", "relation_kind", "entity_id", "to_container_id", "rank"]
+                .into_iter()
+                .map(str::to_owned)
+                .collect()
+        }
+        OP_CONTAINER_REBALANCE => [
+            "scope_container_id",
+            "container_id",
+            "relation_kind",
+            "expected_state_hash",
+            "assignments",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect(),
         OP_MESSAGE_CREATE => vec!["body".to_owned()],
         _ => Vec::new(),
     }
@@ -304,18 +363,18 @@ pub fn operation_kind_conformance_vectors() -> Vec<OperationKindConformanceVecto
     BUILT_IN_OPERATION_KINDS
         .iter()
         .flat_map(|kind| {
-            [
+            std::iter::once(OperationKindConformanceVector {
+                input_kind: (*kind).to_owned(),
+                profile: OperationCompatibilityProfile::CanonicalOnly,
+                canonical_kind: (*kind).to_owned(),
+            })
+            .chain(legacy_aliases_for_operation_kind(kind).into_iter().map(|alias| {
                 OperationKindConformanceVector {
-                    input_kind: (*kind).to_owned(),
-                    profile: OperationCompatibilityProfile::CanonicalOnly,
-                    canonical_kind: (*kind).to_owned(),
-                },
-                OperationKindConformanceVector {
-                    input_kind: legacy_alias_for_operation_kind(kind),
+                    input_kind: alias,
                     profile: OperationCompatibilityProfile::LegacyBareNames,
                     canonical_kind: (*kind).to_owned(),
-                },
-            ]
+                }
+            }))
         })
         .collect()
 }
@@ -623,6 +682,8 @@ impl Default for ProtocolSchemaRegistry {
                 ],
             ),
         );
+        registry.register(ENTITY_SCHEMA, entity_schema_document());
+        registry.register(VIEW_SCHEMA, view_schema_document());
         registry.register(
             COMMIT_SCHEMA,
             object_schema(
@@ -692,6 +753,58 @@ fn object_schema(schema_id: &str, required: &[&str], properties: &[(&str, &str)]
         "required": required,
         "properties": properties,
         "additionalProperties": true,
+    })
+}
+
+fn entity_schema_document() -> Value {
+    json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": ENTITY_SCHEMA,
+        "type": "object",
+        "required": ["id", "type", "space_id", "entity_type", "created_by", "created_at"],
+        "properties": {
+            "schema": { "type": "string" },
+            "id": { "type": "string" },
+            "type": { "type": "string" },
+            "space_id": { "type": "string" },
+            "entity_type": { "type": "string" },
+            "facets": {
+                "description": "Facet config object in full entities, or facet-name list in projection fragments."
+            },
+            "title": { "type": "string" },
+            "content": { "type": "object" },
+            "fields": { "type": "object" },
+            "state": { "type": "string" },
+            "created_by": { "type": "string" },
+            "created_at": { "type": "string" }
+        },
+        "additionalProperties": true
+    })
+}
+
+fn view_schema_document() -> Value {
+    json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": VIEW_SCHEMA,
+        "type": "object",
+        "required": ["id", "type", "space_id", "kind", "query", "created_by", "created_at"],
+        "properties": {
+            "schema": { "type": "string" },
+            "id": { "type": "string" },
+            "type": { "type": "string" },
+            "space_id": { "type": "string" },
+            "kind": { "type": "string" },
+            "preset": { "type": "string" },
+            "renderer": { "type": "string" },
+            "query": { "type": "object" },
+            "collection": { "type": "object" },
+            "conversation": { "type": "object" },
+            "graph": { "type": "object" },
+            "queue": { "type": "object" },
+            "created_by": { "type": "string" },
+            "created_at": { "type": "string" }
+        },
+        "additionalProperties": true
     })
 }
 
@@ -795,6 +908,8 @@ pub fn schema_version_compatibility_table() -> SchemaCompatibilityTable {
         profile: SCHEMA_COMPATIBILITY_PROFILE.to_owned(),
         entries: [
             CURSOR_SCHEMA,
+            ENTITY_SCHEMA,
+            VIEW_SCHEMA,
             EVENT_SCHEMA,
             OPERATION_SCHEMA,
             COMMIT_SCHEMA,
@@ -919,10 +1034,25 @@ pub fn profile_conformance_suites() -> Vec<ConformanceSuite> {
         ),
         conformance_suite(
             ConformanceProfile::StateResolution,
-            "state-reducer-convergence",
-            "Reducer inputs with different insertion order converge to the same state hash.",
+            "canonical-position-operation-kinds",
+            "Reducer fixtures use canonical field-position and container operation kinds.",
             Some(EVENT_SCHEMA),
-            json!({"order_independent": true, "requires_merkle_root": true}),
+            json!({
+                "order_independent": true,
+                "requires_merkle_root": true,
+                "canonical_kinds": [
+                    OP_FIELD_POSITION_MOVE,
+                    OP_FIELD_POSITION_REORDER,
+                    OP_CONTAINER_MOVE_ITEM,
+                    OP_CONTAINER_REBALANCE
+                ],
+                "legacy_aliases": [
+                    OP_LEGACY_TASK_MOVE,
+                    OP_LEGACY_TASK_REORDER,
+                    OP_LEGACY_RELATION_MOVE,
+                    OP_LEGACY_RELATION_REBALANCE
+                ]
+            }),
         ),
         conformance_suite(
             ConformanceProfile::Redaction,
@@ -933,17 +1063,22 @@ pub fn profile_conformance_suites() -> Vec<ConformanceSuite> {
         ),
         conformance_suite(
             ConformanceProfile::Capability,
-            "capability-frontier-validation",
-            "Capability checks run at the causal frontier and fail closed on unknown critical constraints.",
+            "facet-aware-capability-frontier-validation",
+            "Capability checks run at the causal frontier and can fail closed on allowed_entity_facets.",
             Some(CAPABILITY_SCHEMA),
-            json!({"fail_closed": true, "frontier_bound": true}),
+            json!({"fail_closed": true, "frontier_bound": true, "allowed_entity_facets": true}),
         ),
         conformance_suite(
             ConformanceProfile::Sync,
-            "sync-token-binding",
-            "Sync tokens bind principal, device, service, filter hash and stream positions.",
-            Some(CLIENT_SYNC_RESPONSE_SCHEMA),
-            json!({"binds_filter": true, "binds_positions": true}),
+            "facet-query-renderer-sync-token-binding",
+            "Sync tokens bind principal, device, service, facets, renderer, filter hash and stream positions.",
+            Some(VIEW_SCHEMA),
+            json!({
+                "binds_filter": true,
+                "binds_positions": true,
+                "binds_facets": true,
+                "binds_renderer": true
+            }),
         ),
         conformance_suite(
             ConformanceProfile::Snapshot,
@@ -1430,6 +1565,79 @@ pub enum EntityType {
     Custom(String),
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EntityFacet {
+    Container,
+    Replyable,
+    Schedulable,
+    Assignable,
+    Stateful,
+    Rankable,
+    Reviewable,
+    Notifiable,
+    Documentable,
+    Renderable,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FacetSelector {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub all: Vec<EntityFacet>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub any: Vec<EntityFacet>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub none: Vec<EntityFacet>,
+}
+
+impl FacetSelector {
+    pub fn matches(&self, facets: &[EntityFacet]) -> bool {
+        self.all.iter().all(|facet| facets.contains(facet))
+            && (self.any.is_empty() || self.any.iter().any(|facet| facets.contains(facet)))
+            && self.none.iter().all(|facet| !facets.contains(facet))
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum EntityFacets {
+    Names(Vec<EntityFacet>),
+    Configs(BTreeMap<EntityFacet, Value>),
+}
+
+impl Default for EntityFacets {
+    fn default() -> Self {
+        Self::Names(Vec::new())
+    }
+}
+
+impl EntityFacets {
+    pub fn names(names: impl IntoIterator<Item = EntityFacet>) -> Self {
+        Self::Names(names.into_iter().collect())
+    }
+
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Self::Names(names) => names.is_empty(),
+            Self::Configs(configs) => configs.is_empty(),
+        }
+    }
+
+    pub fn facet_names(&self) -> Vec<EntityFacet> {
+        match self {
+            Self::Names(names) => names.clone(),
+            Self::Configs(configs) => configs.keys().cloned().collect(),
+        }
+    }
+
+    pub fn contains(&self, facet: &EntityFacet) -> bool {
+        match self {
+            Self::Names(names) => names.contains(facet),
+            Self::Configs(configs) => configs.contains_key(facet),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RelationKind {
@@ -1464,6 +1672,7 @@ pub enum RelationKind {
 #[serde(rename_all = "snake_case")]
 pub enum ViewKind {
     // Work-object views
+    Collection,
     Kanban,
     List,
     Table,
@@ -1488,6 +1697,54 @@ pub enum ViewKind {
     ContextTimeline,
     // Legacy alias
     ReviewQueue,
+    Composite,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ViewPreset {
+    Kanban,
+    List,
+    Table,
+    Calendar,
+    Gantt,
+    Chat,
+    Thread,
+    Forum,
+    Tree,
+    Timeline,
+    ReviewQueue,
+    Matrix,
+    Document,
+    Dashboard,
+    Activity,
+    Inbox,
+    Notifications,
+    MemoryReview,
+    AgentRuns,
+    ContextTimeline,
+    ModerationQueue,
+    Custom,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ViewRenderer {
+    Board,
+    Card,
+    Row,
+    Table,
+    Calendar,
+    Gantt,
+    Timeline,
+    Thread,
+    Chat,
+    Forum,
+    Graph,
+    Tree,
+    Document,
+    Dashboard,
+    Custom,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -2070,6 +2327,8 @@ pub struct Entity {
     pub object_type: String,
     pub space_id: SpaceId,
     pub entity_type: EntityType,
+    #[serde(default, skip_serializing_if = "EntityFacets::is_empty")]
+    pub facets: EntityFacets,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -2121,6 +2380,11 @@ impl Entity {
             object_type: "entity".to_owned(),
             space_id,
             entity_type: EntityType::Channel,
+            facets: EntityFacets::names([
+                EntityFacet::Container,
+                EntityFacet::Replyable,
+                EntityFacet::Renderable,
+            ]),
             title: Some(title.into()),
             content: None,
             fields,
@@ -2149,6 +2413,11 @@ impl Entity {
             object_type: "entity".to_owned(),
             space_id,
             entity_type: EntityType::Topic,
+            facets: EntityFacets::names([
+                EntityFacet::Container,
+                EntityFacet::Replyable,
+                EntityFacet::Renderable,
+            ]),
             title: Some(title.into()),
             content: None,
             fields: BTreeMap::new(),
@@ -2177,6 +2446,11 @@ impl Entity {
             object_type: "entity".to_owned(),
             space_id,
             entity_type: EntityType::Comment,
+            facets: EntityFacets::names([
+                EntityFacet::Replyable,
+                EntityFacet::Notifiable,
+                EntityFacet::Renderable,
+            ]),
             title: None,
             content: Some(content),
             fields: BTreeMap::new(),
@@ -2426,6 +2700,10 @@ pub struct QueryRequest {
     pub space_ids: Vec<SpaceId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub entity_types: Vec<EntityType>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub facets: Vec<EntityFacet>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub renderer: Option<ViewRenderer>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub anchor_entity_id: Option<EntityId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -2473,6 +2751,10 @@ pub struct View {
     pub space_id: SpaceId,
     pub kind: ViewKind,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub preset: Option<ViewPreset>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub renderer: Option<ViewRenderer>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     pub query: QueryRequest,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -2480,11 +2762,89 @@ pub struct View {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub layout: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub collection: Option<CollectionViewConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub kanban: Option<KanbanConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tabular: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub time_window: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timeline: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub conversation: Option<ConversationViewConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub graph: Option<GraphViewConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub queue: Option<QueueViewConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub matrix: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub document: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dashboard: Option<Value>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sort: Vec<SortSpec>,
     pub created_by: Did,
     pub created_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct CollectionViewConfig {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub item_entity_types: Vec<EntityType>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub item_facets: Vec<EntityFacet>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub item_render: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub item_order_by: Vec<SortSpec>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub grouping: Option<Value>,
+    #[serde(default, flatten)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct ConversationViewConfig {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub message_entity_types: Vec<EntityType>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub message_facets: Vec<EntityFacet>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message_time_field: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_relation_kind: Option<String>,
+    #[serde(default, flatten)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct GraphViewConfig {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub node_entity_types: Vec<EntityType>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub node_facets: Vec<EntityFacet>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub edge_relation_kinds: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_depth: Option<u32>,
+    #[serde(default, flatten)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct QueueViewConfig {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub item_entity_types: Vec<EntityType>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub item_facets: Vec<EntityFacet>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub state_field: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub state_values: Vec<String>,
+    #[serde(default, flatten)]
+    pub extra: BTreeMap<String, Value>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -4340,6 +4700,14 @@ mod tests {
             .unwrap();
         assert_eq!(legacy.canonical_kind, OP_MESSAGE_CREATE);
         assert_eq!(legacy.legacy_alias_used.as_deref(), Some("message_create"));
+        let legacy_task_move = registry
+            .canonicalize(OP_LEGACY_TASK_MOVE, OperationCompatibilityProfile::LegacyBareNames)
+            .unwrap();
+        assert_eq!(legacy_task_move.canonical_kind, OP_FIELD_POSITION_MOVE);
+        let legacy_relation_move = registry
+            .canonicalize(OP_LEGACY_RELATION_MOVE, OperationCompatibilityProfile::LegacyBareNames)
+            .unwrap();
+        assert_eq!(legacy_relation_move.canonical_kind, OP_CONTAINER_MOVE_ITEM);
         assert_eq!(registry.kinds().count(), BUILT_IN_OPERATION_KINDS.len());
     }
 
@@ -4434,18 +4802,24 @@ mod tests {
     #[test]
     fn operation_kind_conformance_vectors_cover_every_builtin() {
         let vectors = operation_kind_conformance_vectors();
-        assert_eq!(vectors.len(), BUILT_IN_OPERATION_KINDS.len() * 2);
+        let expected_len = BUILT_IN_OPERATION_KINDS
+            .iter()
+            .map(|kind| 1 + legacy_aliases_for_operation_kind(kind).len())
+            .sum::<usize>();
+        assert_eq!(vectors.len(), expected_len);
         for kind in BUILT_IN_OPERATION_KINDS {
             assert!(vectors.iter().any(|vector| {
                 vector.input_kind == *kind
                     && vector.profile == OperationCompatibilityProfile::CanonicalOnly
                     && vector.canonical_kind == *kind
             }));
-            assert!(vectors.iter().any(|vector| {
-                vector.input_kind == legacy_alias_for_operation_kind(kind)
-                    && vector.profile == OperationCompatibilityProfile::LegacyBareNames
-                    && vector.canonical_kind == *kind
-            }));
+            for alias in legacy_aliases_for_operation_kind(kind) {
+                assert!(vectors.iter().any(|vector| {
+                    vector.input_kind == alias
+                        && vector.profile == OperationCompatibilityProfile::LegacyBareNames
+                        && vector.canonical_kind == *kind
+                }));
+            }
         }
     }
 
@@ -4454,6 +4828,8 @@ mod tests {
         let registry = ProtocolSchemaRegistry::default();
         for schema_id in [
             CURSOR_SCHEMA,
+            ENTITY_SCHEMA,
+            VIEW_SCHEMA,
             EVENT_SCHEMA,
             OPERATION_SCHEMA,
             COMMIT_SCHEMA,
@@ -4880,6 +5256,8 @@ mod tests {
         let request = QueryRequest {
             space_ids: vec![SpaceId::new("cx:space:01").unwrap()],
             entity_types: vec![EntityType::Task],
+            facets: vec![EntityFacet::Stateful, EntityFacet::Rankable],
+            renderer: Some(ViewRenderer::Board),
             anchor_entity_id: None,
             filters: vec![Filter::Predicate(FieldFilter {
                 field: "fields.status".to_owned(),
@@ -4898,7 +5276,79 @@ mod tests {
         let value = serde_json::to_value(request).unwrap();
         assert!(value.get("space_ids").unwrap().is_array());
         assert!(value.get("filters").unwrap().is_array());
+        assert_eq!(value["facets"], json!(["stateful", "rankable"]));
+        assert_eq!(value["renderer"], "board");
         assert!(value.get("sync_token").is_none());
+    }
+
+    #[test]
+    fn entity_facets_accept_name_lists_and_config_maps() {
+        let names: EntityFacets =
+            serde_json::from_value(json!(["stateful", "rankable", "renderable"])).unwrap();
+        assert!(names.contains(&EntityFacet::Stateful));
+        assert_eq!(names.facet_names().len(), 3);
+
+        let configs: EntityFacets = serde_json::from_value(json!({
+            "rankable": {"rank_field": "fields.rank"},
+            "renderable": {"renderers": ["card"]}
+        }))
+        .unwrap();
+        assert!(configs.contains(&EntityFacet::Rankable));
+        assert_eq!(serde_json::to_value(configs).unwrap()["renderable"]["renderers"][0], "card");
+    }
+
+    #[test]
+    fn view_supports_renderer_and_facet_config_facades() {
+        let request = QueryRequest {
+            space_ids: vec![SpaceId::new("cx:space:01").unwrap()],
+            entity_types: Vec::new(),
+            facets: vec![EntityFacet::Stateful, EntityFacet::Rankable],
+            renderer: Some(ViewRenderer::Board),
+            anchor_entity_id: None,
+            filters: Vec::new(),
+            relation: None,
+            context: None,
+            order_by: Vec::new(),
+            projection: Vec::new(),
+            cursor: None,
+            limit: None,
+            consistency: None,
+        };
+        let view = View {
+            schema: VIEW_SCHEMA.to_owned(),
+            id: ViewId::new("cx:view:01").unwrap(),
+            object_type: "view".to_owned(),
+            space_id: SpaceId::new("cx:space:01").unwrap(),
+            kind: ViewKind::Collection,
+            preset: Some(ViewPreset::Kanban),
+            renderer: Some(ViewRenderer::Board),
+            title: Some("Board".to_owned()),
+            query: request,
+            visible_fields: Vec::new(),
+            layout: None,
+            collection: Some(CollectionViewConfig {
+                item_facets: vec![EntityFacet::Stateful, EntityFacet::Rankable],
+                item_render: Some("card".to_owned()),
+                ..Default::default()
+            }),
+            kanban: None,
+            tabular: None,
+            time_window: None,
+            timeline: None,
+            conversation: None,
+            graph: None,
+            queue: None,
+            matrix: None,
+            document: None,
+            dashboard: None,
+            sort: Vec::new(),
+            created_by: Did::new("did:web:alice.example").unwrap(),
+            created_at: Utc::now(),
+        };
+
+        let value = serde_json::to_value(view).unwrap();
+        assert_eq!(value["renderer"], "board");
+        assert_eq!(value["collection"]["item_facets"], json!(["stateful", "rankable"]));
     }
 
     #[test]

@@ -173,16 +173,19 @@ pub use auth::{
     CONTRIX_DEVICE_SCOPE_PREFIX, ClaimDisclosureRequirement, DidProofVerification,
     DidProofVerificationRequest, DidProofVerifier, DisclosurePolicy,
     DisclosureProofAdapterBoundary, DisclosureProofFormat, LEGACY_MATRIX_DEVICE_SCOPE_PREFIX,
-    LEGACY_MATRIX_MSC2967_DEVICE_SCOPE_PREFIX, MfaChallenge, OidcAuthRequest, OidcCredential,
-    OidcIssuerMetadata, OidcJwks, OidcVerificationRequest, OidcVerifiedIdentity, OidcVerifier,
-    PasskeyChallenge, PasskeyVerification, PasskeyVerificationRequest, PasskeyVerifier,
-    PasswordHashAlgorithm, PasswordHashVerifier, PasswordUser, PasswordVerification,
-    PasswordVerificationRequest, PersistedAuthSession, PresentationRequest, PresentationValidation,
-    PresentedClaim, PrincipalSessionGrantNotification, PrincipalSessionGrantNotificationResponse,
-    PrincipalSessionGrantNotifier, RefreshTokenMetadata, RejectedClaim, SessionGrant,
-    SessionGrantNotificationKind, SessionGrantPayload, SessionGrantRecord, SessionPrincipalBinding,
+    LEGACY_MATRIX_MSC2967_DEVICE_SCOPE_PREFIX, MemorySessionGrantOutbox, MfaChallenge,
+    OidcAuthRequest, OidcCredential, OidcIssuerMetadata, OidcJwks, OidcVerificationRequest,
+    OidcVerifiedIdentity, OidcVerifier, PasskeyChallenge, PasskeyVerification,
+    PasskeyVerificationRequest, PasskeyVerifier, PasswordHashAlgorithm, PasswordHashVerifier,
+    PasswordUser, PasswordVerification, PasswordVerificationRequest, PersistedAuthSession,
+    PresentationRequest, PresentationValidation, PresentedClaim, PrincipalSessionGrantNotification,
+    PrincipalSessionGrantNotificationResponse, PrincipalSessionGrantNotifier, RefreshTokenMetadata,
+    RejectedClaim, SessionGrant, SessionGrantNotificationKind, SessionGrantOutboxEntry,
+    SessionGrantOutboxState, SessionGrantPayload, SessionGrantRecord, SessionGrantRetryPolicy,
+    SessionGrantSigner, SessionGrantVerification, SessionGrantVerifier, SessionPrincipalBinding,
     SessionRevocation, WebAuthnPasskeyResponse, contrix_device_scope, device_id_from_scope_token,
-    primary_device_id_from_scopes, validate_presentation,
+    issue_session_grant_with_signer, primary_device_id_from_scopes, validate_presentation,
+    verify_session_grant_with_verifier,
 };
 #[cfg(feature = "full-surface")]
 pub use authz::{
@@ -209,14 +212,18 @@ pub use content::{
 };
 #[cfg(feature = "full-surface")]
 pub use crypto::{
-    AEAD_ALGORITHM, EncryptedEnvelopeAad, EncryptedEnvelopeDigestReport, KeyLifecycleHook,
-    KeyLifecyclePhase, SecurityReviewItem, SecurityReviewStatus, encrypted_envelope_digest_report,
-    envelope_aad_digest, json_aad_digest, security_review_checklist, verify_envelope_aad_digest,
+    AEAD_ALGORITHM, EncryptedEnvelopeAad, EncryptedEnvelopeDigestReport, FeatureSafetyReport,
+    KeyLifecycleHook, KeyLifecyclePhase, REDACTED_SECRET, SecurityReviewItem, SecurityReviewStatus,
+    UnsafeFeatureCombination, current_feature_safety_report, encrypted_envelope_digest_report,
+    envelope_aad_digest, feature_safety_report, is_sensitive_log_key, json_aad_digest,
+    redact_log_value, security_review_checklist, verify_envelope_aad_digest,
 };
 #[cfg(feature = "full-surface")]
 pub use crypto_store::{
-    CryptoStore, EncryptedMemoryCryptoStore, MemoryCryptoStore, MlsEpochSecretRecord,
-    MlsGroupStateRecord, MlsRecoveryAction, MlsRecoveryPlan, StoredDeviceVerification,
+    CRYPTO_STORE_BACKUP_VERSION, CryptoStore, CryptoStoreBackupEnvelope, CryptoStoreKeyRotation,
+    EncryptedMemoryCryptoStore, MemoryCryptoStore, MlsEpochSecretRecord, MlsGroupStateRecord,
+    MlsRecoveryAction, MlsRecoveryPlan, PlatformKeyStoreDescriptor, PlatformKeyStoreKind,
+    StoredDeviceVerification,
 };
 #[cfg(feature = "full-surface")]
 pub use cursor::{Cursor, SpacePosition, SyncPositions, SyncTracker};
@@ -295,9 +302,12 @@ pub use performance::{
 };
 #[cfg(feature = "full-surface")]
 pub use platform::{
-    EmbeddingSupportLevel, EmbeddingTarget, EmbeddingTargetDecision, FfiCallbackAction,
-    FfiCallbackResult, FfiCancellationHandle, FfiError, FfiErrorCode, FfiEvent, FfiEventSink,
-    FfiHandle, FfiHandleKind, embedding_target_decisions,
+    EmbeddingSupportLevel, EmbeddingTarget, EmbeddingTargetDecision, FFI_API_FREEZE_REVIEW_VERSION,
+    FfiApiFreezeBlocker, FfiApiFreezeReview, FfiApiFreezeStatus, FfiApiSurfaceItem,
+    FfiCallbackAction, FfiCallbackResult, FfiCancellationHandle, FfiError, FfiErrorCode, FfiEvent,
+    FfiEventSink, FfiHandle, FfiHandleKind, IndexedDbStoreDescriptor, IndexedDbStoreKind,
+    WasmBrowserHttpTransport, WasmHttpRequest, WasmHttpResponse, WasmRuntimeContract,
+    WebCryptoKeyHandle, WebCryptoOperation, embedding_target_decisions, ffi_api_freeze_review,
 };
 #[cfg(feature = "full-surface")]
 pub use presence::{Presence, PresenceManager};
@@ -311,8 +321,8 @@ pub use profile::{
 };
 #[cfg(feature = "full-surface")]
 pub use push::{
-    EncryptedPushPayload, PushEvent, PushGateway, PushPayload, PushPlatform, PushPriority,
-    PushRule, PushToken,
+    CHIME_PUSH_REGISTRATION_VERSION, ChimePushRegistration, EncryptedPushPayload, PushEvent,
+    PushGateway, PushPayload, PushPlatform, PushPriority, PushRule, PushToken,
 };
 #[cfg(feature = "full-surface")]
 pub use receipts::{ReadMarker, ReadReceipt, ReceiptManager, ReceiptVisibility};
@@ -353,12 +363,13 @@ pub use space::{
 #[cfg(feature = "full-surface")]
 pub use store::{
     AcceptUnsignedCommitProofs, AccountSessionStore, AuditLogStore, BlobMetadataStore,
-    CommitProofVerifier, EncryptedMemoryRepoStore, EventCacheStore, IndexedDbRepoStore,
-    MemoryPersistenceStore, MemoryRepoStore, RepoObjectStore, RepoStore, RepoWriteBatch,
-    RepoWriteReceipt, SqliteRepoStore, StateSnapshotStore, StoreCache, StoreConformanceReport,
-    StoreConformanceResult, StoreConformanceTarget, StoreConformanceVector, StoreEncryptionKey,
-    StoreMigration, StoreMigrationMetadata, StoreSchemaMetadata, StoreSnapshot, StoredAccountData,
-    TransactionalRepoStore, rebuild_space_state_from_events, restore_space_state_from_persistence,
+    CommitProofVerifier, EncryptedMemoryRepoStore, EventCacheStore, IndexedDbPersistentState,
+    IndexedDbRepoStore, MemoryPersistenceStore, MemoryRepoStore, RepoObjectStore, RepoStore,
+    RepoWriteBatch, RepoWriteReceipt, SharedSqliteRepoStore, SqliteRepoStore, StateSnapshotStore,
+    StoreCache, StoreConformanceReport, StoreConformanceResult, StoreConformanceTarget,
+    StoreConformanceVector, StoreEncryptionKey, StoreMigration, StoreMigrationMetadata,
+    StoreSchemaMetadata, StoreSnapshot, StoredAccountData, TransactionalRepoStore,
+    rebuild_space_state_from_events, restore_space_state_from_persistence,
     run_store_conformance_suite,
 };
 #[cfg(feature = "full-surface")]

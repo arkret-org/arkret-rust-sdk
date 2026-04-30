@@ -10,13 +10,16 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{
-    Audience, Did, Entity, EntityId, Error, Event, EventId, Relation, RelationId, Result, SpaceId,
+    Audience, Did, Entity, EntityFacets, EntityId, Error, Event, EventId, Relation, RelationId,
+    Result, SpaceId,
     canonical::{canonical_json_bytes, sha256_digest},
     model::{
-        OP_ENTITY_CREATE, OP_ENTITY_DELETE, OP_ENTITY_REDACT, OP_ENTITY_RESTORE, OP_ENTITY_UPDATE,
-        OP_RELATION_CREATE, OP_RELATION_DELETE, OP_RELATION_MOVE, OP_SPACE_CHILD, OP_SPACE_CREATE,
-        OP_SPACE_ORGANIZATION, OP_SPACE_UPDATE, OP_TASK_CREATE, OP_TASK_MOVE, OP_TASK_UPDATE,
-        OP_VIEW_CREATE, OP_VIEW_RECONCILE, OP_VIEW_UPDATE,
+        OP_CONTAINER_MOVE_ITEM, OP_ENTITY_CREATE, OP_ENTITY_DELETE, OP_ENTITY_REDACT,
+        OP_ENTITY_RESTORE, OP_ENTITY_UPDATE, OP_FIELD_POSITION_MOVE, OP_FIELD_POSITION_REORDER,
+        OP_LEGACY_RELATION_MOVE, OP_LEGACY_TASK_MOVE, OP_LEGACY_TASK_REORDER, OP_RELATION_CREATE,
+        OP_RELATION_DELETE, OP_SPACE_CHILD, OP_SPACE_CREATE, OP_SPACE_ORGANIZATION,
+        OP_SPACE_UPDATE, OP_TASK_CREATE, OP_TASK_UPDATE, OP_VIEW_CREATE, OP_VIEW_RECONCILE,
+        OP_VIEW_UPDATE,
     },
 };
 
@@ -149,12 +152,15 @@ impl SpaceState {
             // Relation lifecycle
             OP_RELATION_CREATE => self.create_relation(event)?,
             OP_RELATION_DELETE => self.delete_relation(event)?,
-            OP_RELATION_MOVE => self.move_relation(event)?,
+            OP_CONTAINER_MOVE_ITEM | OP_LEGACY_RELATION_MOVE => self.move_relation(event)?,
 
             // Task operations (entity-type-specific wrappers)
             OP_TASK_CREATE => self.create_entity(event)?,
             OP_TASK_UPDATE => self.update_entity(event)?,
-            OP_TASK_MOVE => self.update_entity(event)?,
+            OP_FIELD_POSITION_MOVE
+            | OP_FIELD_POSITION_REORDER
+            | OP_LEGACY_TASK_MOVE
+            | OP_LEGACY_TASK_REORDER => self.update_entity(event)?,
 
             // View operations
             OP_VIEW_CREATE => self.create_view(event)?,
@@ -219,6 +225,7 @@ impl SpaceState {
         let entity_id_str = self.extract_entity_id(&event.content)?;
         let entity_id = EntityId::new(entity_id_str.clone())?;
         let entity_type = self.extract_field(&event.content, "entity_type")?;
+        let facets = self.extract_optional_field(&event.content, "facets").unwrap_or_default();
         let title = self.extract_optional_field(&event.content, "title");
         let content = self.extract_optional_field(&event.content, "content");
         let fields = self.extract_fields(&event.content)?;
@@ -229,6 +236,7 @@ impl SpaceState {
             object_type: "entity".to_owned(),
             space_id: event.space_id.clone(),
             entity_type,
+            facets,
             title,
             content,
             fields,
@@ -258,6 +266,7 @@ impl SpaceState {
             &event.content,
             "fields",
         );
+        let facets = self.extract_optional_field::<EntityFacets>(&event.content, "facets");
         let state = self.extract_optional_field::<String>(&event.content, "state");
 
         let actor_id = event.actor_id.clone();
@@ -277,6 +286,9 @@ impl SpaceState {
         }
         if let Some(fields) = fields {
             entity.fields = fields;
+        }
+        if let Some(facets) = facets {
+            entity.facets = facets;
         }
         if let Some(state) = state {
             entity.state = Some(match state.as_str() {

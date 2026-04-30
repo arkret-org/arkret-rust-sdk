@@ -12,6 +12,9 @@ This SDK audit checklist is intended for release review.
   capability checks and canonical digests are the authority boundary.
 - Local storage may be copied while the application is stopped; production
   deployments must bind encrypted stores to platform key protection.
+- SDK store facades model SQLite, IndexedDB and encrypted crypto-store
+  semantics for conformance; production deployments still need real platform
+  storage engines and key custody.
 
 ## Canonical Data
 
@@ -42,6 +45,9 @@ This SDK audit checklist is intended for release review.
 - MLS KeyPackages, Welcomes, Commits and epoch secrets must be stored in a
   durable crypto store before a client acknowledges sync.
 - Backup metadata must bind sender identity, key version and creation time.
+- Crypto-store backups should use `CryptoStoreBackupEnvelope` and verify the
+  payload digest before import.
+- Group state imports must reject epoch rollback for an existing group.
 - Key rotation should not change a stable DID unless the DID method requires a
   method-specific migration.
 
@@ -67,6 +73,18 @@ This SDK audit checklist is intended for release review.
 - Review warnings and public API changes.
 - Review dependency updates.
 - Re-run protocol conformance vectors.
+- Review `security_review_checklist()` and confirm all non-external areas are
+  `tested`.
+- Run `current_feature_safety_report().validate()` for the published feature
+  set.
+
+## Internal Review Coverage
+
+The SDK publishes `security_review_checklist()` for internal pre-audit evidence.
+It covers canonical signing/proof binding, MLS transcript persistence, encrypted
+storage contracts, token/log redaction and unsafe feature combinations. This is
+not an external audit attestation; the checklist deliberately keeps the external
+audit item as `external_audit_required`.
 
 ## Source Mapping
 
@@ -78,3 +96,4 @@ This SDK audit checklist is intended for release review.
 | Repo and crypto stores | `crates/contrix-sdk/src/store.rs`, `crypto_store.rs` |
 | E2EE and MLS | `crates/contrix-sdk/src/e2ee.rs`, `mls.rs`, `devices.rs` |
 | Federation and service identity | `crates/contrix-sdk/src/federation.rs`, `service.rs` |
+| Log redaction and feature safety | `crates/contrix-sdk/src/crypto.rs`, `client.rs`, `server.rs` |

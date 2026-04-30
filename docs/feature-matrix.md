@@ -17,8 +17,8 @@ Contrix SDK uses additive Cargo features.
 | --- | --- | --- |
 | Protocol model support | Supported | IDs, operations, events, commits, cursor, canonical JSON and digest helpers are covered by unit and integration vectors. |
 | Local helper support | Supported | In-memory stores, reducers, auth state machines, event handlers, timeline helpers and test transports are intended for SDK and app integration tests. |
-| Production-ready support | Release-candidate | HTTP client/server contracts, MLS-backed helpers and durable-store contracts are present, but deployments must provide key custody, storage backends and service operations. |
-| Experimental / facade support | Experimental | Browser IndexedDB, appservice, bridge, sovereign deployment, FFI and extended profile helpers are API-shaping surfaces until real product/server interop hardens them. |
+| Production-ready support | Release-candidate | HTTP client/server contracts, MLS-backed helpers and durable-store contracts are present, including SQLite/IndexedDB/CryptoStore conformance facades. Deployments must still provide real key custody, storage backends and service operations. |
+| Experimental / facade support | Experimental | Browser HTTP, IndexedDB, WebCrypto, appservice, bridge, sovereign deployment, FFI and extended profile helpers are API-shaping surfaces until real product/server interop hardens them. `ffi_api_freeze_review()` records the mobile surface as reviewed but unfrozen. |
 
 Production deployments should provide durable stores for repo and crypto state,
 real signing key management, framework-specific HTTP routing, platform key

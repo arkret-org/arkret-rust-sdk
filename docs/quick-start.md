@@ -56,6 +56,26 @@ Persist repo objects, sync positions and state snapshots through the storage
 traits before entering a long-running sync loop. On a gap or invalid snapshot,
 replay repo events and reset the cursor to the verified frontier.
 
+`SqliteRepoStore`, `IndexedDbRepoStore` and `EncryptedMemoryCryptoStore` provide
+dependency-free conformance facades for repository, browser and crypto-store
+behavior. Use them to validate migrations, transaction atomicity, browser restart
+state, encrypted-at-rest records and rollback protection before wiring a real
+SQLite, IndexedDB or platform keychain adapter.
+
+### Review Security Gates
+
+Run `security_review_checklist()` for internal pre-audit evidence and
+`current_feature_safety_report().validate()` for the published feature set.
+Use `redact_log_value()` on structured diagnostics that may contain tokens,
+proofs, signatures or private key references.
+
+### Model Capability Facets
+
+Use `EntityFacet` as the primary capability signal for views, queries and
+capability constraints. `entity_type` remains available for legacy filtering and
+product labels, but authorization should prefer facet selectors such as
+`stateful + rankable` over type names such as `task`.
+
 ### Send And Receive Encrypted Messages
 
 Enable the `mls` feature, publish device key packages, process Welcomes, and

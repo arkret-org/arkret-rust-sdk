@@ -527,6 +527,11 @@ pub const ENDPOINT_CONTRACTS: &[EndpointContract] = &[
         path: "/api/v1/directory/resolve-handle",
     },
     EndpointContract {
+        operation_id: "cx.directory.private_contact_discovery",
+        method: EndpointMethod::Post,
+        path: "/api/v1/directory/private-contact-discovery",
+    },
+    EndpointContract {
         operation_id: "cx.blob.upload",
         method: EndpointMethod::Post,
         path: "/api/v1/blob/upload",
@@ -582,6 +587,26 @@ pub const ENDPOINT_CONTRACTS: &[EndpointContract] = &[
         path: "/api/v1/keys/claim",
     },
     EndpointContract {
+        operation_id: "cx.keys.keypackages.upload",
+        method: EndpointMethod::Post,
+        path: "/api/v1/keys/keypackages/upload",
+    },
+    EndpointContract {
+        operation_id: "cx.keys.keypackages.claim",
+        method: EndpointMethod::Post,
+        path: "/api/v1/keys/keypackages/claim",
+    },
+    EndpointContract {
+        operation_id: "cx.keys.keypackages.consume",
+        method: EndpointMethod::Post,
+        path: "/api/v1/keys/keypackages/consume",
+    },
+    EndpointContract {
+        operation_id: "cx.keys.keypackages.revoke",
+        method: EndpointMethod::Post,
+        path: "/api/v1/keys/keypackages/revoke",
+    },
+    EndpointContract {
         operation_id: "cx.authz.get_effective_grants",
         method: EndpointMethod::Get,
         path: "/api/v1/authz/effective-grants",
@@ -610,6 +635,96 @@ pub const ENDPOINT_CONTRACTS: &[EndpointContract] = &[
         operation_id: "cx.moderation.report",
         method: EndpointMethod::Post,
         path: "/api/v1/moderation/report",
+    },
+    EndpointContract {
+        operation_id: "cx.mimi.provider_directory",
+        method: EndpointMethod::Get,
+        path: "/api/v1/mimi/provider-directory",
+    },
+    EndpointContract {
+        operation_id: "cx.mimi.key_material",
+        method: EndpointMethod::Post,
+        path: "/api/v1/mimi/key-material",
+    },
+    EndpointContract {
+        operation_id: "cx.mimi.room_update",
+        method: EndpointMethod::Put,
+        path: "/api/v1/mimi/rooms/{room_id}/update",
+    },
+    EndpointContract {
+        operation_id: "cx.mimi.notify",
+        method: EndpointMethod::Post,
+        path: "/api/v1/mimi/rooms/{room_id}/notify",
+    },
+    EndpointContract {
+        operation_id: "cx.mimi.submit_message",
+        method: EndpointMethod::Post,
+        path: "/api/v1/mimi/rooms/{room_id}/messages",
+    },
+    EndpointContract {
+        operation_id: "cx.mimi.group_info",
+        method: EndpointMethod::Get,
+        path: "/api/v1/mimi/rooms/{room_id}/group-info",
+    },
+    EndpointContract {
+        operation_id: "cx.mimi.request_consent",
+        method: EndpointMethod::Post,
+        path: "/api/v1/mimi/consent/request",
+    },
+    EndpointContract {
+        operation_id: "cx.mimi.update_consent",
+        method: EndpointMethod::Post,
+        path: "/api/v1/mimi/consent/update",
+    },
+    EndpointContract {
+        operation_id: "cx.mimi.identifier_query",
+        method: EndpointMethod::Post,
+        path: "/api/v1/mimi/identifiers/query",
+    },
+    EndpointContract {
+        operation_id: "cx.mimi.report_abuse",
+        method: EndpointMethod::Post,
+        path: "/api/v1/mimi/report-abuse",
+    },
+    EndpointContract {
+        operation_id: "cx.mimi.proxy_download",
+        method: EndpointMethod::Post,
+        path: "/api/v1/mimi/proxy-download",
+    },
+    EndpointContract {
+        operation_id: "cx.account.issue_session_grant",
+        method: EndpointMethod::Post,
+        path: "/api/v1/auth/account/session-grants",
+    },
+    EndpointContract {
+        operation_id: "cx.account.device_pair",
+        method: EndpointMethod::Post,
+        path: "/api/v1/auth/account/device-pair",
+    },
+    EndpointContract {
+        operation_id: "cx.account.oidc_callback",
+        method: EndpointMethod::Post,
+        path: "/api/v1/auth/account/oidc/callback",
+    },
+    EndpointContract {
+        operation_id: "cx.admin.get_server_status",
+        method: EndpointMethod::Get,
+        path: "/api/v1/admin/server/status",
+    },
+    EndpointContract {
+        operation_id: "cx.admin.update_account_status",
+        method: EndpointMethod::Post,
+        path: "/api/v1/admin/accounts/{account_id}/status",
+    },
+    EndpointContract {
+        operation_id: "cx.admin.revoke_device",
+        method: EndpointMethod::Post,
+        path: "/api/v1/admin/devices/{device_id}/revoke",
+    },
+    EndpointContract {
+        operation_id: "cx.admin.get_moderation_queue",
+        method: EndpointMethod::Get,
+        path: "/api/v1/admin/moderation/queue",
     },
     EndpointContract {
         operation_id: "cx.applet.ping",
@@ -739,6 +854,9 @@ pub fn endpoint_schema_binding(endpoint: &EndpointContract) -> EndpointSchemaBin
         "cx.directory.resolve_handle" => {
             ("DirectoryResolveHandleRequest", "DirectoryResolveHandleResponse")
         }
+        "cx.directory.private_contact_discovery" => {
+            ("PrivateContactDiscoveryRequest", "PrivateContactDiscoveryResponse")
+        }
         "cx.blob.upload" => ("BlobUploadMetadata", "BlobUploadResponse"),
         "cx.blob.head" => ("BlobGetQuery", "BlobMetadataHeaders"),
         "cx.blob.get" => ("BlobGetQuery", "BinaryBlobBody"),
@@ -750,12 +868,36 @@ pub fn endpoint_schema_binding(endpoint: &EndpointContract) -> EndpointSchemaBin
         "cx.keys.upload" => ("KeysUploadRequest", "KeysUploadResponse"),
         "cx.keys.query" => ("KeysQueryRequest", "KeysQueryResponse"),
         "cx.keys.claim" => ("KeysClaimRequest", "KeysClaimResponse"),
+        "cx.keys.keypackages.upload" => ("KeyPackagesUploadRequest", "OkResponse"),
+        "cx.keys.keypackages.claim" => ("KeyPackagesClaimRequest", "KeyPackagesClaimResponse"),
+        "cx.keys.keypackages.consume" => ("KeyPackagesConsumeRequest", "OkResponse"),
+        "cx.keys.keypackages.revoke" => ("KeyPackagesRevokeRequest", "OkResponse"),
         "cx.authz.get_effective_grants" => ("AuthzEffectiveGrantsQuery", "EffectiveGrantsResponse"),
         "cx.authz.get_invites" => ("AuthzInvitesQuery", "AuthzInvitesResponse"),
         "cx.authz.check" => ("AuthzCheckRequest", "AuthzCheckResponse"),
         "cx.policy.check" => ("PolicyCheckRequest", "PolicyCheckResponse"),
         "cx.media.ice_config" => ("MediaIceConfigRequest", "MediaIceConfigResponse"),
         "cx.moderation.report" => ("ModerationReportRequest", "ModerationReportResponse"),
+        "cx.mimi.provider_directory" => ("MimiProviderDirectoryRequest", "JsonValue"),
+        "cx.mimi.key_material" => ("MimiKeyMaterialRequest", "JsonValue"),
+        "cx.mimi.room_update" => ("MimiRoomUpdateRequest", "JsonValue"),
+        "cx.mimi.notify" => ("MimiNotifyRequest", "JsonValue"),
+        "cx.mimi.submit_message" => ("MimiSubmitMessageRequest", "JsonValue"),
+        "cx.mimi.group_info" => ("MimiGroupInfoQuery", "JsonValue"),
+        "cx.mimi.request_consent" => ("MimiConsentRequest", "JsonValue"),
+        "cx.mimi.update_consent" => ("MimiConsentUpdateRequest", "JsonValue"),
+        "cx.mimi.identifier_query" => ("MimiIdentifierQueryRequest", "JsonValue"),
+        "cx.mimi.report_abuse" => ("MimiReportAbuseRequest", "OkResponse"),
+        "cx.mimi.proxy_download" => ("MimiProxyDownloadRequest", "JsonValue"),
+        "cx.account.issue_session_grant" => {
+            ("AccountSessionGrantRequest", "AccountSessionGrantResponse")
+        }
+        "cx.account.device_pair" => ("AccountDevicePairRequest", "AccountDevicePairResponse"),
+        "cx.account.oidc_callback" => ("AccountOidcCallbackRequest", "AccountOidcCallbackResponse"),
+        "cx.admin.get_server_status" => ("AdminServerStatusQuery", "JsonValue"),
+        "cx.admin.update_account_status" => ("AdminAccountStatusRequest", "OkResponse"),
+        "cx.admin.revoke_device" => ("AdminRevokeDeviceRequest", "OkResponse"),
+        "cx.admin.get_moderation_queue" => ("AdminModerationQueueQuery", "JsonValue"),
         "cx.applet.ping" => ("AppletPingRequest", "AppletPingResponse"),
         "cx.applet.describe" => ("AppletDescribeRequest", "AppletDescription"),
         "cx.applet.transaction" => ("AppletTransactionRequest", "AppletTransactionResponse"),
@@ -1382,8 +1524,11 @@ pub fn openapi_document() -> Value {
             "examples": openapi_examples(),
             "securitySchemes": {
                 "bearer": { "type": "http", "scheme": "bearer" },
+                "bearerAuth": { "type": "http", "scheme": "bearer" },
                 "deviceProof": { "type": "apiKey", "in": "header", "name": "X-Contrix-Device-Proof" },
-                "serviceSignature": { "type": "apiKey", "in": "header", "name": "Signature" }
+                "serviceSignature": { "type": "apiKey", "in": "header", "name": "Signature" },
+                "httpMessageSignature": { "type": "apiKey", "in": "header", "name": "Signature" },
+                "mutualTls": { "type": "mutualTLS" }
             }
         }
     })
@@ -1500,6 +1645,7 @@ fn openapi_schema_components() -> Value {
         "Commit",
         "Did",
         "ErrorEnvelope",
+        "FacetName",
         "Hash",
         "HttpMessageSignature",
         "HttpTraceMetadata",
@@ -1510,6 +1656,7 @@ fn openapi_schema_components() -> Value {
         "ServiceDidAllowlist",
         "SpaceId",
         "String",
+        "ViewRenderer",
         "WellKnownContrixServer",
     ]);
 
@@ -1528,6 +1675,48 @@ fn openapi_schema_components() -> Value {
     schemas
         .insert("Hash".to_owned(), json!({ "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }));
     schemas.insert("String".to_owned(), json!({ "type": "string" }));
+    schemas.insert(
+        "FacetName".to_owned(),
+        json!({
+            "type": "string",
+            "enum": [
+                "container", "replyable", "schedulable", "assignable", "stateful",
+                "rankable", "reviewable", "notifiable", "documentable", "renderable"
+            ]
+        }),
+    );
+    schemas.insert(
+        "ViewRenderer".to_owned(),
+        json!({
+            "type": "string",
+            "enum": [
+                "board", "card", "row", "table", "calendar", "gantt", "timeline",
+                "thread", "chat", "forum", "graph", "tree", "document", "dashboard", "custom"
+            ]
+        }),
+    );
+    schemas.insert(
+        "QueryRequest".to_owned(),
+        json!({
+            "type": "object",
+            "properties": {
+                "space_ids": { "type": "array", "items": { "$ref": "#/components/schemas/SpaceId" } },
+                "entity_types": { "type": "array", "items": { "type": "string" } },
+                "facets": { "type": "array", "items": { "$ref": "#/components/schemas/FacetName" }, "uniqueItems": true },
+                "renderer": { "$ref": "#/components/schemas/ViewRenderer" },
+                "anchor_entity_id": { "type": "string" },
+                "filters": { "type": "array", "items": { "$ref": "#/components/schemas/JsonValue" } },
+                "relation": { "$ref": "#/components/schemas/JsonValue" },
+                "context": { "$ref": "#/components/schemas/JsonValue" },
+                "order_by": { "type": "array", "items": { "$ref": "#/components/schemas/JsonValue" } },
+                "projection": { "type": "array", "items": { "type": "string" } },
+                "cursor": { "type": "string" },
+                "limit": { "$ref": "#/components/schemas/Limit" },
+                "consistency": { "$ref": "#/components/schemas/JsonValue" }
+            },
+            "additionalProperties": true
+        }),
+    );
     schemas.insert("Bool".to_owned(), json!({ "type": "boolean" }));
     schemas.insert("Limit".to_owned(), json!({ "type": "integer", "minimum": 1, "maximum": 1000 }));
     schemas.insert(
@@ -1766,14 +1955,40 @@ mod tests {
             ("cx.federation.transaction", "/api/v1/federation/transactions/{txn_id}"),
             ("cx.index.query", "/api/v1/index/query"),
             ("cx.directory.resolve_handle", "/api/v1/directory/resolve-handle"),
+            (
+                "cx.directory.private_contact_discovery",
+                "/api/v1/directory/private-contact-discovery",
+            ),
             ("cx.blob.upload", "/api/v1/blob/upload"),
             ("cx.push.register_device", "/api/v1/push/register-device"),
             ("cx.device_messages.put", "/api/v1/device_messages/{txn_id}"),
             ("cx.keys.upload", "/api/v1/keys/upload"),
+            ("cx.keys.keypackages.upload", "/api/v1/keys/keypackages/upload"),
+            ("cx.keys.keypackages.claim", "/api/v1/keys/keypackages/claim"),
+            ("cx.keys.keypackages.consume", "/api/v1/keys/keypackages/consume"),
+            ("cx.keys.keypackages.revoke", "/api/v1/keys/keypackages/revoke"),
             ("cx.authz.check", "/api/v1/authz/check"),
             ("cx.policy.check", "/contrix/v1/check"),
             ("cx.media.ice_config", "/contrix/v1/ice-config"),
             ("cx.moderation.report", "/api/v1/moderation/report"),
+            ("cx.mimi.provider_directory", "/api/v1/mimi/provider-directory"),
+            ("cx.mimi.key_material", "/api/v1/mimi/key-material"),
+            ("cx.mimi.room_update", "/api/v1/mimi/rooms/{room_id}/update"),
+            ("cx.mimi.notify", "/api/v1/mimi/rooms/{room_id}/notify"),
+            ("cx.mimi.submit_message", "/api/v1/mimi/rooms/{room_id}/messages"),
+            ("cx.mimi.group_info", "/api/v1/mimi/rooms/{room_id}/group-info"),
+            ("cx.mimi.request_consent", "/api/v1/mimi/consent/request"),
+            ("cx.mimi.update_consent", "/api/v1/mimi/consent/update"),
+            ("cx.mimi.identifier_query", "/api/v1/mimi/identifiers/query"),
+            ("cx.mimi.report_abuse", "/api/v1/mimi/report-abuse"),
+            ("cx.mimi.proxy_download", "/api/v1/mimi/proxy-download"),
+            ("cx.account.issue_session_grant", "/api/v1/auth/account/session-grants"),
+            ("cx.account.device_pair", "/api/v1/auth/account/device-pair"),
+            ("cx.account.oidc_callback", "/api/v1/auth/account/oidc/callback"),
+            ("cx.admin.get_server_status", "/api/v1/admin/server/status"),
+            ("cx.admin.update_account_status", "/api/v1/admin/accounts/{account_id}/status"),
+            ("cx.admin.revoke_device", "/api/v1/admin/devices/{device_id}/revoke"),
+            ("cx.admin.get_moderation_queue", "/api/v1/admin/moderation/queue"),
             ("cx.applet.transaction", "/api/v1/applet/transactions/{txn_id}"),
         ] {
             assert_eq!(actual.get(operation_id), Some(&path), "{operation_id}");
@@ -1788,6 +2003,9 @@ mod tests {
         assert!(document["components"]["schemas"]["ErrorEnvelope"].is_object());
         assert!(document["components"]["responses"]["RateLimitedError"].is_object());
         assert!(document["components"]["securitySchemes"].get("queryToken").is_none());
+        assert!(document["components"]["securitySchemes"]["bearerAuth"].is_object());
+        assert!(document["components"]["securitySchemes"]["httpMessageSignature"].is_object());
+        assert!(document["components"]["securitySchemes"]["mutualTls"].is_object());
     }
 
     #[test]

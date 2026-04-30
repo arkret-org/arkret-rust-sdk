@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 
-use crate::{Did, Error, Result, SpaceId};
+use crate::{Did, Error, Result, SpaceId, model::EntityFacet};
 
 /// Authorization decision result.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -484,6 +484,8 @@ pub enum Constraint {
         entity_type_allow: Option<Vec<String>>,
         #[serde(skip_serializing_if = "Option::is_none")]
         entity_type_deny: Option<Vec<String>>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        allowed_entity_facets: Vec<EntityFacet>,
         #[serde(skip_serializing_if = "Option::is_none")]
         scope_limitation: Option<ScopeLimitation>,
     },
@@ -1194,6 +1196,9 @@ pub struct AuthzContext {
     pub action: String,
     /// Resource being accessed
     pub resource: Resource,
+    /// Facets attached to the target entity at the current causal frontier.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub entity_facets: Vec<EntityFacet>,
     /// Fields being read
     #[serde(default)]
     pub read_fields: Vec<String>,
@@ -1229,6 +1234,7 @@ impl AuthzContext {
             space_id: None,
             action,
             resource,
+            entity_facets: Vec::new(),
             read_fields: Vec::new(),
             write_fields: Vec::new(),
             delegation_depth: 0,
@@ -1243,6 +1249,12 @@ impl AuthzContext {
     /// Set the space ID.
     pub fn with_space_id(mut self, space_id: SpaceId) -> Self {
         self.space_id = Some(space_id);
+        self
+    }
+
+    /// Set target entity facets resolved at the current causal frontier.
+    pub fn with_entity_facets(mut self, facets: impl IntoIterator<Item = EntityFacet>) -> Self {
+        self.entity_facets = facets.into_iter().collect();
         self
     }
 
@@ -1619,6 +1631,7 @@ impl AuthzEngine {
             Constraint::TypeRestriction {
                 entity_type_allow,
                 entity_type_deny,
+                allowed_entity_facets,
                 scope_limitation,
             } => {
                 if let Some(scope_limitation) = scope_limitation {
@@ -1654,6 +1667,23 @@ impl AuthzEngine {
                             reason: format!("entity type not allowed: {}", entity_type),
                         };
                     }
+                    if !allowed_entity_facets.is_empty() {
+                        let missing = allowed_entity_facets
+                            .iter()
+                            .find(|facet| !ctx.entity_facets.contains(facet));
+                        if let Some(facet) = missing {
+                            return AuthzDecision::Deny {
+                                reason: format!(
+                                    "entity facet not allowed or unavailable: {:?}",
+                                    facet
+                                ),
+                            };
+                        }
+                    }
+                } else if !allowed_entity_facets.is_empty() {
+                    return AuthzDecision::Deny {
+                        reason: "entity facet constraint requires an entity resource".to_owned(),
+                    };
                 }
                 AuthzDecision::Allow
             }
@@ -1855,11 +1885,16 @@ impl AuthzEngine {
         let claims_digest =
             crate::canonical::canonical_sha256(&(&ctx.verified_claims, &ctx.revoked_claim_ids))
                 .unwrap_or_else(|_| format!("claim-count:{}", ctx.verified_claims.len()));
+        let resource_digest = crate::canonical::canonical_sha256(&ctx.resource)
+            .unwrap_or_else(|_| ctx.resource.space_id().to_owned());
+        let facets_digest = crate::canonical::canonical_sha256(&ctx.entity_facets)
+            .unwrap_or_else(|_| format!("facet-count:{}", ctx.entity_facets.len()));
         format!(
-            "{}:{}:{}:{}:{:?}:{:?}:{}:{}:{}",
+            "{}:{}:{}:{}:{}:{:?}:{:?}:{}:{}:{}",
             ctx.actor_id,
             ctx.action,
-            ctx.resource.space_id(),
+            resource_digest,
+            facets_digest,
             ctx.delegation_depth,
             ctx.rate_limit_count,
             ctx.encryption_level,
@@ -2461,6 +2496,49 @@ mod tests {
             entity_type: "message".to_owned(),
             entity_id: "cx:entity:123".to_owned(),
         }));
+    }
+
+    #[test]
+    fn type_restriction_requires_entity_facets_from_context() {
+        let mut engine = AuthzEngine::new();
+        let ctx = AuthzContext::new(
+            Did::new("did:web:alice.example.com").unwrap(),
+            "write".to_owned(),
+            Resource::Entity {
+                space_id: "cx:space:A".to_owned(),
+                entity_type: "task".to_owned(),
+                entity_id: "cx:entity:123".to_owned(),
+            },
+        )
+        .with_entity_facets([EntityFacet::Stateful, EntityFacet::Rankable]);
+        let mut grant = grant_for(
+            "write",
+            ResourceSelector::Entity {
+                space_id: "cx:space:A".to_owned(),
+                entity_type: Some("task".to_owned()),
+                entity_id: None,
+            },
+        );
+        grant.constraints = vec![ConstraintEntry::new(Constraint::TypeRestriction {
+            entity_type_allow: Some(vec!["task".to_owned()]),
+            entity_type_deny: None,
+            allowed_entity_facets: vec![EntityFacet::Stateful, EntityFacet::Rankable],
+            scope_limitation: None,
+        })];
+
+        assert!(engine.check_authorization(&ctx, &[grant.clone()]).is_allowed());
+
+        let missing_facet_ctx = AuthzContext::new(
+            Did::new("did:web:alice.example.com").unwrap(),
+            "write".to_owned(),
+            Resource::Entity {
+                space_id: "cx:space:A".to_owned(),
+                entity_type: "task".to_owned(),
+                entity_id: "cx:entity:123".to_owned(),
+            },
+        )
+        .with_entity_facets([EntityFacet::Stateful]);
+        assert!(!engine.check_authorization(&missing_facet_ctx, &[grant]).is_allowed());
     }
 
     #[test]
