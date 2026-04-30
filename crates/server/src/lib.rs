@@ -15,6 +15,13 @@ use std::{
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 
+pub use contrix_api as api;
+pub use contrix_appservice_api as appservice_api;
+pub use contrix_federation_api as federation_api;
+pub use contrix_identity_api as identity_api;
+pub use contrix_push_gateway_api as push_gateway_api;
+pub use contrix_signatures as signatures;
+
 use contrix_core::{
     AppletActorResponse, AppletDescription, AppletPingResponse, AppletProtocolResponse,
     AppletSpaceResponse, AppletTransactionRequest, AppletTransactionResponse, AuthzCheckRequest,
@@ -2608,6 +2615,32 @@ mod tests {
             assert!(ids.insert(endpoint.operation_id), "duplicate {}", endpoint.operation_id);
             assert!(
                 endpoint.path.starts_with("/api/v1/") || endpoint.path.starts_with("/contrix/v1/")
+            );
+        }
+    }
+
+    #[test]
+    fn api_catalog_matches_server_endpoint_registry() {
+        let server_contracts = endpoint_contracts()
+            .iter()
+            .map(|endpoint| (endpoint.operation_id, endpoint))
+            .collect::<BTreeMap<_, _>>();
+        assert_eq!(server_contracts.len(), api::endpoints().len());
+
+        for api_endpoint in api::endpoints() {
+            let server_endpoint = server_contracts
+                .get(api_endpoint.operation_id)
+                .unwrap_or_else(|| panic!("missing {}", api_endpoint.operation_id));
+            assert_eq!(server_endpoint.method.as_str(), api_endpoint.method.as_str());
+            assert_eq!(server_endpoint.path, api_endpoint.path);
+
+            let binding = endpoint_schema_binding(server_endpoint);
+            assert_eq!(binding.request_schema, api_endpoint.request_schema);
+            assert_eq!(binding.response_schema, api_endpoint.response_schema);
+            assert_eq!(binding.request_body_content_type, api_endpoint.request_body_content_type());
+            assert_eq!(
+                binding.response_body_content_type,
+                api_endpoint.response_body_content_type()
             );
         }
     }

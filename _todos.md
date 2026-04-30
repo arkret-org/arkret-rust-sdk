@@ -1,6 +1,6 @@
 # Contrix Rust SDK Active TODO
 
-> 更新日期: 2026-04-30
+> 更新日期: 2026-05-01
 > 范围: Contrix v1 共享协议模型、builders、validators、HTTP client/server contracts、crypto helpers、store traits 和 conformance runner。SDK 不替代具体 Principal Server、Identity Registry、Push Gateway 或客户端产品实现。
 
 ## 0. 当前边界
@@ -54,6 +54,221 @@ Conformance 和发布门禁:
 - [ ] 增加 property / fuzz 测试目标，优先覆盖 canonical JSON、identifier parsing、operation envelope、cursor 和 authz reducer。
 - [ ] 建立跨实现 interop suite：client-server、server-federation、encrypted space/group、identity registry、push gateway。
 - [ ] 更新 release evidence，区分“contract 已有”“本地 helper 已有”“生产 adapter 已有”“通过真实互操作”。
+
+## P0: Protocol / SDK Boundary Backlog From Matrix Ecosystem Scan
+
+参考扫描来源:
+- Ruma 的边界: `ruma-common`, `ruma-events`, `ruma-client-api`, `ruma-federation-api`, `ruma-appservice-api`, `ruma-identity-service-api`, `ruma-push-gateway-api`, `ruma-signatures`, `ruma-state-res`, `ruma-html`, `ruma-macros`, identifier validation。
+- Matrix Rust SDK 的边界: client runtime, base sync/state, crypto, sqlite/indexeddb stores, store encryption, qrcode, UI/timeline, bindings, testing, examples, labs, xtask。
+- Matrix Bot SDK 的边界: bot client, appservice, admin APIs, storage adapters, preprocessors, strategies, content scanner, identity, metrics/logging, E2EE, external encryption adapter。
+
+目标边界:
+- [ ] SDK 不只提供基础 HTTP client/server glue；它必须覆盖协议类型、API endpoint、事件系统、状态归并、加密、存储、同步、联邦、机器人/桥接、UI runtime、测试工具和平台绑定。
+- [ ] 保持 Contrix-native 术语和模型，不恢复 Matrix compatibility layer；参考项目只用于发现协议 SDK 应有的完整边界。
+- [ ] 对每个大功能建立验收标准: type model, endpoint model, client runtime, server dispatch, persistent store, conformance tests, examples, docs。
+- [ ] 把产品业务逻辑和协议 SDK 边界分开: Principal Server 的产品规则留在上层，但协议级 API、验证、签名、同步、状态、存储 trait 必须在 SDK 内完整定义。
+
+Crate topology:
+- [x] 新增 `crates/events`: Contrix-native event taxonomy，覆盖 message/state/ephemeral/account-data/E2EE/call/RTC/collaboration/custom content，提供 unknown/custom raw preservation 和序列化测试。
+  - [ ] 后续将 `core::Event` envelope 所有权进一步从 `core/src/model.rs` 迁入 event 边界，避免巨型 model 文件继续膨胀。
+- [x] 新增 `crates/api`: client-server endpoint catalog、surface 分类、method/path/schema binding、参数 metadata，并由 server 测试校验与现有 endpoint registry 不漂移。
+  - [ ] 后续将 server OpenAPI 和 route registry 的 source of truth 迁到 `contrix-api`，server crate 只保留 runtime dispatch/middleware。
+- [x] 新增 `crates/federation-api`: server-server discovery, transaction, event, membership, backfill, query, key, policy, media endpoint 类型，包含 endpoint catalog、transaction envelope digest validation、replay window、quarantine/backfill/delta contract。
+  - [ ] 后续把 federation endpoint source of truth、验签、重放窗口、fork quarantine 和 backfill authorization 接入真实 server dispatch / federation runtime。
+- [x] 新增 `crates/appservice-api`: appservice registration, namespace, permissions, endpoint catalog, transaction slot, virtual actor intent, third-party lookup, bridge mapping store。
+  - [ ] 后续将 `sdk::applet` 中重复的 appservice/appservice bridge 类型收敛到 `contrix-appservice-api`，避免双模型长期共存。
+- [x] 新增 `crates/push-gateway-api`: push rule, pusher, notification payload, delivery receipt, gateway callback 类型，包含 pusher registration projection、encrypted push redaction、gateway endpoint catalog 和 rule-set facade。
+  - [ ] 后续把 push rule evaluator、pusher store、gateway retry/delivery receipt、通知计数和 client runtime 通知联动做成生产闭环。
+- [x] 新增 `crates/identity-api`: identity discovery, 3PID-like binding, verification, invitation lookup；明确独立 identity service 的 extension 边界，包含 DID document、handle binding、privacy-preserving invitation lookup 和 key log head。
+  - [ ] 后续补充 handle proof 验证、外部 identity registry client/server contract、反枚举限流和真实 lookup privacy proof。
+- [x] 新增 `crates/signatures`: canonical JSON/CBOR, signing key, verification key, key rotation, detached signature, federation auth header，当前覆盖 canonical payload hash、detached signature binding 和 HTTP message signature helper。
+  - [ ] 后续接入真实签名算法抽象、key discovery/cache、rotation proof、federation auth header verifier 和 negative signature fixtures。
+- [x] 新增 `crates/state-res`: deterministic state reducer、state-key extraction、conflict records、frontier maintenance、snapshot hash/verify。
+  - [ ] 补 conflict graph、auth rule evaluation、snapshot/delta proof 和 federation backfill proof 验证。
+- [ ] 拆出 `crates/store`: runtime store traits, memory/sqlite/indexeddb feature adapters, migration contract, store lock, failure cache。
+- [ ] 拆出 `crates/crypto`: protocol crypto machine, key lifecycle, verification, media encryption, secret backup, encrypted store integration。
+- [ ] 拆出 `crates/ui`: timeline model, room/space list service, notification client, sync service, unable-to-decrypt hook, preview model。
+- [x] 新增 `crates/testing`: fixture server, request/response golden tests, conformance harness, federation simulation, property test helpers 的初始 conformance report/vector 边界。
+  - [ ] 后续把官方 fixtures loader、golden wire vectors、negative vectors、federation simulation 和 property-test helpers 从 crate 单元测试外置出来。
+- [ ] 拆出 `crates/ffi`: UniFFI/WASM/mobile binding facade，稳定 opaque handles 和异步 callback contract。
+- [ ] 评估是否需要 `crates/macros`: endpoint/event derive 宏、operation schema 宏、test vector generation；只在能显著减少重复时引入。
+- [ ] 增加 `examples/`, `testing/`, `benchmarks/`, `xtask/`, `labs/` workspace 边界，避免所有验证逻辑挤在 crate 单元测试里。
+
+本轮验证记录:
+- [x] `cargo test -p contrix-events`。
+- [x] `cargo test -p contrix-api`。
+- [x] `cargo test -p contrix-appservice-api`。
+- [x] `cargo test -p contrix-state-res`。
+- [x] `cargo test -p contrix-server`。
+- [x] `cargo test -p contrix-signatures`。
+- [x] `cargo test -p contrix-federation-api`。
+- [x] `cargo test -p contrix-push-gateway-api`。
+- [x] `cargo test -p contrix-identity-api`。
+- [x] `cargo test -p contrix-testing`。
+- [x] `cargo check --all-features`。
+- [x] 2026-05-01 boundary crates: `cargo fmt --all -- --check`。
+- [x] 2026-05-01 boundary crates: `cargo test --all-features`，all workspace tests/doctests passed。
+- [x] 2026-05-01 boundary crates: `git diff --check`。
+
+Client-server protocol API:
+- [ ] Account/session: register, login, refresh, logout, whoami, deactivate, account data, password/token/session renewal。
+- [ ] UIAA-like flows: 多步骤认证 challenge/response、fallback、retry、错误类型、server advertised flows。
+- [ ] Device management: device list, device display name, delete devices, key upload/query/claim, dehydrated/offline device。
+- [ ] Profile/presence: display name, avatar, status, activity, presence subscription, profile visibility。
+- [ ] Space/room lifecycle: create, upgrade/migrate, delete/archive, aliases, canonical alias, visibility, directory listing, preview。
+- [ ] Membership: invite, join, leave, knock/request access, kick, ban, unban, membership reasons, third-party invite。
+- [ ] Messaging: send event, send message, edit, redact, reaction, relation, thread, reply, poll, receipt, read marker。
+- [ ] State: get/set state, batch state, power/capability levels, tags, pinned events, policy events, room config。
+- [ ] Sync: full sync, incremental sync, sliding sync, sticky parameters, filters, timeline gaps, state deltas, to-device events。
+- [ ] Search/context: global search, space search, message search, event context, nearest timestamp, pagination tokens。
+- [ ] Media: upload, download, thumbnail, authenticated media, encrypted media, upload progress, content scanner hooks。
+- [ ] Push/notifications: pushers, push rules, notification settings, highlight count, unread count, notification client。
+- [ ] Reporting/moderation: report event/user/space, abuse categories, admin review hooks。
+- [ ] VoIP/RTC/calls: call event types, session negotiation, widget/call settings if Contrix protocol includes real-time collaboration。
+- [ ] Third-party/extensibility: custom event type, custom endpoint, feature discovery, unstable/labs namespace policy。
+
+Event and content taxonomy:
+- [ ] Message content variants: text, notice, emote, HTML/rich text, file, image, audio, video, voice note, document, location, sticker。
+- [ ] Interactive variants: reaction, poll start/response/end, form/task update, acknowledgement, ephemeral indicator。
+- [ ] Collaboration variants: operation batch, document patch, cursor/selection, typing/composing, presence, activity beacon。
+- [ ] Call/RTC variants: invite, answer, candidates, hangup, negotiation, membership, device mapping。
+- [ ] State variants: membership, profile, power/capability, policy, tags, pinned, topic/name/avatar, notification settings。
+- [ ] Account-data variants: direct chats/spaces, ignored users, recent emoji, drafts, per-space settings。
+- [ ] Ephemeral variants: typing, receipt, read marker, presence, transient device signals。
+- [ ] E2EE variants: encrypted event, room key, forwarded key, key request, secret send/request, verification event。
+- [ ] Unknown/custom event preservation: deserialize unknown type losslessly and reserialize without dropping fields。
+- [ ] Unsigned metadata separation: age, transaction id, relation aggregation, redaction metadata, server annotations。
+- [ ] Rich text crate: HTML/rich text sanitizer, plain-text fallback, mention/link normalization, media preview extraction。
+
+State resolution and operation semantics:
+- [ ] Define Contrix auth rules for state-changing operations: creator/admin/member/device/server authority。
+- [ ] Implement deterministic conflict resolution for concurrent state updates, including tie-breakers and canonical ordering。
+- [ ] Model event/operation DAG, causal edges, redaction/tombstone semantics, fork detection and quarantine。
+- [ ] Implement snapshot + delta validation so clients can verify server-supplied state efficiently。
+- [ ] Add property tests for commutativity/idempotency where protocol promises it。
+- [ ] Add negative conformance vectors for invalid auth chains, stale membership, forged signatures, duplicate transaction ids。
+- [ ] Document which parts are CRDT-like, which parts are server-authoritative, and which parts require federation consensus。
+
+Client runtime:
+- [ ] Durable sync service with start/stop/resume, cancellation, retry/backoff, token persistence, server timeout handling。
+- [ ] Sliding sync/service-window support for large space lists and timeline subsets。
+- [ ] Timeline service with live updates, pagination, gap repair, relation aggregation, redaction application, local echo。
+- [ ] Event cache with chunks/gaps/origin tracking, bounded memory, persistent restore, deduplication。
+- [ ] Send queue with persistent pending operations, retry classification, transaction id deduplication, offline resume。
+- [ ] Event handler system with typed contexts, once/permanent handlers, async cancellation, ordering guarantees。
+- [ ] Room/space list service with filters, sorting, unread counters, preview summaries, membership grouping。
+- [ ] Notification client with push-rule evaluation, mentions, highlight/unread counts, quiet hours/mute state。
+- [ ] Media client with progress callbacks, resumable upload/download, cache, encrypted media decrypt pipeline。
+- [ ] Room/space directory search client with pagination and visibility filters。
+- [ ] Account/profile convenience APIs mirroring protocol endpoints without hiding errors。
+- [ ] Connection quality telemetry and failure cache to avoid hammering broken endpoints。
+
+Storage:
+- [ ] Memory store for tests and minimal runtime。
+- [ ] SQLite state store with migrations, WAL config, transaction boundaries, schema versioning。
+- [ ] IndexedDB/WASM state store for browser clients。
+- [ ] Crypto store separated from state store but able to share encrypted backend。
+- [ ] Store encryption crate/feature: passphrase/key-provider, key rotation, metadata authentication。
+- [ ] Persistent send queue and sync token storage。
+- [ ] Event cache tables with chunks/gaps, pagination tokens, timeline item projections。
+- [ ] Media cache with size limits, content hash validation, encrypted blob metadata。
+- [ ] Store lock and multi-process/multi-tab coordination。
+- [ ] Backup/restore/export tools for client stores。
+- [ ] Benchmarks for store hot paths: sync apply, timeline load, search index, crypto key lookup。
+
+Crypto and E2EE:
+- [ ] Crypto machine actor with explicit request/response queue for key upload/query/claim。
+- [ ] Device identity model: local device, remote device, cross-signing/trust graph equivalent for Contrix。
+- [ ] Key lifecycle: one-time/pre-key generation, upload accounting, rotation, exhaustion recovery。
+- [ ] Session lifecycle: creation, inbound/outbound session tracking, replay protection, withheld keys。
+- [ ] Secret storage: bootstrap, unlock, export, import, recovery key/passphrase。
+- [ ] Key backup: server backup protocol, backup versioning, restore, verification, garbage collection。
+- [ ] Secret gossiping: request/forward room secrets between own verified devices。
+- [ ] Dehydrated/offline device support if protocol allows offline message bootstrap。
+- [ ] Verification state machines: SAS, QR, request/accept/cancel/done flows, timeout handling。
+- [ ] QR code crate or feature for verification payload generation/scan parsing。
+- [ ] Unable-to-decrypt hook and retry/deferred-decrypt pipeline for UI/runtime。
+- [ ] Encrypted media: attachment encryption, digest, key metadata, streaming decrypt。
+- [ ] Encrypted store integration and test vectors for corrupted/tampered ciphertext。
+- [ ] Clear threat model and compatibility story for native Contrix crypto, without inheriting Matrix Olm naming。
+
+Federation:
+- [ ] Server discovery: well-known, delegated server, signing key discovery, version/feature discovery。
+- [ ] Federation transaction format with idempotency, retry, ordering, batching, failure classification。
+- [ ] Signature verification for incoming federation requests and events。
+- [ ] Event authorization and auth-chain validation across servers。
+- [ ] Membership federation: invite, join, leave, knock/request, reject, ban, partial-state join。
+- [ ] Backfill and gap repair across servers with state/auth proof validation。
+- [ ] Query APIs: profile, room/space state, directory, keys, devices, third-party data。
+- [ ] Federation media, including authenticated/encrypted media and remote thumbnail policy。
+- [ ] Policy/moderation propagation: server blocks, user blocks, room policy, content takedown。
+- [ ] Replay/fork/quarantine stores and admin introspection APIs。
+- [ ] Federation conformance simulator with multiple local servers and adversarial cases。
+
+Appservice, bot, and bridge:
+- [ ] Appservice registration model with namespaces, sender/localpart, rate limits, permissions。
+- [ ] Salvo appservice router: transaction, query_user, query_room_alias, key query/claim, third-party lookup。
+- [ ] Transaction slot/ack model so bridge code can process batches safely and idempotently。
+- [ ] Intent API for virtual actors: ensure registered, ensure joined, send message/event/state, redact。
+- [ ] Membership operations: invite, kick, ban, unban, leave, set power/capability。
+- [ ] Bridge mapping store: remote user, remote room, portal/space, puppet/device metadata。
+- [ ] Bot command framework: preprocessors, filters, strategies, mention parsing, permission checks。
+- [ ] Bot storage adapters: memory/sqlite/postgres traits and migrations。
+- [ ] Admin client APIs: user CRUD, room/space list/details/members/state, purge/delete, media listing, shadow ban。
+- [ ] Content scanner integration for uploads and remote media。
+- [ ] Metrics/logging middleware with request ids, transaction ids, redaction of secrets。
+- [ ] External encryption adapter boundary for deployments that delegate E2EE to another process。
+
+Server runtime:
+- [ ] Salvo first-class server crate with route generation from endpoint metadata。
+- [ ] Shared request extraction: auth token, device id, user id, server signature, transaction id。
+- [ ] Middleware stack: tracing, metrics, rate limit, CORS, body limits, auth, federation signature verification。
+- [ ] Endpoint error mapping with stable error codes and JSON bodies。
+- [ ] Streaming body support for media upload/download。
+- [ ] Server-side store traits for accounts, devices, rooms/spaces, state, media, federation queues。
+- [ ] Background workers for push delivery, federation send, media cleanup, key upload accounting。
+- [ ] Admin route group separated from client/federation/appservice route groups。
+- [ ] No Axum support; remove any future accidental Axum feature from workspace policy.
+
+UI-facing SDK:
+- [ ] Timeline item projection: message, state update, virtual day divider, read receipt, typing, local echo, error item。
+- [ ] Room/space list model: grouped, filtered, sorted, unread/highlight counters, preview text。
+- [ ] Sync service facade with observable state: offline, catching up, live, error, terminated。
+- [ ] Notification settings and notification evaluation client。
+- [ ] Pinned events cache and room preview service。
+- [ ] Widget/call settings boundary if protocol embeds collaborative widgets/calls。
+- [ ] Stable DTOs for mobile/UI bindings so UI apps do not depend on raw protocol internals。
+
+FFI, WASM, and platform:
+- [ ] UniFFI bindings for client, store, crypto, timeline, sync, media, appservice admin subsets。
+- [ ] WASM package with IndexedDB store, WebCrypto integration where possible, browser fetch adapter。
+- [ ] Mobile callback model for long-running sync, media progress, verification, notification。
+- [ ] Cancellation and shutdown semantics across FFI boundary。
+- [ ] API freeze/golden tests for generated bindings。
+- [ ] Example apps for CLI, bot, web/WASM, and mobile binding smoke tests。
+
+Testing, conformance, and release evidence:
+- [ ] Protocol golden fixtures for every event and endpoint request/response。
+- [ ] Negative fixtures for malformed JSON, unknown fields, wrong signatures, invalid ids, auth failures。
+- [ ] Wiremock/fake server tests for client runtime。
+- [ ] Multi-server federation tests with deterministic clocks and failure injection。
+- [ ] Crypto test vectors for keys, sessions, backups, encrypted media, store encryption。
+- [ ] State resolution property tests and fuzz targets。
+- [ ] Serialization snapshot tests across all public protocol types。
+- [ ] Benchmark suite for sync apply, state resolution, crypto decrypt, store load, route dispatch。
+- [ ] CI matrix for feature combinations: default, server, salvo, crypto, sqlite, indexeddb/wasm, ffi。
+- [ ] Release checklist mapping every public SDK API to spec section and conformance coverage。
+
+Docs and examples:
+- [ ] Architecture guide explaining crate responsibilities and extension points。
+- [ ] Client quickstart: login, sync, send message, timeline, media。
+- [ ] Server quickstart: Salvo routes, auth extractor, storage implementation, federation toggle。
+- [ ] Appservice/bot quickstart: registration, namespaces, intents, command handler。
+- [ ] Crypto guide: bootstrap, verification, backup, recovery, encrypted media。
+- [ ] Store guide: memory/sqlite/indexeddb, migrations, encryption, backup。
+- [ ] Federation guide: discovery, signing keys, transactions, backfill, failure handling。
+- [ ] Protocol evolution guide: stable vs unstable/labs endpoints, deprecation policy, feature flags。
+- [ ] Migration notes for current breaking workspace split, explicitly stating Axum support was replaced by Salvo。
 
 ## P0: Spec Drift - Facets, Renderers and Canonical Position Operations
 

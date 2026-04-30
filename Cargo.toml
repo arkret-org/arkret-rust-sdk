@@ -7,10 +7,19 @@ resolver = "3"
 rust-version = "1.92"
 
 [workspace.dependencies]
+contrix-api = { version = "0.1.0", path = "crates/api", default-features = false }
+contrix-appservice-api = { version = "0.1.0", path = "crates/appservice-api", default-features = false }
 contrix-client = { version = "0.1.0", path = "crates/client", default-features = false }
 contrix-core = { version = "0.1.0", path = "crates/core", default-features = false }
+contrix-events = { version = "0.1.0", path = "crates/events", default-features = false }
+contrix-federation-api = { version = "0.1.0", path = "crates/federation-api", default-features = false }
 contrix-identifiers = { version = "0.1.0", path = "crates/identifiers", default-features = false }
+contrix-identity-api = { version = "0.1.0", path = "crates/identity-api", default-features = false }
+contrix-push-gateway-api = { version = "0.1.0", path = "crates/push-gateway-api", default-features = false }
 contrix-server = { version = "0.1.0", path = "crates/server", default-features = false }
+contrix-signatures = { version = "0.1.0", path = "crates/signatures", default-features = false }
+contrix-state-res = { version = "0.1.0", path = "crates/state-res", default-features = false }
+contrix-testing = { version = "0.1.0", path = "crates/testing", default-features = false }
 base64 = { version = "0.22.1", default-features = false, features = ["std"] }
 chacha20poly1305 = { version = "0.10.1", default-features = false, features = ["alloc"] }
 chrono = { version = "0.4.42", default-features = false, features = ["clock", "std", "serde"] }

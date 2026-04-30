@@ -44,9 +44,18 @@ base64.workspace = true
 chacha20poly1305.workspace = true
 chrono = { workspace = true, features = ["serde"] }
 chrono-tz.workspace = true
+contrix-api.workspace = true
+contrix-appservice-api.workspace = true
 contrix-client = { workspace = true, optional = true }
 contrix-core.workspace = true
+contrix-events.workspace = true
+contrix-federation-api.workspace = true
+contrix-identity-api.workspace = true
+contrix-push-gateway-api.workspace = true
 contrix-server = { workspace = true, optional = true }
+contrix-signatures.workspace = true
+contrix-state-res.workspace = true
+contrix-testing.workspace = true
 getrandom.workspace = true
 openmls = { workspace = true, optional = true }
 openmls_basic_credential = { workspace = true, optional = true }

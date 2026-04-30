@@ -1,0 +1,24 @@
+[package]
+authors = ["Chris Young <chris@sonc.ai>"]
+description = "Contrix v1 deterministic state resolution primitives."
+edition = "2024"
+homepage = "https://github.com/contrix/contrix-rust-sdk"
+keywords = ["contrix", "state", "resolution", "federation"]
+license = "Apache-2.0"
+name = "contrix-state-res"
+readme = "README.md"
+repository = "https://github.com/contrix/contrix-rust-sdk"
+rust-version.workspace = true
+version = "0.1.0"
+
+[features]
+default = []
+
+[dependencies]
+chrono = { workspace = true, features = ["serde"] }
+contrix-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

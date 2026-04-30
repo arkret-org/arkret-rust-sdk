@@ -61,14 +61,23 @@
 //! let did: contrix::Did = "did:web:alice.example";
 //! ```
 
+pub use contrix_api as api;
+pub use contrix_appservice_api as appservice_api;
 #[cfg(feature = "client")]
 pub use contrix_client as client;
 pub use contrix_core::*;
 pub use contrix_core::{canonical, cursor, error, identifiers, model, service, sync};
+pub use contrix_events as events;
+pub use contrix_federation_api as federation_api;
+pub use contrix_identity_api as identity_api;
+pub use contrix_push_gateway_api as push_gateway_api;
 #[cfg(feature = "server")]
 pub use contrix_server as server;
 #[cfg(feature = "salvo-adapter")]
 pub use contrix_server::salvo_adapter;
+pub use contrix_signatures as signatures;
+pub use contrix_state_res as state_res;
+pub use contrix_testing as testing;
 
 #[cfg(feature = "full-surface")]
 pub mod account;

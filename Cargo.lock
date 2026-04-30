@@ -265,9 +265,18 @@ dependencies = [
  "chacha20poly1305",
  "chrono",
  "chrono-tz",
+ "contrix-api",
+ "contrix-appservice-api",
  "contrix-client",
  "contrix-core",
+ "contrix-events",
+ "contrix-federation-api",
+ "contrix-identity-api",
+ "contrix-push-gateway-api",
  "contrix-server",
+ "contrix-signatures",
+ "contrix-state-res",
+ "contrix-testing",
  "getrandom 0.3.4",
  "openmls",
  "openmls_basic_credential",
@@ -283,6 +292,25 @@ dependencies = [
  "tracing",
  "ulid",
  "url",
+]
+
+[[package]]
+name = "contrix-api"
+version = "0.1.0"
+dependencies = [
+ "contrix-core",
+ "serde",
+]
+
+[[package]]
+name = "contrix-appservice-api"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "contrix-core",
+ "serde",
+ "serde_json",
+ "ulid",
 ]
 
 [[package]]
@@ -313,6 +341,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "contrix-events"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "contrix-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "contrix-federation-api"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "contrix-core",
+ "contrix-signatures",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "contrix-identifiers"
 version = "0.1.0"
 dependencies = [
@@ -324,14 +373,76 @@ dependencies = [
 ]
 
 [[package]]
-name = "contrix-server"
+name = "contrix-identity-api"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "contrix-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "contrix-push-gateway-api"
 version = "0.1.0"
 dependencies = [
  "contrix-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "contrix-server"
+version = "0.1.0"
+dependencies = [
+ "contrix-api",
+ "contrix-appservice-api",
+ "contrix-core",
+ "contrix-federation-api",
+ "contrix-identity-api",
+ "contrix-push-gateway-api",
+ "contrix-signatures",
  "salvo",
  "serde",
  "serde_json",
  "url",
+]
+
+[[package]]
+name = "contrix-signatures"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "contrix-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "contrix-state-res"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "contrix-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "contrix-testing"
+version = "0.1.0"
+dependencies = [
+ "contrix-api",
+ "contrix-appservice-api",
+ "contrix-core",
+ "contrix-events",
+ "contrix-federation-api",
+ "contrix-identity-api",
+ "contrix-push-gateway-api",
+ "contrix-signatures",
+ "contrix-state-res",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
