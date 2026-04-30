@@ -85,12 +85,16 @@ Crate topology:
   - [ ] 后续接入真实签名算法抽象、key discovery/cache、rotation proof、federation auth header verifier 和 negative signature fixtures。
 - [x] 新增 `crates/state-res`: deterministic state reducer、state-key extraction、conflict records、frontier maintenance、snapshot hash/verify。
   - [ ] 补 conflict graph、auth rule evaluation、snapshot/delta proof 和 federation backfill proof 验证。
-- [ ] 拆出 `crates/store`: runtime store traits, memory/sqlite/indexeddb feature adapters, migration contract, store lock, failure cache。
-- [ ] 拆出 `crates/crypto`: protocol crypto machine, key lifecycle, verification, media encryption, secret backup, encrypted store integration。
-- [ ] 拆出 `crates/ui`: timeline model, room/space list service, notification client, sync service, unable-to-decrypt hook, preview model。
+- [x] 新增 `crates/store`: runtime store traits, memory/sqlite/indexeddb feature adapters, migration contract, store lock, failure cache，当前覆盖 repo object store、event cache、snapshot store、migration/checksum、failure cache 和 memory conformance report。
+  - [ ] 后续将 `sdk::store` 的 SQLite/IndexedDB/encrypted store facade 收敛到 `contrix-store` 契约，并补真实 adapter / migration / crash recovery。
+- [x] 新增 `crates/crypto`: protocol crypto machine, key lifecycle, verification, media encryption, secret backup, encrypted store integration，当前覆盖 device key bundle、one-time key claim、secret backup descriptor、media encryption digest、unable-to-decrypt preservation 和 crypto store binding。
+  - [ ] 后续将 `sdk::crypto` / `sdk::crypto_store` / `sdk::mls` 收敛到 `contrix-crypto`，接入真实 MLS machine、设备验证、key backup/restore 和跨实现向量。
+- [x] 新增 `crates/ui`: timeline model, room/space list service, notification client, sync service, unable-to-decrypt hook, preview model，当前覆盖 timeline edit/redaction/reaction projection、space list activity/count sorting、push-rule notification evaluation 和 UTD item。
+  - [ ] 后续将 `sdk::timeline` / `sdk::notifications` / `sdk::sync_client` 的 runtime 行为收敛到 `contrix-ui` 投影契约，并补 live update / gap repair / local echo。
 - [x] 新增 `crates/testing`: fixture server, request/response golden tests, conformance harness, federation simulation, property test helpers 的初始 conformance report/vector 边界。
   - [ ] 后续把官方 fixtures loader、golden wire vectors、negative vectors、federation simulation 和 property-test helpers 从 crate 单元测试外置出来。
-- [ ] 拆出 `crates/ffi`: UniFFI/WASM/mobile binding facade，稳定 opaque handles 和异步 callback contract。
+- [x] 新增 `crates/ffi`: UniFFI/WASM/mobile binding facade，稳定 opaque handles 和异步 callback contract，当前覆盖 handle table、FFI error、event sink、cancellation、WASM HTTP/IndexedDB/WebCrypto runtime contract 和 freeze review。
+  - [ ] 后续生成真实 UniFFI/WASM binding，补 callback backpressure、host lifetime、mobile API freeze 和浏览器互操作测试。
 - [ ] 评估是否需要 `crates/macros`: endpoint/event derive 宏、operation schema 宏、test vector generation；只在能显著减少重复时引入。
 - [ ] 增加 `examples/`, `testing/`, `benchmarks/`, `xtask/`, `labs/` workspace 边界，避免所有验证逻辑挤在 crate 单元测试里。
 
@@ -105,10 +109,19 @@ Crate topology:
 - [x] `cargo test -p contrix-push-gateway-api`。
 - [x] `cargo test -p contrix-identity-api`。
 - [x] `cargo test -p contrix-testing`。
+- [x] 2026-05-01 runtime boundary crates: `cargo test -p contrix-store`。
+- [x] 2026-05-01 runtime boundary crates: `cargo test -p contrix-crypto`。
+- [x] 2026-05-01 runtime boundary crates: `cargo test -p contrix-ffi`。
+- [x] 2026-05-01 runtime boundary crates: `cargo test -p contrix-ui`。
+- [x] 2026-05-01 runtime boundary crates: `cargo test -p contrix-testing`。
 - [x] `cargo check --all-features`。
+- [x] 2026-05-01 runtime boundary crates: `cargo check --all-features`。
 - [x] 2026-05-01 boundary crates: `cargo fmt --all -- --check`。
 - [x] 2026-05-01 boundary crates: `cargo test --all-features`，all workspace tests/doctests passed。
 - [x] 2026-05-01 boundary crates: `git diff --check`。
+- [x] 2026-05-01 runtime boundary crates final: `cargo fmt --all -- --check`。
+- [x] 2026-05-01 runtime boundary crates final: `cargo test --all-features`，all workspace tests/doctests passed。
+- [x] 2026-05-01 runtime boundary crates final: `git diff --check`。
 
 Client-server protocol API:
 - [ ] Account/session: register, login, refresh, logout, whoami, deactivate, account data, password/token/session renewal。

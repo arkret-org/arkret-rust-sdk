@@ -19,6 +19,10 @@ pub enum ConformanceDomain {
     Signatures,
     Events,
     StateResolution,
+    Store,
+    Crypto,
+    Ui,
+    Ffi,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -124,7 +128,77 @@ pub fn endpoint_coverage_rows() -> Vec<EndpointCoverageRow> {
             response_schema: endpoint.response_schema.to_owned(),
         }
     }));
+    rows.extend(boundary_coverage_rows());
     rows
+}
+
+pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
+    vec![
+        EndpointCoverageRow {
+            domain: ConformanceDomain::Store,
+            operation_id: "cx.store.repo_object".to_owned(),
+            method: "CONTRACT".to_owned(),
+            path: "contrix-store://repo-object-store".to_owned(),
+            request_schema: "RepoWriteBatch".to_owned(),
+            response_schema: "StoreBatchReceipt".to_owned(),
+        },
+        EndpointCoverageRow {
+            domain: ConformanceDomain::Store,
+            operation_id: "cx.store.failure_cache".to_owned(),
+            method: "CONTRACT".to_owned(),
+            path: "contrix-store://failure-cache".to_owned(),
+            request_schema: "StoreFailureRecord".to_owned(),
+            response_schema: "StoreFailureCache".to_owned(),
+        },
+        EndpointCoverageRow {
+            domain: ConformanceDomain::Crypto,
+            operation_id: "cx.crypto.machine_request".to_owned(),
+            method: "CONTRACT".to_owned(),
+            path: "contrix-crypto://machine".to_owned(),
+            request_schema: "CryptoMachineRequest".to_owned(),
+            response_schema: "CryptoMachineResponse".to_owned(),
+        },
+        EndpointCoverageRow {
+            domain: ConformanceDomain::Crypto,
+            operation_id: "cx.crypto.store_binding".to_owned(),
+            method: "CONTRACT".to_owned(),
+            path: "contrix-crypto://store-binding".to_owned(),
+            request_schema: "CryptoStoreBinding".to_owned(),
+            response_schema: "KeyLifecycleEvent".to_owned(),
+        },
+        EndpointCoverageRow {
+            domain: ConformanceDomain::Ui,
+            operation_id: "cx.ui.timeline_projection".to_owned(),
+            method: "CONTRACT".to_owned(),
+            path: "contrix-ui://timeline".to_owned(),
+            request_schema: "Event".to_owned(),
+            response_schema: "TimelineItem".to_owned(),
+        },
+        EndpointCoverageRow {
+            domain: ConformanceDomain::Ui,
+            operation_id: "cx.ui.notification_evaluation".to_owned(),
+            method: "CONTRACT".to_owned(),
+            path: "contrix-ui://notifications".to_owned(),
+            request_schema: "PushRuleSet".to_owned(),
+            response_schema: "NotificationEvaluation".to_owned(),
+        },
+        EndpointCoverageRow {
+            domain: ConformanceDomain::Ffi,
+            operation_id: "cx.ffi.handle".to_owned(),
+            method: "CONTRACT".to_owned(),
+            path: "contrix-ffi://handle-table".to_owned(),
+            request_schema: "FfiHandle".to_owned(),
+            response_schema: "FfiError".to_owned(),
+        },
+        EndpointCoverageRow {
+            domain: ConformanceDomain::Ffi,
+            operation_id: "cx.ffi.wasm_runtime".to_owned(),
+            method: "CONTRACT".to_owned(),
+            path: "contrix-ffi://wasm-runtime".to_owned(),
+            request_schema: "WasmRuntimeContract".to_owned(),
+            response_schema: "EmbeddingTargetDecision".to_owned(),
+        },
+    ]
 }
 
 pub fn event_taxonomy_vectors() -> Result<Vec<EventTaxonomyVector>> {
@@ -229,11 +303,35 @@ mod tests {
             ConformanceDomain::Identity,
             ConformanceDomain::Events,
             ConformanceDomain::StateResolution,
+            ConformanceDomain::Store,
+            ConformanceDomain::Crypto,
+            ConformanceDomain::Ui,
+            ConformanceDomain::Ffi,
         ] {
             assert!(report.covers_domain(domain.clone()), "{domain:?}");
         }
         assert!(report.operation_ids().contains("cx.federation.transaction"));
         assert!(report.operation_ids().contains("cx.identity.resolve"));
+        assert!(report.operation_ids().contains("cx.store.repo_object"));
+        assert!(report.operation_ids().contains("cx.crypto.machine_request"));
+        assert!(report.operation_ids().contains("cx.ui.timeline_projection"));
+        assert!(report.operation_ids().contains("cx.ffi.wasm_runtime"));
+    }
+
+    #[test]
+    fn boundary_crate_smoke_contracts_validate() {
+        contrix_store::memory_store_conformance_report().unwrap().validate().unwrap();
+        contrix_ffi::WasmRuntimeContract::default().validate().unwrap();
+
+        let mut plan = contrix_crypto::CryptoMachinePlan::default();
+        plan.push(
+            "keys",
+            contrix_crypto::CryptoMachineRequest::QueryDeviceKeys {
+                users: vec![Did::new("did:web:alice.example").unwrap()],
+            },
+        )
+        .unwrap();
+        assert_eq!(plan.pending_len(), 1);
     }
 
     #[test]

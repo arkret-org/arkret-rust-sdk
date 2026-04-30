@@ -9,7 +9,7 @@ pub use contrix_core::Proof as ProtocolProof;
 pub const PRODUCTION_ALGORITHMS: &[&str] = &["EdDSA", "ES256", "ES256K", "RS256", "PS256"];
 pub const HTTP_MESSAGE_SIGNATURE_PROFILE: &str = "cx.http-message-signature.v1";
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DetachedSignatureBinding {
     pub payload_hash: Hash,
     pub signer: Did,
@@ -49,7 +49,7 @@ impl DetachedSignatureBinding {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DetachedSignature {
     pub kind: String,
     pub alg: String,

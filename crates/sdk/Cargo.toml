@@ -48,14 +48,18 @@ contrix-api.workspace = true
 contrix-appservice-api.workspace = true
 contrix-client = { workspace = true, optional = true }
 contrix-core.workspace = true
+contrix-crypto.workspace = true
 contrix-events.workspace = true
 contrix-federation-api.workspace = true
+contrix-ffi.workspace = true
 contrix-identity-api.workspace = true
 contrix-push-gateway-api.workspace = true
 contrix-server = { workspace = true, optional = true }
 contrix-signatures.workspace = true
 contrix-state-res.workspace = true
+contrix-store.workspace = true
 contrix-testing.workspace = true
+contrix-ui.workspace = true
 getrandom.workspace = true
 openmls = { workspace = true, optional = true }
 openmls_basic_credential = { workspace = true, optional = true }

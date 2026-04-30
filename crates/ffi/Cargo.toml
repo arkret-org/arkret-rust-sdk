@@ -1,0 +1,25 @@
+[package]
+authors = ["Chris Young <chris@sonc.ai>"]
+description = "Contrix v1 FFI and WASM embedding contracts."
+edition = "2024"
+homepage = "https://github.com/contrix/contrix-rust-sdk"
+keywords = ["contrix", "ffi", "wasm", "uniffi"]
+license = "Apache-2.0"
+name = "contrix-ffi"
+readme = "README.md"
+repository = "https://github.com/contrix/contrix-rust-sdk"
+rust-version.workspace = true
+version = "0.1.0"
+
+[features]
+default = []
+client = ["contrix-core/client"]
+mls = ["contrix-core/mls"]
+
+[dependencies]
+contrix-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

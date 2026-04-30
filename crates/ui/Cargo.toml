@@ -1,11 +1,11 @@
 [package]
 authors = ["Chris Young <chris@sonc.ai>"]
-description = "Contrix v1 reusable conformance fixtures and catalog coverage helpers."
+description = "Contrix v1 UI projection contracts."
 edition = "2024"
 homepage = "https://github.com/contrix/contrix-rust-sdk"
-keywords = ["contrix", "testing", "conformance", "fixtures"]
+keywords = ["contrix", "ui", "timeline", "notifications"]
 license = "Apache-2.0"
-name = "contrix-testing"
+name = "contrix-ui"
 readme = "README.md"
 repository = "https://github.com/contrix/contrix-rust-sdk"
 rust-version.workspace = true
@@ -15,19 +15,11 @@ version = "0.1.0"
 default = []
 
 [dependencies]
-contrix-api.workspace = true
-contrix-appservice-api.workspace = true
+chrono = { workspace = true, features = ["serde"] }
 contrix-core.workspace = true
 contrix-crypto.workspace = true
 contrix-events.workspace = true
-contrix-federation-api.workspace = true
-contrix-ffi.workspace = true
-contrix-identity-api.workspace = true
 contrix-push-gateway-api.workspace = true
-contrix-signatures.workspace = true
-contrix-state-res.workspace = true
-contrix-store.workspace = true
-contrix-ui.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 
