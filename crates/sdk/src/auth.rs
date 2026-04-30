@@ -190,50 +190,25 @@ pub struct SessionPrincipalBinding {
 
 /// Canonical OAuth2 scope prefix for binding a Contrix client device to a session.
 pub const CONTRIX_DEVICE_SCOPE_PREFIX: &str = "urn:contrix:client:device:";
-/// Legacy Matrix device scope accepted only by compatibility adapters.
-pub const LEGACY_MATRIX_DEVICE_SCOPE_PREFIX: &str = "urn:matrix:client:device:";
-/// Legacy MSC2967 Matrix device scope accepted only by compatibility adapters.
-pub const LEGACY_MATRIX_MSC2967_DEVICE_SCOPE_PREFIX: &str =
-    "urn:matrix:org.matrix.msc2967.client:device:";
 
 /// Build the canonical Contrix device scope token for a device.
 pub fn contrix_device_scope(device_id: &DeviceId) -> String {
     format!("{CONTRIX_DEVICE_SCOPE_PREFIX}{device_id}")
 }
 
-/// Extract a device ID from a Contrix device scope token.
-///
-/// When `allow_legacy_matrix` is true, Matrix compatibility device scopes are
-/// also accepted so existing deployments can migrate without preserving Matrix
-/// naming in new API surfaces.
-pub fn device_id_from_scope_token(
-    scope_token: &str,
-    allow_legacy_matrix: bool,
-) -> Option<DeviceId> {
-    let raw = scope_token
-        .strip_prefix(CONTRIX_DEVICE_SCOPE_PREFIX)
-        .or_else(|| {
-            allow_legacy_matrix
-                .then(|| scope_token.strip_prefix(LEGACY_MATRIX_DEVICE_SCOPE_PREFIX))
-                .flatten()
-        })
-        .or_else(|| {
-            allow_legacy_matrix
-                .then(|| scope_token.strip_prefix(LEGACY_MATRIX_MSC2967_DEVICE_SCOPE_PREFIX))
-                .flatten()
-        })?;
+/// Extract a device ID from a canonical Contrix device scope token.
+pub fn device_id_from_scope_token(scope_token: &str) -> Option<DeviceId> {
+    let raw = scope_token.strip_prefix(CONTRIX_DEVICE_SCOPE_PREFIX)?;
     DeviceId::new(raw).ok()
 }
 
 /// Return the first device ID encoded in a set of scope tokens.
-pub fn primary_device_id_from_scopes<I, S>(scopes: I, allow_legacy_matrix: bool) -> Option<DeviceId>
+pub fn primary_device_id_from_scopes<I, S>(scopes: I) -> Option<DeviceId>
 where
     I: IntoIterator<Item = S>,
     S: AsRef<str>,
 {
-    scopes
-        .into_iter()
-        .find_map(|scope| device_id_from_scope_token(scope.as_ref(), allow_legacy_matrix))
+    scopes.into_iter().find_map(|scope| device_id_from_scope_token(scope.as_ref()))
 }
 
 /// Session grant payload issued by an identity provider to a Principal Server.
@@ -1218,7 +1193,7 @@ impl AuthManager {
         self
     }
 
-    /// Register a username/password identity with the legacy local hash helper.
+    /// Register a username/password identity with the built-in local hash helper.
     pub fn register_password_user(
         &mut self,
         username: impl Into<String>,
@@ -1260,7 +1235,7 @@ impl AuthManager {
         Ok(())
     }
 
-    /// Login with username/password using the legacy local hash helper.
+    /// Login with username/password using the built-in local hash helper.
     pub fn login_password(
         &mut self,
         username: &str,
@@ -1408,7 +1383,7 @@ impl AuthManager {
         challenge
     }
 
-    /// Verify a passkey response with the legacy local challenge helper.
+    /// Verify a passkey response with the built-in local challenge helper.
     pub fn verify_passkey(
         &mut self,
         user_id: &Did,
@@ -1706,9 +1681,9 @@ impl AuthManager {
         self.account_states.insert(user_id, state);
     }
 
-    /// Current account state. Missing state defaults to active for legacy callers.
+    /// Current account state. Missing state fails closed.
     pub fn account_state(&self, user_id: &Did) -> AccountAuthState {
-        self.account_states.get(user_id).copied().unwrap_or(AccountAuthState::Active)
+        self.account_states.get(user_id).copied().unwrap_or(AccountAuthState::Suspended)
     }
 
     /// Export durable auth state without raw access or refresh token material.
@@ -2075,6 +2050,7 @@ mod tests {
     fn auth_handles_oidc_and_passkeys() {
         let alice = did("alice");
         let mut auth = AuthManager::default();
+        auth.set_account_state(alice.clone(), AccountAuthState::Active);
         let oidc = auth.start_oidc("https://issuer.example", "client", "https://app/cb", "state");
         assert!(oidc.authorization_url.contains("response_type=code"));
         assert!(auth.complete_oidc(alice.clone(), device("oidc")).is_ok());
@@ -2129,6 +2105,7 @@ mod tests {
     fn auth_uses_provider_oidc_verifier_with_metadata_and_jwks() {
         let alice = did("alice");
         let mut auth = AuthManager::default();
+        auth.set_account_state(alice.clone(), AccountAuthState::Active);
         let request = OidcVerificationRequest {
             issuer_metadata: OidcIssuerMetadata {
                 issuer: "https://issuer.example".to_owned(),
@@ -2162,6 +2139,7 @@ mod tests {
     fn auth_uses_provider_passkey_verifier() {
         let alice = did("alice");
         let mut auth = AuthManager::default();
+        auth.set_account_state(alice.clone(), AccountAuthState::Active);
         let challenge = auth.start_passkey(alice.clone());
         let response = WebAuthnPasskeyResponse {
             credential_id: "credential-1".to_owned(),
@@ -2220,6 +2198,7 @@ mod tests {
     fn auth_exports_safe_state_and_enforces_device_binding_and_account_state() {
         let alice = did("alice");
         let mut auth = AuthManager::default();
+        assert_eq!(auth.account_state(&alice), AccountAuthState::Suspended);
         auth.register_password_user("alice", "secret", alice.clone()).unwrap();
 
         let session = auth.login_password("alice", "secret", device("desktop")).unwrap();
@@ -2321,18 +2300,13 @@ mod tests {
     }
 
     #[test]
-    fn device_scope_helpers_prefer_contrix_and_gate_legacy_matrix() {
+    fn device_scope_helpers_accept_only_contrix_scope() {
         let device = device("phone");
         let scope = contrix_device_scope(&device);
-        assert_eq!(device_id_from_scope_token(&scope, false).unwrap(), device);
-        assert_eq!(
-            primary_device_id_from_scopes(["openid", scope.as_str()], false).unwrap(),
-            device
-        );
+        assert_eq!(device_id_from_scope_token(&scope).unwrap(), device);
+        assert_eq!(primary_device_id_from_scopes(["openid", scope.as_str()]).unwrap(), device);
 
-        let legacy = "urn:matrix:client:device:dev_phone";
-        assert!(device_id_from_scope_token(legacy, false).is_none());
-        assert_eq!(device_id_from_scope_token(legacy, true).unwrap(), device);
+        assert!(device_id_from_scope_token("urn:matrix:client:device:dev_phone").is_none());
     }
 
     #[test]

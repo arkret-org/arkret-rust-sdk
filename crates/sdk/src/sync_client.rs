@@ -551,8 +551,7 @@ impl SyncResponseProcessor {
         self.last_token = Some(response.next_batch);
 
         let mut space_updates = Vec::new();
-        let spaces = if response.spaces.is_empty() { response.rooms } else { response.spaces };
-        for (raw_space_id, sync_space) in spaces {
+        for (raw_space_id, sync_space) in response.spaces {
             let space_id = SpaceId::new(raw_space_id)?;
             let processed = self.spaces.entry(space_id.clone()).or_default();
             if let Some(timeline) = &sync_space.timeline {
@@ -1222,7 +1221,7 @@ impl SlidingSync {
     }
 }
 
-/// Sort order for the room/space list.
+/// Sort order for the space list.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SpaceListSort {
@@ -1237,7 +1236,7 @@ pub enum SpaceListSort {
     Favorite,
 }
 
-/// Filter for room/space list projections.
+/// Filter for space list projections.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SpaceListFilter {
     /// Membership buckets to include. Empty means all buckets.
@@ -1267,7 +1266,7 @@ impl SpaceListFilter {
     }
 }
 
-/// One item in a room/space list.
+/// One item in a space list.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SpaceListEntry {
     /// Space ID.
@@ -1325,7 +1324,7 @@ pub enum SpaceListChange {
     Moved { old_index: usize, new_index: usize, space_id: SpaceId },
 }
 
-/// Result of applying one room/space-list mutation.
+/// Result of applying one space-list mutation.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SpaceListUpdate {
     /// Ordered visible space IDs after the mutation.
@@ -1336,7 +1335,7 @@ pub struct SpaceListUpdate {
     pub changes: Vec<SpaceListChange>,
 }
 
-/// Serializable room/space list state.
+/// Serializable space-list state.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SpaceListSnapshot {
     /// Entries by space.
@@ -1574,7 +1573,6 @@ mod tests {
         SyncResponse {
             next_batch: next_batch.to_owned(),
             spaces: BTreeMap::new(),
-            rooms: BTreeMap::new(),
             to_device: Vec::new(),
             device_lists: DeviceListChanges::default(),
             presence: Vec::new(),

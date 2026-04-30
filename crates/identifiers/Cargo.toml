@@ -1,0 +1,24 @@
+[package]
+authors = ["Chris Young <chris@sonc.ai>"]
+description = "Validated Contrix v1 identifiers, DID helpers, hashes, cursors and HLC values."
+edition = "2024"
+homepage = "https://github.com/contrix/contrix-rust-sdk"
+keywords = ["contrix", "identifiers", "did", "protocol"]
+license = "Apache-2.0"
+name = "contrix-identifiers"
+readme = "README.md"
+repository = "https://github.com/contrix/contrix-rust-sdk"
+rust-version.workspace = true
+version = "0.1.0"
+
+[dependencies]
+getrandom.workspace = true
+serde.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

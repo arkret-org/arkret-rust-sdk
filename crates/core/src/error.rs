@@ -43,3 +43,12 @@ pub enum Error {
     #[error("protocol error: {0}")]
     Protocol(String),
 }
+
+impl From<contrix_identifiers::IdentifierError> for Error {
+    fn from(error: contrix_identifiers::IdentifierError) -> Self {
+        match error {
+            contrix_identifiers::IdentifierError::InvalidId(value) => Self::InvalidId(value),
+            contrix_identifiers::IdentifierError::Random(error) => Self::Crypto(error),
+        }
+    }
+}

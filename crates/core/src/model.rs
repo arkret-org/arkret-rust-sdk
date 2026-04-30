@@ -1,8 +1,6 @@
 use std::{
-    cmp::Ordering,
     collections::{BTreeMap, BTreeSet},
     fmt,
-    str::FromStr,
 };
 
 use chrono::{DateTime, Utc};
@@ -11,6 +9,10 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
 use crate::{Error, Result, canonical};
+pub use contrix_identifiers::{
+    BlobRef, CommitId, Cursor, DeviceId, Did, EntityId, EventId, GrantId, Hash, Hlc, InviteId,
+    OperationId, PolicyId, RelationId, SpaceId, ViewId,
+};
 
 pub const PROTOCOL_VERSION: &str = "1.0";
 pub const CORE_SCHEMA_PROFILE: &str = "cx.schema.core.v1";
@@ -57,17 +59,6 @@ pub const OP_FIELD_POSITION_REORDER: &str = "cx.field_position.reorder";
 /// Task-specific operations.
 pub const OP_TASK_CREATE: &str = "cx.task.create";
 pub const OP_TASK_UPDATE: &str = "cx.task.update";
-
-/// Legacy operation kind aliases retained for explicit compatibility profiles.
-pub const OP_LEGACY_RELATION_MOVE: &str = "cx.relation.move";
-pub const OP_LEGACY_RELATION_REBALANCE: &str = "cx.relation.rebalance";
-pub const OP_LEGACY_TASK_MOVE: &str = "cx.task.move";
-pub const OP_LEGACY_TASK_REORDER: &str = "cx.task.reorder";
-
-#[deprecated(note = "use OP_CONTAINER_MOVE_ITEM; cx.relation.move is a legacy alias")]
-pub const OP_RELATION_MOVE: &str = OP_LEGACY_RELATION_MOVE;
-#[deprecated(note = "use OP_FIELD_POSITION_MOVE; cx.task.move is a legacy alias")]
-pub const OP_TASK_MOVE: &str = OP_LEGACY_TASK_MOVE;
 
 /// View operations.
 pub const OP_VIEW_CREATE: &str = "cx.view.create";
@@ -166,24 +157,11 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_AUTHZ_CHECK,
 ];
 
-/// Compatibility profile for operation kind parsing.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum OperationCompatibilityProfile {
-    /// Accept only canonical `cx.*` operation names.
-    #[default]
-    CanonicalOnly,
-    /// Accept legacy bare aliases and map them to canonical `cx.*` names.
-    LegacyBareNames,
-}
-
 /// Registry entry for one operation kind.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OperationKindSpec {
     pub kind: String,
     pub schema: String,
-    #[serde(default)]
-    pub legacy_aliases: Vec<String>,
     #[serde(default)]
     pub required_content_fields: Vec<String>,
 }
@@ -192,27 +170,22 @@ pub struct OperationKindSpec {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OperationKindValidation {
     pub canonical_kind: String,
-    pub legacy_alias_used: Option<String>,
 }
 
-/// Canonical operation registry with explicit legacy migration aliases.
+/// Canonical operation registry.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OperationKindRegistry {
     specs: BTreeMap<String, OperationKindSpec>,
-    legacy_aliases: BTreeMap<String, String>,
 }
 
 impl OperationKindRegistry {
     /// Create an empty registry.
     pub fn new() -> Self {
-        Self { specs: BTreeMap::new(), legacy_aliases: BTreeMap::new() }
+        Self { specs: BTreeMap::new() }
     }
 
     /// Register one operation kind.
     pub fn register(&mut self, spec: OperationKindSpec) {
-        for alias in &spec.legacy_aliases {
-            self.legacy_aliases.insert(alias.clone(), spec.kind.clone());
-        }
         self.specs.insert(spec.kind.clone(), spec);
     }
 
@@ -221,25 +194,10 @@ impl OperationKindRegistry {
         self.specs.get(kind)
     }
 
-    /// Resolve a kind to canonical form under the chosen compatibility profile.
-    pub fn canonicalize(
-        &self,
-        kind: &str,
-        profile: OperationCompatibilityProfile,
-    ) -> Result<OperationKindValidation> {
+    /// Resolve a canonical kind.
+    pub fn canonicalize(&self, kind: &str) -> Result<OperationKindValidation> {
         if self.specs.contains_key(kind) {
-            return Ok(OperationKindValidation {
-                canonical_kind: kind.to_owned(),
-                legacy_alias_used: None,
-            });
-        }
-        if profile == OperationCompatibilityProfile::LegacyBareNames
-            && let Some(canonical) = self.legacy_aliases.get(kind)
-        {
-            return Ok(OperationKindValidation {
-                canonical_kind: canonical.clone(),
-                legacy_alias_used: Some(kind.to_owned()),
-            });
+            return Ok(OperationKindValidation { canonical_kind: kind.to_owned() });
         }
         Err(Error::Protocol(format!("unknown operation kind '{kind}'")))
     }
@@ -248,9 +206,8 @@ impl OperationKindRegistry {
     pub fn validate_envelope(
         &self,
         envelope: &OperationEnvelope,
-        profile: OperationCompatibilityProfile,
     ) -> Result<OperationKindValidation> {
-        let validation = self.canonicalize(&envelope.kind, profile)?;
+        let validation = self.canonicalize(&envelope.kind)?;
         let spec = self
             .specs
             .get(&validation.canonical_kind)
@@ -284,35 +241,11 @@ impl Default for OperationKindRegistry {
             registry.register(OperationKindSpec {
                 kind: (*kind).to_owned(),
                 schema: OPERATION_SCHEMA.to_owned(),
-                legacy_aliases: legacy_aliases_for_operation_kind(kind),
                 required_content_fields: required_fields_for_operation_kind(kind),
             });
         }
         registry
     }
-}
-
-fn legacy_aliases_for_operation_kind(kind: &str) -> Vec<String> {
-    let mut aliases = vec![kind.strip_prefix("cx.").unwrap_or(kind).replace('.', "_")];
-    match kind {
-        OP_FIELD_POSITION_MOVE => {
-            aliases.extend(["task_move", OP_LEGACY_TASK_MOVE].into_iter().map(str::to_owned));
-        }
-        OP_FIELD_POSITION_REORDER => {
-            aliases.extend(["task_reorder", OP_LEGACY_TASK_REORDER].into_iter().map(str::to_owned));
-        }
-        OP_CONTAINER_MOVE_ITEM => {
-            aliases
-                .extend(["relation_move", OP_LEGACY_RELATION_MOVE].into_iter().map(str::to_owned));
-        }
-        OP_CONTAINER_REBALANCE => {
-            aliases.extend(
-                ["relation_rebalance", OP_LEGACY_RELATION_REBALANCE].into_iter().map(str::to_owned),
-            );
-        }
-        _ => {}
-    }
-    aliases
 }
 
 fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
@@ -354,27 +287,16 @@ fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OperationKindConformanceVector {
     pub input_kind: String,
-    pub profile: OperationCompatibilityProfile,
     pub canonical_kind: String,
 }
 
-/// Conformance vectors for every built-in operation kind and its legacy alias.
+/// Conformance vectors for every built-in operation kind.
 pub fn operation_kind_conformance_vectors() -> Vec<OperationKindConformanceVector> {
     BUILT_IN_OPERATION_KINDS
         .iter()
-        .flat_map(|kind| {
-            std::iter::once(OperationKindConformanceVector {
-                input_kind: (*kind).to_owned(),
-                profile: OperationCompatibilityProfile::CanonicalOnly,
-                canonical_kind: (*kind).to_owned(),
-            })
-            .chain(legacy_aliases_for_operation_kind(kind).into_iter().map(|alias| {
-                OperationKindConformanceVector {
-                    input_kind: alias,
-                    profile: OperationCompatibilityProfile::LegacyBareNames,
-                    canonical_kind: (*kind).to_owned(),
-                }
-            }))
+        .map(|kind| OperationKindConformanceVector {
+            input_kind: (*kind).to_owned(),
+            canonical_kind: (*kind).to_owned(),
         })
         .collect()
 }
@@ -1045,12 +967,6 @@ pub fn profile_conformance_suites() -> Vec<ConformanceSuite> {
                     OP_FIELD_POSITION_REORDER,
                     OP_CONTAINER_MOVE_ITEM,
                     OP_CONTAINER_REBALANCE
-                ],
-                "legacy_aliases": [
-                    OP_LEGACY_TASK_MOVE,
-                    OP_LEGACY_TASK_REORDER,
-                    OP_LEGACY_RELATION_MOVE,
-                    OP_LEGACY_RELATION_REBALANCE
                 ]
             }),
         ),
@@ -1193,267 +1109,6 @@ fn validate_conformance_case(
             .ok_or_else(|| Error::Protocol(format!("unknown conformance schema '{schema_id}'")))?;
     }
     Ok(())
-}
-
-macro_rules! id_type {
-    ($name:ident, $expect:expr) => {
-        #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-        #[serde(transparent)]
-        pub struct $name(String);
-
-        impl $name {
-            pub fn new(value: impl Into<String>) -> Result<Self> {
-                let value = value.into();
-                if !$expect(&value) {
-                    return Err(Error::InvalidId(value));
-                }
-                Ok(Self(value))
-            }
-
-            pub fn as_str(&self) -> &str {
-                &self.0
-            }
-
-            pub fn into_string(self) -> String {
-                self.0
-            }
-        }
-
-        impl fmt::Display for $name {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str(&self.0)
-            }
-        }
-
-        impl FromStr for $name {
-            type Err = Error;
-
-            fn from_str(value: &str) -> Result<Self> {
-                Self::new(value)
-            }
-        }
-    };
-}
-
-fn is_did(value: &str) -> bool {
-    let Some(remainder) = value.strip_prefix("did:") else {
-        return false;
-    };
-    let Some((method, method_specific_id)) = remainder.split_once(':') else {
-        return false;
-    };
-    if method.is_empty()
-        || method_specific_id.is_empty()
-        || !method.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
-    {
-        return false;
-    }
-
-    if method == "uuid" {
-        return is_canonical_uuid(method_specific_id);
-    }
-
-    true
-}
-
-fn is_canonical_uuid(value: &str) -> bool {
-    if value.len() != 36
-        || value.as_bytes().get(8) != Some(&b'-')
-        || value.as_bytes().get(13) != Some(&b'-')
-        || value.as_bytes().get(18) != Some(&b'-')
-        || value.as_bytes().get(23) != Some(&b'-')
-    {
-        return false;
-    }
-
-    let mut non_zero = false;
-    for (idx, byte) in value.bytes().enumerate() {
-        if matches!(idx, 8 | 13 | 18 | 23) {
-            continue;
-        }
-        if !byte.is_ascii_hexdigit() || byte.is_ascii_uppercase() {
-            return false;
-        }
-        non_zero |= byte != b'0';
-    }
-    if !non_zero {
-        return false;
-    }
-
-    let version = value.as_bytes()[14];
-    let variant = value.as_bytes()[19];
-    matches!(version, b'4' | b'7' | b'8') && matches!(variant, b'8' | b'9' | b'a' | b'b')
-}
-
-fn is_hash(value: &str) -> bool {
-    value.len() == 71
-        && value.starts_with("sha256:")
-        && value["sha256:".len()..]
-            .bytes()
-            .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
-}
-
-fn has_prefix<'a>(prefix: &'a str) -> impl Fn(&str) -> bool + 'a {
-    move |value| value.starts_with(prefix) && value.len() > prefix.len()
-}
-
-id_type!(Did, is_did);
-id_type!(SpaceId, has_prefix("cx:space:"));
-id_type!(EntityId, has_prefix("cx:entity:"));
-id_type!(RelationId, has_prefix("cx:relation:"));
-id_type!(EventId, |value: &str| value.starts_with("cx:event:") || is_hash(value));
-id_type!(CommitId, has_prefix("cx:commit:"));
-id_type!(OperationId, |value: &str| value.starts_with("cx:operation:") || is_hash(value));
-id_type!(GrantId, has_prefix("cx:grant:"));
-id_type!(InviteId, has_prefix("cx:invite:"));
-id_type!(DeviceId, |value: &str| (value.starts_with("dev_") && value.len() > "dev_".len())
-    || (value.starts_with("cx:device:") && value.len() > "cx:device:".len()));
-id_type!(PolicyId, has_prefix("cx:policy:"));
-id_type!(BlobRef, |value: &str| value.starts_with("cx:blob:") || is_hash(value));
-
-impl BlobRef {
-    /// Create a content-addressed `sha256:…` blob reference from raw bytes.
-    pub fn from_bytes(bytes: &[u8]) -> Self {
-        use sha2::{Digest, Sha256};
-        let digest = format!("sha256:{:x}", Sha256::digest(bytes));
-        // Safety: the digest is always a valid sha256:hash form.
-        Self(digest)
-    }
-}
-
-id_type!(ViewId, has_prefix("cx:view:"));
-id_type!(Hash, is_hash);
-id_type!(Cursor, has_prefix("cx:cursor:"));
-
-impl Did {
-    /// Generate a random canonical `did:uuid` value using UUIDv4 layout.
-    pub fn new_uuid_v4() -> Result<Self> {
-        let mut bytes = [0u8; 16];
-        getrandom::fill(&mut bytes).map_err(|error| Error::Crypto(error.to_string()))?;
-        Self::uuid_v4_from_bytes(bytes)
-    }
-
-    /// Build a canonical `did:uuid` value from raw UUIDv4 bytes.
-    pub fn uuid_v4_from_bytes(mut bytes: [u8; 16]) -> Result<Self> {
-        bytes[6] = (bytes[6] & 0x0f) | 0x40;
-        bytes[8] = (bytes[8] & 0x3f) | 0x80;
-        Self::new(format!("did:uuid:{}", format_uuid_bytes(bytes)))
-    }
-
-    /// Return the DID method name.
-    pub fn method(&self) -> &str {
-        self.0
-            .strip_prefix("did:")
-            .and_then(|remainder| remainder.split_once(':').map(|(method, _)| method))
-            .expect("DID constructed with method")
-    }
-
-    /// Return whether this DID uses the canonical `did:uuid` method form.
-    pub fn is_uuid(&self) -> bool {
-        self.method() == "uuid"
-    }
-}
-
-fn format_uuid_bytes(bytes: [u8; 16]) -> String {
-    format!(
-        "{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
-        bytes[0],
-        bytes[1],
-        bytes[2],
-        bytes[3],
-        bytes[4],
-        bytes[5],
-        bytes[6],
-        bytes[7],
-        bytes[8],
-        bytes[9],
-        bytes[10],
-        bytes[11],
-        bytes[12],
-        bytes[13],
-        bytes[14],
-        bytes[15]
-    )
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct Hlc(String);
-
-impl Hlc {
-    pub fn new(value: impl Into<String>) -> Result<Self> {
-        let value = value.into();
-        Self::parse_parts(&value)?;
-        Ok(Self(value))
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-
-    fn parse_parts(value: &str) -> Result<(u64, u64, &str)> {
-        let mut parts = value.split('-');
-        let unix_ms = parts
-            .next()
-            .ok_or_else(|| Error::InvalidId(value.to_owned()))
-            .and_then(|part| parse_lower_hex(part, value))?;
-        let logical = parts
-            .next()
-            .ok_or_else(|| Error::InvalidId(value.to_owned()))
-            .and_then(|part| parse_lower_hex(part, value))?;
-        let node = parts.next().ok_or_else(|| Error::InvalidId(value.to_owned()))?;
-        if parts.next().is_some()
-            || value.len() != 30
-            || value.as_bytes().get(12) != Some(&b'-')
-            || value.as_bytes().get(21) != Some(&b'-')
-            || node.is_empty()
-            || node.len() != 8
-            || !node.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
-        {
-            return Err(Error::InvalidId(value.to_owned()));
-        }
-        Ok((unix_ms, logical, node))
-    }
-}
-
-impl fmt::Display for Hlc {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
-    }
-}
-
-impl FromStr for Hlc {
-    type Err = Error;
-
-    fn from_str(value: &str) -> Result<Self> {
-        Self::new(value)
-    }
-}
-
-impl PartialOrd for Hlc {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for Hlc {
-    fn cmp(&self, other: &Self) -> Ordering {
-        let (self_ms, self_logical, self_node) =
-            Self::parse_parts(&self.0).expect("HLC constructed with valid parts");
-        let (other_ms, other_logical, other_node) =
-            Self::parse_parts(&other.0).expect("HLC constructed with valid parts");
-        (self_ms, self_logical, self_node).cmp(&(other_ms, other_logical, other_node))
-    }
-}
-
-fn parse_lower_hex(part: &str, original: &str) -> Result<u64> {
-    if part.is_empty()
-        || !matches!(part.len(), 8 | 12)
-        || !part.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
-    {
-        return Err(Error::InvalidId(original.to_owned()));
-    }
-    u64::from_str_radix(part, 16).map_err(|_| Error::InvalidId(original.to_owned()))
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1695,7 +1350,6 @@ pub enum ViewKind {
     MemoryReview,
     AgentRuns,
     ContextTimeline,
-    // Legacy alias
     ReviewQueue,
     Composite,
 }
@@ -2930,14 +2584,11 @@ impl Operation {
 pub struct OperationEnvelope {
     pub operation_id: OperationId,
     pub space_id: SpaceId,
-    #[serde(alias = "actor")]
     pub actor_id: Did,
-    #[serde(alias = "type")]
     pub kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub target_ref: Option<String>,
     pub causal: CausalRef,
-    #[serde(alias = "body")]
     pub content: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub authz_ref: Option<GrantId>,
@@ -3003,7 +2654,6 @@ pub struct OperationEnvelopeBuilder {
     content: Value,
     authz_ref: Option<GrantId>,
     proofs: Vec<Proof>,
-    profile: OperationCompatibilityProfile,
 }
 
 impl OperationEnvelopeBuilder {
@@ -3028,14 +2678,7 @@ impl OperationEnvelopeBuilder {
             content: Value::Object(Default::default()),
             authz_ref: None,
             proofs: Vec::new(),
-            profile: OperationCompatibilityProfile::CanonicalOnly,
         }
-    }
-
-    /// Allow legacy bare-name operation kinds for this builder.
-    pub fn with_compatibility_profile(mut self, profile: OperationCompatibilityProfile) -> Self {
-        self.profile = profile;
-        self
     }
 
     /// Set a target reference.
@@ -3081,7 +2724,7 @@ impl OperationEnvelopeBuilder {
 
     /// Build and validate the operation envelope against a registry.
     pub fn build(self, registry: &OperationKindRegistry) -> Result<OperationEnvelope> {
-        let validation = registry.canonicalize(&self.kind, self.profile)?;
+        let validation = registry.canonicalize(&self.kind)?;
         let envelope = OperationEnvelope {
             operation_id: self.operation_id,
             space_id: self.space_id,
@@ -3093,7 +2736,7 @@ impl OperationEnvelopeBuilder {
             authz_ref: self.authz_ref,
             proofs: self.proofs,
         };
-        registry.validate_envelope(&envelope, OperationCompatibilityProfile::CanonicalOnly)?;
+        registry.validate_envelope(&envelope)?;
         Ok(envelope)
     }
 }
@@ -3351,7 +2994,7 @@ impl EncryptedPayload {
         };
         let mut input = canonical::canonical_json_bytes(&metadata)?;
         input.extend_from_slice(ciphertext_bytes);
-        Hash::new(format!("sha256:{:x}", Sha256::digest(&input)))
+        Ok(Hash::new(format!("sha256:{:x}", Sha256::digest(&input)))?)
     }
 
     pub fn verify_mls_payload_digest(&self, ciphertext_bytes: &[u8]) -> Result<()> {
@@ -3711,8 +3354,6 @@ pub struct SyncResponse {
     pub next_batch: String,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub spaces: BTreeMap<SpaceId, SyncSpace>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub rooms: BTreeMap<SpaceId, SyncSpace>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub to_device: Vec<Value>,
     #[serde(default, skip_serializing_if = "Value::is_null")]
@@ -3726,9 +3367,9 @@ pub struct SyncResponse {
 }
 
 impl SyncResponse {
-    /// Native Contrix space map, falling back to Matrix bridge-compatible rooms.
+    /// Native Contrix space map.
     pub fn effective_spaces(&self) -> &BTreeMap<SpaceId, SyncSpace> {
-        if self.spaces.is_empty() { &self.rooms } else { &self.spaces }
+        &self.spaces
     }
 }
 
@@ -4658,57 +4299,15 @@ mod tests {
     }
 
     #[test]
-    fn operation_envelope_accepts_legacy_field_aliases() {
-        let envelope: OperationEnvelope = serde_json::from_value(json!({
-            "operation_id": "cx:operation:01js0op000000000000000000",
-            "space_id": "cx:space:01js0ke000000000000000000",
-            "actor": "did:web:alice.example",
-            "type": "cx.message.create",
-            "target_ref": "cx:thread:general",
-            "causal": {
-                "deps": [],
-                "hlc": "01970e589d21-00000004-a13f9c2e",
-                "actor_seq": 7
-            },
-            "body": {"body": "hello"},
-            "proofs": []
-        }))
-        .unwrap();
-
-        assert_eq!(envelope.actor_id.as_str(), "did:web:alice.example");
-        assert_eq!(envelope.kind, "cx.message.create");
-        assert_eq!(envelope.content["body"], "hello");
-        assert!(envelope.validate_for_submit().is_err());
-    }
-
-    #[test]
-    fn operation_kind_registry_canonicalizes_legacy_aliases_explicitly() {
+    fn operation_kind_registry_accepts_only_canonical_kinds() {
         let registry = OperationKindRegistry::default();
 
-        let canonical = registry
-            .canonicalize(OP_MESSAGE_CREATE, OperationCompatibilityProfile::CanonicalOnly)
-            .unwrap();
+        let canonical = registry.canonicalize(OP_MESSAGE_CREATE).unwrap();
         assert_eq!(canonical.canonical_kind, OP_MESSAGE_CREATE);
-        assert!(canonical.legacy_alias_used.is_none());
 
-        assert!(
-            registry
-                .canonicalize("message_create", OperationCompatibilityProfile::CanonicalOnly)
-                .is_err()
-        );
-        let legacy = registry
-            .canonicalize("message_create", OperationCompatibilityProfile::LegacyBareNames)
-            .unwrap();
-        assert_eq!(legacy.canonical_kind, OP_MESSAGE_CREATE);
-        assert_eq!(legacy.legacy_alias_used.as_deref(), Some("message_create"));
-        let legacy_task_move = registry
-            .canonicalize(OP_LEGACY_TASK_MOVE, OperationCompatibilityProfile::LegacyBareNames)
-            .unwrap();
-        assert_eq!(legacy_task_move.canonical_kind, OP_FIELD_POSITION_MOVE);
-        let legacy_relation_move = registry
-            .canonicalize(OP_LEGACY_RELATION_MOVE, OperationCompatibilityProfile::LegacyBareNames)
-            .unwrap();
-        assert_eq!(legacy_relation_move.canonical_kind, OP_CONTAINER_MOVE_ITEM);
+        assert!(registry.canonicalize("message_create").is_err());
+        assert!(registry.canonicalize("cx.task.move").is_err());
+        assert!(registry.canonicalize("cx.relation.move").is_err());
         assert_eq!(registry.kinds().count(), BUILT_IN_OPERATION_KINDS.len());
     }
 
@@ -4719,7 +4318,7 @@ mod tests {
             operation_id: OperationId::new("cx:operation:01js0op000000000000000000").unwrap(),
             space_id: SpaceId::new("cx:space:01js0ke000000000000000000").unwrap(),
             actor_id: Did::new("did:web:alice.example").unwrap(),
-            kind: "message_create".to_owned(),
+            kind: OP_MESSAGE_CREATE.to_owned(),
             target_ref: None,
             causal: CausalRef {
                 deps: Vec::new(),
@@ -4731,18 +4330,12 @@ mod tests {
             proofs: Vec::new(),
         };
 
-        let validation = registry
-            .validate_envelope(&envelope, OperationCompatibilityProfile::LegacyBareNames)
-            .unwrap();
+        let validation = registry.validate_envelope(&envelope).unwrap();
         assert_eq!(validation.canonical_kind, OP_MESSAGE_CREATE);
 
         let mut missing_body = envelope;
         missing_body.content = json!({});
-        assert!(
-            registry
-                .validate_envelope(&missing_body, OperationCompatibilityProfile::LegacyBareNames)
-                .is_err()
-        );
+        assert!(registry.validate_envelope(&missing_body).is_err());
     }
 
     #[test]
@@ -4766,9 +4359,7 @@ mod tests {
             }
             let envelope = builder.build(&registry).unwrap();
             assert_eq!(envelope.kind, *kind);
-            registry
-                .validate_envelope(&envelope, OperationCompatibilityProfile::CanonicalOnly)
-                .unwrap();
+            registry.validate_envelope(&envelope).unwrap();
         }
     }
 
@@ -4779,11 +4370,10 @@ mod tests {
             OperationId::new("cx:operation:builder-message").unwrap(),
             SpaceId::new("cx:space:01js0ke000000000000000000").unwrap(),
             Did::new("did:web:alice.example").unwrap(),
-            "message_create",
+            OP_MESSAGE_CREATE,
             1,
             Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap(),
-        )
-        .with_compatibility_profile(OperationCompatibilityProfile::LegacyBareNames);
+        );
 
         assert!(builder.clone().build(&registry).is_err());
         let envelope = builder.with_content_field("body", json!("hello")).build(&registry).unwrap();
@@ -4803,24 +4393,13 @@ mod tests {
     #[test]
     fn operation_kind_conformance_vectors_cover_every_builtin() {
         let vectors = operation_kind_conformance_vectors();
-        let expected_len = BUILT_IN_OPERATION_KINDS
-            .iter()
-            .map(|kind| 1 + legacy_aliases_for_operation_kind(kind).len())
-            .sum::<usize>();
-        assert_eq!(vectors.len(), expected_len);
+        assert_eq!(vectors.len(), BUILT_IN_OPERATION_KINDS.len());
         for kind in BUILT_IN_OPERATION_KINDS {
-            assert!(vectors.iter().any(|vector| {
-                vector.input_kind == *kind
-                    && vector.profile == OperationCompatibilityProfile::CanonicalOnly
-                    && vector.canonical_kind == *kind
-            }));
-            for alias in legacy_aliases_for_operation_kind(kind) {
-                assert!(vectors.iter().any(|vector| {
-                    vector.input_kind == alias
-                        && vector.profile == OperationCompatibilityProfile::LegacyBareNames
-                        && vector.canonical_kind == *kind
-                }));
-            }
+            assert!(
+                vectors
+                    .iter()
+                    .any(|vector| { vector.input_kind == *kind && vector.canonical_kind == *kind })
+            );
         }
     }
 
@@ -5373,7 +4952,7 @@ mod tests {
     }
 
     #[test]
-    fn sync_response_uses_native_spaces_and_bridge_rooms() {
+    fn sync_response_uses_native_spaces_only() {
         let response = SyncResponse {
             next_batch: "cx:sync:abc".to_owned(),
             spaces: BTreeMap::from([(
@@ -5390,7 +4969,6 @@ mod tests {
                     unread: Value::Null,
                 },
             )]),
-            rooms: BTreeMap::new(),
             to_device: Vec::new(),
             device_lists: Value::Null,
             account_data: Vec::new(),
@@ -5401,7 +4979,6 @@ mod tests {
         let value = serde_json::to_value(response).unwrap();
 
         assert!(value.get("spaces").unwrap().is_object());
-        assert!(value.get("rooms").is_none());
     }
 
     fn valid_proof() -> Proof {

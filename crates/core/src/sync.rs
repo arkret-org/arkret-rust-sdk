@@ -44,9 +44,6 @@ pub struct SyncResponse {
     /// Space sync results
     #[serde(default)]
     pub spaces: BTreeMap<String, SyncSpace>,
-    /// Matrix bridge compatibility. Native Contrix implementations should use `spaces`.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub rooms: BTreeMap<String, SyncSpace>,
     /// To-device messages
     #[serde(default)]
     pub to_device: Vec<ToDeviceMessage>,
@@ -691,8 +688,7 @@ impl SyncClient {
 
         // Extract updates
         let mut space_updates = Vec::new();
-        let spaces = if response.spaces.is_empty() { response.rooms } else { response.spaces };
-        for (space_id, sync_space) in spaces {
+        for (space_id, sync_space) in response.spaces {
             space_updates.push(SpaceUpdate {
                 space_id: SpaceId::new(space_id).unwrap(),
                 timeline: sync_space.timeline,
@@ -841,7 +837,6 @@ mod tests {
         let response = SyncResponse {
             next_batch: "token456".to_owned(),
             spaces: BTreeMap::new(),
-            rooms: BTreeMap::new(),
             to_device: vec![],
             device_lists: DeviceListChanges::default(),
             presence: vec![],

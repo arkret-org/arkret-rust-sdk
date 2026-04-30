@@ -852,7 +852,7 @@ impl PairwiseDidBinding {
             bytes[14],
             bytes[15]
         );
-        Did::new(format!("did:uuid:{uuid}"))
+        Ok(Did::new(format!("did:uuid:{uuid}"))?)
     }
 
     /// Build a deterministic proof allowing a scoped peer to resolve this binding.

@@ -72,9 +72,9 @@ proofs, signatures or private key references.
 ### Model Capability Facets
 
 Use `EntityFacet` as the primary capability signal for views, queries and
-capability constraints. `entity_type` remains available for legacy filtering and
-product labels, but authorization should prefer facet selectors such as
-`stateful + rankable` over type names such as `task`.
+capability constraints. `entity_type` remains available as a product label, but
+authorization should prefer facet selectors such as `stateful + rankable` over
+type names such as `task`.
 
 ### Send And Receive Encrypted Messages
 
@@ -89,9 +89,3 @@ The SDK ships a Salvo adapter behind the `salvo-adapter` feature. It adapts
 Salvo requests into the framework-independent `HttpAdapterRequest` shape and
 writes `HttpAdapterResponse` values back to Salvo responses without changing
 operation IDs.
-
-### Migrate From Matrix Concepts
-
-See `docs/migration-from-matrix.md` for the Matrix-to-Contrix mapping. Treat
-Contrix spaces as signed reducer state over repos rather than mutable room
-state snapshots.

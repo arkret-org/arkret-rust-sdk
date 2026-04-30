@@ -2313,14 +2313,14 @@ fn optional_string(content: &serde_json::Map<String, Value>, field: &str) -> Opt
 }
 
 fn optional_did(content: &serde_json::Map<String, Value>, field: &str) -> Result<Option<Did>> {
-    optional_string(content, field).map(Did::new).transpose()
+    Ok(optional_string(content, field).map(Did::new).transpose()?)
 }
 
 fn optional_space_id(
     content: &serde_json::Map<String, Value>,
     field: &str,
 ) -> Result<Option<SpaceId>> {
-    optional_string(content, field).map(SpaceId::new).transpose()
+    Ok(optional_string(content, field).map(SpaceId::new).transpose()?)
 }
 
 fn optional_from_value<T: serde::de::DeserializeOwned>(value: Option<&Value>) -> Result<Option<T>> {

@@ -7,7 +7,53 @@
 
 - 已有模型、canonical JSON/digest、HLC/cursor、operation/commit/capability、HTTP client、server endpoint registry、OpenMLS helpers 和大量本地 helper。
 - 仍有不少功能是 facade / in-memory / contract-level 支持，不能标记为生产完成。
-- 0.1.x 继续作为 release-candidate；稳定版需要真实服务互操作、持久 store、外部安全审计、OpenAPI review 和 semver API freeze。
+- 当前阶段允许破坏性更新，优先快速收敛到完整 Contrix-native 协议能力；不保留 legacy / Matrix 兼容 API。
+- 0.1.x 继续作为 release-candidate；稳定版需要真实服务互操作、持久 store、外部安全审计、OpenAPI review 和 API freeze。
+
+## P0: Matrix / Ruma Maturity Gap Roadmap
+
+目标: 用 Matrix SDK / Ruma 的成熟度做参照，补齐 Contrix SDK 的协议深度、生产 runtime、持久化、crypto、联邦和 conformance，而不是只做表面 crate 拆分。
+
+基准差距:
+
+- 当前 Contrix SDK 约 55 个 Rust 文件、3.9 万行；本地 `matrix-rust-sdk` 约 468 个文件、18.6 万行；本地 `ruma` 约 816 个文件、11.2 万行。
+- 当前代码已有较宽的协议面，但很多能力仍偏 contract / facade / in-memory，需要生产实现、互操作证据和协议级测试。
+- 下一阶段优先做“基础层拆分 + 行为闭环”，每次拆 crate 都必须带来更清晰的所有权、验证边界或生产实现。
+- 旧 release evidence 中的 `contrix-sdk` 是重组前包名；当前 umbrella package 是 `contrix`，crate 目录是 `crates/sdk`。
+
+协议 crate 拓扑:
+
+- [x] 新增 `crates/identifiers` / `contrix-identifiers`，对齐 Ruma 的 identifiers-validation 边界。
+- [x] `contrix-core` 重导出 identifiers，保持 `contrix::{Did, SpaceId, Hlc, ...}` 使用路径。
+- [x] identifier Serde 反序列化走构造器校验，避免无校验 wire value 进入模型。
+- [x] 移除 operation legacy alias/profile，只接受 canonical `cx.*` operation kind。
+- [x] 移除 sync `rooms` fallback，wire response 只保留 native `spaces`。
+- [x] 移除 Matrix device scope 解析，只接受 `urn:contrix:client:device:{id}`。
+- [x] 移除 agent `Legacy` 协议 variant 和 A2A legacy bridge helper。
+- [ ] 从 `core/src/model.rs` 继续拆出 `events` / `operations` / `schema` / `api` 模块或 crate，降低巨型 model 文件风险。
+- [ ] 明确 `core` 只保留稳定协议模型和 canonical helpers；runtime 状态机继续向 `sdk` 或专门 crate 下沉。
+
+生产 runtime 缺口:
+
+- [ ] Server runtime: 把 endpoint registry 接到真实 request dispatch、authn/authz、idempotency、rate limit、error envelope 和 Salvo route 生成。
+  - [x] 提供 framework-independent routed dispatch，统一 route match、path params、query token 拒绝、standard error envelope 和 `X-Contrix-Operation-Id` response header。
+  - [x] 将 routed dispatch 接入 Salvo adapter 自动路由注册，并加 catch-all 返回 Contrix 标准错误 envelope。
+  - [x] 接入 framework-independent authn/authz/idempotency/rate-limit middleware：Bearer token principal、operation scope authorizer、mutating endpoint idempotency key enforcement、idempotent response replay/conflict detection、per-principal operation rate limit。
+  - [ ] 将 middleware 状态后端从内存实现扩展到服务自有持久/分布式 store。
+- [ ] Client runtime: 补全离线发送队列、幂等重试、增量恢复、gap repair、分页和通知联动。
+  - [x] HTTP client retry 不再热循环：支持 bounded exponential backoff，并按 `Retry-After` 等待 429/503 等 transient status。
+  - [x] 本地 sync/send queue 已有 idempotent transaction、retry timestamp、snapshot/restore 和 dependent cancellation。
+  - [ ] 将 HTTP retry、send queue、sync gap repair 和通知联动合并成统一 durable client runtime。
+- [ ] Store runtime: 将当前 trait / in-memory 能力推进到真实 SQLite / IndexedDB adapter、迁移、崩溃恢复和并发行为。
+- [ ] Crypto runtime: 补齐多设备密钥生命周期、设备验证、备份恢复、迁移、失败恢复和跨实现向量。
+- [ ] Federation runtime: 补齐事务验签、重放窗口、fork/quarantine、backfill authorization、pull/push 互操作流程。
+
+Conformance 和发布门禁:
+
+- [ ] 将 golden vectors、negative wire vectors、schema compatibility、state resolution、sync 和 federation 测试外置成可复用 fixture 包。
+- [ ] 增加 property / fuzz 测试目标，优先覆盖 canonical JSON、identifier parsing、operation envelope、cursor 和 authz reducer。
+- [ ] 建立跨实现 interop suite：client-server、server-federation、encrypted space/group、identity registry、push gateway。
+- [ ] 更新 release evidence，区分“contract 已有”“本地 helper 已有”“生产 adapter 已有”“通过真实互操作”。
 
 ## P0: Spec Drift - Facets, Renderers and Canonical Position Operations
 
@@ -25,7 +71,7 @@
   - [x] schema registry 发布 `VIEW_SCHEMA` 并覆盖 facet-based query fixture。
 - [x] Operation registry:
   - [x] 新增 canonical `cx.field_position.move`、`cx.field_position.reorder`、`cx.container.move_item`、`cx.container.rebalance`。
-  - [x] 旧 `cx.task.move`、`cx.task.reorder`、`cx.relation.move`、`cx.relation.rebalance` 只作为显式 legacy alias。
+  - [x] 旧 `cx.task.move`、`cx.task.reorder`、`cx.relation.move`、`cx.relation.rebalance` 已移除。
   - [x] operation builders 和 conformance vectors 使用新 canonical 名称。
 - [x] Grant constraints:
   - [x] `Constraint::TypeRestriction` 支持 `allowed_entity_facets`。
@@ -164,7 +210,7 @@
   - [x] canonical `cx.*` operation ids。
   - [x] builders for each built-in operation。
   - [x] semantic validators。
-  - [x] legacy adapter profile only when explicitly enabled。
+  - [x] no legacy adapter profile。
 - [x] Test report:
   - [x] machine-readable pass/fail。
   - [x] profile coverage summary。
@@ -182,8 +228,8 @@
   - [x] configurable timeout/retry。
 - [x] Server contracts:
   - [x] framework-independent endpoint registry stays authoritative。
-  - [x] Axum adapter remains covered。
-  - [x] Salvo adapter added or explicitly deferred to server repos。
+  - [x] Axum support removed from SDK。
+  - [x] Salvo adapter is the current framework integration。
   - [x] OpenAPI export includes security schemes, headers, binary bodies and examples。
 - [x] Federation helpers:
   - [x] HTTP Message Signature canonical request hash。
@@ -204,7 +250,7 @@
   - [x] `SessionGrantPayload` with issuer/subject/principal DID/device/audience/scope/session/expires/revocation fields。
   - [x] durable `SessionGrantRecord` stores grant hash and revocation metadata without private key material。
   - [x] Principal Server notification request/response trait for created/revoked grants。
-  - [x] canonical `urn:contrix:client:device:{id}` scope helper with legacy Matrix compatibility gated explicitly。
+  - [x] canonical `urn:contrix:client:device:{id}` scope helper; Matrix scopes rejected。
   - [x] production JWT/JWS signing and verification adapter remains application-owned。
   - [x] durable outbox/retry implementation remains service-owned。
 - [x] Handle verification:

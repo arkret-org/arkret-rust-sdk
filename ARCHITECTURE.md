@@ -8,9 +8,10 @@ re-exports the cohesive public surface.
 application
     |
 contrix (umbrella SDK)
+    |-- contrix-identifiers: validated DIDs, typed IDs, hashes, cursors and HLC values
     |-- contrix-core: wire models, canonical JSON, sync/cursor and service metadata
     |-- contrix-client: HTTP client for Contrix service endpoints
-    |-- contrix-server: endpoint registry, adapter contracts, OpenAPI helpers and optional Salvo integration
+    |-- contrix-server: endpoint registry, routed dispatch, server middleware, adapter contracts, OpenAPI helpers and optional Salvo router
     |-- base/sync_client: local client state, response processing and sliding sync
     |-- membership/devices/receipts/notifications: client business state
     |-- content/media/profile/settings/search/discovery: feature helpers
@@ -22,11 +23,15 @@ contrix (umbrella SDK)
 
 ## Protocol Model
 
-`crates/core/src/model.rs` owns protocol identifiers, HLC ordering,
-object state enums, Space / ActorProfile / Entity / Relation / View objects,
-signed Events, canonical Operations, signed Operation envelopes, Commits,
-capability grants, policies, invites, read markers, notifications, blob
-metadata and service request/response envelopes.
+`crates/identifiers/src/lib.rs` owns identifier validation for DIDs, typed
+Contrix IDs, hashes, cursor tokens and HLC values. Serde decoding validates
+the same invariants as constructors so malformed wire identifiers fail at the
+edge.
+
+`crates/core/src/model.rs` owns object state enums, Space / ActorProfile /
+Entity / Relation / View objects, signed Events, canonical Operations, signed
+Operation envelopes, Commits, capability grants, policies, invites, read
+markers, notifications, blob metadata and service request/response envelopes.
 
 Model types should remain stable, explicit and serializable. Validation that is
 required for protocol safety belongs close to these types, especially when it

@@ -7,7 +7,10 @@
 #[cfg(feature = "salvo")]
 pub mod salvo_adapter;
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    time::{Duration, SystemTime},
+};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
@@ -38,7 +41,7 @@ use contrix_core::{
     RepoCommitsResponse, RepoDescription, RepoOperationsRequest, RepoOperationsResponse,
     RepoSyncRequest, RepoSyncResponse, Result, ServerDescription, SubmitCommitResponse,
     SubmitDidOperationRequest, SubmitDidOperationResponse, SyncBackfillResponse, SyncDescription,
-    SyncRequest, SyncResponse, SyncSnapshotHeadResponse,
+    SyncRequest, SyncResponse, SyncSnapshotHeadResponse, canonical,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -112,6 +115,13 @@ pub struct MatchedEndpoint<'a> {
     pub path_parameters: BTreeMap<String, String>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RoutedHttpAdapterRequest {
+    pub request: HttpAdapterRequest,
+    pub operation_id: &'static str,
+    pub path_parameters: BTreeMap<String, String>,
+}
+
 pub trait TowerLikeEndpointService {
     type Request;
     type Response;
@@ -128,6 +138,633 @@ where
 
     fn call(&mut self, request: Self::Request) -> Result<Self::Response> {
         self(request)
+    }
+}
+
+pub trait RoutedEndpointService {
+    fn call(&mut self, request: RoutedHttpAdapterRequest) -> Result<HttpAdapterResponse>;
+}
+
+impl<F> RoutedEndpointService for F
+where
+    F: FnMut(RoutedHttpAdapterRequest) -> Result<HttpAdapterResponse>,
+{
+    fn call(&mut self, request: RoutedHttpAdapterRequest) -> Result<HttpAdapterResponse> {
+        self(request)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ServerAuthenticationScheme {
+    Anonymous,
+    BearerToken,
+    HttpMessageSignature,
+    MutualTls,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AuthenticatedPrincipal {
+    pub subject: String,
+    pub scheme: ServerAuthenticationScheme,
+    pub scopes: BTreeSet<String>,
+}
+
+impl AuthenticatedPrincipal {
+    pub fn anonymous() -> Self {
+        Self {
+            subject: "anonymous".to_owned(),
+            scheme: ServerAuthenticationScheme::Anonymous,
+            scopes: BTreeSet::new(),
+        }
+    }
+
+    pub fn bearer(subject: impl Into<String>, scopes: impl IntoIterator<Item = String>) -> Self {
+        Self {
+            subject: subject.into(),
+            scheme: ServerAuthenticationScheme::BearerToken,
+            scopes: scopes.into_iter().collect(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ServerRequestContext {
+    pub operation_id: &'static str,
+    pub method: EndpointMethod,
+    pub path: String,
+    pub path_parameters: BTreeMap<String, String>,
+    pub headers: BTreeMap<String, String>,
+}
+
+impl ServerRequestContext {
+    pub fn from_routed_request(request: &RoutedHttpAdapterRequest) -> Self {
+        Self {
+            operation_id: request.operation_id,
+            method: request.request.method,
+            path: request.request.path.clone(),
+            path_parameters: request.path_parameters.clone(),
+            headers: request.request.headers.clone(),
+        }
+    }
+
+    pub fn header(&self, name: &str) -> Option<&str> {
+        header_value(&self.headers, name)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ServerMiddlewareRejection {
+    pub status: u16,
+    pub errcode: String,
+    pub error: String,
+    pub headers: BTreeMap<String, String>,
+}
+
+impl ServerMiddlewareRejection {
+    pub fn new(status: u16, errcode: impl Into<String>, error: impl Into<String>) -> Self {
+        Self { status, errcode: errcode.into(), error: error.into(), headers: BTreeMap::new() }
+    }
+
+    pub fn with_header(mut self, name: impl Into<String>, value: impl Into<String>) -> Self {
+        self.headers.insert(name.into(), value.into());
+        self
+    }
+
+    pub fn into_response(self) -> HttpAdapterResponse {
+        let mut response = adapter_error_response(self.status, self.errcode, self.error);
+        response.headers.extend(self.headers);
+        response
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ServerAuthenticationDecision {
+    Authenticated(AuthenticatedPrincipal),
+    Missing,
+    Denied(ServerMiddlewareRejection),
+}
+
+pub trait ServerAuthenticator {
+    fn authenticate(&mut self, context: &ServerRequestContext) -> ServerAuthenticationDecision;
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct BearerTokenAuthenticator {
+    tokens: BTreeMap<String, AuthenticatedPrincipal>,
+}
+
+impl BearerTokenAuthenticator {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn with_token(
+        mut self,
+        token: impl Into<String>,
+        principal: AuthenticatedPrincipal,
+    ) -> Self {
+        self.tokens.insert(token.into(), principal);
+        self
+    }
+
+    pub fn insert_token(&mut self, token: impl Into<String>, principal: AuthenticatedPrincipal) {
+        self.tokens.insert(token.into(), principal);
+    }
+}
+
+impl ServerAuthenticator for BearerTokenAuthenticator {
+    fn authenticate(&mut self, context: &ServerRequestContext) -> ServerAuthenticationDecision {
+        let Some(header) = context.header("authorization") else {
+            return ServerAuthenticationDecision::Missing;
+        };
+        let Some(token) = header.strip_prefix("Bearer ") else {
+            return ServerAuthenticationDecision::Denied(ServerMiddlewareRejection::new(
+                401,
+                "cx.error.unauthorized",
+                "Unsupported Authorization scheme",
+            ));
+        };
+        match self.tokens.get(token) {
+            Some(principal) => ServerAuthenticationDecision::Authenticated(principal.clone()),
+            None => ServerAuthenticationDecision::Denied(ServerMiddlewareRejection::new(
+                401,
+                "cx.error.unauthorized",
+                "Unknown bearer token",
+            )),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ServerAuthorizationDecision {
+    Allow,
+    Deny(ServerMiddlewareRejection),
+}
+
+pub trait ServerAuthorizer {
+    fn authorize(
+        &mut self,
+        context: &ServerRequestContext,
+        principal: &AuthenticatedPrincipal,
+    ) -> ServerAuthorizationDecision;
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct OperationScopeAuthorizer;
+
+impl OperationScopeAuthorizer {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl ServerAuthorizer for OperationScopeAuthorizer {
+    fn authorize(
+        &mut self,
+        context: &ServerRequestContext,
+        principal: &AuthenticatedPrincipal,
+    ) -> ServerAuthorizationDecision {
+        let operation_scope = format!("operation:{}", context.operation_id);
+        if principal.scopes.contains("*")
+            || principal.scopes.contains(context.operation_id)
+            || principal.scopes.contains(&operation_scope)
+        {
+            ServerAuthorizationDecision::Allow
+        } else {
+            ServerAuthorizationDecision::Deny(ServerMiddlewareRejection::new(
+                403,
+                "cx.error.forbidden",
+                format!(
+                    "principal '{}' lacks scope for {}",
+                    principal.subject, context.operation_id
+                ),
+            ))
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ServerIdempotencyKey {
+    pub principal: String,
+    pub operation_id: String,
+    pub key: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ServerIdempotencyDecision {
+    Miss,
+    Hit(HttpAdapterResponse),
+    Conflict(ServerMiddlewareRejection),
+}
+
+pub trait ServerIdempotencyStore {
+    fn lookup(
+        &mut self,
+        key: &ServerIdempotencyKey,
+        request_digest: &str,
+    ) -> ServerIdempotencyDecision;
+
+    fn store(
+        &mut self,
+        key: ServerIdempotencyKey,
+        request_digest: String,
+        response: &HttpAdapterResponse,
+    );
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct MemoryIdempotencyStore {
+    records: BTreeMap<ServerIdempotencyKey, MemoryIdempotencyRecord>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct MemoryIdempotencyRecord {
+    request_digest: String,
+    response: HttpAdapterResponse,
+}
+
+impl MemoryIdempotencyStore {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl ServerIdempotencyStore for MemoryIdempotencyStore {
+    fn lookup(
+        &mut self,
+        key: &ServerIdempotencyKey,
+        request_digest: &str,
+    ) -> ServerIdempotencyDecision {
+        match self.records.get(key) {
+            Some(record) if record.request_digest == request_digest => {
+                ServerIdempotencyDecision::Hit(record.response.clone())
+            }
+            Some(_) => ServerIdempotencyDecision::Conflict(ServerMiddlewareRejection::new(
+                409,
+                "cx.error.idempotency_conflict",
+                "Idempotency-Key was reused with different request bytes",
+            )),
+            None => ServerIdempotencyDecision::Miss,
+        }
+    }
+
+    fn store(
+        &mut self,
+        key: ServerIdempotencyKey,
+        request_digest: String,
+        response: &HttpAdapterResponse,
+    ) {
+        self.records
+            .insert(key, MemoryIdempotencyRecord { request_digest, response: response.clone() });
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ServerRateLimitDecision {
+    Allow,
+    Limited { retry_after_secs: u64 },
+}
+
+pub trait ServerRateLimiter {
+    fn check(&mut self, key: &str) -> ServerRateLimitDecision;
+}
+
+#[derive(Clone, Debug)]
+pub struct MemoryRateLimiter {
+    max_requests: u32,
+    window: Duration,
+    buckets: BTreeMap<String, RateLimitBucket>,
+}
+
+#[derive(Clone, Debug)]
+struct RateLimitBucket {
+    window_start: SystemTime,
+    count: u32,
+}
+
+impl MemoryRateLimiter {
+    pub fn new(max_requests: u32, window: Duration) -> Self {
+        Self { max_requests, window, buckets: BTreeMap::new() }
+    }
+}
+
+impl Default for MemoryRateLimiter {
+    fn default() -> Self {
+        Self::new(60, Duration::from_secs(60))
+    }
+}
+
+impl ServerRateLimiter for MemoryRateLimiter {
+    fn check(&mut self, key: &str) -> ServerRateLimitDecision {
+        if self.max_requests == 0 {
+            return ServerRateLimitDecision::Limited {
+                retry_after_secs: self.window.as_secs().max(1),
+            };
+        }
+
+        let now = SystemTime::now();
+        let bucket = self
+            .buckets
+            .entry(key.to_owned())
+            .or_insert(RateLimitBucket { window_start: now, count: 0 });
+
+        let elapsed = now.duration_since(bucket.window_start).unwrap_or_default();
+        if elapsed >= self.window {
+            bucket.window_start = now;
+            bucket.count = 0;
+        }
+
+        if bucket.count >= self.max_requests {
+            let retry_after_secs = self
+                .window
+                .checked_sub(elapsed)
+                .unwrap_or_else(|| Duration::from_secs(1))
+                .as_secs()
+                .max(1);
+            ServerRateLimitDecision::Limited { retry_after_secs }
+        } else {
+            bucket.count += 1;
+            ServerRateLimitDecision::Allow
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ServerMiddlewareConfig {
+    pub require_authentication: bool,
+    pub public_operations: BTreeSet<String>,
+    pub require_idempotency_key_for_mutations: bool,
+    pub enable_idempotency: bool,
+    pub enable_rate_limit: bool,
+    pub idempotency_header: String,
+}
+
+impl Default for ServerMiddlewareConfig {
+    fn default() -> Self {
+        Self {
+            require_authentication: true,
+            public_operations: default_public_operations(),
+            require_idempotency_key_for_mutations: true,
+            enable_idempotency: true,
+            enable_rate_limit: true,
+            idempotency_header: "Idempotency-Key".to_owned(),
+        }
+    }
+}
+
+pub fn default_public_operations() -> BTreeSet<String> {
+    [
+        "cx.server.describe",
+        "cx.identity.describe_registry",
+        "cx.repo.describe",
+        "cx.sync.describe",
+        "cx.index.describe",
+        "cx.directory.describe",
+        "cx.applet.ping",
+        "cx.applet.describe",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect()
+}
+
+pub struct ServerMiddlewareStack<S> {
+    service: S,
+    config: ServerMiddlewareConfig,
+    authenticator: Box<dyn ServerAuthenticator + Send>,
+    authorizer: Box<dyn ServerAuthorizer + Send>,
+    idempotency_store: Box<dyn ServerIdempotencyStore + Send>,
+    rate_limiter: Box<dyn ServerRateLimiter + Send>,
+}
+
+impl<S> ServerMiddlewareStack<S> {
+    pub fn new(service: S) -> Self {
+        Self {
+            service,
+            config: ServerMiddlewareConfig::default(),
+            authenticator: Box::new(BearerTokenAuthenticator::default()),
+            authorizer: Box::new(OperationScopeAuthorizer),
+            idempotency_store: Box::new(MemoryIdempotencyStore::default()),
+            rate_limiter: Box::new(MemoryRateLimiter::default()),
+        }
+    }
+
+    pub fn with_config(mut self, config: ServerMiddlewareConfig) -> Self {
+        self.config = config;
+        self
+    }
+
+    pub fn with_authenticator<A>(mut self, authenticator: A) -> Self
+    where
+        A: ServerAuthenticator + Send + 'static,
+    {
+        self.authenticator = Box::new(authenticator);
+        self
+    }
+
+    pub fn with_authorizer<A>(mut self, authorizer: A) -> Self
+    where
+        A: ServerAuthorizer + Send + 'static,
+    {
+        self.authorizer = Box::new(authorizer);
+        self
+    }
+
+    pub fn with_idempotency_store<I>(mut self, idempotency_store: I) -> Self
+    where
+        I: ServerIdempotencyStore + Send + 'static,
+    {
+        self.idempotency_store = Box::new(idempotency_store);
+        self
+    }
+
+    pub fn with_rate_limiter<R>(mut self, rate_limiter: R) -> Self
+    where
+        R: ServerRateLimiter + Send + 'static,
+    {
+        self.rate_limiter = Box::new(rate_limiter);
+        self
+    }
+}
+
+impl<S> RoutedEndpointService for ServerMiddlewareStack<S>
+where
+    S: RoutedEndpointService,
+{
+    fn call(&mut self, request: RoutedHttpAdapterRequest) -> Result<HttpAdapterResponse> {
+        let context = ServerRequestContext::from_routed_request(&request);
+        let public_operation = self.config.public_operations.contains(context.operation_id);
+
+        let auth_decision = self.authenticator.authenticate(&context);
+        let principal = match auth_decision {
+            ServerAuthenticationDecision::Authenticated(principal) => principal,
+            ServerAuthenticationDecision::Missing if public_operation => {
+                AuthenticatedPrincipal::anonymous()
+            }
+            ServerAuthenticationDecision::Missing if self.config.require_authentication => {
+                return Ok(ServerMiddlewareRejection::new(
+                    401,
+                    "cx.error.unauthorized",
+                    "Authentication is required for this Contrix endpoint",
+                )
+                .into_response());
+            }
+            ServerAuthenticationDecision::Missing => AuthenticatedPrincipal::anonymous(),
+            ServerAuthenticationDecision::Denied(rejection) => return Ok(rejection.into_response()),
+        };
+
+        if !public_operation {
+            match self.authorizer.authorize(&context, &principal) {
+                ServerAuthorizationDecision::Allow => {}
+                ServerAuthorizationDecision::Deny(rejection) => {
+                    return Ok(rejection.into_response());
+                }
+            }
+        }
+
+        let idempotency = self.prepare_idempotency(&request, &principal)?;
+        if let PreparedIdempotency::Hit(response) = idempotency {
+            return Ok(response);
+        }
+
+        if self.config.enable_rate_limit {
+            let rate_limit_key = format!("{}:{}", principal.subject, context.operation_id);
+            if let ServerRateLimitDecision::Limited { retry_after_secs } =
+                self.rate_limiter.check(&rate_limit_key)
+            {
+                return Ok(ServerMiddlewareRejection::new(
+                    429,
+                    "cx.error.rate_limited",
+                    "Contrix endpoint rate limit exceeded",
+                )
+                .with_header("Retry-After", retry_after_secs.to_string())
+                .into_response());
+            }
+        }
+
+        let response = self.service.call(request)?;
+        if let PreparedIdempotency::Miss { key, request_digest } = idempotency {
+            if response.status < 500 {
+                self.idempotency_store.store(key, request_digest, &response);
+            }
+        }
+        Ok(response)
+    }
+}
+
+enum PreparedIdempotency {
+    NotApplicable,
+    Miss { key: ServerIdempotencyKey, request_digest: String },
+    Hit(HttpAdapterResponse),
+}
+
+impl<S> ServerMiddlewareStack<S> {
+    fn prepare_idempotency(
+        &mut self,
+        request: &RoutedHttpAdapterRequest,
+        principal: &AuthenticatedPrincipal,
+    ) -> Result<PreparedIdempotency> {
+        if !self.config.enable_idempotency || !is_mutating_method(request.request.method) {
+            return Ok(PreparedIdempotency::NotApplicable);
+        }
+
+        let Some(header) = header_value(&request.request.headers, &self.config.idempotency_header)
+        else {
+            if self.config.require_idempotency_key_for_mutations {
+                return Ok(PreparedIdempotency::Hit(
+                    ServerMiddlewareRejection::new(
+                        428,
+                        "cx.error.idempotency_required",
+                        "Mutating Contrix endpoints require Idempotency-Key",
+                    )
+                    .into_response(),
+                ));
+            }
+            return Ok(PreparedIdempotency::NotApplicable);
+        };
+
+        let key = ServerIdempotencyKey {
+            principal: principal.subject.clone(),
+            operation_id: request.operation_id.to_owned(),
+            key: header.to_owned(),
+        };
+        let request_digest = routed_request_digest(request);
+        match self.idempotency_store.lookup(&key, &request_digest) {
+            ServerIdempotencyDecision::Miss => {
+                Ok(PreparedIdempotency::Miss { key, request_digest })
+            }
+            ServerIdempotencyDecision::Hit(response) => Ok(PreparedIdempotency::Hit(response)),
+            ServerIdempotencyDecision::Conflict(rejection) => {
+                Ok(PreparedIdempotency::Hit(rejection.into_response()))
+            }
+        }
+    }
+}
+
+fn is_mutating_method(method: EndpointMethod) -> bool {
+    matches!(method, EndpointMethod::Post | EndpointMethod::Put)
+}
+
+fn routed_request_digest(request: &RoutedHttpAdapterRequest) -> String {
+    let body_digest = canonical::sha256_digest(&request.request.body);
+    canonical::sha256_digest(format!(
+        "{}\n{}\n{}\n{}",
+        request.operation_id,
+        request.request.method.as_str(),
+        request.request.path,
+        body_digest
+    ))
+}
+
+fn header_value<'a>(headers: &'a BTreeMap<String, String>, name: &str) -> Option<&'a str> {
+    headers.iter().find(|(key, _)| key.eq_ignore_ascii_case(name)).map(|(_, value)| value.as_str())
+}
+
+pub fn dispatch_routed_http_request<S>(
+    service: &mut S,
+    request: HttpAdapterRequest,
+) -> HttpAdapterResponse
+where
+    S: RoutedEndpointService,
+{
+    if let Err(error) = reject_query_auth(&request.query) {
+        return adapter_error_response(400, "cx.error.bad_request", error.to_string());
+    }
+
+    let Some(matched) = match_endpoint(request.method, &request.path) else {
+        return adapter_error_response(404, "cx.error.not_found", "Contrix endpoint not found");
+    };
+    let operation_id = matched.contract.operation_id;
+
+    match service.call(RoutedHttpAdapterRequest {
+        request,
+        operation_id,
+        path_parameters: matched.path_parameters,
+    }) {
+        Ok(mut response) => {
+            response
+                .headers
+                .entry("X-Contrix-Operation-Id".to_owned())
+                .or_insert_with(|| operation_id.to_owned());
+            response
+        }
+        Err(error) => adapter_error_response(500, "cx.error.internal", error.to_string()),
+    }
+}
+
+fn adapter_error_response(
+    status: u16,
+    errcode: impl Into<String>,
+    error: impl Into<String>,
+) -> HttpAdapterResponse {
+    HttpAdapterResponse {
+        status,
+        headers: BTreeMap::from([("content-type".to_owned(), "application/json".to_owned())]),
+        body: serde_json::to_vec(&json!({
+            "errcode": errcode.into(),
+            "error": error.into(),
+        }))
+        .unwrap_or_default(),
     }
 }
 
@@ -1181,6 +1818,29 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
             expected_status: 401,
             expected_errcode: "cx.error.unauthorized".to_owned(),
         },
+        WireConformanceVector {
+            name: "missing_idempotency_key_rejected".to_owned(),
+            method: "POST".to_owned(),
+            path: "/api/v1/sync".to_owned(),
+            query: BTreeMap::new(),
+            headers: BTreeMap::from([("Authorization".to_owned(), "Bearer redacted".to_owned())]),
+            body: json!({}),
+            expected_status: 428,
+            expected_errcode: "cx.error.idempotency_required".to_owned(),
+        },
+        WireConformanceVector {
+            name: "idempotency_conflict_rejected".to_owned(),
+            method: "POST".to_owned(),
+            path: "/api/v1/sync".to_owned(),
+            query: BTreeMap::new(),
+            headers: BTreeMap::from([
+                ("Authorization".to_owned(), "Bearer redacted".to_owned()),
+                ("Idempotency-Key".to_owned(), "sync-1".to_owned()),
+            ]),
+            body: json!({"conflict": true}),
+            expected_status: 409,
+            expected_errcode: "cx.error.idempotency_conflict".to_owned(),
+        },
     ]
 }
 
@@ -1633,7 +2293,9 @@ fn openapi_responses(content_type: Option<&str>, schema: &str) -> Value {
         "403": { "$ref": "#/components/responses/ForbiddenError" },
         "404": { "$ref": "#/components/responses/NotFoundPrivacyError" },
         "405": { "$ref": "#/components/responses/MethodNotAllowedError" },
+        "409": { "$ref": "#/components/responses/IdempotencyConflictError" },
         "410": { "$ref": "#/components/responses/StaleCursorError" },
+        "428": { "$ref": "#/components/responses/IdempotencyRequiredError" },
         "429": { "$ref": "#/components/responses/RateLimitedError" },
         "503": { "$ref": "#/components/responses/UnavailableError" }
     })
@@ -1824,7 +2486,9 @@ fn openapi_response_components() -> Value {
         "ForbiddenError": error_response("Authenticated principal is not authorized", "ForbiddenError"),
         "NotFoundPrivacyError": error_response("Resource is nonexistent or invisible under privacy-preserving not-found semantics", "NotFoundPrivacyError"),
         "MethodNotAllowedError": error_response("HTTP method is not registered for this endpoint", "MethodNotAllowedError"),
+        "IdempotencyConflictError": error_response("Idempotency-Key was reused with different request bytes", "IdempotencyConflictError"),
         "StaleCursorError": error_response("Cursor is expired or no longer replayable", "StaleCursorError"),
+        "IdempotencyRequiredError": error_response("Mutating endpoint requires Idempotency-Key", "IdempotencyRequiredError"),
         "RateLimitedError": error_response("Request was rate limited", "RateLimitedError"),
         "UnavailableError": error_response("Service is temporarily unavailable", "UnavailableError"),
         "ErrorEnvelope": error_response("Standard Contrix error envelope", "BadRequestError")
@@ -1901,8 +2565,14 @@ fn openapi_examples() -> Value {
         "MethodNotAllowedError": {
             "value": { "errcode": "cx.error.method_not_allowed", "error": "Method not allowed" }
         },
+        "IdempotencyConflictError": {
+            "value": { "errcode": "cx.error.idempotency_conflict", "error": "Idempotency-Key was reused with different request bytes" }
+        },
         "StaleCursorError": {
             "value": { "errcode": "cx.error.stale_cursor", "error": "Cursor is expired" }
+        },
+        "IdempotencyRequiredError": {
+            "value": { "errcode": "cx.error.idempotency_required", "error": "Mutating Contrix endpoints require Idempotency-Key" }
         },
         "RateLimitedError": {
             "value": {
@@ -2003,8 +2673,10 @@ mod tests {
         let document = openapi_document();
         assert_eq!(document["openapi"], "3.1.0");
         assert!(document["paths"]["/api/v1/sync"]["post"]["responses"]["429"].is_object());
+        assert!(document["paths"]["/api/v1/sync"]["post"]["responses"]["428"].is_object());
         assert!(document["components"]["schemas"]["ErrorEnvelope"].is_object());
         assert!(document["components"]["responses"]["RateLimitedError"].is_object());
+        assert!(document["components"]["responses"]["IdempotencyConflictError"].is_object());
         assert!(document["components"]["securitySchemes"].get("queryToken").is_none());
         assert!(document["components"]["securitySchemes"]["bearerAuth"].is_object());
         assert!(document["components"]["securitySchemes"]["httpMessageSignature"].is_object());
@@ -2083,6 +2755,264 @@ mod tests {
     }
 
     #[test]
+    fn routed_http_dispatch_matches_registry_and_path_params() {
+        let mut service = |request: RoutedHttpAdapterRequest| {
+            assert_eq!(request.operation_id, "cx.applet.transaction");
+            assert_eq!(request.path_parameters["txn_id"], "txn_123");
+            Ok(HttpAdapterResponse {
+                status: 202,
+                headers: BTreeMap::new(),
+                body: request.request.body,
+            })
+        };
+
+        let response = dispatch_routed_http_request(
+            &mut service,
+            HttpAdapterRequest {
+                method: EndpointMethod::Put,
+                path: "/api/v1/applet/transactions/txn_123".to_owned(),
+                query: BTreeMap::new(),
+                headers: BTreeMap::new(),
+                body: br#"{"ok":true}"#.to_vec(),
+            },
+        );
+
+        assert_eq!(response.status, 202);
+        assert_eq!(response.headers["X-Contrix-Operation-Id"], "cx.applet.transaction");
+        assert_eq!(response.body, br#"{"ok":true}"#);
+    }
+
+    #[test]
+    fn routed_http_dispatch_rejects_query_auth_and_unknown_routes() {
+        use std::cell::Cell;
+
+        let called = Cell::new(false);
+        let mut service = |_request: RoutedHttpAdapterRequest| {
+            called.set(true);
+            Ok(HttpAdapterResponse { status: 200, headers: BTreeMap::new(), body: Vec::new() })
+        };
+
+        let rejected = dispatch_routed_http_request(
+            &mut service,
+            HttpAdapterRequest {
+                method: EndpointMethod::Get,
+                path: "/api/v1/server/describe".to_owned(),
+                query: BTreeMap::from([("access_token".to_owned(), "secret".to_owned())]),
+                headers: BTreeMap::new(),
+                body: Vec::new(),
+            },
+        );
+        assert_eq!(rejected.status, 400);
+        assert!(!called.get());
+
+        let missing = dispatch_routed_http_request(
+            &mut service,
+            HttpAdapterRequest {
+                method: EndpointMethod::Get,
+                path: "/api/v1/nope".to_owned(),
+                query: BTreeMap::new(),
+                headers: BTreeMap::new(),
+                body: Vec::new(),
+            },
+        );
+        assert_eq!(missing.status, 404);
+        assert!(!called.get());
+    }
+
+    #[test]
+    fn server_middleware_allows_public_describe_without_auth() {
+        use std::cell::Cell;
+
+        let called = Cell::new(false);
+        let service = |_request: RoutedHttpAdapterRequest| {
+            called.set(true);
+            Ok(HttpAdapterResponse {
+                status: 200,
+                headers: BTreeMap::new(),
+                body: br#"{"ok":true}"#.to_vec(),
+            })
+        };
+        let mut service = ServerMiddlewareStack::new(service);
+
+        let response = dispatch_routed_http_request(
+            &mut service,
+            HttpAdapterRequest {
+                method: EndpointMethod::Get,
+                path: "/api/v1/server/describe".to_owned(),
+                query: BTreeMap::new(),
+                headers: BTreeMap::new(),
+                body: Vec::new(),
+            },
+        );
+
+        assert_eq!(response.status, 200);
+        assert!(called.get());
+    }
+
+    #[test]
+    fn server_middleware_requires_auth_for_private_operations() {
+        use std::cell::Cell;
+
+        let called = Cell::new(false);
+        let service = |_request: RoutedHttpAdapterRequest| {
+            called.set(true);
+            Ok(HttpAdapterResponse { status: 200, headers: BTreeMap::new(), body: Vec::new() })
+        };
+        let mut service = ServerMiddlewareStack::new(service);
+
+        let response = dispatch_routed_http_request(
+            &mut service,
+            HttpAdapterRequest {
+                method: EndpointMethod::Post,
+                path: "/api/v1/sync".to_owned(),
+                query: BTreeMap::new(),
+                headers: BTreeMap::new(),
+                body: br#"{}"#.to_vec(),
+            },
+        );
+
+        assert_eq!(response.status, 401);
+        assert!(!called.get());
+    }
+
+    #[test]
+    fn server_middleware_enforces_operation_scope_and_idempotency() {
+        use std::cell::Cell;
+
+        let calls = Cell::new(0);
+        let service = |_request: RoutedHttpAdapterRequest| {
+            let call = calls.get() + 1;
+            calls.set(call);
+            Ok(HttpAdapterResponse {
+                status: 202,
+                headers: BTreeMap::new(),
+                body: format!("call-{call}").into_bytes(),
+            })
+        };
+        let authenticator = BearerTokenAuthenticator::new().with_token(
+            "sync-token",
+            AuthenticatedPrincipal::bearer(
+                "did:web:alice.example",
+                ["operation:cx.sync.client_sync".to_owned()],
+            ),
+        );
+        let mut service = ServerMiddlewareStack::new(service).with_authenticator(authenticator);
+
+        let request = || HttpAdapterRequest {
+            method: EndpointMethod::Post,
+            path: "/api/v1/sync".to_owned(),
+            query: BTreeMap::new(),
+            headers: BTreeMap::from([
+                ("Authorization".to_owned(), "Bearer sync-token".to_owned()),
+                ("Idempotency-Key".to_owned(), "sync-1".to_owned()),
+            ]),
+            body: br#"{"since":"s1"}"#.to_vec(),
+        };
+
+        let first = dispatch_routed_http_request(&mut service, request());
+        let second = dispatch_routed_http_request(&mut service, request());
+        assert_eq!(first.status, 202);
+        assert_eq!(second.status, 202);
+        assert_eq!(first.body, b"call-1");
+        assert_eq!(second.body, b"call-1");
+        assert_eq!(calls.get(), 1);
+
+        let conflict = dispatch_routed_http_request(
+            &mut service,
+            HttpAdapterRequest { body: br#"{"since":"s2"}"#.to_vec(), ..request() },
+        );
+        assert_eq!(conflict.status, 409);
+        assert_eq!(calls.get(), 1);
+    }
+
+    #[test]
+    fn server_middleware_rejects_missing_scope_and_missing_idempotency_key() {
+        let service = |_request: RoutedHttpAdapterRequest| {
+            Ok(HttpAdapterResponse { status: 200, headers: BTreeMap::new(), body: Vec::new() })
+        };
+        let authenticator = BearerTokenAuthenticator::new().with_token(
+            "wrong-token",
+            AuthenticatedPrincipal::bearer(
+                "did:web:alice.example",
+                ["operation:cx.repo.sync".to_owned()],
+            ),
+        );
+        let mut missing_scope =
+            ServerMiddlewareStack::new(service).with_authenticator(authenticator);
+
+        let forbidden = dispatch_routed_http_request(
+            &mut missing_scope,
+            HttpAdapterRequest {
+                method: EndpointMethod::Post,
+                path: "/api/v1/sync".to_owned(),
+                query: BTreeMap::new(),
+                headers: BTreeMap::from([
+                    ("Authorization".to_owned(), "Bearer wrong-token".to_owned()),
+                    ("Idempotency-Key".to_owned(), "sync-1".to_owned()),
+                ]),
+                body: br#"{}"#.to_vec(),
+            },
+        );
+        assert_eq!(forbidden.status, 403);
+
+        let authenticator = BearerTokenAuthenticator::new().with_token(
+            "sync-token",
+            AuthenticatedPrincipal::bearer(
+                "did:web:alice.example",
+                ["operation:cx.sync.client_sync".to_owned()],
+            ),
+        );
+        let service = |_request: RoutedHttpAdapterRequest| {
+            Ok(HttpAdapterResponse { status: 200, headers: BTreeMap::new(), body: Vec::new() })
+        };
+        let mut missing_idempotency =
+            ServerMiddlewareStack::new(service).with_authenticator(authenticator);
+        let rejected = dispatch_routed_http_request(
+            &mut missing_idempotency,
+            HttpAdapterRequest {
+                method: EndpointMethod::Post,
+                path: "/api/v1/sync".to_owned(),
+                query: BTreeMap::new(),
+                headers: BTreeMap::from([(
+                    "Authorization".to_owned(),
+                    "Bearer sync-token".to_owned(),
+                )]),
+                body: br#"{}"#.to_vec(),
+            },
+        );
+        assert_eq!(rejected.status, 428);
+    }
+
+    #[test]
+    fn server_middleware_rate_limits_before_service_call() {
+        use std::cell::Cell;
+
+        let calls = Cell::new(0);
+        let service = |_request: RoutedHttpAdapterRequest| {
+            calls.set(calls.get() + 1);
+            Ok(HttpAdapterResponse { status: 200, headers: BTreeMap::new(), body: Vec::new() })
+        };
+        let mut service = ServerMiddlewareStack::new(service)
+            .with_rate_limiter(MemoryRateLimiter::new(1, Duration::from_secs(60)));
+
+        let request = || HttpAdapterRequest {
+            method: EndpointMethod::Get,
+            path: "/api/v1/server/describe".to_owned(),
+            query: BTreeMap::new(),
+            headers: BTreeMap::new(),
+            body: Vec::new(),
+        };
+
+        let first = dispatch_routed_http_request(&mut service, request());
+        let second = dispatch_routed_http_request(&mut service, request());
+        assert_eq!(first.status, 200);
+        assert_eq!(second.status, 429);
+        let retry_after = second.headers["Retry-After"].parse::<u64>().unwrap();
+        assert!((1..=60).contains(&retry_after));
+        assert_eq!(calls.get(), 1);
+    }
+
+    #[test]
     fn query_auth_and_wire_negative_vectors_are_available() {
         let query = BTreeMap::from([("access_token".to_owned(), "secret".to_owned())]);
         assert!(reject_query_auth(&query).is_err());
@@ -2090,6 +3020,9 @@ mod tests {
         let vectors = wire_negative_vectors();
         assert!(vectors.iter().any(|vector| vector.name == "query_auth_rejected"));
         assert!(vectors.iter().any(|vector| vector.expected_errcode == "cx.error.bad_digest"));
+        assert!(
+            vectors.iter().any(|vector| vector.expected_errcode == "cx.error.idempotency_required")
+        );
 
         let golden = protocol_golden_vectors();
         assert!(golden.iter().any(|vector| vector.profile == "cx.conformance.digest.v1"));

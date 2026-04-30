@@ -8,32 +8,46 @@
 //! ```no_run
 //! use std::collections::BTreeMap;
 //! use contrix_server::{
-//!     HttpAdapterRequest, HttpAdapterResponse,
-//!     salvo_adapter::contrix_handler,
+//!     HttpAdapterResponse, RoutedHttpAdapterRequest,
+//!     salvo_adapter::contrix_router,
 //! };
 //!
-//! let handler = contrix_handler(|_request: HttpAdapterRequest| {
+//! let router = contrix_router(|_request: RoutedHttpAdapterRequest| {
 //!     Ok(HttpAdapterResponse { status: 200, headers: BTreeMap::new(), body: Vec::new() })
 //! });
 //! ```
 
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, Mutex},
+};
 
 use salvo::{
-    Depot, FlowCtrl, Handler, Request, Response, async_trait,
+    Depot, FlowCtrl, Handler, Request, Response, Router, async_trait,
     http::{HeaderName, HeaderValue, Method, StatusCode},
 };
 
-use crate::{EndpointMethod, HttpAdapterRequest, HttpAdapterResponse};
+use crate::{
+    EndpointContract, EndpointMethod, HttpAdapterRequest, HttpAdapterResponse,
+    RoutedEndpointService, dispatch_routed_http_request, endpoint_contracts,
+};
 
 /// Convert a Salvo `Request` into a framework-independent `HttpAdapterRequest`.
-pub async fn salvo_to_adapter_request(request: &mut Request) -> HttpAdapterRequest {
+pub async fn salvo_to_adapter_request(
+    request: &mut Request,
+) -> Result<HttpAdapterRequest, HttpAdapterResponse> {
     let method = match *request.method() {
         Method::GET => EndpointMethod::Get,
         Method::HEAD => EndpointMethod::Head,
         Method::POST => EndpointMethod::Post,
         Method::PUT => EndpointMethod::Put,
-        _ => EndpointMethod::Get,
+        _ => {
+            return Err(salvo_adapter_error_response(
+                405,
+                "cx.error.method_not_allowed",
+                "Unsupported Contrix endpoint method",
+            ));
+        }
     };
 
     let path = request.uri().path().to_owned();
@@ -55,7 +69,7 @@ pub async fn salvo_to_adapter_request(request: &mut Request) -> HttpAdapterReque
 
     let body = request.payload().await.map(|bytes| bytes.to_vec()).unwrap_or_default();
 
-    HttpAdapterRequest { method, path, query, headers, body }
+    Ok(HttpAdapterRequest { method, path, query, headers, body })
 }
 
 /// Write a framework-independent `HttpAdapterResponse` into a Salvo `Response`.
@@ -85,6 +99,22 @@ pub fn adapter_response_to_salvo(adapter_response: HttpAdapterResponse) -> Respo
     response
 }
 
+fn salvo_adapter_error_response(
+    status: u16,
+    errcode: impl Into<String>,
+    error: impl Into<String>,
+) -> HttpAdapterResponse {
+    HttpAdapterResponse {
+        status,
+        headers: BTreeMap::from([("content-type".to_owned(), "application/json".to_owned())]),
+        body: serde_json::to_vec(&serde_json::json!({
+            "errcode": errcode.into(),
+            "error": error.into(),
+        }))
+        .unwrap_or_default(),
+    }
+}
+
 /// Salvo `Handler` wrapper around a Contrix endpoint service closure.
 pub struct ContrixSalvoHandler<F> {
     service: F,
@@ -108,21 +138,16 @@ where
         response: &mut Response,
         _ctrl: &mut FlowCtrl,
     ) {
-        let adapter_request = salvo_to_adapter_request(request).await;
+        let adapter_request = match salvo_to_adapter_request(request).await {
+            Ok(request) => request,
+            Err(response_body) => {
+                write_adapter_response_to_salvo(response_body, response);
+                return;
+            }
+        };
         let adapter_response = match (self.service)(adapter_request) {
             Ok(response) => response,
-            Err(error) => HttpAdapterResponse {
-                status: 500,
-                headers: BTreeMap::from([(
-                    "content-type".to_owned(),
-                    "application/json".to_owned(),
-                )]),
-                body: serde_json::to_vec(&serde_json::json!({
-                    "error": "internal_error",
-                    "message": error.to_string(),
-                }))
-                .unwrap_or_default(),
-            },
+            Err(error) => salvo_adapter_error_response(500, "cx.error.internal", error.to_string()),
         };
         write_adapter_response_to_salvo(adapter_response, response);
     }
@@ -137,6 +162,100 @@ where
     F: Fn(HttpAdapterRequest) -> contrix_core::Result<HttpAdapterResponse> + Send + Sync + 'static,
 {
     ContrixSalvoHandler::new(service)
+}
+
+/// Salvo `Handler` wrapper that dispatches through the Contrix endpoint registry.
+pub struct ContrixRoutedSalvoHandler<S> {
+    service: Arc<Mutex<S>>,
+}
+
+impl<S> Clone for ContrixRoutedSalvoHandler<S> {
+    fn clone(&self) -> Self {
+        Self { service: Arc::clone(&self.service) }
+    }
+}
+
+impl<S> ContrixRoutedSalvoHandler<S> {
+    pub fn new(service: S) -> Self {
+        Self { service: Arc::new(Mutex::new(service)) }
+    }
+}
+
+#[async_trait]
+impl<S> Handler for ContrixRoutedSalvoHandler<S>
+where
+    S: RoutedEndpointService + Send + 'static,
+{
+    async fn handle(
+        &self,
+        request: &mut Request,
+        _depot: &mut Depot,
+        response: &mut Response,
+        _ctrl: &mut FlowCtrl,
+    ) {
+        let adapter_request = match salvo_to_adapter_request(request).await {
+            Ok(request) => request,
+            Err(response_body) => {
+                write_adapter_response_to_salvo(response_body, response);
+                return;
+            }
+        };
+
+        let adapter_response = match self.service.lock() {
+            Ok(mut service) => dispatch_routed_http_request(&mut *service, adapter_request),
+            Err(_) => salvo_adapter_error_response(
+                500,
+                "cx.error.internal",
+                "Contrix endpoint service lock poisoned",
+            ),
+        };
+        write_adapter_response_to_salvo(adapter_response, response);
+    }
+}
+
+/// Create a Salvo handler that matches routes through the Contrix endpoint registry.
+pub fn contrix_routed_handler<S>(service: S) -> ContrixRoutedSalvoHandler<S>
+where
+    S: RoutedEndpointService + Send + 'static,
+{
+    ContrixRoutedSalvoHandler::new(service)
+}
+
+/// Build a Salvo `Router` for every registered Contrix endpoint.
+///
+/// The generated router adds a catch-all route after the explicit endpoint
+/// routes, so unknown Contrix paths still return the SDK's standard error
+/// envelope instead of a framework-specific 404 body.
+pub fn contrix_router<S>(service: S) -> Router
+where
+    S: RoutedEndpointService + Send + 'static,
+{
+    let handler = contrix_routed_handler(service);
+    let mut router = endpoint_contracts().iter().fold(Router::new(), |router, endpoint| {
+        router.push(salvo_route_for_endpoint(endpoint, handler.clone()))
+    });
+    router = router.push(Router::with_path("{**contrix_rest}").goal(handler));
+    router
+}
+
+fn salvo_route_for_endpoint<S>(
+    endpoint: &EndpointContract,
+    handler: ContrixRoutedSalvoHandler<S>,
+) -> Router
+where
+    S: RoutedEndpointService + Send + 'static,
+{
+    let route = Router::with_path(salvo_path_pattern(endpoint.path));
+    match endpoint.method {
+        EndpointMethod::Get => route.get(handler),
+        EndpointMethod::Head => route.head(handler),
+        EndpointMethod::Post => route.post(handler),
+        EndpointMethod::Put => route.put(handler),
+    }
+}
+
+fn salvo_path_pattern(path: &str) -> String {
+    path.trim_start_matches('/').to_owned()
 }
 
 #[cfg(test)]
@@ -168,5 +287,25 @@ mod tests {
         };
         let salvo_response = adapter_response_to_salvo(response).into_hyper();
         assert_eq!(salvo_response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[test]
+    fn contrix_router_registers_endpoint_registry_routes() {
+        let router = contrix_router(|_request| {
+            Ok(HttpAdapterResponse { status: 200, headers: BTreeMap::new(), body: Vec::new() })
+        });
+
+        assert_eq!(router.routers().len(), endpoint_contracts().len() + 1);
+        let debug = format!("{router:?}");
+        assert!(debug.contains("api/v1/server/describe"));
+        assert!(debug.contains("[GET]"));
+        assert!(debug.contains("api/v1/applet/transactions/{txn_id}"));
+        assert!(debug.contains("[PUT]"));
+        assert!(debug.contains("{**contrix_rest}"));
+    }
+
+    #[test]
+    fn salvo_path_patterns_are_relative_to_router_root() {
+        assert_eq!(salvo_path_pattern("/api/v1/server/describe"), "api/v1/server/describe");
     }
 }

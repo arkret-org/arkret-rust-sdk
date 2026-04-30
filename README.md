@@ -28,8 +28,9 @@ The workspace is split into focused crates and the top-level `contrix` crate
 re-exports the public SDK surface:
 
 - `contrix-core`: protocol identifiers, canonical JSON, wire models, sync/cursor types and service metadata
+- `contrix-identifiers`: validated DIDs, typed IDs, hashes, cursors and HLC values
 - `contrix-client`: HTTP client bindings
-- `contrix-server`: framework-independent endpoint registry, OpenAPI helpers and optional Salvo adapter
+- `contrix-server`: framework-independent endpoint registry, routed dispatch, server middleware, OpenAPI helpers and optional Salvo router
 - `contrix`: umbrella SDK crate with high-level state managers and feature forwarding
 
 The workspace default members include all crates:
@@ -47,7 +48,6 @@ cargo test
 - [Sync best practices](docs/sync-best-practices.md)
 - [Feature matrix](docs/feature-matrix.md)
 - [Release readiness](docs/release-readiness.md)
-- [Matrix migration notes](docs/migration-from-matrix.md)
 - [Security audit checklist](docs/security-audit.md)
 - [Conformance certification](docs/conformance-certification.md)
 - [LTS policy](docs/lts-policy.md)
@@ -59,7 +59,7 @@ The first Contrix crate currently includes:
 - v1 identifiers and protocol constants
 - canonical JSON and SHA-256 digest helpers
 - Space, ActorProfile, Entity, Relation, Event, View, Operation, Commit and Capability models
-- protocol-shaped Query and Client Sync response models (`space_ids`, filter arrays, `rooms`)
+- protocol-shaped Query and Client Sync response models (`space_ids`, filter arrays, `spaces`)
 - Event and Commit digest payload calculation
 - HLC parsing and deterministic ordering
 - Proof signature-binding payload calculation
@@ -69,8 +69,8 @@ The first Contrix crate currently includes:
 - OpenMLS-backed group creation, member add, Welcome join, payload encryption and decryption
 - in-memory Repo store with idempotent operation/commit insertion and conflict detection
 - Server description and profile version checks
-- HTTP client methods for the Contrix v1 service HTTP binding
-- framework-independent server endpoint registry and OpenAPI export helper
+- HTTP client methods for the Contrix v1 service HTTP binding, including request metadata, retry/backoff and `Retry-After` handling
+- framework-independent server endpoint registry, routed dispatch, auth/idempotency/rate-limit middleware, Salvo router and OpenAPI export helper
 - high-level sync loop, membership, devices, receipts, notifications, content,
   media, profile/settings, discovery, E2EE, auth/identity, federation, push,
   typing, WebRTC, store and event-handler helpers

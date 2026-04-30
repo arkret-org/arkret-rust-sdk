@@ -152,7 +152,6 @@ fn interoperability_serialization_roundtrips() {
     let response = SyncResponse {
         next_batch: "s1".to_owned(),
         spaces,
-        rooms: BTreeMap::new(),
         to_device: Vec::new(),
         device_lists: DeviceListChanges::default(),
         presence: Vec::new(),

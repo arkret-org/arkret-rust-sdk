@@ -6,6 +6,7 @@ use reqwest::{
 };
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
+use tokio::time::sleep;
 use url::Url;
 
 use contrix_core::{
@@ -94,6 +95,9 @@ pub struct RetryConfig {
     pub max_retries: usize,
     pub retry_statuses: Vec<u16>,
     pub retry_network_errors: bool,
+    pub base_delay: Duration,
+    pub max_delay: Duration,
+    pub respect_retry_after: bool,
 }
 
 impl RetryConfig {
@@ -102,15 +106,64 @@ impl RetryConfig {
             max_retries: 0,
             retry_statuses: standard_retry_statuses(),
             retry_network_errors: true,
+            base_delay: Duration::ZERO,
+            max_delay: Duration::ZERO,
+            respect_retry_after: true,
         }
     }
 
     pub fn standard(max_retries: usize) -> Self {
-        Self { max_retries, retry_statuses: standard_retry_statuses(), retry_network_errors: true }
+        Self {
+            max_retries,
+            retry_statuses: standard_retry_statuses(),
+            retry_network_errors: true,
+            base_delay: Duration::from_millis(100),
+            max_delay: Duration::from_secs(5),
+            respect_retry_after: true,
+        }
+    }
+
+    pub fn with_base_delay(mut self, base_delay: Duration) -> Self {
+        self.base_delay = base_delay;
+        self
+    }
+
+    pub fn with_max_delay(mut self, max_delay: Duration) -> Self {
+        self.max_delay = max_delay;
+        self
+    }
+
+    pub fn respect_retry_after(mut self, respect_retry_after: bool) -> Self {
+        self.respect_retry_after = respect_retry_after;
+        self
     }
 
     fn should_retry_status(&self, status: StatusCode) -> bool {
         self.retry_statuses.contains(&status.as_u16())
+    }
+
+    fn retry_delay(&self, attempt: usize) -> Duration {
+        if self.base_delay.is_zero() {
+            return Duration::ZERO;
+        }
+        let shift = attempt.saturating_sub(1).min(31) as u32;
+        let factor = 1u32.checked_shl(shift).unwrap_or(u32::MAX);
+        let delay = self.base_delay.saturating_mul(factor);
+        if self.max_delay.is_zero() { delay } else { std::cmp::min(delay, self.max_delay) }
+    }
+
+    fn retry_delay_from_headers(&self, headers: &HeaderMap, attempt: usize) -> Duration {
+        if self.respect_retry_after {
+            if let Some(retry_after_ms) = retry_after_ms(headers) {
+                let retry_after = Duration::from_millis(retry_after_ms);
+                return if self.max_delay.is_zero() {
+                    retry_after
+                } else {
+                    std::cmp::min(retry_after, self.max_delay)
+                };
+            }
+        }
+        self.retry_delay(attempt)
     }
 }
 
@@ -970,6 +1023,7 @@ impl Client {
                         && self.retry.should_retry_status(response.status()) =>
                 {
                     attempts += 1;
+                    sleep(self.retry.retry_delay_from_headers(response.headers(), attempts)).await;
                 }
                 Ok(response) => return Ok(response),
                 Err(error)
@@ -979,6 +1033,7 @@ impl Client {
                     if !error.is_connect() && !error.is_timeout() {
                         return Err(error.into());
                     }
+                    sleep(self.retry.retry_delay(attempts)).await;
                 }
                 Err(error) => return Err(error.into()),
             }
@@ -1208,5 +1263,30 @@ mod tests {
         assert!(retry.should_retry_status(StatusCode::TOO_MANY_REQUESTS));
         assert!(retry.should_retry_status(StatusCode::SERVICE_UNAVAILABLE));
         assert!(!retry.should_retry_status(StatusCode::BAD_REQUEST));
+    }
+
+    #[test]
+    fn retry_config_uses_bounded_exponential_backoff() {
+        let retry = RetryConfig::standard(4)
+            .with_base_delay(Duration::from_millis(25))
+            .with_max_delay(Duration::from_millis(80));
+
+        assert_eq!(retry.retry_delay(1), Duration::from_millis(25));
+        assert_eq!(retry.retry_delay(2), Duration::from_millis(50));
+        assert_eq!(retry.retry_delay(3), Duration::from_millis(80));
+        assert_eq!(retry.retry_delay(4), Duration::from_millis(80));
+    }
+
+    #[test]
+    fn retry_config_respects_retry_after_with_max_delay_cap() {
+        let mut headers = HeaderMap::new();
+        headers.insert(RETRY_AFTER, HeaderValue::from_static("3"));
+        let retry = RetryConfig::standard(2).with_max_delay(Duration::from_secs(2));
+
+        assert_eq!(retry.retry_delay_from_headers(&headers, 1), Duration::from_secs(2));
+        assert_eq!(
+            retry.respect_retry_after(false).retry_delay_from_headers(&headers, 1),
+            Duration::from_millis(100)
+        );
     }
 }

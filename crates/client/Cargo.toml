@@ -19,6 +19,7 @@ contrix-core = { workspace = true, features = ["client"] }
 reqwest = { workspace = true, features = ["json", "gzip", "http2"] }
 serde.workspace = true
 serde_json.workspace = true
+tokio = { workspace = true, features = ["time"] }
 url = { workspace = true, features = ["serde"] }
 
 [lints]

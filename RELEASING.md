@@ -1,7 +1,8 @@
 # Releasing
 
-The release unit is the Contrix crate set: `contrix-core`, `contrix-client`,
-`contrix-server` and the umbrella `contrix` crate.
+The release unit is the Contrix crate set: `contrix-identifiers`,
+`contrix-core`, `contrix-client`, `contrix-server` and the umbrella `contrix`
+crate.
 
 ## Checklist
 
@@ -21,6 +22,7 @@ The release unit is the Contrix crate set: `contrix-core`, `contrix-client`,
 4. Tag and publish:
 
    ```sh
+   cargo publish -p contrix-identifiers
    cargo publish -p contrix-core
    cargo publish -p contrix-client
    cargo publish -p contrix-server

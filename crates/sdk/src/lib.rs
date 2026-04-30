@@ -42,7 +42,6 @@
 //!     Ok(SyncResponse {
 //!         next_batch: "s1".to_owned(),
 //!         spaces: Default::default(),
-//!         rooms: Default::default(),
 //!         to_device: Vec::new(),
 //!         device_lists: Default::default(),
 //!         presence: Vec::new(),
@@ -65,7 +64,7 @@
 #[cfg(feature = "client")]
 pub use contrix_client as client;
 pub use contrix_core::*;
-pub use contrix_core::{canonical, cursor, error, model, service, sync};
+pub use contrix_core::{canonical, cursor, error, identifiers, model, service, sync};
 #[cfg(feature = "server")]
 pub use contrix_server as server;
 #[cfg(feature = "salvo-adapter")]
@@ -167,8 +166,7 @@ pub use auth::{
     AuthRateLimitAction, AuthRateLimitContext, AuthRateLimitHook, AuthSession, AuthStateSnapshot,
     CONTRIX_DEVICE_SCOPE_PREFIX, ClaimDisclosureRequirement, DidProofVerification,
     DidProofVerificationRequest, DidProofVerifier, DisclosurePolicy,
-    DisclosureProofAdapterBoundary, DisclosureProofFormat, LEGACY_MATRIX_DEVICE_SCOPE_PREFIX,
-    LEGACY_MATRIX_MSC2967_DEVICE_SCOPE_PREFIX, MemorySessionGrantOutbox, MfaChallenge,
+    DisclosureProofAdapterBoundary, DisclosureProofFormat, MemorySessionGrantOutbox, MfaChallenge,
     OidcAuthRequest, OidcCredential, OidcIssuerMetadata, OidcJwks, OidcVerificationRequest,
     OidcVerifiedIdentity, OidcVerifier, PasskeyChallenge, PasskeyVerification,
     PasskeyVerificationRequest, PasskeyVerifier, PasswordHashAlgorithm, PasswordHashVerifier,
@@ -328,13 +326,20 @@ pub use resolver::{
 pub use search::{SpaceSearchEntry, SpaceSearchIndex, SpaceSearchQuery};
 #[cfg(all(feature = "full-surface", feature = "server"))]
 pub use server::{
-    EndpointContract, EndpointHandler, EndpointMethod, EndpointParameter,
-    EndpointParameterLocation, EndpointSchemaBinding, HttpAdapterRequest, HttpAdapterResponse,
-    MatchedEndpoint, ProtocolFixtureFlow, ProtocolFixtureReport, ProtocolFixtureStep,
-    ProtocolGoldenVector, ProtocolServerFixture, ServerRequest, ServerResponse,
-    TowerLikeEndpointService, WireConformanceVector, endpoint_contracts, endpoint_parameters,
-    endpoint_schema_binding, endpoint_schema_bindings, match_endpoint, openapi_document,
-    protocol_golden_vectors, reject_query_auth, wire_negative_vectors,
+    AuthenticatedPrincipal, BearerTokenAuthenticator, EndpointContract, EndpointHandler,
+    EndpointMethod, EndpointParameter, EndpointParameterLocation, EndpointSchemaBinding,
+    HttpAdapterRequest, HttpAdapterResponse, MatchedEndpoint, MemoryIdempotencyStore,
+    MemoryRateLimiter, OperationScopeAuthorizer, ProtocolFixtureFlow, ProtocolFixtureReport,
+    ProtocolFixtureStep, ProtocolGoldenVector, ProtocolServerFixture, RoutedEndpointService,
+    RoutedHttpAdapterRequest, ServerAuthenticationDecision, ServerAuthenticationScheme,
+    ServerAuthenticator, ServerAuthorizationDecision, ServerAuthorizer, ServerIdempotencyDecision,
+    ServerIdempotencyKey, ServerIdempotencyStore, ServerMiddlewareConfig,
+    ServerMiddlewareRejection, ServerMiddlewareStack, ServerRateLimitDecision, ServerRateLimiter,
+    ServerRequest, ServerRequestContext, ServerResponse, TowerLikeEndpointService,
+    WireConformanceVector, default_public_operations, dispatch_routed_http_request,
+    endpoint_contracts, endpoint_parameters, endpoint_schema_binding, endpoint_schema_bindings,
+    match_endpoint, openapi_document, protocol_golden_vectors, reject_query_auth,
+    wire_negative_vectors,
 };
 #[cfg(feature = "full-surface")]
 pub use settings::{

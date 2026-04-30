@@ -9,6 +9,7 @@ rust-version = "1.92"
 [workspace.dependencies]
 contrix-client = { version = "0.1.0", path = "crates/client", default-features = false }
 contrix-core = { version = "0.1.0", path = "crates/core", default-features = false }
+contrix-identifiers = { version = "0.1.0", path = "crates/identifiers", default-features = false }
 contrix-server = { version = "0.1.0", path = "crates/server", default-features = false }
 base64 = { version = "0.22.1", default-features = false, features = ["std"] }
 chacha20poly1305 = { version = "0.10.1", default-features = false, features = ["alloc"] }

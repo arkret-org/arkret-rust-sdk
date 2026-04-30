@@ -16,10 +16,9 @@ use crate::{
     model::{
         OP_CONTAINER_MOVE_ITEM, OP_ENTITY_CREATE, OP_ENTITY_DELETE, OP_ENTITY_REDACT,
         OP_ENTITY_RESTORE, OP_ENTITY_UPDATE, OP_FIELD_POSITION_MOVE, OP_FIELD_POSITION_REORDER,
-        OP_LEGACY_RELATION_MOVE, OP_LEGACY_TASK_MOVE, OP_LEGACY_TASK_REORDER, OP_RELATION_CREATE,
-        OP_RELATION_DELETE, OP_SPACE_CHILD, OP_SPACE_CREATE, OP_SPACE_ORGANIZATION,
-        OP_SPACE_UPDATE, OP_TASK_CREATE, OP_TASK_UPDATE, OP_VIEW_CREATE, OP_VIEW_RECONCILE,
-        OP_VIEW_UPDATE,
+        OP_RELATION_CREATE, OP_RELATION_DELETE, OP_SPACE_CHILD, OP_SPACE_CREATE,
+        OP_SPACE_ORGANIZATION, OP_SPACE_UPDATE, OP_TASK_CREATE, OP_TASK_UPDATE, OP_VIEW_CREATE,
+        OP_VIEW_RECONCILE, OP_VIEW_UPDATE,
     },
 };
 
@@ -152,15 +151,12 @@ impl SpaceState {
             // Relation lifecycle
             OP_RELATION_CREATE => self.create_relation(event)?,
             OP_RELATION_DELETE => self.delete_relation(event)?,
-            OP_CONTAINER_MOVE_ITEM | OP_LEGACY_RELATION_MOVE => self.move_relation(event)?,
+            OP_CONTAINER_MOVE_ITEM => self.move_relation(event)?,
 
             // Task operations (entity-type-specific wrappers)
             OP_TASK_CREATE => self.create_entity(event)?,
             OP_TASK_UPDATE => self.update_entity(event)?,
-            OP_FIELD_POSITION_MOVE
-            | OP_FIELD_POSITION_REORDER
-            | OP_LEGACY_TASK_MOVE
-            | OP_LEGACY_TASK_REORDER => self.update_entity(event)?,
+            OP_FIELD_POSITION_MOVE | OP_FIELD_POSITION_REORDER => self.update_entity(event)?,
 
             // View operations
             OP_VIEW_CREATE => self.create_view(event)?,

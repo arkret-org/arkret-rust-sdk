@@ -443,7 +443,7 @@ pub struct RemoteUserMapping {
     pub external_ref: Value,
 }
 
-/// Bridge mapping from a remote room/location to a Contrix space.
+/// Bridge mapping from a remote location to a Contrix space.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RemoteSpaceMapping {
     pub protocol: String,

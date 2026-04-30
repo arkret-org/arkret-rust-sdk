@@ -519,7 +519,6 @@ pub enum AgentProtocol {
     A2a,
     Acp,
     Mcp,
-    Legacy,
 }
 
 /// Agent protocol message.
@@ -604,20 +603,6 @@ impl AgentProtocolBridge {
             payload,
         }
     }
-
-    /// Convert a legacy message payload into A2A shape.
-    pub fn bridge_legacy_to_a2a(message: AgentProtocolMessage) -> AgentProtocolMessage {
-        AgentProtocolMessage {
-            protocol: AgentProtocol::A2a,
-            message_id: format!("a2a_{}", Ulid::new()),
-            sender: message.sender,
-            recipient: message.recipient,
-            payload: serde_json::json!({
-                "legacy_message_id": message.message_id,
-                "legacy_payload": message.payload
-            }),
-        }
-    }
 }
 
 #[cfg(test)]
@@ -642,21 +627,6 @@ mod tests {
             .unwrap();
 
         assert_eq!(store.promoted_memories(&agent).len(), 1);
-    }
-
-    #[test]
-    fn agent_protocol_bridges_legacy_to_a2a() {
-        let legacy = AgentProtocolMessage {
-            protocol: AgentProtocol::Legacy,
-            message_id: "legacy1".to_owned(),
-            sender: did("agent-a"),
-            recipient: did("agent-b"),
-            payload: json!({"text": "hello"}),
-        };
-        let bridged = AgentProtocolBridge::bridge_legacy_to_a2a(legacy);
-
-        assert_eq!(bridged.protocol, AgentProtocol::A2a);
-        assert_eq!(bridged.payload["legacy_message_id"], "legacy1");
     }
 
     #[test]

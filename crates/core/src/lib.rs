@@ -11,8 +11,13 @@ pub mod model;
 pub mod service;
 pub mod sync;
 
+pub use contrix_identifiers as identifiers;
 pub use cursor::{Cursor, SpacePosition, SyncPositions, SyncTracker};
 pub use error::{Error, Result};
+pub use identifiers::{
+    BlobRef, CommitId, DeviceId, Did, EntityId, EventId, GrantId, Hash, Hlc, InviteId, OperationId,
+    PolicyId, RelationId, SpaceId, ViewId,
+};
 pub use model::*;
 pub use service::{
     ApiConventionMetadata, HttpTraceMetadata, NotFoundPrivacy, QuotaKind, QuotaMetadata,

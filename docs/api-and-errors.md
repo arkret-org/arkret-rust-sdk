@@ -31,12 +31,21 @@ and soland can consume grant-created / grant-revoked notifications without
 copying private key material into persistence. `SessionGrant` redacts the
 serialized grant token in `Debug`; durable stores should persist `grant_hash`.
 
-Device binding scopes should use `urn:contrix:client:device:{id}`. Legacy Matrix
-device scopes are only parsed when callers explicitly opt in to compatibility
-with `device_id_from_scope_token(..., true)`.
+Device binding scopes must use `urn:contrix:client:device:{id}`. Non-Contrix
+scope prefixes are rejected by `device_id_from_scope_token(...)`.
 
 The identity surface exposes `StaridRegistryAdapter` and
 `StaridRegistryRecord` as the registry-backed DID boundary. The in-memory
 adapter is for tests and offline development only; production adapters still
 need registry-network fetching, key-log receipt validation, stale-head handling
 and bounded response parsing.
+
+Server bindings can wrap any `RoutedEndpointService` with
+`ServerMiddlewareStack`. The default stack is fail-closed for private
+operations: it requires Bearer authentication, checks operation scopes, requires
+`Idempotency-Key` on POST/PUT endpoints, replays matching idempotent responses,
+rejects conflicting retries and applies per-principal operation rate limits.
+
+The HTTP client preserves Contrix error envelopes and retry metadata. Standard
+retry mode covers transient statuses, applies bounded exponential backoff, and
+uses `Retry-After` when the server supplies it.

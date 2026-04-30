@@ -430,7 +430,7 @@ pub fn safe_content_disposition(filename: &str) -> String {
 }
 
 fn blob_ref_for(bytes: &[u8]) -> Result<BlobRef> {
-    BlobRef::new(format!("sha256:{}", sha256_hex(bytes)))
+    Ok(BlobRef::new(format!("sha256:{}", sha256_hex(bytes)))?)
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {

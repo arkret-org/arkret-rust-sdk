@@ -293,6 +293,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "tokio",
  "url",
 ]
 
@@ -302,13 +303,24 @@ version = "0.1.0"
 dependencies = [
  "base64",
  "chrono",
- "getrandom 0.3.4",
+ "contrix-identifiers",
  "reqwest",
  "serde",
  "serde_json",
  "sha2",
  "thiserror",
  "url",
+]
+
+[[package]]
+name = "contrix-identifiers"
+version = "0.1.0"
+dependencies = [
+ "getrandom 0.3.4",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
 ]
 
 [[package]]

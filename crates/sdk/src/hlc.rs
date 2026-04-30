@@ -133,7 +133,7 @@ impl HlcGenerator {
             self.logical = remote_parts.logical.saturating_add(1);
         }
 
-        HlcType::new(self.format())
+        Ok(HlcType::new(self.format())?)
     }
 
     /// Validate an incoming HLC value.
