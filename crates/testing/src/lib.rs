@@ -12,6 +12,7 @@ use serde_json::{Value, json};
 #[serde(rename_all = "snake_case")]
 pub enum ConformanceDomain {
     ClientServer,
+    ClientServerApi,
     Federation,
     Appservice,
     PushGateway,
@@ -19,6 +20,9 @@ pub enum ConformanceDomain {
     Signatures,
     Events,
     StateResolution,
+    Operations,
+    Schema,
+    Html,
     Store,
     Crypto,
     Ui,
@@ -88,6 +92,16 @@ pub fn endpoint_coverage_rows() -> Vec<EndpointCoverageRow> {
         request_schema: endpoint.request_schema.to_owned(),
         response_schema: endpoint.response_schema.to_owned(),
     }));
+    rows.extend(contrix_client_api::client_api_endpoints().iter().map(|endpoint| {
+        EndpointCoverageRow {
+            domain: ConformanceDomain::ClientServerApi,
+            operation_id: endpoint.operation_id.to_owned(),
+            method: format!("{:?}", endpoint.method),
+            path: endpoint.path.to_owned(),
+            request_schema: endpoint.request_schema.to_owned(),
+            response_schema: endpoint.response_schema.to_owned(),
+        }
+    }));
     rows.extend(contrix_federation_api::federation_endpoints().iter().map(|endpoint| {
         EndpointCoverageRow {
             domain: ConformanceDomain::Federation,
@@ -134,6 +148,54 @@ pub fn endpoint_coverage_rows() -> Vec<EndpointCoverageRow> {
 
 pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
     vec![
+        EndpointCoverageRow {
+            domain: ConformanceDomain::Operations,
+            operation_id: "cx.operations.catalog".to_owned(),
+            method: "CONTRACT".to_owned(),
+            path: "contrix-operations://catalog".to_owned(),
+            request_schema: "OperationKindRegistry".to_owned(),
+            response_schema: "OperationCatalogReport".to_owned(),
+        },
+        EndpointCoverageRow {
+            domain: ConformanceDomain::Operations,
+            operation_id: "cx.operations.dag".to_owned(),
+            method: "CONTRACT".to_owned(),
+            path: "contrix-operations://dag".to_owned(),
+            request_schema: "OperationEnvelope".to_owned(),
+            response_schema: "OperationDagReport".to_owned(),
+        },
+        EndpointCoverageRow {
+            domain: ConformanceDomain::Schema,
+            operation_id: "cx.schema.catalog".to_owned(),
+            method: "CONTRACT".to_owned(),
+            path: "contrix-schema://catalog".to_owned(),
+            request_schema: "ProtocolSchemaRegistry".to_owned(),
+            response_schema: "SchemaCatalogReport".to_owned(),
+        },
+        EndpointCoverageRow {
+            domain: ConformanceDomain::Schema,
+            operation_id: "cx.schema.validation_vectors".to_owned(),
+            method: "CONTRACT".to_owned(),
+            path: "contrix-schema://vectors".to_owned(),
+            request_schema: "SchemaValidationVector".to_owned(),
+            response_schema: "SchemaCompatibilityTable".to_owned(),
+        },
+        EndpointCoverageRow {
+            domain: ConformanceDomain::Html,
+            operation_id: "cx.html.normalize".to_owned(),
+            method: "CONTRACT".to_owned(),
+            path: "contrix-html://normalize".to_owned(),
+            request_schema: "RichTextDocument".to_owned(),
+            response_schema: "RichTextDocument".to_owned(),
+        },
+        EndpointCoverageRow {
+            domain: ConformanceDomain::Html,
+            operation_id: "cx.html.sanitize".to_owned(),
+            method: "CONTRACT".to_owned(),
+            path: "contrix-html://sanitize".to_owned(),
+            request_schema: "Html".to_owned(),
+            response_schema: "SanitizedHtml".to_owned(),
+        },
         EndpointCoverageRow {
             domain: ConformanceDomain::Store,
             operation_id: "cx.store.repo_object".to_owned(),
@@ -297,12 +359,16 @@ mod tests {
         let report = conformance_report().unwrap();
         for domain in [
             ConformanceDomain::ClientServer,
+            ConformanceDomain::ClientServerApi,
             ConformanceDomain::Federation,
             ConformanceDomain::Appservice,
             ConformanceDomain::PushGateway,
             ConformanceDomain::Identity,
             ConformanceDomain::Events,
             ConformanceDomain::StateResolution,
+            ConformanceDomain::Operations,
+            ConformanceDomain::Schema,
+            ConformanceDomain::Html,
             ConformanceDomain::Store,
             ConformanceDomain::Crypto,
             ConformanceDomain::Ui,
@@ -316,10 +382,25 @@ mod tests {
         assert!(report.operation_ids().contains("cx.crypto.machine_request"));
         assert!(report.operation_ids().contains("cx.ui.timeline_projection"));
         assert!(report.operation_ids().contains("cx.ffi.wasm_runtime"));
+        assert!(report.operation_ids().contains("cx.operations.catalog"));
+        assert!(report.operation_ids().contains("cx.schema.catalog"));
+        assert!(report.operation_ids().contains("cx.html.normalize"));
+        assert!(report.operation_ids().contains("cx.account.register"));
+        assert!(report.operation_ids().contains("cx.sync.sliding"));
     }
 
     #[test]
     fn boundary_crate_smoke_contracts_validate() {
+        contrix_client_api::client_api_coverage_report().validate().unwrap();
+        contrix_operations::operation_catalog().validate().unwrap();
+        contrix_schema::schema_catalog().validate().unwrap();
+        contrix_schema::validate_schema_vectors(&contrix_schema::built_in_schema_vectors())
+            .unwrap();
+        contrix_html::RichTextDocument::normalize(
+            "Hello @alice <script>bad()</script>",
+            contrix_html::RichTextFormat::Html,
+        )
+        .unwrap();
         contrix_store::memory_store_conformance_report().unwrap().validate().unwrap();
         contrix_ffi::WasmRuntimeContract::default().validate().unwrap();
 

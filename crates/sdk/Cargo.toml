@@ -46,14 +46,18 @@ chrono = { workspace = true, features = ["serde"] }
 chrono-tz.workspace = true
 contrix-api.workspace = true
 contrix-appservice-api.workspace = true
+contrix-client-api.workspace = true
 contrix-client = { workspace = true, optional = true }
 contrix-core.workspace = true
 contrix-crypto.workspace = true
 contrix-events.workspace = true
 contrix-federation-api.workspace = true
 contrix-ffi.workspace = true
+contrix-html.workspace = true
 contrix-identity-api.workspace = true
+contrix-operations.workspace = true
 contrix-push-gateway-api.workspace = true
+contrix-schema.workspace = true
 contrix-server = { workspace = true, optional = true }
 contrix-signatures.workspace = true
 contrix-state-res.workspace = true

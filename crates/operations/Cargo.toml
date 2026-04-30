@@ -1,0 +1,23 @@
+[package]
+authors = ["Chris Young <chris@sonc.ai>"]
+description = "Contrix v1 operation registry, builders, and DAG validation contracts."
+edition = "2024"
+homepage = "https://github.com/contrix/contrix-rust-sdk"
+keywords = ["contrix", "operations", "dag", "protocol"]
+license = "Apache-2.0"
+name = "contrix-operations"
+readme = "README.md"
+repository = "https://github.com/contrix/contrix-rust-sdk"
+rust-version.workspace = true
+version = "0.1.0"
+
+[features]
+default = []
+
+[dependencies]
+contrix-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

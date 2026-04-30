@@ -65,14 +65,18 @@ pub use contrix_api as api;
 pub use contrix_appservice_api as appservice_api;
 #[cfg(feature = "client")]
 pub use contrix_client as client;
+pub use contrix_client_api as client_api;
 pub use contrix_core::*;
 pub use contrix_core::{canonical, cursor, error, identifiers, model, service, sync};
 pub use contrix_crypto as crypto_protocol;
 pub use contrix_events as events;
 pub use contrix_federation_api as federation_api;
 pub use contrix_ffi as ffi;
+pub use contrix_html as html;
 pub use contrix_identity_api as identity_api;
+pub use contrix_operations as operations;
 pub use contrix_push_gateway_api as push_gateway_api;
+pub use contrix_schema as schema_contracts;
 #[cfg(feature = "server")]
 pub use contrix_server as server;
 #[cfg(feature = "salvo-adapter")]

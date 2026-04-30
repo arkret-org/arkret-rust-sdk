@@ -17,13 +17,17 @@ default = []
 [dependencies]
 contrix-api.workspace = true
 contrix-appservice-api.workspace = true
+contrix-client-api.workspace = true
 contrix-core.workspace = true
 contrix-crypto.workspace = true
 contrix-events.workspace = true
 contrix-federation-api.workspace = true
 contrix-ffi.workspace = true
+contrix-html.workspace = true
 contrix-identity-api.workspace = true
+contrix-operations.workspace = true
 contrix-push-gateway-api.workspace = true
+contrix-schema.workspace = true
 contrix-signatures.workspace = true
 contrix-state-res.workspace = true
 contrix-store.workspace = true

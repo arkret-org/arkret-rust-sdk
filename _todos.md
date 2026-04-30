@@ -30,7 +30,9 @@
 - [x] 移除 sync `rooms` fallback，wire response 只保留 native `spaces`。
 - [x] 移除 Matrix device scope 解析，只接受 `urn:contrix:client:device:{id}`。
 - [x] 移除 agent `Legacy` 协议 variant 和 A2A legacy bridge helper。
-- [ ] 从 `core/src/model.rs` 继续拆出 `events` / `operations` / `schema` / `api` 模块或 crate，降低巨型 model 文件风险。
+- [x] 从 `core/src/model.rs` 继续拆出 `events` / `operations` / `schema` / `api` 模块或 crate，降低巨型 model 文件风险。
+  - [x] 已新增 `crates/events`、`crates/api`、`crates/operations`、`crates/schema` 作为独立协议边界。
+  - [ ] 后续将 `core::OperationKindRegistry` / `core::ProtocolSchemaRegistry` 的实现所有权迁入对应 crate，`core` 只保留稳定 wire model 和 canonical helpers。
 - [ ] 明确 `core` 只保留稳定协议模型和 canonical helpers；runtime 状态机继续向 `sdk` 或专门 crate 下沉。
 
 生产 runtime 缺口:
@@ -73,6 +75,9 @@ Crate topology:
   - [ ] 后续将 `core::Event` envelope 所有权进一步从 `core/src/model.rs` 迁入 event 边界，避免巨型 model 文件继续膨胀。
 - [x] 新增 `crates/api`: client-server endpoint catalog、surface 分类、method/path/schema binding、参数 metadata，并由 server 测试校验与现有 endpoint registry 不漂移。
   - [ ] 后续将 server OpenAPI 和 route registry 的 source of truth 迁到 `contrix-api`，server crate 只保留 runtime dispatch/middleware。
+- [x] 新增 `crates/client-api`: Ruma-style client-server API contract，覆盖 account/session、UIAA-like interactive auth、device management、messaging、sync/sliding sync、media、moderation 和 call signaling。
+  - [x] 已扩展 profile/presence、space lifecycle、membership、state、search/context、directory 和 extensibility discovery typed endpoint contract。
+  - [ ] 后续把 `core/src/model.rs` 中散落 request/response 收敛到 `contrix-client-api`，并接入 server dispatch / generated OpenAPI source of truth。
 - [x] 新增 `crates/federation-api`: server-server discovery, transaction, event, membership, backfill, query, key, policy, media endpoint 类型，包含 endpoint catalog、transaction envelope digest validation、replay window、quarantine/backfill/delta contract。
   - [ ] 后续把 federation endpoint source of truth、验签、重放窗口、fork quarantine 和 backfill authorization 接入真实 server dispatch / federation runtime。
 - [x] 新增 `crates/appservice-api`: appservice registration, namespace, permissions, endpoint catalog, transaction slot, virtual actor intent, third-party lookup, bridge mapping store。
@@ -85,6 +90,12 @@ Crate topology:
   - [ ] 后续接入真实签名算法抽象、key discovery/cache、rotation proof、federation auth header verifier 和 negative signature fixtures。
 - [x] 新增 `crates/state-res`: deterministic state reducer、state-key extraction、conflict records、frontier maintenance、snapshot hash/verify。
   - [ ] 补 conflict graph、auth rule evaluation、snapshot/delta proof 和 federation backfill proof 验证。
+- [x] 新增 `crates/operations`: operation registry、surface catalog、operation DAG validation、builder/conformance boundary。
+  - [ ] 后续将 operation registry source of truth 从 `core/src/model.rs` 迁入 `contrix-operations`，并补 auth rule / semantic reducer / negative DAG vectors。
+- [x] 新增 `crates/schema`: schema registry、generated validator catalog、compatibility table、negative schema vectors、schema evolution plan。
+  - [ ] 后续将 schema document source of truth 从 `core/src/model.rs` 迁入 `contrix-schema`，并接入 OpenAPI/schema generation pipeline。
+- [x] 新增 `crates/html`: rich text sanitizer、Markdown subset renderer、plain-text fallback、mention/link normalization、safe link preview extraction。
+  - [ ] 后续用更完整 HTML parser/sanitizer adapter 替换当前 lightweight sanitizer，并补 media preview extraction / mention resolution store。
 - [x] 新增 `crates/store`: runtime store traits, memory/sqlite/indexeddb feature adapters, migration contract, store lock, failure cache，当前覆盖 repo object store、event cache、snapshot store、migration/checksum、failure cache 和 memory conformance report。
   - [ ] 后续将 `sdk::store` 的 SQLite/IndexedDB/encrypted store facade 收敛到 `contrix-store` 契约，并补真实 adapter / migration / crash recovery。
 - [x] 新增 `crates/crypto`: protocol crypto machine, key lifecycle, verification, media encryption, secret backup, encrypted store integration，当前覆盖 device key bundle、one-time key claim、secret backup descriptor、media encryption digest、unable-to-decrypt preservation 和 crypto store binding。
@@ -114,31 +125,59 @@ Crate topology:
 - [x] 2026-05-01 runtime boundary crates: `cargo test -p contrix-ffi`。
 - [x] 2026-05-01 runtime boundary crates: `cargo test -p contrix-ui`。
 - [x] 2026-05-01 runtime boundary crates: `cargo test -p contrix-testing`。
+- [x] 2026-05-01 protocol split crates: `cargo test -p contrix-operations`。
+- [x] 2026-05-01 protocol split crates: `cargo test -p contrix-schema`。
+- [x] 2026-05-01 protocol split crates: `cargo test -p contrix-html`。
+- [x] 2026-05-01 protocol split crates: `cargo test -p contrix-testing`。
+- [x] 2026-05-01 client API contract: `cargo test -p contrix-client-api`。
+- [x] 2026-05-01 client API contract: `cargo test -p contrix-testing`。
 - [x] `cargo check --all-features`。
 - [x] 2026-05-01 runtime boundary crates: `cargo check --all-features`。
+- [x] 2026-05-01 protocol split crates: `cargo check --all-features`。
+- [x] 2026-05-01 client API contract: `cargo check --all-features`。
 - [x] 2026-05-01 boundary crates: `cargo fmt --all -- --check`。
 - [x] 2026-05-01 boundary crates: `cargo test --all-features`，all workspace tests/doctests passed。
 - [x] 2026-05-01 boundary crates: `git diff --check`。
 - [x] 2026-05-01 runtime boundary crates final: `cargo fmt --all -- --check`。
 - [x] 2026-05-01 runtime boundary crates final: `cargo test --all-features`，all workspace tests/doctests passed。
 - [x] 2026-05-01 runtime boundary crates final: `git diff --check`。
+- [x] 2026-05-01 protocol split crates final: `cargo fmt --all -- --check`。
+- [x] 2026-05-01 protocol split crates final: `cargo test --all-features`，all workspace tests/doctests passed。
+- [x] 2026-05-01 protocol split crates final: `git diff --check`。
+- [x] 2026-05-01 client API contract final: `cargo fmt --all -- --check`。
+- [x] 2026-05-01 client API contract final: `cargo test --all-features`，all workspace tests/doctests passed。
+- [x] 2026-05-01 client API contract final: `git diff --check`。
 
 Client-server protocol API:
-- [ ] Account/session: register, login, refresh, logout, whoami, deactivate, account data, password/token/session renewal。
-- [ ] UIAA-like flows: 多步骤认证 challenge/response、fallback、retry、错误类型、server advertised flows。
-- [ ] Device management: device list, device display name, delete devices, key upload/query/claim, dehydrated/offline device。
-- [ ] Profile/presence: display name, avatar, status, activity, presence subscription, profile visibility。
-- [ ] Space/room lifecycle: create, upgrade/migrate, delete/archive, aliases, canonical alias, visibility, directory listing, preview。
-- [ ] Membership: invite, join, leave, knock/request access, kick, ban, unban, membership reasons, third-party invite。
-- [ ] Messaging: send event, send message, edit, redact, reaction, relation, thread, reply, poll, receipt, read marker。
-- [ ] State: get/set state, batch state, power/capability levels, tags, pinned events, policy events, room config。
-- [ ] Sync: full sync, incremental sync, sliding sync, sticky parameters, filters, timeline gaps, state deltas, to-device events。
-- [ ] Search/context: global search, space search, message search, event context, nearest timestamp, pagination tokens。
-- [ ] Media: upload, download, thumbnail, authenticated media, encrypted media, upload progress, content scanner hooks。
+- [x] Account/session: register, login, refresh, logout, whoami, deactivate, account data, password/token/session renewal。
+  - [ ] 后续接入真实 server runtime store、token rotation/revocation、account lifecycle 和 session renewal interop。
+- [x] UIAA-like flows: 多步骤认证 challenge/response、fallback、retry、错误类型、server advertised flows。
+  - [ ] 后续补 fallback HTML/URI、stage retry policy、server-advertised flow discovery 和 negative vectors。
+- [x] Device management: device list, device display name, delete devices, key upload/query/claim, dehydrated/offline device。
+  - [ ] 后续将 `sdk::devices` / key endpoints / dehydrated device runtime 收敛到 `contrix-client-api` contract。
+- [x] Profile/presence: display name, avatar, status, activity, presence subscription, profile visibility。
+  - [ ] 后续补 profile visibility policy、activity stream 和 presence server fanout runtime。
+- [x] Space/room lifecycle: create, upgrade/migrate, delete/archive, aliases, canonical alias, visibility, directory listing, preview。
+  - [ ] 后续补 upgrade/migrate/delete/archive server semantics、canonical alias collision policy 和 directory publishing workflow。
+- [x] Membership: invite, join, leave, knock/request access, kick, ban, unban, membership reasons, third-party invite。
+  - [ ] 后续补 third-party invite exchange、knock policy、membership auth rules 和 federation join proof。
+- [x] Messaging: send event, send message, edit, redact, reaction, relation, thread, reply, poll, receipt, read marker。
+  - [ ] 后续补 relation/thread/poll 的完整 event content schema 和 server validation。
+- [x] State: get/set state, batch state, power/capability levels, tags, pinned events, policy events, room config。
+  - [ ] 后续补 state-key typed content schemas、power/capability rule validation 和 policy-event conformance vectors。
+- [x] Sync: full sync, incremental sync, sliding sync, sticky parameters, filters, timeline gaps, state deltas, to-device events。
+  - [ ] 后续将 core sync models 和 `sdk::sync_client` durable runtime 收敛到 typed client API contract。
+- [x] Search/context: global search, space search, message search, event context, nearest timestamp, pagination tokens。
+  - [ ] 后续补 ranking contract、pagination token binding、nearest timestamp endpoint behavior 和 indexed store integration。
+- [x] Media: upload, download, thumbnail, authenticated media, encrypted media, upload progress, content scanner hooks。
+  - [ ] 后续补 streaming body、resumable upload state machine、scanner verdict enforcement 和 encrypted media decrypt pipeline。
 - [ ] Push/notifications: pushers, push rules, notification settings, highlight count, unread count, notification client。
-- [ ] Reporting/moderation: report event/user/space, abuse categories, admin review hooks。
-- [ ] VoIP/RTC/calls: call event types, session negotiation, widget/call settings if Contrix protocol includes real-time collaboration。
-- [ ] Third-party/extensibility: custom event type, custom endpoint, feature discovery, unstable/labs namespace policy。
+- [x] Reporting/moderation: report event/user/space, abuse categories, admin review hooks。
+  - [ ] 后续补 admin review queue、policy propagation 和 moderation audit trail。
+- [x] VoIP/RTC/calls: call event types, session negotiation, widget/call settings if Contrix protocol includes real-time collaboration。
+  - [ ] 后续补 ICE server config、call membership/device mapping 和 widget/call settings contract。
+- [x] Third-party/extensibility: custom event type, custom endpoint, feature discovery, unstable/labs namespace policy。
+  - [ ] 后续补 unstable namespace lifecycle、custom endpoint registration validation 和 labs feature gates。
 
 Event and content taxonomy:
 - [ ] Message content variants: text, notice, emote, HTML/rich text, file, image, audio, video, voice note, document, location, sticker。
@@ -151,7 +190,9 @@ Event and content taxonomy:
 - [ ] E2EE variants: encrypted event, room key, forwarded key, key request, secret send/request, verification event。
 - [ ] Unknown/custom event preservation: deserialize unknown type losslessly and reserialize without dropping fields。
 - [ ] Unsigned metadata separation: age, transaction id, relation aggregation, redaction metadata, server annotations。
-- [ ] Rich text crate: HTML/rich text sanitizer, plain-text fallback, mention/link normalization, media preview extraction。
+- [x] Rich text crate: HTML/rich text sanitizer, plain-text fallback, mention/link normalization, media preview extraction。
+  - [x] `contrix-html` 覆盖 sanitizer、Markdown subset、plain-text fallback、mention/link normalization。
+  - [ ] 后续补媒体 preview extraction、HTML parser adapter 和更多 malicious HTML negative fixtures。
 
 State resolution and operation semantics:
 - [ ] Define Contrix auth rules for state-changing operations: creator/admin/member/device/server authority。
