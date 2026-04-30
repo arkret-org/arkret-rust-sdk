@@ -18,14 +18,21 @@ centered on:
 
 ## Entry Point
 
-Use the new crate:
+Use the top-level crate:
 
 ```toml
-contrix-sdk = { path = "crates/contrix-sdk" }
+contrix = { path = "crates/sdk" }
 ```
 
-The workspace default member is `crates/contrix-sdk`, so these commands target
-the Contrix SDK:
+The workspace is split into focused crates and the top-level `contrix` crate
+re-exports the public SDK surface:
+
+- `contrix-core`: protocol identifiers, canonical JSON, wire models, sync/cursor types and service metadata
+- `contrix-client`: HTTP client bindings
+- `contrix-server`: framework-independent endpoint registry, OpenAPI helpers and optional Salvo adapter
+- `contrix`: umbrella SDK crate with high-level state managers and feature forwarding
+
+The workspace default members include all crates:
 
 ```sh
 cargo check

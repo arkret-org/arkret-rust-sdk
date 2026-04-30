@@ -21,10 +21,11 @@ default = [
     "sync-runtime",
     "timeline-runtime",
 ]
-client = ["dep:reqwest", "dep:url"]
-server = ["full-surface"]
+client = ["dep:contrix-client", "dep:reqwest", "contrix-core/client"]
+server = ["dep:contrix-server", "full-surface"]
 mls = [
     "full-surface",
+    "contrix-core/mls",
     "dep:openmls",
     "dep:openmls_basic_credential",
     "dep:openmls_rust_crypto",
@@ -32,18 +33,20 @@ mls = [
 ]
 full-surface = []
 tracing = ["dep:tracing"]
-axum-adapter = ["dep:axum", "server"]
+salvo-adapter = ["server", "contrix-server/salvo"]
 applet-runtime = ["full-surface"]
 device-runtime = ["full-surface"]
 sync-runtime = ["full-surface"]
 timeline-runtime = ["full-surface"]
 
 [dependencies]
-axum = { workspace = true, optional = true }
 base64.workspace = true
 chacha20poly1305.workspace = true
 chrono = { workspace = true, features = ["serde"] }
 chrono-tz.workspace = true
+contrix-client = { workspace = true, optional = true }
+contrix-core.workspace = true
+contrix-server = { workspace = true, optional = true }
 getrandom.workspace = true
 openmls = { workspace = true, optional = true }
 openmls_basic_credential = { workspace = true, optional = true }

@@ -7,8 +7,8 @@ as `membership`, `devices`, `receipts`, `notifications`, `content`, `media`,
 `profile`, `settings`, `search`, `discovery`, `e2ee`, `auth`, `identity`,
 `federation`, `push`, `typing`, `webrtc`, `store` and `event_handler`.
 
-Most fallible APIs return `contrix_sdk::Result<T>`, whose error type is
-`contrix_sdk::Error`.
+Most fallible APIs return `contrix::Result<T>`, whose error type is
+`contrix::Error`.
 
 Common error categories:
 

@@ -1,10 +1,8 @@
 use std::collections::BTreeMap;
 
-use contrix_sdk::{
-    EndpointMethod, HttpAdapterRequest, HttpAdapterResponse, TowerLikeEndpointService,
-};
+use contrix::{EndpointMethod, HttpAdapterRequest, HttpAdapterResponse, TowerLikeEndpointService};
 
-fn main() -> contrix_sdk::Result<()> {
+fn main() -> contrix::Result<()> {
     let mut service = |_request: HttpAdapterRequest| {
         Ok(HttpAdapterResponse {
             status: 200,

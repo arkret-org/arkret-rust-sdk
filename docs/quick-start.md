@@ -3,32 +3,32 @@
 Add the SDK crate:
 
 ```toml
-contrix-sdk = { path = "crates/contrix-sdk" }
+contrix = { path = "crates/sdk" }
 ```
 
 Create local client state and a session:
 
 ```rust
 use std::sync::Arc;
-use contrix_sdk::{BaseClient, DeviceId, Did, SessionMeta};
+use contrix::{BaseClient, DeviceId, Did, SessionMeta};
 
 let base = Arc::new(BaseClient::new());
 base.set_session_meta(SessionMeta::new(
     Did::new("did:web:alice.example")?,
     DeviceId::new("dev_desktop")?,
 ))?;
-# Ok::<(), contrix_sdk::Error>(())
+# Ok::<(), contrix::Error>(())
 ```
 
 Process events and query a space:
 
 ```rust
-use contrix_sdk::{EntityQuery, Space, SpaceId};
+use contrix::{EntityQuery, Space, SpaceId};
 
 let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000")?;
 let space = Space::new(space_id, base);
 let tasks = space.query_entities(EntityQuery::default());
-# Ok::<(), contrix_sdk::Error>(())
+# Ok::<(), contrix::Error>(())
 ```
 
 Run verification:
@@ -85,10 +85,10 @@ timeline items should be retained and retried after keys arrive.
 ### Write A Server Adapter
 
 Use the framework-independent endpoint registry and `EndpointHandler` shape.
-The SDK ships an Axum adapter behind the `axum-adapter` feature. Salvo is
-explicitly deferred to server repositories for now; those repos should adapt
-Salvo requests into `ServerRequest` and serialize `ServerResponse` without
-changing operation IDs.
+The SDK ships a Salvo adapter behind the `salvo-adapter` feature. It adapts
+Salvo requests into the framework-independent `HttpAdapterRequest` shape and
+writes `HttpAdapterResponse` values back to Salvo responses without changing
+operation IDs.
 
 ### Migrate From Matrix Concepts
 

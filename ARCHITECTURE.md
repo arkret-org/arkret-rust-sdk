@@ -1,29 +1,28 @@
 # Architecture
 
-The workspace is intentionally small. The protocol crate is the SDK boundary,
-and all public types should map directly to Contrix v1 concepts.
+The workspace follows the same broad shape as Ruma and matrix-rust-sdk: focused
+crates own protocol layers and runtime boundaries, while the top-level SDK crate
+re-exports the cohesive public surface.
 
 ```text
 application
     |
-contrix-sdk
-    |-- model: wire-safe protocol data structures and digest payloads
-    |-- canonical: deterministic JSON and SHA-256 helpers
-    |-- client: HTTP client for Contrix service endpoints
-    |-- base: local client state, sessions and resolved space state
-    |-- sync_client: long-poll loop, response processing and sliding sync
-    |-- membership/devices/receipts/notifications: core client business state
+contrix (umbrella SDK)
+    |-- contrix-core: wire models, canonical JSON, sync/cursor and service metadata
+    |-- contrix-client: HTTP client for Contrix service endpoints
+    |-- contrix-server: endpoint registry, adapter contracts, OpenAPI helpers and optional Salvo integration
+    |-- base/sync_client: local client state, response processing and sliding sync
+    |-- membership/devices/receipts/notifications: client business state
     |-- content/media/profile/settings/search/discovery: feature helpers
     |-- auth/identity/e2ee/federation/push: production protocol services
     |-- typing/webrtc/event_handler: realtime client features
     |-- mls: OpenMLS-backed group encryption and epoch handling
-    |-- service: service description and profile verification
     `-- store: local Repo persistence traits and in-memory implementation
 ```
 
 ## Protocol Model
 
-`crates/contrix-sdk/src/model.rs` owns protocol identifiers, HLC ordering,
+`crates/core/src/model.rs` owns protocol identifiers, HLC ordering,
 object state enums, Space / ActorProfile / Entity / Relation / View objects,
 signed Events, canonical Operations, signed Operation envelopes, Commits,
 capability grants, policies, invites, read markers, notifications, blob
@@ -35,7 +34,7 @@ protects canonical digests, authorization bindings or graph endpoint semantics.
 
 ## Canonical Digests
 
-`crates/contrix-sdk/src/canonical.rs` implements deterministic JSON encoding and
+`crates/core/src/canonical.rs` implements deterministic JSON encoding and
 digest calculation. Signed payloads must use this module instead of ad-hoc JSON
 formatting so that different clients compute identical hashes.
 
@@ -44,7 +43,7 @@ integer numbers only and rejects floating point values.
 
 ## Client Layer
 
-`crates/contrix-sdk/src/client.rs` is a thin HTTP adapter. It is responsible for
+`crates/client/src/lib.rs` is a thin HTTP adapter. It is responsible for
 base URL handling, authentication headers, JSON transport, service description
 verification and Contrix error envelope parsing.
 
@@ -54,7 +53,7 @@ should remain available.
 
 ## MLS Layer
 
-`crates/contrix-sdk/src/mls.rs` binds Contrix encrypted Spaces to OpenMLS. It
+`crates/sdk/src/mls.rs` binds Contrix encrypted Spaces to OpenMLS. It
 creates device KeyPackages, creates MLS groups, adds members, consumes Welcome
 messages, emits Commit / Welcome envelopes and encrypts application payloads
 into Contrix `EncryptedPayload` values.
@@ -69,7 +68,7 @@ not hash plaintext payloads into `payload_digest`.
 
 ## Service Profiles
 
-`crates/contrix-sdk/src/service.rs` verifies that a remote service advertises
+`crates/core/src/service.rs` verifies that a remote service advertises
 the expected service type, protocol version, schema profile, reducer profile and
 required operations before a client depends on it.
 
@@ -78,7 +77,7 @@ implementation mistakes.
 
 ## Store Layer
 
-`crates/contrix-sdk/src/store.rs` defines local Repo storage behavior. Stores
+`crates/sdk/src/store.rs` defines local Repo storage behavior. Stores
 must be idempotent for repeated identical Operations or Commits and must report
 conflicts when an existing identifier is reused with a different digest.
 

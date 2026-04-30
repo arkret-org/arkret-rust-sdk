@@ -1,4 +1,4 @@
-pre-release-commit-message = "chore: release contrix-sdk version {{version}}"
+pre-release-commit-message = "chore: release contrix crates version {{version}}"
 sign-tag = true
 tag-message = "Release {{crate_name}} version {{version}}"
 tag-name = "{{crate_name}}-v{{version}}"

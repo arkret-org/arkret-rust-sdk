@@ -4,12 +4,15 @@
 //! contracts to keep route registration and advertised operation IDs aligned
 //! with the protocol without pulling a web stack into the SDK.
 
+#[cfg(feature = "salvo")]
+pub mod salvo_adapter;
+
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 
-use crate::{
+use contrix_core::{
     AppletActorResponse, AppletDescription, AppletPingResponse, AppletProtocolResponse,
     AppletSpaceResponse, AppletTransactionRequest, AppletTransactionResponse, AuthzCheckRequest,
     AuthzCheckResponse, AuthzInvitesResponse, BlobMetadata, BlobUploadMetadata, BlobUploadResponse,
@@ -231,7 +234,7 @@ impl ProtocolServerFixture {
         for flow in &self.flows {
             for operation_id in fixture_operations(*flow) {
                 let contract = contracts_by_operation.get(operation_id).ok_or_else(|| {
-                    crate::Error::Protocol(format!(
+                    contrix_core::Error::Protocol(format!(
                         "fixture operation '{operation_id}' is missing from endpoint registry"
                     ))
                 })?;
@@ -957,7 +960,7 @@ pub fn reject_query_auth(parameters: &BTreeMap<String, String>) -> Result<()> {
                 | "service_signature"
                 | "signature"
         ) {
-            return Err(crate::Error::Protocol(
+            return Err(contrix_core::Error::Protocol(
                 "authentication material must be sent in headers, not query parameters".to_owned(),
             ));
         }
@@ -1195,7 +1198,7 @@ pub enum ServerRequest {
     RepoCommit { commit_id: String, repo_id: Option<String> },
     RepoOperations(RepoOperationsRequest),
     RepoSync(RepoSyncRequest),
-    RepoSubmitCommit(crate::Commit),
+    RepoSubmitCommit(contrix_core::Commit),
     Sync(SyncRequest),
     SyncDescribe,
     SyncBackfill { space_id: String, cursor: Option<String>, limit: Option<u32> },
@@ -1852,7 +1855,7 @@ fn openapi_examples() -> Value {
             "value": {
                 "service_did": "did:web:svc.example",
                 "service_type": "principal_server",
-                "protocol_version": crate::PROTOCOL_VERSION,
+                "protocol_version": contrix_core::PROTOCOL_VERSION,
                 "supported_operations": ["cx.server.describe", "cx.sync.client_sync"]
             }
         },
@@ -2054,7 +2057,7 @@ mod tests {
     fn tower_like_endpoint_service_can_wrap_framework_closure() {
         let mut service = |request: HttpAdapterRequest| {
             let matched = match_endpoint(request.method, &request.path)
-                .ok_or_else(|| crate::Error::Protocol("no route".to_owned()))?;
+                .ok_or_else(|| contrix_core::Error::Protocol("no route".to_owned()))?;
             Ok(HttpAdapterResponse {
                 status: 200,
                 headers: BTreeMap::from([(
@@ -2136,9 +2139,9 @@ mod tests {
                 match request {
                     ServerRequest::ServerDescribe => {
                         Ok(ServerResponse::ServerDescription(ServerDescription {
-                            service_did: crate::Did::new("did:web:svc.example").unwrap(),
+                            service_did: contrix_core::Did::new("did:web:svc.example").unwrap(),
                             service_type: "principal_server".to_owned(),
-                            protocol_version: crate::PROTOCOL_VERSION.to_owned(),
+                            protocol_version: contrix_core::PROTOCOL_VERSION.to_owned(),
                             supported_profiles: vec![],
                             supported_features: vec![],
                             supported_operations: endpoint_contracts()
@@ -2152,7 +2155,9 @@ mod tests {
                             limits: Value::Null,
                         }))
                     }
-                    _ => Err(crate::Error::Protocol("mock endpoint not implemented".to_owned())),
+                    _ => Err(contrix_core::Error::Protocol(
+                        "mock endpoint not implemented".to_owned(),
+                    )),
                 }
             }
         }

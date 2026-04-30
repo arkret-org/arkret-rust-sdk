@@ -1,6 +1,7 @@
 # Releasing
 
-The release unit is the `contrix-sdk` crate.
+The release unit is the Contrix crate set: `contrix-core`, `contrix-client`,
+`contrix-server` and the umbrella `contrix` crate.
 
 ## Checklist
 
@@ -20,9 +21,10 @@ The release unit is the `contrix-sdk` crate.
 4. Tag and publish:
 
    ```sh
-   git tag contrix-sdk-vX.Y.Z
-   cargo publish -p contrix-sdk
-   git push origin contrix-sdk-vX.Y.Z
+   cargo publish -p contrix-core
+   cargo publish -p contrix-client
+   cargo publish -p contrix-server
+   cargo publish -p contrix
    ```
 
 Do not publish a release that changes canonical digest behavior without an

@@ -9,10 +9,10 @@
 //! Build a local operation and commit using the model-only surface:
 //!
 //! ```rust
-//! use contrix_sdk::{Commit, Did, Hash, Operation, OperationId, SpaceId};
+//! use contrix::{Commit, Did, Hash, Operation, OperationId, SpaceId};
 //! use serde_json::json;
 //!
-//! # fn main() -> contrix_sdk::Result<()> {
+//! # fn main() -> contrix::Result<()> {
 //! let operation = Operation::create(
 //!     OperationId::new("cx:operation:example")?,
 //!     SpaceId::new("cx:space:example")?,
@@ -21,7 +21,7 @@
 //! );
 //! let operation_hash = Hash::new(operation.operation_digest()?)?;
 //! let mut commit = Commit::new(
-//!     contrix_sdk::CommitId::new("cx:commit:example")?,
+//!     contrix::CommitId::new("cx:commit:example")?,
 //!     "did:web:alice.example",
 //!     Did::new("did:web:alice.example")?,
 //!     1,
@@ -34,7 +34,7 @@
 //! Run one in-memory sync-loop step:
 //!
 //! ```rust
-//! use contrix_sdk::{SyncLoop, SyncLoopStep, SyncRequest, SyncResponse};
+//! use contrix::{SyncLoop, SyncLoopStep, SyncRequest, SyncResponse};
 //!
 //! # fn main() {
 //! let mut sync_loop = SyncLoop::new();
@@ -59,8 +59,17 @@
 //! raw strings:
 //!
 //! ```compile_fail
-//! let did: contrix_sdk::Did = "did:web:alice.example";
+//! let did: contrix::Did = "did:web:alice.example";
 //! ```
+
+#[cfg(feature = "client")]
+pub use contrix_client as client;
+pub use contrix_core::*;
+pub use contrix_core::{canonical, cursor, error, model, service, sync};
+#[cfg(feature = "server")]
+pub use contrix_server as server;
+#[cfg(feature = "salvo-adapter")]
+pub use contrix_server::salvo_adapter;
 
 #[cfg(feature = "full-surface")]
 pub mod account;
@@ -72,28 +81,20 @@ pub mod applet;
 pub mod auth;
 #[cfg(feature = "full-surface")]
 pub mod authz;
-#[cfg(all(feature = "full-surface", feature = "axum-adapter"))]
-pub mod axum_adapter;
 #[cfg(feature = "full-surface")]
 pub mod base;
-pub mod canonical;
-#[cfg(feature = "client")]
-pub mod client;
 #[cfg(feature = "full-surface")]
 pub mod content;
 #[cfg(feature = "full-surface")]
 pub mod crypto;
 #[cfg(feature = "full-surface")]
 pub mod crypto_store;
-#[cfg(feature = "full-surface")]
-pub mod cursor;
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub mod devices;
 #[cfg(feature = "full-surface")]
 pub mod discovery;
 #[cfg(feature = "full-surface")]
 pub mod e2ee;
-pub mod error;
 #[cfg(feature = "full-surface")]
 pub mod event_handler;
 #[cfg(feature = "full-surface")]
@@ -108,7 +109,6 @@ pub mod media;
 pub mod membership;
 #[cfg(all(feature = "full-surface", feature = "mls"))]
 pub mod mls;
-pub mod model;
 #[cfg(feature = "full-surface")]
 pub mod notifications;
 #[cfg(feature = "full-surface")]
@@ -127,17 +127,12 @@ pub mod receipts;
 pub mod resolver;
 #[cfg(feature = "full-surface")]
 pub mod search;
-#[cfg(all(feature = "full-surface", feature = "server"))]
-pub mod server;
-pub mod service;
 #[cfg(feature = "full-surface")]
 pub mod settings;
 #[cfg(feature = "full-surface")]
 pub mod space;
 #[cfg(feature = "full-surface")]
 pub mod store;
-#[cfg(feature = "full-surface")]
-pub mod sync;
 #[cfg(all(feature = "full-surface", feature = "sync-runtime"))]
 pub mod sync_client;
 #[cfg(all(feature = "full-surface", feature = "timeline-runtime"))]
@@ -225,8 +220,6 @@ pub use crypto_store::{
     MlsRecoveryAction, MlsRecoveryPlan, PlatformKeyStoreDescriptor, PlatformKeyStoreKind,
     StoredDeviceVerification,
 };
-#[cfg(feature = "full-surface")]
-pub use cursor::{Cursor, SpacePosition, SyncPositions, SyncTracker};
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub use devices::{
     Device, DeviceChange, DeviceManager, DeviceMetadata, DeviceVerificationChallenge, KeyBackup,
@@ -239,7 +232,6 @@ pub use e2ee::{
     AuditAction, AuditEntry, E2eeGroup, E2eeKeyBackup, E2eeKeyRecord, E2eeManager, E2eeMessage,
     E2eeMessageValidation, E2eeMessageValidationFailure,
 };
-pub use error::{Error, Result};
 #[cfg(feature = "full-surface")]
 pub use event_handler::{
     BotCommand, BotCommandParser, BotRuntime, BotRuntimeReport, BotRuntimeShutdown,
@@ -287,7 +279,6 @@ pub use membership::{
 };
 #[cfg(all(feature = "full-surface", feature = "mls"))]
 pub use mls::*;
-pub use model::*;
 #[cfg(feature = "full-surface")]
 pub use notifications::{
     NotificationAction, NotificationCounts, NotificationItem, NotificationManager, NotificationRule,
@@ -345,12 +336,6 @@ pub use server::{
     endpoint_schema_binding, endpoint_schema_bindings, match_endpoint, openapi_document,
     protocol_golden_vectors, reject_query_auth, wire_negative_vectors,
 };
-pub use service::{
-    ApiConventionMetadata, HttpTraceMetadata, NotFoundPrivacy, QuotaKind, QuotaMetadata,
-    RateLimitMetadata, RateLimitScopeKind, ServiceDidAllowlist, ServiceEndpointBinding,
-    ServiceRequirements, ServiceType, privacy_preserving_not_found, quota_exceeded_error,
-    rate_limited_error,
-};
 #[cfg(feature = "full-surface")]
 pub use settings::{
     ClientSettings, NotificationPreferences, PrivacySettings, SettingsManager, ThemeSetting,
@@ -371,14 +356,6 @@ pub use store::{
     StoreSchemaMetadata, StoreSnapshot, StoredAccountData, TransactionalRepoStore,
     rebuild_space_state_from_events, restore_space_state_from_persistence,
     run_store_conformance_suite,
-};
-#[cfg(feature = "full-surface")]
-pub use sync::{
-    BackfillDirection, BackfillFrom, BackfillRequest, BackfillResponse, BucketedSpaceUpdate,
-    LimitedTimelineState, MembershipBucket, PresenceStatus, SpaceSubscription, SpaceUpdate,
-    SubscriptionConfig, SyncClient, SyncFilter, SyncGap, SyncGapReason, SyncMode, SyncRequest,
-    SyncResponse, SyncSemantics, SyncStreamPosition, SyncTokenBinding, SyncUpdates, TimelineFilter,
-    TimelineOrderKey, ToDeviceAck, ToDeviceAckStatus, WaitForFrontier, sync_filter_hash,
 };
 #[cfg(all(feature = "full-surface", feature = "sync-runtime"))]
 pub use sync_client::{

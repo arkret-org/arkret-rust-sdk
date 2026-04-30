@@ -8,7 +8,7 @@ use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use url::Url;
 
-use crate::{
+use contrix_core::{
     AppletActorResponse, AppletDescription, AppletPingResponse, AppletProtocolResponse,
     AppletSpaceResponse, AppletTransactionRequest, AppletTransactionResponse, AuthzCheckRequest,
     AuthzCheckResponse, AuthzInvitesResponse, BlobMetadata, BlobRef, BlobUploadMetadata,

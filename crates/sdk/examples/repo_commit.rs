@@ -1,13 +1,13 @@
-use contrix_sdk::{
+use contrix::{
     Commit, CommitId, Did, Hlc, MemoryRepoStore, Operation, OperationId, RepoStore, SpaceId,
 };
 use serde_json::json;
 
-fn main() -> contrix_sdk::Result<()> {
+fn main() -> contrix::Result<()> {
     let actor = Did::new("did:web:alice.example")?;
     let space_id = SpaceId::new("cx:space:01js0ke000000000000000000")?;
 
-    let event = contrix_sdk::Event::new(
+    let event = contrix::Event::new(
         "cx.message.create",
         space_id.clone(),
         actor.clone(),

@@ -7,7 +7,7 @@ use std::{
     thread,
 };
 
-use contrix_sdk::{canonical, sync, *};
+use contrix::{canonical, *};
 use serde_json::json;
 
 fn did(name: &str) -> Did {
@@ -148,13 +148,13 @@ fn protocol_conformance_vectors_remain_stable() {
 #[test]
 fn interoperability_serialization_roundtrips() {
     let mut spaces = BTreeMap::new();
-    spaces.insert("cx:space:01JS0SP000000000000000000".to_owned(), sync::SyncSpace::default());
+    spaces.insert("cx:space:01JS0SP000000000000000000".to_owned(), SyncSpace::default());
     let response = SyncResponse {
         next_batch: "s1".to_owned(),
         spaces,
         rooms: BTreeMap::new(),
         to_device: Vec::new(),
-        device_lists: sync::DeviceListChanges::default(),
+        device_lists: DeviceListChanges::default(),
         presence: Vec::new(),
         account_data: Vec::new(),
         notifications: Vec::new(),

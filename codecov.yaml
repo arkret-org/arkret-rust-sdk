@@ -5,7 +5,7 @@ coverage:
         target: auto
         threshold: 1%
         paths:
-          - "crates/contrix-sdk/"
+          - "crates/sdk/"
     patch: off
 ignore:
   - "target"

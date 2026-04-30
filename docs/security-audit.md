@@ -90,10 +90,10 @@ audit item as `external_audit_required`.
 
 | Area | Source |
 | --- | --- |
-| Canonical JSON and digests | `crates/contrix-sdk/src/canonical.rs`, `model.rs` |
-| Auth and recovery | `crates/contrix-sdk/src/auth.rs`, `identity.rs` |
-| Capability decisions | `crates/contrix-sdk/src/authz.rs`, `resolver.rs` |
-| Repo and crypto stores | `crates/contrix-sdk/src/store.rs`, `crypto_store.rs` |
-| E2EE and MLS | `crates/contrix-sdk/src/e2ee.rs`, `mls.rs`, `devices.rs` |
-| Federation and service identity | `crates/contrix-sdk/src/federation.rs`, `service.rs` |
-| Log redaction and feature safety | `crates/contrix-sdk/src/crypto.rs`, `client.rs`, `server.rs` |
+| Canonical JSON and digests | `crates/core/src/canonical.rs`, `model.rs` |
+| Auth and recovery | `crates/sdk/src/auth.rs`, `identity.rs` |
+| Capability decisions | `crates/sdk/src/authz.rs`, `resolver.rs` |
+| Repo and crypto stores | `crates/sdk/src/store.rs`, `crypto_store.rs` |
+| E2EE and MLS | `crates/sdk/src/e2ee.rs`, `mls.rs`, `devices.rs` |
+| Federation and service identity | `crates/sdk/src/federation.rs`, `crates/core/src/service.rs` |
+| Log redaction and feature safety | `crates/sdk/src/crypto.rs`, `crates/client/src/lib.rs`, `crates/server/src/lib.rs` |

@@ -1,0 +1,34 @@
+[package]
+authors = ["Chris Young <chris@sonc.ai>"]
+description = "Core Contrix v1 protocol types, canonical JSON, cursors, sync models, and service metadata."
+edition = "2024"
+homepage = "https://github.com/contrix/contrix-rust-sdk"
+keywords = ["contrix", "collaboration", "did", "protocol"]
+license = "Apache-2.0"
+name = "contrix-core"
+readme = "README.md"
+repository = "https://github.com/contrix/contrix-rust-sdk"
+rust-version.workspace = true
+version = "0.1.0"
+
+[features]
+default = []
+client = ["dep:reqwest", "dep:url"]
+mls = []
+
+[dependencies]
+base64.workspace = true
+chrono = { workspace = true, features = ["serde"] }
+getrandom.workspace = true
+reqwest = { workspace = true, optional = true }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+url = { workspace = true, optional = true }
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

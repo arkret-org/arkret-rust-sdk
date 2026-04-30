@@ -1,12 +1,15 @@
 [workspace]
-members = ["crates/contrix-sdk"]
-default-members = ["crates/contrix-sdk"]
+members = ["crates/*"]
+default-members = ["crates/*"]
 resolver = "3"
 
 [workspace.package]
 rust-version = "1.92"
 
 [workspace.dependencies]
+contrix-client = { version = "0.1.0", path = "crates/client", default-features = false }
+contrix-core = { version = "0.1.0", path = "crates/core", default-features = false }
+contrix-server = { version = "0.1.0", path = "crates/server", default-features = false }
 base64 = { version = "0.22.1", default-features = false, features = ["std"] }
 chacha20poly1305 = { version = "0.10.1", default-features = false, features = ["alloc"] }
 chrono = { version = "0.4.42", default-features = false, features = ["clock", "std", "serde"] }
@@ -17,6 +20,7 @@ openmls_basic_credential = { version = "0.5.0", default-features = false }
 openmls_rust_crypto = { version = "0.5.1", default-features = false }
 regex = { version = "1.11.1", default-features = false, features = ["std"] }
 reqwest = { version = "0.12.24", default-features = false }
+salvo = { version = "0.93.0", default-features = false }
 serde = { version = "1.0.228", default-features = false, features = ["std", "derive"] }
 serde_json = { version = "1.0.145", default-features = false, features = ["std"] }
 sha2 = { version = "0.10.9", default-features = false }
@@ -26,7 +30,6 @@ ulid = { version = "1.1.4", default-features = false, features = ["std"] }
 tokio = { version = "1.48.0", default-features = false, features = ["sync"] }
 tracing = { version = "0.1.41", default-features = false, features = ["std", "attributes"] }
 url = { version = "2.5.7", default-features = false }
-axum = { version = "0.8", default-features = false }
 
 [workspace.lints.rust]
 rust_2018_idioms = "warn"

@@ -82,7 +82,7 @@ pub struct KeyLifecycleHook {
 pub enum UnsafeFeatureCombination {
     MlsWithoutFullSurface,
     ServerWithoutFullSurface,
-    AxumAdapterWithoutServer,
+    SalvoAdapterWithoutServer,
     RuntimeWithoutFullSurface,
 }
 
@@ -122,8 +122,8 @@ where
     if has("server") && !has("full-surface") {
         violations.push(UnsafeFeatureCombination::ServerWithoutFullSurface);
     }
-    if has("axum-adapter") && !has("server") {
-        violations.push(UnsafeFeatureCombination::AxumAdapterWithoutServer);
+    if has("salvo-adapter") && !has("server") {
+        violations.push(UnsafeFeatureCombination::SalvoAdapterWithoutServer);
     }
     if ["applet-runtime", "device-runtime", "sync-runtime", "timeline-runtime"]
         .iter()
@@ -154,8 +154,8 @@ pub fn current_feature_safety_report() -> FeatureSafetyReport {
     if cfg!(feature = "tracing") {
         features.push("tracing");
     }
-    if cfg!(feature = "axum-adapter") {
-        features.push("axum-adapter");
+    if cfg!(feature = "salvo-adapter") {
+        features.push("salvo-adapter");
     }
     if cfg!(feature = "applet-runtime") {
         features.push("applet-runtime");
@@ -504,13 +504,13 @@ mod tests {
 
     #[test]
     fn feature_safety_report_rejects_unsafe_combinations() {
-        let report = feature_safety_report(["mls", "axum-adapter", "sync-runtime"]);
+        let report = feature_safety_report(["mls", "salvo-adapter", "sync-runtime"]);
         assert!(report.validate().is_err());
         assert!(report.violations.contains(&UnsafeFeatureCombination::MlsWithoutFullSurface));
-        assert!(report.violations.contains(&UnsafeFeatureCombination::AxumAdapterWithoutServer));
+        assert!(report.violations.contains(&UnsafeFeatureCombination::SalvoAdapterWithoutServer));
         assert!(report.violations.contains(&UnsafeFeatureCombination::RuntimeWithoutFullSurface));
 
-        let safe = feature_safety_report(["full-surface", "server", "axum-adapter", "mls"]);
+        let safe = feature_safety_report(["full-surface", "server", "salvo-adapter", "mls"]);
         safe.validate().unwrap();
     }
 

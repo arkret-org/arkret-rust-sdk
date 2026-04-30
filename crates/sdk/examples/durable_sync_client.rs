@@ -1,9 +1,9 @@
-use contrix_sdk::{
+use contrix::{
     MemoryPersistenceStore, SpaceId, SpaceState, StateSnapshotStore,
     restore_space_state_from_persistence,
 };
 
-fn main() -> contrix_sdk::Result<()> {
+fn main() -> contrix::Result<()> {
     let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000")?;
     let state = SpaceState::new(space_id.clone(), "1".to_owned());
 

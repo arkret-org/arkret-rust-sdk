@@ -1,0 +1,25 @@
+[package]
+authors = ["Chris Young <chris@sonc.ai>"]
+description = "HTTP client bindings for Contrix v1 service endpoints."
+edition = "2024"
+homepage = "https://github.com/contrix/contrix-rust-sdk"
+keywords = ["contrix", "client", "http", "sdk"]
+license = "Apache-2.0"
+name = "contrix-client"
+readme = "README.md"
+repository = "https://github.com/contrix/contrix-rust-sdk"
+rust-version.workspace = true
+version = "0.1.0"
+
+[features]
+default = []
+
+[dependencies]
+contrix-core = { workspace = true, features = ["client"] }
+reqwest = { workspace = true, features = ["json", "gzip", "http2"] }
+serde.workspace = true
+serde_json.workspace = true
+url = { workspace = true, features = ["serde"] }
+
+[lints]
+workspace = true

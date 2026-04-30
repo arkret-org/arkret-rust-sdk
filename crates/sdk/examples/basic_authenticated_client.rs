@@ -1,6 +1,6 @@
-use contrix_sdk::{AuthManager, BaseClient, DeviceId, Did, SessionMeta};
+use contrix::{AuthManager, BaseClient, DeviceId, Did, SessionMeta};
 
-fn main() -> contrix_sdk::Result<()> {
+fn main() -> contrix::Result<()> {
     let user_id = Did::new("did:web:alice.example")?;
     let device_id = DeviceId::new("dev_desktop")?;
 

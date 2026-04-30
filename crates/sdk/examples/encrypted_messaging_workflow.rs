@@ -1,6 +1,6 @@
-use contrix_sdk::crypto;
+use contrix::crypto;
 
-fn main() -> contrix_sdk::Result<()> {
+fn main() -> contrix::Result<()> {
     let plaintext = br#"{"msgtype":"m.text","body":"hello"}"#;
     let key_material = b"example-device-key-material";
     let aad = b"cx:space:01JS0SP000000000000000000|cx.message.create";

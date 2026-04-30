@@ -1,4 +1,4 @@
-use contrix_sdk::BotCommandParser;
+use contrix::BotCommandParser;
 
 fn main() {
     let parser = BotCommandParser::new("!");
