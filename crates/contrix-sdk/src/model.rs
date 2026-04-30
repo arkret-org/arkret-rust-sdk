@@ -1282,7 +1282,7 @@ fn is_canonical_uuid(value: &str) -> bool {
 
     let version = value.as_bytes()[14];
     let variant = value.as_bytes()[19];
-    matches!(version, b'4' | b'7') && matches!(variant, b'8' | b'9' | b'a' | b'b')
+    matches!(version, b'4' | b'7' | b'8') && matches!(variant, b'8' | b'9' | b'a' | b'b')
 }
 
 fn is_hash(value: &str) -> bool {
@@ -4521,6 +4521,7 @@ mod tests {
         let did = Did::new("did:uuid:550e8400-e29b-41d4-a716-446655440000").unwrap();
         assert_eq!(did.method(), "uuid");
         assert!(did.is_uuid());
+        assert!(Did::new("did:uuid:19dbd742-a001-834d-91b6-b01c2e3b76d9").unwrap().is_uuid());
 
         assert!(Did::new("did:uuid:550e8400-e29b-11d4-a716-446655440000").is_err());
         assert!(Did::new("did:uuid:550e8400-e29b-41d4-c716-446655440000").is_err());
