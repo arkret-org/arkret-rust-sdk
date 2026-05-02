@@ -321,11 +321,10 @@ pub use platform::{
 pub use presence::{Presence, PresenceManager};
 #[cfg(feature = "full-surface")]
 pub use profile::{
-    AudiencePolicyBinding, DataClassification, ExternalDeviceApprovalMode, PairwiseControlMessage,
-    PairwiseControlMessageKind, ProfileManager, ServiceReplacementPlan, SocialAction,
-    SocialActionKind, SocialCircle, SocialFeed, SocialGraph, SocialTarget,
-    SovereignDeploymentPolicy, SpaceExportManifest, SpaceImportValidation, TspTrustBinding,
-    UserProfile, validate_space_import,
+    DataClassification, ExternalDeviceApprovalMode, PairwiseControlMessage,
+    PairwiseControlMessageKind, ProfileManager, ServiceReplacementPlan, SovereignDeploymentPolicy,
+    SpaceExportManifest, SpaceImportValidation, TspTrustBinding, UserProfile,
+    validate_space_import,
 };
 #[cfg(feature = "full-surface")]
 pub use push::{
