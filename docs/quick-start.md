@@ -71,10 +71,10 @@ proofs, signatures or private key references.
 
 ### Model Capability Facets
 
-Use `EntityFacet` as the primary capability signal for views, queries and
-capability constraints. `entity_type` remains available as a product label, but
-authorization should prefer facet selectors such as `stateful + rankable` over
-type names such as `task`.
+Use `Subject` for the stable semantic center of work and link Cards, Rooms,
+Morphs or Views as explicit `has_surface` relations. `EntityFacet` remains
+available for legacy/open projections and capability constraints, but standard
+objects should use their protocol type and resource selector directly.
 
 ### Send And Receive Encrypted Messages
 

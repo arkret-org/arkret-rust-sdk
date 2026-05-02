@@ -11,7 +11,9 @@ use contrix_core::{
     OP_INDEX_SEARCH, OP_INDEX_THREAD, OP_KEYS_CLAIM, OP_KEYS_QUERY, OP_KEYS_UPLOAD,
     OP_MESSAGE_CREATE, OP_PUSH_NOTIFY, OP_RELATION_CREATE, OP_RELATION_DELETE, OP_REPO_DESCRIBE,
     OP_REPO_SYNC, OP_SERVER_DESCRIBE, OP_SPACE_CHILD, OP_SPACE_CREATE, OP_SPACE_ORGANIZATION,
-    OP_SPACE_UPDATE, OP_SYNC_BACKFILL, OP_SYNC_DESCRIBE, OP_SYNC_SUBSCRIBE, OP_TASK_CREATE,
+    OP_SPACE_UPDATE, OP_SUBJECT_ARCHIVE, OP_SUBJECT_CREATE, OP_SUBJECT_LINK_SURFACE,
+    OP_SUBJECT_RESTORE, OP_SUBJECT_SET_PRIMARY_SURFACE, OP_SUBJECT_UNLINK_SURFACE,
+    OP_SUBJECT_UPDATE, OP_SYNC_BACKFILL, OP_SYNC_DESCRIBE, OP_SYNC_SUBSCRIBE, OP_TASK_CREATE,
     OP_TASK_UPDATE, OP_VIEW_CREATE, OP_VIEW_RECONCILE, OP_VIEW_UPDATE, OperationEnvelope,
     OperationId, OperationKindConformanceVector, OperationKindRegistry, Result,
     operation_kind_conformance_vectors,
@@ -24,6 +26,7 @@ pub use contrix_core::{CausalRef, Operation, OperationSignature, OperationType};
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum OperationSurface {
+    Subject,
     Entity,
     Relation,
     Position,
@@ -80,6 +83,13 @@ pub fn classify_operation_kind(kind: &str) -> OperationSurface {
     match kind {
         OP_ENTITY_CREATE | OP_ENTITY_UPDATE | OP_ENTITY_DELETE | OP_ENTITY_RESTORE
         | OP_ENTITY_REDACT => OperationSurface::Entity,
+        OP_SUBJECT_CREATE
+        | OP_SUBJECT_UPDATE
+        | OP_SUBJECT_ARCHIVE
+        | OP_SUBJECT_RESTORE
+        | OP_SUBJECT_LINK_SURFACE
+        | OP_SUBJECT_UNLINK_SURFACE
+        | OP_SUBJECT_SET_PRIMARY_SURFACE => OperationSurface::Subject,
         OP_RELATION_CREATE | OP_RELATION_DELETE => OperationSurface::Relation,
         OP_FIELD_POSITION_MOVE | OP_FIELD_POSITION_REORDER => OperationSurface::Position,
         OP_CONTAINER_MOVE_ITEM | OP_CONTAINER_REBALANCE => OperationSurface::Container,
@@ -125,6 +135,7 @@ pub fn operation_catalog() -> OperationCatalogReport {
         .collect::<Vec<_>>();
     let covered = rows.iter().map(|row| row.surface.clone()).collect::<BTreeSet<_>>();
     let required_surfaces = [
+        OperationSurface::Subject,
         OperationSurface::Entity,
         OperationSurface::Relation,
         OperationSurface::Position,
@@ -412,9 +423,9 @@ pub fn reduce_operation_semantics(operations: &[OperationEnvelope]) -> Operation
 
 fn mutation_for_kind(kind: &str) -> OperationMutation {
     match kind {
-        OP_ENTITY_CREATE | OP_RELATION_CREATE | OP_TASK_CREATE | OP_VIEW_CREATE
-        | OP_SPACE_CREATE => OperationMutation::Create,
-        OP_ENTITY_DELETE | OP_RELATION_DELETE => OperationMutation::Delete,
+        OP_ENTITY_CREATE | OP_SUBJECT_CREATE | OP_RELATION_CREATE | OP_TASK_CREATE
+        | OP_VIEW_CREATE | OP_SPACE_CREATE => OperationMutation::Create,
+        OP_ENTITY_DELETE | OP_SUBJECT_ARCHIVE | OP_RELATION_DELETE => OperationMutation::Delete,
         OP_ENTITY_REDACT => OperationMutation::Redact,
         OP_SERVER_DESCRIBE
         | OP_REPO_DESCRIBE
@@ -441,6 +452,13 @@ fn target_id_for_operation(kind: &str, content: &Value) -> Option<String> {
         | OP_FIELD_POSITION_MOVE
         | OP_FIELD_POSITION_REORDER
         | OP_CONTAINER_MOVE_ITEM => &["entity_id"],
+        OP_SUBJECT_CREATE
+        | OP_SUBJECT_UPDATE
+        | OP_SUBJECT_ARCHIVE
+        | OP_SUBJECT_RESTORE
+        | OP_SUBJECT_LINK_SURFACE
+        | OP_SUBJECT_UNLINK_SURFACE
+        | OP_SUBJECT_SET_PRIMARY_SURFACE => &["subject_id"],
         OP_RELATION_CREATE | OP_RELATION_DELETE => &["relation_id"],
         OP_TASK_CREATE | OP_TASK_UPDATE => &["task_id", "entity_id"],
         OP_VIEW_CREATE | OP_VIEW_UPDATE | OP_VIEW_RECONCILE => &["view_id"],

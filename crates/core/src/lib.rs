@@ -16,7 +16,7 @@ pub use cursor::{Cursor, SpacePosition, SyncPositions, SyncTracker};
 pub use error::{Error, Result};
 pub use identifiers::{
     BlobRef, CommitId, DeviceId, Did, EntityId, EventId, GrantId, Hash, Hlc, InviteId, OperationId,
-    PolicyId, RelationId, SpaceId, ViewId,
+    PolicyId, RelationId, SpaceId, SubjectId, ViewId,
 };
 pub use model::*;
 pub use service::{

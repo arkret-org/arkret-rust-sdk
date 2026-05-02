@@ -9,7 +9,7 @@ use std::{
 use contrix_core::{
     CAPABILITY_SCHEMA, CLIENT_SYNC_RESPONSE_SCHEMA, COMMIT_SCHEMA, CURSOR_SCHEMA,
     ENCRYPTED_PAYLOAD_SCHEMA, ENTITY_SCHEMA, EVENT_SCHEMA, Error, GeneratedSchemaValidator,
-    OPERATION_SCHEMA, ProtocolSchemaRegistry, Result, SCHEMA_COMPATIBILITY_PROFILE,
+    OPERATION_SCHEMA, ProtocolSchemaRegistry, Result, SCHEMA_COMPATIBILITY_PROFILE, SUBJECT_SCHEMA,
     SchemaCompatibilityEntry, SchemaCompatibilityTable, VIEW_SCHEMA,
     schema_version_compatibility_table,
 };
@@ -120,6 +120,21 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
             expected_valid: false,
         },
         SchemaValidationVector {
+            name: "subject minimal valid".to_owned(),
+            schema_id: SUBJECT_SCHEMA.to_owned(),
+            input: json!({
+                "schema": "cx.schema.subject.v1",
+                "id": "cx:subject:01js0sb000000000000000000",
+                "type": "subject",
+                "space_id": "cx:space:01js0ke000000000000000000",
+                "title": "Payment refactor",
+                "subject_kind": "initiative",
+                "created_by": "did:web:alice.example",
+                "created_at": "2026-05-02T00:00:00Z"
+            }),
+            expected_valid: true,
+        },
+        SchemaValidationVector {
             name: "event envelope minimal valid".to_owned(),
             schema_id: EVENT_SCHEMA.to_owned(),
             input: json!({
@@ -222,6 +237,11 @@ impl EventPayloadValidatorCatalog {
 
 pub fn event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
     let rules = [
+        ("cx.subject.create", SUBJECT_SCHEMA, &["subject_id", "title", "subject_kind"][..]),
+        ("cx.subject.update", SUBJECT_SCHEMA, &["subject_id"][..]),
+        ("cx.subject.link_surface", SUBJECT_SCHEMA, &["subject_id", "surface_ref"][..]),
+        ("cx.subject.unlink_surface", SUBJECT_SCHEMA, &["subject_id", "surface_ref"][..]),
+        ("cx.subject.set_primary_surface", SUBJECT_SCHEMA, &["subject_id", "surface_ref"][..]),
         ("cx.message.create", EVENT_SCHEMA, &["body"][..]),
         ("cx.member.state", EVENT_SCHEMA, &["principal_id", "membership"][..]),
         ("cx.card.move", EVENT_SCHEMA, &["board_id", "card_id", "from_list_id", "to_list_id"][..]),
@@ -386,6 +406,7 @@ impl ArtifactDriftReport {
 pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     EVENT_SCHEMA,
     OPERATION_SCHEMA,
+    SUBJECT_SCHEMA,
     CAPABILITY_SCHEMA,
     CURSOR_SCHEMA,
     ENCRYPTED_PAYLOAD_SCHEMA,
@@ -394,6 +415,11 @@ pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
 ];
 
 pub const ARTIFACT_BACKED_EVENT_KINDS: &[&str] = &[
+    "cx.subject.create",
+    "cx.subject.update",
+    "cx.subject.link_surface",
+    "cx.subject.unlink_surface",
+    "cx.subject.set_primary_surface",
     "cx.message.create",
     "cx.member.state",
     "cx.card.move",
@@ -410,7 +436,7 @@ pub const ARTIFACT_BACKED_SERVICE_OPERATIONS: &[&str] = &[
     "cx.server.describe",
 ];
 
-pub const ARTIFACT_BACKED_ID_KINDS: &[&str] = &["event", "operation", "space"];
+pub const ARTIFACT_BACKED_ID_KINDS: &[&str] = &["event", "operation", "space", "subject"];
 
 pub fn default_spec_artifacts_dir() -> Option<PathBuf> {
     if let Ok(artifacts_dir) = std::env::var("CONTRIX_SPEC_ARTIFACTS") {
@@ -469,13 +495,15 @@ pub mod protocol {
         CAPABILITY_SCHEMA, CLIENT_SYNC_RESPONSE_SCHEMA, COMMIT_SCHEMA, CURSOR_SCHEMA,
         ENCRYPTED_PAYLOAD_SCHEMA, ENTITY_SCHEMA, EVENT_SCHEMA, GeneratedSchemaField,
         GeneratedSchemaValidator, GeneratedSchemaValueType, OPERATION_SCHEMA,
-        ProtocolSchemaRegistry, SCHEMA_COMPATIBILITY_PROFILE, SchemaCompatibilityEntry,
-        SchemaCompatibilityTable, VIEW_SCHEMA, schema_version_compatibility_table,
+        ProtocolSchemaRegistry, SCHEMA_COMPATIBILITY_PROFILE, SUBJECT_SCHEMA,
+        SchemaCompatibilityEntry, SchemaCompatibilityTable, VIEW_SCHEMA,
+        schema_version_compatibility_table,
     };
 }
 
 pub const CORE_SCHEMA_IDS: &[&str] = &[
     CURSOR_SCHEMA,
+    SUBJECT_SCHEMA,
     ENTITY_SCHEMA,
     VIEW_SCHEMA,
     EVENT_SCHEMA,

@@ -83,11 +83,74 @@ pub fn identity_endpoints() -> &'static [IdentityEndpoint] {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DidDocument {
     pub id: Did,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    #[serde(
+        rename = "verificationMethod",
+        alias = "verification_methods",
+        default,
+        deserialize_with = "deserialize_verification_methods",
+        skip_serializing_if = "BTreeMap::is_empty"
+    )]
     pub verification_methods: BTreeMap<String, String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(
+        rename = "alsoKnownAs",
+        alias = "also_known_as",
+        default,
+        skip_serializing_if = "Vec::is_empty"
+    )]
     pub also_known_as: Vec<String>,
+    #[serde(rename = "updated", alias = "updated_at", default = "Utc::now")]
     pub updated_at: DateTime<Utc>,
+}
+
+fn deserialize_verification_methods<'de, D>(
+    deserializer: D,
+) -> std::result::Result<BTreeMap<String, String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Value::deserialize(deserializer)?;
+    match value {
+        Value::Object(methods) => Ok(methods
+            .into_iter()
+            .map(|(key_id, key_value)| {
+                let public_key = key_value
+                    .as_str()
+                    .map(ToOwned::to_owned)
+                    .unwrap_or_else(|| key_value.to_string());
+                (key_id, public_key)
+            })
+            .collect()),
+        Value::Array(methods) => {
+            let mut out = BTreeMap::new();
+            for method in methods {
+                if let Value::Object(object) = method {
+                    let Some(key_id) =
+                        object.get("id").and_then(|value| value.as_str()).map(ToOwned::to_owned)
+                    else {
+                        continue;
+                    };
+                    let public_key = object
+                        .get("publicKeyMultibase")
+                        .or_else(|| object.get("publicKeyJwk"))
+                        .or_else(|| object.get("public_key_multibase"))
+                        .or_else(|| object.get("public_key_jwk"))
+                        .map(|value| {
+                            value
+                                .as_str()
+                                .map(ToOwned::to_owned)
+                                .unwrap_or_else(|| value.to_string())
+                        })
+                        .unwrap_or_default();
+                    out.insert(key_id, public_key);
+                }
+            }
+            Ok(out)
+        }
+        Value::Null => Ok(BTreeMap::new()),
+        other => Err(serde::de::Error::custom(format!(
+            "verificationMethod must be an object or array, got {other}"
+        ))),
+    }
 }
 
 impl DidDocument {
@@ -216,6 +279,11 @@ mod tests {
 
         let response = resolve_response_from_document(document.clone(), None);
         assert_eq!(response.did_document.did, document.id);
+        assert!(response.did_document.document.get("verificationMethod").is_some());
+        assert!(response.did_document.document.get("alsoKnownAs").is_some());
+        assert!(response.did_document.document.get("updated").is_some());
+        assert!(response.did_document.document.get("verification_methods").is_none());
+        assert!(response.did_document.document.get("also_known_as").is_none());
     }
 
     #[test]

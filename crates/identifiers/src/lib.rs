@@ -143,6 +143,7 @@ fn has_prefix<'a>(prefix: &'a str) -> impl Fn(&str) -> bool + 'a {
 
 id_type!(Did, is_did);
 id_type!(SpaceId, has_prefix("cx:space:"));
+id_type!(SubjectId, has_prefix("cx:subject:"));
 id_type!(EntityId, has_prefix("cx:entity:"));
 id_type!(RelationId, has_prefix("cx:relation:"));
 id_type!(EventId, |value: &str| value.starts_with("cx:event:") || is_hash(value));

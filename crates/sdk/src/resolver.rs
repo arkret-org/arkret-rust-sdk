@@ -7,18 +7,21 @@
 //! - State snapshots
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{
     Audience, Did, Entity, EntityFacets, EntityId, Error, Event, EventId, Relation, RelationId,
-    Result, SpaceId,
-    canonical::{canonical_json_bytes, sha256_digest},
+    Result, SpaceId, Subject, SubjectId,
+    canonical::{canonical_json_bytes, canonical_sha256, sha256_digest},
     model::{
         OP_CONTAINER_MOVE_ITEM, OP_ENTITY_CREATE, OP_ENTITY_DELETE, OP_ENTITY_REDACT,
         OP_ENTITY_RESTORE, OP_ENTITY_UPDATE, OP_FIELD_POSITION_MOVE, OP_FIELD_POSITION_REORDER,
         OP_RELATION_CREATE, OP_RELATION_DELETE, OP_SPACE_CHILD, OP_SPACE_CREATE,
-        OP_SPACE_ORGANIZATION, OP_SPACE_UPDATE, OP_TASK_CREATE, OP_TASK_UPDATE, OP_VIEW_CREATE,
-        OP_VIEW_RECONCILE, OP_VIEW_UPDATE,
+        OP_SPACE_ORGANIZATION, OP_SPACE_UPDATE, OP_SUBJECT_ARCHIVE, OP_SUBJECT_CREATE,
+        OP_SUBJECT_LINK_SURFACE, OP_SUBJECT_RESTORE, OP_SUBJECT_SET_PRIMARY_SURFACE,
+        OP_SUBJECT_UNLINK_SURFACE, OP_SUBJECT_UPDATE, OP_TASK_CREATE, OP_TASK_UPDATE,
+        OP_VIEW_CREATE, OP_VIEW_RECONCILE, OP_VIEW_UPDATE,
     },
 };
 
@@ -32,6 +35,8 @@ pub struct SpaceState {
     pub space_id: SpaceId,
     /// Current space version
     pub space_version: String,
+    /// Current subjects by ID
+    pub subjects: BTreeMap<String, Subject>,
     /// Current entities by ID
     pub entities: BTreeMap<String, Entity>,
     /// Current relations by ID
@@ -59,6 +64,7 @@ impl SpaceState {
         Self {
             space_id,
             space_version,
+            subjects: BTreeMap::new(),
             entities: BTreeMap::new(),
             relations: BTreeMap::new(),
             resolved_state: BTreeMap::new(),
@@ -147,6 +153,15 @@ impl SpaceState {
             OP_ENTITY_DELETE => self.delete_entity(event)?,
             OP_ENTITY_RESTORE => self.restore_entity(event)?,
             OP_ENTITY_REDACT => self.redact_entity(event)?,
+
+            // Subject lifecycle and surface links
+            OP_SUBJECT_CREATE => self.create_subject(event)?,
+            OP_SUBJECT_UPDATE => self.update_subject(event)?,
+            OP_SUBJECT_ARCHIVE => self.archive_subject(event)?,
+            OP_SUBJECT_RESTORE => self.restore_subject(event)?,
+            OP_SUBJECT_LINK_SURFACE => self.link_subject_surface(event)?,
+            OP_SUBJECT_UNLINK_SURFACE => self.unlink_subject_surface(event)?,
+            OP_SUBJECT_SET_PRIMARY_SURFACE => self.set_primary_subject_surface(event)?,
 
             // Relation lifecycle
             OP_RELATION_CREATE => self.create_relation(event)?,
@@ -257,11 +272,9 @@ impl SpaceState {
 
         // Extract all values from event content before borrowing
         let title = self.extract_optional_field::<String>(&event.content, "title");
-        let content = self.extract_optional_field::<serde_json::Value>(&event.content, "content");
-        let fields = self.extract_optional_field::<BTreeMap<String, serde_json::Value>>(
-            &event.content,
-            "fields",
-        );
+        let content = self.extract_optional_field::<Value>(&event.content, "content");
+        let fields =
+            self.extract_optional_field::<BTreeMap<String, Value>>(&event.content, "fields");
         let facets = self.extract_optional_field::<EntityFacets>(&event.content, "facets");
         let state = self.extract_optional_field::<String>(&event.content, "state");
 
@@ -337,6 +350,8 @@ impl SpaceState {
         let relation_id_str = self.extract_relation_id(&event.content)?;
         let relation_id = RelationId::new(relation_id_str.clone())?;
         let relation_kind = self.extract_field(&event.content, "relation_kind")?;
+        let from_ref = self.extract_optional_field(&event.content, "from_ref");
+        let to_ref = self.extract_optional_field(&event.content, "to_ref");
         let from_entity_id = self.extract_optional_field(&event.content, "from_entity_id");
         let from_actor_id = self.extract_optional_field::<Did>(&event.content, "from_actor_id");
         let from_space_id = self.extract_optional_field(&event.content, "from_space_id");
@@ -351,6 +366,8 @@ impl SpaceState {
             object_type: "relation".to_owned(),
             space_id: event.space_id.clone(),
             relation_kind,
+            from_ref,
+            to_ref,
             from_entity_id,
             from_actor_id,
             from_space_id,
@@ -392,6 +409,204 @@ impl SpaceState {
         Ok(())
     }
 
+    fn create_subject(&mut self, event: &Event) -> Result<()> {
+        let subject_id_str = self.extract_subject_id(&event.content)?;
+        let subject_id = SubjectId::new(subject_id_str.clone())?;
+        let title = self.extract_field::<String>(&event.content, "title")?;
+        let subject_kind = self.extract_field(&event.content, "subject_kind")?;
+        let brief = self.extract_optional_field(&event.content, "brief");
+        let summary = self.extract_optional_field(&event.content, "summary");
+        let fields = self.extract_fields(&event.content)?;
+        let state = self
+            .extract_optional_field::<String>(&event.content, "state")
+            .map(|state| object_state_from_str(&state))
+            .transpose()?
+            .unwrap_or(crate::ObjectState::Active);
+
+        let subject = Subject {
+            schema: crate::SUBJECT_SCHEMA.to_owned(),
+            id: subject_id,
+            object_type: "subject".to_owned(),
+            space_id: event.space_id.clone(),
+            title,
+            brief,
+            summary,
+            subject_kind,
+            fields,
+            state: Some(state),
+            version: Some(0),
+            created_by: event.actor_id.clone(),
+            created_at: event.created_at,
+            updated_by: None,
+            updated_at: None,
+            extra: BTreeMap::new(),
+        };
+        subject.validate_title()?;
+        self.subjects.insert(subject_id_str, subject);
+        Ok(())
+    }
+
+    fn update_subject(&mut self, event: &Event) -> Result<()> {
+        let subject_id_str = self.extract_subject_id(&event.content)?;
+        let title = self.extract_optional_field::<String>(&event.content, "title");
+        let brief = self.extract_optional_field::<String>(&event.content, "brief");
+        let summary = self.extract_optional_field::<String>(&event.content, "summary");
+        let fields =
+            self.extract_optional_field::<BTreeMap<String, Value>>(&event.content, "fields");
+        let patch = self.extract_optional_field::<BTreeMap<String, Value>>(&event.content, "patch");
+        let state = self
+            .extract_optional_field::<String>(&event.content, "state")
+            .map(|state| object_state_from_str(&state))
+            .transpose()?;
+        let patched_state = patch_state(&patch).transpose()?;
+
+        let subject = self
+            .subjects
+            .get_mut(&subject_id_str)
+            .ok_or_else(|| Error::Protocol(format!("subject not found: {}", subject_id_str)))?;
+
+        if let Some(title) = title.or_else(|| patch_string(&patch, "title")) {
+            subject.title = title;
+        }
+        if let Some(brief) = brief.or_else(|| patch_string(&patch, "brief")) {
+            subject.brief = Some(brief);
+        }
+        if let Some(summary) = summary.or_else(|| patch_string(&patch, "summary")) {
+            subject.summary = Some(summary);
+        }
+        if let Some(fields) = fields.or_else(|| patch_fields(&patch)) {
+            subject.fields = fields;
+        }
+        if let Some(state) = state.or(patched_state) {
+            subject.state = Some(state);
+        }
+        subject.validate_title()?;
+        subject.updated_by = Some(event.actor_id.clone());
+        subject.updated_at = Some(event.created_at);
+        if let Some(version) = subject.version {
+            subject.version = Some(version + 1);
+        }
+        Ok(())
+    }
+
+    fn archive_subject(&mut self, event: &Event) -> Result<()> {
+        self.set_subject_state(event, crate::ObjectState::Archived)
+    }
+
+    fn restore_subject(&mut self, event: &Event) -> Result<()> {
+        self.set_subject_state(event, crate::ObjectState::Active)
+    }
+
+    fn set_subject_state(&mut self, event: &Event, state: crate::ObjectState) -> Result<()> {
+        let subject_id_str = self.extract_subject_id(&event.content)?;
+        if let Some(subject) = self.subjects.get_mut(&subject_id_str) {
+            subject.state = Some(state);
+            subject.updated_by = Some(event.actor_id.clone());
+            subject.updated_at = Some(event.created_at);
+            if let Some(version) = subject.version {
+                subject.version = Some(version + 1);
+            }
+        }
+        Ok(())
+    }
+
+    fn link_subject_surface(&mut self, event: &Event) -> Result<()> {
+        let relation = self.subject_surface_relation(event, true)?;
+        self.relations.insert(relation.id.as_str().to_owned(), relation);
+        Ok(())
+    }
+
+    fn unlink_subject_surface(&mut self, event: &Event) -> Result<()> {
+        let subject_id = self.extract_subject_id(&event.content)?;
+        let surface_ref = self.extract_field::<String>(&event.content, "surface_ref")?;
+        let relation_id = self.extract_optional_field::<String>(&event.content, "relation_id");
+        let surface_role = self.extract_optional_field::<String>(&event.content, "surface_role");
+        let matching_id = relation_id.or_else(|| {
+            self.relations
+                .iter()
+                .find(|(_, relation)| {
+                    relation.relation_kind == crate::RelationKind::HasSurface
+                        && relation.from_ref.as_deref() == Some(subject_id.as_str())
+                        && relation.to_ref.as_deref() == Some(surface_ref.as_str())
+                        && surface_role.as_ref().is_none_or(|role| {
+                            relation.fields.get("surface_role").and_then(Value::as_str)
+                                == Some(role.as_str())
+                        })
+                })
+                .map(|(id, _)| id.clone())
+        });
+        if let Some(relation_id) = matching_id
+            && let Some(relation) = self.relations.get_mut(&relation_id)
+        {
+            relation.state = Some(crate::RelationState::Deleted);
+        }
+        Ok(())
+    }
+
+    fn set_primary_subject_surface(&mut self, event: &Event) -> Result<()> {
+        let subject_id = self.extract_subject_id(&event.content)?;
+        let surface_role = self.extract_optional_field::<String>(&event.content, "surface_role");
+        for relation in self.relations.values_mut() {
+            if relation.relation_kind == crate::RelationKind::HasSurface
+                && relation.from_ref.as_deref() == Some(subject_id.as_str())
+                && surface_role.as_ref().is_none_or(|role| {
+                    relation.fields.get("surface_role").and_then(Value::as_str)
+                        == Some(role.as_str())
+                })
+            {
+                relation.fields.insert("primary".to_owned(), Value::Bool(false));
+            }
+        }
+        let mut relation = self.subject_surface_relation(event, true)?;
+        relation.fields.insert("primary".to_owned(), Value::Bool(true));
+        self.relations.insert(relation.id.as_str().to_owned(), relation);
+        Ok(())
+    }
+
+    fn subject_surface_relation(&self, event: &Event, active: bool) -> Result<Relation> {
+        let subject_id = self.extract_subject_id(&event.content)?;
+        if !self.subjects.contains_key(&subject_id) {
+            return Err(Error::Protocol(format!("subject not found: {}", subject_id)));
+        }
+        let surface_ref = self.extract_field::<String>(&event.content, "surface_ref")?;
+        let relation_id = self
+            .extract_optional_field::<String>(&event.content, "relation_id")
+            .unwrap_or_else(|| deterministic_subject_surface_relation_id(&event.content));
+        let mut fields = BTreeMap::new();
+        if let Some(surface_role) =
+            self.extract_optional_field::<String>(&event.content, "surface_role")
+        {
+            fields.insert("surface_role".to_owned(), Value::String(surface_role));
+        }
+        if let Some(primary) = self.extract_optional_field::<bool>(&event.content, "primary") {
+            fields.insert("primary".to_owned(), Value::Bool(primary));
+        }
+
+        Ok(Relation {
+            schema: crate::RELATION_SCHEMA.to_owned(),
+            id: RelationId::new(relation_id)?,
+            object_type: "relation".to_owned(),
+            space_id: event.space_id.clone(),
+            relation_kind: crate::RelationKind::HasSurface,
+            from_ref: Some(subject_id),
+            to_ref: Some(surface_ref),
+            from_entity_id: None,
+            from_actor_id: None,
+            from_space_id: None,
+            to_entity_id: None,
+            to_actor_id: None,
+            to_space_id: None,
+            fields,
+            state: Some(if active {
+                crate::RelationState::Active
+            } else {
+                crate::RelationState::Deleted
+            }),
+            created_by: event.actor_id.clone(),
+            created_at: event.created_at,
+        })
+    }
+
     /// Move a relation by updating its endpoints.
     fn move_relation(&mut self, event: &Event) -> Result<()> {
         let relation_id_str = self.extract_relation_id(&event.content)?;
@@ -399,6 +614,8 @@ impl SpaceState {
         let created_at = event.created_at;
         let new_to = self.extract_optional_field::<String>(&event.content, "to_entity_id");
         let new_from = self.extract_optional_field::<String>(&event.content, "from_entity_id");
+        let new_to_ref = self.extract_optional_field::<String>(&event.content, "to_ref");
+        let new_from_ref = self.extract_optional_field::<String>(&event.content, "from_ref");
 
         if let Some(relation) = self.relations.get_mut(&relation_id_str) {
             if let Some(new_to) = new_to {
@@ -406,6 +623,12 @@ impl SpaceState {
             }
             if let Some(new_from) = new_from {
                 relation.from_entity_id = Some(EntityId::new(new_from)?);
+            }
+            if let Some(new_to_ref) = new_to_ref {
+                relation.to_ref = Some(new_to_ref);
+            }
+            if let Some(new_from_ref) = new_from_ref {
+                relation.from_ref = Some(new_from_ref);
             }
             relation.created_by = actor_id;
             relation.created_at = created_at;
@@ -674,19 +897,28 @@ impl SpaceState {
     }
 
     /// Extract entity_id from event content.
-    fn extract_entity_id(&self, content: &serde_json::Value) -> Result<String> {
+    fn extract_entity_id(&self, content: &Value) -> Result<String> {
         self.extract_field(content, "id")
     }
 
+    /// Extract subject_id from event content.
+    fn extract_subject_id(&self, content: &Value) -> Result<String> {
+        self.extract_optional_field(content, "subject_id")
+            .or_else(|| self.extract_optional_field(content, "id"))
+            .ok_or_else(|| Error::Protocol("subject event requires subject_id or id".to_owned()))
+    }
+
     /// Extract relation_id from event content.
-    fn extract_relation_id(&self, content: &serde_json::Value) -> Result<String> {
-        self.extract_field(content, "id")
+    fn extract_relation_id(&self, content: &Value) -> Result<String> {
+        self.extract_optional_field(content, "relation_id")
+            .or_else(|| self.extract_optional_field(content, "id"))
+            .ok_or_else(|| Error::Protocol("relation event requires relation_id or id".to_owned()))
     }
 
     /// Extract a required field from event content.
     fn extract_field<T: serde::de::DeserializeOwned>(
         &self,
-        content: &serde_json::Value,
+        content: &Value,
         field: &str,
     ) -> Result<T> {
         let obj = content
@@ -703,7 +935,7 @@ impl SpaceState {
     /// Extract an optional field from event content.
     fn extract_optional_field<T: serde::de::DeserializeOwned>(
         &self,
-        content: &serde_json::Value,
+        content: &Value,
         field: &str,
     ) -> Option<T> {
         let obj = content.as_object()?;
@@ -712,10 +944,7 @@ impl SpaceState {
     }
 
     /// Extract fields map from event content.
-    fn extract_fields(
-        &self,
-        content: &serde_json::Value,
-    ) -> Result<BTreeMap<String, serde_json::Value>> {
+    fn extract_fields(&self, content: &Value) -> Result<BTreeMap<String, Value>> {
         Ok(self.extract_optional_field(content, "fields").unwrap_or_default())
     }
 
@@ -826,6 +1055,7 @@ impl SpaceState {
             space_id: self.space_id.clone(),
             space_version: self.space_version.clone(),
             frontier: self.frontier.clone(),
+            subjects: self.subjects.clone(),
             entities: self.entities.clone(),
             relations: self.relations.clone(),
             resolved_state: self.resolved_state.clone(),
@@ -849,7 +1079,7 @@ impl SpaceState {
     pub fn capability_allows(&self, capability_id: &str, action: &str) -> bool {
         self.effective_capability(capability_id)
             .and_then(|event| event.content.get("actions"))
-            .and_then(serde_json::Value::as_array)
+            .and_then(Value::as_array)
             .is_some_and(|actions| {
                 actions.iter().any(|candidate| {
                     candidate.as_str() == Some(action) || candidate.as_str() == Some("*")
@@ -859,10 +1089,11 @@ impl SpaceState {
 
     /// Compute state hash for verification.
     pub fn compute_state_hash(&self) -> String {
-        crate::canonical::canonical_sha256(&state_hash_payload(StateHashInput {
+        canonical_sha256(&state_hash_payload(StateHashInput {
             space_id: &self.space_id,
             space_version: &self.space_version,
             frontier: &self.frontier,
+            subjects: &self.subjects,
             entities: &self.entities,
             relations: &self.relations,
             resolved_state: &self.resolved_state,
@@ -878,6 +1109,7 @@ impl SpaceState {
             space_id: &self.space_id,
             space_version: &self.space_version,
             frontier: &self.frontier,
+            subjects: &self.subjects,
             entities: &self.entities,
             relations: &self.relations,
             resolved_state: &self.resolved_state,
@@ -891,6 +1123,7 @@ impl SpaceState {
         Self {
             space_id: snapshot.space_id,
             space_version: snapshot.space_version,
+            subjects: snapshot.subjects,
             entities: snapshot.entities,
             relations: snapshot.relations,
             resolved_state: snapshot.resolved_state,
@@ -948,6 +1181,8 @@ pub struct StateSnapshot {
     pub space_id: SpaceId,
     pub space_version: String,
     pub frontier: Vec<EventId>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub subjects: BTreeMap<String, Subject>,
     pub entities: BTreeMap<String, Entity>,
     pub relations: BTreeMap<String, Relation>,
     pub resolved_state: BTreeMap<String, ResolvedStateEvent>,
@@ -1005,7 +1240,7 @@ impl SnapshotSignature {
         manifest: &ReducerSnapshotManifest,
     ) -> Result<SnapshotSignatureBindingPayload> {
         Ok(SnapshotSignatureBindingPayload {
-            payload_hash: crate::canonical::canonical_sha256(&manifest.signature_payload())?,
+            payload_hash: canonical_sha256(&manifest.signature_payload())?,
             verification_method: self.verification_method.clone(),
             created_at: self.created_at,
             domain: self.domain.clone(),
@@ -1047,7 +1282,7 @@ pub struct ResolvedStateEvent {
     pub actor_id: Did,
     pub actor_seq: u64,
     pub hlc: crate::Hlc,
-    pub content: serde_json::Value,
+    pub content: Value,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1059,7 +1294,7 @@ pub struct ResolvedMessage {
     pub latest_actor_id: Did,
     pub latest_actor_seq: u64,
     pub latest_hlc: crate::Hlc,
-    pub content: serde_json::Value,
+    pub content: Value,
     pub revision_event_ids: Vec<EventId>,
     pub redacted: bool,
 }
@@ -1083,14 +1318,47 @@ pub struct ConflictRecord {
     pub reason: String,
 }
 
-fn membership_rank(content: &serde_json::Value) -> u8 {
-    match content.get("membership").and_then(serde_json::Value::as_str) {
+fn membership_rank(content: &Value) -> u8 {
+    match content.get("membership").and_then(Value::as_str) {
         Some("ban") => 4,
         Some("leave") => 3,
         Some("invite") => 2,
         Some("join") => 1,
         _ => 0,
     }
+}
+
+fn object_state_from_str(state: &str) -> Result<crate::ObjectState> {
+    match state {
+        "active" => Ok(crate::ObjectState::Active),
+        "archived" => Ok(crate::ObjectState::Archived),
+        "deleted" => Ok(crate::ObjectState::Deleted),
+        "redacted" => Ok(crate::ObjectState::Redacted),
+        _ => Err(Error::Protocol(format!("invalid state: {}", state))),
+    }
+}
+
+fn patch_string(patch: &Option<BTreeMap<String, Value>>, field: &str) -> Option<String> {
+    patch.as_ref()?.get(field)?.as_str().map(ToOwned::to_owned)
+}
+
+fn patch_fields(patch: &Option<BTreeMap<String, Value>>) -> Option<BTreeMap<String, Value>> {
+    serde_json::from_value(patch.as_ref()?.get("fields")?.clone()).ok()
+}
+
+fn patch_state(patch: &Option<BTreeMap<String, Value>>) -> Option<Result<crate::ObjectState>> {
+    patch_string(patch, "state").map(|state| object_state_from_str(&state))
+}
+
+fn deterministic_subject_surface_relation_id(content: &Value) -> String {
+    let digest = canonical_sha256(&serde_json::json!({
+        "subject_id": content.get("subject_id").or_else(|| content.get("id")),
+        "surface_ref": content.get("surface_ref"),
+        "surface_role": content.get("surface_role"),
+    }))
+    .unwrap_or_else(|_| sha256_digest([]));
+    let suffix = digest.strip_prefix("sha256:").unwrap_or(&digest);
+    format!("cx:relation:{}", &suffix[..26.min(suffix.len())])
 }
 
 impl StateSnapshot {
@@ -1100,7 +1368,7 @@ impl StateSnapshot {
     }
 
     pub fn compute_state_hash(&self) -> Result<String> {
-        crate::canonical::canonical_sha256(&self.state_payload())
+        canonical_sha256(&self.state_payload())
     }
 
     pub fn state_merkle_root(&self) -> Result<String> {
@@ -1167,11 +1435,12 @@ impl StateSnapshot {
         Ok(())
     }
 
-    fn state_payload(&self) -> serde_json::Value {
+    fn state_payload(&self) -> Value {
         state_hash_payload(StateHashInput {
             space_id: &self.space_id,
             space_version: &self.space_version,
             frontier: &self.frontier,
+            subjects: &self.subjects,
             entities: &self.entities,
             relations: &self.relations,
             resolved_state: &self.resolved_state,
@@ -1238,9 +1507,9 @@ impl ReducerSnapshotManifest {
         Ok(())
     }
 
-    pub fn signature_payload(&self) -> serde_json::Value {
+    pub fn signature_payload(&self) -> Value {
         let mut value = serde_json::to_value(self).unwrap_or_else(|_| serde_json::json!({}));
-        if let serde_json::Value::Object(map) = &mut value {
+        if let Value::Object(map) = &mut value {
             map.remove("signatures");
         }
         value
@@ -1255,14 +1524,14 @@ where
     manifest.verify_chunks(chunks)
 }
 
-pub fn state_merkle_root(payload: &serde_json::Value) -> Result<String> {
-    let serde_json::Value::Object(map) = payload else {
+pub fn state_merkle_root(payload: &Value) -> Result<String> {
+    let Value::Object(map) = payload else {
         return Err(Error::Protocol("state merkle payload must be an object".to_owned()));
     };
     let leaves = map
         .iter()
         .map(|(key, value)| {
-            crate::canonical::canonical_sha256(&serde_json::json!({
+            canonical_sha256(&serde_json::json!({
                 "key": key,
                 "value": value,
             }))
@@ -1280,7 +1549,7 @@ pub fn merkle_root(mut leaves: Vec<String>) -> Result<String> {
         let mut next = Vec::with_capacity(leaves.len().div_ceil(2));
         for pair in leaves.chunks(2) {
             let right = pair.get(1).unwrap_or(&pair[0]);
-            next.push(crate::canonical::canonical_sha256(&serde_json::json!({
+            next.push(canonical_sha256(&serde_json::json!({
                 "left": pair[0],
                 "right": right,
             }))?);
@@ -1294,6 +1563,7 @@ struct StateHashInput<'a> {
     space_id: &'a SpaceId,
     space_version: &'a str,
     frontier: &'a [EventId],
+    subjects: &'a BTreeMap<String, Subject>,
     entities: &'a BTreeMap<String, Entity>,
     relations: &'a BTreeMap<String, Relation>,
     resolved_state: &'a BTreeMap<String, ResolvedStateEvent>,
@@ -1302,11 +1572,12 @@ struct StateHashInput<'a> {
     tombstone_event_id: &'a Option<EventId>,
 }
 
-fn state_hash_payload(input: StateHashInput<'_>) -> serde_json::Value {
+fn state_hash_payload(input: StateHashInput<'_>) -> Value {
     serde_json::json!({
         "space_id": input.space_id,
         "space_version": input.space_version,
         "frontier": input.frontier,
+        "subjects": input.subjects,
         "entities": input.entities,
         "relations": input.relations,
         "resolved_state": input.resolved_state,
@@ -1329,7 +1600,80 @@ mod tests {
             "1".to_owned(),
         );
         assert_eq!(state.entities.len(), 0);
+        assert_eq!(state.subjects.len(), 0);
         assert_eq!(state.relations.len(), 0);
+    }
+
+    #[test]
+    fn subject_events_create_update_and_link_surfaces() {
+        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let actor_id = Did::new("did:web:alice.example.com").unwrap();
+        let subject_id = "cx:subject:01JS0SB000000000000000000";
+        let card_ref = "cx:card:01JS0CD000000000000000000";
+
+        let create = Event::new(
+            "cx.subject.create",
+            space_id.clone(),
+            actor_id.clone(),
+            1,
+            Hlc::new("01970e589d21-00000001-a13f9c2e").unwrap(),
+            json!({
+                "subject_id": subject_id,
+                "title": "Payment refactor",
+                "brief": "Unify payment flows",
+                "subject_kind": "initiative"
+            }),
+        )
+        .unwrap();
+        let mut update = Event::new(
+            "cx.subject.update",
+            space_id.clone(),
+            actor_id.clone(),
+            2,
+            Hlc::new("01970e589d21-00000002-a13f9c2e").unwrap(),
+            json!({
+                "subject_id": subject_id,
+                "summary": "Risk, refunds and callbacks are tracked together.",
+                "fields": {"priority": "high"}
+            }),
+        )
+        .unwrap();
+        update.prev_refs.push(create.event_id.clone());
+        let mut link = Event::new(
+            "cx.subject.link_surface",
+            space_id.clone(),
+            actor_id,
+            3,
+            Hlc::new("01970e589d21-00000003-a13f9c2e").unwrap(),
+            json!({
+                "subject_id": subject_id,
+                "surface_ref": card_ref,
+                "surface_role": "status_card",
+                "primary": true,
+                "relation_id": "cx:relation:01JS0SR000000000000000000"
+            }),
+        )
+        .unwrap();
+        link.prev_refs.push(update.event_id.clone());
+
+        let mut state = SpaceState::new(space_id, "1".to_owned());
+        state.apply_events(&[link, update, create]).unwrap();
+
+        let subject = state.subjects.get(subject_id).unwrap();
+        assert_eq!(subject.title, "Payment refactor");
+        assert_eq!(
+            subject.summary.as_deref(),
+            Some("Risk, refunds and callbacks are tracked together.")
+        );
+        assert_eq!(subject.fields["priority"], "high");
+        assert_eq!(subject.version, Some(1));
+
+        let relation = state.relations.get("cx:relation:01JS0SR000000000000000000").unwrap();
+        assert_eq!(relation.relation_kind, crate::RelationKind::HasSurface);
+        assert_eq!(relation.from_ref.as_deref(), Some(subject_id));
+        assert_eq!(relation.to_ref.as_deref(), Some(card_ref));
+        assert_eq!(relation.fields["surface_role"], "status_card");
+        assert_eq!(relation.fields["primary"], true);
     }
 
     #[test]

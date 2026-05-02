@@ -21,7 +21,7 @@ use crate::{
         BlobRef, Did, Entity, EntityId, EntityType, EventId, FieldFilter, Filter, FilterOp,
         NullsOrder, OP_ENTITY_CREATE, OP_ENTITY_DELETE, OP_ENTITY_REDACT, OP_ENTITY_UPDATE,
         ObjectState, Operation, OperationId, OperationType, Relation, RelationId, RelationKind,
-        RelationState, SortDirection, SortSpec, SpaceId,
+        RelationState, SortDirection, SortSpec, SpaceId, Subject, SubjectId, SubjectKind,
     },
     resolver::SpaceState,
 };
@@ -219,6 +219,40 @@ impl Space {
     /// Get all entities in this space.
     pub fn entities(&self) -> BTreeMap<String, Entity> {
         self.state.entities.clone()
+    }
+
+    /// Get all subjects in this space.
+    pub fn subjects(&self) -> BTreeMap<String, Subject> {
+        self.state.subjects.clone()
+    }
+
+    /// Get a specific subject by ID.
+    pub fn get_subject(&self, subject_id: &SubjectId) -> Option<Subject> {
+        self.state.subjects.get(subject_id.as_str()).cloned()
+    }
+
+    /// Find subjects by semantic kind.
+    pub fn find_subjects_by_kind(&self, subject_kind: SubjectKind) -> Vec<Subject> {
+        self.state
+            .subjects
+            .values()
+            .filter(|subject| subject.subject_kind == subject_kind)
+            .cloned()
+            .collect()
+    }
+
+    /// Return active surface relations for a subject.
+    pub fn subject_surfaces(&self, subject_id: &SubjectId) -> Vec<Relation> {
+        self.state
+            .relations
+            .values()
+            .filter(|relation| {
+                relation.relation_kind == RelationKind::HasSurface
+                    && relation.from_ref.as_deref() == Some(subject_id.as_str())
+                    && relation_is_active(relation)
+            })
+            .cloned()
+            .collect()
     }
 
     /// Get a specific entity by ID.
@@ -885,6 +919,183 @@ impl Space {
     }
 }
 
+/// Subject operations within a space.
+impl Space {
+    /// Create a Subject creation operation.
+    pub fn create_subject_operation(
+        &self,
+        title: impl Into<String>,
+        subject_kind: SubjectKind,
+        brief: Option<String>,
+        summary: Option<String>,
+        fields: BTreeMap<String, Value>,
+    ) -> Result<Operation> {
+        let _session_meta = self
+            .base_client
+            .session_meta()
+            .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
+
+        let subject_id = SubjectId::new(generate_id("cx:subject:"))?;
+        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+
+        let mut payload = json!({
+            "subject_id": subject_id.as_str(),
+            "title": title.into(),
+            "subject_kind": serde_json::to_value(subject_kind)?,
+        });
+
+        if let Some(brief) = brief {
+            payload["brief"] = json!(brief);
+        }
+        if let Some(summary) = summary {
+            payload["summary"] = json!(summary);
+        }
+        if !fields.is_empty() {
+            payload["fields"] = json!(fields);
+        }
+
+        Ok(Operation::create(operation_id, self.space_id.clone(), "subject", payload))
+    }
+
+    /// Create a Subject update operation.
+    pub fn update_subject_operation(
+        &self,
+        subject_id: SubjectId,
+        title: Option<String>,
+        brief: Option<String>,
+        summary: Option<String>,
+        fields: Option<BTreeMap<String, Value>>,
+    ) -> Result<Operation> {
+        let _session_meta = self
+            .base_client
+            .session_meta()
+            .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
+
+        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let mut payload = json!({ "subject_id": subject_id.as_str() });
+
+        if let Some(title) = title {
+            payload["title"] = json!(title);
+        }
+        if let Some(brief) = brief {
+            payload["brief"] = json!(brief);
+        }
+        if let Some(summary) = summary {
+            payload["summary"] = json!(summary);
+        }
+        if let Some(fields) = fields {
+            payload["fields"] = json!(fields);
+        }
+
+        let mut operation =
+            Operation::create(operation_id, self.space_id.clone(), "subject", payload);
+        operation.operation_type = OperationType::Update;
+        operation.object_id = Some(subject_id.as_str().to_owned());
+        Ok(operation)
+    }
+
+    /// Create a Subject archive operation.
+    pub fn archive_subject_operation(&self, subject_id: SubjectId) -> Result<Operation> {
+        self.subject_lifecycle_operation(subject_id, OperationType::Delete, "archived")
+    }
+
+    /// Create a Subject restore operation.
+    pub fn restore_subject_operation(&self, subject_id: SubjectId) -> Result<Operation> {
+        self.subject_lifecycle_operation(subject_id, OperationType::Update, "active")
+    }
+
+    fn subject_lifecycle_operation(
+        &self,
+        subject_id: SubjectId,
+        operation_type: OperationType,
+        state: &str,
+    ) -> Result<Operation> {
+        let _session_meta = self
+            .base_client
+            .session_meta()
+            .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
+
+        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let mut operation = Operation::create(
+            operation_id,
+            self.space_id.clone(),
+            "subject",
+            json!({
+                "subject_id": subject_id.as_str(),
+                "state": state,
+            }),
+        );
+        operation.operation_type = operation_type;
+        operation.object_id = Some(subject_id.as_str().to_owned());
+        Ok(operation)
+    }
+
+    /// Create an operation linking a Subject to a surface object.
+    pub fn link_subject_surface_operation(
+        &self,
+        subject_id: SubjectId,
+        surface_ref: impl Into<String>,
+        surface_role: Option<String>,
+        primary: bool,
+    ) -> Result<Operation> {
+        self.subject_surface_operation(
+            subject_id,
+            surface_ref.into(),
+            surface_role,
+            primary,
+            OperationType::Link,
+        )
+    }
+
+    /// Create an operation unlinking a Subject surface object.
+    pub fn unlink_subject_surface_operation(
+        &self,
+        subject_id: SubjectId,
+        surface_ref: impl Into<String>,
+        surface_role: Option<String>,
+    ) -> Result<Operation> {
+        self.subject_surface_operation(
+            subject_id,
+            surface_ref.into(),
+            surface_role,
+            false,
+            OperationType::Unlink,
+        )
+    }
+
+    fn subject_surface_operation(
+        &self,
+        subject_id: SubjectId,
+        surface_ref: String,
+        surface_role: Option<String>,
+        primary: bool,
+        operation_type: OperationType,
+    ) -> Result<Operation> {
+        let _session_meta = self
+            .base_client
+            .session_meta()
+            .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
+
+        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let mut payload = json!({
+            "subject_id": subject_id.as_str(),
+            "surface_ref": surface_ref,
+        });
+        if let Some(surface_role) = surface_role {
+            payload["surface_role"] = json!(surface_role);
+        }
+        if operation_type == OperationType::Link {
+            payload["primary"] = json!(primary);
+        }
+
+        let mut operation =
+            Operation::create(operation_id, self.space_id.clone(), "subject", payload);
+        operation.operation_type = operation_type;
+        operation.object_id = Some(subject_id.as_str().to_owned());
+        Ok(operation)
+    }
+}
+
 /// Entity operations within a space.
 impl Space {
     /// Create an entity creation operation.
@@ -973,6 +1184,8 @@ impl Space {
 #[derive(Clone, Debug)]
 pub struct RelationOperationInput {
     pub relation_kind: RelationKind,
+    pub from_ref: Option<String>,
+    pub to_ref: Option<String>,
     pub from_entity_id: Option<EntityId>,
     pub from_actor_id: Option<Did>,
     pub from_space_id: Option<SpaceId>,
@@ -986,6 +1199,8 @@ impl RelationOperationInput {
     pub fn new(relation_kind: RelationKind) -> Self {
         Self {
             relation_kind,
+            from_ref: None,
+            to_ref: None,
             from_entity_id: None,
             from_actor_id: None,
             from_space_id: None,
@@ -1017,6 +1232,9 @@ impl Space {
         if let Some(from_entity_id) = &input.from_entity_id {
             payload["from_entity_id"] = json!(from_entity_id.as_str());
         }
+        if let Some(from_ref) = &input.from_ref {
+            payload["from_ref"] = json!(from_ref);
+        }
         if let Some(from_actor_id) = &input.from_actor_id {
             payload["from_actor_id"] = json!(from_actor_id.as_str());
         }
@@ -1025,6 +1243,9 @@ impl Space {
         }
         if let Some(to_entity_id) = &input.to_entity_id {
             payload["to_entity_id"] = json!(to_entity_id.as_str());
+        }
+        if let Some(to_ref) = &input.to_ref {
+            payload["to_ref"] = json!(to_ref);
         }
         if let Some(to_actor_id) = &input.to_actor_id {
             payload["to_actor_id"] = json!(to_actor_id.as_str());
@@ -1361,6 +1582,73 @@ mod tests {
         assert_eq!(op.operation_type, OperationType::Create);
         assert_eq!(op.space_id, space_id);
         assert!(op.payload["id"].is_string());
+    }
+
+    #[test]
+    fn space_creates_subject_operations_and_reads_surfaces() {
+        let base_client = sessioned_base();
+        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let space = Space::new(space_id.clone(), base_client.clone());
+
+        let create = space
+            .create_subject_operation(
+                "Payment refactor",
+                SubjectKind::Initiative,
+                Some("Unify payment flows".to_owned()),
+                None,
+                BTreeMap::new(),
+            )
+            .unwrap();
+        let subject_id = SubjectId::new(create.payload["subject_id"].as_str().unwrap()).unwrap();
+        assert_eq!(create.operation_type, OperationType::Create);
+        assert_eq!(create.object_type, "subject");
+        assert_eq!(create.payload["subject_kind"], "initiative");
+
+        let link = space
+            .link_subject_surface_operation(
+                subject_id.clone(),
+                "cx:card:01JS0CD000000000000000000",
+                Some("status_card".to_owned()),
+                true,
+            )
+            .unwrap();
+        assert_eq!(link.operation_type, OperationType::Link);
+        assert_eq!(link.object_id.as_deref(), Some(subject_id.as_str()));
+        assert_eq!(link.payload["surface_role"], "status_card");
+
+        base_client
+            .process_events(
+                &space_id,
+                vec![
+                    event(
+                        "cx.subject.create",
+                        1,
+                        &space_id,
+                        json!({
+                            "subject_id": subject_id.as_str(),
+                            "title": "Payment refactor",
+                            "subject_kind": "initiative"
+                        }),
+                    ),
+                    event(
+                        "cx.subject.link_surface",
+                        2,
+                        &space_id,
+                        json!({
+                            "subject_id": subject_id.as_str(),
+                            "surface_ref": "cx:card:01JS0CD000000000000000000",
+                            "surface_role": "status_card",
+                            "primary": true,
+                            "relation_id": "cx:relation:01JS0SR000000000000000000"
+                        }),
+                    ),
+                ],
+            )
+            .unwrap();
+
+        let refreshed = Space::new(space_id, base_client);
+        assert_eq!(refreshed.find_subjects_by_kind(SubjectKind::Initiative).len(), 1);
+        assert_eq!(refreshed.subject_surfaces(&subject_id).len(), 1);
     }
 
     #[test]

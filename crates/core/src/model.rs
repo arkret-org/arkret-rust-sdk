@@ -11,7 +11,7 @@ use sha2::{Digest, Sha256};
 use crate::{Error, Result, canonical};
 pub use contrix_identifiers::{
     BlobRef, CommitId, Cursor, DeviceId, Did, EntityId, EventId, GrantId, Hash, Hlc, InviteId,
-    OperationId, PolicyId, RelationId, SpaceId, ViewId,
+    OperationId, PolicyId, RelationId, SpaceId, SubjectId, ViewId,
 };
 
 pub const PROTOCOL_VERSION: &str = "1.0";
@@ -23,6 +23,7 @@ pub const SCHEMA_COMPATIBILITY_PROFILE: &str = "cx.schema.compatibility.v1";
 pub const CURSOR_SCHEMA: &str = "cx.schema.cursor.v1";
 pub const SPACE_SCHEMA: &str = "cx.schema.space.v1";
 pub const ACTOR_PROFILE_SCHEMA: &str = "cx.schema.actor_profile.v1";
+pub const SUBJECT_SCHEMA: &str = "cx.schema.subject.v1";
 pub const ENTITY_SCHEMA: &str = "cx.schema.entity.v1";
 pub const RELATION_SCHEMA: &str = "cx.schema.relation.v1";
 pub const EVENT_SCHEMA: &str = "cx.schema.event.v1";
@@ -45,6 +46,15 @@ pub const OP_ENTITY_UPDATE: &str = "cx.entity.update";
 pub const OP_ENTITY_DELETE: &str = "cx.entity.delete";
 pub const OP_ENTITY_RESTORE: &str = "cx.entity.restore";
 pub const OP_ENTITY_REDACT: &str = "cx.entity.redact";
+
+/// Subject operations.
+pub const OP_SUBJECT_CREATE: &str = "cx.subject.create";
+pub const OP_SUBJECT_UPDATE: &str = "cx.subject.update";
+pub const OP_SUBJECT_ARCHIVE: &str = "cx.subject.archive";
+pub const OP_SUBJECT_RESTORE: &str = "cx.subject.restore";
+pub const OP_SUBJECT_LINK_SURFACE: &str = "cx.subject.link_surface";
+pub const OP_SUBJECT_UNLINK_SURFACE: &str = "cx.subject.unlink_surface";
+pub const OP_SUBJECT_SET_PRIMARY_SURFACE: &str = "cx.subject.set_primary_surface";
 
 /// Relation operations.
 pub const OP_RELATION_CREATE: &str = "cx.relation.create";
@@ -116,6 +126,13 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_ENTITY_DELETE,
     OP_ENTITY_RESTORE,
     OP_ENTITY_REDACT,
+    OP_SUBJECT_CREATE,
+    OP_SUBJECT_UPDATE,
+    OP_SUBJECT_ARCHIVE,
+    OP_SUBJECT_RESTORE,
+    OP_SUBJECT_LINK_SURFACE,
+    OP_SUBJECT_UNLINK_SURFACE,
+    OP_SUBJECT_SET_PRIMARY_SURFACE,
     OP_RELATION_CREATE,
     OP_RELATION_DELETE,
     OP_CONTAINER_MOVE_ITEM,
@@ -252,6 +269,15 @@ fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
     match kind {
         OP_ENTITY_CREATE | OP_ENTITY_UPDATE | OP_ENTITY_DELETE | OP_ENTITY_RESTORE
         | OP_ENTITY_REDACT => vec!["entity_id".to_owned()],
+        OP_SUBJECT_CREATE => {
+            vec!["subject_id".to_owned(), "title".to_owned(), "subject_kind".to_owned()]
+        }
+        OP_SUBJECT_UPDATE | OP_SUBJECT_ARCHIVE | OP_SUBJECT_RESTORE => {
+            vec!["subject_id".to_owned()]
+        }
+        OP_SUBJECT_LINK_SURFACE | OP_SUBJECT_UNLINK_SURFACE | OP_SUBJECT_SET_PRIMARY_SURFACE => {
+            vec!["subject_id".to_owned(), "surface_ref".to_owned()]
+        }
         OP_RELATION_CREATE | OP_RELATION_DELETE => {
             vec!["relation_id".to_owned()]
         }
@@ -631,6 +657,7 @@ impl Default for ProtocolSchemaRegistry {
             ),
         );
         registry.register(ENTITY_SCHEMA, entity_schema_document());
+        registry.register(SUBJECT_SCHEMA, subject_schema_document());
         registry.register(VIEW_SCHEMA, view_schema_document());
         registry.register(
             COMMIT_SCHEMA,
@@ -725,6 +752,33 @@ fn entity_schema_document() -> Value {
             "state": { "type": "string" },
             "created_by": { "type": "string" },
             "created_at": { "type": "string" }
+        },
+        "additionalProperties": true
+    })
+}
+
+fn subject_schema_document() -> Value {
+    json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": SUBJECT_SCHEMA,
+        "type": "object",
+        "required": ["id", "type", "schema", "space_id", "title", "subject_kind", "created_by", "created_at"],
+        "properties": {
+            "schema": { "type": "string" },
+            "id": { "type": "string" },
+            "type": { "type": "string" },
+            "space_id": { "type": "string" },
+            "title": { "type": "string" },
+            "brief": { "type": "string" },
+            "summary": { "type": "string" },
+            "subject_kind": { "type": "string" },
+            "fields": { "type": "object" },
+            "state": { "type": "string" },
+            "version": { "type": "integer" },
+            "created_by": { "type": "string" },
+            "created_at": { "type": "string" },
+            "updated_by": { "type": "string" },
+            "updated_at": { "type": "string" }
         },
         "additionalProperties": true
     })
@@ -856,6 +910,7 @@ pub fn schema_version_compatibility_table() -> SchemaCompatibilityTable {
         profile: SCHEMA_COMPATIBILITY_PROFILE.to_owned(),
         entries: [
             CURSOR_SCHEMA,
+            SUBJECT_SCHEMA,
             ENTITY_SCHEMA,
             VIEW_SCHEMA,
             EVENT_SCHEMA,
@@ -1320,13 +1375,18 @@ impl EntityFacets {
 pub enum RelationKind {
     Contains,
     BelongsTo,
+    LinksRoom,
+    PrimaryRoom,
     RepliesTo,
     DependsOn,
     Blocks,
     Mentions,
     AssignedTo,
     References,
+    HasSurface,
     DerivedFrom,
+    SummarizedFrom,
+    PromotedFromRoom,
     AttachedTo,
     HasTopic,
     HasDefaultView,
@@ -1519,11 +1579,16 @@ pub enum NotificationState {
 #[serde(rename_all = "snake_case")]
 pub enum ReadScope {
     Space,
+    Subject,
+    Room,
     Channel,
     Topic,
     Thread,
     View,
     Entity,
+    Card,
+    Message,
+    Morph,
 }
 
 /// Channel kind for conversation entities.
@@ -1558,6 +1623,11 @@ pub enum OperationType {
     Grant,
     Revoke,
     SnapshotRef,
+    Move,
+    Reorder,
+    Rebalance,
+    Link,
+    Unlink,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1938,6 +2008,87 @@ pub struct ActorProfile {
     pub updated_at: Option<DateTime<Utc>>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SubjectKind {
+    Topic,
+    Initiative,
+    Decision,
+    Incident,
+    CustomerCase,
+    Proposal,
+    Research,
+    TaskCluster,
+    Asset,
+    MemorySubject,
+    Custom,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Subject {
+    pub schema: String,
+    pub id: SubjectId,
+    #[serde(rename = "type")]
+    pub object_type: String,
+    pub space_id: SpaceId,
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub brief: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    pub subject_kind: SubjectKind,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub fields: BTreeMap<String, Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub state: Option<ObjectState>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<u64>,
+    pub created_by: Did,
+    pub created_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_by: Option<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
+    #[serde(flatten)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+impl Subject {
+    pub fn new(
+        id: SubjectId,
+        space_id: SpaceId,
+        title: impl Into<String>,
+        subject_kind: SubjectKind,
+        created_by: Did,
+    ) -> Self {
+        Self {
+            schema: SUBJECT_SCHEMA.to_owned(),
+            id,
+            object_type: "subject".to_owned(),
+            space_id,
+            title: title.into(),
+            brief: None,
+            summary: None,
+            subject_kind,
+            fields: BTreeMap::new(),
+            state: Some(ObjectState::Active),
+            version: Some(0),
+            created_by,
+            created_at: Utc::now(),
+            updated_by: None,
+            updated_at: None,
+            extra: BTreeMap::new(),
+        }
+    }
+
+    pub fn validate_title(&self) -> Result<()> {
+        if self.title.trim().is_empty() {
+            return Err(Error::Protocol("subject title must not be empty".to_owned()));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Entity {
     pub schema: String,
@@ -2100,6 +2251,10 @@ pub struct Relation {
     pub space_id: SpaceId,
     pub relation_kind: RelationKind,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub from_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub to_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub from_entity_id: Option<EntityId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub from_actor_id: Option<Did>,
@@ -2121,10 +2276,12 @@ pub struct Relation {
 
 impl Relation {
     pub fn validate_endpoints(&self) -> Result<()> {
-        let from_count = self.from_entity_id.is_some() as u8
+        let from_count = self.from_ref.is_some() as u8
+            + self.from_entity_id.is_some() as u8
             + self.from_actor_id.is_some() as u8
             + self.from_space_id.is_some() as u8;
-        let to_count = self.to_entity_id.is_some() as u8
+        let to_count = self.to_ref.is_some() as u8
+            + self.to_entity_id.is_some() as u8
             + self.to_actor_id.is_some() as u8
             + self.to_space_id.is_some() as u8;
 
@@ -4534,6 +4691,7 @@ mod tests {
         let registry = ProtocolSchemaRegistry::default();
         for schema_id in [
             CURSOR_SCHEMA,
+            SUBJECT_SCHEMA,
             ENTITY_SCHEMA,
             VIEW_SCHEMA,
             EVENT_SCHEMA,
@@ -4557,6 +4715,21 @@ mod tests {
                 .validate_required_fields(CLIENT_SYNC_RESPONSE_SCHEMA, &json!({"spaces": {}}))
                 .is_err()
         );
+        registry
+            .validate_required_fields(
+                SUBJECT_SCHEMA,
+                &json!({
+                    "schema": SUBJECT_SCHEMA,
+                    "id": "cx:subject:01",
+                    "type": "subject",
+                    "space_id": "cx:space:01",
+                    "title": "Topic",
+                    "subject_kind": "topic",
+                    "created_by": "did:web:alice.example",
+                    "created_at": "2026-05-02T00:00:00Z"
+                }),
+            )
+            .unwrap();
         assert!(
             registry
                 .validate_value(
@@ -4965,6 +5138,8 @@ mod tests {
             object_type: "relation".to_owned(),
             space_id: SpaceId::new("cx:space:01").unwrap(),
             relation_kind: RelationKind::Mentions,
+            from_ref: None,
+            to_ref: None,
             from_entity_id: Some(EntityId::new("cx:entity:01").unwrap()),
             from_actor_id: None,
             from_space_id: None,
@@ -5425,6 +5600,27 @@ mod tests {
         let mut signed_commit = commit;
         signed_commit.proofs = vec![proof];
         assert!(signed_commit.validate_proof_bindings().is_ok());
+    }
+
+    #[test]
+    fn subject_constructor_sets_protocol_shape() {
+        let mut subject = Subject::new(
+            SubjectId::new("cx:subject:01").unwrap(),
+            SpaceId::new("cx:space:01").unwrap(),
+            "Payment refactor",
+            SubjectKind::Initiative,
+            Did::new("did:web:alice.example").unwrap(),
+        );
+        subject.brief = Some("Unify payment flows".to_owned());
+
+        assert_eq!(subject.schema, SUBJECT_SCHEMA);
+        assert_eq!(subject.object_type, "subject");
+        assert_eq!(subject.subject_kind, SubjectKind::Initiative);
+        assert_eq!(subject.state, Some(ObjectState::Active));
+        subject.validate_title().unwrap();
+
+        subject.title = " ".to_owned();
+        assert!(subject.validate_title().is_err());
     }
 
     #[test]

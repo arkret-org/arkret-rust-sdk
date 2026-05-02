@@ -42,6 +42,8 @@ impl AuthzDecision {
 pub enum ResourceSelector {
     /// Space selector
     Space { space_id: String },
+    /// Subject selector
+    Subject { space_id: String, subject_id: Option<String> },
     /// Board selector (entity_type = "board")
     Board { space_id: String, board_id: Option<String> },
     /// Collection selector (entity_type = "collection")
@@ -85,6 +87,17 @@ impl ResourceSelector {
                 space_id == target_id || space_id == "*"
             }
             (Self::Space { .. }, _) => false,
+
+            // Subject selector
+            (
+                Self::Subject { space_id, subject_id },
+                Resource::Subject { space_id: target_space, subject_id: target_id },
+            ) => {
+                let space_match = space_id == target_space || space_id == "*";
+                let id_match = subject_id.as_ref().is_none_or(|id| id == target_id);
+                space_match && id_match
+            }
+            (Self::Subject { .. }, _) => false,
 
             // Board selector — matches entities with entity_type="board"
             (
@@ -311,6 +324,10 @@ impl ResourceSelector {
 
         match selector_type {
             "space" => Ok(Self::Space { space_id: remainder.to_owned() }),
+            "subject" => {
+                let (space_id, subject_id) = split_space_tail(remainder, selector)?;
+                Ok(Self::Subject { space_id, subject_id })
+            }
             "board" => {
                 let (space_id, board_id) = split_space_tail(remainder, selector)?;
                 Ok(Self::Board { space_id, board_id })
@@ -431,6 +448,8 @@ fn split_space_tail(remainder: &str, selector: &str) -> Result<(String, Option<S
 pub enum Resource {
     /// Space resource
     Space { space_id: String },
+    /// Subject resource
+    Subject { space_id: String, subject_id: String },
     /// Entity resource (covers board, collection, task, message, topic, channel, document, file, memory, run, etc.)
     Entity { space_id: String, entity_type: String, entity_id: String },
     /// Relation resource
@@ -452,6 +471,7 @@ impl Resource {
     pub fn space_id(&self) -> &str {
         match self {
             Self::Space { space_id } => space_id,
+            Self::Subject { space_id, .. } => space_id,
             Self::Entity { space_id, .. } => space_id,
             Self::Relation { space_id, .. } => space_id,
             Self::View { space_id, .. } => space_id,
@@ -603,6 +623,7 @@ pub enum RateLimitScope {
 #[serde(rename_all = "snake_case")]
 pub enum ScopeLimitation {
     Space,
+    Subject,
     Channel,
     Topic,
     Thread,
@@ -1638,6 +1659,7 @@ impl AuthzEngine {
                     let scope_matches = matches!(
                         (scope_limitation, &ctx.resource),
                         (ScopeLimitation::Space, Resource::Space { .. })
+                            | (ScopeLimitation::Subject, Resource::Subject { .. })
                             | (ScopeLimitation::Entity, Resource::Entity { .. })
                             | (ScopeLimitation::Relation, Resource::Relation { .. })
                             | (ScopeLimitation::View, Resource::View { .. })
@@ -2191,6 +2213,13 @@ fn resource_is_narrowed(child: &ResourceSelector, parent: &ResourceSelector) -> 
     }
     match (child, parent) {
         (
+            ResourceSelector::Subject { space_id, subject_id },
+            ResourceSelector::Subject { space_id: parent_space, subject_id: parent_id },
+        ) => {
+            space_narrowed(space_id, parent_space)
+                && option_narrowed(subject_id.as_ref(), parent_id.as_ref())
+        }
+        (
             ResourceSelector::Entity { space_id, entity_type, entity_id },
             ResourceSelector::Entity {
                 space_id: parent_space,
@@ -2443,6 +2472,28 @@ mod tests {
                 entity_id: None,
             }
         );
+    }
+
+    #[test]
+    fn subject_selector_matches_subject_resource() {
+        let selector =
+            ResourceSelector::parse("subject:cx:space:01JS0SP000000000000000000:cx:subject:01")
+                .unwrap();
+        assert_eq!(
+            selector,
+            ResourceSelector::Subject {
+                space_id: "cx:space:01JS0SP000000000000000000".to_owned(),
+                subject_id: Some("cx:subject:01".to_owned()),
+            }
+        );
+        assert!(selector.matches(&Resource::Subject {
+            space_id: "cx:space:01JS0SP000000000000000000".to_owned(),
+            subject_id: "cx:subject:01".to_owned(),
+        }));
+        assert!(!selector.matches(&Resource::Subject {
+            space_id: "cx:space:01JS0SP000000000000000000".to_owned(),
+            subject_id: "cx:subject:02".to_owned(),
+        }));
     }
 
     #[test]

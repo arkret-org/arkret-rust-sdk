@@ -481,6 +481,13 @@ pub fn is_state_event(event: &Event) -> bool {
                 | "cx.space.archive"
                 | "cx.space.freeze"
                 | "cx.space.destroy"
+                | "cx.subject.create"
+                | "cx.subject.update"
+                | "cx.subject.archive"
+                | "cx.subject.restore"
+                | "cx.subject.link_surface"
+                | "cx.subject.unlink_surface"
+                | "cx.subject.set_primary_surface"
         )
 }
 
@@ -512,6 +519,27 @@ pub fn state_key_for_event(event: &Event) -> Result<String> {
             optional_field::<String>(&event.content, "invite_id")
                 .or_else(|| optional_field::<String>(&event.content, "id"))
                 .ok_or_else(|| Error::Protocol("invite event requires a state key".to_owned()))
+        }
+        "cx.subject.link_surface"
+        | "cx.subject.unlink_surface"
+        | "cx.subject.set_primary_surface" => {
+            optional_field::<String>(&event.content, "relation_id")
+                .or_else(|| {
+                    let subject_id = optional_field::<String>(&event.content, "subject_id")
+                        .or_else(|| optional_field::<String>(&event.content, "id"))?;
+                    let surface_ref = optional_field::<String>(&event.content, "surface_ref")?;
+                    let surface_role = optional_field::<String>(&event.content, "surface_role")
+                        .unwrap_or_else(|| "*".to_owned());
+                    Some(format!("{subject_id}|{surface_ref}|{surface_role}"))
+                })
+                .ok_or_else(|| {
+                    Error::Protocol("subject surface event requires a state key".to_owned())
+                })
+        }
+        "cx.subject.create" | "cx.subject.update" | "cx.subject.archive" | "cx.subject.restore" => {
+            optional_field::<String>(&event.content, "subject_id")
+                .or_else(|| optional_field::<String>(&event.content, "id"))
+                .ok_or_else(|| Error::Protocol("subject event requires a state key".to_owned()))
         }
         "cx.read.marker" | "cx.state.read_marker" => {
             optional_field::<String>(&event.content, "scope")
