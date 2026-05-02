@@ -8,6 +8,7 @@ use contrix_core::{
 };
 use contrix_crypto::MediaEncryptionInfo;
 use contrix_html::{RichTextDocument, RichTextFormat};
+use contrix_push_gateway_api::{PushPriority, PushRule, PushRuleSet, Pusher};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -26,6 +27,7 @@ pub enum ClientApiSurface {
     Search,
     Directory,
     Media,
+    Push,
     Moderation,
     Call,
     Extensions,
@@ -258,6 +260,94 @@ pub const CLIENT_API_ENDPOINTS: &[ClientApiEndpoint] = &[
         path: "/api/v1/media/{blob_ref}",
         request_schema: "MediaDownloadRequest",
         response_schema: "MediaDownloadResponse",
+    },
+    ClientApiEndpoint {
+        operation_id: "cx.pushers.list",
+        surface: ClientApiSurface::Push,
+        method: ClientApiMethod::Get,
+        path: "/api/v1/pushers",
+        request_schema: "Empty",
+        response_schema: "PusherListResponse",
+    },
+    ClientApiEndpoint {
+        operation_id: "cx.pushers.set",
+        surface: ClientApiSurface::Push,
+        method: ClientApiMethod::Put,
+        path: "/api/v1/pushers/{device_id}",
+        request_schema: "SetPusherRequest",
+        response_schema: "Pusher",
+    },
+    ClientApiEndpoint {
+        operation_id: "cx.pushers.delete",
+        surface: ClientApiSurface::Push,
+        method: ClientApiMethod::Delete,
+        path: "/api/v1/pushers/{device_id}",
+        request_schema: "DeletePusherRequest",
+        response_schema: "Ok",
+    },
+    ClientApiEndpoint {
+        operation_id: "cx.push_rules.get",
+        surface: ClientApiSurface::Push,
+        method: ClientApiMethod::Get,
+        path: "/api/v1/push/rules",
+        request_schema: "Empty",
+        response_schema: "PushRuleListResponse",
+    },
+    ClientApiEndpoint {
+        operation_id: "cx.push_rules.set",
+        surface: ClientApiSurface::Push,
+        method: ClientApiMethod::Put,
+        path: "/api/v1/push/rules/{rule_id}",
+        request_schema: "PushRuleUpdateRequest",
+        response_schema: "PushRule",
+    },
+    ClientApiEndpoint {
+        operation_id: "cx.push_rules.delete",
+        surface: ClientApiSurface::Push,
+        method: ClientApiMethod::Delete,
+        path: "/api/v1/push/rules/{rule_id}",
+        request_schema: "PushRuleDeleteRequest",
+        response_schema: "Ok",
+    },
+    ClientApiEndpoint {
+        operation_id: "cx.notifications.settings.get",
+        surface: ClientApiSurface::Push,
+        method: ClientApiMethod::Get,
+        path: "/api/v1/notifications/settings",
+        request_schema: "Empty",
+        response_schema: "NotificationSettings",
+    },
+    ClientApiEndpoint {
+        operation_id: "cx.notifications.settings.set",
+        surface: ClientApiSurface::Push,
+        method: ClientApiMethod::Put,
+        path: "/api/v1/notifications/settings",
+        request_schema: "NotificationSettings",
+        response_schema: "NotificationSettings",
+    },
+    ClientApiEndpoint {
+        operation_id: "cx.notifications.counts",
+        surface: ClientApiSurface::Push,
+        method: ClientApiMethod::Post,
+        path: "/api/v1/notifications/counts",
+        request_schema: "NotificationCountsRequest",
+        response_schema: "NotificationCountsResponse",
+    },
+    ClientApiEndpoint {
+        operation_id: "cx.notifications.list",
+        surface: ClientApiSurface::Push,
+        method: ClientApiMethod::Post,
+        path: "/api/v1/notifications",
+        request_schema: "NotificationListRequest",
+        response_schema: "NotificationListResponse",
+    },
+    ClientApiEndpoint {
+        operation_id: "cx.notifications.mark_read",
+        surface: ClientApiSurface::Push,
+        method: ClientApiMethod::Post,
+        path: "/api/v1/notifications/read",
+        request_schema: "MarkNotificationsReadRequest",
+        response_schema: "Ok",
     },
     ClientApiEndpoint {
         operation_id: "cx.moderation.report",
@@ -1037,6 +1127,203 @@ pub struct EncryptedMediaDescriptor {
     pub payload: EncryptedPayload,
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PusherListResponse {
+    pub pushers: Vec<Pusher>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SetPusherRequest {
+    pub pusher: Pusher,
+}
+
+impl SetPusherRequest {
+    pub fn validate(&self) -> Result<()> {
+        if self.pusher.push_gateway.trim().is_empty() {
+            return Err(Error::Protocol("pusher gateway must not be empty".to_owned()));
+        }
+        if self.pusher.push_key.trim().is_empty() {
+            return Err(Error::Protocol("pusher key must not be empty".to_owned()));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeletePusherRequest {
+    pub device_id: DeviceId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub push_key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub app_id: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PushRuleListResponse {
+    pub rules: PushRuleSet,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PushRuleUpdateRequest {
+    pub rule_id: String,
+    pub rule: PushRule,
+}
+
+impl PushRuleUpdateRequest {
+    pub fn validate(&self) -> Result<()> {
+        if self.rule_id.trim().is_empty() {
+            return Err(Error::Protocol("push rule id must not be empty".to_owned()));
+        }
+        if self.rule.rule_id != self.rule_id {
+            return Err(Error::Protocol("push rule path id must match request rule id".to_owned()));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PushRuleDeleteRequest {
+    pub rule_id: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct QuietHours {
+    pub starts_at: String,
+    pub ends_at: String,
+    pub timezone: String,
+}
+
+impl QuietHours {
+    pub fn validate(&self) -> Result<()> {
+        if self.starts_at.trim().is_empty()
+            || self.ends_at.trim().is_empty()
+            || self.timezone.trim().is_empty()
+        {
+            return Err(Error::Protocol(
+                "quiet hours must include start, end and timezone".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SpaceNotificationSettings {
+    #[serde(default)]
+    pub muted: bool,
+    #[serde(default)]
+    pub mention_only: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub priority: Option<PushPriority>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NotificationSettings {
+    #[serde(default)]
+    pub muted: bool,
+    #[serde(default)]
+    pub mention_only: bool,
+    pub default_priority: PushPriority,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quiet_hours: Option<QuietHours>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub per_space: BTreeMap<SpaceId, SpaceNotificationSettings>,
+}
+
+impl Default for NotificationSettings {
+    fn default() -> Self {
+        Self {
+            muted: false,
+            mention_only: false,
+            default_priority: PushPriority::Normal,
+            quiet_hours: None,
+            per_space: BTreeMap::new(),
+        }
+    }
+}
+
+impl NotificationSettings {
+    pub fn validate(&self) -> Result<()> {
+        if let Some(quiet_hours) = &self.quiet_hours {
+            quiet_hours.validate()?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NotificationCounts {
+    pub notification_count: u64,
+    pub highlight_count: u64,
+    pub unread_count: u64,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NotificationCountsRequest {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub spaces: Vec<SpaceId>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NotificationCountsResponse {
+    pub global: NotificationCounts,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub spaces: BTreeMap<SpaceId, NotificationCounts>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct NotificationListRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub since: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<u32>,
+    #[serde(default)]
+    pub only_highlight: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub spaces: Vec<SpaceId>,
+}
+
+impl NotificationListRequest {
+    pub fn validate(&self) -> Result<()> {
+        if self.limit == Some(0) {
+            Err(Error::Protocol("notification list limit must be non-zero".to_owned()))
+        } else {
+            Ok(())
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ClientNotification {
+    pub notification_id: String,
+    pub event_id: EventId,
+    pub space_id: SpaceId,
+    pub sender: Did,
+    pub event_kind: String,
+    pub received_at: DateTime<Utc>,
+    #[serde(default)]
+    pub read: bool,
+    #[serde(default)]
+    pub highlighted: bool,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    pub content: Value,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct NotificationListResponse {
+    pub notifications: Vec<ClientNotification>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_batch: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MarkNotificationsReadRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub space_id: Option<SpaceId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub up_to_event_id: Option<EventId>,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AbuseCategory {
@@ -1156,6 +1443,7 @@ pub fn client_api_coverage_report() -> ClientApiCoverageReport {
         ClientApiSurface::Search,
         ClientApiSurface::Directory,
         ClientApiSurface::Media,
+        ClientApiSurface::Push,
         ClientApiSurface::Moderation,
         ClientApiSurface::Call,
         ClientApiSurface::Extensions,
@@ -1228,6 +1516,10 @@ mod tests {
         assert!(CLIENT_API_ENDPOINTS.iter().any(|endpoint| {
             endpoint.operation_id == "cx.auth.interactive.submit"
                 && endpoint.surface == ClientApiSurface::InteractiveAuth
+        }));
+        assert!(CLIENT_API_ENDPOINTS.iter().any(|endpoint| {
+            endpoint.operation_id == "cx.notifications.counts"
+                && endpoint.surface == ClientApiSurface::Push
         }));
     }
 
@@ -1307,6 +1599,58 @@ mod tests {
             reason: "spam".to_owned(),
         };
         report.validate().unwrap();
+    }
+
+    #[test]
+    fn push_and_notification_contracts_validate_fail_closed() {
+        SetPusherRequest {
+            pusher: Pusher {
+                user_id: did("alice"),
+                device_id: DeviceId::new("dev_phone").unwrap(),
+                platform: contrix_push_gateway_api::PushPlatform::Fcm,
+                push_gateway: "https://push.example".to_owned(),
+                push_key: "token".to_owned(),
+                app_id: Some("app".to_owned()),
+                display_name: Some("phone".to_owned()),
+            },
+        }
+        .validate()
+        .unwrap();
+
+        PushRuleUpdateRequest {
+            rule_id: "mention".to_owned(),
+            rule: PushRule {
+                rule_id: "mention".to_owned(),
+                enabled: true,
+                event_kind: Some("cx.message.text".to_owned()),
+                priority: PushPriority::High,
+                redact_content: true,
+            },
+        }
+        .validate()
+        .unwrap();
+
+        NotificationSettings {
+            quiet_hours: Some(QuietHours {
+                starts_at: "22:00".to_owned(),
+                ends_at: "07:00".to_owned(),
+                timezone: "Asia/Shanghai".to_owned(),
+            }),
+            ..NotificationSettings::default()
+        }
+        .validate()
+        .unwrap();
+
+        assert!(matches!(
+            NotificationListRequest {
+                since: None,
+                limit: Some(0),
+                only_highlight: false,
+                spaces: Vec::new(),
+            }
+            .validate(),
+            Err(Error::Protocol(_))
+        ));
     }
 
     #[test]

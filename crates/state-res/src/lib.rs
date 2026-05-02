@@ -7,11 +7,13 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{DateTime, Utc};
-use contrix_core::{Did, Error, Event, EventId, Hlc, Result, SpaceId, canonical};
+use contrix_core::{
+    DeviceId, Did, EntityId, Error, Event, EventId, Hlc, Result, SpaceId, canonical,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ResolvedStateEvent {
     pub kind: String,
     pub state_key: String,
@@ -22,7 +24,7 @@ pub struct ResolvedStateEvent {
     pub content: Value,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ConflictRecord {
     pub key: String,
     pub winner_event_id: EventId,
@@ -30,7 +32,7 @@ pub struct ConflictRecord {
     pub reason: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct StateResolutionSnapshot {
     pub space_id: SpaceId,
     pub space_version: String,
@@ -49,6 +51,265 @@ impl StateResolutionSnapshot {
         } else {
             Err(Error::Protocol("state resolution snapshot hash mismatch".to_owned()))
         }
+    }
+
+    pub fn delta_from(&self, previous: &StateResolutionSnapshot) -> Result<StateResolutionDelta> {
+        self.verify()?;
+        previous.verify()?;
+        if self.space_id != previous.space_id {
+            return Err(Error::Protocol("state snapshot delta space mismatch".to_owned()));
+        }
+        let changed = self
+            .resolved_state
+            .iter()
+            .filter(|(key, value)| previous.resolved_state.get(*key) != Some(*value))
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect();
+        let removed = previous
+            .resolved_state
+            .keys()
+            .filter(|key| !self.resolved_state.contains_key(*key))
+            .cloned()
+            .collect();
+        Ok(StateResolutionDelta {
+            space_id: self.space_id.clone(),
+            from_state_hash: previous.state_hash.clone(),
+            to_state_hash: self.state_hash.clone(),
+            frontier: self.frontier.clone(),
+            changed,
+            removed,
+        })
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct StateResolutionDelta {
+    pub space_id: SpaceId,
+    pub from_state_hash: String,
+    pub to_state_hash: String,
+    pub frontier: Vec<EventId>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub changed: BTreeMap<String, ResolvedStateEvent>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub removed: Vec<String>,
+}
+
+impl StateResolutionDelta {
+    pub fn verify_transition(
+        &self,
+        previous: &StateResolutionSnapshot,
+        next: &StateResolutionSnapshot,
+    ) -> Result<()> {
+        if self.from_state_hash != previous.state_hash || self.to_state_hash != next.state_hash {
+            return Err(Error::Protocol("state delta hash boundary mismatch".to_owned()));
+        }
+        let expected = next.delta_from(previous)?;
+        if &expected == self {
+            Ok(())
+        } else {
+            Err(Error::Protocol("state delta does not match snapshot transition".to_owned()))
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StateSnapshotProof {
+    pub space_id: SpaceId,
+    pub space_version: String,
+    pub state_hash: String,
+    pub frontier_hash: String,
+    pub state_event_count: usize,
+    pub frontier_count: usize,
+    pub conflict_count: usize,
+}
+
+impl StateSnapshotProof {
+    pub fn from_snapshot(
+        snapshot: &StateResolutionSnapshot,
+        conflict_count: usize,
+    ) -> Result<Self> {
+        snapshot.verify()?;
+        Ok(Self {
+            space_id: snapshot.space_id.clone(),
+            space_version: snapshot.space_version.clone(),
+            state_hash: snapshot.state_hash.clone(),
+            frontier_hash: canonical::canonical_sha256(&snapshot.frontier)?,
+            state_event_count: snapshot.resolved_state.len(),
+            frontier_count: snapshot.frontier.len(),
+            conflict_count,
+        })
+    }
+
+    pub fn verify_snapshot(&self, snapshot: &StateResolutionSnapshot) -> Result<()> {
+        snapshot.verify()?;
+        let frontier_hash = canonical::canonical_sha256(&snapshot.frontier)?;
+        if self.space_id == snapshot.space_id
+            && self.space_version == snapshot.space_version
+            && self.state_hash == snapshot.state_hash
+            && self.frontier_hash == frontier_hash
+            && self.state_event_count == snapshot.resolved_state.len()
+            && self.frontier_count == snapshot.frontier.len()
+        {
+            Ok(())
+        } else {
+            Err(Error::Protocol("state snapshot proof mismatch".to_owned()))
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConflictGraph {
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub nodes: BTreeSet<EventId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub edges: Vec<ConflictEdge>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConflictEdge {
+    pub key: String,
+    pub winner_event_id: EventId,
+    pub loser_event_id: EventId,
+    pub reason: String,
+}
+
+impl ConflictGraph {
+    pub fn from_conflicts(conflicts: &[ConflictRecord]) -> Self {
+        let mut nodes = BTreeSet::new();
+        let edges = conflicts
+            .iter()
+            .map(|conflict| {
+                nodes.insert(conflict.winner_event_id.clone());
+                nodes.insert(conflict.loser_event_id.clone());
+                ConflictEdge {
+                    key: conflict.key.clone(),
+                    winner_event_id: conflict.winner_event_id.clone(),
+                    loser_event_id: conflict.loser_event_id.clone(),
+                    reason: conflict.reason.clone(),
+                }
+            })
+            .collect();
+        Self { nodes, edges }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StateAuthority {
+    Creator,
+    Admin,
+    Member,
+    Device,
+    Server,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StateAuthContext {
+    pub creator: Did,
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub admins: BTreeSet<Did>,
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub members: BTreeSet<Did>,
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub server_dids: BTreeSet<Did>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub device_owners: BTreeMap<DeviceId, Did>,
+}
+
+impl StateAuthContext {
+    pub fn granted_authorities(&self, event: &Event) -> BTreeSet<StateAuthority> {
+        let mut granted = BTreeSet::new();
+        if event.actor_id == self.creator {
+            granted.insert(StateAuthority::Creator);
+            granted.insert(StateAuthority::Admin);
+            granted.insert(StateAuthority::Member);
+        }
+        if self.admins.contains(&event.actor_id) {
+            granted.insert(StateAuthority::Admin);
+            granted.insert(StateAuthority::Member);
+        }
+        if self.members.contains(&event.actor_id) {
+            granted.insert(StateAuthority::Member);
+        }
+        if self.server_dids.contains(&event.actor_id) {
+            granted.insert(StateAuthority::Server);
+        }
+        if let Some(device_id) = optional_field::<DeviceId>(&event.content, "device_id") {
+            if self.device_owners.get(&device_id) == Some(&event.actor_id) {
+                granted.insert(StateAuthority::Device);
+            }
+        }
+        granted
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StateAuthDecision {
+    pub allowed: bool,
+    pub required: StateAuthority,
+    pub granted: BTreeSet<StateAuthority>,
+    pub reason: String,
+}
+
+pub fn evaluate_state_auth(event: &Event, context: &StateAuthContext) -> StateAuthDecision {
+    let required = required_authority_for_event(event);
+    let granted = context.granted_authorities(event);
+    let allowed = authority_satisfies(required, &granted);
+    let reason = if allowed {
+        format!("event '{}' satisfies required {:?} authority", event.kind, required)
+    } else {
+        format!("event '{}' is missing required {:?} authority", event.kind, required)
+    };
+    StateAuthDecision { allowed, required, granted, reason }
+}
+
+pub fn required_authority_for_event(event: &Event) -> StateAuthority {
+    match event.kind.as_str() {
+        "cx.space.create" => StateAuthority::Creator,
+        "cx.federation.state" | "cx.federation.backfill" => StateAuthority::Server,
+        "cx.read.marker" | "cx.state.read_marker" => StateAuthority::Device,
+        "cx.state.membership" | "cx.member.state" => required_membership_authority(event),
+        "cx.state.power_levels"
+        | "cx.state.capabilities"
+        | "cx.state.policy"
+        | "cx.space.policy"
+        | "cx.policy.set"
+        | "cx.space.archive"
+        | "cx.space.freeze"
+        | "cx.space.destroy" => StateAuthority::Admin,
+        _ if is_state_event(event) => StateAuthority::Member,
+        _ => StateAuthority::Member,
+    }
+}
+
+fn required_membership_authority(event: &Event) -> StateAuthority {
+    let target = optional_field::<String>(&event.content, "principal_id")
+        .or_else(|| optional_field::<String>(&event.content, "member_id"))
+        .or_else(|| optional_field::<String>(&event.content, "user_id"));
+    let membership = optional_field::<String>(&event.content, "membership")
+        .or_else(|| optional_field::<String>(&event.content, "state"));
+    if target.as_deref() == Some(event.actor_id.as_str())
+        && matches!(membership.as_deref(), Some("join" | "leave" | "knock"))
+    {
+        StateAuthority::Member
+    } else {
+        StateAuthority::Admin
+    }
+}
+
+fn authority_satisfies(required: StateAuthority, granted: &BTreeSet<StateAuthority>) -> bool {
+    match required {
+        StateAuthority::Creator => granted.contains(&StateAuthority::Creator),
+        StateAuthority::Admin => {
+            granted.contains(&StateAuthority::Creator) || granted.contains(&StateAuthority::Admin)
+        }
+        StateAuthority::Member => {
+            granted.contains(&StateAuthority::Creator)
+                || granted.contains(&StateAuthority::Admin)
+                || granted.contains(&StateAuthority::Member)
+        }
+        StateAuthority::Device => granted.contains(&StateAuthority::Device),
+        StateAuthority::Server => granted.contains(&StateAuthority::Server),
     }
 }
 
@@ -131,6 +392,14 @@ impl StateReducer {
             state_hash,
             created_at: Utc::now(),
         })
+    }
+
+    pub fn snapshot_proof(&self) -> Result<StateSnapshotProof> {
+        StateSnapshotProof::from_snapshot(&self.snapshot()?, self.conflict_records.len())
+    }
+
+    pub fn conflict_graph(&self) -> ConflictGraph {
+        ConflictGraph::from_conflicts(&self.conflict_records)
     }
 
     fn reduce_candidate(&mut self, candidate: ResolvedStateEvent) {
@@ -262,6 +531,7 @@ pub fn state_key_for_event(event: &Event) -> Result<String> {
         | "cx.space.freeze"
         | "cx.space.destroy"
         | "cx.state.power_levels"
+        | "cx.state.capabilities"
         | "cx.state.tags"
         | "cx.state.pinned_events"
         | "cx.state.topic"
@@ -315,6 +585,258 @@ pub fn state_hash(
         "frontier": frontier,
         "resolved_state": resolved_state,
     }))
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct BoardProjection {
+    pub board_id: EntityId,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub lists: BTreeMap<EntityId, BoardListProjection>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub cards: BTreeMap<EntityId, BoardCardPosition>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub conflict_records: Vec<ConflictRecord>,
+}
+
+impl BoardProjection {
+    pub fn new(board_id: EntityId) -> Self {
+        Self {
+            board_id,
+            lists: BTreeMap::new(),
+            cards: BTreeMap::new(),
+            conflict_records: Vec::new(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct BoardListProjection {
+    pub list_id: EntityId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    pub rank: String,
+    pub source_event_id: EventId,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct BoardCardPosition {
+    pub board_id: EntityId,
+    pub card_id: EntityId,
+    pub list_id: EntityId,
+    pub rank: String,
+    pub source_event_id: EventId,
+    pub actor_seq: u64,
+    pub hlc: Hlc,
+}
+
+#[derive(Clone, Debug)]
+pub struct BoardReducer {
+    projection: BoardProjection,
+}
+
+impl BoardReducer {
+    pub fn new(board_id: EntityId) -> Self {
+        Self { projection: BoardProjection::new(board_id) }
+    }
+
+    pub fn apply_events(&mut self, events: &[Event]) -> Result<()> {
+        let mut sorted = events.iter().collect::<Vec<_>>();
+        sorted.sort_by(|left, right| {
+            left.hlc
+                .cmp(&right.hlc)
+                .then_with(|| left.actor_id.as_str().cmp(right.actor_id.as_str()))
+                .then_with(|| left.actor_seq.cmp(&right.actor_seq))
+                .then_with(|| left.event_id.as_str().cmp(right.event_id.as_str()))
+        });
+        for event in sorted {
+            self.apply_event(event)?;
+        }
+        Ok(())
+    }
+
+    pub fn apply_event(&mut self, event: &Event) -> Result<()> {
+        if !event_targets_board(event, &self.projection.board_id) {
+            return Ok(());
+        }
+        match event.kind.as_str() {
+            "cx.list.create" | "cx.list.reorder" => self.apply_list_event(event),
+            "cx.card.create" => self.apply_card_position(event, false),
+            "cx.card.move" => self.apply_card_move(event),
+            "cx.card.reorder" => self.apply_card_reorder(event),
+            "cx.relation.create" | "cx.relation.contains" => {
+                if optional_field::<String>(&event.content, "relation_kind").as_deref()
+                    == Some("contains")
+                    || event.kind == "cx.relation.contains"
+                {
+                    self.apply_card_position(event, false)
+                } else {
+                    Ok(())
+                }
+            }
+            _ => Ok(()),
+        }
+    }
+
+    pub fn finish(self) -> BoardProjection {
+        self.projection
+    }
+
+    pub fn projection(&self) -> &BoardProjection {
+        &self.projection
+    }
+
+    fn apply_list_event(&mut self, event: &Event) -> Result<()> {
+        let list_id = required_entity_field(&event.content, "list_id")?;
+        let rank = optional_field::<String>(&event.content, "rank")
+            .unwrap_or_else(|| format!("r:{:016x}", self.projection.lists.len() as u64 + 1));
+        let title = optional_field::<String>(&event.content, "title");
+        self.projection.lists.insert(
+            list_id.clone(),
+            BoardListProjection { list_id, title, rank, source_event_id: event.event_id.clone() },
+        );
+        Ok(())
+    }
+
+    fn apply_card_move(&mut self, event: &Event) -> Result<()> {
+        let card_id = required_entity_field(&event.content, "card_id")?;
+        let from_list_id = required_entity_field(&event.content, "from_list_id")?;
+        let to_list_id = required_entity_field(&event.content, "to_list_id")?;
+        let rank = optional_field::<String>(&event.content, "rank")
+            .unwrap_or_else(|| format!("r:{:016x}", self.projection.cards.len() as u64 + 1));
+        match self.projection.cards.get(&card_id) {
+            Some(current) if current.list_id != from_list_id => {
+                self.projection.conflict_records.push(ConflictRecord {
+                    key: format!("board_card|{}|{}", self.projection.board_id, card_id),
+                    winner_event_id: current.source_event_id.clone(),
+                    loser_event_id: event.event_id.clone(),
+                    reason: "cx.card.move CAS from_list_id mismatch".to_owned(),
+                });
+                Ok(())
+            }
+            Some(_) => {
+                self.projection.cards.insert(
+                    card_id.clone(),
+                    BoardCardPosition {
+                        board_id: self.projection.board_id.clone(),
+                        card_id,
+                        list_id: to_list_id,
+                        rank,
+                        source_event_id: event.event_id.clone(),
+                        actor_seq: event.actor_seq,
+                        hlc: event.hlc.clone(),
+                    },
+                );
+                Ok(())
+            }
+            None => {
+                self.projection.conflict_records.push(ConflictRecord {
+                    key: format!("board_card|{}|{}", self.projection.board_id, card_id),
+                    winner_event_id: event.event_id.clone(),
+                    loser_event_id: event.event_id.clone(),
+                    reason: "cx.card.move requires an existing card position".to_owned(),
+                });
+                Ok(())
+            }
+        }
+    }
+
+    fn apply_card_reorder(&mut self, event: &Event) -> Result<()> {
+        let card_id = required_entity_field(&event.content, "card_id")?;
+        let list_id = required_entity_field(&event.content, "list_id")?;
+        let rank = optional_field::<String>(&event.content, "rank")
+            .ok_or_else(|| Error::Protocol("cx.card.reorder requires rank".to_owned()))?;
+        match self.projection.cards.get_mut(&card_id) {
+            Some(current) if current.list_id == list_id => {
+                current.rank = rank;
+                current.source_event_id = event.event_id.clone();
+                current.actor_seq = event.actor_seq;
+                current.hlc = event.hlc.clone();
+                Ok(())
+            }
+            Some(current) => {
+                self.projection.conflict_records.push(ConflictRecord {
+                    key: format!("board_card|{}|{}", self.projection.board_id, card_id),
+                    winner_event_id: current.source_event_id.clone(),
+                    loser_event_id: event.event_id.clone(),
+                    reason: "cx.card.reorder cannot move a card across lists".to_owned(),
+                });
+                Ok(())
+            }
+            None => self.apply_card_position(event, false),
+        }
+    }
+
+    fn apply_card_position(&mut self, event: &Event, force: bool) -> Result<()> {
+        let card_id = required_entity_field(&event.content, "card_id")
+            .or_else(|_| required_entity_field(&event.content, "child_id"))?;
+        let list_id = required_entity_field(&event.content, "list_id")
+            .or_else(|_| required_entity_field(&event.content, "container_id"))?;
+        let rank = optional_field::<String>(&event.content, "rank")
+            .unwrap_or_else(|| format!("r:{:016x}", self.projection.cards.len() as u64 + 1));
+        let candidate = BoardCardPosition {
+            board_id: self.projection.board_id.clone(),
+            card_id: card_id.clone(),
+            list_id,
+            rank,
+            source_event_id: event.event_id.clone(),
+            actor_seq: event.actor_seq,
+            hlc: event.hlc.clone(),
+        };
+        match self.projection.cards.get(&card_id) {
+            Some(existing)
+                if !force
+                    && existing.list_id != candidate.list_id
+                    && !board_position_wins(existing, &candidate) =>
+            {
+                self.projection.conflict_records.push(ConflictRecord {
+                    key: format!("board_card|{}|{}", self.projection.board_id, card_id),
+                    winner_event_id: existing.source_event_id.clone(),
+                    loser_event_id: candidate.source_event_id,
+                    reason: "duplicate active board card position loser".to_owned(),
+                });
+            }
+            Some(existing) if !force && existing.list_id != candidate.list_id => {
+                let loser_event_id = existing.source_event_id.clone();
+                self.projection.conflict_records.push(ConflictRecord {
+                    key: format!("board_card|{}|{}", self.projection.board_id, card_id.clone()),
+                    winner_event_id: candidate.source_event_id.clone(),
+                    loser_event_id,
+                    reason: "duplicate active board card position loser".to_owned(),
+                });
+                self.projection.cards.insert(card_id, candidate);
+            }
+            _ => {
+                self.projection.cards.insert(card_id, candidate);
+            }
+        }
+        Ok(())
+    }
+}
+
+pub fn reduce_board_projection(board_id: EntityId, events: &[Event]) -> Result<BoardProjection> {
+    let mut reducer = BoardReducer::new(board_id);
+    reducer.apply_events(events)?;
+    Ok(reducer.finish())
+}
+
+fn event_targets_board(event: &Event, board_id: &EntityId) -> bool {
+    optional_field::<EntityId>(&event.content, "board_id").as_ref() == Some(board_id)
+        || optional_field::<EntityId>(&event.content, "scope_container_id").as_ref()
+            == Some(board_id)
+}
+
+fn required_entity_field(content: &Value, field: &str) -> Result<EntityId> {
+    optional_field::<EntityId>(content, field)
+        .ok_or_else(|| Error::Protocol(format!("board reducer requires {field}")))
+}
+
+fn board_position_wins(existing: &BoardCardPosition, candidate: &BoardCardPosition) -> bool {
+    candidate
+        .hlc
+        .cmp(&existing.hlc)
+        .then_with(|| candidate.actor_seq.cmp(&existing.actor_seq))
+        .then_with(|| candidate.source_event_id.as_str().cmp(existing.source_event_id.as_str()))
+        .is_gt()
 }
 
 fn is_membership_kind(kind: &str) -> bool {
@@ -452,5 +974,202 @@ mod tests {
         snapshot.verify().unwrap();
         snapshot.space_version = "2".to_owned();
         assert!(snapshot.verify().is_err());
+    }
+
+    #[test]
+    fn snapshot_delta_proof_and_conflict_graph_validate() {
+        let mut reducer =
+            StateReducer::new(SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(), "1");
+        reducer
+            .apply_event(&event(
+                "cx.state.topic",
+                "alice",
+                1,
+                "01970e589d21-00000001-a13f9c2e",
+                json!({"topic": "one"}),
+            ))
+            .unwrap();
+        let first = reducer.snapshot().unwrap();
+        reducer
+            .apply_event(&event(
+                "cx.state.topic",
+                "bob",
+                1,
+                "01970e589d22-00000001-a13f9c2e",
+                json!({"topic": "two"}),
+            ))
+            .unwrap();
+        let second = reducer.snapshot().unwrap();
+
+        let delta = second.delta_from(&first).unwrap();
+        assert!(delta.changed.contains_key("cx.state.topic|cx:space:01JS0SP000000000000000000"));
+        delta.verify_transition(&first, &second).unwrap();
+
+        let proof = reducer.snapshot_proof().unwrap();
+        proof.verify_snapshot(&second).unwrap();
+        assert_eq!(proof.conflict_count, 1);
+
+        let graph = reducer.conflict_graph();
+        assert_eq!(graph.edges.len(), 1);
+        assert_eq!(graph.nodes.len(), 2);
+    }
+
+    #[test]
+    fn state_auth_rules_fail_closed_by_authority() {
+        let alice = Did::new("did:web:alice.example").unwrap();
+        let admin = Did::new("did:web:admin.example").unwrap();
+        let member = Did::new("did:web:member.example").unwrap();
+        let context = StateAuthContext {
+            creator: alice.clone(),
+            admins: BTreeSet::from([admin.clone()]),
+            members: BTreeSet::from([alice.clone(), admin.clone(), member.clone()]),
+            server_dids: BTreeSet::new(),
+            device_owners: BTreeMap::from([(DeviceId::new("dev_member").unwrap(), member.clone())]),
+        };
+
+        let policy = event(
+            "cx.state.policy",
+            "admin",
+            1,
+            "01970e589d21-00000001-a13f9c2e",
+            json!({"policy_id": "default"}),
+        );
+        assert!(evaluate_state_auth(&policy, &context).allowed);
+
+        let forged_marker = event(
+            "cx.read.marker",
+            "admin",
+            1,
+            "01970e589d21-00000002-a13f9c2e",
+            json!({"scope": "timeline", "device_id": "dev_member"}),
+        );
+        assert!(!evaluate_state_auth(&forged_marker, &context).allowed);
+
+        let own_marker = event(
+            "cx.read.marker",
+            "member",
+            1,
+            "01970e589d21-00000003-a13f9c2e",
+            json!({"scope": "timeline", "device_id": "dev_member"}),
+        );
+        assert!(evaluate_state_auth(&own_marker, &context).allowed);
+
+        let member_ban = event(
+            "cx.member.state",
+            "member",
+            1,
+            "01970e589d21-00000004-a13f9c2e",
+            json!({"principal_id": "did:web:bob.example", "membership": "ban"}),
+        );
+        let decision = evaluate_state_auth(&member_ban, &context);
+        assert!(!decision.allowed);
+        assert_eq!(decision.required, StateAuthority::Admin);
+    }
+
+    #[test]
+    fn board_reducer_enforces_unique_position_move_cas_and_reorder_scope() {
+        let board_id = EntityId::new("cx:entity:board").unwrap();
+        let todo = EntityId::new("cx:entity:todo").unwrap();
+        let doing = EntityId::new("cx:entity:doing").unwrap();
+        let card = EntityId::new("cx:entity:card").unwrap();
+        let create = event(
+            "cx.card.create",
+            "alice",
+            1,
+            "01970e589d21-00000001-a13f9c2e",
+            json!({
+                "board_id": board_id,
+                "card_id": card,
+                "list_id": todo,
+                "rank": "r:4000000000000000"
+            }),
+        );
+        let bad_move = event(
+            "cx.card.move",
+            "alice",
+            2,
+            "01970e589d21-00000002-a13f9c2e",
+            json!({
+                "board_id": board_id,
+                "card_id": card,
+                "from_list_id": doing,
+                "to_list_id": doing,
+                "rank": "r:5000000000000000"
+            }),
+        );
+        let good_move = event(
+            "cx.card.move",
+            "alice",
+            3,
+            "01970e589d21-00000003-a13f9c2e",
+            json!({
+                "board_id": board_id,
+                "card_id": card,
+                "from_list_id": todo,
+                "to_list_id": doing,
+                "rank": "r:6000000000000000"
+            }),
+        );
+        let bad_reorder = event(
+            "cx.card.reorder",
+            "alice",
+            4,
+            "01970e589d21-00000004-a13f9c2e",
+            json!({
+                "board_id": board_id,
+                "card_id": card,
+                "list_id": todo,
+                "rank": "r:7000000000000000"
+            }),
+        );
+
+        let projection =
+            reduce_board_projection(board_id.clone(), &[create, bad_move, good_move, bad_reorder])
+                .unwrap();
+        assert_eq!(projection.cards.get(&card).unwrap().list_id, doing);
+        assert_eq!(projection.conflict_records.len(), 2);
+        assert!(projection.conflict_records.iter().any(|record| record.reason.contains("CAS")));
+        assert!(
+            projection.conflict_records.iter().any(|record| record.reason.contains("cannot move"))
+        );
+    }
+
+    #[test]
+    fn board_reducer_records_duplicate_position_loser() {
+        let board_id = EntityId::new("cx:entity:board").unwrap();
+        let todo = EntityId::new("cx:entity:todo").unwrap();
+        let doing = EntityId::new("cx:entity:doing").unwrap();
+        let card = EntityId::new("cx:entity:card").unwrap();
+        let first = event(
+            "cx.relation.contains",
+            "alice",
+            1,
+            "01970e589d21-00000001-a13f9c2e",
+            json!({
+                "board_id": board_id,
+                "relation_kind": "contains",
+                "card_id": card,
+                "list_id": todo
+            }),
+        );
+        let duplicate = event(
+            "cx.relation.contains",
+            "bob",
+            1,
+            "01970e589d21-00000002-a13f9c2e",
+            json!({
+                "board_id": board_id,
+                "relation_kind": "contains",
+                "card_id": card,
+                "list_id": doing
+            }),
+        );
+
+        let projection = reduce_board_projection(board_id, &[first, duplicate]).unwrap();
+        assert_eq!(projection.cards.get(&card).unwrap().list_id, doing);
+        assert_eq!(
+            projection.conflict_records[0].reason,
+            "duplicate active board card position loser"
+        );
     }
 }

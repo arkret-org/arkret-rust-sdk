@@ -342,6 +342,7 @@ dependencies = [
  "contrix-crypto",
  "contrix-events",
  "contrix-html",
+ "contrix-push-gateway-api",
  "serde",
  "serde_json",
 ]

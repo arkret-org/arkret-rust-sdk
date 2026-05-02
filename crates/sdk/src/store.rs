@@ -1355,6 +1355,10 @@ mod tests {
             hlc: Hlc::new("01970e589d22-00000009-11111111").unwrap(),
             prev_refs: vec![],
             auth_refs: vec![],
+            schema_profile_refs: vec![],
+            reducer_profile_ref: None,
+            required_features: vec![],
+            critical_extensions: vec![],
             redacts: None,
             content: json!({
                 "id": "cx:entity:01JS0SNAPENTITY00000000000",

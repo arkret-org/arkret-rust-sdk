@@ -30,6 +30,13 @@ pub const MESSAGE_LOCATION: &str = "cx.message.location";
 pub const MESSAGE_STICKER: &str = "cx.message.sticker";
 pub const MESSAGE_REACTION: &str = "cx.message.reaction";
 pub const MESSAGE_POLL: &str = "cx.message.poll";
+pub const MESSAGE_POLL_START: &str = "cx.message.poll.start";
+pub const MESSAGE_POLL_RESPONSE: &str = "cx.message.poll.response";
+pub const MESSAGE_POLL_END: &str = "cx.message.poll.end";
+pub const MESSAGE_FORM_UPDATE: &str = "cx.message.form.update";
+pub const MESSAGE_TASK_UPDATE: &str = "cx.message.task.update";
+pub const MESSAGE_ACKNOWLEDGEMENT: &str = "cx.message.acknowledgement";
+pub const MESSAGE_EPHEMERAL_INDICATOR: &str = "cx.message.ephemeral_indicator";
 pub const MESSAGE_EDIT: &str = "cx.message.edit";
 pub const MESSAGE_REDACTION: &str = "cx.message.redaction";
 
@@ -37,6 +44,7 @@ pub const STATE_MEMBERSHIP: &str = "cx.state.membership";
 pub const STATE_PROFILE: &str = "cx.state.profile";
 pub const STATE_POWER_LEVELS: &str = "cx.state.power_levels";
 pub const STATE_POLICY: &str = "cx.state.policy";
+pub const STATE_CAPABILITIES: &str = "cx.state.capabilities";
 pub const STATE_TAGS: &str = "cx.state.tags";
 pub const STATE_PINNED_EVENTS: &str = "cx.state.pinned_events";
 pub const STATE_TOPIC: &str = "cx.state.topic";
@@ -61,18 +69,25 @@ pub const E2EE_ROOM_KEY: &str = "cx.e2ee.room_key";
 pub const E2EE_FORWARDED_ROOM_KEY: &str = "cx.e2ee.forwarded_room_key";
 pub const E2EE_KEY_REQUEST: &str = "cx.e2ee.key_request";
 pub const E2EE_SECRET_REQUEST: &str = "cx.e2ee.secret_request";
+pub const E2EE_SECRET_SEND: &str = "cx.e2ee.secret_send";
 pub const E2EE_VERIFICATION: &str = "cx.e2ee.verification";
 
 pub const CALL_INVITE: &str = "cx.call.invite";
 pub const CALL_ANSWER: &str = "cx.call.answer";
 pub const CALL_CANDIDATES: &str = "cx.call.candidates";
 pub const CALL_HANGUP: &str = "cx.call.hangup";
+pub const CALL_NEGOTIATION: &str = "cx.call.negotiation";
+pub const CALL_MEMBERSHIP: &str = "cx.call.membership";
+pub const CALL_DEVICE_MAPPING: &str = "cx.call.device_mapping";
 pub const RTC_SESSION: &str = "cx.rtc.session";
 
 pub const COLLAB_OPERATION_BATCH: &str = "cx.collab.operation_batch";
 pub const COLLAB_DOCUMENT_PATCH: &str = "cx.collab.document_patch";
 pub const COLLAB_CURSOR: &str = "cx.collab.cursor";
 pub const COLLAB_SELECTION: &str = "cx.collab.selection";
+pub const COLLAB_COMPOSING: &str = "cx.collab.composing";
+pub const COLLAB_PRESENCE: &str = "cx.collab.presence";
+pub const COLLAB_ACTIVITY_BEACON: &str = "cx.collab.activity_beacon";
 
 /// Broad class for routing, indexing and UI projection.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -92,14 +107,34 @@ pub enum EventClass {
 /// Classify a protocol event kind without deserializing its content.
 pub fn classify_event_kind(kind: &str) -> EventClass {
     match kind {
-        MESSAGE_TEXT | MESSAGE_NOTICE | MESSAGE_EMOTE | MESSAGE_HTML | MESSAGE_FILE
-        | MESSAGE_IMAGE | MESSAGE_AUDIO | MESSAGE_VIDEO | MESSAGE_VOICE | MESSAGE_DOCUMENT
-        | MESSAGE_LOCATION | MESSAGE_STICKER | MESSAGE_REACTION | MESSAGE_POLL | MESSAGE_EDIT
+        MESSAGE_TEXT
+        | MESSAGE_NOTICE
+        | MESSAGE_EMOTE
+        | MESSAGE_HTML
+        | MESSAGE_FILE
+        | MESSAGE_IMAGE
+        | MESSAGE_AUDIO
+        | MESSAGE_VIDEO
+        | MESSAGE_VOICE
+        | MESSAGE_DOCUMENT
+        | MESSAGE_LOCATION
+        | MESSAGE_STICKER
+        | MESSAGE_REACTION
+        | MESSAGE_POLL
+        | MESSAGE_POLL_START
+        | MESSAGE_POLL_RESPONSE
+        | MESSAGE_POLL_END
+        | MESSAGE_FORM_UPDATE
+        | MESSAGE_TASK_UPDATE
+        | MESSAGE_ACKNOWLEDGEMENT
+        | MESSAGE_EPHEMERAL_INDICATOR
+        | MESSAGE_EDIT
         | MESSAGE_REDACTION => EventClass::Message,
         STATE_MEMBERSHIP
         | STATE_PROFILE
         | STATE_POWER_LEVELS
         | STATE_POLICY
+        | STATE_CAPABILITIES
         | STATE_TAGS
         | STATE_PINNED_EVENTS
         | STATE_TOPIC
@@ -121,12 +156,18 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
         | E2EE_FORWARDED_ROOM_KEY
         | E2EE_KEY_REQUEST
         | E2EE_SECRET_REQUEST
+        | E2EE_SECRET_SEND
         | E2EE_VERIFICATION => EventClass::E2ee,
-        CALL_INVITE | CALL_ANSWER | CALL_CANDIDATES | CALL_HANGUP => EventClass::Call,
+        CALL_INVITE | CALL_ANSWER | CALL_CANDIDATES | CALL_HANGUP | CALL_NEGOTIATION
+        | CALL_MEMBERSHIP | CALL_DEVICE_MAPPING => EventClass::Call,
         RTC_SESSION => EventClass::Rtc,
-        COLLAB_OPERATION_BATCH | COLLAB_DOCUMENT_PATCH | COLLAB_CURSOR | COLLAB_SELECTION => {
-            EventClass::Collaboration
-        }
+        COLLAB_OPERATION_BATCH
+        | COLLAB_DOCUMENT_PATCH
+        | COLLAB_CURSOR
+        | COLLAB_SELECTION
+        | COLLAB_COMPOSING
+        | COLLAB_PRESENCE
+        | COLLAB_ACTIVITY_BEACON => EventClass::Collaboration,
         _ => {
             if kind.starts_with("cx.message.") {
                 EventClass::Message
@@ -189,6 +230,10 @@ impl EventContentEnvelope {
             unsigned: event.unsigned.clone(),
         })
     }
+
+    pub fn unsigned_metadata(&self) -> Result<UnsignedMetadata> {
+        UnsignedMetadata::from_raw(self.unsigned.clone())
+    }
 }
 
 /// A typed event content value or a lossless custom/unknown value.
@@ -233,12 +278,20 @@ pub enum KnownEventContent {
     StickerMessage(StickerContent),
     Reaction(ReactionContent),
     Poll(PollContent),
+    PollStart(PollContent),
+    PollResponse(PollResponseContent),
+    PollEnd(PollEndContent),
+    FormUpdate(FormUpdateContent),
+    TaskUpdate(TaskUpdateContent),
+    Acknowledgement(AcknowledgementContent),
+    EphemeralIndicator(EphemeralIndicatorContent),
     Edit(EditContent),
     Redaction(RedactionContent),
     Membership(MembershipContent),
     Profile(ProfileContent),
     PowerLevels(PowerLevelsContent),
     Policy(PolicyContent),
+    Capabilities(CapabilitiesContent),
     Tags(TagsContent),
     PinnedEvents(PinnedEventsContent),
     Topic(TopicContent),
@@ -260,16 +313,23 @@ pub enum KnownEventContent {
     ForwardedRoomKey(ForwardedRoomKeyContent),
     KeyRequest(KeyRequestContent),
     SecretRequest(SecretRequestContent),
+    SecretSend(SecretSendContent),
     Verification(VerificationContent),
     CallInvite(CallContent),
     CallAnswer(CallContent),
     CallCandidates(CallCandidatesContent),
     CallHangup(CallHangupContent),
+    CallNegotiation(CallNegotiationContent),
+    CallMembership(CallMembershipContent),
+    CallDeviceMapping(CallDeviceMappingContent),
     RtcSession(RtcSessionContent),
     OperationBatch(OperationBatchContent),
     DocumentPatch(DocumentPatchContent),
     Cursor(CursorContent),
     Selection(SelectionContent),
+    Composing(ComposingContent),
+    CollabPresence(PresenceContent),
+    ActivityBeacon(ActivityBeaconContent),
 }
 
 /// Lossless content for unknown or extension event kinds.
@@ -296,12 +356,20 @@ pub fn parse_event_content(kind: &str, content: Value) -> Result<AnyEventContent
         MESSAGE_STICKER => KnownEventContent::StickerMessage(parse(content)?),
         MESSAGE_REACTION => KnownEventContent::Reaction(parse(content)?),
         MESSAGE_POLL => KnownEventContent::Poll(parse(content)?),
+        MESSAGE_POLL_START => KnownEventContent::PollStart(parse(content)?),
+        MESSAGE_POLL_RESPONSE => KnownEventContent::PollResponse(parse(content)?),
+        MESSAGE_POLL_END => KnownEventContent::PollEnd(parse(content)?),
+        MESSAGE_FORM_UPDATE => KnownEventContent::FormUpdate(parse(content)?),
+        MESSAGE_TASK_UPDATE => KnownEventContent::TaskUpdate(parse(content)?),
+        MESSAGE_ACKNOWLEDGEMENT => KnownEventContent::Acknowledgement(parse(content)?),
+        MESSAGE_EPHEMERAL_INDICATOR => KnownEventContent::EphemeralIndicator(parse(content)?),
         MESSAGE_EDIT => KnownEventContent::Edit(parse(content)?),
         MESSAGE_REDACTION => KnownEventContent::Redaction(parse(content)?),
         STATE_MEMBERSHIP => KnownEventContent::Membership(parse(content)?),
         STATE_PROFILE => KnownEventContent::Profile(parse(content)?),
         STATE_POWER_LEVELS => KnownEventContent::PowerLevels(parse(content)?),
         STATE_POLICY => KnownEventContent::Policy(parse(content)?),
+        STATE_CAPABILITIES => KnownEventContent::Capabilities(parse(content)?),
         STATE_TAGS => KnownEventContent::Tags(parse(content)?),
         STATE_PINNED_EVENTS => KnownEventContent::PinnedEvents(parse(content)?),
         STATE_TOPIC => KnownEventContent::Topic(parse(content)?),
@@ -323,16 +391,23 @@ pub fn parse_event_content(kind: &str, content: Value) -> Result<AnyEventContent
         E2EE_FORWARDED_ROOM_KEY => KnownEventContent::ForwardedRoomKey(parse(content)?),
         E2EE_KEY_REQUEST => KnownEventContent::KeyRequest(parse(content)?),
         E2EE_SECRET_REQUEST => KnownEventContent::SecretRequest(parse(content)?),
+        E2EE_SECRET_SEND => KnownEventContent::SecretSend(parse(content)?),
         E2EE_VERIFICATION => KnownEventContent::Verification(parse(content)?),
         CALL_INVITE => KnownEventContent::CallInvite(parse(content)?),
         CALL_ANSWER => KnownEventContent::CallAnswer(parse(content)?),
         CALL_CANDIDATES => KnownEventContent::CallCandidates(parse(content)?),
         CALL_HANGUP => KnownEventContent::CallHangup(parse(content)?),
+        CALL_NEGOTIATION => KnownEventContent::CallNegotiation(parse(content)?),
+        CALL_MEMBERSHIP => KnownEventContent::CallMembership(parse(content)?),
+        CALL_DEVICE_MAPPING => KnownEventContent::CallDeviceMapping(parse(content)?),
         RTC_SESSION => KnownEventContent::RtcSession(parse(content)?),
         COLLAB_OPERATION_BATCH => KnownEventContent::OperationBatch(parse(content)?),
         COLLAB_DOCUMENT_PATCH => KnownEventContent::DocumentPatch(parse(content)?),
         COLLAB_CURSOR => KnownEventContent::Cursor(parse(content)?),
         COLLAB_SELECTION => KnownEventContent::Selection(parse(content)?),
+        COLLAB_COMPOSING => KnownEventContent::Composing(parse(content)?),
+        COLLAB_PRESENCE => KnownEventContent::CollabPresence(parse(content)?),
+        COLLAB_ACTIVITY_BEACON => KnownEventContent::ActivityBeacon(parse(content)?),
         _ => {
             return Ok(AnyEventContent::Custom {
                 content: CustomEventContent {
@@ -395,6 +470,117 @@ pub struct RelationRef {
     pub thread_id: Option<String>,
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct UnsignedMetadata {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub age_ms: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transaction_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub relation_aggregations: Vec<RelationAggregation>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub redaction: Option<RedactionMetadata>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub server_annotations: BTreeMap<String, Value>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub raw: BTreeMap<String, Value>,
+}
+
+impl UnsignedMetadata {
+    pub fn from_raw(raw: BTreeMap<String, Value>) -> Result<Self> {
+        let age_ms = raw.get("age_ms").or_else(|| raw.get("age")).and_then(Value::as_u64);
+        let transaction_id = raw
+            .get("transaction_id")
+            .or_else(|| raw.get("txn_id"))
+            .and_then(Value::as_str)
+            .map(ToOwned::to_owned);
+        let relation_aggregations = raw
+            .get("relation_aggregations")
+            .or_else(|| raw.get("relations"))
+            .map(parse_relation_aggregations)
+            .transpose()?
+            .unwrap_or_default();
+        let redaction = raw
+            .get("redacted_because")
+            .or_else(|| raw.get("redaction"))
+            .map(RedactionMetadata::from_value)
+            .transpose()?;
+        let server_annotations = raw
+            .iter()
+            .filter(|(key, _)| key.starts_with("server.") || key.starts_with("annotation."))
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect();
+
+        Ok(Self {
+            age_ms,
+            transaction_id,
+            relation_aggregations,
+            redaction,
+            server_annotations,
+            raw,
+        })
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RelationAggregation {
+    pub target_event_id: EventId,
+    pub relation_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key: Option<String>,
+    pub count: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub latest_event_id: Option<EventId>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct RedactionMetadata {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub event_id: Option<EventId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub actor_id: Option<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub raw: BTreeMap<String, Value>,
+}
+
+impl RedactionMetadata {
+    fn from_value(value: &Value) -> Result<Self> {
+        let Some(object) = value.as_object() else {
+            return Ok(Self {
+                raw: BTreeMap::from([("value".to_owned(), value.clone())]),
+                ..Self::default()
+            });
+        };
+        let event_id =
+            object.get("event_id").and_then(Value::as_str).map(EventId::new).transpose()?;
+        let actor_id = object
+            .get("actor_id")
+            .or_else(|| object.get("sender"))
+            .and_then(Value::as_str)
+            .map(Did::new)
+            .transpose()?;
+        let reason = object.get("reason").and_then(Value::as_str).map(ToOwned::to_owned);
+        Ok(Self {
+            event_id,
+            actor_id,
+            reason,
+            raw: object.iter().map(|(key, value)| (key.clone(), value.clone())).collect(),
+        })
+    }
+}
+
+fn parse_relation_aggregations(value: &Value) -> Result<Vec<RelationAggregation>> {
+    match value {
+        Value::Array(items) => items.iter().cloned().map(parse).collect(),
+        Value::Object(_) => parse(value.clone()).map(|aggregation| vec![aggregation]),
+        _ => Err(Error::Protocol(
+            "unsigned relation aggregations must be an object or array".to_owned(),
+        )),
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct MediaContent {
     pub body: String,
@@ -447,6 +633,69 @@ pub struct PollContent {
 pub struct PollAnswer {
     pub id: String,
     pub text: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PollResponseContent {
+    pub poll_event_id: EventId,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub answer_ids: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sender_key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub responded_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PollEndContent {
+    pub poll_event_id: EventId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ended_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct FormUpdateContent {
+    pub form_id: String,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub fields: BTreeMap<String, Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub relates_to: Option<RelationRef>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct TaskUpdateContent {
+    pub task_id: String,
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub assignee: Option<Did>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub metadata: BTreeMap<String, Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub relates_to: Option<RelationRef>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AcknowledgementContent {
+    pub target_event_id: EventId,
+    pub key: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub acknowledged_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct EphemeralIndicatorContent {
+    pub user_id: Did,
+    pub device_id: DeviceId,
+    pub indicator: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_event_id: Option<EventId>,
+    pub expires_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub data: BTreeMap<String, Value>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -516,6 +765,16 @@ pub struct PolicyContent {
     pub reason: Option<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub data: BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct CapabilitiesContent {
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub required_power_levels: BTreeMap<String, i64>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub feature_flags: BTreeMap<String, bool>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub limits: BTreeMap<String, Value>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -702,6 +961,13 @@ pub struct SecretRequestContent {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SecretSendContent {
+    pub request_id: String,
+    pub name: String,
+    pub encrypted_secret: EncryptedContent,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct VerificationContent {
     pub transaction_id: String,
     pub method: String,
@@ -731,6 +997,34 @@ pub struct CallHangupContent {
     pub call_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct CallNegotiationContent {
+    pub call_id: String,
+    pub negotiation_id: String,
+    pub phase: String,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub data: BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct CallMembershipContent {
+    pub call_id: String,
+    pub user_id: Did,
+    pub device_id: DeviceId,
+    pub membership: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub data: BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct CallDeviceMappingContent {
+    pub call_id: String,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub devices_by_user: BTreeMap<Did, Vec<DeviceId>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -775,6 +1069,30 @@ pub struct SelectionContent {
     pub ranges: Vec<Value>,
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ComposingContent {
+    pub user_id: Did,
+    pub device_id: DeviceId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entity_id: Option<EntityId>,
+    pub is_composing: bool,
+    pub expires_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ActivityBeaconContent {
+    pub user_id: Did,
+    pub device_id: DeviceId,
+    pub activity: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entity_id: Option<EntityId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub event_id: Option<EventId>,
+    pub observed_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub data: BTreeMap<String, Value>,
+}
+
 pub fn event_content_json(content: KnownEventContent) -> Result<Value> {
     serde_json::to_value(content).map_err(Into::into)
 }
@@ -798,7 +1116,10 @@ mod tests {
     #[test]
     fn classifies_known_and_prefix_event_kinds() {
         assert_eq!(classify_event_kind(MESSAGE_TEXT), EventClass::Message);
+        assert_eq!(classify_event_kind(MESSAGE_POLL_RESPONSE), EventClass::Message);
         assert_eq!(classify_event_kind(STATE_MEMBERSHIP), EventClass::State);
+        assert_eq!(classify_event_kind(CALL_DEVICE_MAPPING), EventClass::Call);
+        assert_eq!(classify_event_kind(COLLAB_ACTIVITY_BEACON), EventClass::Collaboration);
         assert_eq!(classify_event_kind("cx.ephemeral.custom"), EventClass::Ephemeral);
         assert_eq!(
             classify_event_kind("vendor.example.widget"),
@@ -823,6 +1144,103 @@ mod tests {
         };
         assert_eq!(message.body, "hello");
         assert_eq!(message.mentions[0].target, "did:web:alice.example");
+    }
+
+    #[test]
+    fn parses_poll_lifecycle_and_interactive_events() {
+        let poll_response = require_known_content(
+            parse_event_content(
+                MESSAGE_POLL_RESPONSE,
+                json!({
+                    "poll_event_id": "cx:event:poll-1",
+                    "answer_ids": ["a"],
+                    "responded_at": "2026-05-01T00:00:00Z"
+                }),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let KnownEventContent::PollResponse(response) = poll_response else {
+            panic!("expected poll response");
+        };
+        assert_eq!(response.poll_event_id.as_str(), "cx:event:poll-1");
+        assert_eq!(response.answer_ids, vec!["a"]);
+
+        let acknowledgement = require_known_content(
+            parse_event_content(
+                MESSAGE_ACKNOWLEDGEMENT,
+                json!({
+                    "target_event_id": "cx:event:message-1",
+                    "key": "seen"
+                }),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert!(matches!(
+            acknowledgement,
+            KnownEventContent::Acknowledgement(AcknowledgementContent { key, .. }) if key == "seen"
+        ));
+    }
+
+    #[test]
+    fn parses_collaboration_call_and_secret_events() {
+        let beacon = require_known_content(
+            parse_event_content(
+                COLLAB_ACTIVITY_BEACON,
+                json!({
+                    "user_id": "did:web:alice.example",
+                    "device_id": "dev_alice",
+                    "activity": "viewing",
+                    "observed_at": "2026-05-01T00:00:00Z"
+                }),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert!(matches!(
+            beacon,
+            KnownEventContent::ActivityBeacon(ActivityBeaconContent { activity, .. }) if activity == "viewing"
+        ));
+
+        let mapping = require_known_content(
+            parse_event_content(
+                CALL_DEVICE_MAPPING,
+                json!({
+                    "call_id": "call-1",
+                    "devices_by_user": {
+                        "did:web:alice.example": ["dev_alice"]
+                    }
+                }),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert!(matches!(
+            mapping,
+            KnownEventContent::CallDeviceMapping(CallDeviceMappingContent { call_id, .. }) if call_id == "call-1"
+        ));
+
+        let secret = require_known_content(
+            parse_event_content(
+                E2EE_SECRET_SEND,
+                json!({
+                    "request_id": "req-1",
+                    "name": "recovery",
+                    "encrypted_secret": {
+                        "algorithm": "cx.v1",
+                        "sender_key": "ed25519:abc",
+                        "ciphertext": { "body": "encrypted" }
+                    }
+                }),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert!(matches!(
+            secret,
+            KnownEventContent::SecretSend(SecretSendContent { name, .. }) if name == "recovery"
+        ));
     }
 
     #[test]
@@ -866,5 +1284,42 @@ mod tests {
             envelope.content,
             AnyEventContent::Known { content: KnownEventContent::TextMessage(_) }
         ));
+    }
+
+    #[test]
+    fn exposes_structured_unsigned_metadata() {
+        let metadata = UnsignedMetadata::from_raw(BTreeMap::from([
+            ("age".to_owned(), json!(42)),
+            ("transaction_id".to_owned(), json!("txn-1")),
+            (
+                "relation_aggregations".to_owned(),
+                json!([{
+                    "target_event_id": "cx:event:message-1",
+                    "relation_type": "reaction",
+                    "key": "+1",
+                    "count": 2,
+                    "latest_event_id": "cx:event:reaction-2"
+                }]),
+            ),
+            (
+                "redacted_because".to_owned(),
+                json!({
+                    "event_id": "cx:event:redaction-1",
+                    "actor_id": "did:web:moderator.example",
+                    "reason": "policy"
+                }),
+            ),
+            ("server.received_at".to_owned(), json!("2026-05-01T00:00:00Z")),
+        ]))
+        .unwrap();
+
+        assert_eq!(metadata.age_ms, Some(42));
+        assert_eq!(metadata.transaction_id.as_deref(), Some("txn-1"));
+        assert_eq!(metadata.relation_aggregations[0].count, 2);
+        assert_eq!(
+            metadata.redaction.as_ref().and_then(|redaction| redaction.reason.as_deref()),
+            Some("policy")
+        );
+        assert!(metadata.server_annotations.contains_key("server.received_at"));
     }
 }

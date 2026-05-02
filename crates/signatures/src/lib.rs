@@ -1,6 +1,8 @@
 //! Canonical signatures, proof binding and HTTP message signature helpers.
 
-use chrono::{DateTime, Utc};
+use std::collections::BTreeMap;
+
+use chrono::{DateTime, Duration, Utc};
 use contrix_core::{Audience, Did, Error, Hash, Proof, Result, SignatureBindingPayload, canonical};
 use serde::{Deserialize, Serialize};
 
@@ -108,6 +110,124 @@ pub trait DetachedVerifier {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VerificationMethodDocument {
+    pub did: Did,
+    pub verification_method: String,
+    pub public_key_multibase: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub controller: Option<Did>,
+}
+
+pub trait DidVerificationMethodResolver {
+    fn resolve_verification_method(
+        &self,
+        verification_method: &str,
+    ) -> Result<VerificationMethodDocument>;
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StaticDidVerificationMethodResolver {
+    methods: BTreeMap<String, VerificationMethodDocument>,
+}
+
+impl StaticDidVerificationMethodResolver {
+    pub fn insert(&mut self, document: VerificationMethodDocument) {
+        self.methods.insert(document.verification_method.clone(), document);
+    }
+}
+
+impl DidVerificationMethodResolver for StaticDidVerificationMethodResolver {
+    fn resolve_verification_method(
+        &self,
+        verification_method: &str,
+    ) -> Result<VerificationMethodDocument> {
+        self.methods.get(verification_method).cloned().ok_or_else(|| {
+            Error::Protocol(format!("unknown verification method '{verification_method}'"))
+        })
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ProofVerificationContext {
+    pub actor_id: Did,
+    pub expected_payload_hash: Hash,
+    pub now: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub domain: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub audience: Option<Audience>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub service_did: Option<Did>,
+    pub replay_window: Duration,
+}
+
+impl ProofVerificationContext {
+    pub fn new(actor_id: Did, expected_payload_hash: Hash) -> Self {
+        Self {
+            actor_id,
+            expected_payload_hash,
+            now: Utc::now(),
+            domain: None,
+            audience: None,
+            service_did: None,
+            replay_window: Duration::minutes(5),
+        }
+    }
+}
+
+pub fn verify_proof_with_resolver<R, F>(
+    proof: &Proof,
+    context: &ProofVerificationContext,
+    resolver: &R,
+    verify_jws: F,
+) -> Result<SignatureVerification>
+where
+    R: DidVerificationMethodResolver + ?Sized,
+    F: Fn(&VerificationMethodDocument, &Proof) -> Result<bool>,
+{
+    proof.validate_production()?;
+    if proof.payload_hash != context.expected_payload_hash {
+        return Err(Error::Protocol(
+            "proof payload_hash does not match expected digest".to_owned(),
+        ));
+    }
+    if proof.domain != context.domain {
+        return Err(Error::Protocol("proof domain mismatch".to_owned()));
+    }
+    if proof.audience != context.audience {
+        return Err(Error::Protocol("proof audience mismatch".to_owned()));
+    }
+    if proof.created_at > context.now + Duration::minutes(5) {
+        return Err(Error::Protocol("proof created_at is too far in the future".to_owned()));
+    }
+    if context.now - proof.created_at > context.replay_window {
+        return Err(Error::Protocol("proof replay window expired".to_owned()));
+    }
+    if let Some(service_did) = &context.service_did
+        && !audience_contains_service(proof.audience.as_ref(), service_did)
+    {
+        return Err(Error::Protocol("proof audience does not bind service DID".to_owned()));
+    }
+
+    let method = resolver.resolve_verification_method(&proof.verification_method)?;
+    let controller = method.controller.as_ref().unwrap_or(&method.did);
+    if controller != &context.actor_id {
+        return Err(Error::Protocol("proof verification method controller mismatch".to_owned()));
+    }
+    Ok(SignatureVerification { valid: verify_jws(&method, proof)?, warnings: Vec::new() })
+}
+
+fn audience_contains_service(audience: Option<&Audience>, service_did: &Did) -> bool {
+    match audience {
+        Some(Audience::Single(value)) => value == service_did.as_str(),
+        Some(Audience::Multiple(values)) => {
+            values.iter().any(|value| value == service_did.as_str())
+        }
+        None => false,
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SignatureVerification {
     pub valid: bool,
     #[serde(default)]
@@ -141,7 +261,7 @@ impl HttpMessageSignatureInput {
                 "signature expires_at must be after created_at".to_owned(),
             ));
         }
-        if now < self.created_at - chrono::Duration::minutes(5) {
+        if now < self.created_at - Duration::minutes(5) {
             return Err(Error::Protocol(
                 "signature created_at is too far in the future".to_owned(),
             ));
@@ -288,5 +408,47 @@ mod tests {
         let mut expired = input;
         expired.expires_at = now - Duration::seconds(1);
         assert!(verify_http_message(&expired, &signature, now, |_, _| Ok(true)).is_err());
+    }
+
+    #[test]
+    fn proof_verifier_resolves_method_binds_service_and_replay_window() {
+        let actor = did("alice");
+        let payload_hash =
+            Hash::new("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+                .unwrap();
+        let mut resolver = StaticDidVerificationMethodResolver::default();
+        resolver.insert(VerificationMethodDocument {
+            did: actor.clone(),
+            verification_method: "did:web:alice.example#key-1".to_owned(),
+            public_key_multibase: "zKey".to_owned(),
+            controller: None,
+        });
+        let proof = Proof {
+            kind: "detached_jws".to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method: "did:web:alice.example#key-1".to_owned(),
+            payload_hash: payload_hash.clone(),
+            created_at: Utc::now(),
+            domain: Some("api.example".to_owned()),
+            audience: Some(Audience::Single("did:web:service.example".to_owned())),
+            jws: "sig".to_owned(),
+        };
+        let mut context = ProofVerificationContext::new(actor, payload_hash);
+        context.domain = proof.domain.clone();
+        context.audience = proof.audience.clone();
+        context.service_did = Some(did("service"));
+
+        let verified = verify_proof_with_resolver(&proof, &context, &resolver, |method, proof| {
+            Ok(method.public_key_multibase == "zKey" && proof.jws == "sig")
+        })
+        .unwrap();
+        assert!(verified.valid);
+
+        let mut stale = context;
+        stale.now = proof.created_at + Duration::minutes(10);
+        assert!(matches!(
+            verify_proof_with_resolver(&proof, &stale, &resolver, |_, _| Ok(true)),
+            Err(Error::Protocol(_))
+        ));
     }
 }

@@ -1,6 +1,10 @@
 //! Schema registry and compatibility contracts.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fs,
+    path::{Path, PathBuf},
+};
 
 use contrix_core::{
     CAPABILITY_SCHEMA, CLIENT_SYNC_RESPONSE_SCHEMA, COMMIT_SCHEMA, CURSOR_SCHEMA,
@@ -116,15 +120,54 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
             expected_valid: false,
         },
         SchemaValidationVector {
-            name: "event rejects untrusted security extension".to_owned(),
+            name: "event envelope minimal valid".to_owned(),
             schema_id: EVENT_SCHEMA.to_owned(),
             input: json!({
-                "schema": "cx.schema.event.v1",
-                "event_id": "cx:event:01",
-                "space_id": "cx:space:01",
+                "event_id": "cx:event:01js0ke000000000000000001",
+                "kind": "cx.message.create",
+                "space_id": "cx:space:01js0ke000000000000000000",
+                "space_version": "1",
                 "actor_id": "did:web:alice.example",
-                "kind": "cx.message.text",
+                "actor_seq": 1,
+                "created_at": "2026-05-02T00:00:00Z",
+                "hlc": "01970e589d21-0000-a13f9c2e",
+                "prev_refs": [],
+                "auth_refs": [],
+                "content": {"body": "hello"},
+                "proofs": [{
+                    "kind": "detached_jws",
+                    "alg": "EdDSA",
+                    "verification_method": "did:web:alice.example#key-1",
+                    "payload_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+                    "created_at": "2026-05-02T00:00:00Z",
+                    "jws": "a..b"
+                }]
+            }),
+            expected_valid: true,
+        },
+        SchemaValidationVector {
+            name: "event envelope rejects untrusted security extension".to_owned(),
+            schema_id: EVENT_SCHEMA.to_owned(),
+            input: json!({
+                "event_id": "cx:event:01js0ke000000000000000001",
+                "space_id": "cx:space:01js0ke000000000000000000",
+                "actor_id": "did:web:alice.example",
+                "actor_seq": 1,
+                "kind": "cx.message.create",
+                "space_version": "1",
+                "created_at": "2026-05-02T00:00:00Z",
+                "hlc": "01970e589d21-0000-a13f9c2e",
+                "prev_refs": [],
+                "auth_refs": [],
                 "content": {},
+                "proofs": [{
+                    "kind": "detached_jws",
+                    "alg": "EdDSA",
+                    "verification_method": "did:web:alice.example#key-1",
+                    "payload_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+                    "created_at": "2026-05-02T00:00:00Z",
+                    "jws": "a..b"
+                }],
                 "x-security": {"override": true}
             }),
             expected_valid: false,
@@ -144,6 +187,61 @@ pub fn validate_schema_vectors(vectors: &[SchemaValidationVector]) -> Result<()>
         }
     }
     Ok(())
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EventPayloadSchemaRule {
+    pub event_kind: String,
+    pub payload_schema_id: String,
+    pub required_fields: Vec<String>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EventPayloadValidatorCatalog {
+    pub rules: BTreeMap<String, EventPayloadSchemaRule>,
+}
+
+impl EventPayloadValidatorCatalog {
+    pub fn validate_payload(&self, event_kind: &str, payload: &Value) -> Result<()> {
+        let Some(rule) = self.rules.get(event_kind) else {
+            return Ok(());
+        };
+        let object = payload.as_object().ok_or_else(|| {
+            Error::Protocol(format!("event kind '{event_kind}' payload must be a JSON object"))
+        })?;
+        for field in &rule.required_fields {
+            if !object.contains_key(field) {
+                return Err(Error::Protocol(format!(
+                    "event kind '{event_kind}' payload requires field '{field}'"
+                )));
+            }
+        }
+        Ok(())
+    }
+}
+
+pub fn event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
+    let rules = [
+        ("cx.message.create", EVENT_SCHEMA, &["body"][..]),
+        ("cx.member.state", EVENT_SCHEMA, &["principal_id", "membership"][..]),
+        ("cx.card.move", EVENT_SCHEMA, &["board_id", "card_id", "from_list_id", "to_list_id"][..]),
+        ("cx.card.reorder", EVENT_SCHEMA, &["board_id", "card_id", "list_id", "rank"][..]),
+        ("cx.list.reorder", EVENT_SCHEMA, &["board_id", "list_id", "rank"][..]),
+        ("cx.capability.grant", CAPABILITY_SCHEMA, &["capability_id", "subject", "resource"][..]),
+    ]
+    .into_iter()
+    .map(|(event_kind, payload_schema_id, required_fields)| {
+        (
+            event_kind.to_owned(),
+            EventPayloadSchemaRule {
+                event_kind: event_kind.to_owned(),
+                payload_schema_id: payload_schema_id.to_owned(),
+                required_fields: required_fields.iter().map(|field| (*field).to_owned()).collect(),
+            },
+        )
+    })
+    .collect();
+    EventPayloadValidatorCatalog { rules }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -190,6 +288,182 @@ pub fn generated_validators() -> Result<BTreeMap<String, GeneratedSchemaValidato
         .collect()
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SpecArtifactBundle {
+    pub schema_registry: Value,
+    pub event_kind_registry: Value,
+    pub operation_registry: Value,
+    pub id_kind_registry: Value,
+}
+
+impl SpecArtifactBundle {
+    pub fn load(artifacts_dir: impl AsRef<Path>) -> Result<Self> {
+        let artifacts_dir = artifacts_dir.as_ref();
+        let registry_dir = if artifacts_dir.ends_with("registry") {
+            artifacts_dir.to_path_buf()
+        } else {
+            artifacts_dir.join("registry")
+        };
+        Ok(Self {
+            schema_registry: read_json_artifact(&registry_dir.join("schema-registry.json"))?,
+            event_kind_registry: read_json_artifact(
+                &registry_dir.join("event-kind-registry.json"),
+            )?,
+            operation_registry: read_json_artifact(&registry_dir.join("operation-registry.json"))?,
+            id_kind_registry: read_json_artifact(&registry_dir.join("id-kind-registry.json"))?,
+        })
+    }
+
+    pub fn drift_report(&self) -> ArtifactDriftReport {
+        ArtifactDriftReport {
+            checked_files: vec![
+                "registry/schema-registry.json".to_owned(),
+                "registry/event-kind-registry.json".to_owned(),
+                "registry/operation-registry.json".to_owned(),
+                "registry/id-kind-registry.json".to_owned(),
+            ],
+            missing_schemas: missing_registry_values(
+                &self.schema_registry,
+                "schemas",
+                "schema_id",
+                ARTIFACT_BACKED_SCHEMA_IDS,
+            ),
+            missing_event_kinds: missing_registry_values(
+                &self.event_kind_registry,
+                "event_kinds",
+                "event_kind",
+                ARTIFACT_BACKED_EVENT_KINDS,
+            ),
+            missing_operations: missing_registry_values(
+                &self.operation_registry,
+                "operations",
+                "operation_id",
+                ARTIFACT_BACKED_SERVICE_OPERATIONS,
+            ),
+            missing_id_kinds: missing_registry_values(
+                &self.id_kind_registry,
+                "id_kinds",
+                "kind",
+                ARTIFACT_BACKED_ID_KINDS,
+            ),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ArtifactDriftReport {
+    pub checked_files: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub missing_schemas: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub missing_event_kinds: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub missing_operations: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub missing_id_kinds: Vec<String>,
+}
+
+impl ArtifactDriftReport {
+    pub fn validate(&self) -> Result<()> {
+        if self.missing_schemas.is_empty()
+            && self.missing_event_kinds.is_empty()
+            && self.missing_operations.is_empty()
+            && self.missing_id_kinds.is_empty()
+        {
+            Ok(())
+        } else {
+            Err(Error::Protocol(format!(
+                "spec artifact drift detected: schemas={:?} events={:?} operations={:?} ids={:?}",
+                self.missing_schemas,
+                self.missing_event_kinds,
+                self.missing_operations,
+                self.missing_id_kinds
+            )))
+        }
+    }
+}
+
+pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
+    EVENT_SCHEMA,
+    OPERATION_SCHEMA,
+    CAPABILITY_SCHEMA,
+    CURSOR_SCHEMA,
+    ENCRYPTED_PAYLOAD_SCHEMA,
+    CLIENT_SYNC_RESPONSE_SCHEMA,
+    VIEW_SCHEMA,
+];
+
+pub const ARTIFACT_BACKED_EVENT_KINDS: &[&str] = &[
+    "cx.message.create",
+    "cx.member.state",
+    "cx.card.move",
+    "cx.list.reorder",
+    "cx.capability.grant",
+];
+
+pub const ARTIFACT_BACKED_SERVICE_OPERATIONS: &[&str] = &[
+    "cx.events.submit",
+    "cx.events.get",
+    "cx.events.batch_get",
+    "cx.events.frontier",
+    "cx.sync.client_sync",
+    "cx.server.describe",
+];
+
+pub const ARTIFACT_BACKED_ID_KINDS: &[&str] = &["event", "operation", "space"];
+
+pub fn default_spec_artifacts_dir() -> Option<PathBuf> {
+    if let Ok(artifacts_dir) = std::env::var("CONTRIX_SPEC_ARTIFACTS") {
+        return Some(PathBuf::from(artifacts_dir));
+    }
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("..")
+        .join("..")
+        .join("contrix-spec")
+        .join("artifacts");
+    dir.exists().then_some(dir)
+}
+
+pub fn artifact_drift_report_from_default_location() -> Result<Option<ArtifactDriftReport>> {
+    let Some(artifacts_dir) = default_spec_artifacts_dir() else {
+        return Ok(None);
+    };
+    Ok(Some(SpecArtifactBundle::load(artifacts_dir)?.drift_report()))
+}
+
+fn read_json_artifact(path: &Path) -> Result<Value> {
+    let text = fs::read_to_string(path)
+        .map_err(|error| Error::Protocol(format!("failed to read {}: {error}", path.display())))?;
+    serde_json::from_str(&text)
+        .map_err(|error| Error::Protocol(format!("failed to parse {}: {error}", path.display())))
+}
+
+fn missing_registry_values(
+    registry: &Value,
+    array_field: &str,
+    key_field: &str,
+    expected: &[&str],
+) -> Vec<String> {
+    expected
+        .iter()
+        .filter(|value| registry_entry(registry, array_field, key_field, value).is_none())
+        .map(|value| (*value).to_owned())
+        .collect()
+}
+
+fn registry_entry<'a>(
+    registry: &'a Value,
+    array_field: &str,
+    key_field: &str,
+    expected_key: &str,
+) -> Option<&'a Value> {
+    registry[array_field]
+        .as_array()?
+        .iter()
+        .find(|entry| entry[key_field].as_str() == Some(expected_key))
+}
+
 pub mod protocol {
     pub use contrix_core::{
         CAPABILITY_SCHEMA, CLIENT_SYNC_RESPONSE_SCHEMA, COMMIT_SCHEMA, CURSOR_SCHEMA,
@@ -233,10 +507,88 @@ mod tests {
     }
 
     #[test]
+    fn event_payload_catalog_validates_known_payload_fields() {
+        let catalog = event_payload_validator_catalog();
+        catalog
+            .validate_payload(
+                "cx.card.move",
+                &json!({
+                    "board_id": "cx:entity:board",
+                    "card_id": "cx:entity:card",
+                    "from_list_id": "cx:entity:todo",
+                    "to_list_id": "cx:entity:doing"
+                }),
+            )
+            .unwrap();
+        assert!(matches!(
+            catalog.validate_payload("cx.card.move", &json!({"card_id": "cx:entity:card"})),
+            Err(Error::Protocol(_))
+        ));
+    }
+
+    #[test]
     fn generated_validators_cover_core_schema_ids() {
         let validators = generated_validators().unwrap();
         for schema_id in CORE_SCHEMA_IDS {
             assert!(validators.contains_key(*schema_id), "{schema_id}");
+        }
+    }
+
+    #[test]
+    fn spec_artifact_registry_covers_key_local_schema_and_event_contracts() {
+        let Some(artifacts_dir) = default_spec_artifacts_dir() else {
+            return;
+        };
+        let bundle = SpecArtifactBundle::load(artifacts_dir).unwrap();
+        bundle.drift_report().validate().unwrap();
+
+        let schemas = bundle.schema_registry["schemas"].as_array().expect("schemas array");
+        let schema_ids = schemas
+            .iter()
+            .filter_map(|schema| schema["schema_id"].as_str())
+            .collect::<BTreeSet<_>>();
+        for schema_id in ARTIFACT_BACKED_SCHEMA_IDS {
+            assert!(schema_ids.contains(*schema_id), "missing schema artifact for {schema_id}");
+        }
+        let event_schema = schemas
+            .iter()
+            .find(|schema| schema["schema_id"] == EVENT_SCHEMA)
+            .expect("event envelope schema registry entry");
+        assert_eq!(event_schema["file"].as_str(), Some("schemas/event-envelope.schema.json"));
+
+        for event_kind in ARTIFACT_BACKED_EVENT_KINDS {
+            let entry = registry_entry(
+                &bundle.event_kind_registry,
+                "event_kinds",
+                "event_kind",
+                event_kind,
+            )
+            .unwrap_or_else(|| panic!("missing event kind {event_kind}"));
+            assert_eq!(entry["status"].as_str(), Some("active"), "{event_kind}");
+            assert_eq!(entry["wire_scope"].as_str(), Some("durable_event"), "{event_kind}");
+        }
+
+        for operation_id in ARTIFACT_BACKED_SERVICE_OPERATIONS {
+            assert!(
+                registry_entry(
+                    &bundle.operation_registry,
+                    "operations",
+                    "operation_id",
+                    operation_id
+                )
+                .is_some(),
+                "missing service operation {operation_id}"
+            );
+        }
+
+        for (kind, wire_form) in [
+            ("event", "cx:event:<ulid>"),
+            ("operation", "cx:operation:<ulid>"),
+            ("space", "cx:space:<ulid>"),
+        ] {
+            let entry = registry_entry(&bundle.id_kind_registry, "id_kinds", "kind", kind)
+                .unwrap_or_else(|| panic!("missing id kind {kind}"));
+            assert_eq!(entry["wire_form"].as_str(), Some(wire_form), "{kind}");
         }
     }
 

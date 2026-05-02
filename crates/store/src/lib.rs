@@ -4,11 +4,11 @@
 //! the smaller adapter contract that concrete memory, SQLite and IndexedDB
 //! implementations can share without depending on client runtime modules.
 
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use chrono::{DateTime, Duration, Utc};
 use contrix_core::{
-    Commit, CommitId, Error, Event, EventId, Hash, Operation, OperationId, Result, SpaceId,
+    BlobRef, Commit, CommitId, Error, Event, EventId, Hash, Operation, OperationId, Result, SpaceId,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -30,7 +30,11 @@ pub enum StoreCapability {
     AtomicBatch,
     SchemaMigration,
     SnapshotExport,
+    CoreEventStore,
     EventCache,
+    SyncToken,
+    SendQueue,
+    MediaCache,
     EncryptionAtRest,
     FailureCache,
     ConcurrentReaders,
@@ -129,6 +133,89 @@ pub trait EventCacheStore {
     fn events_for_space(&self, space_id: &SpaceId) -> Vec<&EventCacheRecord>;
 }
 
+pub const CORE_EVENT_STORE_PROFILE: &str = "cx.profile.core_event_store.v1";
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CoreEventSubmitStatus {
+    AcceptedNew,
+    AcceptedDuplicate,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CoreEventSubmitReceipt {
+    pub event_id: EventId,
+    pub digest: Hash,
+    pub status: CoreEventSubmitStatus,
+    pub frontier: Vec<EventId>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CoreEventFetchRequest {
+    pub event_id: EventId,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CoreEventBatchGetRequest {
+    pub event_ids: Vec<EventId>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CoreEventBackfillRequest {
+    pub space_id: SpaceId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub from_event_id: Option<EventId>,
+    pub limit: usize,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct CoreEventBackfillResponse {
+    pub events: Vec<Event>,
+    pub frontier: Vec<EventId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_event_id: Option<EventId>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CoreEventFrontierRequest {
+    pub space_id: SpaceId,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CoreEventFrontierResponse {
+    pub space_id: SpaceId,
+    pub frontier: Vec<EventId>,
+}
+
+pub trait EventAuthRefValidator {
+    fn validate_auth_refs(&self, event: &Event, known_events: &BTreeSet<EventId>) -> Result<()>;
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct RequireKnownAuthRefs;
+
+impl EventAuthRefValidator for RequireKnownAuthRefs {
+    fn validate_auth_refs(&self, event: &Event, known_events: &BTreeSet<EventId>) -> Result<()> {
+        for auth_ref in &event.auth_refs {
+            if !known_events.contains(auth_ref) {
+                return Err(Error::Protocol(format!("missing auth dependency: {auth_ref}")));
+            }
+        }
+        Ok(())
+    }
+}
+
+pub trait CoreEventStore {
+    fn submit_event(&mut self, event: Event) -> Result<CoreEventSubmitReceipt>;
+    fn fetch_event(&self, request: &CoreEventFetchRequest) -> Option<&Event>;
+    fn batch_get_events(&self, request: &CoreEventBatchGetRequest) -> Vec<&Event>;
+    fn backfill_events(
+        &self,
+        request: &CoreEventBackfillRequest,
+    ) -> Result<CoreEventBackfillResponse>;
+    fn event_frontier(&self, request: &CoreEventFrontierRequest) -> CoreEventFrontierResponse;
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct StateSnapshotRecord {
     pub space_id: SpaceId,
@@ -141,6 +228,122 @@ pub trait StateSnapshotStore {
     fn put_snapshot(&mut self, snapshot: StateSnapshotRecord) -> Result<()>;
     fn snapshot(&self, space_id: &SpaceId) -> Option<&StateSnapshotRecord>;
     fn remove_snapshot(&mut self, space_id: &SpaceId) -> Result<()>;
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PersistentSyncToken {
+    pub stream: String,
+    pub token: String,
+    pub updated_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
+impl PersistentSyncToken {
+    pub fn validate(&self) -> Result<()> {
+        if self.stream.trim().is_empty() || self.token.trim().is_empty() {
+            return Err(Error::Protocol("sync token requires stream and token".to_owned()));
+        }
+        Ok(())
+    }
+}
+
+pub trait SyncTokenStore {
+    fn put_sync_token(&mut self, token: PersistentSyncToken) -> Result<()>;
+    fn sync_token(&self, stream: &str) -> Option<&PersistentSyncToken>;
+    fn remove_sync_token(&mut self, stream: &str) -> Result<()>;
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SendQueueStatus {
+    Queued,
+    Sending,
+    Sent,
+    Failed,
+    Cancelled,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SendQueueRecord {
+    pub transaction_id: String,
+    pub space_id: SpaceId,
+    pub event_kind: String,
+    pub content: Value,
+    pub status: SendQueueStatus,
+    #[serde(default)]
+    pub attempts: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_attempt_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub dependencies: Vec<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+impl SendQueueRecord {
+    pub fn validate(&self) -> Result<()> {
+        if self.transaction_id.trim().is_empty() {
+            return Err(Error::Protocol("send queue transaction id must not be empty".to_owned()));
+        }
+        if self.event_kind.trim().is_empty() {
+            return Err(Error::Protocol("send queue event kind must not be empty".to_owned()));
+        }
+        if !self.content.is_object() {
+            return Err(Error::Protocol("send queue content must be a JSON object".to_owned()));
+        }
+        Ok(())
+    }
+
+    pub fn is_ready_at(&self, now: DateTime<Utc>) -> bool {
+        matches!(self.status, SendQueueStatus::Queued | SendQueueStatus::Failed)
+            && self.next_attempt_at.is_none_or(|retry_at| retry_at <= now)
+    }
+}
+
+pub trait SendQueueStore {
+    fn put_send_queue_record(&mut self, record: SendQueueRecord) -> Result<()>;
+    fn send_queue_record(&self, transaction_id: &str) -> Option<&SendQueueRecord>;
+    fn ready_send_queue_records(&self, now: DateTime<Utc>, limit: usize) -> Vec<&SendQueueRecord>;
+    fn mark_send_queue_status(
+        &mut self,
+        transaction_id: &str,
+        status: SendQueueStatus,
+        next_attempt_at: Option<DateTime<Utc>>,
+    ) -> Result<()>;
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MediaCacheRecord {
+    pub blob_ref: BlobRef,
+    pub content_type: String,
+    pub size: u64,
+    pub sha256: Hash,
+    #[serde(default)]
+    pub encrypted: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub local_uri: Option<String>,
+    pub last_accessed_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
+impl MediaCacheRecord {
+    pub fn validate(&self) -> Result<()> {
+        if self.content_type.trim().is_empty() {
+            return Err(Error::Protocol("media cache content type must not be empty".to_owned()));
+        }
+        if self.size == 0 {
+            return Err(Error::Protocol("media cache size must be non-zero".to_owned()));
+        }
+        Ok(())
+    }
+}
+
+pub trait MediaCacheStore {
+    fn put_media_cache_record(&mut self, record: MediaCacheRecord) -> Result<()>;
+    fn media_cache_record(&self, blob_ref: &BlobRef) -> Option<&MediaCacheRecord>;
+    fn prune_media_cache(&mut self, now: DateTime<Utc>, max_total_bytes: u64) -> Result<usize>;
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -300,8 +503,14 @@ impl RepoObjectStore for MemoryRepoObjectStore {
 pub struct MemoryRuntimeStore {
     repo: MemoryRepoObjectStore,
     events: BTreeMap<EventId, EventCacheRecord>,
+    event_digests: BTreeMap<EventId, Hash>,
     events_by_space: BTreeMap<SpaceId, VecDeque<EventId>>,
+    frontiers_by_space: BTreeMap<SpaceId, BTreeSet<EventId>>,
+    actor_sequences: BTreeMap<(SpaceId, contrix_core::Did), u64>,
     snapshots: BTreeMap<SpaceId, StateSnapshotRecord>,
+    sync_tokens: BTreeMap<String, PersistentSyncToken>,
+    send_queue: BTreeMap<String, SendQueueRecord>,
+    media_cache: BTreeMap<BlobRef, MediaCacheRecord>,
     migrations: Vec<StoreMigrationRecord>,
     failures: StoreFailureCache,
 }
@@ -360,10 +569,17 @@ impl RepoObjectStore for MemoryRuntimeStore {
 
 impl EventCacheStore for MemoryRuntimeStore {
     fn put_event(&mut self, record: EventCacheRecord) -> Result<()> {
+        let digest = Hash::new(record.event.event_digest()?)?;
+        match self.event_digests.get(&record.event_id) {
+            Some(existing) if existing == &digest => return Ok(()),
+            Some(_) => return Err(Error::IdempotencyConflict(record.event_id.to_string())),
+            None => {}
+        }
         self.events_by_space
             .entry(record.space_id.clone())
             .or_default()
             .push_back(record.event_id.clone());
+        self.event_digests.insert(record.event_id.clone(), digest);
         self.events.insert(record.event_id.clone(), record);
         Ok(())
     }
@@ -382,6 +598,159 @@ impl EventCacheStore for MemoryRuntimeStore {
     }
 }
 
+impl MemoryRuntimeStore {
+    pub fn submit_event_with_auth_validator<V>(
+        &mut self,
+        event: Event,
+        auth_validator: &V,
+    ) -> Result<CoreEventSubmitReceipt>
+    where
+        V: EventAuthRefValidator + ?Sized,
+    {
+        validate_event_for_core_store(&event)?;
+        let digest = Hash::new(event.event_digest()?)?;
+        if let Some(existing_digest) = self.event_digests.get(&event.event_id) {
+            if existing_digest == &digest {
+                return Ok(CoreEventSubmitReceipt {
+                    event_id: event.event_id.clone(),
+                    digest,
+                    status: CoreEventSubmitStatus::AcceptedDuplicate,
+                    frontier: self.frontier_for_space(&event.space_id),
+                });
+            }
+            return Err(Error::IdempotencyConflict(event.event_id.to_string()));
+        }
+
+        for prev_ref in &event.prev_refs {
+            if !self.events.contains_key(prev_ref) {
+                return Err(Error::Protocol(format!("missing causal dependency: {prev_ref}")));
+            }
+        }
+        let known_events = self.events.keys().cloned().collect::<BTreeSet<_>>();
+        auth_validator.validate_auth_refs(&event, &known_events)?;
+
+        let actor_key = (event.space_id.clone(), event.actor_id.clone());
+        if let Some(last_seq) = self.actor_sequences.get(&actor_key)
+            && event.actor_seq <= *last_seq
+        {
+            return Err(Error::Protocol(format!(
+                "actor_seq {} is not greater than last accepted {} for {}",
+                event.actor_seq, last_seq, event.actor_id
+            )));
+        }
+
+        let event_id = event.event_id.clone();
+        let space_id = event.space_id.clone();
+        let order_key = event.hlc.to_string();
+        let actor_seq = event.actor_seq;
+        let actor_id = event.actor_id.clone();
+        let prev_refs = event.prev_refs.clone();
+        self.put_event(EventCacheRecord {
+            event_id: event_id.clone(),
+            space_id: space_id.clone(),
+            order_key,
+            event,
+            cached_at: Utc::now(),
+        })?;
+        self.actor_sequences.insert((space_id.clone(), actor_id), actor_seq);
+        self.update_core_event_frontier(&space_id, &event_id, &prev_refs);
+        Ok(CoreEventSubmitReceipt {
+            event_id,
+            digest,
+            status: CoreEventSubmitStatus::AcceptedNew,
+            frontier: self.frontier_for_space(&space_id),
+        })
+    }
+
+    fn update_core_event_frontier(
+        &mut self,
+        space_id: &SpaceId,
+        event_id: &EventId,
+        prev_refs: &[EventId],
+    ) {
+        let frontier = self.frontiers_by_space.entry(space_id.clone()).or_default();
+        for prev_ref in prev_refs {
+            frontier.remove(prev_ref);
+        }
+        frontier.insert(event_id.clone());
+    }
+
+    fn frontier_for_space(&self, space_id: &SpaceId) -> Vec<EventId> {
+        self.frontiers_by_space
+            .get(space_id)
+            .map(|frontier| frontier.iter().cloned().collect())
+            .unwrap_or_default()
+    }
+}
+
+impl CoreEventStore for MemoryRuntimeStore {
+    fn submit_event(&mut self, event: Event) -> Result<CoreEventSubmitReceipt> {
+        self.submit_event_with_auth_validator(event, &RequireKnownAuthRefs)
+    }
+
+    fn fetch_event(&self, request: &CoreEventFetchRequest) -> Option<&Event> {
+        self.events.get(&request.event_id).map(|record| &record.event)
+    }
+
+    fn batch_get_events(&self, request: &CoreEventBatchGetRequest) -> Vec<&Event> {
+        request
+            .event_ids
+            .iter()
+            .filter_map(|event_id| self.events.get(event_id).map(|record| &record.event))
+            .collect()
+    }
+
+    fn backfill_events(
+        &self,
+        request: &CoreEventBackfillRequest,
+    ) -> Result<CoreEventBackfillResponse> {
+        if request.limit == 0 {
+            return Err(Error::Protocol("core event backfill limit must be non-zero".to_owned()));
+        }
+        let mut started = request.from_event_id.is_none();
+        let mut events = Vec::new();
+        let mut next_event_id = None;
+        for record in self.events_for_space(&request.space_id) {
+            if !started {
+                started = request.from_event_id.as_ref() == Some(&record.event_id);
+                continue;
+            }
+            if events.len() == request.limit {
+                next_event_id = Some(record.event_id.clone());
+                break;
+            }
+            events.push(record.event.clone());
+        }
+        Ok(CoreEventBackfillResponse {
+            events,
+            frontier: self.frontier_for_space(&request.space_id),
+            next_event_id,
+        })
+    }
+
+    fn event_frontier(&self, request: &CoreEventFrontierRequest) -> CoreEventFrontierResponse {
+        CoreEventFrontierResponse {
+            space_id: request.space_id.clone(),
+            frontier: self.frontier_for_space(&request.space_id),
+        }
+    }
+}
+
+fn validate_event_for_core_store(event: &Event) -> Result<()> {
+    if !event.content.is_object() {
+        return Err(Error::Protocol("event content must be a JSON object".to_owned()));
+    }
+    if event.critical_extensions.iter().any(|extension| !extension.fail_closed) {
+        return Err(Error::Protocol(
+            "event critical extensions must declare fail_closed=true".to_owned(),
+        ));
+    }
+    if !event.proofs.is_empty() {
+        event.validate_proof_bindings()?;
+    }
+    Ok(())
+}
+
 impl StateSnapshotStore for MemoryRuntimeStore {
     fn put_snapshot(&mut self, snapshot: StateSnapshotRecord) -> Result<()> {
         self.snapshots.insert(snapshot.space_id.clone(), snapshot);
@@ -395,6 +764,111 @@ impl StateSnapshotStore for MemoryRuntimeStore {
     fn remove_snapshot(&mut self, space_id: &SpaceId) -> Result<()> {
         self.snapshots.remove(space_id);
         Ok(())
+    }
+}
+
+impl SyncTokenStore for MemoryRuntimeStore {
+    fn put_sync_token(&mut self, token: PersistentSyncToken) -> Result<()> {
+        token.validate()?;
+        self.sync_tokens.insert(token.stream.clone(), token);
+        Ok(())
+    }
+
+    fn sync_token(&self, stream: &str) -> Option<&PersistentSyncToken> {
+        self.sync_tokens.get(stream)
+    }
+
+    fn remove_sync_token(&mut self, stream: &str) -> Result<()> {
+        self.sync_tokens.remove(stream);
+        Ok(())
+    }
+}
+
+impl SendQueueStore for MemoryRuntimeStore {
+    fn put_send_queue_record(&mut self, record: SendQueueRecord) -> Result<()> {
+        record.validate()?;
+        match self.send_queue.get(&record.transaction_id) {
+            Some(existing) if existing.content != record.content => {
+                Err(Error::IdempotencyConflict(record.transaction_id))
+            }
+            _ => {
+                self.send_queue.insert(record.transaction_id.clone(), record);
+                Ok(())
+            }
+        }
+    }
+
+    fn send_queue_record(&self, transaction_id: &str) -> Option<&SendQueueRecord> {
+        self.send_queue.get(transaction_id)
+    }
+
+    fn ready_send_queue_records(&self, now: DateTime<Utc>, limit: usize) -> Vec<&SendQueueRecord> {
+        self.send_queue
+            .values()
+            .filter(|record| record.is_ready_at(now))
+            .filter(|record| {
+                record.dependencies.iter().all(|dependency| {
+                    self.send_queue
+                        .get(dependency)
+                        .is_some_and(|dependency| dependency.status == SendQueueStatus::Sent)
+                })
+            })
+            .take(limit)
+            .collect()
+    }
+
+    fn mark_send_queue_status(
+        &mut self,
+        transaction_id: &str,
+        status: SendQueueStatus,
+        next_attempt_at: Option<DateTime<Utc>>,
+    ) -> Result<()> {
+        let Some(record) = self.send_queue.get_mut(transaction_id) else {
+            return Err(Error::Protocol(format!(
+                "send queue transaction not found: {transaction_id}"
+            )));
+        };
+        record.status = status;
+        record.next_attempt_at = next_attempt_at;
+        record.updated_at = Utc::now();
+        Ok(())
+    }
+}
+
+impl MediaCacheStore for MemoryRuntimeStore {
+    fn put_media_cache_record(&mut self, record: MediaCacheRecord) -> Result<()> {
+        record.validate()?;
+        self.media_cache.insert(record.blob_ref.clone(), record);
+        Ok(())
+    }
+
+    fn media_cache_record(&self, blob_ref: &BlobRef) -> Option<&MediaCacheRecord> {
+        self.media_cache.get(blob_ref)
+    }
+
+    fn prune_media_cache(&mut self, now: DateTime<Utc>, max_total_bytes: u64) -> Result<usize> {
+        let before = self.media_cache.len();
+        self.media_cache.retain(|_, record| record.expires_at.is_none_or(|expires| expires > now));
+
+        let mut total: u64 = self.media_cache.values().map(|record| record.size).sum();
+        if total > max_total_bytes {
+            let mut by_access = self
+                .media_cache
+                .values()
+                .map(|record| (record.last_accessed_at, record.blob_ref.clone(), record.size))
+                .collect::<Vec<_>>();
+            by_access.sort_by_key(|(last_accessed_at, _, _)| *last_accessed_at);
+            for (_, blob_ref, size) in by_access {
+                if total <= max_total_bytes {
+                    break;
+                }
+                if self.media_cache.remove(&blob_ref).is_some() {
+                    total = total.saturating_sub(size);
+                }
+            }
+        }
+
+        Ok(before - self.media_cache.len())
     }
 }
 
@@ -433,6 +907,43 @@ pub fn memory_store_conformance_report() -> Result<StoreConformanceReport> {
         message: "locked".to_owned(),
         retry_after: now + Duration::seconds(5),
     });
+    store.put_sync_token(PersistentSyncToken {
+        stream: "client".to_owned(),
+        token: "s1".to_owned(),
+        updated_at: now,
+        expires_at: None,
+    })?;
+    store.put_send_queue_record(SendQueueRecord {
+        transaction_id: "txn1".to_owned(),
+        space_id: SpaceId::new("cx:space:store").expect("valid space id"),
+        event_kind: "cx.message.text".to_owned(),
+        content: serde_json::json!({"body": "hello"}),
+        status: SendQueueStatus::Queued,
+        attempts: 0,
+        next_attempt_at: None,
+        dependencies: Vec::new(),
+        created_at: now,
+        updated_at: now,
+    })?;
+    store.put_media_cache_record(MediaCacheRecord {
+        blob_ref: BlobRef::from_bytes(b"media"),
+        content_type: "text/plain".to_owned(),
+        size: 5,
+        sha256: Hash::new(sha256_prefixed(b"media"))?,
+        encrypted: false,
+        local_uri: Some("memory://media".to_owned()),
+        last_accessed_at: now,
+        expires_at: Some(now + Duration::seconds(60)),
+    })?;
+    let event = Event::new(
+        "cx.message.create",
+        SpaceId::new("cx:space:store").expect("valid space id"),
+        contrix_core::Did::new("did:web:store.example").expect("valid did"),
+        1,
+        contrix_core::Hlc::new("01970e589d21-00000001-a13f9c2e").expect("valid hlc"),
+        serde_json::json!({"body": "hello"}),
+    )?;
+    let core_event_receipt = store.submit_event(event)?;
 
     Ok(StoreConformanceReport {
         backend: StoreBackendDescriptor {
@@ -442,7 +953,11 @@ pub fn memory_store_conformance_report() -> Result<StoreConformanceReport> {
                 StoreCapability::AtomicBatch,
                 StoreCapability::SchemaMigration,
                 StoreCapability::SnapshotExport,
+                StoreCapability::CoreEventStore,
                 StoreCapability::EventCache,
+                StoreCapability::SyncToken,
+                StoreCapability::SendQueue,
+                StoreCapability::MediaCache,
                 StoreCapability::FailureCache,
             ],
             max_object_bytes: Some(16 * 1024 * 1024),
@@ -454,6 +969,16 @@ pub fn memory_store_conformance_report() -> Result<StoreConformanceReport> {
             (
                 "failure_cache_blocks_retry".to_owned(),
                 store.failures.active_failure("sqlite://primary", now).is_some(),
+            ),
+            ("sync_token_persisted".to_owned(), store.sync_token("client").is_some()),
+            ("send_queue_ready".to_owned(), store.ready_send_queue_records(now, 10).len() == 1),
+            (
+                "media_cache_persisted".to_owned(),
+                store.media_cache_record(&BlobRef::from_bytes(b"media")).is_some(),
+            ),
+            (
+                "core_event_submit_updates_frontier".to_owned(),
+                core_event_receipt.frontier.len() == 1,
             ),
         ]),
     })
@@ -496,6 +1021,20 @@ fn test_commit(suffix: &str, operations: Vec<Hash>) -> Commit {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use contrix_core::{Did, Hlc};
+    use serde_json::json;
+
+    fn event(actor_seq: u64, body: &str) -> Event {
+        Event::new(
+            "cx.message.create",
+            SpaceId::new("cx:space:store").unwrap(),
+            Did::new("did:web:alice.example").unwrap(),
+            actor_seq,
+            Hlc::new(format!("01970e589d21-{actor_seq:08x}-a13f9c2e")).unwrap(),
+            json!({ "body": body }),
+        )
+        .unwrap()
+    }
 
     #[test]
     fn memory_store_is_idempotent_and_rejects_conflicting_operation_bytes() {
@@ -536,6 +1075,110 @@ mod tests {
         assert!(cache.active_failure("indexeddb://repo", now).is_some());
         assert_eq!(cache.prune(now + Duration::seconds(2)), 1);
         assert!(cache.active_failure("indexeddb://repo", now + Duration::seconds(2)).is_none());
+    }
+
+    #[test]
+    fn runtime_store_persists_sync_tokens_send_queue_and_media_cache() {
+        let now = Utc::now();
+        let mut store = MemoryRuntimeStore::new();
+        store
+            .put_sync_token(PersistentSyncToken {
+                stream: "sliding".to_owned(),
+                token: "tok1".to_owned(),
+                updated_at: now,
+                expires_at: None,
+            })
+            .unwrap();
+        assert_eq!(store.sync_token("sliding").unwrap().token, "tok1");
+
+        store
+            .put_send_queue_record(SendQueueRecord {
+                transaction_id: "txn1".to_owned(),
+                space_id: SpaceId::new("cx:space:store").unwrap(),
+                event_kind: "cx.message.text".to_owned(),
+                content: serde_json::json!({"body": "hello"}),
+                status: SendQueueStatus::Queued,
+                attempts: 0,
+                next_attempt_at: None,
+                dependencies: Vec::new(),
+                created_at: now,
+                updated_at: now,
+            })
+            .unwrap();
+        assert_eq!(store.ready_send_queue_records(now, 10).len(), 1);
+        store.mark_send_queue_status("txn1", SendQueueStatus::Sent, None).unwrap();
+        assert_eq!(store.send_queue_record("txn1").unwrap().status, SendQueueStatus::Sent);
+
+        let blob_ref = BlobRef::from_bytes(b"cached");
+        store
+            .put_media_cache_record(MediaCacheRecord {
+                blob_ref: blob_ref.clone(),
+                content_type: "image/png".to_owned(),
+                size: 128,
+                sha256: Hash::new(sha256_prefixed(b"cached")).unwrap(),
+                encrypted: true,
+                local_uri: Some("memory://cached".to_owned()),
+                last_accessed_at: now,
+                expires_at: Some(now + Duration::seconds(1)),
+            })
+            .unwrap();
+        assert_eq!(store.media_cache_record(&blob_ref).unwrap().size, 128);
+        assert_eq!(store.prune_media_cache(now + Duration::seconds(2), 1024).unwrap(), 1);
+        assert!(store.media_cache_record(&blob_ref).is_none());
+    }
+
+    #[test]
+    fn core_event_store_accepts_duplicates_and_rejects_conflicts() {
+        let mut store = MemoryRuntimeStore::new();
+        let first = event(1, "one");
+        let receipt = store.submit_event(first.clone()).unwrap();
+        assert_eq!(receipt.status, CoreEventSubmitStatus::AcceptedNew);
+        let duplicate = store.submit_event(first.clone()).unwrap();
+        assert_eq!(duplicate.status, CoreEventSubmitStatus::AcceptedDuplicate);
+
+        let mut conflict = first;
+        conflict.content = json!({"body": "changed"});
+        assert!(matches!(store.submit_event(conflict), Err(Error::IdempotencyConflict(_))));
+    }
+
+    #[test]
+    fn core_event_store_validates_actor_seq_prev_refs_and_auth_refs() {
+        let mut store = MemoryRuntimeStore::new();
+        let first = event(1, "one");
+        let first_id = first.event_id.clone();
+        store.submit_event(first).unwrap();
+
+        let stale_seq = event(1, "stale");
+        assert!(matches!(store.submit_event(stale_seq), Err(Error::Protocol(_))));
+
+        let mut second = event(2, "two");
+        second.prev_refs.push(first_id.clone());
+        second.auth_refs.push(first_id.clone());
+        second.refresh_event_id().unwrap();
+        let second_id = second.event_id.clone();
+        store.submit_event(second).unwrap();
+
+        let fetched = store.fetch_event(&CoreEventFetchRequest { event_id: second_id });
+        assert!(fetched.is_some());
+        assert_eq!(
+            store
+                .event_frontier(&CoreEventFrontierRequest {
+                    space_id: SpaceId::new("cx:space:store").unwrap()
+                })
+                .frontier
+                .len(),
+            1
+        );
+
+        let mut missing_prev = event(3, "missing");
+        missing_prev.prev_refs.push(EventId::new("cx:event:missing").unwrap());
+        missing_prev.refresh_event_id().unwrap();
+        assert!(matches!(store.submit_event(missing_prev), Err(Error::Protocol(_))));
+
+        let mut missing_auth = event(3, "missing-auth");
+        missing_auth.auth_refs.push(EventId::new("cx:event:missing-auth").unwrap());
+        missing_auth.refresh_event_id().unwrap();
+        assert!(matches!(store.submit_event(missing_auth), Err(Error::Protocol(_))));
     }
 
     #[test]

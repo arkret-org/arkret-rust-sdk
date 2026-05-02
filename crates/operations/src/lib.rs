@@ -17,6 +17,7 @@ use contrix_core::{
     operation_kind_conformance_vectors,
 };
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 pub use contrix_core::{CausalRef, Operation, OperationSignature, OperationType};
 
@@ -257,6 +258,244 @@ impl OperationDagReport {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OperationMutation {
+    Read,
+    Create,
+    Update,
+    Delete,
+    Redact,
+    External,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperationSemanticEffect {
+    pub operation_id: OperationId,
+    pub surface: OperationSurface,
+    pub mutation: OperationMutation,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_id: Option<String>,
+    #[serde(default)]
+    pub requires_authz: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperationSemanticIssue {
+    pub operation_id: OperationId,
+    pub kind: String,
+    pub message: String,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperationSemanticReport {
+    pub applied: Vec<OperationSemanticEffect>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rejected: Vec<OperationSemanticIssue>,
+}
+
+impl OperationSemanticReport {
+    pub fn validate_clean(&self) -> Result<()> {
+        if self.rejected.is_empty() {
+            Ok(())
+        } else {
+            Err(Error::Protocol(format!(
+                "operation semantic reducer rejected {} operation(s)",
+                self.rejected.len()
+            )))
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct OperationSemanticReducer {
+    active_targets: BTreeMap<String, OperationId>,
+    tombstoned_targets: BTreeMap<String, OperationId>,
+}
+
+impl OperationSemanticReducer {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn reduce(&mut self, operations: &[OperationEnvelope]) -> OperationSemanticReport {
+        let mut report = OperationSemanticReport::default();
+        for operation in operations {
+            let effect = semantic_effect(operation);
+            if let Some(issue) = self.validate_effect(&effect, operation) {
+                report.rejected.push(issue);
+                continue;
+            }
+            self.apply_effect(&effect);
+            report.applied.push(effect);
+        }
+        report
+    }
+
+    fn validate_effect(
+        &self,
+        effect: &OperationSemanticEffect,
+        operation: &OperationEnvelope,
+    ) -> Option<OperationSemanticIssue> {
+        if effect.requires_authz && operation.authz_ref.is_none() {
+            return Some(OperationSemanticIssue {
+                operation_id: operation.operation_id.clone(),
+                kind: "missing_authz".to_owned(),
+                message: "mutating operation requires an authorization reference".to_owned(),
+            });
+        }
+        let Some(target_id) = effect.target_id.as_deref() else {
+            return None;
+        };
+        match effect.mutation {
+            OperationMutation::Create if self.active_targets.contains_key(target_id) => {
+                Some(OperationSemanticIssue {
+                    operation_id: operation.operation_id.clone(),
+                    kind: "duplicate_create".to_owned(),
+                    message: format!("target '{target_id}' is already active"),
+                })
+            }
+            OperationMutation::Create if self.tombstoned_targets.contains_key(target_id) => {
+                Some(OperationSemanticIssue {
+                    operation_id: operation.operation_id.clone(),
+                    kind: "create_after_tombstone".to_owned(),
+                    message: format!("target '{target_id}' was tombstoned"),
+                })
+            }
+            OperationMutation::Update | OperationMutation::Redact
+                if self.tombstoned_targets.contains_key(target_id) =>
+            {
+                Some(OperationSemanticIssue {
+                    operation_id: operation.operation_id.clone(),
+                    kind: "mutation_after_tombstone".to_owned(),
+                    message: format!("target '{target_id}' was tombstoned"),
+                })
+            }
+            _ => None,
+        }
+    }
+
+    fn apply_effect(&mut self, effect: &OperationSemanticEffect) {
+        let Some(target_id) = effect.target_id.clone() else {
+            return;
+        };
+        match effect.mutation {
+            OperationMutation::Create | OperationMutation::Update | OperationMutation::External => {
+                self.active_targets.insert(target_id, effect.operation_id.clone());
+            }
+            OperationMutation::Delete | OperationMutation::Redact => {
+                self.active_targets.remove(&target_id);
+                self.tombstoned_targets.insert(target_id, effect.operation_id.clone());
+            }
+            OperationMutation::Read => {}
+        }
+    }
+}
+
+pub fn semantic_effect(operation: &OperationEnvelope) -> OperationSemanticEffect {
+    let surface = classify_operation_kind(&operation.kind);
+    let mutation = mutation_for_kind(&operation.kind);
+    let target_id = target_id_for_operation(&operation.kind, &operation.content);
+    let requires_authz = !matches!(mutation, OperationMutation::Read);
+    OperationSemanticEffect {
+        operation_id: operation.operation_id.clone(),
+        surface,
+        mutation,
+        target_id,
+        requires_authz,
+    }
+}
+
+pub fn reduce_operation_semantics(operations: &[OperationEnvelope]) -> OperationSemanticReport {
+    OperationSemanticReducer::new().reduce(operations)
+}
+
+fn mutation_for_kind(kind: &str) -> OperationMutation {
+    match kind {
+        OP_ENTITY_CREATE | OP_RELATION_CREATE | OP_TASK_CREATE | OP_VIEW_CREATE
+        | OP_SPACE_CREATE => OperationMutation::Create,
+        OP_ENTITY_DELETE | OP_RELATION_DELETE => OperationMutation::Delete,
+        OP_ENTITY_REDACT => OperationMutation::Redact,
+        OP_SERVER_DESCRIBE
+        | OP_REPO_DESCRIBE
+        | OP_SYNC_DESCRIBE
+        | OP_INDEX_DESCRIBE
+        | OP_DIRECTORY_DESCRIBE
+        | OP_BLOB_HEAD
+        | OP_BLOB_GET
+        | OP_KEYS_QUERY
+        | OP_KEYS_CLAIM
+        | OP_AUTHZ_CHECK => OperationMutation::Read,
+        OP_FEDERATION_TRANSACTION | OP_PUSH_NOTIFY | OP_KEYS_UPLOAD => OperationMutation::External,
+        _ => OperationMutation::Update,
+    }
+}
+
+fn target_id_for_operation(kind: &str, content: &Value) -> Option<String> {
+    let fields: &[&str] = match kind {
+        OP_ENTITY_CREATE
+        | OP_ENTITY_UPDATE
+        | OP_ENTITY_DELETE
+        | OP_ENTITY_RESTORE
+        | OP_ENTITY_REDACT
+        | OP_FIELD_POSITION_MOVE
+        | OP_FIELD_POSITION_REORDER
+        | OP_CONTAINER_MOVE_ITEM => &["entity_id"],
+        OP_RELATION_CREATE | OP_RELATION_DELETE => &["relation_id"],
+        OP_TASK_CREATE | OP_TASK_UPDATE => &["task_id", "entity_id"],
+        OP_VIEW_CREATE | OP_VIEW_UPDATE | OP_VIEW_RECONCILE => &["view_id"],
+        OP_SPACE_CREATE | OP_SPACE_UPDATE | OP_SPACE_ORGANIZATION | OP_SPACE_CHILD => {
+            &["space_id", "child_space_id"]
+        }
+        OP_MESSAGE_CREATE => &["event_id", "message_id"],
+        _ => &[],
+    };
+    fields.iter().find_map(|field| {
+        content.get(*field).and_then(Value::as_str).map(|value| format!("{field}:{value}"))
+    })
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OperationDagNegativeKind {
+    MissingDependency,
+    Cycle,
+    DuplicateOperationId,
+    MutationAfterTombstone,
+    MissingAuthz,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperationDagNegativeVector {
+    pub name: &'static str,
+    pub issue: OperationDagNegativeKind,
+}
+
+pub fn negative_dag_vectors() -> Vec<OperationDagNegativeVector> {
+    vec![
+        OperationDagNegativeVector {
+            name: "operation references an unknown dependency",
+            issue: OperationDagNegativeKind::MissingDependency,
+        },
+        OperationDagNegativeVector {
+            name: "operation dependency graph contains a cycle",
+            issue: OperationDagNegativeKind::Cycle,
+        },
+        OperationDagNegativeVector {
+            name: "operation id is inserted twice",
+            issue: OperationDagNegativeKind::DuplicateOperationId,
+        },
+        OperationDagNegativeVector {
+            name: "operation mutates a tombstoned target",
+            issue: OperationDagNegativeKind::MutationAfterTombstone,
+        },
+        OperationDagNegativeVector {
+            name: "mutating operation lacks authorization reference",
+            issue: OperationDagNegativeKind::MissingAuthz,
+        },
+    ]
+}
+
 pub fn conformance_vectors() -> Vec<OperationKindConformanceVector> {
     operation_kind_conformance_vectors()
 }
@@ -270,23 +509,39 @@ pub mod protocol {
 
 #[cfg(test)]
 mod tests {
-    use contrix_core::{Did, Hlc, OP_MESSAGE_CREATE, OperationEnvelopeBuilder, SpaceId};
+    use contrix_core::{
+        Did, GrantId, Hlc, OP_ENTITY_CREATE, OP_ENTITY_DELETE, OP_ENTITY_UPDATE, OP_MESSAGE_CREATE,
+        OperationEnvelopeBuilder, SpaceId,
+    };
     use serde_json::json;
 
     use super::*;
 
     fn envelope(id: &str, deps: Vec<&str>) -> OperationEnvelope {
+        envelope_for(id, OP_MESSAGE_CREATE, json!({"body": "hello"}), deps, false)
+    }
+
+    fn envelope_for(
+        id: &str,
+        kind: &str,
+        content: Value,
+        deps: Vec<&str>,
+        authz: bool,
+    ) -> OperationEnvelope {
         let mut builder = OperationEnvelopeBuilder::new(
             OperationId::new(id).unwrap(),
             SpaceId::new("cx:space:operations").unwrap(),
             Did::new("did:web:alice.example").unwrap(),
-            OP_MESSAGE_CREATE,
+            kind,
             1,
             Hlc::new("01970e589d21-00000001-a13f9c2e").unwrap(),
         )
-        .with_content(json!({"body": "hello"}));
+        .with_content(content);
         for dep in deps {
             builder = builder.with_dependency(OperationId::new(dep).unwrap());
+        }
+        if authz {
+            builder = builder.with_authz_ref(GrantId::new("cx:grant:operations").unwrap());
         }
         builder.build(&OperationKindRegistry::default()).unwrap()
     }
@@ -314,6 +569,60 @@ mod tests {
         let report = dag.validate().unwrap();
         assert_eq!(report.missing_dependencies.len(), 1);
         assert!(report.validate_acyclic_complete().is_err());
+    }
+
+    #[test]
+    fn dag_reports_cycles_and_negative_vectors_cover_failure_modes() {
+        let mut dag = OperationDag::new();
+        dag.insert(envelope("cx:operation:1", vec!["cx:operation:2"])).unwrap();
+        dag.insert(envelope("cx:operation:2", vec!["cx:operation:1"])).unwrap();
+        let report = dag.validate().unwrap();
+        assert!(report.has_cycle);
+        assert!(report.validate_acyclic_complete().is_err());
+
+        let issues =
+            negative_dag_vectors().into_iter().map(|vector| vector.issue).collect::<BTreeSet<_>>();
+        assert!(issues.contains(&OperationDagNegativeKind::Cycle));
+        assert!(issues.contains(&OperationDagNegativeKind::MutationAfterTombstone));
+        assert!(issues.contains(&OperationDagNegativeKind::MissingAuthz));
+    }
+
+    #[test]
+    fn semantic_reducer_rejects_tombstone_mutations_and_missing_authz() {
+        let create = envelope_for(
+            "cx:operation:1",
+            OP_ENTITY_CREATE,
+            json!({"entity_id": "cx:entity:1"}),
+            Vec::new(),
+            true,
+        );
+        let delete = envelope_for(
+            "cx:operation:2",
+            OP_ENTITY_DELETE,
+            json!({"entity_id": "cx:entity:1"}),
+            vec!["cx:operation:1"],
+            true,
+        );
+        let update_after_delete = envelope_for(
+            "cx:operation:3",
+            OP_ENTITY_UPDATE,
+            json!({"entity_id": "cx:entity:1"}),
+            vec!["cx:operation:2"],
+            true,
+        );
+        let report = reduce_operation_semantics(&[create, delete, update_after_delete]);
+        assert_eq!(report.applied.len(), 2);
+        assert_eq!(report.rejected[0].kind, "mutation_after_tombstone");
+
+        let missing_authz = envelope_for(
+            "cx:operation:4",
+            OP_ENTITY_CREATE,
+            json!({"entity_id": "cx:entity:2"}),
+            Vec::new(),
+            false,
+        );
+        let report = reduce_operation_semantics(&[missing_authz]);
+        assert_eq!(report.rejected[0].kind, "missing_authz");
     }
 
     #[test]

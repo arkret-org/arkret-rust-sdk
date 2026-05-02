@@ -11,10 +11,11 @@ centered on:
 
 - DID principals
 - Space / ActorProfile / Entity / Relation / Event / View
-- append-only Repo commits, canonical Operations and signed Operation envelopes
+- signed Event Envelopes as the canonical wire facts for durable history
+- Operations as SDK builders and offline draft objects before Event Envelope wrapping
 - capability grants and policy checks
 - MLS RFC 9420 group E2EE based on OpenMLS
-- Principal Server, Repo, Sync, Index, Blob, Directory and Authz service surfaces
+- Principal Server, Events, Sync, Index, Blob, Directory and Authz service surfaces
 
 ## Entry Point
 
@@ -58,16 +59,16 @@ The first Contrix crate currently includes:
 
 - v1 identifiers and protocol constants
 - canonical JSON and SHA-256 digest helpers
-- Space, ActorProfile, Entity, Relation, Event, View, Operation, Commit and Capability models
+- Space, ActorProfile, Entity, Relation, Event Envelope, View, Operation draft, Commit and Capability models
 - protocol-shaped Query and Client Sync response models (`space_ids`, filter arrays, `spaces`)
-- Event and Commit digest payload calculation
+- Event Envelope and Commit digest payload calculation
 - HLC parsing and deterministic ordering
 - Proof signature-binding payload calculation
 - Policy, Invite, Read Marker, Notification, Blob Metadata and Encrypted Payload models
 - encrypted payload digest calculation over cleartext routing metadata plus ciphertext bytes
 - MLS KeyPackage, Commit and Welcome envelopes
 - OpenMLS-backed group creation, member add, Welcome join, payload encryption and decryption
-- in-memory Repo store with idempotent operation/commit insertion and conflict detection
+- in-memory Repo-compatible store with idempotent draft operation/commit insertion and conflict detection
 - Server description and profile version checks
 - HTTP client methods for the Contrix v1 service HTTP binding, including request metadata, retry/backoff and `Retry-After` handling
 - framework-independent server endpoint registry, routed dispatch, auth/idempotency/rate-limit middleware, Salvo router and OpenAPI export helper

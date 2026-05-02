@@ -21,11 +21,12 @@ default = [
     "sync-runtime",
     "timeline-runtime",
 ]
-client = ["dep:contrix-client", "dep:reqwest", "contrix-core/client"]
+client = ["dep:contrix-client", "dep:reqwest", "contrix-core/client", "contrix-ffi/client"]
 server = ["dep:contrix-server", "full-surface"]
 mls = [
     "full-surface",
     "contrix-core/mls",
+    "contrix-ffi/mls",
     "dep:openmls",
     "dep:openmls_basic_credential",
     "dep:openmls_rust_crypto",

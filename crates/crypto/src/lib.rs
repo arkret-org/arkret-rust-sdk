@@ -48,6 +48,159 @@ impl DeviceKeyBundle {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DeviceTrustState {
+    Unverified,
+    LocallyTrusted,
+    CrossSigned,
+    Verified,
+    Blocked,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum VerificationFlowState {
+    Requested,
+    Ready,
+    SasStarted,
+    QrScanned,
+    Done,
+    Cancelled,
+    TimedOut,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeviceVerificationFlow {
+    pub transaction_id: String,
+    pub user_id: Did,
+    pub from_device: DeviceId,
+    pub to_device: DeviceId,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub methods: Vec<String>,
+    pub state: VerificationFlowState,
+    pub created_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
+impl DeviceVerificationFlow {
+    pub fn validate(&self) -> Result<()> {
+        if self.transaction_id.trim().is_empty() {
+            return Err(Error::Protocol(
+                "verification transaction id must not be empty".to_owned(),
+            ));
+        }
+        if self.from_device == self.to_device {
+            return Err(Error::Protocol("verification requires two distinct devices".to_owned()));
+        }
+        Ok(())
+    }
+
+    pub fn advance(&mut self, next: VerificationFlowState) -> Result<()> {
+        let allowed = matches!(
+            (self.state, next),
+            (VerificationFlowState::Requested, VerificationFlowState::Ready)
+                | (VerificationFlowState::Ready, VerificationFlowState::SasStarted)
+                | (VerificationFlowState::Ready, VerificationFlowState::QrScanned)
+                | (VerificationFlowState::SasStarted, VerificationFlowState::Done)
+                | (VerificationFlowState::QrScanned, VerificationFlowState::Done)
+                | (_, VerificationFlowState::Cancelled)
+                | (_, VerificationFlowState::TimedOut)
+        );
+        if allowed {
+            self.state = next;
+            Ok(())
+        } else {
+            Err(Error::Protocol(format!(
+                "invalid verification transition from {:?} to {:?}",
+                self.state, next
+            )))
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CryptoSessionState {
+    Pending,
+    Active,
+    Withheld,
+    Expired,
+    Revoked,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CryptoSessionRecord {
+    pub space_id: SpaceId,
+    pub session_id: String,
+    pub sender_key: String,
+    pub algorithm: String,
+    pub state: CryptoSessionState,
+    pub created_at: DateTime<Utc>,
+    pub last_used_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message_index_high_watermark: Option<u64>,
+}
+
+impl CryptoSessionRecord {
+    pub fn validate(&self) -> Result<()> {
+        if self.session_id.trim().is_empty()
+            || self.sender_key.trim().is_empty()
+            || self.algorithm.trim().is_empty()
+        {
+            return Err(Error::Protocol(
+                "crypto session requires id, sender key and algorithm".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn accept_message_index(&mut self, index: u64, now: DateTime<Utc>) -> Result<()> {
+        if self.message_index_high_watermark.is_some_and(|seen| index <= seen) {
+            return Err(Error::Protocol("encrypted session replay detected".to_owned()));
+        }
+        self.message_index_high_watermark = Some(index);
+        self.last_used_at = now;
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WithheldKeyRecord {
+    pub space_id: SpaceId,
+    pub session_id: String,
+    pub sender: Did,
+    pub code: String,
+    pub reason: UnableToDecryptReason,
+    pub received_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SecretGossipRequest {
+    pub request_id: String,
+    pub name: String,
+    pub requesting_device: DeviceId,
+    pub recipient_device: DeviceId,
+    pub created_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
+impl SecretGossipRequest {
+    pub fn validate(&self) -> Result<()> {
+        if self.request_id.trim().is_empty() || self.name.trim().is_empty() {
+            return Err(Error::Protocol("secret gossip request requires id and name".to_owned()));
+        }
+        if self.requesting_device == self.recipient_device {
+            return Err(Error::Protocol(
+                "secret gossip request requires distinct devices".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OneTimeKeyClaim {
     pub user_id: Did,
@@ -168,12 +321,34 @@ pub struct UnableToDecryptRecord {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum CryptoMachineRequest {
     UploadDeviceKeys(DeviceKeyBundle),
-    QueryDeviceKeys { users: Vec<Did> },
+    QueryDeviceKeys {
+        users: Vec<Did>,
+    },
     ClaimOneTimeKeys(Vec<OneTimeKeyClaim>),
-    EncryptEvent { space_id: SpaceId, event_kind: String, content: Value },
-    DecryptEvent { event_id: EventId, payload: EncryptedPayload },
+    EncryptEvent {
+        space_id: SpaceId,
+        event_kind: String,
+        content: Value,
+    },
+    DecryptEvent {
+        event_id: EventId,
+        payload: EncryptedPayload,
+    },
+    ShareRoomKey {
+        space_id: SpaceId,
+        session_id: String,
+        recipients: Vec<DeviceId>,
+    },
+    RequestRoomKey {
+        event_id: EventId,
+        space_id: SpaceId,
+        session_id: String,
+        requesting_device_id: DeviceId,
+    },
     BackupSecrets(SecretBackupDescriptor),
-    RestoreSecrets { backup_id: String },
+    RestoreSecrets {
+        backup_id: String,
+    },
 }
 
 impl CryptoMachineRequest {
@@ -184,6 +359,8 @@ impl CryptoMachineRequest {
             Self::ClaimOneTimeKeys(_) => CryptoMachineRequestKind::ClaimOneTimeKeys,
             Self::EncryptEvent { .. } => CryptoMachineRequestKind::EncryptEvent,
             Self::DecryptEvent { .. } => CryptoMachineRequestKind::DecryptEvent,
+            Self::ShareRoomKey { .. } => CryptoMachineRequestKind::ShareRoomKey,
+            Self::RequestRoomKey { .. } => CryptoMachineRequestKind::RequestRoomKey,
             Self::BackupSecrets(_) => CryptoMachineRequestKind::BackupSecrets,
             Self::RestoreSecrets { .. } => CryptoMachineRequestKind::RestoreSecrets,
         }
@@ -207,6 +384,18 @@ impl CryptoMachineRequest {
             Self::EncryptEvent { event_kind, .. } if event_kind.trim().is_empty() => {
                 Err(Error::Protocol("encrypt event request must include event kind".to_owned()))
             }
+            Self::ShareRoomKey { session_id, recipients, .. } => {
+                if session_id.trim().is_empty() || recipients.is_empty() {
+                    Err(Error::Protocol(
+                        "share room key request requires session id and recipients".to_owned(),
+                    ))
+                } else {
+                    Ok(())
+                }
+            }
+            Self::RequestRoomKey { session_id, .. } if session_id.trim().is_empty() => {
+                Err(Error::Protocol("room key request requires session id".to_owned()))
+            }
             Self::BackupSecrets(descriptor) => descriptor.validate(),
             Self::RestoreSecrets { backup_id } if backup_id.trim().is_empty() => {
                 Err(Error::Protocol("restore request must include backup id".to_owned()))
@@ -225,6 +414,8 @@ pub enum CryptoMachineResponse {
     Encrypted(EncryptedPayload),
     Decrypted(Value),
     UnableToDecrypt(UnableToDecryptRecord),
+    RoomKeyShared { space_id: SpaceId, session_id: String, recipients: usize },
+    RoomKeyRequested { event_id: EventId, session_id: String },
     BackupReady(SecretBackupDescriptor),
     Restored { backup_id: String, recovered_secrets: usize },
 }
@@ -266,7 +457,11 @@ impl CryptoMachinePlan {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct CryptoStoreBinding {
     pub device_keys: BTreeMap<DeviceId, DeviceKeyBundle>,
+    pub device_trust: BTreeMap<DeviceId, DeviceTrustState>,
+    pub verification_flows: BTreeMap<String, DeviceVerificationFlow>,
+    pub sessions: BTreeMap<String, CryptoSessionRecord>,
     pub backup: Option<SecretBackupDescriptor>,
+    pub withheld_keys: BTreeMap<String, WithheldKeyRecord>,
     pub unable_to_decrypt: BTreeMap<EventId, UnableToDecryptRecord>,
     pub lifecycle: Vec<KeyLifecycleEvent>,
 }
@@ -278,9 +473,41 @@ impl CryptoStoreBinding {
         Ok(())
     }
 
+    pub fn set_device_trust(&mut self, device_id: DeviceId, trust: DeviceTrustState) {
+        self.device_trust.insert(device_id, trust);
+    }
+
+    pub fn record_verification_flow(&mut self, flow: DeviceVerificationFlow) -> Result<()> {
+        flow.validate()?;
+        self.verification_flows.insert(flow.transaction_id.clone(), flow);
+        Ok(())
+    }
+
+    pub fn record_session(&mut self, session: CryptoSessionRecord) -> Result<()> {
+        session.validate()?;
+        self.sessions.insert(session_key(&session.space_id, &session.session_id), session);
+        Ok(())
+    }
+
+    pub fn session_mut(
+        &mut self,
+        space_id: &SpaceId,
+        session_id: &str,
+    ) -> Option<&mut CryptoSessionRecord> {
+        self.sessions.get_mut(&session_key(space_id, session_id))
+    }
+
+    pub fn record_withheld_key(&mut self, record: WithheldKeyRecord) {
+        self.withheld_keys.insert(session_key(&record.space_id, &record.session_id), record);
+    }
+
     pub fn record_unable_to_decrypt(&mut self, record: UnableToDecryptRecord) {
         self.unable_to_decrypt.insert(record.event_id.clone(), record);
     }
+}
+
+fn session_key(space_id: &SpaceId, session_id: &str) -> String {
+    format!("{}|{}", space_id.as_str(), session_id)
 }
 
 pub fn encrypted_payload_digest(payload: &EncryptedPayload) -> Result<Hash> {
@@ -332,6 +559,19 @@ mod tests {
             plan.push("bad", CryptoMachineRequest::QueryDeviceKeys { users: Vec::new() }),
             Err(Error::Protocol(_))
         ));
+        plan.push(
+            "share",
+            CryptoMachineRequest::ShareRoomKey {
+                space_id: SpaceId::new("cx:space:crypto").unwrap(),
+                session_id: "sess1".to_owned(),
+                recipients: vec![device()],
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            plan.pending_kinds(),
+            vec![CryptoMachineRequestKind::QueryDeviceKeys, CryptoMachineRequestKind::ShareRoomKey]
+        );
     }
 
     #[test]
@@ -367,6 +607,57 @@ mod tests {
             first_seen_at: Utc::now(),
         });
         assert_eq!(binding.unable_to_decrypt.len(), 1);
+    }
+
+    #[test]
+    fn verification_session_and_withheld_key_state_are_tracked() {
+        let mut binding = CryptoStoreBinding::default();
+        let mut flow = DeviceVerificationFlow {
+            transaction_id: "verif1".to_owned(),
+            user_id: did("alice"),
+            from_device: DeviceId::new("dev_phone").unwrap(),
+            to_device: DeviceId::new("dev_laptop").unwrap(),
+            methods: vec!["sas".to_owned(), "qr".to_owned()],
+            state: VerificationFlowState::Requested,
+            created_at: Utc::now(),
+            expires_at: None,
+        };
+        flow.advance(VerificationFlowState::Ready).unwrap();
+        flow.advance(VerificationFlowState::SasStarted).unwrap();
+        flow.advance(VerificationFlowState::Done).unwrap();
+        binding.record_verification_flow(flow).unwrap();
+        binding.set_device_trust(DeviceId::new("dev_laptop").unwrap(), DeviceTrustState::Verified);
+        assert_eq!(
+            binding.device_trust.get(&DeviceId::new("dev_laptop").unwrap()),
+            Some(&DeviceTrustState::Verified)
+        );
+
+        let space_id = SpaceId::new("cx:space:crypto").unwrap();
+        binding
+            .record_session(CryptoSessionRecord {
+                space_id: space_id.clone(),
+                session_id: "sess1".to_owned(),
+                sender_key: "curve25519:def".to_owned(),
+                algorithm: "cx.mls.v1".to_owned(),
+                state: CryptoSessionState::Active,
+                created_at: Utc::now(),
+                last_used_at: Utc::now(),
+                message_index_high_watermark: None,
+            })
+            .unwrap();
+        let session = binding.session_mut(&space_id, "sess1").unwrap();
+        session.accept_message_index(7, Utc::now()).unwrap();
+        assert!(matches!(session.accept_message_index(7, Utc::now()), Err(Error::Protocol(_))));
+
+        binding.record_withheld_key(WithheldKeyRecord {
+            space_id,
+            session_id: "sess1".to_owned(),
+            sender: did("alice"),
+            code: "m.blacklisted".to_owned(),
+            reason: UnableToDecryptReason::Withheld,
+            received_at: Utc::now(),
+        });
+        assert_eq!(binding.withheld_keys.len(), 1);
     }
 
     #[test]

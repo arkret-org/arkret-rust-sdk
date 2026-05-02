@@ -1,32 +1,34 @@
 //! Contrix v1 Rust SDK.
 //!
 //! This crate exposes Contrix protocol concepts directly. The source of truth
-//! is signed Events / Operations in append-only Repos; Views are derived
-//! projections.
+//! is signed Event Envelopes; Operations are SDK-local builders or offline
+//! drafts that must be materialized as Events before network, sync, federation
+//! or reducer use.
 //!
 //! # Examples
 //!
-//! Build a local operation and commit using the model-only surface:
+//! Build a local operation draft and materialize it as an Event Envelope:
 //!
 //! ```rust
-//! use contrix::{Commit, Did, Hash, Operation, OperationId, SpaceId};
+//! use contrix::{
+//!     Did, Hlc, OP_MESSAGE_CREATE, OperationEnvelopeBuilder, OperationEventConversion,
+//!     OperationId, OperationKindRegistry, SpaceId,
+//! };
 //! use serde_json::json;
 //!
 //! # fn main() -> contrix::Result<()> {
-//! let operation = Operation::create(
+//! let draft = OperationEnvelopeBuilder::new(
 //!     OperationId::new("cx:operation:example")?,
 //!     SpaceId::new("cx:space:example")?,
-//!     "entity",
-//!     json!({"id": "cx:entity:example"}),
-//! );
-//! let operation_hash = Hash::new(operation.operation_digest()?)?;
-//! let mut commit = Commit::new(
-//!     contrix::CommitId::new("cx:commit:example")?,
-//!     "did:web:alice.example",
 //!     Did::new("did:web:alice.example")?,
+//!     OP_MESSAGE_CREATE,
 //!     1,
-//! );
-//! commit.operations.push(operation_hash);
+//!     Hlc::new("01970e589d21-00000001-a13f9c2e")?,
+//! )
+//! .with_content(json!({"body": "hello"}))
+//! .build(&OperationKindRegistry::default())?;
+//! let event = draft.into_event_envelope(OperationEventConversion::default())?;
+//! assert_eq!(event.content["body"], "hello");
 //! # Ok(())
 //! # }
 //! ```

@@ -578,14 +578,40 @@ impl Default for ProtocolSchemaRegistry {
             EVENT_SCHEMA,
             object_schema(
                 EVENT_SCHEMA,
-                &["schema", "event_id", "space_id", "actor_id", "kind", "content"],
+                &[
+                    "event_id",
+                    "kind",
+                    "space_id",
+                    "space_version",
+                    "actor_id",
+                    "actor_seq",
+                    "created_at",
+                    "hlc",
+                    "prev_refs",
+                    "auth_refs",
+                    "content",
+                    "proofs",
+                ],
                 &[
                     ("schema", "string"),
                     ("event_id", "string"),
-                    ("space_id", "string"),
-                    ("actor_id", "string"),
                     ("kind", "string"),
+                    ("space_id", "string"),
+                    ("space_version", "string"),
+                    ("actor_id", "string"),
+                    ("actor_seq", "integer"),
+                    ("created_at", "string"),
+                    ("hlc", "string"),
+                    ("prev_refs", "array"),
+                    ("auth_refs", "array"),
+                    ("schema_profile_refs", "array"),
+                    ("reducer_profile_ref", "string"),
+                    ("required_features", "array"),
+                    ("critical_extensions", "array"),
+                    ("redacts", "string"),
                     ("content", "object"),
+                    ("unsigned", "object"),
+                    ("proofs", "array"),
                 ],
             ),
         );
@@ -1693,6 +1719,15 @@ pub struct Proof {
     pub jws: String,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CriticalExtension {
+    pub id: String,
+    pub scope: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schema_ref: Option<String>,
+    pub fail_closed: bool,
+}
+
 /// Allowed proof algorithms for production use.
 const PRODUCTION_ALGORITHMS: &[&str] = &["EdDSA", "ES256", "ES256K", "RS256", "PS256"];
 
@@ -2185,6 +2220,14 @@ pub struct Event {
     pub hlc: Hlc,
     pub prev_refs: Vec<EventId>,
     pub auth_refs: Vec<EventId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub schema_profile_refs: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reducer_profile_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub required_features: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub critical_extensions: Vec<CriticalExtension>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub redacts: Option<EventId>,
     pub content: Value,
@@ -2208,12 +2251,22 @@ impl Event {
         canonical::canonical_sha256(&self.digest_payload()?)
     }
 
+    pub fn refresh_event_id(&mut self) -> Result<()> {
+        self.event_id = EventId::new(self.event_digest()?)?;
+        Ok(())
+    }
+
     pub fn validate_for_submit(&self) -> Result<()> {
         if self.proofs.is_empty() {
             return Err(Error::Protocol("event proofs must contain at least one proof".to_owned()));
         }
         if !self.content.is_object() {
             return Err(Error::Protocol("event content must be a JSON object".to_owned()));
+        }
+        if self.critical_extensions.iter().any(|extension| !extension.fail_closed) {
+            return Err(Error::Protocol(
+                "event critical extensions must declare fail_closed=true".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -2258,15 +2311,22 @@ impl Event {
             hlc,
             prev_refs: Vec::new(),
             auth_refs: Vec::new(),
+            schema_profile_refs: Vec::new(),
+            reducer_profile_ref: None,
+            required_features: Vec::new(),
+            critical_extensions: Vec::new(),
             redacts: None,
             content,
             unsigned: BTreeMap::new(),
             proofs: Vec::new(),
         };
-        event.event_id = EventId::new(event.event_digest()?)?;
+        event.refresh_event_id()?;
         Ok(event)
     }
 }
+
+/// Canonical signed Event Envelope wire model.
+pub type EventEnvelope = Event;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SortSpec {
@@ -2638,6 +2698,82 @@ impl OperationEnvelope {
         }
         Ok(())
     }
+
+    /// Materialize this SDK-local operation draft as a signed Event Envelope.
+    ///
+    /// Operation envelopes are not Contrix v1 wire facts. Callers must choose
+    /// the event causal/auth references during conversion, then submit the
+    /// returned [`EventEnvelope`] to network, sync, federation or reducers.
+    pub fn into_event_envelope(
+        self,
+        conversion: OperationEventConversion,
+    ) -> Result<EventEnvelope> {
+        let mut event = Event::new(
+            self.kind.clone(),
+            self.space_id,
+            self.actor_id,
+            self.causal.actor_seq,
+            self.causal.hlc,
+            self.content,
+        )?;
+        event.prev_refs = conversion.prev_refs;
+        event.auth_refs = conversion.auth_refs;
+        event.schema_profile_refs = conversion.schema_profile_refs;
+        event.reducer_profile_ref = conversion.reducer_profile_ref;
+        event.required_features = conversion.required_features;
+        event.critical_extensions = conversion.critical_extensions;
+        event.proofs = conversion.proofs;
+        event.unsigned.insert(
+            "local_operation_idempotency_alias".to_owned(),
+            Value::String(self.operation_id.to_string()),
+        );
+        if !self.causal.deps.is_empty() {
+            event.unsigned.insert(
+                "local_operation_dependencies".to_owned(),
+                serde_json::to_value(self.causal.deps)?,
+            );
+        }
+        if let Some(target_ref) = self.target_ref {
+            event.unsigned.insert("local_target_ref".to_owned(), Value::String(target_ref));
+        }
+        event.refresh_event_id()?;
+        Ok(event)
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct OperationEventConversion {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub prev_refs: Vec<EventId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub auth_refs: Vec<EventId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub schema_profile_refs: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reducer_profile_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub required_features: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub critical_extensions: Vec<CriticalExtension>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub proofs: Vec<Proof>,
+}
+
+impl OperationEventConversion {
+    pub fn with_prev_ref(mut self, event_id: EventId) -> Self {
+        self.prev_refs.push(event_id);
+        self
+    }
+
+    pub fn with_auth_ref(mut self, event_id: EventId) -> Self {
+        self.auth_refs.push(event_id);
+        self
+    }
+
+    pub fn with_proof(mut self, proof: Proof) -> Self {
+        self.proofs.push(proof);
+        self
+    }
 }
 
 /// Registry-backed builder for [`OperationEnvelope`].
@@ -2747,6 +2883,62 @@ pub struct CausalRef {
     pub deps: Vec<OperationId>,
     pub hlc: Hlc,
     pub actor_seq: u64,
+}
+
+const RANK_MIN: u64 = 0;
+const RANK_MAX: u64 = u64::MAX;
+
+pub fn rank_between(before: Option<&str>, after: Option<&str>) -> Result<String> {
+    let low = before.map(parse_rank).transpose()?.unwrap_or(RANK_MIN);
+    let high = after.map(parse_rank).transpose()?.unwrap_or(RANK_MAX);
+    if low >= high || low.saturating_add(1) >= high {
+        return Err(Error::Protocol("rank interval is exhausted".to_owned()));
+    }
+    Ok(format_rank(low + ((high - low) / 2)))
+}
+
+pub fn rank_exhausted(before: Option<&str>, after: Option<&str>) -> Result<bool> {
+    let low = before.map(parse_rank).transpose()?.unwrap_or(RANK_MIN);
+    let high = after.map(parse_rank).transpose()?.unwrap_or(RANK_MAX);
+    Ok(low >= high || low.saturating_add(1) >= high)
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ContainerRebalanceAssignment {
+    pub entity_id: EntityId,
+    pub rank: String,
+}
+
+pub fn container_rebalance_assignments(
+    entity_ids: &[EntityId],
+) -> Result<Vec<ContainerRebalanceAssignment>> {
+    if entity_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    let step = RANK_MAX / (entity_ids.len() as u64 + 1);
+    if step == 0 {
+        return Err(Error::Protocol("too many container assignments to rebalance".to_owned()));
+    }
+    Ok(entity_ids
+        .iter()
+        .enumerate()
+        .map(|(index, entity_id)| ContainerRebalanceAssignment {
+            entity_id: entity_id.clone(),
+            rank: format_rank(step * (index as u64 + 1)),
+        })
+        .collect())
+}
+
+fn parse_rank(rank: &str) -> Result<u64> {
+    let raw = rank.strip_prefix("r:").unwrap_or(rank);
+    if raw.len() != 16 || !raw.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(Error::Protocol(format!("invalid rank '{rank}'")));
+    }
+    u64::from_str_radix(raw, 16).map_err(|_| Error::Protocol(format!("invalid rank '{rank}'")))
+}
+
+fn format_rank(value: u64) -> String {
+    format!("r:{value:016x}")
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -4237,6 +4429,10 @@ mod tests {
             hlc: Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap(),
             prev_refs: Vec::new(),
             auth_refs: Vec::new(),
+            schema_profile_refs: Vec::new(),
+            reducer_profile_ref: None,
+            required_features: Vec::new(),
+            critical_extensions: Vec::new(),
             redacts: None,
             content: json!({ "body": "hello" }),
             unsigned: BTreeMap::from([("local_receive_time".to_owned(), json!("ignored"))]),
@@ -4439,6 +4635,28 @@ mod tests {
                 )
                 .is_err()
         );
+
+        let event_validator = registry.generated_validator(EVENT_SCHEMA).unwrap();
+        for field in [
+            "event_id",
+            "space_id",
+            "actor_id",
+            "actor_seq",
+            "kind",
+            "created_at",
+            "hlc",
+            "prev_refs",
+            "auth_refs",
+            "content",
+            "proofs",
+        ] {
+            assert!(
+                event_validator.fields.iter().any(
+                    |validator_field| validator_field.name == field && validator_field.required
+                ),
+                "{field}"
+            );
+        }
     }
 
     #[test]
@@ -5173,6 +5391,78 @@ mod tests {
         let mut signed_event = event;
         signed_event.proofs = vec![bad_proof];
         assert!(signed_event.validate_proof_bindings().is_err());
+    }
+
+    #[test]
+    fn event_digest_includes_profile_refs_features_and_critical_extensions() {
+        let mut event = Event::new(
+            "cx.message.create",
+            SpaceId::new("cx:space:01js0ke000000000000000000").unwrap(),
+            Did::new("did:web:alice.example").unwrap(),
+            1,
+            Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap(),
+            json!({ "body": "hello" }),
+        )
+        .unwrap();
+        let base_digest = event.event_digest().unwrap();
+
+        event.schema_profile_refs.push("cx.schema.core_event.v1".to_owned());
+        event.reducer_profile_ref = Some("cx.reducer.core_event.v1".to_owned());
+        event.required_features.push("cx.feature.event_extensions.v1".to_owned());
+        event.critical_extensions.push(CriticalExtension {
+            id: "cx.feature.policy_gate.v1".to_owned(),
+            scope: "authz".to_owned(),
+            schema_ref: Some("cx.schema.policy.v1".to_owned()),
+            fail_closed: true,
+        });
+
+        assert_ne!(base_digest, event.event_digest().unwrap());
+
+        event.critical_extensions[0].fail_closed = false;
+        assert!(event.validate_for_submit().is_err());
+    }
+
+    #[test]
+    fn operation_draft_explicitly_materializes_event_envelope_without_signed_operation_id() {
+        let operation = OperationEnvelopeBuilder::new(
+            OperationId::new("cx:operation:local1").unwrap(),
+            SpaceId::new("cx:space:01js0ke000000000000000000").unwrap(),
+            Did::new("did:web:alice.example").unwrap(),
+            OP_MESSAGE_CREATE,
+            7,
+            Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap(),
+        )
+        .with_content(json!({"body": "hello"}))
+        .build(&OperationKindRegistry::default())
+        .unwrap();
+
+        let event = operation.into_event_envelope(OperationEventConversion::default()).unwrap();
+        assert_eq!(event.kind, OP_MESSAGE_CREATE);
+        assert_eq!(event.actor_seq, 7);
+        assert_eq!(event.content, json!({"body": "hello"}));
+        assert_eq!(
+            event.unsigned["local_operation_idempotency_alias"],
+            json!("cx:operation:local1")
+        );
+        assert!(!event.digest_payload().unwrap().to_string().contains("local_operation_id"));
+    }
+
+    #[test]
+    fn rank_helpers_generate_between_and_rebalance_assignments() {
+        let first = rank_between(None, None).unwrap();
+        let second = rank_between(Some(&first), None).unwrap();
+        assert!(first < second);
+        assert!(rank_exhausted(Some("r:0000000000000001"), Some("r:0000000000000002")).unwrap());
+
+        let assignments = container_rebalance_assignments(&[
+            EntityId::new("cx:entity:a").unwrap(),
+            EntityId::new("cx:entity:b").unwrap(),
+            EntityId::new("cx:entity:c").unwrap(),
+        ])
+        .unwrap();
+        assert_eq!(assignments.len(), 3);
+        assert!(assignments[0].rank < assignments[1].rank);
+        assert!(assignments[1].rank < assignments[2].rank);
     }
 
     #[test]

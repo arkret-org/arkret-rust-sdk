@@ -20,6 +20,7 @@ contrix-core.workspace = true
 contrix-crypto.workspace = true
 contrix-events.workspace = true
 contrix-html.workspace = true
+contrix-push-gateway-api.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 
