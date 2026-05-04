@@ -267,6 +267,79 @@ pub struct ProtocolKeyBackup {
     pub retention: Option<Value>,
 }
 
+/// Schema-aligned restore-start scaffold for `cx.schema.key_backup.v1`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ProtocolKeyBackupRestoreRequest {
+    pub backup_id: String,
+    pub actor_id: Did,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub device_id: Option<DeviceId>,
+    pub verification_event_kind: String,
+    pub todo: String,
+}
+
+/// Schema-aligned restore ticket scaffold for key-backup recovery handoff.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ProtocolKeyBackupRestoreTicket {
+    pub contract: String,
+    pub ticket_id: String,
+    pub backup_id: String,
+    pub actor_id: Did,
+    pub lifecycle_state: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub allowed_next_transitions: Vec<String>,
+    pub verification_event_kind: String,
+    pub todo: String,
+}
+
+/// Schema-aligned restore ticket advance scaffold request.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ProtocolKeyBackupRestoreTicketAdvanceRequest {
+    pub transition: String,
+    pub note: String,
+}
+
+impl ProtocolKeyBackup {
+    pub fn scaffold_restore_request(&self) -> ProtocolKeyBackupRestoreRequest {
+        ProtocolKeyBackupRestoreRequest {
+            backup_id: self.backup_id.clone(),
+            actor_id: self.actor_id.clone(),
+            device_id: self.device_id.clone(),
+            verification_event_kind: "cx.key.verification.done".to_owned(),
+            todo:
+                "replace scaffold restore start with verified restore ticket handoff".to_owned(),
+        }
+    }
+
+    pub fn scaffold_restore_ticket(&self) -> ProtocolKeyBackupRestoreTicket {
+        ProtocolKeyBackupRestoreTicket {
+            contract: "contrix.rest.key_backup_restore_ticket.v1".to_owned(),
+            ticket_id: format!("restore-ticket-{}", self.backup_id),
+            backup_id: self.backup_id.clone(),
+            actor_id: self.actor_id.clone(),
+            lifecycle_state: "authz_pending".to_owned(),
+            allowed_next_transitions: vec![
+                "authz_checked".to_owned(),
+                "policy_checked".to_owned(),
+                "approved".to_owned(),
+                "materialized".to_owned(),
+            ],
+            verification_event_kind: "cx.key.verification.done".to_owned(),
+            todo: "replace scaffold ticket with durable restore state machine".to_owned(),
+        }
+    }
+
+    pub fn scaffold_restore_ticket_advance_request(
+        &self,
+    ) -> ProtocolKeyBackupRestoreTicketAdvanceRequest {
+        ProtocolKeyBackupRestoreTicketAdvanceRequest {
+            transition: "authz_checked".to_owned(),
+            note: "replace scaffold transition with policy-backed approval state machine"
+                .to_owned(),
+        }
+    }
+}
+
 /// In-memory device manager.
 #[derive(Clone, Debug, Default)]
 pub struct DeviceManager {
