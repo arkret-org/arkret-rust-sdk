@@ -50,6 +50,12 @@ macro_rules! id_type {
             }
         }
 
+        impl AsRef<str> for $name {
+            fn as_ref(&self) -> &str {
+                self.as_str()
+            }
+        }
+
         impl FromStr for $name {
             type Err = IdentifierError;
 
@@ -143,7 +149,7 @@ fn has_prefix<'a>(prefix: &'a str) -> impl Fn(&str) -> bool + 'a {
 
 id_type!(Did, is_did);
 id_type!(SpaceId, has_prefix("cx:space:"));
-id_type!(SubjectId, has_prefix("cx:subject:"));
+id_type!(FlowId, has_prefix("cx:flow:"));
 id_type!(EntityId, has_prefix("cx:entity:"));
 id_type!(RelationId, has_prefix("cx:relation:"));
 id_type!(EventId, |value: &str| value.starts_with("cx:event:") || is_hash(value));
@@ -360,6 +366,12 @@ mod tests {
         assert!(DeviceId::new("dev_alice_1").is_ok());
         assert!(DeviceId::new("cx:device:01js0ke000000000000000000").is_ok());
         assert!(DeviceId::new("device-1").is_err());
+    }
+
+    #[test]
+    fn flow_id_accepts_active_flow_prefix() {
+        assert!(FlowId::new("cx:flow:01js0ke000000000000000000").is_ok());
+        assert!(FlowId::new("cx:room:01js0ke000000000000000000").is_err());
     }
 
     #[test]

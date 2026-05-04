@@ -71,9 +71,9 @@ proofs, signatures or private key references.
 
 ### Model Capability Facets
 
-Use `Subject` for the stable semantic center of work and link Cards, Rooms,
-Morphs or Views as explicit `has_surface` relations. `EntityFacet` remains
-available for legacy/open projections and capability constraints, but standard
+Use `Flow` for the stable semantic center of work and link Views, Morphs or
+other surfaces as explicit `has_surface` relations. `EntityFacet` remains
+available for open projections and capability constraints, but standard
 objects should use their protocol type and resource selector directly.
 
 ### Send And Receive Encrypted Messages

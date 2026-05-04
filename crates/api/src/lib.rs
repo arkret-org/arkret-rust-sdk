@@ -661,17 +661,17 @@ pub const ENDPOINTS: &[Endpoint] = &[
     ),
     endpoint!(
         Mimi,
-        "cx.mimi.room_update",
+        "cx.mimi.flow_update",
         Put,
-        "/api/v1/mimi/rooms/{room_id}/update",
-        "MimiRoomUpdateRequest",
+        "/api/v1/mimi/flows/{flow_id}/update",
+        "MimiFlowUpdateRequest",
         "JsonValue"
     ),
     endpoint!(
         Mimi,
         "cx.mimi.notify",
         Post,
-        "/api/v1/mimi/rooms/{room_id}/notify",
+        "/api/v1/mimi/flows/{flow_id}/notify",
         "MimiNotifyRequest",
         "JsonValue"
     ),
@@ -679,7 +679,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         Mimi,
         "cx.mimi.submit_message",
         Post,
-        "/api/v1/mimi/rooms/{room_id}/messages",
+        "/api/v1/mimi/flows/{flow_id}/messages",
         "MimiSubmitMessageRequest",
         "JsonValue"
     ),
@@ -687,7 +687,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         Mimi,
         "cx.mimi.group_info",
         Get,
-        "/api/v1/mimi/rooms/{room_id}/group-info",
+        "/api/v1/mimi/flows/{flow_id}/group-info",
         "MimiGroupInfoQuery",
         "JsonValue"
     ),

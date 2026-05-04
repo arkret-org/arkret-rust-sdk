@@ -481,13 +481,13 @@ pub fn is_state_event(event: &Event) -> bool {
                 | "cx.space.archive"
                 | "cx.space.freeze"
                 | "cx.space.destroy"
-                | "cx.subject.create"
-                | "cx.subject.update"
-                | "cx.subject.archive"
-                | "cx.subject.restore"
-                | "cx.subject.link_surface"
-                | "cx.subject.unlink_surface"
-                | "cx.subject.set_primary_surface"
+                | "cx.flow.create"
+                | "cx.flow.update"
+                | "cx.flow.archive"
+                | "cx.flow.restore"
+                | "cx.flow.link_surface"
+                | "cx.flow.unlink_surface"
+                | "cx.flow.set_primary_surface"
         )
 }
 
@@ -520,26 +520,32 @@ pub fn state_key_for_event(event: &Event) -> Result<String> {
                 .or_else(|| optional_field::<String>(&event.content, "id"))
                 .ok_or_else(|| Error::Protocol("invite event requires a state key".to_owned()))
         }
-        "cx.subject.link_surface"
-        | "cx.subject.unlink_surface"
-        | "cx.subject.set_primary_surface" => {
+        "cx.flow.link_surface" | "cx.flow.unlink_surface" | "cx.flow.set_primary_surface" => {
             optional_field::<String>(&event.content, "relation_id")
                 .or_else(|| {
-                    let subject_id = optional_field::<String>(&event.content, "subject_id")
-                        .or_else(|| optional_field::<String>(&event.content, "id"))?;
+                    let flow_id = optional_field::<String>(&event.content, "flow_id")
+                        .map(|value| canonicalize_flow_ref(&value))
+                        .or_else(|| {
+                            optional_field::<String>(&event.content, "id")
+                                .map(|value| canonicalize_flow_ref(&value))
+                        })?;
                     let surface_ref = optional_field::<String>(&event.content, "surface_ref")?;
                     let surface_role = optional_field::<String>(&event.content, "surface_role")
                         .unwrap_or_else(|| "*".to_owned());
-                    Some(format!("{subject_id}|{surface_ref}|{surface_role}"))
+                    Some(format!("{flow_id}|{surface_ref}|{surface_role}"))
                 })
                 .ok_or_else(|| {
-                    Error::Protocol("subject surface event requires a state key".to_owned())
+                    Error::Protocol("flow surface event requires a state key".to_owned())
                 })
         }
-        "cx.subject.create" | "cx.subject.update" | "cx.subject.archive" | "cx.subject.restore" => {
-            optional_field::<String>(&event.content, "subject_id")
-                .or_else(|| optional_field::<String>(&event.content, "id"))
-                .ok_or_else(|| Error::Protocol("subject event requires a state key".to_owned()))
+        "cx.flow.create" | "cx.flow.update" | "cx.flow.archive" | "cx.flow.restore" => {
+            optional_field::<String>(&event.content, "flow_id")
+                .map(|value| canonicalize_flow_ref(&value))
+                .or_else(|| {
+                    optional_field::<String>(&event.content, "id")
+                        .map(|value| canonicalize_flow_ref(&value))
+                })
+                .ok_or_else(|| Error::Protocol("flow event requires a state key".to_owned()))
         }
         "cx.read.marker" | "cx.state.read_marker" => {
             optional_field::<String>(&event.content, "scope")
@@ -621,7 +627,7 @@ pub struct BoardProjection {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub lists: BTreeMap<EntityId, BoardListProjection>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub cards: BTreeMap<EntityId, BoardCardPosition>,
+    pub cards: BTreeMap<String, BoardFlowPosition>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub conflict_records: Vec<ConflictRecord>,
 }
@@ -647,9 +653,9 @@ pub struct BoardListProjection {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct BoardCardPosition {
+pub struct BoardFlowPosition {
     pub board_id: EntityId,
-    pub card_id: EntityId,
+    pub flow_id: String,
     pub list_id: EntityId,
     pub rank: String,
     pub source_event_id: EventId,
@@ -688,15 +694,15 @@ impl BoardReducer {
         }
         match event.kind.as_str() {
             "cx.list.create" | "cx.list.reorder" => self.apply_list_event(event),
-            "cx.card.create" => self.apply_card_position(event, false),
-            "cx.card.move" => self.apply_card_move(event),
-            "cx.card.reorder" => self.apply_card_reorder(event),
+            "cx.flow.create" => self.apply_flow_position(event, false),
+            "cx.flow.move" => self.apply_flow_move(event),
+            "cx.flow.reorder" => self.apply_flow_reorder(event),
             "cx.relation.create" | "cx.relation.contains" => {
                 if optional_field::<String>(&event.content, "relation_kind").as_deref()
                     == Some("contains")
                     || event.kind == "cx.relation.contains"
                 {
-                    self.apply_card_position(event, false)
+                    self.apply_flow_position(event, false)
                 } else {
                     Ok(())
                 }
@@ -725,28 +731,28 @@ impl BoardReducer {
         Ok(())
     }
 
-    fn apply_card_move(&mut self, event: &Event) -> Result<()> {
-        let card_id = required_entity_field(&event.content, "card_id")?;
+    fn apply_flow_move(&mut self, event: &Event) -> Result<()> {
+        let flow_id = required_flow_id(&event.content)?;
         let from_list_id = required_entity_field(&event.content, "from_list_id")?;
         let to_list_id = required_entity_field(&event.content, "to_list_id")?;
         let rank = optional_field::<String>(&event.content, "rank")
             .unwrap_or_else(|| format!("r:{:016x}", self.projection.cards.len() as u64 + 1));
-        match self.projection.cards.get(&card_id) {
+        match self.projection.cards.get(&flow_id) {
             Some(current) if current.list_id != from_list_id => {
                 self.projection.conflict_records.push(ConflictRecord {
-                    key: format!("board_card|{}|{}", self.projection.board_id, card_id),
+                    key: format!("board_flow|{}|{}", self.projection.board_id, flow_id),
                     winner_event_id: current.source_event_id.clone(),
                     loser_event_id: event.event_id.clone(),
-                    reason: "cx.card.move CAS from_list_id mismatch".to_owned(),
+                    reason: "cx.flow.move CAS from_list_id mismatch".to_owned(),
                 });
                 Ok(())
             }
             Some(_) => {
                 self.projection.cards.insert(
-                    card_id.clone(),
-                    BoardCardPosition {
+                    flow_id.clone(),
+                    BoardFlowPosition {
                         board_id: self.projection.board_id.clone(),
-                        card_id,
+                        flow_id: flow_id.clone(),
                         list_id: to_list_id,
                         rank,
                         source_event_id: event.event_id.clone(),
@@ -758,22 +764,22 @@ impl BoardReducer {
             }
             None => {
                 self.projection.conflict_records.push(ConflictRecord {
-                    key: format!("board_card|{}|{}", self.projection.board_id, card_id),
+                    key: format!("board_flow|{}|{}", self.projection.board_id, flow_id),
                     winner_event_id: event.event_id.clone(),
                     loser_event_id: event.event_id.clone(),
-                    reason: "cx.card.move requires an existing card position".to_owned(),
+                    reason: "cx.flow.move requires an existing flow position".to_owned(),
                 });
                 Ok(())
             }
         }
     }
 
-    fn apply_card_reorder(&mut self, event: &Event) -> Result<()> {
-        let card_id = required_entity_field(&event.content, "card_id")?;
+    fn apply_flow_reorder(&mut self, event: &Event) -> Result<()> {
+        let flow_id = required_flow_id(&event.content)?;
         let list_id = required_entity_field(&event.content, "list_id")?;
         let rank = optional_field::<String>(&event.content, "rank")
-            .ok_or_else(|| Error::Protocol("cx.card.reorder requires rank".to_owned()))?;
-        match self.projection.cards.get_mut(&card_id) {
+            .ok_or_else(|| Error::Protocol("cx.flow.reorder requires rank".to_owned()))?;
+        match self.projection.cards.get_mut(&flow_id) {
             Some(current) if current.list_id == list_id => {
                 current.rank = rank;
                 current.source_event_id = event.event_id.clone();
@@ -783,58 +789,57 @@ impl BoardReducer {
             }
             Some(current) => {
                 self.projection.conflict_records.push(ConflictRecord {
-                    key: format!("board_card|{}|{}", self.projection.board_id, card_id),
+                    key: format!("board_flow|{}|{}", self.projection.board_id, flow_id),
                     winner_event_id: current.source_event_id.clone(),
                     loser_event_id: event.event_id.clone(),
-                    reason: "cx.card.reorder cannot move a card across lists".to_owned(),
+                    reason: "cx.flow.reorder cannot move a flow across lists".to_owned(),
                 });
                 Ok(())
             }
-            None => self.apply_card_position(event, false),
+            None => self.apply_flow_position(event, false),
         }
     }
 
-    fn apply_card_position(&mut self, event: &Event, force: bool) -> Result<()> {
-        let card_id = required_entity_field(&event.content, "card_id")
-            .or_else(|_| required_entity_field(&event.content, "child_id"))?;
+    fn apply_flow_position(&mut self, event: &Event, force: bool) -> Result<()> {
+        let flow_id = required_flow_id(&event.content)?;
         let list_id = required_entity_field(&event.content, "list_id")
             .or_else(|_| required_entity_field(&event.content, "container_id"))?;
         let rank = optional_field::<String>(&event.content, "rank")
             .unwrap_or_else(|| format!("r:{:016x}", self.projection.cards.len() as u64 + 1));
-        let candidate = BoardCardPosition {
+        let candidate = BoardFlowPosition {
             board_id: self.projection.board_id.clone(),
-            card_id: card_id.clone(),
+            flow_id: flow_id.clone(),
             list_id,
             rank,
             source_event_id: event.event_id.clone(),
             actor_seq: event.actor_seq,
             hlc: event.hlc.clone(),
         };
-        match self.projection.cards.get(&card_id) {
+        match self.projection.cards.get(&flow_id) {
             Some(existing)
                 if !force
                     && existing.list_id != candidate.list_id
                     && !board_position_wins(existing, &candidate) =>
             {
                 self.projection.conflict_records.push(ConflictRecord {
-                    key: format!("board_card|{}|{}", self.projection.board_id, card_id),
+                    key: format!("board_flow|{}|{}", self.projection.board_id, flow_id),
                     winner_event_id: existing.source_event_id.clone(),
                     loser_event_id: candidate.source_event_id,
-                    reason: "duplicate active board card position loser".to_owned(),
+                    reason: "duplicate active board flow position loser".to_owned(),
                 });
             }
             Some(existing) if !force && existing.list_id != candidate.list_id => {
                 let loser_event_id = existing.source_event_id.clone();
                 self.projection.conflict_records.push(ConflictRecord {
-                    key: format!("board_card|{}|{}", self.projection.board_id, card_id.clone()),
+                    key: format!("board_flow|{}|{}", self.projection.board_id, flow_id.clone()),
                     winner_event_id: candidate.source_event_id.clone(),
                     loser_event_id,
-                    reason: "duplicate active board card position loser".to_owned(),
+                    reason: "duplicate active board flow position loser".to_owned(),
                 });
-                self.projection.cards.insert(card_id, candidate);
+                self.projection.cards.insert(flow_id, candidate);
             }
             _ => {
-                self.projection.cards.insert(card_id, candidate);
+                self.projection.cards.insert(flow_id, candidate);
             }
         }
         Ok(())
@@ -858,7 +863,17 @@ fn required_entity_field(content: &Value, field: &str) -> Result<EntityId> {
         .ok_or_else(|| Error::Protocol(format!("board reducer requires {field}")))
 }
 
-fn board_position_wins(existing: &BoardCardPosition, candidate: &BoardCardPosition) -> bool {
+fn required_flow_id(content: &Value) -> Result<String> {
+    optional_field::<String>(content, "flow_id")
+        .map(|value| canonicalize_flow_ref(&value))
+        .ok_or_else(|| Error::Protocol("board reducer requires flow_id".to_owned()))
+}
+
+fn canonicalize_flow_ref(value: &str) -> String {
+    value.to_owned()
+}
+
+fn board_position_wins(existing: &BoardFlowPosition, candidate: &BoardFlowPosition) -> bool {
     candidate
         .hlc
         .cmp(&existing.hlc)
@@ -1099,53 +1114,54 @@ mod tests {
         let board_id = EntityId::new("cx:entity:board").unwrap();
         let todo = EntityId::new("cx:entity:todo").unwrap();
         let doing = EntityId::new("cx:entity:doing").unwrap();
-        let card = EntityId::new("cx:entity:card").unwrap();
+        let flow_id = EntityId::new("cx:entity:flow").unwrap();
+        let flow_id = flow_id.to_string();
         let create = event(
-            "cx.card.create",
+            "cx.flow.create",
             "alice",
             1,
             "01970e589d21-00000001-a13f9c2e",
             json!({
                 "board_id": board_id,
-                "card_id": card,
+                "flow_id": flow_id.clone(),
                 "list_id": todo,
                 "rank": "r:4000000000000000"
             }),
         );
         let bad_move = event(
-            "cx.card.move",
+            "cx.flow.move",
             "alice",
             2,
             "01970e589d21-00000002-a13f9c2e",
             json!({
                 "board_id": board_id,
-                "card_id": card,
+                "flow_id": flow_id.clone(),
                 "from_list_id": doing,
                 "to_list_id": doing,
                 "rank": "r:5000000000000000"
             }),
         );
         let good_move = event(
-            "cx.card.move",
+            "cx.flow.move",
             "alice",
             3,
             "01970e589d21-00000003-a13f9c2e",
             json!({
                 "board_id": board_id,
-                "card_id": card,
+                "flow_id": flow_id.clone(),
                 "from_list_id": todo,
                 "to_list_id": doing,
                 "rank": "r:6000000000000000"
             }),
         );
         let bad_reorder = event(
-            "cx.card.reorder",
+            "cx.flow.reorder",
             "alice",
             4,
             "01970e589d21-00000004-a13f9c2e",
             json!({
                 "board_id": board_id,
-                "card_id": card,
+                "flow_id": flow_id.clone(),
                 "list_id": todo,
                 "rank": "r:7000000000000000"
             }),
@@ -1154,7 +1170,7 @@ mod tests {
         let projection =
             reduce_board_projection(board_id.clone(), &[create, bad_move, good_move, bad_reorder])
                 .unwrap();
-        assert_eq!(projection.cards.get(&card).unwrap().list_id, doing);
+        assert_eq!(projection.cards.get(&flow_id).unwrap().list_id, doing);
         assert_eq!(projection.conflict_records.len(), 2);
         assert!(projection.conflict_records.iter().any(|record| record.reason.contains("CAS")));
         assert!(
@@ -1167,7 +1183,7 @@ mod tests {
         let board_id = EntityId::new("cx:entity:board").unwrap();
         let todo = EntityId::new("cx:entity:todo").unwrap();
         let doing = EntityId::new("cx:entity:doing").unwrap();
-        let card = EntityId::new("cx:entity:card").unwrap();
+        let flow_id = EntityId::new("cx:entity:flow").unwrap();
         let first = event(
             "cx.relation.contains",
             "alice",
@@ -1176,7 +1192,7 @@ mod tests {
             json!({
                 "board_id": board_id,
                 "relation_kind": "contains",
-                "card_id": card,
+                "flow_id": flow_id,
                 "list_id": todo
             }),
         );
@@ -1188,16 +1204,16 @@ mod tests {
             json!({
                 "board_id": board_id,
                 "relation_kind": "contains",
-                "card_id": card,
+                "flow_id": flow_id,
                 "list_id": doing
             }),
         );
 
         let projection = reduce_board_projection(board_id, &[first, duplicate]).unwrap();
-        assert_eq!(projection.cards.get(&card).unwrap().list_id, doing);
+        assert_eq!(projection.cards.get(&flow_id.to_string()).unwrap().list_id, doing);
         assert_eq!(
             projection.conflict_records[0].reason,
-            "duplicate active board card position loser"
+            "duplicate active board flow position loser"
         );
     }
 }

@@ -15,8 +15,8 @@ pub use contrix_identifiers as identifiers;
 pub use cursor::{Cursor, SpacePosition, SyncPositions, SyncTracker};
 pub use error::{Error, Result};
 pub use identifiers::{
-    BlobRef, CommitId, DeviceId, Did, EntityId, EventId, GrantId, Hash, Hlc, InviteId, OperationId,
-    PolicyId, RelationId, SpaceId, SubjectId, ViewId,
+    BlobRef, CommitId, DeviceId, Did, EntityId, EventId, FlowId, GrantId, Hash, Hlc, InviteId,
+    OperationId, PolicyId, RelationId, SpaceId, ViewId,
 };
 pub use model::*;
 pub use service::{

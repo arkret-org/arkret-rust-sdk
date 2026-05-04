@@ -42,8 +42,8 @@ impl AuthzDecision {
 pub enum ResourceSelector {
     /// Space selector
     Space { space_id: String },
-    /// Subject selector
-    Subject { space_id: String, subject_id: Option<String> },
+    /// Flow selector (flow_id)
+    Flow { space_id: String, flow_id: Option<String> },
     /// Board selector (entity_type = "board")
     Board { space_id: String, board_id: Option<String> },
     /// Collection selector (entity_type = "collection")
@@ -88,16 +88,16 @@ impl ResourceSelector {
             }
             (Self::Space { .. }, _) => false,
 
-            // Subject selector
+            // Flow selector
             (
-                Self::Subject { space_id, subject_id },
-                Resource::Subject { space_id: target_space, subject_id: target_id },
+                Self::Flow { space_id, flow_id },
+                Resource::Flow { space_id: target_space, flow_id: target_id },
             ) => {
                 let space_match = space_id == target_space || space_id == "*";
-                let id_match = subject_id.as_ref().is_none_or(|id| id == target_id);
+                let id_match = flow_id.as_ref().is_none_or(|id| id == target_id);
                 space_match && id_match
             }
-            (Self::Subject { .. }, _) => false,
+            (Self::Flow { .. }, _) => false,
 
             // Board selector — matches entities with entity_type="board"
             (
@@ -324,9 +324,9 @@ impl ResourceSelector {
 
         match selector_type {
             "space" => Ok(Self::Space { space_id: remainder.to_owned() }),
-            "subject" => {
-                let (space_id, subject_id) = split_space_tail(remainder, selector)?;
-                Ok(Self::Subject { space_id, subject_id })
+            "flow" => {
+                let (space_id, flow_id) = split_space_tail(remainder, selector)?;
+                Ok(Self::Flow { space_id, flow_id })
             }
             "board" => {
                 let (space_id, board_id) = split_space_tail(remainder, selector)?;
@@ -448,8 +448,8 @@ fn split_space_tail(remainder: &str, selector: &str) -> Result<(String, Option<S
 pub enum Resource {
     /// Space resource
     Space { space_id: String },
-    /// Subject resource
-    Subject { space_id: String, subject_id: String },
+    /// Flow resource
+    Flow { space_id: String, flow_id: String },
     /// Entity resource (covers board, collection, task, message, topic, channel, document, file, memory, run, etc.)
     Entity { space_id: String, entity_type: String, entity_id: String },
     /// Relation resource
@@ -471,7 +471,7 @@ impl Resource {
     pub fn space_id(&self) -> &str {
         match self {
             Self::Space { space_id } => space_id,
-            Self::Subject { space_id, .. } => space_id,
+            Self::Flow { space_id, .. } => space_id,
             Self::Entity { space_id, .. } => space_id,
             Self::Relation { space_id, .. } => space_id,
             Self::View { space_id, .. } => space_id,
@@ -623,7 +623,7 @@ pub enum RateLimitScope {
 #[serde(rename_all = "snake_case")]
 pub enum ScopeLimitation {
     Space,
-    Subject,
+    Flow,
     Channel,
     Topic,
     Thread,
@@ -1659,7 +1659,7 @@ impl AuthzEngine {
                     let scope_matches = matches!(
                         (scope_limitation, &ctx.resource),
                         (ScopeLimitation::Space, Resource::Space { .. })
-                            | (ScopeLimitation::Subject, Resource::Subject { .. })
+                            | (ScopeLimitation::Flow, Resource::Flow { .. })
                             | (ScopeLimitation::Entity, Resource::Entity { .. })
                             | (ScopeLimitation::Relation, Resource::Relation { .. })
                             | (ScopeLimitation::View, Resource::View { .. })
@@ -2213,11 +2213,11 @@ fn resource_is_narrowed(child: &ResourceSelector, parent: &ResourceSelector) -> 
     }
     match (child, parent) {
         (
-            ResourceSelector::Subject { space_id, subject_id },
-            ResourceSelector::Subject { space_id: parent_space, subject_id: parent_id },
+            ResourceSelector::Flow { space_id, flow_id },
+            ResourceSelector::Flow { space_id: parent_space, flow_id: parent_id },
         ) => {
             space_narrowed(space_id, parent_space)
-                && option_narrowed(subject_id.as_ref(), parent_id.as_ref())
+                && option_narrowed(flow_id.as_ref(), parent_id.as_ref())
         }
         (
             ResourceSelector::Entity { space_id, entity_type, entity_id },
@@ -2299,11 +2299,8 @@ fn capability_grant_from_resolved_event(
         .or_else(|| optional_string(content, "id"))
         .unwrap_or_else(|| event.state_key.clone());
     let issuer = optional_did(content, "issuer")?.unwrap_or_else(|| event.actor_id.clone());
-    let subject = match optional_did(content, "subject")? {
-        Some(subject) => subject,
-        None => optional_did(content, "subject_id")?
-            .ok_or_else(|| Error::Protocol("capability grant requires subject".to_owned()))?,
-    };
+    let subject = optional_did(content, "subject")?
+        .ok_or_else(|| Error::Protocol("capability grant requires subject".to_owned()))?;
     let actions = string_array(content.get("actions"))
         .ok_or_else(|| Error::Protocol("capability grant requires actions".to_owned()))?;
     let resources =
@@ -2475,24 +2472,23 @@ mod tests {
     }
 
     #[test]
-    fn subject_selector_matches_subject_resource() {
+    fn flow_selector_matches_flow_resource() {
         let selector =
-            ResourceSelector::parse("subject:cx:space:01JS0SP000000000000000000:cx:subject:01")
-                .unwrap();
+            ResourceSelector::parse("flow:cx:space:01JS0SP000000000000000000:cx:flow:01JS0FL...").unwrap();
         assert_eq!(
             selector,
-            ResourceSelector::Subject {
+            ResourceSelector::Flow {
                 space_id: "cx:space:01JS0SP000000000000000000".to_owned(),
-                subject_id: Some("cx:subject:01".to_owned()),
+                flow_id: Some("cx:flow:01JS0FL...".to_owned()),
             }
         );
-        assert!(selector.matches(&Resource::Subject {
+        assert!(selector.matches(&Resource::Flow {
             space_id: "cx:space:01JS0SP000000000000000000".to_owned(),
-            subject_id: "cx:subject:01".to_owned(),
+            flow_id: "cx:flow:01JS0FL...".to_owned(),
         }));
-        assert!(!selector.matches(&Resource::Subject {
+        assert!(!selector.matches(&Resource::Flow {
             space_id: "cx:space:01JS0SP000000000000000000".to_owned(),
-            subject_id: "cx:subject:02".to_owned(),
+            flow_id: "cx:flow:other".to_owned(),
         }));
     }
 
@@ -2551,6 +2547,34 @@ mod tests {
             entity_type: "message".to_owned(),
             entity_id: "cx:entity:123".to_owned(),
         }));
+    }
+
+    #[test]
+    fn type_restriction_respects_flow_scope_limitation() {
+        let mut engine = AuthzEngine::new();
+        let ctx = AuthzContext::new(
+            Did::new("did:web:alice.example.com").unwrap(),
+            "read".to_owned(),
+            Resource::Flow {
+                space_id: "cx:space:A".to_owned(),
+                flow_id: "cx:flow:1".to_owned(),
+            },
+        );
+        let mut grant = grant_for(
+            "read",
+            ResourceSelector::Flow {
+                space_id: "cx:space:A".to_owned(),
+                flow_id: None,
+            },
+        );
+        grant.constraints = vec![ConstraintEntry::new(Constraint::TypeRestriction {
+            entity_type_allow: None,
+            entity_type_deny: None,
+            allowed_entity_facets: vec![],
+            scope_limitation: Some(ScopeLimitation::Flow),
+        })];
+
+        assert!(engine.check_authorization(&ctx, &[grant]).is_allowed());
     }
 
     #[test]

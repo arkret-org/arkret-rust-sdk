@@ -17,11 +17,12 @@ use crate::{
     Result,
     base::{BaseClient, SpaceStateType},
     media::{Attachment, MediaMetadata},
+    FlowId,
     model::{
         BlobRef, Did, Entity, EntityId, EntityType, EventId, FieldFilter, Filter, FilterOp,
-        NullsOrder, OP_ENTITY_CREATE, OP_ENTITY_DELETE, OP_ENTITY_REDACT, OP_ENTITY_UPDATE,
-        ObjectState, Operation, OperationId, OperationType, Relation, RelationId, RelationKind,
-        RelationState, SortDirection, SortSpec, SpaceId, Subject, SubjectId, SubjectKind,
+        Flow, FlowKind, NullsOrder, OP_ENTITY_CREATE, OP_ENTITY_DELETE,
+        OP_ENTITY_REDACT, OP_ENTITY_UPDATE, ObjectState, Operation, OperationId, OperationType,
+        Relation, RelationId, RelationKind, RelationState, SortDirection, SortSpec, SpaceId,
     },
     resolver::SpaceState,
 };
@@ -221,34 +222,34 @@ impl Space {
         self.state.entities.clone()
     }
 
-    /// Get all subjects in this space.
-    pub fn subjects(&self) -> BTreeMap<String, Subject> {
+    /// Get all flows in this space.
+    pub fn flows(&self) -> BTreeMap<String, Flow> {
         self.state.subjects.clone()
     }
 
-    /// Get a specific subject by ID.
-    pub fn get_subject(&self, subject_id: &SubjectId) -> Option<Subject> {
-        self.state.subjects.get(subject_id.as_str()).cloned()
+    /// Get a specific flow by ID.
+    pub fn get_flow(&self, flow_id: &FlowId) -> Option<Flow> {
+        self.state.subjects.get(flow_id.as_str()).cloned()
     }
 
-    /// Find subjects by semantic kind.
-    pub fn find_subjects_by_kind(&self, subject_kind: SubjectKind) -> Vec<Subject> {
+    /// Find flows by semantic kind.
+    pub fn find_flows_by_kind(&self, flow_kind: FlowKind) -> Vec<Flow> {
         self.state
             .subjects
             .values()
-            .filter(|subject| subject.subject_kind == subject_kind)
+            .filter(|flow| flow.flow_kind == flow_kind)
             .cloned()
             .collect()
     }
 
-    /// Return active surface relations for a subject.
-    pub fn subject_surfaces(&self, subject_id: &SubjectId) -> Vec<Relation> {
+    /// Return active surface relations for a flow.
+    pub fn flow_surfaces(&self, flow_id: &FlowId) -> Vec<Relation> {
         self.state
             .relations
             .values()
             .filter(|relation| {
                 relation.relation_kind == RelationKind::HasSurface
-                    && relation.from_ref.as_deref() == Some(subject_id.as_str())
+                    && relation.from_ref.as_deref() == Some(flow_id.as_str())
                     && relation_is_active(relation)
             })
             .cloned()
@@ -919,29 +920,53 @@ impl Space {
     }
 }
 
-/// Subject operations within a space.
+/// Flow operations within a space.
 impl Space {
-    /// Create a Subject creation operation.
-    pub fn create_subject_operation(
+    /// Create a flow creation operation.
+    pub fn create_flow_operation(
         &self,
         title: impl Into<String>,
-        subject_kind: SubjectKind,
+        flow_kind: FlowKind,
         brief: Option<String>,
         summary: Option<String>,
         fields: BTreeMap<String, Value>,
+    ) -> Result<Operation> {
+        self.create_flow_operation_with_metadata(
+            title,
+            flow_kind,
+            brief,
+            summary,
+            fields,
+            None,
+            Vec::new(),
+            None,
+        )
+    }
+
+    /// Create a flow creation operation with flow metadata.
+    pub fn create_flow_operation_with_metadata(
+        &self,
+        title: impl Into<String>,
+        flow_kind: FlowKind,
+        brief: Option<String>,
+        summary: Option<String>,
+        fields: BTreeMap<String, Value>,
+        primary_branch: Option<String>,
+        branches: Vec<String>,
+        semantic_kind: Option<String>,
     ) -> Result<Operation> {
         let _session_meta = self
             .base_client
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let subject_id = SubjectId::new(generate_id("cx:subject:"))?;
+        let flow_id = FlowId::new(generate_id("cx:flow:"))?;
         let operation_id = OperationId::new(generate_id("cx:operation:"))?;
 
         let mut payload = json!({
-            "subject_id": subject_id.as_str(),
+            "flow_id": flow_id.as_str(),
             "title": title.into(),
-            "subject_kind": serde_json::to_value(subject_kind)?,
+            "flow_kind": serde_json::to_value(flow_kind)?,
         });
 
         if let Some(brief) = brief {
@@ -950,21 +975,54 @@ impl Space {
         if let Some(summary) = summary {
             payload["summary"] = json!(summary);
         }
+        if let Some(primary_branch) = primary_branch {
+            payload["primary_branch"] = json!(primary_branch);
+        }
+        if !branches.is_empty() {
+            payload["branches"] = json!(branches);
+        }
+        if let Some(semantic_kind) = semantic_kind {
+            payload["semantic_kind"] = json!(semantic_kind);
+        }
         if !fields.is_empty() {
             payload["fields"] = json!(fields);
         }
 
-        Ok(Operation::create(operation_id, self.space_id.clone(), "subject", payload))
+        Ok(Operation::create(operation_id, self.space_id.clone(), "flow", payload))
     }
 
-    /// Create a Subject update operation.
-    pub fn update_subject_operation(
+    /// Create a flow update operation.
+    pub fn update_flow_operation(
         &self,
-        subject_id: SubjectId,
+        flow_id: FlowId,
         title: Option<String>,
         brief: Option<String>,
         summary: Option<String>,
         fields: Option<BTreeMap<String, Value>>,
+    ) -> Result<Operation> {
+        self.update_flow_operation_with_metadata(
+            flow_id,
+            title,
+            brief,
+            summary,
+            fields,
+            None,
+            None,
+            None,
+        )
+    }
+
+    /// Create a flow update operation with extended metadata.
+    pub fn update_flow_operation_with_metadata(
+        &self,
+        flow_id: FlowId,
+        title: Option<String>,
+        brief: Option<String>,
+        summary: Option<String>,
+        fields: Option<BTreeMap<String, Value>>,
+        primary_branch: Option<String>,
+        branches: Option<Vec<String>>,
+        semantic_kind: Option<String>,
     ) -> Result<Operation> {
         let _session_meta = self
             .base_client
@@ -972,7 +1030,7 @@ impl Space {
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
         let operation_id = OperationId::new(generate_id("cx:operation:"))?;
-        let mut payload = json!({ "subject_id": subject_id.as_str() });
+        let mut payload = json!({ "flow_id": flow_id.as_str() });
 
         if let Some(title) = title {
             payload["title"] = json!(title);
@@ -983,30 +1041,38 @@ impl Space {
         if let Some(summary) = summary {
             payload["summary"] = json!(summary);
         }
+        if let Some(primary_branch) = primary_branch {
+            payload["primary_branch"] = json!(primary_branch);
+        }
+        if let Some(branches) = branches {
+            payload["branches"] = json!(branches);
+        }
+        if let Some(semantic_kind) = semantic_kind {
+            payload["semantic_kind"] = json!(semantic_kind);
+        }
         if let Some(fields) = fields {
             payload["fields"] = json!(fields);
         }
 
-        let mut operation =
-            Operation::create(operation_id, self.space_id.clone(), "subject", payload);
+        let mut operation = Operation::create(operation_id, self.space_id.clone(), "flow", payload);
         operation.operation_type = OperationType::Update;
-        operation.object_id = Some(subject_id.as_str().to_owned());
+        operation.object_id = Some(flow_id.as_str().to_owned());
         Ok(operation)
     }
 
-    /// Create a Subject archive operation.
-    pub fn archive_subject_operation(&self, subject_id: SubjectId) -> Result<Operation> {
-        self.subject_lifecycle_operation(subject_id, OperationType::Delete, "archived")
+    /// Create a flow archive operation.
+    pub fn archive_flow_operation(&self, flow_id: FlowId) -> Result<Operation> {
+        self.flow_lifecycle_operation(flow_id, OperationType::Delete, "archived")
     }
 
-    /// Create a Subject restore operation.
-    pub fn restore_subject_operation(&self, subject_id: SubjectId) -> Result<Operation> {
-        self.subject_lifecycle_operation(subject_id, OperationType::Update, "active")
+    /// Create a flow restore operation.
+    pub fn restore_flow_operation(&self, flow_id: FlowId) -> Result<Operation> {
+        self.flow_lifecycle_operation(flow_id, OperationType::Update, "active")
     }
 
-    fn subject_lifecycle_operation(
+    fn flow_lifecycle_operation(
         &self,
-        subject_id: SubjectId,
+        flow_id: FlowId,
         operation_type: OperationType,
         state: &str,
     ) -> Result<Operation> {
@@ -1019,27 +1085,27 @@ impl Space {
         let mut operation = Operation::create(
             operation_id,
             self.space_id.clone(),
-            "subject",
+            "flow",
             json!({
-                "subject_id": subject_id.as_str(),
+                "flow_id": flow_id.as_str(),
                 "state": state,
             }),
         );
         operation.operation_type = operation_type;
-        operation.object_id = Some(subject_id.as_str().to_owned());
+        operation.object_id = Some(flow_id.as_str().to_owned());
         Ok(operation)
     }
 
-    /// Create an operation linking a Subject to a surface object.
-    pub fn link_subject_surface_operation(
+    /// Create an operation linking a flow to a surface object.
+    pub fn link_flow_surface_operation(
         &self,
-        subject_id: SubjectId,
+        flow_id: FlowId,
         surface_ref: impl Into<String>,
         surface_role: Option<String>,
         primary: bool,
     ) -> Result<Operation> {
-        self.subject_surface_operation(
-            subject_id,
+        self.flow_surface_operation(
+            flow_id,
             surface_ref.into(),
             surface_role,
             primary,
@@ -1047,15 +1113,15 @@ impl Space {
         )
     }
 
-    /// Create an operation unlinking a Subject surface object.
-    pub fn unlink_subject_surface_operation(
+    /// Create an operation unlinking a flow surface object.
+    pub fn unlink_flow_surface_operation(
         &self,
-        subject_id: SubjectId,
+        flow_id: FlowId,
         surface_ref: impl Into<String>,
         surface_role: Option<String>,
     ) -> Result<Operation> {
-        self.subject_surface_operation(
-            subject_id,
+        self.flow_surface_operation(
+            flow_id,
             surface_ref.into(),
             surface_role,
             false,
@@ -1063,9 +1129,9 @@ impl Space {
         )
     }
 
-    fn subject_surface_operation(
+    fn flow_surface_operation(
         &self,
-        subject_id: SubjectId,
+        flow_id: FlowId,
         surface_ref: String,
         surface_role: Option<String>,
         primary: bool,
@@ -1078,7 +1144,7 @@ impl Space {
 
         let operation_id = OperationId::new(generate_id("cx:operation:"))?;
         let mut payload = json!({
-            "subject_id": subject_id.as_str(),
+            "flow_id": flow_id.as_str(),
             "surface_ref": surface_ref,
         });
         if let Some(surface_role) = surface_role {
@@ -1088,14 +1154,68 @@ impl Space {
             payload["primary"] = json!(primary);
         }
 
-        let mut operation =
-            Operation::create(operation_id, self.space_id.clone(), "subject", payload);
+        let mut operation = Operation::create(operation_id, self.space_id.clone(), "flow", payload);
         operation.operation_type = operation_type;
-        operation.object_id = Some(subject_id.as_str().to_owned());
+        operation.object_id = Some(flow_id.as_str().to_owned());
+        Ok(operation)
+    }
+
+    /// Create a flow move operation.
+    pub fn move_flow_operation(
+        &self,
+        flow_id: FlowId,
+        parent_id: FlowId,
+        rank: i64,
+    ) -> Result<Operation> {
+        self.flow_mutation_operation(
+            flow_id,
+            json!({
+                "parent_id": parent_id,
+                "rank": rank,
+            }),
+        )
+    }
+
+    /// Create a flow reorder operation.
+    pub fn reorder_flow_operation(&self, flow_id: FlowId, rank: i64) -> Result<Operation> {
+        self.flow_mutation_operation(flow_id, json!({ "rank": rank }))
+    }
+
+    /// Create a flow convert operation.
+    pub fn convert_flow_operation(
+        &self,
+        flow_id: FlowId,
+        target_kind: String,
+    ) -> Result<Operation> {
+        self.flow_mutation_operation(flow_id, json!({ "target_kind": target_kind }))
+    }
+
+    fn flow_mutation_operation(
+        &self,
+        flow_id: FlowId,
+        additional_payload: Value,
+    ) -> Result<Operation> {
+        let _session_meta = self
+            .base_client
+            .session_meta()
+            .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
+
+        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let mut payload = json!({ "flow_id": flow_id.as_str() });
+        if let Value::Object(map) = additional_payload {
+            for (key, value) in map {
+                payload[key] = value;
+            }
+        }
+
+        let mut operation = Operation::create(operation_id, self.space_id.clone(), "flow", payload);
+        operation.operation_type = OperationType::Update;
+        operation.object_id = Some(flow_id.as_str().to_owned());
         Ok(operation)
     }
 }
 
+/// Legacy subject compatibility operations within a space.
 /// Entity operations within a space.
 impl Space {
     /// Create an entity creation operation.
@@ -1585,35 +1705,35 @@ mod tests {
     }
 
     #[test]
-    fn space_creates_subject_operations_and_reads_surfaces() {
+    fn space_creates_flow_operations_and_reads_surfaces() {
         let base_client = sessioned_base();
         let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
         let space = Space::new(space_id.clone(), base_client.clone());
 
         let create = space
-            .create_subject_operation(
+            .create_flow_operation(
                 "Payment refactor",
-                SubjectKind::Initiative,
+                FlowKind::Initiative,
                 Some("Unify payment flows".to_owned()),
                 None,
                 BTreeMap::new(),
             )
             .unwrap();
-        let subject_id = SubjectId::new(create.payload["subject_id"].as_str().unwrap()).unwrap();
+        let flow_id = FlowId::new(create.payload["flow_id"].as_str().unwrap()).unwrap();
         assert_eq!(create.operation_type, OperationType::Create);
-        assert_eq!(create.object_type, "subject");
-        assert_eq!(create.payload["subject_kind"], "initiative");
+        assert_eq!(create.object_type, "flow");
+        assert_eq!(create.payload["flow_kind"], "initiative");
 
         let link = space
-            .link_subject_surface_operation(
-                subject_id.clone(),
-                "cx:card:01JS0CD000000000000000000",
+            .link_flow_surface_operation(
+                flow_id.clone(),
+                "cx:flow:01JS0CD000000000000000000",
                 Some("status_card".to_owned()),
                 true,
             )
             .unwrap();
         assert_eq!(link.operation_type, OperationType::Link);
-        assert_eq!(link.object_id.as_deref(), Some(subject_id.as_str()));
+        assert_eq!(link.object_id.as_deref(), Some(flow_id.as_str()));
         assert_eq!(link.payload["surface_role"], "status_card");
 
         base_client
@@ -1621,22 +1741,22 @@ mod tests {
                 &space_id,
                 vec![
                     event(
-                        "cx.subject.create",
+                        "cx.flow.create",
                         1,
                         &space_id,
                         json!({
-                            "subject_id": subject_id.as_str(),
+                            "flow_id": flow_id.as_str(),
                             "title": "Payment refactor",
-                            "subject_kind": "initiative"
+                            "flow_kind": "initiative"
                         }),
                     ),
                     event(
-                        "cx.subject.link_surface",
+                        "cx.flow.link_surface",
                         2,
                         &space_id,
                         json!({
-                            "subject_id": subject_id.as_str(),
-                            "surface_ref": "cx:card:01JS0CD000000000000000000",
+                            "flow_id": flow_id.as_str(),
+                            "surface_ref": "cx:flow:01JS0CD000000000000000000",
                             "surface_role": "status_card",
                             "primary": true,
                             "relation_id": "cx:relation:01JS0SR000000000000000000"
@@ -1647,8 +1767,8 @@ mod tests {
             .unwrap();
 
         let refreshed = Space::new(space_id, base_client);
-        assert_eq!(refreshed.find_subjects_by_kind(SubjectKind::Initiative).len(), 1);
-        assert_eq!(refreshed.subject_surfaces(&subject_id).len(), 1);
+        assert_eq!(refreshed.find_flows_by_kind(FlowKind::Initiative).len(), 1);
+        assert_eq!(refreshed.flow_surfaces(&flow_id).len(), 1);
     }
 
     #[test]

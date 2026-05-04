@@ -1350,7 +1350,7 @@ pub struct SpaceListSnapshot {
     pub filter: SpaceListFilter,
 }
 
-/// Room/space list service with deterministic sorting, filtering and deltas.
+/// Space list service with deterministic sorting, filtering and deltas.
 #[derive(Clone, Debug, Default)]
 pub struct SpaceListService {
     entries: BTreeMap<SpaceId, SpaceListEntry>,

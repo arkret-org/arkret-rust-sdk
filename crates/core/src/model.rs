@@ -10,8 +10,8 @@ use sha2::{Digest, Sha256};
 
 use crate::{Error, Result, canonical};
 pub use contrix_identifiers::{
-    BlobRef, CommitId, Cursor, DeviceId, Did, EntityId, EventId, GrantId, Hash, Hlc, InviteId,
-    OperationId, PolicyId, RelationId, SpaceId, SubjectId, ViewId,
+    BlobRef, CommitId, Cursor, DeviceId, Did, EntityId, EventId, FlowId, GrantId, Hash, Hlc,
+    InviteId, OperationId, PolicyId, RelationId, SpaceId, ViewId,
 };
 
 pub const PROTOCOL_VERSION: &str = "1.0";
@@ -23,7 +23,7 @@ pub const SCHEMA_COMPATIBILITY_PROFILE: &str = "cx.schema.compatibility.v1";
 pub const CURSOR_SCHEMA: &str = "cx.schema.cursor.v1";
 pub const SPACE_SCHEMA: &str = "cx.schema.space.v1";
 pub const ACTOR_PROFILE_SCHEMA: &str = "cx.schema.actor_profile.v1";
-pub const SUBJECT_SCHEMA: &str = "cx.schema.subject.v1";
+pub const FLOW_SCHEMA: &str = "cx.schema.flow.v1";
 pub const ENTITY_SCHEMA: &str = "cx.schema.entity.v1";
 pub const RELATION_SCHEMA: &str = "cx.schema.relation.v1";
 pub const EVENT_SCHEMA: &str = "cx.schema.event.v1";
@@ -47,14 +47,17 @@ pub const OP_ENTITY_DELETE: &str = "cx.entity.delete";
 pub const OP_ENTITY_RESTORE: &str = "cx.entity.restore";
 pub const OP_ENTITY_REDACT: &str = "cx.entity.redact";
 
-/// Subject operations.
-pub const OP_SUBJECT_CREATE: &str = "cx.subject.create";
-pub const OP_SUBJECT_UPDATE: &str = "cx.subject.update";
-pub const OP_SUBJECT_ARCHIVE: &str = "cx.subject.archive";
-pub const OP_SUBJECT_RESTORE: &str = "cx.subject.restore";
-pub const OP_SUBJECT_LINK_SURFACE: &str = "cx.subject.link_surface";
-pub const OP_SUBJECT_UNLINK_SURFACE: &str = "cx.subject.unlink_surface";
-pub const OP_SUBJECT_SET_PRIMARY_SURFACE: &str = "cx.subject.set_primary_surface";
+/// Flow operations.
+pub const OP_FLOW_CREATE: &str = "cx.flow.create";
+pub const OP_FLOW_UPDATE: &str = "cx.flow.update";
+pub const OP_FLOW_ARCHIVE: &str = "cx.flow.archive";
+pub const OP_FLOW_RESTORE: &str = "cx.flow.restore";
+pub const OP_FLOW_LINK_SURFACE: &str = "cx.flow.link_surface";
+pub const OP_FLOW_UNLINK_SURFACE: &str = "cx.flow.unlink_surface";
+pub const OP_FLOW_SET_PRIMARY_SURFACE: &str = "cx.flow.set_primary_surface";
+pub const OP_FLOW_MOVE: &str = "cx.flow.move";
+pub const OP_FLOW_REORDER: &str = "cx.flow.reorder";
+pub const OP_FLOW_CONVERT: &str = "cx.flow.convert";
 
 /// Relation operations.
 pub const OP_RELATION_CREATE: &str = "cx.relation.create";
@@ -126,13 +129,16 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_ENTITY_DELETE,
     OP_ENTITY_RESTORE,
     OP_ENTITY_REDACT,
-    OP_SUBJECT_CREATE,
-    OP_SUBJECT_UPDATE,
-    OP_SUBJECT_ARCHIVE,
-    OP_SUBJECT_RESTORE,
-    OP_SUBJECT_LINK_SURFACE,
-    OP_SUBJECT_UNLINK_SURFACE,
-    OP_SUBJECT_SET_PRIMARY_SURFACE,
+    OP_FLOW_CREATE,
+    OP_FLOW_UPDATE,
+    OP_FLOW_ARCHIVE,
+    OP_FLOW_RESTORE,
+    OP_FLOW_LINK_SURFACE,
+    OP_FLOW_UNLINK_SURFACE,
+    OP_FLOW_SET_PRIMARY_SURFACE,
+    OP_FLOW_MOVE,
+    OP_FLOW_REORDER,
+    OP_FLOW_CONVERT,
     OP_RELATION_CREATE,
     OP_RELATION_DELETE,
     OP_CONTAINER_MOVE_ITEM,
@@ -269,15 +275,16 @@ fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
     match kind {
         OP_ENTITY_CREATE | OP_ENTITY_UPDATE | OP_ENTITY_DELETE | OP_ENTITY_RESTORE
         | OP_ENTITY_REDACT => vec!["entity_id".to_owned()],
-        OP_SUBJECT_CREATE => {
-            vec!["subject_id".to_owned(), "title".to_owned(), "subject_kind".to_owned()]
+        OP_FLOW_CREATE => {
+            vec!["flow_id".to_owned(), "title".to_owned(), "flow_kind".to_owned()]
         }
-        OP_SUBJECT_UPDATE | OP_SUBJECT_ARCHIVE | OP_SUBJECT_RESTORE => {
-            vec!["subject_id".to_owned()]
+        OP_FLOW_UPDATE | OP_FLOW_ARCHIVE | OP_FLOW_RESTORE => vec!["flow_id".to_owned()],
+        OP_FLOW_LINK_SURFACE | OP_FLOW_UNLINK_SURFACE | OP_FLOW_SET_PRIMARY_SURFACE => {
+            vec!["flow_id".to_owned(), "surface_ref".to_owned()]
         }
-        OP_SUBJECT_LINK_SURFACE | OP_SUBJECT_UNLINK_SURFACE | OP_SUBJECT_SET_PRIMARY_SURFACE => {
-            vec!["subject_id".to_owned(), "surface_ref".to_owned()]
-        }
+        OP_FLOW_MOVE => vec!["flow_id".to_owned(), "parent_id".to_owned()],
+        OP_FLOW_REORDER => vec!["flow_id".to_owned(), "rank".to_owned()],
+        OP_FLOW_CONVERT => vec!["flow_id".to_owned(), "target_kind".to_owned()],
         OP_RELATION_CREATE | OP_RELATION_DELETE => {
             vec!["relation_id".to_owned()]
         }
@@ -657,7 +664,7 @@ impl Default for ProtocolSchemaRegistry {
             ),
         );
         registry.register(ENTITY_SCHEMA, entity_schema_document());
-        registry.register(SUBJECT_SCHEMA, subject_schema_document());
+        registry.register(FLOW_SCHEMA, flow_schema_document());
         registry.register(VIEW_SCHEMA, view_schema_document());
         registry.register(
             COMMIT_SCHEMA,
@@ -757,12 +764,12 @@ fn entity_schema_document() -> Value {
     })
 }
 
-fn subject_schema_document() -> Value {
+fn flow_schema_document() -> Value {
     json!({
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "$id": SUBJECT_SCHEMA,
+        "$id": FLOW_SCHEMA,
         "type": "object",
-        "required": ["id", "type", "schema", "space_id", "title", "subject_kind", "created_by", "created_at"],
+        "required": ["id", "type", "schema", "space_id", "title", "flow_kind", "created_by", "created_at"],
         "properties": {
             "schema": { "type": "string" },
             "id": { "type": "string" },
@@ -771,14 +778,20 @@ fn subject_schema_document() -> Value {
             "title": { "type": "string" },
             "brief": { "type": "string" },
             "summary": { "type": "string" },
-            "subject_kind": { "type": "string" },
+            "flow_kind": { "type": "string" },
+            "primary_branch": { "type": "string" },
+            "branches": {
+                "type": "array",
+                "items": { "type": "string" },
+            },
+            "semantic_kind": { "type": "string" },
             "fields": { "type": "object" },
             "state": { "type": "string" },
             "version": { "type": "integer" },
             "created_by": { "type": "string" },
             "created_at": { "type": "string" },
             "updated_by": { "type": "string" },
-            "updated_at": { "type": "string" }
+            "updated_at": { "type": "string" },
         },
         "additionalProperties": true
     })
@@ -910,7 +923,7 @@ pub fn schema_version_compatibility_table() -> SchemaCompatibilityTable {
         profile: SCHEMA_COMPATIBILITY_PROFILE.to_owned(),
         entries: [
             CURSOR_SCHEMA,
-            SUBJECT_SCHEMA,
+            FLOW_SCHEMA,
             ENTITY_SCHEMA,
             VIEW_SCHEMA,
             EVENT_SCHEMA,
@@ -1579,14 +1592,12 @@ pub enum NotificationState {
 #[serde(rename_all = "snake_case")]
 pub enum ReadScope {
     Space,
-    Subject,
-    Room,
+    Flow,
     Channel,
     Topic,
     Thread,
     View,
     Entity,
-    Card,
     Message,
     Morph,
 }
@@ -2010,7 +2021,7 @@ pub struct ActorProfile {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum SubjectKind {
+pub enum FlowKind {
     Topic,
     Initiative,
     Decision,
@@ -2025,9 +2036,9 @@ pub enum SubjectKind {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Subject {
+pub struct Flow {
     pub schema: String,
-    pub id: SubjectId,
+    pub id: String,
     #[serde(rename = "type")]
     pub object_type: String,
     pub space_id: SpaceId,
@@ -2036,7 +2047,14 @@ pub struct Subject {
     pub brief: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
-    pub subject_kind: SubjectKind,
+    #[serde(rename = "flow_kind")]
+    pub flow_kind: FlowKind,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub primary_branch: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub branches: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub semantic_kind: Option<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub fields: BTreeMap<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -2053,23 +2071,26 @@ pub struct Subject {
     pub extra: BTreeMap<String, Value>,
 }
 
-impl Subject {
+impl Flow {
     pub fn new(
-        id: SubjectId,
+        id: impl Into<String>,
         space_id: SpaceId,
         title: impl Into<String>,
-        subject_kind: SubjectKind,
+        flow_kind: FlowKind,
         created_by: Did,
     ) -> Self {
         Self {
-            schema: SUBJECT_SCHEMA.to_owned(),
-            id,
-            object_type: "subject".to_owned(),
+            schema: FLOW_SCHEMA.to_owned(),
+            id: id.into(),
+            object_type: "flow".to_owned(),
             space_id,
             title: title.into(),
             brief: None,
             summary: None,
-            subject_kind,
+            flow_kind,
+            primary_branch: None,
+            branches: Vec::new(),
+            semantic_kind: None,
             fields: BTreeMap::new(),
             state: Some(ObjectState::Active),
             version: Some(0),
@@ -2083,7 +2104,7 @@ impl Subject {
 
     pub fn validate_title(&self) -> Result<()> {
         if self.title.trim().is_empty() {
-            return Err(Error::Protocol("subject title must not be empty".to_owned()));
+            return Err(Error::Protocol("flow title must not be empty".to_owned()));
         }
         Ok(())
     }
@@ -4595,6 +4616,25 @@ mod tests {
     }
 
     #[test]
+    fn operation_kind_registry_rejects_removed_legacy_flow_alias_kinds() {
+        let registry = OperationKindRegistry::default();
+        for kind in [
+            "cx.subject.create",
+            "cx.subject.update",
+            "cx.subject.archive",
+            "cx.subject.restore",
+            "cx.subject.link_surface",
+            "cx.subject.unlink_surface",
+            "cx.subject.set_primary_surface",
+        ] {
+            assert!(
+                registry.canonicalize(kind).is_err(),
+                "removed kind should not be canonical: {kind}"
+            );
+        }
+    }
+
+    #[test]
     fn operation_kind_registry_drives_envelope_semantics() {
         let registry = OperationKindRegistry::default();
         let envelope = OperationEnvelope {
@@ -4691,7 +4731,7 @@ mod tests {
         let registry = ProtocolSchemaRegistry::default();
         for schema_id in [
             CURSOR_SCHEMA,
-            SUBJECT_SCHEMA,
+            FLOW_SCHEMA,
             ENTITY_SCHEMA,
             VIEW_SCHEMA,
             EVENT_SCHEMA,
@@ -4717,14 +4757,14 @@ mod tests {
         );
         registry
             .validate_required_fields(
-                SUBJECT_SCHEMA,
+                FLOW_SCHEMA,
                 &json!({
-                    "schema": SUBJECT_SCHEMA,
-                    "id": "cx:subject:01",
-                    "type": "subject",
+                    "schema": FLOW_SCHEMA,
+                    "id": "cx:flow:01",
+                    "type": "flow",
                     "space_id": "cx:space:01",
                     "title": "Topic",
-                    "subject_kind": "topic",
+                    "flow_kind": "initiative",
                     "created_by": "did:web:alice.example",
                     "created_at": "2026-05-02T00:00:00Z"
                 }),
@@ -5603,19 +5643,19 @@ mod tests {
     }
 
     #[test]
-    fn subject_constructor_sets_protocol_shape() {
-        let mut subject = Subject::new(
-            SubjectId::new("cx:subject:01").unwrap(),
+    fn flow_constructor_sets_protocol_shape() {
+        let mut subject = Flow::new(
+            "cx:flow:01",
             SpaceId::new("cx:space:01").unwrap(),
             "Payment refactor",
-            SubjectKind::Initiative,
+            FlowKind::Initiative,
             Did::new("did:web:alice.example").unwrap(),
         );
         subject.brief = Some("Unify payment flows".to_owned());
 
-        assert_eq!(subject.schema, SUBJECT_SCHEMA);
-        assert_eq!(subject.object_type, "subject");
-        assert_eq!(subject.subject_kind, SubjectKind::Initiative);
+        assert_eq!(subject.schema, FLOW_SCHEMA);
+        assert_eq!(subject.object_type, "flow");
+        assert_eq!(subject.flow_kind, FlowKind::Initiative);
         assert_eq!(subject.state, Some(ObjectState::Active));
         subject.validate_title().unwrap();
 

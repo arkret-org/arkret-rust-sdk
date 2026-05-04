@@ -8,8 +8,9 @@ use std::{
 
 use contrix_core::{
     CAPABILITY_SCHEMA, CLIENT_SYNC_RESPONSE_SCHEMA, COMMIT_SCHEMA, CURSOR_SCHEMA,
-    ENCRYPTED_PAYLOAD_SCHEMA, ENTITY_SCHEMA, EVENT_SCHEMA, Error, GeneratedSchemaValidator,
-    OPERATION_SCHEMA, ProtocolSchemaRegistry, Result, SCHEMA_COMPATIBILITY_PROFILE, SUBJECT_SCHEMA,
+    ENCRYPTED_PAYLOAD_SCHEMA, ENTITY_SCHEMA, EVENT_SCHEMA, FLOW_SCHEMA, Error,
+    GeneratedSchemaValidator, OPERATION_SCHEMA, ProtocolSchemaRegistry, Result,
+    SCHEMA_COMPATIBILITY_PROFILE,
     SchemaCompatibilityEntry, SchemaCompatibilityTable, VIEW_SCHEMA,
     schema_version_compatibility_table,
 };
@@ -120,15 +121,15 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
             expected_valid: false,
         },
         SchemaValidationVector {
-            name: "subject minimal valid".to_owned(),
-            schema_id: SUBJECT_SCHEMA.to_owned(),
+            name: "flow minimal valid".to_owned(),
+            schema_id: FLOW_SCHEMA.to_owned(),
             input: json!({
-                "schema": "cx.schema.subject.v1",
-                "id": "cx:subject:01js0sb000000000000000000",
-                "type": "subject",
+                "schema": "cx.schema.flow.v1",
+                "id": "cx:flow:01js0fb000000000000000000",
+                "type": "flow",
                 "space_id": "cx:space:01js0ke000000000000000000",
                 "title": "Payment refactor",
-                "subject_kind": "initiative",
+                "flow_kind": "discussion",
                 "created_by": "did:web:alice.example",
                 "created_at": "2026-05-02T00:00:00Z"
             }),
@@ -237,15 +238,30 @@ impl EventPayloadValidatorCatalog {
 
 pub fn event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
     let rules = [
-        ("cx.subject.create", SUBJECT_SCHEMA, &["subject_id", "title", "subject_kind"][..]),
-        ("cx.subject.update", SUBJECT_SCHEMA, &["subject_id"][..]),
-        ("cx.subject.link_surface", SUBJECT_SCHEMA, &["subject_id", "surface_ref"][..]),
-        ("cx.subject.unlink_surface", SUBJECT_SCHEMA, &["subject_id", "surface_ref"][..]),
-        ("cx.subject.set_primary_surface", SUBJECT_SCHEMA, &["subject_id", "surface_ref"][..]),
+        ("cx.flow.create", FLOW_SCHEMA, &["flow_id", "title", "flow_kind"][..]),
+        ("cx.flow.update", FLOW_SCHEMA, &["flow_id", "title"][..]),
+        ("cx.flow.archive", FLOW_SCHEMA, &["flow_id"][..]),
+        ("cx.flow.restore", FLOW_SCHEMA, &["flow_id"][..]),
+        ("cx.flow.move", FLOW_SCHEMA, &["flow_id", "parent_id"][..]),
+        ("cx.flow.reorder", FLOW_SCHEMA, &["flow_id", "rank"][..]),
+        ("cx.flow.convert", FLOW_SCHEMA, &["flow_id", "target_kind"][..]),
+        (
+            "cx.flow.branch.member",
+            FLOW_SCHEMA,
+            &["flow_id", "branch_id", "member_id"][..],
+        ),
+        (
+            "cx.flow.branch.history_visibility",
+            FLOW_SCHEMA,
+            &["flow_id", "branch_id", "history_visibility"][..],
+        ),
+        (
+            "cx.flow.branch.policy_components",
+            FLOW_SCHEMA,
+            &["flow_id", "branch_id", "policy_components"][..],
+        ),
         ("cx.message.create", EVENT_SCHEMA, &["body"][..]),
         ("cx.member.state", EVENT_SCHEMA, &["principal_id", "membership"][..]),
-        ("cx.card.move", EVENT_SCHEMA, &["board_id", "card_id", "from_list_id", "to_list_id"][..]),
-        ("cx.card.reorder", EVENT_SCHEMA, &["board_id", "card_id", "list_id", "rank"][..]),
         ("cx.list.reorder", EVENT_SCHEMA, &["board_id", "list_id", "rank"][..]),
         ("cx.capability.grant", CAPABILITY_SCHEMA, &["capability_id", "subject", "resource"][..]),
     ]
@@ -406,7 +422,7 @@ impl ArtifactDriftReport {
 pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     EVENT_SCHEMA,
     OPERATION_SCHEMA,
-    SUBJECT_SCHEMA,
+    FLOW_SCHEMA,
     CAPABILITY_SCHEMA,
     CURSOR_SCHEMA,
     ENCRYPTED_PAYLOAD_SCHEMA,
@@ -415,14 +431,18 @@ pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
 ];
 
 pub const ARTIFACT_BACKED_EVENT_KINDS: &[&str] = &[
-    "cx.subject.create",
-    "cx.subject.update",
-    "cx.subject.link_surface",
-    "cx.subject.unlink_surface",
-    "cx.subject.set_primary_surface",
+    "cx.flow.create",
+    "cx.flow.update",
+    "cx.flow.archive",
+    "cx.flow.restore",
+    "cx.flow.move",
+    "cx.flow.reorder",
+    "cx.flow.convert",
+    "cx.flow.branch.member",
+    "cx.flow.branch.history_visibility",
+    "cx.flow.branch.policy_components",
     "cx.message.create",
     "cx.member.state",
-    "cx.card.move",
     "cx.list.reorder",
     "cx.capability.grant",
 ];
@@ -436,7 +456,7 @@ pub const ARTIFACT_BACKED_SERVICE_OPERATIONS: &[&str] = &[
     "cx.server.describe",
 ];
 
-pub const ARTIFACT_BACKED_ID_KINDS: &[&str] = &["event", "operation", "space", "subject"];
+pub const ARTIFACT_BACKED_ID_KINDS: &[&str] = &["event", "operation", "space", "flow"];
 
 pub fn default_spec_artifacts_dir() -> Option<PathBuf> {
     if let Ok(artifacts_dir) = std::env::var("CONTRIX_SPEC_ARTIFACTS") {
@@ -494,8 +514,8 @@ pub mod protocol {
     pub use contrix_core::{
         CAPABILITY_SCHEMA, CLIENT_SYNC_RESPONSE_SCHEMA, COMMIT_SCHEMA, CURSOR_SCHEMA,
         ENCRYPTED_PAYLOAD_SCHEMA, ENTITY_SCHEMA, EVENT_SCHEMA, GeneratedSchemaField,
-        GeneratedSchemaValidator, GeneratedSchemaValueType, OPERATION_SCHEMA,
-        ProtocolSchemaRegistry, SCHEMA_COMPATIBILITY_PROFILE, SUBJECT_SCHEMA,
+        GeneratedSchemaValidator, GeneratedSchemaValueType, FLOW_SCHEMA, OPERATION_SCHEMA,
+        ProtocolSchemaRegistry, SCHEMA_COMPATIBILITY_PROFILE,
         SchemaCompatibilityEntry, SchemaCompatibilityTable, VIEW_SCHEMA,
         schema_version_compatibility_table,
     };
@@ -503,7 +523,7 @@ pub mod protocol {
 
 pub const CORE_SCHEMA_IDS: &[&str] = &[
     CURSOR_SCHEMA,
-    SUBJECT_SCHEMA,
+    FLOW_SCHEMA,
     ENTITY_SCHEMA,
     VIEW_SCHEMA,
     EVENT_SCHEMA,
@@ -539,17 +559,15 @@ mod tests {
         let catalog = event_payload_validator_catalog();
         catalog
             .validate_payload(
-                "cx.card.move",
+                "cx.flow.move",
                 &json!({
-                    "board_id": "cx:entity:board",
-                    "card_id": "cx:entity:card",
-                    "from_list_id": "cx:entity:todo",
-                    "to_list_id": "cx:entity:doing"
+                    "flow_id": "cx:flow:01",
+                    "parent_id": "cx:space:01"
                 }),
             )
             .unwrap();
         assert!(matches!(
-            catalog.validate_payload("cx.card.move", &json!({"card_id": "cx:entity:card"})),
+            catalog.validate_payload("cx.flow.move", &json!({"parent_id": "cx:space:01"})),
             Err(Error::Protocol(_))
         ));
     }
@@ -613,6 +631,7 @@ mod tests {
             ("event", "cx:event:<ulid>"),
             ("operation", "cx:operation:<ulid>"),
             ("space", "cx:space:<ulid>"),
+            ("flow", "cx:flow:<ulid>"),
         ] {
             let entry = registry_entry(&bundle.id_kind_registry, "id_kinds", "kind", kind)
                 .unwrap_or_else(|| panic!("missing id kind {kind}"));

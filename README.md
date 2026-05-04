@@ -10,12 +10,16 @@ This repository contains the Rust SDK for Contrix v1. The public SDK surface is
 centered on:
 
 - DID principals
-- Space / ActorProfile / Entity / Relation / Event / View
+- Space / Flow / Message / Morph / Relation / Event / View
 - signed Event Envelopes as the canonical wire facts for durable history
 - Operations as SDK builders and offline draft objects before Event Envelope wrapping
 - capability grants and policy checks
 - MLS RFC 9420 group E2EE based on OpenMLS
 - Principal Server, Events, Sync, Index, Blob, Directory and Authz service surfaces
+
+The active v1 wire contract follows `contrix-spec/zh` plus `contrix-spec/artifacts`.
+All public SDK surfaces are expected to use `flow`, branch, relation and
+message semantics directly.
 
 ## Entry Point
 
@@ -59,7 +63,7 @@ The first Contrix crate currently includes:
 
 - v1 identifiers and protocol constants
 - canonical JSON and SHA-256 digest helpers
-- Space, ActorProfile, Subject, Entity, Relation, Event Envelope, View, Operation draft, Commit and Capability models
+- Space, ActorProfile, Flow, Message, Morph, Relation, Event Envelope, View, Operation draft, Commit and Capability models
 - protocol-shaped Query and Client Sync response models (`space_ids`, filter arrays, `spaces`)
 - Event Envelope and Commit digest payload calculation
 - HLC parsing and deterministic ordering
