@@ -205,7 +205,10 @@ pub use authz::{
     CapabilityFrontierValidation, CapabilityGrant, ClaimRequirement, Constraint,
     ConstraintDuration, ConstraintEffect, ConstraintEntry, FieldScope, GrantProposal,
     ModerationReport, PolicyCheckRequest, PolicyCheckResponse, PolicyServerEffect,
-    ProposalApproval, ProposalStatus, RateLimitScope, Recurrence, Resource, ResourceSelector,
+    ProposalApproval, ProposalStatus, ProtocolGrantApprovalRelation, ProtocolGrantClaimRequirement,
+    ProtocolGrantConstraint, ProtocolGrantConstraintBranch, ProtocolGrantConstraintEffect,
+    ProtocolGrantConstraintType, ProtocolResourceSelector, ProtocolResourceSelectorKind,
+    ProtocolResourceSelectorScope, RateLimitScope, Recurrence, Resource, ResourceSelector,
     ScopeLimitation, VerifiedClaim, apply_policy_response, capability_grants_from_space_state,
     grant_requires_approval, moderation_report_for_policy_outcome,
     reject_unknown_critical_constraints, validate_capability_frontier,
@@ -239,8 +242,11 @@ pub use crypto_store::{
 };
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub use devices::{
-    Device, DeviceChange, DeviceManager, DeviceMetadata, DeviceVerificationChallenge, KeyBackup,
-    QrVerificationPayload, ToDeviceEnvelope, device_verification_commitment,
+    Device, DeviceChange, DeviceManager, DeviceMessageEnvelope, DeviceMetadata,
+    DeviceVerificationChallenge, DeviceVerificationMessageContent,
+    DeviceVerificationMessageKind, KeyBackup, KeyBackupClass, KeyBackupContentItem,
+    KeyBackupEncryption, ProtocolKeyBackup, QrVerificationPayload, ToDeviceEnvelope,
+    device_verification_commitment,
 };
 #[cfg(feature = "full-surface")]
 pub use discovery::{DirectoryService, DirectoryUser, OpenGraphPreview, UrlPreviewCache};

@@ -121,11 +121,38 @@ pub struct DeviceListChanges {
 /// To-device message.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ToDeviceMessage {
+    /// Transaction ID if the server forwards a full `device-message` envelope.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub txn_id: Option<String>,
     /// Message type
     #[serde(rename = "type")]
     pub message_type: String,
+    /// Sender principal if the server forwards a full `device-message` envelope.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sender_principal_id: Option<Did>,
+    /// Sender device if the server forwards a full `device-message` envelope.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sender_device_id: Option<DeviceId>,
+    /// Recipient principal if the server forwards a full `device-message` envelope.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recipient_principal_id: Option<Did>,
+    /// Recipient device if the server forwards a full `device-message` envelope.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recipient_device_id: Option<DeviceId>,
+    /// Message send time if known.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sent_at: Option<DateTime<Utc>>,
+    /// Message expiry if known.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
     /// Message content
     pub content: Value,
+    /// Device proof if carried by the upstream envelope.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub device_proof: Option<Value>,
+    /// Unsigned service metadata if carried by the upstream envelope.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unsigned: Option<Value>,
 }
 
 /// Presence status.

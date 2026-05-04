@@ -91,6 +91,93 @@ pub struct ToDeviceEnvelope {
     pub queued_at: DateTime<Utc>,
 }
 
+/// Spec-aligned device message envelope facade from `cx.schema.device_message.v1`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct DeviceMessageEnvelope {
+    pub kind: String,
+    pub txn_id: String,
+    pub sender_principal_id: Did,
+    pub sender_device_id: DeviceId,
+    pub recipient_principal_id: Did,
+    pub recipient_device_id: DeviceId,
+    pub sent_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+    pub content: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub device_proof: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unsigned: Option<Value>,
+}
+
+/// Known `cx.key.verification.*` device message kinds.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DeviceVerificationMessageKind {
+    Request,
+    Ready,
+    Start,
+    Accept,
+    Key,
+    Mac,
+    Done,
+    Cancel,
+}
+
+impl DeviceVerificationMessageKind {
+    pub fn as_event_kind(&self) -> &'static str {
+        match self {
+            Self::Request => "cx.key.verification.request",
+            Self::Ready => "cx.key.verification.ready",
+            Self::Start => "cx.key.verification.start",
+            Self::Accept => "cx.key.verification.accept",
+            Self::Key => "cx.key.verification.key",
+            Self::Mac => "cx.key.verification.mac",
+            Self::Done => "cx.key.verification.done",
+            Self::Cancel => "cx.key.verification.cancel",
+        }
+    }
+}
+
+/// Schema-aligned verification message content scaffold.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct DeviceVerificationMessageContent {
+    pub transaction_id: String,
+    pub from_device: DeviceId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub method: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub methods: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timestamp: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub key_agreement_protocols: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hashes: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub message_authentication_codes: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub short_authentication_string: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub commitment: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mac: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub keys: Option<Value>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub verified_keys: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signatures: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub code: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
 /// Key backup record.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct KeyBackup {
@@ -112,6 +199,74 @@ pub struct KeyBackup {
     pub uploaded_at: DateTime<Utc>,
 }
 
+/// Schema-aligned encrypted key backup class.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum KeyBackupClass {
+    DidRecovery,
+    SecretStorage,
+    MlsHistory,
+}
+
+/// Schema-aligned backup encryption descriptor scaffold.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct KeyBackupEncryption {
+    pub recipient_method: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recipient_key_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kdf: Option<Value>,
+    pub aead: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key_commitment: Option<String>,
+}
+
+/// Schema-aligned backup content item scaffold.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct KeyBackupContentItem {
+    pub item_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub space_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mls_group_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub epoch: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub first_event_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_event_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub secret_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+/// Schema-aligned encrypted key backup facade from `cx.schema.key_backup.v1`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ProtocolKeyBackup {
+    pub backup_id: String,
+    pub actor_id: Did,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub device_id: Option<DeviceId>,
+    pub backup_class: KeyBackupClass,
+    pub backup_version: String,
+    pub created_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+    pub encryption: KeyBackupEncryption,
+    pub contents: Vec<KeyBackupContentItem>,
+    pub ciphertext: String,
+    pub ciphertext_digest: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub plaintext_commitment: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth_data: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retention: Option<Value>,
+}
+
 /// In-memory device manager.
 #[derive(Clone, Debug, Default)]
 pub struct DeviceManager {
@@ -119,6 +274,8 @@ pub struct DeviceManager {
     changes: Vec<DeviceChange>,
     to_device_queue: VecDeque<ToDeviceEnvelope>,
     key_backups: BTreeMap<String, KeyBackup>,
+    protocol_device_messages: VecDeque<DeviceMessageEnvelope>,
+    protocol_key_backups: BTreeMap<String, ProtocolKeyBackup>,
     verification_challenges: BTreeMap<String, DeviceVerificationChallenge>,
     revoked_devices: BTreeMap<Did, BTreeMap<DeviceId, DateTime<Utc>>>,
 }
@@ -210,6 +367,16 @@ impl DeviceManager {
     /// Drain queued to-device messages.
     pub fn drain_to_device(&mut self) -> Vec<ToDeviceEnvelope> {
         self.to_device_queue.drain(..).collect()
+    }
+
+    /// Queue a schema-aligned device message envelope.
+    pub fn queue_protocol_device_message(&mut self, message: DeviceMessageEnvelope) {
+        self.protocol_device_messages.push_back(message);
+    }
+
+    /// Drain schema-aligned device message envelopes.
+    pub fn drain_protocol_device_messages(&mut self) -> Vec<DeviceMessageEnvelope> {
+        self.protocol_device_messages.drain(..).collect()
     }
 
     /// Start device verification.
@@ -501,6 +668,30 @@ impl DeviceManager {
             return Err(Error::Protocol("key backup sender mismatch".to_owned()));
         }
         Ok(backup.payload.clone())
+    }
+
+    /// Store a schema-aligned encrypted key backup scaffold.
+    pub fn store_protocol_key_backup(&mut self, backup: ProtocolKeyBackup) -> Result<()> {
+        if backup.backup_id.trim().is_empty() {
+            return Err(Error::Protocol("protocol key backup backup_id must not be empty".to_owned()));
+        }
+        if backup.backup_version.trim().is_empty() {
+            return Err(Error::Protocol(
+                "protocol key backup backup_version must not be empty".to_owned(),
+            ));
+        }
+        if backup.ciphertext.trim().is_empty() || backup.ciphertext_digest.trim().is_empty() {
+            return Err(Error::Protocol(
+                "protocol key backup ciphertext and digest must not be empty".to_owned(),
+            ));
+        }
+        self.protocol_key_backups.insert(backup.backup_id.clone(), backup);
+        Ok(())
+    }
+
+    /// Get a schema-aligned encrypted key backup scaffold.
+    pub fn protocol_key_backup(&self, backup_id: &str) -> Option<&ProtocolKeyBackup> {
+        self.protocol_key_backups.get(backup_id)
     }
 
     fn set_verification(

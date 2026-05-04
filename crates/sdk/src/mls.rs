@@ -92,7 +92,14 @@ impl MlsAddMemberResult {
 
     pub fn welcome_to_device_message(&self) -> Result<ToDeviceMessage> {
         Ok(ToDeviceMessage {
+            txn_id: None,
             message_type: "cx.mls.welcome.v1".to_owned(),
+            sender_principal_id: None,
+            sender_device_id: None,
+            recipient_principal_id: None,
+            recipient_device_id: None,
+            sent_at: None,
+            expires_at: None,
             content: json!({
                 "group_id": self.welcome.group_id,
                 "epoch": self.welcome.epoch,
@@ -102,6 +109,8 @@ impl MlsAddMemberResult {
                 "welcome_hash": self.welcome.welcome_hash,
                 "ratchet_tree": self.welcome.ratchet_tree,
             }),
+            device_proof: None,
+            unsigned: None,
         })
     }
 }

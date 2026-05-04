@@ -71,6 +71,14 @@ pub const E2EE_KEY_REQUEST: &str = "cx.e2ee.key_request";
 pub const E2EE_SECRET_REQUEST: &str = "cx.e2ee.secret_request";
 pub const E2EE_SECRET_SEND: &str = "cx.e2ee.secret_send";
 pub const E2EE_VERIFICATION: &str = "cx.e2ee.verification";
+pub const KEY_VERIFICATION_REQUEST: &str = "cx.key.verification.request";
+pub const KEY_VERIFICATION_READY: &str = "cx.key.verification.ready";
+pub const KEY_VERIFICATION_START: &str = "cx.key.verification.start";
+pub const KEY_VERIFICATION_ACCEPT: &str = "cx.key.verification.accept";
+pub const KEY_VERIFICATION_KEY: &str = "cx.key.verification.key";
+pub const KEY_VERIFICATION_MAC: &str = "cx.key.verification.mac";
+pub const KEY_VERIFICATION_DONE: &str = "cx.key.verification.done";
+pub const KEY_VERIFICATION_CANCEL: &str = "cx.key.verification.cancel";
 
 pub const CALL_INVITE: &str = "cx.call.invite";
 pub const CALL_ANSWER: &str = "cx.call.answer";
@@ -157,7 +165,15 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
         | E2EE_KEY_REQUEST
         | E2EE_SECRET_REQUEST
         | E2EE_SECRET_SEND
-        | E2EE_VERIFICATION => EventClass::E2ee,
+        | E2EE_VERIFICATION
+        | KEY_VERIFICATION_REQUEST
+        | KEY_VERIFICATION_READY
+        | KEY_VERIFICATION_START
+        | KEY_VERIFICATION_ACCEPT
+        | KEY_VERIFICATION_KEY
+        | KEY_VERIFICATION_MAC
+        | KEY_VERIFICATION_DONE
+        | KEY_VERIFICATION_CANCEL => EventClass::E2ee,
         CALL_INVITE | CALL_ANSWER | CALL_CANDIDATES | CALL_HANGUP | CALL_NEGOTIATION
         | CALL_MEMBERSHIP | CALL_DEVICE_MAPPING => EventClass::Call,
         RTC_SESSION => EventClass::Rtc,
@@ -392,7 +408,15 @@ pub fn parse_event_content(kind: &str, content: Value) -> Result<AnyEventContent
         E2EE_KEY_REQUEST => KnownEventContent::KeyRequest(parse(content)?),
         E2EE_SECRET_REQUEST => KnownEventContent::SecretRequest(parse(content)?),
         E2EE_SECRET_SEND => KnownEventContent::SecretSend(parse(content)?),
-        E2EE_VERIFICATION => KnownEventContent::Verification(parse(content)?),
+        E2EE_VERIFICATION
+        | KEY_VERIFICATION_REQUEST
+        | KEY_VERIFICATION_READY
+        | KEY_VERIFICATION_START
+        | KEY_VERIFICATION_ACCEPT
+        | KEY_VERIFICATION_KEY
+        | KEY_VERIFICATION_MAC
+        | KEY_VERIFICATION_DONE
+        | KEY_VERIFICATION_CANCEL => KnownEventContent::Verification(parse(content)?),
         CALL_INVITE => KnownEventContent::CallInvite(parse(content)?),
         CALL_ANSWER => KnownEventContent::CallAnswer(parse(content)?),
         CALL_CANDIDATES => KnownEventContent::CallCandidates(parse(content)?),

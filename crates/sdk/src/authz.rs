@@ -12,7 +12,7 @@ use chrono::{
 use chrono_tz::Tz;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::{Did, Error, Result, SpaceId, model::EntityFacet};
 
@@ -418,6 +418,442 @@ impl ResourceSelector {
             _ => Err(Error::Protocol(format!("unknown selector type: {}", selector))),
         }
     }
+}
+
+/// Schema-aligned resource selector kind from `cx.schema.resource_selector.v1`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProtocolResourceSelectorKind {
+    Space,
+    Flow,
+    Message,
+    Morph,
+    Object,
+    Relation,
+    View,
+    Event,
+    Actor,
+    Schema,
+    Policy,
+    Invite,
+    Notification,
+    ReadMarker,
+    Blob,
+    Wildcard,
+}
+
+/// Scope field from `cx.schema.resource_selector.v1`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProtocolResourceSelectorScope {
+    Exact,
+    Subtree,
+    Children,
+    SpaceWide,
+}
+
+/// Schema-aligned selector facade used for REST/OpenAPI/scaffold surfaces.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProtocolResourceSelector {
+    pub kind: ProtocolResourceSelectorKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub space_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub object_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub object_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub flow_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub board_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub list_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub morph_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub morph_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub relation_kind: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub relation_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub view_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub actor_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub schema_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub policy_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub invite_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blob_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scope: Option<ProtocolResourceSelectorScope>,
+}
+
+impl ProtocolResourceSelector {
+    /// Minimal facade conversion from the current engine selector model.
+    pub fn from_engine(selector: &ResourceSelector) -> Self {
+        match selector {
+            ResourceSelector::Space { space_id } => Self {
+                kind: ProtocolResourceSelectorKind::Space,
+                space_id: Some(space_id.clone()),
+                object_type: None,
+                object_ref: None,
+                flow_id: None,
+                board_id: None,
+                list_id: None,
+                message_id: None,
+                morph_id: None,
+                morph_type: None,
+                relation_kind: None,
+                relation_id: None,
+                view_id: None,
+                event_id: None,
+                actor_id: None,
+                schema_ref: None,
+                policy_id: None,
+                invite_id: None,
+                blob_ref: None,
+                scope: None,
+            },
+            ResourceSelector::Flow { space_id, flow_id } => Self {
+                kind: ProtocolResourceSelectorKind::Flow,
+                space_id: Some(space_id.clone()),
+                flow_id: flow_id.clone(),
+                object_type: None,
+                object_ref: None,
+                board_id: None,
+                list_id: None,
+                message_id: None,
+                morph_id: None,
+                morph_type: None,
+                relation_kind: None,
+                relation_id: None,
+                view_id: None,
+                event_id: None,
+                actor_id: None,
+                schema_ref: None,
+                policy_id: None,
+                invite_id: None,
+                blob_ref: None,
+                scope: None,
+            },
+            ResourceSelector::Message { space_id, message_id } => Self {
+                kind: ProtocolResourceSelectorKind::Message,
+                space_id: Some(space_id.clone()),
+                message_id: message_id.clone(),
+                object_type: None,
+                object_ref: None,
+                flow_id: None,
+                board_id: None,
+                list_id: None,
+                morph_id: None,
+                morph_type: None,
+                relation_kind: None,
+                relation_id: None,
+                view_id: None,
+                event_id: None,
+                actor_id: None,
+                schema_ref: None,
+                policy_id: None,
+                invite_id: None,
+                blob_ref: None,
+                scope: None,
+            },
+            ResourceSelector::Relation { space_id, relation_kind } => Self {
+                kind: ProtocolResourceSelectorKind::Relation,
+                space_id: Some(space_id.clone()),
+                relation_kind: Some(relation_kind.clone()),
+                object_type: None,
+                object_ref: None,
+                flow_id: None,
+                board_id: None,
+                list_id: None,
+                message_id: None,
+                morph_id: None,
+                morph_type: None,
+                relation_id: None,
+                view_id: None,
+                event_id: None,
+                actor_id: None,
+                schema_ref: None,
+                policy_id: None,
+                invite_id: None,
+                blob_ref: None,
+                scope: None,
+            },
+            ResourceSelector::View { space_id, view_id } => Self {
+                kind: ProtocolResourceSelectorKind::View,
+                space_id: Some(space_id.clone()),
+                view_id: view_id.clone(),
+                object_type: None,
+                object_ref: None,
+                flow_id: None,
+                board_id: None,
+                list_id: None,
+                message_id: None,
+                morph_id: None,
+                morph_type: None,
+                relation_kind: None,
+                relation_id: None,
+                event_id: None,
+                actor_id: None,
+                schema_ref: None,
+                policy_id: None,
+                invite_id: None,
+                blob_ref: None,
+                scope: None,
+            },
+            ResourceSelector::Schema { space_id, schema_id } => Self {
+                kind: ProtocolResourceSelectorKind::Schema,
+                space_id: Some(space_id.clone()),
+                schema_ref: schema_id.clone(),
+                object_type: None,
+                object_ref: None,
+                flow_id: None,
+                board_id: None,
+                list_id: None,
+                message_id: None,
+                morph_id: None,
+                morph_type: None,
+                relation_kind: None,
+                relation_id: None,
+                view_id: None,
+                event_id: None,
+                actor_id: None,
+                policy_id: None,
+                invite_id: None,
+                blob_ref: None,
+                scope: None,
+            },
+            ResourceSelector::Policy { space_id, policy_id } => Self {
+                kind: ProtocolResourceSelectorKind::Policy,
+                space_id: Some(space_id.clone()),
+                policy_id: policy_id.clone(),
+                object_type: None,
+                object_ref: None,
+                flow_id: None,
+                board_id: None,
+                list_id: None,
+                message_id: None,
+                morph_id: None,
+                morph_type: None,
+                relation_kind: None,
+                relation_id: None,
+                view_id: None,
+                event_id: None,
+                actor_id: None,
+                schema_ref: None,
+                invite_id: None,
+                blob_ref: None,
+                scope: None,
+            },
+            ResourceSelector::Invite { space_id, invite_id } => Self {
+                kind: ProtocolResourceSelectorKind::Invite,
+                space_id: Some(space_id.clone()),
+                invite_id: invite_id.clone(),
+                object_type: None,
+                object_ref: None,
+                flow_id: None,
+                board_id: None,
+                list_id: None,
+                message_id: None,
+                morph_id: None,
+                morph_type: None,
+                relation_kind: None,
+                relation_id: None,
+                view_id: None,
+                event_id: None,
+                actor_id: None,
+                schema_ref: None,
+                policy_id: None,
+                blob_ref: None,
+                scope: None,
+            },
+            ResourceSelector::ReadMarker { space_id } => Self {
+                kind: ProtocolResourceSelectorKind::ReadMarker,
+                space_id: Some(space_id.clone()),
+                object_type: None,
+                object_ref: None,
+                flow_id: None,
+                board_id: None,
+                list_id: None,
+                message_id: None,
+                morph_id: None,
+                morph_type: None,
+                relation_kind: None,
+                relation_id: None,
+                view_id: None,
+                event_id: None,
+                actor_id: None,
+                schema_ref: None,
+                policy_id: None,
+                invite_id: None,
+                blob_ref: None,
+                scope: None,
+            },
+            _ => Self {
+                kind: ProtocolResourceSelectorKind::Wildcard,
+                space_id: None,
+                object_type: None,
+                object_ref: None,
+                flow_id: None,
+                board_id: None,
+                list_id: None,
+                message_id: None,
+                morph_id: None,
+                morph_type: None,
+                relation_kind: None,
+                relation_id: None,
+                view_id: None,
+                event_id: None,
+                actor_id: None,
+                schema_ref: None,
+                policy_id: None,
+                invite_id: None,
+                blob_ref: None,
+                scope: None,
+            },
+        }
+    }
+}
+
+/// Schema-aligned constraint type from `cx.schema.grant_constraint.v1`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProtocolGrantConstraintType {
+    Temporal,
+    FieldAccess,
+    TypeRestriction,
+    ScopeLimitation,
+    DelegationControl,
+    RateLimiting,
+    ApprovalWorkflow,
+    ClaimBased,
+    Accountability,
+    EncryptionRequirement,
+    ContainerMove,
+}
+
+/// Schema-aligned constraint effect from `cx.schema.grant_constraint.v1`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProtocolGrantConstraintEffect {
+    Allow,
+    Deny,
+    Quarantine,
+    RequireReview,
+}
+
+/// Schema-aligned branch selector inside grant constraints.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProtocolGrantConstraintBranch {
+    Synthesis,
+    Discussion,
+}
+
+/// Schema-aligned approval relation.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProtocolGrantApprovalRelation {
+    Responsible,
+    Controller,
+    Guardian,
+    SpaceAdmin,
+    Custom,
+}
+
+/// Schema-aligned claim requirement.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ProtocolGrantClaimRequirement {
+    pub claim_type: String,
+    pub issuer: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub organization: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub roles: Vec<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub extra: BTreeMap<String, Value>,
+}
+
+/// Schema-aligned grant-constraint facade used by REST/OpenAPI/scaffold surfaces.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ProtocolGrantConstraint {
+    pub constraint_type: ProtocolGrantConstraintType,
+    pub effect: ProtocolGrantConstraintEffect,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub priority: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub not_before: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub fields_write_allow: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub fields_write_deny: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub object_type_allow: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub object_type_deny: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub space_kind_allow: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub space_kind_deny: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub flow_kind_allow: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub flow_kind_deny: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub flow_semantic_kind_allow: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub flow_semantic_kind_deny: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub morph_type_allow: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub morph_type_deny: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub facet_allow: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub facet_deny: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub allowed_view_refs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub relation_kind_allow: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub allowed_from_container_refs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub allowed_to_container_refs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wip_limit_override: Option<bool>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub denied_view_kinds: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub allowed_branches: Vec<ProtocolGrantConstraintBranch>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub denied_branches: Vec<ProtocolGrantConstraintBranch>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_delegation_depth: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub approval_required: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub approval_mode: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub approval_actor_refs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub approval_relation: Option<ProtocolGrantApprovalRelation>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub requires_claims: Vec<ProtocolGrantClaimRequirement>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub extra: BTreeMap<String, Value>,
 }
 
 fn split_space_tail(remainder: &str, selector: &str) -> Result<(String, Option<String>)> {

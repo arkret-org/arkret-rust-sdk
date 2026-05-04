@@ -1725,8 +1725,17 @@ mod tests {
             },
         );
         response.to_device.push(ToDeviceMessage {
+            txn_id: None,
             message_type: "m.test".to_owned(),
             content: json!({"ok":true}),
+            sender_principal_id: None,
+            sender_device_id: None,
+            recipient_principal_id: None,
+            recipient_device_id: None,
+            sent_at: None,
+            expires_at: None,
+            device_proof: None,
+            unsigned: None,
         });
         response.device_lists.changed.push("did:web:alice.example".to_owned());
         response.presence.push(PresenceEvent {

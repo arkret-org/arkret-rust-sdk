@@ -38,6 +38,10 @@ pub const OPERATION_SCHEMA: &str = "cx.schema.operation.v1";
 pub const BLOB_SCHEMA: &str = "cx.schema.blob.v1";
 pub const ENCRYPTED_PAYLOAD_SCHEMA: &str = "cx.schema.encrypted_payload.v1";
 pub const CLIENT_SYNC_RESPONSE_SCHEMA: &str = "cx.schema.client_sync_response.v1";
+pub const RESOURCE_SELECTOR_SCHEMA: &str = "cx.schema.resource_selector.v1";
+pub const GRANT_CONSTRAINT_SCHEMA: &str = "cx.schema.grant_constraint.v1";
+pub const DEVICE_MESSAGE_SCHEMA: &str = "cx.schema.device_message.v1";
+pub const KEY_BACKUP_SCHEMA: &str = "cx.schema.key_backup.v1";
 
 // ── Canonical cx.* operation kinds ──────────────────────────────────────────
 /// Entity CRUD operations.
@@ -118,6 +122,16 @@ pub const OP_PUSH_NOTIFY: &str = "cx.push.notify";
 pub const OP_KEYS_UPLOAD: &str = "cx.keys.upload";
 pub const OP_KEYS_QUERY: &str = "cx.keys.query";
 pub const OP_KEYS_CLAIM: &str = "cx.keys.claim";
+pub const OP_DEVICE_MESSAGES_PUT: &str = "cx.device_messages.put";
+pub const OP_DEVICE_MESSAGES_GET: &str = "cx.device_messages.get";
+pub const OP_KEYS_KEYPACKAGES_UPLOAD: &str = "cx.keys.keypackages.upload";
+pub const OP_KEYS_KEYPACKAGES_CLAIM: &str = "cx.keys.keypackages.claim";
+pub const OP_KEYS_KEYPACKAGES_CONSUME: &str = "cx.keys.keypackages.consume";
+pub const OP_KEYS_KEYPACKAGES_REVOKE: &str = "cx.keys.keypackages.revoke";
+pub const OP_KEYS_BACKUPS_PUT: &str = "cx.keys.backups.put";
+pub const OP_KEYS_BACKUPS_LIST: &str = "cx.keys.backups.list";
+pub const OP_KEYS_BACKUPS_GET: &str = "cx.keys.backups.get";
+pub const OP_KEYS_BACKUPS_DELETE: &str = "cx.keys.backups.delete";
 
 /// Authorization check.
 pub const OP_AUTHZ_CHECK: &str = "cx.authz.check";
@@ -177,6 +191,16 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_KEYS_UPLOAD,
     OP_KEYS_QUERY,
     OP_KEYS_CLAIM,
+    OP_DEVICE_MESSAGES_PUT,
+    OP_DEVICE_MESSAGES_GET,
+    OP_KEYS_KEYPACKAGES_UPLOAD,
+    OP_KEYS_KEYPACKAGES_CLAIM,
+    OP_KEYS_KEYPACKAGES_CONSUME,
+    OP_KEYS_KEYPACKAGES_REVOKE,
+    OP_KEYS_BACKUPS_PUT,
+    OP_KEYS_BACKUPS_LIST,
+    OP_KEYS_BACKUPS_GET,
+    OP_KEYS_BACKUPS_DELETE,
     OP_AUTHZ_CHECK,
 ];
 
@@ -312,6 +336,27 @@ fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         .map(str::to_owned)
         .collect(),
         OP_MESSAGE_CREATE => vec!["body".to_owned()],
+        OP_DEVICE_MESSAGES_PUT => [
+            "txn_id",
+            "kind",
+            "recipient_principal_id",
+            "recipient_device_id",
+            "content",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect(),
+        OP_KEYS_BACKUPS_PUT => [
+            "backup_id",
+            "actor_id",
+            "backup_class",
+            "backup_version",
+            "ciphertext",
+            "ciphertext_digest",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect(),
         _ => Vec::new(),
     }
 }
@@ -4423,9 +4468,27 @@ pub struct DeviceMessagesSendRequest {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ToDeviceMessage {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub txn_id: Option<String>,
     #[serde(rename = "type")]
     pub message_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sender_principal_id: Option<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sender_device_id: Option<DeviceId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recipient_principal_id: Option<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recipient_device_id: Option<DeviceId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sent_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
     pub content: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub device_proof: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unsigned: Option<Value>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
