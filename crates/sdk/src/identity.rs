@@ -20,6 +20,83 @@ pub trait DidResolver {
     fn resolve_did(&self, did: &Did) -> Result<DidDocument>;
 }
 
+/// Policy controlling DID resolution per `identity-handles.md` §5 /
+/// `device-lifecycle.md` §4.
+///
+/// `allowed_methods` and `default_principal_method` MUST be applied
+/// before dispatching a resolver, so a misconfigured peer can't smuggle
+/// a `did:bogus:` through. `trust_roots` is method-specific (e.g. for
+/// `did:web` it's a list of accepted authorities; for `did:keri` it's
+/// a list of witness DIDs). `ttl` bounds the cache lifetime; `fail_mode`
+/// decides whether to return stale cache entries when the upstream is
+/// unreachable.
+#[derive(Clone, Debug)]
+pub struct ResolverPolicy {
+    /// DID method prefixes (e.g. `"did:web:"`, `"did:key:"`) the
+    /// resolver is allowed to dispatch. An empty allow list means
+    /// "any method"; that's only safe for trusted contexts.
+    pub allowed_methods: Vec<String>,
+    /// Default method prefix for principal IDs (`actor_id`). Resolution
+    /// of an actor that doesn't carry its own method MUST use this.
+    pub default_principal_method: Option<String>,
+    /// Trust roots accepted for the active method. Interpretation is
+    /// up to the underlying resolver implementation.
+    pub trust_roots: Vec<String>,
+    /// Maximum lifetime of a cached resolution. `None` disables caching.
+    pub ttl: Option<chrono::Duration>,
+    /// Fail-mode for upstream errors.
+    pub fail_mode: ResolverFailMode,
+}
+
+/// Behavior when DID resolution fails (network outage, signature
+/// mismatch, etc.).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum ResolverFailMode {
+    /// Refuse to use any cached state. Safest default.
+    #[default]
+    FailClosed,
+    /// Allow returning a still-valid cache hit (within TTL) on
+    /// transient upstream errors.
+    AllowCachedOnError,
+}
+
+impl Default for ResolverPolicy {
+    fn default() -> Self {
+        Self {
+            allowed_methods: Vec::new(),
+            default_principal_method: None,
+            trust_roots: Vec::new(),
+            ttl: Some(chrono::Duration::minutes(15)),
+            fail_mode: ResolverFailMode::FailClosed,
+        }
+    }
+}
+
+impl ResolverPolicy {
+    /// Whether `did` is permitted by `allowed_methods`.
+    pub fn permits(&self, did: &Did) -> bool {
+        if self.allowed_methods.is_empty() {
+            return true;
+        }
+        let s = did.as_str();
+        self.allowed_methods.iter().any(|prefix| s.starts_with(prefix))
+    }
+
+    /// Validate `did` against the policy. Returns
+    /// `Err(Error::Protocol("unauthorized_method"))` when the method is
+    /// not in the allow list.
+    pub fn validate(&self, did: &Did) -> Result<()> {
+        if self.permits(did) {
+            Ok(())
+        } else {
+            Err(Error::Protocol(format!(
+                "unauthorized_method: '{}' not in resolver allow list",
+                did.as_str()
+            )))
+        }
+    }
+}
+
 /// Minimal DID document model used by the SDK.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DidDocument {
@@ -334,12 +411,24 @@ impl DidResolver for DidKeyResolver {
 #[derive(Default)]
 pub struct CompositeDidResolver {
     resolvers: Vec<Box<dyn DidResolver + Send + Sync>>,
+    policy: ResolverPolicy,
 }
 
 impl CompositeDidResolver {
     /// Create an empty resolver chain.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Replace the active [`ResolverPolicy`].
+    pub fn with_policy(mut self, policy: ResolverPolicy) -> Self {
+        self.policy = policy;
+        self
+    }
+
+    /// Read the active policy.
+    pub fn policy(&self) -> &ResolverPolicy {
+        &self.policy
     }
 
     /// Append a resolver adapter.
@@ -355,16 +444,19 @@ impl std::fmt::Debug for CompositeDidResolver {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CompositeDidResolver")
             .field("resolver_count", &self.resolvers.len())
+            .field("policy", &self.policy)
             .finish()
     }
 }
 
 impl DidResolver for CompositeDidResolver {
     fn supports(&self, did: &Did) -> bool {
-        self.resolvers.iter().any(|resolver| resolver.supports(did))
+        self.policy.permits(did)
+            && self.resolvers.iter().any(|resolver| resolver.supports(did))
     }
 
     fn resolve_did(&self, did: &Did) -> Result<DidDocument> {
+        self.policy.validate(did)?;
         self.resolvers
             .iter()
             .find(|resolver| resolver.supports(did))
@@ -1132,6 +1224,106 @@ impl ExternalHandleProof {
         } else {
             Err(Error::Protocol("handle proof mismatch".to_owned()))
         }
+    }
+}
+
+/// Verified handle ↔ DID binding cached after bidirectional verification
+/// per `identity-handles.md` §6.1.
+///
+/// A binding is only valid when **both** directions agree:
+///
+/// - The DID's resolved document lists the handle in `alsoKnownAs`, and
+/// - The handle's external proof (DNS TXT, well-known, etc.) names the
+///   same DID.
+///
+/// The cache key MUST cover everything that could shift the binding —
+/// `handle`, `did`, `document_hash`, `also_known_as_proof`, `expires_at`,
+/// and the `resolver_policy` digest. Bindings reused across resolver
+/// policies could otherwise leak across trust boundaries.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VerifiedHandleBinding {
+    pub handle: String,
+    pub did: Did,
+    /// Canonical SHA-256 of the resolved DID document at verification time.
+    pub document_hash: String,
+    /// External proof linking the handle to the DID
+    /// (DNS TXT body, well-known body, etc.).
+    pub also_known_as_proof: String,
+    /// Cache expiry; bindings MUST be re-verified after.
+    pub expires_at: DateTime<Utc>,
+    /// Digest of the [`ResolverPolicy`] under which this binding was
+    /// produced. Bindings with mismatched digests MUST NOT be reused.
+    pub resolver_policy_digest: String,
+}
+
+impl VerifiedHandleBinding {
+    /// Compute the canonical cache key for this binding.
+    pub fn cache_key(&self) -> String {
+        format!(
+            "{}|{}|{}|{}|{}|{}",
+            self.handle,
+            self.did.as_str(),
+            self.document_hash,
+            sha256_hex(self.also_known_as_proof.as_bytes()),
+            self.expires_at.to_rfc3339(),
+            self.resolver_policy_digest
+        )
+    }
+
+    /// Whether the binding has expired at `now`.
+    pub fn is_expired(&self, now: DateTime<Utc>) -> bool {
+        now >= self.expires_at
+    }
+
+    /// Validate the bidirectional consistency:
+    ///
+    /// 1. `document` MUST list `handle` in `alsoKnownAs`;
+    /// 2. `handle_proof` MUST validate against the same DID;
+    /// 3. `document_hash` MUST match the canonical hash of `document`.
+    ///
+    /// On success, returns a fresh binding with the supplied `expires_at`
+    /// and `resolver_policy_digest`.
+    pub fn verify(
+        handle: &str,
+        document: &DidDocument,
+        handle_proof: &ExternalHandleProof,
+        also_known_as_proof: impl Into<String>,
+        expires_at: DateTime<Utc>,
+        resolver_policy_digest: impl Into<String>,
+    ) -> Result<Self> {
+        let normalized = normalize_handle(handle);
+        if handle_proof.handle != normalized {
+            return Err(Error::Protocol(
+                "handle in proof does not match requested handle".to_owned(),
+            ));
+        }
+        if handle_proof.user_id != document.id {
+            return Err(Error::Protocol(
+                "handle proof DID does not match document subject".to_owned(),
+            ));
+        }
+        if !document.also_known_as.iter().any(|aka| {
+            normalize_handle(aka) == normalized
+                || aka.trim_end_matches('/').ends_with(&normalized)
+        }) {
+            return Err(Error::Protocol(
+                "did document does not list handle in alsoKnownAs".to_owned(),
+            ));
+        }
+        handle_proof.validate()?;
+
+        let document_hash = sha256_hex(
+            &contrix_core::canonical::canonical_json_bytes(document)?,
+        );
+
+        Ok(Self {
+            handle: normalized,
+            did: document.id.clone(),
+            document_hash: format!("sha256:{}", document_hash),
+            also_known_as_proof: also_known_as_proof.into(),
+            expires_at,
+            resolver_policy_digest: resolver_policy_digest.into(),
+        })
     }
 }
 

@@ -91,6 +91,41 @@ impl PresenceManager {
             .collect()
     }
 
+    /// Default presence TTL (5 minutes).
+    ///
+    /// Users with no `last_active` update within this window are
+    /// transitioned from `Online`/`Unavailable`/`Idle` to `Offline`
+    /// when [`Self::expire_idle_presence`] runs. Spec value lives in
+    /// `service-surface.md`; the SDK ships with the conservative
+    /// 5-minute default and the constant is exposed for callers that
+    /// want to tighten or relax the window.
+    pub const DEFAULT_TTL: chrono::Duration = chrono::Duration::minutes(5);
+
+    /// Transition stale `Online` / `Unavailable` / `Idle` entries to
+    /// `Offline` when their `last_active` is older than `ttl` relative
+    /// to `now`. Returns the number of entries that were flipped.
+    ///
+    /// Callers SHOULD invoke this on a tick (e.g. every 60 s) — the
+    /// SDK does not spawn its own background task.
+    pub fn expire_idle_presence(&self, now: DateTime<Utc>, ttl: chrono::Duration) -> usize {
+        let mut map = self.presence.write().unwrap();
+        let mut flipped = 0;
+        for entry in map.values_mut() {
+            if entry.status == PresenceStatus::Offline {
+                continue;
+            }
+            let stale = match entry.last_active {
+                Some(last) => now.signed_duration_since(last) >= ttl,
+                None => true,
+            };
+            if stale {
+                entry.status = PresenceStatus::Offline;
+                flipped += 1;
+            }
+        }
+        flipped
+    }
+
     /// Get all users with a specific status.
     pub fn users_with_status(&self, status: PresenceStatus) -> Vec<Presence> {
         self.presence.read().unwrap().values().filter(|p| p.status == status).cloned().collect()

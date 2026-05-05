@@ -264,11 +264,15 @@ impl ContrixMlsIdentity {
         let key_package_hash = Hash::new(canonical::sha256_digest(&key_package_bytes))?;
 
         Ok(MlsKeyPackageRecord {
+            keypackage_id: Some(format!("cx:mls:kp:{}", ulid::Ulid::new())),
             principal_id: self.principal_id.clone(),
             device_id: self.device_id.clone(),
             key_package: encode(&key_package_bytes),
             key_package_hash,
             cipher_suites: vec![format!("{CONTRIX_MLS_CIPHERSUITE:?}")],
+            capabilities: Vec::new(),
+            state: contrix_core::MlsKeyPackageState::Published,
+            claim_id: None,
             created_at: Utc::now(),
             expires_at: None,
             revoked: false,
@@ -426,6 +430,7 @@ impl ContrixMlsGroup {
                 commit: encode(&commit_bytes),
                 commit_hash: Hash::new(canonical::sha256_digest(&commit_bytes))?,
                 ratchet_tree: ratchet_tree.clone(),
+                app_state_ref: None,
             },
             welcome: MlsWelcomeEnvelope {
                 group_id: self.group_id(),
@@ -522,7 +527,10 @@ impl ContrixMlsGroup {
             ciphertext: encode(&message_bytes),
             aad,
             payload_digest,
-            key_ref: Some(format!("mls_epoch:{epoch}")),
+            key_ref: Some(contrix_core::EncryptedPayloadKeyRef::mls_rfc9420(
+                self.group_id(),
+                epoch,
+            )),
         })
     }
 

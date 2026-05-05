@@ -3119,6 +3119,10 @@ mod tests {
                             supported_schema_profiles: vec![],
                             auth_metadata: Value::Null,
                             limits: Value::Null,
+                            frontier: Vec::new(),
+                            snapshot_frontier: Vec::new(),
+                            reducer_profile: None,
+                            last_materialized_at: None,
                         }))
                     }
                     _ => Err(contrix_core::Error::Protocol(

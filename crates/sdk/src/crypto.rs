@@ -16,13 +16,73 @@ pub const REDACTED_SECRET: &str = "<redacted>";
 const NONCE_LEN: usize = 24;
 
 /// Canonical AAD shape for encrypted timeline and operation envelopes.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// Wire form per `crypto-media/encrypted-envelope-schema.md` §2: the
+/// canonical field name is `event_kind`. `event_type` is accepted on input
+/// for backward compatibility (deprecated; M-01 in spec `_report.md`) but
+/// is **never** emitted on serialization, and an envelope that carries
+/// both `event_kind` and a non-matching `event_type` is rejected on
+/// deserialization with `aad_ambiguous_kind`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct EncryptedEnvelopeAad {
     pub space_id: String,
-    pub event_type: String,
+    /// Canonical event kind (`cx.<category>.<verb>`). Wire field name
+    /// `event_kind`; legacy decoders that wrote `event_type` are accepted
+    /// on input.
+    #[serde(rename = "event_kind")]
+    pub event_kind: String,
     pub event_id: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub causal_refs: Vec<String>,
+}
+
+impl EncryptedEnvelopeAad {
+    /// Backward-compatible accessor — kept so existing call sites that
+    /// still read `aad.event_type` continue to compile during migration.
+    /// Prefer `aad.event_kind` going forward.
+    #[deprecated(note = "use `event_kind` (renamed per spec encrypted-envelope-schema.md §2.2)")]
+    pub fn event_type(&self) -> &str {
+        &self.event_kind
+    }
+}
+
+impl<'de> Deserialize<'de> for EncryptedEnvelopeAad {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct Repr {
+            space_id: String,
+            #[serde(default)]
+            event_kind: Option<String>,
+            #[serde(default)]
+            event_type: Option<String>,
+            event_id: String,
+            #[serde(default)]
+            causal_refs: Vec<String>,
+        }
+        let r = Repr::deserialize(deserializer)?;
+        let event_kind = match (r.event_kind, r.event_type) {
+            (Some(k), None) => k,
+            (None, Some(t)) => t,
+            (Some(k), Some(t)) if k == t => k,
+            (Some(_), Some(_)) => {
+                return Err(serde::de::Error::custom(
+                    "aad_ambiguous_kind: event_kind and event_type both set with different values",
+                ));
+            }
+            (None, None) => {
+                return Err(serde::de::Error::missing_field("event_kind"));
+            }
+        };
+        Ok(EncryptedEnvelopeAad {
+            space_id: r.space_id,
+            event_kind,
+            event_id: r.event_id,
+            causal_refs: r.causal_refs,
+        })
+    }
 }
 
 /// Digest report used by callers that store AAD digest separately from ciphertext.
@@ -441,7 +501,7 @@ mod tests {
     fn encrypted_envelope_aad_digest_is_canonical() {
         let aad = EncryptedEnvelopeAad {
             space_id: "cx:space:01JS0SP000000000000000000".to_owned(),
-            event_type: "cx.message.create".to_owned(),
+            event_kind: "cx.message.create".to_owned(),
             event_id: "cx:event:01JS0EV000000000000000000".to_owned(),
             causal_refs: vec!["cx:event:01JS0PARENT0000000000000".to_owned()],
         };
@@ -623,7 +683,7 @@ mod tests {
     fn canonical_digest_is_deterministic_for_same_input() {
         let aad = EncryptedEnvelopeAad {
             space_id: "cx:space:test".to_owned(),
-            event_type: "cx.message.create".to_owned(),
+            event_kind: "cx.message.create".to_owned(),
             event_id: "cx:event:test".to_owned(),
             causal_refs: vec![],
         };
@@ -637,13 +697,13 @@ mod tests {
     fn canonical_digest_differs_for_different_inputs() {
         let aad1 = EncryptedEnvelopeAad {
             space_id: "cx:space:A".to_owned(),
-            event_type: "cx.message.create".to_owned(),
+            event_kind: "cx.message.create".to_owned(),
             event_id: "cx:event:1".to_owned(),
             causal_refs: vec![],
         };
         let aad2 = EncryptedEnvelopeAad {
             space_id: "cx:space:B".to_owned(),
-            event_type: "cx.message.create".to_owned(),
+            event_kind: "cx.message.create".to_owned(),
             event_id: "cx:event:1".to_owned(),
             causal_refs: vec![],
         };

@@ -415,6 +415,53 @@ pub fn content_digest_sha256(bytes: &[u8]) -> String {
     format!("sha256:{:x}", hasher.finalize())
 }
 
+/// Build the value of the RFC 9530 `Content-Digest` header
+/// (`sha-256=:<base64>:`).
+///
+/// Federation defaults to the legacy `sha256:<hex>` form via
+/// [`content_digest_sha256`]; HTTP message signing per RFC 9421 expects
+/// the RFC 9530 dictionary form, which this helper produces. The output
+/// is suitable for direct insertion into a `Content-Digest:` header.
+pub fn rfc9530_content_digest_sha256(bytes: &[u8]) -> String {
+    use base64::Engine;
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    let digest = hasher.finalize();
+    let b64 = base64::engine::general_purpose::STANDARD.encode(digest);
+    format!("sha-256=:{}:", b64)
+}
+
+/// Verify an RFC 9530 `Content-Digest` header against the body bytes.
+///
+/// Accepts a single dictionary entry of the form `sha-256=:<base64>:`.
+/// Returns `Ok(())` when the digest matches, otherwise an
+/// `Error::Protocol` carrying `digest_mismatch`.
+pub fn verify_rfc9530_content_digest(header_value: &str, bytes: &[u8]) -> crate::Result<()> {
+    use base64::Engine;
+    let trimmed = header_value.trim();
+    let body = trimmed
+        .strip_prefix("sha-256=:")
+        .and_then(|s| s.strip_suffix(':'))
+        .ok_or_else(|| {
+            crate::Error::Protocol(format!(
+                "digest_mismatch: unsupported Content-Digest format: {trimmed}"
+            ))
+        })?;
+    let provided = base64::engine::general_purpose::STANDARD.decode(body).map_err(|err| {
+        crate::Error::Protocol(format!("digest_mismatch: bad base64 in Content-Digest: {err}"))
+    })?;
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    let expected = hasher.finalize();
+    if expected.as_slice() == provided.as_slice() {
+        Ok(())
+    } else {
+        Err(crate::Error::Protocol(
+            "digest_mismatch: Content-Digest does not match body".to_owned(),
+        ))
+    }
+}
+
 pub fn http_message_signature_base(input: &HttpMessageSignatureInput) -> String {
     format!(
         "method:{}\ntarget-uri:{}\nauthority:{}\ncontent-digest:{}\norigin-service-did:{}\ndestination-service-did:{}\ncreated:{}\nexpires:{}",
@@ -427,6 +474,62 @@ pub fn http_message_signature_base(input: &HttpMessageSignatureInput) -> String 
         input.created_at.to_rfc3339(),
         input.expires_at.to_rfc3339()
     )
+}
+
+/// Build the canonical RFC 9421 signature base string for federation
+/// HTTP messages (B-06).
+///
+/// RFC 9421 §2 formats each component as `"<name>": <value>` followed
+/// by a `@signature-params` line. This helper emits the v1 federation
+/// component set (`@method`, `@target-uri`, `@authority`,
+/// `content-digest`, plus the Contrix-specific origin / destination
+/// DIDs) under the canonical RFC 9421 quoting rule.
+///
+/// `created_at` / `expires_at` are emitted as Unix-second integers
+/// inside `@signature-params` per RFC 9421 §2.5.
+pub fn rfc9421_http_message_signature_base(input: &HttpMessageSignatureInput) -> String {
+    let mut out = String::new();
+    out.push_str(&format!(
+        "\"@method\": {}\n",
+        input.method.to_ascii_uppercase()
+    ));
+    out.push_str(&format!("\"@target-uri\": {}\n", input.target_uri));
+    out.push_str(&format!("\"@authority\": {}\n", input.authority));
+    out.push_str(&format!("\"content-digest\": {}\n", input.content_digest));
+    out.push_str(&format!(
+        "\"origin-service-did\": {}\n",
+        input.origin_service_did
+    ));
+    out.push_str(&format!(
+        "\"destination-service-did\": {}\n",
+        input.destination_service_did
+    ));
+    out.push_str(&format!(
+        "\"@signature-params\": (\"@method\" \"@target-uri\" \"@authority\" \"content-digest\" \"origin-service-did\" \"destination-service-did\");created={};expires={}",
+        input.created_at.timestamp(),
+        input.expires_at.timestamp()
+    ));
+    out
+}
+
+/// Verify an HTTP message signature using either the canonical RFC 9421
+/// transcript or the legacy v0 transcript. Useful during the rollover
+/// window when peers run a mix of versions.
+pub fn verify_http_message_signature_either(
+    input: &HttpMessageSignatureInput,
+    signature: &HttpMessageSignature,
+    verification_key: &str,
+    now: DateTime<Utc>,
+) -> bool {
+    if now > input.expires_at {
+        return false;
+    }
+    let canonical = signature_digest(
+        &rfc9421_http_message_signature_base(input),
+        verification_key,
+    );
+    let legacy = signature_digest(&http_message_signature_base(input), verification_key);
+    signature.signature == canonical || signature.signature == legacy
 }
 
 pub fn sign_http_message(
@@ -545,6 +648,54 @@ pub fn fork_quarantine_record(
         observed_digest: Some(observed_digest.into()),
         reason: "same logical object observed with conflicting digest".to_owned(),
     })
+}
+
+/// Per-`(actor, actor_seq)` ledger of accepted event IDs used to detect
+/// commit forks during federation pull/push (federation.md §replay).
+///
+/// When a peer replays the same `actor_seq` with a different `event_id`,
+/// that's a CommitFork — the second event MUST be quarantined and the
+/// originating actor MUST be flagged for cross-instance investigation.
+#[derive(Clone, Debug, Default)]
+pub struct ActorSeqLedger {
+    seen: std::collections::BTreeMap<(crate::Did, u64), crate::EventId>,
+}
+
+impl ActorSeqLedger {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Record an `(actor, actor_seq, event_id)` triple. Returns:
+    ///
+    /// - `Ok(None)` for first-seen or idempotent duplicates;
+    /// - `Ok(Some(record))` when the same `actor_seq` is replayed with a
+    ///   different `event_id` (the caller MUST refuse to apply the new
+    ///   event and SHOULD persist the returned `FederationQuarantineRecord`);
+    /// - `Err` is reserved for future structural validation; currently
+    ///   never returned.
+    pub fn observe(
+        &mut self,
+        actor_id: crate::Did,
+        actor_seq: u64,
+        event_id: crate::EventId,
+    ) -> Result<Option<FederationQuarantineRecord>> {
+        let key = (actor_id, actor_seq);
+        if let Some(prev) = self.seen.get(&key) {
+            if prev == &event_id {
+                return Ok(None);
+            }
+            let record = fork_quarantine_record(
+                FederationQuarantineKind::CommitFork,
+                format!("{}#{}", key.0.as_str(), actor_seq),
+                prev.as_str(),
+                event_id.as_str(),
+            )?;
+            return Ok(Some(record));
+        }
+        self.seen.insert(key, event_id);
+        Ok(None)
+    }
 }
 
 pub fn verify_actor_challenge_payload(challenge: &VerifyActorChallenge) -> String {

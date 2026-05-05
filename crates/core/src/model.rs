@@ -42,6 +42,10 @@ pub const RESOURCE_SELECTOR_SCHEMA: &str = "cx.schema.resource_selector.v1";
 pub const GRANT_CONSTRAINT_SCHEMA: &str = "cx.schema.grant_constraint.v1";
 pub const DEVICE_MESSAGE_SCHEMA: &str = "cx.schema.device_message.v1";
 pub const KEY_BACKUP_SCHEMA: &str = "cx.schema.key_backup.v1";
+pub const MORPH_SCHEMA: &str = "cx.schema.morph.v1";
+pub const MESSAGE_SCHEMA: &str = "cx.schema.message.v1";
+pub const MODERATION_REPORT_SCHEMA: &str = "cx.schema.moderation_report.v1";
+pub const MODERATION_QUEUE_ITEM_SCHEMA: &str = "cx.schema.moderation_queue_item.v1";
 
 // ── Canonical cx.* operation kinds ──────────────────────────────────────────
 /// Entity CRUD operations.
@@ -135,6 +139,91 @@ pub const OP_KEYS_BACKUPS_DELETE: &str = "cx.keys.backups.delete";
 
 /// Authorization check.
 pub const OP_AUTHZ_CHECK: &str = "cx.authz.check";
+pub const OP_AUTHZ_GET_EFFECTIVE_GRANTS: &str = "cx.authz.get_effective_grants";
+pub const OP_AUTHZ_GET_INVITES: &str = "cx.authz.get_invites";
+
+/// Account / auth-server operations.
+pub const OP_ACCOUNT_DEVICE_PAIR: &str = "cx.account.device_pair";
+pub const OP_ACCOUNT_ISSUE_SESSION_GRANT: &str = "cx.account.issue_session_grant";
+pub const OP_ACCOUNT_OIDC_CALLBACK: &str = "cx.account.oidc_callback";
+
+/// Admin / moderation-queue operations.
+pub const OP_ADMIN_GET_MODERATION_QUEUE: &str = "cx.admin.get_moderation_queue";
+pub const OP_ADMIN_GET_SERVER_STATUS: &str = "cx.admin.get_server_status";
+pub const OP_ADMIN_REVOKE_DEVICE: &str = "cx.admin.revoke_device";
+pub const OP_ADMIN_UPDATE_ACCOUNT_STATUS: &str = "cx.admin.update_account_status";
+
+/// Applet / bridge operations.
+pub const OP_APPLET_DESCRIBE: &str = "cx.applet.describe";
+pub const OP_APPLET_PING: &str = "cx.applet.ping";
+pub const OP_APPLET_PROTOCOL_METADATA: &str = "cx.applet.protocol_metadata";
+pub const OP_APPLET_QUERY_ACTOR: &str = "cx.applet.query_actor";
+pub const OP_APPLET_QUERY_SPACE: &str = "cx.applet.query_space";
+pub const OP_APPLET_THIRD_PARTY_LOCATIONS: &str = "cx.applet.third_party_locations";
+pub const OP_APPLET_THIRD_PARTY_USERS: &str = "cx.applet.third_party_users";
+pub const OP_APPLET_TRANSACTION: &str = "cx.applet.transaction";
+
+/// Directory operations beyond the bare `describe`.
+pub const OP_DIRECTORY_PRIVATE_CONTACT_DISCOVERY: &str =
+    "cx.directory.private_contact_discovery";
+pub const OP_DIRECTORY_RESOLVE_HANDLE: &str = "cx.directory.resolve_handle";
+pub const OP_DIRECTORY_RESOLVE_ORGANIZATION: &str = "cx.directory.resolve_organization";
+pub const OP_DIRECTORY_RESOLVE_SPACE: &str = "cx.directory.resolve_space";
+pub const OP_DIRECTORY_SEARCH_ACTORS: &str = "cx.directory.search_actors";
+pub const OP_DIRECTORY_SEARCH_ORGANIZATIONS: &str = "cx.directory.search_organizations";
+pub const OP_DIRECTORY_SEARCH_SPACES: &str = "cx.directory.search_spaces";
+pub const OP_DIRECTORY_SEARCH_USERS: &str = "cx.directory.search_users";
+
+/// Events-API operations (low-level Event Envelope plane).
+pub const OP_EVENTS_BATCH_GET: &str = "cx.events.batch_get";
+pub const OP_EVENTS_DESCRIBE: &str = "cx.events.describe";
+pub const OP_EVENTS_FRONTIER: &str = "cx.events.frontier";
+pub const OP_EVENTS_GET: &str = "cx.events.get";
+pub const OP_EVENTS_LIST: &str = "cx.events.list";
+pub const OP_EVENTS_SUBMIT: &str = "cx.events.submit";
+
+/// Federation operations beyond the single transaction RPC.
+pub const OP_FEDERATION_PULL_OPERATIONS: &str = "cx.federation.pull_operations";
+pub const OP_FEDERATION_PUSH_OPERATIONS: &str = "cx.federation.push_operations";
+pub const OP_FEDERATION_SPACE_MEMBERS: &str = "cx.federation.space_members";
+pub const OP_FEDERATION_VERIFY_ACTOR: &str = "cx.federation.verify_actor";
+
+/// Identity-registry operations.
+pub const OP_IDENTITY_DESCRIBE_REGISTRY: &str = "cx.identity.describe_registry";
+pub const OP_IDENTITY_GET_DOCUMENT: &str = "cx.identity.get_document";
+pub const OP_IDENTITY_GET_LOG: &str = "cx.identity.get_log";
+pub const OP_IDENTITY_GET_RECEIPTS: &str = "cx.identity.get_receipts";
+pub const OP_IDENTITY_SUBMIT_DID_OPERATION: &str = "cx.identity.submit_did_operation";
+
+/// Media / WebRTC ICE config.
+pub const OP_MEDIA_ICE_CONFIG: &str = "cx.media.ice_config";
+
+/// MIMI provider-facade operations.
+pub const OP_MIMI_GROUP_INFO: &str = "cx.mimi.group_info";
+pub const OP_MIMI_IDENTIFIER_QUERY: &str = "cx.mimi.identifier_query";
+pub const OP_MIMI_KEY_MATERIAL: &str = "cx.mimi.key_material";
+pub const OP_MIMI_NOTIFY: &str = "cx.mimi.notify";
+pub const OP_MIMI_PROVIDER_DIRECTORY: &str = "cx.mimi.provider_directory";
+pub const OP_MIMI_PROXY_DOWNLOAD: &str = "cx.mimi.proxy_download";
+pub const OP_MIMI_REPORT_ABUSE: &str = "cx.mimi.report_abuse";
+pub const OP_MIMI_REQUEST_CONSENT: &str = "cx.mimi.request_consent";
+pub const OP_MIMI_ROOM_UPDATE: &str = "cx.mimi.room_update";
+pub const OP_MIMI_SUBMIT_MESSAGE: &str = "cx.mimi.submit_message";
+pub const OP_MIMI_UPDATE_CONSENT: &str = "cx.mimi.update_consent";
+
+/// Moderation report submission.
+pub const OP_MODERATION_REPORT: &str = "cx.moderation.report";
+
+/// Policy server check.
+pub const OP_POLICY_CHECK: &str = "cx.policy.check";
+
+/// Push gateway register / unregister.
+pub const OP_PUSH_REGISTER_DEVICE: &str = "cx.push.register_device";
+pub const OP_PUSH_UNREGISTER_DEVICE: &str = "cx.push.unregister_device";
+
+/// Sync surface — client-sync & snapshot head.
+pub const OP_SYNC_CLIENT_SYNC: &str = "cx.sync.client_sync";
+pub const OP_SYNC_GET_SNAPSHOT_HEAD: &str = "cx.sync.get_snapshot_head";
 
 /// Canonical operation kinds built into this SDK.
 pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
@@ -357,6 +446,80 @@ fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         .into_iter()
         .map(str::to_owned)
         .collect(),
+        OP_KEYS_BACKUPS_LIST | OP_KEYS_BACKUPS_GET | OP_KEYS_BACKUPS_DELETE => {
+            vec!["backup_id".to_owned()]
+        }
+        OP_KEYS_KEYPACKAGES_UPLOAD => {
+            ["principal_id", "device_id", "keypackages"].into_iter().map(str::to_owned).collect()
+        }
+        OP_KEYS_KEYPACKAGES_CLAIM => [
+            "target_principal_id",
+            "intended_space_id",
+            "requester",
+            "claim_nonce",
+            "expires_at",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect(),
+        OP_KEYS_KEYPACKAGES_CONSUME => {
+            ["claim_id", "keypackage_ref"].into_iter().map(str::to_owned).collect()
+        }
+        OP_KEYS_KEYPACKAGES_REVOKE => {
+            ["principal_id", "device_id", "keypackage_ref"]
+                .into_iter()
+                .map(str::to_owned)
+                .collect()
+        }
+        OP_DIRECTORY_RESOLVE_HANDLE => vec!["handle".to_owned()],
+        OP_DIRECTORY_RESOLVE_ORGANIZATION | OP_DIRECTORY_RESOLVE_SPACE => {
+            vec!["target".to_owned()]
+        }
+        OP_DIRECTORY_SEARCH_ACTORS
+        | OP_DIRECTORY_SEARCH_ORGANIZATIONS
+        | OP_DIRECTORY_SEARCH_SPACES
+        | OP_DIRECTORY_SEARCH_USERS => vec!["query".to_owned()],
+        OP_IDENTITY_GET_DOCUMENT | OP_IDENTITY_GET_LOG | OP_IDENTITY_GET_RECEIPTS => {
+            vec!["did".to_owned()]
+        }
+        OP_IDENTITY_SUBMIT_DID_OPERATION => {
+            ["did", "operation"].into_iter().map(str::to_owned).collect()
+        }
+        OP_ADMIN_REVOKE_DEVICE => {
+            ["principal_id", "device_id"].into_iter().map(str::to_owned).collect()
+        }
+        OP_ADMIN_UPDATE_ACCOUNT_STATUS => {
+            ["principal_id", "status"].into_iter().map(str::to_owned).collect()
+        }
+        OP_ACCOUNT_DEVICE_PAIR => {
+            ["principal_id", "device_id"].into_iter().map(str::to_owned).collect()
+        }
+        OP_ACCOUNT_ISSUE_SESSION_GRANT => {
+            ["principal_id", "device_id", "audience", "scopes"]
+                .into_iter()
+                .map(str::to_owned)
+                .collect()
+        }
+        OP_PUSH_REGISTER_DEVICE => {
+            ["device_id", "endpoint"].into_iter().map(str::to_owned).collect()
+        }
+        OP_PUSH_UNREGISTER_DEVICE => vec!["device_id".to_owned()],
+        OP_MODERATION_REPORT => {
+            ["target_ref", "reason"].into_iter().map(str::to_owned).collect()
+        }
+        OP_POLICY_CHECK => vec!["resource".to_owned()],
+        OP_AUTHZ_GET_EFFECTIVE_GRANTS => vec!["actor_id".to_owned()],
+        OP_AUTHZ_GET_INVITES => vec!["space_id".to_owned()],
+        OP_EVENTS_GET | OP_EVENTS_BATCH_GET => vec!["event_id".to_owned()],
+        OP_EVENTS_LIST | OP_EVENTS_FRONTIER => vec!["space_id".to_owned()],
+        OP_EVENTS_SUBMIT => vec!["events".to_owned()],
+        OP_SYNC_CLIENT_SYNC => vec!["subscriptions".to_owned()],
+        OP_SYNC_GET_SNAPSHOT_HEAD => vec!["space_id".to_owned()],
+        OP_FEDERATION_PULL_OPERATIONS | OP_FEDERATION_PUSH_OPERATIONS => {
+            vec!["space_id".to_owned()]
+        }
+        OP_FEDERATION_SPACE_MEMBERS => vec!["space_id".to_owned()],
+        OP_FEDERATION_VERIFY_ACTOR => vec!["actor_id".to_owned()],
         _ => Vec::new(),
     }
 }
@@ -1487,6 +1650,56 @@ pub enum ViewKind {
     Composite,
 }
 
+impl ViewKind {
+    /// Renderers permitted for this `ViewKind` per `views.md` §4.
+    ///
+    /// Implementations MUST refuse to materialize a view whose
+    /// `(kind, renderer)` pair is not in this whitelist (or `Custom` /
+    /// `Composite`, which delegate to profile-declared renderers). The
+    /// whitelist intentionally allows `ViewRenderer::Custom` everywhere
+    /// because profiles MAY declare additional renderers per kind.
+    pub fn allowed_renderers(self) -> &'static [ViewRenderer] {
+        use ViewRenderer::*;
+        match self {
+            ViewKind::Collection => &[Card, Row, Table, Custom],
+            ViewKind::Kanban => &[Board, Card, Custom],
+            ViewKind::List => &[Row, Card, Custom],
+            ViewKind::Table => &[Table, Row, Custom],
+            ViewKind::Calendar => &[Calendar, Custom],
+            ViewKind::Timeline => &[Timeline, Custom],
+            ViewKind::Graph => &[Graph, Custom],
+            ViewKind::Tree => &[Tree, Row, Custom],
+            ViewKind::Gantt => &[Gantt, Timeline, Custom],
+            ViewKind::Matrix => &[Table, Custom],
+            ViewKind::Document => &[Document, Custom],
+            ViewKind::Dashboard => &[Dashboard, Custom],
+            ViewKind::Chat => &[Chat, Thread, Custom],
+            ViewKind::Forum => &[Forum, Thread, Custom],
+            ViewKind::Thread => &[Thread, Chat, Custom],
+            ViewKind::Activity => &[Timeline, Card, Custom],
+            ViewKind::Inbox => &[Row, Card, Custom],
+            ViewKind::Notifications => &[Row, Card, Custom],
+            ViewKind::MemoryReview => &[Row, Card, Custom],
+            ViewKind::AgentRuns => &[Timeline, Row, Custom],
+            ViewKind::ContextTimeline => &[Timeline, Custom],
+            ViewKind::ReviewQueue => &[Row, Card, Custom],
+            // A composite view delegates to its sub-views; any renderer is
+            // legal at the composite level itself.
+            ViewKind::Composite => &[
+                Board, Card, Row, Table, Calendar, Gantt, Timeline, Thread, Chat, Forum, Graph,
+                Tree, Document, Dashboard, Custom,
+            ],
+        }
+    }
+
+    /// `true` when `renderer` is permitted for this `ViewKind`. Returns
+    /// `false` for the strict whitelist; callers SHOULD also accept
+    /// profile-declared renderers via the `Custom` variant.
+    pub fn allows_renderer(self, renderer: ViewRenderer) -> bool {
+        self.allowed_renderers().contains(&renderer)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ViewPreset {
@@ -1976,6 +2189,12 @@ pub struct Space {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
     pub space_kind: SpaceKind,
+    /// `boundary_profile` (data-structures.md §4 / §4.1).
+    ///
+    /// `None` means the implementation should derive the profile from
+    /// `space_kind` via [`boundary_profile_for_kind`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub boundary_profile: Option<BoundaryProfile>,
     pub created_by_principal: Did,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub owning_organizations: Vec<Did>,
@@ -1999,6 +2218,11 @@ pub struct Space {
     pub labels: Vec<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub metadata: BTreeMap<String, Value>,
+    /// Per-relation_kind cardinality declarations enforced by the
+    /// resolver (data-structures.md §relation-profile, T1-3). Empty
+    /// means "every relation_kind is many-to-many" (legacy default).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub relation_profiles: Vec<RelationProfile>,
     #[serde(flatten)]
     pub extra: BTreeMap<String, Value>,
 }
@@ -2018,6 +2242,7 @@ impl Space {
             title: title.into(),
             summary: None,
             space_kind,
+            boundary_profile: None,
             created_by_principal,
             owning_organizations: Vec::new(),
             schema_refs: vec![CORE_SCHEMA_PROFILE.to_owned()],
@@ -2033,8 +2258,46 @@ impl Space {
             updated_at: None,
             labels: Vec::new(),
             metadata: BTreeMap::new(),
+            relation_profiles: Vec::new(),
             extra: BTreeMap::new(),
         }
+    }
+
+    /// Look up the active [`RelationProfile`] for a given `relation_kind`.
+    pub fn relation_profile(&self, relation_kind: &str) -> Option<&RelationProfile> {
+        self.relation_profiles
+            .iter()
+            .find(|profile| profile.relation_kind == relation_kind)
+    }
+
+    /// Resolved boundary profile per data-structures.md §4 / §4.1 — declared
+    /// value if present, else derived from `space_kind`. Returns `None` for
+    /// custom kinds that did not declare a profile (caller must fail closed).
+    pub fn resolved_boundary_profile(&self) -> Option<BoundaryProfile> {
+        self.boundary_profile.or_else(|| boundary_profile_for_kind(&self.space_kind))
+    }
+
+    /// Validate spec-level invariants (data-structures.md §4):
+    ///
+    /// - `enclave` MUST NOT use `federation_policy=open`.
+    /// - `board`/`list` MUST NOT declare `boundary_profile=security_boundary`.
+    pub fn validate_kind_invariants(&self) -> Result<()> {
+        if matches!(self.space_kind, SpaceKind::Enclave)
+            && matches!(self.federation_policy, Some(FederationPolicy::Open))
+        {
+            return Err(Error::Protocol(
+                "space.kind=enclave forbids federation_policy=open".to_owned(),
+            ));
+        }
+        if matches!(self.space_kind, SpaceKind::Board)
+            && matches!(self.boundary_profile, Some(BoundaryProfile::SecurityBoundary))
+        {
+            return Err(Error::Protocol(
+                "space.kind=board cannot declare boundary_profile=security_boundary"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -2096,8 +2359,11 @@ pub struct Flow {
     pub flow_kind: FlowKind,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub primary_branch: Option<String>,
+    /// Branches per `data-structures.md` §6.1. The custom
+    /// [`FlowBranch::Deserialize`] impl tolerates the legacy
+    /// `Vec<String>` wire form, so existing fixtures keep working.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub branches: Vec<String>,
+    pub branches: Vec<FlowBranch>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub semantic_kind: Option<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -2338,6 +2604,93 @@ pub struct Relation {
     pub state: Option<RelationState>,
     pub created_by: Did,
     pub created_at: DateTime<Utc>,
+}
+
+/// Relation cardinality declared by a `RelationProfile` (data-structures.md
+/// §relation-profile).
+///
+/// Resolvers MUST refuse a `cx.relation.create` event whose
+/// `(from, relation_kind, to)` tuple would violate the declared
+/// cardinality of its profile.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RelationCardinality {
+    /// At most one `to` per `from` and at most one `from` per `to`.
+    OneToOne,
+    /// One `from` may map to many `to` values; each `to` MUST have at
+    /// most one `from`.
+    OneToMany,
+    /// Unrestricted: many-to-many.
+    ManyToMany,
+}
+
+/// Per-Space `relation_profile` row that constrains a `relation_kind`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RelationProfile {
+    pub relation_kind: String,
+    pub cardinality: RelationCardinality,
+    /// Optional schema-id for the profile body.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub schema: Option<String>,
+}
+
+/// Convenience: `(from, relation_kind, to)` triple identifying a
+/// candidate Relation row. Used by [`enforce_relation_cardinality`].
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct RelationEdgeRef<'a> {
+    pub from: &'a str,
+    pub relation_kind: &'a str,
+    pub to: &'a str,
+}
+
+/// Enforce the cardinality declared by the matching `RelationProfile`.
+///
+/// `existing` is the set of currently-active edges with the same
+/// `relation_kind`. The function returns `Err(Error::Protocol("relation_cardinality_violation"))`
+/// when the candidate edge would breach the cardinality rule.
+///
+/// Cardinality rules:
+/// - `OneToOne` — a Space MAY contain at most one edge per `from` and
+///   per `to` for the given `relation_kind`.
+/// - `OneToMany` — many `to` per `from` are fine, but each `to` MUST
+///   have at most one `from`.
+/// - `ManyToMany` — always permitted.
+pub fn enforce_relation_cardinality(
+    profile: &RelationProfile,
+    candidate: RelationEdgeRef<'_>,
+    existing: &[RelationEdgeRef<'_>],
+) -> Result<()> {
+    if candidate.relation_kind != profile.relation_kind {
+        return Ok(());
+    }
+    match profile.cardinality {
+        RelationCardinality::ManyToMany => Ok(()),
+        RelationCardinality::OneToMany => {
+            if existing.iter().any(|edge| {
+                edge.relation_kind == candidate.relation_kind && edge.to == candidate.to
+            }) {
+                Err(Error::Protocol(format!(
+                    "relation_cardinality_violation: '{}' is one_to_many but '{}' already has an inbound '{}' edge",
+                    candidate.relation_kind, candidate.to, candidate.relation_kind
+                )))
+            } else {
+                Ok(())
+            }
+        }
+        RelationCardinality::OneToOne => {
+            if existing.iter().any(|edge| {
+                edge.relation_kind == candidate.relation_kind
+                    && (edge.from == candidate.from || edge.to == candidate.to)
+            }) {
+                Err(Error::Protocol(format!(
+                    "relation_cardinality_violation: '{}' is one_to_one but a conflicting edge already exists",
+                    candidate.relation_kind
+                )))
+            } else {
+                Ok(())
+            }
+        }
+    }
 }
 
 impl Relation {
@@ -3320,8 +3673,53 @@ pub struct EncryptedPayload {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub aad: Option<Value>,
     pub payload_digest: Hash,
+    /// Reference to the key material that decrypts `ciphertext`. The
+    /// canonical v1 form is the typed
+    /// [`EncryptedPayloadKeyRef::Object`] variant
+    /// (`{algorithm, group_state_ref}`); the legacy
+    /// [`EncryptedPayloadKeyRef::Legacy`] string form (e.g.
+    /// `"mls_epoch:42"`) is preserved on the wire only for
+    /// back-compat with older clients. Call
+    /// [`EncryptedPayload::assert_strict_key_ref`] to fail closed when
+    /// the legacy form would be accepted (B-22).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub key_ref: Option<String>,
+    pub key_ref: Option<EncryptedPayloadKeyRef>,
+}
+
+/// Typed `key_ref` per `media-and-blob.md` §encrypted-payload (B-22).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum EncryptedPayloadKeyRef {
+    /// Canonical typed form bound to a deterministic group/epoch
+    /// reference. `algorithm` MUST be a registered scheme id (e.g.
+    /// `mls_rfc9420`); `group_state_ref` MUST be a stable identifier
+    /// of the form `<group_id>:<epoch>`.
+    Object(KeyRefObject),
+    /// Legacy string form (`mls_epoch:42`). Tolerated on read for
+    /// back-compat. Strict deployments MUST reject this via
+    /// [`EncryptedPayload::assert_strict_key_ref`].
+    Legacy(String),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KeyRefObject {
+    pub algorithm: String,
+    pub group_state_ref: String,
+}
+
+impl EncryptedPayloadKeyRef {
+    /// Build an MLS-RFC9420 typed `key_ref` from a group id and epoch.
+    pub fn mls_rfc9420(group_id: impl Into<String>, epoch: u64) -> Self {
+        Self::Object(KeyRefObject {
+            algorithm: EncryptedPayloadScheme::MlsRfc9420.as_str().to_owned(),
+            group_state_ref: format!("{}:{}", group_id.into(), epoch),
+        })
+    }
+
+    /// Whether this is the legacy string form (e.g. `mls_epoch:42`).
+    pub fn is_legacy(&self) -> bool {
+        matches!(self, Self::Legacy(_))
+    }
 }
 
 impl EncryptedPayload {
@@ -3355,6 +3753,21 @@ impl EncryptedPayload {
             Err(Error::Protocol("encrypted payload digest mismatch".to_owned()))
         }
     }
+
+    /// Reject the legacy string form of `key_ref` (B-22). Strict
+    /// callers MUST call this before trusting `key_ref` to look up
+    /// MLS group state.
+    pub fn assert_strict_key_ref(&self) -> Result<()> {
+        match &self.key_ref {
+            None => Ok(()),
+            Some(EncryptedPayloadKeyRef::Object(_)) => Ok(()),
+            Some(EncryptedPayloadKeyRef::Legacy(_)) => Err(Error::Protocol(
+                "key_ref must be the typed {algorithm, group_state_ref} object \
+                 (legacy 'mls_epoch:N' string is rejected)"
+                    .to_owned(),
+            )),
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -3366,13 +3779,46 @@ struct EncryptedPayloadDigestMetadata<'a> {
     pub aad: Option<&'a Value>,
 }
 
+/// Lifecycle of a published KeyPackage per `device-lifecycle.md` §2 /
+/// `encryption-and-audit.md` §2.6. Once a KeyPackage is `claimed` it
+/// MUST NOT be re-claimed; once `consumed` it MUST NOT return to
+/// `published`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum MlsKeyPackageState {
+    #[default]
+    Published,
+    Claimed,
+    Consumed,
+    Revoked,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MlsKeyPackageRecord {
+    /// Globally unique identifier (`cx:mls:kp:<ulid>`).
+    /// Optional during deserialization for back-compat — callers
+    /// publishing new KeyPackages SHOULD always populate it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub keypackage_id: Option<String>,
     pub principal_id: Did,
     pub device_id: DeviceId,
+    /// MLS KeyPackage material (base64url).
     pub key_package: String,
+    /// Canonical hash of `key_package` — exposed on the wire as
+    /// `keypackage_ref` per `device-lifecycle.md` §2.
+    #[serde(rename = "keypackage_ref", alias = "key_package_hash")]
     pub key_package_hash: Hash,
     pub cipher_suites: Vec<String>,
+    /// Content / MLS profile capabilities (e.g. `mimi.content.v1`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub capabilities: Vec<String>,
+    /// Lifecycle state. Independent of the legacy `revoked` boolean,
+    /// which is retained for back-compat.
+    #[serde(default)]
+    pub state: MlsKeyPackageState,
+    /// Bound `claim_id` once `state = claimed`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub claim_id: Option<String>,
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<DateTime<Utc>>,
@@ -3380,6 +3826,17 @@ pub struct MlsKeyPackageRecord {
     pub revoked: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub device_signature: Option<Proof>,
+}
+
+impl MlsKeyPackageRecord {
+    /// Schema id for `cx.mls.keypackage` events / records.
+    pub const SCHEMA: &'static str = "cx.schema.mls_keypackage.v1";
+
+    /// Whether the record is currently usable for a Welcome.
+    pub fn is_usable(&self) -> bool {
+        !self.revoked
+            && !matches!(self.state, MlsKeyPackageState::Revoked | MlsKeyPackageState::Consumed)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -3404,6 +3861,98 @@ impl MlsProposalEnvelope {
     }
 }
 
+/// `cx_app_state_ref` MLS GroupContext extension
+/// (encryption-and-audit.md / B-12).
+///
+/// Binds a Contrix Space's reduced state into the MLS GroupContext so
+/// that any commit's signature transcript covers the application-layer
+/// frontier. Carried as a private-use GroupContext extension at
+/// codepoint [`MlsAppStateRef::CODEPOINT`] (within the IANA private
+/// range `0xF000..=0xFFFF`).
+///
+/// CBOR encoding (canonical) — keys in registration order, no
+/// indefinite-length items:
+///
+/// 1. `membership_frontier: bstr` — frontier state-hash
+/// 2. `policy_root:        bstr` — Merkle root of policy events
+/// 3. `capability_root:    bstr` — Merkle root of capability events
+/// 4. `discussion_metadata_hash: bstr` — hash of discussion-branch metadata
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MlsAppStateRef {
+    /// Hex-encoded SHA-256 of the canonical state root.
+    pub membership_frontier: String,
+    pub policy_root: String,
+    pub capability_root: String,
+    pub discussion_metadata_hash: String,
+}
+
+impl MlsAppStateRef {
+    /// IANA private-use codepoint chosen for `cx_app_state_ref`. The
+    /// Contrix spec reserves it within the `[0xF000, 0xFFFF]` MLS
+    /// extension private-use range; deployments MAY override via
+    /// future negotiation but MUST stay inside the private range.
+    pub const CODEPOINT: u16 = 0xCAFE;
+
+    /// Encode as a deterministic CBOR map (per B-12 normative form).
+    /// The output binds 1:1 to `Self::decode_cbor`.
+    pub fn encode_cbor(&self) -> Vec<u8> {
+        // Build a small canonical CBOR map by hand to avoid a runtime
+        // dep just for one extension. Uses RFC 8949 deterministic
+        // encoding for a 4-entry map of (uint key -> bstr value).
+        fn put_uint(out: &mut Vec<u8>, n: u64) {
+            if n < 24 {
+                out.push(n as u8);
+            } else if n <= u64::from(u8::MAX) {
+                out.push(0x18);
+                out.push(n as u8);
+            } else if n <= u64::from(u16::MAX) {
+                out.push(0x19);
+                out.extend_from_slice(&(n as u16).to_be_bytes());
+            } else if n <= u64::from(u32::MAX) {
+                out.push(0x1a);
+                out.extend_from_slice(&(n as u32).to_be_bytes());
+            } else {
+                out.push(0x1b);
+                out.extend_from_slice(&n.to_be_bytes());
+            }
+        }
+        fn put_bstr(out: &mut Vec<u8>, bytes: &[u8]) {
+            // Major type 2 (byte string) — same length encoding as uints.
+            let len = bytes.len() as u64;
+            if len < 24 {
+                out.push(0x40 | (len as u8));
+            } else if len <= u64::from(u8::MAX) {
+                out.push(0x58);
+                out.push(len as u8);
+            } else if len <= u64::from(u16::MAX) {
+                out.push(0x59);
+                out.extend_from_slice(&(len as u16).to_be_bytes());
+            } else if len <= u64::from(u32::MAX) {
+                out.push(0x5a);
+                out.extend_from_slice(&(len as u32).to_be_bytes());
+            } else {
+                out.push(0x5b);
+                out.extend_from_slice(&len.to_be_bytes());
+            }
+            out.extend_from_slice(bytes);
+        }
+        let mut out = Vec::with_capacity(160);
+        // Major type 5 (map) with 4 entries.
+        out.push(0xa4);
+        let entries: [(u64, &[u8]); 4] = [
+            (1, self.membership_frontier.as_bytes()),
+            (2, self.policy_root.as_bytes()),
+            (3, self.capability_root.as_bytes()),
+            (4, self.discussion_metadata_hash.as_bytes()),
+        ];
+        for (k, v) in entries {
+            put_uint(&mut out, k);
+            put_bstr(&mut out, v);
+        }
+        out
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MlsCommitEnvelope {
     pub group_id: String,
@@ -3412,6 +3961,10 @@ pub struct MlsCommitEnvelope {
     pub commit_hash: Hash,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ratchet_tree: Option<String>,
+    /// `cx_app_state_ref` GroupContext extension binding the
+    /// application-layer Space frontier into the MLS transcript.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub app_state_ref: Option<MlsAppStateRef>,
 }
 
 impl MlsCommitEnvelope {
@@ -3492,6 +4045,23 @@ pub struct ServerDescription {
     pub auth_metadata: Value,
     #[serde(default)]
     pub limits: Value,
+    /// Current causal frontier exposed by the service. Clients SHOULD
+    /// use this to detect a service that has fallen behind a known
+    /// snapshot.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub frontier: Vec<EventId>,
+    /// Frontier of the most recent snapshot the service can serve from
+    /// (empty means snapshot-assisted resolution is unavailable).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub snapshot_frontier: Vec<EventId>,
+    /// Active reducer profile (e.g. `cx.reducer.v1`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reducer_profile: Option<String>,
+    /// Wall-clock time of the most recent successful state
+    /// materialization. A stale `last_materialized_at` paired with a
+    /// fresh `frontier` indicates the projection layer is degraded.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_materialized_at: Option<DateTime<Utc>>,
 }
 
 impl ServerDescription {
@@ -4509,6 +5079,563 @@ pub struct DeviceMessagesReceiveResponse {
     pub limited: bool,
 }
 
+// ── Spec-aligned canonical types added in 2026-05 alignment pass ───────────
+//
+// These types fill gaps identified in `_todos.md` between the Rust SDK
+// surface and `contrix-spec/zh/` v1-core-rc. They are additive and must not
+// break existing wire shapes; legacy fixtures that emit `branches: ["a"]`
+// (string array) are still accepted via the `FlowBranch` Deserialize impl.
+
+/// Space boundary profile (data-structures.md §4 / §4.1).
+///
+/// `security_boundary` Spaces own membership/policy/history/E2EE; `container`
+/// Spaces only carry container ID, ranking and View/Relation anchors.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BoundaryProfile {
+    SecurityBoundary,
+    Container,
+}
+
+/// Derive the default `boundary_profile` from a `SpaceKind` per
+/// data-structures.md §4 (`board`/`list` → `container`, others →
+/// `security_boundary`). Custom kinds return `None`; profile-declared
+/// behaviour applies.
+pub fn boundary_profile_for_kind(kind: &SpaceKind) -> Option<BoundaryProfile> {
+    match kind {
+        SpaceKind::Board => Some(BoundaryProfile::Container),
+        SpaceKind::Collaboration
+        | SpaceKind::Direct
+        | SpaceKind::Group
+        | SpaceKind::Project
+        | SpaceKind::Document
+        | SpaceKind::Channel
+        | SpaceKind::Enclave => Some(BoundaryProfile::SecurityBoundary),
+        SpaceKind::Custom(_) => None,
+    }
+}
+
+/// Branch access inheritance per data-structures.md §6.1 (`FlowBranch.access`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BranchInheritance {
+    InheritFlow,
+    InheritSpace,
+    BranchScoped,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BranchE2eeInheritance {
+    InheritSpace,
+    InheritFlow,
+    BranchScoped,
+    None,
+}
+
+/// `FlowBranch.access` (data-structures.md §6.1).
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FlowBranchAccess {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub membership: Option<BranchInheritance>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub permissions: Option<BranchInheritance>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub history_visibility: Option<HistoryVisibility>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub e2ee: Option<BranchE2eeInheritance>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub encryption_profile: Option<EncryptionProfile>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub membership_policy_ref: Option<PolicyId>,
+}
+
+/// Standard branch profile names (data-structures.md §6.1).
+pub const FLOW_BRANCH_NAME_SYNTHESIS: &str = "synthesis";
+pub const FLOW_BRANCH_NAME_DISCUSSION: &str = "discussion";
+
+/// Branch definition inside a `Flow`.
+///
+/// Matches `data-structures.md §6.1` (`array<FlowBranch>`). Deserialization
+/// also accepts a bare string (legacy `Vec<String>` shape) by promoting it
+/// to `FlowBranch { name, ..default }`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct FlowBranch {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub is_primary: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub profile: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub access: Option<FlowBranchAccess>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub fields: BTreeMap<String, Value>,
+}
+
+impl FlowBranch {
+    pub fn new(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            is_primary: None,
+            profile: None,
+            access: None,
+            fields: BTreeMap::new(),
+        }
+    }
+
+    /// Validate that `name` matches `^[a-z][a-z0-9_]{0,63}$` per spec.
+    pub fn validate_name(&self) -> Result<()> {
+        if self.name.is_empty() || self.name.len() > 64 {
+            return Err(Error::Protocol(
+                "FlowBranch.name must be 1..=64 chars".to_owned(),
+            ));
+        }
+        let mut chars = self.name.chars();
+        let first = chars.next().ok_or_else(|| {
+            Error::Protocol("FlowBranch.name must not be empty".to_owned())
+        })?;
+        if !first.is_ascii_lowercase() {
+            return Err(Error::Protocol(
+                "FlowBranch.name must start with [a-z]".to_owned(),
+            ));
+        }
+        for c in chars {
+            if !(c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_') {
+                return Err(Error::Protocol(format!(
+                    "FlowBranch.name contains invalid character '{c}'"
+                )));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl<'de> Deserialize<'de> for FlowBranch {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Repr {
+            Bare(String),
+            Full {
+                name: String,
+                #[serde(default)]
+                is_primary: Option<bool>,
+                #[serde(default)]
+                profile: Option<String>,
+                #[serde(default)]
+                access: Option<FlowBranchAccess>,
+                #[serde(default)]
+                fields: BTreeMap<String, Value>,
+            },
+        }
+        Ok(match Repr::deserialize(deserializer)? {
+            Repr::Bare(name) => FlowBranch {
+                name,
+                is_primary: None,
+                profile: None,
+                access: None,
+                fields: BTreeMap::new(),
+            },
+            Repr::Full { name, is_primary, profile, access, fields } => {
+                FlowBranch { name, is_primary, profile, access, fields }
+            }
+        })
+    }
+}
+
+/// Resolve the primary branch of a Flow per data-structures.md §6.1
+/// resolution rules. Returns `Ok(None)` when the rules require the reducer
+/// to fail closed (rule 5).
+pub fn resolve_primary_branch<'a>(
+    branches: &'a [FlowBranch],
+    profile_default: Option<&str>,
+) -> Result<Option<&'a FlowBranch>> {
+    let explicit: Vec<&FlowBranch> =
+        branches.iter().filter(|b| b.is_primary == Some(true)).collect();
+    match explicit.len() {
+        0 => {}
+        1 => return Ok(Some(explicit[0])),
+        _ => {
+            return Err(Error::Protocol(
+                "Flow has more than one branch with is_primary=true".to_owned(),
+            ));
+        }
+    }
+    if let Some(synthesis) =
+        branches.iter().find(|b| b.name == FLOW_BRANCH_NAME_SYNTHESIS)
+    {
+        return Ok(Some(synthesis));
+    }
+    if branches.len() == 1 {
+        return Ok(Some(&branches[0]));
+    }
+    if let Some(default_name) = profile_default {
+        if let Some(b) = branches.iter().find(|b| b.name == default_name) {
+            return Ok(Some(b));
+        }
+    }
+    Ok(None)
+}
+
+/// Morph object (data-structures.md §7).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Morph {
+    pub schema: String,
+    pub id: String,
+    #[serde(rename = "type")]
+    pub object_type: String,
+    pub space_id: SpaceId,
+    pub morph_type: String,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub facets: BTreeMap<String, Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content: Option<Value>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub fields: BTreeMap<String, Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub state: Option<ObjectState>,
+    pub created_by: Did,
+    pub created_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_by: Option<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub labels: Vec<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub metadata: BTreeMap<String, Value>,
+    #[serde(flatten)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+impl Morph {
+    pub fn new(
+        id: impl Into<String>,
+        space_id: SpaceId,
+        morph_type: impl Into<String>,
+        created_by: Did,
+    ) -> Self {
+        Self {
+            schema: MORPH_SCHEMA.to_owned(),
+            id: id.into(),
+            object_type: "morph".to_owned(),
+            space_id,
+            morph_type: morph_type.into(),
+            facets: BTreeMap::new(),
+            title: None,
+            summary: None,
+            content: None,
+            fields: BTreeMap::new(),
+            state: Some(ObjectState::Active),
+            created_by,
+            created_at: Utc::now(),
+            updated_by: None,
+            updated_at: None,
+            labels: Vec::new(),
+            metadata: BTreeMap::new(),
+            extra: BTreeMap::new(),
+        }
+    }
+
+    /// Validate that `morph_type` does not use the reserved `cx.` prefix
+    /// for unregistered types (data-structures.md §7).
+    pub fn validate_morph_type(&self, registered_cx_types: &[&str]) -> Result<()> {
+        if self.morph_type.starts_with("cx.")
+            && !registered_cx_types.contains(&self.morph_type.as_str())
+        {
+            return Err(Error::Protocol(format!(
+                "morph_type '{}' uses reserved cx. prefix without registration",
+                self.morph_type
+            )));
+        }
+        if self.morph_type.trim().is_empty() {
+            return Err(Error::Protocol("morph_type must not be empty".to_owned()));
+        }
+        Ok(())
+    }
+}
+
+/// Account lifecycle status (account-lifecycle.md §3).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AccountStatus {
+    Active,
+    SoftLoggedOut,
+    Locked,
+    Suspended,
+    Deactivated,
+    ErasurePending,
+}
+
+impl AccountStatus {
+    /// Return whether new writes are allowed in this state.
+    pub fn allows_writes(self) -> bool {
+        matches!(self, AccountStatus::Active)
+    }
+
+    /// Return whether refresh / re-auth is the only allowed transition.
+    pub fn requires_reauth(self) -> bool {
+        matches!(self, AccountStatus::SoftLoggedOut | AccountStatus::Locked)
+    }
+}
+
+/// Audit assurance class (encryption-and-audit.md §3.1; spec _todos A1–A9).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuditAssurance {
+    AttestedHardware,
+    DisclosedPolicy,
+}
+
+/// Profile id constants for audit profiles (spec _todos A1).
+pub const PROFILE_ATTESTED_AUDIT_E2EE: &str = "cx.profile.attested_audit.e2ee.v1";
+pub const PROFILE_DISCLOSED_AUDIT_E2EE: &str = "cx.profile.disclosed_audit.e2ee.v1";
+
+impl AuditAssurance {
+    pub fn profile_id(self) -> &'static str {
+        match self {
+            AuditAssurance::AttestedHardware => PROFILE_ATTESTED_AUDIT_E2EE,
+            AuditAssurance::DisclosedPolicy => PROFILE_DISCLOSED_AUDIT_E2EE,
+        }
+    }
+
+    pub fn from_profile_id(profile: &str) -> Option<Self> {
+        match profile {
+            PROFILE_ATTESTED_AUDIT_E2EE => Some(AuditAssurance::AttestedHardware),
+            PROFILE_DISCLOSED_AUDIT_E2EE => Some(AuditAssurance::DisclosedPolicy),
+            _ => None,
+        }
+    }
+
+    /// Words that MUST NOT appear in user-facing materials in disclosed
+    /// audit mode (spec _todos A7).
+    pub fn forbidden_marketing_terms(self) -> &'static [&'static str] {
+        match self {
+            AuditAssurance::AttestedHardware => &[],
+            AuditAssurance::DisclosedPolicy => &[
+                "cryptographically enforced",
+                "tee-equivalent",
+                "attested",
+                "hardware-enforced",
+            ],
+        }
+    }
+}
+
+/// Issuer role for a Read-Your-Writes audit receipt
+/// (`audit-ryw-receipt.schema.json`).
+///
+/// `events_api` is the originating Events API node; `witness` is an
+/// independent log; `peer_node` is another Principal Server replica.
+/// Combine with [`ReceiptIndependence`] to detect single-source receipts
+/// that don't satisfy the attested-mode independence requirement.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RywIssuerRole {
+    EventsApi,
+    Witness,
+    PeerNode,
+}
+
+/// Whether the RYW receipt was issued by an issuer independent of the
+/// Events API node that accepted the audit envelope.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReceiptIndependence {
+    /// At least one issuer is distinct from the originating Events API.
+    Independent,
+    /// All proofs come from the same node — not durable in attested mode.
+    SingleSource,
+}
+
+/// Per-actor frontier entry referenced by the RYW receipt.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RywActorFrontierEntry {
+    pub actor_seq: u64,
+    pub event_id: EventId,
+}
+
+/// Frontier reference inside an RYW receipt
+/// (`audit-ryw-receipt.schema.json`).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RywFrontier {
+    pub space_frontier: Vec<EventId>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub actor_frontier: BTreeMap<Did, RywActorFrontierEntry>,
+}
+
+/// `cx.audit.ryw_receipt` event payload
+/// (`audit-ryw-receipt.schema.json`, spec _todos A10).
+///
+/// Issued by an Events API node, witness, or peer Principal Server to
+/// confirm a `cx.audit.accessed` envelope reached `accepted`. The Audit
+/// Agent MUST gate plaintext release on receiving a receipt that meets
+/// the Space's declared `audit_assurance`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct AuditRywReceipt {
+    pub receipt_id: String,
+    pub schema: String,
+    pub issuer: Did,
+    pub issuer_role: RywIssuerRole,
+    pub audit_event_id: EventId,
+    pub audit_event_digest: Hash,
+    pub space_id: SpaceId,
+    pub audit_actor_id: Did,
+    pub frontier: RywFrontier,
+    pub observed_at: DateTime<Utc>,
+    pub receipt_independence: ReceiptIndependence,
+    pub audit_assurance_class: AuditAssurance,
+    pub proofs: Vec<Proof>,
+}
+
+impl AuditRywReceipt {
+    /// Canonical schema id and event-kind constant for `cx.audit.ryw_receipt`.
+    pub const SCHEMA: &'static str = "cx.schema.audit_ryw_receipt.v1";
+    pub const EVENT_KIND: &'static str = "cx.audit.ryw_receipt";
+
+    /// Validate independence vs the declared assurance class. Returns
+    /// `Err` when an attested-mode receipt is single-source (which fails
+    /// closed per `encryption-and-audit.md` §3.3.1).
+    pub fn validate_independence(&self) -> Result<()> {
+        if matches!(self.audit_assurance_class, AuditAssurance::AttestedHardware)
+            && matches!(self.receipt_independence, ReceiptIndependence::SingleSource)
+        {
+            return Err(Error::Protocol(
+                "attested audit profile requires independent RYW receipts".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Backup class for key backup envelopes (key-management.md §7.1).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BackupClass {
+    DidRecovery,
+    SecretStorage,
+    MlsHistory,
+    External,
+}
+
+impl BackupClass {
+    /// HKDF info string per key-management.md §7.2.
+    pub fn hkdf_info(self, subdomain: &str) -> String {
+        let class = match self {
+            BackupClass::DidRecovery => "did_recovery",
+            BackupClass::SecretStorage => "secret_storage",
+            BackupClass::MlsHistory => "mls_history",
+            BackupClass::External => "external",
+        };
+        format!("contrix-key-backup/{class}/{subdomain}/v1")
+    }
+}
+
+/// Constraint evaluation class (constraint-schema.md §2.1, spec _todos B4).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EvaluationClass {
+    Stateless,
+    GrantLocal,
+    SpaceState,
+    External,
+}
+
+/// Approval workflow mode (constraint-schema.md §9.1–§9.2).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ApprovalWorkflowMode {
+    BeforeCommit,
+    AfterCommitReview,
+    ProposalThenApprove,
+}
+
+/// Moderation action (moderation.md §5.3).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModerationAction {
+    DenyJoin,
+    DenyInvite,
+    DenyWrite,
+    QuarantineMessage,
+    RequireReview,
+    RedactOnAccept,
+    ShadowCollapse,
+}
+
+/// Moderation report (moderation.md §3).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModerationReport {
+    pub schema: String,
+    pub id: String,
+    #[serde(rename = "type")]
+    pub object_type: String,
+    pub space_id: SpaceId,
+    pub target_ref: String,
+    pub reason: String,
+    pub reporter: Did,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub evidence_refs: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub franking: Option<ModerationFrank>,
+    pub created_at: DateTime<Utc>,
+}
+
+impl ModerationReport {
+    pub fn new(
+        id: impl Into<String>,
+        space_id: SpaceId,
+        target_ref: impl Into<String>,
+        reason: impl Into<String>,
+        reporter: Did,
+    ) -> Self {
+        Self {
+            schema: MODERATION_REPORT_SCHEMA.to_owned(),
+            id: id.into(),
+            object_type: "moderation_report".to_owned(),
+            space_id,
+            target_ref: target_ref.into(),
+            reason: reason.into(),
+            reporter,
+            evidence_refs: Vec::new(),
+            franking: None,
+            created_at: Utc::now(),
+        }
+    }
+}
+
+/// Moderation frank for E2EE content (moderation.md §3.4).
+///
+/// `franking_tag` MUST be a key-bound MAC of the reported ciphertext that
+/// only the reporter could have produced; spec leaves the algorithm open
+/// per profile — this struct just carries the wire shape.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModerationFrank {
+    pub algorithm: String,
+    pub franking_tag: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub epoch: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key_ref: Option<String>,
+}
+
+/// Verification class returned by federation `verify_actor` (M-19).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FederationActorValidationClass {
+    Valid,
+    Stale,
+    Unknown,
+    Invalid,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -4565,6 +5692,10 @@ mod tests {
             supported_schema_profiles: vec![],
             auth_metadata: Value::Null,
             limits: Value::Null,
+            frontier: Vec::new(),
+            snapshot_frontier: Vec::new(),
+            reducer_profile: None,
+            last_materialized_at: None,
         };
         assert!(desc.supports_contrix_v1());
     }
@@ -5173,6 +6304,7 @@ mod tests {
             commit: "commit-bytes".to_owned(),
             commit_hash: hash.clone(),
             ratchet_tree: None,
+            app_state_ref: None,
         };
         let welcome = MlsWelcomeEnvelope {
             group_id: "group1".to_owned(),

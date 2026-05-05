@@ -53,6 +53,16 @@ pub struct SpaceState {
     pub frontier: Vec<EventId>,
     /// Space state events
     pub state_events: Vec<Event>,
+    /// True when one or more events were marked `soft_failed` because
+    /// their `auth_refs` were not yet materialized at apply time.
+    /// Per `event-auth-state-resolution.md` §6.2, the projection MUST be
+    /// treated as `read_only` while this is set: callers MUST NOT submit
+    /// new writes that depend on unverified auth state.
+    pub auth_incomplete: bool,
+    /// Event IDs that landed but could not be auth-validated due to a
+    /// missing `auth_refs` chain link. They live here, not in
+    /// `state_events`, until the missing dependency is materialized.
+    pub soft_failed: Vec<EventId>,
     processed_events: BTreeMap<EventId, Event>,
     redacted_events: BTreeSet<EventId>,
     tombstone_event_id: Option<EventId>,
@@ -73,9 +83,41 @@ impl SpaceState {
             conflict_records: Vec::new(),
             frontier: Vec::new(),
             state_events: Vec::new(),
+            auth_incomplete: false,
+            soft_failed: Vec::new(),
             processed_events: BTreeMap::new(),
             redacted_events: BTreeSet::new(),
             tombstone_event_id: None,
+        }
+    }
+
+    /// Returns `true` when the projection MUST refuse new writes because at
+    /// least one applied event is `soft_failed` due to missing `auth_refs`.
+    pub fn is_read_only(&self) -> bool {
+        self.auth_incomplete
+    }
+
+    /// Mark an event as `soft_failed` and flip the projection into the
+    /// read-only `auth_incomplete` mode (event-auth-state-resolution.md §6.2).
+    ///
+    /// Callers SHOULD invoke this when an inbound event references
+    /// `auth_refs` that have not yet been pulled. Once the missing
+    /// dependency materialises, callers may invoke
+    /// [`SpaceState::clear_soft_failed`] to retry reduction.
+    pub fn mark_soft_failed(&mut self, event_id: EventId) {
+        if !self.soft_failed.iter().any(|id| id == &event_id) {
+            self.soft_failed.push(event_id);
+        }
+        self.auth_incomplete = true;
+    }
+
+    /// Drop a soft-failed event marker once its `auth_refs` have been
+    /// resolved. Clears `auth_incomplete` only when the soft-failed list
+    /// becomes empty.
+    pub fn clear_soft_failed(&mut self, event_id: &EventId) {
+        self.soft_failed.retain(|id| id != event_id);
+        if self.soft_failed.is_empty() {
+            self.auth_incomplete = false;
         }
     }
 
@@ -133,7 +175,10 @@ impl SpaceState {
 
         let mut stored_event = event.clone();
         if self.redacted_events.contains(&stored_event.event_id) {
+            // Preserve envelope fields required for chain validation per
+            // event-auth-state-resolution.md §10; clear payload + unsigned.
             stored_event.content = serde_json::json!({});
+            stored_event.unsigned.clear();
         }
         self.state_events.push(stored_event.clone());
         self.processed_events.insert(stored_event.event_id.clone(), stored_event);
@@ -202,7 +247,26 @@ impl SpaceState {
             | "cx.invite.create"
             | "cx.invite.cancel"
             | "cx.invite.accept"
-            | "cx.read.marker" => self.reduce_generic_state_event(event)?,
+            | "cx.read.marker"
+            // Account lifecycle (account-lifecycle.md §3 +
+            // event-auth-state-resolution.md). The `state_key` is the
+            // account DID; the latest event wins per HLC ordering.
+            | "cx.account.status"
+            | "cx.account.deactivation"
+            | "cx.account.erasure"
+            // Moderation reports / franks (moderation.md §3).
+            // Reports are state events keyed by `(target_ref, reporter)`;
+            // franks bind a per-message receipt for E2EE accountability.
+            | "cx.moderation.report"
+            | "cx.moderation.frank"
+            // Branch-scoped membership / visibility / policy
+            // (data-structures.md §6.1). `state_key` derives from
+            // `(flow_id, branch_id, principal_id)` for the `member` row
+            // and `(flow_id, branch_id)` for the others; encode via
+            // `canonical::encode_state_key`.
+            | "cx.flow.branch.member"
+            | "cx.flow.branch.history_visibility"
+            | "cx.flow.branch.policy_components" => self.reduce_generic_state_event(event)?,
 
             // Message timeline
             "cx.message.create" => self.create_message(event)?,
@@ -415,7 +479,8 @@ impl SpaceState {
         let title = self.extract_field::<String>(&event.content, "title")?;
         let flow_kind = self.extract_field::<FlowKind>(&event.content, "flow_kind")?;
         let primary_branch = self.extract_optional_field::<String>(&event.content, "primary_branch");
-        let branches = self.extract_optional_field::<Vec<String>>(&event.content, "branches")
+        let branches = self
+            .extract_optional_field::<Vec<crate::FlowBranch>>(&event.content, "branches")
             .unwrap_or_default();
         let semantic_kind = self.extract_optional_field::<String>(&event.content, "semantic_kind");
         let brief = self.extract_optional_field(&event.content, "brief");
@@ -469,8 +534,15 @@ impl SpaceState {
             .extract_optional_field::<String>(&event.content, "primary_branch")
             .or_else(|| patch_string(&patch, "primary_branch"));
         let branches = self
-            .extract_optional_field::<Vec<String>>(&event.content, "branches")
-            .or_else(|| patch_string_array(&patch, "branches"));
+            .extract_optional_field::<Vec<crate::FlowBranch>>(&event.content, "branches")
+            .or_else(|| {
+                // Patch path is a JSON array; reuse the canonical
+                // `Deserialize` impl on `FlowBranch` to accept either
+                // bare strings or full objects.
+                patch.as_ref().and_then(|p| p.get("branches")).and_then(|v| {
+                    serde_json::from_value::<Vec<crate::FlowBranch>>(v.clone()).ok()
+                })
+            });
         let semantic_kind = self
             .extract_optional_field::<String>(&event.content, "semantic_kind")
             .or_else(|| patch_string(&patch, "semantic_kind"));
@@ -857,14 +929,23 @@ impl SpaceState {
     }
 
     /// Redact an event.
+    ///
+    /// Preserves the canonical envelope fields required for actor-chain
+    /// validation per `event-auth-state-resolution.md` §10 (notably
+    /// `actor_seq`, `prev_refs`, `auth_refs`, `hlc`, `created_at` and the
+    /// envelope digest binding); clears `content` (the payload) and
+    /// `unsigned` (server-added hints). MUST NOT touch `event_id` or
+    /// `proofs` — these are needed to verify the redaction itself.
     fn redact_event(&mut self, event_id: &EventId) -> Result<()> {
         self.redacted_events.insert(event_id.clone());
         if let Some(event) = self.processed_events.get_mut(event_id) {
             event.content = serde_json::json!({});
+            event.unsigned.clear();
         }
         for event in &mut self.state_events {
             if &event.event_id == event_id {
                 event.content = serde_json::json!({});
+                event.unsigned.clear();
             }
         }
         Ok(())
@@ -939,9 +1020,8 @@ impl SpaceState {
 
     /// Extract flow_id from event content.
     fn extract_flow_id(&self, content: &Value) -> Result<String> {
-        self.extract_optional_field(content, "flow_id")
-            .map(|value| canonicalize_flow_ref(&value))
-            .or_else(|| self.extract_optional_field(content, "id"))
+        self.extract_optional_field::<String>(content, "flow_id")
+            .or_else(|| self.extract_optional_field::<String>(content, "id"))
             .map(|value| canonicalize_flow_ref(&value))
             .ok_or_else(|| {
                 Error::Protocol("flow event requires flow_id".to_owned())
@@ -1172,6 +1252,8 @@ impl SpaceState {
             conflict_records: Vec::new(),
             frontier: snapshot.frontier,
             state_events: Vec::new(),
+            auth_incomplete: false,
+            soft_failed: Vec::new(),
             processed_events: BTreeMap::new(),
             redacted_events: BTreeSet::new(),
             tombstone_event_id: snapshot.tombstone_event_id,
@@ -1579,6 +1661,52 @@ where
     B: AsRef<[u8]>,
 {
     manifest.verify_chunks(chunks)
+}
+
+/// One step in a Merkle inclusion proof. `is_left == true` means the
+/// sibling hash is the **left** child (so the running hash is the
+/// right one for the next level).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MerkleProofStep {
+    pub sibling: String,
+    pub is_left: bool,
+}
+
+/// Verify that `event_id`'s canonical leaf hash is a member of the
+/// Merkle tree rooted at `root` per `operations-sync.md` §11.
+///
+/// The proof is the bottom-up sibling chain from the leaf to the root.
+/// At each step the running hash and the sibling are combined into the
+/// canonical inner-node payload `{ "left": .., "right": .. }`, matching
+/// [`merkle_root`].
+pub fn verify_snapshot_inclusion(
+    event_id: &str,
+    proof: &[MerkleProofStep],
+    root: &str,
+) -> Result<()> {
+    let leaf_hash = canonical_sha256(&serde_json::json!({
+        "key": event_id,
+        "value": event_id,
+    }))?;
+    let mut running = leaf_hash;
+    for step in proof {
+        let (left, right) = if step.is_left {
+            (step.sibling.as_str(), running.as_str())
+        } else {
+            (running.as_str(), step.sibling.as_str())
+        };
+        running = canonical_sha256(&serde_json::json!({
+            "left": left,
+            "right": right,
+        }))?;
+    }
+    if running == root {
+        Ok(())
+    } else {
+        Err(Error::Protocol(format!(
+            "snapshot inclusion proof for '{event_id}' does not match Merkle root '{root}'"
+        )))
+    }
 }
 
 pub fn state_merkle_root(payload: &Value) -> Result<String> {

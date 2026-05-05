@@ -50,17 +50,44 @@ pub struct ReadReceipt {
 }
 
 /// Read receipt manager.
-#[derive(Clone, Debug, Default)]
+///
+/// `dedup_window_ms` (default 1000 ms per `service-surface.md` §124)
+/// controls the active de-duplication window. Calls to
+/// [`Self::send_receipt`] within the window for the same
+/// `(space_id, user_id, thread_id)` collapse into the existing receipt
+/// instead of producing a new one.
+#[derive(Clone, Debug)]
 pub struct ReceiptManager {
     markers: BTreeMap<(SpaceId, Did, Option<String>), ReadMarker>,
     receipts: BTreeMap<(SpaceId, EventId, Option<String>), Vec<ReadReceipt>>,
     thread_index: BTreeSet<(SpaceId, Option<String>)>,
+    last_send_at: BTreeMap<(SpaceId, Did, Option<String>), DateTime<Utc>>,
+    dedup_window_ms: i64,
+}
+
+impl Default for ReceiptManager {
+    fn default() -> Self {
+        Self {
+            markers: BTreeMap::new(),
+            receipts: BTreeMap::new(),
+            thread_index: BTreeSet::new(),
+            last_send_at: BTreeMap::new(),
+            dedup_window_ms: 1000,
+        }
+    }
 }
 
 impl ReceiptManager {
     /// Create an empty manager.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Override the active de-duplication window. Use a window of
+    /// 0 ms to disable de-duplication entirely.
+    pub fn with_dedup_window_ms(mut self, ms: i64) -> Self {
+        self.dedup_window_ms = ms.max(0);
+        self
     }
 
     /// Set a read marker.
@@ -94,6 +121,12 @@ impl ReceiptManager {
     }
 
     /// Send/store a read receipt.
+    ///
+    /// Honors the active de-duplication window: when a receipt for the
+    /// same `(space_id, user_id, thread_id)` was issued within the
+    /// configured window, the new send is treated as a no-op and the
+    /// existing latest receipt is returned. Set `dedup_window_ms = 0`
+    /// to disable.
     pub fn send_receipt(
         &mut self,
         space_id: SpaceId,
@@ -102,16 +135,32 @@ impl ReceiptManager {
         visibility: ReceiptVisibility,
         thread_id: Option<String>,
     ) -> ReadReceipt {
+        let now = Utc::now();
+        let dedup_key = (space_id.clone(), user_id.clone(), thread_id.clone());
+        if self.dedup_window_ms > 0
+            && let Some(prev) = self.last_send_at.get(&dedup_key)
+            && now.signed_duration_since(*prev).num_milliseconds() < self.dedup_window_ms
+            && let Some(latest) = self
+                .receipts
+                .get(&(space_id.clone(), event_id.clone(), thread_id.clone()))
+                .and_then(|stack| stack.last())
+        {
+            return latest.clone();
+        }
         let receipt = ReadReceipt {
             space_id: space_id.clone(),
             user_id,
             event_id: event_id.clone(),
             visibility,
             thread_id: thread_id.clone(),
-            received_at: Utc::now(),
+            received_at: now,
         };
         self.thread_index.insert((space_id.clone(), thread_id.clone()));
-        self.receipts.entry((space_id, event_id, thread_id)).or_default().push(receipt.clone());
+        self.last_send_at.insert(dedup_key, now);
+        self.receipts
+            .entry((space_id, event_id, thread_id))
+            .or_default()
+            .push(receipt.clone());
         receipt
     }
 

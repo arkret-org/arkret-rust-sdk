@@ -620,6 +620,7 @@ mod tests {
 
         store
             .put_key_package(MlsKeyPackageRecord {
+                keypackage_id: None,
                 principal_id: alice.clone(),
                 device_id: device_id.clone(),
                 key_package: "kp".to_owned(),
@@ -628,6 +629,9 @@ mod tests {
                 )
                 .unwrap(),
                 cipher_suites: vec!["suite".to_owned()],
+                capabilities: Vec::new(),
+                state: contrix_core::MlsKeyPackageState::Published,
+                claim_id: None,
                 created_at: Utc::now(),
                 expires_at: None,
                 revoked: false,
@@ -752,6 +756,7 @@ mod tests {
 
         store
             .put_key_package(MlsKeyPackageRecord {
+                keypackage_id: None,
                 principal_id: alice.clone(),
                 device_id: device_id.clone(),
                 key_package: "kp-secret".to_owned(),
@@ -760,6 +765,9 @@ mod tests {
                 )
                 .unwrap(),
                 cipher_suites: vec!["MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519".to_owned()],
+                capabilities: Vec::new(),
+                state: contrix_core::MlsKeyPackageState::Published,
+                claim_id: None,
                 created_at: Utc::now(),
                 expires_at: None,
                 revoked: false,
@@ -873,6 +881,7 @@ mod tests {
             )
             .unwrap(),
             ratchet_tree: None,
+            app_state_ref: None,
         };
         store.put_commit(commit.clone()).unwrap();
         store.put_commit(commit.clone()).unwrap();

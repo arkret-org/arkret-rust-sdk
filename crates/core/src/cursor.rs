@@ -31,6 +31,13 @@ pub struct Cursor {
     pub d: Option<BTreeMap<String, String>>,
     /// Expiration timestamp (Unix milliseconds).
     pub x: i64,
+    /// Filter hash binding (M-15 / M-16). When present, the producing
+    /// server MUST reject the cursor unless the current request carries
+    /// the same `filter_hash`. This prevents a client from changing its
+    /// `subscriptions` between calls and silently re-using a cursor that
+    /// was issued under different filter parameters.
+    #[serde(default, rename = "f", skip_serializing_if = "Option::is_none")]
+    pub filter_hash: Option<String>,
 }
 
 /// Position information for a single Space.
@@ -62,6 +69,29 @@ impl Cursor {
             s: BTreeMap::new(),
             d: None,
             x: now + Self::DEFAULT_EXPIRATION_MS,
+            filter_hash: None,
+        }
+    }
+
+    /// Bind a `filter_hash` to this cursor. Servers MUST refuse to
+    /// reuse the cursor when the next request carries a different
+    /// hash (M-15 / M-16). The hash is opaque to the SDK; callers
+    /// typically pass [`crate::sync::sync_filter_hash`].
+    pub fn with_filter_hash(mut self, hash: impl Into<String>) -> Self {
+        self.filter_hash = Some(hash.into());
+        self
+    }
+
+    /// Verify that the cursor's `filter_hash` matches `expected`.
+    /// Returns `Ok(())` when the cursor has no binding (legacy clients)
+    /// or the hash matches; otherwise `Err(Error::Protocol("filter_hash_mismatch"))`.
+    pub fn assert_filter_hash(&self, expected: &str) -> Result<()> {
+        match self.filter_hash.as_deref() {
+            None => Ok(()),
+            Some(found) if found == expected => Ok(()),
+            Some(found) => Err(crate::Error::Protocol(format!(
+                "filter_hash_mismatch: cursor was issued for '{found}', current request is '{expected}'"
+            ))),
         }
     }
 
@@ -404,6 +434,7 @@ mod tests {
             s: BTreeMap::new(),
             d: None,
             x: 1714080000000,
+            filter_hash: None,
         };
 
         let encoded = cursor.encode().unwrap();

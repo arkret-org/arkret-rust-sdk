@@ -7,9 +7,94 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{Result, base::BaseClient};
+use crate::{Did, Result, base::BaseClient};
+
+/// Standard account-data type for the personal blocklist
+/// (`moderation.md` §4.1).
+pub const ACCOUNT_DATA_BLOCKLIST: &str = "cx.account.blocklist";
+
+/// Personal-blocklist entry.
+///
+/// The blocklist is **actor-private**: it MUST NOT be federated, MUST NOT
+/// influence Space-level moderation decisions, and only filters the local
+/// client's view. It complements (not replaces) Space `moderation_policy`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BlocklistEntry {
+    pub block_did: Did,
+    pub created_at: DateTime<Utc>,
+    /// Optional automatic expiration. When `None`, the block is permanent
+    /// until the local user removes it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+impl BlocklistEntry {
+    pub fn new(block_did: Did) -> Self {
+        Self { block_did, created_at: Utc::now(), expires_at: None, reason: None }
+    }
+
+    pub fn with_ttl(mut self, expires_at: DateTime<Utc>) -> Self {
+        self.expires_at = Some(expires_at);
+        self
+    }
+
+    pub fn with_reason(mut self, reason: impl Into<String>) -> Self {
+        self.reason = Some(reason.into());
+        self
+    }
+
+    pub fn is_active(&self, now: DateTime<Utc>) -> bool {
+        self.expires_at.map(|deadline| now < deadline).unwrap_or(true)
+    }
+}
+
+/// Personal blocklist (`cx.account.blocklist`) — actor-private filter list
+/// kept in account data.
+///
+/// Storage rules per `moderation.md` §4.1:
+///
+/// - Persisted only as `cx.account.blocklist` account data (not as a
+///   shared Space state event).
+/// - MUST NOT be exfiltrated to federation peers, push gateways, or
+///   directory services.
+/// - When a Space is encrypted with MLS, the blocklist MAY be stored
+///   inside the actor's encrypted account data backup, never as
+///   plaintext on the principal server.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AccountBlocklist {
+    pub entries: BTreeMap<String, BlocklistEntry>,
+}
+
+impl AccountBlocklist {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn block(&mut self, entry: BlocklistEntry) {
+        self.entries.insert(entry.block_did.as_str().to_owned(), entry);
+    }
+
+    pub fn unblock(&mut self, did: &Did) -> bool {
+        self.entries.remove(did.as_str()).is_some()
+    }
+
+    pub fn is_blocked(&self, did: &Did, now: DateTime<Utc>) -> bool {
+        self.entries.get(did.as_str()).is_some_and(|entry| entry.is_active(now))
+    }
+
+    /// Drop expired entries; returns the number removed.
+    pub fn prune_expired(&mut self, now: DateTime<Utc>) -> usize {
+        let before = self.entries.len();
+        self.entries.retain(|_, entry| entry.is_active(now));
+        before - self.entries.len()
+    }
+}
 
 /// Account data entry.
 #[derive(Clone, Debug)]
@@ -109,5 +194,35 @@ mod tests {
         assert_eq!(all.len(), 2);
         assert!(all.contains_key("key1"));
         assert!(all.contains_key("key2"));
+    }
+
+    #[test]
+    fn blocklist_blocks_unblocks_and_expires() {
+        use chrono::Duration;
+        let alice = Did::new("did:web:alice.example").unwrap();
+        let bob = Did::new("did:web:bob.example").unwrap();
+        let now = Utc::now();
+        let mut bl = AccountBlocklist::new();
+        bl.block(BlocklistEntry::new(alice.clone()).with_reason("spam"));
+        bl.block(
+            BlocklistEntry::new(bob.clone())
+                .with_ttl(now + Duration::seconds(60)),
+        );
+
+        assert!(bl.is_blocked(&alice, now));
+        assert!(bl.is_blocked(&bob, now));
+
+        // After Bob's TTL elapses he is no longer blocked.
+        let later = now + Duration::seconds(120);
+        assert!(bl.is_blocked(&alice, later));
+        assert!(!bl.is_blocked(&bob, later));
+
+        // Pruning removes expired entries.
+        assert_eq!(bl.prune_expired(later), 1);
+        assert_eq!(bl.entries.len(), 1);
+
+        // Unblock alice removes her permanently.
+        assert!(bl.unblock(&alice));
+        assert!(!bl.is_blocked(&alice, later));
     }
 }

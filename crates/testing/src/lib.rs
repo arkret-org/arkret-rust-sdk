@@ -78,12 +78,166 @@ pub struct StateResolutionVector {
     pub conflict_count: usize,
 }
 
+/// Reference vector for canonical-JSON encoding round-trips.
+/// Anchored in `conformance/conformance-vectors.md` §1.3–§1.5.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct CanonicalJsonVector {
+    pub vector_id: String,
+    pub input: Value,
+    pub canonical_bytes: String,
+    pub digest: String,
+    pub should_reject: bool,
+}
+
+/// Reference vector for redaction.
+/// Anchored in `event-auth-state-resolution.md` §10.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct RedactionVector {
+    pub vector_id: String,
+    pub kind: String,
+    pub before: Value,
+    pub after_payload_cleared: bool,
+    pub preserves_actor_seq: bool,
+    pub preserves_prev_refs: bool,
+    pub preserves_auth_refs: bool,
+    pub preserves_hlc: bool,
+}
+
+/// Reference vector for capability evaluation
+/// (`capabilities.md` §4 + `constraint-schema.md` §15).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct CapabilityVector {
+    pub vector_id: String,
+    pub action: String,
+    pub expected_decision: String,
+    pub short_circuit_on: Option<String>,
+}
+
+/// Reference vector for sync (cursor / filter binding).
+/// Anchored in `operations-sync.md` §11 + M-15/M-16.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SyncVector {
+    pub vector_id: String,
+    pub filter_hash: String,
+    pub frontier_size: usize,
+    pub expects_filter_hash_mismatch: bool,
+}
+
 pub fn conformance_report() -> Result<ConformanceReport> {
     Ok(ConformanceReport {
         rows: endpoint_coverage_rows(),
         event_vectors: event_taxonomy_vectors()?,
         state_vectors: state_resolution_vectors()?,
     })
+}
+
+/// Produce a small but representative library of canonical-JSON
+/// reference vectors. Each vector is self-contained — the input is a
+/// `serde_json::Value`, the expected canonical bytes / digest are
+/// pinned, and the test harness can assert byte-for-byte equality.
+///
+/// Every vector cites its anchoring `conformance/conformance-vectors.md`
+/// section in the `vector_id`, e.g. `canonical-json/v1.3-basic`.
+pub fn canonical_json_vectors() -> Vec<CanonicalJsonVector> {
+    use contrix_core::canonical;
+    let basic = json!({ "b": 2, "a": 1 });
+    let basic_bytes = canonical::canonical_json_string(&basic).expect("canonical");
+    let basic_digest = canonical::sha256_digest(basic_bytes.as_bytes());
+
+    let nested = json!({
+        "outer": { "z": 26, "a": 1 },
+        "list": [3, 1, 2],
+    });
+    let nested_bytes = canonical::canonical_json_string(&nested).expect("canonical");
+    let nested_digest = canonical::sha256_digest(nested_bytes.as_bytes());
+
+    vec![
+        CanonicalJsonVector {
+            vector_id: "canonical-json/v1.3-basic".to_owned(),
+            input: basic,
+            canonical_bytes: basic_bytes,
+            digest: basic_digest,
+            should_reject: false,
+        },
+        CanonicalJsonVector {
+            vector_id: "canonical-json/v1.4-nested".to_owned(),
+            input: nested,
+            canonical_bytes: nested_bytes,
+            digest: nested_digest,
+            should_reject: false,
+        },
+        CanonicalJsonVector {
+            vector_id: "canonical-json/v1.5-reject-float".to_owned(),
+            input: json!({ "n": 1.5 }),
+            canonical_bytes: String::new(),
+            digest: String::new(),
+            should_reject: true,
+        },
+    ]
+}
+
+/// Reference redaction vectors. The harness MUST assert that
+/// `apply_redaction(before)` clears `payload`/`unsigned` while keeping
+/// every preserved-fields flag set on the vector.
+pub fn redaction_vectors() -> Vec<RedactionVector> {
+    vec![RedactionVector {
+        vector_id: "redaction/v10-message".to_owned(),
+        kind: "cx.message.create".to_owned(),
+        before: json!({
+            "kind": "cx.message.create",
+            "actor_seq": 7,
+            "prev_refs": ["cx:event:01js0evbase00000000000000"],
+            "auth_refs": ["cx:event:01js0evauth00000000000000"],
+            "hlc": "01970e589d21-00000004-a13f9c2e",
+            "content": { "body": "to be redacted" },
+            "unsigned": { "transient": true }
+        }),
+        after_payload_cleared: true,
+        preserves_actor_seq: true,
+        preserves_prev_refs: true,
+        preserves_auth_refs: true,
+        preserves_hlc: true,
+    }]
+}
+
+/// Reference capability-evaluation vectors. The harness MUST verify
+/// the short-circuit ordering deny → quarantine → require_review →
+/// allow per `constraint-schema.md` §15.1–§15.3.
+pub fn capability_vectors() -> Vec<CapabilityVector> {
+    vec![
+        CapabilityVector {
+            vector_id: "capability/cs-15.1-deny-short-circuits".to_owned(),
+            action: "cx.message.create".to_owned(),
+            expected_decision: "deny".to_owned(),
+            short_circuit_on: Some("temporal_expired".to_owned()),
+        },
+        CapabilityVector {
+            vector_id: "capability/cs-15.2-priority-orders-allow".to_owned(),
+            action: "cx.message.create".to_owned(),
+            expected_decision: "allow".to_owned(),
+            short_circuit_on: None,
+        },
+    ]
+}
+
+/// Reference sync vectors covering cursor `filter_hash` binding.
+pub fn sync_vectors() -> Vec<SyncVector> {
+    vec![
+        SyncVector {
+            vector_id: "sync/m-15-filter-hash-bound".to_owned(),
+            filter_hash: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                .to_owned(),
+            frontier_size: 1,
+            expects_filter_hash_mismatch: false,
+        },
+        SyncVector {
+            vector_id: "sync/m-16-filter-hash-mismatch-rejected".to_owned(),
+            filter_hash: "sha256:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"
+                .to_owned(),
+            frontier_size: 1,
+            expects_filter_hash_mismatch: true,
+        },
+    ]
 }
 
 pub fn endpoint_coverage_rows() -> Vec<EndpointCoverageRow> {

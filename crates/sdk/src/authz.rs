@@ -74,6 +74,17 @@ pub enum ResourceSelector {
     Invite { space_id: String, invite_id: Option<String> },
     /// Read marker selector
     ReadMarker { space_id: String },
+    /// Morph selector — `morph_type` is the canonical filter per
+    /// `resource-selector-grammar.md` §6 (matches by exact type name).
+    Morph { space_id: String, morph_id: Option<String>, morph_type: Option<String> },
+    /// Notification selector (per-actor private). `actor_did` may be `*`.
+    Notification { actor_did: String, notification_id: Option<String> },
+    /// Blob selector. `space_id` MAY be `*` for global blobs (e.g. avatars).
+    Blob { space_id: String, blob_id: Option<String> },
+    /// Event selector (audit/redaction). Matches by event kind / id.
+    Event { space_id: String, event_kind: Option<String>, event_id: Option<String> },
+    /// Actor selector (e.g. account-lifecycle, profile updates).
+    Actor { actor_did: String },
     /// Wildcard selector (all resources)
     Wildcard,
 }
@@ -299,6 +310,66 @@ impl ResourceSelector {
                 space_id == target_space || space_id == "*"
             }
             (Self::ReadMarker { .. }, _) => false,
+
+            // Morph selector
+            (
+                Self::Morph { space_id, morph_id, morph_type },
+                Resource::Morph {
+                    space_id: target_space,
+                    morph_id: target_id,
+                    morph_type: target_type,
+                },
+            ) => {
+                let space_match = space_id == target_space || space_id == "*";
+                let id_match = morph_id.as_ref().is_none_or(|id| id == target_id);
+                let type_match = morph_type.as_ref().is_none_or(|t| t == target_type);
+                space_match && id_match && type_match
+            }
+            (Self::Morph { .. }, _) => false,
+
+            // Notification selector
+            (
+                Self::Notification { actor_did, notification_id },
+                Resource::Notification { actor_did: target_actor, notification_id: target_id },
+            ) => {
+                let actor_match = actor_did == target_actor || actor_did == "*";
+                let id_match = notification_id.as_ref().is_none_or(|id| id == target_id);
+                actor_match && id_match
+            }
+            (Self::Notification { .. }, _) => false,
+
+            // Blob selector
+            (
+                Self::Blob { space_id, blob_id },
+                Resource::Blob { space_id: target_space, blob_id: target_id },
+            ) => {
+                let space_match = space_id == target_space || space_id == "*";
+                let id_match = blob_id.as_ref().is_none_or(|id| id == target_id);
+                space_match && id_match
+            }
+            (Self::Blob { .. }, _) => false,
+
+            // Event selector
+            (
+                Self::Event { space_id, event_kind, event_id },
+                Resource::Event {
+                    space_id: target_space,
+                    event_kind: target_kind,
+                    event_id: target_id,
+                },
+            ) => {
+                let space_match = space_id == target_space || space_id == "*";
+                let kind_match = event_kind.as_ref().is_none_or(|k| k == target_kind);
+                let id_match = event_id.as_ref().is_none_or(|id| id == target_id);
+                space_match && kind_match && id_match
+            }
+            (Self::Event { .. }, _) => false,
+
+            // Actor selector
+            (Self::Actor { actor_did }, Resource::Actor { actor_did: target_actor }) => {
+                actor_did == target_actor || actor_did == "*"
+            }
+            (Self::Actor { .. }, _) => false,
 
             // Wildcard matches everything
             (Self::Wildcard, _) => true,
@@ -885,6 +956,13 @@ pub struct ProtocolGrantClaimRequirement {
 pub struct ProtocolGrantConstraint {
     pub constraint_type: ProtocolGrantConstraintType,
     pub effect: ProtocolGrantConstraintEffect,
+    /// Evaluation class per `constraint-schema.md` §2.1 / §2.3 — gates how
+    /// aggressively the result may be cached. `Stateless` and `GrantLocal`
+    /// constraints are safe for fast-path caching; `SpaceState` requires
+    /// re-evaluation on every frontier change; `External` (claim, policy
+    /// server) MUST NOT be cached without an explicit TTL bound.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub evaluation_class: Option<crate::EvaluationClass>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub priority: Option<i64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -993,6 +1071,7 @@ impl ProtocolGrantConstraint {
                 ],
                 approval_relation: Some(ProtocolGrantApprovalRelation::Controller),
                 requires_claims: Vec::new(),
+                evaluation_class: None,
                 extra: BTreeMap::new(),
             },
             Self {
@@ -1036,6 +1115,7 @@ impl ProtocolGrantConstraint {
                     roles: vec!["backup_admin".to_owned()],
                     extra: BTreeMap::new(),
                 }],
+                evaluation_class: None,
                 extra: BTreeMap::new(),
             },
             Self {
@@ -1072,6 +1152,7 @@ impl ProtocolGrantConstraint {
                 approval_actor_refs: vec!["did:web:ops.example".to_owned()],
                 approval_relation: Some(ProtocolGrantApprovalRelation::Responsible),
                 requires_claims: Vec::new(),
+                evaluation_class: None,
                 extra: BTreeMap::new(),
             },
         ]
@@ -1122,10 +1203,22 @@ pub enum Resource {
     Invite { space_id: String, invite_id: String },
     /// Read marker resource
     ReadMarker { space_id: String },
+    /// Morph resource (canonical open-typed object).
+    Morph { space_id: String, morph_id: String, morph_type: String },
+    /// Notification resource (per-actor private channel).
+    Notification { actor_did: String, notification_id: String },
+    /// Blob resource. `space_id` may be `*` for global blobs.
+    Blob { space_id: String, blob_id: String },
+    /// Event resource (audit / redaction / state-resolution targets).
+    Event { space_id: String, event_kind: String, event_id: String },
+    /// Actor resource (account-lifecycle, profile updates).
+    Actor { actor_did: String },
 }
 
 impl Resource {
-    /// Get the space ID for this resource.
+    /// Get the space ID for this resource. Returns the wildcard string for
+    /// non-Space-bound resources (Notification, Actor) so callers retain a
+    /// consistent shape.
     pub fn space_id(&self) -> &str {
         match self {
             Self::Space { space_id } => space_id,
@@ -1137,6 +1230,10 @@ impl Resource {
             Self::Policy { space_id, .. } => space_id,
             Self::Invite { space_id, .. } => space_id,
             Self::ReadMarker { space_id } => space_id,
+            Self::Morph { space_id, .. } => space_id,
+            Self::Blob { space_id, .. } => space_id,
+            Self::Event { space_id, .. } => space_id,
+            Self::Notification { .. } | Self::Actor { .. } => "*",
         }
     }
 }
@@ -1224,6 +1321,78 @@ pub enum Constraint {
         memory_kind_allow: Vec<String>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         memory_kind_deny: Vec<String>,
+    },
+    /// Visibility control constraint (`confidentiality{subtype=visibility}`).
+    /// See `constraint-schema.md` §13.
+    VisibilityControl {
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        visibility_allow: Vec<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        visibility_deny: Vec<String>,
+        #[serde(default = "default_false")]
+        deny_redacted_history: bool,
+    },
+    /// Resource quota constraint (`quota{subtype=resource}`).
+    /// See `constraint-schema.md` §8.2 / §14.1.
+    ResourceLimit {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        blob_max_bytes: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        max_total_blob_bytes: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        max_resources: Option<u64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        resource_type: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        period: Option<ConstraintDuration>,
+        #[serde(default = "default_rate_limit_scope")]
+        scope: RateLimitScope,
+    },
+    /// Edit / redact temporal window for messages
+    /// (`temporal{subtype=edit_window}`). See `constraint-schema.md` §14.2.
+    EditWindow {
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        applies_to_actions: Vec<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        message_edit_window: Option<ConstraintDuration>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        message_redact_window: Option<ConstraintDuration>,
+        #[serde(default = "default_false")]
+        allow_redact_after_window: bool,
+    },
+    /// Container move scope (`scope_limitation` with container refs).
+    /// See `constraint-schema.md` §6.3.
+    ContainerMove {
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        relation_kind_allow: Vec<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        allowed_view_refs: Vec<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        allowed_from_container_refs: Vec<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        allowed_to_container_refs: Vec<String>,
+        #[serde(default = "default_false")]
+        wip_limit_override: bool,
+    },
+    /// Generic scope limitation (`scope_limitation`).
+    /// See `constraint-schema.md` §6.1 / §6.2.
+    ScopeLimitation {
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        allowed_flow_refs: Vec<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        denied_flow_refs: Vec<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        allowed_branches: Vec<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        denied_branches: Vec<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        allowed_view_kinds: Vec<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        allowed_view_renderers: Vec<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        denied_view_kinds: Vec<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        denied_view_renderers: Vec<String>,
     },
 }
 
@@ -1635,6 +1804,44 @@ impl ConstraintEntry {
             Constraint::ClaimBased { .. } => ConstraintEffect::Allow,
             Constraint::Accountability { .. } => ConstraintEffect::Allow,
             Constraint::EncryptionRequirement { .. } => ConstraintEffect::Allow,
+            Constraint::VisibilityControl { .. } => ConstraintEffect::Allow,
+            Constraint::ResourceLimit { .. } => ConstraintEffect::Allow,
+            Constraint::EditWindow { .. } => ConstraintEffect::Allow,
+            Constraint::ContainerMove { .. } => ConstraintEffect::Allow,
+            Constraint::ScopeLimitation { .. } => ConstraintEffect::Allow,
+        }
+    }
+
+    /// Derive the canonical [`EvaluationClass`] for this constraint per
+    /// `constraint-schema.md` §2.3. The class controls whether the
+    /// authorization engine may use a fast-path cache:
+    ///
+    /// - `Stateless` — pure inputs (clock, calendar). Safe to cache.
+    /// - `GrantLocal` — inputs from the grant itself. Safe to cache as long
+    ///   as the cache key binds the grant id and the constraint priority.
+    /// - `SpaceState` — depends on Space membership/policy/capability state.
+    ///   MUST be re-evaluated on every frontier change.
+    /// - `External` — depends on out-of-band signals (policy server, claim
+    ///   issuer, presentation). MUST NOT be cached without explicit TTL.
+    pub fn evaluation_class(&self) -> crate::EvaluationClass {
+        use crate::EvaluationClass;
+        match &self.constraint {
+            Constraint::Temporal { .. } => EvaluationClass::Stateless,
+            Constraint::FieldAccess { .. } => EvaluationClass::GrantLocal,
+            Constraint::TypeRestriction { .. } => EvaluationClass::GrantLocal,
+            Constraint::DelegationControl { .. } => EvaluationClass::GrantLocal,
+            Constraint::RateLimiting { .. } => EvaluationClass::SpaceState,
+            Constraint::ApprovalWorkflow { .. } => EvaluationClass::SpaceState,
+            Constraint::ClaimBased { .. } => EvaluationClass::External,
+            Constraint::Accountability { .. } => EvaluationClass::GrantLocal,
+            Constraint::EncryptionRequirement { .. } => EvaluationClass::SpaceState,
+            Constraint::VisibilityControl { .. } => EvaluationClass::SpaceState,
+            // single-call blob_max_bytes is stateless; per-scope total is external.
+            // Default to SpaceState because the SDK can't tell at type-level.
+            Constraint::ResourceLimit { .. } => EvaluationClass::SpaceState,
+            Constraint::EditWindow { .. } => EvaluationClass::Stateless,
+            Constraint::ContainerMove { .. } => EvaluationClass::SpaceState,
+            Constraint::ScopeLimitation { .. } => EvaluationClass::Stateless,
         }
     }
 }
@@ -1902,6 +2109,50 @@ pub struct AuthzContext {
     /// Encryption level of the target operation/payload, if already verified.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub encryption_level: Option<String>,
+    /// Effective `history_visibility` of the target Space at the current
+    /// causal frontier (`world_readable` / `shared` / `invited` / `joined` /
+    /// `restricted`). Used by `Constraint::VisibilityControl`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub history_visibility: Option<String>,
+    /// Byte count of the blob being uploaded (single-call), if any.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub blob_byte_count: Option<u64>,
+    /// Cumulative blob bytes already used in the scope (for
+    /// `ResourceLimit.max_total_blob_bytes`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope_blob_total_bytes: Option<u64>,
+    /// Cumulative resource count in the scope (for
+    /// `ResourceLimit.max_resources`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope_resource_count: Option<u64>,
+    /// Creation time of the target object (for `EditWindow`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_created_at: Option<DateTime<Utc>>,
+    /// Active Flow branch (`discussion` / `synthesis` / profile-defined)
+    /// when the operation targets a Flow.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub flow_branch: Option<String>,
+    /// View kind when targeting a View resource.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub view_kind: Option<String>,
+    /// View renderer when targeting a View resource.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub view_renderer: Option<String>,
+    /// Container relation kind for `ContainerMove` evaluation.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub relation_kind: Option<String>,
+    /// View ref for container move targeting.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub view_id: Option<String>,
+    /// `from` container reference for `ContainerMove`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub from_container_id: Option<String>,
+    /// `to` container reference for `ContainerMove`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub to_container_id: Option<String>,
+    /// Whether the destination container would exceed its WIP limit.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wip_over_limit: Option<bool>,
 }
 
 impl AuthzContext {
@@ -1922,6 +2173,19 @@ impl AuthzContext {
             revoked_claim_ids: Vec::new(),
             accountability_logged: false,
             encryption_level: None,
+            history_visibility: None,
+            blob_byte_count: None,
+            scope_blob_total_bytes: None,
+            scope_resource_count: None,
+            target_created_at: None,
+            flow_branch: None,
+            view_kind: None,
+            view_renderer: None,
+            relation_kind: None,
+            view_id: None,
+            from_container_id: None,
+            to_container_id: None,
+            wip_over_limit: None,
         }
     }
 
@@ -2554,6 +2818,215 @@ impl AuthzEngine {
                 } else {
                     AuthzDecision::Allow
                 }
+            }
+            Constraint::VisibilityControl { visibility_allow, visibility_deny, .. } => {
+                if let Some(level) = ctx.history_visibility.as_deref() {
+                    if visibility_deny.iter().any(|v| v == level) {
+                        return AuthzDecision::Deny {
+                            reason: format!("visibility level '{}' is denied", level),
+                        };
+                    }
+                    if !visibility_allow.is_empty()
+                        && !visibility_allow.iter().any(|v| v == level)
+                    {
+                        return AuthzDecision::Deny {
+                            reason: format!("visibility level '{}' not in allow list", level),
+                        };
+                    }
+                }
+                AuthzDecision::Allow
+            }
+            Constraint::ResourceLimit {
+                blob_max_bytes,
+                max_total_blob_bytes,
+                max_resources,
+                ..
+            } => {
+                if let Some(max) = blob_max_bytes
+                    && let Some(actual) = ctx.blob_byte_count
+                    && actual > *max
+                {
+                    return AuthzDecision::Deny {
+                        reason: format!("blob size {} exceeds max {}", actual, max),
+                    };
+                }
+                if let Some(max) = max_total_blob_bytes
+                    && let Some(total) = ctx.scope_blob_total_bytes
+                    && total > *max
+                {
+                    return AuthzDecision::Deny {
+                        reason: format!(
+                            "scope blob total {} exceeds max_total_blob_bytes {}",
+                            total, max
+                        ),
+                    };
+                }
+                if let Some(max) = max_resources
+                    && let Some(count) = ctx.scope_resource_count
+                    && count > *max
+                {
+                    return AuthzDecision::Deny {
+                        reason: format!("resource count {} exceeds max {}", count, max),
+                    };
+                }
+                AuthzDecision::Allow
+            }
+            Constraint::EditWindow {
+                applies_to_actions,
+                message_edit_window,
+                message_redact_window,
+                allow_redact_after_window,
+            } => {
+                let action_match = applies_to_actions.is_empty()
+                    || applies_to_actions.iter().any(|a| a == &ctx.action);
+                if !action_match {
+                    return AuthzDecision::Allow;
+                }
+                let Some(origin) = ctx.target_created_at else {
+                    return AuthzDecision::Allow;
+                };
+                let age = ctx.now - origin;
+                let pick_window = if ctx.action.contains("redact") {
+                    message_redact_window.as_ref()
+                } else {
+                    message_edit_window.as_ref()
+                };
+                if let Some(window) = pick_window
+                    && !max_age_contains(age, window)
+                {
+                    if ctx.action.contains("redact") && *allow_redact_after_window {
+                        return AuthzDecision::Allow;
+                    }
+                    return AuthzDecision::Deny {
+                        reason: format!(
+                            "edit/redact window {}{} elapsed",
+                            window.value, window.unit
+                        ),
+                    };
+                }
+                AuthzDecision::Allow
+            }
+            Constraint::ContainerMove {
+                relation_kind_allow,
+                allowed_view_refs,
+                allowed_from_container_refs,
+                allowed_to_container_refs,
+                wip_limit_override,
+            } => {
+                if !relation_kind_allow.is_empty()
+                    && let Some(rk) = ctx.relation_kind.as_deref()
+                    && !relation_kind_allow.iter().any(|k| k == rk)
+                {
+                    return AuthzDecision::Deny {
+                        reason: format!("relation_kind '{}' not in allow list", rk),
+                    };
+                }
+                if !allowed_view_refs.is_empty()
+                    && let Some(view_id) = ctx.view_id.as_deref()
+                    && !allowed_view_refs.iter().any(|v| v == view_id)
+                {
+                    return AuthzDecision::Deny {
+                        reason: format!("view '{}' not allowed for container move", view_id),
+                    };
+                }
+                if !allowed_from_container_refs.is_empty()
+                    && let Some(from_id) = ctx.from_container_id.as_deref()
+                    && !allowed_from_container_refs.iter().any(|v| v == from_id)
+                {
+                    return AuthzDecision::Deny {
+                        reason: format!("from container '{}' not allowed", from_id),
+                    };
+                }
+                if !allowed_to_container_refs.is_empty()
+                    && let Some(to_id) = ctx.to_container_id.as_deref()
+                    && !allowed_to_container_refs.iter().any(|v| v == to_id)
+                {
+                    return AuthzDecision::Deny {
+                        reason: format!("to container '{}' not allowed", to_id),
+                    };
+                }
+                if !*wip_limit_override
+                    && let Some(over) = ctx.wip_over_limit
+                    && over
+                {
+                    return AuthzDecision::Deny {
+                        reason: "WIP limit exceeded and override not granted".to_owned(),
+                    };
+                }
+                AuthzDecision::Allow
+            }
+            Constraint::ScopeLimitation {
+                allowed_flow_refs,
+                denied_flow_refs,
+                allowed_branches,
+                denied_branches,
+                allowed_view_kinds,
+                allowed_view_renderers,
+                denied_view_kinds,
+                denied_view_renderers,
+            } => {
+                if let Resource::Flow { flow_id, .. } = &ctx.resource {
+                    if denied_flow_refs.iter().any(|v| v == flow_id) {
+                        return AuthzDecision::Deny {
+                            reason: format!("flow '{}' is denied", flow_id),
+                        };
+                    }
+                    if !allowed_flow_refs.is_empty()
+                        && !allowed_flow_refs.iter().any(|v| v == flow_id)
+                    {
+                        return AuthzDecision::Deny {
+                            reason: format!("flow '{}' not in allow list", flow_id),
+                        };
+                    }
+                }
+                if let Some(branch) = ctx.flow_branch.as_deref() {
+                    if denied_branches.iter().any(|b| b == branch) {
+                        return AuthzDecision::Deny {
+                            reason: format!("branch '{}' is denied", branch),
+                        };
+                    }
+                    if !allowed_branches.is_empty()
+                        && !allowed_branches.iter().any(|b| b == branch)
+                    {
+                        return AuthzDecision::Deny {
+                            reason: format!("branch '{}' not in allow list", branch),
+                        };
+                    }
+                }
+                if let Resource::View { .. } = &ctx.resource {
+                    if let Some(kind) = ctx.view_kind.as_deref() {
+                        if denied_view_kinds.iter().any(|k| k == kind) {
+                            return AuthzDecision::Deny {
+                                reason: format!("view kind '{}' is denied", kind),
+                            };
+                        }
+                        if !allowed_view_kinds.is_empty()
+                            && !allowed_view_kinds.iter().any(|k| k == kind)
+                        {
+                            return AuthzDecision::Deny {
+                                reason: format!("view kind '{}' not in allow list", kind),
+                            };
+                        }
+                    }
+                    if let Some(renderer) = ctx.view_renderer.as_deref() {
+                        if denied_view_renderers.iter().any(|r| r == renderer) {
+                            return AuthzDecision::Deny {
+                                reason: format!("view renderer '{}' is denied", renderer),
+                            };
+                        }
+                        if !allowed_view_renderers.is_empty()
+                            && !allowed_view_renderers.iter().any(|r| r == renderer)
+                        {
+                            return AuthzDecision::Deny {
+                                reason: format!(
+                                    "view renderer '{}' not in allow list",
+                                    renderer
+                                ),
+                            };
+                        }
+                    }
+                }
+                AuthzDecision::Allow
             }
         }
     }

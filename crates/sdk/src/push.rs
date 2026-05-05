@@ -129,6 +129,107 @@ pub struct EncryptedPushPayload {
     pub digest: String,
 }
 
+/// Push privacy policy enforced before a payload leaves the device for an
+/// external gateway (APNs, FCM, WebPush).
+///
+/// This addresses B-14 in `contrix-spec/_report.md`: raw DIDs MUST NOT be
+/// shipped in push payloads, push tokens or TURN credentials. By default
+/// any payload whose body or data fields contain a `did:` substring is
+/// rejected. Callers MAY whitelist services they have explicitly listed
+/// under `Space.policy.plaintext_visible_services` by adding their service
+/// DID to `allow_plaintext_for_services`.
+#[derive(Clone, Debug, Default)]
+pub struct PushPrivacyPolicy {
+    /// Service DIDs explicitly authorised to receive plaintext (e.g. listed
+    /// under Space `plaintext_visible_services`). Anything not on this list
+    /// MUST receive minimal-metadata or encrypted payloads.
+    pub allow_plaintext_for_services: BTreeSet<Did>,
+    /// When `true` (default), the validator rejects payloads whose `body`,
+    /// `data` JSON or platform `token` contain raw `did:` strings.
+    pub forbid_raw_did_in_payload: bool,
+}
+
+impl PushPrivacyPolicy {
+    pub fn strict() -> Self {
+        Self { allow_plaintext_for_services: BTreeSet::new(), forbid_raw_did_in_payload: true }
+    }
+
+    pub fn allow(mut self, service_did: Did) -> Self {
+        self.allow_plaintext_for_services.insert(service_did);
+        self
+    }
+
+    /// Reject the payload when a raw DID is detected outside an authorised
+    /// service.
+    pub fn assert_payload_safe(&self, payload: &PushPayload) -> Result<()> {
+        if !self.forbid_raw_did_in_payload {
+            return Ok(());
+        }
+        // The platform token MUST NOT itself be a DID — that would imply the
+        // gateway already correlates this token to a stable identity.
+        if payload.token.contains("did:") {
+            return Err(Error::Protocol(
+                "push token contains a raw did: substring; use a Space-scoped pairwise pseudonym (B-14)"
+                    .to_owned(),
+            ));
+        }
+        if contains_did_substring(&payload.body) {
+            return Err(Error::Protocol(
+                "push body contains a raw did: substring; redact before delivery (B-14)"
+                    .to_owned(),
+            ));
+        }
+        if json_contains_did(&payload.data) {
+            return Err(Error::Protocol(
+                "push data contains a raw did: substring; redact before delivery (B-14)"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Validate a payload against a specific destination service. When
+    /// `destination_service` is in `allow_plaintext_for_services`, the
+    /// DID-substring check is skipped; otherwise the strict
+    /// [`Self::assert_payload_safe`] policy applies.
+    ///
+    /// This implements T3-9 / `service-surface.md`'s "raw DIDs only on
+    /// plaintext_visible_services" rule end-to-end.
+    pub fn validate_payload_for_destination(
+        &self,
+        payload: &PushPayload,
+        destination_service: &Did,
+    ) -> Result<()> {
+        if self.allow_plaintext_for_services.contains(destination_service) {
+            return Ok(());
+        }
+        self.assert_payload_safe(payload)
+    }
+}
+
+fn contains_did_substring(s: &str) -> bool {
+    // Match the canonical DID prefixes documented in identity-did.md §3.
+    const PREFIXES: &[&str] = &[
+        "did:web:",
+        "did:plc:",
+        "did:key:",
+        "did:webvh:",
+        "did:webs:",
+        "did:keri:",
+        "did:uuid:",
+    ];
+    PREFIXES.iter().any(|p| s.contains(p))
+}
+
+fn json_contains_did(value: &Value) -> bool {
+    match value {
+        Value::String(s) => contains_did_substring(s),
+        Value::Array(arr) => arr.iter().any(json_contains_did),
+        Value::Object(map) => map.values().any(json_contains_did),
+        _ => false,
+    }
+}
+
 /// Push gateway state.
 #[derive(Clone, Debug, Default)]
 pub struct PushGateway {
@@ -232,6 +333,16 @@ impl PushGateway {
                 "platform": format!("{:?}", token.platform).to_lowercase(),
             }),
         }
+    }
+
+    /// Encrypt a push payload for E2EE transport using authenticated encryption.
+    pub fn encrypt_payload_validated(
+        payload: &PushPayload,
+        key: &[u8],
+        policy: &PushPrivacyPolicy,
+    ) -> Result<EncryptedPushPayload> {
+        policy.assert_payload_safe(payload)?;
+        Self::encrypt_payload(payload, key)
     }
 
     /// Encrypt a push payload for E2EE transport using authenticated encryption.

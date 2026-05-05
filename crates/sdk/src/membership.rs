@@ -25,6 +25,46 @@ pub enum MembershipState {
     Left,
     /// User is banned.
     Banned,
+    /// User has knocked (requested entry to a `knock` / `knock_restricted`
+    /// Space). Resolves to `Invited` (admit) or `Left` (decline) per
+    /// `event-auth-state-resolution.md` §5.
+    Knocked,
+}
+
+/// Validate a membership transition per `event-auth-state-resolution.md` §5.
+///
+/// `from = None` represents the "no prior membership" state (the spec calls
+/// this `none`). The legal transition table covers:
+///
+/// - `none → {join, invite, knock}`
+/// - `invite → {join, leave}`
+/// - `knock → {invite, leave}`
+/// - `join → {leave, ban}`
+/// - `leave → {invite, knock}` (re-enter via fresh invite or knock)
+/// - `ban → leave` (only via unban; reducer MUST emit `Left` then a fresh
+///   invite for re-admission)
+///
+/// Same-state writes (e.g. `Joined → Joined`) are allowed as idempotent
+/// no-ops; reducers may still emit a profile/role change without flipping
+/// state. Anything else returns `false` and the reducer MUST reject the
+/// event with `state_mismatch`.
+pub fn is_legal_membership_transition(
+    from: Option<MembershipState>,
+    to: MembershipState,
+) -> bool {
+    use MembershipState::*;
+    if Some(to) == from {
+        return true;
+    }
+    match (from, to) {
+        (None, Joined) | (None, Invited) | (None, Knocked) => true,
+        (Some(Invited), Joined) | (Some(Invited), Left) => true,
+        (Some(Knocked), Invited) | (Some(Knocked), Left) => true,
+        (Some(Joined), Left) | (Some(Joined), Banned) => true,
+        (Some(Left), Invited) | (Some(Left), Knocked) => true,
+        (Some(Banned), Left) => true,
+        _ => false,
+    }
 }
 
 /// Role used for coarse permission checks.
@@ -180,13 +220,21 @@ impl MembershipManager {
         }
     }
 
-    /// Accept an invitation and transition Invited/Left to Joined.
+    /// Accept an invitation and transition Invited/Left/Knocked to Joined.
     pub fn join(&mut self, user_id: &Did) -> Result<()> {
         match self.members.get(user_id).map(|member| member.state) {
             Some(MembershipState::Banned) => {
                 Err(Error::Protocol("banned members cannot join".to_owned()))
             }
             Some(MembershipState::Joined) => Ok(()),
+            Some(MembershipState::Knocked) => {
+                // A direct `join` is only legal from `Invited` per the
+                // canonical transition table — knockers must be `Invited`
+                // first. Fall back to the strict validator for clarity.
+                Err(Error::Protocol(
+                    "knocking members must be invited before joining".to_owned(),
+                ))
+            }
             Some(MembershipState::Invited | MembershipState::Left) | None => {
                 let role = self
                     .members
@@ -241,6 +289,40 @@ impl MembershipManager {
             }
             _ => Err(Error::Protocol("only banned members can be unbanned".to_owned())),
         }
+    }
+
+    /// Record a `knock` request — `none → Knocked` or `Left → Knocked`.
+    pub fn knock(&mut self, user_id: &Did) -> Result<()> {
+        let from = self.members.get(user_id).map(|m| m.state);
+        if !is_legal_membership_transition(from, MembershipState::Knocked) {
+            return Err(Error::Protocol(format!(
+                "illegal membership transition {from:?} -> Knocked"
+            )));
+        }
+        let role = self.members.get(user_id).map(|m| m.role).unwrap_or(MemberRole::Member);
+        let profile = self.members.get(user_id).and_then(|m| m.profile.clone());
+        self.upsert_member(user_id.clone(), MembershipState::Knocked, role, profile);
+        Ok(())
+    }
+
+    /// Apply a state transition, rejecting it via `state_mismatch` when the
+    /// transition is illegal per `event-auth-state-resolution.md` §5.
+    ///
+    /// This is the strict counterpart of [`Self::join`] / [`Self::leave`] /
+    /// [`Self::ban`] — those keep their original lenient semantics for
+    /// backward compatibility, while this method enforces the canonical
+    /// transition table.
+    pub fn apply_transition(&mut self, user_id: &Did, to: MembershipState) -> Result<()> {
+        let from = self.members.get(user_id).map(|m| m.state);
+        if !is_legal_membership_transition(from, to) {
+            return Err(Error::Protocol(format!(
+                "illegal membership transition {from:?} -> {to:?}"
+            )));
+        }
+        let role = self.members.get(user_id).map(|m| m.role).unwrap_or(MemberRole::Member);
+        let profile = self.members.get(user_id).and_then(|m| m.profile.clone());
+        self.upsert_member(user_id.clone(), to, role, profile);
+        Ok(())
     }
 
     /// Current user role.
@@ -479,6 +561,99 @@ impl MembershipManager {
                 "membership": state,
             }),
         ))
+    }
+}
+
+/// Schema and event-kind constants for branch-scoped membership.
+///
+/// The `cx.flow.branch.member` standard state event flips a single
+/// principal's membership inside a Flow branch when
+/// `FlowBranch.access.membership = "branch_scoped"`.
+pub const FLOW_BRANCH_MEMBER_KIND: &str = "cx.flow.branch.member";
+
+/// One row of branch-scoped membership state.
+///
+/// The composite state key derives from `(flow_id, branch_id, principal_id)`
+/// per `data-structures.md` §6.1; callers SHOULD encode it via
+/// [`crate::canonical::encode_state_key`].
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FlowBranchMembership {
+    pub flow_id: String,
+    pub branch_id: String,
+    pub principal_id: Did,
+    pub state: MembershipState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub role: Option<MemberRole>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+impl FlowBranchMembership {
+    /// Build the canonical composite state key for this row.
+    pub fn state_key(&self) -> String {
+        crate::canonical::encode_state_key(&[
+            &self.flow_id,
+            &self.branch_id,
+            self.principal_id.as_str(),
+        ])
+    }
+}
+
+/// Branch-scoped membership reducer hook.
+///
+/// Stores `FlowBranchMembership` rows keyed by
+/// `(flow_id, branch_id, principal_id)` and exposes queries the authz
+/// layer can consult when `FlowBranch.access.membership = "branch_scoped"`.
+#[derive(Clone, Debug, Default)]
+pub struct FlowBranchMembershipManager {
+    rows: BTreeMap<String, FlowBranchMembership>,
+}
+
+impl FlowBranchMembershipManager {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Apply a `cx.flow.branch.member` event to the manager. Rejects
+    /// illegal state transitions per
+    /// [`is_legal_membership_transition`].
+    pub fn apply(&mut self, row: FlowBranchMembership) -> Result<()> {
+        let key = row.state_key();
+        let from = self.rows.get(&key).map(|prev| prev.state);
+        if !is_legal_membership_transition(from, row.state) {
+            return Err(Error::Protocol(format!(
+                "illegal branch membership transition {from:?} -> {to:?} for {key}",
+                to = row.state
+            )));
+        }
+        self.rows.insert(key, row);
+        Ok(())
+    }
+
+    pub fn get(
+        &self,
+        flow_id: &str,
+        branch_id: &str,
+        principal_id: &Did,
+    ) -> Option<&FlowBranchMembership> {
+        let key = crate::canonical::encode_state_key(&[
+            flow_id,
+            branch_id,
+            principal_id.as_str(),
+        ]);
+        self.rows.get(&key)
+    }
+
+    /// Whether `principal_id` is admitted to the named branch.
+    pub fn is_member(&self, flow_id: &str, branch_id: &str, principal_id: &Did) -> bool {
+        matches!(
+            self.get(flow_id, branch_id, principal_id).map(|r| r.state),
+            Some(MembershipState::Joined),
+        )
+    }
+
+    pub fn rows(&self) -> impl Iterator<Item = &FlowBranchMembership> {
+        self.rows.values()
     }
 }
 

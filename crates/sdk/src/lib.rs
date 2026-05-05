@@ -161,7 +161,7 @@ pub mod typing;
 pub mod webrtc;
 
 #[cfg(feature = "full-surface")]
-pub use account::AccountDataManager;
+pub use account::{ACCOUNT_DATA_BLOCKLIST, AccountBlocklist, AccountDataManager, BlocklistEntry};
 #[cfg(feature = "full-surface")]
 pub use agent::{
     AgentBridgeMetadata, AgentMemory, AgentMemoryReview, AgentMemoryState, AgentMemoryStore,
@@ -300,7 +300,7 @@ pub use media::{
 #[cfg(feature = "full-surface")]
 pub use membership::{
     Invite, Member, MemberChange, MemberProfile, MemberRole, MembershipManager, MembershipState,
-    ThirdPartyInvite,
+    ThirdPartyInvite, is_legal_membership_transition,
 };
 #[cfg(all(feature = "full-surface", feature = "mls"))]
 pub use mls::*;
@@ -337,7 +337,7 @@ pub use profile::{
 #[cfg(feature = "full-surface")]
 pub use push::{
     CHIME_PUSH_REGISTRATION_VERSION, ChimePushRegistration, EncryptedPushPayload, PushEvent,
-    PushGateway, PushPayload, PushPlatform, PushPriority, PushRule, PushToken,
+    PushGateway, PushPayload, PushPlatform, PushPriority, PushPrivacyPolicy, PushRule, PushToken,
 };
 #[cfg(feature = "full-surface")]
 pub use receipts::{ReadMarker, ReadReceipt, ReceiptManager, ReceiptVisibility};

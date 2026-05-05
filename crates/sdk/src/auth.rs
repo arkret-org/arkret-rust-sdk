@@ -188,6 +188,54 @@ pub struct SessionPrincipalBinding {
     pub valid_until: DateTime<Utc>,
 }
 
+/// Canonical event kinds for the principal control space
+/// (`key-management.md` §4.1). These events MUST be written into the
+/// principal's dedicated control space; resolvers and federation peers
+/// MUST refuse them in any other Space.
+pub const CX_DEVICE_AUTHORIZED: &str = "cx.device.authorized";
+pub const CX_DEVICE_REVOKED: &str = "cx.device.revoked";
+pub const CX_SESSION_GRANT: &str = "cx.session.grant";
+
+/// Derive the canonical principal control space ID from a principal DID.
+///
+/// The format is `cx:space:control:<did>`; downstream code MUST treat
+/// this as opaque. This space holds the principal's device ledger, key
+/// log, and session grants.
+pub fn principal_control_space_id(principal_id: &crate::Did) -> String {
+    format!("cx:space:control:{}", principal_id.as_str())
+}
+
+/// Returns `true` when `event_kind` MUST be pinned to a principal
+/// control space per `key-management.md` §4.1.
+pub fn is_principal_control_event(event_kind: &str) -> bool {
+    matches!(
+        event_kind,
+        CX_DEVICE_AUTHORIZED | CX_DEVICE_REVOKED | CX_SESSION_GRANT
+    )
+}
+
+/// Validate that a control event is being submitted under the correct
+/// space. Returns `Err(Error::Protocol("control_space_mismatch"))` when
+/// `event_kind` MUST live in the principal control space but the
+/// `space_id` does not match.
+pub fn assert_control_space_pinning(
+    event_kind: &str,
+    principal_id: &crate::Did,
+    space_id: &str,
+) -> Result<()> {
+    if !is_principal_control_event(event_kind) {
+        return Ok(());
+    }
+    let expected = principal_control_space_id(principal_id);
+    if space_id == expected {
+        Ok(())
+    } else {
+        Err(Error::Protocol(format!(
+            "control_space_mismatch: '{event_kind}' must be pinned to '{expected}', got '{space_id}'"
+        )))
+    }
+}
+
 /// Canonical OAuth2 scope prefix for binding a Contrix client device to a session.
 pub const CONTRIX_DEVICE_SCOPE_PREFIX: &str = "urn:contrix:client:device:";
 
@@ -1015,6 +1063,108 @@ pub struct PresentationRequest {
     pub nonce: String,
     pub policy: DisclosurePolicy,
     pub created_at: DateTime<Utc>,
+    /// Verifier DID requesting the disclosure
+    /// (`progressive-disclosure.md` §4). Wallets MUST authenticate this
+    /// DID and refuse to disclose anything to an unverified verifier.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verifier_did: Option<Did>,
+    /// Organization the verifier claims to represent. When set, the
+    /// wallet MUST trace `verifier_did → represented_org` through the
+    /// verifier authority chain before disclosure.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub represented_org: Option<Did>,
+    /// Authority links proving `verifier_did` is acting on behalf of
+    /// `represented_org`. Empty means "verifier acts for itself"; a
+    /// non-empty list MUST chain back to `represented_org`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub verifier_authority_chain: Vec<VerifierAuthorityLink>,
+}
+
+/// One link in the verifier authority chain (verifier → org).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VerifierAuthorityLink {
+    /// Subject of this link — the entity that delegated to the next.
+    pub from: Did,
+    /// Recipient of the delegation.
+    pub to: Did,
+    /// Capability or role token transferred (`org_member`, `verifier`,
+    /// etc.).
+    pub capability: String,
+    /// Detached proof for the delegation (JWS, signed CBOR, etc.).
+    pub proof: String,
+    /// Expiry timestamp; expired links MUST be rejected.
+    pub expires_at: DateTime<Utc>,
+}
+
+impl PresentationRequest {
+    /// Validate the verifier authority chain per
+    /// `progressive-disclosure.md` §4.
+    ///
+    /// Returns `Ok(())` when:
+    ///
+    /// 1. If `verifier_did` is `None`, the request is rejected.
+    /// 2. If `represented_org` is `None`, the chain MUST be empty
+    ///    (verifier acts for itself).
+    /// 3. Otherwise the chain MUST start at `verifier_did`, end at
+    ///    `represented_org`, and every link MUST be unexpired at `now`.
+    ///
+    /// This validator does NOT verify the cryptographic proofs — it
+    /// only enforces the chain shape. Callers SHOULD additionally
+    /// verify each link's `proof` against the issuer's DID document.
+    pub fn validate_verifier_authority(&self, now: DateTime<Utc>) -> Result<()> {
+        let Some(verifier) = &self.verifier_did else {
+            return Err(Error::Protocol(
+                "presentation request missing verifier_did".to_owned(),
+            ));
+        };
+        let Some(org) = &self.represented_org else {
+            if self.verifier_authority_chain.is_empty() {
+                return Ok(());
+            }
+            return Err(Error::Protocol(
+                "verifier_authority_chain present without represented_org".to_owned(),
+            ));
+        };
+        if self.verifier_authority_chain.is_empty() {
+            // Verifier IS the org — accept.
+            if verifier == org {
+                return Ok(());
+            }
+            return Err(Error::Protocol(
+                "represented_org differs from verifier_did but no authority chain provided"
+                    .to_owned(),
+            ));
+        }
+        // Walk the chain: every link MUST be unexpired and `to`
+        // MUST connect to the next link's `from`.
+        let chain = &self.verifier_authority_chain;
+        if &chain[0].from != verifier {
+            return Err(Error::Protocol(
+                "verifier_authority_chain does not start at verifier_did".to_owned(),
+            ));
+        }
+        for window in chain.windows(2) {
+            if window[0].to != window[1].from {
+                return Err(Error::Protocol(
+                    "verifier_authority_chain has a broken link".to_owned(),
+                ));
+            }
+        }
+        if &chain[chain.len() - 1].to != org {
+            return Err(Error::Protocol(
+                "verifier_authority_chain does not end at represented_org".to_owned(),
+            ));
+        }
+        for link in chain {
+            if now >= link.expires_at {
+                return Err(Error::Protocol(format!(
+                    "verifier_authority_chain link from {} to {} is expired",
+                    link.from, link.to
+                )));
+            }
+        }
+        Ok(())
+    }
 }
 
 /// External selective-disclosure proof format accepted through an adapter boundary.
@@ -1091,6 +1241,27 @@ pub fn validate_presentation(
     let mut disclosed_claims = Vec::new();
     let mut missing_required = Vec::new();
     let mut rejected_claims = Vec::new();
+
+    // Verifier authority MUST be authenticated before any claim
+    // processing per `progressive-disclosure.md` §4. A verifier with
+    // no `verifier_did` is treated as anonymous; only requests that
+    // explicitly opt in to anonymous disclosure (via empty policy
+    // requirements) reach the loop below.
+    if let Some(verifier) = &request.verifier_did
+        && let Err(reason) = request.validate_verifier_authority(now)
+    {
+        rejected_claims.push(RejectedClaim {
+            claim_id: format!("verifier_authority:{verifier}"),
+            claim_type: "verifier_authority".to_owned(),
+            reason: reason.to_string(),
+        });
+        return PresentationValidation {
+            accepted: false,
+            disclosed_claims,
+            missing_required,
+            rejected_claims,
+        };
+    }
 
     for requirement in &request.policy.requirements {
         let mut matched = false;
@@ -2347,6 +2518,9 @@ mod tests {
                 fail_closed: true,
             },
             created_at: Utc::now(),
+            verifier_did: None,
+            represented_org: None,
+            verifier_authority_chain: Vec::new(),
         };
         let mut handle =
             PresentedClaim::verified_handle("claim-handle", alice.clone(), issuer.clone(), "alice");

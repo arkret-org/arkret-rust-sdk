@@ -30,6 +30,62 @@ pub fn canonical_sha256<T: Serialize>(value: &T) -> Result<String> {
     Ok(sha256_digest(canonical_json_bytes(value)?))
 }
 
+/// Encode a composite `state_key` from its parts (B-18 in `_report.md`).
+///
+/// State events that key on multiple identifiers (e.g. `flow_id|branch|did`)
+/// MUST escape any literal `|` in a part because DID grammar permits the
+/// pipe character. This helper percent-encodes `%` and `|` in each part and
+/// joins with `|` so the inverse [`decode_state_key_parts`] is unambiguous.
+///
+/// Empty input returns an empty string. Each part MUST be valid UTF-8.
+pub fn encode_state_key(parts: &[&str]) -> String {
+    let mut out = String::new();
+    for (idx, part) in parts.iter().enumerate() {
+        if idx > 0 {
+            out.push('|');
+        }
+        for ch in part.chars() {
+            match ch {
+                '%' => out.push_str("%25"),
+                '|' => out.push_str("%7C"),
+                _ => out.push(ch),
+            }
+        }
+    }
+    out
+}
+
+/// Inverse of [`encode_state_key`]. Returns each part as a decoded `String`.
+pub fn decode_state_key_parts(encoded: &str) -> Result<Vec<String>> {
+    let mut out = Vec::new();
+    for raw in encoded.split('|') {
+        let mut decoded = String::with_capacity(raw.len());
+        let mut bytes = raw.bytes();
+        while let Some(b) = bytes.next() {
+            if b == b'%' {
+                let hi = bytes.next().ok_or_else(|| {
+                    Error::Protocol("state_key percent-encoding truncated".to_owned())
+                })?;
+                let lo = bytes.next().ok_or_else(|| {
+                    Error::Protocol("state_key percent-encoding truncated".to_owned())
+                })?;
+                let code = u8::from_str_radix(
+                    &format!("{}{}", hi as char, lo as char),
+                    16,
+                )
+                .map_err(|_| {
+                    Error::Protocol("state_key percent-encoding has non-hex digits".to_owned())
+                })?;
+                decoded.push(code as char);
+            } else {
+                decoded.push(b as char);
+            }
+        }
+        out.push(decoded);
+    }
+    Ok(out)
+}
+
 /// Validate that a timestamp string is in canonical RFC 3339 UTC form.
 ///
 /// Canonical form: `YYYY-MM-DDTHH:MM:SSZ` — no fractional seconds, no `+00:00`
@@ -97,6 +153,12 @@ fn write_canonical_value(value: &Value, out: &mut Vec<u8>) -> Result<()> {
 }
 
 fn write_number(number: &Number, out: &mut Vec<u8>) -> Result<()> {
+    // Reject any number that doesn't round-trip cleanly as i64 or u64.
+    // Per `encoding.md` §3.2, the v1 number profile forbids floats —
+    // even integer-valued floats like `1.0` MUST be rejected.
+    if number.as_f64().is_some() && number.as_i64().is_none() && number.as_u64().is_none() {
+        return Err(Error::NonCanonicalNumber);
+    }
     if let Some(n) = number.as_i64() {
         let s = n.to_string();
         reject_leading_zeros(&s)?;
@@ -234,5 +296,31 @@ mod tests {
         assert!(actual.contains("\\n"));
         assert!(actual.contains("\\t"));
         assert!(actual.contains("\\\""));
+    }
+
+    #[test]
+    fn state_key_encoding_roundtrips_simple_parts() {
+        let parts = ["did:web:alice.example", "discussion", "cx:flow:01"];
+        let encoded = encode_state_key(&parts);
+        assert_eq!(encoded, "did:web:alice.example|discussion|cx:flow:01");
+        let decoded = decode_state_key_parts(&encoded).unwrap();
+        assert_eq!(decoded, parts);
+    }
+
+    #[test]
+    fn state_key_encoding_escapes_pipes_and_percents() {
+        // A DID method-specific id that legitimately contains '|' must be
+        // round-trippable without colliding with the part separator.
+        let parts = ["did:web:alice|bar", "100%great", "plain"];
+        let encoded = encode_state_key(&parts);
+        assert_eq!(encoded, "did:web:alice%7Cbar|100%25great|plain");
+        let decoded = decode_state_key_parts(&encoded).unwrap();
+        assert_eq!(decoded, parts);
+    }
+
+    #[test]
+    fn state_key_decode_rejects_truncated_percent() {
+        assert!(decode_state_key_parts("abc%2").is_err());
+        assert!(decode_state_key_parts("abc%").is_err());
     }
 }

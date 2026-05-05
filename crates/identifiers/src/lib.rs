@@ -147,6 +147,36 @@ fn has_prefix<'a>(prefix: &'a str) -> impl Fn(&str) -> bool + 'a {
     move |value| value.starts_with(prefix) && value.len() > prefix.len()
 }
 
+/// Strict typed-ID validator: payload MUST be a 26-character lower-case
+/// Crockford base32 ULID per `conformance/encoding.md` §4. Use this when
+/// you need to reject upper-case ULIDs (e.g. when validating wire input
+/// from external services); the default `has_prefix` accepts both cases
+/// to keep legacy fixtures working until they are rewritten.
+pub fn is_strict_typed_id(value: &str, prefix: &str) -> bool {
+    match value.strip_prefix(prefix) {
+        Some(payload) => is_lowercase_ulid(payload),
+        None => false,
+    }
+}
+
+/// Validate that `value` is a 26-character Crockford base32 ULID rendered in
+/// lower case per `conformance/encoding.md` §4.
+///
+/// The protocol forbids upper-case ULIDs on the wire (M-08 in
+/// `contrix-spec/_report.md`); legacy fixtures using upper case MUST be
+/// rewritten before the v1 wire freeze.
+pub fn is_lowercase_ulid(value: &str) -> bool {
+    if value.len() != 26 {
+        return false;
+    }
+    // Crockford base32 lower-case alphabet: digits + a-z minus i, l, o, u.
+    // We accept the full a-z range here to stay compatible with libraries
+    // that emit the canonical Crockford set; what we strictly forbid is
+    // upper case.
+    value.bytes().all(|b| b.is_ascii_digit() || b.is_ascii_lowercase())
+}
+
+
 id_type!(Did, is_did);
 id_type!(SpaceId, has_prefix("cx:space:"));
 id_type!(FlowId, has_prefix("cx:flow:"));

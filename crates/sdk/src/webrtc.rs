@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use ulid::Ulid;
 
-use crate::{Did, SpaceId};
+use crate::{Did, Result, SpaceId};
 
 /// SDP description type.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -195,6 +195,45 @@ pub struct IceServer {
     pub urls: Vec<String>,
     pub username: Option<String>,
     pub credential: Option<String>,
+}
+
+impl IceServer {
+    /// Reject TURN configurations whose `username` embeds a raw DID
+    /// (B-14 in `contrix-spec/_report.md`). The TURN operator MUST NOT
+    /// learn cross-Space stable identities; clients SHOULD derive the
+    /// username from a short-lived ephemeral identifier such as
+    /// `<unix>:<random_b64>` instead.
+    pub fn validate_credential_privacy(&self) -> Result<()> {
+        const FORBIDDEN_PREFIXES: &[&str] = &[
+            "did:web:",
+            "did:plc:",
+            "did:key:",
+            "did:webvh:",
+            "did:webs:",
+            "did:keri:",
+            "did:uuid:",
+        ];
+        for value in [&self.username, &self.credential].into_iter().flatten() {
+            for prefix in FORBIDDEN_PREFIXES {
+                if value.contains(prefix) {
+                    return Err(crate::Error::Protocol(format!(
+                        "ICE server credential leaks DID prefix '{prefix}'; use a Space-scoped pairwise pseudonym (B-14)"
+                    )));
+                }
+            }
+            // Common Matrix/legacy form: `<unix>:<did>`. Reject any colon-
+            // separated pair whose tail is a DID-shaped substring.
+            if let Some((_left, tail)) = value.split_once(':')
+                && FORBIDDEN_PREFIXES.iter().any(|p| tail.contains(p))
+            {
+                return Err(crate::Error::Protocol(
+                    "ICE server username embeds a DID after a colon separator; use an ephemeral token (B-14)"
+                        .to_owned(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 /// WebRTC call state.

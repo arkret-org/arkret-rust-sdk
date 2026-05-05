@@ -55,6 +55,59 @@ impl ServiceType {
             Self::ModerationService => "moderation_service",
         }
     }
+
+    /// Operation-kind prefixes a service of this type is allowed to
+    /// advertise (T3-10 / `service-surface.md` capability matrix).
+    ///
+    /// `cx.applet.*` for applet services, `cx.federation.*` for principal
+    /// servers and sync nodes, etc. An empty slice means "no allow-list
+    /// constraint" (e.g. `PrincipalServer` accepts the union of all
+    /// kinds).
+    pub fn allowed_operation_prefixes(&self) -> &'static [&'static str] {
+        match self {
+            Self::PrincipalServer => &[
+                "cx.events.",
+                "cx.sync.",
+                "cx.federation.",
+                "cx.account.",
+                "cx.policy.",
+                "cx.authz.",
+                "cx.identity.",
+                "cx.repo.",
+                "cx.server.",
+                "cx.admin.",
+                "cx.moderation.",
+            ],
+            Self::IdentityRegistry => &["cx.identity.", "cx.directory.resolve_handle"],
+            Self::AuthServer => &["cx.account.", "cx.identity.resolve"],
+            Self::SyncNode => &["cx.sync.", "cx.events.", "cx.federation."],
+            Self::IndexNode => &["cx.index."],
+            Self::AppViewNode => &["cx.index.", "cx.directory.search_"],
+            Self::BlobNode | Self::MediaService => &["cx.blob.", "cx.media."],
+            Self::DirectoryService => &["cx.directory."],
+            Self::DeviceKeyService => &["cx.keys.", "cx.device_messages."],
+            Self::AuthzService => &["cx.authz.", "cx.policy."],
+            Self::PolicyServer => &["cx.policy."],
+            Self::PushGateway => &["cx.push."],
+            Self::AppletService => &["cx.applet."],
+            Self::AgentRuntime => &["cx.applet.", "cx.agent."],
+            Self::SfuService => &["cx.media.", "cx.webrtc."],
+            Self::TurnService => &["cx.media.ice_config"],
+            Self::ModerationService => &["cx.moderation.", "cx.admin.get_moderation_queue"],
+        }
+    }
+
+    /// Returns `true` when `operation_kind` is permitted to be
+    /// advertised by a service of this type.
+    pub fn permits_operation(&self, operation_kind: &str) -> bool {
+        let prefixes = self.allowed_operation_prefixes();
+        if prefixes.is_empty() {
+            return true;
+        }
+        prefixes
+            .iter()
+            .any(|prefix| operation_kind == prefix.trim_end_matches('.') || operation_kind.starts_with(prefix))
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -287,6 +340,18 @@ impl ServiceRequirements {
                     description.service_type
                 )));
             }
+            // Cross-check the service-type capability matrix (T3-10):
+            // refuse a description that advertises operations forbidden
+            // for its declared `service_type` (e.g. an `applet_service`
+            // must not advertise `cx.federation.transaction`).
+            for op in &description.supported_operations {
+                if !service_type.permits_operation(op) {
+                    return Err(Error::Protocol(format!(
+                        "service_type {} must not advertise operation {op}",
+                        expected
+                    )));
+                }
+            }
         }
 
         for profile in &self.profiles {
@@ -344,6 +409,10 @@ mod tests {
             supported_schema_profiles: vec!["cx.schema.core.v1".to_owned()],
             auth_metadata: Value::Null,
             limits: Value::Null,
+            frontier: Vec::new(),
+            snapshot_frontier: Vec::new(),
+            reducer_profile: None,
+            last_materialized_at: None,
         };
 
         ServiceRequirements::new()
@@ -377,6 +446,10 @@ mod tests {
             supported_schema_profiles: vec![],
             auth_metadata: Value::Null,
             limits: Value::Null,
+            frontier: Vec::new(),
+            snapshot_frontier: Vec::new(),
+            reducer_profile: None,
+            last_materialized_at: None,
         };
 
         allowlist.verify_description(&description).unwrap();

@@ -214,6 +214,82 @@ pub trait CoreEventStore {
         request: &CoreEventBackfillRequest,
     ) -> Result<CoreEventBackfillResponse>;
     fn event_frontier(&self, request: &CoreEventFrontierRequest) -> CoreEventFrontierResponse;
+
+    /// Submit a batch of events and return a per-item outcome.
+    ///
+    /// Unlike calling `submit_event` in a loop and `?`-ing the first
+    /// error (which collapses success / duplicate / rejected into one
+    /// failure), this method records every event's outcome and returns
+    /// the full vector. Callers can then surface partial-success
+    /// responses to the wire.
+    fn submit_events_batched(&mut self, events: Vec<Event>) -> Vec<EventBatchResult> {
+        events
+            .into_iter()
+            .map(|event| {
+                let event_id = event.event_id.clone();
+                match self.submit_event(event) {
+                    Ok(receipt) => EventBatchResult::Accepted {
+                        event_id,
+                        status: receipt.status,
+                        digest: receipt.digest,
+                        frontier: receipt.frontier,
+                    },
+                    Err(err) => EventBatchResult::Rejected {
+                        event_id,
+                        error_code: classify_submit_error(&err),
+                        reason: err.to_string(),
+                    },
+                }
+            })
+            .collect()
+    }
+}
+
+/// Per-item outcome for a batched `cx.events.submit` call.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "outcome", rename_all = "snake_case")]
+pub enum EventBatchResult {
+    Accepted {
+        event_id: EventId,
+        status: CoreEventSubmitStatus,
+        digest: Hash,
+        frontier: Vec<EventId>,
+    },
+    Rejected {
+        event_id: EventId,
+        /// Machine-readable error code from the spec registry
+        /// (`error-code-registry.json`). See
+        /// [`contrix_core::error::KNOWN_ERROR_CODES`].
+        error_code: String,
+        /// Human-readable reason.
+        reason: String,
+    },
+}
+
+impl EventBatchResult {
+    /// Whether this item was accepted (new or duplicate).
+    pub fn is_accepted(&self) -> bool {
+        matches!(self, EventBatchResult::Accepted { .. })
+    }
+}
+
+fn classify_submit_error(err: &Error) -> String {
+    match err {
+        Error::IdempotencyConflict(_) => "idempotency_conflict".to_owned(),
+        Error::NonCanonicalNumber => "canonical_json_violation".to_owned(),
+        Error::CanonicalJson(_) => "canonical_json_violation".to_owned(),
+        Error::InvalidId(_) => "invalid_id".to_owned(),
+        Error::Crypto(_) => "crypto_error".to_owned(),
+        Error::Protocol(reason) => {
+            // Derive an error code from the reason prefix where possible
+            // (e.g. `digest_mismatch:` => `digest_mismatch`).
+            reason
+                .split_once(':')
+                .map(|(code, _)| code.trim().to_owned())
+                .unwrap_or_else(|| "protocol_error".to_owned())
+        }
+        _ => "protocol_error".to_owned(),
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
