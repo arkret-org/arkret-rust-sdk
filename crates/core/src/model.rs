@@ -2402,7 +2402,21 @@ pub enum FlowKind {
     TaskCluster,
     Asset,
     MemorySubject,
+    /// Chat-style flow whose primary surface is the `discussion` branch.
+    /// Equivalent to the `flow(kind="room")` shape called out in
+    /// `current-model.md` §3 — i.e. a Flow whose default entry point is
+    /// the discussion branch, used for room / channel UIs.
+    Discussion,
     Custom,
+}
+
+impl FlowKind {
+    /// True for flow kinds whose primary surface is conversational (the
+    /// discussion branch). Helps clients route a Flow to a chat UI vs a
+    /// kanban / document UI without re-parsing branch metadata.
+    pub fn is_conversational(&self) -> bool {
+        matches!(self, Self::Discussion)
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2475,6 +2489,39 @@ impl Flow {
             updated_at: None,
             extra: BTreeMap::new(),
         }
+    }
+
+    /// Construct a chat-style Flow (room / channel form) with the
+    /// `discussion` branch enabled and marked primary, plus a
+    /// `synthesis` branch for any structured fields the room may carry.
+    ///
+    /// This is the typed equivalent of yougen's `cx_ops::flow_create(..., "discussion", ...)`
+    /// path — callers that want a room can do
+    ///
+    /// ```rust,ignore
+    /// let room = Flow::discussion(
+    ///     "cx:flow:01abc",
+    ///     SpaceId::new("cx:space:01xyz")?,
+    ///     "Launch board discussion",
+    ///     Did::new("did:web:alice.example")?,
+    /// );
+    /// ```
+    ///
+    /// instead of building the branches by hand. Per
+    /// `models/data-structures.md` §6.1, both branches are valid;
+    /// reducers MAY honour `is_primary=true` on `discussion` to land
+    /// users in the timeline first while still permitting `synthesis`
+    /// edits.
+    pub fn discussion(
+        id: impl Into<String>,
+        space_id: SpaceId,
+        title: impl Into<String>,
+        created_by: Did,
+    ) -> Self {
+        let mut flow = Self::new(id, space_id, title, FlowKind::Discussion, created_by);
+        flow.primary_branch = Some("discussion".to_owned());
+        flow.branches = vec![FlowBranch::synthesis(), FlowBranch::discussion_primary()];
+        flow
     }
 
     pub fn validate_title(&self) -> Result<()> {
@@ -5400,6 +5447,44 @@ impl FlowBranch {
         }
     }
 
+    /// Standard `synthesis` branch — formal expression, structured fields,
+    /// state transitions. Default in any Flow that carries a body or
+    /// schema-defined `fields`.
+    pub fn synthesis() -> Self {
+        Self::new("synthesis")
+    }
+
+    /// Standard `discussion` branch — chat timeline, mentions, reactions.
+    /// Not marked primary by default.
+    pub fn discussion() -> Self {
+        let mut b = Self::new("discussion");
+        b.profile = Some("discussion".to_owned());
+        b
+    }
+
+    /// Standard `discussion` branch marked as the Flow's primary entry
+    /// point. Used by `Flow::discussion` to construct the chat-style
+    /// (room / channel) form.
+    pub fn discussion_primary() -> Self {
+        let mut b = Self::discussion();
+        b.is_primary = Some(true);
+        b
+    }
+
+    /// Set the branch as the Flow's primary entry point.
+    pub fn primary(mut self) -> Self {
+        self.is_primary = Some(true);
+        self
+    }
+
+    /// Set a profile string. Standard discussion profiles per spec §6.1
+    /// are `discussion`, `announcement`, `support`, `activity`, `review`,
+    /// `external`.
+    pub fn with_profile(mut self, profile: impl Into<String>) -> Self {
+        self.profile = Some(profile.into());
+        self
+    }
+
     /// Validate that `name` matches `^[a-z][a-z0-9_]{0,63}$` per spec.
     pub fn validate_name(&self) -> Result<()> {
         if self.name.is_empty() || self.name.len() > 64 {
@@ -7089,6 +7174,85 @@ mod tests {
 
         subject.title = " ".to_owned();
         assert!(subject.validate_title().is_err());
+    }
+
+    /// T21 — typed Flow::discussion shorthand for chat-style flows
+    /// (the spec's `flow(kind="room")` shape).
+    #[test]
+    fn flow_discussion_constructor_sets_room_shape() {
+        let flow = Flow::discussion(
+            "cx:flow:01general",
+            SpaceId::new("cx:space:01acme").unwrap(),
+            "Launch board discussion",
+            Did::new("did:web:alice.example").unwrap(),
+        );
+        assert_eq!(flow.flow_kind, FlowKind::Discussion);
+        assert!(flow.flow_kind.is_conversational());
+        assert_eq!(flow.primary_branch.as_deref(), Some("discussion"));
+        assert_eq!(flow.branches.len(), 2, "synthesis + discussion expected");
+
+        let synthesis = flow
+            .branches
+            .iter()
+            .find(|b| b.name == "synthesis")
+            .expect("synthesis branch present");
+        assert!(synthesis.is_primary != Some(true));
+
+        let discussion = flow
+            .branches
+            .iter()
+            .find(|b| b.name == "discussion")
+            .expect("discussion branch present");
+        assert_eq!(discussion.is_primary, Some(true));
+        assert_eq!(discussion.profile.as_deref(), Some("discussion"));
+    }
+
+    /// T21 — non-Discussion FlowKinds keep is_conversational() false so
+    /// chat clients don't accidentally route them into a timeline UI.
+    #[test]
+    fn flow_kind_is_conversational_only_for_discussion() {
+        for kind in [
+            FlowKind::Topic,
+            FlowKind::Initiative,
+            FlowKind::Decision,
+            FlowKind::Incident,
+            FlowKind::CustomerCase,
+            FlowKind::Proposal,
+            FlowKind::Research,
+            FlowKind::TaskCluster,
+            FlowKind::Asset,
+            FlowKind::MemorySubject,
+            FlowKind::Custom,
+        ] {
+            assert!(!kind.is_conversational(), "{kind:?} should not be conversational");
+        }
+        assert!(FlowKind::Discussion.is_conversational());
+    }
+
+    /// T21 — FlowBranch typed constructors honour the standard names and
+    /// the discussion profile from spec §6.1.
+    #[test]
+    fn flow_branch_typed_constructors() {
+        let synth = FlowBranch::synthesis();
+        assert_eq!(synth.name, "synthesis");
+        assert!(synth.profile.is_none());
+        assert!(synth.is_primary.is_none());
+        synth.validate_name().unwrap();
+
+        let disc = FlowBranch::discussion();
+        assert_eq!(disc.name, "discussion");
+        assert_eq!(disc.profile.as_deref(), Some("discussion"));
+        assert!(disc.is_primary.is_none());
+
+        let primary = FlowBranch::discussion_primary();
+        assert_eq!(primary.is_primary, Some(true));
+
+        let custom = FlowBranch::new("review")
+            .with_profile("review")
+            .primary();
+        assert_eq!(custom.profile.as_deref(), Some("review"));
+        assert_eq!(custom.is_primary, Some(true));
+        custom.validate_name().unwrap();
     }
 
     #[test]
