@@ -15,12 +15,15 @@ version = "0.1.0"
 default = []
 client = ["dep:reqwest", "dep:url"]
 mls = []
+salvo = ["dep:salvo", "salvo/oapi", "dep:salvo-oapi", "salvo-oapi/chrono", "contrix-identifiers/salvo"]
 
 [dependencies]
 base64.workspace = true
 chrono = { workspace = true, features = ["serde"] }
 contrix-identifiers.workspace = true
 reqwest = { workspace = true, optional = true }
+salvo = { workspace = true, optional = true, features = ["oapi"] }
+salvo-oapi = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true

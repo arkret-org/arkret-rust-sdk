@@ -15,6 +15,7 @@ use crate::{DeviceId, Did, Error, Event, EventId, Hlc, Result, SpaceId, canonica
 
 /// Sync request for incremental synchronization.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncRequest {
     /// Previous sync token for incremental sync
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -38,6 +39,7 @@ pub struct SyncRequest {
 
 /// Sync response from the server.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncResponse {
     /// Token for the next sync
     pub next_batch: String,
@@ -66,6 +68,7 @@ pub struct SyncResponse {
 
 /// Sync result for a single Space.
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncSpace {
     /// Timeline events
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -86,6 +89,7 @@ pub struct SyncSpace {
 
 /// Timeline events with pagination.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncTimeline {
     /// Events in the timeline
     pub events: Vec<Value>,
@@ -98,6 +102,7 @@ pub struct SyncTimeline {
 
 /// Unread notification counts.
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct UnreadCounts {
     /// Notification count
     #[serde(default)]
@@ -109,6 +114,7 @@ pub struct UnreadCounts {
 
 /// Device list changes.
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DeviceListChanges {
     /// Changed device lists
     #[serde(default)]
@@ -120,6 +126,7 @@ pub struct DeviceListChanges {
 
 /// To-device message.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ToDeviceMessage {
     /// Transaction ID if the server forwards a full `device-message` envelope.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -157,6 +164,7 @@ pub struct ToDeviceMessage {
 
 /// Presence status.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum PresenceStatus {
     Online,
@@ -166,6 +174,7 @@ pub enum PresenceStatus {
 
 /// Presence event.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct PresenceEvent {
     /// User ID
     pub user_id: String,
@@ -181,6 +190,7 @@ pub struct PresenceEvent {
 
 /// Account data.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AccountData {
     /// Data type
     #[serde(rename = "type")]
@@ -191,6 +201,7 @@ pub struct AccountData {
 
 /// Notification delta.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct NotificationDelta {
     /// Notification ID
     pub id: String,
@@ -206,6 +217,7 @@ pub struct NotificationDelta {
 
 /// Sync filter for selective synchronization.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncFilter {
     /// Space IDs to sync
     #[serde(default)]
@@ -226,6 +238,7 @@ pub struct SyncFilter {
 
 /// Subscription configuration for spaces.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SubscriptionConfig {
     /// Space subscriptions
     pub subscriptions: Vec<SpaceSubscription>,
@@ -239,6 +252,7 @@ pub struct SubscriptionConfig {
 
 /// Space subscription.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SpaceSubscription {
     /// Space ID
     pub space_id: SpaceId,
@@ -252,6 +266,7 @@ pub struct SpaceSubscription {
 
 /// Timeline filter options.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum TimelineFilter {
     /// All events
@@ -264,6 +279,7 @@ pub enum TimelineFilter {
 
 /// Backfill request for historical events.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct BackfillRequest {
     /// Space ID to backfill
     pub space_id: SpaceId,
@@ -279,6 +295,7 @@ pub struct BackfillRequest {
 
 /// Backfill starting point.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum BackfillFrom {
     /// Start from a cursor
@@ -291,6 +308,7 @@ pub enum BackfillFrom {
 
 /// Backfill direction.
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum BackfillDirection {
     /// Backward (newer to older)
@@ -304,6 +322,7 @@ pub enum BackfillDirection {
 
 /// Backfill response.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct BackfillResponse {
     /// Events in reverse chronological order
     pub events: Vec<Value>,
@@ -323,6 +342,7 @@ pub struct BackfillResponse {
 /// Events sort by causal depth, HLC, actor ID, actor sequence and event ID. The
 /// caller supplies causal depth because it depends on the known event graph.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct TimelineOrderKey {
     /// Transitive causal depth in the local event graph.
     pub causal_depth: u64,
@@ -351,6 +371,7 @@ impl TimelineOrderKey {
 
 /// Stream position for one space at a sync boundary.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncStreamPosition {
     /// Space covered by this position.
     pub space_id: SpaceId,
@@ -391,6 +412,7 @@ pub fn sync_filter_hash(
 
 /// Sync token binding context.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncTokenBinding {
     /// Opaque token received from the sync service.
     pub token: String,
@@ -463,6 +485,7 @@ impl SyncTokenBinding {
 
 /// Whether a request starts from scratch or resumes an existing token.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum SyncMode {
     /// No `since` token. The response should establish full local state.
@@ -473,6 +496,7 @@ pub enum SyncMode {
 
 /// Client-visible sync semantics for one request.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncSemantics {
     /// Initial or incremental.
     pub mode: SyncMode,
@@ -500,6 +524,7 @@ impl SyncSemantics {
 
 /// Space membership bucket in sync responses and list projections.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum MembershipBucket {
     /// Joined spaces.
@@ -514,6 +539,7 @@ pub enum MembershipBucket {
 
 /// A sync update assigned to one membership bucket.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct BucketedSpaceUpdate {
     /// Bucket name.
     pub bucket: MembershipBucket,
@@ -525,6 +551,7 @@ pub struct BucketedSpaceUpdate {
 
 /// Reason a timeline gap exists locally.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum SyncGapReason {
     /// Server returned `timeline.limited`.
@@ -537,6 +564,7 @@ pub enum SyncGapReason {
 
 /// Backfill gap descriptor created from a limited timeline or token expiry.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncGap {
     /// Space containing the gap.
     pub space_id: SpaceId,
@@ -555,6 +583,7 @@ pub struct SyncGap {
 
 /// Model for `timeline.limited` and the backfill work it creates.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct LimitedTimelineState {
     /// Space containing the limited timeline.
     pub space_id: SpaceId,
@@ -607,6 +636,7 @@ impl LimitedTimelineState {
 
 /// `X-Contrix-Wait-For` frontier wait request.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct WaitForFrontier {
     /// Required positions before the server should return.
     #[serde(default)]
@@ -626,6 +656,7 @@ impl WaitForFrontier {
 
 /// To-device delivery acknowledgement state.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ToDeviceAckStatus {
     /// Message was received by the client SDK.
@@ -638,6 +669,7 @@ pub enum ToDeviceAckStatus {
 
 /// Acknowledgement for one to-device message.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ToDeviceAck {
     /// Message ID from to-device content.
     pub message_id: String,

@@ -10,6 +10,7 @@ use crate::{
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ServiceType {
     PrincipalServer,
@@ -111,6 +112,7 @@ impl ServiceType {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ServiceEndpointBinding {
     pub service_did: Did,
     pub service_type: ServiceType,
@@ -120,6 +122,7 @@ pub struct ServiceEndpointBinding {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ServiceDidAllowlist {
     #[serde(default)]
     pub services: BTreeMap<Did, ServiceEndpointBinding>,
@@ -172,6 +175,7 @@ impl ServiceDidAllowlist {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum NotFoundPrivacy {
     HideNonexistentAndInvisible,
@@ -179,6 +183,7 @@ pub enum NotFoundPrivacy {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RateLimitScopeKind {
     Actor,
@@ -188,6 +193,7 @@ pub enum RateLimitScopeKind {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct RateLimitMetadata {
     pub scope: RateLimitScopeKind,
     pub subject: String,
@@ -200,6 +206,7 @@ pub struct RateLimitMetadata {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum QuotaKind {
     BlobBytes,
@@ -210,6 +217,7 @@ pub enum QuotaKind {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct QuotaMetadata {
     pub quota: QuotaKind,
     pub subject: String,
@@ -219,6 +227,7 @@ pub struct QuotaMetadata {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct HttpTraceMetadata {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub request_id: Option<String>,
@@ -235,6 +244,7 @@ pub struct HttpTraceMetadata {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ApiConventionMetadata {
     pub not_found_privacy: NotFoundPrivacy,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

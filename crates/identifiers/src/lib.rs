@@ -176,7 +176,6 @@ pub fn is_lowercase_ulid(value: &str) -> bool {
     value.bytes().all(|b| b.is_ascii_digit() || b.is_ascii_lowercase())
 }
 
-
 id_type!(Did, is_did);
 id_type!(SpaceId, has_prefix("cx:space:"));
 id_type!(FlowId, has_prefix("cx:flow:"));
@@ -355,6 +354,9 @@ fn parse_lower_hex(part: &str, original: &str) -> Result<u64> {
     }
     u64::from_str_radix(part, 16).map_err(|_| IdentifierError::InvalidId(original.to_owned()))
 }
+
+#[cfg(feature = "salvo")]
+mod oapi;
 
 #[cfg(test)]
 mod tests {

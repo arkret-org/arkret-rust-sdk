@@ -182,6 +182,9 @@ where
     if has("server") && !has("full-surface") {
         violations.push(UnsafeFeatureCombination::ServerWithoutFullSurface);
     }
+    if has("salvo") && !has("server") {
+        violations.push(UnsafeFeatureCombination::SalvoAdapterWithoutServer);
+    }
     if has("salvo-adapter") && !has("server") {
         violations.push(UnsafeFeatureCombination::SalvoAdapterWithoutServer);
     }
@@ -213,6 +216,9 @@ pub fn current_feature_safety_report() -> FeatureSafetyReport {
     }
     if cfg!(feature = "tracing") {
         features.push("tracing");
+    }
+    if cfg!(feature = "salvo") {
+        features.push("salvo");
     }
     if cfg!(feature = "salvo-adapter") {
         features.push("salvo-adapter");
@@ -564,13 +570,13 @@ mod tests {
 
     #[test]
     fn feature_safety_report_rejects_unsafe_combinations() {
-        let report = feature_safety_report(["mls", "salvo-adapter", "sync-runtime"]);
+        let report = feature_safety_report(["mls", "salvo", "salvo-adapter", "sync-runtime"]);
         assert!(report.validate().is_err());
         assert!(report.violations.contains(&UnsafeFeatureCombination::MlsWithoutFullSurface));
         assert!(report.violations.contains(&UnsafeFeatureCombination::SalvoAdapterWithoutServer));
         assert!(report.violations.contains(&UnsafeFeatureCombination::RuntimeWithoutFullSurface));
 
-        let safe = feature_safety_report(["full-surface", "server", "salvo-adapter", "mls"]);
+        let safe = feature_safety_report(["full-surface", "server", "salvo", "mls"]);
         safe.validate().unwrap();
     }
 

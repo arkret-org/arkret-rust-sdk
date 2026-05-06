@@ -19,6 +19,7 @@ use crate::{Hlc, Result};
 /// specific point in the event stream. They are encoded as JSON and then
 /// Base64URL-encoded for transport.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Cursor {
     /// Cursor version. Must be "1" for Contrix v1.
     pub v: String,
@@ -42,6 +43,7 @@ pub struct Cursor {
 
 /// Position information for a single Space.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SpacePosition {
     /// Causal frontier (event IDs).
     pub p: Vec<String>,

@@ -81,7 +81,7 @@ pub use contrix_push_gateway_api as push_gateway_api;
 pub use contrix_schema as schema_contracts;
 #[cfg(feature = "server")]
 pub use contrix_server as server;
-#[cfg(feature = "salvo-adapter")]
+#[cfg(feature = "salvo")]
 pub use contrix_server::salvo_adapter;
 pub use contrix_signatures as signatures;
 pub use contrix_state_res as state_res;

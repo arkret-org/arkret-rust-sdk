@@ -11,8 +11,14 @@ repository = "https://github.com/contrix/contrix-rust-sdk"
 rust-version.workspace = true
 version = "0.1.0"
 
+[features]
+default = []
+salvo = ["dep:salvo", "salvo/oapi", "dep:salvo-oapi", "salvo-oapi/chrono"]
+
 [dependencies]
 getrandom.workspace = true
+salvo = { workspace = true, optional = true, features = ["oapi"] }
+salvo-oapi = { workspace = true, optional = true }
 serde.workspace = true
 sha2.workspace = true
 thiserror.workspace = true

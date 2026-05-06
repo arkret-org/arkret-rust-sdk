@@ -295,6 +295,7 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
 
 /// Registry entry for one operation kind.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct OperationKindSpec {
     pub kind: String,
     pub schema: String,
@@ -304,12 +305,14 @@ pub struct OperationKindSpec {
 
 /// Result of validating an operation kind against the registry.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct OperationKindValidation {
     pub canonical_kind: String,
 }
 
 /// Canonical operation registry.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct OperationKindRegistry {
     specs: BTreeMap<String, OperationKindSpec>,
 }
@@ -526,6 +529,7 @@ fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
 
 /// Operation registry conformance vector.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct OperationKindConformanceVector {
     pub input_kind: String,
     pub canonical_kind: String,
@@ -544,6 +548,7 @@ pub fn operation_kind_conformance_vectors() -> Vec<OperationKindConformanceVecto
 
 /// Protocol JSON Schema registry.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ProtocolSchemaRegistry {
     schemas: BTreeMap<String, Value>,
     trusted_extension_prefixes: Vec<String>,
@@ -551,6 +556,7 @@ pub struct ProtocolSchemaRegistry {
 
 /// JSON value type rule extracted from a supported JSON Schema document.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub enum GeneratedSchemaValueType {
     Any,
     Array,
@@ -605,6 +611,7 @@ impl GeneratedSchemaValueType {
 
 /// One field rule in a generated schema validator.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct GeneratedSchemaField {
     pub name: String,
     pub value_type: GeneratedSchemaValueType,
@@ -613,6 +620,7 @@ pub struct GeneratedSchemaField {
 
 /// Runtime validator generated from the JSON Schema subset supported by the SDK.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct GeneratedSchemaValidator {
     pub schema_id: String,
     pub fields: Vec<GeneratedSchemaField>,
@@ -1078,6 +1086,7 @@ fn validate_json_schema_type(
 
 /// Profile-specific protocol conformance domains.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ConformanceProfile {
     Encoding,
@@ -1095,6 +1104,7 @@ pub enum ConformanceProfile {
 
 /// One conformance test case descriptor.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ConformanceCase {
     pub case_id: String,
     pub description: String,
@@ -1104,6 +1114,7 @@ pub struct ConformanceCase {
 
 /// Conformance suite for one protocol profile.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ConformanceSuite {
     pub profile: ConformanceProfile,
     pub cases: Vec<ConformanceCase>,
@@ -1111,6 +1122,7 @@ pub struct ConformanceSuite {
 
 /// Version compatibility for one protocol schema.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SchemaCompatibilityEntry {
     pub schema_id: String,
     pub current_version: String,
@@ -1120,6 +1132,7 @@ pub struct SchemaCompatibilityEntry {
 
 /// Published schema compatibility table for SDK consumers.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SchemaCompatibilityTable {
     pub profile: String,
     pub entries: Vec<SchemaCompatibilityEntry>,
@@ -1153,6 +1166,7 @@ pub fn schema_version_compatibility_table() -> SchemaCompatibilityTable {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ConformanceCaseResult {
     pub profile: ConformanceProfile,
     pub case_id: String,
@@ -1162,6 +1176,7 @@ pub struct ConformanceCaseResult {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ConformanceProfileCoverage {
     pub profile: ConformanceProfile,
     pub cases_total: usize,
@@ -1169,6 +1184,7 @@ pub struct ConformanceProfileCoverage {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ConformanceReport {
     pub fixture_version: String,
     pub passed: bool,
@@ -1178,6 +1194,7 @@ pub struct ConformanceReport {
 
 /// Loadable conformance fixture set used by SDK and external fixtures.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ConformanceFixtureSet {
     pub fixture_version: String,
     pub suites: Vec<ConformanceSuite>,
@@ -1414,6 +1431,7 @@ fn validate_conformance_case(
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum SpaceKind {
     Collaboration,
@@ -1429,6 +1447,7 @@ pub enum SpaceKind {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum Discoverability {
     Public,
@@ -1440,6 +1459,7 @@ pub enum Discoverability {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum JoinRule {
     Public,
@@ -1451,6 +1471,7 @@ pub enum JoinRule {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum HistoryVisibility {
     WorldReadable,
@@ -1461,6 +1482,7 @@ pub enum HistoryVisibility {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum FederationPolicy {
     Open,
@@ -1470,6 +1492,7 @@ pub enum FederationPolicy {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum EncryptionProfile {
     None,
@@ -1478,6 +1501,7 @@ pub enum EncryptionProfile {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ActorType {
     User,
@@ -1490,6 +1514,7 @@ pub enum ActorType {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ActorStatus {
     Active,
@@ -1499,6 +1524,7 @@ pub enum ActorStatus {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum EntityType {
     Board,
@@ -1519,6 +1545,7 @@ pub enum EntityType {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum EntityFacet {
     Container,
@@ -1534,6 +1561,7 @@ pub enum EntityFacet {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct FacetSelector {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub all: Vec<EntityFacet>,
@@ -1552,6 +1580,7 @@ impl FacetSelector {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 pub enum EntityFacets {
     Names(Vec<EntityFacet>),
@@ -1592,6 +1621,7 @@ impl EntityFacets {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RelationKind {
     Contains,
@@ -1620,6 +1650,7 @@ pub enum RelationKind {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ViewKind {
     // Work-object views
@@ -1701,6 +1732,7 @@ impl ViewKind {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ViewPreset {
     Kanban,
@@ -1728,6 +1760,7 @@ pub enum ViewPreset {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ViewRenderer {
     Board,
@@ -1748,6 +1781,7 @@ pub enum ViewRenderer {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ObjectState {
     Active,
@@ -1757,6 +1791,7 @@ pub enum ObjectState {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RelationState {
     Active,
@@ -1765,6 +1800,7 @@ pub enum RelationState {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum PolicyType {
     Access,
@@ -1782,6 +1818,7 @@ pub enum PolicyType {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum PolicyEffect {
     Allow,
@@ -1791,6 +1828,7 @@ pub enum PolicyEffect {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AuthzDecision {
     Allow,
@@ -1803,6 +1841,7 @@ pub enum AuthzDecision {
 pub type Decision = AuthzDecision;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum InviteState {
     Pending,
@@ -1813,6 +1852,7 @@ pub enum InviteState {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum NotificationType {
     Mention,
@@ -1829,6 +1869,7 @@ pub enum NotificationType {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum NotificationPriority {
     Low,
@@ -1838,6 +1879,7 @@ pub enum NotificationPriority {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum NotificationState {
     Unread,
@@ -1847,6 +1889,7 @@ pub enum NotificationState {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ReadScope {
     Space,
@@ -1862,6 +1905,7 @@ pub enum ReadScope {
 
 /// Channel kind for conversation entities.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ChannelKind {
     Chat,
@@ -1872,6 +1916,7 @@ pub enum ChannelKind {
 
 /// Account lifecycle states.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AccountState {
     Active,
@@ -1883,6 +1928,7 @@ pub enum AccountState {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum OperationType {
     Create,
@@ -1900,6 +1946,7 @@ pub enum OperationType {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum KanbanColumnModel {
     FieldValue,
@@ -1907,6 +1954,7 @@ pub enum KanbanColumnModel {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum UncategorizedPolicy {
     Show,
@@ -1915,6 +1963,7 @@ pub enum UncategorizedPolicy {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum SortDirection {
     Asc,
@@ -1922,6 +1971,7 @@ pub enum SortDirection {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum NullsOrder {
     First,
@@ -1929,6 +1979,7 @@ pub enum NullsOrder {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum FilterOp {
     Eq,
@@ -1946,6 +1997,7 @@ pub enum FilterOp {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RelationDirection {
     Out,
@@ -1954,6 +2006,7 @@ pub enum RelationDirection {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "kebab-case")]
 pub enum EncryptedPayloadScheme {
     MlsRfc9420,
@@ -1968,6 +2021,7 @@ impl EncryptedPayloadScheme {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 pub enum Audience {
     Single(String),
@@ -1975,6 +2029,7 @@ pub enum Audience {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Proof {
     pub kind: String,
     pub alg: String,
@@ -1989,6 +2044,7 @@ pub struct Proof {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct CriticalExtension {
     pub id: String,
     pub scope: String,
@@ -2118,6 +2174,7 @@ impl Proof {
 
 /// Server-verified fact-chain echo returned to clients after write admission.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct FactChainEcho {
     pub echo_id: String,
     pub subject_ref: String,
@@ -2167,6 +2224,7 @@ impl FactChainEcho {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SignatureBindingPayload {
     pub payload_hash: Hash,
     pub actor_id: Did,
@@ -2179,6 +2237,7 @@ pub struct SignatureBindingPayload {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Space {
     pub schema: String,
     pub id: SpaceId,
@@ -2223,6 +2282,7 @@ pub struct Space {
     /// means "every relation_kind is many-to-many" (legacy default).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub relation_profiles: Vec<RelationProfile>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(flatten)]
     pub extra: BTreeMap<String, Value>,
 }
@@ -2302,6 +2362,7 @@ impl Space {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ActorProfile {
     pub schema: String,
     pub id: EntityId,
@@ -2328,6 +2389,7 @@ pub struct ActorProfile {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum FlowKind {
     Topic,
@@ -2344,6 +2406,7 @@ pub enum FlowKind {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Flow {
     pub schema: String,
     pub id: String,
@@ -2378,6 +2441,7 @@ pub struct Flow {
     pub updated_by: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_at: Option<DateTime<Utc>>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(flatten)]
     pub extra: BTreeMap<String, Value>,
 }
@@ -2422,6 +2486,7 @@ impl Flow {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Entity {
     pub schema: String,
     pub id: EntityId,
@@ -2451,6 +2516,7 @@ pub struct Entity {
     pub labels: Vec<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub metadata: BTreeMap<String, Value>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(flatten)]
     pub extra: BTreeMap<String, Value>,
 }
@@ -2575,6 +2641,7 @@ impl Entity {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Relation {
     pub schema: String,
     pub id: RelationId,
@@ -2613,6 +2680,7 @@ pub struct Relation {
 /// `(from, relation_kind, to)` tuple would violate the declared
 /// cardinality of its profile.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RelationCardinality {
     /// At most one `to` per `from` and at most one `from` per `to`.
@@ -2626,6 +2694,7 @@ pub enum RelationCardinality {
 
 /// Per-Space `relation_profile` row that constrains a `relation_kind`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct RelationProfile {
     pub relation_kind: String,
     pub cardinality: RelationCardinality,
@@ -2715,6 +2784,7 @@ impl Relation {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Event {
     pub event_id: EventId,
     pub kind: String,
@@ -2835,6 +2905,7 @@ impl Event {
 pub type EventEnvelope = Event;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SortSpec {
     pub field: String,
     pub direction: SortDirection,
@@ -2843,6 +2914,7 @@ pub struct SortSpec {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct FieldFilter {
     pub field: String,
     pub op: FilterOp,
@@ -2851,6 +2923,7 @@ pub struct FieldFilter {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 pub enum Filter {
     Predicate(FieldFilter),
@@ -2860,6 +2933,7 @@ pub enum Filter {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct RelationQuery {
     pub kind: RelationKind,
     pub direction: RelationDirection,
@@ -2900,6 +2974,7 @@ impl RelationQuery {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct QueryContext {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub event_kinds: Vec<String>,
@@ -2910,12 +2985,14 @@ pub struct QueryContext {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct QueryConsistency {
     pub wait_for: String,
     pub timeout_ms: u64,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct QueryRequest {
     pub space_ids: Vec<SpaceId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -2945,6 +3022,7 @@ pub struct QueryRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct QueryFrontier {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sync_token: Option<String>,
@@ -2953,6 +3031,7 @@ pub struct QueryFrontier {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct QueryResponse<T = Value> {
     pub items: Vec<T>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -2963,6 +3042,7 @@ pub struct QueryResponse<T = Value> {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct View {
     pub schema: String,
     pub id: ViewId,
@@ -3010,6 +3090,7 @@ pub struct View {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct CollectionViewConfig {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub item_entity_types: Vec<EntityType>,
@@ -3021,11 +3102,13 @@ pub struct CollectionViewConfig {
     pub item_order_by: Vec<SortSpec>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub grouping: Option<Value>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ConversationViewConfig {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub message_entity_types: Vec<EntityType>,
@@ -3035,11 +3118,13 @@ pub struct ConversationViewConfig {
     pub message_time_field: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub thread_relation_kind: Option<String>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct GraphViewConfig {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub node_entity_types: Vec<EntityType>,
@@ -3049,11 +3134,13 @@ pub struct GraphViewConfig {
     pub edge_relation_kinds: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_depth: Option<u32>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct QueueViewConfig {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub item_entity_types: Vec<EntityType>,
@@ -3063,11 +3150,13 @@ pub struct QueueViewConfig {
     pub state_field: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub state_values: Vec<String>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KanbanConfig {
     pub column_model: KanbanColumnModel,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -3086,6 +3175,7 @@ pub struct KanbanConfig {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KanbanColumn {
     pub key: String,
     pub title: String,
@@ -3096,6 +3186,7 @@ pub struct KanbanColumn {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Operation {
     pub schema: String,
     pub operation_id: OperationId,
@@ -3147,6 +3238,7 @@ impl Operation {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct OperationEnvelope {
     pub operation_id: OperationId,
     pub space_id: SpaceId,
@@ -3248,6 +3340,7 @@ impl OperationEnvelope {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct OperationEventConversion {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub prev_refs: Vec<EventId>,
@@ -3384,6 +3477,7 @@ impl OperationEnvelopeBuilder {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct CausalRef {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub deps: Vec<OperationId>,
@@ -3410,6 +3504,7 @@ pub fn rank_exhausted(before: Option<&str>, after: Option<&str>) -> Result<bool>
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ContainerRebalanceAssignment {
     pub entity_id: EntityId,
     pub rank: String,
@@ -3448,6 +3543,7 @@ fn format_rank(value: u64) -> String {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct OperationSignature {
     pub key_id: String,
     pub alg: String,
@@ -3455,6 +3551,7 @@ pub struct OperationSignature {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Commit {
     pub schema: String,
     pub commit_id: CommitId,
@@ -3530,6 +3627,7 @@ impl Commit {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 pub enum CapabilitySubject {
     Did(Did),
@@ -3537,6 +3635,7 @@ pub enum CapabilitySubject {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct CapabilityGrant {
     pub schema: String,
     pub id: GrantId,
@@ -3567,6 +3666,7 @@ pub struct CapabilityGrant {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Policy {
     pub schema: String,
     pub id: PolicyId,
@@ -3588,6 +3688,7 @@ pub struct Policy {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Invite {
     pub schema: String,
     pub id: InviteId,
@@ -3609,6 +3710,7 @@ pub struct Invite {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ReadMarker {
     pub schema: String,
     pub id: String,
@@ -3626,6 +3728,7 @@ pub struct ReadMarker {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Notification {
     pub schema: String,
     pub id: String,
@@ -3646,6 +3749,7 @@ pub struct Notification {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct BlobMetadata {
     pub schema: String,
     pub blob_ref: BlobRef,
@@ -3664,6 +3768,7 @@ pub struct BlobMetadata {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct EncryptedPayload {
     pub scheme: EncryptedPayloadScheme,
     pub group_id: String,
@@ -3688,6 +3793,7 @@ pub struct EncryptedPayload {
 
 /// Typed `key_ref` per `media-and-blob.md` §encrypted-payload (B-22).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 pub enum EncryptedPayloadKeyRef {
     /// Canonical typed form bound to a deterministic group/epoch
@@ -3702,6 +3808,7 @@ pub enum EncryptedPayloadKeyRef {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeyRefObject {
     pub algorithm: String,
     pub group_state_ref: String,
@@ -3784,6 +3891,7 @@ struct EncryptedPayloadDigestMetadata<'a> {
 /// MUST NOT be re-claimed; once `consumed` it MUST NOT return to
 /// `published`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum MlsKeyPackageState {
     #[default]
@@ -3794,6 +3902,7 @@ pub enum MlsKeyPackageState {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MlsKeyPackageRecord {
     /// Globally unique identifier (`cx:mls:kp:<ulid>`).
     /// Optional during deserialization for back-compat — callers
@@ -3840,6 +3949,7 @@ impl MlsKeyPackageRecord {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MlsProposalEnvelope {
     pub group_id: String,
     pub epoch: u64,
@@ -3878,6 +3988,7 @@ impl MlsProposalEnvelope {
 /// 3. `capability_root:    bstr` — Merkle root of capability events
 /// 4. `discussion_metadata_hash: bstr` — hash of discussion-branch metadata
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MlsAppStateRef {
     /// Hex-encoded SHA-256 of the canonical state root.
     pub membership_frontier: String,
@@ -3954,6 +4065,7 @@ impl MlsAppStateRef {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MlsCommitEnvelope {
     pub group_id: String,
     pub epoch: u64,
@@ -3978,6 +4090,7 @@ impl MlsCommitEnvelope {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MlsWelcomeEnvelope {
     pub group_id: String,
     pub epoch: u64,
@@ -4004,6 +4117,7 @@ impl MlsWelcomeEnvelope {
 
 /// Verification state for a device.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum DeviceVerificationState {
     /// Device has not been verified.
@@ -4025,6 +4139,7 @@ pub enum DeviceVerificationState {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ServerDescription {
     pub service_did: Did,
     pub service_type: String,
@@ -4071,11 +4186,13 @@ impl ServerDescription {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ErrorEnvelope {
     pub errcode: String,
     pub error: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after_ms: Option<u64>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(flatten)]
     pub extra: BTreeMap<String, Value>,
 }
@@ -4087,6 +4204,7 @@ impl fmt::Display for ErrorEnvelope {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct IdentityDescription {
     pub service_did: Did,
     pub registry_mode: String,
@@ -4098,6 +4216,7 @@ pub struct IdentityDescription {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct IdentityResolveRequest {
     pub did: Did,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -4105,6 +4224,7 @@ pub struct IdentityResolveRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct IdentityResolveResponse {
     pub did_document: DidDocumentRef,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -4118,6 +4238,7 @@ pub struct IdentityResolveResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DidDocumentRef {
     pub did: Did,
     #[serde(default, skip_serializing_if = "Value::is_null")]
@@ -4125,6 +4246,7 @@ pub struct DidDocumentRef {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct IdentityDocumentResponse {
     pub did_document: DidDocumentRef,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -4136,6 +4258,7 @@ pub struct IdentityDocumentResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct IdentityLogResponse {
     #[serde(default)]
     pub events: Vec<Value>,
@@ -4146,6 +4269,7 @@ pub struct IdentityLogResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SubmitDidOperationRequest {
     pub did: Did,
     pub seq: u64,
@@ -4157,6 +4281,7 @@ pub struct SubmitDidOperationRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SubmitDidOperationResponse {
     pub status: String,
     pub head_event_hash: Hash,
@@ -4166,6 +4291,7 @@ pub struct SubmitDidOperationResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct IdentityReceiptsResponse {
     #[serde(default)]
     pub receipts: Vec<Value>,
@@ -4174,6 +4300,7 @@ pub struct IdentityReceiptsResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct RepoDescription {
     pub repo_did: Did,
     pub head_commit: Hash,
@@ -4184,6 +4311,7 @@ pub struct RepoDescription {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct RepoCommitsResponse {
     #[serde(default)]
     pub commits: Vec<Commit>,
@@ -4194,6 +4322,7 @@ pub struct RepoCommitsResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct RepoCommitResponse {
     pub commit: Commit,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -4203,6 +4332,7 @@ pub struct RepoCommitResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct RepoOperationsRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub repo_id: Option<Did>,
@@ -4215,6 +4345,7 @@ pub struct RepoOperationsRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct RepoOperationsResponse {
     #[serde(default)]
     pub operations: Vec<Operation>,
@@ -4225,6 +4356,7 @@ pub struct RepoOperationsResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct RepoSyncRequest {
     pub repo_id: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -4236,6 +4368,7 @@ pub struct RepoSyncRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct RepoSyncResponse {
     #[serde(default)]
     pub operations: Vec<Operation>,
@@ -4246,6 +4379,7 @@ pub struct RepoSyncResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SubmitCommitResponse {
     pub head: Hash,
     #[serde(default)]
@@ -4255,6 +4389,7 @@ pub struct SubmitCommitResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub since: Option<String>,
@@ -4265,6 +4400,7 @@ pub struct SyncRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncResponse {
     pub next_batch: String,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -4289,6 +4425,7 @@ impl SyncResponse {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncSpace {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timeline: Option<SyncTimeline>,
@@ -4303,6 +4440,7 @@ pub struct SyncSpace {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncTimeline {
     pub events: Vec<Event>,
     pub limited: bool,
@@ -4311,6 +4449,7 @@ pub struct SyncTimeline {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncDescription {
     pub service_did: Did,
     #[serde(default)]
@@ -4322,6 +4461,7 @@ pub struct SyncDescription {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncSubscribeFrame {
     #[serde(rename = "type")]
     pub frame_type: String,
@@ -4333,6 +4473,7 @@ pub struct SyncSubscribeFrame {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncBackfillResponse {
     #[serde(default)]
     pub events: Vec<Event>,
@@ -4345,6 +4486,7 @@ pub struct SyncBackfillResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncSnapshotHeadResponse {
     pub snapshot_ref: String,
     pub state_hash: Hash,
@@ -4357,6 +4499,7 @@ fn is_false(value: &bool) -> bool {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AuthzCheckRequest {
     pub actor_id: Did,
     pub action: String,
@@ -4368,6 +4511,7 @@ pub struct AuthzCheckRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AuthzCheckResponse {
     pub decision: AuthzDecision,
     #[serde(default)]
@@ -4387,6 +4531,7 @@ pub struct AuthzCheckResponse {
 pub type Capability = CapabilityGrant;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct EffectiveGrantsResponse {
     #[serde(default)]
     pub grants: Vec<Capability>,
@@ -4396,6 +4541,7 @@ pub struct EffectiveGrantsResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AuthzInvitesResponse {
     #[serde(default)]
     pub invites: Vec<Invite>,
@@ -4404,6 +4550,7 @@ pub struct AuthzInvitesResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct FederationTransactionRequest {
     pub origin: Did,
     pub destination: Did,
@@ -4417,6 +4564,7 @@ pub struct FederationTransactionRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct FederationTransactionResponse {
     pub ok: bool,
     #[serde(default)]
@@ -4428,6 +4576,7 @@ pub struct FederationTransactionResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct FederationPushOperationsRequest {
     pub origin: Did,
     pub destination: Did,
@@ -4438,6 +4587,7 @@ pub struct FederationPushOperationsRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct FederationPushOperationsResponse {
     #[serde(default)]
     pub accepted: Vec<OperationId>,
@@ -4448,6 +4598,7 @@ pub struct FederationPushOperationsResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct FederationPullOperationsResponse {
     #[serde(default)]
     pub operations: Vec<Operation>,
@@ -4460,6 +4611,7 @@ pub struct FederationPullOperationsResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct FederationSpaceMembersResponse {
     #[serde(default)]
     pub members: Vec<MemberRef>,
@@ -4469,6 +4621,7 @@ pub struct FederationSpaceMembersResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MemberRef {
     pub principal_id: Did,
     #[serde(default, skip_serializing_if = "Value::is_null")]
@@ -4476,6 +4629,7 @@ pub struct MemberRef {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct FederationVerifyActorRequest {
     pub actor_id: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -4489,6 +4643,7 @@ pub struct FederationVerifyActorRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct FederationVerifyActorResponse {
     pub valid: bool,
     pub actor_id: Did,
@@ -4505,6 +4660,7 @@ pub struct FederationVerifyActorResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct IndexDescription {
     pub service_did: Did,
     #[serde(default)]
@@ -4518,6 +4674,7 @@ pub struct IndexDescription {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct IndexEntityResponse {
     pub entity: Entity,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -4526,6 +4683,7 @@ pub struct IndexEntityResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct IndexThreadResponse {
     #[serde(default)]
     pub events: Vec<Event>,
@@ -4538,6 +4696,7 @@ pub struct IndexThreadResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct IndexNotificationsResponse {
     #[serde(default)]
     pub notifications: Vec<Notification>,
@@ -4548,6 +4707,7 @@ pub struct IndexNotificationsResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct IndexInboxResponse {
     #[serde(default)]
     pub items: Vec<Value>,
@@ -4558,6 +4718,7 @@ pub struct IndexInboxResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct IndexSearchRequest {
     pub query: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -4573,6 +4734,7 @@ pub struct IndexSearchRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct QueryResult<T> {
     pub item: T,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -4582,6 +4744,7 @@ pub struct QueryResult<T> {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct IndexSearchResponse {
     #[serde(default)]
     pub results: Vec<QueryResult<Value>>,
@@ -4592,6 +4755,7 @@ pub struct IndexSearchResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct IndexSpaceHierarchyResponse {
     pub root: Space,
     #[serde(default)]
@@ -4603,6 +4767,7 @@ pub struct IndexSpaceHierarchyResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryDescription {
     pub service_did: Did,
     #[serde(default)]
@@ -4614,6 +4779,7 @@ pub struct DirectoryDescription {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectorySearchSpacesRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub query: Option<String>,
@@ -4632,6 +4798,7 @@ pub struct DirectorySearchSpacesRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectorySearchSpacesResponse {
     #[serde(default)]
     pub results: Vec<SpacePreview>,
@@ -4640,6 +4807,7 @@ pub struct DirectorySearchSpacesResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SpacePreview {
     pub space_id: SpaceId,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -4649,6 +4817,7 @@ pub struct SpacePreview {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryResolveSpaceRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub space_id: Option<SpaceId>,
@@ -4665,6 +4834,7 @@ pub struct DirectoryResolveSpaceRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryResolveSpaceResponse {
     pub space_preview: SpacePreview,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -4676,6 +4846,7 @@ pub struct DirectoryResolveSpaceResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectorySearchOrganizationsRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub query: Option<String>,
@@ -4688,6 +4859,7 @@ pub struct DirectorySearchOrganizationsRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectorySearchOrganizationsResponse {
     #[serde(default)]
     pub results: Vec<OrganizationPreview>,
@@ -4696,6 +4868,7 @@ pub struct DirectorySearchOrganizationsResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct OrganizationPreview {
     pub organization_did: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -4705,6 +4878,7 @@ pub struct OrganizationPreview {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryResolveOrganizationRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub organization_did: Option<Did>,
@@ -4715,6 +4889,7 @@ pub struct DirectoryResolveOrganizationRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryResolveOrganizationResponse {
     pub organization_preview: OrganizationPreview,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -4724,6 +4899,7 @@ pub struct DirectoryResolveOrganizationResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectorySearchActorsRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub query: Option<String>,
@@ -4738,6 +4914,7 @@ pub struct DirectorySearchActorsRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectorySearchActorsResponse {
     #[serde(default)]
     pub results: Vec<ActorPreview>,
@@ -4746,6 +4923,7 @@ pub struct DirectorySearchActorsResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ActorPreview {
     pub actor_id: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -4755,12 +4933,14 @@ pub struct ActorPreview {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectorySearchUsersResponse {
     #[serde(default)]
     pub results: Vec<ActorPreview>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryResolveHandleRequest {
     pub handle: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -4770,6 +4950,7 @@ pub struct DirectoryResolveHandleRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryResolveHandleResponse {
     pub did: Did,
     pub handle: String,
@@ -4779,6 +4960,7 @@ pub struct DirectoryResolveHandleResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct BlobUploadMetadata {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub space_id: Option<SpaceId>,
@@ -4794,6 +4976,7 @@ pub struct BlobUploadMetadata {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct BlobUploadResponse {
     pub blob_ref: BlobRef,
     pub size: u64,
@@ -4805,6 +4988,7 @@ pub struct BlobUploadResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct PushRegisterDeviceRequest {
     pub device_id: DeviceId,
     pub push_gateway: String,
@@ -4818,6 +5002,7 @@ pub struct PushRegisterDeviceRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct PushRegisterDeviceResponse {
     pub ok: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -4827,6 +5012,7 @@ pub struct PushRegisterDeviceResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct PushUnregisterDeviceRequest {
     pub device_id: DeviceId,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -4836,22 +5022,26 @@ pub struct PushUnregisterDeviceRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct OkResponse {
     pub ok: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct PushNotifyRequest {
     pub notification: Value,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct PushNotifyResponse {
     #[serde(default)]
     pub rejected: Vec<Value>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct PolicyCheckRequest {
     pub request_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -4867,6 +5057,7 @@ pub struct PolicyCheckRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct PolicyCheckResponse {
     pub decision: AuthzDecision,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -4879,6 +5070,7 @@ pub struct PolicyCheckResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MediaIceConfigRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub space_id: Option<SpaceId>,
@@ -4887,6 +5079,7 @@ pub struct MediaIceConfigRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MediaIceConfigResponse {
     #[serde(default)]
     pub ice_servers: Vec<Value>,
@@ -4895,6 +5088,7 @@ pub struct MediaIceConfigResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ModerationReportRequest {
     pub space_id: SpaceId,
     pub target_ref: String,
@@ -4907,6 +5101,7 @@ pub struct ModerationReportRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ModerationReportResponse {
     pub report_id: String,
     pub status: String,
@@ -4915,6 +5110,7 @@ pub struct ModerationReportResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppletPingResponse {
     pub ok: bool,
     pub applet_id: String,
@@ -4923,6 +5119,7 @@ pub struct AppletPingResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppletDescription {
     pub applet_id: String,
     pub service_did: Did,
@@ -4937,6 +5134,7 @@ pub struct AppletDescription {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppletTransactionRequest {
     pub source_service_did: Did,
     #[serde(default)]
@@ -4946,6 +5144,7 @@ pub struct AppletTransactionRequest {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppletTransactionResponse {
     pub ok: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -4955,6 +5154,7 @@ pub struct AppletTransactionResponse {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppletActorResponse {
     pub exists: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -4966,6 +5166,7 @@ pub struct AppletActorResponse {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppletSpaceResponse {
     pub exists: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -4977,6 +5178,7 @@ pub struct AppletSpaceResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppletProtocolResponse {
     pub protocol: String,
     pub display_name: String,
@@ -4989,6 +5191,7 @@ pub struct AppletProtocolResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeysUploadRequest {
     pub device_id: DeviceId,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -4999,6 +5202,7 @@ pub struct KeysUploadRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeysUploadResponse {
     pub one_time_key_counts: BTreeMap<String, u64>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -5006,6 +5210,7 @@ pub struct KeysUploadResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeysQueryRequest {
     pub device_keys: BTreeMap<Did, Vec<DeviceId>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -5013,6 +5218,7 @@ pub struct KeysQueryRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeysQueryResponse {
     pub device_keys: BTreeMap<Did, BTreeMap<DeviceId, Value>>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -5020,11 +5226,13 @@ pub struct KeysQueryResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeysClaimRequest {
     pub one_time_keys: BTreeMap<Did, BTreeMap<DeviceId, String>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeysClaimResponse {
     pub one_time_keys: BTreeMap<Did, BTreeMap<DeviceId, Value>>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -5032,11 +5240,13 @@ pub struct KeysClaimResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DeviceMessagesSendRequest {
     pub messages: BTreeMap<Did, BTreeMap<DeviceId, ToDeviceMessage>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ToDeviceMessage {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub txn_id: Option<String>,
@@ -5062,6 +5272,7 @@ pub struct ToDeviceMessage {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DeviceMessagesSendResponse {
     pub ok: bool,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -5071,6 +5282,7 @@ pub struct DeviceMessagesSendResponse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DeviceMessagesReceiveResponse {
     pub events: Vec<ToDeviceMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -5091,6 +5303,7 @@ pub struct DeviceMessagesReceiveResponse {
 /// `security_boundary` Spaces own membership/policy/history/E2EE; `container`
 /// Spaces only carry container ID, ranking and View/Relation anchors.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum BoundaryProfile {
     SecurityBoundary,
@@ -5117,6 +5330,7 @@ pub fn boundary_profile_for_kind(kind: &SpaceKind) -> Option<BoundaryProfile> {
 
 /// Branch access inheritance per data-structures.md §6.1 (`FlowBranch.access`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum BranchInheritance {
     InheritFlow,
@@ -5125,6 +5339,7 @@ pub enum BranchInheritance {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum BranchE2eeInheritance {
     InheritSpace,
@@ -5135,6 +5350,7 @@ pub enum BranchE2eeInheritance {
 
 /// `FlowBranch.access` (data-structures.md §6.1).
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct FlowBranchAccess {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub membership: Option<BranchInheritance>,
@@ -5160,6 +5376,7 @@ pub const FLOW_BRANCH_NAME_DISCUSSION: &str = "discussion";
 /// also accepts a bare string (legacy `Vec<String>` shape) by promoting it
 /// to `FlowBranch { name, ..default }`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct FlowBranch {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -5282,6 +5499,7 @@ pub fn resolve_primary_branch<'a>(
 
 /// Morph object (data-structures.md §7).
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Morph {
     pub schema: String,
     pub id: String,
@@ -5311,6 +5529,7 @@ pub struct Morph {
     pub labels: Vec<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub metadata: BTreeMap<String, Value>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(flatten)]
     pub extra: BTreeMap<String, Value>,
 }
@@ -5364,6 +5583,7 @@ impl Morph {
 
 /// Account lifecycle status (account-lifecycle.md §3).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AccountStatus {
     Active,
@@ -5388,6 +5608,7 @@ impl AccountStatus {
 
 /// Audit assurance class (encryption-and-audit.md §3.1; spec _todos A1–A9).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AuditAssurance {
     AttestedHardware,
@@ -5437,6 +5658,7 @@ impl AuditAssurance {
 /// Combine with [`ReceiptIndependence`] to detect single-source receipts
 /// that don't satisfy the attested-mode independence requirement.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RywIssuerRole {
     EventsApi,
@@ -5447,6 +5669,7 @@ pub enum RywIssuerRole {
 /// Whether the RYW receipt was issued by an issuer independent of the
 /// Events API node that accepted the audit envelope.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ReceiptIndependence {
     /// At least one issuer is distinct from the originating Events API.
@@ -5457,6 +5680,7 @@ pub enum ReceiptIndependence {
 
 /// Per-actor frontier entry referenced by the RYW receipt.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct RywActorFrontierEntry {
     pub actor_seq: u64,
     pub event_id: EventId,
@@ -5465,6 +5689,7 @@ pub struct RywActorFrontierEntry {
 /// Frontier reference inside an RYW receipt
 /// (`audit-ryw-receipt.schema.json`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct RywFrontier {
     pub space_frontier: Vec<EventId>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -5479,6 +5704,7 @@ pub struct RywFrontier {
 /// Agent MUST gate plaintext release on receiving a receipt that meets
 /// the Space's declared `audit_assurance`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AuditRywReceipt {
     pub receipt_id: String,
     pub schema: String,
@@ -5517,6 +5743,7 @@ impl AuditRywReceipt {
 
 /// Backup class for key backup envelopes (key-management.md §7.1).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum BackupClass {
     DidRecovery,
@@ -5540,6 +5767,7 @@ impl BackupClass {
 
 /// Constraint evaluation class (constraint-schema.md §2.1, spec _todos B4).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum EvaluationClass {
     Stateless,
@@ -5550,6 +5778,7 @@ pub enum EvaluationClass {
 
 /// Approval workflow mode (constraint-schema.md §9.1–§9.2).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ApprovalWorkflowMode {
     BeforeCommit,
@@ -5559,6 +5788,7 @@ pub enum ApprovalWorkflowMode {
 
 /// Moderation action (moderation.md §5.3).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ModerationAction {
     DenyJoin,
@@ -5572,6 +5802,7 @@ pub enum ModerationAction {
 
 /// Moderation report (moderation.md §3).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ModerationReport {
     pub schema: String,
     pub id: String,
@@ -5617,6 +5848,7 @@ impl ModerationReport {
 /// only the reporter could have produced; spec leaves the algorithm open
 /// per profile — this struct just carries the wire shape.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ModerationFrank {
     pub algorithm: String,
     pub franking_tag: String,
@@ -5628,6 +5860,7 @@ pub struct ModerationFrank {
 
 /// Verification class returned by federation `verify_actor` (M-19).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum FederationActorValidationClass {
     Valid,

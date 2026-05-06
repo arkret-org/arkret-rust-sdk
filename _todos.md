@@ -8,6 +8,100 @@ This document is the merged output of four parallel audits over identity/crypto,
 
 Items are grouped by **tier** (severity × tractability), not by domain, so the implementation order is top-to-bottom.
 
+## Round-8 working list (2026-05-06) — Salvo OpenAPI rework
+
+### Why this round exists
+
+Round 7 added a Salvo `oapi` feature path but **the schemas it produced are placeholders, not real schemas**. Concretely:
+
+- `crates/core/src/oapi.rs` (630 lines) hand-impls `ToSchema`/`ComposeSchema` for ~140 model types, but every impl returns the same `{"type":"object","additionalProperties":true,"x-contrix-rust-type":"FooBar"}`. There are zero field-level descriptions.
+- A string-typed `schema_for_name(name: &str, ...)` registry in core, plus parallel hardcoded name lists in `salvo_adapter.rs` and `lib.rs`, replicate the contract registry by string instead of using the type system.
+- `crates/identifiers/src/lib.rs` has an inline `mod oapi {}` while core has a free-standing `oapi.rs` — split state.
+- `crates/core/Cargo.toml` introduces a phantom `server = []` feature that does nothing except gate `salvo`.
+- SDK feature `salvo` and legacy alias `salvo-adapter` both exist with overlapping meaning.
+
+The result: a feature flag that compiles but generates an OpenAPI document that lies — clients reading it are told every body is "any object."
+
+### Target architecture (palpo-style)
+
+- **Derive, don't hand-impl.** `#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]` on every public model struct/enum so `salvo-oapi-macros` introspects fields and generates real schemas.
+- **Hand-impl only for leaf scalars.** DIDs, typed IDs, hashes, HLC, cursor strings — small set with regex patterns.
+- **Per-field overrides** via `#[cfg_attr(feature = "salvo", salvo(schema(value_type = ...)))]` for `serde_json::Value`, generic `T`, untagged enums (`Audience`, `Filter`, `EntityFacets`, `EncryptedPayloadKeyRef`).
+- **Single `salvo` feature on data crates, single `salvo` feature on SDK.** Drop the phantom `server` feature inside core. Keep `salvo-adapter` as a deprecated alias of `salvo` on the SDK so external users don't break.
+- **Salvo adapter just enumerates the typed registrations.** No string→Schema dispatch.
+
+### Tasks
+
+- [x] **R8-1 Reset broken oapi infrastructure**
+  - [x] Delete `crates/core/src/oapi.rs` (the 630-line fake registry).
+  - [x] Move `mod oapi {}` out of `crates/identifiers/src/lib.rs` into `crates/identifiers/src/oapi.rs`.
+  - [x] Drop `pub mod oapi;` from `crates/core/src/lib.rs`.
+  - [x] Leave `crates/server/src/lib.rs::openapi_schema_components` alone — it backs the *framework-independent JSON document*, separate from the salvo adapter, and was not duplicated against core.
+
+- [x] **R8-2 Cargo feature graph cleanup**
+  - [x] Removed phantom `server = []` feature from `crates/core/Cargo.toml`.
+  - [x] `crates/identifiers/Cargo.toml`: `salvo = ["dep:salvo", "salvo/oapi", "dep:salvo-oapi", "salvo-oapi/chrono"]`. Direct `salvo-oapi` dep added so the `chrono` feature can be activated for `DateTime<Utc>` field schemas (salvo umbrella does not pass it through).
+  - [x] `crates/core/Cargo.toml`: same shape, propagating `contrix-identifiers/salvo` and `salvo-oapi/chrono`.
+  - [x] `crates/server/Cargo.toml` `salvo` feature pulls `contrix-core/salvo` (which transitively activates the chrono extension).
+  - [x] Workspace `Cargo.toml`: added `salvo-oapi = { version = "0.93.0", default-features = false }`.
+  - [x] SDK `salvo` feature kept; `salvo-adapter` remains as a back-compat alias that just activates `salvo`.
+
+- [x] **R8-3 Identifier schemas (move + verify)**
+  - [x] `crates/identifiers/src/oapi.rs` houses the `impl_string_schema!` macro plus the `Hlc` manual impl with real string patterns.
+  - [x] `lib.rs` exposes `#[cfg(feature = "salvo")] mod oapi;` only.
+  - [x] `cargo check -p contrix-identifiers --features salvo` passes (verified against fresh target dir).
+
+- [x] **R8-4 Derive ToSchema on `cursor.rs` (5 types) and `service.rs` (11 types)**
+  - [x] `cursor.rs`: derives on `Cursor` and `SpacePosition`. The other three (`SyncPositions`, `SpaceSyncPosition`, `SyncTracker`) are internal helpers without `Serialize`/`Deserialize` and aren't on the wire — skipped intentionally.
+  - [x] `service.rs`: derives on `ServiceType`, `ServiceEndpointBinding`, `ServiceDidAllowlist`, `NotFoundPrivacy`, `RateLimitScopeKind`, `RateLimitMetadata`, `QuotaKind`, `QuotaMetadata`, `HttpTraceMetadata`, `ApiConventionMetadata`. `ServiceRequirements` is an internal builder, skipped.
+  - [x] No per-field overrides needed — `chrono::DateTime<Utc>` is handled by `salvo-oapi/chrono`.
+  - [x] `cargo check -p contrix-core --features salvo` clean for these modules.
+
+- [x] **R8-5 Derive ToSchema on `sync.rs` (35 types)**
+  - [x] 32 derives applied via `/tmp/add_to_schema.py` (criterion: derive line contains both `Serialize` and `Deserialize`). The 3 skipped types (`SyncClient`, `SyncUpdates`, `SpaceUpdate`) are internal runtime helpers without serde derives.
+  - [x] No overrides required.
+  - [x] `cargo check -p contrix-core --features salvo` clean for sync.
+
+- [x] **R8-6 Derive ToSchema on `model.rs` (226 types)**
+  - [x] 223 derives applied via the same script in a single pass.
+  - [x] `FlowBranch` has a hand-rolled `Deserialize`; ToSchema derive added manually (the macro doesn't require a derived Deserialize).
+  - [x] 9 `BTreeMap<_, serde_json::Value>` fields with `#[serde(flatten)]` overridden via `#[salvo(schema(value_type = serde_json::Value))]`. **Why:** salvo-oapi-macros 0.93 emits `additional_properties(Some(...))` for FlattenedMap fields, which expects an `Object` rather than the `Option<Object>` produced by `Value::to_schema()`. Workaround: present the field as an opaque `Value` to the schema (the wire form remains correct because `serde(flatten)` is preserved). This is a salvo-oapi 0.93 limitation — not ideal, but the alternative would be a private fork.
+  - [x] Generic `QueryResponse<T = Value>` and `QueryResult<T>` derive cleanly with their default param.
+  - [x] `RelationEdgeRef<'a>` has no derive (it's a borrowed view, never on the wire).
+  - [x] `cargo check -p contrix-core --features salvo` clean.
+
+- [x] **R8-7 Rewrite `crates/server/src/salvo_adapter.rs` OAPI section**
+  - [x] `ContrixJson<T>` extended: `ContrixJson::ok(value).status(code).description(text)`. `Scribe` impl honours the status; `ToResponse` and `EndpointOutRegister` impls preserved.
+  - [x] `register_contrix_oapi_components` rewritten in two parts: `register_typed_schemas` (90 root types listed by short name; salvo-oapi-macros register dependent schemas transitively) and `register_synthetic_schemas` (61 path/query bundles + `BinaryBlobBody` + `JsonValue` + `BlobMetadataHeaders` placeholders).
+  - [x] Drop dependency on the deleted `contrix_core::oapi` module.
+  - [x] Added `install_contrix_oapi_namer()` invoking `salvo::oapi::naming::set_namer(FlexNamer::new().short_mode(true))` so component names are `ServerDescription` rather than `contrix_core.model.ServerDescription`. `contrix_oapi_components()` calls it automatically; documented as global state.
+  - [x] Tests `oapi_components_register_endpoint_schema_names` and `salvo_openapi_registers_contrix_components` updated to verify both the bare names *and* that `ServerDescription` carries real `properties` (or a `$ref` to its component) rather than an opaque object.
+
+- [x] **R8-8 Build & test verification**
+  - [x] `cargo check -p contrix-identifiers --no-default-features` ✓
+  - [x] `cargo check -p contrix-identifiers --features salvo` ✓
+  - [x] `cargo check -p contrix-core --no-default-features` ✓
+  - [x] `cargo check -p contrix-core --features salvo` ✓
+  - [x] `cargo test -p contrix-core --features salvo --lib` ✓ (91 passed)
+  - [x] `cargo test -p contrix-core --no-default-features --lib` ✓ (91 passed)
+  - [x] `cargo check -p contrix-server --no-default-features` ✓
+  - [x] `cargo check -p contrix-server --features salvo` ✓
+  - [x] `cargo test -p contrix-server --features salvo` ✓ (23 unit tests + 1 doctest)
+  - [x] `cargo check -p contrix --features salvo` ✓
+  - [x] `cargo check -p contrix --features salvo-adapter` ✓ (deprecated alias still works)
+
+- [x] **R8-9 Doc update**
+  - [x] `crates/server/README.md` rewritten with the derive-driven flow plus a usage example.
+  - [x] `docs/feature-matrix.md` row for `--features salvo` is accurate (R7 entry kept).
+  - [x] `docs/quick-start.md` mentions that every model derives `ToSchema` under `--features salvo`.
+
+### Withdrawn round (kept for audit trail)
+
+- [~] ~~**R7-1 Salvo feature boundary**~~ — superseded by R8-2 (phantom `server = []` feature removed; `salvo-adapter` consolidated to alias).
+- [~] ~~**R7-2 Core OAPI type system**~~ — superseded by R8-4/R8-5/R8-6. The hand-rolled `core/src/oapi.rs` produced placeholder schemas only; replaced with derives.
+- [~] ~~**R7-3 Server OAPI integration**~~ — superseded by R8-7. The string-name registry replaced with direct typed registration.
+- [~] ~~**R7-4 Verification**~~ — superseded by R8-8.
+
 ## Round-6 implementation summary (2026-05-05)
 
 Round 6 closes the last two non-deferred items: T1-1 (Flow.branches end-to-end) and T3-1 (conformance vector library). Workspace builds clean; SDK test suite passes (only the pre-existing spec-side registry gap test remains).

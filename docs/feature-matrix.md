@@ -7,6 +7,7 @@ Contrix SDK uses additive Cargo features.
 | Model-only | `default-features = false` | Protocol IDs, wire models, canonical digests, stores and local state helpers without HTTP or OpenMLS dependencies. |
 | Client | `--features client` | Reqwest-based HTTP client for the Contrix v1 service binding. |
 | Server | `--features server` | Framework-independent endpoint registry, handler adapter enums and OpenAPI export helper. |
+| Salvo server | `--features salvo` | Server feature plus Salvo router, JSON response wrapper and Salvo OAPI schema component helpers. |
 | MLS | `--features mls` | OpenMLS-backed group creation, Welcome/Commit envelopes and payload encryption/decryption. |
 | Default | `client,mls` | Application SDK default: HTTP client plus MLS crypto primitives. |
 | All features | `--all-features` | Release and conformance validation build. |
