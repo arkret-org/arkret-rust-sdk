@@ -3,9 +3,10 @@ use std::collections::BTreeMap;
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use chrono::Utc;
 use openmls::prelude::{
-    BasicCredential, Ciphersuite, CredentialWithKey, GroupId, KeyPackage, KeyPackageIn, MlsGroup,
-    MlsGroupCreateConfig, MlsGroupJoinConfig, MlsMessageBodyIn, MlsMessageIn, OpenMlsProvider,
-    ProcessedMessageContent, ProtocolVersion, RatchetTreeIn, StagedWelcome,
+    BasicCredential, Ciphersuite, CredentialWithKey, GroupId, KeyPackage, KeyPackageIn,
+    LeafNodeIndex, MlsGroup, MlsGroupCreateConfig, MlsGroupJoinConfig, MlsMessageBodyIn,
+    MlsMessageIn, OpenMlsProvider, ProcessedMessageContent, ProtocolVersion, RatchetTreeIn,
+    StagedWelcome,
 };
 use openmls_basic_credential::SignatureKeyPair;
 use openmls_rust_crypto::OpenMlsRustCrypto;
@@ -41,6 +42,45 @@ pub struct ContrixMlsGroup {
 pub struct MlsAddMemberResult {
     pub commit: MlsCommitEnvelope,
     pub welcome: MlsWelcomeEnvelope,
+}
+
+/// Result of removing one or more leaves from an MLS group.
+///
+/// Unlike `MlsAddMemberResult`, Remove never produces a Welcome — surviving
+/// members simply apply the commit to advance the epoch. The list of
+/// `removed_leaves` makes the audit trail explicit so callers can correlate
+/// the result with the originating `cx.device.revoked` / `cx.member.state`
+/// events.
+#[derive(Clone, Debug)]
+pub struct MlsRemoveMemberResult {
+    pub commit: MlsCommitEnvelope,
+    /// Raw OpenMLS leaf indices that were removed by this commit, in the
+    /// order they appeared in the original group state.
+    pub removed_leaves: Vec<u32>,
+    /// The principal DIDs whose leaves were removed (one per leaf, may
+    /// contain duplicates if the principal had multiple leaves / devices in
+    /// the same group). Useful for downstream `cx.device.revoked` event
+    /// envelopes that index by principal.
+    pub removed_principals: Vec<Did>,
+}
+
+impl MlsRemoveMemberResult {
+    /// Project the commit into a canonical `mls_commit` operation envelope,
+    /// matching the shape of `MlsAddMemberResult::commit_operation`.
+    pub fn commit_operation(
+        &self,
+        operation_id: OperationId,
+        space_id: SpaceId,
+    ) -> Result<Operation> {
+        let mut operation = Operation::create(
+            operation_id,
+            space_id,
+            "mls_commit",
+            serde_json::to_value(&self.commit)?,
+        );
+        operation.object_id = Some(format!("{}:{}", self.commit.group_id, self.commit.epoch));
+        Ok(operation)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -441,6 +481,127 @@ impl ContrixMlsGroup {
                 welcome_hash: Hash::new(canonical::sha256_digest(&welcome_bytes))?,
                 ratchet_tree,
             },
+        })
+    }
+
+    /// Remove every leaf whose BasicCredential identity matches `target`.
+    ///
+    /// In the current credential encoding (`mls.rs::ContrixMlsIdentity::new_basic`)
+    /// the leaf identity bytes are `principal_id.as_str().as_bytes()` — they
+    /// do NOT include the device id. Therefore matching by principal removes
+    /// **all leaves** owned by that principal in this group. To remove a
+    /// specific device, use [`Self::remove_member_by_leaf`] with a leaf
+    /// index resolved from out-of-band device → leaf bookkeeping.
+    ///
+    /// Errors when the target principal has no leaf in this group.
+    pub fn remove_member_by_principal(
+        &mut self,
+        target: &Did,
+    ) -> Result<MlsRemoveMemberResult> {
+        let target_bytes = target.as_str().as_bytes();
+        let leaves: Vec<LeafNodeIndex> = self
+            .group
+            .members()
+            .filter_map(|member| {
+                if member.credential.serialized_content() == target_bytes {
+                    Some(member.index)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if leaves.is_empty() {
+            return Err(Error::Protocol(format!(
+                "principal {} has no leaf in group {}",
+                target.as_str(),
+                self.group_id()
+            )));
+        }
+
+        self.remove_leaves(&leaves)
+    }
+
+    /// Remove a single leaf by its raw OpenMLS leaf index. Use this when the
+    /// caller maintains an explicit (principal, device_id) → leaf_index map
+    /// (e.g. a yougen DeviceManager with leaf bookkeeping) and wants to
+    /// revoke just one device of a multi-device principal.
+    pub fn remove_member_by_leaf(
+        &mut self,
+        leaf_index: u32,
+    ) -> Result<MlsRemoveMemberResult> {
+        self.remove_leaves(&[LeafNodeIndex::new(leaf_index)])
+    }
+
+    fn remove_leaves(
+        &mut self,
+        leaves: &[LeafNodeIndex],
+    ) -> Result<MlsRemoveMemberResult> {
+        // Capture credential identity bytes before commit so we can report
+        // which principal each removed leaf belonged to even after the leaf
+        // is gone from the post-commit group state.
+        let pre_commit: Vec<(LeafNodeIndex, Vec<u8>)> = self
+            .group
+            .members()
+            .filter_map(|member| {
+                if leaves.contains(&member.index) {
+                    Some((member.index, member.credential.serialized_content().to_vec()))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if pre_commit.len() != leaves.len() {
+            return Err(Error::Protocol(format!(
+                "remove_leaves: {} of {} leaf indices not present in group {}",
+                leaves.len() - pre_commit.len(),
+                leaves.len(),
+                self.group_id()
+            )));
+        }
+
+        let (commit, _welcome_opt, _) = self
+            .group
+            .remove_members(&self.identity.provider, &self.identity.signer, leaves)
+            .map_err(mls_error)?;
+        self.group
+            .merge_pending_commit(&self.identity.provider)
+            .map_err(mls_error)?;
+
+        let commit_bytes = commit.tls_serialize_detached().map_err(mls_error)?;
+        let ratchet_tree = Some(self.ratchet_tree()?);
+
+        let mut removed_leaves: Vec<u32> = Vec::with_capacity(pre_commit.len());
+        let mut removed_principals: Vec<Did> = Vec::with_capacity(pre_commit.len());
+        for (idx, identity_bytes) in pre_commit {
+            removed_leaves.push(idx.u32());
+            // Reconstruct the principal Did from identity bytes. If the
+            // bytes are not valid UTF-8 / not a parseable Did we fall back
+            // to a placeholder so the audit trail still records the leaf
+            // index; this should never happen in practice because all
+            // ContrixMlsIdentity leaves carry UTF-8 DID strings.
+            let principal = std::str::from_utf8(&identity_bytes)
+                .ok()
+                .and_then(|s| Did::new(s.to_owned()).ok())
+                .unwrap_or_else(|| {
+                    Did::new(format!("did:contrix:unknown-leaf-{}", idx.u32()))
+                        .expect("placeholder DID is well-formed")
+                });
+            removed_principals.push(principal);
+        }
+
+        Ok(MlsRemoveMemberResult {
+            commit: MlsCommitEnvelope {
+                group_id: self.group_id(),
+                epoch: self.epoch(),
+                commit: encode(&commit_bytes),
+                commit_hash: Hash::new(canonical::sha256_digest(&commit_bytes))?,
+                ratchet_tree,
+                app_state_ref: None,
+            },
+            removed_leaves,
+            removed_principals,
         })
     }
 
@@ -1192,5 +1353,129 @@ mod tests {
         };
 
         assert!(matches!(error, Error::Protocol(_)));
+    }
+
+    /// T31 — `remove_member_by_principal` removes a leaf, advances the
+    /// group's epoch and produces a commit envelope that surviving members
+    /// can apply to converge.
+    #[test]
+    fn remove_member_by_principal_advances_epoch_and_emits_commit() {
+        let alice = ContrixMlsIdentity::new_basic(
+            Did::new("did:web:alice.example").unwrap(),
+            DeviceId::new("dev_alice_1").unwrap(),
+        )
+        .unwrap();
+        let bob = ContrixMlsIdentity::new_basic(
+            Did::new("did:web:bob.example").unwrap(),
+            DeviceId::new("dev_bob_1").unwrap(),
+        )
+        .unwrap();
+        let charlie = ContrixMlsIdentity::new_basic(
+            Did::new("did:web:charlie.example").unwrap(),
+            DeviceId::new("dev_charlie_1").unwrap(),
+        )
+        .unwrap();
+        let bob_kp = bob.key_package_record().unwrap();
+        let charlie_kp = charlie.key_package_record().unwrap();
+
+        let mut alice_group = alice.create_group(b"cx:space:remove-test").unwrap();
+        let add_bob = alice_group.add_member(&bob_kp).unwrap();
+        let _bob_group =
+            ContrixMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
+        let add_charlie = alice_group.add_member(&charlie_kp).unwrap();
+        let _charlie_group =
+            ContrixMlsGroup::join_from_welcome(charlie, &add_charlie.welcome).unwrap();
+
+        let epoch_before = alice_group.epoch();
+        let target = Did::new("did:web:charlie.example").unwrap();
+        let result = alice_group.remove_member_by_principal(&target).unwrap();
+
+        // Epoch advanced by exactly one Commit.
+        assert_eq!(alice_group.epoch(), epoch_before + 1);
+        // Commit envelope reflects the new epoch and same group.
+        assert_eq!(result.commit.epoch, alice_group.epoch());
+        assert_eq!(result.commit.group_id, alice_group.group_id());
+        // Exactly one leaf removed; principal correctly reported.
+        assert_eq!(result.removed_leaves.len(), 1);
+        assert_eq!(result.removed_principals.len(), 1);
+        assert_eq!(result.removed_principals[0].as_str(), "did:web:charlie.example");
+    }
+
+    /// T31 — removing an absent principal returns a Protocol error rather
+    /// than silently no-op'ing. The orchestration plan in yougen relies on
+    /// this to surface "leaf already gone" as a recoverable state.
+    #[test]
+    fn remove_member_by_principal_errors_when_target_absent() {
+        let alice = ContrixMlsIdentity::new_basic(
+            Did::new("did:web:alice.example").unwrap(),
+            DeviceId::new("dev_alice_1").unwrap(),
+        )
+        .unwrap();
+        let mut alice_group = alice.create_group(b"cx:space:absent-test").unwrap();
+
+        let absent = Did::new("did:web:nobody.example").unwrap();
+        let err = alice_group.remove_member_by_principal(&absent);
+        assert!(matches!(err, Err(Error::Protocol(_))));
+    }
+
+    /// T31 — `remove_member_by_leaf` accepts a raw OpenMLS leaf index and
+    /// produces the same shape of commit envelope. Used when the caller
+    /// (yougen DeviceManager) tracks per-device leaf bookkeeping
+    /// out-of-band.
+    #[test]
+    fn remove_member_by_leaf_accepts_raw_index() {
+        let alice = ContrixMlsIdentity::new_basic(
+            Did::new("did:web:alice.example").unwrap(),
+            DeviceId::new("dev_alice_1").unwrap(),
+        )
+        .unwrap();
+        let bob = ContrixMlsIdentity::new_basic(
+            Did::new("did:web:bob.example").unwrap(),
+            DeviceId::new("dev_bob_1").unwrap(),
+        )
+        .unwrap();
+        let bob_kp = bob.key_package_record().unwrap();
+
+        let mut alice_group = alice.create_group(b"cx:space:leaf-test").unwrap();
+        let add_bob = alice_group.add_member(&bob_kp).unwrap();
+        let _bob_group =
+            ContrixMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
+
+        // Bob's leaf is at index 1 (Alice is index 0 as group creator).
+        let result = alice_group.remove_member_by_leaf(1).unwrap();
+        assert_eq!(result.removed_leaves, vec![1]);
+        assert_eq!(result.removed_principals[0].as_str(), "did:web:bob.example");
+    }
+
+    /// T31 — `commit_operation` projects the result into the same
+    /// canonical operation shape that `MlsAddMemberResult` produces, so
+    /// audit pipelines can ingest both consistently.
+    #[test]
+    fn remove_result_commit_operation_uses_mls_commit_op_type() {
+        let alice = ContrixMlsIdentity::new_basic(
+            Did::new("did:web:alice.example").unwrap(),
+            DeviceId::new("dev_alice_1").unwrap(),
+        )
+        .unwrap();
+        let bob = ContrixMlsIdentity::new_basic(
+            Did::new("did:web:bob.example").unwrap(),
+            DeviceId::new("dev_bob_1").unwrap(),
+        )
+        .unwrap();
+        let bob_kp = bob.key_package_record().unwrap();
+
+        let mut alice_group = alice.create_group(b"cx:space:op-test").unwrap();
+        let add_bob = alice_group.add_member(&bob_kp).unwrap();
+        let _bob_group =
+            ContrixMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
+        let result = alice_group
+            .remove_member_by_principal(&Did::new("did:web:bob.example").unwrap())
+            .unwrap();
+
+        let op_id = OperationId::new("op_remove_test").unwrap();
+        let space_id = SpaceId::new("cx:space:op-test").unwrap();
+        let op = result.commit_operation(op_id, space_id).unwrap();
+        assert_eq!(op.op_type, "mls_commit");
+        assert!(op.object_id.unwrap().contains(&result.commit.group_id));
     }
 }
