@@ -345,6 +345,187 @@ impl DidResolver for DidWebResolver {
     }
 }
 
+/// `did:webvh` resolver. Mirrors the offline-friendly shape of
+/// [`DidWebResolver`]: callers fetch `did.json` / `did.jsonl` over
+/// HTTPS using whatever HTTP client they already use, then hand the
+/// bytes to the SDK for validation. The SDK enforces:
+///
+/// - the `did:webvh:<scid>:<host[:port]>[:path]` shape
+/// - that the fetched document `id` equals the requested DID
+/// - the SCID present on every log entry matches the DID
+/// - the entry chain (`prevVersionId` → `versionId`) is contiguous
+/// - the document size is bounded by [`DID_WEB_MAX_DOCUMENT_BYTES`]
+///
+/// Cryptographic proof verification is delegated to the caller for now
+/// — the registry already verifies proofs server-side and the SDK does
+/// not yet bring an Ed25519 dependency by default.
+#[derive(Clone, Debug, Default)]
+pub struct DidWebvhResolver {
+    documents: BTreeMap<Did, DidDocument>,
+    logs: BTreeMap<Did, Vec<DidWebvhLogEntry>>,
+}
+
+/// A single line from a `did.jsonl` log file. The shape is permissive
+/// so the SDK can evolve alongside the W3C draft without breaking
+/// callers.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DidWebvhLogEntry {
+    #[serde(rename = "versionId")]
+    pub version_id: String,
+    #[serde(rename = "versionTime")]
+    pub version_time: DateTime<Utc>,
+    pub parameters: Value,
+    pub state: Value,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub proof: Vec<Value>,
+}
+
+/// Bytes returned from fetching `did.json` over HTTPS, mirroring
+/// [`DidWebDocumentResponse`].
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DidWebvhDocumentResponse {
+    pub url: String,
+    pub content_type: String,
+    pub body: Vec<u8>,
+}
+
+/// Bytes returned from fetching `did.jsonl` over HTTPS.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DidWebvhLogResponse {
+    pub url: String,
+    pub content_type: String,
+    pub body: Vec<u8>,
+}
+
+impl DidWebvhResolver {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// HTTPS URL where the current `did.json` is hosted.
+    pub fn document_url(did: &Did) -> Result<String> {
+        did_webvh_document_url(did)
+            .ok_or_else(|| Error::Protocol("unsupported did:webvh form".to_owned()))
+    }
+
+    /// HTTPS URL of the append-only history.
+    pub fn log_url(did: &Did) -> Result<String> {
+        did_webvh_log_url(did)
+            .ok_or_else(|| Error::Protocol("unsupported did:webvh form".to_owned()))
+    }
+
+    /// Validate and cache a `did.json` response.
+    pub fn insert_from_https_response(
+        &mut self,
+        did: &Did,
+        response: DidWebvhDocumentResponse,
+    ) -> Result<DidDocument> {
+        let expected_url = Self::document_url(did)?;
+        if response.url != expected_url {
+            return Err(Error::Protocol("did:webvh response URL mismatch".to_owned()));
+        }
+        if !is_allowed_did_web_content_type(&response.content_type) {
+            return Err(Error::Protocol("unsupported did:webvh content type".to_owned()));
+        }
+        if response.body.len() > DID_WEB_MAX_DOCUMENT_BYTES {
+            return Err(Error::Protocol("did:webvh document exceeds size limit".to_owned()));
+        }
+        let document: DidDocument = serde_json::from_slice(&response.body)?;
+        if &document.id != did {
+            return Err(Error::Protocol("did:webvh document id mismatch".to_owned()));
+        }
+        document.validate()?;
+        self.documents.insert(did.clone(), document.clone());
+        Ok(document)
+    }
+
+    /// Parse and validate a `did.jsonl` response. Returns the verified
+    /// log; throws if the SCID, chain or DID don't agree.
+    pub fn ingest_log(
+        &mut self,
+        did: &Did,
+        response: DidWebvhLogResponse,
+    ) -> Result<Vec<DidWebvhLogEntry>> {
+        let expected_url = Self::log_url(did)?;
+        if response.url != expected_url {
+            return Err(Error::Protocol("did:webvh log URL mismatch".to_owned()));
+        }
+        if response.body.len() > DID_WEB_MAX_DOCUMENT_BYTES * 32 {
+            return Err(Error::Protocol("did:webvh log exceeds maximum size".to_owned()));
+        }
+        let scid = did_webvh_scid(did)
+            .ok_or_else(|| Error::Protocol("did:webvh DID has no SCID".to_owned()))?;
+        let mut entries = Vec::new();
+        let mut last_version_id: Option<String> = None;
+        for line in response.body.split(|b| *b == b'\n').filter(|chunk| !chunk.is_empty()) {
+            let entry: DidWebvhLogEntry = serde_json::from_slice(line)?;
+            // SCID consistency.
+            let entry_scid =
+                entry.parameters.get("scid").and_then(Value::as_str).unwrap_or_default();
+            if !entry_scid.is_empty() && entry_scid != scid {
+                return Err(Error::Protocol(
+                    "did:webvh log entry SCID does not match DID".to_owned(),
+                ));
+            }
+            // Sequential version chain. Entries follow `<seq>-<hash>`.
+            let (seq, _) = entry.version_id.split_once('-').ok_or_else(|| {
+                Error::Protocol("did:webvh entry has malformed versionId".to_owned())
+            })?;
+            let seq: u64 = seq.parse().map_err(|_| {
+                Error::Protocol("did:webvh entry versionId seq not numeric".to_owned())
+            })?;
+            if seq != entries.len() as u64 + 1 {
+                return Err(Error::Protocol(
+                    "did:webvh entry versions are not sequential".to_owned(),
+                ));
+            }
+            // Optional `prevVersionId` field for >1 entries.
+            if let Some(prev) = entry
+                .parameters
+                .get("prevVersionId")
+                .or_else(|| entry.parameters.get("previousVersionId"))
+                .and_then(Value::as_str)
+            {
+                if Some(prev) != last_version_id.as_deref() {
+                    return Err(Error::Protocol(
+                        "did:webvh entry prevVersionId does not match previous head".to_owned(),
+                    ));
+                }
+            }
+            last_version_id = Some(entry.version_id.clone());
+            entries.push(entry);
+        }
+        if entries.is_empty() {
+            return Err(Error::Protocol("did:webvh log is empty".to_owned()));
+        }
+        self.logs.insert(did.clone(), entries.clone());
+        Ok(entries)
+    }
+
+    /// Latest verified entry for a previously-ingested DID.
+    pub fn latest_entry(&self, did: &Did) -> Option<&DidWebvhLogEntry> {
+        self.logs.get(did).and_then(|entries| entries.last())
+    }
+}
+
+impl DidResolver for DidWebvhResolver {
+    fn supports(&self, did: &Did) -> bool {
+        did.method() == "webvh" && did_webvh_document_url(did).is_some()
+    }
+
+    fn resolve_did(&self, did: &Did) -> Result<DidDocument> {
+        if !self.supports(did) {
+            return Err(Error::Protocol(
+                "unsupported DID method for did:webvh resolver".to_owned(),
+            ));
+        }
+        self.documents
+            .get(did)
+            .cloned()
+            .ok_or_else(|| Error::Protocol("did:webvh document not cached".to_owned()))
+    }
+}
+
 /// Limited `did:keri` resolver backed by explicitly registered documents.
 #[derive(Clone, Debug, Default)]
 pub struct DidKeriResolver {
@@ -1575,6 +1756,63 @@ fn is_allowed_did_web_content_type(content_type: &str) -> bool {
     matches!(media_type.as_str(), "application/did+json" | "application/json")
 }
 
+fn did_webvh_parts(did: &Did) -> Option<(String, String, Option<u16>, Vec<String>)> {
+    let method_id = did.as_str().strip_prefix("did:webvh:")?;
+    let mut parts = method_id.split(':');
+    let scid = parts.next()?.to_owned();
+    if scid.is_empty() {
+        return None;
+    }
+    let host_raw = parts.next()?;
+    if host_raw.is_empty() {
+        return None;
+    }
+    let (host, port) = if let Some(idx) = host_raw.find("%3A").or_else(|| host_raw.find("%3a")) {
+        let host = host_raw[..idx].to_owned();
+        let port_str = &host_raw[idx + 3..];
+        let port = port_str.parse::<u16>().ok()?;
+        (host, Some(port))
+    } else {
+        (host_raw.to_owned(), None)
+    };
+    let path = parts.map(ToOwned::to_owned).collect::<Vec<_>>();
+    if path
+        .iter()
+        .any(|segment| segment.is_empty() || segment.contains('/') || segment.contains(".."))
+    {
+        return None;
+    }
+    Some((scid, host, port, path))
+}
+
+fn did_webvh_scid(did: &Did) -> Option<String> {
+    did_webvh_parts(did).map(|(scid, _, _, _)| scid)
+}
+
+fn did_webvh_document_url(did: &Did) -> Option<String> {
+    did_webvh_url(did, "did.json")
+}
+
+fn did_webvh_log_url(did: &Did) -> Option<String> {
+    did_webvh_url(did, "did.jsonl")
+}
+
+fn did_webvh_url(did: &Did, leaf: &str) -> Option<String> {
+    let (_, host, port, path) = did_webvh_parts(did)?;
+    if !host.contains('.') {
+        return None;
+    }
+    let authority = match port {
+        Some(port) => format!("{host}:{port}"),
+        None => host,
+    };
+    if path.is_empty() {
+        Some(format!("https://{authority}/.well-known/{leaf}"))
+    } else {
+        Some(format!("https://{authority}/{}/{leaf}", path.join("/")))
+    }
+}
+
 fn did_key_material(did: &Did) -> Option<String> {
     let method_id = did.as_str().strip_prefix("did:key:")?;
     let encoded = method_id.strip_prefix('z')?;
@@ -1715,6 +1953,112 @@ mod tests {
 
     fn did(name: &str) -> Did {
         Did::new(format!("did:web:{name}.example")).unwrap()
+    }
+
+    #[test]
+    fn webvh_resolver_validates_url_shape_and_log_chain() {
+        let did = Did::new("did:webvh:zabc:starid.local:users:alice").unwrap();
+        assert_eq!(
+            DidWebvhResolver::document_url(&did).unwrap(),
+            "https://starid.local/users/alice/did.json"
+        );
+        assert_eq!(
+            DidWebvhResolver::log_url(&did).unwrap(),
+            "https://starid.local/users/alice/did.jsonl"
+        );
+
+        let mut resolver = DidWebvhResolver::new();
+        let document = DidDocument::new(did.clone(), "key-1", "z6Mkkey");
+        let body = serde_json::to_vec(&document).unwrap();
+        let resolved = resolver
+            .insert_from_https_response(
+                &did,
+                DidWebvhDocumentResponse {
+                    url: "https://starid.local/users/alice/did.json".to_owned(),
+                    content_type: "application/did+json".to_owned(),
+                    body,
+                },
+            )
+            .unwrap();
+        assert_eq!(resolved.id, did);
+        assert_eq!(resolver.resolve_did(&did).unwrap(), resolved);
+
+        let entry1 = serde_json::json!({
+            "versionId": "1-hashA",
+            "versionTime": "2026-05-06T00:00:00Z",
+            "parameters": {"scid": "zabc", "method": "did:webvh:1.0", "updateKeys": ["z6Mkkey"]},
+            "state": &document
+        });
+        let entry2 = serde_json::json!({
+            "versionId": "2-hashB",
+            "versionTime": "2026-05-07T00:00:00Z",
+            "parameters": {"scid": "zabc", "prevVersionId": "1-hashA", "updateKeys": ["z6Mkkey"]},
+            "state": &document
+        });
+        let body = format!(
+            "{}\n{}\n",
+            serde_json::to_string(&entry1).unwrap(),
+            serde_json::to_string(&entry2).unwrap()
+        );
+        let log = resolver
+            .ingest_log(
+                &did,
+                DidWebvhLogResponse {
+                    url: "https://starid.local/users/alice/did.jsonl".to_owned(),
+                    content_type: "application/jsonl".to_owned(),
+                    body: body.into_bytes(),
+                },
+            )
+            .unwrap();
+        assert_eq!(log.len(), 2);
+        assert_eq!(resolver.latest_entry(&did).unwrap().version_id, "2-hashB");
+    }
+
+    #[test]
+    fn webvh_resolver_rejects_scid_mismatch() {
+        let did = Did::new("did:webvh:zabc:starid.local:users:alice").unwrap();
+        let mut resolver = DidWebvhResolver::new();
+        let body = serde_json::json!({
+            "versionId": "1-x",
+            "versionTime": "2026-05-06T00:00:00Z",
+            "parameters": {"scid": "zwrong"},
+            "state": {}
+        });
+        let response = DidWebvhLogResponse {
+            url: DidWebvhResolver::log_url(&did).unwrap(),
+            content_type: "application/jsonl".to_owned(),
+            body: serde_json::to_vec(&body).unwrap(),
+        };
+        assert!(resolver.ingest_log(&did, response).is_err());
+    }
+
+    #[test]
+    fn webvh_resolver_rejects_chain_break() {
+        let did = Did::new("did:webvh:zabc:starid.local:users:alice").unwrap();
+        let mut resolver = DidWebvhResolver::new();
+        let entry1 = serde_json::json!({
+            "versionId": "1-A",
+            "versionTime": "2026-05-06T00:00:00Z",
+            "parameters": {"scid": "zabc"},
+            "state": {}
+        });
+        let entry2 = serde_json::json!({
+            "versionId": "2-B",
+            "versionTime": "2026-05-06T00:00:00Z",
+            "parameters": {"scid": "zabc", "prevVersionId": "1-WRONG"},
+            "state": {}
+        });
+        let body = format!(
+            "{}\n{}\n",
+            serde_json::to_string(&entry1).unwrap(),
+            serde_json::to_string(&entry2).unwrap()
+        );
+        let response = DidWebvhLogResponse {
+            url: DidWebvhResolver::log_url(&did).unwrap(),
+            content_type: "application/jsonl".to_owned(),
+            body: body.into_bytes(),
+        };
+        assert!(resolver.ingest_log(&did, response).is_err());
     }
 
     #[test]

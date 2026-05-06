@@ -8,6 +8,7 @@ use crate::{Did, SpaceId};
 
 /// Searchable space directory entry.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SpaceSearchEntry {
     /// Space ID.
     pub space_id: SpaceId,
