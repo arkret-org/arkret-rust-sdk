@@ -310,14 +310,14 @@ fn sanitize_tag(raw_tag: &str) -> String {
         }
         return "<a>".to_owned();
     }
-    if tag == "code" {
-        if let Some(class) = extract_attr(content, "class").filter(|value| {
+    if tag == "code"
+        && let Some(class) = extract_attr(content, "class").filter(|value| {
             value
                 .strip_prefix("language-")
                 .is_some_and(|name| name.chars().all(|ch| ch.is_ascii_alphanumeric() || ch == '-'))
-        }) {
-            return format!("<code class=\"{}\">", escape_html(&class));
-        }
+        })
+    {
+        return format!("<code class=\"{}\">", escape_html(&class));
     }
     if matches!(tag.as_str(), "br") {
         return "<br>".to_owned();

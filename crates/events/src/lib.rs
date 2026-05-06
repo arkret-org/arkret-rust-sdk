@@ -1290,7 +1290,7 @@ mod tests {
             space_id.clone(),
             actor_id.clone(),
             1,
-            hlc.clone(),
+            hlc,
             json!({ "body": "hello" }),
         )
         .unwrap();

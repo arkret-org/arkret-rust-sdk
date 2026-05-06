@@ -150,23 +150,23 @@ impl TimelineProjection {
     }
 
     fn apply_redaction(&mut self, event: &Event) -> Result<()> {
-        if let Some(target) = target_event_id(event)? {
-            if let Some(item) = self.items.get_mut(&target) {
-                item.redacted = true;
-                item.kind = TimelineItemKind::Redacted;
-                item.body = None;
-                item.latest_event_id = event.event_id.clone();
-            }
+        if let Some(target) = target_event_id(event)?
+            && let Some(item) = self.items.get_mut(&target)
+        {
+            item.redacted = true;
+            item.kind = TimelineItemKind::Redacted;
+            item.body = None;
+            item.latest_event_id = event.event_id.clone();
         }
         Ok(())
     }
 
     fn apply_edit(&mut self, event: &Event) -> Result<()> {
-        if let Some(target) = target_event_id(event)? {
-            if let Some(item) = self.items.get_mut(&target) {
-                item.body = event.content.get("body").and_then(Value::as_str).map(str::to_owned);
-                item.latest_event_id = event.event_id.clone();
-            }
+        if let Some(target) = target_event_id(event)?
+            && let Some(item) = self.items.get_mut(&target)
+        {
+            item.body = event.content.get("body").and_then(Value::as_str).map(str::to_owned);
+            item.latest_event_id = event.event_id.clone();
         }
         Ok(())
     }
@@ -369,7 +369,7 @@ mod tests {
         let space_b = SpaceId::new("cx:space:b").unwrap();
         let mut service = SpaceListService::default();
         service.upsert(SpaceListEntry {
-            space_id: space_a.clone(),
+            space_id: space_a,
             name: "A".to_owned(),
             membership: "join".to_owned(),
             last_activity: Some(Hlc::new("01970e589d21-00000001-a13f9c2e").unwrap()),

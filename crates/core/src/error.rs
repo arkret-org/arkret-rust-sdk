@@ -102,7 +102,7 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
 
 /// Return `true` when `code` is a registered canonical error code.
 pub fn is_known_error_code(code: &str) -> bool {
-    KNOWN_ERROR_CODES.iter().any(|c| *c == code)
+    KNOWN_ERROR_CODES.contains(&code)
 }
 
 /// Return the HTTP status binding for `code` per `error-code-registry.json`.

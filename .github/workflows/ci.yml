@@ -4,6 +4,10 @@ on:
   push:
   pull_request:
 
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
 jobs:
   rust:
     name: Rust checks
@@ -25,6 +29,59 @@ jobs:
       - run: cargo test --all-features
       - run: cargo run --example export_openapi --features server
 
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.92"
+      - uses: Swatinem/rust-cache@v2
+      - name: Build docs
+        env:
+          # Catch broken intra-doc links and missing-docs regressions early.
+          RUSTDOCFLAGS: "-D rustdoc::broken_intra_doc_links -D warnings"
+        run: cargo doc --no-deps --all-features --workspace
+
+  msrv:
+    name: MSRV check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          # Pinned MSRV — bumping requires a workspace Cargo.toml change and
+          # a CHANGELOG entry. Keeping a separate job documents the contract.
+          toolchain: "1.92"
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check --workspace --all-features --locked
+
+  audit:
+    name: cargo audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+      - run: cargo audit --deny warnings
+
+  deny:
+    name: cargo deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          # `.deny.toml` at repo root drives the policy. Run all checks so
+          # license, advisory, ban and source policies are all enforced.
+          command: check
+          arguments: --config .deny.toml --all-features
+
   publish-dry-run:
     name: crates.io dry run
     runs-on: ubuntu-latest
@@ -34,4 +91,5 @@ jobs:
         with:
           toolchain: "1.92"
       - uses: Swatinem/rust-cache@v2
-      - run: cargo publish -p contrix-sdk --dry-run --locked
+      # Crate package name is `contrix` (workspace path is `crates/sdk`).
+      - run: cargo publish -p contrix --dry-run --locked

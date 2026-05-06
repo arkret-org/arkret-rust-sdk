@@ -164,8 +164,7 @@ pub const OP_APPLET_THIRD_PARTY_USERS: &str = "cx.applet.third_party_users";
 pub const OP_APPLET_TRANSACTION: &str = "cx.applet.transaction";
 
 /// Directory operations beyond the bare `describe`.
-pub const OP_DIRECTORY_PRIVATE_CONTACT_DISCOVERY: &str =
-    "cx.directory.private_contact_discovery";
+pub const OP_DIRECTORY_PRIVATE_CONTACT_DISCOVERY: &str = "cx.directory.private_contact_discovery";
 pub const OP_DIRECTORY_RESOLVE_HANDLE: &str = "cx.directory.resolve_handle";
 pub const OP_DIRECTORY_RESOLVE_ORGANIZATION: &str = "cx.directory.resolve_organization";
 pub const OP_DIRECTORY_RESOLVE_SPACE: &str = "cx.directory.resolve_space";
@@ -428,16 +427,12 @@ fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         .map(str::to_owned)
         .collect(),
         OP_MESSAGE_CREATE => vec!["body".to_owned()],
-        OP_DEVICE_MESSAGES_PUT => [
-            "txn_id",
-            "kind",
-            "recipient_principal_id",
-            "recipient_device_id",
-            "content",
-        ]
-        .into_iter()
-        .map(str::to_owned)
-        .collect(),
+        OP_DEVICE_MESSAGES_PUT => {
+            ["txn_id", "kind", "recipient_principal_id", "recipient_device_id", "content"]
+                .into_iter()
+                .map(str::to_owned)
+                .collect()
+        }
         OP_KEYS_BACKUPS_PUT => [
             "backup_id",
             "actor_id",
@@ -455,24 +450,17 @@ fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         OP_KEYS_KEYPACKAGES_UPLOAD => {
             ["principal_id", "device_id", "keypackages"].into_iter().map(str::to_owned).collect()
         }
-        OP_KEYS_KEYPACKAGES_CLAIM => [
-            "target_principal_id",
-            "intended_space_id",
-            "requester",
-            "claim_nonce",
-            "expires_at",
-        ]
-        .into_iter()
-        .map(str::to_owned)
-        .collect(),
+        OP_KEYS_KEYPACKAGES_CLAIM => {
+            ["target_principal_id", "intended_space_id", "requester", "claim_nonce", "expires_at"]
+                .into_iter()
+                .map(str::to_owned)
+                .collect()
+        }
         OP_KEYS_KEYPACKAGES_CONSUME => {
             ["claim_id", "keypackage_ref"].into_iter().map(str::to_owned).collect()
         }
         OP_KEYS_KEYPACKAGES_REVOKE => {
-            ["principal_id", "device_id", "keypackage_ref"]
-                .into_iter()
-                .map(str::to_owned)
-                .collect()
+            ["principal_id", "device_id", "keypackage_ref"].into_iter().map(str::to_owned).collect()
         }
         OP_DIRECTORY_RESOLVE_HANDLE => vec!["handle".to_owned()],
         OP_DIRECTORY_RESOLVE_ORGANIZATION | OP_DIRECTORY_RESOLVE_SPACE => {
@@ -497,19 +485,15 @@ fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         OP_ACCOUNT_DEVICE_PAIR => {
             ["principal_id", "device_id"].into_iter().map(str::to_owned).collect()
         }
-        OP_ACCOUNT_ISSUE_SESSION_GRANT => {
-            ["principal_id", "device_id", "audience", "scopes"]
-                .into_iter()
-                .map(str::to_owned)
-                .collect()
-        }
+        OP_ACCOUNT_ISSUE_SESSION_GRANT => ["principal_id", "device_id", "audience", "scopes"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
         OP_PUSH_REGISTER_DEVICE => {
             ["device_id", "endpoint"].into_iter().map(str::to_owned).collect()
         }
         OP_PUSH_UNREGISTER_DEVICE => vec!["device_id".to_owned()],
-        OP_MODERATION_REPORT => {
-            ["target_ref", "reason"].into_iter().map(str::to_owned).collect()
-        }
+        OP_MODERATION_REPORT => ["target_ref", "reason"].into_iter().map(str::to_owned).collect(),
         OP_POLICY_CHECK => vec!["resource".to_owned()],
         OP_AUTHZ_GET_EFFECTIVE_GRANTS => vec!["actor_id".to_owned()],
         OP_AUTHZ_GET_INVITES => vec!["space_id".to_owned()],
@@ -2325,9 +2309,7 @@ impl Space {
 
     /// Look up the active [`RelationProfile`] for a given `relation_kind`.
     pub fn relation_profile(&self, relation_kind: &str) -> Option<&RelationProfile> {
-        self.relation_profiles
-            .iter()
-            .find(|profile| profile.relation_kind == relation_kind)
+        self.relation_profiles.iter().find(|profile| profile.relation_kind == relation_kind)
     }
 
     /// Resolved boundary profile per data-structures.md §4 / §4.1 — declared
@@ -2353,8 +2335,7 @@ impl Space {
             && matches!(self.boundary_profile, Some(BoundaryProfile::SecurityBoundary))
         {
             return Err(Error::Protocol(
-                "space.kind=board cannot declare boundary_profile=security_boundary"
-                    .to_owned(),
+                "space.kind=board cannot declare boundary_profile=security_boundary".to_owned(),
             ));
         }
         Ok(())
@@ -2437,7 +2418,7 @@ pub struct Flow {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub primary_branch: Option<String>,
     /// Branches per `data-structures.md` §6.1. The custom
-    /// [`FlowBranch::Deserialize`] impl tolerates the legacy
+    /// `Deserialize` impl on [`FlowBranch`] tolerates the legacy
     /// `Vec<String>` wire form, so existing fixtures keep working.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub branches: Vec<FlowBranch>,
@@ -5596,18 +5577,14 @@ impl FlowBranch {
     /// Validate that `name` matches `^[a-z][a-z0-9_]{0,63}$` per spec.
     pub fn validate_name(&self) -> Result<()> {
         if self.name.is_empty() || self.name.len() > 64 {
-            return Err(Error::Protocol(
-                "FlowBranch.name must be 1..=64 chars".to_owned(),
-            ));
+            return Err(Error::Protocol("FlowBranch.name must be 1..=64 chars".to_owned()));
         }
         let mut chars = self.name.chars();
-        let first = chars.next().ok_or_else(|| {
-            Error::Protocol("FlowBranch.name must not be empty".to_owned())
-        })?;
+        let first = chars
+            .next()
+            .ok_or_else(|| Error::Protocol("FlowBranch.name must not be empty".to_owned()))?;
         if !first.is_ascii_lowercase() {
-            return Err(Error::Protocol(
-                "FlowBranch.name must start with [a-z]".to_owned(),
-            ));
+            return Err(Error::Protocol("FlowBranch.name must start with [a-z]".to_owned()));
         }
         for c in chars {
             if !(c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_') {
@@ -5674,18 +5651,16 @@ pub fn resolve_primary_branch<'a>(
             ));
         }
     }
-    if let Some(synthesis) =
-        branches.iter().find(|b| b.name == FLOW_BRANCH_NAME_SYNTHESIS)
-    {
+    if let Some(synthesis) = branches.iter().find(|b| b.name == FLOW_BRANCH_NAME_SYNTHESIS) {
         return Ok(Some(synthesis));
     }
     if branches.len() == 1 {
         return Ok(Some(&branches[0]));
     }
-    if let Some(default_name) = profile_default {
-        if let Some(b) = branches.iter().find(|b| b.name == default_name) {
-            return Ok(Some(b));
-        }
+    if let Some(default_name) = profile_default
+        && let Some(b) = branches.iter().find(|b| b.name == default_name)
+    {
+        return Ok(Some(b));
     }
     Ok(None)
 }
@@ -5833,12 +5808,9 @@ impl AuditAssurance {
     pub fn forbidden_marketing_terms(self) -> &'static [&'static str] {
         match self {
             AuditAssurance::AttestedHardware => &[],
-            AuditAssurance::DisclosedPolicy => &[
-                "cryptographically enforced",
-                "tee-equivalent",
-                "attested",
-                "hardware-enforced",
-            ],
+            AuditAssurance::DisclosedPolicy => {
+                &["cryptographically enforced", "tee-equivalent", "attested", "hardware-enforced"]
+            }
         }
     }
 }
@@ -7299,11 +7271,8 @@ mod tests {
         assert_eq!(flow.primary_branch.as_deref(), Some("discussion"));
         assert_eq!(flow.branches.len(), 2, "synthesis + discussion expected");
 
-        let synthesis = flow
-            .branches
-            .iter()
-            .find(|b| b.name == "synthesis")
-            .expect("synthesis branch present");
+        let synthesis =
+            flow.branches.iter().find(|b| b.name == "synthesis").expect("synthesis branch present");
         assert!(synthesis.is_primary != Some(true));
 
         let discussion = flow
@@ -7355,9 +7324,7 @@ mod tests {
         let primary = FlowBranch::discussion_primary();
         assert_eq!(primary.is_primary, Some(true));
 
-        let custom = FlowBranch::new("review")
-            .with_profile("review")
-            .primary();
+        let custom = FlowBranch::new("review").with_profile("review").primary();
         assert_eq!(custom.profile.as_deref(), Some("review"));
         assert_eq!(custom.is_primary, Some(true));
         custom.validate_name().unwrap();

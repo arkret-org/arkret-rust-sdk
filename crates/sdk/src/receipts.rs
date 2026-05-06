@@ -157,10 +157,7 @@ impl ReceiptManager {
         };
         self.thread_index.insert((space_id.clone(), thread_id.clone()));
         self.last_send_at.insert(dedup_key, now);
-        self.receipts
-            .entry((space_id, event_id, thread_id))
-            .or_default()
-            .push(receipt.clone());
+        self.receipts.entry((space_id, event_id, thread_id)).or_default().push(receipt.clone());
         receipt
     }
 

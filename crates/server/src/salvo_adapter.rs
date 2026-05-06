@@ -180,17 +180,17 @@ fn register_typed_schemas(components: &mut Components) {
 
     register!(
         // Service / metadata helpers
-        contrix_core::service::ApiConventionMetadata,
-        contrix_core::service::HttpTraceMetadata,
-        contrix_core::service::QuotaMetadata,
-        contrix_core::service::RateLimitMetadata,
-        contrix_core::service::ServiceDidAllowlist,
-        contrix_core::service::ServiceEndpointBinding,
+        ApiConventionMetadata,
+        HttpTraceMetadata,
+        QuotaMetadata,
+        RateLimitMetadata,
+        ServiceDidAllowlist,
+        ServiceEndpointBinding,
         // Sync types
-        contrix_core::sync::SyncRequest,
-        contrix_core::sync::SyncResponse,
-        contrix_core::sync::BackfillRequest,
-        contrix_core::sync::BackfillResponse,
+        SyncRequest,
+        SyncResponse,
+        BackfillRequest,
+        BackfillResponse,
         // Core wire types reachable from one or more endpoints
         AppletActorResponse,
         AppletDescription,
@@ -684,10 +684,8 @@ mod tests {
         assert!(has("ErrorEnvelope"));
 
         // The schema must contain real properties — not just an opaque object.
-        let server_description = components
-            .schemas
-            .get("ServerDescription")
-            .expect("ServerDescription registered");
+        let server_description =
+            components.schemas.get("ServerDescription").expect("ServerDescription registered");
         let value = serde_json::to_value(server_description).unwrap();
         assert!(
             value.get("properties").is_some()

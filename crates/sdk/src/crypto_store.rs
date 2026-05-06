@@ -799,8 +799,8 @@ mod tests {
         store
             .put_mls_group_state(MlsGroupStateRecord {
                 group_id: "group1".to_owned(),
-                principal_id: alice.clone(),
-                device_id: device_id.clone(),
+                principal_id: alice,
+                device_id,
                 epoch: 7,
                 serialized_state: b"rotatable-state".to_vec(),
                 updated_at: Utc::now(),

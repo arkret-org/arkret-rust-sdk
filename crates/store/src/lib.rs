@@ -1229,7 +1229,7 @@ mod tests {
 
         let mut second = event(2, "two");
         second.prev_refs.push(first_id.clone());
-        second.auth_refs.push(first_id.clone());
+        second.auth_refs.push(first_id);
         second.refresh_event_id().unwrap();
         let second_id = second.event_id.clone();
         store.submit_event(second).unwrap();

@@ -204,10 +204,7 @@ mod tests {
         let now = Utc::now();
         let mut bl = AccountBlocklist::new();
         bl.block(BlocklistEntry::new(alice.clone()).with_reason("spam"));
-        bl.block(
-            BlocklistEntry::new(bob.clone())
-                .with_ttl(now + Duration::seconds(60)),
-        );
+        bl.block(BlocklistEntry::new(bob.clone()).with_ttl(now + Duration::seconds(60)));
 
         assert!(bl.is_blocked(&alice, now));
         assert!(bl.is_blocked(&bob, now));

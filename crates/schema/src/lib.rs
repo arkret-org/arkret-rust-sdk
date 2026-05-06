@@ -8,10 +8,9 @@ use std::{
 
 use contrix_core::{
     CAPABILITY_SCHEMA, CLIENT_SYNC_RESPONSE_SCHEMA, COMMIT_SCHEMA, CURSOR_SCHEMA,
-    ENCRYPTED_PAYLOAD_SCHEMA, ENTITY_SCHEMA, EVENT_SCHEMA, FLOW_SCHEMA, Error,
+    ENCRYPTED_PAYLOAD_SCHEMA, ENTITY_SCHEMA, EVENT_SCHEMA, Error, FLOW_SCHEMA,
     GeneratedSchemaValidator, OPERATION_SCHEMA, ProtocolSchemaRegistry, Result,
-    SCHEMA_COMPATIBILITY_PROFILE,
-    SchemaCompatibilityEntry, SchemaCompatibilityTable, VIEW_SCHEMA,
+    SCHEMA_COMPATIBILITY_PROFILE, SchemaCompatibilityEntry, SchemaCompatibilityTable, VIEW_SCHEMA,
     schema_version_compatibility_table,
 };
 use serde::{Deserialize, Serialize};
@@ -245,11 +244,7 @@ pub fn event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
         ("cx.flow.move", FLOW_SCHEMA, &["flow_id", "parent_id"][..]),
         ("cx.flow.reorder", FLOW_SCHEMA, &["flow_id", "rank"][..]),
         ("cx.flow.convert", FLOW_SCHEMA, &["flow_id", "target_kind"][..]),
-        (
-            "cx.flow.branch.member",
-            FLOW_SCHEMA,
-            &["flow_id", "branch_id", "member_id"][..],
-        ),
+        ("cx.flow.branch.member", FLOW_SCHEMA, &["flow_id", "branch_id", "member_id"][..]),
         (
             "cx.flow.branch.history_visibility",
             FLOW_SCHEMA,
@@ -513,11 +508,10 @@ fn registry_entry<'a>(
 pub mod protocol {
     pub use contrix_core::{
         CAPABILITY_SCHEMA, CLIENT_SYNC_RESPONSE_SCHEMA, COMMIT_SCHEMA, CURSOR_SCHEMA,
-        ENCRYPTED_PAYLOAD_SCHEMA, ENTITY_SCHEMA, EVENT_SCHEMA, GeneratedSchemaField,
-        GeneratedSchemaValidator, GeneratedSchemaValueType, FLOW_SCHEMA, OPERATION_SCHEMA,
-        ProtocolSchemaRegistry, SCHEMA_COMPATIBILITY_PROFILE,
-        SchemaCompatibilityEntry, SchemaCompatibilityTable, VIEW_SCHEMA,
-        schema_version_compatibility_table,
+        ENCRYPTED_PAYLOAD_SCHEMA, ENTITY_SCHEMA, EVENT_SCHEMA, FLOW_SCHEMA, GeneratedSchemaField,
+        GeneratedSchemaValidator, GeneratedSchemaValueType, OPERATION_SCHEMA,
+        ProtocolSchemaRegistry, SCHEMA_COMPATIBILITY_PROFILE, SchemaCompatibilityEntry,
+        SchemaCompatibilityTable, VIEW_SCHEMA, schema_version_compatibility_table,
     };
 }
 

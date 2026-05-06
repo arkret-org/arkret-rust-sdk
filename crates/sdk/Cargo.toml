@@ -1,5 +1,6 @@
 [package]
 authors = ["Chris Young <chris@sonc.ai>"]
+categories = ["api-bindings", "network-programming", "cryptography"]
 description = "Contrix v1 decentralized collaboration protocol SDK."
 edition = "2024"
 homepage = "https://github.com/contrix/contrix-rust-sdk"
@@ -10,6 +11,10 @@ readme = "README.md"
 repository = "https://github.com/contrix/contrix-rust-sdk"
 rust-version.workspace = true
 version = "0.1.0"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = [
@@ -91,6 +96,10 @@ required-features = ["server"]
 [[example]]
 name = "server_endpoint_adapter"
 required-features = ["server"]
+
+[[example]]
+name = "salvo_server"
+required-features = ["salvo"]
 
 [lints]
 workspace = true

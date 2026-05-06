@@ -48,23 +48,26 @@ pub enum MembershipState {
 /// no-ops; reducers may still emit a profile/role change without flipping
 /// state. Anything else returns `false` and the reducer MUST reject the
 /// event with `state_mismatch`.
-pub fn is_legal_membership_transition(
-    from: Option<MembershipState>,
-    to: MembershipState,
-) -> bool {
+pub fn is_legal_membership_transition(from: Option<MembershipState>, to: MembershipState) -> bool {
     use MembershipState::*;
     if Some(to) == from {
         return true;
     }
-    match (from, to) {
-        (None, Joined) | (None, Invited) | (None, Knocked) => true,
-        (Some(Invited), Joined) | (Some(Invited), Left) => true,
-        (Some(Knocked), Invited) | (Some(Knocked), Left) => true,
-        (Some(Joined), Left) | (Some(Joined), Banned) => true,
-        (Some(Left), Invited) | (Some(Left), Knocked) => true,
-        (Some(Banned), Left) => true,
-        _ => false,
-    }
+    matches!(
+        (from, to),
+        (None, Joined)
+            | (None, Invited)
+            | (None, Knocked)
+            | (Some(Invited), Joined)
+            | (Some(Invited), Left)
+            | (Some(Knocked), Invited)
+            | (Some(Knocked), Left)
+            | (Some(Joined), Left)
+            | (Some(Joined), Banned)
+            | (Some(Left), Invited)
+            | (Some(Left), Knocked)
+            | (Some(Banned), Left)
+    )
 }
 
 /// Role used for coarse permission checks.
@@ -231,9 +234,7 @@ impl MembershipManager {
                 // A direct `join` is only legal from `Invited` per the
                 // canonical transition table — knockers must be `Invited`
                 // first. Fall back to the strict validator for clarity.
-                Err(Error::Protocol(
-                    "knocking members must be invited before joining".to_owned(),
-                ))
+                Err(Error::Protocol("knocking members must be invited before joining".to_owned()))
             }
             Some(MembershipState::Invited | MembershipState::Left) | None => {
                 let role = self
@@ -636,11 +637,7 @@ impl FlowBranchMembershipManager {
         branch_id: &str,
         principal_id: &Did,
     ) -> Option<&FlowBranchMembership> {
-        let key = crate::canonical::encode_state_key(&[
-            flow_id,
-            branch_id,
-            principal_id.as_str(),
-        ]);
+        let key = crate::canonical::encode_state_key(&[flow_id, branch_id, principal_id.as_str()]);
         self.rows.get(&key)
     }
 

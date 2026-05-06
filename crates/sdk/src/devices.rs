@@ -430,8 +430,7 @@ impl ProtocolKeyBackup {
             actor_id: self.actor_id.clone(),
             device_id: self.device_id.clone(),
             verification_event_kind: "cx.key.verification.done".to_owned(),
-            todo:
-                "replace scaffold restore start with verified restore ticket handoff".to_owned(),
+            todo: "replace scaffold restore start with verified restore ticket handoff".to_owned(),
         }
     }
 
@@ -870,7 +869,9 @@ impl DeviceManager {
     /// Store a schema-aligned encrypted key backup scaffold.
     pub fn store_protocol_key_backup(&mut self, backup: ProtocolKeyBackup) -> Result<()> {
         if backup.backup_id.trim().is_empty() {
-            return Err(Error::Protocol("protocol key backup backup_id must not be empty".to_owned()));
+            return Err(Error::Protocol(
+                "protocol key backup backup_id must not be empty".to_owned(),
+            ));
         }
         if backup.backup_version.trim().is_empty() {
             return Err(Error::Protocol(

@@ -6,17 +6,17 @@ use contrix_core::{
     BUILT_IN_OPERATION_KINDS, Error, OP_AUTHZ_CHECK, OP_BLOB_GET, OP_BLOB_HEAD, OP_BLOB_UPLOAD,
     OP_CONTAINER_MOVE_ITEM, OP_CONTAINER_REBALANCE, OP_DIRECTORY_DESCRIBE, OP_ENTITY_CREATE,
     OP_ENTITY_DELETE, OP_ENTITY_REDACT, OP_ENTITY_RESTORE, OP_ENTITY_UPDATE,
-    OP_FEDERATION_TRANSACTION, OP_FIELD_POSITION_MOVE, OP_FIELD_POSITION_REORDER,
+    OP_FEDERATION_TRANSACTION, OP_FIELD_POSITION_MOVE, OP_FIELD_POSITION_REORDER, OP_FLOW_ARCHIVE,
+    OP_FLOW_CONVERT, OP_FLOW_CREATE, OP_FLOW_LINK_SURFACE, OP_FLOW_MOVE, OP_FLOW_REORDER,
+    OP_FLOW_RESTORE, OP_FLOW_SET_PRIMARY_SURFACE, OP_FLOW_UNLINK_SURFACE, OP_FLOW_UPDATE,
     OP_IDENTITY_RESOLVE, OP_INDEX_DESCRIBE, OP_INDEX_INBOX, OP_INDEX_NOTIFICATIONS, OP_INDEX_QUERY,
     OP_INDEX_SEARCH, OP_INDEX_THREAD, OP_KEYS_CLAIM, OP_KEYS_QUERY, OP_KEYS_UPLOAD,
     OP_MESSAGE_CREATE, OP_PUSH_NOTIFY, OP_RELATION_CREATE, OP_RELATION_DELETE, OP_REPO_DESCRIBE,
     OP_REPO_SYNC, OP_SERVER_DESCRIBE, OP_SPACE_CHILD, OP_SPACE_CREATE, OP_SPACE_ORGANIZATION,
-    OP_SPACE_UPDATE, OP_FLOW_ARCHIVE, OP_FLOW_CREATE, OP_FLOW_LINK_SURFACE, OP_FLOW_RESTORE,
-    OP_FLOW_SET_PRIMARY_SURFACE, OP_FLOW_UNLINK_SURFACE, OP_FLOW_UPDATE, OP_FLOW_MOVE,
-    OP_FLOW_REORDER, OP_FLOW_CONVERT, OP_SYNC_BACKFILL,
-    OP_SYNC_DESCRIBE, OP_SYNC_SUBSCRIBE, OP_TASK_CREATE, OP_TASK_UPDATE, OP_VIEW_CREATE,
-    OP_VIEW_RECONCILE, OP_VIEW_UPDATE, OperationEnvelope, OperationId, OperationKindConformanceVector,
-    OperationKindRegistry, Result, operation_kind_conformance_vectors,
+    OP_SPACE_UPDATE, OP_SYNC_BACKFILL, OP_SYNC_DESCRIBE, OP_SYNC_SUBSCRIBE, OP_TASK_CREATE,
+    OP_TASK_UPDATE, OP_VIEW_CREATE, OP_VIEW_RECONCILE, OP_VIEW_UPDATE, OperationEnvelope,
+    OperationId, OperationKindConformanceVector, OperationKindRegistry, Result,
+    operation_kind_conformance_vectors,
 };
 
 use serde::{Deserialize, Serialize};
@@ -359,9 +359,7 @@ impl OperationSemanticReducer {
                 message: "mutating operation requires an authorization reference".to_owned(),
             });
         }
-        let Some(target_id) = effect.target_id.as_deref() else {
-            return None;
-        };
+        let target_id = effect.target_id.as_deref()?;
         match effect.mutation {
             OperationMutation::Create if self.active_targets.contains_key(target_id) => {
                 Some(OperationSemanticIssue {
@@ -427,15 +425,9 @@ pub fn reduce_operation_semantics(operations: &[OperationEnvelope]) -> Operation
 
 fn mutation_for_kind(kind: &str) -> OperationMutation {
     match kind {
-        OP_ENTITY_CREATE
-        | OP_FLOW_CREATE
-        | OP_RELATION_CREATE
-        | OP_TASK_CREATE
-        | OP_VIEW_CREATE
-        | OP_SPACE_CREATE => OperationMutation::Create,
-        OP_ENTITY_DELETE | OP_FLOW_ARCHIVE | OP_RELATION_DELETE => {
-            OperationMutation::Delete
-        }
+        OP_ENTITY_CREATE | OP_FLOW_CREATE | OP_RELATION_CREATE | OP_TASK_CREATE
+        | OP_VIEW_CREATE | OP_SPACE_CREATE => OperationMutation::Create,
+        OP_ENTITY_DELETE | OP_FLOW_ARCHIVE | OP_RELATION_DELETE => OperationMutation::Delete,
         OP_ENTITY_REDACT => OperationMutation::Redact,
         OP_SERVER_DESCRIBE
         | OP_REPO_DESCRIBE
@@ -671,5 +663,3 @@ mod tests {
         assert!(matches!(result, Err(Error::Protocol(_))));
     }
 }
-
-

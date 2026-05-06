@@ -94,3 +94,9 @@ schema helpers without changing operation IDs.
 When `salvo` is enabled, every public `contrix-core` model and identifier
 type derives `salvo::oapi::ToSchema`, so handlers using `ContrixJson<T>` get
 real field-level OpenAPI schemas instead of opaque objects.
+
+For a runnable example, see
+[`crates/sdk/examples/salvo_server.rs`](../crates/sdk/examples/salvo_server.rs)
+(`cargo run --example salvo_server --features salvo`). For TLS, CORS,
+rate-limit, body size, systemd and other production concerns, see
+[`docs/deployment.md`](deployment.md).

@@ -153,15 +153,15 @@ impl RetryConfig {
     }
 
     fn retry_delay_from_headers(&self, headers: &HeaderMap, attempt: usize) -> Duration {
-        if self.respect_retry_after {
-            if let Some(retry_after_ms) = retry_after_ms(headers) {
-                let retry_after = Duration::from_millis(retry_after_ms);
-                return if self.max_delay.is_zero() {
-                    retry_after
-                } else {
-                    std::cmp::min(retry_after, self.max_delay)
-                };
-            }
+        if self.respect_retry_after
+            && let Some(retry_after_ms) = retry_after_ms(headers)
+        {
+            let retry_after = Duration::from_millis(retry_after_ms);
+            return if self.max_delay.is_zero() {
+                retry_after
+            } else {
+                std::cmp::min(retry_after, self.max_delay)
+            };
         }
         self.retry_delay(attempt)
     }
@@ -182,13 +182,119 @@ pub struct Client {
     user_agent: Option<String>,
 }
 
+/// Named redirect policies. `reqwest::redirect::Policy` is not `Clone`, so
+/// we model the supported choices as a small enum and materialise a Policy
+/// at `build()` time.
+#[derive(Clone, Debug)]
+pub enum RedirectPolicy {
+    /// Refuse to follow any redirects (typical service-to-service).
+    None,
+    /// Follow up to `limit` redirects, then return the last response.
+    Limited(usize),
+}
+
+impl RedirectPolicy {
+    fn into_reqwest(self) -> reqwest::redirect::Policy {
+        match self {
+            RedirectPolicy::None => reqwest::redirect::Policy::none(),
+            RedirectPolicy::Limited(limit) => reqwest::redirect::Policy::limited(limit),
+        }
+    }
+}
+
+/// Network/transport configuration applied to the underlying `reqwest::Client`.
+///
+/// Every field is optional. `None` means "let `reqwest` keep its default."
+/// These options are silently ignored when [`ClientBuilder::http_client`] is
+/// used to inject a fully-built `reqwest::Client` — in that mode the caller
+/// owns the transport configuration end to end. [`ClientBuilder::build`]
+/// returns [`Error::Protocol`] if both a pre-built client and any transport
+/// option are set, to avoid silent surprises.
+#[derive(Clone, Debug, Default)]
+struct TransportConfig {
+    timeout: Option<Duration>,
+    connect_timeout: Option<Duration>,
+    pool_idle_timeout: Option<Duration>,
+    pool_max_idle_per_host: Option<usize>,
+    tcp_nodelay: Option<bool>,
+    tcp_keepalive: Option<Duration>,
+    http2_keep_alive_interval: Option<Duration>,
+    http2_keep_alive_timeout: Option<Duration>,
+    http2_keep_alive_while_idle: Option<bool>,
+    proxies: Vec<reqwest::Proxy>,
+    no_proxy: bool,
+    redirect: Option<RedirectPolicy>,
+    gzip: Option<bool>,
+}
+
+impl TransportConfig {
+    fn is_default(&self) -> bool {
+        self.timeout.is_none()
+            && self.connect_timeout.is_none()
+            && self.pool_idle_timeout.is_none()
+            && self.pool_max_idle_per_host.is_none()
+            && self.tcp_nodelay.is_none()
+            && self.tcp_keepalive.is_none()
+            && self.http2_keep_alive_interval.is_none()
+            && self.http2_keep_alive_timeout.is_none()
+            && self.http2_keep_alive_while_idle.is_none()
+            && self.proxies.is_empty()
+            && !self.no_proxy
+            && self.redirect.is_none()
+            && self.gzip.is_none()
+    }
+
+    fn apply(self, mut builder: reqwest::ClientBuilder) -> reqwest::ClientBuilder {
+        if let Some(timeout) = self.timeout {
+            builder = builder.timeout(timeout);
+        }
+        if let Some(connect_timeout) = self.connect_timeout {
+            builder = builder.connect_timeout(connect_timeout);
+        }
+        if let Some(pool_idle_timeout) = self.pool_idle_timeout {
+            builder = builder.pool_idle_timeout(pool_idle_timeout);
+        }
+        if let Some(pool_max_idle_per_host) = self.pool_max_idle_per_host {
+            builder = builder.pool_max_idle_per_host(pool_max_idle_per_host);
+        }
+        if let Some(tcp_nodelay) = self.tcp_nodelay {
+            builder = builder.tcp_nodelay(tcp_nodelay);
+        }
+        if let Some(tcp_keepalive) = self.tcp_keepalive {
+            builder = builder.tcp_keepalive(tcp_keepalive);
+        }
+        if let Some(http2_keep_alive_interval) = self.http2_keep_alive_interval {
+            builder = builder.http2_keep_alive_interval(http2_keep_alive_interval);
+        }
+        if let Some(http2_keep_alive_timeout) = self.http2_keep_alive_timeout {
+            builder = builder.http2_keep_alive_timeout(http2_keep_alive_timeout);
+        }
+        if let Some(http2_keep_alive_while_idle) = self.http2_keep_alive_while_idle {
+            builder = builder.http2_keep_alive_while_idle(http2_keep_alive_while_idle);
+        }
+        for proxy in self.proxies {
+            builder = builder.proxy(proxy);
+        }
+        if self.no_proxy {
+            builder = builder.no_proxy();
+        }
+        if let Some(redirect) = self.redirect {
+            builder = builder.redirect(redirect.into_reqwest());
+        }
+        if let Some(gzip) = self.gzip {
+            builder = builder.gzip(gzip);
+        }
+        builder
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct ClientBuilder {
     base_url: Url,
     http: Option<reqwest::Client>,
     auth: Option<Auth>,
     allow_insecure_localhost: bool,
-    timeout: Option<Duration>,
+    transport: TransportConfig,
     retry: RetryConfig,
     user_agent: Option<String>,
 }
@@ -200,12 +306,16 @@ impl ClientBuilder {
             http: None,
             auth: None,
             allow_insecure_localhost: false,
-            timeout: None,
+            transport: TransportConfig::default(),
             retry: RetryConfig::default(),
             user_agent: None,
         }
     }
 
+    /// Inject a fully-built `reqwest::Client`. The caller owns transport
+    /// configuration in this mode; mixing `http_client(...)` with any
+    /// transport-shaping builder method (`timeout`, `proxy`, …) is a
+    /// programming error and is rejected by [`Self::build`].
     pub fn http_client(mut self, http: reqwest::Client) -> Self {
         self.http = Some(http);
         self
@@ -221,8 +331,98 @@ impl ClientBuilder {
         self
     }
 
+    /// Total timeout for a single request including the connect handshake,
+    /// TLS, headers and body. Use [`Self::connect_timeout`] when you want a
+    /// separate, shorter cap on the connection establishment phase.
     pub fn timeout(mut self, timeout: Duration) -> Self {
-        self.timeout = Some(timeout);
+        self.transport.timeout = Some(timeout);
+        self
+    }
+
+    /// Cap the connection-establishment phase (TCP + TLS handshake) only.
+    /// Independent of the total request timeout set via [`Self::timeout`].
+    pub fn connect_timeout(mut self, connect_timeout: Duration) -> Self {
+        self.transport.connect_timeout = Some(connect_timeout);
+        self
+    }
+
+    /// Maximum idle time before a pooled connection is reaped. `None` means
+    /// `reqwest`'s default. Set a value if your service is behind a proxy or
+    /// load balancer with an aggressive idle-connection kill window.
+    pub fn pool_idle_timeout(mut self, pool_idle_timeout: Duration) -> Self {
+        self.transport.pool_idle_timeout = Some(pool_idle_timeout);
+        self
+    }
+
+    /// Cap the number of idle connections kept open per remote host.
+    pub fn pool_max_idle_per_host(mut self, pool_max_idle_per_host: usize) -> Self {
+        self.transport.pool_max_idle_per_host = Some(pool_max_idle_per_host);
+        self
+    }
+
+    /// Enable / disable TCP_NODELAY on connections. Defaults to reqwest's
+    /// choice (currently enabled).
+    pub fn tcp_nodelay(mut self, tcp_nodelay: bool) -> Self {
+        self.transport.tcp_nodelay = Some(tcp_nodelay);
+        self
+    }
+
+    /// Enable TCP keepalive with the given interval. Useful when the path
+    /// includes long-lived NAT mappings or stateful firewalls that drop
+    /// silent connections.
+    pub fn tcp_keepalive(mut self, interval: Duration) -> Self {
+        self.transport.tcp_keepalive = Some(interval);
+        self
+    }
+
+    /// Send an HTTP/2 PING frame at this interval.
+    pub fn http2_keep_alive_interval(mut self, interval: Duration) -> Self {
+        self.transport.http2_keep_alive_interval = Some(interval);
+        self
+    }
+
+    /// Drop the HTTP/2 connection if a PING is unanswered within this window.
+    pub fn http2_keep_alive_timeout(mut self, timeout: Duration) -> Self {
+        self.transport.http2_keep_alive_timeout = Some(timeout);
+        self
+    }
+
+    /// Whether to keep sending HTTP/2 PINGs while idle.
+    pub fn http2_keep_alive_while_idle(mut self, enabled: bool) -> Self {
+        self.transport.http2_keep_alive_while_idle = Some(enabled);
+        self
+    }
+
+    /// Route requests through an HTTP / HTTPS proxy. Multiple calls compose:
+    /// `reqwest` evaluates proxies in order and falls through to no-proxy if
+    /// none match. Pair with [`Self::no_proxy`] to disable system proxy
+    /// detection from environment variables.
+    pub fn proxy(mut self, proxy: reqwest::Proxy) -> Self {
+        self.transport.proxies.push(proxy);
+        self
+    }
+
+    /// Disable proxy auto-detection from environment variables
+    /// (`HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`). Combine with
+    /// [`Self::proxy`] for fully explicit routing in production.
+    pub fn no_proxy(mut self) -> Self {
+        self.transport.no_proxy = true;
+        self
+    }
+
+    /// Override the default redirect policy. The default is to follow up
+    /// to 10 redirects; pass [`RedirectPolicy::None`] for service-to-service
+    /// paths where redirect-following is a bug.
+    pub fn redirect(mut self, policy: RedirectPolicy) -> Self {
+        self.transport.redirect = Some(policy);
+        self
+    }
+
+    /// Toggle gzip response decoding (the `gzip` feature is on by default
+    /// in `contrix-client`'s `reqwest` profile, so this method exists to
+    /// let callers turn it *off* when stricter content negotiation matters).
+    pub fn gzip(mut self, enabled: bool) -> Self {
+        self.transport.gzip = Some(enabled);
         self
     }
 
@@ -245,14 +445,16 @@ impl ClientBuilder {
             validate_header_value("user agent", user_agent)?;
         }
         let http = match self.http {
-            Some(http) => http,
-            None => {
-                let mut builder = reqwest::Client::builder();
-                if let Some(timeout) = self.timeout {
-                    builder = builder.timeout(timeout);
+            Some(http) => {
+                if !self.transport.is_default() {
+                    return Err(Error::Protocol(
+                        "transport options conflict with a pre-built http_client; configure one or the other"
+                            .to_owned(),
+                    ));
                 }
-                builder.build()?
+                http
             }
+            None => self.transport.apply(reqwest::Client::builder()).build()?,
         };
         Ok(Client {
             base_url: self.base_url,
@@ -1324,5 +1526,57 @@ mod tests {
             retry.respect_retry_after(false).retry_delay_from_headers(&headers, 1),
             Duration::from_millis(100)
         );
+    }
+
+    #[test]
+    fn transport_options_apply_without_panic() {
+        let client = Client::builder(Url::parse("https://alice.example/contrix/").unwrap())
+            .timeout(Duration::from_secs(30))
+            .connect_timeout(Duration::from_secs(5))
+            .pool_idle_timeout(Duration::from_secs(60))
+            .pool_max_idle_per_host(8)
+            .tcp_nodelay(true)
+            .tcp_keepalive(Duration::from_secs(45))
+            .http2_keep_alive_interval(Duration::from_secs(30))
+            .http2_keep_alive_timeout(Duration::from_secs(10))
+            .http2_keep_alive_while_idle(true)
+            .gzip(false)
+            .redirect(RedirectPolicy::None)
+            .no_proxy()
+            .build()
+            .unwrap();
+
+        assert_eq!(client.base_url().as_str(), "https://alice.example/contrix/");
+    }
+
+    #[test]
+    fn proxy_can_be_added_via_builder() {
+        let proxy = reqwest::Proxy::http("http://proxy.example:3128").unwrap();
+        let client = Client::builder(Url::parse("https://alice.example/contrix/").unwrap())
+            .proxy(proxy)
+            .build()
+            .unwrap();
+        assert_eq!(client.base_url().as_str(), "https://alice.example/contrix/");
+    }
+
+    #[test]
+    fn transport_options_conflict_with_pre_built_http_client() {
+        let http = reqwest::Client::new();
+        let error = Client::builder(Url::parse("https://alice.example/contrix/").unwrap())
+            .http_client(http)
+            .timeout(Duration::from_secs(5))
+            .build()
+            .unwrap_err();
+        assert!(matches!(error, Error::Protocol(message) if message.contains("transport options")));
+    }
+
+    #[test]
+    fn pre_built_http_client_alone_is_accepted() {
+        let http = reqwest::Client::new();
+        let client = Client::builder(Url::parse("https://alice.example/contrix/").unwrap())
+            .http_client(http)
+            .build()
+            .unwrap();
+        assert_eq!(client.base_url().as_str(), "https://alice.example/contrix/");
     }
 }

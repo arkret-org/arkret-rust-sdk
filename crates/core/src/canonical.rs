@@ -69,13 +69,10 @@ pub fn decode_state_key_parts(encoded: &str) -> Result<Vec<String>> {
                 let lo = bytes.next().ok_or_else(|| {
                     Error::Protocol("state_key percent-encoding truncated".to_owned())
                 })?;
-                let code = u8::from_str_radix(
-                    &format!("{}{}", hi as char, lo as char),
-                    16,
-                )
-                .map_err(|_| {
-                    Error::Protocol("state_key percent-encoding has non-hex digits".to_owned())
-                })?;
+                let code = u8::from_str_radix(&format!("{}{}", hi as char, lo as char), 16)
+                    .map_err(|_| {
+                        Error::Protocol("state_key percent-encoding has non-hex digits".to_owned())
+                    })?;
                 decoded.push(code as char);
             } else {
                 decoded.push(b as char);

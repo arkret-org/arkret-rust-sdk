@@ -20,9 +20,36 @@ permissions:
 
 jobs:
   publish:
-    name: Publish contrix-sdk
+    name: Publish workspace crates
     runs-on: ubuntu-latest
     environment: crates-io
+    env:
+      # Topologically sorted dependency order. Generated from `cargo metadata
+      # --no-deps`; keep in sync with `RELEASING.md`. Each crate must be on
+      # crates.io before any crate that depends on it.
+      CRATES: >-
+        contrix-identifiers
+        contrix-core
+        contrix-api
+        contrix-appservice-api
+        contrix-client
+        contrix-signatures
+        contrix-crypto
+        contrix-events
+        contrix-html
+        contrix-push-gateway-api
+        contrix-client-api
+        contrix-federation-api
+        contrix-ffi
+        contrix-identity-api
+        contrix-operations
+        contrix-schema
+        contrix-server
+        contrix-state-res
+        contrix-store
+        contrix-ui
+        contrix-testing
+        contrix
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
@@ -33,8 +60,35 @@ jobs:
       - run: cargo fmt --all -- --check
       - run: cargo clippy --all-features --all-targets -- -D warnings
       - run: cargo test --all-features
-      - run: cargo publish -p contrix-sdk --dry-run --locked
-      - run: cargo publish -p contrix-sdk --locked --token "$CARGO_REGISTRY_TOKEN"
+
+      - name: cargo publish --dry-run (umbrella)
+        # The umbrella `contrix` crate's dry-run exercises all the path
+        # dependencies as a sanity check, so we don't need to dry-run each
+        # leaf separately on every push.
+        run: cargo publish -p contrix --dry-run --locked
+
+      - name: Publish each crate in topological order
         if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == 'false')
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          set -euo pipefail
+          for crate in $CRATES; do
+            echo "::group::Publishing $crate"
+            # Allow re-runs after a partial failure: if the version is
+            # already on crates.io, treat it as a no-op.
+            if cargo publish -p "$crate" --locked --token "$CARGO_REGISTRY_TOKEN"; then
+              echo "Published $crate"
+            else
+              status=$?
+              if cargo search "$crate" --limit 1 | grep -q "^$crate ="; then
+                echo "Crate $crate appears to already be published; continuing"
+              else
+                exit $status
+              fi
+            fi
+            # crates.io needs a moment to index the new version before the
+            # next dependent crate can resolve it.
+            sleep 20
+            echo "::endgroup::"
+          done

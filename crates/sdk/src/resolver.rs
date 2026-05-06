@@ -11,8 +11,8 @@ use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{
-    Audience, Did, Entity, EntityFacets, EntityId, Error, Event, EventId, Relation, RelationId,
-    Flow, FlowId, FlowKind, Result, SpaceId,
+    Audience, Did, Entity, EntityFacets, EntityId, Error, Event, EventId, Flow, FlowId, FlowKind,
+    Relation, RelationId, Result, SpaceId,
     canonical::{canonical_json_bytes, canonical_sha256, sha256_digest},
     model::{
         OP_CONTAINER_MOVE_ITEM, OP_ENTITY_CREATE, OP_ENTITY_DELETE, OP_ENTITY_REDACT,
@@ -478,7 +478,8 @@ impl SpaceState {
         FlowId::new(flow_id.clone())?;
         let title = self.extract_field::<String>(&event.content, "title")?;
         let flow_kind = self.extract_field::<FlowKind>(&event.content, "flow_kind")?;
-        let primary_branch = self.extract_optional_field::<String>(&event.content, "primary_branch");
+        let primary_branch =
+            self.extract_optional_field::<String>(&event.content, "primary_branch");
         let branches = self
             .extract_optional_field::<Vec<crate::FlowBranch>>(&event.content, "branches")
             .unwrap_or_default();
@@ -533,16 +534,16 @@ impl SpaceState {
         let primary_branch = self
             .extract_optional_field::<String>(&event.content, "primary_branch")
             .or_else(|| patch_string(&patch, "primary_branch"));
-        let branches = self
-            .extract_optional_field::<Vec<crate::FlowBranch>>(&event.content, "branches")
-            .or_else(|| {
-                // Patch path is a JSON array; reuse the canonical
-                // `Deserialize` impl on `FlowBranch` to accept either
-                // bare strings or full objects.
-                patch.as_ref().and_then(|p| p.get("branches")).and_then(|v| {
-                    serde_json::from_value::<Vec<crate::FlowBranch>>(v.clone()).ok()
-                })
-            });
+        let branches =
+            self.extract_optional_field::<Vec<crate::FlowBranch>>(&event.content, "branches")
+                .or_else(|| {
+                    // Patch path is a JSON array; reuse the canonical
+                    // `Deserialize` impl on `FlowBranch` to accept either
+                    // bare strings or full objects.
+                    patch.as_ref().and_then(|p| p.get("branches")).and_then(|v| {
+                        serde_json::from_value::<Vec<crate::FlowBranch>>(v.clone()).ok()
+                    })
+                });
         let semantic_kind = self
             .extract_optional_field::<String>(&event.content, "semantic_kind")
             .or_else(|| patch_string(&patch, "semantic_kind"));
@@ -1023,9 +1024,7 @@ impl SpaceState {
         self.extract_optional_field::<String>(content, "flow_id")
             .or_else(|| self.extract_optional_field::<String>(content, "id"))
             .map(|value| canonicalize_flow_ref(&value))
-            .ok_or_else(|| {
-                Error::Protocol("flow event requires flow_id".to_owned())
-            })
+            .ok_or_else(|| Error::Protocol("flow event requires flow_id".to_owned()))
     }
 
     /// Extract relation_id from event content.
@@ -1470,15 +1469,6 @@ fn patch_fields(patch: &Option<BTreeMap<String, Value>>) -> Option<BTreeMap<Stri
 
 fn patch_state(patch: &Option<BTreeMap<String, Value>>) -> Option<Result<crate::ObjectState>> {
     patch_string(patch, "state").map(|state| object_state_from_str(&state))
-}
-
-fn patch_string_array(
-    patch: &Option<BTreeMap<String, Value>>,
-    field: &str,
-) -> Option<Vec<String>> {
-    patch.as_ref()?.get(field).and_then(Value::as_array).map(|array| {
-        array.iter().filter_map(Value::as_str).map(ToOwned::to_owned).collect::<Vec<_>>()
-    })
 }
 
 fn deterministic_flow_surface_relation_id(content: &Value) -> String {

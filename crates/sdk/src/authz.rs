@@ -1812,7 +1812,7 @@ impl ConstraintEntry {
         }
     }
 
-    /// Derive the canonical [`EvaluationClass`] for this constraint per
+    /// Derive the canonical [`crate::EvaluationClass`] for this constraint per
     /// `constraint-schema.md` §2.3. The class controls whether the
     /// authorization engine may use a fast-path cache:
     ///
@@ -1908,7 +1908,7 @@ pub struct ProposalApproval {
 /// Manages the lifecycle of grant proposals and approvals.
 #[derive(Clone, Debug, Default)]
 pub struct ApprovalFlowManager {
-    proposals: std::collections::BTreeMap<String, GrantProposal>,
+    proposals: BTreeMap<String, GrantProposal>,
 }
 
 impl ApprovalFlowManager {
@@ -2826,8 +2826,7 @@ impl AuthzEngine {
                             reason: format!("visibility level '{}' is denied", level),
                         };
                     }
-                    if !visibility_allow.is_empty()
-                        && !visibility_allow.iter().any(|v| v == level)
+                    if !visibility_allow.is_empty() && !visibility_allow.iter().any(|v| v == level)
                     {
                         return AuthzDecision::Deny {
                             reason: format!("visibility level '{}' not in allow list", level),
@@ -2985,8 +2984,7 @@ impl AuthzEngine {
                             reason: format!("branch '{}' is denied", branch),
                         };
                     }
-                    if !allowed_branches.is_empty()
-                        && !allowed_branches.iter().any(|b| b == branch)
+                    if !allowed_branches.is_empty() && !allowed_branches.iter().any(|b| b == branch)
                     {
                         return AuthzDecision::Deny {
                             reason: format!("branch '{}' not in allow list", branch),
@@ -3018,10 +3016,7 @@ impl AuthzEngine {
                             && !allowed_view_renderers.iter().any(|r| r == renderer)
                         {
                             return AuthzDecision::Deny {
-                                reason: format!(
-                                    "view renderer '{}' not in allow list",
-                                    renderer
-                                ),
+                                reason: format!("view renderer '{}' not in allow list", renderer),
                             };
                         }
                     }
@@ -3605,7 +3600,8 @@ mod tests {
     #[test]
     fn flow_selector_matches_flow_resource() {
         let selector =
-            ResourceSelector::parse("flow:cx:space:01JS0SP000000000000000000:cx:flow:01JS0FL...").unwrap();
+            ResourceSelector::parse("flow:cx:space:01JS0SP000000000000000000:cx:flow:01JS0FL...")
+                .unwrap();
         assert_eq!(
             selector,
             ResourceSelector::Flow {
@@ -3686,17 +3682,11 @@ mod tests {
         let ctx = AuthzContext::new(
             Did::new("did:web:alice.example.com").unwrap(),
             "read".to_owned(),
-            Resource::Flow {
-                space_id: "cx:space:A".to_owned(),
-                flow_id: "cx:flow:1".to_owned(),
-            },
+            Resource::Flow { space_id: "cx:space:A".to_owned(), flow_id: "cx:flow:1".to_owned() },
         );
         let mut grant = grant_for(
             "read",
-            ResourceSelector::Flow {
-                space_id: "cx:space:A".to_owned(),
-                flow_id: None,
-            },
+            ResourceSelector::Flow { space_id: "cx:space:A".to_owned(), flow_id: None },
         );
         grant.constraints = vec![ConstraintEntry::new(Constraint::TypeRestriction {
             entity_type_allow: None,

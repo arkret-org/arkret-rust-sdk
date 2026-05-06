@@ -105,9 +105,9 @@ impl ServiceType {
         if prefixes.is_empty() {
             return true;
         }
-        prefixes
-            .iter()
-            .any(|prefix| operation_kind == prefix.trim_end_matches('.') || operation_kind.starts_with(prefix))
+        prefixes.iter().any(|prefix| {
+            operation_kind == prefix.trim_end_matches('.') || operation_kind.starts_with(prefix)
+        })
     }
 }
 

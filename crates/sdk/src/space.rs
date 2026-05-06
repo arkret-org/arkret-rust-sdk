@@ -14,15 +14,14 @@ use serde_json::{Value, json};
 use ulid::Ulid;
 
 use crate::{
-    Result,
+    FlowId, Result,
     base::{BaseClient, SpaceStateType},
     media::{Attachment, MediaMetadata},
-    FlowId,
     model::{
-        BlobRef, Did, Entity, EntityId, EntityType, EventId, FieldFilter, Filter, FilterOp,
-        Flow, FlowKind, NullsOrder, OP_ENTITY_CREATE, OP_ENTITY_DELETE,
-        OP_ENTITY_REDACT, OP_ENTITY_UPDATE, ObjectState, Operation, OperationId, OperationType,
-        Relation, RelationId, RelationKind, RelationState, SortDirection, SortSpec, SpaceId,
+        BlobRef, Did, Entity, EntityId, EntityType, EventId, FieldFilter, Filter, FilterOp, Flow,
+        FlowKind, NullsOrder, OP_ENTITY_CREATE, OP_ENTITY_DELETE, OP_ENTITY_REDACT,
+        OP_ENTITY_UPDATE, ObjectState, Operation, OperationId, OperationType, Relation, RelationId,
+        RelationKind, RelationState, SortDirection, SortSpec, SpaceId,
     },
     resolver::SpaceState,
 };
@@ -234,12 +233,7 @@ impl Space {
 
     /// Find flows by semantic kind.
     pub fn find_flows_by_kind(&self, flow_kind: FlowKind) -> Vec<Flow> {
-        self.state
-            .subjects
-            .values()
-            .filter(|flow| flow.flow_kind == flow_kind)
-            .cloned()
-            .collect()
+        self.state.subjects.values().filter(|flow| flow.flow_kind == flow_kind).cloned().collect()
     }
 
     /// Return active surface relations for a flow.
@@ -944,6 +938,7 @@ impl Space {
     }
 
     /// Create a flow creation operation with flow metadata.
+    #[allow(clippy::too_many_arguments)]
     pub fn create_flow_operation_with_metadata(
         &self,
         title: impl Into<String>,
@@ -1001,18 +996,12 @@ impl Space {
         fields: Option<BTreeMap<String, Value>>,
     ) -> Result<Operation> {
         self.update_flow_operation_with_metadata(
-            flow_id,
-            title,
-            brief,
-            summary,
-            fields,
-            None,
-            None,
-            None,
+            flow_id, title, brief, summary, fields, None, None, None,
         )
     }
 
     /// Create a flow update operation with extended metadata.
+    #[allow(clippy::too_many_arguments)]
     pub fn update_flow_operation_with_metadata(
         &self,
         flow_id: FlowId,

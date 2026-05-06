@@ -201,17 +201,14 @@ pub const CX_SESSION_GRANT: &str = "cx.session.grant";
 /// The format is `cx:space:control:<did>`; downstream code MUST treat
 /// this as opaque. This space holds the principal's device ledger, key
 /// log, and session grants.
-pub fn principal_control_space_id(principal_id: &crate::Did) -> String {
+pub fn principal_control_space_id(principal_id: &Did) -> String {
     format!("cx:space:control:{}", principal_id.as_str())
 }
 
 /// Returns `true` when `event_kind` MUST be pinned to a principal
 /// control space per `key-management.md` §4.1.
 pub fn is_principal_control_event(event_kind: &str) -> bool {
-    matches!(
-        event_kind,
-        CX_DEVICE_AUTHORIZED | CX_DEVICE_REVOKED | CX_SESSION_GRANT
-    )
+    matches!(event_kind, CX_DEVICE_AUTHORIZED | CX_DEVICE_REVOKED | CX_SESSION_GRANT)
 }
 
 /// Validate that a control event is being submitted under the correct
@@ -220,7 +217,7 @@ pub fn is_principal_control_event(event_kind: &str) -> bool {
 /// `space_id` does not match.
 pub fn assert_control_space_pinning(
     event_kind: &str,
-    principal_id: &crate::Did,
+    principal_id: &Did,
     space_id: &str,
 ) -> Result<()> {
     if !is_principal_control_event(event_kind) {
@@ -1113,9 +1110,7 @@ impl PresentationRequest {
     /// verify each link's `proof` against the issuer's DID document.
     pub fn validate_verifier_authority(&self, now: DateTime<Utc>) -> Result<()> {
         let Some(verifier) = &self.verifier_did else {
-            return Err(Error::Protocol(
-                "presentation request missing verifier_did".to_owned(),
-            ));
+            return Err(Error::Protocol("presentation request missing verifier_did".to_owned()));
         };
         let Some(org) = &self.represented_org else {
             if self.verifier_authority_chain.is_empty() {

@@ -175,14 +175,12 @@ impl PushPrivacyPolicy {
         }
         if contains_did_substring(&payload.body) {
             return Err(Error::Protocol(
-                "push body contains a raw did: substring; redact before delivery (B-14)"
-                    .to_owned(),
+                "push body contains a raw did: substring; redact before delivery (B-14)".to_owned(),
             ));
         }
         if json_contains_did(&payload.data) {
             return Err(Error::Protocol(
-                "push data contains a raw did: substring; redact before delivery (B-14)"
-                    .to_owned(),
+                "push data contains a raw did: substring; redact before delivery (B-14)".to_owned(),
             ));
         }
         Ok(())
@@ -209,15 +207,8 @@ impl PushPrivacyPolicy {
 
 fn contains_did_substring(s: &str) -> bool {
     // Match the canonical DID prefixes documented in identity-did.md §3.
-    const PREFIXES: &[&str] = &[
-        "did:web:",
-        "did:plc:",
-        "did:key:",
-        "did:webvh:",
-        "did:webs:",
-        "did:keri:",
-        "did:uuid:",
-    ];
+    const PREFIXES: &[&str] =
+        &["did:web:", "did:plc:", "did:key:", "did:webvh:", "did:webs:", "did:keri:", "did:uuid:"];
     PREFIXES.iter().any(|p| s.contains(p))
 }
 

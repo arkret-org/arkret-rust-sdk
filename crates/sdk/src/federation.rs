@@ -436,19 +436,17 @@ pub fn rfc9530_content_digest_sha256(bytes: &[u8]) -> String {
 /// Accepts a single dictionary entry of the form `sha-256=:<base64>:`.
 /// Returns `Ok(())` when the digest matches, otherwise an
 /// `Error::Protocol` carrying `digest_mismatch`.
-pub fn verify_rfc9530_content_digest(header_value: &str, bytes: &[u8]) -> crate::Result<()> {
+pub fn verify_rfc9530_content_digest(header_value: &str, bytes: &[u8]) -> Result<()> {
     use base64::Engine;
     let trimmed = header_value.trim();
-    let body = trimmed
-        .strip_prefix("sha-256=:")
-        .and_then(|s| s.strip_suffix(':'))
-        .ok_or_else(|| {
-            crate::Error::Protocol(format!(
+    let body =
+        trimmed.strip_prefix("sha-256=:").and_then(|s| s.strip_suffix(':')).ok_or_else(|| {
+            Error::Protocol(format!(
                 "digest_mismatch: unsupported Content-Digest format: {trimmed}"
             ))
         })?;
     let provided = base64::engine::general_purpose::STANDARD.decode(body).map_err(|err| {
-        crate::Error::Protocol(format!("digest_mismatch: bad base64 in Content-Digest: {err}"))
+        Error::Protocol(format!("digest_mismatch: bad base64 in Content-Digest: {err}"))
     })?;
     let mut hasher = Sha256::new();
     hasher.update(bytes);
@@ -456,9 +454,7 @@ pub fn verify_rfc9530_content_digest(header_value: &str, bytes: &[u8]) -> crate:
     if expected.as_slice() == provided.as_slice() {
         Ok(())
     } else {
-        Err(crate::Error::Protocol(
-            "digest_mismatch: Content-Digest does not match body".to_owned(),
-        ))
+        Err(Error::Protocol("digest_mismatch: Content-Digest does not match body".to_owned()))
     }
 }
 
@@ -489,21 +485,12 @@ pub fn http_message_signature_base(input: &HttpMessageSignatureInput) -> String 
 /// inside `@signature-params` per RFC 9421 §2.5.
 pub fn rfc9421_http_message_signature_base(input: &HttpMessageSignatureInput) -> String {
     let mut out = String::new();
-    out.push_str(&format!(
-        "\"@method\": {}\n",
-        input.method.to_ascii_uppercase()
-    ));
+    out.push_str(&format!("\"@method\": {}\n", input.method.to_ascii_uppercase()));
     out.push_str(&format!("\"@target-uri\": {}\n", input.target_uri));
     out.push_str(&format!("\"@authority\": {}\n", input.authority));
     out.push_str(&format!("\"content-digest\": {}\n", input.content_digest));
-    out.push_str(&format!(
-        "\"origin-service-did\": {}\n",
-        input.origin_service_did
-    ));
-    out.push_str(&format!(
-        "\"destination-service-did\": {}\n",
-        input.destination_service_did
-    ));
+    out.push_str(&format!("\"origin-service-did\": {}\n", input.origin_service_did));
+    out.push_str(&format!("\"destination-service-did\": {}\n", input.destination_service_did));
     out.push_str(&format!(
         "\"@signature-params\": (\"@method\" \"@target-uri\" \"@authority\" \"content-digest\" \"origin-service-did\" \"destination-service-did\");created={};expires={}",
         input.created_at.timestamp(),
@@ -524,10 +511,7 @@ pub fn verify_http_message_signature_either(
     if now > input.expires_at {
         return false;
     }
-    let canonical = signature_digest(
-        &rfc9421_http_message_signature_base(input),
-        verification_key,
-    );
+    let canonical = signature_digest(&rfc9421_http_message_signature_base(input), verification_key);
     let legacy = signature_digest(&http_message_signature_base(input), verification_key);
     signature.signature == canonical || signature.signature == legacy
 }
@@ -658,7 +642,7 @@ pub fn fork_quarantine_record(
 /// originating actor MUST be flagged for cross-instance investigation.
 #[derive(Clone, Debug, Default)]
 pub struct ActorSeqLedger {
-    seen: std::collections::BTreeMap<(crate::Did, u64), crate::EventId>,
+    seen: BTreeMap<(Did, u64), crate::EventId>,
 }
 
 impl ActorSeqLedger {
@@ -676,7 +660,7 @@ impl ActorSeqLedger {
     ///   never returned.
     pub fn observe(
         &mut self,
-        actor_id: crate::Did,
+        actor_id: Did,
         actor_seq: u64,
         event_id: crate::EventId,
     ) -> Result<Option<FederationQuarantineRecord>> {

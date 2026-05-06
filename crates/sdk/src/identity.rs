@@ -451,8 +451,7 @@ impl std::fmt::Debug for CompositeDidResolver {
 
 impl DidResolver for CompositeDidResolver {
     fn supports(&self, did: &Did) -> bool {
-        self.policy.permits(did)
-            && self.resolvers.iter().any(|resolver| resolver.supports(did))
+        self.policy.permits(did) && self.resolvers.iter().any(|resolver| resolver.supports(did))
     }
 
     fn resolve_did(&self, did: &Did) -> Result<DidDocument> {
@@ -1303,8 +1302,7 @@ impl VerifiedHandleBinding {
             ));
         }
         if !document.also_known_as.iter().any(|aka| {
-            normalize_handle(aka) == normalized
-                || aka.trim_end_matches('/').ends_with(&normalized)
+            normalize_handle(aka) == normalized || aka.trim_end_matches('/').ends_with(&normalized)
         }) {
             return Err(Error::Protocol(
                 "did document does not list handle in alsoKnownAs".to_owned(),
@@ -1312,9 +1310,7 @@ impl VerifiedHandleBinding {
         }
         handle_proof.validate()?;
 
-        let document_hash = sha256_hex(
-            &contrix_core::canonical::canonical_json_bytes(document)?,
-        );
+        let document_hash = sha256_hex(&contrix_core::canonical::canonical_json_bytes(document)?);
 
         Ok(Self {
             handle: normalized,

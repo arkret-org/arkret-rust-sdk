@@ -243,11 +243,10 @@ pub use crypto_store::{
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub use devices::{
     Device, DeviceChange, DeviceManager, DeviceMessageEnvelope, DeviceMetadata,
-    DeviceVerificationChallenge, DeviceVerificationMessageContent,
-    DeviceVerificationMessageKind, KeyBackup, KeyBackupClass, KeyBackupContentItem,
-    KeyBackupEncryption, ProtocolKeyBackup, ProtocolKeyBackupRestoreRequest,
-    ProtocolKeyBackupRestoreTicket, ProtocolKeyBackupRestoreTicketAdvanceRequest,
-    QrVerificationPayload, ToDeviceEnvelope,
+    DeviceVerificationChallenge, DeviceVerificationMessageContent, DeviceVerificationMessageKind,
+    KeyBackup, KeyBackupClass, KeyBackupContentItem, KeyBackupEncryption, ProtocolKeyBackup,
+    ProtocolKeyBackupRestoreRequest, ProtocolKeyBackupRestoreTicket,
+    ProtocolKeyBackupRestoreTicketAdvanceRequest, QrVerificationPayload, ToDeviceEnvelope,
     device_verification_commitment,
 };
 #[cfg(feature = "full-surface")]

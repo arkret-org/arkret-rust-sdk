@@ -494,10 +494,7 @@ impl ContrixMlsGroup {
     /// index resolved from out-of-band device → leaf bookkeeping.
     ///
     /// Errors when the target principal has no leaf in this group.
-    pub fn remove_member_by_principal(
-        &mut self,
-        target: &Did,
-    ) -> Result<MlsRemoveMemberResult> {
+    pub fn remove_member_by_principal(&mut self, target: &Did) -> Result<MlsRemoveMemberResult> {
         let target_bytes = target.as_str().as_bytes();
         let leaves: Vec<LeafNodeIndex> = self
             .group
@@ -526,17 +523,11 @@ impl ContrixMlsGroup {
     /// caller maintains an explicit (principal, device_id) → leaf_index map
     /// (e.g. a yougen DeviceManager with leaf bookkeeping) and wants to
     /// revoke just one device of a multi-device principal.
-    pub fn remove_member_by_leaf(
-        &mut self,
-        leaf_index: u32,
-    ) -> Result<MlsRemoveMemberResult> {
+    pub fn remove_member_by_leaf(&mut self, leaf_index: u32) -> Result<MlsRemoveMemberResult> {
         self.remove_leaves(&[LeafNodeIndex::new(leaf_index)])
     }
 
-    fn remove_leaves(
-        &mut self,
-        leaves: &[LeafNodeIndex],
-    ) -> Result<MlsRemoveMemberResult> {
+    fn remove_leaves(&mut self, leaves: &[LeafNodeIndex]) -> Result<MlsRemoveMemberResult> {
         // Capture credential identity bytes before commit so we can report
         // which principal each removed leaf belonged to even after the leaf
         // is gone from the post-commit group state.
@@ -565,9 +556,7 @@ impl ContrixMlsGroup {
             .group
             .remove_members(&self.identity.provider, &self.identity.signer, leaves)
             .map_err(mls_error)?;
-        self.group
-            .merge_pending_commit(&self.identity.provider)
-            .map_err(mls_error)?;
+        self.group.merge_pending_commit(&self.identity.provider).map_err(mls_error)?;
 
         let commit_bytes = commit.tls_serialize_detached().map_err(mls_error)?;
         let ratchet_tree = Some(self.ratchet_tree()?);
@@ -1380,8 +1369,7 @@ mod tests {
 
         let mut alice_group = alice.create_group(b"cx:space:remove-test").unwrap();
         let add_bob = alice_group.add_member(&bob_kp).unwrap();
-        let _bob_group =
-            ContrixMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
+        let _bob_group = ContrixMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
         let add_charlie = alice_group.add_member(&charlie_kp).unwrap();
         let _charlie_group =
             ContrixMlsGroup::join_from_welcome(charlie, &add_charlie.welcome).unwrap();
@@ -1438,8 +1426,7 @@ mod tests {
 
         let mut alice_group = alice.create_group(b"cx:space:leaf-test").unwrap();
         let add_bob = alice_group.add_member(&bob_kp).unwrap();
-        let _bob_group =
-            ContrixMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
+        let _bob_group = ContrixMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
 
         // Bob's leaf is at index 1 (Alice is index 0 as group creator).
         let result = alice_group.remove_member_by_leaf(1).unwrap();
@@ -1466,16 +1453,15 @@ mod tests {
 
         let mut alice_group = alice.create_group(b"cx:space:op-test").unwrap();
         let add_bob = alice_group.add_member(&bob_kp).unwrap();
-        let _bob_group =
-            ContrixMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
+        let _bob_group = ContrixMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
         let result = alice_group
             .remove_member_by_principal(&Did::new("did:web:bob.example").unwrap())
             .unwrap();
 
-        let op_id = OperationId::new("op_remove_test").unwrap();
+        let op_id = OperationId::new("cx:operation:op_remove_test").unwrap();
         let space_id = SpaceId::new("cx:space:op-test").unwrap();
         let op = result.commit_operation(op_id, space_id).unwrap();
-        assert_eq!(op.op_type, "mls_commit");
+        assert_eq!(op.object_type, "mls_commit");
         assert!(op.object_id.unwrap().contains(&result.commit.group_id));
     }
 }

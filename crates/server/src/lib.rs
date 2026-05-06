@@ -650,10 +650,10 @@ where
         }
 
         let response = self.service.call(request)?;
-        if let PreparedIdempotency::Miss { key, request_digest } = idempotency {
-            if response.status < 500 {
-                self.idempotency_store.store(key, request_digest, &response);
-            }
+        if let PreparedIdempotency::Miss { key, request_digest } = idempotency
+            && response.status < 500
+        {
+            self.idempotency_store.store(key, request_digest, &response);
         }
         Ok(response)
     }

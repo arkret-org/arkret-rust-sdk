@@ -1881,7 +1881,7 @@ mod tests {
         assert_eq!(recovered.sync_cursor("main"), Some("cx:cursor:indexeddb"));
         assert!(recovered.state_snapshot(&space_id).is_some());
         assert_eq!(
-            recovered.clone().pop_background_sync(),
+            { recovered }.pop_background_sync(),
             Some("cx:operation:indexeddb-restart".to_owned())
         );
     }

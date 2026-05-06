@@ -605,7 +605,7 @@ mod tests {
         assert!(review.reviewed.iter().any(|item| item.name == "FfiHandle"));
         assert!(review.blockers.contains(&FfiApiFreezeBlocker::GeneratedBindingReview));
 
-        let mut invalid = review.clone();
+        let mut invalid = review;
         invalid.status = FfiApiFreezeStatus::Frozen;
         assert!(invalid.validate().is_err());
     }

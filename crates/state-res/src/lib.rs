@@ -234,10 +234,10 @@ impl StateAuthContext {
         if self.server_dids.contains(&event.actor_id) {
             granted.insert(StateAuthority::Server);
         }
-        if let Some(device_id) = optional_field::<DeviceId>(&event.content, "device_id") {
-            if self.device_owners.get(&device_id) == Some(&event.actor_id) {
-                granted.insert(StateAuthority::Device);
-            }
+        if let Some(device_id) = optional_field::<DeviceId>(&event.content, "device_id")
+            && self.device_owners.get(&device_id) == Some(&event.actor_id)
+        {
+            granted.insert(StateAuthority::Device);
         }
         granted
     }
@@ -1065,9 +1065,9 @@ mod tests {
         let context = StateAuthContext {
             creator: alice.clone(),
             admins: BTreeSet::from([admin.clone()]),
-            members: BTreeSet::from([alice.clone(), admin.clone(), member.clone()]),
+            members: BTreeSet::from([alice, admin, member.clone()]),
             server_dids: BTreeSet::new(),
-            device_owners: BTreeMap::from([(DeviceId::new("dev_member").unwrap(), member.clone())]),
+            device_owners: BTreeMap::from([(DeviceId::new("dev_member").unwrap(), member)]),
         };
 
         let policy = event(
@@ -1123,7 +1123,7 @@ mod tests {
             "01970e589d21-00000001-a13f9c2e",
             json!({
                 "board_id": board_id,
-                "flow_id": flow_id.clone(),
+                "flow_id": flow_id,
                 "list_id": todo,
                 "rank": "r:4000000000000000"
             }),
@@ -1135,7 +1135,7 @@ mod tests {
             "01970e589d21-00000002-a13f9c2e",
             json!({
                 "board_id": board_id,
-                "flow_id": flow_id.clone(),
+                "flow_id": flow_id,
                 "from_list_id": doing,
                 "to_list_id": doing,
                 "rank": "r:5000000000000000"
@@ -1148,7 +1148,7 @@ mod tests {
             "01970e589d21-00000003-a13f9c2e",
             json!({
                 "board_id": board_id,
-                "flow_id": flow_id.clone(),
+                "flow_id": flow_id,
                 "from_list_id": todo,
                 "to_list_id": doing,
                 "rank": "r:6000000000000000"
@@ -1161,15 +1161,14 @@ mod tests {
             "01970e589d21-00000004-a13f9c2e",
             json!({
                 "board_id": board_id,
-                "flow_id": flow_id.clone(),
+                "flow_id": flow_id,
                 "list_id": todo,
                 "rank": "r:7000000000000000"
             }),
         );
 
         let projection =
-            reduce_board_projection(board_id.clone(), &[create, bad_move, good_move, bad_reorder])
-                .unwrap();
+            reduce_board_projection(board_id, &[create, bad_move, good_move, bad_reorder]).unwrap();
         assert_eq!(projection.cards.get(&flow_id).unwrap().list_id, doing);
         assert_eq!(projection.conflict_records.len(), 2);
         assert!(projection.conflict_records.iter().any(|record| record.reason.contains("CAS")));

@@ -51,11 +51,22 @@ cargo test
 - [API and error handling](docs/api-and-errors.md)
 - [Authentication flows](docs/authentication.md)
 - [Sync best practices](docs/sync-best-practices.md)
+- [Deployment](docs/deployment.md)
 - [Feature matrix](docs/feature-matrix.md)
 - [Release readiness](docs/release-readiness.md)
 - [Security audit checklist](docs/security-audit.md)
 - [Conformance certification](docs/conformance-certification.md)
 - [LTS policy](docs/lts-policy.md)
+
+## Project documents
+
+- [Changelog](CHANGELOG.md) — release notes and unreleased changes.
+- [Security policy](SECURITY.md) — supported versions and how to report
+  vulnerabilities responsibly.
+- [Releasing](RELEASING.md) — how the 22-crate workspace is published in
+  topological order.
+- [Contributing](CONTRIBUTING.md) — development checks, API rules, commit
+  style.
 
 ## Implemented Contrix Surface
 

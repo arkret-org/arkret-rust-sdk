@@ -43,3 +43,18 @@ fn handler() -> ContrixJson<contrix_core::ServerDescription> {
 configure salvo-oapi's global namer to short mode (`ServerDescription` rather
 than `contrix_core.model.ServerDescription`). Call the installer manually if
 you build components piecemeal.
+
+## Running a Salvo server
+
+A runnable example lives at
+[`crates/sdk/examples/salvo_server.rs`](../sdk/examples/salvo_server.rs):
+
+```sh
+cargo run --example salvo_server --features salvo
+```
+
+It builds the `contrix_router` from a placeholder `RoutedEndpointService` and
+prints the route count. To bind a TCP listener and serve, enable salvo's
+`server` feature in your binary crate (the SDK does not enable it
+transitively, so client-only builds stay lean). For TLS, CORS, rate-limit,
+body size limits and systemd, see [`docs/deployment.md`](../../docs/deployment.md).
