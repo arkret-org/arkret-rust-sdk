@@ -3088,6 +3088,114 @@ pub struct QueryResponse<T = Value> {
     pub frontier: Option<QueryFrontier>,
 }
 
+// ============================================================================
+// Collection projection (T20) — board / list / table renderer responses.
+// Per `models/views.md` §6.3.
+//
+// Unlike `QueryResponse<T>`'s flat item list, a collection projection is
+// nested: `groups` (Lists / status columns) each contain `items` (Flows
+// with rank + locked-discussion metadata). This shape lets a kanban
+// renderer paint the board in one pass without correlating two response
+// vectors.
+// ============================================================================
+
+/// Top-level response for a `View{kind="collection"}` projection — the
+/// canonical shape for kanban / list / table / calendar renderers.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct CollectionProjectionResponse {
+    /// Always `"collection"`. Pinned to `ViewKind::Collection` for
+    /// callers that match on it.
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = String)))]
+    pub kind: ViewKind,
+    /// Renderer hint — `board`, `row`, `table`, `calendar`, `gantt`, …
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = String)))]
+    pub renderer: ViewRenderer,
+    /// Source View id; clients echo this back so they can correlate
+    /// async responses with the active View.
+    pub view_id: ViewId,
+    /// Frontier (signed Event refs) that this projection was computed
+    /// against. Clients should retain this so they can replay against
+    /// the same baseline if they need to reproduce the exact rendering.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub frontier: Vec<String>,
+    /// Groups are typically Space(kind=list) cells in a kanban or
+    /// status-segmented columns in a table. Order is reducer-stable
+    /// (rank ascending, then HLC tie-break per spec §10).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub groups: Vec<CollectionProjectionGroup>,
+}
+
+/// One column / list / status bucket in a collection projection.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct CollectionProjectionGroup {
+    /// Stable id for this group. Typically a `cx:space:` (List form)
+    /// or a synthetic id for status / facet buckets.
+    pub group_id: String,
+    /// Human-readable group title.
+    pub title: String,
+    /// Reducer-stable rank string used for inter-group ordering.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rank: Option<String>,
+    /// Items in this group, already sorted (rank ascending then
+    /// HLC tie-break) and authz-trimmed by the projection executor.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub items: Vec<CollectionProjectionItem>,
+    /// Optional hidden item count when `hidden_count_policy != omit`.
+    /// When `Some(n)` the group conceptually contains `items.len() + n`
+    /// rows; the unseen rows are policy-trimmed and SHOULD NOT leak
+    /// titles / counts beyond what the policy permits.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hidden_count: Option<u32>,
+}
+
+/// A single item (typically a Flow card) inside a projection group.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct CollectionProjectionItem {
+    /// The materialised object — usually a Flow but MAY be a Morph or
+    /// Message depending on `View.collection.item_object_types`. The
+    /// shape is whatever `Flow` / `Morph` / `Message` deserialise to.
+    pub object: Value,
+    /// Position metadata: which `contains` Relation places this item
+    /// in this group, and at what rank.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub position: Option<CollectionProjectionPosition>,
+    /// Card-vs-Room visibility split per yougen claude-design's
+    /// `card-vs-room-visibility` block. When `Some`, indicates the
+    /// item has a discussion branch; when the discussion is locked
+    /// (visibility != "readable"), `lazy_link=true` MUST hold and
+    /// no discussion metadata beyond opaque hash MAY be exposed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub discussion: Option<CollectionProjectionDiscussion>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct CollectionProjectionPosition {
+    /// `cx:relation:` id for the `contains` Relation that places this
+    /// item in this group. Stable across reducer recomputation.
+    pub relation_id: String,
+    /// Rank string (lexicographic). Same ordering rules as
+    /// `CollectionProjectionGroup::rank`.
+    pub rank: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct CollectionProjectionDiscussion {
+    /// Whether the discussion branch is enabled on this Flow.
+    pub enabled: bool,
+    /// `readable` (caller MAY render thread / member preview) or
+    /// `locked` (caller MUST treat as opaque link only).
+    pub visibility: String,
+    /// True when the discussion is referenced via cross-Space
+    /// lazy_link — caller MUST NOT expand title / members / counts.
+    #[serde(default)]
+    pub lazy_link: bool,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct View {
@@ -7253,6 +7361,106 @@ mod tests {
         assert_eq!(custom.profile.as_deref(), Some("review"));
         assert_eq!(custom.is_primary, Some(true));
         custom.validate_name().unwrap();
+    }
+
+    /// T20 — CollectionProjectionResponse round-trips through serde with
+    /// the exact wire shape from `models/views.md` §6.3, including the
+    /// nested groups -> items -> position / discussion structure.
+    #[test]
+    fn collection_projection_response_serde_round_trip() {
+        let payload = serde_json::json!({
+            "kind": "collection",
+            "renderer": "board",
+            "view_id": "cx:view:01js0vw0000000000000000000",
+            "frontier": ["cx:event:01js0fr00000000000000000042"],
+            "groups": [
+                {
+                    "group_id": "cx:space:01rev1ew000000000000000000",
+                    "title": "Review",
+                    "rank": "mV",
+                    "items": [
+                        {
+                            "object": {
+                                "id": "cx:flow:01task00000000000000000000",
+                                "type": "flow",
+                                "title": "Legal review"
+                            },
+                            "position": {
+                                "relation_id": "cx:relation:01p0s000000000000000000000",
+                                "rank": "mV"
+                            },
+                            "discussion": {
+                                "enabled": true,
+                                "visibility": "locked",
+                                "lazy_link": true
+                            }
+                        }
+                    ]
+                }
+            ]
+        });
+        let resp: CollectionProjectionResponse =
+            serde_json::from_value(payload.clone()).expect("deserialize");
+        assert!(matches!(resp.kind, ViewKind::Collection));
+        assert!(matches!(resp.renderer, ViewRenderer::Board));
+        assert_eq!(resp.view_id.as_str(), "cx:view:01js0vw0000000000000000000");
+        assert_eq!(resp.frontier.len(), 1);
+        assert_eq!(resp.groups.len(), 1);
+        let group = &resp.groups[0];
+        assert_eq!(group.group_id, "cx:space:01rev1ew000000000000000000");
+        assert_eq!(group.title, "Review");
+        assert_eq!(group.rank.as_deref(), Some("mV"));
+        assert_eq!(group.items.len(), 1);
+        let item = &group.items[0];
+        assert_eq!(
+            item.object.get("id").and_then(|v| v.as_str()),
+            Some("cx:flow:01task00000000000000000000")
+        );
+        let position = item.position.as_ref().expect("position");
+        assert_eq!(position.relation_id, "cx:relation:01p0s000000000000000000000");
+        assert_eq!(position.rank, "mV");
+        let discussion = item.discussion.as_ref().expect("discussion");
+        assert!(discussion.enabled);
+        assert_eq!(discussion.visibility, "locked");
+        assert!(discussion.lazy_link);
+
+        // Re-serialize: the resulting JSON must be structurally
+        // equivalent (same set of fields with same values).
+        let reserialized = serde_json::to_value(&resp).expect("serialize");
+        assert_eq!(reserialized, payload);
+    }
+
+    /// T20 — `hidden_count` is omitted from the wire when absent (None)
+    /// so policy-tight responses don't accidentally leak a 0 count.
+    #[test]
+    fn collection_projection_group_omits_hidden_count_when_none() {
+        let group = CollectionProjectionGroup {
+            group_id: "cx:space:01list".to_owned(),
+            title: "List".to_owned(),
+            rank: Some("a0".to_owned()),
+            items: Vec::new(),
+            hidden_count: None,
+        };
+        let json = serde_json::to_value(&group).unwrap();
+        assert!(
+            json.get("hidden_count").is_none(),
+            "hidden_count must be omitted when None to avoid leaking aggregate counts"
+        );
+    }
+
+    /// T20 — discussion.lazy_link defaults to false when omitted on the
+    /// wire (e.g. for fully readable rooms) so caller's branch logic
+    /// stays simple.
+    #[test]
+    fn collection_projection_discussion_lazy_link_defaults_false() {
+        let payload = serde_json::json!({
+            "enabled": true,
+            "visibility": "readable"
+        });
+        let d: CollectionProjectionDiscussion = serde_json::from_value(payload).unwrap();
+        assert!(d.enabled);
+        assert_eq!(d.visibility, "readable");
+        assert!(!d.lazy_link);
     }
 
     #[test]

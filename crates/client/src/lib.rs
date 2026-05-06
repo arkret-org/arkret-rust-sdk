@@ -13,18 +13,18 @@ use contrix_core::{
     AppletActorResponse, AppletDescription, AppletPingResponse, AppletProtocolResponse,
     AppletSpaceResponse, AppletTransactionRequest, AppletTransactionResponse, AuthzCheckRequest,
     AuthzCheckResponse, AuthzInvitesResponse, BlobMetadata, BlobRef, BlobUploadMetadata,
-    BlobUploadResponse, Commit, DeviceMessagesReceiveResponse, DeviceMessagesSendRequest,
-    DeviceMessagesSendResponse, DirectoryDescription, DirectoryResolveHandleRequest,
-    DirectoryResolveHandleResponse, DirectoryResolveOrganizationRequest,
-    DirectoryResolveOrganizationResponse, DirectoryResolveSpaceRequest,
-    DirectoryResolveSpaceResponse, DirectorySearchActorsRequest, DirectorySearchActorsResponse,
-    DirectorySearchOrganizationsRequest, DirectorySearchOrganizationsResponse,
-    DirectorySearchSpacesRequest, DirectorySearchSpacesResponse, DirectorySearchUsersResponse,
-    EffectiveGrantsResponse, Error, ErrorEnvelope, FederationPullOperationsResponse,
-    FederationPushOperationsRequest, FederationPushOperationsResponse,
-    FederationSpaceMembersResponse, FederationTransactionRequest, FederationTransactionResponse,
-    FederationVerifyActorRequest, FederationVerifyActorResponse, IdentityDescription,
-    IdentityDocumentResponse, IdentityLogResponse, IdentityReceiptsResponse,
+    BlobUploadResponse, CollectionProjectionResponse, Commit, DeviceMessagesReceiveResponse,
+    DeviceMessagesSendRequest, DeviceMessagesSendResponse, DirectoryDescription,
+    DirectoryResolveHandleRequest, DirectoryResolveHandleResponse,
+    DirectoryResolveOrganizationRequest, DirectoryResolveOrganizationResponse,
+    DirectoryResolveSpaceRequest, DirectoryResolveSpaceResponse, DirectorySearchActorsRequest,
+    DirectorySearchActorsResponse, DirectorySearchOrganizationsRequest,
+    DirectorySearchOrganizationsResponse, DirectorySearchSpacesRequest,
+    DirectorySearchSpacesResponse, DirectorySearchUsersResponse, EffectiveGrantsResponse, Error,
+    ErrorEnvelope, FederationPullOperationsResponse, FederationPushOperationsRequest,
+    FederationPushOperationsResponse, FederationSpaceMembersResponse, FederationTransactionRequest,
+    FederationTransactionResponse, FederationVerifyActorRequest, FederationVerifyActorResponse,
+    IdentityDescription, IdentityDocumentResponse, IdentityLogResponse, IdentityReceiptsResponse,
     IdentityResolveRequest, IdentityResolveResponse, IndexDescription, IndexEntityResponse,
     IndexInboxResponse, IndexNotificationsResponse, IndexSearchRequest, IndexSearchResponse,
     IndexSpaceHierarchyResponse, IndexThreadResponse, KeysClaimRequest, KeysClaimResponse,
@@ -461,6 +461,42 @@ impl Client {
         }
         builder = self.apply_request_options(builder, &options)?;
         self.send_json(builder.json(request)).await
+    }
+
+    /// T20 — fetch the materialised collection projection for a saved
+    /// `View{kind="collection"}` (kanban / board / list / table /
+    /// calendar / gantt renderer) per `models/views.md` §6.3.
+    ///
+    /// Unlike [`Self::index_query`] which returns a flat
+    /// `QueryResponse<T>`, this returns a nested
+    /// [`CollectionProjectionResponse`] with `groups[].items[]` ready
+    /// for a kanban-style render in one pass. The server is expected
+    /// to apply authz trimming, locked-discussion lazy_link policy,
+    /// and stable rank ordering before responding.
+    ///
+    /// Wire path: `POST /api/v1/views/{view_id}/projection`. Empty
+    /// JSON object body is sent so middleware that requires a body
+    /// works; future revisions MAY accept overrides
+    /// (sync_token, filter overlays) in the same body.
+    ///
+    /// `wait_for` is honoured via the `X-Contrix-Wait-For` header so
+    /// callers can implement read-your-writes against a known sync
+    /// token.
+    pub async fn collection_projection(
+        &self,
+        view_id: &str,
+        wait_for: Option<&str>,
+    ) -> Result<CollectionProjectionResponse> {
+        let path = format!("/api/v1/views/{view_id}/projection");
+        let mut builder = self.request(Method::POST, &path)?;
+        let mut options = ClientRequestOptions::new();
+        if let Some(token) = wait_for {
+            options = options.wait_for(token);
+        }
+        builder = self.apply_request_options(builder, &options)?;
+        // Empty object body keeps middleware happy and leaves room for
+        // future filter overlays without changing the wire path.
+        self.send_json(builder.json(&serde_json::json!({}))).await
     }
 
     pub async fn authz_check(&self, request: &AuthzCheckRequest) -> Result<AuthzCheckResponse> {
