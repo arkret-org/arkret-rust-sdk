@@ -41,6 +41,17 @@ The order is generated from `cargo metadata --no-deps`. If any crate is added
 or its dependency surface changes, regenerate it and update both this file and
 the `CRATES:` block in `.github/workflows/release-crates.yml`.
 
+To validate the workflow list locally before tagging, run:
+
+```sh
+python tools/check-publish-order.py            # validate the workflow's order
+python tools/check-publish-order.py --print    # print a fresh topological order
+```
+
+The validator confirms every crate in the workflow appears after its
+workspace dependencies. Any valid topological order works — alphabetical
+tie-breaking is informational, not a requirement.
+
 ## Checklist
 
 1. Run verification:

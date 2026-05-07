@@ -2,14 +2,21 @@
 """Verify the publish order in `.github/workflows/release-crates.yml`.
 
 The workflow holds a flat list of workspace crates that must be published in
-dependency order. This script derives that order from `cargo metadata
---no-deps` and diff-checks it against the workflow.
+dependency order. Any valid topological order works; this script checks the
+workflow's curated list against the workspace's actual dependency graph
+(`cargo metadata --no-deps`) and complains when:
+
+    * a crate appears before one of its workspace dependencies
+    * a crate is missing from the workflow
+    * the workflow names a crate the workspace no longer ships
+
+It can also print one valid topological order for use as a starting point.
 
 Usage:
-    python tools/check-publish-order.py            # diff-check (CI-friendly)
-    python tools/check-publish-order.py --print    # only print the derived order
+    python tools/check-publish-order.py            # validate (CI-friendly)
+    python tools/check-publish-order.py --print    # print one valid topo order
 
-Exits 0 when the workflow matches the derived order, 1 otherwise.
+Exits 0 when the workflow is a valid topological order, 1 otherwise.
 """
 
 from __future__ import annotations
@@ -89,20 +96,35 @@ def workflow_order(workflow_text: str) -> list[str]:
     return [token for token in match.group(1).split() if token]
 
 
-def diff(expected: Iterable[str], actual: Iterable[str]) -> list[str]:
-    expected = list(expected)
-    actual = list(actual)
-    out: list[str] = []
-    if expected == actual:
-        return out
-    out.append("--- workflow CRATES")
-    out.append("+++ cargo metadata topo order")
-    for index, (lhs, rhs) in enumerate(zip(expected, actual)):
-        if lhs != rhs:
-            out.append(f"  {index:2d}: {lhs!r} != {rhs!r}")
-    if len(expected) != len(actual):
-        out.append(f"  workflow has {len(expected)} crates, derived has {len(actual)}")
-    return out
+def validate_workflow(
+    workflow_list: list[str], workspace_deps: dict[str, set[str]]
+) -> list[str]:
+    """Check the workflow list is a valid topological order.
+
+    Returns a list of human-readable problems; an empty list means the order
+    is valid.
+    """
+    problems: list[str] = []
+    workspace_names = set(workspace_deps)
+    workflow_set = set(workflow_list)
+
+    missing = sorted(workspace_names - workflow_set)
+    extra = sorted(workflow_set - workspace_names)
+    if missing:
+        problems.append(f"workflow is missing workspace crates: {missing}")
+    if extra:
+        problems.append(f"workflow lists non-existent crates: {extra}")
+
+    seen: set[str] = set()
+    for crate in workflow_list:
+        deps = workspace_deps.get(crate, set())
+        unmet = sorted(dep for dep in deps if dep not in seen and dep in workspace_names)
+        if unmet:
+            problems.append(
+                f"{crate!r} listed before its workspace deps: {unmet}"
+            )
+        seen.add(crate)
+    return problems
 
 
 def main(argv: list[str]) -> int:
@@ -111,29 +133,37 @@ def main(argv: list[str]) -> int:
         "--print",
         action="store_true",
         dest="print_only",
-        help="print the derived publish order and exit",
+        help="print one valid topological order and exit",
     )
     args = parser.parse_args(argv)
 
     metadata = cargo_metadata()
-    derived = topological_order(metadata)
+    workspace_names = {pkg["name"] for pkg in metadata["packages"]}
+    workspace_deps = {
+        pkg["name"]: {
+            dep["name"] for dep in pkg["dependencies"] if dep["name"] in workspace_names
+        }
+        for pkg in metadata["packages"]
+    }
 
     if args.print_only:
-        for name in derived:
+        for name in topological_order(metadata):
             print(name)
         return 0
 
-    expected = workflow_order(WORKFLOW.read_text(encoding="utf-8"))
-    delta = diff(expected, derived)
-    if delta:
+    workflow_list = workflow_order(WORKFLOW.read_text(encoding="utf-8"))
+    problems = validate_workflow(workflow_list, workspace_deps)
+    if problems:
         print(
-            "publish order in .github/workflows/release-crates.yml does not match "
-            "`cargo metadata` topological sort:"
+            "publish order in .github/workflows/release-crates.yml is not a valid "
+            "topological order:"
         )
-        for line in delta:
-            print(line)
+        for line in problems:
+            print(f"  {line}")
         return 1
-    print(f"publish order matches cargo metadata ({len(expected)} crates)")
+    print(
+        f"publish order is a valid topological sort ({len(workflow_list)} crates)"
+    )
     return 0
 
 

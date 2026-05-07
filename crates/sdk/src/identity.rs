@@ -987,10 +987,15 @@ pub fn starid_control_proof(
 
 /// Registry-backed DID resolver boundary for StarID-style deployments.
 ///
-/// TODO: production adapters must fetch from the configured registry network,
-/// enforce response size/content-type limits, validate signed key-log receipts
-/// and fail closed on stale or conflicting heads. This trait intentionally
-/// captures the stable SDK API before binding to a concrete HTTP client.
+/// The trait is the stable SDK boundary; concrete production adapters live
+/// outside this crate so the SDK does not pull in an HTTP client by default.
+/// Implementors MUST:
+///
+/// * fetch from the configured registry network with explicit timeouts,
+/// * enforce response size and content-type limits,
+/// * validate signed key-log receipts before trusting any record, and
+/// * fail closed on stale or conflicting heads rather than serving cached
+///   state.
 pub trait StaridRegistryAdapter: DidResolver {
     fn resolve_registry_record(&self, did: &Did) -> Result<StaridRegistryRecord>;
 

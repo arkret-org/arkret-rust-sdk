@@ -914,6 +914,39 @@ impl Space {
     }
 }
 
+/// Optional flow metadata accepted by [`Space::create_flow_operation_with_metadata`].
+///
+/// All fields default to "unset" so callers can struct-update the variant
+/// they need without naming the rest:
+///
+/// ```ignore
+/// space.create_flow_operation_with_metadata(
+///     "Refactor",
+///     FlowKind::Discussion,
+///     None,
+///     None,
+///     fields,
+///     FlowCreateMetadata { semantic_kind: Some("work_item".into()), ..Default::default() },
+/// )?;
+/// ```
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct FlowCreateMetadata {
+    pub primary_branch: Option<String>,
+    pub branches: Vec<String>,
+    pub semantic_kind: Option<String>,
+}
+
+/// Optional flow metadata accepted by [`Space::update_flow_operation_with_metadata`].
+///
+/// Identical shape to [`FlowCreateMetadata`] but `branches` is `Option`:
+/// `None` means "leave unchanged", `Some(vec![])` means "clear branches".
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct FlowUpdateMetadata {
+    pub primary_branch: Option<String>,
+    pub branches: Option<Vec<String>>,
+    pub semantic_kind: Option<String>,
+}
+
 /// Flow operations within a space.
 impl Space {
     /// Create a flow creation operation.
@@ -931,14 +964,11 @@ impl Space {
             brief,
             summary,
             fields,
-            None,
-            Vec::new(),
-            None,
+            FlowCreateMetadata::default(),
         )
     }
 
     /// Create a flow creation operation with flow metadata.
-    #[allow(clippy::too_many_arguments)]
     pub fn create_flow_operation_with_metadata(
         &self,
         title: impl Into<String>,
@@ -946,9 +976,7 @@ impl Space {
         brief: Option<String>,
         summary: Option<String>,
         fields: BTreeMap<String, Value>,
-        primary_branch: Option<String>,
-        branches: Vec<String>,
-        semantic_kind: Option<String>,
+        metadata: FlowCreateMetadata,
     ) -> Result<Operation> {
         let _session_meta = self
             .base_client
@@ -970,13 +998,13 @@ impl Space {
         if let Some(summary) = summary {
             payload["summary"] = json!(summary);
         }
-        if let Some(primary_branch) = primary_branch {
+        if let Some(primary_branch) = metadata.primary_branch {
             payload["primary_branch"] = json!(primary_branch);
         }
-        if !branches.is_empty() {
-            payload["branches"] = json!(branches);
+        if !metadata.branches.is_empty() {
+            payload["branches"] = json!(metadata.branches);
         }
-        if let Some(semantic_kind) = semantic_kind {
+        if let Some(semantic_kind) = metadata.semantic_kind {
             payload["semantic_kind"] = json!(semantic_kind);
         }
         if !fields.is_empty() {
@@ -996,12 +1024,16 @@ impl Space {
         fields: Option<BTreeMap<String, Value>>,
     ) -> Result<Operation> {
         self.update_flow_operation_with_metadata(
-            flow_id, title, brief, summary, fields, None, None, None,
+            flow_id,
+            title,
+            brief,
+            summary,
+            fields,
+            FlowUpdateMetadata::default(),
         )
     }
 
     /// Create a flow update operation with extended metadata.
-    #[allow(clippy::too_many_arguments)]
     pub fn update_flow_operation_with_metadata(
         &self,
         flow_id: FlowId,
@@ -1009,9 +1041,7 @@ impl Space {
         brief: Option<String>,
         summary: Option<String>,
         fields: Option<BTreeMap<String, Value>>,
-        primary_branch: Option<String>,
-        branches: Option<Vec<String>>,
-        semantic_kind: Option<String>,
+        metadata: FlowUpdateMetadata,
     ) -> Result<Operation> {
         let _session_meta = self
             .base_client
@@ -1030,13 +1060,13 @@ impl Space {
         if let Some(summary) = summary {
             payload["summary"] = json!(summary);
         }
-        if let Some(primary_branch) = primary_branch {
+        if let Some(primary_branch) = metadata.primary_branch {
             payload["primary_branch"] = json!(primary_branch);
         }
-        if let Some(branches) = branches {
+        if let Some(branches) = metadata.branches {
             payload["branches"] = json!(branches);
         }
-        if let Some(semantic_kind) = semantic_kind {
+        if let Some(semantic_kind) = metadata.semantic_kind {
             payload["semantic_kind"] = json!(semantic_kind);
         }
         if let Some(fields) = fields {

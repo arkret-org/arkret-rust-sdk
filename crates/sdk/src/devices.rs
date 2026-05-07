@@ -391,7 +391,12 @@ pub struct ProtocolKeyBackup {
     pub retention: Option<Value>,
 }
 
-/// Schema-aligned restore-start scaffold for `cx.schema.key_backup.v1`.
+/// Schema-aligned restore-start request for `cx.schema.key_backup.v1`.
+///
+/// Until the durable restore-ticket lifecycle lands in the backing service
+/// (currently scaffolded), the SDK constructs this payload via
+/// [`ProtocolKeyBackup::scaffold_restore_request`]; the wire shape itself is
+/// stable.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProtocolKeyBackupRestoreRequest {
     pub backup_id: String,
@@ -399,10 +404,14 @@ pub struct ProtocolKeyBackupRestoreRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
     pub verification_event_kind: String,
-    pub todo: String,
 }
 
-/// Schema-aligned restore ticket scaffold for key-backup recovery handoff.
+/// Schema-aligned restore ticket for key-backup recovery handoff.
+///
+/// `lifecycle_state` is one of the canonical states (`authz_pending`,
+/// `authz_checked`, `policy_checked`, `approved`, `materialized`); see
+/// [`ProtocolKeyBackup::scaffold_restore_ticket`] for the default progression
+/// the SDK emits before the durable state machine is wired up.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProtocolKeyBackupRestoreTicket {
     pub contract: String,
@@ -413,27 +422,29 @@ pub struct ProtocolKeyBackupRestoreTicket {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub allowed_next_transitions: Vec<String>,
     pub verification_event_kind: String,
-    pub todo: String,
 }
 
-/// Schema-aligned restore ticket advance scaffold request.
+/// Schema-aligned restore-ticket advance request.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProtocolKeyBackupRestoreTicketAdvanceRequest {
     pub transition: String,
-    pub note: String,
 }
 
 impl ProtocolKeyBackup {
+    /// Scaffold restore-start request emitted before the durable verified
+    /// restore-ticket handoff lands service-side. The wire shape matches the
+    /// final contract — only the lifecycle plumbing is scaffolded.
     pub fn scaffold_restore_request(&self) -> ProtocolKeyBackupRestoreRequest {
         ProtocolKeyBackupRestoreRequest {
             backup_id: self.backup_id.clone(),
             actor_id: self.actor_id.clone(),
             device_id: self.device_id.clone(),
             verification_event_kind: "cx.key.verification.done".to_owned(),
-            todo: "replace scaffold restore start with verified restore ticket handoff".to_owned(),
         }
     }
 
+    /// Scaffold restore ticket emitted before the durable restore state
+    /// machine lands service-side. The wire shape matches the final contract.
     pub fn scaffold_restore_ticket(&self) -> ProtocolKeyBackupRestoreTicket {
         ProtocolKeyBackupRestoreTicket {
             contract: "contrix.rest.key_backup_restore_ticket.v1".to_owned(),
@@ -448,18 +459,16 @@ impl ProtocolKeyBackup {
                 "materialized".to_owned(),
             ],
             verification_event_kind: "cx.key.verification.done".to_owned(),
-            todo: "replace scaffold ticket with durable restore state machine".to_owned(),
         }
     }
 
+    /// Scaffold transition request. The wire shape matches the final
+    /// contract; the policy-backed approval state machine that consumes
+    /// these transitions is still service-side scaffolding.
     pub fn scaffold_restore_ticket_advance_request(
         &self,
     ) -> ProtocolKeyBackupRestoreTicketAdvanceRequest {
-        ProtocolKeyBackupRestoreTicketAdvanceRequest {
-            transition: "authz_checked".to_owned(),
-            note: "replace scaffold transition with policy-backed approval state machine"
-                .to_owned(),
-        }
+        ProtocolKeyBackupRestoreTicketAdvanceRequest { transition: "authz_checked".to_owned() }
     }
 }
 

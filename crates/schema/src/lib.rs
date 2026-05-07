@@ -377,10 +377,24 @@ impl SpecArtifactBundle {
                 "kind",
                 ARTIFACT_BACKED_ID_KINDS,
             ),
+            unlisted_event_kinds: unlisted_active_registry_values(
+                &self.event_kind_registry,
+                "event_kinds",
+                "event_kind",
+                ARTIFACT_BACKED_EVENT_KINDS,
+            ),
         }
     }
 }
 
+/// Two-way drift between the SDK's declared spec coverage (`ARTIFACT_BACKED_*`)
+/// and the spec's registry artifacts.
+///
+/// `missing_*` lists entries the SDK declares coverage for that the spec no
+/// longer ships — these are hard errors and are surfaced by [`Self::validate`].
+/// `unlisted_*` lists entries the spec ships that the SDK has not yet declared
+/// coverage for — these are soft signals (the SDK may legitimately not cover
+/// every spec extension yet) and are inspected via [`Self::has_unlisted`].
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ArtifactDriftReport {
     pub checked_files: Vec<String>,
@@ -392,6 +406,11 @@ pub struct ArtifactDriftReport {
     pub missing_operations: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub missing_id_kinds: Vec<String>,
+    /// Spec-side entries the SDK has not yet declared coverage for, scoped to
+    /// the same families covered by `ARTIFACT_BACKED_*`. Filtered to active
+    /// entries to avoid noise from deprecated/profile-extension items.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unlisted_event_kinds: Vec<String>,
 }
 
 impl ArtifactDriftReport {
@@ -412,8 +431,31 @@ impl ArtifactDriftReport {
             )))
         }
     }
+
+    /// True when the spec ships active entries the SDK does not yet declare
+    /// coverage for. Soft signal — useful for "next round of work" reports.
+    pub fn has_unlisted(&self) -> bool {
+        !self.unlisted_event_kinds.is_empty()
+    }
 }
 
+/// SDK-declared coverage of spec artifacts.
+///
+/// These constants enumerate the schemas, event kinds, service operations
+/// and typed-ID kinds the SDK actively consumes from the v1 spec registry.
+/// They are *not* a mirror of the entire spec — only the surfaces the SDK
+/// has typed support for. [`SpecArtifactBundle::drift_report`] cross-checks
+/// them against the live registry and produces:
+///
+/// * `missing_*` (hard error) — the SDK declares coverage for an entry the
+///   spec no longer ships. Surfaced by [`ArtifactDriftReport::validate`];
+///   bring the constant in line with the spec when this fires.
+/// * `unlisted_event_kinds` (soft signal) — the spec ships an active event
+///   kind the SDK has not declared coverage for. A pointer at next-round
+///   work, not a CI failure.
+///
+/// Update this constant whenever the SDK adds typed support for a new
+/// schema; the drift report will then enforce that the spec still ships it.
 pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     EVENT_SCHEMA,
     FLOW_SCHEMA,
@@ -424,6 +466,8 @@ pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     VIEW_SCHEMA,
 ];
 
+/// Event kinds the SDK has typed reducer / projection support for. See
+/// [`ARTIFACT_BACKED_SCHEMA_IDS`] for the full coverage-declaration model.
 pub const ARTIFACT_BACKED_EVENT_KINDS: &[&str] = &[
     "cx.flow.create",
     "cx.flow.update",
@@ -491,6 +535,36 @@ fn missing_registry_values(
         .filter(|value| registry_entry(registry, array_field, key_field, value).is_none())
         .map(|value| (*value).to_owned())
         .collect()
+}
+
+/// Inverse of [`missing_registry_values`]: list active registry entries the
+/// SDK has not declared coverage for. Filters on `status == "active"` so the
+/// soft drift report doesn't flag deprecated/profile-extension entries that
+/// the SDK is intentionally not modelling.
+fn unlisted_active_registry_values(
+    registry: &Value,
+    array_field: &str,
+    key_field: &str,
+    declared: &[&str],
+) -> Vec<String> {
+    let declared_set: BTreeSet<&str> = declared.iter().copied().collect();
+    let Some(entries) = registry.get(array_field).and_then(Value::as_array) else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for entry in entries {
+        if entry.get("status").and_then(Value::as_str) != Some("active") {
+            continue;
+        }
+        let Some(key) = entry.get(key_field).and_then(Value::as_str) else {
+            continue;
+        };
+        if !declared_set.contains(key) {
+            out.push(key.to_owned());
+        }
+    }
+    out.sort();
+    out
 }
 
 fn registry_entry<'a>(
