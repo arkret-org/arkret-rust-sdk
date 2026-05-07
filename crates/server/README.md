@@ -4,6 +4,13 @@ Framework-independent endpoint contracts, routed request dispatch, server
 middleware, request/response adapter types, OpenAPI helpers and optional Salvo
 router generation for Contrix v1 services.
 
+> **Not a reference implementation.** `contrix-server` ships the *contract*
+> shape: routes, OpenAPI components, request/response adapters, and the Salvo
+> wiring helpers. It does not provide a backing protocol service — the
+> endpoint examples below return `501` for unrouted operations on purpose.
+> A production deployment plugs in its own `RoutedEndpointService` (`soland`
+> is the canonical implementation today).
+
 ## Salvo OpenAPI integration
 
 Enable the `salvo` feature to compile the Salvo adapter, `ContrixJson<T>`

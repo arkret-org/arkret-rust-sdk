@@ -132,8 +132,8 @@ pub struct EncryptedPushPayload {
 /// Push privacy policy enforced before a payload leaves the device for an
 /// external gateway (APNs, FCM, WebPush).
 ///
-/// This addresses B-14 in `contrix-spec/_report.md`: raw DIDs MUST NOT be
-/// shipped in push payloads, push tokens or TURN credentials. By default
+/// Raw DIDs MUST NOT be shipped in push payloads, push tokens or TURN
+/// credentials. By default
 /// any payload whose body or data fields contain a `did:` substring is
 /// rejected. Callers MAY whitelist services they have explicitly listed
 /// under `Space.policy.plaintext_visible_services` by adding their service

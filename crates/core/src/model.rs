@@ -5430,7 +5430,7 @@ pub struct DeviceMessagesReceiveResponse {
 // ── Spec-aligned canonical types added in 2026-05 alignment pass ───────────
 //
 // These types fill gaps identified in `_todos.md` between the Rust SDK
-// surface and `contrix-spec/zh/` v1-core-rc. They are additive and must not
+// surface and `contrix-spec/spec/v1/zh/` v1-core-rc. They are additive and must not
 // break existing wire shapes; legacy fixtures that emit `branches: ["a"]`
 // (string array) are still accepted via the `FlowBranch` Deserialize impl.
 

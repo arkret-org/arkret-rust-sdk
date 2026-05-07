@@ -17,7 +17,7 @@ centered on:
 - MLS RFC 9420 group E2EE based on OpenMLS
 - Principal Server, Events, Sync, Index, Blob, Directory and Authz service surfaces
 
-The active v1 wire contract follows `contrix-spec/zh` plus `contrix-spec/artifacts`.
+The active v1 wire contract follows `contrix-spec/spec/v1/zh` plus `contrix-spec/spec/v1/artifacts`.
 All public SDK surfaces are expected to use `flow`, branch, relation and
 message semantics directly.
 

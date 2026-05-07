@@ -27,7 +27,7 @@ candidate revision:
 - [x] `cargo semver-checks`: skipped on 2026-04-30 because the local cargo
   subcommand is unavailable and `0.1.x` breaking API updates are accepted.
 - [x] 2026-04-30 OpenAPI review: generated SDK OpenAPI compared against
-  `E:\Works\contrix-dev\contrix-spec\artifacts\openapi\contrix-service-api.openapi.yaml`.
+  `contrix-spec/spec/v1/artifacts/openapi/contrix-service-api.openapi.yaml`.
   All 50 spec operations and the spec security schemes are present in the SDK
   export; the SDK also exposes 36 additional applet/directory/federation/index
   extension operations.

@@ -30,7 +30,7 @@ pub fn canonical_sha256<T: Serialize>(value: &T) -> Result<String> {
     Ok(sha256_digest(canonical_json_bytes(value)?))
 }
 
-/// Encode a composite `state_key` from its parts (B-18 in `_report.md`).
+/// Encode a composite `state_key` from its parts.
 ///
 /// State events that key on multiple identifiers (e.g. `flow_id|branch|did`)
 /// MUST escape any literal `|` in a part because DID grammar permits the

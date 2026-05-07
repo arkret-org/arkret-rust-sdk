@@ -398,6 +398,7 @@ dependencies = [
  "openmls_rust_crypto",
  "regex",
  "reqwest",
+ "salvo",
  "serde",
  "serde_json",
  "sha2",

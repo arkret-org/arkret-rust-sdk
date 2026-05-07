@@ -416,7 +416,6 @@ impl ArtifactDriftReport {
 
 pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     EVENT_SCHEMA,
-    OPERATION_SCHEMA,
     FLOW_SCHEMA,
     CAPABILITY_SCHEMA,
     CURSOR_SCHEMA,
@@ -432,13 +431,11 @@ pub const ARTIFACT_BACKED_EVENT_KINDS: &[&str] = &[
     "cx.flow.restore",
     "cx.flow.move",
     "cx.flow.reorder",
-    "cx.flow.convert",
     "cx.flow.branch.member",
     "cx.flow.branch.history_visibility",
     "cx.flow.branch.policy_components",
     "cx.message.create",
     "cx.member.state",
-    "cx.list.reorder",
     "cx.capability.grant",
 ];
 
@@ -451,19 +448,22 @@ pub const ARTIFACT_BACKED_SERVICE_OPERATIONS: &[&str] = &[
     "cx.server.describe",
 ];
 
-pub const ARTIFACT_BACKED_ID_KINDS: &[&str] = &["event", "operation", "space", "flow"];
+pub const ARTIFACT_BACKED_ID_KINDS: &[&str] = &["event", "space", "flow"];
 
 pub fn default_spec_artifacts_dir() -> Option<PathBuf> {
     if let Ok(artifacts_dir) = std::env::var("CONTRIX_SPEC_ARTIFACTS") {
         return Some(PathBuf::from(artifacts_dir));
     }
-    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    let spec_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
         .join("..")
         .join("..")
-        .join("contrix-spec")
-        .join("artifacts");
-    dir.exists().then_some(dir)
+        .join("contrix-spec");
+    // Prefer the v1 layout introduced when the spec repo reorganised its
+    // artifacts under spec/v1/. Fall back to the legacy flat path.
+    let candidates =
+        [spec_root.join("spec").join("v1").join("artifacts"), spec_root.join("artifacts")];
+    candidates.into_iter().find(|dir| dir.join("registry").join("schema-registry.json").exists())
 }
 
 pub fn artifact_drift_report_from_default_location() -> Result<Option<ArtifactDriftReport>> {
@@ -621,12 +621,9 @@ mod tests {
             );
         }
 
-        for (kind, wire_form) in [
-            ("event", "cx:event:<ulid>"),
-            ("operation", "cx:operation:<ulid>"),
-            ("space", "cx:space:<ulid>"),
-            ("flow", "cx:flow:<ulid>"),
-        ] {
+        for (kind, wire_form) in
+            [("event", "cx:event:<ulid>"), ("space", "cx:space:<ulid>"), ("flow", "cx:flow:<ulid>")]
+        {
             let entry = registry_entry(&bundle.id_kind_registry, "id_kinds", "kind", kind)
                 .unwrap_or_else(|| panic!("missing id kind {kind}"));
             assert_eq!(entry["wire_form"].as_str(), Some(wire_form), "{kind}");

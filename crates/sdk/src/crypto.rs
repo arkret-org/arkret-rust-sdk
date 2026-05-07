@@ -19,10 +19,10 @@ const NONCE_LEN: usize = 24;
 ///
 /// Wire form per `crypto-media/encrypted-envelope-schema.md` §2: the
 /// canonical field name is `event_kind`. `event_type` is accepted on input
-/// for backward compatibility (deprecated; M-01 in spec `_report.md`) but
-/// is **never** emitted on serialization, and an envelope that carries
-/// both `event_kind` and a non-matching `event_type` is rejected on
-/// deserialization with `aad_ambiguous_kind`.
+/// for backward compatibility (deprecated) but is **never** emitted on
+/// serialization, and an envelope that carries both `event_kind` and a
+/// non-matching `event_type` is rejected on deserialization with
+/// `aad_ambiguous_kind`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct EncryptedEnvelopeAad {
     pub space_id: String,

@@ -64,8 +64,11 @@ Initial release candidate for Contrix v1 SDK.
   mirroring the spec's `error-code-registry.json`.
 - Conformance vector library covering canonical-JSON, redaction, capability
   evaluation and sync-cursor binding (`crates/testing`).
-- Authorization engine with all 14 constraint types, `ApprovalMode` quorum
-  semantics + `ApprovalWorkflowMode` workflow stages, evaluation order
+- Authorization engine covering the 8 v1 constraint families
+  (`temporal`, `field_access`, `type_restriction`, `scope_limitation`,
+  `delegation_control`, `quota`, `claim_based`, `confidentiality`) with
+  optional `subtype` discriminators, `ApprovalMode` quorum semantics +
+  `ApprovalWorkflowMode` workflow stages, evaluation order
   (`deny → quarantine → require_review → allow`), and a `partial_auth_state`
   read-only marker.
 - Push privacy validator that rejects raw-DID payloads outside an explicit

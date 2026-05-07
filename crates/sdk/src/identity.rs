@@ -485,12 +485,11 @@ impl DidWebvhResolver {
                 .get("prevVersionId")
                 .or_else(|| entry.parameters.get("previousVersionId"))
                 .and_then(Value::as_str)
+                && Some(prev) != last_version_id.as_deref()
             {
-                if Some(prev) != last_version_id.as_deref() {
-                    return Err(Error::Protocol(
-                        "did:webvh entry prevVersionId does not match previous head".to_owned(),
-                    ));
-                }
+                return Err(Error::Protocol(
+                    "did:webvh entry prevVersionId does not match previous head".to_owned(),
+                ));
             }
             last_version_id = Some(entry.version_id.clone());
             entries.push(entry);

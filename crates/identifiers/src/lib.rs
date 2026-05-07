@@ -162,9 +162,8 @@ pub fn is_strict_typed_id(value: &str, prefix: &str) -> bool {
 /// Validate that `value` is a 26-character Crockford base32 ULID rendered in
 /// lower case per `conformance/encoding.md` §4.
 ///
-/// The protocol forbids upper-case ULIDs on the wire (M-08 in
-/// `contrix-spec/_report.md`); legacy fixtures using upper case MUST be
-/// rewritten before the v1 wire freeze.
+/// The protocol forbids upper-case ULIDs on the wire; legacy fixtures using
+/// upper case MUST be rewritten before the v1 wire freeze.
 pub fn is_lowercase_ulid(value: &str) -> bool {
     if value.len() != 26 {
         return false;

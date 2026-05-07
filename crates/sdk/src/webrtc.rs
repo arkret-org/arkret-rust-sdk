@@ -198,11 +198,10 @@ pub struct IceServer {
 }
 
 impl IceServer {
-    /// Reject TURN configurations whose `username` embeds a raw DID
-    /// (B-14 in `contrix-spec/_report.md`). The TURN operator MUST NOT
-    /// learn cross-Space stable identities; clients SHOULD derive the
-    /// username from a short-lived ephemeral identifier such as
-    /// `<unix>:<random_b64>` instead.
+    /// Reject TURN configurations whose `username` embeds a raw DID. The
+    /// TURN operator MUST NOT learn cross-Space stable identities; clients
+    /// SHOULD derive the username from a short-lived ephemeral identifier
+    /// such as `<unix>:<random_b64>` instead.
     pub fn validate_credential_privacy(&self) -> Result<()> {
         const FORBIDDEN_PREFIXES: &[&str] = &[
             "did:web:",

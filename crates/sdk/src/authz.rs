@@ -890,7 +890,16 @@ impl ProtocolResourceSelector {
     }
 }
 
-/// Schema-aligned constraint type from `cx.schema.grant_constraint.v1`.
+/// Schema-aligned constraint family from `cx.schema.grant_constraint.v1`.
+///
+/// v1 uses 8 stable families plus the optional `subtype` field on
+/// [`ProtocolGrantConstraint`] for evaluator-specific refinements:
+///
+/// - `temporal.{window,edit_window,redact_window,session}`
+/// - `scope_limitation.container_move`
+/// - `quota.{rate,resource}`
+/// - `claim_based.{claim,approval,accountability,device_session}`
+/// - `confidentiality.{encryption,visibility}`
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ProtocolGrantConstraintType {
@@ -899,12 +908,9 @@ pub enum ProtocolGrantConstraintType {
     TypeRestriction,
     ScopeLimitation,
     DelegationControl,
-    RateLimiting,
-    ApprovalWorkflow,
+    Quota,
     ClaimBased,
-    Accountability,
-    EncryptionRequirement,
-    ContainerMove,
+    Confidentiality,
 }
 
 /// Schema-aligned constraint effect from `cx.schema.grant_constraint.v1`.
@@ -955,6 +961,14 @@ pub struct ProtocolGrantClaimRequirement {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProtocolGrantConstraint {
     pub constraint_type: ProtocolGrantConstraintType,
+    /// Optional discriminator within a family. Standard values:
+    /// `claim_based.{claim,approval,accountability,device_session}`,
+    /// `quota.{rate,resource}`, `confidentiality.{encryption,visibility}`,
+    /// `temporal.{window,edit_window,redact_window,session}`. Implementations
+    /// MAY require subtype for these families and fail closed on unknown
+    /// values.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subtype: Option<String>,
     pub effect: ProtocolGrantConstraintEffect,
     /// Evaluation class per `constraint-schema.md` §2.1 / §2.3 — gates how
     /// aggressively the result may be cached. `Stateless` and `GrantLocal`
@@ -1035,7 +1049,8 @@ impl ProtocolGrantConstraint {
     pub fn scaffold_examples() -> Vec<Self> {
         vec![
             Self {
-                constraint_type: ProtocolGrantConstraintType::ApprovalWorkflow,
+                constraint_type: ProtocolGrantConstraintType::ClaimBased,
+                subtype: Some("claim_based.approval".to_owned()),
                 effect: ProtocolGrantConstraintEffect::RequireReview,
                 priority: Some(100),
                 not_before: None,
@@ -1076,6 +1091,7 @@ impl ProtocolGrantConstraint {
             },
             Self {
                 constraint_type: ProtocolGrantConstraintType::ClaimBased,
+                subtype: Some("claim_based.claim".to_owned()),
                 effect: ProtocolGrantConstraintEffect::Allow,
                 priority: Some(80),
                 not_before: None,
@@ -1119,7 +1135,8 @@ impl ProtocolGrantConstraint {
                 extra: BTreeMap::new(),
             },
             Self {
-                constraint_type: ProtocolGrantConstraintType::ContainerMove,
+                constraint_type: ProtocolGrantConstraintType::ScopeLimitation,
+                subtype: None,
                 effect: ProtocolGrantConstraintEffect::Deny,
                 priority: Some(120),
                 not_before: None,
