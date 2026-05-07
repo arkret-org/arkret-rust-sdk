@@ -574,9 +574,10 @@ pub const FLOW_BRANCH_MEMBER_KIND: &str = "cx.flow.branch.member";
 
 /// One row of branch-scoped membership state.
 ///
-/// The composite state key derives from `(flow_id, branch_id, principal_id)`
-/// per `data-structures.md` §6.1; callers SHOULD encode it via
-/// [`crate::canonical::encode_state_key`].
+/// The composite **state subject** derives from `(flow_id, branch, actor_id)`
+/// per `data-structures.md` §6.1 and `encoding.md` §9.5; callers SHOULD
+/// build the reducer-internal slot key via
+/// [`crate::canonical::encode_state_subject`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FlowBranchMembership {
     pub flow_id: String,
@@ -590,9 +591,9 @@ pub struct FlowBranchMembership {
 }
 
 impl FlowBranchMembership {
-    /// Build the canonical composite state key for this row.
-    pub fn state_key(&self) -> String {
-        crate::canonical::encode_state_key(&[
+    /// Build the canonical composite **state subject** for this row's slot.
+    pub fn state_subject(&self) -> String {
+        crate::canonical::encode_state_subject(&[
             &self.flow_id,
             &self.branch_id,
             self.principal_id.as_str(),
@@ -619,7 +620,7 @@ impl FlowBranchMembershipManager {
     /// illegal state transitions per
     /// [`is_legal_membership_transition`].
     pub fn apply(&mut self, row: FlowBranchMembership) -> Result<()> {
-        let key = row.state_key();
+        let key = row.state_subject();
         let from = self.rows.get(&key).map(|prev| prev.state);
         if !is_legal_membership_transition(from, row.state) {
             return Err(Error::Protocol(format!(
@@ -637,7 +638,8 @@ impl FlowBranchMembershipManager {
         branch_id: &str,
         principal_id: &Did,
     ) -> Option<&FlowBranchMembership> {
-        let key = crate::canonical::encode_state_key(&[flow_id, branch_id, principal_id.as_str()]);
+        let key =
+            crate::canonical::encode_state_subject(&[flow_id, branch_id, principal_id.as_str()]);
         self.rows.get(&key)
     }
 

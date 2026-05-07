@@ -841,20 +841,28 @@ pub struct ReadMarkerRequest {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StateGetRequest {
     pub space_id: SpaceId,
-    pub state_key: String,
+    /// State slot subject derived from the event's typed payload field
+    /// (per the schema registry's `state_subject_field`). Empty string
+    /// addresses the singleton state slot for the requested kind.
+    /// Spec Phase 1 (2026-05-07) renamed this field from `state_key`.
+    pub subject: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct StateSetRequest {
     pub space_id: SpaceId,
-    pub state_key: String,
+    /// State slot subject — see [`StateGetRequest::subject`].
+    pub subject: String,
     pub content: Value,
 }
 
 impl StateSetRequest {
     pub fn validate(&self) -> Result<()> {
-        if self.state_key.trim().is_empty() {
-            return Err(Error::Protocol("state key must not be empty".to_owned()));
+        if self.subject.trim().is_empty() {
+            return Err(Error::Protocol(
+                "state subject must not be empty (use the typed subject from payload fields)"
+                    .to_owned(),
+            ));
         }
         if !self.content.is_object() {
             return Err(Error::Protocol("state content must be a JSON object".to_owned()));
@@ -866,7 +874,8 @@ impl StateSetRequest {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct StateEventResponse {
     pub event_id: EventId,
-    pub state_key: String,
+    /// State slot subject — see [`StateGetRequest::subject`].
+    pub subject: String,
     pub content: Value,
 }
 
@@ -1681,7 +1690,7 @@ mod tests {
 
         StateSetRequest {
             space_id: space(),
-            state_key: "topic".to_owned(),
+            subject: "topic".to_owned(),
             content: serde_json::json!({"topic": "work"}),
         }
         .validate()

@@ -30,15 +30,21 @@ pub fn canonical_sha256<T: Serialize>(value: &T) -> Result<String> {
     Ok(sha256_digest(canonical_json_bytes(value)?))
 }
 
-/// Encode a composite `state_key` from its parts.
+/// Encode a composite **state subject** from its parts.
 ///
-/// State events that key on multiple identifiers (e.g. `flow_id|branch|did`)
-/// MUST escape any literal `|` in a part because DID grammar permits the
-/// pipe character. This helper percent-encodes `%` and `|` in each part and
-/// joins with `|` so the inverse [`decode_state_key_parts`] is unambiguous.
+/// Spec Phase 1 (2026-05-07) removed the envelope `state_key` field; what was
+/// previously called a composite `state_key` is now a composite **subject**
+/// derived from typed payload fields per the schema registry's
+/// `state_subject_components`. This helper preserves the historic
+/// percent-encoding (`%` → `%25`, `|` → `%7C`) so callers building a
+/// reducer-internal slot key (`(space_id, kind, subject)`) get an
+/// unambiguous round-trip.
+///
+/// Wire-canonical composite subject is base64url(sha256(canonical_json([...])))
+/// per `encoding.md` §9.5; this `|`-joined form is reducer-internal only.
 ///
 /// Empty input returns an empty string. Each part MUST be valid UTF-8.
-pub fn encode_state_key(parts: &[&str]) -> String {
+pub fn encode_state_subject(parts: &[&str]) -> String {
     let mut out = String::new();
     for (idx, part) in parts.iter().enumerate() {
         if idx > 0 {
@@ -55,8 +61,8 @@ pub fn encode_state_key(parts: &[&str]) -> String {
     out
 }
 
-/// Inverse of [`encode_state_key`]. Returns each part as a decoded `String`.
-pub fn decode_state_key_parts(encoded: &str) -> Result<Vec<String>> {
+/// Inverse of [`encode_state_subject`]. Returns each part as a decoded `String`.
+pub fn decode_state_subject_parts(encoded: &str) -> Result<Vec<String>> {
     let mut out = Vec::new();
     for raw in encoded.split('|') {
         let mut decoded = String::with_capacity(raw.len());
@@ -64,14 +70,16 @@ pub fn decode_state_key_parts(encoded: &str) -> Result<Vec<String>> {
         while let Some(b) = bytes.next() {
             if b == b'%' {
                 let hi = bytes.next().ok_or_else(|| {
-                    Error::Protocol("state_key percent-encoding truncated".to_owned())
+                    Error::Protocol("state subject percent-encoding truncated".to_owned())
                 })?;
                 let lo = bytes.next().ok_or_else(|| {
-                    Error::Protocol("state_key percent-encoding truncated".to_owned())
+                    Error::Protocol("state subject percent-encoding truncated".to_owned())
                 })?;
                 let code = u8::from_str_radix(&format!("{}{}", hi as char, lo as char), 16)
                     .map_err(|_| {
-                        Error::Protocol("state_key percent-encoding has non-hex digits".to_owned())
+                        Error::Protocol(
+                            "state subject percent-encoding has non-hex digits".to_owned(),
+                        )
                     })?;
                 decoded.push(code as char);
             } else {
@@ -82,6 +90,7 @@ pub fn decode_state_key_parts(encoded: &str) -> Result<Vec<String>> {
     }
     Ok(out)
 }
+
 
 /// Validate that a timestamp string is in canonical RFC 3339 UTC form.
 ///
@@ -296,28 +305,29 @@ mod tests {
     }
 
     #[test]
-    fn state_key_encoding_roundtrips_simple_parts() {
+    fn state_subject_encoding_roundtrips_simple_parts() {
         let parts = ["did:web:alice.example", "discussion", "cx:flow:01"];
-        let encoded = encode_state_key(&parts);
+        let encoded = encode_state_subject(&parts);
         assert_eq!(encoded, "did:web:alice.example|discussion|cx:flow:01");
-        let decoded = decode_state_key_parts(&encoded).unwrap();
+        let decoded = decode_state_subject_parts(&encoded).unwrap();
         assert_eq!(decoded, parts);
     }
 
     #[test]
-    fn state_key_encoding_escapes_pipes_and_percents() {
+    fn state_subject_encoding_escapes_pipes_and_percents() {
         // A DID method-specific id that legitimately contains '|' must be
         // round-trippable without colliding with the part separator.
         let parts = ["did:web:alice|bar", "100%great", "plain"];
-        let encoded = encode_state_key(&parts);
+        let encoded = encode_state_subject(&parts);
         assert_eq!(encoded, "did:web:alice%7Cbar|100%25great|plain");
-        let decoded = decode_state_key_parts(&encoded).unwrap();
+        let decoded = decode_state_subject_parts(&encoded).unwrap();
         assert_eq!(decoded, parts);
     }
 
     #[test]
-    fn state_key_decode_rejects_truncated_percent() {
-        assert!(decode_state_key_parts("abc%2").is_err());
-        assert!(decode_state_key_parts("abc%").is_err());
+    fn state_subject_decode_rejects_truncated_percent() {
+        assert!(decode_state_subject_parts("abc%2").is_err());
+        assert!(decode_state_subject_parts("abc%").is_err());
     }
+
 }

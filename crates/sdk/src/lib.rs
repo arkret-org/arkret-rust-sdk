@@ -102,6 +102,8 @@ pub mod authz;
 #[cfg(feature = "full-surface")]
 pub mod base;
 #[cfg(feature = "full-surface")]
+pub mod consent;
+#[cfg(feature = "full-surface")]
 pub mod content;
 #[cfg(feature = "full-surface")]
 pub mod crypto;
@@ -149,6 +151,8 @@ pub mod search;
 pub mod settings;
 #[cfg(feature = "full-surface")]
 pub mod space;
+#[cfg(feature = "full-surface")]
+pub mod space_host;
 #[cfg(feature = "full-surface")]
 pub mod store;
 #[cfg(all(feature = "full-surface", feature = "sync-runtime"))]

@@ -41,7 +41,7 @@ pub struct SpaceState {
     pub entities: BTreeMap<String, Entity>,
     /// Current relations by ID
     pub relations: BTreeMap<String, Relation>,
-    /// Generic resolved state events keyed by `kind|state_key`.
+    /// Generic resolved state events keyed by `kind|subject` (spec Phase 1).
     pub resolved_state: BTreeMap<String, ResolvedStateEvent>,
     /// Message timeline state keyed by message id.
     pub messages: BTreeMap<String, ResolvedMessage>,
@@ -260,10 +260,11 @@ impl SpaceState {
             | "cx.moderation.report"
             | "cx.moderation.frank"
             // Branch-scoped membership / visibility / policy
-            // (data-structures.md §6.1). `state_key` derives from
-            // `(flow_id, branch_id, principal_id)` for the `member` row
-            // and `(flow_id, branch_id)` for the others; encode via
-            // `canonical::encode_state_key`.
+            // (data-structures.md §6.1). The composite **state subject**
+            // derives from `(flow_id, branch, actor_id)` for the `member`
+            // row and `(flow_id, branch)` for the others; encode via
+            // `canonical::encode_state_subject` (spec Phase 1 renamed
+            // `state_key` -> `state_subject`).
             | "cx.flow.branch.member"
             | "cx.flow.branch.history_visibility"
             | "cx.flow.branch.policy_components" => self.reduce_generic_state_event(event)?,
@@ -777,7 +778,7 @@ impl SpaceState {
     }
 
     fn reduce_generic_state_event(&mut self, event: &Event) -> Result<()> {
-        let state_key = self.state_key_for_event(event)?;
+        let subject = self.subject_for_event(event)?;
         let family = match event.kind.as_str() {
             "cx.capability.grant" | "cx.capability.delegate" | "cx.capability.revoke" => {
                 "cx.capability"
@@ -786,10 +787,10 @@ impl SpaceState {
             "cx.space.policy" | "cx.policy.set" => "cx.policy",
             other => other,
         };
-        let map_key = format!("{}|{}", family, state_key);
+        let map_key = format!("{}|{}", family, subject);
         let candidate = ResolvedStateEvent {
             kind: event.kind.clone(),
-            state_key,
+            subject,
             source_event_id: event.event_id.clone(),
             actor_id: event.actor_id.clone(),
             actor_seq: event.actor_seq,
@@ -1067,18 +1068,27 @@ impl SpaceState {
         Ok(self.extract_optional_field(content, "fields").unwrap_or_default())
     }
 
-    fn state_key_for_event(&self, event: &Event) -> Result<String> {
-        if let Some(state_key) = self.extract_optional_field::<String>(&event.content, "state_key")
+    /// Derive the state slot subject for an event per spec Phase 1 §4.3
+    /// (replaces the legacy `state_key_for_event` which fell back to a
+    /// `payload.state_key` field — that field is gone entirely).
+    fn subject_for_event(&self, event: &Event) -> Result<String> {
+        if self
+            .extract_optional_field::<String>(&event.content, "state_key")
+            .is_some()
         {
-            return Ok(state_key);
+            return Err(Error::Protocol(
+                "legacy state_key field on event payload — spec Phase 1 requires typed subject fields"
+                    .to_owned(),
+            ));
         }
 
         match event.kind.as_str() {
             "cx.member.state" => self
-                .extract_optional_field::<String>(&event.content, "principal_id")
+                .extract_optional_field::<String>(&event.content, "actor_id")
+                .or_else(|| self.extract_optional_field::<String>(&event.content, "principal_id"))
                 .or_else(|| self.extract_optional_field::<String>(&event.content, "member_id"))
                 .ok_or_else(|| {
-                    Error::Protocol("member state requires state_key or principal_id".to_owned())
+                    Error::Protocol("member state requires payload.actor_id".to_owned())
                 }),
             "cx.capability.revoke" => self
                 .extract_optional_field::<String>(&event.content, "target_capability_id")
@@ -1398,7 +1408,11 @@ pub struct SnapshotRestore {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ResolvedStateEvent {
     pub kind: String,
-    pub state_key: String,
+    /// State slot subject derived from the event's typed payload per the
+    /// schema registry's `state_subject_field`. Empty string for singleton
+    /// state events. Spec Phase 1 (2026-05-07) renamed this from
+    /// `state_key` to `subject`.
+    pub subject: String,
     pub source_event_id: EventId,
     pub actor_id: Did,
     pub actor_seq: u64,
@@ -1981,7 +1995,7 @@ mod tests {
             required_features: vec![],
             critical_extensions: vec![],
             redacts: None,
-            content: json!({ "state_key": "did:web:alice.example", "membership": "leave" }),
+            content: json!({ "actor_id": "did:web:alice.example", "membership": "leave" }),
             unsigned: BTreeMap::new(),
             proofs: vec![],
         };
@@ -2001,7 +2015,7 @@ mod tests {
             required_features: vec![],
             critical_extensions: vec![],
             redacts: None,
-            content: json!({ "state_key": "did:web:alice.example", "membership": "ban" }),
+            content: json!({ "actor_id": "did:web:alice.example", "membership": "ban" }),
             unsigned: BTreeMap::new(),
             proofs: vec![],
         };

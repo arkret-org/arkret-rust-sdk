@@ -16,7 +16,12 @@ use serde_json::{Value, json};
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ResolvedStateEvent {
     pub kind: String,
-    pub state_key: String,
+    /// State slot subject derived from the event's typed payload per the
+    /// schema registry's `state_subject_field`. Empty string for singleton
+    /// state events whose slot key is `(space_id, kind)` only. Spec Phase 1
+    /// (2026-05-07) removed the envelope `state_key` field entirely; this
+    /// is now reducer-internal subject, not a wire field.
+    pub subject: String,
     pub source_event_id: EventId,
     pub actor_id: Did,
     pub actor_seq: u64,
@@ -403,7 +408,7 @@ impl StateReducer {
     }
 
     fn reduce_candidate(&mut self, candidate: ResolvedStateEvent) {
-        let map_key = state_map_key(&candidate.kind, &candidate.state_key);
+        let map_key = state_slot_key(&candidate.kind, &candidate.subject);
         match self.resolved_state.get(&map_key) {
             Some(existing) if !candidate_wins(existing, &candidate) => {
                 self.conflict_records.push(ConflictRecord {
@@ -443,10 +448,10 @@ pub fn candidate_from_event(event: &Event) -> Result<Option<ResolvedStateEvent>>
     if !is_state_event(event) {
         return Ok(None);
     }
-    let state_key = state_key_for_event(event)?;
+    let subject = subject_for_event(event)?;
     Ok(Some(ResolvedStateEvent {
         kind: event.kind.clone(),
-        state_key,
+        subject,
         source_event_id: event.event_id.clone(),
         actor_id: event.actor_id.clone(),
         actor_seq: event.actor_seq,
@@ -459,28 +464,73 @@ pub fn is_state_event(event: &Event) -> bool {
     event.kind.starts_with("cx.state.")
         || matches!(
             event.kind.as_str(),
+            // membership
             "cx.member.state"
+                | "cx.flow.branch.member"
+                | "cx.flow.branch.history_visibility"
+                | "cx.flow.branch.policy_components"
+            // capability (grant/revoke share slot via grant_id; delegate/derived have own slot)
                 | "cx.capability.grant"
                 | "cx.capability.delegate"
                 | "cx.capability.revoke"
-                | "cx.space.policy"
+                | "cx.capability.derived"
+            // policy
                 | "cx.policy.set"
+                | "cx.policy.rule"
+            // invite
                 | "cx.invite.create"
                 | "cx.invite.cancel"
                 | "cx.invite.accept"
+            // read marker
                 | "cx.read.marker"
+            // space lifecycle / structure
                 | "cx.space.create"
                 | "cx.space.update"
                 | "cx.space.organization"
+                | "cx.space.upgrade"
                 | "cx.space.child"
                 | "cx.space.parent"
-                | "cx.space.inheritance_policy"
+            // per-facet space policy state events (Phase 1: replaced cx.space.policy.set)
+                | "cx.space.policy"
                 | "cx.space.join_rule"
                 | "cx.space.history_visibility"
                 | "cx.space.discovery"
+                | "cx.space.policy_server"
+                | "cx.space.policy_components"
+                | "cx.space.history_sharing_policy"
+                | "cx.space.asset_privacy_policy"
+                | "cx.space.moderation_policy"
+                | "cx.space.plaintext_visible_services"
+                | "cx.space.media_service"
+                | "cx.space.schema"
+                | "cx.space.inheritance_policy"
+            // per-facet space lifecycle (Phase 1: replaced cx.space.lifecycle.set)
                 | "cx.space.archive"
                 | "cx.space.freeze"
+                | "cx.space.tombstone"
                 | "cx.space.destroy"
+            // hub-writer (Phase 4)
+                | "cx.space.host"
+                | "cx.space.host.transfer"
+            // consent (Phase 5)
+                | "cx.consent.grant"
+                | "cx.consent.revoke"
+            // device / session / account state
+                | "cx.device.authorized"
+                | "cx.device.revoked"
+                | "cx.device.list_update"
+                | "cx.session.grant"
+                | "cx.account.status"
+            // profile state (create/update share slot via payload.object.id / payload.target_ref)
+                | "cx.profile.create"
+                | "cx.profile.update"
+            // mimi room binding
+                | "cx.mimi.room_binding"
+            // view state
+                | "cx.view.create"
+                | "cx.view.update"
+                | "cx.view.reconcile"
+            // flow lifecycle / structure
                 | "cx.flow.create"
                 | "cx.flow.update"
                 | "cx.flow.archive"
@@ -491,35 +541,66 @@ pub fn is_state_event(event: &Event) -> bool {
         )
 }
 
-pub fn state_key_for_event(event: &Event) -> Result<String> {
-    if let Some(state_key) = optional_field::<String>(&event.content, "state_key") {
-        return Ok(state_key);
+/// Derive the state slot subject for an event according to the schema
+/// registry's `state_subject_field` rules (spec Phase 1 §4.3).
+///
+/// Returns the empty string for singleton state events whose slot key is
+/// `(space_id, kind)` only. Returns a non-empty subject string for
+/// per_subject events; composite subjects are joined via `|` (an in-memory
+/// canonical form — wire form is the base64url(sha256(canonical_json([...])))
+/// derived by [`contrix_core::canonical::encode_state_subject`]).
+///
+/// **No fallback to `payload.state_key`**: spec Phase 1 removed the envelope
+/// `state_key` field entirely, and writers MUST NOT carry it through payload
+/// either. Older events that still ship a `payload.state_key` field are
+/// rejected here as `Protocol("legacy state_key field on event payload — \
+/// spec Phase 1 requires typed subject fields")`.
+pub fn subject_for_event(event: &Event) -> Result<String> {
+    if optional_field::<String>(&event.content, "state_key").is_some() {
+        return Err(Error::Protocol(
+            "legacy state_key field on event payload — spec Phase 1 requires typed subject fields"
+                .to_owned(),
+        ));
     }
 
     match event.kind.as_str() {
+        // ── per_subject by payload.actor_id ────────────────────────────
         "cx.member.state" | "cx.state.membership" => {
-            optional_field::<String>(&event.content, "principal_id")
+            optional_field::<String>(&event.content, "actor_id")
+                .or_else(|| optional_field::<String>(&event.content, "principal_id"))
                 .or_else(|| optional_field::<String>(&event.content, "member_id"))
                 .or_else(|| optional_field::<String>(&event.content, "user_id"))
-                .ok_or_else(|| Error::Protocol("member state requires a state key".to_owned()))
+                .ok_or_else(|| Error::Protocol("member state requires payload.actor_id".to_owned()))
         }
-        "cx.capability.revoke" => optional_field::<String>(&event.content, "target_capability_id")
+        // ── flow.branch.member: composite (flow_id, branch, actor_id) ─
+        "cx.flow.branch.member" => composite_subject(event, &["flow_id", "branch", "actor_id"]),
+        "cx.flow.branch.history_visibility" | "cx.flow.branch.policy_components" => {
+            composite_subject(event, &["flow_id", "branch"])
+        }
+        // ── per_subject by payload.grant_id (revoke shares grant slot) ─
+        "cx.capability.grant"
+        | "cx.capability.delegate"
+        | "cx.capability.revoke"
+        | "cx.capability.derived" => optional_field::<String>(&event.content, "grant_id")
+            .or_else(|| optional_field::<String>(&event.content, "capability_id"))
+            .or_else(|| optional_field::<String>(&event.content, "target_capability_id"))
             .or_else(|| optional_field::<String>(&event.content, "id"))
-            .ok_or_else(|| Error::Protocol("capability revoke requires a state key".to_owned())),
-        "cx.capability.grant" | "cx.capability.delegate" => {
-            optional_field::<String>(&event.content, "capability_id")
-                .or_else(|| optional_field::<String>(&event.content, "id"))
-                .ok_or_else(|| Error::Protocol("capability event requires a state key".to_owned()))
-        }
-        "cx.space.policy" | "cx.policy.set" | "cx.state.policy" => {
-            Ok(optional_field::<String>(&event.content, "policy_id")
-                .unwrap_or_else(|| "space_policy".to_owned()))
-        }
+            .ok_or_else(|| Error::Protocol("capability event requires payload.grant_id".to_owned())),
+        // ── policy ────────────────────────────────────────────────────
+        "cx.policy.set" | "cx.state.policy" => Ok(optional_field::<String>(
+            &event.content,
+            "policy_id",
+        )
+        .unwrap_or_else(|| "space_policy".to_owned())),
+        "cx.policy.rule" => optional_field::<String>(&event.content, "rule_id")
+            .ok_or_else(|| Error::Protocol("policy rule requires payload.rule_id".to_owned())),
+        // ── invite ────────────────────────────────────────────────────
         "cx.invite.create" | "cx.invite.cancel" | "cx.invite.accept" => {
             optional_field::<String>(&event.content, "invite_id")
                 .or_else(|| optional_field::<String>(&event.content, "id"))
-                .ok_or_else(|| Error::Protocol("invite event requires a state key".to_owned()))
+                .ok_or_else(|| Error::Protocol("invite event requires payload.invite_id".to_owned()))
         }
+        // ── flow surface ──────────────────────────────────────────────
         "cx.flow.link_surface" | "cx.flow.unlink_surface" | "cx.flow.set_primary_surface" => {
             optional_field::<String>(&event.content, "relation_id")
                 .or_else(|| {
@@ -552,18 +633,110 @@ pub fn state_key_for_event(event: &Event) -> Result<String> {
                 .or_else(|| optional_field::<String>(&event.content, "target_ref"))
                 .ok_or_else(|| Error::Protocol("read marker requires a state key".to_owned()))
         }
+        // ── space child / parent: per_subject by other-space id ───────
+        "cx.space.child" => optional_field::<String>(&event.content, "child_space_id")
+            .ok_or_else(|| Error::Protocol("cx.space.child requires payload.child_space_id".to_owned())),
+        "cx.space.parent" => optional_field::<String>(&event.content, "parent_space_id")
+            .ok_or_else(|| Error::Protocol("cx.space.parent requires payload.parent_space_id".to_owned())),
+        // ── space inheritance: per_subject by parent_space_id ─────────
+        "cx.space.inheritance_policy" => optional_field::<String>(&event.content, "parent_space_id")
+            .ok_or_else(|| {
+                Error::Protocol(
+                    "cx.space.inheritance_policy requires payload.parent_space_id".to_owned(),
+                )
+            }),
+        // ── space upgrade: per_subject by target_reducer_profile ──────
+        "cx.space.upgrade" => optional_field::<String>(&event.content, "target_reducer_profile")
+            .ok_or_else(|| {
+                Error::Protocol(
+                    "cx.space.upgrade requires payload.target_reducer_profile".to_owned(),
+                )
+            }),
+        // ── consent: per_subject by consent_id (revoke shares slot) ───
+        "cx.consent.grant" | "cx.consent.revoke" => {
+            optional_field::<String>(&event.content, "consent_id").ok_or_else(|| {
+                Error::Protocol("consent event requires payload.consent_id".to_owned())
+            })
+        }
+        // ── host transfer: per_subject by transfer_id ─────────────────
+        "cx.space.host.transfer" => optional_field::<String>(&event.content, "transfer_id")
+            .ok_or_else(|| {
+                Error::Protocol(
+                    "cx.space.host.transfer requires payload.transfer_id".to_owned(),
+                )
+            }),
+        // ── mimi room binding: per_subject by mimi_room_uri ───────────
+        "cx.mimi.room_binding" => optional_field::<String>(&event.content, "mimi_room_uri")
+            .ok_or_else(|| {
+                Error::Protocol(
+                    "cx.mimi.room_binding requires payload.mimi_room_uri".to_owned(),
+                )
+            }),
+        // ── profile create/update: per_subject by actor_profile id ────
+        "cx.profile.create" => {
+            // payload.object.id is the canonical subject for create
+            event
+                .content
+                .get("object")
+                .and_then(|v| v.get("id"))
+                .and_then(|v| v.as_str())
+                .map(str::to_owned)
+                .ok_or_else(|| {
+                    Error::Protocol(
+                        "cx.profile.create requires payload.object.id".to_owned(),
+                    )
+                })
+        }
+        "cx.profile.update" => optional_field::<String>(&event.content, "target_ref").ok_or_else(
+            || Error::Protocol("cx.profile.update requires payload.target_ref".to_owned()),
+        ),
+        // ── device authorized/revoked: composite (principal_id, device_id) ─
+        "cx.device.authorized" | "cx.device.revoked" => {
+            composite_subject(event, &["principal_id", "device_id"])
+        }
+        "cx.device.list_update" | "cx.account.status" => {
+            optional_field::<String>(&event.content, "principal_id").ok_or_else(|| {
+                Error::Protocol(
+                    "device list / account status requires payload.principal_id".to_owned(),
+                )
+            })
+        }
+        "cx.session.grant" => optional_field::<String>(&event.content, "grant_id")
+            .ok_or_else(|| Error::Protocol("cx.session.grant requires payload.grant_id".to_owned())),
+        // ── view state ────────────────────────────────────────────────
+        "cx.view.create" | "cx.view.update" | "cx.view.reconcile" => {
+            optional_field::<String>(&event.content, "view_id")
+                .or_else(|| {
+                    event
+                        .content
+                        .get("object")
+                        .and_then(|v| v.get("id"))
+                        .and_then(|v| v.as_str())
+                        .map(str::to_owned)
+                })
+                .ok_or_else(|| Error::Protocol("view event requires payload.view_id".to_owned()))
+        }
+        // ── singleton: slot keyed by (space_id, kind) only ────────────
         "cx.space.create"
         | "cx.space.update"
         | "cx.space.organization"
-        | "cx.space.child"
-        | "cx.space.parent"
-        | "cx.space.inheritance_policy"
+        | "cx.space.policy"
         | "cx.space.join_rule"
         | "cx.space.history_visibility"
         | "cx.space.discovery"
+        | "cx.space.policy_server"
+        | "cx.space.policy_components"
+        | "cx.space.history_sharing_policy"
+        | "cx.space.asset_privacy_policy"
+        | "cx.space.moderation_policy"
+        | "cx.space.plaintext_visible_services"
+        | "cx.space.media_service"
+        | "cx.space.schema"
         | "cx.space.archive"
         | "cx.space.freeze"
+        | "cx.space.tombstone"
         | "cx.space.destroy"
+        | "cx.space.host"
         | "cx.state.power_levels"
         | "cx.state.capabilities"
         | "cx.state.tags"
@@ -577,16 +750,55 @@ pub fn state_key_for_event(event: &Event) -> Result<String> {
     }
 }
 
-pub fn state_map_key(kind: &str, state_key: &str) -> String {
+/// Combine multiple payload string fields into a composite subject (e.g.
+/// `(flow_id, branch, actor_id)`). The wire-canonical form is
+/// base64url(sha256(canonical_json([components]))) per spec encoding §9.5;
+/// the reducer-internal form uses `|` separation since reducers operate on
+/// the typed values, not the wire hash.
+fn composite_subject(event: &Event, fields: &[&str]) -> Result<String> {
+    let mut parts = Vec::with_capacity(fields.len());
+    for field in fields {
+        let value = optional_field::<String>(&event.content, field).ok_or_else(|| {
+            Error::Protocol(format!(
+                "{} requires payload.{}",
+                event.kind.as_str(),
+                field
+            ))
+        })?;
+        parts.push(value);
+    }
+    Ok(parts.join("|"))
+}
+
+/// Compose the canonical reducer state slot key for an `(kind, subject)`
+/// pair. Multiple kinds that operate on the same logical state slot
+/// (paired kinds with `component_slot_alias_of` declared in the schema
+/// registry) collapse to the same family prefix, so the reducer treats
+/// `cx.capability.grant` / `cx.capability.revoke` etc. as one slot.
+///
+/// Spec Phase 1 (2026-05-07) renamed `state_key` to `subject` everywhere;
+/// this function is the canonical name. Singleton state slots take the
+/// empty subject and produce keys like `"cx.space.media_service|"`.
+pub fn state_slot_key(kind: &str, subject: &str) -> String {
     let family = match kind {
-        "cx.capability.grant" | "cx.capability.delegate" | "cx.capability.revoke" => {
-            "cx.capability"
-        }
+        // capability grant + revoke share state slot via payload.grant_id
+        "cx.capability.grant" | "cx.capability.revoke" => "cx.capability.grant",
+        "cx.capability.delegate" => "cx.capability.delegate",
+        "cx.capability.derived" => "cx.capability.derived",
+        // invite slot keyed by invite_id
         "cx.invite.create" | "cx.invite.cancel" | "cx.invite.accept" => "cx.invite",
-        "cx.space.policy" | "cx.policy.set" | "cx.state.policy" => "cx.policy",
+        // legacy aggregate (Phase 1 removed): keep alias only for the old
+        // single-Space `cx.policy.set` typed payload, not the per-facet kinds.
+        "cx.policy.set" | "cx.state.policy" => "cx.policy",
+        // profile create/update share state slot
+        "cx.profile.create" | "cx.profile.update" => "cx.profile",
+        // device authorized/revoked share state slot via composite (principal,device)
+        "cx.device.authorized" | "cx.device.revoked" => "cx.device.authorized",
+        // consent grant/revoke share state slot via consent_id
+        "cx.consent.grant" | "cx.consent.revoke" => "cx.consent.grant",
         other => other,
     };
-    format!("{family}|{state_key}")
+    format!("{family}|{subject}")
 }
 
 pub fn candidate_wins(existing: &ResolvedStateEvent, candidate: &ResolvedStateEvent) -> bool {

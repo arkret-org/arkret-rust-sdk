@@ -3440,7 +3440,10 @@ fn capability_grant_from_resolved_event(
         .ok_or_else(|| Error::Protocol("capability content must be an object".to_owned()))?;
     let id = optional_string(content, "capability_id")
         .or_else(|| optional_string(content, "id"))
-        .unwrap_or_else(|| event.state_key.clone());
+        .or_else(|| optional_string(content, "grant_id"))
+        // Per spec Phase 1, capability events carry their grant_id in
+        // payload — no envelope state_key fallback.
+        .ok_or_else(|| Error::Protocol("capability event missing grant_id / id".to_owned()))?;
     let issuer = optional_did(content, "issuer")?.unwrap_or_else(|| event.actor_id.clone());
     let subject = optional_did(content, "subject")?
         .ok_or_else(|| Error::Protocol("capability grant requires subject".to_owned()))?;
