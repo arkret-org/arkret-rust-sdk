@@ -1072,10 +1072,7 @@ impl SpaceState {
     /// (replaces the legacy `state_key_for_event` which fell back to a
     /// `payload.state_key` field — that field is gone entirely).
     fn subject_for_event(&self, event: &Event) -> Result<String> {
-        if self
-            .extract_optional_field::<String>(&event.content, "state_key")
-            .is_some()
-        {
+        if self.extract_optional_field::<String>(&event.content, "state_key").is_some() {
             return Err(Error::Protocol(
                 "legacy state_key field on event payload — spec Phase 1 requires typed subject fields"
                     .to_owned(),

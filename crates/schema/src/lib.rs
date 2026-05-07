@@ -327,6 +327,43 @@ pub struct SpecArtifactBundle {
     pub id_kind_registry: Value,
 }
 
+/// Criticality level a receiver applies when it does not recognise an event's
+/// `component_type` / `component_version`.
+///
+/// Sourced verbatim from the spec event-kind-registry. Per-event overrides via
+/// `Event.requirements.critical_extensions` still take precedence.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Criticality {
+    /// Receivers MUST fail closed (`schema_violation`, `soft_fail`, or
+    /// `quarantine` depending on context) when the component is unknown.
+    Required,
+    /// Receivers MAY warn and ignore the event when the component is unknown.
+    Optional,
+    /// Receivers MUST silently drop the event when the component is unknown.
+    Ignore,
+}
+
+/// Component metadata for a single state event kind, as declared by the spec
+/// event-kind-registry.
+///
+/// Returned by [`SpecArtifactBundle::component`]. Multiple event kinds MAY
+/// share a `component_type` (e.g. `cx.capability.grant` and
+/// `cx.capability.revoke`) — the alias entry will set
+/// `component_slot_alias_of` to the canonical kind that owns the slot.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ComponentDescriptor {
+    pub event_kind: String,
+    pub component_type: String,
+    pub component_version: u64,
+    pub criticality: Criticality,
+    /// Canonical event kind whose slot this kind aliases, when set. Aliasing
+    /// kinds share the same `(component_type, component_version)` as the
+    /// canonical kind and resolve to the same state slot.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub component_slot_alias_of: Option<String>,
+}
+
 impl SpecArtifactBundle {
     pub fn load(artifacts_dir: impl AsRef<Path>) -> Result<Self> {
         let artifacts_dir = artifacts_dir.as_ref();
@@ -384,6 +421,57 @@ impl SpecArtifactBundle {
                 ARTIFACT_BACKED_EVENT_KINDS,
             ),
         }
+    }
+
+    /// Look up the [`ComponentDescriptor`] for a state event kind.
+    ///
+    /// Returns `Ok(None)` when the kind is not registered, `Err` when the
+    /// registry entry is malformed (missing `component_type`, non-integer
+    /// version, unknown criticality value).
+    pub fn component(&self, event_kind: &str) -> Result<Option<ComponentDescriptor>> {
+        let Some(entry) =
+            registry_entry(&self.event_kind_registry, "event_kinds", "event_kind", event_kind)
+        else {
+            return Ok(None);
+        };
+        let component_type = entry
+            .get("component_type")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                Error::Protocol(format!(
+                    "event kind {event_kind} missing component_type in registry"
+                ))
+            })?
+            .to_owned();
+        let component_version =
+            entry.get("component_version").and_then(Value::as_u64).ok_or_else(|| {
+                Error::Protocol(format!(
+                    "event kind {event_kind} missing or non-integer component_version"
+                ))
+            })?;
+        let criticality_str =
+            entry.get("criticality").and_then(Value::as_str).ok_or_else(|| {
+                Error::Protocol(format!("event kind {event_kind} missing criticality"))
+            })?;
+        let criticality = match criticality_str {
+            "required" => Criticality::Required,
+            "optional" => Criticality::Optional,
+            "ignore" => Criticality::Ignore,
+            other => {
+                return Err(Error::Protocol(format!(
+                    "event kind {event_kind} has unknown criticality {other:?}"
+                )));
+            }
+        };
+        let component_slot_alias_of =
+            entry.get("component_slot_alias_of").and_then(Value::as_str).map(str::to_owned);
+        Ok(Some(ComponentDescriptor {
+            event_kind: event_kind.to_owned(),
+            component_type,
+            component_version,
+            criticality,
+            component_slot_alias_of,
+        }))
     }
 }
 
@@ -702,6 +790,40 @@ mod tests {
                 .unwrap_or_else(|| panic!("missing id kind {kind}"));
             assert_eq!(entry["wire_form"].as_str(), Some(wire_form), "{kind}");
         }
+    }
+
+    #[test]
+    fn component_descriptor_resolves_canonical_and_alias_kinds() {
+        let Some(artifacts_dir) = default_spec_artifacts_dir() else {
+            return;
+        };
+        let bundle = SpecArtifactBundle::load(artifacts_dir).unwrap();
+
+        // Canonical kind owns its slot — no alias_of.
+        let canonical = bundle
+            .component("cx.capability.grant")
+            .unwrap()
+            .expect("cx.capability.grant should be registered");
+        assert_eq!(canonical.criticality, Criticality::Required);
+        assert!(canonical.component_type.starts_with("cx.component."));
+        assert!(canonical.component_version >= 1);
+        assert!(canonical.component_slot_alias_of.is_none());
+
+        // Alias kind shares the canonical kind's slot.
+        let alias = bundle
+            .component("cx.capability.revoke")
+            .unwrap()
+            .expect("cx.capability.revoke should be registered");
+        assert_eq!(
+            alias.component_slot_alias_of.as_deref(),
+            Some("cx.capability.grant"),
+            "cx.capability.revoke should slot-alias cx.capability.grant"
+        );
+        assert_eq!(alias.component_type, canonical.component_type);
+        assert_eq!(alias.component_version, canonical.component_version);
+
+        // Unknown kind is a clean None, not an error.
+        assert!(bundle.component("cx.bogus.kind").unwrap().is_none());
     }
 
     #[test]

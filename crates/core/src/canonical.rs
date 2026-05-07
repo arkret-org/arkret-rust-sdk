@@ -91,7 +91,6 @@ pub fn decode_state_subject_parts(encoded: &str) -> Result<Vec<String>> {
     Ok(out)
 }
 
-
 /// Validate that a timestamp string is in canonical RFC 3339 UTC form.
 ///
 /// Canonical form: `YYYY-MM-DDTHH:MM:SSZ` — no fractional seconds, no `+00:00`
@@ -329,5 +328,4 @@ mod tests {
         assert!(decode_state_subject_parts("abc%2").is_err());
         assert!(decode_state_subject_parts("abc%").is_err());
     }
-
 }

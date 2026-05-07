@@ -585,20 +585,23 @@ pub fn subject_for_event(event: &Event) -> Result<String> {
             .or_else(|| optional_field::<String>(&event.content, "capability_id"))
             .or_else(|| optional_field::<String>(&event.content, "target_capability_id"))
             .or_else(|| optional_field::<String>(&event.content, "id"))
-            .ok_or_else(|| Error::Protocol("capability event requires payload.grant_id".to_owned())),
+            .ok_or_else(|| {
+                Error::Protocol("capability event requires payload.grant_id".to_owned())
+            }),
         // ── policy ────────────────────────────────────────────────────
-        "cx.policy.set" | "cx.state.policy" => Ok(optional_field::<String>(
-            &event.content,
-            "policy_id",
-        )
-        .unwrap_or_else(|| "space_policy".to_owned())),
+        "cx.policy.set" | "cx.state.policy" => {
+            Ok(optional_field::<String>(&event.content, "policy_id")
+                .unwrap_or_else(|| "space_policy".to_owned()))
+        }
         "cx.policy.rule" => optional_field::<String>(&event.content, "rule_id")
             .ok_or_else(|| Error::Protocol("policy rule requires payload.rule_id".to_owned())),
         // ── invite ────────────────────────────────────────────────────
         "cx.invite.create" | "cx.invite.cancel" | "cx.invite.accept" => {
             optional_field::<String>(&event.content, "invite_id")
                 .or_else(|| optional_field::<String>(&event.content, "id"))
-                .ok_or_else(|| Error::Protocol("invite event requires payload.invite_id".to_owned()))
+                .ok_or_else(|| {
+                    Error::Protocol("invite event requires payload.invite_id".to_owned())
+                })
         }
         // ── flow surface ──────────────────────────────────────────────
         "cx.flow.link_surface" | "cx.flow.unlink_surface" | "cx.flow.set_primary_surface" => {
@@ -634,17 +637,23 @@ pub fn subject_for_event(event: &Event) -> Result<String> {
                 .ok_or_else(|| Error::Protocol("read marker requires a state key".to_owned()))
         }
         // ── space child / parent: per_subject by other-space id ───────
-        "cx.space.child" => optional_field::<String>(&event.content, "child_space_id")
-            .ok_or_else(|| Error::Protocol("cx.space.child requires payload.child_space_id".to_owned())),
+        "cx.space.child" => {
+            optional_field::<String>(&event.content, "child_space_id").ok_or_else(|| {
+                Error::Protocol("cx.space.child requires payload.child_space_id".to_owned())
+            })
+        }
         "cx.space.parent" => optional_field::<String>(&event.content, "parent_space_id")
-            .ok_or_else(|| Error::Protocol("cx.space.parent requires payload.parent_space_id".to_owned())),
-        // ── space inheritance: per_subject by parent_space_id ─────────
-        "cx.space.inheritance_policy" => optional_field::<String>(&event.content, "parent_space_id")
             .ok_or_else(|| {
+                Error::Protocol("cx.space.parent requires payload.parent_space_id".to_owned())
+            }),
+        // ── space inheritance: per_subject by parent_space_id ─────────
+        "cx.space.inheritance_policy" => {
+            optional_field::<String>(&event.content, "parent_space_id").ok_or_else(|| {
                 Error::Protocol(
                     "cx.space.inheritance_policy requires payload.parent_space_id".to_owned(),
                 )
-            }),
+            })
+        }
         // ── space upgrade: per_subject by target_reducer_profile ──────
         "cx.space.upgrade" => optional_field::<String>(&event.content, "target_reducer_profile")
             .ok_or_else(|| {
@@ -661,16 +670,12 @@ pub fn subject_for_event(event: &Event) -> Result<String> {
         // ── host transfer: per_subject by transfer_id ─────────────────
         "cx.space.host.transfer" => optional_field::<String>(&event.content, "transfer_id")
             .ok_or_else(|| {
-                Error::Protocol(
-                    "cx.space.host.transfer requires payload.transfer_id".to_owned(),
-                )
+                Error::Protocol("cx.space.host.transfer requires payload.transfer_id".to_owned())
             }),
         // ── mimi room binding: per_subject by mimi_room_uri ───────────
         "cx.mimi.room_binding" => optional_field::<String>(&event.content, "mimi_room_uri")
             .ok_or_else(|| {
-                Error::Protocol(
-                    "cx.mimi.room_binding requires payload.mimi_room_uri".to_owned(),
-                )
+                Error::Protocol("cx.mimi.room_binding requires payload.mimi_room_uri".to_owned())
             }),
         // ── profile create/update: per_subject by actor_profile id ────
         "cx.profile.create" => {
@@ -682,14 +687,14 @@ pub fn subject_for_event(event: &Event) -> Result<String> {
                 .and_then(|v| v.as_str())
                 .map(str::to_owned)
                 .ok_or_else(|| {
-                    Error::Protocol(
-                        "cx.profile.create requires payload.object.id".to_owned(),
-                    )
+                    Error::Protocol("cx.profile.create requires payload.object.id".to_owned())
                 })
         }
-        "cx.profile.update" => optional_field::<String>(&event.content, "target_ref").ok_or_else(
-            || Error::Protocol("cx.profile.update requires payload.target_ref".to_owned()),
-        ),
+        "cx.profile.update" => {
+            optional_field::<String>(&event.content, "target_ref").ok_or_else(|| {
+                Error::Protocol("cx.profile.update requires payload.target_ref".to_owned())
+            })
+        }
         // ── device authorized/revoked: composite (principal_id, device_id) ─
         "cx.device.authorized" | "cx.device.revoked" => {
             composite_subject(event, &["principal_id", "device_id"])
@@ -701,8 +706,11 @@ pub fn subject_for_event(event: &Event) -> Result<String> {
                 )
             })
         }
-        "cx.session.grant" => optional_field::<String>(&event.content, "grant_id")
-            .ok_or_else(|| Error::Protocol("cx.session.grant requires payload.grant_id".to_owned())),
+        "cx.session.grant" => {
+            optional_field::<String>(&event.content, "grant_id").ok_or_else(|| {
+                Error::Protocol("cx.session.grant requires payload.grant_id".to_owned())
+            })
+        }
         // ── view state ────────────────────────────────────────────────
         "cx.view.create" | "cx.view.update" | "cx.view.reconcile" => {
             optional_field::<String>(&event.content, "view_id")
@@ -759,11 +767,7 @@ fn composite_subject(event: &Event, fields: &[&str]) -> Result<String> {
     let mut parts = Vec::with_capacity(fields.len());
     for field in fields {
         let value = optional_field::<String>(&event.content, field).ok_or_else(|| {
-            Error::Protocol(format!(
-                "{} requires payload.{}",
-                event.kind.as_str(),
-                field
-            ))
+            Error::Protocol(format!("{} requires payload.{}", event.kind.as_str(), field))
         })?;
         parts.push(value);
     }

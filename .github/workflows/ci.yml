@@ -93,3 +93,34 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       # Crate package name is `contrix` (workspace path is `crates/sdk`).
       - run: cargo publish -p contrix --dry-run --locked
+
+  spec-drift:
+    name: spec artifact drift report
+    runs-on: ubuntu-latest
+    # Best-effort informational job: prints any active spec event kinds the
+    # SDK has not yet declared coverage for. Fails only on *hard* drift —
+    # entries the SDK declares but the spec no longer ships.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: contrix-rust-sdk
+      - uses: actions/checkout@v4
+        with:
+          repository: contrix-dev/contrix-spec
+          path: contrix-spec
+          # Public spec repo; if private, set a PAT under
+          # secrets.SPEC_READ_TOKEN and pass `token: ${{ secrets.SPEC_READ_TOKEN }}`.
+        continue-on-error: true
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.92"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: contrix-rust-sdk
+      - name: Run spec_drift_report
+        if: hashFiles('contrix-spec/spec/v1/artifacts/registry/schema-registry.json') != ''
+        working-directory: contrix-rust-sdk
+        env:
+          CONTRIX_SPEC_ARTIFACTS: ${{ github.workspace }}/contrix-spec/spec/v1/artifacts
+        run: cargo run --example spec_drift_report

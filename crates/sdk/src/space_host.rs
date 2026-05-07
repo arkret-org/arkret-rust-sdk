@@ -198,7 +198,7 @@ mod tests {
     fn effective_activation_timeout_falls_back_to_default() {
         let payload = SpaceHostPayload::new(did("did:web:host1.example"));
         assert_eq!(payload.effective_activation_timeout_ms(), DEFAULT_ACTIVATION_TIMEOUT_MS);
-        let mut explicit = payload.clone();
+        let mut explicit = payload;
         explicit.activation_timeout_ms = Some(60_000);
         assert_eq!(explicit.effective_activation_timeout_ms(), 60_000);
     }

@@ -2145,9 +2145,7 @@ impl Proof {
         }
         if self.kind == proof_kind::HOST_ENDORSEMENT {
             if self.host_did.is_none() {
-                return Err(Error::Protocol(
-                    "host_endorsement proof requires host_did".to_owned(),
-                ));
+                return Err(Error::Protocol("host_endorsement proof requires host_did".to_owned()));
             }
             if self.endorsed_at.is_none() {
                 return Err(Error::Protocol(
@@ -2439,9 +2437,9 @@ impl Space {
             (SpaceWriterModel::Hub, None) => Err(Error::Protocol(
                 "hub-writer Space MUST declare space_host on create".to_owned(),
             )),
-            (SpaceWriterModel::PeerMesh, Some(_)) => Err(Error::Protocol(
-                "peer_mesh Space MUST NOT declare space_host".to_owned(),
-            )),
+            (SpaceWriterModel::PeerMesh, Some(_)) => {
+                Err(Error::Protocol("peer_mesh Space MUST NOT declare space_host".to_owned()))
+            }
             _ => Ok(()),
         }
     }

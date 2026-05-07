@@ -40,10 +40,10 @@
 | W6 ⚠ | `[x]` | `host_endorsement` proof 类型 | `crates/core/src/model.rs` | `Proof` 新增 `host_did: Option<Did>` + `endorsed_at: Option<DateTime<Utc>>`；`proof_kind::{DETACHED_JWS, HOST_ENDORSEMENT}` 常量；`Proof::validate()` 强制 `kind=host_endorsement` 时 host_did/endorsed_at 必填，其它 kind 必须为空（防泄漏）；`Proof::is_host_endorsement()` 判定 helper。10 处 Proof 字面量构造点同步增加 None 字段。 |
 | W7 ⚠ | `[x]` | `cx.space.host` / `cx.space.host.transfer` typed model | 新 `crates/sdk/src/space_host.rs` | `SpaceHostPayload`（host_did + standby_hosts + activation_timeout_ms + endorsement_method + host_endpoint）、`SpaceHostTransferPayload`（mode enum + activation_frontier + smooth_dual_signature/governance_quorum_proof）；`TransferMode::{Smooth, Emergency}` + `validate()` mode-conditional invariants。5 个单元测试。 |
 | W8 ⚠ | `[x]` | `Space.space_writer_model` / `Space.space_host` 字段 | `crates/core/src/model.rs` | `SpaceWriterModel::{Hub, PeerMesh}` enum 加 `derive(federation_policy)` 默认派生（closed/restricted/quarantine→Hub；open→PeerMesh；None→Hub sovereign-leaning）；`Space::derived_writer_model()` + `Space::validate_writer_model()` 强制 hub MUST 有 space_host、peer_mesh MUST NOT 有。 |
-| W9 🅿 | `[ ]` | Component metadata API（type/version/criticality 查询） | `crates/sdk/src/registry.rs`（或 `crates/schema/src/lib.rs`） | 新 helper `Registry::component(kind) -> ComponentDescriptor { component_type, component_version, criticality, slot_alias_of }`；与 schema-drift CI（Q2）联动。**deferred 到下一轮**——当前 component metadata 由 schema registry JSON 直接消费，typed Rust API 是优化项。 |
+| W9 🅿 | `[x]` | Component metadata API（type/version/criticality 查询） | `crates/schema/src/lib.rs` | `SpecArtifactBundle::component(event_kind) -> Result<Option<ComponentDescriptor>>` 已落地；返回 `ComponentDescriptor { event_kind, component_type, component_version, criticality, component_slot_alias_of }`，`Criticality` 是 `required/optional/ignore` enum。`cx.capability.revoke -> cx.capability.grant` 别名链接也覆盖了。带单元测试 `component_descriptor_resolves_canonical_and_alias_kinds`。 |
 | W10 ⚠ | `[ ]` | MLS application_state_ref + covered_frontier API | `crates/crypto/src/mls.rs`、`crates/sdk/src/mls.rs` | `cx_app_state_ref` GroupContext extension 编/解码（CBOR canonical）；`covered_frontier` 状态查询；`pending_mls_binding` 状态判断。**deferred 到下一轮**——需要先与 soland MLS commit 验证逻辑联调。 |
 | W11 🅿 | `[x]` | Composite state subject encoding helper | `crates/core/src/canonical.rs` | `encode_state_subject` / `decode_state_subject_parts` 是新 canonical 名；`encode_state_key` / `decode_state_key_parts` 标 `#[deprecated]` 但仍可用（向后兼容期）。`FlowBranchMembership::state_subject()` 是新 method，`state_key()` deprecated alias。 |
-| W12 🔒 | `[~]` | `cargo test` workspace + clippy + fmt | CI | workspace cargo test 全绿（530+ lib tests）；clippy/fmt 在最终发布前再过一轮。 |
+| W12 🔒 | `[x]` | `cargo test` workspace + clippy + fmt | CI | 2026-05-07 final pass: fmt（auto-fixed `canonical.rs`/`model.rs`/`consent.rs`/`resolver.rs`/`state-res/lib.rs`）、clippy（修了 consent.rs `collapsible_if` x2 + redundant_clone x2、space_host.rs redundant_clone x1）、`cargo test --workspace --all-features` 538 passed / 0 failed / 2 ignored、rustdoc with `-D broken_intra_doc_links -D warnings`、`tools/check-publish-order.py` 22 crates 通过。 |
 | W13 🔒 | `[ ]` | SDK 升级到 wire-breaking major | 全 workspace `Cargo.toml` | 等 W9/W10 落地后一次性 bump。 |
 
 ## P1 · Production helper surface
@@ -59,7 +59,7 @@
 
 | # | 状态 | 任务 | 文件 | 说明 |
 |---|---|---|---|---|
-| Q2 🅿 | `[~]` | schema drift constants 自动生成 | `crates/schema/src/lib.rs`、build tooling | `ArtifactDriftReport` 已带 `unlisted_event_kinds` 软信号；剩余把 soft signal 接到 CI/任务报告。 |
+| Q2 🅿 | `[x]` | schema drift constants 自动生成 | `crates/schema/src/lib.rs`、`crates/sdk/examples/spec_drift_report.rs`、`.github/workflows/ci.yml` | `ArtifactDriftReport` 加了 `unlisted_event_kinds` 软信号 + `has_unlisted()`；新 example `cargo run --example spec_drift_report` 把 hard drift（exit 1）/ soft drift（informational, exit 0）打印出来；`spec-drift` CI job 在 PR 上 checkout `contrix-spec` 并运行该 example，`continue-on-error: true` 保证 spec 仓库未公开时不挂 main pipeline。本地一跑发现 117 个 active event kind SDK 还没声明覆盖——给下一轮 typed reducer 工作的清单。 |
 
 ## 跨项目登记
 
@@ -98,3 +98,8 @@
 - `[x]` Q3 `cargo metadata` / release order 验证纳入本地 xtask。
 - `[x]` H1 SDK 端 `StaridRegistryAdapter` doc 收敛。
 - `[x]` H4 typed contract 去掉 wire 上的 `todo`/`note` 占位字段。
+- `[x]` 2026-05-07 — **W9 + W12 + Q2 收尾**：
+  - W9: `SpecArtifactBundle::component(event_kind)` 返回 `ComponentDescriptor { event_kind, component_type, component_version, criticality, component_slot_alias_of }`；`Criticality` enum (`required/optional/ignore`)；带单元测试覆盖 canonical (`cx.capability.grant`) + alias (`cx.capability.revoke`) + unknown 三种路径
+  - W12: 全 workspace fmt + clippy + 538 lib tests + rustdoc(`-D broken_intra_doc_links -D warnings`) + `tools/check-publish-order.py` 22 crates 全绿
+  - Q2: `cargo run --example spec_drift_report` 把 hard/soft drift 都打出来；`.github/workflows/ci.yml` 加了 `spec-drift` informational job（`continue-on-error: true`，等 contrix-spec checkout 之后跑）；本地一跑发现 117 个 active event kind 等下一轮 typed reducer 覆盖
+- 仍开放：S1（等 spec PR）、W10（MLS state binding，等 soland 联调）、W13（等 W10 后整体 bump）、H2/H3（等 soland durable lifecycle）。

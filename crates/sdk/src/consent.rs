@@ -129,11 +129,7 @@ pub enum ConsentState {
         valid_until: Option<DateTime<Utc>>,
     },
     /// Slot has been revoked (latest accepted event is `cx.consent.revoke`).
-    Revoked {
-        peer: Did,
-        scope: Scope,
-        revoked_at: Option<DateTime<Utc>>,
-    },
+    Revoked { peer: Did, scope: Scope, revoked_at: Option<DateTime<Utc>> },
     /// Slot does not exist (no accepted event ever written).
     Absent,
 }
@@ -144,24 +140,19 @@ impl ConsentState {
     /// window; `None` window endpoints mean "no bound on that side".
     pub fn allows(&self, requested: Scope, now: DateTime<Utc>) -> bool {
         match self {
-            ConsentState::Granted {
-                scope,
-                not_before,
-                valid_until,
-                ..
-            } => {
+            ConsentState::Granted { scope, not_before, valid_until, .. } => {
                 if !scope.satisfies(requested) {
                     return false;
                 }
-                if let Some(start) = not_before {
-                    if now < *start {
-                        return false;
-                    }
+                if let Some(start) = not_before
+                    && now < *start
+                {
+                    return false;
                 }
-                if let Some(end) = valid_until {
-                    if now > *end {
-                        return false;
-                    }
+                if let Some(end) = valid_until
+                    && now > *end
+                {
+                    return false;
                 }
                 true
             }
@@ -191,7 +182,7 @@ mod tests {
     fn granted_state_respects_window() {
         let peer = Did::new("did:web:bob.example").unwrap();
         let state = ConsentState::Granted {
-            peer: peer.clone(),
+            peer,
             scope: Scope::Invite,
             not_before: Some(ts(2026, 1, 1)),
             valid_until: Some(ts(2026, 12, 31)),
@@ -206,11 +197,8 @@ mod tests {
     #[test]
     fn revoked_and_absent_states_deny() {
         let peer = Did::new("did:web:bob.example").unwrap();
-        let revoked = ConsentState::Revoked {
-            peer,
-            scope: Scope::Invite,
-            revoked_at: Some(ts(2026, 6, 1)),
-        };
+        let revoked =
+            ConsentState::Revoked { peer, scope: Scope::Invite, revoked_at: Some(ts(2026, 6, 1)) };
         assert!(!revoked.allows(Scope::Invite, ts(2026, 6, 2)));
         assert!(!ConsentState::Absent.allows(Scope::Invite, ts(2026, 6, 1)));
     }
@@ -220,7 +208,7 @@ mod tests {
         let peer = Did::new("did:web:bob.example").unwrap();
         let payload = ConsentGrantPayload {
             consent_id: "cs-001".to_owned(),
-            peer: peer.clone(),
+            peer,
             scope: Scope::Invite,
             not_before: None,
             valid_until: None,
