@@ -89,8 +89,6 @@ impl DetachedSignature {
             domain: self.domain,
             audience: self.audience,
             jws: self.jws,
-            host_did: None,
-            endorsed_at: None,
         }
     }
 
@@ -434,8 +432,6 @@ mod tests {
             domain: Some("api.example".to_owned()),
             audience: Some(Audience::Single("did:web:service.example".to_owned())),
             jws: "sig".to_owned(),
-            host_did: None,
-            endorsed_at: None,
         };
         let mut context = ProofVerificationContext::new(actor, payload_hash);
         context.domain = proof.domain.clone();

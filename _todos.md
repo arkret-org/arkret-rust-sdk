@@ -23,13 +23,26 @@
 |---|---|---|---|---|
 | S1 ⚠ | `[~]` | `cx.did.proof` 字段命名等待 spec 决策 | `crates/sdk/src/identity.rs`、schema mirror | 历史建议是 `kind -> proof_kind`，但当前 `event-envelope.schema.json` 尚未采用。等 `contrix-spec` 登记后用 `#[serde(rename = "proof_kind", alias = "kind")]` 做一轮兼容。 |
 
-## P0 · v1 wire model rework（spec Phase 1-5）⚠ 🔒
+## P0 · v1 wire model rework（spec Phase 1-5）⚠ 🔒 — **整体作废 (2026-05-08)**
 
-> 起源：`contrix-spec` 2026-05-07 完成 Phase 1-5。详见根 [`../_todos.md` C10.A](../_todos.md) 与 [`../contrix-spec/_state_todos.md`](../contrix-spec/_state_todos.md)。
+> ⚠ **Supersession 通知 (2026-05-08)**：`contrix-spec` 已用 **Move / Anchor / Lattice** 三原语替换旧 state slot / hub-writer / host endorsement 模型（见 [`../contrix-spec/_state_todos.md`](../contrix-spec/_state_todos.md)）。本节 W1-W13 中：
 >
-> 本仓是 C10 链路的第一个串行 gate——SDK 没消化前，soland reducer 扩面 / cotest fixture refresh / yougen 真实 event submit 都在错误的 wire 上工作。
+> - **W1 / W2 / W11（subject helpers / state-res 主键 / canonical encoding）** — 概念被 cell_family / cell_subject 替代，仅作为基础构件部分保留；
+> - **W3 / W4（17 per-facet space kind）** — 仍在 spec event-kind-registry 中存在，typed payload 部分保留；
+> - **W5（cx.consent.*）** — typed model 必须重写为 consent cell or-set Move，旧 reducer slot 表述废弃；
+> - **W6（host_endorsement proof）** — **整体作废**，相关 `Proof::host_did` / `endorsed_at` / `proof_kind::HOST_ENDORSEMENT` 删除；
+> - **W7（cx.space.host / .transfer typed model）** — **整体作废**，`crates/sdk/src/space_host.rs` 整模块删除；
+> - **W8（Space.space_writer_model / space_host）** — **整体作废**，相关字段 + `derived_writer_model()` / `validate_writer_model()` 删除；
+> - **W9（component metadata API）** — 保留并复用；
+> - **W10（MLS application_state_ref / covered_frontier）** — 改写为 covered_frontier cell 上的 Move precondition 检查；
+> - **W12（cargo test workspace）** — 仍是验证基线；
+> - **W13（major bump）** — 推迟到新 C10.A 完成后。
 >
-> **2026-05-07 进度**：W1+W2+W5+W6+W7+W8+W11 已落地；workspace 530+ lib tests 全绿。剩余 W9（component metadata API）/ W10（MLS state binding API）/ W12（version bump）作为 follow-up。
+> **新工作请见根 [`../_todos.md` C10.A](../_todos.md) 与本文件下方 P0 · Move / Anchor / Lattice 章节。**
+
+> 起源（历史）：`contrix-spec` 2026-05-07 完成 Phase 1-5。
+>
+> **2026-05-07 进度（已作废）**：W1+W2+W5+W6+W7+W8+W11 已落地；workspace 530+ lib tests 全绿。W9 已落地（保留）。
 
 | # | 状态 | 任务 | 文件 | 说明 |
 |---|---|---|---|---|
@@ -45,6 +58,30 @@
 | W11 🅿 | `[x]` | Composite state subject encoding helper | `crates/core/src/canonical.rs` | `encode_state_subject` / `decode_state_subject_parts` 是新 canonical 名；`encode_state_key` / `decode_state_key_parts` 标 `#[deprecated]` 但仍可用（向后兼容期）。`FlowBranchMembership::state_subject()` 是新 method，`state_key()` deprecated alias。 |
 | W12 🔒 | `[x]` | `cargo test` workspace + clippy + fmt | CI | 2026-05-07 final pass: fmt（auto-fixed `canonical.rs`/`model.rs`/`consent.rs`/`resolver.rs`/`state-res/lib.rs`）、clippy（修了 consent.rs `collapsible_if` x2 + redundant_clone x2、space_host.rs redundant_clone x1）、`cargo test --workspace --all-features` 538 passed / 0 failed / 2 ignored、rustdoc with `-D broken_intra_doc_links -D warnings`、`tools/check-publish-order.py` 22 crates 通过。 |
 | W13 🔒 | `[ ]` | SDK 升级到 wire-breaking major | 全 workspace `Cargo.toml` | 等 W9/W10 落地后一次性 bump。 |
+
+## P0 · Move / Anchor / Lattice typed model（取代旧 P0）⚠ 🔒
+
+> 起源：`contrix-spec` 2026-05-08 用 Move/Anchor/Lattice 三原语替换旧模型。详见根 [`../_todos.md` C10.A](../_todos.md)。
+>
+> 本仓仍是 C10 链路第一个串行 gate——下游 soland / cotest / yougen 不应在 raw JSON 上做 Move/Anchor wire 改动。
+
+| # | 状态 | 任务 | 文件 | 说明 |
+|---|---|---|---|---|
+| M0 ⚠ | `[ ]` | 旧 W6/W7/W8 wire-breaking artifact 删除 | `crates/core/src/model.rs`（`Proof::host_did`/`endorsed_at`/`proof_kind::HOST_ENDORSEMENT`）、`crates/sdk/src/space_host.rs`（整模块删）、`Space.space_writer_model`/`space_host`/`derived_writer_model()`/`validate_writer_model()` | v1 未发布无兼容包袱；先删旧的避免新模型多一层判空。10+ 处 Proof literal 中的 None 字段同步清理。 |
+| M1 ⚠ | `[ ]` | `Move` typed model + canonical bytes | 新 `crates/core/src/move_event.rs` | `Move { id, issuer, space_id, preconditions, effects, anchor_ref, refs, hlc, sig }`；`canonical_bytes(&Move) -> Vec<u8>` + `Move::id_from_bytes`；签名走通用 detached JWS。Preconditions: `head_eq` / `head_in` / `satisfies` / `contains`。Effect lattice ops: `add`/`remove`/`set`/`transition`/`inc`/`dec`/`append`。 |
+| M2 ⚠ | `[ ]` | `Anchor` typed model + 三种签名形态 | 新 `crates/core/src/anchor.rs` | `Anchor { id, space_id, predecessor_refs, frontier, state_root, anchorer_sig, hlc }`；`AnchorerSig::{Single(Signature), Multi(Vec<Signature>), Threshold { threshold, signers, proof }}`；`canonical_bytes(&Anchor)`。 |
+| M3 🅿 | `[ ]` | Cell ID + cell_family + cell_subject helpers | 新 `crates/core/src/cell.rs` | `CellId` 解析 `cx:cell:<component>:<subject>` 与等价 canonical tuple；与 spec event-kind-registry 的 `cell_family` / `cell_subject` 字段对齐；composite subject 通过 `composite` descriptor 派生。 |
+| M4 ⚠ | `[ ]` | Lattice trait + 6 个核心 type 实现 | 新 `crates/lattice/`（独立 crate） | `trait Lattice { type Op; type Value; fn join(moves: &[Move]) -> Result<Self::Value, Bottom>; fn validate_op(&Op) -> Result<(), SchemaError>; }`；6 个 impl：or-set / mv-register / cas-register / fsm / counter / ordered-log。每个含 ≥10 unit test 覆盖 deterministic join + bottom diagnostics。 |
+| M5 🅿 | `[ ]` | `Bottom` 诊断 typed model | `crates/core/src/bottom.rs` | `BottomKind::{Conflict, InvalidTransition, MissingDependency, Unauthorized, AnchorerSplit, SchemaError}`；`Bottom { kind, cells, move_ids, details }`；与 spec event-payload.schema.json 对齐。 |
+| M6 🅿 | `[ ]` | Anchorer cell typed value + Space schema mirror | `crates/core/src/space.rs` | `AnchorerValue::{SingleDid(Did), Threshold { k, n, members }, OpenSet(Vec<Did>), Mixed { primary, recovery_members }}`；`Space.anchor_profile` / `Space.anchorer` / `Space.max_anchor_staleness_ms` / `Space.cell_lattices` / `Space.co_write_policy` 字段镜像更新。 |
+| M7 ⚠ | `[ ]` | state-res crate 重定位 | `crates/state-res/src/lib.rs` 整体重写 | 旧主键 `(space_id, kind, subject?)` 模型替换为：(a) Move precondition / effect 验证；(b) Anchor batch apply；(c) per-cell Lattice join。`is_state_event` / `subject_for_event` 等概念被 cell_family / cell_subject 派生替代。 |
+| M8 ⚠ | `[ ]` | `cx.consent.*` 改写为 consent cell Move | `crates/sdk/src/consent.rs` 重写 | grant=add tag, revoke=remove tag on `cx:cell:cx.component.consent.v1:<consent_id>`；effective state 由 or-set join 决定（非 reducer slot supersede）。 |
+| M9 ⚠ | `[ ]` | `covered_frontier` cell + MLS Move 联动 | `crates/crypto/src/mls.rs`、`crates/sdk/src/mls.rs` | `MlsCommitMove` builder：preconditions 含 `mls_epoch_cell.head_eq(prev_epoch)` + `covered_frontier_cell.contains(governance_frontier_required)`；effects 写新 epoch / key schedule / covered_frontier 三 cell。 |
+| M10 ⚠ | `[ ]` | Apply Anchor 算法 + Effective Anchor View | `crates/state-res/src/anchor.rs`（新） | `apply_anchor(A, store) -> Result<AnchorEffect, AnchorReject>`：predecessor_refs / frontier superset / anchorer_sig / deterministic_order / verify_move / atomic effects / state_root recompute。`effective_anchor_view(leaves)` 纯函数。 |
+| M11 🔒 | `[ ]` | SDK 升级到 wire-breaking major | 全 workspace `Cargo.toml` | 单一 PR 一次性 break；不留 alias / shim（v1 未发布）。 |
+| M12 🔒 | `[ ]` | `cargo test` workspace + clippy + fmt 全绿 | CI | 含新 lattice crate 测试。 |
+
+---
 
 ## P1 · Production helper surface
 
@@ -68,7 +105,9 @@
 | C1 | 暴露 v1.0 constraint family/subtype typed model，给 soland/cotest/sodmin 使用。✅ 已完成。 |
 | C5 | 提供 key-backup / restore-ticket / device-message typed client helper；cotest release gate 已覆盖 soland scaffold restore surface，SDK 仍需把 helper 从 scaffold 升级到 typed durable API。 |
 | C6 | 提供公共 DID resolver / starid client helper；soland/cotest 已能发现 optional StarID resolver profile，SDK 仍需 live resolver adapter 与 StarID client helper。 |
-| C10.A | **本仓是 C10 串行 gate 的第一站**——P0 W1-W13 是消化 spec Phase 1-5 wire 改动的全部本仓任务。SDK 升级前 soland / cotest / yougen 不应在 wire 上做改动。 |
+| C10.A | **本仓是 C10 串行 gate 的第一站**——新 P0 M0-M12 是消化 spec 2026-05-08 Move/Anchor/Lattice rewrite 的全部本仓任务。旧 W1-W13（Phase 1-5 host endorsement / writer_model）整体作废，复用部分见上方废弃通知。 |
+| C11 | 本仓需要执行的旧产物清理：W6/W7/W8 删除，含 10+ 处 Proof literal 中的 None 字段、`crates/sdk/src/space_host.rs` 整模块、`Space.space_writer_model` / `space_host`。 |
+| C12 | 本仓不直接持有协议文档；但跨项目登记表里的旧 C10.* 描述需要由本文件 update 反映新 C10.A。|
 
 ## 已完成（changelog）
 

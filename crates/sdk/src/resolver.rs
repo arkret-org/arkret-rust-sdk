@@ -249,7 +249,7 @@ impl SpaceState {
             | "cx.invite.accept"
             | "cx.read.marker"
             // Account lifecycle (account-lifecycle.md §3 +
-            // event-auth-state-resolution.md). The `state_key` is the
+            // event-auth-state-resolution.md). The cell subject is the
             // account DID; the latest event wins per HLC ordering.
             | "cx.account.status"
             | "cx.account.deactivation"
@@ -260,11 +260,10 @@ impl SpaceState {
             | "cx.moderation.report"
             | "cx.moderation.frank"
             // Branch-scoped membership / visibility / policy
-            // (data-structures.md §6.1). The composite **state subject**
+            // (data-structures.md §6.1). The composite cell subject
             // derives from `(flow_id, branch, actor_id)` for the `member`
             // row and `(flow_id, branch)` for the others; encode via
-            // `canonical::encode_state_subject` (spec Phase 1 renamed
-            // `state_key` -> `state_subject`).
+            // `canonical::encode_state_subject`.
             | "cx.flow.branch.member"
             | "cx.flow.branch.history_visibility"
             | "cx.flow.branch.policy_components" => self.reduce_generic_state_event(event)?,
@@ -1068,17 +1067,9 @@ impl SpaceState {
         Ok(self.extract_optional_field(content, "fields").unwrap_or_default())
     }
 
-    /// Derive the state slot subject for an event per spec Phase 1 §4.3
-    /// (replaces the legacy `state_key_for_event` which fell back to a
-    /// `payload.state_key` field — that field is gone entirely).
+    /// Derive the cell subject for an event from typed payload fields,
+    /// per the spec event-kind-registry's `cell_subject` declaration.
     fn subject_for_event(&self, event: &Event) -> Result<String> {
-        if self.extract_optional_field::<String>(&event.content, "state_key").is_some() {
-            return Err(Error::Protocol(
-                "legacy state_key field on event payload — spec Phase 1 requires typed subject fields"
-                    .to_owned(),
-            ));
-        }
-
         match event.kind.as_str() {
             "cx.member.state" => self
                 .extract_optional_field::<String>(&event.content, "actor_id")
@@ -1405,10 +1396,9 @@ pub struct SnapshotRestore {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ResolvedStateEvent {
     pub kind: String,
-    /// State slot subject derived from the event's typed payload per the
-    /// schema registry's `state_subject_field`. Empty string for singleton
-    /// state events. Spec Phase 1 (2026-05-07) renamed this from
-    /// `state_key` to `subject`.
+    /// Cell subject derived from the event's typed payload per the spec
+    /// event-kind-registry's `cell_subject`. Empty string for singleton
+    /// kinds.
     pub subject: String,
     pub source_event_id: EventId,
     pub actor_id: Did,

@@ -1,4 +1,4 @@
-//! Holder-private **consent** state machine (spec Phase 5).
+//! Holder-private **consent** on a per-Space cell (or-set lattice).
 //!
 //! Consent is the protocol-level "I agree to receive `<scope>` from `<peer>`"
 //! state, written in the holder's principal control Space and used as a gate
@@ -8,14 +8,13 @@
 //! kind of contact from that peer". See
 //! [`identity/consent-model.md`](https://contrix.io/spec/v1/zh/identity/consent-model.md).
 //!
-//! Wire kinds:
+//! Wire kinds (both write to the cell
+//! `cx:cell:cx.component.consent.grant.v1:<consent_id>`, lattice = or-set):
 //!
-//! - `cx.consent.grant` — issue or refresh a consent. State slot keyed by
-//!   `payload.consent_id`; `state_subject_field=payload.consent_id`.
-//! - `cx.consent.revoke` — supersede the same `consent_id` slot with a
-//!   revoked record. Shares state slot + component_type
-//!   (`cx.component.consent.grant.v1`) with `cx.consent.grant` via
-//!   `component_slot_alias_of`.
+//! - `cx.consent.grant` — adds a tag (the grant) on the cell;
+//!   `cell_subject = payload.consent_id`.
+//! - `cx.consent.revoke` — removes the same tag from the cell, so the
+//!   or-set join no longer carries the grant value.
 
 use chrono::{DateTime, Utc};
 use contrix_core::Did;
@@ -26,9 +25,10 @@ pub const CONSENT_GRANT_KIND: &str = "cx.consent.grant";
 /// Stable kind for consent revoke events (shares slot with grant).
 pub const CONSENT_REVOKE_KIND: &str = "cx.consent.revoke";
 
-/// Scope of the consent grant. Each scope is an independent consent slot for
-/// the same `(holder, peer)` pair (i.e. granting `Invite` does NOT imply
-/// granting `DirectMessage`); use [`Scope::Any`] to express the union.
+/// Scope of the consent grant. Each scope is an independent consent cell
+/// for the same `(holder, peer)` pair (i.e. granting `Invite` does NOT
+/// imply granting `DirectMessage`); use [`Scope::Any`] to express the
+/// union.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Scope {
@@ -77,7 +77,7 @@ impl Scope {
 /// it MAY be a pairwise DID for pseudonymous deployments.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ConsentGrantPayload {
-    /// Stable consent id; reducer state slot is keyed by this. Revokes MUST
+    /// Stable consent id; the cell subject is keyed by this. Revokes MUST
     /// reuse the same id.
     pub consent_id: String,
     /// Counterparty DID (or pairwise DID) to whom consent is granted.

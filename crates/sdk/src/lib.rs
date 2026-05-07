@@ -152,8 +152,6 @@ pub mod settings;
 #[cfg(feature = "full-surface")]
 pub mod space;
 #[cfg(feature = "full-surface")]
-pub mod space_host;
-#[cfg(feature = "full-surface")]
 pub mod store;
 #[cfg(all(feature = "full-surface", feature = "sync-runtime"))]
 pub mod sync_client;

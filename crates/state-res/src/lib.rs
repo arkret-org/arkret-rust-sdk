@@ -16,11 +16,10 @@ use serde_json::{Value, json};
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ResolvedStateEvent {
     pub kind: String,
-    /// State slot subject derived from the event's typed payload per the
-    /// schema registry's `state_subject_field`. Empty string for singleton
-    /// state events whose slot key is `(space_id, kind)` only. Spec Phase 1
-    /// (2026-05-07) removed the envelope `state_key` field entirely; this
-    /// is now reducer-internal subject, not a wire field.
+    /// Cell subject derived from the event's typed payload per the spec
+    /// event-kind-registry's `cell_subject`. Empty string for singleton
+    /// kinds whose cell key is `(space_id, kind)` only. This is a
+    /// reducer-internal subject, not a wire field.
     pub subject: String,
     pub source_event_id: EventId,
     pub actor_id: Did,
@@ -408,7 +407,7 @@ impl StateReducer {
     }
 
     fn reduce_candidate(&mut self, candidate: ResolvedStateEvent) {
-        let map_key = state_slot_key(&candidate.kind, &candidate.subject);
+        let map_key = projection_cell_key(&candidate.kind, &candidate.subject);
         match self.resolved_state.get(&map_key) {
             Some(existing) if !candidate_wins(existing, &candidate) => {
                 self.conflict_records.push(ConflictRecord {
@@ -541,28 +540,15 @@ pub fn is_state_event(event: &Event) -> bool {
         )
 }
 
-/// Derive the state slot subject for an event according to the schema
-/// registry's `state_subject_field` rules (spec Phase 1 §4.3).
+/// Derive the cell subject for an event from typed payload fields, per
+/// the spec event-kind-registry's `cell_subject` declaration.
 ///
-/// Returns the empty string for singleton state events whose slot key is
+/// Returns the empty string for singleton events whose cell key is
 /// `(space_id, kind)` only. Returns a non-empty subject string for
-/// per_subject events; composite subjects are joined via `|` (an in-memory
+/// per-subject events; composite subjects are joined via `|` (in-memory
 /// canonical form — wire form is the base64url(sha256(canonical_json([...])))
 /// derived by [`contrix_core::canonical::encode_state_subject`]).
-///
-/// **No fallback to `payload.state_key`**: spec Phase 1 removed the envelope
-/// `state_key` field entirely, and writers MUST NOT carry it through payload
-/// either. Older events that still ship a `payload.state_key` field are
-/// rejected here as `Protocol("legacy state_key field on event payload — \
-/// spec Phase 1 requires typed subject fields")`.
 pub fn subject_for_event(event: &Event) -> Result<String> {
-    if optional_field::<String>(&event.content, "state_key").is_some() {
-        return Err(Error::Protocol(
-            "legacy state_key field on event payload — spec Phase 1 requires typed subject fields"
-                .to_owned(),
-        ));
-    }
-
     match event.kind.as_str() {
         // ── per_subject by payload.actor_id ────────────────────────────
         "cx.member.state" | "cx.state.membership" => {
@@ -774,31 +760,28 @@ fn composite_subject(event: &Event, fields: &[&str]) -> Result<String> {
     Ok(parts.join("|"))
 }
 
-/// Compose the canonical reducer state slot key for an `(kind, subject)`
-/// pair. Multiple kinds that operate on the same logical state slot
-/// (paired kinds with `component_slot_alias_of` declared in the schema
-/// registry) collapse to the same family prefix, so the reducer treats
-/// `cx.capability.grant` / `cx.capability.revoke` etc. as one slot.
-///
-/// Spec Phase 1 (2026-05-07) renamed `state_key` to `subject` everywhere;
-/// this function is the canonical name. Singleton state slots take the
+/// Compose the canonical reducer projection-cell key for a
+/// `(kind, subject)` pair. Multiple kinds that share the same cell
+/// family (paired kinds — e.g. `cx.capability.grant` /
+/// `cx.capability.revoke`) collapse to the family prefix so the reducer
+/// treats them as supersedes on the same cell. Singleton kinds take the
 /// empty subject and produce keys like `"cx.space.media_service|"`.
-pub fn state_slot_key(kind: &str, subject: &str) -> String {
+pub fn projection_cell_key(kind: &str, subject: &str) -> String {
     let family = match kind {
-        // capability grant + revoke share state slot via payload.grant_id
+        // capability grant + revoke share a cell via payload.grant_id
         "cx.capability.grant" | "cx.capability.revoke" => "cx.capability.grant",
         "cx.capability.delegate" => "cx.capability.delegate",
         "cx.capability.derived" => "cx.capability.derived",
-        // invite slot keyed by invite_id
+        // invite cell keyed by invite_id
         "cx.invite.create" | "cx.invite.cancel" | "cx.invite.accept" => "cx.invite",
-        // legacy aggregate (Phase 1 removed): keep alias only for the old
-        // single-Space `cx.policy.set` typed payload, not the per-facet kinds.
+        // legacy single-Space cx.policy.set typed payload (kept for the
+        // old aggregate kind; per-facet kinds collapse separately).
         "cx.policy.set" | "cx.state.policy" => "cx.policy",
-        // profile create/update share state slot
+        // profile create/update share a cell
         "cx.profile.create" | "cx.profile.update" => "cx.profile",
-        // device authorized/revoked share state slot via composite (principal,device)
+        // device authorized/revoked share a cell via composite (principal,device)
         "cx.device.authorized" | "cx.device.revoked" => "cx.device.authorized",
-        // consent grant/revoke share state slot via consent_id
+        // consent grant/revoke share a cell via consent_id
         "cx.consent.grant" | "cx.consent.revoke" => "cx.consent.grant",
         other => other,
     };

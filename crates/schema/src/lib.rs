@@ -357,9 +357,9 @@ pub struct ComponentDescriptor {
     pub component_type: String,
     pub component_version: u64,
     pub criticality: Criticality,
-    /// Canonical event kind whose slot this kind aliases, when set. Aliasing
+    /// Canonical event kind whose cell this kind aliases, when set. Aliasing
     /// kinds share the same `(component_type, component_version)` as the
-    /// canonical kind and resolve to the same state slot.
+    /// canonical kind and resolve to the same cell.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub component_slot_alias_of: Option<String>,
 }

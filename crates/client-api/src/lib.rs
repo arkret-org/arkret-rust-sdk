@@ -185,7 +185,7 @@ pub const CLIENT_API_ENDPOINTS: &[ClientApiEndpoint] = &[
         operation_id: "cx.state.get",
         surface: ClientApiSurface::State,
         method: ClientApiMethod::Get,
-        path: "/api/v1/spaces/{space_id}/state/{state_key}",
+        path: "/api/v1/spaces/{space_id}/state/{subject}",
         request_schema: "StateGetRequest",
         response_schema: "StateEventResponse",
     },
@@ -193,7 +193,7 @@ pub const CLIENT_API_ENDPOINTS: &[ClientApiEndpoint] = &[
         operation_id: "cx.state.set",
         surface: ClientApiSurface::State,
         method: ClientApiMethod::Put,
-        path: "/api/v1/spaces/{space_id}/state/{state_key}",
+        path: "/api/v1/spaces/{space_id}/state/{subject}",
         request_schema: "StateSetRequest",
         response_schema: "SendEventResponse",
     },
@@ -841,17 +841,16 @@ pub struct ReadMarkerRequest {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StateGetRequest {
     pub space_id: SpaceId,
-    /// State slot subject derived from the event's typed payload field
-    /// (per the schema registry's `state_subject_field`). Empty string
-    /// addresses the singleton state slot for the requested kind.
-    /// Spec Phase 1 (2026-05-07) renamed this field from `state_key`.
+    /// Cell subject derived from the event's typed payload field
+    /// (per the spec event-kind-registry's `cell_subject`). Empty string
+    /// addresses the singleton cell for the requested kind.
     pub subject: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct StateSetRequest {
     pub space_id: SpaceId,
-    /// State slot subject — see [`StateGetRequest::subject`].
+    /// Cell subject — see [`StateGetRequest::subject`].
     pub subject: String,
     pub content: Value,
 }

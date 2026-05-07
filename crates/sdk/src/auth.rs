@@ -2601,8 +2601,6 @@ mod tests {
             domain: Some("contrix-auth".to_owned()),
             audience: None,
             jws: "signed-proof".to_owned(),
-            host_did: None,
-            endorsed_at: None,
         };
         let verifier = |request: &DidProofVerificationRequest| {
             assert_eq!(request.subject, alice);

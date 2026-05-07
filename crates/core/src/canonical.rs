@@ -30,15 +30,13 @@ pub fn canonical_sha256<T: Serialize>(value: &T) -> Result<String> {
     Ok(sha256_digest(canonical_json_bytes(value)?))
 }
 
-/// Encode a composite **state subject** from its parts.
+/// Encode a composite **cell subject** from its parts.
 ///
-/// Spec Phase 1 (2026-05-07) removed the envelope `state_key` field; what was
-/// previously called a composite `state_key` is now a composite **subject**
-/// derived from typed payload fields per the schema registry's
-/// `state_subject_components`. This helper preserves the historic
-/// percent-encoding (`%` → `%25`, `|` → `%7C`) so callers building a
-/// reducer-internal slot key (`(space_id, kind, subject)`) get an
-/// unambiguous round-trip.
+/// The composite subject is derived from typed payload fields per the
+/// spec event-kind-registry's `cell_subject` (composite form). This
+/// helper preserves percent-encoding (`%` → `%25`, `|` → `%7C`) so
+/// callers building a reducer-internal projection key
+/// (`(space_id, kind, subject)`) get an unambiguous round-trip.
 ///
 /// Wire-canonical composite subject is base64url(sha256(canonical_json([...])))
 /// per `encoding.md` §9.5; this `|`-joined form is reducer-internal only.

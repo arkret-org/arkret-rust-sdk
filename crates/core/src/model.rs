@@ -1475,49 +1475,6 @@ pub enum FederationPolicy {
     Quarantine,
 }
 
-/// Authoritative-writer model for a Space (spec Phase 4 §3.3 / §13).
-///
-/// Locked at create time, alongside [`EncryptionProfile`]. The default,
-/// when omitted on the Space create event, is derived from
-/// [`FederationPolicy`] via [`SpaceWriterModel::derive`].
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(rename_all = "snake_case")]
-pub enum SpaceWriterModel {
-    /// Single canonical Space Host (declared via `cx.space.host`) endorses
-    /// every durable state event with a `host_endorsement` proof; state
-    /// resolution expects 0 concurrent forks. Default for Spaces with
-    /// `federation_policy in {closed, restricted, quarantine}`.
-    Hub,
-    /// Any actor with capability MAY write; concurrent forks resolved by
-    /// quarantine-on-concurrent-fork. Default for Spaces with
-    /// `federation_policy = open`. `cx.space.host` /
-    /// `cx.space.host.transfer` MUST be rejected on these Spaces.
-    PeerMesh,
-}
-
-impl SpaceWriterModel {
-    /// Derive the default writer model from [`FederationPolicy`] when the
-    /// Space create event omits `space_writer_model`. Spec Phase 4 §3.3
-    /// default mapping:
-    ///
-    /// - `Open` → `PeerMesh`
-    /// - `Closed` / `Restricted` / `Quarantine` → `Hub`
-    /// - `None` (federation_policy unset) → `Hub` (sovereign-leaning default)
-    pub fn derive(federation_policy: Option<FederationPolicy>) -> Self {
-        match federation_policy {
-            Some(FederationPolicy::Open) => SpaceWriterModel::PeerMesh,
-            Some(_) | None => SpaceWriterModel::Hub,
-        }
-    }
-
-    /// Whether this writer model requires every durable state event to
-    /// carry a `host_endorsement` proof.
-    pub fn requires_host_endorsement(self) -> bool {
-        matches!(self, SpaceWriterModel::Hub)
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
@@ -2068,28 +2025,12 @@ pub struct Proof {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub audience: Option<Audience>,
     pub jws: String,
-    /// Required when `kind == "host_endorsement"`: canonical service DID of
-    /// the endorsing Space Host (spec Phase 4 §3.3). MUST equal the Space's
-    /// current accepted `cx.space.host.payload.host_did`, or, after an
-    /// active `cx.space.host.transfer.activation_frontier`, the
-    /// `payload.new_host` of that transfer. Absent for normal
-    /// `detached_jws` actor / device / service proofs.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub host_did: Option<Did>,
-    /// Required when `kind == "host_endorsement"`: the host's local clock
-    /// time at endorsement. Advisory only — HLC remains canonical for
-    /// ordering. Absent for non-host-endorsement proofs.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub endorsed_at: Option<DateTime<Utc>>,
 }
 
 /// Canonical proof kind constants.
 pub mod proof_kind {
     /// Standard actor / device / service signature over canonical event bytes.
     pub const DETACHED_JWS: &str = "detached_jws";
-    /// Hub-writer Space Host endorsement (spec Phase 4 §3.3).
-    /// Covers the same canonical event bytes as the actor / device proof.
-    pub const HOST_ENDORSEMENT: &str = "host_endorsement";
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -2123,10 +2064,7 @@ impl Proof {
     /// Validate proof structural requirements.
     ///
     /// Rejects `alg:none`, empty verification methods, empty JWS, and
-    /// empty kind. For `kind == "host_endorsement"` (spec Phase 4 §3.3),
-    /// also requires both `host_did` and `endorsed_at` to be present;
-    /// for other kinds, those fields MUST be absent (preventing
-    /// accidental leakage of host metadata onto regular actor proofs).
+    /// empty kind.
     pub fn validate(&self) -> Result<()> {
         if self.alg.eq_ignore_ascii_case("none") {
             return Err(Error::Protocol("proof algorithm 'none' is not allowed".to_owned()));
@@ -2143,29 +2081,7 @@ impl Proof {
         if self.kind.is_empty() {
             return Err(Error::Protocol("proof kind must not be empty".to_owned()));
         }
-        if self.kind == proof_kind::HOST_ENDORSEMENT {
-            if self.host_did.is_none() {
-                return Err(Error::Protocol("host_endorsement proof requires host_did".to_owned()));
-            }
-            if self.endorsed_at.is_none() {
-                return Err(Error::Protocol(
-                    "host_endorsement proof requires endorsed_at".to_owned(),
-                ));
-            }
-        } else if self.host_did.is_some() || self.endorsed_at.is_some() {
-            return Err(Error::Protocol(format!(
-                "non-host_endorsement proof must not carry host_did/endorsed_at (kind={})",
-                self.kind
-            )));
-        }
         Ok(())
-    }
-
-    /// True when this proof carries a Space Host endorsement
-    /// (spec Phase 4 §3.3). Hub-writer Spaces require exactly one such
-    /// proof on every durable state event in addition to the actor proof.
-    pub fn is_host_endorsement(&self) -> bool {
-        self.kind == proof_kind::HOST_ENDORSEMENT
     }
 
     /// Validate that this proof uses a production-grade algorithm and kind.
@@ -2340,21 +2256,6 @@ pub struct Space {
     pub encryption_profile: EncryptionProfile,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub federation_policy: Option<FederationPolicy>,
-    /// Authoritative-writer model for this Space (spec Phase 4 §3.3).
-    /// **Create-locked**: cannot be changed after the Space create event.
-    /// `Some(Hub)` requires [`Self::space_host`] to be set.
-    /// `None` means the reducer should derive the value from
-    /// `federation_policy` via [`Self::derived_writer_model`]:
-    /// `closed`/`restricted`/`quarantine` → `Hub`; `open` → `PeerMesh`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub space_writer_model: Option<SpaceWriterModel>,
-    /// Canonical Space Host service DID for hub-writer Spaces (spec Phase 4 §3.3).
-    /// REQUIRED when `space_writer_model == Some(Hub)`. The reducer
-    /// materialises the *current* host_did from the latest accepted
-    /// `cx.space.host` state event; this field on the Space create event
-    /// supplies the genesis host. MUST be absent on peer_mesh Spaces.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub space_host: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retention_policy_ref: Option<PolicyId>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -2401,8 +2302,6 @@ impl Space {
             history_visibility: HistoryVisibility::Joined,
             encryption_profile: EncryptionProfile::None,
             federation_policy: None,
-            space_writer_model: None,
-            space_host: None,
             retention_policy_ref: None,
             avatar_blob_ref: None,
             created_at: Utc::now(),
@@ -2417,31 +2316,6 @@ impl Space {
     /// Look up the active [`RelationProfile`] for a given `relation_kind`.
     pub fn relation_profile(&self, relation_kind: &str) -> Option<&RelationProfile> {
         self.relation_profiles.iter().find(|profile| profile.relation_kind == relation_kind)
-    }
-
-    /// Effective writer model for this Space: explicit
-    /// [`Self::space_writer_model`] if set, otherwise derived from
-    /// [`Self::federation_policy`] per [`SpaceWriterModel::derive`]
-    /// (spec Phase 4 §3.3 default mapping).
-    pub fn derived_writer_model(&self) -> SpaceWriterModel {
-        self.space_writer_model
-            .unwrap_or_else(|| SpaceWriterModel::derive(self.federation_policy.clone()))
-    }
-
-    /// Validate the writer-model / host invariants required at create time
-    /// (spec Phase 4 §3.3): hub Spaces MUST declare `space_host`; peer_mesh
-    /// Spaces MUST NOT declare it.
-    pub fn validate_writer_model(&self) -> Result<()> {
-        let model = self.derived_writer_model();
-        match (model, &self.space_host) {
-            (SpaceWriterModel::Hub, None) => Err(Error::Protocol(
-                "hub-writer Space MUST declare space_host on create".to_owned(),
-            )),
-            (SpaceWriterModel::PeerMesh, Some(_)) => {
-                Err(Error::Protocol("peer_mesh Space MUST NOT declare space_host".to_owned()))
-            }
-            _ => Ok(()),
-        }
     }
 
     /// Resolved boundary profile per data-structures.md §4 / §4.1 — declared
@@ -6291,8 +6165,6 @@ mod tests {
             domain: None,
             audience: None,
             jws: "sig-a".to_owned(),
-            host_did: None,
-            endorsed_at: None,
         };
         let envelope = OperationEnvelope {
             operation_id: OperationId::new("cx:operation:01js0op000000000000000000").unwrap(),
@@ -6750,8 +6622,6 @@ mod tests {
             domain: None,
             audience: None,
             jws: "...".to_owned(),
-            host_did: None,
-            endorsed_at: None,
         };
         let payload = proof.binding_payload(&Did::new("did:web:alice.example").unwrap());
 
@@ -6791,8 +6661,6 @@ mod tests {
             domain: None,
             audience: None,
             jws: "server.signature".to_owned(),
-            host_did: None,
-            endorsed_at: None,
         });
 
         echo.validate_server_proofs().unwrap();
@@ -7088,8 +6956,6 @@ mod tests {
             domain: None,
             audience: None,
             jws: "header.payload.signature".to_owned(),
-            host_did: None,
-            endorsed_at: None,
         }
     }
 
@@ -7233,8 +7099,6 @@ mod tests {
             domain: None,
             audience: None,
             jws: "sig".to_owned(),
-            host_did: None,
-            endorsed_at: None,
         };
 
         let mut signed_event = event;
@@ -7266,8 +7130,6 @@ mod tests {
             domain: None,
             audience: None,
             jws: "sig".to_owned(),
-            host_did: None,
-            endorsed_at: None,
         };
 
         let mut signed_event = event;
@@ -7372,8 +7234,6 @@ mod tests {
             domain: None,
             audience: None,
             jws: "sig".to_owned(),
-            host_did: None,
-            endorsed_at: None,
         };
 
         let mut signed_commit = commit;
