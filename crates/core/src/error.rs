@@ -28,7 +28,7 @@ pub const ERROR_CODE_CONFLICT: &str = "conflict";
 pub const ERROR_CODE_CAS_CONFLICT: &str = "cas_conflict";
 pub const ERROR_CODE_CAUSAL_CONFLICT: &str = "causal_conflict";
 pub const ERROR_CODE_DEPENDENCY_MISSING: &str = "dependency_missing";
-pub const ERROR_CODE_DISCUSSION_BRANCH_DISABLED: &str = "discussion_branch_disabled";
+pub const ERROR_CODE_DISCUSSION_TRACK_DISABLED: &str = "discussion_track_disabled";
 pub const ERROR_CODE_EPOCH_MISMATCH: &str = "epoch_mismatch";
 pub const ERROR_CODE_DUPLICATE_CONFLICT: &str = "duplicate_conflict";
 pub const ERROR_CODE_RANK_EXHAUSTED: &str = "rank_exhausted";
@@ -75,7 +75,7 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
     ERROR_CODE_CAS_CONFLICT,
     ERROR_CODE_CAUSAL_CONFLICT,
     ERROR_CODE_DEPENDENCY_MISSING,
-    ERROR_CODE_DISCUSSION_BRANCH_DISABLED,
+    ERROR_CODE_DISCUSSION_TRACK_DISABLED,
     ERROR_CODE_EPOCH_MISMATCH,
     ERROR_CODE_DUPLICATE_CONFLICT,
     ERROR_CODE_RANK_EXHAUSTED,
@@ -127,7 +127,7 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_CAS_CONFLICT
         | ERROR_CODE_CAUSAL_CONFLICT
         | ERROR_CODE_DEPENDENCY_MISSING
-        | ERROR_CODE_DISCUSSION_BRANCH_DISABLED
+        | ERROR_CODE_DISCUSSION_TRACK_DISABLED
         | ERROR_CODE_EPOCH_MISMATCH
         | ERROR_CODE_DUPLICATE_CONFLICT
         | ERROR_CODE_RANK_EXHAUSTED

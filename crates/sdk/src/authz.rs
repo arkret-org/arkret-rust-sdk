@@ -923,10 +923,10 @@ pub enum ProtocolGrantConstraintEffect {
     RequireReview,
 }
 
-/// Schema-aligned branch selector inside grant constraints.
+/// Schema-aligned track selector inside grant constraints.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum ProtocolGrantConstraintBranch {
+pub enum ProtocolGrantConstraintTrack {
     Synthesis,
     Discussion,
 }
@@ -1024,9 +1024,9 @@ pub struct ProtocolGrantConstraint {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub denied_view_kinds: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub allowed_branches: Vec<ProtocolGrantConstraintBranch>,
+    pub allowed_tracks: Vec<ProtocolGrantConstraintTrack>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub denied_branches: Vec<ProtocolGrantConstraintBranch>,
+    pub denied_tracks: Vec<ProtocolGrantConstraintTrack>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_delegation_depth: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1075,8 +1075,8 @@ impl ProtocolGrantConstraint {
                 allowed_to_container_refs: Vec::new(),
                 wip_limit_override: Some(false),
                 denied_view_kinds: vec!["public_board".to_owned()],
-                allowed_branches: vec![ProtocolGrantConstraintBranch::Discussion],
-                denied_branches: Vec::new(),
+                allowed_tracks: vec![ProtocolGrantConstraintTrack::Discussion],
+                denied_tracks: Vec::new(),
                 max_delegation_depth: Some(1),
                 approval_required: Some(true),
                 approval_mode: Some("two_man_rule".to_owned()),
@@ -1116,8 +1116,8 @@ impl ProtocolGrantConstraint {
                 allowed_to_container_refs: Vec::new(),
                 wip_limit_override: None,
                 denied_view_kinds: Vec::new(),
-                allowed_branches: Vec::new(),
-                denied_branches: Vec::new(),
+                allowed_tracks: Vec::new(),
+                denied_tracks: Vec::new(),
                 max_delegation_depth: Some(0),
                 approval_required: Some(false),
                 approval_mode: None,
@@ -1161,8 +1161,8 @@ impl ProtocolGrantConstraint {
                 allowed_to_container_refs: vec!["cx:list:ready".to_owned()],
                 wip_limit_override: Some(false),
                 denied_view_kinds: Vec::new(),
-                allowed_branches: vec![ProtocolGrantConstraintBranch::Synthesis],
-                denied_branches: vec![ProtocolGrantConstraintBranch::Discussion],
+                allowed_tracks: vec![ProtocolGrantConstraintTrack::Synthesis],
+                denied_tracks: vec![ProtocolGrantConstraintTrack::Discussion],
                 max_delegation_depth: Some(0),
                 approval_required: Some(true),
                 approval_mode: Some("move_gate".to_owned()),
@@ -1399,9 +1399,9 @@ pub enum Constraint {
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         denied_flow_refs: Vec<String>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
-        allowed_branches: Vec<String>,
+        allowed_tracks: Vec<String>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
-        denied_branches: Vec<String>,
+        denied_tracks: Vec<String>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         allowed_view_kinds: Vec<String>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -2145,10 +2145,10 @@ pub struct AuthzContext {
     /// Creation time of the target object (for `EditWindow`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub target_created_at: Option<DateTime<Utc>>,
-    /// Active Flow branch (`discussion` / `synthesis` / profile-defined)
+    /// Active Flow track (`discussion` / `synthesis` / profile-defined)
     /// when the operation targets a Flow.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub flow_branch: Option<String>,
+    pub flow_track: Option<String>,
     /// View kind when targeting a View resource.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub view_kind: Option<String>,
@@ -2195,7 +2195,7 @@ impl AuthzContext {
             scope_blob_total_bytes: None,
             scope_resource_count: None,
             target_created_at: None,
-            flow_branch: None,
+            flow_track: None,
             view_kind: None,
             view_renderer: None,
             relation_kind: None,
@@ -2974,8 +2974,8 @@ impl AuthzEngine {
             Constraint::ScopeLimitation {
                 allowed_flow_refs,
                 denied_flow_refs,
-                allowed_branches,
-                denied_branches,
+                allowed_tracks,
+                denied_tracks,
                 allowed_view_kinds,
                 allowed_view_renderers,
                 denied_view_kinds,
@@ -2995,16 +2995,16 @@ impl AuthzEngine {
                         };
                     }
                 }
-                if let Some(branch) = ctx.flow_branch.as_deref() {
-                    if denied_branches.iter().any(|b| b == branch) {
+                if let Some(track) = ctx.flow_track.as_deref() {
+                    if denied_tracks.iter().any(|b| b == track) {
                         return AuthzDecision::Deny {
-                            reason: format!("branch '{}' is denied", branch),
+                            reason: format!("track '{}' is denied", track),
                         };
                     }
-                    if !allowed_branches.is_empty() && !allowed_branches.iter().any(|b| b == branch)
+                    if !allowed_tracks.is_empty() && !allowed_tracks.iter().any(|b| b == track)
                     {
                         return AuthzDecision::Deny {
-                            reason: format!("branch '{}' not in allow list", branch),
+                            reason: format!("track '{}' not in allow list", track),
                         };
                     }
                 }

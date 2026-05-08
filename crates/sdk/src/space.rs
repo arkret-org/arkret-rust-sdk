@@ -931,19 +931,19 @@ impl Space {
 /// ```
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct FlowCreateMetadata {
-    pub primary_branch: Option<String>,
-    pub branches: Vec<String>,
+    pub primary_track: Option<String>,
+    pub tracks: Vec<String>,
     pub semantic_kind: Option<String>,
 }
 
 /// Optional flow metadata accepted by [`Space::update_flow_operation_with_metadata`].
 ///
-/// Identical shape to [`FlowCreateMetadata`] but `branches` is `Option`:
-/// `None` means "leave unchanged", `Some(vec![])` means "clear branches".
+/// Identical shape to [`FlowCreateMetadata`] but `tracks` is `Option`:
+/// `None` means "leave unchanged", `Some(vec![])` means "clear tracks".
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct FlowUpdateMetadata {
-    pub primary_branch: Option<String>,
-    pub branches: Option<Vec<String>>,
+    pub primary_track: Option<String>,
+    pub tracks: Option<Vec<String>>,
     pub semantic_kind: Option<String>,
 }
 
@@ -998,11 +998,11 @@ impl Space {
         if let Some(summary) = summary {
             payload["summary"] = json!(summary);
         }
-        if let Some(primary_branch) = metadata.primary_branch {
-            payload["primary_branch"] = json!(primary_branch);
+        if let Some(primary_track) = metadata.primary_track {
+            payload["primary_track"] = json!(primary_track);
         }
-        if !metadata.branches.is_empty() {
-            payload["branches"] = json!(metadata.branches);
+        if !metadata.tracks.is_empty() {
+            payload["tracks"] = json!(metadata.tracks);
         }
         if let Some(semantic_kind) = metadata.semantic_kind {
             payload["semantic_kind"] = json!(semantic_kind);
@@ -1060,11 +1060,11 @@ impl Space {
         if let Some(summary) = summary {
             payload["summary"] = json!(summary);
         }
-        if let Some(primary_branch) = metadata.primary_branch {
-            payload["primary_branch"] = json!(primary_branch);
+        if let Some(primary_track) = metadata.primary_track {
+            payload["primary_track"] = json!(primary_track);
         }
-        if let Some(branches) = metadata.branches {
-            payload["branches"] = json!(branches);
+        if let Some(tracks) = metadata.tracks {
+            payload["tracks"] = json!(tracks);
         }
         if let Some(semantic_kind) = metadata.semantic_kind {
             payload["semantic_kind"] = json!(semantic_kind);

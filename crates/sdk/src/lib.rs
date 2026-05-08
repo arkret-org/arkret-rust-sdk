@@ -211,7 +211,7 @@ pub use authz::{
     ConstraintDuration, ConstraintEffect, ConstraintEntry, FieldScope, GrantProposal,
     ModerationReport, PolicyCheckRequest, PolicyCheckResponse, PolicyServerEffect,
     ProposalApproval, ProposalStatus, ProtocolGrantApprovalRelation, ProtocolGrantClaimRequirement,
-    ProtocolGrantConstraint, ProtocolGrantConstraintBranch, ProtocolGrantConstraintEffect,
+    ProtocolGrantConstraint, ProtocolGrantConstraintEffect, ProtocolGrantConstraintTrack,
     ProtocolGrantConstraintType, ProtocolResourceSelector, ProtocolResourceSelectorKind,
     ProtocolResourceSelectorScope, RateLimitScope, Recurrence, Resource, ResourceSelector,
     ScopeLimitation, VerifiedClaim, apply_policy_response, capability_grants_from_space_state,
@@ -403,7 +403,7 @@ pub use sync_client::{
     SendQueueSnapshot, SendQueueStatus, SlidingSync, SlidingWindow, SpaceListChange,
     SpaceListEntry, SpaceListFilter, SpaceListService, SpaceListSnapshot, SpaceListSort,
     SyncGapStrategy, SyncLoop, SyncLoopControl, SyncLoopSnapshot, SyncLoopStep,
-    SyncResponseProcessor, SyncSubscribeTransport, SyncTransport,
+    EventsSubscribeTransport, SyncResponseProcessor, SyncTransport,
 };
 #[cfg(all(feature = "full-surface", feature = "timeline-runtime"))]
 pub use timeline::{

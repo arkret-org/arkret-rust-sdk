@@ -144,16 +144,25 @@ where
     }
 }
 
-/// Async streaming transport abstraction for `/api/v1/sync/subscribe`.
-pub trait SyncSubscribeTransport {
+/// Async streaming transport abstraction for `cx.events.subscribe`
+/// (`/api/v1/events/subscribe`).
+///
+/// C17 wire-break (spec 2026-05-08): renamed from
+/// `SyncSubscribeTransport` (`/api/v1/sync/subscribe`) — the new endpoint
+/// accepts multi-space / multi-actor selectors and emits frames whose top
+/// field is `kind` (not `type`). The trait keeps a single `space_id`
+/// parameter for back-compat with existing callers; future expansion to
+/// `spaces[]` ∪ `actors[]` should be additive.
+pub trait EventsSubscribeTransport {
     /// Streaming response type chosen by the concrete HTTP backend.
     type StreamResponse;
 
-    /// Open a server-side sync subscription stream.
-    fn sync_subscribe<'a>(
+    /// Open a server-side events subscription stream. `from` is the new
+    /// cursor parameter (replacing the legacy `cursor` arg).
+    fn events_subscribe<'a>(
         &'a self,
         space_id: &'a str,
-        cursor: Option<&'a str>,
+        from: Option<&'a str>,
     ) -> BoxSyncFuture<'a, Self::StreamResponse>;
 }
 
@@ -165,15 +174,15 @@ impl AsyncSyncTransport for crate::Client {
 }
 
 #[cfg(feature = "client")]
-impl SyncSubscribeTransport for crate::Client {
+impl EventsSubscribeTransport for crate::Client {
     type StreamResponse = reqwest::Response;
 
-    fn sync_subscribe<'a>(
+    fn events_subscribe<'a>(
         &'a self,
         space_id: &'a str,
-        cursor: Option<&'a str>,
+        from: Option<&'a str>,
     ) -> BoxSyncFuture<'a, Self::StreamResponse> {
-        Box::pin(async move { self.sync_subscribe_stream(space_id, cursor).await })
+        Box::pin(async move { self.events_subscribe_stream(space_id, from).await })
     }
 }
 

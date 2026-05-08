@@ -108,7 +108,7 @@ impl Endpoint {
         match self.operation_id {
             "cx.blob.head" => None,
             "cx.blob.get" => Some("application/octet-stream"),
-            "cx.sync.subscribe" => Some("application/x-ndjson"),
+            "cx.events.subscribe" => Some("application/x-ndjson"),
             _ => Some("application/json"),
         }
     }
@@ -273,7 +273,11 @@ pub const ENDPOINTS: &[Endpoint] = &[
         "Commit",
         "SubmitCommitResponse"
     ),
-    endpoint!(Sync, "cx.sync.client_sync", Post, "/api/v1/sync", "SyncRequest", "SyncResponse"),
+    // C17 (spec 2026-05-08, wire-breaking): cx.sync.client_sync → cx.sync.account
+    // (path unchanged, op_id renamed); cx.sync.subscribe → cx.events.subscribe at
+    // /api/v1/events/subscribe; cx.events.list + cx.sync.backfill folded into
+    // cx.events.query at /api/v1/events with `direction: forward|backward`.
+    endpoint!(Sync, "cx.sync.account", Post, "/api/v1/sync", "SyncRequest", "SyncResponse"),
     endpoint!(
         Sync,
         "cx.sync.describe",
@@ -284,19 +288,19 @@ pub const ENDPOINTS: &[Endpoint] = &[
     ),
     endpoint!(
         Sync,
-        "cx.sync.subscribe",
+        "cx.events.subscribe",
         Get,
-        "/api/v1/sync/subscribe",
-        "SyncSubscribeQuery",
-        "SyncSubscribeFrame"
+        "/api/v1/events/subscribe",
+        "EventsSubscribeQuery",
+        "EventsSubscribeFrame"
     ),
     endpoint!(
         Sync,
-        "cx.sync.backfill",
+        "cx.events.query",
         Get,
-        "/api/v1/sync/backfill",
-        "SyncBackfillQuery",
-        "SyncBackfillResponse"
+        "/api/v1/events",
+        "EventsQueryRequest",
+        "EventsQueryResponse"
     ),
     endpoint!(
         Sync,
@@ -934,10 +938,23 @@ fn query_parameters(operation_id: &str) -> Vec<EndpointParameter> {
             &[("repo_id", true, "Did"), ("cursor", false, "String"), ("limit", false, "Limit")]
         }
         "cx.repo.get_commit" => &[("commit_id", true, "String"), ("repo_id", false, "Did")],
-        "cx.sync.subscribe" => &[("space_id", true, "SpaceId"), ("cursor", false, "String")],
-        "cx.sync.backfill" => {
-            &[("space_id", true, "SpaceId"), ("cursor", false, "String"), ("limit", false, "Limit")]
-        }
+        // C17: cx.events.subscribe — selector via `spaces[]` / `actors[]` repeated query args;
+        // include_history=true flips after `catchup_complete` frame to live stream.
+        "cx.events.subscribe" => &[
+            ("spaces", false, "SpaceId"),
+            ("actors", false, "Did"),
+            ("from", false, "String"),
+            ("include_history", false, "Bool"),
+        ],
+        // C17: cx.events.query — folds cx.events.list + cx.sync.backfill via `direction`.
+        "cx.events.query" => &[
+            ("spaces", false, "SpaceId"),
+            ("actors", false, "Did"),
+            ("from", false, "String"),
+            ("until", false, "String"),
+            ("direction", false, "String"),
+            ("limit", false, "Limit"),
+        ],
         "cx.sync.get_snapshot_head" => &[("space_id", true, "SpaceId")],
         "cx.federation.pull_operations" => &[
             ("space_id", true, "SpaceId"),

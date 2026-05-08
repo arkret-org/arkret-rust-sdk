@@ -565,23 +565,23 @@ impl MembershipManager {
     }
 }
 
-/// Schema and event-kind constants for branch-scoped membership.
+/// Schema and event-kind constants for track-scoped membership.
 ///
-/// The `cx.flow.branch.member` standard state event flips a single
-/// principal's membership inside a Flow branch when
-/// `FlowBranch.access.membership = "branch_scoped"`.
-pub const FLOW_BRANCH_MEMBER_KIND: &str = "cx.flow.branch.member";
+/// The `cx.flow.track.member` standard state event flips a single
+/// principal's membership inside a Flow track when
+/// `FlowTrack.access.membership = "track_scoped"`.
+pub const FLOW_TRACK_MEMBER_KIND: &str = "cx.flow.track.member";
 
-/// One row of branch-scoped membership state.
+/// One row of track-scoped membership state.
 ///
-/// The composite **state subject** derives from `(flow_id, branch, actor_id)`
+/// The composite **state subject** derives from `(flow_id, track, actor_id)`
 /// per `data-structures.md` §6.1 and `encoding.md` §9.5; callers SHOULD
 /// build the reducer-internal slot key via
 /// [`crate::canonical::encode_state_subject`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FlowBranchMembership {
+pub struct FlowTrackMembership {
     pub flow_id: String,
-    pub branch_id: String,
+    pub track_id: String,
     pub principal_id: Did,
     pub state: MembershipState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -590,41 +590,41 @@ pub struct FlowBranchMembership {
     pub updated_at: Option<DateTime<Utc>>,
 }
 
-impl FlowBranchMembership {
+impl FlowTrackMembership {
     /// Build the canonical composite **state subject** for this row's slot.
     pub fn state_subject(&self) -> String {
         crate::canonical::encode_state_subject(&[
             &self.flow_id,
-            &self.branch_id,
+            &self.track_id,
             self.principal_id.as_str(),
         ])
     }
 }
 
-/// Branch-scoped membership reducer hook.
+/// Track-scoped membership reducer hook.
 ///
-/// Stores `FlowBranchMembership` rows keyed by
-/// `(flow_id, branch_id, principal_id)` and exposes queries the authz
-/// layer can consult when `FlowBranch.access.membership = "branch_scoped"`.
+/// Stores `FlowTrackMembership` rows keyed by
+/// `(flow_id, track_id, principal_id)` and exposes queries the authz
+/// layer can consult when `FlowTrack.access.membership = "track_scoped"`.
 #[derive(Clone, Debug, Default)]
-pub struct FlowBranchMembershipManager {
-    rows: BTreeMap<String, FlowBranchMembership>,
+pub struct FlowTrackMembershipManager {
+    rows: BTreeMap<String, FlowTrackMembership>,
 }
 
-impl FlowBranchMembershipManager {
+impl FlowTrackMembershipManager {
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Apply a `cx.flow.branch.member` event to the manager. Rejects
+    /// Apply a `cx.flow.track.member` event to the manager. Rejects
     /// illegal state transitions per
     /// [`is_legal_membership_transition`].
-    pub fn apply(&mut self, row: FlowBranchMembership) -> Result<()> {
+    pub fn apply(&mut self, row: FlowTrackMembership) -> Result<()> {
         let key = row.state_subject();
         let from = self.rows.get(&key).map(|prev| prev.state);
         if !is_legal_membership_transition(from, row.state) {
             return Err(Error::Protocol(format!(
-                "illegal branch membership transition {from:?} -> {to:?} for {key}",
+                "illegal track membership transition {from:?} -> {to:?} for {key}",
                 to = row.state
             )));
         }
@@ -635,23 +635,23 @@ impl FlowBranchMembershipManager {
     pub fn get(
         &self,
         flow_id: &str,
-        branch_id: &str,
+        track_id: &str,
         principal_id: &Did,
-    ) -> Option<&FlowBranchMembership> {
+    ) -> Option<&FlowTrackMembership> {
         let key =
-            crate::canonical::encode_state_subject(&[flow_id, branch_id, principal_id.as_str()]);
+            crate::canonical::encode_state_subject(&[flow_id, track_id, principal_id.as_str()]);
         self.rows.get(&key)
     }
 
-    /// Whether `principal_id` is admitted to the named branch.
-    pub fn is_member(&self, flow_id: &str, branch_id: &str, principal_id: &Did) -> bool {
+    /// Whether `principal_id` is admitted to the named track.
+    pub fn is_member(&self, flow_id: &str, track_id: &str, principal_id: &Did) -> bool {
         matches!(
-            self.get(flow_id, branch_id, principal_id).map(|r| r.state),
+            self.get(flow_id, track_id, principal_id).map(|r| r.state),
             Some(MembershipState::Joined),
         )
     }
 
-    pub fn rows(&self) -> impl Iterator<Item = &FlowBranchMembership> {
+    pub fn rows(&self) -> impl Iterator<Item = &FlowTrackMembership> {
         self.rows.values()
     }
 }

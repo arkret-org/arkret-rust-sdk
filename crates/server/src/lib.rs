@@ -918,9 +918,9 @@ fn fixture_operations(flow: ProtocolFixtureFlow) -> &'static [&'static str] {
             &["cx.repo.describe", "cx.repo.submit_commit", "cx.repo.get_operations", "cx.repo.sync"]
         }
         ProtocolFixtureFlow::Sync => &[
-            "cx.sync.client_sync",
-            "cx.sync.subscribe",
-            "cx.sync.backfill",
+            "cx.sync.account",
+            "cx.events.subscribe",
+            "cx.events.query",
             "cx.sync.get_snapshot_head",
         ],
         ProtocolFixtureFlow::Blob => &["cx.blob.upload", "cx.blob.head", "cx.blob.get"],
@@ -1044,7 +1044,7 @@ pub const ENDPOINT_CONTRACTS: &[EndpointContract] = &[
         path: "/api/v1/repo/submit-commit",
     },
     EndpointContract {
-        operation_id: "cx.sync.client_sync",
+        operation_id: "cx.sync.account",
         method: EndpointMethod::Post,
         path: "/api/v1/sync",
     },
@@ -1054,14 +1054,14 @@ pub const ENDPOINT_CONTRACTS: &[EndpointContract] = &[
         path: "/api/v1/sync/describe",
     },
     EndpointContract {
-        operation_id: "cx.sync.subscribe",
+        operation_id: "cx.events.subscribe",
         method: EndpointMethod::Get,
-        path: "/api/v1/sync/subscribe",
+        path: "/api/v1/events/subscribe",
     },
     EndpointContract {
-        operation_id: "cx.sync.backfill",
+        operation_id: "cx.events.query",
         method: EndpointMethod::Get,
-        path: "/api/v1/sync/backfill",
+        path: "/api/v1/events",
     },
     EndpointContract {
         operation_id: "cx.sync.get_snapshot_head",
@@ -1451,10 +1451,10 @@ pub fn endpoint_schema_binding(endpoint: &EndpointContract) -> EndpointSchemaBin
         "cx.repo.get_operations" => ("RepoOperationsRequest", "RepoOperationsResponse"),
         "cx.repo.sync" => ("RepoSyncRequest", "RepoSyncResponse"),
         "cx.repo.submit_commit" => ("Commit", "SubmitCommitResponse"),
-        "cx.sync.client_sync" => ("SyncRequest", "SyncResponse"),
+        "cx.sync.account" => ("SyncRequest", "SyncResponse"),
         "cx.sync.describe" => ("SyncDescribeRequest", "SyncDescription"),
-        "cx.sync.subscribe" => ("SyncSubscribeQuery", "SyncSubscribeFrame"),
-        "cx.sync.backfill" => ("SyncBackfillQuery", "SyncBackfillResponse"),
+        "cx.events.subscribe" => ("EventsSubscribeQuery", "EventsSubscribeFrame"),
+        "cx.events.query" => ("EventsQueryRequest", "EventsQueryResponse"),
         "cx.sync.get_snapshot_head" => ("SyncSnapshotHeadQuery", "SyncSnapshotHeadResponse"),
         "cx.federation.transaction" => {
             ("FederationTransactionRequest", "FederationTransactionResponse")
@@ -2000,7 +2000,7 @@ fn response_body_content_type(endpoint: &EndpointContract) -> Option<&'static st
     match endpoint.operation_id {
         "cx.blob.head" => None,
         "cx.blob.get" => Some("application/octet-stream"),
-        "cx.sync.subscribe" => Some("application/x-ndjson"),
+        "cx.events.subscribe" => Some("application/x-ndjson"),
         _ => Some("application/json"),
     }
 }
@@ -2034,10 +2034,20 @@ fn query_parameters(operation_id: &str) -> Vec<EndpointParameter> {
             &[("repo_id", true, "Did"), ("cursor", false, "String"), ("limit", false, "Limit")]
         }
         "cx.repo.get_commit" => &[("commit_id", true, "String"), ("repo_id", false, "Did")],
-        "cx.sync.subscribe" => &[("space_id", true, "SpaceId"), ("cursor", false, "String")],
-        "cx.sync.backfill" => {
-            &[("space_id", true, "SpaceId"), ("cursor", false, "String"), ("limit", false, "Limit")]
-        }
+        "cx.events.subscribe" => &[
+            ("spaces", false, "SpaceId"),
+            ("actors", false, "Did"),
+            ("from", false, "String"),
+            ("include_history", false, "Bool"),
+        ],
+        "cx.events.query" => &[
+            ("spaces", false, "SpaceId"),
+            ("actors", false, "Did"),
+            ("from", false, "String"),
+            ("until", false, "String"),
+            ("direction", false, "String"),
+            ("limit", false, "Limit"),
+        ],
         "cx.sync.get_snapshot_head" => &[("space_id", true, "SpaceId")],
         "cx.federation.pull_operations" => &[
             ("space_id", true, "SpaceId"),
@@ -2527,7 +2537,7 @@ fn openapi_examples() -> Value {
                 "service_did": "did:web:svc.example",
                 "service_type": "principal_server",
                 "protocol_version": contrix_core::PROTOCOL_VERSION,
-                "supported_operations": ["cx.server.describe", "cx.sync.client_sync"]
+                "supported_operations": ["cx.server.describe", "cx.sync.account"]
             }
         },
         "SyncRequest": {
@@ -2597,7 +2607,7 @@ fn openapi_examples() -> Value {
 
 fn request_example_ref(operation_id: &str) -> Option<&'static str> {
     match operation_id {
-        "cx.sync.client_sync" => Some("#/components/examples/SyncRequest"),
+        "cx.sync.account" => Some("#/components/examples/SyncRequest"),
         "cx.federation.transaction" => Some("#/components/examples/FederationTransactionRequest"),
         "cx.blob.upload" => Some("#/components/examples/BlobUploadMetadata"),
         _ => None,
@@ -2655,9 +2665,9 @@ mod tests {
             ("cx.identity.resolve", "/api/v1/identity/resolve"),
             ("cx.repo.submit_commit", "/api/v1/repo/submit-commit"),
             ("cx.repo.get_operations", "/api/v1/repo/operations"),
-            ("cx.sync.client_sync", "/api/v1/sync"),
-            ("cx.sync.subscribe", "/api/v1/sync/subscribe"),
-            ("cx.sync.backfill", "/api/v1/sync/backfill"),
+            ("cx.sync.account", "/api/v1/sync"),
+            ("cx.events.subscribe", "/api/v1/events/subscribe"),
+            ("cx.events.query", "/api/v1/events"),
             ("cx.federation.transaction", "/api/v1/federation/transactions/{txn_id}"),
             ("cx.index.query", "/api/v1/index/query"),
             ("cx.directory.resolve_handle", "/api/v1/directory/resolve-handle"),
@@ -2926,7 +2936,7 @@ mod tests {
             "sync-token",
             AuthenticatedPrincipal::bearer(
                 "did:web:alice.example",
-                ["operation:cx.sync.client_sync".to_owned()],
+                ["operation:cx.sync.account".to_owned()],
             ),
         );
         let mut service = ServerMiddlewareStack::new(service).with_authenticator(authenticator);
@@ -2992,7 +3002,7 @@ mod tests {
             "sync-token",
             AuthenticatedPrincipal::bearer(
                 "did:web:alice.example",
-                ["operation:cx.sync.client_sync".to_owned()],
+                ["operation:cx.sync.account".to_owned()],
             ),
         );
         let service = |_request: RoutedHttpAdapterRequest| {
@@ -3137,6 +3147,6 @@ mod tests {
         let ServerResponse::ServerDescription(description) = response else {
             panic!("unexpected response");
         };
-        assert!(description.supported_operations.contains(&"cx.sync.client_sync".to_owned()));
+        assert!(description.supported_operations.contains(&"cx.sync.account".to_owned()));
     }
 }

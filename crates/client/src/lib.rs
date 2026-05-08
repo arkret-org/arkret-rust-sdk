@@ -615,29 +615,51 @@ impl Client {
         self.get("/api/v1/sync/describe").await
     }
 
-    pub async fn sync_subscribe_stream(
+    /// Subscribe to the Event stream for one or more Spaces / actors via
+    /// `cx.events.subscribe` (`GET /api/v1/events/subscribe`). Wire-breaking
+    /// rename of the legacy `cx.sync.subscribe` (spec C17, 2026-05-08): the
+    /// selector is now `spaces[]` ∪ `actors[]` repeated query args, and the
+    /// frame schema's top field changed from `type` to `kind` with new kinds
+    /// `dropped` / `epoch_rotation` / `unauthorized` / `resync_required` /
+    /// `frontier` / `heartbeat` / `catchup_complete` (clients MUST handle the
+    /// new kinds explicitly instead of treating unknown frames as `event`).
+    pub async fn events_subscribe_stream(
         &self,
         space_id: &str,
-        cursor: Option<&str>,
+        from: Option<&str>,
     ) -> Result<Response> {
-        let mut builder =
-            self.request(Method::GET, "/api/v1/sync/subscribe")?.query(&[("space_id", space_id)]);
-        if let Some(cursor) = cursor {
-            builder = builder.query(&[("cursor", cursor)]);
+        let mut builder = self
+            .request(Method::GET, "/api/v1/events/subscribe")?
+            .query(&[("spaces", space_id)]);
+        if let Some(from) = from {
+            builder = builder.query(&[("from", from)]);
         }
         self.send_response(builder).await
     }
 
-    pub async fn sync_backfill(
+    /// Range-read Events via `cx.events.query` (`GET /api/v1/events`),
+    /// folding the legacy `cx.events.list` (forward) and `cx.sync.backfill`
+    /// (backward) into a single op (spec C17, 2026-05-08). Pass
+    /// `direction=Some("backward")` for backfill semantics; `None` defaults to
+    /// forward.
+    pub async fn events_query(
         &self,
         space_id: &str,
-        cursor: Option<&str>,
+        from: Option<&str>,
+        until: Option<&str>,
+        direction: Option<&str>,
         limit: Option<u32>,
     ) -> Result<SyncBackfillResponse> {
         let mut builder =
-            self.request(Method::GET, "/api/v1/sync/backfill")?.query(&[("space_id", space_id)]);
-        if let Some(cursor) = cursor {
-            builder = builder.query(&[("cursor", cursor)]);
+            self.request(Method::GET, "/api/v1/events")?.query(&[("spaces", space_id)]);
+        if let Some(from) = from {
+            builder = builder.query(&[("from", from)]);
+        }
+        if let Some(until) = until {
+            builder = builder.query(&[("until", until)]);
+        }
+        if let Some(direction) = direction {
+            builder = builder.query(&[("direction", direction)]);
         }
         if let Some(limit) = limit {
             builder = builder.query(&[("limit", limit)]);

@@ -244,17 +244,6 @@ pub fn event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
         ("cx.flow.move", FLOW_SCHEMA, &["flow_id", "parent_id"][..]),
         ("cx.flow.reorder", FLOW_SCHEMA, &["flow_id", "rank"][..]),
         ("cx.flow.convert", FLOW_SCHEMA, &["flow_id", "target_kind"][..]),
-        ("cx.flow.branch.member", FLOW_SCHEMA, &["flow_id", "branch_id", "member_id"][..]),
-        (
-            "cx.flow.branch.history_visibility",
-            FLOW_SCHEMA,
-            &["flow_id", "branch_id", "history_visibility"][..],
-        ),
-        (
-            "cx.flow.branch.policy_components",
-            FLOW_SCHEMA,
-            &["flow_id", "branch_id", "policy_components"][..],
-        ),
         ("cx.message.create", EVENT_SCHEMA, &["body"][..]),
         ("cx.member.state", EVENT_SCHEMA, &["principal_id", "membership"][..]),
         ("cx.list.reorder", EVENT_SCHEMA, &["board_id", "list_id", "rank"][..]),
@@ -434,37 +423,81 @@ impl SpecArtifactBundle {
         else {
             return Ok(None);
         };
+        // Spec migrated from `component_type`/`component_version`/`criticality`
+        // (pre-c1717da shape) to `cell_family` (cell model). Read whichever the
+        // spec ships; derive `component_version` from the `.vN` suffix and
+        // default `criticality` to `Required` when only the cell-family form is
+        // present (the spec asserts these reducer-input cells MUST be honored
+        // by readers, equivalent to old `Required`).
         let component_type = entry
             .get("component_type")
             .and_then(Value::as_str)
+            .or_else(|| entry.get("cell_family").and_then(Value::as_str))
             .ok_or_else(|| {
                 Error::Protocol(format!(
-                    "event kind {event_kind} missing component_type in registry"
+                    "event kind {event_kind} missing component_type / cell_family in registry"
                 ))
             })?
             .to_owned();
-        let component_version =
-            entry.get("component_version").and_then(Value::as_u64).ok_or_else(|| {
+        let component_version = entry
+            .get("component_version")
+            .and_then(Value::as_u64)
+            .or_else(|| {
+                // Parse version suffix `.vN` from cell_family
+                component_type
+                    .rsplit_once(".v")
+                    .and_then(|(_, suffix)| suffix.parse::<u64>().ok())
+            })
+            .ok_or_else(|| {
                 Error::Protocol(format!(
                     "event kind {event_kind} missing or non-integer component_version"
                 ))
             })?;
-        let criticality_str =
-            entry.get("criticality").and_then(Value::as_str).ok_or_else(|| {
-                Error::Protocol(format!("event kind {event_kind} missing criticality"))
-            })?;
-        let criticality = match criticality_str {
-            "required" => Criticality::Required,
-            "optional" => Criticality::Optional,
-            "ignore" => Criticality::Ignore,
-            other => {
+        let criticality = match entry.get("criticality").and_then(Value::as_str) {
+            Some("required") => Criticality::Required,
+            Some("optional") => Criticality::Optional,
+            Some("ignore") => Criticality::Ignore,
+            Some(other) => {
                 return Err(Error::Protocol(format!(
                     "event kind {event_kind} has unknown criticality {other:?}"
                 )));
             }
+            // Cell-family-only entries default to Required (reducer_input=true
+            // implies the cell is part of canonical state).
+            None => Criticality::Required,
         };
-        let component_slot_alias_of =
-            entry.get("component_slot_alias_of").and_then(Value::as_str).map(str::to_owned);
+        // Slot-alias resolution: prefer the explicit `component_slot_alias_of`
+        // field (pre-c1717da spec shape). When absent, find the FIRST event
+        // in registry order that ships the same `(cell_family, cell_subject)`
+        // — that's the canonical slot owner. If the current event is itself
+        // that owner, return None; otherwise return the canonical owner's
+        // event_kind. Cell-model alias example: `cx.capability.revoke` shares
+        // `cx.component.capability.grant.v1` with `cx.capability.grant`, so
+        // revoke slot-aliases to grant.
+        let component_slot_alias_of = entry
+            .get("component_slot_alias_of")
+            .and_then(Value::as_str)
+            .map(str::to_owned)
+            .or_else(|| {
+                let cell_subject = entry.get("cell_subject");
+                let canonical_owner = self.event_kind_registry["event_kinds"]
+                    .as_array()
+                    .and_then(|entries| {
+                        entries.iter().find_map(|other| {
+                            let other_kind = other.get("event_kind").and_then(Value::as_str)?;
+                            let other_family =
+                                other.get("cell_family").and_then(Value::as_str)?;
+                            if other_family != component_type {
+                                return None;
+                            }
+                            if other.get("cell_subject") != cell_subject {
+                                return None;
+                            }
+                            Some(other_kind.to_owned())
+                        })
+                    })?;
+                if canonical_owner == event_kind { None } else { Some(canonical_owner) }
+            });
         Ok(Some(ComponentDescriptor {
             event_kind: event_kind.to_owned(),
             component_type,
@@ -563,9 +596,6 @@ pub const ARTIFACT_BACKED_EVENT_KINDS: &[&str] = &[
     "cx.flow.restore",
     "cx.flow.move",
     "cx.flow.reorder",
-    "cx.flow.branch.member",
-    "cx.flow.branch.history_visibility",
-    "cx.flow.branch.policy_components",
     "cx.message.create",
     "cx.member.state",
     "cx.capability.grant",
@@ -576,7 +606,10 @@ pub const ARTIFACT_BACKED_SERVICE_OPERATIONS: &[&str] = &[
     "cx.events.get",
     "cx.events.batch_get",
     "cx.events.frontier",
-    "cx.sync.client_sync",
+    "cx.events.query",
+    "cx.events.subscribe",
+    // C17 wire-break (spec 2026-05-08): cx.sync.client_sync → cx.sync.account.
+    "cx.sync.account",
     "cx.server.describe",
 ];
 

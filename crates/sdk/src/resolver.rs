@@ -258,15 +258,7 @@ impl SpaceState {
             // Reports are state events keyed by `(target_ref, reporter)`;
             // franks bind a per-message receipt for E2EE accountability.
             | "cx.moderation.report"
-            | "cx.moderation.frank"
-            // Branch-scoped membership / visibility / policy
-            // (data-structures.md §6.1). The composite cell subject
-            // derives from `(flow_id, branch, actor_id)` for the `member`
-            // row and `(flow_id, branch)` for the others; encode via
-            // `canonical::encode_state_subject`.
-            | "cx.flow.branch.member"
-            | "cx.flow.branch.history_visibility"
-            | "cx.flow.branch.policy_components" => self.reduce_generic_state_event(event)?,
+            | "cx.moderation.frank" => self.reduce_generic_state_event(event)?,
 
             // Message timeline
             "cx.message.create" => self.create_message(event)?,
@@ -478,10 +470,10 @@ impl SpaceState {
         FlowId::new(flow_id.clone())?;
         let title = self.extract_field::<String>(&event.content, "title")?;
         let flow_kind = self.extract_field::<FlowKind>(&event.content, "flow_kind")?;
-        let primary_branch =
-            self.extract_optional_field::<String>(&event.content, "primary_branch");
-        let branches = self
-            .extract_optional_field::<Vec<crate::FlowBranch>>(&event.content, "branches")
+        let primary_track =
+            self.extract_optional_field::<String>(&event.content, "primary_track");
+        let tracks = self
+            .extract_optional_field::<Vec<crate::FlowTrack>>(&event.content, "tracks")
             .unwrap_or_default();
         let semantic_kind = self.extract_optional_field::<String>(&event.content, "semantic_kind");
         let brief = self.extract_optional_field(&event.content, "brief");
@@ -501,8 +493,8 @@ impl SpaceState {
             brief,
             summary,
             flow_kind,
-            primary_branch,
-            branches,
+            primary_track,
+            tracks,
             semantic_kind,
             fields,
             state: Some(state),
@@ -531,17 +523,17 @@ impl SpaceState {
             .map(|state| object_state_from_str(&state))
             .transpose()?;
         let patched_state = patch_state(&patch).transpose()?;
-        let primary_branch = self
-            .extract_optional_field::<String>(&event.content, "primary_branch")
-            .or_else(|| patch_string(&patch, "primary_branch"));
-        let branches =
-            self.extract_optional_field::<Vec<crate::FlowBranch>>(&event.content, "branches")
+        let primary_track = self
+            .extract_optional_field::<String>(&event.content, "primary_track")
+            .or_else(|| patch_string(&patch, "primary_track"));
+        let tracks =
+            self.extract_optional_field::<Vec<crate::FlowTrack>>(&event.content, "tracks")
                 .or_else(|| {
                     // Patch path is a JSON array; reuse the canonical
-                    // `Deserialize` impl on `FlowBranch` to accept either
+                    // `Deserialize` impl on `FlowTrack` to accept either
                     // bare strings or full objects.
-                    patch.as_ref().and_then(|p| p.get("branches")).and_then(|v| {
-                        serde_json::from_value::<Vec<crate::FlowBranch>>(v.clone()).ok()
+                    patch.as_ref().and_then(|p| p.get("tracks")).and_then(|v| {
+                        serde_json::from_value::<Vec<crate::FlowTrack>>(v.clone()).ok()
                     })
                 });
         let semantic_kind = self
@@ -562,11 +554,11 @@ impl SpaceState {
         if let Some(summary) = summary.or_else(|| patch_string(&patch, "summary")) {
             subject.summary = Some(summary);
         }
-        if let Some(primary_branch) = primary_branch {
-            subject.primary_branch = Some(primary_branch);
+        if let Some(primary_track) = primary_track {
+            subject.primary_track = Some(primary_track);
         }
-        if let Some(branches) = branches {
-            subject.branches = branches;
+        if let Some(tracks) = tracks {
+            subject.tracks = tracks;
         }
         if let Some(semantic_kind) = semantic_kind {
             subject.semantic_kind = Some(semantic_kind);

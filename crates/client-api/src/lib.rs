@@ -229,12 +229,18 @@ pub const CLIENT_API_ENDPOINTS: &[ClientApiEndpoint] = &[
         request_schema: "DirectoryAliasRequest",
         response_schema: "DirectoryAliasResponse",
     },
+    // C17 (spec 2026-05-08): operation_id renamed cx.sync.subscribe →
+    // cx.sync.account; path unchanged. The "POST /api/v1/sync" endpoint here is
+    // the account-aggregate sync (to_device / account_data / device_lists /
+    // presence / cross-Space delta) — distinct from the per-Event-Envelope
+    // streaming surface which is now `cx.events.subscribe` at GET
+    // /api/v1/events/subscribe (see contrix-api crate).
     ClientApiEndpoint {
-        operation_id: "cx.sync.subscribe",
+        operation_id: "cx.sync.account",
         surface: ClientApiSurface::Sync,
         method: ClientApiMethod::Post,
         path: "/api/v1/sync",
-        request_schema: "SyncSubscribeRequest",
+        request_schema: "SyncRequest",
         response_schema: "SyncEnvelope",
     },
     ClientApiEndpoint {

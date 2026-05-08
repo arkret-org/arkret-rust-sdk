@@ -101,8 +101,6 @@ pub const OP_IDENTITY_RESOLVE: &str = "cx.identity.resolve";
 pub const OP_REPO_DESCRIBE: &str = "cx.repo.describe";
 pub const OP_REPO_SYNC: &str = "cx.repo.sync";
 pub const OP_SYNC_DESCRIBE: &str = "cx.sync.describe";
-pub const OP_SYNC_SUBSCRIBE: &str = "cx.sync.subscribe";
-pub const OP_SYNC_BACKFILL: &str = "cx.sync.backfill";
 pub const OP_FEDERATION_TRANSACTION: &str = "cx.federation.transaction";
 
 /// Index and search operations.
@@ -174,11 +172,21 @@ pub const OP_DIRECTORY_SEARCH_SPACES: &str = "cx.directory.search_spaces";
 pub const OP_DIRECTORY_SEARCH_USERS: &str = "cx.directory.search_users";
 
 /// Events-API operations (low-level Event Envelope plane).
+///
+/// C17 (spec 2026-05-08, wire-breaking): the read surface was reorganised by
+/// delivery shape. `cx.events.list` + `cx.sync.backfill` (forward / backward
+/// unary reads) are folded into [`OP_EVENTS_QUERY`] (selector = `spaces[]` ∪
+/// `actors[]`, range = `from?` + `until?` + `direction: forward|backward`).
+/// `cx.sync.subscribe` becomes [`OP_EVENTS_SUBSCRIBE`] (multi-space / actor
+/// stream, `include_history=true` flips to live after a `catchup_complete`
+/// frame). `cx.sync.client_sync` is renamed to [`OP_SYNC_ACCOUNT`] — the path
+/// `POST /api/v1/sync` does not change but the canonical operation_id does.
 pub const OP_EVENTS_BATCH_GET: &str = "cx.events.batch_get";
 pub const OP_EVENTS_DESCRIBE: &str = "cx.events.describe";
 pub const OP_EVENTS_FRONTIER: &str = "cx.events.frontier";
 pub const OP_EVENTS_GET: &str = "cx.events.get";
-pub const OP_EVENTS_LIST: &str = "cx.events.list";
+pub const OP_EVENTS_QUERY: &str = "cx.events.query";
+pub const OP_EVENTS_SUBSCRIBE: &str = "cx.events.subscribe";
 pub const OP_EVENTS_SUBMIT: &str = "cx.events.submit";
 
 /// Federation operations beyond the single transaction RPC.
@@ -220,8 +228,15 @@ pub const OP_POLICY_CHECK: &str = "cx.policy.check";
 pub const OP_PUSH_REGISTER_DEVICE: &str = "cx.push.register_device";
 pub const OP_PUSH_UNREGISTER_DEVICE: &str = "cx.push.unregister_device";
 
-/// Sync surface — client-sync & snapshot head.
-pub const OP_SYNC_CLIENT_SYNC: &str = "cx.sync.client_sync";
+/// Sync surface — account aggregate sync & snapshot head.
+///
+/// C17: `cx.sync.client_sync` → [`OP_SYNC_ACCOUNT`]. The path `POST /api/v1/sync`
+/// is unchanged; only the canonical operation_id is renamed to clarify that this
+/// op is the **account-view aggregate** (to_device / account_data /
+/// device_lists / presence / cross-Space delta), distinct from raw Event
+/// Envelope reads which now go through [`OP_EVENTS_QUERY`] /
+/// [`OP_EVENTS_SUBSCRIBE`].
+pub const OP_SYNC_ACCOUNT: &str = "cx.sync.account";
 pub const OP_SYNC_GET_SNAPSHOT_HEAD: &str = "cx.sync.get_snapshot_head";
 
 /// Canonical operation kinds built into this SDK.
@@ -262,8 +277,9 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_REPO_DESCRIBE,
     OP_REPO_SYNC,
     OP_SYNC_DESCRIBE,
-    OP_SYNC_SUBSCRIBE,
-    OP_SYNC_BACKFILL,
+    OP_SYNC_ACCOUNT,
+    OP_EVENTS_QUERY,
+    OP_EVENTS_SUBSCRIBE,
     OP_FEDERATION_TRANSACTION,
     OP_INDEX_DESCRIBE,
     OP_INDEX_QUERY,
@@ -498,9 +514,11 @@ fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         OP_AUTHZ_GET_EFFECTIVE_GRANTS => vec!["actor_id".to_owned()],
         OP_AUTHZ_GET_INVITES => vec!["space_id".to_owned()],
         OP_EVENTS_GET | OP_EVENTS_BATCH_GET => vec!["event_id".to_owned()],
-        OP_EVENTS_LIST | OP_EVENTS_FRONTIER => vec!["space_id".to_owned()],
+        OP_EVENTS_FRONTIER => vec!["space_id".to_owned()],
+        OP_EVENTS_QUERY => Vec::new(), // selector = spaces[]?+actors[]? — neither is strictly required
+        OP_EVENTS_SUBSCRIBE => Vec::new(), // selector arrays may be empty for "all reachable"; subscription
         OP_EVENTS_SUBMIT => vec!["events".to_owned()],
-        OP_SYNC_CLIENT_SYNC => vec!["subscriptions".to_owned()],
+        OP_SYNC_ACCOUNT => vec!["subscriptions".to_owned()],
         OP_SYNC_GET_SNAPSHOT_HEAD => vec!["space_id".to_owned()],
         OP_FEDERATION_PULL_OPERATIONS | OP_FEDERATION_PUSH_OPERATIONS => {
             vec!["space_id".to_owned()]
@@ -979,8 +997,8 @@ fn flow_schema_document() -> Value {
             "brief": { "type": "string" },
             "summary": { "type": "string" },
             "flow_kind": { "type": "string" },
-            "primary_branch": { "type": "string" },
-            "branches": {
+            "primary_track": { "type": "string" },
+            "tracks": {
                 "type": "array",
                 "items": { "type": "string" },
             },
@@ -2389,18 +2407,18 @@ pub enum FlowKind {
     TaskCluster,
     Asset,
     MemorySubject,
-    /// Chat-style flow whose primary surface is the `discussion` branch.
+    /// Chat-style flow whose primary surface is the `discussion` track.
     /// Equivalent to the `flow(kind="room")` shape called out in
     /// `current-model.md` §3 — i.e. a Flow whose default entry point is
-    /// the discussion branch, used for room / channel UIs.
+    /// the discussion track, used for room / channel UIs.
     Discussion,
     Custom,
 }
 
 impl FlowKind {
     /// True for flow kinds whose primary surface is conversational (the
-    /// discussion branch). Helps clients route a Flow to a chat UI vs a
-    /// kanban / document UI without re-parsing branch metadata.
+    /// discussion track). Helps clients route a Flow to a chat UI vs a
+    /// kanban / document UI without re-parsing track metadata.
     pub fn is_conversational(&self) -> bool {
         matches!(self, Self::Discussion)
     }
@@ -2422,12 +2440,12 @@ pub struct Flow {
     #[serde(rename = "flow_kind")]
     pub flow_kind: FlowKind,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub primary_branch: Option<String>,
-    /// Branches per `data-structures.md` §6.1. The custom
-    /// `Deserialize` impl on [`FlowBranch`] tolerates the legacy
+    pub primary_track: Option<String>,
+    /// Tracks per `data-structures.md` §6.1. The custom
+    /// `Deserialize` impl on [`FlowTrack`] tolerates the legacy
     /// `Vec<String>` wire form, so existing fixtures keep working.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub branches: Vec<FlowBranch>,
+    pub tracks: Vec<FlowTrack>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub semantic_kind: Option<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -2464,8 +2482,8 @@ impl Flow {
             brief: None,
             summary: None,
             flow_kind,
-            primary_branch: None,
-            branches: Vec::new(),
+            primary_track: None,
+            tracks: Vec::new(),
             semantic_kind: None,
             fields: BTreeMap::new(),
             state: Some(ObjectState::Active),
@@ -2479,8 +2497,8 @@ impl Flow {
     }
 
     /// Construct a chat-style Flow (room / channel form) with the
-    /// `discussion` branch enabled and marked primary, plus a
-    /// `synthesis` branch for any structured fields the room may carry.
+    /// `discussion` track enabled and marked primary, plus a
+    /// `synthesis` track for any structured fields the room may carry.
     ///
     /// This is the typed equivalent of yougen's `cx_ops::flow_create(..., "discussion", ...)`
     /// path — callers that want a room can do
@@ -2494,8 +2512,8 @@ impl Flow {
     /// );
     /// ```
     ///
-    /// instead of building the branches by hand. Per
-    /// `models/data-structures.md` §6.1, both branches are valid;
+    /// instead of building the tracks by hand. Per
+    /// `models/data-structures.md` §6.1, both tracks are valid;
     /// reducers MAY honour `is_primary=true` on `discussion` to land
     /// users in the timeline first while still permitting `synthesis`
     /// edits.
@@ -2506,8 +2524,8 @@ impl Flow {
         created_by: Did,
     ) -> Self {
         let mut flow = Self::new(id, space_id, title, FlowKind::Discussion, created_by);
-        flow.primary_branch = Some("discussion".to_owned());
-        flow.branches = vec![FlowBranch::synthesis(), FlowBranch::discussion_primary()];
+        flow.primary_track = Some("discussion".to_owned());
+        flow.tracks = vec![FlowTrack::synthesis(), FlowTrack::discussion_primary()];
         flow
     }
 
@@ -3151,7 +3169,7 @@ pub struct CollectionProjectionItem {
     pub position: Option<CollectionProjectionPosition>,
     /// Card-vs-Room visibility split per yougen claude-design's
     /// `card-vs-room-visibility` block. When `Some`, indicates the
-    /// item has a discussion branch; when the discussion is locked
+    /// item has a discussion track; when the discussion is locked
     /// (visibility != "readable"), `lazy_link=true` MUST hold and
     /// no discussion metadata beyond opaque hash MAY be exposed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -3172,7 +3190,7 @@ pub struct CollectionProjectionPosition {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct CollectionProjectionDiscussion {
-    /// Whether the discussion branch is enabled on this Flow.
+    /// Whether the discussion track is enabled on this Flow.
     pub enabled: bool,
     /// `readable` (caller MAY render thread / member preview) or
     /// `locked` (caller MUST treat as opaque link only).
@@ -4128,7 +4146,7 @@ impl MlsProposalEnvelope {
 /// 1. `membership_frontier: bstr` — frontier state-hash
 /// 2. `policy_root:        bstr` — Merkle root of policy events
 /// 3. `capability_root:    bstr` — Merkle root of capability events
-/// 4. `discussion_metadata_hash: bstr` — hash of discussion-branch metadata
+/// 4. `discussion_metadata_hash: bstr` — hash of discussion-track metadata
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MlsAppStateRef {
@@ -5437,8 +5455,8 @@ pub struct DeviceMessagesReceiveResponse {
 //
 // These types fill gaps identified in `_todos.md` between the Rust SDK
 // surface and `contrix-spec/spec/v1/zh/` v1-core-rc. They are additive and must not
-// break existing wire shapes; legacy fixtures that emit `branches: ["a"]`
-// (string array) are still accepted via the `FlowBranch` Deserialize impl.
+// break existing wire shapes; legacy fixtures that emit `tracks: ["a"]`
+// (string array) are still accepted via the `FlowTrack` Deserialize impl.
 
 /// Space boundary profile (data-structures.md §4 / §4.1).
 ///
@@ -5470,68 +5488,68 @@ pub fn boundary_profile_for_kind(kind: &SpaceKind) -> Option<BoundaryProfile> {
     }
 }
 
-/// Branch access inheritance per data-structures.md §6.1 (`FlowBranch.access`).
+/// Track access inheritance per data-structures.md §6.1 (`FlowTrack.access`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
-pub enum BranchInheritance {
+pub enum TrackInheritance {
     InheritFlow,
     InheritSpace,
-    BranchScoped,
+    TrackScoped,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
-pub enum BranchE2eeInheritance {
+pub enum TrackE2eeInheritance {
     InheritSpace,
     InheritFlow,
-    BranchScoped,
+    TrackScoped,
     None,
 }
 
-/// `FlowBranch.access` (data-structures.md §6.1).
+/// `FlowTrack.access` (data-structures.md §6.1).
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct FlowBranchAccess {
+pub struct FlowTrackAccess {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub membership: Option<BranchInheritance>,
+    pub membership: Option<TrackInheritance>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub permissions: Option<BranchInheritance>,
+    pub permissions: Option<TrackInheritance>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub history_visibility: Option<HistoryVisibility>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub e2ee: Option<BranchE2eeInheritance>,
+    pub e2ee: Option<TrackE2eeInheritance>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub encryption_profile: Option<EncryptionProfile>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub membership_policy_ref: Option<PolicyId>,
 }
 
-/// Standard branch profile names (data-structures.md §6.1).
-pub const FLOW_BRANCH_NAME_SYNTHESIS: &str = "synthesis";
-pub const FLOW_BRANCH_NAME_DISCUSSION: &str = "discussion";
+/// Standard track profile names (data-structures.md §6.1).
+pub const FLOW_TRACK_NAME_SYNTHESIS: &str = "synthesis";
+pub const FLOW_TRACK_NAME_DISCUSSION: &str = "discussion";
 
-/// Branch definition inside a `Flow`.
+/// Track definition inside a `Flow`.
 ///
-/// Matches `data-structures.md §6.1` (`array<FlowBranch>`). Deserialization
+/// Matches `data-structures.md §6.1` (`array<FlowTrack>`). Deserialization
 /// also accepts a bare string (legacy `Vec<String>` shape) by promoting it
-/// to `FlowBranch { name, ..default }`.
+/// to `FlowTrack { name, ..default }`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct FlowBranch {
+pub struct FlowTrack {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub is_primary: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub profile: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub access: Option<FlowBranchAccess>,
+    pub access: Option<FlowTrackAccess>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub fields: BTreeMap<String, Value>,
 }
 
-impl FlowBranch {
+impl FlowTrack {
     pub fn new(name: impl Into<String>) -> Self {
         Self {
             name: name.into(),
@@ -5542,14 +5560,14 @@ impl FlowBranch {
         }
     }
 
-    /// Standard `synthesis` branch — formal expression, structured fields,
+    /// Standard `synthesis` track — formal expression, structured fields,
     /// state transitions. Default in any Flow that carries a body or
     /// schema-defined `fields`.
     pub fn synthesis() -> Self {
         Self::new("synthesis")
     }
 
-    /// Standard `discussion` branch — chat timeline, mentions, reactions.
+    /// Standard `discussion` track — chat timeline, mentions, reactions.
     /// Not marked primary by default.
     pub fn discussion() -> Self {
         let mut b = Self::new("discussion");
@@ -5557,7 +5575,7 @@ impl FlowBranch {
         b
     }
 
-    /// Standard `discussion` branch marked as the Flow's primary entry
+    /// Standard `discussion` track marked as the Flow's primary entry
     /// point. Used by `Flow::discussion` to construct the chat-style
     /// (room / channel) form.
     pub fn discussion_primary() -> Self {
@@ -5566,7 +5584,7 @@ impl FlowBranch {
         b
     }
 
-    /// Set the branch as the Flow's primary entry point.
+    /// Set the track as the Flow's primary entry point.
     pub fn primary(mut self) -> Self {
         self.is_primary = Some(true);
         self
@@ -5583,19 +5601,19 @@ impl FlowBranch {
     /// Validate that `name` matches `^[a-z][a-z0-9_]{0,63}$` per spec.
     pub fn validate_name(&self) -> Result<()> {
         if self.name.is_empty() || self.name.len() > 64 {
-            return Err(Error::Protocol("FlowBranch.name must be 1..=64 chars".to_owned()));
+            return Err(Error::Protocol("FlowTrack.name must be 1..=64 chars".to_owned()));
         }
         let mut chars = self.name.chars();
         let first = chars
             .next()
-            .ok_or_else(|| Error::Protocol("FlowBranch.name must not be empty".to_owned()))?;
+            .ok_or_else(|| Error::Protocol("FlowTrack.name must not be empty".to_owned()))?;
         if !first.is_ascii_lowercase() {
-            return Err(Error::Protocol("FlowBranch.name must start with [a-z]".to_owned()));
+            return Err(Error::Protocol("FlowTrack.name must start with [a-z]".to_owned()));
         }
         for c in chars {
             if !(c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_') {
                 return Err(Error::Protocol(format!(
-                    "FlowBranch.name contains invalid character '{c}'"
+                    "FlowTrack.name contains invalid character '{c}'"
                 )));
             }
         }
@@ -5603,7 +5621,7 @@ impl FlowBranch {
     }
 }
 
-impl<'de> Deserialize<'de> for FlowBranch {
+impl<'de> Deserialize<'de> for FlowTrack {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -5619,13 +5637,13 @@ impl<'de> Deserialize<'de> for FlowBranch {
                 #[serde(default)]
                 profile: Option<String>,
                 #[serde(default)]
-                access: Option<FlowBranchAccess>,
+                access: Option<FlowTrackAccess>,
                 #[serde(default)]
                 fields: BTreeMap<String, Value>,
             },
         }
         Ok(match Repr::deserialize(deserializer)? {
-            Repr::Bare(name) => FlowBranch {
+            Repr::Bare(name) => FlowTrack {
                 name,
                 is_primary: None,
                 profile: None,
@@ -5633,38 +5651,38 @@ impl<'de> Deserialize<'de> for FlowBranch {
                 fields: BTreeMap::new(),
             },
             Repr::Full { name, is_primary, profile, access, fields } => {
-                FlowBranch { name, is_primary, profile, access, fields }
+                FlowTrack { name, is_primary, profile, access, fields }
             }
         })
     }
 }
 
-/// Resolve the primary branch of a Flow per data-structures.md §6.1
+/// Resolve the primary track of a Flow per data-structures.md §6.1
 /// resolution rules. Returns `Ok(None)` when the rules require the reducer
 /// to fail closed (rule 5).
-pub fn resolve_primary_branch<'a>(
-    branches: &'a [FlowBranch],
+pub fn resolve_primary_track<'a>(
+    tracks: &'a [FlowTrack],
     profile_default: Option<&str>,
-) -> Result<Option<&'a FlowBranch>> {
-    let explicit: Vec<&FlowBranch> =
-        branches.iter().filter(|b| b.is_primary == Some(true)).collect();
+) -> Result<Option<&'a FlowTrack>> {
+    let explicit: Vec<&FlowTrack> =
+        tracks.iter().filter(|b| b.is_primary == Some(true)).collect();
     match explicit.len() {
         0 => {}
         1 => return Ok(Some(explicit[0])),
         _ => {
             return Err(Error::Protocol(
-                "Flow has more than one branch with is_primary=true".to_owned(),
+                "Flow has more than one track with is_primary=true".to_owned(),
             ));
         }
     }
-    if let Some(synthesis) = branches.iter().find(|b| b.name == FLOW_BRANCH_NAME_SYNTHESIS) {
+    if let Some(synthesis) = tracks.iter().find(|b| b.name == FLOW_TRACK_NAME_SYNTHESIS) {
         return Ok(Some(synthesis));
     }
-    if branches.len() == 1 {
-        return Ok(Some(&branches[0]));
+    if tracks.len() == 1 {
+        return Ok(Some(&tracks[0]));
     }
     if let Some(default_name) = profile_default
-        && let Some(b) = branches.iter().find(|b| b.name == default_name)
+        && let Some(b) = tracks.iter().find(|b| b.name == default_name)
     {
         return Ok(Some(b));
     }
@@ -7274,18 +7292,18 @@ mod tests {
         );
         assert_eq!(flow.flow_kind, FlowKind::Discussion);
         assert!(flow.flow_kind.is_conversational());
-        assert_eq!(flow.primary_branch.as_deref(), Some("discussion"));
-        assert_eq!(flow.branches.len(), 2, "synthesis + discussion expected");
+        assert_eq!(flow.primary_track.as_deref(), Some("discussion"));
+        assert_eq!(flow.tracks.len(), 2, "synthesis + discussion expected");
 
         let synthesis =
-            flow.branches.iter().find(|b| b.name == "synthesis").expect("synthesis branch present");
+            flow.tracks.iter().find(|b| b.name == "synthesis").expect("synthesis track present");
         assert!(synthesis.is_primary != Some(true));
 
         let discussion = flow
-            .branches
+            .tracks
             .iter()
             .find(|b| b.name == "discussion")
-            .expect("discussion branch present");
+            .expect("discussion track present");
         assert_eq!(discussion.is_primary, Some(true));
         assert_eq!(discussion.profile.as_deref(), Some("discussion"));
     }
@@ -7312,25 +7330,25 @@ mod tests {
         assert!(FlowKind::Discussion.is_conversational());
     }
 
-    /// T21 — FlowBranch typed constructors honour the standard names and
+    /// T21 — FlowTrack typed constructors honour the standard names and
     /// the discussion profile from spec §6.1.
     #[test]
-    fn flow_branch_typed_constructors() {
-        let synth = FlowBranch::synthesis();
+    fn flow_track_typed_constructors() {
+        let synth = FlowTrack::synthesis();
         assert_eq!(synth.name, "synthesis");
         assert!(synth.profile.is_none());
         assert!(synth.is_primary.is_none());
         synth.validate_name().unwrap();
 
-        let disc = FlowBranch::discussion();
+        let disc = FlowTrack::discussion();
         assert_eq!(disc.name, "discussion");
         assert_eq!(disc.profile.as_deref(), Some("discussion"));
         assert!(disc.is_primary.is_none());
 
-        let primary = FlowBranch::discussion_primary();
+        let primary = FlowTrack::discussion_primary();
         assert_eq!(primary.is_primary, Some(true));
 
-        let custom = FlowBranch::new("review").with_profile("review").primary();
+        let custom = FlowTrack::new("review").with_profile("review").primary();
         assert_eq!(custom.profile.as_deref(), Some("review"));
         assert_eq!(custom.is_primary, Some(true));
         custom.validate_name().unwrap();
