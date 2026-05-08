@@ -83,6 +83,7 @@ pub use contrix_schema as schema_contracts;
 pub use contrix_server as server;
 #[cfg(feature = "salvo")]
 pub use contrix_server::salvo_adapter;
+pub use contrix_lattice as lattice;
 pub use contrix_signatures as signatures;
 pub use contrix_state_res as state_res;
 pub use contrix_store as store_contracts;
@@ -343,7 +344,11 @@ pub use push::{
     PushGateway, PushPayload, PushPlatform, PushPriority, PushPrivacyPolicy, PushRule, PushToken,
 };
 #[cfg(feature = "full-surface")]
-pub use receipts::{ReadMarker, ReadReceipt, ReceiptManager, ReceiptVisibility};
+pub use receipts::{
+    ReadMarker, ReadReceipt, ReadReceiptDisclosure, ReadReceiptPolicy, ReadReceiptPreferences,
+    ReadReceiptVisibility, ReceiptDecision, ReceiptManager, ReceiptVisibility, ScopePref,
+    should_send_receipt,
+};
 #[cfg(feature = "full-surface")]
 pub use resolver::{
     REDUCER_SNAPSHOT_PROFILE, REDUCER_SNAPSHOT_SCHEMA, ReducerSnapshotManifest,
