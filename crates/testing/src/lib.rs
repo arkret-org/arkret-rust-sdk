@@ -2,13 +2,19 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use contrix_core::{Did, Error, Event, EventId, Hlc, Result, SpaceId};
+use contrix_core::{
+    AnchorId, CellRef, Did, Error, Event, Hash, Hlc, Move, MoveId, Result, SpaceId, canonical,
+};
 use contrix_events::{
     AnyEventContent, CALL_DEVICE_MAPPING, COLLAB_ACTIVITY_BEACON, E2EE_SECRET_SEND, EventClass,
     EventContentEnvelope, MESSAGE_POLL_RESPONSE, MESSAGE_TEXT, classify_event_kind,
     parse_event_content,
 };
-use contrix_state_res::StateReducer;
+use contrix_lattice::CellState;
+use contrix_state_res::{
+    MemoryAnchorStore, MemoryCellRegistry, MemoryCellStore, MemoryMoveStore, MoveStore,
+    apply_anchor, compute_state_root,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -71,11 +77,19 @@ pub struct EventTaxonomyVector {
     pub preserves_unknown: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+/// Reference vector exercising the Move/Anchor/Lattice runtime end-to-end.
+///
+/// Replaces the legacy "winner event" vector — under v1 there is no
+/// per-cell winner; cell convergence is decided by Lattice join. We
+/// instead capture (a) the Anchor that committed the batch, (b) how
+/// many Moves were accepted vs rejected, (c) the post-state_root.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StateResolutionVector {
     pub name: String,
-    pub winner_event_id: EventId,
-    pub conflict_count: usize,
+    pub anchor: AnchorId,
+    pub accepted_count: usize,
+    pub rejected_count: usize,
+    pub post_state_root: Hash,
 }
 
 /// Reference vector for canonical-JSON encoding round-trips.
@@ -589,34 +603,107 @@ pub fn event_taxonomy_vectors() -> Result<Vec<EventTaxonomyVector>> {
 }
 
 pub fn state_resolution_vectors() -> Result<Vec<StateResolutionVector>> {
-    let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000")?;
-    let mut reducer = StateReducer::new(space_id.clone(), "1");
-    let join = Event::new(
-        "cx.member.state",
-        space_id.clone(),
-        Did::new("did:web:alice.example")?,
-        1,
-        Hlc::new("01970e589d21-00000002-a13f9c2e")?,
-        json!({"principal_id": "did:web:bob.example", "membership": "join"}),
-    )?;
-    let ban = Event::new(
-        "cx.member.state",
-        space_id,
-        Did::new("did:web:admin.example")?,
-        1,
-        Hlc::new("01970e589d21-00000001-a13f9c2e")?,
-        json!({"principal_id": "did:web:bob.example", "membership": "ban"}),
-    )?;
-    reducer.apply_events(&[join, ban])?;
-    let resolved = reducer
-        .resolved_state
-        .get("cx.member.state|did:web:bob.example")
-        .expect("fixture creates resolved state");
+    let space_id = SpaceId::new("cx:space:01js0sp00000000000000000aa")?;
+    let cell = CellRef::new("cx:cell:cx.component.member.state.v1:did.web.bob.example".to_owned())
+        .map_err(|e| Error::Protocol(format!("invalid cell ref: {e}")))?;
+
+    // Build a Move that transitions Bob's membership cell from `invited` to `join`.
+    let move_obj = build_membership_move(&space_id, &cell, "invited", "join")?;
+
+    let moves = MemoryMoveStore::default();
+    let anchors = MemoryAnchorStore::default();
+    let cells = MemoryCellStore::default();
+    let registry = MemoryCellRegistry::new();
+
+    moves.put_pending(&move_obj).map_err(|e| Error::Protocol(format!("store: {e}")))?;
+
+    // Compute expected state_root: after the Move, member.state = "join".
+    let mut expected = BTreeMap::new();
+    expected.insert(cell, CellState::Value(json!("join")));
+    let expected_root = compute_state_root(&expected)?;
+
+    let anchor = build_anchor(&space_id, &move_obj.id, &expected_root)?;
+    let effect = apply_anchor(&anchor, &moves, &anchors, &cells, &registry, |_, _, _, _| {
+        Ok::<(), String>(())
+    })
+    .map_err(|e| Error::Protocol(format!("apply_anchor: {e}")))?;
+
     Ok(vec![StateResolutionVector {
-        name: "membership ban wins over join".to_owned(),
-        winner_event_id: resolved.source_event_id.clone(),
-        conflict_count: reducer.conflict_records.len(),
+        name: "membership invited→join Move accepts under genesis Anchor".to_owned(),
+        anchor: effect.anchor,
+        accepted_count: effect.accepted_move_ids.len(),
+        rejected_count: effect.rejected_moves.len(),
+        post_state_root: effect.post_state_root,
     }])
+}
+
+fn build_membership_move(space_id: &SpaceId, cell: &CellRef, from: &str, to: &str) -> Result<Move> {
+    let body = json!({
+        "issuer": "did:web:admin.example",
+        "space_id": space_id.as_str(),
+        "preconditions": [],
+        "effects": [{
+            "cell": cell.as_str(),
+            "op": { "type": "transition", "from": from, "to": to }
+        }],
+        "anchor_ref": format!("cx:anchor:sha256:{}", "aa".repeat(32)),
+        "refs": [],
+        "hlc": "0189c4d2af00-00000000-aabbccdd"
+    });
+    let body_bytes = canonical::canonical_json_bytes(&body)?;
+    let payload_hash = canonical::sha256_digest(&body_bytes);
+    let id_hex: String = {
+        use sha2::{Digest, Sha256};
+        let mut s = String::with_capacity(64);
+        for b in Sha256::digest(&body_bytes) {
+            s.push_str(&format!("{b:02x}"));
+        }
+        s
+    };
+    let mut full = body.as_object().unwrap().clone();
+    full.insert("id".into(), Value::String(format!("cx:move:sha256:{id_hex}")));
+    full.insert(
+        "sig".into(),
+        json!({
+            "alg": "EdDSA",
+            "verification_method": "did:web:admin.example#k1",
+            "payload_hash": payload_hash,
+            "created_at": "2026-05-08T00:00:00Z",
+            "jws": "AAAA.BBBB.CCCC"
+        }),
+    );
+    serde_json::from_value::<Move>(Value::Object(full))
+        .map_err(|e| Error::Protocol(format!("Move deserialize: {e}")))
+}
+
+fn build_anchor(
+    space_id: &SpaceId,
+    frontier_move: &MoveId,
+    state_root: &Hash,
+) -> Result<contrix_core::Anchor> {
+    use chrono::{TimeZone, Utc};
+    use contrix_core::{Anchor, AnchorerSig, MoveSignature};
+    let sig = MoveSignature {
+        alg: "EdDSA".to_owned(),
+        verification_method: "did:web:anchorer.example#k1".to_owned(),
+        payload_hash: Hash::new(format!("sha256:{}", "ff".repeat(32)))
+            .map_err(|e| Error::Protocol(format!("hash: {e}")))?,
+        created_at: Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
+        jws: "AAAA.BBBB.CCCC".to_owned(),
+    };
+    let mut a = Anchor {
+        id: AnchorId::new(format!("cx:anchor:sha256:{}", "00".repeat(32)))
+            .map_err(|e| Error::Protocol(format!("anchor id: {e}")))?,
+        space_id: space_id.clone(),
+        predecessor_refs: vec![],
+        frontier: vec![frontier_move.clone()],
+        state_root: state_root.clone(),
+        anchorer_sig: AnchorerSig::Single(sig),
+        hlc: Hlc::new("0189c4d2af00-00000000-aabbccdd".to_owned())
+            .map_err(|e| Error::Protocol(format!("hlc: {e}")))?,
+    };
+    a.id = a.derive_id().map_err(|e| Error::Protocol(format!("derive: {e}")))?;
+    Ok(a)
 }
 
 pub fn domain_counts(report: &ConformanceReport) -> BTreeMap<ConformanceDomain, usize> {
@@ -794,8 +881,13 @@ mod tests {
     }
 
     #[test]
-    fn state_vector_records_conflict() {
+    fn state_vector_exercises_apply_anchor_round_trip() {
         let vectors = state_resolution_vectors().unwrap();
-        assert_eq!(vectors[0].conflict_count, 1);
+        assert_eq!(vectors.len(), 1);
+        // The single membership Move must accept under genesis Anchor with no rejects.
+        assert_eq!(vectors[0].accepted_count, 1);
+        assert_eq!(vectors[0].rejected_count, 0);
+        // post_state_root MUST start with the canonical sha256: prefix.
+        assert!(vectors[0].post_state_root.as_str().starts_with("sha256:"));
     }
 }

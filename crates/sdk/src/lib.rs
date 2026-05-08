@@ -130,6 +130,8 @@ pub mod membership;
 #[cfg(all(feature = "full-surface", feature = "mls"))]
 pub mod mls;
 #[cfg(feature = "full-surface")]
+pub mod mls_move;
+#[cfg(feature = "full-surface")]
 pub mod notifications;
 #[cfg(feature = "full-surface")]
 pub mod performance;

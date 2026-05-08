@@ -9,7 +9,7 @@ name = "contrix-testing"
 readme = "README.md"
 repository = "https://github.com/contrix/contrix-rust-sdk"
 rust-version.workspace = true
-version = "0.1.0"
+version = "0.2.0"
 
 [features]
 default = []
@@ -25,10 +25,13 @@ contrix-federation-api.workspace = true
 contrix-ffi.workspace = true
 contrix-html.workspace = true
 contrix-identity-api.workspace = true
+contrix-lattice.workspace = true
 contrix-operations.workspace = true
 contrix-push-gateway-api.workspace = true
 contrix-schema.workspace = true
 contrix-signatures.workspace = true
+sha2.workspace = true
+chrono = { workspace = true, features = ["serde"] }
 contrix-state-res.workspace = true
 contrix-store.workspace = true
 contrix-ui.workspace = true

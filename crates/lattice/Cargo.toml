@@ -1,25 +1,28 @@
 [package]
 authors = ["Chris Young <chris@sonc.ai>"]
-description = "Contrix v1 FFI and WASM embedding contracts."
+categories = ["data-structures"]
+description = "Per-cell Lattice trait + 6 normative implementations (or-set / mv-register / cas-register / fsm / counter / ordered-log) for Contrix v1 Move/Anchor/Lattice convergence."
 edition = "2024"
 homepage = "https://github.com/contrix/contrix-rust-sdk"
-keywords = ["contrix", "ffi", "wasm", "uniffi"]
+keywords = ["contrix", "crdt", "lattice", "convergence"]
 license = "Apache-2.0"
-name = "contrix-ffi"
+name = "contrix-lattice"
 readme = "README.md"
 repository = "https://github.com/contrix/contrix-rust-sdk"
 rust-version.workspace = true
 version = "0.2.0"
 
+[package.metadata.docs.rs]
+all-features = true
+
 [features]
 default = []
-client = ["contrix-core/client"]
-mls = ["contrix-core/mls"]
 
 [dependencies]
 contrix-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+thiserror.workspace = true
 
 [lints]
 workspace = true

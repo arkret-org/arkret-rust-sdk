@@ -366,7 +366,7 @@ dependencies = [
 
 [[package]]
 name = "contrix"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "base64",
  "chacha20poly1305",
@@ -383,6 +383,7 @@ dependencies = [
  "contrix-ffi",
  "contrix-html",
  "contrix-identity-api",
+ "contrix-lattice",
  "contrix-operations",
  "contrix-push-gateway-api",
  "contrix-schema",
@@ -412,7 +413,7 @@ dependencies = [
 
 [[package]]
 name = "contrix-api"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "contrix-core",
  "serde",
@@ -420,7 +421,7 @@ dependencies = [
 
 [[package]]
 name = "contrix-appservice-api"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "contrix-core",
@@ -431,7 +432,7 @@ dependencies = [
 
 [[package]]
 name = "contrix-client"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "contrix-core",
  "reqwest",
@@ -443,7 +444,7 @@ dependencies = [
 
 [[package]]
 name = "contrix-client-api"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "contrix-core",
@@ -457,7 +458,7 @@ dependencies = [
 
 [[package]]
 name = "contrix-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "base64",
  "chrono",
@@ -474,7 +475,7 @@ dependencies = [
 
 [[package]]
 name = "contrix-crypto"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "contrix-core",
@@ -486,7 +487,7 @@ dependencies = [
 
 [[package]]
 name = "contrix-events"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "contrix-core",
@@ -496,7 +497,7 @@ dependencies = [
 
 [[package]]
 name = "contrix-federation-api"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "contrix-core",
@@ -507,7 +508,7 @@ dependencies = [
 
 [[package]]
 name = "contrix-ffi"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "contrix-core",
  "serde",
@@ -516,7 +517,7 @@ dependencies = [
 
 [[package]]
 name = "contrix-html"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "contrix-core",
  "serde",
@@ -525,7 +526,7 @@ dependencies = [
 
 [[package]]
 name = "contrix-identifiers"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "getrandom 0.3.4",
  "salvo",
@@ -538,7 +539,7 @@ dependencies = [
 
 [[package]]
 name = "contrix-identity-api"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "contrix-core",
@@ -547,8 +548,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "contrix-lattice"
+version = "0.2.0"
+dependencies = [
+ "contrix-core",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "contrix-operations"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "contrix-core",
  "serde",
@@ -557,7 +568,7 @@ dependencies = [
 
 [[package]]
 name = "contrix-push-gateway-api"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "contrix-core",
  "serde",
@@ -566,7 +577,7 @@ dependencies = [
 
 [[package]]
 name = "contrix-schema"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "contrix-core",
  "serde",
@@ -575,7 +586,7 @@ dependencies = [
 
 [[package]]
 name = "contrix-server"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "contrix-api",
  "contrix-appservice-api",
@@ -592,7 +603,7 @@ dependencies = [
 
 [[package]]
 name = "contrix-signatures"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "contrix-core",
@@ -602,17 +613,20 @@ dependencies = [
 
 [[package]]
 name = "contrix-state-res"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "contrix-core",
+ "contrix-lattice",
  "serde",
  "serde_json",
+ "sha2",
+ "thiserror",
 ]
 
 [[package]]
 name = "contrix-store"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "contrix-core",
@@ -623,8 +637,9 @@ dependencies = [
 
 [[package]]
 name = "contrix-testing"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
+ "chrono",
  "contrix-api",
  "contrix-appservice-api",
  "contrix-client-api",
@@ -635,6 +650,7 @@ dependencies = [
  "contrix-ffi",
  "contrix-html",
  "contrix-identity-api",
+ "contrix-lattice",
  "contrix-operations",
  "contrix-push-gateway-api",
  "contrix-schema",
@@ -644,11 +660,12 @@ dependencies = [
  "contrix-ui",
  "serde",
  "serde_json",
+ "sha2",
 ]
 
 [[package]]
 name = "contrix-ui"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "contrix-core",

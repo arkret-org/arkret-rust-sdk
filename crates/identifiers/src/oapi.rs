@@ -10,8 +10,8 @@ use salvo::oapi::{
 };
 
 use crate::{
-    BlobRef, CommitId, Cursor, DeviceId, Did, EntityId, EventId, FlowId, GrantId, Hash, Hlc,
-    InviteId, OperationId, PolicyId, RelationId, SpaceId, ViewId,
+    AnchorId, BlobRef, CellRef, CommitId, Cursor, DeviceId, Did, EntityId, EventId, FlowId,
+    GrantId, Hash, Hlc, InviteId, MoveId, OperationId, PolicyId, RelationId, SpaceId, ViewId,
 };
 
 fn string_schema(pattern: &str) -> RefOr<Schema> {
@@ -53,6 +53,9 @@ impl_string_schema!(BlobRef, r"^(cx:blob:.+|sha256:[0-9a-f]{64})$");
 impl_string_schema!(ViewId, r"^cx:view:.+$");
 impl_string_schema!(Hash, r"^sha256:[0-9a-f]{64}$");
 impl_string_schema!(Cursor, r"^cx:cursor:.+$");
+impl_string_schema!(MoveId, r"^cx:move:sha256:[0-9a-f]{64}$");
+impl_string_schema!(AnchorId, r"^cx:anchor:sha256:[0-9a-f]{64}$");
+impl_string_schema!(CellRef, r"^cx:cell:[A-Za-z0-9._~=-]+(?::[A-Za-z0-9._~=-]+)*$");
 
 impl ToSchema for Hlc {
     fn to_schema(_components: &mut Components) -> RefOr<Schema> {

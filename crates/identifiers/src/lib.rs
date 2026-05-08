@@ -193,6 +193,20 @@ id_type!(ViewId, has_prefix("cx:view:"));
 id_type!(Hash, is_hash);
 id_type!(Cursor, has_prefix("cx:cursor:"));
 
+fn is_content_addressed<'a>(prefix: &'a str) -> impl Fn(&str) -> bool + 'a {
+    move |value| match value.strip_prefix(prefix) {
+        Some(rest) => {
+            rest.len() == 64
+                && rest.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+        }
+        None => false,
+    }
+}
+
+id_type!(MoveId, is_content_addressed("cx:move:sha256:"));
+id_type!(AnchorId, is_content_addressed("cx:anchor:sha256:"));
+id_type!(CellRef, has_prefix("cx:cell:"));
+
 impl BlobRef {
     /// Create a content-addressed `sha256:...` blob reference from raw bytes.
     pub fn from_bytes(bytes: &[u8]) -> Self {

@@ -10,6 +10,137 @@ permitted; once `1.0` ships, breaking changes will require a major bump.
 
 ## [Unreleased]
 
+## [0.2.0] – 2026-05-08 — Move / Anchor / Lattice rebase ⚠ wire-breaking
+
+This release rebases the SDK onto the Move/Anchor/Lattice three-primitive
+state-convergence model introduced by `contrix-spec` 2026-05-08. The
+v1 wire surface is **incompatible** with 0.1.0: `cx.consent.*` events,
+the legacy `StateReducer` API, and the host-endorsement / writer-model
+typed model are all gone. v1 was unreleased; no compat shim is provided.
+
+### Added
+
+- **`contrix-lattice` crate** — new independent crate providing the
+  closed `Lattice` trait and six normative implementations
+  (`or-set` / `mv-register` / `cas-register` / `fsm` / `counter` /
+  `ordered-log`) plus `AnchoredOp` / `CellState` types. 55 unit tests.
+- **`contrix-core::Move`** typed model with canonical-bytes id derivation
+  (spec §3); 13 unit tests covering id round-trip / signature payload
+  hash / SemanticRef default-skip / snake-case op enums.
+- **`contrix-core::Anchor`** typed model with three signature shapes
+  (`Single` / `Multi` / `Threshold`); 13 unit tests covering id
+  round-trip + threshold below-quorum reject + wire `kind`
+  discriminator.
+- **`contrix-core::Bottom`** structured diagnostic typed model with six
+  `BottomKind` variants matching `bottom.schema.json`.
+- **`contrix-core::AnchorerValue`** four-variant typed enum
+  (`SingleDid` / `Threshold` / `OpenSet` / `Mixed`); validates the
+  anchorer cell's cas-register value shape per spec §4.4.
+- **`contrix-core::CellId`** parser + `composite_subject` (base64url +
+  sha256 hash form per encoding.md §9.5) + `composite_subject_pipe`
+  diagnostic form.
+- New typed identifiers: `MoveId` (`cx:move:sha256:<hex>`), `AnchorId`
+  (`cx:anchor:sha256:<hex>`), `CellRef` (`cx:cell:<component>:<subject>`)
+  with OpenAPI schemas.
+- **`contrix-state-res` rewrite** — `MoveStore` / `AnchorStore` /
+  `CellStore` / `CellRegistry` trait contracts + Memory backends +
+  `verify_move` five-step pipeline + `apply_anchor` eight-step
+  algorithm + `effective_anchor_view` pure function +
+  `compute_state_root` (RFC 6962 Merkle, empty-list root locked to
+  spec §4.2). 32 unit tests.
+- **`contrix::consent`** rewritten as or-set Move builder per spec
+  consent-model §3:
+  `grant_effect` / `revoke_effect_with_precondition` /
+  `evaluate_consent` / `require_consent_precondition`. Cell family
+  `cx.component.consent.grant.v1`. Tag form
+  `grant:<consent_id>:<peer>:<scope>` for deterministic dedupe.
+- **`contrix::mls_move`** new module — MLS commit Move helpers per
+  spec §10: `mls_commit_preconditions` / `mls_commit_effects` /
+  `e2ee_message_precondition` / `covered_frontier_contains` plus
+  cell families `cx.component.mls_epoch.v1` (cas-register, reject) /
+  `cx.component.key_schedule.v1` (cas-register, reject) /
+  `cx.component.covered_frontier.v1` (or-set, **expose**).
+- `docs/move-anchor-runtime.md` — SDK-internal runtime architecture
+  design (≈540 lines): module split, store trait contracts, verifier
+  pipeline, `apply_anchor` walk-through, caching strategy (L0/L1/L2),
+  user-facing projection vs cell effective state separation,
+  CellRegistry loading, migration roadmap.
+
+### Removed (wire-breaking)
+
+- **Old `contrix-state-res` API**: `StateReducer`, `state_hash`,
+  `is_state_event`, `subject_for_event`, `candidate_wins`,
+  `ResolvedStateEvent`, `ConflictRecord`, `StateResolutionSnapshot`,
+  `StateAuthority`, `evaluate_state_auth`, `BoardReducer` —
+  ≈30 unit tests removed; replaced by 32 new tests on the new
+  primitives.
+- **Old `Proof` extensions**: `Proof::host_did`, `Proof::endorsed_at`,
+  `proof_kind::HOST_ENDORSEMENT`. Move signatures use detached JWS
+  exclusively now (signatures are anchorer-side concerns for
+  multi/threshold flows, not Move-issuer concerns).
+- **`SpaceWriterModel`** enum + `Space.space_writer_model` /
+  `Space.space_host` fields + `derived_writer_model()` /
+  `validate_writer_model()` helpers. Anchor authority is determined
+  by the anchorer cell value, not a per-Space typed enum.
+- **`crates/sdk/src/space_host.rs`** module deleted in entirety
+  (`SpaceHostPayload` / `SpaceHostTransferPayload`).
+- **Old `consent::ConsentState`** enum (`Granted` / `Revoked` /
+  `Absent`) and the typed `ConsentGrantPayload` /
+  `ConsentRevokePayload` envelopes. Effective consent is now derived
+  from the consent cell's or-set join via `evaluate_consent`.
+- All legacy `state_key` fields, `LegacyStateKey` errors, and
+  `assert_no_legacy_state_key` helpers across the workspace.
+
+### Changed
+
+- `contrix-state-res` Cargo.toml gains `contrix-lattice`, `sha2`,
+  `thiserror` deps to support the new runtime.
+- `contrix-testing::state_resolution_vectors` rewritten to drive
+  `apply_anchor` end-to-end. `StateResolutionVector` struct fields
+  changed from `{name, winner_event_id, conflict_count}` to
+  `{name, anchor, accepted_count, rejected_count, post_state_root}`
+  to reflect the new "no per-cell winner" semantics.
+- `MemoryCellRegistry` ships built-in bindings for nine cell
+  families: `member.state` (FSM with membership transitions),
+  `capability.grant` / `consent.grant` (or-set), `anchorer` /
+  `space.policy` / `mls_epoch` / `key_schedule` (cas-register),
+  `space.title` (mv-register, expose), `metric.counter` (counter),
+  `audit.log` (ordered-log), `covered_frontier` (or-set, expose).
+- 23-crate workspace bumped from `0.1.0` to `0.2.0`.
+
+### Test baseline
+
+- `cargo test --workspace --all-features`: **614 passed, 1
+  pre-existing failure** (schema artifact-load test that requires
+  spec workspace at a specific path; unrelated to this rebase).
+- Net test delta vs 0.1.0: −≈35 (old state-res / consent /
+  space-host tests removed) + 99 new (Move 13, Cell 10, Bottom 6,
+  Anchor 13, AnchorerValue 10, Lattice 55, state-res 32, consent
+  16, mls_move 11) = **+64 unit tests**.
+- `cargo clippy --workspace --all-features --tests -- -D warnings`:
+  clean.
+
+### Migration
+
+Downstream consumers MUST:
+
+1. Replace `StateReducer::new(...).apply_events(events)` with
+   `apply_anchor(anchor, &move_store, &anchor_store, &cell_store,
+   &registry, verify_jws_closure)`.
+2. Stop emitting `cx.consent.grant` / `cx.consent.revoke` event
+   envelopes; build Moves whose effects come from
+   `consent::grant_effect` / `consent::revoke_effect_with_precondition`
+   instead.
+3. Remove all references to `SpaceWriterModel` / `Space.space_host`.
+   Anchor authority lookup goes through the anchorer cell.
+4. For E2EE Spaces, attach `mls_move::e2ee_message_precondition` to
+   message Moves; build MLS commit Moves with
+   `mls_move::MlsCommitMoveSpec::build`.
+
+See `docs/move-anchor-runtime.md` for the full architecture.
+
+## [0.1.0-prep] (rolling work toward 0.2.0)
+
 ### Added
 
 - `ClientBuilder` transport configuration: `connect_timeout`,

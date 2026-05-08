@@ -4,13 +4,25 @@
 //! level SDK state machines. It intentionally contains no HTTP transport,
 //! framework adapter or runtime state manager.
 
+pub mod anchor;
+pub mod anchorer;
+pub mod bottom;
 pub mod canonical;
+pub mod cell;
 pub mod cursor;
 pub mod error;
 pub mod model;
+pub mod move_event;
 pub mod service;
 pub mod sync;
 
+pub use anchor::{
+    ANCHOR_SIGNATURE_ALGS, Anchor, AnchorerSig, MultiSigKind, MultiSignature, ThresholdSigKind,
+    ThresholdSignature,
+};
+pub use anchorer::AnchorerValue;
+pub use bottom::{AnchorView, Bottom, BottomKind};
+pub use cell::{CellId, composite_subject, composite_subject_pipe};
 pub use contrix_identifiers as identifiers;
 pub use cursor::{Cursor, SpacePosition, SyncPositions, SyncTracker};
 pub use error::{
@@ -32,10 +44,14 @@ pub use error::{
     Result, error_code_http_status, is_known_error_code,
 };
 pub use identifiers::{
-    BlobRef, CommitId, DeviceId, Did, EntityId, EventId, FlowId, GrantId, Hash, Hlc, InviteId,
-    OperationId, PolicyId, RelationId, SpaceId, ViewId,
+    AnchorId, BlobRef, CellRef, CommitId, DeviceId, Did, EntityId, EventId, FlowId, GrantId, Hash,
+    Hlc, InviteId, MoveId, OperationId, PolicyId, RelationId, SpaceId, ViewId,
 };
 pub use model::*;
+pub use move_event::{
+    Effect, LatticeOp, LatticeOpType, MOVE_SIGNATURE_ALGS, Move, MoveSignature, Precondition,
+    Predicate, PredicateOp, SemanticRef,
+};
 pub use service::{
     ApiConventionMetadata, HttpTraceMetadata, NotFoundPrivacy, QuotaKind, QuotaMetadata,
     RateLimitMetadata, RateLimitScopeKind, ServiceDidAllowlist, ServiceEndpointBinding,
