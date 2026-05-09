@@ -14,6 +14,7 @@ pub mod error;
 pub mod model;
 pub mod move_event;
 pub mod service;
+pub mod signer;
 pub mod sync;
 
 pub use anchor::{
@@ -53,6 +54,7 @@ pub use move_event::{
     Effect, LatticeOp, LatticeOpType, MOVE_SIGNATURE_ALGS, Move, MoveSignature, Precondition,
     Predicate, PredicateOp, SemanticRef,
 };
+pub use signer::{MoveSigner, UnsignedMove};
 pub use service::{
     ApiConventionMetadata, HttpTraceMetadata, NotFoundPrivacy, QuotaKind, QuotaMetadata,
     RateLimitMetadata, RateLimitScopeKind, ServiceDidAllowlist, ServiceEndpointBinding,

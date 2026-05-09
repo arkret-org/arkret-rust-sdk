@@ -1,5 +1,11 @@
 //! Canonical signatures, proof binding and HTTP message signature helpers.
 
+#[cfg(feature = "signer")]
+pub mod signer;
+
+#[cfg(feature = "signer")]
+pub use signer::Ed25519MoveSigner;
+
 use std::collections::BTreeMap;
 
 use chrono::{DateTime, Duration, Utc};

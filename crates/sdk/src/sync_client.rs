@@ -323,11 +323,153 @@ impl EventsQuerySelector {
 /// Direction parameter for `cx.events.query`. `forward` returns events
 /// after `from` (default); `backward` returns events before `from` (folds
 /// the legacy `cx.sync.backfill` semantics).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum EventsQueryDirection {
+    #[default]
     Forward,
     Backward,
+}
+
+/// Typed `cx.events.query` request body.
+///
+/// This is the ergonomic typed surface downstream agents (coauth / soland /
+/// yougen) call against. It mirrors the wire shape soland accepts on
+/// `GET /api/v1/events`: the multi-selector is `spaces[] ∪ actors[]`,
+/// `from` / `until` are HLC bounds, `direction` switches between forward
+/// (default) and backward iteration (folds legacy `cx.sync.backfill`),
+/// and `limit` is the page cap.
+///
+/// Construct one with [`Self::new`] / fluent with-setters; render the
+/// query string with [`Self::to_query_pairs`] (delegated to the inner
+/// [`EventsQuerySelector`]).
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EventsQueryRequest {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub spaces: Vec<SpaceId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub actors: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub until: Option<String>,
+    #[serde(default)]
+    pub direction: EventsQueryDirection,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<u32>,
+}
+
+impl EventsQueryRequest {
+    /// Construct an empty request. Caller MUST add at least one space or
+    /// actor before issuing or [`Self::validate_non_empty`] will fail.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn with_spaces(mut self, spaces: Vec<SpaceId>) -> Self {
+        self.spaces = spaces;
+        self
+    }
+
+    pub fn with_actors(mut self, actors: Vec<String>) -> Self {
+        self.actors = actors;
+        self
+    }
+
+    pub fn with_from(mut self, from: impl Into<String>) -> Self {
+        self.from = Some(from.into());
+        self
+    }
+
+    pub fn with_until(mut self, until: impl Into<String>) -> Self {
+        self.until = Some(until.into());
+        self
+    }
+
+    pub fn with_direction(mut self, direction: EventsQueryDirection) -> Self {
+        self.direction = direction;
+        self
+    }
+
+    pub fn with_limit(mut self, limit: u32) -> Self {
+        self.limit = Some(limit);
+        self
+    }
+
+    /// Validate that the selector has at least one space or actor element
+    /// (spec MUST). Returns `Err` if both are empty.
+    pub fn validate_non_empty(&self) -> Result<()> {
+        if self.spaces.is_empty() && self.actors.is_empty() {
+            return Err(Error::Protocol(
+                "events.query request requires at least one of spaces[] / actors[]".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Convert to the underlying [`EventsQuerySelector`] used by transport
+    /// helpers. The selector is the `events.subscribe`-compatible parent
+    /// shape; this request type is the `events.query`-only narrow view.
+    pub fn as_selector(&self) -> EventsQuerySelector {
+        EventsQuerySelector {
+            spaces: self.spaces.clone(),
+            actors: self.actors.clone(),
+            from: self.from.clone(),
+            until: self.until.clone(),
+            direction: Some(self.direction),
+            limit: self.limit,
+            include_history: None,
+        }
+    }
+
+    /// Render the request as repeated `?spaces=...&actors=...&from=...`
+    /// query pairs for `GET /api/v1/events`.
+    pub fn to_query_pairs(&self) -> Vec<(&'static str, String)> {
+        self.as_selector().to_query_pairs()
+    }
+}
+
+/// Typed `cx.events.query` response body.
+///
+/// Downstream agents pattern-match on `events`, then resume with
+/// `next_cursor` (forward) / `prev_cursor` (backward). Server returns
+/// `limited=true` when the page hit `limit` and more events remain.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct EventsQueryResponse {
+    #[serde(default)]
+    pub events: Vec<Event>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub next_cursor: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prev_cursor: Option<String>,
+    #[serde(default, skip_serializing_if = "is_false_default")]
+    pub limited: bool,
+}
+
+fn is_false_default(v: &bool) -> bool {
+    !*v
+}
+
+impl From<contrix_core::SyncBackfillResponse> for EventsQueryResponse {
+    fn from(r: contrix_core::SyncBackfillResponse) -> Self {
+        Self {
+            events: r.events,
+            next_cursor: r.next_cursor,
+            prev_cursor: r.prev_cursor,
+            limited: r.limited,
+        }
+    }
+}
+
+impl From<EventsQueryResponse> for contrix_core::SyncBackfillResponse {
+    fn from(r: EventsQueryResponse) -> Self {
+        Self {
+            events: r.events,
+            next_cursor: r.next_cursor,
+            prev_cursor: r.prev_cursor,
+            limited: r.limited,
+        }
+    }
 }
 
 impl EventsQueryDirection {
@@ -2304,5 +2446,75 @@ mod tests {
         assert_eq!(backward, "\"backward\"");
         let parsed: EventsQueryDirection = serde_json::from_str("\"backward\"").unwrap();
         assert_eq!(parsed, EventsQueryDirection::Backward);
+    }
+
+    #[test]
+    fn frame_frontier_advance_round_trip() {
+        let line = r#"{"kind":"frontier","cursor":"sx:advance:7"}"#;
+        let frame = EventsSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
+        match &frame {
+            EventsSubscribeFrame::Frontier { cursor } => assert_eq!(cursor, "sx:advance:7"),
+            other => panic!("expected Frontier, got {other:?}"),
+        }
+        assert!(!frame.is_event());
+        assert!(!frame.requires_resubscribe());
+    }
+
+    // ─── Round 21 EventsQueryRequest / EventsQueryResponse tests ─────────────
+
+    #[test]
+    fn events_query_request_validates_non_empty() {
+        let empty = EventsQueryRequest::new();
+        assert!(empty.validate_non_empty().is_err());
+        let with_space = EventsQueryRequest::new().with_spaces(vec![
+            SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+        ]);
+        with_space.validate_non_empty().unwrap();
+    }
+
+    #[test]
+    fn events_query_request_renders_query_pairs() {
+        let req = EventsQueryRequest::new()
+            .with_spaces(vec![
+                SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+                SpaceId::new("cx:space:01904100-0000-7000-8000-46f8537dc94e").unwrap(),
+            ])
+            .with_actors(vec!["did:web:alice.example".to_owned()])
+            .with_from("hlc:0189c4d2af00-00000000-aabbccdd")
+            .with_until("hlc:0189c4d2af01-00000000-aabbccdd")
+            .with_direction(EventsQueryDirection::Backward)
+            .with_limit(50);
+        let pairs = req.to_query_pairs();
+        assert_eq!(pairs.iter().filter(|(k, _)| *k == "spaces").count(), 2);
+        assert_eq!(pairs.iter().filter(|(k, _)| *k == "actors").count(), 1);
+        assert!(pairs.iter().any(|(k, v)| *k == "direction" && v == "backward"));
+        assert!(pairs.iter().any(|(k, v)| *k == "limit" && v == "50"));
+        assert!(pairs.iter().any(|(k, v)| *k == "until" && v.starts_with("hlc:")));
+    }
+
+    #[test]
+    fn events_query_response_round_trips_with_sync_backfill() {
+        let body = serde_json::json!({
+            "events": [],
+            "next_cursor": "sx:next:1",
+            "prev_cursor": "sx:prev:0",
+            "limited": true,
+        });
+        let resp: EventsQueryResponse = serde_json::from_value(body).unwrap();
+        assert_eq!(resp.next_cursor.as_deref(), Some("sx:next:1"));
+        assert_eq!(resp.prev_cursor.as_deref(), Some("sx:prev:0"));
+        assert!(resp.limited);
+        // Round-trip via SyncBackfillResponse keeps cursors and flag.
+        let bf: contrix_core::SyncBackfillResponse = resp.clone().into();
+        let back: EventsQueryResponse = bf.into();
+        assert_eq!(back.next_cursor, resp.next_cursor);
+        assert_eq!(back.prev_cursor, resp.prev_cursor);
+        assert_eq!(back.limited, resp.limited);
+    }
+
+    #[test]
+    fn events_query_request_default_direction_is_forward() {
+        let req = EventsQueryRequest::new();
+        assert_eq!(req.direction, EventsQueryDirection::Forward);
     }
 }

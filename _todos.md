@@ -6,6 +6,35 @@
 
 ## Changelog
 
+### 2026-05-09 (round 21，激进模式) — Public Move/Anchor signer + EventsQuery typed wrappers + v0.5.0 minor bump
+
+- **C10.A 收尾 — Move/Anchor signer 公共 surface** (`crates/core/src/signer.rs`, 308 lines + 8 unit tests):
+  - `pub trait MoveSigner { fn sign_move(&self, unsigned: &UnsignedMove) -> Result<Move>; fn signer_did(&self) -> &Did; fn verification_method_id(&self) -> &str; fn sign_payload(&self, canonical_bytes: &[u8]) -> Result<MoveSignature>; }` 在 `contrix-core` 落地，零 crypto 依赖。
+  - `pub struct UnsignedMove { issuer, space_id, preconditions, effects, anchor_ref, refs, hlc }` 加 fluent setter (`with_preconditions` / `with_refs`)、`canonical_bytes()` 复用 `Move::canonical_bytes_for_id` 排除 id+sig。
+  - `Move::sign<S: MoveSigner>(&unsigned, &signer)` ergonomic 入口 (强制 issuer == signer.signer_did())。
+  - `Anchor::sign_single<S>(...)` / `Anchor::sign_threshold(...)` (k-of-n + aggregated proof) / `Anchor::sign_multi<S>(...)` 三个 constructor，从 frontier + predecessor_refs + state_root + hlc 直接生成 `id` (canonical bytes sha256) + `anchorer_sig`，自动 `validate_structural`。
+  - 8 单元测试: id 一致性、issuer 不匹配 reject、threshold > signer count reject、multi 空 signer set reject、unsigned/signed canonical bytes 等价。
+- **C10.A 收尾 — Ed25519 production signer** (`crates/signatures/src/signer.rs`, 5 unit tests + 1 doctest, feature-gated `signer`):
+  - `pub struct Ed25519MoveSigner { signing_key: ed25519_dalek::SigningKey, did: Did, kid: String }` + `new(signing_key, did, vm_id)` + `from_did_key_seed(seed: [u8;32], did, vm_id)` + `verifying_key()`.
+  - `impl MoveSigner` 用 detached EdDSA JWS over canonical bytes (`base64url(header).base64url(canonical).base64url(sig)`)，`payload_hash` = `sha256:<hex(canonical)>`。
+  - `verify_ed25519_move_signature(canonical_bytes, sig, &verifying_key)` round-trip helper（payload_hash 校验 + JWS 三段拆分 + ed25519 verify）。
+  - `crates/signatures/Cargo.toml`: 新 feature `signer = ["dep:ed25519-dalek", "dep:base64", "dep:sha2"]`；workspace 加 `ed25519-dalek = { version = "2.2.0", features = ["std", "rand_core"] }`。
+  - SDK 顶层 `contrix/signer = ["contrix-signatures/signer"]` feature；`#[cfg(feature = "signer")] pub use contrix_signatures::Ed25519MoveSigner`。
+  - 5 单元测试: 自洽 verify、issuer 不匹配 reject、Anchor single sign + verify、相同 seed 决定性、tamper detect。
+- **C17.A 收尾 — `EventsQueryRequest` / `EventsQueryResponse` typed wrappers** (`crates/sdk/src/sync_client.rs`):
+  - `EventsQueryRequest { spaces: Vec<SpaceId>, actors: Vec<String>, from: Option<String>, until: Option<String>, direction: EventsQueryDirection (default Forward), limit: Option<u32> }` + fluent setters (`with_spaces` / `with_actors` / `with_from` / `with_until` / `with_direction` / `with_limit`) + `validate_non_empty()` + `to_query_pairs()` + `as_selector()` (bridge to existing `EventsQuerySelector` for `events.subscribe`).
+  - `EventsQueryResponse { events: Vec<Event>, next_cursor: Option<String>, prev_cursor: Option<String>, limited: bool }` + `From<SyncBackfillResponse>` / `From<EventsQueryResponse> for SyncBackfillResponse` 双向转换 (与 soland 服务端目前接受的 wire 一致)。
+  - `EventsQueryDirection::default = Forward`，serde round-trip 测试已存在（C17 baseline）。
+  - 4 新单元测试: validate_non_empty、to_query_pairs 渲染（spaces/actors/until/direction/limit 全字段）、SyncBackfillResponse round-trip、default direction = Forward。
+- **C17.A 收尾 — `EventsSubscribeFrame::Frontier` round-trip test**: 已有 8 variant 覆盖（Event / CatchupComplete / Heartbeat / Dropped / EpochRotation / ResyncRequired / Unauthorized / Unknown），新增 `Frontier { cursor }` 单测，凑齐 9 variant 的 NDJSON line 反序列化测试。
+- **v0.4.0 → v0.5.0 minor bump**: `Cargo.toml` workspace.dependencies (23 entries) + 23 个 `crates/*/Cargo.toml` 的 `[package].version` 全部 0.4.0 → 0.5.0；`CHANGELOG.md` 加 `[0.5.0] – 2026-05-09 — Move/Anchor signer surface + EventsQuery typed wrappers` 段，详列 Added (5 大类新 surface) / Changed / Test baseline。
+- **clippy 收尾**: 现有 `ReadReceiptDisclosure` / `ReadReceiptVisibility` 的 `derivable_impls` warning 用 `#[derive(Default)]` + `#[default]` 替换 manual `Default` impl。
+- **测试 & 校验**:
+  - `cargo build --workspace --all-features` exit 0。
+  - `cargo clippy --workspace --all-features --tests -- -D warnings` 干净。
+  - `cargo test --workspace --lib --all-features --no-fail-fast` **728 passed / 0 failed / 0 ignored**（基线 +24，来自 8 signer trait + 5 Ed25519 backend + 5 EventsQuery typed + 1 Frontier frame + 5 其他附带覆盖）。
+- **下游解锁**: coauth `anchor_pending_move`、soland anchor reconfig + bottom repair、yougen real-key signing 现在都可以直接 import `contrix::Ed25519MoveSigner` + `contrix::MoveSigner` + `Move::sign` / `Anchor::sign_single` 跑生产签名。`contrix::EventsQueryRequest` / `EventsQueryResponse` 给 events.query 调用方提供了与 soland 一致的多 selector + 反向 iteration 模型。
+
 ### 2026-05-09 (round 20，激进模式) — C19.B 收尾：strict UUIDv7 typed-id validators + 528-fixture mass-rename
 
 - **typed-id validators 全部 tighten**：`crates/identifiers/src/lib.rs:215-237` 把 `SpaceId / FlowId / EntityId / RelationId / EventId / CommitId / OperationId / GrantId / InviteId / DeviceId / PolicyId / ViewId` 的 closure 从 `has_prefix("cx:<kind>:")` 切到 `is_strict_typed_id(value, "cx:<kind>:")`，强制 RFC 9562 lowercase UUIDv7 payload。`EventId` / `OperationId` 保留 `is_hash` 备路；`DeviceId` 保留 `dev_<...>` 备路。Legacy mixed-case ULID-form (`cx:space:01JS0SP000000000000000000`) 和 UUIDv4 / 大写 hex / 错 variant nibble 全部硬拒绝。
@@ -48,7 +77,7 @@
 ## 当前状态摘要
 
 - R1-R9 主体已完成；C11 旧产物清理 + C13 doc sweep 全部完成 (2026-05-08)。
-- **C10.A 全部完成** (M0-M12, 2026-05-08)。SDK 已升到 0.2.0 → 0.3.0 (C17/C18 wire-break) → **0.4.0** (C19.B UUIDv7 wire-break, 2026-05-09 round 18)。Move/Anchor/Lattice typed model + lattice crate + state-res rewrite + consent or-set + MLS commit Move + workspace 终验全部就位。
+- **C10.A 全部完成** (M0-M12, 2026-05-08)。SDK 已升到 0.2.0 → 0.3.0 (C17/C18 wire-break) → 0.4.0 (C19.B UUIDv7 wire-break, 2026-05-09 round 18) → **0.5.0** (round 21, 2026-05-09: Move/Anchor signer + EventsQuery typed wrappers，additive)。Move/Anchor/Lattice typed model + lattice crate + state-res rewrite + consent or-set + MLS commit Move + workspace 终验 + 公共 signer trait + Ed25519 production backend 全部就位。
 - C10.A 设计决策已写入文档:[`docs/move-anchor-runtime.md`](docs/move-anchor-runtime.md)（Rust SDK 实现层）+ contrix-spec §4.2（`state_root` canonical Merkle 编码 normative）。
 - 当前开放项: spec-gated wire rename (S1)、DID resolver production adapter (H1)、device/recovery helper 从 scaffold 升级 (H2-H4)。下游 (soland / cotest / yougen) C10.B/C/D 的真正 server/client 接线工作可以基于 0.2.0 typed surface 开始。
 - 0.2.0 终验 (2026-05-08)：`cargo fmt --all --check` exit 0；`cargo build --workspace --all-features` 干净；`cargo clippy --workspace --all-features --tests -- -D warnings` 干净；`cargo test --workspace --all-features` **614 passed / 1 pre-existing failure** (schema artifact-load test, 与本轮无关)。

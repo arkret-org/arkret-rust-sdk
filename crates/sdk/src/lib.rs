@@ -85,6 +85,8 @@ pub use contrix_server as server;
 pub use contrix_server::salvo_adapter;
 pub use contrix_lattice as lattice;
 pub use contrix_signatures as signatures;
+#[cfg(feature = "signer")]
+pub use contrix_signatures::Ed25519MoveSigner;
 pub use contrix_state_res as state_res;
 pub use contrix_store as store_contracts;
 pub use contrix_testing as testing;
@@ -399,12 +401,12 @@ pub use store::{
 #[cfg(all(feature = "full-surface", feature = "sync-runtime"))]
 pub use sync_client::{
     AsyncSyncTransport, BackoffConfig, BackpressureConfig, BoxSyncFuture, CancellationToken,
-    EventsQueryDirection, EventsQuerySelector, EventsSubscribeFrame, EventsSubscribeTransport,
-    ExponentialBackoff, LocalEcho, ProcessedSpace, SendQueue, SendQueueItem, SendQueueItemKind,
-    SendQueueSnapshot, SendQueueStatus, SlidingSync, SlidingWindow, SpaceListChange,
-    SpaceListEntry, SpaceListFilter, SpaceListService, SpaceListSnapshot, SpaceListSort,
-    SyncGapStrategy, SyncLoop, SyncLoopControl, SyncLoopSnapshot, SyncLoopStep,
-    SyncResponseProcessor, SyncTransport,
+    EventsQueryDirection, EventsQueryRequest, EventsQueryResponse, EventsQuerySelector,
+    EventsSubscribeFrame, EventsSubscribeTransport, ExponentialBackoff, LocalEcho, ProcessedSpace,
+    SendQueue, SendQueueItem, SendQueueItemKind, SendQueueSnapshot, SendQueueStatus, SlidingSync,
+    SlidingWindow, SpaceListChange, SpaceListEntry, SpaceListFilter, SpaceListService,
+    SpaceListSnapshot, SpaceListSort, SyncGapStrategy, SyncLoop, SyncLoopControl, SyncLoopSnapshot,
+    SyncLoopStep, SyncResponseProcessor, SyncTransport,
 };
 #[cfg(all(feature = "full-surface", feature = "timeline-runtime"))]
 pub use timeline::{

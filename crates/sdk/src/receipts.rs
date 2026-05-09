@@ -209,42 +209,32 @@ impl ReceiptManager {
 /// `cx.flow.track.read_receipt_policy`. Soft policy — not cryptographically
 /// enforceable. Compliant clients honor `Required` by sending and `Disabled`
 /// by suppressing; `Optional` defers to user [`ReadReceiptPreferences`].
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ReadReceiptDisclosure {
     /// All compliant members SHOULD send `cx.receipt.read`. Client UI
     /// MUST lock the per-scope `send=false` toggle.
     Required,
     /// User preference decides. Default.
+    #[default]
     Optional,
     /// Compliant clients MUST NOT generate; Sync Service MUST drop
     /// inbound `cx.receipt.read` for this scope.
     Disabled,
 }
 
-impl Default for ReadReceiptDisclosure {
-    fn default() -> Self {
-        Self::Optional
-    }
-}
-
 /// `visibility` field of `ReadReceiptPolicy`. Controls who Sync Service
 /// fanouts `cx.receipt.read` to.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ReadReceiptVisibility {
     /// All observers permitted by Space history visibility.
     Public,
     /// Discussion branch members only. Default.
+    #[default]
     Members,
     /// Only the original sender of the referenced event.
     Private,
-}
-
-impl Default for ReadReceiptVisibility {
-    fn default() -> Self {
-        Self::Members
-    }
 }
 
 /// Typed value of the read-receipt disclosure policy cell. Same shape at

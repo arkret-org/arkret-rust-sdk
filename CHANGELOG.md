@@ -10,6 +10,63 @@ permitted; once `1.0` ships, breaking changes will require a major bump.
 
 ## [Unreleased]
 
+## [0.5.0] – 2026-05-09 — Move/Anchor signer surface + EventsQuery typed wrappers
+
+This release completes round 21 of the SDK: the public Move/Anchor signer
+trait, an Ed25519 backend for production signing, the `EventsQueryRequest`
+/ `EventsQueryResponse` typed wrappers downstream agents (coauth / soland /
+yougen) need for `cx.events.query`, and the workspace bump to 0.5.0
+(folds C19.B follow-ups + completes signer surface). v1 wire is unchanged
+from 0.4.0; this is an additive SDK API release.
+
+### Added
+
+- **`contrix-core::MoveSigner` trait + `UnsignedMove` builder** — public
+  signer abstraction for Move/Anchor signing. `Move::sign(&unsigned, &signer)`
+  produces a fully-signed Move whose `id` matches canonical bytes hash
+  and `sig.payload_hash` matches the same canonical bytes. 8 unit tests.
+- **`Anchor::sign_single` / `Anchor::sign_threshold` / `Anchor::sign_multi`**
+  constructors that take a [`MoveSigner`] (or threshold proof bytes) +
+  predecessor refs + frontier and produce a fully-signed [`Anchor`]
+  with `id` derived from canonical bytes.
+- **`contrix-signatures::Ed25519MoveSigner`** behind the new `signer`
+  feature: wraps `ed25519_dalek::SigningKey`, exposes
+  `new(signing_key, did, kid)` + `from_did_key_seed(seed)`, produces
+  detached EdDSA JWS strings. Includes
+  `verify_ed25519_move_signature` helper for round-trip vectors. 5
+  unit tests.
+- Re-exported at the top-level `contrix` crate root behind the
+  `contrix/signer = ["contrix-signatures/signer"]` feature flag.
+- **`contrix::EventsQueryRequest` / `EventsQueryResponse`** typed
+  wrappers in `sync_client.rs` for `cx.events.query`. Multi-selector
+  (`spaces[] ∪ actors[]`), `from` / `until` HLC bounds, `direction`
+  (forward/backward), `limit`. `EventsQueryResponse` carries `events`,
+  `next_cursor`, `prev_cursor`, `limited`. From/Into impls bridge with
+  the existing `SyncBackfillResponse` wire shape soland accepts. 4 new
+  unit tests.
+- **`EventsSubscribeFrame::Frontier { cursor }` round-trip test** —
+  rounds out the existing 9-variant frame deserializer (already had
+  Event / CatchupComplete / Heartbeat / Dropped / EpochRotation /
+  ResyncRequired / Unauthorized / Unknown coverage).
+
+### Changed
+
+- `EventsQueryDirection` now derives `Default` (= `Forward`) so
+  `EventsQueryRequest` defaults match spec convention.
+- All 23 workspace crates bumped 0.4.0 → 0.5.0; workspace dep table
+  updated in lockstep.
+- Pre-existing clippy `derivable_impls` warnings on
+  `ReadReceiptDisclosure` / `ReadReceiptVisibility` cleaned up using
+  `#[derive(Default)]` + `#[default]` markers.
+
+### Test baseline
+
+- `cargo build --workspace --all-features` clean.
+- `cargo clippy --workspace --all-features --tests -- -D warnings` clean.
+- `cargo test --workspace --lib --all-features` **728 passed / 0 failed
+  / 0 ignored** (was 704 in 0.4.0; +24 new tests covering signer trait,
+  Ed25519 backend, EventsQuery typed wrappers, and Frontier frame).
+
 ## [0.2.0] – 2026-05-08 — Move / Anchor / Lattice rebase ⚠ wire-breaking
 
 This release rebases the SDK onto the Move/Anchor/Lattice three-primitive
