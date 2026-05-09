@@ -69,7 +69,15 @@ pub use contrix_appservice_api as appservice_api;
 pub use contrix_client as client;
 pub use contrix_client_api as client_api;
 pub use contrix_core::*;
-pub use contrix_core::{canonical, cursor, error, identifiers, model, service, sync};
+pub use contrix_core::{canonical, cursor, error, identifiers, keystore, model, service, sync};
+// Round 23 (2026-05-09): platform-native KeyStore backends. The glob import
+// above already re-exports these symbols, but listing them explicitly keeps
+// them visible in `cargo doc` and signals the supported surface to
+// downstream crates that depend only on `contrix` (not `contrix-core`).
+pub use contrix_core::{
+    InMemoryKeyStore, KeyStore, KeyStoreError, LinuxSecretServiceKeyStore, MacOsKeychainKeyStore,
+    WindowsCredentialKeyStore, platform_default_keystore,
+};
 pub use contrix_crypto as crypto_protocol;
 pub use contrix_events as events;
 pub use contrix_federation_api as federation_api;

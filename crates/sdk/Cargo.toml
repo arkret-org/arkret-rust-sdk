@@ -10,7 +10,7 @@ name = "contrix"
 readme = "README.md"
 repository = "https://github.com/contrix/contrix-rust-sdk"
 rust-version.workspace = true
-version = "0.5.0"
+version = "0.5.1"
 
 [package.metadata.docs.rs]
 all-features = true
@@ -46,6 +46,12 @@ applet-runtime = ["full-surface"]
 device-runtime = ["full-surface"]
 sync-runtime = ["full-surface"]
 timeline-runtime = ["full-surface"]
+# Round 23 (2026-05-09): expose contrix-core's platform KeyStore feature
+# gates so apps embedding the umbrella `contrix` crate can opt into
+# OS-native key storage without a direct contrix-core dependency.
+keystore-macos = ["contrix-core/keystore-macos"]
+keystore-linux = ["contrix-core/keystore-linux"]
+keystore-windows = ["contrix-core/keystore-windows"]
 
 [dependencies]
 base64.workspace = true

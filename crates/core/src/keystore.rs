@@ -1,16 +1,35 @@
 //! Pluggable key storage abstraction for SDK signers and HSM integrations.
 //!
-//! Round 22 (2026-05-09): expose a small [`KeyStore`] trait so downstream
-//! crates (yougen real-key signing, soland anchorer-cell key custody,
-//! coauth recovery flow) can swap between an in-process [`InMemoryKeyStore`]
-//! and platform-native secret storage (macOS Keychain, Linux Secret
-//! Service, Windows Credential Locker) without changing the public signing
-//! surface.
+//! The trait stays small — `load` / `store` / `list` / `delete` only — so it
+//! can wrap any backend (in-process map, OS keyring, HSM) behind a single
+//! signing surface. Real platform implementations are gated behind feature
+//! flags + `target_os` cfgs so consumers only pay for the backend they
+//! actually use.
 //!
-//! The trait stays small — `load` / `store` / `list` / `delete` only — so
-//! it can wrap any of the platform backends behind a `// TODO(c10g-hsm)`
-//! hook. Real platform implementations are stubbed out with
-//! `unimplemented!()` here until the HSM workstream lands.
+//! ## Backends
+//!
+//! | Backend | Feature | `target_os` |
+//! |---|---|---|
+//! | [`InMemoryKeyStore`] | always available | any |
+//! | [`MacOsKeychainKeyStore`] | `keystore-macos` | `macos` |
+//! | [`LinuxSecretServiceKeyStore`] | `keystore-linux` | `linux` |
+//! | [`WindowsCredentialKeyStore`] | `keystore-windows` | `windows` |
+//!
+//! Off-target compilation: each platform type still **compiles** on every
+//! target so downstream code can reference it unconditionally; constructors
+//! return [`KeyStoreError::Unsupported`] when the active target / feature
+//! combination cannot reach the underlying API.
+//!
+//! ## Service-name namespacing
+//!
+//! Backends namespace credentials under `"contrix.<application_id>"` so
+//! multiple Contrix-using apps on the same host (yougen, sodmin, soland
+//! anchorer, …) don't trample each other's keychain items. The
+//! `application_id` is supplied at construction time and SHOULD be a stable
+//! reverse-DNS-like identifier for the host application
+//! (e.g. `"chat.acroidea.yougen"`).
+//!
+//! ## Key ids
 //!
 //! Keys are addressed by an opaque `id: &str`; the SDK does not interpret
 //! the id beyond passing it through to the backend. Conventional ids look
@@ -20,19 +39,60 @@
 use std::collections::BTreeMap;
 use std::sync::{Mutex, PoisonError};
 
+use thiserror::Error;
+
 use crate::{Error, Result};
+
+#[cfg(all(target_os = "macos", feature = "keystore-macos"))]
+mod macos;
+#[cfg(all(target_os = "macos", feature = "keystore-macos"))]
+pub use macos::MacOsKeychainKeyStore;
+
+#[cfg(all(target_os = "linux", feature = "keystore-linux"))]
+mod linux;
+#[cfg(all(target_os = "linux", feature = "keystore-linux"))]
+pub use linux::LinuxSecretServiceKeyStore;
+
+#[cfg(all(target_os = "windows", feature = "keystore-windows"))]
+mod windows;
+#[cfg(all(target_os = "windows", feature = "keystore-windows"))]
+pub use windows::WindowsCredentialKeyStore;
+
+// ---------------------------------------------------------------------------
+// Off-target stubs.
+//
+// These keep the type visible everywhere so downstream code can reference
+// the platform key-store types from cross-target builds (docs, FFI, tests
+// that compile on every CI runner). Constructors return
+// `KeyStoreError::Unsupported`; trait methods do the same so calls into a
+// stub don't panic.
+// ---------------------------------------------------------------------------
+
+#[cfg(not(all(target_os = "macos", feature = "keystore-macos")))]
+mod macos_stub;
+#[cfg(not(all(target_os = "macos", feature = "keystore-macos")))]
+pub use macos_stub::MacOsKeychainKeyStore;
+
+#[cfg(not(all(target_os = "linux", feature = "keystore-linux")))]
+mod linux_stub;
+#[cfg(not(all(target_os = "linux", feature = "keystore-linux")))]
+pub use linux_stub::LinuxSecretServiceKeyStore;
+
+#[cfg(not(all(target_os = "windows", feature = "keystore-windows")))]
+mod windows_stub;
+#[cfg(not(all(target_os = "windows", feature = "keystore-windows")))]
+pub use windows_stub::WindowsCredentialKeyStore;
 
 /// Pluggable key storage interface.
 ///
-/// Implementations MUST be concurrency-safe (typically `Send + Sync`) so
-/// they can be shared across signer instances and threadpool workers.
+/// Implementations MUST be concurrency-safe (`Send + Sync`) so they can be
+/// shared across signer instances and threadpool workers.
 ///
 /// # Errors
 ///
 /// Implementations return [`Error::Protocol`] on backend failure. Missing
-/// keys SHOULD surface as [`Error::Protocol`] with a "not found" message
-/// (a dedicated `NotFound` variant lives in the SDK error module but is
-/// not required for trait conformance).
+/// keys SHOULD surface as [`Error::Protocol`] with a "key not found"
+/// message; callers MAY downcast via [`KeyStoreError`] for stronger typing.
 pub trait KeyStore: Send + Sync {
     /// Load the raw key bytes for `id`.
     ///
@@ -50,6 +110,116 @@ pub trait KeyStore: Send + Sync {
     /// Delete the entry under `id`. Idempotent: deleting a missing id is
     /// not an error.
     fn delete(&self, id: &str) -> Result<()>;
+}
+
+/// Strongly-typed key-store error. Convertible to the workspace
+/// [`Error::Protocol`] for trait conformance.
+#[derive(Debug, Error)]
+pub enum KeyStoreError {
+    /// The active target / feature combination does not provide this
+    /// backend (e.g. constructing `MacOsKeychainKeyStore` on Linux, or
+    /// without the `keystore-macos` feature enabled).
+    #[error("key-store backend unsupported on this target: {reason}")]
+    Unsupported { reason: String },
+
+    /// The requested key id does not exist in the backend.
+    #[error("key not found: {id}")]
+    NotFound { id: String },
+
+    /// Caller supplied an empty / malformed id.
+    #[error("invalid key id: {reason}")]
+    InvalidId { reason: String },
+
+    /// Backend-specific failure (D-Bus, Keychain Services, Win32 last
+    /// error, ...). The message is intentionally opaque so backend
+    /// implementations don't leak structured details across platforms.
+    #[error("key-store backend failure: {0}")]
+    Backend(String),
+}
+
+impl KeyStoreError {
+    pub fn unsupported(reason: impl Into<String>) -> Self {
+        Self::Unsupported { reason: reason.into() }
+    }
+
+    pub fn not_found(id: impl Into<String>) -> Self {
+        Self::NotFound { id: id.into() }
+    }
+
+    pub fn invalid_id(reason: impl Into<String>) -> Self {
+        Self::InvalidId { reason: reason.into() }
+    }
+
+    pub fn backend(message: impl Into<String>) -> Self {
+        Self::Backend(message.into())
+    }
+}
+
+impl From<KeyStoreError> for Error {
+    fn from(err: KeyStoreError) -> Self {
+        Error::Protocol(err.to_string())
+    }
+}
+
+/// Validate that an id is non-empty. Backends call this before touching the
+/// platform API so all impls share the same "empty id" contract.
+pub(crate) fn validate_id(id: &str) -> std::result::Result<(), KeyStoreError> {
+    if id.is_empty() {
+        return Err(KeyStoreError::invalid_id("id must be non-empty"));
+    }
+    Ok(())
+}
+
+/// Build the per-backend service / target name. All platform backends use
+/// `contrix.<application_id>` as the service-prefix so independent Contrix
+/// apps on the same host don't collide.
+#[cfg(any(
+    test,
+    all(target_os = "macos", feature = "keystore-macos"),
+    all(target_os = "linux", feature = "keystore-linux"),
+    all(target_os = "windows", feature = "keystore-windows"),
+))]
+pub(crate) fn service_name(application_id: &str) -> String {
+    format!("contrix.{application_id}")
+}
+
+/// Construct the platform-default [`KeyStore`] for the given application
+/// id, falling back to [`InMemoryKeyStore`] when no native backend is
+/// available (target/feature mismatch, or D-Bus session not reachable on
+/// Linux).
+///
+/// Resolution order on each target:
+/// - macOS + `keystore-macos` → [`MacOsKeychainKeyStore`]
+/// - Linux + `keystore-linux` → [`LinuxSecretServiceKeyStore`]
+/// - Windows + `keystore-windows` → [`WindowsCredentialKeyStore`]
+/// - otherwise → [`InMemoryKeyStore`]
+///
+/// The fallback is intentional: ephemeral / test environments and
+/// platforms without a native key store still get a working trait
+/// object. Callers that REQUIRE durable storage should construct the
+/// platform type directly and surface the [`KeyStoreError::Unsupported`]
+/// to the user.
+pub fn platform_default_keystore(application_id: &str) -> Box<dyn KeyStore> {
+    #[cfg(all(target_os = "macos", feature = "keystore-macos"))]
+    {
+        if let Ok(store) = MacOsKeychainKeyStore::new(application_id) {
+            return Box::new(store);
+        }
+    }
+    #[cfg(all(target_os = "linux", feature = "keystore-linux"))]
+    {
+        if let Ok(store) = LinuxSecretServiceKeyStore::new(application_id) {
+            return Box::new(store);
+        }
+    }
+    #[cfg(all(target_os = "windows", feature = "keystore-windows"))]
+    {
+        if let Ok(store) = WindowsCredentialKeyStore::new(application_id) {
+            return Box::new(store);
+        }
+    }
+    let _ = application_id;
+    Box::new(InMemoryKeyStore::new())
 }
 
 /// In-process [`KeyStore`] backed by a `BTreeMap`. Suitable for tests and
@@ -75,14 +245,13 @@ impl InMemoryKeyStore {
 
 impl KeyStore for InMemoryKeyStore {
     fn load(&self, id: &str) -> Result<Vec<u8>> {
+        validate_id(id)?;
         let bytes = self.with_lock(|map| map.get(id).cloned())?;
-        bytes.ok_or_else(|| Error::Protocol(format!("key not found: {id}")))
+        bytes.ok_or_else(|| KeyStoreError::not_found(id).into())
     }
 
     fn store(&self, id: &str, key: &[u8]) -> Result<()> {
-        if id.is_empty() {
-            return Err(Error::Protocol("KeyStore id must be non-empty".to_owned()));
-        }
+        validate_id(id)?;
         self.with_lock(|map| {
             map.insert(id.to_owned(), key.to_vec());
         })
@@ -93,148 +262,10 @@ impl KeyStore for InMemoryKeyStore {
     }
 
     fn delete(&self, id: &str) -> Result<()> {
+        validate_id(id)?;
         self.with_lock(|map| {
             map.remove(id);
         })
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Platform-native stubs.
-//
-// These structs are intentionally unimplemented; their purpose is to give
-// downstream HSM work (yougen / soland / coauth) a stable type to import
-// and feature-gate against, without forcing every consumer to depend on a
-// platform-native crate today.
-//
-// TODO(c10g-hsm): wire each to its native backend:
-//   - macOS:   `security-framework` keychain item APIs.
-//   - Linux:   `secret-service` D-Bus client.
-//   - Windows: `windows-rs` `Windows.Security.Credentials.Vault`.
-// ---------------------------------------------------------------------------
-
-/// macOS Keychain-backed [`KeyStore`].
-///
-/// TODO(c10g-hsm): wire to `security-framework` keychain item APIs.
-#[derive(Default)]
-pub struct MacOsKeychainKeyStore {
-    /// Optional service-name prefix so multiple Contrix apps can share a
-    /// host without colliding on Keychain item names.
-    pub service: Option<String>,
-}
-
-impl MacOsKeychainKeyStore {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn with_service(service: impl Into<String>) -> Self {
-        Self { service: Some(service.into()) }
-    }
-}
-
-impl KeyStore for MacOsKeychainKeyStore {
-    fn load(&self, _id: &str) -> Result<Vec<u8>> {
-        // TODO(c10g-hsm): read from macOS Keychain via `security-framework`.
-        unimplemented!("MacOsKeychainKeyStore::load — pending HSM workstream (c10g-hsm)")
-    }
-
-    fn store(&self, _id: &str, _key: &[u8]) -> Result<()> {
-        // TODO(c10g-hsm): write to macOS Keychain via `security-framework`.
-        unimplemented!("MacOsKeychainKeyStore::store — pending HSM workstream (c10g-hsm)")
-    }
-
-    fn list(&self) -> Result<Vec<String>> {
-        // TODO(c10g-hsm): enumerate keychain items by service prefix.
-        unimplemented!("MacOsKeychainKeyStore::list — pending HSM workstream (c10g-hsm)")
-    }
-
-    fn delete(&self, _id: &str) -> Result<()> {
-        // TODO(c10g-hsm): delete keychain item via `security-framework`.
-        unimplemented!("MacOsKeychainKeyStore::delete — pending HSM workstream (c10g-hsm)")
-    }
-}
-
-/// Linux Secret Service ([`org.freedesktop.secrets`]) [`KeyStore`].
-///
-/// TODO(c10g-hsm): wire to the `secret-service` crate D-Bus client.
-#[derive(Default)]
-pub struct LinuxSecretServiceKeyStore {
-    /// Collection name (`"login"` / `"session"`); `None` defaults to the
-    /// session keyring.
-    pub collection: Option<String>,
-}
-
-impl LinuxSecretServiceKeyStore {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn with_collection(collection: impl Into<String>) -> Self {
-        Self { collection: Some(collection.into()) }
-    }
-}
-
-impl KeyStore for LinuxSecretServiceKeyStore {
-    fn load(&self, _id: &str) -> Result<Vec<u8>> {
-        // TODO(c10g-hsm): SecretService.lookup() over D-Bus.
-        unimplemented!("LinuxSecretServiceKeyStore::load — pending HSM workstream (c10g-hsm)")
-    }
-
-    fn store(&self, _id: &str, _key: &[u8]) -> Result<()> {
-        // TODO(c10g-hsm): SecretService.create_item() over D-Bus.
-        unimplemented!("LinuxSecretServiceKeyStore::store — pending HSM workstream (c10g-hsm)")
-    }
-
-    fn list(&self) -> Result<Vec<String>> {
-        // TODO(c10g-hsm): SecretService.search_items() filtered by Contrix attribute.
-        unimplemented!("LinuxSecretServiceKeyStore::list — pending HSM workstream (c10g-hsm)")
-    }
-
-    fn delete(&self, _id: &str) -> Result<()> {
-        // TODO(c10g-hsm): SecretService.delete_item() over D-Bus.
-        unimplemented!("LinuxSecretServiceKeyStore::delete — pending HSM workstream (c10g-hsm)")
-    }
-}
-
-/// Windows Credential Locker (`Windows.Security.Credentials.Vault`) [`KeyStore`].
-///
-/// TODO(c10g-hsm): wire to `windows-rs` Vault APIs.
-#[derive(Default)]
-pub struct WindowsCredentialKeyStore {
-    /// Resource string used as the Credential Locker resource attribute.
-    pub resource: Option<String>,
-}
-
-impl WindowsCredentialKeyStore {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn with_resource(resource: impl Into<String>) -> Self {
-        Self { resource: Some(resource.into()) }
-    }
-}
-
-impl KeyStore for WindowsCredentialKeyStore {
-    fn load(&self, _id: &str) -> Result<Vec<u8>> {
-        // TODO(c10g-hsm): Vault.Retrieve() via windows-rs.
-        unimplemented!("WindowsCredentialKeyStore::load — pending HSM workstream (c10g-hsm)")
-    }
-
-    fn store(&self, _id: &str, _key: &[u8]) -> Result<()> {
-        // TODO(c10g-hsm): Vault.Add() via windows-rs.
-        unimplemented!("WindowsCredentialKeyStore::store — pending HSM workstream (c10g-hsm)")
-    }
-
-    fn list(&self) -> Result<Vec<String>> {
-        // TODO(c10g-hsm): Vault.RetrieveAll() filtered by resource.
-        unimplemented!("WindowsCredentialKeyStore::list — pending HSM workstream (c10g-hsm)")
-    }
-
-    fn delete(&self, _id: &str) -> Result<()> {
-        // TODO(c10g-hsm): Vault.Remove() via windows-rs.
-        unimplemented!("WindowsCredentialKeyStore::delete — pending HSM workstream (c10g-hsm)")
     }
 }
 
@@ -286,32 +317,44 @@ mod tests {
     }
 
     #[test]
-    fn platform_stubs_construct_with_optional_metadata() {
-        let m = MacOsKeychainKeyStore::with_service("contrix.app");
-        assert_eq!(m.service.as_deref(), Some("contrix.app"));
-
-        let l = LinuxSecretServiceKeyStore::with_collection("login");
-        assert_eq!(l.collection.as_deref(), Some("login"));
-
-        let w = WindowsCredentialKeyStore::with_resource("contrix");
-        assert_eq!(w.resource.as_deref(), Some("contrix"));
+    fn key_store_error_unsupported_renders_reason() {
+        let err = KeyStoreError::unsupported("no-D-Bus session bus");
+        let rendered = format!("{err}");
+        assert!(rendered.contains("unsupported"));
+        assert!(rendered.contains("no-D-Bus session bus"));
     }
 
     #[test]
-    #[should_panic(expected = "pending HSM workstream")]
-    fn macos_keychain_load_unimplemented() {
-        let _ = MacOsKeychainKeyStore::new().load("any");
+    fn key_store_error_round_trips_into_workspace_error() {
+        let proto: Error = KeyStoreError::not_found("missing-id").into();
+        let rendered = format!("{proto}");
+        assert!(rendered.contains("key not found"));
+        assert!(rendered.contains("missing-id"));
     }
 
     #[test]
-    #[should_panic(expected = "pending HSM workstream")]
-    fn linux_secret_service_store_unimplemented() {
-        let _ = LinuxSecretServiceKeyStore::new().store("k", b"v");
+    fn service_name_namespaces_per_application_id() {
+        assert_eq!(service_name("yougen"), "contrix.yougen");
+        assert_eq!(service_name("soland.anchorer"), "contrix.soland.anchorer");
     }
 
     #[test]
-    #[should_panic(expected = "pending HSM workstream")]
-    fn windows_credential_list_unimplemented() {
-        let _ = WindowsCredentialKeyStore::new().list();
+    fn platform_default_keystore_returns_a_working_keystore() {
+        // On targets/features without a native backend this falls back to
+        // InMemoryKeyStore. On targets WITH a native backend, the native
+        // backend is constructed; either way we can round-trip a key.
+        let store = platform_default_keystore("contrix.test.platform_default");
+        // We can't reuse a fixed id across runs because some backends
+        // persist; use a per-process unique id instead.
+        let id = format!(
+            "contrix:test:platform-default:{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        );
+        store.store(&id, b"platform-default-secret").unwrap();
+        assert_eq!(store.load(&id).unwrap(), b"platform-default-secret");
+        store.delete(&id).unwrap();
     }
 }

@@ -56,8 +56,8 @@ pub use move_event::{
     Predicate, PredicateOp, SemanticRef,
 };
 pub use keystore::{
-    InMemoryKeyStore, KeyStore, LinuxSecretServiceKeyStore, MacOsKeychainKeyStore,
-    WindowsCredentialKeyStore,
+    InMemoryKeyStore, KeyStore, KeyStoreError, LinuxSecretServiceKeyStore,
+    MacOsKeychainKeyStore, WindowsCredentialKeyStore, platform_default_keystore,
 };
 pub use signer::{MoveSigner, PartialSignature, ThresholdAggregator, UnsignedMove};
 pub use service::{

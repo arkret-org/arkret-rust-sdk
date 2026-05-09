@@ -10,6 +10,55 @@ permitted; once `1.0` ships, breaking changes will require a major bump.
 
 ## [Unreleased]
 
+## [0.5.1] – 2026-05-09 — Platform `KeyStore` native backends
+
+Round 23 of the SDK: turns the Round-22 `KeyStore` platform stubs into
+real implementations behind per-target feature flags. `v1` wire is
+unchanged; this is an additive SDK API release.
+
+### Added
+
+- **`MacOsKeychainKeyStore` (macOS Keychain Services)** behind the new
+  `keystore-macos` feature, wired to the `security-framework` crate's
+  generic-password APIs (`set_generic_password` / `get_generic_password`
+  / `delete_generic_password` plus `ItemSearchOptions` for `list()`).
+  Items live under service name `"contrix.<application_id>"`. 5 unit
+  tests gated on `cfg(target_os = "macos")`.
+- **`LinuxSecretServiceKeyStore` (D-Bus Secret Service)** behind the new
+  `keystore-linux` feature, wired to the `secret-service` crate's
+  blocking client. Items are tagged with `service` + `account`
+  attributes for namespaced enumeration. 5 unit tests gated on
+  `cfg(target_os = "linux")` plus `CONTRIX_TEST_LINUX_KEYSTORE=1` env
+  guard for runtime D-Bus access.
+- **`WindowsCredentialKeyStore` (Windows Credential Manager)** behind
+  the new `keystore-windows` feature, wired to the `windows` crate's
+  `Cred*W` family (`CredReadW` / `CredWriteW` / `CredDeleteW` /
+  `CredEnumerateW`). Target name pattern
+  `"contrix.<application_id>:<key_id>"`. 5 unit tests; on Windows CI
+  these run live against the user's Credential Manager.
+- **`KeyStoreError`** strongly-typed error enum (`Unsupported` /
+  `NotFound` / `InvalidId` / `Backend`) convertible to
+  `Error::Protocol`. Off-target / feature-disabled builds keep all
+  three platform types visible (so downstream FFI / docs continue to
+  compile cross-target) but their constructors return
+  `KeyStoreError::Unsupported { reason }`.
+- **`platform_default_keystore(application_id)`** helper that picks the
+  matching native backend for the active target/feature combo and
+  falls back to `InMemoryKeyStore` when none is available. Lets
+  downstream apps do `let ks = platform_default_keystore("yougen");`
+  without per-platform `cfg` blocks at the call site.
+- Workspace `Cargo.toml` gains pinned versions for
+  `security-framework = 3.5`, `secret-service = 5.0`, and
+  `windows = 0.62`. Each is brought in only by its `target_os` via
+  `[target.cfg(target_os = "...")]` blocks in `crates/core/Cargo.toml`,
+  so cross-target builds don't pull unrelated platform crates.
+
+### Changed
+
+- Crate version `0.5.0 → 0.5.1` across the workspace; `v1` wire format
+  unchanged. Public re-export at `contrix_core::{KeyStoreError,
+  platform_default_keystore}`.
+
 ## [0.5.0] – 2026-05-09 — Move/Anchor signer surface + EventsQuery typed wrappers
 
 This release completes round 21 of the SDK: the public Move/Anchor signer
