@@ -11,6 +11,7 @@ pub mod canonical;
 pub mod cell;
 pub mod cursor;
 pub mod error;
+pub mod keystore;
 pub mod model;
 pub mod move_event;
 pub mod service;
@@ -54,7 +55,11 @@ pub use move_event::{
     Effect, LatticeOp, LatticeOpType, MOVE_SIGNATURE_ALGS, Move, MoveSignature, Precondition,
     Predicate, PredicateOp, SemanticRef,
 };
-pub use signer::{MoveSigner, UnsignedMove};
+pub use keystore::{
+    InMemoryKeyStore, KeyStore, LinuxSecretServiceKeyStore, MacOsKeychainKeyStore,
+    WindowsCredentialKeyStore,
+};
+pub use signer::{MoveSigner, PartialSignature, ThresholdAggregator, UnsignedMove};
 pub use service::{
     ApiConventionMetadata, HttpTraceMetadata, NotFoundPrivacy, QuotaKind, QuotaMetadata,
     RateLimitMetadata, RateLimitScopeKind, ServiceDidAllowlist, ServiceEndpointBinding,

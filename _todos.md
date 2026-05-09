@@ -6,6 +6,38 @@
 
 ## Changelog
 
+### 2026-05-09 (round 22，激进模式) — LatticeKind::event_kinds() + Threshold partial-signature aggregator + KeyStore trait
+
+- **`LatticeKind::event_kinds() -> &'static [&'static str]`** (`crates/lattice/src/traits.rs`):
+  - 每个 closed-set lattice variant 现在直接声明它处理的 `cx.<...>` event-kind ID 集合 (or-set: capability/consent grant+revoke + mls.covered_frontier.add；mv-register: space/flow/entity/task update；cas-register: 13 个 create/delete/restore/redact/mls.commit + space.anchorer.set + space.policy.set；fsm: member.state + 6 个 flow rank/parent transition；counter: metric.counter.inc/dec；ordered-log: message.create + audit.append + audit.ryw_receipt)。
+  - 5 单测覆盖：每 kind 至少 1 event-kind、event-kind 全部 `cx.` 前缀、跨 kind 无重叠（保证 `LatticeRegistry` route 不二义）、or-set/cas-register/ordered-log/fsm 对应 spec §5 example 命中。
+  - 解锁 soland 把 `ProjectionState::apply` 切到 `lattice_first=true` (默认)，不再依赖 cell registry round-trip 决定 lattice。
+- **Threshold partial-signature aggregator** (`crates/core/src/signer.rs`):
+  - `pub struct PartialSignature { signer_did: Did, signature: Vec<u8>, kid: String }` + `new(...)` constructor。
+  - `pub struct ThresholdAggregator { threshold, partials }` (`#[derive(Clone, Debug)]`) — `new(k)` 拒 0、`add_partial(p)` 拒 duplicate signer/empty sig/empty kid、`add_partial_verified(p, verifier)` 在加入前跑 scheme verifier、`threshold_met()`/`collected()`/`partials()`/`signers()` 查询、`aggregate(canonical_bytes, verify) -> Result<MultiSignature>` 验阈值 + 每个 partial 单独 verify + 输出统一 `MultiSignature` (每 partial 一个 `MoveSignature`，`payload_hash = sha256(canonical_bytes)`，`jws = "..<base64url(sig)>"`)、`aggregate_proof()` 输出 base64url 单串 opaque proof (给 BLS-style aggregator 替换)。
+  - `Anchor::sign_threshold_partial(space, predecessor_refs, frontier, state_root, hlc, &aggregator) -> Result<Anchor>`：从 aggregator 直接 build `AnchorerSig::Threshold` (proof = `aggregate_proof()`，signers = `aggregator.signers()`，threshold = `aggregator.threshold()`)，跑 `validate_structural`。
+  - 9 单测：zero-threshold reject、collect+aggregate round-trip、duplicate signer reject、aggregate below threshold reject、individual verifier 失败传播、`add_partial_verified` 失败 short-circuit、`Anchor::sign_threshold_partial` round-trip + 阈值不满足 reject、空 sig/empty kid reject。
+- **`KeyStore` trait + 平台 stubs** (`crates/core/src/keystore.rs`，新模块):
+  - `pub trait KeyStore: Send + Sync { fn load(&self, id: &str) -> Result<Vec<u8>>; fn store(&self, id: &str, key: &[u8]) -> Result<()>; fn list(&self) -> Result<Vec<String>>; fn delete(&self, id: &str) -> Result<()> }` — load/store/list/delete 四方法 + 并发安全。
+  - `pub struct InMemoryKeyStore` (BTreeMap + Mutex)：load 返回 not-found error、store 拒 empty id 并覆盖现有、list 排序、delete 幂等。
+  - `pub struct MacOsKeychainKeyStore { service: Option<String> }` / `LinuxSecretServiceKeyStore { collection: Option<String> }` / `WindowsCredentialKeyStore { resource: Option<String> }` — `unimplemented!("... — pending HSM workstream (c10g-hsm)")` 四方法体 + `// TODO(c10g-hsm)` 注释指明待接 `security-framework` / `secret-service` / `windows-rs` 后端。
+  - 8 单测：in-memory round-trip、overwrite、empty-id reject、idempotent delete、平台 stubs 构造、3 个 `#[should_panic]` 平台方法 unimplemented sentinel。
+- **新公共 surface (additive，无 wire-break)**:
+  - `contrix::LatticeKind::event_kinds()` 经 `pub use contrix_lattice as lattice` 暴露。
+  - `contrix::PartialSignature` / `contrix::ThresholdAggregator` / `Anchor::sign_threshold_partial` 经 `pub use contrix_core::*` 暴露。
+  - `contrix::KeyStore` / `contrix::InMemoryKeyStore` / `contrix::MacOsKeychainKeyStore` / `contrix::LinuxSecretServiceKeyStore` / `contrix::WindowsCredentialKeyStore` 同上。
+- **测试 & 校验**:
+  - `cargo check --workspace --all-features` exit 0。
+  - `cargo clippy --workspace --all-features --tests -- -D warnings` 干净 (一处 `needless_borrows_for_generic_args` 顺手修了)。
+  - `cargo test --workspace --lib --all-features --no-fail-fast` **751 passed / 0 failed / 0 ignored**（基线 728 + 23：5 lattice event_kinds + 9 threshold aggregator + 8 keystore + 1 small clippy/Debug derive 调整）。
+- **不在本轮范围**:
+  - 真正连 platform-native 后端（macOS Keychain / Linux Secret Service / Windows Credential Locker）—— 等 HSM workstream c10g-hsm。
+  - 真 BLS / FROST 阈值 aggregator —— `ThresholdAggregator::aggregate_proof()` 当前是 base64url-no-pad of `<did>:<base64url(sig)>` 行串接，scheme-specific aggregator 由下游替换。
+- **下游解锁**:
+  - soland 现在可以 import `contrix::LatticeKind::event_kinds()` 把 `ProjectionState::apply` 切到 lattice-first 路由。
+  - coauth/yougen 可以用 `ThresholdAggregator` 收集 anchorer set partial signatures 并通过 `Anchor::sign_threshold_partial` 一站式落 `AnchorerSig::Threshold` Anchor。
+  - 下游 HSM 工作（yougen real-key signing, soland anchorer 私钥托管）可以基于 `KeyStore` trait 写集成而不需要先 fork SDK。
+
 ### 2026-05-09 (round 21，激进模式) — Public Move/Anchor signer + EventsQuery typed wrappers + v0.5.0 minor bump
 
 - **C10.A 收尾 — Move/Anchor signer 公共 surface** (`crates/core/src/signer.rs`, 308 lines + 8 unit tests):

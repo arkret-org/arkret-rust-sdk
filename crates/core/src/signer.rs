@@ -271,6 +271,242 @@ impl Anchor {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Threshold partial-signature aggregation
+// ---------------------------------------------------------------------------
+
+/// One signer's contribution to a `k`-of-`n` threshold signature.
+///
+/// `signature` is the raw scheme-specific signature bytes (e.g. an Ed25519
+/// detached JWS sig segment, BLS partial, FROST share). The aggregator does
+/// NOT recompute it: callers MUST run their threshold-scheme verifier on
+/// each partial via [`ThresholdAggregator::add_partial`] before the partial
+/// enters the aggregator.
+///
+/// `kid` is the verification method id (`<did>#<key-fragment>`) so
+/// downstream verifiers can resolve `signer_did` → public key without
+/// trusting the partial body alone.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PartialSignature {
+    pub signer_did: Did,
+    pub signature: Vec<u8>,
+    pub kid: String,
+}
+
+impl PartialSignature {
+    pub fn new(signer_did: Did, signature: Vec<u8>, kid: impl Into<String>) -> Self {
+        Self { signer_did, signature, kid: kid.into() }
+    }
+}
+
+/// Threshold partial-signature collector.
+///
+/// Collects [`PartialSignature`]s contributed by `n` signers and produces an
+/// aggregated [`MultiSignature`] (or an opaque proof string suitable for
+/// [`AnchorerSig::Threshold`]) once the threshold `k` is met.
+///
+/// This struct is scheme-agnostic: it does NOT know how to combine partials
+/// (BLS / FROST / Schnorr-musig all differ). Callers MUST supply a
+/// per-partial verifier via [`Self::add_partial_verified`] or call
+/// [`Self::add_partial`] only after externally verifying the partial. The
+/// final [`Self::aggregate`] step concatenates the per-partial signatures
+/// into a multi-shape `AnchorerSig::Multi` whose individual members the
+/// receiver re-checks against `signers`.
+///
+/// For schemes that produce a single short aggregated proof (e.g. BLS), use
+/// [`Self::aggregate_proof`] which returns the raw concatenation that
+/// downstream code can replace with the scheme's own aggregator output.
+#[derive(Clone, Debug)]
+pub struct ThresholdAggregator {
+    threshold: usize,
+    partials: Vec<PartialSignature>,
+}
+
+impl ThresholdAggregator {
+    /// Create a new aggregator with the given threshold `k`.
+    ///
+    /// Returns an error if `threshold == 0` (a zero threshold would
+    /// trivially aggregate empty signer sets).
+    pub fn new(threshold: usize) -> Result<Self> {
+        if threshold == 0 {
+            return Err(Error::Protocol(
+                "ThresholdAggregator threshold must be at least 1".to_owned(),
+            ));
+        }
+        Ok(Self { threshold, partials: Vec::new() })
+    }
+
+    pub fn threshold(&self) -> usize {
+        self.threshold
+    }
+
+    pub fn partials(&self) -> &[PartialSignature] {
+        &self.partials
+    }
+
+    /// Number of partials collected so far.
+    pub fn collected(&self) -> usize {
+        self.partials.len()
+    }
+
+    /// Threshold met (collected >= threshold).
+    pub fn threshold_met(&self) -> bool {
+        self.partials.len() >= self.threshold
+    }
+
+    /// Append a partial without verifying it. Caller is responsible for
+    /// running the threshold scheme's per-partial verifier first.
+    ///
+    /// Rejects duplicate `signer_did` so the same signer can't double-count.
+    pub fn add_partial(&mut self, partial: PartialSignature) -> Result<()> {
+        if self.partials.iter().any(|p| p.signer_did == partial.signer_did) {
+            return Err(Error::Protocol(format!(
+                "duplicate partial from signer {}",
+                partial.signer_did
+            )));
+        }
+        if partial.signature.is_empty() {
+            return Err(Error::Protocol(format!(
+                "partial signature from {} is empty",
+                partial.signer_did
+            )));
+        }
+        if partial.kid.is_empty() {
+            return Err(Error::Protocol(format!(
+                "partial signature from {} has empty verification method id",
+                partial.signer_did
+            )));
+        }
+        self.partials.push(partial);
+        Ok(())
+    }
+
+    /// Append a partial after running `verify` on it. `verify` MUST return
+    /// `Ok(())` if the partial signature is individually valid against the
+    /// signer's published key for the canonical bytes the threshold body
+    /// commits to.
+    pub fn add_partial_verified<F>(&mut self, partial: PartialSignature, verify: F) -> Result<()>
+    where
+        F: FnOnce(&PartialSignature) -> Result<()>,
+    {
+        verify(&partial)?;
+        self.add_partial(partial)
+    }
+
+    /// Produce an aggregated [`MultiSignature`] from the collected partials.
+    ///
+    /// Validates the threshold is met and that each partial individually
+    /// verifies via the supplied `verify` closure (one call per partial).
+    /// Returns an error if any individual verification fails or threshold
+    /// not met.
+    ///
+    /// The resulting [`MultiSignature`] has one [`MoveSignature`] per
+    /// partial, with `payload_hash` = the supplied canonical-bytes hash and
+    /// `jws` = the partial's raw signature base64-encoded so the wire shape
+    /// is uniform regardless of the underlying scheme.
+    pub fn aggregate<F>(
+        &self,
+        canonical_bytes: &[u8],
+        verify: F,
+    ) -> Result<MultiSignature>
+    where
+        F: Fn(&PartialSignature, &[u8]) -> Result<()>,
+    {
+        if !self.threshold_met() {
+            return Err(Error::Protocol(format!(
+                "threshold not met: have {} partials, need {}",
+                self.partials.len(),
+                self.threshold
+            )));
+        }
+        let payload_hash = Hash::new(canonical::sha256_digest(canonical_bytes))
+            .map_err(|err| Error::Protocol(format!("invalid canonical hash: {err}")))?;
+        let mut signatures = Vec::with_capacity(self.partials.len());
+        for partial in &self.partials {
+            verify(partial, canonical_bytes)?;
+            // Encode the raw signature bytes via base64url-no-pad so the
+            // wire shape stays uniform; receivers re-decode and re-verify
+            // via the same scheme verifier.
+            use base64::Engine;
+            use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+            let encoded_sig = URL_SAFE_NO_PAD.encode(&partial.signature);
+            signatures.push(MoveSignature {
+                alg: "EdDSA".to_owned(),
+                verification_method: partial.kid.clone(),
+                payload_hash: payload_hash.clone(),
+                created_at: Utc::now(),
+                jws: format!("..{encoded_sig}"),
+            });
+        }
+        Ok(MultiSignature { kind: MultiSigKind::MultiSig, signatures })
+    }
+
+    /// Concatenate all partial signatures into a single proof string for
+    /// schemes whose aggregator output is the simple concatenation of
+    /// partials (or for tests that don't run a real threshold scheme).
+    ///
+    /// Returns base64url-no-pad of the concatenation, after checking that
+    /// the threshold is met. Each partial is encoded as
+    /// `<did>:<base64url-no-pad(sig)>` joined by `\n` then base64-encoded
+    /// once more to keep the proof a single opaque string.
+    pub fn aggregate_proof(&self) -> Result<String> {
+        if !self.threshold_met() {
+            return Err(Error::Protocol(format!(
+                "threshold not met: have {} partials, need {}",
+                self.partials.len(),
+                self.threshold
+            )));
+        }
+        use base64::Engine;
+        use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+        let lines: Vec<String> = self
+            .partials
+            .iter()
+            .map(|p| format!("{}:{}", p.signer_did, URL_SAFE_NO_PAD.encode(&p.signature)))
+            .collect();
+        Ok(URL_SAFE_NO_PAD.encode(lines.join("\n").as_bytes()))
+    }
+
+    pub fn signers(&self) -> Vec<Did> {
+        self.partials.iter().map(|p| p.signer_did.clone()).collect()
+    }
+}
+
+impl Anchor {
+    /// Construct + threshold-sign an Anchor from already-collected partials.
+    ///
+    /// Calls [`ThresholdAggregator::aggregate_proof`] to derive the opaque
+    /// `proof` string for [`AnchorerSig::Threshold`], then runs
+    /// `validate_structural` (k ≤ n, unique signers, etc.).
+    ///
+    /// The partial signatures MUST have been individually verified before
+    /// being added to the aggregator (call
+    /// [`ThresholdAggregator::add_partial_verified`]). This constructor
+    /// performs no further per-partial verification.
+    #[allow(clippy::too_many_arguments)]
+    pub fn sign_threshold_partial(
+        space_id: SpaceId,
+        predecessor_refs: Vec<AnchorId>,
+        frontier: Vec<MoveId>,
+        state_root: Hash,
+        hlc: Hlc,
+        aggregator: &ThresholdAggregator,
+    ) -> Result<Anchor> {
+        let proof = aggregator.aggregate_proof()?;
+        let signers = aggregator.signers();
+        Anchor::sign_threshold(
+            space_id,
+            predecessor_refs,
+            frontier,
+            state_root,
+            hlc,
+            aggregator.threshold() as u32,
+            signers,
+            proof,
+        )
+    }
+}
+
 /// Local clone of the AnchorBody view used for canonical-bytes derivation.
 ///
 /// `core::anchor::AnchorBody` is private to that module; we mirror it here
@@ -517,5 +753,164 @@ mod tests {
         let m = Move::sign(&u, &s).unwrap();
         let signed_bytes = m.canonical_bytes_for_id().unwrap();
         assert_eq!(unsigned_bytes, signed_bytes);
+    }
+
+    // -------------------------------------------------------------------
+    // Threshold aggregator
+    // -------------------------------------------------------------------
+
+    fn bob() -> Did {
+        Did::new("did:web:bob.example".to_owned()).unwrap()
+    }
+
+    fn carol() -> Did {
+        Did::new("did:web:carol.example".to_owned()).unwrap()
+    }
+
+    fn fixture_canonical_bytes() -> Vec<u8> {
+        b"canonical-anchor-body".to_vec()
+    }
+
+    #[test]
+    fn threshold_aggregator_zero_threshold_rejected() {
+        let err = ThresholdAggregator::new(0).unwrap_err();
+        assert!(format!("{err}").contains("threshold must be at least 1"));
+    }
+
+    #[test]
+    fn threshold_aggregator_collects_and_aggregates() {
+        let mut agg = ThresholdAggregator::new(2).unwrap();
+        agg.add_partial(PartialSignature::new(
+            alice(),
+            vec![1u8; 64],
+            "did:web:alice.example#key-1",
+        ))
+        .unwrap();
+        assert!(!agg.threshold_met());
+        agg.add_partial(PartialSignature::new(
+            bob(),
+            vec![2u8; 64],
+            "did:web:bob.example#key-1",
+        ))
+        .unwrap();
+        assert!(agg.threshold_met());
+
+        // Aggregate with a passing per-partial verifier.
+        let multi = agg
+            .aggregate(&fixture_canonical_bytes(), |_p, _bytes| Ok(()))
+            .unwrap();
+        assert_eq!(multi.signatures.len(), 2);
+        assert_eq!(multi.kind, MultiSigKind::MultiSig);
+        // Each signature carries the canonical-bytes payload hash.
+        let expected = canonical::sha256_digest(fixture_canonical_bytes());
+        for sig in &multi.signatures {
+            assert_eq!(sig.payload_hash.as_str(), expected);
+        }
+    }
+
+    #[test]
+    fn threshold_aggregator_rejects_duplicate_signer() {
+        let mut agg = ThresholdAggregator::new(2).unwrap();
+        agg.add_partial(PartialSignature::new(alice(), vec![1u8; 64], "kid-1")).unwrap();
+        let err = agg
+            .add_partial(PartialSignature::new(alice(), vec![3u8; 64], "kid-1"))
+            .unwrap_err();
+        assert!(format!("{err}").contains("duplicate partial"));
+    }
+
+    #[test]
+    fn threshold_aggregator_aggregate_below_threshold_errors() {
+        let mut agg = ThresholdAggregator::new(3).unwrap();
+        agg.add_partial(PartialSignature::new(alice(), vec![1u8; 64], "kid-1")).unwrap();
+        let err = agg
+            .aggregate(&fixture_canonical_bytes(), |_p, _bytes| Ok(()))
+            .unwrap_err();
+        assert!(format!("{err}").contains("threshold not met"));
+    }
+
+    #[test]
+    fn threshold_aggregator_individual_verification_failure_propagates() {
+        let mut agg = ThresholdAggregator::new(2).unwrap();
+        agg.add_partial(PartialSignature::new(alice(), vec![1u8; 64], "kid-1")).unwrap();
+        agg.add_partial(PartialSignature::new(bob(), vec![2u8; 64], "kid-2")).unwrap();
+        let err = agg
+            .aggregate(&fixture_canonical_bytes(), |_p, _bytes| {
+                Err(Error::Protocol("bad partial".to_owned()))
+            })
+            .unwrap_err();
+        assert!(format!("{err}").contains("bad partial"));
+    }
+
+    #[test]
+    fn threshold_aggregator_add_partial_verified_runs_check() {
+        let mut agg = ThresholdAggregator::new(1).unwrap();
+        let err = agg
+            .add_partial_verified(
+                PartialSignature::new(alice(), vec![1u8; 64], "kid-1"),
+                |_p| Err(Error::Protocol("scheme verifier said no".to_owned())),
+            )
+            .unwrap_err();
+        assert!(format!("{err}").contains("scheme verifier said no"));
+        assert_eq!(agg.collected(), 0);
+    }
+
+    #[test]
+    fn anchor_sign_threshold_partial_round_trip() {
+        let mut agg = ThresholdAggregator::new(2).unwrap();
+        agg.add_partial(PartialSignature::new(alice(), vec![1u8; 64], "did:web:alice.example#key-1"))
+            .unwrap();
+        agg.add_partial(PartialSignature::new(bob(), vec![2u8; 64], "did:web:bob.example#key-1"))
+            .unwrap();
+
+        let a = Anchor::sign_threshold_partial(
+            space(),
+            vec![anchor_id(0xaa)],
+            vec![move_id(0x11)],
+            hash(0x77),
+            hlc(),
+            &agg,
+        )
+        .unwrap();
+
+        a.validate_id().unwrap();
+        a.validate_structural().unwrap();
+        match &a.anchorer_sig {
+            AnchorerSig::Threshold(t) => {
+                assert_eq!(t.threshold, 2);
+                assert_eq!(t.signers.len(), 2);
+                assert!(!t.proof.is_empty());
+            }
+            other => panic!("expected threshold, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn anchor_sign_threshold_partial_below_threshold_errors() {
+        let mut agg = ThresholdAggregator::new(3).unwrap();
+        agg.add_partial(PartialSignature::new(alice(), vec![1u8; 64], "kid-1")).unwrap();
+        agg.add_partial(PartialSignature::new(bob(), vec![2u8; 64], "kid-2")).unwrap();
+        let err = Anchor::sign_threshold_partial(
+            space(),
+            vec![anchor_id(0xaa)],
+            vec![move_id(0x11)],
+            hash(0x77),
+            hlc(),
+            &agg,
+        )
+        .unwrap_err();
+        assert!(format!("{err}").contains("threshold not met"));
+    }
+
+    #[test]
+    fn partial_signature_rejects_empty_signature_or_kid() {
+        let mut agg = ThresholdAggregator::new(1).unwrap();
+        let err = agg
+            .add_partial(PartialSignature::new(alice(), vec![], "kid"))
+            .unwrap_err();
+        assert!(format!("{err}").contains("empty"));
+        let err = agg
+            .add_partial(PartialSignature::new(carol(), vec![5u8; 64], ""))
+            .unwrap_err();
+        assert!(format!("{err}").contains("empty verification method id"));
     }
 }

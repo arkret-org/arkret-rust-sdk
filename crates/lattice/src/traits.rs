@@ -32,6 +32,93 @@ impl LatticeKind {
             Self::OrderedLog => "ordered-log",
         }
     }
+
+    /// Per-kind declaration of the `cx.<...>` event-kind IDs each lattice
+    /// type handles.
+    ///
+    /// The list is the canonical contract used by [`LatticeRegistry`] →
+    /// `ProjectionState::apply` to route incoming events to the correct
+    /// lattice without consulting the cell registry. Soland's full
+    /// `lattice_first=true` projection switch depends on this contract.
+    ///
+    /// Notes:
+    ///
+    /// - The list is exhaustive within v1: any event-kind not appearing
+    ///   here MUST NOT enter a per-cell Lattice; the runtime fails closed
+    ///   on unknown kinds (spec §5.4).
+    /// - Multiple kinds may map to the same lattice (`cx.consent.grant` /
+    ///   `cx.consent.revoke` both flow through `or-set`).
+    /// - `cx.flow.move` is consumed by `fsm` (membership/state transitions
+    ///   on flow ranks), while flow CRUD shape changes go through
+    ///   `cas-register`.
+    pub fn event_kinds(self) -> &'static [&'static str] {
+        match self {
+            Self::OrSet => &[
+                // capability grant/revoke — or-set on capability cells.
+                "cx.capability.grant",
+                "cx.capability.revoke",
+                // consent grant/revoke — or-set on consent cells (spec §3).
+                "cx.consent.grant",
+                "cx.consent.revoke",
+                // covered_frontier — governance Anchor frontier as or-set
+                // tags on the MLS group's covered_frontier cell (spec §10).
+                "cx.mls.covered_frontier.add",
+            ],
+            Self::MvRegister => &[
+                // soft display state surfaces concurrent values (multi-value
+                // last-writer-wins style read after deduplicate).
+                "cx.space.update",
+                "cx.flow.update",
+                "cx.entity.update",
+                "cx.task.update",
+            ],
+            Self::CasRegister => &[
+                // create-and-set primitives where racing writes must fail
+                // closed (cas-register, bottom=reject).
+                "cx.space.create",
+                "cx.flow.create",
+                "cx.flow.archive",
+                "cx.flow.restore",
+                "cx.entity.create",
+                "cx.entity.delete",
+                "cx.entity.restore",
+                "cx.entity.redact",
+                "cx.task.create",
+                "cx.view.create",
+                "cx.view.update",
+                "cx.view.reconcile",
+                // anchorer cell + space policy CAS updates.
+                "cx.space.anchorer.set",
+                "cx.space.policy.set",
+                // MLS commit Move targets — mls_epoch + key_schedule are
+                // both cas-register (one schedule per epoch). Spec §10.
+                "cx.mls.commit",
+            ],
+            Self::Fsm => &[
+                // membership state transitions (invited → join → leave/ban).
+                "cx.member.state",
+                // flow rank reorder + parent moves are FSM-style (declared
+                // edges only) on the flow position cell.
+                "cx.flow.move",
+                "cx.flow.reorder",
+                "cx.flow.convert",
+                "cx.flow.link_surface",
+                "cx.flow.unlink_surface",
+                "cx.flow.set_primary_surface",
+            ],
+            Self::Counter => &[
+                // PN-counter — audit + quota counters.
+                "cx.metric.counter.inc",
+                "cx.metric.counter.dec",
+            ],
+            Self::OrderedLog => &[
+                // append-only chat / audit log — per-issuer-seq deduped.
+                "cx.message.create",
+                "cx.audit.append",
+                "cx.audit.ryw_receipt",
+            ],
+        }
+    }
 }
 
 /// Op-validation error from [`Lattice::validate_op`].
@@ -77,4 +164,81 @@ pub trait Lattice {
     /// associative and commutative w.r.t. this order so receivers
     /// converge.
     fn join(&self, cell: &CellRef, anchored_ops: &[AnchoredOp]) -> CellState;
+}
+
+#[cfg(test)]
+mod kind_tests {
+    use super::*;
+    use std::collections::BTreeSet;
+
+    #[test]
+    fn every_kind_declares_at_least_one_event_kind() {
+        for kind in [
+            LatticeKind::OrSet,
+            LatticeKind::MvRegister,
+            LatticeKind::CasRegister,
+            LatticeKind::Fsm,
+            LatticeKind::Counter,
+            LatticeKind::OrderedLog,
+        ] {
+            assert!(
+                !kind.event_kinds().is_empty(),
+                "lattice kind {kind:?} declares no event kinds"
+            );
+            for ek in kind.event_kinds() {
+                assert!(
+                    ek.starts_with("cx."),
+                    "lattice kind {kind:?} event kind {ek} must start with 'cx.'"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn event_kinds_have_no_cross_kind_overlap() {
+        // Every cx.<...> event kind MUST belong to exactly one lattice kind
+        // so the LatticeRegistry route is unambiguous.
+        let mut seen: BTreeSet<&'static str> = BTreeSet::new();
+        for kind in [
+            LatticeKind::OrSet,
+            LatticeKind::MvRegister,
+            LatticeKind::CasRegister,
+            LatticeKind::Fsm,
+            LatticeKind::Counter,
+            LatticeKind::OrderedLog,
+        ] {
+            for ek in kind.event_kinds() {
+                assert!(seen.insert(ek), "event kind {ek} appears in more than one LatticeKind");
+            }
+        }
+    }
+
+    #[test]
+    fn or_set_handles_consent_and_capability() {
+        let kinds = LatticeKind::OrSet.event_kinds();
+        assert!(kinds.contains(&"cx.consent.grant"));
+        assert!(kinds.contains(&"cx.consent.revoke"));
+        assert!(kinds.contains(&"cx.capability.grant"));
+        assert!(kinds.contains(&"cx.capability.revoke"));
+    }
+
+    #[test]
+    fn cas_register_handles_mls_commit_and_creates() {
+        let kinds = LatticeKind::CasRegister.event_kinds();
+        assert!(kinds.contains(&"cx.mls.commit"));
+        assert!(kinds.contains(&"cx.flow.create"));
+        assert!(kinds.contains(&"cx.space.create"));
+    }
+
+    #[test]
+    fn ordered_log_handles_messages_and_audit() {
+        let kinds = LatticeKind::OrderedLog.event_kinds();
+        assert!(kinds.contains(&"cx.message.create"));
+        assert!(kinds.contains(&"cx.audit.append"));
+    }
+
+    #[test]
+    fn fsm_handles_member_state() {
+        assert!(LatticeKind::Fsm.event_kinds().contains(&"cx.member.state"));
+    }
 }
