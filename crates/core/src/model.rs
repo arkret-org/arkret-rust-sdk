@@ -2290,9 +2290,96 @@ pub struct Space {
     /// means "every relation_kind is many-to-many" (legacy default).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub relation_profiles: Vec<RelationProfile>,
+    /// Anchor profile (data-structures.md §4 — Move/Anchor/Lattice). Hub /
+    /// threshold / open-set / mixed deployment shape. `None` means "use the
+    /// `anchorer` cell value's runtime shape" (recommended default; the
+    /// `anchorer` cell is the source of truth — this hint is purely
+    /// advertisement).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub anchor_profile: Option<AnchorProfile>,
+    /// Initial anchorer cell value (data-structures.md §4). Reducer-derived
+    /// after Space creation; this field is the **create-time hint** so
+    /// servers can populate the anchorer cell without an extra round-trip.
+    /// Subsequent anchorer changes flow through Move on the
+    /// `cx:cell:cx.component.anchorer.v1:<space_id>` cell.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub anchorer: Option<crate::anchorer::AnchorerValue>,
+    /// Soft cap on how stale the latest Anchor leaf may be before clients
+    /// SHOULD warn / re-fetch. `None` means "implementation default" (spec
+    /// suggests 30s for hub, longer for threshold). Reducer-derived field;
+    /// passing a value at create time is a hint only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_anchor_staleness_ms: Option<u64>,
+    /// Lattice declarations per cell_family used in this Space. Reducer-
+    /// derived; this field exists so clients can render bottom diagnostics
+    /// before observing any Move. Empty means "use the cell registry
+    /// defaults from contract-catalog".
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cell_lattices: Vec<CellLatticeDeclaration>,
+    /// Co-write policy (data-structures.md §4 — Move/Anchor/Lattice). How
+    /// the server orders concurrent Moves before they reach an Anchor.
+    /// `None` means "implementation default" (spec suggests
+    /// `deterministic_order` for hub, `causal_only` for threshold).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub co_write_policy: Option<CoWritePolicy>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(flatten)]
     pub extra: BTreeMap<String, Value>,
+}
+
+/// Anchor deployment profile for a Space (data-structures.md §4 —
+/// Move/Anchor/Lattice).
+///
+/// This is a **hint field on `Space`** — the live anchorer identity always
+/// lives in the `cx:cell:cx.component.anchorer.v1:<space_id>` cell. The
+/// hint exists so clients can pre-allocate state before observing the cell.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AnchorProfile {
+    /// Single DID anchorer signs every Anchor. Lowest latency, single
+    /// point of failure / governance.
+    Hub,
+    /// k-of-n threshold signature on each Anchor. Higher governance,
+    /// higher latency.
+    Threshold,
+    /// Any member of an open set may sign; subsequent signers can replace
+    /// or extend prior commitments via the anchorer cell or-set semantics.
+    OpenSet,
+    /// Primary single anchorer with a fallback recovery quorum that can
+    /// rotate the primary via a recovery Move.
+    Mixed,
+}
+
+/// Per-cell-family lattice declaration carried on `Space` (Move/Anchor/Lattice
+/// data-structures.md §4). Maps a cell family used in this Space to its
+/// declared lattice + bottom shape. Reducer-derived in practice; this is a
+/// **hint** so clients can set up bottom diagnostics surfaces upfront.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct CellLatticeDeclaration {
+    /// `cx.component.<...>.v<N>` cell family identifier.
+    pub cell_family: String,
+    /// One of `or_set` / `mv_register` / `cas_register` / `fsm` / `counter` /
+    /// `ordered_log` per spec event-auth-state-resolution.md §5.3.
+    pub lattice: String,
+    /// `reject` (default) or `expose` per spec §5.3 bottom semantics.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bottom: Option<String>,
+}
+
+/// Co-write policy declaration on `Space` (Move/Anchor/Lattice). Governs
+/// how concurrent Moves are ordered before reaching an Anchor.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum CoWritePolicy {
+    /// Anchorer applies a deterministic order (HLC → issuer → id) before
+    /// folding into the next Anchor. Best for hub deployments.
+    DeterministicOrder,
+    /// Causal-only order; concurrent Moves on the same cell may produce
+    /// `bottom`. Suitable for threshold / open-set deployments.
+    CausalOnly,
 }
 
 impl Space {
@@ -2327,8 +2414,58 @@ impl Space {
             labels: Vec::new(),
             metadata: BTreeMap::new(),
             relation_profiles: Vec::new(),
+            anchor_profile: None,
+            anchorer: None,
+            max_anchor_staleness_ms: None,
+            cell_lattices: Vec::new(),
+            co_write_policy: None,
             extra: BTreeMap::new(),
         }
+    }
+
+    /// Builder: declare the Anchor deployment profile (data-structures.md §4).
+    /// `Hub` matches the legacy single-DID writer model; `Threshold` /
+    /// `OpenSet` / `Mixed` introduce multi-signer governance.
+    pub fn with_anchor_profile(mut self, profile: AnchorProfile) -> Self {
+        self.anchor_profile = Some(profile);
+        self
+    }
+
+    /// Builder: declare the initial anchorer cell value. Servers seed the
+    /// `cx:cell:cx.component.anchorer.v1:<space_id>` cell from this hint at
+    /// Space creation time. Subsequent rotations flow through Move.
+    pub fn with_anchorer(mut self, anchorer: crate::anchorer::AnchorerValue) -> Self {
+        self.anchorer = Some(anchorer);
+        self
+    }
+
+    /// Builder: cap how stale the latest Anchor leaf may be before clients
+    /// SHOULD warn / re-fetch.
+    pub fn with_max_anchor_staleness(mut self, max_ms: u64) -> Self {
+        self.max_anchor_staleness_ms = Some(max_ms);
+        self
+    }
+
+    /// Builder: declare a per-cell-family lattice hint. Append-only; call
+    /// once per (cell_family, lattice) pair.
+    pub fn with_cell_lattice(
+        mut self,
+        cell_family: impl Into<String>,
+        lattice: impl Into<String>,
+        bottom: Option<String>,
+    ) -> Self {
+        self.cell_lattices.push(CellLatticeDeclaration {
+            cell_family: cell_family.into(),
+            lattice: lattice.into(),
+            bottom,
+        });
+        self
+    }
+
+    /// Builder: declare the Move co-write policy (deterministic vs causal).
+    pub fn with_co_write_policy(mut self, policy: CoWritePolicy) -> Self {
+        self.co_write_policy = Some(policy);
+        self
     }
 
     /// Look up the active [`RelationProfile`] for a given `relation_kind`.
@@ -7352,6 +7489,84 @@ mod tests {
         assert_eq!(custom.profile.as_deref(), Some("review"));
         assert_eq!(custom.is_primary, Some(true));
         custom.validate_name().unwrap();
+    }
+
+    /// C10.A 收尾 — Space anchor fields default to None (anchorer cell is
+    /// the source of truth) and the builders set them to expected values.
+    #[test]
+    fn space_anchor_fields_default_none_and_builders_apply() {
+        use crate::anchorer::AnchorerValue;
+
+        let mut space = Space::new(
+            SpaceId::new("cx:space:01js0sp0000000000000000001").unwrap(),
+            "Anchor Test",
+            SpaceKind::Project,
+            Did::new("did:web:alice.example").unwrap(),
+        );
+        assert!(space.anchor_profile.is_none());
+        assert!(space.anchorer.is_none());
+        assert!(space.max_anchor_staleness_ms.is_none());
+        assert!(space.cell_lattices.is_empty());
+        assert!(space.co_write_policy.is_none());
+
+        space = space
+            .with_anchor_profile(AnchorProfile::Threshold)
+            .with_anchorer(AnchorerValue::Threshold {
+                k: 2,
+                n: 3,
+                members: vec![
+                    Did::new("did:web:a.example").unwrap(),
+                    Did::new("did:web:b.example").unwrap(),
+                    Did::new("did:web:c.example").unwrap(),
+                ],
+            })
+            .with_max_anchor_staleness(60_000)
+            .with_cell_lattice(
+                "cx.component.flow.track.v1",
+                "or_set",
+                Some("reject".to_owned()),
+            )
+            .with_co_write_policy(CoWritePolicy::CausalOnly);
+
+        assert_eq!(space.anchor_profile, Some(AnchorProfile::Threshold));
+        assert!(matches!(space.anchorer, Some(AnchorerValue::Threshold { k: 2, n: 3, .. })));
+        assert_eq!(space.max_anchor_staleness_ms, Some(60_000));
+        assert_eq!(space.cell_lattices.len(), 1);
+        assert_eq!(space.cell_lattices[0].cell_family, "cx.component.flow.track.v1");
+        assert_eq!(space.cell_lattices[0].lattice, "or_set");
+        assert_eq!(space.cell_lattices[0].bottom.as_deref(), Some("reject"));
+        assert_eq!(space.co_write_policy, Some(CoWritePolicy::CausalOnly));
+
+        // Round-trip through serde to confirm wire shape.
+        let json = serde_json::to_value(&space).unwrap();
+        assert_eq!(json["anchor_profile"], "threshold");
+        assert_eq!(json["max_anchor_staleness_ms"], 60_000);
+        assert_eq!(json["co_write_policy"], "causal_only");
+        assert_eq!(json["cell_lattices"][0]["cell_family"], "cx.component.flow.track.v1");
+
+        let restored: Space = serde_json::from_value(json).unwrap();
+        assert_eq!(restored.anchor_profile, space.anchor_profile);
+        assert_eq!(restored.max_anchor_staleness_ms, space.max_anchor_staleness_ms);
+        assert_eq!(restored.co_write_policy, space.co_write_policy);
+    }
+
+    /// C10.A 收尾 — `Space::new` omits anchor fields from the wire when
+    /// they're `None` (skip_serializing_if), so legacy fixtures stay clean.
+    #[test]
+    fn space_anchor_fields_omitted_when_none() {
+        let space = Space::new(
+            SpaceId::new("cx:space:01js0sp0000000000000000002").unwrap(),
+            "No Anchor Hint",
+            SpaceKind::Project,
+            Did::new("did:web:alice.example").unwrap(),
+        );
+        let json = serde_json::to_value(&space).unwrap();
+        let obj = json.as_object().unwrap();
+        assert!(!obj.contains_key("anchor_profile"));
+        assert!(!obj.contains_key("anchorer"));
+        assert!(!obj.contains_key("max_anchor_staleness_ms"));
+        assert!(!obj.contains_key("cell_lattices"));
+        assert!(!obj.contains_key("co_write_policy"));
     }
 
     /// T20 — CollectionProjectionResponse round-trips through serde with

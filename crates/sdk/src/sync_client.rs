@@ -125,6 +125,220 @@ where
     }
 }
 
+/// One frame off the `cx.events.subscribe` NDJSON stream
+/// (`GET /api/v1/events/subscribe`).
+///
+/// C17 wire-break (spec 2026-05-08): the legacy `cx.sync.subscribe` frames
+/// carried `{"type": "event", ...}`. The new contract uses `kind` as the top
+/// field and adds 7 control kinds clients **MUST** handle explicitly:
+///
+/// | kind                 | meaning                                                               |
+/// |----------------------|-----------------------------------------------------------------------|
+/// | `event`              | one Event Envelope (the original payload kind)                        |
+/// | `dropped`            | server fell behind / cursor invalidated; client MUST reset cursor     |
+/// | `epoch_rotation`     | E2EE epoch advanced; pending plaintext readers MUST refresh keys      |
+/// | `unauthorized`       | per-frame authz drop (one selector dropped, others continue)          |
+/// | `resync_required`    | server lost connection; client MUST resubscribe with current frontier |
+/// | `frontier`           | informational frontier advance without an event                       |
+/// | `heartbeat`          | keep-alive (no payload state change)                                  |
+/// | `catchup_complete`   | history backfill done; subsequent frames are live                     |
+///
+/// Each variant carries the per-frame fields the spec requires; unknown
+/// variants are surfaced as [`Self::Unknown`] so a tolerant client can log +
+/// continue rather than treat every novelty as an event.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind")]
+pub enum EventsSubscribeFrame {
+    /// Carrying one Event Envelope. `seq` is monotonic per stream; `cursor`
+    /// is the resume token for this exact event.
+    #[serde(rename = "event")]
+    Event {
+        seq: u64,
+        cursor: String,
+        payload: Value,
+    },
+    /// Server fell behind; client MUST reset its cursor and re-issue
+    /// `events.query` (or fresh `events.subscribe`) starting at
+    /// `recovery_from`. Optional `reason` is human-readable.
+    #[serde(rename = "dropped")]
+    Dropped {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        recovery_from: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        reason: Option<String>,
+    },
+    /// E2EE epoch advanced for `space_id`. Plaintext readers MUST refresh
+    /// MLS group state before consuming subsequent encrypted events on this
+    /// space.
+    #[serde(rename = "epoch_rotation")]
+    EpochRotation {
+        space_id: SpaceId,
+        new_epoch: u64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        previous_epoch: Option<u64>,
+    },
+    /// One selector element became unauthorized mid-stream. Other selectors
+    /// continue. Client MAY surface the drop in UI.
+    #[serde(rename = "unauthorized")]
+    Unauthorized {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        space_id: Option<SpaceId>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        actor_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        reason: Option<String>,
+    },
+    /// Server lost wider connection / restart; client MUST close the stream
+    /// and resubscribe from the last committed frontier. Carries the server's
+    /// last frontier so the client can resume cleanly.
+    #[serde(rename = "resync_required")]
+    ResyncRequired {
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        last_frontier: Vec<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        reason: Option<String>,
+    },
+    /// Informational frontier advance without an event payload. Useful when
+    /// the server processed events that aren't visible to this subscriber
+    /// but the cursor moved.
+    #[serde(rename = "frontier")]
+    Frontier { cursor: String },
+    /// Keep-alive. No state change. Servers SHOULD emit at least every 30s
+    /// when the stream is otherwise idle.
+    #[serde(rename = "heartbeat")]
+    Heartbeat {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        ts: Option<DateTime<Utc>>,
+    },
+    /// History backfill complete; subsequent frames are real-time. Emitted
+    /// after `include_history=true` finishes draining the historical buffer.
+    #[serde(rename = "catchup_complete")]
+    CatchupComplete {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        cursor: Option<String>,
+    },
+    /// Frame whose `kind` value is not in the SDK's known set. The
+    /// deserializer routes here so callers can log + continue rather than
+    /// treat the unknown frame as an event. Future spec additions land here
+    /// until the SDK is upgraded.
+    #[serde(other)]
+    Unknown,
+}
+
+impl EventsSubscribeFrame {
+    /// Parse one NDJSON line. Empty / whitespace-only lines parse as
+    /// `Ok(None)` so callers can chunk-read transparently.
+    pub fn from_ndjson_line(line: &str) -> Result<Option<Self>> {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            return Ok(None);
+        }
+        let frame: Self = serde_json::from_str(trimmed).map_err(Error::from)?;
+        Ok(Some(frame))
+    }
+
+    /// True for the two terminal kinds that require the client to abandon
+    /// the current cursor and start a fresh subscribe.
+    pub fn requires_resubscribe(&self) -> bool {
+        matches!(self, Self::Dropped { .. } | Self::ResyncRequired { .. })
+    }
+
+    /// True when the frame indicates the historical backfill is done and
+    /// subsequent frames are live.
+    pub fn is_catchup_complete(&self) -> bool {
+        matches!(self, Self::CatchupComplete { .. })
+    }
+
+    /// True when the frame carries an Event Envelope payload.
+    pub fn is_event(&self) -> bool {
+        matches!(self, Self::Event { .. })
+    }
+}
+
+/// Selector + range parameters for `cx.events.query` and
+/// `cx.events.subscribe`. Per spec C17, the selector is `spaces[]` ∪
+/// `actors[]` (at least one element). Range parameters apply only to
+/// `query`; `subscribe` accepts `from` + `include_history`.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EventsQuerySelector {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub spaces: Vec<SpaceId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub actors: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub until: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub direction: Option<EventsQueryDirection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub include_history: Option<bool>,
+}
+
+impl EventsQuerySelector {
+    /// Validate that the selector has at least one space or actor element
+    /// (spec MUST). Returns `Err` if both are empty.
+    pub fn validate_non_empty(&self) -> Result<()> {
+        if self.spaces.is_empty() && self.actors.is_empty() {
+            return Err(Error::Protocol(
+                "events.query/subscribe selector requires at least one of spaces[] / actors[]"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Render selector + range as the wire query string for
+    /// `GET /api/v1/events` or `GET /api/v1/events/subscribe`. Repeats
+    /// `spaces` / `actors` query args per spec convention.
+    pub fn to_query_pairs(&self) -> Vec<(&'static str, String)> {
+        let mut pairs = Vec::new();
+        for space in &self.spaces {
+            pairs.push(("spaces", space.as_str().to_owned()));
+        }
+        for actor in &self.actors {
+            pairs.push(("actors", actor.clone()));
+        }
+        if let Some(from) = &self.from {
+            pairs.push(("from", from.clone()));
+        }
+        if let Some(until) = &self.until {
+            pairs.push(("until", until.clone()));
+        }
+        if let Some(direction) = &self.direction {
+            pairs.push(("direction", direction.as_str().to_owned()));
+        }
+        if let Some(limit) = self.limit {
+            pairs.push(("limit", limit.to_string()));
+        }
+        if let Some(include_history) = self.include_history {
+            pairs.push(("include_history", include_history.to_string()));
+        }
+        pairs
+    }
+}
+
+/// Direction parameter for `cx.events.query`. `forward` returns events
+/// after `from` (default); `backward` returns events before `from` (folds
+/// the legacy `cx.sync.backfill` semantics).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EventsQueryDirection {
+    Forward,
+    Backward,
+}
+
+impl EventsQueryDirection {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Forward => "forward",
+            Self::Backward => "backward",
+        }
+    }
+}
+
 /// Boxed future returned by async sync transports.
 pub type BoxSyncFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + Send + 'a>>;
 
@@ -1936,5 +2150,159 @@ mod tests {
         let restored = SpaceListService::from_snapshot(snapshot);
         assert_eq!(restored.entries().len(), 2);
         assert_eq!(restored.entries()[0].space_id, s2);
+    }
+
+    // ─── C17 typed EventsSubscribeFrame tests ─────────────────────────────
+
+    #[test]
+    fn frame_event_round_trip() {
+        let line =
+            r#"{"kind":"event","seq":42,"cursor":"sx:e2e:42","payload":{"event_id":"cx:event:01"}}"#;
+        let frame = EventsSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
+        match &frame {
+            EventsSubscribeFrame::Event { seq, cursor, payload } => {
+                assert_eq!(*seq, 42);
+                assert_eq!(cursor, "sx:e2e:42");
+                assert_eq!(payload["event_id"], "cx:event:01");
+            }
+            other => panic!("expected Event, got {other:?}"),
+        }
+        assert!(frame.is_event());
+        assert!(!frame.requires_resubscribe());
+        assert!(!frame.is_catchup_complete());
+    }
+
+    #[test]
+    fn frame_dropped_requires_resubscribe() {
+        let line = r#"{"kind":"dropped","recovery_from":"sx:resume:9","reason":"buffer overflow"}"#;
+        let frame = EventsSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
+        assert!(frame.requires_resubscribe());
+        assert!(matches!(
+            &frame,
+            EventsSubscribeFrame::Dropped { recovery_from: Some(rf), .. } if rf == "sx:resume:9"
+        ));
+    }
+
+    #[test]
+    fn frame_resync_required_carries_frontier() {
+        let line = r#"{"kind":"resync_required","last_frontier":["sx:f1","sx:f2"]}"#;
+        let frame = EventsSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
+        assert!(frame.requires_resubscribe());
+        match &frame {
+            EventsSubscribeFrame::ResyncRequired { last_frontier, reason } => {
+                assert_eq!(last_frontier, &["sx:f1".to_owned(), "sx:f2".to_owned()]);
+                assert!(reason.is_none());
+            }
+            other => panic!("expected ResyncRequired, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn frame_epoch_rotation_parses_space_and_epoch() {
+        let line = r#"{"kind":"epoch_rotation","space_id":"cx:space:01JS0SP000000000000000000","new_epoch":7,"previous_epoch":6}"#;
+        let frame = EventsSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
+        match &frame {
+            EventsSubscribeFrame::EpochRotation { space_id, new_epoch, previous_epoch } => {
+                assert_eq!(space_id.as_str(), "cx:space:01JS0SP000000000000000000");
+                assert_eq!(*new_epoch, 7);
+                assert_eq!(*previous_epoch, Some(6));
+            }
+            other => panic!("expected EpochRotation, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn frame_catchup_complete_signals_live_handover() {
+        let line = r#"{"kind":"catchup_complete","cursor":"sx:live:0"}"#;
+        let frame = EventsSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
+        assert!(frame.is_catchup_complete());
+        assert!(!frame.requires_resubscribe());
+    }
+
+    #[test]
+    fn frame_heartbeat_minimal() {
+        let line = r#"{"kind":"heartbeat"}"#;
+        let frame = EventsSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
+        assert!(matches!(frame, EventsSubscribeFrame::Heartbeat { .. }));
+    }
+
+    #[test]
+    fn frame_unknown_kind_falls_back() {
+        // Future spec additions land here; clients log + continue rather
+        // than treat the unknown frame as an event.
+        let line = r#"{"kind":"future_kind_42","extra":"data"}"#;
+        let frame = EventsSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
+        assert!(matches!(frame, EventsSubscribeFrame::Unknown));
+        assert!(!frame.is_event());
+        assert!(!frame.requires_resubscribe());
+    }
+
+    #[test]
+    fn frame_blank_line_returns_none() {
+        assert!(EventsSubscribeFrame::from_ndjson_line("").unwrap().is_none());
+        assert!(EventsSubscribeFrame::from_ndjson_line("   \n").unwrap().is_none());
+    }
+
+    #[test]
+    fn frame_unauthorized_with_actor_only() {
+        let line = r#"{"kind":"unauthorized","actor_id":"did:web:alice.example","reason":"revoked"}"#;
+        let frame = EventsSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
+        match &frame {
+            EventsSubscribeFrame::Unauthorized { space_id, actor_id, reason } => {
+                assert!(space_id.is_none());
+                assert_eq!(actor_id.as_deref(), Some("did:web:alice.example"));
+                assert_eq!(reason.as_deref(), Some("revoked"));
+            }
+            other => panic!("expected Unauthorized, got {other:?}"),
+        }
+    }
+
+    // ─── C17 EventsQuerySelector tests ────────────────────────────────────
+
+    #[test]
+    fn events_query_selector_validates_non_empty() {
+        let empty = EventsQuerySelector::default();
+        assert!(empty.validate_non_empty().is_err());
+        let with_space = EventsQuerySelector {
+            spaces: vec![SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap()],
+            ..Default::default()
+        };
+        with_space.validate_non_empty().unwrap();
+        let with_actor = EventsQuerySelector {
+            actors: vec!["did:web:alice.example".to_owned()],
+            ..Default::default()
+        };
+        with_actor.validate_non_empty().unwrap();
+    }
+
+    #[test]
+    fn events_query_selector_renders_repeated_query_args() {
+        let selector = EventsQuerySelector {
+            spaces: vec![
+                SpaceId::new("cx:space:01JS0SP000000000000000001").unwrap(),
+                SpaceId::new("cx:space:01JS0SP000000000000000002").unwrap(),
+            ],
+            actors: vec!["did:web:alice.example".to_owned()],
+            from: Some("sx:cursor:1".to_owned()),
+            direction: Some(EventsQueryDirection::Backward),
+            limit: Some(50),
+            ..Default::default()
+        };
+        let pairs = selector.to_query_pairs();
+        assert_eq!(pairs.iter().filter(|(k, _)| *k == "spaces").count(), 2);
+        assert_eq!(pairs.iter().filter(|(k, _)| *k == "actors").count(), 1);
+        assert!(pairs.iter().any(|(k, v)| *k == "direction" && v == "backward"));
+        assert!(pairs.iter().any(|(k, v)| *k == "limit" && v == "50"));
+        assert!(pairs.iter().any(|(k, v)| *k == "from" && v == "sx:cursor:1"));
+    }
+
+    #[test]
+    fn events_query_direction_serde_round_trip() {
+        let forward = serde_json::to_string(&EventsQueryDirection::Forward).unwrap();
+        let backward = serde_json::to_string(&EventsQueryDirection::Backward).unwrap();
+        assert_eq!(forward, "\"forward\"");
+        assert_eq!(backward, "\"backward\"");
+        let parsed: EventsQueryDirection = serde_json::from_str("\"backward\"").unwrap();
+        assert_eq!(parsed, EventsQueryDirection::Backward);
     }
 }

@@ -399,11 +399,12 @@ pub use store::{
 #[cfg(all(feature = "full-surface", feature = "sync-runtime"))]
 pub use sync_client::{
     AsyncSyncTransport, BackoffConfig, BackpressureConfig, BoxSyncFuture, CancellationToken,
+    EventsQueryDirection, EventsQuerySelector, EventsSubscribeFrame, EventsSubscribeTransport,
     ExponentialBackoff, LocalEcho, ProcessedSpace, SendQueue, SendQueueItem, SendQueueItemKind,
     SendQueueSnapshot, SendQueueStatus, SlidingSync, SlidingWindow, SpaceListChange,
     SpaceListEntry, SpaceListFilter, SpaceListService, SpaceListSnapshot, SpaceListSort,
     SyncGapStrategy, SyncLoop, SyncLoopControl, SyncLoopSnapshot, SyncLoopStep,
-    EventsSubscribeTransport, SyncResponseProcessor, SyncTransport,
+    SyncResponseProcessor, SyncTransport,
 };
 #[cfg(all(feature = "full-surface", feature = "timeline-runtime"))]
 pub use timeline::{

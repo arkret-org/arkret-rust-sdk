@@ -29,6 +29,11 @@ pub const ERROR_CODE_CAS_CONFLICT: &str = "cas_conflict";
 pub const ERROR_CODE_CAUSAL_CONFLICT: &str = "causal_conflict";
 pub const ERROR_CODE_DEPENDENCY_MISSING: &str = "dependency_missing";
 pub const ERROR_CODE_DISCUSSION_TRACK_DISABLED: &str = "discussion_track_disabled";
+/// C14 / read-receipts §2.5: Sync Service drops `cx.receipt.read` events
+/// when the effective Space `disclosure="disabled"` policy is in force, and
+/// returns this code with `retry_after_ms=null` so the client knows it's a
+/// hard policy refusal (not a transient back-off).
+pub const ERROR_CODE_POLICY_VIOLATION: &str = "policy_violation";
 pub const ERROR_CODE_EPOCH_MISMATCH: &str = "epoch_mismatch";
 pub const ERROR_CODE_DUPLICATE_CONFLICT: &str = "duplicate_conflict";
 pub const ERROR_CODE_RANK_EXHAUSTED: &str = "rank_exhausted";
@@ -76,6 +81,7 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
     ERROR_CODE_CAUSAL_CONFLICT,
     ERROR_CODE_DEPENDENCY_MISSING,
     ERROR_CODE_DISCUSSION_TRACK_DISABLED,
+    ERROR_CODE_POLICY_VIOLATION,
     ERROR_CODE_EPOCH_MISMATCH,
     ERROR_CODE_DUPLICATE_CONFLICT,
     ERROR_CODE_RANK_EXHAUSTED,
@@ -120,6 +126,7 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         ERROR_CODE_CAPABILITY_DENIED
         | ERROR_CODE_SPACE_FROZEN
         | ERROR_CODE_CLAIM_REQUIRED
+        | ERROR_CODE_POLICY_VIOLATION
         | ERROR_CODE_QUOTA_EXCEEDED => 403,
         ERROR_CODE_NOT_FOUND | ERROR_CODE_UNRECOGNIZED_ENDPOINT => 404,
         ERROR_CODE_METHOD_NOT_ALLOWED => 405,
