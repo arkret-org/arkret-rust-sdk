@@ -817,7 +817,7 @@ mod tests {
         }
 
         for (kind, wire_form) in
-            [("event", "cx:event:<ulid>"), ("space", "cx:space:<ulid>"), ("flow", "cx:flow:<ulid>")]
+            [("event", "cx:event:<uuid>"), ("space", "cx:space:<uuid>"), ("flow", "cx:flow:<uuid>")]
         {
             let entry = registry_entry(&bundle.id_kind_registry, "id_kinds", "kind", kind)
                 .unwrap_or_else(|| panic!("missing id kind {kind}"));

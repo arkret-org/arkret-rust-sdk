@@ -177,13 +177,13 @@ mod tests {
     #[test]
     fn composite_subject_is_deterministic() {
         let a = composite_subject(&[
-            "cx:flow:01js0fl0000000000000000000",
+            "cx:flow:7fd5ae82-44e2-7a8a-9a4b-8857991142f9",
             "main",
             "did:web:alice.example",
         ])
         .unwrap();
         let b = composite_subject(&[
-            "cx:flow:01js0fl0000000000000000000",
+            "cx:flow:7fd5ae82-44e2-7a8a-9a4b-8857991142f9",
             "main",
             "did:web:alice.example",
         ])

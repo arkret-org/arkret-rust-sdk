@@ -286,7 +286,7 @@ mod tests {
     fn sample_move_body_json() -> Value {
         json!({
             "issuer": "did:web:admin.example",
-            "space_id": "cx:space:01js0sp00000000000000000aa",
+            "space_id": "cx:space:0196419b-0000-7000-8000-00000000014a",
             "preconditions": [
                 {
                     "cell": "cx:cell:cx.component.member.state.v1:did.web.alice.example",
@@ -426,7 +426,7 @@ mod tests {
     #[test]
     fn semantic_ref_default_critical_true_omitted_on_serialize() {
         let r = SemanticRef {
-            id: "cx:grant:01js0ga0000000000000000000".to_owned(),
+            id: "cx:grant:01964105-0000-7000-8000-000000000000".to_owned(),
             role: "authorized_by".to_owned(),
             critical: true,
         };
@@ -438,7 +438,7 @@ mod tests {
     #[test]
     fn semantic_ref_critical_false_serialized() {
         let r = SemanticRef {
-            id: "cx:grant:01js0ga0000000000000000000".to_owned(),
+            id: "cx:grant:01964105-0000-7000-8000-000000000000".to_owned(),
             role: "after".to_owned(),
             critical: false,
         };

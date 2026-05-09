@@ -412,7 +412,7 @@ mod tests {
     fn cursor_encode_decode_roundtrip() {
         let mut cursor = Cursor::new();
         cursor = cursor.with_space_position(
-            "cx:space:01js0sp0000000000000000000",
+            "cx:space:0196419b-0000-7000-8000-000000000000",
             SpacePosition {
                 p: vec!["cx:evt:01js0ev0000000000000000000".to_owned()],
                 order: "01970e589d21-00000004-a13f9c2e".to_owned(),
@@ -473,7 +473,7 @@ mod tests {
     fn sync_positions_roundtrip() {
         let positions = SyncPositions {
             spaces: BTreeMap::from([(
-                "cx:space:01js0sp0000000000000000000".to_owned(),
+                "cx:space:0196419b-0000-7000-8000-000000000000".to_owned(),
                 SpaceSyncPosition {
                     frontier: vec!["cx:evt:01js0ev0000000000000000000".to_owned()],
                     timeline_order: "01970e589d21-00000004-a13f9c2e".to_owned(),
@@ -484,7 +484,7 @@ mod tests {
             )]),
             devices: Some(BTreeMap::from([(
                 "device-laptop".to_owned(),
-                "cx:devmsg:01js0dm0000000000000000000".to_owned(),
+                "cx:devmsg:019640da-0000-7000-8000-000000000000".to_owned(),
             )])),
         };
 

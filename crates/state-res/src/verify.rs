@@ -256,7 +256,7 @@ mod tests {
     use crate::store::memory::MemoryCellRegistry;
 
     fn space() -> SpaceId {
-        SpaceId::new("cx:space:01js0sp00000000000000000aa".to_owned()).unwrap()
+        SpaceId::new("cx:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn cell_member() -> CellRef {

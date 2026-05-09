@@ -520,7 +520,7 @@ mod tests {
     use contrix_core::{Hlc, LatticeOp, LatticeOpType, MoveSignature};
 
     fn space() -> SpaceId {
-        SpaceId::new("cx:space:01js0sp00000000000000000aa".to_owned()).unwrap()
+        SpaceId::new("cx:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn move_id(byte: u8) -> MoveId {

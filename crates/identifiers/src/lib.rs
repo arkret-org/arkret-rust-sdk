@@ -147,32 +147,60 @@ fn has_prefix<'a>(prefix: &'a str) -> impl Fn(&str) -> bool + 'a {
     move |value| value.starts_with(prefix) && value.len() > prefix.len()
 }
 
-/// Strict typed-ID validator: payload MUST be a 26-character lower-case
-/// Crockford base32 ULID per `conformance/encoding.md` §4. Use this when
-/// you need to reject upper-case ULIDs (e.g. when validating wire input
-/// from external services); the default `has_prefix` accepts both cases
-/// to keep legacy fixtures working until they are rewritten.
+/// Strict typed-ID validator: payload MUST be a canonical RFC 9562 UUID
+/// version 7 (36 chars, lower-case hex `xxxxxxxx-xxxx-7xxx-Nxxx-xxxxxxxxxxxx`
+/// where N ∈ {8,9,a,b}) per `conformance/encoding.md` §4. Use this when
+/// you need to reject malformed wire input (e.g. legacy ULIDs, UUIDv4); the
+/// default `has_prefix` only checks the kind prefix and is more permissive.
 pub fn is_strict_typed_id(value: &str, prefix: &str) -> bool {
     match value.strip_prefix(prefix) {
-        Some(payload) => is_lowercase_ulid(payload),
+        Some(payload) => is_lowercase_uuidv7(payload),
         None => false,
     }
 }
 
-/// Validate that `value` is a 26-character Crockford base32 ULID rendered in
-/// lower case per `conformance/encoding.md` §4.
+/// Validate that `value` is a canonical lower-case RFC 9562 UUIDv7 in the
+/// 36-character `xxxxxxxx-xxxx-7xxx-Nxxx-xxxxxxxxxxxx` form (N ∈ {8,9,a,b}),
+/// per `conformance/encoding.md` §4.
 ///
-/// The protocol forbids upper-case ULIDs on the wire; legacy fixtures using
-/// upper case MUST be rewritten before the v1 wire freeze.
-pub fn is_lowercase_ulid(value: &str) -> bool {
-    if value.len() != 26 {
+/// The v1 wire forbids upper-case hex, missing dashes, URN/Microsoft braces,
+/// and any UUID version other than 7.
+pub fn is_lowercase_uuidv7(value: &str) -> bool {
+    if value.len() != 36 {
         return false;
     }
-    // Crockford base32 lower-case alphabet: digits + a-z minus i, l, o, u.
-    // We accept the full a-z range here to stay compatible with libraries
-    // that emit the canonical Crockford set; what we strictly forbid is
-    // upper case.
-    value.bytes().all(|b| b.is_ascii_digit() || b.is_ascii_lowercase())
+    let bytes = value.as_bytes();
+    // Reject upper-case hex.
+    for &b in bytes {
+        if b.is_ascii_uppercase() {
+            return false;
+        }
+    }
+    // Position structure check, then version + variant nibble check.
+    for (i, &b) in bytes.iter().enumerate() {
+        match i {
+            8 | 13 | 18 | 23 => {
+                if b != b'-' {
+                    return false;
+                }
+            }
+            _ => {
+                let c = b as char;
+                if !c.is_ascii_digit() && !matches!(c, 'a'..='f') {
+                    return false;
+                }
+            }
+        }
+    }
+    // Version nibble at byte position 14 (third group: 7xxx).
+    if bytes[14] != b'7' {
+        return false;
+    }
+    // Variant nibble at byte position 19 (fourth group: Nxxx, N ∈ {8,9,a,b}).
+    if !matches!(bytes[19], b'8' | b'9' | b'a' | b'b') {
+        return false;
+    }
+    true
 }
 
 id_type!(Did, is_did);

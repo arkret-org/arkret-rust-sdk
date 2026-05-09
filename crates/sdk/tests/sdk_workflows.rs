@@ -136,9 +136,9 @@ fn protocol_conformance_vectors_remain_stable() {
 
     let cursor = Cursor::new()
         .with_space_position(
-            "cx:space:01js0sp0000000000000000000",
+            "cx:space:0196419b-0000-7000-8000-000000000000",
             SpacePosition {
-                p: vec!["cx:event:01js0ev0000000000000000000".to_owned()],
+                p: vec!["cx:event:019640ed-8000-7000-8000-000000000000".to_owned()],
                 order: "01970e589d21-00000001-a13f9c2e".to_owned(),
                 h: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                     .to_owned(),

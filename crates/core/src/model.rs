@@ -7498,7 +7498,7 @@ mod tests {
         use crate::anchorer::AnchorerValue;
 
         let mut space = Space::new(
-            SpaceId::new("cx:space:01js0sp0000000000000000001").unwrap(),
+            SpaceId::new("cx:space:0196419b-0000-7000-8000-000000000001").unwrap(),
             "Anchor Test",
             SpaceKind::Project,
             Did::new("did:web:alice.example").unwrap(),
@@ -7555,7 +7555,7 @@ mod tests {
     #[test]
     fn space_anchor_fields_omitted_when_none() {
         let space = Space::new(
-            SpaceId::new("cx:space:01js0sp0000000000000000002").unwrap(),
+            SpaceId::new("cx:space:0196419b-0000-7000-8000-000000000002").unwrap(),
             "No Anchor Hint",
             SpaceKind::Project,
             Did::new("did:web:alice.example").unwrap(),
@@ -7577,22 +7577,22 @@ mod tests {
         let payload = serde_json::json!({
             "kind": "collection",
             "renderer": "board",
-            "view_id": "cx:view:01js0vw0000000000000000000",
+            "view_id": "cx:view:019641be-0000-7000-8000-000000000000",
             "frontier": ["cx:event:01js0fr00000000000000000042"],
             "groups": [
                 {
-                    "group_id": "cx:space:01rev1ew000000000000000000",
+                    "group_id": "cx:space:01c3b617-7000-7000-8000-000000000000",
                     "title": "Review",
                     "rank": "mV",
                     "items": [
                         {
                             "object": {
-                                "id": "cx:flow:01task00000000000000000000",
+                                "id": "cx:flow:01d2b330-0000-7000-8000-000000000000",
                                 "type": "flow",
                                 "title": "Legal review"
                             },
                             "position": {
-                                "relation_id": "cx:relation:01p0s000000000000000000000",
+                                "relation_id": "cx:relation:01b03200-0000-7000-8000-000000000000",
                                 "rank": "mV"
                             },
                             "discussion": {
@@ -7609,21 +7609,21 @@ mod tests {
             serde_json::from_value(payload.clone()).expect("deserialize");
         assert!(matches!(resp.kind, ViewKind::Collection));
         assert!(matches!(resp.renderer, ViewRenderer::Board));
-        assert_eq!(resp.view_id.as_str(), "cx:view:01js0vw0000000000000000000");
+        assert_eq!(resp.view_id.as_str(), "cx:view:019641be-0000-7000-8000-000000000000");
         assert_eq!(resp.frontier.len(), 1);
         assert_eq!(resp.groups.len(), 1);
         let group = &resp.groups[0];
-        assert_eq!(group.group_id, "cx:space:01rev1ew000000000000000000");
+        assert_eq!(group.group_id, "cx:space:01c3b617-7000-7000-8000-000000000000");
         assert_eq!(group.title, "Review");
         assert_eq!(group.rank.as_deref(), Some("mV"));
         assert_eq!(group.items.len(), 1);
         let item = &group.items[0];
         assert_eq!(
             item.object.get("id").and_then(|v| v.as_str()),
-            Some("cx:flow:01task00000000000000000000")
+            Some("cx:flow:01d2b330-0000-7000-8000-000000000000")
         );
         let position = item.position.as_ref().expect("position");
-        assert_eq!(position.relation_id, "cx:relation:01p0s000000000000000000000");
+        assert_eq!(position.relation_id, "cx:relation:01b03200-0000-7000-8000-000000000000");
         assert_eq!(position.rank, "mV");
         let discussion = item.discussion.as_ref().expect("discussion");
         assert!(discussion.enabled);

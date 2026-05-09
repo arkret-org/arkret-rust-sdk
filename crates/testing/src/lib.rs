@@ -603,7 +603,7 @@ pub fn event_taxonomy_vectors() -> Result<Vec<EventTaxonomyVector>> {
 }
 
 pub fn state_resolution_vectors() -> Result<Vec<StateResolutionVector>> {
-    let space_id = SpaceId::new("cx:space:01js0sp00000000000000000aa")?;
+    let space_id = SpaceId::new("cx:space:0196419b-0000-7000-8000-00000000014a")?;
     let cell = CellRef::new("cx:cell:cx.component.member.state.v1:did.web.bob.example".to_owned())
         .map_err(|e| Error::Protocol(format!("invalid cell ref: {e}")))?;
 

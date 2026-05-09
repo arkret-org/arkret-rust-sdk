@@ -32,8 +32,8 @@ pub use anchor::{
 };
 pub use state_root::{compute_state_root, leaf_hash};
 pub use store::{
-    AnchorStore, AnchoredMoveRecord, CellLatticeBinding, CellRegistry, CellStore, MoveStore,
-    StoreError, StoreResult,
+    AnchorStore, AnchoredMoveRecord, BottomMode, CellLatticeBinding, CellRegistry, CellStore,
+    MoveStore, StoreError, StoreResult,
     memory::{MemoryAnchorStore, MemoryCellRegistry, MemoryCellStore, MemoryMoveStore},
 };
 pub use verify::{MoveReject, verify_move};
