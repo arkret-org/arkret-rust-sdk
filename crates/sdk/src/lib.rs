@@ -121,6 +121,8 @@ pub mod crypto;
 #[cfg(feature = "full-surface")]
 pub mod crypto_store;
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
+pub mod device_message;
+#[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub mod devices;
 #[cfg(feature = "full-surface")]
 pub mod discovery;
@@ -132,8 +134,14 @@ pub mod event_handler;
 pub mod federation;
 #[cfg(feature = "full-surface")]
 pub mod hlc;
+#[cfg(all(feature = "full-surface", feature = "client"))]
+pub mod http_did_resolver;
 #[cfg(feature = "full-surface")]
 pub mod identity;
+#[cfg(all(feature = "full-surface", feature = "device-runtime"))]
+pub mod key_verification;
+#[cfg(all(feature = "full-surface", feature = "device-runtime", feature = "client"))]
+pub mod key_backup_client;
 #[cfg(feature = "full-surface")]
 pub mod media;
 #[cfg(feature = "full-surface")]
@@ -256,6 +264,8 @@ pub use crypto_store::{
     StoredDeviceVerification,
 };
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
+pub use device_message::{DeviceMessage, DeviceMessageBuilder, DeviceMessageReceipt};
+#[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub use devices::{
     Device, DeviceChange, DeviceManager, DeviceMessageEnvelope, DeviceMetadata,
     DeviceVerificationChallenge, DeviceVerificationMessageContent, DeviceVerificationMessageKind,
@@ -263,6 +273,19 @@ pub use devices::{
     ProtocolKeyBackupRestoreRequest, ProtocolKeyBackupRestoreTicket,
     ProtocolKeyBackupRestoreTicketAdvanceRequest, QrVerificationPayload, ToDeviceEnvelope,
     device_verification_commitment,
+};
+#[cfg(all(feature = "full-surface", feature = "device-runtime"))]
+pub use key_verification::{
+    KeyVerificationAccept, KeyVerificationCancel, KeyVerificationDone, KeyVerificationFlow,
+    KeyVerificationKey, KeyVerificationMac, KeyVerificationStart, KeyVerificationState,
+};
+#[cfg(all(feature = "full-surface", feature = "device-runtime", feature = "client"))]
+pub use key_backup_client::{
+    KeyBackupClient, KeyBackupListResponse, KeyBackupRecord, KeyBackupResponse, RestoreTicket,
+};
+#[cfg(all(feature = "full-surface", feature = "client"))]
+pub use http_did_resolver::{
+    DEFAULT_HTTP_DID_RESOLVER_TIMEOUT_MS, DEFAULT_HTTP_DID_RESOLVER_TTL_SECS, HttpDidResolver,
 };
 #[cfg(feature = "full-surface")]
 pub use discovery::{DirectoryService, DirectoryUser, OpenGraphPreview, UrlPreviewCache};

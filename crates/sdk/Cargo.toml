@@ -10,7 +10,7 @@ name = "contrix"
 readme = "README.md"
 repository = "https://github.com/contrix/contrix-rust-sdk"
 rust-version.workspace = true
-version = "0.5.1"
+version = "0.5.2"
 
 [package.metadata.docs.rs]
 all-features = true
@@ -26,7 +26,7 @@ default = [
     "sync-runtime",
     "timeline-runtime",
 ]
-client = ["dep:contrix-client", "dep:reqwest", "contrix-core/client", "contrix-ffi/client"]
+client = ["dep:contrix-client", "dep:reqwest", "dep:tokio", "contrix-core/client", "contrix-ffi/client"]
 signer = ["contrix-signatures/signer"]
 server = ["dep:contrix-server", "full-surface"]
 mls = [
@@ -91,6 +91,7 @@ serde_json.workspace = true
 sha2.workspace = true
 thiserror.workspace = true
 tls_codec = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true, features = ["rt", "macros"] }
 tracing = { workspace = true, optional = true }
 ulid.workspace = true
 uuid.workspace = true
