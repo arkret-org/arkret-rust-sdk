@@ -11,7 +11,6 @@ use std::{
 
 use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
-use ulid::Ulid;
 
 use crate::{
     FlowId, Result,
@@ -26,10 +25,11 @@ use crate::{
     resolver::SpaceState,
 };
 
-/// Generate a new ULID-based ID with the given prefix.
+/// Generate a new UUIDv7-based wire ID with the given Contrix typed prefix
+/// (e.g. `cx:operation:`, `cx:flow:`, `cx:entity:`). The result is always
+/// 36-char lowercase hex per RFC 9562 §5.7 / `conformance/encoding.md` §4.
 fn generate_id(prefix: &str) -> String {
-    let ulid = Ulid::new();
-    format!("{}{}", prefix, ulid.to_string())
+    format!("{prefix}{}", uuid::Uuid::now_v7())
 }
 
 /// Entity query options applied to the local resolved state.

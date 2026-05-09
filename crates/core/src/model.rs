@@ -1505,7 +1505,7 @@ pub enum EncryptionProfile {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
-pub enum ActorType {
+pub enum ActorKind {
     User,
     Org,
     Team,
@@ -1514,6 +1514,10 @@ pub enum ActorType {
     Device,
     Integration,
 }
+
+/// Backwards-compatible alias retained for the legacy `ActorType` name; new
+/// code should use [`ActorKind`].
+pub type ActorType = ActorKind;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -2513,7 +2517,7 @@ pub struct ActorProfile {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub space_id: Option<SpaceId>,
     pub principal_id: Did,
-    pub actor_type: ActorType,
+    pub actor_kind: ActorKind,
     pub display_name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub handle: Option<String>,
@@ -4201,7 +4205,7 @@ pub enum MlsKeyPackageState {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MlsKeyPackageRecord {
-    /// Globally unique identifier (`cx:mls:kp:<ulid>`).
+    /// Globally unique identifier (`cx:mls:kp:<uuid>`, RFC 9562 UUIDv7).
     /// Optional during deserialization for back-compat — callers
     /// publishing new KeyPackages SHOULD always populate it.
     #[serde(default, skip_serializing_if = "Option::is_none")]

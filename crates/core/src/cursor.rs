@@ -201,7 +201,7 @@ impl Cursor {
     }
 
     fn validate_space_id(space_id: &str) -> Result<()> {
-        if !has_prefixed_ulid(space_id, "cx:space:") {
+        if !has_prefixed_uuid7(space_id, "cx:space:") {
             return Err(crate::Error::InvalidId(space_id.to_owned()));
         }
         Ok(())
@@ -225,7 +225,7 @@ impl Cursor {
 
     fn validate_device_id(device_id: &str) -> Result<()> {
         let is_valid = device_id.starts_with("dev_") && device_id.len() > 4
-            || has_prefixed_ulid(device_id, "cx:device:");
+            || has_prefixed_uuid7(device_id, "cx:device:");
 
         if !is_valid {
             return Err(crate::Error::InvalidId(device_id.to_owned()));
@@ -234,9 +234,9 @@ impl Cursor {
     }
 
     fn validate_event_id(event_id: &str) -> Result<()> {
-        let is_valid = has_prefixed_ulid(event_id, "cx:evt:")
-            || has_prefixed_ulid(event_id, "cx:event:")
-            || has_prefixed_ulid(event_id, "cx:operation:")
+        let is_valid = has_prefixed_uuid7(event_id, "cx:evt:")
+            || has_prefixed_uuid7(event_id, "cx:event:")
+            || has_prefixed_uuid7(event_id, "cx:operation:")
             || is_sha256_hash(event_id);
 
         if !is_valid {
@@ -246,8 +246,8 @@ impl Cursor {
     }
 
     fn validate_device_message_id(message_id: &str) -> Result<()> {
-        if has_prefixed_ulid(message_id, "cx:devmsg:")
-            || has_prefixed_ulid(message_id, "cx:device_message:")
+        if has_prefixed_uuid7(message_id, "cx:devmsg:")
+            || has_prefixed_uuid7(message_id, "cx:device_message:")
         {
             Ok(())
         } else {
@@ -321,18 +321,43 @@ impl Default for Cursor {
     }
 }
 
-fn has_prefixed_ulid(value: &str, prefix: &str) -> bool {
+/// Validate that `value` matches the typed-id wire form `<prefix><uuidv7>`.
+///
+/// Per spec `id-kind-registry.json` (2026-05-09 onward), typed wire ids use
+/// RFC 9562 UUID version 7 in canonical 36-char lowercase hex form
+/// `xxxxxxxx-xxxx-7xxx-Nxxx-xxxxxxxxxxxx` where N ∈ {8,9,a,b}.
+fn has_prefixed_uuid7(value: &str, prefix: &str) -> bool {
     let Some(suffix) = value.strip_prefix(prefix) else {
         return false;
     };
-    suffix.len() == 26
-        && suffix.bytes().all(|b| {
-            b.is_ascii_digit()
-                || matches!(
-                    b.to_ascii_lowercase(),
-                    b'a'..=b'h' | b'j'..=b'k' | b'm'..=b'n' | b'p'..=b'z'
-                )
-        })
+    is_uuid7(suffix)
+}
+
+fn is_uuid7(s: &str) -> bool {
+    let bytes = s.as_bytes();
+    if bytes.len() != 36 {
+        return false;
+    }
+    // Hyphens at fixed positions: 8, 13, 18, 23
+    if bytes[8] != b'-' || bytes[13] != b'-' || bytes[18] != b'-' || bytes[23] != b'-' {
+        return false;
+    }
+    // Version nibble = '7' at index 14
+    if bytes[14] != b'7' {
+        return false;
+    }
+    // Variant nibble ∈ {8,9,a,b} at index 19
+    if !matches!(bytes[19], b'8' | b'9' | b'a' | b'b') {
+        return false;
+    }
+    // Remaining positions must be lowercase hex
+    bytes.iter().enumerate().all(|(i, b)| {
+        if matches!(i, 8 | 13 | 18 | 23) {
+            *b == b'-'
+        } else {
+            b.is_ascii_digit() || matches!(b, b'a'..=b'f')
+        }
+    })
 }
 
 fn is_sha256_hash(value: &str) -> bool {
@@ -414,7 +439,7 @@ mod tests {
         cursor = cursor.with_space_position(
             "cx:space:0196419b-0000-7000-8000-000000000000",
             SpacePosition {
-                p: vec!["cx:evt:01js0ev0000000000000000000".to_owned()],
+                p: vec!["cx:evt:0196419b-0000-7000-8000-000000000001".to_owned()],
                 order: "01970e589d21-00000004-a13f9c2e".to_owned(),
                 h: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                     .to_owned(),
@@ -475,7 +500,7 @@ mod tests {
             spaces: BTreeMap::from([(
                 "cx:space:0196419b-0000-7000-8000-000000000000".to_owned(),
                 SpaceSyncPosition {
-                    frontier: vec!["cx:evt:01js0ev0000000000000000000".to_owned()],
+                    frontier: vec!["cx:evt:0196419b-0000-7000-8000-000000000001".to_owned()],
                     timeline_order: "01970e589d21-00000004-a13f9c2e".to_owned(),
                     state_hash:
                         "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"

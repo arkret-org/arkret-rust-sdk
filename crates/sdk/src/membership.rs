@@ -5,12 +5,13 @@ use std::collections::BTreeMap;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use ulid::Ulid;
 
 use crate::{Did, Error, InviteId, Operation, OperationId, Result, SpaceId};
 
+/// Generate a new UUIDv7-based wire ID with the given Contrix typed prefix
+/// (e.g. `cx:invite:`, `cx:operation:`). RFC 9562 §5.7 / `conformance/encoding.md` §4.
 fn generate_id(prefix: &str) -> String {
-    format!("{}{}", prefix, Ulid::new())
+    format!("{prefix}{}", uuid::Uuid::now_v7())
 }
 
 /// Membership state for a user in a space.

@@ -304,7 +304,7 @@ impl ContrixMlsIdentity {
         let key_package_hash = Hash::new(canonical::sha256_digest(&key_package_bytes))?;
 
         Ok(MlsKeyPackageRecord {
-            keypackage_id: Some(format!("cx:mls:kp:{}", ulid::Ulid::new())),
+            keypackage_id: Some(format!("cx:mls:kp:{}", uuid::Uuid::now_v7())),
             principal_id: self.principal_id.clone(),
             device_id: self.device_id.clone(),
             key_package: encode(&key_package_bytes),

@@ -159,6 +159,14 @@ pub fn is_strict_typed_id(value: &str, prefix: &str) -> bool {
     }
 }
 
+/// Generate a fresh canonical `<prefix><uuidv7>` identifier string using a
+/// freshly generated RFC 9562 UUIDv7. The output is always lowercase hex per
+/// `conformance/encoding.md` §4 and is the canonical wire form for typed
+/// `cx:<kind>:` identifiers (Contrix v1, 2026-05-09 onward).
+pub fn new_prefixed_uuid7(prefix: &str) -> String {
+    format!("{prefix}{}", uuid::Uuid::now_v7())
+}
+
 /// Validate that `value` is a canonical lower-case RFC 9562 UUIDv7 in the
 /// 36-character `xxxxxxxx-xxxx-7xxx-Nxxx-xxxxxxxxxxxx` form (N ∈ {8,9,a,b}),
 /// per `conformance/encoding.md` §4.
@@ -445,6 +453,44 @@ mod tests {
     fn flow_id_accepts_active_flow_prefix() {
         assert!(FlowId::new("cx:flow:01js0ke000000000000000000").is_ok());
         assert!(FlowId::new("cx:room:01js0ke000000000000000000").is_err());
+    }
+
+    #[test]
+    fn new_prefixed_uuid7_produces_strict_typed_id() {
+        // C19.B: helper for newly-issued Contrix wire ids.
+        let id = new_prefixed_uuid7("cx:space:");
+        assert!(is_strict_typed_id(&id, "cx:space:"));
+        // Two consecutive calls produce different ids.
+        let id2 = new_prefixed_uuid7("cx:space:");
+        assert_ne!(id, id2);
+        // Resulting id is accepted by the SpaceId validator.
+        assert!(SpaceId::new(id).is_ok());
+    }
+
+    #[test]
+    fn is_strict_typed_id_rejects_legacy_ulid_and_bad_uuid_payloads() {
+        // C19 wire-break: typed wire ids MUST be canonical lowercase UUIDv7.
+        assert!(!is_strict_typed_id("cx:space:01js0ke000000000000000000", "cx:space:"));
+        // Uppercase hex forbidden.
+        assert!(!is_strict_typed_id(
+            "cx:space:0196419B-0000-7000-8000-000000000000",
+            "cx:space:"
+        ));
+        // Wrong UUID version (4 instead of 7).
+        assert!(!is_strict_typed_id(
+            "cx:space:0196419b-0000-4000-8000-000000000000",
+            "cx:space:"
+        ));
+        // Wrong variant nibble (c not in {8,9,a,b}).
+        assert!(!is_strict_typed_id(
+            "cx:space:0196419b-0000-7000-c000-000000000000",
+            "cx:space:"
+        ));
+        // Canonical UUIDv7 accepted.
+        assert!(is_strict_typed_id(
+            "cx:space:0196419b-0000-7000-8000-000000000000",
+            "cx:space:"
+        ));
     }
 
     #[test]

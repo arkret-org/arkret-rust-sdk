@@ -4,10 +4,31 @@
 > 范围: Contrix Rust typed model、client/server adapter、schema/artifact 消费、SDK helper。
 > 协议参考: `../contrix-spec/spec/v1/artifacts/`。
 
+## Changelog
+
+### 2026-05-09 (round 18，激进模式) — C19.B 主体落地：UUIDv7 wire-id helper + SDK-internal 替换 + v0.4.0 minor bump
+
+- **C19.B 主体**：所有写出 Contrix typed wire id 的 SDK 站点改用 RFC 9562 UUIDv7（lowercase hex 36-char）替代旧 ULID：
+  - `crates/sdk/src/space.rs::generate_id` 19 处 `cx:flow:` / `cx:operation:` / `cx:entity:` / `cx:relation:` 调用全部改 `uuid::Uuid::now_v7()`。
+  - `crates/sdk/src/membership.rs::generate_id` 3 处 `cx:invite:` / `cx:operation:` 同上。
+  - `crates/sdk/src/agent.rs` 4 处 `cx:operation:{}` 直调 `uuid::Uuid::now_v7()`。
+  - `crates/sdk/src/mls.rs:307` `cx:mls:kp:{}` 改 `uuid::Uuid::now_v7()`。
+  - 非 Contrix-wire 内部 token（`mem_<id>` / `run_<id>` / `tool_audit_<id>` / `a2a_<id>` / `sess_<id>` / `atk_<id>` / `rtk_<id>` / `recovery_<id>` / `passkey:<id>` / `as_<id>` / `applet_reg_<id>` / `portal_<id>` / `webrtc_<id>` / `call_<id>` / `txn_<id>` / `req_<id>` / `deploy_<id>`）保留 ULID 格式（spec 不约束这些）。
+- **新 helper**：`contrix-identifiers::new_prefixed_uuid7(prefix)` 工厂函数，输出 `<prefix><uuidv7>` canonical wire 形态；`is_strict_typed_id(value, prefix)` helper 已就位作为 strict 校验 entry（暂未挂到 typed-id validators，参见下方“开放项”）。
+- **依赖更新**：`crates/identifiers/Cargo.toml` + `crates/sdk/Cargo.toml` 加 `uuid.workspace = true`（workspace 已声明 `uuid = { version = "1.10", features = ["std","v7","serde"] }`）。
+- **doc sweep**：`crates/core/src/model.rs:4208` `MlsKeyPackageRecord.keypackage_id` doc 字段格式 `cx:mls:kp:<ulid>` → `cx:mls:kp:<uuid>` (RFC 9562 UUIDv7)。
+- **SDK minor bump v0.3.0 → v0.4.0**：`Cargo.toml` workspace.dependencies (23 entries) + 23 个 `crates/*/Cargo.toml` 的 `[package].version` 全部 `0.3.0` → `0.4.0`。`contrix v0.4.0` 全 workspace 链接通过。
+- **测试 & 校验**：
+  - `cargo check --workspace --all-features` exit 0。
+  - `cargo test --workspace --lib` **704 passed / 0 failed / 0 ignored**（基线 +2，来自新增 `new_prefixed_uuid7` 与 `is_strict_typed_id` helper 单测）。
+- **开放项（C19.B 收尾）**：
+  - typed-id validators (SpaceId / FlowId / EntityId / RelationId / GrantId / InviteId / PolicyId / ViewId / DeviceId / EventId / OperationId / CommitId) 当前仍走 `has_prefix`；切换到 `is_strict_typed_id` 会 cascade 拒绝 36 个文件 / 162+ 处 ULID-form 测试 fixture（`cx:space:01JS0SP000000000000000000` 大写 Crockford Base32），需要专门一轮 fixture migration（`01J*` → 确定性 UUIDv7）后才能合并。本轮先把 helper、写入站点、版本三件事 land，校验 tightening 留下一轮单独做。
+  - cursor.rs 已在前一轮完成 `has_prefixed_uuid7` 改写，本轮无需变动。
+
 ## 当前状态摘要
 
 - R1-R9 主体已完成；C11 旧产物清理 + C13 doc sweep 全部完成 (2026-05-08)。
-- **C10.A 全部完成** (M0-M12, 2026-05-08)。SDK 已升到 0.2.0。Move/Anchor/Lattice typed model + lattice crate + state-res rewrite + consent or-set + MLS commit Move + workspace 终验全部就位。
+- **C10.A 全部完成** (M0-M12, 2026-05-08)。SDK 已升到 0.2.0 → 0.3.0 (C17/C18 wire-break) → **0.4.0** (C19.B UUIDv7 wire-break, 2026-05-09 round 18)。Move/Anchor/Lattice typed model + lattice crate + state-res rewrite + consent or-set + MLS commit Move + workspace 终验全部就位。
 - C10.A 设计决策已写入文档:[`docs/move-anchor-runtime.md`](docs/move-anchor-runtime.md)（Rust SDK 实现层）+ contrix-spec §4.2（`state_root` canonical Merkle 编码 normative）。
 - 当前开放项: spec-gated wire rename (S1)、DID resolver production adapter (H1)、device/recovery helper 从 scaffold 升级 (H2-H4)。下游 (soland / cotest / yougen) C10.B/C/D 的真正 server/client 接线工作可以基于 0.2.0 typed surface 开始。
 - 0.2.0 终验 (2026-05-08)：`cargo fmt --all --check` exit 0；`cargo build --workspace --all-features` 干净；`cargo clippy --workspace --all-features --tests -- -D warnings` 干净；`cargo test --workspace --all-features` **614 passed / 1 pre-existing failure** (schema artifact-load test, 与本轮无关)。
