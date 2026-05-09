@@ -447,7 +447,7 @@ mod tests {
         store.upsert_space(RemoteSpaceMapping {
             protocol: "slack".to_owned(),
             remote_space_id: "C1".to_owned(),
-            space_id: SpaceId::new("cx:space:01JS0SP000000000000000001").unwrap(),
+            space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-f949e0272316").unwrap(),
             portal_id: Some("portal".to_owned()),
             title: Some("general".to_owned()),
             external_ref: Value::Null,

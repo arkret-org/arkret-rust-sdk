@@ -20,7 +20,7 @@ fn device(id: &str) -> DeviceId {
 
 fn event(kind: &str, seq: u64, space_id: &SpaceId, content: serde_json::Value) -> Event {
     Event {
-        event_id: EventId::new(format!("cx:event:{seq:026}")).unwrap(),
+        event_id: EventId::new(format!("cx:event:01904100-0000-7000-8000-{seq:012x}")).unwrap(),
         kind: kind.to_owned(),
         space_id: space_id.clone(),
         space_version: "1".to_owned(),
@@ -57,8 +57,8 @@ fn end_to_end_auth_session_space_query_and_notifications() {
     })
     .unwrap();
 
-    let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
-    let entity_id = EntityId::new("cx:entity:01JS0EN000000000000000001").unwrap();
+    let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let entity_id = EntityId::new("cx:entity:01904100-0000-7000-8000-d48c478ecd0b").unwrap();
     base.process_events(
         &space_id,
         vec![event(
@@ -82,7 +82,7 @@ fn end_to_end_auth_session_space_query_and_notifications() {
     notifications.add_notification(
         "n1",
         Some(space_id.clone()),
-        EventId::new("cx:event:notify").unwrap(),
+        EventId::new("cx:event:01904100-0000-7000-8000-b2b79cd5161d").unwrap(),
         alice,
         "cx.message",
         Some(json!({"body": "hello"})),
@@ -152,7 +152,7 @@ fn protocol_conformance_vectors_remain_stable() {
 #[test]
 fn interoperability_serialization_roundtrips() {
     let mut spaces = BTreeMap::new();
-    spaces.insert("cx:space:01JS0SP000000000000000000".to_owned(), SyncSpace::default());
+    spaces.insert("cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(), SyncSpace::default());
     let response = SyncResponse {
         next_batch: "s1".to_owned(),
         spaces,
@@ -174,7 +174,7 @@ fn stress_smoke_processes_many_index_and_cache_entries() {
     let mut directory = DirectoryService::new();
     for index in 0..250 {
         let mut entry = SpaceSearchEntry::new(
-            SpaceId::new(format!("cx:space:{index:026}")).unwrap(),
+            SpaceId::new(format!("cx:space:01904100-0000-7000-8000-{index:012x}")).unwrap(),
             format!("Space {index}"),
         );
         entry.tags.insert(if index % 2 == 0 { "even" } else { "odd" }.to_owned());

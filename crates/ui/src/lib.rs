@@ -302,7 +302,7 @@ mod tests {
     fn event(id: &str, kind: &str, body: Value, seq: u64) -> Event {
         Event::new(
             kind,
-            SpaceId::new("cx:space:ui").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-9bc916821952").unwrap(),
             did("alice"),
             seq,
             Hlc::new(format!("01970e589d21-{seq:08x}-a13f9c2e")).unwrap(),
@@ -327,21 +327,21 @@ mod tests {
     fn timeline_projects_edits_redactions_and_reactions() {
         let mut projection = TimelineProjection::new();
         projection
-            .apply_event(event("cx:event:01", MESSAGE_TEXT, json!({"body": "hello"}), 1))
+            .apply_event(event("cx:event:01904100-0000-7000-8000-834e21b98552", MESSAGE_TEXT, json!({"body": "hello"}), 1))
             .unwrap();
         projection
             .apply_event(event(
-                "cx:event:02",
+                "cx:event:01904100-0000-7000-8000-6008ddd67225",
                 MESSAGE_EDIT,
-                json!({"target_event_id": "cx:event:01", "body": "hello edited"}),
+                json!({"target_event_id": "cx:event:01904100-0000-7000-8000-834e21b98552", "body": "hello edited"}),
                 2,
             ))
             .unwrap();
         projection
             .apply_event(event(
-                "cx:event:03",
+                "cx:event:01904100-0000-7000-8000-1f0be5c171f7",
                 MESSAGE_REACTION,
-                json!({"target_event_id": "cx:event:01", "key": "+1"}),
+                json!({"target_event_id": "cx:event:01904100-0000-7000-8000-834e21b98552", "key": "+1"}),
                 3,
             ))
             .unwrap();
@@ -352,9 +352,9 @@ mod tests {
 
         projection
             .apply_event(event(
-                "cx:event:04",
+                "cx:event:01904100-0000-7000-8000-7c991034c86b",
                 MESSAGE_REDACTION,
-                json!({"target_event_id": "cx:event:01"}),
+                json!({"target_event_id": "cx:event:01904100-0000-7000-8000-834e21b98552"}),
                 4,
             ))
             .unwrap();
@@ -365,8 +365,8 @@ mod tests {
 
     #[test]
     fn space_list_sorts_by_activity_and_tracks_counts() {
-        let space_a = SpaceId::new("cx:space:a").unwrap();
-        let space_b = SpaceId::new("cx:space:b").unwrap();
+        let space_a = SpaceId::new("cx:space:01904100-0000-7000-8000-70db0b1edf6e").unwrap();
+        let space_b = SpaceId::new("cx:space:01904100-0000-7000-8000-928698b4270f").unwrap();
         let mut service = SpaceListService::default();
         service.upsert(SpaceListEntry {
             space_id: space_a,
@@ -406,13 +406,13 @@ mod tests {
             },
         );
         let client = NotificationClient { rules };
-        let message = event("cx:event:notify", MESSAGE_TEXT, json!({"body": "hi"}), 1);
+        let message = event("cx:event:01904100-0000-7000-8000-b2b79cd5161d", MESSAGE_TEXT, json!({"body": "hi"}), 1);
         let evaluation = client.evaluate_event(&message);
         assert!(evaluation.notify);
         assert!(evaluation.highlight);
         assert!(evaluation.redacted);
 
-        let state = event("cx:event:state", STATE_MEMBERSHIP, json!({}), 2);
+        let state = event("cx:event:01904100-0000-7000-8000-776c649f5e4b", STATE_MEMBERSHIP, json!({}), 2);
         assert!(!NotificationClient::default().evaluate_event(&state).notify);
     }
 }

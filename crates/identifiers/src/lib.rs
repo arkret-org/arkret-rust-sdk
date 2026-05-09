@@ -212,20 +212,29 @@ pub fn is_lowercase_uuidv7(value: &str) -> bool {
 }
 
 id_type!(Did, is_did);
-id_type!(SpaceId, has_prefix("cx:space:"));
-id_type!(FlowId, has_prefix("cx:flow:"));
-id_type!(EntityId, has_prefix("cx:entity:"));
-id_type!(RelationId, has_prefix("cx:relation:"));
-id_type!(EventId, |value: &str| value.starts_with("cx:event:") || is_hash(value));
-id_type!(CommitId, has_prefix("cx:commit:"));
-id_type!(OperationId, |value: &str| value.starts_with("cx:operation:") || is_hash(value));
-id_type!(GrantId, has_prefix("cx:grant:"));
-id_type!(InviteId, has_prefix("cx:invite:"));
-id_type!(DeviceId, |value: &str| (value.starts_with("dev_") && value.len() > "dev_".len())
-    || (value.starts_with("cx:device:") && value.len() > "cx:device:".len()));
-id_type!(PolicyId, has_prefix("cx:policy:"));
+// C19.B round 20 — typed wire id validators tightened to require canonical
+// RFC 9562 UUIDv7 payloads (`is_strict_typed_id`). Legacy mixed-case ULID-form
+// fixtures (`cx:space:01904100-0000-7000-8000-9b64700c6ee8`) are rejected by these.
+id_type!(SpaceId, |value: &str| is_strict_typed_id(value, "cx:space:"));
+id_type!(FlowId, |value: &str| is_strict_typed_id(value, "cx:flow:"));
+id_type!(EntityId, |value: &str| is_strict_typed_id(value, "cx:entity:"));
+id_type!(RelationId, |value: &str| is_strict_typed_id(value, "cx:relation:"));
+id_type!(EventId, |value: &str| is_strict_typed_id(value, "cx:event:") || is_hash(value));
+id_type!(CommitId, |value: &str| is_strict_typed_id(value, "cx:commit:"));
+id_type!(
+    OperationId,
+    |value: &str| is_strict_typed_id(value, "cx:operation:") || is_hash(value)
+);
+id_type!(GrantId, |value: &str| is_strict_typed_id(value, "cx:grant:"));
+id_type!(InviteId, |value: &str| is_strict_typed_id(value, "cx:invite:"));
+id_type!(
+    DeviceId,
+    |value: &str| (value.starts_with("dev_") && value.len() > "dev_".len())
+        || is_strict_typed_id(value, "cx:device:")
+);
+id_type!(PolicyId, |value: &str| is_strict_typed_id(value, "cx:policy:"));
 id_type!(BlobRef, |value: &str| value.starts_with("cx:blob:") || is_hash(value));
-id_type!(ViewId, has_prefix("cx:view:"));
+id_type!(ViewId, |value: &str| is_strict_typed_id(value, "cx:view:"));
 id_type!(Hash, is_hash);
 id_type!(Cursor, has_prefix("cx:cursor:"));
 
@@ -445,14 +454,20 @@ mod tests {
     #[test]
     fn device_id_accepts_protocol_device_forms() {
         assert!(DeviceId::new("dev_alice_1").is_ok());
-        assert!(DeviceId::new("cx:device:01js0ke000000000000000000").is_ok());
+        assert!(DeviceId::new("cx:device:01904100-0000-7000-8000-000000000001").is_ok());
         assert!(DeviceId::new("device-1").is_err());
+        // Legacy mixed-case ULID-form rejected by the strict UUIDv7 validator.
+        // (Suffix intentionally non-UUIDv7 to exercise the rejection path.)
+        assert!(DeviceId::new("cx:device:01js0ke000000000000000000").is_err());
     }
 
     #[test]
     fn flow_id_accepts_active_flow_prefix() {
-        assert!(FlowId::new("cx:flow:01js0ke000000000000000000").is_ok());
-        assert!(FlowId::new("cx:room:01js0ke000000000000000000").is_err());
+        assert!(FlowId::new("cx:flow:01904100-0000-7000-8000-000000000001").is_ok());
+        assert!(FlowId::new("cx:room:01904100-0000-7000-8000-000000000001").is_err());
+        // Legacy mixed-case ULID-form rejected by the strict UUIDv7 validator.
+        // (Suffix intentionally non-UUIDv7 to exercise the rejection path.)
+        assert!(FlowId::new("cx:flow:01js0ke000000000000000000").is_err());
     }
 
     #[test]
@@ -470,6 +485,7 @@ mod tests {
     #[test]
     fn is_strict_typed_id_rejects_legacy_ulid_and_bad_uuid_payloads() {
         // C19 wire-break: typed wire ids MUST be canonical lowercase UUIDv7.
+        // Legacy mixed-case ULID-form is rejected (intentionally non-UUIDv7).
         assert!(!is_strict_typed_id("cx:space:01js0ke000000000000000000", "cx:space:"));
         // Uppercase hex forbidden.
         assert!(!is_strict_typed_id(
@@ -502,11 +518,11 @@ mod tests {
         }
 
         let valid: Envelope = serde_json::from_value(serde_json::json!({
-            "space_id": "cx:space:01",
+            "space_id": "cx:space:01904100-0000-7000-8000-000000000001",
             "hlc": "01970e589d21-00000004-a13f9c2e",
         }))
         .unwrap();
-        assert_eq!(valid.space_id.as_str(), "cx:space:01");
+        assert_eq!(valid.space_id.as_str(), "cx:space:01904100-0000-7000-8000-000000000001");
         assert_eq!(valid.hlc.as_str(), "01970e589d21-00000004-a13f9c2e");
 
         let invalid_id = serde_json::from_value::<Envelope>(serde_json::json!({
@@ -516,7 +532,7 @@ mod tests {
         assert!(invalid_id.is_err());
 
         let invalid_hlc = serde_json::from_value::<Envelope>(serde_json::json!({
-            "space_id": "cx:space:01",
+            "space_id": "cx:space:01904100-0000-7000-8000-000000000001",
             "hlc": "1970",
         }));
         assert!(invalid_hlc.is_err());

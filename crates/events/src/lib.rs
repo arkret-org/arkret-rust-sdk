@@ -1176,7 +1176,7 @@ mod tests {
             parse_event_content(
                 MESSAGE_POLL_RESPONSE,
                 json!({
-                    "poll_event_id": "cx:event:poll-1",
+                    "poll_event_id": "cx:event:01904100-0000-7000-8000-fb8cfd35e274",
                     "answer_ids": ["a"],
                     "responded_at": "2026-05-01T00:00:00Z"
                 }),
@@ -1187,14 +1187,14 @@ mod tests {
         let KnownEventContent::PollResponse(response) = poll_response else {
             panic!("expected poll response");
         };
-        assert_eq!(response.poll_event_id.as_str(), "cx:event:poll-1");
+        assert_eq!(response.poll_event_id.as_str(), "cx:event:01904100-0000-7000-8000-fb8cfd35e274");
         assert_eq!(response.answer_ids, vec!["a"]);
 
         let acknowledgement = require_known_content(
             parse_event_content(
                 MESSAGE_ACKNOWLEDGEMENT,
                 json!({
-                    "target_event_id": "cx:event:message-1",
+                    "target_event_id": "cx:event:01904100-0000-7000-8000-79a90338768b",
                     "key": "seen"
                 }),
             )
@@ -1282,7 +1282,7 @@ mod tests {
 
     #[test]
     fn builds_typed_envelope_from_core_event() {
-        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let actor_id = Did::new("did:web:alice.example").unwrap();
         let hlc = Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap();
         let mut event = Event::new(
@@ -1318,17 +1318,17 @@ mod tests {
             (
                 "relation_aggregations".to_owned(),
                 json!([{
-                    "target_event_id": "cx:event:message-1",
+                    "target_event_id": "cx:event:01904100-0000-7000-8000-79a90338768b",
                     "relation_type": "reaction",
                     "key": "+1",
                     "count": 2,
-                    "latest_event_id": "cx:event:reaction-2"
+                    "latest_event_id": "cx:event:01904100-0000-7000-8000-80da3b20e8ac"
                 }]),
             ),
             (
                 "redacted_because".to_owned(),
                 json!({
-                    "event_id": "cx:event:redaction-1",
+                    "event_id": "cx:event:01904100-0000-7000-8000-743d43d94991",
                     "actor_id": "did:web:moderator.example",
                     "reason": "policy"
                 }),

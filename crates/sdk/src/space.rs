@@ -1641,7 +1641,7 @@ mod tests {
 
     fn event(kind: &str, seq: u64, space_id: &SpaceId, content: Value) -> Event {
         Event {
-            event_id: EventId::new(format!("cx:event:{seq:026}")).unwrap(),
+            event_id: EventId::new(format!("cx:event:01904100-0000-7000-8000-{seq:012x}")).unwrap(),
             kind: kind.to_owned(),
             space_id: space_id.clone(),
             space_version: "1".to_owned(),
@@ -1665,7 +1665,7 @@ mod tests {
     #[test]
     fn space_checks_membership() {
         let base_client = Arc::new(BaseClient::new());
-        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
 
         base_client.update_space_state(&space_id, SpaceStateType::Joined).unwrap();
 
@@ -1684,7 +1684,7 @@ mod tests {
         );
         base_client.set_session_meta(meta).unwrap();
 
-        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let space = Space::new(space_id.clone(), base_client);
 
         let op = space
@@ -1710,12 +1710,12 @@ mod tests {
         );
         base_client.set_session_meta(meta).unwrap();
 
-        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let space = Space::new(space_id.clone(), base_client);
 
         let mut input = RelationOperationInput::new(RelationKind::DependsOn);
-        input.from_entity_id = Some(EntityId::new("cx:entity:01JS0EN000000000000000001").unwrap());
-        input.to_entity_id = Some(EntityId::new("cx:entity:01JS0EN000000000000000002").unwrap());
+        input.from_entity_id = Some(EntityId::new("cx:entity:01904100-0000-7000-8000-d48c478ecd0b").unwrap());
+        input.to_entity_id = Some(EntityId::new("cx:entity:01904100-0000-7000-8000-e75dc3f6ab2e").unwrap());
         let op = space.create_relation_operation(input).unwrap();
 
         assert_eq!(op.operation_type, OperationType::Create);
@@ -1726,7 +1726,7 @@ mod tests {
     #[test]
     fn space_creates_flow_operations_and_reads_surfaces() {
         let base_client = sessioned_base();
-        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let space = Space::new(space_id.clone(), base_client.clone());
 
         let create = space
@@ -1746,7 +1746,7 @@ mod tests {
         let link = space
             .link_flow_surface_operation(
                 flow_id.clone(),
-                "cx:flow:01JS0CD000000000000000000",
+                "cx:flow:01904100-0000-7000-8000-08ca7b733afd",
                 Some("status_card".to_owned()),
                 true,
             )
@@ -1775,10 +1775,10 @@ mod tests {
                         &space_id,
                         json!({
                             "flow_id": flow_id.as_str(),
-                            "surface_ref": "cx:flow:01JS0CD000000000000000000",
+                            "surface_ref": "cx:flow:01904100-0000-7000-8000-08ca7b733afd",
                             "surface_role": "status_card",
                             "primary": true,
-                            "relation_id": "cx:relation:01JS0SR000000000000000000"
+                            "relation_id": "cx:relation:01904100-0000-7000-8000-4da53c8b9e89"
                         }),
                     ),
                 ],
@@ -1793,9 +1793,9 @@ mod tests {
     #[test]
     fn space_queries_searches_and_aggregates_entities() {
         let base_client = sessioned_base();
-        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
-        let task_id = EntityId::new("cx:entity:01JS0EN000000000000000001").unwrap();
-        let doc_id = EntityId::new("cx:entity:01JS0EN000000000000000002").unwrap();
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let task_id = EntityId::new("cx:entity:01904100-0000-7000-8000-d48c478ecd0b").unwrap();
+        let doc_id = EntityId::new("cx:entity:01904100-0000-7000-8000-e75dc3f6ab2e").unwrap();
         base_client
             .process_events(
                 &space_id,
@@ -1856,10 +1856,10 @@ mod tests {
     #[test]
     fn space_traverses_relation_graph_paths_and_cycles() {
         let base_client = sessioned_base();
-        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
-        let a = EntityId::new("cx:entity:01JS0EN000000000000000011").unwrap();
-        let b = EntityId::new("cx:entity:01JS0EN000000000000000012").unwrap();
-        let c = EntityId::new("cx:entity:01JS0EN000000000000000013").unwrap();
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let a = EntityId::new("cx:entity:01904100-0000-7000-8000-093d58d9d0c4").unwrap();
+        let b = EntityId::new("cx:entity:01904100-0000-7000-8000-af13d24f756d").unwrap();
+        let c = EntityId::new("cx:entity:01904100-0000-7000-8000-28bb259aec1d").unwrap();
         base_client
             .process_events(
                 &space_id,
@@ -1887,7 +1887,7 @@ mod tests {
                         4,
                         &space_id,
                         json!({
-                            "id": "cx:relation:01",
+                            "id": "cx:relation:01904100-0000-7000-8000-7b3bf7d6e46b",
                             "relation_kind": "depends_on",
                             "from_entity_id": a.as_str(),
                             "to_entity_id": b.as_str()
@@ -1898,7 +1898,7 @@ mod tests {
                         5,
                         &space_id,
                         json!({
-                            "id": "cx:relation:02",
+                            "id": "cx:relation:01904100-0000-7000-8000-8b48e0461d8c",
                             "relation_kind": "depends_on",
                             "from_entity_id": b.as_str(),
                             "to_entity_id": c.as_str()
@@ -1909,7 +1909,7 @@ mod tests {
                         6,
                         &space_id,
                         json!({
-                            "id": "cx:relation:03",
+                            "id": "cx:relation:01904100-0000-7000-8000-f891fd92960d",
                             "relation_kind": "depends_on",
                             "from_entity_id": c.as_str(),
                             "to_entity_id": a.as_str()
@@ -1939,8 +1939,8 @@ mod tests {
     #[test]
     fn space_tracks_entity_versions_compares_and_rolls_back() {
         let base_client = sessioned_base();
-        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
-        let entity_id = EntityId::new("cx:entity:01JS0EN000000000000000021").unwrap();
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let entity_id = EntityId::new("cx:entity:01904100-0000-7000-8000-69c57da8d707").unwrap();
         base_client
             .process_events(
                 &space_id,
@@ -1989,7 +1989,7 @@ mod tests {
     #[test]
     fn space_creates_batch_entity_operations() {
         let base_client = sessioned_base();
-        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let space = Space::new(space_id, base_client);
 
         let creates = space
@@ -2012,7 +2012,7 @@ mod tests {
 
         let updates = space
             .batch_update_entity_operations(vec![BatchUpdateEntity {
-                entity_id: EntityId::new("cx:entity:01JS0EN000000000000000031").unwrap(),
+                entity_id: EntityId::new("cx:entity:01904100-0000-7000-8000-604e58949e32").unwrap(),
                 title: Some("Updated".to_owned()),
                 content: None,
                 fields: None,
@@ -2022,7 +2022,7 @@ mod tests {
 
         let deletes = space
             .batch_delete_entity_operations(vec![
-                EntityId::new("cx:entity:01JS0EN000000000000000031").unwrap(),
+                EntityId::new("cx:entity:01904100-0000-7000-8000-604e58949e32").unwrap(),
             ])
             .unwrap();
         assert_eq!(deletes.len(), 1);
@@ -2031,7 +2031,7 @@ mod tests {
     #[test]
     fn space_provides_message_membership_and_media_convenience_helpers() {
         let base_client = sessioned_base();
-        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let space = Space::new(space_id.clone(), base_client.clone());
         let bob = Did::new("did:web:bob.example.com").unwrap();
 

@@ -1889,7 +1889,7 @@ mod tests {
 
     #[test]
     fn sync_loop_can_reset_token_on_limited_timeline_gap() {
-        let space_id = "cx:space:01JS0SP000000000000000000";
+        let space_id = "cx:space:01904100-0000-7000-8000-9b64700c6ee8";
         let mut response = sync_response("gap-token");
         response.spaces.insert(
             space_id.to_owned(),
@@ -1915,7 +1915,7 @@ mod tests {
 
     #[test]
     fn sync_loop_includes_wait_for_frontier() {
-        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let wait_for = WaitForFrontier {
             positions: vec![crate::sync::SyncStreamPosition {
                 space_id,
@@ -1935,7 +1935,7 @@ mod tests {
 
     #[test]
     fn processor_dispatches_all_update_categories() {
-        let space_id = "cx:space:01JS0SP000000000000000000";
+        let space_id = "cx:space:01904100-0000-7000-8000-9b64700c6ee8";
         let mut response = sync_response("s2");
         response.spaces.insert(
             space_id.to_owned(),
@@ -1993,7 +1993,7 @@ mod tests {
 
     #[test]
     fn processor_tracks_limited_timelines_and_to_device_ack() {
-        let space_id = "cx:space:01JS0SP000000000000000000";
+        let space_id = "cx:space:01904100-0000-7000-8000-9b64700c6ee8";
         let parsed_space_id = SpaceId::new(space_id).unwrap();
         let event = Event::new(
             "cx.message.create",
@@ -2035,7 +2035,7 @@ mod tests {
 
     #[test]
     fn send_queue_is_idempotent_orders_dependencies_and_snapshots() {
-        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let mut queue = SendQueue::new();
         let message = queue
             .enqueue_message(Some("txn1".to_owned()), space_id.clone(), json!({"body":"hello"}))
@@ -2047,7 +2047,7 @@ mod tests {
             .enqueue_edit(
                 Some("txn2".to_owned()),
                 space_id,
-                EventId::new("cx:event:0001").unwrap(),
+                EventId::new("cx:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap(),
                 json!({"content":{"body":"hi"}}),
                 vec!["txn1".to_owned()],
             )
@@ -2057,7 +2057,7 @@ mod tests {
         assert_eq!(queue.ready_batch(Utc::now(), 10), vec![message]);
 
         queue.mark_sending("txn1").unwrap();
-        queue.mark_sent("txn1", EventId::new("cx:event:0001").unwrap()).unwrap();
+        queue.mark_sent("txn1", EventId::new("cx:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap()).unwrap();
         assert_eq!(queue.ready_batch(Utc::now(), 10), vec![edit]);
 
         let restored = SendQueue::from_snapshot(queue.snapshot()).unwrap();
@@ -2067,8 +2067,8 @@ mod tests {
 
     #[test]
     fn send_queue_cancels_dependent_edit_redaction_and_reaction() {
-        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
-        let event_id = EventId::new("cx:event:0001").unwrap();
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let event_id = EventId::new("cx:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap();
         let mut queue = SendQueue::new();
         queue
             .enqueue_message(Some("txn1".to_owned()), space_id.clone(), json!({"body":"hello"}))
@@ -2102,10 +2102,10 @@ mod tests {
 
     #[test]
     fn sliding_sync_builds_windowed_subscriptions_and_applies_deltas() {
-        let s1 = SpaceId::new("cx:space:01JS0SP000000000000000001").unwrap();
-        let s2 = SpaceId::new("cx:space:01JS0SP000000000000000002").unwrap();
-        let s3 = SpaceId::new("cx:space:01JS0SP000000000000000003").unwrap();
-        let s4 = SpaceId::new("cx:space:01JS0SP000000000000000004").unwrap();
+        let s1 = SpaceId::new("cx:space:01904100-0000-7000-8000-000000000001").unwrap();
+        let s2 = SpaceId::new("cx:space:01904100-0000-7000-8000-000000000002").unwrap();
+        let s3 = SpaceId::new("cx:space:01904100-0000-7000-8000-000000000003").unwrap();
+        let s4 = SpaceId::new("cx:space:01904100-0000-7000-8000-000000000004").unwrap();
 
         let mut sliding = SlidingSync::new();
         sliding.set_space_list(vec![s1.clone(), s2.clone(), s3]);
@@ -2122,8 +2122,8 @@ mod tests {
 
     #[test]
     fn space_list_sorts_filters_and_reports_incremental_changes() {
-        let s1 = SpaceId::new("cx:space:01JS0SP000000000000000001").unwrap();
-        let s2 = SpaceId::new("cx:space:01JS0SP000000000000000002").unwrap();
+        let s1 = SpaceId::new("cx:space:01904100-0000-7000-8000-f949e0272316").unwrap();
+        let s2 = SpaceId::new("cx:space:01904100-0000-7000-8000-46f8537dc94e").unwrap();
         let mut list = SpaceListService::new();
         let mut alpha = SpaceListEntry::joined(s1);
         alpha.name = Some("Alpha".to_owned());
@@ -2157,13 +2157,13 @@ mod tests {
     #[test]
     fn frame_event_round_trip() {
         let line =
-            r#"{"kind":"event","seq":42,"cursor":"sx:e2e:42","payload":{"event_id":"cx:event:01"}}"#;
+            r#"{"kind":"event","seq":42,"cursor":"sx:e2e:42","payload":{"event_id":"cx:event:01904100-0000-7000-8000-834e21b98552"}}"#;
         let frame = EventsSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
         match &frame {
             EventsSubscribeFrame::Event { seq, cursor, payload } => {
                 assert_eq!(*seq, 42);
                 assert_eq!(cursor, "sx:e2e:42");
-                assert_eq!(payload["event_id"], "cx:event:01");
+                assert_eq!(payload["event_id"], "cx:event:01904100-0000-7000-8000-834e21b98552");
             }
             other => panic!("expected Event, got {other:?}"),
         }
@@ -2199,11 +2199,11 @@ mod tests {
 
     #[test]
     fn frame_epoch_rotation_parses_space_and_epoch() {
-        let line = r#"{"kind":"epoch_rotation","space_id":"cx:space:01JS0SP000000000000000000","new_epoch":7,"previous_epoch":6}"#;
+        let line = r#"{"kind":"epoch_rotation","space_id":"cx:space:01904100-0000-7000-8000-9b64700c6ee8","new_epoch":7,"previous_epoch":6}"#;
         let frame = EventsSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
         match &frame {
             EventsSubscribeFrame::EpochRotation { space_id, new_epoch, previous_epoch } => {
-                assert_eq!(space_id.as_str(), "cx:space:01JS0SP000000000000000000");
+                assert_eq!(space_id.as_str(), "cx:space:01904100-0000-7000-8000-9b64700c6ee8");
                 assert_eq!(*new_epoch, 7);
                 assert_eq!(*previous_epoch, Some(6));
             }
@@ -2264,7 +2264,7 @@ mod tests {
         let empty = EventsQuerySelector::default();
         assert!(empty.validate_non_empty().is_err());
         let with_space = EventsQuerySelector {
-            spaces: vec![SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap()],
+            spaces: vec![SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()],
             ..Default::default()
         };
         with_space.validate_non_empty().unwrap();
@@ -2279,8 +2279,8 @@ mod tests {
     fn events_query_selector_renders_repeated_query_args() {
         let selector = EventsQuerySelector {
             spaces: vec![
-                SpaceId::new("cx:space:01JS0SP000000000000000001").unwrap(),
-                SpaceId::new("cx:space:01JS0SP000000000000000002").unwrap(),
+                SpaceId::new("cx:space:01904100-0000-7000-8000-f949e0272316").unwrap(),
+                SpaceId::new("cx:space:01904100-0000-7000-8000-46f8537dc94e").unwrap(),
             ],
             actors: vec!["did:web:alice.example".to_owned()],
             from: Some("sx:cursor:1".to_owned()),

@@ -991,7 +991,7 @@ pub fn memory_store_conformance_report() -> Result<StoreConformanceReport> {
     })?;
     store.put_send_queue_record(SendQueueRecord {
         transaction_id: "txn1".to_owned(),
-        space_id: SpaceId::new("cx:space:store").expect("valid space id"),
+        space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-a6edb4a304bf").expect("valid space id"),
         event_kind: "cx.message.text".to_owned(),
         content: serde_json::json!({"body": "hello"}),
         status: SendQueueStatus::Queued,
@@ -1013,7 +1013,7 @@ pub fn memory_store_conformance_report() -> Result<StoreConformanceReport> {
     })?;
     let event = Event::new(
         "cx.message.create",
-        SpaceId::new("cx:space:store").expect("valid space id"),
+        SpaceId::new("cx:space:01904100-0000-7000-8000-a6edb4a304bf").expect("valid space id"),
         contrix_core::Did::new("did:web:store.example").expect("valid did"),
         1,
         contrix_core::Hlc::new("01970e589d21-00000001-a13f9c2e").expect("valid hlc"),
@@ -1074,18 +1074,36 @@ fn base16_lower(bytes: &[u8]) -> String {
     out
 }
 
+/// Pack an ad-hoc test suffix into a canonical lowercase UUIDv7 envelope so
+/// the strict typed-id validators accept it. Keeps the suffix uniqueness via
+/// sha256 truncation while still passing the wire-format gate.
+fn fixture_uuid7(seed: &str) -> String {
+    use sha2::{Digest, Sha256};
+    let digest = Sha256::digest(seed.as_bytes());
+    let mut tail = String::with_capacity(12);
+    for b in digest.iter().take(6) {
+        use std::fmt::Write as _;
+        let _ = write!(&mut tail, "{:02x}", b);
+    }
+    format!("01904100-0000-7000-8000-{tail}")
+}
+
 fn test_operation(suffix: &str) -> Operation {
     Operation::create(
-        OperationId::new(format!("cx:operation:store-{suffix}")).expect("valid operation id"),
-        SpaceId::new("cx:space:store").expect("valid space id"),
+        OperationId::new(format!("cx:operation:{}", fixture_uuid7(&format!("op:{suffix}"))))
+            .expect("valid operation id"),
+        SpaceId::new("cx:space:01904100-0000-7000-8000-a6edb4a304bf").expect("valid space id"),
         "entity",
-        serde_json::json!({"id": format!("cx:entity:store-{suffix}")}),
+        serde_json::json!({
+            "id": format!("cx:entity:{}", fixture_uuid7(&format!("entity:{suffix}"))),
+        }),
     )
 }
 
 fn test_commit(suffix: &str, operations: Vec<Hash>) -> Commit {
     let mut commit = Commit::new(
-        CommitId::new(format!("cx:commit:store-{suffix}")).expect("valid commit id"),
+        CommitId::new(format!("cx:commit:{}", fixture_uuid7(&format!("commit:{suffix}"))))
+            .expect("valid commit id"),
         "did:web:store.example",
         contrix_core::Did::new("did:web:store.example").expect("valid did"),
         1,
@@ -1103,7 +1121,7 @@ mod tests {
     fn event(actor_seq: u64, body: &str) -> Event {
         Event::new(
             "cx.message.create",
-            SpaceId::new("cx:space:store").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-a6edb4a304bf").unwrap(),
             Did::new("did:web:alice.example").unwrap(),
             actor_seq,
             Hlc::new(format!("01970e589d21-{actor_seq:08x}-a13f9c2e")).unwrap(),
@@ -1120,7 +1138,7 @@ mod tests {
         assert!(!store.put_operation(operation).unwrap().inserted);
 
         let mut conflict = test_operation("same");
-        conflict.payload = serde_json::json!({"id": "cx:entity:changed"});
+        conflict.payload = serde_json::json!({"id": "cx:entity:01904100-0000-7000-8000-3169112b9122"});
         assert!(matches!(store.put_operation(conflict), Err(Error::IdempotencyConflict(_))));
     }
 
@@ -1170,7 +1188,7 @@ mod tests {
         store
             .put_send_queue_record(SendQueueRecord {
                 transaction_id: "txn1".to_owned(),
-                space_id: SpaceId::new("cx:space:store").unwrap(),
+                space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-a6edb4a304bf").unwrap(),
                 event_kind: "cx.message.text".to_owned(),
                 content: serde_json::json!({"body": "hello"}),
                 status: SendQueueStatus::Queued,
@@ -1239,7 +1257,7 @@ mod tests {
         assert_eq!(
             store
                 .event_frontier(&CoreEventFrontierRequest {
-                    space_id: SpaceId::new("cx:space:store").unwrap()
+                    space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-a6edb4a304bf").unwrap()
                 })
                 .frontier
                 .len(),
@@ -1247,12 +1265,12 @@ mod tests {
         );
 
         let mut missing_prev = event(3, "missing");
-        missing_prev.prev_refs.push(EventId::new("cx:event:missing").unwrap());
+        missing_prev.prev_refs.push(EventId::new("cx:event:01904100-0000-7000-8000-30f4e405b35e").unwrap());
         missing_prev.refresh_event_id().unwrap();
         assert!(matches!(store.submit_event(missing_prev), Err(Error::Protocol(_))));
 
         let mut missing_auth = event(3, "missing-auth");
-        missing_auth.auth_refs.push(EventId::new("cx:event:missing-auth").unwrap());
+        missing_auth.auth_refs.push(EventId::new("cx:event:01904100-0000-7000-8000-a135895eea64").unwrap());
         missing_auth.refresh_event_id().unwrap();
         assert!(matches!(store.submit_event(missing_auth), Err(Error::Protocol(_))));
     }

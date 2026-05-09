@@ -506,10 +506,10 @@ mod tests {
     #[test]
     fn encrypted_envelope_aad_digest_is_canonical() {
         let aad = EncryptedEnvelopeAad {
-            space_id: "cx:space:01JS0SP000000000000000000".to_owned(),
+            space_id: "cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
             event_kind: "cx.message.create".to_owned(),
-            event_id: "cx:event:01JS0EV000000000000000000".to_owned(),
-            causal_refs: vec!["cx:event:01JS0PARENT0000000000000".to_owned()],
+            event_id: "cx:event:01904100-0000-7000-8000-51495aba0a08".to_owned(),
+            causal_refs: vec!["cx:event:01904100-0000-7000-8000-2b39e7197b88".to_owned()],
         };
         let digest = envelope_aad_digest(&aad).unwrap();
         verify_envelope_aad_digest(&aad, &digest).unwrap();
@@ -688,9 +688,9 @@ mod tests {
     #[test]
     fn canonical_digest_is_deterministic_for_same_input() {
         let aad = EncryptedEnvelopeAad {
-            space_id: "cx:space:test".to_owned(),
+            space_id: "cx:space:01904100-0000-7000-8000-cfc039892036".to_owned(),
             event_kind: "cx.message.create".to_owned(),
-            event_id: "cx:event:test".to_owned(),
+            event_id: "cx:event:01904100-0000-7000-8000-b70714ca75c5".to_owned(),
             causal_refs: vec![],
         };
         let digest1 = envelope_aad_digest(&aad).unwrap();
@@ -702,15 +702,15 @@ mod tests {
     #[test]
     fn canonical_digest_differs_for_different_inputs() {
         let aad1 = EncryptedEnvelopeAad {
-            space_id: "cx:space:A".to_owned(),
+            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
             event_kind: "cx.message.create".to_owned(),
-            event_id: "cx:event:1".to_owned(),
+            event_id: "cx:event:01904100-0000-7000-8000-0b94566027c1".to_owned(),
             causal_refs: vec![],
         };
         let aad2 = EncryptedEnvelopeAad {
-            space_id: "cx:space:B".to_owned(),
+            space_id: "cx:space:01904100-0000-7000-8000-2a9d538f2fcf".to_owned(),
             event_kind: "cx.message.create".to_owned(),
-            event_id: "cx:event:1".to_owned(),
+            event_id: "cx:event:01904100-0000-7000-8000-0b94566027c1".to_owned(),
             causal_refs: vec![],
         };
         let digest1 = envelope_aad_digest(&aad1).unwrap();

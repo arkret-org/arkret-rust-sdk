@@ -134,7 +134,7 @@ mod tests {
 
     #[test]
     fn typing_sends_processes_merges_devices_and_expires() {
-        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let mut manager = TypingManager::new(Duration::zero());
 
@@ -162,7 +162,7 @@ mod tests {
 
     #[test]
     fn typing_debounces_repeated_notifications_and_stops() {
-        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let mut manager = TypingManager::new(Duration::seconds(60));
 

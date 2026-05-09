@@ -562,7 +562,7 @@ mod tests {
         plan.push(
             "share",
             CryptoMachineRequest::ShareRoomKey {
-                space_id: SpaceId::new("cx:space:crypto").unwrap(),
+                space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
                 session_id: "sess1".to_owned(),
                 recipients: vec![device()],
             },
@@ -599,8 +599,8 @@ mod tests {
             key_ref: None,
         };
         binding.record_unable_to_decrypt(UnableToDecryptRecord {
-            event_id: EventId::new("cx:event:crypto").unwrap(),
-            space_id: SpaceId::new("cx:space:crypto").unwrap(),
+            event_id: EventId::new("cx:event:01904100-0000-7000-8000-4e7fda181f9f").unwrap(),
+            space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
             sender: did("alice"),
             reason: UnableToDecryptReason::NoSession,
             encrypted_payload: payload,
@@ -632,7 +632,7 @@ mod tests {
             Some(&DeviceTrustState::Verified)
         );
 
-        let space_id = SpaceId::new("cx:space:crypto").unwrap();
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-6c355fb9dada").unwrap();
         binding
             .record_session(CryptoSessionRecord {
                 space_id: space_id.clone(),

@@ -532,18 +532,37 @@ fn run_migration_compatibility_vector() -> Result<()> {
     Ok(())
 }
 
+/// Pack a short ad-hoc test suffix into a canonical lowercase UUIDv7 envelope so
+/// the strict typed-id validators (`is_strict_typed_id`) accept it. Tests use
+/// distinct human-readable suffixes for diagnostics; here we stably encode them
+/// into the trailing 12 hex chars by hashing.
+fn fixture_uuid7(seed: &str) -> String {
+    use sha2::{Digest, Sha256};
+    let digest = Sha256::digest(seed.as_bytes());
+    let mut tail = String::with_capacity(12);
+    for b in digest.iter().take(6) {
+        use std::fmt::Write as _;
+        let _ = write!(&mut tail, "{:02x}", b);
+    }
+    format!("01904100-0000-7000-8000-{tail}")
+}
+
 fn conformance_operation(suffix: &str) -> Operation {
     Operation::create(
-        OperationId::new(format!("cx:operation:conformance-{suffix}")).unwrap(),
-        SpaceId::new("cx:space:conformance").unwrap(),
+        OperationId::new(format!("cx:operation:{}", fixture_uuid7(&format!("op:{suffix}"))))
+            .unwrap(),
+        SpaceId::new("cx:space:01904100-0000-7000-8000-7bb7399c19e6").unwrap(),
         "entity",
-        serde_json::json!({"id": format!("cx:entity:conformance-{suffix}")}),
+        serde_json::json!({
+            "id": format!("cx:entity:{}", fixture_uuid7(&format!("entity:{suffix}"))),
+        }),
     )
 }
 
 fn conformance_commit(suffix: &str, author_seq: u64, operations: Vec<Hash>) -> Commit {
     let mut commit = Commit::new(
-        CommitId::new(format!("cx:commit:conformance-{suffix}")).unwrap(),
+        CommitId::new(format!("cx:commit:{}", fixture_uuid7(&format!("commit:{suffix}"))))
+            .unwrap(),
         "did:web:conformance.example",
         Did::new("did:web:conformance.example").unwrap(),
         author_seq,
@@ -1347,7 +1366,7 @@ mod tests {
         Event {
             event_id: EventId::new(event_id).unwrap(),
             kind: "cx.entity.create".to_owned(),
-            space_id: SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             space_version: "1".to_owned(),
             actor_id: Did::new("did:web:alice.example.com").unwrap(),
             actor_seq: 1,
@@ -1361,7 +1380,7 @@ mod tests {
             critical_extensions: vec![],
             redacts: None,
             content: json!({
-                "id": "cx:entity:01JS0SNAPENTITY00000000000",
+                "id": "cx:entity:01904100-0000-7000-8000-b7a4e10c8c77",
                 "entity_type": "task",
                 "title": title
             }),
@@ -1390,10 +1409,10 @@ mod tests {
     fn operation_put_is_idempotent_for_same_bytes() {
         let mut store = MemoryRepoStore::new();
         let operation = Operation::create(
-            OperationId::new("cx:operation:01").unwrap(),
-            SpaceId::new("cx:space:01").unwrap(),
+            OperationId::new("cx:operation:01904100-0000-7000-8000-d408d6a2241c").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
             "entity",
-            json!({"id":"cx:entity:01"}),
+            json!({"id":"cx:entity:01904100-0000-7000-8000-c12dc98b2948"}),
         );
 
         store.put_operation(operation.clone()).unwrap();
@@ -1406,14 +1425,14 @@ mod tests {
     fn operation_put_rejects_same_id_with_different_payload() {
         let mut store = MemoryRepoStore::new();
         let mut operation = Operation::create(
-            OperationId::new("cx:operation:01").unwrap(),
-            SpaceId::new("cx:space:01").unwrap(),
+            OperationId::new("cx:operation:01904100-0000-7000-8000-d408d6a2241c").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
             "entity",
-            json!({"id":"cx:entity:01"}),
+            json!({"id":"cx:entity:01904100-0000-7000-8000-c12dc98b2948"}),
         );
         store.put_operation(operation.clone()).unwrap();
 
-        operation.payload = json!({"id":"cx:entity:02"});
+        operation.payload = json!({"id":"cx:entity:01904100-0000-7000-8000-35b07287b278"});
         assert!(matches!(store.put_operation(operation), Err(Error::IdempotencyConflict(_))));
     }
 
@@ -1422,7 +1441,7 @@ mod tests {
         let mut store = MemoryRepoStore::new();
         let commit = Commit {
             schema: COMMIT_SCHEMA.to_owned(),
-            commit_id: CommitId::new("cx:commit:01").unwrap(),
+            commit_id: CommitId::new("cx:commit:01904100-0000-7000-8000-c00fb79f254f").unwrap(),
             object_type: "commit".to_owned(),
             repo_id: "did:web:alice.example".to_owned(),
             author: Did::new("did:web:alice.example").unwrap(),
@@ -1445,7 +1464,7 @@ mod tests {
         let author = Did::new("did:web:alice.example").unwrap();
         let first = Commit {
             schema: COMMIT_SCHEMA.to_owned(),
-            commit_id: CommitId::new("cx:commit:01").unwrap(),
+            commit_id: CommitId::new("cx:commit:01904100-0000-7000-8000-c00fb79f254f").unwrap(),
             object_type: "commit".to_owned(),
             repo_id: "did:web:alice.example".to_owned(),
             author: author.clone(),
@@ -1459,7 +1478,7 @@ mod tests {
 
         let fork = Commit {
             schema: COMMIT_SCHEMA.to_owned(),
-            commit_id: CommitId::new("cx:commit:02").unwrap(),
+            commit_id: CommitId::new("cx:commit:01904100-0000-7000-8000-73407ba5f8c4").unwrap(),
             object_type: "commit".to_owned(),
             repo_id: "did:web:alice.example".to_owned(),
             author,
@@ -1478,7 +1497,7 @@ mod tests {
         let mut store = MemoryRepoStore::new();
         let commit = Commit {
             schema: COMMIT_SCHEMA.to_owned(),
-            commit_id: CommitId::new("cx:commit:missing-op").unwrap(),
+            commit_id: CommitId::new("cx:commit:01904100-0000-7000-8000-bf89d80d8ac4").unwrap(),
             object_type: "commit".to_owned(),
             repo_id: "did:web:alice.example".to_owned(),
             author: Did::new("did:web:alice.example").unwrap(),
@@ -1510,7 +1529,7 @@ mod tests {
         let mut store = MemoryRepoStore::new();
         let commit = Commit {
             schema: COMMIT_SCHEMA.to_owned(),
-            commit_id: CommitId::new("cx:commit:verified").unwrap(),
+            commit_id: CommitId::new("cx:commit:01904100-0000-7000-8000-038eba96736e").unwrap(),
             object_type: "commit".to_owned(),
             repo_id: "did:web:alice.example".to_owned(),
             author: Did::new("did:web:alice.example").unwrap(),
@@ -1532,8 +1551,8 @@ mod tests {
     fn memory_store_lists_operations_and_commits() {
         let mut store = MemoryRepoStore::new();
         let op = Operation::create(
-            OperationId::new("cx:operation:list").unwrap(),
-            SpaceId::new("cx:space:list").unwrap(),
+            OperationId::new("cx:operation:01904100-0000-7000-8000-cb4e10e21390").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-ad657b145ac3").unwrap(),
             "task",
             serde_json::json!({"title": "listed"}),
         );
@@ -1541,7 +1560,7 @@ mod tests {
         store.put_operation(op).unwrap();
 
         let mut commit = Commit::new(
-            CommitId::new("cx:commit:list").unwrap(),
+            CommitId::new("cx:commit:01904100-0000-7000-8000-daf5c0d714b0").unwrap(),
             "did:web:alice.example",
             Did::new("did:web:alice.example").unwrap(),
             1,
@@ -1580,13 +1599,13 @@ mod tests {
     fn transactional_batch_writes_operations_and_commits_atomically() {
         let mut store = MemoryRepoStore::new();
         let operation = Operation::create(
-            OperationId::new("cx:operation:txn").unwrap(),
-            SpaceId::new("cx:space:txn").unwrap(),
+            OperationId::new("cx:operation:01904100-0000-7000-8000-1a7ca845bdd1").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-94adbf275cbc").unwrap(),
             "entity",
-            json!({"id":"cx:entity:txn"}),
+            json!({"id":"cx:entity:01904100-0000-7000-8000-903ae1c59115"}),
         );
         let operation_digest = Hash::new(operation.operation_digest().unwrap()).unwrap();
-        let commit = test_commit("cx:commit:txn", 1, vec![operation_digest]);
+        let commit = test_commit("cx:commit:01904100-0000-7000-8000-9414e20f93a5", 1, vec![operation_digest]);
 
         let receipt = store
             .write_batch(
@@ -1610,13 +1629,13 @@ mod tests {
     fn transactional_batch_rolls_back_partial_operation_on_commit_failure() {
         let mut store = MemoryRepoStore::new();
         let operation = Operation::create(
-            OperationId::new("cx:operation:txn-rollback").unwrap(),
-            SpaceId::new("cx:space:txn").unwrap(),
+            OperationId::new("cx:operation:01904100-0000-7000-8000-767bf4ff9630").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-94adbf275cbc").unwrap(),
             "entity",
-            json!({"id":"cx:entity:txn"}),
+            json!({"id":"cx:entity:01904100-0000-7000-8000-903ae1c59115"}),
         );
         let commit = test_commit(
-            "cx:commit:txn-rollback",
+            "cx:commit:01904100-0000-7000-8000-744b8f9b33e5",
             1,
             vec![
                 Hash::new(
@@ -1641,14 +1660,14 @@ mod tests {
     fn snapshot_recovery_rebuilds_indexes_and_rejects_bad_head() {
         let mut store = SqliteRepoStore::new();
         let operation = Operation::create(
-            OperationId::new("cx:operation:recover").unwrap(),
-            SpaceId::new("cx:space:recover").unwrap(),
+            OperationId::new("cx:operation:01904100-0000-7000-8000-001e7b77b417").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-ef99eaa8f657").unwrap(),
             "entity",
-            json!({"id":"cx:entity:recover"}),
+            json!({"id":"cx:entity:01904100-0000-7000-8000-e24603aa53b6"}),
         );
         let operation_digest = operation.operation_digest().unwrap();
         let commit =
-            test_commit("cx:commit:recover", 1, vec![Hash::new(operation_digest.clone()).unwrap()]);
+            test_commit("cx:commit:01904100-0000-7000-8000-bdc0c09373c7", 1, vec![Hash::new(operation_digest.clone()).unwrap()]);
         store
             .write_batch(
                 RepoWriteBatch::new().with_operation(operation.clone()).with_commit(commit),
@@ -1675,15 +1694,15 @@ mod tests {
 
     #[test]
     fn projection_rebuild_helpers_replay_event_cache_and_use_valid_snapshot() {
-        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
-        let event = entity_event("cx:event:01JS0STORE0000000000000001", "Stored task");
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let event = entity_event("cx:event:01904100-0000-7000-8000-ec26a4d295c0", "Stored task");
         let mut store = MemoryPersistenceStore::new();
         store.put_event(event.clone()).unwrap();
         store.put_event(event.clone()).unwrap();
 
         let mut conflicting = event;
         conflicting.content = json!({
-            "id": "cx:entity:01JS0SNAPENTITY00000000000",
+            "id": "cx:entity:01904100-0000-7000-8000-b7a4e10c8c77",
             "entity_type": "task",
             "title": "Changed"
         });
@@ -1692,7 +1711,7 @@ mod tests {
         let state = rebuild_space_state_from_events(&store, &space_id, "1").unwrap();
         assert_eq!(state.entities.len(), 1);
         assert_eq!(
-            state.entities.get("cx:entity:01JS0SNAPENTITY00000000000").unwrap().state,
+            state.entities.get("cx:entity:01904100-0000-7000-8000-b7a4e10c8c77").unwrap().state,
             Some(ObjectState::Active)
         );
 
@@ -1784,10 +1803,10 @@ mod tests {
             statements: vec!["create table operations".to_owned()],
         });
         let operation = Operation::create(
-            OperationId::new("cx:operation:02").unwrap(),
-            SpaceId::new("cx:space:01").unwrap(),
+            OperationId::new("cx:operation:01904100-0000-7000-8000-1d6895c88b41").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
             "entity",
-            json!({"id":"cx:entity:01"}),
+            json!({"id":"cx:entity:01904100-0000-7000-8000-c12dc98b2948"}),
         );
         let digest = operation.operation_digest().unwrap();
         store.put_operation(operation.clone()).unwrap();
@@ -1815,13 +1834,13 @@ mod tests {
 
         let write = thread::spawn(move || {
             let operation = Operation::create(
-                OperationId::new("cx:operation:shared").unwrap(),
-                SpaceId::new("cx:space:shared").unwrap(),
+                OperationId::new("cx:operation:01904100-0000-7000-8000-90c0d48214ae").unwrap(),
+                SpaceId::new("cx:space:01904100-0000-7000-8000-3a93131c1791").unwrap(),
                 "entity",
-                json!({"id":"cx:entity:shared"}),
+                json!({"id":"cx:entity:01904100-0000-7000-8000-551cf1c01e4d"}),
             );
             let operation_digest = Hash::new(operation.operation_digest().unwrap()).unwrap();
-            let commit = test_commit("cx:commit:shared", 1, vec![operation_digest]);
+            let commit = test_commit("cx:commit:01904100-0000-7000-8000-953544819f9c", 1, vec![operation_digest]);
             writer.write_batch(RepoWriteBatch::new().with_operation(operation).with_commit(commit))
         });
         let receipt = write.join().unwrap().unwrap();
@@ -1836,29 +1855,29 @@ mod tests {
     fn indexeddb_store_enforces_quota_and_background_sync() {
         let mut store = IndexedDbRepoStore::new(4096);
         let operation = Operation::create(
-            OperationId::new("cx:operation:03").unwrap(),
-            SpaceId::new("cx:space:01").unwrap(),
+            OperationId::new("cx:operation:01904100-0000-7000-8000-1b6425d62e4a").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
             "entity",
-            json!({"id":"cx:entity:01"}),
+            json!({"id":"cx:entity:01904100-0000-7000-8000-c12dc98b2948"}),
         );
         store.put_operation(operation.clone()).unwrap();
         assert!(store.remaining_quota() < 4096);
 
         store.enqueue_background_sync(operation.operation_id.to_string());
-        assert_eq!(store.pop_background_sync(), Some("cx:operation:03".to_owned()));
+        assert_eq!(store.pop_background_sync(), Some("cx:operation:01904100-0000-7000-8000-1b6425d62e4a".to_owned()));
     }
 
     #[test]
     fn indexeddb_store_persists_repo_cursors_snapshots_and_survives_restart() {
         let mut store = IndexedDbRepoStore::new(16 * 1024);
         let operation = Operation::create(
-            OperationId::new("cx:operation:indexeddb-restart").unwrap(),
-            SpaceId::new("cx:space:01").unwrap(),
+            OperationId::new("cx:operation:01904100-0000-7000-8000-e17f5ed6826a").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
             "entity",
-            json!({"id":"cx:entity:indexeddb-restart"}),
+            json!({"id":"cx:entity:01904100-0000-7000-8000-1323704cc6e0"}),
         );
         let operation_digest = Hash::new(operation.operation_digest().unwrap()).unwrap();
-        let commit = test_commit("cx:commit:indexeddb-restart", 1, vec![operation_digest]);
+        let commit = test_commit("cx:commit:01904100-0000-7000-8000-f919eee3ba49", 1, vec![operation_digest]);
         store
             .write_batch(
                 RepoWriteBatch::new().with_operation(operation.clone()).with_commit(commit.clone()),
@@ -1866,12 +1885,12 @@ mod tests {
             .unwrap();
         store.put_sync_cursor("main", "cx:cursor:indexeddb").unwrap();
 
-        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
-        let event = entity_event("cx:event:01JS0INDEXEDDB0000000001", "IndexedDB task");
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let event = entity_event("cx:event:01904100-0000-7000-8000-0d2fc1224b32", "IndexedDB task");
         let mut state = SpaceState::new(space_id.clone(), "1".to_owned());
         state.apply_events(&[event]).unwrap();
         store.put_state_snapshot(state.snapshot()).unwrap();
-        store.enqueue_background_sync("cx:operation:indexeddb-restart");
+        store.enqueue_background_sync("cx:operation:01904100-0000-7000-8000-e17f5ed6826a");
 
         let persistent = store.export_persistent_state();
         let recovered =
@@ -1882,7 +1901,7 @@ mod tests {
         assert!(recovered.state_snapshot(&space_id).is_some());
         assert_eq!(
             { recovered }.pop_background_sync(),
-            Some("cx:operation:indexeddb-restart".to_owned())
+            Some("cx:operation:01904100-0000-7000-8000-e17f5ed6826a".to_owned())
         );
     }
 
@@ -1917,15 +1936,15 @@ mod tests {
         let key = StoreEncryptionKey::derive("passphrase", b"salt", 4);
         let mut store = EncryptedMemoryRepoStore::new(key);
         let operation = Operation::create(
-            OperationId::new("cx:operation:04").unwrap(),
-            SpaceId::new("cx:space:01").unwrap(),
+            OperationId::new("cx:operation:01904100-0000-7000-8000-90344e99c2ca").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
             "entity",
-            json!({"id":"cx:entity:01"}),
+            json!({"id":"cx:entity:01904100-0000-7000-8000-c12dc98b2948"}),
         );
         store.put_operation(operation.clone()).unwrap();
 
         let ciphertext = store.encrypted_operation_bytes(&operation.operation_id).unwrap();
-        assert!(!String::from_utf8_lossy(ciphertext).contains("cx:entity:01"));
+        assert!(!String::from_utf8_lossy(ciphertext).contains("cx:entity:01904100-0000-7000-8000-c12dc98b2948"));
         assert!(store.operation(&operation.operation_id).is_some());
     }
 

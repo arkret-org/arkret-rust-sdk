@@ -832,7 +832,7 @@ mod tests {
     #[test]
     fn base_client_tracks_space_state() {
         let client = BaseClient::new();
-        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
 
         client.update_space_state(&space_id, SpaceStateType::Joined).unwrap();
 
@@ -844,9 +844,9 @@ mod tests {
     #[test]
     fn base_client_filters_joined_spaces() {
         let client = BaseClient::new();
-        let space1 = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
-        let space2 = SpaceId::new("cx:space:01JS0SP000000000000000001").unwrap();
-        let space3 = SpaceId::new("cx:space:01JS0SP000000000000000002").unwrap();
+        let space1 = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space2 = SpaceId::new("cx:space:01904100-0000-7000-8000-f949e0272316").unwrap();
+        let space3 = SpaceId::new("cx:space:01904100-0000-7000-8000-46f8537dc94e").unwrap();
 
         client.update_space_state(&space1, SpaceStateType::Joined).unwrap();
         client.update_space_state(&space2, SpaceStateType::Left).unwrap();

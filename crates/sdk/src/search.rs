@@ -163,7 +163,7 @@ mod tests {
         let alice = did("alice");
         let mut index = SpaceSearchIndex::new();
         let mut entry = SpaceSearchEntry::new(
-            SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             "Rust SDK",
         );
         entry.description = Some("Contrix development".to_owned());

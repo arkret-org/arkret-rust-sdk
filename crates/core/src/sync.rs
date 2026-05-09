@@ -847,7 +847,7 @@ mod tests {
         let json = r#"{
             "next_batch": "token456",
             "spaces": {
-                "cx:space:01JS0SP000000000000000000": {
+                "cx:space:01904100-0000-7000-8000-9b64700c6ee8": {
                     "timeline": {
                         "events": [],
                         "limited": false
@@ -911,7 +911,7 @@ mod tests {
     #[test]
     fn backfill_request_serializes_correctly() {
         let request = BackfillRequest {
-            space_id: SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             from: BackfillFrom::Beginning,
             direction: BackfillDirection::Backward,
             limit: Some(100),
@@ -945,7 +945,7 @@ mod tests {
         let device = DeviceId::new("dev_123").unwrap();
         let service = Did::new("did:web:sync.example").unwrap();
         let filter = SyncFilter {
-            space_ids: vec![SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap()],
+            space_ids: vec![SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()],
             entity_types: vec!["message".to_owned()],
             relation_types: Vec::new(),
             min_hlc: None,
@@ -980,7 +980,7 @@ mod tests {
 
     #[test]
     fn timeline_order_key_uses_causal_depth_then_hlc_actor_sequence_and_event() {
-        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let actor = Did::new("did:web:alice.example").unwrap();
         let mut newer_hlc = Event::new(
             "cx.message.create",
@@ -991,7 +991,7 @@ mod tests {
             serde_json::json!({"body":"newer"}),
         )
         .unwrap();
-        newer_hlc.event_id = EventId::new("cx:event:0002").unwrap();
+        newer_hlc.event_id = EventId::new("cx:event:01904100-0000-7000-8000-233457bf6148").unwrap();
         let mut deeper = Event::new(
             "cx.message.create",
             space_id,
@@ -1001,7 +1001,7 @@ mod tests {
             serde_json::json!({"body":"deeper"}),
         )
         .unwrap();
-        deeper.event_id = EventId::new("cx:event:0001").unwrap();
+        deeper.event_id = EventId::new("cx:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap();
 
         let mut keys =
             [TimelineOrderKey::from_event(&newer_hlc, 0), TimelineOrderKey::from_event(&deeper, 1)];
@@ -1013,8 +1013,8 @@ mod tests {
 
     #[test]
     fn wait_for_frontier_requires_covering_positions() {
-        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
-        let event_id = EventId::new("cx:event:0001").unwrap();
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let event_id = EventId::new("cx:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap();
         let required = SyncStreamPosition {
             space_id: space_id.clone(),
             frontier: vec![event_id.clone()],
@@ -1036,7 +1036,7 @@ mod tests {
 
     #[test]
     fn limited_timeline_creates_backfill_gap_and_request() {
-        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let event = Event::new(
             "cx.message.create",
             space_id.clone(),

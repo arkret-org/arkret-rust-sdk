@@ -5,7 +5,7 @@ use serde_json::json;
 
 fn main() -> contrix::Result<()> {
     let actor = Did::new("did:web:alice.example")?;
-    let space_id = SpaceId::new("cx:space:01js0ke000000000000000000")?;
+    let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-65c7feb295d7")?;
 
     let event = contrix::Event::new(
         "cx.message.create",
@@ -18,14 +18,14 @@ fn main() -> contrix::Result<()> {
     let event_digest = event.event_digest()?;
 
     let operation = Operation::create(
-        OperationId::new("cx:operation:01js0op000000000000000000")?,
+        OperationId::new("cx:operation:01904100-0000-7000-8000-0198d483044c")?,
         space_id,
         "event",
         serde_json::to_value(&event)?,
     );
 
     let mut commit = Commit::new(
-        CommitId::new("cx:commit:01js0cm000000000000000000")?,
+        CommitId::new("cx:commit:01904100-0000-7000-8000-e5dae9001942")?,
         actor.to_string(),
         actor,
         1,

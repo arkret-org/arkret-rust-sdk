@@ -364,7 +364,7 @@ mod tests {
 
         let manifest = SpaceExportManifest {
             export_id: "export1".to_owned(),
-            space_id: SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             exported_by: alice,
             source_service_did: service.clone(),
             event_count: 10,

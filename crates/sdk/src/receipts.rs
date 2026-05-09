@@ -468,9 +468,9 @@ mod tests {
 
     #[test]
     fn receipts_manage_markers_public_private_and_threads() {
-        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
-        let event = EventId::new("cx:event:01").unwrap();
+        let event = EventId::new("cx:event:01904100-0000-7000-8000-834e21b98552").unwrap();
         let mut manager = ReceiptManager::new();
 
         manager.set_read_marker(
@@ -501,11 +501,11 @@ mod tests {
     }
 
     fn space() -> SpaceId {
-        SpaceId::new("cx:space:01JS0SP00000000000000RR000").unwrap()
+        SpaceId::new("cx:space:01904100-0000-7000-8000-906bb8c30a80").unwrap()
     }
 
     fn flow() -> FlowId {
-        FlowId::new("cx:flow:01JS1FL00000000000000RR000").unwrap()
+        FlowId::new("cx:flow:01904100-0000-7000-8000-c1fe7e18f6fe").unwrap()
     }
 
     #[test]
@@ -533,7 +533,7 @@ mod tests {
         // space overrides default when no flow override
         assert!(!prefs.effective_send(None, Some(&space())));
         // default applies when nothing else matches
-        let other_space = SpaceId::new("cx:space:01JS0SP00000000000000XX000").unwrap();
+        let other_space = SpaceId::new("cx:space:01904100-0000-7000-8000-de7b2d3c4472").unwrap();
         assert!(prefs.effective_send(None, Some(&other_space)));
     }
 

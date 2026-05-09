@@ -455,7 +455,7 @@ mod tests {
     fn backfill_authorization_requires_all_visibility_flags() {
         let auth = FederationBackfillAuthorization {
             requester_service_did: did("a"),
-            space_id: SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             history_visible: true,
             service_delegated: true,
             plaintext_visible_to_service: false,
@@ -467,14 +467,14 @@ mod tests {
     fn federation_backfill_keys_and_media_contracts_validate_fail_closed() {
         let authorized = FederationBackfillAuthorization {
             requester_service_did: did("a"),
-            space_id: SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             history_visible: true,
             service_delegated: true,
             plaintext_visible_to_service: true,
         };
         FederationBackfillQuery {
             space_id: authorized.space_id.clone(),
-            from_event_id: Some(EventId::new("cx:event:1").unwrap()),
+            from_event_id: Some(EventId::new("cx:event:01904100-0000-7000-8000-0b94566027c1").unwrap()),
             limit: 10,
             authorization: authorized,
         }
@@ -504,7 +504,7 @@ mod tests {
     #[test]
     fn delta_batch_serializes_operations_surface() {
         let batch = FederationDeltaBatch {
-            space_id: SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             operations: Vec::new(),
             accepted: Vec::new(),
             rejected: vec![json!({"reason": "bad_signature"})],

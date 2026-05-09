@@ -777,7 +777,7 @@ mod tests {
             "a.example",
             "b.example",
             "/_contrix/federation/state",
-            json!({"space":"cx:space:01"}),
+            json!({"space":"cx:space:01904100-0000-7000-8000-fd3637e8361f"}),
             "shared-key",
         );
         assert_eq!(request.origin, "a.example");
@@ -805,7 +805,7 @@ mod tests {
     #[test]
     fn federation_forwards_queries_and_backfills_events() {
         let mut manager = FederationManager::new();
-        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         manager.forward_event(space_id.clone(), json!({"event": 1}));
         manager.forward_event(space_id.clone(), json!({"event": 2}));
 
@@ -907,7 +907,7 @@ mod tests {
         assert_eq!(record.kind, FederationQuarantineKind::DuplicateTransactionConflict);
         let fork = fork_quarantine_record(
             FederationQuarantineKind::OperationFork,
-            "cx:operation:1",
+            "cx:operation:01904100-0000-7000-8000-b24c1b0f1a32",
             "sha256:first",
             "sha256:second",
         )
@@ -919,7 +919,7 @@ mod tests {
     fn backfill_and_verify_actor_helpers_fail_closed() {
         let authorization = FederationBackfillAuthorization {
             requester_service_did: Did::new("did:web:b.example").unwrap(),
-            space_id: SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             history_visible: true,
             service_delegated: false,
             plaintext_visible_to_service: true,

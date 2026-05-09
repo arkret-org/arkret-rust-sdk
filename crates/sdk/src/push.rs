@@ -377,9 +377,9 @@ mod tests {
 
     fn event(encrypted: bool) -> PushEvent {
         PushEvent {
-            event_id: EventId::new("cx:event:01").unwrap(),
+            event_id: EventId::new("cx:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
             user_id: did("alice"),
-            space_id: Some(SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap()),
+            space_id: Some(SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()),
             event_kind: "cx.message".to_owned(),
             content: json!({"body": "hello"}),
             encrypted,

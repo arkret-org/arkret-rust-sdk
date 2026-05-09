@@ -6,6 +6,26 @@
 
 ## Changelog
 
+### 2026-05-09 (round 20，激进模式) — C19.B 收尾：strict UUIDv7 typed-id validators + 528-fixture mass-rename
+
+- **typed-id validators 全部 tighten**：`crates/identifiers/src/lib.rs:215-237` 把 `SpaceId / FlowId / EntityId / RelationId / EventId / CommitId / OperationId / GrantId / InviteId / DeviceId / PolicyId / ViewId` 的 closure 从 `has_prefix("cx:<kind>:")` 切到 `is_strict_typed_id(value, "cx:<kind>:")`，强制 RFC 9562 lowercase UUIDv7 payload。`EventId` / `OperationId` 保留 `is_hash` 备路；`DeviceId` 保留 `dev_<...>` 备路。Legacy mixed-case ULID-form (`cx:space:01JS0SP000000000000000000`) 和 UUIDv4 / 大写 hex / 错 variant nibble 全部硬拒绝。
+- **fixture mass-rename**：跨 45 个 `.rs` 文件、528 处 fixture-id（含 12 个嵌套于 `space:cx:space:...:cx:flow:...` 的解析输入）从 ULID-shape `cx:<kind>:01<25-29 alphanumerics>` 重写为确定性 UUIDv7 envelope `cx:<kind>:01904100-0000-7000-8000-<sha1(kind:suffix)[:12]>`。映射 content-addressed → 不同 legacy id 总映射不同 hex tail，可重现 / 易调试。
+  - **机械替换 (mass sweep)**: 第一遍 `"cx:<kind>:<suffix>"` quoted-literal 重写 ~320 处；第二遍嵌套 `cx:<kind>:01...` substring 重写 ~12 处（catch `flow:cx:space:...:cx:flow:01JS0FL...` 这类解析器输入）。
+  - **手工修复 (manual fixups)**: 11 处需要语义修订（机械替换不足）：
+    - `crates/identifiers/src/lib.rs::is_strict_typed_id_rejects_legacy_ulid_and_bad_uuid_payloads` + `device_id_accepts_protocol_device_forms` + `flow_id_accepts_active_flow_prefix`：恢复故意保留的 legacy ULID 字符串作为 reject 测试输入（sweep 把它们误当 wire-id 重写了）。
+    - `crates/identifiers/src/lib.rs::serde_deserialization_validates_identifier_values`：旧测试 `cx:space:01` 仅 2 字符，新 strict validator 拒绝；改用 canonical UUIDv7。
+    - `crates/sdk/src/timeline.rs::create_test_event` + `crates/sdk/src/space.rs::event` + `crates/sdk/tests/sdk_workflows.rs::event` + `crates/core/src/model.rs::operation_envelope_builder_covers_every_builtin_kind`：`format!("cx:event:{seq:026}")` / `format!("cx:operation:builder-{index}")` 等模板长度变了，改 `format!("cx:event:01904100-0000-7000-8000-{seq:012x}")`。
+    - `crates/store/src/lib.rs` + `crates/sdk/src/store.rs::conformance_operation/conformance_commit`：原本 `format!("cx:operation:store-{suffix}")` 这类 ad-hoc 字符串，新增 `fixture_uuid7(seed: &str)` helper 把 sha256 截断 12 字节 hex 塞进 UUIDv7 envelope，保留 suffix 唯一性。
+    - `crates/sdk/src/resolver.rs::deterministic_flow_surface_relation_id`：旧实现 `format!("cx:relation:{}", &digest[..26])` 产 26-char ULID-form；新版重排成 `xxxxxxxx-xxxx-7xxx-8xxx-xxxxxxxxxxxx` UUIDv7 envelope（version=7 / variant=8）。
+    - `crates/sdk/src/sync_client.rs::sliding_sync_builds_windowed_subscriptions_and_applies_deltas` + `crates/sdk/src/timeline.rs::timeline_paginates_from_event_id` + `crates/sdk/src/resolver.rs::space_state_sorts_events_by_hlc`：测试依赖 lex-顺序 / 索引一致性，hash-derived 12-hex tail 打乱顺序；改用 `01904100-0000-7000-8000-000000000001..N` 序列 fixture。
+    - `crates/sdk/src/authz.rs::resource_selector_parse_entity` + `flow_selector_matches_flow_resource`：解析器输入字符串里 `cx:space:...:task` 的 `...` 占位符 / `01JS0FL...` 截断符与 RHS 期望值不一致，改用 canonical UUIDv7。
+    - `crates/core/src/canonical.rs::state_subject_encoding_roundtrips_simple_parts` + `crates/core/src/model.rs::event_digest_uses_canonical_payload_*` + `commit_digest_*`：fixture 内容变了导致 `expected_encoded` / `expected_hash` 漂移 → 更新 expected 字符串和 sha256 hash。
+- **测试 & 校验**：
+  - `cargo build --workspace --all-features` exit 0。
+  - `cargo test --workspace --lib --no-fail-fast` **704 passed / 0 failed / 0 ignored**（基线持平）。
+  - `cargo test --workspace --no-fail-fast`（lib + integration + examples） **712 passed / 0 failed / 2 ignored**。
+- **C19.B 全部完成**：helper + SDK-internal 替换（round 18） + strict validators tightening + fixture migration（round 20）三件全部 land。下一轮可以开始 conformance-doc 收尾或 P1 helper 升级。
+
 ### 2026-05-09 (round 18，激进模式) — C19.B 主体落地：UUIDv7 wire-id helper + SDK-internal 替换 + v0.4.0 minor bump
 
 - **C19.B 主体**：所有写出 Contrix typed wire id 的 SDK 站点改用 RFC 9562 UUIDv7（lowercase hex 36-char）替代旧 ULID：
@@ -21,8 +41,8 @@
 - **测试 & 校验**：
   - `cargo check --workspace --all-features` exit 0。
   - `cargo test --workspace --lib` **704 passed / 0 failed / 0 ignored**（基线 +2，来自新增 `new_prefixed_uuid7` 与 `is_strict_typed_id` helper 单测）。
-- **开放项（C19.B 收尾）**：
-  - typed-id validators (SpaceId / FlowId / EntityId / RelationId / GrantId / InviteId / PolicyId / ViewId / DeviceId / EventId / OperationId / CommitId) 当前仍走 `has_prefix`；切换到 `is_strict_typed_id` 会 cascade 拒绝 36 个文件 / 162+ 处 ULID-form 测试 fixture（`cx:space:01JS0SP000000000000000000` 大写 Crockford Base32），需要专门一轮 fixture migration（`01J*` → 确定性 UUIDv7）后才能合并。本轮先把 helper、写入站点、版本三件事 land，校验 tightening 留下一轮单独做。
+- **开放项（C19.B 收尾）** — **2026-05-09 round 20 已完成**：
+  - typed-id validators 全部切到 `is_strict_typed_id`；528 处 fixture migration 跨 45 个 `.rs` 文件 land。
   - cursor.rs 已在前一轮完成 `has_prefixed_uuid7` 改写，本轮无需变动。
 
 ## 当前状态摘要

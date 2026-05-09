@@ -415,7 +415,7 @@ impl ResourceSelector {
                     return Err(Error::Protocol(format!("invalid entity selector: {}", selector)));
                 }
 
-                // Reconstruct space_id as "cx:space:ULID"
+                // Reconstruct space_id as "cx:space:01904100-0000-7000-8000-b9c3db021a99"
                 let space_id =
                     format!("{}:{}:{}", entity_parts[0], entity_parts[1], entity_parts[2]);
 
@@ -800,8 +800,8 @@ impl ProtocolResourceSelector {
         vec![
             Self {
                 kind: ProtocolResourceSelectorKind::Event,
-                space_id: Some("cx:space:01JS0SP000000000000000000".to_owned()),
-                event_id: Some("cx:event:01JS0EV000000000000000000".to_owned()),
+                space_id: Some("cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned()),
+                event_id: Some("cx:event:01904100-0000-7000-8000-51495aba0a08".to_owned()),
                 object_type: None,
                 object_ref: None,
                 flow_id: None,
@@ -822,7 +822,7 @@ impl ProtocolResourceSelector {
             },
             Self {
                 kind: ProtocolResourceSelectorKind::Actor,
-                space_id: Some("cx:space:01JS0SP000000000000000000".to_owned()),
+                space_id: Some("cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned()),
                 actor_id: Some("did:web:alice.example".to_owned()),
                 object_type: None,
                 object_ref: None,
@@ -844,11 +844,11 @@ impl ProtocolResourceSelector {
             },
             Self {
                 kind: ProtocolResourceSelectorKind::Notification,
-                space_id: Some("cx:space:01JS0SP000000000000000000".to_owned()),
+                space_id: Some("cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned()),
                 actor_id: Some("did:web:alice.example".to_owned()),
                 object_type: Some("device_verification".to_owned()),
                 object_ref: Some("cx:notify:01JS0NT000000000000000000".to_owned()),
-                flow_id: Some("cx:flow:01JS0FL000000000000000000".to_owned()),
+                flow_id: Some("cx:flow:01904100-0000-7000-8000-a1fffe3a8cc9".to_owned()),
                 board_id: None,
                 list_id: None,
                 message_id: None,
@@ -866,7 +866,7 @@ impl ProtocolResourceSelector {
             },
             Self {
                 kind: ProtocolResourceSelectorKind::Blob,
-                space_id: Some("cx:space:01JS0SP000000000000000000".to_owned()),
+                space_id: Some("cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned()),
                 blob_ref: Some("cx:blob:sha256:0123456789abcdef".to_owned()),
                 object_type: Some("encrypted_backup".to_owned()),
                 object_ref: Some("backup-scaffold-current-device".to_owned()),
@@ -1069,7 +1069,7 @@ impl ProtocolGrantConstraint {
                 morph_type_deny: Vec::new(),
                 facet_allow: Vec::new(),
                 facet_deny: Vec::new(),
-                allowed_view_refs: vec!["cx:view:triage".to_owned()],
+                allowed_view_refs: vec!["cx:view:01904100-0000-7000-8000-b74ef68eeddf".to_owned()],
                 relation_kind_allow: vec!["responsible".to_owned()],
                 allowed_from_container_refs: Vec::new(),
                 allowed_to_container_refs: Vec::new(),
@@ -3575,7 +3575,7 @@ mod tests {
         Event {
             event_id: EventId::new(event_id).unwrap(),
             kind: kind.to_owned(),
-            space_id: SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             space_version: "1".to_owned(),
             actor_id: Did::new("did:web:authority.example.com").unwrap(),
             actor_seq,
@@ -3596,20 +3596,23 @@ mod tests {
 
     #[test]
     fn resource_selector_parse_space() {
-        let selector = ResourceSelector::parse("space:cx:space:01JS0SP000000000000000000").unwrap();
+        let selector = ResourceSelector::parse("space:cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         assert_eq!(
             selector,
-            ResourceSelector::Space { space_id: "cx:space:01JS0SP000000000000000000".to_owned() }
+            ResourceSelector::Space { space_id: "cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned() }
         );
     }
 
     #[test]
     fn resource_selector_parse_entity() {
-        let selector = ResourceSelector::parse("entity:cx:space:...:task").unwrap();
+        let selector = ResourceSelector::parse(
+            "entity:cx:space:01904100-0000-7000-8000-b721a5c84b0d:task",
+        )
+        .unwrap();
         assert_eq!(
             selector,
             ResourceSelector::Entity {
-                space_id: "cx:space:...".to_owned(),
+                space_id: "cx:space:01904100-0000-7000-8000-b721a5c84b0d".to_owned(),
                 entity_type: Some("task".to_owned()),
                 entity_id: None,
             }
@@ -3618,41 +3621,42 @@ mod tests {
 
     #[test]
     fn flow_selector_matches_flow_resource() {
-        let selector =
-            ResourceSelector::parse("flow:cx:space:01JS0SP000000000000000000:cx:flow:01JS0FL...")
-                .unwrap();
+        let selector = ResourceSelector::parse(
+            "flow:cx:space:01904100-0000-7000-8000-9b64700c6ee8:cx:flow:01904100-0000-7000-8000-5a9f22e193a1",
+        )
+        .unwrap();
         assert_eq!(
             selector,
             ResourceSelector::Flow {
-                space_id: "cx:space:01JS0SP000000000000000000".to_owned(),
-                flow_id: Some("cx:flow:01JS0FL...".to_owned()),
+                space_id: "cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
+                flow_id: Some("cx:flow:01904100-0000-7000-8000-5a9f22e193a1".to_owned()),
             }
         );
         assert!(selector.matches(&Resource::Flow {
-            space_id: "cx:space:01JS0SP000000000000000000".to_owned(),
-            flow_id: "cx:flow:01JS0FL...".to_owned(),
+            space_id: "cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
+            flow_id: "cx:flow:01904100-0000-7000-8000-5a9f22e193a1".to_owned(),
         }));
         assert!(!selector.matches(&Resource::Flow {
-            space_id: "cx:space:01JS0SP000000000000000000".to_owned(),
-            flow_id: "cx:flow:other".to_owned(),
+            space_id: "cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
+            flow_id: "cx:flow:01904100-0000-7000-8000-9c74a047a052".to_owned(),
         }));
     }
 
     #[test]
     fn resource_selector_parse_space_scoped_resources_with_colon_ids() {
         assert_eq!(
-            ResourceSelector::parse("policy:cx:space:01JS0SP000000000000000000:policy-main")
+            ResourceSelector::parse("policy:cx:space:01904100-0000-7000-8000-9b64700c6ee8:policy-main")
                 .unwrap(),
             ResourceSelector::Policy {
-                space_id: "cx:space:01JS0SP000000000000000000".to_owned(),
+                space_id: "cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
                 policy_id: Some("policy-main".to_owned()),
             }
         );
         assert_eq!(
-            ResourceSelector::parse("relation:cx:space:01JS0SP000000000000000000:assigned_to")
+            ResourceSelector::parse("relation:cx:space:01904100-0000-7000-8000-9b64700c6ee8:assigned_to")
                 .unwrap(),
             ResourceSelector::Relation {
-                space_id: "cx:space:01JS0SP000000000000000000".to_owned(),
+                space_id: "cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
                 relation_kind: "assigned_to".to_owned(),
             }
         );
@@ -3671,27 +3675,27 @@ mod tests {
 
     #[test]
     fn space_selector_matches_space() {
-        let selector = ResourceSelector::Space { space_id: "cx:space:A".to_owned() };
-        assert!(selector.matches(&Resource::Space { space_id: "cx:space:A".to_owned() }));
-        assert!(!selector.matches(&Resource::Space { space_id: "cx:space:B".to_owned() }));
+        let selector = ResourceSelector::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() };
+        assert!(selector.matches(&Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() }));
+        assert!(!selector.matches(&Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-2a9d538f2fcf".to_owned() }));
     }
 
     #[test]
     fn entity_selector_matches_entity() {
         let selector = ResourceSelector::Entity {
-            space_id: "cx:space:A".to_owned(),
+            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
             entity_type: Some("task".to_owned()),
             entity_id: None,
         };
         assert!(selector.matches(&Resource::Entity {
-            space_id: "cx:space:A".to_owned(),
+            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
             entity_type: "task".to_owned(),
-            entity_id: "cx:entity:123".to_owned(),
+            entity_id: "cx:entity:01904100-0000-7000-8000-20ec63a5423d".to_owned(),
         }));
         assert!(!selector.matches(&Resource::Entity {
-            space_id: "cx:space:A".to_owned(),
+            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
             entity_type: "message".to_owned(),
-            entity_id: "cx:entity:123".to_owned(),
+            entity_id: "cx:entity:01904100-0000-7000-8000-20ec63a5423d".to_owned(),
         }));
     }
 
@@ -3701,11 +3705,11 @@ mod tests {
         let ctx = AuthzContext::new(
             Did::new("did:web:alice.example.com").unwrap(),
             "read".to_owned(),
-            Resource::Flow { space_id: "cx:space:A".to_owned(), flow_id: "cx:flow:1".to_owned() },
+            Resource::Flow { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(), flow_id: "cx:flow:01904100-0000-7000-8000-f571eead1fc4".to_owned() },
         );
         let mut grant = grant_for(
             "read",
-            ResourceSelector::Flow { space_id: "cx:space:A".to_owned(), flow_id: None },
+            ResourceSelector::Flow { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(), flow_id: None },
         );
         grant.constraints = vec![ConstraintEntry::new(Constraint::TypeRestriction {
             entity_type_allow: None,
@@ -3724,16 +3728,16 @@ mod tests {
             Did::new("did:web:alice.example.com").unwrap(),
             "write".to_owned(),
             Resource::Entity {
-                space_id: "cx:space:A".to_owned(),
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
                 entity_type: "task".to_owned(),
-                entity_id: "cx:entity:123".to_owned(),
+                entity_id: "cx:entity:01904100-0000-7000-8000-20ec63a5423d".to_owned(),
             },
         )
         .with_entity_facets([EntityFacet::Stateful, EntityFacet::Rankable]);
         let mut grant = grant_for(
             "write",
             ResourceSelector::Entity {
-                space_id: "cx:space:A".to_owned(),
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
                 entity_type: Some("task".to_owned()),
                 entity_id: None,
             },
@@ -3751,9 +3755,9 @@ mod tests {
             Did::new("did:web:alice.example.com").unwrap(),
             "write".to_owned(),
             Resource::Entity {
-                space_id: "cx:space:A".to_owned(),
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
                 entity_type: "task".to_owned(),
-                entity_id: "cx:entity:123".to_owned(),
+                entity_id: "cx:entity:01904100-0000-7000-8000-20ec63a5423d".to_owned(),
             },
         )
         .with_entity_facets([EntityFacet::Stateful]);
@@ -3766,7 +3770,7 @@ mod tests {
         let ctx = AuthzContext::new(
             Did::new("did:web:alice.example.com").unwrap(),
             "read".to_owned(),
-            Resource::Space { space_id: "cx:space:A".to_owned() },
+            Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
         );
 
         let decision = engine.check_authorization(&ctx, &[]);
@@ -3779,11 +3783,11 @@ mod tests {
         let ctx = AuthzContext::new(
             Did::new("did:web:alice.example.com").unwrap(),
             "read".to_owned(),
-            Resource::Space { space_id: "cx:space:A".to_owned() },
+            Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
         );
 
         let grant =
-            grant_for("read", ResourceSelector::Space { space_id: "cx:space:A".to_owned() });
+            grant_for("read", ResourceSelector::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() });
 
         let decision = engine.check_authorization(&ctx, &[grant]);
         assert!(decision.is_allowed());
@@ -3795,11 +3799,11 @@ mod tests {
         let ctx = AuthzContext::new(
             Did::new("did:web:alice.example.com").unwrap(),
             "write".to_owned(),
-            Resource::Space { space_id: "cx:space:A".to_owned() },
+            Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
         );
 
         let grant =
-            grant_for("read", ResourceSelector::Space { space_id: "cx:space:A".to_owned() });
+            grant_for("read", ResourceSelector::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() });
 
         let decision = engine.check_authorization(&ctx, &[grant]);
         assert!(!decision.is_allowed());
@@ -3808,11 +3812,11 @@ mod tests {
     #[test]
     fn authz_engine_evaluates_grants_from_space_state() {
         let mut state = SpaceState::new(
-            SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             "1".to_owned(),
         );
         let grant = capability_event(
-            "cx:event:01JS0AUTHZ000000000000000001",
+            "cx:event:01904100-0000-7000-8000-db6fcaf186ba",
             "cx.capability.grant",
             1,
             "01970e589d21-00000004-a13f9c2e",
@@ -3820,7 +3824,7 @@ mod tests {
                 "capability_id": "cap-message-send",
                 "subject": "did:web:alice.example.com",
                 "actions": ["message.send"],
-                "resources": ["entity:cx:space:01JS0SP000000000000000000:message"]
+                "resources": ["entity:cx:space:01904100-0000-7000-8000-9b64700c6ee8:message"]
             }),
         );
         state.apply_events(&[grant]).unwrap();
@@ -3829,9 +3833,9 @@ mod tests {
             "2026-04-29T01:00:00Z",
             "message.send",
             Resource::Entity {
-                space_id: "cx:space:01JS0SP000000000000000000".to_owned(),
+                space_id: "cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
                 entity_type: "message".to_owned(),
-                entity_id: "cx:entity:01JS0MSG000000000000000001".to_owned(),
+                entity_id: "cx:entity:01904100-0000-7000-8000-424c57fe6d8e".to_owned(),
             },
         );
 
@@ -3842,11 +3846,11 @@ mod tests {
     #[test]
     fn authz_engine_denies_after_revoke_wins_in_space_state() {
         let mut state = SpaceState::new(
-            SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             "1".to_owned(),
         );
         let grant = capability_event(
-            "cx:event:01JS0AUTHZ000000000000000002",
+            "cx:event:01904100-0000-7000-8000-4fe0190ae99f",
             "cx.capability.grant",
             1,
             "01970e589d21-00000004-a13f9c2e",
@@ -3854,11 +3858,11 @@ mod tests {
                 "capability_id": "cap-message-send",
                 "subject": "did:web:alice.example.com",
                 "actions": ["message.send"],
-                "resources": ["entity:cx:space:01JS0SP000000000000000000:message"]
+                "resources": ["entity:cx:space:01904100-0000-7000-8000-9b64700c6ee8:message"]
             }),
         );
         let revoke = capability_event(
-            "cx:event:01JS0AUTHZ000000000000000003",
+            "cx:event:01904100-0000-7000-8000-a85aaf6d56fc",
             "cx.capability.revoke",
             2,
             "01970e589d22-00000004-a13f9c2e",
@@ -3870,9 +3874,9 @@ mod tests {
             "2026-04-29T01:00:00Z",
             "message.send",
             Resource::Entity {
-                space_id: "cx:space:01JS0SP000000000000000000".to_owned(),
+                space_id: "cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
                 entity_type: "message".to_owned(),
-                entity_id: "cx:entity:01JS0MSG000000000000000001".to_owned(),
+                entity_id: "cx:entity:01904100-0000-7000-8000-424c57fe6d8e".to_owned(),
             },
         );
 
@@ -3883,11 +3887,11 @@ mod tests {
     #[test]
     fn authz_engine_denies_after_delegate_revoke_wins_in_space_state() {
         let mut state = SpaceState::new(
-            SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             "1".to_owned(),
         );
         let delegate = capability_event(
-            "cx:event:01JS0AUTHZ000000000000000004",
+            "cx:event:01904100-0000-7000-8000-cadd1669a70a",
             "cx.capability.delegate",
             1,
             "01970e589d21-00000004-a13f9c2e",
@@ -3896,7 +3900,7 @@ mod tests {
                 "parent_grant_id": "cap-root",
                 "subject": "did:web:alice.example.com",
                 "actions": ["message.send"],
-                "resources": ["entity:cx:space:01JS0SP000000000000000000:message"]
+                "resources": ["entity:cx:space:01904100-0000-7000-8000-9b64700c6ee8:message"]
             }),
         );
         state.apply_events(std::slice::from_ref(&delegate)).unwrap();
@@ -3905,9 +3909,9 @@ mod tests {
             "2026-04-29T01:00:00Z",
             "message.send",
             Resource::Entity {
-                space_id: "cx:space:01JS0SP000000000000000000".to_owned(),
+                space_id: "cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
                 entity_type: "message".to_owned(),
-                entity_id: "cx:entity:01JS0MSG000000000000000001".to_owned(),
+                entity_id: "cx:entity:01904100-0000-7000-8000-424c57fe6d8e".to_owned(),
             },
         );
 
@@ -3915,7 +3919,7 @@ mod tests {
         assert!(engine.check_authorization_from_space_state(&ctx, &state).is_allowed());
 
         let revoke = capability_event(
-            "cx:event:01JS0AUTHZ000000000000000005",
+            "cx:event:01904100-0000-7000-8000-738d5fbe3070",
             "cx.capability.revoke",
             2,
             "01970e589d22-00000004-a13f9c2e",
@@ -3932,11 +3936,11 @@ mod tests {
         let ctx = AuthzContext::new(
             Did::new("did:web:bob.example.com").unwrap(),
             "read".to_owned(),
-            Resource::Space { space_id: "cx:space:A".to_owned() },
+            Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
         );
 
         let grant =
-            grant_for("read", ResourceSelector::Space { space_id: "cx:space:A".to_owned() });
+            grant_for("read", ResourceSelector::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() });
 
         let decision = engine.check_authorization(&ctx, &[grant]);
         assert!(!decision.is_allowed());
@@ -3948,14 +3952,14 @@ mod tests {
         let ctx = AuthzContext::new(
             Did::new("did:web:alice.example.com").unwrap(),
             "read".to_owned(),
-            Resource::Space { space_id: "cx:space:A".to_owned() },
+            Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
         );
 
         let allow_policy = PolicyCheckResponse::no_action();
         assert!(!engine.check_authorization_with_policy(&ctx, &[], &allow_policy).is_allowed());
 
         let grant =
-            grant_for("read", ResourceSelector::Space { space_id: "cx:space:A".to_owned() });
+            grant_for("read", ResourceSelector::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() });
         assert!(engine.check_authorization_with_policy(&ctx, &[grant], &allow_policy).is_allowed());
     }
 
@@ -3966,15 +3970,15 @@ mod tests {
             Did::new("did:web:alice.example.com").unwrap(),
             "post".to_owned(),
             Resource::Entity {
-                space_id: "cx:space:A".to_owned(),
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
                 entity_type: "message".to_owned(),
-                entity_id: "cx:entity:1".to_owned(),
+                entity_id: "cx:entity:01904100-0000-7000-8000-c89a39a907e5".to_owned(),
             },
         );
         let grant = grant_for(
             "post",
             ResourceSelector::Entity {
-                space_id: "cx:space:A".to_owned(),
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
                 entity_type: Some("message".to_owned()),
                 entity_id: None,
             },
@@ -4003,7 +4007,7 @@ mod tests {
         let bob = Did::new("did:web:bob.example.com").unwrap();
         let mut root = grant_for(
             "message.send",
-            ResourceSelector::Message { space_id: "cx:space:A".to_owned(), message_id: None },
+            ResourceSelector::Message { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(), message_id: None },
         );
         root.id = "root".to_owned();
         root.issuer = authority;
@@ -4016,7 +4020,7 @@ mod tests {
             subject: bob,
             actions: vec!["message.send".to_owned()],
             resources: vec![ResourceSelector::Message {
-                space_id: "cx:space:A".to_owned(),
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
                 message_id: Some("message-1".to_owned()),
             }],
             constraints: Vec::new(),
@@ -4048,11 +4052,11 @@ mod tests {
         let ctx = AuthzContext::new(
             Did::new("did:web:alice.example.com").unwrap(),
             "read".to_owned(),
-            Resource::Space { space_id: "cx:space:A".to_owned() },
+            Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
         );
 
         let mut grant =
-            grant_for("read", ResourceSelector::Space { space_id: "cx:space:A".to_owned() });
+            grant_for("read", ResourceSelector::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() });
         grant.constraints = vec![ConstraintEntry::new(Constraint::Temporal {
             not_before: None,
             expires_at: Some(Utc::now() - chrono::Duration::hours(1)),
@@ -4069,10 +4073,10 @@ mod tests {
         let ctx = ctx_at(
             "2026-04-29T02:30:00Z",
             "read",
-            Resource::Space { space_id: "cx:space:A".to_owned() },
+            Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
         );
         let mut grant =
-            grant_for("read", ResourceSelector::Space { space_id: "cx:space:A".to_owned() });
+            grant_for("read", ResourceSelector::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() });
         grant.constraints = vec![ConstraintEntry::new(Constraint::Temporal {
             not_before: None,
             expires_at: None,
@@ -4094,10 +4098,10 @@ mod tests {
         let ctx = ctx_at(
             "2026-04-29T11:30:00Z",
             "read",
-            Resource::Space { space_id: "cx:space:A".to_owned() },
+            Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
         );
         let mut grant =
-            grant_for("read", ResourceSelector::Space { space_id: "cx:space:A".to_owned() });
+            grant_for("read", ResourceSelector::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() });
         grant.constraints = vec![ConstraintEntry::new(Constraint::Temporal {
             not_before: None,
             expires_at: None,
@@ -4119,10 +4123,10 @@ mod tests {
         let ctx = ctx_at(
             "2026-04-29T15:30:00Z",
             "read",
-            Resource::Space { space_id: "cx:space:A".to_owned() },
+            Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
         );
         let mut grant =
-            grant_for("read", ResourceSelector::Space { space_id: "cx:space:A".to_owned() });
+            grant_for("read", ResourceSelector::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() });
         grant.constraints = vec![ConstraintEntry::new(Constraint::Temporal {
             not_before: None,
             expires_at: None,
@@ -4142,7 +4146,7 @@ mod tests {
     fn authz_engine_temporal_recurrence_handles_dst_boundary() {
         let mut engine = AuthzEngine::new();
         let mut grant =
-            grant_for("read", ResourceSelector::Space { space_id: "cx:space:A".to_owned() });
+            grant_for("read", ResourceSelector::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() });
         grant.constraints = vec![ConstraintEntry::new(Constraint::Temporal {
             not_before: None,
             expires_at: None,
@@ -4158,12 +4162,12 @@ mod tests {
         let before_jump = ctx_at(
             "2026-03-08T06:30:00Z",
             "read",
-            Resource::Space { space_id: "cx:space:A".to_owned() },
+            Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
         );
         let after_jump = ctx_at(
             "2026-03-08T07:30:00Z",
             "read",
-            Resource::Space { space_id: "cx:space:A".to_owned() },
+            Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
         );
 
         assert!(engine.check_authorization(&before_jump, &[grant.clone()]).is_allowed());
@@ -4174,7 +4178,7 @@ mod tests {
     fn authz_cache_expires_at_temporal_boundaries() {
         let mut engine = AuthzEngine::new();
         let mut grant =
-            grant_for("read", ResourceSelector::Space { space_id: "cx:space:A".to_owned() });
+            grant_for("read", ResourceSelector::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() });
         grant.constraints = vec![ConstraintEntry::new(Constraint::Temporal {
             not_before: None,
             expires_at: Some(utc("2026-04-29T03:00:00Z")),
@@ -4184,12 +4188,12 @@ mod tests {
         let before_expiry = ctx_at(
             "2026-04-29T02:30:00Z",
             "read",
-            Resource::Space { space_id: "cx:space:A".to_owned() },
+            Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
         );
         let after_expiry = ctx_at(
             "2026-04-29T03:30:00Z",
             "read",
-            Resource::Space { space_id: "cx:space:A".to_owned() },
+            Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
         );
 
         assert!(engine.check_authorization(&before_expiry, &[grant.clone()]).is_allowed());
@@ -4200,18 +4204,18 @@ mod tests {
     fn authz_cache_rechecks_future_not_before_grants() {
         let mut engine = AuthzEngine::new();
         let mut grant =
-            grant_for("read", ResourceSelector::Space { space_id: "cx:space:A".to_owned() });
+            grant_for("read", ResourceSelector::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() });
         grant.valid_from = Some(utc("2026-04-29T03:00:00Z"));
 
         let before_valid = ctx_at(
             "2026-04-29T02:30:00Z",
             "read",
-            Resource::Space { space_id: "cx:space:A".to_owned() },
+            Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
         );
         let after_valid = ctx_at(
             "2026-04-29T03:30:00Z",
             "read",
-            Resource::Space { space_id: "cx:space:A".to_owned() },
+            Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
         );
 
         assert!(!engine.check_authorization(&before_valid, &[grant.clone()]).is_allowed());
@@ -4225,9 +4229,9 @@ mod tests {
             Did::new("did:web:alice.example.com").unwrap(),
             "update".to_owned(),
             Resource::Entity {
-                space_id: "cx:space:A".to_owned(),
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
                 entity_type: "task".to_owned(),
-                entity_id: "cx:entity:123".to_owned(),
+                entity_id: "cx:entity:01904100-0000-7000-8000-20ec63a5423d".to_owned(),
             },
         );
         ctx.write_fields = vec!["id".to_owned(), "title".to_owned()];
@@ -4235,7 +4239,7 @@ mod tests {
         let mut grant = grant_for(
             "update",
             ResourceSelector::Entity {
-                space_id: "cx:space:A".to_owned(),
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
                 entity_type: Some("task".to_owned()),
                 entity_id: None,
             },
@@ -4257,9 +4261,9 @@ mod tests {
             Did::new("did:web:alice.example.com").unwrap(),
             "send".to_owned(),
             Resource::Entity {
-                space_id: "cx:space:A".to_owned(),
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
                 entity_type: "message".to_owned(),
-                entity_id: "cx:entity:123".to_owned(),
+                entity_id: "cx:entity:01904100-0000-7000-8000-20ec63a5423d".to_owned(),
             },
         )
         .with_delegation_depth(2)
@@ -4282,7 +4286,7 @@ mod tests {
         let mut grant = grant_for(
             "send",
             ResourceSelector::Entity {
-                space_id: "cx:space:A".to_owned(),
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
                 entity_type: Some("message".to_owned()),
                 entity_id: None,
             },
@@ -4344,16 +4348,16 @@ mod tests {
             "2026-04-29T00:00:00Z",
             "send",
             Resource::Entity {
-                space_id: "cx:space:A".to_owned(),
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
                 entity_type: "message".to_owned(),
-                entity_id: "cx:entity:123".to_owned(),
+                entity_id: "cx:entity:01904100-0000-7000-8000-20ec63a5423d".to_owned(),
             },
         )
         .with_verified_claim(base_claim.clone());
         let mut grant = grant_for(
             "send",
             ResourceSelector::Entity {
-                space_id: "cx:space:A".to_owned(),
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
                 entity_type: Some("message".to_owned()),
                 entity_id: None,
             },
@@ -4381,9 +4385,9 @@ mod tests {
             "2026-04-29T00:00:00Z",
             "send",
             Resource::Entity {
-                space_id: "cx:space:A".to_owned(),
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
                 entity_type: "message".to_owned(),
-                entity_id: "cx:entity:123".to_owned(),
+                entity_id: "cx:entity:01904100-0000-7000-8000-20ec63a5423d".to_owned(),
             },
         )
         .with_verified_claim(wrong_subject);
@@ -4397,15 +4401,15 @@ mod tests {
             Did::new("did:web:alice.example.com").unwrap(),
             "send".to_owned(),
             Resource::Entity {
-                space_id: "cx:space:A".to_owned(),
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
                 entity_type: "message".to_owned(),
-                entity_id: "cx:entity:123".to_owned(),
+                entity_id: "cx:entity:01904100-0000-7000-8000-20ec63a5423d".to_owned(),
             },
         );
         let mut grant = grant_for(
             "send",
             ResourceSelector::Entity {
-                space_id: "cx:space:A".to_owned(),
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
                 entity_type: Some("message".to_owned()),
                 entity_id: None,
             },
@@ -4430,7 +4434,7 @@ mod tests {
         let mut grant = grant_for(
             "send",
             ResourceSelector::Entity {
-                space_id: "cx:space:A".to_owned(),
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
                 entity_type: Some("message".to_owned()),
                 entity_id: None,
             },
@@ -4477,7 +4481,7 @@ mod tests {
         let grant = grant_for(
             "send",
             ResourceSelector::Entity {
-                space_id: "cx:space:A".to_owned(),
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
                 entity_type: Some("message".to_owned()),
                 entity_id: None,
             },
@@ -4514,16 +4518,16 @@ mod tests {
             "2026-04-29T12:00:00Z",
             "send",
             Resource::Entity {
-                space_id: "cx:space:A".to_owned(),
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
                 entity_type: "message".to_owned(),
-                entity_id: "cx:entity:123".to_owned(),
+                entity_id: "cx:entity:01904100-0000-7000-8000-20ec63a5423d".to_owned(),
             },
         );
 
         let mut grant = grant_for(
             "send",
             ResourceSelector::Entity {
-                space_id: "cx:space:A".to_owned(),
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
                 entity_type: Some("message".to_owned()),
                 entity_id: None,
             },

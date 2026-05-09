@@ -1764,7 +1764,7 @@ mod tests {
     #[test]
     fn space_state_creates_empty() {
         let state = SpaceState::new(
-            SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             "1".to_owned(),
         );
         assert_eq!(state.entities.len(), 0);
@@ -1774,10 +1774,10 @@ mod tests {
 
     #[test]
     fn flow_events_create_update_and_link_surfaces() {
-        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let actor_id = Did::new("did:web:alice.example.com").unwrap();
-        let flow_id = "cx:flow:01JS0SB000000000000000000";
-        let card_ref = "cx:flow:01JS0CD000000000000000000";
+        let flow_id = "cx:flow:01904100-0000-7000-8000-1fb50799ad3f";
+        let card_ref = "cx:flow:01904100-0000-7000-8000-08ca7b733afd";
 
         let create = Event::new(
             "cx.flow.create",
@@ -1818,7 +1818,7 @@ mod tests {
                 "surface_ref": card_ref,
                 "surface_role": "status_card",
                 "primary": true,
-                "relation_id": "cx:relation:01JS0SR000000000000000000"
+                "relation_id": "cx:relation:01904100-0000-7000-8000-4da53c8b9e89"
             }),
         )
         .unwrap();
@@ -1836,7 +1836,7 @@ mod tests {
         assert_eq!(flow.fields["priority"], "high");
         assert_eq!(flow.version, Some(1));
 
-        let relation = state.relations.get("cx:relation:01JS0SR000000000000000000").unwrap();
+        let relation = state.relations.get("cx:relation:01904100-0000-7000-8000-4da53c8b9e89").unwrap();
         assert_eq!(relation.relation_kind, crate::RelationKind::HasSurface);
         assert_eq!(relation.from_ref.as_deref(), Some(flow_id));
         assert_eq!(relation.to_ref.as_deref(), Some(card_ref));
@@ -1847,7 +1847,7 @@ mod tests {
     #[test]
     fn space_state_applies_events_in_order() {
         let mut state = SpaceState::new(
-            SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             "1".to_owned(),
         );
 
@@ -1855,9 +1855,9 @@ mod tests {
         let hlc = Hlc::new("01970e589d21-00000001-a13f9c2e").unwrap();
 
         let create_event = Event {
-            event_id: EventId::new("cx:event:01JS0EV000000000000000000").unwrap(),
+            event_id: EventId::new("cx:event:01904100-0000-7000-8000-51495aba0a08").unwrap(),
             kind: "cx.entity.create".to_owned(),
-            space_id: SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             space_version: "1".to_owned(),
             actor_id,
             actor_seq: 1,
@@ -1871,7 +1871,7 @@ mod tests {
             critical_extensions: vec![],
             redacts: None,
             content: json!({
-                "id": "cx:entity:01JS0EN000000000000000000",
+                "id": "cx:entity:01904100-0000-7000-8000-bbe051c5f72e",
                 "entity_type": "task",
                 "title": "Test task"
             }),
@@ -1890,9 +1890,9 @@ mod tests {
         let hlc2 = Hlc::new("01970e589d21-00000002-a13f9c2e").unwrap();
 
         let event1 = Event {
-            event_id: EventId::new("cx:event:01JS0EV000000000000000001").unwrap(),
+            event_id: EventId::new("cx:event:01904100-0000-7000-8000-000000000001").unwrap(),
             kind: "cx.entity.create".to_owned(),
-            space_id: SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             space_version: "1".to_owned(),
             actor_id: actor_id.clone(),
             actor_seq: 1,
@@ -1906,7 +1906,7 @@ mod tests {
             critical_extensions: vec![],
             redacts: None,
             content: json!({
-                "id": "cx:entity:01JS0EN000000000000000001",
+                "id": "cx:entity:01904100-0000-7000-8000-d48c478ecd0b",
                 "entity_type": "task",
                 "title": "Task 1"
             }),
@@ -1915,9 +1915,9 @@ mod tests {
         };
 
         let event2 = Event {
-            event_id: EventId::new("cx:event:01JS0EV000000000000000002").unwrap(),
+            event_id: EventId::new("cx:event:01904100-0000-7000-8000-000000000002").unwrap(),
             kind: "cx.entity.create".to_owned(),
-            space_id: SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             space_version: "1".to_owned(),
             actor_id,
             actor_seq: 2,
@@ -1931,7 +1931,7 @@ mod tests {
             critical_extensions: vec![],
             redacts: None,
             content: json!({
-                "id": "cx:entity:01JS0EN000000000000000002",
+                "id": "cx:entity:01904100-0000-7000-8000-e75dc3f6ab2e",
                 "entity_type": "task",
                 "title": "Task 2"
             }),
@@ -1940,26 +1940,29 @@ mod tests {
         };
 
         let mut state = SpaceState::new(
-            SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             "1".to_owned(),
         );
 
         state.apply_events(&[event1, event2]).unwrap();
 
         // event2 should be applied first (earlier HLC)
-        assert_eq!(state.frontier.first().unwrap().as_str(), "cx:event:01JS0EV000000000000000001");
+        assert_eq!(
+            state.frontier.first().unwrap().as_str(),
+            "cx:event:01904100-0000-7000-8000-000000000001"
+        );
     }
 
     #[test]
     fn member_state_conflict_prefers_ban_semantics() {
         let mut state = SpaceState::new(
-            SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             "1".to_owned(),
         );
-        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
 
         let leave = Event {
-            event_id: EventId::new("cx:event:01JS0M1A000000000000000000").unwrap(),
+            event_id: EventId::new("cx:event:01904100-0000-7000-8000-d64fc8cb7d63").unwrap(),
             kind: "cx.member.state".to_owned(),
             space_id: space_id.clone(),
             space_version: "1".to_owned(),
@@ -1979,7 +1982,7 @@ mod tests {
             proofs: vec![],
         };
         let ban = Event {
-            event_id: EventId::new("cx:event:01JS0M1B000000000000000000").unwrap(),
+            event_id: EventId::new("cx:event:01904100-0000-7000-8000-c9d398595fe8").unwrap(),
             kind: "cx.member.state".to_owned(),
             space_id,
             space_version: "1".to_owned(),
@@ -2003,21 +2006,21 @@ mod tests {
 
         let resolved = state.resolved_state.get("cx.member.state|did:web:alice.example").unwrap();
         assert_eq!(resolved.content["membership"], "ban");
-        assert_eq!(resolved.source_event_id.as_str(), "cx:event:01JS0M1B000000000000000000");
+        assert_eq!(resolved.source_event_id.as_str(), "cx:event:01904100-0000-7000-8000-c9d398595fe8");
         assert_eq!(state.conflict_records.len(), 1);
     }
 
     #[test]
     fn capability_rebind_uses_deterministic_lww_order() {
         let mut state = SpaceState::new(
-            SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             "1".to_owned(),
         );
-        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let actor_id = Did::new("did:web:moderator.example").unwrap();
 
         let revoke = Event {
-            event_id: EventId::new("cx:event:01JS0R1E000000000000000000").unwrap(),
+            event_id: EventId::new("cx:event:01904100-0000-7000-8000-f205d4bec6cc").unwrap(),
             kind: "cx.capability.revoke".to_owned(),
             space_id: space_id.clone(),
             space_version: "1".to_owned(),
@@ -2037,7 +2040,7 @@ mod tests {
             proofs: vec![],
         };
         let grant = Event {
-            event_id: EventId::new("cx:event:01JS0G1F000000000000000000").unwrap(),
+            event_id: EventId::new("cx:event:01904100-0000-7000-8000-59b4ef49b3f6").unwrap(),
             kind: "cx.capability.grant".to_owned(),
             space_id,
             space_version: "1".to_owned(),
@@ -2072,14 +2075,14 @@ mod tests {
     #[test]
     fn message_revision_redaction_and_reaction_converge() {
         let mut state = SpaceState::new(
-            SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             "1".to_owned(),
         );
-        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let actor_id = Did::new("did:web:alice.example").unwrap();
 
         let base = Event {
-            event_id: EventId::new("cx:event:01JS0MSG000000000000000001").unwrap(),
+            event_id: EventId::new("cx:event:01904100-0000-7000-8000-6d2450f52c40").unwrap(),
             kind: "cx.message.create".to_owned(),
             space_id: space_id.clone(),
             space_version: "1".to_owned(),
@@ -2099,7 +2102,7 @@ mod tests {
             proofs: vec![],
         };
         let revise = Event {
-            event_id: EventId::new("cx:event:01JS0MSG000000000000000002").unwrap(),
+            event_id: EventId::new("cx:event:01904100-0000-7000-8000-408e1c1e6fef").unwrap(),
             kind: "cx.message.revise".to_owned(),
             space_id: space_id.clone(),
             space_version: "1".to_owned(),
@@ -2119,7 +2122,7 @@ mod tests {
             proofs: vec![],
         };
         let reaction_add = Event {
-            event_id: EventId::new("cx:event:01JS0RCT000000000000000001").unwrap(),
+            event_id: EventId::new("cx:event:01904100-0000-7000-8000-494928f6a281").unwrap(),
             kind: "cx.reaction.add".to_owned(),
             space_id,
             space_version: "1".to_owned(),
@@ -2152,10 +2155,10 @@ mod tests {
     #[test]
     fn snapshot_manifest_tracks_state_hash_and_merkle_root() {
         let mut state = SpaceState::new(
-            SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             "1".to_owned(),
         );
-        let event = entity_event("cx:event:01JS0SNAP00000000000000001", "Snapshot task");
+        let event = entity_event("cx:event:01904100-0000-7000-8000-333d5a4f911c", "Snapshot task");
 
         state.apply_events(std::slice::from_ref(&event)).unwrap();
         let snapshot = state.snapshot();
@@ -2171,7 +2174,7 @@ mod tests {
     #[test]
     fn snapshot_chunk_manifest_verifies_digests() {
         let state = SpaceState::new(
-            SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             "1".to_owned(),
         );
         let snapshot = state.snapshot();
@@ -2204,8 +2207,8 @@ mod tests {
 
     #[test]
     fn restore_snapshot_or_replay_falls_back_on_verification_failure() {
-        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
-        let event = entity_event("cx:event:01JS0SNAP00000000000000002", "Replayed task");
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let event = entity_event("cx:event:01904100-0000-7000-8000-5cdf783dccf7", "Replayed task");
         let mut state = SpaceState::new(space_id.clone(), "1".to_owned());
         state.apply_events(std::slice::from_ref(&event)).unwrap();
         let mut snapshot = state.snapshot();
@@ -2225,7 +2228,7 @@ mod tests {
         Event {
             event_id: EventId::new(event_id).unwrap(),
             kind: "cx.entity.create".to_owned(),
-            space_id: SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap(),
+            space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             space_version: "1".to_owned(),
             actor_id: Did::new("did:web:alice.example.com").unwrap(),
             actor_seq: 1,
@@ -2239,7 +2242,7 @@ mod tests {
             critical_extensions: vec![],
             redacts: None,
             content: json!({
-                "id": "cx:entity:01JS0SNAPENTITY00000000000",
+                "id": "cx:entity:01904100-0000-7000-8000-b7a4e10c8c77",
                 "entity_type": "task",
                 "title": title
             }),
@@ -2252,14 +2255,17 @@ mod tests {
     fn reducer_convergence_is_order_independent() {
         // Property: applying the same events in any permutation produces the same
         // final state, because the reducer sorts by HLC before applying.
-        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let actor = Did::new("did:web:alice.example.com").unwrap();
 
         let events: Vec<Event> = (0..5)
             .map(|i| {
                 let hlc = Hlc::new(format!("01970e589d22-{i:08x}-11111111")).unwrap();
                 Event {
-                    event_id: EventId::new(format!("cx:event:01JS0CONV{i:022}")).unwrap(),
+                    event_id: EventId::new(format!(
+                        "cx:event:01904100-0000-7000-8000-{i:012x}"
+                    ))
+                    .unwrap(),
                     kind: OP_ENTITY_CREATE.to_owned(),
                     space_id: space_id.clone(),
                     space_version: "1".to_owned(),
@@ -2275,7 +2281,7 @@ mod tests {
                     critical_extensions: vec![],
                     redacts: None,
                     content: json!({
-                        "id": format!("cx:entity:01JS0CONVENTITY{i:018}"),
+                        "id": format!("cx:entity:01904100-0000-7000-8000-{i:012x}"),
                         "entity_type": "task",
                         "title": format!("Task {i}")
                     }),

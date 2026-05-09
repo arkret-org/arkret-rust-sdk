@@ -330,7 +330,7 @@ mod tests {
     fn grant_effect_produces_or_set_add() {
         let opts = ConsentGrantOptions {
             valid_until: Some(ts(2026, 12, 31)),
-            evidence_ref: Some("cx:event:01js0pres000000000000000000".to_owned()),
+            evidence_ref: Some("cx:event:01904100-0000-7000-8000-4ad9d5ef0089".to_owned()),
             ..Default::default()
         };
         let eff = grant_effect("cs-001", bob(), Scope::Invite, &opts).unwrap();
@@ -467,7 +467,7 @@ mod tests {
             scope: Scope::Invite,
             not_before: None,
             valid_until: Some(ts(2026, 12, 31)),
-            evidence_ref: Some("cx:event:01js0pres000000000000000000".to_owned()),
+            evidence_ref: Some("cx:event:01904100-0000-7000-8000-4ad9d5ef0089".to_owned()),
             reason: None,
             constraints: vec![],
         };

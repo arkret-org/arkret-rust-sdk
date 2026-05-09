@@ -635,7 +635,7 @@ mod tests {
     fn applet_portal_manages_space_bridge_and_ghost_actor() {
         let mut manager = AppletPortalManager::new();
         let portal =
-            manager.create_portal(SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap());
+            manager.create_portal(SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap());
         manager.install_applet(&portal.portal_id, "todo").unwrap();
         manager.enable_bridge(&portal.portal_id).unwrap();
         manager.set_ghost_actor(&portal.portal_id, did("ghost")).unwrap();
@@ -723,7 +723,7 @@ mod tests {
         mappings.upsert_space(RemoteSpaceMapping {
             protocol: "slack".to_owned(),
             remote_space_id: "C1".to_owned(),
-            space_id: SpaceId::new("cx:space:01JS0SP000000000000000001").unwrap(),
+            space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-f949e0272316").unwrap(),
             portal_id: Some("portal".to_owned()),
             title: Some("general".to_owned()),
             external_ref: Value::Null,

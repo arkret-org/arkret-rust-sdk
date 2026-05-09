@@ -200,8 +200,8 @@ pub fn redaction_vectors() -> Vec<RedactionVector> {
         before: json!({
             "kind": "cx.message.create",
             "actor_seq": 7,
-            "prev_refs": ["cx:event:01js0evbase00000000000000"],
-            "auth_refs": ["cx:event:01js0evauth00000000000000"],
+            "prev_refs": ["cx:event:01904100-0000-7000-8000-021bde4eea9d"],
+            "auth_refs": ["cx:event:01904100-0000-7000-8000-d7332fb47d1a"],
             "hlc": "01970e589d21-00000004-a13f9c2e",
             "content": { "body": "to be redacted" },
             "unsigned": { "transient": true }
@@ -502,7 +502,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
 pub fn event_taxonomy_vectors() -> Result<Vec<EventTaxonomyVector>> {
     let text = Event::new(
         MESSAGE_TEXT,
-        SpaceId::new("cx:space:01JS0SP000000000000000000")?,
+        SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8")?,
         Did::new("did:web:alice.example")?,
         1,
         Hlc::new("01970e589d21-00000001-a13f9c2e")?,
@@ -512,7 +512,7 @@ pub fn event_taxonomy_vectors() -> Result<Vec<EventTaxonomyVector>> {
 
     let custom = Event::new(
         "vendor.example.custom",
-        SpaceId::new("cx:space:01JS0SP000000000000000000")?,
+        SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8")?,
         Did::new("did:web:alice.example")?,
         2,
         Hlc::new("01970e589d21-00000002-a13f9c2e")?,
@@ -521,7 +521,7 @@ pub fn event_taxonomy_vectors() -> Result<Vec<EventTaxonomyVector>> {
     let custom_envelope = EventContentEnvelope::from_event(&custom)?;
 
     let poll_response = json!({
-        "poll_event_id": "cx:event:poll-1",
+        "poll_event_id": "cx:event:01904100-0000-7000-8000-fb8cfd35e274",
         "answer_ids": ["a"]
     });
     parse_event_content(MESSAGE_POLL_RESPONSE, poll_response.clone())?;
@@ -748,7 +748,7 @@ pub fn core_event_store_fixture_report() -> Result<CoreEventStoreFixtureReport> 
     let mut store = MemoryRuntimeStore::new();
     let first = Event::new(
         "cx.message.create",
-        SpaceId::new("cx:space:fixture")?,
+        SpaceId::new("cx:space:01904100-0000-7000-8000-e29f120781be")?,
         Did::new("did:web:fixture.example")?,
         1,
         Hlc::new("01970e589d21-00000001-a13f9c2e")?,

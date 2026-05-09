@@ -283,7 +283,7 @@ mod tests {
             &pusher,
             &rule,
             &PushNotification {
-                event_id: EventId::new("cx:event:01").unwrap(),
+                event_id: EventId::new("cx:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
                 user_id: did("alice"),
                 space_id: None,
                 event_kind: "cx.message.text".to_owned(),
@@ -298,14 +298,14 @@ mod tests {
     fn rejected_response_keeps_only_failures() {
         let rejected = rejected_response([
             PushDeliveryReceipt {
-                event_id: EventId::new("cx:event:01").unwrap(),
+                event_id: EventId::new("cx:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
                 device_id: DeviceId::new("dev_one").unwrap(),
                 platform: PushPlatform::Fcm,
                 accepted: true,
                 error: None,
             },
             PushDeliveryReceipt {
-                event_id: EventId::new("cx:event:02").unwrap(),
+                event_id: EventId::new("cx:event:01904100-0000-7000-8000-6008ddd67225").unwrap(),
                 device_id: DeviceId::new("dev_two").unwrap(),
                 platform: PushPlatform::Fcm,
                 accepted: false,

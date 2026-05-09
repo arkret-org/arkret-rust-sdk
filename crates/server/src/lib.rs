@@ -1694,7 +1694,7 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
             method: "GET".to_owned(),
             path: "/api/v1/index/entity".to_owned(),
             query: BTreeMap::from([
-                ("entity_id".to_owned(), "cx:entity:1".to_owned()),
+                ("entity_id".to_owned(), "cx:entity:01904100-0000-7000-8000-c89a39a907e5".to_owned()),
                 ("access_token".to_owned(), "redacted".to_owned()),
             ]),
             headers: BTreeMap::new(),
@@ -1717,7 +1717,7 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
             method: "GET".to_owned(),
             path: "/api/v1/federation/pull-operations".to_owned(),
             query: BTreeMap::from([
-                ("space_id".to_owned(), "cx:space:01JS0SP000000000000000000".to_owned()),
+                ("space_id".to_owned(), "cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned()),
                 ("after_cursor".to_owned(), "cx:cursor:expired".to_owned()),
             ]),
             headers: BTreeMap::new(),
@@ -2544,7 +2544,7 @@ fn openapi_examples() -> Value {
             "summary": "Incremental sync request",
             "value": {
                 "since": "cx:cursor:sync:01JS0SP000000000000000000",
-                "space_ids": ["cx:space:01JS0SP000000000000000000"],
+                "space_ids": ["cx:space:01904100-0000-7000-8000-9b64700c6ee8"],
                 "timeout_ms": 30000
             }
         },
@@ -2561,7 +2561,7 @@ fn openapi_examples() -> Value {
         "BlobUploadMetadata": {
             "summary": "Blob upload metadata",
             "value": {
-                "space_id": "cx:space:01JS0SP000000000000000000",
+                "space_id": "cx:space:01904100-0000-7000-8000-9b64700c6ee8",
                 "size": 4,
                 "media_type": "text/plain",
                 "sha256": "sha256:3a6eb0790f39ac87c94f3856b2dd2c5d110e6811602261a9a923d3bb23adc8b7"

@@ -556,7 +556,7 @@ mod tests {
     ) -> OperationEnvelope {
         let mut builder = OperationEnvelopeBuilder::new(
             OperationId::new(id).unwrap(),
-            SpaceId::new("cx:space:operations").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-6b91994c774d").unwrap(),
             Did::new("did:web:alice.example").unwrap(),
             kind,
             1,
@@ -567,7 +567,7 @@ mod tests {
             builder = builder.with_dependency(OperationId::new(dep).unwrap());
         }
         if authz {
-            builder = builder.with_authz_ref(GrantId::new("cx:grant:operations").unwrap());
+            builder = builder.with_authz_ref(GrantId::new("cx:grant:01904100-0000-7000-8000-e78463d5d984").unwrap());
         }
         builder.build(&OperationKindRegistry::default()).unwrap()
     }
@@ -583,15 +583,15 @@ mod tests {
     #[test]
     fn dag_accepts_complete_acyclic_dependencies() {
         let mut dag = OperationDag::new();
-        dag.insert(envelope("cx:operation:1", Vec::new())).unwrap();
-        dag.insert(envelope("cx:operation:2", vec!["cx:operation:1"])).unwrap();
+        dag.insert(envelope("cx:operation:01904100-0000-7000-8000-b24c1b0f1a32", Vec::new())).unwrap();
+        dag.insert(envelope("cx:operation:01904100-0000-7000-8000-bc16402a117e", vec!["cx:operation:01904100-0000-7000-8000-b24c1b0f1a32"])).unwrap();
         dag.validate().unwrap().validate_acyclic_complete().unwrap();
     }
 
     #[test]
     fn dag_reports_missing_dependencies() {
         let mut dag = OperationDag::new();
-        dag.insert(envelope("cx:operation:2", vec!["cx:operation:missing"])).unwrap();
+        dag.insert(envelope("cx:operation:01904100-0000-7000-8000-bc16402a117e", vec!["cx:operation:01904100-0000-7000-8000-74849cf4e138"])).unwrap();
         let report = dag.validate().unwrap();
         assert_eq!(report.missing_dependencies.len(), 1);
         assert!(report.validate_acyclic_complete().is_err());
@@ -600,8 +600,8 @@ mod tests {
     #[test]
     fn dag_reports_cycles_and_negative_vectors_cover_failure_modes() {
         let mut dag = OperationDag::new();
-        dag.insert(envelope("cx:operation:1", vec!["cx:operation:2"])).unwrap();
-        dag.insert(envelope("cx:operation:2", vec!["cx:operation:1"])).unwrap();
+        dag.insert(envelope("cx:operation:01904100-0000-7000-8000-b24c1b0f1a32", vec!["cx:operation:01904100-0000-7000-8000-bc16402a117e"])).unwrap();
+        dag.insert(envelope("cx:operation:01904100-0000-7000-8000-bc16402a117e", vec!["cx:operation:01904100-0000-7000-8000-b24c1b0f1a32"])).unwrap();
         let report = dag.validate().unwrap();
         assert!(report.has_cycle);
         assert!(report.validate_acyclic_complete().is_err());
@@ -616,24 +616,24 @@ mod tests {
     #[test]
     fn semantic_reducer_rejects_tombstone_mutations_and_missing_authz() {
         let create = envelope_for(
-            "cx:operation:1",
+            "cx:operation:01904100-0000-7000-8000-b24c1b0f1a32",
             OP_ENTITY_CREATE,
-            json!({"entity_id": "cx:entity:1"}),
+            json!({"entity_id": "cx:entity:01904100-0000-7000-8000-c89a39a907e5"}),
             Vec::new(),
             true,
         );
         let delete = envelope_for(
-            "cx:operation:2",
+            "cx:operation:01904100-0000-7000-8000-bc16402a117e",
             OP_ENTITY_DELETE,
-            json!({"entity_id": "cx:entity:1"}),
-            vec!["cx:operation:1"],
+            json!({"entity_id": "cx:entity:01904100-0000-7000-8000-c89a39a907e5"}),
+            vec!["cx:operation:01904100-0000-7000-8000-b24c1b0f1a32"],
             true,
         );
         let update_after_delete = envelope_for(
-            "cx:operation:3",
+            "cx:operation:01904100-0000-7000-8000-57ea8fc8ec0b",
             OP_ENTITY_UPDATE,
-            json!({"entity_id": "cx:entity:1"}),
-            vec!["cx:operation:2"],
+            json!({"entity_id": "cx:entity:01904100-0000-7000-8000-c89a39a907e5"}),
+            vec!["cx:operation:01904100-0000-7000-8000-bc16402a117e"],
             true,
         );
         let report = reduce_operation_semantics(&[create, delete, update_after_delete]);
@@ -641,9 +641,9 @@ mod tests {
         assert_eq!(report.rejected[0].kind, "mutation_after_tombstone");
 
         let missing_authz = envelope_for(
-            "cx:operation:4",
+            "cx:operation:01904100-0000-7000-8000-a8e5d315a094",
             OP_ENTITY_CREATE,
-            json!({"entity_id": "cx:entity:2"}),
+            json!({"entity_id": "cx:entity:01904100-0000-7000-8000-9160607cbd81"}),
             Vec::new(),
             false,
         );
@@ -654,8 +654,8 @@ mod tests {
     #[test]
     fn registry_requires_semantic_content_fields() {
         let result = OperationEnvelopeBuilder::new(
-            OperationId::new("cx:operation:bad").unwrap(),
-            SpaceId::new("cx:space:operations").unwrap(),
+            OperationId::new("cx:operation:01904100-0000-7000-8000-e0d2820b21e0").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-6b91994c774d").unwrap(),
             Did::new("did:web:alice.example").unwrap(),
             OP_MESSAGE_CREATE,
             1,

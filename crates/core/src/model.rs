@@ -2646,8 +2646,8 @@ impl Flow {
     ///
     /// ```rust,ignore
     /// let room = Flow::discussion(
-    ///     "cx:flow:01abc",
-    ///     SpaceId::new("cx:space:01xyz")?,
+    ///     "cx:flow:01904100-0000-7000-8000-84a6c262bf36",
+    ///     SpaceId::new("cx:space:01904100-0000-7000-8000-3c37bea9db2a")?,
     ///     "Launch board discussion",
     ///     Did::new("did:web:alice.example")?,
     /// );
@@ -6237,7 +6237,7 @@ mod tests {
     #[test]
     fn device_id_accepts_protocol_device_forms() {
         assert!(DeviceId::new("dev_alice_1").is_ok());
-        assert!(DeviceId::new("cx:device:01js0ke000000000000000000").is_ok());
+        assert!(DeviceId::new("cx:device:01904100-0000-7000-8000-8b3ad8ecac70").is_ok());
         assert!(DeviceId::new("device-1").is_err());
     }
 
@@ -6267,7 +6267,7 @@ mod tests {
     fn event_new_sets_required_event_id() {
         let event = Event::new(
             "cx.message.create",
-            SpaceId::new("cx:space:01js0ke000000000000000000").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
             Did::new("did:web:alice.example").unwrap(),
             1,
             Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap(),
@@ -6287,7 +6287,7 @@ mod tests {
             .unwrap(),
             kind: "cx.message.create".to_owned(),
             space_version: "1".to_owned(),
-            space_id: SpaceId::new("cx:space:01js0ke000000000000000000").unwrap(),
+            space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
             actor_id: Did::new("did:web:alice.example").unwrap(),
             actor_seq: 1,
             created_at: "2026-04-26T00:00:00Z".parse().unwrap(),
@@ -6306,7 +6306,7 @@ mod tests {
 
         assert_eq!(
             event.event_digest().unwrap(),
-            "sha256:c0ee4d7b3fb0d6353d1a39bba417d49c8a0b7b2d37fa50a93819c03fa51a6fce"
+            "sha256:8e918419599be2601ed346a092dc239dd3bcbd5145c2aff823a0ad6058687649"
         );
     }
 
@@ -6326,13 +6326,13 @@ mod tests {
             jws: "sig-a".to_owned(),
         };
         let envelope = OperationEnvelope {
-            operation_id: OperationId::new("cx:operation:01js0op000000000000000000").unwrap(),
-            space_id: SpaceId::new("cx:space:01js0ke000000000000000000").unwrap(),
+            operation_id: OperationId::new("cx:operation:01904100-0000-7000-8000-0198d483044c").unwrap(),
+            space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
             actor_id: Did::new("did:web:alice.example").unwrap(),
             kind: "cx.message.create".to_owned(),
             target_ref: Some("cx:thread:general".to_owned()),
             causal: CausalRef {
-                deps: vec![OperationId::new("cx:operation:01js0oo000000000000000000").unwrap()],
+                deps: vec![OperationId::new("cx:operation:01904100-0000-7000-8000-5f8278b99124").unwrap()],
                 hlc: Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap(),
                 actor_seq: 7,
             },
@@ -6395,8 +6395,8 @@ mod tests {
     fn operation_kind_registry_drives_envelope_semantics() {
         let registry = OperationKindRegistry::default();
         let envelope = OperationEnvelope {
-            operation_id: OperationId::new("cx:operation:01js0op000000000000000000").unwrap(),
-            space_id: SpaceId::new("cx:space:01js0ke000000000000000000").unwrap(),
+            operation_id: OperationId::new("cx:operation:01904100-0000-7000-8000-0198d483044c").unwrap(),
+            space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
             actor_id: Did::new("did:web:alice.example").unwrap(),
             kind: OP_MESSAGE_CREATE.to_owned(),
             target_ref: None,
@@ -6421,13 +6421,14 @@ mod tests {
     #[test]
     fn operation_envelope_builder_covers_every_builtin_kind() {
         let registry = OperationKindRegistry::default();
-        let space_id = SpaceId::new("cx:space:01js0ke000000000000000000").unwrap();
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-65c7feb295d7").unwrap();
         let actor_id = Did::new("did:web:alice.example").unwrap();
         let hlc = Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap();
 
         for (index, kind) in BUILT_IN_OPERATION_KINDS.iter().enumerate() {
             let mut builder = OperationEnvelopeBuilder::new(
-                OperationId::new(format!("cx:operation:builder-{index}")).unwrap(),
+                OperationId::new(format!("cx:operation:01904100-0000-7000-8000-{index:012x}"))
+                    .unwrap(),
                 space_id.clone(),
                 actor_id.clone(),
                 *kind,
@@ -6447,8 +6448,8 @@ mod tests {
     fn operation_envelope_builder_requires_registered_kind_and_payload_fields() {
         let registry = OperationKindRegistry::default();
         let builder = OperationEnvelopeBuilder::new(
-            OperationId::new("cx:operation:builder-message").unwrap(),
-            SpaceId::new("cx:space:01js0ke000000000000000000").unwrap(),
+            OperationId::new("cx:operation:01904100-0000-7000-8000-76b2a3b35ad0").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
             Did::new("did:web:alice.example").unwrap(),
             OP_MESSAGE_CREATE,
             1,
@@ -6460,8 +6461,8 @@ mod tests {
         assert_eq!(envelope.kind, OP_MESSAGE_CREATE);
 
         let unknown = OperationEnvelopeBuilder::new(
-            OperationId::new("cx:operation:builder-unknown").unwrap(),
-            SpaceId::new("cx:space:01js0ke000000000000000000").unwrap(),
+            OperationId::new("cx:operation:01904100-0000-7000-8000-e9d434a97fb1").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
             Did::new("did:web:alice.example").unwrap(),
             "unknown",
             1,
@@ -6517,9 +6518,9 @@ mod tests {
                 FLOW_SCHEMA,
                 &json!({
                     "schema": FLOW_SCHEMA,
-                    "id": "cx:flow:01",
+                    "id": "cx:flow:01904100-0000-7000-8000-6c663fa0205f",
                     "type": "flow",
-                    "space_id": "cx:space:01",
+                    "space_id": "cx:space:01904100-0000-7000-8000-fd3637e8361f",
                     "title": "Topic",
                     "flow_kind": "initiative",
                     "created_by": "did:web:alice.example",
@@ -6570,8 +6571,8 @@ mod tests {
         }));
 
         let operation = json!({
-            "operation_id": "cx:operation:01",
-            "space_id": "cx:space:01",
+            "operation_id": "cx:operation:01904100-0000-7000-8000-d408d6a2241c",
+            "space_id": "cx:space:01904100-0000-7000-8000-fd3637e8361f",
             "actor_id": "did:web:alice.example",
             "kind": "cx.message.create",
             "causal": {},
@@ -6581,8 +6582,8 @@ mod tests {
         validator.validate(&operation).unwrap();
 
         let wrong_type = json!({
-            "operation_id": "cx:operation:01",
-            "space_id": "cx:space:01",
+            "operation_id": "cx:operation:01904100-0000-7000-8000-d408d6a2241c",
+            "space_id": "cx:space:01904100-0000-7000-8000-fd3637e8361f",
             "actor_id": "did:web:alice.example",
             "kind": "cx.message.create",
             "causal": [],
@@ -6591,8 +6592,8 @@ mod tests {
         assert!(validator.validate(&wrong_type).is_err());
 
         let sensitive_extension = json!({
-            "operation_id": "cx:operation:01",
-            "space_id": "cx:space:01",
+            "operation_id": "cx:operation:01904100-0000-7000-8000-d408d6a2241c",
+            "space_id": "cx:space:01904100-0000-7000-8000-fd3637e8361f",
             "actor_id": "did:web:alice.example",
             "kind": "cx.message.create",
             "causal": {},
@@ -6631,8 +6632,8 @@ mod tests {
     fn schema_registry_fails_closed_for_unknown_security_extensions() {
         let mut registry = ProtocolSchemaRegistry::default();
         let value = json!({
-            "operation_id": "cx:operation:01",
-            "space_id": "cx:space:01",
+            "operation_id": "cx:operation:01904100-0000-7000-8000-d408d6a2241c",
+            "space_id": "cx:space:01904100-0000-7000-8000-fd3637e8361f",
             "actor_id": "did:web:alice.example",
             "kind": "cx.message.create",
             "causal": {},
@@ -6645,8 +6646,8 @@ mod tests {
         registry.validate_value(OPERATION_SCHEMA, &value).unwrap();
 
         let ordinary_extension = json!({
-            "operation_id": "cx:operation:01",
-            "space_id": "cx:space:01",
+            "operation_id": "cx:operation:01904100-0000-7000-8000-d408d6a2241c",
+            "space_id": "cx:space:01904100-0000-7000-8000-fd3637e8361f",
             "actor_id": "did:web:alice.example",
             "kind": "cx.message.create",
             "causal": {},
@@ -6740,7 +6741,7 @@ mod tests {
     fn commit_digest_uses_canonical_payload_without_proofs() {
         let commit = Commit {
             schema: COMMIT_SCHEMA.to_owned(),
-            commit_id: CommitId::new("cx:commit:01js0ke000000000000000000").unwrap(),
+            commit_id: CommitId::new("cx:commit:01904100-0000-7000-8000-d9458d20b052").unwrap(),
             object_type: "commit".to_owned(),
             repo_id: "did:web:alice.example".to_owned(),
             author: Did::new("did:web:alice.example").unwrap(),
@@ -6763,7 +6764,7 @@ mod tests {
 
         assert_eq!(
             commit.commit_digest().unwrap(),
-            "sha256:8ee2713192bc01d5a6ba7c0a6b2125e00dffff1fb6f4ee85add16c81e6d2d8f0"
+            "sha256:ddff4e54031ff5aa7764baf231b28cf46311add1f7614043befaa41413e9d89b"
         );
     }
 
@@ -6794,7 +6795,7 @@ mod tests {
     fn fact_chain_echo_validates_server_proof_binding() {
         let mut echo = FactChainEcho {
             echo_id: "echo1".to_owned(),
-            subject_ref: "cx:event:01".to_owned(),
+            subject_ref: "cx:event:01904100-0000-7000-8000-834e21b98552".to_owned(),
             server_did: Did::new("did:web:server.example").unwrap(),
             operation_hash: Hash::new(
                 "sha256:1111111111111111111111111111111111111111111111111111111111111111",
@@ -6849,7 +6850,7 @@ mod tests {
 
     #[test]
     fn mls_envelopes_build_protocol_operations() {
-        let space_id = SpaceId::new("cx:space:01js0ke000000000000000000").unwrap();
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-65c7feb295d7").unwrap();
         let hash =
             Hash::new("sha256:1111111111111111111111111111111111111111111111111111111111111111")
                 .unwrap();
@@ -6881,19 +6882,19 @@ mod tests {
 
         let proposal_op = proposal
             .operation(
-                OperationId::new("cx:operation:01js0op000000000000000001").unwrap(),
+                OperationId::new("cx:operation:01904100-0000-7000-8000-b88de80d815c").unwrap(),
                 space_id.clone(),
             )
             .unwrap();
         let commit_op = commit
             .operation(
-                OperationId::new("cx:operation:01js0op000000000000000002").unwrap(),
+                OperationId::new("cx:operation:01904100-0000-7000-8000-3bfead8e02bc").unwrap(),
                 space_id.clone(),
             )
             .unwrap();
         let welcome_op = welcome
             .operation(
-                OperationId::new("cx:operation:01js0op000000000000000003").unwrap(),
+                OperationId::new("cx:operation:01904100-0000-7000-8000-059e659fdcc8").unwrap(),
                 space_id,
             )
             .unwrap();
@@ -6932,13 +6933,13 @@ mod tests {
     fn relation_requires_exact_wire_endpoints() {
         let relation = Relation {
             schema: RELATION_SCHEMA.to_owned(),
-            id: RelationId::new("cx:relation:01").unwrap(),
+            id: RelationId::new("cx:relation:01904100-0000-7000-8000-7b3bf7d6e46b").unwrap(),
             object_type: "relation".to_owned(),
-            space_id: SpaceId::new("cx:space:01").unwrap(),
+            space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
             relation_kind: RelationKind::Mentions,
             from_ref: None,
             to_ref: None,
-            from_entity_id: Some(EntityId::new("cx:entity:01").unwrap()),
+            from_entity_id: Some(EntityId::new("cx:entity:01904100-0000-7000-8000-c12dc98b2948").unwrap()),
             from_actor_id: None,
             from_space_id: None,
             to_entity_id: None,
@@ -6955,7 +6956,7 @@ mod tests {
     #[test]
     fn query_request_uses_protocol_filters_array() {
         let request = QueryRequest {
-            space_ids: vec![SpaceId::new("cx:space:01").unwrap()],
+            space_ids: vec![SpaceId::new("cx:space:01904100-0000-7000-8000-fd3637e8361f").unwrap()],
             entity_types: vec![EntityType::Task],
             facets: vec![EntityFacet::Stateful, EntityFacet::Rankable],
             renderer: Some(ViewRenderer::Board),
@@ -7001,7 +7002,7 @@ mod tests {
     #[test]
     fn view_supports_renderer_and_facet_config_facades() {
         let request = QueryRequest {
-            space_ids: vec![SpaceId::new("cx:space:01").unwrap()],
+            space_ids: vec![SpaceId::new("cx:space:01904100-0000-7000-8000-fd3637e8361f").unwrap()],
             entity_types: Vec::new(),
             facets: vec![EntityFacet::Stateful, EntityFacet::Rankable],
             renderer: Some(ViewRenderer::Board),
@@ -7017,9 +7018,9 @@ mod tests {
         };
         let view = View {
             schema: VIEW_SCHEMA.to_owned(),
-            id: ViewId::new("cx:view:01").unwrap(),
+            id: ViewId::new("cx:view:01904100-0000-7000-8000-848727f328fe").unwrap(),
             object_type: "view".to_owned(),
-            space_id: SpaceId::new("cx:space:01").unwrap(),
+            space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
             kind: ViewKind::Collection,
             preset: Some(ViewPreset::Kanban),
             renderer: Some(ViewRenderer::Board),
@@ -7055,18 +7056,18 @@ mod tests {
     #[test]
     fn operation_serializes_protocol_field_names() {
         let mut operation = Operation::create(
-            OperationId::new("cx:operation:01").unwrap(),
-            SpaceId::new("cx:space:01").unwrap(),
+            OperationId::new("cx:operation:01904100-0000-7000-8000-d408d6a2241c").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
             "entity",
-            json!({"id":"cx:entity:01"}),
+            json!({"id":"cx:entity:01904100-0000-7000-8000-c12dc98b2948"}),
         );
-        operation.object_id = Some("cx:entity:01".to_owned());
+        operation.object_id = Some("cx:entity:01904100-0000-7000-8000-c12dc98b2948".to_owned());
 
         let value = serde_json::to_value(operation).unwrap();
 
         assert_eq!(value["type"], "operation");
         assert_eq!(value["operation_type"], "create");
-        assert_eq!(value["object_id"], "cx:entity:01");
+        assert_eq!(value["object_id"], "cx:entity:01904100-0000-7000-8000-c12dc98b2948");
         assert_eq!(value["object_type"], "entity");
         assert!(value.get("target_object_id").is_none());
         assert_eq!(value["schema"], OPERATION_SCHEMA);
@@ -7077,7 +7078,7 @@ mod tests {
         let response = SyncResponse {
             next_batch: "cx:sync:abc".to_owned(),
             spaces: BTreeMap::from([(
-                SpaceId::new("cx:space:01").unwrap(),
+                SpaceId::new("cx:space:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
                 SyncSpace {
                     timeline: Some(SyncTimeline {
                         events: Vec::new(),
@@ -7240,7 +7241,7 @@ mod tests {
     fn event_validate_proof_bindings_checks_digest_match() {
         let event = Event::new(
             "cx.message.create",
-            SpaceId::new("cx:space:01js0ke000000000000000000").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
             Did::new("did:web:alice.example").unwrap(),
             1,
             Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap(),
@@ -7269,7 +7270,7 @@ mod tests {
     fn event_validate_proof_bindings_rejects_mismatched_digest() {
         let event = Event::new(
             "cx.message.create",
-            SpaceId::new("cx:space:01js0ke000000000000000000").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
             Did::new("did:web:alice.example").unwrap(),
             1,
             Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap(),
@@ -7300,7 +7301,7 @@ mod tests {
     fn event_digest_includes_profile_refs_features_and_critical_extensions() {
         let mut event = Event::new(
             "cx.message.create",
-            SpaceId::new("cx:space:01js0ke000000000000000000").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
             Did::new("did:web:alice.example").unwrap(),
             1,
             Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap(),
@@ -7328,8 +7329,8 @@ mod tests {
     #[test]
     fn operation_draft_explicitly_materializes_event_envelope_without_signed_operation_id() {
         let operation = OperationEnvelopeBuilder::new(
-            OperationId::new("cx:operation:local1").unwrap(),
-            SpaceId::new("cx:space:01js0ke000000000000000000").unwrap(),
+            OperationId::new("cx:operation:01904100-0000-7000-8000-9c5aa474063f").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
             Did::new("did:web:alice.example").unwrap(),
             OP_MESSAGE_CREATE,
             7,
@@ -7345,7 +7346,7 @@ mod tests {
         assert_eq!(event.content, json!({"body": "hello"}));
         assert_eq!(
             event.unsigned["local_operation_idempotency_alias"],
-            json!("cx:operation:local1")
+            json!("cx:operation:01904100-0000-7000-8000-9c5aa474063f")
         );
         assert!(!event.digest_payload().unwrap().to_string().contains("local_operation_id"));
     }
@@ -7358,9 +7359,9 @@ mod tests {
         assert!(rank_exhausted(Some("r:0000000000000001"), Some("r:0000000000000002")).unwrap());
 
         let assignments = container_rebalance_assignments(&[
-            EntityId::new("cx:entity:a").unwrap(),
-            EntityId::new("cx:entity:b").unwrap(),
-            EntityId::new("cx:entity:c").unwrap(),
+            EntityId::new("cx:entity:01904100-0000-7000-8000-8b4aa2ca29ef").unwrap(),
+            EntityId::new("cx:entity:01904100-0000-7000-8000-d5864c129df4").unwrap(),
+            EntityId::new("cx:entity:01904100-0000-7000-8000-6057e4215f24").unwrap(),
         ])
         .unwrap();
         assert_eq!(assignments.len(), 3);
@@ -7372,7 +7373,7 @@ mod tests {
     fn commit_validate_proof_bindings_checks_digest_match() {
         let commit = Commit {
             schema: COMMIT_SCHEMA.to_owned(),
-            commit_id: CommitId::new("cx:commit:01js0ke000000000000000000").unwrap(),
+            commit_id: CommitId::new("cx:commit:01904100-0000-7000-8000-d9458d20b052").unwrap(),
             object_type: "commit".to_owned(),
             repo_id: "did:web:alice.example".to_owned(),
             author: Did::new("did:web:alice.example").unwrap(),
@@ -7403,8 +7404,8 @@ mod tests {
     #[test]
     fn flow_constructor_sets_protocol_shape() {
         let mut subject = Flow::new(
-            "cx:flow:01",
-            SpaceId::new("cx:space:01").unwrap(),
+            "cx:flow:01904100-0000-7000-8000-6c663fa0205f",
+            SpaceId::new("cx:space:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
             "Payment refactor",
             FlowKind::Initiative,
             Did::new("did:web:alice.example").unwrap(),
@@ -7426,8 +7427,8 @@ mod tests {
     #[test]
     fn flow_discussion_constructor_sets_room_shape() {
         let flow = Flow::discussion(
-            "cx:flow:01general",
-            SpaceId::new("cx:space:01acme").unwrap(),
+            "cx:flow:01904100-0000-7000-8000-58754cf88c25",
+            SpaceId::new("cx:space:01904100-0000-7000-8000-2007b59d0dc4").unwrap(),
             "Launch board discussion",
             Did::new("did:web:alice.example").unwrap(),
         );
@@ -7582,7 +7583,7 @@ mod tests {
             "kind": "collection",
             "renderer": "board",
             "view_id": "cx:view:019641be-0000-7000-8000-000000000000",
-            "frontier": ["cx:event:01js0fr00000000000000000042"],
+            "frontier": ["cx:event:01904100-0000-7000-8000-69b393b5179f"],
             "groups": [
                 {
                     "group_id": "cx:space:01c3b617-7000-7000-8000-000000000000",
@@ -7645,7 +7646,7 @@ mod tests {
     #[test]
     fn collection_projection_group_omits_hidden_count_when_none() {
         let group = CollectionProjectionGroup {
-            group_id: "cx:space:01list".to_owned(),
+            group_id: "cx:space:01904100-0000-7000-8000-b83c6d2ca363".to_owned(),
             title: "List".to_owned(),
             rank: Some("a0".to_owned()),
             items: Vec::new(),
@@ -7676,8 +7677,8 @@ mod tests {
     #[test]
     fn entity_channel_constructor_sets_type_and_kind() {
         let entity = Entity::channel(
-            EntityId::new("cx:entity:ch01").unwrap(),
-            SpaceId::new("cx:space:01").unwrap(),
+            EntityId::new("cx:entity:01904100-0000-7000-8000-f3153e5bab6f").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
             "General",
             Did::new("did:web:alice.example").unwrap(),
             ChannelKind::Chat,
@@ -7691,8 +7692,8 @@ mod tests {
     #[test]
     fn entity_topic_constructor_sets_type() {
         let entity = Entity::topic(
-            EntityId::new("cx:entity:tp01").unwrap(),
-            SpaceId::new("cx:space:01").unwrap(),
+            EntityId::new("cx:entity:01904100-0000-7000-8000-334a994dfb12").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
             "Design Discussion",
             Did::new("did:web:alice.example").unwrap(),
         );
@@ -7703,8 +7704,8 @@ mod tests {
     #[test]
     fn entity_comment_constructor_sets_type_and_content() {
         let entity = Entity::comment(
-            EntityId::new("cx:entity:cm01").unwrap(),
-            SpaceId::new("cx:space:01").unwrap(),
+            EntityId::new("cx:entity:01904100-0000-7000-8000-2ace82f79dc8").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
             Did::new("did:web:alice.example").unwrap(),
             json!({"body": "hello world"}),
         );
@@ -7716,8 +7717,8 @@ mod tests {
     #[test]
     fn entity_channel_kind_returns_none_for_non_channel() {
         let entity = Entity::topic(
-            EntityId::new("cx:entity:tp02").unwrap(),
-            SpaceId::new("cx:space:01").unwrap(),
+            EntityId::new("cx:entity:01904100-0000-7000-8000-d8c718ae1e0b").unwrap(),
+            SpaceId::new("cx:space:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
             "Topic",
             Did::new("did:web:alice.example").unwrap(),
         );

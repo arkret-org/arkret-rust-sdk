@@ -471,7 +471,7 @@ mod tests {
             request_id: Some("req_123".to_owned()),
             actor_id: Some(Did::new("did:web:alice.example").unwrap()),
             device_id: None,
-            space_id: Some(SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap()),
+            space_id: Some(SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()),
             operation_id: None,
             commit_id: None,
         };

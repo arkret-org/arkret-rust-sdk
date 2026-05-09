@@ -18,8 +18,8 @@
 //!
 //! # fn main() -> contrix::Result<()> {
 //! let draft = OperationEnvelopeBuilder::new(
-//!     OperationId::new("cx:operation:example")?,
-//!     SpaceId::new("cx:space:example")?,
+//!     OperationId::new("cx:operation:01904100-0000-7000-8000-57d7d85564c5")?,
+//!     SpaceId::new("cx:space:01904100-0000-7000-8000-668e2181b41d")?,
 //!     Did::new("did:web:alice.example")?,
 //!     OP_MESSAGE_CREATE,
 //!     1,

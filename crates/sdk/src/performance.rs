@@ -743,17 +743,17 @@ mod tests {
         let trace = TraceContext::request("req-1")
             .with_actor("did:web:alice.example")
             .with_device("dev_desktop")
-            .with_space("cx:space:01JS0SP000000000000000000")
+            .with_space("cx:space:01904100-0000-7000-8000-9b64700c6ee8")
             .with_operation("cx.operation:01JS0OP000000000000000001")
-            .with_commit("cx:commit:01JS0CM000000000000000001")
-            .with_event("cx:event:01JS0EV000000000000000001")
+            .with_commit("cx:commit:01904100-0000-7000-8000-e1c6235ec540")
+            .with_event("cx:event:01904100-0000-7000-8000-c773aa3d87d8")
             .with_label("component", "sync");
         assert_eq!(trace.labels["component"], "sync");
 
         let sample = MetricSample::new(MetricName::SyncLatencyMs, 12.0)
-            .with_label("space", "cx:space:01JS0SP000000000000000000");
+            .with_label("space", "cx:space:01904100-0000-7000-8000-9b64700c6ee8");
         assert_eq!(sample.name, MetricName::SyncLatencyMs);
-        assert_eq!(sample.labels["space"], "cx:space:01JS0SP000000000000000000");
+        assert_eq!(sample.labels["space"], "cx:space:01904100-0000-7000-8000-9b64700c6ee8");
     }
 
     #[test]

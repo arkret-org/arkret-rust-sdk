@@ -98,8 +98,8 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
             name: "operation envelope minimal valid".to_owned(),
             schema_id: OPERATION_SCHEMA.to_owned(),
             input: json!({
-                "operation_id": "cx:operation:01",
-                "space_id": "cx:space:01",
+                "operation_id": "cx:operation:01904100-0000-7000-8000-d408d6a2241c",
+                "space_id": "cx:space:01904100-0000-7000-8000-fd3637e8361f",
                 "actor_id": "did:web:alice.example",
                 "kind": "cx.message.create",
                 "causal": {},
@@ -111,8 +111,8 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
             name: "operation envelope missing content".to_owned(),
             schema_id: OPERATION_SCHEMA.to_owned(),
             input: json!({
-                "operation_id": "cx:operation:01",
-                "space_id": "cx:space:01",
+                "operation_id": "cx:operation:01904100-0000-7000-8000-d408d6a2241c",
+                "space_id": "cx:space:01904100-0000-7000-8000-fd3637e8361f",
                 "actor_id": "did:web:alice.example",
                 "kind": "cx.message.create",
                 "causal": {}
@@ -124,9 +124,9 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
             schema_id: FLOW_SCHEMA.to_owned(),
             input: json!({
                 "schema": "cx.schema.flow.v1",
-                "id": "cx:flow:01js0fb000000000000000000",
+                "id": "cx:flow:01904100-0000-7000-8000-b30c13414158",
                 "type": "flow",
-                "space_id": "cx:space:01js0ke000000000000000000",
+                "space_id": "cx:space:01904100-0000-7000-8000-65c7feb295d7",
                 "title": "Payment refactor",
                 "flow_kind": "discussion",
                 "created_by": "did:web:alice.example",
@@ -138,9 +138,9 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
             name: "event envelope minimal valid".to_owned(),
             schema_id: EVENT_SCHEMA.to_owned(),
             input: json!({
-                "event_id": "cx:event:01js0ke000000000000000001",
+                "event_id": "cx:event:01904100-0000-7000-8000-a0086f45c575",
                 "kind": "cx.message.create",
-                "space_id": "cx:space:01js0ke000000000000000000",
+                "space_id": "cx:space:01904100-0000-7000-8000-65c7feb295d7",
                 "space_version": "1",
                 "actor_id": "did:web:alice.example",
                 "actor_seq": 1,
@@ -164,8 +164,8 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
             name: "event envelope rejects untrusted security extension".to_owned(),
             schema_id: EVENT_SCHEMA.to_owned(),
             input: json!({
-                "event_id": "cx:event:01js0ke000000000000000001",
-                "space_id": "cx:space:01js0ke000000000000000000",
+                "event_id": "cx:event:01904100-0000-7000-8000-a0086f45c575",
+                "space_id": "cx:space:01904100-0000-7000-8000-65c7feb295d7",
                 "actor_id": "did:web:alice.example",
                 "actor_seq": 1,
                 "kind": "cx.message.create",
@@ -750,13 +750,13 @@ mod tests {
             .validate_payload(
                 "cx.flow.move",
                 &json!({
-                    "flow_id": "cx:flow:01",
-                    "parent_id": "cx:space:01"
+                    "flow_id": "cx:flow:01904100-0000-7000-8000-6c663fa0205f",
+                    "parent_id": "cx:space:01904100-0000-7000-8000-fd3637e8361f"
                 }),
             )
             .unwrap();
         assert!(matches!(
-            catalog.validate_payload("cx.flow.move", &json!({"parent_id": "cx:space:01"})),
+            catalog.validate_payload("cx.flow.move", &json!({"parent_id": "cx:space:01904100-0000-7000-8000-fd3637e8361f"})),
             Err(Error::Protocol(_))
         ));
     }

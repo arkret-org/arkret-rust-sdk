@@ -1520,7 +1520,7 @@ mod tests {
     }
 
     fn space() -> SpaceId {
-        SpaceId::new("cx:space:clientapi").unwrap()
+        SpaceId::new("cx:space:01904100-0000-7000-8000-a035cff9ef92").unwrap()
     }
 
     #[test]

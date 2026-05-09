@@ -4,7 +4,7 @@ use contrix::{
 };
 
 fn main() -> contrix::Result<()> {
-    let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000")?;
+    let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8")?;
     let state = SpaceState::new(space_id.clone(), "1".to_owned());
 
     let mut store = MemoryPersistenceStore::new();

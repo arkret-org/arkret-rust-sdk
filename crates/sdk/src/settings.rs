@@ -192,7 +192,7 @@ mod tests {
     #[test]
     fn settings_manage_theme_language_notifications_and_privacy() {
         let alice = did("alice");
-        let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000").unwrap();
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let mut manager = SettingsManager::new();
 
         manager.set_theme(alice.clone(), ThemeSetting::Dark);

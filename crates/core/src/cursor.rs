@@ -472,7 +472,7 @@ mod tests {
     fn cursor_rejects_invalid_hlc_format() {
         let mut cursor = Cursor::new();
         cursor = cursor.with_space_position(
-            "cx:space:01JS0SP000000000000000000",
+            "cx:space:01904100-0000-7000-8000-9b64700c6ee8",
             SpacePosition {
                 p: vec![],
                 order: "invalid-hlc".to_owned(),

@@ -982,7 +982,7 @@ mod tests {
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
 
-        let mut alice_group = alice.create_group(b"cx:space:secure-board").unwrap();
+        let mut alice_group = alice.create_group(b"cx:space:01904100-0000-7000-8000-d652c78259d9").unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let mut bob_group = ContrixMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
 
@@ -1010,7 +1010,7 @@ mod tests {
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
 
-        let mut alice_group = alice.create_group(b"cx:space:message-workflow").unwrap();
+        let mut alice_group = alice.create_group(b"cx:space:01904100-0000-7000-8000-f2f103987ef3").unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let mut bob_group = ContrixMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
 
@@ -1041,13 +1041,13 @@ mod tests {
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
 
-        let mut alice_group = alice.create_group(b"cx:space:message-aad").unwrap();
+        let mut alice_group = alice.create_group(b"cx:space:01904100-0000-7000-8000-65bef476aed3").unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let mut bob_group = ContrixMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
         let aad = serde_json::json!({
-            "space_id": "cx:space:message-aad",
+            "space_id": "cx:space:01904100-0000-7000-8000-65bef476aed3",
             "event_type": "cx.message.create",
-            "event_id": "cx:event:encrypted-aad",
+            "event_id": "cx:event:01904100-0000-7000-8000-d5afe7e3de96",
             "causal_refs": []
         });
         let aad_digest = crate::crypto::json_aad_digest(&aad).unwrap();
@@ -1081,7 +1081,7 @@ mod tests {
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
 
-        let mut alice_group = alice.create_group(b"cx:space:persisted-mls").unwrap();
+        let mut alice_group = alice.create_group(b"cx:space:01904100-0000-7000-8000-1ad6479d4a3f").unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let bob_group = ContrixMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
         let mut store = crate::MemoryCryptoStore::new();
@@ -1124,7 +1124,7 @@ mod tests {
         assert!(revoked_package.revoked);
         assert_eq!(revoke_step.action, MlsDeviceWorkflowAction::RevokeKeyPackage);
 
-        let mut alice_group = alice.create_group(b"cx:space:offline-commits").unwrap();
+        let mut alice_group = alice.create_group(b"cx:space:01904100-0000-7000-8000-877788250807").unwrap();
         let bob_add = alice_group.add_member(&bob_key_package).unwrap();
         let mut bob_group = ContrixMlsGroup::join_from_welcome(bob, &bob_add.welcome).unwrap();
         let charlie_add = alice_group.add_member(&charlie_key_package).unwrap();
@@ -1157,12 +1157,12 @@ mod tests {
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
 
-        let mut alice_group = alice.create_group(b"cx:space:mls-workflow").unwrap();
+        let mut alice_group = alice.create_group(b"cx:space:01904100-0000-7000-8000-4ecefcf31ad2").unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let operation = add_result
             .commit_operation(
-                OperationId::new("cx:operation:mls_commit_1").unwrap(),
-                SpaceId::new("cx:space:mls-workflow").unwrap(),
+                OperationId::new("cx:operation:01904100-0000-7000-8000-02369de2e9c6").unwrap(),
+                SpaceId::new("cx:space:01904100-0000-7000-8000-4ecefcf31ad2").unwrap(),
             )
             .unwrap();
         let to_device = add_result.welcome_to_device_message().unwrap();
@@ -1179,7 +1179,7 @@ mod tests {
             DeviceId::new("dev_alice_1").unwrap(),
         )
         .unwrap();
-        let mut alice_group = alice.create_group(b"cx:space:message-workflow").unwrap();
+        let mut alice_group = alice.create_group(b"cx:space:01904100-0000-7000-8000-f2f103987ef3").unwrap();
         let encrypted = MessageCrypto::encrypt(
             &mut alice_group,
             "cx:message:02",
@@ -1215,11 +1215,11 @@ mod tests {
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
 
-        let mut alice_group = alice.create_group(b"cx:space:encrypted-timeline").unwrap();
+        let mut alice_group = alice.create_group(b"cx:space:01904100-0000-7000-8000-469a459e1b8f").unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let encrypted = MessageCrypto::encrypt(
             &mut alice_group,
-            "cx:event:encrypted-1",
+            "cx:event:01904100-0000-7000-8000-f2fbe0d55fb4",
             "application/vnd.contrix.message+json",
             br#"{"body":"arrives before local key"}"#,
         )
@@ -1255,7 +1255,7 @@ mod tests {
         let charlie_kp = charlie.key_package_record().unwrap();
 
         // Alice creates group and adds Bob and Charlie.
-        let mut alice_group = alice.create_group(b"cx:space:recovery-test").unwrap();
+        let mut alice_group = alice.create_group(b"cx:space:01904100-0000-7000-8000-4cc289f6471e").unwrap();
         let bob_add = alice_group.add_member(&bob_kp).unwrap();
         let mut bob_group = ContrixMlsGroup::join_from_welcome(bob, &bob_add.welcome).unwrap();
         let charlie_add = alice_group.add_member(&charlie_kp).unwrap();
@@ -1335,7 +1335,7 @@ mod tests {
         .unwrap();
 
         let bob_key_package = bob.key_package_record().unwrap();
-        let mut alice_group = alice.create_group(b"cx:space:secure-board").unwrap();
+        let mut alice_group = alice.create_group(b"cx:space:01904100-0000-7000-8000-d652c78259d9").unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let Err(error) = ContrixMlsGroup::join_from_welcome(mallory, &add_result.welcome) else {
             panic!("Mallory should not be able to consume Bob's Welcome");
@@ -1367,7 +1367,7 @@ mod tests {
         let bob_kp = bob.key_package_record().unwrap();
         let charlie_kp = charlie.key_package_record().unwrap();
 
-        let mut alice_group = alice.create_group(b"cx:space:remove-test").unwrap();
+        let mut alice_group = alice.create_group(b"cx:space:01904100-0000-7000-8000-a78a8b504d40").unwrap();
         let add_bob = alice_group.add_member(&bob_kp).unwrap();
         let _bob_group = ContrixMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
         let add_charlie = alice_group.add_member(&charlie_kp).unwrap();
@@ -1399,7 +1399,7 @@ mod tests {
             DeviceId::new("dev_alice_1").unwrap(),
         )
         .unwrap();
-        let mut alice_group = alice.create_group(b"cx:space:absent-test").unwrap();
+        let mut alice_group = alice.create_group(b"cx:space:01904100-0000-7000-8000-3cf34eced3c3").unwrap();
 
         let absent = Did::new("did:web:nobody.example").unwrap();
         let err = alice_group.remove_member_by_principal(&absent);
@@ -1424,7 +1424,7 @@ mod tests {
         .unwrap();
         let bob_kp = bob.key_package_record().unwrap();
 
-        let mut alice_group = alice.create_group(b"cx:space:leaf-test").unwrap();
+        let mut alice_group = alice.create_group(b"cx:space:01904100-0000-7000-8000-89444e193497").unwrap();
         let add_bob = alice_group.add_member(&bob_kp).unwrap();
         let _bob_group = ContrixMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
 
@@ -1451,15 +1451,15 @@ mod tests {
         .unwrap();
         let bob_kp = bob.key_package_record().unwrap();
 
-        let mut alice_group = alice.create_group(b"cx:space:op-test").unwrap();
+        let mut alice_group = alice.create_group(b"cx:space:01904100-0000-7000-8000-bd49dfdbc804").unwrap();
         let add_bob = alice_group.add_member(&bob_kp).unwrap();
         let _bob_group = ContrixMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
         let result = alice_group
             .remove_member_by_principal(&Did::new("did:web:bob.example").unwrap())
             .unwrap();
 
-        let op_id = OperationId::new("cx:operation:op_remove_test").unwrap();
-        let space_id = SpaceId::new("cx:space:op-test").unwrap();
+        let op_id = OperationId::new("cx:operation:01904100-0000-7000-8000-00a9123c0f9c").unwrap();
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-bd49dfdbc804").unwrap();
         let op = result.commit_operation(op_id, space_id).unwrap();
         assert_eq!(op.object_type, "mls_commit");
         assert!(op.object_id.unwrap().contains(&result.commit.group_id));
