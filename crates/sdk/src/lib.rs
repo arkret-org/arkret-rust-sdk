@@ -64,7 +64,6 @@
 //! ```
 
 pub use contrix_api as api;
-pub use contrix_appservice_api as appservice_api;
 #[cfg(feature = "client")]
 pub use contrix_client as client;
 pub use contrix_client_api as client_api;
@@ -98,8 +97,6 @@ pub use contrix_signatures::Ed25519MoveSigner;
 pub use contrix_state_res as state_res;
 pub use contrix_store as store_contracts;
 pub use contrix_testing as testing;
-pub use contrix_ui as ui;
-
 #[cfg(feature = "full-surface")]
 pub mod account;
 #[cfg(feature = "full-surface")]
@@ -199,13 +196,13 @@ pub use agent::{
 };
 #[cfg(all(feature = "full-surface", feature = "applet-runtime"))]
 pub use applet::{
+    AppletEndpointRegistration, AppletEndpointRoute, AppletEndpointRouteSet,
     AppletNamespaceConflict, AppletNamespaceDeclaration, AppletNamespaceKind, AppletPermission,
-    AppletPortal, AppletPortalManager, AppletRegistry, AppletSchema, AppserviceIntent,
-    AppserviceRegistration, AppserviceRoute, AppserviceRouteSet, AppserviceTransaction,
-    AppserviceTransactionRecord, AppserviceTransactionStore, BridgeMappingStore,
-    GhostActorAccountability, OpenApiBinding, PortalMode, PortalSpaceMapping, RemoteSpaceMapping,
-    RemoteUserMapping, SignedAppletRegistration, ThirdPartyLookupKind, ThirdPartyLookupRequest,
-    ThirdPartyLookupResponse, VirtualActor,
+    AppletPortal, AppletPortalManager, AppletRegistry, AppletSchema, AppletServiceIntent,
+    AppletServiceTransaction, AppletServiceTransactionRecord, AppletServiceTransactionStore,
+    BridgeMappingStore, GhostActorAccountability, OpenApiBinding, PortalMode, PortalSpaceMapping,
+    RemoteSpaceMapping, RemoteUserMapping, SignedAppletRegistration, ThirdPartyLookupKind,
+    ThirdPartyLookupRequest, ThirdPartyLookupResponse, VirtualActor,
 };
 #[cfg(feature = "full-surface")]
 pub use auth::{

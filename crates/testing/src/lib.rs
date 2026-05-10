@@ -24,7 +24,7 @@ pub enum ConformanceDomain {
     ClientServer,
     ClientServerApi,
     Federation,
-    Appservice,
+    Applet,
     PushGateway,
     Identity,
     Signatures,
@@ -284,16 +284,16 @@ pub fn endpoint_coverage_rows() -> Vec<EndpointCoverageRow> {
             response_schema: endpoint.response_schema.to_owned(),
         }
     }));
-    rows.extend(contrix_appservice_api::appservice_endpoints().iter().map(|endpoint| {
-        EndpointCoverageRow {
-            domain: ConformanceDomain::Appservice,
+    rows.extend(contrix_api::endpoints_for_surface(contrix_api::ApiSurface::Applet).map(
+        |endpoint| EndpointCoverageRow {
+            domain: ConformanceDomain::Applet,
             operation_id: endpoint.operation_id.to_owned(),
-            method: format!("{:?}", endpoint.method),
+            method: endpoint.method.as_str().to_owned(),
             path: endpoint.path.to_owned(),
             request_schema: endpoint.request_schema.to_owned(),
             response_schema: endpoint.response_schema.to_owned(),
-        }
-    }));
+        },
+    ));
     rows.extend(contrix_push_gateway_api::push_gateway_endpoints().iter().map(|endpoint| {
         EndpointCoverageRow {
             domain: ConformanceDomain::PushGateway,
@@ -468,7 +468,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
             domain: ConformanceDomain::Ui,
             operation_id: "cx.ui.timeline_projection".to_owned(),
             method: "CONTRACT".to_owned(),
-            path: "contrix-ui://timeline".to_owned(),
+            path: "contrix-sdk://timeline".to_owned(),
             request_schema: "Event".to_owned(),
             response_schema: "TimelineItem".to_owned(),
         },
@@ -476,9 +476,9 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
             domain: ConformanceDomain::Ui,
             operation_id: "cx.ui.notification_evaluation".to_owned(),
             method: "CONTRACT".to_owned(),
-            path: "contrix-ui://notifications".to_owned(),
-            request_schema: "PushRuleSet".to_owned(),
-            response_schema: "NotificationEvaluation".to_owned(),
+            path: "contrix-sdk://notifications".to_owned(),
+            request_schema: "Event".to_owned(),
+            response_schema: "NotificationAction".to_owned(),
         },
         EndpointCoverageRow {
             domain: ConformanceDomain::Ffi,
@@ -816,7 +816,7 @@ mod tests {
             ConformanceDomain::ClientServer,
             ConformanceDomain::ClientServerApi,
             ConformanceDomain::Federation,
-            ConformanceDomain::Appservice,
+            ConformanceDomain::Applet,
             ConformanceDomain::PushGateway,
             ConformanceDomain::Identity,
             ConformanceDomain::Events,

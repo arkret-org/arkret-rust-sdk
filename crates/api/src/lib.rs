@@ -63,7 +63,7 @@ pub enum ApiSurface {
     Mimi,
     Account,
     Admin,
-    Appservice,
+    Applet,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -792,7 +792,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         "JsonValue"
     ),
     endpoint!(
-        Appservice,
+        Applet,
         "cx.applet.ping",
         Get,
         "/api/v1/applet/ping",
@@ -800,7 +800,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         "AppletPingResponse"
     ),
     endpoint!(
-        Appservice,
+        Applet,
         "cx.applet.describe",
         Get,
         "/api/v1/applet/describe",
@@ -808,7 +808,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         "AppletDescription"
     ),
     endpoint!(
-        Appservice,
+        Applet,
         "cx.applet.transaction",
         Post,
         "/api/v1/applet/transactions",
@@ -816,7 +816,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         "AppletTransactionResponse"
     ),
     endpoint!(
-        Appservice,
+        Applet,
         "cx.applet.query_actor",
         Get,
         "/api/v1/applet/actors/{actor_id}",
@@ -824,7 +824,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         "AppletActorResponse"
     ),
     endpoint!(
-        Appservice,
+        Applet,
         "cx.applet.query_space",
         Get,
         "/api/v1/applet/spaces/{space_id_or_alias}",
@@ -832,7 +832,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         "AppletSpaceResponse"
     ),
     endpoint!(
-        Appservice,
+        Applet,
         "cx.applet.protocol_metadata",
         Get,
         "/api/v1/applet/protocols/{protocol}",
@@ -840,7 +840,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         "AppletProtocolResponse"
     ),
     endpoint!(
-        Appservice,
+        Applet,
         "cx.applet.third_party_users",
         Get,
         "/api/v1/applet/third_party/users",
@@ -848,7 +848,7 @@ pub const ENDPOINTS: &[Endpoint] = &[
         "JsonValue"
     ),
     endpoint!(
-        Appservice,
+        Applet,
         "cx.applet.third_party_locations",
         Get,
         "/api/v1/applet/third_party/locations",
@@ -1091,7 +1091,7 @@ mod tests {
             ApiSurface::Mimi,
             ApiSurface::Account,
             ApiSurface::Admin,
-            ApiSurface::Appservice,
+            ApiSurface::Applet,
         ] {
             assert!(endpoints_for_surface(surface).next().is_some(), "{surface:?}");
         }

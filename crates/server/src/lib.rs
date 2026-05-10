@@ -16,7 +16,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 
 pub use contrix_api as api;
-pub use contrix_appservice_api as appservice_api;
 pub use contrix_federation_api as federation_api;
 pub use contrix_identity_api as identity_api;
 pub use contrix_push_gateway_api as push_gateway_api;

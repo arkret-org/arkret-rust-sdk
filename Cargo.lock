@@ -429,7 +429,6 @@ dependencies = [
  "chrono",
  "chrono-tz",
  "contrix-api",
- "contrix-appservice-api",
  "contrix-client",
  "contrix-client-api",
  "contrix-core",
@@ -448,7 +447,6 @@ dependencies = [
  "contrix-state-res",
  "contrix-store",
  "contrix-testing",
- "contrix-ui",
  "getrandom 0.3.4",
  "openmls",
  "openmls_basic_credential",
@@ -474,17 +472,6 @@ version = "0.7.0"
 dependencies = [
  "contrix-core",
  "serde",
-]
-
-[[package]]
-name = "contrix-appservice-api"
-version = "0.7.0"
-dependencies = [
- "chrono",
- "contrix-core",
- "serde",
- "serde_json",
- "ulid",
 ]
 
 [[package]]
@@ -651,7 +638,6 @@ name = "contrix-server"
 version = "0.7.0"
 dependencies = [
  "contrix-api",
- "contrix-appservice-api",
  "contrix-core",
  "contrix-federation-api",
  "contrix-identity-api",
@@ -706,7 +692,6 @@ version = "0.7.0"
 dependencies = [
  "chrono",
  "contrix-api",
- "contrix-appservice-api",
  "contrix-client-api",
  "contrix-core",
  "contrix-crypto",
@@ -722,23 +707,9 @@ dependencies = [
  "contrix-signatures",
  "contrix-state-res",
  "contrix-store",
- "contrix-ui",
  "serde",
  "serde_json",
  "sha2",
-]
-
-[[package]]
-name = "contrix-ui"
-version = "0.7.0"
-dependencies = [
- "chrono",
- "contrix-core",
- "contrix-crypto",
- "contrix-events",
- "contrix-push-gateway-api",
- "serde",
- "serde_json",
 ]
 
 [[package]]

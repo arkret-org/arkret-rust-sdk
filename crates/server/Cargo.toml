@@ -22,7 +22,6 @@ salvo = ["dep:salvo", "dep:url", "salvo/oapi", "contrix-core/salvo"]
 
 [dependencies]
 contrix-api.workspace = true
-contrix-appservice-api.workspace = true
 contrix-core.workspace = true
 contrix-federation-api.workspace = true
 contrix-identity-api.workspace = true

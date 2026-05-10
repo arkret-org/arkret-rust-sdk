@@ -31,7 +31,6 @@ jobs:
         contrix-identifiers
         contrix-core
         contrix-api
-        contrix-appservice-api
         contrix-client
         contrix-signatures
         contrix-crypto
@@ -47,7 +46,6 @@ jobs:
         contrix-server
         contrix-state-res
         contrix-store
-        contrix-ui
         contrix-testing
         contrix
     steps:

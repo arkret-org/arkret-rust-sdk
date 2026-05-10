@@ -1,7 +1,7 @@
 //! Contrix-native event taxonomy and typed content models.
 //!
 //! `contrix-core` owns the signed raw [`Event`] envelope. This crate owns the
-//! reusable event-content vocabulary that client runtimes, appservices, bots,
+//! reusable event-content vocabulary that client runtimes, applet services, bots,
 //! UI projections and conformance tests can share without depending on the
 //! umbrella SDK.
 

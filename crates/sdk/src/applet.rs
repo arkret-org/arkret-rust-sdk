@@ -57,7 +57,7 @@ impl AppletSchema {
     }
 }
 
-/// Namespace domain declared by an applet or appservice.
+/// Namespace domain declared by an applet or applet service.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AppletNamespaceKind {
@@ -233,12 +233,13 @@ impl AppletRegistry {
     }
 }
 
-/// Appservice registration model.
+/// Applet endpoint registration model.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct AppserviceRegistration {
+pub struct AppletEndpointRegistration {
     pub registration_id: String,
     pub service_did: Did,
-    pub sender_localpart: String,
+    #[serde(alias = "sender_localpart")]
+    pub bot_localpart: String,
     #[serde(default)]
     pub namespaces: Vec<AppletNamespaceDeclaration>,
     #[serde(default)]
@@ -249,13 +250,13 @@ pub struct AppserviceRegistration {
     pub rate_limited: bool,
 }
 
-impl AppserviceRegistration {
+impl AppletEndpointRegistration {
     /// Create a registration with a generated id.
-    pub fn new(service_did: Did, sender_localpart: impl Into<String>) -> Self {
+    pub fn new(service_did: Did, bot_localpart: impl Into<String>) -> Self {
         Self {
-            registration_id: format!("as_{}", Ulid::new()),
+            registration_id: format!("applet_ep_{}", Ulid::new()),
             service_did,
-            sender_localpart: sender_localpart.into(),
+            bot_localpart: bot_localpart.into(),
             namespaces: Vec::new(),
             protocols: Vec::new(),
             receive_ephemeral: false,
@@ -265,78 +266,99 @@ impl AppserviceRegistration {
 
     /// Validate required fields.
     pub fn validate(&self) -> Result<()> {
-        if self.sender_localpart.is_empty() {
-            return Err(Error::Protocol("appservice sender localpart is empty".to_owned()));
+        if self.bot_localpart.is_empty() {
+            return Err(Error::Protocol("applet endpoint bot localpart is empty".to_owned()));
         }
         Ok(())
     }
 }
 
-/// Framework-neutral appservice route declaration.
+/// Framework-neutral applet endpoint route declaration.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct AppserviceRoute {
+pub struct AppletEndpointRoute {
     pub method: String,
     pub path: String,
     pub description: String,
 }
 
-/// Route set expected from appservice framework adapters.
+/// Route set expected from applet service framework adapters.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct AppserviceRouteSet {
-    pub routes: Vec<AppserviceRoute>,
+pub struct AppletEndpointRouteSet {
+    pub routes: Vec<AppletEndpointRoute>,
 }
 
-impl AppserviceRouteSet {
-    /// Standard appservice routes for transactions and third-party lookups.
+impl AppletEndpointRouteSet {
+    /// Standard applet service routes from the Contrix service binding.
     pub fn contrix_default() -> Self {
         Self {
             routes: vec![
-                AppserviceRoute {
-                    method: "PUT".to_owned(),
-                    path: "/_contrix/appservice/v1/transactions/{txn_id}".to_owned(),
-                    description: "receive appservice transaction".to_owned(),
-                },
-                AppserviceRoute {
+                AppletEndpointRoute {
                     method: "GET".to_owned(),
-                    path: "/_contrix/appservice/v1/users/{protocol}/{external_id}".to_owned(),
+                    path: "/api/v1/applet/ping".to_owned(),
+                    description: "applet liveness and public metadata".to_owned(),
+                },
+                AppletEndpointRoute {
+                    method: "GET".to_owned(),
+                    path: "/api/v1/applet/describe".to_owned(),
+                    description: "applet capabilities and namespace metadata".to_owned(),
+                },
+                AppletEndpointRoute {
+                    method: "POST".to_owned(),
+                    path: "/api/v1/applet/transactions".to_owned(),
+                    description: "receive applet transaction".to_owned(),
+                },
+                AppletEndpointRoute {
+                    method: "GET".to_owned(),
+                    path: "/api/v1/applet/actors/{actor_id}".to_owned(),
+                    description: "query applet actor".to_owned(),
+                },
+                AppletEndpointRoute {
+                    method: "GET".to_owned(),
+                    path: "/api/v1/applet/spaces/{space_id_or_alias}".to_owned(),
+                    description: "query applet space".to_owned(),
+                },
+                AppletEndpointRoute {
+                    method: "GET".to_owned(),
+                    path: "/api/v1/applet/protocols/{protocol}".to_owned(),
+                    description: "query protocol metadata".to_owned(),
+                },
+                AppletEndpointRoute {
+                    method: "GET".to_owned(),
+                    path: "/api/v1/applet/third_party/users".to_owned(),
                     description: "query third-party user".to_owned(),
                 },
-                AppserviceRoute {
+                AppletEndpointRoute {
                     method: "GET".to_owned(),
-                    path: "/_contrix/appservice/v1/locations/{protocol}/{external_id}".to_owned(),
+                    path: "/api/v1/applet/third_party/locations".to_owned(),
                     description: "query third-party location".to_owned(),
-                },
-                AppserviceRoute {
-                    method: "GET".to_owned(),
-                    path: "/_contrix/appservice/v1/protocols/{protocol}".to_owned(),
-                    description: "query protocol metadata".to_owned(),
                 },
             ],
         }
     }
 }
 
-/// Appservice transaction with an explicit idempotency key.
+/// Applet service transaction with an explicit idempotency key.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct AppserviceTransaction {
-    pub transaction_id: String,
+pub struct AppletServiceTransaction {
+    #[serde(alias = "transaction_id")]
+    pub idempotency_key: String,
     pub request: AppletTransactionRequest,
 }
 
 /// Result of recording an idempotent transaction.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum AppserviceTransactionRecord {
+pub enum AppletServiceTransactionRecord {
     New(AppletTransactionResponse),
     Duplicate(AppletTransactionResponse),
 }
 
-/// In-memory idempotent appservice transaction store.
+/// In-memory idempotent applet service transaction store.
 #[derive(Clone, Debug, Default)]
-pub struct AppserviceTransactionStore {
+pub struct AppletServiceTransactionStore {
     transactions: BTreeMap<String, (String, AppletTransactionResponse)>,
 }
 
-impl AppserviceTransactionStore {
+impl AppletServiceTransactionStore {
     /// Create an empty transaction store.
     pub fn new() -> Self {
         Self::default()
@@ -345,25 +367,25 @@ impl AppserviceTransactionStore {
     /// Record a transaction or return the prior response for an exact duplicate.
     pub fn record(
         &mut self,
-        transaction: &AppserviceTransaction,
+        transaction: &AppletServiceTransaction,
         response: AppletTransactionResponse,
-    ) -> Result<AppserviceTransactionRecord> {
+    ) -> Result<AppletServiceTransactionRecord> {
         let digest = canonical::canonical_sha256(&transaction.request)?;
         if let Some((existing_digest, existing_response)) =
-            self.transactions.get(&transaction.transaction_id)
+            self.transactions.get(&transaction.idempotency_key)
         {
             if existing_digest == &digest {
-                return Ok(AppserviceTransactionRecord::Duplicate(existing_response.clone()));
+                return Ok(AppletServiceTransactionRecord::Duplicate(existing_response.clone()));
             }
-            return Err(Error::IdempotencyConflict(transaction.transaction_id.clone()));
+            return Err(Error::IdempotencyConflict(transaction.idempotency_key.clone()));
         }
 
-        self.transactions.insert(transaction.transaction_id.clone(), (digest, response.clone()));
-        Ok(AppserviceTransactionRecord::New(response))
+        self.transactions.insert(transaction.idempotency_key.clone(), (digest, response.clone()));
+        Ok(AppletServiceTransactionRecord::New(response))
     }
 }
 
-/// Virtual actor controlled by an appservice.
+/// Virtual actor controlled by an applet service.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct VirtualActor {
     pub actor_id: Did,
@@ -376,18 +398,19 @@ pub struct VirtualActor {
     pub accountable_to: Vec<Did>,
 }
 
-/// Appservice intent for acting as a virtual actor.
+/// Applet service intent for acting as a virtual actor.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct AppserviceIntent {
+pub struct AppletServiceIntent {
     pub service_did: Did,
     pub actor_id: Did,
-    pub transaction_prefix: String,
+    #[serde(alias = "transaction_prefix")]
+    pub idempotency_prefix: String,
 }
 
-impl AppserviceIntent {
+impl AppletServiceIntent {
     /// Create a virtual actor intent.
     pub fn new(service_did: Did, actor_id: Did) -> Self {
-        Self { service_did, actor_id, transaction_prefix: "as_txn".to_owned() }
+        Self { service_did, actor_id, idempotency_prefix: "applet_txn".to_owned() }
     }
 
     /// Build an idempotent transaction envelope for events produced by this intent.
@@ -395,9 +418,9 @@ impl AppserviceIntent {
         &self,
         idempotency_key: impl AsRef<str>,
         events: Vec<Event>,
-    ) -> AppserviceTransaction {
-        AppserviceTransaction {
-            transaction_id: format!("{}:{}", self.transaction_prefix, idempotency_key.as_ref()),
+    ) -> AppletServiceTransaction {
+        AppletServiceTransaction {
+            idempotency_key: format!("{}:{}", self.idempotency_prefix, idempotency_key.as_ref()),
             request: AppletTransactionRequest {
                 source_service_did: self.service_did.clone(),
                 events,
@@ -678,20 +701,20 @@ mod tests {
     }
 
     #[test]
-    fn appservice_transactions_are_idempotent() {
-        let intent = AppserviceIntent::new(did("svc"), did("ghost"));
+    fn applet_service_transactions_are_idempotent() {
+        let intent = AppletServiceIntent::new(did("svc"), did("ghost"));
         let transaction = intent.transaction("k1", Vec::new());
         let response =
             AppletTransactionResponse { ok: true, rejected: Vec::new(), retry_after_ms: None };
-        let mut store = AppserviceTransactionStore::new();
+        let mut store = AppletServiceTransactionStore::new();
 
         assert!(matches!(
             store.record(&transaction, response.clone()).unwrap(),
-            AppserviceTransactionRecord::New(_)
+            AppletServiceTransactionRecord::New(_)
         ));
         assert!(matches!(
             store.record(&transaction, response).unwrap(),
-            AppserviceTransactionRecord::Duplicate(_)
+            AppletServiceTransactionRecord::Duplicate(_)
         ));
 
         let mut changed = transaction.clone();
@@ -706,10 +729,10 @@ mod tests {
     }
 
     #[test]
-    fn appservice_routes_and_bridge_mappings_cover_queries() {
-        let registration = AppserviceRegistration::new(did("svc"), "bridge");
+    fn applet_endpoint_routes_and_bridge_mappings_cover_queries() {
+        let registration = AppletEndpointRegistration::new(did("svc"), "bridge");
         registration.validate().unwrap();
-        assert_eq!(AppserviceRouteSet::contrix_default().routes.len(), 4);
+        assert_eq!(AppletEndpointRouteSet::contrix_default().routes.len(), 8);
 
         let mut mappings = BridgeMappingStore::new();
         mappings.upsert_user(RemoteUserMapping {
