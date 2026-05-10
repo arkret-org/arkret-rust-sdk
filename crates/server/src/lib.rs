@@ -16,9 +16,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 
 pub use contrix_api as api;
-pub use contrix_federation_api as federation_api;
-pub use contrix_identity_api as identity_api;
-pub use contrix_push_gateway_api as push_gateway_api;
+pub use contrix_api::federation as federation_api;
+pub use contrix_api::identity as identity_api;
+pub use contrix_api::push as push_gateway_api;
 pub use contrix_signatures as signatures;
 
 use contrix_core::{
@@ -1068,6 +1068,11 @@ pub const ENDPOINT_CONTRACTS: &[EndpointContract] = &[
         path: "/api/v1/sync/snapshot-head",
     },
     EndpointContract {
+        operation_id: "cx.federation.discovery",
+        method: EndpointMethod::Get,
+        path: "/.well-known/contrix/server",
+    },
+    EndpointContract {
         operation_id: "cx.federation.transaction",
         method: EndpointMethod::Put,
         path: "/api/v1/federation/transactions/{txn_id}",
@@ -1086,6 +1091,31 @@ pub const ENDPOINT_CONTRACTS: &[EndpointContract] = &[
         operation_id: "cx.federation.space_members",
         method: EndpointMethod::Get,
         path: "/api/v1/federation/space-members",
+    },
+    EndpointContract {
+        operation_id: "cx.federation.backfill",
+        method: EndpointMethod::Get,
+        path: "/api/v1/federation/backfill",
+    },
+    EndpointContract {
+        operation_id: "cx.federation.event_auth",
+        method: EndpointMethod::Get,
+        path: "/api/v1/federation/event-auth",
+    },
+    EndpointContract {
+        operation_id: "cx.federation.query_profile",
+        method: EndpointMethod::Get,
+        path: "/api/v1/federation/profile",
+    },
+    EndpointContract {
+        operation_id: "cx.federation.query_keys",
+        method: EndpointMethod::Post,
+        path: "/api/v1/federation/keys/query",
+    },
+    EndpointContract {
+        operation_id: "cx.federation.media",
+        method: EndpointMethod::Get,
+        path: "/api/v1/federation/media/{blob_ref}",
     },
     EndpointContract {
         operation_id: "cx.federation.verify_actor",
@@ -1455,6 +1485,7 @@ pub fn endpoint_schema_binding(endpoint: &EndpointContract) -> EndpointSchemaBin
         "cx.events.subscribe" => ("EventsSubscribeQuery", "EventsSubscribeFrame"),
         "cx.events.query" => ("EventsQueryRequest", "EventsQueryResponse"),
         "cx.sync.get_snapshot_head" => ("SyncSnapshotHeadQuery", "SyncSnapshotHeadResponse"),
+        "cx.federation.discovery" => ("FederationDiscoveryRequest", "WellKnownContrixServer"),
         "cx.federation.transaction" => {
             ("FederationTransactionRequest", "FederationTransactionResponse")
         }
@@ -1467,6 +1498,11 @@ pub fn endpoint_schema_binding(endpoint: &EndpointContract) -> EndpointSchemaBin
         "cx.federation.space_members" => {
             ("FederationSpaceMembersQuery", "FederationSpaceMembersResponse")
         }
+        "cx.federation.backfill" => ("FederationBackfillQuery", "FederationBackfillResponse"),
+        "cx.federation.event_auth" => ("FederationEventAuthQuery", "FederationEventAuthResponse"),
+        "cx.federation.query_profile" => ("FederationProfileQuery", "FederationProfileResponse"),
+        "cx.federation.query_keys" => ("FederationKeyQuery", "FederationKeyResponse"),
+        "cx.federation.media" => ("FederationMediaRequest", "FederationMediaResponse"),
         "cx.federation.verify_actor" => {
             ("FederationVerifyActorRequest", "FederationVerifyActorResponse")
         }
@@ -2059,6 +2095,16 @@ fn query_parameters(operation_id: &str) -> Vec<EndpointParameter> {
         "cx.federation.space_members" => {
             &[("space_id", true, "SpaceId"), ("cursor", false, "String"), ("limit", false, "Limit")]
         }
+        "cx.federation.backfill" => &[
+            ("space_id", true, "SpaceId"),
+            ("from_event_id", false, "String"),
+            ("limit", true, "Limit"),
+        ],
+        "cx.federation.event_auth" => {
+            &[("space_id", true, "SpaceId"), ("event_id", true, "String")]
+        }
+        "cx.federation.query_profile" => &[("user_id", true, "Did"), ("field", false, "String")],
+        "cx.federation.media" => &[("allow_remote_thumbnail", false, "Bool")],
         "cx.index.get_entity" => &[
             ("entity_id", true, "String"),
             ("space_id", false, "SpaceId"),
@@ -2228,6 +2274,7 @@ fn operation_security(operation_id: &str) -> Value {
         operation_id,
         "cx.server.describe"
             | "cx.identity.describe_registry"
+            | "cx.federation.discovery"
             | "cx.sync.describe"
             | "cx.index.describe"
             | "cx.directory.describe"
@@ -2349,9 +2396,9 @@ fn openapi_schema_components() -> Value {
         schema_names.insert(binding.response_schema);
     }
 
-    let mut schemas = Map::new();
+    let mut schemas = openapi_seeded_schema_components();
     for name in schema_names {
-        schemas.insert(name.to_owned(), generic_schema(name));
+        schemas.entry(name.to_owned()).or_insert_with(|| generic_schema(name));
     }
 
     schemas.insert("Did".to_owned(), json!({ "type": "string", "pattern": "^did:[a-z0-9]+:.+$" }));
@@ -2473,6 +2520,19 @@ fn openapi_schema_components() -> Value {
     );
 
     Value::Object(schemas)
+}
+
+fn openapi_seeded_schema_components() -> Map<String, Value> {
+    #[cfg(feature = "salvo")]
+    {
+        if let Ok(Value::Object(schemas)) =
+            serde_json::to_value(salvo_adapter::contrix_oapi_components().schemas)
+        {
+            return schemas;
+        }
+    }
+
+    Map::new()
 }
 
 fn generic_schema(name: &str) -> Value {
@@ -2626,7 +2686,9 @@ mod tests {
         for endpoint in endpoint_contracts() {
             assert!(ids.insert(endpoint.operation_id), "duplicate {}", endpoint.operation_id);
             assert!(
-                endpoint.path.starts_with("/api/v1/") || endpoint.path.starts_with("/contrix/v1/")
+                endpoint.path.starts_with("/api/v1/")
+                    || endpoint.path.starts_with("/contrix/v1/")
+                    || endpoint.path.starts_with("/.well-known/")
             );
         }
     }
@@ -2756,6 +2818,17 @@ mod tests {
         );
         assert!(
             document["components"]["examples"]["FederationTransactionRequest"]["value"].is_object()
+        );
+    }
+
+    #[cfg(feature = "salvo")]
+    #[test]
+    fn openapi_document_prefers_typed_salvo_schemas_when_available() {
+        let document = openapi_document();
+        assert!(document["components"]["schemas"]["ServerDescription"]["properties"].is_object());
+        assert!(
+            document["components"]["schemas"]["QueryRequest"]["properties"]["space_ids"]["items"]
+                .is_object()
         );
     }
 

@@ -73,19 +73,19 @@ pub use contrix_core::{canonical, cursor, error, identifiers, keystore, model, s
 // above already re-exports these symbols, but listing them explicitly keeps
 // them visible in `cargo doc` and signals the supported surface to
 // downstream crates that depend only on `contrix` (not `contrix-core`).
+pub use contrix_api::federation as federation_api;
+pub use contrix_api::identity as identity_api;
+pub use contrix_api::push as push_gateway_api;
 pub use contrix_core::{
     InMemoryKeyStore, KeyStore, KeyStoreError, LinuxSecretServiceKeyStore, MacOsKeychainKeyStore,
     WindowsCredentialKeyStore, platform_default_keystore,
 };
 pub use contrix_crypto as crypto_protocol;
 pub use contrix_events as events;
-pub use contrix_federation_api as federation_api;
 pub use contrix_ffi as ffi;
 pub use contrix_html as html;
-pub use contrix_identity_api as identity_api;
 pub use contrix_lattice as lattice;
 pub use contrix_operations as operations;
-pub use contrix_push_gateway_api as push_gateway_api;
 pub use contrix_schema as schema_contracts;
 #[cfg(feature = "server")]
 pub use contrix_server as server;

@@ -1,6 +1,6 @@
 [package]
 authors = ["Chris Young <chris@sonc.ai>"]
-description = "Contrix v1 client-server API endpoint catalog and protocol request/response exports."
+description = "Contrix v1 protocol surface catalog, service endpoint metadata, and wire helper models."
 edition = "2024"
 homepage = "https://github.com/contrix/contrix-rust-sdk"
 keywords = ["contrix", "api", "protocol", "sdk"]
@@ -15,8 +15,11 @@ version = "0.7.0"
 default = []
 
 [dependencies]
+chrono.workspace = true
 contrix-core.workspace = true
+contrix-signatures.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 
 [lints]
 workspace = true

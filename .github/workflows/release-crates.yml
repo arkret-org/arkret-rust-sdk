@@ -36,11 +36,8 @@ jobs:
         contrix-crypto
         contrix-events
         contrix-html
-        contrix-push-gateway-api
         contrix-client-api
-        contrix-federation-api
         contrix-ffi
-        contrix-identity-api
         contrix-operations
         contrix-schema
         contrix-server

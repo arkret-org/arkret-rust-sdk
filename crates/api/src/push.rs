@@ -1,6 +1,6 @@
-//! Contrix push gateway protocol models.
+//! Contrix push surface models and helpers.
 
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::LazyLock};
 
 use contrix_core::{
     DeviceId, Did, EventId, PushNotifyRequest, PushNotifyResponse, PushRegisterDeviceRequest,
@@ -8,6 +8,8 @@ use contrix_core::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+
+use crate::{ApiSurface, Endpoint, endpoints_for_surface};
 
 pub mod protocol {
     pub use contrix_core::{
@@ -170,47 +172,11 @@ pub fn rejected_response(
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "UPPERCASE")]
-pub enum PushGatewayMethod {
-    Post,
-}
+pub static PUSH_GATEWAY_ENDPOINTS: LazyLock<Vec<Endpoint>> =
+    LazyLock::new(|| endpoints_for_surface(ApiSurface::Push).copied().collect());
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PushGatewayEndpoint {
-    pub operation_id: &'static str,
-    pub method: PushGatewayMethod,
-    pub path: &'static str,
-    pub request_schema: &'static str,
-    pub response_schema: &'static str,
-}
-
-pub const PUSH_GATEWAY_ENDPOINTS: &[PushGatewayEndpoint] = &[
-    PushGatewayEndpoint {
-        operation_id: "cx.push.register_device",
-        method: PushGatewayMethod::Post,
-        path: "/api/v1/push/register-device",
-        request_schema: "PushRegisterDeviceRequest",
-        response_schema: "PushRegisterDeviceResponse",
-    },
-    PushGatewayEndpoint {
-        operation_id: "cx.push.unregister_device",
-        method: PushGatewayMethod::Post,
-        path: "/api/v1/push/unregister-device",
-        request_schema: "PushUnregisterDeviceRequest",
-        response_schema: "OkResponse",
-    },
-    PushGatewayEndpoint {
-        operation_id: "cx.push.notify",
-        method: PushGatewayMethod::Post,
-        path: "/api/v1/push/notify",
-        request_schema: "PushNotifyRequest",
-        response_schema: "PushNotifyResponse",
-    },
-];
-
-pub fn push_gateway_endpoints() -> &'static [PushGatewayEndpoint] {
-    PUSH_GATEWAY_ENDPOINTS
+pub fn push_gateway_endpoints() -> &'static [Endpoint] {
+    PUSH_GATEWAY_ENDPOINTS.as_slice()
 }
 
 fn parse_platform(value: &str) -> Option<PushPlatform> {

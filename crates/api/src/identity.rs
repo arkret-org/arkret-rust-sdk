@@ -1,11 +1,13 @@
-//! Contrix identity service API models.
+//! Contrix identity surface models and helpers.
 
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::LazyLock};
 
 use chrono::{DateTime, Utc};
 use contrix_core::{Did, DidDocumentRef, Hash, IdentityResolveResponse, Proof, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+
+use crate::{ApiSurface, Endpoint, endpoints_for_surface};
 
 pub mod protocol {
     pub use contrix_core::{
@@ -15,69 +17,11 @@ pub mod protocol {
     };
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "UPPERCASE")]
-pub enum IdentityMethod {
-    Get,
-    Post,
-}
+pub static IDENTITY_ENDPOINTS: LazyLock<Vec<Endpoint>> =
+    LazyLock::new(|| endpoints_for_surface(ApiSurface::Identity).copied().collect());
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct IdentityEndpoint {
-    pub operation_id: &'static str,
-    pub method: IdentityMethod,
-    pub path: &'static str,
-    pub request_schema: &'static str,
-    pub response_schema: &'static str,
-}
-
-pub const IDENTITY_ENDPOINTS: &[IdentityEndpoint] = &[
-    IdentityEndpoint {
-        operation_id: "cx.identity.describe_registry",
-        method: IdentityMethod::Get,
-        path: "/api/v1/identity/describe",
-        request_schema: "IdentityDescribeRequest",
-        response_schema: "IdentityDescription",
-    },
-    IdentityEndpoint {
-        operation_id: "cx.identity.resolve",
-        method: IdentityMethod::Post,
-        path: "/api/v1/identity/resolve",
-        request_schema: "IdentityResolveRequest",
-        response_schema: "IdentityResolveResponse",
-    },
-    IdentityEndpoint {
-        operation_id: "cx.identity.get_document",
-        method: IdentityMethod::Get,
-        path: "/api/v1/identity/document",
-        request_schema: "IdentityDocumentQuery",
-        response_schema: "IdentityDocumentResponse",
-    },
-    IdentityEndpoint {
-        operation_id: "cx.identity.get_log",
-        method: IdentityMethod::Get,
-        path: "/api/v1/identity/log",
-        request_schema: "IdentityLogQuery",
-        response_schema: "IdentityLogResponse",
-    },
-    IdentityEndpoint {
-        operation_id: "cx.identity.submit_did_operation",
-        method: IdentityMethod::Post,
-        path: "/api/v1/identity/submit-did-operation",
-        request_schema: "SubmitDidOperationRequest",
-        response_schema: "SubmitDidOperationResponse",
-    },
-    IdentityEndpoint {
-        operation_id: "cx.identity.get_receipts",
-        method: IdentityMethod::Get,
-        path: "/api/v1/identity/receipts",
-        request_schema: "IdentityReceiptsQuery",
-        response_schema: "IdentityReceiptsResponse",
-    },
-];
-
-pub fn identity_endpoints() -> &'static [IdentityEndpoint] {
-    IDENTITY_ENDPOINTS
+pub fn identity_endpoints() -> &'static [Endpoint] {
+    IDENTITY_ENDPOINTS.as_slice()
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -8,6 +8,10 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+pub mod federation;
+pub mod identity;
+pub mod push;
+
 /// Protocol request/response types grouped behind the API boundary.
 pub mod protocol {
     pub use contrix_core::{
@@ -312,6 +316,14 @@ pub const ENDPOINTS: &[Endpoint] = &[
     ),
     endpoint!(
         Federation,
+        "cx.federation.discovery",
+        Get,
+        "/.well-known/contrix/server",
+        "FederationDiscoveryRequest",
+        "WellKnownContrixServer"
+    ),
+    endpoint!(
+        Federation,
         "cx.federation.transaction",
         Put,
         "/api/v1/federation/transactions/{txn_id}",
@@ -341,6 +353,46 @@ pub const ENDPOINTS: &[Endpoint] = &[
         "/api/v1/federation/space-members",
         "FederationSpaceMembersQuery",
         "FederationSpaceMembersResponse"
+    ),
+    endpoint!(
+        Federation,
+        "cx.federation.backfill",
+        Get,
+        "/api/v1/federation/backfill",
+        "FederationBackfillQuery",
+        "FederationBackfillResponse"
+    ),
+    endpoint!(
+        Federation,
+        "cx.federation.event_auth",
+        Get,
+        "/api/v1/federation/event-auth",
+        "FederationEventAuthQuery",
+        "FederationEventAuthResponse"
+    ),
+    endpoint!(
+        Federation,
+        "cx.federation.query_profile",
+        Get,
+        "/api/v1/federation/profile",
+        "FederationProfileQuery",
+        "FederationProfileResponse"
+    ),
+    endpoint!(
+        Federation,
+        "cx.federation.query_keys",
+        Post,
+        "/api/v1/federation/keys/query",
+        "FederationKeyQuery",
+        "FederationKeyResponse"
+    ),
+    endpoint!(
+        Federation,
+        "cx.federation.media",
+        Get,
+        "/api/v1/federation/media/{blob_ref}",
+        "FederationMediaRequest",
+        "FederationMediaResponse"
     ),
     endpoint!(
         Federation,
@@ -964,6 +1016,16 @@ fn query_parameters(operation_id: &str) -> Vec<EndpointParameter> {
         "cx.federation.space_members" => {
             &[("space_id", true, "SpaceId"), ("cursor", false, "String"), ("limit", false, "Limit")]
         }
+        "cx.federation.backfill" => &[
+            ("space_id", true, "SpaceId"),
+            ("from_event_id", false, "String"),
+            ("limit", true, "Limit"),
+        ],
+        "cx.federation.event_auth" => {
+            &[("space_id", true, "SpaceId"), ("event_id", true, "String")]
+        }
+        "cx.federation.query_profile" => &[("user_id", true, "Did"), ("field", false, "String")],
+        "cx.federation.media" => &[("allow_remote_thumbnail", false, "Bool")],
         "cx.index.get_entity" => &[
             ("entity_id", true, "String"),
             ("space_id", false, "SpaceId"),

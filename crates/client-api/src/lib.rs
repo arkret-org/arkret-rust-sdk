@@ -3,12 +3,12 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{DateTime, Utc};
+use contrix_api::push::{PushPriority, PushRule, PushRuleSet, Pusher};
 use contrix_core::{
     BlobRef, DeviceId, Did, EncryptedPayload, Error, EventId, Hash, Hlc, InviteId, Result, SpaceId,
 };
 use contrix_crypto::MediaEncryptionInfo;
 use contrix_html::{RichTextDocument, RichTextFormat};
-use contrix_push_gateway_api::{PushPriority, PushRule, PushRuleSet, Pusher};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -1621,7 +1621,7 @@ mod tests {
             pusher: Pusher {
                 user_id: did("alice"),
                 device_id: DeviceId::new("dev_phone").unwrap(),
-                platform: contrix_push_gateway_api::PushPlatform::Fcm,
+                platform: contrix_api::push::PushPlatform::Fcm,
                 push_gateway: "https://push.example".to_owned(),
                 push_key: "token".to_owned(),
                 app_id: Some("app".to_owned()),

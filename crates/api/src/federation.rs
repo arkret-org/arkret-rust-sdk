@@ -1,6 +1,8 @@
-//! Contrix federation API models.
+//! Contrix federation surface models and helpers.
 
 use std::collections::BTreeMap;
+
+use std::sync::LazyLock;
 
 use chrono::{DateTime, Utc};
 use contrix_core::{
@@ -11,6 +13,8 @@ use contrix_signatures::HttpMessageSignature;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::{ApiSurface, Endpoint, endpoints_for_surface};
+
 pub mod protocol {
     pub use contrix_core::{
         FederationPullOperationsResponse, FederationPushOperationsRequest,
@@ -20,105 +24,11 @@ pub mod protocol {
     };
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "UPPERCASE")]
-pub enum FederationMethod {
-    Get,
-    Post,
-    Put,
-}
+pub static FEDERATION_ENDPOINTS: LazyLock<Vec<Endpoint>> =
+    LazyLock::new(|| endpoints_for_surface(ApiSurface::Federation).copied().collect());
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FederationEndpoint {
-    pub operation_id: &'static str,
-    pub method: FederationMethod,
-    pub path: &'static str,
-    pub request_schema: &'static str,
-    pub response_schema: &'static str,
-}
-
-pub const FEDERATION_ENDPOINTS: &[FederationEndpoint] = &[
-    FederationEndpoint {
-        operation_id: "cx.federation.discovery",
-        method: FederationMethod::Get,
-        path: "/.well-known/contrix/server",
-        request_schema: "FederationDiscoveryRequest",
-        response_schema: "WellKnownContrixServer",
-    },
-    FederationEndpoint {
-        operation_id: "cx.federation.transaction",
-        method: FederationMethod::Put,
-        path: "/api/v1/federation/transactions/{txn_id}",
-        request_schema: "FederationTransactionRequest",
-        response_schema: "FederationTransactionResponse",
-    },
-    FederationEndpoint {
-        operation_id: "cx.federation.push_operations",
-        method: FederationMethod::Post,
-        path: "/api/v1/federation/push-operations",
-        request_schema: "FederationPushOperationsRequest",
-        response_schema: "FederationPushOperationsResponse",
-    },
-    FederationEndpoint {
-        operation_id: "cx.federation.pull_operations",
-        method: FederationMethod::Get,
-        path: "/api/v1/federation/pull-operations",
-        request_schema: "FederationPullOperationsQuery",
-        response_schema: "FederationPullOperationsResponse",
-    },
-    FederationEndpoint {
-        operation_id: "cx.federation.space_members",
-        method: FederationMethod::Get,
-        path: "/api/v1/federation/space-members",
-        request_schema: "FederationSpaceMembersQuery",
-        response_schema: "FederationSpaceMembersResponse",
-    },
-    FederationEndpoint {
-        operation_id: "cx.federation.backfill",
-        method: FederationMethod::Get,
-        path: "/api/v1/federation/backfill",
-        request_schema: "FederationBackfillQuery",
-        response_schema: "FederationBackfillResponse",
-    },
-    FederationEndpoint {
-        operation_id: "cx.federation.event_auth",
-        method: FederationMethod::Get,
-        path: "/api/v1/federation/event-auth",
-        request_schema: "FederationEventAuthQuery",
-        response_schema: "FederationEventAuthResponse",
-    },
-    FederationEndpoint {
-        operation_id: "cx.federation.query_profile",
-        method: FederationMethod::Get,
-        path: "/api/v1/federation/profile",
-        request_schema: "FederationProfileQuery",
-        response_schema: "FederationProfileResponse",
-    },
-    FederationEndpoint {
-        operation_id: "cx.federation.query_keys",
-        method: FederationMethod::Post,
-        path: "/api/v1/federation/keys/query",
-        request_schema: "FederationKeyQuery",
-        response_schema: "FederationKeyResponse",
-    },
-    FederationEndpoint {
-        operation_id: "cx.federation.media",
-        method: FederationMethod::Get,
-        path: "/api/v1/federation/media/{blob_ref}",
-        request_schema: "FederationMediaRequest",
-        response_schema: "FederationMediaResponse",
-    },
-    FederationEndpoint {
-        operation_id: "cx.federation.verify_actor",
-        method: FederationMethod::Post,
-        path: "/api/v1/federation/verify-actor",
-        request_schema: "FederationVerifyActorRequest",
-        response_schema: "FederationVerifyActorResponse",
-    },
-];
-
-pub fn federation_endpoints() -> &'static [FederationEndpoint] {
-    FEDERATION_ENDPOINTS
+pub fn federation_endpoints() -> &'static [Endpoint] {
+    FEDERATION_ENDPOINTS.as_slice()
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

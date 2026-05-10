@@ -274,11 +274,11 @@ pub fn endpoint_coverage_rows() -> Vec<EndpointCoverageRow> {
             response_schema: endpoint.response_schema.to_owned(),
         }
     }));
-    rows.extend(contrix_federation_api::federation_endpoints().iter().map(|endpoint| {
+    rows.extend(contrix_api::federation::federation_endpoints().iter().map(|endpoint| {
         EndpointCoverageRow {
             domain: ConformanceDomain::Federation,
             operation_id: endpoint.operation_id.to_owned(),
-            method: format!("{:?}", endpoint.method),
+            method: endpoint.method.as_str().to_owned(),
             path: endpoint.path.to_owned(),
             request_schema: endpoint.request_schema.to_owned(),
             response_schema: endpoint.response_schema.to_owned(),
@@ -294,21 +294,21 @@ pub fn endpoint_coverage_rows() -> Vec<EndpointCoverageRow> {
             response_schema: endpoint.response_schema.to_owned(),
         },
     ));
-    rows.extend(contrix_push_gateway_api::push_gateway_endpoints().iter().map(|endpoint| {
+    rows.extend(contrix_api::push::push_gateway_endpoints().iter().map(|endpoint| {
         EndpointCoverageRow {
             domain: ConformanceDomain::PushGateway,
             operation_id: endpoint.operation_id.to_owned(),
-            method: format!("{:?}", endpoint.method),
+            method: endpoint.method.as_str().to_owned(),
             path: endpoint.path.to_owned(),
             request_schema: endpoint.request_schema.to_owned(),
             response_schema: endpoint.response_schema.to_owned(),
         }
     }));
-    rows.extend(contrix_identity_api::identity_endpoints().iter().map(|endpoint| {
+    rows.extend(contrix_api::identity::identity_endpoints().iter().map(|endpoint| {
         EndpointCoverageRow {
             domain: ConformanceDomain::Identity,
             operation_id: endpoint.operation_id.to_owned(),
-            method: format!("{:?}", endpoint.method),
+            method: endpoint.method.as_str().to_owned(),
             path: endpoint.path.to_owned(),
             request_schema: endpoint.request_schema.to_owned(),
             response_schema: endpoint.response_schema.to_owned(),

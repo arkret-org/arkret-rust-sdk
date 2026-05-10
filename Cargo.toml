@@ -12,15 +12,12 @@ contrix-client = { version = "0.7.0", path = "crates/client", default-features =
 contrix-client-api = { version = "0.7.0", path = "crates/client-api", default-features = false }
 contrix-core = { version = "0.7.0", path = "crates/core", default-features = false }
 contrix-events = { version = "0.7.0", path = "crates/events", default-features = false }
-contrix-federation-api = { version = "0.7.0", path = "crates/federation-api", default-features = false }
 contrix-ffi = { version = "0.7.0", path = "crates/ffi", default-features = false }
 contrix-html = { version = "0.7.0", path = "crates/html", default-features = false }
 contrix-identifiers = { version = "0.7.0", path = "crates/identifiers", default-features = false }
-contrix-identity-api = { version = "0.7.0", path = "crates/identity-api", default-features = false }
 contrix-crypto = { version = "0.7.0", path = "crates/crypto", default-features = false }
 contrix-lattice = { version = "0.7.0", path = "crates/lattice", default-features = false }
 contrix-operations = { version = "0.7.0", path = "crates/operations", default-features = false }
-contrix-push-gateway-api = { version = "0.7.0", path = "crates/push-gateway-api", default-features = false }
 contrix-schema = { version = "0.7.0", path = "crates/schema", default-features = false }
 contrix-server = { version = "0.7.0", path = "crates/server", default-features = false }
 contrix-signatures = { version = "0.7.0", path = "crates/signatures", default-features = false }
