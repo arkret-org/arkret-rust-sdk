@@ -39,17 +39,21 @@ pub struct Ed25519MoveSigner {
 
 impl Ed25519MoveSigner {
     /// Wrap an existing `ed25519_dalek::SigningKey`.
-    pub fn new(signing_key: SigningKey, did: Did, verification_method_id: impl Into<String>) -> Self {
-        Self {
-            signing_key,
-            did,
-            kid: verification_method_id.into(),
-        }
+    pub fn new(
+        signing_key: SigningKey,
+        did: Did,
+        verification_method_id: impl Into<String>,
+    ) -> Self {
+        Self { signing_key, did, kid: verification_method_id.into() }
     }
 
     /// Convenience constructor that derives an ed25519 keypair from a 32-byte
     /// seed (RFC 8032 secret-key seed).
-    pub fn from_did_key_seed(seed: [u8; 32], did: Did, verification_method_id: impl Into<String>) -> Self {
+    pub fn from_did_key_seed(
+        seed: [u8; 32],
+        did: Did,
+        verification_method_id: impl Into<String>,
+    ) -> Self {
         let signing_key = SigningKey::from_bytes(&seed);
         Self::new(signing_key, did, verification_method_id)
     }
@@ -222,11 +226,8 @@ mod tests {
 
     #[test]
     fn ed25519_signer_produces_self_consistent_move() {
-        let signer = Ed25519MoveSigner::from_did_key_seed(
-            [7u8; 32],
-            alice(),
-            "did:web:alice.example#key-1",
-        );
+        let signer =
+            Ed25519MoveSigner::from_did_key_seed([7u8; 32], alice(), "did:web:alice.example#key-1");
         let m = signer.sign_move(&sample_unsigned()).unwrap();
         m.validate_id().unwrap();
         m.validate_structural().unwrap();
@@ -248,11 +249,8 @@ mod tests {
 
     #[test]
     fn ed25519_signer_signs_anchor_single() {
-        let signer = Ed25519MoveSigner::from_did_key_seed(
-            [9u8; 32],
-            alice(),
-            "did:web:alice.example#key-1",
-        );
+        let signer =
+            Ed25519MoveSigner::from_did_key_seed([9u8; 32], alice(), "did:web:alice.example#key-1");
         let a = Anchor::sign_single(
             space(),
             vec![anchor_id(0xaa)],
@@ -284,26 +282,15 @@ mod tests {
     #[test]
     fn ed25519_signer_deterministic_for_same_seed() {
         let seed = [42u8; 32];
-        let s1 = Ed25519MoveSigner::from_did_key_seed(
-            seed,
-            alice(),
-            "did:web:alice.example#key-1",
-        );
-        let s2 = Ed25519MoveSigner::from_did_key_seed(
-            seed,
-            alice(),
-            "did:web:alice.example#key-1",
-        );
+        let s1 = Ed25519MoveSigner::from_did_key_seed(seed, alice(), "did:web:alice.example#key-1");
+        let s2 = Ed25519MoveSigner::from_did_key_seed(seed, alice(), "did:web:alice.example#key-1");
         assert_eq!(s1.verifying_key().to_bytes(), s2.verifying_key().to_bytes());
     }
 
     #[test]
     fn verify_ed25519_rejects_tampered_payload() {
-        let signer = Ed25519MoveSigner::from_did_key_seed(
-            [3u8; 32],
-            alice(),
-            "did:web:alice.example#key-1",
-        );
+        let signer =
+            Ed25519MoveSigner::from_did_key_seed([3u8; 32], alice(), "did:web:alice.example#key-1");
         let m = signer.sign_move(&sample_unsigned()).unwrap();
         let mut bytes = m.canonical_bytes_for_id().unwrap();
         bytes.push(b'X'); // tamper

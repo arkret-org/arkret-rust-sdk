@@ -2668,10 +2668,7 @@ impl Flow {
         flow.primary_track = Some(FLOW_TRACK_NAME_DISCUSSION.to_owned());
         let mut tracks = BTreeMap::new();
         tracks.insert(FLOW_TRACK_NAME_SYNTHESIS.to_owned(), FlowTrackConfig::synthesis());
-        tracks.insert(
-            FLOW_TRACK_NAME_DISCUSSION.to_owned(),
-            FlowTrackConfig::discussion_primary(),
-        );
+        tracks.insert(FLOW_TRACK_NAME_DISCUSSION.to_owned(), FlowTrackConfig::discussion_primary());
         flow.tracks = tracks;
         flow
     }
@@ -5709,9 +5706,10 @@ impl FlowTrackConfig {
     /// reactions. Not marked primary by default. Insert under the
     /// [`FLOW_TRACK_NAME_DISCUSSION`] map key.
     pub fn discussion() -> Self {
-        let mut b = Self::default();
-        b.profile = Some("discussion".to_owned());
-        b
+        Self {
+            profile: Some("discussion".to_owned()),
+            ..Self::default()
+        }
     }
 
     /// Standard `discussion` track config marked as the Flow's primary
@@ -5719,9 +5717,10 @@ impl FlowTrackConfig {
     /// (room / channel) form. Insert under the
     /// [`FLOW_TRACK_NAME_DISCUSSION`] map key.
     pub fn discussion_primary() -> Self {
-        let mut b = Self::discussion();
-        b.is_primary = Some(true);
-        b
+        Self {
+            is_primary: Some(true),
+            ..Self::discussion()
+        }
     }
 
     /// Set the track as the Flow's primary entry point.
@@ -6290,13 +6289,16 @@ mod tests {
             jws: "sig-a".to_owned(),
         };
         let envelope = OperationEnvelope {
-            operation_id: OperationId::new("cx:operation:01904100-0000-7000-8000-0198d483044c").unwrap(),
+            operation_id: OperationId::new("cx:operation:01904100-0000-7000-8000-0198d483044c")
+                .unwrap(),
             space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
             actor_id: Did::new("did:web:alice.example").unwrap(),
             kind: "cx.message.create".to_owned(),
             target_ref: Some("cx:thread:general".to_owned()),
             causal: CausalRef {
-                deps: vec![OperationId::new("cx:operation:01904100-0000-7000-8000-5f8278b99124").unwrap()],
+                deps: vec![
+                    OperationId::new("cx:operation:01904100-0000-7000-8000-5f8278b99124").unwrap(),
+                ],
                 hlc: Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap(),
                 actor_seq: 7,
             },
@@ -6359,7 +6361,8 @@ mod tests {
     fn operation_kind_registry_drives_envelope_semantics() {
         let registry = OperationKindRegistry::default();
         let envelope = OperationEnvelope {
-            operation_id: OperationId::new("cx:operation:01904100-0000-7000-8000-0198d483044c").unwrap(),
+            operation_id: OperationId::new("cx:operation:01904100-0000-7000-8000-0198d483044c")
+                .unwrap(),
             space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
             actor_id: Did::new("did:web:alice.example").unwrap(),
             kind: OP_MESSAGE_CREATE.to_owned(),
@@ -6903,7 +6906,9 @@ mod tests {
             relation_kind: RelationKind::Mentions,
             from_ref: None,
             to_ref: None,
-            from_entity_id: Some(EntityId::new("cx:entity:01904100-0000-7000-8000-c12dc98b2948").unwrap()),
+            from_entity_id: Some(
+                EntityId::new("cx:entity:01904100-0000-7000-8000-c12dc98b2948").unwrap(),
+            ),
             from_actor_id: None,
             from_space_id: None,
             to_entity_id: None,
@@ -7484,11 +7489,7 @@ mod tests {
                 ],
             })
             .with_max_anchor_staleness(60_000)
-            .with_cell_lattice(
-                "cx.component.flow.track.v1",
-                "or_set",
-                Some("reject".to_owned()),
-            )
+            .with_cell_lattice("cx.component.flow.track.v1", "or_set", Some("reject".to_owned()))
             .with_co_write_policy(CoWritePolicy::CausalOnly);
 
         assert_eq!(space.anchor_profile, Some(AnchorProfile::Threshold));

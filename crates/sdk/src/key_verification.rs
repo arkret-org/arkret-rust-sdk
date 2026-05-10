@@ -185,8 +185,8 @@ impl KeyVerificationFlow {
         self.transaction_id.as_deref()
     }
 
-    /// Cancellation record, set when `Cancelled` was reached via
-    /// [`Self::cancel`] or a violated invariant.
+    /// Cancellation record, set when `Cancelled` was reached via the
+    /// internal `cancel` step or a violated invariant.
     pub fn cancel_record(&self) -> Option<&KeyVerificationCancel> {
         self.cancel.as_ref()
     }
@@ -282,7 +282,9 @@ impl KeyVerificationFlow {
         let next = match self.state {
             KeyVerificationState::MacsReceived => KeyVerificationState::DoneHalfReceived,
             KeyVerificationState::DoneHalfReceived => KeyVerificationState::Done,
-            _ => return self.fail("invalid_transition", "done only legal after both macs received"),
+            _ => {
+                return self.fail("invalid_transition", "done only legal after both macs received");
+            }
         };
         self.assert_txn(&msg.transaction_id)?;
         if !self.is_known_party(&msg.from_user, &msg.from_device) {
@@ -314,9 +316,9 @@ impl KeyVerificationFlow {
     fn assert_txn(&self, txn: &str) -> Result<()> {
         match &self.transaction_id {
             Some(active) if active == txn => Ok(()),
-            _ => Err(Error::Protocol(
-                "key-verification envelope transaction_id mismatch".to_owned(),
-            )),
+            _ => {
+                Err(Error::Protocol("key-verification envelope transaction_id mismatch".to_owned()))
+            }
         }
     }
 

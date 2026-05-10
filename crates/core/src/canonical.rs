@@ -303,11 +303,8 @@ mod tests {
 
     #[test]
     fn state_subject_encoding_roundtrips_simple_parts() {
-        let parts = [
-            "did:web:alice.example",
-            "discussion",
-            "cx:flow:01904100-0000-7000-8000-6c663fa0205f",
-        ];
+        let parts =
+            ["did:web:alice.example", "discussion", "cx:flow:01904100-0000-7000-8000-6c663fa0205f"];
         let encoded = encode_state_subject(&parts);
         assert_eq!(
             encoded,

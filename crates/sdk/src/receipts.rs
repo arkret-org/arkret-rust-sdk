@@ -304,15 +304,8 @@ fn tighten_disclosure(
     overrides_allowed: bool,
 ) -> ReadReceiptDisclosure {
     use ReadReceiptDisclosure::*;
-    let is_tighter = matches!(
-        (parent, track),
-        (Optional, Required) | (Optional, Disabled)
-    );
-    if is_tighter || overrides_allowed {
-        track
-    } else {
-        parent
-    }
+    let is_tighter = matches!((parent, track), (Optional, Required) | (Optional, Disabled));
+    if is_tighter || overrides_allowed { track } else { parent }
 }
 
 /// `Public > Members > Private` (more disclosure → less strict).
@@ -333,11 +326,7 @@ fn tighten_visibility(
         Members => 1,
         Private => 0,
     };
-    if track_rank <= parent_rank || overrides_allowed {
-        track
-    } else {
-        parent
-    }
+    if track_rank <= parent_rank || overrides_allowed { track } else { parent }
 }
 
 // ─── Account-data preferences (client-preferences.md §3.6) ─────────────
@@ -531,10 +520,8 @@ mod tests {
     fn should_send_required_forces_send_overrides_user() {
         let mut prefs = ReadReceiptPreferences::default();
         prefs.default.send = Some(false);
-        let policy = ReadReceiptPolicy {
-            disclosure: ReadReceiptDisclosure::Required,
-            ..Default::default()
-        };
+        let policy =
+            ReadReceiptPolicy { disclosure: ReadReceiptDisclosure::Required, ..Default::default() };
         let decision = should_send_receipt(&prefs, Some(&policy), None, None);
         assert_eq!(decision, ReceiptDecision::ForcedSend);
         assert!(decision.is_send());
@@ -545,10 +532,8 @@ mod tests {
     fn should_send_disabled_forces_skip_overrides_user() {
         let mut prefs = ReadReceiptPreferences::default();
         prefs.default.send = Some(true);
-        let policy = ReadReceiptPolicy {
-            disclosure: ReadReceiptDisclosure::Disabled,
-            ..Default::default()
-        };
+        let policy =
+            ReadReceiptPolicy { disclosure: ReadReceiptDisclosure::Disabled, ..Default::default() };
         let decision = should_send_receipt(&prefs, Some(&policy), None, None);
         assert_eq!(decision, ReceiptDecision::ForcedSkip);
         assert!(!decision.is_send());

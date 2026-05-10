@@ -6,6 +6,7 @@ use reqwest::{
 };
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
+#[cfg(not(target_arch = "wasm32"))]
 use tokio::time::sleep;
 use url::Url;
 
@@ -138,10 +139,12 @@ impl RetryConfig {
         self
     }
 
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     fn should_retry_status(&self, status: StatusCode) -> bool {
         self.retry_statuses.contains(&status.as_u16())
     }
 
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     fn retry_delay(&self, attempt: usize) -> Duration {
         if self.base_delay.is_zero() {
             return Duration::ZERO;
@@ -152,6 +155,7 @@ impl RetryConfig {
         if self.max_delay.is_zero() { delay } else { std::cmp::min(delay, self.max_delay) }
     }
 
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     fn retry_delay_from_headers(&self, headers: &HeaderMap, attempt: usize) -> Duration {
         if self.respect_retry_after
             && let Some(retry_after_ms) = retry_after_ms(headers)
@@ -185,6 +189,12 @@ pub struct Client {
 /// Named redirect policies. `reqwest::redirect::Policy` is not `Clone`, so
 /// we model the supported choices as a small enum and materialise a Policy
 /// at `build()` time.
+///
+/// Native-only: `reqwest`'s `redirect` module is not compiled into the
+/// wasm32 fetch backend (the browser handles redirects transparently), so
+/// this enum and the corresponding [`ClientBuilder::redirect`] method are
+/// gated out on wasm32.
+#[cfg(not(target_arch = "wasm32"))]
 #[derive(Clone, Debug)]
 pub enum RedirectPolicy {
     /// Refuse to follow any redirects (typical service-to-service).
@@ -193,6 +203,7 @@ pub enum RedirectPolicy {
     Limited(usize),
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl RedirectPolicy {
     fn into_reqwest(self) -> reqwest::redirect::Policy {
         match self {
@@ -202,7 +213,7 @@ impl RedirectPolicy {
     }
 }
 
-/// Network/transport configuration applied to the underlying `reqwest::Client`.
+/// Native transport configuration applied to the underlying `reqwest::Client`.
 ///
 /// Every field is optional. `None` means "let `reqwest` keep its default."
 /// These options are silently ignored when [`ClientBuilder::http_client`] is
@@ -210,6 +221,12 @@ impl RedirectPolicy {
 /// owns the transport configuration end to end. [`ClientBuilder::build`]
 /// returns [`Error::Protocol`] if both a pre-built client and any transport
 /// option are set, to avoid silent surprises.
+///
+/// The wasm32 fetch backend exposes none of these knobs (the browser owns
+/// the connection pool, proxy, redirect and timeout policies), so on wasm32
+/// `TransportConfig` is a zero-sized stub that is always "default" and
+/// applies as a no-op.
+#[cfg(not(target_arch = "wasm32"))]
 #[derive(Clone, Debug, Default)]
 struct TransportConfig {
     timeout: Option<Duration>,
@@ -227,6 +244,7 @@ struct TransportConfig {
     gzip: Option<bool>,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl TransportConfig {
     fn is_default(&self) -> bool {
         self.timeout.is_none()
@@ -288,6 +306,24 @@ impl TransportConfig {
     }
 }
 
+/// Wasm32 stub for `TransportConfig`. The fetch backend doesn't expose any
+/// of the native transport knobs, so this is a zero-sized type that always
+/// reports "default" and applies as a no-op.
+#[cfg(target_arch = "wasm32")]
+#[derive(Clone, Debug, Default)]
+struct TransportConfig;
+
+#[cfg(target_arch = "wasm32")]
+impl TransportConfig {
+    fn is_default(&self) -> bool {
+        true
+    }
+
+    fn apply(self, builder: reqwest::ClientBuilder) -> reqwest::ClientBuilder {
+        builder
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct ClientBuilder {
     base_url: Url,
@@ -334,6 +370,10 @@ impl ClientBuilder {
     /// Total timeout for a single request including the connect handshake,
     /// TLS, headers and body. Use [`Self::connect_timeout`] when you want a
     /// separate, shorter cap on the connection establishment phase.
+    ///
+    /// Native-only: the wasm32 fetch backend has no per-request timeout
+    /// hook (the browser owns the timeline).
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn timeout(mut self, timeout: Duration) -> Self {
         self.transport.timeout = Some(timeout);
         self
@@ -341,6 +381,10 @@ impl ClientBuilder {
 
     /// Cap the connection-establishment phase (TCP + TLS handshake) only.
     /// Independent of the total request timeout set via [`Self::timeout`].
+    ///
+    /// Native-only: there is no concept of a separate connect phase in the
+    /// wasm32 fetch backend.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn connect_timeout(mut self, connect_timeout: Duration) -> Self {
         self.transport.connect_timeout = Some(connect_timeout);
         self
@@ -349,12 +393,19 @@ impl ClientBuilder {
     /// Maximum idle time before a pooled connection is reaped. `None` means
     /// `reqwest`'s default. Set a value if your service is behind a proxy or
     /// load balancer with an aggressive idle-connection kill window.
+    ///
+    /// Native-only: the wasm32 fetch backend has no user-visible connection
+    /// pool.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn pool_idle_timeout(mut self, pool_idle_timeout: Duration) -> Self {
         self.transport.pool_idle_timeout = Some(pool_idle_timeout);
         self
     }
 
     /// Cap the number of idle connections kept open per remote host.
+    ///
+    /// Native-only: see [`Self::pool_idle_timeout`].
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn pool_max_idle_per_host(mut self, pool_max_idle_per_host: usize) -> Self {
         self.transport.pool_max_idle_per_host = Some(pool_max_idle_per_host);
         self
@@ -362,6 +413,9 @@ impl ClientBuilder {
 
     /// Enable / disable TCP_NODELAY on connections. Defaults to reqwest's
     /// choice (currently enabled).
+    ///
+    /// Native-only: the wasm32 fetch backend doesn't expose TCP-level knobs.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn tcp_nodelay(mut self, tcp_nodelay: bool) -> Self {
         self.transport.tcp_nodelay = Some(tcp_nodelay);
         self
@@ -370,24 +424,37 @@ impl ClientBuilder {
     /// Enable TCP keepalive with the given interval. Useful when the path
     /// includes long-lived NAT mappings or stateful firewalls that drop
     /// silent connections.
+    ///
+    /// Native-only: see [`Self::tcp_nodelay`].
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn tcp_keepalive(mut self, interval: Duration) -> Self {
         self.transport.tcp_keepalive = Some(interval);
         self
     }
 
     /// Send an HTTP/2 PING frame at this interval.
+    ///
+    /// Native-only: HTTP/2 framing is invisible behind the browser fetch
+    /// pipeline on wasm32.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn http2_keep_alive_interval(mut self, interval: Duration) -> Self {
         self.transport.http2_keep_alive_interval = Some(interval);
         self
     }
 
     /// Drop the HTTP/2 connection if a PING is unanswered within this window.
+    ///
+    /// Native-only: see [`Self::http2_keep_alive_interval`].
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn http2_keep_alive_timeout(mut self, timeout: Duration) -> Self {
         self.transport.http2_keep_alive_timeout = Some(timeout);
         self
     }
 
     /// Whether to keep sending HTTP/2 PINGs while idle.
+    ///
+    /// Native-only: see [`Self::http2_keep_alive_interval`].
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn http2_keep_alive_while_idle(mut self, enabled: bool) -> Self {
         self.transport.http2_keep_alive_while_idle = Some(enabled);
         self
@@ -397,6 +464,9 @@ impl ClientBuilder {
     /// `reqwest` evaluates proxies in order and falls through to no-proxy if
     /// none match. Pair with [`Self::no_proxy`] to disable system proxy
     /// detection from environment variables.
+    ///
+    /// Native-only: the browser owns proxy selection on wasm32.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn proxy(mut self, proxy: reqwest::Proxy) -> Self {
         self.transport.proxies.push(proxy);
         self
@@ -405,6 +475,9 @@ impl ClientBuilder {
     /// Disable proxy auto-detection from environment variables
     /// (`HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`). Combine with
     /// [`Self::proxy`] for fully explicit routing in production.
+    ///
+    /// Native-only: see [`Self::proxy`].
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn no_proxy(mut self) -> Self {
         self.transport.no_proxy = true;
         self
@@ -413,6 +486,9 @@ impl ClientBuilder {
     /// Override the default redirect policy. The default is to follow up
     /// to 10 redirects; pass [`RedirectPolicy::None`] for service-to-service
     /// paths where redirect-following is a bug.
+    ///
+    /// Native-only: the browser handles redirects transparently on wasm32.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn redirect(mut self, policy: RedirectPolicy) -> Self {
         self.transport.redirect = Some(policy);
         self
@@ -421,6 +497,9 @@ impl ClientBuilder {
     /// Toggle gzip response decoding (the `gzip` feature is on by default
     /// in `contrix-client`'s `reqwest` profile, so this method exists to
     /// let callers turn it *off* when stricter content negotiation matters).
+    ///
+    /// Native-only: gzip negotiation is owned by the browser on wasm32.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn gzip(mut self, enabled: bool) -> Self {
         self.transport.gzip = Some(enabled);
         self
@@ -628,9 +707,8 @@ impl Client {
         space_id: &str,
         from: Option<&str>,
     ) -> Result<Response> {
-        let mut builder = self
-            .request(Method::GET, "/api/v1/events/subscribe")?
-            .query(&[("spaces", space_id)]);
+        let mut builder =
+            self.request(Method::GET, "/api/v1/events/subscribe")?.query(&[("spaces", space_id)]);
         if let Some(from) = from {
             builder = builder.query(&[("from", from)]);
         }
@@ -1260,6 +1338,7 @@ impl Client {
         Ok(response)
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     async fn execute(&self, builder: RequestBuilder) -> Result<Response> {
         validate_request_builder(&builder)?;
         if self.retry.max_retries == 0 {
@@ -1296,6 +1375,19 @@ impl Client {
                 Err(error) => return Err(error.into()),
             }
         }
+    }
+
+    /// Wasm32 fast path. The browser fetch backend has neither a sleep
+    /// primitive we can call from the contrix-client crate (no
+    /// `tokio::time` driver) nor an `is_connect` accessor on
+    /// `reqwest::Error`, and status-based retry windows would require
+    /// pulling in `gloo-timers` or similar. We deliberately collapse retry
+    /// to a single send on wasm32 and let the caller layer their own
+    /// retry on top via `wasm-bindgen-futures` if they need it.
+    #[cfg(target_arch = "wasm32")]
+    async fn execute(&self, builder: RequestBuilder) -> Result<Response> {
+        validate_request_builder(&builder)?;
+        Ok(builder.send().await?)
     }
 }
 
@@ -1421,6 +1513,7 @@ mod tests {
         assert!(matches!(error, Error::InsecureUrl(_)));
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn allows_insecure_localhost_when_explicit() {
         let client = Client::builder(Url::parse("http://127.0.0.1:8080/").unwrap())
@@ -1548,6 +1641,7 @@ mod tests {
         );
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn transport_options_apply_without_panic() {
         let client = Client::builder(Url::parse("https://alice.example/contrix/").unwrap())
@@ -1569,6 +1663,7 @@ mod tests {
         assert_eq!(client.base_url().as_str(), "https://alice.example/contrix/");
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn proxy_can_be_added_via_builder() {
         let proxy = reqwest::Proxy::http("http://proxy.example:3128").unwrap();
@@ -1579,6 +1674,7 @@ mod tests {
         assert_eq!(client.base_url().as_str(), "https://alice.example/contrix/");
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn transport_options_conflict_with_pre_built_http_client() {
         let http = reqwest::Client::new();

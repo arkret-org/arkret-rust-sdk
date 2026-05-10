@@ -84,6 +84,7 @@ pub use contrix_federation_api as federation_api;
 pub use contrix_ffi as ffi;
 pub use contrix_html as html;
 pub use contrix_identity_api as identity_api;
+pub use contrix_lattice as lattice;
 pub use contrix_operations as operations;
 pub use contrix_push_gateway_api as push_gateway_api;
 pub use contrix_schema as schema_contracts;
@@ -91,7 +92,6 @@ pub use contrix_schema as schema_contracts;
 pub use contrix_server as server;
 #[cfg(feature = "salvo")]
 pub use contrix_server::salvo_adapter;
-pub use contrix_lattice as lattice;
 pub use contrix_signatures as signatures;
 #[cfg(feature = "signer")]
 pub use contrix_signatures::Ed25519MoveSigner;
@@ -134,14 +134,19 @@ pub mod event_handler;
 pub mod federation;
 #[cfg(feature = "full-surface")]
 pub mod hlc;
-#[cfg(all(feature = "full-surface", feature = "client"))]
+// HttpDidResolver leans on a live Tokio runtime, blocking off-thread
+// scheduling, and reqwest's native ClientBuilder transport knobs — none
+// of which are available on the wasm32 fetch backend. Gate the module out
+// on wasm32; web embedders should plug in a fetch-based resolver via
+// the `DidResolver` trait directly.
+#[cfg(all(feature = "full-surface", feature = "client", not(target_arch = "wasm32")))]
 pub mod http_did_resolver;
 #[cfg(feature = "full-surface")]
 pub mod identity;
-#[cfg(all(feature = "full-surface", feature = "device-runtime"))]
-pub mod key_verification;
 #[cfg(all(feature = "full-surface", feature = "device-runtime", feature = "client"))]
 pub mod key_backup_client;
+#[cfg(all(feature = "full-surface", feature = "device-runtime"))]
+pub mod key_verification;
 #[cfg(feature = "full-surface")]
 pub mod media;
 #[cfg(feature = "full-surface")]
@@ -274,19 +279,6 @@ pub use devices::{
     ProtocolKeyBackupRestoreTicketAdvanceRequest, QrVerificationPayload, ToDeviceEnvelope,
     device_verification_commitment,
 };
-#[cfg(all(feature = "full-surface", feature = "device-runtime"))]
-pub use key_verification::{
-    KeyVerificationAccept, KeyVerificationCancel, KeyVerificationDone, KeyVerificationFlow,
-    KeyVerificationKey, KeyVerificationMac, KeyVerificationStart, KeyVerificationState,
-};
-#[cfg(all(feature = "full-surface", feature = "device-runtime", feature = "client"))]
-pub use key_backup_client::{
-    KeyBackupClient, KeyBackupListResponse, KeyBackupRecord, KeyBackupResponse, RestoreTicket,
-};
-#[cfg(all(feature = "full-surface", feature = "client"))]
-pub use http_did_resolver::{
-    DEFAULT_HTTP_DID_RESOLVER_TIMEOUT_MS, DEFAULT_HTTP_DID_RESOLVER_TTL_SECS, HttpDidResolver,
-};
 #[cfg(feature = "full-surface")]
 pub use discovery::{DirectoryService, DirectoryUser, OpenGraphPreview, UrlPreviewCache};
 #[cfg(feature = "full-surface")]
@@ -317,6 +309,10 @@ pub use hlc::{
     HlcComponents, HlcGenerator, compare_hlc, is_clock_skew_acceptable, parse_hlc, time_until_hlc,
     validate_hlc_format,
 };
+#[cfg(all(feature = "full-surface", feature = "client", not(target_arch = "wasm32")))]
+pub use http_did_resolver::{
+    DEFAULT_HTTP_DID_RESOLVER_TIMEOUT_MS, DEFAULT_HTTP_DID_RESOLVER_TTL_SECS, HttpDidResolver,
+};
 #[cfg(feature = "full-surface")]
 pub use identity::{
     CompositeDidResolver, DID_WEB_MAX_DOCUMENT_BYTES, DidDocument, DidKeriResolver, DidKeyLogEntry,
@@ -328,6 +324,15 @@ pub use identity::{
     StaridRegistryAdapter, StaridRegistryRecord, VerifiedDidKeyLog, did_key_log_proof,
     did_registry_receipt_signature, handle_claim_proof, handle_dns_txt_name, handle_well_known_url,
     pairwise_resolution_proof, starid_control_proof, verify_did_key_log,
+};
+#[cfg(all(feature = "full-surface", feature = "device-runtime", feature = "client"))]
+pub use key_backup_client::{
+    KeyBackupClient, KeyBackupListResponse, KeyBackupRecord, KeyBackupResponse, RestoreTicket,
+};
+#[cfg(all(feature = "full-surface", feature = "device-runtime"))]
+pub use key_verification::{
+    KeyVerificationAccept, KeyVerificationCancel, KeyVerificationDone, KeyVerificationFlow,
+    KeyVerificationKey, KeyVerificationMac, KeyVerificationStart, KeyVerificationState,
 };
 #[cfg(feature = "full-surface")]
 pub use media::{

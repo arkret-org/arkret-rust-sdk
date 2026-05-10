@@ -10,6 +10,81 @@ permitted; once `1.0` ships, breaking changes will require a major bump.
 
 ## [Unreleased]
 
+## [0.7.0] – 2026-05-10 — wasm32 workspace closure + release hardening
+
+This release closes the wasm32 build story for the entire workspace and is
+the first release where `cargo build --target wasm32-unknown-unknown
+--workspace --lib --locked` is fully green alongside the native
+`774 / 0 / 0` lib test suite. No wire-level breaking changes vs `0.6.0`;
+the bump is for the SDK API surface adjustments described below.
+
+### Added
+
+- **Per-target `openmls` feature gating** in `crates/sdk/Cargo.toml`. The
+  workspace `openmls` dependency is now declared once for native (lean,
+  no extra features) and once for `cfg(target_arch = "wasm32")` with the
+  `js` feature enabled, which transitively activates
+  `fluvio_wasm_timer` + `js-sys` so MLS group state machinery has a
+  browser-compatible timer source.
+- **`uuid` wasm32 randomness**: `crates/identifiers/Cargo.toml` declares
+  a `cfg(target_arch = "wasm32")` block enabling `uuid`'s `js` feature
+  plus `getrandom = { features = ["wasm_js"] }` and a renamed
+  `getrandom_02 = { package = "getrandom", version = "0.2", features = ["js"] }`
+  so both the v0.3 and v0.2 (transitive via `rand_core` from
+  `ed25519-dalek`) lines wire to the wasm-bindgen RNG path. (C35.1)
+
+### Changed
+
+- **`contrix-client` `TransportConfig` is now per-target.** The native
+  variant retains the full set of fields (`timeout`, `connect_timeout`,
+  `pool_idle_timeout`, `pool_max_idle_per_host`, `tcp_nodelay`,
+  `tcp_keepalive`, `http2_keep_alive_*`, `proxies`, `no_proxy`,
+  `redirect`, `gzip`); on `cfg(target_arch = "wasm32")` it is a unit
+  struct with no-op `is_default()` / `apply()` because the browser
+  `fetch` transport governs those policies. The 13 corresponding
+  builder methods (`timeout`, `connect_timeout`, `pool_*`, `tcp_*`,
+  `http2_keep_alive_*`, `proxy`, `no_proxy`, `redirect`, `gzip`) are
+  `#[cfg(not(target_arch = "wasm32"))]`. `RetryConfig` fields are
+  annotated `cfg_attr(target_arch = "wasm32", allow(dead_code))`.
+  (C36.0)
+- **`Client::execute` is split per-target.** Native retains the retry
+  loop driven by `tokio::time::sleep`; on wasm32 the body collapses to
+  `validate_request_builder` + `builder.send().await` — embedders that
+  want retry/backoff in the browser should layer it on top with
+  `gloo-timers` since neither `tokio::time::sleep` nor
+  `reqwest::Error::is_connect()` are available in that environment.
+  (C36.0)
+- **`crates/sdk/src/lib.rs::http_did_resolver` and the
+  `AsyncSyncTransport` / `EventsSubscribeTransport` impls in
+  `crates/sdk/src/sync_client.rs`** are `cfg`-gated to native targets.
+  Their `Send`-bound `BoxSyncFuture` return types are incompatible with
+  the wasm32 `reqwest::Response` (carries `JsValue` / `Closure` /
+  `JsFuture`, all `!Send`); the underlying traits remain `pub` so
+  downstream wasm crates can supply a `LocalBoxFuture`-style transport.
+  (C36.0)
+- **Crate version `0.6.0 → 0.7.0`** across the workspace (root
+  `[workspace.dependencies]` plus the 23 member crates).
+
+### Security / Maintenance
+
+- **`rustls-webpki` bumped `0.103.3 → 0.103.13`** to clear
+  `RUSTSEC-2026-0049`, `RUSTSEC-2026-0098`, `RUSTSEC-2026-0099`, and
+  `RUSTSEC-2026-0104` (CRL handling, name-constraint matching, and a
+  reachable parser panic). Pulled in transitively via
+  `reqwest -> hyper-rustls -> tokio-rustls -> rustls`.
+- **`Cargo.lock` rolls** — futures family bumped to 0.3.32 to resolve a
+  conflict between `multra`/`hyper`/`h2` and openmls's wasm `js`
+  feature; new transitives `fluvio-wasm-timer 0.2.5`, `bitflags 1.3.2`,
+  `instant 0.1.13`, `parking_lot 0.11`, `redox_syscall 0.2.16`,
+  `winapi 0.3.9` appear on the wasm32 side only.
+- **`.deny.toml`** advisory ignore list pruned: removed two stale
+  entries (`RUSTSEC-2024-0436` paste, `RUSTSEC-2024-0388` derivative)
+  that no longer match anything in the lock; added
+  `RUSTSEC-2024-0384` (unmaintained `instant`, transitive via
+  `openmls 0.8.1` → `fluvio-wasm-timer` on the wasm path; no upgrade
+  available pending an openmls upstream bump). `cargo deny check` is
+  green: `advisories ok, bans ok, licenses ok, sources ok`.
+
 ## [0.6.0] – 2026-05-10 — Spec sync (`contrix-spec` `f724863..48898bf`)
 
 Wire-breaking spec alignment pass. v1 is unreleased so this is a hard

@@ -221,17 +221,11 @@ id_type!(EntityId, |value: &str| is_strict_typed_id(value, "cx:entity:"));
 id_type!(RelationId, |value: &str| is_strict_typed_id(value, "cx:relation:"));
 id_type!(EventId, |value: &str| is_strict_typed_id(value, "cx:event:") || is_hash(value));
 id_type!(CommitId, |value: &str| is_strict_typed_id(value, "cx:commit:"));
-id_type!(
-    OperationId,
-    |value: &str| is_strict_typed_id(value, "cx:operation:") || is_hash(value)
-);
+id_type!(OperationId, |value: &str| is_strict_typed_id(value, "cx:operation:") || is_hash(value));
 id_type!(GrantId, |value: &str| is_strict_typed_id(value, "cx:grant:"));
 id_type!(InviteId, |value: &str| is_strict_typed_id(value, "cx:invite:"));
-id_type!(
-    DeviceId,
-    |value: &str| (value.starts_with("dev_") && value.len() > "dev_".len())
-        || is_strict_typed_id(value, "cx:device:")
-);
+id_type!(DeviceId, |value: &str| (value.starts_with("dev_") && value.len() > "dev_".len())
+    || is_strict_typed_id(value, "cx:device:"));
 id_type!(PolicyId, |value: &str| is_strict_typed_id(value, "cx:policy:"));
 id_type!(BlobRef, |value: &str| value.starts_with("cx:blob:") || is_hash(value));
 id_type!(ViewId, |value: &str| is_strict_typed_id(value, "cx:view:"));
@@ -488,25 +482,13 @@ mod tests {
         // Legacy mixed-case ULID-form is rejected (intentionally non-UUIDv7).
         assert!(!is_strict_typed_id("cx:space:01js0ke000000000000000000", "cx:space:"));
         // Uppercase hex forbidden.
-        assert!(!is_strict_typed_id(
-            "cx:space:0196419B-0000-7000-8000-000000000000",
-            "cx:space:"
-        ));
+        assert!(!is_strict_typed_id("cx:space:0196419B-0000-7000-8000-000000000000", "cx:space:"));
         // Wrong UUID version (4 instead of 7).
-        assert!(!is_strict_typed_id(
-            "cx:space:0196419b-0000-4000-8000-000000000000",
-            "cx:space:"
-        ));
+        assert!(!is_strict_typed_id("cx:space:0196419b-0000-4000-8000-000000000000", "cx:space:"));
         // Wrong variant nibble (c not in {8,9,a,b}).
-        assert!(!is_strict_typed_id(
-            "cx:space:0196419b-0000-7000-c000-000000000000",
-            "cx:space:"
-        ));
+        assert!(!is_strict_typed_id("cx:space:0196419b-0000-7000-c000-000000000000", "cx:space:"));
         // Canonical UUIDv7 accepted.
-        assert!(is_strict_typed_id(
-            "cx:space:0196419b-0000-7000-8000-000000000000",
-            "cx:space:"
-        ));
+        assert!(is_strict_typed_id("cx:space:0196419b-0000-7000-8000-000000000000", "cx:space:"));
     }
 
     #[test]

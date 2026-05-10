@@ -444,9 +444,7 @@ impl SpecArtifactBundle {
             .and_then(Value::as_u64)
             .or_else(|| {
                 // Parse version suffix `.vN` from cell_family
-                component_type
-                    .rsplit_once(".v")
-                    .and_then(|(_, suffix)| suffix.parse::<u64>().ok())
+                component_type.rsplit_once(".v").and_then(|(_, suffix)| suffix.parse::<u64>().ok())
             })
             .ok_or_else(|| {
                 Error::Protocol(format!(
@@ -480,13 +478,11 @@ impl SpecArtifactBundle {
             .map(str::to_owned)
             .or_else(|| {
                 let cell_subject = entry.get("cell_subject");
-                let canonical_owner = self.event_kind_registry["event_kinds"]
-                    .as_array()
-                    .and_then(|entries| {
+                let canonical_owner =
+                    self.event_kind_registry["event_kinds"].as_array().and_then(|entries| {
                         entries.iter().find_map(|other| {
                             let other_kind = other.get("event_kind").and_then(Value::as_str)?;
-                            let other_family =
-                                other.get("cell_family").and_then(Value::as_str)?;
+                            let other_family = other.get("cell_family").and_then(Value::as_str)?;
                             if other_family != component_type {
                                 return None;
                             }
@@ -756,7 +752,10 @@ mod tests {
             )
             .unwrap();
         assert!(matches!(
-            catalog.validate_payload("cx.flow.move", &json!({"parent_id": "cx:space:01904100-0000-7000-8000-fd3637e8361f"})),
+            catalog.validate_payload(
+                "cx.flow.move",
+                &json!({"parent_id": "cx:space:01904100-0000-7000-8000-fd3637e8361f"})
+            ),
             Err(Error::Protocol(_))
         ));
     }

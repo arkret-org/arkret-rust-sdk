@@ -991,7 +991,8 @@ pub fn memory_store_conformance_report() -> Result<StoreConformanceReport> {
     })?;
     store.put_send_queue_record(SendQueueRecord {
         transaction_id: "txn1".to_owned(),
-        space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-a6edb4a304bf").expect("valid space id"),
+        space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-a6edb4a304bf")
+            .expect("valid space id"),
         event_kind: "cx.message.text".to_owned(),
         content: serde_json::json!({"body": "hello"}),
         status: SendQueueStatus::Queued,
@@ -1138,7 +1139,8 @@ mod tests {
         assert!(!store.put_operation(operation).unwrap().inserted);
 
         let mut conflict = test_operation("same");
-        conflict.payload = serde_json::json!({"id": "cx:entity:01904100-0000-7000-8000-3169112b9122"});
+        conflict.payload =
+            serde_json::json!({"id": "cx:entity:01904100-0000-7000-8000-3169112b9122"});
         assert!(matches!(store.put_operation(conflict), Err(Error::IdempotencyConflict(_))));
     }
 
@@ -1257,7 +1259,8 @@ mod tests {
         assert_eq!(
             store
                 .event_frontier(&CoreEventFrontierRequest {
-                    space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-a6edb4a304bf").unwrap()
+                    space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-a6edb4a304bf")
+                        .unwrap()
                 })
                 .frontier
                 .len(),
@@ -1265,12 +1268,16 @@ mod tests {
         );
 
         let mut missing_prev = event(3, "missing");
-        missing_prev.prev_refs.push(EventId::new("cx:event:01904100-0000-7000-8000-30f4e405b35e").unwrap());
+        missing_prev
+            .prev_refs
+            .push(EventId::new("cx:event:01904100-0000-7000-8000-30f4e405b35e").unwrap());
         missing_prev.refresh_event_id().unwrap();
         assert!(matches!(store.submit_event(missing_prev), Err(Error::Protocol(_))));
 
         let mut missing_auth = event(3, "missing-auth");
-        missing_auth.auth_refs.push(EventId::new("cx:event:01904100-0000-7000-8000-a135895eea64").unwrap());
+        missing_auth
+            .auth_refs
+            .push(EventId::new("cx:event:01904100-0000-7000-8000-a135895eea64").unwrap());
         missing_auth.refresh_event_id().unwrap();
         assert!(matches!(store.submit_event(missing_auth), Err(Error::Protocol(_))));
     }

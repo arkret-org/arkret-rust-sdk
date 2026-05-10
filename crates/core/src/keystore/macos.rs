@@ -20,8 +20,8 @@ use security_framework::passwords::{
     delete_generic_password, get_generic_password, set_generic_password,
 };
 
-use crate::keystore::{KeyStore, KeyStoreError, service_name, validate_id};
 use crate::Result;
+use crate::keystore::{KeyStore, KeyStoreError, service_name, validate_id};
 
 /// macOS Keychain-backed [`KeyStore`].
 ///

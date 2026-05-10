@@ -218,7 +218,7 @@ pub fn revoke_effect_with_precondition(
 /// Walk the consent cell's or-set join value and decide whether
 /// `(peer, scope)` is currently consented at `now`.
 ///
-/// `cell_state` is what [`Lattice::join`] produced for the consent cell.
+/// `cell_state` is what [`contrix_lattice::Lattice::join`] produced for the consent cell.
 /// For an `or-set` Lattice, the `Value` form is a JSON array of
 /// `{tag, value}` objects. Bottom states (which or-set never produces)
 /// are treated as no-consent.

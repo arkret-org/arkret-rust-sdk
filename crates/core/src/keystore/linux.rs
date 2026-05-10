@@ -16,8 +16,8 @@
 use secret_service::EncryptionType;
 use secret_service::blocking::SecretService;
 
-use crate::keystore::{KeyStore, KeyStoreError, service_name, validate_id};
 use crate::Result;
+use crate::keystore::{KeyStore, KeyStoreError, service_name, validate_id};
 
 /// Linux Secret Service-backed [`KeyStore`].
 pub struct LinuxSecretServiceKeyStore {
@@ -91,8 +91,7 @@ impl KeyStore for LinuxSecretServiceKeyStore {
             .next()
             .ok_or_else(|| KeyStoreError::not_found(id))?;
         if item.is_locked().unwrap_or(false) {
-            item.unlock()
-                .map_err(|err| KeyStoreError::backend(format!("unlock item: {err}")))?;
+            item.unlock().map_err(|err| KeyStoreError::backend(format!("unlock item: {err}")))?;
         }
         let secret = item
             .get_secret()
@@ -149,8 +148,7 @@ impl KeyStore for LinuxSecretServiceKeyStore {
             .search_items(attrs)
             .map_err(|err| KeyStoreError::backend(format!("search items: {err}")))?;
         for item in items.unlocked.into_iter().chain(items.locked) {
-            item.delete()
-                .map_err(|err| KeyStoreError::backend(format!("delete item: {err}")))?;
+            item.delete().map_err(|err| KeyStoreError::backend(format!("delete item: {err}")))?;
         }
         Ok(())
     }

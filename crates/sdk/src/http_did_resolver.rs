@@ -57,10 +57,7 @@ impl std::fmt::Debug for HttpDidResolver {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("HttpDidResolver")
             .field("policy", &self.policy)
-            .field(
-                "cached_dids",
-                &self.cache.lock().map(|cache| cache.len()).unwrap_or_default(),
-            )
+            .field("cached_dids", &self.cache.lock().map(|cache| cache.len()).unwrap_or_default())
             .finish()
     }
 }
@@ -87,9 +84,7 @@ impl HttpDidResolver {
     /// Build a resolver from a pre-configured [`reqwest::Client`].
     pub fn with_client(http: HttpClient, policy: ResolverPolicy) -> Result<Self> {
         let runtime = tokio::runtime::Handle::try_current().map_err(|err| {
-            Error::Protocol(format!(
-                "HttpDidResolver requires an active Tokio runtime: {err}"
-            ))
+            Error::Protocol(format!("HttpDidResolver requires an active Tokio runtime: {err}"))
         })?;
         Ok(Self { http, policy, cache: Mutex::new(std::collections::BTreeMap::new()), runtime })
     }
@@ -121,11 +116,7 @@ impl HttpDidResolver {
         let cache = self.cache.lock().ok()?;
         let entry = cache.get(did)?;
         let age = Utc::now().signed_duration_since(entry.fetched_at).num_seconds();
-        if age >= 0 && age < self.ttl_secs() {
-            Some(entry.document.clone())
-        } else {
-            None
-        }
+        if age >= 0 && age < self.ttl_secs() { Some(entry.document.clone()) } else { None }
     }
 
     fn cache_put(&self, did: &Did, document: &DidDocument) {
@@ -175,8 +166,8 @@ impl HttpDidResolver {
         let url = DidWebResolver::document_url(did)?;
         let (content_type, body) = self.fetch_bytes(&url).await?;
         let mut resolver = DidWebResolver::new();
-        let document =
-            resolver.insert_from_https_response(did, DidWebDocumentResponse { url, content_type, body })?;
+        let document = resolver
+            .insert_from_https_response(did, DidWebDocumentResponse { url, content_type, body })?;
         Ok(document)
     }
 
@@ -219,9 +210,7 @@ impl HttpDidResolver {
         match method {
             "web" => self.block_on(self.resolve_did_web(did)),
             "webvh" => self.block_on(self.resolve_did_webvh(did)),
-            other => Err(Error::Protocol(format!(
-                "HttpDidResolver does not support did:{other}"
-            ))),
+            other => Err(Error::Protocol(format!("HttpDidResolver does not support did:{other}"))),
         }
     }
 }

@@ -1694,7 +1694,10 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
             method: "GET".to_owned(),
             path: "/api/v1/index/entity".to_owned(),
             query: BTreeMap::from([
-                ("entity_id".to_owned(), "cx:entity:01904100-0000-7000-8000-c89a39a907e5".to_owned()),
+                (
+                    "entity_id".to_owned(),
+                    "cx:entity:01904100-0000-7000-8000-c89a39a907e5".to_owned(),
+                ),
                 ("access_token".to_owned(), "redacted".to_owned()),
             ]),
             headers: BTreeMap::new(),
@@ -2759,8 +2762,7 @@ mod tests {
 
     #[test]
     fn endpoint_matcher_routes_post_applet_transactions() {
-        let matched =
-            match_endpoint(EndpointMethod::Post, "/api/v1/applet/transactions").unwrap();
+        let matched = match_endpoint(EndpointMethod::Post, "/api/v1/applet/transactions").unwrap();
         assert_eq!(matched.contract.operation_id, "cx.applet.transaction");
         assert!(matched.path_parameters.is_empty());
         assert!(match_endpoint(EndpointMethod::Get, "/api/v1/applet/transactions").is_none());
@@ -2817,10 +2819,7 @@ mod tests {
                 method: EndpointMethod::Post,
                 path: "/api/v1/applet/transactions".to_owned(),
                 query: BTreeMap::new(),
-                headers: BTreeMap::from([(
-                    "Idempotency-Key".to_owned(),
-                    "txn_123".to_owned(),
-                )]),
+                headers: BTreeMap::from([("Idempotency-Key".to_owned(), "txn_123".to_owned())]),
                 body: br#"{"ok":true}"#.to_vec(),
             },
         );

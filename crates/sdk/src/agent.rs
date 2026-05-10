@@ -225,8 +225,7 @@ impl AgentMemoryStore {
         content: &Value,
         importance: u8,
     ) -> Result<Operation> {
-        let operation_id =
-            OperationId::new(format!("cx:operation:{}", uuid::Uuid::now_v7()))?;
+        let operation_id = OperationId::new(format!("cx:operation:{}", uuid::Uuid::now_v7()))?;
         let payload = serde_json::json!({
             "agent_id": agent_id.as_str(),
             "content": content,
@@ -245,8 +244,7 @@ impl AgentMemoryStore {
             .memories
             .get(memory_id)
             .ok_or_else(|| Error::Protocol("memory not found".to_owned()))?;
-        let operation_id =
-            OperationId::new(format!("cx:operation:{}", uuid::Uuid::now_v7()))?;
+        let operation_id = OperationId::new(format!("cx:operation:{}", uuid::Uuid::now_v7()))?;
         let payload = serde_json::json!({
             "memory_id": memory.memory_id,
             "agent_id": memory.agent_id.as_str(),
@@ -413,8 +411,7 @@ impl AgentRunManager {
         principal_id: &Did,
         input: &Value,
     ) -> Result<Operation> {
-        let operation_id =
-            OperationId::new(format!("cx:operation:{}", uuid::Uuid::now_v7()))?;
+        let operation_id = OperationId::new(format!("cx:operation:{}", uuid::Uuid::now_v7()))?;
         let payload = serde_json::json!({
             "agent_id": agent_id.as_str(),
             "principal_id": principal_id.as_str(),
@@ -432,8 +429,7 @@ impl AgentRunManager {
     ) -> Result<Operation> {
         let run =
             self.runs.get(run_id).ok_or_else(|| Error::Protocol("run not found".to_owned()))?;
-        let operation_id =
-            OperationId::new(format!("cx:operation:{}", uuid::Uuid::now_v7()))?;
+        let operation_id = OperationId::new(format!("cx:operation:{}", uuid::Uuid::now_v7()))?;
         let payload = serde_json::json!({
             "run_id": run.run_id,
             "agent_id": run.agent_id.as_str(),

@@ -152,11 +152,7 @@ pub enum EventsSubscribeFrame {
     /// Carrying one Event Envelope. `seq` is monotonic per stream; `cursor`
     /// is the resume token for this exact event.
     #[serde(rename = "event")]
-    Event {
-        seq: u64,
-        cursor: String,
-        payload: Value,
-    },
+    Event { seq: u64, cursor: String, payload: Value },
     /// Server fell behind; client MUST reset its cursor and re-issue
     /// `events.query` (or fresh `events.subscribe`) starting at
     /// `recovery_from`. Optional `reason` is human-readable.
@@ -522,14 +518,22 @@ pub trait EventsSubscribeTransport {
     ) -> BoxSyncFuture<'a, Self::StreamResponse>;
 }
 
-#[cfg(feature = "client")]
+// `BoxSyncFuture` requires `Send`, but on wasm32 reqwest's `Response`
+// (and the futures returned by `Client` methods that touch it) hold
+// `JsValue` / `Closure` / `wasm_bindgen_futures::JsFuture` types that are
+// not `Send`. The browser is single-threaded, so a future-returning
+// transport adapter can sidestep this by carrying an `!Send` future
+// behind a `LocalBoxFuture` — but that's an embedder concern. We simply
+// gate the in-tree adapters out on wasm32 and leave the trait available
+// for downstream impls.
+#[cfg(all(feature = "client", not(target_arch = "wasm32")))]
 impl AsyncSyncTransport for crate::Client {
     fn sync_async<'a>(&'a self, request: SyncRequest) -> BoxSyncFuture<'a, SyncResponse> {
         Box::pin(async move { self.sync(&request).await })
     }
 }
 
-#[cfg(feature = "client")]
+#[cfg(all(feature = "client", not(target_arch = "wasm32")))]
 impl EventsSubscribeTransport for crate::Client {
     type StreamResponse = reqwest::Response;
 
@@ -2198,7 +2202,12 @@ mod tests {
         assert_eq!(queue.ready_batch(Utc::now(), 10), vec![message]);
 
         queue.mark_sending("txn1").unwrap();
-        queue.mark_sent("txn1", EventId::new("cx:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap()).unwrap();
+        queue
+            .mark_sent(
+                "txn1",
+                EventId::new("cx:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap(),
+            )
+            .unwrap();
         assert_eq!(queue.ready_batch(Utc::now(), 10), vec![edit]);
 
         let restored = SendQueue::from_snapshot(queue.snapshot()).unwrap();
@@ -2297,8 +2306,7 @@ mod tests {
 
     #[test]
     fn frame_event_round_trip() {
-        let line =
-            r#"{"kind":"event","seq":42,"cursor":"sx:e2e:42","payload":{"event_id":"cx:event:01904100-0000-7000-8000-834e21b98552"}}"#;
+        let line = r#"{"kind":"event","seq":42,"cursor":"sx:e2e:42","payload":{"event_id":"cx:event:01904100-0000-7000-8000-834e21b98552"}}"#;
         let frame = EventsSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
         match &frame {
             EventsSubscribeFrame::Event { seq, cursor, payload } => {
@@ -2386,7 +2394,8 @@ mod tests {
 
     #[test]
     fn frame_unauthorized_with_actor_only() {
-        let line = r#"{"kind":"unauthorized","actor_id":"did:web:alice.example","reason":"revoked"}"#;
+        let line =
+            r#"{"kind":"unauthorized","actor_id":"did:web:alice.example","reason":"revoked"}"#;
         let frame = EventsSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
         match &frame {
             EventsSubscribeFrame::Unauthorized { space_id, actor_id, reason } => {

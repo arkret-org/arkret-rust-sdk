@@ -31,7 +31,8 @@ pub const EMPTY_STATE_ROOT: &str =
 /// Compute the canonical Merkle root for a cell-state map.
 ///
 /// `cells` is the full list of cells with at least one effect under the
-/// current Anchor view; values are resolved via [`Lattice::join`].
+/// current Anchor view; values are resolved via
+/// [`contrix_lattice::Lattice::join`].
 /// Empty input returns [`EMPTY_STATE_ROOT`].
 pub fn compute_state_root(
     cells: &BTreeMap<CellRef, CellState>,

@@ -474,7 +474,9 @@ mod tests {
         };
         FederationBackfillQuery {
             space_id: authorized.space_id.clone(),
-            from_event_id: Some(EventId::new("cx:event:01904100-0000-7000-8000-0b94566027c1").unwrap()),
+            from_event_id: Some(
+                EventId::new("cx:event:01904100-0000-7000-8000-0b94566027c1").unwrap(),
+            ),
             limit: 10,
             authorization: authorized,
         }

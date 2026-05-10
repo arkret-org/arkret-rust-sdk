@@ -470,8 +470,7 @@ impl SpaceState {
         FlowId::new(flow_id.clone())?;
         let title = self.extract_field::<String>(&event.content, "title")?;
         let flow_kind = self.extract_field::<FlowKind>(&event.content, "flow_kind")?;
-        let primary_track =
-            self.extract_optional_field::<String>(&event.content, "primary_track");
+        let primary_track = self.extract_optional_field::<String>(&event.content, "primary_track");
         let tracks = self
             .extract_optional_field::<BTreeMap<String, crate::FlowTrackConfig>>(
                 &event.content,
@@ -1841,7 +1840,8 @@ mod tests {
         assert_eq!(flow.fields["priority"], "high");
         assert_eq!(flow.version, Some(1));
 
-        let relation = state.relations.get("cx:relation:01904100-0000-7000-8000-4da53c8b9e89").unwrap();
+        let relation =
+            state.relations.get("cx:relation:01904100-0000-7000-8000-4da53c8b9e89").unwrap();
         assert_eq!(relation.relation_kind, crate::RelationKind::HasSurface);
         assert_eq!(relation.from_ref.as_deref(), Some(flow_id));
         assert_eq!(relation.to_ref.as_deref(), Some(card_ref));
@@ -2011,7 +2011,10 @@ mod tests {
 
         let resolved = state.resolved_state.get("cx.member.state|did:web:alice.example").unwrap();
         assert_eq!(resolved.content["membership"], "ban");
-        assert_eq!(resolved.source_event_id.as_str(), "cx:event:01904100-0000-7000-8000-c9d398595fe8");
+        assert_eq!(
+            resolved.source_event_id.as_str(),
+            "cx:event:01904100-0000-7000-8000-c9d398595fe8"
+        );
         assert_eq!(state.conflict_records.len(), 1);
     }
 
@@ -2267,10 +2270,8 @@ mod tests {
             .map(|i| {
                 let hlc = Hlc::new(format!("01970e589d22-{i:08x}-11111111")).unwrap();
                 Event {
-                    event_id: EventId::new(format!(
-                        "cx:event:01904100-0000-7000-8000-{i:012x}"
-                    ))
-                    .unwrap(),
+                    event_id: EventId::new(format!("cx:event:01904100-0000-7000-8000-{i:012x}"))
+                        .unwrap(),
                     kind: OP_ENTITY_CREATE.to_owned(),
                     space_id: space_id.clone(),
                     space_version: "1".to_owned(),

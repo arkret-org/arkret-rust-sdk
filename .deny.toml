@@ -9,8 +9,11 @@ exclude = [
 [advisories]
 version = 2
 ignore = [
-    { id = "RUSTSEC-2024-0436", reason = "Unmaintained paste crate, not critical." },
-    { id = "RUSTSEC-2024-0388", reason = "Unmaintained derivative crate, not a direct dependency" },
+    # Pulled in transitively via `openmls 0.8.1 -> fluvio-wasm-timer 0.2.5 -> parking_lot 0.11
+    # -> instant 0.1.13` on the wasm32 build path. The author recommends `web-time`, but
+    # `fluvio-wasm-timer` (and thus `openmls` for its wasm32 timer impl) has not migrated.
+    # No upgrade path available; tracked for openmls upstream bump.
+    { id = "RUSTSEC-2024-0384", reason = "Unmaintained `instant`, transitive via openmls 0.8.1 wasm timer; no upgrade available." },
 ]
 
 [licenses]

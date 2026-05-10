@@ -284,10 +284,10 @@ mod tests {
 
         let mut listed = store.list().unwrap();
         listed.sort();
-        assert_eq!(listed, vec![
-            "contrix:signer:alice:key-1".to_owned(),
-            "contrix:signer:bob:key-1".to_owned(),
-        ]);
+        assert_eq!(
+            listed,
+            vec!["contrix:signer:alice:key-1".to_owned(), "contrix:signer:bob:key-1".to_owned(),]
+        );
 
         store.delete("contrix:signer:alice:key-1").unwrap();
         let err = store.load("contrix:signer:alice:key-1").unwrap_err();
@@ -348,10 +348,7 @@ mod tests {
         // persist; use a per-process unique id instead.
         let id = format!(
             "contrix:test:platform-default:{}",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
         );
         store.store(&id, b"platform-default-secret").unwrap();
         assert_eq!(store.load(&id).unwrap(), b"platform-default-secret");

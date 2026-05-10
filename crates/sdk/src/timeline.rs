@@ -1079,11 +1079,8 @@ mod tests {
 
     fn create_test_event(space_id: &SpaceId, index: u32) -> Event {
         Event {
-            event_id: EventId::new(format!(
-                "cx:event:01904100-0000-7000-8000-{:012x}",
-                index
-            ))
-            .unwrap(),
+            event_id: EventId::new(format!("cx:event:01904100-0000-7000-8000-{:012x}", index))
+                .unwrap(),
             kind: "cx.entity.create".to_owned(),
             space_id: space_id.clone(),
             space_version: "1".to_owned(),

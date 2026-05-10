@@ -3,8 +3,7 @@
 //! Round 24 (2026-05-09) graduates the device-message helper from the
 //! scaffold-only [`crate::devices::DeviceMessageEnvelope`] to a
 //! production-shape `DeviceMessage` struct + builder + signer-aware
-//! `verify()` against the SDK [`MoveSigner`](contrix_core::MoveSigner)
-//! trait.
+//! `verify()` against the SDK [`contrix_core::MoveSigner`] trait.
 //!
 //! Wire shape mirrors the spec contract — `recipient`, `sender`,
 //! `message_type`, `body`, `hlc`, `sig` — with canonical bytes covering
@@ -196,9 +195,9 @@ impl DeviceMessageBuilder {
     /// - the supplied signer's DID does not match `sender`, or
     /// - canonical-bytes serialization or signing fails.
     pub fn sign<S: MoveSigner + ?Sized>(self, signer: &S) -> Result<DeviceMessage> {
-        let recipient = self
-            .recipient
-            .ok_or_else(|| Error::Protocol("device message builder missing recipient".to_owned()))?;
+        let recipient = self.recipient.ok_or_else(|| {
+            Error::Protocol("device message builder missing recipient".to_owned())
+        })?;
         let sender = self
             .sender
             .ok_or_else(|| Error::Protocol("device message builder missing sender".to_owned()))?;
@@ -215,7 +214,9 @@ impl DeviceMessageBuilder {
             .hlc
             .ok_or_else(|| Error::Protocol("device message builder missing hlc".to_owned()))?;
         if message_type.trim().is_empty() {
-            return Err(Error::Protocol("device message message_type must not be empty".to_owned()));
+            return Err(Error::Protocol(
+                "device message message_type must not be empty".to_owned(),
+            ));
         }
         if signer.signer_did() != &sender {
             return Err(Error::Protocol(

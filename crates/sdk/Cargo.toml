@@ -10,7 +10,7 @@ name = "contrix"
 readme = "README.md"
 repository = "https://github.com/contrix/contrix-rust-sdk"
 rust-version.workspace = true
-version = "0.6.0"
+version = "0.7.0"
 
 [package.metadata.docs.rs]
 all-features = true
@@ -81,7 +81,6 @@ contrix-store.workspace = true
 contrix-testing.workspace = true
 contrix-ui.workspace = true
 getrandom.workspace = true
-openmls = { workspace = true, optional = true }
 openmls_basic_credential = { workspace = true, optional = true }
 openmls_rust_crypto = { workspace = true, optional = true }
 regex.workspace = true
@@ -96,6 +95,15 @@ tracing = { workspace = true, optional = true }
 ulid.workspace = true
 uuid.workspace = true
 url = { workspace = true, optional = true, features = ["serde"] }
+
+# openmls is split per-target because the upstream crate hard-requires the
+# `js` cargo feature on wasm32 (it pulls fluvio_wasm_timer + js-sys for time
+# and randomness). Native targets must NOT enable `js` (no js-sys available).
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+openmls = { workspace = true, optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+openmls = { workspace = true, optional = true, features = ["js"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt"] }

@@ -634,8 +634,8 @@ mod tests {
     #[test]
     fn applet_portal_manages_space_bridge_and_ghost_actor() {
         let mut manager = AppletPortalManager::new();
-        let portal =
-            manager.create_portal(SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap());
+        let portal = manager
+            .create_portal(SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap());
         manager.install_applet(&portal.portal_id, "todo").unwrap();
         manager.enable_bridge(&portal.portal_id).unwrap();
         manager.set_ghost_actor(&portal.portal_id, did("ghost")).unwrap();

@@ -3001,8 +3001,7 @@ impl AuthzEngine {
                             reason: format!("track '{}' is denied", track),
                         };
                     }
-                    if !allowed_tracks.is_empty() && !allowed_tracks.iter().any(|b| b == track)
-                    {
+                    if !allowed_tracks.is_empty() && !allowed_tracks.iter().any(|b| b == track) {
                         return AuthzDecision::Deny {
                             reason: format!("track '{}' not in allow list", track),
                         };
@@ -3596,19 +3595,21 @@ mod tests {
 
     #[test]
     fn resource_selector_parse_space() {
-        let selector = ResourceSelector::parse("space:cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let selector =
+            ResourceSelector::parse("space:cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         assert_eq!(
             selector,
-            ResourceSelector::Space { space_id: "cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned() }
+            ResourceSelector::Space {
+                space_id: "cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned()
+            }
         );
     }
 
     #[test]
     fn resource_selector_parse_entity() {
-        let selector = ResourceSelector::parse(
-            "entity:cx:space:01904100-0000-7000-8000-b721a5c84b0d:task",
-        )
-        .unwrap();
+        let selector =
+            ResourceSelector::parse("entity:cx:space:01904100-0000-7000-8000-b721a5c84b0d:task")
+                .unwrap();
         assert_eq!(
             selector,
             ResourceSelector::Entity {
@@ -3645,16 +3646,20 @@ mod tests {
     #[test]
     fn resource_selector_parse_space_scoped_resources_with_colon_ids() {
         assert_eq!(
-            ResourceSelector::parse("policy:cx:space:01904100-0000-7000-8000-9b64700c6ee8:policy-main")
-                .unwrap(),
+            ResourceSelector::parse(
+                "policy:cx:space:01904100-0000-7000-8000-9b64700c6ee8:policy-main"
+            )
+            .unwrap(),
             ResourceSelector::Policy {
                 space_id: "cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
                 policy_id: Some("policy-main".to_owned()),
             }
         );
         assert_eq!(
-            ResourceSelector::parse("relation:cx:space:01904100-0000-7000-8000-9b64700c6ee8:assigned_to")
-                .unwrap(),
+            ResourceSelector::parse(
+                "relation:cx:space:01904100-0000-7000-8000-9b64700c6ee8:assigned_to"
+            )
+            .unwrap(),
             ResourceSelector::Relation {
                 space_id: "cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
                 relation_kind: "assigned_to".to_owned(),
@@ -3675,9 +3680,15 @@ mod tests {
 
     #[test]
     fn space_selector_matches_space() {
-        let selector = ResourceSelector::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() };
-        assert!(selector.matches(&Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() }));
-        assert!(!selector.matches(&Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-2a9d538f2fcf".to_owned() }));
+        let selector = ResourceSelector::Space {
+            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+        };
+        assert!(selector.matches(&Resource::Space {
+            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned()
+        }));
+        assert!(!selector.matches(&Resource::Space {
+            space_id: "cx:space:01904100-0000-7000-8000-2a9d538f2fcf".to_owned()
+        }));
     }
 
     #[test]
@@ -3705,11 +3716,17 @@ mod tests {
         let ctx = AuthzContext::new(
             Did::new("did:web:alice.example.com").unwrap(),
             "read".to_owned(),
-            Resource::Flow { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(), flow_id: "cx:flow:01904100-0000-7000-8000-f571eead1fc4".to_owned() },
+            Resource::Flow {
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+                flow_id: "cx:flow:01904100-0000-7000-8000-f571eead1fc4".to_owned(),
+            },
         );
         let mut grant = grant_for(
             "read",
-            ResourceSelector::Flow { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(), flow_id: None },
+            ResourceSelector::Flow {
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+                flow_id: None,
+            },
         );
         grant.constraints = vec![ConstraintEntry::new(Constraint::TypeRestriction {
             entity_type_allow: None,
@@ -3770,7 +3787,9 @@ mod tests {
         let ctx = AuthzContext::new(
             Did::new("did:web:alice.example.com").unwrap(),
             "read".to_owned(),
-            Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
+            Resource::Space {
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            },
         );
 
         let decision = engine.check_authorization(&ctx, &[]);
@@ -3783,11 +3802,17 @@ mod tests {
         let ctx = AuthzContext::new(
             Did::new("did:web:alice.example.com").unwrap(),
             "read".to_owned(),
-            Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
+            Resource::Space {
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            },
         );
 
-        let grant =
-            grant_for("read", ResourceSelector::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() });
+        let grant = grant_for(
+            "read",
+            ResourceSelector::Space {
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            },
+        );
 
         let decision = engine.check_authorization(&ctx, &[grant]);
         assert!(decision.is_allowed());
@@ -3799,11 +3824,17 @@ mod tests {
         let ctx = AuthzContext::new(
             Did::new("did:web:alice.example.com").unwrap(),
             "write".to_owned(),
-            Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
+            Resource::Space {
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            },
         );
 
-        let grant =
-            grant_for("read", ResourceSelector::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() });
+        let grant = grant_for(
+            "read",
+            ResourceSelector::Space {
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            },
+        );
 
         let decision = engine.check_authorization(&ctx, &[grant]);
         assert!(!decision.is_allowed());
@@ -3936,11 +3967,17 @@ mod tests {
         let ctx = AuthzContext::new(
             Did::new("did:web:bob.example.com").unwrap(),
             "read".to_owned(),
-            Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
+            Resource::Space {
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            },
         );
 
-        let grant =
-            grant_for("read", ResourceSelector::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() });
+        let grant = grant_for(
+            "read",
+            ResourceSelector::Space {
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            },
+        );
 
         let decision = engine.check_authorization(&ctx, &[grant]);
         assert!(!decision.is_allowed());
@@ -3952,14 +3989,20 @@ mod tests {
         let ctx = AuthzContext::new(
             Did::new("did:web:alice.example.com").unwrap(),
             "read".to_owned(),
-            Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
+            Resource::Space {
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            },
         );
 
         let allow_policy = PolicyCheckResponse::no_action();
         assert!(!engine.check_authorization_with_policy(&ctx, &[], &allow_policy).is_allowed());
 
-        let grant =
-            grant_for("read", ResourceSelector::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() });
+        let grant = grant_for(
+            "read",
+            ResourceSelector::Space {
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            },
+        );
         assert!(engine.check_authorization_with_policy(&ctx, &[grant], &allow_policy).is_allowed());
     }
 
@@ -4007,7 +4050,10 @@ mod tests {
         let bob = Did::new("did:web:bob.example.com").unwrap();
         let mut root = grant_for(
             "message.send",
-            ResourceSelector::Message { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(), message_id: None },
+            ResourceSelector::Message {
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+                message_id: None,
+            },
         );
         root.id = "root".to_owned();
         root.issuer = authority;
@@ -4052,11 +4098,17 @@ mod tests {
         let ctx = AuthzContext::new(
             Did::new("did:web:alice.example.com").unwrap(),
             "read".to_owned(),
-            Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
+            Resource::Space {
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            },
         );
 
-        let mut grant =
-            grant_for("read", ResourceSelector::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() });
+        let mut grant = grant_for(
+            "read",
+            ResourceSelector::Space {
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            },
+        );
         grant.constraints = vec![ConstraintEntry::new(Constraint::Temporal {
             not_before: None,
             expires_at: Some(Utc::now() - chrono::Duration::hours(1)),
@@ -4073,10 +4125,16 @@ mod tests {
         let ctx = ctx_at(
             "2026-04-29T02:30:00Z",
             "read",
-            Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
+            Resource::Space {
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            },
         );
-        let mut grant =
-            grant_for("read", ResourceSelector::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() });
+        let mut grant = grant_for(
+            "read",
+            ResourceSelector::Space {
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            },
+        );
         grant.constraints = vec![ConstraintEntry::new(Constraint::Temporal {
             not_before: None,
             expires_at: None,
@@ -4098,10 +4156,16 @@ mod tests {
         let ctx = ctx_at(
             "2026-04-29T11:30:00Z",
             "read",
-            Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
+            Resource::Space {
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            },
         );
-        let mut grant =
-            grant_for("read", ResourceSelector::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() });
+        let mut grant = grant_for(
+            "read",
+            ResourceSelector::Space {
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            },
+        );
         grant.constraints = vec![ConstraintEntry::new(Constraint::Temporal {
             not_before: None,
             expires_at: None,
@@ -4123,10 +4187,16 @@ mod tests {
         let ctx = ctx_at(
             "2026-04-29T15:30:00Z",
             "read",
-            Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
+            Resource::Space {
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            },
         );
-        let mut grant =
-            grant_for("read", ResourceSelector::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() });
+        let mut grant = grant_for(
+            "read",
+            ResourceSelector::Space {
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            },
+        );
         grant.constraints = vec![ConstraintEntry::new(Constraint::Temporal {
             not_before: None,
             expires_at: None,
@@ -4145,8 +4215,12 @@ mod tests {
     #[test]
     fn authz_engine_temporal_recurrence_handles_dst_boundary() {
         let mut engine = AuthzEngine::new();
-        let mut grant =
-            grant_for("read", ResourceSelector::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() });
+        let mut grant = grant_for(
+            "read",
+            ResourceSelector::Space {
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            },
+        );
         grant.constraints = vec![ConstraintEntry::new(Constraint::Temporal {
             not_before: None,
             expires_at: None,
@@ -4162,12 +4236,16 @@ mod tests {
         let before_jump = ctx_at(
             "2026-03-08T06:30:00Z",
             "read",
-            Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
+            Resource::Space {
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            },
         );
         let after_jump = ctx_at(
             "2026-03-08T07:30:00Z",
             "read",
-            Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
+            Resource::Space {
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            },
         );
 
         assert!(engine.check_authorization(&before_jump, &[grant.clone()]).is_allowed());
@@ -4177,8 +4255,12 @@ mod tests {
     #[test]
     fn authz_cache_expires_at_temporal_boundaries() {
         let mut engine = AuthzEngine::new();
-        let mut grant =
-            grant_for("read", ResourceSelector::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() });
+        let mut grant = grant_for(
+            "read",
+            ResourceSelector::Space {
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            },
+        );
         grant.constraints = vec![ConstraintEntry::new(Constraint::Temporal {
             not_before: None,
             expires_at: Some(utc("2026-04-29T03:00:00Z")),
@@ -4188,12 +4270,16 @@ mod tests {
         let before_expiry = ctx_at(
             "2026-04-29T02:30:00Z",
             "read",
-            Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
+            Resource::Space {
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            },
         );
         let after_expiry = ctx_at(
             "2026-04-29T03:30:00Z",
             "read",
-            Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
+            Resource::Space {
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            },
         );
 
         assert!(engine.check_authorization(&before_expiry, &[grant.clone()]).is_allowed());
@@ -4203,19 +4289,27 @@ mod tests {
     #[test]
     fn authz_cache_rechecks_future_not_before_grants() {
         let mut engine = AuthzEngine::new();
-        let mut grant =
-            grant_for("read", ResourceSelector::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() });
+        let mut grant = grant_for(
+            "read",
+            ResourceSelector::Space {
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            },
+        );
         grant.valid_from = Some(utc("2026-04-29T03:00:00Z"));
 
         let before_valid = ctx_at(
             "2026-04-29T02:30:00Z",
             "read",
-            Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
+            Resource::Space {
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            },
         );
         let after_valid = ctx_at(
             "2026-04-29T03:30:00Z",
             "read",
-            Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
+            Resource::Space {
+                space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            },
         );
 
         assert!(!engine.check_authorization(&before_valid, &[grant.clone()]).is_allowed());

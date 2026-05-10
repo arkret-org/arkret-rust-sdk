@@ -327,7 +327,12 @@ mod tests {
     fn timeline_projects_edits_redactions_and_reactions() {
         let mut projection = TimelineProjection::new();
         projection
-            .apply_event(event("cx:event:01904100-0000-7000-8000-834e21b98552", MESSAGE_TEXT, json!({"body": "hello"}), 1))
+            .apply_event(event(
+                "cx:event:01904100-0000-7000-8000-834e21b98552",
+                MESSAGE_TEXT,
+                json!({"body": "hello"}),
+                1,
+            ))
             .unwrap();
         projection
             .apply_event(event(
@@ -406,13 +411,19 @@ mod tests {
             },
         );
         let client = NotificationClient { rules };
-        let message = event("cx:event:01904100-0000-7000-8000-b2b79cd5161d", MESSAGE_TEXT, json!({"body": "hi"}), 1);
+        let message = event(
+            "cx:event:01904100-0000-7000-8000-b2b79cd5161d",
+            MESSAGE_TEXT,
+            json!({"body": "hi"}),
+            1,
+        );
         let evaluation = client.evaluate_event(&message);
         assert!(evaluation.notify);
         assert!(evaluation.highlight);
         assert!(evaluation.redacted);
 
-        let state = event("cx:event:01904100-0000-7000-8000-776c649f5e4b", STATE_MEMBERSHIP, json!({}), 2);
+        let state =
+            event("cx:event:01904100-0000-7000-8000-776c649f5e4b", STATE_MEMBERSHIP, json!({}), 2);
         assert!(!NotificationClient::default().evaluate_event(&state).notify);
     }
 }

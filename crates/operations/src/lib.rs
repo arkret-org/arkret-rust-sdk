@@ -5,18 +5,18 @@ use std::collections::{BTreeMap, BTreeSet};
 use contrix_core::{
     BUILT_IN_OPERATION_KINDS, Error, OP_AUTHZ_CHECK, OP_BLOB_GET, OP_BLOB_HEAD, OP_BLOB_UPLOAD,
     OP_CONTAINER_MOVE_ITEM, OP_CONTAINER_REBALANCE, OP_DIRECTORY_DESCRIBE, OP_ENTITY_CREATE,
-    OP_ENTITY_DELETE, OP_ENTITY_REDACT, OP_ENTITY_RESTORE, OP_ENTITY_UPDATE,
-    OP_FEDERATION_TRANSACTION, OP_FIELD_POSITION_MOVE, OP_FIELD_POSITION_REORDER, OP_FLOW_ARCHIVE,
-    OP_FLOW_CONVERT, OP_FLOW_CREATE, OP_FLOW_LINK_SURFACE, OP_FLOW_MOVE, OP_FLOW_REORDER,
-    OP_FLOW_RESTORE, OP_FLOW_SET_PRIMARY_SURFACE, OP_FLOW_UNLINK_SURFACE, OP_FLOW_UPDATE,
-    OP_IDENTITY_RESOLVE, OP_INDEX_DESCRIBE, OP_INDEX_INBOX, OP_INDEX_NOTIFICATIONS, OP_INDEX_QUERY,
-    OP_INDEX_SEARCH, OP_INDEX_THREAD, OP_KEYS_CLAIM, OP_KEYS_QUERY, OP_KEYS_UPLOAD,
-    OP_MESSAGE_CREATE, OP_PUSH_NOTIFY, OP_RELATION_CREATE, OP_RELATION_DELETE, OP_REPO_DESCRIBE,
-    OP_EVENTS_QUERY, OP_EVENTS_SUBSCRIBE, OP_REPO_SYNC, OP_SERVER_DESCRIBE, OP_SPACE_CHILD,
-    OP_SPACE_CREATE, OP_SPACE_ORGANIZATION, OP_SPACE_UPDATE, OP_SYNC_ACCOUNT, OP_SYNC_DESCRIBE,
-    OP_TASK_CREATE,
-    OP_TASK_UPDATE, OP_VIEW_CREATE, OP_VIEW_RECONCILE, OP_VIEW_UPDATE, OperationEnvelope,
-    OperationId, OperationKindConformanceVector, OperationKindRegistry, Result,
+    OP_ENTITY_DELETE, OP_ENTITY_REDACT, OP_ENTITY_RESTORE, OP_ENTITY_UPDATE, OP_EVENTS_QUERY,
+    OP_EVENTS_SUBSCRIBE, OP_FEDERATION_TRANSACTION, OP_FIELD_POSITION_MOVE,
+    OP_FIELD_POSITION_REORDER, OP_FLOW_ARCHIVE, OP_FLOW_CONVERT, OP_FLOW_CREATE,
+    OP_FLOW_LINK_SURFACE, OP_FLOW_MOVE, OP_FLOW_REORDER, OP_FLOW_RESTORE,
+    OP_FLOW_SET_PRIMARY_SURFACE, OP_FLOW_UNLINK_SURFACE, OP_FLOW_UPDATE, OP_IDENTITY_RESOLVE,
+    OP_INDEX_DESCRIBE, OP_INDEX_INBOX, OP_INDEX_NOTIFICATIONS, OP_INDEX_QUERY, OP_INDEX_SEARCH,
+    OP_INDEX_THREAD, OP_KEYS_CLAIM, OP_KEYS_QUERY, OP_KEYS_UPLOAD, OP_MESSAGE_CREATE,
+    OP_PUSH_NOTIFY, OP_RELATION_CREATE, OP_RELATION_DELETE, OP_REPO_DESCRIBE, OP_REPO_SYNC,
+    OP_SERVER_DESCRIBE, OP_SPACE_CHILD, OP_SPACE_CREATE, OP_SPACE_ORGANIZATION, OP_SPACE_UPDATE,
+    OP_SYNC_ACCOUNT, OP_SYNC_DESCRIBE, OP_TASK_CREATE, OP_TASK_UPDATE, OP_VIEW_CREATE,
+    OP_VIEW_RECONCILE, OP_VIEW_UPDATE, OperationEnvelope, OperationId,
+    OperationKindConformanceVector, OperationKindRegistry, Result,
     operation_kind_conformance_vectors,
 };
 
@@ -567,7 +567,9 @@ mod tests {
             builder = builder.with_dependency(OperationId::new(dep).unwrap());
         }
         if authz {
-            builder = builder.with_authz_ref(GrantId::new("cx:grant:01904100-0000-7000-8000-e78463d5d984").unwrap());
+            builder = builder.with_authz_ref(
+                GrantId::new("cx:grant:01904100-0000-7000-8000-e78463d5d984").unwrap(),
+            );
         }
         builder.build(&OperationKindRegistry::default()).unwrap()
     }
@@ -583,15 +585,24 @@ mod tests {
     #[test]
     fn dag_accepts_complete_acyclic_dependencies() {
         let mut dag = OperationDag::new();
-        dag.insert(envelope("cx:operation:01904100-0000-7000-8000-b24c1b0f1a32", Vec::new())).unwrap();
-        dag.insert(envelope("cx:operation:01904100-0000-7000-8000-bc16402a117e", vec!["cx:operation:01904100-0000-7000-8000-b24c1b0f1a32"])).unwrap();
+        dag.insert(envelope("cx:operation:01904100-0000-7000-8000-b24c1b0f1a32", Vec::new()))
+            .unwrap();
+        dag.insert(envelope(
+            "cx:operation:01904100-0000-7000-8000-bc16402a117e",
+            vec!["cx:operation:01904100-0000-7000-8000-b24c1b0f1a32"],
+        ))
+        .unwrap();
         dag.validate().unwrap().validate_acyclic_complete().unwrap();
     }
 
     #[test]
     fn dag_reports_missing_dependencies() {
         let mut dag = OperationDag::new();
-        dag.insert(envelope("cx:operation:01904100-0000-7000-8000-bc16402a117e", vec!["cx:operation:01904100-0000-7000-8000-74849cf4e138"])).unwrap();
+        dag.insert(envelope(
+            "cx:operation:01904100-0000-7000-8000-bc16402a117e",
+            vec!["cx:operation:01904100-0000-7000-8000-74849cf4e138"],
+        ))
+        .unwrap();
         let report = dag.validate().unwrap();
         assert_eq!(report.missing_dependencies.len(), 1);
         assert!(report.validate_acyclic_complete().is_err());
@@ -600,8 +611,16 @@ mod tests {
     #[test]
     fn dag_reports_cycles_and_negative_vectors_cover_failure_modes() {
         let mut dag = OperationDag::new();
-        dag.insert(envelope("cx:operation:01904100-0000-7000-8000-b24c1b0f1a32", vec!["cx:operation:01904100-0000-7000-8000-bc16402a117e"])).unwrap();
-        dag.insert(envelope("cx:operation:01904100-0000-7000-8000-bc16402a117e", vec!["cx:operation:01904100-0000-7000-8000-b24c1b0f1a32"])).unwrap();
+        dag.insert(envelope(
+            "cx:operation:01904100-0000-7000-8000-b24c1b0f1a32",
+            vec!["cx:operation:01904100-0000-7000-8000-bc16402a117e"],
+        ))
+        .unwrap();
+        dag.insert(envelope(
+            "cx:operation:01904100-0000-7000-8000-bc16402a117e",
+            vec!["cx:operation:01904100-0000-7000-8000-b24c1b0f1a32"],
+        ))
+        .unwrap();
         let report = dag.validate().unwrap();
         assert!(report.has_cycle);
         assert!(report.validate_acyclic_complete().is_err());

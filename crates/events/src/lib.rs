@@ -1187,7 +1187,10 @@ mod tests {
         let KnownEventContent::PollResponse(response) = poll_response else {
             panic!("expected poll response");
         };
-        assert_eq!(response.poll_event_id.as_str(), "cx:event:01904100-0000-7000-8000-fb8cfd35e274");
+        assert_eq!(
+            response.poll_event_id.as_str(),
+            "cx:event:01904100-0000-7000-8000-fb8cfd35e274"
+        );
         assert_eq!(response.answer_ids, vec!["a"]);
 
         let acknowledgement = require_known_content(

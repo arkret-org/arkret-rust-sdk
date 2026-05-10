@@ -1714,8 +1714,10 @@ mod tests {
         let space = Space::new(space_id.clone(), base_client);
 
         let mut input = RelationOperationInput::new(RelationKind::DependsOn);
-        input.from_entity_id = Some(EntityId::new("cx:entity:01904100-0000-7000-8000-d48c478ecd0b").unwrap());
-        input.to_entity_id = Some(EntityId::new("cx:entity:01904100-0000-7000-8000-e75dc3f6ab2e").unwrap());
+        input.from_entity_id =
+            Some(EntityId::new("cx:entity:01904100-0000-7000-8000-d48c478ecd0b").unwrap());
+        input.to_entity_id =
+            Some(EntityId::new("cx:entity:01904100-0000-7000-8000-e75dc3f6ab2e").unwrap());
         let op = space.create_relation_operation(input).unwrap();
 
         assert_eq!(op.operation_type, OperationType::Create);

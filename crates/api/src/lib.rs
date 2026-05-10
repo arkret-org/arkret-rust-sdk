@@ -1099,8 +1099,7 @@ mod tests {
 
     #[test]
     fn matcher_routes_post_applet_transactions() {
-        let matched =
-            match_endpoint(EndpointMethod::Post, "/api/v1/applet/transactions").unwrap();
+        let matched = match_endpoint(EndpointMethod::Post, "/api/v1/applet/transactions").unwrap();
         assert_eq!(matched.endpoint.operation_id, "cx.applet.transaction");
         assert!(matched.path_parameters.is_empty());
     }

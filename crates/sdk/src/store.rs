@@ -561,8 +561,7 @@ fn conformance_operation(suffix: &str) -> Operation {
 
 fn conformance_commit(suffix: &str, author_seq: u64, operations: Vec<Hash>) -> Commit {
     let mut commit = Commit::new(
-        CommitId::new(format!("cx:commit:{}", fixture_uuid7(&format!("commit:{suffix}"))))
-            .unwrap(),
+        CommitId::new(format!("cx:commit:{}", fixture_uuid7(&format!("commit:{suffix}")))).unwrap(),
         "did:web:conformance.example",
         Did::new("did:web:conformance.example").unwrap(),
         author_seq,
@@ -1605,7 +1604,11 @@ mod tests {
             json!({"id":"cx:entity:01904100-0000-7000-8000-903ae1c59115"}),
         );
         let operation_digest = Hash::new(operation.operation_digest().unwrap()).unwrap();
-        let commit = test_commit("cx:commit:01904100-0000-7000-8000-9414e20f93a5", 1, vec![operation_digest]);
+        let commit = test_commit(
+            "cx:commit:01904100-0000-7000-8000-9414e20f93a5",
+            1,
+            vec![operation_digest],
+        );
 
         let receipt = store
             .write_batch(
@@ -1666,8 +1669,11 @@ mod tests {
             json!({"id":"cx:entity:01904100-0000-7000-8000-e24603aa53b6"}),
         );
         let operation_digest = operation.operation_digest().unwrap();
-        let commit =
-            test_commit("cx:commit:01904100-0000-7000-8000-bdc0c09373c7", 1, vec![Hash::new(operation_digest.clone()).unwrap()]);
+        let commit = test_commit(
+            "cx:commit:01904100-0000-7000-8000-bdc0c09373c7",
+            1,
+            vec![Hash::new(operation_digest.clone()).unwrap()],
+        );
         store
             .write_batch(
                 RepoWriteBatch::new().with_operation(operation.clone()).with_commit(commit),
@@ -1840,7 +1846,11 @@ mod tests {
                 json!({"id":"cx:entity:01904100-0000-7000-8000-551cf1c01e4d"}),
             );
             let operation_digest = Hash::new(operation.operation_digest().unwrap()).unwrap();
-            let commit = test_commit("cx:commit:01904100-0000-7000-8000-953544819f9c", 1, vec![operation_digest]);
+            let commit = test_commit(
+                "cx:commit:01904100-0000-7000-8000-953544819f9c",
+                1,
+                vec![operation_digest],
+            );
             writer.write_batch(RepoWriteBatch::new().with_operation(operation).with_commit(commit))
         });
         let receipt = write.join().unwrap().unwrap();
@@ -1864,7 +1874,10 @@ mod tests {
         assert!(store.remaining_quota() < 4096);
 
         store.enqueue_background_sync(operation.operation_id.to_string());
-        assert_eq!(store.pop_background_sync(), Some("cx:operation:01904100-0000-7000-8000-1b6425d62e4a".to_owned()));
+        assert_eq!(
+            store.pop_background_sync(),
+            Some("cx:operation:01904100-0000-7000-8000-1b6425d62e4a".to_owned())
+        );
     }
 
     #[test]
@@ -1877,7 +1890,11 @@ mod tests {
             json!({"id":"cx:entity:01904100-0000-7000-8000-1323704cc6e0"}),
         );
         let operation_digest = Hash::new(operation.operation_digest().unwrap()).unwrap();
-        let commit = test_commit("cx:commit:01904100-0000-7000-8000-f919eee3ba49", 1, vec![operation_digest]);
+        let commit = test_commit(
+            "cx:commit:01904100-0000-7000-8000-f919eee3ba49",
+            1,
+            vec![operation_digest],
+        );
         store
             .write_batch(
                 RepoWriteBatch::new().with_operation(operation.clone()).with_commit(commit.clone()),
@@ -1944,7 +1961,10 @@ mod tests {
         store.put_operation(operation.clone()).unwrap();
 
         let ciphertext = store.encrypted_operation_bytes(&operation.operation_id).unwrap();
-        assert!(!String::from_utf8_lossy(ciphertext).contains("cx:entity:01904100-0000-7000-8000-c12dc98b2948"));
+        assert!(
+            !String::from_utf8_lossy(ciphertext)
+                .contains("cx:entity:01904100-0000-7000-8000-c12dc98b2948")
+        );
         assert!(store.operation(&operation.operation_id).is_some());
     }
 

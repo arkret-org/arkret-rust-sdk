@@ -17,8 +17,8 @@ use windows::Win32::Security::Credentials::{
 };
 use windows::core::PCWSTR;
 
-use crate::keystore::{KeyStore, KeyStoreError, service_name, validate_id};
 use crate::Result;
+use crate::keystore::{KeyStore, KeyStoreError, service_name, validate_id};
 
 /// Windows Credential Manager-backed [`KeyStore`].
 pub struct WindowsCredentialKeyStore {
@@ -52,7 +52,8 @@ impl KeyStore for WindowsCredentialKeyStore {
         validate_id(id)?;
         let target = wide(&self.target_name(id));
         let mut cred_ptr: *mut CREDENTIALW = std::ptr::null_mut();
-        let res = unsafe { CredReadW(PCWSTR(target.as_ptr()), CRED_TYPE_GENERIC, None, &mut cred_ptr) };
+        let res =
+            unsafe { CredReadW(PCWSTR(target.as_ptr()), CRED_TYPE_GENERIC, None, &mut cred_ptr) };
         match res {
             Ok(()) => {
                 if cred_ptr.is_null() {
@@ -108,8 +109,7 @@ impl KeyStore for WindowsCredentialKeyStore {
         let filter = wide(&self.filter());
         let mut count: u32 = 0;
         let mut creds: *mut *mut CREDENTIALW = std::ptr::null_mut();
-        let res =
-            unsafe { CredEnumerateW(PCWSTR(filter.as_ptr()), None, &mut count, &mut creds) };
+        let res = unsafe { CredEnumerateW(PCWSTR(filter.as_ptr()), None, &mut count, &mut creds) };
         match res {
             Ok(()) => {
                 let mut ids = Vec::with_capacity(count as usize);

@@ -36,7 +36,7 @@ impl LatticeKind {
     /// Per-kind declaration of the `cx.<...>` event-kind IDs each lattice
     /// type handles.
     ///
-    /// The list is the canonical contract used by [`LatticeRegistry`] →
+    /// The list is the canonical contract used by `LatticeRegistry` →
     /// `ProjectionState::apply` to route incoming events to the correct
     /// lattice without consulting the cell registry. Soland's full
     /// `lattice_first=true` projection switch depends on this contract.
