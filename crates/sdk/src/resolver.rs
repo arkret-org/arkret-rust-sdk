@@ -473,7 +473,10 @@ impl SpaceState {
         let primary_track =
             self.extract_optional_field::<String>(&event.content, "primary_track");
         let tracks = self
-            .extract_optional_field::<Vec<crate::FlowTrack>>(&event.content, "tracks")
+            .extract_optional_field::<BTreeMap<String, crate::FlowTrackConfig>>(
+                &event.content,
+                "tracks",
+            )
             .unwrap_or_default();
         let semantic_kind = self.extract_optional_field::<String>(&event.content, "semantic_kind");
         let brief = self.extract_optional_field(&event.content, "brief");
@@ -526,16 +529,18 @@ impl SpaceState {
         let primary_track = self
             .extract_optional_field::<String>(&event.content, "primary_track")
             .or_else(|| patch_string(&patch, "primary_track"));
-        let tracks =
-            self.extract_optional_field::<Vec<crate::FlowTrack>>(&event.content, "tracks")
-                .or_else(|| {
-                    // Patch path is a JSON array; reuse the canonical
-                    // `Deserialize` impl on `FlowTrack` to accept either
-                    // bare strings or full objects.
-                    patch.as_ref().and_then(|p| p.get("tracks")).and_then(|v| {
-                        serde_json::from_value::<Vec<crate::FlowTrack>>(v.clone()).ok()
-                    })
-                });
+        let tracks = self
+            .extract_optional_field::<BTreeMap<String, crate::FlowTrackConfig>>(
+                &event.content,
+                "tracks",
+            )
+            .or_else(|| {
+                // Patch path is a JSON object map: track_name → FlowTrackConfig.
+                patch.as_ref().and_then(|p| p.get("tracks")).and_then(|v| {
+                    serde_json::from_value::<BTreeMap<String, crate::FlowTrackConfig>>(v.clone())
+                        .ok()
+                })
+            });
         let semantic_kind = self
             .extract_optional_field::<String>(&event.content, "semantic_kind")
             .or_else(|| patch_string(&patch, "semantic_kind"));

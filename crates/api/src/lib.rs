@@ -530,8 +530,8 @@ pub const ENDPOINTS: &[Endpoint] = &[
     endpoint!(
         DeviceMessages,
         "cx.device_messages.put",
-        Put,
-        "/api/v1/device_messages/{txn_id}",
+        Post,
+        "/api/v1/device_messages",
         "DeviceMessagesSendRequest",
         "DeviceMessagesSendResponse"
     ),
@@ -810,8 +810,8 @@ pub const ENDPOINTS: &[Endpoint] = &[
     endpoint!(
         Appservice,
         "cx.applet.transaction",
-        Put,
-        "/api/v1/applet/transactions/{txn_id}",
+        Post,
+        "/api/v1/applet/transactions",
         "AppletTransactionRequest",
         "AppletTransactionResponse"
     ),
@@ -1018,6 +1018,9 @@ fn header_parameters(operation_id: &str) -> Vec<EndpointParameter> {
             ("Digest", false, "Hash"),
         ],
         "cx.blob.get" => &[("Range", false, "String")],
+        "cx.device_messages.put" | "cx.applet.transaction" => {
+            &[("Idempotency-Key", true, "String")]
+        }
         _ => &[],
     };
 
@@ -1095,11 +1098,11 @@ mod tests {
     }
 
     #[test]
-    fn matcher_extracts_path_parameters() {
+    fn matcher_routes_post_applet_transactions() {
         let matched =
-            match_endpoint(EndpointMethod::Put, "/api/v1/applet/transactions/txn_123").unwrap();
+            match_endpoint(EndpointMethod::Post, "/api/v1/applet/transactions").unwrap();
         assert_eq!(matched.endpoint.operation_id, "cx.applet.transaction");
-        assert_eq!(matched.path_parameters["txn_id"], "txn_123");
+        assert!(matched.path_parameters.is_empty());
     }
 
     #[test]

@@ -95,7 +95,6 @@ pub struct ToDeviceEnvelope {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DeviceMessageEnvelope {
     pub kind: String,
-    pub txn_id: String,
     pub sender_principal_id: Did,
     pub sender_device_id: DeviceId,
     pub recipient_principal_id: Did,

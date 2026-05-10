@@ -823,12 +823,11 @@ impl Client {
 
     pub async fn send_device_messages(
         &self,
-        txn_id: &str,
+        idempotency_key: &str,
         request: &DeviceMessagesSendRequest,
     ) -> Result<DeviceMessagesSendResponse> {
-        reject_path_segment(txn_id)?;
-        let path = format!("/api/v1/device_messages/{txn_id}");
-        self.put(&path, request).await
+        let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
+        self.post_with_options("/api/v1/device_messages", request, &options).await
     }
 
     pub async fn receive_device_messages(
@@ -1113,12 +1112,11 @@ impl Client {
 
     pub async fn applet_transaction(
         &self,
-        txn_id: &str,
+        idempotency_key: &str,
         request: &AppletTransactionRequest,
     ) -> Result<AppletTransactionResponse> {
-        reject_path_segment(txn_id)?;
-        let path = format!("/api/v1/applet/transactions/{txn_id}");
-        self.put(&path, request).await
+        let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
+        self.post_with_options("/api/v1/applet/transactions", request, &options).await
     }
 
     pub async fn applet_actor(&self, actor_id: &str) -> Result<AppletActorResponse> {

@@ -2090,7 +2090,6 @@ mod tests {
             },
         );
         response.to_device.push(ToDeviceMessage {
-            txn_id: None,
             message_type: "m.test".to_owned(),
             content: json!({"ok":true}),
             sender_principal_id: None,

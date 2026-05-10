@@ -10,6 +10,69 @@ permitted; once `1.0` ships, breaking changes will require a major bump.
 
 ## [Unreleased]
 
+## [0.6.0] – 2026-05-10 — Spec sync (`contrix-spec` `f724863..48898bf`)
+
+Wire-breaking spec alignment pass. v1 is unreleased so this is a hard
+break with no compat shims, no `#[deprecated]` adapters, and no
+legacy-form fallback in `Deserialize`.
+
+### Breaking
+
+- **`Flow.tracks` is now an object/map**, not an array.
+  - `Flow.tracks: Vec<FlowTrack>` → `Flow.tracks: BTreeMap<String,
+    FlowTrackConfig>`. The track name is the map key and is no longer
+    carried as a struct field.
+  - Renamed `FlowTrack` → `FlowTrackConfig` and dropped the `name`
+    field. Custom `Deserialize` impl (which accepted bare-string and
+    full-object forms) is removed; the struct now derives
+    `Deserialize` directly.
+  - Helper constructors return a `FlowTrackConfig` to be inserted
+    under the canonical map key (`FLOW_TRACK_NAME_SYNTHESIS` /
+    `FLOW_TRACK_NAME_DISCUSSION`):
+    `FlowTrackConfig::synthesis()`, `FlowTrackConfig::discussion()`,
+    `FlowTrackConfig::discussion_primary()`, plus the chainable
+    `with_profile(..)` / `primary()` builders.
+  - `FlowTrack::validate_name` (instance method) is replaced by the
+    free function `validate_flow_track_name(name: &str)` that validates
+    a candidate map key against `^[a-z][a-z0-9_]{0,63}$`.
+  - `resolve_primary_track` signature is now
+    `fn(&BTreeMap<String, FlowTrackConfig>, Option<&str>) ->
+     Result<Option<(&String, &FlowTrackConfig)>>`. Same fail-closed
+    rule when more than one track sets `is_primary=true`; fallback
+    rules (synthesis-by-default, single-track, profile_default) match
+    against the map key.
+  - `Flow::discussion(..)` constructs the chat-style room form by
+    inserting `FlowTrackConfig::synthesis()` and
+    `FlowTrackConfig::discussion_primary()` under the canonical names.
+- **`/device_messages` is now `POST` + `Idempotency-Key` header**.
+  - Endpoint registry: `cx.device_messages.put` is `POST
+    /api/v1/device_messages` (was `PUT
+    /api/v1/device_messages/{txn_id}`).
+  - `Client::send_device_messages(idempotency_key, request)` switches
+    to `POST` and propagates the key via the `Idempotency-Key`
+    request header.
+  - `ToDeviceMessage` (in both `contrix_core::model` and
+    `contrix_core::sync`) drops its `Option<String> txn_id` field —
+    the wire envelope no longer carries it.
+  - `OP_DEVICE_MESSAGES_PUT` required-fields list drops `txn_id`.
+  - `DeviceMessageEnvelope` (`crates/sdk/src/devices.rs`) drops its
+    `txn_id` field to match
+    `device-message.schema.json`.
+- **`/applet/transactions` is now `POST` + `Idempotency-Key` header**.
+  - Endpoint registry: `cx.applet.transaction` is `POST
+    /api/v1/applet/transactions` (was `PUT
+    /api/v1/applet/transactions/{txn_id}`).
+  - `Client::applet_transaction(idempotency_key, request)` switches to
+    `POST` + `Idempotency-Key` header.
+  - Server route table, OpenAPI document, conformance vectors, and
+    Salvo router debug strings updated to the new shape.
+- API endpoint headers list: both `cx.device_messages.put` and
+  `cx.applet.transaction` declare a required `Idempotency-Key` header.
+
+### Changed
+
+- Crate version `0.5.2 → 0.6.0` across the workspace.
+
 ## [0.5.1] – 2026-05-09 — Platform `KeyStore` native backends
 
 Round 23 of the SDK: turns the Round-22 `KeyStore` platform stubs into

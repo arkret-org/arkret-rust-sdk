@@ -444,7 +444,7 @@ fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         .collect(),
         OP_MESSAGE_CREATE => vec!["body".to_owned()],
         OP_DEVICE_MESSAGES_PUT => {
-            ["txn_id", "kind", "recipient_principal_id", "recipient_device_id", "content"]
+            ["kind", "recipient_principal_id", "recipient_device_id", "content"]
                 .into_iter()
                 .map(str::to_owned)
                 .collect()
@@ -2582,11 +2582,11 @@ pub struct Flow {
     pub flow_kind: FlowKind,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub primary_track: Option<String>,
-    /// Tracks per `data-structures.md` §6.1. The custom
-    /// `Deserialize` impl on [`FlowTrack`] tolerates the legacy
-    /// `Vec<String>` wire form, so existing fixtures keep working.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub tracks: Vec<FlowTrack>,
+    /// Tracks per `data-structures.md` §6.1. The map key is the
+    /// canonical track name (`synthesis`, `discussion`, …); the value
+    /// carries `is_primary`, `profile`, `access`, and per-track fields.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub tracks: BTreeMap<String, FlowTrackConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub semantic_kind: Option<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -2624,7 +2624,7 @@ impl Flow {
             summary: None,
             flow_kind,
             primary_track: None,
-            tracks: Vec::new(),
+            tracks: BTreeMap::new(),
             semantic_kind: None,
             fields: BTreeMap::new(),
             state: Some(ObjectState::Active),
@@ -2665,8 +2665,14 @@ impl Flow {
         created_by: Did,
     ) -> Self {
         let mut flow = Self::new(id, space_id, title, FlowKind::Discussion, created_by);
-        flow.primary_track = Some("discussion".to_owned());
-        flow.tracks = vec![FlowTrack::synthesis(), FlowTrack::discussion_primary()];
+        flow.primary_track = Some(FLOW_TRACK_NAME_DISCUSSION.to_owned());
+        let mut tracks = BTreeMap::new();
+        tracks.insert(FLOW_TRACK_NAME_SYNTHESIS.to_owned(), FlowTrackConfig::synthesis());
+        tracks.insert(
+            FLOW_TRACK_NAME_DISCUSSION.to_owned(),
+            FlowTrackConfig::discussion_primary(),
+        );
+        flow.tracks = tracks;
         flow
     }
 
@@ -5549,8 +5555,6 @@ pub struct DeviceMessagesSendRequest {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ToDeviceMessage {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub txn_id: Option<String>,
     #[serde(rename = "type")]
     pub message_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -5595,9 +5599,7 @@ pub struct DeviceMessagesReceiveResponse {
 // ── Spec-aligned canonical types added in 2026-05 alignment pass ───────────
 //
 // These types fill gaps identified in `_todos.md` between the Rust SDK
-// surface and `contrix-spec/spec/v1/zh/` v1-core-rc. They are additive and must not
-// break existing wire shapes; legacy fixtures that emit `tracks: ["a"]`
-// (string array) are still accepted via the `FlowTrack` Deserialize impl.
+// surface and `contrix-spec/spec/v1/zh/` v1-core-rc.
 
 /// Space boundary profile (data-structures.md §4 / §4.1).
 ///
@@ -5629,7 +5631,7 @@ pub fn boundary_profile_for_kind(kind: &SpaceKind) -> Option<BoundaryProfile> {
     }
 }
 
-/// Track access inheritance per data-structures.md §6.1 (`FlowTrack.access`).
+/// Track access inheritance per data-structures.md §6.1 (`FlowTrackConfig.access`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
@@ -5649,7 +5651,7 @@ pub enum TrackE2eeInheritance {
     None,
 }
 
-/// `FlowTrack.access` (data-structures.md §6.1).
+/// `FlowTrackConfig.access` (data-structures.md §6.1).
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct FlowTrackAccess {
@@ -5671,15 +5673,15 @@ pub struct FlowTrackAccess {
 pub const FLOW_TRACK_NAME_SYNTHESIS: &str = "synthesis";
 pub const FLOW_TRACK_NAME_DISCUSSION: &str = "discussion";
 
-/// Track definition inside a `Flow`.
+/// Per-track configuration carried as the value side of the
+/// `Flow.tracks` map (data-structures.md §6.1).
 ///
-/// Matches `data-structures.md §6.1` (`array<FlowTrack>`). Deserialization
-/// also accepts a bare string (legacy `Vec<String>` shape) by promoting it
-/// to `FlowTrack { name, ..default }`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+/// The track name lives in the parent map key and is no longer carried
+/// as a struct field. Reducers treat the map as `track_name →
+/// FlowTrackConfig`.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct FlowTrack {
-    pub name: String,
+pub struct FlowTrackConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub is_primary: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -5690,35 +5692,32 @@ pub struct FlowTrack {
     pub fields: BTreeMap<String, Value>,
 }
 
-impl FlowTrack {
-    pub fn new(name: impl Into<String>) -> Self {
-        Self {
-            name: name.into(),
-            is_primary: None,
-            profile: None,
-            access: None,
-            fields: BTreeMap::new(),
-        }
+impl FlowTrackConfig {
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    /// Standard `synthesis` track — formal expression, structured fields,
-    /// state transitions. Default in any Flow that carries a body or
-    /// schema-defined `fields`.
+    /// Standard `synthesis` track config — formal expression, structured
+    /// fields, state transitions. Default in any Flow that carries a body
+    /// or schema-defined `fields`. Insert under the
+    /// [`FLOW_TRACK_NAME_SYNTHESIS`] map key.
     pub fn synthesis() -> Self {
-        Self::new("synthesis")
+        Self::default()
     }
 
-    /// Standard `discussion` track — chat timeline, mentions, reactions.
-    /// Not marked primary by default.
+    /// Standard `discussion` track config — chat timeline, mentions,
+    /// reactions. Not marked primary by default. Insert under the
+    /// [`FLOW_TRACK_NAME_DISCUSSION`] map key.
     pub fn discussion() -> Self {
-        let mut b = Self::new("discussion");
+        let mut b = Self::default();
         b.profile = Some("discussion".to_owned());
         b
     }
 
-    /// Standard `discussion` track marked as the Flow's primary entry
-    /// point. Used by `Flow::discussion` to construct the chat-style
-    /// (room / channel) form.
+    /// Standard `discussion` track config marked as the Flow's primary
+    /// entry point. Used by `Flow::discussion` to construct the chat-style
+    /// (room / channel) form. Insert under the
+    /// [`FLOW_TRACK_NAME_DISCUSSION`] map key.
     pub fn discussion_primary() -> Self {
         let mut b = Self::discussion();
         b.is_primary = Some(true);
@@ -5738,75 +5737,40 @@ impl FlowTrack {
         self.profile = Some(profile.into());
         self
     }
-
-    /// Validate that `name` matches `^[a-z][a-z0-9_]{0,63}$` per spec.
-    pub fn validate_name(&self) -> Result<()> {
-        if self.name.is_empty() || self.name.len() > 64 {
-            return Err(Error::Protocol("FlowTrack.name must be 1..=64 chars".to_owned()));
-        }
-        let mut chars = self.name.chars();
-        let first = chars
-            .next()
-            .ok_or_else(|| Error::Protocol("FlowTrack.name must not be empty".to_owned()))?;
-        if !first.is_ascii_lowercase() {
-            return Err(Error::Protocol("FlowTrack.name must start with [a-z]".to_owned()));
-        }
-        for c in chars {
-            if !(c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_') {
-                return Err(Error::Protocol(format!(
-                    "FlowTrack.name contains invalid character '{c}'"
-                )));
-            }
-        }
-        Ok(())
-    }
 }
 
-impl<'de> Deserialize<'de> for FlowTrack {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        #[derive(Deserialize)]
-        #[serde(untagged)]
-        enum Repr {
-            Bare(String),
-            Full {
-                name: String,
-                #[serde(default)]
-                is_primary: Option<bool>,
-                #[serde(default)]
-                profile: Option<String>,
-                #[serde(default)]
-                access: Option<FlowTrackAccess>,
-                #[serde(default)]
-                fields: BTreeMap<String, Value>,
-            },
-        }
-        Ok(match Repr::deserialize(deserializer)? {
-            Repr::Bare(name) => FlowTrack {
-                name,
-                is_primary: None,
-                profile: None,
-                access: None,
-                fields: BTreeMap::new(),
-            },
-            Repr::Full { name, is_primary, profile, access, fields } => {
-                FlowTrack { name, is_primary, profile, access, fields }
-            }
-        })
+/// Validate a `FlowTrack` map key against `^[a-z][a-z0-9_]{0,63}$` per
+/// spec §6.1.
+pub fn validate_flow_track_name(name: &str) -> Result<()> {
+    if name.is_empty() || name.len() > 64 {
+        return Err(Error::Protocol("FlowTrack name must be 1..=64 chars".to_owned()));
     }
+    let mut chars = name.chars();
+    let first = chars
+        .next()
+        .ok_or_else(|| Error::Protocol("FlowTrack name must not be empty".to_owned()))?;
+    if !first.is_ascii_lowercase() {
+        return Err(Error::Protocol("FlowTrack name must start with [a-z]".to_owned()));
+    }
+    for c in chars {
+        if !(c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_') {
+            return Err(Error::Protocol(format!(
+                "FlowTrack name contains invalid character '{c}'"
+            )));
+        }
+    }
+    Ok(())
 }
 
 /// Resolve the primary track of a Flow per data-structures.md §6.1
 /// resolution rules. Returns `Ok(None)` when the rules require the reducer
 /// to fail closed (rule 5).
 pub fn resolve_primary_track<'a>(
-    tracks: &'a [FlowTrack],
+    tracks: &'a BTreeMap<String, FlowTrackConfig>,
     profile_default: Option<&str>,
-) -> Result<Option<&'a FlowTrack>> {
-    let explicit: Vec<&FlowTrack> =
-        tracks.iter().filter(|b| b.is_primary == Some(true)).collect();
+) -> Result<Option<(&'a String, &'a FlowTrackConfig)>> {
+    let explicit: Vec<(&String, &FlowTrackConfig)> =
+        tracks.iter().filter(|(_, cfg)| cfg.is_primary == Some(true)).collect();
     match explicit.len() {
         0 => {}
         1 => return Ok(Some(explicit[0])),
@@ -5816,16 +5780,16 @@ pub fn resolve_primary_track<'a>(
             ));
         }
     }
-    if let Some(synthesis) = tracks.iter().find(|b| b.name == FLOW_TRACK_NAME_SYNTHESIS) {
-        return Ok(Some(synthesis));
+    if let Some((k, v)) = tracks.get_key_value(FLOW_TRACK_NAME_SYNTHESIS) {
+        return Ok(Some((k, v)));
     }
     if tracks.len() == 1 {
-        return Ok(Some(&tracks[0]));
+        return Ok(tracks.iter().next());
     }
     if let Some(default_name) = profile_default
-        && let Some(b) = tracks.iter().find(|b| b.name == default_name)
+        && let Some((k, v)) = tracks.get_key_value(default_name)
     {
-        return Ok(Some(b));
+        return Ok(Some((k, v)));
     }
     Ok(None)
 }
@@ -7437,15 +7401,10 @@ mod tests {
         assert_eq!(flow.primary_track.as_deref(), Some("discussion"));
         assert_eq!(flow.tracks.len(), 2, "synthesis + discussion expected");
 
-        let synthesis =
-            flow.tracks.iter().find(|b| b.name == "synthesis").expect("synthesis track present");
+        let synthesis = flow.tracks.get("synthesis").expect("synthesis track present");
         assert!(synthesis.is_primary != Some(true));
 
-        let discussion = flow
-            .tracks
-            .iter()
-            .find(|b| b.name == "discussion")
-            .expect("discussion track present");
+        let discussion = flow.tracks.get("discussion").expect("discussion track present");
         assert_eq!(discussion.is_primary, Some(true));
         assert_eq!(discussion.profile.as_deref(), Some("discussion"));
     }
@@ -7472,28 +7431,27 @@ mod tests {
         assert!(FlowKind::Discussion.is_conversational());
     }
 
-    /// T21 — FlowTrack typed constructors honour the standard names and
-    /// the discussion profile from spec §6.1.
+    /// T21 — FlowTrackConfig typed constructors honour the standard
+    /// profile from spec §6.1; track names live in the parent map keys.
     #[test]
     fn flow_track_typed_constructors() {
-        let synth = FlowTrack::synthesis();
-        assert_eq!(synth.name, "synthesis");
+        let synth = FlowTrackConfig::synthesis();
         assert!(synth.profile.is_none());
         assert!(synth.is_primary.is_none());
-        synth.validate_name().unwrap();
+        validate_flow_track_name(FLOW_TRACK_NAME_SYNTHESIS).unwrap();
 
-        let disc = FlowTrack::discussion();
-        assert_eq!(disc.name, "discussion");
+        let disc = FlowTrackConfig::discussion();
         assert_eq!(disc.profile.as_deref(), Some("discussion"));
         assert!(disc.is_primary.is_none());
+        validate_flow_track_name(FLOW_TRACK_NAME_DISCUSSION).unwrap();
 
-        let primary = FlowTrack::discussion_primary();
+        let primary = FlowTrackConfig::discussion_primary();
         assert_eq!(primary.is_primary, Some(true));
 
-        let custom = FlowTrack::new("review").with_profile("review").primary();
+        let custom = FlowTrackConfig::new().with_profile("review").primary();
         assert_eq!(custom.profile.as_deref(), Some("review"));
         assert_eq!(custom.is_primary, Some(true));
-        custom.validate_name().unwrap();
+        validate_flow_track_name("review").unwrap();
     }
 
     /// C10.A 收尾 — Space anchor fields default to None (anchorer cell is

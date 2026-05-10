@@ -132,7 +132,6 @@ impl MlsAddMemberResult {
 
     pub fn welcome_to_device_message(&self) -> Result<ToDeviceMessage> {
         Ok(ToDeviceMessage {
-            txn_id: None,
             message_type: "cx.mls.welcome.v1".to_owned(),
             sender_principal_id: None,
             sender_device_id: None,

@@ -1210,8 +1210,8 @@ pub const ENDPOINT_CONTRACTS: &[EndpointContract] = &[
     },
     EndpointContract {
         operation_id: "cx.device_messages.put",
-        method: EndpointMethod::Put,
-        path: "/api/v1/device_messages/{txn_id}",
+        method: EndpointMethod::Post,
+        path: "/api/v1/device_messages",
     },
     EndpointContract {
         operation_id: "cx.device_messages.get",
@@ -1385,8 +1385,8 @@ pub const ENDPOINT_CONTRACTS: &[EndpointContract] = &[
     },
     EndpointContract {
         operation_id: "cx.applet.transaction",
-        method: EndpointMethod::Put,
-        path: "/api/v1/applet/transactions/{txn_id}",
+        method: EndpointMethod::Post,
+        path: "/api/v1/applet/transactions",
     },
     EndpointContract {
         operation_id: "cx.applet.query_actor",
@@ -1806,14 +1806,14 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
             expected_errcode: "cx.error.invalid_id".to_owned(),
         },
         WireConformanceVector {
-            name: "applet_invalid_txn_rejected".to_owned(),
-            method: "PUT".to_owned(),
-            path: "/api/v1/applet/transactions/txn_%2Fescape".to_owned(),
+            name: "applet_missing_idempotency_key_rejected".to_owned(),
+            method: "POST".to_owned(),
+            path: "/api/v1/applet/transactions".to_owned(),
             query: BTreeMap::new(),
             headers: BTreeMap::from([("Authorization".to_owned(), "Bearer redacted".to_owned())]),
             body: json!({}),
-            expected_status: 400,
-            expected_errcode: "cx.error.invalid_path_segment".to_owned(),
+            expected_status: 428,
+            expected_errcode: "cx.error.idempotency_required".to_owned(),
         },
         WireConformanceVector {
             name: "missing_auth_rejected".to_owned(),
@@ -2677,7 +2677,7 @@ mod tests {
             ),
             ("cx.blob.upload", "/api/v1/blob/upload"),
             ("cx.push.register_device", "/api/v1/push/register-device"),
-            ("cx.device_messages.put", "/api/v1/device_messages/{txn_id}"),
+            ("cx.device_messages.put", "/api/v1/device_messages"),
             ("cx.keys.upload", "/api/v1/keys/upload"),
             ("cx.keys.keypackages.upload", "/api/v1/keys/keypackages/upload"),
             ("cx.keys.keypackages.claim", "/api/v1/keys/keypackages/claim"),
@@ -2705,7 +2705,7 @@ mod tests {
             ("cx.admin.update_account_status", "/api/v1/admin/accounts/{account_id}/status"),
             ("cx.admin.revoke_device", "/api/v1/admin/devices/{device_id}/revoke"),
             ("cx.admin.get_moderation_queue", "/api/v1/admin/moderation/queue"),
-            ("cx.applet.transaction", "/api/v1/applet/transactions/{txn_id}"),
+            ("cx.applet.transaction", "/api/v1/applet/transactions"),
         ] {
             assert_eq!(actual.get(operation_id), Some(&path), "{operation_id}");
         }
@@ -2758,14 +2758,12 @@ mod tests {
     }
 
     #[test]
-    fn endpoint_matcher_extracts_path_parameters_for_framework_adapters() {
+    fn endpoint_matcher_routes_post_applet_transactions() {
         let matched =
-            match_endpoint(EndpointMethod::Put, "/api/v1/applet/transactions/txn_123").unwrap();
+            match_endpoint(EndpointMethod::Post, "/api/v1/applet/transactions").unwrap();
         assert_eq!(matched.contract.operation_id, "cx.applet.transaction");
-        assert_eq!(matched.path_parameters["txn_id"], "txn_123");
-        assert!(
-            match_endpoint(EndpointMethod::Get, "/api/v1/applet/transactions/txn_123").is_none()
-        );
+        assert!(matched.path_parameters.is_empty());
+        assert!(match_endpoint(EndpointMethod::Get, "/api/v1/applet/transactions").is_none());
     }
 
     #[test]
@@ -2798,10 +2796,14 @@ mod tests {
     }
 
     #[test]
-    fn routed_http_dispatch_matches_registry_and_path_params() {
+    fn routed_http_dispatch_matches_registry_for_idempotency_keyed_post() {
         let mut service = |request: RoutedHttpAdapterRequest| {
             assert_eq!(request.operation_id, "cx.applet.transaction");
-            assert_eq!(request.path_parameters["txn_id"], "txn_123");
+            assert!(request.path_parameters.is_empty());
+            assert_eq!(
+                request.request.headers.get("Idempotency-Key").map(String::as_str),
+                Some("txn_123"),
+            );
             Ok(HttpAdapterResponse {
                 status: 202,
                 headers: BTreeMap::new(),
@@ -2812,10 +2814,13 @@ mod tests {
         let response = dispatch_routed_http_request(
             &mut service,
             HttpAdapterRequest {
-                method: EndpointMethod::Put,
-                path: "/api/v1/applet/transactions/txn_123".to_owned(),
+                method: EndpointMethod::Post,
+                path: "/api/v1/applet/transactions".to_owned(),
                 query: BTreeMap::new(),
-                headers: BTreeMap::new(),
+                headers: BTreeMap::from([(
+                    "Idempotency-Key".to_owned(),
+                    "txn_123".to_owned(),
+                )]),
                 body: br#"{"ok":true}"#.to_vec(),
             },
         );

@@ -662,8 +662,8 @@ mod tests {
         let debug = format!("{router:?}");
         assert!(debug.contains("api/v1/server/describe"));
         assert!(debug.contains("[GET]"));
-        assert!(debug.contains("api/v1/applet/transactions/{txn_id}"));
-        assert!(debug.contains("[PUT]"));
+        assert!(debug.contains("api/v1/applet/transactions"));
+        assert!(debug.contains("[POST]"));
         assert!(debug.contains("{**contrix_rest}"));
     }
 

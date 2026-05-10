@@ -128,9 +128,6 @@ pub struct DeviceListChanges {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ToDeviceMessage {
-    /// Transaction ID if the server forwards a full `device-message` envelope.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub txn_id: Option<String>,
     /// Message type
     #[serde(rename = "type")]
     pub message_type: String,
