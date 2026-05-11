@@ -1,50 +1,50 @@
 use super::*;
 
-/// Advanced entity and relation operations.
+/// Advanced Morph and relation operations.
 impl Space {
-    /// Query entities from local resolved state with filters, sorting and limit.
-    pub fn query_entities(&self, query: EntityQuery) -> Vec<Entity> {
-        let mut entities: Vec<Entity> = self
+    /// Query Morph objects from local resolved state with filters, sorting and limit.
+    pub fn query_morphs(&self, query: MorphQuery) -> Vec<Morph> {
+        let mut morphs: Vec<Morph> = self
             .state
-            .entities
+            .morphs
             .values()
-            .filter(|entity| {
-                (query.entity_types.is_empty() || query.entity_types.contains(&entity.entity_type))
-                    && query.filters.iter().all(|filter| entity_matches_filter(entity, filter))
+            .filter(|morph| {
+                (query.morph_types.is_empty() || query.morph_types.contains(&morph.morph_type))
+                    && query.filters.iter().all(|filter| morph_matches_filter(morph, filter))
             })
             .cloned()
             .collect();
 
-        entities.sort_by(|left, right| compare_entities(left, right, &query.order_by));
+        morphs.sort_by(|left, right| compare_morphs(left, right, &query.order_by));
 
         if let Some(limit) = query.limit {
-            entities.truncate(limit);
+            morphs.truncate(limit);
         }
-        entities
+        morphs
     }
 
-    /// Full-text search over entity title, content and fields.
-    pub fn search_entities(&self, query: &str) -> Vec<Entity> {
+    /// Full-text search over Morph title, summary, content and fields.
+    pub fn search_morphs(&self, query: &str) -> Vec<Morph> {
         let needle = query.to_lowercase();
         self.state
-            .entities
+            .morphs
             .values()
-            .filter(|entity| entity_search_text(entity).contains(&needle))
+            .filter(|morph| morph_search_text(morph).contains(&needle))
             .cloned()
             .collect()
     }
 
-    /// Aggregate entities by type and selected field keys.
-    pub fn aggregate_entities(&self, field_keys: &[impl AsRef<str>]) -> EntityAggregation {
+    /// Aggregate Morph objects by type and selected field keys.
+    pub fn aggregate_morphs(&self, field_keys: &[impl AsRef<str>]) -> MorphAggregation {
         let mut aggregation =
-            EntityAggregation { total: self.state.entities.len(), ..EntityAggregation::default() };
+            MorphAggregation { total: self.state.morphs.len(), ..MorphAggregation::default() };
 
-        for entity in self.state.entities.values() {
-            *aggregation.by_type.entry(entity_type_key(&entity.entity_type)).or_default() += 1;
+        for morph in self.state.morphs.values() {
+            *aggregation.by_type.entry(morph.morph_type.clone()).or_default() += 1;
 
             for field_key in field_keys {
                 let field_key = field_key.as_ref();
-                if let Some(value) = entity_field_value(entity, field_key) {
+                if let Some(value) = morph_field_value(morph, field_key) {
                     let value_key = scalar_value_key(&value);
                     *aggregation
                         .by_field
@@ -59,26 +59,26 @@ impl Space {
         aggregation
     }
 
-    /// Traverse outgoing entity relations from a start entity.
-    pub fn traverse_relations(
+    /// Traverse outgoing relations from a typed object reference.
+    pub fn traverse_relation_refs(
         &self,
-        start: &EntityId,
+        start_ref: &str,
         relation_kind: Option<RelationKind>,
         traversal: GraphTraversal,
         max_depth: Option<usize>,
-    ) -> Vec<EntityId> {
-        let mut visited = HashSet::from([start.clone()]);
+    ) -> Vec<String> {
+        let mut visited = std::collections::HashSet::from([start_ref.to_owned()]);
         let mut output = Vec::new();
         let max_depth = max_depth.unwrap_or(usize::MAX);
 
         match traversal {
             GraphTraversal::BreadthFirst => {
-                let mut queue = VecDeque::from([(start.clone(), 0usize)]);
+                let mut queue = std::collections::VecDeque::from([(start_ref.to_owned(), 0usize)]);
                 while let Some((current, depth)) = queue.pop_front() {
                     if depth >= max_depth {
                         continue;
                     }
-                    for next in self.relation_neighbors(&current, relation_kind.as_ref()) {
+                    for next in self.relation_ref_neighbors(&current, relation_kind.as_ref()) {
                         if visited.insert(next.clone()) {
                             output.push(next.clone());
                             queue.push_back((next, depth + 1));
@@ -87,12 +87,12 @@ impl Space {
                 }
             }
             GraphTraversal::DepthFirst => {
-                let mut stack = vec![(start.clone(), 0usize)];
+                let mut stack = vec![(start_ref.to_owned(), 0usize)];
                 while let Some((current, depth)) = stack.pop() {
                     if depth >= max_depth {
                         continue;
                     }
-                    let mut neighbors = self.relation_neighbors(&current, relation_kind.as_ref());
+                    let mut neighbors = self.relation_ref_neighbors(&current, relation_kind.as_ref());
                     neighbors.reverse();
                     for next in neighbors {
                         if visited.insert(next.clone()) {
@@ -107,28 +107,29 @@ impl Space {
         output
     }
 
-    /// Find the shortest outgoing relation path between two entities.
-    pub fn shortest_relation_path(
+    /// Find the shortest outgoing relation path between two typed object refs.
+    pub fn shortest_relation_ref_path(
         &self,
-        start: &EntityId,
-        target: &EntityId,
+        start_ref: &str,
+        target_ref: &str,
         relation_kind: Option<RelationKind>,
-    ) -> Option<Vec<EntityId>> {
-        if start == target {
-            return Some(vec![start.clone()]);
+    ) -> Option<Vec<String>> {
+        if start_ref == target_ref {
+            return Some(vec![start_ref.to_owned()]);
         }
 
-        let mut visited = HashSet::from([start.clone()]);
-        let mut queue = VecDeque::from([(start.clone(), vec![start.clone()])]);
+        let mut visited = std::collections::HashSet::from([start_ref.to_owned()]);
+        let mut queue =
+            std::collections::VecDeque::from([(start_ref.to_owned(), vec![start_ref.to_owned()])]);
 
         while let Some((current, path)) = queue.pop_front() {
-            for next in self.relation_neighbors(&current, relation_kind.as_ref()) {
+            for next in self.relation_ref_neighbors(&current, relation_kind.as_ref()) {
                 if !visited.insert(next.clone()) {
                     continue;
                 }
                 let mut next_path = path.clone();
                 next_path.push(next.clone());
-                if &next == target {
+                if next == target_ref {
                     return Some(next_path);
                 }
                 queue.push_back((next, next_path));
@@ -139,13 +140,13 @@ impl Space {
     }
 
     /// Detect whether the directed relation graph contains a cycle.
-    pub fn relation_graph_has_cycle(&self, relation_kind: Option<RelationKind>) -> bool {
-        let mut visiting = HashSet::new();
-        let mut visited = HashSet::new();
+    pub fn relation_ref_graph_has_cycle(&self, relation_kind: Option<RelationKind>) -> bool {
+        let mut visiting = std::collections::HashSet::new();
+        let mut visited = std::collections::HashSet::new();
 
-        for entity in self.state.entities.values() {
-            if self.relation_cycle_visit(
-                &entity.id,
+        for morph in self.state.morphs.values() {
+            if self.relation_ref_cycle_visit(
+                morph.id.as_str(),
                 relation_kind.as_ref(),
                 &mut visiting,
                 &mut visited,
@@ -157,8 +158,8 @@ impl Space {
         false
     }
 
-    /// Reconstruct version history for an entity from processed state events.
-    pub fn entity_versions(&self, entity_id: &EntityId) -> Vec<EntityVersion> {
+    /// Reconstruct version history for a Morph from processed state events.
+    pub fn morph_versions(&self, morph_id: &MorphId) -> Vec<MorphVersion> {
         let mut versions = Vec::new();
         let mut title = None;
         let mut content = None;
@@ -167,67 +168,77 @@ impl Space {
         let mut version = None;
 
         for event in &self.state.state_events {
-            if event.content.get("id").and_then(Value::as_str) != Some(entity_id.as_str()) {
+            let object = event.content.get("object").unwrap_or(&event.content);
+            let target_id = object
+                .get("id")
+                .or_else(|| event.content.get("morph_id"))
+                .and_then(Value::as_str);
+            if target_id != Some(morph_id.as_str()) {
                 continue;
             }
 
             match event.kind.as_str() {
-                OP_ENTITY_CREATE => {
+                OP_MORPH_CREATE => {
                     version = Some(0);
-                    title = event.content.get("title").and_then(Value::as_str).map(str::to_owned);
-                    content = event.content.get("content").cloned();
-                    fields = event
-                        .content
+                    title = object.get("title").and_then(Value::as_str).map(str::to_owned);
+                    content = object.get("content").cloned();
+                    fields = object
                         .get("fields")
                         .cloned()
                         .and_then(|value| serde_json::from_value(value).ok())
                         .unwrap_or_default();
                     state = Some(ObjectState::Active);
                 }
-                OP_ENTITY_UPDATE => {
+                OP_MORPH_UPDATE => {
                     let Some(next_version) = version.map(|value| value + 1) else {
                         continue;
                     };
                     version = Some(next_version);
-                    if let Some(next_title) = event.content.get("title").and_then(Value::as_str) {
+                    let patch = event.content.get("patch").and_then(Value::as_object);
+                    if let Some(next_title) = event
+                        .content
+                        .get("title")
+                        .or_else(|| patch.and_then(|patch| patch.get("title")))
+                        .and_then(Value::as_str)
+                    {
                         title = Some(next_title.to_owned());
                     }
-                    if let Some(next_content) = event.content.get("content") {
+                    if let Some(next_content) =
+                        event.content.get("content").or_else(|| patch.and_then(|p| p.get("content")))
+                    {
                         content = Some(next_content.clone());
                     }
                     if let Some(next_fields) = event
                         .content
                         .get("fields")
+                        .or_else(|| patch.and_then(|p| p.get("fields")))
                         .cloned()
                         .and_then(|value| serde_json::from_value(value).ok())
                     {
                         fields = next_fields;
                     }
-                    if let Some(next_state) = event.content.get("state").and_then(Value::as_str) {
+                    if let Some(next_state) = event
+                        .content
+                        .get("state")
+                        .or_else(|| patch.and_then(|p| p.get("state")))
+                        .and_then(Value::as_str)
+                    {
                         state = parse_object_state(next_state);
                     }
                 }
-                OP_ENTITY_DELETE => {
+                OP_MORPH_ARCHIVE => {
                     let Some(next_version) = version.map(|value| value + 1) else {
                         continue;
                     };
                     version = Some(next_version);
-                    state = Some(ObjectState::Deleted);
-                }
-                OP_ENTITY_REDACT => {
-                    let Some(next_version) = version.map(|value| value + 1) else {
-                        continue;
-                    };
-                    version = Some(next_version);
-                    content = None;
-                    state = Some(ObjectState::Redacted);
+                    state = Some(ObjectState::Archived);
                 }
                 _ => continue,
             }
 
-            versions.push(EntityVersion {
-                entity_id: entity_id.clone(),
-                version: version.expect("version set by entity event"),
+            versions.push(MorphVersion {
+                morph_id: morph_id.clone(),
+                version: version.expect("version set by morph event"),
                 event_id: event.event_id.clone(),
                 updated_at: event.created_at,
                 title: title.clone(),
@@ -240,19 +251,19 @@ impl Space {
         versions
     }
 
-    /// Compare two historical versions of an entity.
-    pub fn compare_entity_versions(
+    /// Compare two historical versions of a Morph.
+    pub fn compare_morph_versions(
         &self,
-        entity_id: &EntityId,
+        morph_id: &MorphId,
         from_version: u64,
         to_version: u64,
-    ) -> Option<EntityVersionDiff> {
-        let versions = self.entity_versions(entity_id);
+    ) -> Option<MorphVersionDiff> {
+        let versions = self.morph_versions(morph_id);
         let from = versions.iter().find(|version| version.version == from_version)?;
         let to = versions.iter().find(|version| version.version == to_version)?;
 
-        let from_keys: HashSet<_> = from.fields.keys().cloned().collect();
-        let to_keys: HashSet<_> = to.fields.keys().cloned().collect();
+        let from_keys: std::collections::HashSet<_> = from.fields.keys().cloned().collect();
+        let to_keys: std::collections::HashSet<_> = to.fields.keys().cloned().collect();
         let mut added_fields: Vec<_> = to_keys.difference(&from_keys).cloned().collect();
         let mut removed_fields: Vec<_> = from_keys.difference(&to_keys).cloned().collect();
         let mut changed_fields: Vec<_> = from_keys
@@ -264,7 +275,7 @@ impl Space {
         removed_fields.sort();
         changed_fields.sort();
 
-        Some(EntityVersionDiff {
+        Some(MorphVersionDiff {
             title_changed: from.title != to.title,
             content_changed: from.content != to.content,
             added_fields,
@@ -273,20 +284,21 @@ impl Space {
         })
     }
 
-    /// Create an update operation that rolls an entity back to a previous version.
-    pub fn rollback_entity_operation(
+    /// Create an update operation that rolls a Morph back to a previous version.
+    pub fn rollback_morph_operation(
         &self,
-        entity_id: EntityId,
+        morph_id: MorphId,
         target_version: u64,
     ) -> Result<Operation> {
         let version = self
-            .entity_versions(&entity_id)
+            .morph_versions(&morph_id)
             .into_iter()
             .find(|version| version.version == target_version)
-            .ok_or_else(|| crate::Error::Protocol("entity version not found".to_owned()))?;
-        let mut operation = self.update_entity_operation(
-            entity_id,
+            .ok_or_else(|| crate::Error::Protocol("morph version not found".to_owned()))?;
+        let mut operation = self.update_morph_operation(
+            morph_id,
             version.title,
+            None,
             version.content,
             Some(version.fields),
         )?;
@@ -294,17 +306,18 @@ impl Space {
         Ok(operation)
     }
 
-    /// Create entity operations in batch.
-    pub fn batch_create_entity_operations(
+    /// Create Morph operations in batch.
+    pub fn batch_create_morph_operations(
         &self,
-        items: Vec<BatchCreateEntity>,
+        items: Vec<BatchCreateMorph>,
     ) -> Result<Vec<Operation>> {
         items
             .into_iter()
             .map(|item| {
-                self.create_entity_operation(
-                    item.entity_type,
+                self.create_morph_operation(
+                    item.morph_type,
                     item.title,
+                    item.summary,
                     item.content,
                     item.fields,
                 )
@@ -312,32 +325,38 @@ impl Space {
             .collect()
     }
 
-    /// Create entity update operations in batch.
-    pub fn batch_update_entity_operations(
+    /// Create Morph update operations in batch.
+    pub fn batch_update_morph_operations(
         &self,
-        items: Vec<BatchUpdateEntity>,
+        items: Vec<BatchUpdateMorph>,
     ) -> Result<Vec<Operation>> {
         items
             .into_iter()
             .map(|item| {
-                self.update_entity_operation(item.entity_id, item.title, item.content, item.fields)
+                self.update_morph_operation(
+                    item.morph_id,
+                    item.title,
+                    item.summary,
+                    item.content,
+                    item.fields,
+                )
             })
             .collect()
     }
 
-    /// Create entity delete operations in batch.
-    pub fn batch_delete_entity_operations(
+    /// Create Morph archive operations in batch.
+    pub fn batch_archive_morph_operations(
         &self,
-        entity_ids: Vec<EntityId>,
+        morph_ids: Vec<MorphId>,
     ) -> Result<Vec<Operation>> {
-        entity_ids.into_iter().map(|entity_id| self.delete_entity_operation(entity_id)).collect()
+        morph_ids.into_iter().map(|morph_id| self.archive_morph_operation(morph_id)).collect()
     }
 
-    fn relation_neighbors(
+    fn relation_ref_neighbors(
         &self,
-        entity_id: &EntityId,
+        object_ref: &str,
         relation_kind: Option<&RelationKind>,
-    ) -> Vec<EntityId> {
+    ) -> Vec<String> {
         self.state
             .relations
             .values()
@@ -345,33 +364,33 @@ impl Space {
             .filter(|relation| {
                 relation_kind.map(|kind| &relation.relation_kind == kind).unwrap_or(true)
             })
-            .filter(|relation| relation.from_entity_id.as_ref() == Some(entity_id))
-            .filter_map(|relation| relation.to_entity_id.clone())
+            .filter(|relation| relation.from_ref == object_ref)
+            .map(|relation| relation.to_ref.clone())
             .collect()
     }
 
-    fn relation_cycle_visit(
+    fn relation_ref_cycle_visit(
         &self,
-        entity_id: &EntityId,
+        object_ref: &str,
         relation_kind: Option<&RelationKind>,
-        visiting: &mut HashSet<EntityId>,
-        visited: &mut HashSet<EntityId>,
+        visiting: &mut std::collections::HashSet<String>,
+        visited: &mut std::collections::HashSet<String>,
     ) -> bool {
-        if visited.contains(entity_id) {
+        if visited.contains(object_ref) {
             return false;
         }
-        if !visiting.insert(entity_id.clone()) {
+        if !visiting.insert(object_ref.to_owned()) {
             return true;
         }
 
-        for next in self.relation_neighbors(entity_id, relation_kind) {
-            if self.relation_cycle_visit(&next, relation_kind, visiting, visited) {
+        for next in self.relation_ref_neighbors(object_ref, relation_kind) {
+            if self.relation_ref_cycle_visit(&next, relation_kind, visiting, visited) {
                 return true;
             }
         }
 
-        visiting.remove(entity_id);
-        visited.insert(entity_id.clone());
+        visiting.remove(object_ref);
+        visited.insert(object_ref.to_owned());
         false
     }
 }

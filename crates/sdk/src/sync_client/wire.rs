@@ -3,9 +3,8 @@ use super::*;
 /// One frame off the `cx.events.subscribe` NDJSON stream
 /// (`GET /api/v1/events/subscribe`).
 ///
-/// C17 wire-break (spec 2026-05-08): the legacy `cx.sync.subscribe` frames
-/// carried `{"type": "event", ...}`. The new contract uses `kind` as the top
-/// field and adds 7 control kinds clients **MUST** handle explicitly:
+/// The contract uses `kind` as the top field and defines control kinds clients
+/// **MUST** handle explicitly:
 ///
 /// | kind                 | meaning                                                               |
 /// |----------------------|-----------------------------------------------------------------------|
@@ -19,8 +18,7 @@ use super::*;
 /// | `catchup_complete`   | history backfill done; subsequent frames are live                     |
 ///
 /// Each variant carries the per-frame fields the spec requires; unknown
-/// variants are surfaced as [`Self::Unknown`] so a tolerant client can log +
-/// continue rather than treat every novelty as an event.
+/// variants are surfaced as [`Self::Unknown`] so callers can log and continue.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum EventsSubscribeFrame {
@@ -192,8 +190,7 @@ impl EventsQuerySelector {
 }
 
 /// Direction parameter for `cx.events.query`. `forward` returns events
-/// after `from` (default); `backward` returns events before `from` (folds
-/// the legacy `cx.sync.backfill` semantics).
+/// after `from` (default); `backward` returns events before `from`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum EventsQueryDirection {
@@ -208,8 +205,7 @@ pub enum EventsQueryDirection {
 /// yougen) call against. It mirrors the wire shape soland accepts on
 /// `GET /api/v1/events`: the multi-selector is `spaces[] ∪ actors[]`,
 /// `from` / `until` are HLC bounds, `direction` switches between forward
-/// (default) and backward iteration (folds legacy `cx.sync.backfill`),
-/// and `limit` is the page cap.
+/// (default) and backward iteration, and `limit` is the page cap.
 ///
 /// Construct one with [`Self::new`] / fluent with-setters; render the
 /// query string with [`Self::to_query_pairs`] (delegated to the inner

@@ -9,7 +9,7 @@ This crate is the Contrix v1 SDK entry point. It exposes the protocol model
 directly:
 
 - DID principal identity
-- Space / ActorProfile / Entity / Relation / Event / View graph
+- Space / ActorProfile / Flow / Morph / Message / Relation / Event / View graph
 - append-only Repo commits, canonical Operations and signed Operation envelopes
 - capability-based authorization
 - OpenMLS-backed MLS RFC 9420 group E2EE

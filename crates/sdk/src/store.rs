@@ -371,27 +371,32 @@ mod tests {
         resolver::SnapshotRestoreSource,
     };
 
-    fn entity_event(event_id: &str, title: &str) -> Event {
+    fn morph_event(event_id: &str, title: &str) -> Event {
         Event {
             event_id: EventId::new(event_id).unwrap(),
-            kind: "cx.entity.create".to_owned(),
+            kind: crate::OP_MORPH_CREATE.to_owned(),
             space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
-            space_version: "1".to_owned(),
             actor_id: Did::new("did:web:alice.example.com").unwrap(),
             actor_seq: 1,
             created_at: Utc::now(),
             hlc: Hlc::new("01970e589d22-00000009-11111111").unwrap(),
             prev_refs: vec![],
-            auth_refs: vec![],
+            refs: vec![],
             schema_profile_refs: vec![],
             reducer_profile_ref: None,
             required_features: vec![],
             critical_extensions: vec![],
             redacts: None,
             content: json!({
-                "id": "cx:entity:01904100-0000-7000-8000-b7a4e10c8c77",
-                "entity_type": "task",
-                "title": title
+                "object": {
+                    "id": "cx:morph:01904100-0000-7000-8000-b7a4e10c8c77",
+                    "schema": crate::MORPH_SCHEMA,
+                    "space_id": "cx:space:01904100-0000-7000-8000-9b64700c6ee8",
+                    "morph_type": "task",
+                    "title": title,
+                    "created_by": "did:web:alice.example.com",
+                    "created_at": "2026-05-02T00:00:00.000Z"
+                }
             }),
             unsigned: BTreeMap::new(),
             proofs: vec![],
@@ -402,7 +407,6 @@ mod tests {
         BlobMetadata {
             schema: BLOB_SCHEMA.to_owned(),
             blob_ref,
-            object_type: "blob".to_owned(),
             sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned(),
             size,
             media_type: "text/plain".to_owned(),
@@ -417,30 +421,36 @@ mod tests {
     #[test]
     fn projection_rebuild_helpers_replay_event_cache_and_use_valid_snapshot() {
         let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
-        let event = entity_event("cx:event:01904100-0000-7000-8000-ec26a4d295c0", "Stored task");
+        let event = morph_event("cx:event:01904100-0000-7000-8000-ec26a4d295c0", "Stored task");
         let mut store = MemoryPersistenceStore::new();
         store.put_event(event.clone()).unwrap();
         store.put_event(event.clone()).unwrap();
 
         let mut conflicting = event;
         conflicting.content = json!({
-            "id": "cx:entity:01904100-0000-7000-8000-b7a4e10c8c77",
-            "entity_type": "task",
-            "title": "Changed"
+            "object": {
+                "id": "cx:morph:01904100-0000-7000-8000-b7a4e10c8c77",
+                "schema": crate::MORPH_SCHEMA,
+                "space_id": "cx:space:01904100-0000-7000-8000-9b64700c6ee8",
+                "morph_type": "task",
+                "title": "Changed",
+                "created_by": "did:web:alice.example.com",
+                "created_at": "2026-05-02T00:00:00.000Z"
+            }
         });
         assert!(matches!(store.put_event(conflicting), Err(Error::IdempotencyConflict(_))));
 
         let state = rebuild_space_state_from_events(&store, &space_id, "1").unwrap();
-        assert_eq!(state.entities.len(), 1);
+        assert_eq!(state.morphs.len(), 1);
         assert_eq!(
-            state.entities.get("cx:entity:01904100-0000-7000-8000-b7a4e10c8c77").unwrap().state,
+            state.morphs.get("cx:morph:01904100-0000-7000-8000-b7a4e10c8c77").unwrap().state,
             Some(ObjectState::Active)
         );
 
         store.put_state_snapshot(state.snapshot()).unwrap();
         let restored = restore_space_state_from_persistence(&store, &space_id, "1").unwrap();
         assert_eq!(restored.source, SnapshotRestoreSource::Snapshot);
-        assert_eq!(restored.state.entities.len(), 1);
+        assert_eq!(restored.state.morphs.len(), 1);
     }
 
     #[test]

@@ -148,7 +148,7 @@ pub struct Mention {
     /// What kind of target this mention resolves to.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub target_kind: Option<MentionTarget>,
-    /// Resolved target reference (DID, entity ID, etc.).
+    /// Resolved target reference (DID or canonical object ID).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub target_ref: Option<String>,
 }
@@ -157,14 +157,16 @@ pub struct Mention {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MentionTarget {
-    /// Mention targets a user/actor by DID or handle.
-    User,
-    /// Mention targets an entity (task, document, etc.).
-    Entity,
+    /// Mention targets an actor by DID or handle.
+    Actor,
     /// Mention targets a space.
     Space,
-    /// Mention targets a room/channel.
-    Channel,
+    /// Mention targets a flow.
+    Flow,
+    /// Mention targets a message.
+    Message,
+    /// Mention targets a morph object.
+    Morph,
 }
 
 impl Mention {
@@ -209,15 +211,27 @@ pub fn parse_mentions(text: &str) -> Vec<Mention> {
         }
         if index > token_start {
             let token = text[token_start..index].to_owned();
-            let (target_kind, target_ref) = if token.starts_with("did:") {
-                (Some(MentionTarget::User), Some(token.clone()))
-            } else {
-                (None, None)
-            };
+            let (target_kind, target_ref) = classify_mention_token(&token);
             mentions.push(Mention { token, start, end: index, target_kind, target_ref });
         }
     }
     mentions
+}
+
+fn classify_mention_token(token: &str) -> (Option<MentionTarget>, Option<String>) {
+    if token.starts_with("did:") {
+        (Some(MentionTarget::Actor), Some(token.to_owned()))
+    } else if token.starts_with("cx:space:") {
+        (Some(MentionTarget::Space), Some(token.to_owned()))
+    } else if token.starts_with("cx:flow:") {
+        (Some(MentionTarget::Flow), Some(token.to_owned()))
+    } else if token.starts_with("cx:message:") {
+        (Some(MentionTarget::Message), Some(token.to_owned()))
+    } else if token.starts_with("cx:morph:") {
+        (Some(MentionTarget::Morph), Some(token.to_owned()))
+    } else {
+        (None, None)
+    }
 }
 
 /// Lightweight link preview.

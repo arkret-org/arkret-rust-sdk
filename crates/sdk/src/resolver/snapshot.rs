@@ -8,7 +8,10 @@ pub struct StateSnapshot {
     pub frontier: Vec<EventId>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub subjects: BTreeMap<String, Flow>,
-    pub entities: BTreeMap<String, Entity>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub morphs: BTreeMap<String, Morph>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub places: BTreeMap<String, Place>,
     pub relations: BTreeMap<String, Relation>,
     pub resolved_state: BTreeMap<String, ResolvedStateEvent>,
     pub messages: BTreeMap<String, ResolvedMessage>,
@@ -166,6 +169,15 @@ pub(super) fn object_state_from_str(state: &str) -> Result<crate::ObjectState> {
     }
 }
 
+pub(super) fn place_state_from_str(state: &str) -> Result<crate::PlaceState> {
+    match state {
+        "active" => Ok(crate::PlaceState::Active),
+        "archived" => Ok(crate::PlaceState::Archived),
+        "tombstoned" => Ok(crate::PlaceState::Tombstoned),
+        _ => Err(Error::Protocol(format!("invalid place state: {}", state))),
+    }
+}
+
 pub(super) fn patch_string(patch: &Option<BTreeMap<String, Value>>, field: &str) -> Option<String> {
     patch.as_ref()?.get(field)?.as_str().map(ToOwned::to_owned)
 }
@@ -180,21 +192,6 @@ pub(super) fn patch_state(
     patch: &Option<BTreeMap<String, Value>>,
 ) -> Option<Result<crate::ObjectState>> {
     patch_string(patch, "state").map(|state| object_state_from_str(&state))
-}
-
-pub(super) fn deterministic_flow_surface_relation_id(content: &Value) -> String {
-    let digest = canonical_sha256(&serde_json::json!({
-        "flow_id": content
-            .get("flow_id")
-            .or_else(|| content.get("id"))
-            .and_then(Value::as_str)
-            .map(canonicalize_flow_ref),
-        "surface_ref": content.get("surface_ref"),
-        "surface_role": content.get("surface_role"),
-    }))
-    .unwrap_or_else(|_| sha256_digest([]));
-    let suffix = digest.strip_prefix("sha256:").unwrap_or(&digest);
-    format!("cx:relation:{}", &suffix[..26.min(suffix.len())])
 }
 
 pub(super) fn canonicalize_flow_ref(value: &str) -> String {
@@ -281,7 +278,8 @@ impl StateSnapshot {
             space_version: &self.space_version,
             frontier: &self.frontier,
             subjects: &self.subjects,
-            entities: &self.entities,
+            morphs: &self.morphs,
+            places: &self.places,
             relations: &self.relations,
             resolved_state: &self.resolved_state,
             messages: &self.messages,
@@ -450,7 +448,8 @@ pub(super) struct StateHashInput<'a> {
     pub(super) space_version: &'a str,
     pub(super) frontier: &'a [EventId],
     pub(super) subjects: &'a BTreeMap<String, Flow>,
-    pub(super) entities: &'a BTreeMap<String, Entity>,
+    pub(super) morphs: &'a BTreeMap<String, Morph>,
+    pub(super) places: &'a BTreeMap<String, Place>,
     pub(super) relations: &'a BTreeMap<String, Relation>,
     pub(super) resolved_state: &'a BTreeMap<String, ResolvedStateEvent>,
     pub(super) messages: &'a BTreeMap<String, ResolvedMessage>,
@@ -464,7 +463,8 @@ pub(super) fn state_hash_payload(input: StateHashInput<'_>) -> Value {
         "space_version": input.space_version,
         "frontier": input.frontier,
         "subjects": input.subjects,
-        "entities": input.entities,
+        "morphs": input.morphs,
+        "places": input.places,
         "relations": input.relations,
         "resolved_state": input.resolved_state,
         "messages": input.messages,
@@ -472,4 +472,3 @@ pub(super) fn state_hash_payload(input: StateHashInput<'_>) -> Value {
         "tombstone_event_id": input.tombstone_event_id,
     })
 }
-

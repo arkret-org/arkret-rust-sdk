@@ -27,10 +27,7 @@ fn devices_tracks_lists_metadata_and_changes() {
     );
 
     assert_eq!(manager.user_devices(&alice).len(), 1);
-    assert_eq!(
-        manager.device(&alice, &device_id).unwrap().metadata.name,
-        Some("Phone".to_owned())
-    );
+    assert_eq!(manager.device(&alice, &device_id).unwrap().metadata.name, Some("Phone".to_owned()));
     assert_eq!(manager.drain_changes().len(), 1);
 }
 
@@ -86,8 +83,7 @@ fn devices_run_challenge_response_verification_flow() {
         DeviceMetadata { name: None, model: None, os: None, last_seen_at: None },
     );
 
-    let challenge =
-        manager.begin_verification_flow(&alice, &device_id, "sas", "123456").unwrap();
+    let challenge = manager.begin_verification_flow(&alice, &device_id, "sas", "123456").unwrap();
     manager
         .confirm_verification_flow(&challenge.transaction_id, "123456", Some("key".to_owned()))
         .unwrap();
@@ -116,9 +112,7 @@ fn devices_support_sas_qr_mismatch_and_trust_propagation() {
     assert!(challenge.commitment.starts_with("sha256:"));
     let qr = manager.qr_verification_payload(&challenge.transaction_id).unwrap();
     DeviceManager::validate_qr_verification_payload(&qr, &alice, &phone).unwrap();
-    assert!(
-        manager.confirm_verification_flow(&challenge.transaction_id, "000000", None).is_err()
-    );
+    assert!(manager.confirm_verification_flow(&challenge.transaction_id, "000000", None).is_err());
     assert_eq!(
         manager.device(&alice, &phone).unwrap().verification,
         DeviceVerificationState::VerificationFailed

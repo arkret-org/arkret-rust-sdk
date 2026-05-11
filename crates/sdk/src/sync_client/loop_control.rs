@@ -96,7 +96,6 @@ where
     }
 }
 
-
 pub type BoxSyncFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + Send + 'a>>;
 
 /// Async transport abstraction used by [`SyncLoop::step_async`].
@@ -118,18 +117,14 @@ where
 /// Async streaming transport abstraction for `cx.events.subscribe`
 /// (`/api/v1/events/subscribe`).
 ///
-/// C17 wire-break (spec 2026-05-08): renamed from
-/// `SyncSubscribeTransport` (`/api/v1/sync/subscribe`) — the new endpoint
-/// accepts multi-space / multi-actor selectors and emits frames whose top
-/// field is `kind` (not `type`). The trait keeps a single `space_id`
-/// parameter for back-compat with existing callers; future expansion to
-/// `spaces[]` ∪ `actors[]` should be additive.
+/// Opens the `cx.events.subscribe` stream. The transport accepts a single
+/// `space_id` selector; callers that need multi-space / actor selectors should
+/// use the lower-level HTTP client directly.
 pub trait EventsSubscribeTransport {
     /// Streaming response type chosen by the concrete HTTP backend.
     type StreamResponse;
 
-    /// Open a server-side events subscription stream. `from` is the new
-    /// cursor parameter (replacing the legacy `cursor` arg).
+    /// Open a server-side events subscription stream from an optional cursor.
     fn events_subscribe<'a>(
         &'a self,
         space_id: &'a str,
@@ -512,4 +507,3 @@ impl Default for SyncLoop {
         Self::new()
     }
 }
-

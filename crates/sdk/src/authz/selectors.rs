@@ -28,10 +28,9 @@ pub enum ResourceSelector {
     Space { space_id: String },
     /// Flow selector (flow_id)
     Flow { space_id: String, flow_id: Option<String> },
-    /// Object selector. Canonical replacement for legacy board / collection /
-    /// entity / channel / topic / comment / run / memory selector kinds.
+    /// Generic object selector.
     Object { space_id: String, object_type: Option<String>, object_ref: Option<String> },
-    /// Message selector (entity_type = "message")
+    /// Message selector.
     Message { space_id: String, message_id: Option<String> },
     /// Relation selector
     Relation { space_id: String, relation_kind: String },
@@ -93,19 +92,6 @@ impl ResourceSelector {
             }
             (
                 Self::Object { space_id, object_type, object_ref },
-                Resource::Entity {
-                    space_id: target_space,
-                    entity_type: target_type,
-                    entity_id: target_id,
-                },
-            ) => {
-                let space_match = space_id == target_space || space_id == "*";
-                let type_match = object_type.as_ref().is_none_or(|t| t == target_type);
-                let ref_match = object_ref.as_ref().is_none_or(|id| id == target_id);
-                space_match && type_match && ref_match
-            }
-            (
-                Self::Object { space_id, object_type, object_ref },
                 Resource::Morph {
                     space_id: target_space,
                     morph_id: target_id,
@@ -119,19 +105,13 @@ impl ResourceSelector {
             }
             (Self::Object { .. }, _) => false,
 
-            // Message selector — matches entities with entity_type="message"
+            // Message selector
             (
                 Self::Message { space_id, message_id },
-                Resource::Entity {
-                    space_id: target_space,
-                    entity_type: target_type,
-                    entity_id: target_id,
-                },
+                Resource::Message { space_id: target_space, message_id: target_id },
             ) => {
                 let space_match = space_id == target_space || space_id == "*";
-                space_match
-                    && target_type == "message"
-                    && message_id.as_ref().is_none_or(|id| id == target_id)
+                space_match && message_id.as_ref().is_none_or(|id| id == target_id)
             }
             (Self::Message { .. }, _) => false,
 
@@ -716,7 +696,6 @@ impl ProtocolResourceSelector {
     }
 }
 
-
 fn split_space_tail(remainder: &str, selector: &str) -> Result<(String, Option<String>)> {
     if remainder == "*" {
         return Ok(("*".to_owned(), None));
@@ -738,4 +717,3 @@ fn split_space_tail(remainder: &str, selector: &str) -> Result<(String, Option<S
     };
     Ok((space_id, tail))
 }
-

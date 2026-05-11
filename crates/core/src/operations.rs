@@ -2,22 +2,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::{
-    BUILT_IN_OPERATION_KINDS, Error, OP_AUTHZ_CHECK, OP_BLOB_GET, OP_BLOB_HEAD, OP_BLOB_UPLOAD,
-    OP_CONTAINER_MOVE_ITEM, OP_CONTAINER_REBALANCE, OP_DIRECTORY_DESCRIBE, OP_ENTITY_CREATE,
-    OP_ENTITY_DELETE, OP_ENTITY_REDACT, OP_ENTITY_RESTORE, OP_ENTITY_UPDATE, OP_EVENTS_QUERY,
-    OP_EVENTS_SUBSCRIBE, OP_FEDERATION_TRANSACTION, OP_FIELD_POSITION_MOVE,
-    OP_FIELD_POSITION_REORDER, OP_FLOW_ARCHIVE, OP_FLOW_CONVERT, OP_FLOW_CREATE,
-    OP_FLOW_LINK_SURFACE, OP_FLOW_MOVE, OP_FLOW_REORDER, OP_FLOW_RESTORE,
-    OP_FLOW_SET_PRIMARY_SURFACE, OP_FLOW_UNLINK_SURFACE, OP_FLOW_UPDATE, OP_IDENTITY_RESOLVE,
-    OP_INDEX_DESCRIBE, OP_INDEX_INBOX, OP_INDEX_NOTIFICATIONS, OP_INDEX_QUERY, OP_INDEX_SEARCH,
-    OP_INDEX_THREAD, OP_KEYS_CLAIM, OP_KEYS_QUERY, OP_KEYS_UPLOAD, OP_MESSAGE_CREATE,
-    OP_PUSH_NOTIFY, OP_RELATION_CREATE, OP_RELATION_DELETE, OP_SERVER_DESCRIBE, OP_SPACE_CHILD,
-    OP_SPACE_CREATE, OP_SPACE_ORGANIZATION, OP_SPACE_UPDATE, OP_SYNC_ACCOUNT, OP_SYNC_DESCRIBE,
-    OP_TASK_CREATE, OP_TASK_UPDATE, OP_VIEW_CREATE, OP_VIEW_RECONCILE, OP_VIEW_UPDATE,
-    OperationEnvelope, OperationId, OperationKindConformanceVector, OperationKindRegistry, Result,
-    operation_kind_conformance_vectors,
-};
+use crate::*;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -27,25 +12,23 @@ pub use crate::{CausalRef, Operation, OperationSignature, OperationType};
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum OperationSurface {
-    Flow,
-    Entity,
-    Relation,
-    Position,
-    Container,
-    Task,
-    View,
-    Space,
-    Message,
-    Server,
-    Identity,
-    Sync,
-    Federation,
-    Index,
-    Directory,
-    Blob,
-    Push,
-    Keys,
+    Account,
+    Admin,
+    Applet,
     Authz,
+    Blob,
+    DeviceMessages,
+    Directory,
+    Events,
+    Identity,
+    Keys,
+    Media,
+    Mimi,
+    Moderation,
+    Policy,
+    Push,
+    Server,
+    Sync,
     Custom(String),
 }
 
@@ -81,44 +64,80 @@ impl OperationCatalogReport {
 
 pub fn classify_operation_kind(kind: &str) -> OperationSurface {
     match kind {
-        OP_ENTITY_CREATE | OP_ENTITY_UPDATE | OP_ENTITY_DELETE | OP_ENTITY_RESTORE
-        | OP_ENTITY_REDACT => OperationSurface::Entity,
-        OP_FLOW_CREATE
-        | OP_FLOW_UPDATE
-        | OP_FLOW_ARCHIVE
-        | OP_FLOW_RESTORE
-        | OP_FLOW_LINK_SURFACE
-        | OP_FLOW_UNLINK_SURFACE
-        | OP_FLOW_SET_PRIMARY_SURFACE
-        | OP_FLOW_MOVE
-        | OP_FLOW_REORDER
-        | OP_FLOW_CONVERT => OperationSurface::Flow,
-        OP_RELATION_CREATE | OP_RELATION_DELETE => OperationSurface::Relation,
-        OP_FIELD_POSITION_MOVE | OP_FIELD_POSITION_REORDER => OperationSurface::Position,
-        OP_CONTAINER_MOVE_ITEM | OP_CONTAINER_REBALANCE => OperationSurface::Container,
-        OP_TASK_CREATE | OP_TASK_UPDATE => OperationSurface::Task,
-        OP_VIEW_CREATE | OP_VIEW_UPDATE | OP_VIEW_RECONCILE => OperationSurface::View,
-        OP_SPACE_CREATE | OP_SPACE_UPDATE | OP_SPACE_ORGANIZATION | OP_SPACE_CHILD => {
-            OperationSurface::Space
+        OP_ACCOUNT_DEVICE_PAIR | OP_ACCOUNT_ISSUE_SESSION_GRANT | OP_ACCOUNT_OIDC_CALLBACK => {
+            OperationSurface::Account
         }
-        OP_MESSAGE_CREATE => OperationSurface::Message,
-        OP_SERVER_DESCRIBE => OperationSurface::Server,
-        OP_IDENTITY_RESOLVE => OperationSurface::Identity,
-        OP_SYNC_DESCRIBE | OP_SYNC_ACCOUNT | OP_EVENTS_QUERY | OP_EVENTS_SUBSCRIBE => {
-            OperationSurface::Sync
+        OP_ADMIN_GET_MODERATION_QUEUE
+        | OP_ADMIN_GET_SERVER_STATUS
+        | OP_ADMIN_REVOKE_DEVICE
+        | OP_ADMIN_UPDATE_ACCOUNT_STATUS => OperationSurface::Admin,
+        OP_APPLET_DESCRIBE
+        | OP_APPLET_PING
+        | OP_APPLET_PROTOCOL_METADATA
+        | OP_APPLET_QUERY_ACTOR
+        | OP_APPLET_QUERY_SPACE
+        | OP_APPLET_THIRD_PARTY_LOCATIONS
+        | OP_APPLET_THIRD_PARTY_USERS
+        | OP_APPLET_TRANSACTION => OperationSurface::Applet,
+        OP_AUTHZ_CHECK | OP_AUTHZ_GET_EFFECTIVE_GRANTS | OP_AUTHZ_GET_INVITES => {
+            OperationSurface::Authz
         }
-        OP_FEDERATION_TRANSACTION => OperationSurface::Federation,
-        OP_INDEX_DESCRIBE
-        | OP_INDEX_QUERY
-        | OP_INDEX_THREAD
-        | OP_INDEX_NOTIFICATIONS
-        | OP_INDEX_INBOX
-        | OP_INDEX_SEARCH => OperationSurface::Index,
-        OP_DIRECTORY_DESCRIBE => OperationSurface::Directory,
         OP_BLOB_UPLOAD | OP_BLOB_HEAD | OP_BLOB_GET => OperationSurface::Blob,
-        OP_PUSH_NOTIFY => OperationSurface::Push,
-        OP_KEYS_UPLOAD | OP_KEYS_QUERY | OP_KEYS_CLAIM => OperationSurface::Keys,
-        OP_AUTHZ_CHECK => OperationSurface::Authz,
+        OP_DEVICE_MESSAGES_PUT | OP_DEVICE_MESSAGES_GET => OperationSurface::DeviceMessages,
+        OP_DIRECTORY_ANNOUNCE
+        | OP_DIRECTORY_DESCRIBE
+        | OP_DIRECTORY_PRIVATE_CONTACT_DISCOVERY
+        | OP_DIRECTORY_RESOLVE_HANDLE
+        | OP_DIRECTORY_RESOLVE_ORGANIZATION
+        | OP_DIRECTORY_RESOLVE_SPACE
+        | OP_DIRECTORY_SEARCH_ACTORS
+        | OP_DIRECTORY_SEARCH_ORGANIZATIONS
+        | OP_DIRECTORY_SEARCH_SPACES
+        | OP_DIRECTORY_SEARCH_USERS
+        | OP_DIRECTORY_WITHDRAW => OperationSurface::Directory,
+        OP_EVENTS_BATCH_GET
+        | OP_EVENTS_DESCRIBE
+        | OP_EVENTS_FRONTIER
+        | OP_EVENTS_GET
+        | OP_EVENTS_QUERY
+        | OP_EVENTS_SUBSCRIBE
+        | OP_EVENTS_SUBMIT => OperationSurface::Events,
+        OP_IDENTITY_DESCRIBE_REGISTRY
+        | OP_IDENTITY_GET_DOCUMENT
+        | OP_IDENTITY_GET_LOG
+        | OP_IDENTITY_GET_RECEIPTS
+        | OP_IDENTITY_RESOLVE
+        | OP_IDENTITY_SUBMIT_DID_OPERATION => OperationSurface::Identity,
+        OP_KEYS_UPLOAD
+        | OP_KEYS_QUERY
+        | OP_KEYS_CLAIM
+        | OP_KEYS_KEYPACKAGES_UPLOAD
+        | OP_KEYS_KEYPACKAGES_CLAIM
+        | OP_KEYS_KEYPACKAGES_CONSUME
+        | OP_KEYS_KEYPACKAGES_REVOKE
+        | OP_KEYS_BACKUPS_PUT
+        | OP_KEYS_BACKUPS_LIST
+        | OP_KEYS_BACKUPS_GET
+        | OP_KEYS_BACKUPS_DELETE => OperationSurface::Keys,
+        OP_MEDIA_ICE_CONFIG => OperationSurface::Media,
+        OP_MIMI_GROUP_INFO
+        | OP_MIMI_IDENTIFIER_QUERY
+        | OP_MIMI_KEY_MATERIAL
+        | OP_MIMI_NOTIFY
+        | OP_MIMI_PROVIDER_DIRECTORY
+        | OP_MIMI_PROXY_DOWNLOAD
+        | OP_MIMI_REPORT_ABUSE
+        | OP_MIMI_REQUEST_CONSENT
+        | OP_MIMI_ROOM_UPDATE
+        | OP_MIMI_SUBMIT_MESSAGE
+        | OP_MIMI_UPDATE_CONSENT => OperationSurface::Mimi,
+        OP_MODERATION_REPORT => OperationSurface::Moderation,
+        OP_POLICY_CHECK => OperationSurface::Policy,
+        OP_PUSH_NOTIFY | OP_PUSH_REGISTER_DEVICE | OP_PUSH_UNREGISTER_DEVICE => {
+            OperationSurface::Push
+        }
+        OP_SERVER_DESCRIBE => OperationSurface::Server,
+        OP_SYNC_DESCRIBE | OP_SYNC_ACCOUNT | OP_SYNC_GET_SNAPSHOT_HEAD => OperationSurface::Sync,
         _ => OperationSurface::Custom(kind.to_owned()),
     }
 }
@@ -139,25 +158,23 @@ pub fn operation_catalog() -> OperationCatalogReport {
         .collect::<Vec<_>>();
     let covered = rows.iter().map(|row| row.surface.clone()).collect::<BTreeSet<_>>();
     let required_surfaces = [
-        OperationSurface::Flow,
-        OperationSurface::Entity,
-        OperationSurface::Relation,
-        OperationSurface::Position,
-        OperationSurface::Container,
-        OperationSurface::Task,
-        OperationSurface::View,
-        OperationSurface::Space,
-        OperationSurface::Message,
-        OperationSurface::Server,
-        OperationSurface::Identity,
-        OperationSurface::Sync,
-        OperationSurface::Federation,
-        OperationSurface::Index,
-        OperationSurface::Directory,
-        OperationSurface::Blob,
-        OperationSurface::Push,
+        OperationSurface::Account,
+        OperationSurface::Admin,
+        OperationSurface::Applet,
         OperationSurface::Keys,
+        OperationSurface::DeviceMessages,
         OperationSurface::Authz,
+        OperationSurface::Blob,
+        OperationSurface::Directory,
+        OperationSurface::Events,
+        OperationSurface::Identity,
+        OperationSurface::Media,
+        OperationSurface::Mimi,
+        OperationSurface::Moderation,
+        OperationSurface::Policy,
+        OperationSurface::Push,
+        OperationSurface::Server,
+        OperationSurface::Sync,
     ];
     let missing_surfaces =
         required_surfaces.into_iter().filter(|surface| !covered.contains(surface)).collect();
@@ -424,51 +441,79 @@ pub fn reduce_operation_semantics(operations: &[OperationEnvelope]) -> Operation
 
 fn mutation_for_kind(kind: &str) -> OperationMutation {
     match kind {
-        OP_ENTITY_CREATE | OP_FLOW_CREATE | OP_RELATION_CREATE | OP_TASK_CREATE
-        | OP_VIEW_CREATE | OP_SPACE_CREATE => OperationMutation::Create,
-        OP_ENTITY_DELETE | OP_FLOW_ARCHIVE | OP_RELATION_DELETE => OperationMutation::Delete,
-        OP_ENTITY_REDACT => OperationMutation::Redact,
+        OP_PUSH_REGISTER_DEVICE | OP_KEYS_BACKUPS_PUT | OP_KEYS_KEYPACKAGES_UPLOAD => {
+            OperationMutation::Create
+        }
+        OP_PUSH_UNREGISTER_DEVICE | OP_KEYS_BACKUPS_DELETE => OperationMutation::Delete,
         OP_SERVER_DESCRIBE
         | OP_SYNC_DESCRIBE
-        | OP_INDEX_DESCRIBE
         | OP_DIRECTORY_DESCRIBE
+        | OP_EVENTS_DESCRIBE
+        | OP_EVENTS_GET
+        | OP_EVENTS_BATCH_GET
+        | OP_EVENTS_FRONTIER
+        | OP_EVENTS_QUERY
+        | OP_EVENTS_SUBSCRIBE
+        | OP_SYNC_GET_SNAPSHOT_HEAD
+        | OP_IDENTITY_DESCRIBE_REGISTRY
+        | OP_IDENTITY_RESOLVE
+        | OP_IDENTITY_GET_DOCUMENT
+        | OP_IDENTITY_GET_LOG
+        | OP_IDENTITY_GET_RECEIPTS
         | OP_BLOB_HEAD
         | OP_BLOB_GET
+        | OP_DIRECTORY_SEARCH_USERS
+        | OP_AUTHZ_GET_EFFECTIVE_GRANTS
+        | OP_AUTHZ_GET_INVITES
+        | OP_KEYS_BACKUPS_LIST
+        | OP_KEYS_BACKUPS_GET
         | OP_KEYS_QUERY
-        | OP_KEYS_CLAIM
         | OP_AUTHZ_CHECK => OperationMutation::Read,
-        OP_FEDERATION_TRANSACTION | OP_PUSH_NOTIFY | OP_KEYS_UPLOAD => OperationMutation::External,
+        OP_EVENTS_SUBMIT
+        | OP_SYNC_ACCOUNT
+        | OP_PUSH_NOTIFY
+        | OP_KEYS_UPLOAD
+        | OP_KEYS_CLAIM
+        | OP_DEVICE_MESSAGES_PUT
+        | OP_DEVICE_MESSAGES_GET
+        | OP_MEDIA_ICE_CONFIG
+        | OP_MIMI_PROVIDER_DIRECTORY
+        | OP_MIMI_GROUP_INFO
+        | OP_MIMI_KEY_MATERIAL
+        | OP_MIMI_SUBMIT_MESSAGE
+        | OP_MIMI_ROOM_UPDATE
+        | OP_MIMI_REQUEST_CONSENT
+        | OP_MIMI_UPDATE_CONSENT
+        | OP_MIMI_IDENTIFIER_QUERY
+        | OP_MIMI_NOTIFY
+        | OP_MIMI_REPORT_ABUSE
+        | OP_MIMI_PROXY_DOWNLOAD
+        | OP_POLICY_CHECK => OperationMutation::External,
         _ => OperationMutation::Update,
     }
 }
 
 fn target_id_for_operation(kind: &str, content: &Value) -> Option<String> {
     let fields: &[&str] = match kind {
-        OP_ENTITY_CREATE
-        | OP_ENTITY_UPDATE
-        | OP_ENTITY_DELETE
-        | OP_ENTITY_RESTORE
-        | OP_ENTITY_REDACT
-        | OP_FIELD_POSITION_MOVE
-        | OP_FIELD_POSITION_REORDER
-        | OP_CONTAINER_MOVE_ITEM => &["entity_id"],
-        OP_FLOW_CREATE
-        | OP_FLOW_UPDATE
-        | OP_FLOW_ARCHIVE
-        | OP_FLOW_RESTORE
-        | OP_FLOW_LINK_SURFACE
-        | OP_FLOW_UNLINK_SURFACE
-        | OP_FLOW_SET_PRIMARY_SURFACE
-        | OP_FLOW_MOVE
-        | OP_FLOW_REORDER
-        | OP_FLOW_CONVERT => &["flow_id"],
-        OP_RELATION_CREATE | OP_RELATION_DELETE => &["relation_id"],
-        OP_TASK_CREATE | OP_TASK_UPDATE => &["task_id", "entity_id"],
-        OP_VIEW_CREATE | OP_VIEW_UPDATE | OP_VIEW_RECONCILE => &["view_id"],
-        OP_SPACE_CREATE | OP_SPACE_UPDATE | OP_SPACE_ORGANIZATION | OP_SPACE_CHILD => {
-            &["space_id", "child_space_id"]
+        OP_EVENTS_GET | OP_EVENTS_BATCH_GET => &["event_id"],
+        OP_EVENTS_FRONTIER | OP_SYNC_GET_SNAPSHOT_HEAD | OP_AUTHZ_GET_INVITES => &["space_id"],
+        OP_IDENTITY_RESOLVE
+        | OP_IDENTITY_GET_DOCUMENT
+        | OP_IDENTITY_GET_LOG
+        | OP_IDENTITY_GET_RECEIPTS
+        | OP_IDENTITY_SUBMIT_DID_OPERATION => &["did"],
+        OP_KEYS_BACKUPS_PUT | OP_KEYS_BACKUPS_GET | OP_KEYS_BACKUPS_DELETE => &["backup_id"],
+        OP_KEYS_KEYPACKAGES_CLAIM => &["target_principal_id"],
+        OP_KEYS_KEYPACKAGES_CONSUME => &["claim_id"],
+        OP_KEYS_KEYPACKAGES_REVOKE => &["principal_id", "keypackage_ref"],
+        OP_PUSH_REGISTER_DEVICE | OP_PUSH_UNREGISTER_DEVICE => &["device_id"],
+        OP_DEVICE_MESSAGES_PUT | OP_DEVICE_MESSAGES_GET => {
+            &["recipient_principal_id", "recipient_device_id"]
         }
-        OP_MESSAGE_CREATE => &["event_id", "message_id"],
+        OP_ADMIN_REVOKE_DEVICE | OP_ADMIN_UPDATE_ACCOUNT_STATUS => &["principal_id"],
+        OP_ACCOUNT_DEVICE_PAIR | OP_ACCOUNT_ISSUE_SESSION_GRANT => &["principal_id"],
+        OP_MODERATION_REPORT => &["target_ref"],
+        OP_POLICY_CHECK => &["resource"],
         _ => &[],
     };
     fields.iter().find_map(|field| {
@@ -531,7 +576,7 @@ pub mod protocol {
 #[cfg(test)]
 mod tests {
     use crate::{
-        Did, GrantId, Hlc, OP_ENTITY_CREATE, OP_ENTITY_DELETE, OP_ENTITY_UPDATE, OP_MESSAGE_CREATE,
+        Did, GrantId, Hlc, OP_EVENTS_QUERY, OP_PUSH_REGISTER_DEVICE, OP_PUSH_UNREGISTER_DEVICE,
         OperationEnvelopeBuilder, SpaceId,
     };
     use serde_json::json;
@@ -539,7 +584,7 @@ mod tests {
     use super::*;
 
     fn envelope(id: &str, deps: Vec<&str>) -> OperationEnvelope {
-        envelope_for(id, OP_MESSAGE_CREATE, json!({"body": "hello"}), deps, false)
+        envelope_for(id, OP_EVENTS_QUERY, json!({}), deps, false)
     }
 
     fn envelope_for(
@@ -573,7 +618,7 @@ mod tests {
     fn catalog_covers_builtin_operation_surfaces() {
         let catalog = operation_catalog();
         catalog.validate().unwrap();
-        assert!(catalog.rows.iter().any(|row| row.surface == OperationSurface::Federation));
+        assert!(catalog.rows.iter().any(|row| row.surface == OperationSurface::Events));
         assert_eq!(conformance_vectors().len(), BUILT_IN_OPERATION_KINDS.len());
     }
 
@@ -631,33 +676,42 @@ mod tests {
     fn semantic_reducer_rejects_tombstone_mutations_and_missing_authz() {
         let create = envelope_for(
             "cx:operation:01904100-0000-7000-8000-b24c1b0f1a32",
-            OP_ENTITY_CREATE,
-            json!({"entity_id": "cx:entity:01904100-0000-7000-8000-c89a39a907e5"}),
+            OP_PUSH_REGISTER_DEVICE,
+            json!({
+                "device_id": "cx:device:01904100-0000-7000-8000-c89a39a907e5",
+                "endpoint": "https://push.example/device"
+            }),
             Vec::new(),
             true,
         );
         let delete = envelope_for(
             "cx:operation:01904100-0000-7000-8000-bc16402a117e",
-            OP_ENTITY_DELETE,
-            json!({"entity_id": "cx:entity:01904100-0000-7000-8000-c89a39a907e5"}),
+            OP_PUSH_UNREGISTER_DEVICE,
+            json!({"device_id": "cx:device:01904100-0000-7000-8000-c89a39a907e5"}),
             vec!["cx:operation:01904100-0000-7000-8000-b24c1b0f1a32"],
             true,
         );
         let update_after_delete = envelope_for(
             "cx:operation:01904100-0000-7000-8000-57ea8fc8ec0b",
-            OP_ENTITY_UPDATE,
-            json!({"entity_id": "cx:entity:01904100-0000-7000-8000-c89a39a907e5"}),
+            OP_PUSH_REGISTER_DEVICE,
+            json!({
+                "device_id": "cx:device:01904100-0000-7000-8000-c89a39a907e5",
+                "endpoint": "https://push.example/device"
+            }),
             vec!["cx:operation:01904100-0000-7000-8000-bc16402a117e"],
             true,
         );
         let report = reduce_operation_semantics(&[create, delete, update_after_delete]);
         assert_eq!(report.applied.len(), 2);
-        assert_eq!(report.rejected[0].kind, "mutation_after_tombstone");
+        assert_eq!(report.rejected[0].kind, "create_after_tombstone");
 
         let missing_authz = envelope_for(
             "cx:operation:01904100-0000-7000-8000-a8e5d315a094",
-            OP_ENTITY_CREATE,
-            json!({"entity_id": "cx:entity:01904100-0000-7000-8000-9160607cbd81"}),
+            OP_PUSH_REGISTER_DEVICE,
+            json!({
+                "device_id": "cx:device:01904100-0000-7000-8000-9160607cbd81",
+                "endpoint": "https://push.example/other"
+            }),
             Vec::new(),
             false,
         );
@@ -671,7 +725,7 @@ mod tests {
             OperationId::new("cx:operation:01904100-0000-7000-8000-e0d2820b21e0").unwrap(),
             SpaceId::new("cx:space:01904100-0000-7000-8000-6b91994c774d").unwrap(),
             Did::new("did:web:alice.example").unwrap(),
-            OP_MESSAGE_CREATE,
+            OP_PUSH_REGISTER_DEVICE,
             1,
             Hlc::new("01970e589d21-00000001-a13f9c2e").unwrap(),
         )

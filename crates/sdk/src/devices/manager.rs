@@ -1,5 +1,5 @@
-use super::*;
 use super::backup::validate_key_backup_payload;
+use super::*;
 
 /// In-memory device manager.
 #[derive(Clone, Debug, Default)]
@@ -465,4 +465,3 @@ pub fn device_verification_commitment(
     });
     canonical::canonical_sha256(&payload)
 }
-

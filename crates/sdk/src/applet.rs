@@ -61,10 +61,9 @@ impl AppletSchema {
 #[serde(rename_all = "snake_case")]
 pub enum AppletNamespaceKind {
     Actor,
-    Alias,
     Space,
-    Event,
-    Entity,
+    Handle,
+    Protocol,
     Command,
 }
 
@@ -235,7 +234,6 @@ impl AppletRegistry {
 pub(crate) struct AppletEndpointRegistration {
     pub registration_id: String,
     pub service_did: Did,
-    #[serde(alias = "sender_localpart")]
     pub bot_localpart: String,
     #[serde(default)]
     pub namespaces: Vec<AppletNamespaceDeclaration>,
@@ -341,7 +339,6 @@ impl AppletEndpointRouteSet {
 /// Applet service transaction with an explicit idempotency key.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppletServiceTransaction {
-    #[serde(alias = "transaction_id")]
     pub idempotency_key: String,
     pub request: AppletTransactionRequest,
 }
@@ -407,7 +404,6 @@ pub struct VirtualActor {
 pub struct AppletServiceIntent {
     pub service_did: Did,
     pub actor_id: Did,
-    #[serde(alias = "transaction_prefix")]
     pub idempotency_prefix: String,
 }
 

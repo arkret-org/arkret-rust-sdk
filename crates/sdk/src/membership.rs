@@ -224,30 +224,9 @@ impl MembershipManager {
         }
     }
 
-    /// Accept an invitation and transition Invited/Left/Knocked to Joined.
+    /// Accept an invitation or initial join through the canonical transition table.
     pub fn join(&mut self, user_id: &Did) -> Result<()> {
-        match self.members.get(user_id).map(|member| member.state) {
-            Some(MembershipState::Banned) => {
-                Err(Error::Protocol("banned members cannot join".to_owned()))
-            }
-            Some(MembershipState::Joined) => Ok(()),
-            Some(MembershipState::Knocked) => {
-                // A direct `join` is only legal from `Invited` per the
-                // canonical transition table — knockers must be `Invited`
-                // first. Fall back to the strict validator for clarity.
-                Err(Error::Protocol("knocking members must be invited before joining".to_owned()))
-            }
-            Some(MembershipState::Invited | MembershipState::Left) | None => {
-                let role = self
-                    .members
-                    .get(user_id)
-                    .map(|member| member.role)
-                    .unwrap_or(MemberRole::Member);
-                let profile = self.members.get(user_id).and_then(|member| member.profile.clone());
-                self.upsert_member(user_id.clone(), MembershipState::Joined, role, profile);
-                Ok(())
-            }
-        }
+        self.apply_transition(user_id, MembershipState::Joined)
     }
 
     /// Leave a joined space.
@@ -269,11 +248,7 @@ impl MembershipManager {
 
     /// Ban a member.
     pub fn ban(&mut self, user_id: &Did) -> Result<()> {
-        let role =
-            self.members.get(user_id).map(|member| member.role).unwrap_or(MemberRole::Member);
-        let profile = self.members.get(user_id).and_then(|member| member.profile.clone());
-        self.upsert_member(user_id.clone(), MembershipState::Banned, role, profile);
-        Ok(())
+        self.apply_transition(user_id, MembershipState::Banned)
     }
 
     /// Unban a member, leaving them in `Left` state.
@@ -310,10 +285,8 @@ impl MembershipManager {
     /// Apply a state transition, rejecting it via `state_mismatch` when the
     /// transition is illegal per `event-auth-state-resolution.md` §5.
     ///
-    /// This is the strict counterpart of [`Self::join`] / [`Self::leave`] /
-    /// [`Self::ban`] — those keep their original lenient semantics for
-    /// backward compatibility, while this method enforces the canonical
-    /// transition table.
+    /// Convenience writers such as [`Self::join`] / [`Self::leave`] /
+    /// [`Self::ban`] all route through this same canonical transition table.
     pub fn apply_transition(&mut self, user_id: &Did, to: MembershipState) -> Result<()> {
         let from = self.members.get(user_id).map(|m| m.state);
         if !is_legal_membership_transition(from, to) {
@@ -678,6 +651,8 @@ mod tests {
         manager.leave(&alice).unwrap();
         assert_eq!(manager.member(&alice).unwrap().state, MembershipState::Left);
 
+        assert!(manager.join(&alice).is_err());
+        manager.send_invite(alice.clone(), alice.clone(), MemberRole::Member).unwrap();
         manager.join(&alice).unwrap();
         manager.ban(&alice).unwrap();
         assert!(manager.join(&alice).is_err());

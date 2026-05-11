@@ -30,13 +30,13 @@ impl Space {
 
         let operation_id = OperationId::new(generate_id("cx:operation:"))?;
         let payload = json!({
-            "target_did": user_id,
+            "actor_id": user_id,
             "role": role,
             "space_id": self.space_id.as_str(),
-            "actor_id": session_meta.user_id.as_str(),
+            "issuer": session_meta.user_id.as_str(),
         });
 
-        Ok(Operation::create(operation_id, self.space_id.clone(), "invite", payload))
+        Ok(Operation::create(operation_id, self.space_id.clone(), OP_INVITE_CREATE, payload))
     }
 
     /// Create a join operation for the current user to join this space.
@@ -50,9 +50,10 @@ impl Space {
         let payload = json!({
             "space_id": self.space_id.as_str(),
             "actor_id": session_meta.user_id.as_str(),
+            "membership": "join",
         });
 
-        Ok(Operation::create(operation_id, self.space_id.clone(), "join", payload))
+        Ok(Operation::create(operation_id, self.space_id.clone(), OP_MEMBER_STATE, payload))
     }
 
     /// Create a leave operation for the current user to leave this space.
@@ -66,9 +67,10 @@ impl Space {
         let payload = json!({
             "space_id": self.space_id.as_str(),
             "actor_id": session_meta.user_id.as_str(),
+            "membership": "leave",
         });
 
-        Ok(Operation::create(operation_id, self.space_id.clone(), "leave", payload))
+        Ok(Operation::create(operation_id, self.space_id.clone(), OP_MEMBER_STATE, payload))
     }
 
     /// Create a ban operation for a user in this space.
@@ -80,15 +82,16 @@ impl Space {
 
         let operation_id = OperationId::new(generate_id("cx:operation:"))?;
         let mut payload = json!({
-            "target_did": user_id.as_str(),
+            "actor_id": user_id.as_str(),
             "space_id": self.space_id.as_str(),
-            "actor_id": session_meta.user_id.as_str(),
+            "issuer": session_meta.user_id.as_str(),
+            "membership": "ban",
         });
         if let Some(reason) = reason {
             payload["reason"] = json!(reason);
         }
 
-        Ok(Operation::create(operation_id, self.space_id.clone(), "ban", payload))
+        Ok(Operation::create(operation_id, self.space_id.clone(), OP_MEMBER_STATE, payload))
     }
 
     /// Create an unban operation for a user in this space.
@@ -100,11 +103,12 @@ impl Space {
 
         let operation_id = OperationId::new(generate_id("cx:operation:"))?;
         let payload = json!({
-            "target_did": user_id.as_str(),
+            "actor_id": user_id.as_str(),
             "space_id": self.space_id.as_str(),
-            "actor_id": session_meta.user_id.as_str(),
+            "issuer": session_meta.user_id.as_str(),
+            "membership": "invite",
         });
 
-        Ok(Operation::create(operation_id, self.space_id.clone(), "unban", payload))
+        Ok(Operation::create(operation_id, self.space_id.clone(), OP_MEMBER_STATE, payload))
     }
 }

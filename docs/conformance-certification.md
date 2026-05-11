@@ -5,7 +5,7 @@ The SDK currently carries conformance coverage in unit and integration tests:
 - canonical JSON SHA-256 vectors
 - HLC parsing, ordering and skew validation
 - cursor encoding/decoding
-- Event and Commit digest vectors
+- Event digest vectors
 - encrypted payload digest vector
 - Query and Sync wire-shape serialization checks
 - federation transaction signature checks

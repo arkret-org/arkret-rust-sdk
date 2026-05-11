@@ -16,63 +16,15 @@ pub const REDACTED_SECRET: &str = "<redacted>";
 const NONCE_LEN: usize = 24;
 
 /// Canonical AAD shape for encrypted timeline and operation envelopes.
-///
-/// Wire form per `crypto-media/encrypted-envelope-schema.md` §2: the
-/// canonical field name is `event_kind`. `event_type` is accepted on input
-/// for backward compatibility (deprecated) but is **never** emitted on
-/// serialization, and an envelope that carries both `event_kind` and a
-/// non-matching `event_type` is rejected on deserialization with
-/// `aad_ambiguous_kind`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EncryptedEnvelopeAad {
     pub space_id: String,
-    /// Canonical event kind (`cx.<category>.<verb>`). Wire field name
-    /// `event_kind`; legacy decoders that wrote `event_type` are accepted
-    /// on input.
+    /// Canonical event kind (`cx.<category>.<verb>`).
     #[serde(rename = "event_kind")]
     pub event_kind: String,
     pub event_id: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub causal_refs: Vec<String>,
-}
-
-impl<'de> Deserialize<'de> for EncryptedEnvelopeAad {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        #[derive(Deserialize)]
-        struct Repr {
-            space_id: String,
-            #[serde(default)]
-            event_kind: Option<String>,
-            #[serde(default)]
-            event_type: Option<String>,
-            event_id: String,
-            #[serde(default)]
-            causal_refs: Vec<String>,
-        }
-        let r = Repr::deserialize(deserializer)?;
-        let event_kind = match (r.event_kind, r.event_type) {
-            (Some(k), None) => k,
-            (None, Some(t)) => t,
-            (Some(k), Some(t)) if k == t => k,
-            (Some(_), Some(_)) => {
-                return Err(serde::de::Error::custom(
-                    "aad_ambiguous_kind: event_kind and event_type both set with different values",
-                ));
-            }
-            (None, None) => {
-                return Err(serde::de::Error::missing_field("event_kind"));
-            }
-        };
-        Ok(EncryptedEnvelopeAad {
-            space_id: r.space_id,
-            event_kind,
-            event_id: r.event_id,
-            causal_refs: r.causal_refs,
-        })
-    }
 }
 
 /// Digest report used by callers that store AAD digest separately from ciphertext.

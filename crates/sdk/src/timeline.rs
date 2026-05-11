@@ -1081,21 +1081,29 @@ mod tests {
         Event {
             event_id: EventId::new(format!("cx:event:01904100-0000-7000-8000-{:012x}", index))
                 .unwrap(),
-            kind: "cx.entity.create".to_owned(),
+            kind: crate::OP_MORPH_CREATE.to_owned(),
             space_id: space_id.clone(),
-            space_version: "1".to_owned(),
             actor_id: Did::new("did:web:alice.example.com").unwrap(),
             actor_seq: index as u64,
             created_at: Utc::now(),
             hlc: Hlc::new(format!("01970e589d21-000000{:02x}-a13f9c2e", index)).unwrap(),
             prev_refs: vec![],
-            auth_refs: vec![],
+            refs: vec![],
             schema_profile_refs: vec![],
             reducer_profile_ref: None,
             required_features: vec![],
             critical_extensions: vec![],
             redacts: None,
-            content: json!({"id": format!("cx:entity:01904100-0000-7000-8000-{:012x}", index)}),
+            content: json!({
+                "object": {
+                    "id": format!("cx:morph:01904100-0000-7000-8000-{:012x}", index),
+                    "schema": crate::MORPH_SCHEMA,
+                    "space_id": space_id.as_str(),
+                    "morph_type": "task",
+                    "created_by": "did:web:alice.example.com",
+                    "created_at": "2026-05-02T00:00:00.000Z"
+                }
+            }),
             unsigned: BTreeMap::new(),
             proofs: vec![],
         }

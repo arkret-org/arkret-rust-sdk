@@ -459,4 +459,3 @@ fn diff_space_lists(
     }
     changes
 }
-

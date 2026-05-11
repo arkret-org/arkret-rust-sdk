@@ -51,8 +51,9 @@ pub use error::{
     is_known_error_code,
 };
 pub use identifiers::{
-    AnchorId, BlobRef, CellRef, CommitId, DeviceId, Did, EntityId, EventId, FlowId, GrantId, Hash,
-    Hlc, InviteId, MoveId, OperationId, PolicyId, RelationId, SpaceId, ViewId,
+    ActorProfileId, AnchorId, BlobRef, CellRef, DeviceId, Did, EventId, FlowId, GrantId, Hash, Hlc,
+    InviteId, MessageId, MorphId, MoveId, OperationId, PlaceId, PolicyId, RelationId, SpaceId,
+    ViewId,
 };
 pub use keystore::{
     InMemoryKeyStore, KeyStore, KeyStoreError, LinuxSecretServiceKeyStore, MacOsKeychainKeyStore,

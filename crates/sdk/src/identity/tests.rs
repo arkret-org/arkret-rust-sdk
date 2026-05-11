@@ -200,8 +200,7 @@ fn did_resolver_adapters_resolve_uuid_web_key_and_keri() {
         "https://example.com/users/alice/did.json"
     );
     let mut web_https_resolver = DidWebResolver::new();
-    let web_body =
-        serde_json::to_vec(&DidDocument::new(web.clone(), "owner", "web-key")).unwrap();
+    let web_body = serde_json::to_vec(&DidDocument::new(web.clone(), "owner", "web-key")).unwrap();
     let web_json: Value = serde_json::from_slice(&web_body).unwrap();
     assert!(web_json.get("verificationMethod").is_some());
     assert!(web_json.get("alsoKnownAs").is_none());
@@ -250,10 +249,7 @@ fn did_resolver_adapters_resolve_uuid_web_key_and_keri() {
 
     assert_eq!(resolver.resolve_did(&uuid).unwrap().verification_methods["root"], "uuid-key");
     assert_eq!(resolver.resolve_did(&web).unwrap().verification_methods["owner"], "web-key");
-    assert_eq!(
-        resolver.resolve_did(&keri).unwrap().verification_methods["inception"],
-        "keri-key"
-    );
+    assert_eq!(resolver.resolve_did(&keri).unwrap().verification_methods["inception"], "keri-key");
 
     let key_doc = resolver.resolve_did(&key).unwrap();
     assert_eq!(key_doc.id, key);
@@ -290,8 +286,7 @@ fn did_key_log_verifies_rotate_recover_and_deactivate_without_changing_did() {
     );
 
     let recovered_keys = BTreeMap::from([("key-3".to_owned(), "pub-3".to_owned())]);
-    let new_recovery_keys =
-        BTreeMap::from([("recovery-2".to_owned(), "recover-pub-2".to_owned())]);
+    let new_recovery_keys = BTreeMap::from([("recovery-2".to_owned(), "recover-pub-2".to_owned())]);
     let recover = DidKeyLogEntry::signed(
         2,
         alice.clone(),
@@ -616,8 +611,7 @@ fn pairwise_did_resolution_requires_valid_proof() {
     let alice = Did::new("did:web:alice.example").unwrap();
     let bob = Did::new("did:web:bob.example").unwrap();
     let mallory = Did::new("did:web:mallory.example").unwrap();
-    let pairwise =
-        PairwiseDidBinding::derive_pairwise_did(&alice, &bob, Some("space:01")).unwrap();
+    let pairwise = PairwiseDidBinding::derive_pairwise_did(&alice, &bob, Some("space:01")).unwrap();
     let binding = PairwiseDidBinding::new(
         pairwise.clone(),
         alice.clone(),

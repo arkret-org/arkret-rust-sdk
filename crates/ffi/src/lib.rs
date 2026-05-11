@@ -150,7 +150,7 @@ impl FfiCallbackResult {
 pub struct FfiEvent {
     pub stream: FfiHandle,
     pub sequence: u64,
-    pub event_type: String,
+    pub event_kind: String,
     pub payload: Value,
 }
 
@@ -382,7 +382,7 @@ mod tests {
             sink.emit(FfiEvent {
                 stream: handle,
                 sequence: 1,
-                event_type: "sync.update".to_owned(),
+                event_kind: "cx.sync.account".to_owned(),
                 payload: Value::Null,
             }),
             FfiCallbackResult::continue_stream()
@@ -393,5 +393,4 @@ mod tests {
         cancellation.cancel();
         assert_eq!(cancellation.check().unwrap_err().code, FfiErrorCode::Cancelled);
     }
-
 }

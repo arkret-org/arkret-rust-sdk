@@ -1,13 +1,9 @@
 //! High-level space API for Contrix v1.
 //!
 //! This module provides a high-level interface for working with spaces,
-//! including entity management, relations, timeline operations, and membership.
+//! including Morph management, relations, timeline operations, and membership.
 
-use std::{
-    cmp::Ordering,
-    collections::{BTreeMap, HashSet, VecDeque},
-    sync::Arc,
-};
+use std::{cmp::Ordering, collections::BTreeMap, sync::Arc};
 
 use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
@@ -17,27 +13,29 @@ use crate::{
     base::{BaseClient, SpaceStateType},
     media::{Attachment, MediaMetadata},
     model::{
-        BlobRef, Did, Entity, EntityId, EntityType, EventId, FieldFilter, Filter, FilterOp, Flow,
-        FlowKind, NullsOrder, OP_ENTITY_CREATE, OP_ENTITY_DELETE, OP_ENTITY_REDACT,
-        OP_ENTITY_UPDATE, ObjectState, Operation, OperationId, OperationType, Relation, RelationId,
-        RelationKind, RelationState, SortDirection, SortSpec, SpaceId,
+        BlobRef, Did, EventId, FieldFilter, Filter, FilterOp, Flow, MessageId, Morph, MorphId,
+        NullsOrder, OP_INVITE_CREATE, OP_MEMBER_STATE, OP_MESSAGE_CREATE, OP_MESSAGE_REDACT,
+        OP_MESSAGE_REVISE, OP_MORPH_ARCHIVE, OP_MORPH_CREATE, OP_MORPH_UPDATE,
+        OP_RELATION_CREATE, OP_RELATION_DELETE, ObjectState, Operation, OperationId,
+        OperationType, Place, PlaceId, Relation, RelationId, RelationKind, RelationState,
+        SortDirection, SortSpec, SpaceId,
     },
     resolver::SpaceState,
 };
 
-/// Generate a new UUIDv7-based wire ID with the given Contrix typed prefix
-/// (e.g. `cx:operation:`, `cx:flow:`, `cx:entity:`). The result is always
-/// 36-char lowercase hex per RFC 9562 §5.7 / `conformance/encoding.md` §4.
-mod entity;
+/// Generate a new UUIDv7-based wire ID with the given Contrix typed prefix.
 mod flow;
 mod helpers;
 mod membership;
+mod morph;
+mod place;
 mod query;
 mod relation;
 #[cfg(test)]
 mod tests;
 
 pub use flow::{FlowCreateMetadata, FlowUpdateMetadata};
+pub use place::{PlaceCreateMetadata, PlaceUpdateMetadata};
 pub use relation::RelationOperationInput;
 
 use helpers::*;
@@ -46,11 +44,11 @@ fn generate_id(prefix: &str) -> String {
     format!("{prefix}{}", uuid::Uuid::now_v7())
 }
 
-/// Entity query options applied to the local resolved state.
+/// Morph query options applied to the local resolved state.
 #[derive(Clone, Debug, Default)]
-pub struct EntityQuery {
-    /// Entity types to include. Empty means all types.
-    pub entity_types: Vec<EntityType>,
+pub struct MorphQuery {
+    /// Morph types to include. Empty means all types.
+    pub morph_types: Vec<String>,
     /// Filters combined with AND semantics.
     pub filters: Vec<Filter>,
     /// Sort specifications applied in order.
@@ -59,12 +57,12 @@ pub struct EntityQuery {
     pub limit: Option<usize>,
 }
 
-/// Aggregated entity counts.
+/// Aggregated Morph counts.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct EntityAggregation {
-    /// Total number of entities considered.
+pub struct MorphAggregation {
+    /// Total number of Morph objects considered.
     pub total: usize,
-    /// Counts grouped by entity type.
+    /// Counts grouped by Morph type.
     pub by_type: BTreeMap<String, usize>,
     /// Counts grouped by requested field keys.
     pub by_field: BTreeMap<String, BTreeMap<String, usize>>,
@@ -79,30 +77,30 @@ pub enum GraphTraversal {
     DepthFirst,
 }
 
-/// Entity state at a historical version.
+/// Morph state at a historical version.
 #[derive(Clone, Debug, PartialEq)]
-pub struct EntityVersion {
-    /// Entity ID.
-    pub entity_id: EntityId,
+pub struct MorphVersion {
+    /// Morph ID.
+    pub morph_id: MorphId,
     /// Version number, starting at 0 for creation.
     pub version: u64,
     /// Event that produced this version.
     pub event_id: EventId,
     /// Time the version was produced.
     pub updated_at: DateTime<Utc>,
-    /// Entity title at this version.
+    /// Morph title at this version.
     pub title: Option<String>,
-    /// Entity content at this version.
+    /// Morph content at this version.
     pub content: Option<Value>,
-    /// Entity fields at this version.
+    /// Morph fields at this version.
     pub fields: BTreeMap<String, Value>,
-    /// Entity object state at this version.
+    /// Morph object state at this version.
     pub state: Option<ObjectState>,
 }
 
-/// Field-level diff between two entity versions.
+/// Field-level diff between two Morph versions.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct EntityVersionDiff {
+pub struct MorphVersionDiff {
     /// Title changed.
     pub title_changed: bool,
     /// Content changed.
@@ -115,20 +113,22 @@ pub struct EntityVersionDiff {
     pub changed_fields: Vec<String>,
 }
 
-/// Input for batch entity creation.
+/// Input for batch Morph creation.
 #[derive(Clone, Debug)]
-pub struct BatchCreateEntity {
-    pub entity_type: EntityType,
+pub struct BatchCreateMorph {
+    pub morph_type: String,
     pub title: Option<String>,
+    pub summary: Option<String>,
     pub content: Option<Value>,
     pub fields: BTreeMap<String, Value>,
 }
 
-/// Input for batch entity update.
+/// Input for batch Morph update.
 #[derive(Clone, Debug)]
-pub struct BatchUpdateEntity {
-    pub entity_id: EntityId,
+pub struct BatchUpdateMorph {
+    pub morph_id: MorphId,
     pub title: Option<String>,
+    pub summary: Option<String>,
     pub content: Option<Value>,
     pub fields: Option<BTreeMap<String, Value>>,
 }
@@ -230,9 +230,29 @@ impl Space {
         self.base_client.set_read_marker(&self.space_id, marker)
     }
 
-    /// Get all entities in this space.
-    pub fn entities(&self) -> BTreeMap<String, Entity> {
-        self.state.entities.clone()
+    /// Get all Morph objects in this space.
+    pub fn morphs(&self) -> BTreeMap<String, Morph> {
+        self.state.morphs.clone()
+    }
+
+    /// Get all Places in this space.
+    pub fn places(&self) -> BTreeMap<String, Place> {
+        self.state.places.clone()
+    }
+
+    /// Get a specific Place by ID.
+    pub fn get_place(&self, place_id: &PlaceId) -> Option<Place> {
+        self.state.places.get(place_id.as_str()).cloned()
+    }
+
+    /// Find Places by kind.
+    pub fn find_places_by_kind(&self, kind: &str) -> Vec<Place> {
+        self.state
+            .places
+            .values()
+            .filter(|place| place.kind == kind)
+            .cloned()
+            .collect()
     }
 
     /// Get all flows in this space.
@@ -245,41 +265,55 @@ impl Space {
         self.state.subjects.get(flow_id.as_str()).cloned()
     }
 
-    /// Find flows by semantic kind.
-    pub fn find_flows_by_kind(&self, flow_kind: FlowKind) -> Vec<Flow> {
-        self.state.subjects.values().filter(|flow| flow.flow_kind == flow_kind).cloned().collect()
+    /// Find flows that have a track with the given profile.
+    pub fn find_flows_by_track_profile(&self, track_profile: &str) -> Vec<Flow> {
+        self.state
+            .subjects
+            .values()
+            .filter(|flow| {
+                flow.tracks
+                    .values()
+                    .any(|track| track.profile.as_deref() == Some(track_profile))
+            })
+            .cloned()
+            .collect()
     }
 
-    /// Return active surface relations for a flow.
-    pub fn flow_surfaces(&self, flow_id: &FlowId) -> Vec<Relation> {
+    /// Return active default view relations for a flow.
+    pub fn flow_default_views(&self, flow_id: &FlowId) -> Vec<Relation> {
         self.state
             .relations
             .values()
             .filter(|relation| {
-                relation.relation_kind == RelationKind::HasSurface
-                    && relation.from_ref.as_deref() == Some(flow_id.as_str())
+                relation.relation_kind == RelationKind::HasDefaultView
+                    && relation.from_ref == flow_id.as_str()
                     && relation_is_active(relation)
             })
             .cloned()
             .collect()
     }
 
-    /// Get a specific entity by ID.
-    pub fn get_entity(&self, entity_id: &EntityId) -> Option<Entity> {
-        self.state.entities.get(entity_id.as_str()).cloned()
+    /// Get a specific Morph by ID.
+    pub fn get_morph(&self, morph_id: &MorphId) -> Option<Morph> {
+        self.state.morphs.get(morph_id.as_str()).cloned()
     }
 
-    /// Find entities by type.
-    pub fn find_entities_by_type(&self, entity_type: EntityType) -> Vec<Entity> {
-        self.state.entities.values().filter(|e| e.entity_type == entity_type).cloned().collect()
-    }
-
-    /// Find entities by field value.
-    pub fn find_entities_by_field(&self, field_key: &str, field_value: &Value) -> Vec<Entity> {
+    /// Find Morph objects by type.
+    pub fn find_morphs_by_type(&self, morph_type: &str) -> Vec<Morph> {
         self.state
-            .entities
+            .morphs
             .values()
-            .filter(|e| e.fields.get(field_key).map(|v| v == field_value).unwrap_or(false))
+            .filter(|morph| morph.morph_type == morph_type)
+            .cloned()
+            .collect()
+    }
+
+    /// Find Morph objects by field value.
+    pub fn find_morphs_by_field(&self, field_key: &str, field_value: &Value) -> Vec<Morph> {
+        self.state
+            .morphs
+            .values()
+            .filter(|morph| morph.fields.get(field_key).map(|v| v == field_value).unwrap_or(false))
             .cloned()
             .collect()
     }
@@ -304,22 +338,22 @@ impl Space {
             .collect()
     }
 
-    /// Find relations from an entity.
-    pub fn find_relations_from_entity(&self, entity_id: &EntityId) -> Vec<Relation> {
+    /// Find relations from a typed object reference.
+    pub fn find_relations_from_ref(&self, object_ref: &str) -> Vec<Relation> {
         self.state
             .relations
             .values()
-            .filter(|r| r.from_entity_id.as_ref() == Some(entity_id))
+            .filter(|r| r.from_ref == object_ref)
             .cloned()
             .collect()
     }
 
-    /// Find relations to an entity.
-    pub fn find_relations_to_entity(&self, entity_id: &EntityId) -> Vec<Relation> {
+    /// Find relations to a typed object reference.
+    pub fn find_relations_to_ref(&self, object_ref: &str) -> Vec<Relation> {
         self.state
             .relations
             .values()
-            .filter(|r| r.to_entity_id.as_ref() == Some(entity_id))
+            .filter(|r| r.to_ref == object_ref)
             .cloned()
             .collect()
     }
@@ -341,39 +375,40 @@ impl Space {
 
     /// Create a local message send operation using a structured message content object.
     pub fn send_message(&self, content: Value) -> Result<Operation> {
-        let mut fields = BTreeMap::new();
-        fields.insert("message_kind".to_owned(), json!("custom"));
-        self.create_entity_operation(EntityType::Message, None, Some(content), fields)
+        self.base_client.whoami()?;
+        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let payload = json!({
+            "message_id": generate_id("cx:message:"),
+            "flow_id": generate_id("cx:flow:"),
+            "track": "discussion",
+            "content": content,
+        });
+        Ok(Operation::create(operation_id, self.space_id.clone(), OP_MESSAGE_CREATE, payload))
     }
 
     /// Create a local plain-text message send operation.
     pub fn send_text(&self, body: impl Into<String>) -> Result<Operation> {
         let body = body.into();
-        let mut fields = BTreeMap::new();
-        fields.insert("message_kind".to_owned(), json!("text"));
-        self.create_entity_operation(
-            EntityType::Message,
-            None,
-            Some(json!({
-                "msgtype": "m.text",
-                "body": body,
-            })),
-            fields,
-        )
+        self.send_message(json!({
+            "kind": "cx.content.text",
+            "body": body,
+        }))
     }
 
     /// Create a local message edit operation.
-    pub fn edit_message(&self, message_id: EntityId, content: Value) -> Result<Operation> {
-        let mut fields = BTreeMap::new();
-        fields.insert("edited".to_owned(), json!(true));
-        let mut operation =
-            self.update_entity_operation(message_id.clone(), None, Some(content), Some(fields))?;
-        operation.object_type = "message.edit".to_owned();
+    pub fn edit_message(&self, message_id: MessageId, content: Value) -> Result<Operation> {
+        self.base_client.whoami()?;
+        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let mut operation = Operation::create(
+            operation_id,
+            self.space_id.clone(),
+            OP_MESSAGE_REVISE,
+            json!({
+                "target_event_id": message_id.as_str(),
+                "content": content,
+            }),
+        );
         operation.object_id = Some(message_id.as_str().to_owned());
-        operation.payload["relates_to"] = json!({
-            "rel_type": "m.replace",
-            "event_id": message_id.as_str(),
-        });
         operation.payload["edited_at"] = json!(Utc::now().to_rfc3339());
         Ok(operation)
     }
@@ -381,19 +416,17 @@ impl Space {
     /// Create a local message redaction operation.
     pub fn redact_message(
         &self,
-        message_id: EntityId,
+        message_id: MessageId,
         reason: Option<String>,
     ) -> Result<Operation> {
         self.base_client.whoami()?;
         let operation_id = OperationId::new(generate_id("cx:operation:"))?;
-        let mut payload = json!({
-            "id": message_id.as_str(),
-        });
+        let mut payload = json!({ "target_event_id": message_id.as_str() });
         if let Some(reason) = reason {
             payload["reason"] = json!(reason);
         }
         let mut operation =
-            Operation::create(operation_id, self.space_id.clone(), "message.redact", payload);
+            Operation::create(operation_id, self.space_id.clone(), OP_MESSAGE_REDACT, payload);
         operation.operation_type = OperationType::Redact;
         operation.object_id = Some(message_id.as_str().to_owned());
         Ok(operation)
@@ -442,4 +475,3 @@ impl Space {
         self.base_client.download_decrypted_attachment(id, key)
     }
 }
-

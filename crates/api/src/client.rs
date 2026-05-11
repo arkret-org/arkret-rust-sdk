@@ -8,7 +8,7 @@ use contrix_core::{
     BlobRef, DeviceId, Did, EncryptedPayload, Error, EventId, Hash, Hlc, InviteId, Result, SpaceId,
 };
 use contrix_crypto::MediaEncryptionInfo;
-use contrix_html::{RichTextDocument, RichTextFormat};
+use contrix_html::RichTextDocument;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -21,8 +21,7 @@ pub enum ClientApiSurface {
     Profile,
     Space,
     Membership,
-    Messaging,
-    State,
+    Events,
     Sync,
     Search,
     Directory,
@@ -158,7 +157,7 @@ pub const CLIENT_API_ENDPOINTS: &[ClientApiEndpoint] = &[
         response_schema: "SpacePreviewResponse",
     },
     ClientApiEndpoint {
-        operation_id: "cx.membership.action",
+        operation_id: "cx.member.state",
         surface: ClientApiSurface::Membership,
         method: ClientApiMethod::Post,
         path: "/api/v1/spaces/{space_id}/membership",
@@ -166,36 +165,44 @@ pub const CLIENT_API_ENDPOINTS: &[ClientApiEndpoint] = &[
         response_schema: "MembershipActionResponse",
     },
     ClientApiEndpoint {
-        operation_id: "cx.messages.send",
-        surface: ClientApiSurface::Messaging,
+        operation_id: "cx.events.submit",
+        surface: ClientApiSurface::Events,
         method: ClientApiMethod::Post,
-        path: "/api/v1/spaces/{space_id}/messages",
-        request_schema: "SendMessageRequest",
-        response_schema: "SendEventResponse",
+        path: "/api/v1/events",
+        request_schema: "SubmitEventRequest",
+        response_schema: "EventSubmitReceipt",
     },
     ClientApiEndpoint {
-        operation_id: "cx.messages.redact",
-        surface: ClientApiSurface::Messaging,
-        method: ClientApiMethod::Post,
-        path: "/api/v1/spaces/{space_id}/events/{event_id}/redact",
-        request_schema: "RedactEventRequest",
-        response_schema: "SendEventResponse",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.state.get",
-        surface: ClientApiSurface::State,
+        operation_id: "cx.events.get",
+        surface: ClientApiSurface::Events,
         method: ClientApiMethod::Get,
-        path: "/api/v1/spaces/{space_id}/state/{subject}",
-        request_schema: "StateGetRequest",
-        response_schema: "StateEventResponse",
+        path: "/api/v1/events/{event_id}",
+        request_schema: "GetEventRequest",
+        response_schema: "EventEnvelope",
     },
     ClientApiEndpoint {
-        operation_id: "cx.state.set",
-        surface: ClientApiSurface::State,
-        method: ClientApiMethod::Put,
-        path: "/api/v1/spaces/{space_id}/state/{subject}",
-        request_schema: "StateSetRequest",
-        response_schema: "SendEventResponse",
+        operation_id: "cx.events.query",
+        surface: ClientApiSurface::Events,
+        method: ClientApiMethod::Get,
+        path: "/api/v1/events",
+        request_schema: "QueryEventsRequest",
+        response_schema: "QueryEventsResponse",
+    },
+    ClientApiEndpoint {
+        operation_id: "cx.events.batch_get",
+        surface: ClientApiSurface::Events,
+        method: ClientApiMethod::Post,
+        path: "/api/v1/events/batch-get",
+        request_schema: "BatchGetEventsRequest",
+        response_schema: "BatchGetEventsResponse",
+    },
+    ClientApiEndpoint {
+        operation_id: "cx.events.frontier",
+        surface: ClientApiSurface::Events,
+        method: ClientApiMethod::Get,
+        path: "/api/v1/events/frontier",
+        request_schema: "EventFrontierRequest",
+        response_schema: "EventFrontierResponse",
     },
     ClientApiEndpoint {
         operation_id: "cx.search.messages",
@@ -733,7 +740,7 @@ pub struct MembershipActionResponse {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct SendEventRequest {
+pub struct SubmitEventRequest {
     pub space_id: SpaceId,
     pub event_kind: String,
     pub content: Value,
@@ -741,7 +748,7 @@ pub struct SendEventRequest {
     pub transaction_id: Option<String>,
 }
 
-impl SendEventRequest {
+impl SubmitEventRequest {
     pub fn validate(&self) -> Result<()> {
         if self.event_kind.trim().is_empty() {
             return Err(Error::Protocol("event kind must not be empty".to_owned()));
@@ -753,33 +760,8 @@ impl SendEventRequest {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct SendMessageRequest {
-    pub space_id: SpaceId,
-    pub body: String,
-    pub formatted: Option<RichTextDocument>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub transaction_id: Option<String>,
-}
-
-impl SendMessageRequest {
-    pub fn plain(space_id: SpaceId, body: impl Into<String>) -> Result<Self> {
-        let body = body.into();
-        if body.trim().is_empty() {
-            return Err(Error::Protocol("message body must not be empty".to_owned()));
-        }
-        Ok(Self { space_id, body, formatted: None, transaction_id: None })
-    }
-
-    pub fn markdown(space_id: SpaceId, markdown: impl Into<String>) -> Result<Self> {
-        let body = markdown.into();
-        let formatted = RichTextDocument::normalize(&body, RichTextFormat::Markdown)?;
-        Ok(Self { space_id, body, formatted: Some(formatted), transaction_id: None })
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SendEventResponse {
+pub struct EventSubmitReceipt {
     pub event_id: EventId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub transaction_id: Option<String>,
@@ -842,53 +824,6 @@ pub struct ReadMarkerRequest {
     pub fully_read: EventId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub read_receipt: Option<EventId>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct StateGetRequest {
-    pub space_id: SpaceId,
-    /// Cell subject derived from the event's typed payload field
-    /// (per the spec event-kind-registry's `cell_subject`). Empty string
-    /// addresses the singleton cell for the requested kind.
-    pub subject: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct StateSetRequest {
-    pub space_id: SpaceId,
-    /// Cell subject — see [`StateGetRequest::subject`].
-    pub subject: String,
-    pub content: Value,
-}
-
-impl StateSetRequest {
-    pub fn validate(&self) -> Result<()> {
-        if self.subject.trim().is_empty() {
-            return Err(Error::Protocol(
-                "state subject must not be empty (use the typed subject from payload fields)"
-                    .to_owned(),
-            ));
-        }
-        if !self.content.is_object() {
-            return Err(Error::Protocol("state content must be a JSON object".to_owned()));
-        }
-        Ok(())
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct StateEventResponse {
-    pub event_id: EventId,
-    /// State slot subject — see [`StateGetRequest::subject`].
-    pub subject: String,
-    pub content: Value,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct StateBatchRequest {
-    pub space_id: SpaceId,
-    pub expected_state: Option<Hash>,
-    pub events: Vec<EventId>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -1451,8 +1386,7 @@ pub fn client_api_coverage_report() -> ClientApiCoverageReport {
         ClientApiSurface::Profile,
         ClientApiSurface::Space,
         ClientApiSurface::Membership,
-        ClientApiSurface::Messaging,
-        ClientApiSurface::State,
+        ClientApiSurface::Events,
         ClientApiSurface::Sync,
         ClientApiSurface::Search,
         ClientApiSurface::Directory,
@@ -1564,16 +1498,6 @@ mod tests {
     }
 
     #[test]
-    fn markdown_message_builds_rich_text_payload() {
-        let request =
-            SendMessageRequest::markdown(space(), "Hello @alice [docs](https://example.com)")
-                .unwrap();
-        let formatted = request.formatted.unwrap();
-        assert!(formatted.sanitized_html.contains("<a href=\"https://example.com\">docs</a>"));
-        assert_eq!(formatted.mentions[0].token, "alice");
-    }
-
-    #[test]
     fn sliding_sync_validates_window_and_subscriptions() {
         let request = SlidingSyncRequest {
             window_start: 0,
@@ -1636,7 +1560,7 @@ mod tests {
             rule: PushRule {
                 rule_id: "mention".to_owned(),
                 enabled: true,
-                event_kind: Some("cx.message.text".to_owned()),
+                event_kind: Some("cx.message.create".to_owned()),
                 priority: PushPriority::High,
                 redact_content: true,
             },
@@ -1674,7 +1598,7 @@ mod tests {
     }
 
     #[test]
-    fn space_membership_state_and_search_contracts_validate() {
+    fn space_membership_and_search_contracts_validate() {
         SpaceCreateRequest {
             name: "Project".to_owned(),
             visibility: SpaceVisibility::Private,
@@ -1689,14 +1613,6 @@ mod tests {
             action: MembershipAction::Invite,
             target_user: Some(did("bob")),
             reason: Some("join".to_owned()),
-        }
-        .validate()
-        .unwrap();
-
-        StateSetRequest {
-            space_id: space(),
-            subject: "topic".to_owned(),
-            content: serde_json::json!({"topic": "work"}),
         }
         .validate()
         .unwrap();

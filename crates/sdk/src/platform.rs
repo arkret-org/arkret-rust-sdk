@@ -290,7 +290,7 @@ impl FfiCallbackResult {
 pub struct FfiEvent {
     pub stream: FfiHandle,
     pub sequence: u64,
-    pub event_type: String,
+    pub event_kind: String,
     pub payload: Value,
 }
 
@@ -365,7 +365,7 @@ mod tests {
         let result = sink.on_event(FfiEvent {
             stream,
             sequence: 1,
-            event_type: "sync.update".to_owned(),
+            event_kind: "cx.sync.account".to_owned(),
             payload: json!({"ok": true}),
         });
         assert_eq!(result.action, FfiCallbackAction::Continue);

@@ -93,4 +93,3 @@ pub(super) fn recovery_proof_matches(method: &AccountRecoveryMethod, proof: &str
         }
     }
 }
-

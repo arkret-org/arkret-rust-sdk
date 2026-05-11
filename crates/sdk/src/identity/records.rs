@@ -450,4 +450,3 @@ impl StaridRegistryAdapter for InMemoryStaridRegistryAdapter {
         })
     }
 }
-

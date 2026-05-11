@@ -620,11 +620,11 @@ mod tests {
 
         store
             .put_key_package(MlsKeyPackageRecord {
-                keypackage_id: None,
+                keypackage_id: format!("cx:mls:kp:{}", uuid::Uuid::now_v7()),
                 principal_id: alice.clone(),
                 device_id: device_id.clone(),
                 key_package: "kp".to_owned(),
-                key_package_hash: Hash::new(
+                keypackage_ref: Hash::new(
                     "sha256:1111111111111111111111111111111111111111111111111111111111111111",
                 )
                 .unwrap(),
@@ -634,7 +634,6 @@ mod tests {
                 claim_id: None,
                 created_at: Utc::now(),
                 expires_at: None,
-                revoked: false,
                 device_signature: None,
             })
             .unwrap();
@@ -756,11 +755,11 @@ mod tests {
 
         store
             .put_key_package(MlsKeyPackageRecord {
-                keypackage_id: None,
+                keypackage_id: format!("cx:mls:kp:{}", uuid::Uuid::now_v7()),
                 principal_id: alice.clone(),
                 device_id: device_id.clone(),
                 key_package: "kp-secret".to_owned(),
-                key_package_hash: Hash::new(
+                keypackage_ref: Hash::new(
                     "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 )
                 .unwrap(),
@@ -770,7 +769,6 @@ mod tests {
                 claim_id: None,
                 created_at: Utc::now(),
                 expires_at: None,
-                revoked: false,
                 device_signature: None,
             })
             .unwrap();

@@ -220,8 +220,7 @@ impl IceServer {
                     )));
                 }
             }
-            // Common Matrix/legacy form: `<unix>:<did>`. Reject any colon-
-            // separated pair whose tail is a DID-shaped substring.
+            // Reject colon-separated pairs whose tail is a DID-shaped substring.
             if let Some((_left, tail)) = value.split_once(':')
                 && FORBIDDEN_PREFIXES.iter().any(|p| tail.contains(p))
             {

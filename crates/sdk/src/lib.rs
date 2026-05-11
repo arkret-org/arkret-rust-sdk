@@ -266,9 +266,7 @@ pub use devices::{
     Device, DeviceChange, DeviceManager, DeviceMessageEnvelope, DeviceMetadata,
     DeviceVerificationChallenge, DeviceVerificationMessageContent, DeviceVerificationMessageKind,
     KeyBackup, KeyBackupClass, KeyBackupContentItem, KeyBackupEncryption, ProtocolKeyBackup,
-    ProtocolKeyBackupRestoreRequest, ProtocolKeyBackupRestoreTicket,
-    ProtocolKeyBackupRestoreTicketAdvanceRequest, QrVerificationPayload, ToDeviceEnvelope,
-    device_verification_commitment,
+    QrVerificationPayload, ToDeviceEnvelope, device_verification_commitment,
 };
 #[cfg(feature = "full-surface")]
 pub use discovery::{DirectoryService, DirectoryUser, OpenGraphPreview, UrlPreviewCache};
@@ -285,7 +283,7 @@ pub use federation::{
     HttpMessageSignature, HttpMessageSignatureInput, ServerInfo, ServiceEndpointDescriptor,
     SovereignDeployment, TrustAnchor, VerifyActorChallenge, VerifyActorChallengeSignature,
     WellKnownContrixServer, content_digest_sha256, did_document_service_endpoint_matches,
-    duplicate_transaction_quarantine, fork_quarantine_record, http_message_signature_base,
+    duplicate_transaction_quarantine, fork_quarantine_record, rfc9421_http_message_signature_base,
     sign_http_message, sign_verify_actor_challenge, verify_actor_challenge_signature,
     verify_http_message_signature,
 };
@@ -314,7 +312,7 @@ pub use identity::{
 };
 #[cfg(all(feature = "full-surface", feature = "device-runtime", feature = "client"))]
 pub use key_backup_client::{
-    KeyBackupClient, KeyBackupListResponse, KeyBackupRecord, KeyBackupResponse, RestoreTicket,
+    KeyBackupClient, KeyBackupDeleteResponse, KeyBackupListResponse, KeyBackupPutResponse,
 };
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub use key_verification::{
@@ -396,8 +394,8 @@ pub use settings::{
 };
 #[cfg(feature = "full-surface")]
 pub use space::{
-    BatchCreateEntity, BatchUpdateEntity, EntityAggregation, EntityQuery, EntityVersion,
-    EntityVersionDiff, GraphTraversal, RelationOperationInput, Space,
+    BatchCreateMorph, BatchUpdateMorph, GraphTraversal, MorphAggregation, MorphQuery,
+    MorphVersion, MorphVersionDiff, RelationOperationInput, Space,
 };
 #[cfg(feature = "full-surface")]
 pub use store::{

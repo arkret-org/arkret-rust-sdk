@@ -98,7 +98,7 @@ pub enum SpaceStateType {
 pub enum BootstrapStepKind {
     /// Resolve the principal DID and account context.
     Resolve,
-    /// Discover sync/repo/snapshot services.
+    /// Discover sync, events and snapshot services.
     DiscoverServices,
     /// Fetch invites and grants needed to enter spaces.
     FetchInvitesAndGrants,

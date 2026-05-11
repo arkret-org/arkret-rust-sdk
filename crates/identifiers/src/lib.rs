@@ -150,7 +150,7 @@ fn has_prefix<'a>(prefix: &'a str) -> impl Fn(&str) -> bool + 'a {
 /// Strict typed-ID validator: payload MUST be a canonical RFC 9562 UUID
 /// version 7 (36 chars, lower-case hex `xxxxxxxx-xxxx-7xxx-Nxxx-xxxxxxxxxxxx`
 /// where N ∈ {8,9,a,b}) per `conformance/encoding.md` §4. Use this when
-/// you need to reject malformed wire input (e.g. legacy ULIDs, UUIDv4); the
+/// you need to reject malformed wire input (e.g. ULIDs, UUIDv4); the
 /// default `has_prefix` only checks the kind prefix and is more permissive.
 pub fn is_strict_typed_id(value: &str, prefix: &str) -> bool {
     match value.strip_prefix(prefix) {
@@ -212,15 +212,15 @@ pub fn is_lowercase_uuidv7(value: &str) -> bool {
 }
 
 id_type!(Did, is_did);
-// C19.B round 20 — typed wire id validators tightened to require canonical
-// RFC 9562 UUIDv7 payloads (`is_strict_typed_id`). Legacy mixed-case ULID-form
-// fixtures (`cx:space:01904100-0000-7000-8000-9b64700c6ee8`) are rejected by these.
+// Protocol object IDs use typed prefixes with canonical RFC 9562 UUIDv7 payloads.
 id_type!(SpaceId, |value: &str| is_strict_typed_id(value, "cx:space:"));
 id_type!(FlowId, |value: &str| is_strict_typed_id(value, "cx:flow:"));
-id_type!(EntityId, |value: &str| is_strict_typed_id(value, "cx:entity:"));
+id_type!(MorphId, |value: &str| is_strict_typed_id(value, "cx:morph:"));
+id_type!(PlaceId, |value: &str| is_strict_typed_id(value, "cx:place:"));
+id_type!(MessageId, |value: &str| is_strict_typed_id(value, "cx:message:"));
+id_type!(ActorProfileId, |value: &str| is_strict_typed_id(value, "cx:actor_profile:"));
 id_type!(RelationId, |value: &str| is_strict_typed_id(value, "cx:relation:"));
-id_type!(EventId, |value: &str| is_strict_typed_id(value, "cx:event:") || is_hash(value));
-id_type!(CommitId, |value: &str| is_strict_typed_id(value, "cx:commit:"));
+id_type!(EventId, |value: &str| is_strict_typed_id(value, "cx:event:"));
 id_type!(OperationId, |value: &str| is_strict_typed_id(value, "cx:operation:") || is_hash(value));
 id_type!(GrantId, |value: &str| is_strict_typed_id(value, "cx:grant:"));
 id_type!(InviteId, |value: &str| is_strict_typed_id(value, "cx:invite:"));
@@ -477,7 +477,7 @@ mod tests {
     }
 
     #[test]
-    fn is_strict_typed_id_rejects_legacy_ulid_and_bad_uuid_payloads() {
+    fn is_strict_typed_id_rejects_ulid_and_bad_uuid_payloads() {
         // C19 wire-break: typed wire ids MUST be canonical lowercase UUIDv7.
         // Legacy mixed-case ULID-form is rejected (intentionally non-UUIDv7).
         assert!(!is_strict_typed_id("cx:space:01js0ke000000000000000000", "cx:space:"));

@@ -218,19 +218,22 @@ pub struct NotificationDelta {
 pub struct SyncFilter {
     /// Space IDs to sync
     #[serde(default)]
-    pub space_ids: Vec<SpaceId>,
-    /// Entity types to filter
-    #[serde(default)]
-    pub entity_types: Vec<String>,
-    /// Relation types to filter
-    #[serde(default)]
-    pub relation_types: Vec<String>,
-    /// Minimum HLC
+    pub spaces: Vec<SpaceId>,
+    /// Per-Space timeline limit
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub min_hlc: Option<String>,
-    /// Maximum result count
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub limit: Option<u32>,
+    pub timeline_limit: Option<u32>,
+    /// Whether member state may be lazy-loaded
+    #[serde(default)]
+    pub lazy_load_members: bool,
+    /// Whether redundant member state should be included
+    #[serde(default)]
+    pub include_redundant_members: bool,
+    /// Event kind allow list
+    #[serde(default)]
+    pub event_types: Vec<String>,
+    /// Event kind deny list
+    #[serde(default)]
+    pub not_event_types: Vec<String>,
 }
 
 /// Subscription configuration for spaces.
@@ -942,11 +945,12 @@ mod tests {
         let device = DeviceId::new("dev_123").unwrap();
         let service = Did::new("did:web:sync.example").unwrap();
         let filter = SyncFilter {
-            space_ids: vec![SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()],
-            entity_types: vec!["message".to_owned()],
-            relation_types: Vec::new(),
-            min_hlc: None,
-            limit: Some(20),
+            spaces: vec![SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()],
+            timeline_limit: Some(20),
+            lazy_load_members: true,
+            include_redundant_members: false,
+            event_types: vec!["cx.message.create".to_owned()],
+            not_event_types: Vec::new(),
         };
         let filter_hash = sync_filter_hash(Some(&filter), None).unwrap();
         let binding = SyncTokenBinding::for_request(

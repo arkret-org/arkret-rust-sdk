@@ -268,4 +268,3 @@ where
 {
     scopes.into_iter().find_map(|scope| device_id_from_scope_token(scope.as_ref()))
 }
-

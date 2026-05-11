@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
-    CommitId, DeviceId, Did, Error, ErrorEnvelope, OperationId, PROTOCOL_VERSION, Result,
-    ServerDescription, SpaceId,
+    DeviceId, Did, Error, ErrorEnvelope, OperationId, PROTOCOL_VERSION, Result, ServerDescription,
+    SpaceId,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -17,8 +17,6 @@ pub enum ServiceType {
     IdentityRegistry,
     AuthServer,
     SyncNode,
-    IndexNode,
-    AppViewNode,
     BlobNode,
     DirectoryService,
     DeviceKeyService,
@@ -40,8 +38,6 @@ impl ServiceType {
             Self::IdentityRegistry => "identity_registry",
             Self::AuthServer => "auth_server",
             Self::SyncNode => "sync_node",
-            Self::IndexNode => "index_node",
-            Self::AppViewNode => "appview_node",
             Self::BlobNode => "blob_node",
             Self::DirectoryService => "directory_service",
             Self::DeviceKeyService => "device_key_service",
@@ -60,16 +56,13 @@ impl ServiceType {
     /// Operation-kind prefixes a service of this type is allowed to
     /// advertise (T3-10 / `service-surface.md` capability matrix).
     ///
-    /// `cx.applet.*` for applet services, `cx.federation.*` for principal
-    /// servers and sync nodes, etc. An empty slice means "no allow-list
-    /// constraint" (e.g. `PrincipalServer` accepts the union of all
-    /// kinds).
+    /// `cx.applet.*` for applet services, `cx.events.*` / `cx.sync.*` for
+    /// sync nodes, etc. An empty slice means "no allow-list constraint".
     pub fn allowed_operation_prefixes(&self) -> &'static [&'static str] {
         match self {
             Self::PrincipalServer => &[
                 "cx.events.",
                 "cx.sync.",
-                "cx.federation.",
                 "cx.account.",
                 "cx.policy.",
                 "cx.authz.",
@@ -80,9 +73,7 @@ impl ServiceType {
             ],
             Self::IdentityRegistry => &["cx.identity.", "cx.directory.resolve_handle"],
             Self::AuthServer => &["cx.account.", "cx.identity.resolve"],
-            Self::SyncNode => &["cx.sync.", "cx.events.", "cx.federation."],
-            Self::IndexNode => &["cx.index."],
-            Self::AppViewNode => &["cx.index.", "cx.directory.search_"],
+            Self::SyncNode => &["cx.sync.", "cx.events."],
             Self::BlobNode | Self::MediaService => &["cx.blob.", "cx.media."],
             Self::DirectoryService => &["cx.directory."],
             Self::DeviceKeyService => &["cx.keys.", "cx.device_messages."],
@@ -238,8 +229,6 @@ pub struct HttpTraceMetadata {
     pub space_id: Option<SpaceId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub operation_id: Option<OperationId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub commit_id: Option<CommitId>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -351,8 +340,7 @@ impl ServiceRequirements {
             }
             // Cross-check the service-type capability matrix (T3-10):
             // refuse a description that advertises operations forbidden
-            // for its declared `service_type` (e.g. an `applet_service`
-            // must not advertise `cx.federation.transaction`).
+            // for its declared `service_type`.
             for op in &description.supported_operations {
                 if !service_type.permits_operation(op) {
                     return Err(Error::Protocol(format!(
@@ -408,11 +396,11 @@ mod tests {
     fn verifies_required_service_profile_and_operation() {
         let description = ServerDescription {
             service_did: Did::new("did:web:svc.example").unwrap(),
-            service_type: "index_node".to_owned(),
+            service_type: "directory_service".to_owned(),
             protocol_version: "1.0".to_owned(),
-            supported_profiles: vec!["cx.profile.index_node.v1".to_owned()],
+            supported_profiles: vec!["cx.profile.directory.v1".to_owned()],
             supported_features: vec![],
-            supported_operations: vec!["cx.index.query".to_owned()],
+            supported_operations: vec!["cx.directory.search_spaces".to_owned()],
             supported_bindings: vec![],
             supported_reducer_profiles: vec!["cx.reducer.v1".to_owned()],
             supported_schema_profiles: vec!["cx.schema.core.v1".to_owned()],
@@ -422,14 +410,14 @@ mod tests {
             snapshot_frontier: Vec::new(),
             reducer_profile: None,
             last_materialized_at: None,
-        };
+            };
 
         ServiceRequirements::new()
-            .service_type(ServiceType::IndexNode)
-            .profile("cx.profile.index_node.v1")
+            .service_type(ServiceType::DirectoryService)
+            .profile("cx.profile.directory.v1")
             .reducer_profile("cx.reducer.v1")
             .schema_profile("cx.schema.core.v1")
-            .operation("cx.index.query")
+            .operation("cx.directory.search_spaces")
             .verify(&description)
             .unwrap();
     }
@@ -439,17 +427,17 @@ mod tests {
         let service_did = Did::new("did:web:svc.example").unwrap();
         let allowlist = ServiceDidAllowlist::new().allow(ServiceEndpointBinding {
             service_did: service_did.clone(),
-            service_type: ServiceType::IndexNode,
-            endpoint: "https://svc.example/api/v1/index".to_owned(),
-            operations: vec!["cx.index.query".to_owned()],
+            service_type: ServiceType::DirectoryService,
+            endpoint: "https://svc.example/api/v1/directory".to_owned(),
+            operations: vec!["cx.directory.search_spaces".to_owned()],
         });
         let description = ServerDescription {
             service_did,
-            service_type: "index_node".to_owned(),
+            service_type: "directory_service".to_owned(),
             protocol_version: "1.0".to_owned(),
             supported_profiles: vec![],
             supported_features: vec![],
-            supported_operations: vec!["cx.index.query".to_owned()],
+            supported_operations: vec!["cx.directory.search_spaces".to_owned()],
             supported_bindings: vec![],
             supported_reducer_profiles: vec![],
             supported_schema_profiles: vec![],
@@ -472,7 +460,6 @@ mod tests {
             device_id: None,
             space_id: Some(SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()),
             operation_id: None,
-            commit_id: None,
         };
         let not_found = privacy_preserving_not_found(Some(trace));
         assert_eq!(not_found.errcode, "cx.error.not_found");

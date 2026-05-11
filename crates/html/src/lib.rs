@@ -119,10 +119,11 @@ impl MarkdownDocument {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MentionTarget {
-    User,
-    Entity,
+    Actor,
     Space,
-    Channel,
+    Flow,
+    Message,
+    Morph,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -405,13 +406,15 @@ fn extract_href_links(html: &str) -> Vec<String> {
 
 fn classify_mention_token(token: &str) -> (Option<MentionTarget>, Option<String>) {
     if token.starts_with("did:") {
-        (Some(MentionTarget::User), Some(token.to_owned()))
-    } else if token.starts_with("cx:entity:") {
-        (Some(MentionTarget::Entity), Some(token.to_owned()))
+        (Some(MentionTarget::Actor), Some(token.to_owned()))
     } else if token.starts_with("cx:space:") {
         (Some(MentionTarget::Space), Some(token.to_owned()))
-    } else if token.starts_with('#') {
-        (Some(MentionTarget::Channel), Some(token.trim_start_matches('#').to_owned()))
+    } else if token.starts_with("cx:flow:") {
+        (Some(MentionTarget::Flow), Some(token.to_owned()))
+    } else if token.starts_with("cx:message:") {
+        (Some(MentionTarget::Message), Some(token.to_owned()))
+    } else if token.starts_with("cx:morph:") {
+        (Some(MentionTarget::Morph), Some(token.to_owned()))
     } else {
         (None, None)
     }
@@ -506,7 +509,7 @@ mod tests {
         )
         .unwrap();
         assert!(document.sanitized_html.contains("<h1>Title</h1>"));
-        assert_eq!(document.mentions[0].target_kind, Some(MentionTarget::User));
+        assert_eq!(document.mentions[0].target_kind, Some(MentionTarget::Actor));
         assert_eq!(document.links[0].domain, "example.com");
     }
 

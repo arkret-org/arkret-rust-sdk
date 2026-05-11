@@ -349,4 +349,3 @@ fn resource_selectors(value: Option<&Value>) -> Result<Option<Vec<ResourceSelect
     }
     Ok(Some(selectors))
 }
-

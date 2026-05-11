@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use crate::{
-    BlobRef, DeviceId, Did, EntityId, Error, Event, EventId, Hlc, PresenceStatus, Result, SpaceId,
+    BlobRef, DeviceId, Did, Error, Event, EventId, EventRef, Hlc, PresenceStatus, Result, SpaceId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -22,7 +22,7 @@ pub struct EventContentEnvelope {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub prev_refs: Vec<EventId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub auth_refs: Vec<EventId>,
+    pub refs: Vec<EventRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub redacts: Option<EventId>,
     pub content: AnyEventContent,
@@ -41,7 +41,7 @@ impl EventContentEnvelope {
             created_at: event.created_at,
             hlc: event.hlc.clone(),
             prev_refs: event.prev_refs.clone(),
-            auth_refs: event.auth_refs.clone(),
+            refs: event.refs.clone(),
             redacts: event.redacts.clone(),
             content: parse_event_content(&event.kind, event.content.clone())?,
             unsigned: event.unsigned.clone(),
@@ -81,6 +81,7 @@ impl AnyEventContent {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", content = "content", rename_all = "snake_case")]
 pub enum KnownEventContent {
+    Standard(StandardEventContent),
     TextMessage(TextMessageContent),
     NoticeMessage(TextMessageContent),
     EmoteMessage(TextMessageContent),
@@ -149,6 +150,13 @@ pub enum KnownEventContent {
     ActivityBeacon(ActivityBeaconContent),
 }
 
+/// Generic payload wrapper for active spec event kinds.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct StandardEventContent {
+    pub kind: String,
+    pub payload: Value,
+}
+
 /// Lossless content for unknown or extension event kinds.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CustomEventContent {
@@ -158,92 +166,21 @@ pub struct CustomEventContent {
 }
 
 pub fn parse_event_content(kind: &str, content: Value) -> Result<AnyEventContent> {
-    let known = match kind {
-        MESSAGE_TEXT => KnownEventContent::TextMessage(parse(content)?),
-        MESSAGE_NOTICE => KnownEventContent::NoticeMessage(parse(content)?),
-        MESSAGE_EMOTE => KnownEventContent::EmoteMessage(parse(content)?),
-        MESSAGE_HTML => KnownEventContent::HtmlMessage(parse(content)?),
-        MESSAGE_FILE => KnownEventContent::FileMessage(parse(content)?),
-        MESSAGE_IMAGE => KnownEventContent::ImageMessage(parse(content)?),
-        MESSAGE_AUDIO => KnownEventContent::AudioMessage(parse(content)?),
-        MESSAGE_VIDEO => KnownEventContent::VideoMessage(parse(content)?),
-        MESSAGE_VOICE => KnownEventContent::VoiceMessage(parse(content)?),
-        MESSAGE_DOCUMENT => KnownEventContent::DocumentMessage(parse(content)?),
-        MESSAGE_LOCATION => KnownEventContent::LocationMessage(parse(content)?),
-        MESSAGE_STICKER => KnownEventContent::StickerMessage(parse(content)?),
-        MESSAGE_REACTION => KnownEventContent::Reaction(parse(content)?),
-        MESSAGE_POLL => KnownEventContent::Poll(parse(content)?),
-        MESSAGE_POLL_START => KnownEventContent::PollStart(parse(content)?),
-        MESSAGE_POLL_RESPONSE => KnownEventContent::PollResponse(parse(content)?),
-        MESSAGE_POLL_END => KnownEventContent::PollEnd(parse(content)?),
-        MESSAGE_FORM_UPDATE => KnownEventContent::FormUpdate(parse(content)?),
-        MESSAGE_TASK_UPDATE => KnownEventContent::TaskUpdate(parse(content)?),
-        MESSAGE_ACKNOWLEDGEMENT => KnownEventContent::Acknowledgement(parse(content)?),
-        MESSAGE_EPHEMERAL_INDICATOR => KnownEventContent::EphemeralIndicator(parse(content)?),
-        MESSAGE_EDIT => KnownEventContent::Edit(parse(content)?),
-        MESSAGE_REDACTION => KnownEventContent::Redaction(parse(content)?),
-        STATE_MEMBERSHIP => KnownEventContent::Membership(parse(content)?),
-        STATE_PROFILE => KnownEventContent::Profile(parse(content)?),
-        STATE_POWER_LEVELS => KnownEventContent::PowerLevels(parse(content)?),
-        STATE_POLICY => KnownEventContent::Policy(parse(content)?),
-        STATE_CAPABILITIES => KnownEventContent::Capabilities(parse(content)?),
-        STATE_TAGS => KnownEventContent::Tags(parse(content)?),
-        STATE_PINNED_EVENTS => KnownEventContent::PinnedEvents(parse(content)?),
-        STATE_TOPIC => KnownEventContent::Topic(parse(content)?),
-        STATE_NAME => KnownEventContent::Name(parse(content)?),
-        STATE_AVATAR => KnownEventContent::Avatar(parse(content)?),
-        STATE_NOTIFICATION_SETTINGS => KnownEventContent::NotificationSettings(parse(content)?),
-        EPHEMERAL_TYPING => KnownEventContent::Typing(parse(content)?),
-        EPHEMERAL_RECEIPT => KnownEventContent::Receipt(parse(content)?),
-        EPHEMERAL_READ_MARKER => KnownEventContent::ReadMarker(parse(content)?),
-        EPHEMERAL_PRESENCE => KnownEventContent::Presence(parse(content)?),
-        EPHEMERAL_TRANSIENT_DEVICE => KnownEventContent::TransientDevice(parse(content)?),
-        ACCOUNT_DATA_DIRECT_SPACES => KnownEventContent::DirectSpaces(parse(content)?),
-        ACCOUNT_DATA_IGNORED_USERS => KnownEventContent::IgnoredUsers(parse(content)?),
-        ACCOUNT_DATA_RECENT_EMOJI => KnownEventContent::RecentEmoji(parse(content)?),
-        ACCOUNT_DATA_DRAFT => KnownEventContent::Draft(parse(content)?),
-        ACCOUNT_DATA_SPACE_SETTINGS => KnownEventContent::SpaceSettings(parse(content)?),
-        E2EE_ENCRYPTED => KnownEventContent::Encrypted(parse(content)?),
-        E2EE_ROOM_KEY => KnownEventContent::RoomKey(parse(content)?),
-        E2EE_FORWARDED_ROOM_KEY => KnownEventContent::ForwardedRoomKey(parse(content)?),
-        E2EE_KEY_REQUEST => KnownEventContent::KeyRequest(parse(content)?),
-        E2EE_SECRET_REQUEST => KnownEventContent::SecretRequest(parse(content)?),
-        E2EE_SECRET_SEND => KnownEventContent::SecretSend(parse(content)?),
-        E2EE_VERIFICATION
-        | KEY_VERIFICATION_REQUEST
-        | KEY_VERIFICATION_READY
-        | KEY_VERIFICATION_START
-        | KEY_VERIFICATION_ACCEPT
-        | KEY_VERIFICATION_KEY
-        | KEY_VERIFICATION_MAC
-        | KEY_VERIFICATION_DONE
-        | KEY_VERIFICATION_CANCEL => KnownEventContent::Verification(parse(content)?),
-        CALL_INVITE => KnownEventContent::CallInvite(parse(content)?),
-        CALL_ANSWER => KnownEventContent::CallAnswer(parse(content)?),
-        CALL_CANDIDATES => KnownEventContent::CallCandidates(parse(content)?),
-        CALL_HANGUP => KnownEventContent::CallHangup(parse(content)?),
-        CALL_NEGOTIATION => KnownEventContent::CallNegotiation(parse(content)?),
-        CALL_MEMBERSHIP => KnownEventContent::CallMembership(parse(content)?),
-        CALL_DEVICE_MAPPING => KnownEventContent::CallDeviceMapping(parse(content)?),
-        RTC_SESSION => KnownEventContent::RtcSession(parse(content)?),
-        COLLAB_OPERATION_BATCH => KnownEventContent::OperationBatch(parse(content)?),
-        COLLAB_DOCUMENT_PATCH => KnownEventContent::DocumentPatch(parse(content)?),
-        COLLAB_CURSOR => KnownEventContent::Cursor(parse(content)?),
-        COLLAB_SELECTION => KnownEventContent::Selection(parse(content)?),
-        COLLAB_COMPOSING => KnownEventContent::Composing(parse(content)?),
-        COLLAB_PRESENCE => KnownEventContent::CollabPresence(parse(content)?),
-        COLLAB_ACTIVITY_BEACON => KnownEventContent::ActivityBeacon(parse(content)?),
-        _ => {
-            return Ok(AnyEventContent::Custom {
-                content: CustomEventContent {
-                    kind: kind.to_owned(),
-                    class: classify_event_kind(kind),
-                    raw: content,
-                },
-            });
-        }
-    };
-    Ok(AnyEventContent::Known { content: known })
+    if is_standard_event_kind(kind) {
+        return Ok(AnyEventContent::Known {
+            content: KnownEventContent::Standard(StandardEventContent {
+                kind: kind.to_owned(),
+                payload: content,
+            }),
+        });
+    }
+    Ok(AnyEventContent::Custom {
+        content: CustomEventContent {
+            kind: kind.to_owned(),
+            class: classify_event_kind(kind),
+            raw: content,
+        },
+    })
 }
 
 fn parse<T>(value: Value) -> Result<T>
@@ -967,7 +904,7 @@ pub struct OperationBatchContent {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DocumentPatchContent {
-    pub entity_id: EntityId,
+    pub object_ref: String,
     pub patch_type: String,
     pub patch: Value,
 }
@@ -977,7 +914,7 @@ pub struct CursorContent {
     pub user_id: Did,
     pub device_id: DeviceId,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub entity_id: Option<EntityId>,
+    pub target_ref: Option<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub position: BTreeMap<String, Value>,
 }
@@ -987,7 +924,7 @@ pub struct SelectionContent {
     pub user_id: Did,
     pub device_id: DeviceId,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub entity_id: Option<EntityId>,
+    pub target_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ranges: Vec<Value>,
 }
@@ -997,7 +934,7 @@ pub struct ComposingContent {
     pub user_id: Did,
     pub device_id: DeviceId,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub entity_id: Option<EntityId>,
+    pub target_ref: Option<String>,
     pub is_composing: bool,
     pub expires_at: DateTime<Utc>,
 }
@@ -1008,7 +945,7 @@ pub struct ActivityBeaconContent {
     pub device_id: DeviceId,
     pub activity: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub entity_id: Option<EntityId>,
+    pub target_ref: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub event_id: Option<EventId>,
     pub observed_at: DateTime<Utc>,
@@ -1055,122 +992,35 @@ mod tests {
     }
 
     #[test]
-    fn parses_known_text_content() {
-        let content = parse_event_content(
-            MESSAGE_TEXT,
-            json!({
-                "body": "hello",
-                "mentions": [{ "target": "did:web:alice.example", "display_name": "Alice" }]
-            }),
-        )
-        .unwrap();
+    fn parses_standard_spec_content() {
+        let payload = json!({
+            "flow_id": "cx:flow:01904100-0000-7000-8000-fb8cfd35e274",
+            "track": "main",
+            "content": { "body": "hello" }
+        });
+        let content = parse_event_content(MESSAGE_CREATE, payload.clone()).unwrap();
 
         let known = require_known_content(content).unwrap();
-        let KnownEventContent::TextMessage(message) = known else {
-            panic!("expected text message");
+        let KnownEventContent::Standard(message) = known else {
+            panic!("expected standard event payload");
         };
-        assert_eq!(message.body, "hello");
-        assert_eq!(message.mentions[0].target, "did:web:alice.example");
+        assert_eq!(message.kind, MESSAGE_CREATE);
+        assert_eq!(message.payload, payload);
     }
 
     #[test]
-    fn parses_poll_lifecycle_and_interactive_events() {
-        let poll_response = require_known_content(
-            parse_event_content(
-                MESSAGE_POLL_RESPONSE,
-                json!({
-                    "poll_event_id": "cx:event:01904100-0000-7000-8000-fb8cfd35e274",
-                    "answer_ids": ["a"],
-                    "responded_at": "2026-05-01T00:00:00Z"
-                }),
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        let KnownEventContent::PollResponse(response) = poll_response else {
-            panic!("expected poll response");
-        };
-        assert_eq!(
-            response.poll_event_id.as_str(),
-            "cx:event:01904100-0000-7000-8000-fb8cfd35e274"
-        );
-        assert_eq!(response.answer_ids, vec!["a"]);
-
-        let acknowledgement = require_known_content(
-            parse_event_content(
-                MESSAGE_ACKNOWLEDGEMENT,
-                json!({
-                    "target_event_id": "cx:event:01904100-0000-7000-8000-79a90338768b",
-                    "key": "seen"
-                }),
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        assert!(matches!(
-            acknowledgement,
-            KnownEventContent::Acknowledgement(AcknowledgementContent { key, .. }) if key == "seen"
-        ));
-    }
-
-    #[test]
-    fn parses_collaboration_call_and_secret_events() {
-        let beacon = require_known_content(
-            parse_event_content(
-                COLLAB_ACTIVITY_BEACON,
-                json!({
-                    "user_id": "did:web:alice.example",
-                    "device_id": "dev_alice",
-                    "activity": "viewing",
-                    "observed_at": "2026-05-01T00:00:00Z"
-                }),
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        assert!(matches!(
-            beacon,
-            KnownEventContent::ActivityBeacon(ActivityBeaconContent { activity, .. }) if activity == "viewing"
-        ));
-
-        let mapping = require_known_content(
-            parse_event_content(
-                CALL_DEVICE_MAPPING,
-                json!({
-                    "call_id": "call-1",
-                    "devices_by_user": {
-                        "did:web:alice.example": ["dev_alice"]
-                    }
-                }),
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        assert!(matches!(
-            mapping,
-            KnownEventContent::CallDeviceMapping(CallDeviceMappingContent { call_id, .. }) if call_id == "call-1"
-        ));
-
-        let secret = require_known_content(
-            parse_event_content(
-                E2EE_SECRET_SEND,
-                json!({
-                    "request_id": "req-1",
-                    "name": "recovery",
-                    "encrypted_secret": {
-                        "algorithm": "cx.v1",
-                        "sender_key": "ed25519:abc",
-                        "ciphertext": { "body": "encrypted" }
-                    }
-                }),
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        assert!(matches!(
-            secret,
-            KnownEventContent::SecretSend(SecretSendContent { name, .. }) if name == "recovery"
-        ));
+    fn classifies_multiple_active_spec_categories() {
+        for (kind, class) in [
+            (REACTION_ADD, EventClass::Message),
+            (CALL_SIGNAL, EventClass::Call),
+            (AGENT_PROTOCOL_SESSION_STATUS, EventClass::Agent),
+            (MLS_WELCOME, EventClass::E2ee),
+        ] {
+            let content =
+                require_known_content(parse_event_content(kind, json!({})).unwrap()).unwrap();
+            assert!(matches!(content, KnownEventContent::Standard(_)));
+            assert_eq!(classify_event_kind(kind), class);
+        }
     }
 
     #[test]
@@ -1192,12 +1042,16 @@ mod tests {
         let actor_id = Did::new("did:web:alice.example").unwrap();
         let hlc = Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap();
         let mut event = Event::new(
-            MESSAGE_TEXT,
+            MESSAGE_CREATE,
             space_id.clone(),
             actor_id.clone(),
             1,
             hlc,
-            json!({ "body": "hello" }),
+            json!({
+                "flow_id": "cx:flow:01904100-0000-7000-8000-fb8cfd35e274",
+                "track": "main",
+                "content": { "body": "hello" }
+            }),
         )
         .unwrap();
         event.created_at = Utc.with_ymd_and_hms(2026, 4, 30, 0, 0, 0).unwrap();
@@ -1205,14 +1059,14 @@ mod tests {
 
         let envelope = EventContentEnvelope::from_event(&event).unwrap();
 
-        assert_eq!(envelope.kind, MESSAGE_TEXT);
+        assert_eq!(envelope.kind, MESSAGE_CREATE);
         assert_eq!(envelope.class, EventClass::Message);
         assert_eq!(envelope.space_id, space_id);
         assert_eq!(envelope.actor_id, actor_id);
         assert_eq!(envelope.unsigned["age"], json!(12));
         assert!(matches!(
             envelope.content,
-            AnyEventContent::Known { content: KnownEventContent::TextMessage(_) }
+            AnyEventContent::Known { content: KnownEventContent::Standard(_) }
         ));
     }
 

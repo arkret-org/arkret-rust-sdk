@@ -1,5 +1,5 @@
-use super::*;
 use super::helpers::{constant_time_eq, recovery_proof_matches, sha256_hex};
+use super::*;
 
 /// Authenticated session.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -792,4 +792,3 @@ impl Default for AuthManager {
         Self::new(8)
     }
 }
-

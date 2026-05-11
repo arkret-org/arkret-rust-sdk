@@ -13,9 +13,9 @@ pub struct AuthzContext {
     pub action: String,
     /// Resource being accessed
     pub resource: Resource,
-    /// Facets attached to the target entity at the current causal frontier.
+    /// Facets attached to the target object at the current causal frontier.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub entity_facets: Vec<EntityFacet>,
+    pub facets: Vec<Facet>,
     /// Fields being read
     #[serde(default)]
     pub read_fields: Vec<String>,
@@ -95,7 +95,7 @@ impl AuthzContext {
             space_id: None,
             action,
             resource,
-            entity_facets: Vec::new(),
+            facets: Vec::new(),
             read_fields: Vec::new(),
             write_fields: Vec::new(),
             delegation_depth: 0,
@@ -126,9 +126,9 @@ impl AuthzContext {
         self
     }
 
-    /// Set target entity facets resolved at the current causal frontier.
-    pub fn with_entity_facets(mut self, facets: impl IntoIterator<Item = EntityFacet>) -> Self {
-        self.entity_facets = facets.into_iter().collect();
+    /// Set target object facets resolved at the current causal frontier.
+    pub fn with_facets(mut self, facets: impl IntoIterator<Item = Facet>) -> Self {
+        self.facets = facets.into_iter().collect();
         self
     }
 
@@ -503,9 +503,12 @@ impl AuthzEngine {
                 AuthzDecision::Allow
             }
             Constraint::TypeRestriction {
-                entity_type_allow,
-                entity_type_deny,
-                allowed_entity_facets,
+                object_type_allow,
+                object_type_deny,
+                morph_type_allow,
+                morph_type_deny,
+                facet_allow,
+                facet_deny,
                 scope_limitation,
             } => {
                 if let Some(scope_limitation) = scope_limitation {
@@ -513,7 +516,8 @@ impl AuthzEngine {
                         (scope_limitation, &ctx.resource),
                         (ScopeLimitation::Space, Resource::Space { .. })
                             | (ScopeLimitation::Flow, Resource::Flow { .. })
-                            | (ScopeLimitation::Entity, Resource::Entity { .. })
+                            | (ScopeLimitation::Morph, Resource::Morph { .. })
+                            | (ScopeLimitation::Message, Resource::Message { .. })
                             | (ScopeLimitation::Relation, Resource::Relation { .. })
                             | (ScopeLimitation::View, Resource::View { .. })
                             | (ScopeLimitation::Policy, Resource::Policy { .. })
@@ -527,38 +531,62 @@ impl AuthzEngine {
                         };
                     }
                 }
-                if let Resource::Entity { entity_type, .. } = &ctx.resource {
-                    if let Some(deny_list) = entity_type_deny
-                        && deny_list.contains(entity_type)
+                let (object_type, morph_type) = match &ctx.resource {
+                    Resource::Flow { .. } => (Some("flow"), None),
+                    Resource::Message { .. } => (Some("message"), None),
+                    Resource::Morph { morph_type, .. } => (Some("morph"), Some(morph_type.as_str())),
+                    Resource::Relation { .. } => (Some("relation"), None),
+                    Resource::View { .. } => (Some("view"), None),
+                    Resource::Space { .. } => (Some("space"), None),
+                    _ => (None, None),
+                };
+
+                if let Some(object_type) = object_type {
+                    if let Some(deny_list) = object_type_deny
+                        && deny_list.iter().any(|item| item == object_type)
                     {
                         return AuthzDecision::Deny {
-                            reason: format!("entity type denied: {}", entity_type),
+                            reason: format!("object type denied: {}", object_type),
                         };
                     }
-                    if let Some(allow_list) = entity_type_allow
-                        && !allow_list.contains(entity_type)
+                    if let Some(allow_list) = object_type_allow
+                        && !allow_list.iter().any(|item| item == object_type)
                     {
                         return AuthzDecision::Deny {
-                            reason: format!("entity type not allowed: {}", entity_type),
+                            reason: format!("object type not allowed: {}", object_type),
                         };
                     }
-                    if !allowed_entity_facets.is_empty() {
-                        let missing = allowed_entity_facets
-                            .iter()
-                            .find(|facet| !ctx.entity_facets.contains(facet));
-                        if let Some(facet) = missing {
-                            return AuthzDecision::Deny {
-                                reason: format!(
-                                    "entity facet not allowed or unavailable: {:?}",
-                                    facet
-                                ),
-                            };
-                        }
+                }
+
+                if let Some(morph_type) = morph_type {
+                    if let Some(deny_list) = morph_type_deny
+                        && deny_list.iter().any(|item| item == morph_type)
+                    {
+                        return AuthzDecision::Deny {
+                            reason: format!("morph type denied: {}", morph_type),
+                        };
                     }
-                } else if !allowed_entity_facets.is_empty() {
-                    return AuthzDecision::Deny {
-                        reason: "entity facet constraint requires an entity resource".to_owned(),
-                    };
+                    if let Some(allow_list) = morph_type_allow
+                        && !allow_list.iter().any(|item| item == morph_type)
+                    {
+                        return AuthzDecision::Deny {
+                            reason: format!("morph type not allowed: {}", morph_type),
+                        };
+                    }
+                }
+
+                if !facet_deny.is_empty()
+                    && let Some(facet) = facet_deny.iter().find(|facet| ctx.facets.contains(facet))
+                {
+                    return AuthzDecision::Deny { reason: format!("facet denied: {:?}", facet) };
+                }
+                if !facet_allow.is_empty() {
+                    let missing = facet_allow.iter().find(|facet| !ctx.facets.contains(facet));
+                    if let Some(facet) = missing {
+                        return AuthzDecision::Deny {
+                            reason: format!("facet not allowed or unavailable: {:?}", facet),
+                        };
+                    }
                 }
                 AuthzDecision::Allow
             }
@@ -952,8 +980,8 @@ impl AuthzEngine {
                 .unwrap_or_else(|_| format!("claim-count:{}", ctx.verified_claims.len()));
         let resource_digest = crate::canonical::canonical_sha256(&ctx.resource)
             .unwrap_or_else(|_| ctx.resource.space_id().to_owned());
-        let facets_digest = crate::canonical::canonical_sha256(&ctx.entity_facets)
-            .unwrap_or_else(|_| format!("facet-count:{}", ctx.entity_facets.len()));
+        let facets_digest = crate::canonical::canonical_sha256(&ctx.facets)
+            .unwrap_or_else(|_| format!("facet-count:{}", ctx.facets.len()));
         format!(
             "{}:{}:{}:{}:{}:{:?}:{:?}:{}:{}:{}",
             ctx.actor_id,
@@ -1075,4 +1103,3 @@ pub fn moderation_report_for_policy_outcome(
         created_at: now,
     })
 }
-

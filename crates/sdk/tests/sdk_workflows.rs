@@ -19,13 +19,12 @@ fn event(kind: &str, seq: u64, space_id: &SpaceId, content: serde_json::Value) -
         event_id: EventId::new(format!("cx:event:01904100-0000-7000-8000-{seq:012x}")).unwrap(),
         kind: kind.to_owned(),
         space_id: space_id.clone(),
-        space_version: "1".to_owned(),
         actor_id: did("alice"),
         actor_seq: seq,
         created_at: chrono::Utc::now(),
         hlc: Hlc::new(format!("01970e589d21-{seq:08x}-a13f9c2e")).unwrap(),
         prev_refs: vec![],
-        auth_refs: vec![],
+        refs: vec![],
         schema_profile_refs: vec![],
         reducer_profile_ref: None,
         required_features: vec![],
@@ -54,25 +53,31 @@ fn end_to_end_auth_session_space_query_and_notifications() {
     .unwrap();
 
     let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
-    let entity_id = EntityId::new("cx:entity:01904100-0000-7000-8000-d48c478ecd0b").unwrap();
+    let morph_id = MorphId::new("cx:morph:01904100-0000-7000-8000-d48c478ecd0b").unwrap();
     base.process_events(
         &space_id,
         vec![event(
-            "cx.entity.create",
+            OP_MORPH_CREATE,
             1,
             &space_id,
             json!({
-                "id": entity_id.as_str(),
-                "entity_type": "task",
-                "title": "Ship SDK",
-                "fields": {"status": "todo"}
+                "object": {
+                    "id": morph_id.as_str(),
+                    "schema": MORPH_SCHEMA,
+                    "space_id": space_id.as_str(),
+                    "morph_type": "task",
+                    "title": "Ship SDK",
+                    "fields": {"status": "todo"},
+                    "created_by": "did:web:alice.example",
+                    "created_at": "2026-05-02T00:00:00.000Z"
+                }
             }),
         )],
     )
     .unwrap();
 
     let space = Space::new(space_id.clone(), base);
-    assert_eq!(space.search_entities("ship").len(), 1);
+    assert_eq!(space.search_morphs("ship").len(), 1);
 
     let mut notifications = NotificationManager::new();
     notifications.add_notification(

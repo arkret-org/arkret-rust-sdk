@@ -10,8 +10,9 @@ use salvo::oapi::{
 };
 
 use crate::{
-    AnchorId, BlobRef, CellRef, CommitId, Cursor, DeviceId, Did, EntityId, EventId, FlowId,
-    GrantId, Hash, Hlc, InviteId, MoveId, OperationId, PolicyId, RelationId, SpaceId, ViewId,
+    ActorProfileId, AnchorId, BlobRef, CellRef, Cursor, DeviceId, Did, EventId, FlowId, GrantId,
+    Hash, Hlc, InviteId, MessageId, MorphId, MoveId, OperationId, PlaceId, PolicyId, RelationId,
+    SpaceId, ViewId,
 };
 
 fn string_schema(pattern: &str) -> RefOr<Schema> {
@@ -40,10 +41,15 @@ macro_rules! impl_string_schema {
 impl_string_schema!(Did, r"^did:[a-z0-9]+:.+$");
 impl_string_schema!(SpaceId, r"^cx:space:.+$");
 impl_string_schema!(FlowId, r"^cx:flow:.+$");
-impl_string_schema!(EntityId, r"^cx:entity:.+$");
+impl_string_schema!(MorphId, r"^cx:morph:.+$");
+impl_string_schema!(PlaceId, r"^cx:place:.+$");
+impl_string_schema!(MessageId, r"^cx:message:.+$");
+impl_string_schema!(ActorProfileId, r"^cx:actor_profile:.+$");
 impl_string_schema!(RelationId, r"^cx:relation:.+$");
-impl_string_schema!(EventId, r"^(cx:event:.+|sha256:[0-9a-f]{64})$");
-impl_string_schema!(CommitId, r"^cx:commit:.+$");
+impl_string_schema!(
+    EventId,
+    r"^cx:event:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+);
 impl_string_schema!(OperationId, r"^(cx:operation:.+|sha256:[0-9a-f]{64})$");
 impl_string_schema!(GrantId, r"^cx:grant:.+$");
 impl_string_schema!(InviteId, r"^cx:invite:.+$");

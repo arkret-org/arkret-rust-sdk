@@ -1,5 +1,5 @@
-use super::*;
 use super::helpers::sha256_hex;
+use super::*;
 
 /// Session grant payload issued by an identity provider to a Principal Server.
 ///
@@ -380,4 +380,3 @@ where
         self(notification)
     }
 }
-

@@ -225,7 +225,10 @@ pub(super) fn ensure_active(state: &VerifiedDidKeyLog) -> Result<()> {
     Ok(())
 }
 
-pub(super) fn verify_did_key_log_proof(entry: &DidKeyLogEntry, signer_public_key: &str) -> Result<()> {
+pub(super) fn verify_did_key_log_proof(
+    entry: &DidKeyLogEntry,
+    signer_public_key: &str,
+) -> Result<()> {
     let expected = did_key_log_proof(
         entry.sequence,
         &entry.did,
@@ -244,4 +247,3 @@ pub(super) fn verify_did_key_log_proof(entry: &DidKeyLogEntry, signer_public_key
 pub(super) fn sha256_hex(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
-

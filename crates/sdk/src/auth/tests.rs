@@ -1,5 +1,5 @@
-use super::*;
 use super::helpers::sha256_hex;
+use super::*;
 
 fn did(name: &str) -> Did {
     Did::new(format!("did:web:{name}.example")).unwrap()
@@ -65,10 +65,7 @@ fn auth_uses_provider_password_verifier() {
         assert_eq!(request.user_id, alice);
         assert_eq!(request.password_hash, "$argon2id$hash");
         assert_eq!(request.algorithm, PasswordHashAlgorithm::Argon2id);
-        Ok(PasswordVerification {
-            verified: request.password == "secret",
-            rehash_needed: false,
-        })
+        Ok(PasswordVerification { verified: request.password == "secret", rehash_needed: false })
     };
 
     let session = auth
@@ -172,9 +169,7 @@ fn auth_models_account_recovery_methods() {
     let request = auth
         .start_recovery(
             did("alice"),
-            AccountRecoveryMethod::DidProof {
-                verification_method: verification_method.to_owned(),
-            },
+            AccountRecoveryMethod::DidProof { verification_method: verification_method.to_owned() },
         )
         .unwrap();
     assert!(request.request_id.starts_with("recovery_"));
@@ -195,8 +190,7 @@ fn auth_exports_safe_state_and_enforces_device_binding_and_account_state() {
     auth.register_password_user("alice", "secret", alice.clone()).unwrap();
 
     let session = auth.login_password("alice", "secret", device("desktop")).unwrap();
-    auth.validate_session(&session.session_id, &session.access_token, &device("desktop"))
-        .unwrap();
+    auth.validate_session(&session.session_id, &session.access_token, &device("desktop")).unwrap();
     assert!(
         auth.validate_session(&session.session_id, &session.access_token, &device("phone"))
             .is_err()
@@ -280,11 +274,8 @@ fn session_grant_contract_redacts_and_notifies_principal_servers() {
     let mut outbox = MemorySessionGrantOutbox::default();
     outbox.enqueue(notification, now).unwrap();
     assert_eq!(outbox.due(now).len(), 1);
-    let policy = SessionGrantRetryPolicy {
-        initial_backoff_ms: 10,
-        max_backoff_ms: 100,
-        max_attempts: 2,
-    };
+    let policy =
+        SessionGrantRetryPolicy { initial_backoff_ms: 10, max_backoff_ms: 100, max_attempts: 2 };
     let mut entry = outbox.entries().next().unwrap().clone();
     entry.record_failure("temporary", now, policy);
     assert_eq!(entry.state, SessionGrantOutboxState::Failed);
@@ -413,9 +404,7 @@ fn auth_uses_provider_did_proof_verifier_for_recovery() {
     let request = auth
         .start_recovery(
             alice.clone(),
-            AccountRecoveryMethod::DidProof {
-                verification_method: verification_method.to_owned(),
-            },
+            AccountRecoveryMethod::DidProof { verification_method: verification_method.to_owned() },
         )
         .unwrap();
     let document = DidDocument::new(alice.clone(), verification_method, "public-key");

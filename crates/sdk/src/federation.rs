@@ -417,11 +417,6 @@ pub fn content_digest_sha256(bytes: &[u8]) -> String {
 
 /// Build the value of the RFC 9530 `Content-Digest` header
 /// (`sha-256=:<base64>:`).
-///
-/// Federation defaults to the legacy `sha256:<hex>` form via
-/// [`content_digest_sha256`]; HTTP message signing per RFC 9421 expects
-/// the RFC 9530 dictionary form, which this helper produces. The output
-/// is suitable for direct insertion into a `Content-Digest:` header.
 pub fn rfc9530_content_digest_sha256(bytes: &[u8]) -> String {
     use base64::Engine;
     let mut hasher = Sha256::new();
@@ -458,20 +453,6 @@ pub fn verify_rfc9530_content_digest(header_value: &str, bytes: &[u8]) -> Result
     }
 }
 
-pub fn http_message_signature_base(input: &HttpMessageSignatureInput) -> String {
-    format!(
-        "method:{}\ntarget-uri:{}\nauthority:{}\ncontent-digest:{}\norigin-service-did:{}\ndestination-service-did:{}\ncreated:{}\nexpires:{}",
-        input.method.to_ascii_uppercase(),
-        input.target_uri,
-        input.authority,
-        input.content_digest,
-        input.origin_service_did,
-        input.destination_service_did,
-        input.created_at.to_rfc3339(),
-        input.expires_at.to_rfc3339()
-    )
-}
-
 /// Build the canonical RFC 9421 signature base string for federation
 /// HTTP messages (B-06).
 ///
@@ -499,23 +480,6 @@ pub fn rfc9421_http_message_signature_base(input: &HttpMessageSignatureInput) ->
     out
 }
 
-/// Verify an HTTP message signature using either the canonical RFC 9421
-/// transcript or the legacy v0 transcript. Useful during the rollover
-/// window when peers run a mix of versions.
-pub fn verify_http_message_signature_either(
-    input: &HttpMessageSignatureInput,
-    signature: &HttpMessageSignature,
-    verification_key: &str,
-    now: DateTime<Utc>,
-) -> bool {
-    if now > input.expires_at {
-        return false;
-    }
-    let canonical = signature_digest(&rfc9421_http_message_signature_base(input), verification_key);
-    let legacy = signature_digest(&http_message_signature_base(input), verification_key);
-    signature.signature == canonical || signature.signature == legacy
-}
-
 pub fn sign_http_message(
     input: &HttpMessageSignatureInput,
     key_id: impl Into<String>,
@@ -534,7 +498,7 @@ pub fn sign_http_message(
             "created".to_owned(),
             "expires".to_owned(),
         ],
-        signature: signature_digest(&http_message_signature_base(input), signing_key),
+        signature: signature_digest(&rfc9421_http_message_signature_base(input), signing_key),
     }
 }
 
@@ -549,7 +513,7 @@ pub fn verify_http_message_signature(
     }
     signature.alg == "cx-sha256-test"
         && signature.signature
-            == signature_digest(&http_message_signature_base(input), verification_key)
+            == signature_digest(&rfc9421_http_message_signature_base(input), verification_key)
 }
 
 pub fn did_document_service_endpoint_matches(

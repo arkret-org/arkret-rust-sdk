@@ -300,21 +300,20 @@ impl ContrixMlsIdentity {
             .map_err(mls_error)?;
         let key_package = key_package.key_package();
         let key_package_bytes = key_package.tls_serialize_detached().map_err(mls_error)?;
-        let key_package_hash = Hash::new(canonical::sha256_digest(&key_package_bytes))?;
+        let keypackage_ref = Hash::new(canonical::sha256_digest(&key_package_bytes))?;
 
         Ok(MlsKeyPackageRecord {
-            keypackage_id: Some(format!("cx:mls:kp:{}", uuid::Uuid::now_v7())),
+            keypackage_id: format!("cx:mls:kp:{}", uuid::Uuid::now_v7()),
             principal_id: self.principal_id.clone(),
             device_id: self.device_id.clone(),
             key_package: encode(&key_package_bytes),
-            key_package_hash,
+            keypackage_ref,
             cipher_suites: vec![format!("{CONTRIX_MLS_CIPHERSUITE:?}")],
             capabilities: Vec::new(),
             state: contrix_core::MlsKeyPackageState::Published,
             claim_id: None,
             created_at: Utc::now(),
             expires_at: None,
-            revoked: false,
             device_signature: None,
         })
     }
@@ -443,7 +442,7 @@ impl ContrixMlsGroup {
         &mut self,
         member_key_package: &MlsKeyPackageRecord,
     ) -> Result<MlsAddMemberResult> {
-        if member_key_package.revoked {
+        if !member_key_package.is_usable() {
             return Err(Error::Protocol("refusing to add revoked MLS KeyPackage".to_owned()));
         }
 
@@ -676,10 +675,7 @@ impl ContrixMlsGroup {
             ciphertext: encode(&message_bytes),
             aad,
             payload_digest,
-            key_ref: Some(contrix_core::EncryptedPayloadKeyRef::mls_rfc9420(
-                self.group_id(),
-                epoch,
-            )),
+            key_ref: Some(contrix_core::KeyRefObject::mls_rfc9420(self.group_id(), epoch)),
         })
     }
 
@@ -767,7 +763,7 @@ fn decode_key_package(
 ) -> Result<KeyPackage> {
     let bytes = decode(&record.key_package)?;
     let actual_hash = canonical::sha256_digest(&bytes);
-    if actual_hash != record.key_package_hash.as_str() {
+    if actual_hash != record.keypackage_ref.as_str() {
         return Err(Error::Protocol("MLS KeyPackage hash mismatch".to_owned()));
     }
 
@@ -777,7 +773,7 @@ fn decode_key_package(
 }
 
 pub fn revoke_key_package(record: &mut MlsKeyPackageRecord) -> MlsDeviceWorkflowStep {
-    record.revoked = true;
+    record.state = contrix_core::MlsKeyPackageState::Revoked;
     MlsDeviceWorkflowStep {
         action: MlsDeviceWorkflowAction::RevokeKeyPackage,
         principal_id: record.principal_id.clone(),
@@ -1048,7 +1044,7 @@ mod tests {
         let mut bob_group = ContrixMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
         let aad = serde_json::json!({
             "space_id": "cx:space:01904100-0000-7000-8000-65bef476aed3",
-            "event_type": "cx.message.create",
+            "event_kind": "cx.message.create",
             "event_id": "cx:event:01904100-0000-7000-8000-d5afe7e3de96",
             "causal_refs": []
         });
@@ -1124,7 +1120,7 @@ mod tests {
         let charlie_key_package = charlie.key_package_record().unwrap();
         let mut revoked_package = charlie_key_package.clone();
         let revoke_step = revoke_key_package(&mut revoked_package);
-        assert!(revoked_package.revoked);
+        assert_eq!(revoked_package.state, contrix_core::MlsKeyPackageState::Revoked);
         assert_eq!(revoke_step.action, MlsDeviceWorkflowAction::RevokeKeyPackage);
 
         let mut alice_group =

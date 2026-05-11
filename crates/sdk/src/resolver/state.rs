@@ -1,9 +1,8 @@
-use super::*;
 use super::snapshot::{
-    canonicalize_flow_ref, deterministic_flow_surface_relation_id, membership_rank,
-    object_state_from_str, patch_fields, patch_state, patch_string, state_hash_payload,
-    state_merkle_root, StateHashInput,
+    StateHashInput, canonicalize_flow_ref, membership_rank, object_state_from_str, patch_fields,
+    patch_state, patch_string, place_state_from_str, state_hash_payload, state_merkle_root,
 };
+use super::*;
 
 /// Current state of a Space.
 #[derive(Clone, Debug)]
@@ -14,8 +13,10 @@ pub struct SpaceState {
     pub space_version: String,
     /// Current flows by ID
     pub subjects: BTreeMap<String, Flow>,
-    /// Current entities by ID
-    pub entities: BTreeMap<String, Entity>,
+    /// Current Morph objects by ID.
+    pub morphs: BTreeMap<String, Morph>,
+    /// Current Place objects by ID.
+    pub places: BTreeMap<String, Place>,
     /// Current relations by ID
     pub relations: BTreeMap<String, Relation>,
     /// Generic resolved state events keyed by `kind|subject` (spec Phase 1).
@@ -31,13 +32,13 @@ pub struct SpaceState {
     /// Space state events
     pub state_events: Vec<Event>,
     /// True when one or more events were marked `soft_failed` because
-    /// their `auth_refs` were not yet materialized at apply time.
+    /// their authorization refs were not yet materialized at apply time.
     /// Per `event-auth-state-resolution.md` §6.2, the projection MUST be
     /// treated as `read_only` while this is set: callers MUST NOT submit
     /// new writes that depend on unverified auth state.
     pub auth_incomplete: bool,
     /// Event IDs that landed but could not be auth-validated due to a
-    /// missing `auth_refs` chain link. They live here, not in
+    /// missing `refs[role=authorized_by]` chain link. They live here, not in
     /// `state_events`, until the missing dependency is materialized.
     pub soft_failed: Vec<EventId>,
     processed_events: BTreeMap<EventId, Event>,
@@ -52,7 +53,8 @@ impl SpaceState {
             space_id,
             space_version,
             subjects: BTreeMap::new(),
-            entities: BTreeMap::new(),
+            morphs: BTreeMap::new(),
+            places: BTreeMap::new(),
             relations: BTreeMap::new(),
             resolved_state: BTreeMap::new(),
             messages: BTreeMap::new(),
@@ -69,7 +71,7 @@ impl SpaceState {
     }
 
     /// Returns `true` when the projection MUST refuse new writes because at
-    /// least one applied event is `soft_failed` due to missing `auth_refs`.
+    /// least one applied event is `soft_failed` due to missing authorization refs.
     pub fn is_read_only(&self) -> bool {
         self.auth_incomplete
     }
@@ -78,7 +80,7 @@ impl SpaceState {
     /// read-only `auth_incomplete` mode (event-auth-state-resolution.md §6.2).
     ///
     /// Callers SHOULD invoke this when an inbound event references
-    /// `auth_refs` that have not yet been pulled. Once the missing
+    /// `refs[role=authorized_by]` that have not yet been pulled. Once the missing
     /// dependency materialises, callers may invoke
     /// [`SpaceState::clear_soft_failed`] to retry reduction.
     pub fn mark_soft_failed(&mut self, event_id: EventId) {
@@ -88,7 +90,7 @@ impl SpaceState {
         self.auth_incomplete = true;
     }
 
-    /// Drop a soft-failed event marker once its `auth_refs` have been
+    /// Drop a soft-failed event marker once its authorization refs have been
     /// resolved. Clears `auth_incomplete` only when the soft-failed list
     /// becomes empty.
     pub fn clear_soft_failed(&mut self, event_id: &EventId) {
@@ -169,31 +171,27 @@ impl SpaceState {
     /// Process the content of an event and update state.
     fn process_event_content(&mut self, event: &Event) -> Result<()> {
         match event.kind.as_str() {
-            // Entity lifecycle
-            OP_ENTITY_CREATE => self.create_entity(event)?,
-            OP_ENTITY_UPDATE => self.update_entity(event)?,
-            OP_ENTITY_DELETE => self.delete_entity(event)?,
-            OP_ENTITY_RESTORE => self.restore_entity(event)?,
-            OP_ENTITY_REDACT => self.redact_entity(event)?,
-
             OP_FLOW_CREATE => self.create_flow(event)?,
             OP_FLOW_UPDATE => self.update_flow(event)?,
             OP_FLOW_ARCHIVE => self.archive_flow(event)?,
             OP_FLOW_RESTORE => self.restore_flow(event)?,
-            OP_FLOW_LINK_SURFACE => self.link_flow_surface(event)?,
-            OP_FLOW_UNLINK_SURFACE => self.unlink_flow_surface(event)?,
-            OP_FLOW_SET_PRIMARY_SURFACE => self.set_primary_flow_surface(event)?,
-            OP_FLOW_MOVE | OP_FLOW_REORDER | OP_FLOW_CONVERT => self.touch_flow(event)?,
+            OP_FLOW_MOVE | OP_FLOW_REORDER => self.touch_flow(event)?,
+
+            OP_MORPH_CREATE => self.create_morph(event)?,
+            OP_MORPH_UPDATE => self.update_morph(event)?,
+            OP_MORPH_ARCHIVE => self.set_morph_state(event, crate::ObjectState::Archived)?,
+            OP_MORPH_RESTORE => self.set_morph_state(event, crate::ObjectState::Active)?,
+
+            OP_PLACE_CREATE => self.create_place(event)?,
+            OP_PLACE_UPDATE => self.update_place(event)?,
+            OP_PLACE_PARENT => self.set_place_parent(event)?,
+            OP_PLACE_ARCHIVE => self.set_place_state(event, crate::PlaceState::Archived)?,
+            OP_PLACE_TOMBSTONE => self.set_place_state(event, crate::PlaceState::Tombstoned)?,
 
             // Relation lifecycle
             OP_RELATION_CREATE => self.create_relation(event)?,
             OP_RELATION_DELETE => self.delete_relation(event)?,
             OP_CONTAINER_MOVE_ITEM => self.move_relation(event)?,
-
-            // Task operations (entity-type-specific wrappers)
-            OP_TASK_CREATE => self.create_entity(event)?,
-            OP_TASK_UPDATE => self.update_entity(event)?,
-            OP_FIELD_POSITION_MOVE | OP_FIELD_POSITION_REORDER => self.update_entity(event)?,
 
             // View operations
             OP_VIEW_CREATE => self.create_view(event)?,
@@ -257,35 +255,42 @@ impl SpaceState {
             }
 
             _ => {
-                // Unknown event type - ignore for forward compatibility
+                // Unknown event types do not affect the local reducer state.
             }
         }
 
         Ok(())
     }
 
-    /// Create a new entity.
-    fn create_entity(&mut self, event: &Event) -> Result<()> {
-        let entity_id_str = self.extract_entity_id(&event.content)?;
-        let entity_id = EntityId::new(entity_id_str.clone())?;
-        let entity_type = self.extract_field(&event.content, "entity_type")?;
-        let facets = self.extract_optional_field(&event.content, "facets").unwrap_or_default();
-        let title = self.extract_optional_field(&event.content, "title");
-        let content = self.extract_optional_field(&event.content, "content");
-        let fields = self.extract_fields(&event.content)?;
+    fn create_morph(&mut self, event: &Event) -> Result<()> {
+        let object = event.content.get("object").unwrap_or(&event.content);
+        let morph_id_str = self.extract_morph_id(object)?;
+        MorphId::new(morph_id_str.clone())?;
+        let morph_type = self.extract_field::<String>(object, "morph_type")?;
+        let facets = self
+            .extract_optional_field::<BTreeMap<String, Value>>(object, "facets")
+            .unwrap_or_default();
+        let title = self.extract_optional_field(object, "title");
+        let summary = self.extract_optional_field(object, "summary");
+        let content = self.extract_optional_field(object, "content");
+        let fields = self.extract_fields(object)?;
+        let state = self
+            .extract_optional_field::<String>(object, "state")
+            .map(|state| object_state_from_str(&state))
+            .transpose()?
+            .unwrap_or(crate::ObjectState::Active);
 
-        let entity = Entity {
-            schema: "cx.schema.entity.v1".to_owned(),
-            id: entity_id,
-            object_type: "entity".to_owned(),
+        let morph = Morph {
+            schema: crate::MORPH_SCHEMA.to_owned(),
+            id: morph_id_str.clone(),
             space_id: event.space_id.clone(),
-            entity_type,
+            morph_type,
             facets,
             title,
+            summary,
             content,
             fields,
-            state: Some(crate::ObjectState::Active),
-            version: Some(0),
+            state: Some(state),
             created_by: event.actor_id.clone(),
             created_at: event.created_at,
             updated_by: None,
@@ -294,121 +299,259 @@ impl SpaceState {
             metadata: BTreeMap::new(),
             extra: BTreeMap::new(),
         };
-
-        self.entities.insert(entity_id_str, entity);
+        morph.validate_morph_type(&[])?;
+        self.morphs.insert(morph_id_str, morph);
         Ok(())
     }
 
-    /// Update an existing entity.
-    fn update_entity(&mut self, event: &Event) -> Result<()> {
-        let entity_id_str = self.extract_entity_id(&event.content)?;
-
-        // Extract all values from event content before borrowing
-        let title = self.extract_optional_field::<String>(&event.content, "title");
-        let content = self.extract_optional_field::<Value>(&event.content, "content");
+    fn update_morph(&mut self, event: &Event) -> Result<()> {
+        let morph_id_str = self.extract_morph_id(&event.content)?;
+        let patch = self.extract_optional_field::<BTreeMap<String, Value>>(&event.content, "patch");
+        let title = self
+            .extract_optional_field::<String>(&event.content, "title")
+            .or_else(|| patch_string(&patch, "title"));
+        let summary = self
+            .extract_optional_field::<String>(&event.content, "summary")
+            .or_else(|| patch_string(&patch, "summary"));
+        let content = self.extract_optional_field::<Value>(&event.content, "content").or_else(|| {
+            patch.as_ref().and_then(|patch| patch.get("content").cloned())
+        });
         let fields =
-            self.extract_optional_field::<BTreeMap<String, Value>>(&event.content, "fields");
-        let facets = self.extract_optional_field::<EntityFacets>(&event.content, "facets");
-        let state = self.extract_optional_field::<String>(&event.content, "state");
+            self.extract_optional_field::<BTreeMap<String, Value>>(&event.content, "fields")
+                .or_else(|| patch_fields(&patch));
+        let facets = self
+            .extract_optional_field::<BTreeMap<String, Value>>(&event.content, "facets")
+            .or_else(|| {
+                patch.as_ref().and_then(|patch| {
+                    patch.get("facets").and_then(|value| serde_json::from_value(value.clone()).ok())
+                })
+            });
+        let state = self
+            .extract_optional_field::<String>(&event.content, "state")
+            .map(|state| object_state_from_str(&state))
+            .transpose()?
+            .or(patch_state(&patch).transpose()?);
 
-        let actor_id = event.actor_id.clone();
-        let created_at = event.created_at;
-
-        let entity = self
-            .entities
-            .get_mut(&entity_id_str)
-            .ok_or_else(|| Error::Protocol(format!("entity not found: {}", entity_id_str)))?;
-
-        // Update fields from event content
+        let morph = self
+            .morphs
+            .get_mut(&morph_id_str)
+            .ok_or_else(|| Error::Protocol(format!("morph not found: {}", morph_id_str)))?;
         if let Some(title) = title {
-            entity.title = Some(title);
+            morph.title = Some(title);
+        }
+        if let Some(summary) = summary {
+            morph.summary = Some(summary);
         }
         if let Some(content) = content {
-            entity.content = Some(content);
+            morph.content = Some(content);
         }
         if let Some(fields) = fields {
-            entity.fields = fields;
+            morph.fields = fields;
         }
         if let Some(facets) = facets {
-            entity.facets = facets;
+            morph.facets = facets;
         }
         if let Some(state) = state {
-            entity.state = Some(match state.as_str() {
-                "active" => crate::ObjectState::Active,
-                "archived" => crate::ObjectState::Archived,
-                "deleted" => crate::ObjectState::Deleted,
-                "redacted" => crate::ObjectState::Redacted,
-                _ => return Err(Error::Protocol(format!("invalid state: {}", state))),
+            morph.state = Some(state);
+        }
+        morph.updated_by = Some(event.actor_id.clone());
+        morph.updated_at = Some(event.created_at);
+        Ok(())
+    }
+
+    fn set_morph_state(&mut self, event: &Event, state: crate::ObjectState) -> Result<()> {
+        let morph_id_str = self.extract_morph_id(&event.content)?;
+        if let Some(morph) = self.morphs.get_mut(&morph_id_str) {
+            morph.state = Some(state);
+            morph.updated_by = Some(event.actor_id.clone());
+            morph.updated_at = Some(event.created_at);
+        }
+        Ok(())
+    }
+
+    fn create_place(&mut self, event: &Event) -> Result<()> {
+        let object = event.content.get("object").unwrap_or(&event.content);
+        let place_id = self.extract_place_id(object)?;
+        let id = PlaceId::new(place_id.clone())?;
+        let space_id =
+            self.extract_optional_field(object, "space_id").unwrap_or_else(|| event.space_id.clone());
+        let kind = self.extract_field::<String>(object, "kind")?;
+        let title = self.extract_field::<String>(object, "title")?;
+        let state = self
+            .extract_optional_field::<String>(object, "state")
+            .map(|state| place_state_from_str(&state))
+            .transpose()?
+            .unwrap_or(crate::PlaceState::Active);
+
+        let place = Place {
+            schema: crate::PLACE_SCHEMA.to_owned(),
+            id,
+            space_id,
+            parent_ref: self.extract_optional_field(object, "parent_ref"),
+            kind,
+            title,
+            summary: self.extract_optional_field(object, "summary"),
+            rank: self.extract_optional_field(object, "rank"),
+            schema_refs: self.extract_optional_field(object, "schema_refs").unwrap_or_default(),
+            fields: self.extract_fields(object)?,
+            labels: self.extract_optional_field(object, "labels").unwrap_or_default(),
+            avatar_blob_ref: self.extract_optional_field(object, "avatar_blob_ref"),
+            state: Some(state),
+            state_changed_at: self.extract_optional_field(object, "state_changed_at"),
+            created_by: self
+                .extract_optional_field(object, "created_by")
+                .unwrap_or_else(|| event.actor_id.clone()),
+            created_at: self.extract_optional_field(object, "created_at").unwrap_or(event.created_at),
+            updated_by: self.extract_optional_field(object, "updated_by"),
+            updated_at: self.extract_optional_field(object, "updated_at"),
+            extra: BTreeMap::new(),
+        };
+        place.validate()?;
+        self.places.insert(place_id, place);
+        Ok(())
+    }
+
+    fn update_place(&mut self, event: &Event) -> Result<()> {
+        let place_id = self.extract_place_id(&event.content)?;
+        let patch = self.extract_optional_field::<BTreeMap<String, Value>>(&event.content, "patch");
+
+        let title = self
+            .extract_optional_field::<String>(&event.content, "title")
+            .or_else(|| patch_string(&patch, "title"));
+        let summary = self
+            .extract_optional_field::<String>(&event.content, "summary")
+            .or_else(|| patch_string(&patch, "summary"));
+        let kind = self
+            .extract_optional_field::<String>(&event.content, "kind")
+            .or_else(|| patch_string(&patch, "kind"));
+        let rank = self
+            .extract_optional_field::<String>(&event.content, "rank")
+            .or_else(|| patch_string(&patch, "rank"));
+        let fields =
+            self.extract_optional_field::<BTreeMap<String, Value>>(&event.content, "fields")
+                .or_else(|| patch_fields(&patch));
+        let schema_refs =
+            self.extract_optional_field::<Vec<String>>(&event.content, "schema_refs").or_else(
+                || {
+                    patch.as_ref().and_then(|patch| {
+                        patch
+                            .get("schema_refs")
+                            .cloned()
+                            .and_then(|value| serde_json::from_value(value).ok())
+                    })
+                },
+            );
+        let labels =
+            self.extract_optional_field::<Vec<String>>(&event.content, "labels").or_else(|| {
+                patch.as_ref().and_then(|patch| {
+                    patch
+                        .get("labels")
+                        .cloned()
+                        .and_then(|value| serde_json::from_value(value).ok())
+                })
             });
-        }
+        let avatar_blob_ref =
+            self.extract_optional_field(&event.content, "avatar_blob_ref").or_else(|| {
+                patch.as_ref().and_then(|patch| {
+                    patch
+                        .get("avatar_blob_ref")
+                        .cloned()
+                        .and_then(|value| serde_json::from_value(value).ok())
+                })
+            });
+        let state = self
+            .extract_optional_field::<String>(&event.content, "state")
+            .or_else(|| patch_string(&patch, "state"))
+            .map(|state| place_state_from_str(&state))
+            .transpose()?;
 
-        entity.updated_by = Some(actor_id);
-        entity.updated_at = Some(created_at);
-        if let Some(version) = entity.version {
-            entity.version = Some(version + 1);
+        let place = self
+            .places
+            .get_mut(&place_id)
+            .ok_or_else(|| Error::Protocol(format!("place not found: {}", place_id)))?;
+        if let Some(title) = title {
+            place.title = title;
         }
-
+        if let Some(summary) = summary {
+            place.summary = Some(summary);
+        }
+        if let Some(kind) = kind {
+            place.kind = kind;
+        }
+        if let Some(rank) = rank {
+            place.rank = Some(rank);
+        }
+        if let Some(fields) = fields {
+            place.fields = fields;
+        }
+        if let Some(schema_refs) = schema_refs {
+            place.schema_refs = schema_refs;
+        }
+        if let Some(labels) = labels {
+            place.labels = labels;
+        }
+        if let Some(avatar_blob_ref) = avatar_blob_ref {
+            place.avatar_blob_ref = Some(avatar_blob_ref);
+        }
+        if let Some(state) = state {
+            place.state = Some(state);
+            place.state_changed_at = Some(event.created_at);
+        }
+        place.updated_by = Some(event.actor_id.clone());
+        place.updated_at = Some(event.created_at);
+        place.validate()?;
         Ok(())
     }
 
-    /// Delete an entity.
-    fn delete_entity(&mut self, event: &Event) -> Result<()> {
-        let entity_id_str = self.extract_entity_id(&event.content)?;
-        let actor_id = event.actor_id.clone();
-        let created_at = event.created_at;
-        if let Some(entity) = self.entities.get_mut(&entity_id_str) {
-            entity.state = Some(crate::ObjectState::Deleted);
-            entity.updated_by = Some(actor_id);
-            entity.updated_at = Some(created_at);
-        }
+    fn set_place_parent(&mut self, event: &Event) -> Result<()> {
+        let place_id = self.extract_place_id(&event.content)?;
+        let parent_ref = self
+            .extract_optional_field::<String>(&event.content, "parent_ref")
+            .ok_or_else(|| Error::Protocol("place parent event requires parent_ref".to_owned()))?;
+        let place = self
+            .places
+            .get_mut(&place_id)
+            .ok_or_else(|| Error::Protocol(format!("place not found: {}", place_id)))?;
+        place.parent_ref = Some(parent_ref);
+        place.updated_by = Some(event.actor_id.clone());
+        place.updated_at = Some(event.created_at);
+        place.validate()?;
         Ok(())
     }
 
-    /// Redact an entity.
-    fn redact_entity(&mut self, event: &Event) -> Result<()> {
-        let entity_id_str = self.extract_entity_id(&event.content)?;
-        let actor_id = event.actor_id.clone();
-        let created_at = event.created_at;
-        if let Some(entity) = self.entities.get_mut(&entity_id_str) {
-            entity.state = Some(crate::ObjectState::Redacted);
-            entity.content = None; // Clear content
-            entity.updated_by = Some(actor_id);
-            entity.updated_at = Some(created_at);
+    fn set_place_state(&mut self, event: &Event, state: crate::PlaceState) -> Result<()> {
+        let place_id = self.extract_place_id(&event.content)?;
+        if let Some(place) = self.places.get_mut(&place_id) {
+            place.state = Some(state);
+            place.state_changed_at = Some(event.created_at);
+            place.updated_by = Some(event.actor_id.clone());
+            place.updated_at = Some(event.created_at);
         }
         Ok(())
     }
 
     /// Create a new relation.
     fn create_relation(&mut self, event: &Event) -> Result<()> {
-        let relation_id_str = self.extract_relation_id(&event.content)?;
+        let object = event.content.get("relation").or_else(|| event.content.get("object")).unwrap_or(&event.content);
+        let relation_id_str = self.extract_relation_id(object)?;
         let relation_id = RelationId::new(relation_id_str.clone())?;
-        let relation_kind = self.extract_field(&event.content, "relation_kind")?;
-        let from_ref = self.extract_optional_field(&event.content, "from_ref");
-        let to_ref = self.extract_optional_field(&event.content, "to_ref");
-        let from_entity_id = self.extract_optional_field(&event.content, "from_entity_id");
-        let from_actor_id = self.extract_optional_field::<Did>(&event.content, "from_actor_id");
-        let from_space_id = self.extract_optional_field(&event.content, "from_space_id");
-        let to_entity_id = self.extract_optional_field(&event.content, "to_entity_id");
-        let to_actor_id = self.extract_optional_field::<Did>(&event.content, "to_actor_id");
-        let to_space_id = self.extract_optional_field(&event.content, "to_space_id");
-        let fields = self.extract_fields(&event.content)?;
+        let relation_kind = self.extract_field(object, "relation_kind")?;
+        let from_ref = self.extract_field(object, "from_ref")?;
+        let to_ref = self.extract_field(object, "to_ref")?;
+        let rank = self.extract_optional_field(object, "rank");
+        let fields = self.extract_fields(object)?;
 
         let relation = Relation {
             schema: "cx.schema.relation.v1".to_owned(),
             id: relation_id,
-            object_type: "relation".to_owned(),
             space_id: event.space_id.clone(),
             relation_kind,
             from_ref,
             to_ref,
-            from_entity_id,
-            from_actor_id,
-            from_space_id,
-            to_entity_id,
-            to_actor_id,
-            to_space_id,
+            rank,
             fields,
             state: Some(crate::RelationState::Active),
+            state_changed_at: None,
             created_by: event.actor_id.clone(),
             created_at: event.created_at,
         };
@@ -421,63 +564,53 @@ impl SpaceState {
     fn delete_relation(&mut self, event: &Event) -> Result<()> {
         let relation_id_str = self.extract_relation_id(&event.content)?;
         if let Some(relation) = self.relations.get_mut(&relation_id_str) {
-            relation.state = Some(crate::RelationState::Deleted);
-        }
-        Ok(())
-    }
-
-    /// Restore a previously deleted/archived entity back to active state.
-    fn restore_entity(&mut self, event: &Event) -> Result<()> {
-        let entity_id_str = self.extract_entity_id(&event.content)?;
-        let actor_id = event.actor_id.clone();
-        let created_at = event.created_at;
-        if let Some(entity) = self.entities.get_mut(&entity_id_str) {
-            entity.state = Some(crate::ObjectState::Active);
-            entity.updated_by = Some(actor_id);
-            entity.updated_at = Some(created_at);
-            if let Some(version) = entity.version {
-                entity.version = Some(version + 1);
-            }
+            relation.state = Some(crate::RelationState::Tombstone);
+            relation.state_changed_at = Some(event.created_at);
         }
         Ok(())
     }
 
     fn create_flow(&mut self, event: &Event) -> Result<()> {
-        let flow_id = self.extract_flow_id(&event.content)?;
+        let object = event.content.get("object").unwrap_or(&event.content);
+        let flow_id = self.extract_flow_id(object)?;
         FlowId::new(flow_id.clone())?;
-        let title = self.extract_field::<String>(&event.content, "title")?;
-        let flow_kind = self.extract_field::<FlowKind>(&event.content, "flow_kind")?;
-        let primary_track = self.extract_optional_field::<String>(&event.content, "primary_track");
+        let title = self.extract_field::<String>(object, "title")?;
         let tracks = self
             .extract_optional_field::<BTreeMap<String, crate::FlowTrackConfig>>(
-                &event.content,
+                object,
                 "tracks",
             )
-            .unwrap_or_default();
-        let semantic_kind = self.extract_optional_field::<String>(&event.content, "semantic_kind");
-        let brief = self.extract_optional_field(&event.content, "brief");
-        let summary = self.extract_optional_field(&event.content, "summary");
-        let fields = self.extract_fields(&event.content)?;
+            .unwrap_or_else(|| {
+                let mut tracks = BTreeMap::new();
+                tracks.insert(
+                    crate::FLOW_TRACK_NAME_SYNTHESIS.to_owned(),
+                    crate::FlowTrackConfig::synthesis(),
+                );
+                tracks
+            });
+        let summary = self.extract_optional_field(object, "summary");
+        let body = self.extract_optional_field(object, "body");
+        let encrypted_payload = self.extract_optional_field(object, "encrypted_payload");
+        let discussion_space_ref = self.extract_optional_field(object, "discussion_space_ref");
+        let fields = self.extract_fields(object)?;
         let state = self
-            .extract_optional_field::<String>(&event.content, "state")
+            .extract_optional_field::<String>(object, "state")
             .map(|state| object_state_from_str(&state))
             .transpose()?
             .unwrap_or(crate::ObjectState::Active);
         let subject = Flow {
             schema: crate::FLOW_SCHEMA.to_owned(),
             id: flow_id,
-            object_type: "flow".to_owned(),
             space_id: event.space_id.clone(),
             title,
-            brief,
             summary,
-            flow_kind,
-            primary_track,
+            body,
+            encrypted_payload,
             tracks,
-            semantic_kind,
+            discussion_space_ref,
             fields,
             state: Some(state),
-            version: Some(0),
+            state_changed_at: None,
             created_by: event.actor_id.clone(),
             created_at: event.created_at,
             updated_by: None,
@@ -492,8 +625,12 @@ impl SpaceState {
     fn update_flow(&mut self, event: &Event) -> Result<()> {
         let flow_id_str = self.extract_flow_id(&event.content)?;
         let title = self.extract_optional_field::<String>(&event.content, "title");
-        let brief = self.extract_optional_field::<String>(&event.content, "brief");
         let summary = self.extract_optional_field::<String>(&event.content, "summary");
+        let body = self.extract_optional_field::<Value>(&event.content, "body");
+        let encrypted_payload =
+            self.extract_optional_field::<Value>(&event.content, "encrypted_payload");
+        let discussion_space_ref =
+            self.extract_optional_field::<SpaceId>(&event.content, "discussion_space_ref");
         let fields =
             self.extract_optional_field::<BTreeMap<String, Value>>(&event.content, "fields");
         let patch = self.extract_optional_field::<BTreeMap<String, Value>>(&event.content, "patch");
@@ -502,9 +639,6 @@ impl SpaceState {
             .map(|state| object_state_from_str(&state))
             .transpose()?;
         let patched_state = patch_state(&patch).transpose()?;
-        let primary_track = self
-            .extract_optional_field::<String>(&event.content, "primary_track")
-            .or_else(|| patch_string(&patch, "primary_track"));
         let tracks = self
             .extract_optional_field::<BTreeMap<String, crate::FlowTrackConfig>>(
                 &event.content,
@@ -517,9 +651,15 @@ impl SpaceState {
                         .ok()
                 })
             });
-        let semantic_kind = self
-            .extract_optional_field::<String>(&event.content, "semantic_kind")
-            .or_else(|| patch_string(&patch, "semantic_kind"));
+        let patched_body = patch.as_ref().and_then(|patch| patch.get("body").cloned());
+        let patched_encrypted_payload =
+            patch.as_ref().and_then(|patch| patch.get("encrypted_payload").cloned());
+        let patched_discussion_space_ref = patch.as_ref().and_then(|patch| {
+            patch
+                .get("discussion_space_ref")
+                .cloned()
+                .and_then(|value| serde_json::from_value(value).ok())
+        });
 
         let subject = self
             .subjects
@@ -529,33 +669,33 @@ impl SpaceState {
         if let Some(title) = title.or_else(|| patch_string(&patch, "title")) {
             subject.title = title;
         }
-        if let Some(brief) = brief.or_else(|| patch_string(&patch, "brief")) {
-            subject.brief = Some(brief);
-        }
         if let Some(summary) = summary.or_else(|| patch_string(&patch, "summary")) {
             subject.summary = Some(summary);
         }
-        if let Some(primary_track) = primary_track {
-            subject.primary_track = Some(primary_track);
+        if let Some(body) = body.or(patched_body) {
+            subject.body = Some(body);
+            subject.encrypted_payload = None;
+        }
+        if let Some(encrypted_payload) = encrypted_payload.or(patched_encrypted_payload) {
+            subject.encrypted_payload = Some(encrypted_payload);
+            subject.body = None;
         }
         if let Some(tracks) = tracks {
             subject.tracks = tracks;
         }
-        if let Some(semantic_kind) = semantic_kind {
-            subject.semantic_kind = Some(semantic_kind);
+        if let Some(discussion_space_ref) = discussion_space_ref.or(patched_discussion_space_ref) {
+            subject.discussion_space_ref = Some(discussion_space_ref);
         }
         if let Some(fields) = fields.or_else(|| patch_fields(&patch)) {
             subject.fields = fields;
         }
         if let Some(state) = state.or(patched_state) {
             subject.state = Some(state);
+            subject.state_changed_at = Some(event.created_at);
         }
         subject.validate_title()?;
         subject.updated_by = Some(event.actor_id.clone());
         subject.updated_at = Some(event.created_at);
-        if let Some(version) = subject.version {
-            subject.version = Some(version + 1);
-        }
         Ok(())
     }
 
@@ -571,11 +711,9 @@ impl SpaceState {
         let flow_id_str = self.extract_flow_id(&event.content)?;
         if let Some(subject) = self.subjects.get_mut(&flow_id_str) {
             subject.state = Some(state);
+            subject.state_changed_at = Some(event.created_at);
             subject.updated_by = Some(event.actor_id.clone());
             subject.updated_at = Some(event.created_at);
-            if let Some(version) = subject.version {
-                subject.version = Some(version + 1);
-            }
         }
         Ok(())
     }
@@ -585,108 +723,8 @@ impl SpaceState {
         if let Some(subject) = self.subjects.get_mut(&flow_id_str) {
             subject.updated_by = Some(event.actor_id.clone());
             subject.updated_at = Some(event.created_at);
-            if let Some(version) = subject.version {
-                subject.version = Some(version + 1);
-            }
         }
         Ok(())
-    }
-
-    fn link_flow_surface(&mut self, event: &Event) -> Result<()> {
-        let relation = self.flow_surface_relation(event, true)?;
-        self.relations.insert(relation.id.as_str().to_owned(), relation);
-        Ok(())
-    }
-
-    fn unlink_flow_surface(&mut self, event: &Event) -> Result<()> {
-        let flow_id = self.extract_flow_id(&event.content)?;
-        let surface_ref = self.extract_field::<String>(&event.content, "surface_ref")?;
-        let relation_id = self.extract_optional_field::<String>(&event.content, "relation_id");
-        let surface_role = self.extract_optional_field::<String>(&event.content, "surface_role");
-        let matching_id = relation_id.or_else(|| {
-            self.relations
-                .iter()
-                .find(|(_, relation)| {
-                    relation.relation_kind == crate::RelationKind::HasSurface
-                        && relation.from_ref.as_deref() == Some(flow_id.as_str())
-                        && relation.to_ref.as_deref() == Some(surface_ref.as_str())
-                        && surface_role.as_ref().is_none_or(|role| {
-                            relation.fields.get("surface_role").and_then(Value::as_str)
-                                == Some(role.as_str())
-                        })
-                })
-                .map(|(id, _)| id.clone())
-        });
-        if let Some(relation_id) = matching_id
-            && let Some(relation) = self.relations.get_mut(&relation_id)
-        {
-            relation.state = Some(crate::RelationState::Deleted);
-        }
-        Ok(())
-    }
-
-    fn set_primary_flow_surface(&mut self, event: &Event) -> Result<()> {
-        let flow_id = self.extract_flow_id(&event.content)?;
-        let surface_role = self.extract_optional_field::<String>(&event.content, "surface_role");
-        for relation in self.relations.values_mut() {
-            if relation.relation_kind == crate::RelationKind::HasSurface
-                && relation.from_ref.as_deref() == Some(flow_id.as_str())
-                && surface_role.as_ref().is_none_or(|role| {
-                    relation.fields.get("surface_role").and_then(Value::as_str)
-                        == Some(role.as_str())
-                })
-            {
-                relation.fields.insert("primary".to_owned(), Value::Bool(false));
-            }
-        }
-        let mut relation = self.flow_surface_relation(event, true)?;
-        relation.fields.insert("primary".to_owned(), Value::Bool(true));
-        self.relations.insert(relation.id.as_str().to_owned(), relation);
-        Ok(())
-    }
-
-    fn flow_surface_relation(&self, event: &Event, active: bool) -> Result<Relation> {
-        let flow_id = self.extract_flow_id(&event.content)?;
-        if !self.subjects.contains_key(&flow_id) {
-            return Err(Error::Protocol(format!("flow not found: {}", flow_id)));
-        }
-        let surface_ref = self.extract_field::<String>(&event.content, "surface_ref")?;
-        let relation_id = self
-            .extract_optional_field::<String>(&event.content, "relation_id")
-            .unwrap_or_else(|| deterministic_flow_surface_relation_id(&event.content));
-        let mut fields = BTreeMap::new();
-        if let Some(surface_role) =
-            self.extract_optional_field::<String>(&event.content, "surface_role")
-        {
-            fields.insert("surface_role".to_owned(), Value::String(surface_role));
-        }
-        if let Some(primary) = self.extract_optional_field::<bool>(&event.content, "primary") {
-            fields.insert("primary".to_owned(), Value::Bool(primary));
-        }
-
-        Ok(Relation {
-            schema: crate::RELATION_SCHEMA.to_owned(),
-            id: RelationId::new(relation_id)?,
-            object_type: "relation".to_owned(),
-            space_id: event.space_id.clone(),
-            relation_kind: crate::RelationKind::HasSurface,
-            from_ref: Some(flow_id),
-            to_ref: Some(surface_ref),
-            from_entity_id: None,
-            from_actor_id: None,
-            from_space_id: None,
-            to_entity_id: None,
-            to_actor_id: None,
-            to_space_id: None,
-            fields,
-            state: Some(if active {
-                crate::RelationState::Active
-            } else {
-                crate::RelationState::Deleted
-            }),
-            created_by: event.actor_id.clone(),
-            created_at: event.created_at,
-        })
     }
 
     /// Move a relation by updating its endpoints.
@@ -694,23 +732,15 @@ impl SpaceState {
         let relation_id_str = self.extract_relation_id(&event.content)?;
         let actor_id = event.actor_id.clone();
         let created_at = event.created_at;
-        let new_to = self.extract_optional_field::<String>(&event.content, "to_entity_id");
-        let new_from = self.extract_optional_field::<String>(&event.content, "from_entity_id");
         let new_to_ref = self.extract_optional_field::<String>(&event.content, "to_ref");
         let new_from_ref = self.extract_optional_field::<String>(&event.content, "from_ref");
 
         if let Some(relation) = self.relations.get_mut(&relation_id_str) {
-            if let Some(new_to) = new_to {
-                relation.to_entity_id = Some(EntityId::new(new_to)?);
-            }
-            if let Some(new_from) = new_from {
-                relation.from_entity_id = Some(EntityId::new(new_from)?);
-            }
             if let Some(new_to_ref) = new_to_ref {
-                relation.to_ref = Some(new_to_ref);
+                relation.to_ref = new_to_ref;
             }
             if let Some(new_from_ref) = new_from_ref {
-                relation.from_ref = Some(new_from_ref);
+                relation.from_ref = new_from_ref;
             }
             relation.created_by = actor_id;
             relation.created_at = created_at;
@@ -892,7 +922,6 @@ impl SpaceState {
         {
             self.space_version = target_version;
         }
-        // TODO: Handle migration policy and compatibility mode
         Ok(())
     }
 
@@ -906,7 +935,7 @@ impl SpaceState {
     ///
     /// Preserves the canonical envelope fields required for actor-chain
     /// validation per `event-auth-state-resolution.md` §10 (notably
-    /// `actor_seq`, `prev_refs`, `auth_refs`, `hlc`, `created_at` and the
+    /// `actor_seq`, `prev_refs`, `refs`, `hlc`, `created_at` and the
     /// envelope digest binding); clears `content` (the payload) and
     /// `unsigned` (server-added hints). MUST NOT touch `event_id` or
     /// `proofs` — these are needed to verify the redaction itself.
@@ -975,8 +1004,7 @@ impl SpaceState {
     fn is_maintenance_event(event: &Event) -> bool {
         matches!(
             event.kind.as_str(),
-            "cx.entity.redact"
-                | "cx.message.redact"
+            "cx.message.redact"
                 | "cx.space.redact"
                 | "cx.space.export"
                 | "cx.space.legal_hold"
@@ -987,9 +1015,11 @@ impl SpaceState {
         ) || event.redacts.is_some()
     }
 
-    /// Extract entity_id from event content.
-    fn extract_entity_id(&self, content: &Value) -> Result<String> {
-        self.extract_field(content, "id")
+    /// Extract morph_id from event content.
+    fn extract_morph_id(&self, content: &Value) -> Result<String> {
+        self.extract_optional_field(content, "morph_id")
+            .or_else(|| self.extract_optional_field(content, "id"))
+            .ok_or_else(|| Error::Protocol("morph event requires morph_id or id".to_owned()))
     }
 
     /// Extract flow_id from event content.
@@ -998,6 +1028,15 @@ impl SpaceState {
             .or_else(|| self.extract_optional_field::<String>(content, "id"))
             .map(|value| canonicalize_flow_ref(&value))
             .ok_or_else(|| Error::Protocol("flow event requires flow_id".to_owned()))
+    }
+
+    /// Extract place_id from event content.
+    fn extract_place_id(&self, content: &Value) -> Result<String> {
+        self.extract_optional_field::<String>(content, "place_id")
+            .or_else(|| self.extract_optional_field::<String>(content, "id"))
+            .or_else(|| self.extract_optional_field::<String>(content, "target_ref"))
+            .or_else(|| self.extract_optional_field::<String>(content, "object_ref"))
+            .ok_or_else(|| Error::Protocol("place event requires place_id".to_owned()))
     }
 
     /// Extract relation_id from event content.
@@ -1146,7 +1185,8 @@ impl SpaceState {
             space_version: self.space_version.clone(),
             frontier: self.frontier.clone(),
             subjects: self.subjects.clone(),
-            entities: self.entities.clone(),
+            morphs: self.morphs.clone(),
+            places: self.places.clone(),
             relations: self.relations.clone(),
             resolved_state: self.resolved_state.clone(),
             messages: self.messages.clone(),
@@ -1184,7 +1224,8 @@ impl SpaceState {
             space_version: &self.space_version,
             frontier: &self.frontier,
             subjects: &self.subjects,
-            entities: &self.entities,
+            morphs: &self.morphs,
+            places: &self.places,
             relations: &self.relations,
             resolved_state: &self.resolved_state,
             messages: &self.messages,
@@ -1200,7 +1241,8 @@ impl SpaceState {
             space_version: &self.space_version,
             frontier: &self.frontier,
             subjects: &self.subjects,
-            entities: &self.entities,
+            morphs: &self.morphs,
+            places: &self.places,
             relations: &self.relations,
             resolved_state: &self.resolved_state,
             messages: &self.messages,
@@ -1214,7 +1256,8 @@ impl SpaceState {
             space_id: snapshot.space_id,
             space_version: snapshot.space_version,
             subjects: snapshot.subjects,
-            entities: snapshot.entities,
+            morphs: snapshot.morphs,
+            places: snapshot.places,
             relations: snapshot.relations,
             resolved_state: snapshot.resolved_state,
             messages: snapshot.messages,
@@ -1266,4 +1309,3 @@ impl SpaceState {
         })
     }
 }
-

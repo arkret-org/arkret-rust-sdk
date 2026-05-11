@@ -74,9 +74,9 @@ The first Contrix crate currently includes:
 
 - v1 identifiers and protocol constants
 - canonical JSON and SHA-256 digest helpers
-- Space, ActorProfile, Flow, Message, Morph, Relation, Event Envelope, View, Operation draft, Commit and Capability models
+- Space, ActorProfile, Flow, Message, Morph, Relation, Event Envelope, View, Operation draft and Capability models
 - protocol-shaped Query and Client Sync response models (`space_ids`, filter arrays, `spaces`)
-- Event Envelope and Commit digest payload calculation
+- Event Envelope digest payload calculation
 - HLC parsing and deterministic ordering
 - Proof signature-binding payload calculation
 - Policy, Invite, Read Marker, Notification, Blob Metadata and Encrypted Payload models

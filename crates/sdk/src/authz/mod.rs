@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use crate::{Did, Error, Result, SpaceId, model::EntityFacet};
+use crate::{Did, Error, Result, SpaceId, model::Facet};
 
 mod approval;
 mod constraints;

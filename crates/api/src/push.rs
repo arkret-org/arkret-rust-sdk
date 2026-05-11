@@ -252,7 +252,7 @@ mod tests {
                 event_id: EventId::new("cx:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
                 user_id: did("alice"),
                 space_id: None,
-                event_kind: "cx.message.text".to_owned(),
+                event_kind: "cx.message.create".to_owned(),
                 content: json!({"body": "secret"}),
                 encrypted: true,
             },

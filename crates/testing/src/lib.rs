@@ -5,8 +5,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use contrix_core::{
     AnchorId, CellRef, Did, Error, Event, Hash, Hlc, Move, MoveId, Result, SpaceId, canonical,
     events::{
-        AnyEventContent, CALL_DEVICE_MAPPING, COLLAB_ACTIVITY_BEACON, E2EE_SECRET_SEND, EventClass,
-        EventContentEnvelope, MESSAGE_POLL_RESPONSE, MESSAGE_TEXT, classify_event_kind,
+        AGENT_PROTOCOL_SESSION_STATUS, AnyEventContent, CALL_SIGNAL, EventClass,
+        EventContentEnvelope, MESSAGE_CREATE, MLS_WELCOME, REACTION_ADD, classify_event_kind,
         parse_event_content,
     },
     lattice::CellState,
@@ -23,7 +23,6 @@ use serde_json::{Value, json};
 pub enum ConformanceDomain {
     ClientServer,
     ClientServerApi,
-    Federation,
     Applet,
     PushGateway,
     Identity,
@@ -78,10 +77,9 @@ pub struct EventTaxonomyVector {
 
 /// Reference vector exercising the Move/Anchor/Lattice runtime end-to-end.
 ///
-/// Replaces the legacy "winner event" vector — under v1 there is no
-/// per-cell winner; cell convergence is decided by Lattice join. We
-/// instead capture (a) the Anchor that committed the batch, (b) how
-/// many Moves were accepted vs rejected, (c) the post-state_root.
+/// Under v1 there is no per-cell winner; cell convergence is decided by
+/// Lattice join. The vector captures (a) the Anchor that committed the batch,
+/// (b) how many Moves were accepted vs rejected, and (c) the post-state_root.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StateResolutionVector {
     pub name: String,
@@ -112,7 +110,7 @@ pub struct RedactionVector {
     pub after_payload_cleared: bool,
     pub preserves_actor_seq: bool,
     pub preserves_prev_refs: bool,
-    pub preserves_auth_refs: bool,
+    pub preserves_refs: bool,
     pub preserves_hlc: bool,
 }
 
@@ -200,15 +198,19 @@ pub fn redaction_vectors() -> Vec<RedactionVector> {
             "kind": "cx.message.create",
             "actor_seq": 7,
             "prev_refs": ["cx:event:01904100-0000-7000-8000-021bde4eea9d"],
-            "auth_refs": ["cx:event:01904100-0000-7000-8000-d7332fb47d1a"],
+            "refs": [{
+                "id": "cx:event:01904100-0000-7000-8000-d7332fb47d1a",
+                "role": "authorized_by",
+                "critical": true
+            }],
             "hlc": "01970e589d21-00000004-a13f9c2e",
-            "content": { "body": "to be redacted" },
+            "payload": { "body": "to be redacted" },
             "unsigned": { "transient": true }
         }),
         after_payload_cleared: true,
         preserves_actor_seq: true,
         preserves_prev_refs: true,
-        preserves_auth_refs: true,
+        preserves_refs: true,
         preserves_hlc: true,
     }]
 }
@@ -268,16 +270,6 @@ pub fn endpoint_coverage_rows() -> Vec<EndpointCoverageRow> {
             domain: ConformanceDomain::ClientServerApi,
             operation_id: endpoint.operation_id.to_owned(),
             method: format!("{:?}", endpoint.method),
-            path: endpoint.path.to_owned(),
-            request_schema: endpoint.request_schema.to_owned(),
-            response_schema: endpoint.response_schema.to_owned(),
-        }
-    }));
-    rows.extend(contrix_api::federation::federation_endpoints().iter().map(|endpoint| {
-        EndpointCoverageRow {
-            domain: ConformanceDomain::Federation,
-            operation_id: endpoint.operation_id.to_owned(),
-            method: endpoint.method.as_str().to_owned(),
             path: endpoint.path.to_owned(),
             request_schema: endpoint.request_schema.to_owned(),
             response_schema: endpoint.response_schema.to_owned(),
@@ -452,7 +444,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
 
 pub fn event_taxonomy_vectors() -> Result<Vec<EventTaxonomyVector>> {
     let text = Event::new(
-        MESSAGE_TEXT,
+        MESSAGE_CREATE,
         SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8")?,
         Did::new("did:web:alice.example")?,
         1,
@@ -475,7 +467,7 @@ pub fn event_taxonomy_vectors() -> Result<Vec<EventTaxonomyVector>> {
         "poll_event_id": "cx:event:01904100-0000-7000-8000-fb8cfd35e274",
         "answer_ids": ["a"]
     });
-    parse_event_content(MESSAGE_POLL_RESPONSE, poll_response.clone())?;
+    parse_event_content(REACTION_ADD, poll_response.clone())?;
 
     let call_device_mapping = json!({
         "call_id": "call-1",
@@ -483,7 +475,7 @@ pub fn event_taxonomy_vectors() -> Result<Vec<EventTaxonomyVector>> {
             "did:web:alice.example": ["dev_alice"]
         }
     });
-    parse_event_content(CALL_DEVICE_MAPPING, call_device_mapping.clone())?;
+    parse_event_content(CALL_SIGNAL, call_device_mapping.clone())?;
 
     let activity_beacon = json!({
         "user_id": "did:web:alice.example",
@@ -491,7 +483,7 @@ pub fn event_taxonomy_vectors() -> Result<Vec<EventTaxonomyVector>> {
         "activity": "viewing",
         "observed_at": "2026-05-01T00:00:00Z"
     });
-    parse_event_content(COLLAB_ACTIVITY_BEACON, activity_beacon.clone())?;
+    parse_event_content(AGENT_PROTOCOL_SESSION_STATUS, activity_beacon.clone())?;
 
     let secret_send = json!({
         "request_id": "req-1",
@@ -502,41 +494,41 @@ pub fn event_taxonomy_vectors() -> Result<Vec<EventTaxonomyVector>> {
             "ciphertext": { "body": "encrypted" }
         }
     });
-    parse_event_content(E2EE_SECRET_SEND, secret_send.clone())?;
+    parse_event_content(MLS_WELCOME, secret_send.clone())?;
 
     Ok(vec![
         EventTaxonomyVector {
             name: "text message content".to_owned(),
-            kind: MESSAGE_TEXT.to_owned(),
+            kind: MESSAGE_CREATE.to_owned(),
             expected_class: text_envelope.class,
             input: text.content,
             preserves_unknown: false,
         },
         EventTaxonomyVector {
             name: "poll response content".to_owned(),
-            kind: MESSAGE_POLL_RESPONSE.to_owned(),
-            expected_class: classify_event_kind(MESSAGE_POLL_RESPONSE),
+            kind: REACTION_ADD.to_owned(),
+            expected_class: classify_event_kind(REACTION_ADD),
             input: poll_response,
             preserves_unknown: false,
         },
         EventTaxonomyVector {
             name: "call device mapping content".to_owned(),
-            kind: CALL_DEVICE_MAPPING.to_owned(),
-            expected_class: classify_event_kind(CALL_DEVICE_MAPPING),
+            kind: CALL_SIGNAL.to_owned(),
+            expected_class: classify_event_kind(CALL_SIGNAL),
             input: call_device_mapping,
             preserves_unknown: false,
         },
         EventTaxonomyVector {
             name: "collaboration activity beacon content".to_owned(),
-            kind: COLLAB_ACTIVITY_BEACON.to_owned(),
-            expected_class: classify_event_kind(COLLAB_ACTIVITY_BEACON),
+            kind: AGENT_PROTOCOL_SESSION_STATUS.to_owned(),
+            expected_class: classify_event_kind(AGENT_PROTOCOL_SESSION_STATUS),
             input: activity_beacon,
             preserves_unknown: false,
         },
         EventTaxonomyVector {
             name: "secret send content".to_owned(),
-            kind: E2EE_SECRET_SEND.to_owned(),
-            expected_class: classify_event_kind(E2EE_SECRET_SEND),
+            kind: MLS_WELCOME.to_owned(),
+            expected_class: classify_event_kind(MLS_WELCOME),
             input: secret_send,
             preserves_unknown: false,
         },
@@ -681,7 +673,6 @@ mod tests {
         for domain in [
             ConformanceDomain::ClientServer,
             ConformanceDomain::ClientServerApi,
-            ConformanceDomain::Federation,
             ConformanceDomain::Applet,
             ConformanceDomain::PushGateway,
             ConformanceDomain::Identity,
@@ -696,7 +687,7 @@ mod tests {
         ] {
             assert!(report.covers_domain(domain.clone()), "{domain:?}");
         }
-        assert!(report.operation_ids().contains("cx.federation.transaction"));
+        assert!(report.operation_ids().contains("cx.events.submit"));
         assert!(report.operation_ids().contains("cx.identity.resolve"));
         assert!(report.operation_ids().contains("cx.crypto.machine_request"));
         assert!(report.operation_ids().contains("cx.ui.timeline_projection"));

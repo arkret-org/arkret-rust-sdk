@@ -180,4 +180,3 @@ pub struct ProcessedSpace {
     /// Pending gap created by the latest limited timeline.
     pub pending_gap: Option<crate::sync::SyncGap>,
 }
-

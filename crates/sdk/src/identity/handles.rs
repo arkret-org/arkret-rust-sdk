@@ -610,4 +610,3 @@ pub fn handle_well_known_url(handle: &str) -> Result<String> {
     let (local, domain) = split_domain_handle(handle)?;
     Ok(format!("https://{domain}/.well-known/contrix/handle/{local}.json"))
 }
-

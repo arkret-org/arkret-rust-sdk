@@ -14,7 +14,7 @@ use contrix_core::{
     AppletActorResponse, AppletDescription, AppletPingResponse, AppletProtocolResponse,
     AppletSpaceResponse, AppletTransactionRequest, AppletTransactionResponse, AuthzCheckRequest,
     AuthzCheckResponse, AuthzInvitesResponse, BlobMetadata, BlobRef, BlobUploadMetadata,
-    BlobUploadResponse, CollectionProjectionResponse, DeviceMessagesReceiveResponse,
+    BlobUploadResponse, DeviceMessagesReceiveResponse,
     DeviceMessagesSendRequest, DeviceMessagesSendResponse, DirectoryDescription,
     DirectoryResolveHandleRequest, DirectoryResolveHandleResponse,
     DirectoryResolveOrganizationRequest, DirectoryResolveOrganizationResponse,
@@ -26,14 +26,12 @@ use contrix_core::{
     FederationPushOperationsResponse, FederationSpaceMembersResponse, FederationTransactionRequest,
     FederationTransactionResponse, FederationVerifyActorRequest, FederationVerifyActorResponse,
     IdentityDescription, IdentityDocumentResponse, IdentityLogResponse, IdentityReceiptsResponse,
-    IdentityResolveRequest, IdentityResolveResponse, IndexDescription, IndexEntityResponse,
-    IndexInboxResponse, IndexNotificationsResponse, IndexSearchRequest, IndexSearchResponse,
-    IndexSpaceHierarchyResponse, IndexThreadResponse, KeysClaimRequest, KeysClaimResponse,
+    IdentityResolveRequest, IdentityResolveResponse, KeysClaimRequest, KeysClaimResponse,
     KeysQueryRequest, KeysQueryResponse, KeysUploadRequest, KeysUploadResponse,
     MediaIceConfigRequest, MediaIceConfigResponse, ModerationReportRequest,
     ModerationReportResponse, OkResponse, PolicyCheckRequest, PolicyCheckResponse,
     PushNotifyRequest, PushNotifyResponse, PushRegisterDeviceRequest, PushRegisterDeviceResponse,
-    PushUnregisterDeviceRequest, QueryRequest, QueryResponse, Result, ServerDescription,
+    PushUnregisterDeviceRequest, Result, ServerDescription,
     ServiceRequirements, SubmitDidOperationRequest, SubmitDidOperationResponse,
     SyncBackfillResponse, SyncDescription, SyncRequest, SyncResponse, SyncSnapshotHeadResponse,
 };
@@ -640,13 +638,9 @@ impl Client {
     }
 
     /// Subscribe to the Event stream for one or more Spaces / actors via
-    /// `cx.events.subscribe` (`GET /api/v1/events/subscribe`). Wire-breaking
-    /// rename of the legacy `cx.sync.subscribe` (spec C17, 2026-05-08): the
-    /// selector is now `spaces[]` ∪ `actors[]` repeated query args, and the
-    /// frame schema's top field changed from `type` to `kind` with new kinds
-    /// `dropped` / `epoch_rotation` / `unauthorized` / `resync_required` /
-    /// `frontier` / `heartbeat` / `catchup_complete` (clients MUST handle the
-    /// new kinds explicitly instead of treating unknown frames as `event`).
+    /// `cx.events.subscribe` (`GET /api/v1/events/subscribe`). The selector is
+    /// `spaces[]` ∪ `actors[]` repeated query args, and frames use top-level
+    /// `kind` with explicit control variants.
     pub async fn events_subscribe_stream(
         &self,
         space_id: &str,
@@ -660,11 +654,9 @@ impl Client {
         self.send_response(builder).await
     }
 
-    /// Range-read Events via `cx.events.query` (`GET /api/v1/events`),
-    /// folding the legacy `cx.events.list` (forward) and `cx.sync.backfill`
-    /// (backward) into a single op (spec C17, 2026-05-08). Pass
-    /// `direction=Some("backward")` for backfill semantics; `None` defaults to
-    /// forward.
+    /// Range-read Events via `cx.events.query` (`GET /api/v1/events`). Pass
+    /// `direction=Some("backward")` for reverse traversal; `None` defaults to
+    /// forward traversal.
     pub async fn events_query(
         &self,
         space_id: &str,
@@ -695,55 +687,6 @@ impl Client {
             .request(Method::GET, "/api/v1/sync/snapshot-head")?
             .query(&[("space_id", space_id)]);
         self.send_json(builder).await
-    }
-
-    pub async fn index_query<T: DeserializeOwned>(
-        &self,
-        request: &QueryRequest,
-    ) -> Result<QueryResponse<T>> {
-        let mut builder = self.request(Method::POST, "/api/v1/index/query")?;
-        let mut options = ClientRequestOptions::new();
-        if let Some(consistency) = &request.consistency {
-            options = options.wait_for(&consistency.wait_for);
-        }
-        builder = self.apply_request_options(builder, &options)?;
-        self.send_json(builder.json(request)).await
-    }
-
-    /// T20 — fetch the materialised collection projection for a saved
-    /// `View{kind="collection"}` (kanban / board / list / table /
-    /// calendar / gantt renderer) per `models/views.md` §6.3.
-    ///
-    /// Unlike [`Self::index_query`] which returns a flat
-    /// `QueryResponse<T>`, this returns a nested
-    /// [`CollectionProjectionResponse`] with `groups[].items[]` ready
-    /// for a kanban-style render in one pass. The server is expected
-    /// to apply authz trimming, locked-discussion lazy_link policy,
-    /// and stable rank ordering before responding.
-    ///
-    /// Wire path: `POST /api/v1/views/{view_id}/projection`. Empty
-    /// JSON object body is sent so middleware that requires a body
-    /// works; future revisions MAY accept overrides
-    /// (sync_token, filter overlays) in the same body.
-    ///
-    /// `wait_for` is honoured via the `X-Contrix-Wait-For` header so
-    /// callers can implement read-your-writes against a known sync
-    /// token.
-    pub async fn collection_projection(
-        &self,
-        view_id: &str,
-        wait_for: Option<&str>,
-    ) -> Result<CollectionProjectionResponse> {
-        let path = format!("/api/v1/views/{view_id}/projection");
-        let mut builder = self.request(Method::POST, &path)?;
-        let mut options = ClientRequestOptions::new();
-        if let Some(token) = wait_for {
-            options = options.wait_for(token);
-        }
-        builder = self.apply_request_options(builder, &options)?;
-        // Empty object body keeps middleware happy and leaves room for
-        // future filter overlays without changing the wire path.
-        self.send_json(builder.json(&serde_json::json!({}))).await
     }
 
     pub async fn authz_check(&self, request: &AuthzCheckRequest) -> Result<AuthzCheckResponse> {
@@ -926,104 +869,6 @@ impl Client {
         request: &FederationVerifyActorRequest,
     ) -> Result<FederationVerifyActorResponse> {
         self.post("/api/v1/federation/verify-actor", request).await
-    }
-
-    pub async fn index_describe(&self) -> Result<IndexDescription> {
-        self.get("/api/v1/index/describe").await
-    }
-
-    pub async fn index_entity(
-        &self,
-        entity_id: &str,
-        space_id: Option<&str>,
-        at: Option<&str>,
-    ) -> Result<IndexEntityResponse> {
-        let mut builder =
-            self.request(Method::GET, "/api/v1/index/entity")?.query(&[("entity_id", entity_id)]);
-        if let Some(space_id) = space_id {
-            builder = builder.query(&[("space_id", space_id)]);
-        }
-        if let Some(at) = at {
-            builder = builder.query(&[("at", at)]);
-        }
-        self.send_json(builder).await
-    }
-
-    pub async fn index_thread(
-        &self,
-        topic_id: &str,
-        cursor: Option<&str>,
-        limit: Option<u32>,
-    ) -> Result<IndexThreadResponse> {
-        let mut builder =
-            self.request(Method::GET, "/api/v1/index/thread")?.query(&[("topic_id", topic_id)]);
-        if let Some(cursor) = cursor {
-            builder = builder.query(&[("cursor", cursor)]);
-        }
-        if let Some(limit) = limit {
-            builder = builder.query(&[("limit", limit)]);
-        }
-        self.send_json(builder).await
-    }
-
-    pub async fn index_notifications(
-        &self,
-        cursor: Option<&str>,
-        state: Option<&str>,
-        limit: Option<u32>,
-    ) -> Result<IndexNotificationsResponse> {
-        let mut builder = self.request(Method::GET, "/api/v1/index/notifications")?;
-        if let Some(cursor) = cursor {
-            builder = builder.query(&[("cursor", cursor)]);
-        }
-        if let Some(state) = state {
-            builder = builder.query(&[("state", state)]);
-        }
-        if let Some(limit) = limit {
-            builder = builder.query(&[("limit", limit)]);
-        }
-        self.send_json(builder).await
-    }
-
-    pub async fn index_inbox(
-        &self,
-        scope: Option<&str>,
-        cursor: Option<&str>,
-        limit: Option<u32>,
-    ) -> Result<IndexInboxResponse> {
-        let mut builder = self.request(Method::GET, "/api/v1/index/inbox")?;
-        if let Some(scope) = scope {
-            builder = builder.query(&[("scope", scope)]);
-        }
-        if let Some(cursor) = cursor {
-            builder = builder.query(&[("cursor", cursor)]);
-        }
-        if let Some(limit) = limit {
-            builder = builder.query(&[("limit", limit)]);
-        }
-        self.send_json(builder).await
-    }
-
-    pub async fn index_search(&self, request: &IndexSearchRequest) -> Result<IndexSearchResponse> {
-        self.post("/api/v1/index/search", request).await
-    }
-
-    pub async fn index_space_hierarchy(
-        &self,
-        space_id: &str,
-        depth: Option<u32>,
-        include_unconfirmed: Option<bool>,
-    ) -> Result<IndexSpaceHierarchyResponse> {
-        let mut builder = self
-            .request(Method::GET, "/api/v1/index/space-hierarchy")?
-            .query(&[("space_id", space_id)]);
-        if let Some(depth) = depth {
-            builder = builder.query(&[("depth", depth)]);
-        }
-        if let Some(include_unconfirmed) = include_unconfirmed {
-            builder = builder.query(&[("include_unconfirmed", include_unconfirmed)]);
-        }
-        self.send_json(builder).await
     }
 
     pub async fn directory_describe(&self) -> Result<DirectoryDescription> {
@@ -1212,6 +1057,11 @@ impl Client {
     ) -> Result<R> {
         let builder = self.apply_request_options(self.request(Method::PUT, path)?, options)?;
         self.send_json(builder.json(body)).await
+    }
+
+    pub async fn delete<R: DeserializeOwned>(&self, path: &str) -> Result<R> {
+        let builder = self.request(Method::DELETE, path)?;
+        self.send_json(builder).await
     }
 
     fn request(&self, method: Method, path: &str) -> Result<RequestBuilder> {
@@ -1536,7 +1386,7 @@ mod tests {
 
         let client = Client::new(Url::parse("https://alice.example/contrix/").unwrap()).unwrap();
         let builder = client
-            .request(Method::GET, "/api/v1/index/entity")
+            .request(Method::GET, "/api/v1/events")
             .unwrap()
             .query(&[("access_token", "secret")]);
 

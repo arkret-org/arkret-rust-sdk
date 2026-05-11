@@ -85,11 +85,11 @@ impl Cursor {
     }
 
     /// Verify that the cursor's `filter_hash` matches `expected`.
-    /// Returns `Ok(())` when the cursor has no binding (legacy clients)
-    /// or the hash matches; otherwise `Err(Error::Protocol("filter_hash_mismatch"))`.
+    /// Returns an error when the cursor is unbound or was issued for a
+    /// different filter.
     pub fn assert_filter_hash(&self, expected: &str) -> Result<()> {
         match self.filter_hash.as_deref() {
-            None => Ok(()),
+            None => Err(crate::Error::Protocol("filter_hash_missing".to_owned())),
             Some(found) if found == expected => Ok(()),
             Some(found) => Err(crate::Error::Protocol(format!(
                 "filter_hash_mismatch: cursor was issued for '{found}', current request is '{expected}'"
@@ -153,12 +153,11 @@ impl Cursor {
     /// - Cursor version is unsupported
     /// - Cursor has expired
     pub fn decode(encoded: &str) -> Result<Self> {
-        // Decode from Base64URL (allowing padding for compatibility)
+        // Decode from unpadded Base64URL, the only v1 cursor transport form.
         use base64::Engine as _;
 
         let json = base64::engine::general_purpose::URL_SAFE_NO_PAD
             .decode(encoded)
-            .or_else(|_| base64::engine::general_purpose::URL_SAFE.decode(encoded))
             .map_err(|_| crate::Error::Protocol("invalid Base64URL encoding".to_owned()))?;
 
         let cursor: Cursor = serde_json::from_slice(&json)

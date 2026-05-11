@@ -17,10 +17,6 @@
 //! live in `contrix-spec/spec/v1/zh/authz/event-auth-state-resolution.md`
 //! §3-§5.
 //!
-//! The legacy `StateReducer` / `state_hash` / `is_state_event` /
-//! `subject_for_event` / `candidate_wins` / `StateAuthority` API has been
-//! removed (v1 unreleased; no backward-compat shim).
-
 pub mod anchor;
 pub mod state_root;
 pub mod store;

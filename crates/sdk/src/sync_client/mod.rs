@@ -33,9 +33,9 @@ mod loop_control;
 mod processor;
 mod send_queue;
 mod space_list;
-mod wire;
 #[cfg(test)]
 mod tests;
+mod wire;
 
 pub use loop_control::*;
 pub use processor::*;

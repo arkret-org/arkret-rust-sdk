@@ -500,4 +500,3 @@ impl DidResolver for CompositeDidResolver {
             .resolve_did(did)
     }
 }
-

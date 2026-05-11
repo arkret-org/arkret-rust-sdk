@@ -1,188 +1,183 @@
 use super::*;
 
-/// Optional flow metadata accepted by [`Space::create_flow_operation_with_metadata`].
-///
-/// All fields default to "unset" so callers can struct-update the variant
-/// they need without naming the rest:
-///
-/// ```ignore
-/// space.create_flow_operation_with_metadata(
-///     "Refactor",
-///     FlowKind::Discussion,
-///     None,
-///     None,
-///     fields,
-///     FlowCreateMetadata { semantic_kind: Some("work_item".into()), ..Default::default() },
-/// )?;
-/// ```
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+/// Optional Flow create metadata accepted by [`Space::create_flow_operation_with_metadata`].
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct FlowCreateMetadata {
-    pub primary_track: Option<String>,
-    pub tracks: Vec<String>,
-    pub semantic_kind: Option<String>,
+    pub body: Option<Value>,
+    pub encrypted_payload: Option<Value>,
+    pub tracks: BTreeMap<String, crate::FlowTrackConfig>,
+    pub discussion_space_ref: Option<SpaceId>,
 }
 
-/// Optional flow metadata accepted by [`Space::update_flow_operation_with_metadata`].
-///
-/// Identical shape to [`FlowCreateMetadata`] but `tracks` is `Option`:
-/// `None` means "leave unchanged", `Some(vec![])` means "clear tracks".
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+/// Optional Flow patch metadata accepted by [`Space::update_flow_operation_with_metadata`].
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct FlowUpdateMetadata {
-    pub primary_track: Option<String>,
-    pub tracks: Option<Vec<String>>,
-    pub semantic_kind: Option<String>,
+    pub body: Option<Value>,
+    pub encrypted_payload: Option<Value>,
+    pub tracks: Option<BTreeMap<String, crate::FlowTrackConfig>>,
+    pub discussion_space_ref: Option<SpaceId>,
 }
 
-/// Flow operations within a space.
 impl Space {
-    /// Create a flow creation operation.
+    /// Create a spec-shaped `cx.flow.create` operation.
     pub fn create_flow_operation(
         &self,
         title: impl Into<String>,
-        flow_kind: FlowKind,
-        brief: Option<String>,
         summary: Option<String>,
         fields: BTreeMap<String, Value>,
     ) -> Result<Operation> {
         self.create_flow_operation_with_metadata(
             title,
-            flow_kind,
-            brief,
             summary,
             fields,
             FlowCreateMetadata::default(),
         )
     }
 
-    /// Create a flow creation operation with flow metadata.
+    /// Create a spec-shaped `cx.flow.create` operation with extended Flow fields.
     pub fn create_flow_operation_with_metadata(
         &self,
         title: impl Into<String>,
-        flow_kind: FlowKind,
-        brief: Option<String>,
         summary: Option<String>,
         fields: BTreeMap<String, Value>,
         metadata: FlowCreateMetadata,
     ) -> Result<Operation> {
-        let _session_meta = self
+        let session_meta = self
             .base_client
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
         let flow_id = FlowId::new(generate_id("cx:flow:"))?;
         let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let now = Utc::now();
+        let tracks = if metadata.tracks.is_empty() {
+            default_flow_tracks()
+        } else {
+            metadata.tracks
+        };
 
-        let mut payload = json!({
-            "flow_id": flow_id.as_str(),
+        let mut object = json!({
+            "id": flow_id.as_str(),
+            "schema": crate::FLOW_SCHEMA,
+            "space_id": self.space_id.as_str(),
             "title": title.into(),
-            "flow_kind": serde_json::to_value(flow_kind)?,
+            "tracks": tracks,
+            "created_by": session_meta.user_id.as_str(),
+            "created_at": now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
         });
 
-        if let Some(brief) = brief {
-            payload["brief"] = json!(brief);
-        }
         if let Some(summary) = summary {
-            payload["summary"] = json!(summary);
+            object["summary"] = json!(summary);
         }
-        if let Some(primary_track) = metadata.primary_track {
-            payload["primary_track"] = json!(primary_track);
+        if let Some(body) = metadata.body {
+            object["body"] = body;
         }
-        if !metadata.tracks.is_empty() {
-            payload["tracks"] = json!(metadata.tracks);
+        if let Some(encrypted_payload) = metadata.encrypted_payload {
+            object["encrypted_payload"] = encrypted_payload;
         }
-        if let Some(semantic_kind) = metadata.semantic_kind {
-            payload["semantic_kind"] = json!(semantic_kind);
+        if let Some(discussion_space_ref) = metadata.discussion_space_ref {
+            object["discussion_space_ref"] = json!(discussion_space_ref.as_str());
         }
         if !fields.is_empty() {
-            payload["fields"] = json!(fields);
+            object["fields"] = json!(fields);
         }
 
-        Ok(Operation::create(operation_id, self.space_id.clone(), "flow", payload))
+        Ok(Operation::create(
+            operation_id,
+            self.space_id.clone(),
+            crate::OP_FLOW_CREATE,
+            json!({ "object": object }),
+        ))
     }
 
-    /// Create a flow update operation.
+    /// Create a spec-shaped `cx.flow.update` operation.
     pub fn update_flow_operation(
         &self,
         flow_id: FlowId,
         title: Option<String>,
-        brief: Option<String>,
         summary: Option<String>,
         fields: Option<BTreeMap<String, Value>>,
     ) -> Result<Operation> {
         self.update_flow_operation_with_metadata(
             flow_id,
             title,
-            brief,
             summary,
             fields,
             FlowUpdateMetadata::default(),
         )
     }
 
-    /// Create a flow update operation with extended metadata.
+    /// Create a spec-shaped `cx.flow.update` operation with extended Flow fields.
     pub fn update_flow_operation_with_metadata(
         &self,
         flow_id: FlowId,
         title: Option<String>,
-        brief: Option<String>,
         summary: Option<String>,
         fields: Option<BTreeMap<String, Value>>,
         metadata: FlowUpdateMetadata,
     ) -> Result<Operation> {
-        let _session_meta = self
-            .base_client
+        self.base_client
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
         let operation_id = OperationId::new(generate_id("cx:operation:"))?;
-        let mut payload = json!({ "flow_id": flow_id.as_str() });
+        let mut patch = serde_json::Map::new();
 
         if let Some(title) = title {
-            payload["title"] = json!(title);
-        }
-        if let Some(brief) = brief {
-            payload["brief"] = json!(brief);
+            patch.insert("title".to_owned(), json!(title));
         }
         if let Some(summary) = summary {
-            payload["summary"] = json!(summary);
-        }
-        if let Some(primary_track) = metadata.primary_track {
-            payload["primary_track"] = json!(primary_track);
-        }
-        if let Some(tracks) = metadata.tracks {
-            payload["tracks"] = json!(tracks);
-        }
-        if let Some(semantic_kind) = metadata.semantic_kind {
-            payload["semantic_kind"] = json!(semantic_kind);
+            patch.insert("summary".to_owned(), json!(summary));
         }
         if let Some(fields) = fields {
-            payload["fields"] = json!(fields);
+            patch.insert("fields".to_owned(), json!(fields));
+        }
+        if let Some(body) = metadata.body {
+            patch.insert("body".to_owned(), body);
+            patch.insert("encrypted_payload".to_owned(), Value::Null);
+        }
+        if let Some(encrypted_payload) = metadata.encrypted_payload {
+            patch.insert("encrypted_payload".to_owned(), encrypted_payload);
+            patch.insert("body".to_owned(), Value::Null);
+        }
+        if let Some(tracks) = metadata.tracks {
+            patch.insert("tracks".to_owned(), json!(tracks));
+        }
+        if let Some(discussion_space_ref) = metadata.discussion_space_ref {
+            patch.insert("discussion_space_ref".to_owned(), json!(discussion_space_ref.as_str()));
         }
 
-        let mut operation = Operation::create(operation_id, self.space_id.clone(), "flow", payload);
+        let mut operation = Operation::create(
+            operation_id,
+            self.space_id.clone(),
+            crate::OP_FLOW_UPDATE,
+            json!({
+                "flow_id": flow_id.as_str(),
+                "patch": Value::Object(patch),
+            }),
+        );
         operation.operation_type = OperationType::Update;
         operation.object_id = Some(flow_id.as_str().to_owned());
         Ok(operation)
     }
 
-    /// Create a flow archive operation.
+    /// Create a Flow archive operation.
     pub fn archive_flow_operation(&self, flow_id: FlowId) -> Result<Operation> {
-        self.flow_lifecycle_operation(flow_id, OperationType::Delete, "archived")
+        self.flow_lifecycle_operation(flow_id, crate::OP_FLOW_ARCHIVE, OperationType::Delete)
     }
 
-    /// Create a flow restore operation.
+    /// Create a Flow restore operation.
     pub fn restore_flow_operation(&self, flow_id: FlowId) -> Result<Operation> {
-        self.flow_lifecycle_operation(flow_id, OperationType::Update, "active")
+        self.flow_lifecycle_operation(flow_id, crate::OP_FLOW_RESTORE, OperationType::Update)
     }
 
     fn flow_lifecycle_operation(
         &self,
         flow_id: FlowId,
+        kind: &str,
         operation_type: OperationType,
-        state: &str,
     ) -> Result<Operation> {
-        let _session_meta = self
-            .base_client
+        self.base_client
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
@@ -190,132 +185,89 @@ impl Space {
         let mut operation = Operation::create(
             operation_id,
             self.space_id.clone(),
-            "flow",
-            json!({
-                "flow_id": flow_id.as_str(),
-                "state": state,
-            }),
+            kind,
+            json!({ "flow_id": flow_id.as_str() }),
         );
         operation.operation_type = operation_type;
         operation.object_id = Some(flow_id.as_str().to_owned());
         Ok(operation)
     }
 
-    /// Create an operation linking a flow to a surface object.
-    pub fn link_flow_surface_operation(
+    /// Create a `cx.flow.move` operation.
+    pub fn move_flow_operation(
         &self,
         flow_id: FlowId,
-        surface_ref: impl Into<String>,
-        surface_role: Option<String>,
-        primary: bool,
+        board_place_id: PlaceId,
+        target_place_id: PlaceId,
+        rank: impl Into<String>,
+        expected_position: Option<Value>,
     ) -> Result<Operation> {
-        self.flow_surface_operation(
+        self.flow_position_operation(
+            crate::OP_FLOW_MOVE,
             flow_id,
-            surface_ref.into(),
-            surface_role,
-            primary,
-            OperationType::Link,
+            board_place_id,
+            ("target_place_id", target_place_id),
+            rank,
+            expected_position,
         )
     }
 
-    /// Create an operation unlinking a flow surface object.
-    pub fn unlink_flow_surface_operation(
+    /// Create a `cx.flow.reorder` operation.
+    pub fn reorder_flow_operation(
         &self,
         flow_id: FlowId,
-        surface_ref: impl Into<String>,
-        surface_role: Option<String>,
+        board_place_id: PlaceId,
+        place_id: PlaceId,
+        rank: impl Into<String>,
+        expected_position: Option<Value>,
     ) -> Result<Operation> {
-        self.flow_surface_operation(
+        self.flow_position_operation(
+            crate::OP_FLOW_REORDER,
             flow_id,
-            surface_ref.into(),
-            surface_role,
-            false,
-            OperationType::Unlink,
+            board_place_id,
+            ("place_id", place_id),
+            rank,
+            expected_position,
         )
     }
 
-    fn flow_surface_operation(
+    fn flow_position_operation(
         &self,
+        kind: &str,
         flow_id: FlowId,
-        surface_ref: String,
-        surface_role: Option<String>,
-        primary: bool,
-        operation_type: OperationType,
+        board_place_id: PlaceId,
+        place_field: (&str, PlaceId),
+        rank: impl Into<String>,
+        expected_position: Option<Value>,
     ) -> Result<Operation> {
-        let _session_meta = self
-            .base_client
+        self.base_client
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
         let operation_id = OperationId::new(generate_id("cx:operation:"))?;
         let mut payload = json!({
             "flow_id": flow_id.as_str(),
-            "surface_ref": surface_ref,
+            "board_place_id": board_place_id.as_str(),
+            "rank": rank.into(),
         });
-        if let Some(surface_role) = surface_role {
-            payload["surface_role"] = json!(surface_role);
-        }
-        if operation_type == OperationType::Link {
-            payload["primary"] = json!(primary);
+        payload[place_field.0] = json!(place_field.1.as_str());
+        if let Some(expected_position) = expected_position {
+            payload["expected_position"] = expected_position;
         }
 
-        let mut operation = Operation::create(operation_id, self.space_id.clone(), "flow", payload);
-        operation.operation_type = operation_type;
-        operation.object_id = Some(flow_id.as_str().to_owned());
-        Ok(operation)
-    }
-
-    /// Create a flow move operation.
-    pub fn move_flow_operation(
-        &self,
-        flow_id: FlowId,
-        parent_id: FlowId,
-        rank: i64,
-    ) -> Result<Operation> {
-        self.flow_mutation_operation(
-            flow_id,
-            json!({
-                "parent_id": parent_id,
-                "rank": rank,
-            }),
-        )
-    }
-
-    /// Create a flow reorder operation.
-    pub fn reorder_flow_operation(&self, flow_id: FlowId, rank: i64) -> Result<Operation> {
-        self.flow_mutation_operation(flow_id, json!({ "rank": rank }))
-    }
-
-    /// Create a flow convert operation.
-    pub fn convert_flow_operation(
-        &self,
-        flow_id: FlowId,
-        target_kind: String,
-    ) -> Result<Operation> {
-        self.flow_mutation_operation(flow_id, json!({ "target_kind": target_kind }))
-    }
-
-    fn flow_mutation_operation(
-        &self,
-        flow_id: FlowId,
-        additional_payload: Value,
-    ) -> Result<Operation> {
-        let _session_meta = self
-            .base_client
-            .session_meta()
-            .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
-
-        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
-        let mut payload = json!({ "flow_id": flow_id.as_str() });
-        if let Value::Object(map) = additional_payload {
-            for (key, value) in map {
-                payload[key] = value;
-            }
-        }
-
-        let mut operation = Operation::create(operation_id, self.space_id.clone(), "flow", payload);
+        let mut operation =
+            Operation::create(operation_id, self.space_id.clone(), kind, payload);
         operation.operation_type = OperationType::Update;
         operation.object_id = Some(flow_id.as_str().to_owned());
         Ok(operation)
     }
+}
+
+fn default_flow_tracks() -> BTreeMap<String, crate::FlowTrackConfig> {
+    let mut tracks = BTreeMap::new();
+    tracks.insert(
+        crate::FLOW_TRACK_NAME_SYNTHESIS.to_owned(),
+        crate::FlowTrackConfig::synthesis(),
+    );
+    tracks
 }

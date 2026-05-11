@@ -1,16 +1,16 @@
 use super::*;
 
-pub(super) fn entity_matches_filter(entity: &Entity, filter: &Filter) -> bool {
+pub(super) fn morph_matches_filter(morph: &Morph, filter: &Filter) -> bool {
     match filter {
-        Filter::Predicate(predicate) => entity_matches_predicate(entity, predicate),
-        Filter::And { and } => and.iter().all(|filter| entity_matches_filter(entity, filter)),
-        Filter::Or { or } => or.iter().any(|filter| entity_matches_filter(entity, filter)),
-        Filter::Not { not } => !entity_matches_filter(entity, not),
+        Filter::Predicate(predicate) => morph_matches_predicate(morph, predicate),
+        Filter::And { and } => and.iter().all(|filter| morph_matches_filter(morph, filter)),
+        Filter::Or { or } => or.iter().any(|filter| morph_matches_filter(morph, filter)),
+        Filter::Not { not } => !morph_matches_filter(morph, not),
     }
 }
 
-pub(super) fn entity_matches_predicate(entity: &Entity, predicate: &FieldFilter) -> bool {
-    let actual = entity_field_value(entity, &predicate.field);
+pub(super) fn morph_matches_predicate(morph: &Morph, predicate: &FieldFilter) -> bool {
+    let actual = morph_field_value(morph, &predicate.field);
     match &predicate.op {
         FilterOp::Exists => {
             let expected = predicate.value.as_ref().and_then(Value::as_bool).unwrap_or(true);
@@ -61,11 +61,11 @@ pub(super) fn entity_matches_predicate(entity: &Entity, predicate: &FieldFilter)
     }
 }
 
-pub(super) fn compare_entities(left: &Entity, right: &Entity, order_by: &[SortSpec]) -> Ordering {
+pub(super) fn compare_morphs(left: &Morph, right: &Morph, order_by: &[SortSpec]) -> Ordering {
     for sort in order_by {
         let ordering = compare_optional_values(
-            entity_field_value(left, &sort.field).as_ref(),
-            entity_field_value(right, &sort.field).as_ref(),
+            morph_field_value(left, &sort.field).as_ref(),
+            morph_field_value(right, &sort.field).as_ref(),
             sort.nulls.as_ref(),
             &sort.direction,
         );
@@ -113,23 +113,23 @@ pub(super) fn compare_json_values(left: &Value, right: &Value) -> Option<Orderin
     }
 }
 
-pub(super) fn entity_field_value(entity: &Entity, field: &str) -> Option<Value> {
+pub(super) fn morph_field_value(morph: &Morph, field: &str) -> Option<Value> {
     match field {
-        "id" => Some(json!(entity.id.as_str())),
-        "title" => entity.title.as_ref().map(|title| json!(title)),
-        "entity_type" => serde_json::to_value(&entity.entity_type).ok(),
-        "state" => entity.state.as_ref().and_then(|state| serde_json::to_value(state).ok()),
-        "version" => entity.version.map(|version| json!(version)),
-        "created_at" => Some(json!(entity.created_at.to_rfc3339())),
-        "updated_at" => entity.updated_at.map(|updated_at| json!(updated_at.to_rfc3339())),
-        "content" => entity.content.clone(),
-        "labels" => Some(json!(entity.labels)),
-        _ if field.starts_with("fields.") => entity.fields.get(&field["fields.".len()..]).cloned(),
-        _ if field.starts_with("content.") => entity
+        "id" => Some(json!(morph.id.as_str())),
+        "title" => morph.title.as_ref().map(|title| json!(title)),
+        "summary" => morph.summary.as_ref().map(|summary| json!(summary)),
+        "morph_type" => Some(json!(morph.morph_type)),
+        "state" => morph.state.as_ref().and_then(|state| serde_json::to_value(state).ok()),
+        "created_at" => Some(json!(morph.created_at.to_rfc3339())),
+        "updated_at" => morph.updated_at.map(|updated_at| json!(updated_at.to_rfc3339())),
+        "content" => morph.content.clone(),
+        "labels" => Some(json!(morph.labels)),
+        _ if field.starts_with("fields.") => morph.fields.get(&field["fields.".len()..]).cloned(),
+        _ if field.starts_with("content.") => morph
             .content
             .as_ref()
             .and_then(|content| value_at_path(content, &field["content.".len()..])),
-        _ => entity.fields.get(field).cloned(),
+        _ => morph.fields.get(field).cloned(),
     }
 }
 
@@ -141,17 +141,21 @@ pub(super) fn value_at_path(value: &Value, path: &str) -> Option<Value> {
     Some(current.clone())
 }
 
-pub(super) fn entity_search_text(entity: &Entity) -> String {
+pub(super) fn morph_search_text(morph: &Morph) -> String {
     let mut text = String::new();
-    if let Some(title) = &entity.title {
+    if let Some(title) = &morph.title {
         text.push_str(title);
         text.push(' ');
     }
-    if let Some(content) = &entity.content {
+    if let Some(summary) = &morph.summary {
+        text.push_str(summary);
+        text.push(' ');
+    }
+    if let Some(content) = &morph.content {
         text.push_str(&value_search_text(Some(content)));
         text.push(' ');
     }
-    text.push_str(&value_search_text(Some(&json!(entity.fields))));
+    text.push_str(&value_search_text(Some(&json!(morph.fields))));
     text.to_lowercase()
 }
 
@@ -174,13 +178,6 @@ pub(super) fn value_search_text(value: Option<&Value>) -> String {
     }
 }
 
-pub(super) fn entity_type_key(entity_type: &EntityType) -> String {
-    serde_json::to_value(entity_type)
-        .ok()
-        .and_then(|value| value.as_str().map(str::to_owned))
-        .unwrap_or_else(|| "unknown".to_owned())
-}
-
 pub(super) fn scalar_value_key(value: &Value) -> String {
     match value {
         Value::String(value) => value.clone(),
@@ -192,7 +189,7 @@ pub(super) fn scalar_value_key(value: &Value) -> String {
 }
 
 pub(super) fn relation_is_active(relation: &Relation) -> bool {
-    !matches!(relation.state, Some(RelationState::Deleted | RelationState::Redacted))
+    !matches!(relation.state, Some(RelationState::Tombstone))
 }
 
 pub(super) fn parse_object_state(value: &str) -> Option<ObjectState> {

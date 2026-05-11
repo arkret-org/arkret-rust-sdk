@@ -135,9 +135,8 @@ fn sync_loop_includes_wait_for_frontier() {
             space_id,
             frontier: Vec::new(),
             timeline_order: crate::Hlc::new("01970e589d21-00000000-a13f9c2e").unwrap(),
-            state_hash:
-                "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-                    .to_owned(),
+            state_hash: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                .to_owned(),
         }],
         timeout_ms: 5000,
     };
@@ -271,10 +270,7 @@ fn send_queue_is_idempotent_orders_dependencies_and_snapshots() {
 
     queue.mark_sending("txn1").unwrap();
     queue
-        .mark_sent(
-            "txn1",
-            EventId::new("cx:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap(),
-        )
+        .mark_sent("txn1", EventId::new("cx:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap())
         .unwrap();
     assert_eq!(queue.ready_batch(Utc::now(), 10), vec![edit]);
 
@@ -358,9 +354,7 @@ fn space_list_sorts_filters_and_reports_incremental_changes() {
         list.set_filter(SpaceListFilter { unread_only: true, ..SpaceListFilter::default() });
 
     assert!(matches!(first.changes[0], SpaceListChange::Inserted { .. }));
-    assert!(
-        second.changes.iter().any(|change| matches!(change, SpaceListChange::Inserted { .. }))
-    );
+    assert!(second.changes.iter().any(|change| matches!(change, SpaceListChange::Inserted { .. })));
     assert_eq!(sorted.ordered[0], s2);
     assert_eq!(filtered.ordered.len(), 2);
 
@@ -462,8 +456,7 @@ fn frame_blank_line_returns_none() {
 
 #[test]
 fn frame_unauthorized_with_actor_only() {
-    let line =
-        r#"{"kind":"unauthorized","actor_id":"did:web:alice.example","reason":"revoked"}"#;
+    let line = r#"{"kind":"unauthorized","actor_id":"did:web:alice.example","reason":"revoked"}"#;
     let frame = EventsSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
     match &frame {
         EventsSubscribeFrame::Unauthorized { space_id, actor_id, reason } => {
@@ -542,9 +535,8 @@ fn frame_frontier_advance_round_trip() {
 fn events_query_request_validates_non_empty() {
     let empty = EventsQueryRequest::new();
     assert!(empty.validate_non_empty().is_err());
-    let with_space = EventsQueryRequest::new().with_spaces(vec![
-        SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
-    ]);
+    let with_space = EventsQueryRequest::new()
+        .with_spaces(vec![SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()]);
     with_space.validate_non_empty().unwrap();
 }
 

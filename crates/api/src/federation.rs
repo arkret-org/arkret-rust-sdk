@@ -311,17 +311,12 @@ mod tests {
     }
 
     #[test]
-    fn federation_endpoint_catalog_covers_core_flows() {
+    fn federation_endpoint_catalog_is_not_advertised() {
         let operations = federation_endpoints()
             .iter()
             .map(|endpoint| endpoint.operation_id)
             .collect::<std::collections::BTreeSet<_>>();
-        assert!(operations.contains("cx.federation.discovery"));
-        assert!(operations.contains("cx.federation.transaction"));
-        assert!(operations.contains("cx.federation.backfill"));
-        assert!(operations.contains("cx.federation.event_auth"));
-        assert!(operations.contains("cx.federation.query_keys"));
-        assert!(operations.contains("cx.federation.verify_actor"));
+        assert!(operations.is_empty());
     }
 
     #[test]

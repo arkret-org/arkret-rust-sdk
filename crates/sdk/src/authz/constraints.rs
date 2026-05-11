@@ -8,9 +8,8 @@ pub enum Resource {
     Space { space_id: String },
     /// Flow resource
     Flow { space_id: String, flow_id: String },
-    /// Entity resource (current reducer target for task, message, document, file
-    /// and other typed object payloads).
-    Entity { space_id: String, entity_type: String, entity_id: String },
+    /// Message resource.
+    Message { space_id: String, message_id: String },
     /// Relation resource
     Relation { space_id: String, relation_kind: String },
     /// View resource
@@ -43,7 +42,7 @@ impl Resource {
         match self {
             Self::Space { space_id } => space_id,
             Self::Flow { space_id, .. } => space_id,
-            Self::Entity { space_id, .. } => space_id,
+            Self::Message { space_id, .. } => space_id,
             Self::Relation { space_id, .. } => space_id,
             Self::View { space_id, .. } => space_id,
             Self::Schema { space_id, .. } => space_id,
@@ -76,11 +75,17 @@ pub enum Constraint {
     /// Type restriction constraint
     TypeRestriction {
         #[serde(skip_serializing_if = "Option::is_none")]
-        entity_type_allow: Option<Vec<String>>,
+        object_type_allow: Option<Vec<String>>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        entity_type_deny: Option<Vec<String>>,
+        object_type_deny: Option<Vec<String>>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        morph_type_allow: Option<Vec<String>>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        morph_type_deny: Option<Vec<String>>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
-        allowed_entity_facets: Vec<EntityFacet>,
+        facet_allow: Vec<Facet>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        facet_deny: Vec<Facet>,
         #[serde(skip_serializing_if = "Option::is_none")]
         scope_limitation: Option<ScopeLimitation>,
     },
@@ -267,11 +272,9 @@ pub enum RateLimitScope {
 pub enum ScopeLimitation {
     Space,
     Flow,
-    Channel,
-    Topic,
-    Thread,
+    Message,
+    Morph,
     View,
-    Entity,
     Relation,
     Policy,
 }
@@ -661,4 +664,3 @@ impl ConstraintEntry {
         }
     }
 }
-

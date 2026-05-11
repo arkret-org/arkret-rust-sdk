@@ -1,5 +1,5 @@
-use super::*;
 use super::helpers::{default_true, disclose_claim, validate_presented_claim};
+use super::*;
 
 /// Standard claim type names used by auth and progressive disclosure helpers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -435,4 +435,3 @@ pub fn validate_presentation(
         missing_required.is_empty() && (!request.policy.fail_closed || rejected_claims.is_empty());
     PresentationValidation { accepted, disclosed_claims, missing_required, rejected_claims }
 }
-

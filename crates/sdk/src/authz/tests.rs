@@ -35,6 +35,22 @@ fn ctx_at(value: &str, action: &str, resource: Resource) -> AuthzContext {
     ctx
 }
 
+fn morph_resource(space_id: &str, morph_type: &str, morph_id: &str) -> Resource {
+    Resource::Morph {
+        space_id: space_id.to_owned(),
+        morph_type: morph_type.to_owned(),
+        morph_id: morph_id.to_owned(),
+    }
+}
+
+fn message_resource(space_id: &str, message_id: &str) -> Resource {
+    Resource::Message { space_id: space_id.to_owned(), message_id: message_id.to_owned() }
+}
+
+fn message_selector(space_id: &str) -> ResourceSelector {
+    ResourceSelector::Message { space_id: space_id.to_owned(), message_id: None }
+}
+
 fn capability_event(
     event_id: &str,
     kind: &str,
@@ -46,13 +62,12 @@ fn capability_event(
         event_id: EventId::new(event_id).unwrap(),
         kind: kind.to_owned(),
         space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
-        space_version: "1".to_owned(),
         actor_id: Did::new("did:web:authority.example.com").unwrap(),
         actor_seq,
         created_at: utc("2026-04-29T00:00:00Z"),
         hlc: Hlc::new(hlc).unwrap(),
         prev_refs: vec![],
-        auth_refs: vec![],
+        refs: vec![],
         schema_profile_refs: vec![],
         reducer_profile_ref: None,
         required_features: vec![],
@@ -117,10 +132,8 @@ fn flow_selector_matches_flow_resource() {
 #[test]
 fn resource_selector_parse_space_scoped_resources_with_colon_ids() {
     assert_eq!(
-        ResourceSelector::parse(
-            "policy:cx:space:01904100-0000-7000-8000-9b64700c6ee8:policy-main"
-        )
-        .unwrap(),
+        ResourceSelector::parse("policy:cx:space:01904100-0000-7000-8000-9b64700c6ee8:policy-main")
+            .unwrap(),
         ResourceSelector::Policy {
             space_id: "cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
             policy_id: Some("policy-main".to_owned()),
@@ -142,11 +155,7 @@ fn resource_selector_parse_space_scoped_resources_with_colon_ids() {
 fn resource_selector_wildcard_matches_all() {
     let selector = ResourceSelector::Wildcard;
     assert!(selector.matches(&Resource::Space { space_id: "test".to_owned() }));
-    assert!(selector.matches(&Resource::Entity {
-        space_id: "test".to_owned(),
-        entity_type: "task".to_owned(),
-        entity_id: "id".to_owned(),
-    }));
+    assert!(selector.matches(&morph_resource("test", "task", "cx:morph:test")));
 }
 
 #[test]
@@ -163,22 +172,22 @@ fn space_selector_matches_space() {
 }
 
 #[test]
-fn object_selector_matches_entity() {
+fn object_selector_matches_morph() {
     let selector = ResourceSelector::Object {
         space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
         object_type: Some("task".to_owned()),
         object_ref: None,
     };
-    assert!(selector.matches(&Resource::Entity {
-        space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-        entity_type: "task".to_owned(),
-        entity_id: "cx:entity:01904100-0000-7000-8000-20ec63a5423d".to_owned(),
-    }));
-    assert!(!selector.matches(&Resource::Entity {
-        space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-        entity_type: "message".to_owned(),
-        entity_id: "cx:entity:01904100-0000-7000-8000-20ec63a5423d".to_owned(),
-    }));
+    assert!(selector.matches(&morph_resource(
+        "cx:space:01904100-0000-7000-8000-1a412919cd4b",
+        "task",
+        "cx:morph:01904100-0000-7000-8000-20ec63a5423d",
+    )));
+    assert!(!selector.matches(&morph_resource(
+        "cx:space:01904100-0000-7000-8000-1a412919cd4b",
+        "note",
+        "cx:morph:01904100-0000-7000-8000-20ec63a5423d",
+    )));
 }
 
 #[test]
@@ -200,9 +209,12 @@ fn type_restriction_respects_flow_scope_limitation() {
         },
     );
     grant.constraints = vec![ConstraintEntry::new(Constraint::TypeRestriction {
-        entity_type_allow: None,
-        entity_type_deny: None,
-        allowed_entity_facets: vec![],
+        object_type_allow: None,
+        object_type_deny: None,
+        morph_type_allow: None,
+        morph_type_deny: None,
+        facet_allow: vec![],
+        facet_deny: vec![],
         scope_limitation: Some(ScopeLimitation::Flow),
     })];
 
@@ -215,13 +227,13 @@ fn type_restriction_requires_entity_facets_from_context() {
     let ctx = AuthzContext::new(
         Did::new("did:web:alice.example.com").unwrap(),
         "write".to_owned(),
-        Resource::Entity {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-            entity_type: "task".to_owned(),
-            entity_id: "cx:entity:01904100-0000-7000-8000-20ec63a5423d".to_owned(),
-        },
+        morph_resource(
+            "cx:space:01904100-0000-7000-8000-1a412919cd4b",
+            "task",
+            "cx:morph:01904100-0000-7000-8000-20ec63a5423d",
+        ),
     )
-    .with_entity_facets([EntityFacet::Stateful, EntityFacet::Rankable]);
+    .with_facets([Facet::Stateful, Facet::Rankable]);
     let mut grant = grant_for(
         "write",
         ResourceSelector::Object {
@@ -231,9 +243,12 @@ fn type_restriction_requires_entity_facets_from_context() {
         },
     );
     grant.constraints = vec![ConstraintEntry::new(Constraint::TypeRestriction {
-        entity_type_allow: Some(vec!["task".to_owned()]),
-        entity_type_deny: None,
-        allowed_entity_facets: vec![EntityFacet::Stateful, EntityFacet::Rankable],
+        object_type_allow: Some(vec!["morph".to_owned()]),
+        object_type_deny: None,
+        morph_type_allow: Some(vec!["task".to_owned()]),
+        morph_type_deny: None,
+        facet_allow: vec![Facet::Stateful, Facet::Rankable],
+        facet_deny: vec![],
         scope_limitation: None,
     })];
 
@@ -242,13 +257,13 @@ fn type_restriction_requires_entity_facets_from_context() {
     let missing_facet_ctx = AuthzContext::new(
         Did::new("did:web:alice.example.com").unwrap(),
         "write".to_owned(),
-        Resource::Entity {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-            entity_type: "task".to_owned(),
-            entity_id: "cx:entity:01904100-0000-7000-8000-20ec63a5423d".to_owned(),
-        },
+        morph_resource(
+            "cx:space:01904100-0000-7000-8000-1a412919cd4b",
+            "task",
+            "cx:morph:01904100-0000-7000-8000-20ec63a5423d",
+        ),
     )
-    .with_entity_facets([EntityFacet::Stateful]);
+    .with_facets([Facet::Stateful]);
     assert!(!engine.check_authorization(&missing_facet_ctx, &[grant]).is_allowed());
 }
 
@@ -258,9 +273,7 @@ fn authz_engine_deny_without_grant() {
     let ctx = AuthzContext::new(
         Did::new("did:web:alice.example.com").unwrap(),
         "read".to_owned(),
-        Resource::Space {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-        },
+        Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
     );
 
     let decision = engine.check_authorization(&ctx, &[]);
@@ -273,9 +286,7 @@ fn authz_engine_allow_with_matching_grant() {
     let ctx = AuthzContext::new(
         Did::new("did:web:alice.example.com").unwrap(),
         "read".to_owned(),
-        Resource::Space {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-        },
+        Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
     );
 
     let grant = grant_for(
@@ -295,9 +306,7 @@ fn authz_engine_deny_wrong_action() {
     let ctx = AuthzContext::new(
         Did::new("did:web:alice.example.com").unwrap(),
         "write".to_owned(),
-        Resource::Space {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-        },
+        Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
     );
 
     let grant = grant_for(
@@ -325,20 +334,19 @@ fn authz_engine_evaluates_grants_from_space_state() {
         json!({
             "capability_id": "cap-message-send",
             "subject": "did:web:alice.example.com",
-            "actions": ["message.send"],
-            "resources": ["object:cx:space:01904100-0000-7000-8000-9b64700c6ee8:message"]
+            "actions": ["cx.message.create"],
+            "resources": ["message:cx:space:01904100-0000-7000-8000-9b64700c6ee8"]
         }),
     );
     state.apply_events(&[grant]).unwrap();
 
     let ctx = ctx_at(
         "2026-04-29T01:00:00Z",
-        "message.send",
-        Resource::Entity {
-            space_id: "cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
-            entity_type: "message".to_owned(),
-            entity_id: "cx:entity:01904100-0000-7000-8000-424c57fe6d8e".to_owned(),
-        },
+        "cx.message.create",
+        message_resource(
+            "cx:space:01904100-0000-7000-8000-9b64700c6ee8",
+            "cx:message:01904100-0000-7000-8000-424c57fe6d8e",
+        ),
     );
 
     let mut engine = AuthzEngine::new();
@@ -359,8 +367,8 @@ fn authz_engine_denies_after_revoke_wins_in_space_state() {
         json!({
             "capability_id": "cap-message-send",
             "subject": "did:web:alice.example.com",
-            "actions": ["message.send"],
-            "resources": ["object:cx:space:01904100-0000-7000-8000-9b64700c6ee8:message"]
+            "actions": ["cx.message.create"],
+            "resources": ["message:cx:space:01904100-0000-7000-8000-9b64700c6ee8"]
         }),
     );
     let revoke = capability_event(
@@ -374,12 +382,11 @@ fn authz_engine_denies_after_revoke_wins_in_space_state() {
 
     let ctx = ctx_at(
         "2026-04-29T01:00:00Z",
-        "message.send",
-        Resource::Entity {
-            space_id: "cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
-            entity_type: "message".to_owned(),
-            entity_id: "cx:entity:01904100-0000-7000-8000-424c57fe6d8e".to_owned(),
-        },
+        "cx.message.create",
+        message_resource(
+            "cx:space:01904100-0000-7000-8000-9b64700c6ee8",
+            "cx:message:01904100-0000-7000-8000-424c57fe6d8e",
+        ),
     );
 
     let mut engine = AuthzEngine::new();
@@ -401,20 +408,19 @@ fn authz_engine_denies_after_delegate_revoke_wins_in_space_state() {
             "capability_id": "cap-message-delegate",
             "parent_grant_id": "cap-root",
             "subject": "did:web:alice.example.com",
-            "actions": ["message.send"],
-            "resources": ["object:cx:space:01904100-0000-7000-8000-9b64700c6ee8:message"]
+            "actions": ["cx.message.create"],
+            "resources": ["message:cx:space:01904100-0000-7000-8000-9b64700c6ee8"]
         }),
     );
     state.apply_events(std::slice::from_ref(&delegate)).unwrap();
 
     let ctx = ctx_at(
         "2026-04-29T01:00:00Z",
-        "message.send",
-        Resource::Entity {
-            space_id: "cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
-            entity_type: "message".to_owned(),
-            entity_id: "cx:entity:01904100-0000-7000-8000-424c57fe6d8e".to_owned(),
-        },
+        "cx.message.create",
+        message_resource(
+            "cx:space:01904100-0000-7000-8000-9b64700c6ee8",
+            "cx:message:01904100-0000-7000-8000-424c57fe6d8e",
+        ),
     );
 
     let mut engine = AuthzEngine::new();
@@ -438,9 +444,7 @@ fn authz_engine_denies_wrong_subject() {
     let ctx = AuthzContext::new(
         Did::new("did:web:bob.example.com").unwrap(),
         "read".to_owned(),
-        Resource::Space {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-        },
+        Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
     );
 
     let grant = grant_for(
@@ -460,9 +464,7 @@ fn policy_server_no_action_never_grants_without_capability() {
     let ctx = AuthzContext::new(
         Did::new("did:web:alice.example.com").unwrap(),
         "read".to_owned(),
-        Resource::Space {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-        },
+        Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
     );
 
     let allow_policy = PolicyCheckResponse::no_action();
@@ -483,20 +485,13 @@ fn policy_server_denies_quarantines_and_reports_moderation_outcomes() {
     let ctx = AuthzContext::new(
         Did::new("did:web:alice.example.com").unwrap(),
         "post".to_owned(),
-        Resource::Entity {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-            entity_type: "message".to_owned(),
-            entity_id: "cx:entity:01904100-0000-7000-8000-c89a39a907e5".to_owned(),
-        },
+        message_resource(
+            "cx:space:01904100-0000-7000-8000-1a412919cd4b",
+            "cx:message:01904100-0000-7000-8000-c89a39a907e5",
+        ),
     );
-    let grant = grant_for(
-        "post",
-        ResourceSelector::Object {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-            object_type: Some("message".to_owned()),
-            object_ref: None,
-        },
-    );
+    let grant =
+        grant_for("post", message_selector("cx:space:01904100-0000-7000-8000-1a412919cd4b"));
     let policy = PolicyCheckResponse {
         operation: "cx.policy.check".to_owned(),
         effect: PolicyServerEffect::Quarantine,
@@ -508,8 +503,7 @@ fn policy_server_denies_quarantines_and_reports_moderation_outcomes() {
     let decision = engine.check_authorization_with_policy(&ctx, &[grant], &policy);
     assert!(matches!(decision, AuthzDecision::Quarantine { .. }));
     let report =
-        moderation_report_for_policy_outcome(&ctx, &policy, utc("2026-04-29T00:00:00Z"))
-            .unwrap();
+        moderation_report_for_policy_outcome(&ctx, &policy, utc("2026-04-29T00:00:00Z")).unwrap();
     assert_eq!(report.report_id, "report-1");
     assert_eq!(report.effect, PolicyServerEffect::Quarantine);
 }
@@ -520,7 +514,7 @@ fn capability_frontier_rejects_cycles_widening_and_unknown_critical_constraints(
     let alice = Did::new("did:web:alice.example.com").unwrap();
     let bob = Did::new("did:web:bob.example.com").unwrap();
     let mut root = grant_for(
-        "message.send",
+        "cx.message.create",
         ResourceSelector::Message {
             space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
             message_id: None,
@@ -535,7 +529,7 @@ fn capability_frontier_rejects_cycles_widening_and_unknown_critical_constraints(
         space_id: None,
         issuer: alice,
         subject: bob,
-        actions: vec!["message.send".to_owned()],
+        actions: vec!["cx.message.create".to_owned()],
         resources: vec![ResourceSelector::Message {
             space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
             message_id: Some("message-1".to_owned()),
@@ -569,9 +563,7 @@ fn authz_engine_temporal_constraint_expires() {
     let ctx = AuthzContext::new(
         Did::new("did:web:alice.example.com").unwrap(),
         "read".to_owned(),
-        Resource::Space {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-        },
+        Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
     );
 
     let mut grant = grant_for(
@@ -596,9 +588,7 @@ fn authz_engine_temporal_recurrence_allows_weekday_window_in_timezone() {
     let ctx = ctx_at(
         "2026-04-29T02:30:00Z",
         "read",
-        Resource::Space {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-        },
+        Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
     );
     let mut grant = grant_for(
         "read",
@@ -627,9 +617,7 @@ fn authz_engine_temporal_recurrence_denies_outside_window() {
     let ctx = ctx_at(
         "2026-04-29T11:30:00Z",
         "read",
-        Resource::Space {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-        },
+        Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
     );
     let mut grant = grant_for(
         "read",
@@ -658,9 +646,7 @@ fn authz_engine_temporal_recurrence_allows_cross_midnight_window() {
     let ctx = ctx_at(
         "2026-04-29T15:30:00Z",
         "read",
-        Resource::Space {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-        },
+        Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
     );
     let mut grant = grant_for(
         "read",
@@ -707,16 +693,12 @@ fn authz_engine_temporal_recurrence_handles_dst_boundary() {
     let before_jump = ctx_at(
         "2026-03-08T06:30:00Z",
         "read",
-        Resource::Space {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-        },
+        Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
     );
     let after_jump = ctx_at(
         "2026-03-08T07:30:00Z",
         "read",
-        Resource::Space {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-        },
+        Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
     );
 
     assert!(engine.check_authorization(&before_jump, &[grant.clone()]).is_allowed());
@@ -741,16 +723,12 @@ fn authz_cache_expires_at_temporal_boundaries() {
     let before_expiry = ctx_at(
         "2026-04-29T02:30:00Z",
         "read",
-        Resource::Space {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-        },
+        Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
     );
     let after_expiry = ctx_at(
         "2026-04-29T03:30:00Z",
         "read",
-        Resource::Space {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-        },
+        Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
     );
 
     assert!(engine.check_authorization(&before_expiry, &[grant.clone()]).is_allowed());
@@ -771,16 +749,12 @@ fn authz_cache_rechecks_future_not_before_grants() {
     let before_valid = ctx_at(
         "2026-04-29T02:30:00Z",
         "read",
-        Resource::Space {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-        },
+        Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
     );
     let after_valid = ctx_at(
         "2026-04-29T03:30:00Z",
         "read",
-        Resource::Space {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-        },
+        Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
     );
 
     assert!(!engine.check_authorization(&before_valid, &[grant.clone()]).is_allowed());
@@ -793,11 +767,11 @@ fn authz_engine_field_access_deny() {
     let mut ctx = AuthzContext::new(
         Did::new("did:web:alice.example.com").unwrap(),
         "update".to_owned(),
-        Resource::Entity {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-            entity_type: "task".to_owned(),
-            entity_id: "cx:entity:01904100-0000-7000-8000-20ec63a5423d".to_owned(),
-        },
+        morph_resource(
+            "cx:space:01904100-0000-7000-8000-1a412919cd4b",
+            "task",
+            "cx:morph:01904100-0000-7000-8000-20ec63a5423d",
+        ),
     );
     ctx.write_fields = vec!["id".to_owned(), "title".to_owned()];
 
@@ -825,11 +799,10 @@ fn authz_engine_enforces_runtime_constraints() {
     let ctx = AuthzContext::new(
         Did::new("did:web:alice.example.com").unwrap(),
         "send".to_owned(),
-        Resource::Entity {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-            entity_type: "message".to_owned(),
-            entity_id: "cx:entity:01904100-0000-7000-8000-20ec63a5423d".to_owned(),
-        },
+        message_resource(
+            "cx:space:01904100-0000-7000-8000-1a412919cd4b",
+            "cx:message:01904100-0000-7000-8000-20ec63a5423d",
+        ),
     )
     .with_delegation_depth(2)
     .with_rate_limit_count(3)
@@ -848,14 +821,8 @@ fn authz_engine_enforces_runtime_constraints() {
         revoked_at: None,
         refreshed_at: None,
     });
-    let mut grant = grant_for(
-        "send",
-        ResourceSelector::Object {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-            object_type: Some("message".to_owned()),
-            object_ref: None,
-        },
-    );
+    let mut grant =
+        grant_for("send", message_selector("cx:space:01904100-0000-7000-8000-1a412919cd4b"));
     grant.constraints = vec![
         ConstraintEntry::new(Constraint::DelegationControl {
             max_delegation_depth: Some(2),
@@ -910,21 +877,14 @@ fn authz_claim_constraints_fail_closed_on_subject_time_and_revocation() {
     let ctx = ctx_at(
         "2026-04-29T00:00:00Z",
         "send",
-        Resource::Entity {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-            entity_type: "message".to_owned(),
-            entity_id: "cx:entity:01904100-0000-7000-8000-20ec63a5423d".to_owned(),
-        },
+        message_resource(
+            "cx:space:01904100-0000-7000-8000-1a412919cd4b",
+            "cx:message:01904100-0000-7000-8000-20ec63a5423d",
+        ),
     )
     .with_verified_claim(base_claim.clone());
-    let mut grant = grant_for(
-        "send",
-        ResourceSelector::Object {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-            object_type: Some("message".to_owned()),
-            object_ref: None,
-        },
-    );
+    let mut grant =
+        grant_for("send", message_selector("cx:space:01904100-0000-7000-8000-1a412919cd4b"));
     grant.constraints = vec![ConstraintEntry::new(Constraint::ClaimBased {
         requires_claims: vec![ClaimRequirement {
             claim_type: "employee".to_owned(),
@@ -947,11 +907,10 @@ fn authz_claim_constraints_fail_closed_on_subject_time_and_revocation() {
     let wrong_subject_ctx = ctx_at(
         "2026-04-29T00:00:00Z",
         "send",
-        Resource::Entity {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-            entity_type: "message".to_owned(),
-            entity_id: "cx:entity:01904100-0000-7000-8000-20ec63a5423d".to_owned(),
-        },
+        message_resource(
+            "cx:space:01904100-0000-7000-8000-1a412919cd4b",
+            "cx:message:01904100-0000-7000-8000-20ec63a5423d",
+        ),
     )
     .with_verified_claim(wrong_subject);
     assert!(!engine.check_authorization(&wrong_subject_ctx, &[grant]).is_allowed());
@@ -963,20 +922,13 @@ fn authz_engine_denies_missing_encryption() {
     let ctx = AuthzContext::new(
         Did::new("did:web:alice.example.com").unwrap(),
         "send".to_owned(),
-        Resource::Entity {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-            entity_type: "message".to_owned(),
-            entity_id: "cx:entity:01904100-0000-7000-8000-20ec63a5423d".to_owned(),
-        },
+        message_resource(
+            "cx:space:01904100-0000-7000-8000-1a412919cd4b",
+            "cx:message:01904100-0000-7000-8000-20ec63a5423d",
+        ),
     );
-    let mut grant = grant_for(
-        "send",
-        ResourceSelector::Object {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-            object_type: Some("message".to_owned()),
-            object_ref: None,
-        },
-    );
+    let mut grant =
+        grant_for("send", message_selector("cx:space:01904100-0000-7000-8000-1a412919cd4b"));
     grant.constraints = vec![ConstraintEntry::new(Constraint::EncryptionRequirement {
         encryption_required: true,
         min_encryption_level: Some("mls_rfc9420".to_owned()),
@@ -992,14 +944,8 @@ fn approval_flow_manager_submits_records_and_resolves_proposals() {
     let approver1 = Did::new("did:web:bob.example.com").unwrap();
     let approver2 = Did::new("did:web:carol.example.com").unwrap();
 
-    let mut grant = grant_for(
-        "send",
-        ResourceSelector::Object {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-            object_type: Some("message".to_owned()),
-            object_ref: None,
-        },
-    );
+    let mut grant =
+        grant_for("send", message_selector("cx:space:01904100-0000-7000-8000-1a412919cd4b"));
     grant.constraints = vec![ConstraintEntry::new(Constraint::ApprovalWorkflow {
         approval_required: true,
         approval_actor_refs: Some(vec![approver1.clone(), approver2.clone()]),
@@ -1020,14 +966,12 @@ fn approval_flow_manager_submits_records_and_resolves_proposals() {
     assert_eq!(proposal.status, ProposalStatus::Pending);
 
     // First approval is not enough for ApprovalMode::All.
-    let updated =
-        manager.record_approval(&proposal.proposal_id, approver1, true, None).unwrap();
+    let updated = manager.record_approval(&proposal.proposal_id, approver1, true, None).unwrap();
     assert_eq!(updated.status, ProposalStatus::Pending);
     assert!(!manager.is_grant_approved(&grant.id));
 
     // Second approval completes the proposal.
-    let updated =
-        manager.record_approval(&proposal.proposal_id, approver2, true, None).unwrap();
+    let updated = manager.record_approval(&proposal.proposal_id, approver2, true, None).unwrap();
     assert_eq!(updated.status, ProposalStatus::Approved);
     assert!(manager.is_grant_approved(&grant.id));
 }
@@ -1039,30 +983,17 @@ fn approval_flow_rejects_unauthorized_approvers_and_duplicate_responses() {
     let approver = Did::new("did:web:bob.example.com").unwrap();
     let outsider = Did::new("did:web:eve.example.com").unwrap();
 
-    let grant = grant_for(
-        "send",
-        ResourceSelector::Object {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-            object_type: Some("message".to_owned()),
-            object_ref: None,
-        },
-    );
+    let grant =
+        grant_for("send", message_selector("cx:space:01904100-0000-7000-8000-1a412919cd4b"));
 
-    let proposal = manager.submit_proposal(
-        grant,
-        proposer,
-        vec![approver.clone()],
-        ApprovalMode::Any,
-        None,
-    );
+    let proposal =
+        manager.submit_proposal(grant, proposer, vec![approver.clone()], ApprovalMode::Any, None);
 
     // Outsider cannot approve.
     assert!(manager.record_approval(&proposal.proposal_id, outsider, true, None).is_err());
 
     // Approver can approve once.
-    assert!(
-        manager.record_approval(&proposal.proposal_id, approver.clone(), true, None).is_ok()
-    );
+    assert!(manager.record_approval(&proposal.proposal_id, approver.clone(), true, None).is_ok());
 
     // Duplicate response is rejected.
     assert!(manager.record_approval(&proposal.proposal_id, approver, true, None).is_err());
@@ -1078,21 +1009,14 @@ fn authz_engine_filters_unapproved_grants_with_approval_flow() {
     let ctx = ctx_at(
         "2026-04-29T12:00:00Z",
         "send",
-        Resource::Entity {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-            entity_type: "message".to_owned(),
-            entity_id: "cx:entity:01904100-0000-7000-8000-20ec63a5423d".to_owned(),
-        },
+        message_resource(
+            "cx:space:01904100-0000-7000-8000-1a412919cd4b",
+            "cx:message:01904100-0000-7000-8000-20ec63a5423d",
+        ),
     );
 
-    let mut grant = grant_for(
-        "send",
-        ResourceSelector::Object {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-            object_type: Some("message".to_owned()),
-            object_ref: None,
-        },
-    );
+    let mut grant =
+        grant_for("send", message_selector("cx:space:01904100-0000-7000-8000-1a412919cd4b"));
     grant.constraints = vec![ConstraintEntry::new(Constraint::ApprovalWorkflow {
         approval_required: true,
         approval_actor_refs: Some(vec![approver.clone()]),
@@ -1104,8 +1028,7 @@ fn authz_engine_filters_unapproved_grants_with_approval_flow() {
     })];
 
     // Without approval, the grant is filtered out.
-    let decision =
-        engine.check_authorization_with_approvals(&ctx, &[grant.clone()], &approvals);
+    let decision = engine.check_authorization_with_approvals(&ctx, &[grant.clone()], &approvals);
     assert!(!decision.is_allowed());
 
     // Submit and approve the proposal.

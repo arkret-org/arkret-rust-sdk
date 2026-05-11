@@ -102,18 +102,6 @@ pub struct ProtocolGrantConstraint {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub object_type_deny: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub space_kind_allow: Vec<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub space_kind_deny: Vec<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub flow_kind_allow: Vec<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub flow_kind_deny: Vec<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub flow_semantic_kind_allow: Vec<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub flow_semantic_kind_deny: Vec<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub morph_type_allow: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub morph_type_deny: Vec<String>,
@@ -169,12 +157,6 @@ impl ProtocolGrantConstraint {
                 fields_write_deny: vec!["assignee".to_owned(), "status".to_owned()],
                 object_type_allow: vec!["flow".to_owned()],
                 object_type_deny: Vec::new(),
-                space_kind_allow: vec!["workspace".to_owned()],
-                space_kind_deny: Vec::new(),
-                flow_kind_allow: vec!["task".to_owned()],
-                flow_kind_deny: Vec::new(),
-                flow_semantic_kind_allow: vec!["work_item".to_owned()],
-                flow_semantic_kind_deny: Vec::new(),
                 morph_type_allow: Vec::new(),
                 morph_type_deny: Vec::new(),
                 facet_allow: Vec::new(),
@@ -210,12 +192,6 @@ impl ProtocolGrantConstraint {
                 fields_write_deny: Vec::new(),
                 object_type_allow: vec!["key_backup".to_owned()],
                 object_type_deny: Vec::new(),
-                space_kind_allow: Vec::new(),
-                space_kind_deny: Vec::new(),
-                flow_kind_allow: Vec::new(),
-                flow_kind_deny: Vec::new(),
-                flow_semantic_kind_allow: Vec::new(),
-                flow_semantic_kind_deny: Vec::new(),
                 morph_type_allow: Vec::new(),
                 morph_type_deny: Vec::new(),
                 facet_allow: vec!["recovery".to_owned()],
@@ -255,12 +231,6 @@ impl ProtocolGrantConstraint {
                 fields_write_deny: Vec::new(),
                 object_type_allow: vec!["flow".to_owned()],
                 object_type_deny: Vec::new(),
-                space_kind_allow: Vec::new(),
-                space_kind_deny: Vec::new(),
-                flow_kind_allow: vec!["task".to_owned()],
-                flow_kind_deny: Vec::new(),
-                flow_semantic_kind_allow: Vec::new(),
-                flow_semantic_kind_deny: Vec::new(),
                 morph_type_allow: Vec::new(),
                 morph_type_deny: Vec::new(),
                 facet_allow: Vec::new(),
@@ -285,4 +255,3 @@ impl ProtocolGrantConstraint {
         ]
     }
 }
-
