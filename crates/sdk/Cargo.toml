@@ -62,7 +62,6 @@ contrix-api.workspace = true
 contrix-http-client = { workspace = true, optional = true }
 contrix-core.workspace = true
 contrix-crypto.workspace = true
-contrix-events.workspace = true
 contrix-ffi.workspace = true
 contrix-html.workspace = true
 contrix-lattice.workspace = true

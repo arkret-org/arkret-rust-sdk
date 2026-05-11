@@ -19,7 +19,6 @@ contrix-api
 contrix-http-client
 contrix-signatures
 contrix-crypto
-contrix-events
 contrix-html
 contrix-ffi
 contrix-operations

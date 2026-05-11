@@ -11,6 +11,7 @@ pub mod canonical;
 pub mod cell;
 pub mod cursor;
 pub mod error;
+pub mod events;
 pub mod keystore;
 pub mod model;
 pub mod move_event;

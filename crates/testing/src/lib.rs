@@ -4,11 +4,11 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use contrix_core::{
     AnchorId, CellRef, Did, Error, Event, Hash, Hlc, Move, MoveId, Result, SpaceId, canonical,
-};
-use contrix_events::{
-    AnyEventContent, CALL_DEVICE_MAPPING, COLLAB_ACTIVITY_BEACON, E2EE_SECRET_SEND, EventClass,
-    EventContentEnvelope, MESSAGE_POLL_RESPONSE, MESSAGE_TEXT, classify_event_kind,
-    parse_event_content,
+    events::{
+        AnyEventContent, CALL_DEVICE_MAPPING, COLLAB_ACTIVITY_BEACON, E2EE_SECRET_SEND, EventClass,
+        EventContentEnvelope, MESSAGE_POLL_RESPONSE, MESSAGE_TEXT, classify_event_kind,
+        parse_event_content,
+    },
 };
 use contrix_lattice::CellState;
 use contrix_state_res::{

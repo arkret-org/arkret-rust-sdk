@@ -18,7 +18,6 @@ default = []
 chrono.workspace = true
 contrix-core.workspace = true
 contrix-crypto.workspace = true
-contrix-events.workspace = true
 contrix-html.workspace = true
 contrix-signatures.workspace = true
 serde.workspace = true

@@ -65,6 +65,7 @@
 
 pub use contrix_api as api;
 pub use contrix_api::client as client_api;
+pub use contrix_core::events;
 pub use contrix_core::*;
 pub use contrix_core::{canonical, cursor, error, identifiers, keystore, model, service, sync};
 #[cfg(feature = "client")]
@@ -81,7 +82,6 @@ pub use contrix_core::{
     WindowsCredentialKeyStore, platform_default_keystore,
 };
 pub use contrix_crypto as crypto_protocol;
-pub use contrix_events as events;
 pub use contrix_ffi as ffi;
 pub use contrix_html as html;
 pub use contrix_lattice as lattice;

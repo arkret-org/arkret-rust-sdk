@@ -431,7 +431,6 @@ dependencies = [
  "contrix-api",
  "contrix-core",
  "contrix-crypto",
- "contrix-events",
  "contrix-ffi",
  "contrix-html",
  "contrix-http-client",
@@ -469,7 +468,6 @@ dependencies = [
  "chrono",
  "contrix-core",
  "contrix-crypto",
- "contrix-events",
  "contrix-html",
  "contrix-signatures",
  "serde",
@@ -506,16 +504,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
-]
-
-[[package]]
-name = "contrix-events"
-version = "0.7.0"
-dependencies = [
- "chrono",
- "contrix-core",
- "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -649,7 +637,6 @@ dependencies = [
  "contrix-api",
  "contrix-core",
  "contrix-crypto",
- "contrix-events",
  "contrix-ffi",
  "contrix-html",
  "contrix-lattice",
