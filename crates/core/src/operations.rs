@@ -12,11 +12,10 @@ use crate::{
     OP_FLOW_SET_PRIMARY_SURFACE, OP_FLOW_UNLINK_SURFACE, OP_FLOW_UPDATE, OP_IDENTITY_RESOLVE,
     OP_INDEX_DESCRIBE, OP_INDEX_INBOX, OP_INDEX_NOTIFICATIONS, OP_INDEX_QUERY, OP_INDEX_SEARCH,
     OP_INDEX_THREAD, OP_KEYS_CLAIM, OP_KEYS_QUERY, OP_KEYS_UPLOAD, OP_MESSAGE_CREATE,
-    OP_PUSH_NOTIFY, OP_RELATION_CREATE, OP_RELATION_DELETE, OP_REPO_DESCRIBE, OP_REPO_SYNC,
-    OP_SERVER_DESCRIBE, OP_SPACE_CHILD, OP_SPACE_CREATE, OP_SPACE_ORGANIZATION, OP_SPACE_UPDATE,
-    OP_SYNC_ACCOUNT, OP_SYNC_DESCRIBE, OP_TASK_CREATE, OP_TASK_UPDATE, OP_VIEW_CREATE,
-    OP_VIEW_RECONCILE, OP_VIEW_UPDATE, OperationEnvelope, OperationId,
-    OperationKindConformanceVector, OperationKindRegistry, Result,
+    OP_PUSH_NOTIFY, OP_RELATION_CREATE, OP_RELATION_DELETE, OP_SERVER_DESCRIBE, OP_SPACE_CHILD,
+    OP_SPACE_CREATE, OP_SPACE_ORGANIZATION, OP_SPACE_UPDATE, OP_SYNC_ACCOUNT, OP_SYNC_DESCRIBE,
+    OP_TASK_CREATE, OP_TASK_UPDATE, OP_VIEW_CREATE, OP_VIEW_RECONCILE, OP_VIEW_UPDATE,
+    OperationEnvelope, OperationId, OperationKindConformanceVector, OperationKindRegistry, Result,
     operation_kind_conformance_vectors,
 };
 
@@ -39,7 +38,6 @@ pub enum OperationSurface {
     Message,
     Server,
     Identity,
-    Repo,
     Sync,
     Federation,
     Index,
@@ -106,7 +104,6 @@ pub fn classify_operation_kind(kind: &str) -> OperationSurface {
         OP_MESSAGE_CREATE => OperationSurface::Message,
         OP_SERVER_DESCRIBE => OperationSurface::Server,
         OP_IDENTITY_RESOLVE => OperationSurface::Identity,
-        OP_REPO_DESCRIBE | OP_REPO_SYNC => OperationSurface::Repo,
         OP_SYNC_DESCRIBE | OP_SYNC_ACCOUNT | OP_EVENTS_QUERY | OP_EVENTS_SUBSCRIBE => {
             OperationSurface::Sync
         }
@@ -153,7 +150,6 @@ pub fn operation_catalog() -> OperationCatalogReport {
         OperationSurface::Message,
         OperationSurface::Server,
         OperationSurface::Identity,
-        OperationSurface::Repo,
         OperationSurface::Sync,
         OperationSurface::Federation,
         OperationSurface::Index,
@@ -433,7 +429,6 @@ fn mutation_for_kind(kind: &str) -> OperationMutation {
         OP_ENTITY_DELETE | OP_FLOW_ARCHIVE | OP_RELATION_DELETE => OperationMutation::Delete,
         OP_ENTITY_REDACT => OperationMutation::Redact,
         OP_SERVER_DESCRIBE
-        | OP_REPO_DESCRIBE
         | OP_SYNC_DESCRIBE
         | OP_INDEX_DESCRIBE
         | OP_DIRECTORY_DESCRIBE

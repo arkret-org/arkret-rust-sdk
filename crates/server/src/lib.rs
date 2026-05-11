@@ -44,9 +44,7 @@ use contrix_core::{
     MediaIceConfigRequest, MediaIceConfigResponse, ModerationReportRequest,
     ModerationReportResponse, OkResponse, PolicyCheckRequest, PolicyCheckResponse,
     PushNotifyRequest, PushNotifyResponse, PushRegisterDeviceRequest, PushRegisterDeviceResponse,
-    PushUnregisterDeviceRequest, QueryRequest, QueryResponse, RepoCommitResponse,
-    RepoCommitsResponse, RepoDescription, RepoOperationsRequest, RepoOperationsResponse,
-    RepoSyncRequest, RepoSyncResponse, Result, ServerDescription, SubmitCommitResponse,
+    PushUnregisterDeviceRequest, QueryRequest, QueryResponse, Result, ServerDescription,
     SubmitDidOperationRequest, SubmitDidOperationResponse, SyncBackfillResponse, SyncDescription,
     SyncRequest, SyncResponse, SyncSnapshotHeadResponse, canonical,
 };
@@ -534,7 +532,6 @@ pub fn default_public_operations() -> BTreeSet<String> {
     [
         "cx.server.describe",
         "cx.identity.describe_registry",
-        "cx.repo.describe",
         "cx.sync.describe",
         "cx.index.describe",
         "cx.directory.describe",
@@ -814,7 +811,6 @@ pub struct WireConformanceVector {
 pub enum ProtocolFixtureFlow {
     Server,
     Identity,
-    Repo,
     Sync,
     Blob,
     Authz,
@@ -865,7 +861,6 @@ impl ProtocolServerFixture {
         Self::new([
             ProtocolFixtureFlow::Server,
             ProtocolFixtureFlow::Identity,
-            ProtocolFixtureFlow::Repo,
             ProtocolFixtureFlow::Sync,
             ProtocolFixtureFlow::Blob,
             ProtocolFixtureFlow::Authz,
@@ -925,9 +920,6 @@ fn fixture_operations(flow: ProtocolFixtureFlow) -> &'static [&'static str] {
             "cx.identity.submit_did_operation",
             "cx.identity.get_receipts",
         ],
-        ProtocolFixtureFlow::Repo => {
-            &["cx.repo.describe", "cx.repo.submit_commit", "cx.repo.get_operations", "cx.repo.sync"]
-        }
         ProtocolFixtureFlow::Sync => &[
             "cx.sync.account",
             "cx.events.subscribe",
@@ -1357,12 +1349,6 @@ pub enum ServerRequest {
     IdentityLog { did: String, cursor: Option<String>, limit: Option<u32> },
     IdentitySubmitDidOperation(SubmitDidOperationRequest),
     IdentityReceipts { did: String, head: String },
-    RepoDescribe { repo_id: Option<String> },
-    RepoCommits { repo_id: String, cursor: Option<String>, limit: Option<u32> },
-    RepoCommit { commit_id: String, repo_id: Option<String> },
-    RepoOperations(RepoOperationsRequest),
-    RepoSync(RepoSyncRequest),
-    RepoSubmitCommit(contrix_core::Commit),
     Sync(SyncRequest),
     SyncDescribe,
     SyncBackfill { space_id: String, cursor: Option<String>, limit: Option<u32> },
@@ -1424,12 +1410,6 @@ pub enum ServerResponse {
     IdentityLog(IdentityLogResponse),
     SubmitDidOperation(SubmitDidOperationResponse),
     IdentityReceipts(IdentityReceiptsResponse),
-    RepoDescription(RepoDescription),
-    RepoCommits(RepoCommitsResponse),
-    RepoCommit(RepoCommitResponse),
-    RepoOperations(RepoOperationsResponse),
-    RepoSync(RepoSyncResponse),
-    SubmitCommit(SubmitCommitResponse),
     Sync(SyncResponse),
     SyncDescription(SyncDescription),
     SyncBackfill(SyncBackfillResponse),
@@ -2016,8 +1996,6 @@ mod tests {
             .collect::<BTreeMap<_, _>>();
         for (operation_id, path) in [
             ("cx.identity.resolve", "/api/v1/identity/resolve"),
-            ("cx.repo.submit_commit", "/api/v1/repo/submit-commit"),
-            ("cx.repo.get_operations", "/api/v1/repo/operations"),
             ("cx.sync.account", "/api/v1/sync"),
             ("cx.events.subscribe", "/api/v1/events/subscribe"),
             ("cx.events.query", "/api/v1/events"),
@@ -2342,7 +2320,7 @@ mod tests {
             "wrong-token",
             AuthenticatedPrincipal::bearer(
                 "did:web:alice.example",
-                ["operation:cx.repo.sync".to_owned()],
+                ["operation:cx.events.query".to_owned()],
             ),
         );
         let mut missing_scope =
@@ -2443,7 +2421,6 @@ mod tests {
         for flow in [
             ProtocolFixtureFlow::Server,
             ProtocolFixtureFlow::Identity,
-            ProtocolFixtureFlow::Repo,
             ProtocolFixtureFlow::Sync,
             ProtocolFixtureFlow::Blob,
             ProtocolFixtureFlow::Authz,

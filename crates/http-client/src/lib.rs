@@ -14,7 +14,7 @@ use contrix_core::{
     AppletActorResponse, AppletDescription, AppletPingResponse, AppletProtocolResponse,
     AppletSpaceResponse, AppletTransactionRequest, AppletTransactionResponse, AuthzCheckRequest,
     AuthzCheckResponse, AuthzInvitesResponse, BlobMetadata, BlobRef, BlobUploadMetadata,
-    BlobUploadResponse, CollectionProjectionResponse, Commit, DeviceMessagesReceiveResponse,
+    BlobUploadResponse, CollectionProjectionResponse, DeviceMessagesReceiveResponse,
     DeviceMessagesSendRequest, DeviceMessagesSendResponse, DirectoryDescription,
     DirectoryResolveHandleRequest, DirectoryResolveHandleResponse,
     DirectoryResolveOrganizationRequest, DirectoryResolveOrganizationResponse,
@@ -33,10 +33,8 @@ use contrix_core::{
     MediaIceConfigRequest, MediaIceConfigResponse, ModerationReportRequest,
     ModerationReportResponse, OkResponse, PolicyCheckRequest, PolicyCheckResponse,
     PushNotifyRequest, PushNotifyResponse, PushRegisterDeviceRequest, PushRegisterDeviceResponse,
-    PushUnregisterDeviceRequest, QueryRequest, QueryResponse, RepoCommitResponse,
-    RepoCommitsResponse, RepoDescription, RepoOperationsRequest, RepoOperationsResponse,
-    RepoSyncRequest, RepoSyncResponse, Result, ServerDescription, ServiceRequirements,
-    SubmitCommitResponse, SubmitDidOperationRequest, SubmitDidOperationResponse,
+    PushUnregisterDeviceRequest, QueryRequest, QueryResponse, Result, ServerDescription,
+    ServiceRequirements, SubmitDidOperationRequest, SubmitDidOperationResponse,
     SyncBackfillResponse, SyncDescription, SyncRequest, SyncResponse, SyncSnapshotHeadResponse,
 };
 
@@ -575,10 +573,6 @@ impl Client {
         Ok(description)
     }
 
-    pub async fn submit_commit(&self, commit: &Commit) -> Result<SubmitCommitResponse> {
-        self.post("/api/v1/repo/submit-commit", commit).await
-    }
-
     pub async fn identity_describe(&self) -> Result<IdentityDescription> {
         self.get("/api/v1/identity/describe").await
     }
@@ -635,55 +629,6 @@ impl Client {
             .request(Method::GET, "/api/v1/identity/receipts")?
             .query(&[("did", did), ("head", head)]);
         self.send_json(builder).await
-    }
-
-    pub async fn repo_describe(&self, repo_id: Option<&str>) -> Result<RepoDescription> {
-        let mut builder = self.request(Method::GET, "/api/v1/repo/describe")?;
-        if let Some(repo_id) = repo_id {
-            builder = builder.query(&[("repo_id", repo_id)]);
-        }
-        self.send_json(builder).await
-    }
-
-    pub async fn repo_commits(
-        &self,
-        repo_id: &str,
-        cursor: Option<&str>,
-        limit: Option<u32>,
-    ) -> Result<RepoCommitsResponse> {
-        let mut builder =
-            self.request(Method::GET, "/api/v1/repo/commits")?.query(&[("repo_id", repo_id)]);
-        if let Some(cursor) = cursor {
-            builder = builder.query(&[("cursor", cursor)]);
-        }
-        if let Some(limit) = limit {
-            builder = builder.query(&[("limit", limit)]);
-        }
-        self.send_json(builder).await
-    }
-
-    pub async fn repo_commit(
-        &self,
-        commit_id: &str,
-        repo_id: Option<&str>,
-    ) -> Result<RepoCommitResponse> {
-        let mut builder =
-            self.request(Method::GET, "/api/v1/repo/commit")?.query(&[("commit_id", commit_id)]);
-        if let Some(repo_id) = repo_id {
-            builder = builder.query(&[("repo_id", repo_id)]);
-        }
-        self.send_json(builder).await
-    }
-
-    pub async fn repo_operations(
-        &self,
-        request: &RepoOperationsRequest,
-    ) -> Result<RepoOperationsResponse> {
-        self.post("/api/v1/repo/operations", request).await
-    }
-
-    pub async fn repo_sync(&self, request: &RepoSyncRequest) -> Result<RepoSyncResponse> {
-        self.post("/api/v1/repo/sync", request).await
     }
 
     pub async fn sync(&self, request: &SyncRequest) -> Result<SyncResponse> {

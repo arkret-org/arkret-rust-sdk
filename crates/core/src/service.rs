@@ -74,7 +74,6 @@ impl ServiceType {
                 "cx.policy.",
                 "cx.authz.",
                 "cx.identity.",
-                "cx.repo.",
                 "cx.server.",
                 "cx.admin.",
                 "cx.moderation.",

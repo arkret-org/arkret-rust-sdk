@@ -40,9 +40,7 @@ pub mod protocol {
         ModerationReportResponse, OkResponse, PolicyCheckRequest, PolicyCheckResponse,
         PushNotifyRequest, PushNotifyResponse, PushRegisterDeviceRequest,
         PushRegisterDeviceResponse, PushUnregisterDeviceRequest, QueryRequest, QueryResponse,
-        RepoCommitResponse, RepoCommitsResponse, RepoDescription, RepoOperationsRequest,
-        RepoOperationsResponse, RepoSyncRequest, RepoSyncResponse, ServerDescription,
-        SubmitCommitResponse, SubmitDidOperationRequest, SubmitDidOperationResponse,
+        ServerDescription, SubmitDidOperationRequest, SubmitDidOperationResponse,
         SyncBackfillResponse, SyncDescription, SyncRequest, SyncResponse, SyncSnapshotHeadResponse,
     };
 }
@@ -52,7 +50,6 @@ pub mod protocol {
 pub enum ApiSurface {
     Server,
     Identity,
-    Repo,
     Sync,
     Federation,
     Index,
@@ -229,54 +226,6 @@ pub const ENDPOINTS: &[Endpoint] = &[
         "/api/v1/identity/receipts",
         "IdentityReceiptsQuery",
         "IdentityReceiptsResponse"
-    ),
-    endpoint!(
-        Repo,
-        "cx.repo.describe",
-        Get,
-        "/api/v1/repo/describe",
-        "RepoDescribeQuery",
-        "RepoDescription"
-    ),
-    endpoint!(
-        Repo,
-        "cx.repo.list_commits",
-        Get,
-        "/api/v1/repo/commits",
-        "RepoCommitsQuery",
-        "RepoCommitsResponse"
-    ),
-    endpoint!(
-        Repo,
-        "cx.repo.get_commit",
-        Get,
-        "/api/v1/repo/commit",
-        "RepoCommitQuery",
-        "RepoCommitResponse"
-    ),
-    endpoint!(
-        Repo,
-        "cx.repo.get_operations",
-        Post,
-        "/api/v1/repo/operations",
-        "RepoOperationsRequest",
-        "RepoOperationsResponse"
-    ),
-    endpoint!(
-        Repo,
-        "cx.repo.sync",
-        Post,
-        "/api/v1/repo/sync",
-        "RepoSyncRequest",
-        "RepoSyncResponse"
-    ),
-    endpoint!(
-        Repo,
-        "cx.repo.submit_commit",
-        Post,
-        "/api/v1/repo/submit-commit",
-        "Commit",
-        "SubmitCommitResponse"
     ),
     // C17 (spec 2026-05-08, wire-breaking): cx.sync.client_sync → cx.sync.account
     // (path unchanged, op_id renamed); cx.sync.subscribe → cx.events.subscribe at
@@ -986,11 +935,6 @@ fn query_parameters(operation_id: &str) -> Vec<EndpointParameter> {
             &[("did", true, "Did"), ("cursor", false, "String"), ("limit", false, "Limit")]
         }
         "cx.identity.get_receipts" => &[("did", true, "Did"), ("head", true, "Hash")],
-        "cx.repo.describe" => &[("repo_id", false, "Did")],
-        "cx.repo.list_commits" => {
-            &[("repo_id", true, "Did"), ("cursor", false, "String"), ("limit", false, "Limit")]
-        }
-        "cx.repo.get_commit" => &[("commit_id", true, "String"), ("repo_id", false, "Did")],
         // C17: cx.events.subscribe — selector via `spaces[]` / `actors[]` repeated query args;
         // include_history=true flips after `catchup_complete` frame to live stream.
         "cx.events.subscribe" => &[
@@ -1138,7 +1082,6 @@ mod tests {
         for surface in [
             ApiSurface::Server,
             ApiSurface::Identity,
-            ApiSurface::Repo,
             ApiSurface::Sync,
             ApiSurface::Federation,
             ApiSurface::Index,

@@ -85,9 +85,8 @@ timeline items should be retained and retried after keys arrive.
 ### Write A Server Adapter
 
 Use the framework-independent endpoint registry and `EndpointHandler` shape.
-The SDK ships a Salvo adapter behind the `salvo` feature, with
-`salvo-adapter` kept as a compatibility alias. It adapts Salvo requests into
-the framework-independent `HttpAdapterRequest` shape, writes
+The SDK ships a Salvo adapter behind the `salvo` feature. It adapts Salvo
+requests into the framework-independent `HttpAdapterRequest` shape, writes
 `HttpAdapterResponse` values back to Salvo responses, and exposes Salvo OAPI
 schema helpers without changing operation IDs.
 

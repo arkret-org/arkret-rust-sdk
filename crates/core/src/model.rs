@@ -98,8 +98,6 @@ pub const OP_MESSAGE_CREATE: &str = "cx.message.create";
 /// Server, sync and federation operations.
 pub const OP_SERVER_DESCRIBE: &str = "cx.server.describe";
 pub const OP_IDENTITY_RESOLVE: &str = "cx.identity.resolve";
-pub const OP_REPO_DESCRIBE: &str = "cx.repo.describe";
-pub const OP_REPO_SYNC: &str = "cx.repo.sync";
 pub const OP_SYNC_DESCRIBE: &str = "cx.sync.describe";
 pub const OP_FEDERATION_TRANSACTION: &str = "cx.federation.transaction";
 
@@ -274,8 +272,6 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_MESSAGE_CREATE,
     OP_SERVER_DESCRIBE,
     OP_IDENTITY_RESOLVE,
-    OP_REPO_DESCRIBE,
-    OP_REPO_SYNC,
     OP_SYNC_DESCRIBE,
     OP_SYNC_ACCOUNT,
     OP_EVENTS_QUERY,
@@ -1514,10 +1510,6 @@ pub enum ActorKind {
     Device,
     Integration,
 }
-
-/// Backwards-compatible alias retained for the legacy `ActorType` name; new
-/// code should use [`ActorKind`].
-pub type ActorType = ActorKind;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -4601,95 +4593,6 @@ pub struct IdentityReceiptsResponse {
     pub receipts: Vec<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub threshold_met: Option<bool>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct RepoDescription {
-    pub repo_did: Did,
-    pub head_commit: Hash,
-    #[serde(default)]
-    pub supported_signatures: Vec<String>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub limits: Value,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct RepoCommitsResponse {
-    #[serde(default)]
-    pub commits: Vec<Commit>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub next_cursor: Option<String>,
-    #[serde(default)]
-    pub has_more: bool,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct RepoCommitResponse {
-    pub commit: Commit,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub operations: Vec<Operation>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<Proof>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct RepoOperationsRequest {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub repo_id: Option<Did>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub operation_ids: Vec<OperationId>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub event_ids: Vec<EventId>,
-    #[serde(default)]
-    pub include_payload: bool,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct RepoOperationsResponse {
-    #[serde(default)]
-    pub operations: Vec<Operation>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub missing: Vec<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub unauthorized: Vec<String>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct RepoSyncRequest {
-    pub repo_id: Did,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub since: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub limit: Option<u32>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub filters: Value,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct RepoSyncResponse {
-    #[serde(default)]
-    pub operations: Vec<Operation>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub next_cursor: Option<String>,
-    #[serde(default)]
-    pub has_more: bool,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SubmitCommitResponse {
-    pub head: Hash,
-    #[serde(default)]
-    pub accepted_operations: Vec<OperationId>,
-    #[serde(default)]
-    pub sync_tokens: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

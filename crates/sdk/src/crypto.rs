@@ -36,16 +36,6 @@ pub struct EncryptedEnvelopeAad {
     pub causal_refs: Vec<String>,
 }
 
-impl EncryptedEnvelopeAad {
-    /// Backward-compatible accessor — kept so existing call sites that
-    /// still read `aad.event_type` continue to compile during migration.
-    /// Prefer `aad.event_kind` going forward.
-    #[deprecated(note = "use `event_kind` (renamed per spec encrypted-envelope-schema.md §2.2)")]
-    pub fn event_type(&self) -> &str {
-        &self.event_kind
-    }
-}
-
 impl<'de> Deserialize<'de> for EncryptedEnvelopeAad {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
@@ -142,7 +132,7 @@ pub struct KeyLifecycleHook {
 pub enum UnsafeFeatureCombination {
     MlsWithoutFullSurface,
     ServerWithoutFullSurface,
-    SalvoAdapterWithoutServer,
+    SalvoWithoutServer,
     RuntimeWithoutFullSurface,
 }
 
@@ -183,10 +173,7 @@ where
         violations.push(UnsafeFeatureCombination::ServerWithoutFullSurface);
     }
     if has("salvo") && !has("server") {
-        violations.push(UnsafeFeatureCombination::SalvoAdapterWithoutServer);
-    }
-    if has("salvo-adapter") && !has("server") {
-        violations.push(UnsafeFeatureCombination::SalvoAdapterWithoutServer);
+        violations.push(UnsafeFeatureCombination::SalvoWithoutServer);
     }
     if ["applet-runtime", "device-runtime", "sync-runtime", "timeline-runtime"]
         .iter()
@@ -219,9 +206,6 @@ pub fn current_feature_safety_report() -> FeatureSafetyReport {
     }
     if cfg!(feature = "salvo") {
         features.push("salvo");
-    }
-    if cfg!(feature = "salvo-adapter") {
-        features.push("salvo-adapter");
     }
     if cfg!(feature = "applet-runtime") {
         features.push("applet-runtime");
@@ -570,10 +554,10 @@ mod tests {
 
     #[test]
     fn feature_safety_report_rejects_unsafe_combinations() {
-        let report = feature_safety_report(["mls", "salvo", "salvo-adapter", "sync-runtime"]);
+        let report = feature_safety_report(["mls", "salvo", "sync-runtime"]);
         assert!(report.validate().is_err());
         assert!(report.violations.contains(&UnsafeFeatureCombination::MlsWithoutFullSurface));
-        assert!(report.violations.contains(&UnsafeFeatureCombination::SalvoAdapterWithoutServer));
+        assert!(report.violations.contains(&UnsafeFeatureCombination::SalvoWithoutServer));
         assert!(report.violations.contains(&UnsafeFeatureCombination::RuntimeWithoutFullSurface));
 
         let safe = feature_safety_report(["full-surface", "server", "salvo", "mls"]);

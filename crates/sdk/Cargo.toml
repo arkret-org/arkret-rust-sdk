@@ -41,7 +41,6 @@ mls = [
 full-surface = []
 tracing = ["dep:tracing"]
 salvo = ["server", "dep:salvo", "salvo/oapi", "contrix-server/salvo", "contrix-core/salvo"]
-salvo-adapter = ["salvo"]
 applet-runtime = ["full-surface"]
 device-runtime = ["full-surface"]
 sync-runtime = ["full-surface"]
