@@ -1,0 +1,206 @@
+use super::*;
+
+pub(super) fn entity_matches_filter(entity: &Entity, filter: &Filter) -> bool {
+    match filter {
+        Filter::Predicate(predicate) => entity_matches_predicate(entity, predicate),
+        Filter::And { and } => and.iter().all(|filter| entity_matches_filter(entity, filter)),
+        Filter::Or { or } => or.iter().any(|filter| entity_matches_filter(entity, filter)),
+        Filter::Not { not } => !entity_matches_filter(entity, not),
+    }
+}
+
+pub(super) fn entity_matches_predicate(entity: &Entity, predicate: &FieldFilter) -> bool {
+    let actual = entity_field_value(entity, &predicate.field);
+    match &predicate.op {
+        FilterOp::Exists => {
+            let expected = predicate.value.as_ref().and_then(Value::as_bool).unwrap_or(true);
+            actual.is_some() == expected
+        }
+        FilterOp::Eq => actual.as_ref() == predicate.value.as_ref(),
+        FilterOp::Neq => actual.as_ref() != predicate.value.as_ref(),
+        FilterOp::In => match (actual.as_ref(), predicate.value.as_ref()) {
+            (Some(actual), Some(Value::Array(values))) => values.contains(actual),
+            _ => false,
+        },
+        FilterOp::NotIn => match (actual.as_ref(), predicate.value.as_ref()) {
+            (Some(actual), Some(Value::Array(values))) => !values.contains(actual),
+            _ => false,
+        },
+        FilterOp::Lt | FilterOp::Lte | FilterOp::Gt | FilterOp::Gte => {
+            let Some(ordering) = actual
+                .as_ref()
+                .zip(predicate.value.as_ref())
+                .and_then(|(left, right)| compare_json_values(left, right))
+            else {
+                return false;
+            };
+            match &predicate.op {
+                FilterOp::Lt => ordering == Ordering::Less,
+                FilterOp::Lte => matches!(ordering, Ordering::Less | Ordering::Equal),
+                FilterOp::Gt => ordering == Ordering::Greater,
+                FilterOp::Gte => matches!(ordering, Ordering::Greater | Ordering::Equal),
+                _ => false,
+            }
+        }
+        FilterOp::Contains => match (actual.as_ref(), predicate.value.as_ref()) {
+            (Some(Value::String(actual)), Some(Value::String(needle))) => actual.contains(needle),
+            (Some(Value::Array(values)), Some(needle)) => values.contains(needle),
+            (Some(Value::Object(values)), Some(Value::String(key))) => values.contains_key(key),
+            _ => false,
+        },
+        FilterOp::Prefix => match (actual.as_ref(), predicate.value.as_ref()) {
+            (Some(Value::String(actual)), Some(Value::String(prefix))) => {
+                actual.starts_with(prefix)
+            }
+            _ => false,
+        },
+        FilterOp::FullText => match predicate.value.as_ref().and_then(Value::as_str) {
+            Some(needle) => value_search_text(actual.as_ref()).contains(&needle.to_lowercase()),
+            None => false,
+        },
+    }
+}
+
+pub(super) fn compare_entities(left: &Entity, right: &Entity, order_by: &[SortSpec]) -> Ordering {
+    for sort in order_by {
+        let ordering = compare_optional_values(
+            entity_field_value(left, &sort.field).as_ref(),
+            entity_field_value(right, &sort.field).as_ref(),
+            sort.nulls.as_ref(),
+            &sort.direction,
+        );
+        if ordering != Ordering::Equal {
+            return ordering;
+        }
+    }
+
+    left.id.cmp(&right.id)
+}
+
+pub(super) fn compare_optional_values(
+    left: Option<&Value>,
+    right: Option<&Value>,
+    nulls: Option<&NullsOrder>,
+    direction: &SortDirection,
+) -> Ordering {
+    let null_ordering = |left_is_null: bool| match nulls.unwrap_or(&NullsOrder::Last) {
+        NullsOrder::First if left_is_null => Ordering::Less,
+        NullsOrder::First => Ordering::Greater,
+        NullsOrder::Last if left_is_null => Ordering::Greater,
+        NullsOrder::Last => Ordering::Less,
+    };
+
+    match (left, right) {
+        (None, None) => Ordering::Equal,
+        (None, Some(_)) => null_ordering(true),
+        (Some(_), None) => null_ordering(false),
+        (Some(left), Some(right)) => {
+            let ordering = compare_json_values(left, right).unwrap_or(Ordering::Equal);
+            match direction {
+                SortDirection::Asc => ordering,
+                SortDirection::Desc => ordering.reverse(),
+            }
+        }
+    }
+}
+
+pub(super) fn compare_json_values(left: &Value, right: &Value) -> Option<Ordering> {
+    match (left, right) {
+        (Value::Number(left), Value::Number(right)) => left.as_f64()?.partial_cmp(&right.as_f64()?),
+        (Value::String(left), Value::String(right)) => Some(left.cmp(right)),
+        (Value::Bool(left), Value::Bool(right)) => Some(left.cmp(right)),
+        _ => Some(scalar_value_key(left).cmp(&scalar_value_key(right))),
+    }
+}
+
+pub(super) fn entity_field_value(entity: &Entity, field: &str) -> Option<Value> {
+    match field {
+        "id" => Some(json!(entity.id.as_str())),
+        "title" => entity.title.as_ref().map(|title| json!(title)),
+        "entity_type" => serde_json::to_value(&entity.entity_type).ok(),
+        "state" => entity.state.as_ref().and_then(|state| serde_json::to_value(state).ok()),
+        "version" => entity.version.map(|version| json!(version)),
+        "created_at" => Some(json!(entity.created_at.to_rfc3339())),
+        "updated_at" => entity.updated_at.map(|updated_at| json!(updated_at.to_rfc3339())),
+        "content" => entity.content.clone(),
+        "labels" => Some(json!(entity.labels)),
+        _ if field.starts_with("fields.") => entity.fields.get(&field["fields.".len()..]).cloned(),
+        _ if field.starts_with("content.") => entity
+            .content
+            .as_ref()
+            .and_then(|content| value_at_path(content, &field["content.".len()..])),
+        _ => entity.fields.get(field).cloned(),
+    }
+}
+
+pub(super) fn value_at_path(value: &Value, path: &str) -> Option<Value> {
+    let mut current = value;
+    for part in path.split('.') {
+        current = current.get(part)?;
+    }
+    Some(current.clone())
+}
+
+pub(super) fn entity_search_text(entity: &Entity) -> String {
+    let mut text = String::new();
+    if let Some(title) = &entity.title {
+        text.push_str(title);
+        text.push(' ');
+    }
+    if let Some(content) = &entity.content {
+        text.push_str(&value_search_text(Some(content)));
+        text.push(' ');
+    }
+    text.push_str(&value_search_text(Some(&json!(entity.fields))));
+    text.to_lowercase()
+}
+
+pub(super) fn value_search_text(value: Option<&Value>) -> String {
+    match value {
+        Some(Value::Null) | None => String::new(),
+        Some(Value::Bool(value)) => value.to_string(),
+        Some(Value::Number(value)) => value.to_string(),
+        Some(Value::String(value)) => value.to_lowercase(),
+        Some(Value::Array(values)) => {
+            values.iter().map(|value| value_search_text(Some(value))).collect::<Vec<_>>().join(" ")
+        }
+        Some(Value::Object(values)) => values
+            .iter()
+            .map(|(key, value)| {
+                format!("{} {}", key.to_lowercase(), value_search_text(Some(value)))
+            })
+            .collect::<Vec<_>>()
+            .join(" "),
+    }
+}
+
+pub(super) fn entity_type_key(entity_type: &EntityType) -> String {
+    serde_json::to_value(entity_type)
+        .ok()
+        .and_then(|value| value.as_str().map(str::to_owned))
+        .unwrap_or_else(|| "unknown".to_owned())
+}
+
+pub(super) fn scalar_value_key(value: &Value) -> String {
+    match value {
+        Value::String(value) => value.clone(),
+        Value::Number(value) => value.to_string(),
+        Value::Bool(value) => value.to_string(),
+        Value::Null => "null".to_owned(),
+        _ => serde_json::to_string(value).unwrap_or_else(|_| "unknown".to_owned()),
+    }
+}
+
+pub(super) fn relation_is_active(relation: &Relation) -> bool {
+    !matches!(relation.state, Some(RelationState::Deleted | RelationState::Redacted))
+}
+
+pub(super) fn parse_object_state(value: &str) -> Option<ObjectState> {
+    match value {
+        "active" => Some(ObjectState::Active),
+        "archived" => Some(ObjectState::Archived),
+        "deleted" => Some(ObjectState::Deleted),
+        "redacted" => Some(ObjectState::Redacted),
+        _ => None,
+    }
+}

@@ -1,0 +1,307 @@
+use super::*;
+
+/// Key backup record.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct KeyBackup {
+    /// Backup version.
+    pub version: String,
+    /// Backup algorithm.
+    pub algorithm: String,
+    /// Sender that uploaded the backup.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sender: Option<Did>,
+    /// Previous version, if this backup rotates a prior one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub previous_version: Option<String>,
+    /// Opaque encrypted backup payload.
+    pub payload: Value,
+    /// Canonical payload digest.
+    pub payload_sha256: String,
+    /// Upload time.
+    pub uploaded_at: DateTime<Utc>,
+}
+
+/// Schema-aligned encrypted key backup class
+/// (`key-management.md` §7.1–§7.2).
+///
+/// Each variant maps to its own HKDF subdomain and AEAD AAD binding.
+/// `External` is reserved for hardware-attested or third-party
+/// backup providers that don't fit the on-device passphrase model.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum KeyBackupClass {
+    DidRecovery,
+    SecretStorage,
+    MlsHistory,
+    External,
+}
+
+impl KeyBackupClass {
+    /// Canonical wire string, mirroring the `serde(rename_all = "snake_case")`
+    /// representation.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::DidRecovery => "did_recovery",
+            Self::SecretStorage => "secret_storage",
+            Self::MlsHistory => "mls_history",
+            Self::External => "external",
+        }
+    }
+
+    /// HKDF `info` string for deriving an in-domain subkey from the
+    /// passphrase-derived root unlock key, per `key-management.md`
+    /// §7.2: `contrix-key-backup/<class>/<sub>/v1`.
+    pub fn hkdf_info(&self, subdomain: &str) -> String {
+        format!("contrix-key-backup/{}/{}/v1", self.as_str(), subdomain)
+    }
+}
+
+/// HMAC-SHA256 helper (RFC 2104) used to bootstrap HKDF without a
+/// dedicated dependency.
+fn hmac_sha256(key: &[u8], data: &[u8]) -> [u8; 32] {
+    const BLOCK_SIZE: usize = 64;
+    let mut k_prime = [0u8; BLOCK_SIZE];
+    if key.len() > BLOCK_SIZE {
+        let h = Sha256::digest(key);
+        k_prime[..32].copy_from_slice(&h);
+    } else {
+        k_prime[..key.len()].copy_from_slice(key);
+    }
+    let mut ipad = [0u8; BLOCK_SIZE];
+    let mut opad = [0u8; BLOCK_SIZE];
+    for i in 0..BLOCK_SIZE {
+        ipad[i] = k_prime[i] ^ 0x36;
+        opad[i] = k_prime[i] ^ 0x5c;
+    }
+    let mut inner = Sha256::new();
+    inner.update(ipad);
+    inner.update(data);
+    let inner_digest = inner.finalize();
+    let mut outer = Sha256::new();
+    outer.update(opad);
+    outer.update(inner_digest);
+    let out = outer.finalize();
+    let mut result = [0u8; 32];
+    result.copy_from_slice(&out);
+    result
+}
+
+/// HKDF-Expand (RFC 5869) restricted to 32-byte output (one round).
+fn hkdf_expand_32(prk: &[u8], info: &[u8]) -> [u8; 32] {
+    let mut buf = Vec::with_capacity(info.len() + 1);
+    buf.extend_from_slice(info);
+    buf.push(0x01);
+    hmac_sha256(prk, &buf)
+}
+
+/// Recommended `key_commitment` construction
+/// (`key-management.md` §7.2):
+///
+/// ```text
+/// commitment_key = HKDF(derived_key, info="contrix-key-backup-commitment-v1")
+/// key_commitment = SHA256(commitment_key)
+/// ```
+///
+/// Used by callers to fail-fast when the user types a wrong passphrase.
+/// The server MUST NOT use this field for authentication.
+pub fn key_backup_commitment(derived_key: &[u8]) -> String {
+    // HKDF-Extract with empty salt: PRK = HMAC-SHA256(zeros, IKM).
+    let prk = hmac_sha256(&[0u8; 32], derived_key);
+    let commitment_key = hkdf_expand_32(&prk, b"contrix-key-backup-commitment-v1");
+    let digest = Sha256::digest(commitment_key);
+    format!("sha256:{:x}", digest)
+}
+
+/// HKDF subdomain key derivation per `key-management.md` §7.2.
+///
+/// Returns 32 bytes of a domain-isolated subkey suitable for AEAD or
+/// further key wrapping. Derives via HKDF-SHA256 over `derived_key`
+/// using `info = backup_class.hkdf_info(subdomain)`.
+pub fn key_backup_subdomain_key(
+    derived_key: &[u8],
+    backup_class: &KeyBackupClass,
+    subdomain: &str,
+) -> [u8; 32] {
+    let info = backup_class.hkdf_info(subdomain);
+    let prk = hmac_sha256(&[0u8; 32], derived_key);
+    hkdf_expand_32(&prk, info.as_bytes())
+}
+
+/// Build the AEAD associated-data (AAD) blob that MUST bind a key-backup
+/// envelope to its origin per `key-management.md` §7.1.
+///
+/// Returns canonical-JSON bytes covering:
+/// `actor_id`, `device_id`, `backup_class`, `backup_version`,
+/// `item_type`, `schema_id`, and `created_at`.
+pub fn key_backup_aad(
+    actor_id: &Did,
+    device_id: Option<&DeviceId>,
+    backup_class: &KeyBackupClass,
+    backup_version: &str,
+    item_type: &str,
+    schema_id: &str,
+    created_at: DateTime<Utc>,
+) -> Result<Vec<u8>> {
+    let aad = serde_json::json!({
+        "actor_id": actor_id.as_str(),
+        "device_id": device_id.map(|d| d.as_str()),
+        "backup_class": backup_class.as_str(),
+        "backup_version": backup_version,
+        "item_type": item_type,
+        "schema_id": schema_id,
+        "created_at": created_at.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+    });
+    canonical::canonical_json_bytes(&aad)
+}
+
+/// Schema-aligned backup encryption descriptor scaffold.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct KeyBackupEncryption {
+    pub recipient_method: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recipient_key_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kdf: Option<Value>,
+    pub aead: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key_commitment: Option<String>,
+}
+
+/// Schema-aligned backup content item scaffold.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct KeyBackupContentItem {
+    pub item_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub space_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mls_group_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub epoch: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub first_event_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_event_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub secret_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    pub extra: Value,
+}
+
+/// Schema-aligned encrypted key backup facade from `cx.schema.key_backup.v1`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ProtocolKeyBackup {
+    pub backup_id: String,
+    pub actor_id: Did,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub device_id: Option<DeviceId>,
+    pub backup_class: KeyBackupClass,
+    pub backup_version: String,
+    pub created_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+    pub encryption: KeyBackupEncryption,
+    pub contents: Vec<KeyBackupContentItem>,
+    pub ciphertext: String,
+    pub ciphertext_digest: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub plaintext_commitment: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth_data: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retention: Option<Value>,
+}
+
+/// Schema-aligned restore-start request for `cx.schema.key_backup.v1`.
+///
+/// Until the durable restore-ticket lifecycle lands in the backing service
+/// (currently scaffolded), the SDK constructs this payload via
+/// [`ProtocolKeyBackup::scaffold_restore_request`]; the wire shape itself is
+/// stable.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ProtocolKeyBackupRestoreRequest {
+    pub backup_id: String,
+    pub actor_id: Did,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub device_id: Option<DeviceId>,
+    pub verification_event_kind: String,
+}
+
+/// Schema-aligned restore ticket for key-backup recovery handoff.
+///
+/// `lifecycle_state` is one of the canonical states (`authz_pending`,
+/// `authz_checked`, `policy_checked`, `approved`, `materialized`); see
+/// [`ProtocolKeyBackup::scaffold_restore_ticket`] for the default progression
+/// the SDK emits before the durable state machine is wired up.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ProtocolKeyBackupRestoreTicket {
+    pub contract: String,
+    pub ticket_id: String,
+    pub backup_id: String,
+    pub actor_id: Did,
+    pub lifecycle_state: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub allowed_next_transitions: Vec<String>,
+    pub verification_event_kind: String,
+}
+
+/// Schema-aligned restore-ticket advance request.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ProtocolKeyBackupRestoreTicketAdvanceRequest {
+    pub transition: String,
+}
+
+impl ProtocolKeyBackup {
+    /// Scaffold restore-start request emitted before the durable verified
+    /// restore-ticket handoff lands service-side. The wire shape matches the
+    /// final contract — only the lifecycle plumbing is scaffolded.
+    pub fn scaffold_restore_request(&self) -> ProtocolKeyBackupRestoreRequest {
+        ProtocolKeyBackupRestoreRequest {
+            backup_id: self.backup_id.clone(),
+            actor_id: self.actor_id.clone(),
+            device_id: self.device_id.clone(),
+            verification_event_kind: "cx.key.verification.done".to_owned(),
+        }
+    }
+
+    /// Scaffold restore ticket emitted before the durable restore state
+    /// machine lands service-side. The wire shape matches the final contract.
+    pub fn scaffold_restore_ticket(&self) -> ProtocolKeyBackupRestoreTicket {
+        ProtocolKeyBackupRestoreTicket {
+            contract: "contrix.rest.key_backup_restore_ticket.v1".to_owned(),
+            ticket_id: format!("restore-ticket-{}", self.backup_id),
+            backup_id: self.backup_id.clone(),
+            actor_id: self.actor_id.clone(),
+            lifecycle_state: "authz_pending".to_owned(),
+            allowed_next_transitions: vec![
+                "authz_checked".to_owned(),
+                "policy_checked".to_owned(),
+                "approved".to_owned(),
+                "materialized".to_owned(),
+            ],
+            verification_event_kind: "cx.key.verification.done".to_owned(),
+        }
+    }
+
+    /// Scaffold transition request. The wire shape matches the final
+    /// contract; the policy-backed approval state machine that consumes
+    /// these transitions is still service-side scaffolding.
+    pub fn scaffold_restore_ticket_advance_request(
+        &self,
+    ) -> ProtocolKeyBackupRestoreTicketAdvanceRequest {
+        ProtocolKeyBackupRestoreTicketAdvanceRequest { transition: "authz_checked".to_owned() }
+    }
+}
+
+
+pub(super) fn validate_key_backup_payload(backup: &KeyBackup) -> Result<()> {
+    let actual = canonical::canonical_sha256(&backup.payload)
+        .unwrap_or_else(|_| format!("sha256:{:x}", Sha256::digest(backup.payload.to_string())));
+    if actual == backup.payload_sha256 {
+        Ok(())
+    } else {
+        Err(Error::Protocol("key backup payload digest mismatch".to_owned()))
+    }
+}
+
