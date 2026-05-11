@@ -210,7 +210,6 @@ impl IceServer {
             "did:webvh:",
             "did:webs:",
             "did:keri:",
-            "did:uuid:",
         ];
         for value in [&self.username, &self.credential].into_iter().flatten() {
             for prefix in FORBIDDEN_PREFIXES {

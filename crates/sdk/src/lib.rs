@@ -302,7 +302,7 @@ pub use http_did_resolver::{
 pub use identity::{
     CompositeDidResolver, DID_WEB_MAX_DOCUMENT_BYTES, DidDocument, DidKeriResolver, DidKeyLogEntry,
     DidKeyLogOperation, DidKeyResolver, DidMigration, DidRegistryReceipt, DidResolver,
-    DidUuidResolver, DidVisibility, DidWebDocumentResponse, DidWebResolver, ExternalHandleProof,
+    DidVisibility, DidWebDocumentResponse, DidWebResolver, ExternalHandleProof,
     HandleAttestation, HandleClaim, HandleProofProfile, IdentityManager,
     InMemoryStaridRegistryAdapter, PairwiseDidBinding, PairwiseDidResolutionProof,
     PairwiseDidStore, StaridControlProofRequest, StaridControlProofVerification,
@@ -394,8 +394,8 @@ pub use settings::{
 };
 #[cfg(feature = "full-surface")]
 pub use space::{
-    BatchCreateMorph, BatchUpdateMorph, GraphTraversal, MorphAggregation, MorphQuery,
-    MorphVersion, MorphVersionDiff, RelationOperationInput, Space,
+    BatchCreateMorph, BatchUpdateMorph, GraphTraversal, MorphAggregation, MorphQuery, MorphVersion,
+    MorphVersionDiff, RelationOperationInput, Space,
 };
 #[cfg(feature = "full-surface")]
 pub use store::{

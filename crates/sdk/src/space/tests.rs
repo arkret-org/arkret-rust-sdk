@@ -67,13 +67,7 @@ fn space_creates_morph_operation() {
     let space = Space::new(space_id.clone(), base_client);
 
     let op = space
-        .create_morph_operation(
-            "task",
-            Some("Test task".to_owned()),
-            None,
-            None,
-            BTreeMap::new(),
-        )
+        .create_morph_operation("task", Some("Test task".to_owned()), None, None, BTreeMap::new())
         .unwrap();
 
     assert_eq!(op.operation_type, OperationType::Create);
@@ -108,8 +102,13 @@ fn space_creates_flow_operations_and_reads_default_view_relations() {
     let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
     let space = Space::new(space_id.clone(), base_client.clone());
 
-    let create =
-        space.create_flow_operation("Payment refactor", Some("Unify payment flows".to_owned()), BTreeMap::new()).unwrap();
+    let create = space
+        .create_flow_operation(
+            "Payment refactor",
+            Some("Unify payment flows".to_owned()),
+            BTreeMap::new(),
+        )
+        .unwrap();
     let flow_id = FlowId::new(create.payload["object"]["id"].as_str().unwrap()).unwrap();
     assert_eq!(create.operation_type, OperationType::Create);
     assert_eq!(create.object_type, crate::OP_FLOW_CREATE);
@@ -290,7 +289,12 @@ fn space_traverses_relation_ref_graph_paths_and_cycles() {
     let space = Space::new(space_id, base_client);
 
     assert_eq!(
-        space.traverse_relation_refs(a, Some(RelationKind::DependsOn), GraphTraversal::BreadthFirst, Some(2)),
+        space.traverse_relation_refs(
+            a,
+            Some(RelationKind::DependsOn),
+            GraphTraversal::BreadthFirst,
+            Some(2)
+        ),
         vec![b.to_owned(), c.to_owned()]
     );
     assert_eq!(
@@ -427,8 +431,14 @@ fn space_provides_message_membership_and_media_convenience_helpers() {
     assert_eq!(leave.object_type, "cx.member.state");
     assert_eq!(base_client.get_space(&space_id).unwrap().state, SpaceStateType::Left);
 
-    assert_eq!(space.invite(bob.clone(), Some("member".to_owned())).unwrap().object_type, "cx.invite.create");
-    assert_eq!(space.ban(bob.clone(), Some("spam".to_owned())).unwrap().object_type, "cx.member.state");
+    assert_eq!(
+        space.invite(bob.clone(), Some("member".to_owned())).unwrap().object_type,
+        "cx.invite.create"
+    );
+    assert_eq!(
+        space.ban(bob.clone(), Some("spam".to_owned())).unwrap().object_type,
+        "cx.member.state"
+    );
     assert_eq!(space.unban(bob).unwrap().object_type, "cx.member.state");
 
     let media = space.upload_media(b"bytes", "text/plain", Some("note.txt".to_owned())).unwrap();

@@ -86,45 +86,6 @@ impl ResolverPolicy {
     }
 }
 
-/// In-memory resolver for registered `did:uuid` documents.
-#[derive(Clone, Debug, Default)]
-pub struct DidUuidResolver {
-    documents: BTreeMap<Did, DidDocument>,
-}
-
-impl DidUuidResolver {
-    /// Create an empty `did:uuid` resolver.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Register a `did:uuid` document.
-    pub fn insert(&mut self, document: DidDocument) -> Result<()> {
-        if !document.id.is_uuid() {
-            return Err(Error::Protocol("did:uuid resolver only accepts did:uuid".to_owned()));
-        }
-        document.validate()?;
-        self.documents.insert(document.id.clone(), document);
-        Ok(())
-    }
-}
-
-impl DidResolver for DidUuidResolver {
-    fn supports(&self, did: &Did) -> bool {
-        did.is_uuid()
-    }
-
-    fn resolve_did(&self, did: &Did) -> Result<DidDocument> {
-        if !self.supports(did) {
-            return Err(Error::Protocol("unsupported DID method for did:uuid resolver".to_owned()));
-        }
-        self.documents
-            .get(did)
-            .cloned()
-            .ok_or_else(|| Error::Protocol("did:uuid document not found".to_owned()))
-    }
-}
-
 /// Limited `did:web` resolver backed by explicitly registered documents.
 #[derive(Clone, Debug, Default)]
 pub struct DidWebResolver {

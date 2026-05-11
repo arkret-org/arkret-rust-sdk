@@ -123,12 +123,6 @@ pub fn reject_query_auth(parameters: &BTreeMap<String, String>) -> Result<()> {
 pub fn protocol_golden_vectors() -> Vec<ProtocolGoldenVector> {
     vec![
         ProtocolGoldenVector {
-            name: "did_uuid_v4_layout".to_owned(),
-            profile: "cx.conformance.identifiers.v1".to_owned(),
-            input: json!({"did": "did:uuid:550e8400-e29b-41d4-a716-446655440000"}),
-            expected: json!({"valid": true, "method": "uuid"}),
-        },
-        ProtocolGoldenVector {
             name: "cursor_prefix".to_owned(),
             profile: "cx.conformance.cursor.v1".to_owned(),
             input: json!({"cursor": "cx:cursor:sync:01JS0SP000000000000000000"}),

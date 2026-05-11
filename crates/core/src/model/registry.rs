@@ -106,18 +106,14 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         OP_FLOW_CREATE => vec!["object".to_owned()],
         OP_FLOW_UPDATE => vec!["flow_id".to_owned(), "patch".to_owned()],
         OP_FLOW_ARCHIVE | OP_FLOW_RESTORE => vec!["flow_id".to_owned()],
-        OP_FLOW_MOVE => {
-            ["board_place_id", "flow_id", "target_place_id", "rank"]
-                .into_iter()
-                .map(str::to_owned)
-                .collect()
-        }
-        OP_FLOW_REORDER => {
-            ["board_place_id", "flow_id", "place_id", "rank"]
-                .into_iter()
-                .map(str::to_owned)
-                .collect()
-        }
+        OP_FLOW_MOVE => ["board_place_id", "flow_id", "target_place_id", "rank"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
+        OP_FLOW_REORDER => ["board_place_id", "flow_id", "place_id", "rank"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
         OP_MORPH_CREATE => vec!["object".to_owned()],
         OP_MORPH_UPDATE => vec!["morph_id".to_owned(), "patch".to_owned()],
         OP_MORPH_ARCHIVE | OP_MORPH_RESTORE => vec!["morph_id".to_owned()],

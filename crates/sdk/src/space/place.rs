@@ -35,12 +35,7 @@ impl Space {
         self.create_place_operation_with_metadata(
             kind,
             title,
-            PlaceCreateMetadata {
-                parent_ref,
-                rank,
-                fields,
-                ..Default::default()
-            },
+            PlaceCreateMetadata { parent_ref, rank, fields, ..Default::default() },
         )
     }
 

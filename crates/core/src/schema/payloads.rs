@@ -35,11 +35,19 @@ pub fn event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
     let rules = [
         ("cx.flow.create", FLOW_SCHEMA, &["object"][..]),
         ("cx.flow.update", FLOW_SCHEMA, &["patch"][..]),
-        ("cx.flow.move", FLOW_SCHEMA, &["board_place_id", "flow_id", "target_place_id", "rank"][..]),
+        (
+            "cx.flow.move",
+            FLOW_SCHEMA,
+            &["board_place_id", "flow_id", "target_place_id", "rank"][..],
+        ),
         ("cx.flow.reorder", FLOW_SCHEMA, &["board_place_id", "flow_id", "place_id", "rank"][..]),
         ("cx.message.create", EVENT_SCHEMA, &["flow_id", "track"][..]),
         ("cx.member.state", EVENT_SCHEMA, &["membership"][..]),
-        ("cx.capability.grant", CAPABILITY_SCHEMA, &["grant_id", "subject", "actions", "resources"][..]),
+        (
+            "cx.capability.grant",
+            CAPABILITY_SCHEMA,
+            &["grant_id", "subject", "actions", "resources"][..],
+        ),
     ]
     .into_iter()
     .map(|(event_kind, payload_schema_id, required_fields)| {

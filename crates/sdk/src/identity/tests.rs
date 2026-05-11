@@ -4,6 +4,10 @@ fn did(name: &str) -> Did {
     Did::new(format!("did:web:{name}.example")).unwrap()
 }
 
+fn pairwise_did(name: &str) -> Did {
+    Did::new(format!("did:key:z{name}")).unwrap()
+}
+
 #[test]
 fn webvh_resolver_validates_url_shape_and_log_chain() {
     let did = Did::new("did:webvh:zabc:starid.local:users:alice").unwrap();
@@ -176,15 +180,11 @@ fn handle_external_proof_profiles_validate_dns_and_well_known_shapes() {
 }
 
 #[test]
-fn did_resolver_adapters_resolve_uuid_web_key_and_keri() {
-    let uuid = Did::new("did:uuid:550e8400-e29b-41d4-a716-446655440000").unwrap();
+fn did_resolver_adapters_resolve_web_key_and_keri() {
     let web = Did::new("did:web:alice.example").unwrap();
     let web_path = Did::new("did:web:example.com:users:alice").unwrap();
     let keri = Did::new("did:keri:E123456789abcdef").unwrap();
     let key = Did::new("did:key:z6MkeTG3bFFSLYVU7VqhgZxqr6YzpaGrQtFMh1uvqGy1vDnP").unwrap();
-
-    let mut uuid_resolver = DidUuidResolver::new();
-    uuid_resolver.insert(DidDocument::new(uuid.clone(), "root", "uuid-key")).unwrap();
 
     let mut web_resolver = DidWebResolver::new();
     web_resolver.insert(DidDocument::new(web.clone(), "owner", "web-key")).unwrap();
@@ -242,12 +242,10 @@ fn did_resolver_adapters_resolve_uuid_web_key_and_keri() {
     );
 
     let mut resolver = CompositeDidResolver::new();
-    resolver.push(uuid_resolver);
     resolver.push(web_resolver);
     resolver.push(keri_resolver);
     resolver.push(DidKeyResolver::new());
 
-    assert_eq!(resolver.resolve_did(&uuid).unwrap().verification_methods["root"], "uuid-key");
     assert_eq!(resolver.resolve_did(&web).unwrap().verification_methods["owner"], "web-key");
     assert_eq!(resolver.resolve_did(&keri).unwrap().verification_methods["inception"], "keri-key");
 
@@ -383,7 +381,7 @@ fn did_registry_receipt_verifies_signature_binding() {
 
 #[test]
 fn starid_registry_adapter_resolves_records_and_control_proofs() {
-    let alice = Did::new("did:uuid:550e8400-e29b-41d4-a716-446655440000").unwrap();
+    let alice = Did::new("did:webvh:zabc:starid.example:users:alice").unwrap();
     let registry = did("registry");
     let document = DidDocument::new(alice.clone(), "root", "alice-public-key");
     let receipt = DidRegistryReceipt::signed(
@@ -553,38 +551,10 @@ fn handle_bidirectional_with_case_insensitive_matching() {
 }
 
 #[test]
-fn pairwise_did_derivation_is_deterministic_and_unique() {
-    let alice = Did::new("did:web:alice.example").unwrap();
-    let bob = Did::new("did:web:bob.example").unwrap();
-    let charlie = Did::new("did:web:charlie.example").unwrap();
-
-    let ab1 = PairwiseDidBinding::derive_pairwise_did(&alice, &bob, None).unwrap();
-    let ab2 = PairwiseDidBinding::derive_pairwise_did(&alice, &bob, None).unwrap();
-    assert_eq!(ab1, ab2, "pairwise DID derivation must be deterministic");
-
-    let ac = PairwiseDidBinding::derive_pairwise_did(&alice, &charlie, None).unwrap();
-    assert_ne!(ab1, ac, "different peers must produce different pairwise DIDs");
-
-    let ba = PairwiseDidBinding::derive_pairwise_did(&bob, &alice, None).unwrap();
-    assert_ne!(ab1, ba, "asymmetric peer pairs must produce different pairwise DIDs");
-}
-
-#[test]
-fn pairwise_did_with_scope_varies() {
-    let alice = Did::new("did:web:alice.example").unwrap();
-    let bob = Did::new("did:web:bob.example").unwrap();
-
-    let no_scope = PairwiseDidBinding::derive_pairwise_did(&alice, &bob, None).unwrap();
-    let with_scope =
-        PairwiseDidBinding::derive_pairwise_did(&alice, &bob, Some("space:01")).unwrap();
-    assert_ne!(no_scope, with_scope, "scope must change the derived DID");
-}
-
-#[test]
 fn pairwise_did_store_insert_resolve_and_purge() {
     let alice = Did::new("did:web:alice.example").unwrap();
     let bob = Did::new("did:web:bob.example").unwrap();
-    let pairwise = PairwiseDidBinding::derive_pairwise_did(&alice, &bob, None).unwrap();
+    let pairwise = pairwise_did("pairwisealicebob");
 
     let binding = PairwiseDidBinding::new(pairwise.clone(), alice.clone(), bob.clone(), None);
     let mut store = PairwiseDidStore::new();
@@ -595,7 +565,7 @@ fn pairwise_did_store_insert_resolve_and_purge() {
     assert_eq!(store.pairwise_dids_for(&alice).len(), 1);
 
     // Expired binding is invalid
-    let pairwise2 = PairwiseDidBinding::derive_pairwise_did(&alice, &bob, Some("x")).unwrap();
+    let pairwise2 = pairwise_did("pairwisealicebobx");
     let expired = PairwiseDidBinding::new(pairwise2.clone(), alice, bob, Some("x".to_owned()))
         .with_expiry("2020-01-01T00:00:00Z".parse().unwrap());
     store.insert(expired).unwrap();
@@ -611,7 +581,7 @@ fn pairwise_did_resolution_requires_valid_proof() {
     let alice = Did::new("did:web:alice.example").unwrap();
     let bob = Did::new("did:web:bob.example").unwrap();
     let mallory = Did::new("did:web:mallory.example").unwrap();
-    let pairwise = PairwiseDidBinding::derive_pairwise_did(&alice, &bob, Some("space:01")).unwrap();
+    let pairwise = pairwise_did("pairwisealicebobspace01");
     let binding = PairwiseDidBinding::new(
         pairwise.clone(),
         alice.clone(),

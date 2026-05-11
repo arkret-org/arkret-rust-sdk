@@ -196,11 +196,7 @@ fn flow_events_create_update_and_default_view_relation() {
 #[test]
 fn space_state_applies_morph_events() {
     let mut state = SpaceState::new(space_id(), "1".to_owned());
-    let create_event = morph_event(
-        1,
-        "cx:morph:01904100-0000-7000-8000-bbe051c5f72e",
-        "Test task",
-    );
+    let create_event = morph_event(1, "cx:morph:01904100-0000-7000-8000-bbe051c5f72e", "Test task");
 
     state.apply_events(&[create_event]).unwrap();
     assert_eq!(state.morphs.len(), 1);
@@ -251,11 +247,8 @@ fn member_state_conflict_prefers_ban_semantics() {
 
 #[test]
 fn capability_rebind_uses_deterministic_lww_order() {
-    let revoke = event(
-        "cx.capability.revoke",
-        1,
-        json!({ "target_capability_id": "cap-chan-post" }),
-    );
+    let revoke =
+        event("cx.capability.revoke", 1, json!({ "target_capability_id": "cap-chan-post" }));
     let grant = event(
         "cx.capability.grant",
         2,
@@ -301,11 +294,7 @@ fn message_revision_redaction_and_reaction_converge() {
 
 #[test]
 fn snapshot_manifest_tracks_state_hash_and_merkle_root() {
-    let event = morph_event(
-        9,
-        "cx:morph:01904100-0000-7000-8000-b7a4e10c8c77",
-        "Snapshot task",
-    );
+    let event = morph_event(9, "cx:morph:01904100-0000-7000-8000-b7a4e10c8c77", "Snapshot task");
     let mut state = SpaceState::new(space_id(), "1".to_owned());
 
     state.apply_events(std::slice::from_ref(&event)).unwrap();
@@ -352,11 +341,7 @@ fn merkle_root_is_order_independent_for_leaf_hashes() {
 
 #[test]
 fn restore_snapshot_or_replay_falls_back_on_verification_failure() {
-    let event = morph_event(
-        10,
-        "cx:morph:01904100-0000-7000-8000-b7a4e10c8c77",
-        "Replayed task",
-    );
+    let event = morph_event(10, "cx:morph:01904100-0000-7000-8000-b7a4e10c8c77", "Replayed task");
     let mut state = SpaceState::new(space_id(), "1".to_owned());
     state.apply_events(std::slice::from_ref(&event)).unwrap();
     let mut snapshot = state.snapshot();

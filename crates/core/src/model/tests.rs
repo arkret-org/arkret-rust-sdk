@@ -8,27 +8,8 @@ fn did_validation_rejects_handles() {
 }
 
 #[test]
-fn did_uuid_validation_checks_uuid_layout() {
-    let did = Did::new("did:uuid:550e8400-e29b-41d4-a716-446655440000").unwrap();
-    assert_eq!(did.method(), "uuid");
-    assert!(did.is_uuid());
-    assert!(Did::new("did:uuid:19dbd742-a001-834d-91b6-b01c2e3b76d9").unwrap().is_uuid());
-
-    assert!(Did::new("did:uuid:550e8400-e29b-11d4-a716-446655440000").is_err());
-    assert!(Did::new("did:uuid:550e8400-e29b-41d4-c716-446655440000").is_err());
-    assert!(Did::new("did:uuid:550E8400-e29b-41d4-a716-446655440000").is_err());
-    assert!(Did::new("did:uuid:00000000-0000-4000-8000-000000000000").is_ok());
-    assert!(Did::new("did:uuid:00000000-0000-0000-0000-000000000000").is_err());
-}
-
-#[test]
-fn did_uuid_generation_sets_version_and_variant_bits() {
-    let did = Did::uuid_v4_from_bytes([0xff; 16]).unwrap();
-    assert_eq!(did.as_str(), "did:uuid:ffffffff-ffff-4fff-bfff-ffffffffffff");
-    assert!(did.is_uuid());
-
-    let generated = Did::new_uuid_v4().unwrap();
-    assert!(generated.is_uuid());
+fn did_validation_rejects_removed_uuid_method() {
+    assert!(Did::new("did:uuid:550e8400-e29b-41d4-a716-446655440000").is_err());
 }
 
 #[test]

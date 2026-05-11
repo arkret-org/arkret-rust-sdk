@@ -31,7 +31,7 @@ pub use anchorer::AnchorerValue;
 pub use bottom::{AnchorView, Bottom, BottomKind};
 pub use cell::{CellId, composite_subject, composite_subject_pipe};
 pub use contrix_identifiers as identifiers;
-pub use cursor::{Cursor, SpacePosition, SyncPositions, SyncTracker};
+pub use cursor::{Cursor, CursorPurpose, CursorTarget, SpacePosition, SyncPositions, SyncTracker};
 pub use error::{
     ERROR_CODE_AAD_DIGEST_MISMATCH, ERROR_CODE_AUDIT_RECEIPT_INVALIDATED, ERROR_CODE_AUTH_EXPIRED,
     ERROR_CODE_BAD_JSON, ERROR_CODE_BAD_QUERY, ERROR_CODE_CAPABILITY_DENIED,

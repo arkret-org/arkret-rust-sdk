@@ -68,40 +68,6 @@ impl PairwiseDidBinding {
         self.expires_at.is_some_and(|exp| Utc::now() >= exp)
     }
 
-    /// Derive a deterministic pairwise DID from parent, peer, and optional scope.
-    ///
-    /// Uses SHA-256(parent + ":" + peer + ":" + scope) to produce a `did:uuid`
-    /// form that is unique per peer relationship.
-    pub fn derive_pairwise_did(parent: &Did, peer: &Did, scope: Option<&str>) -> Result<Did> {
-        let input = format!("{}:{}:{}", parent, peer, scope.unwrap_or(""));
-        let hash = Sha256::digest(input.as_bytes());
-        let mut bytes = [0u8; 16];
-        bytes.copy_from_slice(&hash[..16]);
-        // Set version 4 (random-like, derived from SHA-256) and variant bits
-        bytes[6] = (bytes[6] & 0x0f) | 0x40;
-        bytes[8] = (bytes[8] & 0x3f) | 0x80;
-        let uuid = format!(
-            "{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
-            bytes[0],
-            bytes[1],
-            bytes[2],
-            bytes[3],
-            bytes[4],
-            bytes[5],
-            bytes[6],
-            bytes[7],
-            bytes[8],
-            bytes[9],
-            bytes[10],
-            bytes[11],
-            bytes[12],
-            bytes[13],
-            bytes[14],
-            bytes[15]
-        );
-        Ok(Did::new(format!("did:uuid:{uuid}"))?)
-    }
-
     /// Build a deterministic proof allowing a scoped peer to resolve this binding.
     pub fn resolution_proof(
         &self,

@@ -37,15 +37,14 @@ use contrix_core::{
     FederationPushOperationsResponse, FederationSpaceMembersResponse, FederationTransactionRequest,
     FederationTransactionResponse, FederationVerifyActorRequest, FederationVerifyActorResponse,
     IdentityDescription, IdentityDocumentResponse, IdentityLogResponse, IdentityReceiptsResponse,
-    IdentityResolveRequest, IdentityResolveResponse,
-    KeysClaimRequest, KeysClaimResponse,
+    IdentityResolveRequest, IdentityResolveResponse, KeysClaimRequest, KeysClaimResponse,
     KeysQueryRequest, KeysQueryResponse, KeysUploadRequest, KeysUploadResponse,
     MediaIceConfigRequest, MediaIceConfigResponse, ModerationReportRequest,
     ModerationReportResponse, OkResponse, PolicyCheckRequest, PolicyCheckResponse,
     PushNotifyRequest, PushNotifyResponse, PushRegisterDeviceRequest, PushRegisterDeviceResponse,
-    PushUnregisterDeviceRequest, Result, ServerDescription,
-    SubmitDidOperationRequest, SubmitDidOperationResponse, SyncBackfillResponse, SyncDescription,
-    SyncRequest, SyncResponse, SyncSnapshotHeadResponse, canonical,
+    PushUnregisterDeviceRequest, Result, ServerDescription, SubmitDidOperationRequest,
+    SubmitDidOperationResponse, SyncBackfillResponse, SyncDescription, SyncRequest, SyncResponse,
+    SyncSnapshotHeadResponse, canonical,
 };
 
 mod contracts;

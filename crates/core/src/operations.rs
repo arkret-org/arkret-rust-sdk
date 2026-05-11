@@ -95,13 +95,8 @@ pub fn classify_operation_kind(kind: &str) -> OperationSurface {
         | OP_DIRECTORY_SEARCH_SPACES
         | OP_DIRECTORY_SEARCH_USERS
         | OP_DIRECTORY_WITHDRAW => OperationSurface::Directory,
-        OP_EVENTS_BATCH_GET
-        | OP_EVENTS_DESCRIBE
-        | OP_EVENTS_FRONTIER
-        | OP_EVENTS_GET
-        | OP_EVENTS_QUERY
-        | OP_EVENTS_SUBSCRIBE
-        | OP_EVENTS_SUBMIT => OperationSurface::Events,
+        OP_EVENTS_BATCH_GET | OP_EVENTS_DESCRIBE | OP_EVENTS_FRONTIER | OP_EVENTS_GET
+        | OP_EVENTS_QUERY | OP_EVENTS_SUBSCRIBE | OP_EVENTS_SUBMIT => OperationSurface::Events,
         OP_IDENTITY_DESCRIBE_REGISTRY
         | OP_IDENTITY_GET_DOCUMENT
         | OP_IDENTITY_GET_LOG

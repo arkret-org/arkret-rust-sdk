@@ -98,41 +98,7 @@ fn is_did(value: &str) -> bool {
     {
         return false;
     }
-
-    if method == "uuid" {
-        return is_canonical_uuid(method_specific_id);
-    }
-
-    true
-}
-
-fn is_canonical_uuid(value: &str) -> bool {
-    if value.len() != 36
-        || value.as_bytes().get(8) != Some(&b'-')
-        || value.as_bytes().get(13) != Some(&b'-')
-        || value.as_bytes().get(18) != Some(&b'-')
-        || value.as_bytes().get(23) != Some(&b'-')
-    {
-        return false;
-    }
-
-    let mut non_zero = false;
-    for (idx, byte) in value.bytes().enumerate() {
-        if matches!(idx, 8 | 13 | 18 | 23) {
-            continue;
-        }
-        if !byte.is_ascii_hexdigit() || byte.is_ascii_uppercase() {
-            return false;
-        }
-        non_zero |= byte != b'0';
-    }
-    if !non_zero {
-        return false;
-    }
-
-    let version = value.as_bytes()[14];
-    let variant = value.as_bytes()[19];
-    matches!(version, b'4' | b'7' | b'8') && matches!(variant, b'8' | b'9' | b'a' | b'b')
+    method != "uuid"
 }
 
 fn is_hash(value: &str) -> bool {
@@ -255,20 +221,6 @@ impl BlobRef {
 }
 
 impl Did {
-    /// Generate a random canonical `did:uuid` value using UUIDv4 layout.
-    pub fn new_uuid_v4() -> Result<Self> {
-        let mut bytes = [0u8; 16];
-        getrandom::fill(&mut bytes).map_err(|error| IdentifierError::Random(error.to_string()))?;
-        Self::uuid_v4_from_bytes(bytes)
-    }
-
-    /// Build a canonical `did:uuid` value from raw UUIDv4 bytes.
-    pub fn uuid_v4_from_bytes(mut bytes: [u8; 16]) -> Result<Self> {
-        bytes[6] = (bytes[6] & 0x0f) | 0x40;
-        bytes[8] = (bytes[8] & 0x3f) | 0x80;
-        Self::new(format!("did:uuid:{}", format_uuid_bytes(bytes)))
-    }
-
     /// Return the DID method name.
     pub fn method(&self) -> &str {
         self.0
@@ -276,33 +228,6 @@ impl Did {
             .and_then(|remainder| remainder.split_once(':').map(|(method, _)| method))
             .expect("DID constructed with method")
     }
-
-    /// Return whether this DID uses the canonical `did:uuid` method form.
-    pub fn is_uuid(&self) -> bool {
-        self.method() == "uuid"
-    }
-}
-
-fn format_uuid_bytes(bytes: [u8; 16]) -> String {
-    format!(
-        "{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
-        bytes[0],
-        bytes[1],
-        bytes[2],
-        bytes[3],
-        bytes[4],
-        bytes[5],
-        bytes[6],
-        bytes[7],
-        bytes[8],
-        bytes[9],
-        bytes[10],
-        bytes[11],
-        bytes[12],
-        bytes[13],
-        bytes[14],
-        bytes[15]
-    )
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -422,27 +347,8 @@ mod tests {
     }
 
     #[test]
-    fn did_uuid_validation_checks_uuid_layout() {
-        let did = Did::new("did:uuid:550e8400-e29b-41d4-a716-446655440000").unwrap();
-        assert_eq!(did.method(), "uuid");
-        assert!(did.is_uuid());
-        assert!(Did::new("did:uuid:19dbd742-a001-834d-91b6-b01c2e3b76d9").unwrap().is_uuid());
-
-        assert!(Did::new("did:uuid:550e8400-e29b-11d4-a716-446655440000").is_err());
-        assert!(Did::new("did:uuid:550e8400-e29b-41d4-c716-446655440000").is_err());
-        assert!(Did::new("did:uuid:550E8400-e29b-41d4-a716-446655440000").is_err());
-        assert!(Did::new("did:uuid:00000000-0000-4000-8000-000000000000").is_ok());
-        assert!(Did::new("did:uuid:00000000-0000-0000-0000-000000000000").is_err());
-    }
-
-    #[test]
-    fn did_uuid_generation_sets_version_and_variant_bits() {
-        let did = Did::uuid_v4_from_bytes([0xff; 16]).unwrap();
-        assert_eq!(did.as_str(), "did:uuid:ffffffff-ffff-4fff-bfff-ffffffffffff");
-        assert!(did.is_uuid());
-
-        let generated = Did::new_uuid_v4().unwrap();
-        assert!(generated.is_uuid());
+    fn did_validation_rejects_removed_uuid_method() {
+        assert!(Did::new("did:uuid:550e8400-e29b-41d4-a716-446655440000").is_err());
     }
 
     #[test]
@@ -450,7 +356,7 @@ mod tests {
         assert!(DeviceId::new("dev_alice_1").is_ok());
         assert!(DeviceId::new("cx:device:01904100-0000-7000-8000-000000000001").is_ok());
         assert!(DeviceId::new("device-1").is_err());
-        // Legacy mixed-case ULID-form rejected by the strict UUIDv7 validator.
+        // Mixed-case ULID-form rejected by the strict UUIDv7 validator.
         // (Suffix intentionally non-UUIDv7 to exercise the rejection path.)
         assert!(DeviceId::new("cx:device:01js0ke000000000000000000").is_err());
     }
@@ -458,8 +364,8 @@ mod tests {
     #[test]
     fn flow_id_accepts_active_flow_prefix() {
         assert!(FlowId::new("cx:flow:01904100-0000-7000-8000-000000000001").is_ok());
-        assert!(FlowId::new("cx:room:01904100-0000-7000-8000-000000000001").is_err());
-        // Legacy mixed-case ULID-form rejected by the strict UUIDv7 validator.
+        assert!(FlowId::new("cx:space:01904100-0000-7000-8000-000000000001").is_err());
+        // Mixed-case ULID-form rejected by the strict UUIDv7 validator.
         // (Suffix intentionally non-UUIDv7 to exercise the rejection path.)
         assert!(FlowId::new("cx:flow:01js0ke000000000000000000").is_err());
     }

@@ -92,7 +92,8 @@ impl Space {
                     if depth >= max_depth {
                         continue;
                     }
-                    let mut neighbors = self.relation_ref_neighbors(&current, relation_kind.as_ref());
+                    let mut neighbors =
+                        self.relation_ref_neighbors(&current, relation_kind.as_ref());
                     neighbors.reverse();
                     for next in neighbors {
                         if visited.insert(next.clone()) {
@@ -169,10 +170,8 @@ impl Space {
 
         for event in &self.state.state_events {
             let object = event.content.get("object").unwrap_or(&event.content);
-            let target_id = object
-                .get("id")
-                .or_else(|| event.content.get("morph_id"))
-                .and_then(Value::as_str);
+            let target_id =
+                object.get("id").or_else(|| event.content.get("morph_id")).and_then(Value::as_str);
             if target_id != Some(morph_id.as_str()) {
                 continue;
             }
@@ -203,8 +202,10 @@ impl Space {
                     {
                         title = Some(next_title.to_owned());
                     }
-                    if let Some(next_content) =
-                        event.content.get("content").or_else(|| patch.and_then(|p| p.get("content")))
+                    if let Some(next_content) = event
+                        .content
+                        .get("content")
+                        .or_else(|| patch.and_then(|p| p.get("content")))
                     {
                         content = Some(next_content.clone());
                     }

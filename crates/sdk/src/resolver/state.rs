@@ -313,12 +313,12 @@ impl SpaceState {
         let summary = self
             .extract_optional_field::<String>(&event.content, "summary")
             .or_else(|| patch_string(&patch, "summary"));
-        let content = self.extract_optional_field::<Value>(&event.content, "content").or_else(|| {
-            patch.as_ref().and_then(|patch| patch.get("content").cloned())
-        });
-        let fields =
-            self.extract_optional_field::<BTreeMap<String, Value>>(&event.content, "fields")
-                .or_else(|| patch_fields(&patch));
+        let content = self
+            .extract_optional_field::<Value>(&event.content, "content")
+            .or_else(|| patch.as_ref().and_then(|patch| patch.get("content").cloned()));
+        let fields = self
+            .extract_optional_field::<BTreeMap<String, Value>>(&event.content, "fields")
+            .or_else(|| patch_fields(&patch));
         let facets = self
             .extract_optional_field::<BTreeMap<String, Value>>(&event.content, "facets")
             .or_else(|| {
@@ -373,8 +373,9 @@ impl SpaceState {
         let object = event.content.get("object").unwrap_or(&event.content);
         let place_id = self.extract_place_id(object)?;
         let id = PlaceId::new(place_id.clone())?;
-        let space_id =
-            self.extract_optional_field(object, "space_id").unwrap_or_else(|| event.space_id.clone());
+        let space_id = self
+            .extract_optional_field(object, "space_id")
+            .unwrap_or_else(|| event.space_id.clone());
         let kind = self.extract_field::<String>(object, "kind")?;
         let title = self.extract_field::<String>(object, "title")?;
         let state = self
@@ -401,7 +402,9 @@ impl SpaceState {
             created_by: self
                 .extract_optional_field(object, "created_by")
                 .unwrap_or_else(|| event.actor_id.clone()),
-            created_at: self.extract_optional_field(object, "created_at").unwrap_or(event.created_at),
+            created_at: self
+                .extract_optional_field(object, "created_at")
+                .unwrap_or(event.created_at),
             updated_by: self.extract_optional_field(object, "updated_by"),
             updated_at: self.extract_optional_field(object, "updated_at"),
             extra: BTreeMap::new(),
@@ -427,20 +430,19 @@ impl SpaceState {
         let rank = self
             .extract_optional_field::<String>(&event.content, "rank")
             .or_else(|| patch_string(&patch, "rank"));
-        let fields =
-            self.extract_optional_field::<BTreeMap<String, Value>>(&event.content, "fields")
-                .or_else(|| patch_fields(&patch));
-        let schema_refs =
-            self.extract_optional_field::<Vec<String>>(&event.content, "schema_refs").or_else(
-                || {
-                    patch.as_ref().and_then(|patch| {
-                        patch
-                            .get("schema_refs")
-                            .cloned()
-                            .and_then(|value| serde_json::from_value(value).ok())
-                    })
-                },
-            );
+        let fields = self
+            .extract_optional_field::<BTreeMap<String, Value>>(&event.content, "fields")
+            .or_else(|| patch_fields(&patch));
+        let schema_refs = self
+            .extract_optional_field::<Vec<String>>(&event.content, "schema_refs")
+            .or_else(|| {
+                patch.as_ref().and_then(|patch| {
+                    patch
+                        .get("schema_refs")
+                        .cloned()
+                        .and_then(|value| serde_json::from_value(value).ok())
+                })
+            });
         let labels =
             self.extract_optional_field::<Vec<String>>(&event.content, "labels").or_else(|| {
                 patch.as_ref().and_then(|patch| {
@@ -532,7 +534,11 @@ impl SpaceState {
 
     /// Create a new relation.
     fn create_relation(&mut self, event: &Event) -> Result<()> {
-        let object = event.content.get("relation").or_else(|| event.content.get("object")).unwrap_or(&event.content);
+        let object = event
+            .content
+            .get("relation")
+            .or_else(|| event.content.get("object"))
+            .unwrap_or(&event.content);
         let relation_id_str = self.extract_relation_id(object)?;
         let relation_id = RelationId::new(relation_id_str.clone())?;
         let relation_kind = self.extract_field(object, "relation_kind")?;
@@ -576,10 +582,7 @@ impl SpaceState {
         FlowId::new(flow_id.clone())?;
         let title = self.extract_field::<String>(object, "title")?;
         let tracks = self
-            .extract_optional_field::<BTreeMap<String, crate::FlowTrackConfig>>(
-                object,
-                "tracks",
-            )
+            .extract_optional_field::<BTreeMap<String, crate::FlowTrackConfig>>(object, "tracks")
             .unwrap_or_else(|| {
                 let mut tracks = BTreeMap::new();
                 tracks.insert(

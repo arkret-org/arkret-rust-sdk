@@ -1,8 +1,8 @@
 //! Cursor encoding, decoding, and validation.
 //!
-//! This module implements the Contrix v1 cursor specification as defined in
-//! the protocol documentation. Cursors are opaque tokens used for incremental
-//! synchronization between clients and servers.
+//! This module implements the Contrix v1 cursor specification. Cursors are
+//! opaque `cx:cursor:<base64url(canonical_json)>` tokens used for stream
+//! continuation and read-your-writes barriers.
 
 use base64::Engine as _;
 use serde::{Deserialize, Serialize};
@@ -23,6 +23,8 @@ use crate::{Hlc, Result};
 pub struct Cursor {
     /// Cursor version. Must be "1" for Contrix v1.
     pub v: String,
+    /// Cursor purpose.
+    pub purpose: CursorPurpose,
     /// Cursor generation timestamp (RFC 3339).
     pub t: String,
     /// Space positions map.
@@ -30,15 +32,33 @@ pub struct Cursor {
     /// Device positions map (optional).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub d: Option<BTreeMap<String, String>>,
+    /// Target event required for read-your-writes barrier cursors.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target: Option<CursorTarget>,
     /// Expiration timestamp (Unix milliseconds).
     pub x: i64,
-    /// Filter hash binding (M-15 / M-16). When present, the producing
-    /// server MUST reject the cursor unless the current request carries
-    /// the same `filter_hash`. This prevents a client from changing its
-    /// `subscriptions` between calls and silently re-using a cursor that
-    /// was issued under different filter parameters.
-    #[serde(default, rename = "f", skip_serializing_if = "Option::is_none")]
+    /// Server-private filter hash binding.
+    #[serde(default, rename = "_filter_hash", skip_serializing_if = "Option::is_none")]
     pub filter_hash: Option<String>,
+}
+
+/// Cursor purpose discriminator.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub enum CursorPurpose {
+    Stream,
+    Barrier,
+}
+
+/// Event target for barrier cursors.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct CursorTarget {
+    pub event_id: String,
+    pub event_digest: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub space_id: Option<String>,
 }
 
 /// Position information for a single Space.
@@ -67,9 +87,11 @@ impl Cursor {
 
         Self {
             v: "1".to_owned(),
+            purpose: CursorPurpose::Stream,
             t: chrono::Utc::now().to_rfc3339(),
             s: BTreeMap::new(),
             d: None,
+            target: None,
             x: now + Self::DEFAULT_EXPIRATION_MS,
             filter_hash: None,
         }
@@ -117,7 +139,23 @@ impl Cursor {
         self
     }
 
-    /// Encode the cursor to a Base64URL string for transport.
+    /// Convert this stream cursor into a barrier cursor for one target event.
+    pub fn with_barrier_target(
+        mut self,
+        event_id: impl Into<String>,
+        event_digest: impl Into<String>,
+        space_id: Option<String>,
+    ) -> Self {
+        self.purpose = CursorPurpose::Barrier;
+        self.target = Some(CursorTarget {
+            event_id: event_id.into(),
+            event_digest: event_digest.into(),
+            space_id,
+        });
+        self
+    }
+
+    /// Encode the cursor to its wire token.
     ///
     /// # Errors
     ///
@@ -139,10 +177,10 @@ impl Cursor {
         // Encode to Base64URL without padding
         let encoded = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&json);
 
-        Ok(encoded)
+        Ok(format!("cx:cursor:{encoded}"))
     }
 
-    /// Decode a cursor from a Base64URL string.
+    /// Decode a cursor from its wire token.
     ///
     /// # Errors
     ///
@@ -153,6 +191,10 @@ impl Cursor {
     /// - Cursor version is unsupported
     /// - Cursor has expired
     pub fn decode(encoded: &str) -> Result<Self> {
+        let encoded = encoded.strip_prefix("cx:cursor:").ok_or_else(|| {
+            crate::Error::Protocol("cursor token must start with cx:cursor:".to_owned())
+        })?;
+
         // Decode from unpadded Base64URL, the only v1 cursor transport form.
         use base64::Engine as _;
 
@@ -175,6 +217,10 @@ impl Cursor {
             return Err(crate::Error::Protocol(format!("unsupported cursor version: {}", self.v)));
         }
 
+        if matches!(self.purpose, CursorPurpose::Barrier) && self.target.is_none() {
+            return Err(crate::Error::Protocol("barrier cursor missing target".to_owned()));
+        }
+
         // Check expiration
         let now_ms = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as i64;
 
@@ -190,9 +236,18 @@ impl Cursor {
 
         // Validate device positions
         if let Some(devices) = &self.d {
-            for (device_id, message_id) in devices {
-                Self::validate_device_id(device_id)?;
+            for message_id in devices.values() {
                 Self::validate_device_message_id(message_id)?;
+            }
+        }
+
+        if let Some(target) = &self.target {
+            Self::validate_event_id(&target.event_id)?;
+            if !is_digest(&target.event_digest) {
+                return Err(crate::Error::InvalidId(target.event_digest.clone()));
+            }
+            if let Some(space_id) = &target.space_id {
+                Self::validate_space_id(space_id)?;
             }
         }
 
@@ -210,7 +265,7 @@ impl Cursor {
         // Validate HLC format
         Hlc::new(&pos.order)?;
 
-        if !is_sha256_hash(&pos.h) {
+        if !is_digest(&pos.h) {
             return Err(crate::Error::InvalidId(pos.h.clone()));
         }
 
@@ -222,21 +277,8 @@ impl Cursor {
         Ok(())
     }
 
-    fn validate_device_id(device_id: &str) -> Result<()> {
-        let is_valid = device_id.starts_with("dev_") && device_id.len() > 4
-            || has_prefixed_uuid7(device_id, "cx:device:");
-
-        if !is_valid {
-            return Err(crate::Error::InvalidId(device_id.to_owned()));
-        }
-        Ok(())
-    }
-
     fn validate_event_id(event_id: &str) -> Result<()> {
-        let is_valid = has_prefixed_uuid7(event_id, "cx:evt:")
-            || has_prefixed_uuid7(event_id, "cx:event:")
-            || has_prefixed_uuid7(event_id, "cx:operation:")
-            || is_sha256_hash(event_id);
+        let is_valid = has_prefixed_uuid7(event_id, "cx:event:");
 
         if !is_valid {
             return Err(crate::Error::InvalidId(event_id.to_owned()));
@@ -245,9 +287,7 @@ impl Cursor {
     }
 
     fn validate_device_message_id(message_id: &str) -> Result<()> {
-        if has_prefixed_uuid7(message_id, "cx:devmsg:")
-            || has_prefixed_uuid7(message_id, "cx:device_message:")
-        {
+        if has_prefixed_uuid7(message_id, "cx:devmsg:") {
             Ok(())
         } else {
             Err(crate::Error::InvalidId(message_id.to_owned()))
@@ -359,12 +399,17 @@ fn is_uuid7(s: &str) -> bool {
     })
 }
 
-fn is_sha256_hash(value: &str) -> bool {
-    value.len() == 71
-        && value.starts_with("sha256:")
-        && value["sha256:".len()..]
-            .bytes()
-            .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+fn is_digest(value: &str) -> bool {
+    let Some((algorithm, digest)) = value.split_once(':') else {
+        return false;
+    };
+    let expected_len = match algorithm {
+        "sha256" | "sha3_256" | "blake3" => 64,
+        "sha512" => 128,
+        _ => return false,
+    };
+    digest.len() == expected_len
+        && digest.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
 }
 
 /// Sync positions extracted from a cursor.
@@ -438,7 +483,7 @@ mod tests {
         cursor = cursor.with_space_position(
             "cx:space:0196419b-0000-7000-8000-000000000000",
             SpacePosition {
-                p: vec!["cx:evt:0196419b-0000-7000-8000-000000000001".to_owned()],
+                p: vec!["cx:event:0196419b-0000-7000-8000-000000000001".to_owned()],
                 order: "01970e589d21-00000004-a13f9c2e".to_owned(),
                 h: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                     .to_owned(),
@@ -450,15 +495,19 @@ mod tests {
 
         assert_eq!(decoded.s.len(), cursor.s.len());
         assert_eq!(decoded.v, cursor.v);
+        assert_eq!(decoded.purpose, CursorPurpose::Stream);
+        assert!(encoded.starts_with("cx:cursor:"));
     }
 
     #[test]
     fn cursor_rejects_invalid_version() {
         let cursor = Cursor {
             v: "2".to_owned(),
+            purpose: CursorPurpose::Stream,
             t: chrono::Utc::now().to_rfc3339(),
             s: BTreeMap::new(),
             d: None,
+            target: None,
             x: 1714080000000,
             filter_hash: None,
         };
@@ -499,7 +548,7 @@ mod tests {
             spaces: BTreeMap::from([(
                 "cx:space:0196419b-0000-7000-8000-000000000000".to_owned(),
                 SpaceSyncPosition {
-                    frontier: vec!["cx:evt:0196419b-0000-7000-8000-000000000001".to_owned()],
+                    frontier: vec!["cx:event:0196419b-0000-7000-8000-000000000001".to_owned()],
                     timeline_order: "01970e589d21-00000004-a13f9c2e".to_owned(),
                     state_hash:
                         "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"

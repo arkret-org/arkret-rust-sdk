@@ -180,7 +180,7 @@ impl PushPrivacyPolicy {
 fn contains_did_substring(s: &str) -> bool {
     // Match the canonical DID prefixes documented in identity-did.md §3.
     const PREFIXES: &[&str] =
-        &["did:web:", "did:plc:", "did:key:", "did:webvh:", "did:webs:", "did:keri:", "did:uuid:"];
+        &["did:web:", "did:plc:", "did:key:", "did:webvh:", "did:webs:", "did:keri:"];
     PREFIXES.iter().any(|p| s.contains(p))
 }
 

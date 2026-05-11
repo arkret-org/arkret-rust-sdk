@@ -409,7 +409,7 @@ impl InMemoryStaridRegistryAdapter {
 
 impl DidResolver for InMemoryStaridRegistryAdapter {
     fn supports(&self, did: &Did) -> bool {
-        did.is_uuid() || did.method() == "web" || self.records.contains_key(did)
+        matches!(did.method(), "web" | "webvh") || self.records.contains_key(did)
     }
 
     fn resolve_did(&self, did: &Did) -> Result<DidDocument> {

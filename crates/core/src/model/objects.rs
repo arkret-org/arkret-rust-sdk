@@ -130,11 +130,7 @@ pub enum CoWritePolicy {
 }
 
 impl Space {
-    pub fn new(
-        id: SpaceId,
-        title: impl Into<String>,
-        created_by_principal: Did,
-    ) -> Self {
+    pub fn new(id: SpaceId, title: impl Into<String>, created_by_principal: Did) -> Self {
         Self {
             schema: SPACE_SCHEMA.to_owned(),
             id,
@@ -307,7 +303,9 @@ impl Place {
         if let Some(parent_ref) = &self.parent_ref
             && !(parent_ref.starts_with("cx:space:") || parent_ref.starts_with("cx:place:"))
         {
-            return Err(Error::Protocol("place parent_ref must be a Space or Place ref".to_owned()));
+            return Err(Error::Protocol(
+                "place parent_ref must be a Space or Place ref".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -552,9 +550,7 @@ pub fn enforce_relation_cardinality(
 impl Relation {
     pub fn validate_endpoints(&self) -> Result<()> {
         if self.from_ref.trim().is_empty() || self.to_ref.trim().is_empty() {
-            Err(Error::Protocol(
-                "relation requires non-empty from_ref and to_ref".to_owned(),
-            ))
+            Err(Error::Protocol("relation requires non-empty from_ref and to_ref".to_owned()))
         } else {
             Ok(())
         }

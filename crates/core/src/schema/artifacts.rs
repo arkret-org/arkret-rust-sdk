@@ -290,7 +290,8 @@ pub const ARTIFACT_BACKED_SERVICE_OPERATIONS: &[&str] = &[
     "cx.server.describe",
 ];
 
-pub const ARTIFACT_BACKED_ID_KINDS: &[&str] = &["event", "space", "flow", "place", "morph", "message"];
+pub const ARTIFACT_BACKED_ID_KINDS: &[&str] =
+    &["event", "space", "flow", "place", "morph", "message"];
 
 pub fn default_spec_artifacts_dir() -> Option<PathBuf> {
     if let Ok(artifacts_dir) = std::env::var("CONTRIX_SPEC_ARTIFACTS") {

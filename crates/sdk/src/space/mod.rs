@@ -15,10 +15,9 @@ use crate::{
     model::{
         BlobRef, Did, EventId, FieldFilter, Filter, FilterOp, Flow, MessageId, Morph, MorphId,
         NullsOrder, OP_INVITE_CREATE, OP_MEMBER_STATE, OP_MESSAGE_CREATE, OP_MESSAGE_REDACT,
-        OP_MESSAGE_REVISE, OP_MORPH_ARCHIVE, OP_MORPH_CREATE, OP_MORPH_UPDATE,
-        OP_RELATION_CREATE, OP_RELATION_DELETE, ObjectState, Operation, OperationId,
-        OperationType, Place, PlaceId, Relation, RelationId, RelationKind, RelationState,
-        SortDirection, SortSpec, SpaceId,
+        OP_MESSAGE_REVISE, OP_MORPH_ARCHIVE, OP_MORPH_CREATE, OP_MORPH_UPDATE, OP_RELATION_CREATE,
+        OP_RELATION_DELETE, ObjectState, Operation, OperationId, OperationType, Place, PlaceId,
+        Relation, RelationId, RelationKind, RelationState, SortDirection, SortSpec, SpaceId,
     },
     resolver::SpaceState,
 };
@@ -247,12 +246,7 @@ impl Space {
 
     /// Find Places by kind.
     pub fn find_places_by_kind(&self, kind: &str) -> Vec<Place> {
-        self.state
-            .places
-            .values()
-            .filter(|place| place.kind == kind)
-            .cloned()
-            .collect()
+        self.state.places.values().filter(|place| place.kind == kind).cloned().collect()
     }
 
     /// Get all flows in this space.
@@ -271,9 +265,7 @@ impl Space {
             .subjects
             .values()
             .filter(|flow| {
-                flow.tracks
-                    .values()
-                    .any(|track| track.profile.as_deref() == Some(track_profile))
+                flow.tracks.values().any(|track| track.profile.as_deref() == Some(track_profile))
             })
             .cloned()
             .collect()
@@ -300,12 +292,7 @@ impl Space {
 
     /// Find Morph objects by type.
     pub fn find_morphs_by_type(&self, morph_type: &str) -> Vec<Morph> {
-        self.state
-            .morphs
-            .values()
-            .filter(|morph| morph.morph_type == morph_type)
-            .cloned()
-            .collect()
+        self.state.morphs.values().filter(|morph| morph.morph_type == morph_type).cloned().collect()
     }
 
     /// Find Morph objects by field value.
@@ -340,22 +327,12 @@ impl Space {
 
     /// Find relations from a typed object reference.
     pub fn find_relations_from_ref(&self, object_ref: &str) -> Vec<Relation> {
-        self.state
-            .relations
-            .values()
-            .filter(|r| r.from_ref == object_ref)
-            .cloned()
-            .collect()
+        self.state.relations.values().filter(|r| r.from_ref == object_ref).cloned().collect()
     }
 
     /// Find relations to a typed object reference.
     pub fn find_relations_to_ref(&self, object_ref: &str) -> Vec<Relation> {
-        self.state
-            .relations
-            .values()
-            .filter(|r| r.to_ref == object_ref)
-            .cloned()
-            .collect()
+        self.state.relations.values().filter(|r| r.to_ref == object_ref).cloned().collect()
     }
 
     /// Get the causal frontier (most recent event IDs).

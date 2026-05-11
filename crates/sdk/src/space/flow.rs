@@ -50,11 +50,8 @@ impl Space {
         let flow_id = FlowId::new(generate_id("cx:flow:"))?;
         let operation_id = OperationId::new(generate_id("cx:operation:"))?;
         let now = Utc::now();
-        let tracks = if metadata.tracks.is_empty() {
-            default_flow_tracks()
-        } else {
-            metadata.tracks
-        };
+        let tracks =
+            if metadata.tracks.is_empty() { default_flow_tracks() } else { metadata.tracks };
 
         let mut object = json!({
             "id": flow_id.as_str(),
@@ -255,8 +252,7 @@ impl Space {
             payload["expected_position"] = expected_position;
         }
 
-        let mut operation =
-            Operation::create(operation_id, self.space_id.clone(), kind, payload);
+        let mut operation = Operation::create(operation_id, self.space_id.clone(), kind, payload);
         operation.operation_type = OperationType::Update;
         operation.object_id = Some(flow_id.as_str().to_owned());
         Ok(operation)
@@ -265,9 +261,6 @@ impl Space {
 
 fn default_flow_tracks() -> BTreeMap<String, crate::FlowTrackConfig> {
     let mut tracks = BTreeMap::new();
-    tracks.insert(
-        crate::FLOW_TRACK_NAME_SYNTHESIS.to_owned(),
-        crate::FlowTrackConfig::synthesis(),
-    );
+    tracks.insert(crate::FLOW_TRACK_NAME_SYNTHESIS.to_owned(), crate::FlowTrackConfig::synthesis());
     tracks
 }

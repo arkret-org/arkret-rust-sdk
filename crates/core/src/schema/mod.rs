@@ -33,9 +33,9 @@ pub mod protocol {
     pub use crate::{
         CAPABILITY_SCHEMA, CLIENT_SYNC_RESPONSE_SCHEMA, CURSOR_SCHEMA, ENCRYPTED_PAYLOAD_SCHEMA,
         EVENT_SCHEMA, FLOW_SCHEMA, GeneratedSchemaField, GeneratedSchemaValidator,
-        GeneratedSchemaValueType, OPERATION_SCHEMA, ProtocolSchemaRegistry,
-        PLACE_SCHEMA, SCHEMA_COMPATIBILITY_PROFILE, SchemaCompatibilityEntry,
-        SchemaCompatibilityTable, VIEW_SCHEMA, schema_version_compatibility_table,
+        GeneratedSchemaValueType, OPERATION_SCHEMA, PLACE_SCHEMA, ProtocolSchemaRegistry,
+        SCHEMA_COMPATIBILITY_PROFILE, SchemaCompatibilityEntry, SchemaCompatibilityTable,
+        VIEW_SCHEMA, schema_version_compatibility_table,
     };
 }
 

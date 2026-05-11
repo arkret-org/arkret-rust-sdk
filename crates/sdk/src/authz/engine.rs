@@ -534,7 +534,9 @@ impl AuthzEngine {
                 let (object_type, morph_type) = match &ctx.resource {
                     Resource::Flow { .. } => (Some("flow"), None),
                     Resource::Message { .. } => (Some("message"), None),
-                    Resource::Morph { morph_type, .. } => (Some("morph"), Some(morph_type.as_str())),
+                    Resource::Morph { morph_type, .. } => {
+                        (Some("morph"), Some(morph_type.as_str()))
+                    }
                     Resource::Relation { .. } => (Some("relation"), None),
                     Resource::View { .. } => (Some("view"), None),
                     Resource::Space { .. } => (Some("space"), None),
