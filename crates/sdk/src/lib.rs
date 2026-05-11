@@ -129,8 +129,6 @@ pub mod discovery;
 #[cfg(feature = "full-surface")]
 pub mod e2ee;
 #[cfg(feature = "full-surface")]
-pub mod event_handler;
-#[cfg(feature = "full-surface")]
 pub mod federation;
 #[cfg(feature = "full-surface")]
 pub mod hlc;
@@ -157,8 +155,6 @@ pub mod mls;
 pub mod mls_move;
 #[cfg(feature = "full-surface")]
 pub mod notifications;
-#[cfg(feature = "full-surface")]
-pub mod performance;
 #[cfg(feature = "full-surface")]
 pub mod platform;
 #[cfg(feature = "full-surface")]
@@ -192,20 +188,17 @@ pub mod webrtc;
 pub use account::{ACCOUNT_DATA_BLOCKLIST, AccountBlocklist, AccountDataManager, BlocklistEntry};
 #[cfg(feature = "full-surface")]
 pub use agent::{
-    AgentBridgeMetadata, AgentMemory, AgentMemoryReview, AgentMemoryState, AgentMemoryStore,
-    AgentPrincipal, AgentProtocol, AgentProtocolBridge, AgentProtocolEndpoint,
-    AgentProtocolMessage, AgentRun, AgentRunManager, AgentRunState, AgentToolAuditAction,
-    AgentToolAuditEntry, AgentToolAuditLog, DelegatedActor, ExternalAgent, MemoryLayer,
+    AgentBridgeMetadata, AgentPrincipal, AgentProtocol, AgentProtocolEndpoint,
+    AgentProtocolMessage, AgentRun, AgentRunState, AgentToolAuditAction, AgentToolAuditEntry,
+    DelegatedActor, ExternalAgent,
 };
 #[cfg(all(feature = "full-surface", feature = "applet-runtime"))]
 pub use applet::{
-    AppletEndpointRegistration, AppletEndpointRoute, AppletEndpointRouteSet,
     AppletNamespaceConflict, AppletNamespaceDeclaration, AppletNamespaceKind, AppletPermission,
-    AppletPortal, AppletPortalManager, AppletRegistry, AppletSchema, AppletServiceIntent,
-    AppletServiceTransaction, AppletServiceTransactionRecord, AppletServiceTransactionStore,
-    BridgeMappingStore, GhostActorAccountability, OpenApiBinding, PortalMode, PortalSpaceMapping,
-    RemoteSpaceMapping, RemoteUserMapping, SignedAppletRegistration, ThirdPartyLookupKind,
-    ThirdPartyLookupRequest, ThirdPartyLookupResponse, VirtualActor,
+    AppletPortal, AppletSchema, AppletServiceIntent, AppletServiceTransaction,
+    GhostActorAccountability, OpenApiBinding, PortalMode, PortalSpaceMapping, RemoteSpaceMapping,
+    RemoteUserMapping, SignedAppletRegistration, ThirdPartyLookupKind, ThirdPartyLookupRequest,
+    ThirdPartyLookupResponse, VirtualActor,
 };
 #[cfg(feature = "full-surface")]
 pub use auth::{
@@ -285,12 +278,6 @@ pub use e2ee::{
     E2eeMessageValidation, E2eeMessageValidationFailure,
 };
 #[cfg(feature = "full-surface")]
-pub use event_handler::{
-    BotCommand, BotCommandParser, BotRuntime, BotRuntimeReport, BotRuntimeShutdown,
-    BuiltInEventHandlers, ClientEvent, ClientEventFilter, ClientEventKind, EventHandlerRegistry,
-    EventPipeline, HandlerGuard,
-};
-#[cfg(feature = "full-surface")]
 pub use federation::{
     FederationBackfillAuthorization, FederationManager, FederationQuarantineKind,
     FederationQuarantineRecord, FederationReplayDecision, FederationReplayRecord,
@@ -351,21 +338,11 @@ pub use notifications::{
     NotificationAction, NotificationCounts, NotificationItem, NotificationManager, NotificationRule,
 };
 #[cfg(feature = "full-surface")]
-pub use performance::{
-    BenchmarkHarness, BenchmarkMeasurement, BenchmarkPlan, BenchmarkTarget,
-    CompileOptimizationPlan, MemoryMetricsCollector, MetricName, MetricSample, MetricsCollector,
-    NoopMetricsCollector, ObjectPool, ParallelProcessor, PerformanceConfig, RequestBatch,
-    RequestBatcher, RobustnessHarness, RobustnessOutcome, RobustnessPlan, RobustnessTarget,
-    TraceContext, TraceSpanKind, ZeroCopyJson,
-};
-#[cfg(feature = "full-surface")]
 pub use platform::{
-    EmbeddingSupportLevel, EmbeddingTarget, EmbeddingTargetDecision, FFI_API_FREEZE_REVIEW_VERSION,
-    FfiApiFreezeBlocker, FfiApiFreezeReview, FfiApiFreezeStatus, FfiApiSurfaceItem,
     FfiCallbackAction, FfiCallbackResult, FfiCancellationHandle, FfiError, FfiErrorCode, FfiEvent,
     FfiEventSink, FfiHandle, FfiHandleKind, IndexedDbStoreDescriptor, IndexedDbStoreKind,
     WasmBrowserHttpTransport, WasmHttpRequest, WasmHttpResponse, WasmRuntimeContract,
-    WebCryptoKeyHandle, WebCryptoOperation, embedding_target_decisions, ffi_api_freeze_review,
+    WebCryptoKeyHandle, WebCryptoOperation,
 };
 #[cfg(feature = "full-surface")]
 pub use presence::{Presence, PresenceManager};

@@ -445,7 +445,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
             method: "CONTRACT".to_owned(),
             path: "contrix-ffi://wasm-runtime".to_owned(),
             request_schema: "WasmRuntimeContract".to_owned(),
-            response_schema: "EmbeddingTargetDecision".to_owned(),
+            response_schema: "WasmRuntimeContract".to_owned(),
         },
     ]
 }

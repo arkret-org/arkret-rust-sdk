@@ -1,4 +1,4 @@
-//! FFI and WASM embedding contracts.
+//! FFI and WASM runtime contracts.
 
 use std::{
     collections::BTreeMap,
@@ -11,56 +11,6 @@ use std::{
 use contrix_core::{Error, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
-pub const FFI_API_FREEZE_REVIEW_VERSION: &str = "contrix.ffi.api_freeze_review.v1";
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum EmbeddingTarget {
-    NativeRust,
-    WasmBrowser,
-    UniffiSwiftKotlin,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum EmbeddingSupportLevel {
-    Supported,
-    Planned,
-    Deferred,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct EmbeddingTargetDecision {
-    pub target: EmbeddingTarget,
-    pub support: EmbeddingSupportLevel,
-    pub milestone: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub prerequisite: Option<String>,
-}
-
-pub fn embedding_target_decisions() -> Vec<EmbeddingTargetDecision> {
-    vec![
-        EmbeddingTargetDecision {
-            target: EmbeddingTarget::NativeRust,
-            support: EmbeddingSupportLevel::Supported,
-            milestone: "0.1.x".to_owned(),
-            prerequisite: None,
-        },
-        EmbeddingTargetDecision {
-            target: EmbeddingTarget::WasmBrowser,
-            support: EmbeddingSupportLevel::Planned,
-            milestone: "indexeddb-webcrypto-runtime".to_owned(),
-            prerequisite: Some("real IndexedDB and WebCrypto adapters".to_owned()),
-        },
-        EmbeddingTargetDecision {
-            target: EmbeddingTarget::UniffiSwiftKotlin,
-            support: EmbeddingSupportLevel::Deferred,
-            milestone: "api-freeze".to_owned(),
-            prerequisite: Some("generated binding review and callback backpressure".to_owned()),
-        },
-    ]
-}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -281,7 +231,7 @@ where
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum IndexedDbStoreKind {
-    Repo,
+    State,
     Crypto,
 }
 
@@ -340,7 +290,7 @@ impl WebCryptoKeyHandle {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WasmRuntimeContract {
     pub http_transport: bool,
-    pub repo_store: IndexedDbStoreDescriptor,
+    pub state_store: IndexedDbStoreDescriptor,
     pub crypto_store: IndexedDbStoreDescriptor,
     pub webcrypto_key: WebCryptoKeyHandle,
     pub sync_state_cache: String,
@@ -350,10 +300,10 @@ impl Default for WasmRuntimeContract {
     fn default() -> Self {
         Self {
             http_transport: true,
-            repo_store: IndexedDbStoreDescriptor {
-                kind: IndexedDbStoreKind::Repo,
-                database: "contrix-repo".to_owned(),
-                object_store: "objects".to_owned(),
+            state_store: IndexedDbStoreDescriptor {
+                kind: IndexedDbStoreKind::State,
+                database: "contrix-state".to_owned(),
+                object_store: "records".to_owned(),
                 schema_version: 1,
                 quota_bytes: Some(64 * 1024 * 1024),
             },
@@ -380,10 +330,10 @@ impl WasmRuntimeContract {
         if !self.http_transport {
             return Err(Error::Protocol("WASM browser HTTP transport is required".to_owned()));
         }
-        self.repo_store.validate()?;
+        self.state_store.validate()?;
         self.crypto_store.validate()?;
-        if self.repo_store.kind != IndexedDbStoreKind::Repo {
-            return Err(Error::Protocol("WASM repo store descriptor has wrong kind".to_owned()));
+        if self.state_store.kind != IndexedDbStoreKind::State {
+            return Err(Error::Protocol("WASM state store descriptor has wrong kind".to_owned()));
         }
         if self.crypto_store.kind != IndexedDbStoreKind::Crypto {
             return Err(Error::Protocol("WASM crypto store descriptor has wrong kind".to_owned()));
@@ -393,91 +343,6 @@ impl WasmRuntimeContract {
             return Err(Error::Protocol("WASM sync state cache name must not be empty".to_owned()));
         }
         Ok(())
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum FfiApiFreezeStatus {
-    ReviewedButUnfrozen,
-    Frozen,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum FfiApiFreezeBlocker {
-    SemverPolicy,
-    GeneratedBindingReview,
-    CallbackBackpressureReview,
-    PersistentStoreInterop,
-    ExternalSecurityAudit,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FfiApiSurfaceItem {
-    pub name: String,
-    pub purpose: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FfiApiFreezeReview {
-    pub version: String,
-    pub target: EmbeddingTarget,
-    pub status: FfiApiFreezeStatus,
-    pub reviewed: Vec<FfiApiSurfaceItem>,
-    pub blockers: Vec<FfiApiFreezeBlocker>,
-}
-
-impl FfiApiFreezeReview {
-    pub fn validate(&self) -> Result<()> {
-        if self.version != FFI_API_FREEZE_REVIEW_VERSION {
-            return Err(Error::Protocol("unsupported FFI API freeze review version".to_owned()));
-        }
-        if self.target != EmbeddingTarget::UniffiSwiftKotlin {
-            return Err(Error::Protocol(
-                "FFI API freeze review must target UniFFI mobile".to_owned(),
-            ));
-        }
-        if self.reviewed.is_empty() {
-            return Err(Error::Protocol("FFI API freeze review must list surfaces".to_owned()));
-        }
-        if self.status == FfiApiFreezeStatus::Frozen && !self.blockers.is_empty() {
-            return Err(Error::Protocol("frozen FFI API review cannot have blockers".to_owned()));
-        }
-        Ok(())
-    }
-}
-
-pub fn ffi_api_freeze_review() -> FfiApiFreezeReview {
-    FfiApiFreezeReview {
-        version: FFI_API_FREEZE_REVIEW_VERSION.to_owned(),
-        target: EmbeddingTarget::UniffiSwiftKotlin,
-        status: FfiApiFreezeStatus::ReviewedButUnfrozen,
-        reviewed: vec![
-            FfiApiSurfaceItem {
-                name: "FfiHandle".to_owned(),
-                purpose: "opaque host-map handle".to_owned(),
-            },
-            FfiApiSurfaceItem {
-                name: "FfiError".to_owned(),
-                purpose: "layout-stable error payload".to_owned(),
-            },
-            FfiApiSurfaceItem {
-                name: "FfiEventSink".to_owned(),
-                purpose: "callback-safe event stream".to_owned(),
-            },
-            FfiApiSurfaceItem {
-                name: "WasmRuntimeContract".to_owned(),
-                purpose: "browser transport/store/WebCrypto descriptor".to_owned(),
-            },
-        ],
-        blockers: vec![
-            FfiApiFreezeBlocker::SemverPolicy,
-            FfiApiFreezeBlocker::GeneratedBindingReview,
-            FfiApiFreezeBlocker::CallbackBackpressureReview,
-            FfiApiFreezeBlocker::PersistentStoreInterop,
-            FfiApiFreezeBlocker::ExternalSecurityAudit,
-        ],
     }
 }
 
@@ -502,7 +367,7 @@ mod tests {
     fn wasm_runtime_contract_validates_store_and_webcrypto_boundary() {
         WasmRuntimeContract::default().validate().unwrap();
         let mut invalid = WasmRuntimeContract::default();
-        invalid.repo_store.kind = IndexedDbStoreKind::Crypto;
+        invalid.state_store.kind = IndexedDbStoreKind::Crypto;
         assert!(matches!(invalid.validate(), Err(Error::Protocol(_))));
     }
 
@@ -529,10 +394,4 @@ mod tests {
         assert_eq!(cancellation.check().unwrap_err().code, FfiErrorCode::Cancelled);
     }
 
-    #[test]
-    fn ffi_api_freeze_review_records_blockers() {
-        let review = ffi_api_freeze_review();
-        review.validate().unwrap();
-        assert!(review.blockers.contains(&FfiApiFreezeBlocker::GeneratedBindingReview));
-    }
 }

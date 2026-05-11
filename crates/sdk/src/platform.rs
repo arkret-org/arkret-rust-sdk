@@ -1,8 +1,8 @@
 //! Platform embedding and FFI boundary models.
 //!
-//! The SDK remains a native Rust crate for `0.1.x`. This module records the
-//! supported embedding targets and provides backend-neutral shapes that future
-//! UniFFI or WASM bindings can map onto without exposing Rust internals.
+//! This module keeps only runtime-facing contracts that browser or host
+//! integrations can implement directly: HTTP transport, IndexedDB-like durable
+//! storage descriptors, WebCrypto key handles and opaque FFI callback shapes.
 
 use std::{
     collections::BTreeMap,
@@ -16,172 +16,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{Error, Result};
-
-/// Version tag for the FFI API freeze review artifact.
-pub const FFI_API_FREEZE_REVIEW_VERSION: &str = "contrix.ffi.api_freeze_review.v1";
-
-/// Host embedding targets tracked by the SDK.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum EmbeddingTarget {
-    /// Native Rust applications and services.
-    NativeRust,
-    /// Browser and WASM embeddings.
-    WasmBrowser,
-    /// Swift/Kotlin bindings generated through UniFFI.
-    UniffiSwiftKotlin,
-}
-
-/// Support level for one embedding target.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum EmbeddingSupportLevel {
-    /// Supported by the current release train.
-    Supported,
-    /// Planned after prerequisite runtime work lands.
-    Planned,
-    /// Deliberately deferred until the public API stabilizes.
-    Deferred,
-}
-
-/// Versioned support decision for one embedding target.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct EmbeddingTargetDecision {
-    pub target: EmbeddingTarget,
-    pub support: EmbeddingSupportLevel,
-    pub milestone: String,
-    pub prerequisite: Option<String>,
-}
-
-/// Current SDK embedding support decisions.
-pub fn embedding_target_decisions() -> Vec<EmbeddingTargetDecision> {
-    vec![
-        EmbeddingTargetDecision {
-            target: EmbeddingTarget::NativeRust,
-            support: EmbeddingSupportLevel::Supported,
-            milestone: "0.1.x".to_owned(),
-            prerequisite: None,
-        },
-        EmbeddingTargetDecision {
-            target: EmbeddingTarget::WasmBrowser,
-            support: EmbeddingSupportLevel::Planned,
-            milestone: "post-indexeddb-store".to_owned(),
-            prerequisite: Some("real IndexedDB repo and crypto stores".to_owned()),
-        },
-        EmbeddingTargetDecision {
-            target: EmbeddingTarget::UniffiSwiftKotlin,
-            support: EmbeddingSupportLevel::Deferred,
-            milestone: "post-api-stabilization".to_owned(),
-            prerequisite: Some("semver-stable public API and callback contract review".to_owned()),
-        },
-    ]
-}
-
-/// Freeze status for the FFI and mobile API surface.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum FfiApiFreezeStatus {
-    /// The surface has been reviewed for shape and safety but is not semver-frozen.
-    ReviewedButUnfrozen,
-    /// The surface is stable enough for generated mobile bindings.
-    Frozen,
-}
-
-/// Remaining blockers before publishing Swift/Kotlin bindings.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum FfiApiFreezeBlocker {
-    SemverPolicy,
-    GeneratedBindingReview,
-    CallbackBackpressureReview,
-    PersistentStoreInterop,
-    ExternalSecurityAudit,
-}
-
-/// One public FFI surface area included in the freeze review.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FfiApiSurfaceItem {
-    pub name: String,
-    pub purpose: String,
-}
-
-/// Review artifact for mobile/UniFFI publication decisions.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FfiApiFreezeReview {
-    pub version: String,
-    pub target: EmbeddingTarget,
-    pub status: FfiApiFreezeStatus,
-    pub reviewed: Vec<FfiApiSurfaceItem>,
-    pub blockers: Vec<FfiApiFreezeBlocker>,
-}
-
-impl FfiApiFreezeReview {
-    /// Validate that the review artifact covers the minimum mobile boundary.
-    pub fn validate(&self) -> Result<()> {
-        if self.version != FFI_API_FREEZE_REVIEW_VERSION {
-            return Err(Error::Protocol("unsupported FFI API freeze review version".to_owned()));
-        }
-        if self.target != EmbeddingTarget::UniffiSwiftKotlin {
-            return Err(Error::Protocol(
-                "FFI API freeze review must target UniFFI mobile".to_owned(),
-            ));
-        }
-        if self.reviewed.is_empty() {
-            return Err(Error::Protocol(
-                "FFI API freeze review must list reviewed surfaces".to_owned(),
-            ));
-        }
-        for item in &self.reviewed {
-            if item.name.trim().is_empty() || item.purpose.trim().is_empty() {
-                return Err(Error::Protocol(
-                    "FFI API freeze review items must be named".to_owned(),
-                ));
-            }
-        }
-        if self.status == FfiApiFreezeStatus::Frozen && !self.blockers.is_empty() {
-            return Err(Error::Protocol("frozen FFI API review cannot have blockers".to_owned()));
-        }
-        Ok(())
-    }
-}
-
-/// Current mobile/UniFFI API freeze review.
-///
-/// The `0.1.x` SDK has reviewed callback-safe shapes, opaque handles and error
-/// mapping, but generated Swift/Kotlin bindings stay unpublished until the
-/// blocker list is empty.
-pub fn ffi_api_freeze_review() -> FfiApiFreezeReview {
-    FfiApiFreezeReview {
-        version: FFI_API_FREEZE_REVIEW_VERSION.to_owned(),
-        target: EmbeddingTarget::UniffiSwiftKotlin,
-        status: FfiApiFreezeStatus::ReviewedButUnfrozen,
-        reviewed: vec![
-            FfiApiSurfaceItem {
-                name: "FfiHandle".to_owned(),
-                purpose: "stable opaque host-map handle with generation counters".to_owned(),
-            },
-            FfiApiSurfaceItem {
-                name: "FfiError".to_owned(),
-                purpose: "layout-stable error code and message payload".to_owned(),
-            },
-            FfiApiSurfaceItem {
-                name: "FfiEventSink".to_owned(),
-                purpose: "callback-safe event stream boundary".to_owned(),
-            },
-            FfiApiSurfaceItem {
-                name: "FfiCancellationHandle".to_owned(),
-                purpose: "runtime-neutral cancellation flag for long-running calls".to_owned(),
-            },
-        ],
-        blockers: vec![
-            FfiApiFreezeBlocker::SemverPolicy,
-            FfiApiFreezeBlocker::GeneratedBindingReview,
-            FfiApiFreezeBlocker::CallbackBackpressureReview,
-            FfiApiFreezeBlocker::PersistentStoreInterop,
-            FfiApiFreezeBlocker::ExternalSecurityAudit,
-        ],
-    }
-}
 
 /// Browser HTTP request shape for WASM transports.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -232,7 +66,7 @@ where
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum IndexedDbStoreKind {
-    Repo,
+    State,
     Crypto,
 }
 
@@ -294,7 +128,7 @@ impl WebCryptoKeyHandle {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WasmRuntimeContract {
     pub http_transport: bool,
-    pub repo_store: IndexedDbStoreDescriptor,
+    pub state_store: IndexedDbStoreDescriptor,
     pub crypto_store: IndexedDbStoreDescriptor,
     pub webcrypto_key: WebCryptoKeyHandle,
     pub sync_state_cache: String,
@@ -304,10 +138,10 @@ impl Default for WasmRuntimeContract {
     fn default() -> Self {
         Self {
             http_transport: true,
-            repo_store: IndexedDbStoreDescriptor {
-                kind: IndexedDbStoreKind::Repo,
-                database: "contrix-repo".to_owned(),
-                object_store: "objects".to_owned(),
+            state_store: IndexedDbStoreDescriptor {
+                kind: IndexedDbStoreKind::State,
+                database: "contrix-state".to_owned(),
+                object_store: "records".to_owned(),
                 schema_version: 1,
                 quota_bytes: Some(64 * 1024 * 1024),
             },
@@ -334,10 +168,10 @@ impl WasmRuntimeContract {
         if !self.http_transport {
             return Err(Error::Protocol("WASM browser HTTP transport is required".to_owned()));
         }
-        self.repo_store.validate()?;
+        self.state_store.validate()?;
         self.crypto_store.validate()?;
-        if self.repo_store.kind != IndexedDbStoreKind::Repo {
-            return Err(Error::Protocol("WASM repo store descriptor has wrong kind".to_owned()));
+        if self.state_store.kind != IndexedDbStoreKind::State {
+            return Err(Error::Protocol("WASM state store descriptor has wrong kind".to_owned()));
         }
         if self.crypto_store.kind != IndexedDbStoreKind::Crypto {
             return Err(Error::Protocol("WASM crypto store descriptor has wrong kind".to_owned()));
@@ -510,25 +344,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn platform_decisions_document_embedding_targets() {
-        let decisions = embedding_target_decisions();
-
-        assert!(decisions.iter().any(|decision| {
-            decision.target == EmbeddingTarget::NativeRust
-                && decision.support == EmbeddingSupportLevel::Supported
-                && decision.milestone == "0.1.x"
-        }));
-        assert!(decisions.iter().any(|decision| {
-            decision.target == EmbeddingTarget::WasmBrowser
-                && decision.support == EmbeddingSupportLevel::Planned
-        }));
-        assert!(decisions.iter().any(|decision| {
-            decision.target == EmbeddingTarget::UniffiSwiftKotlin
-                && decision.support == EmbeddingSupportLevel::Deferred
-        }));
-    }
-
-    #[test]
     fn ffi_handles_and_errors_are_stable_shapes() {
         let handle = FfiHandle::new(FfiHandleKind::Client, 7, 1).unwrap();
         assert_eq!(handle.id, 7);
@@ -566,7 +381,7 @@ mod tests {
     fn wasm_runtime_contract_covers_browser_http_indexeddb_webcrypto_and_sync_cache() {
         let contract = WasmRuntimeContract::default();
         contract.validate().unwrap();
-        assert_eq!(contract.repo_store.kind, IndexedDbStoreKind::Repo);
+        assert_eq!(contract.state_store.kind, IndexedDbStoreKind::State);
         assert_eq!(contract.crypto_store.kind, IndexedDbStoreKind::Crypto);
         assert!(!contract.webcrypto_key.extractable);
 
@@ -592,21 +407,7 @@ mod tests {
         assert_eq!(response.status, 200);
 
         let mut invalid = contract;
-        invalid.crypto_store.kind = IndexedDbStoreKind::Repo;
-        assert!(invalid.validate().is_err());
-    }
-
-    #[test]
-    fn ffi_api_freeze_review_records_mobile_publication_blockers() {
-        let review = ffi_api_freeze_review();
-        review.validate().unwrap();
-        assert_eq!(review.target, EmbeddingTarget::UniffiSwiftKotlin);
-        assert_eq!(review.status, FfiApiFreezeStatus::ReviewedButUnfrozen);
-        assert!(review.reviewed.iter().any(|item| item.name == "FfiHandle"));
-        assert!(review.blockers.contains(&FfiApiFreezeBlocker::GeneratedBindingReview));
-
-        let mut invalid = review;
-        invalid.status = FfiApiFreezeStatus::Frozen;
+        invalid.crypto_store.kind = IndexedDbStoreKind::State;
         assert!(invalid.validate().is_err());
     }
 }

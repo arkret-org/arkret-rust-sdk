@@ -1,257 +1,18 @@
-//! Agent memory and protocol interop helpers.
+//! Agent runtime and protocol interop helpers.
 
-use std::collections::{BTreeMap, BTreeSet};
+#[cfg(test)]
+use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+#[cfg(test)]
 use ulid::Ulid;
 
-use crate::{
-    Did, Error, Result,
-    model::{Operation, OperationId, SpaceId},
-};
-
-/// Agent memory lifecycle state.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AgentMemoryState {
-    Draft,
-    InReview,
-    Promoted,
-    Rejected,
-    Archived,
-    Expired,
-}
-
-/// Agent memory layer — the four-layer memory model from the spec.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum MemoryLayer {
-    /// Temporary working memory for current task context.
-    Working,
-    /// Episodic memory — what happened (events, interactions).
-    Episodic,
-    /// Semantic memory — what is known (facts, knowledge).
-    Semantic,
-    /// Task memory — what needs to happen (goals, plans).
-    Task,
-}
-
-/// Agent memory record.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct AgentMemory {
-    pub memory_id: String,
-    pub agent_id: Did,
-    pub content: Value,
-    pub importance: u8,
-    pub state: AgentMemoryState,
-    /// Memory layer classification.
-    #[serde(default = "default_memory_layer")]
-    pub memory_layer: MemoryLayer,
-    /// Memory kind — semantic category (e.g. "fact", "preference", "skill").
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub memory_kind: Option<String>,
-    /// Subject reference — DID or entity this memory is about.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub subject_ref: Option<String>,
-    /// Source references — events, documents, or entities that produced this memory.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub source_refs: Vec<String>,
-    /// Confidence score (0-100).
-    #[serde(default = "default_confidence")]
-    pub confidence: u8,
-    /// Memory this supersedes (for memory updates/corrections).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub supersedes: Option<String>,
-    /// When this memory becomes valid.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub valid_from: Option<DateTime<Utc>>,
-    /// When this memory expires.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub valid_until: Option<DateTime<Utc>>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-
-fn default_memory_layer() -> MemoryLayer {
-    MemoryLayer::Working
-}
-
-fn default_confidence() -> u8 {
-    100
-}
-
-/// Review decision.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct AgentMemoryReview {
-    pub memory_id: String,
-    pub reviewer: Did,
-    pub approved: bool,
-    pub comment: Option<String>,
-    pub reviewed_at: DateTime<Utc>,
-}
-
-/// Agent memory store.
-#[derive(Clone, Debug, Default)]
-pub struct AgentMemoryStore {
-    memories: BTreeMap<String, AgentMemory>,
-    reviews: BTreeMap<String, Vec<AgentMemoryReview>>,
-}
-
-impl AgentMemoryStore {
-    /// Create an empty memory store.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Store a draft memory.
-    pub fn add_memory(&mut self, agent_id: Did, content: Value, importance: u8) -> AgentMemory {
-        let now = Utc::now();
-        let memory = AgentMemory {
-            memory_id: format!("mem_{}", Ulid::new()),
-            agent_id,
-            content,
-            importance,
-            state: AgentMemoryState::Draft,
-            memory_layer: MemoryLayer::Working,
-            memory_kind: None,
-            subject_ref: None,
-            source_refs: Vec::new(),
-            confidence: 100,
-            supersedes: None,
-            valid_from: None,
-            valid_until: None,
-            created_at: now,
-            updated_at: now,
-        };
-        self.memories.insert(memory.memory_id.clone(), memory.clone());
-        memory
-    }
-
-    /// Submit a memory for review.
-    pub fn submit_for_review(&mut self, memory_id: &str) -> Result<()> {
-        let memory = self.memory_mut(memory_id)?;
-        memory.state = AgentMemoryState::InReview;
-        memory.updated_at = Utc::now();
-        Ok(())
-    }
-
-    /// Record a review and promote/reject memory.
-    pub fn review_memory(
-        &mut self,
-        memory_id: &str,
-        reviewer: Did,
-        approved: bool,
-        comment: Option<String>,
-    ) -> Result<AgentMemoryReview> {
-        let review = AgentMemoryReview {
-            memory_id: memory_id.to_owned(),
-            reviewer,
-            approved,
-            comment,
-            reviewed_at: Utc::now(),
-        };
-        let memory = self.memory_mut(memory_id)?;
-        memory.state =
-            if approved { AgentMemoryState::Promoted } else { AgentMemoryState::Rejected };
-        memory.updated_at = Utc::now();
-        self.reviews.entry(memory_id.to_owned()).or_default().push(review.clone());
-        Ok(review)
-    }
-
-    /// Promote a memory without review.
-    pub fn promote_memory(&mut self, memory_id: &str) -> Result<()> {
-        let memory = self.memory_mut(memory_id)?;
-        memory.state = AgentMemoryState::Promoted;
-        memory.updated_at = Utc::now();
-        Ok(())
-    }
-
-    /// Archive a memory that should no longer be active.
-    pub fn archive_memory(&mut self, memory_id: &str) -> Result<()> {
-        let memory = self.memory_mut(memory_id)?;
-        memory.state = AgentMemoryState::Archived;
-        memory.updated_at = Utc::now();
-        Ok(())
-    }
-
-    /// Mark a memory as expired.
-    pub fn expire_memory(&mut self, memory_id: &str) -> Result<()> {
-        let memory = self.memory_mut(memory_id)?;
-        memory.state = AgentMemoryState::Expired;
-        memory.updated_at = Utc::now();
-        Ok(())
-    }
-
-    /// Get promoted memories for an agent.
-    pub fn promoted_memories(&self, agent_id: &Did) -> Vec<&AgentMemory> {
-        self.memories
-            .values()
-            .filter(|memory| {
-                memory.agent_id == *agent_id && memory.state == AgentMemoryState::Promoted
-            })
-            .collect()
-    }
-
-    /// Get active promoted memories valid at a point in time.
-    pub fn active_memories(&self, agent_id: &Did, at: DateTime<Utc>) -> Vec<&AgentMemory> {
-        self.promoted_memories(agent_id)
-            .into_iter()
-            .filter(|memory| memory.valid_from.map(|valid_from| valid_from <= at).unwrap_or(true))
-            .filter(|memory| memory.valid_until.map(|valid_until| valid_until > at).unwrap_or(true))
-            .collect()
-    }
-
-    /// Get memories by memory layer.
-    pub fn memories_by_layer(&self, agent_id: &Did, layer: MemoryLayer) -> Vec<&AgentMemory> {
-        self.memories
-            .values()
-            .filter(|memory| memory.agent_id == *agent_id && memory.memory_layer == layer)
-            .collect()
-    }
-
-    fn memory_mut(&mut self, memory_id: &str) -> Result<&mut AgentMemory> {
-        self.memories
-            .get_mut(memory_id)
-            .ok_or_else(|| Error::Protocol("agent memory not found".to_owned()))
-    }
-
-    /// Build an `agent.memory.create` operation for a new memory.
-    pub fn create_memory_operation(
-        &self,
-        space_id: SpaceId,
-        agent_id: &Did,
-        content: &Value,
-        importance: u8,
-    ) -> Result<Operation> {
-        let operation_id = OperationId::new(format!("cx:operation:{}", uuid::Uuid::now_v7()))?;
-        let payload = serde_json::json!({
-            "agent_id": agent_id.as_str(),
-            "content": content,
-            "importance": importance,
-        });
-        Ok(Operation::create(operation_id, space_id, "agent.memory.create", payload))
-    }
-
-    /// Build an `agent.memory.promote` operation.
-    pub fn promote_memory_operation(
-        &self,
-        space_id: SpaceId,
-        memory_id: &str,
-    ) -> Result<Operation> {
-        let memory = self
-            .memories
-            .get(memory_id)
-            .ok_or_else(|| Error::Protocol("memory not found".to_owned()))?;
-        let operation_id = OperationId::new(format!("cx:operation:{}", uuid::Uuid::now_v7()))?;
-        let payload = serde_json::json!({
-            "memory_id": memory.memory_id,
-            "agent_id": memory.agent_id.as_str(),
-        });
-        Ok(Operation::create(operation_id, space_id, "agent.memory.promote", payload))
-    }
-}
+use crate::Did;
+#[cfg(test)]
+use crate::{Error, Result};
 
 /// Agent principal profile.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -333,11 +94,13 @@ pub struct AgentRun {
 }
 
 /// In-memory agent run lifecycle manager.
+#[cfg(test)]
 #[derive(Clone, Debug, Default)]
-pub struct AgentRunManager {
+pub(crate) struct AgentRunManager {
     runs: BTreeMap<String, AgentRun>,
 }
 
+#[cfg(test)]
 impl AgentRunManager {
     /// Create an empty run manager.
     pub fn new() -> Self {
@@ -397,46 +160,6 @@ impl AgentRunManager {
     pub fn kill_run(&mut self, run_id: &str, reason: impl Into<String>) -> Result<AgentRun> {
         self.transition(run_id, AgentRunState::Killed, None, Some(reason.into()))
     }
-
-    /// Get a run.
-    pub fn run(&self, run_id: &str) -> Option<&AgentRun> {
-        self.runs.get(run_id)
-    }
-
-    /// Build an `agent.run.create` operation for a new run.
-    pub fn create_run_operation(
-        &self,
-        space_id: SpaceId,
-        agent_id: &Did,
-        principal_id: &Did,
-        input: &Value,
-    ) -> Result<Operation> {
-        let operation_id = OperationId::new(format!("cx:operation:{}", uuid::Uuid::now_v7()))?;
-        let payload = serde_json::json!({
-            "agent_id": agent_id.as_str(),
-            "principal_id": principal_id.as_str(),
-            "input": input,
-        });
-        Ok(Operation::create(operation_id, space_id, "agent.run.create", payload))
-    }
-
-    /// Build an `agent.run.complete` operation for a finished run.
-    pub fn complete_run_operation(
-        &self,
-        space_id: SpaceId,
-        run_id: &str,
-        output: &Value,
-    ) -> Result<Operation> {
-        let run =
-            self.runs.get(run_id).ok_or_else(|| Error::Protocol("run not found".to_owned()))?;
-        let operation_id = OperationId::new(format!("cx:operation:{}", uuid::Uuid::now_v7()))?;
-        let payload = serde_json::json!({
-            "run_id": run.run_id,
-            "agent_id": run.agent_id.as_str(),
-            "output": output,
-        });
-        Ok(Operation::create(operation_id, space_id, "agent.run.complete", payload))
-    }
 }
 
 /// Tool audit action.
@@ -468,11 +191,13 @@ pub struct AgentToolAuditEntry {
 }
 
 /// In-memory tool audit log.
+#[cfg(test)]
 #[derive(Clone, Debug, Default)]
-pub struct AgentToolAuditLog {
+pub(crate) struct AgentToolAuditLog {
     entries: Vec<AgentToolAuditEntry>,
 }
 
+#[cfg(test)]
 impl AgentToolAuditLog {
     /// Create an empty audit log.
     pub fn new() -> Self {
@@ -561,12 +286,14 @@ pub struct AgentBridgeMetadata {
 }
 
 /// Protocol bridge and registry.
+#[cfg(test)]
 #[derive(Clone, Debug, Default)]
-pub struct AgentProtocolBridge {
+pub(crate) struct AgentProtocolBridge {
     external_agents: BTreeMap<Did, ExternalAgent>,
     bridge_metadata: BTreeMap<Did, AgentBridgeMetadata>,
 }
 
+#[cfg(test)]
 impl AgentProtocolBridge {
     /// Create an empty bridge.
     pub fn new() -> Self {
@@ -592,17 +319,6 @@ impl AgentProtocolBridge {
     pub fn bridge_metadata(&self, agent_id: &Did) -> Option<&AgentBridgeMetadata> {
         self.bridge_metadata.get(agent_id)
     }
-
-    /// Build an A2A message.
-    pub fn a2a_message(sender: Did, recipient: Did, payload: Value) -> AgentProtocolMessage {
-        AgentProtocolMessage {
-            protocol: AgentProtocol::A2a,
-            message_id: format!("a2a_{}", Ulid::new()),
-            sender,
-            recipient,
-            payload,
-        }
-    }
 }
 
 #[cfg(test)]
@@ -616,20 +332,6 @@ mod tests {
     }
 
     #[test]
-    fn agent_memory_stores_reviews_and_promotes() {
-        let agent = did("agent");
-        let mut store = AgentMemoryStore::new();
-        let memory = store.add_memory(agent.clone(), json!({"fact": "Contrix"}), 9);
-
-        store.submit_for_review(&memory.memory_id).unwrap();
-        store
-            .review_memory(&memory.memory_id, did("reviewer"), true, Some("ok".to_owned()))
-            .unwrap();
-
-        assert_eq!(store.promoted_memories(&agent).len(), 1);
-    }
-
-    #[test]
     fn agent_protocol_registers_external_agents() {
         let agent_id = did("external");
         let mut bridge = AgentProtocolBridge::new();
@@ -640,24 +342,6 @@ mod tests {
         });
 
         assert!(bridge.external_agent(&agent_id).is_some());
-    }
-
-    #[test]
-    fn agent_memory_lifecycle_filters_layers_and_validity() {
-        let agent = did("agent");
-        let mut store = AgentMemoryStore::new();
-        let memory = store.add_memory(agent.clone(), json!({"fact": "Contrix"}), 9);
-        store.promote_memory(&memory.memory_id).unwrap();
-
-        assert_eq!(store.active_memories(&agent, Utc::now()).len(), 1);
-        assert_eq!(store.memories_by_layer(&agent, MemoryLayer::Working).len(), 1);
-
-        store.archive_memory(&memory.memory_id).unwrap();
-        assert_eq!(store.promoted_memories(&agent).len(), 0);
-
-        let memory = store.add_memory(agent.clone(), json!({"old": true}), 1);
-        store.expire_memory(&memory.memory_id).unwrap();
-        assert_eq!(store.memories_by_layer(&agent, MemoryLayer::Working).len(), 2);
     }
 
     #[test]

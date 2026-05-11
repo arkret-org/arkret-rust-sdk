@@ -1,10 +1,6 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
-    sync::{
-        Arc,
-        atomic::{AtomicUsize, Ordering},
-    },
-    thread,
+    sync::Arc,
 };
 
 use contrix::{canonical, *};
@@ -101,29 +97,6 @@ fn error_boundary_and_concurrency_paths_are_covered() {
     let mut empty_cache: StoreCache<&str, i32> = StoreCache::new(0);
     empty_cache.insert("a", 1);
     assert!(empty_cache.is_empty());
-
-    let registry = EventHandlerRegistry::new();
-    let calls = Arc::new(AtomicUsize::new(0));
-    let calls_for_handler = calls.clone();
-    let _guard = registry.register("counter", move |_| {
-        calls_for_handler.fetch_add(1, Ordering::SeqCst);
-        Ok(())
-    });
-
-    let mut handles = Vec::new();
-    for _ in 0..4 {
-        let registry = registry.clone();
-        handles.push(thread::spawn(move || {
-            registry.process_event(&ClientEvent::Custom {
-                kind: "threaded".to_owned(),
-                payload: serde_json::Value::Null,
-            });
-        }));
-    }
-    for handle in handles {
-        handle.join().unwrap();
-    }
-    assert_eq!(calls.load(Ordering::SeqCst), 4);
 }
 
 #[test]

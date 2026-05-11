@@ -44,28 +44,15 @@ pub enum ResourceSelector {
     Space { space_id: String },
     /// Flow selector (flow_id)
     Flow { space_id: String, flow_id: Option<String> },
-    /// Board selector (entity_type = "board")
-    Board { space_id: String, board_id: Option<String> },
-    /// Collection selector (entity_type = "collection")
-    Collection { space_id: String, collection_id: Option<String> },
-    /// Entity selector
-    Entity { space_id: String, entity_type: Option<String>, entity_id: Option<String> },
-    /// Comment selector
-    Comment { space_id: String, comment_id: Option<String> },
-    /// Channel selector (entity_type = "channel")
-    Channel { space_id: String, channel_id: Option<String> },
-    /// Topic selector (entity_type = "topic")
-    Topic { space_id: String, topic_id: Option<String> },
+    /// Object selector. Canonical replacement for legacy board / collection /
+    /// entity / channel / topic / comment / run / memory selector kinds.
+    Object { space_id: String, object_type: Option<String>, object_ref: Option<String> },
     /// Message selector (entity_type = "message")
     Message { space_id: String, message_id: Option<String> },
     /// Relation selector
     Relation { space_id: String, relation_kind: String },
     /// View selector
     View { space_id: String, view_id: Option<String> },
-    /// Run selector (entity_type = "run")
-    Run { space_id: String, run_id: Option<String> },
-    /// Memory selector (entity_type = "memory")
-    Memory { space_id: String, memory_id: Option<String> },
     /// Schema selector
     Schema { space_id: String, schema_id: Option<String> },
     /// Policy selector
@@ -110,9 +97,18 @@ impl ResourceSelector {
             }
             (Self::Flow { .. }, _) => false,
 
-            // Board selector — matches entities with entity_type="board"
+            // Object selector
             (
-                Self::Board { space_id, board_id },
+                Self::Object { space_id, object_type, object_ref },
+                Resource::Flow { space_id: target_space, flow_id: target_id },
+            ) => {
+                let space_match = space_id == target_space || space_id == "*";
+                let type_match = object_type.as_ref().is_none_or(|t| t == "flow");
+                let ref_match = object_ref.as_ref().is_none_or(|id| id == target_id);
+                space_match && type_match && ref_match
+            }
+            (
+                Self::Object { space_id, object_type, object_ref },
                 Resource::Entity {
                     space_id: target_space,
                     entity_type: target_type,
@@ -120,91 +116,24 @@ impl ResourceSelector {
                 },
             ) => {
                 let space_match = space_id == target_space || space_id == "*";
-                space_match
-                    && target_type == "board"
-                    && board_id.as_ref().is_none_or(|id| id == target_id)
+                let type_match = object_type.as_ref().is_none_or(|t| t == target_type);
+                let ref_match = object_ref.as_ref().is_none_or(|id| id == target_id);
+                space_match && type_match && ref_match
             }
-            (Self::Board { .. }, _) => false,
-
-            // Collection selector — matches entities with entity_type="collection"
             (
-                Self::Collection { space_id, collection_id },
-                Resource::Entity {
+                Self::Object { space_id, object_type, object_ref },
+                Resource::Morph {
                     space_id: target_space,
-                    entity_type: target_type,
-                    entity_id: target_id,
+                    morph_id: target_id,
+                    morph_type: target_type,
                 },
             ) => {
                 let space_match = space_id == target_space || space_id == "*";
-                space_match
-                    && target_type == "collection"
-                    && collection_id.as_ref().is_none_or(|id| id == target_id)
+                let type_match = object_type.as_ref().is_none_or(|t| t == target_type);
+                let ref_match = object_ref.as_ref().is_none_or(|id| id == target_id);
+                space_match && type_match && ref_match
             }
-            (Self::Collection { .. }, _) => false,
-
-            // Entity selector
-            (
-                Self::Entity { space_id, entity_type, entity_id },
-                Resource::Entity {
-                    space_id: target_space,
-                    entity_type: target_type,
-                    entity_id: target_id,
-                },
-            ) => {
-                let space_match = space_id == target_space || space_id == "*";
-                let type_match = entity_type.as_ref().is_none_or(|t| t == target_type);
-                let id_match = entity_id.as_ref().is_none_or(|id| id == target_id);
-                space_match && type_match && id_match
-            }
-            (Self::Entity { .. }, _) => false,
-
-            // Comment selector — matches entities with entity_type="comment"
-            (
-                Self::Comment { space_id, comment_id },
-                Resource::Entity {
-                    space_id: target_space,
-                    entity_type: target_type,
-                    entity_id: target_id,
-                },
-            ) => {
-                let space_match = space_id == target_space || space_id == "*";
-                space_match
-                    && target_type == "comment"
-                    && comment_id.as_ref().is_none_or(|id| id == target_id)
-            }
-            (Self::Comment { .. }, _) => false,
-
-            // Channel selector — matches entities with entity_type="channel"
-            (
-                Self::Channel { space_id, channel_id },
-                Resource::Entity {
-                    space_id: target_space,
-                    entity_type: target_type,
-                    entity_id: target_id,
-                },
-            ) => {
-                let space_match = space_id == target_space || space_id == "*";
-                space_match
-                    && target_type == "channel"
-                    && channel_id.as_ref().is_none_or(|id| id == target_id)
-            }
-            (Self::Channel { .. }, _) => false,
-
-            // Topic selector — matches entities with entity_type="topic"
-            (
-                Self::Topic { space_id, topic_id },
-                Resource::Entity {
-                    space_id: target_space,
-                    entity_type: target_type,
-                    entity_id: target_id,
-                },
-            ) => {
-                let space_match = space_id == target_space || space_id == "*";
-                space_match
-                    && target_type == "topic"
-                    && topic_id.as_ref().is_none_or(|id| id == target_id)
-            }
-            (Self::Topic { .. }, _) => false,
+            (Self::Object { .. }, _) => false,
 
             // Message selector — matches entities with entity_type="message"
             (
@@ -242,38 +171,6 @@ impl ResourceSelector {
                 space_match && id_match
             }
             (Self::View { .. }, _) => false,
-
-            // Run selector — matches entities with entity_type="run"
-            (
-                Self::Run { space_id, run_id },
-                Resource::Entity {
-                    space_id: target_space,
-                    entity_type: target_type,
-                    entity_id: target_id,
-                },
-            ) => {
-                let space_match = space_id == target_space || space_id == "*";
-                space_match
-                    && target_type == "run"
-                    && run_id.as_ref().is_none_or(|id| id == target_id)
-            }
-            (Self::Run { .. }, _) => false,
-
-            // Memory selector — matches entities with entity_type="memory"
-            (
-                Self::Memory { space_id, memory_id },
-                Resource::Entity {
-                    space_id: target_space,
-                    entity_type: target_type,
-                    entity_id: target_id,
-                },
-            ) => {
-                let space_match = space_id == target_space || space_id == "*";
-                space_match
-                    && target_type == "memory"
-                    && memory_id.as_ref().is_none_or(|id| id == target_id)
-            }
-            (Self::Memory { .. }, _) => false,
 
             // Schema selector
             (
@@ -380,7 +277,7 @@ impl ResourceSelector {
     ///
     /// Supports formats like:
     /// - "space:cx:space:..."
-    /// - "entity:cx:space:...:task"
+    /// - "object:cx:space:...:task"
     /// - "relation:cx:space:...:assigned_to"
     pub fn parse(selector: &str) -> Result<Self> {
         // Split on the first colon to get the type
@@ -399,52 +296,17 @@ impl ResourceSelector {
                 let (space_id, flow_id) = split_space_tail(remainder, selector)?;
                 Ok(Self::Flow { space_id, flow_id })
             }
-            "board" => {
-                let (space_id, board_id) = split_space_tail(remainder, selector)?;
-                Ok(Self::Board { space_id, board_id })
-            }
-            "collection" => {
-                let (space_id, collection_id) = split_space_tail(remainder, selector)?;
-                Ok(Self::Collection { space_id, collection_id })
-            }
-            "entity" => {
-                // Format: entity:cx:space:ULID:entity_type[:entity_id] OR entity:cx:space:ULID:*
-                // The space_id is cx:space:ULID (including the ULID part)
-                let entity_parts: Vec<&str> = remainder.split(':').collect();
-                if entity_parts.len() < 3 {
-                    return Err(Error::Protocol(format!("invalid entity selector: {}", selector)));
-                }
-
-                // Reconstruct space_id as "cx:space:01904100-0000-7000-8000-b9c3db021a99"
-                let space_id =
-                    format!("{}:{}:{}", entity_parts[0], entity_parts[1], entity_parts[2]);
-
-                // entity_type comes after the space ULID
-                let entity_type = if entity_parts.len() > 3 && entity_parts[3] != "*" {
-                    Some(entity_parts[3].to_owned())
-                } else {
-                    None
+            "object" => {
+                let (space_id, tail) = split_space_tail(remainder, selector)?;
+                let (object_type, object_ref) = match tail {
+                    None => (None, None),
+                    Some(tail) if tail == "*" => (None, None),
+                    Some(tail) if tail.starts_with("cx:") || tail.starts_with("did:") => {
+                        (None, Some(tail))
+                    }
+                    Some(tail) => (Some(tail), None),
                 };
-
-                let entity_id = if entity_parts.len() > 4 && !entity_parts[4].is_empty() {
-                    Some(entity_parts[4].to_owned())
-                } else {
-                    None
-                };
-
-                Ok(Self::Entity { space_id, entity_type, entity_id })
-            }
-            "comment" => {
-                let (space_id, comment_id) = split_space_tail(remainder, selector)?;
-                Ok(Self::Comment { space_id, comment_id })
-            }
-            "channel" => {
-                let (space_id, channel_id) = split_space_tail(remainder, selector)?;
-                Ok(Self::Channel { space_id, channel_id })
-            }
-            "topic" => {
-                let (space_id, topic_id) = split_space_tail(remainder, selector)?;
-                Ok(Self::Topic { space_id, topic_id })
+                Ok(Self::Object { space_id, object_type, object_ref })
             }
             "message" => {
                 let (space_id, message_id) = split_space_tail(remainder, selector)?;
@@ -463,14 +325,6 @@ impl ResourceSelector {
             "view" => {
                 let (space_id, view_id) = split_space_tail(remainder, selector)?;
                 Ok(Self::View { space_id, view_id })
-            }
-            "run" => {
-                let (space_id, run_id) = split_space_tail(remainder, selector)?;
-                Ok(Self::Run { space_id, run_id })
-            }
-            "memory" => {
-                let (space_id, memory_id) = split_space_tail(remainder, selector)?;
-                Ok(Self::Memory { space_id, memory_id })
             }
             "schema" => {
                 let (space_id, schema_id) = split_space_tail(remainder, selector)?;
@@ -536,10 +390,6 @@ pub struct ProtocolResourceSelector {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub flow_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub board_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub list_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub message_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub morph_id: Option<String>,
@@ -577,8 +427,6 @@ impl ProtocolResourceSelector {
                 object_type: None,
                 object_ref: None,
                 flow_id: None,
-                board_id: None,
-                list_id: None,
                 message_id: None,
                 morph_id: None,
                 morph_type: None,
@@ -599,8 +447,26 @@ impl ProtocolResourceSelector {
                 flow_id: flow_id.clone(),
                 object_type: None,
                 object_ref: None,
-                board_id: None,
-                list_id: None,
+                message_id: None,
+                morph_id: None,
+                morph_type: None,
+                relation_kind: None,
+                relation_id: None,
+                view_id: None,
+                event_id: None,
+                actor_id: None,
+                schema_ref: None,
+                policy_id: None,
+                invite_id: None,
+                blob_ref: None,
+                scope: None,
+            },
+            ResourceSelector::Object { space_id, object_type, object_ref } => Self {
+                kind: ProtocolResourceSelectorKind::Object,
+                space_id: Some(space_id.clone()),
+                object_type: object_type.clone(),
+                object_ref: object_ref.clone(),
+                flow_id: None,
                 message_id: None,
                 morph_id: None,
                 morph_type: None,
@@ -622,8 +488,6 @@ impl ProtocolResourceSelector {
                 object_type: None,
                 object_ref: None,
                 flow_id: None,
-                board_id: None,
-                list_id: None,
                 morph_id: None,
                 morph_type: None,
                 relation_kind: None,
@@ -644,8 +508,6 @@ impl ProtocolResourceSelector {
                 object_type: None,
                 object_ref: None,
                 flow_id: None,
-                board_id: None,
-                list_id: None,
                 message_id: None,
                 morph_id: None,
                 morph_type: None,
@@ -666,8 +528,6 @@ impl ProtocolResourceSelector {
                 object_type: None,
                 object_ref: None,
                 flow_id: None,
-                board_id: None,
-                list_id: None,
                 message_id: None,
                 morph_id: None,
                 morph_type: None,
@@ -688,8 +548,6 @@ impl ProtocolResourceSelector {
                 object_type: None,
                 object_ref: None,
                 flow_id: None,
-                board_id: None,
-                list_id: None,
                 message_id: None,
                 morph_id: None,
                 morph_type: None,
@@ -710,8 +568,6 @@ impl ProtocolResourceSelector {
                 object_type: None,
                 object_ref: None,
                 flow_id: None,
-                board_id: None,
-                list_id: None,
                 message_id: None,
                 morph_id: None,
                 morph_type: None,
@@ -732,8 +588,6 @@ impl ProtocolResourceSelector {
                 object_type: None,
                 object_ref: None,
                 flow_id: None,
-                board_id: None,
-                list_id: None,
                 message_id: None,
                 morph_id: None,
                 morph_type: None,
@@ -753,8 +607,6 @@ impl ProtocolResourceSelector {
                 object_type: None,
                 object_ref: None,
                 flow_id: None,
-                board_id: None,
-                list_id: None,
                 message_id: None,
                 morph_id: None,
                 morph_type: None,
@@ -775,8 +627,6 @@ impl ProtocolResourceSelector {
                 object_type: None,
                 object_ref: None,
                 flow_id: None,
-                board_id: None,
-                list_id: None,
                 message_id: None,
                 morph_id: None,
                 morph_type: None,
@@ -805,8 +655,6 @@ impl ProtocolResourceSelector {
                 object_type: None,
                 object_ref: None,
                 flow_id: None,
-                board_id: None,
-                list_id: None,
                 message_id: None,
                 morph_id: None,
                 morph_type: None,
@@ -827,8 +675,6 @@ impl ProtocolResourceSelector {
                 object_type: None,
                 object_ref: None,
                 flow_id: None,
-                board_id: None,
-                list_id: None,
                 message_id: None,
                 morph_id: None,
                 morph_type: None,
@@ -849,8 +695,6 @@ impl ProtocolResourceSelector {
                 object_type: Some("device_verification".to_owned()),
                 object_ref: Some("cx:notify:01JS0NT000000000000000000".to_owned()),
                 flow_id: Some("cx:flow:01904100-0000-7000-8000-a1fffe3a8cc9".to_owned()),
-                board_id: None,
-                list_id: None,
                 message_id: None,
                 morph_id: None,
                 morph_type: None,
@@ -871,8 +715,6 @@ impl ProtocolResourceSelector {
                 object_type: Some("encrypted_backup".to_owned()),
                 object_ref: Some("backup-scaffold-current-device".to_owned()),
                 flow_id: None,
-                board_id: None,
-                list_id: None,
                 message_id: None,
                 morph_id: None,
                 morph_type: None,
@@ -1206,7 +1048,8 @@ pub enum Resource {
     Space { space_id: String },
     /// Flow resource
     Flow { space_id: String, flow_id: String },
-    /// Entity resource (covers board, collection, task, message, topic, channel, document, file, memory, run, etc.)
+    /// Entity resource (current reducer target for task, message, document, file
+    /// and other typed object payloads).
     Entity { space_id: String, entity_type: String, entity_id: String },
     /// Relation resource
     Relation { space_id: String, relation_kind: String },
@@ -1334,10 +1177,6 @@ pub enum Constraint {
         encryption_required: bool,
         #[serde(skip_serializing_if = "Option::is_none")]
         min_encryption_level: Option<String>,
-        #[serde(default, skip_serializing_if = "Vec::is_empty")]
-        memory_kind_allow: Vec<String>,
-        #[serde(default, skip_serializing_if = "Vec::is_empty")]
-        memory_kind_deny: Vec<String>,
     },
     /// Visibility control constraint (`confidentiality{subtype=visibility}`).
     /// See `constraint-schema.md` §13.
@@ -2802,20 +2641,7 @@ impl AuthzEngine {
                     AuthzDecision::Allow
                 }
             }
-            Constraint::EncryptionRequirement {
-                encryption_required,
-                min_encryption_level,
-                memory_kind_allow,
-                memory_kind_deny,
-            } => {
-                if let Resource::Entity { entity_type, .. } = &ctx.resource
-                    && entity_type == "memory"
-                {
-                    if memory_kind_deny.iter().any(|kind| kind == "*") {
-                        return AuthzDecision::Deny { reason: "memory kind denied".to_owned() };
-                    }
-                    let _ = memory_kind_allow;
-                }
+            Constraint::EncryptionRequirement { encryption_required, min_encryption_level } => {
                 if *encryption_required {
                     let level = min_encryption_level.as_deref().unwrap_or("mls_rfc9420");
                     match ctx.encryption_level.as_deref() {
@@ -3362,16 +3188,16 @@ fn resource_is_narrowed(child: &ResourceSelector, parent: &ResourceSelector) -> 
                 && option_narrowed(flow_id.as_ref(), parent_id.as_ref())
         }
         (
-            ResourceSelector::Entity { space_id, entity_type, entity_id },
-            ResourceSelector::Entity {
+            ResourceSelector::Object { space_id, object_type, object_ref },
+            ResourceSelector::Object {
                 space_id: parent_space,
-                entity_type: parent_type,
-                entity_id: parent_id,
+                object_type: parent_type,
+                object_ref: parent_id,
             },
         ) => {
             space_narrowed(space_id, parent_space)
-                && option_narrowed(entity_type.as_ref(), parent_type.as_ref())
-                && option_narrowed(entity_id.as_ref(), parent_id.as_ref())
+                && option_narrowed(object_type.as_ref(), parent_type.as_ref())
+                && option_narrowed(object_ref.as_ref(), parent_id.as_ref())
         }
         (
             ResourceSelector::Message { space_id, message_id },
@@ -3606,16 +3432,16 @@ mod tests {
     }
 
     #[test]
-    fn resource_selector_parse_entity() {
+    fn resource_selector_parse_object() {
         let selector =
-            ResourceSelector::parse("entity:cx:space:01904100-0000-7000-8000-b721a5c84b0d:task")
+            ResourceSelector::parse("object:cx:space:01904100-0000-7000-8000-b721a5c84b0d:task")
                 .unwrap();
         assert_eq!(
             selector,
-            ResourceSelector::Entity {
+            ResourceSelector::Object {
                 space_id: "cx:space:01904100-0000-7000-8000-b721a5c84b0d".to_owned(),
-                entity_type: Some("task".to_owned()),
-                entity_id: None,
+                object_type: Some("task".to_owned()),
+                object_ref: None,
             }
         );
     }
@@ -3692,11 +3518,11 @@ mod tests {
     }
 
     #[test]
-    fn entity_selector_matches_entity() {
-        let selector = ResourceSelector::Entity {
+    fn object_selector_matches_entity() {
+        let selector = ResourceSelector::Object {
             space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-            entity_type: Some("task".to_owned()),
-            entity_id: None,
+            object_type: Some("task".to_owned()),
+            object_ref: None,
         };
         assert!(selector.matches(&Resource::Entity {
             space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
@@ -3753,10 +3579,10 @@ mod tests {
         .with_entity_facets([EntityFacet::Stateful, EntityFacet::Rankable]);
         let mut grant = grant_for(
             "write",
-            ResourceSelector::Entity {
+            ResourceSelector::Object {
                 space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-                entity_type: Some("task".to_owned()),
-                entity_id: None,
+                object_type: Some("task".to_owned()),
+                object_ref: None,
             },
         );
         grant.constraints = vec![ConstraintEntry::new(Constraint::TypeRestriction {
@@ -3855,7 +3681,7 @@ mod tests {
                 "capability_id": "cap-message-send",
                 "subject": "did:web:alice.example.com",
                 "actions": ["message.send"],
-                "resources": ["entity:cx:space:01904100-0000-7000-8000-9b64700c6ee8:message"]
+                "resources": ["object:cx:space:01904100-0000-7000-8000-9b64700c6ee8:message"]
             }),
         );
         state.apply_events(&[grant]).unwrap();
@@ -3889,7 +3715,7 @@ mod tests {
                 "capability_id": "cap-message-send",
                 "subject": "did:web:alice.example.com",
                 "actions": ["message.send"],
-                "resources": ["entity:cx:space:01904100-0000-7000-8000-9b64700c6ee8:message"]
+                "resources": ["object:cx:space:01904100-0000-7000-8000-9b64700c6ee8:message"]
             }),
         );
         let revoke = capability_event(
@@ -3931,7 +3757,7 @@ mod tests {
                 "parent_grant_id": "cap-root",
                 "subject": "did:web:alice.example.com",
                 "actions": ["message.send"],
-                "resources": ["entity:cx:space:01904100-0000-7000-8000-9b64700c6ee8:message"]
+                "resources": ["object:cx:space:01904100-0000-7000-8000-9b64700c6ee8:message"]
             }),
         );
         state.apply_events(std::slice::from_ref(&delegate)).unwrap();
@@ -4020,10 +3846,10 @@ mod tests {
         );
         let grant = grant_for(
             "post",
-            ResourceSelector::Entity {
+            ResourceSelector::Object {
                 space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-                entity_type: Some("message".to_owned()),
-                entity_id: None,
+                object_type: Some("message".to_owned()),
+                object_ref: None,
             },
         );
         let policy = PolicyCheckResponse {
@@ -4332,10 +4158,10 @@ mod tests {
 
         let mut grant = grant_for(
             "update",
-            ResourceSelector::Entity {
+            ResourceSelector::Object {
                 space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-                entity_type: Some("task".to_owned()),
-                entity_id: None,
+                object_type: Some("task".to_owned()),
+                object_ref: None,
             },
         );
         grant.constraints = vec![ConstraintEntry::new(Constraint::FieldAccess {
@@ -4379,10 +4205,10 @@ mod tests {
         });
         let mut grant = grant_for(
             "send",
-            ResourceSelector::Entity {
+            ResourceSelector::Object {
                 space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-                entity_type: Some("message".to_owned()),
-                entity_id: None,
+                object_type: Some("message".to_owned()),
+                object_ref: None,
             },
         );
         grant.constraints = vec![
@@ -4414,8 +4240,6 @@ mod tests {
             ConstraintEntry::new(Constraint::EncryptionRequirement {
                 encryption_required: true,
                 min_encryption_level: Some("mls_rfc9420".to_owned()),
-                memory_kind_allow: Vec::new(),
-                memory_kind_deny: Vec::new(),
             }),
         ];
 
@@ -4450,10 +4274,10 @@ mod tests {
         .with_verified_claim(base_claim.clone());
         let mut grant = grant_for(
             "send",
-            ResourceSelector::Entity {
+            ResourceSelector::Object {
                 space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-                entity_type: Some("message".to_owned()),
-                entity_id: None,
+                object_type: Some("message".to_owned()),
+                object_ref: None,
             },
         );
         grant.constraints = vec![ConstraintEntry::new(Constraint::ClaimBased {
@@ -4502,17 +4326,15 @@ mod tests {
         );
         let mut grant = grant_for(
             "send",
-            ResourceSelector::Entity {
+            ResourceSelector::Object {
                 space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-                entity_type: Some("message".to_owned()),
-                entity_id: None,
+                object_type: Some("message".to_owned()),
+                object_ref: None,
             },
         );
         grant.constraints = vec![ConstraintEntry::new(Constraint::EncryptionRequirement {
             encryption_required: true,
             min_encryption_level: Some("mls_rfc9420".to_owned()),
-            memory_kind_allow: Vec::new(),
-            memory_kind_deny: Vec::new(),
         })];
 
         assert!(!engine.check_authorization(&ctx, &[grant]).is_allowed());
@@ -4527,10 +4349,10 @@ mod tests {
 
         let mut grant = grant_for(
             "send",
-            ResourceSelector::Entity {
+            ResourceSelector::Object {
                 space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-                entity_type: Some("message".to_owned()),
-                entity_id: None,
+                object_type: Some("message".to_owned()),
+                object_ref: None,
             },
         );
         grant.constraints = vec![ConstraintEntry::new(Constraint::ApprovalWorkflow {
@@ -4574,10 +4396,10 @@ mod tests {
 
         let grant = grant_for(
             "send",
-            ResourceSelector::Entity {
+            ResourceSelector::Object {
                 space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-                entity_type: Some("message".to_owned()),
-                entity_id: None,
+                object_type: Some("message".to_owned()),
+                object_ref: None,
             },
         );
 
@@ -4620,10 +4442,10 @@ mod tests {
 
         let mut grant = grant_for(
             "send",
-            ResourceSelector::Entity {
+            ResourceSelector::Object {
                 space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-                entity_type: Some("message".to_owned()),
-                entity_id: None,
+                object_type: Some("message".to_owned()),
+                object_ref: None,
             },
         );
         grant.constraints = vec![ConstraintEntry::new(Constraint::ApprovalWorkflow {

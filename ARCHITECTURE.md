@@ -16,9 +16,9 @@ contrix (umbrella SDK)
     |-- membership/devices/receipts/notifications: client business state
     |-- content/media/profile/settings/search/discovery: feature helpers
     |-- auth/identity/e2ee/federation/push: production protocol services
-    |-- typing/webrtc/event_handler: realtime client features
+    |-- typing/webrtc: realtime client features
     |-- mls: OpenMLS-backed group encryption and epoch handling
-    `-- store: local Repo persistence traits and in-memory implementation
+    `-- store: local persistence traits and in-memory implementation
 ```
 
 ## Protocol Model
@@ -82,9 +82,11 @@ implementation mistakes.
 
 ## Store Layer
 
-`crates/sdk/src/store.rs` defines local Repo storage behavior. Stores
-must be idempotent for repeated identical Operations or Commits and must report
-conflicts when an existing identifier is reused with a different digest.
+`crates/sdk/src/store.rs` defines local persistence behavior for state
+snapshots, event cache, account/session data, blob metadata, audit logs and
+federation replay records. Stores must be idempotent for repeated identical
+events or sessions and must report conflicts when an existing identifier is
+reused with a different digest.
 
 Persistent stores should implement the same trait contract as the in-memory
 store before they are exposed publicly.

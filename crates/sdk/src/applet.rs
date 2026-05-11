@@ -8,12 +8,11 @@ use serde_json::Value;
 use ulid::Ulid;
 
 use crate::{
-    Did, Error, Event, Result, SpaceId, canonical,
-    model::{
-        AppletActorResponse, AppletSpaceResponse, AppletTransactionRequest,
-        AppletTransactionResponse,
-    },
+    Did, Error, Event, Result, SpaceId,
+    model::{AppletActorResponse, AppletSpaceResponse, AppletTransactionRequest},
 };
+#[cfg(test)]
+use crate::{canonical, model::AppletTransactionResponse};
 
 /// Applet permission.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -155,12 +154,14 @@ impl SignedAppletRegistration {
 
 /// Applet registry.
 #[derive(Clone, Debug, Default)]
-pub struct AppletRegistry {
+#[cfg(test)]
+pub(crate) struct AppletRegistry {
     applets: BTreeMap<String, AppletSchema>,
     signed_registrations: BTreeMap<String, SignedAppletRegistration>,
     namespaces: Vec<(String, AppletNamespaceDeclaration)>,
 }
 
+#[cfg(test)]
 impl AppletRegistry {
     /// Create an empty registry.
     pub fn new() -> Self {
@@ -203,11 +204,6 @@ impl AppletRegistry {
         Ok(())
     }
 
-    /// Get a signed registration.
-    pub fn signed_registration(&self, registration_id: &str) -> Option<&SignedAppletRegistration> {
-        self.signed_registrations.get(registration_id)
-    }
-
     /// Find namespace conflicts for a proposed registration.
     pub fn namespace_conflicts(
         &self,
@@ -235,7 +231,8 @@ impl AppletRegistry {
 
 /// Applet endpoint registration model.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct AppletEndpointRegistration {
+#[cfg(test)]
+pub(crate) struct AppletEndpointRegistration {
     pub registration_id: String,
     pub service_did: Did,
     #[serde(alias = "sender_localpart")]
@@ -250,6 +247,7 @@ pub struct AppletEndpointRegistration {
     pub rate_limited: bool,
 }
 
+#[cfg(test)]
 impl AppletEndpointRegistration {
     /// Create a registration with a generated id.
     pub fn new(service_did: Did, bot_localpart: impl Into<String>) -> Self {
@@ -275,7 +273,8 @@ impl AppletEndpointRegistration {
 
 /// Framework-neutral applet endpoint route declaration.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct AppletEndpointRoute {
+#[cfg(test)]
+pub(crate) struct AppletEndpointRoute {
     pub method: String,
     pub path: String,
     pub description: String,
@@ -283,10 +282,12 @@ pub struct AppletEndpointRoute {
 
 /// Route set expected from applet service framework adapters.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct AppletEndpointRouteSet {
+#[cfg(test)]
+pub(crate) struct AppletEndpointRouteSet {
     pub routes: Vec<AppletEndpointRoute>,
 }
 
+#[cfg(test)]
 impl AppletEndpointRouteSet {
     /// Standard applet service routes from the Contrix service binding.
     pub fn contrix_default() -> Self {
@@ -347,17 +348,20 @@ pub struct AppletServiceTransaction {
 
 /// Result of recording an idempotent transaction.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum AppletServiceTransactionRecord {
+#[cfg(test)]
+pub(crate) enum AppletServiceTransactionRecord {
     New(AppletTransactionResponse),
     Duplicate(AppletTransactionResponse),
 }
 
 /// In-memory idempotent applet service transaction store.
 #[derive(Clone, Debug, Default)]
-pub struct AppletServiceTransactionStore {
+#[cfg(test)]
+pub(crate) struct AppletServiceTransactionStore {
     transactions: BTreeMap<String, (String, AppletTransactionResponse)>,
 }
 
+#[cfg(test)]
 impl AppletServiceTransactionStore {
     /// Create an empty transaction store.
     pub fn new() -> Self {
@@ -480,11 +484,13 @@ pub struct RemoteSpaceMapping {
 
 /// In-memory bridge mapping storage.
 #[derive(Clone, Debug, Default)]
-pub struct BridgeMappingStore {
+#[cfg(test)]
+pub(crate) struct BridgeMappingStore {
     users: BTreeMap<String, RemoteUserMapping>,
     spaces: BTreeMap<String, RemoteSpaceMapping>,
 }
 
+#[cfg(test)]
 impl BridgeMappingStore {
     /// Create an empty mapping store.
     pub fn new() -> Self {
@@ -550,10 +556,12 @@ pub struct AppletPortal {
 
 /// Applet portal manager.
 #[derive(Clone, Debug, Default)]
-pub struct AppletPortalManager {
+#[cfg(test)]
+pub(crate) struct AppletPortalManager {
     portals: BTreeMap<String, AppletPortal>,
 }
 
+#[cfg(test)]
 impl AppletPortalManager {
     /// Create an empty manager.
     pub fn new() -> Self {
@@ -618,6 +626,7 @@ fn namespace_patterns_overlap(left: &str, right: &str) -> bool {
     left_prefix.starts_with(right_prefix) || right_prefix.starts_with(left_prefix)
 }
 
+#[cfg(test)]
 fn remote_key(protocol: &str, remote_id: &str) -> String {
     format!("{protocol}:{remote_id}")
 }

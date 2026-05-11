@@ -44,12 +44,6 @@ cargo test
 Use `BaseClient` for local session and space state, then enable the `client`
 feature when the application is ready to call a Contrix service over HTTP.
 
-### Build A Bot
-
-Register typed handlers with `EventHandlerRegistry`, filter incoming
-`ClientEvent` values and send replies through the host application's transport
-or high-level client facade.
-
 ### Run Sync With Durable Storage
 
 Persist sync positions, cached events and verified state snapshots through the
