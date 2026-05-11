@@ -19,14 +19,14 @@
 
 use std::collections::BTreeMap;
 
-use contrix_core::{
+use crate::{
     BottomKind, CellRef, LatticeOp, Move, MoveId, Predicate, PredicateOp, canonical,
+    lattice::CellState,
 };
-use contrix_lattice::CellState;
 use serde_json::Value;
 use thiserror::Error;
 
-use crate::store::{BottomMode, CellRegistry, StoreError};
+use super::store::{BottomMode, CellRegistry, StoreError};
 
 #[derive(Debug, Error)]
 pub enum MoveReject {
@@ -58,7 +58,7 @@ impl From<StoreError> for MoveReject {
 /// Map a [`MoveReject`] variant to its wire-level `error_code` constant
 /// (from `contrix-spec` `error-code-registry.json`).
 pub fn reject_to_error_code(r: &MoveReject) -> &'static str {
-    use contrix_core as cx;
+    use crate as cx;
     match r {
         MoveReject::SchemaViolation(_) => cx::ERROR_CODE_SCHEMA_VIOLATION,
         MoveReject::InvalidSignature(_) => cx::ERROR_CODE_INVALID_SIGNATURE,
@@ -247,13 +247,13 @@ pub type MoveRejectMap = BTreeMap<MoveId, MoveReject>;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use contrix_core::{
+    use crate::{
         CellRef, Effect, LatticeOp, LatticeOpType, Precondition, PredicateOp, SpaceId,
+        lattice::CellState,
     };
-    use contrix_lattice::CellState;
     use serde_json::json;
 
-    use crate::store::memory::MemoryCellRegistry;
+    use crate::state::store::memory::MemoryCellRegistry;
 
     fn space() -> SpaceId {
         SpaceId::new("cx:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
@@ -389,7 +389,7 @@ mod tests {
 
     #[test]
     fn bottom_reject_cell_fails_closed() {
-        let bottom = contrix_core::Bottom::new(BottomKind::Conflict, vec![cell_member()]);
+        let bottom = crate::Bottom::new(BottomKind::Conflict, vec![cell_member()]);
         let mut pre_state = BTreeMap::new();
         pre_state.insert(cell_member(), CellState::Bottom(bottom));
 
@@ -446,25 +446,25 @@ mod tests {
         // by going through serde_json::from_value with a hand-built Move.id).
         // Easier: just test reject_to_error_code mapping.
         let r = MoveReject::CapabilityDenied("test".into());
-        assert_eq!(reject_to_error_code(&r), contrix_core::ERROR_CODE_CAPABILITY_DENIED);
+        assert_eq!(reject_to_error_code(&r), crate::ERROR_CODE_CAPABILITY_DENIED);
     }
 
     #[test]
     fn reject_to_error_code_full_mapping() {
         assert_eq!(
             reject_to_error_code(&MoveReject::SchemaViolation("x".into())),
-            contrix_core::ERROR_CODE_SCHEMA_VIOLATION
+            crate::ERROR_CODE_SCHEMA_VIOLATION
         );
         assert_eq!(
             reject_to_error_code(&MoveReject::InvalidSignature("x".into())),
-            contrix_core::ERROR_CODE_INVALID_SIGNATURE
+            crate::ERROR_CODE_INVALID_SIGNATURE
         );
         assert_eq!(
             reject_to_error_code(&MoveReject::FailedPrecondition {
                 cell: "x".into(),
                 reason: "y".into()
             }),
-            contrix_core::ERROR_CODE_STATE_MISMATCH
+            crate::ERROR_CODE_STATE_MISMATCH
         );
         assert_eq!(
             reject_to_error_code(&MoveReject::FailedBottom {
@@ -475,7 +475,7 @@ mod tests {
         );
         assert_eq!(
             reject_to_error_code(&MoveReject::Registry("x".into())),
-            contrix_core::ERROR_CODE_INTERNAL_ERROR
+            crate::ERROR_CODE_INTERNAL_ERROR
         );
     }
 }

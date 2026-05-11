@@ -25,4 +25,4 @@ cover comparable capability classes while keeping Contrix wire shapes native.
 
 - Matrix room-version auth rules are not copied; Contrix uses capability and policy reducer state.
 - Matrix event types are not first-class Contrix types.
-- Durable SQLite / IndexedDB production adapters should implement `RepoStore` and keep the current verification behavior.
+- Durable production adapters should implement the event-cache, snapshot and crypto-store boundaries without weakening the current verification behavior.

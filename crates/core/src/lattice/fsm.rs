@@ -15,10 +15,10 @@
 //!
 //! `from` / `to` values are JSON; equality is by JSON canonical form.
 
-use contrix_core::{Bottom, BottomKind, CellRef, LatticeOpType};
+use crate::{Bottom, BottomKind, CellRef, LatticeOp, LatticeOpType};
 use serde_json::{Value, json};
 
-use crate::{AnchoredOp, CellState, Lattice, LatticeKind, OpError};
+use super::{AnchoredOp, CellState, Lattice, LatticeKind, OpError};
 
 /// FSM Lattice instance with declared `allowed_transitions` and an
 /// optional `initial_state` for empty cells.
@@ -48,7 +48,7 @@ impl Lattice for Fsm {
         LatticeKind::Fsm
     }
 
-    fn validate_op(&self, op: &contrix_core::LatticeOp) -> Result<(), OpError> {
+    fn validate_op(&self, op: &LatticeOp) -> Result<(), OpError> {
         match op.op_type {
             LatticeOpType::Transition => {
                 if op.from.is_none() {
@@ -124,7 +124,7 @@ impl Lattice for Fsm {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use contrix_core::{LatticeOp, MoveId};
+    use crate::{LatticeOp, MoveId};
 
     fn cell() -> CellRef {
         CellRef::new("cx:cell:cx.component.member.state.v1:did.web.alice.example".to_owned())

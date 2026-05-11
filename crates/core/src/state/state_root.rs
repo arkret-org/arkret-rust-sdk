@@ -19,8 +19,7 @@
 
 use std::collections::BTreeMap;
 
-use contrix_core::{Bottom, CellRef, Hash, canonical};
-use contrix_lattice::CellState;
+use crate::{Bottom, CellRef, Hash, canonical, lattice::CellState};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
@@ -32,14 +31,12 @@ pub const EMPTY_STATE_ROOT: &str =
 ///
 /// `cells` is the full list of cells with at least one effect under the
 /// current Anchor view; values are resolved via
-/// [`contrix_lattice::Lattice::join`].
+/// [`crate::lattice::Lattice::join`].
 /// Empty input returns [`EMPTY_STATE_ROOT`].
-pub fn compute_state_root(
-    cells: &BTreeMap<CellRef, CellState>,
-) -> Result<Hash, contrix_core::Error> {
+pub fn compute_state_root(cells: &BTreeMap<CellRef, CellState>) -> Result<Hash, crate::Error> {
     if cells.is_empty() {
         return Hash::new(EMPTY_STATE_ROOT.to_owned())
-            .map_err(|e| contrix_core::Error::Protocol(format!("invalid empty-state hash: {e}")));
+            .map_err(|e| crate::Error::Protocol(format!("invalid empty-state hash: {e}")));
     }
 
     let mut leaves: Vec<(String, [u8; 32])> = Vec::with_capacity(cells.len());
@@ -69,14 +66,14 @@ pub fn compute_state_root(
     }
     let root = layer[0];
     Hash::new(format!("sha256:{}", encode_hex(&root)))
-        .map_err(|e| contrix_core::Error::Protocol(format!("invalid state root: {e}")))
+        .map_err(|e| crate::Error::Protocol(format!("invalid state root: {e}")))
 }
 
 /// Compute the leaf hash for a single cell.
 ///
 /// Public for use by selective Merkle-branch updaters and tests that
 /// want to verify per-cell encoding without running the whole tree.
-pub fn leaf_hash(cell: &CellRef, state: &CellState) -> Result<[u8; 32], contrix_core::Error> {
+pub fn leaf_hash(cell: &CellRef, state: &CellState) -> Result<[u8; 32], crate::Error> {
     let state_object = match state {
         CellState::Value(v) => json!({ "value": v }),
         CellState::Bottom(b) => {
@@ -105,7 +102,7 @@ fn encode_hex(bytes: &[u8; 32]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use contrix_core::{BottomKind, CellRef};
+    use crate::{AnchorView, BottomKind};
     use serde_json::json;
 
     fn cell(s: &str) -> CellRef {
@@ -163,7 +160,7 @@ mod tests {
     fn bottom_state_serializes_without_anchor_view() {
         // Two Bottoms differing only in anchor_view MUST yield the same leaf.
         let mut bottom_a = Bottom::new(BottomKind::Conflict, vec![cell("cx:cell:cx.x:1")]);
-        bottom_a.anchor_view = Some(contrix_core::AnchorView { leaves: vec![], state_root: None });
+        bottom_a.anchor_view = Some(AnchorView { leaves: vec![], state_root: None });
         let mut bottom_b = bottom_a.clone();
         bottom_b.anchor_view = None;
 

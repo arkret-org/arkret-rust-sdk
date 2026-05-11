@@ -13,10 +13,10 @@
 //! Moves whose preconditions touch a `cas-register` cell MUST consult
 //! this join's Bottom and fail closed.
 
-use contrix_core::{Bottom, BottomKind, CellRef, LatticeOpType};
+use crate::{Bottom, BottomKind, CellRef, LatticeOp, LatticeOpType};
 use serde_json::Value;
 
-use crate::{AnchoredOp, CellState, Lattice, LatticeKind, OpError};
+use super::{AnchoredOp, CellState, Lattice, LatticeKind, OpError};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct CasRegister;
@@ -26,7 +26,7 @@ impl Lattice for CasRegister {
         LatticeKind::CasRegister
     }
 
-    fn validate_op(&self, op: &contrix_core::LatticeOp) -> Result<(), OpError> {
+    fn validate_op(&self, op: &LatticeOp) -> Result<(), OpError> {
         match op.op_type {
             LatticeOpType::Set => {
                 if op.value.is_none() {
@@ -63,7 +63,7 @@ impl Lattice for CasRegister {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use contrix_core::{LatticeOp, MoveId};
+    use crate::{LatticeOp, MoveId};
     use serde_json::json;
 
     fn cell() -> CellRef {

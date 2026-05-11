@@ -8,10 +8,12 @@
 use std::collections::BTreeMap;
 use std::sync::Mutex;
 
-use contrix_core::{Anchor, AnchorId, CellRef, Hash, Move, MoveId, SpaceId};
-use contrix_lattice::{
-    AnchoredOp, CasRegister, CellState, Counter, Fsm, Lattice, LatticeKind, MvRegister, OrSet,
-    OrderedLog,
+use crate::{
+    Anchor, AnchorId, CellRef, Hash, Move, MoveId, SpaceId,
+    lattice::{
+        AnchoredOp, CasRegister, CellState, Counter, Fsm, Lattice, LatticeKind, MvRegister, OrSet,
+        OrderedLog,
+    },
 };
 use serde_json::{Value, json};
 
@@ -488,7 +490,7 @@ impl MemoryCellRegistry {
 impl CellRegistry for MemoryCellRegistry {
     fn resolve(&self, _space_id: &SpaceId, cell: &CellRef) -> StoreResult<CellLatticeBinding> {
         // Parse "cx:cell:<family>:<subject>" — family is between the 2nd and 3rd colons.
-        let cell_id = contrix_core::CellId::parse(cell.as_str())
+        let cell_id = crate::CellId::parse(cell.as_str())
             .map_err(|e| StoreError::Backend(format!("invalid cell ref: {e}")))?;
         let family = cell_id.component();
         let descriptor = self
@@ -516,8 +518,8 @@ impl CellRegistry for MemoryCellRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{AnchorerSig, Hlc, LatticeOp, LatticeOpType, MoveSignature};
     use chrono::{TimeZone, Utc};
-    use contrix_core::{Hlc, LatticeOp, LatticeOpType, MoveSignature};
 
     fn space() -> SpaceId {
         SpaceId::new("cx:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
@@ -553,8 +555,8 @@ mod tests {
             "refs": [],
             "hlc": "0189c4d2af00-00000000-aabbccdd"
         });
-        let body_bytes = contrix_core::canonical::canonical_json_bytes(&body).unwrap();
-        let payload_hash = contrix_core::canonical::sha256_digest(&body_bytes);
+        let body_bytes = crate::canonical::canonical_json_bytes(&body).unwrap();
+        let payload_hash = crate::canonical::sha256_digest(&body_bytes);
         let mut full = body.as_object().unwrap().clone();
         full.insert("id".into(), Value::String(id.as_str().to_owned()));
         full.insert(
@@ -584,7 +586,7 @@ mod tests {
             predecessor_refs: predecessors,
             frontier,
             state_root: hash(0x77),
-            anchorer_sig: contrix_core::AnchorerSig::Single(sig),
+            anchorer_sig: AnchorerSig::Single(sig),
             hlc: Hlc::new("0189c4d2af00-00000000-aabbccdd".to_owned()).unwrap(),
         }
     }

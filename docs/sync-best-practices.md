@@ -16,5 +16,5 @@ Use `SlidingSync` to generate visible-window subscriptions. Keep the ordered
 space list in the UI model, apply deltas, then build a `SubscriptionConfig` for
 the next sync request.
 
-Persist the latest sync token and cursor with a `RepoStore` implementation
-before acknowledging a batch to the UI.
+Persist the latest sync token, event cache and verified state snapshot in your
+application's durable storage before acknowledging a batch to the UI.

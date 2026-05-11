@@ -13,11 +13,14 @@ pub mod cursor;
 pub mod error;
 pub mod events;
 pub mod keystore;
+pub mod lattice;
 pub mod model;
 pub mod move_event;
+pub mod operations;
 pub mod schema;
 pub mod service;
 pub mod signer;
+pub mod state;
 pub mod sync;
 
 pub use anchor::{
@@ -67,6 +70,13 @@ pub use service::{
     rate_limited_error,
 };
 pub use signer::{MoveSigner, PartialSignature, ThresholdAggregator, UnsignedMove};
+pub use state::{
+    AnchorEffect, AnchorReject, AnchorStore, AnchoredMoveRecord, BottomMode, CellLatticeBinding,
+    CellRegistry, CellStore, MemoryAnchorStore, MemoryCellRegistry, MemoryCellStore,
+    MemoryMoveStore, MoveReject, MoveRejectMap, MoveStore, StoreError, StoreResult, apply_anchor,
+    compute_state_root, deterministic_order, effective_anchor_view, leaf_hash,
+    reject_to_error_code, union_predecessor_frontiers, verify_move, view_hash,
+};
 pub use sync::{
     AccountData, BackfillDirection, BackfillFrom, BackfillRequest, BackfillResponse,
     BucketedSpaceUpdate, DeviceListChanges, LimitedTimelineState, MembershipBucket,

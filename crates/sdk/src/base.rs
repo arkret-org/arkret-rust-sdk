@@ -26,7 +26,6 @@ use crate::{
     profile::UserProfile,
     resolver::SpaceState,
     settings::ClientSettings,
-    store::{MemoryRepoStore, RepoStore},
     sync::PresenceStatus,
 };
 
@@ -223,8 +222,6 @@ pub struct BaseClient {
     sync_tracker: Arc<RwLock<SyncTracker>>,
     /// Space states by space ID
     spaces: Arc<RwLock<BTreeMap<String, ClientSpace>>>,
-    /// Repo store
-    store: Arc<dyn RepoStore>,
     /// Local profile cache.
     profiles: Arc<RwLock<BTreeMap<String, UserProfile>>>,
     /// Local presence cache.
@@ -238,18 +235,12 @@ pub struct BaseClient {
 }
 
 impl BaseClient {
-    /// Create a new base client with default memory store.
+    /// Create a new base client with default in-memory caches.
     pub fn new() -> Self {
-        Self::with_store(Arc::new(MemoryRepoStore::new()))
-    }
-
-    /// Create a new base client with a custom store.
-    pub fn with_store(store: Arc<dyn RepoStore>) -> Self {
         Self {
             session: Arc::new(RwLock::new(None)),
             sync_tracker: Arc::new(RwLock::new(SyncTracker::new())),
             spaces: Arc::new(RwLock::new(BTreeMap::new())),
-            store,
             profiles: Arc::new(RwLock::new(BTreeMap::new())),
             presence: Arc::new(RwLock::new(BTreeMap::new())),
             account_data: Arc::new(RwLock::new(BTreeMap::new())),
@@ -469,11 +460,6 @@ impl BaseClient {
     pub fn read_marker(&self, space_id: &SpaceId) -> Option<String> {
         let spaces = self.spaces.read().unwrap();
         spaces.get(space_id.as_str()).and_then(|s| s.read_marker.clone())
-    }
-
-    /// Get the underlying store.
-    pub fn store(&self) -> Arc<dyn RepoStore> {
-        self.store.clone()
     }
 
     /// Get a cached profile.

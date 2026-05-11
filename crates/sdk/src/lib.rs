@@ -67,6 +67,7 @@ pub use contrix_api as api;
 pub use contrix_api::client as client_api;
 pub use contrix_core::events;
 pub use contrix_core::schema;
+pub use contrix_core::state;
 pub use contrix_core::*;
 pub use contrix_core::{canonical, cursor, error, identifiers, keystore, model, service, sync};
 #[cfg(feature = "client")]
@@ -80,7 +81,10 @@ pub use crate::store as store_contracts;
 pub use contrix_api::federation as federation_api;
 pub use contrix_api::identity as identity_api;
 pub use contrix_api::push as push_gateway_api;
+pub use contrix_core::lattice;
+pub use contrix_core::operations;
 pub use contrix_core::schema as schema_contracts;
+pub use contrix_core::state as state_res;
 pub use contrix_core::{
     InMemoryKeyStore, KeyStore, KeyStoreError, LinuxSecretServiceKeyStore, MacOsKeychainKeyStore,
     WindowsCredentialKeyStore, platform_default_keystore,
@@ -88,8 +92,6 @@ pub use contrix_core::{
 pub use contrix_crypto as crypto_protocol;
 pub use contrix_ffi as ffi;
 pub use contrix_html as html;
-pub use contrix_lattice as lattice;
-pub use contrix_operations as operations;
 #[cfg(feature = "server")]
 pub use contrix_server as server;
 #[cfg(feature = "salvo")]
@@ -97,7 +99,6 @@ pub use contrix_server::salvo_adapter;
 pub use contrix_signatures as signatures;
 #[cfg(feature = "signer")]
 pub use contrix_signatures::Ed25519MoveSigner;
-pub use contrix_state_res as state_res;
 pub use contrix_testing as testing;
 #[cfg(feature = "full-surface")]
 pub mod account;
@@ -423,15 +424,9 @@ pub use space::{
 };
 #[cfg(feature = "full-surface")]
 pub use store::{
-    AcceptUnsignedCommitProofs, AccountSessionStore, AuditLogStore, BlobMetadataStore,
-    CommitProofVerifier, EncryptedMemoryRepoStore, EventCacheStore, IndexedDbPersistentState,
-    IndexedDbRepoStore, MemoryPersistenceStore, MemoryRepoStore, RepoObjectStore, RepoStore,
-    RepoWriteBatch, RepoWriteReceipt, SharedSqliteRepoStore, SqliteRepoStore, StateSnapshotStore,
-    StoreCache, StoreConformanceReport, StoreConformanceResult, StoreConformanceTarget,
-    StoreConformanceVector, StoreEncryptionKey, StoreMigration, StoreMigrationMetadata,
-    StoreSchemaMetadata, StoreSnapshot, StoredAccountData, TransactionalRepoStore,
+    AccountSessionStore, AuditLogStore, BlobMetadataStore, EventCacheStore, MemoryPersistenceStore,
+    StateSnapshotStore, StoreCache, StoreEncryptionKey, StoredAccountData,
     rebuild_space_state_from_events, restore_space_state_from_persistence,
-    run_store_conformance_suite,
 };
 #[cfg(all(feature = "full-surface", feature = "sync-runtime"))]
 pub use sync_client::{

@@ -9,11 +9,11 @@ use contrix_core::{
         EventContentEnvelope, MESSAGE_POLL_RESPONSE, MESSAGE_TEXT, classify_event_kind,
         parse_event_content,
     },
-};
-use contrix_lattice::CellState;
-use contrix_state_res::{
-    MemoryAnchorStore, MemoryCellRegistry, MemoryCellStore, MemoryMoveStore, MoveStore,
-    apply_anchor, compute_state_root,
+    lattice::CellState,
+    state::{
+        MemoryAnchorStore, MemoryCellRegistry, MemoryCellStore, MemoryMoveStore, MoveStore,
+        apply_anchor, compute_state_root,
+    },
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -323,7 +323,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
             domain: ConformanceDomain::Operations,
             operation_id: "cx.operations.catalog".to_owned(),
             method: "CONTRACT".to_owned(),
-            path: "contrix-operations://catalog".to_owned(),
+            path: "contrix-core://operations/catalog".to_owned(),
             request_schema: "OperationKindRegistry".to_owned(),
             response_schema: "OperationCatalogReport".to_owned(),
         },
@@ -331,7 +331,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
             domain: ConformanceDomain::Operations,
             operation_id: "cx.operations.dag".to_owned(),
             method: "CONTRACT".to_owned(),
-            path: "contrix-operations://dag".to_owned(),
+            path: "contrix-core://operations/dag".to_owned(),
             request_schema: "OperationEnvelope".to_owned(),
             response_schema: "OperationDagReport".to_owned(),
         },
@@ -339,7 +339,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
             domain: ConformanceDomain::Operations,
             operation_id: "cx.operations.semantic_reducer".to_owned(),
             method: "CONTRACT".to_owned(),
-            path: "contrix-operations://semantics".to_owned(),
+            path: "contrix-core://operations/semantics".to_owned(),
             request_schema: "OperationEnvelope".to_owned(),
             response_schema: "OperationSemanticReport".to_owned(),
         },
@@ -347,7 +347,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
             domain: ConformanceDomain::Operations,
             operation_id: "cx.operations.negative_vectors".to_owned(),
             method: "CONTRACT".to_owned(),
-            path: "contrix-operations://negative-vectors".to_owned(),
+            path: "contrix-core://operations/negative-vectors".to_owned(),
             request_schema: "OperationDagNegativeVector".to_owned(),
             response_schema: "OperationDagNegativeVector".to_owned(),
         },
@@ -711,8 +711,8 @@ mod tests {
     #[test]
     fn boundary_crate_smoke_contracts_validate() {
         contrix_api::client::client_api_coverage_report().validate().unwrap();
-        contrix_operations::operation_catalog().validate().unwrap();
-        assert!(!contrix_operations::negative_dag_vectors().is_empty());
+        contrix_core::operations::operation_catalog().validate().unwrap();
+        assert!(!contrix_core::operations::negative_dag_vectors().is_empty());
         contrix_core::schema::schema_catalog().validate().unwrap();
         contrix_core::schema::validate_schema_vectors(
             &contrix_core::schema::built_in_schema_vectors(),

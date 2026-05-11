@@ -25,8 +25,8 @@
 use chrono::{DateTime, Utc};
 use contrix_core::{
     CellRef, Did, Effect, LatticeOp, LatticeOpType, Precondition, Predicate, PredicateOp,
+    lattice::CellState,
 };
-use contrix_lattice::CellState;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -218,7 +218,7 @@ pub fn revoke_effect_with_precondition(
 /// Walk the consent cell's or-set join value and decide whether
 /// `(peer, scope)` is currently consented at `now`.
 ///
-/// `cell_state` is what [`contrix_lattice::Lattice::join`] produced for the consent cell.
+/// `cell_state` is what [`contrix_core::lattice::Lattice::join`] produced for the consent cell.
 /// For an `or-set` Lattice, the `Value` form is a JSON array of
 /// `{tag, value}` objects. Bottom states (which or-set never produces)
 /// are treated as no-consent.
@@ -280,7 +280,7 @@ pub fn require_consent_precondition(
 mod tests {
     use super::*;
     use chrono::TimeZone;
-    use contrix_lattice::{AnchoredOp, Lattice, OrSet};
+    use contrix_core::lattice::{AnchoredOp, Lattice, OrSet};
 
     fn ts(year: i32, month: u32, day: u32) -> DateTime<Utc> {
         Utc.with_ymd_and_hms(year, month, day, 0, 0, 0).unwrap()

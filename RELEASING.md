@@ -1,6 +1,6 @@
 # Releasing
 
-The Contrix Rust SDK is a 14-crate Cargo workspace. The full crate set is
+The Contrix Rust SDK is a 11-crate Cargo workspace. The full crate set is
 published in a single coordinated release (one version, one tag) so that
 downstream callers can pin a single `contrix = "x.y.z"` and have all the
 transitively-published crates line up.
@@ -21,9 +21,7 @@ contrix-signatures
 contrix-crypto
 contrix-html
 contrix-ffi
-contrix-operations
 contrix-server
-contrix-state-res
 contrix-testing
 contrix    # umbrella SDK; depends on every other crate above
 ```

@@ -254,8 +254,10 @@ pub fn covered_frontier_contains(cell_value: &Value, anchor: &AnchorId) -> bool 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use contrix_core::MoveId;
-    use contrix_lattice::{AnchoredOp, CellState, Lattice, OrSet};
+    use contrix_core::{
+        MoveId,
+        lattice::{AnchoredOp, CellState, Lattice, OrSet},
+    };
 
     fn space() -> SpaceId {
         SpaceId::new("cx:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()

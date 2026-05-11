@@ -52,15 +52,15 @@ or high-level client facade.
 
 ### Run Sync With Durable Storage
 
-Persist repo objects, sync positions and state snapshots through the storage
-traits before entering a long-running sync loop. On a gap or invalid snapshot,
-replay repo events and reset the cursor to the verified frontier.
+Persist sync positions, cached events and verified state snapshots through the
+storage traits before entering a long-running sync loop. On a gap or invalid
+snapshot, replay cached events and reset the cursor to the verified frontier.
 
-`SqliteRepoStore`, `IndexedDbRepoStore` and `EncryptedMemoryCryptoStore` provide
-dependency-free conformance facades for repository, browser and crypto-store
-behavior. Use them to validate migrations, transaction atomicity, browser restart
-state, encrypted-at-rest records and rollback protection before wiring a real
-SQLite, IndexedDB or platform keychain adapter.
+`MemoryPersistenceStore` and `EncryptedMemoryCryptoStore` provide
+dependency-free facades for event/state persistence and encrypted-at-rest
+crypto records. Use them to validate snapshot replay, idempotent cache writes
+and key rotation behavior before wiring a real database or platform keychain
+adapter.
 
 ### Review Security Gates
 

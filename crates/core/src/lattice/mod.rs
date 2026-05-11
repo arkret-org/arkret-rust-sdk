@@ -5,7 +5,7 @@
 //! implementation defines:
 //!
 //! - `Op` — the wire-level operation shape it accepts (a subset of
-//!   [`contrix_core::LatticeOp`] with its required fields populated);
+//!   [`crate::LatticeOp`] with its required fields populated);
 //! - `Value` — the resolved value type after `join()`;
 //! - `validate_op` — schema-level validity of a single op against this
 //!   Lattice's rules;
@@ -27,10 +27,9 @@
 //! [`LatticeKind`] variant — receivers MUST fail closed on unknown kinds.
 //! See spec §5.4.
 //!
-//! This crate is intentionally pure: it depends only on `contrix-core`
-//! typed model + serde + thiserror. State store, network, anchorer
+//! This module is intentionally pure. State store, network, anchorer
 //! orchestration, and the apply-Anchor algorithm live elsewhere
-//! (`contrix-state-res`, server runtime).
+//! (`crate::state`, server runtime).
 
 pub mod cas_register;
 pub mod counter;
@@ -48,7 +47,7 @@ pub use or_set::OrSet;
 pub use ordered_log::OrderedLog;
 pub use traits::{Lattice, LatticeKind, OpError};
 
-use contrix_core::{Bottom, BottomKind, LatticeOp, MoveId};
+use crate::{Bottom, BottomKind, CellRef, LatticeOp, MoveId};
 use serde_json::Value;
 
 /// A single anchored op input to [`Lattice::join`].
@@ -93,7 +92,7 @@ impl CellState {
         matches!(self, Self::Bottom(_))
     }
 
-    pub fn make_bottom(kind: BottomKind, cells: Vec<contrix_core::CellRef>) -> Self {
+    pub fn make_bottom(kind: BottomKind, cells: Vec<CellRef>) -> Self {
         Self::Bottom(Bottom::new(kind, cells))
     }
 }

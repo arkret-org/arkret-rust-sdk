@@ -15,10 +15,10 @@
 
 use std::collections::BTreeMap;
 
-use contrix_core::{CellRef, LatticeOpType};
+use crate::{CellRef, LatticeOp, LatticeOpType};
 use serde_json::{Number, Value, json};
 
-use crate::{AnchoredOp, CellState, Lattice, LatticeKind, OpError};
+use super::{AnchoredOp, CellState, Lattice, LatticeKind, OpError};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Counter;
@@ -28,7 +28,7 @@ impl Lattice for Counter {
         LatticeKind::Counter
     }
 
-    fn validate_op(&self, op: &contrix_core::LatticeOp) -> Result<(), OpError> {
+    fn validate_op(&self, op: &LatticeOp) -> Result<(), OpError> {
         match op.op_type {
             LatticeOpType::Inc | LatticeOpType::Dec => {
                 let value = op
@@ -97,7 +97,7 @@ impl Lattice for Counter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use contrix_core::{LatticeOp, MoveId};
+    use crate::{LatticeOp, MoveId};
 
     fn cell() -> CellRef {
         CellRef::new("cx:cell:cx.component.metric.counter.v1:cx.metric.signups".to_owned()).unwrap()

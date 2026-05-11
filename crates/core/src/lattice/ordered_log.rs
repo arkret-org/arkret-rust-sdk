@@ -15,10 +15,10 @@
 
 use std::collections::BTreeMap;
 
-use contrix_core::{CellRef, Did, LatticeOpType};
+use crate::{CellRef, Did, LatticeOp, LatticeOpType};
 use serde_json::{Value, json};
 
-use crate::{AnchoredOp, CellState, Lattice, LatticeKind, OpError};
+use super::{AnchoredOp, CellState, Lattice, LatticeKind, OpError};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct OrderedLog;
@@ -70,7 +70,7 @@ impl Lattice for OrderedLog {
         LatticeKind::OrderedLog
     }
 
-    fn validate_op(&self, op: &contrix_core::LatticeOp) -> Result<(), OpError> {
+    fn validate_op(&self, op: &LatticeOp) -> Result<(), OpError> {
         match op.op_type {
             LatticeOpType::Append => {
                 if op.value.is_none() {
@@ -104,7 +104,7 @@ impl Lattice for OrderedLog {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use contrix_core::{LatticeOp, MoveId};
+    use crate::{LatticeOp, MoveId};
 
     fn cell() -> CellRef {
         CellRef::new(

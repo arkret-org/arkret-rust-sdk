@@ -1,10 +1,10 @@
 //! Lattice trait + closed kind enum.
 
-use contrix_core::CellRef;
+use crate::{CellRef, LatticeOp};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{AnchoredOp, CellState};
+use super::{AnchoredOp, CellState};
 
 /// Closed set of normative Lattice kinds.
 ///
@@ -155,7 +155,7 @@ pub trait Lattice {
     ///
     /// Run before the op enters Anchor frontier — failure produces a
     /// Move-level `schema_violation` rather than a cell-level Bottom.
-    fn validate_op(&self, op: &contrix_core::LatticeOp) -> Result<(), OpError>;
+    fn validate_op(&self, op: &LatticeOp) -> Result<(), OpError>;
 
     /// Deterministic join of `anchored_ops` to a `CellState`.
     ///

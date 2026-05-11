@@ -13,8 +13,10 @@
 
 pub mod memory;
 
-use contrix_core::{Anchor, AnchorId, CellRef, Hash, Move, MoveId, SpaceId};
-use contrix_lattice::{AnchoredOp, CellState, Lattice};
+use crate::{
+    Anchor, AnchorId, CellRef, Hash, Move, MoveId, SpaceId,
+    lattice::{AnchoredOp, CellState, Lattice},
+};
 use thiserror::Error;
 
 pub type StoreResult<T> = Result<T, StoreError>;

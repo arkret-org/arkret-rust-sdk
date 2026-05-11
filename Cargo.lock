@@ -434,11 +434,8 @@ dependencies = [
  "contrix-ffi",
  "contrix-html",
  "contrix-http-client",
- "contrix-lattice",
- "contrix-operations",
  "contrix-server",
  "contrix-signatures",
- "contrix-state-res",
  "contrix-testing",
  "getrandom 0.3.4",
  "openmls",
@@ -550,25 +547,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "contrix-lattice"
-version = "0.7.0"
-dependencies = [
- "contrix-core",
- "serde",
- "serde_json",
- "thiserror",
-]
-
-[[package]]
-name = "contrix-operations"
-version = "0.7.0"
-dependencies = [
- "contrix-core",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "contrix-server"
 version = "0.7.0"
 dependencies = [
@@ -595,19 +573,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "contrix-state-res"
-version = "0.7.0"
-dependencies = [
- "chrono",
- "contrix-core",
- "contrix-lattice",
- "serde",
- "serde_json",
- "sha2",
- "thiserror",
-]
-
-[[package]]
 name = "contrix-testing"
 version = "0.7.0"
 dependencies = [
@@ -617,10 +582,7 @@ dependencies = [
  "contrix-crypto",
  "contrix-ffi",
  "contrix-html",
- "contrix-lattice",
- "contrix-operations",
  "contrix-signatures",
- "contrix-state-res",
  "serde",
  "serde_json",
  "sha2",

@@ -12,10 +12,10 @@
 
 use std::collections::BTreeMap;
 
-use contrix_core::{CellRef, LatticeOpType};
+use crate::{CellRef, LatticeOp, LatticeOpType};
 use serde_json::{Value, json};
 
-use crate::{AnchoredOp, CellState, Lattice, LatticeKind, OpError};
+use super::{AnchoredOp, CellState, Lattice, LatticeKind, OpError};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct OrSet;
@@ -25,7 +25,7 @@ impl Lattice for OrSet {
         LatticeKind::OrSet
     }
 
-    fn validate_op(&self, op: &contrix_core::LatticeOp) -> Result<(), OpError> {
+    fn validate_op(&self, op: &LatticeOp) -> Result<(), OpError> {
         match op.op_type {
             LatticeOpType::Add => {
                 if op.tag.as_deref().unwrap_or("").is_empty() {
@@ -86,7 +86,7 @@ impl Lattice for OrSet {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use contrix_core::{LatticeOp, MoveId};
+    use crate::{LatticeOp, MoveId};
 
     fn cell() -> CellRef {
         CellRef::new(

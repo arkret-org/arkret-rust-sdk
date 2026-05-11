@@ -2,15 +2,17 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use contrix_core::{Anchor, AnchorId, CellRef, Hash, Move, MoveId, SpaceId, canonical};
-use contrix_lattice::{AnchoredOp, CellState};
+use crate::{
+    Anchor, AnchorId, CellRef, Hash, Move, MoveId, SpaceId, canonical,
+    lattice::{AnchoredOp, CellState},
+};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use thiserror::Error;
 
-use crate::state_root::compute_state_root;
-use crate::store::{AnchorStore, CellRegistry, CellStore, MoveStore};
-use crate::verify::verify_move;
+use super::state_root::compute_state_root;
+use super::store::{AnchorStore, CellRegistry, CellStore, MoveStore};
+use super::verify::verify_move;
 
 /// Result of a successful `apply_anchor`.
 #[derive(Clone, Debug)]
@@ -42,8 +44,8 @@ pub enum AnchorReject {
     Store(String),
 }
 
-impl From<crate::store::StoreError> for AnchorReject {
-    fn from(e: crate::store::StoreError) -> Self {
+impl From<super::store::StoreError> for AnchorReject {
+    fn from(e: super::store::StoreError) -> Self {
         AnchorReject::Store(e.to_string())
     }
 }
@@ -269,7 +271,7 @@ pub fn deterministic_order(mut moves: Vec<Move>) -> Vec<Move> {
 
 /// Compute a stable hash over an ordered set of Anchor leaf ids — used
 /// as the cache key for per-view effective-state caches.
-pub fn view_hash(leaves: &[AnchorId]) -> Result<Hash, contrix_core::Error> {
+pub fn view_hash(leaves: &[AnchorId]) -> Result<Hash, crate::Error> {
     let mut sorted: Vec<&str> = leaves.iter().map(|a| a.as_str()).collect();
     sorted.sort();
     let json: Value = serde_json::to_value(&sorted)?;
@@ -277,17 +279,16 @@ pub fn view_hash(leaves: &[AnchorId]) -> Result<Hash, contrix_core::Error> {
     let digest = Sha256::digest(&bytes);
     let hex: String = digest.iter().map(|b| format!("{b:02x}")).collect();
     Hash::new(format!("sha256:{hex}"))
-        .map_err(|e| contrix_core::Error::Protocol(format!("invalid view_hash: {e}")))
+        .map_err(|e| crate::Error::Protocol(format!("invalid view_hash: {e}")))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use contrix_core::{Hlc, MoveSignature};
-    use contrix_lattice::CellState;
+    use crate::{AnchorerSig, Hlc, MoveSignature, lattice::CellState};
     use serde_json::json;
 
-    use crate::store::memory::{
+    use crate::state::store::memory::{
         MemoryAnchorStore, MemoryCellRegistry, MemoryCellStore, MemoryMoveStore,
     };
 
@@ -350,7 +351,7 @@ mod tests {
             predecessor_refs: predecessors,
             frontier,
             state_root,
-            anchorer_sig: contrix_core::AnchorerSig::Single(sig),
+            anchorer_sig: AnchorerSig::Single(sig),
             hlc: Hlc::new("0189c4d2af00-00000000-aabbccdd".to_owned()).unwrap(),
         };
         a.id = a.derive_id().unwrap();
@@ -430,7 +431,7 @@ mod tests {
         let a = build_anchor(
             vec![bad_pred],
             vec![],
-            Hash::new(crate::state_root::EMPTY_STATE_ROOT.to_owned()).unwrap(),
+            Hash::new(crate::state::state_root::EMPTY_STATE_ROOT.to_owned()).unwrap(),
         );
         let err = apply_anchor(&a, &moves, &anchors, &cells, &registry, ok_jws).unwrap_err();
         assert!(matches!(err, AnchorReject::UnknownPredecessor));
@@ -447,7 +448,7 @@ mod tests {
         moves.put_pending(&m).unwrap();
 
         // Wrong state_root: claim it's still empty, even though the Move changes the cell.
-        let wrong_root = Hash::new(crate::state_root::EMPTY_STATE_ROOT.to_owned()).unwrap();
+        let wrong_root = Hash::new(crate::state::state_root::EMPTY_STATE_ROOT.to_owned()).unwrap();
         let a = build_anchor(vec![], vec![m.id], wrong_root);
         let err = apply_anchor(&a, &moves, &anchors, &cells, &registry, ok_jws).unwrap_err();
         match err {
@@ -470,12 +471,12 @@ mod tests {
         let a1 = build_anchor(
             vec![],
             vec![m1.id.clone()],
-            Hash::new(crate::state_root::EMPTY_STATE_ROOT.to_owned()).unwrap(),
+            Hash::new(crate::state::state_root::EMPTY_STATE_ROOT.to_owned()).unwrap(),
         );
         let a2 = build_anchor(
             vec![],
             vec![m2.id.clone()],
-            Hash::new(crate::state_root::EMPTY_STATE_ROOT.to_owned()).unwrap(),
+            Hash::new(crate::state::state_root::EMPTY_STATE_ROOT.to_owned()).unwrap(),
         );
         anchors.put(&a1).unwrap();
         anchors.put(&a2).unwrap();

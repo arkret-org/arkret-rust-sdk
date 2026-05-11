@@ -76,8 +76,8 @@ backend 的开发者、需要理解 SDK 内部边界的 third-party 用户。
 依赖方向：上层只依赖下层抽象；下层不引用上层具体类型。
 
 - `contrix-core`：typed model（`Move`、`Anchor`、`Bottom`、`CellId`、`AnchorerValue`）。
-- `contrix-lattice`：纯 Lattice trait + 6 实现，不依赖 store。
-- `contrix-state-res`（重构后）：托管 verifier 流水线、`apply_anchor`、
+- `contrix-core::lattice`：纯 Lattice trait + 6 实现，不依赖 store。
+- `contrix-core::state`：托管 verifier 流水线、`apply_anchor`、
   `effective_anchor_view`、`state_root` 编码。**store traits 也住在这里**，
   让 SDK 用户 / soland / 第三方 server 三方都能依赖一份。
 - `soland` / 第三方 server：实现 `MoveStore` / `AnchorStore` / `CellStore` /
@@ -87,7 +87,7 @@ backend 的开发者、需要理解 SDK 内部边界的 third-party 用户。
 
 ## 3. Store 接口契约
 
-四个 trait 全部住在 `contrix-state-res::store` 模块。所有方法都返回 `Result`，
+四个 trait 全部住在 `contrix-core::state::store` 模块。所有方法都返回 `Result`，
 错误用 `contrix-core::Error::Protocol` 表达 wire 级问题，用专属
 `StoreError` 表达 IO / 后端失败。
 
@@ -277,7 +277,7 @@ verify_move(M, pre_state, registry) -> Result<(), MoveReject>:
 ## 5. `apply_anchor` 算法
 
 `apply_anchor(A, stores, registry)` 是 server 接收 Anchor 时的入口。算法实现
-spec §4.2 normative 文本，可以放在 `contrix-state-res::anchor::apply_anchor`。
+spec §4.2 normative 文本，可以放在 `contrix-core::state::anchor::apply_anchor`。
 
 ```rust
 fn apply_anchor(
@@ -375,7 +375,7 @@ fn apply_anchor(
 （leaf shape、tree 形、空 list 处理、`bottom.anchor_view` 字段必须省略）。
 SDK 实现 MUST 严格遵循。
 
-实现位置：`contrix-state-res::state_root::compute_state_root(view: &AnchorView, cells: &dyn CellStore) -> Result<Hash>`。
+实现位置：`contrix-core::state::state_root::compute_state_root(view: &AnchorView, cells: &dyn CellStore) -> Result<Hash>`。
 
 实现要点：
 
@@ -503,7 +503,7 @@ fn resolve(&self, space_id, cell) -> Result<CellLatticeBinding> {
 
 落地顺序（每条 ≤1 PR）：
 
-1. **store traits + 内存实现**（`contrix-state-res::store::memory`）：让 SDK
+1. **store traits + 内存实现**（`contrix-core::state::store::memory`）：让 SDK
    测试不依赖 Pg。
 2. **CellRegistry + spec registry 加载器**：消费 event-kind-registry.json 的
    `cell_family` / `lattice` / `bottom` 字段。
@@ -521,7 +521,7 @@ soland 接线。
 
 ## 11. 与现有 state-res / reducer 的关系
 
-- 旧 `contrix-state-res::StateReducer` / `state_hash` / `is_state_event`
+- 旧 `StateReducer` / `state_hash` / `is_state_event`
   / `subject_for_event` / `candidate_wins` **整体废弃**，但代码先标
   `#[deprecated]` 让 soland 在新代码就位前可以共存编译。
 - 旧 `soland::reducer::ReducerKind` (per event_kind) 改为 spec

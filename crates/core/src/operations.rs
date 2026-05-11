@@ -2,7 +2,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use contrix_core::{
+use crate::{
     BUILT_IN_OPERATION_KINDS, Error, OP_AUTHZ_CHECK, OP_BLOB_GET, OP_BLOB_HEAD, OP_BLOB_UPLOAD,
     OP_CONTAINER_MOVE_ITEM, OP_CONTAINER_REBALANCE, OP_DIRECTORY_DESCRIBE, OP_ENTITY_CREATE,
     OP_ENTITY_DELETE, OP_ENTITY_REDACT, OP_ENTITY_RESTORE, OP_ENTITY_UPDATE, OP_EVENTS_QUERY,
@@ -23,7 +23,7 @@ use contrix_core::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-pub use contrix_core::{CausalRef, Operation, OperationSignature, OperationType};
+pub use crate::{CausalRef, Operation, OperationSignature, OperationType};
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -527,7 +527,7 @@ pub fn conformance_vectors() -> Vec<OperationKindConformanceVector> {
 }
 
 pub mod protocol {
-    pub use contrix_core::{
+    pub use crate::{
         Operation, OperationEnvelope, OperationEnvelopeBuilder, OperationKindConformanceVector,
         OperationKindRegistry, OperationKindSpec, OperationKindValidation, OperationType,
     };
@@ -535,7 +535,7 @@ pub mod protocol {
 
 #[cfg(test)]
 mod tests {
-    use contrix_core::{
+    use crate::{
         Did, GrantId, Hlc, OP_ENTITY_CREATE, OP_ENTITY_DELETE, OP_ENTITY_UPDATE, OP_MESSAGE_CREATE,
         OperationEnvelopeBuilder, SpaceId,
     };

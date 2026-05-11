@@ -63,7 +63,7 @@ cargo test
 - [Changelog](CHANGELOG.md) — release notes and unreleased changes.
 - [Security policy](SECURITY.md) — supported versions and how to report
   vulnerabilities responsibly.
-- [Releasing](RELEASING.md) — how the 14-crate workspace is published in
+- [Releasing](RELEASING.md) — how the 11-crate workspace is published in
   topological order.
 - [Contributing](CONTRIBUTING.md) — development checks, API rules, commit
   style.
@@ -83,7 +83,7 @@ The first Contrix crate currently includes:
 - encrypted payload digest calculation over cleartext routing metadata plus ciphertext bytes
 - MLS KeyPackage, Commit and Welcome envelopes
 - OpenMLS-backed group creation, member add, Welcome join, payload encryption and decryption
-- in-memory Repo-compatible store with idempotent draft operation/commit insertion and conflict detection
+- in-memory persistence helpers for event cache, verified state snapshots and account-local records
 - Server description and profile version checks
 - HTTP client methods for the Contrix v1 service HTTP binding, including request metadata, retry/backoff and `Retry-After` handling
 - framework-independent server endpoint registry, routed dispatch, auth/idempotency/rate-limit middleware, Salvo router/OAPI integration and OpenAPI export helper
