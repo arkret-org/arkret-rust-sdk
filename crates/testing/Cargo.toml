@@ -16,7 +16,6 @@ default = []
 
 [dependencies]
 contrix-api.workspace = true
-contrix-client-api.workspace = true
 contrix-core.workspace = true
 contrix-crypto.workspace = true
 contrix-events.workspace = true

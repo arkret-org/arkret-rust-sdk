@@ -9,6 +9,7 @@ pub mod salvo_adapter;
 
 use std::{
     collections::{BTreeMap, BTreeSet},
+    sync::LazyLock,
     time::{Duration, SystemTime},
 };
 
@@ -56,6 +57,17 @@ pub enum EndpointMethod {
     Head,
     Post,
     Put,
+}
+
+impl EndpointMethod {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Get => "get",
+            Self::Head => "head",
+            Self::Post => "post",
+            Self::Put => "put",
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -976,487 +988,74 @@ fn fixture_operations(flow: ProtocolFixtureFlow) -> &'static [&'static str] {
     }
 }
 
-pub const ENDPOINT_CONTRACTS: &[EndpointContract] = &[
-    EndpointContract {
-        operation_id: "cx.server.describe",
-        method: EndpointMethod::Get,
-        path: "/api/v1/server/describe",
-    },
-    EndpointContract {
-        operation_id: "cx.identity.describe_registry",
-        method: EndpointMethod::Get,
-        path: "/api/v1/identity/describe",
-    },
-    EndpointContract {
-        operation_id: "cx.identity.resolve",
-        method: EndpointMethod::Post,
-        path: "/api/v1/identity/resolve",
-    },
-    EndpointContract {
-        operation_id: "cx.identity.get_document",
-        method: EndpointMethod::Get,
-        path: "/api/v1/identity/document",
-    },
-    EndpointContract {
-        operation_id: "cx.identity.get_log",
-        method: EndpointMethod::Get,
-        path: "/api/v1/identity/log",
-    },
-    EndpointContract {
-        operation_id: "cx.identity.submit_did_operation",
-        method: EndpointMethod::Post,
-        path: "/api/v1/identity/submit-did-operation",
-    },
-    EndpointContract {
-        operation_id: "cx.identity.get_receipts",
-        method: EndpointMethod::Get,
-        path: "/api/v1/identity/receipts",
-    },
-    EndpointContract {
-        operation_id: "cx.repo.describe",
-        method: EndpointMethod::Get,
-        path: "/api/v1/repo/describe",
-    },
-    EndpointContract {
-        operation_id: "cx.repo.list_commits",
-        method: EndpointMethod::Get,
-        path: "/api/v1/repo/commits",
-    },
-    EndpointContract {
-        operation_id: "cx.repo.get_commit",
-        method: EndpointMethod::Get,
-        path: "/api/v1/repo/commit",
-    },
-    EndpointContract {
-        operation_id: "cx.repo.get_operations",
-        method: EndpointMethod::Post,
-        path: "/api/v1/repo/operations",
-    },
-    EndpointContract {
-        operation_id: "cx.repo.sync",
-        method: EndpointMethod::Post,
-        path: "/api/v1/repo/sync",
-    },
-    EndpointContract {
-        operation_id: "cx.repo.submit_commit",
-        method: EndpointMethod::Post,
-        path: "/api/v1/repo/submit-commit",
-    },
-    EndpointContract {
-        operation_id: "cx.sync.account",
-        method: EndpointMethod::Post,
-        path: "/api/v1/sync",
-    },
-    EndpointContract {
-        operation_id: "cx.sync.describe",
-        method: EndpointMethod::Get,
-        path: "/api/v1/sync/describe",
-    },
-    EndpointContract {
-        operation_id: "cx.events.subscribe",
-        method: EndpointMethod::Get,
-        path: "/api/v1/events/subscribe",
-    },
-    EndpointContract {
-        operation_id: "cx.events.query",
-        method: EndpointMethod::Get,
-        path: "/api/v1/events",
-    },
-    EndpointContract {
-        operation_id: "cx.sync.get_snapshot_head",
-        method: EndpointMethod::Get,
-        path: "/api/v1/sync/snapshot-head",
-    },
-    EndpointContract {
-        operation_id: "cx.federation.discovery",
-        method: EndpointMethod::Get,
-        path: "/.well-known/contrix/server",
-    },
-    EndpointContract {
-        operation_id: "cx.federation.transaction",
-        method: EndpointMethod::Put,
-        path: "/api/v1/federation/transactions/{txn_id}",
-    },
-    EndpointContract {
-        operation_id: "cx.federation.push_operations",
-        method: EndpointMethod::Post,
-        path: "/api/v1/federation/push-operations",
-    },
-    EndpointContract {
-        operation_id: "cx.federation.pull_operations",
-        method: EndpointMethod::Get,
-        path: "/api/v1/federation/pull-operations",
-    },
-    EndpointContract {
-        operation_id: "cx.federation.space_members",
-        method: EndpointMethod::Get,
-        path: "/api/v1/federation/space-members",
-    },
-    EndpointContract {
-        operation_id: "cx.federation.backfill",
-        method: EndpointMethod::Get,
-        path: "/api/v1/federation/backfill",
-    },
-    EndpointContract {
-        operation_id: "cx.federation.event_auth",
-        method: EndpointMethod::Get,
-        path: "/api/v1/federation/event-auth",
-    },
-    EndpointContract {
-        operation_id: "cx.federation.query_profile",
-        method: EndpointMethod::Get,
-        path: "/api/v1/federation/profile",
-    },
-    EndpointContract {
-        operation_id: "cx.federation.query_keys",
-        method: EndpointMethod::Post,
-        path: "/api/v1/federation/keys/query",
-    },
-    EndpointContract {
-        operation_id: "cx.federation.media",
-        method: EndpointMethod::Get,
-        path: "/api/v1/federation/media/{blob_ref}",
-    },
-    EndpointContract {
-        operation_id: "cx.federation.verify_actor",
-        method: EndpointMethod::Post,
-        path: "/api/v1/federation/verify-actor",
-    },
-    EndpointContract {
-        operation_id: "cx.index.describe",
-        method: EndpointMethod::Get,
-        path: "/api/v1/index/describe",
-    },
-    EndpointContract {
-        operation_id: "cx.index.get_entity",
-        method: EndpointMethod::Get,
-        path: "/api/v1/index/entity",
-    },
-    EndpointContract {
-        operation_id: "cx.index.query",
-        method: EndpointMethod::Post,
-        path: "/api/v1/index/query",
-    },
-    EndpointContract {
-        operation_id: "cx.index.thread",
-        method: EndpointMethod::Get,
-        path: "/api/v1/index/thread",
-    },
-    EndpointContract {
-        operation_id: "cx.index.notifications",
-        method: EndpointMethod::Get,
-        path: "/api/v1/index/notifications",
-    },
-    EndpointContract {
-        operation_id: "cx.index.inbox",
-        method: EndpointMethod::Get,
-        path: "/api/v1/index/inbox",
-    },
-    EndpointContract {
-        operation_id: "cx.index.search",
-        method: EndpointMethod::Post,
-        path: "/api/v1/index/search",
-    },
-    EndpointContract {
-        operation_id: "cx.index.space_hierarchy",
-        method: EndpointMethod::Get,
-        path: "/api/v1/index/space-hierarchy",
-    },
-    EndpointContract {
-        operation_id: "cx.directory.describe",
-        method: EndpointMethod::Get,
-        path: "/api/v1/directory/describe",
-    },
-    EndpointContract {
-        operation_id: "cx.directory.search_spaces",
-        method: EndpointMethod::Post,
-        path: "/api/v1/directory/search-spaces",
-    },
-    EndpointContract {
-        operation_id: "cx.directory.resolve_space",
-        method: EndpointMethod::Post,
-        path: "/api/v1/directory/resolve-space",
-    },
-    EndpointContract {
-        operation_id: "cx.directory.search_organizations",
-        method: EndpointMethod::Post,
-        path: "/api/v1/directory/search-organizations",
-    },
-    EndpointContract {
-        operation_id: "cx.directory.resolve_organization",
-        method: EndpointMethod::Post,
-        path: "/api/v1/directory/resolve-organization",
-    },
-    EndpointContract {
-        operation_id: "cx.directory.search_actors",
-        method: EndpointMethod::Post,
-        path: "/api/v1/directory/search-actors",
-    },
-    EndpointContract {
-        operation_id: "cx.directory.search_users",
-        method: EndpointMethod::Get,
-        path: "/api/v1/directory/search-users",
-    },
-    EndpointContract {
-        operation_id: "cx.directory.resolve_handle",
-        method: EndpointMethod::Post,
-        path: "/api/v1/directory/resolve-handle",
-    },
-    EndpointContract {
-        operation_id: "cx.directory.private_contact_discovery",
-        method: EndpointMethod::Post,
-        path: "/api/v1/directory/private-contact-discovery",
-    },
-    EndpointContract {
-        operation_id: "cx.blob.upload",
-        method: EndpointMethod::Post,
-        path: "/api/v1/blob/upload",
-    },
-    EndpointContract {
-        operation_id: "cx.blob.head",
-        method: EndpointMethod::Head,
-        path: "/api/v1/blob/get",
-    },
-    EndpointContract {
-        operation_id: "cx.blob.get",
-        method: EndpointMethod::Get,
-        path: "/api/v1/blob/get",
-    },
-    EndpointContract {
-        operation_id: "cx.push.register_device",
-        method: EndpointMethod::Post,
-        path: "/api/v1/push/register-device",
-    },
-    EndpointContract {
-        operation_id: "cx.push.unregister_device",
-        method: EndpointMethod::Post,
-        path: "/api/v1/push/unregister-device",
-    },
-    EndpointContract {
-        operation_id: "cx.push.notify",
-        method: EndpointMethod::Post,
-        path: "/api/v1/push/notify",
-    },
-    EndpointContract {
-        operation_id: "cx.device_messages.put",
-        method: EndpointMethod::Post,
-        path: "/api/v1/device_messages",
-    },
-    EndpointContract {
-        operation_id: "cx.device_messages.get",
-        method: EndpointMethod::Get,
-        path: "/api/v1/device_messages",
-    },
-    EndpointContract {
-        operation_id: "cx.keys.upload",
-        method: EndpointMethod::Post,
-        path: "/api/v1/keys/upload",
-    },
-    EndpointContract {
-        operation_id: "cx.keys.query",
-        method: EndpointMethod::Post,
-        path: "/api/v1/keys/query",
-    },
-    EndpointContract {
-        operation_id: "cx.keys.claim",
-        method: EndpointMethod::Post,
-        path: "/api/v1/keys/claim",
-    },
-    EndpointContract {
-        operation_id: "cx.keys.keypackages.upload",
-        method: EndpointMethod::Post,
-        path: "/api/v1/keys/keypackages/upload",
-    },
-    EndpointContract {
-        operation_id: "cx.keys.keypackages.claim",
-        method: EndpointMethod::Post,
-        path: "/api/v1/keys/keypackages/claim",
-    },
-    EndpointContract {
-        operation_id: "cx.keys.keypackages.consume",
-        method: EndpointMethod::Post,
-        path: "/api/v1/keys/keypackages/consume",
-    },
-    EndpointContract {
-        operation_id: "cx.keys.keypackages.revoke",
-        method: EndpointMethod::Post,
-        path: "/api/v1/keys/keypackages/revoke",
-    },
-    EndpointContract {
-        operation_id: "cx.authz.get_effective_grants",
-        method: EndpointMethod::Get,
-        path: "/api/v1/authz/effective-grants",
-    },
-    EndpointContract {
-        operation_id: "cx.authz.get_invites",
-        method: EndpointMethod::Get,
-        path: "/api/v1/authz/invites",
-    },
-    EndpointContract {
-        operation_id: "cx.authz.check",
-        method: EndpointMethod::Post,
-        path: "/api/v1/authz/check",
-    },
-    EndpointContract {
-        operation_id: "cx.policy.check",
-        method: EndpointMethod::Post,
-        path: "/contrix/v1/check",
-    },
-    EndpointContract {
-        operation_id: "cx.media.ice_config",
-        method: EndpointMethod::Post,
-        path: "/contrix/v1/ice-config",
-    },
-    EndpointContract {
-        operation_id: "cx.moderation.report",
-        method: EndpointMethod::Post,
-        path: "/api/v1/moderation/report",
-    },
-    EndpointContract {
-        operation_id: "cx.mimi.provider_directory",
-        method: EndpointMethod::Get,
-        path: "/api/v1/mimi/provider-directory",
-    },
-    EndpointContract {
-        operation_id: "cx.mimi.key_material",
-        method: EndpointMethod::Post,
-        path: "/api/v1/mimi/key-material",
-    },
-    EndpointContract {
-        operation_id: "cx.mimi.flow_update",
-        method: EndpointMethod::Put,
-        path: "/api/v1/mimi/flows/{flow_id}/update",
-    },
-    EndpointContract {
-        operation_id: "cx.mimi.notify",
-        method: EndpointMethod::Post,
-        path: "/api/v1/mimi/flows/{flow_id}/notify",
-    },
-    EndpointContract {
-        operation_id: "cx.mimi.submit_message",
-        method: EndpointMethod::Post,
-        path: "/api/v1/mimi/flows/{flow_id}/messages",
-    },
-    EndpointContract {
-        operation_id: "cx.mimi.group_info",
-        method: EndpointMethod::Get,
-        path: "/api/v1/mimi/flows/{flow_id}/group-info",
-    },
-    EndpointContract {
-        operation_id: "cx.mimi.request_consent",
-        method: EndpointMethod::Post,
-        path: "/api/v1/mimi/consent/request",
-    },
-    EndpointContract {
-        operation_id: "cx.mimi.update_consent",
-        method: EndpointMethod::Post,
-        path: "/api/v1/mimi/consent/update",
-    },
-    EndpointContract {
-        operation_id: "cx.mimi.identifier_query",
-        method: EndpointMethod::Post,
-        path: "/api/v1/mimi/identifiers/query",
-    },
-    EndpointContract {
-        operation_id: "cx.mimi.report_abuse",
-        method: EndpointMethod::Post,
-        path: "/api/v1/mimi/report-abuse",
-    },
-    EndpointContract {
-        operation_id: "cx.mimi.proxy_download",
-        method: EndpointMethod::Post,
-        path: "/api/v1/mimi/proxy-download",
-    },
-    EndpointContract {
-        operation_id: "cx.account.issue_session_grant",
-        method: EndpointMethod::Post,
-        path: "/api/v1/auth/account/session-grants",
-    },
-    EndpointContract {
-        operation_id: "cx.account.device_pair",
-        method: EndpointMethod::Post,
-        path: "/api/v1/auth/account/device-pair",
-    },
-    EndpointContract {
-        operation_id: "cx.account.oidc_callback",
-        method: EndpointMethod::Post,
-        path: "/api/v1/auth/account/oidc/callback",
-    },
-    EndpointContract {
-        operation_id: "cx.admin.get_server_status",
-        method: EndpointMethod::Get,
-        path: "/api/v1/admin/server/status",
-    },
-    EndpointContract {
-        operation_id: "cx.admin.update_account_status",
-        method: EndpointMethod::Post,
-        path: "/api/v1/admin/accounts/{account_id}/status",
-    },
-    EndpointContract {
-        operation_id: "cx.admin.revoke_device",
-        method: EndpointMethod::Post,
-        path: "/api/v1/admin/devices/{device_id}/revoke",
-    },
-    EndpointContract {
-        operation_id: "cx.admin.get_moderation_queue",
-        method: EndpointMethod::Get,
-        path: "/api/v1/admin/moderation/queue",
-    },
-    EndpointContract {
-        operation_id: "cx.applet.ping",
-        method: EndpointMethod::Get,
-        path: "/api/v1/applet/ping",
-    },
-    EndpointContract {
-        operation_id: "cx.applet.describe",
-        method: EndpointMethod::Get,
-        path: "/api/v1/applet/describe",
-    },
-    EndpointContract {
-        operation_id: "cx.applet.transaction",
-        method: EndpointMethod::Post,
-        path: "/api/v1/applet/transactions",
-    },
-    EndpointContract {
-        operation_id: "cx.applet.query_actor",
-        method: EndpointMethod::Get,
-        path: "/api/v1/applet/actors/{actor_id}",
-    },
-    EndpointContract {
-        operation_id: "cx.applet.query_space",
-        method: EndpointMethod::Get,
-        path: "/api/v1/applet/spaces/{space_id_or_alias}",
-    },
-    EndpointContract {
-        operation_id: "cx.applet.protocol_metadata",
-        method: EndpointMethod::Get,
-        path: "/api/v1/applet/protocols/{protocol}",
-    },
-    EndpointContract {
-        operation_id: "cx.applet.third_party_users",
-        method: EndpointMethod::Get,
-        path: "/api/v1/applet/third_party/users",
-    },
-    EndpointContract {
-        operation_id: "cx.applet.third_party_locations",
-        method: EndpointMethod::Get,
-        path: "/api/v1/applet/third_party/locations",
-    },
-];
+static API_ENDPOINT_CONTRACTS: LazyLock<Vec<EndpointContract>> =
+    LazyLock::new(|| api::endpoints().iter().copied().map(endpoint_contract_from_api).collect());
 
-pub fn endpoint_contracts() -> &'static [EndpointContract] {
-    ENDPOINT_CONTRACTS
+fn endpoint_method_from_api(method: api::EndpointMethod) -> EndpointMethod {
+    match method {
+        api::EndpointMethod::Get => EndpointMethod::Get,
+        api::EndpointMethod::Head => EndpointMethod::Head,
+        api::EndpointMethod::Post => EndpointMethod::Post,
+        api::EndpointMethod::Put => EndpointMethod::Put,
+    }
 }
 
-impl EndpointMethod {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Get => "get",
-            Self::Head => "head",
-            Self::Post => "post",
-            Self::Put => "put",
-        }
+fn endpoint_method_to_api(method: EndpointMethod) -> api::EndpointMethod {
+    match method {
+        EndpointMethod::Get => api::EndpointMethod::Get,
+        EndpointMethod::Head => api::EndpointMethod::Head,
+        EndpointMethod::Post => api::EndpointMethod::Post,
+        EndpointMethod::Put => api::EndpointMethod::Put,
     }
+}
+
+fn endpoint_parameter_location_from_api(
+    location: api::EndpointParameterLocation,
+) -> EndpointParameterLocation {
+    match location {
+        api::EndpointParameterLocation::Path => EndpointParameterLocation::Path,
+        api::EndpointParameterLocation::Query => EndpointParameterLocation::Query,
+        api::EndpointParameterLocation::Header => EndpointParameterLocation::Header,
+    }
+}
+
+fn endpoint_contract_from_api(endpoint: api::Endpoint) -> EndpointContract {
+    EndpointContract {
+        operation_id: endpoint.operation_id,
+        method: endpoint_method_from_api(endpoint.method),
+        path: endpoint.path,
+    }
+}
+
+fn endpoint_schema_binding_from_api(binding: api::EndpointSchemaBinding) -> EndpointSchemaBinding {
+    EndpointSchemaBinding {
+        operation_id: binding.operation_id,
+        request_schema: binding.request_schema,
+        response_schema: binding.response_schema,
+        request_body_content_type: binding.request_body_content_type,
+        response_body_content_type: binding.response_body_content_type,
+    }
+}
+
+fn endpoint_parameter_from_api(parameter: api::EndpointParameter) -> EndpointParameter {
+    EndpointParameter {
+        name: parameter.name,
+        location: endpoint_parameter_location_from_api(parameter.location),
+        required: parameter.required,
+        schema: parameter.schema,
+    }
+}
+
+fn api_endpoint_for_contract(endpoint: &EndpointContract) -> api::Endpoint {
+    let api_endpoint = api::endpoint_by_operation(endpoint.operation_id)
+        .unwrap_or_else(|| panic!("missing api endpoint {}", endpoint.operation_id));
+    debug_assert_eq!(endpoint.path, api_endpoint.path);
+    debug_assert_eq!(endpoint.method, endpoint_method_from_api(api_endpoint.method));
+    *api_endpoint
+}
+
+pub fn endpoint_contracts() -> &'static [EndpointContract] {
+    API_ENDPOINT_CONTRACTS.as_slice()
 }
 
 pub fn endpoint_schema_bindings() -> Vec<EndpointSchemaBinding> {
@@ -1464,165 +1063,25 @@ pub fn endpoint_schema_bindings() -> Vec<EndpointSchemaBinding> {
 }
 
 pub fn endpoint_schema_binding(endpoint: &EndpointContract) -> EndpointSchemaBinding {
-    let (request_schema, response_schema) = match endpoint.operation_id {
-        "cx.server.describe" => ("ServerDescribeRequest", "ServerDescription"),
-        "cx.identity.describe_registry" => ("IdentityDescribeRequest", "IdentityDescription"),
-        "cx.identity.resolve" => ("IdentityResolveRequest", "IdentityResolveResponse"),
-        "cx.identity.get_document" => ("IdentityDocumentQuery", "IdentityDocumentResponse"),
-        "cx.identity.get_log" => ("IdentityLogQuery", "IdentityLogResponse"),
-        "cx.identity.submit_did_operation" => {
-            ("SubmitDidOperationRequest", "SubmitDidOperationResponse")
-        }
-        "cx.identity.get_receipts" => ("IdentityReceiptsQuery", "IdentityReceiptsResponse"),
-        "cx.repo.describe" => ("RepoDescribeQuery", "RepoDescription"),
-        "cx.repo.list_commits" => ("RepoCommitsQuery", "RepoCommitsResponse"),
-        "cx.repo.get_commit" => ("RepoCommitQuery", "RepoCommitResponse"),
-        "cx.repo.get_operations" => ("RepoOperationsRequest", "RepoOperationsResponse"),
-        "cx.repo.sync" => ("RepoSyncRequest", "RepoSyncResponse"),
-        "cx.repo.submit_commit" => ("Commit", "SubmitCommitResponse"),
-        "cx.sync.account" => ("SyncRequest", "SyncResponse"),
-        "cx.sync.describe" => ("SyncDescribeRequest", "SyncDescription"),
-        "cx.events.subscribe" => ("EventsSubscribeQuery", "EventsSubscribeFrame"),
-        "cx.events.query" => ("EventsQueryRequest", "EventsQueryResponse"),
-        "cx.sync.get_snapshot_head" => ("SyncSnapshotHeadQuery", "SyncSnapshotHeadResponse"),
-        "cx.federation.discovery" => ("FederationDiscoveryRequest", "WellKnownContrixServer"),
-        "cx.federation.transaction" => {
-            ("FederationTransactionRequest", "FederationTransactionResponse")
-        }
-        "cx.federation.push_operations" => {
-            ("FederationPushOperationsRequest", "FederationPushOperationsResponse")
-        }
-        "cx.federation.pull_operations" => {
-            ("FederationPullOperationsQuery", "FederationPullOperationsResponse")
-        }
-        "cx.federation.space_members" => {
-            ("FederationSpaceMembersQuery", "FederationSpaceMembersResponse")
-        }
-        "cx.federation.backfill" => ("FederationBackfillQuery", "FederationBackfillResponse"),
-        "cx.federation.event_auth" => ("FederationEventAuthQuery", "FederationEventAuthResponse"),
-        "cx.federation.query_profile" => ("FederationProfileQuery", "FederationProfileResponse"),
-        "cx.federation.query_keys" => ("FederationKeyQuery", "FederationKeyResponse"),
-        "cx.federation.media" => ("FederationMediaRequest", "FederationMediaResponse"),
-        "cx.federation.verify_actor" => {
-            ("FederationVerifyActorRequest", "FederationVerifyActorResponse")
-        }
-        "cx.index.describe" => ("IndexDescribeRequest", "IndexDescription"),
-        "cx.index.get_entity" => ("IndexEntityQuery", "IndexEntityResponse"),
-        "cx.index.query" => ("QueryRequest", "QueryResponse"),
-        "cx.index.thread" => ("IndexThreadQuery", "IndexThreadResponse"),
-        "cx.index.notifications" => ("IndexNotificationsQuery", "IndexNotificationsResponse"),
-        "cx.index.inbox" => ("IndexInboxQuery", "IndexInboxResponse"),
-        "cx.index.search" => ("IndexSearchRequest", "IndexSearchResponse"),
-        "cx.index.space_hierarchy" => ("IndexSpaceHierarchyQuery", "IndexSpaceHierarchyResponse"),
-        "cx.directory.describe" => ("DirectoryDescribeRequest", "DirectoryDescription"),
-        "cx.directory.search_spaces" => {
-            ("DirectorySearchSpacesRequest", "DirectorySearchSpacesResponse")
-        }
-        "cx.directory.resolve_space" => {
-            ("DirectoryResolveSpaceRequest", "DirectoryResolveSpaceResponse")
-        }
-        "cx.directory.search_organizations" => {
-            ("DirectorySearchOrganizationsRequest", "DirectorySearchOrganizationsResponse")
-        }
-        "cx.directory.resolve_organization" => {
-            ("DirectoryResolveOrganizationRequest", "DirectoryResolveOrganizationResponse")
-        }
-        "cx.directory.search_actors" => {
-            ("DirectorySearchActorsRequest", "DirectorySearchActorsResponse")
-        }
-        "cx.directory.search_users" => {
-            ("DirectorySearchUsersQuery", "DirectorySearchUsersResponse")
-        }
-        "cx.directory.resolve_handle" => {
-            ("DirectoryResolveHandleRequest", "DirectoryResolveHandleResponse")
-        }
-        "cx.directory.private_contact_discovery" => {
-            ("PrivateContactDiscoveryRequest", "PrivateContactDiscoveryResponse")
-        }
-        "cx.blob.upload" => ("BlobUploadMetadata", "BlobUploadResponse"),
-        "cx.blob.head" => ("BlobGetQuery", "BlobMetadataHeaders"),
-        "cx.blob.get" => ("BlobGetQuery", "BinaryBlobBody"),
-        "cx.push.register_device" => ("PushRegisterDeviceRequest", "PushRegisterDeviceResponse"),
-        "cx.push.unregister_device" => ("PushUnregisterDeviceRequest", "OkResponse"),
-        "cx.push.notify" => ("PushNotifyRequest", "PushNotifyResponse"),
-        "cx.device_messages.put" => ("DeviceMessagesSendRequest", "DeviceMessagesSendResponse"),
-        "cx.device_messages.get" => ("DeviceMessagesGetQuery", "DeviceMessagesReceiveResponse"),
-        "cx.keys.upload" => ("KeysUploadRequest", "KeysUploadResponse"),
-        "cx.keys.query" => ("KeysQueryRequest", "KeysQueryResponse"),
-        "cx.keys.claim" => ("KeysClaimRequest", "KeysClaimResponse"),
-        "cx.keys.keypackages.upload" => ("KeyPackagesUploadRequest", "OkResponse"),
-        "cx.keys.keypackages.claim" => ("KeyPackagesClaimRequest", "KeyPackagesClaimResponse"),
-        "cx.keys.keypackages.consume" => ("KeyPackagesConsumeRequest", "OkResponse"),
-        "cx.keys.keypackages.revoke" => ("KeyPackagesRevokeRequest", "OkResponse"),
-        "cx.authz.get_effective_grants" => ("AuthzEffectiveGrantsQuery", "EffectiveGrantsResponse"),
-        "cx.authz.get_invites" => ("AuthzInvitesQuery", "AuthzInvitesResponse"),
-        "cx.authz.check" => ("AuthzCheckRequest", "AuthzCheckResponse"),
-        "cx.policy.check" => ("PolicyCheckRequest", "PolicyCheckResponse"),
-        "cx.media.ice_config" => ("MediaIceConfigRequest", "MediaIceConfigResponse"),
-        "cx.moderation.report" => ("ModerationReportRequest", "ModerationReportResponse"),
-        "cx.mimi.provider_directory" => ("MimiProviderDirectoryRequest", "JsonValue"),
-        "cx.mimi.key_material" => ("MimiKeyMaterialRequest", "JsonValue"),
-        "cx.mimi.flow_update" => ("MimiFlowUpdateRequest", "JsonValue"),
-        "cx.mimi.notify" => ("MimiNotifyRequest", "JsonValue"),
-        "cx.mimi.submit_message" => ("MimiSubmitMessageRequest", "JsonValue"),
-        "cx.mimi.group_info" => ("MimiGroupInfoQuery", "JsonValue"),
-        "cx.mimi.request_consent" => ("MimiConsentRequest", "JsonValue"),
-        "cx.mimi.update_consent" => ("MimiConsentUpdateRequest", "JsonValue"),
-        "cx.mimi.identifier_query" => ("MimiIdentifierQueryRequest", "JsonValue"),
-        "cx.mimi.report_abuse" => ("MimiReportAbuseRequest", "OkResponse"),
-        "cx.mimi.proxy_download" => ("MimiProxyDownloadRequest", "JsonValue"),
-        "cx.account.issue_session_grant" => {
-            ("AccountSessionGrantRequest", "AccountSessionGrantResponse")
-        }
-        "cx.account.device_pair" => ("AccountDevicePairRequest", "AccountDevicePairResponse"),
-        "cx.account.oidc_callback" => ("AccountOidcCallbackRequest", "AccountOidcCallbackResponse"),
-        "cx.admin.get_server_status" => ("AdminServerStatusQuery", "JsonValue"),
-        "cx.admin.update_account_status" => ("AdminAccountStatusRequest", "OkResponse"),
-        "cx.admin.revoke_device" => ("AdminRevokeDeviceRequest", "OkResponse"),
-        "cx.admin.get_moderation_queue" => ("AdminModerationQueueQuery", "JsonValue"),
-        "cx.applet.ping" => ("AppletPingRequest", "AppletPingResponse"),
-        "cx.applet.describe" => ("AppletDescribeRequest", "AppletDescription"),
-        "cx.applet.transaction" => ("AppletTransactionRequest", "AppletTransactionResponse"),
-        "cx.applet.query_actor" => ("AppletActorPath", "AppletActorResponse"),
-        "cx.applet.query_space" => ("AppletSpacePath", "AppletSpaceResponse"),
-        "cx.applet.protocol_metadata" => ("AppletProtocolPath", "AppletProtocolResponse"),
-        "cx.applet.third_party_users" => ("AppletThirdPartyUsersRequest", "JsonValue"),
-        "cx.applet.third_party_locations" => ("AppletThirdPartyLocationsRequest", "JsonValue"),
-        _ => ("JsonValue", "JsonValue"),
-    };
-
-    EndpointSchemaBinding {
-        operation_id: endpoint.operation_id,
-        request_schema,
-        response_schema,
-        request_body_content_type: request_body_content_type(endpoint),
-        response_body_content_type: response_body_content_type(endpoint),
-    }
+    endpoint_schema_binding_from_api(api::endpoint_schema_binding(api_endpoint_for_contract(
+        endpoint,
+    )))
 }
 
 pub fn endpoint_parameters(endpoint: &EndpointContract) -> Vec<EndpointParameter> {
-    let mut parameters = path_parameters(endpoint.path);
-    parameters.extend(query_parameters(endpoint.operation_id));
-    parameters.extend(header_parameters(endpoint.operation_id));
-    parameters.push(EndpointParameter {
-        name: "X-Contrix-Request-Id",
-        location: EndpointParameterLocation::Header,
-        required: false,
-        schema: "String",
-    });
-    parameters.push(EndpointParameter {
-        name: "Traceparent",
-        location: EndpointParameterLocation::Header,
-        required: false,
-        schema: "String",
-    });
-    parameters
+    api::endpoint_parameters(api_endpoint_for_contract(endpoint))
+        .into_iter()
+        .map(endpoint_parameter_from_api)
+        .collect()
 }
 
 pub fn match_endpoint(method: EndpointMethod, path: &str) -> Option<MatchedEndpoint<'static>> {
-    endpoint_contracts().iter().filter(|endpoint| endpoint.method == method).find_map(|endpoint| {
-        match_path_template(endpoint.path, path)
-            .map(|path_parameters| MatchedEndpoint { contract: endpoint, path_parameters })
+    api::match_endpoint(endpoint_method_to_api(method), path).map(|matched| MatchedEndpoint {
+        contract: endpoint_contracts()
+            .iter()
+            .find(|endpoint| endpoint.operation_id == matched.endpoint.operation_id)
+            .unwrap_or_else(|| panic!("missing server endpoint {}", matched.endpoint.operation_id)),
+        path_parameters: matched.path_parameters,
     })
 }
 
@@ -2025,173 +1484,6 @@ pub enum ServerResponse {
 
 pub trait EndpointHandler {
     fn handle(&mut self, request: ServerRequest) -> Result<ServerResponse>;
-}
-
-fn request_body_content_type(endpoint: &EndpointContract) -> Option<&'static str> {
-    match endpoint.method {
-        EndpointMethod::Post | EndpointMethod::Put => Some("application/json"),
-        EndpointMethod::Get | EndpointMethod::Head => None,
-    }
-}
-
-fn response_body_content_type(endpoint: &EndpointContract) -> Option<&'static str> {
-    match endpoint.operation_id {
-        "cx.blob.head" => None,
-        "cx.blob.get" => Some("application/octet-stream"),
-        "cx.events.subscribe" => Some("application/x-ndjson"),
-        _ => Some("application/json"),
-    }
-}
-
-fn path_parameters(path: &'static str) -> Vec<EndpointParameter> {
-    path.split('/')
-        .filter_map(|segment| {
-            if segment.starts_with('{') && segment.ends_with('}') {
-                Some(EndpointParameter {
-                    name: &segment[1..segment.len() - 1],
-                    location: EndpointParameterLocation::Path,
-                    required: true,
-                    schema: "String",
-                })
-            } else {
-                None
-            }
-        })
-        .collect()
-}
-
-fn query_parameters(operation_id: &str) -> Vec<EndpointParameter> {
-    let query: &[(&str, bool, &str)] = match operation_id {
-        "cx.identity.get_document" => &[("did", true, "Did"), ("version", false, "String")],
-        "cx.identity.get_log" => {
-            &[("did", true, "Did"), ("cursor", false, "String"), ("limit", false, "Limit")]
-        }
-        "cx.identity.get_receipts" => &[("did", true, "Did"), ("head", true, "Hash")],
-        "cx.repo.describe" => &[("repo_id", false, "Did")],
-        "cx.repo.list_commits" => {
-            &[("repo_id", true, "Did"), ("cursor", false, "String"), ("limit", false, "Limit")]
-        }
-        "cx.repo.get_commit" => &[("commit_id", true, "String"), ("repo_id", false, "Did")],
-        "cx.events.subscribe" => &[
-            ("spaces", false, "SpaceId"),
-            ("actors", false, "Did"),
-            ("from", false, "String"),
-            ("include_history", false, "Bool"),
-        ],
-        "cx.events.query" => &[
-            ("spaces", false, "SpaceId"),
-            ("actors", false, "Did"),
-            ("from", false, "String"),
-            ("until", false, "String"),
-            ("direction", false, "String"),
-            ("limit", false, "Limit"),
-        ],
-        "cx.sync.get_snapshot_head" => &[("space_id", true, "SpaceId")],
-        "cx.federation.pull_operations" => &[
-            ("space_id", true, "SpaceId"),
-            ("after_cursor", false, "String"),
-            ("limit", false, "Limit"),
-        ],
-        "cx.federation.space_members" => {
-            &[("space_id", true, "SpaceId"), ("cursor", false, "String"), ("limit", false, "Limit")]
-        }
-        "cx.federation.backfill" => &[
-            ("space_id", true, "SpaceId"),
-            ("from_event_id", false, "String"),
-            ("limit", true, "Limit"),
-        ],
-        "cx.federation.event_auth" => {
-            &[("space_id", true, "SpaceId"), ("event_id", true, "String")]
-        }
-        "cx.federation.query_profile" => &[("user_id", true, "Did"), ("field", false, "String")],
-        "cx.federation.media" => &[("allow_remote_thumbnail", false, "Bool")],
-        "cx.index.get_entity" => &[
-            ("entity_id", true, "String"),
-            ("space_id", false, "SpaceId"),
-            ("at", false, "String"),
-        ],
-        "cx.index.thread" => {
-            &[("topic_id", true, "String"), ("cursor", false, "String"), ("limit", false, "Limit")]
-        }
-        "cx.index.notifications" => {
-            &[("cursor", false, "String"), ("state", false, "String"), ("limit", false, "Limit")]
-        }
-        "cx.index.inbox" => {
-            &[("scope", false, "String"), ("cursor", false, "String"), ("limit", false, "Limit")]
-        }
-        "cx.index.space_hierarchy" => &[
-            ("space_id", true, "SpaceId"),
-            ("depth", false, "Limit"),
-            ("include_unconfirmed", false, "Bool"),
-        ],
-        "cx.directory.search_users" => {
-            &[("q", true, "String"), ("space_id", false, "SpaceId"), ("limit", false, "Limit")]
-        }
-        "cx.blob.head" | "cx.blob.get" => &[("blob_ref", true, "BlobRef")],
-        "cx.device_messages.get" => &[("from", false, "String"), ("limit", false, "Limit")],
-        "cx.authz.get_effective_grants" => {
-            &[("space_id", true, "SpaceId"), ("subject", true, "Did"), ("at", false, "String")]
-        }
-        "cx.authz.get_invites" => {
-            &[("subject", true, "Did"), ("space_id", false, "SpaceId"), ("cursor", false, "String")]
-        }
-        _ => &[],
-    };
-
-    query
-        .iter()
-        .map(|(name, required, schema)| EndpointParameter {
-            name,
-            location: EndpointParameterLocation::Query,
-            required: *required,
-            schema,
-        })
-        .collect()
-}
-
-fn header_parameters(operation_id: &str) -> Vec<EndpointParameter> {
-    let headers: &[(&str, bool, &str)] = match operation_id {
-        "cx.index.query" => &[("X-Contrix-Wait-For", false, "String")],
-        "cx.blob.upload" => &[
-            ("X-Contrix-Blob-Metadata", false, "BlobUploadMetadata"),
-            ("Content-Type", false, "String"),
-            ("Content-Disposition", false, "String"),
-            ("Digest", false, "Hash"),
-        ],
-        "cx.blob.get" => &[("Range", false, "String")],
-        _ => &[],
-    };
-
-    headers
-        .iter()
-        .map(|(name, required, schema)| EndpointParameter {
-            name,
-            location: EndpointParameterLocation::Header,
-            required: *required,
-            schema,
-        })
-        .collect()
-}
-
-fn match_path_template(template: &str, path: &str) -> Option<BTreeMap<String, String>> {
-    let template_segments = template.trim_matches('/').split('/');
-    let path_segments = path.trim_matches('/').split('/');
-    let mut parameters = BTreeMap::new();
-
-    for (template_segment, path_segment) in template_segments.zip(path_segments) {
-        if template_segment.starts_with('{') && template_segment.ends_with('}') {
-            let name = &template_segment[1..template_segment.len() - 1];
-            parameters.insert(name.to_owned(), path_segment.to_owned());
-        } else if template_segment != path_segment {
-            return None;
-        }
-    }
-
-    if template.trim_matches('/').split('/').count() != path.trim_matches('/').split('/').count() {
-        return None;
-    }
-
-    Some(parameters)
 }
 
 pub fn openapi_document() -> Value {
@@ -2694,27 +1986,24 @@ mod tests {
     }
 
     #[test]
-    fn api_catalog_matches_server_endpoint_registry() {
-        let server_contracts = endpoint_contracts()
-            .iter()
-            .map(|endpoint| (endpoint.operation_id, endpoint))
-            .collect::<BTreeMap<_, _>>();
-        assert_eq!(server_contracts.len(), api::endpoints().len());
+    fn server_endpoint_registry_delegates_to_api_catalog() {
+        assert_eq!(endpoint_contracts().len(), api::endpoints().len());
 
-        for api_endpoint in api::endpoints() {
-            let server_endpoint = server_contracts
-                .get(api_endpoint.operation_id)
-                .unwrap_or_else(|| panic!("missing {}", api_endpoint.operation_id));
-            assert_eq!(server_endpoint.method.as_str(), api_endpoint.method.as_str());
-            assert_eq!(server_endpoint.path, api_endpoint.path);
-
-            let binding = endpoint_schema_binding(server_endpoint);
-            assert_eq!(binding.request_schema, api_endpoint.request_schema);
-            assert_eq!(binding.response_schema, api_endpoint.response_schema);
-            assert_eq!(binding.request_body_content_type, api_endpoint.request_body_content_type());
+        for endpoint in endpoint_contracts() {
+            let api_endpoint =
+                api::endpoint_by_operation(endpoint.operation_id).expect("endpoint exists in api");
+            assert_eq!(endpoint.method, endpoint_method_from_api(api_endpoint.method));
+            assert_eq!(endpoint.path, api_endpoint.path);
             assert_eq!(
-                binding.response_body_content_type,
-                api_endpoint.response_body_content_type()
+                endpoint_schema_binding(endpoint),
+                endpoint_schema_binding_from_api(api::endpoint_schema_binding(*api_endpoint))
+            );
+            assert_eq!(
+                endpoint_parameters(endpoint),
+                api::endpoint_parameters(*api_endpoint)
+                    .into_iter()
+                    .map(endpoint_parameter_from_api)
+                    .collect::<Vec<_>>()
             );
         }
     }

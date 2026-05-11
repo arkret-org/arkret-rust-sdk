@@ -18,7 +18,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use contrix_client::Client;
+use contrix_http_client::Client;
 
 use crate::{DeviceId, Did, Result as SdkResult};
 
@@ -102,9 +102,9 @@ pub struct RestoreTicket {
     pub created_at: Option<DateTime<Utc>>,
 }
 
-/// Typed key-backup HTTP client wrapping a [`contrix_client::Client`].
+/// Typed key-backup HTTP client wrapping a [`contrix_http_client::Client`].
 ///
-/// All methods return `Result<_, contrix_client::Error>` so the API and
+/// All methods return `Result<_, contrix_http_client::Error>` so the API and
 /// retry/backoff config flow through the underlying client builder. The
 /// caller is expected to construct the inner [`Client`] with the
 /// appropriate auth (Bearer / DeviceProof / ServiceSignature).

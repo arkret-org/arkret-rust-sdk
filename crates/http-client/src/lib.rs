@@ -495,7 +495,7 @@ impl ClientBuilder {
     }
 
     /// Toggle gzip response decoding (the `gzip` feature is on by default
-    /// in `contrix-client`'s `reqwest` profile, so this method exists to
+    /// in `contrix-http-client`'s `reqwest` profile, so this method exists to
     /// let callers turn it *off* when stricter content negotiation matters).
     ///
     /// Native-only: gzip negotiation is owned by the browser on wasm32.
@@ -1378,7 +1378,7 @@ impl Client {
     }
 
     /// Wasm32 fast path. The browser fetch backend has neither a sleep
-    /// primitive we can call from the contrix-client crate (no
+    /// primitive we can call from the contrix-http-client crate (no
     /// `tokio::time` driver) nor an `is_connect` accessor on
     /// `reqwest::Error`, and status-based retry windows would require
     /// pulling in `gloo-timers` or similar. We deliberately collapse retry

@@ -26,7 +26,7 @@ default = [
     "sync-runtime",
     "timeline-runtime",
 ]
-client = ["dep:contrix-client", "dep:reqwest", "dep:tokio", "contrix-core/client", "contrix-ffi/client"]
+client = ["dep:contrix-http-client", "dep:reqwest", "dep:tokio", "contrix-core/client", "contrix-ffi/client"]
 signer = ["contrix-signatures/signer"]
 server = ["dep:contrix-server", "full-surface"]
 mls = [
@@ -59,8 +59,7 @@ chacha20poly1305.workspace = true
 chrono = { workspace = true, features = ["serde"] }
 chrono-tz.workspace = true
 contrix-api.workspace = true
-contrix-client-api.workspace = true
-contrix-client = { workspace = true, optional = true }
+contrix-http-client = { workspace = true, optional = true }
 contrix-core.workspace = true
 contrix-crypto.workspace = true
 contrix-events.workspace = true

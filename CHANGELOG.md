@@ -391,7 +391,7 @@ See `docs/move-anchor-runtime.md` for the full architecture.
   `pool_idle_timeout`, `pool_max_idle_per_host`, `tcp_nodelay`,
   `tcp_keepalive`, `http2_keep_alive_interval`, `http2_keep_alive_timeout`,
   `http2_keep_alive_while_idle`, `proxy`, `no_proxy`, `redirect`, and
-  `gzip`. See `crates/client/src/lib.rs`.
+  `gzip`. See `crates/http-client/src/lib.rs`.
 - `RedirectPolicy` enum (`None` / `Limited(usize)`) used by
   `ClientBuilder::redirect`.
 - `SECURITY.md` describing supported versions, the responsible disclosure

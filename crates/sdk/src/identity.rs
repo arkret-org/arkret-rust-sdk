@@ -3,13 +3,12 @@
 use std::collections::BTreeMap;
 
 use chrono::{DateTime, Utc};
+pub use contrix_api::identity::{DID_WEB_MAX_DOCUMENT_BYTES, DidDocument};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 use crate::{Did, Error, Result};
-
-pub const DID_WEB_MAX_DOCUMENT_BYTES: usize = 64 * 1024;
 
 /// Resolve DID documents for one or more DID methods.
 pub trait DidResolver {
@@ -94,138 +93,6 @@ impl ResolverPolicy {
                 did.as_str()
             )))
         }
-    }
-}
-
-/// Minimal DID document model used by the SDK.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DidDocument {
-    /// DID subject.
-    pub id: Did,
-    /// Verification methods by key ID.
-    #[serde(
-        rename = "verificationMethod",
-        alias = "verification_methods",
-        default,
-        deserialize_with = "deserialize_verification_methods",
-        skip_serializing_if = "BTreeMap::is_empty"
-    )]
-    pub verification_methods: BTreeMap<String, String>,
-    /// Also-known-as handles or URLs.
-    #[serde(
-        rename = "alsoKnownAs",
-        alias = "also_known_as",
-        default,
-        skip_serializing_if = "Vec::is_empty"
-    )]
-    pub also_known_as: Vec<String>,
-    /// Last update time.
-    #[serde(rename = "updated", alias = "updated_at", default = "Utc::now")]
-    pub updated_at: DateTime<Utc>,
-}
-
-fn deserialize_verification_methods<'de, D>(
-    deserializer: D,
-) -> std::result::Result<BTreeMap<String, String>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let value = Value::deserialize(deserializer)?;
-    match value {
-        Value::Object(methods) => Ok(methods
-            .into_iter()
-            .map(|(key_id, key_value)| {
-                let public_key = key_value
-                    .as_str()
-                    .map(ToOwned::to_owned)
-                    .unwrap_or_else(|| key_value.to_string());
-                (key_id, public_key)
-            })
-            .collect()),
-        Value::Array(methods) => {
-            let mut out = BTreeMap::new();
-            for method in methods {
-                if let Value::Object(object) = method {
-                    let Some(key_id) =
-                        object.get("id").and_then(|value| value.as_str()).map(ToOwned::to_owned)
-                    else {
-                        continue;
-                    };
-                    let public_key = object
-                        .get("publicKeyMultibase")
-                        .or_else(|| object.get("publicKeyJwk"))
-                        .or_else(|| object.get("public_key_multibase"))
-                        .or_else(|| object.get("public_key_jwk"))
-                        .map(|value| {
-                            value
-                                .as_str()
-                                .map(ToOwned::to_owned)
-                                .unwrap_or_else(|| value.to_string())
-                        })
-                        .unwrap_or_default();
-                    out.insert(key_id, public_key);
-                }
-            }
-            Ok(out)
-        }
-        Value::Null => Ok(BTreeMap::new()),
-        other => Err(serde::de::Error::custom(format!(
-            "verificationMethod must be an object or array, got {other}"
-        ))),
-    }
-}
-
-impl DidDocument {
-    /// Create a DID document with one key.
-    pub fn new(id: Did, key_id: impl Into<String>, public_key: impl Into<String>) -> Self {
-        Self {
-            id,
-            verification_methods: BTreeMap::from([(key_id.into(), public_key.into())]),
-            also_known_as: Vec::new(),
-            updated_at: Utc::now(),
-        }
-    }
-
-    /// Validate required DID document fields.
-    pub fn validate(&self) -> Result<()> {
-        if self.verification_methods.is_empty() {
-            return Err(Error::Protocol("did document has no verification methods".to_owned()));
-        }
-        Ok(())
-    }
-
-    /// Return the DID method (e.g., `"uuid"`, `"web"`, `"key"`).
-    pub fn method(&self) -> &str {
-        let remainder = &self.id.as_str()[4..];
-        remainder.split(':').next().unwrap_or("")
-    }
-
-    /// Return all key IDs and their public key material.
-    pub fn control_keys(&self) -> &BTreeMap<String, String> {
-        &self.verification_methods
-    }
-
-    /// Return the first verification method (key ID, public key), if any.
-    pub fn primary_key(&self) -> Option<(&str, &str)> {
-        self.verification_methods.iter().next().map(|(k, v)| (k.as_str(), v.as_str()))
-    }
-
-    /// Return `alsoKnownAs` entries that look like handles (not URLs).
-    pub fn handles(&self) -> Vec<&str> {
-        self.also_known_as
-            .iter()
-            .filter(|entry| !entry.starts_with("http://") && !entry.starts_with("https://"))
-            .map(String::as_str)
-            .collect()
-    }
-
-    /// Return `alsoKnownAs` entries that are URLs.
-    pub fn service_urls(&self) -> Vec<&str> {
-        self.also_known_as
-            .iter()
-            .filter(|entry| entry.starts_with("http://") || entry.starts_with("https://"))
-            .map(String::as_str)
-            .collect()
     }
 }
 

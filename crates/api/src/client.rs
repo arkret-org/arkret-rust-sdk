@@ -2,8 +2,8 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::push::{PushPriority, PushRule, PushRuleSet, Pusher};
 use chrono::{DateTime, Utc};
-use contrix_api::push::{PushPriority, PushRule, PushRuleSet, Pusher};
 use contrix_core::{
     BlobRef, DeviceId, Did, EncryptedPayload, Error, EventId, Hash, Hlc, InviteId, Result, SpaceId,
 };
@@ -1621,7 +1621,7 @@ mod tests {
             pusher: Pusher {
                 user_id: did("alice"),
                 device_id: DeviceId::new("dev_phone").unwrap(),
-                platform: contrix_api::push::PushPlatform::Fcm,
+                platform: crate::push::PushPlatform::Fcm,
                 push_gateway: "https://push.example".to_owned(),
                 push_key: "token".to_owned(),
                 app_id: Some("app".to_owned()),

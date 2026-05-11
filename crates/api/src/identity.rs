@@ -17,6 +17,8 @@ pub mod protocol {
     };
 }
 
+pub const DID_WEB_MAX_DOCUMENT_BYTES: usize = 64 * 1024;
+
 pub static IDENTITY_ENDPOINTS: LazyLock<Vec<Endpoint>> =
     LazyLock::new(|| endpoints_for_surface(ApiSurface::Identity).copied().collect());
 
@@ -98,6 +100,15 @@ where
 }
 
 impl DidDocument {
+    pub fn new(id: Did, key_id: impl Into<String>, public_key: impl Into<String>) -> Self {
+        Self {
+            id,
+            verification_methods: BTreeMap::from([(key_id.into(), public_key.into())]),
+            also_known_as: Vec::new(),
+            updated_at: Utc::now(),
+        }
+    }
+
     pub fn to_ref(&self) -> DidDocumentRef {
         DidDocumentRef {
             did: self.id.clone(),
@@ -112,6 +123,37 @@ impl DidDocument {
             ));
         }
         Ok(())
+    }
+
+    pub fn method(&self) -> &str {
+        self.id.method()
+    }
+
+    pub fn control_keys(&self) -> &BTreeMap<String, String> {
+        &self.verification_methods
+    }
+
+    pub fn primary_key(&self) -> Option<(&str, &str)> {
+        self.verification_methods
+            .iter()
+            .next()
+            .map(|(key_id, public_key)| (key_id.as_str(), public_key.as_str()))
+    }
+
+    pub fn handles(&self) -> Vec<&str> {
+        self.also_known_as
+            .iter()
+            .filter(|entry| !entry.starts_with("http://") && !entry.starts_with("https://"))
+            .map(String::as_str)
+            .collect()
+    }
+
+    pub fn service_urls(&self) -> Vec<&str> {
+        self.also_known_as
+            .iter()
+            .filter(|entry| entry.starts_with("http://") || entry.starts_with("https://"))
+            .map(String::as_str)
+            .collect()
     }
 }
 
@@ -238,5 +280,18 @@ mod tests {
             privacy_preserving: true,
         };
         assert!(response.privacy_preserving);
+    }
+
+    #[test]
+    fn did_document_helpers_cover_sdk_usage() {
+        let mut document = DidDocument::new(did("alice"), "key-1", "pub");
+        document.also_known_as =
+            vec!["@alice:example".to_owned(), "https://example.test/users/alice".to_owned()];
+
+        assert_eq!(document.method(), "web");
+        assert_eq!(document.control_keys().get("key-1"), Some(&"pub".to_owned()));
+        assert_eq!(document.primary_key(), Some(("key-1", "pub")));
+        assert_eq!(document.handles(), vec!["@alice:example"]);
+        assert_eq!(document.service_urls(), vec!["https://example.test/users/alice"]);
     }
 }

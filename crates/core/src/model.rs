@@ -5706,10 +5706,7 @@ impl FlowTrackConfig {
     /// reactions. Not marked primary by default. Insert under the
     /// [`FLOW_TRACK_NAME_DISCUSSION`] map key.
     pub fn discussion() -> Self {
-        Self {
-            profile: Some("discussion".to_owned()),
-            ..Self::default()
-        }
+        Self { profile: Some("discussion".to_owned()), ..Self::default() }
     }
 
     /// Standard `discussion` track config marked as the Flow's primary
@@ -5717,10 +5714,7 @@ impl FlowTrackConfig {
     /// (room / channel) form. Insert under the
     /// [`FLOW_TRACK_NAME_DISCUSSION`] map key.
     pub fn discussion_primary() -> Self {
-        Self {
-            is_primary: Some(true),
-            ..Self::discussion()
-        }
+        Self { is_primary: Some(true), ..Self::discussion() }
     }
 
     /// Set the track as the Flow's primary entry point.

@@ -264,7 +264,7 @@ pub fn endpoint_coverage_rows() -> Vec<EndpointCoverageRow> {
         request_schema: endpoint.request_schema.to_owned(),
         response_schema: endpoint.response_schema.to_owned(),
     }));
-    rows.extend(contrix_client_api::client_api_endpoints().iter().map(|endpoint| {
+    rows.extend(contrix_api::client::client_api_endpoints().iter().map(|endpoint| {
         EndpointCoverageRow {
             domain: ConformanceDomain::ClientServerApi,
             operation_id: endpoint.operation_id.to_owned(),
@@ -847,7 +847,7 @@ mod tests {
 
     #[test]
     fn boundary_crate_smoke_contracts_validate() {
-        contrix_client_api::client_api_coverage_report().validate().unwrap();
+        contrix_api::client::client_api_coverage_report().validate().unwrap();
         contrix_operations::operation_catalog().validate().unwrap();
         assert!(!contrix_operations::negative_dag_vectors().is_empty());
         contrix_schema::schema_catalog().validate().unwrap();

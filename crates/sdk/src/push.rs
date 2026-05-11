@@ -2,6 +2,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+pub use contrix_api::push::{PushPlatform, PushPriority, PushRule};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -10,25 +11,6 @@ use crate::{AEAD_ALGORITHM, DeviceId, Did, Error, EventId, Result, SpaceId, cryp
 
 pub const PUSH_ENCRYPTION_ALGORITHM: &str = AEAD_ALGORITHM;
 pub const CHIME_PUSH_REGISTRATION_VERSION: &str = "chime.push.registration.v1";
-
-/// Push platform.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum PushPlatform {
-    Apns,
-    Fcm,
-    WebPush,
-}
-
-/// Push priority.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum PushPriority {
-    Low,
-    Normal,
-    High,
-    Urgent,
-}
 
 /// Registered push token.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -87,16 +69,6 @@ impl ChimePushRegistration {
             token: self.token,
         })
     }
-}
-
-/// Push rule.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PushRule {
-    pub rule_id: String,
-    pub enabled: bool,
-    pub event_kind: Option<String>,
-    pub priority: PushPriority,
-    pub redact_content: bool,
 }
 
 /// Event considered for push.

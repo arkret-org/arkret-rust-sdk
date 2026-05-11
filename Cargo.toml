@@ -8,8 +8,7 @@ rust-version = "1.92"
 
 [workspace.dependencies]
 contrix-api = { version = "0.7.0", path = "crates/api", default-features = false }
-contrix-client = { version = "0.7.0", path = "crates/client", default-features = false }
-contrix-client-api = { version = "0.7.0", path = "crates/client-api", default-features = false }
+contrix-http-client = { version = "0.7.0", path = "crates/http-client", default-features = false }
 contrix-core = { version = "0.7.0", path = "crates/core", default-features = false }
 contrix-events = { version = "0.7.0", path = "crates/events", default-features = false }
 contrix-ffi = { version = "0.7.0", path = "crates/ffi", default-features = false }
@@ -118,3 +117,4 @@ debug = true
 [profile.bench]
 inherits = "release"
 lto = false
+

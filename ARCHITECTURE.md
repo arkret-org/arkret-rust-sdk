@@ -10,7 +10,7 @@ application
 contrix (umbrella SDK)
     |-- contrix-identifiers: validated DIDs, typed IDs, hashes, cursors and HLC values
     |-- contrix-core: wire models, canonical JSON, sync/cursor and service metadata
-    |-- contrix-client: HTTP client for Contrix service endpoints
+    |-- contrix-http-client: HTTP transport for Contrix service endpoints
     |-- contrix-server: endpoint registry, routed dispatch, server middleware, adapter contracts, OpenAPI helpers and optional Salvo router
     |-- base/sync_client: local client state, response processing and sliding sync
     |-- membership/devices/receipts/notifications: client business state
@@ -48,7 +48,7 @@ integer numbers only and rejects floating point values.
 
 ## Client Layer
 
-`crates/client/src/lib.rs` is a thin HTTP adapter. It is responsible for
+`contrix-http-client` (`crates/http-client/src/lib.rs`) is a thin HTTP adapter. It is responsible for
 base URL handling, authentication headers, JSON transport, service description
 verification and Contrix error envelope parsing.
 
@@ -112,3 +112,4 @@ these state machines without changing SDK-facing types.
   production deployments should connect them to platform-grade key storage and
   cryptographic signing.
 - Keep push payloads redacted for encrypted events.
+

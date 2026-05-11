@@ -31,12 +31,11 @@ jobs:
         contrix-identifiers
         contrix-core
         contrix-api
-        contrix-client
+        contrix-http-client
         contrix-signatures
         contrix-crypto
         contrix-events
         contrix-html
-        contrix-client-api
         contrix-ffi
         contrix-operations
         contrix-schema

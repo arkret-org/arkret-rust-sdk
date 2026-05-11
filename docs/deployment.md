@@ -39,7 +39,7 @@ async fn main() {
 
 ## TLS termination
 
-The Contrix client (`crates/client/src/lib.rs::ClientBuilder`) rejects
+The Contrix client (`crates/http-client/src/lib.rs::ClientBuilder`) rejects
 non-HTTPS base URLs unless the caller opts into
 `allow_insecure_localhost()`. So every production server must terminate TLS
 somewhere. Two patterns are common:
@@ -82,7 +82,7 @@ let service = Service::new(router).hoop(cors);
 
 The allowlisted headers should match what the client SDK sends — see
 `HEADER_REQUEST_ID`, `HEADER_IDEMPOTENCY_KEY`, `HEADER_WAIT_FOR` in
-`crates/client/src/lib.rs`.
+`crates/http-client/src/lib.rs`.
 
 ## Request limits & rate limiting
 
@@ -162,3 +162,4 @@ behalf of the unit.
   body size limits, HTTP/2 keep-alive timeouts, and basic rate limiting.
 - Subscribe to the Contrix specification repository so capability and
   schema changes can be tracked alongside the SDK release notes.
+

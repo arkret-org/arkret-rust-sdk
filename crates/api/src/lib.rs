@@ -8,6 +8,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+pub mod client;
 pub mod federation;
 pub mod identity;
 pub mod push;

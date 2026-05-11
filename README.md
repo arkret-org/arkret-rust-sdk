@@ -34,7 +34,7 @@ re-exports the public SDK surface:
 
 - `contrix-core`: protocol identifiers, canonical JSON, wire models, sync/cursor types and service metadata
 - `contrix-identifiers`: validated DIDs, typed IDs, hashes, cursors and HLC values
-- `contrix-client`: HTTP client bindings
+- `contrix-http-client`: HTTP transport bindings
 - `contrix-server`: framework-independent endpoint registry, routed dispatch, server middleware, OpenAPI helpers and optional Salvo router/OAPI integration
 - `contrix`: umbrella SDK crate with high-level state managers and feature forwarding
 
@@ -63,7 +63,7 @@ cargo test
 - [Changelog](CHANGELOG.md) — release notes and unreleased changes.
 - [Security policy](SECURITY.md) — supported versions and how to report
   vulnerabilities responsibly.
-- [Releasing](RELEASING.md) — how the 22-crate workspace is published in
+- [Releasing](RELEASING.md) — how the 16-crate workspace is published in
   topological order.
 - [Contributing](CONTRIBUTING.md) — development checks, API rules, commit
   style.

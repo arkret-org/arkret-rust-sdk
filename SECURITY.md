@@ -52,7 +52,7 @@ Please include:
 In scope:
 
 - Anything in `crates/*` that ships in a published `contrix-*` crate.
-- The default behaviour of `contrix-client` against an arbitrary Contrix
+- The default behaviour of `contrix-http-client` against an arbitrary Contrix
   service (URL handling, header construction, retry/backoff, error envelope
   parsing).
 - Cryptographic primitives and AEAD/MLS bindings under the default features.

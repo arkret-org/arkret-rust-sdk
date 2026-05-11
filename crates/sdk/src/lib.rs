@@ -64,11 +64,11 @@
 //! ```
 
 pub use contrix_api as api;
-#[cfg(feature = "client")]
-pub use contrix_client as client;
-pub use contrix_client_api as client_api;
+pub use contrix_api::client as client_api;
 pub use contrix_core::*;
 pub use contrix_core::{canonical, cursor, error, identifiers, keystore, model, service, sync};
+#[cfg(feature = "client")]
+pub use contrix_http_client as http_client;
 // Round 23 (2026-05-09): platform-native KeyStore backends. The glob import
 // above already re-exports these symbols, but listing them explicitly keeps
 // them visible in `cargo doc` and signals the supported surface to
@@ -243,8 +243,6 @@ pub use base::{
     BaseClient, BootstrapSequence, BootstrapStep, BootstrapStepKind, BootstrapStepStatus,
     ClientSpace, SessionMeta, SessionRestore, SpaceStateType,
 };
-#[cfg(feature = "client")]
-pub use client::{Auth, Client, ClientBuilder, ClientRequestOptions, RetryConfig};
 #[cfg(feature = "full-surface")]
 pub use content::{
     LinkPreview, MarkdownDocument, Mention, MentionTarget, Reaction, ReactionManager,
@@ -306,6 +304,8 @@ pub use hlc::{
     HlcComponents, HlcGenerator, compare_hlc, is_clock_skew_acceptable, parse_hlc, time_until_hlc,
     validate_hlc_format,
 };
+#[cfg(feature = "client")]
+pub use http_client::{Auth, Client, ClientBuilder, ClientRequestOptions, RetryConfig};
 #[cfg(all(feature = "full-surface", feature = "client", not(target_arch = "wasm32")))]
 pub use http_did_resolver::{
     DEFAULT_HTTP_DID_RESOLVER_TIMEOUT_MS, DEFAULT_HTTP_DID_RESOLVER_TTL_SECS, HttpDidResolver,

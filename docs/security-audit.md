@@ -96,4 +96,5 @@ audit item as `external_audit_required`.
 | Repo and crypto stores | `crates/sdk/src/store.rs`, `crypto_store.rs` |
 | E2EE and MLS | `crates/sdk/src/e2ee.rs`, `mls.rs`, `devices.rs` |
 | Federation and service identity | `crates/sdk/src/federation.rs`, `crates/core/src/service.rs` |
-| Log redaction and feature safety | `crates/sdk/src/crypto.rs`, `crates/client/src/lib.rs`, `crates/server/src/lib.rs` |
+| Log redaction and feature safety | `crates/sdk/src/crypto.rs`, `crates/http-client/src/lib.rs`, `crates/server/src/lib.rs` |
+

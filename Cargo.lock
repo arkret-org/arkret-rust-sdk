@@ -429,13 +429,12 @@ dependencies = [
  "chrono",
  "chrono-tz",
  "contrix-api",
- "contrix-client",
- "contrix-client-api",
  "contrix-core",
  "contrix-crypto",
  "contrix-events",
  "contrix-ffi",
  "contrix-html",
+ "contrix-http-client",
  "contrix-lattice",
  "contrix-operations",
  "contrix-schema",
@@ -469,33 +468,10 @@ version = "0.7.0"
 dependencies = [
  "chrono",
  "contrix-core",
- "contrix-signatures",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "contrix-client"
-version = "0.7.0"
-dependencies = [
- "contrix-core",
- "reqwest",
- "serde",
- "serde_json",
- "tokio",
- "url",
-]
-
-[[package]]
-name = "contrix-client-api"
-version = "0.7.0"
-dependencies = [
- "chrono",
- "contrix-api",
- "contrix-core",
  "contrix-crypto",
  "contrix-events",
  "contrix-html",
+ "contrix-signatures",
  "serde",
  "serde_json",
 ]
@@ -558,6 +534,18 @@ dependencies = [
  "contrix-core",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "contrix-http-client"
+version = "0.7.0"
+dependencies = [
+ "contrix-core",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "url",
 ]
 
 [[package]]
@@ -659,7 +647,6 @@ version = "0.7.0"
 dependencies = [
  "chrono",
  "contrix-api",
- "contrix-client-api",
  "contrix-core",
  "contrix-crypto",
  "contrix-events",

@@ -1,12 +1,12 @@
 [package]
 authors = ["Chris Young <chris@sonc.ai>"]
 categories = ["api-bindings", "network-programming"]
-description = "HTTP client bindings for Contrix v1 service endpoints."
+description = "HTTP transport bindings for Contrix v1 service endpoints."
 edition = "2024"
 homepage = "https://github.com/contrix/contrix-rust-sdk"
 keywords = ["contrix", "client", "http", "sdk"]
 license = "Apache-2.0"
-name = "contrix-client"
+name = "contrix-http-client"
 readme = "README.md"
 repository = "https://github.com/contrix/contrix-rust-sdk"
 rust-version.workspace = true
