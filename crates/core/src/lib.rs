@@ -15,6 +15,7 @@ pub mod events;
 pub mod keystore;
 pub mod model;
 pub mod move_event;
+pub mod schema;
 pub mod service;
 pub mod signer;
 pub mod sync;

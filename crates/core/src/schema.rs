@@ -1,4 +1,4 @@
-//! Schema registry and compatibility contracts.
+//! Schema registry, compatibility contracts and spec-drift helpers.
 
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -6,7 +6,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use contrix_core::{
+use crate::{
     CAPABILITY_SCHEMA, CLIENT_SYNC_RESPONSE_SCHEMA, COMMIT_SCHEMA, CURSOR_SCHEMA,
     ENCRYPTED_PAYLOAD_SCHEMA, ENTITY_SCHEMA, EVENT_SCHEMA, Error, FLOW_SCHEMA,
     GeneratedSchemaValidator, OPERATION_SCHEMA, ProtocolSchemaRegistry, Result,
@@ -16,7 +16,7 @@ use contrix_core::{
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-pub use contrix_core::{
+pub use crate::{
     GeneratedSchemaField, GeneratedSchemaValueType, ProtocolSchemaRegistry as Registry,
 };
 
@@ -697,7 +697,7 @@ fn registry_entry<'a>(
 }
 
 pub mod protocol {
-    pub use contrix_core::{
+    pub use crate::{
         CAPABILITY_SCHEMA, CLIENT_SYNC_RESPONSE_SCHEMA, COMMIT_SCHEMA, CURSOR_SCHEMA,
         ENCRYPTED_PAYLOAD_SCHEMA, ENTITY_SCHEMA, EVENT_SCHEMA, FLOW_SCHEMA, GeneratedSchemaField,
         GeneratedSchemaValidator, GeneratedSchemaValueType, OPERATION_SCHEMA,

@@ -16,11 +16,9 @@ contrix-identifiers = { version = "0.7.0", path = "crates/identifiers", default-
 contrix-crypto = { version = "0.7.0", path = "crates/crypto", default-features = false }
 contrix-lattice = { version = "0.7.0", path = "crates/lattice", default-features = false }
 contrix-operations = { version = "0.7.0", path = "crates/operations", default-features = false }
-contrix-schema = { version = "0.7.0", path = "crates/schema", default-features = false }
 contrix-server = { version = "0.7.0", path = "crates/server", default-features = false }
 contrix-signatures = { version = "0.7.0", path = "crates/signatures", default-features = false }
 contrix-state-res = { version = "0.7.0", path = "crates/state-res", default-features = false }
-contrix-store = { version = "0.7.0", path = "crates/store", default-features = false }
 contrix-testing = { version = "0.7.0", path = "crates/testing", default-features = false }
 base64 = { version = "0.22.1", default-features = false, features = ["std"] }
 chacha20poly1305 = { version = "0.10.1", default-features = false, features = ["alloc"] }

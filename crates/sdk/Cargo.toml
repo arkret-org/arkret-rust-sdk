@@ -66,12 +66,10 @@ contrix-ffi.workspace = true
 contrix-html.workspace = true
 contrix-lattice.workspace = true
 contrix-operations.workspace = true
-contrix-schema.workspace = true
 contrix-server = { workspace = true, optional = true }
 salvo = { workspace = true, optional = true, features = ["oapi"] }
 contrix-signatures.workspace = true
 contrix-state-res.workspace = true
-contrix-store.workspace = true
 contrix-testing.workspace = true
 getrandom.workspace = true
 openmls_basic_credential = { workspace = true, optional = true }

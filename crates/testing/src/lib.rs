@@ -33,7 +33,6 @@ pub enum ConformanceDomain {
     Operations,
     Schema,
     Html,
-    Store,
     Crypto,
     Ui,
     Ffi,
@@ -356,7 +355,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
             domain: ConformanceDomain::Schema,
             operation_id: "cx.schema.catalog".to_owned(),
             method: "CONTRACT".to_owned(),
-            path: "contrix-schema://catalog".to_owned(),
+            path: "contrix-core://schema/catalog".to_owned(),
             request_schema: "ProtocolSchemaRegistry".to_owned(),
             response_schema: "SchemaCatalogReport".to_owned(),
         },
@@ -364,7 +363,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
             domain: ConformanceDomain::Schema,
             operation_id: "cx.schema.validation_vectors".to_owned(),
             method: "CONTRACT".to_owned(),
-            path: "contrix-schema://vectors".to_owned(),
+            path: "contrix-core://schema/vectors".to_owned(),
             request_schema: "SchemaValidationVector".to_owned(),
             response_schema: "SchemaCompatibilityTable".to_owned(),
         },
@@ -383,54 +382,6 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
             path: "contrix-html://sanitize".to_owned(),
             request_schema: "Html".to_owned(),
             response_schema: "SanitizedHtml".to_owned(),
-        },
-        EndpointCoverageRow {
-            domain: ConformanceDomain::Store,
-            operation_id: "cx.store.repo_object".to_owned(),
-            method: "CONTRACT".to_owned(),
-            path: "contrix-store://repo-object-store".to_owned(),
-            request_schema: "RepoWriteBatch".to_owned(),
-            response_schema: "StoreBatchReceipt".to_owned(),
-        },
-        EndpointCoverageRow {
-            domain: ConformanceDomain::Store,
-            operation_id: "cx.store.core_event_store".to_owned(),
-            method: "CONTRACT".to_owned(),
-            path: "contrix-store://core-event-store".to_owned(),
-            request_schema: "CoreEventSubmitRequest".to_owned(),
-            response_schema: "CoreEventSubmitReceipt".to_owned(),
-        },
-        EndpointCoverageRow {
-            domain: ConformanceDomain::Store,
-            operation_id: "cx.store.failure_cache".to_owned(),
-            method: "CONTRACT".to_owned(),
-            path: "contrix-store://failure-cache".to_owned(),
-            request_schema: "StoreFailureRecord".to_owned(),
-            response_schema: "StoreFailureCache".to_owned(),
-        },
-        EndpointCoverageRow {
-            domain: ConformanceDomain::Store,
-            operation_id: "cx.store.sync_token".to_owned(),
-            method: "CONTRACT".to_owned(),
-            path: "contrix-store://sync-token-store".to_owned(),
-            request_schema: "PersistentSyncToken".to_owned(),
-            response_schema: "PersistentSyncToken".to_owned(),
-        },
-        EndpointCoverageRow {
-            domain: ConformanceDomain::Store,
-            operation_id: "cx.store.send_queue".to_owned(),
-            method: "CONTRACT".to_owned(),
-            path: "contrix-store://send-queue-store".to_owned(),
-            request_schema: "SendQueueRecord".to_owned(),
-            response_schema: "SendQueueRecord".to_owned(),
-        },
-        EndpointCoverageRow {
-            domain: ConformanceDomain::Store,
-            operation_id: "cx.store.media_cache".to_owned(),
-            method: "CONTRACT".to_owned(),
-            path: "contrix-store://media-cache-store".to_owned(),
-            request_schema: "MediaCacheRecord".to_owned(),
-            response_schema: "MediaCacheRecord".to_owned(),
         },
         EndpointCoverageRow {
             domain: ConformanceDomain::Crypto,
@@ -720,91 +671,6 @@ pub fn domain_counts(report: &ConformanceReport) -> BTreeMap<ConformanceDomain, 
     counts
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CoreEventStoreFixtureReport {
-    pub profile: String,
-    pub checks: BTreeMap<String, bool>,
-}
-
-impl CoreEventStoreFixtureReport {
-    pub fn validate(&self) -> Result<()> {
-        if self.profile != contrix_store::CORE_EVENT_STORE_PROFILE {
-            return Err(Error::Protocol("core event store fixture profile mismatch".to_owned()));
-        }
-        if self.checks.values().all(|passed| *passed) {
-            Ok(())
-        } else {
-            Err(Error::Protocol("core event store fixture checks failed".to_owned()))
-        }
-    }
-}
-
-pub fn core_event_store_fixture_report() -> Result<CoreEventStoreFixtureReport> {
-    use contrix_store::{
-        CoreEventBackfillRequest, CoreEventBatchGetRequest, CoreEventFetchRequest,
-        CoreEventFrontierRequest, CoreEventStore, CoreEventSubmitStatus, MemoryRuntimeStore,
-    };
-
-    let mut store = MemoryRuntimeStore::new();
-    let first = Event::new(
-        "cx.message.create",
-        SpaceId::new("cx:space:01904100-0000-7000-8000-e29f120781be")?,
-        Did::new("did:web:fixture.example")?,
-        1,
-        Hlc::new("01970e589d21-00000001-a13f9c2e")?,
-        json!({"body": "one"}),
-    )?;
-    let first_id = first.event_id.clone();
-    let first_receipt = store.submit_event(first.clone())?;
-    let duplicate_receipt = store.submit_event(first.clone())?;
-
-    let mut second = Event::new(
-        "cx.message.create",
-        first.space_id.clone(),
-        first.actor_id.clone(),
-        2,
-        Hlc::new("01970e589d21-00000002-a13f9c2e")?,
-        json!({"body": "two"}),
-    )?;
-    second.prev_refs.push(first_id.clone());
-    second.refresh_event_id()?;
-    store.submit_event(second.clone())?;
-
-    let mut conflict = first;
-    conflict.content = json!({"body": "conflict"});
-    let conflict_rejected = store.submit_event(conflict).is_err();
-    let fetched =
-        store.fetch_event(&CoreEventFetchRequest { event_id: first_id.clone() }).is_some();
-    let batch = store.batch_get_events(&CoreEventBatchGetRequest {
-        event_ids: vec![first_id, second.event_id.clone()],
-    });
-    let backfill = store.backfill_events(&CoreEventBackfillRequest {
-        space_id: second.space_id.clone(),
-        from_event_id: None,
-        limit: 10,
-    })?;
-    let frontier = store.event_frontier(&CoreEventFrontierRequest { space_id: second.space_id });
-
-    Ok(CoreEventStoreFixtureReport {
-        profile: contrix_store::CORE_EVENT_STORE_PROFILE.to_owned(),
-        checks: BTreeMap::from([
-            (
-                "accepts_new_event".to_owned(),
-                first_receipt.status == CoreEventSubmitStatus::AcceptedNew,
-            ),
-            (
-                "accepts_idempotent_duplicate".to_owned(),
-                duplicate_receipt.status == CoreEventSubmitStatus::AcceptedDuplicate,
-            ),
-            ("rejects_same_id_different_bytes".to_owned(), conflict_rejected),
-            ("fetches_event".to_owned(), fetched),
-            ("batch_gets_events".to_owned(), batch.len() == 2),
-            ("backfills_events".to_owned(), backfill.events.len() == 2),
-            ("tracks_frontier".to_owned(), frontier.frontier == vec![second.event_id]),
-        ]),
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -824,7 +690,6 @@ mod tests {
             ConformanceDomain::Operations,
             ConformanceDomain::Schema,
             ConformanceDomain::Html,
-            ConformanceDomain::Store,
             ConformanceDomain::Crypto,
             ConformanceDomain::Ui,
             ConformanceDomain::Ffi,
@@ -833,8 +698,6 @@ mod tests {
         }
         assert!(report.operation_ids().contains("cx.federation.transaction"));
         assert!(report.operation_ids().contains("cx.identity.resolve"));
-        assert!(report.operation_ids().contains("cx.store.repo_object"));
-        assert!(report.operation_ids().contains("cx.store.core_event_store"));
         assert!(report.operation_ids().contains("cx.crypto.machine_request"));
         assert!(report.operation_ids().contains("cx.ui.timeline_projection"));
         assert!(report.operation_ids().contains("cx.ffi.wasm_runtime"));
@@ -850,16 +713,16 @@ mod tests {
         contrix_api::client::client_api_coverage_report().validate().unwrap();
         contrix_operations::operation_catalog().validate().unwrap();
         assert!(!contrix_operations::negative_dag_vectors().is_empty());
-        contrix_schema::schema_catalog().validate().unwrap();
-        contrix_schema::validate_schema_vectors(&contrix_schema::built_in_schema_vectors())
-            .unwrap();
+        contrix_core::schema::schema_catalog().validate().unwrap();
+        contrix_core::schema::validate_schema_vectors(
+            &contrix_core::schema::built_in_schema_vectors(),
+        )
+        .unwrap();
         contrix_html::RichTextDocument::normalize(
             "Hello @alice <script>bad()</script>",
             contrix_html::RichTextFormat::Html,
         )
         .unwrap();
-        contrix_store::memory_store_conformance_report().unwrap().validate().unwrap();
-        core_event_store_fixture_report().unwrap().validate().unwrap();
         contrix_ffi::WasmRuntimeContract::default().validate().unwrap();
 
         let mut plan = contrix_crypto::CryptoMachinePlan::default();

@@ -37,10 +37,8 @@ jobs:
         contrix-html
         contrix-ffi
         contrix-operations
-        contrix-schema
         contrix-server
         contrix-state-res
-        contrix-store
         contrix-testing
         contrix
     steps:

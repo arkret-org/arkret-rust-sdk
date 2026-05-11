@@ -66,6 +66,7 @@
 pub use contrix_api as api;
 pub use contrix_api::client as client_api;
 pub use contrix_core::events;
+pub use contrix_core::schema;
 pub use contrix_core::*;
 pub use contrix_core::{canonical, cursor, error, identifiers, keystore, model, service, sync};
 #[cfg(feature = "client")]
@@ -74,9 +75,12 @@ pub use contrix_http_client as http_client;
 // above already re-exports these symbols, but listing them explicitly keeps
 // them visible in `cargo doc` and signals the supported surface to
 // downstream crates that depend only on `contrix` (not `contrix-core`).
+#[cfg(feature = "full-surface")]
+pub use crate::store as store_contracts;
 pub use contrix_api::federation as federation_api;
 pub use contrix_api::identity as identity_api;
 pub use contrix_api::push as push_gateway_api;
+pub use contrix_core::schema as schema_contracts;
 pub use contrix_core::{
     InMemoryKeyStore, KeyStore, KeyStoreError, LinuxSecretServiceKeyStore, MacOsKeychainKeyStore,
     WindowsCredentialKeyStore, platform_default_keystore,
@@ -86,7 +90,6 @@ pub use contrix_ffi as ffi;
 pub use contrix_html as html;
 pub use contrix_lattice as lattice;
 pub use contrix_operations as operations;
-pub use contrix_schema as schema_contracts;
 #[cfg(feature = "server")]
 pub use contrix_server as server;
 #[cfg(feature = "salvo")]
@@ -95,7 +98,6 @@ pub use contrix_signatures as signatures;
 #[cfg(feature = "signer")]
 pub use contrix_signatures::Ed25519MoveSigner;
 pub use contrix_state_res as state_res;
-pub use contrix_store as store_contracts;
 pub use contrix_testing as testing;
 #[cfg(feature = "full-surface")]
 pub mod account;

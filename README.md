@@ -63,7 +63,7 @@ cargo test
 - [Changelog](CHANGELOG.md) — release notes and unreleased changes.
 - [Security policy](SECURITY.md) — supported versions and how to report
   vulnerabilities responsibly.
-- [Releasing](RELEASING.md) — how the 16-crate workspace is published in
+- [Releasing](RELEASING.md) — how the 14-crate workspace is published in
   topological order.
 - [Contributing](CONTRIBUTING.md) — development checks, API rules, commit
   style.

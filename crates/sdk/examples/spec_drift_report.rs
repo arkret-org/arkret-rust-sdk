@@ -28,7 +28,7 @@
 
 use std::process::ExitCode;
 
-use contrix_schema::artifact_drift_report_from_default_location;
+use contrix::schema_contracts::artifact_drift_report_from_default_location;
 
 fn main() -> ExitCode {
     let report = match artifact_drift_report_from_default_location() {
@@ -87,7 +87,7 @@ fn main() -> ExitCode {
     }
 
     if hard {
-        eprintln!("hard drift detected — update ARTIFACT_BACKED_* in crates/schema/src/lib.rs");
+        eprintln!("hard drift detected — update ARTIFACT_BACKED_* in crates/core/src/schema.rs");
         return ExitCode::from(1);
     }
     if !report.has_unlisted() {
