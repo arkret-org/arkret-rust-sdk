@@ -11,7 +11,12 @@ fn did(name: &str) -> Did {
 }
 
 fn device(id: &str) -> DeviceId {
-    DeviceId::new(format!("dev_{id}")).unwrap()
+    let mut acc = 0xcbf29ce484222325u64;
+    for byte in id.bytes() {
+        acc = (acc ^ u64::from(byte)).wrapping_mul(0x100000001b3);
+    }
+    DeviceId::new(format!("cx:device:01904100-0000-7000-8000-{:012x}", acc & 0x0000_ffff_ffff_ffff))
+        .unwrap()
 }
 
 fn event(kind: &str, seq: u64, space_id: &SpaceId, content: serde_json::Value) -> Event {
@@ -25,10 +30,10 @@ fn event(kind: &str, seq: u64, space_id: &SpaceId, content: serde_json::Value) -
         hlc: Hlc::new(format!("01970e589d21-{seq:08x}-a13f9c2e")).unwrap(),
         prev_refs: vec![],
         refs: vec![],
-        schema_profile_refs: vec![],
-        reducer_profile_ref: None,
-        required_features: vec![],
-        critical_extensions: vec![],
+        preconditions: vec![],
+        effects: vec![],
+        anchor_ref: None,
+        requirements: EventRequirements::default(),
         redacts: None,
         content,
         unsigned: BTreeMap::new(),

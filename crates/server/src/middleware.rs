@@ -113,7 +113,7 @@ where
             ServerAuthenticationDecision::Missing if self.config.require_authentication => {
                 return Ok(ServerMiddlewareRejection::new(
                     401,
-                    "cx.error.unauthorized",
+                    "unauthenticated",
                     "Authentication is required for this Contrix endpoint",
                 )
                 .into_response());
@@ -143,7 +143,7 @@ where
             {
                 return Ok(ServerMiddlewareRejection::new(
                     429,
-                    "cx.error.rate_limited",
+                    "rate_limited",
                     "Contrix endpoint rate limit exceeded",
                 )
                 .with_header("Retry-After", retry_after_secs.to_string())
@@ -183,7 +183,7 @@ impl<S> ServerMiddlewareStack<S> {
                 return Ok(PreparedIdempotency::Hit(
                     ServerMiddlewareRejection::new(
                         428,
-                        "cx.error.idempotency_required",
+                        "missing_param",
                         "Mutating Contrix endpoints require Idempotency-Key",
                     )
                     .into_response(),
@@ -240,11 +240,11 @@ where
     S: RoutedEndpointService,
 {
     if let Err(error) = reject_query_auth(&request.query) {
-        return adapter_error_response(400, "cx.error.bad_request", error.to_string());
+        return adapter_error_response(400, "invalid_param", error.to_string());
     }
 
     let Some(matched) = match_endpoint(request.method, &request.path) else {
-        return adapter_error_response(404, "cx.error.not_found", "Contrix endpoint not found");
+        return adapter_error_response(404, "not_found", "Contrix endpoint not found");
     };
     let operation_id = matched.contract.operation_id;
 
@@ -260,22 +260,19 @@ where
                 .or_insert_with(|| operation_id.to_owned());
             response
         }
-        Err(error) => adapter_error_response(500, "cx.error.internal", error.to_string()),
+        Err(error) => adapter_error_response(500, "internal_error", error.to_string()),
     }
 }
 
 pub(super) fn adapter_error_response(
     status: u16,
-    errcode: impl Into<String>,
-    error: impl Into<String>,
+    code: impl Into<String>,
+    message: impl Into<String>,
 ) -> HttpAdapterResponse {
+    let envelope = contrix_core::ErrorEnvelope::new(code, message);
     HttpAdapterResponse {
         status,
         headers: BTreeMap::from([("content-type".to_owned(), "application/json".to_owned())]),
-        body: serde_json::to_vec(&json!({
-            "errcode": errcode.into(),
-            "error": error.into(),
-        }))
-        .unwrap_or_default(),
+        body: serde_json::to_vec(&envelope).unwrap_or_default(),
     }
 }

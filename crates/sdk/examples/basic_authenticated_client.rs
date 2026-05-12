@@ -2,7 +2,7 @@ use contrix::{AuthManager, BaseClient, DeviceId, Did, SessionMeta};
 
 fn main() -> contrix::Result<()> {
     let user_id = Did::new("did:web:alice.example")?;
-    let device_id = DeviceId::new("dev_desktop")?;
+    let device_id = DeviceId::new("cx:device:01904100-0000-7000-8000-000000000009")?;
 
     let mut auth = AuthManager::default();
     auth.register_password_user("alice", "correct-horse-battery-staple", user_id)?;

@@ -274,6 +274,58 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     VIEW_UPDATE,
 ];
 
+pub const NON_REDUCER_EVENT_KINDS: &[&str] = &[
+    ACCOUNT_BLOCKLIST,
+    ACCOUNT_DATA_SET,
+    AUDIT_RYW_RECEIPT,
+    CALL_SIGNAL,
+    KEY_VERIFICATION_ACCEPT,
+    KEY_VERIFICATION_CANCEL,
+    KEY_VERIFICATION_DONE,
+    KEY_VERIFICATION_KEY,
+    KEY_VERIFICATION_MAC,
+    KEY_VERIFICATION_READY,
+    KEY_VERIFICATION_REQUEST,
+    KEY_VERIFICATION_START,
+    PRESENCE,
+    READ_MARKER,
+    RECEIPT_READ,
+    TYPING,
+];
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EventWireScope {
+    DurableEvent,
+    ActorPrivateEvent,
+    EphemeralEvent,
+    Custom,
+}
+
+pub fn is_reducer_input_event_kind(kind: &str) -> bool {
+    is_standard_event_kind(kind) && NON_REDUCER_EVENT_KINDS.binary_search(&kind).is_err()
+}
+
+pub fn event_wire_scope(kind: &str) -> EventWireScope {
+    match kind {
+        ACCOUNT_BLOCKLIST | ACCOUNT_DATA_SET | READ_MARKER => EventWireScope::ActorPrivateEvent,
+        CALL_SIGNAL
+        | KEY_VERIFICATION_ACCEPT
+        | KEY_VERIFICATION_CANCEL
+        | KEY_VERIFICATION_DONE
+        | KEY_VERIFICATION_KEY
+        | KEY_VERIFICATION_MAC
+        | KEY_VERIFICATION_READY
+        | KEY_VERIFICATION_REQUEST
+        | KEY_VERIFICATION_START
+        | PRESENCE
+        | RECEIPT_READ
+        | TYPING => EventWireScope::EphemeralEvent,
+        _ if is_standard_event_kind(kind) => EventWireScope::DurableEvent,
+        _ => EventWireScope::Custom,
+    }
+}
+
 /// Broad class for routing, indexing and UI projection.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

@@ -1,4 +1,5 @@
 use super::*;
+use crate::{AnchorId, Effect, Precondition};
 
 pub const EVENT_REF_ROLE_AUTHORIZED_BY: &str = "authorized_by";
 
@@ -29,6 +30,39 @@ fn default_event_ref_critical() -> bool {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct EventRequirements {
+    #[serde(default, rename = "schema", skip_serializing_if = "Vec::is_empty")]
+    pub schema_profile_refs: Vec<String>,
+    #[serde(default, rename = "reducer", skip_serializing_if = "Option::is_none")]
+    pub reducer_profile_ref: Option<String>,
+    #[serde(default, rename = "features", skip_serializing_if = "Vec::is_empty")]
+    pub required_features: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub critical_extensions: Vec<CriticalExtension>,
+}
+
+impl EventRequirements {
+    pub fn is_empty(&self) -> bool {
+        self.schema_profile_refs.is_empty()
+            && self.reducer_profile_ref.is_none()
+            && self.required_features.is_empty()
+            && self.critical_extensions.is_empty()
+    }
+}
+
+impl Default for EventRequirements {
+    fn default() -> Self {
+        Self {
+            schema_profile_refs: Vec::new(),
+            reducer_profile_ref: None,
+            required_features: Vec::new(),
+            critical_extensions: Vec::new(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Event {
     pub event_id: EventId,
     pub kind: String,
@@ -41,13 +75,13 @@ pub struct Event {
     #[serde(default)]
     pub refs: Vec<EventRef>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub schema_profile_refs: Vec<String>,
+    pub preconditions: Vec<Precondition>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub effects: Vec<Effect>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub reducer_profile_ref: Option<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub required_features: Vec<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub critical_extensions: Vec<CriticalExtension>,
+    pub anchor_ref: Option<AnchorId>,
+    #[serde(default, skip_serializing_if = "EventRequirements::is_empty")]
+    pub requirements: EventRequirements,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub redacts: Option<EventId>,
     #[serde(rename = "payload")]
@@ -72,18 +106,46 @@ impl Event {
     }
 
     pub fn validate_for_submit(&self) -> Result<()> {
+        self.validate_wire_schema()?;
         if self.proofs.is_empty() {
             return Err(Error::Protocol("event proofs must contain at least one proof".to_owned()));
         }
         if !self.content.is_object() {
             return Err(Error::Protocol("event content must be a JSON object".to_owned()));
         }
-        if self.critical_extensions.iter().any(|extension| !extension.fail_closed) {
+        if self.requirements.critical_extensions.iter().any(|extension| !extension.fail_closed) {
             return Err(Error::Protocol(
                 "event critical extensions must declare fail_closed=true".to_owned(),
             ));
         }
+        if crate::events::is_reducer_input_event_kind(&self.kind) {
+            if self.anchor_ref.is_none() {
+                return Err(Error::Protocol(
+                    "reducer-input events must carry anchor_ref".to_owned(),
+                ));
+            }
+            if self.effects.is_empty() {
+                return Err(Error::Protocol(
+                    "reducer-input events must carry at least one effect".to_owned(),
+                ));
+            }
+        } else if self.anchor_ref.is_some()
+            || !self.preconditions.is_empty()
+            || !self.effects.is_empty()
+        {
+            return Err(Error::Protocol(
+                "non-reducer events must not carry preconditions, effects, or anchor_ref"
+                    .to_owned(),
+            ));
+        }
         Ok(())
+    }
+
+    pub fn validate_wire_schema(&self) -> Result<()> {
+        let value = serde_json::to_value(self)?;
+        let registry = crate::schema::schema_registry_from_default_spec_artifacts()?
+            .unwrap_or_else(ProtocolSchemaRegistry::default);
+        registry.validate_value(EVENT_SCHEMA, &value)
     }
 
     /// Validate that all proofs bind to this event's digest.
@@ -123,10 +185,10 @@ impl Event {
             hlc,
             prev_refs: Vec::new(),
             refs: Vec::new(),
-            schema_profile_refs: Vec::new(),
-            reducer_profile_ref: None,
-            required_features: Vec::new(),
-            critical_extensions: Vec::new(),
+            preconditions: Vec::new(),
+            effects: Vec::new(),
+            anchor_ref: None,
+            requirements: EventRequirements::default(),
             redacts: None,
             content,
             unsigned: BTreeMap::new(),

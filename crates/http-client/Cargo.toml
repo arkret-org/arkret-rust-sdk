@@ -18,6 +18,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = []
+legacy-federation-http = []
 
 [dependencies]
 contrix-core = { workspace = true, features = ["client"] }

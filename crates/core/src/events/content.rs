@@ -1,7 +1,8 @@
 use std::collections::BTreeMap;
 
 use crate::{
-    BlobRef, DeviceId, Did, Error, Event, EventId, EventRef, Hlc, PresenceStatus, Result, SpaceId,
+    AnchorId, BlobRef, DeviceId, Did, Effect, Error, Event, EventId, EventRef, Hlc, Precondition,
+    PresenceStatus, Result, SpaceId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -23,6 +24,12 @@ pub struct EventContentEnvelope {
     pub prev_refs: Vec<EventId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub refs: Vec<EventRef>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub preconditions: Vec<Precondition>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub effects: Vec<Effect>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub anchor_ref: Option<AnchorId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub redacts: Option<EventId>,
     pub content: AnyEventContent,
@@ -42,6 +49,9 @@ impl EventContentEnvelope {
             hlc: event.hlc.clone(),
             prev_refs: event.prev_refs.clone(),
             refs: event.refs.clone(),
+            preconditions: event.preconditions.clone(),
+            effects: event.effects.clone(),
+            anchor_ref: event.anchor_ref.clone(),
             redacts: event.redacts.clone(),
             content: parse_event_content(&event.kind, event.content.clone())?,
             unsigned: event.unsigned.clone(),

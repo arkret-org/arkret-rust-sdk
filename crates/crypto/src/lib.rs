@@ -538,7 +538,7 @@ mod tests {
     }
 
     fn device() -> DeviceId {
-        DeviceId::new("dev_phone").unwrap()
+        DeviceId::new("cx:device:01904100-0000-7000-8000-000000000001").unwrap()
     }
 
     #[test]
@@ -615,8 +615,8 @@ mod tests {
         let mut flow = DeviceVerificationFlow {
             transaction_id: "verif1".to_owned(),
             user_id: did("alice"),
-            from_device: DeviceId::new("dev_phone").unwrap(),
-            to_device: DeviceId::new("dev_laptop").unwrap(),
+            from_device: DeviceId::new("cx:device:01904100-0000-7000-8000-000000000001").unwrap(),
+            to_device: DeviceId::new("cx:device:01904100-0000-7000-8000-000000000004").unwrap(),
             methods: vec!["sas".to_owned(), "qr".to_owned()],
             state: VerificationFlowState::Requested,
             created_at: Utc::now(),
@@ -626,9 +626,14 @@ mod tests {
         flow.advance(VerificationFlowState::SasStarted).unwrap();
         flow.advance(VerificationFlowState::Done).unwrap();
         binding.record_verification_flow(flow).unwrap();
-        binding.set_device_trust(DeviceId::new("dev_laptop").unwrap(), DeviceTrustState::Verified);
+        binding.set_device_trust(
+            DeviceId::new("cx:device:01904100-0000-7000-8000-000000000004").unwrap(),
+            DeviceTrustState::Verified,
+        );
         assert_eq!(
-            binding.device_trust.get(&DeviceId::new("dev_laptop").unwrap()),
+            binding
+                .device_trust
+                .get(&DeviceId::new("cx:device:01904100-0000-7000-8000-000000000004").unwrap()),
             Some(&DeviceTrustState::Verified)
         );
 

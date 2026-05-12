@@ -32,6 +32,7 @@ salvo = { version = "0.93.0", default-features = false }
 salvo-oapi = { version = "0.93.0", default-features = false }
 serde = { version = "1.0.228", default-features = false, features = ["std", "derive"] }
 serde_json = { version = "1.0.145", default-features = false, features = ["std"] }
+serde_norway = { version = "0.9.42" }
 sha2 = { version = "0.10.9", default-features = false }
 thiserror = { version = "2.0.17", default-features = false }
 tls_codec = { version = "0.4.2", default-features = false, features = ["mls", "serde", "std"] }

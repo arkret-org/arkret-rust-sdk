@@ -32,7 +32,7 @@ fn main() -> contrix::Result<()> {
         let mut headers = BTreeMap::new();
         headers.insert("content-type".to_owned(), "application/json".to_owned());
         let body = format!(
-            r#"{{"errcode":"cx.error.not_implemented","error":"operation {operation_id} not wired"}}"#,
+            r#"{{"ok":false,"error":{{"code":"unsupported_feature","message":"operation {operation_id} not wired"}},"request_id":"unknown"}}"#,
             operation_id = request.operation_id
         );
         Ok(HttpAdapterResponse { status: 501, headers, body: body.into_bytes() })

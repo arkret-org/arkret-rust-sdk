@@ -10,9 +10,11 @@ use sha2::{Digest, Sha256};
 
 use crate::{Error, Result, canonical};
 pub use contrix_identifiers::{
-    ActorProfileId, BlobRef, Cursor, DeviceId, Did, EventId, FlowId, GrantId, Hash, Hlc, InviteId,
-    MessageId, MorphId, OperationId, PlaceId, PolicyId, RelationId, SpaceId, ViewId,
-    new_prefixed_uuid7,
+    ActorProfileId, AgentSessionId, AppletId, BackupId, BatchId, BlobId, BlobRef, BlockId, CallId,
+    CapabilityId, ChunkId, ClaimId, Cursor, DeviceId, DevmsgId, Did, EventId, FilterId, FlowId,
+    FrameId, FrankId, GrantId, Hash, Hlc, InviteId, KeyevtId, MessageId, ModqId, MorphId, NotifId,
+    OperationId, PlaceId, PolicyId, PresentationId, ReceiptId, RelationId, ReportId, ReqId,
+    SnapshotId, SpaceId, TxnId, ViewId, new_prefixed_uuid7,
 };
 
 mod api;

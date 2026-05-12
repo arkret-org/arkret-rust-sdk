@@ -5,7 +5,7 @@ use super::*;
 fn schema_catalog_has_compatibility_for_all_registered_schemas() {
     let catalog = schema_catalog();
     catalog.validate().unwrap();
-    assert!(catalog.entries.iter().any(|entry| entry.schema_id == OPERATION_SCHEMA));
+    assert!(catalog.entries.iter().any(|entry| entry.schema_id == EVENT_SCHEMA));
 }
 
 #[test]
@@ -134,7 +134,7 @@ fn evolution_plan_rejects_breaking_release_candidate() {
     let plan = SchemaEvolutionPlan {
         from_version: "0.1.0".to_owned(),
         to_version: "0.2.0".to_owned(),
-        affected_schemas: vec![OPERATION_SCHEMA.to_owned()],
+        affected_schemas: vec![EVENT_SCHEMA.to_owned()],
         breaking_changes,
     };
     assert!(matches!(plan.validate_release_candidate(), Err(Error::Protocol(_))));

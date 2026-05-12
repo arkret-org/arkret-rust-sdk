@@ -21,14 +21,10 @@ use contrix_core::{
     DirectoryResolveSpaceResponse, DirectorySearchActorsRequest, DirectorySearchActorsResponse,
     DirectorySearchOrganizationsRequest, DirectorySearchOrganizationsResponse,
     DirectorySearchSpacesRequest, DirectorySearchSpacesResponse, DirectorySearchUsersResponse,
-    EffectiveGrantsResponse, Error, ErrorEnvelope, FederationPullOperationsResponse,
-    FederationPushOperationsRequest, FederationPushOperationsResponse,
-    FederationSpaceMembersResponse, FederationTransactionRequest, FederationTransactionResponse,
-    FederationVerifyActorRequest, FederationVerifyActorResponse, IdentityDescription,
-    IdentityDocumentResponse, IdentityLogResponse, IdentityReceiptsResponse,
-    IdentityResolveRequest, IdentityResolveResponse, KeysClaimRequest, KeysClaimResponse,
-    KeysQueryRequest, KeysQueryResponse, KeysUploadRequest, KeysUploadResponse,
-    MediaIceConfigRequest, MediaIceConfigResponse, ModerationReportRequest,
+    EffectiveGrantsResponse, Error, ErrorEnvelope, IdentityDescription, IdentityDocumentResponse,
+    IdentityLogResponse, IdentityReceiptsResponse, IdentityResolveRequest, IdentityResolveResponse,
+    KeysClaimRequest, KeysClaimResponse, KeysQueryRequest, KeysQueryResponse, KeysUploadRequest,
+    KeysUploadResponse, MediaIceConfigRequest, MediaIceConfigResponse, ModerationReportRequest,
     ModerationReportResponse, OkResponse, PolicyCheckRequest, PolicyCheckResponse,
     PushNotifyRequest, PushNotifyResponse, PushRegisterDeviceRequest, PushRegisterDeviceResponse,
     PushUnregisterDeviceRequest, Result, ServerDescription, ServiceRequirements,
@@ -811,29 +807,32 @@ impl Client {
         self.send_json(builder).await
     }
 
+    #[cfg(feature = "legacy-federation-http")]
     pub async fn federation_transaction(
         &self,
         txn_id: &str,
-        request: &FederationTransactionRequest,
-    ) -> Result<FederationTransactionResponse> {
+        request: &contrix_core::FederationTransactionRequest,
+    ) -> Result<contrix_core::FederationTransactionResponse> {
         reject_path_segment(txn_id)?;
         let path = format!("/api/v1/federation/transactions/{txn_id}");
         self.put(&path, request).await
     }
 
+    #[cfg(feature = "legacy-federation-http")]
     pub async fn federation_push_operations(
         &self,
-        request: &FederationPushOperationsRequest,
-    ) -> Result<FederationPushOperationsResponse> {
+        request: &contrix_core::FederationPushOperationsRequest,
+    ) -> Result<contrix_core::FederationPushOperationsResponse> {
         self.post("/api/v1/federation/push-operations", request).await
     }
 
+    #[cfg(feature = "legacy-federation-http")]
     pub async fn federation_pull_operations(
         &self,
         space_id: &str,
         after_cursor: Option<&str>,
         limit: Option<u32>,
-    ) -> Result<FederationPullOperationsResponse> {
+    ) -> Result<contrix_core::FederationPullOperationsResponse> {
         let mut builder = self
             .request(Method::GET, "/api/v1/federation/pull-operations")?
             .query(&[("space_id", space_id)]);
@@ -846,12 +845,13 @@ impl Client {
         self.send_json(builder).await
     }
 
+    #[cfg(feature = "legacy-federation-http")]
     pub async fn federation_space_members(
         &self,
         space_id: &str,
         cursor: Option<&str>,
         limit: Option<u32>,
-    ) -> Result<FederationSpaceMembersResponse> {
+    ) -> Result<contrix_core::FederationSpaceMembersResponse> {
         let mut builder = self
             .request(Method::GET, "/api/v1/federation/space-members")?
             .query(&[("space_id", space_id)]);
@@ -864,10 +864,11 @@ impl Client {
         self.send_json(builder).await
     }
 
+    #[cfg(feature = "legacy-federation-http")]
     pub async fn federation_verify_actor(
         &self,
-        request: &FederationVerifyActorRequest,
-    ) -> Result<FederationVerifyActorResponse> {
+        request: &contrix_core::FederationVerifyActorRequest,
+    ) -> Result<contrix_core::FederationVerifyActorResponse> {
         self.post("/api/v1/federation/verify-actor", request).await
     }
 
@@ -1248,16 +1249,10 @@ fn validate_request_builder(builder: &RequestBuilder) -> Result<()> {
 async fn error_envelope_from_response(response: Response) -> ErrorEnvelope {
     let status = response.status();
     let retry_after_ms = retry_after_ms(response.headers());
-    let mut error = response.json::<ErrorEnvelope>().await.unwrap_or_else(|_| ErrorEnvelope {
-        errcode: "cx.error.http_status".to_owned(),
-        error: format!("HTTP request failed with status {status}"),
-        retry_after_ms: None,
-        extra: Default::default(),
+    let error = response.json::<ErrorEnvelope>().await.unwrap_or_else(|_| {
+        ErrorEnvelope::new("internal_error", format!("HTTP request failed with status {status}"))
     });
-    if error.retry_after_ms.is_none() {
-        error.retry_after_ms = retry_after_ms;
-    }
-    error
+    if error.retry_after_ms().is_none() { error.with_retry_after_ms(retry_after_ms) } else { error }
 }
 
 fn retry_after_ms(headers: &HeaderMap) -> Option<u64> {

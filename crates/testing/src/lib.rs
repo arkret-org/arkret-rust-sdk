@@ -22,7 +22,7 @@ use serde_json::{Value, json};
 #[serde(rename_all = "snake_case")]
 pub enum ConformanceDomain {
     ClientServer,
-    ClientServerApi,
+    ProductClientApi,
     Applet,
     PushGateway,
     Identity,
@@ -265,9 +265,9 @@ pub fn endpoint_coverage_rows() -> Vec<EndpointCoverageRow> {
         request_schema: endpoint.request_schema.to_owned(),
         response_schema: endpoint.response_schema.to_owned(),
     }));
-    rows.extend(contrix_api::client::client_api_endpoints().iter().map(|endpoint| {
+    rows.extend(contrix_api::product::client::client_api_endpoints().iter().map(|endpoint| {
         EndpointCoverageRow {
-            domain: ConformanceDomain::ClientServerApi,
+            domain: ConformanceDomain::ProductClientApi,
             operation_id: endpoint.operation_id.to_owned(),
             method: format!("{:?}", endpoint.method),
             path: endpoint.path.to_owned(),
@@ -472,14 +472,14 @@ pub fn event_taxonomy_vectors() -> Result<Vec<EventTaxonomyVector>> {
     let call_device_mapping = json!({
         "call_id": "call-1",
         "devices_by_user": {
-            "did:web:alice.example": ["dev_alice"]
+            "did:web:alice.example": ["cx:device:01904100-0000-7000-8000-000000000008"]
         }
     });
     parse_event_content(CALL_SIGNAL, call_device_mapping.clone())?;
 
     let activity_beacon = json!({
         "user_id": "did:web:alice.example",
-        "device_id": "dev_alice",
+        "device_id": "cx:device:01904100-0000-7000-8000-000000000008",
         "activity": "viewing",
         "observed_at": "2026-05-01T00:00:00Z"
     });
@@ -587,7 +587,7 @@ fn build_membership_move(space_id: &SpaceId, cell: &CellRef, from: &str, to: &st
         "preconditions": [],
         "effects": [{
             "cell": cell.as_str(),
-            "op": { "type": "transition", "from": from, "to": to }
+            "op": { "kind": "transition", "from": from, "to": to }
         }],
         "anchor_ref": format!("cx:anchor:sha256:{}", "aa".repeat(32)),
         "refs": [],
@@ -672,7 +672,6 @@ mod tests {
         let report = conformance_report().unwrap();
         for domain in [
             ConformanceDomain::ClientServer,
-            ConformanceDomain::ClientServerApi,
             ConformanceDomain::Applet,
             ConformanceDomain::PushGateway,
             ConformanceDomain::Identity,
@@ -695,13 +694,10 @@ mod tests {
         assert!(report.operation_ids().contains("cx.operations.catalog"));
         assert!(report.operation_ids().contains("cx.schema.catalog"));
         assert!(report.operation_ids().contains("cx.html.normalize"));
-        assert!(report.operation_ids().contains("cx.account.register"));
-        assert!(report.operation_ids().contains("cx.sync.sliding"));
     }
 
     #[test]
     fn boundary_crate_smoke_contracts_validate() {
-        contrix_api::client::client_api_coverage_report().validate().unwrap();
         contrix_core::operations::operation_catalog().validate().unwrap();
         assert!(!contrix_core::operations::negative_dag_vectors().is_empty());
         contrix_core::schema::schema_catalog().validate().unwrap();

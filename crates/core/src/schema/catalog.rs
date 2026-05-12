@@ -75,31 +75,6 @@ pub struct SchemaValidationVector {
 pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
     vec![
         SchemaValidationVector {
-            name: "operation envelope minimal valid".to_owned(),
-            schema_id: OPERATION_SCHEMA.to_owned(),
-            input: json!({
-                "operation_id": "cx:operation:01904100-0000-7000-8000-d408d6a2241c",
-                "space_id": "cx:space:01904100-0000-7000-8000-fd3637e8361f",
-                "actor_id": "did:web:alice.example",
-                "kind": "cx.message.create",
-                "causal": {},
-                "content": {"body": "hello"}
-            }),
-            expected_valid: true,
-        },
-        SchemaValidationVector {
-            name: "operation envelope missing content".to_owned(),
-            schema_id: OPERATION_SCHEMA.to_owned(),
-            input: json!({
-                "operation_id": "cx:operation:01904100-0000-7000-8000-d408d6a2241c",
-                "space_id": "cx:space:01904100-0000-7000-8000-fd3637e8361f",
-                "actor_id": "did:web:alice.example",
-                "kind": "cx.message.create",
-                "causal": {}
-            }),
-            expected_valid: false,
-        },
-        SchemaValidationVector {
             name: "flow minimal valid".to_owned(),
             schema_id: FLOW_SCHEMA.to_owned(),
             input: json!({

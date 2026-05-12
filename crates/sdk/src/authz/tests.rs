@@ -1,5 +1,5 @@
 use super::*;
-use crate::{Event, EventId, Hlc, SpaceState};
+use crate::{Event, EventId, EventRequirements, Hlc, SpaceState};
 use serde_json::json;
 use std::collections::BTreeMap;
 
@@ -68,10 +68,10 @@ fn capability_event(
         hlc: Hlc::new(hlc).unwrap(),
         prev_refs: vec![],
         refs: vec![],
-        schema_profile_refs: vec![],
-        reducer_profile_ref: None,
-        required_features: vec![],
-        critical_extensions: vec![],
+        preconditions: vec![],
+        effects: vec![],
+        anchor_ref: None,
+        requirements: EventRequirements::default(),
         redacts: None,
         content,
         unsigned: BTreeMap::new(),

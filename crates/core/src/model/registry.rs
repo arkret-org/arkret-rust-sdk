@@ -412,7 +412,8 @@ impl ProtocolSchemaRegistry {
         let required = schema
             .get("required")
             .and_then(Value::as_array)
-            .ok_or_else(|| Error::Protocol("schema is missing required field list".to_owned()))?
+            .map(Vec::as_slice)
+            .unwrap_or(&[])
             .iter()
             .filter_map(Value::as_str)
             .map(str::to_owned)
@@ -456,10 +457,8 @@ impl ProtocolSchemaRegistry {
         let object = value
             .as_object()
             .ok_or_else(|| Error::Protocol("schema target must be a JSON object".to_owned()))?;
-        let required = schema
-            .get("required")
-            .and_then(Value::as_array)
-            .ok_or_else(|| Error::Protocol("schema is missing required field list".to_owned()))?;
+        let required =
+            schema.get("required").and_then(Value::as_array).map(Vec::as_slice).unwrap_or(&[]);
         for field in required.iter().filter_map(Value::as_str) {
             if !object.contains_key(field) {
                 return Err(Error::Protocol(format!(
@@ -538,10 +537,10 @@ impl Default for ProtocolSchemaRegistry {
                     ("hlc", "string"),
                     ("prev_refs", "array"),
                     ("refs", "array"),
-                    ("schema_profile_refs", "array"),
-                    ("reducer_profile_ref", "string"),
-                    ("required_features", "array"),
-                    ("critical_extensions", "array"),
+                    ("preconditions", "array"),
+                    ("effects", "array"),
+                    ("anchor_ref", "string"),
+                    ("requirements", "object"),
                     ("redacts", "string"),
                     ("payload", "object"),
                     ("unsigned", "object"),
@@ -549,23 +548,55 @@ impl Default for ProtocolSchemaRegistry {
                 ],
             ),
         );
+        registry.register(FLOW_SCHEMA, flow_schema_document());
+        registry.register(PLACE_SCHEMA, place_schema_document());
+        registry.register(VIEW_SCHEMA, view_schema_document());
         registry.register(
-            OPERATION_SCHEMA,
+            EVENT_PAYLOAD_SCHEMA,
+            object_schema(EVENT_PAYLOAD_SCHEMA, &[], &[("type", "string")]),
+        );
+        registry.register(
+            ANCHOR_SCHEMA,
             object_schema(
-                OPERATION_SCHEMA,
-                &["operation_id", "space_id", "actor_id", "kind", "causal", "content"],
+                ANCHOR_SCHEMA,
+                &["id", "space_id", "frontier", "state_root"],
                 &[
-                    ("operation_id", "string"),
+                    ("id", "string"),
                     ("space_id", "string"),
-                    ("actor_id", "string"),
-                    ("kind", "string"),
-                    ("causal", "object"),
-                    ("content", "object"),
+                    ("frontier", "array"),
+                    ("state_root", "string"),
                 ],
             ),
         );
-        registry.register(FLOW_SCHEMA, flow_schema_document());
-        registry.register(VIEW_SCHEMA, view_schema_document());
+        registry.register(
+            AGENT_AUTHORITY_SCHEMA,
+            object_schema(
+                AGENT_AUTHORITY_SCHEMA,
+                &["agent_session_id", "actor_id", "authority"],
+                &[("agent_session_id", "string"), ("actor_id", "string"), ("authority", "object")],
+            ),
+        );
+        registry.register(
+            BOTTOM_SCHEMA,
+            object_schema(
+                BOTTOM_SCHEMA,
+                &["kind", "cells"],
+                &[("kind", "string"), ("cells", "array")],
+            ),
+        );
+        registry.register(
+            SNAPSHOT_SCHEMA,
+            object_schema(
+                SNAPSHOT_SCHEMA,
+                &["snapshot_id", "space_id", "frontier", "state_root"],
+                &[
+                    ("snapshot_id", "string"),
+                    ("space_id", "string"),
+                    ("frontier", "array"),
+                    ("state_root", "string"),
+                ],
+            ),
+        );
         registry.register(
             CAPABILITY_SCHEMA,
             object_schema(
@@ -648,6 +679,31 @@ fn flow_schema_document() -> Value {
             "created_at": { "type": "string" },
             "updated_by": { "type": "string" },
             "updated_at": { "type": "string" },
+        },
+        "additionalProperties": true
+    })
+}
+
+fn place_schema_document() -> Value {
+    json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": PLACE_SCHEMA,
+        "type": "object",
+        "required": ["schema", "id", "space_id", "kind", "title", "created_by", "created_at"],
+        "properties": {
+            "schema": { "type": "string" },
+            "id": { "type": "string" },
+            "space_id": { "type": "string" },
+            "kind": { "type": "string" },
+            "title": { "type": "string" },
+            "parent_ref": { "type": "string" },
+            "rank": { "type": "string" },
+            "state": { "type": "string" },
+            "state_changed_at": { "type": "string" },
+            "created_by": { "type": "string" },
+            "created_at": { "type": "string" },
+            "updated_by": { "type": "string" },
+            "updated_at": { "type": "string" }
         },
         "additionalProperties": true
     })

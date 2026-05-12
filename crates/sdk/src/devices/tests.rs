@@ -6,7 +6,12 @@ fn did(name: &str) -> Did {
 }
 
 fn device(id: &str) -> DeviceId {
-    DeviceId::new(format!("dev_{id}")).unwrap()
+    let mut acc = 0xcbf29ce484222325u64;
+    for byte in id.bytes() {
+        acc = (acc ^ u64::from(byte)).wrapping_mul(0x100000001b3);
+    }
+    DeviceId::new(format!("cx:device:01904100-0000-7000-8000-{:012x}", acc & 0x0000_ffff_ffff_ffff))
+        .unwrap()
 }
 
 #[test]

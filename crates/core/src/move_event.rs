@@ -102,7 +102,7 @@ pub struct Effect {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct LatticeOp {
-    #[serde(rename = "type")]
+    #[serde(rename = "kind", alias = "type")]
     pub op_type: LatticeOpType,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tag: Option<String>,
@@ -300,7 +300,7 @@ mod tests {
                 {
                     "cell": "cx:cell:cx.component.member.state.v1:did.web.alice.example",
                     "op": {
-                        "type": "transition",
+                        "kind": "transition",
                         "from": "join",
                         "to": "ban",
                         "reason": "abuse"
@@ -416,11 +416,22 @@ mod tests {
             issuer_seq: None,
         };
         let s = serde_json::to_string(&op).unwrap();
-        assert!(s.contains("\"type\":\"transition\""), "got {s}");
+        assert!(s.contains("\"kind\":\"transition\""), "got {s}");
         assert!(s.contains("\"reason\":\"abuse\""), "got {s}");
         // None fields skipped.
         assert!(!s.contains("\"tag\""));
         assert!(!s.contains("\"value\""));
+    }
+
+    #[test]
+    fn lattice_op_accepts_legacy_type_alias() {
+        let op: LatticeOp = serde_json::from_value(json!({
+            "type": "transition",
+            "from": "join",
+            "to": "ban"
+        }))
+        .unwrap();
+        assert_eq!(op.op_type, LatticeOpType::Transition);
     }
 
     #[test]

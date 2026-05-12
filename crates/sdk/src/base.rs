@@ -645,7 +645,7 @@ mod tests {
     fn session_meta_checks_expiration() {
         let meta = SessionMeta {
             user_id: Did::new("did:web:alice.example.com").unwrap(),
-            device_id: DeviceId::new("dev_123").unwrap(),
+            device_id: DeviceId::new("cx:device:01904100-0000-7000-8000-000000000005").unwrap(),
             access_token: Some("token".to_owned()),
             expires_at: Some(Utc::now() - chrono::Duration::hours(1)),
         };
@@ -657,7 +657,7 @@ mod tests {
     fn session_meta_valid_when_not_expired() {
         let meta = SessionMeta {
             user_id: Did::new("did:web:alice.example.com").unwrap(),
-            device_id: DeviceId::new("dev_123").unwrap(),
+            device_id: DeviceId::new("cx:device:01904100-0000-7000-8000-000000000005").unwrap(),
             access_token: Some("token".to_owned()),
             expires_at: Some(Utc::now() + chrono::Duration::hours(1)),
         };
@@ -677,7 +677,7 @@ mod tests {
         let client = BaseClient::new();
         let meta = SessionMeta::new(
             Did::new("did:web:alice.example.com").unwrap(),
-            DeviceId::new("dev_123").unwrap(),
+            DeviceId::new("cx:device:01904100-0000-7000-8000-000000000005").unwrap(),
         );
 
         client.set_session_meta(meta.clone()).unwrap();
@@ -693,7 +693,7 @@ mod tests {
         let client = BaseClient::new();
         let meta = SessionMeta::new(
             Did::new("did:web:alice.example.com").unwrap(),
-            DeviceId::new("dev_123").unwrap(),
+            DeviceId::new("cx:device:01904100-0000-7000-8000-000000000005").unwrap(),
         );
 
         client.set_session_meta(meta).unwrap();
@@ -709,7 +709,7 @@ mod tests {
         let meta = client
             .login_with_session(
                 Did::new("did:web:alice.example.com").unwrap(),
-                DeviceId::new("dev_123").unwrap(),
+                DeviceId::new("cx:device:01904100-0000-7000-8000-000000000005").unwrap(),
                 Some("token".to_owned()),
                 None,
             )
@@ -758,7 +758,7 @@ mod tests {
     #[test]
     fn bootstrap_sequence_tracks_ordered_runtime_steps() {
         let principal = Did::new("did:web:alice.example.com").unwrap();
-        let device = DeviceId::new("dev_123").unwrap();
+        let device = DeviceId::new("cx:device:01904100-0000-7000-8000-000000000005").unwrap();
         let mut sequence = BootstrapSequence::new(principal, device, None);
 
         assert_eq!(sequence.next_pending(), Some(BootstrapStepKind::Resolve));
@@ -785,7 +785,12 @@ mod tests {
         let client = BaseClient::new();
         let alice = Did::new("did:web:alice.example.com").unwrap();
         client
-            .login_with_session(alice.clone(), DeviceId::new("dev_123").unwrap(), None, None)
+            .login_with_session(
+                alice.clone(),
+                DeviceId::new("cx:device:01904100-0000-7000-8000-000000000005").unwrap(),
+                None,
+                None,
+            )
             .unwrap();
 
         let profile = client.set_my_display_name("Alice").unwrap();

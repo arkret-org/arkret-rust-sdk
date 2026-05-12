@@ -70,22 +70,168 @@ impl ServerDescription {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct ErrorEnvelope {
-    pub errcode: String,
-    pub error: String,
+pub struct ErrorDetail {
+    pub code: String,
+    pub message: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after_ms: Option<u64>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    #[serde(flatten)]
-    pub extra: BTreeMap<String, Value>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub details: BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ErrorEnvelope {
+    pub ok: bool,
+    pub error: ErrorDetail,
+    pub request_id: String,
+}
+
+impl ErrorEnvelope {
+    pub fn new(code: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            ok: false,
+            error: ErrorDetail {
+                code: canonical_error_code(code.into()),
+                message: message.into(),
+                retry_after_ms: None,
+                details: BTreeMap::new(),
+            },
+            request_id: "unknown".to_owned(),
+        }
+    }
+
+    pub fn with_request_id(mut self, request_id: impl Into<String>) -> Self {
+        self.request_id = request_id.into();
+        self
+    }
+
+    pub fn with_retry_after_ms(mut self, retry_after_ms: Option<u64>) -> Self {
+        self.error.retry_after_ms = retry_after_ms;
+        self
+    }
+
+    pub fn with_detail(mut self, key: impl Into<String>, value: Value) -> Self {
+        self.error.details.insert(key.into(), value);
+        self
+    }
+
+    pub fn code(&self) -> &str {
+        &self.error.code
+    }
+
+    pub fn message(&self) -> &str {
+        &self.error.message
+    }
+
+    pub fn retry_after_ms(&self) -> Option<u64> {
+        self.error.retry_after_ms
+    }
+
+    pub fn details(&self) -> &BTreeMap<String, Value> {
+        &self.error.details
+    }
 }
 
 impl fmt::Display for ErrorEnvelope {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}: {}", self.errcode, self.error)
+        write!(f, "{}: {}", self.error.code, self.error.message)
     }
+}
+
+impl<'de> Deserialize<'de> for ErrorEnvelope {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = Value::deserialize(deserializer)?;
+        let object = value
+            .as_object()
+            .ok_or_else(|| serde::de::Error::custom("error envelope must be an object"))?;
+
+        if let Some(error_object) = object.get("error").and_then(Value::as_object) {
+            let code = error_object
+                .get("code")
+                .and_then(Value::as_str)
+                .ok_or_else(|| serde::de::Error::custom("error.code is required"))?;
+            let message = error_object
+                .get("message")
+                .and_then(Value::as_str)
+                .ok_or_else(|| serde::de::Error::custom("error.message is required"))?;
+            let retry_after_ms = error_object.get("retry_after_ms").and_then(Value::as_u64);
+            let details = error_object
+                .get("details")
+                .and_then(Value::as_object)
+                .map(|details| {
+                    details.iter().map(|(key, value)| (key.clone(), value.clone())).collect()
+                })
+                .unwrap_or_default();
+            let request_id =
+                object.get("request_id").and_then(Value::as_str).unwrap_or("unknown").to_owned();
+            return Ok(Self {
+                ok: object.get("ok").and_then(Value::as_bool).unwrap_or(false),
+                error: ErrorDetail {
+                    code: canonical_error_code(code),
+                    message: message.to_owned(),
+                    retry_after_ms,
+                    details,
+                },
+                request_id,
+            });
+        }
+
+        let code = object
+            .get("errcode")
+            .and_then(Value::as_str)
+            .ok_or_else(|| serde::de::Error::custom("error.code or errcode is required"))?;
+        let message = object
+            .get("error")
+            .and_then(Value::as_str)
+            .ok_or_else(|| serde::de::Error::custom("error.message or legacy error is required"))?;
+        let retry_after_ms = object.get("retry_after_ms").and_then(Value::as_u64);
+        let request_id =
+            object.get("request_id").and_then(Value::as_str).unwrap_or("unknown").to_owned();
+        let details = object
+            .iter()
+            .filter(|(key, _)| {
+                !matches!(key.as_str(), "errcode" | "error" | "retry_after_ms" | "request_id")
+            })
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect();
+
+        Ok(Self {
+            ok: false,
+            error: ErrorDetail {
+                code: canonical_error_code(code),
+                message: message.to_owned(),
+                retry_after_ms,
+                details,
+            },
+            request_id,
+        })
+    }
+}
+
+fn canonical_error_code(code: impl AsRef<str>) -> String {
+    let code = code.as_ref().strip_prefix("cx.error.").unwrap_or(code.as_ref());
+    match code {
+        "unauthorized" => "unauthenticated",
+        "forbidden" => "capability_denied",
+        "bad_request" => "invalid_param",
+        "internal" => "internal_error",
+        "unavailable" => "temporarily_unavailable",
+        "stale_cursor" => "cursor_expired",
+        "bad_digest" => "digest_mismatch",
+        "invalid_id" | "invalid_path_segment" => "invalid_param",
+        "query_auth_forbidden" => "capability_denied",
+        "idempotency_conflict" => "duplicate_conflict",
+        "idempotency_required" => "missing_param",
+        other => other,
+    }
+    .to_owned()
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -980,3 +1126,280 @@ pub struct DeviceMessagesReceiveResponse {
 //
 // These types fill gaps identified in `_todos.md` between the Rust SDK
 // surface and `contrix-spec/spec/v1/zh/` v1-core-rc.
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum DirectoryResourceKind {
+    Space,
+    Organization,
+    Actor,
+    Applet,
+    Handle,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct DirectoryAnnounceRequest {
+    pub resource_kind: DirectoryResourceKind,
+    pub resource_id: String,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub discovery_state: Value,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub source_refs: Vec<String>,
+    pub as_of: DateTime<Utc>,
+    pub principal_server_did: Did,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ttl_seconds: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub supersedes_announce_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct DirectoryAnnounceResponse {
+    pub announce_id: String,
+    pub indexed_at: DateTime<Utc>,
+    pub effective_ttl_seconds: u64,
+    pub next_revalidation_after: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub warnings: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct DirectoryWithdrawRequest {
+    pub resource_id: String,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub governance_proof: Value,
+    pub reason: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub effective_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct DirectoryWithdrawResponse {
+    pub withdraw_id: String,
+    pub acked_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct KeyBackupPath {
+    pub backup_id: BackupId,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct KeyBackupsListQuery {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub backup_class: Option<BackupClass>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<Cursor>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<u32>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct KeyBackupsListResponse {
+    #[serde(default)]
+    pub backups: Vec<KeyBackupSummary>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_cursor: Option<Cursor>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct KeyBackupDeleteRequest {
+    pub backup_id: BackupId,
+    pub proof: Proof,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct KeyBackupDeleteResponse {
+    pub deleted: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum KeyBackupPutStatus {
+    Accepted,
+    Duplicate,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct KeyBackupPutResponse {
+    pub status: KeyBackupPutStatus,
+    pub backup_id: BackupId,
+    pub ciphertext_digest: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct KeyBackupSummary {
+    pub backup_id: BackupId,
+    pub actor_id: Did,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub device_id: Option<DeviceId>,
+    pub backup_class: BackupClass,
+    pub backup_version: String,
+    pub created_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+    pub ciphertext_digest: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub contents: Vec<KeyBackupContentItem>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct KeyBackup {
+    pub backup_id: BackupId,
+    pub actor_id: Did,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub device_id: Option<DeviceId>,
+    pub backup_class: BackupClass,
+    pub backup_version: String,
+    pub created_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+    pub encryption: KeyBackupEncryption,
+    pub contents: Vec<KeyBackupContentItem>,
+    pub ciphertext: String,
+    pub ciphertext_digest: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub plaintext_commitment: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth_data: Option<KeyBackupAuthData>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retention: Option<KeyBackupRetention>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default, flatten)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+impl KeyBackup {
+    pub fn summary(&self) -> KeyBackupSummary {
+        KeyBackupSummary {
+            backup_id: self.backup_id.clone(),
+            actor_id: self.actor_id.clone(),
+            device_id: self.device_id.clone(),
+            backup_class: self.backup_class,
+            backup_version: self.backup_version.clone(),
+            created_at: self.created_at,
+            updated_at: self.updated_at,
+            expires_at: self.expires_at,
+            ciphertext_digest: self.ciphertext_digest.clone(),
+            contents: self.contents.clone(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum KeyBackupRecipientMethod {
+    PassphraseKdf,
+    RecoveryPublicKey,
+    SecretStorageKey,
+    ThresholdRecovery,
+    HardwareWrappedKey,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct KeyBackupEncryption {
+    pub recipient_method: KeyBackupRecipientMethod,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recipient_key_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kdf: Option<KeyBackupKdf>,
+    pub aead: KeyBackupAead,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key_commitment: Option<String>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default, flatten)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct KeyBackupKdf {
+    pub name: String,
+    pub salt: String,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    pub params: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub degraded_profile_reason: Option<String>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default, flatten)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct KeyBackupAead {
+    pub name: String,
+    pub nonce: String,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default, flatten)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct KeyBackupContentItem {
+    pub item_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub space_id: Option<SpaceId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mls_group_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub epoch: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub first_event_id: Option<EventId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_event_id: Option<EventId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub secret_id: Option<String>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default, flatten)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct KeyBackupAuthData {
+    pub device_id: DeviceId,
+    pub verification_method: String,
+    pub signature_alg: String,
+    pub signature: String,
+    pub signed_fields: Vec<String>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default, flatten)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct KeyBackupRetention {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub delete_after: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub legal_hold: Option<bool>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default, flatten)]
+    pub extra: BTreeMap<String, Value>,
+}

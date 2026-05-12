@@ -1,11 +1,11 @@
 use super::*;
-use crate::{DeviceId, Event, Hlc, OperationType, base::SessionMeta};
+use crate::{DeviceId, Event, EventRequirements, Hlc, OperationType, base::SessionMeta};
 
 fn sessioned_base() -> Arc<BaseClient> {
     let base_client = Arc::new(BaseClient::new());
     let meta = SessionMeta::new(
         Did::new("did:web:alice.example.com").unwrap(),
-        DeviceId::new("dev_123").unwrap(),
+        DeviceId::new("cx:device:01904100-0000-7000-8000-000000000005").unwrap(),
     );
     base_client.set_session_meta(meta).unwrap();
     base_client
@@ -22,10 +22,10 @@ fn event(kind: &str, seq: u64, space_id: &SpaceId, content: Value) -> Event {
         hlc: Hlc::new(format!("01970e589d21-{seq:08x}-a13f9c2e")).unwrap(),
         prev_refs: vec![],
         refs: vec![],
-        schema_profile_refs: vec![],
-        reducer_profile_ref: None,
-        required_features: vec![],
-        critical_extensions: vec![],
+        preconditions: vec![],
+        effects: vec![],
+        anchor_ref: None,
+        requirements: EventRequirements::default(),
         redacts: None,
         content,
         unsigned: BTreeMap::new(),

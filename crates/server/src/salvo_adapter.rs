@@ -97,7 +97,7 @@ where
                 response.status_code(StatusCode::INTERNAL_SERVER_ERROR);
                 response
                     .write_body(
-                        br#"{"errcode":"cx.error.internal","error":"JSON serialization failed"}"#
+                        br#"{"ok":false,"error":{"code":"internal_error","message":"JSON serialization failed"},"request_id":"unknown"}"#
                             .as_slice(),
                     )
                     .ok();
@@ -207,6 +207,8 @@ fn register_typed_schemas(components: &mut Components) {
         DeviceMessagesReceiveResponse,
         DeviceMessagesSendRequest,
         DeviceMessagesSendResponse,
+        DirectoryAnnounceRequest,
+        DirectoryAnnounceResponse,
         DirectoryDescription,
         DirectoryResolveHandleRequest,
         DirectoryResolveHandleResponse,
@@ -221,6 +223,8 @@ fn register_typed_schemas(components: &mut Components) {
         DirectorySearchSpacesRequest,
         DirectorySearchSpacesResponse,
         DirectorySearchUsersResponse,
+        DirectoryWithdrawRequest,
+        DirectoryWithdrawResponse,
         EffectiveGrantsResponse,
         ErrorEnvelope,
         FederationPullOperationsResponse,
@@ -237,6 +241,13 @@ fn register_typed_schemas(components: &mut Components) {
         IdentityReceiptsResponse,
         IdentityResolveRequest,
         IdentityResolveResponse,
+        KeyBackup,
+        KeyBackupDeleteRequest,
+        KeyBackupDeleteResponse,
+        KeyBackupPath,
+        KeyBackupPutResponse,
+        KeyBackupsListQuery,
+        KeyBackupsListResponse,
         KeysClaimRequest,
         KeysClaimResponse,
         KeysQueryRequest,
@@ -293,6 +304,20 @@ fn register_synthetic_schemas(components: &mut Components) {
         "DeviceMessagesGetQuery",
         "DirectoryDescribeRequest",
         "DirectorySearchUsersQuery",
+        "EventsBatchGetRequest",
+        "EventsBatchGetResponse",
+        "EventsDescribeRequest",
+        "EventsDescription",
+        "EventsFrontierRequest",
+        "EventsFrontierResponse",
+        "EventsGetRequest",
+        "EventsGetResponse",
+        "EventsQueryRequest",
+        "EventsQueryResponse",
+        "EventsSubmitRequest",
+        "EventsSubmitResponse",
+        "EventsSubscribeFrame",
+        "EventsSubscribeQuery",
         "FederationPullOperationsQuery",
         "FederationSpaceMembersQuery",
         "IdentityDescribeRequest",
@@ -314,6 +339,7 @@ fn register_synthetic_schemas(components: &mut Components) {
         "MimiProviderDirectoryRequest",
         "MimiProxyDownloadRequest",
         "MimiReportAbuseRequest",
+        "MimiRoomUpdateRequest",
         "MimiSubmitMessageRequest",
         "PrivateContactDiscoveryRequest",
         "PrivateContactDiscoveryResponse",
@@ -325,16 +351,7 @@ fn register_synthetic_schemas(components: &mut Components) {
     ];
 
     for name in SYNTHETIC_OBJECT_NAMES {
-        if !components.schemas.contains_key(*name) {
-            let schema: RefOr<Schema> = Object::new()
-                .schema_type(BasicType::Object)
-                .description(format!(
-                    "Contrix synthetic OpenAPI component {name}. \
-                     Concrete validation lives in the endpoint contract."
-                ))
-                .into();
-            components.schemas.insert((*name).to_owned(), schema);
-        }
+        register_synthetic_object_schema(components, name);
     }
 
     // Opaque binary blob body
@@ -356,6 +373,26 @@ fn register_synthetic_schemas(components: &mut Components) {
         let schema: RefOr<Schema> = Schema::Object(Box::new(obj)).into();
         components.schemas.insert("JsonValue".to_owned(), schema);
     }
+
+    for binding in crate::endpoint_schema_bindings() {
+        register_synthetic_object_schema(components, binding.request_schema);
+        register_synthetic_object_schema(components, binding.response_schema);
+    }
+}
+
+fn register_synthetic_object_schema(components: &mut Components, name: &str) {
+    if components.schemas.contains_key(name) {
+        return;
+    }
+
+    let schema: RefOr<Schema> = Object::new()
+        .schema_type(BasicType::Object)
+        .description(format!(
+            "Contrix synthetic OpenAPI component {name}. \
+             Concrete validation lives in the endpoint contract."
+        ))
+        .into();
+    components.schemas.insert(name.to_owned(), schema);
 }
 
 /// Build a Salvo-native [`oapi::OpenApi`] document seeded with all Contrix
@@ -380,7 +417,7 @@ pub async fn salvo_to_adapter_request(
         _ => {
             return Err(salvo_adapter_error_response(
                 405,
-                "cx.error.method_not_allowed",
+                "method_not_allowed",
                 "Unsupported Contrix endpoint method",
             ));
         }
@@ -437,17 +474,14 @@ pub fn adapter_response_to_salvo(adapter_response: HttpAdapterResponse) -> Respo
 
 fn salvo_adapter_error_response(
     status: u16,
-    errcode: impl Into<String>,
-    error: impl Into<String>,
+    code: impl Into<String>,
+    message: impl Into<String>,
 ) -> HttpAdapterResponse {
+    let envelope = contrix_core::ErrorEnvelope::new(code, message);
     HttpAdapterResponse {
         status,
         headers: BTreeMap::from([("content-type".to_owned(), "application/json".to_owned())]),
-        body: serde_json::to_vec(&serde_json::json!({
-            "errcode": errcode.into(),
-            "error": error.into(),
-        }))
-        .unwrap_or_default(),
+        body: serde_json::to_vec(&envelope).unwrap_or_default(),
     }
 }
 
@@ -483,7 +517,7 @@ where
         };
         let adapter_response = match (self.service)(adapter_request) {
             Ok(response) => response,
-            Err(error) => salvo_adapter_error_response(500, "cx.error.internal", error.to_string()),
+            Err(error) => salvo_adapter_error_response(500, "internal_error", error.to_string()),
         };
         write_adapter_response_to_salvo(adapter_response, response);
     }
@@ -541,7 +575,7 @@ where
             Ok(mut service) => dispatch_routed_http_request(&mut *service, adapter_request),
             Err(_) => salvo_adapter_error_response(
                 500,
-                "cx.error.internal",
+                "internal_error",
                 "Contrix endpoint service lock poisoned",
             ),
         };
@@ -665,6 +699,22 @@ mod tests {
             value.get("properties").is_some()
                 || value.get("$ref").and_then(|r| r.as_str()).is_some(),
             "ServerDescription schema should have properties or be a Ref, got {value:#?}"
+        );
+    }
+
+    #[test]
+    fn oapi_components_cover_endpoint_catalog_schema_bindings() {
+        let components = contrix_oapi_components();
+
+        let missing: Vec<_> = crate::endpoint_schema_bindings()
+            .into_iter()
+            .flat_map(|binding| [binding.request_schema, binding.response_schema])
+            .filter(|schema| !components.schemas.contains_key(*schema))
+            .collect();
+
+        assert!(
+            missing.is_empty(),
+            "Salvo OpenAPI components must cover every endpoint catalog schema; missing {missing:?}"
         );
     }
 

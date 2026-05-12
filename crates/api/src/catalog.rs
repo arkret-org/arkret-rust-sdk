@@ -1,1 +1,814 @@
-use super::*;}}macro_rules! endpoint {}    ($surface:ident, $operation_id:literal, $method:ident, $path:literal, $request_schema:literal, $response_schema:literal) => {}        Endpoint {}            operation_id: $operation_id,}            surface: ApiSurface::$surface,}            method: EndpointMethod::$method,}            path: $path,}            request_schema: $request_schema,}            response_schema: $response_schema,}        }}    };}}}}pub const ENDPOINTS: &[Endpoint] = &[}    endpoint!(}        Server,}        "cx.server.describe",}        Get,}        "/api/v1/server/describe",}        "ServerDescribeRequest",}        "ServerDescription"}    ),}    endpoint!(}        Identity,}        "cx.identity.describe_registry",}        Get,}        "/api/v1/identity/describe",}        "IdentityDescribeRequest",}        "IdentityDescription"}    ),}    endpoint!(}        Identity,}        "cx.identity.resolve",}        Post,}        "/api/v1/identity/resolve",}        "IdentityResolveRequest",}        "IdentityResolveResponse"}    ),}    endpoint!(}        Identity,}        "cx.identity.get_document",}        Get,}        "/api/v1/identity/document",}        "IdentityDocumentQuery",}        "IdentityDocumentResponse"}    ),}    endpoint!(}        Identity,}        "cx.identity.get_log",}        Get,}        "/api/v1/identity/log",}        "IdentityLogQuery",}        "IdentityLogResponse"}    ),}    endpoint!(}        Identity,}        "cx.identity.submit_did_operation",}        Post,}        "/api/v1/identity/submit-did-operation",}        "SubmitDidOperationRequest",}        "SubmitDidOperationResponse"}    ),}    endpoint!(}        Identity,}        "cx.identity.get_receipts",}        Get,}        "/api/v1/identity/receipts",}        "IdentityReceiptsQuery",}        "IdentityReceiptsResponse"}    ),}    // cx.sync.client_sync → cx.sync.account}    // (path unchanged, op_id renamed); cx.sync.subscribe → cx.events.subscribe at}    // /api/v1/events/subscribe; cx.events.list + cx.sync.backfill folded into}    // cx.events.query at /api/v1/events with `direction: forward|backward`.}    endpoint!(Sync, "cx.sync.account", Post, "/api/v1/sync", "SyncRequest", "SyncResponse"),}    endpoint!(}        Sync,}        "cx.sync.describe",}        Get,}        "/api/v1/sync/describe",}        "SyncDescribeRequest",}        "SyncDescription"}    ),}    endpoint!(}        Sync,}        "cx.events.describe",}        Get,}        "/api/v1/events/describe",}        "EventsDescribeRequest",}        "EventsDescription"}    ),}    endpoint!(}        Sync,}        "cx.events.submit",}        Post,}        "/api/v1/events",}        "EventsSubmitRequest",}        "EventsSubmitResponse"}    ),}    endpoint!(}        Sync,}        "cx.events.get",}        Get,}        "/api/v1/events/{event_id}",}        "EventsGetRequest",}        "EventsGetResponse"}    ),}    endpoint!(}        Sync,}        "cx.events.batch_get",}        Post,}        "/api/v1/events/batch-get",}        "EventsBatchGetRequest",}        "EventsBatchGetResponse"}    ),}    endpoint!(}        Sync,}        "cx.events.frontier",}        Get,}        "/api/v1/events/frontier",}        "EventsFrontierRequest",}        "EventsFrontierResponse"}    ),}    endpoint!(}        Sync,}        "cx.events.subscribe",}        Get,}        "/api/v1/events/subscribe",}        "EventsSubscribeQuery",}        "EventsSubscribeFrame"}    ),}    endpoint!(}        Sync,}        "cx.events.query",}        Get,}        "/api/v1/events",}        "EventsQueryRequest",}        "EventsQueryResponse"}    ),}    endpoint!(}        Sync,}        "cx.sync.get_snapshot_head",}        Get,}        "/api/v1/sync/snapshot-head",}        "SyncSnapshotHeadQuery",}        "SyncSnapshotHeadResponse"}    ),}    endpoint!(}        Directory,}        "cx.directory.describe",}        Get,}        "/api/v1/directory/describe",}        "DirectoryDescribeRequest",}        "DirectoryDescription"}    ),}    endpoint!(}        Directory,}        "cx.directory.search_spaces",}        Post,}        "/api/v1/directory/search-spaces",}        "DirectorySearchSpacesRequest",}        "DirectorySearchSpacesResponse"}    ),}    endpoint!(}        Directory,}        "cx.directory.resolve_space",}        Post,}        "/api/v1/directory/resolve-space",}        "DirectoryResolveSpaceRequest",}        "DirectoryResolveSpaceResponse"}    ),}    endpoint!(}        Directory,}        "cx.directory.search_organizations",}        Post,}        "/api/v1/directory/search-organizations",}        "DirectorySearchOrganizationsRequest",}        "DirectorySearchOrganizationsResponse"}    ),}    endpoint!(}        Directory,}        "cx.directory.resolve_organization",}        Post,}        "/api/v1/directory/resolve-organization",}        "DirectoryResolveOrganizationRequest",}        "DirectoryResolveOrganizationResponse"}    ),}    endpoint!(}        Directory,}        "cx.directory.search_actors",}        Post,}        "/api/v1/directory/search-actors",}        "DirectorySearchActorsRequest",}        "DirectorySearchActorsResponse"}    ),}    endpoint!(}        Directory,}        "cx.directory.search_users",}        Get,}        "/api/v1/directory/search-users",}        "DirectorySearchUsersQuery",}        "DirectorySearchUsersResponse"}    ),}    endpoint!(}        Directory,}        "cx.directory.resolve_handle",}        Post,}        "/api/v1/directory/resolve-handle",}        "DirectoryResolveHandleRequest",}        "DirectoryResolveHandleResponse"}    ),}    endpoint!(}        Directory,}        "cx.directory.private_contact_discovery",}        Post,}        "/api/v1/directory/private-contact-discovery",}        "PrivateContactDiscoveryRequest",}        "PrivateContactDiscoveryResponse"}    ),}    endpoint!(}        Directory,}        "cx.directory.announce",}        Post,}        "/api/v1/directory/announce",}        "DirectoryAnnounceRequest",}        "DirectoryAnnounceResponse"}    ),}    endpoint!(}        Directory,}        "cx.directory.withdraw",}        Post,}        "/api/v1/directory/withdraw",}        "DirectoryWithdrawRequest",}        "DirectoryWithdrawResponse"}    ),}    endpoint!(}        Blob,}        "cx.blob.upload",}        Post,}        "/api/v1/blob/upload",}        "BlobUploadMetadata",}        "BlobUploadResponse"}    ),}    endpoint!(}        Blob,}        "cx.blob.head",}        Head,}        "/api/v1/blob/get",}        "BlobGetQuery",}        "BlobMetadataHeaders"}    ),}    endpoint!(Blob, "cx.blob.get", Get, "/api/v1/blob/get", "BlobGetQuery", "BinaryBlobBody"),}    endpoint!(}        Push,}        "cx.push.register_device",}        Post,}        "/api/v1/push/register-device",}        "PushRegisterDeviceRequest",}        "PushRegisterDeviceResponse"}    ),}    endpoint!(}        Push,}        "cx.push.unregister_device",}        Post,}        "/api/v1/push/unregister-device",}        "PushUnregisterDeviceRequest",}        "OkResponse"}    ),}    endpoint!(}        Push,}        "cx.push.notify",}        Post,}        "/api/v1/push/notify",}        "PushNotifyRequest",}        "PushNotifyResponse"}    ),}    endpoint!(}        DeviceMessages,}        "cx.device_messages.put",}        Post,}        "/api/v1/device_messages",}        "DeviceMessagesSendRequest",}        "DeviceMessagesSendResponse"}    ),}    endpoint!(}        DeviceMessages,}        "cx.device_messages.get",}        Get,}        "/api/v1/device_messages",}        "DeviceMessagesGetQuery",}        "DeviceMessagesReceiveResponse"}    ),}    endpoint!(}        Keys,}        "cx.keys.upload",}        Post,}        "/api/v1/keys/upload",}        "KeysUploadRequest",}        "KeysUploadResponse"}    ),}    endpoint!(}        Keys,}        "cx.keys.query",}        Post,}        "/api/v1/keys/query",}        "KeysQueryRequest",}        "KeysQueryResponse"}    ),}    endpoint!(}        Keys,}        "cx.keys.claim",}        Post,}        "/api/v1/keys/claim",}        "KeysClaimRequest",}        "KeysClaimResponse"}    ),}    endpoint!(}        Keys,}        "cx.keys.backups.put",}        Put,}        "/api/v1/keys/backups/{backup_id}",}        "KeyBackup",}        "OperationResult"}    ),}    endpoint!(}        Keys,}        "cx.keys.backups.list",}        Get,}        "/api/v1/keys/backups",}        "KeyBackupsListQuery",}        "KeyBackupsListResponse"}    ),}    endpoint!(}        Keys,}        "cx.keys.backups.get",}        Get,}        "/api/v1/keys/backups/{backup_id}",}        "KeyBackupPath",}        "KeyBackup"}    ),}    endpoint!(}        Keys,}        "cx.keys.backups.delete",}        Delete,}        "/api/v1/keys/backups/{backup_id}",}        "KeyBackupDeleteRequest",}        "OperationResult"}    ),}    endpoint!(}        Keys,}        "cx.keys.keypackages.upload",}        Post,}        "/api/v1/keys/keypackages/upload",}        "KeyPackagesUploadRequest",}        "OkResponse"}    ),}    endpoint!(}        Keys,}        "cx.keys.keypackages.claim",}        Post,}        "/api/v1/keys/keypackages/claim",}        "KeyPackagesClaimRequest",}        "KeyPackagesClaimResponse"}    ),}    endpoint!(}        Keys,}        "cx.keys.keypackages.consume",}        Post,}        "/api/v1/keys/keypackages/consume",}        "KeyPackagesConsumeRequest",}        "OkResponse"}    ),}    endpoint!(}        Keys,}        "cx.keys.keypackages.revoke",}        Post,}        "/api/v1/keys/keypackages/revoke",}        "KeyPackagesRevokeRequest",}        "OkResponse"}    ),}    endpoint!(}        Authz,}        "cx.authz.get_effective_grants",}        Get,}        "/api/v1/authz/effective-grants",}        "AuthzEffectiveGrantsQuery",}        "EffectiveGrantsResponse"}    ),}    endpoint!(}        Authz,}        "cx.authz.get_invites",}        Get,}        "/api/v1/authz/invites",}        "AuthzInvitesQuery",}        "AuthzInvitesResponse"}    ),}    endpoint!(}        Authz,}        "cx.authz.check",}        Post,}        "/api/v1/authz/check",}        "AuthzCheckRequest",}        "AuthzCheckResponse"}    ),}    endpoint!(}        Policy,}        "cx.policy.check",}        Post,}        "/contrix/v1/check",}        "PolicyCheckRequest",}        "PolicyCheckResponse"}    ),}    endpoint!(}        Media,}        "cx.media.ice_config",}        Post,}        "/contrix/v1/ice-config",}        "MediaIceConfigRequest",}        "MediaIceConfigResponse"}    ),}    endpoint!(}        Moderation,}        "cx.moderation.report",}        Post,}        "/api/v1/moderation/report",}        "ModerationReportRequest",}        "ModerationReportResponse"}    ),}    endpoint!(}        Mimi,}        "cx.mimi.provider_directory",}        Get,}        "/api/v1/mimi/provider-directory",}        "MimiProviderDirectoryRequest",}        "JsonValue"}    ),}    endpoint!(}        Mimi,}        "cx.mimi.key_material",}        Post,}        "/api/v1/mimi/key-material",}        "MimiKeyMaterialRequest",}        "JsonValue"}    ),}    endpoint!(}        Mimi,}        "cx.mimi.room_update",}        Put,}        "/api/v1/mimi/rooms/{flow_id}/update",}        "MimiRoomUpdateRequest",}        "JsonValue"}    ),}    endpoint!(}        Mimi,}        "cx.mimi.notify",}        Post,}        "/api/v1/mimi/rooms/{flow_id}/notify",}        "MimiNotifyRequest",}        "JsonValue"}    ),}    endpoint!(}        Mimi,}        "cx.mimi.submit_message",}        Post,}        "/api/v1/mimi/rooms/{flow_id}/messages",}        "MimiSubmitMessageRequest",}        "JsonValue"}    ),}    endpoint!(}        Mimi,}        "cx.mimi.group_info",}        Get,}        "/api/v1/mimi/rooms/{flow_id}/group-info",}        "MimiGroupInfoQuery",}        "JsonValue"}    ),}    endpoint!(}        Mimi,}        "cx.mimi.request_consent",}        Post,}        "/api/v1/mimi/consent/request",}        "MimiConsentRequest",}        "JsonValue"}    ),}    endpoint!(}        Mimi,}        "cx.mimi.update_consent",}        Post,}        "/api/v1/mimi/consent/update",}        "MimiConsentUpdateRequest",}        "JsonValue"}    ),}    endpoint!(}        Mimi,}        "cx.mimi.identifier_query",}        Post,}        "/api/v1/mimi/identifiers/query",}        "MimiIdentifierQueryRequest",}        "JsonValue"}    ),}    endpoint!(}        Mimi,}        "cx.mimi.report_abuse",}        Post,}        "/api/v1/mimi/report-abuse",}        "MimiReportAbuseRequest",}        "OkResponse"}    ),}    endpoint!(}        Mimi,}        "cx.mimi.proxy_download",}        Post,}        "/api/v1/mimi/proxy-download",}        "MimiProxyDownloadRequest",}        "JsonValue"}    ),}    endpoint!(}        Account,}        "cx.account.issue_session_grant",}        Post,}        "/api/v1/auth/account/session-grants",}        "AccountSessionGrantRequest",}        "AccountSessionGrantResponse"}    ),}    endpoint!(}        Account,}        "cx.account.device_pair",}        Post,}        "/api/v1/auth/account/device-pair",}        "AccountDevicePairRequest",}        "AccountDevicePairResponse"}    ),}    endpoint!(}        Account,}        "cx.account.oidc_callback",}        Post,}        "/api/v1/auth/account/oidc/callback",}        "AccountOidcCallbackRequest",}        "AccountOidcCallbackResponse"}    ),}    endpoint!(}        Admin,}        "cx.admin.get_server_status",}        Get,}        "/api/v1/admin/server/status",}        "AdminServerStatusQuery",}        "JsonValue"}    ),}    endpoint!(}        Admin,}        "cx.admin.update_account_status",}        Post,}        "/api/v1/admin/accounts/{account_id}/status",}        "AdminAccountStatusRequest",}        "OkResponse"}    ),}    endpoint!(}        Admin,}        "cx.admin.revoke_device",}        Post,}        "/api/v1/admin/devices/{device_id}/revoke",}        "AdminRevokeDeviceRequest",}        "OkResponse"}    ),}    endpoint!(}        Admin,}        "cx.admin.get_moderation_queue",}        Get,}        "/api/v1/admin/moderation/queue",}        "AdminModerationQueueQuery",}        "JsonValue"}    ),}    endpoint!(}        Applet,}        "cx.applet.ping",}        Get,}        "/api/v1/applet/ping",}        "AppletPingRequest",}        "AppletPingResponse"}    ),}    endpoint!(}        Applet,}        "cx.applet.describe",}        Get,}        "/api/v1/applet/describe",}        "AppletDescribeRequest",}        "AppletDescription"}    ),}    endpoint!(}        Applet,}        "cx.applet.transaction",}        Post,}        "/api/v1/applet/transactions",}        "AppletTransactionRequest",}        "AppletTransactionResponse"}    ),}    endpoint!(}        Applet,}        "cx.applet.query_actor",}        Get,}        "/api/v1/applet/actors/{actor_id}",}        "AppletActorPath",}        "AppletActorResponse"}    ),}    endpoint!(}        Applet,}        "cx.applet.query_space",}        Get,}        "/api/v1/applet/spaces/{space_id_or_alias}",}        "AppletSpacePath",}        "AppletSpaceResponse"}    ),}    endpoint!(}        Applet,}        "cx.applet.protocol_metadata",}        Get,}        "/api/v1/applet/protocols/{protocol}",}        "AppletProtocolPath",}        "AppletProtocolResponse"}    ),}    endpoint!(}        Applet,}        "cx.applet.third_party_users",}        Get,}        "/api/v1/applet/third_party/users",}        "AppletThirdPartyUsersRequest",}        "JsonValue"}    ),}    endpoint!(}        Applet,}        "cx.applet.third_party_locations",}        Get,}        "/api/v1/applet/third_party/locations",}        "AppletThirdPartyLocationsRequest",}        "JsonValue"}    ),}];}}pub fn endpoints() -> &'static [Endpoint] {}    ENDPOINTS}}}}pub fn endpoint_by_operation(operation_id: &str) -> Option<&'static Endpoint> {}    ENDPOINTS.iter().find(|endpoint| endpoint.operation_id == operation_id)}}}}pub fn endpoints_for_surface(surface: ApiSurface) -> impl Iterator<Item = &'static Endpoint> {}    ENDPOINTS.iter().filter(move |endpoint| endpoint.surface == surface)}}}}pub fn endpoint_schema_bindings() -> Vec<EndpointSchemaBinding> {}    endpoints().iter().copied().map(endpoint_schema_binding).collect()}}}}pub fn endpoint_schema_binding(endpoint: Endpoint) -> EndpointSchemaBinding {}    EndpointSchemaBinding {}        operation_id: endpoint.operation_id,}        request_schema: endpoint.request_schema,}        response_schema: endpoint.response_schema,}        request_body_content_type: endpoint.request_body_content_type(),}        response_body_content_type: endpoint.response_body_content_type(),}    }}}}}pub fn endpoint_parameters(endpoint: Endpoint) -> Vec<EndpointParameter> {}    let mut parameters = path_parameters(endpoint.path);}    parameters.extend(query_parameters(endpoint.operation_id));}    parameters.extend(header_parameters(endpoint.operation_id));}    parameters.push(EndpointParameter {}        name: "X-Contrix-Request-Id",}        location: EndpointParameterLocation::Header,}        required: false,}        schema: "String",}    });}    parameters.push(EndpointParameter {}        name: "Traceparent",}        location: EndpointParameterLocation::Header,}        required: false,}        schema: "String",}    });}    parameters}}}}pub fn match_endpoint(method: EndpointMethod, path: &str) -> Option<MatchedEndpoint<'static>> {}    endpoints().iter().filter(|endpoint| endpoint.method == method).find_map(|endpoint| {}        match_path_template(endpoint.path, path)}            .map(|path_parameters| MatchedEndpoint { endpoint, path_parameters })}    })}}}}fn path_parameters(path: &'static str) -> Vec<EndpointParameter> {}    path.split('/')}        .filter_map(|segment| {}            if segment.starts_with('{') && segment.ends_with('}') {}                Some(EndpointParameter {}                    name: &segment[1..segment.len() - 1],}                    location: EndpointParameterLocation::Path,}                    required: true,}                    schema: "String",}                })}            } else {}                None}            }}        })}        .collect()}}}}fn query_parameters(operation_id: &str) -> Vec<EndpointParameter> {}    let query: &[(&str, bool, &str)] = match operation_id {}        "cx.identity.get_document" => &[("did", true, "Did"), ("version", false, "String")],}        "cx.identity.get_log" => {}            &[("did", true, "Did"), ("cursor", false, "String"), ("limit", false, "Limit")]}        }}        "cx.identity.get_receipts" => &[("did", true, "Did"), ("head", true, "Hash")],}        // cx.events.subscribe — selector via `spaces[]` / `actors[]` repeated query args;}        // include_history=true flips after `catchup_complete` frame to live stream.}        "cx.events.subscribe" => &[}            ("spaces", false, "SpaceId"),}            ("actors", false, "Did"),}            ("from", false, "String"),}            ("include_history", false, "Bool"),}        ],}        // cx.events.query — folds cx.events.list + cx.sync.backfill via `direction`.}        "cx.events.query" => &[}            ("spaces", false, "SpaceId"),}            ("actors", false, "Did"),}            ("from", false, "String"),}            ("until", false, "String"),}            ("direction", false, "String"),}            ("limit", false, "Limit"),}        ],}        "cx.events.frontier" => &[("spaces", false, "SpaceId"), ("actors", false, "Did")],}        "cx.sync.get_snapshot_head" => &[("space_id", true, "SpaceId")],}        "cx.directory.search_users" => {}            &[("q", true, "String"), ("space_id", false, "SpaceId"), ("limit", false, "Limit")]}        }}        "cx.blob.head" | "cx.blob.get" => &[("blob_ref", true, "BlobRef")],}        "cx.device_messages.get" => &[("from", false, "String"), ("limit", false, "Limit")],}        "cx.keys.backups.list" => &[}            ("backup_class", false, "String"),}            ("cursor", false, "String"),}            ("limit", false, "Limit"),}        ],}        "cx.authz.get_effective_grants" => {}            &[("space_id", true, "SpaceId"), ("subject", true, "Did"), ("at", false, "String")]}        }}        "cx.authz.get_invites" => {}            &[("subject", true, "Did"), ("space_id", false, "SpaceId"), ("cursor", false, "String")]}        }}        _ => &[],}    };}}    query}        .iter()}        .map(|(name, required, schema)| EndpointParameter {}            name,}            location: EndpointParameterLocation::Query,}            required: *required,}            schema,}        })}        .collect()}}}}fn header_parameters(operation_id: &str) -> Vec<EndpointParameter> {}    let headers: &[(&str, bool, &str)] = match operation_id {}        "cx.blob.upload" => &[}            ("X-Contrix-Blob-Metadata", false, "BlobUploadMetadata"),}            ("Content-Type", false, "String"),}            ("Content-Disposition", false, "String"),}            ("Digest", false, "Hash"),}        ],}        "cx.blob.get" => &[("Range", false, "String")],}        "cx.device_messages.put"}        | "cx.directory.announce"}        | "cx.directory.withdraw"}        | "cx.keys.backups.put"}        | "cx.keys.backups.delete"}        | "cx.applet.transaction" => &[("Idempotency-Key", true, "String")],}        _ => &[],}    };}}    headers}        .iter()}        .map(|(name, required, schema)| EndpointParameter {}            name,}            location: EndpointParameterLocation::Header,}            required: *required,}            schema,}        })}        .collect()}}}}fn match_path_template(template: &str, path: &str) -> Option<BTreeMap<String, String>> {}    let template_segments = template.trim_matches('/').split('/');}    let path_segments = path.trim_matches('/').split('/');}    let mut parameters = BTreeMap::new();}}    for (template_segment, path_segment) in template_segments.zip(path_segments) {}        if template_segment.starts_with('{') && template_segment.ends_with('}') {}            let name = &template_segment[1..template_segment.len() - 1];}            parameters.insert(name.to_owned(), path_segment.to_owned());}        } else if template_segment != path_segment {}            return None;}        }}    }}}    if template.trim_matches('/').split('/').count() != path.trim_matches('/').split('/').count() {}        return None;}    }}}    Some(parameters)}}}
+use super::*;
+
+macro_rules! endpoint {
+    ($surface:ident, $operation_id:literal, $method:ident, $path:literal, $request_schema:literal, $response_schema:literal) => {
+        Endpoint {
+            operation_id: $operation_id,
+            surface: ApiSurface::$surface,
+            method: EndpointMethod::$method,
+            path: $path,
+            request_schema: $request_schema,
+            response_schema: $response_schema,
+        }
+    };
+}
+
+pub const ENDPOINTS: &[Endpoint] = &[
+    endpoint!(
+        Server,
+        "cx.server.describe",
+        Get,
+        "/api/v1/server/describe",
+        "ServerDescribeRequest",
+        "ServerDescription"
+    ),
+    endpoint!(
+        Identity,
+        "cx.identity.describe_registry",
+        Get,
+        "/api/v1/identity/describe",
+        "IdentityDescribeRequest",
+        "IdentityDescription"
+    ),
+    endpoint!(
+        Identity,
+        "cx.identity.resolve",
+        Post,
+        "/api/v1/identity/resolve",
+        "IdentityResolveRequest",
+        "IdentityResolveResponse"
+    ),
+    endpoint!(
+        Identity,
+        "cx.identity.get_document",
+        Get,
+        "/api/v1/identity/document",
+        "IdentityDocumentQuery",
+        "IdentityDocumentResponse"
+    ),
+    endpoint!(
+        Identity,
+        "cx.identity.get_log",
+        Get,
+        "/api/v1/identity/log",
+        "IdentityLogQuery",
+        "IdentityLogResponse"
+    ),
+    endpoint!(
+        Identity,
+        "cx.identity.submit_did_operation",
+        Post,
+        "/api/v1/identity/submit-did-operation",
+        "SubmitDidOperationRequest",
+        "SubmitDidOperationResponse"
+    ),
+    endpoint!(
+        Identity,
+        "cx.identity.get_receipts",
+        Get,
+        "/api/v1/identity/receipts",
+        "IdentityReceiptsQuery",
+        "IdentityReceiptsResponse"
+    ),
+    // C17 (spec 2026-05-08, wire-breaking): cx.sync.client_sync → cx.sync.account
+    // (path unchanged, op_id renamed); cx.sync.subscribe → cx.events.subscribe at
+    // /api/v1/events/subscribe; cx.events.list + cx.sync.backfill folded into
+    // cx.events.query at /api/v1/events with `direction: forward|backward`.
+    endpoint!(Sync, "cx.sync.account", Post, "/api/v1/sync", "SyncRequest", "SyncResponse"),
+    endpoint!(
+        Sync,
+        "cx.sync.describe",
+        Get,
+        "/api/v1/sync/describe",
+        "SyncDescribeRequest",
+        "SyncDescription"
+    ),
+    endpoint!(
+        Sync,
+        "cx.events.describe",
+        Get,
+        "/api/v1/events/describe",
+        "EventsDescribeRequest",
+        "EventsDescription"
+    ),
+    endpoint!(
+        Sync,
+        "cx.events.submit",
+        Post,
+        "/api/v1/events",
+        "EventsSubmitRequest",
+        "EventsSubmitResponse"
+    ),
+    endpoint!(
+        Sync,
+        "cx.events.get",
+        Get,
+        "/api/v1/events/{event_id}",
+        "EventsGetRequest",
+        "EventsGetResponse"
+    ),
+    endpoint!(
+        Sync,
+        "cx.events.batch_get",
+        Post,
+        "/api/v1/events/batch-get",
+        "EventsBatchGetRequest",
+        "EventsBatchGetResponse"
+    ),
+    endpoint!(
+        Sync,
+        "cx.events.frontier",
+        Get,
+        "/api/v1/events/frontier",
+        "EventsFrontierRequest",
+        "EventsFrontierResponse"
+    ),
+    endpoint!(
+        Sync,
+        "cx.events.subscribe",
+        Get,
+        "/api/v1/events/subscribe",
+        "EventsSubscribeQuery",
+        "EventsSubscribeFrame"
+    ),
+    endpoint!(
+        Sync,
+        "cx.events.query",
+        Get,
+        "/api/v1/events",
+        "EventsQueryRequest",
+        "EventsQueryResponse"
+    ),
+    endpoint!(
+        Sync,
+        "cx.sync.get_snapshot_head",
+        Get,
+        "/api/v1/sync/snapshot-head",
+        "SyncSnapshotHeadQuery",
+        "SyncSnapshotHeadResponse"
+    ),
+    endpoint!(
+        Directory,
+        "cx.directory.describe",
+        Get,
+        "/api/v1/directory/describe",
+        "DirectoryDescribeRequest",
+        "DirectoryDescription"
+    ),
+    endpoint!(
+        Directory,
+        "cx.directory.search_spaces",
+        Post,
+        "/api/v1/directory/search-spaces",
+        "DirectorySearchSpacesRequest",
+        "DirectorySearchSpacesResponse"
+    ),
+    endpoint!(
+        Directory,
+        "cx.directory.resolve_space",
+        Post,
+        "/api/v1/directory/resolve-space",
+        "DirectoryResolveSpaceRequest",
+        "DirectoryResolveSpaceResponse"
+    ),
+    endpoint!(
+        Directory,
+        "cx.directory.search_organizations",
+        Post,
+        "/api/v1/directory/search-organizations",
+        "DirectorySearchOrganizationsRequest",
+        "DirectorySearchOrganizationsResponse"
+    ),
+    endpoint!(
+        Directory,
+        "cx.directory.resolve_organization",
+        Post,
+        "/api/v1/directory/resolve-organization",
+        "DirectoryResolveOrganizationRequest",
+        "DirectoryResolveOrganizationResponse"
+    ),
+    endpoint!(
+        Directory,
+        "cx.directory.search_actors",
+        Post,
+        "/api/v1/directory/search-actors",
+        "DirectorySearchActorsRequest",
+        "DirectorySearchActorsResponse"
+    ),
+    endpoint!(
+        Directory,
+        "cx.directory.search_users",
+        Get,
+        "/api/v1/directory/search-users",
+        "DirectorySearchUsersQuery",
+        "DirectorySearchUsersResponse"
+    ),
+    endpoint!(
+        Directory,
+        "cx.directory.resolve_handle",
+        Post,
+        "/api/v1/directory/resolve-handle",
+        "DirectoryResolveHandleRequest",
+        "DirectoryResolveHandleResponse"
+    ),
+    endpoint!(
+        Directory,
+        "cx.directory.private_contact_discovery",
+        Post,
+        "/api/v1/directory/private-contact-discovery",
+        "PrivateContactDiscoveryRequest",
+        "PrivateContactDiscoveryResponse"
+    ),
+    endpoint!(
+        Directory,
+        "cx.directory.announce",
+        Post,
+        "/api/v1/directory/announce",
+        "DirectoryAnnounceRequest",
+        "DirectoryAnnounceResponse"
+    ),
+    endpoint!(
+        Directory,
+        "cx.directory.withdraw",
+        Post,
+        "/api/v1/directory/withdraw",
+        "DirectoryWithdrawRequest",
+        "DirectoryWithdrawResponse"
+    ),
+    endpoint!(
+        Blob,
+        "cx.blob.upload",
+        Post,
+        "/api/v1/blob/upload",
+        "BlobUploadMetadata",
+        "BlobUploadResponse"
+    ),
+    endpoint!(
+        Blob,
+        "cx.blob.head",
+        Head,
+        "/api/v1/blob/get",
+        "BlobGetQuery",
+        "BlobMetadataHeaders"
+    ),
+    endpoint!(Blob, "cx.blob.get", Get, "/api/v1/blob/get", "BlobGetQuery", "BinaryBlobBody"),
+    endpoint!(
+        Push,
+        "cx.push.register_device",
+        Post,
+        "/api/v1/push/register-device",
+        "PushRegisterDeviceRequest",
+        "PushRegisterDeviceResponse"
+    ),
+    endpoint!(
+        Push,
+        "cx.push.unregister_device",
+        Post,
+        "/api/v1/push/unregister-device",
+        "PushUnregisterDeviceRequest",
+        "OkResponse"
+    ),
+    endpoint!(
+        Push,
+        "cx.push.notify",
+        Post,
+        "/api/v1/push/notify",
+        "PushNotifyRequest",
+        "PushNotifyResponse"
+    ),
+    endpoint!(
+        DeviceMessages,
+        "cx.device_messages.put",
+        Post,
+        "/api/v1/device_messages",
+        "DeviceMessagesSendRequest",
+        "DeviceMessagesSendResponse"
+    ),
+    endpoint!(
+        DeviceMessages,
+        "cx.device_messages.get",
+        Get,
+        "/api/v1/device_messages",
+        "DeviceMessagesGetQuery",
+        "DeviceMessagesReceiveResponse"
+    ),
+    endpoint!(
+        Keys,
+        "cx.keys.upload",
+        Post,
+        "/api/v1/keys/upload",
+        "KeysUploadRequest",
+        "KeysUploadResponse"
+    ),
+    endpoint!(
+        Keys,
+        "cx.keys.query",
+        Post,
+        "/api/v1/keys/query",
+        "KeysQueryRequest",
+        "KeysQueryResponse"
+    ),
+    endpoint!(
+        Keys,
+        "cx.keys.claim",
+        Post,
+        "/api/v1/keys/claim",
+        "KeysClaimRequest",
+        "KeysClaimResponse"
+    ),
+    endpoint!(
+        Keys,
+        "cx.keys.backups.put",
+        Put,
+        "/api/v1/keys/backups/{backup_id}",
+        "KeyBackup",
+        "KeyBackupPutResponse"
+    ),
+    endpoint!(
+        Keys,
+        "cx.keys.backups.list",
+        Get,
+        "/api/v1/keys/backups",
+        "KeyBackupsListQuery",
+        "KeyBackupsListResponse"
+    ),
+    endpoint!(
+        Keys,
+        "cx.keys.backups.get",
+        Get,
+        "/api/v1/keys/backups/{backup_id}",
+        "KeyBackupPath",
+        "KeyBackup"
+    ),
+    endpoint!(
+        Keys,
+        "cx.keys.backups.delete",
+        Delete,
+        "/api/v1/keys/backups/{backup_id}",
+        "KeyBackupDeleteRequest",
+        "KeyBackupDeleteResponse"
+    ),
+    endpoint!(
+        Keys,
+        "cx.keys.keypackages.upload",
+        Post,
+        "/api/v1/keys/keypackages/upload",
+        "KeyPackagesUploadRequest",
+        "OkResponse"
+    ),
+    endpoint!(
+        Keys,
+        "cx.keys.keypackages.claim",
+        Post,
+        "/api/v1/keys/keypackages/claim",
+        "KeyPackagesClaimRequest",
+        "KeyPackagesClaimResponse"
+    ),
+    endpoint!(
+        Keys,
+        "cx.keys.keypackages.consume",
+        Post,
+        "/api/v1/keys/keypackages/consume",
+        "KeyPackagesConsumeRequest",
+        "OkResponse"
+    ),
+    endpoint!(
+        Keys,
+        "cx.keys.keypackages.revoke",
+        Post,
+        "/api/v1/keys/keypackages/revoke",
+        "KeyPackagesRevokeRequest",
+        "OkResponse"
+    ),
+    endpoint!(
+        Authz,
+        "cx.authz.get_effective_grants",
+        Get,
+        "/api/v1/authz/effective-grants",
+        "AuthzEffectiveGrantsQuery",
+        "EffectiveGrantsResponse"
+    ),
+    endpoint!(
+        Authz,
+        "cx.authz.get_invites",
+        Get,
+        "/api/v1/authz/invites",
+        "AuthzInvitesQuery",
+        "AuthzInvitesResponse"
+    ),
+    endpoint!(
+        Authz,
+        "cx.authz.check",
+        Post,
+        "/api/v1/authz/check",
+        "AuthzCheckRequest",
+        "AuthzCheckResponse"
+    ),
+    endpoint!(
+        Policy,
+        "cx.policy.check",
+        Post,
+        "/contrix/v1/check",
+        "PolicyCheckRequest",
+        "PolicyCheckResponse"
+    ),
+    endpoint!(
+        Media,
+        "cx.media.ice_config",
+        Post,
+        "/contrix/v1/ice-config",
+        "MediaIceConfigRequest",
+        "MediaIceConfigResponse"
+    ),
+    endpoint!(
+        Moderation,
+        "cx.moderation.report",
+        Post,
+        "/api/v1/moderation/report",
+        "ModerationReportRequest",
+        "ModerationReportResponse"
+    ),
+    endpoint!(
+        Mimi,
+        "cx.mimi.provider_directory",
+        Get,
+        "/api/v1/mimi/provider-directory",
+        "MimiProviderDirectoryRequest",
+        "JsonValue"
+    ),
+    endpoint!(
+        Mimi,
+        "cx.mimi.key_material",
+        Post,
+        "/api/v1/mimi/key-material",
+        "MimiKeyMaterialRequest",
+        "JsonValue"
+    ),
+    endpoint!(
+        Mimi,
+        "cx.mimi.room_update",
+        Put,
+        "/api/v1/mimi/rooms/{flow_id}/update",
+        "MimiRoomUpdateRequest",
+        "JsonValue"
+    ),
+    endpoint!(
+        Mimi,
+        "cx.mimi.notify",
+        Post,
+        "/api/v1/mimi/rooms/{flow_id}/notify",
+        "MimiNotifyRequest",
+        "JsonValue"
+    ),
+    endpoint!(
+        Mimi,
+        "cx.mimi.submit_message",
+        Post,
+        "/api/v1/mimi/rooms/{flow_id}/messages",
+        "MimiSubmitMessageRequest",
+        "JsonValue"
+    ),
+    endpoint!(
+        Mimi,
+        "cx.mimi.group_info",
+        Get,
+        "/api/v1/mimi/rooms/{flow_id}/group-info",
+        "MimiGroupInfoQuery",
+        "JsonValue"
+    ),
+    endpoint!(
+        Mimi,
+        "cx.mimi.request_consent",
+        Post,
+        "/api/v1/mimi/consent/request",
+        "MimiConsentRequest",
+        "JsonValue"
+    ),
+    endpoint!(
+        Mimi,
+        "cx.mimi.update_consent",
+        Post,
+        "/api/v1/mimi/consent/update",
+        "MimiConsentUpdateRequest",
+        "JsonValue"
+    ),
+    endpoint!(
+        Mimi,
+        "cx.mimi.identifier_query",
+        Post,
+        "/api/v1/mimi/identifiers/query",
+        "MimiIdentifierQueryRequest",
+        "JsonValue"
+    ),
+    endpoint!(
+        Mimi,
+        "cx.mimi.report_abuse",
+        Post,
+        "/api/v1/mimi/report-abuse",
+        "MimiReportAbuseRequest",
+        "OkResponse"
+    ),
+    endpoint!(
+        Mimi,
+        "cx.mimi.proxy_download",
+        Post,
+        "/api/v1/mimi/proxy-download",
+        "MimiProxyDownloadRequest",
+        "JsonValue"
+    ),
+    endpoint!(
+        Account,
+        "cx.account.issue_session_grant",
+        Post,
+        "/api/v1/auth/account/session-grants",
+        "AccountSessionGrantRequest",
+        "AccountSessionGrantResponse"
+    ),
+    endpoint!(
+        Account,
+        "cx.account.device_pair",
+        Post,
+        "/api/v1/auth/account/device-pair",
+        "AccountDevicePairRequest",
+        "AccountDevicePairResponse"
+    ),
+    endpoint!(
+        Account,
+        "cx.account.oidc_callback",
+        Post,
+        "/api/v1/auth/account/oidc/callback",
+        "AccountOidcCallbackRequest",
+        "AccountOidcCallbackResponse"
+    ),
+    endpoint!(
+        Admin,
+        "cx.admin.get_server_status",
+        Get,
+        "/api/v1/admin/server/status",
+        "AdminServerStatusQuery",
+        "JsonValue"
+    ),
+    endpoint!(
+        Admin,
+        "cx.admin.update_account_status",
+        Post,
+        "/api/v1/admin/accounts/{account_id}/status",
+        "AdminAccountStatusRequest",
+        "OkResponse"
+    ),
+    endpoint!(
+        Admin,
+        "cx.admin.revoke_device",
+        Post,
+        "/api/v1/admin/devices/{device_id}/revoke",
+        "AdminRevokeDeviceRequest",
+        "OkResponse"
+    ),
+    endpoint!(
+        Admin,
+        "cx.admin.get_moderation_queue",
+        Get,
+        "/api/v1/admin/moderation/queue",
+        "AdminModerationQueueQuery",
+        "JsonValue"
+    ),
+    endpoint!(
+        Applet,
+        "cx.applet.ping",
+        Get,
+        "/api/v1/applet/ping",
+        "AppletPingRequest",
+        "AppletPingResponse"
+    ),
+    endpoint!(
+        Applet,
+        "cx.applet.describe",
+        Get,
+        "/api/v1/applet/describe",
+        "AppletDescribeRequest",
+        "AppletDescription"
+    ),
+    endpoint!(
+        Applet,
+        "cx.applet.transaction",
+        Post,
+        "/api/v1/applet/transactions",
+        "AppletTransactionRequest",
+        "AppletTransactionResponse"
+    ),
+    endpoint!(
+        Applet,
+        "cx.applet.query_actor",
+        Get,
+        "/api/v1/applet/actors/{actor_id}",
+        "AppletActorPath",
+        "AppletActorResponse"
+    ),
+    endpoint!(
+        Applet,
+        "cx.applet.query_space",
+        Get,
+        "/api/v1/applet/spaces/{space_id_or_alias}",
+        "AppletSpacePath",
+        "AppletSpaceResponse"
+    ),
+    endpoint!(
+        Applet,
+        "cx.applet.protocol_metadata",
+        Get,
+        "/api/v1/applet/protocols/{protocol}",
+        "AppletProtocolPath",
+        "AppletProtocolResponse"
+    ),
+    endpoint!(
+        Applet,
+        "cx.applet.third_party_users",
+        Get,
+        "/api/v1/applet/third_party/users",
+        "AppletThirdPartyUsersRequest",
+        "JsonValue"
+    ),
+    endpoint!(
+        Applet,
+        "cx.applet.third_party_locations",
+        Get,
+        "/api/v1/applet/third_party/locations",
+        "AppletThirdPartyLocationsRequest",
+        "JsonValue"
+    ),
+];
+
+pub fn endpoints() -> &'static [Endpoint] {
+    ENDPOINTS
+}
+
+pub fn endpoint_by_operation(operation_id: &str) -> Option<&'static Endpoint> {
+    ENDPOINTS.iter().find(|endpoint| endpoint.operation_id == operation_id)
+}
+
+pub fn endpoints_for_surface(surface: ApiSurface) -> impl Iterator<Item = &'static Endpoint> {
+    ENDPOINTS.iter().filter(move |endpoint| endpoint.surface == surface)
+}
+
+pub fn endpoint_schema_bindings() -> Vec<EndpointSchemaBinding> {
+    endpoints().iter().copied().map(endpoint_schema_binding).collect()
+}
+
+pub fn endpoint_schema_binding(endpoint: Endpoint) -> EndpointSchemaBinding {
+    EndpointSchemaBinding {
+        operation_id: endpoint.operation_id,
+        request_schema: endpoint.request_schema,
+        response_schema: endpoint.response_schema,
+        request_body_content_type: endpoint.request_body_content_type(),
+        response_body_content_type: endpoint.response_body_content_type(),
+    }
+}
+
+pub fn endpoint_parameters(endpoint: Endpoint) -> Vec<EndpointParameter> {
+    let mut parameters = path_parameters(endpoint.path);
+    parameters.extend(query_parameters(endpoint.operation_id));
+    parameters.extend(header_parameters(endpoint.operation_id));
+    parameters.push(EndpointParameter {
+        name: "X-Contrix-Request-Id",
+        location: EndpointParameterLocation::Header,
+        required: false,
+        schema: "String",
+    });
+    parameters.push(EndpointParameter {
+        name: "Traceparent",
+        location: EndpointParameterLocation::Header,
+        required: false,
+        schema: "String",
+    });
+    parameters
+}
+
+pub fn match_endpoint(method: EndpointMethod, path: &str) -> Option<MatchedEndpoint<'static>> {
+    endpoints().iter().filter(|endpoint| endpoint.method == method).find_map(|endpoint| {
+        match_path_template(endpoint.path, path)
+            .map(|path_parameters| MatchedEndpoint { endpoint, path_parameters })
+    })
+}
+
+fn path_parameters(path: &'static str) -> Vec<EndpointParameter> {
+    path.split('/')
+        .filter_map(|segment| {
+            if segment.starts_with('{') && segment.ends_with('}') {
+                Some(EndpointParameter {
+                    name: &segment[1..segment.len() - 1],
+                    location: EndpointParameterLocation::Path,
+                    required: true,
+                    schema: "String",
+                })
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+fn query_parameters(operation_id: &str) -> Vec<EndpointParameter> {
+    let query: &[(&str, bool, &str)] = match operation_id {
+        "cx.identity.get_document" => &[("did", true, "Did"), ("version", false, "String")],
+        "cx.identity.get_log" => {
+            &[("did", true, "Did"), ("cursor", false, "String"), ("limit", false, "Limit")]
+        }
+        "cx.identity.get_receipts" => &[("did", true, "Did"), ("head", true, "Hash")],
+        // C17: cx.events.subscribe — selector via `spaces[]` / `actors[]` repeated query args;
+        // include_history=true flips after `catchup_complete` frame to live stream.
+        "cx.events.subscribe" => &[
+            ("spaces", false, "SpaceId"),
+            ("actors", false, "Did"),
+            ("from", false, "String"),
+            ("include_history", false, "Bool"),
+        ],
+        // C17: cx.events.query — folds cx.events.list + cx.sync.backfill via `direction`.
+        "cx.events.query" => &[
+            ("spaces", false, "SpaceId"),
+            ("actors", false, "Did"),
+            ("from", false, "String"),
+            ("until", false, "String"),
+            ("direction", false, "String"),
+            ("limit", false, "Limit"),
+        ],
+        "cx.events.frontier" => &[("spaces", false, "SpaceId"), ("actors", false, "Did")],
+        "cx.sync.get_snapshot_head" => &[("space_id", true, "SpaceId")],
+        "cx.directory.search_users" => {
+            &[("q", true, "String"), ("space_id", false, "SpaceId"), ("limit", false, "Limit")]
+        }
+        "cx.blob.head" | "cx.blob.get" => &[("blob_ref", true, "BlobRef")],
+        "cx.device_messages.get" => &[("from", false, "String"), ("limit", false, "Limit")],
+        "cx.keys.backups.list" => &[
+            ("backup_class", false, "String"),
+            ("cursor", false, "String"),
+            ("limit", false, "Limit"),
+        ],
+        "cx.authz.get_effective_grants" => {
+            &[("space_id", true, "SpaceId"), ("subject", true, "Did"), ("at", false, "String")]
+        }
+        "cx.authz.get_invites" => {
+            &[("subject", true, "Did"), ("space_id", false, "SpaceId"), ("cursor", false, "String")]
+        }
+        _ => &[],
+    };
+
+    query
+        .iter()
+        .map(|(name, required, schema)| EndpointParameter {
+            name,
+            location: EndpointParameterLocation::Query,
+            required: *required,
+            schema,
+        })
+        .collect()
+}
+
+fn header_parameters(operation_id: &str) -> Vec<EndpointParameter> {
+    let headers: &[(&str, bool, &str)] = match operation_id {
+        "cx.blob.upload" => &[
+            ("X-Contrix-Blob-Metadata", false, "BlobUploadMetadata"),
+            ("Content-Type", false, "String"),
+            ("Content-Disposition", false, "String"),
+            ("Digest", false, "Hash"),
+        ],
+        "cx.blob.get" => &[("Range", false, "String")],
+        "cx.device_messages.put"
+        | "cx.directory.announce"
+        | "cx.directory.withdraw"
+        | "cx.keys.backups.put"
+        | "cx.keys.backups.delete"
+        | "cx.applet.transaction" => &[("Idempotency-Key", true, "String")],
+        _ => &[],
+    };
+
+    headers
+        .iter()
+        .map(|(name, required, schema)| EndpointParameter {
+            name,
+            location: EndpointParameterLocation::Header,
+            required: *required,
+            schema,
+        })
+        .collect()
+}
+
+fn match_path_template(template: &str, path: &str) -> Option<BTreeMap<String, String>> {
+    let template_segments = template.trim_matches('/').split('/');
+    let path_segments = path.trim_matches('/').split('/');
+    let mut parameters = BTreeMap::new();
+
+    for (template_segment, path_segment) in template_segments.zip(path_segments) {
+        if template_segment.starts_with('{') && template_segment.ends_with('}') {
+            let name = &template_segment[1..template_segment.len() - 1];
+            parameters.insert(name.to_owned(), path_segment.to_owned());
+        } else if template_segment != path_segment {
+            return None;
+        }
+    }
+
+    if template.trim_matches('/').split('/').count() != path.trim_matches('/').split('/').count() {
+        return None;
+    }
+
+    Some(parameters)
+}

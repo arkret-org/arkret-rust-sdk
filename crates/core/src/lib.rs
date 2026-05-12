@@ -53,9 +53,11 @@ pub use error::{
     Result, error_code_http_status, is_known_error_code,
 };
 pub use identifiers::{
-    ActorProfileId, AnchorId, BlobRef, CellRef, DeviceId, Did, EventId, FlowId, GrantId, Hash, Hlc,
-    InviteId, MessageId, MorphId, MoveId, OperationId, PlaceId, PolicyId, RelationId, SpaceId,
-    ViewId,
+    ActorProfileId, AgentSessionId, AnchorId, AppletId, BackupId, BatchId, BlobId, BlobRef,
+    BlockId, CallId, CapabilityId, CellRef, ChunkId, ClaimId, DeviceId, DevmsgId, Did, EventId,
+    FilterId, FlowId, FrameId, FrankId, GrantId, Hash, Hlc, InviteId, KeyevtId, MessageId, ModqId,
+    MorphId, MoveId, NotifId, OperationId, PlaceId, PolicyId, PresentationId, ReceiptId,
+    RelationId, ReportId, ReqId, SnapshotId, SpaceId, TxnId, ViewId,
 };
 pub use keystore::{
     InMemoryKeyStore, KeyStore, KeyStoreError, LinuxSecretServiceKeyStore, MacOsKeychainKeyStore,

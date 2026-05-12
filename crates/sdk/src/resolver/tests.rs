@@ -1,5 +1,5 @@
 use super::*;
-use crate::Hlc;
+use crate::{EventRequirements, Hlc};
 use serde_json::json;
 
 fn space_id() -> SpaceId {
@@ -21,10 +21,10 @@ fn event(kind: &str, seq: u64, content: Value) -> Event {
         hlc: Hlc::new(format!("01970e589d22-{seq:08x}-11111111")).unwrap(),
         prev_refs: vec![],
         refs: vec![],
-        schema_profile_refs: vec![],
-        reducer_profile_ref: None,
-        required_features: vec![],
-        critical_extensions: vec![],
+        preconditions: vec![],
+        effects: vec![],
+        anchor_ref: None,
+        requirements: EventRequirements::default(),
         redacts: None,
         content,
         unsigned: BTreeMap::new(),

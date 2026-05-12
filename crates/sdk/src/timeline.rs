@@ -1089,10 +1089,10 @@ mod tests {
             hlc: Hlc::new(format!("01970e589d21-000000{:02x}-a13f9c2e", index)).unwrap(),
             prev_refs: vec![],
             refs: vec![],
-            schema_profile_refs: vec![],
-            reducer_profile_ref: None,
-            required_features: vec![],
-            critical_extensions: vec![],
+            preconditions: vec![],
+            effects: vec![],
+            anchor_ref: None,
+            requirements: crate::EventRequirements::default(),
             redacts: None,
             content: json!({
                 "object": {
@@ -1286,7 +1286,7 @@ mod tests {
         timeline.apply_typing(TypingNotification {
             space_id,
             user_id: actor.clone(),
-            device_id: DeviceId::new("dev_123").unwrap(),
+            device_id: DeviceId::new("cx:device:01904100-0000-7000-8000-000000000005").unwrap(),
             is_typing: true,
             expires_at: Utc::now() + Duration::seconds(30),
             updated_at: Utc::now(),

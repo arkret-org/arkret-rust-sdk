@@ -942,7 +942,7 @@ mod tests {
     #[test]
     fn token_binding_checks_principal_device_service_filter_and_expiry() {
         let principal = Did::new("did:web:alice.example").unwrap();
-        let device = DeviceId::new("dev_123").unwrap();
+        let device = DeviceId::new("cx:device:01904100-0000-7000-8000-000000000005").unwrap();
         let service = Did::new("did:web:sync.example").unwrap();
         let filter = SyncFilter {
             spaces: vec![SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()],

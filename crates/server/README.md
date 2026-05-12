@@ -18,6 +18,18 @@ response wrapper and Salvo OAPI component registration helpers. The base
 build (no features) remains framework-independent and stays free of any
 Salvo dependency.
 
+There are two OpenAPI surfaces with different authority:
+
+- `contrix_server::openapi_document()` loads the canonical Contrix service
+  OpenAPI artifact from `contrix-spec` when that checkout is available. This is
+  the normative protocol document for service conformance and client
+  generation.
+- `contrix_server::salvo_adapter::contrix_openapi()` builds a Salvo-native
+  `OpenApi` value seeded with SDK component schemas. This is a framework
+  integration helper for Salvo handlers. Some path/query bundles and extension
+  endpoints are represented as synthetic object schemas until they receive
+  dedicated Rust DTOs.
+
 The Salvo OAPI integration follows the palpo pattern: every `pub struct` and
 `pub enum` in `contrix-core` and `contrix-identifiers` carries a feature-gated
 `#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]` so the

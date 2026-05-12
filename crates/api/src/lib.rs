@@ -8,7 +8,16 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+/// Product-local client API contracts.
+///
+/// These endpoints are not the canonical Contrix service operation registry.
+/// Use [`endpoints`] / [`ENDPOINTS`] for protocol conformance and discovery.
 pub mod client;
+pub mod product {
+    //! Product-local API surfaces outside the canonical service operation registry.
+
+    pub use crate::client;
+}
 pub mod federation;
 pub mod identity;
 pub mod push;
@@ -20,19 +29,22 @@ pub mod protocol {
         AppletSpaceResponse, AppletTransactionRequest, AppletTransactionResponse,
         AuthzCheckRequest, AuthzCheckResponse, AuthzInvitesResponse, BlobMetadata,
         BlobUploadMetadata, BlobUploadResponse, DeviceMessagesReceiveResponse,
-        DeviceMessagesSendRequest, DeviceMessagesSendResponse, DirectoryDescription,
-        DirectoryResolveHandleRequest, DirectoryResolveHandleResponse,
-        DirectoryResolveOrganizationRequest, DirectoryResolveOrganizationResponse,
-        DirectoryResolveSpaceRequest, DirectoryResolveSpaceResponse, DirectorySearchActorsRequest,
-        DirectorySearchActorsResponse, DirectorySearchOrganizationsRequest,
-        DirectorySearchOrganizationsResponse, DirectorySearchSpacesRequest,
-        DirectorySearchSpacesResponse, DirectorySearchUsersResponse, EffectiveGrantsResponse,
+        DeviceMessagesSendRequest, DeviceMessagesSendResponse, DirectoryAnnounceRequest,
+        DirectoryAnnounceResponse, DirectoryDescription, DirectoryResolveHandleRequest,
+        DirectoryResolveHandleResponse, DirectoryResolveOrganizationRequest,
+        DirectoryResolveOrganizationResponse, DirectoryResolveSpaceRequest,
+        DirectoryResolveSpaceResponse, DirectorySearchActorsRequest, DirectorySearchActorsResponse,
+        DirectorySearchOrganizationsRequest, DirectorySearchOrganizationsResponse,
+        DirectorySearchSpacesRequest, DirectorySearchSpacesResponse, DirectorySearchUsersResponse,
+        DirectoryWithdrawRequest, DirectoryWithdrawResponse, EffectiveGrantsResponse,
         FederationPullOperationsResponse, FederationPushOperationsRequest,
         FederationPushOperationsResponse, FederationSpaceMembersResponse,
         FederationTransactionRequest, FederationTransactionResponse, FederationVerifyActorRequest,
         FederationVerifyActorResponse, IdentityDescription, IdentityDocumentResponse,
         IdentityLogResponse, IdentityReceiptsResponse, IdentityResolveRequest,
-        IdentityResolveResponse, KeysClaimRequest, KeysClaimResponse, KeysQueryRequest,
+        IdentityResolveResponse, KeyBackup, KeyBackupDeleteRequest, KeyBackupDeleteResponse,
+        KeyBackupPath, KeyBackupPutResponse, KeyBackupSummary, KeyBackupsListQuery,
+        KeyBackupsListResponse, KeysClaimRequest, KeysClaimResponse, KeysQueryRequest,
         KeysQueryResponse, KeysUploadRequest, KeysUploadResponse, MediaIceConfigRequest,
         MediaIceConfigResponse, ModerationReportRequest, ModerationReportResponse, OkResponse,
         PolicyCheckRequest, PolicyCheckResponse, PushNotifyRequest, PushNotifyResponse,

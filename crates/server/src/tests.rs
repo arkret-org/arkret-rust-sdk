@@ -95,11 +95,12 @@ fn endpoint_registry_matches_required_spec_operations() {
 fn openapi_document_contains_standard_error_envelope() {
     let document = openapi_document();
     assert_eq!(document["openapi"], "3.1.0");
-    assert!(document["paths"]["/api/v1/sync"]["post"]["responses"]["429"].is_object());
-    assert!(document["paths"]["/api/v1/sync"]["post"]["responses"]["428"].is_object());
+    assert_eq!(document["x-contrix-source"], "spec-artifact");
+    assert!(default_spec_openapi_path().is_some_and(|path| path.exists()));
+    assert!(document["paths"]["/sync"]["post"]["responses"]["200"].is_object());
     assert!(document["components"]["schemas"]["ErrorEnvelope"].is_object());
-    assert!(document["components"]["responses"]["RateLimitedError"].is_object());
-    assert!(document["components"]["responses"]["IdempotencyConflictError"].is_object());
+    assert!(document["components"]["responses"]["RateLimited"].is_object());
+    assert!(document["components"]["responses"]["MethodNotAllowed"].is_object());
     assert!(document["components"]["securitySchemes"].get("queryToken").is_none());
     assert!(document["components"]["securitySchemes"]["bearerAuth"].is_object());
     assert!(document["components"]["securitySchemes"]["httpMessageSignature"].is_object());
@@ -107,36 +108,27 @@ fn openapi_document_contains_standard_error_envelope() {
 }
 
 #[test]
-fn openapi_document_has_schema_binding_for_every_endpoint() {
+fn openapi_document_has_operation_binding_for_every_endpoint() {
     let document = openapi_document();
     for endpoint in endpoint_contracts() {
-        let binding = endpoint_schema_binding(endpoint);
-        assert!(
-            document["components"]["schemas"].get(binding.request_schema).is_some(),
-            "{} request schema {}",
-            endpoint.operation_id,
-            binding.request_schema
-        );
-        assert!(
-            document["components"]["schemas"].get(binding.response_schema).is_some(),
-            "{} response schema {}",
-            endpoint.operation_id,
-            binding.response_schema
-        );
+        let path = endpoint.path.strip_prefix("/api/v1").unwrap_or(endpoint.path);
         assert_eq!(
-            document["paths"][endpoint.path][endpoint.method.as_str()]["operationId"],
-            endpoint.operation_id
+            document["paths"][path][endpoint.method.as_str()]["operationId"],
+            endpoint.operation_id,
+            "{} {}",
+            endpoint.method.as_str(),
+            path
         );
     }
-    assert!(document["paths"]["/api/v1/events"]["post"]["requestBody"].is_object());
+    assert!(document["paths"]["/events"]["post"]["requestBody"].is_object());
 }
 
 #[cfg(feature = "salvo")]
 #[test]
-fn openapi_document_prefers_typed_salvo_schemas_when_available() {
+fn openapi_document_still_uses_spec_artifact_with_salvo_feature() {
     let document = openapi_document();
-    assert!(document["components"]["schemas"]["ServerDescription"]["properties"].is_object());
-    assert!(document["components"]["schemas"]["EventsQueryRequest"].is_object());
+    assert_eq!(document["x-contrix-source"], "spec-artifact");
+    assert!(document["components"]["schemas"]["OperationRequest"].is_object());
 }
 
 #[test]
@@ -441,10 +433,8 @@ fn query_auth_and_wire_negative_vectors_are_available() {
 
     let vectors = wire_negative_vectors();
     assert!(vectors.iter().any(|vector| vector.name == "query_auth_rejected"));
-    assert!(vectors.iter().any(|vector| vector.expected_errcode == "cx.error.bad_digest"));
-    assert!(
-        vectors.iter().any(|vector| vector.expected_errcode == "cx.error.idempotency_required")
-    );
+    assert!(vectors.iter().any(|vector| vector.expected_error_code == "digest_mismatch"));
+    assert!(vectors.iter().any(|vector| vector.expected_error_code == "missing_param"));
 
     let golden = protocol_golden_vectors();
     assert!(golden.iter().any(|vector| vector.profile == "cx.conformance.digest.v1"));

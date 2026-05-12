@@ -382,10 +382,10 @@ mod tests {
             hlc: Hlc::new("01970e589d22-00000009-11111111").unwrap(),
             prev_refs: vec![],
             refs: vec![],
-            schema_profile_refs: vec![],
-            reducer_profile_ref: None,
-            required_features: vec![],
-            critical_extensions: vec![],
+            preconditions: vec![],
+            effects: vec![],
+            anchor_ref: None,
+            requirements: crate::EventRequirements::default(),
             redacts: None,
             content: json!({
                 "object": {
@@ -457,7 +457,7 @@ mod tests {
     fn memory_persistence_store_roundtrips_auxiliary_records() {
         let mut store = MemoryPersistenceStore::new();
         let principal_id = Did::new("did:web:alice.example").unwrap();
-        let device_id = DeviceId::new("dev_phone").unwrap();
+        let device_id = DeviceId::new("cx:device:01904100-0000-7000-8000-000000000001").unwrap();
         let session = AuthSession {
             session_id: "sess-1".to_owned(),
             user_id: principal_id.clone(),

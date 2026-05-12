@@ -161,7 +161,7 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
             headers: BTreeMap::new(),
             body: Value::Null,
             expected_status: 400,
-            expected_errcode: "cx.error.query_auth_forbidden".to_owned(),
+            expected_error_code: "capability_denied".to_owned(),
         },
         WireConformanceVector {
             name: "encoded_path_separator_rejected".to_owned(),
@@ -171,7 +171,7 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
             headers: BTreeMap::new(),
             body: json!({}),
             expected_status: 400,
-            expected_errcode: "cx.error.invalid_path_segment".to_owned(),
+            expected_error_code: "invalid_param".to_owned(),
         },
         WireConformanceVector {
             name: "identity_invalid_did_rejected".to_owned(),
@@ -181,7 +181,7 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
             headers: BTreeMap::from([("Authorization".to_owned(), "Bearer redacted".to_owned())]),
             body: json!({"did": "alice.example"}),
             expected_status: 400,
-            expected_errcode: "cx.error.invalid_id".to_owned(),
+            expected_error_code: "invalid_param".to_owned(),
         },
         WireConformanceVector {
             name: "sync_stale_cursor_rejected".to_owned(),
@@ -191,7 +191,7 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
             headers: BTreeMap::from([("Authorization".to_owned(), "Bearer redacted".to_owned())]),
             body: json!({"since": "cx:cursor:expired"}),
             expected_status: 410,
-            expected_errcode: "cx.error.stale_cursor".to_owned(),
+            expected_error_code: "cursor_expired".to_owned(),
         },
         WireConformanceVector {
             name: "directory_invalid_handle_rejected".to_owned(),
@@ -201,7 +201,7 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
             headers: BTreeMap::from([("Authorization".to_owned(), "Bearer redacted".to_owned())]),
             body: json!({"handle": ""}),
             expected_status: 400,
-            expected_errcode: "cx.error.bad_request".to_owned(),
+            expected_error_code: "invalid_param".to_owned(),
         },
         WireConformanceVector {
             name: "stale_cursor_rejected".to_owned(),
@@ -214,7 +214,7 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
             headers: BTreeMap::new(),
             body: Value::Null,
             expected_status: 410,
-            expected_errcode: "cx.error.stale_cursor".to_owned(),
+            expected_error_code: "cursor_expired".to_owned(),
         },
         WireConformanceVector {
             name: "bad_digest_rejected".to_owned(),
@@ -224,7 +224,7 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
             headers: BTreeMap::from([("Digest".to_owned(), "sha256:not-hex".to_owned())]),
             body: json!({"size": 4}),
             expected_status: 400,
-            expected_errcode: "cx.error.bad_digest".to_owned(),
+            expected_error_code: "digest_mismatch".to_owned(),
         },
         WireConformanceVector {
             name: "push_bad_auth_rejected".to_owned(),
@@ -234,7 +234,7 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
             headers: BTreeMap::from([("Authorization".to_owned(), "Bearer ".to_owned())]),
             body: json!({}),
             expected_status: 401,
-            expected_errcode: "cx.error.unauthorized".to_owned(),
+            expected_error_code: "unauthenticated".to_owned(),
         },
         WireConformanceVector {
             name: "device_messages_invalid_txn_rejected".to_owned(),
@@ -244,7 +244,7 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
             headers: BTreeMap::from([("Authorization".to_owned(), "Bearer redacted".to_owned())]),
             body: json!({"messages": {}}),
             expected_status: 400,
-            expected_errcode: "cx.error.invalid_path_segment".to_owned(),
+            expected_error_code: "invalid_param".to_owned(),
         },
         WireConformanceVector {
             name: "keys_missing_auth_rejected".to_owned(),
@@ -254,7 +254,7 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
             headers: BTreeMap::new(),
             body: json!({"device_keys": {}}),
             expected_status: 401,
-            expected_errcode: "cx.error.unauthorized".to_owned(),
+            expected_error_code: "unauthenticated".to_owned(),
         },
         WireConformanceVector {
             name: "authz_invalid_actor_rejected".to_owned(),
@@ -264,7 +264,7 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
             headers: BTreeMap::from([("Authorization".to_owned(), "Bearer redacted".to_owned())]),
             body: json!({"actor_id": "alice", "action": "read", "resource": {}}),
             expected_status: 400,
-            expected_errcode: "cx.error.invalid_id".to_owned(),
+            expected_error_code: "invalid_param".to_owned(),
         },
         WireConformanceVector {
             name: "policy_bad_digest_rejected".to_owned(),
@@ -274,7 +274,7 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
             headers: BTreeMap::from([("Authorization".to_owned(), "Bearer redacted".to_owned())]),
             body: json!({"request_canonical_hash": "sha256:not-hex"}),
             expected_status: 400,
-            expected_errcode: "cx.error.bad_digest".to_owned(),
+            expected_error_code: "digest_mismatch".to_owned(),
         },
         WireConformanceVector {
             name: "media_missing_auth_rejected".to_owned(),
@@ -284,7 +284,7 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
             headers: BTreeMap::new(),
             body: json!({}),
             expected_status: 401,
-            expected_errcode: "cx.error.unauthorized".to_owned(),
+            expected_error_code: "unauthenticated".to_owned(),
         },
         WireConformanceVector {
             name: "moderation_invalid_space_rejected".to_owned(),
@@ -294,7 +294,7 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
             headers: BTreeMap::from([("Authorization".to_owned(), "Bearer redacted".to_owned())]),
             body: json!({"space_id": "room", "target_ref": "x", "reason": "spam", "reporter": "did:web:alice.example"}),
             expected_status: 400,
-            expected_errcode: "cx.error.invalid_id".to_owned(),
+            expected_error_code: "invalid_param".to_owned(),
         },
         WireConformanceVector {
             name: "applet_missing_idempotency_key_rejected".to_owned(),
@@ -304,7 +304,7 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
             headers: BTreeMap::from([("Authorization".to_owned(), "Bearer redacted".to_owned())]),
             body: json!({}),
             expected_status: 428,
-            expected_errcode: "cx.error.idempotency_required".to_owned(),
+            expected_error_code: "missing_param".to_owned(),
         },
         WireConformanceVector {
             name: "missing_idempotency_key_rejected".to_owned(),
@@ -314,7 +314,7 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
             headers: BTreeMap::from([("Authorization".to_owned(), "Bearer redacted".to_owned())]),
             body: json!({}),
             expected_status: 428,
-            expected_errcode: "cx.error.idempotency_required".to_owned(),
+            expected_error_code: "missing_param".to_owned(),
         },
         WireConformanceVector {
             name: "idempotency_conflict_rejected".to_owned(),
@@ -327,7 +327,7 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
             ]),
             body: json!({"conflict": true}),
             expected_status: 409,
-            expected_errcode: "cx.error.idempotency_conflict".to_owned(),
+            expected_error_code: "duplicate_conflict".to_owned(),
         },
     ]
 }

@@ -131,10 +131,12 @@ impl OperationEnvelope {
         )?;
         event.prev_refs = conversion.prev_refs;
         event.refs = conversion.refs;
-        event.schema_profile_refs = conversion.schema_profile_refs;
-        event.reducer_profile_ref = conversion.reducer_profile_ref;
-        event.required_features = conversion.required_features;
-        event.critical_extensions = conversion.critical_extensions;
+        event.requirements = EventRequirements {
+            schema_profile_refs: conversion.schema_profile_refs,
+            reducer_profile_ref: conversion.reducer_profile_ref,
+            required_features: conversion.required_features,
+            critical_extensions: conversion.critical_extensions,
+        };
         event.proofs = conversion.proofs;
         event.unsigned.insert(
             "local_operation_idempotency_alias".to_owned(),

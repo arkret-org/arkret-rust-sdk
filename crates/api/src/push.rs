@@ -216,7 +216,7 @@ mod tests {
     #[test]
     fn pusher_builds_from_register_request() {
         let request = PushRegisterDeviceRequest {
-            device_id: DeviceId::new("dev_phone").unwrap(),
+            device_id: DeviceId::new("cx:device:01904100-0000-7000-8000-000000000001").unwrap(),
             push_gateway: "https://push.example".to_owned(),
             push_key: "token".to_owned(),
             platform: Some("fcm".to_owned()),
@@ -231,7 +231,7 @@ mod tests {
     fn payload_redacts_encrypted_notifications() {
         let pusher = Pusher {
             user_id: did("alice"),
-            device_id: DeviceId::new("dev_phone").unwrap(),
+            device_id: DeviceId::new("cx:device:01904100-0000-7000-8000-000000000001").unwrap(),
             platform: PushPlatform::Apns,
             push_gateway: "https://push.example".to_owned(),
             push_key: "token".to_owned(),
@@ -265,14 +265,14 @@ mod tests {
         let rejected = rejected_response([
             PushDeliveryReceipt {
                 event_id: EventId::new("cx:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
-                device_id: DeviceId::new("dev_one").unwrap(),
+                device_id: DeviceId::new("cx:device:01904100-0000-7000-8000-000000000002").unwrap(),
                 platform: PushPlatform::Fcm,
                 accepted: true,
                 error: None,
             },
             PushDeliveryReceipt {
                 event_id: EventId::new("cx:event:01904100-0000-7000-8000-6008ddd67225").unwrap(),
-                device_id: DeviceId::new("dev_two").unwrap(),
+                device_id: DeviceId::new("cx:device:01904100-0000-7000-8000-000000000003").unwrap(),
                 platform: PushPlatform::Fcm,
                 accepted: false,
                 error: Some("invalid_token".to_owned()),

@@ -185,14 +185,19 @@ impl ServerRequestContext {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ServerMiddlewareRejection {
     pub status: u16,
-    pub errcode: String,
-    pub error: String,
+    pub error_code: String,
+    pub message: String,
     pub headers: BTreeMap<String, String>,
 }
 
 impl ServerMiddlewareRejection {
-    pub fn new(status: u16, errcode: impl Into<String>, error: impl Into<String>) -> Self {
-        Self { status, errcode: errcode.into(), error: error.into(), headers: BTreeMap::new() }
+    pub fn new(status: u16, error_code: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            status,
+            error_code: error_code.into(),
+            message: message.into(),
+            headers: BTreeMap::new(),
+        }
     }
 
     pub fn with_header(mut self, name: impl Into<String>, value: impl Into<String>) -> Self {
@@ -201,7 +206,7 @@ impl ServerMiddlewareRejection {
     }
 
     pub fn into_response(self) -> HttpAdapterResponse {
-        let mut response = adapter_error_response(self.status, self.errcode, self.error);
+        let mut response = adapter_error_response(self.status, self.error_code, self.message);
         response.headers.extend(self.headers);
         response
     }
@@ -250,7 +255,7 @@ impl ServerAuthenticator for BearerTokenAuthenticator {
         let Some(token) = header.strip_prefix("Bearer ") else {
             return ServerAuthenticationDecision::Denied(ServerMiddlewareRejection::new(
                 401,
-                "cx.error.unauthorized",
+                "unauthenticated",
                 "Unsupported Authorization scheme",
             ));
         };
@@ -258,7 +263,7 @@ impl ServerAuthenticator for BearerTokenAuthenticator {
             Some(principal) => ServerAuthenticationDecision::Authenticated(principal.clone()),
             None => ServerAuthenticationDecision::Denied(ServerMiddlewareRejection::new(
                 401,
-                "cx.error.unauthorized",
+                "unauthenticated",
                 "Unknown bearer token",
             )),
         }
@@ -303,7 +308,7 @@ impl ServerAuthorizer for OperationScopeAuthorizer {
         } else {
             ServerAuthorizationDecision::Deny(ServerMiddlewareRejection::new(
                 403,
-                "cx.error.forbidden",
+                "capability_denied",
                 format!(
                     "principal '{}' lacks scope for {}",
                     principal.subject, context.operation_id
@@ -371,7 +376,7 @@ impl ServerIdempotencyStore for MemoryIdempotencyStore {
             }
             Some(_) => ServerIdempotencyDecision::Conflict(ServerMiddlewareRejection::new(
                 409,
-                "cx.error.idempotency_conflict",
+                "duplicate_conflict",
                 "Idempotency-Key was reused with different request bytes",
             )),
             None => ServerIdempotencyDecision::Miss,

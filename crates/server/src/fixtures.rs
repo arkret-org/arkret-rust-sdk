@@ -20,7 +20,8 @@ pub struct WireConformanceVector {
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub body: Value,
     pub expected_status: u16,
-    pub expected_errcode: String,
+    #[serde(alias = "expected_errcode")]
+    pub expected_error_code: String,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
