@@ -7,6 +7,7 @@ pub enum EndpointMethod {
     Head,
     Post,
     Put,
+    Delete,
 }
 
 impl EndpointMethod {
@@ -16,6 +17,7 @@ impl EndpointMethod {
             Self::Head => "head",
             Self::Post => "post",
             Self::Put => "put",
+            Self::Delete => "delete",
         }
     }
 }

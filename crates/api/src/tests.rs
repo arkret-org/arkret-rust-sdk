@@ -10,6 +10,20 @@ fn operation_ids_are_unique() {
 }
 
 #[test]
+fn catalog_covers_builtin_operation_registry() {
+    let endpoint_ids =
+        endpoints().iter().map(|endpoint| endpoint.operation_id).collect::<BTreeSet<_>>();
+    let registry_ids =
+        contrix_core::BUILT_IN_OPERATION_KINDS.iter().copied().collect::<BTreeSet<_>>();
+
+    let missing = registry_ids.difference(&endpoint_ids).copied().collect::<Vec<_>>();
+    let extra = endpoint_ids.difference(&registry_ids).copied().collect::<Vec<_>>();
+
+    assert!(missing.is_empty(), "missing catalog endpoints for {missing:?}");
+    assert!(extra.is_empty(), "catalog endpoints not in built-in registry {extra:?}");
+}
+
+#[test]
 fn catalog_covers_protocol_surfaces() {
     for surface in [
         ApiSurface::Server,
@@ -38,6 +52,20 @@ fn matcher_routes_post_applet_transactions() {
     let matched = match_endpoint(EndpointMethod::Post, "/api/v1/applet/transactions").unwrap();
     assert_eq!(matched.endpoint.operation_id, "cx.applet.transaction");
     assert!(matched.path_parameters.is_empty());
+}
+
+#[test]
+fn matcher_routes_key_backup_delete() {
+    let matched = match_endpoint(
+        EndpointMethod::Delete,
+        "/api/v1/keys/backups/cx:backup:01964137-0000-7000-8000-000000000000",
+    )
+    .unwrap();
+    assert_eq!(matched.endpoint.operation_id, "cx.keys.backups.delete");
+    assert_eq!(
+        matched.path_parameters.get("backup_id").map(String::as_str),
+        Some("cx:backup:01964137-0000-7000-8000-000000000000")
+    );
 }
 
 #[test]

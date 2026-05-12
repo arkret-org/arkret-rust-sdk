@@ -9,6 +9,7 @@ pub(super) fn endpoint_method_from_api(method: api::EndpointMethod) -> EndpointM
         api::EndpointMethod::Head => EndpointMethod::Head,
         api::EndpointMethod::Post => EndpointMethod::Post,
         api::EndpointMethod::Put => EndpointMethod::Put,
+        api::EndpointMethod::Delete => EndpointMethod::Delete,
     }
 }
 
@@ -18,6 +19,7 @@ fn endpoint_method_to_api(method: EndpointMethod) -> api::EndpointMethod {
         EndpointMethod::Head => api::EndpointMethod::Head,
         EndpointMethod::Post => api::EndpointMethod::Post,
         EndpointMethod::Put => api::EndpointMethod::Put,
+        EndpointMethod::Delete => api::EndpointMethod::Delete,
     }
 }
 

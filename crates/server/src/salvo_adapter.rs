@@ -376,6 +376,7 @@ pub async fn salvo_to_adapter_request(
         Method::HEAD => EndpointMethod::Head,
         Method::POST => EndpointMethod::Post,
         Method::PUT => EndpointMethod::Put,
+        Method::DELETE => EndpointMethod::Delete,
         _ => {
             return Err(salvo_adapter_error_response(
                 405,
@@ -586,6 +587,7 @@ where
         EndpointMethod::Head => route.head(handler),
         EndpointMethod::Post => route.post(handler),
         EndpointMethod::Put => route.put(handler),
+        EndpointMethod::Delete => route.delete(handler),
     }
 }
 

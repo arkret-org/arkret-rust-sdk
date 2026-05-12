@@ -211,7 +211,7 @@ impl<S> ServerMiddlewareStack<S> {
 }
 
 fn is_mutating_method(method: EndpointMethod) -> bool {
-    matches!(method, EndpointMethod::Post | EndpointMethod::Put)
+    matches!(method, EndpointMethod::Post | EndpointMethod::Put | EndpointMethod::Delete)
 }
 
 fn routed_request_digest(request: &RoutedHttpAdapterRequest) -> String {

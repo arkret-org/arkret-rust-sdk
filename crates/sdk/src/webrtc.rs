@@ -203,14 +203,8 @@ impl IceServer {
     /// SHOULD derive the username from a short-lived ephemeral identifier
     /// such as `<unix>:<random_b64>` instead.
     pub fn validate_credential_privacy(&self) -> Result<()> {
-        const FORBIDDEN_PREFIXES: &[&str] = &[
-            "did:web:",
-            "did:plc:",
-            "did:key:",
-            "did:webvh:",
-            "did:webs:",
-            "did:keri:",
-        ];
+        const FORBIDDEN_PREFIXES: &[&str] =
+            &["did:web:", "did:plc:", "did:key:", "did:webvh:", "did:webs:", "did:keri:"];
         for value in [&self.username, &self.credential].into_iter().flatten() {
             for prefix in FORBIDDEN_PREFIXES {
                 if value.contains(prefix) {

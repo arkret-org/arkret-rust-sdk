@@ -77,6 +77,7 @@ pub enum EndpointMethod {
     Head,
     Post,
     Put,
+    Delete,
 }
 
 impl EndpointMethod {
@@ -86,6 +87,7 @@ impl EndpointMethod {
             Self::Head => "head",
             Self::Post => "post",
             Self::Put => "put",
+            Self::Delete => "delete",
         }
     }
 }
@@ -104,7 +106,7 @@ impl Endpoint {
     pub fn request_body_content_type(self) -> Option<&'static str> {
         match self.method {
             EndpointMethod::Post | EndpointMethod::Put => Some("application/json"),
-            EndpointMethod::Get | EndpointMethod::Head => None,
+            EndpointMethod::Get | EndpointMethod::Head | EndpointMethod::Delete => None,
         }
     }
 
