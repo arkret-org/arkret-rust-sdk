@@ -22,19 +22,11 @@ candidate revision:
 - [x] `cargo test --all-features`
 - [x] `cargo test --all-features --examples`
 - [x] `cargo test --examples`
-- [x] `cargo run --example export_openapi --features server`
 - [x] `git diff --check`
 - [x] `cargo semver-checks`: skipped on 2026-04-30 because the local cargo
   subcommand is unavailable and `0.1.x` breaking API updates are accepted.
-- [x] 2026-04-30 OpenAPI review: generated SDK OpenAPI compared against
-  `contrix-spec/spec/v1/artifacts/openapi/contrix-service-api.openapi.yaml`.
-  All 50 spec operations and the spec security schemes are present in the SDK
-  export; the SDK also exposes 36 additional applet/directory/federation/index
-  extension operations.
-
 ## External Gates
 
-- [x] OpenAPI export reviewed against the Contrix spec.
 - [x] Basic real-service interoperability smoke recorded:
   - `E:\Works\contrix-dev\soland`: `cargo test --test http_api push_profile_and_moderation_contracts_work -- --nocapture`.
   - `E:\Works\contrix-dev\soland`: `cargo test --test http_api account_contacts_and_space_lifecycle_workflow -- --nocapture`.

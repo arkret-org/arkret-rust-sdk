@@ -50,13 +50,12 @@ The old endpoint role schema names included synthetic placeholders for HTTP
 path/query/header bundles and body/output wrappers. This has been replaced by
 typed DTO structs so Salvo can describe the fields directly.
 
-### P2 - Spec Artifact OpenAPI And Salvo-Native OpenAPI Have Different Roles
+### P2 - Salvo-Native OpenAPI Belongs In Host Handlers
 
-`crates/server/src/openapi.rs` correctly treats
-`contrix-service-api.openapi.yaml` from spec artifacts as canonical. The
-Salvo-native schema derives are framework integration support, not the protocol
-source of truth. This distinction should be explicit in docs and tests so SDK
-users do not assume Salvo-derived OpenAPI is the normative spec document.
+The standalone server OpenAPI artifact loader has been removed from the SDK.
+Salvo-native schema derives remain framework integration support on DTO types,
+not the protocol source of truth. Host services should build their OpenAPI
+documents through their own Salvo route wiring.
 
 ### P2 - SDK Architecture Is Sensible, But Facade Boundaries Need Ongoing Tests
 

@@ -1,10 +1,10 @@
 [package]
 authors = ["Chris Young <chris@sonc.ai>"]
 categories = ["api-bindings", "network-programming", "web-programming::http-server"]
-description = "Framework-independent Contrix v1 server endpoint registry and OpenAPI helpers."
+description = "Framework-independent Contrix v1 server protocol contracts."
 edition = "2024"
 homepage = "https://github.com/contrix/contrix-rust-sdk"
-keywords = ["contrix", "server", "openapi", "sdk"]
+keywords = ["contrix", "server", "protocol", "sdk"]
 license = "Apache-2.0"
 name = "contrix-server"
 readme = "README.md"
@@ -26,7 +26,6 @@ contrix-core.workspace = true
 contrix-signatures.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-serde_norway.workspace = true
 
 [lints]
 workspace = true

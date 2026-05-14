@@ -376,8 +376,7 @@ pub use search::{SpaceSearchEntry, SpaceSearchIndex, SpaceSearchQuery};
 pub use server::{
     EndpointHandler, ProtocolFixtureFlow, ProtocolFixtureReport, ProtocolFixtureStep,
     ProtocolGoldenVector, ProtocolServerFixture, ServerRequest, ServerResponse,
-    WireConformanceVector, openapi_document, protocol_golden_vectors, reject_query_auth,
-    wire_negative_vectors,
+    WireConformanceVector, protocol_golden_vectors, reject_query_auth, wire_negative_vectors,
 };
 #[cfg(feature = "full-surface")]
 pub use settings::{

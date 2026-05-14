@@ -555,7 +555,6 @@ dependencies = [
  "contrix-signatures",
  "serde",
  "serde_json",
- "serde_norway",
 ]
 
 [[package]]

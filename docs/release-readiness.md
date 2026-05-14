@@ -12,7 +12,6 @@ This repository is ready for a public `0.1.0` release only when these gates pass
 - `cargo check --all-features`
 - `cargo clippy --all-features --all-targets -- -D warnings`
 - `cargo test --all-features`
-- The generated OpenAPI document from `cargo run --example export_openapi --features server` is reviewed against the Contrix spec.
 - README and crate docs clearly state the remaining external security review
   and current interoperability evidence status.
 - Local encryption helpers use authenticated encryption and no obsolete placeholder encryption remains.

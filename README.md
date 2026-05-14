@@ -35,7 +35,7 @@ re-exports the public SDK surface:
 - `contrix-core`: protocol identifiers, canonical JSON, wire models, sync/cursor types and service metadata
 - `contrix-identifiers`: validated DIDs, typed IDs, hashes, cursors and HLC values
 - `contrix-http-client`: HTTP transport bindings
-- `contrix-server`: framework-independent endpoint registry, routed dispatch, server middleware, OpenAPI helpers and optional Salvo router/OAPI integration
+- `contrix-server`: framework-independent protocol request/response contracts and endpoint fixture coverage
 - `contrix`: umbrella SDK crate with high-level state managers and feature forwarding
 
 The workspace default members include all crates:
@@ -86,7 +86,7 @@ The first Contrix crate currently includes:
 - in-memory persistence helpers for event cache, verified state snapshots and account-local records
 - Server description and profile version checks
 - HTTP client methods for the Contrix v1 service HTTP binding, including request metadata, retry/backoff and `Retry-After` handling
-- framework-independent server endpoint registry, routed dispatch, auth/idempotency/rate-limit middleware, Salvo router/OAPI integration and OpenAPI export helper
+- framework-independent server protocol contracts, endpoint fixture coverage and Salvo OAPI DTO support through `contrix-core`
 - high-level sync loop, membership, devices, receipts, notifications, content,
   media, profile/settings, discovery, E2EE, auth/identity, federation, push,
   typing, WebRTC, store and event-handler helpers

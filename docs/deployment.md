@@ -2,7 +2,7 @@
 
 This guide covers running a Contrix service implemented with the SDK in a
 production environment. The SDK ships protocol request/response types and the
-canonical OpenAPI artifact loader; host applications own HTTP routing.
+Salvo OAPI-ready DTO types; host applications own HTTP routing.
 
 ## Build matrix
 
@@ -10,7 +10,7 @@ canonical OpenAPI artifact loader; host applications own HTTP routing.
 | ----------------- | ----------------------------------------------------------------- |
 | (default)         | Client + MLS + full sync/timeline/applet runtimes                 |
 | `client` (subset) | HTTP client only — no server, no MLS                              |
-| `server`          | Protocol request/response enums and OpenAPI artifact loading      |
+| `server`          | Protocol request/response enums                                   |
 | `salvo`           | Activates `server` plus Salvo OAPI derives on DTO types           |
 
 For a server binary, enable `server`. Enable `salvo` only if the host

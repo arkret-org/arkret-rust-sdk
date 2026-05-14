@@ -95,9 +95,5 @@ openmls = { workspace = true, optional = true, features = ["js"] }
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt"] }
 
-[[example]]
-name = "export_openapi"
-required-features = ["server"]
-
 [lints]
 workspace = true

@@ -40,13 +40,11 @@ use contrix_core::{
 };
 
 mod fixtures;
-mod openapi;
 mod protocol;
 mod registry;
 #[cfg(test)]
 mod tests;
 
 pub use fixtures::*;
-pub use openapi::*;
 pub use protocol::*;
 pub use registry::*;

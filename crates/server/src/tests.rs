@@ -46,44 +46,6 @@ fn service_route_registry_matches_required_spec_operations() {
 }
 
 #[test]
-fn openapi_document_contains_standard_error_envelope() {
-    let document = openapi_document();
-    assert_eq!(document["openapi"], "3.1.0");
-    assert_eq!(document["x-contrix-source"], "spec-artifact");
-    assert!(default_spec_openapi_path().is_some_and(|path| path.exists()));
-    assert!(document["paths"]["/sync"]["post"]["responses"]["200"].is_object());
-    assert!(document["components"]["schemas"]["ErrorEnvelope"].is_object());
-    assert!(document["components"]["responses"]["RateLimited"].is_object());
-    assert!(document["components"]["responses"]["MethodNotAllowed"].is_object());
-    assert!(document["components"]["securitySchemes"].get("queryToken").is_none());
-    assert!(document["components"]["securitySchemes"]["bearerAuth"].is_object());
-    assert!(document["components"]["securitySchemes"]["httpMessageSignature"].is_object());
-    assert!(document["components"]["securitySchemes"]["mutualTls"].is_object());
-}
-
-#[test]
-fn openapi_document_has_operation_binding_for_every_service_route() {
-    let document = openapi_document();
-    for route in service_routes() {
-        let path = route.path.strip_prefix("/api/v1").unwrap_or(route.path);
-        assert_eq!(
-            document["paths"][path][route.method]["operationId"], route.operation_id,
-            "{} {}",
-            route.method, path
-        );
-    }
-    assert!(document["paths"]["/events"]["post"]["requestBody"].is_object());
-}
-
-#[cfg(feature = "salvo")]
-#[test]
-fn openapi_document_still_uses_spec_artifact_with_salvo_feature() {
-    let document = openapi_document();
-    assert_eq!(document["x-contrix-source"], "spec-artifact");
-    assert!(document["components"]["schemas"]["OperationRequest"].is_object());
-}
-
-#[test]
 fn query_auth_and_wire_negative_vectors_are_available() {
     let query = BTreeMap::from([("access_token".to_owned(), "secret".to_owned())]);
     assert!(reject_query_auth(&query).is_err());
