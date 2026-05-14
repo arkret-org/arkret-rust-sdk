@@ -453,17 +453,6 @@ fn schema_registry_fails_closed_for_unknown_security_extensions() {
 }
 
 #[test]
-fn schema_compatibility_table_lists_builtin_schemas() {
-    let table = schema_version_compatibility_table();
-
-    assert_eq!(table.profile, SCHEMA_COMPATIBILITY_PROFILE);
-    assert!(table.entries.iter().any(|entry| {
-        entry.schema_id == EVENT_SCHEMA && entry.current_version == "1" && !entry.migration_required
-    }));
-    assert!(table.entries.iter().any(|entry| entry.schema_id == CLIENT_SYNC_RESPONSE_SCHEMA));
-}
-
-#[test]
 fn profile_conformance_suites_cover_required_domains() {
     let suites = profile_conformance_suites();
     for profile in [

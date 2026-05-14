@@ -474,7 +474,7 @@ mod tests {
     #[test]
     fn is_strict_typed_id_rejects_ulid_and_bad_uuid_payloads() {
         // C19 wire-break: typed wire ids MUST be canonical lowercase UUIDv7.
-        // Legacy mixed-case ULID-form is rejected (intentionally non-UUIDv7).
+        // Mixed-case ULID-form is rejected (intentionally non-UUIDv7).
         assert!(!is_strict_typed_id("cx:space:01js0ke000000000000000000", "cx:space:"));
         // Uppercase hex forbidden.
         assert!(!is_strict_typed_id("cx:space:0196419B-0000-7000-8000-000000000000", "cx:space:"));

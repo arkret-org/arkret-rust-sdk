@@ -2,7 +2,7 @@ use super::artifacts::registry_entry;
 use super::*;
 
 #[test]
-fn schema_catalog_has_compatibility_for_all_registered_schemas() {
+fn schema_catalog_reports_all_registered_schemas() {
     let catalog = schema_catalog();
     catalog.validate().unwrap();
     assert!(catalog.entries.iter().any(|entry| entry.schema_id == EVENT_SCHEMA));

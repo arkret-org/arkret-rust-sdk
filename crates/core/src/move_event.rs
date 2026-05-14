@@ -94,7 +94,7 @@ pub struct Effect {
     pub op: LatticeOp,
 }
 
-/// Lattice operation. Wire shape is `{type, tag?, value?, from?, to?, reason?, issuer_seq?}`.
+/// Lattice operation. Wire shape is `{kind, tag?, value?, from?, to?, reason?, issuer_seq?}`.
 ///
 /// Which fields are required depends on the cell's declared Lattice type
 /// (see spec §3.2). This struct accepts the union; per-type validation lives
@@ -102,7 +102,7 @@ pub struct Effect {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct LatticeOp {
-    #[serde(rename = "kind", alias = "type")]
+    #[serde(rename = "kind")]
     pub op_type: LatticeOpType,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tag: Option<String>,
@@ -421,17 +421,6 @@ mod tests {
         // None fields skipped.
         assert!(!s.contains("\"tag\""));
         assert!(!s.contains("\"value\""));
-    }
-
-    #[test]
-    fn lattice_op_accepts_legacy_type_alias() {
-        let op: LatticeOp = serde_json::from_value(json!({
-            "type": "transition",
-            "from": "join",
-            "to": "ban"
-        }))
-        .unwrap();
-        assert_eq!(op.op_type, LatticeOpType::Transition);
     }
 
     #[test]

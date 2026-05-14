@@ -36,54 +36,6 @@ pub struct ConformanceSuite {
     pub cases: Vec<ConformanceCase>,
 }
 
-/// Version compatibility for one protocol schema.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SchemaCompatibilityEntry {
-    pub schema_id: String,
-    pub current_version: String,
-    pub compatible_since: String,
-    pub migration_required: bool,
-}
-
-/// Published schema compatibility table for SDK consumers.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SchemaCompatibilityTable {
-    pub profile: String,
-    pub entries: Vec<SchemaCompatibilityEntry>,
-}
-
-/// Compatibility table for built-in schemas.
-pub fn schema_version_compatibility_table() -> SchemaCompatibilityTable {
-    SchemaCompatibilityTable {
-        profile: SCHEMA_COMPATIBILITY_PROFILE.to_owned(),
-        entries: [
-            CURSOR_SCHEMA,
-            FLOW_SCHEMA,
-            PLACE_SCHEMA,
-            VIEW_SCHEMA,
-            EVENT_SCHEMA,
-            EVENT_PAYLOAD_SCHEMA,
-            ANCHOR_SCHEMA,
-            AGENT_AUTHORITY_SCHEMA,
-            BOTTOM_SCHEMA,
-            SNAPSHOT_SCHEMA,
-            CAPABILITY_SCHEMA,
-            ENCRYPTED_PAYLOAD_SCHEMA,
-            CLIENT_SYNC_RESPONSE_SCHEMA,
-        ]
-        .into_iter()
-        .map(|schema_id| SchemaCompatibilityEntry {
-            schema_id: schema_id.to_owned(),
-            current_version: "1".to_owned(),
-            compatible_since: "0.1.0".to_owned(),
-            migration_required: false,
-        })
-        .collect(),
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ConformanceCaseResult {

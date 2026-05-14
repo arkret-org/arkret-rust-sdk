@@ -1,4 +1,4 @@
-//! Schema registry, compatibility contracts and spec-drift helpers.
+//! Schema registry and spec-drift helpers.
 
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -8,11 +8,9 @@ use std::{
 
 use crate::{
     AGENT_AUTHORITY_SCHEMA, ANCHOR_SCHEMA, BOTTOM_SCHEMA, CAPABILITY_SCHEMA,
-    CLIENT_SYNC_RESPONSE_SCHEMA, CURSOR_SCHEMA, ENCRYPTED_PAYLOAD_SCHEMA, EVENT_PAYLOAD_SCHEMA,
-    EVENT_SCHEMA, Error, FLOW_SCHEMA, GeneratedSchemaValidator, PLACE_SCHEMA,
-    ProtocolSchemaRegistry, Result, SCHEMA_COMPATIBILITY_PROFILE, SNAPSHOT_SCHEMA,
-    SchemaCompatibilityEntry, SchemaCompatibilityTable, VIEW_SCHEMA,
-    schema_version_compatibility_table,
+    CLIENT_SYNC_RESPONSE_SCHEMA, CORE_SCHEMA_PROFILE, CURSOR_SCHEMA, ENCRYPTED_PAYLOAD_SCHEMA,
+    EVENT_PAYLOAD_SCHEMA, EVENT_SCHEMA, Error, FLOW_SCHEMA, GeneratedSchemaValidator, PLACE_SCHEMA,
+    ProtocolSchemaRegistry, Result, SNAPSHOT_SCHEMA, VIEW_SCHEMA,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -34,11 +32,10 @@ pub use payloads::*;
 pub mod protocol {
     pub use crate::{
         AGENT_AUTHORITY_SCHEMA, ANCHOR_SCHEMA, BOTTOM_SCHEMA, CAPABILITY_SCHEMA,
-        CLIENT_SYNC_RESPONSE_SCHEMA, CURSOR_SCHEMA, ENCRYPTED_PAYLOAD_SCHEMA, EVENT_PAYLOAD_SCHEMA,
-        EVENT_SCHEMA, FLOW_SCHEMA, GeneratedSchemaField, GeneratedSchemaValidator,
-        GeneratedSchemaValueType, PLACE_SCHEMA, ProtocolSchemaRegistry,
-        SCHEMA_COMPATIBILITY_PROFILE, SNAPSHOT_SCHEMA, SchemaCompatibilityEntry,
-        SchemaCompatibilityTable, VIEW_SCHEMA, schema_version_compatibility_table,
+        CLIENT_SYNC_RESPONSE_SCHEMA, CORE_SCHEMA_PROFILE, CURSOR_SCHEMA, ENCRYPTED_PAYLOAD_SCHEMA,
+        EVENT_PAYLOAD_SCHEMA, EVENT_SCHEMA, FLOW_SCHEMA, GeneratedSchemaField,
+        GeneratedSchemaValidator, GeneratedSchemaValueType, PLACE_SCHEMA, ProtocolSchemaRegistry,
+        SNAPSHOT_SCHEMA, VIEW_SCHEMA,
     };
 }
 
@@ -57,7 +54,3 @@ pub const CORE_SCHEMA_IDS: &[&str] = &[
     ENCRYPTED_PAYLOAD_SCHEMA,
     CLIENT_SYNC_RESPONSE_SCHEMA,
 ];
-
-pub fn compatibility_table() -> SchemaCompatibilityTable {
-    schema_version_compatibility_table()
-}

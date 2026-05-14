@@ -4,8 +4,6 @@ use super::*;
 pub struct SchemaCatalogEntry {
     pub schema_id: String,
     pub current_version: String,
-    pub compatible_since: String,
-    pub migration_required: bool,
     pub generated_validator: bool,
 }
 
@@ -13,19 +11,18 @@ pub struct SchemaCatalogEntry {
 pub struct SchemaCatalogReport {
     pub profile: String,
     pub entries: Vec<SchemaCatalogEntry>,
-    pub missing_compatibility: Vec<String>,
 }
 
 impl SchemaCatalogReport {
     pub fn validate(&self) -> Result<()> {
-        if self.profile != SCHEMA_COMPATIBILITY_PROFILE {
+        if self.profile != CORE_SCHEMA_PROFILE {
             return Err(Error::Protocol("schema catalog profile mismatch".to_owned()));
         }
-        if !self.missing_compatibility.is_empty() {
-            return Err(Error::Protocol(format!(
-                "schemas missing compatibility entries: {:?}",
-                self.missing_compatibility
-            )));
+        let registry = ProtocolSchemaRegistry::default();
+        let registered = registry.schema_ids().collect::<BTreeSet<_>>();
+        let reported = self.entries.iter().map(|entry| entry.schema_id.as_str()).collect();
+        if registered != reported {
+            return Err(Error::Protocol("schema catalog does not match registry".to_owned()));
         }
         Ok(())
     }
@@ -33,34 +30,19 @@ impl SchemaCatalogReport {
 
 pub fn schema_catalog() -> SchemaCatalogReport {
     let registry = ProtocolSchemaRegistry::default();
-    let compatibility = schema_version_compatibility_table();
-    let compatibility_by_id = compatibility
-        .entries
-        .iter()
-        .map(|entry| (entry.schema_id.as_str(), entry))
-        .collect::<BTreeMap<_, _>>();
     let mut entries = Vec::new();
-    let mut missing_compatibility = Vec::new();
     for schema_id in registry.schema_ids() {
-        match compatibility_by_id.get(schema_id) {
-            Some(entry) => entries.push(catalog_entry(&registry, entry)),
-            None => missing_compatibility.push(schema_id.to_owned()),
-        }
+        entries.push(catalog_entry(&registry, schema_id));
     }
     entries.sort_by(|left, right| left.schema_id.cmp(&right.schema_id));
-    SchemaCatalogReport { profile: compatibility.profile, entries, missing_compatibility }
+    SchemaCatalogReport { profile: CORE_SCHEMA_PROFILE.to_owned(), entries }
 }
 
-fn catalog_entry(
-    registry: &ProtocolSchemaRegistry,
-    compatibility: &SchemaCompatibilityEntry,
-) -> SchemaCatalogEntry {
+fn catalog_entry(registry: &ProtocolSchemaRegistry, schema_id: &str) -> SchemaCatalogEntry {
     SchemaCatalogEntry {
-        schema_id: compatibility.schema_id.clone(),
-        current_version: compatibility.current_version.clone(),
-        compatible_since: compatibility.compatible_since.clone(),
-        migration_required: compatibility.migration_required,
-        generated_validator: registry.generated_validator(&compatibility.schema_id).is_ok(),
+        schema_id: schema_id.to_owned(),
+        current_version: "1".to_owned(),
+        generated_validator: registry.generated_validator(schema_id).is_ok(),
     }
 }
 

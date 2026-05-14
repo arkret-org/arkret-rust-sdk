@@ -22,20 +22,14 @@ pub struct DidDocument {
     pub id: Did,
     #[serde(
         rename = "verificationMethod",
-        alias = "verification_methods",
         default,
         deserialize_with = "deserialize_verification_methods",
         skip_serializing_if = "BTreeMap::is_empty"
     )]
     pub verification_methods: BTreeMap<String, String>,
-    #[serde(
-        rename = "alsoKnownAs",
-        alias = "also_known_as",
-        default,
-        skip_serializing_if = "Vec::is_empty"
-    )]
+    #[serde(rename = "alsoKnownAs", default, skip_serializing_if = "Vec::is_empty")]
     pub also_known_as: Vec<String>,
-    #[serde(rename = "updated", alias = "updated_at", default = "Utc::now")]
+    #[serde(rename = "updated", default = "Utc::now")]
     pub updated_at: DateTime<Utc>,
 }
 
@@ -69,8 +63,6 @@ where
                     let public_key = object
                         .get("publicKeyMultibase")
                         .or_else(|| object.get("publicKeyJwk"))
-                        .or_else(|| object.get("public_key_multibase"))
-                        .or_else(|| object.get("public_key_jwk"))
                         .map(|value| {
                             value
                                 .as_str()

@@ -82,7 +82,7 @@ pub struct ErrorDetail {
     pub details: BTreeMap<String, Value>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ErrorEnvelope {
     pub ok: bool,
@@ -95,7 +95,7 @@ impl ErrorEnvelope {
         Self {
             ok: false,
             error: ErrorDetail {
-                code: canonical_error_code(code.into()),
+                code: code.into(),
                 message: message.into(),
                 retry_after_ms: None,
                 details: BTreeMap::new(),
@@ -140,98 +140,6 @@ impl fmt::Display for ErrorEnvelope {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}: {}", self.error.code, self.error.message)
     }
-}
-
-impl<'de> Deserialize<'de> for ErrorEnvelope {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let value = Value::deserialize(deserializer)?;
-        let object = value
-            .as_object()
-            .ok_or_else(|| serde::de::Error::custom("error envelope must be an object"))?;
-
-        if let Some(error_object) = object.get("error").and_then(Value::as_object) {
-            let code = error_object
-                .get("code")
-                .and_then(Value::as_str)
-                .ok_or_else(|| serde::de::Error::custom("error.code is required"))?;
-            let message = error_object
-                .get("message")
-                .and_then(Value::as_str)
-                .ok_or_else(|| serde::de::Error::custom("error.message is required"))?;
-            let retry_after_ms = error_object.get("retry_after_ms").and_then(Value::as_u64);
-            let details = error_object
-                .get("details")
-                .and_then(Value::as_object)
-                .map(|details| {
-                    details.iter().map(|(key, value)| (key.clone(), value.clone())).collect()
-                })
-                .unwrap_or_default();
-            let request_id =
-                object.get("request_id").and_then(Value::as_str).unwrap_or("unknown").to_owned();
-            return Ok(Self {
-                ok: object.get("ok").and_then(Value::as_bool).unwrap_or(false),
-                error: ErrorDetail {
-                    code: canonical_error_code(code),
-                    message: message.to_owned(),
-                    retry_after_ms,
-                    details,
-                },
-                request_id,
-            });
-        }
-
-        let code = object
-            .get("errcode")
-            .and_then(Value::as_str)
-            .ok_or_else(|| serde::de::Error::custom("error.code or errcode is required"))?;
-        let message = object
-            .get("error")
-            .and_then(Value::as_str)
-            .ok_or_else(|| serde::de::Error::custom("error.message or legacy error is required"))?;
-        let retry_after_ms = object.get("retry_after_ms").and_then(Value::as_u64);
-        let request_id =
-            object.get("request_id").and_then(Value::as_str).unwrap_or("unknown").to_owned();
-        let details = object
-            .iter()
-            .filter(|(key, _)| {
-                !matches!(key.as_str(), "errcode" | "error" | "retry_after_ms" | "request_id")
-            })
-            .map(|(key, value)| (key.clone(), value.clone()))
-            .collect();
-
-        Ok(Self {
-            ok: false,
-            error: ErrorDetail {
-                code: canonical_error_code(code),
-                message: message.to_owned(),
-                retry_after_ms,
-                details,
-            },
-            request_id,
-        })
-    }
-}
-
-fn canonical_error_code(code: impl AsRef<str>) -> String {
-    let code = code.as_ref().strip_prefix("cx.error.").unwrap_or(code.as_ref());
-    match code {
-        "unauthorized" => "unauthenticated",
-        "forbidden" => "capability_denied",
-        "bad_request" => "invalid_param",
-        "internal" => "internal_error",
-        "unavailable" => "temporarily_unavailable",
-        "stale_cursor" => "cursor_expired",
-        "bad_digest" => "digest_mismatch",
-        "invalid_id" | "invalid_path_segment" => "invalid_param",
-        "query_auth_forbidden" => "capability_denied",
-        "idempotency_conflict" => "duplicate_conflict",
-        "idempotency_required" => "missing_param",
-        other => other,
-    }
-    .to_owned()
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

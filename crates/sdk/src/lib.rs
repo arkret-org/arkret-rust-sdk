@@ -117,8 +117,6 @@ pub mod base;
 #[cfg(feature = "full-surface")]
 pub mod consent;
 #[cfg(feature = "full-surface")]
-pub mod content;
-#[cfg(feature = "full-surface")]
 pub mod crypto;
 #[cfg(feature = "full-surface")]
 pub mod crypto_store;
@@ -241,12 +239,6 @@ pub use base::{
     BaseClient, BootstrapSequence, BootstrapStep, BootstrapStepKind, BootstrapStepStatus,
     ClientSpace, SessionMeta, SessionRestore, SpaceStateType,
 };
-#[cfg(feature = "full-surface")]
-pub use content::{
-    LinkPreview, MarkdownDocument, Mention, MentionTarget, Reaction, ReactionManager,
-    ReactionSummary, RichTextBlock, extract_link_previews, parse_mentions,
-};
-#[cfg(feature = "full-surface")]
 pub use crypto::{
     AEAD_ALGORITHM, EncryptedEnvelopeAad, EncryptedEnvelopeDigestReport, FeatureSafetyReport,
     KeyLifecycleHook, KeyLifecyclePhase, REDACTED_SECRET, SecurityReviewItem, SecurityReviewStatus,

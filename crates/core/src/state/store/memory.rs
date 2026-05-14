@@ -549,7 +549,7 @@ mod tests {
             "preconditions": [],
             "effects": [{
                 "cell": cell_member().as_str(),
-                "op": { "type": "transition", "from": "invited", "to": "join" }
+                "op": { "kind": "transition", "from": "invited", "to": "join" }
             }],
             "anchor_ref": format!("cx:anchor:sha256:{}", "aa".repeat(32)),
             "refs": [],

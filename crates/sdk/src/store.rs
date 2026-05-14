@@ -3,8 +3,7 @@
 //! This module intentionally stays focused on the persistence surfaces the SDK
 //! still consumes today: state snapshots, event cache, account/session data,
 //! blob metadata, audit logs, federation replay records, and a small generic
-//! cache helper. The older repo-object store facade was removed after it became
-//! unused outside historical tests and docs.
+//! cache helper.
 
 use std::collections::{BTreeMap, VecDeque};
 

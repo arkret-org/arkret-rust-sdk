@@ -341,7 +341,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
             method: "CONTRACT".to_owned(),
             path: "contrix-core://schema/vectors".to_owned(),
             request_schema: "SchemaValidationVector".to_owned(),
-            response_schema: "SchemaCompatibilityTable".to_owned(),
+            response_schema: "SchemaValidationVector".to_owned(),
         },
         EndpointCoverageRow {
             domain: ConformanceDomain::Html,

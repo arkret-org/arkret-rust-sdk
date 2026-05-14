@@ -2,7 +2,6 @@ pub const PROTOCOL_VERSION: &str = "1.0";
 pub const CORE_SCHEMA_PROFILE: &str = "cx.schema.core.v1";
 pub const CORE_REDUCER_PROFILE: &str = "cx.reducer.v1";
 pub const BUILT_IN_CONFORMANCE_FIXTURES_VERSION: &str = "contrix-sdk-builtin-v1";
-pub const SCHEMA_COMPATIBILITY_PROFILE: &str = "cx.schema.compatibility.v1";
 
 pub const CURSOR_SCHEMA: &str = "cx.schema.cursor.v1";
 pub const SPACE_SCHEMA: &str = "cx.schema.space.v1";
