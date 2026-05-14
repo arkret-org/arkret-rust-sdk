@@ -257,13 +257,15 @@ pub fn sync_vectors() -> Vec<SyncVector> {
 
 pub fn endpoint_coverage_rows() -> Vec<EndpointCoverageRow> {
     let mut rows = Vec::new();
-    rows.extend(contrix_api::endpoints().iter().map(|endpoint| EndpointCoverageRow {
-        domain: ConformanceDomain::ClientServer,
-        operation_id: endpoint.operation_id.to_owned(),
-        method: endpoint.method.as_str().to_owned(),
-        path: endpoint.path.to_owned(),
-        request_schema: endpoint.request_schema.to_owned(),
-        response_schema: endpoint.response_schema.to_owned(),
+    rows.extend(contrix_core::BUILT_IN_OPERATION_KINDS.iter().map(|operation_id| {
+        EndpointCoverageRow {
+            domain: operation_domain(operation_id),
+            operation_id: (*operation_id).to_owned(),
+            method: "CONTRACT".to_owned(),
+            path: format!("contrix-core://operations/{operation_id}"),
+            request_schema: "OperationInput".to_owned(),
+            response_schema: "OperationOutput".to_owned(),
+        }
     }));
     rows.extend(contrix_api::product::client::client_api_endpoints().iter().map(|endpoint| {
         EndpointCoverageRow {
@@ -275,38 +277,20 @@ pub fn endpoint_coverage_rows() -> Vec<EndpointCoverageRow> {
             response_schema: endpoint.response_schema.to_owned(),
         }
     }));
-    rows.extend(contrix_api::endpoints_for_surface(contrix_api::ApiSurface::Applet).map(
-        |endpoint| EndpointCoverageRow {
-            domain: ConformanceDomain::Applet,
-            operation_id: endpoint.operation_id.to_owned(),
-            method: endpoint.method.as_str().to_owned(),
-            path: endpoint.path.to_owned(),
-            request_schema: endpoint.request_schema.to_owned(),
-            response_schema: endpoint.response_schema.to_owned(),
-        },
-    ));
-    rows.extend(contrix_api::push::push_gateway_endpoints().iter().map(|endpoint| {
-        EndpointCoverageRow {
-            domain: ConformanceDomain::PushGateway,
-            operation_id: endpoint.operation_id.to_owned(),
-            method: endpoint.method.as_str().to_owned(),
-            path: endpoint.path.to_owned(),
-            request_schema: endpoint.request_schema.to_owned(),
-            response_schema: endpoint.response_schema.to_owned(),
-        }
-    }));
-    rows.extend(contrix_api::identity::identity_endpoints().iter().map(|endpoint| {
-        EndpointCoverageRow {
-            domain: ConformanceDomain::Identity,
-            operation_id: endpoint.operation_id.to_owned(),
-            method: endpoint.method.as_str().to_owned(),
-            path: endpoint.path.to_owned(),
-            request_schema: endpoint.request_schema.to_owned(),
-            response_schema: endpoint.response_schema.to_owned(),
-        }
-    }));
     rows.extend(boundary_coverage_rows());
     rows
+}
+
+fn operation_domain(operation_id: &str) -> ConformanceDomain {
+    if operation_id.starts_with("cx.applet.") {
+        ConformanceDomain::Applet
+    } else if operation_id.starts_with("cx.push.") {
+        ConformanceDomain::PushGateway
+    } else if operation_id.starts_with("cx.identity.") {
+        ConformanceDomain::Identity
+    } else {
+        ConformanceDomain::ClientServer
+    }
 }
 
 pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {

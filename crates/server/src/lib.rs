@@ -1,17 +1,9 @@
-//! Server-side protocol endpoint registry.
+//! Server-side protocol contract types.
 //!
 //! This module is intentionally framework-free. HTTP servers can use these
-//! contracts to keep route registration and advertised operation IDs aligned
-//! with the protocol without pulling a web stack into the SDK.
+//! contracts without pulling a web stack into the SDK.
 
-#[cfg(feature = "salvo")]
-pub mod salvo_adapter;
-
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    sync::LazyLock,
-    time::{Duration, SystemTime},
-};
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -44,21 +36,17 @@ use contrix_core::{
     PushNotifyRequest, PushNotifyResponse, PushRegisterDeviceRequest, PushRegisterDeviceResponse,
     PushUnregisterDeviceRequest, Result, ServerDescription, SubmitDidOperationRequest,
     SubmitDidOperationResponse, SyncBackfillResponse, SyncDescription, SyncRequest, SyncResponse,
-    SyncSnapshotHeadResponse, canonical,
+    SyncSnapshotHeadResponse,
 };
 
-mod contracts;
 mod fixtures;
-mod middleware;
 mod openapi;
 mod protocol;
 mod registry;
 #[cfg(test)]
 mod tests;
 
-pub use contracts::*;
 pub use fixtures::*;
-pub use middleware::*;
 pub use openapi::*;
 pub use protocol::*;
 pub use registry::*;

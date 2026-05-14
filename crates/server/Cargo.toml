@@ -18,17 +18,15 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = []
-salvo = ["dep:salvo", "dep:url", "salvo/oapi", "contrix-core/salvo"]
+salvo = ["contrix-core/salvo"]
 
 [dependencies]
 contrix-api.workspace = true
 contrix-core.workspace = true
 contrix-signatures.workspace = true
-salvo = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
 serde_norway.workspace = true
-url = { workspace = true, optional = true }
 
 [lints]
 workspace = true

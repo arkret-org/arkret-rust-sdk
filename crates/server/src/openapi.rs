@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use contrix_core::Result;
 use serde_json::{Value, json};
 
-use crate::endpoint_contracts;
+use crate::registry::service_routes;
 
 const SPEC_OPENAPI_RELATIVE_PATH: &str = "openapi/contrix-service-api.openapi.yaml";
 
@@ -12,7 +12,7 @@ const SPEC_OPENAPI_RELATIVE_PATH: &str = "openapi/contrix-service-api.openapi.ya
 /// The service OpenAPI surface is owned by
 /// `spec/v1/artifacts/openapi/contrix-service-api.openapi.yaml`. This helper
 /// keeps the SDK from maintaining a second hand-written OpenAPI truth. When a
-/// source checkout is unavailable, it returns a tiny catalog-derived fallback
+/// source checkout is unavailable, it returns a tiny registry-derived fallback
 /// that preserves operation IDs for tooling but intentionally omits schemas,
 /// examples and error definitions.
 pub fn openapi_document() -> Value {
@@ -58,16 +58,16 @@ fn annotate_artifact_source(document: &mut Value, path: &Path) {
 
 fn catalog_fallback_openapi_document() -> Value {
     let mut paths = serde_json::Map::new();
-    for endpoint in endpoint_contracts() {
+    for endpoint in service_routes() {
         let mut methods = paths
             .remove(endpoint.path)
             .and_then(|value| value.as_object().cloned())
             .unwrap_or_default();
         methods.insert(
-            endpoint.method.as_str().to_owned(),
+            endpoint.method.to_owned(),
             json!({
                 "operationId": endpoint.operation_id,
-                "x-contrix-source": "api-catalog-fallback"
+                "x-contrix-source": "server-registry-fallback"
             }),
         );
         paths.insert(endpoint.path.to_owned(), Value::Object(methods));
@@ -79,7 +79,7 @@ fn catalog_fallback_openapi_document() -> Value {
             "title": "Contrix Service API",
             "version": contrix_core::PROTOCOL_VERSION
         },
-        "x-contrix-source": "api-catalog-fallback",
+        "x-contrix-source": "server-registry-fallback",
         "paths": paths,
         "components": {
             "schemas": {},

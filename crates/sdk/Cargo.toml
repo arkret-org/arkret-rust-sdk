@@ -99,13 +99,5 @@ tokio = { workspace = true, features = ["macros", "rt"] }
 name = "export_openapi"
 required-features = ["server"]
 
-[[example]]
-name = "server_endpoint_adapter"
-required-features = ["server"]
-
-[[example]]
-name = "salvo_server"
-required-features = ["salvo"]
-
 [lints]
 workspace = true

@@ -76,20 +76,15 @@ Enable the `mls` feature, publish device key packages, process Welcomes, and
 store group state in a durable `CryptoStore` implementation. Undecryptable
 timeline items should be retained and retried after keys arrive.
 
-### Write A Server Adapter
+### Write A Server
 
-Use the framework-independent endpoint registry and `EndpointHandler` shape.
-The SDK ships a Salvo adapter behind the `salvo` feature. It adapts Salvo
-requests into the framework-independent `HttpAdapterRequest` shape, writes
-`HttpAdapterResponse` values back to Salvo responses, and exposes Salvo OAPI
-schema helpers without changing operation IDs.
+Use the `EndpointHandler` shape and the typed `ServerRequest` /
+`ServerResponse` protocol enums. Host applications own HTTP parsing, routing,
+authentication and response writing.
 
 When `salvo` is enabled, every public `contrix-core` model and identifier
-type derives `salvo::oapi::ToSchema`, so handlers using `ContrixJson<T>` get
-real field-level OpenAPI schemas instead of opaque objects.
+type derives `salvo::oapi::ToSchema` / `ToParameters`, so applications that use
+Salvo OAPI can attach real field-level schemas directly to their own handlers.
 
-For a runnable example, see
-[`crates/sdk/examples/salvo_server.rs`](../crates/sdk/examples/salvo_server.rs)
-(`cargo run --example salvo_server --features salvo`). For TLS, CORS,
-rate-limit, body size, systemd and other production concerns, see
+For TLS, CORS, rate-limit, body size, systemd and other production concerns, see
 [`docs/deployment.md`](deployment.md).

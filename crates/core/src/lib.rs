@@ -12,6 +12,7 @@ pub mod cell;
 pub mod cursor;
 pub mod error;
 pub mod events;
+pub mod http;
 pub mod keystore;
 pub mod lattice;
 pub mod model;
@@ -52,6 +53,7 @@ pub use error::{
     ERROR_CODE_UNSUPPORTED_FEATURE, ERROR_CODE_UNSUPPORTED_LATTICE_TYPE, Error, KNOWN_ERROR_CODES,
     Result, error_code_http_status, is_known_error_code,
 };
+pub use http::*;
 pub use identifiers::{
     ActorProfileId, AgentSessionId, AnchorId, AppletId, BackupId, BatchId, BlobId, BlobRef,
     BlockId, CallId, CapabilityId, CellRef, ChunkId, ClaimId, DeviceId, DevmsgId, Did, EventId,

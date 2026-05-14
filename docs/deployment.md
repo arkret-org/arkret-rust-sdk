@@ -1,9 +1,8 @@
 # Deployment
 
 This guide covers running a Contrix service implemented with the SDK in a
-production environment. The SDK ships with a framework-independent endpoint
-registry and an optional Salvo adapter; everything below assumes the Salvo
-adapter, but the same principles apply when binding to another HTTP runtime.
+production environment. The SDK ships protocol request/response types and the
+canonical OpenAPI artifact loader; host applications own HTTP routing.
 
 ## Build matrix
 
@@ -11,31 +10,18 @@ adapter, but the same principles apply when binding to another HTTP runtime.
 | ----------------- | ----------------------------------------------------------------- |
 | (default)         | Client + MLS + full sync/timeline/applet runtimes                 |
 | `client` (subset) | HTTP client only — no server, no MLS                              |
-| `server`          | Framework-independent endpoint registry, no HTTP runtime          |
-| `salvo`           | Activates `server` and adds the Salvo router + OpenAPI generation |
+| `server`          | Protocol request/response enums and OpenAPI artifact loading      |
+| `salvo`           | Activates `server` plus Salvo OAPI derives on DTO types           |
 
-For a server binary, enable `salvo`. The SDK keeps the Salvo dependency
-optional so client-only callers don't pay the compile cost.
+For a server binary, enable `server`. Enable `salvo` only if the host
+application uses Salvo OAPI derives for its own handlers.
 
-## Minimal Salvo binary
+## Minimal HTTP binding
 
-See the runnable example at
-[`crates/sdk/examples/salvo_server.rs`](../crates/sdk/examples/salvo_server.rs).
-It builds the `contrix_router` and reports the registered route count. To
-actually serve, enable salvo's `server` feature in your binary crate and bind
-a TCP listener:
-
-```rust,ignore
-use salvo::prelude::*;
-use contrix::salvo_adapter::contrix_router;
-
-#[tokio::main]
-async fn main() {
-    let router = contrix_router(/* your RoutedEndpointService */);
-    let acceptor = TcpListener::new("0.0.0.0:8080").bind().await;
-    Server::new(acceptor).serve(router).await;
-}
-```
+The host framework should parse an inbound request into the appropriate
+`ServerRequest`, call an `EndpointHandler`, and serialize the returned
+`ServerResponse`. Authentication, idempotency, CORS and rate limiting live in
+the host service stack.
 
 ## TLS termination
 
@@ -48,10 +34,9 @@ somewhere. Two patterns are common:
   or a cloud load balancer and forward plain HTTP to the Contrix binary
   bound on `127.0.0.1`. The proxy handles cert rotation, OCSP stapling,
   HTTP/2 negotiation, request body limits and access logging.
-- **Salvo native TLS**. Enable salvo's `rustls` or `native-tls` feature in
-  your binary and use `TcpListener::new(...).rustls(...)`. Acceptable for
-  small deployments; production should still front it with a CDN or LB for
-  DDoS / WAF capabilities.
+- **Runtime-native TLS**. Use the TLS support from the chosen HTTP runtime.
+  Acceptable for small deployments; production should still front it with a
+  CDN or LB for DDoS / WAF capabilities.
 
 The SDK never embeds TLS configuration in published types — TLS is an
 operational concern.
@@ -59,25 +44,18 @@ operational concern.
 ## CORS
 
 Browsers calling a Contrix service from a different origin need CORS. The
-SDK does not include a CORS layer; use Salvo's built-in CORS middleware:
+SDK does not include a CORS layer; configure it in the chosen HTTP runtime:
 
 ```rust,ignore
-use salvo::cors::Cors;
-use salvo::http::Method;
-
-let cors = Cors::new()
-    .allow_origin(["https://app.example"])
-    .allow_methods([Method::GET, Method::POST, Method::PUT, Method::HEAD])
-    .allow_headers([
-        "authorization",
-        "content-type",
-        "idempotency-key",
-        "x-contrix-request-id",
-        "x-contrix-wait-for",
-    ])
-    .into_handler();
-
-let service = Service::new(router).hoop(cors);
+allow_origin("https://app.example");
+allow_methods(["GET", "POST", "PUT", "HEAD"]);
+allow_headers([
+    "authorization",
+    "content-type",
+    "idempotency-key",
+    "x-contrix-request-id",
+    "x-contrix-wait-for",
+]);
 ```
 
 The allowlisted headers should match what the client SDK sends — see
@@ -86,23 +64,22 @@ The allowlisted headers should match what the client SDK sends — see
 
 ## Request limits & rate limiting
 
-- **Body size**. Salvo's default body size limit is conservative; raise it
-  explicitly if your callers upload large blobs through the `cx.blob.upload`
-  path. Configure via `salvo::http::body::set_global_max_size(...)` or per-
-  route handlers. Reject oversized uploads with a 413 carrying the standard
+- **Body size**. Configure the chosen runtime's body size limit explicitly if
+  your callers upload large blobs through the `cx.blob.upload` path. Reject
+  oversized uploads with a 413 carrying the standard
   `cx.error.payload_too_large` error code.
 - **Rate limit metadata**. The SDK exposes `service::RateLimitMetadata` and
   `service::QuotaMetadata` so the server can advertise its limits in
-  `GET /api/v1/server/describe`. Use a Salvo middleware
-  (`salvo::rate_limiter`) or a fronting tier (e.g. nginx `limit_req_zone`)
-  to enforce them. Match the advertised window to the enforcement.
+  `GET /api/v1/server/describe`. Use runtime middleware or a fronting tier
+  (e.g. nginx `limit_req_zone`) to enforce them. Match the advertised window
+  to the enforcement.
 
 ## Health and readiness
 
 Operate the standard `GET /api/v1/server/describe` endpoint as the health
 check — it returns the service identity and capability advertisement. For
-load balancers that require a tiny dedicated path, add a Salvo handler at
-`/healthz` that returns 200 once the service has finished startup
+load balancers that require a tiny dedicated path, add a runtime-specific
+`/healthz` handler that returns 200 once the service has finished startup
 verification (DID resolved, key store loaded, MLS state ready).
 
 ## Observability
@@ -162,4 +139,3 @@ behalf of the unit.
   body size limits, HTTP/2 keep-alive timeouts, and basic rate limiting.
 - Subscribe to the Contrix specification repository so capability and
   schema changes can be tracked alongside the SDK release notes.
-

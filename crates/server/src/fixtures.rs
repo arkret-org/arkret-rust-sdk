@@ -1,4 +1,5 @@
 use super::*;
+use crate::registry::service_routes;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProtocolGoldenVector {
@@ -48,8 +49,6 @@ pub struct ProtocolFixtureStep {
     pub operation_id: String,
     pub method: String,
     pub path: String,
-    pub request_schema: String,
-    pub response_schema: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -92,24 +91,21 @@ impl ProtocolServerFixture {
     }
 
     pub fn run(&self) -> Result<ProtocolFixtureReport> {
-        let contracts_by_operation: BTreeMap<_, _> =
-            endpoint_contracts().iter().map(|contract| (contract.operation_id, contract)).collect();
+        let routes_by_operation: BTreeMap<_, _> =
+            service_routes().iter().map(|route| (route.operation_id, route)).collect();
         let mut steps = Vec::new();
         for flow in &self.flows {
             for operation_id in fixture_operations(*flow) {
-                let contract = contracts_by_operation.get(operation_id).ok_or_else(|| {
+                let route = routes_by_operation.get(operation_id).ok_or_else(|| {
                     contrix_core::Error::Protocol(format!(
-                        "fixture operation '{operation_id}' is missing from endpoint registry"
+                        "fixture operation '{operation_id}' is missing from service route registry"
                     ))
                 })?;
-                let binding = endpoint_schema_binding(contract);
                 steps.push(ProtocolFixtureStep {
                     flow: *flow,
                     operation_id: (*operation_id).to_owned(),
-                    method: contract.method.as_str().to_owned(),
-                    path: contract.path.to_owned(),
-                    request_schema: binding.request_schema.to_owned(),
-                    response_schema: binding.response_schema.to_owned(),
+                    method: route.method.to_owned(),
+                    path: route.path.to_owned(),
                 });
             }
         }

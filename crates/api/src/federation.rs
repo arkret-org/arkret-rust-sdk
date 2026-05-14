@@ -2,8 +2,6 @@
 
 use std::collections::BTreeMap;
 
-use std::sync::LazyLock;
-
 use chrono::{DateTime, Utc};
 use contrix_core::{
     BlobRef, Did, Error, EventId, FederationTransactionRequest, Hash, Operation, OperationId,
@@ -13,8 +11,6 @@ use contrix_signatures::HttpMessageSignature;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{ApiSurface, Endpoint, endpoints_for_surface};
-
 pub mod protocol {
     pub use contrix_core::{
         FederationPullOperationsResponse, FederationPushOperationsRequest,
@@ -22,13 +18,6 @@ pub mod protocol {
         FederationTransactionRequest, FederationTransactionResponse, FederationVerifyActorRequest,
         FederationVerifyActorResponse,
     };
-}
-
-pub static FEDERATION_ENDPOINTS: LazyLock<Vec<Endpoint>> =
-    LazyLock::new(|| endpoints_for_surface(ApiSurface::Federation).copied().collect());
-
-pub fn federation_endpoints() -> &'static [Endpoint] {
-    FEDERATION_ENDPOINTS.as_slice()
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -308,15 +297,6 @@ mod tests {
 
     fn did(name: &str) -> Did {
         Did::new(format!("did:web:{name}.example")).unwrap()
-    }
-
-    #[test]
-    fn federation_endpoint_catalog_is_not_advertised() {
-        let operations = federation_endpoints()
-            .iter()
-            .map(|endpoint| endpoint.operation_id)
-            .collect::<std::collections::BTreeSet<_>>();
-        assert!(operations.is_empty());
     }
 
     #[test]

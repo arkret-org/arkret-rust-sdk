@@ -40,11 +40,9 @@ adapter is for tests and offline development only; production adapters still
 need registry-network fetching, key-log receipt validation, stale-head handling
 and bounded response parsing.
 
-Server bindings can wrap any `RoutedEndpointService` with
-`ServerMiddlewareStack`. The default stack is fail-closed for private
-operations: it requires Bearer authentication, checks operation scopes, requires
-`Idempotency-Key` on POST/PUT endpoints, replays matching idempotent responses,
-rejects conflicting retries and applies per-principal operation rate limits.
+Server bindings should preserve the standard Contrix error envelope and retry
+metadata while implementing authentication, idempotency and rate limiting in
+their host framework stack.
 
 The HTTP client preserves Contrix error envelopes and retry metadata. Standard
 retry mode covers transient statuses, applies bounded exponential backoff, and

@@ -1,13 +1,11 @@
 //! Contrix identity surface models and helpers.
 
-use std::{collections::BTreeMap, sync::LazyLock};
+use std::collections::BTreeMap;
 
 use chrono::{DateTime, Utc};
 use contrix_core::{Did, DidDocumentRef, Hash, IdentityResolveResponse, Proof, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
-use crate::{ApiSurface, Endpoint, endpoints_for_surface};
 
 pub mod protocol {
     pub use contrix_core::{
@@ -18,13 +16,6 @@ pub mod protocol {
 }
 
 pub const DID_WEB_MAX_DOCUMENT_BYTES: usize = 64 * 1024;
-
-pub static IDENTITY_ENDPOINTS: LazyLock<Vec<Endpoint>> =
-    LazyLock::new(|| endpoints_for_surface(ApiSurface::Identity).copied().collect());
-
-pub fn identity_endpoints() -> &'static [Endpoint] {
-    IDENTITY_ENDPOINTS.as_slice()
-}
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DidDocument {
@@ -240,17 +231,6 @@ mod tests {
 
     fn did(name: &str) -> Did {
         Did::new(format!("did:web:{name}.example")).unwrap()
-    }
-
-    #[test]
-    fn endpoint_catalog_covers_identity_service() {
-        let operations = identity_endpoints()
-            .iter()
-            .map(|endpoint| endpoint.operation_id)
-            .collect::<std::collections::BTreeSet<_>>();
-        assert!(operations.contains("cx.identity.resolve"));
-        assert!(operations.contains("cx.identity.submit_did_operation"));
-        assert!(operations.contains("cx.identity.get_receipts"));
     }
 
     #[test]

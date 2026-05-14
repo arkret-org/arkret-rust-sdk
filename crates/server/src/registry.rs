@@ -1,104 +1,128 @@
 use super::*;
 
-static API_ENDPOINT_CONTRACTS: LazyLock<Vec<EndpointContract>> =
-    LazyLock::new(|| api::endpoints().iter().copied().map(endpoint_contract_from_api).collect());
-
-pub(super) fn endpoint_method_from_api(method: api::EndpointMethod) -> EndpointMethod {
-    match method {
-        api::EndpointMethod::Get => EndpointMethod::Get,
-        api::EndpointMethod::Head => EndpointMethod::Head,
-        api::EndpointMethod::Post => EndpointMethod::Post,
-        api::EndpointMethod::Put => EndpointMethod::Put,
-        api::EndpointMethod::Delete => EndpointMethod::Delete,
-    }
+macro_rules! method_str {
+    (Get) => {
+        "get"
+    };
+    (Head) => {
+        "head"
+    };
+    (Post) => {
+        "post"
+    };
+    (Put) => {
+        "put"
+    };
+    (Delete) => {
+        "delete"
+    };
 }
 
-fn endpoint_method_to_api(method: EndpointMethod) -> api::EndpointMethod {
-    match method {
-        EndpointMethod::Get => api::EndpointMethod::Get,
-        EndpointMethod::Head => api::EndpointMethod::Head,
-        EndpointMethod::Post => api::EndpointMethod::Post,
-        EndpointMethod::Put => api::EndpointMethod::Put,
-        EndpointMethod::Delete => api::EndpointMethod::Delete,
-    }
+macro_rules! endpoint {
+    ($operation_id:literal, $method:ident, $path:literal) => {
+        ServiceRoute { operation_id: $operation_id, method: method_str!($method), path: $path }
+    };
 }
 
-fn endpoint_parameter_location_from_api(
-    location: api::EndpointParameterLocation,
-) -> EndpointParameterLocation {
-    match location {
-        api::EndpointParameterLocation::Path => EndpointParameterLocation::Path,
-        api::EndpointParameterLocation::Query => EndpointParameterLocation::Query,
-        api::EndpointParameterLocation::Header => EndpointParameterLocation::Header,
-    }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct ServiceRoute {
+    pub operation_id: &'static str,
+    pub method: &'static str,
+    pub path: &'static str,
 }
 
-fn endpoint_contract_from_api(endpoint: api::Endpoint) -> EndpointContract {
-    EndpointContract {
-        operation_id: endpoint.operation_id,
-        method: endpoint_method_from_api(endpoint.method),
-        path: endpoint.path,
-    }
-}
+const SERVICE_ROUTES: &[ServiceRoute] = &[
+    endpoint!("cx.server.describe", Get, "/api/v1/server/describe"),
+    endpoint!("cx.identity.describe_registry", Get, "/api/v1/identity/describe"),
+    endpoint!("cx.identity.resolve", Post, "/api/v1/identity/resolve"),
+    endpoint!("cx.identity.get_document", Get, "/api/v1/identity/document"),
+    endpoint!("cx.identity.get_log", Get, "/api/v1/identity/log"),
+    endpoint!("cx.identity.submit_did_operation", Post, "/api/v1/identity/submit-did-operation"),
+    endpoint!("cx.identity.get_receipts", Get, "/api/v1/identity/receipts"),
+    // C17 (spec 2026-05-08, wire-breaking): cx.sync.client_sync → cx.sync.account
+    // (path unchanged, op_id renamed); cx.sync.subscribe → cx.events.subscribe at
+    // /api/v1/events/subscribe; cx.events.list + cx.sync.backfill folded into
+    // cx.events.query at /api/v1/events with `direction: forward|backward`.
+    endpoint!("cx.sync.account", Post, "/api/v1/sync"),
+    endpoint!("cx.sync.describe", Get, "/api/v1/sync/describe"),
+    endpoint!("cx.events.describe", Get, "/api/v1/events/describe"),
+    endpoint!("cx.events.submit", Post, "/api/v1/events"),
+    endpoint!("cx.events.get", Get, "/api/v1/events/{event_id}"),
+    endpoint!("cx.events.batch_get", Post, "/api/v1/events/batch-get"),
+    endpoint!("cx.events.frontier", Get, "/api/v1/events/frontier"),
+    endpoint!("cx.events.subscribe", Get, "/api/v1/events/subscribe"),
+    endpoint!("cx.events.query", Get, "/api/v1/events"),
+    endpoint!("cx.sync.get_snapshot_head", Get, "/api/v1/sync/snapshot-head"),
+    endpoint!("cx.directory.describe", Get, "/api/v1/directory/describe"),
+    endpoint!("cx.directory.search_spaces", Post, "/api/v1/directory/search-spaces"),
+    endpoint!("cx.directory.resolve_space", Post, "/api/v1/directory/resolve-space"),
+    endpoint!("cx.directory.search_organizations", Post, "/api/v1/directory/search-organizations"),
+    endpoint!("cx.directory.resolve_organization", Post, "/api/v1/directory/resolve-organization"),
+    endpoint!("cx.directory.search_actors", Post, "/api/v1/directory/search-actors"),
+    endpoint!("cx.directory.search_users", Get, "/api/v1/directory/search-users"),
+    endpoint!("cx.directory.resolve_handle", Post, "/api/v1/directory/resolve-handle"),
+    endpoint!(
+        "cx.directory.private_contact_discovery",
+        Post,
+        "/api/v1/directory/private-contact-discovery"
+    ),
+    endpoint!("cx.directory.announce", Post, "/api/v1/directory/announce"),
+    endpoint!("cx.directory.withdraw", Post, "/api/v1/directory/withdraw"),
+    endpoint!("cx.blob.upload", Post, "/api/v1/blob/upload"),
+    endpoint!("cx.blob.head", Head, "/api/v1/blob/get"),
+    endpoint!("cx.blob.get", Get, "/api/v1/blob/get"),
+    endpoint!("cx.push.register_device", Post, "/api/v1/push/register-device"),
+    endpoint!("cx.push.unregister_device", Post, "/api/v1/push/unregister-device"),
+    endpoint!("cx.push.notify", Post, "/api/v1/push/notify"),
+    endpoint!("cx.device_messages.put", Post, "/api/v1/device_messages"),
+    endpoint!("cx.device_messages.get", Get, "/api/v1/device_messages"),
+    endpoint!("cx.keys.upload", Post, "/api/v1/keys/upload"),
+    endpoint!("cx.keys.query", Post, "/api/v1/keys/query"),
+    endpoint!("cx.keys.claim", Post, "/api/v1/keys/claim"),
+    endpoint!("cx.keys.backups.put", Put, "/api/v1/keys/backups/{backup_id}"),
+    endpoint!("cx.keys.backups.list", Get, "/api/v1/keys/backups"),
+    endpoint!("cx.keys.backups.get", Get, "/api/v1/keys/backups/{backup_id}"),
+    endpoint!("cx.keys.backups.delete", Delete, "/api/v1/keys/backups/{backup_id}"),
+    endpoint!("cx.keys.keypackages.upload", Post, "/api/v1/keys/keypackages/upload"),
+    endpoint!("cx.keys.keypackages.claim", Post, "/api/v1/keys/keypackages/claim"),
+    endpoint!("cx.keys.keypackages.consume", Post, "/api/v1/keys/keypackages/consume"),
+    endpoint!("cx.keys.keypackages.revoke", Post, "/api/v1/keys/keypackages/revoke"),
+    endpoint!("cx.authz.get_effective_grants", Get, "/api/v1/authz/effective-grants"),
+    endpoint!("cx.authz.get_invites", Get, "/api/v1/authz/invites"),
+    endpoint!("cx.authz.check", Post, "/api/v1/authz/check"),
+    endpoint!("cx.policy.check", Post, "/contrix/v1/check"),
+    endpoint!("cx.media.ice_config", Post, "/contrix/v1/ice-config"),
+    endpoint!("cx.moderation.report", Post, "/api/v1/moderation/report"),
+    endpoint!("cx.mimi.provider_directory", Get, "/api/v1/mimi/provider-directory"),
+    endpoint!("cx.mimi.key_material", Post, "/api/v1/mimi/key-material"),
+    endpoint!("cx.mimi.room_update", Put, "/api/v1/mimi/rooms/{flow_id}/update"),
+    endpoint!("cx.mimi.notify", Post, "/api/v1/mimi/rooms/{flow_id}/notify"),
+    endpoint!("cx.mimi.submit_message", Post, "/api/v1/mimi/rooms/{flow_id}/messages"),
+    endpoint!("cx.mimi.group_info", Get, "/api/v1/mimi/rooms/{flow_id}/group-info"),
+    endpoint!("cx.mimi.request_consent", Post, "/api/v1/mimi/consent/request"),
+    endpoint!("cx.mimi.update_consent", Post, "/api/v1/mimi/consent/update"),
+    endpoint!("cx.mimi.identifier_query", Post, "/api/v1/mimi/identifiers/query"),
+    endpoint!("cx.mimi.report_abuse", Post, "/api/v1/mimi/report-abuse"),
+    endpoint!("cx.mimi.proxy_download", Post, "/api/v1/mimi/proxy-download"),
+    endpoint!("cx.account.issue_session_grant", Post, "/api/v1/auth/account/session-grants"),
+    endpoint!("cx.account.device_pair", Post, "/api/v1/auth/account/device-pair"),
+    endpoint!("cx.account.oidc_callback", Post, "/api/v1/auth/account/oidc/callback"),
+    endpoint!("cx.admin.get_server_status", Get, "/api/v1/admin/server/status"),
+    endpoint!("cx.admin.update_account_status", Post, "/api/v1/admin/accounts/{account_id}/status"),
+    endpoint!("cx.admin.revoke_device", Post, "/api/v1/admin/devices/{device_id}/revoke"),
+    endpoint!("cx.admin.get_moderation_queue", Get, "/api/v1/admin/moderation/queue"),
+    endpoint!("cx.applet.ping", Get, "/api/v1/applet/ping"),
+    endpoint!("cx.applet.describe", Get, "/api/v1/applet/describe"),
+    endpoint!("cx.applet.transaction", Post, "/api/v1/applet/transactions"),
+    endpoint!("cx.applet.query_actor", Get, "/api/v1/applet/actors/{actor_id}"),
+    endpoint!("cx.applet.query_space", Get, "/api/v1/applet/spaces/{space_id_or_alias}"),
+    endpoint!("cx.applet.protocol_metadata", Get, "/api/v1/applet/protocols/{protocol}"),
+    endpoint!("cx.applet.third_party_users", Get, "/api/v1/applet/third_party/users"),
+    endpoint!("cx.applet.third_party_locations", Get, "/api/v1/applet/third_party/locations"),
+];
 
-pub(super) fn endpoint_schema_binding_from_api(
-    binding: api::EndpointSchemaBinding,
-) -> EndpointSchemaBinding {
-    EndpointSchemaBinding {
-        operation_id: binding.operation_id,
-        request_schema: binding.request_schema,
-        response_schema: binding.response_schema,
-        request_body_content_type: binding.request_body_content_type,
-        response_body_content_type: binding.response_body_content_type,
-    }
-}
-
-pub(super) fn endpoint_parameter_from_api(parameter: api::EndpointParameter) -> EndpointParameter {
-    EndpointParameter {
-        name: parameter.name,
-        location: endpoint_parameter_location_from_api(parameter.location),
-        required: parameter.required,
-        schema: parameter.schema,
-    }
-}
-
-fn api_endpoint_for_contract(endpoint: &EndpointContract) -> api::Endpoint {
-    let api_endpoint = api::endpoint_by_operation(endpoint.operation_id)
-        .unwrap_or_else(|| panic!("missing api endpoint {}", endpoint.operation_id));
-    debug_assert_eq!(endpoint.path, api_endpoint.path);
-    debug_assert_eq!(endpoint.method, endpoint_method_from_api(api_endpoint.method));
-    *api_endpoint
-}
-
-pub fn endpoint_contracts() -> &'static [EndpointContract] {
-    API_ENDPOINT_CONTRACTS.as_slice()
-}
-
-pub fn endpoint_schema_bindings() -> Vec<EndpointSchemaBinding> {
-    endpoint_contracts().iter().map(endpoint_schema_binding).collect()
-}
-
-pub fn endpoint_schema_binding(endpoint: &EndpointContract) -> EndpointSchemaBinding {
-    endpoint_schema_binding_from_api(api::endpoint_schema_binding(api_endpoint_for_contract(
-        endpoint,
-    )))
-}
-
-pub fn endpoint_parameters(endpoint: &EndpointContract) -> Vec<EndpointParameter> {
-    api::endpoint_parameters(api_endpoint_for_contract(endpoint))
-        .into_iter()
-        .map(endpoint_parameter_from_api)
-        .collect()
-}
-
-pub fn match_endpoint(method: EndpointMethod, path: &str) -> Option<MatchedEndpoint<'static>> {
-    api::match_endpoint(endpoint_method_to_api(method), path).map(|matched| MatchedEndpoint {
-        contract: endpoint_contracts()
-            .iter()
-            .find(|endpoint| endpoint.operation_id == matched.endpoint.operation_id)
-            .unwrap_or_else(|| panic!("missing server endpoint {}", matched.endpoint.operation_id)),
-        path_parameters: matched.path_parameters,
-    })
+pub(crate) fn service_routes() -> &'static [ServiceRoute] {
+    SERVICE_ROUTES
 }
 
 pub fn reject_query_auth(parameters: &BTreeMap<String, String>) -> Result<()> {

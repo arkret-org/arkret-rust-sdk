@@ -1,6 +1,6 @@
 //! Contrix push surface models and helpers.
 
-use std::{collections::BTreeMap, sync::LazyLock};
+use std::collections::BTreeMap;
 
 use contrix_core::{
     DeviceId, Did, EventId, PushNotifyRequest, PushNotifyResponse, PushRegisterDeviceRequest,
@@ -8,8 +8,6 @@ use contrix_core::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-
-use crate::{ApiSurface, Endpoint, endpoints_for_surface};
 
 pub mod protocol {
     pub use contrix_core::{
@@ -170,13 +168,6 @@ pub fn rejected_response(
             })
             .collect(),
     }
-}
-
-pub static PUSH_GATEWAY_ENDPOINTS: LazyLock<Vec<Endpoint>> =
-    LazyLock::new(|| endpoints_for_surface(ApiSurface::Push).copied().collect());
-
-pub fn push_gateway_endpoints() -> &'static [Endpoint] {
-    PUSH_GATEWAY_ENDPOINTS.as_slice()
 }
 
 fn parse_platform(value: &str) -> Option<PushPlatform> {

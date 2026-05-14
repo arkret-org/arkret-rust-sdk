@@ -15,11 +15,9 @@ state and feature helpers out of the protocol core.
 
 The strongest parts are the spec-drift checks, canonical JSON/digest handling,
 typed identifier validation, service profile checks, and the separation between
-canonical service APIs and product-local/legacy surfaces. The highest-risk
-remaining area is OpenAPI/schema generation: the canonical OpenAPI document is
-loaded from spec artifacts, but Salvo-native OpenAPI component registration was
-not previously guaranteed to cover every schema name referenced by the endpoint
-catalog.
+canonical service APIs and product-local/legacy surfaces. The canonical OpenAPI
+document is loaded from spec artifacts; Salvo support is kept on the Rust DTO
+types themselves through `ToSchema` / `ToParameters` derives.
 
 ## Findings
 
@@ -30,44 +28,35 @@ operation IDs in `operation-registry.json`. Existing tests also enforce this
 drift boundary. This is the right design: service surface truth is constrained
 by spec artifacts rather than by an unbounded hand-written SDK list.
 
-### P1 - Salvo OAPI Component Coverage Was Incomplete
+### P1 - Salvo OAPI Types Were Previously Incomplete
 
 The codebase has many `#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]`
 annotations and hand-written identifier schemas, so the concern that data
-structures have no `ToSchema` support is not generally true. However, the
-Salvo adapter used a manually maintained component-registration list. New C17
-event endpoint schema names such as `EventsSubmitRequest`,
-`EventsQueryResponse`, `EventsSubscribeFrame`, and `MimiRoomUpdateRequest`
-were referenced by the endpoint catalog but not registered in
-`contrix_oapi_components()`.
+structures have no `ToSchema` support is not generally true. However, previous
+Salvo support relied on manually maintained component-registration helpers and
+synthetic endpoint schema names. C17 event surfaces now use typed endpoint role
+structs instead.
 
-This makes the OpenAPI support partially scientific but not closed-loop: code
-could compile while a Salvo-native document misses catalog-referenced
-components.
+This made the OpenAPI support partially scientific but not closed-loop: code
+could compile while Salvo-native endpoint handlers had no real field-level DTO
+types to attach.
 
-Status: fixed in this review by deriving coverage from
-`endpoint_schema_bindings()` and adding a regression test.
+Status: fixed in this review by adding explicit `<Operation>Params`,
+`<Operation>Billet`, and `<Operation>Output` structs with Salvo OAPI derives.
 
 ### P1 - Synthetic Schemas Are Useful But Too Opaque
 
-Several endpoint schemas are currently synthetic placeholders because the SDK
-does not yet have typed request/response structs for every HTTP path/query
-bundle or extension surface. This is acceptable for framework routing, but it
-is weaker for API consumers: generated clients will see generic objects instead
-of precise field-level contracts.
-
-The next improvement should prioritize typed DTOs for the canonical event
-service schemas and key package flows before lower-priority Mimi/admin
-extension surfaces.
+The old endpoint role schema names included synthetic placeholders for HTTP
+path/query/header bundles and body/output wrappers. This has been replaced by
+typed DTO structs so Salvo can describe the fields directly.
 
 ### P2 - Spec Artifact OpenAPI And Salvo-Native OpenAPI Have Different Roles
 
 `crates/server/src/openapi.rs` correctly treats
 `contrix-service-api.openapi.yaml` from spec artifacts as canonical. The
-Salvo-native `contrix_openapi()` is a framework integration helper, not the
-protocol source of truth. This distinction should be made explicit in docs and
-tests so SDK users do not assume Salvo-derived OpenAPI is the normative spec
-document.
+Salvo-native schema derives are framework integration support, not the protocol
+source of truth. This distinction should be explicit in docs and tests so SDK
+users do not assume Salvo-derived OpenAPI is the normative spec document.
 
 ### P2 - SDK Architecture Is Sensible, But Facade Boundaries Need Ongoing Tests
 
@@ -85,4 +74,3 @@ wire schema registries.
 - `cargo test -p contrix-api`
 - `cargo test -p contrix-server --features salvo`
 - `cargo check -p contrix --features salvo --no-default-features`
-

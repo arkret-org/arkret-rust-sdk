@@ -98,8 +98,6 @@ pub use contrix_ffi as ffi;
 pub use contrix_html as html;
 #[cfg(feature = "server")]
 pub use contrix_server as server;
-#[cfg(feature = "salvo")]
-pub use contrix_server::salvo_adapter;
 pub use contrix_signatures as signatures;
 #[cfg(feature = "signer")]
 pub use contrix_signatures::Ed25519MoveSigner;
@@ -376,19 +374,9 @@ pub use resolver::{
 pub use search::{SpaceSearchEntry, SpaceSearchIndex, SpaceSearchQuery};
 #[cfg(all(feature = "full-surface", feature = "server"))]
 pub use server::{
-    AuthenticatedPrincipal, BearerTokenAuthenticator, EndpointContract, EndpointHandler,
-    EndpointMethod, EndpointParameter, EndpointParameterLocation, EndpointSchemaBinding,
-    HttpAdapterRequest, HttpAdapterResponse, MatchedEndpoint, MemoryIdempotencyStore,
-    MemoryRateLimiter, OperationScopeAuthorizer, ProtocolFixtureFlow, ProtocolFixtureReport,
-    ProtocolFixtureStep, ProtocolGoldenVector, ProtocolServerFixture, RoutedEndpointService,
-    RoutedHttpAdapterRequest, ServerAuthenticationDecision, ServerAuthenticationScheme,
-    ServerAuthenticator, ServerAuthorizationDecision, ServerAuthorizer, ServerIdempotencyDecision,
-    ServerIdempotencyKey, ServerIdempotencyStore, ServerMiddlewareConfig,
-    ServerMiddlewareRejection, ServerMiddlewareStack, ServerRateLimitDecision, ServerRateLimiter,
-    ServerRequest, ServerRequestContext, ServerResponse, TowerLikeEndpointService,
-    WireConformanceVector, default_public_operations, dispatch_routed_http_request,
-    endpoint_contracts, endpoint_parameters, endpoint_schema_binding, endpoint_schema_bindings,
-    match_endpoint, openapi_document, protocol_golden_vectors, reject_query_auth,
+    EndpointHandler, ProtocolFixtureFlow, ProtocolFixtureReport, ProtocolFixtureStep,
+    ProtocolGoldenVector, ProtocolServerFixture, ServerRequest, ServerResponse,
+    WireConformanceVector, openapi_document, protocol_golden_vectors, reject_query_auth,
     wire_negative_vectors,
 };
 #[cfg(feature = "full-surface")]
