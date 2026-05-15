@@ -353,6 +353,7 @@ mod tests {
             state_root,
             anchorer_sig: AnchorerSig::Single(sig),
             hlc: Hlc::new("0189c4d2af00-00000000-aabbccdd".to_owned()).unwrap(),
+            kind: crate::AnchorKind::Normal,
         };
         a.id = a.derive_id().unwrap();
         a

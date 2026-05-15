@@ -179,14 +179,15 @@ impl SpaceState {
 
             OP_MORPH_CREATE => self.create_morph(event)?,
             OP_MORPH_UPDATE => self.update_morph(event)?,
-            OP_MORPH_ARCHIVE => self.set_morph_state(event, crate::ObjectState::Archived)?,
-            OP_MORPH_RESTORE => self.set_morph_state(event, crate::ObjectState::Active)?,
+            OP_MORPH_ARCHIVE => self.archive_morph(event)?,
+            OP_MORPH_RESTORE => self.restore_morph(event)?,
 
             OP_PLACE_CREATE => self.create_place(event)?,
             OP_PLACE_UPDATE => self.update_place(event)?,
             OP_PLACE_PARENT => self.set_place_parent(event)?,
-            OP_PLACE_ARCHIVE => self.set_place_state(event, crate::PlaceState::Archived)?,
-            OP_PLACE_TOMBSTONE => self.set_place_state(event, crate::PlaceState::Tombstoned)?,
+            OP_PLACE_ARCHIVE => self.archive_place(event)?,
+            OP_PLACE_RESTORE => self.restore_place(event)?,
+            OP_PLACE_TOMBSTONE => self.tombstone_place(event)?,
 
             // Relation lifecycle
             OP_RELATION_CREATE => self.create_relation(event)?,
@@ -306,6 +307,12 @@ impl SpaceState {
 
     fn update_morph(&mut self, event: &Event) -> Result<()> {
         let morph_id_str = self.extract_morph_id(&event.content)?;
+        // Spec common-fields.md §5.1: update on non-active object MUST fail.
+        if let Some(morph) = self.morphs.get(&morph_id_str)
+            && morph.state != Some(crate::ObjectState::Active)
+        {
+            return Err(Error::Protocol("morph_not_active".to_owned()));
+        }
         let patch = self.extract_optional_field::<BTreeMap<String, Value>>(&event.content, "patch");
         let title = self
             .extract_optional_field::<String>(&event.content, "title")
@@ -369,6 +376,38 @@ impl SpaceState {
         Ok(())
     }
 
+    // Reducer for `cx.morph.archive`: validate current state == active per
+    // contrix-spec common-fields.md §5.1 canonical state-transition table.
+    // Archived / Deleted / Redacted / unset MUST be rejected with
+    // `morph_not_active`; unknown Morph is tolerated (causal / backfill).
+    fn archive_morph(&mut self, event: &Event) -> Result<()> {
+        let morph_id_str = self.extract_morph_id(&event.content)?;
+        let Some(morph) = self.morphs.get(&morph_id_str) else {
+            return Ok(());
+        };
+        if morph.state != Some(crate::ObjectState::Active) {
+            return Err(Error::Protocol("morph_not_active".to_owned()));
+        }
+        self.set_morph_state(event, crate::ObjectState::Archived)
+    }
+
+    // Reducer for `cx.morph.restore`: same state-machine contract as
+    // `restore_flow` / `restore_place` — current state MUST == archived.
+    // Active / Deleted / Redacted / unset → `morph_not_archived`. Unknown
+    // Morph is tolerated for causal / backfill ordering. Morph has no
+    // `state_changed_at` field (unlike Flow / Place), so on success we
+    // only flip `state` and updated_by/at — matching set_morph_state.
+    fn restore_morph(&mut self, event: &Event) -> Result<()> {
+        let morph_id_str = self.extract_morph_id(&event.content)?;
+        let Some(morph) = self.morphs.get(&morph_id_str) else {
+            return Ok(());
+        };
+        if morph.state != Some(crate::ObjectState::Archived) {
+            return Err(Error::Protocol("morph_not_archived".to_owned()));
+        }
+        self.set_morph_state(event, crate::ObjectState::Active)
+    }
+
     fn create_place(&mut self, event: &Event) -> Result<()> {
         let object = event.content.get("object").unwrap_or(&event.content);
         let place_id = self.extract_place_id(object)?;
@@ -416,6 +455,12 @@ impl SpaceState {
 
     fn update_place(&mut self, event: &Event) -> Result<()> {
         let place_id = self.extract_place_id(&event.content)?;
+        // Spec common-fields.md §5.1: update on non-active object MUST fail.
+        if let Some(place) = self.places.get(&place_id)
+            && place.state != Some(crate::PlaceState::Active)
+        {
+            return Err(Error::Protocol("place_not_active".to_owned()));
+        }
         let patch = self.extract_optional_field::<BTreeMap<String, Value>>(&event.content, "patch");
 
         let title = self
@@ -532,6 +577,56 @@ impl SpaceState {
         Ok(())
     }
 
+    // Reducer for `cx.place.archive`: validate current state == active per
+    // contrix-spec common-fields.md §5.1 canonical state-transition table.
+    // Archived / Tombstoned / unset MUST be rejected with `place_not_active`;
+    // unknown Place is tolerated (causal / backfill).
+    fn archive_place(&mut self, event: &Event) -> Result<()> {
+        let place_id = self.extract_place_id(&event.content)?;
+        let Some(place) = self.places.get(&place_id) else {
+            return Ok(());
+        };
+        if place.state != Some(crate::PlaceState::Active) {
+            return Err(Error::Protocol("place_not_active".to_owned()));
+        }
+        self.set_place_state(event, crate::PlaceState::Archived)
+    }
+
+    // Reducer for `cx.place.tombstone`: validate current state ∈
+    // {Active, Archived} per contrix-spec common-fields.md §5.1. Tombstoned /
+    // unset MUST be rejected with `place_already_terminal`; unknown Place is
+    // tolerated (causal / backfill).
+    fn tombstone_place(&mut self, event: &Event) -> Result<()> {
+        let place_id = self.extract_place_id(&event.content)?;
+        let Some(place) = self.places.get(&place_id) else {
+            return Ok(());
+        };
+        match place.state {
+            Some(crate::PlaceState::Active) | Some(crate::PlaceState::Archived) => {}
+            _ => return Err(Error::Protocol("place_already_terminal".to_owned())),
+        }
+        self.set_place_state(event, crate::PlaceState::Tombstoned)
+    }
+
+    // Reducer for `cx.place.restore`: validate current state == archived per
+    // contrix-spec space-and-place.md §4.4. Active / Tombstoned / unset MUST
+    // be rejected with `place_not_archived`; unknown Place is tolerated
+    // (causal / backfill not yet caught up — mirrors set_place_state).
+    fn restore_place(&mut self, event: &Event) -> Result<()> {
+        let place_id = self.extract_place_id(&event.content)?;
+        let Some(place) = self.places.get_mut(&place_id) else {
+            return Ok(());
+        };
+        if place.state != Some(crate::PlaceState::Archived) {
+            return Err(Error::Protocol("place_not_archived".to_owned()));
+        }
+        place.state = Some(crate::PlaceState::Active);
+        place.state_changed_at = Some(event.created_at);
+        place.updated_by = Some(event.actor_id.clone());
+        place.updated_at = Some(event.created_at);
+        Ok(())
+    }
+
     /// Create a new relation.
     fn create_relation(&mut self, event: &Event) -> Result<()> {
         let object = event
@@ -627,6 +722,17 @@ impl SpaceState {
 
     fn update_flow(&mut self, event: &Event) -> Result<()> {
         let flow_id_str = self.extract_flow_id(&event.content)?;
+        // Spec common-fields.md §5.1 final paragraph: update on a non-active
+        // object MUST fail — otherwise an edit would silently revive an
+        // archived / tombstoned / redacted Flow, conflicting with the
+        // `cx.flow.restore` semantic. Unknown Flow is tolerated below
+        // (extract step succeeds, lookup returns None, current code returns
+        // Err with "flow not found" — this guard runs before that).
+        if let Some(subject) = self.subjects.get(&flow_id_str)
+            && subject.state != Some(crate::ObjectState::Active)
+        {
+            return Err(Error::Protocol("flow_not_active".to_owned()));
+        }
         let title = self.extract_optional_field::<String>(&event.content, "title");
         let summary = self.extract_optional_field::<String>(&event.content, "summary");
         let body = self.extract_optional_field::<Value>(&event.content, "body");
@@ -702,11 +808,36 @@ impl SpaceState {
         Ok(())
     }
 
+    // Reducer for `cx.flow.archive`: validate current state == active per
+    // contrix-spec common-fields.md §5.1 canonical state-transition table.
+    // Archived / Deleted / Redacted / unset MUST be rejected with
+    // `flow_not_active`; unknown Flow is tolerated (causal / backfill not
+    // yet caught up — mirrors archive_morph / archive_place).
     fn archive_flow(&mut self, event: &Event) -> Result<()> {
+        let flow_id_str = self.extract_flow_id(&event.content)?;
+        let Some(subject) = self.subjects.get(&flow_id_str) else {
+            return Ok(());
+        };
+        if subject.state != Some(crate::ObjectState::Active) {
+            return Err(Error::Protocol("flow_not_active".to_owned()));
+        }
         self.set_flow_state(event, crate::ObjectState::Archived)
     }
 
+    // Reducer for `cx.flow.restore`: validate current state == archived per
+    // contrix-spec common-fields.md §5 (`*.restore` is the canonical
+    // archived -> active path; tombstoned / deleted / redacted MUST NOT be
+    // restored). Active / Deleted / Redacted / unset MUST be rejected with
+    // `flow_not_archived`; unknown Flow is tolerated (causal / backfill
+    // not yet caught up — mirrors restore_place).
     fn restore_flow(&mut self, event: &Event) -> Result<()> {
+        let flow_id_str = self.extract_flow_id(&event.content)?;
+        let Some(subject) = self.subjects.get(&flow_id_str) else {
+            return Ok(());
+        };
+        if subject.state != Some(crate::ObjectState::Archived) {
+            return Err(Error::Protocol("flow_not_archived".to_owned()));
+        }
         self.set_flow_state(event, crate::ObjectState::Active)
     }
 

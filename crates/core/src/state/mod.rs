@@ -18,6 +18,7 @@
 //! §3-§5.
 //!
 pub mod anchor;
+pub mod compaction;
 pub mod state_root;
 pub mod store;
 pub mod verify;
@@ -26,6 +27,7 @@ pub use anchor::{
     AnchorEffect, AnchorReject, apply_anchor, deterministic_order, effective_anchor_view,
     union_predecessor_frontiers, view_hash,
 };
+pub use compaction::{CompactionPolicy, PruneCandidate, PruneEligibility};
 pub use state_root::{compute_state_root, leaf_hash};
 pub use store::{
     AnchorStore, AnchoredMoveRecord, BottomMode, CellLatticeBinding, CellRegistry, CellStore,

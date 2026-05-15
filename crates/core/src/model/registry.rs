@@ -120,7 +120,7 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         OP_PLACE_CREATE => vec!["object".to_owned()],
         OP_PLACE_UPDATE => vec!["place_id".to_owned(), "patch".to_owned()],
         OP_PLACE_PARENT => vec!["place_id".to_owned(), "parent_ref".to_owned()],
-        OP_PLACE_ARCHIVE | OP_PLACE_TOMBSTONE => vec!["place_id".to_owned()],
+        OP_PLACE_ARCHIVE | OP_PLACE_RESTORE | OP_PLACE_TOMBSTONE => vec!["place_id".to_owned()],
         OP_RELATION_CREATE => vec!["object".to_owned()],
         OP_RELATION_UPDATE => vec!["relation_id".to_owned(), "patch".to_owned()],
         OP_RELATION_DELETE => vec!["relation_id".to_owned()],

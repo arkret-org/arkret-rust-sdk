@@ -83,6 +83,7 @@ pub const ORGANIZATION_MODERATION_POLICY: &str = "cx.organization.moderation_pol
 pub const PLACE_ARCHIVE: &str = "cx.place.archive";
 pub const PLACE_CREATE: &str = "cx.place.create";
 pub const PLACE_PARENT: &str = "cx.place.parent";
+pub const PLACE_RESTORE: &str = "cx.place.restore";
 pub const PLACE_TOMBSTONE: &str = "cx.place.tombstone";
 pub const PLACE_UPDATE: &str = "cx.place.update";
 pub const POLICY_ACTION: &str = "cx.policy.action";
@@ -220,6 +221,7 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     PLACE_ARCHIVE,
     PLACE_CREATE,
     PLACE_PARENT,
+    PLACE_RESTORE,
     PLACE_TOMBSTONE,
     PLACE_UPDATE,
     POLICY_ACTION,
@@ -434,9 +436,8 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
         }
         MORPH_ARCHIVE | MORPH_CREATE | MORPH_RESTORE | MORPH_UPDATE => EventClass::Morph,
         ORGANIZATION_DISCOVERY | ORGANIZATION_MODERATION_POLICY => EventClass::Organization,
-        PLACE_ARCHIVE | PLACE_CREATE | PLACE_PARENT | PLACE_TOMBSTONE | PLACE_UPDATE => {
-            EventClass::Place
-        }
+        PLACE_ARCHIVE | PLACE_CREATE | PLACE_PARENT | PLACE_RESTORE | PLACE_TOMBSTONE
+        | PLACE_UPDATE => EventClass::Place,
         POLICY_ACTION | POLICY_RULE | POLICY_SET => EventClass::Policy,
         PROFILE_CREATE | PROFILE_SPACE_OVERRIDE | PROFILE_UPDATE => EventClass::Profile,
         READ_MARKER | RECEIPT_READ => EventClass::Read,

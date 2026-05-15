@@ -85,6 +85,45 @@ pub trait AnchorStore: Send + Sync {
 
     /// The Space's genesis Anchor, if any. Each Space has at most one.
     fn genesis(&self, space_id: &SpaceId) -> StoreResult<Option<AnchorId>>;
+
+    /// Direct successors of `anchor_id` — every Anchor `S` for which
+    /// `S.predecessor_refs.contains(anchor_id)`. Used by the MAL-11
+    /// compaction pipeline to find what to rewire when pruning a
+    /// historical Anchor. Default implementation returns
+    /// `StoreError::Backend("unsupported")` so existing backends that
+    /// haven't migrated still compile; production backends MUST override
+    /// once they need compaction.
+    fn successors(&self, _space_id: &SpaceId, _anchor_id: &AnchorId) -> StoreResult<Vec<AnchorId>> {
+        Err(StoreError::Backend(
+            "AnchorStore::successors not implemented for this backend".to_owned(),
+        ))
+    }
+
+    /// MAL-11: drop `anchor_id` from the DAG and rewire its direct
+    /// successors so their `predecessor_refs` point through to
+    /// `anchor_id`'s parents instead. The caller MUST have validated that
+    /// pruning is safe (downstream witnessed by a compaction Anchor,
+    /// `CompactionPolicy` accepts the candidate, etc.) — the trait only
+    /// performs the structural rewrite.
+    ///
+    /// Returns the list of successor Anchor ids that were rewired so the
+    /// caller can re-derive their `id` if the receiver wants
+    /// content-addressed correctness (in practice MAL-11 keeps the
+    /// successor ids stable because rewriting `predecessor_refs` would
+    /// invalidate the signature — see `event-auth-state-resolution.md`
+    /// §6.4 prune semantics: pruning is metadata-only, ids stay).
+    ///
+    /// Default impl returns `Err(unsupported)` so backends that haven't
+    /// migrated still compile.
+    fn prune_predecessor(
+        &self,
+        _space_id: &SpaceId,
+        _anchor_id: &AnchorId,
+    ) -> StoreResult<Vec<AnchorId>> {
+        Err(StoreError::Backend(
+            "AnchorStore::prune_predecessor not implemented for this backend".to_owned(),
+        ))
+    }
 }
 
 /// Per-cell anchored op log + per-view effective-state cache.

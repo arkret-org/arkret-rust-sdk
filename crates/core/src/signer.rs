@@ -148,15 +148,39 @@ impl Move {
 }
 
 impl Anchor {
-    /// Build + single-sign an Anchor over the given frontier and predecessor
-    /// references. Panics-free: returns Err if the supplied state_root is
-    /// malformed or the signer DID isn't accepted by the wire-shape.
+    /// Build + single-sign a normal Anchor (frontier-advance). Delegates to
+    /// [`Anchor::sign_single_kind`] with `kind=Normal`.
     pub fn sign_single<S: MoveSigner + ?Sized>(
         space_id: SpaceId,
         predecessor_refs: Vec<AnchorId>,
         frontier: Vec<MoveId>,
         state_root: Hash,
         hlc: Hlc,
+        signer: &S,
+    ) -> Result<Anchor> {
+        Self::sign_single_kind(
+            space_id,
+            predecessor_refs,
+            frontier,
+            state_root,
+            hlc,
+            crate::AnchorKind::Normal,
+            signer,
+        )
+    }
+
+    /// MAL-11: build + single-sign an Anchor with an explicit
+    /// [`crate::AnchorKind`]. Use `Normal` for frontier-advance anchors and
+    /// `Compaction` for checkpoint anchors that re-state the existing
+    /// frontier without accepting new moves.
+    #[allow(clippy::too_many_arguments)]
+    pub fn sign_single_kind<S: MoveSigner + ?Sized>(
+        space_id: SpaceId,
+        predecessor_refs: Vec<AnchorId>,
+        frontier: Vec<MoveId>,
+        state_root: Hash,
+        hlc: Hlc,
+        kind: crate::AnchorKind,
         signer: &S,
     ) -> Result<Anchor> {
         // Compute canonical body bytes (excluding id + anchorer_sig).
@@ -166,6 +190,7 @@ impl Anchor {
             frontier: &frontier,
             state_root: &state_root,
             hlc: &hlc,
+            kind: &kind,
         })?;
         let id = Anchor::id_from_canonical_bytes(&body_bytes)?;
         let sig = signer.sign_payload(&body_bytes)?;
@@ -177,14 +202,12 @@ impl Anchor {
             state_root,
             anchorer_sig: AnchorerSig::Single(sig),
             hlc,
+            kind,
         })
     }
 
-    /// Build + threshold-sign an Anchor. The supplied `signers` slice is the
-    /// set of signers contributing partial signatures; `threshold` is the
-    /// `k` value for a `k`-of-`n` scheme. The aggregated `proof` bytes are
-    /// supplied by the caller (they come from the threshold scheme's
-    /// aggregator, not from individual `MoveSigner`s).
+    /// Build + threshold-sign a normal Anchor. Delegates to
+    /// [`Anchor::sign_threshold_kind`] with `kind=Normal`.
     #[allow(clippy::too_many_arguments)]
     pub fn sign_threshold(
         space_id: SpaceId,
@@ -196,12 +219,41 @@ impl Anchor {
         signers: Vec<Did>,
         aggregated_proof: String,
     ) -> Result<Anchor> {
+        Self::sign_threshold_kind(
+            space_id,
+            predecessor_refs,
+            frontier,
+            state_root,
+            hlc,
+            crate::AnchorKind::Normal,
+            threshold,
+            signers,
+            aggregated_proof,
+        )
+    }
+
+    /// MAL-11: build + threshold-sign an Anchor with an explicit
+    /// [`crate::AnchorKind`]. See [`Anchor::sign_single_kind`] for the
+    /// kind semantics.
+    #[allow(clippy::too_many_arguments)]
+    pub fn sign_threshold_kind(
+        space_id: SpaceId,
+        predecessor_refs: Vec<AnchorId>,
+        frontier: Vec<MoveId>,
+        state_root: Hash,
+        hlc: Hlc,
+        kind: crate::AnchorKind,
+        threshold: u32,
+        signers: Vec<Did>,
+        aggregated_proof: String,
+    ) -> Result<Anchor> {
         let body_bytes = canonical::canonical_json_bytes(&AnchorBodyView {
             space_id: &space_id,
             predecessor_refs: &predecessor_refs,
             frontier: &frontier,
             state_root: &state_root,
             hlc: &hlc,
+            kind: &kind,
         })?;
         let id = Anchor::id_from_canonical_bytes(&body_bytes)?;
         let sig = AnchorerSig::Threshold(ThresholdSignature {
@@ -210,21 +262,55 @@ impl Anchor {
             signers,
             proof: aggregated_proof,
         });
-        let anchor =
-            Anchor { id, space_id, predecessor_refs, frontier, state_root, anchorer_sig: sig, hlc };
+        let anchor = Anchor {
+            id,
+            space_id,
+            predecessor_refs,
+            frontier,
+            state_root,
+            anchorer_sig: sig,
+            hlc,
+            kind,
+        };
         anchor.validate_structural()?;
         Ok(anchor)
     }
 
-    /// Build + multi-sign an Anchor. Every supplied [`MoveSigner`] produces
-    /// one signature over the same canonical bytes; the receiver enforces
-    /// the all-of-set policy.
+    /// Build + multi-sign a normal Anchor. Delegates to
+    /// [`Anchor::sign_multi_kind`] with `kind=Normal`.
     pub fn sign_multi<S>(
         space_id: SpaceId,
         predecessor_refs: Vec<AnchorId>,
         frontier: Vec<MoveId>,
         state_root: Hash,
         hlc: Hlc,
+        signers: &[&S],
+    ) -> Result<Anchor>
+    where
+        S: MoveSigner + ?Sized,
+    {
+        Self::sign_multi_kind(
+            space_id,
+            predecessor_refs,
+            frontier,
+            state_root,
+            hlc,
+            crate::AnchorKind::Normal,
+            signers,
+        )
+    }
+
+    /// MAL-11: build + multi-sign an Anchor with an explicit
+    /// [`crate::AnchorKind`]. See [`Anchor::sign_single_kind`] for the
+    /// kind semantics.
+    #[allow(clippy::too_many_arguments)]
+    pub fn sign_multi_kind<S>(
+        space_id: SpaceId,
+        predecessor_refs: Vec<AnchorId>,
+        frontier: Vec<MoveId>,
+        state_root: Hash,
+        hlc: Hlc,
+        kind: crate::AnchorKind,
         signers: &[&S],
     ) -> Result<Anchor>
     where
@@ -241,6 +327,7 @@ impl Anchor {
             frontier: &frontier,
             state_root: &state_root,
             hlc: &hlc,
+            kind: &kind,
         })?;
         let id = Anchor::id_from_canonical_bytes(&body_bytes)?;
         let mut signatures = Vec::with_capacity(signers.len());
@@ -258,6 +345,7 @@ impl Anchor {
                 signatures,
             }),
             hlc,
+            kind,
         };
         anchor.validate_structural()?;
         Ok(anchor)
@@ -501,6 +589,11 @@ impl Anchor {
 /// `core::anchor::AnchorBody` is private to that module; we mirror it here
 /// so the `sign_*` constructors don't need a public surface for the
 /// hashing-only struct.
+///
+/// MAL-11 round 8: `kind` is included with the same `skip_serializing_if`
+/// rule as `core::anchor::AnchorBody` — `Normal` is dropped from the wire
+/// so pre-MAL-11 envelopes remain byte-identical, and `Compaction`
+/// participates in the hashed bytes (forgery defense).
 #[derive(serde::Serialize)]
 struct AnchorBodyView<'a> {
     space_id: &'a SpaceId,
@@ -508,6 +601,12 @@ struct AnchorBodyView<'a> {
     frontier: &'a [MoveId],
     state_root: &'a Hash,
     hlc: &'a Hlc,
+    #[serde(skip_serializing_if = "anchor_kind_is_default")]
+    kind: &'a crate::AnchorKind,
+}
+
+fn anchor_kind_is_default(kind: &&crate::AnchorKind) -> bool {
+    matches!(**kind, crate::AnchorKind::Normal)
 }
 
 #[cfg(test)]

@@ -186,6 +186,12 @@ impl Space {
         self.place_lifecycle_operation(place_id, crate::OP_PLACE_ARCHIVE, OperationType::Update)
     }
 
+    /// Create a `cx.place.restore` operation (`archived -> active`).
+    /// Reducer rejects with `place_not_archived` when current state is not archived.
+    pub fn restore_place_operation(&self, place_id: PlaceId) -> Result<Operation> {
+        self.place_lifecycle_operation(place_id, crate::OP_PLACE_RESTORE, OperationType::Update)
+    }
+
     /// Create a `cx.place.tombstone` operation.
     pub fn tombstone_place_operation(&self, place_id: PlaceId) -> Result<Operation> {
         self.place_lifecycle_operation(place_id, crate::OP_PLACE_TOMBSTONE, OperationType::Delete)

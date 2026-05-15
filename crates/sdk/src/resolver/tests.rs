@@ -114,6 +114,335 @@ fn place_events_create_update_parent_and_tombstone() {
     assert_eq!(place.state, Some(crate::PlaceState::Tombstoned));
 }
 
+fn place_create_event(seq: u64, place_id: &str) -> Event {
+    event(
+        OP_PLACE_CREATE,
+        seq,
+        json!({
+            "object": {
+                "id": place_id,
+                "schema": crate::PLACE_SCHEMA,
+                "space_id": space_id().as_str(),
+                "kind": "board",
+                "title": "Roadmap",
+                "created_by": actor_id().as_str(),
+                "created_at": "2026-05-02T00:00:00.000Z"
+            }
+        }),
+    )
+}
+
+#[test]
+fn place_archive_then_restore_round_trip() {
+    let place_id = "cx:place:01904100-0000-7000-8000-1fb50799ad42";
+    let create = place_create_event(1, place_id);
+
+    let mut archive = event(OP_PLACE_ARCHIVE, 2, json!({ "place_id": place_id }));
+    archive.prev_refs.push(create.event_id.clone());
+
+    let mut restore = event(OP_PLACE_RESTORE, 3, json!({ "place_id": place_id }));
+    restore.prev_refs.push(archive.event_id.clone());
+    let restore_at = restore.created_at;
+
+    let mut state = SpaceState::new(space_id(), "1".to_owned());
+    state.apply_events(&[create, archive, restore]).unwrap();
+
+    let place = state.places.get(place_id).unwrap();
+    assert_eq!(place.state, Some(crate::PlaceState::Active));
+    assert_eq!(place.state_changed_at, Some(restore_at));
+}
+
+#[test]
+fn place_restore_rejected_when_active() {
+    let place_id = "cx:place:01904100-0000-7000-8000-1fb50799ad43";
+    let create = place_create_event(1, place_id);
+
+    let mut restore = event(OP_PLACE_RESTORE, 2, json!({ "place_id": place_id }));
+    restore.prev_refs.push(create.event_id.clone());
+
+    let mut state = SpaceState::new(space_id(), "1".to_owned());
+    let err = state.apply_events(&[create, restore]).unwrap_err();
+    assert!(err.to_string().contains("place_not_archived"), "unexpected error: {err}");
+
+    let place = state.places.get(place_id).unwrap();
+    assert_eq!(place.state, Some(crate::PlaceState::Active));
+}
+
+#[test]
+fn place_restore_rejected_when_tombstoned() {
+    let place_id = "cx:place:01904100-0000-7000-8000-1fb50799ad44";
+    let create = place_create_event(1, place_id);
+
+    let mut tombstone = event(OP_PLACE_TOMBSTONE, 2, json!({ "place_id": place_id }));
+    tombstone.prev_refs.push(create.event_id.clone());
+    let tombstone_at = tombstone.created_at;
+
+    let mut restore = event(OP_PLACE_RESTORE, 3, json!({ "place_id": place_id }));
+    restore.prev_refs.push(tombstone.event_id.clone());
+
+    let mut state = SpaceState::new(space_id(), "1".to_owned());
+    let err = state.apply_events(&[create, tombstone, restore]).unwrap_err();
+    assert!(err.to_string().contains("place_not_archived"), "unexpected error: {err}");
+
+    let place = state.places.get(place_id).unwrap();
+    assert_eq!(place.state, Some(crate::PlaceState::Tombstoned));
+    assert_eq!(place.state_changed_at, Some(tombstone_at));
+}
+
+fn flow_create_event(seq: u64, flow_id: &str) -> Event {
+    event(
+        OP_FLOW_CREATE,
+        seq,
+        json!({
+            "object": {
+                "id": flow_id,
+                "schema": crate::FLOW_SCHEMA,
+                "space_id": space_id().as_str(),
+                "title": "Payment refactor",
+                "tracks": {"synthesis": {}},
+                "created_by": actor_id().as_str(),
+                "created_at": "2026-05-02T00:00:00.000Z"
+            }
+        }),
+    )
+}
+
+#[test]
+fn flow_archive_then_restore_round_trip() {
+    let flow_id = "cx:flow:01904100-0000-7000-8000-1fb50799ad50";
+    let create = flow_create_event(1, flow_id);
+
+    let mut archive = event(OP_FLOW_ARCHIVE, 2, json!({ "flow_id": flow_id }));
+    archive.prev_refs.push(create.event_id.clone());
+
+    let mut restore = event(OP_FLOW_RESTORE, 3, json!({ "flow_id": flow_id }));
+    restore.prev_refs.push(archive.event_id.clone());
+    let restore_at = restore.created_at;
+
+    let mut state = SpaceState::new(space_id(), "1".to_owned());
+    state.apply_events(&[create, archive, restore]).unwrap();
+
+    let flow = state.subjects.get(flow_id).unwrap();
+    assert_eq!(flow.state, Some(crate::ObjectState::Active));
+    assert_eq!(flow.state_changed_at, Some(restore_at));
+}
+
+#[test]
+fn flow_restore_rejected_when_active() {
+    let flow_id = "cx:flow:01904100-0000-7000-8000-1fb50799ad51";
+    let create = flow_create_event(1, flow_id);
+
+    let mut restore = event(OP_FLOW_RESTORE, 2, json!({ "flow_id": flow_id }));
+    restore.prev_refs.push(create.event_id.clone());
+
+    let mut state = SpaceState::new(space_id(), "1".to_owned());
+    let err = state.apply_events(&[create, restore]).unwrap_err();
+    assert!(err.to_string().contains("flow_not_archived"), "unexpected error: {err}");
+
+    // create_flow defaults the Flow to Active. The failed restore must
+    // be a no-op — state stays Active, state_changed_at stays unset
+    // (only create touched it, which doesn't set state_changed_at).
+    let flow = state.subjects.get(flow_id).unwrap();
+    assert_eq!(flow.state, Some(crate::ObjectState::Active));
+    assert!(
+        flow.state_changed_at.is_none(),
+        "restore must not write state_changed_at when rejected"
+    );
+}
+
+#[test]
+fn morph_archive_then_restore_round_trip() {
+    let morph_id = "cx:morph:01904100-0000-7000-8000-1fb50799ad60";
+    let create = morph_event(1, morph_id, "Task A");
+
+    let mut archive = event(OP_MORPH_ARCHIVE, 2, json!({ "morph_id": morph_id }));
+    archive.prev_refs.push(create.event_id.clone());
+
+    let mut restore = event(OP_MORPH_RESTORE, 3, json!({ "morph_id": morph_id }));
+    restore.prev_refs.push(archive.event_id.clone());
+
+    let mut state = SpaceState::new(space_id(), "1".to_owned());
+    state.apply_events(&[create, archive, restore]).unwrap();
+
+    let morph = state.morphs.get(morph_id).unwrap();
+    assert_eq!(morph.state, Some(crate::ObjectState::Active));
+}
+
+#[test]
+fn morph_restore_rejected_when_active() {
+    let morph_id = "cx:morph:01904100-0000-7000-8000-1fb50799ad61";
+    let create = morph_event(1, morph_id, "Task B");
+
+    let mut restore = event(OP_MORPH_RESTORE, 2, json!({ "morph_id": morph_id }));
+    restore.prev_refs.push(create.event_id.clone());
+
+    let mut state = SpaceState::new(space_id(), "1".to_owned());
+    let err = state.apply_events(&[create, restore]).unwrap_err();
+    assert!(err.to_string().contains("morph_not_archived"), "unexpected error: {err}");
+
+    // morph_event constructs `create_morph` without an explicit state;
+    // create_morph defaults to ObjectState::Active. The failed restore
+    // must not corrupt that.
+    let morph = state.morphs.get(morph_id).unwrap();
+    assert_eq!(morph.state, Some(crate::ObjectState::Active));
+}
+
+// ── Round 10 (2026-05-15): archive / tombstone / update source-state guards ──
+// Per spec common-fields.md §5.1 canonical state-transition table. Mirror
+// the round 9 restore guards but for the rest of the transition matrix.
+
+#[test]
+fn place_archive_rejected_when_already_archived() {
+    let place_id = "cx:place:01904100-0000-7000-8000-2fb50799ad42";
+    let create = place_create_event(1, place_id);
+    let mut archive1 = event(OP_PLACE_ARCHIVE, 2, json!({ "place_id": place_id }));
+    archive1.prev_refs.push(create.event_id.clone());
+    let mut archive2 = event(OP_PLACE_ARCHIVE, 3, json!({ "place_id": place_id }));
+    archive2.prev_refs.push(archive1.event_id.clone());
+
+    let mut state = SpaceState::new(space_id(), "1".to_owned());
+    let err = state.apply_events(&[create, archive1, archive2]).unwrap_err();
+    assert!(err.to_string().contains("place_not_active"), "unexpected error: {err}");
+
+    // First archive succeeded; second archive (the rejected one) must not
+    // touch Place state.
+    let place = state.places.get(place_id).unwrap();
+    assert_eq!(place.state, Some(crate::PlaceState::Archived));
+}
+
+#[test]
+fn place_archive_rejected_when_tombstoned() {
+    let place_id = "cx:place:01904100-0000-7000-8000-2fb50799ad43";
+    let create = place_create_event(1, place_id);
+    let mut tombstone = event(OP_PLACE_TOMBSTONE, 2, json!({ "place_id": place_id }));
+    tombstone.prev_refs.push(create.event_id.clone());
+    let mut archive = event(OP_PLACE_ARCHIVE, 3, json!({ "place_id": place_id }));
+    archive.prev_refs.push(tombstone.event_id.clone());
+
+    let mut state = SpaceState::new(space_id(), "1".to_owned());
+    let err = state.apply_events(&[create, tombstone, archive]).unwrap_err();
+    assert!(err.to_string().contains("place_not_active"), "unexpected error: {err}");
+    assert_eq!(
+        state.places.get(place_id).unwrap().state,
+        Some(crate::PlaceState::Tombstoned)
+    );
+}
+
+#[test]
+fn place_tombstone_rejected_when_already_terminal() {
+    let place_id = "cx:place:01904100-0000-7000-8000-2fb50799ad44";
+    let create = place_create_event(1, place_id);
+    let mut tombstone1 = event(OP_PLACE_TOMBSTONE, 2, json!({ "place_id": place_id }));
+    tombstone1.prev_refs.push(create.event_id.clone());
+    let mut tombstone2 = event(OP_PLACE_TOMBSTONE, 3, json!({ "place_id": place_id }));
+    tombstone2.prev_refs.push(tombstone1.event_id.clone());
+
+    let mut state = SpaceState::new(space_id(), "1".to_owned());
+    let err = state.apply_events(&[create, tombstone1, tombstone2]).unwrap_err();
+    assert!(err.to_string().contains("place_already_terminal"), "unexpected error: {err}");
+    assert_eq!(
+        state.places.get(place_id).unwrap().state,
+        Some(crate::PlaceState::Tombstoned)
+    );
+}
+
+#[test]
+fn flow_archive_rejected_when_already_archived() {
+    let flow_id = "cx:flow:01904100-0000-7000-8000-2fb50799ad50";
+    let create = flow_create_event(1, flow_id);
+    let mut archive1 = event(OP_FLOW_ARCHIVE, 2, json!({ "flow_id": flow_id }));
+    archive1.prev_refs.push(create.event_id.clone());
+    let mut archive2 = event(OP_FLOW_ARCHIVE, 3, json!({ "flow_id": flow_id }));
+    archive2.prev_refs.push(archive1.event_id.clone());
+
+    let mut state = SpaceState::new(space_id(), "1".to_owned());
+    let err = state.apply_events(&[create, archive1, archive2]).unwrap_err();
+    assert!(err.to_string().contains("flow_not_active"), "unexpected error: {err}");
+    assert_eq!(
+        state.subjects.get(flow_id).unwrap().state,
+        Some(crate::ObjectState::Archived)
+    );
+}
+
+#[test]
+fn morph_archive_rejected_when_already_archived() {
+    let morph_id = "cx:morph:01904100-0000-7000-8000-2fb50799ad60";
+    let create = morph_event(1, morph_id, "Task C");
+    let mut archive1 = event(OP_MORPH_ARCHIVE, 2, json!({ "morph_id": morph_id }));
+    archive1.prev_refs.push(create.event_id.clone());
+    let mut archive2 = event(OP_MORPH_ARCHIVE, 3, json!({ "morph_id": morph_id }));
+    archive2.prev_refs.push(archive1.event_id.clone());
+
+    let mut state = SpaceState::new(space_id(), "1".to_owned());
+    let err = state.apply_events(&[create, archive1, archive2]).unwrap_err();
+    assert!(err.to_string().contains("morph_not_active"), "unexpected error: {err}");
+    assert_eq!(
+        state.morphs.get(morph_id).unwrap().state,
+        Some(crate::ObjectState::Archived)
+    );
+}
+
+#[test]
+fn place_update_rejected_when_archived() {
+    let place_id = "cx:place:01904100-0000-7000-8000-3fb50799ad42";
+    let create = place_create_event(1, place_id);
+    let mut archive = event(OP_PLACE_ARCHIVE, 2, json!({ "place_id": place_id }));
+    archive.prev_refs.push(create.event_id.clone());
+    let mut update = event(
+        OP_PLACE_UPDATE,
+        3,
+        json!({ "place_id": place_id, "patch": { "title": "Renamed" } }),
+    );
+    update.prev_refs.push(archive.event_id.clone());
+
+    let mut state = SpaceState::new(space_id(), "1".to_owned());
+    let err = state.apply_events(&[create, archive, update]).unwrap_err();
+    assert!(err.to_string().contains("place_not_active"), "unexpected error: {err}");
+    // Title must NOT have been changed.
+    assert_eq!(state.places.get(place_id).unwrap().title, "Roadmap");
+}
+
+#[test]
+fn flow_update_rejected_when_archived() {
+    let flow_id = "cx:flow:01904100-0000-7000-8000-3fb50799ad50";
+    let create = flow_create_event(1, flow_id);
+    let mut archive = event(OP_FLOW_ARCHIVE, 2, json!({ "flow_id": flow_id }));
+    archive.prev_refs.push(create.event_id.clone());
+    let mut update = event(
+        OP_FLOW_UPDATE,
+        3,
+        json!({ "flow_id": flow_id, "patch": { "title": "New title" } }),
+    );
+    update.prev_refs.push(archive.event_id.clone());
+
+    let mut state = SpaceState::new(space_id(), "1".to_owned());
+    let err = state.apply_events(&[create, archive, update]).unwrap_err();
+    assert!(err.to_string().contains("flow_not_active"), "unexpected error: {err}");
+    assert_eq!(state.subjects.get(flow_id).unwrap().title, "Payment refactor");
+}
+
+#[test]
+fn morph_update_rejected_when_archived() {
+    let morph_id = "cx:morph:01904100-0000-7000-8000-3fb50799ad60";
+    let create = morph_event(1, morph_id, "Original Title");
+    let mut archive = event(OP_MORPH_ARCHIVE, 2, json!({ "morph_id": morph_id }));
+    archive.prev_refs.push(create.event_id.clone());
+    let mut update = event(
+        OP_MORPH_UPDATE,
+        3,
+        json!({ "morph_id": morph_id, "patch": { "title": "Renamed Morph" } }),
+    );
+    update.prev_refs.push(archive.event_id.clone());
+
+    let mut state = SpaceState::new(space_id(), "1".to_owned());
+    let err = state.apply_events(&[create, archive, update]).unwrap_err();
+    assert!(err.to_string().contains("morph_not_active"), "unexpected error: {err}");
+    assert_eq!(
+        state.morphs.get(morph_id).unwrap().title.as_deref(),
+        Some("Original Title")
+    );
+}
+
 #[test]
 fn flow_events_create_update_and_default_view_relation() {
     let flow_id = "cx:flow:01904100-0000-7000-8000-1fb50799ad3f";

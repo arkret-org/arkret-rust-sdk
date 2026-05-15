@@ -10,6 +10,268 @@ permitted; once `1.0` ships, breaking changes will require a major bump.
 
 ## [Unreleased]
 
+### Tightened — Archive / tombstone / update source-state guards (2026-05-16)
+
+Completes spec `common-fields.md §5.1` canonical state-transition table
+across all three lifecycle families (Flow / Morph / Place). Round 8 added
+`*.restore` source-state guard for Place; round 9 mirrored that for Flow
+and Morph; this round (round 10) closes the remaining matrix: archive on
+non-active source, tombstone on a terminal source, and the §5.1 final
+paragraph rule that `*.update` MUST fail on a non-active object (otherwise
+edits would silently revive an archived/tombstoned object, conflicting
+with `*.restore` semantics).
+
+- **`contrix` (sdk)** — all changes in `crates/sdk/src/resolver/state.rs`:
+  - `archive_flow` previously delegated unconditionally to
+    `set_flow_state(Archived)`. It now validates
+    `state == Some(ObjectState::Active)` first; non-Active source MUST
+    `failed_precondition` with `flow_not_active`. Unknown Flow is
+    tolerated (causal / backfill) — same as the restore guards.
+  - `archive_morph` (a new helper; previously the dispatcher inlined
+    `set_morph_state(Archived)`) and `archive_place` (a new helper;
+    previously inlined `set_place_state(Archived)`) follow the same
+    contract: `morph_not_active` / `place_not_active` on non-Active
+    source; unknown object tolerated. The dispatcher
+    (`process_event_content`) now routes through the named helpers.
+  - `tombstone_place` is a new helper (previously inlined
+    `set_place_state(Tombstoned)`). Per §5.1, `cx.<kind>.tombstone` is
+    legal from `active` OR `archived`; reject `tombstoned` (terminal
+    self-transition) with `place_already_terminal`. Note that `*.tombstone`
+    events exist for Place only in the spec registry; Flow / Morph
+    don't have dedicated tombstone events.
+  - `update_flow`, `update_morph`, and `update_place` now reject when the
+    target's current state is non-Active (per `common-fields.md §5.1`
+    final paragraph). Reasons mirror archive: `flow_not_active`,
+    `morph_not_active`, `place_not_active`. This is a behavioural
+    tightening — prior code allowed updating archived objects, silently
+    bypassing the canonical `*.restore` re-entry path.
+  - Eight new resolver tests in `crates/sdk/src/resolver/tests.rs`:
+    `place_archive_rejected_when_already_archived`,
+    `place_archive_rejected_when_tombstoned`,
+    `place_tombstone_rejected_when_already_terminal`,
+    `flow_archive_rejected_when_already_archived`,
+    `morph_archive_rejected_when_already_archived`,
+    `place_update_rejected_when_archived`,
+    `flow_update_rejected_when_archived`,
+    `morph_update_rejected_when_archived`. Each asserts the canonical
+    reason_code is present in the error AND that the failed reducer
+    write left no side effects.
+
+- **Spec references**:
+  - `common-fields.md §5.1` — canonical state-transition table introducing
+    the symmetric reason_code family: `<kind>_not_active` /
+    `<kind>_not_archived` / `<kind>_already_terminal`.
+  - `common-fields.md §5.1` final paragraph — `*.update` MUST fail on
+    non-active object as an invariant.
+  - `common-fields.md §5.1` "未知对象容忍" — unknown object is tolerated;
+    only state checks on materialised objects run.
+
+- **Out of scope (follow-up)**:
+  - `cx.redaction` source-state guard for Flow / Morph / Message — spec
+    §5.1 also covers `cx.<kind>.redact` / `cx.redaction` with the same
+    `<kind>_already_terminal` semantics, but the redaction reducer path
+    lives in a different code surface than the lifecycle dispatcher.
+
+### Tightened — Flow / Morph restore state-machine guards (2026-05-15)
+
+Completes the spec `common-fields.md §5` symmetry across all three lifecycle
+families (Flow / Morph / Place). Prior to this round, only `cx.place.restore`
+validated source state (added in the cx.place.restore round); `cx.flow.restore`
+and `cx.morph.restore` unconditionally flipped state to Active regardless of
+source. Spec is explicit: `*.restore` is the canonical `archived → active`
+path, and `tombstoned` / `deleted` / `redacted` MUST NOT be restored. This
+round pins that invariant in the reducer for Flow and Morph as well.
+
+- **`contrix` (sdk)**:
+  - `restore_flow` in `crates/sdk/src/resolver/state.rs` now validates
+    `state == Some(ObjectState::Archived)` before delegating to
+    `set_flow_state(Active)`. Source state Active / Deleted / Redacted /
+    unset MUST `failed_precondition` with `flow_not_archived` and the
+    reducer makes no mutations. Unknown Flow (causal / backfill not yet
+    caught up) is tolerated — same policy as `restore_place`.
+  - `OP_MORPH_RESTORE` dispatcher branch in the same file no longer
+    routes directly to `set_morph_state(Active)`; it now calls a new
+    `restore_morph` helper. Same contract as `restore_flow`: validate
+    `state == Some(ObjectState::Archived)`, reject otherwise with
+    `morph_not_archived`. Morph has no `state_changed_at` field so the
+    success path is symmetric only on what Morph actually carries.
+  - Four resolver tests added in `crates/sdk/src/resolver/tests.rs`:
+    `flow_archive_then_restore_round_trip` (state transitions back to
+    Active, `state_changed_at` matches the restore Event's `created_at`),
+    `flow_restore_rejected_when_active` (verifies error contains
+    `flow_not_archived` AND that the failed reducer write doesn't
+    promote `state_changed_at`), `morph_archive_then_restore_round_trip`,
+    and `morph_restore_rejected_when_active`. The "reject when
+    tombstoned" path is logically equivalent to the "reject when active"
+    path — both exercise the same `state != Some(Archived)` branch — so
+    one rejection test per family covers the unit-level guard.
+
+- **Spec references**:
+  - `common-fields.md §5` — canonical state machine, `*.restore`
+    semantics, `tombstoned / deleted / redacted MUST NOT 被 restore`.
+  - `space-and-place.md §4.4` — the Place precedent this round mirrors.
+
+- **Wire compat**: backward-compatible. New rejection paths only fire on
+  inputs that were silently being miscategorized before (e.g. an
+  attacker's attempt to restore a tombstoned Flow); well-behaved clients
+  emit restore only after archive, which still works.
+
+- **Out of scope (follow-up)**:
+  - `cx.flow.archive` / `cx.morph.archive` / `cx.place.archive` /
+    `cx.*.tombstone` themselves still don't validate source state. Spec
+    doesn't have explicit MUST for those transitions — likely needs spec
+    work first to nail down (e.g. is archive-of-tombstoned a
+    `failed_precondition` or an idempotent no-op?). Separate PR.
+
+### Added — `cx.place.restore` (2026-05-15)
+
+Mirror the new `cx.place.restore` event kind landed in `../contrix-spec`
+(Unreleased changelog entry "新增 `cx.place.restore` 修正 Place 生命周期对称性").
+Previously the SDK had `cx.place.archive` / `cx.place.tombstone` but no way to
+reverse archive — clients had no wire-legal path to unarchive a board / list,
+and reducers had no spec-aligned state-machine entry. With this round the SDK
+implements the canonical `archived -> active` transition end-to-end.
+
+- **`contrix-core`**:
+  - `events::PLACE_RESTORE` constant (`"cx.place.restore"`) added in
+    `crates/core/src/events/kinds.rs`, inserted into the sorted
+    `STANDARD_EVENT_KINDS` array (binary-searched by
+    `is_standard_event_kind`) between `PLACE_PARENT` and `PLACE_TOMBSTONE`,
+    and added to the `Place` arm of `classify_event_kind`.
+  - `model::OP_PLACE_RESTORE` constant added in
+    `crates/core/src/model/constants.rs` alongside `OP_PLACE_ARCHIVE` /
+    `OP_PLACE_TOMBSTONE`; auto-re-exported via `pub use constants::*`.
+  - `required_fields_for_operation_kind` (in `crates/core/src/model/registry.rs`)
+    extends its existing `OP_PLACE_ARCHIVE | OP_PLACE_TOMBSTONE` arm to
+    `OP_PLACE_ARCHIVE | OP_PLACE_RESTORE | OP_PLACE_TOMBSTONE` — restore
+    requires the same single `place_id` field as archive.
+
+- **`contrix` (sdk)**:
+  - `Space::restore_place_operation(place_id)` constructs the spec-shaped
+    `cx.place.restore` operation, mirroring `archive_place_operation`
+    (same `OperationType::Update`, same `{ "place_id": ... }` payload).
+  - Resolver `SpaceState::process_event_content` adds an `OP_PLACE_RESTORE`
+    branch backed by a new `restore_place` reducer in
+    `crates/sdk/src/resolver/state.rs`. The reducer validates current
+    `state == Archived` per `contrix-spec` `space-and-place.md §4.4`; any
+    other state (`Active`, `Tombstoned`, unset) MUST `failed_precondition`
+    with `place_not_archived` and the reducer makes no mutations. Unknown
+    Place (causal / backfill not yet caught up) is tolerated, matching the
+    existing `set_place_state` policy.
+  - Three resolver tests added in `crates/sdk/src/resolver/tests.rs`:
+    `place_archive_then_restore_round_trip` (state transitions back to
+    Active with correct `state_changed_at`),
+    `place_restore_rejected_when_active`, and
+    `place_restore_rejected_when_tombstoned`. Both rejection tests verify
+    the error string contains `place_not_archived` and that the failing
+    event does not mutate the Place state.
+
+- **Spec references**:
+  - `contrix-spec` event_kind_registry / capability_action_registry now
+    list `cx.place.restore`.
+  - `space-and-place.md §4.4` "Restore Place" subsection is the normative
+    source for the reducer guard above.
+  - `conformance-vectors.md §6.2-6.4` are the wire-level conformance
+    vectors this SDK round satisfies.
+
+- **Migration**: writers that previously had no wire path for unarchiving
+  Places (or were emitting `cx.place.update` with a top-level `state`
+  patch as a workaround) MUST switch to `cx.place.restore`. The reducer
+  here enforces the new guard; downstream impls (soland, yougen) need to
+  catch up separately — tracked in their own `_todos.md` files.
+
+- **Out of scope (follow-up)**:
+  - `cx.place.archive` / `cx.place.tombstone` themselves still don't
+    validate the source state (a pre-existing gap not introduced here);
+    same is true for `cx.flow.restore` / `cx.morph.restore`. Addressing
+    that surface is a separate PR.
+
+### Added — round 8 (2026-05-15): MAL-11 + snapshot v2 + per-admin signing
+
+Three new SDK surfaces requested by the soland principal server.
+
+- **MAL-11 anchor compaction primitives** in `contrix-core`:
+  - New `AnchorKind` enum (`Normal` / `Compaction`) added to the
+    `Anchor` struct as a `#[serde(default)]` field — `Normal` is
+    omitted from the wire, so pre-MAL-11 envelopes deserialize as
+    `Normal` and serialize byte-identically. `Compaction` participates
+    in the canonical-bytes-for-id hash, so an attacker can't relabel a
+    normal anchor as compaction without invalidating its id.
+  - `Anchor::sign_single_kind` / `sign_threshold_kind` /
+    `sign_multi_kind` companion methods accept an explicit
+    `AnchorKind`. The non-`_kind` shortcuts default to `Normal` and
+    remain source-compatible.
+  - `AnchorStore::successors(space_id, anchor_id)` returns direct
+    children — used by the compaction pipeline to find what to rewire
+    when pruning.
+  - `AnchorStore::prune_predecessor(space_id, anchor_id)` drops the
+    named anchor and rewires its direct successors' `predecessor_refs`
+    to bypass it (deduped against grandparents). Refuses to prune a
+    leaf; refuses to prune if the anchor isn't in the store. Returns
+    the list of rewired successor ids.
+  - `MemoryAnchorStore` implements both new trait methods. Other
+    backends inherit `Err(Backend("not implemented"))` defaults so
+    they compile but fail-closed.
+  - New `CompactionPolicy` + `PruneCandidate` + `PruneEligibility`
+    types in `state::compaction`. Policy fields:
+    `min_anchor_age_seconds` (default 7 days),
+    `min_compaction_witnesses` (default 1), `preserve_genesis`
+    (default true), `prune_only_singleton_successors` (default true).
+- **Snapshot chunk v2 primitives** in `contrix-core::snapshot`:
+  - `SnapshotChunker` — deterministic byte-range partitioning with
+    configurable `target_chunk_bytes` (default 256 KiB).
+  - `SnapshotChunk` — `{chunk_id, bytes, digest}` with base64-url
+    wire encoding.
+  - `SnapshotMerkleTree` — RFC 6962-style binary Merkle over chunk
+    digests; `audit_path(leaf_index)` returns the sibling chain;
+    stateless `SnapshotMerkleTree::verify` lets receivers verify a
+    single chunk without rebuilding the tree.
+  - `GeneratorProof` — generator's signed commitment to
+    `(state_root, merkle_root, chunk_count, total_bytes, chunk_bytes)`.
+    `body_digest` returns the canonical payload hash; receivers call
+    `verify_payload_hash()` then run their own JWS verifier on
+    `signature.jws`.
+- **Per-admin signing key + session-grant introspection** in
+  `contrix-core::admin_signer`:
+  - `AdminKeyStore` wraps any `KeyStore` and addresses per-admin
+    signing keys via canonical id
+    `contrix:signer:admin:<application_id>:<did>`. `load_admin_key` /
+    `store_admin_key` / `delete_admin_key` / `has_admin_key` /
+    `list_admin_dids` all key off `Did`.
+  - `SessionGrantIntrospection` is the typed view of an OAuth-style
+    introspection response carrying `(principal_did, admin_scopes[],
+    expires_at_unix, device_id, audit_context)`.
+    `is_currently_active`, `has_admin_scope`, and `require_admin_scope`
+    are convenience guards for handler code.
+  - `admin_scopes` module exposes conventional scope strings
+    (`ANCHORER_RECONFIGURE`, `ANCHOR_COMPACT`, `ANCHOR_PRUNE`,
+    `BOTTOM_REPAIR`, `ADMIN_READ`, etc.).
+
+### Test coverage
+
+`contrix-core` lib tests: **298 → 342 passed** (rounds 6/7 baseline →
+round 8, +44 new). Highlights:
+- 6 new tests for `AnchorKind` (default, wire omission, canonical-id
+  forgery defense, JSON round-trip, missing-field default).
+- 4 new tests for `AnchorStore::successors` /
+  `AnchorStore::prune_predecessor` (rewire, leaf rejection, dedup).
+- 10 new tests for `CompactionPolicy` (per-flag rejection, eligibility
+  composition, serde round-trip).
+- 17 new tests for snapshot v2 (chunker determinism, Merkle round-trip
+  at sizes 1/2/3/4/5/8/11, audit-path verify success + tamper
+  rejection, GeneratorProof digest stability + serde round-trip).
+- 13 new tests for `AdminKeyStore` + `SessionGrantIntrospection`
+  (per-admin id format, isolation, list/sort, missing-key NotFound,
+  introspection expiry + scope gating).
+
+### Compat notes
+
+- `Anchor` struct gained one required field (`kind: AnchorKind`).
+  Source-compat: callers must initialize it (`AnchorKind::Normal`
+  preserves prior behavior). Wire-compat: `Normal` round-trips
+  byte-identically because of `skip_serializing_if`.
+- All three new modules are additive; no other public API is changed.
+
 ## [0.7.0] – 2026-05-10 — wasm32 workspace closure + release hardening
 
 This release closes the wasm32 build story for the entire workspace and is

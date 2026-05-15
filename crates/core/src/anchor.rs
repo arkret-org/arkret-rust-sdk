@@ -79,6 +79,31 @@ pub enum ThresholdSigKind {
     ThresholdSig,
 }
 
+/// Anchor categorization — distinguishes normal frontier-advance anchors
+/// from compaction anchors (MAL-11).
+///
+/// A `Normal` anchor must obey the §4 rules: its `frontier` is a strict
+/// superset of the predecessor-frontier union (monotonicity), and every
+/// new move in `frontier \ pred_union` is verified.
+///
+/// A `Compaction` anchor accepts zero new moves (`frontier ==
+/// pred_union`); its purpose is to mark a checkpoint at which historical
+/// predecessor anchors become eligible for `AnchorStore::prune_predecessor`.
+/// Compaction anchors are still signed by the anchorer and still appear in
+/// the DAG; pruning is a separate explicit step on the store.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AnchorKind {
+    /// Normal frontier-advance anchor. Default for anchors deserialized
+    /// from older wire envelopes without a `kind` field.
+    #[default]
+    Normal,
+    /// MAL-11 compaction anchor. `frontier` MUST equal the union of
+    /// predecessor frontiers (no new moves accepted).
+    Compaction,
+}
+
 /// Top-level Anchor object as defined by `anchor.schema.json`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -96,6 +121,22 @@ pub struct Anchor {
     pub state_root: Hash,
     pub anchorer_sig: AnchorerSig,
     pub hlc: Hlc,
+    /// MAL-11: explicit anchor categorization. Defaults to `Normal` when
+    /// the wire envelope omits `kind`, preserving backward-compat with
+    /// pre-MAL-11 anchors that never carried the field.
+    #[serde(default, skip_serializing_if = "AnchorKind::is_default")]
+    pub kind: AnchorKind,
+}
+
+impl AnchorKind {
+    fn is_default(&self) -> bool {
+        matches!(self, AnchorKind::Normal)
+    }
+
+    /// True for compaction anchors. Convenience for caller code.
+    pub fn is_compaction(&self) -> bool {
+        matches!(self, AnchorKind::Compaction)
+    }
 }
 
 /// Body view used for canonical-bytes derivation.
@@ -103,6 +144,10 @@ pub struct Anchor {
 /// Excludes both `id` and `anchorer_sig`. The anchorer hashes these bytes
 /// to populate `id`, then signs the same bytes (every signer in
 /// multi/threshold cases signs the same canonical bytes).
+///
+/// `kind` IS in the body — a compaction anchor and a normal anchor with
+/// the same frontier MUST hash differently so the DAG can't be tricked
+/// into pruning based on a forged compaction tag.
 #[derive(Serialize)]
 struct AnchorBody<'a> {
     space_id: &'a SpaceId,
@@ -110,6 +155,8 @@ struct AnchorBody<'a> {
     frontier: &'a [MoveId],
     state_root: &'a Hash,
     hlc: &'a Hlc,
+    #[serde(skip_serializing_if = "AnchorKind::is_default")]
+    kind: &'a AnchorKind,
 }
 
 impl Anchor {
@@ -121,6 +168,7 @@ impl Anchor {
             frontier: &self.frontier,
             state_root: &self.state_root,
             hlc: &self.hlc,
+            kind: &self.kind,
         };
         canonical::canonical_json_bytes(&body)
     }
@@ -263,6 +311,7 @@ mod tests {
             state_root: hash(0x77),
             anchorer_sig: sig,
             hlc: hlc(),
+            kind: AnchorKind::Normal,
         };
         a.id = a.derive_id().unwrap();
         a
@@ -432,5 +481,67 @@ mod tests {
         {
             assert!(v.get(field).is_some(), "missing required field {field}");
         }
+    }
+
+    // ── MAL-11: AnchorKind ───────────────────────────────────────────────
+
+    #[test]
+    fn anchor_kind_default_normal_omits_field_on_wire() {
+        // Normal anchors must serialize without a `kind` field so pre-MAL-11
+        // wire envelopes round-trip byte-for-byte.
+        let a = build_anchor(AnchorerSig::Single(signature()));
+        let v = serde_json::to_value(&a).unwrap();
+        assert!(v.get("kind").is_none(), "kind must be omitted when Normal: {v:#?}");
+    }
+
+    #[test]
+    fn anchor_kind_compaction_serializes_explicitly() {
+        let mut a = build_anchor(AnchorerSig::Single(signature()));
+        a.kind = AnchorKind::Compaction;
+        a.id = a.derive_id().unwrap();
+        let v = serde_json::to_value(&a).unwrap();
+        assert_eq!(v["kind"], json!("compaction"));
+    }
+
+    #[test]
+    fn anchor_kind_compaction_changes_canonical_id() {
+        // Same frontier / predecessor, but `kind` flip MUST yield a
+        // different canonical hash. This is the MAL-11 forgery defense:
+        // an attacker can't relabel a normal anchor as compaction after
+        // the fact (the id won't validate against the signed bytes).
+        let mut normal = build_anchor(AnchorerSig::Single(signature()));
+        let mut compaction = normal.clone();
+        compaction.kind = AnchorKind::Compaction;
+        normal.id = normal.derive_id().unwrap();
+        compaction.id = compaction.derive_id().unwrap();
+        assert_ne!(normal.id, compaction.id);
+    }
+
+    #[test]
+    fn anchor_kind_round_trip_through_json() {
+        let mut a = build_anchor(AnchorerSig::Single(signature()));
+        a.kind = AnchorKind::Compaction;
+        a.id = a.derive_id().unwrap();
+        let v = serde_json::to_value(&a).unwrap();
+        let r: Anchor = serde_json::from_value(v).unwrap();
+        assert_eq!(r.kind, AnchorKind::Compaction);
+        assert_eq!(r.id, a.id);
+    }
+
+    #[test]
+    fn anchor_kind_missing_field_defaults_to_normal() {
+        // Pre-MAL-11 envelopes without a `kind` slot deserialize as Normal.
+        let a = build_anchor(AnchorerSig::Single(signature()));
+        let mut v: Value = serde_json::to_value(&a).unwrap();
+        // Ensure no `kind` in the wire form.
+        assert!(v.as_object_mut().unwrap().remove("kind").is_none());
+        let r: Anchor = serde_json::from_value(v).unwrap();
+        assert_eq!(r.kind, AnchorKind::Normal);
+    }
+
+    #[test]
+    fn anchor_kind_helper_is_compaction() {
+        assert!(AnchorKind::Compaction.is_compaction());
+        assert!(!AnchorKind::Normal.is_compaction());
     }
 }

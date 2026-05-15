@@ -58,6 +58,7 @@ pub const OP_PLACE_CREATE: &str = "cx.place.create";
 pub const OP_PLACE_UPDATE: &str = "cx.place.update";
 pub const OP_PLACE_PARENT: &str = "cx.place.parent";
 pub const OP_PLACE_ARCHIVE: &str = "cx.place.archive";
+pub const OP_PLACE_RESTORE: &str = "cx.place.restore";
 pub const OP_PLACE_TOMBSTONE: &str = "cx.place.tombstone";
 
 /// Relation event kinds.

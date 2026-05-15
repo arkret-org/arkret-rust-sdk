@@ -628,6 +628,7 @@ fn build_anchor(
         anchorer_sig: AnchorerSig::Single(sig),
         hlc: Hlc::new("0189c4d2af00-00000000-aabbccdd".to_owned())
             .map_err(|e| Error::Protocol(format!("hlc: {e}")))?,
+        kind: contrix_core::AnchorKind::Normal,
     };
     a.id = a.derive_id().map_err(|e| Error::Protocol(format!("derive: {e}")))?;
     Ok(a)

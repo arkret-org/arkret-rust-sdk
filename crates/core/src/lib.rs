@@ -4,6 +4,7 @@
 //! level SDK state machines. It intentionally contains no HTTP transport,
 //! framework adapter or runtime state manager.
 
+pub mod admin_signer;
 pub mod anchor;
 pub mod anchorer;
 pub mod bottom;
@@ -21,12 +22,14 @@ pub mod operations;
 pub mod schema;
 pub mod service;
 pub mod signer;
+pub mod snapshot;
 pub mod state;
 pub mod sync;
 
+pub use admin_signer::{AdminKeyStore, SessionGrantIntrospection, admin_scopes};
 pub use anchor::{
-    ANCHOR_SIGNATURE_ALGS, Anchor, AnchorerSig, MultiSigKind, MultiSignature, ThresholdSigKind,
-    ThresholdSignature,
+    ANCHOR_SIGNATURE_ALGS, Anchor, AnchorKind, AnchorerSig, MultiSigKind, MultiSignature,
+    ThresholdSigKind, ThresholdSignature,
 };
 pub use anchorer::AnchorerValue;
 pub use bottom::{AnchorView, Bottom, BottomKind};
@@ -77,12 +80,17 @@ pub use service::{
     rate_limited_error,
 };
 pub use signer::{MoveSigner, PartialSignature, ThresholdAggregator, UnsignedMove};
+pub use snapshot::{
+    DEFAULT_SNAPSHOT_CHUNK_BYTES, GeneratorProof, SnapshotChunk, SnapshotChunker,
+    SnapshotMerkleTree,
+};
 pub use state::{
     AnchorEffect, AnchorReject, AnchorStore, AnchoredMoveRecord, BottomMode, CellLatticeBinding,
-    CellRegistry, CellStore, MemoryAnchorStore, MemoryCellRegistry, MemoryCellStore,
-    MemoryMoveStore, MoveReject, MoveRejectMap, MoveStore, StoreError, StoreResult, apply_anchor,
-    compute_state_root, deterministic_order, effective_anchor_view, leaf_hash,
-    reject_to_error_code, union_predecessor_frontiers, verify_move, view_hash,
+    CellRegistry, CellStore, CompactionPolicy, MemoryAnchorStore, MemoryCellRegistry,
+    MemoryCellStore, MemoryMoveStore, MoveReject, MoveRejectMap, MoveStore, PruneCandidate,
+    PruneEligibility, StoreError, StoreResult, apply_anchor, compute_state_root,
+    deterministic_order, effective_anchor_view, leaf_hash, reject_to_error_code,
+    union_predecessor_frontiers, verify_move, view_hash,
 };
 pub use sync::{
     AccountData, BackfillDirection, BackfillFrom, BackfillRequest, BackfillResponse,

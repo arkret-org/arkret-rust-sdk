@@ -174,6 +174,101 @@ impl AnchorStore for MemoryAnchorStore {
     fn genesis(&self, space_id: &SpaceId) -> StoreResult<Option<AnchorId>> {
         Ok(self.inner.lock().unwrap().genesis.get(space_id.as_str()).cloned())
     }
+
+    fn successors(&self, space_id: &SpaceId, anchor_id: &AnchorId) -> StoreResult<Vec<AnchorId>> {
+        let inner = self.inner.lock().unwrap();
+        let mut out = Vec::new();
+        for anchor in inner.anchors.values() {
+            if anchor.space_id.as_str() != space_id.as_str() {
+                continue;
+            }
+            if anchor.predecessor_refs.iter().any(|p| p == anchor_id) {
+                out.push(anchor.id.clone());
+            }
+        }
+        out.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+        Ok(out)
+    }
+
+    fn prune_predecessor(
+        &self,
+        space_id: &SpaceId,
+        anchor_id: &AnchorId,
+    ) -> StoreResult<Vec<AnchorId>> {
+        let mut inner = self.inner.lock().unwrap();
+        // Snapshot the parents of the pruned anchor before removing it.
+        let parents: Vec<AnchorId> = inner
+            .anchors
+            .get(anchor_id.as_str())
+            .map(|a| a.predecessor_refs.clone())
+            .ok_or_else(|| {
+                StoreError::NotFound(format!("anchor {anchor_id} not in store"))
+            })?;
+
+        // Successor anchors whose predecessor_refs reference the pruned id.
+        let successor_ids: Vec<String> = inner
+            .anchors
+            .values()
+            .filter(|a| {
+                a.space_id.as_str() == space_id.as_str()
+                    && a.predecessor_refs.iter().any(|p| p == anchor_id)
+            })
+            .map(|a| a.id.as_str().to_owned())
+            .collect();
+
+        if successor_ids.is_empty() {
+            return Err(StoreError::Conflict(format!(
+                "anchor {anchor_id} has no successors; can't prune a leaf via prune_predecessor"
+            )));
+        }
+
+        // Rewire each successor: remove the pruned id, splice in the parents.
+        // Dedup so a successor that previously referenced both pruned and
+        // a grandparent doesn't end up with the same predecessor twice.
+        for sid in &successor_ids {
+            if let Some(succ) = inner.anchors.get_mut(sid) {
+                let mut new_refs: Vec<AnchorId> = succ
+                    .predecessor_refs
+                    .iter()
+                    .filter(|p| *p != anchor_id)
+                    .cloned()
+                    .collect();
+                for parent in &parents {
+                    if !new_refs.iter().any(|p| p == parent) {
+                        new_refs.push(parent.clone());
+                    }
+                }
+                new_refs.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+                succ.predecessor_refs = new_refs;
+            }
+        }
+
+        // Remove the pruned anchor itself.
+        inner.anchors.remove(anchor_id.as_str());
+
+        // Pruned anchor can't have been a leaf (we checked above) and its
+        // parents already had their successor-rewiring done before this
+        // anchor existed, so the leaf set is unaffected. Nothing to do
+        // with `leaves`.
+
+        // Genesis: if we pruned the genesis (which only makes sense if a
+        // child compaction replaces it), forget the genesis pointer — the
+        // caller MUST set a new one explicitly when relevant.
+        let space = space_id.as_str();
+        if inner
+            .genesis
+            .get(space)
+            .is_some_and(|g| g.as_str() == anchor_id.as_str())
+        {
+            inner.genesis.remove(space);
+        }
+
+        let rewired: Vec<AnchorId> = successor_ids
+            .into_iter()
+            .filter_map(|s| AnchorId::new(s).ok())
+            .collect();
+        Ok(rewired)
+    }
 }
 
 /// In-memory `CellStore`.
@@ -588,6 +683,7 @@ mod tests {
             state_root: hash(0x77),
             anchorer_sig: AnchorerSig::Single(sig),
             hlc: Hlc::new("0189c4d2af00-00000000-aabbccdd".to_owned()).unwrap(),
+            kind: crate::AnchorKind::Normal,
         }
     }
 
@@ -634,6 +730,81 @@ mod tests {
         let child = dummy_anchor(anchor_id(0xa1), vec![g.id], vec![move_id(0x02)]);
         store.put(&child).unwrap();
         assert_eq!(store.list_leaves(&space()).unwrap(), vec![child.id]);
+    }
+
+    #[test]
+    fn anchor_store_successors_lists_direct_children() {
+        // genesis ─► child_a ─► leaf_x
+        //          ▲
+        // genesis ─┴► child_b
+        let store = MemoryAnchorStore::default();
+        let g = dummy_anchor(anchor_id(0xa0), vec![], vec![move_id(0x01)]);
+        let child_a = dummy_anchor(anchor_id(0xa1), vec![g.id.clone()], vec![move_id(0x02)]);
+        let child_b = dummy_anchor(anchor_id(0xa2), vec![g.id.clone()], vec![move_id(0x03)]);
+        let leaf_x =
+            dummy_anchor(anchor_id(0xa3), vec![child_a.id.clone()], vec![move_id(0x04)]);
+        store.put(&g).unwrap();
+        store.put(&child_a).unwrap();
+        store.put(&child_b).unwrap();
+        store.put(&leaf_x).unwrap();
+
+        // genesis has two direct children.
+        let succ = store.successors(&space(), &g.id).unwrap();
+        assert_eq!(succ.len(), 2);
+        assert!(succ.contains(&child_a.id));
+        assert!(succ.contains(&child_b.id));
+
+        // child_b is a leaf — no successors.
+        assert!(store.successors(&space(), &child_b.id).unwrap().is_empty());
+    }
+
+    #[test]
+    fn anchor_store_prune_predecessor_rewires_through() {
+        // g ─► a ─► b (leaf). Pruning `a` rewires b's predecessor to g.
+        let store = MemoryAnchorStore::default();
+        let g = dummy_anchor(anchor_id(0xb0), vec![], vec![move_id(0x01)]);
+        let a = dummy_anchor(anchor_id(0xb1), vec![g.id.clone()], vec![move_id(0x02)]);
+        let b = dummy_anchor(anchor_id(0xb2), vec![a.id.clone()], vec![move_id(0x03)]);
+        store.put(&g).unwrap();
+        store.put(&a).unwrap();
+        store.put(&b).unwrap();
+
+        let rewired = store.prune_predecessor(&space(), &a.id).unwrap();
+        assert_eq!(rewired, vec![b.id.clone()]);
+
+        // `a` is gone.
+        assert!(store.get(&a.id).unwrap().is_none());
+        // `b` now points to `g`.
+        let b_after = store.get(&b.id).unwrap().unwrap();
+        assert_eq!(b_after.predecessor_refs, vec![g.id]);
+    }
+
+    #[test]
+    fn anchor_store_prune_predecessor_rejects_leaf() {
+        let store = MemoryAnchorStore::default();
+        let g = dummy_anchor(anchor_id(0xc0), vec![], vec![move_id(0x01)]);
+        store.put(&g).unwrap();
+        // g is a leaf — can't prune.
+        let err = store.prune_predecessor(&space(), &g.id).unwrap_err();
+        assert!(format!("{err}").contains("no successors"));
+    }
+
+    #[test]
+    fn anchor_store_prune_predecessor_dedups_when_grandparent_already_referenced() {
+        // diamond: g ─► a ─► c; g ─► c. Pruning `a` shouldn't double-add g.
+        let store = MemoryAnchorStore::default();
+        let g = dummy_anchor(anchor_id(0xd0), vec![], vec![move_id(0x01)]);
+        let a = dummy_anchor(anchor_id(0xd1), vec![g.id.clone()], vec![move_id(0x02)]);
+        let c =
+            dummy_anchor(anchor_id(0xd2), vec![g.id.clone(), a.id.clone()], vec![move_id(0x03)]);
+        store.put(&g).unwrap();
+        store.put(&a).unwrap();
+        store.put(&c).unwrap();
+
+        store.prune_predecessor(&space(), &a.id).unwrap();
+        let c_after = store.get(&c.id).unwrap().unwrap();
+        // c.predecessor_refs has just one entry: g.
+        assert_eq!(c_after.predecessor_refs, vec![g.id]);
     }
 
     #[test]
