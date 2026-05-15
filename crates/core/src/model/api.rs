@@ -11,6 +11,10 @@ pub enum DeviceVerificationState {
     VerificationStarted,
     /// Device has been verified.
     Verified,
+    /// Cross-signing was reset since this device was last verified. The
+    /// device must be re-verified before being treated as `verified` again.
+    /// See `crypto-media/device-lifecycle.md` §14.2.
+    NeedsReverification,
     /// Device is blocked.
     Blocked,
     /// Device was deleted locally.

@@ -20,8 +20,9 @@ This SDK audit checklist is intended for release review.
 
 - All signed protocol objects must use `canonical` helpers.
 - Floating point JSON values are rejected for canonical digests.
-- Identifier constructors validate DID, Space, Flow, Entity, Relation, Event,
-  Operation, Device, Blob and Cursor forms before use.
+- Identifier constructors validate DID, Space, Place, ActorProfile, Flow,
+  Message, Morph, Relation, Event, Operation, Device, Blob and Cursor forms
+  before use.
 
 ## Authentication And Identity
 

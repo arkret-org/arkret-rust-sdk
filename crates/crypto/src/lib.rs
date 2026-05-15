@@ -1,4 +1,15 @@
 //! Protocol crypto machine contracts.
+//!
+//! ## Feature flags
+//!
+//! * `backup` — pulls in the [`backup`] module, which provides
+//!   client-side Argon2id KDF, XChaCha20-Poly1305 AEAD, a recovery-key
+//!   codec, and a typed [`contrix_core::KeyBackup`] envelope builder
+//!   (spec: `crypto-media/key-management.md` §7). When the feature is
+//!   off, the bare types crate stays free of heavyweight crypto deps.
+
+#[cfg(feature = "backup")]
+pub mod backup;
 
 use std::collections::{BTreeMap, VecDeque};
 
@@ -55,7 +66,317 @@ pub enum DeviceTrustState {
     LocallyTrusted,
     CrossSigned,
     Verified,
+    /// After a cross-signing reset (spec §14.2), trust state drops here and
+    /// the device must be re-verified before it can be treated as
+    /// `cross_signed` or `verified` again.
+    NeedsReverification,
     Blocked,
+}
+
+/// Three-tier cross-signing key kinds — see `crypto-media/device-lifecycle.md` §5.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CrossSigningKeyKind {
+    /// DID-control-rooted principal signing key. Rotation MUST enter DID
+    /// method history / key log.
+    PrincipalSigning,
+    /// Signs the principal's own devices (`cx.device.authorized` bindings).
+    SelfSigning,
+    /// Signs other principals' identity keys to express manual trust.
+    UserSigning,
+}
+
+/// Public key record used inside `cx.cross_signing.publish.v1` content.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CrossSigningKeyRecord {
+    /// Verification method id, e.g. `did:webvh:...#cx_self_signing_v1`.
+    pub kid: String,
+    /// Signature algorithm; defaults to `EdDSA` for v1 core.
+    pub alg: String,
+    /// Multibase-encoded public key (or whatever `key_format` declares).
+    pub public_key: String,
+    /// Encoding used for `public_key`; v1 core defaults to `multibase`.
+    #[serde(default = "default_key_format")]
+    pub key_format: String,
+}
+
+fn default_key_format() -> String {
+    "multibase".to_owned()
+}
+
+/// Signature binding produced by the principal signing key (PSK) over a
+/// subordinate `self_signing` / `user_signing` record.
+///
+/// Canonical signing input (spec §5.1):
+///
+/// ```text
+/// "cx-cross-signing-bind-v1\n"
+///   + canonical_json({
+///       "principal_id": <did>,
+///       "subordinate_key_kind": "self_signing" | "user_signing",
+///       "subordinate_kid": <kid>,
+///       "subordinate_alg": <alg>,
+///       "subordinate_public_key": <public_key>,
+///       "generation": <generation>
+///     })
+/// ```
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CrossSigningBinding {
+    pub signed_by: String,
+    pub alg: String,
+    pub signature: String,
+}
+
+/// `cx.cross_signing.publish.v1` content (spec §5.1).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CrossSigningPublishContent {
+    pub principal_id: Did,
+    pub principal_signing_key: CrossSigningKeyRecord,
+    pub self_signing_key: SignedCrossSigningKey,
+    pub user_signing_key: SignedCrossSigningKey,
+    /// Monotonic counter; MUST equal previous accepted generation + 1 when
+    /// this publish follows a reset, or 1 for the very first publish.
+    pub generation: u64,
+    pub issued_at: DateTime<Utc>,
+}
+
+/// SSK / USK record carrying its PSK binding.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SignedCrossSigningKey {
+    #[serde(flatten)]
+    pub key: CrossSigningKeyRecord,
+    pub binding: CrossSigningBinding,
+}
+
+impl CrossSigningPublishContent {
+    pub fn validate_structure(&self) -> Result<()> {
+        if self.principal_signing_key.kid.trim().is_empty()
+            || self.self_signing_key.key.kid.trim().is_empty()
+            || self.user_signing_key.key.kid.trim().is_empty()
+        {
+            return Err(Error::Protocol(
+                "cross-signing publish requires non-empty kids".to_owned(),
+            ));
+        }
+        if self.self_signing_key.key.public_key == self.user_signing_key.key.public_key {
+            return Err(Error::Protocol(
+                "cross-signing publish requires distinct SSK and USK public keys".to_owned(),
+            ));
+        }
+        if self.generation == 0 {
+            return Err(Error::Protocol("cross-signing publish generation must be ≥ 1".to_owned()));
+        }
+        // Bindings must reference the published PSK kid.
+        if self.self_signing_key.binding.signed_by != self.principal_signing_key.kid {
+            return Err(Error::Protocol(
+                "self_signing_key binding must reference the published PSK kid".to_owned(),
+            ));
+        }
+        if self.user_signing_key.binding.signed_by != self.principal_signing_key.kid {
+            return Err(Error::Protocol(
+                "user_signing_key binding must reference the published PSK kid".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Canonical JSON bytes signed by PSK for the `self_signing_key` binding.
+    pub fn self_signing_binding_input(&self) -> Result<Vec<u8>> {
+        canonical_cross_signing_binding_input(
+            &self.principal_id,
+            CrossSigningKeyKind::SelfSigning,
+            &self.self_signing_key.key,
+            self.generation,
+        )
+    }
+
+    /// Canonical JSON bytes signed by PSK for the `user_signing_key` binding.
+    pub fn user_signing_binding_input(&self) -> Result<Vec<u8>> {
+        canonical_cross_signing_binding_input(
+            &self.principal_id,
+            CrossSigningKeyKind::UserSigning,
+            &self.user_signing_key.key,
+            self.generation,
+        )
+    }
+}
+
+/// `cx.cross_signing.reset.v1` content (spec §14.1).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CrossSigningResetContent {
+    pub principal_id: Did,
+    pub previous_generation: u64,
+    pub new_generation: u64,
+    pub reset_reason: String,
+    pub proof: CrossSigningResetProof,
+    pub issued_at: DateTime<Utc>,
+}
+
+/// High-risk proof for a cross-signing reset (spec §14).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum CrossSigningResetProof {
+    /// Signature from the principal's current DID control key.
+    PrincipalSigning { verification_method: String, signature: String },
+    /// Unlock of secret storage with the recovery key.
+    RecoveryUnlock { recovery_key_kid: String, commitment: String },
+    /// Quorum of already-verified devices.
+    DeviceQuorum { device_signatures: Vec<DeviceQuorumSignature> },
+    /// Signature from a recovery service declared in the principal's DID document.
+    TrustedRecoveryService { service_did: Did, verification_method: String, signature: String },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeviceQuorumSignature {
+    pub device_id: DeviceId,
+    pub verification_method: String,
+    pub signature: String,
+}
+
+impl CrossSigningResetContent {
+    pub fn validate_structure(&self) -> Result<()> {
+        if self.new_generation != self.previous_generation + 1 {
+            return Err(Error::Protocol(
+                "cross-signing reset new_generation must equal previous_generation + 1".to_owned(),
+            ));
+        }
+        if self.reset_reason.trim().is_empty() {
+            return Err(Error::Protocol(
+                "cross-signing reset requires a non-empty reset_reason".to_owned(),
+            ));
+        }
+        match &self.proof {
+            CrossSigningResetProof::DeviceQuorum { device_signatures } => {
+                if device_signatures.is_empty() {
+                    return Err(Error::Protocol(
+                        "device_quorum reset proof requires at least one signature".to_owned(),
+                    ));
+                }
+            }
+            CrossSigningResetProof::PrincipalSigning { verification_method, signature }
+            | CrossSigningResetProof::TrustedRecoveryService {
+                verification_method,
+                signature,
+                ..
+            } => {
+                if verification_method.trim().is_empty() || signature.trim().is_empty() {
+                    return Err(Error::Protocol(
+                        "reset proof requires verification method + signature".to_owned(),
+                    ));
+                }
+            }
+            CrossSigningResetProof::RecoveryUnlock { recovery_key_kid, commitment } => {
+                if recovery_key_kid.trim().is_empty() || commitment.trim().is_empty() {
+                    return Err(Error::Protocol(
+                        "recovery unlock proof requires kid + commitment".to_owned(),
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Per-device binding signed by SSK and embedded in `cx.device.authorized`
+/// (spec §5.2 `content.cross_signing_binding`).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeviceTrustBinding {
+    pub signed_by: String,
+    pub alg: String,
+    pub ssk_generation: u64,
+    pub signature: String,
+}
+
+impl DeviceTrustBinding {
+    /// Canonical signing input for `cx-device-trust-bind-v1`.
+    pub fn canonical_input(
+        principal_id: &Did,
+        device_id: &DeviceId,
+        device_public_key: &str,
+        ssk_generation: u64,
+    ) -> Result<Vec<u8>> {
+        canonical_device_trust_binding_input(
+            principal_id,
+            device_id,
+            device_public_key,
+            ssk_generation,
+        )
+    }
+}
+
+/// Bootstrap binding for the first-device inception path (spec §5.3).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeviceBootstrapBinding {
+    pub kind: String,
+    pub did_method_evidence_ref: String,
+}
+
+/// Verifier outcome for a single device's trust chain (spec §5.2.1).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DeviceTrustChainOutcome {
+    /// Verified end-to-end: PSK / SSK / device binding all valid at the
+    /// currently accepted generation.
+    CrossSigned,
+    /// Cross-signing has been reset since this device was authorized; the
+    /// chain references an older SSK generation. The caller MUST treat the
+    /// device as `needs_reverification` until a new binding lands.
+    NeedsReverification,
+    /// `cross_signing_binding.ssk_generation` is ahead of the accepted
+    /// publish — caller MUST trigger a control-stream re-sync.
+    AwaitingPublish,
+    /// Legitimate bootstrap path (`§5.3 bootstrap_binding` present and no
+    /// prior publish accepted).
+    Bootstrap,
+    /// No cross-signing binding present and bootstrap is not allowed.
+    Unverified,
+    /// Cryptographic check failed.
+    Invalid,
+}
+
+fn canonical_cross_signing_binding_input(
+    principal_id: &Did,
+    subordinate_kind: CrossSigningKeyKind,
+    subordinate: &CrossSigningKeyRecord,
+    generation: u64,
+) -> Result<Vec<u8>> {
+    let kind_str = match subordinate_kind {
+        CrossSigningKeyKind::SelfSigning => "self_signing",
+        CrossSigningKeyKind::UserSigning => "user_signing",
+        CrossSigningKeyKind::PrincipalSigning => {
+            return Err(Error::Protocol(
+                "principal_signing key is not a subordinate binding target".to_owned(),
+            ));
+        }
+    };
+    let body = serde_json::json!({
+        "principal_id": principal_id.as_str(),
+        "subordinate_key_kind": kind_str,
+        "subordinate_kid": subordinate.kid,
+        "subordinate_alg": subordinate.alg,
+        "subordinate_public_key": subordinate.public_key,
+        "generation": generation,
+    });
+    let mut out = b"cx-cross-signing-bind-v1\n".to_vec();
+    out.extend_from_slice(&contrix_core::canonical::canonical_json_bytes(&body)?);
+    Ok(out)
+}
+
+fn canonical_device_trust_binding_input(
+    principal_id: &Did,
+    device_id: &DeviceId,
+    device_public_key: &str,
+    ssk_generation: u64,
+) -> Result<Vec<u8>> {
+    let body = serde_json::json!({
+        "principal_id": principal_id.as_str(),
+        "device_id": device_id.as_str(),
+        "device_public_key": device_public_key,
+        "ssk_generation": ssk_generation,
+    });
+    let mut out = b"cx-device-trust-bind-v1\n".to_vec();
+    out.extend_from_slice(&contrix_core::canonical::canonical_json_bytes(&body)?);
+    Ok(out)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]

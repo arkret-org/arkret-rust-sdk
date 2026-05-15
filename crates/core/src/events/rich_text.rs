@@ -283,7 +283,7 @@ pub fn extract_link_previews(text: &str) -> Vec<LinkPreview> {
 /// Reaction entry.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Reaction {
-    /// Target event/entity ID.
+    /// Target event or object ID.
     pub target_id: String,
     /// Reacting user.
     pub user_id: Did,

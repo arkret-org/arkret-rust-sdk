@@ -1,4 +1,5 @@
 use super::*;
+use chrono::Utc;
 use serde_json::json;
 
 fn did(name: &str) -> Did {
@@ -12,6 +13,55 @@ fn device(id: &str) -> DeviceId {
     }
     DeviceId::new(format!("cx:device:01904100-0000-7000-8000-{:012x}", acc & 0x0000_ffff_ffff_ffff))
         .unwrap()
+}
+
+fn fake_binding(generation: u64) -> DeviceTrustBinding {
+    DeviceTrustBinding {
+        signed_by: "did:web:alice.example#cx_self_signing_v1".to_owned(),
+        alg: "EdDSA".to_owned(),
+        ssk_generation: generation,
+        signature: format!("test-sig-gen-{generation}"),
+    }
+}
+
+fn sample_publish(principal: &Did, generation: u64) -> CrossSigningPublishContent {
+    CrossSigningPublishContent {
+        principal_id: principal.clone(),
+        principal_signing_key: CrossSigningKeyRecord {
+            kid: format!("{principal}#cx_principal_signing_v1"),
+            alg: "EdDSA".to_owned(),
+            public_key: "z6MkPrincipalAlice".to_owned(),
+            key_format: "multibase".to_owned(),
+        },
+        self_signing_key: SignedCrossSigningKey {
+            key: CrossSigningKeyRecord {
+                kid: format!("{principal}#cx_self_signing_v1"),
+                alg: "EdDSA".to_owned(),
+                public_key: "z6MkSelfAlice".to_owned(),
+                key_format: "multibase".to_owned(),
+            },
+            binding: CrossSigningBinding {
+                signed_by: format!("{principal}#cx_principal_signing_v1"),
+                alg: "EdDSA".to_owned(),
+                signature: format!("psk-sig-ssk-gen-{generation}"),
+            },
+        },
+        user_signing_key: SignedCrossSigningKey {
+            key: CrossSigningKeyRecord {
+                kid: format!("{principal}#cx_user_signing_v1"),
+                alg: "EdDSA".to_owned(),
+                public_key: "z6MkUserAlice".to_owned(),
+                key_format: "multibase".to_owned(),
+            },
+            binding: CrossSigningBinding {
+                signed_by: format!("{principal}#cx_principal_signing_v1"),
+                alg: "EdDSA".to_owned(),
+                signature: format!("psk-sig-usk-gen-{generation}"),
+            },
+        },
+        generation,
+        issued_at: Utc::now(),
+    }
 }
 
 #[test]
@@ -67,7 +117,7 @@ fn devices_verifies_blocks_and_deletes() {
         manager.device(&alice, &device_id).unwrap().verification,
         DeviceVerificationState::VerificationStarted
     );
-    manager.verify_device(&alice, &device_id, Some("master-key".to_owned())).unwrap();
+    manager.verify_device(&alice, &device_id, Some(fake_binding(1))).unwrap();
     assert_eq!(
         manager.device(&alice, &device_id).unwrap().verification,
         DeviceVerificationState::Verified
@@ -90,7 +140,7 @@ fn devices_run_challenge_response_verification_flow() {
 
     let challenge = manager.begin_verification_flow(&alice, &device_id, "sas", "123456").unwrap();
     manager
-        .confirm_verification_flow(&challenge.transaction_id, "123456", Some("key".to_owned()))
+        .confirm_verification_flow(&challenge.transaction_id, "123456", Some(fake_binding(1)))
         .unwrap();
 
     assert_eq!(
@@ -100,18 +150,25 @@ fn devices_run_challenge_response_verification_flow() {
 }
 
 #[test]
-fn devices_support_sas_qr_mismatch_and_trust_propagation() {
+fn devices_support_sas_qr_mismatch_with_trust_chain_propagation() {
     let alice = did("alice");
     let phone = device("phone");
     let laptop = device("laptop");
     let mut manager = DeviceManager::new();
-    for device_id in [&phone, &laptop] {
-        manager.upsert_device(
-            alice.clone(),
-            device_id.clone(),
-            DeviceMetadata { name: None, model: None, os: None, last_seen_at: None },
-        );
-    }
+
+    // Phone has a known verify_key; laptop too.
+    manager.upsert_device_with_key(
+        alice.clone(),
+        phone.clone(),
+        DeviceMetadata { name: None, model: None, os: None, last_seen_at: None },
+        "z6MkPhoneVerifyKey",
+    );
+    manager.upsert_device_with_key(
+        alice.clone(),
+        laptop.clone(),
+        DeviceMetadata { name: None, model: None, os: None, last_seen_at: None },
+        "z6MkLaptopVerifyKey",
+    );
 
     let challenge = manager.begin_sas_verification(&alice, &phone, "123456").unwrap();
     assert!(challenge.commitment.starts_with("sha256:"));
@@ -123,13 +180,217 @@ fn devices_support_sas_qr_mismatch_and_trust_propagation() {
         DeviceVerificationState::VerificationFailed
     );
 
+    // Record a cross-signing publish for Alice and a proper per-device
+    // binding for both devices.
+    manager.record_cross_signing_publish(sample_publish(&alice, 1)).unwrap();
     manager.start_verification(&alice, &phone).unwrap();
-    manager.verify_device(&alice, &phone, Some("master-key".to_owned())).unwrap();
+    manager.verify_device(&alice, &phone, Some(fake_binding(1))).unwrap();
+    manager.attach_cross_signing_binding(&alice, &laptop, fake_binding(1)).unwrap();
+
+    // propagate_trust now requires the target to already have its own
+    // binding — sibling trust isn't transitive.
     manager.propagate_trust(&alice, &phone, &laptop).unwrap();
     assert_eq!(
         manager.device(&alice, &laptop).unwrap().verification,
         DeviceVerificationState::Verified
     );
+}
+
+#[test]
+fn propagate_trust_requires_binding_on_target() {
+    let alice = did("alice");
+    let phone = device("phone");
+    let laptop = device("laptop");
+    let mut manager = DeviceManager::new();
+    for d in [&phone, &laptop] {
+        manager.upsert_device_with_key(
+            alice.clone(),
+            d.clone(),
+            DeviceMetadata { name: None, model: None, os: None, last_seen_at: None },
+            "z6MkVerifyKey",
+        );
+    }
+    manager.record_cross_signing_publish(sample_publish(&alice, 1)).unwrap();
+    manager.verify_device(&alice, &phone, Some(fake_binding(1))).unwrap();
+    // Laptop has no binding yet — propagation MUST fail.
+    let err = manager.propagate_trust(&alice, &phone, &laptop).unwrap_err();
+    assert!(format!("{err}").contains("target device has no cross_signing_binding"));
+}
+
+#[test]
+fn cross_signing_reset_marks_devices_needing_reverification() {
+    let alice = did("alice");
+    let phone = device("phone");
+    let laptop = device("laptop");
+    let mut manager = DeviceManager::new();
+    for d in [&phone, &laptop] {
+        manager.upsert_device_with_key(
+            alice.clone(),
+            d.clone(),
+            DeviceMetadata { name: None, model: None, os: None, last_seen_at: None },
+            "z6MkVerifyKey",
+        );
+    }
+    manager.record_cross_signing_publish(sample_publish(&alice, 1)).unwrap();
+    manager.verify_device(&alice, &phone, Some(fake_binding(1))).unwrap();
+    manager.verify_device(&alice, &laptop, Some(fake_binding(1))).unwrap();
+
+    let reset = CrossSigningResetContent {
+        principal_id: alice.clone(),
+        previous_generation: 1,
+        new_generation: 2,
+        reset_reason: "rotation".to_owned(),
+        proof: CrossSigningResetProof::PrincipalSigning {
+            verification_method: "did:web:alice.example#did-control".to_owned(),
+            signature: "test-psk-sig".to_owned(),
+        },
+        issued_at: Utc::now(),
+    };
+    manager.record_cross_signing_reset(&reset).unwrap();
+
+    for d in [&phone, &laptop] {
+        let dev = manager.device(&alice, d).unwrap();
+        assert_eq!(dev.verification, DeviceVerificationState::NeedsReverification);
+        assert!(dev.cross_signing_binding.is_none());
+    }
+    // No publish accepted right now — attaching a new binding must fail.
+    assert!(manager.attach_cross_signing_binding(&alice, &phone, fake_binding(2)).is_err());
+
+    // A fresh publish (gen 2) restores normal operation.
+    manager.record_cross_signing_publish(sample_publish(&alice, 2)).unwrap();
+    manager.attach_cross_signing_binding(&alice, &phone, fake_binding(2)).unwrap();
+    let dev = manager.device(&alice, &phone).unwrap();
+    assert!(dev.cross_signing_binding.is_some());
+}
+
+#[test]
+fn publish_generation_must_advance_and_invalidates_old_bindings() {
+    let alice = did("alice");
+    let phone = device("phone");
+    let mut manager = DeviceManager::new();
+    manager.upsert_device_with_key(
+        alice.clone(),
+        phone.clone(),
+        DeviceMetadata { name: None, model: None, os: None, last_seen_at: None },
+        "z6MkVerifyKey",
+    );
+    manager.record_cross_signing_publish(sample_publish(&alice, 1)).unwrap();
+    manager.verify_device(&alice, &phone, Some(fake_binding(1))).unwrap();
+
+    // Same generation rejected.
+    assert!(manager.record_cross_signing_publish(sample_publish(&alice, 1)).is_err());
+
+    // Advancing the publish invalidates the existing device binding.
+    manager.record_cross_signing_publish(sample_publish(&alice, 2)).unwrap();
+    let dev = manager.device(&alice, &phone).unwrap();
+    assert!(dev.cross_signing_binding.is_none());
+    assert_eq!(dev.verification, DeviceVerificationState::NeedsReverification);
+}
+
+#[test]
+fn evaluate_trust_chain_states() {
+    let alice = did("alice");
+    let phone = device("phone");
+    let mut manager = DeviceManager::new();
+    manager.upsert_device_with_key(
+        alice.clone(),
+        phone.clone(),
+        DeviceMetadata { name: None, model: None, os: None, last_seen_at: None },
+        "z6MkVerifyKey",
+    );
+
+    // No publish, no binding → Unverified.
+    let outcome = manager.evaluate_trust_chain(&alice, &phone, |_, _, _, _| Ok(true)).unwrap();
+    assert_eq!(outcome, DeviceTrustChainOutcome::Unverified);
+
+    // Attach bootstrap binding before any publish → Bootstrap.
+    manager
+        .attach_bootstrap_binding(
+            &alice,
+            &phone,
+            DeviceBootstrapBinding {
+                kind: "inception_self_authorized".to_owned(),
+                did_method_evidence_ref: "did:webvh:alice.example/entry-0".to_owned(),
+            },
+        )
+        .unwrap();
+    let outcome = manager.evaluate_trust_chain(&alice, &phone, |_, _, _, _| Ok(true)).unwrap();
+    assert_eq!(outcome, DeviceTrustChainOutcome::Bootstrap);
+
+    // After a publish, bootstrap is no longer accepted.
+    manager.record_cross_signing_publish(sample_publish(&alice, 1)).unwrap();
+    let outcome = manager.evaluate_trust_chain(&alice, &phone, |_, _, _, _| Ok(true)).unwrap();
+    assert_eq!(outcome, DeviceTrustChainOutcome::NeedsReverification);
+
+    // Real binding + verifier that always returns true → CrossSigned.
+    manager.attach_cross_signing_binding(&alice, &phone, fake_binding(1)).unwrap();
+    let outcome = manager.evaluate_trust_chain(&alice, &phone, |_, _, _, _| Ok(true)).unwrap();
+    assert_eq!(outcome, DeviceTrustChainOutcome::CrossSigned);
+
+    // Verifier rejects → Invalid.
+    let outcome = manager.evaluate_trust_chain(&alice, &phone, |_, _, _, _| Ok(false)).unwrap();
+    assert_eq!(outcome, DeviceTrustChainOutcome::Invalid);
+
+    // Generation behind accepted → NeedsReverification.
+    manager.record_cross_signing_publish(sample_publish(&alice, 2)).unwrap();
+    manager.attach_cross_signing_binding(&alice, &phone, fake_binding(2)).unwrap();
+    // Manually back-date the binding to test the stale-generation branch.
+    let device_ref = manager.user_devices(&alice).into_iter().next().unwrap().clone();
+    let mut stale = device_ref.clone();
+    stale.cross_signing_binding = Some(fake_binding(1));
+    // Replace via upsert+attach.
+    manager.upsert_device_with_key(
+        alice.clone(),
+        phone.clone(),
+        device_ref.metadata.clone(),
+        "z6MkVerifyKey",
+    );
+    // Force-set the stale binding back through the manager API:
+    manager.verify_device(&alice, &phone, Some(fake_binding(1))).unwrap();
+    let outcome = manager.evaluate_trust_chain(&alice, &phone, |_, _, _, _| Ok(true)).unwrap();
+    assert_eq!(outcome, DeviceTrustChainOutcome::NeedsReverification);
+}
+
+#[test]
+fn cross_signing_reset_cancels_in_flight_verifications() {
+    let alice = did("alice");
+    let phone = device("phone");
+    let mut manager = DeviceManager::new();
+    manager.upsert_device_with_key(
+        alice.clone(),
+        phone.clone(),
+        DeviceMetadata { name: None, model: None, os: None, last_seen_at: None },
+        "z6MkVerifyKey",
+    );
+    manager.record_cross_signing_publish(sample_publish(&alice, 1)).unwrap();
+
+    // Start a SAS verification (no confirm yet).
+    let challenge = manager.begin_sas_verification(&alice, &phone, "000000").unwrap();
+    let reset = CrossSigningResetContent {
+        principal_id: alice.clone(),
+        previous_generation: 1,
+        new_generation: 2,
+        reset_reason: "compromise".to_owned(),
+        proof: CrossSigningResetProof::PrincipalSigning {
+            verification_method: "did:web:alice.example#did-control".to_owned(),
+            signature: "psk-sig".to_owned(),
+        },
+        issued_at: Utc::now(),
+    };
+    manager.record_cross_signing_reset(&reset).unwrap();
+
+    // In-flight transaction MUST have been cancelled.
+    assert!(
+        manager
+            .confirm_verification_flow(&challenge.transaction_id, "000000", None)
+            .is_err()
+    );
+    let dev = manager.device(&alice, &phone).unwrap();
+    assert!(matches!(
+        dev.verification,
+        DeviceVerificationState::VerificationCancelled
+            | DeviceVerificationState::NeedsReverification
+    ));
 }
 
 #[test]

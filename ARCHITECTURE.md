@@ -28,10 +28,11 @@ Contrix IDs, hashes, cursor tokens and HLC values. Serde decoding validates
 the same invariants as constructors so malformed wire identifiers fail at the
 edge.
 
-`crates/core/src/model.rs` owns object state enums, Space / ActorProfile /
-Entity / Relation / View objects, signed Events, canonical Operations, signed
-Operation envelopes, Commits, capability grants, policies, invites, read
-markers, notifications, blob metadata and service request/response envelopes.
+`crates/core/src/model.rs` owns object state enums, Space / Place /
+ActorProfile / Flow / Message / Morph / Relation / View objects, signed
+Events, canonical Operations, signed Operation envelopes, Commits, capability
+grants, policies, invites, read markers, notifications, blob metadata and
+service request/response envelopes.
 
 Model types should remain stable, explicit and serializable. Validation that is
 required for protocol safety belongs close to these types, especially when it

@@ -232,7 +232,7 @@ pub struct PresentationRequest {
 /// One link in the verifier authority chain (verifier → org).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VerifierAuthorityLink {
-    /// Subject of this link — the entity that delegated to the next.
+    /// Subject of this link — the DID that delegated to the next.
     pub from: Did,
     /// Recipient of the delegation.
     pub to: Did,

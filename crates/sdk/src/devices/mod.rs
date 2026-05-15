@@ -7,6 +7,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
+pub use contrix_crypto::{
+    CrossSigningBinding, CrossSigningKeyKind, CrossSigningKeyRecord, CrossSigningPublishContent,
+    CrossSigningResetContent, CrossSigningResetProof, DeviceBootstrapBinding,
+    DeviceQuorumSignature, DeviceTrustBinding, DeviceTrustChainOutcome, SignedCrossSigningKey,
+};
+
 use crate::{DeviceId, DeviceVerificationState, Did, Error, Result, canonical};
 
 mod backup;
@@ -41,8 +47,20 @@ pub struct Device {
     pub metadata: DeviceMetadata,
     /// Verification state.
     pub verification: DeviceVerificationState,
-    /// Cross-signing key or signature material.
-    pub cross_signing_key: Option<String>,
+    /// Public verify_key of the device. SDK-side mirror of `cx:device:`
+    /// record `verify_key` (`crypto-media/device-lifecycle.md` §4); used as
+    /// the canonical input to the SSK trust binding.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_public_key: Option<String>,
+    /// Per-device trust binding produced by SSK (spec §5.2). When present,
+    /// the device participates in the cross-signed trust chain.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cross_signing_binding: Option<DeviceTrustBinding>,
+    /// First-device bootstrap binding (spec §5.3). Mutually exclusive with
+    /// `cross_signing_binding`; only valid before the first cross-signing
+    /// publish.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bootstrap_binding: Option<DeviceBootstrapBinding>,
     /// Last local update time.
     pub updated_at: DateTime<Utc>,
 }

@@ -23,8 +23,10 @@ use contrix_core::{
     DirectorySearchSpacesRequest, DirectorySearchSpacesResponse, DirectorySearchUsersResponse,
     EffectiveGrantsResponse, Error, ErrorEnvelope, IdentityDescription, IdentityDocumentResponse,
     IdentityLogResponse, IdentityReceiptsResponse, IdentityResolveRequest, IdentityResolveResponse,
-    KeysClaimRequest, KeysClaimResponse, KeysQueryRequest, KeysQueryResponse, KeysUploadRequest,
-    KeysUploadResponse, MediaIceConfigRequest, MediaIceConfigResponse, ModerationReportRequest,
+    BackupId, KeyBackup, KeyBackupDeleteRequest, KeyBackupDeleteResponse, KeyBackupPutResponse,
+    KeyBackupSummary, KeyBackupsListQuery, KeyBackupsListResponse, KeysClaimRequest,
+    KeysClaimResponse, KeysQueryRequest, KeysQueryResponse, KeysUploadRequest, KeysUploadResponse,
+    MediaIceConfigRequest, MediaIceConfigResponse, ModerationReportRequest,
     ModerationReportResponse, OkResponse, PolicyCheckRequest, PolicyCheckResponse,
     PushNotifyRequest, PushNotifyResponse, PushRegisterDeviceRequest, PushRegisterDeviceResponse,
     PushUnregisterDeviceRequest, Result, ServerDescription, ServiceRequirements,
@@ -781,6 +783,83 @@ impl Client {
 
     pub async fn keys_claim(&self, request: &KeysClaimRequest) -> Result<KeysClaimResponse> {
         self.post("/api/v1/keys/claim", request).await
+    }
+
+    /// Upload (create or update) an encrypted [`KeyBackup`] envelope.
+    /// Spec: `crypto-media/key-management.md` §7.2 +
+    /// `sync/service-http-binding.md` §3 (PUT
+    /// `/api/v1/keys/backups/{backup_id}`). The envelope's
+    /// `ciphertext_digest` is the server-side idempotency / dedup key.
+    pub async fn put_key_backup(
+        &self,
+        backup_id: &BackupId,
+        body: &KeyBackup,
+    ) -> Result<KeyBackupPutResponse> {
+        let path = format!("/api/v1/keys/backups/{}", backup_id.as_str());
+        self.put(&path, body).await
+    }
+
+    /// List existing key backups for the authorized actor. Honors the
+    /// `backup_class` / `cursor` / `limit` filters from
+    /// [`KeyBackupsListQuery`] (key-management.md §7.5).
+    pub async fn list_key_backups(
+        &self,
+        query: &KeyBackupsListQuery,
+    ) -> Result<KeyBackupsListResponse> {
+        let mut builder = self.request(Method::GET, "/api/v1/keys/backups")?;
+        if let Some(class) = query.backup_class {
+            let class_str = match class {
+                contrix_core::BackupClass::DidRecovery => "did_recovery",
+                contrix_core::BackupClass::SecretStorage => "secret_storage",
+                contrix_core::BackupClass::MlsHistory => "mls_history",
+                contrix_core::BackupClass::External => "external",
+            };
+            builder = builder.query(&[("backup_class", class_str)]);
+        }
+        if let Some(ref cursor) = query.cursor {
+            builder = builder.query(&[("cursor", cursor.as_str())]);
+        }
+        if let Some(limit) = query.limit {
+            builder = builder.query(&[("limit", limit.to_string())]);
+        }
+        self.send_json(builder).await
+    }
+
+    /// Convenience variant that returns just the summary list. Equivalent to
+    /// [`list_key_backups`](Self::list_key_backups) with default query.
+    pub async fn list_all_key_backups(&self) -> Result<Vec<KeyBackupSummary>> {
+        let response: KeyBackupsListResponse = self
+            .list_key_backups(&KeyBackupsListQuery {
+                backup_class: None,
+                cursor: None,
+                limit: None,
+            })
+            .await?;
+        Ok(response.backups)
+    }
+
+    /// Fetch a single encrypted [`KeyBackup`] envelope for local
+    /// decryption. The server never returns plaintext; decryption
+    /// requires the passphrase + the envelope's KDF/AEAD parameters and
+    /// is performed via [`crate`]-adjacent helpers
+    /// (`contrix_crypto::backup::decrypt_vault`).
+    pub async fn get_key_backup(&self, backup_id: &BackupId) -> Result<KeyBackup> {
+        let path = format!("/api/v1/keys/backups/{}", backup_id.as_str());
+        self.get(&path).await
+    }
+
+    /// Delete an existing key backup envelope. Spec §7.4 marks this as a
+    /// high-risk operation; the caller must supply the typed
+    /// [`KeyBackupDeleteRequest`] with a valid proof and (optionally) a
+    /// human-readable reason.
+    pub async fn delete_key_backup(
+        &self,
+        backup_id: &BackupId,
+        request: &KeyBackupDeleteRequest,
+    ) -> Result<KeyBackupDeleteResponse> {
+        let path = format!("/api/v1/keys/backups/{}", backup_id.as_str());
+        let builder = self.request(Method::DELETE, &path)?.json(request);
+        self.send_json(builder).await
     }
 
     pub async fn send_device_messages(

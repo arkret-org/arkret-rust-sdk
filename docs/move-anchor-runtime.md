@@ -440,7 +440,8 @@ cell effective state 是协议授权与 Anchor finality 的源。用户面 proje
   消息 cell（ordered-log）派生 + 解密 + 应用本地隐私规则。
 - `members` projection 维护 `(space_id, member_did) → MembershipState`，从
   member.state cell（fsm）派生 + 跨 cell 聚合（presence、device、profile）。
-- `kanban` projection 维护看板布局，从 entity cell + flow cell 派生。
+- `kanban` projection 维护看板布局，从 place cell（`kind=board`）+ flow cell
+  派生。
 
 设计原则：
 
