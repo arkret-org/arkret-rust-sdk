@@ -46,6 +46,15 @@ pub const OP_FLOW_ARCHIVE: &str = "cx.flow.archive";
 pub const OP_FLOW_RESTORE: &str = "cx.flow.restore";
 pub const OP_FLOW_MOVE: &str = "cx.flow.move";
 pub const OP_FLOW_REORDER: &str = "cx.flow.reorder";
+/// Flow track sub-event kinds (round 12, 2026-05-16). Manage individual
+/// entries in `Flow.tracks: BTreeMap<String, FlowTrackConfig>` without
+/// requiring a full `cx.flow.update`. State-machine guard: parent Flow
+/// MUST be `Active` (per spec common-fields.md §5.1 update-on-non-active
+/// rule); reject otherwise with `flow_not_active`.
+pub const OP_FLOW_TRACK_DISABLE: &str = "cx.flow.track.disable";
+pub const OP_FLOW_TRACK_ENABLE: &str = "cx.flow.track.enable";
+pub const OP_FLOW_TRACK_SET_PRIMARY: &str = "cx.flow.track.set_primary";
+pub const OP_FLOW_TRACK_UPDATE: &str = "cx.flow.track.update";
 
 /// Morph event kinds.
 pub const OP_MORPH_CREATE: &str = "cx.morph.create";
@@ -143,6 +152,27 @@ pub const OP_APPLET_THIRD_PARTY_LOCATIONS: &str = "cx.applet.third_party_locatio
 pub const OP_APPLET_THIRD_PARTY_USERS: &str = "cx.applet.third_party_users";
 pub const OP_APPLET_TRANSACTION: &str = "cx.applet.transaction";
 
+/// Applet protocol-session sub-events (round 13, 2026-05-16). Spec
+/// `extensions/applet-integration.md` event-kind-registry rows. These
+/// are durable reducer-input events (distinct from the RPC-style
+/// `OP_APPLET_DESCRIBE` / `_PING` / `_TRANSACTION` ops above). SDK
+/// reducer doesn't maintain per-session state — the applet bridge
+/// state machine lives client-side — but operation-registry must
+/// carry the required-fields shapes for downstream submit validation.
+pub const OP_APPLET_BRIDGE_ERROR: &str = "cx.applet.bridge_error";
+pub const OP_APPLET_DISCOVERY: &str = "cx.applet.discovery";
+pub const OP_APPLET_PROTOCOL_SESSION_START: &str = "cx.applet.protocol_session.start";
+pub const OP_APPLET_PROTOCOL_SESSION_STATUS: &str = "cx.applet.protocol_session.status";
+pub const OP_APPLET_REGISTRATION: &str = "cx.applet.registration";
+
+/// Agent protocol-session sub-events (round 13). Same shape as the
+/// applet family but the terminal `*.result` event carries a signed
+/// audit binding. Spec `extensions/agent-integration.md`.
+pub const OP_AGENT_ENDPOINT: &str = "cx.agent.endpoint";
+pub const OP_AGENT_PROTOCOL_SESSION_RESULT: &str = "cx.agent.protocol_session.result";
+pub const OP_AGENT_PROTOCOL_SESSION_START: &str = "cx.agent.protocol_session.start";
+pub const OP_AGENT_PROTOCOL_SESSION_STATUS: &str = "cx.agent.protocol_session.status";
+
 /// Directory operations beyond the bare `describe`.
 pub const OP_DIRECTORY_PRIVATE_CONTACT_DISCOVERY: &str = "cx.directory.private_contact_discovery";
 pub const OP_DIRECTORY_ANNOUNCE: &str = "cx.directory.announce";
@@ -237,6 +267,16 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_APPLET_THIRD_PARTY_LOCATIONS,
     OP_APPLET_THIRD_PARTY_USERS,
     OP_APPLET_TRANSACTION,
+    // Note: OP_APPLET_REGISTRATION / OP_APPLET_DISCOVERY / OP_APPLET_PROTOCOL_SESSION_*
+    // / OP_APPLET_BRIDGE_ERROR and OP_AGENT_* are reducer-input EVENTS
+    // (registered in spec `event-kind-registry.json`), not service RPC
+    // operations. They follow the same `OP_*` const naming for
+    // ergonomic dispatch in registry.rs::required_fields_for_operation_kind
+    // but are intentionally NOT in BUILT_IN_OPERATION_KINDS — that list
+    // mirrors spec `operation-registry.json` (RPC service surface) and
+    // the drift report (`SpecArtifactBundle::drift_report`) fails if
+    // event kinds leak in. Same convention as `OP_FLOW_TRACK_*` and
+    // the lifecycle event ops (`OP_FLOW_CREATE`, etc.).
     OP_AUTHZ_CHECK,
     OP_AUTHZ_GET_EFFECTIVE_GRANTS,
     OP_AUTHZ_GET_INVITES,

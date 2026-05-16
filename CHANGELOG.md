@@ -10,6 +10,194 @@ permitted; once `1.0` ships, breaking changes will require a major bump.
 
 ## [Unreleased]
 
+### Added — Applet / Agent protocol-session OP constants + registry (2026-05-16)
+
+Round 13. Mirror of soland round 14f wire validator. The 9 sub-events
+of the applet (`cx.applet.{registration,discovery,protocol_session.{start,status},bridge_error}`)
+and agent (`cx.agent.{endpoint,protocol_session.{start,status,result}}`)
+families were registered as event kinds in `crates/core/src/events/kinds.rs`
+but had no `OP_*` aliases or `required_fields_for_operation_kind` entries
+in `crates/core/src/model/`. This round adds both so downstream consumers
+(soland, yougen, …) can validate submit payloads using the same registry
+abstraction as the rest of the reducer-input event family.
+
+- **`contrix-core`** — all changes in `crates/core/src/model/`:
+  - `constants.rs`: new `OP_APPLET_BRIDGE_ERROR` / `OP_APPLET_DISCOVERY` /
+    `OP_APPLET_PROTOCOL_SESSION_START` / `OP_APPLET_PROTOCOL_SESSION_STATUS`
+    / `OP_APPLET_REGISTRATION` / `OP_AGENT_ENDPOINT` /
+    `OP_AGENT_PROTOCOL_SESSION_RESULT` / `OP_AGENT_PROTOCOL_SESSION_START`
+    / `OP_AGENT_PROTOCOL_SESSION_STATUS` constants (alphabetically
+    grouped under new Applet protocol / Agent protocol section
+    headers). Doc-comment makes explicit these are reducer-input
+    EVENTS (registered in spec `event-kind-registry.json`), not RPC
+    service operations — so they intentionally do NOT appear in
+    `BUILT_IN_OPERATION_KINDS` (which mirrors `operation-registry.json`
+    and is gated by `SpecArtifactBundle::drift_report`). Same convention
+    as the lifecycle event ops (`OP_FLOW_CREATE`, `OP_FLOW_TRACK_*`, etc.)
+    that have always been kept out of the built-in list.
+  - `registry.rs::required_fields_for_operation_kind` gets 9 new arms:
+    `OP_APPLET_REGISTRATION` → `[service_did, namespace]`
+    `OP_APPLET_DISCOVERY` → `[service_did, manifest]`
+    `OP_APPLET_PROTOCOL_SESSION_START` → `[applet_id, session_id]`
+    `OP_APPLET_PROTOCOL_SESSION_STATUS` → `[session_id, status]`
+    `OP_APPLET_BRIDGE_ERROR` → `[session_id, errcode]`
+    `OP_AGENT_ENDPOINT` → `[agent_did, protocol]`
+    `OP_AGENT_PROTOCOL_SESSION_START` → `[agent_did, session_id, capability_proof]`
+    `OP_AGENT_PROTOCOL_SESSION_STATUS` → `[session_id, status]`
+    `OP_AGENT_PROTOCOL_SESSION_RESULT` → `[session_id, result, audit_binding]`
+    Mirrors soland round 14f `FLOW_TRACK_REQUIREMENTS` shape exactly.
+
+- **`contrix` (sdk)** — no changes. These events don't affect
+  client-side projection state (applet bridge state machine lives in
+  the client app; agent session signing audit binding is verified at
+  the agent endpoint). The reducer's `process_event_content` already
+  falls through to the "Unknown event types do not affect the local
+  reducer state" branch for them, which is correct.
+
+- **Spec references**:
+  - `extensions/applet-integration.md` event-kind-registry rows for
+    the 5 applet sub-events.
+  - `extensions/agent-integration.md` event-kind-registry rows for
+    the 4 agent sub-events.
+  - `event-kind-registry.json` artifact (already published).
+
+- **Out of scope (follow-up)**:
+  - **Resolver state for applet / agent sessions** — spec doesn't yet
+    define a server-side state machine for protocol sessions; both
+    families are session-scoped (start → status* → terminal) with the
+    state living at the applet / agent endpoint itself. If spec adds
+    canonical session state tracking, SDK reducer can mirror that.
+
+### Added — `cx.flow.track.*` reducer handlers (2026-05-16)
+
+Round 12. SDK previously declared the four `cx.flow.track.*` event-kind
+constants (`FLOW_TRACK_DISABLE` / `FLOW_TRACK_ENABLE` /
+`FLOW_TRACK_SET_PRIMARY` / `FLOW_TRACK_UPDATE`) in
+`crates/core/src/events/kinds.rs` but had no `OP_*` operation constants,
+no operation-registry required-fields entries, and no resolver
+dispatcher branches — events landed and dispatched as "Unknown event
+type" no-ops. This round wires the full reducer surface so client-side
+state machines correctly maintain `Flow.tracks` from the event log.
+
+- **`contrix-core`**:
+  - `crates/core/src/model/constants.rs`: new `OP_FLOW_TRACK_DISABLE` /
+    `OP_FLOW_TRACK_ENABLE` / `OP_FLOW_TRACK_SET_PRIMARY` /
+    `OP_FLOW_TRACK_UPDATE` constants (alphabetically grouped under the
+    Flow header, after `OP_FLOW_REORDER`).
+  - `crates/core/src/model/registry.rs::required_fields_for_operation_kind`
+    new arms: `OP_FLOW_TRACK_DISABLE | OP_FLOW_TRACK_ENABLE |
+    OP_FLOW_TRACK_SET_PRIMARY` → `[flow_id, track_id]`;
+    `OP_FLOW_TRACK_UPDATE` → `[flow_id, track_id, patch]`.
+
+- **`contrix` (sdk)**:
+  - `crates/sdk/src/resolver/mod.rs`: re-export the four new `OP_*` from
+    the `model::*` use list.
+  - `crates/sdk/src/resolver/state.rs`:
+    - `process_event_content` dispatcher gets four new arms calling new
+      helpers `enable_flow_track` / `disable_flow_track` /
+      `update_flow_track` / `set_primary_flow_track`.
+    - New helper `extract_flow_track_id` reads `track_id` (fallback
+      `track_name`) from event content; returns `Err(Protocol("flow
+      track event requires track_id"))` if absent — same convention as
+      the existing `extract_flow_id` / `extract_morph_id` helpers.
+    - All four track helpers enforce the spec common-fields.md §5.1
+      "update on non-active object MUST fail" rule: parent Flow's
+      `state` MUST be `Some(ObjectState::Active)`; otherwise
+      `failed_precondition` with `flow_not_active` and the reducer
+      makes no mutations. Unknown Flow tolerated (causal / backfill —
+      same convention as `restore_*` and `archive_*` guards).
+    - `enable_flow_track`: validate track name against
+      `validate_flow_track_name`, then `tracks.entry(track_id)
+      .or_insert_with(FlowTrackConfig::default)` — re-enable is a
+      no-op on the config but still bumps `updated_at` for audit.
+    - `disable_flow_track`: `tracks.remove(track_id)`; unknown track
+      tolerated.
+    - `update_flow_track`: reads `patch` object from event content;
+      merges `is_primary` / `profile` / `template` / `fields`. Unknown
+      track is created (matches existing `update_flow` upsert
+      behaviour for new fields).
+    - `set_primary_flow_track`: clears `is_primary` on every track,
+      then sets it on the named one. Validates track exists in the
+      Flow's tracks map; if absent, the primary swap is a no-op (causal
+      tolerance) but `updated_at` still advances.
+  - Five resolver tests added in `crates/sdk/src/resolver/tests.rs`:
+    `flow_track_enable_inserts_into_tracks_map`,
+    `flow_track_disable_removes_from_tracks_map`,
+    `flow_track_update_patches_track_config`,
+    `flow_track_set_primary_clears_others_and_marks_named`,
+    `flow_track_event_rejected_when_flow_archived`.
+
+- **Spec references**:
+  - Spec event-kind-registry: `cx.flow.track.{enable,disable,update,set_primary}`
+    (`category: flow`, `wire_scope: durable_event`, `reducer_input: true`).
+  - `common-fields.md §5.1` final paragraph — update on non-active
+    object MUST fail.
+
+- **Out of scope (follow-up)**:
+  - **soland canonical registry + wire validator** — soland's
+    server-side admission (`event_log::submit_event`) currently treats
+    `cx.flow.track.*` as opaque envelopes (canonical-kind registry
+    doesn't recognise them). soland round 14d adds the canonical
+    registration + state-machine preflight in parallel with this round.
+  - **Place tracks** — Place doesn't have a `tracks` field; Flow is
+    the only canonical object with sub-event-managed track membership.
+
+### Tightened — `cx.redaction` flips Flow / Morph subject state (2026-05-16)
+
+Completes spec `common-fields.md §5.1` redaction row for Flow / Morph.
+Round 10 closed the archive / tombstone / update source-state matrix;
+this round (round 11) extends `cx.redaction` so that targeting a Flow /
+Morph object via the event content's `object_ref` field flips the
+subject's projection state to `ObjectState::Redacted` (terminal). Until
+this round, `redact_event` only cleared the target event's content while
+the corresponding Flow / Morph subject's `state` remained `Active` —
+soland round 14b had to add the same logic server-side to enforce the
+spec rule, and SDK was the divergent side. Now the two are symmetric.
+
+- **`contrix` (sdk)** — all changes in `crates/sdk/src/resolver/state.rs`:
+  - New helper `redact_object_for_event(event)` extracts `object_ref`
+    (fallback `target_object_ref`) from the redaction event's `content`.
+    When that names a Flow / Morph subject (`cx:flow:` / `cx:morph:`),
+    the helper validates `state ∈ {Active, Archived}` and flips it to
+    `Redacted` along with `state_changed_at`, `updated_by`, `updated_at`.
+    Terminal source (`Deleted` / `Redacted`) MUST `failed_precondition`
+    with `flow_already_terminal` / `morph_already_terminal`. Unknown
+    subject is tolerated (causal / backfill ordering — same convention
+    as `restore_*` and `archive_*` guards).
+  - `process_event_content` `cx.redaction` arm now invokes
+    `redact_object_for_event` BEFORE `redact_event` clears the target
+    event content. The state-machine guard runs first so a rejected
+    redaction cannot leave the event partially redacted.
+  - Place is intentionally excluded — `PlaceState` has no `Redacted`
+    variant; spec routes Place removal through `cx.place.tombstone`
+    only. Redactions naming a Place subject fall through to the
+    "unknown subject" tolerance branch silently (Place isn't kept in
+    `subjects` / `morphs`).
+  - Four resolver tests added in `crates/sdk/src/resolver/tests.rs`:
+    `redaction_with_flow_object_ref_flips_subject_to_redacted`,
+    `redaction_with_morph_object_ref_flips_subject_to_redacted`,
+    `redaction_against_already_redacted_flow_rejects`,
+    `redaction_against_already_redacted_morph_rejects`. Each asserts
+    the canonical reason code in the error AND that the failed
+    reducer write left no side effects.
+
+- **Spec references**:
+  - `common-fields.md §5.1` redaction row — `cx.<kind>.redact` /
+    `cx.redaction` source MUST be `active|archived`, target `redacted`,
+    reject with `<kind>_already_terminal`.
+  - `common-fields.md §5.1` "终态等价" — `tombstoned` / `deleted` /
+    `redacted` are equivalent unrecoverable terminals.
+  - Spec note "Place 没有 redacted" — Place removal goes through
+    `cx.place.tombstone` instead of `cx.redaction`.
+
+- **Out of scope (follow-up)**:
+  - **un-redaction for Flow / Morph** — `cx.message.redact` supports
+    a `redaction_value: null` un-redact path for messages. Flow /
+    Morph `Redacted` is a terminal state by spec, so the current
+    behaviour (no un-redact path) is correct; no SDK change needed.
+  - **Place redaction via `cx.redaction`** — see above. Future spec
+    tightening may add a dedicated `cx.place.redact` path; not in v1.
+
 ### Tightened — Archive / tombstone / update source-state guards (2026-05-16)
 
 Completes spec `common-fields.md §5.1` canonical state-transition table

@@ -114,6 +114,43 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
             .into_iter()
             .map(str::to_owned)
             .collect(),
+        // Round 12 — Flow track sub-events. All four require `flow_id` +
+        // `track_id`; `track.update` additionally requires `patch` (the
+        // FlowTrackConfig fields to merge).
+        OP_FLOW_TRACK_DISABLE | OP_FLOW_TRACK_ENABLE | OP_FLOW_TRACK_SET_PRIMARY => {
+            vec!["flow_id".to_owned(), "track_id".to_owned()]
+        }
+        OP_FLOW_TRACK_UPDATE => {
+            vec!["flow_id".to_owned(), "track_id".to_owned(), "patch".to_owned()]
+        }
+        // Round 13 — Applet / Agent protocol-session sub-events. Mirrors
+        // soland round 14f wire validator (`src/routing/events/operations.rs`).
+        // Spec `extensions/applet-integration.md` + `agent-integration.md`.
+        OP_APPLET_REGISTRATION => {
+            vec!["service_did".to_owned(), "namespace".to_owned()]
+        }
+        OP_APPLET_DISCOVERY => vec!["service_did".to_owned(), "manifest".to_owned()],
+        OP_APPLET_PROTOCOL_SESSION_START => {
+            vec!["applet_id".to_owned(), "session_id".to_owned()]
+        }
+        OP_APPLET_PROTOCOL_SESSION_STATUS => {
+            vec!["session_id".to_owned(), "status".to_owned()]
+        }
+        OP_APPLET_BRIDGE_ERROR => vec!["session_id".to_owned(), "errcode".to_owned()],
+        OP_AGENT_ENDPOINT => vec!["agent_did".to_owned(), "protocol".to_owned()],
+        OP_AGENT_PROTOCOL_SESSION_START => vec![
+            "agent_did".to_owned(),
+            "session_id".to_owned(),
+            "capability_proof".to_owned(),
+        ],
+        OP_AGENT_PROTOCOL_SESSION_STATUS => {
+            vec!["session_id".to_owned(), "status".to_owned()]
+        }
+        OP_AGENT_PROTOCOL_SESSION_RESULT => vec![
+            "session_id".to_owned(),
+            "result".to_owned(),
+            "audit_binding".to_owned(),
+        ],
         OP_MORPH_CREATE => vec!["object".to_owned()],
         OP_MORPH_UPDATE => vec!["morph_id".to_owned(), "patch".to_owned()],
         OP_MORPH_ARCHIVE | OP_MORPH_RESTORE => vec!["morph_id".to_owned()],

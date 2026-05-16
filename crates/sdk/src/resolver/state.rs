@@ -176,6 +176,10 @@ impl SpaceState {
             OP_FLOW_ARCHIVE => self.archive_flow(event)?,
             OP_FLOW_RESTORE => self.restore_flow(event)?,
             OP_FLOW_MOVE | OP_FLOW_REORDER => self.touch_flow(event)?,
+            OP_FLOW_TRACK_ENABLE => self.enable_flow_track(event)?,
+            OP_FLOW_TRACK_DISABLE => self.disable_flow_track(event)?,
+            OP_FLOW_TRACK_UPDATE => self.update_flow_track(event)?,
+            OP_FLOW_TRACK_SET_PRIMARY => self.set_primary_flow_track(event)?,
 
             OP_MORPH_CREATE => self.create_morph(event)?,
             OP_MORPH_UPDATE => self.update_morph(event)?,
@@ -248,8 +252,16 @@ impl SpaceState {
             "cx.space.upgrade" => self.upgrade_space(event)?,
             "cx.space.tombstone" => self.tombstone_space(event)?,
 
-            // Generic redaction
+            // Generic redaction. Round 11 (2026-05-16): also flips Flow /
+            // Morph subject state to Redacted per spec common-fields.md
+            // §5.1 when the event content carries an `object_ref` (or
+            // fallback `target_object_ref`) pointing to a `cx:flow:` /
+            // `cx:morph:` typed-id. State-machine guard rejects
+            // already-terminal source with `<kind>_already_terminal`.
+            // Place is excluded — spec note "Place 没有 redacted" routes
+            // Place removal through `cx.place.tombstone` only.
             "cx.redaction" => {
+                self.redact_object_for_event(event)?;
                 if let Some(redacted_ref) = &event.redacts {
                     self.redact_event(redacted_ref)?;
                 }
@@ -861,6 +873,130 @@ impl SpaceState {
         Ok(())
     }
 
+    // ── Round 12 (2026-05-16): Flow track sub-events ──
+    // All four require Flow's parent state == Active per spec
+    // common-fields.md §5.1 update-on-non-active rule (track mutations
+    // are a kind of update). Helper `extract_flow_track_id` extracts the
+    // track name from event.content; reuses same `flow_id` extraction
+    // as the other Flow handlers.
+
+    fn extract_flow_track_id(&self, content: &Value) -> Result<String> {
+        self.extract_optional_field::<String>(content, "track_id")
+            .or_else(|| self.extract_optional_field::<String>(content, "track_name"))
+            .ok_or_else(|| {
+                Error::Protocol("flow track event requires track_id".to_owned())
+            })
+    }
+
+    /// Reducer for `cx.flow.track.enable`: insert a `FlowTrackConfig`
+    /// entry into `Flow.tracks` keyed by `track_id`. If the track
+    /// already exists, this is a no-op on the config but still bumps
+    /// `updated_at` (so backfill / re-enable events leave an audit
+    /// trail). Spec common-fields.md §5.1 update-on-non-active rule:
+    /// reject `flow_not_active` if Flow's state != Active. Unknown
+    /// Flow tolerated (causal / backfill).
+    fn enable_flow_track(&mut self, event: &Event) -> Result<()> {
+        let flow_id_str = self.extract_flow_id(&event.content)?;
+        let track_id = self.extract_flow_track_id(&event.content)?;
+        let Some(subject) = self.subjects.get_mut(&flow_id_str) else {
+            return Ok(());
+        };
+        if subject.state != Some(crate::ObjectState::Active) {
+            return Err(Error::Protocol("flow_not_active".to_owned()));
+        }
+        crate::validate_flow_track_name(&track_id)?;
+        subject
+            .tracks
+            .entry(track_id)
+            .or_insert_with(crate::FlowTrackConfig::default);
+        subject.updated_by = Some(event.actor_id.clone());
+        subject.updated_at = Some(event.created_at);
+        Ok(())
+    }
+
+    /// Reducer for `cx.flow.track.disable`: remove the named track from
+    /// `Flow.tracks`. Same state guard as enable; unknown Flow / unknown
+    /// track tolerated.
+    fn disable_flow_track(&mut self, event: &Event) -> Result<()> {
+        let flow_id_str = self.extract_flow_id(&event.content)?;
+        let track_id = self.extract_flow_track_id(&event.content)?;
+        let Some(subject) = self.subjects.get_mut(&flow_id_str) else {
+            return Ok(());
+        };
+        if subject.state != Some(crate::ObjectState::Active) {
+            return Err(Error::Protocol("flow_not_active".to_owned()));
+        }
+        subject.tracks.remove(&track_id);
+        subject.updated_by = Some(event.actor_id.clone());
+        subject.updated_at = Some(event.created_at);
+        Ok(())
+    }
+
+    /// Reducer for `cx.flow.track.update`: patch `FlowTrackConfig`
+    /// fields on the named track. Reads `patch` object from event
+    /// content; merges `is_primary` / `profile` / `template` / `fields`.
+    /// Unknown track is created (matches existing `update_flow` patch
+    /// semantics for fields that didn't exist before).
+    fn update_flow_track(&mut self, event: &Event) -> Result<()> {
+        let flow_id_str = self.extract_flow_id(&event.content)?;
+        let track_id = self.extract_flow_track_id(&event.content)?;
+        crate::validate_flow_track_name(&track_id)?;
+        // Take patch first (immutable self borrow) before grabbing the
+        // mutable subject reference — borrow checker otherwise rejects.
+        let patch = self
+            .extract_optional_field::<BTreeMap<String, Value>>(&event.content, "patch")
+            .unwrap_or_default();
+        let Some(subject) = self.subjects.get_mut(&flow_id_str) else {
+            return Ok(());
+        };
+        if subject.state != Some(crate::ObjectState::Active) {
+            return Err(Error::Protocol("flow_not_active".to_owned()));
+        }
+        let track = subject.tracks.entry(track_id).or_insert_with(crate::FlowTrackConfig::default);
+        if let Some(value) = patch.get("is_primary").and_then(|v| v.as_bool()) {
+            track.is_primary = Some(value);
+        }
+        if let Some(value) = patch.get("profile").and_then(|v| v.as_str()) {
+            track.profile = Some(value.to_owned());
+        }
+        if let Some(value) = patch.get("template").and_then(|v| v.as_str()) {
+            track.template = Some(value.to_owned());
+        }
+        if let Some(fields) = patch.get("fields").and_then(|v| v.as_object()) {
+            for (k, v) in fields {
+                track.fields.insert(k.clone(), v.clone());
+            }
+        }
+        subject.updated_by = Some(event.actor_id.clone());
+        subject.updated_at = Some(event.created_at);
+        Ok(())
+    }
+
+    /// Reducer for `cx.flow.track.set_primary`: clear `is_primary` on
+    /// every track in `Flow.tracks`, then set it on the named track.
+    /// Validates the named track exists; if it doesn't, this is a no-op
+    /// on tracks but still bumps `updated_at` (causal tolerance).
+    fn set_primary_flow_track(&mut self, event: &Event) -> Result<()> {
+        let flow_id_str = self.extract_flow_id(&event.content)?;
+        let track_id = self.extract_flow_track_id(&event.content)?;
+        let Some(subject) = self.subjects.get_mut(&flow_id_str) else {
+            return Ok(());
+        };
+        if subject.state != Some(crate::ObjectState::Active) {
+            return Err(Error::Protocol("flow_not_active".to_owned()));
+        }
+        crate::validate_flow_track_name(&track_id)?;
+        for (_, track) in subject.tracks.iter_mut() {
+            track.is_primary = Some(false);
+        }
+        if let Some(track) = subject.tracks.get_mut(&track_id) {
+            track.is_primary = Some(true);
+        }
+        subject.updated_by = Some(event.actor_id.clone());
+        subject.updated_at = Some(event.created_at);
+        Ok(())
+    }
+
     /// Move a relation by updating its endpoints.
     fn move_relation(&mut self, event: &Event) -> Result<()> {
         let relation_id_str = self.extract_relation_id(&event.content)?;
@@ -1085,6 +1221,56 @@ impl SpaceState {
                 event.unsigned.clear();
             }
         }
+        Ok(())
+    }
+
+    /// Round 11 (2026-05-16) — Object-level redaction state-machine
+    /// guard for `cx.redaction` events. Looks at the redaction event's
+    /// content for `object_ref` (or fallback `target_object_ref`), and
+    /// when that points to a Flow / Morph subject, flips the projection
+    /// state to `ObjectState::Redacted` per spec common-fields.md §5.1.
+    /// Source state MUST be `Active` or `Archived`; terminal source
+    /// (`Deleted` / `Redacted`) MUST `failed_precondition` with
+    /// `<kind>_already_terminal`. Unknown subject is tolerated (causal /
+    /// backfill window — same convention as restore guards). Returns
+    /// `Ok(())` for redactions without `object_ref` (message-only path).
+    /// Place is intentionally excluded because `PlaceState` has no
+    /// `Redacted` variant — spec routes Place removal through
+    /// `cx.place.tombstone` instead.
+    fn redact_object_for_event(&mut self, event: &Event) -> Result<()> {
+        let Some(object_ref) = self
+            .extract_optional_field::<String>(&event.content, "object_ref")
+            .or_else(|| self.extract_optional_field::<String>(&event.content, "target_object_ref"))
+        else {
+            return Ok(());
+        };
+        if let Some(subject) = self.subjects.get_mut(&object_ref) {
+            match subject.state {
+                Some(crate::ObjectState::Active) | Some(crate::ObjectState::Archived) => {}
+                _ => return Err(Error::Protocol("flow_already_terminal".to_owned())),
+            }
+            subject.state = Some(crate::ObjectState::Redacted);
+            subject.state_changed_at = Some(event.created_at);
+            subject.updated_by = Some(event.actor_id.clone());
+            subject.updated_at = Some(event.created_at);
+            return Ok(());
+        }
+        if let Some(morph) = self.morphs.get_mut(&object_ref) {
+            match morph.state {
+                Some(crate::ObjectState::Active) | Some(crate::ObjectState::Archived) => {}
+                _ => return Err(Error::Protocol("morph_already_terminal".to_owned())),
+            }
+            morph.state = Some(crate::ObjectState::Redacted);
+            morph.updated_by = Some(event.actor_id.clone());
+            morph.updated_at = Some(event.created_at);
+            return Ok(());
+        }
+        // Unknown object — causal / backfill window. Tolerate silently
+        // (mirrors restore_*/archive_* guards). Note that Place is also
+        // hit here when `object_ref` is `cx:place:...` and Place is
+        // unmaterialised; that's also fine because cx.redaction targeting
+        // a Place is undefined per spec (no `Redacted` variant), and
+        // any place removal flow uses `cx.place.tombstone` directly.
         Ok(())
     }
 
