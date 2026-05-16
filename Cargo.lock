@@ -475,6 +475,7 @@ dependencies = [
  "ulid",
  "url",
  "uuid",
+ "x25519-dalek",
 ]
 
 [[package]]
