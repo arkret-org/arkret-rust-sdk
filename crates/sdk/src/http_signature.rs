@@ -110,6 +110,31 @@ pub enum SignatureError {
     InvalidPublicKey,
 }
 
+/// Policy-layer failures after the RFC 9421 headers have parsed.
+///
+/// [`SignatureError`] covers syntax, canonicalization and Ed25519 math. This
+/// error covers deployment/profile policy: the minimum covered components,
+/// digest presence and accepted `created` / `expires` window.
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum SignaturePolicyError {
+    /// The signature did not cover every component required by the caller.
+    #[error("signature input does not cover every required component")]
+    MissingRequiredCoveredComponent,
+    /// The profile requires a `Content-Digest` header and the caller did not
+    /// supply one.
+    #[error("content-digest header is required by signature policy")]
+    MissingContentDigest,
+    /// `expires` is earlier than `created`.
+    #[error("signature validity window is invalid")]
+    InvalidValidityWindow,
+    /// `created` is too far in the future for the accepted clock skew.
+    #[error("signature was created in the future")]
+    CreatedInFuture,
+    /// `expires` is older than the accepted clock skew.
+    #[error("signature has expired")]
+    Expired,
+}
+
 // =====================================================================
 // SignatureInput — parsed `Signature-Input` header
 // =====================================================================
@@ -204,6 +229,82 @@ impl SignatureInput {
         let covered: BTreeSet<String> =
             self.covered_components.iter().map(Component::canonical_name).collect();
         required.iter().all(|c| covered.contains(&c.canonical_name()))
+    }
+}
+
+/// HTTP Message Signature profile policy shared by services such as floria and
+/// teabay.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SignatureVerificationPolicy {
+    required_components: Vec<Component>,
+    require_content_digest: bool,
+    max_clock_skew_seconds: i64,
+}
+
+impl SignatureVerificationPolicy {
+    /// Build a policy with an explicit required-component set.
+    pub fn new(required_components: impl Into<Vec<Component>>) -> Self {
+        Self {
+            required_components: required_components.into(),
+            require_content_digest: true,
+            max_clock_skew_seconds: 5,
+        }
+    }
+
+    /// Minimal Contrix service-ingest policy: method, absolute target URI,
+    /// authority and content digest must all be covered.
+    pub fn service_ingest() -> Self {
+        Self::new(vec![
+            Component::Method,
+            Component::TargetUri,
+            Component::Authority,
+            Component::Header("content-digest".to_owned()),
+        ])
+    }
+
+    /// Require a `Content-Digest` header independently of whether the signature
+    /// declares `content-digest` as a covered component.
+    pub fn require_content_digest(mut self, require: bool) -> Self {
+        self.require_content_digest = require;
+        self
+    }
+
+    /// Configure accepted clock skew around `created` and `expires`.
+    pub fn max_clock_skew_seconds(mut self, seconds: i64) -> Self {
+        self.max_clock_skew_seconds = seconds.max(0);
+        self
+    }
+
+    /// Validate the policy against a parsed [`SignatureInput`].
+    ///
+    /// `content_digest_header` is the raw `Content-Digest` header value, if the
+    /// transport supplied one. Callers should still parse and verify the digest
+    /// bytes with [`ContentDigest::parse`] and [`verify_content_digest`].
+    pub fn validate(
+        &self,
+        signature_input: &SignatureInput,
+        content_digest_header: Option<&str>,
+        now_unix_seconds: i64,
+    ) -> Result<(), SignaturePolicyError> {
+        if !signature_input.covers_all(&self.required_components) {
+            return Err(SignaturePolicyError::MissingRequiredCoveredComponent);
+        }
+        if self.require_content_digest
+            && content_digest_header.is_none_or(|value| value.trim().is_empty())
+        {
+            return Err(SignaturePolicyError::MissingContentDigest);
+        }
+        if signature_input.expires < signature_input.created {
+            return Err(SignaturePolicyError::InvalidValidityWindow);
+        }
+        let skew = self.max_clock_skew_seconds;
+        if signature_input.created > now_unix_seconds.saturating_add(skew) {
+            return Err(SignaturePolicyError::CreatedInFuture);
+        }
+        if signature_input.expires < now_unix_seconds.saturating_sub(skew) {
+            return Err(SignaturePolicyError::Expired);
+        }
+        Ok(())
     }
 }
 
@@ -611,6 +712,40 @@ mod tests {
             Component::Header("content-digest".to_owned()),
         ]));
         assert!(!parsed.covers_all(&[Component::Header("x-nope".to_owned())]));
+    }
+
+    #[test]
+    fn signature_policy_enforces_digest_components_and_time_window() {
+        let policy = SignatureVerificationPolicy::service_ingest();
+        let now = 1_715_990_010;
+        let valid = parse_signature_input(&floria_signature_input(now - 1, now + 30)).unwrap();
+        policy
+            .validate(&valid, Some("sha-256=:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=:"), now)
+            .expect("valid policy input passes");
+
+        let missing_digest = parse_signature_input(
+            "sig1=(\"@method\" \"@target-uri\" \"@authority\");created=1715990000;expires=1715990030;keyid=\"did:web:sync.example.com#push\";alg=\"ed25519\"",
+        )
+        .unwrap();
+        assert_eq!(
+            policy.validate(&missing_digest, Some("sha-256=:x=:"), now),
+            Err(SignaturePolicyError::MissingRequiredCoveredComponent)
+        );
+        assert_eq!(
+            policy.validate(&valid, None, now),
+            Err(SignaturePolicyError::MissingContentDigest)
+        );
+
+        let future = parse_signature_input(&floria_signature_input(now + 10, now + 30)).unwrap();
+        assert_eq!(
+            policy.validate(&future, Some("sha-256=:x=:"), now),
+            Err(SignaturePolicyError::CreatedInFuture)
+        );
+        let expired = parse_signature_input(&floria_signature_input(now - 30, now - 10)).unwrap();
+        assert_eq!(
+            policy.validate(&expired, Some("sha-256=:x=:"), now),
+            Err(SignaturePolicyError::Expired)
+        );
     }
 
     #[test]

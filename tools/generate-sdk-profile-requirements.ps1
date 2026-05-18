@@ -7,8 +7,9 @@ param(
 # contrix-spec/spec/v1/artifacts/profiles/conformance-profiles.json.
 #
 # Mirrors the style of tools/generate-sdk-profile-constants.ps1 but produces a
-# richer module exposing per-profile required operations / event kinds /
-# schemas / constraint kinds together with a structured validator.
+# richer module exposing per-profile inheritance, required operations / event
+# kinds / schemas / fixtures / features / capability actions / cells /
+# constraint kinds together with a structured validator.
 #
 # The artifact field `required_endpoints` is surfaced as `required_operations`
 # to match the rest of the Contrix SDK vocabulary (operation registry, etc).
@@ -91,6 +92,8 @@ $lines.Add('//! `required_operations` corresponds to the artifact field `require
 $lines.Add('//! `required_constraint_kinds` is the sorted union of the artifact fields') | Out-Null
 $lines.Add('//! `required_constraint_types`, `required_constraint_subtypes`, and any') | Out-Null
 $lines.Add('//! explicit `required_constraint_kinds` entries.') | Out-Null
+$lines.Add('//! Additional profile-gate fields are surfaced verbatim so services and') | Out-Null
+$lines.Add('//! conformance tests do not need to parse the JSON artifact directly.') | Out-Null
 $lines.Add("") | Out-Null
 $lines.Add("use std::collections::BTreeMap;") | Out-Null
 $lines.Add("use std::sync::LazyLock;") | Out-Null
@@ -99,9 +102,16 @@ $lines.Add("/// Frozen requirement set for a conformance profile.") | Out-Null
 $lines.Add("#[derive(Clone, Copy, Debug, PartialEq, Eq)]") | Out-Null
 $lines.Add("pub struct ProfileRequirements {") | Out-Null
 $lines.Add("    pub profile_id: &'static str,") | Out-Null
+$lines.Add("    pub inherits: &'static [&'static str],") | Out-Null
 $lines.Add("    pub required_operations: &'static [&'static str],") | Out-Null
 $lines.Add("    pub required_event_kinds: &'static [&'static str],") | Out-Null
 $lines.Add("    pub required_schemas: &'static [&'static str],") | Out-Null
+$lines.Add("    pub rejected_event_kinds: &'static [&'static str],") | Out-Null
+$lines.Add("    pub required_fixtures: &'static [&'static str],") | Out-Null
+$lines.Add("    pub required_capability_actions: &'static [&'static str],") | Out-Null
+$lines.Add("    pub required_features: &'static [&'static str],") | Out-Null
+$lines.Add("    pub required_cell_namespaces: &'static [&'static str],") | Out-Null
+$lines.Add("    pub required_cells: &'static [&'static str],") | Out-Null
 $lines.Add("    pub required_constraint_kinds: &'static [&'static str],") | Out-Null
 $lines.Add("}") | Out-Null
 $lines.Add("") | Out-Null
@@ -112,9 +122,16 @@ $lines.Add("        let mut map: BTreeMap<&'static str, ProfileRequirements> = B
 
 foreach ($profileId in $profileIds) {
     $entry = $artifact.profile_requirements.$profileId
+    $inherits = Sort-Ordinal -Values (Get-StringArray -Source $entry -Field 'inherits')
     $required_operations = Sort-Ordinal -Values (Get-StringArray -Source $entry -Field 'required_endpoints')
     $required_event_kinds = Sort-Ordinal -Values (Get-StringArray -Source $entry -Field 'required_event_kinds')
     $required_schemas = Sort-Ordinal -Values (Get-StringArray -Source $entry -Field 'required_schemas')
+    $rejected_event_kinds = Sort-Ordinal -Values (Get-StringArray -Source $entry -Field 'rejected_event_kinds')
+    $required_fixtures = Sort-Ordinal -Values (Get-StringArray -Source $entry -Field 'required_fixtures')
+    $required_capability_actions = Sort-Ordinal -Values (Get-StringArray -Source $entry -Field 'required_capability_actions')
+    $required_features = Sort-Ordinal -Values (Get-StringArray -Source $entry -Field 'required_features')
+    $required_cell_namespaces = Sort-Ordinal -Values (Get-StringArray -Source $entry -Field 'required_cell_namespaces')
+    $required_cells = Sort-Ordinal -Values (Get-StringArray -Source $entry -Field 'required_cells')
     $constraint_types = Get-StringArray -Source $entry -Field 'required_constraint_types'
     $constraint_subtypes = Get-StringArray -Source $entry -Field 'required_constraint_subtypes'
     $constraint_kinds_field = Get-StringArray -Source $entry -Field 'required_constraint_kinds'
@@ -129,9 +146,16 @@ foreach ($profileId in $profileIds) {
     $lines.Add("            `"$escapedId`",") | Out-Null
     $lines.Add("            ProfileRequirements {") | Out-Null
     $lines.Add("                profile_id: `"$escapedId`",") | Out-Null
+    $lines.Add("                inherits: " + (Format-RustStrSlice -Values $inherits -Indent 16) + ",") | Out-Null
     $lines.Add("                required_operations: " + (Format-RustStrSlice -Values $required_operations -Indent 16) + ",") | Out-Null
     $lines.Add("                required_event_kinds: " + (Format-RustStrSlice -Values $required_event_kinds -Indent 16) + ",") | Out-Null
     $lines.Add("                required_schemas: " + (Format-RustStrSlice -Values $required_schemas -Indent 16) + ",") | Out-Null
+    $lines.Add("                rejected_event_kinds: " + (Format-RustStrSlice -Values $rejected_event_kinds -Indent 16) + ",") | Out-Null
+    $lines.Add("                required_fixtures: " + (Format-RustStrSlice -Values $required_fixtures -Indent 16) + ",") | Out-Null
+    $lines.Add("                required_capability_actions: " + (Format-RustStrSlice -Values $required_capability_actions -Indent 16) + ",") | Out-Null
+    $lines.Add("                required_features: " + (Format-RustStrSlice -Values $required_features -Indent 16) + ",") | Out-Null
+    $lines.Add("                required_cell_namespaces: " + (Format-RustStrSlice -Values $required_cell_namespaces -Indent 16) + ",") | Out-Null
+    $lines.Add("                required_cells: " + (Format-RustStrSlice -Values $required_cells -Indent 16) + ",") | Out-Null
     $lines.Add("                required_constraint_kinds: " + (Format-RustStrSlice -Values $required_constraint_kinds -Indent 16) + ",") | Out-Null
     $lines.Add("            },") | Out-Null
     $lines.Add("        );") | Out-Null

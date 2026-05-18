@@ -23,11 +23,27 @@ pub struct SpecArtifactBundle {
 pub struct ProfileRequirement {
     pub profile_id: String,
     #[serde(default)]
+    pub inherits: Vec<String>,
+    #[serde(default)]
     pub required_endpoints: Vec<String>,
     #[serde(default)]
     pub required_event_kinds: Vec<String>,
     #[serde(default)]
     pub required_schemas: Vec<String>,
+    #[serde(default)]
+    pub rejected_event_kinds: Vec<String>,
+    #[serde(default)]
+    pub required_fixtures: Vec<String>,
+    #[serde(default)]
+    pub required_capability_actions: Vec<String>,
+    #[serde(default)]
+    pub required_features: Vec<String>,
+    #[serde(default)]
+    pub required_cell_namespaces: Vec<String>,
+    #[serde(default)]
+    pub required_cells: Vec<String>,
+    #[serde(default)]
+    pub required_constraint_kinds: Vec<String>,
 }
 
 /// Criticality level a receiver applies when it does not recognise an event's
@@ -168,9 +184,25 @@ impl SpecArtifactBundle {
         };
         Ok(Some(ProfileRequirement {
             profile_id: profile_id.to_owned(),
+            inherits: optional_string_array(entry, "inherits", profile_id)?,
             required_endpoints: optional_string_array(entry, "required_endpoints", profile_id)?,
             required_event_kinds: optional_string_array(entry, "required_event_kinds", profile_id)?,
             required_schemas: optional_string_array(entry, "required_schemas", profile_id)?,
+            rejected_event_kinds: optional_string_array(entry, "rejected_event_kinds", profile_id)?,
+            required_fixtures: optional_string_array(entry, "required_fixtures", profile_id)?,
+            required_capability_actions: optional_string_array(
+                entry,
+                "required_capability_actions",
+                profile_id,
+            )?,
+            required_features: optional_string_array(entry, "required_features", profile_id)?,
+            required_cell_namespaces: optional_string_array(
+                entry,
+                "required_cell_namespaces",
+                profile_id,
+            )?,
+            required_cells: optional_string_array(entry, "required_cells", profile_id)?,
+            required_constraint_kinds: profile_required_constraint_kinds(entry, profile_id)?,
         }))
     }
 
@@ -607,6 +639,15 @@ fn optional_string_array(value: &Value, field: &str, profile_id: &str) -> Result
         })?;
         out.push(text.to_owned());
     }
+    Ok(out)
+}
+
+fn profile_required_constraint_kinds(value: &Value, profile_id: &str) -> Result<Vec<String>> {
+    let mut out = optional_string_array(value, "required_constraint_kinds", profile_id)?;
+    out.extend(optional_string_array(value, "required_constraint_types", profile_id)?);
+    out.extend(optional_string_array(value, "required_constraint_subtypes", profile_id)?);
+    out.sort();
+    out.dedup();
     Ok(out)
 }
 
