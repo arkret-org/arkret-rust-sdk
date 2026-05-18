@@ -477,9 +477,11 @@ impl AuthzEngine {
                     };
                 }
                 if let Some(recurrence) = recurrence
-                    && let Err(reason) = recurrence_allows(ctx.now, recurrence)
+                    && let Err(err) = recurrence_allows(ctx.now, recurrence)
                 {
-                    return AuthzDecision::Deny { reason };
+                    // Render structured ConstraintParseError via Display so the
+                    // public deny reason stays byte-equivalent with v0.
+                    return AuthzDecision::Deny { reason: err.to_string() };
                 }
                 AuthzDecision::Allow
             }

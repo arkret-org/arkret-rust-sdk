@@ -3,6 +3,7 @@ use super::snapshot::{
     patch_state, patch_string, place_state_from_str, state_hash_payload, state_merkle_root,
 };
 use super::*;
+use crate::events::kinds::FLOW_TRACKS_UPDATE as OP_FLOW_TRACKS_UPDATE;
 
 /// Current state of a Space.
 #[derive(Clone, Debug)]
@@ -179,6 +180,7 @@ impl SpaceState {
             OP_FLOW_TRACK_ENABLE => self.enable_flow_track(event)?,
             OP_FLOW_TRACK_DISABLE => self.disable_flow_track(event)?,
             OP_FLOW_TRACK_UPDATE => self.update_flow_track(event)?,
+            OP_FLOW_TRACKS_UPDATE => self.update_flow_tracks(event)?,
             OP_FLOW_TRACK_SET_PRIMARY => self.set_primary_flow_track(event)?,
 
             OP_MORPH_CREATE => self.create_morph(event)?,
@@ -297,6 +299,11 @@ impl SpaceState {
             schema: crate::MORPH_SCHEMA.to_owned(),
             id: morph_id_str.clone(),
             space_id: event.space_id.clone(),
+            // TODO(C47 Lane A4): once the resolver consumes `cx.morph.create`
+            // payloads that include `schema_refs[]`, plumb them through here.
+            // For now we hand back an empty set; reducer-side
+            // `cx.morph.schema_migrate` enforcement is still TODO.
+            schema_refs: Vec::new(),
             morph_type,
             facets,
             title,
@@ -966,6 +973,49 @@ impl SpaceState {
             for (k, v) in fields {
                 track.fields.insert(k.clone(), v.clone());
             }
+        }
+        subject.updated_by = Some(event.actor_id.clone());
+        subject.updated_at = Some(event.created_at);
+        Ok(())
+    }
+
+    /// Reducer for canonical `cx.flow.tracks.update`: merge a batch of
+    /// `FlowTrackConfig` entries into `Flow.tracks`. Accepts either a top-level
+    /// `tracks` map or `patch.tracks`.
+    fn update_flow_tracks(&mut self, event: &Event) -> Result<()> {
+        let flow_id_str = self.extract_flow_id(&event.content)?;
+        let mut tracks = self
+            .extract_optional_field::<BTreeMap<String, crate::FlowTrackConfig>>(
+                &event.content,
+                "tracks",
+            )
+            .unwrap_or_default();
+
+        if let Some(patch_tracks) = self
+            .extract_optional_field::<BTreeMap<String, Value>>(&event.content, "patch")
+            .and_then(|patch| patch.get("tracks").cloned())
+            .and_then(|value| {
+                serde_json::from_value::<BTreeMap<String, crate::FlowTrackConfig>>(value).ok()
+            })
+        {
+            tracks.extend(patch_tracks);
+        }
+
+        if tracks.is_empty() {
+            return Err(Error::Protocol("flow tracks update requires tracks".to_owned()));
+        }
+        for track_id in tracks.keys() {
+            crate::validate_flow_track_name(track_id)?;
+        }
+
+        let Some(subject) = self.subjects.get_mut(&flow_id_str) else {
+            return Ok(());
+        };
+        if subject.state != Some(crate::ObjectState::Active) {
+            return Err(Error::Protocol("flow_not_active".to_owned()));
+        }
+        for (track_id, track) in tracks {
+            subject.tracks.insert(track_id, track);
         }
         subject.updated_by = Some(event.actor_id.clone());
         subject.updated_at = Some(event.created_at);

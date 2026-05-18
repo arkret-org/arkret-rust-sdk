@@ -106,11 +106,7 @@ impl SnapshotChunker {
         let mut out = Vec::with_capacity(bytes.len().div_ceil(self.target_chunk_bytes));
         for (chunk_id, slice) in bytes.chunks(self.target_chunk_bytes).enumerate() {
             let digest = sha256_hash(slice);
-            out.push(SnapshotChunk {
-                chunk_id: chunk_id as u32,
-                bytes: slice.to_vec(),
-                digest,
-            });
+            out.push(SnapshotChunk { chunk_id: chunk_id as u32, bytes: slice.to_vec(), digest });
         }
         out
     }
@@ -520,13 +516,7 @@ mod tests {
             for (i, chunk) in cs.iter().enumerate() {
                 let path = tree.audit_path(i).unwrap();
                 assert!(
-                    SnapshotMerkleTree::verify(
-                        &root,
-                        &chunk.digest,
-                        i,
-                        &path,
-                        tree.tree_size()
-                    ),
+                    SnapshotMerkleTree::verify(&root, &chunk.digest, i, &path, tree.tree_size()),
                     "audit_path verification failed for n={n} leaf={i}"
                 );
             }
@@ -571,16 +561,9 @@ mod tests {
     fn generator_proof_body_digest_round_trips() {
         let state_root = Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap();
         let merkle_root = Hash::new(format!("sha256:{}", "cd".repeat(32))).unwrap();
-        let digest = GeneratorProof::body_digest(
-            &did(),
-            &space(),
-            &state_root,
-            &merkle_root,
-            42,
-            1024,
-            256,
-        )
-        .unwrap();
+        let digest =
+            GeneratorProof::body_digest(&did(), &space(), &state_root, &merkle_root, 42, 1024, 256)
+                .unwrap();
 
         let proof = GeneratorProof {
             generator_did: did(),
@@ -618,26 +601,10 @@ mod tests {
     fn generator_proof_changing_chunk_count_changes_digest() {
         let state_root = Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap();
         let merkle_root = Hash::new(format!("sha256:{}", "cd".repeat(32))).unwrap();
-        let d1 = GeneratorProof::body_digest(
-            &did(),
-            &space(),
-            &state_root,
-            &merkle_root,
-            1,
-            4,
-            4,
-        )
-        .unwrap();
-        let d2 = GeneratorProof::body_digest(
-            &did(),
-            &space(),
-            &state_root,
-            &merkle_root,
-            2,
-            4,
-            4,
-        )
-        .unwrap();
+        let d1 = GeneratorProof::body_digest(&did(), &space(), &state_root, &merkle_root, 1, 4, 4)
+            .unwrap();
+        let d2 = GeneratorProof::body_digest(&did(), &space(), &state_root, &merkle_root, 2, 4, 4)
+            .unwrap();
         assert_ne!(d1, d2, "chunk_count must be in the canonical bytes");
     }
 
@@ -645,16 +612,9 @@ mod tests {
     fn generator_proof_serializes_with_all_fields() {
         let state_root = Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap();
         let merkle_root = Hash::new(format!("sha256:{}", "cd".repeat(32))).unwrap();
-        let digest = GeneratorProof::body_digest(
-            &did(),
-            &space(),
-            &state_root,
-            &merkle_root,
-            3,
-            12,
-            4,
-        )
-        .unwrap();
+        let digest =
+            GeneratorProof::body_digest(&did(), &space(), &state_root, &merkle_root, 3, 12, 4)
+                .unwrap();
         let proof = GeneratorProof {
             generator_did: did(),
             space_id: space(),

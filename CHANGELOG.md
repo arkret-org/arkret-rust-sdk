@@ -10,6 +10,305 @@ permitted; once `1.0` ships, breaking changes will require a major bump.
 
 ## [Unreleased]
 
+### Added — `authz::delegation` module (capability delegation chain check) (2026-05-18)
+
+- **`contrix::authz::delegation`** — new SDK-rooted home for capability
+  delegation primitives that were previously inlined in soland's
+  `AuthzEngine`. Hosts: `Grant` (runtime in-memory form), `GrantConstraint`,
+  `GrantRequest`, `DelegationError` enum (variants `ParentNotFound`,
+  `ParentRevoked`, `ParentExpired`, `NotGrantHolder`, `ActionsNotHeld {
+  offending: Vec<String> }`, `OverExpire`, `ResourceOutOfScope`), and the
+  pure helpers `delegation_chain_intact`, `delegation_chain_intact_map`,
+  `create_delegated_grant`, `revoke_with_cascade`, `grant_effective_expiry`,
+  `is_grant_expired`, `resource_within`. All functions are pure (slice in,
+  decision out) so yougen and sodmin admin can pre-validate grant requests
+  client-side before submission — the existing soland HTTP handler keeps
+  the server-side enforcement contract unchanged via re-exports
+  (`pub use contrix_sdk::authz::delegation::{Grant, ...}`). Enforces
+  capabilities.md §10 (delegation MUST NOT widen actions, resources, or
+  expiry; non-holder MUST NOT re-delegate; chain breaks on any
+  revoked/expired ancestor) plus the BFS cascade contract.
+  Twelve new unit tests cover the happy path, parent-revoked, parent-expired,
+  over-expire (both later child expiry and child-unset-while-parent-set),
+  actions overreach (with stable-dedup of offending list), resource
+  out-of-scope, non-holder, parent-not-found, three-level chain with middle
+  revoke breaking both descendants, cascade BFS across a five-node tree
+  (two middles, two leaves; leaf-cascade is empty), and stricter-wins
+  selection between top-level `expires_at` and the temporal constraint
+  inside `constraints[]`. Note: the runtime `Grant` in this module is a
+  sibling of the wire-spec `CapabilityGrant` in `authz::grants` — the
+  former carries a stringly-typed `resource` for fast in-memory check,
+  the latter carries typed `ResourceSelector` entries for canonical
+  events. SDK-4; SDK lib 444 → 456 tests; soland lib 218/218 unchanged.
+
+### Added — `profile_requirements` codegen + validator (2026-05-18)
+
+- **`contrix_core::generated::profile_requirements`** — new generated
+  module exposing per-profile `ProfileRequirements`
+  (`required_operations` / `required_event_kinds` / `required_schemas`
+  / `required_constraint_kinds`) as a `LazyLock<BTreeMap<&'static
+  str, ProfileRequirements>>` keyed by `profile_id`. Built from
+  `contrix-spec/spec/v1/artifacts/profiles/conformance-profiles.json`
+  by a new `tools/generate-sdk-profile-requirements.ps1` that mirrors
+  the existing profile-ID constants generator. The module ships
+  `validate_profile_requirements` (returns
+  `ProfileRequirementsError::UnknownProfile` /
+  `MissingRequirements { missing_operations, missing_event_kinds,
+  missing_schemas }`) and a higher-level
+  `profile_compliance_report` (`ProfileComplianceReport` with both
+  satisfied + missing partitions, plus an `is_compliant()` helper).
+  Consumed by `soland describe` / `yougen claim` / `cotest gate` so
+  all three present the same compliance answer against the canonical
+  artifact. Eight new tests gate the module: a drift test that
+  re-parses the artifact and re-builds the requirement tuples in
+  memory then compares against the committed file, a
+  sorted-deduplicated invariant test (uses ordinal sort to match
+  Rust's `str::cmp`), and validator + report behavioural tests.
+  SDK-6.
+
+### Added — `identity::binding` module (DID key binding proof verify, Ed25519V1) (2026-05-18)
+
+- **`contrix::identity::binding`** — new SDK-rooted module hosting the
+  pure-protocol DID key binding proof primitive that coauth (and any
+  future consumer — yougen, cotest, starid) calls into for the
+  cryptographic verify step. Exposes:
+  - `BindingProofKind::Ed25519V1` (today; `WebAuthnCose` reserved).
+  - `BindingProof { kind, payload, signature, public_key }` wire
+    shape, `Serialize` / `Deserialize`.
+  - `verify_binding_proof(&proof, expected_subject)` — single
+    `Result<(), BindingError>` entry point. Checks payload-non-empty,
+    public-key / signature length, expected-subject-substring, and
+    Ed25519 verify. No I/O, no DID-doc resolve — composes under
+    higher-level envelopes (e.g. coauth's `cx.did_binding.control_proof.v1`
+    JWT) which extract `(payload, signature, public_key)` and delegate
+    the final crypto check.
+  - `derive_ed25519_from_seed(&[u8; 32]) -> SigningKey` — pure RFC 8032
+    seed → key, no passkey / OIDC coupling.
+  - `sign_binding_proof_ed25519` — symmetric counterpart for tests and
+    signer-side callers.
+  - `multicodec_ed25519_public_key(&VerifyingKey) -> String` and
+    `multicodec_ed25519_from_bytes(&[u8; 32]) -> String` — emit the
+    `z<base58btc(0xed01 || pubkey)>` form `did:key` and starid's
+    `update_keys` slot consume. Lower-level `_from_bytes` variant
+    serves opaque-32-byte-identifier callers (coauth's `passkey_derive`
+    hashes a COSE key down to 32 bytes and wears the Ed25519-pub
+    envelope per the v1 wire-up).
+  - `decode_multicodec_ed25519` — inverse of the above; validates `z`
+    prefix, `0xed 0x01` tag, and 34-byte envelope length.
+  - `BindingError` — `Unsupported` / `EmptyPayload` /
+    `PublicKeyLength` / `SignatureLength` / `SubjectMismatch` /
+    `SignatureMismatch` / `InvalidMulticodec` variants; all
+    deterministic from inputs.
+  - 8 new unit tests covering sign-then-verify round trip, tampered
+    signature, tampered payload, wrong subject, empty payload,
+    wrong-length keys / sigs, multicodec round trip + `z6Mk` prefix,
+    and multicodec decode rejection of three malformed-input families.
+  Closes SDK-10 from `_claude_todos.md`. Coauth's
+  `services::passkey_derive` swaps its inline multicodec encoder for
+  `multicodec_ed25519_from_bytes` in the COAUTH-2 follow-up; no
+  wire-byte changes (starid still accepts the same `z6Mk…` strings).
+
+### Added — `jws::sign_jws_ed25519` symmetric signer (2026-05-18)
+
+- **`contrix::jws::sign_jws_ed25519`** — new SDK-rooted detached
+  Ed25519 JWS signer. Symmetric counterpart of the existing
+  `verify_jws_ed25519`: a `verify` after a `sign` over the same
+  `canonical_bytes` (with a resolver that returns the matching public
+  key) always round-trips. Takes `(canonical_bytes, &SigningKey)` and
+  emits the wire string
+  `BASE64URL({"alg":"EdDSA"}) || ".." || BASE64URL(signature)` where
+  `signature = Ed25519(BASE64URL(header) || "." || BASE64URL(canonical_bytes))`,
+  matching RFC 7515 §3.2 detached form. Rejects empty payload bytes
+  with the same reason the verify path does, so an "empty payload"
+  caller fails fast at sign time. Five new tests cover the canonical
+  shape (3 segments, empty payload segment, exact header bytes,
+  64-byte signature), empty-payload rejection, ed25519 sign
+  determinism, sign-then-verify round trip through a single-key stub
+  resolver, and tampered-payload verify rejection. Soland's anchorer
+  (`src/anchorer.rs::signature_for`) drops its inline JWS
+  construction in favor of this helper so the wire bytes are produced
+  by exactly one implementation. SDK-1 sign side; pairs with the
+  earlier verify-side landing. Closes the SO-2 dependency from
+  `_claude_todos.md`.
+
+### Added — `canonical::canonical_digest` helper (2026-05-18)
+
+- **`contrix::canonical::canonical_digest`** — new one-liner that takes
+  already-canonicalized JSON bytes (e.g. produced via
+  `canonical_json_bytes`) and returns the wire-form
+  `sha256:<lowercase-hex>` digest used in event envelopes
+  (`canonical_digest` field), anchors, and policy-check payloads
+  (`request_canonical_hash`). Thin alias for `sha256_digest` kept
+  distinct so the call-site intent ("this is the wire-form canonical
+  digest") is self-documenting. Downstream services (soland
+  `wire.rs:560,793,816` Move/Anchor `canonical_hash` and
+  `request_canonical_hash` fields, plus yougen / floria / chime as
+  they migrate) call this so the same canonical bytes produce
+  byte-identical digest strings everywhere. SDK-2.
+
+### Added — `agent_binding::verify_audit_binding_by_kind` dispatcher (2026-05-18)
+
+- **`contrix::agent_binding::verify_audit_binding_by_kind`** — single
+  SDK entry point for verifying `cx.agent.protocol_session.result`
+  `audit_binding` blocks, dispatched by `binding_kind` so consumers
+  don't have to re-implement the scheme switch. Routes `ed25519_v1`
+  through the existing `verify_ed25519_audit_binding`; future schemes
+  plug in here so yougen / floria / cotest all pick them up
+  uniformly. New `AuditBindingVerifyOutcome` enum collapses the two
+  Ed25519 `Malformed*` outcomes into one and adds dispatcher-level
+  `Absent` / `Unsupported` states for the cases the scheme-specific
+  verifier never sees. Lifts the dispatch logic that previously lived
+  inline in yougen's `verify_agent_audit_binding`. SDK-5.
+
+### Moved — `default_lattice_registry()` from soland to SDK (2026-05-18)
+
+- **`contrix::lattice_registry`** — new SDK-rooted module owning the
+  cell-family `LatticeKind` trait + `LatticeRegistry` plus the
+  spec-normative cell-family bindings and the `default_lattice_registry`
+  / `build_sdk_cell_registry` / `lattice_bindings_for_sdk_registry`
+  factories. Lifted wholesale from `soland/src/reducer/{registry,
+  lattice_kinds}.rs` so yougen Move pre-check and cotest fixtures share
+  one canonical registry with soland's Move/Anchor receive pipeline (49
+  spec-declared cell families covered). Soland's two modules become
+  thin re-export shims; existing call sites
+  (`crate::reducer::registry::LatticeKind`,
+  `crate::reducer::lattice_kinds::default_lattice_registry()`,
+  `build_sdk_cell_registry()`) keep working without changes. Artifact
+  drift tests stay in soland (they consult `crate::artifacts::*`).
+  Intentionally NOT feature-gated so principal-server style consumers
+  pick it up without dragging in `full-surface`. SDK-8.
+
+### Added — `jws` module (RFC 7515 detached Ed25519) (2026-05-18)
+
+- **`contrix::jws`** — new SDK-rooted module consolidating the
+  RFC 7515 detached Ed25519 JWS verifier that previously lived in
+  `soland/src/jws_verify.rs`. Same wire bytes / same accept-reject
+  decision, now shared across every consumer (yougen, floria, cotest,
+  teabay, soland) so they all hit the same `Ok(()) / Err(reason)` for
+  the same `(canonical_bytes, jws, verification_method, issuer,
+  resolver)` tuple. Surfaces: `verify_jws_ed25519` (full pipeline:
+  shape + alg=EdDSA + DID resolve + ed25519-dalek verify, takes
+  `&dyn DidResolver` so callers pick the method chain),
+  `resolve_ed25519_pubkey` (DID URL → `VerifyingKey`, fragment-fallback
+  + single-key shortcut for did:key documents),
+  `verify_replay_window` / `verify_replay_window_at` (HLC freshness
+  bounding, injectable wall-clock for tests),
+  `verify_replay_window_for_move` / `verify_replay_window_for_move_at`
+  (per-cell-family override picking the tightest applicable window),
+  `effective_window_for_move`, `physical_millis_from_hlc`. All error
+  paths return `Result<_, String>` with descriptive reasons. No new
+  workspace deps — reuses `ed25519-dalek`, `base64`, `chrono`,
+  `serde_json` already in `crates/sdk`, and the existing
+  `identity::helpers::decode_base58btc` for multibase decoding. Gated
+  on `full-surface` because it consumes `identity::DidResolver`.
+  Soland's `jws_verify` is now a thin `AppState` → `&dyn DidResolver`
+  adapter over this module.
+
+### Added — `http_signature` module (RFC 9421) (2026-05-18)
+
+- **`contrix::http_signature`** — new HTTP-framework-agnostic
+  module that consolidates the RFC 9421 HTTP Message Signature
+  logic previously duplicated in `floria/src/auth.rs` (verifier)
+  and `chime/src/push/signing.rs` (signer). Surfaces:
+  `SignatureInput` + `parse_signature_input` (header parser, no
+  panic on unknown components or missing params),
+  `SignedRequestParts` (method / target-uri / authority / path /
+  headers / optional body-digest projection — works for Salvo,
+  reqwest, hyper, etc.), `canonical_message` (emits the RFC 9421
+  §2.5 signing-string bytes, including the bit-exact
+  `@signature-params` line), `sign_message` / `verify_signature`
+  (Ed25519 over those bytes, base64 standard alphabet for the
+  `Signature` header), `ContentDigest` + `verify_content_digest`
+  (RFC 9530 sha-256 / sha-512), and a discriminated
+  `SignatureError` enum (12 variants — no stringly-typed errors).
+  Wasm32-safe (only `ed25519-dalek` + `sha2` + `base64`, all
+  already in the workspace). Consumers (floria, chime, soland
+  fanout, future teabay middleware) will migrate in Lane E.
+
+### Internal — typed `ConstraintParseError` for recurrence helpers (2026-05-18)
+
+- **`contrix::authz::constraints`** — the recurrence parsing helpers
+  (`recurrence_allows`, `recurrence_next_transition_after`,
+  `parse_recurrence_zone`, `parse_recurrence_day`, `parse_recurrence_time`,
+  `recurrence_frequency_allows`) now return `Result<_, ConstraintParseError>`
+  instead of `Result<_, String>`. The new `pub(super) enum
+  ConstraintParseError` has structured variants (`InvalidTimezone`,
+  `InvalidDay`, `InvalidTime`, `InvalidFrequency`,
+  `OutsideWeekdayRecurrence`, `OutsideWeekendRecurrence`,
+  `OutsideRecurrenceDays`, `OutsideWindow`) so the engine can pattern
+  match on failure kind instead of string-comparing. **Public API
+  unchanged**: the engine boundary in `authz::engine::evaluate_constraint`
+  renders the enum via `Display`, which preserves every existing deny
+  reason byte-for-byte (e.g. `"unsupported recurrence timezone: UTC99"`,
+  `"outside recurrence window"`, `"outside weekday recurrence: Sun"`).
+  No compat shim — the enum is internal (`pub(super)`).
+
+### Internal — dedupe canonical JSON helpers in `agent_workspace` (2026-05-18)
+
+- **`contrix::agent_workspace`** — removed the module-local
+  `canonical_json_bytes` / `sha256_hex` helpers that had drifted
+  out of sync with the core implementation. `compute_content_hash`,
+  `import_attestation_signing_input`, and `export_policy_signing_input`
+  now delegate to `contrix::canonical::canonical_json_bytes` +
+  `contrix::canonical::sha256_digest` (the canonical RFC 8785 subset
+  with the integer-only number profile). Output bytes are unchanged;
+  the public return type tightens from
+  `Result<_, serde_json::Error>` to `crate::Result<_>` so that
+  non-canonical numbers surface as `Error::NonCanonicalNumber`
+  instead of being silently encoded as floats. v1 is unreleased so
+  this is a rip-and-replace with no compat shim.
+
+### Added — `cx.profile.agent_workspace.v1` wire types + helpers (2026-05-17)
+
+Mirror of contrix-spec PR landing `cx.profile.agent_workspace.v1` extension
+profile. The SDK gains a new `agent_workspace` module behind the
+`full-surface` feature flag, plus a typed ID and a `CapabilityGrant`
+extension.
+
+- **`contrix-identifiers`** — `AgentTaskId` typed ID with prefix
+  `cx:agent_task:` (RFC 9562 UUIDv7 payload), wired into the smoke
+  `assert_id!` matrix.
+
+- **`contrix` (sdk)** — new `agent_workspace` module exposing:
+  - `AgentTask` object (mirrors `cx.schema.agent_task.v1`)
+  - `ContextAnchor` (source-Space frontier binding)
+  - Three orthogonal FSM enums (`ExecutionState` / `TransparencyState` /
+    `SourceAuthorityState`) + `legal_transition` validators per cell +
+    `agent_runtime_may_execute` gate invariant
+  - `MentionRedirectContent`, `ImportAttestationContent`,
+    `SourceExportPolicyAttestation` content-block types
+  - `AttachedAuthority` enum (`anchored_event_ref` / `state_witness` —
+    `inline_copy` reserved for v2)
+  - Event payload helpers `AgentTaskCreatePayload` /
+    `AgentTaskTransitionPayload` / `AgentTaskCancelPayload`
+  - `mention_redirect_critical_extension()` descriptor that emits a
+    spec-compliant `Event.requirements.critical_extensions[]` entry
+    (`scope="payload"`, `fail_closed=true`)
+  - Reservation / recovery / orphan-cleanup Move drafts using the empty
+    sentinel pattern (`head_eq:"__unset__"`) — see spec §6
+  - `compute_recovery_move` with lex-min winner per §8 conflict repair
+  - `compute_content_hash` (RFC 8785 JCS canonical + SHA-256) and
+    `import_attestation_signing_input` / `export_policy_signing_input`
+    with domain separators
+  - 20 unit tests covering FSM legal/illegal transitions (incl. Rev 7
+    unreachable edges as explicit negative cases), reservation
+    sentinel use, recovery lex-min, canonical content hash
+    order-invariance, and roundtrip serde of `AgentTask` + the
+    extended `CapabilityGrant`
+
+- **`contrix::authz::grants::CapabilityGrant`** — new optional
+  `attached_authority: Option<AttachedAuthority>` field
+  (`full-surface` only). Reducer-enforced REQUIRED when grant subject is
+  an agent DID whose `agent_authority.acting_mode == "delegated_assistant"`.
+  Schema-side change in `capability-grant.schema.json` (oneOf two
+  evidence kinds).
+
+- **`contrix-testing`** — new `agent_workspace_vector_ids()` enumerator
+  returning the canonical 43-vector list from
+  `agent-workspace-profile.md §15`. Harnesses can diff this list against
+  the fixtures present under `contrix-spec/spec/v1/artifacts/conformance/agent-workspace/`
+  to detect missing land vectors.
+
 ### Added — Applet / Agent protocol-session OP constants + registry (2026-05-16)
 
 Round 13. Mirror of soland round 14f wire validator. The 9 sub-events

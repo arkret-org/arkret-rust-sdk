@@ -201,9 +201,7 @@ impl AnchorStore for MemoryAnchorStore {
             .anchors
             .get(anchor_id.as_str())
             .map(|a| a.predecessor_refs.clone())
-            .ok_or_else(|| {
-                StoreError::NotFound(format!("anchor {anchor_id} not in store"))
-            })?;
+            .ok_or_else(|| StoreError::NotFound(format!("anchor {anchor_id} not in store")))?;
 
         // Successor anchors whose predecessor_refs reference the pruned id.
         let successor_ids: Vec<String> = inner
@@ -227,12 +225,8 @@ impl AnchorStore for MemoryAnchorStore {
         // a grandparent doesn't end up with the same predecessor twice.
         for sid in &successor_ids {
             if let Some(succ) = inner.anchors.get_mut(sid) {
-                let mut new_refs: Vec<AnchorId> = succ
-                    .predecessor_refs
-                    .iter()
-                    .filter(|p| *p != anchor_id)
-                    .cloned()
-                    .collect();
+                let mut new_refs: Vec<AnchorId> =
+                    succ.predecessor_refs.iter().filter(|p| *p != anchor_id).cloned().collect();
                 for parent in &parents {
                     if !new_refs.iter().any(|p| p == parent) {
                         new_refs.push(parent.clone());
@@ -255,18 +249,12 @@ impl AnchorStore for MemoryAnchorStore {
         // child compaction replaces it), forget the genesis pointer — the
         // caller MUST set a new one explicitly when relevant.
         let space = space_id.as_str();
-        if inner
-            .genesis
-            .get(space)
-            .is_some_and(|g| g.as_str() == anchor_id.as_str())
-        {
+        if inner.genesis.get(space).is_some_and(|g| g.as_str() == anchor_id.as_str()) {
             inner.genesis.remove(space);
         }
 
-        let rewired: Vec<AnchorId> = successor_ids
-            .into_iter()
-            .filter_map(|s| AnchorId::new(s).ok())
-            .collect();
+        let rewired: Vec<AnchorId> =
+            successor_ids.into_iter().filter_map(|s| AnchorId::new(s).ok()).collect();
         Ok(rewired)
     }
 }
@@ -621,7 +609,7 @@ mod tests {
     }
 
     fn move_id(byte: u8) -> MoveId {
-        MoveId::new(format!("cx:move:sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
+        MoveId::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
     }
 
     fn anchor_id(byte: u8) -> AnchorId {
@@ -741,8 +729,7 @@ mod tests {
         let g = dummy_anchor(anchor_id(0xa0), vec![], vec![move_id(0x01)]);
         let child_a = dummy_anchor(anchor_id(0xa1), vec![g.id.clone()], vec![move_id(0x02)]);
         let child_b = dummy_anchor(anchor_id(0xa2), vec![g.id.clone()], vec![move_id(0x03)]);
-        let leaf_x =
-            dummy_anchor(anchor_id(0xa3), vec![child_a.id.clone()], vec![move_id(0x04)]);
+        let leaf_x = dummy_anchor(anchor_id(0xa3), vec![child_a.id.clone()], vec![move_id(0x04)]);
         store.put(&g).unwrap();
         store.put(&child_a).unwrap();
         store.put(&child_b).unwrap();

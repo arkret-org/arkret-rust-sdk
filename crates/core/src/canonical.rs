@@ -26,6 +26,25 @@ pub fn sha256_digest(bytes: impl AsRef<[u8]>) -> String {
     format!("sha256:{digest:x}")
 }
 
+/// Canonical digest helper for already-canonicalized JSON byte streams.
+///
+/// Downstream services that have already produced canonical JSON bytes
+/// (e.g. via [`canonical_json_bytes`]) call this to derive the wire-form
+/// `canonical_digest` / `request_canonical_hash` value used in event
+/// envelopes, anchors, and policy-check payloads.
+///
+/// The output format is `sha256:<lowercase-hex>` and is byte-stable for
+/// a given input. All downstream services (soland, yougen, floria, chime)
+/// MUST go through this helper so the same canonical bytes produce
+/// byte-identical digest strings everywhere.
+///
+/// This is a thin alias for [`sha256_digest`] kept distinct so the
+/// call-site intent ("this is the wire-form canonical digest") is
+/// self-documenting.
+pub fn canonical_digest(bytes: &[u8]) -> String {
+    sha256_digest(bytes)
+}
+
 pub fn canonical_sha256<T: Serialize>(value: &T) -> Result<String> {
     Ok(sha256_digest(canonical_json_bytes(value)?))
 }
@@ -329,5 +348,37 @@ mod tests {
     fn state_subject_decode_rejects_truncated_percent() {
         assert!(decode_state_subject_parts("abc%2").is_err());
         assert!(decode_state_subject_parts("abc%").is_err());
+    }
+
+    #[test]
+    fn canonical_digest_is_byte_stable_for_fixed_input() {
+        // The empty-input digest is the canonical sha256(b"") value;
+        // any drift here is a backwards-incompatible change downstream
+        // (soland event_log, anchorer, policy hashing).
+        assert_eq!(
+            canonical_digest(b""),
+            "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
+        assert_eq!(
+            canonical_digest(b"hello"),
+            "sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+        );
+    }
+
+    #[test]
+    fn canonical_digest_matches_sha256_digest_alias() {
+        let bytes = canonical_json_bytes(&json!({ "b": 2, "a": 1 })).unwrap();
+        assert_eq!(canonical_digest(&bytes), sha256_digest(&bytes));
+    }
+
+    #[test]
+    fn canonical_digest_round_trips_through_canonical_json_bytes() {
+        // Reordering object keys MUST yield the same digest because
+        // canonical_json_bytes sorts them; the digest is taken over the
+        // sorted byte stream.
+        let a = canonical_json_bytes(&json!({ "a": 1, "b": 2 })).unwrap();
+        let b = canonical_json_bytes(&json!({ "b": 2, "a": 1 })).unwrap();
+        assert_eq!(canonical_digest(&a), canonical_digest(&b));
+        assert!(canonical_digest(&a).starts_with("sha256:"));
     }
 }

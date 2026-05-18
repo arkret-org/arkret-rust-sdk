@@ -241,7 +241,8 @@ fn cross_signing_reset_marks_devices_needing_reverification() {
         new_generation: 2,
         reset_reason: "rotation".to_owned(),
         proof: CrossSigningResetProof::PrincipalSigning {
-            verification_method: "did:web:alice.example#did-control".to_owned(),
+            signed_by: "did:web:alice.example#did-control".to_owned(),
+            alg: "EdDSA".to_owned(),
             signature: "test-psk-sig".to_owned(),
         },
         issued_at: Utc::now(),
@@ -372,7 +373,8 @@ fn cross_signing_reset_cancels_in_flight_verifications() {
         new_generation: 2,
         reset_reason: "compromise".to_owned(),
         proof: CrossSigningResetProof::PrincipalSigning {
-            verification_method: "did:web:alice.example#did-control".to_owned(),
+            signed_by: "did:web:alice.example#did-control".to_owned(),
+            alg: "EdDSA".to_owned(),
             signature: "psk-sig".to_owned(),
         },
         issued_at: Utc::now(),
@@ -380,11 +382,7 @@ fn cross_signing_reset_cancels_in_flight_verifications() {
     manager.record_cross_signing_reset(&reset).unwrap();
 
     // In-flight transaction MUST have been cancelled.
-    assert!(
-        manager
-            .confirm_verification_flow(&challenge.transaction_id, "000000", None)
-            .is_err()
-    );
+    assert!(manager.confirm_verification_flow(&challenge.transaction_id, "000000", None).is_err());
     let dev = manager.device(&alice, &phone).unwrap();
     assert!(matches!(
         dev.verification,

@@ -18,6 +18,8 @@ fn grant_for(action: &str, resource: ResourceSelector) -> CapabilityGrant {
         valid_until: None,
         revoked_by: None,
         revoked_at: None,
+        #[cfg(feature = "full-surface")]
+        attached_authority: None,
     }
 }
 
@@ -541,6 +543,8 @@ fn capability_frontier_rejects_cycles_widening_and_unknown_critical_constraints(
         valid_until: None,
         revoked_by: None,
         revoked_at: None,
+        #[cfg(feature = "full-surface")]
+        attached_authority: None,
     };
     let validation = validate_capability_frontier(&[root.clone(), child.clone()]).unwrap();
     assert_eq!(validation.max_delegation_depth, 1);

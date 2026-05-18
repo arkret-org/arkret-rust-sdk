@@ -14,7 +14,7 @@
 //!   issuer was working from, plus optional `refs[]` for `authorized_by` /
 //!   `recovery_capability` / `parent_move` / `after` semantic dependencies.
 //!
-//! `Move::id` is content-addressed: `cx:move:sha256:<hex>` derived from
+//! `Move::id` is content-addressed: `sha256:<hex>` derived from
 //! [`Move::canonical_bytes_for_id`] (everything **except** `id` and `sig`).
 //! `sig` is the issuer's detached JWS over those same canonical bytes.
 //! The receiver MUST recompute the digest, MUST reject mismatches, and MUST
@@ -213,7 +213,7 @@ impl Move {
     /// Compute a Move id from already-canonicalized bytes.
     pub fn id_from_canonical_bytes(bytes: &[u8]) -> Result<MoveId> {
         let digest = Sha256::digest(bytes);
-        let id = format!("cx:move:sha256:{digest:x}");
+        let id = format!("sha256:{digest:x}");
         MoveId::new(id).map_err(|err| Error::Protocol(format!("invalid Move id: {err}")))
     }
 
@@ -292,7 +292,7 @@ mod tests {
                     "cell": "cx:cell:cx.component.member.state.v1:did.web.alice.example",
                     "predicate": {
                         "op": "head_eq",
-                        "value": "cx:move:sha256:1111111111111111111111111111111111111111111111111111111111111111"
+                        "value": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
                     }
                 }
             ],
@@ -319,7 +319,7 @@ mod tests {
         let payload_hash = sha256_digest(&body_bytes);
         let move_id_hex = {
             let digest = Sha256::digest(&body_bytes);
-            format!("cx:move:sha256:{digest:x}")
+            format!("sha256:{digest:x}")
         };
         let mut full = body.as_object().unwrap().clone();
         full.insert("id".to_owned(), Value::String(move_id_hex));
@@ -347,7 +347,7 @@ mod tests {
         let mut m = sample_move();
         // Fabricate a wrong id with valid prefix shape.
         m.id = MoveId::new(
-            "cx:move:sha256:0000000000000000000000000000000000000000000000000000000000000000",
+            "sha256:0000000000000000000000000000000000000000000000000000000000000000",
         )
         .unwrap();
         m.validate_id().expect_err("declared id ≠ canonical hash must reject");
@@ -447,10 +447,14 @@ mod tests {
     }
 
     #[test]
-    fn move_id_validator_rejects_bad_prefix() {
-        let bad =
-            MoveId::new("cx:move:01js0mv0000000000000000000".to_owned()).expect_err("must reject");
-        assert!(format!("{bad}").contains("invalid"));
+    fn move_id_validator_rejects_bad_shape() {
+        // Spec e10b6ad (C47): event_digest is a bare `<algo>:<hex>` hash;
+        // the legacy `cx:move:` typed-id prefix and non-hash payloads
+        // must both reject.
+        MoveId::new("cx:move:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned())
+            .expect_err("legacy cx:move: prefix must reject");
+        MoveId::new("01js0mv0000000000000000000".to_owned())
+            .expect_err("non-hash payload must reject");
     }
 
     #[test]

@@ -212,24 +212,45 @@ pub struct CrossSigningResetContent {
     pub issued_at: DateTime<Utc>,
 }
 
-/// High-risk proof for a cross-signing reset (spec §14).
+/// High-risk proof for a cross-signing reset.
+///
+/// Round C47 (spec e10b6ad): `cross-signing-reset.schema.json` moved from an
+/// open `additionalProperties: true` object to a strict `oneOf` discriminator
+/// with per-variant `required` fields. Every variant now carries `alg`; the
+/// `verification_method` field is renamed to `signed_by` (DID URL); the
+/// recovery-unlock variant uses `recovery_secret_ref` + `unlock_commitment`;
+/// the device-quorum variant gains a `threshold` int and per-signature
+/// `signed_by` / `alg`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum CrossSigningResetProof {
     /// Signature from the principal's current DID control key.
-    PrincipalSigning { verification_method: String, signature: String },
+    PrincipalSigning { signed_by: String, alg: String, signature: String },
     /// Unlock of secret storage with the recovery key.
-    RecoveryUnlock { recovery_key_kid: String, commitment: String },
+    RecoveryUnlock {
+        recovery_secret_ref: String,
+        unlock_commitment: String,
+        alg: String,
+        signature: String,
+    },
     /// Quorum of already-verified devices.
-    DeviceQuorum { device_signatures: Vec<DeviceQuorumSignature> },
+    DeviceQuorum { threshold: u32, signatures: Vec<DeviceQuorumSignature> },
     /// Signature from a recovery service declared in the principal's DID document.
-    TrustedRecoveryService { service_did: Did, verification_method: String, signature: String },
+    TrustedRecoveryService {
+        service_did: Did,
+        signed_by: String,
+        alg: String,
+        signature: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        attestation_ref: Option<String>,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeviceQuorumSignature {
     pub device_id: DeviceId,
-    pub verification_method: String,
+    pub signed_by: String,
+    pub alg: String,
     pub signature: String,
 }
 
@@ -246,29 +267,44 @@ impl CrossSigningResetContent {
             ));
         }
         match &self.proof {
-            CrossSigningResetProof::DeviceQuorum { device_signatures } => {
-                if device_signatures.is_empty() {
+            CrossSigningResetProof::DeviceQuorum { threshold, signatures } => {
+                if signatures.is_empty() {
                     return Err(Error::Protocol(
                         "device_quorum reset proof requires at least one signature".to_owned(),
                     ));
                 }
-            }
-            CrossSigningResetProof::PrincipalSigning { verification_method, signature }
-            | CrossSigningResetProof::TrustedRecoveryService {
-                verification_method,
-                signature,
-                ..
-            } => {
-                if verification_method.trim().is_empty() || signature.trim().is_empty() {
+                if *threshold == 0 {
                     return Err(Error::Protocol(
-                        "reset proof requires verification method + signature".to_owned(),
+                        "device_quorum reset proof requires threshold >= 1".to_owned(),
                     ));
                 }
             }
-            CrossSigningResetProof::RecoveryUnlock { recovery_key_kid, commitment } => {
-                if recovery_key_kid.trim().is_empty() || commitment.trim().is_empty() {
+            CrossSigningResetProof::PrincipalSigning { signed_by, alg, signature }
+            | CrossSigningResetProof::TrustedRecoveryService {
+                signed_by, alg, signature, ..
+            } => {
+                if signed_by.trim().is_empty()
+                    || alg.trim().is_empty()
+                    || signature.trim().is_empty()
+                {
                     return Err(Error::Protocol(
-                        "recovery unlock proof requires kid + commitment".to_owned(),
+                        "reset proof requires signed_by + alg + signature".to_owned(),
+                    ));
+                }
+            }
+            CrossSigningResetProof::RecoveryUnlock {
+                recovery_secret_ref,
+                unlock_commitment,
+                alg,
+                signature,
+            } => {
+                if recovery_secret_ref.trim().is_empty()
+                    || unlock_commitment.trim().is_empty()
+                    || alg.trim().is_empty()
+                    || signature.trim().is_empty()
+                {
+                    return Err(Error::Protocol(
+                        "recovery_unlock proof requires recovery_secret_ref + unlock_commitment + alg + signature".to_owned(),
                     ));
                 }
             }

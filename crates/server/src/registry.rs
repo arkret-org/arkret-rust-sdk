@@ -33,6 +33,12 @@ pub(crate) struct ServiceRoute {
 
 const SERVICE_ROUTES: &[ServiceRoute] = &[
     endpoint!("cx.server.describe", Get, "/api/v1/server/describe"),
+    endpoint!("cx.agent_workspace.resolve_mirror_flow", Get, "/api/v1/agent_workspace/mirror_flow"),
+    endpoint!(
+        "cx.agent_workspace.list_pending_tasks",
+        Get,
+        "/api/v1/agent_workspace/pending_tasks"
+    ),
     endpoint!("cx.identity.describe_registry", Get, "/api/v1/identity/describe"),
     endpoint!("cx.identity.resolve", Post, "/api/v1/identity/resolve"),
     endpoint!("cx.identity.get_document", Get, "/api/v1/identity/document"),

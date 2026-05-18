@@ -117,9 +117,7 @@ impl AdminKeyStore {
         for id in ids {
             if let Some(did_str) = id.strip_prefix(&prefix) {
                 let did = Did::new(did_str.to_owned()).map_err(|e| {
-                    KeyStoreError::backend(format!(
-                        "admin key id {id} has invalid DID suffix: {e}"
-                    ))
+                    KeyStoreError::backend(format!("admin key id {id} has invalid DID suffix: {e}"))
                 })?;
                 out.push(did);
             }
@@ -192,9 +190,7 @@ impl SessionGrantIntrospection {
         if self.has_admin_scope(scope) {
             Ok(())
         } else {
-            Err(crate::Error::Protocol(format!(
-                "session grant lacks admin scope {scope}"
-            )))
+            Err(crate::Error::Protocol(format!("session grant lacks admin scope {scope}")))
         }
     }
 }
@@ -266,9 +262,7 @@ mod tests {
     #[test]
     fn admin_key_load_missing_returns_not_found() {
         let store = AdminKeyStore::new("soland.demo", Box::new(InMemoryKeyStore::new()));
-        let err = store
-            .load_admin_key(&admin("did:web:nobody.example"))
-            .unwrap_err();
+        let err = store.load_admin_key(&admin("did:web:nobody.example")).unwrap_err();
         assert!(format!("{err}").contains("key not found"));
     }
 

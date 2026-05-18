@@ -112,7 +112,7 @@ mod tests {
     }
 
     fn move_id(hex: &str) -> MoveId {
-        MoveId::new(format!("cx:move:sha256:{hex}")).unwrap()
+        MoveId::new(format!("sha256:{hex}")).unwrap()
     }
 
     fn anchor_id(hex: &str) -> AnchorId {

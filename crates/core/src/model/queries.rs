@@ -230,6 +230,11 @@ pub struct View {
     pub id: ViewId,
     pub space_id: SpaceId,
     pub kind: ViewKind,
+    /// Round C47 (spec e10b6ad): View sharing visibility. Private views are
+    /// actor-private account data; shared views are canonical Space objects.
+    /// `None` keeps backward decode for fixtures predating the field.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub visibility: Option<ViewVisibility>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub renderer: Option<ViewRenderer>,
     #[serde(skip_serializing_if = "Option::is_none")]

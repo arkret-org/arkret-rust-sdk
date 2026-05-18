@@ -381,7 +381,7 @@ mod tests {
             service_did: Did::new("did:web:svc.example").unwrap(),
             service_type: "directory_service".to_owned(),
             protocol_version: "1.0".to_owned(),
-            supported_profiles: vec!["cx.profile.directory_service.v1".to_owned()],
+            supported_profiles: vec![crate::PROFILE_DIRECTORY_SERVICE.to_owned()],
             supported_features: vec![],
             supported_operations: vec!["cx.directory.search_spaces".to_owned()],
             supported_bindings: vec![],
@@ -397,7 +397,7 @@ mod tests {
 
         ServiceRequirements::new()
             .service_type(ServiceType::DirectoryService)
-            .profile("cx.profile.directory_service.v1")
+            .profile(crate::PROFILE_DIRECTORY_SERVICE)
             .reducer_profile("cx.reducer.v1")
             .schema_profile("cx.schema.core.v1")
             .operation("cx.directory.search_spaces")

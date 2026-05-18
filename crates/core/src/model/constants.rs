@@ -109,6 +109,11 @@ pub const OP_DIRECTORY_DESCRIBE: &str = "cx.directory.describe";
 pub const OP_BLOB_UPLOAD: &str = "cx.blob.upload";
 pub const OP_BLOB_HEAD: &str = "cx.blob.head";
 pub const OP_BLOB_GET: &str = "cx.blob.get";
+/// Round C44 (2026-05-18; spec dc01ad7) — pre-signed blob URL surface.
+/// `POST /blob/presign` returns a short-lived put/get URL pair so very
+/// large blobs can be uploaded directly to object storage. Full signing
+/// path is a soland TODO; SDK only needs the constant for client routing.
+pub const OP_BLOB_PRESIGN: &str = "cx.blob.presign";
 
 /// Push and key operations.
 pub const OP_PUSH_NOTIFY: &str = "cx.push.notify";
@@ -173,6 +178,10 @@ pub const OP_AGENT_PROTOCOL_SESSION_RESULT: &str = "cx.agent.protocol_session.re
 pub const OP_AGENT_PROTOCOL_SESSION_START: &str = "cx.agent.protocol_session.start";
 pub const OP_AGENT_PROTOCOL_SESSION_STATUS: &str = "cx.agent.protocol_session.status";
 
+/// Agent Workspace service operations.
+pub const OP_AGENT_WORKSPACE_LIST_PENDING_TASKS: &str = "cx.agent_workspace.list_pending_tasks";
+pub const OP_AGENT_WORKSPACE_RESOLVE_MIRROR_FLOW: &str = "cx.agent_workspace.resolve_mirror_flow";
+
 /// Directory operations beyond the bare `describe`.
 pub const OP_DIRECTORY_PRIVATE_CONTACT_DISCOVERY: &str = "cx.directory.private_contact_discovery";
 pub const OP_DIRECTORY_ANNOUNCE: &str = "cx.directory.announce";
@@ -200,6 +209,11 @@ pub const OP_EVENTS_DESCRIBE: &str = "cx.events.describe";
 pub const OP_EVENTS_FRONTIER: &str = "cx.events.frontier";
 pub const OP_EVENTS_GET: &str = "cx.events.get";
 pub const OP_EVENTS_QUERY: &str = "cx.events.query";
+/// Round C44 (2026-05-18; spec dc01ad7) — POST variant of
+/// `cx.events.query` for selectors too long to fit in a `GET` query
+/// string (large `spaces[]` / `actors[]` unions). HTTP path:
+/// `POST /events/query`. Identical selector / range / response shape.
+pub const OP_EVENTS_QUERY_POST: &str = "cx.events.query_post";
 pub const OP_EVENTS_SUBSCRIBE: &str = "cx.events.subscribe";
 pub const OP_EVENTS_SUBMIT: &str = "cx.events.submit";
 
@@ -231,6 +245,11 @@ pub const OP_MODERATION_REPORT: &str = "cx.moderation.report";
 
 /// Policy server check.
 pub const OP_POLICY_CHECK: &str = "cx.policy.check";
+// Round C45 (2026-05-18 main; spec 346f347) — operation registry dropped
+// `cx.policy.check_legacy`. The HTTP `POST /contrix/v1/check` legacy alias
+// still has a 2028-06-01 sunset in the OpenAPI binding, but the operation
+// catalog now exposes only `cx.policy.check`. Aggressive mode — v1 not
+// released — so the SDK constant is dropped rather than shimmed.
 
 /// Push gateway register / unregister.
 pub const OP_PUSH_REGISTER_DEVICE: &str = "cx.push.register_device";
@@ -253,6 +272,8 @@ pub const OP_SYNC_GET_SNAPSHOT_HEAD: &str = "cx.sync.get_snapshot_head";
 /// `operation-registry.json` service surface.
 pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_ACCOUNT_DEVICE_PAIR,
+    OP_AGENT_WORKSPACE_LIST_PENDING_TASKS,
+    OP_AGENT_WORKSPACE_RESOLVE_MIRROR_FLOW,
     OP_ACCOUNT_ISSUE_SESSION_GRANT,
     OP_ACCOUNT_OIDC_CALLBACK,
     OP_ADMIN_GET_MODERATION_QUEUE,
@@ -282,6 +303,7 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_AUTHZ_GET_INVITES,
     OP_BLOB_GET,
     OP_BLOB_HEAD,
+    OP_BLOB_PRESIGN,
     OP_BLOB_UPLOAD,
     OP_DEVICE_MESSAGES_GET,
     OP_DEVICE_MESSAGES_PUT,
@@ -302,6 +324,7 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_EVENTS_FRONTIER,
     OP_EVENTS_GET,
     OP_EVENTS_QUERY,
+    OP_EVENTS_QUERY_POST,
     OP_EVENTS_SUBSCRIBE,
     OP_EVENTS_SUBMIT,
     OP_IDENTITY_DESCRIBE_REGISTRY,

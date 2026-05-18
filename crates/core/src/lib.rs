@@ -13,6 +13,7 @@ pub mod cell;
 pub mod cursor;
 pub mod error;
 pub mod events;
+pub mod generated;
 pub mod http;
 pub mod keystore;
 pub mod lattice;
@@ -58,10 +59,10 @@ pub use error::{
 };
 pub use http::*;
 pub use identifiers::{
-    ActorProfileId, AgentSessionId, AnchorId, AppletId, BackupId, BatchId, BlobId, BlobRef,
-    BlockId, CallId, CapabilityId, CellRef, ChunkId, ClaimId, DeviceId, DevmsgId, Did, EventId,
-    FilterId, FlowId, FrameId, FrankId, GrantId, Hash, Hlc, InviteId, KeyevtId, MessageId, ModqId,
-    MorphId, MoveId, NotifId, OperationId, PlaceId, PolicyId, PresentationId, ReceiptId,
+    ActorProfileId, AgentSessionId, AgentTaskId, AnchorId, AppletId, BackupId, BatchId, BlobId,
+    BlobRef, BlockId, CallId, CapabilityId, CellRef, ChunkId, ClaimId, DeviceId, DevmsgId, Did,
+    EventId, FilterId, FlowId, FrameId, FrankId, GrantId, Hash, Hlc, InviteId, KeyevtId, MessageId,
+    ModqId, MorphId, MoveId, NotifId, OperationId, PlaceId, PolicyId, PresentationId, ReceiptId,
     RelationId, ReportId, ReqId, SnapshotId, SpaceId, TxnId, ViewId,
 };
 pub use keystore::{

@@ -767,6 +767,7 @@ fn view_supports_renderer_and_facet_config_facades() {
         id: ViewId::new("cx:view:01904100-0000-7000-8000-848727f328fe").unwrap(),
         space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
         kind: ViewKind::Collection,
+        visibility: None,
         renderer: Some(ViewRenderer::Board),
         title: Some("Board".to_owned()),
         query: request,
@@ -1199,8 +1200,8 @@ fn flow_track_typed_constructors() {
     validate_flow_track_name("review").unwrap();
 }
 
-/// C10.A 收尾 — Space anchor fields default to None (anchorer cell is
-/// the source of truth) and the builders set them to expected values.
+/// Space anchor fields default to None (anchorer cell is the source
+/// of truth) and the builders set them to expected values.
 #[test]
 fn space_anchor_fields_default_none_and_builders_apply() {
     use crate::anchorer::AnchorerValue;
@@ -1253,8 +1254,8 @@ fn space_anchor_fields_default_none_and_builders_apply() {
     assert_eq!(restored.co_write_policy, space.co_write_policy);
 }
 
-/// C10.A 收尾 — `Space::new` omits anchor fields from the wire when
-/// they're `None` (skip_serializing_if), so sparse fixtures stay clean.
+/// `Space::new` omits anchor fields from the wire when they're
+/// `None` (skip_serializing_if), so sparse fixtures stay clean.
 #[test]
 fn space_anchor_fields_omitted_when_none() {
     let space = Space::new(

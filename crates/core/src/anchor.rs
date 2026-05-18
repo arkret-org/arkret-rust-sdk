@@ -275,7 +275,7 @@ mod tests {
 
     fn move_id(hex_byte: u8) -> MoveId {
         let hex = format!("{hex_byte:02x}").repeat(32);
-        MoveId::new(format!("cx:move:sha256:{hex}")).unwrap()
+        MoveId::new(format!("sha256:{hex}")).unwrap()
     }
 
     fn anchor_id(hex_byte: u8) -> AnchorId {

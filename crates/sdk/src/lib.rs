@@ -76,9 +76,9 @@ pub use contrix_core::*;
 pub use contrix_core::{canonical, cursor, error, identifiers, keystore, model, service, sync};
 #[cfg(feature = "client")]
 pub use contrix_http_client as http_client;
-// Round 23 (2026-05-09): platform-native KeyStore backends. The glob import
-// above already re-exports these symbols, but listing them explicitly keeps
-// them visible in `cargo doc` and signals the supported surface to
+// Platform-native KeyStore backends. The glob import above already
+// re-exports these symbols, but listing them explicitly keeps them
+// visible in `cargo doc` and signals the supported surface to
 // downstream crates that depend only on `contrix` (not `contrix-core`).
 #[cfg(feature = "full-surface")]
 pub use crate::store as store_contracts;
@@ -106,6 +106,10 @@ pub use contrix_testing as testing;
 pub mod account;
 #[cfg(feature = "full-surface")]
 pub mod agent;
+#[cfg(feature = "full-surface")]
+pub mod agent_binding;
+#[cfg(feature = "full-surface")]
+pub mod agent_workspace;
 #[cfg(all(feature = "full-surface", feature = "applet-runtime"))]
 pub mod applet;
 #[cfg(feature = "full-surface")]
@@ -132,6 +136,11 @@ pub mod e2ee;
 pub mod federation;
 #[cfg(feature = "full-surface")]
 pub mod hlc;
+// RFC 9421 HTTP Message Signatures (Ed25519) + RFC 9530
+// Content-Digest. Pure-Rust (ed25519-dalek + sha2 + base64), no
+// transport / runtime deps — safe on wasm32 (yougen).
+#[cfg(feature = "full-surface")]
+pub mod http_signature;
 // HttpDidResolver leans on a live Tokio runtime, blocking off-thread
 // scheduling, and reqwest's native ClientBuilder transport knobs — none
 // of which are available on the wasm32 fetch backend. Gate the module out
@@ -141,10 +150,21 @@ pub mod hlc;
 pub mod http_did_resolver;
 #[cfg(feature = "full-surface")]
 pub mod identity;
+/// RFC 7515 detached Ed25519 JWS verifier (see [`jws`] module docs).
+/// Lives at the SDK root so principal-server-style consumers (yougen,
+/// floria, cotest, teabay, soland) all reach the same verifier. Depends
+/// on `identity::DidResolver`, so it's gated on `full-surface`.
+#[cfg(feature = "full-surface")]
+pub mod jws;
 #[cfg(all(feature = "full-surface", feature = "device-runtime", feature = "client"))]
 pub mod key_backup_client;
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub mod key_verification;
+// `lattice_registry` is intentionally NOT feature-gated: yougen Move
+// pre-check + cotest fixtures need the spec-normative cell-family
+// registry independently of the higher-level full-surface client
+// runtime.
+pub mod lattice_registry;
 #[cfg(feature = "full-surface")]
 pub mod media;
 #[cfg(feature = "full-surface")]
@@ -259,11 +279,11 @@ pub use device_message::{DeviceMessage, DeviceMessageBuilder, DeviceMessageRecei
 pub use devices::{
     CrossSigningBinding, CrossSigningKeyKind, CrossSigningKeyRecord, CrossSigningPublishContent,
     CrossSigningResetContent, CrossSigningResetProof, Device, DeviceBootstrapBinding, DeviceChange,
-    DeviceManager, DeviceMessageEnvelope, DeviceMetadata, DeviceQuorumSignature, DeviceTrustBinding,
-    DeviceTrustChainOutcome, DeviceVerificationChallenge, DeviceVerificationMessageContent,
-    DeviceVerificationMessageKind, KeyBackup, KeyBackupClass, KeyBackupContentItem,
-    KeyBackupEncryption, ProtocolKeyBackup, QrVerificationPayload, SignedCrossSigningKey,
-    ToDeviceEnvelope, device_verification_commitment,
+    DeviceManager, DeviceMessageEnvelope, DeviceMetadata, DeviceQuorumSignature,
+    DeviceTrustBinding, DeviceTrustChainOutcome, DeviceVerificationChallenge,
+    DeviceVerificationMessageContent, DeviceVerificationMessageKind, KeyBackup, KeyBackupClass,
+    KeyBackupContentItem, KeyBackupEncryption, ProtocolKeyBackup, QrVerificationPayload,
+    SignedCrossSigningKey, ToDeviceEnvelope, device_verification_commitment,
 };
 #[cfg(feature = "full-surface")]
 pub use discovery::{DirectoryService, DirectoryUser, OpenGraphPreview, UrlPreviewCache};

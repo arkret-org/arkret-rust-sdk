@@ -319,7 +319,7 @@ mod tests {
         let id_hex: String =
             Sha256::digest(&body_bytes).iter().map(|b| format!("{b:02x}")).collect();
         let mut full = body.as_object().unwrap().clone();
-        full.insert("id".into(), Value::String(format!("cx:move:sha256:{id_hex}")));
+        full.insert("id".into(), Value::String(format!("sha256:{id_hex}")));
         full.insert(
             "sig".into(),
             json!({

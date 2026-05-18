@@ -61,10 +61,8 @@ impl DeviceManager {
         device_public_key: impl Into<String>,
     ) {
         self.upsert_device(user_id.clone(), device_id.clone(), metadata);
-        if let Some(device) = self
-            .devices
-            .get_mut(&user_id)
-            .and_then(|devices| devices.get_mut(&device_id))
+        if let Some(device) =
+            self.devices.get_mut(&user_id).and_then(|devices| devices.get_mut(&device_id))
         {
             device.device_public_key = Some(device_public_key.into());
         }
@@ -598,9 +596,11 @@ impl DeviceManager {
         let cancel_ids: Vec<String> = self
             .verification_challenges
             .iter()
-            .filter_map(|(id, challenge)| {
-                if &challenge.user_id == principal { Some(id.clone()) } else { None }
-            })
+            .filter_map(
+                |(id, challenge)| {
+                    if &challenge.user_id == principal { Some(id.clone()) } else { None }
+                },
+            )
             .collect();
         for id in cancel_ids {
             let _ = self.cancel_verification_flow(&id);
@@ -710,12 +710,8 @@ impl DeviceManager {
             device_public_key,
             binding.ssk_generation,
         )?;
-        let device_ok = verify_signature(
-            &binding.signed_by,
-            &binding.alg,
-            &device_input,
-            &binding.signature,
-        )?;
+        let device_ok =
+            verify_signature(&binding.signed_by, &binding.alg, &device_input, &binding.signature)?;
         if !device_ok {
             return Ok(DeviceTrustChainOutcome::Invalid);
         }

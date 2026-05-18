@@ -1,8 +1,7 @@
 //! Production reqwest-based [`DidResolver`] for `did:web` and `did:webvh`.
 //!
-//! Round 24 (2026-05-09) replaces the offline-only stubs in
-//! [`crate::identity`] with a real HTTP fetch + caching layer. Per
-//! `identity/identity-handles.md` §4 the resolver:
+//! HTTP fetch + caching layer on top of [`crate::identity`]'s offline
+//! helpers. Per `identity/identity-handles.md` §4 the resolver:
 //!
 //! - fetches `https://<host>/.well-known/did.json` for `did:web`,
 //! - fetches `https://<host>/.well-known/did.jsonl` and `did.json` for

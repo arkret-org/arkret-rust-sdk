@@ -119,26 +119,17 @@ impl BottomPolicy {
 pub enum LatticeKindError {
     /// The Move's effects[] is missing the typed field used to derive the
     /// cell subject (e.g. `payload.flow_id` for a flow-position cell).
-    MissingSubjectField {
-        cell_family: &'static str,
-        field: &'static str,
-    },
+    MissingSubjectField { cell_family: &'static str, field: &'static str },
     /// The cell_family declared by a Move effect doesn't match this
     /// `LatticeKind`. The dispatcher MUST route to a different impl.
-    UnknownCellFamily {
-        observed: String,
-        declared: &'static str,
-    },
+    UnknownCellFamily { observed: String, declared: &'static str },
 }
 
 impl std::fmt::Display for LatticeKindError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::MissingSubjectField { cell_family, field } => {
-                write!(
-                    f,
-                    "{cell_family} requires effect field `{field}` for cell subject"
-                )
+                write!(f, "{cell_family} requires effect field `{field}` for cell subject")
             }
             Self::UnknownCellFamily { observed, declared } => {
                 write!(
@@ -249,14 +240,7 @@ impl LatticeRegistry {
 
 macro_rules! singleton_lattice {
     ($struct_name:ident, $cell_family:expr, $lattice:expr, $bottom:expr, $criticality:expr) => {
-        singleton_lattice!(
-            $struct_name,
-            $cell_family,
-            $lattice,
-            $bottom,
-            $criticality,
-            &[]
-        );
+        singleton_lattice!($struct_name, $cell_family, $lattice, $bottom, $criticality, &[]);
     };
     (
         $struct_name:ident,
@@ -663,20 +647,18 @@ impl LatticeKind for FlowWatch {
         &self,
         effect_payload: &Value,
     ) -> Result<Option<String>, LatticeKindError> {
-        let flow_id = effect_payload
-            .get("flow_id")
-            .and_then(Value::as_str)
-            .ok_or(LatticeKindError::MissingSubjectField {
+        let flow_id = effect_payload.get("flow_id").and_then(Value::as_str).ok_or(
+            LatticeKindError::MissingSubjectField {
                 cell_family: "cx.component.flow.watch.v1",
                 field: "flow_id",
-            })?;
-        let actor_did = effect_payload
-            .get("actor_did")
-            .and_then(Value::as_str)
-            .ok_or(LatticeKindError::MissingSubjectField {
+            },
+        )?;
+        let actor_did = effect_payload.get("actor_did").and_then(Value::as_str).ok_or(
+            LatticeKindError::MissingSubjectField {
                 cell_family: "cx.component.flow.watch.v1",
                 field: "actor_did",
-            })?;
+            },
+        )?;
         Ok(Some(format!("{flow_id}::{actor_did}")))
     }
     fn event_kinds(&self) -> &'static [&'static str] {
@@ -739,11 +721,7 @@ per_subject_lattice!(
     BottomPolicy::Reject,
     Criticality::Required,
     "task_id",
-    &[
-        "cx.agent_task.create",
-        "cx.agent_task.execution.transition",
-        "cx.agent_task.cancel"
-    ]
+    &["cx.agent_task.create", "cx.agent_task.execution.transition", "cx.agent_task.cancel"]
 );
 
 per_subject_lattice!(
@@ -753,10 +731,7 @@ per_subject_lattice!(
     BottomPolicy::Reject,
     Criticality::Required,
     "task_id",
-    &[
-        "cx.agent_task.create",
-        "cx.agent_task.transparency.transition"
-    ]
+    &["cx.agent_task.create", "cx.agent_task.transparency.transition"]
 );
 
 per_subject_lattice!(
@@ -766,10 +741,7 @@ per_subject_lattice!(
     BottomPolicy::Reject,
     Criticality::Required,
     "task_id",
-    &[
-        "cx.agent_task.create",
-        "cx.agent_task.source_authority.transition"
-    ]
+    &["cx.agent_task.create", "cx.agent_task.source_authority.transition"]
 );
 
 // `cx.profile.agent_workspace.v1` — reservation cells (cas-register).
@@ -803,13 +775,12 @@ impl LatticeKind for AgentWorkspaceReservation {
         &self,
         effect_payload: &Value,
     ) -> Result<Option<String>, LatticeKindError> {
-        let cell_namespace = effect_payload
-            .get("cell_namespace")
-            .and_then(Value::as_str)
-            .ok_or(LatticeKindError::MissingSubjectField {
+        let cell_namespace = effect_payload.get("cell_namespace").and_then(Value::as_str).ok_or(
+            LatticeKindError::MissingSubjectField {
                 cell_family: self.cell_family(),
                 field: "cell_namespace",
-            })?;
+            },
+        )?;
         let cell_namespace_subject = effect_payload
             .get("cell_namespace_subject")
             .and_then(Value::as_str)
@@ -1086,11 +1057,7 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
             let kind = registry
                 .lookup(family)
                 .unwrap_or_else(|| panic!("default_lattice_registry missing {family}"));
-            (
-                *family,
-                kind.lattice(),
-                kind.bottom_policy().to_sdk_bottom_mode(),
-            )
+            (*family, kind.lattice(), kind.bottom_policy().to_sdk_bottom_mode())
         })
         .collect()
 }
@@ -1135,15 +1102,9 @@ pub fn build_sdk_cell_registry() -> MemoryCellRegistry {
         None,
         vec![
             (json!("pending_source_stub"), json!("active")),
-            (
-                json!("pending_source_stub"),
-                json!("cancelled_stub_rejected"),
-            ),
+            (json!("pending_source_stub"), json!("cancelled_stub_rejected")),
             (json!("pending_source_stub"), json!("cancelled_orphan")),
-            (
-                json!("pending_source_stub"),
-                json!("cancelled_by_controller"),
-            ),
+            (json!("pending_source_stub"), json!("cancelled_by_controller")),
             (json!("active"), json!("completed")),
             (json!("active"), json!("cancelled_by_controller")),
         ],
@@ -1152,10 +1113,7 @@ pub fn build_sdk_cell_registry() -> MemoryCellRegistry {
     sdk_registry.register_fsm(
         "cx.component.agent_task.transparency.v1",
         None,
-        vec![
-            (json!("ok"), json!("lost")),
-            (json!("lost"), json!("reconfirmed_after_loss")),
-        ],
+        vec![(json!("ok"), json!("lost")), (json!("lost"), json!("reconfirmed_after_loss"))],
         BottomMode::Reject,
     );
     sdk_registry.register_fsm(
@@ -1242,9 +1200,7 @@ mod tests {
     #[test]
     fn covered_frontier_is_singleton_or_set() {
         let registry = default_lattice_registry();
-        let kind = registry
-            .lookup("cx.component.mls.covered_frontier.v1")
-            .unwrap();
+        let kind = registry.lookup("cx.component.mls.covered_frontier.v1").unwrap();
         assert_eq!(kind.lattice(), SdkLatticeKind::OrSet);
         let subject = kind.subject_for_effect(&json!({})).unwrap();
         assert!(subject.is_none());
@@ -1260,9 +1216,8 @@ mod tests {
             "cx.component.view.reconcile.v1",
             "cx.component.mimi.room_binding.v1",
         ] {
-            let kind = registry
-                .lookup(family)
-                .unwrap_or_else(|| panic!("missing impl for {family}"));
+            let kind =
+                registry.lookup(family).unwrap_or_else(|| panic!("missing impl for {family}"));
             assert_eq!(kind.lattice(), SdkLatticeKind::MvRegister);
             assert_eq!(
                 kind.bottom_policy(),
@@ -1298,19 +1253,14 @@ mod tests {
                 "cell_namespace_subject": "cx:space:source"
             }))
             .unwrap();
-        assert_eq!(
-            subject.as_deref(),
-            Some("mirror_space_by_source:cx:space:source")
-        );
+        assert_eq!(subject.as_deref(), Some("mirror_space_by_source:cx:space:source"));
     }
 
     #[test]
     fn missing_subject_field_surfaces_typed_error() {
         let registry = default_lattice_registry();
         let kind = registry.lookup("cx.component.flow.position.v1").unwrap();
-        let err = kind
-            .subject_for_effect(&json!({"unrelated": "x"}))
-            .unwrap_err();
+        let err = kind.subject_for_effect(&json!({"unrelated": "x"})).unwrap_err();
         match err {
             LatticeKindError::MissingSubjectField { cell_family, field } => {
                 assert_eq!(cell_family, "cx.component.flow.position.v1");

@@ -1,4 +1,5 @@
 use super::*;
+use crate::events::kinds::FLOW_TRACKS_UPDATE as OP_FLOW_TRACKS_UPDATE;
 use crate::{EventRequirements, Hlc};
 use serde_json::json;
 
@@ -868,6 +869,44 @@ fn flow_track_update_patches_track_config() {
     assert_eq!(track.profile.as_deref(), Some("discussion"));
     assert_eq!(track.template.as_deref(), Some("Q&A"));
     assert_eq!(track.fields["capacity"], 50);
+}
+
+#[test]
+fn flow_tracks_update_merges_tracks_from_patch_tracks_and_top_level_tracks() {
+    let flow_id = "cx:flow:01904100-0000-7000-8000-4fb50799ad55";
+    let create = flow_create_event(1, flow_id);
+    let mut update = event(
+        OP_FLOW_TRACKS_UPDATE,
+        2,
+        json!({
+            "flow_id": flow_id,
+            "tracks": {
+                "discussion": {
+                    "profile": "discussion",
+                    "fields": {"capacity": 25}
+                }
+            },
+            "patch": {
+                "tracks": {
+                    "review": {
+                        "profile": "review",
+                        "template": "Review"
+                    }
+                }
+            }
+        }),
+    );
+    update.prev_refs.push(create.event_id.clone());
+
+    let mut state = SpaceState::new(space_id(), "1".to_owned());
+    state.apply_events(&[create, update]).unwrap();
+
+    let flow = state.subjects.get(flow_id).unwrap();
+    assert!(flow.tracks.contains_key(crate::FLOW_TRACK_NAME_SYNTHESIS));
+    assert_eq!(flow.tracks["discussion"].profile.as_deref(), Some("discussion"));
+    assert_eq!(flow.tracks["discussion"].fields["capacity"], 25);
+    assert_eq!(flow.tracks["review"].profile.as_deref(), Some("review"));
+    assert_eq!(flow.tracks["review"].template.as_deref(), Some("Review"));
 }
 
 #[test]

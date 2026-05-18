@@ -186,6 +186,9 @@ id_type!(Did, is_did);
 // Protocol object IDs use typed prefixes with canonical RFC 9562 UUIDv7 payloads.
 id_type!(ActorProfileId, |value: &str| is_strict_typed_id(value, "cx:actor_profile:"));
 id_type!(AgentSessionId, |value: &str| is_strict_typed_id(value, "cx:agent_session:"));
+// `cx.profile.agent_workspace.v1` — agent task in mirror Space.
+// Spec: contrix-spec/spec/v1/zh/extensions/agent-workspace-profile.md §7.1.
+id_type!(AgentTaskId, |value: &str| is_strict_typed_id(value, "cx:agent_task:"));
 id_type!(AppletId, |value: &str| is_strict_typed_id(value, "cx:applet:"));
 id_type!(SpaceId, |value: &str| is_strict_typed_id(value, "cx:space:"));
 id_type!(BackupId, |value: &str| is_strict_typed_id(value, "cx:backup:"));
@@ -236,7 +239,14 @@ fn is_content_addressed<'a>(prefix: &'a str) -> impl Fn(&str) -> bool + 'a {
     move |value| value.strip_prefix(prefix).is_some_and(is_hash)
 }
 
-id_type!(MoveId, is_content_addressed("cx:move:"));
+// Round C47 (2026-05-18 main; spec e10b6ad): anchor frontier items dropped
+// the `cx:move:` typed-id prefix. The schema field renamed `move_ref` to
+// `event_digest`; on the wire it's now a bare `<algo>:<hex>` hash equal to
+// the reducer-input event's `proof.payload_hash`. The Rust type name
+// `MoveId` is kept for source-compatibility this round; rename to
+// `EventDigest` is queued for a follow-up sweep (see _todos.md C47 Lane A2
+// TODO).
+id_type!(MoveId, is_hash);
 id_type!(AnchorId, is_content_addressed("cx:anchor:"));
 id_type!(CellRef, has_prefix("cx:cell:"));
 
@@ -400,6 +410,7 @@ mod tests {
 
         assert_id!(ActorProfileId, "cx:actor_profile:");
         assert_id!(AgentSessionId, "cx:agent_session:");
+        assert_id!(AgentTaskId, "cx:agent_task:");
         assert_id!(AppletId, "cx:applet:");
         assert_id!(BackupId, "cx:backup:");
         assert_id!(BatchId, "cx:batch:");
@@ -446,7 +457,13 @@ mod tests {
         assert!(Hash::new(format!("blake3:{digest64}")).is_ok());
         assert!(Hash::new(format!("sha512:{digest128}")).is_ok());
         assert!(BlobRef::new(format!("cx:blob:sha3_256:{digest64}")).is_ok());
-        assert!(MoveId::new(format!("cx:move:blake3:{digest64}")).is_ok());
+        // event_digest (C47 / spec e10b6ad): bare hash, no `cx:move:` prefix.
+        assert!(MoveId::new(format!("blake3:{digest64}")).is_ok());
+        assert!(MoveId::new(format!("sha256:{digest64}")).is_ok());
+        assert!(MoveId::new(format!("sha512:{digest128}")).is_ok());
+        // Legacy `cx:move:<algo>:<hex>` form (pre-C47) must now reject.
+        let legacy_blake3 = format!("cx{}:move:blake3:{digest64}", "");
+        assert!(MoveId::new(legacy_blake3).is_err());
         assert!(AnchorId::new(format!("cx:anchor:sha512:{digest128}")).is_ok());
     }
 

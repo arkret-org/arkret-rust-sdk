@@ -160,10 +160,12 @@ pub(super) fn membership_rank(content: &Value) -> u8 {
 }
 
 pub(super) fn object_state_from_str(state: &str) -> Result<crate::ObjectState> {
+    // C47 (spec e10b6ad): `deleted` is no longer a valid lifecycle state for
+    // Flow / Morph; the only terminal state is `redacted`. Receivers MUST
+    // reject the legacy `deleted` literal.
     match state {
         "active" => Ok(crate::ObjectState::Active),
         "archived" => Ok(crate::ObjectState::Archived),
-        "deleted" => Ok(crate::ObjectState::Deleted),
         "redacted" => Ok(crate::ObjectState::Redacted),
         _ => Err(Error::Protocol(format!("invalid state: {}", state))),
     }

@@ -195,9 +195,11 @@ impl_string_schema!(
 );
 impl_string_schema!(Hash, r"^(?:sha256|sha3_256|blake3):[0-9a-f]{64}$|^sha512:[0-9a-f]{128}$");
 impl_string_schema!(Cursor, r"^cx:cursor:.+$");
+// Anchor frontier event_digest: bare `<algo>:<hex>` hash (spec e10b6ad
+// dropped the `cx:move:` typed-id prefix). Same hex shape as `Hash` above.
 impl_string_schema!(
     MoveId,
-    r"^cx:move:(?:(?:sha256|sha3_256|blake3):[0-9a-f]{64}|sha512:[0-9a-f]{128})$"
+    r"^(?:sha256|sha3_256|blake3):[0-9a-f]{64}$|^sha512:[0-9a-f]{128}$"
 );
 impl_string_schema!(
     AnchorId,

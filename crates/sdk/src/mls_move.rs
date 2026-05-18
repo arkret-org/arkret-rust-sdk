@@ -174,10 +174,11 @@ pub fn mls_commit_effects(
 /// `covered_frontier_cell` already covers the Move's `anchor_ref`'s
 /// governance frontier.
 ///
-/// Per spec §10: "MLS 滞后只阻塞 E2EE message / key schedule Move
-/// （它们引用 covered_frontier_cell），不阻塞 governance / recovery Move
-/// （它们不引用该 cell）". So this precondition is added to message /
-/// key-schedule Moves but **not** to governance / recovery Moves.
+/// Per spec §10: MLS lag only blocks E2EE message / key-schedule Moves
+/// (which reference `covered_frontier_cell`); it does not block
+/// governance / recovery Moves (which do not reference that cell). So
+/// this precondition is added to message / key-schedule Moves but
+/// **not** to governance / recovery Moves.
 pub fn e2ee_message_precondition(
     space_id: &SpaceId,
     governance_anchor: &AnchorId,
@@ -268,7 +269,7 @@ mod tests {
     }
 
     fn move_id(byte: u8) -> MoveId {
-        MoveId::new(format!("cx:move:sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
+        MoveId::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
     }
 
     fn schedule_hash(byte: u8) -> Hash {

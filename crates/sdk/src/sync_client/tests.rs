@@ -529,7 +529,7 @@ fn frame_frontier_advance_round_trip() {
     assert!(!frame.requires_resubscribe());
 }
 
-// ─── Round 21 EventsQueryRequest / EventsQueryResponse tests ─────────────
+// ─── EventsQueryRequest / EventsQueryResponse tests ─────────────
 
 #[test]
 fn events_query_request_validates_non_empty() {

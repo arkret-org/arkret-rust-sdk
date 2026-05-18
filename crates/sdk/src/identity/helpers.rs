@@ -121,7 +121,7 @@ pub(super) fn did_key_material(did: &Did) -> Option<String> {
     Some(method_id.to_owned())
 }
 
-pub(super) fn decode_base58btc(input: &str) -> Option<Vec<u8>> {
+pub(crate) fn decode_base58btc(input: &str) -> Option<Vec<u8>> {
     if input.is_empty() {
         return None;
     }

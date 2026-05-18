@@ -1,0 +1,823 @@
+//! RFC 9421 HTTP Message Signatures (Ed25519) + RFC 9530 Content-Digest.
+//!
+//! This module is HTTP-framework agnostic: callers extract method,
+//! target-uri, and headers from their own request object (Salvo,
+//! reqwest, hyper, etc.) and hand them to the canonicalization
+//! helpers. The module owns:
+//!
+//! 1. Parsing the `Signature-Input` and `Signature` headers.
+//! 2. Building the canonical signing string from a typed request
+//!    description ([`SignedRequestParts`]).
+//! 3. Computing and verifying the RFC 9530 `Content-Digest` for the
+//!    request body.
+//! 4. Ed25519 sign / verify on the canonical message bytes.
+//!
+//! Wire shape (matches floria's verifier and soland's fanout signer):
+//!
+//! ```text
+//! Signature-Input: sig1=("@method" "@target-uri" "@authority" \
+//!     "content-digest" "x-contrix-origin-service-did" \
+//!     "x-contrix-destination-service-did");\
+//!     created=1715990000;expires=1715990300;\
+//!     keyid="did:web:sync.example.com#push";alg="ed25519"
+//! Signature: sig1=:BASE64URLSAFE_OR_STANDARD_64B:
+//! Content-Digest: sha-256=:BASE64STANDARD_32B:
+//! ```
+//!
+//! The signing string emitted by [`canonical_message`] follows RFC
+//! 9421 §2.5 verbatim (one `"name": value` line per covered component,
+//! then a trailing `"@signature-params": (...)` line whose value is
+//! the original `Signature-Input` after the `label=` prefix is
+//! stripped).
+//!
+//! All signature / public-key fields are base64. The `Signature`
+//! header value is base64 *standard* (per RFC 9421 §3.1 Inner List
+//! Byte Sequence syntax), so [`encode_signature_b64`] /
+//! [`decode_signature_b64`] use the standard alphabet rather than
+//! URL-safe.
+
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
+use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
+use sha2::{Digest, Sha256, Sha512};
+use std::collections::BTreeSet;
+use thiserror::Error;
+
+// -- public re-exports of the underlying crypto primitives so callers
+// -- can construct keys without depending on `ed25519-dalek` directly.
+pub use ed25519_dalek::{SigningKey as Ed25519SigningKey, VerifyingKey as Ed25519PublicKey};
+
+/// Errors emitted by the RFC 9421 helpers.
+///
+/// Verifiers are expected to map these into their HTTP-framework
+/// rejection type (e.g. `401 invalid_signature` in floria). No
+/// stringly-typed variants — each variant pinpoints the failure
+/// kind precisely so callers can branch on it.
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum SignatureError {
+    /// The `Signature-Input` header is empty, missing the `label=`
+    /// prefix, or has an unbalanced component list.
+    #[error("signature-input header is malformed")]
+    MalformedSignatureInput,
+    /// The component list inside `(...)` is empty.
+    #[error("signature-input must cover at least one component")]
+    EmptyCoveredComponents,
+    /// A required `;name=value` parameter is missing (created, expires,
+    /// keyid, alg).
+    #[error("signature-input is missing required parameter `{0}`")]
+    MissingSignatureInputParameter(&'static str),
+    /// A parameter value (e.g. `created=`) failed to parse as the
+    /// expected primitive (i64, bool, string).
+    #[error("signature-input parameter `{0}` has an invalid value")]
+    InvalidSignatureInputParameter(&'static str),
+    /// The configured / declared algorithm is not `ed25519`.
+    #[error("unsupported signature algorithm: `{0}`")]
+    UnsupportedAlgorithm(String),
+    /// The `Signature` header is empty, missing the `label=:...:`
+    /// wrapping, or does not contain the label declared in
+    /// `Signature-Input`.
+    #[error("signature header is malformed or missing label `{0}`")]
+    MalformedSignatureHeader(String),
+    /// A covered component (e.g. a header) was declared in
+    /// `Signature-Input` but the value is missing or empty in the
+    /// request.
+    #[error("covered component `{0}` is missing from the request")]
+    MissingCoveredComponent(String),
+    /// A covered component name is not recognized (e.g.
+    /// `@request-target` is not implemented).
+    #[error("unknown covered component: `{0}`")]
+    UnknownCoveredComponent(String),
+    /// The `Content-Digest` header value did not parse as RFC 9530
+    /// dictionary syntax, or uses an unsupported algorithm.
+    #[error("content-digest header is malformed or unsupported")]
+    MalformedContentDigest,
+    /// The `Content-Digest` value did not match the recomputed hash
+    /// of the request body.
+    #[error("content-digest does not match request body")]
+    ContentDigestMismatch,
+    /// The base64-encoded `Signature` value did not decode.
+    #[error("signature value is not valid base64")]
+    InvalidSignatureBase64,
+    /// The decoded `Signature` value is not 64 bytes (Ed25519).
+    #[error("ed25519 signature must be 64 bytes")]
+    InvalidSignatureLength,
+    /// Ed25519 verification failed (math, not transport).
+    #[error("ed25519 signature verification failed")]
+    InvalidSignature,
+    /// The provided public key bytes are not a valid Ed25519
+    /// verifying key.
+    #[error("ed25519 public key is invalid")]
+    InvalidPublicKey,
+}
+
+// =====================================================================
+// SignatureInput — parsed `Signature-Input` header
+// =====================================================================
+
+/// A single covered component referenced by a `Signature-Input`
+/// header. Distinguishes derived components (`@method`, `@target-uri`,
+/// `@authority`) from named headers so canonicalization can branch
+/// without re-parsing strings.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Component {
+    /// `@method` — uppercase HTTP method per RFC 9421 §2.2.1.
+    Method,
+    /// `@target-uri` — full request URI per RFC 9421 §2.2.2.
+    TargetUri,
+    /// `@authority` — request authority (host + optional port) per
+    /// RFC 9421 §2.2.3.
+    Authority,
+    /// `@path` — request path per RFC 9421 §2.2.5. Used by soland's
+    /// fanout signer.
+    Path,
+    /// Named lowercase header. Re-emitted as `"name": value` in the
+    /// signing string with whitespace trimmed.
+    Header(String),
+}
+
+impl Component {
+    /// The canonical wire form (RFC 9421 §2.1) of this component
+    /// name, e.g. `@method` or `content-digest`. Always lowercase.
+    pub fn canonical_name(&self) -> String {
+        match self {
+            Component::Method => "@method".to_owned(),
+            Component::TargetUri => "@target-uri".to_owned(),
+            Component::Authority => "@authority".to_owned(),
+            Component::Path => "@path".to_owned(),
+            Component::Header(name) => name.to_ascii_lowercase(),
+        }
+    }
+
+    /// Parse a component name (already stripped of surrounding
+    /// quotes) into its typed form. Lowercases header names.
+    pub fn parse(name: &str) -> Component {
+        match name {
+            "@method" => Component::Method,
+            "@target-uri" => Component::TargetUri,
+            "@authority" => Component::Authority,
+            "@path" => Component::Path,
+            other => Component::Header(other.to_ascii_lowercase()),
+        }
+    }
+}
+
+/// Parsed `Signature-Input` header. RFC 9421 §2.5 — the header maps a
+/// signature `label` to a covered component list and a `;`-separated
+/// parameter list (created, expires, keyid, alg, nonce, …).
+///
+/// Only the parameters listed below are surfaced; unknown parameters
+/// are preserved in [`Self::raw_params_suffix`] so the original
+/// `@signature-params` line can be reconstructed byte-for-byte when
+/// building the signing string.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SignatureInput {
+    /// The signature label (e.g. `sig1`).
+    pub label: String,
+    /// Covered components in declaration order. Order matters — it is
+    /// re-emitted verbatim in the signing string.
+    pub covered_components: Vec<Component>,
+    /// `created` parameter (Unix seconds). Required by the v1
+    /// federation / push profile.
+    pub created: i64,
+    /// `expires` parameter (Unix seconds). Required by the v1
+    /// federation / push profile.
+    pub expires: i64,
+    /// `keyid` parameter — the key fingerprint or DID fragment the
+    /// verifier should look up.
+    pub key_id: String,
+    /// `alg` parameter — must be `ed25519` for this v1 profile.
+    pub algorithm: String,
+    /// The literal string from the `=` after the label through the
+    /// end of the header value, used to reconstruct the
+    /// `@signature-params` line byte-for-byte when building the
+    /// signing string. (RFC 9421 §2.5 requires bit-exact reuse.)
+    pub params_value: String,
+}
+
+impl SignatureInput {
+    /// Returns true if every component in `required` is covered by
+    /// this signature input. Used by verifiers to enforce a minimum
+    /// covered-component set (floria requires `@method`,
+    /// `@target-uri`, `@authority`, `content-digest`, the two
+    /// service-DID headers).
+    pub fn covers_all(&self, required: &[Component]) -> bool {
+        let covered: BTreeSet<String> =
+            self.covered_components.iter().map(Component::canonical_name).collect();
+        required.iter().all(|c| covered.contains(&c.canonical_name()))
+    }
+}
+
+/// Parse a `Signature-Input` header value. Accepts the format emitted
+/// by floria, chime, and soland:
+///
+/// ```text
+/// label=("@method" "@target-uri" ...);created=...;expires=...;keyid="...";alg="ed25519"
+/// ```
+pub fn parse_signature_input(header: &str) -> Result<SignatureInput, SignatureError> {
+    let trimmed = header.trim();
+    let (label, remainder) =
+        trimmed.split_once('=').ok_or(SignatureError::MalformedSignatureInput)?;
+    let label = label.trim().to_owned();
+    let remainder = remainder.trim();
+
+    // The signing string re-emits exactly this suffix in the
+    // @signature-params line.
+    let params_value = remainder.to_owned();
+
+    if !remainder.starts_with('(') {
+        return Err(SignatureError::MalformedSignatureInput);
+    }
+    let end_components = remainder.find(')').ok_or(SignatureError::MalformedSignatureInput)?;
+    let components_str = &remainder[1..end_components];
+    let covered_components: Vec<Component> = components_str
+        .split_ascii_whitespace()
+        .map(|c| c.trim_matches('"'))
+        .filter(|c| !c.is_empty())
+        .map(Component::parse)
+        .collect();
+    if covered_components.is_empty() {
+        return Err(SignatureError::EmptyCoveredComponents);
+    }
+
+    let mut created: Option<i64> = None;
+    let mut expires: Option<i64> = None;
+    let mut key_id: Option<String> = None;
+    let mut algorithm: Option<String> = None;
+
+    for param in remainder[end_components + 1..].split(';').map(str::trim).filter(|p| !p.is_empty())
+    {
+        let (name, raw_value) =
+            param.split_once('=').ok_or(SignatureError::MalformedSignatureInput)?;
+        match name.trim() {
+            "created" => {
+                created = Some(
+                    raw_value
+                        .parse::<i64>()
+                        .map_err(|_| SignatureError::InvalidSignatureInputParameter("created"))?,
+                );
+            }
+            "expires" => {
+                expires = Some(
+                    raw_value
+                        .parse::<i64>()
+                        .map_err(|_| SignatureError::InvalidSignatureInputParameter("expires"))?,
+                );
+            }
+            "keyid" => {
+                key_id = Some(raw_value.trim_matches('"').to_owned());
+            }
+            "alg" => {
+                algorithm = Some(raw_value.trim_matches('"').to_ascii_lowercase());
+            }
+            _ => {
+                // ignore unknown params; preserved in params_value
+            }
+        }
+    }
+
+    Ok(SignatureInput {
+        label,
+        covered_components,
+        created: created.ok_or(SignatureError::MissingSignatureInputParameter("created"))?,
+        expires: expires.ok_or(SignatureError::MissingSignatureInputParameter("expires"))?,
+        key_id: key_id.ok_or(SignatureError::MissingSignatureInputParameter("keyid"))?,
+        algorithm: algorithm.unwrap_or_else(|| "ed25519".to_owned()),
+        params_value,
+    })
+}
+
+/// Parse the `Signature` header value and return the raw signature
+/// bytes for the requested label. The header may contain multiple
+/// signatures (RFC 9421 §4.2) separated by `,` — this helper returns
+/// the bytes for `label` only.
+pub fn parse_signature_header(header: &str, label: &str) -> Result<Vec<u8>, SignatureError> {
+    for part in header.split(',').map(str::trim).filter(|p| !p.is_empty()) {
+        let Some((candidate, encoded)) = part.split_once("=:") else {
+            continue;
+        };
+        if candidate.trim() != label {
+            continue;
+        }
+        let encoded = encoded
+            .strip_suffix(':')
+            .ok_or_else(|| SignatureError::MalformedSignatureHeader(label.to_owned()))?;
+        return decode_signature_b64(encoded);
+    }
+    Err(SignatureError::MalformedSignatureHeader(label.to_owned()))
+}
+
+// =====================================================================
+// SignedRequestParts — HTTP-framework-agnostic request projection
+// =====================================================================
+
+/// HTTP-framework-agnostic projection of the request fields that
+/// RFC 9421 needs to canonicalize. Headers are stored as a `Vec` of
+/// `(lowercase_name, value)` tuples so the caller controls ordering;
+/// duplicate headers are joined with `, ` per RFC 9421 §2.1 when
+/// looked up.
+///
+/// `body_digest` carries the pre-computed `Content-Digest` value —
+/// when present, [`canonical_message`] consumes it as the value of
+/// the `content-digest` covered component without re-hashing.
+/// Verifiers that want to enforce body integrity should call
+/// [`verify_content_digest`] separately against the raw body bytes.
+#[derive(Debug, Clone)]
+pub struct SignedRequestParts {
+    /// HTTP method, e.g. `"POST"`. Canonicalized to lowercase per
+    /// floria's existing verifier (matching the `@method`
+    /// canonicalization that floria emits and signs against).
+    pub method: String,
+    /// Absolute target URI of the request, e.g.
+    /// `"https://push.example.com/api/v1/push/notify"`.
+    pub target_uri: String,
+    /// Authority component (host + optional port).
+    pub authority: String,
+    /// Path component (used by `@path`).
+    pub path: String,
+    /// Lowercase header name + raw header value pairs. The lookup
+    /// helper [`Self::header`] does case-insensitive matching.
+    pub headers: Vec<(String, String)>,
+    /// Optional pre-computed `Content-Digest` value (e.g.
+    /// `"sha-256=:BASE64:"`). When set, it overrides any
+    /// `content-digest` entry in `headers`.
+    pub body_digest: Option<String>,
+}
+
+impl SignedRequestParts {
+    /// Case-insensitive header lookup, joining duplicates with `, `
+    /// per RFC 9421 §2.1.
+    pub fn header(&self, name: &str) -> Option<String> {
+        let lower = name.to_ascii_lowercase();
+        let values: Vec<&str> = self
+            .headers
+            .iter()
+            .filter(|(n, _)| n.eq_ignore_ascii_case(&lower))
+            .map(|(_, v)| v.trim())
+            .filter(|v| !v.is_empty())
+            .collect();
+        if values.is_empty() { None } else { Some(values.join(", ")) }
+    }
+}
+
+// =====================================================================
+// Content-Digest (RFC 9530)
+// =====================================================================
+
+/// `Content-Digest` algorithms supported by this v1 profile.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ContentDigestAlgorithm {
+    /// `sha-256` — the default for federation / push.
+    Sha256,
+    /// `sha-512` — accepted for clients that prefer it.
+    Sha512,
+}
+
+impl ContentDigestAlgorithm {
+    /// Wire form (`"sha-256"` / `"sha-512"`) used in the RFC 9530
+    /// dictionary key.
+    pub fn wire_name(&self) -> &'static str {
+        match self {
+            ContentDigestAlgorithm::Sha256 => "sha-256",
+            ContentDigestAlgorithm::Sha512 => "sha-512",
+        }
+    }
+}
+
+/// Parsed `Content-Digest` header value (RFC 9530 §2). Currently
+/// surfaces a single (alg, digest_bytes) tuple — the dictionary
+/// syntax supports multiple but the v1 profile commits to one.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ContentDigest {
+    pub algorithm: ContentDigestAlgorithm,
+    /// Raw digest bytes (32 for sha-256, 64 for sha-512).
+    pub digest: Vec<u8>,
+    /// The original header value, preserved so it can be re-emitted
+    /// byte-for-byte in the signing string.
+    pub wire_value: String,
+}
+
+impl ContentDigest {
+    /// Compute a `Content-Digest` over `body` using the chosen
+    /// algorithm and return the wire-ready header value, e.g.
+    /// `"sha-256=:BASE64:"`. The standard base64 alphabet is used per
+    /// RFC 9530.
+    pub fn compute(body: &[u8], algorithm: ContentDigestAlgorithm) -> ContentDigest {
+        let digest = match algorithm {
+            ContentDigestAlgorithm::Sha256 => Sha256::digest(body).to_vec(),
+            ContentDigestAlgorithm::Sha512 => Sha512::digest(body).to_vec(),
+        };
+        let wire_value = format!("{}=:{}:", algorithm.wire_name(), BASE64_STANDARD.encode(&digest));
+        ContentDigest { algorithm, digest, wire_value }
+    }
+
+    /// Parse a `Content-Digest` header value. Accepts the simple
+    /// `alg=:base64:` form emitted by floria, chime, and soland.
+    pub fn parse(value: &str) -> Result<ContentDigest, SignatureError> {
+        let trimmed = value.trim();
+        // Find the first `=` (algorithm name boundary).
+        let (alg_str, rest) =
+            trimmed.split_once('=').ok_or(SignatureError::MalformedContentDigest)?;
+        let algorithm = match alg_str.trim() {
+            "sha-256" => ContentDigestAlgorithm::Sha256,
+            "sha-512" => ContentDigestAlgorithm::Sha512,
+            _ => return Err(SignatureError::MalformedContentDigest),
+        };
+        let encoded = rest
+            .trim()
+            .strip_prefix(':')
+            .and_then(|v| v.strip_suffix(':'))
+            .ok_or(SignatureError::MalformedContentDigest)?;
+        let digest =
+            BASE64_STANDARD.decode(encoded).map_err(|_| SignatureError::MalformedContentDigest)?;
+        let expected_len = match algorithm {
+            ContentDigestAlgorithm::Sha256 => 32,
+            ContentDigestAlgorithm::Sha512 => 64,
+        };
+        if digest.len() != expected_len {
+            return Err(SignatureError::MalformedContentDigest);
+        }
+        Ok(ContentDigest { algorithm, digest, wire_value: trimmed.to_owned() })
+    }
+}
+
+/// Recompute the digest over `body` and reject if it does not match
+/// the parsed [`ContentDigest`]. Verifiers should call this before
+/// trusting any `content-digest` covered component in the signature.
+pub fn verify_content_digest(parsed: &ContentDigest, body: &[u8]) -> Result<(), SignatureError> {
+    let recomputed = match parsed.algorithm {
+        ContentDigestAlgorithm::Sha256 => Sha256::digest(body).to_vec(),
+        ContentDigestAlgorithm::Sha512 => Sha512::digest(body).to_vec(),
+    };
+    // Constant-time-ish comparison; the digest bytes are public so a
+    // simple eq is sufficient, but we keep the check explicit.
+    if recomputed != parsed.digest {
+        return Err(SignatureError::ContentDigestMismatch);
+    }
+    Ok(())
+}
+
+// =====================================================================
+// Canonical message construction (RFC 9421 §2.5)
+// =====================================================================
+
+/// Build the canonical signing string for an HTTP request per RFC
+/// 9421 §2.5.
+///
+/// Emits one `"name": value` line per covered component in the order
+/// given by `signature_input.covered_components`, then a trailing
+/// `"@signature-params": <params_value>` line whose value is taken
+/// verbatim from `signature_input.params_value` (so signer / verifier
+/// reuse the exact same bytes — RFC 9421 requires this).
+///
+/// The output is `Vec<u8>` rather than `String` because the resulting
+/// bytes are the input to Ed25519 — never displayed as text.
+pub fn canonical_message(
+    req: &SignedRequestParts,
+    signature_input: &SignatureInput,
+) -> Result<Vec<u8>, SignatureError> {
+    let mut lines = Vec::with_capacity(signature_input.covered_components.len() + 1);
+    for component in &signature_input.covered_components {
+        let value = component_value(req, component)?;
+        lines.push(format!("\"{}\": {}", component.canonical_name(), value));
+    }
+    lines.push(format!("\"@signature-params\": {}", signature_input.params_value));
+    Ok(lines.join("\n").into_bytes())
+}
+
+fn component_value(
+    req: &SignedRequestParts,
+    component: &Component,
+) -> Result<String, SignatureError> {
+    match component {
+        Component::Method => Ok(req.method.to_ascii_lowercase()),
+        Component::TargetUri => Ok(req.target_uri.clone()),
+        Component::Authority => Ok(req.authority.clone()),
+        Component::Path => Ok(req.path.clone()),
+        Component::Header(name) => {
+            if name == "content-digest"
+                && let Some(digest) = &req.body_digest
+            {
+                return Ok(digest.clone());
+            }
+            req.header(name).ok_or_else(|| SignatureError::MissingCoveredComponent(name.clone()))
+        }
+    }
+}
+
+// =====================================================================
+// Sign / verify
+// =====================================================================
+
+/// Ed25519-sign the canonical message bytes and return a base64
+/// (standard alphabet) string suitable for the `Signature` header.
+pub fn sign_message(message: &[u8], signing_key: &Ed25519SigningKey) -> String {
+    let signature: Signature = signing_key.sign(message);
+    encode_signature_b64(&signature.to_bytes())
+}
+
+/// Verify an Ed25519 signature (base64 standard alphabet) against the
+/// canonical message bytes. Returns Ok on success; the discriminated
+/// [`SignatureError`] tells the caller exactly which check failed
+/// (decoding vs. crypto).
+pub fn verify_signature(
+    message: &[u8],
+    signature_b64: &str,
+    public_key: &Ed25519PublicKey,
+) -> Result<(), SignatureError> {
+    let bytes = decode_signature_b64(signature_b64)?;
+    if bytes.len() != 64 {
+        return Err(SignatureError::InvalidSignatureLength);
+    }
+    let mut arr = [0u8; 64];
+    arr.copy_from_slice(&bytes);
+    let signature = Signature::from_bytes(&arr);
+    public_key.verify(message, &signature).map_err(|_| SignatureError::InvalidSignature)
+}
+
+/// Construct an Ed25519 public key from raw 32 bytes. Helper for
+/// callers that store keys as hex / base64.
+pub fn public_key_from_bytes(bytes: &[u8]) -> Result<Ed25519PublicKey, SignatureError> {
+    if bytes.len() != 32 {
+        return Err(SignatureError::InvalidPublicKey);
+    }
+    let mut arr = [0u8; 32];
+    arr.copy_from_slice(bytes);
+    VerifyingKey::from_bytes(&arr).map_err(|_| SignatureError::InvalidPublicKey)
+}
+
+/// Construct an Ed25519 signing key from a 32-byte seed.
+pub fn signing_key_from_seed(seed: &[u8; 32]) -> Ed25519SigningKey {
+    SigningKey::from_bytes(seed)
+}
+
+// -- base64 helpers --------------------------------------------------
+
+/// Standard-alphabet base64 encode (RFC 9421 §3.1 Inner List Byte
+/// Sequence).
+pub fn encode_signature_b64(bytes: &[u8]) -> String {
+    BASE64_STANDARD.encode(bytes)
+}
+
+/// Standard-alphabet base64 decode. Returns
+/// [`SignatureError::InvalidSignatureBase64`] on failure.
+pub fn decode_signature_b64(s: &str) -> Result<Vec<u8>, SignatureError> {
+    BASE64_STANDARD.decode(s.trim()).map_err(|_| SignatureError::InvalidSignatureBase64)
+}
+
+// =====================================================================
+// Tests
+// =====================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Build the floria test fixture: same seed + same component set
+    /// the floria notify test uses (see floria/src/auth.rs::sign_request).
+    const TEST_SEED: [u8; 32] = [1u8; 32];
+
+    fn floria_signature_input(created: i64, expires: i64) -> String {
+        format!(
+            "sig1=(\"@method\" \"@target-uri\" \"@authority\" \"content-digest\" \
+             \"x-contrix-origin-service-did\" \"x-contrix-destination-service-did\");\
+             created={created};expires={expires};\
+             keyid=\"did:web:sync.example.com#push\";alg=\"ed25519\""
+        )
+    }
+
+    #[test]
+    fn parse_signature_input_handles_floria_fixture() {
+        let header = floria_signature_input(1_715_990_000, 1_715_990_300);
+        let parsed = parse_signature_input(&header).expect("parses");
+        assert_eq!(parsed.label, "sig1");
+        assert_eq!(parsed.created, 1_715_990_000);
+        assert_eq!(parsed.expires, 1_715_990_300);
+        assert_eq!(parsed.key_id, "did:web:sync.example.com#push");
+        assert_eq!(parsed.algorithm, "ed25519");
+        assert_eq!(parsed.covered_components.len(), 6);
+        assert_eq!(parsed.covered_components[0], Component::Method);
+        assert_eq!(parsed.covered_components[1], Component::TargetUri);
+        assert_eq!(parsed.covered_components[2], Component::Authority);
+        assert_eq!(parsed.covered_components[3], Component::Header("content-digest".to_owned()));
+        assert_eq!(
+            parsed.covered_components[4],
+            Component::Header("x-contrix-origin-service-did".to_owned())
+        );
+        // covers_all check
+        assert!(parsed.covers_all(&[
+            Component::Method,
+            Component::TargetUri,
+            Component::Authority,
+            Component::Header("content-digest".to_owned()),
+        ]));
+        assert!(!parsed.covers_all(&[Component::Header("x-nope".to_owned())]));
+    }
+
+    #[test]
+    fn canonical_message_matches_floria_known_good_vector() {
+        // Reconstruct the exact signing string floria's sign_request
+        // helper produces for a fixed (method, target-uri, authority,
+        // digest, did) tuple. Locking this byte-for-byte is what
+        // proves the SDK can verify floria-produced signatures.
+        let created = 1_715_990_000_i64;
+        let expires = 1_715_990_300_i64;
+        let input_header = floria_signature_input(created, expires);
+        let signature_input = parse_signature_input(&input_header).unwrap();
+
+        let body = br#"{"hello":"world"}"#;
+        let digest = ContentDigest::compute(body, ContentDigestAlgorithm::Sha256);
+
+        let req = SignedRequestParts {
+            method: "POST".to_owned(),
+            target_uri: "http://127.0.0.1/api/v1/push/notify".to_owned(),
+            authority: "127.0.0.1".to_owned(),
+            path: "/api/v1/push/notify".to_owned(),
+            headers: vec![
+                ("x-contrix-origin-service-did".to_owned(), "did:web:sync.example.com".to_owned()),
+                (
+                    "x-contrix-destination-service-did".to_owned(),
+                    "did:web:push.example.com".to_owned(),
+                ),
+            ],
+            body_digest: Some(digest.wire_value.clone()),
+        };
+
+        let message = canonical_message(&req, &signature_input).unwrap();
+        let text = String::from_utf8(message).unwrap();
+        let expected = format!(
+            "\"@method\": post\n\
+             \"@target-uri\": http://127.0.0.1/api/v1/push/notify\n\
+             \"@authority\": 127.0.0.1\n\
+             \"content-digest\": {digest_val}\n\
+             \"x-contrix-origin-service-did\": did:web:sync.example.com\n\
+             \"x-contrix-destination-service-did\": did:web:push.example.com\n\
+             \"@signature-params\": ({components});created={created};expires={expires};keyid=\"did:web:sync.example.com#push\";alg=\"ed25519\"",
+            digest_val = digest.wire_value,
+            components = "\"@method\" \"@target-uri\" \"@authority\" \"content-digest\" \"x-contrix-origin-service-did\" \"x-contrix-destination-service-did\"",
+        );
+        assert_eq!(text, expected);
+    }
+
+    #[test]
+    fn sign_then_verify_round_trip_succeeds() {
+        let signing_key = signing_key_from_seed(&TEST_SEED);
+        let public_key = signing_key.verifying_key();
+
+        let input_header = floria_signature_input(1_700_000_000, 1_700_000_300);
+        let signature_input = parse_signature_input(&input_header).unwrap();
+
+        let body = br#"{"op":"ping"}"#;
+        let digest = ContentDigest::compute(body, ContentDigestAlgorithm::Sha256);
+        let req = SignedRequestParts {
+            method: "POST".to_owned(),
+            target_uri: "https://push.example/api/v1/push/notify".to_owned(),
+            authority: "push.example".to_owned(),
+            path: "/api/v1/push/notify".to_owned(),
+            headers: vec![
+                ("x-contrix-origin-service-did".to_owned(), "did:web:sync.example.com".to_owned()),
+                (
+                    "x-contrix-destination-service-did".to_owned(),
+                    "did:web:push.example.com".to_owned(),
+                ),
+            ],
+            body_digest: Some(digest.wire_value.clone()),
+        };
+
+        let message = canonical_message(&req, &signature_input).unwrap();
+        let signature_b64 = sign_message(&message, &signing_key);
+
+        verify_signature(&message, &signature_b64, &public_key).expect("verifies");
+
+        // And the body digest re-verifies against the body.
+        let parsed_digest = ContentDigest::parse(&digest.wire_value).unwrap();
+        verify_content_digest(&parsed_digest, body).expect("digest matches");
+    }
+
+    #[test]
+    fn tampered_signature_is_rejected() {
+        let signing_key = signing_key_from_seed(&TEST_SEED);
+        let public_key = signing_key.verifying_key();
+        let input =
+            parse_signature_input(&floria_signature_input(1_700_000_000, 1_700_000_300)).unwrap();
+        let req = SignedRequestParts {
+            method: "POST".to_owned(),
+            target_uri: "https://push.example/".to_owned(),
+            authority: "push.example".to_owned(),
+            path: "/".to_owned(),
+            headers: vec![
+                ("x-contrix-origin-service-did".to_owned(), "did:web:sync.example.com".to_owned()),
+                (
+                    "x-contrix-destination-service-did".to_owned(),
+                    "did:web:push.example.com".to_owned(),
+                ),
+            ],
+            body_digest: Some(
+                ContentDigest::compute(b"{}", ContentDigestAlgorithm::Sha256).wire_value,
+            ),
+        };
+        let message = canonical_message(&req, &input).unwrap();
+        let signature_b64 = sign_message(&message, &signing_key);
+
+        // Flip one byte of the signature payload (decode, mutate,
+        // re-encode) and confirm verification fails with the precise
+        // InvalidSignature variant rather than InvalidSignatureBase64.
+        let mut raw = decode_signature_b64(&signature_b64).unwrap();
+        raw[0] ^= 0xff;
+        let tampered = encode_signature_b64(&raw);
+        assert_eq!(
+            verify_signature(&message, &tampered, &public_key),
+            Err(SignatureError::InvalidSignature)
+        );
+
+        // Tampering the message body (different digest) also fails.
+        let other_req = SignedRequestParts {
+            body_digest: Some(
+                ContentDigest::compute(b"different", ContentDigestAlgorithm::Sha256).wire_value,
+            ),
+            ..req
+        };
+        let other_message = canonical_message(&other_req, &input).unwrap();
+        assert_eq!(
+            verify_signature(&other_message, &signature_b64, &public_key),
+            Err(SignatureError::InvalidSignature)
+        );
+    }
+
+    #[test]
+    fn unknown_covered_component_returns_error_not_panic() {
+        // `@bogus-derived` parses as a Header("@bogus-derived") (since
+        // it doesn't match any of the known `@*` derived names). When
+        // the request has no such header, canonical_message returns
+        // MissingCoveredComponent — not a panic.
+        let header = "sig1=(\"@bogus-derived\");created=1;expires=2;keyid=\"k\";alg=\"ed25519\"";
+        let parsed = parse_signature_input(header).unwrap();
+        let req = SignedRequestParts {
+            method: "GET".to_owned(),
+            target_uri: "https://x/".to_owned(),
+            authority: "x".to_owned(),
+            path: "/".to_owned(),
+            headers: vec![],
+            body_digest: None,
+        };
+        let err = canonical_message(&req, &parsed).unwrap_err();
+        assert!(
+            matches!(err, SignatureError::MissingCoveredComponent(ref c) if c == "@bogus-derived")
+        );
+    }
+
+    #[test]
+    fn parse_signature_input_rejects_missing_required_params() {
+        // Missing `created` → MissingSignatureInputParameter("created").
+        let header = "sig1=(\"@method\");expires=2;keyid=\"k\";alg=\"ed25519\"";
+        let err = parse_signature_input(header).unwrap_err();
+        assert_eq!(err, SignatureError::MissingSignatureInputParameter("created"));
+
+        // Empty covered components → EmptyCoveredComponents.
+        let header2 = "sig1=();created=1;expires=2;keyid=\"k\";alg=\"ed25519\"";
+        let err2 = parse_signature_input(header2).unwrap_err();
+        assert_eq!(err2, SignatureError::EmptyCoveredComponents);
+
+        // Missing `=` after label → MalformedSignatureInput.
+        let header3 = "sig1(\"@method\");created=1";
+        let err3 = parse_signature_input(header3).unwrap_err();
+        assert_eq!(err3, SignatureError::MalformedSignatureInput);
+    }
+
+    #[test]
+    fn parse_signature_header_finds_label_among_multiple() {
+        let raw = base64::engine::general_purpose::STANDARD.encode([0xABu8; 64]);
+        let header = format!("sigA=:{raw}:, sigB=:{raw}:");
+        let bytes = parse_signature_header(&header, "sigB").unwrap();
+        assert_eq!(bytes.len(), 64);
+
+        let missing = parse_signature_header(&header, "sigC").unwrap_err();
+        assert!(matches!(
+            missing,
+            SignatureError::MalformedSignatureHeader(ref l) if l == "sigC"
+        ));
+    }
+
+    #[test]
+    fn content_digest_round_trip_and_mismatch_detected() {
+        let body = b"hello world";
+        let digest = ContentDigest::compute(body, ContentDigestAlgorithm::Sha256);
+        assert!(digest.wire_value.starts_with("sha-256=:"));
+        let parsed = ContentDigest::parse(&digest.wire_value).unwrap();
+        assert_eq!(parsed.algorithm, ContentDigestAlgorithm::Sha256);
+        assert_eq!(parsed.digest.len(), 32);
+        verify_content_digest(&parsed, body).expect("matches");
+        let err = verify_content_digest(&parsed, b"different body").unwrap_err();
+        assert_eq!(err, SignatureError::ContentDigestMismatch);
+
+        // sha-512 path.
+        let d512 = ContentDigest::compute(body, ContentDigestAlgorithm::Sha512);
+        assert!(d512.wire_value.starts_with("sha-512=:"));
+        let parsed_512 = ContentDigest::parse(&d512.wire_value).unwrap();
+        assert_eq!(parsed_512.algorithm, ContentDigestAlgorithm::Sha512);
+        assert_eq!(parsed_512.digest.len(), 64);
+
+        // Unsupported alg.
+        let bad = ContentDigest::parse("md5=:abc:").unwrap_err();
+        assert_eq!(bad, SignatureError::MalformedContentDigest);
+    }
+}

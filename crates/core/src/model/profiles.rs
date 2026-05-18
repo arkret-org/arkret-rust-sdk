@@ -110,6 +110,15 @@ pub struct Morph {
     pub schema: String,
     pub id: String,
     pub space_id: SpaceId,
+    /// Round C47 (spec e10b6ad): authoritative schema set for Morph fields and
+    /// transition validation. Reducers MUST validate Morph fields against
+    /// exactly these refs (set-equal compare on `cx.morph.schema_migrate`);
+    /// `morph_type` / `facets` are not a replacement. Defaults to empty on
+    /// the wire while existing fixtures are migrated; new producers MUST
+    /// populate at least one entry. TODO(C47 Lane A4 / B-soland-deep): make
+    /// this non-empty + enforce set-equal compare.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub schema_refs: Vec<String>,
     pub morph_type: String,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub facets: BTreeMap<String, Value>,
@@ -149,6 +158,7 @@ impl Morph {
             schema: MORPH_SCHEMA.to_owned(),
             id: id.into(),
             space_id,
+            schema_refs: Vec::new(),
             morph_type: morph_type.into(),
             facets: BTreeMap::new(),
             title: None,
@@ -208,6 +218,9 @@ impl AccountStatus {
         matches!(self, AccountStatus::SoftLoggedOut | AccountStatus::Locked)
     }
 }
+
+/// Service implementation profile IDs surfaced by discovery / requirements.
+pub const PROFILE_DIRECTORY_SERVICE: &str = "cx.profile.directory_service.v1";
 
 /// Audit assurance class (encryption-and-audit.md §3.1; spec _todos A1–A9).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

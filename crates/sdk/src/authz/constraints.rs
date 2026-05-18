@@ -350,10 +350,66 @@ impl RecurrenceZone {
     }
 }
 
+/// Structured failure modes for the recurrence parsing helpers.
+///
+/// This is an internal type — kept `pub(super)` so the engine can pattern
+/// match on failure kind instead of string-comparing. The public API of
+/// `authz::engine` and `authz::constraints` is unchanged; at the engine
+/// boundary the error is rendered via [`std::fmt::Display`] which produces
+/// the same human-readable strings the previous `Result<_, String>` API
+/// returned, so observable behavior (deny reasons, error messages) is
+/// byte-equivalent.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) enum ConstraintParseError {
+    /// Timezone string could not be parsed as IANA or fixed offset.
+    InvalidTimezone(String),
+    /// Day-of-week string could not be parsed.
+    InvalidDay(String),
+    /// Time-of-day string could not be parsed.
+    InvalidTime(String),
+    /// Frequency string is not one of the supported keywords.
+    InvalidFrequency(String),
+    /// Current weekday is outside the configured weekday frequency.
+    OutsideWeekdayRecurrence(Weekday),
+    /// Current weekday is outside the configured weekend frequency.
+    OutsideWeekendRecurrence(Weekday),
+    /// Current weekday is not in the explicit `days` allow-list.
+    OutsideRecurrenceDays(Weekday),
+    /// Current local time is outside the configured window.
+    OutsideWindow,
+}
+
+impl std::fmt::Display for ConstraintParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidTimezone(value) => {
+                write!(f, "unsupported recurrence timezone: {}", value)
+            }
+            Self::InvalidDay(value) => write!(f, "unsupported recurrence day: {}", value),
+            Self::InvalidTime(value) => write!(f, "unsupported recurrence time: {}", value),
+            Self::InvalidFrequency(value) => {
+                write!(f, "unsupported recurrence frequency: {}", value)
+            }
+            Self::OutsideWeekdayRecurrence(weekday) => {
+                write!(f, "outside weekday recurrence: {:?}", weekday)
+            }
+            Self::OutsideWeekendRecurrence(weekday) => {
+                write!(f, "outside weekend recurrence: {:?}", weekday)
+            }
+            Self::OutsideRecurrenceDays(weekday) => {
+                write!(f, "outside recurrence days: {:?}", weekday)
+            }
+            Self::OutsideWindow => f.write_str("outside recurrence window"),
+        }
+    }
+}
+
+impl std::error::Error for ConstraintParseError {}
+
 pub(super) fn recurrence_allows(
     now: DateTime<Utc>,
     recurrence: &Recurrence,
-) -> std::result::Result<(), String> {
+) -> std::result::Result<(), ConstraintParseError> {
     let zone = parse_recurrence_zone(recurrence.timezone.as_deref())?;
     let (_, weekday, local_time) = zone.local_parts(now);
 
@@ -367,7 +423,7 @@ pub(super) fn recurrence_allows(
             .map(|day| parse_recurrence_day(day))
             .collect::<std::result::Result<Vec<_>, _>>()?;
         if !allowed_days.contains(&weekday) {
-            return Err(format!("outside recurrence days: {:?}", weekday));
+            return Err(ConstraintParseError::OutsideRecurrenceDays(weekday));
         }
     }
 
@@ -375,7 +431,7 @@ pub(super) fn recurrence_allows(
     let window_end = recurrence.window_end.as_deref().map(parse_recurrence_time).transpose()?;
 
     if !recurrence_window_contains(local_time, window_start, window_end) {
-        return Err("outside recurrence window".to_owned());
+        return Err(ConstraintParseError::OutsideWindow);
     }
 
     Ok(())
@@ -384,7 +440,7 @@ pub(super) fn recurrence_allows(
 pub(super) fn recurrence_next_transition_after(
     now: DateTime<Utc>,
     recurrence: &Recurrence,
-) -> std::result::Result<Option<DateTime<Utc>>, String> {
+) -> std::result::Result<Option<DateTime<Utc>>, ConstraintParseError> {
     let zone = parse_recurrence_zone(recurrence.timezone.as_deref())?;
     let (local_date, _, _) = zone.local_parts(now);
     let window_start = recurrence.window_start.as_deref().map(parse_recurrence_time).transpose()?;
@@ -414,7 +470,9 @@ pub(super) fn recurrence_next_transition_after(
     Ok(candidates.into_iter().filter(|candidate| *candidate > now).min())
 }
 
-fn parse_recurrence_zone(timezone: Option<&str>) -> std::result::Result<RecurrenceZone, String> {
+fn parse_recurrence_zone(
+    timezone: Option<&str>,
+) -> std::result::Result<RecurrenceZone, ConstraintParseError> {
     let value = timezone.unwrap_or("UTC").trim();
     if value.is_empty()
         || value.eq_ignore_ascii_case("utc")
@@ -432,7 +490,7 @@ fn parse_recurrence_zone(timezone: Option<&str>) -> std::result::Result<Recurren
 
     parse_fixed_offset(value)
         .map(RecurrenceZone::Fixed)
-        .ok_or_else(|| format!("unsupported recurrence timezone: {}", value))
+        .ok_or_else(|| ConstraintParseError::InvalidTimezone(value.to_owned()))
 }
 
 fn parse_fixed_offset(value: &str) -> Option<FixedOffset> {
@@ -465,7 +523,7 @@ fn parse_fixed_offset(value: &str) -> Option<FixedOffset> {
     FixedOffset::east_opt(sign * ((hours * 60 * 60) + (minutes * 60)))
 }
 
-fn parse_recurrence_day(day: &str) -> std::result::Result<Weekday, String> {
+fn parse_recurrence_day(day: &str) -> std::result::Result<Weekday, ConstraintParseError> {
     match day.trim().to_ascii_lowercase().as_str() {
         "mon" | "monday" | "1" => Ok(Weekday::Mon),
         "tue" | "tues" | "tuesday" | "2" => Ok(Weekday::Tue),
@@ -474,21 +532,21 @@ fn parse_recurrence_day(day: &str) -> std::result::Result<Weekday, String> {
         "fri" | "friday" | "5" => Ok(Weekday::Fri),
         "sat" | "saturday" | "6" => Ok(Weekday::Sat),
         "sun" | "sunday" | "0" | "7" => Ok(Weekday::Sun),
-        _ => Err(format!("unsupported recurrence day: {}", day)),
+        _ => Err(ConstraintParseError::InvalidDay(day.to_owned())),
     }
 }
 
-fn parse_recurrence_time(value: &str) -> std::result::Result<NaiveTime, String> {
+fn parse_recurrence_time(value: &str) -> std::result::Result<NaiveTime, ConstraintParseError> {
     let value = value.trim();
     NaiveTime::parse_from_str(value, "%H:%M:%S")
         .or_else(|_| NaiveTime::parse_from_str(value, "%H:%M"))
-        .map_err(|_| format!("unsupported recurrence time: {}", value))
+        .map_err(|_| ConstraintParseError::InvalidTime(value.to_owned()))
 }
 
 fn recurrence_frequency_allows(
     frequency: Option<&str>,
     weekday: Weekday,
-) -> std::result::Result<(), String> {
+) -> std::result::Result<(), ConstraintParseError> {
     let Some(frequency) = frequency.map(str::trim).filter(|value| !value.is_empty()) else {
         return Ok(());
     };
@@ -502,17 +560,17 @@ fn recurrence_frequency_allows(
             ) {
                 Ok(())
             } else {
-                Err(format!("outside weekday recurrence: {:?}", weekday))
+                Err(ConstraintParseError::OutsideWeekdayRecurrence(weekday))
             }
         }
         "weekends" => {
             if matches!(weekday, Weekday::Sat | Weekday::Sun) {
                 Ok(())
             } else {
-                Err(format!("outside weekend recurrence: {:?}", weekday))
+                Err(ConstraintParseError::OutsideWeekendRecurrence(weekday))
             }
         }
-        _ => Err(format!("unsupported recurrence frequency: {}", frequency)),
+        _ => Err(ConstraintParseError::InvalidFrequency(frequency.to_owned())),
     }
 }
 
@@ -662,5 +720,99 @@ impl ConstraintEntry {
             Constraint::ContainerMove { .. } => EvaluationClass::SpaceState,
             Constraint::ScopeLimitation { .. } => EvaluationClass::Stateless,
         }
+    }
+}
+
+#[cfg(test)]
+mod constraint_parse_error_tests {
+    //! Unit tests for the structured [`ConstraintParseError`] enum returned
+    //! by the recurrence parsing helpers. These exercise the failure paths
+    //! that were previously only checkable via string matching, plus the
+    //! [`std::fmt::Display`] impl that the engine relies on to render
+    //! byte-equivalent deny reasons.
+    use super::*;
+
+    #[test]
+    fn parse_recurrence_zone_invalid_returns_invalid_timezone_variant() {
+        // RecurrenceZone is not Debug, so use a match instead of unwrap_err().
+        let err = match parse_recurrence_zone(Some("UTC99")) {
+            Ok(_) => panic!("expected InvalidTimezone error for UTC99"),
+            Err(err) => err,
+        };
+        assert!(
+            matches!(err, ConstraintParseError::InvalidTimezone(ref value) if value == "UTC99")
+        );
+        // Display must keep the pre-refactor wording so engine deny reasons
+        // remain byte-equivalent.
+        assert_eq!(err.to_string(), "unsupported recurrence timezone: UTC99");
+    }
+
+    #[test]
+    fn parse_recurrence_day_invalid_returns_invalid_day_variant() {
+        let err = parse_recurrence_day("funday").unwrap_err();
+        assert!(matches!(err, ConstraintParseError::InvalidDay(ref value) if value == "funday"));
+        assert_eq!(err.to_string(), "unsupported recurrence day: funday");
+    }
+
+    #[test]
+    fn parse_recurrence_time_invalid_returns_invalid_time_variant() {
+        let err = parse_recurrence_time("25:99").unwrap_err();
+        assert!(matches!(err, ConstraintParseError::InvalidTime(ref value) if value == "25:99"));
+        assert_eq!(err.to_string(), "unsupported recurrence time: 25:99");
+    }
+
+    #[test]
+    fn recurrence_frequency_allows_unknown_returns_invalid_frequency_variant() {
+        let err = recurrence_frequency_allows(Some("hourly"), Weekday::Wed).unwrap_err();
+        assert!(
+            matches!(err, ConstraintParseError::InvalidFrequency(ref value) if value == "hourly")
+        );
+        assert_eq!(err.to_string(), "unsupported recurrence frequency: hourly");
+    }
+
+    #[test]
+    fn recurrence_frequency_allows_weekdays_on_sunday_returns_outside_weekday_variant() {
+        let err = recurrence_frequency_allows(Some("weekdays"), Weekday::Sun).unwrap_err();
+        assert!(matches!(err, ConstraintParseError::OutsideWeekdayRecurrence(Weekday::Sun)));
+        assert_eq!(err.to_string(), "outside weekday recurrence: Sun");
+    }
+
+    #[test]
+    fn recurrence_frequency_allows_weekends_on_wednesday_returns_outside_weekend_variant() {
+        let err = recurrence_frequency_allows(Some("weekends"), Weekday::Wed).unwrap_err();
+        assert!(matches!(err, ConstraintParseError::OutsideWeekendRecurrence(Weekday::Wed)));
+        assert_eq!(err.to_string(), "outside weekend recurrence: Wed");
+    }
+
+    #[test]
+    fn recurrence_allows_outside_window_returns_outside_window_variant() {
+        // 02:00 UTC on a Wednesday is outside a 09:00-17:00 UTC window.
+        let now = "2026-04-29T02:00:00Z".parse::<DateTime<Utc>>().unwrap();
+        let recurrence = Recurrence {
+            frequency: Some("daily".to_owned()),
+            days: None,
+            window_start: Some("09:00".to_owned()),
+            window_end: Some("17:00".to_owned()),
+            timezone: Some("UTC".to_owned()),
+        };
+        let err = recurrence_allows(now, &recurrence).unwrap_err();
+        assert!(matches!(err, ConstraintParseError::OutsideWindow));
+        assert_eq!(err.to_string(), "outside recurrence window");
+    }
+
+    #[test]
+    fn recurrence_allows_outside_days_returns_outside_recurrence_days_variant() {
+        // 2026-04-29 is a Wednesday; allow-list only Monday.
+        let now = "2026-04-29T12:00:00Z".parse::<DateTime<Utc>>().unwrap();
+        let recurrence = Recurrence {
+            frequency: Some("weekly".to_owned()),
+            days: Some(vec!["mon".to_owned()]),
+            window_start: None,
+            window_end: None,
+            timezone: Some("UTC".to_owned()),
+        };
+        let err = recurrence_allows(now, &recurrence).unwrap_err();
+        assert!(matches!(err, ConstraintParseError::OutsideRecurrenceDays(Weekday::Wed)));
+        assert_eq!(err.to_string(), "outside recurrence days: Wed");
     }
 }

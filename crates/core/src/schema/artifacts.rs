@@ -1,6 +1,9 @@
 use super::*;
-use crate::BUILT_IN_OPERATION_KINDS;
 use crate::events::STANDARD_EVENT_KINDS;
+use crate::{
+    BUILT_IN_OPERATION_KINDS, PROFILE_ATTESTED_AUDIT_E2EE, PROFILE_DIRECTORY_SERVICE,
+    PROFILE_DISCLOSED_AUDIT_E2EE,
+};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SpecArtifactBundle {
@@ -8,6 +11,23 @@ pub struct SpecArtifactBundle {
     pub event_kind_registry: Value,
     pub operation_registry: Value,
     pub id_kind_registry: Value,
+    #[serde(default)]
+    pub conformance_profiles: Value,
+    #[serde(skip)]
+    pub artifacts_dir: Option<PathBuf>,
+}
+
+/// Profile requirement slice loaded from
+/// `profiles/conformance-profiles.json`.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProfileRequirement {
+    pub profile_id: String,
+    #[serde(default)]
+    pub required_endpoints: Vec<String>,
+    #[serde(default)]
+    pub required_event_kinds: Vec<String>,
+    #[serde(default)]
+    pub required_schemas: Vec<String>,
 }
 
 /// Criticality level a receiver applies when it does not recognise an event's
@@ -49,11 +69,12 @@ pub struct ComponentDescriptor {
 
 impl SpecArtifactBundle {
     pub fn load(artifacts_dir: impl AsRef<Path>) -> Result<Self> {
-        let artifacts_dir = artifacts_dir.as_ref();
-        let registry_dir = if artifacts_dir.ends_with("registry") {
-            artifacts_dir.to_path_buf()
+        let requested_dir = artifacts_dir.as_ref();
+        let (artifacts_dir, registry_dir) = if requested_dir.ends_with("registry") {
+            let artifacts_dir = requested_dir.parent().unwrap_or(requested_dir).to_path_buf();
+            (artifacts_dir, requested_dir.to_path_buf())
         } else {
-            artifacts_dir.join("registry")
+            (requested_dir.to_path_buf(), requested_dir.join("registry"))
         };
         Ok(Self {
             schema_registry: read_json_artifact(&registry_dir.join("schema-registry.json"))?,
@@ -62,6 +83,10 @@ impl SpecArtifactBundle {
             )?,
             operation_registry: read_json_artifact(&registry_dir.join("operation-registry.json"))?,
             id_kind_registry: read_json_artifact(&registry_dir.join("id-kind-registry.json"))?,
+            conformance_profiles: read_json_artifact(
+                &artifacts_dir.join("profiles").join("conformance-profiles.json"),
+            )?,
+            artifacts_dir: Some(artifacts_dir),
         })
     }
 
@@ -72,6 +97,7 @@ impl SpecArtifactBundle {
                 "registry/event-kind-registry.json".to_owned(),
                 "registry/operation-registry.json".to_owned(),
                 "registry/id-kind-registry.json".to_owned(),
+                "profiles/conformance-profiles.json".to_owned(),
             ],
             missing_schemas: missing_registry_values(
                 &self.schema_registry,
@@ -97,6 +123,9 @@ impl SpecArtifactBundle {
                 "kind",
                 ARTIFACT_BACKED_ID_KINDS,
             ),
+            missing_profiles: self.missing_profile_values(ARTIFACT_BACKED_PROFILE_IDS),
+            profile_requirement_issues: self.profile_requirement_drift(),
+            missing_payload_validators: self.payload_validator_drift(),
             unlisted_event_kinds: unlisted_active_registry_values(
                 &self.event_kind_registry,
                 "event_kinds",
@@ -104,6 +133,96 @@ impl SpecArtifactBundle {
                 ARTIFACT_BACKED_EVENT_KINDS,
             ),
         }
+    }
+
+    fn payload_validator_drift(&self) -> Vec<String> {
+        let Some(artifacts_dir) = &self.artifacts_dir else {
+            return Vec::new();
+        };
+        let catalog = match event_payload_validator_catalog_from_spec_artifacts(artifacts_dir) {
+            Ok(catalog) => catalog,
+            Err(error) => return vec![format!("catalog_error: {error}")],
+        };
+        catalog.missing_payload_validators_for(active_standard_durable_event_kinds(
+            &self.event_kind_registry,
+        ))
+    }
+
+    /// Return every `cx.profile.*.vN` ID referenced by the conformance profile
+    /// artifact, including profile requirement keys and optional-extension refs.
+    pub fn profile_ids(&self) -> BTreeSet<String> {
+        let mut ids = BTreeSet::new();
+        collect_profile_ids(&self.conformance_profiles, &mut ids);
+        ids
+    }
+
+    /// Return the machine-readable requirements for one profile ID.
+    pub fn profile_requirement(&self, profile_id: &str) -> Result<Option<ProfileRequirement>> {
+        let Some(requirements) =
+            self.conformance_profiles.get("profile_requirements").and_then(Value::as_object)
+        else {
+            return Ok(None);
+        };
+        let Some(entry) = requirements.get(profile_id) else {
+            return Ok(None);
+        };
+        Ok(Some(ProfileRequirement {
+            profile_id: profile_id.to_owned(),
+            required_endpoints: optional_string_array(entry, "required_endpoints", profile_id)?,
+            required_event_kinds: optional_string_array(entry, "required_event_kinds", profile_id)?,
+            required_schemas: optional_string_array(entry, "required_schemas", profile_id)?,
+        }))
+    }
+
+    fn missing_profile_values(&self, expected: &[&str]) -> Vec<String> {
+        let profiles = self.profile_ids();
+        expected
+            .iter()
+            .filter(|profile| !profiles.contains(**profile))
+            .map(|profile| (*profile).to_owned())
+            .collect()
+    }
+
+    fn profile_requirement_drift(&self) -> Vec<String> {
+        let operation_ids = ARTIFACT_BACKED_SERVICE_OPERATIONS.iter().copied().collect();
+        let event_kinds = ARTIFACT_BACKED_EVENT_KINDS.iter().copied().collect();
+        let schema_ids = ARTIFACT_BACKED_SCHEMA_IDS.iter().copied().collect();
+        let mut issues = Vec::new();
+        for profile_id in ARTIFACT_BACKED_PROFILE_IDS {
+            let requirement = match self.profile_requirement(profile_id) {
+                Ok(Some(requirement)) => requirement,
+                Ok(None) => continue,
+                Err(error) => {
+                    issues.push(format!("{profile_id}: profile requirement parse error: {error}"));
+                    continue;
+                }
+            };
+            profile_requirement_missing_values(
+                &mut issues,
+                profile_id,
+                "required_endpoint",
+                &requirement.required_endpoints,
+                &operation_ids,
+                "ARTIFACT_BACKED_SERVICE_OPERATIONS",
+            );
+            profile_requirement_missing_values(
+                &mut issues,
+                profile_id,
+                "required_event_kind",
+                &requirement.required_event_kinds,
+                &event_kinds,
+                "ARTIFACT_BACKED_EVENT_KINDS",
+            );
+            profile_requirement_missing_values(
+                &mut issues,
+                profile_id,
+                "required_schema",
+                &requirement.required_schemas,
+                &schema_ids,
+                "ARTIFACT_BACKED_SCHEMA_IDS",
+            );
+        }
+        issues
     }
 
     /// Look up the [`ComponentDescriptor`] for a state event kind.
@@ -199,10 +318,12 @@ impl SpecArtifactBundle {
 }
 
 /// Two-way drift between the SDK's declared spec coverage (`ARTIFACT_BACKED_*`)
-/// and the spec's registry artifacts.
+/// and the spec's registry/profile artifacts.
 ///
 /// `missing_*` lists entries the SDK declares coverage for that the spec no
 /// longer ships — these are hard errors and are surfaced by [`Self::validate`].
+/// `profile_requirement_issues` lists profile requirement references that point
+/// at operation/schema/event constants missing from the SDK-declared coverage.
 /// `unlisted_*` lists entries the spec ships that the SDK has not yet declared
 /// coverage for — these are soft signals (the SDK may legitimately not cover
 /// every spec extension yet) and are inspected via [`Self::has_unlisted`].
@@ -217,6 +338,12 @@ pub struct ArtifactDriftReport {
     pub missing_operations: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub missing_id_kinds: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub missing_profiles: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub profile_requirement_issues: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub missing_payload_validators: Vec<String>,
     /// Spec-side entries the SDK has not yet declared coverage for, scoped to
     /// the same families covered by `ARTIFACT_BACKED_*`. Filtered to active
     /// entries to avoid noise from inactive/profile-extension items.
@@ -230,15 +357,21 @@ impl ArtifactDriftReport {
             && self.missing_event_kinds.is_empty()
             && self.missing_operations.is_empty()
             && self.missing_id_kinds.is_empty()
+            && self.missing_profiles.is_empty()
+            && self.profile_requirement_issues.is_empty()
+            && self.missing_payload_validators.is_empty()
         {
             Ok(())
         } else {
             Err(Error::Protocol(format!(
-                "spec artifact drift detected: schemas={:?} events={:?} operations={:?} ids={:?}",
+                "spec artifact drift detected: schemas={:?} events={:?} operations={:?} ids={:?} profiles={:?} profile_requirements={:?} payload_validators={:?}",
                 self.missing_schemas,
                 self.missing_event_kinds,
                 self.missing_operations,
-                self.missing_id_kinds
+                self.missing_id_kinds,
+                self.missing_profiles,
+                self.profile_requirement_issues,
+                self.missing_payload_validators
             )))
         }
     }
@@ -253,7 +386,7 @@ impl ArtifactDriftReport {
 /// SDK-declared coverage of spec artifacts.
 ///
 /// These constants enumerate the schemas, event kinds, service operations
-/// and typed-ID kinds the SDK recognises from the v1 spec registry.
+/// profile IDs and typed-ID kinds the SDK recognises from the v1 spec artifacts.
 /// [`SpecArtifactBundle::drift_report`] cross-checks them against the live
 /// registry and produces:
 ///
@@ -266,6 +399,41 @@ impl ArtifactDriftReport {
 /// Update this constant whenever the SDK adds typed support for a new
 /// schema; the drift report will then enforce that the spec still ships it.
 pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
+    "cx.schema.agent_task.v1",
+    "cx.schema.content.mention_redirect.v1",
+    "cx.schema.content.import_attestation.v1",
+    "cx.schema.content.source_export_policy_attestation.v1",
+    "cx.schema.space.v1",
+    "cx.schema.actor_profile.v1",
+    "cx.schema.message.v1",
+    "cx.schema.morph.v1",
+    "cx.schema.relation.v1",
+    "cx.schema.policy.v1",
+    "cx.schema.invite.v1",
+    "cx.schema.event_batch_receipt.v1",
+    "cx.schema.patch.v1",
+    "cx.schema.range_completeness_attestation.v1",
+    "cx.schema.ice_config_response.v1",
+    "cx.schema.device_message.v1",
+    "cx.schema.blob.v1",
+    "cx.schema.media_metadata.v1",
+    "cx.schema.key_backup.v1",
+    "cx.schema.notification.v1",
+    "cx.schema.read_marker.v1",
+    "cx.schema.read_receipt.v1",
+    "cx.schema.did_key_log_entry.v1",
+    "cx.schema.identity_receipt.v1",
+    "cx.schema.handle_claim.v1",
+    "cx.schema.grant_constraint.v1",
+    "cx.schema.resource_selector.v1",
+    "cx.schema.mimi_interop.v1",
+    "cx.schema.moderation_report.v1",
+    "cx.schema.moderation_queue_item.v1",
+    "cx.schema.applet.v1",
+    "cx.schema.agent.v1",
+    "cx.schema.audit_ryw_receipt.v1",
+    "cx.schema.cross_signing_publish.v1",
+    "cx.schema.cross_signing_reset.v1",
     EVENT_SCHEMA,
     EVENT_PAYLOAD_SCHEMA,
     FLOW_SCHEMA,
@@ -286,10 +454,17 @@ pub const ARTIFACT_BACKED_EVENT_KINDS: &[&str] = STANDARD_EVENT_KINDS;
 
 pub const ARTIFACT_BACKED_SERVICE_OPERATIONS: &[&str] = BUILT_IN_OPERATION_KINDS;
 
+/// Profile IDs that still appear as hand-written SDK constants or service
+/// requirement fixtures and are therefore hard-checked against the profile
+/// artifact.
+pub const ARTIFACT_BACKED_PROFILE_IDS: &[&str] =
+    &[PROFILE_DIRECTORY_SERVICE, PROFILE_ATTESTED_AUDIT_E2EE, PROFILE_DISCLOSED_AUDIT_E2EE];
+
 pub const ARTIFACT_BACKED_ID_KINDS: &[&str] = &[
     "actor_profile",
     "agent_session",
     "applet",
+    "attestation",
     "backup",
     "batch",
     "blob",
@@ -351,30 +526,38 @@ pub fn schema_registry_from_spec_artifacts(
     let artifacts_dir = artifacts_dir.as_ref();
     let bundle = SpecArtifactBundle::load(artifacts_dir)?;
     let mut registry = ProtocolSchemaRegistry::new();
-    for schema_id in ARTIFACT_BACKED_SCHEMA_IDS {
-        let entry = registry_entry(&bundle.schema_registry, "schemas", "schema_id", schema_id)
-            .ok_or_else(|| Error::Protocol(format!("schema artifact missing {schema_id}")))?;
+    let schemas = bundle
+        .schema_registry
+        .get("schemas")
+        .and_then(Value::as_array)
+        .ok_or_else(|| Error::Protocol("schema registry missing schemas".to_owned()))?;
+    for entry in schemas {
+        let schema_id = entry
+            .get("schema_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| Error::Protocol("schema registry entry missing schema_id".to_owned()))?;
         let file = entry
             .get("file")
             .and_then(Value::as_str)
             .ok_or_else(|| Error::Protocol(format!("schema artifact {schema_id} has no file")))?;
         let schema_path = artifacts_dir.join(file);
-        let mut schema = read_json_artifact(&schema_path)?;
-        if let Some(reference) = schema.get("$ref").and_then(Value::as_str) {
-            if reference.starts_with('#') {
-                registry.register(*schema_id, schema);
-                continue;
-            }
-            let Some(parent) = schema_path.parent() else {
-                return Err(Error::Protocol(format!(
-                    "schema artifact {schema_id} has unresolved ref {reference}"
-                )));
-            };
-            schema = read_json_artifact(&parent.join(reference))?;
-        }
-        registry.register(*schema_id, schema);
+        let schema = read_json_artifact(&schema_path)?;
+        registry.register(schema_id, schema);
     }
     Ok(registry)
+}
+
+fn active_standard_durable_event_kinds(registry: &Value) -> Vec<&str> {
+    let Some(entries) = registry.get("event_kinds").and_then(Value::as_array) else {
+        return Vec::new();
+    };
+    entries
+        .iter()
+        .filter(|entry| entry.get("status").and_then(Value::as_str) == Some("active"))
+        .filter(|entry| entry.get("wire_scope").and_then(Value::as_str) == Some("durable_event"))
+        .filter_map(|entry| entry.get("event_kind").and_then(Value::as_str))
+        .filter(|event_kind| crate::events::is_standard_event_kind(event_kind))
+        .collect()
 }
 
 pub fn schema_registry_from_default_spec_artifacts() -> Result<Option<ProtocolSchemaRegistry>> {
@@ -382,6 +565,66 @@ pub fn schema_registry_from_default_spec_artifacts() -> Result<Option<ProtocolSc
         return Ok(None);
     };
     Ok(Some(schema_registry_from_spec_artifacts(artifacts_dir)?))
+}
+
+fn collect_profile_ids(value: &Value, out: &mut BTreeSet<String>) {
+    match value {
+        Value::String(text) if is_profile_id(text) => {
+            out.insert(text.clone());
+        }
+        Value::Array(values) => {
+            for value in values {
+                collect_profile_ids(value, out);
+            }
+        }
+        Value::Object(object) => {
+            for (key, value) in object {
+                if is_profile_id(key) {
+                    out.insert(key.clone());
+                }
+                collect_profile_ids(value, out);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn is_profile_id(value: &str) -> bool {
+    value.starts_with("cx.profile.") && value.rsplit_once(".v").is_some()
+}
+
+fn optional_string_array(value: &Value, field: &str, profile_id: &str) -> Result<Vec<String>> {
+    let Some(raw) = value.get(field) else {
+        return Ok(Vec::new());
+    };
+    let array = raw.as_array().ok_or_else(|| {
+        Error::Protocol(format!("profile {profile_id} field {field} must be an array"))
+    })?;
+    let mut out = Vec::with_capacity(array.len());
+    for item in array {
+        let text = item.as_str().ok_or_else(|| {
+            Error::Protocol(format!("profile {profile_id} field {field} contains a non-string"))
+        })?;
+        out.push(text.to_owned());
+    }
+    Ok(out)
+}
+
+fn profile_requirement_missing_values(
+    issues: &mut Vec<String>,
+    profile_id: &str,
+    requirement_field: &str,
+    required: &[String],
+    declared: &BTreeSet<&str>,
+    declared_label: &str,
+) {
+    for value in required {
+        if !declared.contains(value.as_str()) {
+            issues.push(format!(
+                "{profile_id}: {requirement_field} {value} missing from {declared_label}"
+            ));
+        }
+    }
 }
 
 fn read_json_artifact(path: &Path) -> Result<Value> {

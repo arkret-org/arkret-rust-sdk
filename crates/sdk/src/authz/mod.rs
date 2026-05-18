@@ -18,6 +18,7 @@ use crate::{Did, Error, Result, SpaceId, model::Facet};
 
 mod approval;
 mod constraints;
+pub mod delegation;
 mod engine;
 mod grants;
 mod protocol;

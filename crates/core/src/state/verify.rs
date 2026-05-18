@@ -285,7 +285,7 @@ mod tests {
             s
         };
         let mut full = body.as_object().unwrap().clone();
-        full.insert("id".into(), Value::String(format!("cx:move:sha256:{id_hex}")));
+        full.insert("id".into(), Value::String(format!("sha256:{id_hex}")));
         full.insert(
             "sig".into(),
             json!({

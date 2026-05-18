@@ -486,12 +486,12 @@ impl ContrixMlsGroup {
         })
     }
 
-    /// Sprint Q1 第十六增量 (B1): produce a "self-update" commit envelope
-    /// — the MLS commit that rotates the local member's leaf-node key
-    /// without changing membership. yougen's chat.rs Send Secure used
-    /// to synthesize an `mls_commit` Move with hardcoded epoch / hash
-    /// values; now it can call this method to get a real
-    /// `MlsCommitEnvelope` over the actual ratchet state.
+    /// Produce a "self-update" commit envelope — the MLS commit that
+    /// rotates the local member's leaf-node key without changing
+    /// membership. Callers (e.g. yougen's chat Send Secure path) use
+    /// this to get a real `MlsCommitEnvelope` over the actual ratchet
+    /// state instead of synthesizing one with hardcoded epoch / hash
+    /// values.
     ///
     /// Returns an `MlsCommitEnvelope` whose `commit` field is the
     /// TLS-serialised commit message (base64-url encoded) and whose
@@ -509,9 +509,7 @@ impl ContrixMlsGroup {
                 LeafNodeParameters::default(),
             )
             .map_err(mls_error)?;
-        self.group
-            .merge_pending_commit(&self.identity.provider)
-            .map_err(mls_error)?;
+        self.group.merge_pending_commit(&self.identity.provider).map_err(mls_error)?;
         let commit_bytes = bundle.commit().tls_serialize_detached().map_err(mls_error)?;
         let ratchet_tree = Some(self.ratchet_tree()?);
         Ok(MlsCommitEnvelope {
@@ -1134,10 +1132,10 @@ mod tests {
         );
     }
 
-    /// Sprint Q1 第十六增量 (B1): `self_update_commit` MUST advance the
-    /// group epoch by exactly 1 and surface a typed
-    /// `MlsCommitEnvelope` with the new (group_id, epoch) pair. The
-    /// `commit_hash` MUST be the SHA-256 of the wire bytes.
+    /// `self_update_commit` MUST advance the group epoch by exactly 1
+    /// and surface a typed `MlsCommitEnvelope` with the new
+    /// (group_id, epoch) pair. The `commit_hash` MUST be the SHA-256
+    /// of the wire bytes.
     #[test]
     fn self_update_commit_advances_epoch_and_returns_typed_envelope() {
         let alice = ContrixMlsIdentity::new_basic(
@@ -1145,9 +1143,8 @@ mod tests {
             DeviceId::new("cx:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
-        let mut group = alice
-            .create_group(b"cx:space:01904100-0000-7000-8000-555555555555")
-            .unwrap();
+        let mut group =
+            alice.create_group(b"cx:space:01904100-0000-7000-8000-555555555555").unwrap();
         let pre_epoch = group.epoch();
         let pre_group_id = group.group_id();
         let envelope = group.self_update_commit().expect("self_update succeeds");

@@ -135,9 +135,7 @@ impl CompactionPolicy {
             return PruneEligibility::PreservedGenesis;
         }
         if self.prune_only_singleton_successors && candidate.successor_count != 1 {
-            return PruneEligibility::ForkPoint {
-                successor_count: candidate.successor_count,
-            };
+            return PruneEligibility::ForkPoint { successor_count: candidate.successor_count };
         }
         if candidate.age_seconds < self.min_anchor_age_seconds {
             return PruneEligibility::TooYoung {
@@ -158,9 +156,7 @@ impl CompactionPolicy {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        AnchorId, AnchorKind, AnchorerSig, Hash, Hlc, MoveId, MoveSignature, SpaceId,
-    };
+    use crate::{AnchorId, AnchorKind, AnchorerSig, Hash, Hlc, MoveId, MoveSignature, SpaceId};
 
     fn anchor(kind: AnchorKind) -> Anchor {
         let sig = MoveSignature {
@@ -175,9 +171,7 @@ mod tests {
             space_id: SpaceId::new("cx:space:0196419b-0000-7000-8000-00000000014a".to_owned())
                 .unwrap(),
             predecessor_refs: vec![],
-            frontier: vec![
-                MoveId::new(format!("cx:move:sha256:{}", "11".repeat(32))).unwrap(),
-            ],
+            frontier: vec![MoveId::new(format!("sha256:{}", "11".repeat(32))).unwrap()],
             state_root: Hash::new(format!("sha256:{}", "77".repeat(32))).unwrap(),
             anchorer_sig: AnchorerSig::Single(sig),
             hlc: Hlc::new("0189c4d2af00-00000000-aabbccdd".to_owned()).unwrap(),
@@ -185,7 +179,13 @@ mod tests {
         }
     }
 
-    fn candidate(a: &Anchor, age: u64, witnesses: u32, succ: usize, is_g: bool) -> PruneCandidate<'_> {
+    fn candidate(
+        a: &Anchor,
+        age: u64,
+        witnesses: u32,
+        succ: usize,
+        is_g: bool,
+    ) -> PruneCandidate<'_> {
         PruneCandidate {
             candidate: a,
             age_seconds: age,

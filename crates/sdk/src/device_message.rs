@@ -1,9 +1,8 @@
 //! Production typed device-message API per `crypto-media/device-lifecycle.md`.
 //!
-//! Round 24 (2026-05-09) graduates the device-message helper from the
-//! scaffold-only [`crate::devices::DeviceMessageEnvelope`] to a
-//! production-shape `DeviceMessage` struct + builder + signer-aware
-//! `verify()` against the SDK [`contrix_core::MoveSigner`] trait.
+//! Production-shape `DeviceMessage` struct + builder + signer-aware
+//! `verify()` against the SDK [`contrix_core::MoveSigner`] trait, built
+//! on top of [`crate::devices::DeviceMessageEnvelope`].
 //!
 //! Wire shape mirrors the spec contract — `recipient`, `sender`,
 //! `message_type`, `body`, `hlc`, `sig` — with canonical bytes covering

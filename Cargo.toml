@@ -27,7 +27,7 @@ getrandom = { version = "0.3.4", default-features = false, features = ["std"] }
 openmls = { version = "0.8.1", default-features = false }
 openmls_basic_credential = { version = "0.5.0", default-features = false }
 openmls_rust_crypto = { version = "0.5.1", default-features = false }
-regex = { version = "1.11.1", default-features = false, features = ["std"] }
+regex = { version = "1.11.1", default-features = false, features = ["std", "unicode-perl"] }
 reqwest = { version = "0.12.24", default-features = false }
 salvo = { version = "0.93.0", default-features = false }
 salvo-oapi = { version = "0.93.0", default-features = false }
@@ -112,4 +112,3 @@ debug = true
 [profile.bench]
 inherits = "release"
 lto = false
-

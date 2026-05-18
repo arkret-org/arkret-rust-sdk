@@ -1,5 +1,8 @@
 use super::*;
 
+#[cfg(feature = "full-surface")]
+use crate::agent_workspace::AttachedAuthority;
+
 /// Capability grant.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CapabilityGrant {
@@ -24,6 +27,14 @@ pub struct CapabilityGrant {
     pub revoked_by: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub revoked_at: Option<DateTime<Utc>>,
+    /// `cx.profile.agent_workspace.v1` — optional binding to a
+    /// `cx.schema.agent_authority.v1` attestation. Reducer-enforced
+    /// REQUIRED when grant subject is an agent DID whose
+    /// agent_authority.acting_mode == "delegated_assistant". See
+    /// `contrix-spec/spec/v1/zh/extensions/agent-workspace-profile.md §5`.
+    #[cfg(feature = "full-surface")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub attached_authority: Option<AttachedAuthority>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -300,6 +311,8 @@ fn capability_grant_from_resolved_event(
         valid_until: optional_from_value(content.get("valid_until"))?,
         revoked_by: optional_did(content, "revoked_by")?,
         revoked_at: optional_from_value(content.get("revoked_at"))?,
+        #[cfg(feature = "full-surface")]
+        attached_authority: optional_from_value(content.get("attached_authority"))?,
     })
 }
 

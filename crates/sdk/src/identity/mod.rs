@@ -10,8 +10,9 @@ use sha2::{Digest, Sha256};
 
 use crate::{Did, Error, Result};
 
+pub mod binding;
 mod handles;
-mod helpers;
+pub(crate) mod helpers;
 mod records;
 mod resolvers;
 #[cfg(test)]

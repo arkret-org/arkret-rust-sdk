@@ -1,4 +1,6 @@
 use super::*;
+use chrono::DateTime;
+use regex::Regex;
 
 /// Registry entry for one operation kind.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -138,19 +140,15 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         }
         OP_APPLET_BRIDGE_ERROR => vec!["session_id".to_owned(), "errcode".to_owned()],
         OP_AGENT_ENDPOINT => vec!["agent_did".to_owned(), "protocol".to_owned()],
-        OP_AGENT_PROTOCOL_SESSION_START => vec![
-            "agent_did".to_owned(),
-            "session_id".to_owned(),
-            "capability_proof".to_owned(),
-        ],
+        OP_AGENT_PROTOCOL_SESSION_START => {
+            vec!["agent_did".to_owned(), "session_id".to_owned(), "capability_proof".to_owned()]
+        }
         OP_AGENT_PROTOCOL_SESSION_STATUS => {
             vec!["session_id".to_owned(), "status".to_owned()]
         }
-        OP_AGENT_PROTOCOL_SESSION_RESULT => vec![
-            "session_id".to_owned(),
-            "result".to_owned(),
-            "audit_binding".to_owned(),
-        ],
+        OP_AGENT_PROTOCOL_SESSION_RESULT => {
+            vec!["session_id".to_owned(), "result".to_owned(), "audit_binding".to_owned()]
+        }
         OP_MORPH_CREATE => vec!["object".to_owned()],
         OP_MORPH_UPDATE => vec!["morph_id".to_owned(), "patch".to_owned()],
         OP_MORPH_ARCHIVE | OP_MORPH_RESTORE => vec!["morph_id".to_owned()],
@@ -428,7 +426,15 @@ impl ProtocolSchemaRegistry {
 
     /// Return one schema by ID.
     pub fn schema(&self, schema_id: &str) -> Option<&Value> {
-        self.schemas.get(schema_id)
+        if let Some(schema) = self.schemas.get(schema_id) {
+            return Some(schema);
+        }
+        let (base, fragment) = schema_id.split_once('#')?;
+        let root = self.schemas.get(base)?;
+        if fragment.is_empty() {
+            return Some(root);
+        }
+        root.pointer(fragment)
     }
 
     /// Iterate schema IDs.
@@ -486,32 +492,266 @@ impl ProtocolSchemaRegistry {
         })
     }
 
-    /// Validate required fields and basic JSON Schema `type` constraints.
+    /// Validate one value against the registered JSON Schema document.
     pub fn validate_value(&self, schema_id: &str, value: &Value) -> Result<()> {
+        let root_id = schema_id.split_once('#').map(|(base, _)| base).unwrap_or(schema_id);
+        let root = self
+            .schemas
+            .get(root_id)
+            .ok_or_else(|| Error::Protocol(format!("unknown schema '{root_id}'")))?;
         let schema = self
             .schema(schema_id)
             .ok_or_else(|| Error::Protocol(format!("unknown schema '{schema_id}'")))?;
-        let object = value
-            .as_object()
-            .ok_or_else(|| Error::Protocol("schema target must be a JSON object".to_owned()))?;
-        let required =
-            schema.get("required").and_then(Value::as_array).map(Vec::as_slice).unwrap_or(&[]);
-        for field in required.iter().filter_map(Value::as_str) {
-            if !object.contains_key(field) {
+        self.validate_schema(root_id, root, schema, value, "$", 0)?;
+        if let Some(object) = value.as_object() {
+            self.validate_security_extensions(schema_id, object)?;
+        }
+        Ok(())
+    }
+
+    fn validate_schema(
+        &self,
+        root_id: &str,
+        root: &Value,
+        schema: &Value,
+        value: &Value,
+        path: &str,
+        depth: usize,
+    ) -> Result<()> {
+        if depth > 128 {
+            return Err(Error::Protocol(format!(
+                "schema '{root_id}' exceeded recursive validation depth at {path}"
+            )));
+        }
+        let Some(schema_object) = schema.as_object() else {
+            return Ok(());
+        };
+
+        if let Some(reference) = schema_object.get("$ref").and_then(Value::as_str) {
+            let (resolved_root_id, resolved_root, resolved_schema) =
+                self.resolve_schema_ref(root_id, root, reference)?;
+            return self.validate_schema(
+                resolved_root_id,
+                resolved_root,
+                resolved_schema,
+                value,
+                path,
+                depth + 1,
+            );
+        }
+
+        if let Some(constant) = schema_object.get("const") {
+            if value != constant {
                 return Err(Error::Protocol(format!(
-                    "schema '{schema_id}' requires field '{field}'"
+                    "schema '{root_id}' const mismatch at {path}"
                 )));
             }
         }
-        if let Some(properties) = schema.get("properties").and_then(Value::as_object) {
-            for (field, property_schema) in properties {
-                if let Some(field_value) = object.get(field) {
-                    validate_json_schema_type(schema_id, field, property_schema, field_value)?;
+
+        if let Some(enum_values) = schema_object.get("enum").and_then(Value::as_array) {
+            if !enum_values.iter().any(|candidate| candidate == value) {
+                return Err(Error::Protocol(format!("schema '{root_id}' enum mismatch at {path}")));
+            }
+        }
+
+        if let Some(schema_type) = schema_object.get("type") {
+            validate_json_schema_type_value(root_id, path, schema_type, value)?;
+        }
+
+        for keyword in ["allOf"] {
+            if let Some(items) = schema_object.get(keyword).and_then(Value::as_array) {
+                for item in items {
+                    self.validate_schema(root_id, root, item, value, path, depth + 1)?;
                 }
             }
         }
-        self.validate_security_extensions(schema_id, object)?;
+
+        for keyword in ["oneOf", "anyOf"] {
+            if let Some(items) = schema_object.get(keyword).and_then(Value::as_array) {
+                let matches = items
+                    .iter()
+                    .filter(|item| {
+                        self.validate_schema(root_id, root, item, value, path, depth + 1).is_ok()
+                    })
+                    .count();
+                let valid = if keyword == "oneOf" { matches == 1 } else { matches >= 1 };
+                if !valid {
+                    return Err(Error::Protocol(format!(
+                        "schema '{root_id}' {keyword} matched {matches} branches at {path}"
+                    )));
+                }
+            }
+        }
+
+        if let Some(not_schema) = schema_object.get("not") {
+            if self.validate_schema(root_id, root, not_schema, value, path, depth + 1).is_ok() {
+                return Err(Error::Protocol(format!(
+                    "schema '{root_id}' not schema matched at {path}"
+                )));
+            }
+        }
+
+        if let Some(if_schema) = schema_object.get("if") {
+            let branch =
+                if self.validate_schema(root_id, root, if_schema, value, path, depth + 1).is_ok() {
+                    schema_object.get("then")
+                } else {
+                    schema_object.get("else")
+                };
+            if let Some(branch_schema) = branch {
+                self.validate_schema(root_id, root, branch_schema, value, path, depth + 1)?;
+            }
+        }
+
+        if let Some(format) = schema_object.get("format").and_then(Value::as_str) {
+            validate_json_schema_format(root_id, path, format, value)?;
+        }
+        if let Some(pattern) = schema_object.get("pattern").and_then(Value::as_str) {
+            validate_json_schema_pattern(root_id, path, pattern, value)?;
+        }
+        validate_json_schema_string_lengths(root_id, path, schema, value)?;
+        validate_json_schema_numbers(root_id, path, schema, value)?;
+
+        if let Some(object) = value.as_object() {
+            validate_json_schema_object_sizes(root_id, path, schema, object)?;
+            if let Some(required) = schema_object.get("required").and_then(Value::as_array) {
+                for field in required.iter().filter_map(Value::as_str) {
+                    if !object.contains_key(field) {
+                        return Err(Error::Protocol(format!(
+                            "schema '{root_id}' requires field '{field}' at {path}"
+                        )));
+                    }
+                }
+            }
+            if let Some(properties) = schema_object.get("properties").and_then(Value::as_object) {
+                for (field, property_schema) in properties {
+                    if let Some(field_value) = object.get(field) {
+                        self.validate_schema(
+                            root_id,
+                            root,
+                            property_schema,
+                            field_value,
+                            &format!("{path}.{field}"),
+                            depth + 1,
+                        )?;
+                    }
+                }
+            }
+            if let Some(property_names) = schema_object.get("propertyNames") {
+                for field in object.keys() {
+                    self.validate_schema(
+                        root_id,
+                        root,
+                        property_names,
+                        &Value::String(field.clone()),
+                        &format!("{path} property name"),
+                        depth + 1,
+                    )?;
+                }
+            }
+            if let Some(additional) = schema_object.get("additionalProperties") {
+                let known = schema_object
+                    .get("properties")
+                    .and_then(Value::as_object)
+                    .map(|properties| properties.keys().collect::<BTreeSet<_>>())
+                    .unwrap_or_default();
+                for (field, field_value) in object {
+                    if known.contains(field) {
+                        continue;
+                    }
+                    match additional {
+                        Value::Bool(true) => {}
+                        Value::Bool(false) => {
+                            return Err(Error::Protocol(format!(
+                                "schema '{root_id}' rejects additional field '{field}' at {path}"
+                            )));
+                        }
+                        schema => {
+                            self.validate_schema(
+                                root_id,
+                                root,
+                                schema,
+                                field_value,
+                                &format!("{path}.{field}"),
+                                depth + 1,
+                            )?;
+                        }
+                    }
+                }
+            }
+        }
+
+        if let Some(array) = value.as_array() {
+            validate_json_schema_array_sizes(root_id, path, schema, array)?;
+            if schema_object.get("uniqueItems").and_then(Value::as_bool) == Some(true) {
+                let mut seen = BTreeSet::new();
+                for item in array {
+                    let encoded = serde_json::to_string(item).map_err(|error| {
+                        Error::Protocol(format!(
+                            "schema '{root_id}' failed to compare uniqueItems at {path}: {error}"
+                        ))
+                    })?;
+                    if !seen.insert(encoded) {
+                        return Err(Error::Protocol(format!(
+                            "schema '{root_id}' requires unique array items at {path}"
+                        )));
+                    }
+                }
+            }
+            if let Some(item_schema) = schema_object.get("items") {
+                for (index, item) in array.iter().enumerate() {
+                    self.validate_schema(
+                        root_id,
+                        root,
+                        item_schema,
+                        item,
+                        &format!("{path}[{index}]"),
+                        depth + 1,
+                    )?;
+                }
+            }
+        }
         Ok(())
+    }
+
+    fn resolve_schema_ref<'a>(
+        &'a self,
+        root_id: &'a str,
+        root: &'a Value,
+        reference: &str,
+    ) -> Result<(&'a str, &'a Value, &'a Value)> {
+        let (document_ref, fragment) = reference.split_once('#').unwrap_or((reference, ""));
+        let (resolved_root_id, resolved_root) = if document_ref.is_empty() {
+            (root_id, root)
+        } else {
+            self.resolve_external_schema(document_ref).ok_or_else(|| {
+                Error::Protocol(format!("schema '{root_id}' has unresolved ref {reference}"))
+            })?
+        };
+        let resolved_schema = if fragment.is_empty() {
+            resolved_root
+        } else {
+            resolved_root.pointer(fragment).ok_or_else(|| {
+                Error::Protocol(format!("schema '{root_id}' has unresolved ref {reference}"))
+            })?
+        };
+        Ok((resolved_root_id, resolved_root, resolved_schema))
+    }
+
+    fn resolve_external_schema<'a>(&'a self, document_ref: &str) -> Option<(&'a str, &'a Value)> {
+        let normalized = document_ref.trim_start_matches("./");
+        self.schemas.iter().find_map(|(schema_id, schema)| {
+            let json_id = schema.get("$id").and_then(Value::as_str).unwrap_or_default();
+            if schema_id == document_ref
+                || schema_id == normalized
+                || json_id == document_ref
+                || json_id.ends_with(normalized)
+            {
+                Some((schema_id.as_str(), schema))
+            } else {
+                None
+            }
+        })
     }
 
     fn validate_security_extensions(
@@ -789,16 +1029,30 @@ fn is_security_sensitive_extension(field: &str) -> bool {
         || field.starts_with("x-contrix-security-")
 }
 
-fn validate_json_schema_type(
+fn validate_json_schema_type_value(
     schema_id: &str,
-    field: &str,
-    property_schema: &Value,
+    path: &str,
+    schema_type: &Value,
     value: &Value,
 ) -> Result<()> {
-    let Some(kind) = property_schema.get("type").and_then(Value::as_str) else {
-        return Ok(());
+    let matches = match schema_type {
+        Value::String(kind) => json_schema_type_matches(kind, value),
+        Value::Array(kinds) => {
+            kinds.iter().filter_map(Value::as_str).any(|kind| json_schema_type_matches(kind, value))
+        }
+        _ => true,
     };
-    let matches = match kind {
+    if matches {
+        Ok(())
+    } else {
+        Err(Error::Protocol(format!(
+            "schema '{schema_id}' type mismatch at {path}: expected {schema_type}"
+        )))
+    }
+}
+
+fn json_schema_type_matches(kind: &str, value: &Value) -> bool {
+    match kind {
         "array" => value.is_array(),
         "boolean" => value.is_boolean(),
         "integer" => value.as_i64().is_some() || value.as_u64().is_some(),
@@ -807,12 +1061,148 @@ fn validate_json_schema_type(
         "object" => value.is_object(),
         "string" => value.is_string(),
         _ => true,
+    }
+}
+
+fn validate_json_schema_pattern(
+    schema_id: &str,
+    path: &str,
+    pattern: &str,
+    value: &Value,
+) -> Result<()> {
+    let Some(text) = value.as_str() else {
+        return Ok(());
     };
-    if matches {
+    let regex = Regex::new(pattern).map_err(|error| {
+        Error::Protocol(format!("schema '{schema_id}' has invalid regex at {path}: {error}"))
+    })?;
+    if regex.is_match(text) {
         Ok(())
     } else {
-        Err(Error::Protocol(format!(
-            "schema '{schema_id}' field '{field}' must be JSON type '{kind}'"
-        )))
+        Err(Error::Protocol(format!("schema '{schema_id}' pattern mismatch at {path}")))
     }
+}
+
+fn validate_json_schema_format(
+    schema_id: &str,
+    path: &str,
+    format: &str,
+    value: &Value,
+) -> Result<()> {
+    if format != "date-time" {
+        return Ok(());
+    }
+    let Some(text) = value.as_str() else {
+        return Ok(());
+    };
+    DateTime::parse_from_rfc3339(text).map(|_| ()).map_err(|error| {
+        Error::Protocol(format!(
+            "schema '{schema_id}' date-time format mismatch at {path}: {error}"
+        ))
+    })
+}
+
+fn validate_json_schema_string_lengths(
+    schema_id: &str,
+    path: &str,
+    schema: &Value,
+    value: &Value,
+) -> Result<()> {
+    let Some(text) = value.as_str() else {
+        return Ok(());
+    };
+    let len = text.chars().count() as u64;
+    if let Some(min) = schema.get("minLength").and_then(Value::as_u64) {
+        if len < min {
+            return Err(Error::Protocol(format!(
+                "schema '{schema_id}' minLength mismatch at {path}"
+            )));
+        }
+    }
+    if let Some(max) = schema.get("maxLength").and_then(Value::as_u64) {
+        if len > max {
+            return Err(Error::Protocol(format!(
+                "schema '{schema_id}' maxLength mismatch at {path}"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_json_schema_array_sizes(
+    schema_id: &str,
+    path: &str,
+    schema: &Value,
+    value: &[Value],
+) -> Result<()> {
+    let len = value.len() as u64;
+    if let Some(min) = schema.get("minItems").and_then(Value::as_u64) {
+        if len < min {
+            return Err(Error::Protocol(format!(
+                "schema '{schema_id}' minItems mismatch at {path}"
+            )));
+        }
+    }
+    if let Some(max) = schema.get("maxItems").and_then(Value::as_u64) {
+        if len > max {
+            return Err(Error::Protocol(format!(
+                "schema '{schema_id}' maxItems mismatch at {path}"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_json_schema_object_sizes(
+    schema_id: &str,
+    path: &str,
+    schema: &Value,
+    value: &serde_json::Map<String, Value>,
+) -> Result<()> {
+    let len = value.len() as u64;
+    if let Some(min) = schema.get("minProperties").and_then(Value::as_u64) {
+        if len < min {
+            return Err(Error::Protocol(format!(
+                "schema '{schema_id}' minProperties mismatch at {path}"
+            )));
+        }
+    }
+    if let Some(max) = schema.get("maxProperties").and_then(Value::as_u64) {
+        if len > max {
+            return Err(Error::Protocol(format!(
+                "schema '{schema_id}' maxProperties mismatch at {path}"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_json_schema_numbers(
+    schema_id: &str,
+    path: &str,
+    schema: &Value,
+    value: &Value,
+) -> Result<()> {
+    let Some(number) = value.as_f64() else {
+        return Ok(());
+    };
+    for (keyword, violated) in [
+        ("minimum", schema.get("minimum").and_then(Value::as_f64).is_some_and(|min| number < min)),
+        ("maximum", schema.get("maximum").and_then(Value::as_f64).is_some_and(|max| number > max)),
+        (
+            "exclusiveMinimum",
+            schema.get("exclusiveMinimum").and_then(Value::as_f64).is_some_and(|min| number <= min),
+        ),
+        (
+            "exclusiveMaximum",
+            schema.get("exclusiveMaximum").and_then(Value::as_f64).is_some_and(|max| number >= max),
+        ),
+    ] {
+        if violated {
+            return Err(Error::Protocol(format!(
+                "schema '{schema_id}' {keyword} mismatch at {path}"
+            )));
+        }
+    }
+    Ok(())
 }

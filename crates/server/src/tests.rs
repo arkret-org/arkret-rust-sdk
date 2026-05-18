@@ -30,6 +30,8 @@ fn service_route_registry_matches_required_spec_operations() {
         ("cx.events.frontier", "/api/v1/events/frontier"),
         ("cx.events.subscribe", "/api/v1/events/subscribe"),
         ("cx.events.query", "/api/v1/events"),
+        ("cx.agent_workspace.resolve_mirror_flow", "/api/v1/agent_workspace/mirror_flow"),
+        ("cx.agent_workspace.list_pending_tasks", "/api/v1/agent_workspace/pending_tasks"),
         ("cx.directory.private_contact_discovery", "/api/v1/directory/private-contact-discovery"),
         ("cx.blob.upload", "/api/v1/blob/upload"),
         ("cx.push.register_device", "/api/v1/push/register-device"),

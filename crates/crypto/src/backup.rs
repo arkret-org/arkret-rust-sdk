@@ -181,21 +181,14 @@ pub fn decrypt_vault(
     nonce_b64: &str,
     ciphertext_b64: &str,
 ) -> Result<Vec<u8>> {
-    let salt_bytes = B64
-        .decode(salt_b64.trim_end_matches('='))
-        .context("salt base64")?;
-    let salt: [u8; VAULT_SALT_LEN] = salt_bytes
-        .try_into()
-        .map_err(|_| anyhow!("salt must be {VAULT_SALT_LEN} bytes"))?;
-    let nonce_bytes = B64
-        .decode(nonce_b64.trim_end_matches('='))
-        .context("nonce base64")?;
-    let nonce_array: [u8; VAULT_NONCE_LEN] = nonce_bytes
-        .try_into()
-        .map_err(|_| anyhow!("nonce must be {VAULT_NONCE_LEN} bytes"))?;
-    let ciphertext = B64
-        .decode(ciphertext_b64.trim_end_matches('='))
-        .context("ciphertext base64")?;
+    let salt_bytes = B64.decode(salt_b64.trim_end_matches('=')).context("salt base64")?;
+    let salt: [u8; VAULT_SALT_LEN] =
+        salt_bytes.try_into().map_err(|_| anyhow!("salt must be {VAULT_SALT_LEN} bytes"))?;
+    let nonce_bytes = B64.decode(nonce_b64.trim_end_matches('=')).context("nonce base64")?;
+    let nonce_array: [u8; VAULT_NONCE_LEN] =
+        nonce_bytes.try_into().map_err(|_| anyhow!("nonce must be {VAULT_NONCE_LEN} bytes"))?;
+    let ciphertext =
+        B64.decode(ciphertext_b64.trim_end_matches('=')).context("ciphertext base64")?;
     let kek = derive_vault_kek_with_salt(passphrase, &salt)?;
     let cipher = XChaCha20Poly1305::new((&kek.key).into());
     let plaintext = cipher
@@ -412,13 +405,8 @@ mod tests {
         let kek = derive_vault_kek_with_salt(b"open sesame", &[7u8; VAULT_SALT_LEN]).unwrap();
         let plaintext = br#"{"device_sk":"opaque"}"#;
         let ct = encrypt_vault(&kek, plaintext).unwrap();
-        let recovered = decrypt_vault(
-            b"open sesame",
-            &ct.salt_b64,
-            &ct.nonce_b64,
-            &ct.ciphertext_b64,
-        )
-        .unwrap();
+        let recovered =
+            decrypt_vault(b"open sesame", &ct.salt_b64, &ct.nonce_b64, &ct.ciphertext_b64).unwrap();
         assert_eq!(recovered, plaintext);
     }
 
@@ -426,8 +414,8 @@ mod tests {
     fn decrypt_rejects_wrong_passphrase() {
         let kek = derive_vault_kek_with_salt(b"first", &[3u8; VAULT_SALT_LEN]).unwrap();
         let ct = encrypt_vault(&kek, b"payload").unwrap();
-        let err = decrypt_vault(b"second", &ct.salt_b64, &ct.nonce_b64, &ct.ciphertext_b64)
-            .unwrap_err();
+        let err =
+            decrypt_vault(b"second", &ct.salt_b64, &ct.nonce_b64, &ct.ciphertext_b64).unwrap_err();
         assert!(err.to_string().contains("vault decrypt failed"));
     }
 
@@ -457,15 +445,15 @@ mod tests {
     #[test]
     fn passphrase_strength_grows_with_length_and_classes() {
         assert_eq!(estimate_passphrase_strength(""), 0);
-        assert!(estimate_passphrase_strength("short") < estimate_passphrase_strength("longerpassphrase"));
+        assert!(
+            estimate_passphrase_strength("short")
+                < estimate_passphrase_strength("longerpassphrase")
+        );
         assert!(
             estimate_passphrase_strength("alllowercaseonly")
                 < estimate_passphrase_strength("Alllowercaseonly1!")
         );
-        assert_eq!(
-            estimate_passphrase_strength("Correct horse battery staple 9!"),
-            5
-        );
+        assert_eq!(estimate_passphrase_strength("Correct horse battery staple 9!"), 5);
     }
 
     #[test]
@@ -490,10 +478,7 @@ mod tests {
         assert_eq!(kdf.name, "argon2id");
         assert_eq!(kdf.salt, ct.salt_b64);
         assert_eq!(kdf.params["m_kib"], VAULT_ARGON2_M_KIB);
-        assert_eq!(
-            kdf.params["hkdf_info"],
-            "contrix-key-backup/secret_storage/envelope/v1"
-        );
+        assert_eq!(kdf.params["hkdf_info"], "contrix-key-backup/secret_storage/envelope/v1");
         assert_eq!(envelope.ciphertext, ct.ciphertext_b64);
         assert_eq!(envelope.ciphertext_digest, ct.digest_sha256);
         assert!(envelope.encryption.key_commitment.is_some());

@@ -74,7 +74,7 @@ mod tests {
     }
 
     fn move_id(byte: u8) -> MoveId {
-        MoveId::new(format!("cx:move:sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
+        MoveId::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
     }
 
     fn set_op(value: Value) -> LatticeOp {

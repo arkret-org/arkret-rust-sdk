@@ -79,7 +79,7 @@ impl UnsignedMove {
 
     fn placeholder_move(&self) -> Result<Move> {
         let placeholder_id = MoveId::new(
-            "cx:move:sha256:0000000000000000000000000000000000000000000000000000000000000000",
+            "sha256:0000000000000000000000000000000000000000000000000000000000000000",
         )
         .map_err(|err| Error::Protocol(format!("placeholder move id invalid: {err}")))?;
         let placeholder_sig = MoveSignature {
@@ -630,7 +630,7 @@ mod tests {
     }
 
     fn move_id(byte: u8) -> MoveId {
-        MoveId::new(format!("cx:move:sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
+        MoveId::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
     }
 
     fn hash(byte: u8) -> Hash {

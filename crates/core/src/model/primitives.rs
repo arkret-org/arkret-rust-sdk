@@ -244,13 +244,28 @@ pub enum ViewRenderer {
     Custom,
 }
 
+/// View sharing visibility (spec e10b6ad, view.schema.json). Private views are
+/// actor-private account data; shared views are canonical Space objects.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum ViewVisibility {
+    Private,
+    Shared,
+}
+
+/// Lifecycle state for Flow / Morph (and other objects sharing this lattice).
+///
+/// Round C47 (spec e10b6ad): the `deleted` terminal state was dropped from
+/// both `flow.schema.json` and `morph.schema.json`. Only `redacted` is a
+/// terminal state now; `cx.flow.tombstone` / `cx.flow.delete` / equivalent
+/// kinds collapse into a single `cx.redaction` event targeting the object.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ObjectState {
     Active,
     Archived,
-    Deleted,
     Redacted,
 }
 

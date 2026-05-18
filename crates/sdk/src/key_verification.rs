@@ -1,8 +1,8 @@
 //! Production typed key-verification flow per `crypto-media/device-lifecycle.md` §4.
 //!
-//! Round 24 (2026-05-09) graduates the key-verification helper from the
-//! schema-aligned but raw [`crate::devices::DeviceVerificationMessageContent`]
-//! scaffold to a typed envelope-per-step API + state machine.
+//! Provides a typed envelope-per-step API on top of
+//! [`crate::devices::DeviceVerificationMessageContent`], plus a state
+//! machine that enforces the protocol's strict step ordering.
 //!
 //! Mirrors the Matrix-style `start → accept → key → mac → done` flow with
 //! a typed envelope per step:
@@ -30,7 +30,7 @@ use x25519_dalek::{PublicKey as X25519PublicKey, StaticSecret};
 use crate::{DeviceId, Did, Error, Result};
 
 // ════════════════════════════════════════════════════════════════════
-// Sprint Q1 第十六增量 (B2-ECDH): X25519 key agreement.
+// X25519 key agreement.
 //
 // `KeyVerificationFlow::on_key` carries each party's ephemeral public
 // key as a base64 string (the `key` field). Two devices doing the SAS
@@ -81,11 +81,9 @@ impl EphemeralX25519Keypair {
     /// suitable as the `shared_secret` argument to
     /// [`derive_sas_bytes`].
     pub fn compute_shared_secret(&self, peer_public_b64: &str) -> Result<[u8; 32]> {
-        let peer_bytes = STANDARD_NO_PAD
-            .decode(peer_public_b64.as_bytes())
-            .map_err(|err| {
-                Error::Protocol(format!("peer x25519 public key base64 decode: {err}"))
-            })?;
+        let peer_bytes = STANDARD_NO_PAD.decode(peer_public_b64.as_bytes()).map_err(|err| {
+            Error::Protocol(format!("peer x25519 public key base64 decode: {err}"))
+        })?;
         if peer_bytes.len() != 32 {
             return Err(Error::Protocol(format!(
                 "peer x25519 public key must be 32 bytes, got {}",
@@ -112,7 +110,7 @@ impl std::fmt::Debug for EphemeralX25519Keypair {
 }
 
 // ════════════════════════════════════════════════════════════════════
-// Sprint Q1 第十五增量 (B2): Short Authentication String derivation.
+// Short Authentication String derivation.
 //
 // Implements the SAS extraction step of `crypto-media/device-lifecycle.md`
 // §4.5 — once the two parties have exchanged ephemeral public keys and
@@ -143,38 +141,70 @@ const SAS_OUTPUT_LEN: usize = SAS_EMOJI_BYTES + SAS_DECIMAL_BYTES;
 /// `(emoji_codepoint, english_label)` pairs sourced from MSC2241.
 /// Indexed by the lower 6 bits of an HKDF-derived byte.
 pub const SAS_EMOJI_TABLE: [(&str, &str); 64] = [
-    ("\u{1F436}", "Dog"),       ("\u{1F431}", "Cat"),
-    ("\u{1F981}", "Lion"),       ("\u{1F40E}", "Horse"),
-    ("\u{1F984}", "Unicorn"),    ("\u{1F437}", "Pig"),
-    ("\u{1F418}", "Elephant"),   ("\u{1F430}", "Rabbit"),
-    ("\u{1F43C}", "Panda"),      ("\u{1F413}", "Rooster"),
-    ("\u{1F427}", "Penguin"),    ("\u{1F422}", "Turtle"),
-    ("\u{1F41F}", "Fish"),       ("\u{1F419}", "Octopus"),
-    ("\u{1F98B}", "Butterfly"),  ("\u{1F337}", "Flower"),
-    ("\u{1F333}", "Tree"),       ("\u{1F335}", "Cactus"),
-    ("\u{1F344}", "Mushroom"),   ("\u{1F30F}", "Globe"),
-    ("\u{1F319}", "Moon"),       ("\u{2601}", "Cloud"),
-    ("\u{1F525}", "Fire"),       ("\u{1F34C}", "Banana"),
-    ("\u{1F34E}", "Apple"),      ("\u{1F353}", "Strawberry"),
-    ("\u{1F33D}", "Corn"),       ("\u{1F355}", "Pizza"),
-    ("\u{1F382}", "Cake"),       ("\u{1F36D}", "Lollipop"),
-    ("\u{1F37C}", "Bottle"),     ("\u{2693}", "Anchor"),
-    ("\u{1F3A7}", "Headphones"), ("\u{1F4D6}", "Book"),
-    ("\u{1F4BB}", "Computer"),   ("\u{1F4F7}", "Camera"),
-    ("\u{1F4A1}", "Light Bulb"), ("\u{1F381}", "Gift"),
-    ("\u{231B}", "Hourglass"),   ("\u{1F529}", "Wrench"),
-    ("\u{1F389}", "Party"),      ("\u{1F3A8}", "Art"),
-    ("\u{1F3B5}", "Music"),      ("\u{1F3B7}", "Saxophone"),
-    ("\u{1F4DA}", "Books"),      ("\u{1F4E6}", "Box"),
-    ("\u{1F4E7}", "Envelope"),   ("\u{1F50D}", "Magnifier"),
-    ("\u{1F511}", "Key"),        ("\u{1F512}", "Lock"),
-    ("\u{1F4B0}", "Money"),      ("\u{2615}", "Coffee"),
-    ("\u{1F3E0}", "House"),      ("\u{1F4DD}", "Pen"),
-    ("\u{1F4CB}", "Clipboard"),  ("\u{2702}", "Scissors"),
-    ("\u{1F465}", "People"),     ("\u{1F4AC}", "Speech"),
-    ("\u{1F44D}", "Thumbs Up"),  ("\u{270C}", "Peace"),
-    ("\u{1F44A}", "Punch"),      ("\u{1F596}", "Spock"),
-    ("\u{1F4AF}", "Hundred"),    ("\u{2728}", "Sparkles"),
+    ("\u{1F436}", "Dog"),
+    ("\u{1F431}", "Cat"),
+    ("\u{1F981}", "Lion"),
+    ("\u{1F40E}", "Horse"),
+    ("\u{1F984}", "Unicorn"),
+    ("\u{1F437}", "Pig"),
+    ("\u{1F418}", "Elephant"),
+    ("\u{1F430}", "Rabbit"),
+    ("\u{1F43C}", "Panda"),
+    ("\u{1F413}", "Rooster"),
+    ("\u{1F427}", "Penguin"),
+    ("\u{1F422}", "Turtle"),
+    ("\u{1F41F}", "Fish"),
+    ("\u{1F419}", "Octopus"),
+    ("\u{1F98B}", "Butterfly"),
+    ("\u{1F337}", "Flower"),
+    ("\u{1F333}", "Tree"),
+    ("\u{1F335}", "Cactus"),
+    ("\u{1F344}", "Mushroom"),
+    ("\u{1F30F}", "Globe"),
+    ("\u{1F319}", "Moon"),
+    ("\u{2601}", "Cloud"),
+    ("\u{1F525}", "Fire"),
+    ("\u{1F34C}", "Banana"),
+    ("\u{1F34E}", "Apple"),
+    ("\u{1F353}", "Strawberry"),
+    ("\u{1F33D}", "Corn"),
+    ("\u{1F355}", "Pizza"),
+    ("\u{1F382}", "Cake"),
+    ("\u{1F36D}", "Lollipop"),
+    ("\u{1F37C}", "Bottle"),
+    ("\u{2693}", "Anchor"),
+    ("\u{1F3A7}", "Headphones"),
+    ("\u{1F4D6}", "Book"),
+    ("\u{1F4BB}", "Computer"),
+    ("\u{1F4F7}", "Camera"),
+    ("\u{1F4A1}", "Light Bulb"),
+    ("\u{1F381}", "Gift"),
+    ("\u{231B}", "Hourglass"),
+    ("\u{1F529}", "Wrench"),
+    ("\u{1F389}", "Party"),
+    ("\u{1F3A8}", "Art"),
+    ("\u{1F3B5}", "Music"),
+    ("\u{1F3B7}", "Saxophone"),
+    ("\u{1F4DA}", "Books"),
+    ("\u{1F4E6}", "Box"),
+    ("\u{1F4E7}", "Envelope"),
+    ("\u{1F50D}", "Magnifier"),
+    ("\u{1F511}", "Key"),
+    ("\u{1F512}", "Lock"),
+    ("\u{1F4B0}", "Money"),
+    ("\u{2615}", "Coffee"),
+    ("\u{1F3E0}", "House"),
+    ("\u{1F4DD}", "Pen"),
+    ("\u{1F4CB}", "Clipboard"),
+    ("\u{2702}", "Scissors"),
+    ("\u{1F465}", "People"),
+    ("\u{1F4AC}", "Speech"),
+    ("\u{1F44D}", "Thumbs Up"),
+    ("\u{270C}", "Peace"),
+    ("\u{1F44A}", "Punch"),
+    ("\u{1F596}", "Spock"),
+    ("\u{1F4AF}", "Hundred"),
+    ("\u{2728}", "Sparkles"),
 ];
 
 /// Derived SAS pair: 7 emoji indices (each 0..64) + 3 decimal digits
@@ -241,17 +271,14 @@ pub fn derive_sas_bytes(shared_secret: &[u8], info: &[u8]) -> ShortAuthenticatio
     // Use the top 39 bits (5 * 8 = 40, ignore the bottom bit).
     let d1 = ((packed >> 26) & 0x1FFF) as u16; // bits 38..26
     let d2 = ((packed >> 13) & 0x1FFF) as u16; // bits 25..13
-    let d3 = (packed & 0x1FFF) as u16;          // bits 12..0
+    let d3 = (packed & 0x1FFF) as u16; // bits 12..0
     let decimal_digits = [
         1000u16.saturating_add(d1 % 9000),
         1000u16.saturating_add(d2 % 9000),
         1000u16.saturating_add(d3 % 9000),
     ];
 
-    ShortAuthenticationString {
-        emoji_indices,
-        decimal_digits,
-    }
+    ShortAuthenticationString { emoji_indices, decimal_digits }
 }
 
 /// HMAC-SHA256 (RFC 2104) implemented inline against the SDK's
@@ -433,13 +460,13 @@ pub struct KeyVerificationFlow {
     macs_received: BTreeMap<DeviceId, KeyVerificationMac>,
     done_received: BTreeMap<DeviceId, KeyVerificationDone>,
     cancel: Option<KeyVerificationCancel>,
-    /// Sprint Q1 第十六增量 (B2-ECDH): this side's ephemeral X25519
-    /// keypair for the SAS exchange. `None` until the caller installs
-    /// one via [`Self::with_ephemeral_key`]; once installed, the
-    /// public half MUST be the value put on the wire as
-    /// `KeyVerificationKey.key`, and the private half is used in
-    /// [`Self::compute_sas`] together with the peer's public key from
-    /// `keys_exchanged` to derive the shared secret.
+    /// This side's ephemeral X25519 keypair for the SAS exchange.
+    /// `None` until the caller installs one via
+    /// [`Self::with_ephemeral_key`]; once installed, the public half
+    /// MUST be the value put on the wire as `KeyVerificationKey.key`,
+    /// and the private half is used in [`Self::compute_sas`] together
+    /// with the peer's public key from `keys_exchanged` to derive the
+    /// shared secret.
     ephemeral: Option<EphemeralX25519Keypair>,
 }
 
@@ -465,8 +492,8 @@ impl KeyVerificationFlow {
         Self::default()
     }
 
-    /// Sprint Q1 第十六增量 (B2-ECDH): install this side's ephemeral
-    /// X25519 keypair. Builder-style so call sites stay readable:
+    /// Install this side's ephemeral X25519 keypair. Builder-style so
+    /// call sites stay readable:
     /// `KeyVerificationFlow::new().with_ephemeral_key(EphemeralX25519Keypair::generate())`.
     /// MUST be called before the first `on_key` step or
     /// [`Self::compute_sas`] will refuse with `Error::Protocol`.
@@ -475,17 +502,15 @@ impl KeyVerificationFlow {
         self
     }
 
-    /// Sprint Q1 第十六增量 (B2-ECDH): base64 (no-pad) public half of
-    /// the installed ephemeral keypair. Returns `None` when no
-    /// keypair is installed yet — callers SHOULD use this to fill
-    /// `KeyVerificationKey.key` when sending the `key` envelope to
-    /// the peer.
+    /// Base64 (no-pad) public half of the installed ephemeral
+    /// keypair. Returns `None` when no keypair is installed yet —
+    /// callers SHOULD use this to fill `KeyVerificationKey.key` when
+    /// sending the `key` envelope to the peer.
     pub fn ephemeral_public_base64(&self) -> Option<String> {
         self.ephemeral.as_ref().map(EphemeralX25519Keypair::public_base64)
     }
 
-    /// Sprint Q1 第十六增量 (B2-ECDH): compute the SAS pair for this
-    /// flow. Steps:
+    /// Compute the SAS pair for this flow. Steps:
     ///   1. Look up the peer's public key in `keys_exchanged` — the
     ///      `self_device` argument is OUR `DeviceId`, so the peer's
     ///      key is the only entry not keyed by `self_device`.
@@ -711,12 +736,12 @@ fn validate_transaction_id(txn: &str) -> Result<()> {
 mod tests {
     use super::*;
 
-    /// Sprint Q1 第十五增量 (B2): `derive_sas_bytes` MUST be a
-    /// pure function of `(shared_secret, info)`. Same inputs → same
-    /// outputs, two different infos → distinct outputs. Pin the
-    /// shapes (7 emoji indices in `[0, 64)`, 3 decimals in
-    /// `[1000, 9999]`) so a future regression that flips
-    /// MASK_6_BITS or the bit layout fails loudly.
+    /// `derive_sas_bytes` MUST be a pure function of
+    /// `(shared_secret, info)`. Same inputs → same outputs, two
+    /// different infos → distinct outputs. Pin the shapes (7 emoji
+    /// indices in `[0, 64)`, 3 decimals in `[1000, 9999]`) so a future
+    /// regression that flips MASK_6_BITS or the bit layout fails
+    /// loudly.
     #[test]
     fn derive_sas_bytes_is_deterministic_and_bounded() {
         let secret = b"shared-ECDH-secret-bytes-32-long-pad";
@@ -749,10 +774,10 @@ mod tests {
         }
     }
 
-    /// Sprint Q1 第十五增量 (B2): the SAS computation MUST behave like a
-    /// real HKDF — change one byte of `shared_secret`, the output
-    /// changes. This guards against a regression that ignores the
-    /// secret and only hashes `info`.
+    /// The SAS computation MUST behave like a real HKDF — change one
+    /// byte of `shared_secret`, the output changes. This guards
+    /// against a regression that ignores the secret and only hashes
+    /// `info`.
     #[test]
     fn derive_sas_bytes_depends_on_secret() {
         let info = b"transaction-id-only";
@@ -761,38 +786,32 @@ mod tests {
         assert_ne!(sas_a, sas_b);
     }
 
-    /// Sprint Q1 第十六增量 (B2-ECDH): X25519 key agreement is
-    /// symmetric — given two ephemeral keypairs, each side computes
-    /// the same 32-byte shared secret from its private key + the
-    /// peer's public key. This pins the protocol's core invariant.
+    /// X25519 key agreement is symmetric — given two ephemeral
+    /// keypairs, each side computes the same 32-byte shared secret
+    /// from its private key + the peer's public key. This pins the
+    /// protocol's core invariant.
     #[test]
     fn ephemeral_x25519_keypair_yields_symmetric_shared_secret() {
         let alice = EphemeralX25519Keypair::generate();
         let bob = EphemeralX25519Keypair::generate();
-        let alice_to_bob = alice
-            .compute_shared_secret(&bob.public_base64())
-            .expect("compute alice -> bob");
-        let bob_to_alice = bob
-            .compute_shared_secret(&alice.public_base64())
-            .expect("compute bob -> alice");
+        let alice_to_bob =
+            alice.compute_shared_secret(&bob.public_base64()).expect("compute alice -> bob");
+        let bob_to_alice =
+            bob.compute_shared_secret(&alice.public_base64()).expect("compute bob -> alice");
         assert_eq!(alice_to_bob, bob_to_alice);
     }
 
-    /// Sprint Q1 第十六增量 (B2-ECDH): the SAS pair derived from the
-    /// X25519 shared secret MUST match on both sides — that's the
-    /// whole point of the verification flow. The `info` parameter
-    /// here is the canonical binding string both sides agree on
-    /// (transaction id + per-party DIDs + per-party device ids).
+    /// The SAS pair derived from the X25519 shared secret MUST match
+    /// on both sides — that's the whole point of the verification
+    /// flow. The `info` parameter here is the canonical binding
+    /// string both sides agree on (transaction id + per-party DIDs +
+    /// per-party device ids).
     #[test]
     fn sas_derived_from_ecdh_shared_secret_matches_on_both_sides() {
         let alice = EphemeralX25519Keypair::generate();
         let bob = EphemeralX25519Keypair::generate();
-        let alice_shared = alice
-            .compute_shared_secret(&bob.public_base64())
-            .expect("alice shared");
-        let bob_shared = bob
-            .compute_shared_secret(&alice.public_base64())
-            .expect("bob shared");
+        let alice_shared = alice.compute_shared_secret(&bob.public_base64()).expect("alice shared");
+        let bob_shared = bob.compute_shared_secret(&alice.public_base64()).expect("bob shared");
         let info = b"flow-7|did:web:alice|alice-device|did:web:bob|bob-device";
         let sas_alice = derive_sas_bytes(&alice_shared, info);
         let sas_bob = derive_sas_bytes(&bob_shared, info);
@@ -801,14 +820,12 @@ mod tests {
         assert_eq!(sas_alice.decimal_digits, sas_bob.decimal_digits);
     }
 
-    /// Sprint Q1 第十六增量 (B2-ECDH): malformed peer public keys
-    /// surface as `Error::Protocol` rather than panicking, so the
-    /// verify-device UI can render a "cancel" outcome instead of
-    /// crashing.
-    /// Sprint Q1 第十六增量 (B2-ECDH): the full integration — two
-    /// `KeyVerificationFlow` instances install their own ephemeral
-    /// keypairs, swap the public halves through `on_key`, and
-    /// `compute_sas` on both sides yields **the same** SAS pair.
+    /// Malformed peer public keys surface as `Error::Protocol`
+    /// rather than panicking, so the verify-device UI can render a
+    /// "cancel" outcome instead of crashing. Full integration test:
+    /// two `KeyVerificationFlow` instances install their own
+    /// ephemeral keypairs, swap the public halves through `on_key`,
+    /// and `compute_sas` on both sides yields **the same** SAS pair.
     /// This is the contract the verify-device UI relies on.
     #[test]
     fn key_verification_flow_compute_sas_matches_across_both_sides() {
@@ -893,22 +910,18 @@ mod tests {
         assert_eq!(sas_alice, sas_bob, "SAS must match on both sides");
     }
 
-    /// Sprint Q1 第十六增量 (B2-ECDH): `compute_sas` MUST refuse
-    /// cleanly when prerequisites are missing (no keypair installed
-    /// / no peer key received yet).
+    /// `compute_sas` MUST refuse cleanly when prerequisites are
+    /// missing (no keypair installed / no peer key received yet).
     #[test]
     fn compute_sas_refuses_when_prerequisites_missing() {
         let alice_dev = dev("alice-dev");
         let flow = KeyVerificationFlow::new();
-        let err = flow
-            .compute_sas(&alice_dev, b"info")
-            .expect_err("no keypair installed");
+        let err = flow.compute_sas(&alice_dev, b"info").expect_err("no keypair installed");
         assert!(format!("{err}").contains("ephemeral keypair"));
 
-        let flow = KeyVerificationFlow::new().with_ephemeral_key(EphemeralX25519Keypair::generate());
-        let err = flow
-            .compute_sas(&alice_dev, b"info")
-            .expect_err("no peer key received");
+        let flow =
+            KeyVerificationFlow::new().with_ephemeral_key(EphemeralX25519Keypair::generate());
+        let err = flow.compute_sas(&alice_dev, b"info").expect_err("no peer key received");
         assert!(format!("{err}").contains("peer public key not received"));
     }
 
@@ -917,13 +930,10 @@ mod tests {
         let alice = EphemeralX25519Keypair::generate();
         // base64 of 31 bytes — wrong length.
         let too_short = STANDARD_NO_PAD.encode(&[0u8; 31][..]);
-        let err = alice
-            .compute_shared_secret(&too_short)
-            .expect_err("31 bytes must reject");
+        let err = alice.compute_shared_secret(&too_short).expect_err("31 bytes must reject");
         assert!(format!("{err}").contains("32"));
-        let err = alice
-            .compute_shared_secret("not-base64-@@!!")
-            .expect_err("invalid base64 must reject");
+        let err =
+            alice.compute_shared_secret("not-base64-@@!!").expect_err("invalid base64 must reject");
         assert!(format!("{err}").contains("base64"));
     }
 
