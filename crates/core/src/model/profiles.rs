@@ -357,6 +357,107 @@ impl AuditRywReceipt {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
+pub enum IdentityLinkStatus {
+    Active,
+    Revoked,
+}
+
+fn identity_link_default_status() -> IdentityLinkStatus {
+    IdentityLinkStatus::Active
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct IdentityLinkProof {
+    pub verification_method: String,
+    pub signature_algorithm: String,
+    pub payload_hash: Hash,
+    pub signature: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct IdentityLink {
+    pub schema: String,
+    #[serde(default = "identity_link_default_status")]
+    pub status: IdentityLinkStatus,
+    pub pairwise_did: Did,
+    pub principal_did: Did,
+    pub device_id: DeviceId,
+    pub space_id: SpaceId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub flow_id: Option<FlowId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub track: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mls_group_id: Option<String>,
+    pub mls_leaf_index: u64,
+    pub mls_epoch: u64,
+    pub effective_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub disclosure_policy_ref: Option<PolicyId>,
+    pub proof: IdentityLinkProof,
+}
+
+impl IdentityLink {
+    pub const SCHEMA: &'static str = "cx.schema.identity_link.v1";
+
+    pub fn validate_minimal(&self) -> Result<()> {
+        if self.schema != Self::SCHEMA {
+            return Err(Error::Protocol(
+                "identity_link schema must be cx.schema.identity_link.v1".to_owned(),
+            ));
+        }
+        if self.flow_id.is_some() && self.track.as_deref().is_none_or(str::is_empty) {
+            return Err(Error::Protocol("identity_link flow_id requires track".to_owned()));
+        }
+        if self.proof.verification_method.trim().is_empty()
+            || self.proof.signature_algorithm.trim().is_empty()
+            || self.proof.signature.trim().is_empty()
+        {
+            return Err(Error::Protocol(
+                "identity_link proof requires verification_method, signature_algorithm, and signature"
+                    .to_owned(),
+            ));
+        }
+        let expected = self.canonical_payload_hash()?;
+        if self.proof.payload_hash != expected {
+            return Err(Error::Protocol("identity_link proof payload_hash mismatch".to_owned()));
+        }
+        Ok(())
+    }
+
+    pub fn canonical_proof_input(&self) -> Result<Vec<u8>> {
+        let mut value = serde_json::to_value(self).map_err(|error| {
+            Error::Protocol(format!("identity_link serialization failed: {error}"))
+        })?;
+        if let Value::Object(object) = &mut value
+            && let Some(Value::Object(proof)) = object.get_mut("proof")
+        {
+            proof.remove("payload_hash");
+            proof.remove("signature");
+        }
+        let canonical = canonical::canonical_json_bytes(&value)?;
+        let mut input = Vec::with_capacity(b"cx-identity-link-v1\n".len() + canonical.len());
+        input.extend_from_slice(b"cx-identity-link-v1\n");
+        input.extend_from_slice(&canonical);
+        Ok(input)
+    }
+
+    pub fn canonical_payload_hash(&self) -> Result<Hash> {
+        let input = self.canonical_proof_input()?;
+        let digest = Sha256::digest(&input);
+        Hash::new(format!("sha256:{digest:x}")).map_err(|error| {
+            Error::Protocol(format!("identity_link payload hash invalid: {error}"))
+        })
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
 pub enum ErasureSubjectKind {
     Principal,
     Space,

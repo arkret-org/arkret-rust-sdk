@@ -150,6 +150,8 @@ pub mod http_signature;
 pub mod http_did_resolver;
 #[cfg(feature = "full-surface")]
 pub mod identity;
+#[cfg(feature = "full-surface")]
+pub mod identity_link;
 /// RFC 7515 detached Ed25519 JWS verifier (see [`jws`] module docs).
 /// Lives at the SDK root so principal-server-style consumers (yougen,
 /// floria, cotest, teabay, soland) all reach the same verifier. Depends
@@ -326,6 +328,8 @@ pub use identity::{
     did_key_log_proof, did_registry_receipt_signature, handle_claim_proof, handle_dns_txt_name,
     handle_well_known_url, pairwise_resolution_proof, starid_control_proof, verify_did_key_log,
 };
+#[cfg(feature = "full-surface")]
+pub use identity_link::{IdentityLinkCache, IdentityLinkCacheEntry};
 #[cfg(all(feature = "full-surface", feature = "device-runtime", feature = "client"))]
 pub use key_backup_client::{
     KeyBackupClient, KeyBackupDeleteResponse, KeyBackupListResponse, KeyBackupPutResponse,
