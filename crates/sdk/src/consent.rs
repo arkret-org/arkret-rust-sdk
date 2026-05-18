@@ -295,8 +295,7 @@ mod tests {
     }
 
     fn move_id(byte: u8) -> contrix_core::MoveId {
-        contrix_core::MoveId::new(format!("sha256:{}", format!("{byte:02x}").repeat(32)))
-            .unwrap()
+        contrix_core::MoveId::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
     }
 
     #[test]

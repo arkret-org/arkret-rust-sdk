@@ -93,6 +93,7 @@ mod tests {
                 crate::DeviceId::new("cx:device:01964137-0000-7000-8000-000000000000").unwrap(),
             ),
             backup_class: crate::KeyBackupClass::DidRecovery,
+            mixed_secret_storage: false,
             backup_version: "kb_1".to_owned(),
             created_at: Utc::now(),
             updated_at: None,
@@ -100,7 +101,15 @@ mod tests {
             encryption: crate::KeyBackupEncryption {
                 recipient_method: "passphrase_kdf".to_owned(),
                 recipient_key_ref: None,
-                kdf: Some(json!({"name": "argon2id", "salt": "salt"})),
+                kdf: Some(json!({
+                    "name": "argon2id",
+                    "salt": "salt",
+                    "params": {
+                        "memory_kib": 65_536,
+                        "iterations": 3,
+                        "parallelism": 1
+                    }
+                })),
                 aead: json!({"name": "xchacha20_poly1305", "nonce": "nonce"}),
                 key_commitment: None,
             },

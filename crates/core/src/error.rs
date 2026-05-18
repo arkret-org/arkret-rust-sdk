@@ -278,7 +278,8 @@ pub const REASON_AEAD_NONCE_DERIVATION_INVALID: &str = "aead_nonce_derivation_in
 pub const REASON_ACCOUNTABILITY_GRANT_MISSING: &str = "accountability_grant_missing";
 
 // MLS Welcome envelope replay binding (zh/crypto-media/encryption-and-audit.md §2.6).
-pub const REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH: &str = "keypackage_welcome_envelope_mismatch";
+pub const REASON_KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH: &str =
+    "keypackage_welcome_envelope_mismatch";
 
 // Capability delegation safety (zh/authz/capabilities.md §10).
 pub const REASON_DELEGATION_CYCLE: &str = "delegation_cycle";

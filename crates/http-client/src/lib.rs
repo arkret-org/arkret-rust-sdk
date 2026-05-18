@@ -20,18 +20,18 @@ use contrix_core::{
     DirectoryResolveOrganizationResponse, DirectoryResolveSpaceRequest,
     DirectoryResolveSpaceResponse, DirectorySearchActorsRequest, DirectorySearchActorsResponse,
     DirectorySearchOrganizationsRequest, DirectorySearchOrganizationsResponse,
-    DirectorySearchSpacesRequest, DirectorySearchSpacesResponse, DirectorySearchUsersResponse,
-    EffectiveGrantsResponse, Error, ErrorEnvelope, IdentityDescription, IdentityDocumentResponse,
-    IdentityLogResponse, IdentityReceiptsResponse, IdentityResolveRequest, IdentityResolveResponse,
-    KeyBackup, KeyBackupDeleteRequest, KeyBackupDeleteResponse, KeyBackupPutResponse,
-    KeyBackupSummary, KeyBackupsListQuery, KeyBackupsListResponse, KeysClaimRequest,
-    KeysClaimResponse, KeysQueryRequest, KeysQueryResponse, KeysUploadRequest, KeysUploadResponse,
-    MediaIceConfigRequest, MediaIceConfigResponse, ModerationReportRequest,
-    ModerationReportResponse, OkResponse, PolicyCheckRequest, PolicyCheckResponse,
-    PushNotifyRequest, PushNotifyResponse, PushRegisterDeviceRequest, PushRegisterDeviceResponse,
-    PushUnregisterDeviceRequest, Result, ServerDescription, ServiceRequirements,
-    SubmitDidOperationRequest, SubmitDidOperationResponse, SyncBackfillResponse, SyncDescription,
-    SyncRequest, SyncResponse, SyncSnapshotHeadResponse,
+    DirectorySearchSpacesRequest, DirectorySearchSpacesResponse, DirectorySearchUsersRequest,
+    DirectorySearchUsersResponse, EffectiveGrantsResponse, Error, ErrorEnvelope,
+    IdentityDescription, IdentityDocumentResponse, IdentityLogResponse, IdentityReceiptsResponse,
+    IdentityResolveRequest, IdentityResolveResponse, KeyBackup, KeyBackupDeleteRequest,
+    KeyBackupDeleteResponse, KeyBackupPutResponse, KeyBackupSummary, KeyBackupsListQuery,
+    KeyBackupsListResponse, KeysClaimRequest, KeysClaimResponse, KeysQueryRequest,
+    KeysQueryResponse, KeysUploadRequest, KeysUploadResponse, MediaIceConfigRequest,
+    MediaIceConfigResponse, ModerationReportRequest, ModerationReportResponse, OkResponse,
+    PolicyCheckRequest, PolicyCheckResponse, PushNotifyRequest, PushNotifyResponse,
+    PushRegisterDeviceRequest, PushRegisterDeviceResponse, PushUnregisterDeviceRequest, Result,
+    ServerDescription, ServiceRequirements, SubmitDidOperationRequest, SubmitDidOperationResponse,
+    SyncBackfillResponse, SyncDescription, SyncRequest, SyncResponse, SyncSnapshotHeadResponse,
 };
 
 pub const HEADER_REQUEST_ID: &str = "X-Contrix-Request-Id";
@@ -976,15 +976,12 @@ impl Client {
         space_id: Option<&str>,
         limit: Option<u32>,
     ) -> Result<DirectorySearchUsersResponse> {
-        let mut builder =
-            self.request(Method::GET, "/api/v1/directory/search-users")?.query(&[("q", q)]);
-        if let Some(space_id) = space_id {
-            builder = builder.query(&[("space_id", space_id)]);
-        }
-        if let Some(limit) = limit {
-            builder = builder.query(&[("limit", limit)]);
-        }
-        self.send_json(builder).await
+        let request = DirectorySearchUsersRequest {
+            q: q.to_owned(),
+            space_id: space_id.map(str::parse).transpose()?,
+            limit,
+        };
+        self.post("/api/v1/directory/search-users", &request).await
     }
 
     pub async fn directory_resolve_handle(

@@ -890,9 +890,7 @@ impl SpaceState {
     fn extract_flow_track_id(&self, content: &Value) -> Result<String> {
         self.extract_optional_field::<String>(content, "track_id")
             .or_else(|| self.extract_optional_field::<String>(content, "track_name"))
-            .ok_or_else(|| {
-                Error::Protocol("flow track event requires track_id".to_owned())
-            })
+            .ok_or_else(|| Error::Protocol("flow track event requires track_id".to_owned()))
     }
 
     /// Reducer for `cx.flow.track.enable`: insert a `FlowTrackConfig`
@@ -912,10 +910,7 @@ impl SpaceState {
             return Err(Error::Protocol("flow_not_active".to_owned()));
         }
         crate::validate_flow_track_name(&track_id)?;
-        subject
-            .tracks
-            .entry(track_id)
-            .or_insert_with(crate::FlowTrackConfig::default);
+        subject.tracks.entry(track_id).or_insert_with(crate::FlowTrackConfig::default);
         subject.updated_by = Some(event.actor_id.clone());
         subject.updated_at = Some(event.created_at);
         Ok(())

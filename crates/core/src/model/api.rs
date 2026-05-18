@@ -679,6 +679,17 @@ pub struct ActorPreview {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct DirectorySearchUsersRequest {
+    #[serde(alias = "query")]
+    pub q: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub space_id: Option<SpaceId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<u32>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectorySearchUsersResponse {
     #[serde(default)]
     pub results: Vec<ActorPreview>,
@@ -817,8 +828,10 @@ pub struct PolicyCheckResponse {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MediaIceConfigRequest {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<SpaceId>,
+    pub space_id: SpaceId,
+    pub call_id: String,
+    pub actor_id: Did,
+    pub device_id: DeviceId,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub context: Value,
 }
@@ -826,10 +839,20 @@ pub struct MediaIceConfigRequest {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MediaIceConfigResponse {
+    pub space_id: SpaceId,
+    pub call_id: String,
+    pub actor_id: Did,
+    pub device_id: DeviceId,
     #[serde(default)]
     pub ice_servers: Vec<Value>,
+    pub ttl_seconds: u32,
+    pub refresh_lead_seconds: u32,
+    pub issued_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub force_turn: bool,
+    pub signature: Value,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1180,6 +1203,8 @@ pub struct KeyBackup {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
     pub backup_class: BackupClass,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub mixed_secret_storage: bool,
     pub backup_version: String,
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -65,7 +65,7 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
     endpoint!("cx.directory.search_organizations", Post, "/api/v1/directory/search-organizations"),
     endpoint!("cx.directory.resolve_organization", Post, "/api/v1/directory/resolve-organization"),
     endpoint!("cx.directory.search_actors", Post, "/api/v1/directory/search-actors"),
-    endpoint!("cx.directory.search_users", Get, "/api/v1/directory/search-users"),
+    endpoint!("cx.directory.search_users", Post, "/api/v1/directory/search-users"),
     endpoint!("cx.directory.resolve_handle", Post, "/api/v1/directory/resolve-handle"),
     endpoint!(
         "cx.directory.private_contact_discovery",
@@ -74,6 +74,7 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
     ),
     endpoint!("cx.directory.announce", Post, "/api/v1/directory/announce"),
     endpoint!("cx.directory.withdraw", Post, "/api/v1/directory/withdraw"),
+    endpoint!("cx.directory.subscribe", Post, "/api/v1/directory/subscribe"),
     endpoint!("cx.blob.upload", Post, "/api/v1/blob/upload"),
     endpoint!("cx.blob.head", Head, "/api/v1/blob/get"),
     endpoint!("cx.blob.get", Get, "/api/v1/blob/get"),

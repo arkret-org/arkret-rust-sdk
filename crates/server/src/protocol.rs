@@ -24,7 +24,7 @@ pub enum ServerRequest {
     DirectorySearchOrganizations(DirectorySearchOrganizationsRequest),
     DirectoryResolveOrganization(DirectoryResolveOrganizationRequest),
     DirectorySearchActors(DirectorySearchActorsRequest),
-    DirectorySearchUsers { q: String, space_id: Option<String>, limit: Option<u32> },
+    DirectorySearchUsers(DirectorySearchUsersRequest),
     DirectoryResolveHandle(DirectoryResolveHandleRequest),
     BlobUpload { metadata: BlobUploadMetadata, bytes: Option<Vec<u8>> },
     BlobHead { blob_ref: String },

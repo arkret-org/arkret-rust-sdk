@@ -78,10 +78,9 @@ impl UnsignedMove {
     }
 
     fn placeholder_move(&self) -> Result<Move> {
-        let placeholder_id = MoveId::new(
-            "sha256:0000000000000000000000000000000000000000000000000000000000000000",
-        )
-        .map_err(|err| Error::Protocol(format!("placeholder move id invalid: {err}")))?;
+        let placeholder_id =
+            MoveId::new("sha256:0000000000000000000000000000000000000000000000000000000000000000")
+                .map_err(|err| Error::Protocol(format!("placeholder move id invalid: {err}")))?;
         let placeholder_sig = MoveSignature {
             alg: "EdDSA".to_owned(),
             verification_method: String::new(),

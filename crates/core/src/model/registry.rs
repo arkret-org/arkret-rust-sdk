@@ -217,8 +217,13 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         }
         OP_DIRECTORY_SEARCH_ACTORS
         | OP_DIRECTORY_SEARCH_ORGANIZATIONS
-        | OP_DIRECTORY_SEARCH_SPACES
-        | OP_DIRECTORY_SEARCH_USERS => vec!["query".to_owned()],
+        | OP_DIRECTORY_SEARCH_SPACES => {
+            vec!["query".to_owned()]
+        }
+        OP_DIRECTORY_SEARCH_USERS => vec!["q".to_owned()],
+        OP_DIRECTORY_SUBSCRIBE => {
+            ["subscriber_did", "webhook_endpoint"].into_iter().map(str::to_owned).collect()
+        }
         OP_IDENTITY_GET_DOCUMENT | OP_IDENTITY_GET_LOG | OP_IDENTITY_GET_RECEIPTS => {
             vec!["did".to_owned()]
         }

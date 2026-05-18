@@ -153,6 +153,7 @@ fn fixture_operations(flow: ProtocolFixtureFlow) -> &'static [&'static str] {
             "cx.directory.search_actors",
             "cx.directory.search_users",
             "cx.directory.resolve_handle",
+            "cx.directory.subscribe",
         ],
         ProtocolFixtureFlow::Push => {
             &["cx.push.register_device", "cx.push.unregister_device", "cx.push.notify"]

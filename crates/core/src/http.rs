@@ -346,15 +346,6 @@ pub struct DirectorySearchActorsParams {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters, salvo::oapi::ToSchema))]
 pub struct DirectorySearchUsersParams {
-    #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
-    pub q: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
-    pub space_id: Option<SpaceId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
-    pub limit: Option<u32>,
-
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Contrix-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Contrix-Request-Id", parameter(parameter_in = Header)))]
     pub x_contrix_request_id: Option<String>,

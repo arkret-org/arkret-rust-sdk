@@ -34,9 +34,12 @@ pub const GRANT_CONSTRAINT_SCHEMA: &str = "cx.schema.grant_constraint.v1";
 pub const DEVICE_MESSAGE_SCHEMA: &str = "cx.schema.device_message.v1";
 pub const KEY_BACKUP_SCHEMA: &str = "cx.schema.key_backup.v1";
 pub const MORPH_SCHEMA: &str = "cx.schema.morph.v1";
+pub const MORPH_CUSTOMER_RISK_SCHEMA: &str = "cx.schema.morph.customer_risk.v1";
 pub const MESSAGE_SCHEMA: &str = "cx.schema.message.v1";
 pub const MODERATION_REPORT_SCHEMA: &str = "cx.schema.moderation_report.v1";
 pub const MODERATION_QUEUE_ITEM_SCHEMA: &str = "cx.schema.moderation_queue_item.v1";
+pub const DID_CONTINUITY_PROOF_SCHEMA: &str = "cx.schema.did_continuity_proof.v1";
+pub const IDENTITY_LINK_SCHEMA: &str = "cx.schema.identity_link.v1";
 
 // ── Canonical cx.* event kinds ──────────────────────────────────────────────
 /// Flow event kinds.
@@ -192,6 +195,7 @@ pub const OP_DIRECTORY_SEARCH_ACTORS: &str = "cx.directory.search_actors";
 pub const OP_DIRECTORY_SEARCH_ORGANIZATIONS: &str = "cx.directory.search_organizations";
 pub const OP_DIRECTORY_SEARCH_SPACES: &str = "cx.directory.search_spaces";
 pub const OP_DIRECTORY_SEARCH_USERS: &str = "cx.directory.search_users";
+pub const OP_DIRECTORY_SUBSCRIBE: &str = "cx.directory.subscribe";
 pub const OP_DIRECTORY_WITHDRAW: &str = "cx.directory.withdraw";
 
 /// Events-API operations (low-level Event Envelope plane).
@@ -318,6 +322,7 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_DIRECTORY_SEARCH_ORGANIZATIONS,
     OP_DIRECTORY_SEARCH_SPACES,
     OP_DIRECTORY_SEARCH_USERS,
+    OP_DIRECTORY_SUBSCRIBE,
     OP_DIRECTORY_WITHDRAW,
     OP_EVENTS_BATCH_GET,
     OP_EVENTS_DESCRIBE,

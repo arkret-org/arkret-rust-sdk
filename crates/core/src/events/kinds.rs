@@ -456,14 +456,8 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
         | SPACE_KEY_SHARE
         | SPACE_KEY_SHARE_AUDIT
         | SPACE_KEY_WITHHELD => EventClass::E2ee,
-        FLOW_ARCHIVE
-        | FLOW_CREATE
-        | FLOW_MOVE
-        | FLOW_REORDER
-        | FLOW_RESTORE
-        | FLOW_TRACKS_UPDATE
-        | FLOW_UPDATE
-        | FLOW_WATCH_SET => EventClass::Flow,
+        FLOW_ARCHIVE | FLOW_CREATE | FLOW_MOVE | FLOW_REORDER | FLOW_RESTORE
+        | FLOW_TRACKS_UPDATE | FLOW_UPDATE | FLOW_WATCH_SET => EventClass::Flow,
         HANDLE_DISCOVERY => EventClass::Handle,
         DID_PROOF
         | IDENTITY_ACCOUNTABILITY_GRANT

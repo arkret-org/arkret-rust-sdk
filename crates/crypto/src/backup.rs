@@ -31,7 +31,7 @@
 //!     "kb_1",
 //!     &kek,
 //!     &ct,
-//!     &[("recovery_credentials", None)],
+//!     &[("recovery_secret", None)],
 //! )?;
 //! # Ok::<(), anyhow::Error>(())
 //! ```
@@ -298,9 +298,9 @@ pub fn build_key_backup_envelope(
         ));
     }
     let kdf_params = json!({
-        "m_kib": kek.m_kib,
-        "t": kek.t,
-        "p": kek.p,
+        "memory_kib": kek.m_kib,
+        "iterations": kek.t,
+        "parallelism": kek.p,
         "hkdf_info": backup_class.hkdf_info("envelope"),
     });
     let kdf = KeyBackupKdf {
@@ -341,6 +341,7 @@ pub fn build_key_backup_envelope(
         actor_id,
         device_id,
         backup_class,
+        mixed_secret_storage: false,
         backup_version: backup_version.to_owned(),
         created_at: Utc::now(),
         updated_at: None,
@@ -468,7 +469,7 @@ mod tests {
             "kb_1",
             &kek,
             &ct,
-            &[("recovery_credentials", Some("vault_payload"))],
+            &[("recovery_secret", Some("vault_payload"))],
         )
         .unwrap();
         assert_eq!(envelope.backup_class, BackupClass::SecretStorage);
@@ -477,13 +478,15 @@ mod tests {
         let kdf = envelope.encryption.kdf.as_ref().unwrap();
         assert_eq!(kdf.name, "argon2id");
         assert_eq!(kdf.salt, ct.salt_b64);
-        assert_eq!(kdf.params["m_kib"], VAULT_ARGON2_M_KIB);
+        assert_eq!(kdf.params["memory_kib"], VAULT_ARGON2_M_KIB);
+        assert_eq!(kdf.params["iterations"], VAULT_ARGON2_T);
+        assert_eq!(kdf.params["parallelism"], VAULT_ARGON2_P);
         assert_eq!(kdf.params["hkdf_info"], "contrix-key-backup/secret_storage/envelope/v1");
         assert_eq!(envelope.ciphertext, ct.ciphertext_b64);
         assert_eq!(envelope.ciphertext_digest, ct.digest_sha256);
         assert!(envelope.encryption.key_commitment.is_some());
         assert_eq!(envelope.contents.len(), 1);
-        assert_eq!(envelope.contents[0].item_type, "recovery_credentials");
+        assert_eq!(envelope.contents[0].item_type, "recovery_secret");
     }
 
     #[test]

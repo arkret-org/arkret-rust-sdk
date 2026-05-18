@@ -1,5 +1,9 @@
 use super::*;
 
+fn is_false(value: &bool) -> bool {
+    !*value
+}
+
 /// Key backup record.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct KeyBackup {
@@ -195,6 +199,8 @@ pub struct ProtocolKeyBackup {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
     pub backup_class: KeyBackupClass,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub mixed_secret_storage: bool,
     pub backup_version: String,
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]

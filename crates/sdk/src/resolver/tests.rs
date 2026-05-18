@@ -323,10 +323,7 @@ fn place_archive_rejected_when_tombstoned() {
     let mut state = SpaceState::new(space_id(), "1".to_owned());
     let err = state.apply_events(&[create, tombstone, archive]).unwrap_err();
     assert!(err.to_string().contains("place_not_active"), "unexpected error: {err}");
-    assert_eq!(
-        state.places.get(place_id).unwrap().state,
-        Some(crate::PlaceState::Tombstoned)
-    );
+    assert_eq!(state.places.get(place_id).unwrap().state, Some(crate::PlaceState::Tombstoned));
 }
 
 #[test]
@@ -341,10 +338,7 @@ fn place_tombstone_rejected_when_already_terminal() {
     let mut state = SpaceState::new(space_id(), "1".to_owned());
     let err = state.apply_events(&[create, tombstone1, tombstone2]).unwrap_err();
     assert!(err.to_string().contains("place_already_terminal"), "unexpected error: {err}");
-    assert_eq!(
-        state.places.get(place_id).unwrap().state,
-        Some(crate::PlaceState::Tombstoned)
-    );
+    assert_eq!(state.places.get(place_id).unwrap().state, Some(crate::PlaceState::Tombstoned));
 }
 
 #[test]
@@ -359,10 +353,7 @@ fn flow_archive_rejected_when_already_archived() {
     let mut state = SpaceState::new(space_id(), "1".to_owned());
     let err = state.apply_events(&[create, archive1, archive2]).unwrap_err();
     assert!(err.to_string().contains("flow_not_active"), "unexpected error: {err}");
-    assert_eq!(
-        state.subjects.get(flow_id).unwrap().state,
-        Some(crate::ObjectState::Archived)
-    );
+    assert_eq!(state.subjects.get(flow_id).unwrap().state, Some(crate::ObjectState::Archived));
 }
 
 #[test]
@@ -377,10 +368,7 @@ fn morph_archive_rejected_when_already_archived() {
     let mut state = SpaceState::new(space_id(), "1".to_owned());
     let err = state.apply_events(&[create, archive1, archive2]).unwrap_err();
     assert!(err.to_string().contains("morph_not_active"), "unexpected error: {err}");
-    assert_eq!(
-        state.morphs.get(morph_id).unwrap().state,
-        Some(crate::ObjectState::Archived)
-    );
+    assert_eq!(state.morphs.get(morph_id).unwrap().state, Some(crate::ObjectState::Archived));
 }
 
 #[test]
@@ -389,11 +377,8 @@ fn place_update_rejected_when_archived() {
     let create = place_create_event(1, place_id);
     let mut archive = event(OP_PLACE_ARCHIVE, 2, json!({ "place_id": place_id }));
     archive.prev_refs.push(create.event_id.clone());
-    let mut update = event(
-        OP_PLACE_UPDATE,
-        3,
-        json!({ "place_id": place_id, "patch": { "title": "Renamed" } }),
-    );
+    let mut update =
+        event(OP_PLACE_UPDATE, 3, json!({ "place_id": place_id, "patch": { "title": "Renamed" } }));
     update.prev_refs.push(archive.event_id.clone());
 
     let mut state = SpaceState::new(space_id(), "1".to_owned());
@@ -409,11 +394,8 @@ fn flow_update_rejected_when_archived() {
     let create = flow_create_event(1, flow_id);
     let mut archive = event(OP_FLOW_ARCHIVE, 2, json!({ "flow_id": flow_id }));
     archive.prev_refs.push(create.event_id.clone());
-    let mut update = event(
-        OP_FLOW_UPDATE,
-        3,
-        json!({ "flow_id": flow_id, "patch": { "title": "New title" } }),
-    );
+    let mut update =
+        event(OP_FLOW_UPDATE, 3, json!({ "flow_id": flow_id, "patch": { "title": "New title" } }));
     update.prev_refs.push(archive.event_id.clone());
 
     let mut state = SpaceState::new(space_id(), "1".to_owned());
@@ -438,10 +420,7 @@ fn morph_update_rejected_when_archived() {
     let mut state = SpaceState::new(space_id(), "1".to_owned());
     let err = state.apply_events(&[create, archive, update]).unwrap_err();
     assert!(err.to_string().contains("morph_not_active"), "unexpected error: {err}");
-    assert_eq!(
-        state.morphs.get(morph_id).unwrap().title.as_deref(),
-        Some("Original Title")
-    );
+    assert_eq!(state.morphs.get(morph_id).unwrap().title.as_deref(), Some("Original Title"));
 }
 
 #[test]
@@ -733,11 +712,8 @@ fn redaction_event(seq: u64, object_ref: &str) -> Event {
     // `cx.redaction` dispatch path uses `event.redacts`; populate it so
     // the dispatcher invokes redact_event AND redact_object_for_event.
     ev.redacts = Some(
-        EventId::new(format!(
-            "cx:event:01904100-0000-7000-8000-{:012x}",
-            0xdeadbeef + seq
-        ))
-        .unwrap(),
+        EventId::new(format!("cx:event:01904100-0000-7000-8000-{:012x}", 0xdeadbeef + seq))
+            .unwrap(),
     );
     ev
 }
@@ -782,17 +758,9 @@ fn redaction_against_already_redacted_flow_rejects() {
     redact2.prev_refs.push(redact1.event_id.clone());
 
     let mut state = SpaceState::new(space_id(), "1".to_owned());
-    let err = state
-        .apply_events(&[create, redact1, redact2])
-        .unwrap_err();
-    assert!(
-        err.to_string().contains("flow_already_terminal"),
-        "unexpected error: {err}"
-    );
-    assert_eq!(
-        state.subjects.get(flow_id).unwrap().state,
-        Some(crate::ObjectState::Redacted)
-    );
+    let err = state.apply_events(&[create, redact1, redact2]).unwrap_err();
+    assert!(err.to_string().contains("flow_already_terminal"), "unexpected error: {err}");
+    assert_eq!(state.subjects.get(flow_id).unwrap().state, Some(crate::ObjectState::Redacted));
 }
 
 // ── SDK Round 12 (2026-05-16): cx.flow.track.* sub-events ──
@@ -804,11 +772,8 @@ fn redaction_against_already_redacted_flow_rejects() {
 fn flow_track_enable_inserts_into_tracks_map() {
     let flow_id = "cx:flow:01904100-0000-7000-8000-4fb50799ad50";
     let create = flow_create_event(1, flow_id);
-    let mut enable = event(
-        OP_FLOW_TRACK_ENABLE,
-        2,
-        json!({ "flow_id": flow_id, "track_id": "synthesis" }),
-    );
+    let mut enable =
+        event(OP_FLOW_TRACK_ENABLE, 2, json!({ "flow_id": flow_id, "track_id": "synthesis" }));
     enable.prev_refs.push(create.event_id.clone());
 
     let mut state = SpaceState::new(space_id(), "1".to_owned());
@@ -822,17 +787,11 @@ fn flow_track_enable_inserts_into_tracks_map() {
 fn flow_track_disable_removes_from_tracks_map() {
     let flow_id = "cx:flow:01904100-0000-7000-8000-4fb50799ad51";
     let create = flow_create_event(1, flow_id);
-    let mut enable = event(
-        OP_FLOW_TRACK_ENABLE,
-        2,
-        json!({ "flow_id": flow_id, "track_id": "discussion" }),
-    );
+    let mut enable =
+        event(OP_FLOW_TRACK_ENABLE, 2, json!({ "flow_id": flow_id, "track_id": "discussion" }));
     enable.prev_refs.push(create.event_id.clone());
-    let mut disable = event(
-        OP_FLOW_TRACK_DISABLE,
-        3,
-        json!({ "flow_id": flow_id, "track_id": "discussion" }),
-    );
+    let mut disable =
+        event(OP_FLOW_TRACK_DISABLE, 3, json!({ "flow_id": flow_id, "track_id": "discussion" }));
     disable.prev_refs.push(enable.event_id.clone());
 
     let mut state = SpaceState::new(space_id(), "1".to_owned());
@@ -914,24 +873,15 @@ fn flow_track_set_primary_clears_others_and_marks_named() {
     let flow_id = "cx:flow:01904100-0000-7000-8000-4fb50799ad53";
     let create = flow_create_event(1, flow_id);
     // Create two tracks first via update events.
-    let mut enable_a = event(
-        OP_FLOW_TRACK_ENABLE,
-        2,
-        json!({ "flow_id": flow_id, "track_id": "synthesis" }),
-    );
+    let mut enable_a =
+        event(OP_FLOW_TRACK_ENABLE, 2, json!({ "flow_id": flow_id, "track_id": "synthesis" }));
     enable_a.prev_refs.push(create.event_id.clone());
-    let mut enable_b = event(
-        OP_FLOW_TRACK_ENABLE,
-        3,
-        json!({ "flow_id": flow_id, "track_id": "discussion" }),
-    );
+    let mut enable_b =
+        event(OP_FLOW_TRACK_ENABLE, 3, json!({ "flow_id": flow_id, "track_id": "discussion" }));
     enable_b.prev_refs.push(enable_a.event_id.clone());
     // Mark synthesis primary first.
-    let mut set_primary_a = event(
-        OP_FLOW_TRACK_SET_PRIMARY,
-        4,
-        json!({ "flow_id": flow_id, "track_id": "synthesis" }),
-    );
+    let mut set_primary_a =
+        event(OP_FLOW_TRACK_SET_PRIMARY, 4, json!({ "flow_id": flow_id, "track_id": "synthesis" }));
     set_primary_a.prev_refs.push(enable_b.event_id.clone());
     // Then flip primary to discussion — synthesis must lose its primary
     // flag in the same reduce.
@@ -943,9 +893,7 @@ fn flow_track_set_primary_clears_others_and_marks_named() {
     set_primary_b.prev_refs.push(set_primary_a.event_id.clone());
 
     let mut state = SpaceState::new(space_id(), "1".to_owned());
-    state
-        .apply_events(&[create, enable_a, enable_b, set_primary_a, set_primary_b])
-        .unwrap();
+    state.apply_events(&[create, enable_a, enable_b, set_primary_a, set_primary_b]).unwrap();
 
     let flow = state.subjects.get(flow_id).unwrap();
     assert_eq!(flow.tracks["synthesis"].is_primary, Some(false));
@@ -960,21 +908,13 @@ fn flow_track_event_rejected_when_flow_archived() {
     archive.prev_refs.push(create.event_id.clone());
     // `flow_create_event` pre-seeds `synthesis` track; use a different
     // track name so the assertion targets the failed-enable specifically.
-    let mut enable = event(
-        OP_FLOW_TRACK_ENABLE,
-        3,
-        json!({ "flow_id": flow_id, "track_id": "discussion" }),
-    );
+    let mut enable =
+        event(OP_FLOW_TRACK_ENABLE, 3, json!({ "flow_id": flow_id, "track_id": "discussion" }));
     enable.prev_refs.push(archive.event_id.clone());
 
     let mut state = SpaceState::new(space_id(), "1".to_owned());
-    let err = state
-        .apply_events(&[create, archive, enable])
-        .unwrap_err();
-    assert!(
-        err.to_string().contains("flow_not_active"),
-        "unexpected error: {err}"
-    );
+    let err = state.apply_events(&[create, archive, enable]).unwrap_err();
+    assert!(err.to_string().contains("flow_not_active"), "unexpected error: {err}");
     let flow = state.subjects.get(flow_id).unwrap();
     assert!(!flow.tracks.contains_key("discussion"));
 }
@@ -989,15 +929,7 @@ fn redaction_against_already_redacted_morph_rejects() {
     redact2.prev_refs.push(redact1.event_id.clone());
 
     let mut state = SpaceState::new(space_id(), "1".to_owned());
-    let err = state
-        .apply_events(&[create, redact1, redact2])
-        .unwrap_err();
-    assert!(
-        err.to_string().contains("morph_already_terminal"),
-        "unexpected error: {err}"
-    );
-    assert_eq!(
-        state.morphs.get(morph_id).unwrap().state,
-        Some(crate::ObjectState::Redacted)
-    );
+    let err = state.apply_events(&[create, redact1, redact2]).unwrap_err();
+    assert!(err.to_string().contains("morph_already_terminal"), "unexpected error: {err}");
+    assert_eq!(state.morphs.get(morph_id).unwrap().state, Some(crate::ObjectState::Redacted));
 }
