@@ -407,6 +407,52 @@ pub fn parse_signature_header(header: &str, label: &str) -> Result<Vec<u8>, Sign
     Err(SignatureError::MalformedSignatureHeader(label.to_owned()))
 }
 
+/// Format a minimal `Signature-Input` header value from a typed component list.
+///
+/// This helper intentionally formats only the `label=(...)` component list. Some
+/// caller-side contexts, such as Chime device-registration proofs, attach
+/// deployment metadata in separate headers and let an external signer decide
+/// whether to add RFC 9421 parameters such as `created`, `expires` or `keyid`.
+pub fn format_signature_input_component_list(
+    label: &str,
+    covered_components: &[Component],
+) -> Result<String, SignatureError> {
+    if !is_valid_signature_label(label) {
+        return Err(SignatureError::MalformedSignatureInput);
+    }
+    if covered_components.is_empty() {
+        return Err(SignatureError::EmptyCoveredComponents);
+    }
+
+    let covered = covered_components
+        .iter()
+        .map(|component| format!("\"{}\"", component.canonical_name()))
+        .collect::<Vec<_>>()
+        .join(" ");
+    Ok(format!("{label}=({covered})"))
+}
+
+/// Format a `Signature` header value for an externally computed signature.
+///
+/// This does not verify the signature bytes. It validates the wire envelope used
+/// by RFC 9421 (`label=:...:`) while allowing callers to supply a detached
+/// signature from an HSM, browser wallet or DID-proof layer.
+pub fn format_signature_header(label: &str, signature: &str) -> Result<String, SignatureError> {
+    if !is_valid_signature_label(label)
+        || signature.trim().is_empty()
+        || !signature.bytes().all(|byte| byte.is_ascii_graphic() && byte != b':')
+    {
+        return Err(SignatureError::MalformedSignatureHeader(label.to_owned()));
+    }
+
+    Ok(format!("{label}=:{signature}:"))
+}
+
+fn is_valid_signature_label(label: &str) -> bool {
+    !label.is_empty()
+        && label.chars().all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | '.'))
+}
+
 // =====================================================================
 // SignedRequestParts — HTTP-framework-agnostic request projection
 // =====================================================================
@@ -745,6 +791,36 @@ mod tests {
         assert_eq!(
             policy.validate(&expired, Some("sha-256=:x=:"), now),
             Err(SignaturePolicyError::Expired)
+        );
+    }
+
+    #[test]
+    fn formats_minimal_signature_headers_for_external_signers() {
+        let input = format_signature_input_component_list(
+            "sig1",
+            &[
+                Component::Method,
+                Component::TargetUri,
+                Component::Header("Content-Digest".to_owned()),
+            ],
+        )
+        .unwrap();
+        assert_eq!(input, "sig1=(\"@method\" \"@target-uri\" \"content-digest\")");
+
+        let signature = format_signature_header("sig1", "YWJjZA==").unwrap();
+        assert_eq!(signature, "sig1=:YWJjZA==:");
+
+        assert_eq!(
+            format_signature_input_component_list("bad label", &[Component::Method]),
+            Err(SignatureError::MalformedSignatureInput)
+        );
+        assert_eq!(
+            format_signature_input_component_list("sig1", &[]),
+            Err(SignatureError::EmptyCoveredComponents)
+        );
+        assert_eq!(
+            format_signature_header("sig1", "bad:sig"),
+            Err(SignatureError::MalformedSignatureHeader("sig1".to_owned()))
         );
     }
 
