@@ -40,6 +40,7 @@ pub const MODERATION_REPORT_SCHEMA: &str = "cx.schema.moderation_report.v1";
 pub const MODERATION_QUEUE_ITEM_SCHEMA: &str = "cx.schema.moderation_queue_item.v1";
 pub const DID_CONTINUITY_PROOF_SCHEMA: &str = "cx.schema.did_continuity_proof.v1";
 pub const IDENTITY_LINK_SCHEMA: &str = "cx.schema.identity_link.v1";
+pub const ERASURE_RECEIPT_SCHEMA: &str = "cx.schema.erasure_receipt.v1";
 
 // ── Canonical cx.* event kinds ──────────────────────────────────────────────
 /// Flow event kinds.

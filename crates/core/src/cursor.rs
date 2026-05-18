@@ -28,6 +28,7 @@ pub struct Cursor {
     /// Cursor generation timestamp (RFC 3339).
     pub t: String,
     /// Space positions map.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub s: BTreeMap<String, SpacePosition>,
     /// Device positions map (optional).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -37,6 +38,16 @@ pub struct Cursor {
     pub target: Option<CursorTarget>,
     /// Expiration timestamp (Unix milliseconds).
     pub x: i64,
+    /// Stateful cursor handle. When present, the cursor MUST NOT carry
+    /// inline state or stateless integrity material.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub h: Option<String>,
+    /// Stateless cursor MAC over the canonical cursor body.
+    #[serde(default, rename = "_mac", skip_serializing_if = "Option::is_none")]
+    pub mac: Option<String>,
+    /// Stateless cursor detached signature over the canonical cursor body.
+    #[serde(default, rename = "_sig", skip_serializing_if = "Option::is_none")]
+    pub sig: Option<String>,
     /// Server-private filter hash binding.
     #[serde(default, rename = "_filter_hash", skip_serializing_if = "Option::is_none")]
     pub filter_hash: Option<String>,
@@ -81,6 +92,12 @@ impl Cursor {
     /// Maximum cursor size after encoding (4KB).
     pub const MAX_ENCODED_SIZE: usize = 4096;
 
+    /// SDK-local placeholder integrity binding used by offline builders and
+    /// tests. Servers should replace it with a keyed `_mac`, `_sig`, or
+    /// stateful `h` before issuing production cursors.
+    pub const DEV_TEST_MAC: &'static str =
+        "hmac-sha256:0000000000000000000000000000000000000000000000000000000000000000";
+
     /// Create a new cursor with current timestamp and default expiration.
     pub fn new() -> Self {
         let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as i64;
@@ -93,6 +110,9 @@ impl Cursor {
             d: None,
             target: None,
             x: now + Self::DEFAULT_EXPIRATION_MS,
+            h: None,
+            mac: Some(Self::DEV_TEST_MAC.to_owned()),
+            sig: None,
             filter_hash: None,
         }
     }
@@ -136,6 +156,33 @@ impl Cursor {
         message_id: impl Into<String>,
     ) -> Self {
         self.d.get_or_insert_with(BTreeMap::new).insert(device_id.into(), message_id.into());
+        self
+    }
+
+    /// Replace the stateless integrity MAC on this cursor.
+    pub fn with_mac(mut self, mac: impl Into<String>) -> Self {
+        self.h = None;
+        self.mac = Some(mac.into());
+        self.sig = None;
+        self
+    }
+
+    /// Replace the stateless integrity signature on this cursor.
+    pub fn with_signature(mut self, signature: impl Into<String>) -> Self {
+        self.h = None;
+        self.mac = None;
+        self.sig = Some(signature.into());
+        self
+    }
+
+    /// Convert this cursor to stateful-handle form.
+    pub fn with_stateful_handle(mut self, handle: impl Into<String>) -> Self {
+        self.h = Some(handle.into());
+        self.s.clear();
+        self.d = None;
+        self.target = None;
+        self.mac = None;
+        self.sig = None;
         self
     }
 
@@ -217,7 +264,26 @@ impl Cursor {
             return Err(crate::Error::Protocol(format!("unsupported cursor version: {}", self.v)));
         }
 
-        if matches!(self.purpose, CursorPurpose::Barrier) && self.target.is_none() {
+        let stateful = self.h.is_some();
+        if stateful {
+            if self.mac.is_some() || self.sig.is_some() {
+                return Err(crate::Error::Protocol(
+                    "stateful cursor handle must not carry _mac or _sig".to_owned(),
+                ));
+            }
+            if !self.s.is_empty() || self.d.is_some() || self.target.is_some() {
+                return Err(crate::Error::Protocol(
+                    "stateful cursor handle must not carry s, d, or target".to_owned(),
+                ));
+            }
+            if let Some(handle) = &self.h {
+                Self::validate_cursor_handle(handle)?;
+            }
+        } else if self.mac.is_none() && self.sig.is_none() {
+            return Err(crate::Error::Protocol("stateless cursor missing _mac or _sig".to_owned()));
+        }
+
+        if matches!(self.purpose, CursorPurpose::Barrier) && self.target.is_none() && !stateful {
             return Err(crate::Error::Protocol("barrier cursor missing target".to_owned()));
         }
 
@@ -249,6 +315,15 @@ impl Cursor {
             if let Some(space_id) = &target.space_id {
                 Self::validate_space_id(space_id)?;
             }
+        }
+
+        if let Some(mac) = &self.mac {
+            Self::validate_cursor_mac(mac)?;
+        }
+        if let Some(sig) = &self.sig
+            && sig.trim().is_empty()
+        {
+            return Err(crate::Error::Protocol("cursor _sig must not be empty".to_owned()));
         }
 
         Ok(())
@@ -292,6 +367,28 @@ impl Cursor {
         } else {
             Err(crate::Error::InvalidId(message_id.to_owned()))
         }
+    }
+
+    fn validate_cursor_handle(handle: &str) -> Result<()> {
+        let len = handle.len();
+        if !(16..=256).contains(&len)
+            || !handle.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'))
+        {
+            return Err(crate::Error::Protocol("invalid cursor handle".to_owned()));
+        }
+        Ok(())
+    }
+
+    fn validate_cursor_mac(mac: &str) -> Result<()> {
+        let Some(digest) = mac.strip_prefix("hmac-sha256:") else {
+            return Err(crate::Error::Protocol("cursor _mac must use hmac-sha256".to_owned()));
+        };
+        if digest.len() != 64
+            || !digest.bytes().all(|b| b.is_ascii_digit() || matches!(b, b'a'..=b'f'))
+        {
+            return Err(crate::Error::Protocol("invalid cursor _mac digest".to_owned()));
+        }
+        Ok(())
     }
 
     /// Create a cursor from sync positions.
@@ -509,6 +606,9 @@ mod tests {
             d: None,
             target: None,
             x: 1714080000000,
+            h: None,
+            mac: Some(Cursor::DEV_TEST_MAC.to_owned()),
+            sig: None,
             filter_hash: None,
         };
 
@@ -566,5 +666,17 @@ mod tests {
 
         assert_eq!(extracted.spaces.len(), positions.spaces.len());
         assert_eq!(extracted.devices, positions.devices);
+    }
+
+    #[test]
+    fn stateful_handle_cursor_excludes_inline_state() {
+        let cursor = Cursor::new().with_stateful_handle("cursor_handle_123456");
+        let encoded = cursor.encode().unwrap();
+        let decoded = Cursor::decode(&encoded).unwrap();
+
+        assert_eq!(decoded.h.as_deref(), Some("cursor_handle_123456"));
+        assert!(decoded.s.is_empty());
+        assert!(decoded.d.is_none());
+        assert!(decoded.mac.is_none());
     }
 }

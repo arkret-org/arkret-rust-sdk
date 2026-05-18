@@ -25,6 +25,7 @@ pub const APPLET_REGISTRATION: &str = "cx.applet.registration";
 pub const ATTESTATION_RANGE_COMPLETENESS: &str = "cx.attestation.range_completeness";
 pub const AUDIT_ACCESSED: &str = "cx.audit.accessed";
 pub const AUDIT_EPOCH_KEY_DESTRUCTION: &str = "cx.audit.epoch_key_destruction";
+pub const AUDIT_ERASURE_RECEIPT: &str = "cx.audit.erasure_receipt";
 pub const AUDIT_RYW_RECEIPT: &str = "cx.audit.ryw_receipt";
 pub const CALL_RECORDING_START: &str = "cx.call.recording.start";
 pub const CALL_SIGNAL: &str = "cx.call.signal";
@@ -181,6 +182,7 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     ATTESTATION_RANGE_COMPLETENESS,
     AUDIT_ACCESSED,
     AUDIT_EPOCH_KEY_DESTRUCTION,
+    AUDIT_ERASURE_RECEIPT,
     AUDIT_RYW_RECEIPT,
     CALL_RECORDING_START,
     CALL_SIGNAL,
@@ -312,6 +314,7 @@ pub const NON_REDUCER_EVENT_KINDS: &[&str] = &[
     ACCOUNT_BLOCKLIST,
     ACCOUNT_DATA_SET,
     ATTESTATION_RANGE_COMPLETENESS,
+    AUDIT_ERASURE_RECEIPT,
     AUDIT_RYW_RECEIPT,
     CALL_SIGNAL,
     KEY_VERIFICATION_ACCEPT,
@@ -428,6 +431,7 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
         ATTESTATION_RANGE_COMPLETENESS
         | AUDIT_ACCESSED
         | AUDIT_EPOCH_KEY_DESTRUCTION
+        | AUDIT_ERASURE_RECEIPT
         | AUDIT_RYW_RECEIPT
         | SPACE_AUDIT_POLICY_DOWNGRADE => EventClass::Audit,
         CAPABILITY_DELEGATE | CAPABILITY_DERIVED | CAPABILITY_GRANT | CAPABILITY_REVOKE

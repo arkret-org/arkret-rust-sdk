@@ -467,6 +467,7 @@ pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     "cx.schema.applet.v1",
     "cx.schema.agent.v1",
     "cx.schema.audit_ryw_receipt.v1",
+    "cx.schema.erasure_receipt.v1",
     "cx.schema.cross_signing_publish.v1",
     "cx.schema.cross_signing_reset.v1",
     EVENT_SCHEMA,

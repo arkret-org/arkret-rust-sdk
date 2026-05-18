@@ -354,6 +354,131 @@ impl AuditRywReceipt {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum ErasureSubjectKind {
+    Principal,
+    Space,
+    Event,
+    Blob,
+    Device,
+    AccountPrivateState,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum ErasureStorageBoundary {
+    CanonicalLogMinimization,
+    BlobStore,
+    ProjectionStore,
+    AccountPrivateStore,
+    SearchIndex,
+    PushRoutes,
+    DeviceSecretStore,
+    MediaDerivatives,
+    ServiceDefined,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum ErasureOutcome {
+    Completed,
+    PartiallyCompleted,
+    BlockedByLegalHold,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum ErasedClass {
+    CanonicalPayloadBytes,
+    BlobBytes,
+    ProjectionRows,
+    AccountPrivateState,
+    PushRoutes,
+    DeviceSecrets,
+    SearchIndexEntries,
+    DerivedPlaintext,
+    MediaDerivatives,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ErasureSubject {
+    pub kind: ErasureSubjectKind,
+    #[serde(rename = "ref")]
+    pub reference: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ErasureScope {
+    pub storage_boundary: ErasureStorageBoundary,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub space_id: Option<SpaceId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub target_refs: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retention_policy_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub service_scope: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ErasureReceiptProof {
+    pub verification_method: String,
+    pub payload_hash: Hash,
+    pub signature: String,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(flatten)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ErasureReceipt {
+    pub receipt_id: String,
+    pub schema: String,
+    pub issuer: Did,
+    pub subject: ErasureSubject,
+    pub scope: ErasureScope,
+    pub outcome: ErasureOutcome,
+    pub erased_classes: Vec<ErasedClass>,
+    pub retained_stub_hash: Hash,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub legal_hold_ref: Option<String>,
+    pub completed_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub issued_at: Option<DateTime<Utc>>,
+    pub proofs: Vec<ErasureReceiptProof>,
+}
+
+impl ErasureReceipt {
+    pub const SCHEMA: &'static str = "cx.schema.erasure_receipt.v1";
+    pub const EVENT_KIND: &'static str = "cx.audit.erasure_receipt";
+
+    pub fn validate_minimal(&self) -> Result<()> {
+        if self.schema != Self::SCHEMA {
+            return Err(Error::Protocol("erasure receipt schema mismatch".to_owned()));
+        }
+        if self.proofs.is_empty() {
+            return Err(Error::Protocol("erasure receipt proofs must not be empty".to_owned()));
+        }
+        if matches!(self.outcome, ErasureOutcome::BlockedByLegalHold)
+            && self.legal_hold_ref.is_none()
+        {
+            return Err(Error::Protocol(
+                "blocked erasure receipt requires legal_hold_ref".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 /// Backup class for key backup envelopes (key-management.md §7.1).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

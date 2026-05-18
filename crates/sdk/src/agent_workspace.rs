@@ -813,7 +813,9 @@ mod tests {
             importer_actor_id: did("did:web:agent.example"),
             import_destination_space_id: "cx:space:mirror".to_owned(),
             content_hash: "sha256:c".to_owned(),
-            source_frontier_ref: "cx:anchor:1".to_owned(),
+            source_frontier_ref:
+                "cx:anchor:sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                    .to_owned(),
             issued_at: Utc.with_ymd_and_hms(2026, 5, 17, 10, 0, 0).unwrap(),
             valid_until: Utc.with_ymd_and_hms(2026, 5, 17, 11, 0, 0).unwrap(),
             signature: "should-not-appear".to_owned(),
@@ -845,7 +847,9 @@ mod tests {
             context_anchor: Some(ContextAnchor {
                 source_space_id: "cx:space:src".to_owned(),
                 source_flow_id: "cx:flow:src".to_owned(),
-                source_anchor_ref: "cx:anchor:1".to_owned(),
+                source_anchor_ref:
+                    "cx:anchor:sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                        .to_owned(),
                 source_frontier_hash: "sha256:f".to_owned(),
                 trigger_redirect_pair_id: "01964200-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
             }),

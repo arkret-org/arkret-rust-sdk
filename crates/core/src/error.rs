@@ -334,6 +334,7 @@ pub const REASON_MORPH_SCHEMA_VERSION_BINDING_MISSING: &str =
 
 // Sender commitment opt-in profile (zh/governance/content-moderation.md §3.4.2).
 pub const REASON_SENDER_COMMITMENT_INVALID: &str = "sender_commitment_invalid";
+pub const REASON_SENDER_COMMITMENT_MISSING: &str = "sender_commitment_missing";
 pub const REASON_SENDER_COMMITMENT_SEQ_REPLAY: &str = "sender_commitment_seq_replay";
 pub const REASON_SENDER_COMMITMENT_CIPHERTEXT_MISMATCH: &str =
     "sender_commitment_ciphertext_mismatch";
@@ -408,6 +409,7 @@ pub const KNOWN_REASON_CODES_ROUND_C45: &[&str] = &[
     REASON_MORPH_SCHEMA_REFS_TRANSFORMATION_UNSUPPORTED,
     REASON_MORPH_SCHEMA_VERSION_BINDING_MISSING,
     REASON_SENDER_COMMITMENT_INVALID,
+    REASON_SENDER_COMMITMENT_MISSING,
     REASON_SENDER_COMMITMENT_SEQ_REPLAY,
     REASON_SENDER_COMMITMENT_CIPHERTEXT_MISMATCH,
     REASON_SENDER_COMMITMENT_EPOCH_MISMATCH,
