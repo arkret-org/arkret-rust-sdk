@@ -589,10 +589,9 @@ impl Anchor {
 /// so the `sign_*` constructors don't need a public surface for the
 /// hashing-only struct.
 ///
-/// MAL-11 round 8: `kind` is included with the same `skip_serializing_if`
-/// rule as `core::anchor::AnchorBody` — `Normal` is dropped from the wire
-/// so pre-MAL-11 envelopes remain byte-identical, and `Compaction`
-/// participates in the hashed bytes (forgery defense).
+/// MAL-11 round 8: `kind` participates in the hashed bytes (forgery
+/// defense — Normal vs Compaction anchors with otherwise identical
+/// fields MUST hash differently).
 #[derive(serde::Serialize)]
 struct AnchorBodyView<'a> {
     space_id: &'a SpaceId,
@@ -600,12 +599,7 @@ struct AnchorBodyView<'a> {
     frontier: &'a [MoveId],
     state_root: &'a Hash,
     hlc: &'a Hlc,
-    #[serde(skip_serializing_if = "anchor_kind_is_default")]
     kind: &'a crate::AnchorKind,
-}
-
-fn anchor_kind_is_default(kind: &&crate::AnchorKind) -> bool {
-    matches!(**kind, crate::AnchorKind::Normal)
 }
 
 #[cfg(test)]

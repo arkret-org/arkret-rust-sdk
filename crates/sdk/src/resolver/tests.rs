@@ -763,73 +763,6 @@ fn redaction_against_already_redacted_flow_rejects() {
     assert_eq!(state.subjects.get(flow_id).unwrap().state, Some(crate::ObjectState::Redacted));
 }
 
-// ── SDK Round 12 (2026-05-16): cx.flow.track.* sub-events ──
-// All four require Flow.state == Active (per spec common-fields.md §5.1
-// update-on-non-active rule). Tests cover happy paths + state-guard
-// rejects.
-
-#[test]
-fn flow_track_enable_inserts_into_tracks_map() {
-    let flow_id = "cx:flow:01904100-0000-7000-8000-4fb50799ad50";
-    let create = flow_create_event(1, flow_id);
-    let mut enable =
-        event(OP_FLOW_TRACK_ENABLE, 2, json!({ "flow_id": flow_id, "track_id": "synthesis" }));
-    enable.prev_refs.push(create.event_id.clone());
-
-    let mut state = SpaceState::new(space_id(), "1".to_owned());
-    state.apply_events(&[create, enable]).unwrap();
-
-    let flow = state.subjects.get(flow_id).unwrap();
-    assert!(flow.tracks.contains_key("synthesis"));
-}
-
-#[test]
-fn flow_track_disable_removes_from_tracks_map() {
-    let flow_id = "cx:flow:01904100-0000-7000-8000-4fb50799ad51";
-    let create = flow_create_event(1, flow_id);
-    let mut enable =
-        event(OP_FLOW_TRACK_ENABLE, 2, json!({ "flow_id": flow_id, "track_id": "discussion" }));
-    enable.prev_refs.push(create.event_id.clone());
-    let mut disable =
-        event(OP_FLOW_TRACK_DISABLE, 3, json!({ "flow_id": flow_id, "track_id": "discussion" }));
-    disable.prev_refs.push(enable.event_id.clone());
-
-    let mut state = SpaceState::new(space_id(), "1".to_owned());
-    state.apply_events(&[create, enable, disable]).unwrap();
-
-    let flow = state.subjects.get(flow_id).unwrap();
-    assert!(!flow.tracks.contains_key("discussion"));
-}
-
-#[test]
-fn flow_track_update_patches_track_config() {
-    let flow_id = "cx:flow:01904100-0000-7000-8000-4fb50799ad52";
-    let create = flow_create_event(1, flow_id);
-    let mut update = event(
-        OP_FLOW_TRACK_UPDATE,
-        2,
-        json!({
-            "flow_id": flow_id,
-            "track_id": "discussion",
-            "patch": {
-                "profile": "discussion",
-                "template": "Q&A",
-                "fields": {"capacity": 50}
-            }
-        }),
-    );
-    update.prev_refs.push(create.event_id.clone());
-
-    let mut state = SpaceState::new(space_id(), "1".to_owned());
-    state.apply_events(&[create, update]).unwrap();
-
-    let flow = state.subjects.get(flow_id).unwrap();
-    let track = flow.tracks.get("discussion").unwrap();
-    assert_eq!(track.profile.as_deref(), Some("discussion"));
-    assert_eq!(track.template.as_deref(), Some("Q&A"));
-    assert_eq!(track.fields["capacity"], 50);
-}
-
 #[test]
 fn flow_tracks_update_merges_tracks_from_patch_tracks_and_top_level_tracks() {
     let flow_id = "cx:flow:01904100-0000-7000-8000-4fb50799ad55";
@@ -866,57 +799,6 @@ fn flow_tracks_update_merges_tracks_from_patch_tracks_and_top_level_tracks() {
     assert_eq!(flow.tracks["discussion"].fields["capacity"], 25);
     assert_eq!(flow.tracks["review"].profile.as_deref(), Some("review"));
     assert_eq!(flow.tracks["review"].template.as_deref(), Some("Review"));
-}
-
-#[test]
-fn flow_track_set_primary_clears_others_and_marks_named() {
-    let flow_id = "cx:flow:01904100-0000-7000-8000-4fb50799ad53";
-    let create = flow_create_event(1, flow_id);
-    // Create two tracks first via update events.
-    let mut enable_a =
-        event(OP_FLOW_TRACK_ENABLE, 2, json!({ "flow_id": flow_id, "track_id": "synthesis" }));
-    enable_a.prev_refs.push(create.event_id.clone());
-    let mut enable_b =
-        event(OP_FLOW_TRACK_ENABLE, 3, json!({ "flow_id": flow_id, "track_id": "discussion" }));
-    enable_b.prev_refs.push(enable_a.event_id.clone());
-    // Mark synthesis primary first.
-    let mut set_primary_a =
-        event(OP_FLOW_TRACK_SET_PRIMARY, 4, json!({ "flow_id": flow_id, "track_id": "synthesis" }));
-    set_primary_a.prev_refs.push(enable_b.event_id.clone());
-    // Then flip primary to discussion — synthesis must lose its primary
-    // flag in the same reduce.
-    let mut set_primary_b = event(
-        OP_FLOW_TRACK_SET_PRIMARY,
-        5,
-        json!({ "flow_id": flow_id, "track_id": "discussion" }),
-    );
-    set_primary_b.prev_refs.push(set_primary_a.event_id.clone());
-
-    let mut state = SpaceState::new(space_id(), "1".to_owned());
-    state.apply_events(&[create, enable_a, enable_b, set_primary_a, set_primary_b]).unwrap();
-
-    let flow = state.subjects.get(flow_id).unwrap();
-    assert_eq!(flow.tracks["synthesis"].is_primary, Some(false));
-    assert_eq!(flow.tracks["discussion"].is_primary, Some(true));
-}
-
-#[test]
-fn flow_track_event_rejected_when_flow_archived() {
-    let flow_id = "cx:flow:01904100-0000-7000-8000-4fb50799ad54";
-    let create = flow_create_event(1, flow_id);
-    let mut archive = event(OP_FLOW_ARCHIVE, 2, json!({ "flow_id": flow_id }));
-    archive.prev_refs.push(create.event_id.clone());
-    // `flow_create_event` pre-seeds `synthesis` track; use a different
-    // track name so the assertion targets the failed-enable specifically.
-    let mut enable =
-        event(OP_FLOW_TRACK_ENABLE, 3, json!({ "flow_id": flow_id, "track_id": "discussion" }));
-    enable.prev_refs.push(archive.event_id.clone());
-
-    let mut state = SpaceState::new(space_id(), "1".to_owned());
-    let err = state.apply_events(&[create, archive, enable]).unwrap_err();
-    assert!(err.to_string().contains("flow_not_active"), "unexpected error: {err}");
-    let flow = state.subjects.get(flow_id).unwrap();
-    assert!(!flow.tracks.contains_key("discussion"));
 }
 
 #[test]

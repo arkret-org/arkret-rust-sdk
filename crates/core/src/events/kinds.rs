@@ -49,11 +49,6 @@ pub const FLOW_CREATE: &str = "cx.flow.create";
 pub const FLOW_MOVE: &str = "cx.flow.move";
 pub const FLOW_REORDER: &str = "cx.flow.reorder";
 pub const FLOW_RESTORE: &str = "cx.flow.restore";
-// Round C45 (2026-05-18 main; spec 346f347) dropped the legacy split track
-// events `cx.flow.track.{enable,disable,update,set_primary}` from the
-// canonical event-kind registry; only the unified `cx.flow.tracks.update`
-// (with `cx.patch.v1` payload) is wire-active. Aggressive mode — v1 not
-// released — so SDK constants are dropped rather than shimmed.
 pub const FLOW_TRACKS_UPDATE: &str = "cx.flow.tracks.update";
 pub const FLOW_UPDATE: &str = "cx.flow.update";
 pub const FLOW_WATCH_SET: &str = "cx.flow.watch.set";

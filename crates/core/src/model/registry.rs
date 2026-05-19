@@ -116,15 +116,6 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
             .into_iter()
             .map(str::to_owned)
             .collect(),
-        // Round 12 — Flow track sub-events. All four require `flow_id` +
-        // `track_id`; `track.update` additionally requires `patch` (the
-        // FlowTrackConfig fields to merge).
-        OP_FLOW_TRACK_DISABLE | OP_FLOW_TRACK_ENABLE | OP_FLOW_TRACK_SET_PRIMARY => {
-            vec!["flow_id".to_owned(), "track_id".to_owned()]
-        }
-        OP_FLOW_TRACK_UPDATE => {
-            vec!["flow_id".to_owned(), "track_id".to_owned(), "patch".to_owned()]
-        }
         // Round 13 — Applet / Agent protocol-session sub-events. Mirrors
         // soland round 14f wire validator (`src/routing/events/operations.rs`).
         // Spec `extensions/applet-integration.md` + `agent-integration.md`.

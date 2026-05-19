@@ -165,12 +165,6 @@ pub const REASON_INCEPTION_UPGRADE_OLD_DOCUMENT_HASH_MISMATCH: &str =
 pub const REASON_INCEPTION_UPGRADE_EVIDENCE_INSUFFICIENT: &str =
     "inception_upgrade_evidence_insufficient";
 
-// Tier-0 S4 / S5 mention / reaction routing hash reject reasons were removed
-// from the registry in round C46 (spec d415679): once core wire moved to
-// HMAC-only there is no separate legacy-SHA-256 reject path — any malformed
-// routing tag now surfaces as the generic `invalid_signature` /
-// `schema_violation`.
-//
 // Tier-0 S6 — `attested_hardware` Audit Agent removal must be paired with
 // `cx.audit.epoch_key_destruction` (round C45 drops the `.v1` kind suffix;
 // wire schema versioning now flows through `requirements.features`).
@@ -242,11 +236,6 @@ pub const REASON_OTHER: &str = "other";
 
 // Cursor integrity (paired with ERROR_CODE_CURSOR_INTEGRITY_INVALID).
 pub const REASON_CURSOR_INTEGRITY_INVALID: &str = "cursor_integrity_invalid";
-
-// `deprecated_query_params` reason was removed from the registry in round
-// C46 (spec d415679); the canonical events-query surface only knows the
-// `before` / `after` keys now and legacy `direction` / `from` / `until`
-// query keys collapse to plain `invalid_param`.
 
 // Claim / KeyPackage rate-limit (per-target tuple).
 pub const REASON_CLAIM_RATE_LIMITED: &str = "claim_rate_limited";
@@ -343,13 +332,6 @@ pub const REASON_SENDER_COMMITMENT_EPOCH_MISMATCH: &str = "sender_commitment_epo
 // Range-completeness attestation (zh/sync/operations-sync.md §4.2.4).
 pub const REASON_RANGE_COMPLETENESS_ROOT_MISMATCH: &str = "range_completeness_root_mismatch";
 pub const REASON_RANGE_COMPLETENESS_ACTOR_SEQ_GAP: &str = "range_completeness_actor_seq_gap";
-
-// `deprecated_event_kind` / `legacy_event_kind` reasons were removed from
-// the registry in round C46 (spec d415679) — the legacy `cx.flow.track.*`
-// event kinds those reasons used to gate were themselves removed from the
-// registry in the same commit, so there is no longer a sunset timeline to
-// announce. Unknown / removed event kinds collapse to
-// `unsupported_event_kind` plain.
 
 /// Known `failed_precondition` reason codes registered in round C45.
 pub const KNOWN_REASON_CODES_ROUND_C45: &[&str] = &[

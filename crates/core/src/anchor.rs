@@ -121,18 +121,11 @@ pub struct Anchor {
     pub state_root: Hash,
     pub anchorer_sig: AnchorerSig,
     pub hlc: Hlc,
-    /// MAL-11: explicit anchor categorization. Defaults to `Normal` when
-    /// the wire envelope omits `kind`, preserving backward-compat with
-    /// pre-MAL-11 anchors that never carried the field.
-    #[serde(default, skip_serializing_if = "AnchorKind::is_default")]
+    /// MAL-11: explicit anchor categorization.
     pub kind: AnchorKind,
 }
 
 impl AnchorKind {
-    fn is_default(&self) -> bool {
-        matches!(self, AnchorKind::Normal)
-    }
-
     /// True for compaction anchors. Convenience for caller code.
     pub fn is_compaction(&self) -> bool {
         matches!(self, AnchorKind::Compaction)
@@ -155,7 +148,6 @@ struct AnchorBody<'a> {
     frontier: &'a [MoveId],
     state_root: &'a Hash,
     hlc: &'a Hlc,
-    #[serde(skip_serializing_if = "AnchorKind::is_default")]
     kind: &'a AnchorKind,
 }
 
@@ -486,15 +478,6 @@ mod tests {
     // ── MAL-11: AnchorKind ───────────────────────────────────────────────
 
     #[test]
-    fn anchor_kind_default_normal_omits_field_on_wire() {
-        // Normal anchors must serialize without a `kind` field so pre-MAL-11
-        // wire envelopes round-trip byte-for-byte.
-        let a = build_anchor(AnchorerSig::Single(signature()));
-        let v = serde_json::to_value(&a).unwrap();
-        assert!(v.get("kind").is_none(), "kind must be omitted when Normal: {v:#?}");
-    }
-
-    #[test]
     fn anchor_kind_compaction_serializes_explicitly() {
         let mut a = build_anchor(AnchorerSig::Single(signature()));
         a.kind = AnchorKind::Compaction;
@@ -526,17 +509,6 @@ mod tests {
         let r: Anchor = serde_json::from_value(v).unwrap();
         assert_eq!(r.kind, AnchorKind::Compaction);
         assert_eq!(r.id, a.id);
-    }
-
-    #[test]
-    fn anchor_kind_missing_field_defaults_to_normal() {
-        // Pre-MAL-11 envelopes without a `kind` slot deserialize as Normal.
-        let a = build_anchor(AnchorerSig::Single(signature()));
-        let mut v: Value = serde_json::to_value(&a).unwrap();
-        // Ensure no `kind` in the wire form.
-        assert!(v.as_object_mut().unwrap().remove("kind").is_none());
-        let r: Anchor = serde_json::from_value(v).unwrap();
-        assert_eq!(r.kind, AnchorKind::Normal);
     }
 
     #[test]

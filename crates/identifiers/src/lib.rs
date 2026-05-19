@@ -239,13 +239,9 @@ fn is_content_addressed<'a>(prefix: &'a str) -> impl Fn(&str) -> bool + 'a {
     move |value| value.strip_prefix(prefix).is_some_and(is_hash)
 }
 
-// Round C47 (2026-05-18 main; spec e10b6ad): anchor frontier items dropped
-// the `cx:move:` typed-id prefix. The schema field renamed `move_ref` to
-// `event_digest`; on the wire it's now a bare `<algo>:<hex>` hash equal to
-// the reducer-input event's `proof.payload_hash`. The Rust type name
-// `MoveId` is kept for source-compatibility this round; rename to
-// `EventDigest` is queued for a follow-up sweep (see _todos.md C47 Lane A2
-// TODO).
+// Anchor frontier items are bare `<algo>:<hex>` hashes equal to the
+// reducer-input event's `proof.payload_hash` (spec field name
+// `event_digest`).
 id_type!(MoveId, is_hash);
 id_type!(AnchorId, is_content_addressed("cx:anchor:"));
 id_type!(CellRef, has_prefix("cx:cell:"));

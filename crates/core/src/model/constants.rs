@@ -50,15 +50,6 @@ pub const OP_FLOW_ARCHIVE: &str = "cx.flow.archive";
 pub const OP_FLOW_RESTORE: &str = "cx.flow.restore";
 pub const OP_FLOW_MOVE: &str = "cx.flow.move";
 pub const OP_FLOW_REORDER: &str = "cx.flow.reorder";
-/// Flow track sub-event kinds (round 12, 2026-05-16). Manage individual
-/// entries in `Flow.tracks: BTreeMap<String, FlowTrackConfig>` without
-/// requiring a full `cx.flow.update`. State-machine guard: parent Flow
-/// MUST be `Active` (per spec common-fields.md §5.1 update-on-non-active
-/// rule); reject otherwise with `flow_not_active`.
-pub const OP_FLOW_TRACK_DISABLE: &str = "cx.flow.track.disable";
-pub const OP_FLOW_TRACK_ENABLE: &str = "cx.flow.track.enable";
-pub const OP_FLOW_TRACK_SET_PRIMARY: &str = "cx.flow.track.set_primary";
-pub const OP_FLOW_TRACK_UPDATE: &str = "cx.flow.track.update";
 
 /// Morph event kinds.
 pub const OP_MORPH_CREATE: &str = "cx.morph.create";
@@ -250,11 +241,6 @@ pub const OP_MODERATION_REPORT: &str = "cx.moderation.report";
 
 /// Policy server check.
 pub const OP_POLICY_CHECK: &str = "cx.policy.check";
-// Round C45 (2026-05-18 main; spec 346f347) — operation registry dropped
-// `cx.policy.check_legacy`. The HTTP `POST /contrix/v1/check` legacy alias
-// still has a 2028-06-01 sunset in the OpenAPI binding, but the operation
-// catalog now exposes only `cx.policy.check`. Aggressive mode — v1 not
-// released — so the SDK constant is dropped rather than shimmed.
 
 /// Push gateway register / unregister.
 pub const OP_PUSH_REGISTER_DEVICE: &str = "cx.push.register_device";
@@ -301,8 +287,8 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     // but are intentionally NOT in BUILT_IN_OPERATION_KINDS — that list
     // mirrors spec `operation-registry.json` (RPC service surface) and
     // the drift report (`SpecArtifactBundle::drift_report`) fails if
-    // event kinds leak in. Same convention as `OP_FLOW_TRACK_*` and
-    // the lifecycle event ops (`OP_FLOW_CREATE`, etc.).
+    // event kinds leak in. Same convention as the lifecycle event ops
+    // (`OP_FLOW_CREATE`, etc.).
     OP_AUTHZ_CHECK,
     OP_AUTHZ_GET_EFFECTIVE_GRANTS,
     OP_AUTHZ_GET_INVITES,
