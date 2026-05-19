@@ -431,10 +431,9 @@ fn space_provides_message_membership_and_media_convenience_helpers() {
     assert_eq!(leave.object_type, "cx.member.state");
     assert_eq!(base_client.get_space(&space_id).unwrap().state, SpaceStateType::Left);
 
-    assert_eq!(
-        space.invite(bob.clone(), Some("member".to_owned())).unwrap().object_type,
-        "cx.invite.create"
-    );
+    #[allow(deprecated)]
+    let invite_op = space.invite(bob.clone(), Some("member".to_owned())).unwrap();
+    assert_eq!(invite_op.object_type, "cx.invite.create");
     assert_eq!(
         space.ban(bob.clone(), Some("spam".to_owned())).unwrap().object_type,
         "cx.member.state"
@@ -448,4 +447,109 @@ fn space_provides_message_membership_and_media_convenience_helpers() {
         .upload_encrypted_attachment("att1", "secret.txt", "text/plain", b"secret", b"key")
         .unwrap();
     assert_eq!(space.download_decrypted_attachment("att1", b"key").unwrap(), b"secret");
+}
+
+#[test]
+fn member_add_with_candidate_emits_routable_join_with_typed_binding() {
+    use crate::model::{
+        CandidateIntent, DeliveryBindingHint, DeliveryMode, HandleHintBindingSource, HandleUri,
+        MemberDeliveryBindingCandidate, RecipientServiceType,
+    };
+
+    let base_client = sessioned_base();
+    let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-000000000300").unwrap();
+    let space = Space::new(space_id.clone(), base_client.clone());
+
+    let subject = Did::new("did:web:bob.example".to_owned()).unwrap();
+    let principal = Did::new("did:web:principal.acme.example".to_owned()).unwrap();
+    let mut modes = std::collections::BTreeSet::new();
+    modes.insert(DeliveryMode::Events);
+    modes.insert(DeliveryMode::Sync);
+    let candidate = MemberDeliveryBindingCandidate {
+        subject_did: subject.clone(),
+        handle_uri: HandleUri::parse("contrix://acme.example/users/bob").unwrap(),
+        handle_aliases: vec![],
+        recipient_service_did: principal.clone(),
+        delivery_binding_hint: DeliveryBindingHint {
+            recipient_service_did: principal.clone(),
+            recipient_service_type: RecipientServiceType::PrincipalServer,
+            binding_source: HandleHintBindingSource::OrganizationPolicy,
+            delivery_modes: modes,
+            service_acceptance_ref: Some(
+                "cx:event:01890000-0000-7000-8000-0000000000a1".to_owned(),
+            ),
+            policy_ref: Some("cx:event:01890000-0000-7000-8000-0000000000a2".to_owned()),
+        },
+        issuer_service_did: principal,
+        audience: space_id.as_str().to_owned(),
+        expires_at: Utc::now() + chrono::Duration::hours(1),
+        issued_at: Some(Utc::now()),
+        source_refs: vec!["cx:event:01890000-0000-7000-8000-0000000000a3".to_owned()],
+        proofs: vec![serde_json::json!({
+            "kind": "detached_jws",
+            "alg": "EdDSA",
+            "verification_method": "did:web:principal.acme.example#key-1",
+            "payload_hash": "sha256:00000000000000000000000000000000000000000000000000000000000000aa",
+            "created_at": "2026-05-19T00:00:00Z",
+            "audience": space_id.as_str(),
+            "jws": "aaa.bbb.ccc"
+        })],
+        claim_digest: None,
+        intent: CandidateIntent::MemberAdd,
+    };
+
+    let op = space.member_add_with_candidate(&candidate).unwrap();
+    assert_eq!(op.object_type, "cx.member.state");
+    let payload = &op.payload;
+    assert_eq!(payload["actor_id"], serde_json::json!(subject));
+    assert_eq!(payload["membership"], "join");
+    assert_eq!(payload["delivery_status"], "routable");
+    assert_eq!(payload["handle_uri"], "contrix://acme.example/users/bob");
+    assert!(payload["delivery_binding"].is_object());
+    assert!(payload["delivery_binding_candidate"].is_object());
+}
+
+#[test]
+fn member_add_with_candidate_rejects_audience_mismatch() {
+    use crate::model::{
+        CandidateIntent, DeliveryBindingHint, DeliveryMode, HandleHintBindingSource, HandleUri,
+        MemberDeliveryBindingCandidate, RecipientServiceType,
+    };
+
+    let base_client = sessioned_base();
+    let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-000000000301").unwrap();
+    let space = Space::new(space_id.clone(), base_client.clone());
+
+    let principal = Did::new("did:web:principal.acme.example".to_owned()).unwrap();
+    let mut modes = std::collections::BTreeSet::new();
+    modes.insert(DeliveryMode::Events);
+    let candidate = MemberDeliveryBindingCandidate {
+        subject_did: Did::new("did:web:bob.example".to_owned()).unwrap(),
+        handle_uri: HandleUri::parse("contrix://acme.example/users/bob").unwrap(),
+        handle_aliases: vec![],
+        recipient_service_did: principal.clone(),
+        delivery_binding_hint: DeliveryBindingHint {
+            recipient_service_did: principal.clone(),
+            recipient_service_type: RecipientServiceType::PrincipalServer,
+            binding_source: HandleHintBindingSource::OrganizationPolicy,
+            delivery_modes: modes,
+            service_acceptance_ref: Some(
+                "cx:event:01890000-0000-7000-8000-0000000000a1".to_owned(),
+            ),
+            policy_ref: Some("cx:event:01890000-0000-7000-8000-0000000000a2".to_owned()),
+        },
+        issuer_service_did: principal,
+        // Wrong audience — Space id does not match.
+        audience: "cx:space:DEADBEEF-0000-7000-8000-00000000ffff".to_owned(),
+        expires_at: Utc::now() + chrono::Duration::hours(1),
+        issued_at: Some(Utc::now()),
+        source_refs: vec!["cx:event:01890000-0000-7000-8000-0000000000a3".to_owned()],
+        proofs: vec![serde_json::json!({"kind":"detached_jws","jws":"a.b.c"})],
+        claim_digest: None,
+        intent: CandidateIntent::MemberAdd,
+    };
+
+    let err = space.member_add_with_candidate(&candidate).unwrap_err();
+    let msg = format!("{err}");
+    assert!(msg.contains("audience"), "expected audience mismatch error, got: {msg}");
 }

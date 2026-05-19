@@ -459,6 +459,7 @@ pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     "cx.schema.identity_receipt.v1",
     "cx.schema.identity_link.v1",
     "cx.schema.handle_claim.v1",
+    "cx.schema.member_delivery_binding_candidate.v1",
     "cx.schema.grant_constraint.v1",
     "cx.schema.resource_selector.v1",
     "cx.schema.mimi_interop.v1",

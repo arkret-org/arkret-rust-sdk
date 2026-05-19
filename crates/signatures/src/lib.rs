@@ -6,6 +6,20 @@ pub mod signer;
 #[cfg(feature = "signer")]
 pub use signer::Ed25519MoveSigner;
 
+// Unified Event Envelope proof builder/verifier pipeline. Available without
+// the `signer` feature (canonical bytes + traits + dev-proof gating); the
+// `signer` feature also exposes the Ed25519 detached-JWS backend.
+pub mod proof;
+
+pub use proof::{
+    EventProofBuilder, EventSigner, EventVerifier, ProductionVerifier, ProofType,
+    PublicKeyMaterial, SignedPayload, SignerError, VerifierError, build_proof_envelope,
+    detached_jws_kind,
+};
+
+#[cfg(feature = "signer")]
+pub use proof::{Ed25519DetachedJwsSigner, Ed25519DetachedJwsVerifier};
+
 use std::collections::BTreeMap;
 
 use chrono::{DateTime, Duration, Utc};

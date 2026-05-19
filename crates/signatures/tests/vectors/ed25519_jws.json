@@ -1,0 +1,39 @@
+{
+  "_description": "Known-answer Ed25519 detached-JWS signatures over canonical Event Envelope bytes. signer = contrix_signatures::Ed25519DetachedJwsSigner. The signing input is `b64url(header).b64url(canonical_bytes)`. JWS shape: `b64url(header) .. b64url(signature)` (payload segment empty).",
+  "vectors": [
+    {
+      "name": "seed_one_all_ones_with_object",
+      "seed_hex": "0101010101010101010101010101010101010101010101010101010101010101",
+      "public_key_hex": "8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+      "value": {"hello": "world"},
+      "canonical_bytes": "{\"hello\":\"world\"}",
+      "payload_hash": "sha256:93a23971a914e5eacbf0a8d25154cda309c3c1c72fbb9914d47c60f3cb681588",
+      "signature_hex": "8f96582b9fbb7e1725c43980a34876d8619628790a9890624e4b5115a148dd5149b61c3a50085ea52ee4fb5a6e0064a04facee8ef29fd78a8a1bcfce258b2a06",
+      "detached_jws": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9..j5ZYK5-7fhclxDmAo0h22GGWKHkKmJBiTktRFaFI3VFJthw6UAhepS7k-1puAGSgT6zujvKf14qKG8_OJYsqBg"
+    },
+    {
+      "name": "seed_two_event_envelope_subset",
+      "seed_hex": "0202020202020202020202020202020202020202020202020202020202020202",
+      "public_key_hex": "8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394",
+      "value": {
+        "actor_id": "did:web:alice.example",
+        "kind": "cx.message.posted.v1",
+        "payload": {"text": "hi"}
+      },
+      "canonical_bytes": "{\"actor_id\":\"did:web:alice.example\",\"kind\":\"cx.message.posted.v1\",\"payload\":{\"text\":\"hi\"}}",
+      "payload_hash": "sha256:4855b204680a93fbcbb9ee2c92dfad77839f2de59b88c890bdfebe5c6733d475",
+      "signature_hex": "7f26e0353607e021cfc21e1ede147aa24418d20089a5ca2b297007b5c0cd1a318f92eff60754d27f0951ae1f63aee82a9226f8f4b74bd77d4f9fdc816bbfb60d",
+      "detached_jws": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9..fybgNTYH4CHPwh4e3hR6okQY0gCJpcorKXAHtcDNGjGPku_2B1TSfwlRrh9jrugqkib49LdL131Pn9yBa7-2DQ"
+    },
+    {
+      "name": "seed_three_integer_array",
+      "seed_hex": "0303030303030303030303030303030303030303030303030303030303030303",
+      "public_key_hex": "ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+      "value": {"nums": [10, 20, 30]},
+      "canonical_bytes": "{\"nums\":[10,20,30]}",
+      "payload_hash": "sha256:65e22434a27b5fef6030b420dd3f223b819e9b6686fdcfbfad6f27297abc52ae",
+      "signature_hex": "7e4c39a465a0a3acff38aa8d3241fcf3c75253e3383b893d1f822ac3cecea96cac9bc6102251c5f837a7fce594a201cf42f85a01026f427a420be38dc959b707",
+      "detached_jws": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9..fkw5pGWgo6z_OKqNMkH888dSU-M4O4k9H4Iqw87OqWysm8YQIlHF-Den_OWUogHPQvhaAQJvQnpCC-ONyVm3Bw"
+    }
+  ]
+}

@@ -7,6 +7,7 @@
 pub mod admin_signer;
 pub mod anchor;
 pub mod anchorer;
+pub mod blind_payload_sanitizer;
 pub mod bottom;
 pub mod canonical;
 pub mod cell;
@@ -20,6 +21,7 @@ pub mod lattice;
 pub mod model;
 pub mod move_event;
 pub mod operations;
+pub mod profile_claim;
 pub mod schema;
 pub mod service;
 pub mod signer;
@@ -33,6 +35,13 @@ pub use anchor::{
     ThresholdSigKind, ThresholdSignature,
 };
 pub use anchorer::AnchorerValue;
+pub use blind_payload_sanitizer::{
+    ALLOWED_BLIND_FIELDS, ALLOWED_PUSH_HINTS, ALLOWED_WAKEUP_KINDS, BlindPayloadError,
+    BlindPayloadReasonCode, MAX_COUNT_VALUE, SanitizerMode, is_allowed_blind_field,
+    is_forbidden_payload_key, is_valid_custom_wakeup_kind, is_valid_push_hint,
+    is_valid_push_target_id, is_valid_wakeup_kind, sanitize_blind_payload,
+    sanitize_blind_payload_strict, sanitize_blind_payload_with,
+};
 pub use bottom::{AnchorView, Bottom, BottomKind};
 pub use cell::{CellId, composite_subject, composite_subject_pipe};
 pub use contrix_identifiers as identifiers;
@@ -74,6 +83,8 @@ pub use move_event::{
     Effect, LatticeOp, LatticeOpType, MOVE_SIGNATURE_ALGS, Move, MoveSignature, Precondition,
     Predicate, PredicateOp, SemanticRef,
 };
+pub use profile_claim::{ProfileClaim, ProfileClaimError, ProfileClaimKind, ProfileValidator};
+pub use generated::profiles::{PROFILE_ROLES, ProfileRole, profile_ids_with_role, profile_role};
 pub use service::{
     ApiConventionMetadata, HttpTraceMetadata, NotFoundPrivacy, QuotaKind, QuotaMetadata,
     RateLimitMetadata, RateLimitScopeKind, ServiceDidAllowlist, ServiceEndpointBinding,
