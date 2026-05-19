@@ -13,11 +13,12 @@ use crate::{
     base::{BaseClient, SpaceStateType},
     media::{Attachment, MediaMetadata},
     model::{
-        BlobRef, Did, EventId, FieldFilter, Filter, FilterOp, Flow, MessageId, Morph, MorphId,
-        NullsOrder, OP_INVITE_CREATE, OP_MEMBER_STATE, OP_MESSAGE_CREATE, OP_MESSAGE_REDACT,
-        OP_MESSAGE_REVISE, OP_MORPH_ARCHIVE, OP_MORPH_CREATE, OP_MORPH_UPDATE, OP_RELATION_CREATE,
-        OP_RELATION_DELETE, ObjectState, Operation, OperationId, OperationType, Place, PlaceId,
-        Relation, RelationId, RelationKind, RelationState, SortDirection, SortSpec, SpaceId,
+        BlobRef, DeliveryStatus, Did, EventId, FieldFilter, Filter, FilterOp, Flow, MemberDeliveryBinding,
+        MessageId, Morph, MorphId, NullsOrder, OP_INVITE_CREATE, OP_MEMBER_STATE,
+        OP_MESSAGE_CREATE, OP_MESSAGE_REDACT, OP_MESSAGE_REVISE, OP_MORPH_ARCHIVE, OP_MORPH_CREATE,
+        OP_MORPH_UPDATE, OP_RELATION_CREATE, OP_RELATION_DELETE, ObjectState, Operation,
+        OperationId, OperationType, Place, PlaceId, Relation, RelationId, RelationKind,
+        RelationState, SortDirection, SortSpec, SpaceId,
     },
     resolver::SpaceState,
 };

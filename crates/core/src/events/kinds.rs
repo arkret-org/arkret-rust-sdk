@@ -42,6 +42,7 @@ pub const CROSS_SIGNING_PUBLISH: &str = "cx.cross_signing.publish";
 pub const CROSS_SIGNING_RESET: &str = "cx.cross_signing.reset";
 pub const DEVICE_AUTHORIZED: &str = "cx.device.authorized";
 pub const DEVICE_LIST_UPDATE: &str = "cx.device.list_update";
+pub const DEVICE_PUSH_ROUTE: &str = "cx.device.push_route";
 pub const DEVICE_REVOKED: &str = "cx.device.revoked";
 pub const DID_PROOF: &str = "cx.did.proof";
 pub const FLOW_ARCHIVE: &str = "cx.flow.archive";
@@ -124,6 +125,7 @@ pub const SPACE_ASSET_PRIVACY_POLICY: &str = "cx.space.asset_privacy_policy";
 pub const SPACE_AUDIT_POLICY_DOWNGRADE: &str = "cx.space.audit_policy_downgrade";
 pub const SPACE_CHILD: &str = "cx.space.child";
 pub const SPACE_CREATE: &str = "cx.space.create";
+pub const SPACE_DELIVERY_BINDING_POLICY: &str = "cx.space.delivery_binding_policy";
 pub const SPACE_DESTROY: &str = "cx.space.destroy";
 pub const SPACE_DISCOVERY: &str = "cx.space.discovery";
 pub const SPACE_FREEZE: &str = "cx.space.freeze";
@@ -194,6 +196,7 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     CROSS_SIGNING_RESET,
     DEVICE_AUTHORIZED,
     DEVICE_LIST_UPDATE,
+    DEVICE_PUSH_ROUTE,
     DEVICE_REVOKED,
     DID_PROOF,
     FLOW_ARCHIVE,
@@ -276,6 +279,7 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     SPACE_AUDIT_POLICY_DOWNGRADE,
     SPACE_CHILD,
     SPACE_CREATE,
+    SPACE_DELIVERY_BINDING_POLICY,
     SPACE_DESTROY,
     SPACE_DISCOVERY,
     SPACE_FREEZE,
@@ -341,7 +345,9 @@ pub fn is_reducer_input_event_kind(kind: &str) -> bool {
 
 pub fn event_wire_scope(kind: &str) -> EventWireScope {
     match kind {
-        ACCOUNT_BLOCKLIST | ACCOUNT_DATA_SET | READ_MARKER => EventWireScope::ActorPrivateEvent,
+        ACCOUNT_BLOCKLIST | ACCOUNT_DATA_SET | DEVICE_PUSH_ROUTE | READ_MARKER => {
+            EventWireScope::ActorPrivateEvent
+        }
         CALL_SIGNAL
         | KEY_VERIFICATION_ACCEPT
         | KEY_VERIFICATION_CANCEL
@@ -437,6 +443,7 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
         | CROSS_SIGNING_PUBLISH
         | CROSS_SIGNING_RESET
         | DEVICE_LIST_UPDATE
+        | DEVICE_PUSH_ROUTE
         | DEVICE_REVOKED
         | KEY_VERIFICATION_ACCEPT
         | KEY_VERIFICATION_CANCEL
@@ -490,6 +497,7 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
         | SPACE_ASSET_PRIVACY_POLICY
         | SPACE_CHILD
         | SPACE_CREATE
+        | SPACE_DELIVERY_BINDING_POLICY
         | SPACE_DESTROY
         | SPACE_DISCOVERY
         | SPACE_FREEZE

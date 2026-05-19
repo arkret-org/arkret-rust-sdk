@@ -789,22 +789,53 @@ pub struct EncryptedContent {
     pub device_keys: BTreeMap<String, Value>,
 }
 
+// ─── Matrix / MIMI interop key-share payloads ───────────────────────────
+//
+// `RoomKeyContent` / `ForwardedRoomKeyContent` model the Matrix-shaped
+// `cx.keys.room_key` / `cx.keys.forwarded_room_key` device-message
+// payloads. These exist purely as a compat surface for clients bridging
+// to Matrix / MIMI E2EE sessions — the v1 native concept is the Space,
+// not a Room. The `room_id` field name is retained verbatim because the
+// wire schema is fixed by the interop binding; new code SHOULD use the
+// Space-typed accessor via `RoomKeyContent::space_id`. See
+// `contrix-spec/spec/v1/artifacts/registry/forbidden-model-terms.json`
+// "Room" entry (interop allow-listed) and
+// `crypto-media/device-lifecycle.md` for the device-message transport.
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RoomKeyContent {
     pub algorithm: String,
+    /// Matrix/MIMI compat name. The v1 concept is the Space —
+    /// see [`Self::space_id`].
     pub room_id: SpaceId,
     pub session_id: String,
     pub session_key: String,
 }
 
+impl RoomKeyContent {
+    /// Native v1 accessor — the Space this key share applies to.
+    pub fn space_id(&self) -> &SpaceId {
+        &self.room_id
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ForwardedRoomKeyContent {
     pub algorithm: String,
+    /// Matrix/MIMI compat name. The v1 concept is the Space —
+    /// see [`Self::space_id`].
     pub room_id: SpaceId,
     pub session_id: String,
     pub session_key: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub forwarding_chain: Vec<String>,
+}
+
+impl ForwardedRoomKeyContent {
+    /// Native v1 accessor — the Space this forwarded key share applies to.
+    pub fn space_id(&self) -> &SpaceId {
+        &self.room_id
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -691,11 +691,17 @@ pub enum CryptoMachineReqBody {
         event_id: EventId,
         payload: EncryptedPayload,
     },
+    /// Matrix/MIMI compat name. The v1 concept is sharing a Space
+    /// E2EE session key — the `ShareRoomKey` variant name maps to the
+    /// `cx.keys.room_key` interop device-message kind.
     ShareRoomKey {
         space_id: SpaceId,
         session_id: String,
         recipients: Vec<DeviceId>,
     },
+    /// Matrix/MIMI compat name. Requests a Space E2EE session key
+    /// re-share from peers; maps to the interop `cx.keys.room_key`
+    /// device-message kind.
     RequestRoomKey {
         event_id: EventId,
         space_id: SpaceId,

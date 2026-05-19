@@ -35,8 +35,10 @@ pub struct DeviceMessage {
     pub sender: Did,
     /// Sending device.
     pub sender_device_id: DeviceId,
-    /// Spec event-kind string, e.g. `cx.keys.room_key` or
-    /// `cx.key.verification.start`.
+    /// Spec event-kind string, e.g. `cx.key.verification.start` or
+    /// `cx.keys.room_key` (the latter is a Matrix/MIMI interop name
+    /// retained on the wire for E2EE key share — the v1 concept is
+    /// the Space).
     pub message_type: String,
     /// Encrypted-or-plain body payload.
     pub body: Value,

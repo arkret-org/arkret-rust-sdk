@@ -82,6 +82,20 @@ pub const OP_SPACE_CREATE: &str = "cx.space.create";
 pub const OP_SPACE_UPDATE: &str = "cx.space.update";
 pub const OP_SPACE_ORGANIZATION: &str = "cx.space.organization";
 pub const OP_SPACE_CHILD: &str = "cx.space.child";
+/// Round C45 (2026-05-19; spec 0a5ab85) — per-Space governance of member
+/// `delivery_binding`: which `binding_source` values are admissible, which
+/// recipient services are allowed, whether DID Document fallback is
+/// permitted, who may sign rebind. cell_family
+/// `cx.component.space.delivery_binding_policy.v1`, cas-register.
+pub const OP_SPACE_DELIVERY_BINDING_POLICY: &str = "cx.space.delivery_binding_policy";
+
+/// Device event kinds.
+///
+/// Round C45 (2026-05-19; spec 0a5ab85) — actor-private push route binding
+/// for the composite tuple `(recipient_service_did, principal, device,
+/// push_route)`. MUST NOT be replicated outside the binding's
+/// recipient_service_did context.
+pub const OP_DEVICE_PUSH_ROUTE: &str = "cx.device.push_route";
 
 /// Message event kinds.
 pub const OP_MESSAGE_CREATE: &str = "cx.message.create";

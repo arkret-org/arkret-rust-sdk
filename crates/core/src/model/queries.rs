@@ -146,7 +146,7 @@ pub struct CollectionProjectionResBody {
     /// the same baseline if they need to reproduce the exact rendering.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub frontier: Vec<String>,
-    /// Groups are typically Space(kind=list) cells in a kanban or
+    /// Groups are typically Place(kind=list) cells in a kanban or
     /// status-segmented columns in a table. Order is reducer-stable
     /// (rank ascending, then HLC tie-break per spec §10).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -157,7 +157,7 @@ pub struct CollectionProjectionResBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct CollectionProjectionGroup {
-    /// Stable id for this group. Typically a `cx:space:` (List form)
+    /// Stable id for this group. Typically a `cx:place:` (List form)
     /// or a synthetic id for status / facet buckets.
     pub group_id: String,
     /// Human-readable group title.
@@ -189,11 +189,13 @@ pub struct CollectionProjectionItem {
     /// in this group, and at what rank.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub position: Option<CollectionProjectionPosition>,
-    /// Card-vs-Room visibility split per yougen claude-design's
-    /// `card-vs-room-visibility` block. When `Some`, indicates the
-    /// item has a discussion track; when the discussion is locked
-    /// (visibility != "readable"), `lazy_link=true` MUST hold and
-    /// no discussion metadata beyond opaque hash MAY be exposed.
+    /// Card-vs-discussion visibility split per yougen claude-design's
+    /// `card-vs-room-visibility` block (the block id retains the legacy
+    /// Matrix-style name; the v1 concept is the locked discussion
+    /// child Space). When `Some`, indicates the item has a discussion
+    /// child Space; when the discussion is locked (visibility !=
+    /// "readable"), `lazy_link=true` MUST hold and no discussion
+    /// metadata beyond opaque hash MAY be exposed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub discussion: Option<CollectionProjectionDiscussion>,
 }

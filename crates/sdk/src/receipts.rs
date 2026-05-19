@@ -1,14 +1,19 @@
 //! Read markers and read receipts.
 //!
 //! In addition to per-actor receipts and markers, this module hosts the
-//! Space / Flow `ReadReceiptPolicy` typed model (component cells
-//! `cx.component.space.read_receipt_policy.v1` /
-//! `cx.component.flow.track.read_receipt_policy.v1`) and the
+//! Space `ReadReceiptPolicy` typed model (component cell
+//! `cx.component.space.read_receipt_policy.v1`) and the
 //! `ReadReceiptPreferences` actor-private account-data model
 //! (standard key `cx.read_receipt.preferences`). Together they implement
 //! the disclosure / preference rules from spec
 //! `discovery/read-receipts.md` §2.4-§2.5 and
 //! `discovery/client-preferences.md` §3.6.
+//!
+//! Note: the `cx.flow.track.read_receipt_policy` cell was REMOVED in
+//! contrix-spec revision `0a5ab85` (see
+//! `contrix-spec/spec/v1/artifacts/registry/removed-event-kinds.json`).
+//! Read receipts evaluate at the Space / child Space level only — create
+//! a child Space if a discussion needs an independent boundary.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -205,10 +210,10 @@ impl ReceiptManager {
 
 // ─── Read Receipt disclosure policy (spec read-receipts.md §2.5) ────────
 
-/// `disclosure` field of `cx.space.read_receipt_policy` /
-/// `cx.flow.track.read_receipt_policy`. Soft policy — not cryptographically
-/// enforceable. Compliant clients honor `Required` by sending and `Disabled`
-/// by suppressing; `Optional` defers to user [`ReadReceiptPreferences`].
+/// `disclosure` field of `cx.space.read_receipt_policy`. Soft policy —
+/// not cryptographically enforceable. Compliant clients honor `Required`
+/// by sending and `Disabled` by suppressing; `Optional` defers to user
+/// [`ReadReceiptPreferences`].
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ReadReceiptDisclosure {
@@ -230,103 +235,26 @@ pub enum ReadReceiptDisclosure {
 pub enum ReadReceiptVisibility {
     /// All observers permitted by Space history visibility.
     Public,
-    /// Discussion branch members only. Default.
+    /// Space / child Space visible members. Default.
     #[default]
     Members,
     /// Only the original sender of the referenced event.
     Private,
 }
 
-/// Typed value of the read-receipt disclosure policy cell. Same shape at
-/// both Space and Flow-branch level; the cell id determines scope.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// Typed value of the read-receipt disclosure policy cell.
+///
+/// Carried only by the Space-level cell
+/// `cx.component.space.read_receipt_policy.v1`. The Flow-track variant
+/// (`cx.flow.track.read_receipt_policy`) was removed from spec
+/// revision `0a5ab85`; create a child Space for an independent
+/// disclosure boundary instead.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReadReceiptPolicy {
     #[serde(default)]
     pub disclosure: ReadReceiptDisclosure,
     #[serde(default)]
     pub visibility: ReadReceiptVisibility,
-    /// When `true`, a Flow-branch override MAY loosen the parent Space
-    /// declaration. Default `true`. Tightening is always allowed.
-    #[serde(default = "ReadReceiptPolicy::default_scope_overrides_allowed")]
-    pub scope_overrides_allowed: bool,
-}
-
-impl ReadReceiptPolicy {
-    fn default_scope_overrides_allowed() -> bool {
-        true
-    }
-
-    /// Compose a Flow-track override on top of a parent Space policy.
-    ///
-    /// Returns the effective policy for the track, enforcing the
-    /// "Track tightens but does not loosen" rule from spec §2.5. When
-    /// the override would loosen and `scope_overrides_allowed=false`,
-    /// the parent's value is preserved for that field.
-    pub fn compose_track(parent: &Self, track: &Self) -> Self {
-        Self {
-            disclosure: tighten_disclosure(
-                parent.disclosure,
-                track.disclosure,
-                parent.scope_overrides_allowed,
-            ),
-            visibility: tighten_visibility(
-                parent.visibility,
-                track.visibility,
-                parent.scope_overrides_allowed,
-            ),
-            scope_overrides_allowed: parent.scope_overrides_allowed,
-        }
-    }
-}
-
-impl Default for ReadReceiptPolicy {
-    fn default() -> Self {
-        Self {
-            disclosure: ReadReceiptDisclosure::default(),
-            visibility: ReadReceiptVisibility::default(),
-            scope_overrides_allowed: Self::default_scope_overrides_allowed(),
-        }
-    }
-}
-
-/// Strictness order for `disclosure`: `Required > Optional > Disabled`
-/// is NOT a total order on a single axis (`Required` forces send,
-/// `Disabled` forbids send, `Optional` defers). For the track override
-/// we treat any move *toward* a stricter answer (`Optional`→`Required`
-/// is a tightening because it removes the user's right to opt out;
-/// `Optional`→`Disabled` is also a tightening because it forbids what
-/// was previously optional). Loosening (`Required`→`Optional`,
-/// `Disabled`→`Optional`, or `Required`↔`Disabled`) requires
-/// `scope_overrides_allowed=true`.
-fn tighten_disclosure(
-    parent: ReadReceiptDisclosure,
-    track: ReadReceiptDisclosure,
-    overrides_allowed: bool,
-) -> ReadReceiptDisclosure {
-    use ReadReceiptDisclosure::*;
-    let is_tighter = matches!((parent, track), (Optional, Required) | (Optional, Disabled));
-    if is_tighter || overrides_allowed { track } else { parent }
-}
-
-/// `Public > Members > Private` (more disclosure → less strict).
-/// Track may always tighten by reducing the audience.
-fn tighten_visibility(
-    parent: ReadReceiptVisibility,
-    track: ReadReceiptVisibility,
-    overrides_allowed: bool,
-) -> ReadReceiptVisibility {
-    use ReadReceiptVisibility::*;
-    let parent_rank = match parent {
-        Public => 2,
-        Members => 1,
-        Private => 0,
-    };
-    let track_rank = match track {
-        Public => 2,
-        Members => 1,
-        Private => 0,
-    };
-    if track_rank <= parent_rank || overrides_allowed { track } else { parent }
 }
 
 // ─── Account-data preferences (client-preferences.md §3.6) ─────────────
@@ -413,9 +341,8 @@ impl ReceiptDecision {
 
 /// Compute whether to generate a `cx.receipt.read` for the given scope.
 ///
-/// `policy` is the effective policy at the scope (already composed via
-/// [`ReadReceiptPolicy::compose_track`] for tracks). Pass `None` to
-/// represent "no policy declared" (treated as
+/// `policy` is the effective policy at the Space (or child Space)
+/// boundary. Pass `None` to represent "no policy declared" (treated as
 /// `ReadReceiptPolicy::default()` = `Optional` / `Members`).
 pub fn should_send_receipt(
     prefs: &ReadReceiptPreferences,
@@ -560,61 +487,6 @@ mod tests {
         prefs.default.send = Some(true);
         let decision = should_send_receipt(&prefs, None, None, None);
         assert_eq!(decision, ReceiptDecision::Send);
-    }
-
-    #[test]
-    fn compose_track_tightens_disclosure_without_overrides_allowed() {
-        // Parent Optional → track Required is a tightening (forces send),
-        // allowed even without scope_overrides_allowed.
-        let parent = ReadReceiptPolicy {
-            disclosure: ReadReceiptDisclosure::Optional,
-            visibility: ReadReceiptVisibility::Members,
-            scope_overrides_allowed: false,
-        };
-        let track = ReadReceiptPolicy {
-            disclosure: ReadReceiptDisclosure::Required,
-            visibility: ReadReceiptVisibility::Private,
-            scope_overrides_allowed: false,
-        };
-        let composed = ReadReceiptPolicy::compose_track(&parent, &track);
-        assert_eq!(composed.disclosure, ReadReceiptDisclosure::Required);
-        // Members → Private is also tighter (Private < Members < Public).
-        assert_eq!(composed.visibility, ReadReceiptVisibility::Private);
-    }
-
-    #[test]
-    fn compose_track_blocks_loosening_when_overrides_disallowed() {
-        // Parent Required → track Optional is loosening; blocked.
-        let parent = ReadReceiptPolicy {
-            disclosure: ReadReceiptDisclosure::Required,
-            visibility: ReadReceiptVisibility::Private,
-            scope_overrides_allowed: false,
-        };
-        let track = ReadReceiptPolicy {
-            disclosure: ReadReceiptDisclosure::Optional,
-            visibility: ReadReceiptVisibility::Public,
-            scope_overrides_allowed: false,
-        };
-        let composed = ReadReceiptPolicy::compose_track(&parent, &track);
-        assert_eq!(composed.disclosure, ReadReceiptDisclosure::Required);
-        assert_eq!(composed.visibility, ReadReceiptVisibility::Private);
-    }
-
-    #[test]
-    fn compose_track_allows_loosening_when_overrides_allowed() {
-        let parent = ReadReceiptPolicy {
-            disclosure: ReadReceiptDisclosure::Required,
-            visibility: ReadReceiptVisibility::Private,
-            scope_overrides_allowed: true,
-        };
-        let track = ReadReceiptPolicy {
-            disclosure: ReadReceiptDisclosure::Optional,
-            visibility: ReadReceiptVisibility::Public,
-            scope_overrides_allowed: true,
-        };
-        let composed = ReadReceiptPolicy::compose_track(&parent, &track);
-        assert_eq!(composed.disclosure, ReadReceiptDisclosure::Optional);
-        assert_eq!(composed.visibility, ReadReceiptVisibility::Public);
     }
 
     #[test]
