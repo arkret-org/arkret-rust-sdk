@@ -84,10 +84,82 @@ pub const MLS_GENESIS: &str = "cx.mls.genesis";
 pub const MLS_KEYPACKAGE: &str = "cx.mls.keypackage";
 pub const MLS_PROPOSAL: &str = "cx.mls.proposal";
 pub const MLS_WELCOME: &str = "cx.mls.welcome";
+pub const MODERATION_APPEAL_CLOSE: &str = "cx.moderation.appeal.close";
+pub const MODERATION_APPEAL_DECISION: &str = "cx.moderation.appeal.decision";
+pub const MODERATION_APPEAL_REVIEW: &str = "cx.moderation.appeal.review";
+pub const MODERATION_APPEAL_SUBMIT: &str = "cx.moderation.appeal.submit";
 pub const MODERATION_DECISION: &str = "cx.moderation.decision";
 pub const MODERATION_DECISION_LIFT: &str = "cx.moderation.decision.lift";
 pub const MODERATION_FRANK: &str = "cx.moderation.frank";
 pub const MODERATION_REPORT: &str = "cx.moderation.report";
+
+/// Object-only schema id — `cx.event_batch_receipt` is NOT an Event.kind.
+/// Returns `true` for kinds that may only appear as a separate object,
+/// MUST NOT appear as `Event.kind` on the wire. Round R2/R3 (2026-05-20).
+pub const RECEIPT_OBJECT_KINDS: &[&str] = &["cx.event_batch_receipt"];
+
+/// Broadcast ephemeral signal kinds + the to-device key-verification family.
+/// Round R2/R3 (2026-05-20). Items here MUST NOT be reduced into durable
+/// state, MUST NOT advance Anchor frontier or Move state_root, MUST NOT
+/// carry preconditions/effects/anchor_ref, and MUST NOT be submitted via
+/// `cx.events.submit`. See zh/sync/operations-sync.md §3.6 and
+/// schemas/ephemeral-envelope.schema.json (the 4 broadcast forms) and
+/// schemas/device-message.schema.json (the to-device key.verification forms).
+pub const EPHEMERAL_EVENT_KIND_PATTERNS: &[&str] = &[
+    CALL_SIGNAL,
+    PRESENCE,
+    TYPING,
+    RECEIPT_READ,
+    // cx.key.verification.* — point-to-point to-device family.
+    KEY_VERIFICATION_ACCEPT,
+    KEY_VERIFICATION_CANCEL,
+    KEY_VERIFICATION_DONE,
+    KEY_VERIFICATION_KEY,
+    KEY_VERIFICATION_MAC,
+    KEY_VERIFICATION_READY,
+    KEY_VERIFICATION_REQUEST,
+    KEY_VERIFICATION_START,
+];
+
+/// True for the 12 wire-scope-ephemeral kinds — broadcast ephemerals
+/// (`cx.call.signal`, `cx.presence`, `cx.typing`, `cx.receipt.read`) plus
+/// the `cx.key.verification.*` to-device family. These MUST be rejected by
+/// reducers if delivered as a durable Event (event-schema.json `not` branch).
+pub fn is_ephemeral_kind(kind: &str) -> bool {
+    if kind.starts_with("cx.key.verification.") {
+        return true;
+    }
+    EPHEMERAL_EVENT_KIND_PATTERNS.contains(&kind)
+}
+
+/// True for receipt-style object-only schema ids that MUST NOT appear as
+/// `Event.kind` on the wire (`cx.event_batch_receipt`). Round R2/R3.
+pub fn is_receipt_object_only(kind: &str) -> bool {
+    RECEIPT_OBJECT_KINDS.contains(&kind)
+}
+
+/// Round R2/R3 (2026-05-20) — Realm lifecycle state classifier.
+///
+/// Returned by [`is_terminal_realm_state`]. After a Realm has emitted
+/// `cx.realm.destroy`, no further state-changing events MUST be accepted
+/// (rejected as `realm_terminal_state`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RealmLifecycleState {
+    Active,
+    Frozen,
+    Archived,
+    Tombstoned,
+    /// `cx.realm.destroy` has been applied. Terminal.
+    Destroyed,
+}
+
+/// Round R2/R3 — true once the Realm has reached the destroyed terminal
+/// state (`cx.realm.destroy` applied). Any subsequent state-changing
+/// event MUST be rejected as `ERROR_CODE_REALM_TERMINAL_STATE`.
+pub fn is_terminal_realm_state(state: RealmLifecycleState) -> bool {
+    matches!(state, RealmLifecycleState::Destroyed)
+}
 pub const MORPH_ARCHIVE: &str = "cx.morph.archive";
 pub const MORPH_CREATE: &str = "cx.morph.create";
 pub const MORPH_RESTORE: &str = "cx.morph.restore";
@@ -244,6 +316,10 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     MLS_KEYPACKAGE,
     MLS_PROPOSAL,
     MLS_WELCOME,
+    MODERATION_APPEAL_CLOSE,
+    MODERATION_APPEAL_DECISION,
+    MODERATION_APPEAL_REVIEW,
+    MODERATION_APPEAL_SUBMIT,
     MODERATION_DECISION,
     MODERATION_DECISION_LIFT,
     MODERATION_FRANK,
@@ -486,9 +562,14 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
         MESSAGE_CREATE | MESSAGE_REDACT | MESSAGE_REVISE | REACTION_ADD | REACTION_REMOVE
         | REDACTION => EventClass::Message,
         MIMI_ROOM_BINDING => EventClass::Mimi,
-        MODERATION_DECISION | MODERATION_DECISION_LIFT | MODERATION_FRANK | MODERATION_REPORT => {
-            EventClass::Moderation
-        }
+        MODERATION_APPEAL_CLOSE
+        | MODERATION_APPEAL_DECISION
+        | MODERATION_APPEAL_REVIEW
+        | MODERATION_APPEAL_SUBMIT
+        | MODERATION_DECISION
+        | MODERATION_DECISION_LIFT
+        | MODERATION_FRANK
+        | MODERATION_REPORT => EventClass::Moderation,
         MORPH_ARCHIVE | MORPH_CREATE | MORPH_RESTORE | MORPH_SCHEMA_MIGRATE | MORPH_UPDATE => {
             EventClass::Morph
         }

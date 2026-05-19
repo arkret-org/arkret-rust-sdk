@@ -475,6 +475,11 @@ pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     "cx.schema.erasure_receipt.v1",
     "cx.schema.cross_signing_publish.v1",
     "cx.schema.cross_signing_reset.v1",
+    // Round R2/R3 (2026-05-20) — broadcast ephemeral envelope, moderation
+    // appeal payloads, structured attestation evidence.
+    "cx.schema.ephemeral_envelope.v1",
+    "cx.schema.moderation_appeal.v1",
+    "cx.schema.attestation_evidence.v1",
     EVENT_SCHEMA,
     EVENT_PAYLOAD_SCHEMA,
     FLOW_SCHEMA,
@@ -504,6 +509,7 @@ pub const ARTIFACT_BACKED_PROFILE_IDS: &[&str] =
 pub const ARTIFACT_BACKED_ID_KINDS: &[&str] = &[
     "actor_profile",
     "agent_session",
+    "appeal",
     "applet",
     "attestation",
     "backup",
@@ -540,6 +546,14 @@ pub const ARTIFACT_BACKED_ID_KINDS: &[&str] = &[
     "txn",
     "view",
 ];
+
+/// Special-form id kinds (non-UUIDv7) the SDK declares coverage for from
+/// the spec id-kind-registry `special_forms` array. Round R2/R3 (2026-05-20)
+/// adds `trust_domain` (`cx:trust_domain:<scope>`). These are validated
+/// separately from `ARTIFACT_BACKED_ID_KINDS` because the spec lists them
+/// under `special_forms`, not `id_kinds`.
+pub const ARTIFACT_BACKED_SPECIAL_FORM_ID_KINDS: &[&str] =
+    &["anchor", "blob", "cell", "cursor", "mls", "pseudonym", "trust_domain"];
 
 pub fn default_spec_artifacts_dir() -> Option<PathBuf> {
     if let Ok(artifacts_dir) = std::env::var("CONTRIX_SPEC_ARTIFACTS") {

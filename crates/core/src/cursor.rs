@@ -13,6 +13,48 @@ use std::{
 
 use crate::{Hlc, Result};
 
+/// Round R2/R3 (2026-05-20) — minimum length of a stateful cursor handle's
+/// base64url alphabet representation. Schema `cursor.schema.json` raises
+/// `h.minLength` to 22 so the decoded handle has ≥128 bits of entropy
+/// (`128 / 6 ≈ 21.33` → at least 22 base64url characters).
+pub const CURSOR_HANDLE_MIN_LEN: usize = 22;
+
+/// Generate a fresh ≥22-character base64url cursor handle.
+///
+/// Output uses only `[A-Za-z0-9_-]` with no padding, satisfying schema
+/// `cursor.schema.json` `h` constraints (minLength 22, pattern
+/// `^[A-Za-z0-9_-]+$`).
+///
+/// Round R2/R3 (2026-05-20). Servers SHOULD replace this fallback with a
+/// CSPRNG-backed implementation (per schema description the handle MUST be
+/// unguessable). This implementation derives 16 bytes from process pid +
+/// monotonic time + thread id + an internal counter, mixed with SHA-256.
+// TODO(round23-T9): replace this fallback with a CSPRNG-backed generator
+// once servers move to a runtime that exposes one (rand_core or getrandom).
+pub fn generate_cursor_handle() -> String {
+    use sha2::{Digest, Sha256};
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let counter = COUNTER.fetch_add(1, Ordering::Relaxed);
+    let mut hasher = Sha256::new();
+    hasher.update(std::process::id().to_le_bytes());
+    let now_ns = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or_default();
+    hasher.update(now_ns.to_le_bytes());
+    hasher.update(counter.to_le_bytes());
+    // Pointer to a stack local mixes in ASLR + thread layout entropy.
+    let local: u64 = 0;
+    let local_ptr: *const u64 = &local;
+    hasher.update((local_ptr as usize).to_le_bytes());
+    let digest = hasher.finalize();
+    // Take 16 bytes — 128 bits — and base64url-encode (no pad).
+    let encoded = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&digest[..16]);
+    debug_assert!(encoded.len() >= CURSOR_HANDLE_MIN_LEN);
+    encoded
+}
+
 /// Contrix v1 sync cursor.
 ///
 /// Cursors contain all information needed to resume synchronization from a
@@ -370,8 +412,10 @@ impl Cursor {
     }
 
     fn validate_cursor_handle(handle: &str) -> Result<()> {
+        // Round R2/R3 (2026-05-20): schema raises minLength to 22 so the
+        // base64url-decoded handle has ≥128 bits of entropy (128/6 = 21.33).
         let len = handle.len();
-        if !(16..=256).contains(&len)
+        if !(CURSOR_HANDLE_MIN_LEN..=256).contains(&len)
             || !handle.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'))
         {
             return Err(crate::Error::Protocol("invalid cursor handle".to_owned()));
@@ -670,11 +714,11 @@ mod tests {
 
     #[test]
     fn stateful_handle_cursor_excludes_inline_state() {
-        let cursor = Cursor::new().with_stateful_handle("cursor_handle_123456");
+        let cursor = Cursor::new().with_stateful_handle("cursor_handle_12345678");
         let encoded = cursor.encode().unwrap();
         let decoded = Cursor::decode(&encoded).unwrap();
 
-        assert_eq!(decoded.h.as_deref(), Some("cursor_handle_123456"));
+        assert_eq!(decoded.h.as_deref(), Some("cursor_handle_12345678"));
         assert!(decoded.s.is_empty());
         assert!(decoded.d.is_none());
         assert!(decoded.mac.is_none());

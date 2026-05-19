@@ -15,7 +15,8 @@ use crate::{
     EventId, FilterId, FlowId, FrameId, FrankId, GrantId, Hash, Hlc, InviteId, KeyevtId, MessageId,
     ModqId, MorphId, MoveId, NotifId, OperationId, PlaceId, RealmId, PolicyId, PresentationId,
     ReceiptId,
-    RelationId, ReportId, ReqId, SnapshotId, SpaceId, TxnId, ViewId,
+    RelationId, ReportId, ReqId, SnapshotId, SpaceId, TxnId, TypedAppealId, TypedTrustDomainId,
+    ViewId,
 };
 
 fn string_schema(pattern: &str) -> RefOr<Schema> {
@@ -210,6 +211,11 @@ impl_string_schema!(
     r"^cx:anchor:(?:(?:sha256|sha3_256|blake3):[0-9a-f]{64}|sha512:[0-9a-f]{128})$"
 );
 impl_string_schema!(CellRef, r"^cx:cell:[A-Za-z0-9._~=-]+(?::[A-Za-z0-9._~=-]+)*$");
+impl_string_schema!(
+    TypedAppealId,
+    r"^cx:appeal:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+);
+impl_string_schema!(TypedTrustDomainId, r"^cx:trust_domain:[a-z0-9][a-z0-9._\-:]{0,127}$");
 
 impl ToSchema for Hlc {
     fn to_schema(_components: &mut Components) -> RefOr<Schema> {

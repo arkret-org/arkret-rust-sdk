@@ -118,6 +118,30 @@ fn has_prefix<'a>(prefix: &'a str) -> impl Fn(&str) -> bool + 'a {
     move |value| value.starts_with(prefix) && value.len() > prefix.len()
 }
 
+/// Validate the `cx:trust_domain:<scope>` wire form. Scope MUST be lowercase
+/// `[a-z0-9._:-]` (alphanumerics + dot/dash/underscore/colon), max 128 chars,
+/// non-empty. Round R2/R3 (2026-05-20). Spec: id-kind-registry.json
+/// special_forms[trust_domain]; pattern matches cross-signing-reset.schema.json
+/// `^cx:trust_domain:[a-z0-9][a-z0-9._\-:]{0,127}$`.
+fn is_trust_domain(value: &str) -> bool {
+    let Some(scope) = value.strip_prefix("cx:trust_domain:") else {
+        return false;
+    };
+    if scope.is_empty() || scope.len() > 128 {
+        return false;
+    }
+    let bytes = scope.as_bytes();
+    if !matches!(bytes[0], b'a'..=b'z' | b'0'..=b'9') {
+        return false;
+    }
+    scope.bytes().all(|b| {
+        matches!(
+            b,
+            b'a'..=b'z' | b'0'..=b'9' | b'.' | b'_' | b'-' | b':'
+        )
+    })
+}
+
 /// Strict typed-ID validator: payload MUST be a canonical RFC 9562 UUID
 /// version 7 (36 chars, lower-case hex `xxxxxxxx-xxxx-7xxx-Nxxx-xxxxxxxxxxxx`
 /// where N ∈ {8,9,a,b}) per `conformance/encoding.md` §4. Use this when
@@ -205,6 +229,14 @@ id_type!(FilterId, |value: &str| is_strict_typed_id(value, "cx:filter:"));
 id_type!(FrameId, |value: &str| is_strict_typed_id(value, "cx:frame:"));
 id_type!(FrankId, |value: &str| is_strict_typed_id(value, "cx:frank:"));
 id_type!(MorphId, |value: &str| is_strict_typed_id(value, "cx:morph:"));
+// Round R2/R3 (2026-05-20) — moderation appeal cell key (`cx:appeal:<uuidv7>`).
+// id-kind-registry kind=appeal; see schemas/moderation-appeal.schema.json.
+id_type!(TypedAppealId, |value: &str| is_strict_typed_id(value, "cx:appeal:"));
+// Round R2/R3 (2026-05-20) — deployment-scope trust domain identifier.
+// Wire form `cx:trust_domain:<scope>` where scope is lowercase
+// `[a-z0-9._:-]` max 128 chars. NOT a typed-UUIDv7 object id. Used to
+// prevent cross-deployment replay of high-risk proofs (cross-signing reset).
+id_type!(TypedTrustDomainId, is_trust_domain);
 id_type!(RealmId, |value: &str| is_strict_typed_id(value, "cx:realm:"));
 // TODO(realm-rework): drop `PlaceId` once all container call sites migrate to
 // `SpaceId` (new container semantics). Per Realm/Space inversion (spec

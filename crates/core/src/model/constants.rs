@@ -51,6 +51,13 @@ pub const DID_CONTINUITY_PROOF_SCHEMA: &str = "cx.schema.did_continuity_proof.v1
 pub const IDENTITY_LINK_SCHEMA: &str = "cx.schema.identity_link.v1";
 pub const ERASURE_RECEIPT_SCHEMA: &str = "cx.schema.erasure_receipt.v1";
 
+// Round R2/R3 (2026-05-20) — new schema ids for the moderation appeal flow,
+// the broadcast ephemeral envelope, and structured attestation evidence.
+pub const EPHEMERAL_ENVELOPE_SCHEMA: &str = "cx.schema.ephemeral_envelope.v1";
+pub const MODERATION_APPEAL_SCHEMA: &str = "cx.schema.moderation_appeal.v1";
+pub const ATTESTATION_EVIDENCE_SCHEMA: &str = "cx.schema.attestation_evidence.v1";
+pub const CROSS_SIGNING_RESET_SCHEMA: &str = "cx.schema.cross_signing_reset.v1";
+
 // ── Canonical cx.* event kinds ──────────────────────────────────────────────
 /// Flow event kinds.
 pub const OP_FLOW_CREATE: &str = "cx.flow.create";
@@ -285,6 +292,13 @@ pub const OP_MIMI_UPDATE_CONSENT: &str = "cx.mimi.update_consent";
 
 /// Moderation report submission.
 pub const OP_MODERATION_REPORT: &str = "cx.moderation.report";
+
+/// Round R2/R3 (2026-05-20) — capability actions for the moderation appeal
+/// flow. `submit` is low-risk (any member may appeal); `review` is
+/// medium-risk and gates the review / decision / close transitions.
+/// Spec: capability-action-registry.json.
+pub const CAP_ACTION_MODERATION_APPEAL_SUBMIT: &str = "cx.moderation.appeal.submit";
+pub const CAP_ACTION_MODERATION_APPEAL_REVIEW: &str = "cx.moderation.appeal.review";
 
 /// Policy server check.
 pub const OP_POLICY_CHECK: &str = "cx.policy.check";

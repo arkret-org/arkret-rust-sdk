@@ -235,6 +235,46 @@ pub enum AuditAssurance {
 pub const PROFILE_ATTESTED_AUDIT_E2EE: &str = "cx.profile.attested_audit.e2ee.v1";
 pub const PROFILE_DISCLOSED_AUDIT_E2EE: &str = "cx.profile.disclosed_audit.e2ee.v1";
 
+/// Round R2/R3 (2026-05-20) — `cx.profile.e2ee_relaxed.v1`.
+///
+/// Profile that permits temporarily widening the MLS send-pause window
+/// for advisory reasons. Round R2/R3 introduces an **absolute hard
+/// ceiling** of 5 minutes (300_000 ms) on the relaxed window.
+pub const PROFILE_E2EE_RELAXED: &str = "cx.profile.e2ee_relaxed.v1";
+
+/// Compliance profiles that MUST NOT coexist with
+/// [`PROFILE_E2EE_RELAXED`]. Round R2/R3 — declaring both is rejected as
+/// `e2ee_relaxed_disallowed_in_compliance_profile`.
+pub const E2EE_RELAXED_INCOMPATIBLE_COMPLIANCE_PROFILES: &[&str] =
+    &[PROFILE_ATTESTED_AUDIT_E2EE, PROFILE_DISCLOSED_AUDIT_E2EE];
+
+/// Absolute hard ceiling on the `cx.profile.e2ee_relaxed.v1` send-pause
+/// relaxation window, in milliseconds. Round R2/R3 (2026-05-20).
+/// Implementations MUST reject any `relaxed_window_ms` exceeding this
+/// value with `relaxed_window_exceeds_ceiling`.
+pub const ABSOLUTE_HARD_CEILING_MS: u32 = 300_000;
+
+/// Round R2/R3 — true when `active_profiles` is compatible with
+/// `cx.profile.e2ee_relaxed.v1`. False if any of the compliance audit
+/// profiles is present (the two are mutually exclusive — declaring both
+/// MUST be rejected with
+/// `ERROR_CODE_E2EE_RELAXED_DISALLOWED_IN_COMPLIANCE_PROFILE`).
+pub fn is_e2ee_relaxed_compatible_with_compliance<S: AsRef<str>>(active_profiles: &[S]) -> bool {
+    !active_profiles
+        .iter()
+        .any(|p| E2EE_RELAXED_INCOMPATIBLE_COMPLIANCE_PROFILES.contains(&p.as_ref()))
+}
+
+/// Round R2/R3 — validate a relaxed-window value against the absolute hard
+/// ceiling. Returns `Err(ERROR_CODE_RELAXED_WINDOW_EXCEEDS_CEILING)` when
+/// `ms > ABSOLUTE_HARD_CEILING_MS`.
+pub fn validate_relaxed_window_ms(ms: u32) -> std::result::Result<(), &'static str> {
+    if ms > ABSOLUTE_HARD_CEILING_MS {
+        return Err(crate::ERROR_CODE_RELAXED_WINDOW_EXCEEDS_CEILING);
+    }
+    Ok(())
+}
+
 impl AuditAssurance {
     pub fn profile_id(self) -> &'static str {
         match self {

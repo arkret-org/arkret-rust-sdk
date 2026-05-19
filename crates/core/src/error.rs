@@ -87,6 +87,32 @@ pub const ERROR_CODE_TURN_CREDENTIAL_EXPIRED: &str = "turn_credential_expired";
 // Space until fork resolution succeeds. See zh/sync/federation.md §4.5.3.
 pub const ERROR_CODE_STALE_PEER: &str = "stale_peer";
 
+// ── Round R2/R3 (2026-05-20, spec 8b7978d) — registry add (15 wire-level codes).
+//
+// Round-23 wire breakers spanning the e2ee_relaxed window ceiling, the
+// cross-domain replay guard on cross-signing reset, the moderation appeal
+// flow, the audit-agent attestation pipeline, realm-terminal lifecycle,
+// legal hold / blob redaction, MLS governance, invite token expiry, and
+// late-recovery membership rejection.
+pub const ERROR_CODE_RELAXED_WINDOW_EXCEEDS_CEILING: &str = "relaxed_window_exceeds_ceiling";
+pub const ERROR_CODE_E2EE_RELAXED_DISALLOWED_IN_COMPLIANCE_PROFILE: &str =
+    "e2ee_relaxed_disallowed_in_compliance_profile";
+pub const ERROR_CODE_CROSS_DOMAIN_REPLAY_REJECTED: &str = "cross_domain_replay_rejected";
+pub const ERROR_CODE_RESET_EVENT_ID_MISMATCH: &str = "reset_event_id_mismatch";
+pub const ERROR_CODE_APPEAL_OVERTURN_MISSING_LIFT: &str = "appeal_overturn_missing_lift";
+pub const ERROR_CODE_APPEAL_SELF_REVIEW_FORBIDDEN: &str = "appeal_self_review_forbidden";
+pub const ERROR_CODE_REALM_TERMINAL_STATE: &str = "realm_terminal_state";
+pub const ERROR_CODE_AUDIT_AGENT_ATTESTATION_MISMATCH: &str = "audit_agent_attestation_mismatch";
+pub const ERROR_CODE_AUDIT_PURPOSE_MISMATCH: &str = "audit_purpose_mismatch";
+pub const ERROR_CODE_LEGAL_HOLD_ACTIVE: &str = "legal_hold_active";
+pub const ERROR_CODE_BLOB_REDACTED: &str = "blob_redacted";
+pub const ERROR_CODE_MEDIA_PLAINTEXT_SERVICE_NOT_AUTHORISED: &str =
+    "media_plaintext_service_not_authorised";
+pub const ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE: &str = "mls_governance_binding_stale";
+pub const ERROR_CODE_EXPIRED_INVITE_TOKEN: &str = "expired_invite_token";
+pub const ERROR_CODE_LATE_RECOVERY_REJECTED_MEMBERSHIP: &str =
+    "late_recovery_rejected_membership";
+
 /// All canonical error codes recognised by the registry. The order matches
 /// `error-code-registry.json`. Use [`is_known_error_code`] before populating
 /// `ErrorEnvelope.code` from arbitrary input.
@@ -145,6 +171,22 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
     ERROR_CODE_FRANK_UNAVAILABLE,
     ERROR_CODE_TURN_CREDENTIAL_EXPIRED,
     ERROR_CODE_STALE_PEER,
+    // Round R2/R3 (2026-05-20).
+    ERROR_CODE_RELAXED_WINDOW_EXCEEDS_CEILING,
+    ERROR_CODE_E2EE_RELAXED_DISALLOWED_IN_COMPLIANCE_PROFILE,
+    ERROR_CODE_CROSS_DOMAIN_REPLAY_REJECTED,
+    ERROR_CODE_RESET_EVENT_ID_MISMATCH,
+    ERROR_CODE_APPEAL_OVERTURN_MISSING_LIFT,
+    ERROR_CODE_APPEAL_SELF_REVIEW_FORBIDDEN,
+    ERROR_CODE_REALM_TERMINAL_STATE,
+    ERROR_CODE_AUDIT_AGENT_ATTESTATION_MISMATCH,
+    ERROR_CODE_AUDIT_PURPOSE_MISMATCH,
+    ERROR_CODE_LEGAL_HOLD_ACTIVE,
+    ERROR_CODE_BLOB_REDACTED,
+    ERROR_CODE_MEDIA_PLAINTEXT_SERVICE_NOT_AUTHORISED,
+    ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE,
+    ERROR_CODE_EXPIRED_INVITE_TOKEN,
+    ERROR_CODE_LATE_RECOVERY_REJECTED_MEMBERSHIP,
 ];
 
 // ── Failed-precondition reason codes (sub-codes inside `failed_precondition`)
@@ -440,7 +482,10 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_BAD_QUERY
         | ERROR_CODE_MISSING_PARAM
         | ERROR_CODE_INVALID_PARAM
-        | ERROR_CODE_CURSOR_INTEGRITY_INVALID => 400,
+        | ERROR_CODE_CURSOR_INTEGRITY_INVALID
+        | ERROR_CODE_RELAXED_WINDOW_EXCEEDS_CEILING
+        | ERROR_CODE_RESET_EVENT_ID_MISMATCH
+        | ERROR_CODE_EXPIRED_INVITE_TOKEN => 400,
         ERROR_CODE_UNAUTHENTICATED
         | ERROR_CODE_AUTH_EXPIRED
         | ERROR_CODE_SOFT_LOGGED_OUT
@@ -450,7 +495,13 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_SPACE_FROZEN
         | ERROR_CODE_CLAIM_REQUIRED
         | ERROR_CODE_POLICY_VIOLATION
-        | ERROR_CODE_QUOTA_EXCEEDED => 403,
+        | ERROR_CODE_QUOTA_EXCEEDED
+        | ERROR_CODE_E2EE_RELAXED_DISALLOWED_IN_COMPLIANCE_PROFILE
+        | ERROR_CODE_APPEAL_SELF_REVIEW_FORBIDDEN
+        | ERROR_CODE_LEGAL_HOLD_ACTIVE
+        | ERROR_CODE_BLOB_REDACTED
+        | ERROR_CODE_MEDIA_PLAINTEXT_SERVICE_NOT_AUTHORISED
+        | ERROR_CODE_LATE_RECOVERY_REJECTED_MEMBERSHIP => 403,
         ERROR_CODE_NOT_FOUND | ERROR_CODE_UNRECOGNIZED_ENDPOINT => 404,
         ERROR_CODE_METHOD_NOT_ALLOWED => 405,
         ERROR_CODE_CONFLICT
@@ -468,7 +519,13 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_PROJECTION_INCOMPLETE
         | ERROR_CODE_FAILED_PRECONDITION
         | ERROR_CODE_ANCHOR_INCOMPLETE
-        | ERROR_CODE_STALE_PEER => 409,
+        | ERROR_CODE_STALE_PEER
+        | ERROR_CODE_CROSS_DOMAIN_REPLAY_REJECTED
+        | ERROR_CODE_APPEAL_OVERTURN_MISSING_LIFT
+        | ERROR_CODE_REALM_TERMINAL_STATE
+        | ERROR_CODE_AUDIT_AGENT_ATTESTATION_MISMATCH
+        | ERROR_CODE_AUDIT_PURPOSE_MISMATCH
+        | ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE => 409,
         ERROR_CODE_CURSOR_EXPIRED => 410,
         ERROR_CODE_PAYLOAD_TOO_LARGE => 413,
         ERROR_CODE_SCHEMA_VIOLATION
@@ -558,8 +615,9 @@ mod tests {
         // Registry v2026-05-18 main (round C47, spec e10b6ad): C44's 47 + 6 C45
         // wire codes (cursor_integrity_invalid / failed_precondition /
         // unsupported_hash / anchor_incomplete / frank_unavailable /
-        // turn_credential_expired) + 1 C47 wire code (stale_peer).
-        assert_eq!(KNOWN_ERROR_CODES.len(), 54);
+        // turn_credential_expired) + 1 C47 wire code (stale_peer) +
+        // 15 Round R2/R3 wire codes (relaxed_window_exceeds_ceiling, ...).
+        assert_eq!(KNOWN_ERROR_CODES.len(), 69);
         assert!(codes.contains(ERROR_CODE_CURSOR_EXPIRED));
         assert!(codes.contains(ERROR_CODE_POLICY_COMBINATION_INVALID));
         assert!(codes.contains(ERROR_CODE_ANCHORER_RECOVERY_MISSING));
@@ -571,6 +629,11 @@ mod tests {
         assert!(codes.contains(ERROR_CODE_ANCHOR_INCOMPLETE));
         assert!(codes.contains(ERROR_CODE_FRANK_UNAVAILABLE));
         assert!(codes.contains(ERROR_CODE_TURN_CREDENTIAL_EXPIRED));
+        assert!(codes.contains(ERROR_CODE_RELAXED_WINDOW_EXCEEDS_CEILING));
+        assert!(codes.contains(ERROR_CODE_RESET_EVENT_ID_MISMATCH));
+        assert!(codes.contains(ERROR_CODE_APPEAL_OVERTURN_MISSING_LIFT));
+        assert!(codes.contains(ERROR_CODE_BLOB_REDACTED));
+        assert!(codes.contains(ERROR_CODE_LATE_RECOVERY_REJECTED_MEMBERSHIP));
         assert!(!codes.contains("sync_token_expired"));
     }
 

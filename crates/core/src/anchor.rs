@@ -28,6 +28,20 @@ use crate::{AnchorId, Did, Error, Hash, Hlc, MoveId, Result, SpaceId};
 /// Allowed Anchor signature algorithms (see `anchor.schema.json` `signature.alg`).
 pub const ANCHOR_SIGNATURE_ALGS: &[&str] = &["EdDSA", "ES256", "ES384", "ES512"];
 
+/// Compute canonical Anchor body bytes for id derivation / signature input.
+/// Excludes both `id` and `anchorer_sig` per `anchor.schema.json`.
+/// Round R2/R3 (2026-05-20) — explicit free-function shim mirroring the
+/// spec name for downstream implementers.
+pub fn anchor_canonical_bytes(anchor: &Anchor) -> Result<Vec<u8>> {
+    anchor.canonical_bytes_for_id()
+}
+
+/// Compute the content-addressed Anchor id from canonical bytes:
+/// `cx:anchor:sha256:` || hex(SHA-256(canonical_bytes)).
+pub fn compute_anchor_id(canonical_bytes: &[u8]) -> Result<AnchorId> {
+    Anchor::id_from_canonical_bytes(canonical_bytes)
+}
+
 /// Anchorer signature in one of three normative shapes.
 ///
 /// Wire encoding is a JSON oneOf, distinguished for multi/threshold by a
@@ -240,6 +254,23 @@ impl Anchor {
                         "Anchor threshold_sig proof must not be empty".to_owned(),
                     ));
                 }
+            }
+        }
+        Ok(())
+    }
+
+    /// Round R2/R3 (2026-05-20) — validate frontier items use the bare
+    /// `<algo>:<hex>` hash form. Reject legacy `cx:event:<uuid>` form which
+    /// has been removed by the spec. (MoveId only accepts hash form per
+    /// `is_hash`, so this method primarily catches strings that bypassed
+    /// the typed constructor by being deserialized as raw JSON.)
+    pub fn validate_frontier_format(frontier_strs: &[&str]) -> Result<()> {
+        for entry in frontier_strs {
+            if entry.starts_with("cx:event:") {
+                return Err(Error::Protocol(format!(
+                    "anchor frontier item {entry:?} uses removed cx:event:<uuid> form; \
+                     MUST be bare <algo>:<hex> hash"
+                )));
             }
         }
         Ok(())

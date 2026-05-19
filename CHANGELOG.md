@@ -10,6 +10,66 @@ permitted; once `1.0` ships, breaking changes will require a major bump.
 
 ## [Unreleased]
 
+### Added — Round R2/R3 spec round 2+3 cleanup (wire-breaking) (2026-05-20)
+
+Tracks contrix-spec commits `f3c3bad..2a4d39b` (notably `8b7978d spec: round 2+3
+cleanup`). All 17 new normative requirements landed in the SDK as type
+signatures, schema-id constants, and validation helpers. See contrix-spec
+`CHANGELOG.md` Round R2/R3 entries for the normative source.
+
+- **Event kinds**: 4 new active `durable_event` kinds — `cx.moderation.appeal.submit`
+  / `.review` / `.decision` / `.close` — extending the moderation flow.
+  Helpers `is_ephemeral_kind` (recognises the 12 ephemeral wire kinds:
+  `cx.call.signal`, `cx.presence`, `cx.typing`, `cx.receipt.read`, and the
+  `cx.key.verification.*` family) and `is_receipt_object_only`
+  (`cx.event_batch_receipt`).
+- **Typed IDs**: `TypedAppealId` (`cx:appeal:<uuidv7>`) and
+  `TypedTrustDomainId` (`cx:trust_domain:<scope>` with lowercase `[a-z0-9._:-]`
+  max-128 scope validator).
+- **Schemas**: `cx.schema.ephemeral_envelope.v1`,
+  `cx.schema.moderation_appeal.v1`, `cx.schema.attestation_evidence.v1` added
+  to `ARTIFACT_BACKED_SCHEMA_IDS`. The SDK reads the JSON Schema bodies
+  directly from the spec artifacts directory at runtime; no in-source copy.
+  `cursor.schema.json` (h.minLength=22), `cross-signing-reset.schema.json`
+  (required `trust_domain` + `reset_event_id`) and `event-schema.json` (not
+  branch reject 12 ephemeral kinds) update upstream.
+- **Rust types**: `EphemeralEnvelope` with `EPHEMERAL_ABSOLUTE_HARD_CEILING_MS`
+  (300_000 ms) enforced by the constructor; `ModerationAppealPayload` enum
+  with 4 oneOf variants + `validate_minimal` for the verdict/modify_ref
+  cross-check; `AttestationEvidence` mirroring all schema fields;
+  `CrossSigningResetPayload` with required `trust_domain` and
+  `reset_event_id` (wire-breaking); `IdentityLinkCacheEntry` carrying a
+  32-byte `policy_frontier_hash`; helper
+  `compute_policy_frontier_hash(disclosure_policy, history_visibility,
+  identity_disclosure_profile, minimal_metadata_mode)`.
+- **Anchor canonical bytes**: free-function shims `anchor_canonical_bytes`
+  and `compute_anchor_id` exposing the existing body canonicalisation
+  (excludes `id` and `anchorer_sig`); new
+  `Anchor::validate_frontier_format` rejects the dropped
+  `cx:event:<uuid>` frontier form (only `sha256:<hex>` etc are accepted).
+- **Error codes** (15 new wire-level top codes): `relaxed_window_exceeds_ceiling`,
+  `e2ee_relaxed_disallowed_in_compliance_profile`, `cross_domain_replay_rejected`,
+  `reset_event_id_mismatch`, `appeal_overturn_missing_lift`,
+  `appeal_self_review_forbidden`, `realm_terminal_state`,
+  `audit_agent_attestation_mismatch`, `audit_purpose_mismatch`,
+  `legal_hold_active`, `blob_redacted`,
+  `media_plaintext_service_not_authorised`,
+  `mls_governance_binding_stale`, `expired_invite_token`,
+  `late_recovery_rejected_membership`. All wired into `KNOWN_ERROR_CODES`
+  and `error_code_http_status`.
+- **Capability actions**: `CAP_ACTION_MODERATION_APPEAL_SUBMIT` (low risk;
+  any member may appeal) and `CAP_ACTION_MODERATION_APPEAL_REVIEW` (medium
+  risk; gates the review / decision / close transitions).
+- **`cx.profile.e2ee_relaxed.v1`**: `PROFILE_E2EE_RELAXED` constant +
+  `ABSOLUTE_HARD_CEILING_MS = 300_000`; helpers
+  `is_e2ee_relaxed_compatible_with_compliance` (rejects coexistence with
+  attested or disclosed audit profiles) and `validate_relaxed_window_ms`.
+- **Cursor handle**: `generate_cursor_handle()` yields ≥22 base64url chars
+  (128-bit handle); `validate_cursor_handle` minLength raised to 22 per
+  schema.
+- **Realm lifecycle**: `is_terminal_realm_state(state) -> bool` returns
+  `true` once `cx.realm.destroy` has been applied.
+
 ### Changed — Realm/Space terminology inversion (wire-breaking) (Round R1.x)
 
 - Old `Space` (security boundary) → **Realm**, old `Place` (container) →
