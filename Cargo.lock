@@ -488,6 +488,8 @@ dependencies = [
  "contrix-crypto",
  "contrix-html",
  "contrix-signatures",
+ "salvo",
+ "salvo-oapi",
  "serde",
  "serde_json",
 ]

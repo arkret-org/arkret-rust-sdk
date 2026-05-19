@@ -5,7 +5,7 @@ pub(super) fn default_true() -> bool {
 }
 
 pub(super) fn validate_presented_claim(
-    request: &PresentationRequest,
+    request: &PresentationReqBody,
     requirement: &ClaimDisclosureRequirement,
     claim: &PresentedClaim,
     revoked_claim_ids: &BTreeSet<String>,

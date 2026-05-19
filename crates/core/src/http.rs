@@ -2,7 +2,7 @@
 //!
 //! These types model endpoint transport roles explicitly:
 //! - path, query-string and header inputs are grouped as `<Operation>Params`;
-//! - JSON request bodies are `<Operation>Billet`;
+//! - JSON request bodies are `<Operation>ReqBody`;
 //! - successful responses are `<Operation>Output`.
 
 use std::collections::BTreeMap;
@@ -1156,7 +1156,7 @@ pub enum EventsSubmitStatus {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct EventsSubmitBillet {
+pub struct EventsSubmitReqBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub event: Option<Event>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -1193,7 +1193,7 @@ pub struct EventsGetOutput {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct EventsBatchGetBillet {
+pub struct EventsBatchGetReqBody {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub event_ids: Vec<EventId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -1290,7 +1290,7 @@ pub struct BlobGetOutput(pub Vec<u8>);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct PrivateContactDiscoveryBillet {
+pub struct PrivateContactDiscoveryReqBody {
     pub requester: Did,
     #[serde(default)]
     pub contacts: Vec<Value>,
@@ -1315,7 +1315,7 @@ pub struct PrivateContactDiscoveryOutput {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct KeyPackagesUploadBillet {
+pub struct KeyPackagesUploadReqBody {
     pub device_id: DeviceId,
     #[serde(default)]
     pub key_packages: Vec<Value>,
@@ -1340,7 +1340,7 @@ pub struct KeyPackagesUploadOutput {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct KeyPackagesClaimBillet {
+pub struct KeyPackagesClaimReqBody {
     #[serde(default)]
     pub claims: Vec<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1362,7 +1362,7 @@ pub struct KeyPackagesClaimOutput {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct KeyPackagesConsumeBillet {
+pub struct KeyPackagesConsumeReqBody {
     #[serde(default)]
     pub key_package_refs: Vec<KeyevtId>,
     pub consumer_device_id: DeviceId,
@@ -1384,7 +1384,7 @@ pub struct KeyPackagesConsumeOutput {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct KeyPackagesRevokeBillet {
+pub struct KeyPackagesRevokeReqBody {
     #[serde(default)]
     pub key_package_refs: Vec<KeyevtId>,
     pub device_id: DeviceId,
@@ -1415,7 +1415,7 @@ pub struct MimiProviderDirectoryOutput {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct MimiKeyMaterialBillet {
+pub struct MimiKeyMaterialReqBody {
     pub requester: Did,
     pub flow_id: FlowId,
     pub device_id: DeviceId,
@@ -1440,7 +1440,7 @@ pub struct MimiKeyMaterialOutput {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct MimiRoomUpdateBillet {
+pub struct MimiRoomUpdateReqBody {
     pub mls_group_id: String,
     pub update: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1463,7 +1463,7 @@ pub struct MimiRoomUpdateOutput {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct MimiNotifyBillet {
+pub struct MimiNotifyReqBody {
     pub notification: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub origin_provider: Option<String>,
@@ -1481,7 +1481,7 @@ pub struct MimiNotifyOutput {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct MimiSubmitMessageBillet {
+pub struct MimiSubmitMessageReqBody {
     pub sender: Did,
     pub device_id: DeviceId,
     pub ciphertext: Value,
@@ -1516,7 +1516,7 @@ pub struct MimiGroupInfoOutput {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct MimiConsentBillet {
+pub struct MimiConsentReqBody {
     pub requester: Did,
     pub target: Value,
     pub purpose: String,
@@ -1548,7 +1548,7 @@ pub enum MimiConsentDecision {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct MimiConsentUpdateBillet {
+pub struct MimiConsentUpdateReqBody {
     pub consent_id: String,
     pub decision: MimiConsentDecision,
     pub actor: Did,
@@ -1570,7 +1570,7 @@ pub struct MimiConsentUpdateOutput {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct MimiIdentifierQueryBillet {
+pub struct MimiIdentifierQueryReqBody {
     #[serde(default)]
     pub identifiers: Vec<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1592,7 +1592,7 @@ pub struct MimiIdentifierQueryOutput {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct MimiReportAbuseBillet {
+pub struct MimiReportAbuseReqBody {
     pub flow_id: FlowId,
     pub target_ref: String,
     pub reporter: Did,
@@ -1607,7 +1607,7 @@ pub struct MimiReportAbuseBillet {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct MimiProxyDownloadBillet {
+pub struct MimiProxyDownloadReqBody {
     pub asset_ref: String,
     pub requester: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1630,7 +1630,7 @@ pub struct MimiProxyDownloadOutput {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AccountSessionGrantBillet {
+pub struct AccountSessionGrantReqBody {
     pub principal_did: Did,
     pub device_id: DeviceId,
     #[serde(default)]
@@ -1655,7 +1655,7 @@ pub struct AccountSessionGrantOutput {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AccountDevicePairBillet {
+pub struct AccountDevicePairReqBody {
     pub principal_did: Did,
     pub new_device_key: Value,
     pub pairing_proof: Proof,
@@ -1676,7 +1676,7 @@ pub struct AccountDevicePairOutput {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AccountOidcCallbackBillet {
+pub struct AccountOidcCallbackReqBody {
     pub issuer: String,
     pub code: String,
     pub state: String,
@@ -1711,7 +1711,7 @@ pub struct AdminServerStatusOutput {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AdminAccountStatusBillet {
+pub struct AdminAccountStatusReqBody {
     pub status: String,
     pub moderator: Did,
     pub proof: Proof,
@@ -1735,7 +1735,7 @@ pub struct AdminAccountStatusOutput {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AdminRevokeDeviceBillet {
+pub struct AdminRevokeDeviceReqBody {
     pub moderator: Did,
     pub proof: Proof,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1797,48 +1797,38 @@ pub struct IdentityDescribeOutput(pub IdentityDescription);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = IdentityResolveRequest)))]
-pub struct IdentityResolveBillet(pub IdentityResolveRequest);
+#[cfg_attr(feature = "salvo", salvo(schema(value_type = IdentityDocumentOutput)))]
+pub struct IdentityGetDocumentOutput(pub IdentityDocumentOutput);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = IdentityResolveResponse)))]
-pub struct IdentityResolveOutput(pub IdentityResolveResponse);
+#[cfg_attr(feature = "salvo", salvo(schema(value_type = IdentityLogOutput)))]
+pub struct IdentityGetLogOutput(pub IdentityLogOutput);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = IdentityDocumentResponse)))]
-pub struct IdentityGetDocumentOutput(pub IdentityDocumentResponse);
+#[cfg_attr(feature = "salvo", salvo(schema(value_type = SubmitDidOperationReqBody)))]
+pub struct IdentitySubmitDidOperationReqBody(pub SubmitDidOperationReqBody);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = IdentityLogResponse)))]
-pub struct IdentityGetLogOutput(pub IdentityLogResponse);
+#[cfg_attr(feature = "salvo", salvo(schema(value_type = SubmitDidOperationOutput)))]
+pub struct IdentitySubmitDidOperationOutput(pub SubmitDidOperationOutput);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = SubmitDidOperationRequest)))]
-pub struct IdentitySubmitDidOperationBillet(pub SubmitDidOperationRequest);
+#[cfg_attr(feature = "salvo", salvo(schema(value_type = IdentityReceiptsOutput)))]
+pub struct IdentityGetReceiptsOutput(pub IdentityReceiptsOutput);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = SubmitDidOperationResponse)))]
-pub struct IdentitySubmitDidOperationOutput(pub SubmitDidOperationResponse);
+#[cfg_attr(feature = "salvo", salvo(schema(value_type = SyncReqBody)))]
+pub struct SyncAccountReqBody(pub SyncReqBody);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = IdentityReceiptsResponse)))]
-pub struct IdentityGetReceiptsOutput(pub IdentityReceiptsResponse);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = SyncRequest)))]
-pub struct SyncAccountBillet(pub SyncRequest);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = SyncResponse)))]
-pub struct SyncAccountOutput(pub SyncResponse);
+#[cfg_attr(feature = "salvo", salvo(schema(value_type = SyncOutput)))]
+pub struct SyncAccountOutput(pub SyncOutput);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -1847,198 +1837,48 @@ pub struct SyncDescribeOutput(pub SyncDescription);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = SyncSnapshotHeadResponse)))]
-pub struct SyncSnapshotHeadOutput(pub SyncSnapshotHeadResponse);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[cfg_attr(feature = "salvo", salvo(schema(value_type = DirectoryDescription)))]
 pub struct DirectoryDescribeOutput(pub DirectoryDescription);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = DirectorySearchSpacesRequest)))]
-pub struct DirectorySearchSpacesBillet(pub DirectorySearchSpacesRequest);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = DirectorySearchSpacesResponse)))]
-pub struct DirectorySearchSpacesOutput(pub DirectorySearchSpacesResponse);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = DirectoryResolveSpaceRequest)))]
-pub struct DirectoryResolveSpaceBillet(pub DirectoryResolveSpaceRequest);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = DirectoryResolveSpaceResponse)))]
-pub struct DirectoryResolveSpaceOutput(pub DirectoryResolveSpaceResponse);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = DirectorySearchOrganizationsRequest)))]
-pub struct DirectorySearchOrganizationsBillet(pub DirectorySearchOrganizationsRequest);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = DirectorySearchOrganizationsResponse)))]
-pub struct DirectorySearchOrganizationsOutput(pub DirectorySearchOrganizationsResponse);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = DirectoryResolveOrganizationRequest)))]
-pub struct DirectoryResolveOrganizationBillet(pub DirectoryResolveOrganizationRequest);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = DirectoryResolveOrganizationResponse)))]
-pub struct DirectoryResolveOrganizationOutput(pub DirectoryResolveOrganizationResponse);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = DirectorySearchActorsRequest)))]
-pub struct DirectorySearchActorsBillet(pub DirectorySearchActorsRequest);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = DirectorySearchActorsResponse)))]
-pub struct DirectorySearchActorsOutput(pub DirectorySearchActorsResponse);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = DirectorySearchUsersResponse)))]
-pub struct DirectorySearchUsersOutput(pub DirectorySearchUsersResponse);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = DirectoryResolveHandleRequest)))]
-pub struct DirectoryResolveHandleBillet(pub DirectoryResolveHandleRequest);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = DirectoryResolveHandleResponse)))]
-pub struct DirectoryResolveHandleOutput(pub DirectoryResolveHandleResponse);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = DirectoryAnnounceRequest)))]
-pub struct DirectoryAnnounceBillet(pub DirectoryAnnounceRequest);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = DirectoryAnnounceResponse)))]
-pub struct DirectoryAnnounceOutput(pub DirectoryAnnounceResponse);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = DirectoryWithdrawRequest)))]
-pub struct DirectoryWithdrawBillet(pub DirectoryWithdrawRequest);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = DirectoryWithdrawResponse)))]
-pub struct DirectoryWithdrawOutput(pub DirectoryWithdrawResponse);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[cfg_attr(feature = "salvo", salvo(schema(value_type = BlobUploadMetadata)))]
-pub struct BlobUploadBillet(pub BlobUploadMetadata);
+pub struct BlobUploadReqBody(pub BlobUploadMetadata);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = BlobUploadResponse)))]
-pub struct BlobUploadOutput(pub BlobUploadResponse);
+#[cfg_attr(feature = "salvo", salvo(schema(value_type = OkOutput)))]
+pub struct PushUnregisterDeviceOutput(pub OkOutput);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = PushRegisterDeviceRequest)))]
-pub struct PushRegisterDeviceBillet(pub PushRegisterDeviceRequest);
+#[cfg_attr(feature = "salvo", salvo(schema(value_type = DeviceMessagesSendReqBody)))]
+pub struct DeviceMessagesPutReqBody(pub DeviceMessagesSendReqBody);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = PushRegisterDeviceResponse)))]
-pub struct PushRegisterDeviceOutput(pub PushRegisterDeviceResponse);
+#[cfg_attr(feature = "salvo", salvo(schema(value_type = DeviceMessagesSendOutput)))]
+pub struct DeviceMessagesPutOutput(pub DeviceMessagesSendOutput);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = PushUnregisterDeviceRequest)))]
-pub struct PushUnregisterDeviceBillet(pub PushUnregisterDeviceRequest);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = OkResponse)))]
-pub struct PushUnregisterDeviceOutput(pub OkResponse);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = PushNotifyRequest)))]
-pub struct PushNotifyBillet(pub PushNotifyRequest);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = PushNotifyResponse)))]
-pub struct PushNotifyOutput(pub PushNotifyResponse);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = DeviceMessagesSendRequest)))]
-pub struct DeviceMessagesPutBillet(pub DeviceMessagesSendRequest);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = DeviceMessagesSendResponse)))]
-pub struct DeviceMessagesPutOutput(pub DeviceMessagesSendResponse);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = DeviceMessagesReceiveResponse)))]
-pub struct DeviceMessagesGetOutput(pub DeviceMessagesReceiveResponse);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = KeysUploadRequest)))]
-pub struct KeysUploadBillet(pub KeysUploadRequest);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = KeysUploadResponse)))]
-pub struct KeysUploadOutput(pub KeysUploadResponse);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = KeysQueryRequest)))]
-pub struct KeysQueryBillet(pub KeysQueryRequest);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = KeysQueryResponse)))]
-pub struct KeysQueryOutput(pub KeysQueryResponse);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = KeysClaimRequest)))]
-pub struct KeysClaimBillet(pub KeysClaimRequest);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = KeysClaimResponse)))]
-pub struct KeysClaimOutput(pub KeysClaimResponse);
+#[cfg_attr(feature = "salvo", salvo(schema(value_type = DeviceMessagesReceiveOutput)))]
+pub struct DeviceMessagesGetOutput(pub DeviceMessagesReceiveOutput);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[cfg_attr(feature = "salvo", salvo(schema(value_type = KeyBackup)))]
-pub struct KeysBackupsPutBillet(pub KeyBackup);
+pub struct KeysBackupsPutReqBody(pub KeyBackup);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = KeyBackupPutResponse)))]
-pub struct KeysBackupsPutOutput(pub KeyBackupPutResponse);
+#[cfg_attr(feature = "salvo", salvo(schema(value_type = KeyBackupPutOutput)))]
+pub struct KeysBackupsPutOutput(pub KeyBackupPutOutput);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = KeyBackupsListResponse)))]
-pub struct KeysBackupsListOutput(pub KeyBackupsListResponse);
+#[cfg_attr(feature = "salvo", salvo(schema(value_type = KeyBackupsListOutput)))]
+pub struct KeysBackupsListOutput(pub KeyBackupsListOutput);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -2047,98 +1887,23 @@ pub struct KeysBackupsGetOutput(pub KeyBackup);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = KeyBackupDeleteResponse)))]
-pub struct KeysBackupsDeleteOutput(pub KeyBackupDeleteResponse);
+#[cfg_attr(feature = "salvo", salvo(schema(value_type = KeyBackupDeleteOutput)))]
+pub struct KeysBackupsDeleteOutput(pub KeyBackupDeleteOutput);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = EffectiveGrantsResponse)))]
-pub struct AuthzEffectiveGrantsOutput(pub EffectiveGrantsResponse);
+#[cfg_attr(feature = "salvo", salvo(schema(value_type = EffectiveGrantsOutput)))]
+pub struct AuthzEffectiveGrantsOutput(pub EffectiveGrantsOutput);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = AuthzInvitesResponse)))]
-pub struct AuthzInvitesOutput(pub AuthzInvitesResponse);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = AuthzCheckRequest)))]
-pub struct AuthzCheckBillet(pub AuthzCheckRequest);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = AuthzCheckResponse)))]
-pub struct AuthzCheckOutput(pub AuthzCheckResponse);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = PolicyCheckRequest)))]
-pub struct PolicyCheckBillet(pub PolicyCheckRequest);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = PolicyCheckResponse)))]
-pub struct PolicyCheckOutput(pub PolicyCheckResponse);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = MediaIceConfigRequest)))]
-pub struct MediaIceConfigBillet(pub MediaIceConfigRequest);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = MediaIceConfigResponse)))]
-pub struct MediaIceConfigOutput(pub MediaIceConfigResponse);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = ModerationReportRequest)))]
-pub struct ModerationReportBillet(pub ModerationReportRequest);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = ModerationReportResponse)))]
-pub struct ModerationReportOutput(pub ModerationReportResponse);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = OkResponse)))]
-pub struct MimiReportAbuseOutput(pub OkResponse);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = AppletPingResponse)))]
-pub struct AppletPingOutput(pub AppletPingResponse);
+#[cfg_attr(feature = "salvo", salvo(schema(value_type = OkOutput)))]
+pub struct MimiReportAbuseOutput(pub OkOutput);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[cfg_attr(feature = "salvo", salvo(schema(value_type = AppletDescription)))]
 pub struct AppletDescribeOutput(pub AppletDescription);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = AppletTransactionRequest)))]
-pub struct AppletTransactionBillet(pub AppletTransactionRequest);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = AppletTransactionResponse)))]
-pub struct AppletTransactionOutput(pub AppletTransactionResponse);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = AppletActorResponse)))]
-pub struct AppletActorOutput(pub AppletActorResponse);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = AppletSpaceResponse)))]
-pub struct AppletSpaceOutput(pub AppletSpaceResponse);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = AppletProtocolResponse)))]
-pub struct AppletProtocolOutput(pub AppletProtocolResponse);
 
 fn is_false(value: &bool) -> bool {
     !*value

@@ -1,4 +1,16 @@
 //! Client-server protocol API contracts.
+//!
+//! Naming convention follows the OpenAPI shape of each operation:
+//!
+//! * `XxxParams`  — URL path parameters (`#[derive(ToParameters)]`).
+//! * `XxxArgs`    — query-string parameters (`#[derive(ToParameters)]`).
+//! * `XxxReqBody`  — request body payloads (`#[derive(ToSchema)]`).
+//! * `XxxOutput`  — response body payloads (`#[derive(ToSchema)]`).
+//!
+//! The previous untyped `ClientApiEndpoint` catalogue (and the
+//! `CLIENT_API_ENDPOINTS` constant) has been removed; the HTTP surface is
+//! now described declaratively by salvo route handlers and the
+//! `ToSchema` / `ToParameters` derives below.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -12,388 +24,9 @@ use contrix_html::RichTextDocument;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ClientApiSurface {
-    Account,
-    InteractiveAuth,
-    Device,
-    Profile,
-    Space,
-    Membership,
-    Events,
-    Sync,
-    Search,
-    Directory,
-    Media,
-    Push,
-    Moderation,
-    Call,
-    Extensions,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "UPPERCASE")]
-pub enum ClientApiMethod {
-    Get,
-    Post,
-    Put,
-    Delete,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ClientApiEndpoint {
-    pub operation_id: &'static str,
-    pub surface: ClientApiSurface,
-    pub method: ClientApiMethod,
-    pub path: &'static str,
-    pub request_schema: &'static str,
-    pub response_schema: &'static str,
-}
-
-pub const CLIENT_API_ENDPOINTS: &[ClientApiEndpoint] = &[
-    ClientApiEndpoint {
-        operation_id: "cx.account.register",
-        surface: ClientApiSurface::Account,
-        method: ClientApiMethod::Post,
-        path: "/api/v1/account/register",
-        request_schema: "AccountRegisterRequest",
-        response_schema: "SessionResponse",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.account.login",
-        surface: ClientApiSurface::Account,
-        method: ClientApiMethod::Post,
-        path: "/api/v1/account/login",
-        request_schema: "LoginRequest",
-        response_schema: "SessionResponse",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.account.refresh",
-        surface: ClientApiSurface::Account,
-        method: ClientApiMethod::Post,
-        path: "/api/v1/account/refresh",
-        request_schema: "TokenRefreshRequest",
-        response_schema: "SessionResponse",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.account.logout",
-        surface: ClientApiSurface::Account,
-        method: ClientApiMethod::Post,
-        path: "/api/v1/account/logout",
-        request_schema: "LogoutRequest",
-        response_schema: "Ok",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.account.whoami",
-        surface: ClientApiSurface::Account,
-        method: ClientApiMethod::Get,
-        path: "/api/v1/account/whoami",
-        request_schema: "Empty",
-        response_schema: "WhoamiResponse",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.auth.interactive.submit",
-        surface: ClientApiSurface::InteractiveAuth,
-        method: ClientApiMethod::Post,
-        path: "/api/v1/auth/interactive/submit",
-        request_schema: "InteractiveAuthSubmission",
-        response_schema: "InteractiveAuthChallenge",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.devices.list",
-        surface: ClientApiSurface::Device,
-        method: ClientApiMethod::Get,
-        path: "/api/v1/devices",
-        request_schema: "Empty",
-        response_schema: "DeviceListResponse",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.devices.update",
-        surface: ClientApiSurface::Device,
-        method: ClientApiMethod::Put,
-        path: "/api/v1/devices/{device_id}",
-        request_schema: "UpdateDeviceRequest",
-        response_schema: "DeviceInfo",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.profile.get",
-        surface: ClientApiSurface::Profile,
-        method: ClientApiMethod::Get,
-        path: "/api/v1/profile/{user_id}",
-        request_schema: "ProfileRequest",
-        response_schema: "ProfileResponse",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.profile.set",
-        surface: ClientApiSurface::Profile,
-        method: ClientApiMethod::Put,
-        path: "/api/v1/profile/{user_id}",
-        request_schema: "ProfileUpdateRequest",
-        response_schema: "ProfileResponse",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.presence.subscribe",
-        surface: ClientApiSurface::Profile,
-        method: ClientApiMethod::Post,
-        path: "/api/v1/presence/subscribe",
-        request_schema: "PresenceSubscriptionRequest",
-        response_schema: "Ok",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.spaces.create",
-        surface: ClientApiSurface::Space,
-        method: ClientApiMethod::Post,
-        path: "/api/v1/spaces",
-        request_schema: "SpaceCreateRequest",
-        response_schema: "SpaceResponse",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.spaces.preview",
-        surface: ClientApiSurface::Space,
-        method: ClientApiMethod::Get,
-        path: "/api/v1/spaces/{space_id}/preview",
-        request_schema: "SpacePreviewRequest",
-        response_schema: "SpacePreviewResponse",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.member.state",
-        surface: ClientApiSurface::Membership,
-        method: ClientApiMethod::Post,
-        path: "/api/v1/spaces/{space_id}/membership",
-        request_schema: "MembershipActionRequest",
-        response_schema: "MembershipActionResponse",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.events.submit",
-        surface: ClientApiSurface::Events,
-        method: ClientApiMethod::Post,
-        path: "/api/v1/events",
-        request_schema: "SubmitEventRequest",
-        response_schema: "EventSubmitReceipt",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.events.get",
-        surface: ClientApiSurface::Events,
-        method: ClientApiMethod::Get,
-        path: "/api/v1/events/{event_id}",
-        request_schema: "GetEventRequest",
-        response_schema: "EventEnvelope",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.events.query",
-        surface: ClientApiSurface::Events,
-        method: ClientApiMethod::Get,
-        path: "/api/v1/events",
-        request_schema: "QueryEventsRequest",
-        response_schema: "QueryEventsResponse",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.events.batch_get",
-        surface: ClientApiSurface::Events,
-        method: ClientApiMethod::Post,
-        path: "/api/v1/events/batch-get",
-        request_schema: "BatchGetEventsRequest",
-        response_schema: "BatchGetEventsResponse",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.events.frontier",
-        surface: ClientApiSurface::Events,
-        method: ClientApiMethod::Get,
-        path: "/api/v1/events/frontier",
-        request_schema: "EventFrontierRequest",
-        response_schema: "EventFrontierResponse",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.search.messages",
-        surface: ClientApiSurface::Search,
-        method: ClientApiMethod::Post,
-        path: "/api/v1/search/messages",
-        request_schema: "MessageSearchRequest",
-        response_schema: "MessageSearchResponse",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.search.event_context",
-        surface: ClientApiSurface::Search,
-        method: ClientApiMethod::Get,
-        path: "/api/v1/events/{event_id}/context",
-        request_schema: "EventContextRequest",
-        response_schema: "EventContextResponse",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.directory.search_spaces",
-        surface: ClientApiSurface::Directory,
-        method: ClientApiMethod::Post,
-        path: "/api/v1/directory/spaces/search",
-        request_schema: "DirectorySearchRequest",
-        response_schema: "DirectorySearchResponse",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.directory.resolve_alias",
-        surface: ClientApiSurface::Directory,
-        method: ClientApiMethod::Get,
-        path: "/api/v1/directory/aliases/{alias}",
-        request_schema: "DirectoryAliasRequest",
-        response_schema: "DirectoryAliasResponse",
-    },
-    // C17 (spec 2026-05-08): operation_id renamed cx.sync.subscribe →
-    // cx.sync.account; path unchanged. The "POST /api/v1/sync" endpoint here is
-    // the account-aggregate sync (to_device / account_data / device_lists /
-    // presence / cross-Space delta) — distinct from the per-Event-Envelope
-    // streaming surface which is now `cx.events.subscribe` at GET
-    // /api/v1/events/subscribe (see contrix-api crate).
-    ClientApiEndpoint {
-        operation_id: "cx.sync.account",
-        surface: ClientApiSurface::Sync,
-        method: ClientApiMethod::Post,
-        path: "/api/v1/sync",
-        request_schema: "SyncRequest",
-        response_schema: "SyncEnvelope",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.sync.sliding",
-        surface: ClientApiSurface::Sync,
-        method: ClientApiMethod::Post,
-        path: "/api/v1/sync/sliding",
-        request_schema: "SlidingSyncRequest",
-        response_schema: "SyncEnvelope",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.media.upload",
-        surface: ClientApiSurface::Media,
-        method: ClientApiMethod::Post,
-        path: "/api/v1/media/upload",
-        request_schema: "MediaUploadRequest",
-        response_schema: "MediaUploadTicket",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.media.download",
-        surface: ClientApiSurface::Media,
-        method: ClientApiMethod::Get,
-        path: "/api/v1/media/{blob_ref}",
-        request_schema: "MediaDownloadRequest",
-        response_schema: "MediaDownloadResponse",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.pushers.list",
-        surface: ClientApiSurface::Push,
-        method: ClientApiMethod::Get,
-        path: "/api/v1/pushers",
-        request_schema: "Empty",
-        response_schema: "PusherListResponse",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.pushers.set",
-        surface: ClientApiSurface::Push,
-        method: ClientApiMethod::Put,
-        path: "/api/v1/pushers/{device_id}",
-        request_schema: "SetPusherRequest",
-        response_schema: "Pusher",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.pushers.delete",
-        surface: ClientApiSurface::Push,
-        method: ClientApiMethod::Delete,
-        path: "/api/v1/pushers/{device_id}",
-        request_schema: "DeletePusherRequest",
-        response_schema: "Ok",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.push_rules.get",
-        surface: ClientApiSurface::Push,
-        method: ClientApiMethod::Get,
-        path: "/api/v1/push/rules",
-        request_schema: "Empty",
-        response_schema: "PushRuleListResponse",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.push_rules.set",
-        surface: ClientApiSurface::Push,
-        method: ClientApiMethod::Put,
-        path: "/api/v1/push/rules/{rule_id}",
-        request_schema: "PushRuleUpdateRequest",
-        response_schema: "PushRule",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.push_rules.delete",
-        surface: ClientApiSurface::Push,
-        method: ClientApiMethod::Delete,
-        path: "/api/v1/push/rules/{rule_id}",
-        request_schema: "PushRuleDeleteRequest",
-        response_schema: "Ok",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.notifications.settings.get",
-        surface: ClientApiSurface::Push,
-        method: ClientApiMethod::Get,
-        path: "/api/v1/notifications/settings",
-        request_schema: "Empty",
-        response_schema: "NotificationSettings",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.notifications.settings.set",
-        surface: ClientApiSurface::Push,
-        method: ClientApiMethod::Put,
-        path: "/api/v1/notifications/settings",
-        request_schema: "NotificationSettings",
-        response_schema: "NotificationSettings",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.notifications.counts",
-        surface: ClientApiSurface::Push,
-        method: ClientApiMethod::Post,
-        path: "/api/v1/notifications/counts",
-        request_schema: "NotificationCountsRequest",
-        response_schema: "NotificationCountsResponse",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.notifications.list",
-        surface: ClientApiSurface::Push,
-        method: ClientApiMethod::Post,
-        path: "/api/v1/notifications",
-        request_schema: "NotificationListRequest",
-        response_schema: "NotificationListResponse",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.notifications.mark_read",
-        surface: ClientApiSurface::Push,
-        method: ClientApiMethod::Post,
-        path: "/api/v1/notifications/read",
-        request_schema: "MarkNotificationsReadRequest",
-        response_schema: "Ok",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.moderation.report",
-        surface: ClientApiSurface::Moderation,
-        method: ClientApiMethod::Post,
-        path: "/api/v1/moderation/reports",
-        request_schema: "ReportRequest",
-        response_schema: "ReportResponse",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.call.signal",
-        surface: ClientApiSurface::Call,
-        method: ClientApiMethod::Post,
-        path: "/api/v1/calls/{call_id}/signal",
-        request_schema: "CallSignal",
-        response_schema: "Ok",
-    },
-    ClientApiEndpoint {
-        operation_id: "cx.extensions.discovery",
-        surface: ClientApiSurface::Extensions,
-        method: ClientApiMethod::Get,
-        path: "/api/v1/extensions",
-        request_schema: "Empty",
-        response_schema: "ExtensionDiscoveryResponse",
-    },
-];
-
-pub fn client_api_endpoints() -> &'static [ClientApiEndpoint] {
-    CLIENT_API_ENDPOINTS
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct AccountRegisterRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct AccountRegisterReqBody {
     pub username: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub password: Option<String>,
@@ -402,7 +35,7 @@ pub struct AccountRegisterRequest {
     pub initial_device_display_name: Option<String>,
 }
 
-impl AccountRegisterRequest {
+impl AccountRegisterReqBody {
     pub fn validate(&self) -> Result<()> {
         if self.username.trim().is_empty() {
             return Err(Error::Protocol("account username must not be empty".to_owned()));
@@ -412,6 +45,7 @@ impl AccountRegisterRequest {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case", tag = "type", content = "value")]
 pub enum LoginIdentifier {
     UserName(String),
@@ -421,7 +55,8 @@ pub enum LoginIdentifier {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct LoginRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct LoginReqBody {
     pub identifier: LoginIdentifier,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub password: Option<String>,
@@ -431,19 +66,22 @@ pub struct LoginRequest {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct TokenRefreshRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct TokenRefreshReqBody {
     pub refresh_token: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct LogoutRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct LogoutReqBody {
     pub device_id: DeviceId,
     #[serde(default)]
     pub all_devices: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SessionResponse {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SessionOutput {
     pub user_id: Did,
     pub device_id: DeviceId,
     pub access_token: String,
@@ -452,34 +90,41 @@ pub struct SessionResponse {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WhoamiResponse {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct WhoamiOutput {
     pub user_id: Did,
     pub device_id: DeviceId,
     pub scopes: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct AccountDataRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct AccountDataReqBody {
     pub data_type: String,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     pub content: Value,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct AccountDataResponse {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct AccountDataOutput {
     pub user_id: Did,
     pub data_type: String,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     pub content: Value,
     pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DeactivateAccountRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct DeactivateAccountReqBody {
     pub auth_session: String,
     #[serde(default)]
     pub erase: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum InteractiveAuthStageKind {
     Password,
@@ -492,6 +137,7 @@ pub enum InteractiveAuthStageKind {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct InteractiveAuthStage {
     pub kind: InteractiveAuthStageKind,
     #[serde(default)]
@@ -499,6 +145,7 @@ pub struct InteractiveAuthStage {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct InteractiveAuthFlow {
     pub flow_id: String,
     pub stages: Vec<InteractiveAuthStage>,
@@ -514,28 +161,33 @@ impl InteractiveAuthFlow {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct InteractiveAuthChallenge {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct InteractiveAuthChallengeOutput {
     pub session: String,
     pub flows: Vec<InteractiveAuthFlow>,
     pub completed: BTreeSet<InteractiveAuthStageKind>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub params: BTreeMap<String, Value>,
 }
 
-impl InteractiveAuthChallenge {
+impl InteractiveAuthChallengeOutput {
     pub fn select_satisfied_flow(&self) -> Option<&InteractiveAuthFlow> {
         self.flows.iter().find(|flow| flow.is_satisfied_by(&self.completed))
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct InteractiveAuthSubmission {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct InteractiveAuthSubmitReqBody {
     pub session: String,
     pub stage: InteractiveAuthStageKind,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     pub credential: Value,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct InteractiveAuthError {
     pub session: String,
     pub stage: InteractiveAuthStageKind,
@@ -544,6 +196,7 @@ pub struct InteractiveAuthError {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DeviceInfo {
     pub user_id: Did,
     pub device_id: DeviceId,
@@ -556,31 +209,43 @@ pub struct DeviceInfo {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DeviceListResponse {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct DeviceListOutput {
     pub devices: Vec<DeviceInfo>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct UpdateDeviceRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters))]
+pub struct UpdateDeviceParams {
+    #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Path)))]
     pub device_id: DeviceId,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct UpdateDeviceReqBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DeleteDevicesRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct DeleteDevicesReqBody {
     pub devices: Vec<DeviceId>,
     pub auth_session: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DehydratedDevice {
     pub device_id: DeviceId,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     pub device_data: Value,
     pub created_at: DateTime<Utc>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum VerificationMethod {
     Sas,
@@ -589,6 +254,7 @@ pub enum VerificationMethod {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DeviceVerificationFlow {
     pub transaction_id: String,
     pub from_device: DeviceId,
@@ -600,6 +266,7 @@ pub struct DeviceVerificationFlow {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum PresenceState {
     Online,
@@ -607,8 +274,16 @@ pub enum PresenceState {
     Offline,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters))]
+pub struct ProfileParams {
+    #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Path)))]
+    pub user_id: Did,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct ProfileResponse {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ProfileOutput {
     pub user_id: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
@@ -620,7 +295,8 @@ pub struct ProfileResponse {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct ProfileUpdateRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ProfileUpdateReqBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -630,11 +306,12 @@ pub struct ProfileUpdateRequest {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PresenceSubscriptionRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct PresenceSubscriptionReqBody {
     pub users: Vec<Did>,
 }
 
-impl PresenceSubscriptionRequest {
+impl PresenceSubscriptionReqBody {
     pub fn validate(&self) -> Result<()> {
         if self.users.is_empty() {
             Err(Error::Protocol("presence subscription must include users".to_owned()))
@@ -645,6 +322,7 @@ impl PresenceSubscriptionRequest {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum SpaceVisibility {
     Private,
@@ -653,16 +331,18 @@ pub enum SpaceVisibility {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct SpaceCreateRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SpaceCreateReqBody {
     pub name: String,
     pub visibility: SpaceVisibility,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub aliases: Vec<String>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub initial_state: BTreeMap<String, Value>,
 }
 
-impl SpaceCreateRequest {
+impl SpaceCreateReqBody {
     pub fn validate(&self) -> Result<()> {
         if self.name.trim().is_empty() {
             return Err(Error::Protocol("space name must not be empty".to_owned()));
@@ -672,7 +352,8 @@ impl SpaceCreateRequest {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct SpaceResponse {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SpaceOutput {
     pub space_id: SpaceId,
     pub name: String,
     pub visibility: SpaceVisibility,
@@ -681,12 +362,15 @@ pub struct SpaceResponse {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SpacePreviewRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters))]
+pub struct SpacePreviewParams {
+    #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Path)))]
     pub space_id: SpaceId,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct SpacePreviewResponse {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SpacePreviewOutput {
     pub space_id: SpaceId,
     pub name: String,
     pub visibility: SpaceVisibility,
@@ -696,6 +380,7 @@ pub struct SpacePreviewResponse {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum MembershipAction {
     Invite,
@@ -708,8 +393,15 @@ pub enum MembershipAction {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MembershipActionRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters))]
+pub struct MembershipActionParams {
+    #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Path)))]
     pub space_id: SpaceId,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct MembershipActionReqBody {
     pub action: MembershipAction,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub target_user: Option<Did>,
@@ -717,7 +409,7 @@ pub struct MembershipActionRequest {
     pub reason: Option<String>,
 }
 
-impl MembershipActionRequest {
+impl MembershipActionReqBody {
     pub fn validate(&self) -> Result<()> {
         if matches!(
             self.action,
@@ -734,21 +426,24 @@ impl MembershipActionRequest {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MembershipActionResponse {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct MembershipActionOutput {
     pub event_id: EventId,
     pub membership: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct SubmitEventRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SubmitEventReqBody {
     pub space_id: SpaceId,
     pub event_kind: String,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     pub content: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub transaction_id: Option<String>,
 }
 
-impl SubmitEventRequest {
+impl SubmitEventReqBody {
     pub fn validate(&self) -> Result<()> {
         if self.event_kind.trim().is_empty() {
             return Err(Error::Protocol("event kind must not be empty".to_owned()));
@@ -761,6 +456,7 @@ impl SubmitEventRequest {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct EventSubmitReceipt {
     pub event_id: EventId,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -768,40 +464,47 @@ pub struct EventSubmitReceipt {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct EditMessageRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct EditMessageReqBody {
     pub target_event_id: EventId,
     pub body: String,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = Option<serde_json::Value>)))]
     pub formatted: Option<RichTextDocument>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RedactEventRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct RedactEventReqBody {
     pub target_event_id: EventId,
     pub reason: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ReactionRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ReactionReqBody {
     pub target_event_id: EventId,
     pub key: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct ThreadReplyRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ThreadReplyReqBody {
     pub root_event_id: EventId,
     pub body: String,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = Option<serde_json::Value>)))]
     pub formatted: Option<RichTextDocument>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct PollStartRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct PollStartReqBody {
     pub question: String,
     pub options: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub closes_at: Option<DateTime<Utc>>,
 }
 
-impl PollStartRequest {
+impl PollStartReqBody {
     pub fn validate(&self) -> Result<()> {
         if self.question.trim().is_empty() || self.options.len() < 2 {
             return Err(Error::Protocol(
@@ -813,21 +516,24 @@ impl PollStartRequest {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ReceiptRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ReceiptReqBody {
     pub event_id: EventId,
     #[serde(default)]
     pub private: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ReadMarkerRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ReadMarkerReqBody {
     pub fully_read: EventId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub read_receipt: Option<EventId>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct MessageSearchRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct MessageSearchReqBody {
     pub query: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub spaces: Vec<SpaceId>,
@@ -835,7 +541,7 @@ pub struct MessageSearchRequest {
     pub limit: Option<u32>,
 }
 
-impl MessageSearchRequest {
+impl MessageSearchReqBody {
     pub fn validate(&self) -> Result<()> {
         if self.query.trim().is_empty() {
             Err(Error::Protocol("message search query must not be empty".to_owned()))
@@ -846,6 +552,7 @@ impl MessageSearchRequest {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MessageSearchHit {
     pub event_id: EventId,
     pub space_id: SpaceId,
@@ -855,34 +562,47 @@ pub struct MessageSearchHit {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct MessageSearchResponse {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct MessageSearchOutput {
     pub hits: Vec<MessageSearchHit>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_batch: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct EventContextRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters))]
+pub struct EventContextParams {
+    #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Path)))]
     pub event_id: EventId,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters))]
+pub struct EventContextArgs {
+    #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
     pub before_limit: u32,
+    #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
     pub after_limit: u32,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct EventContextResponse {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct EventContextOutput {
     pub event_id: EventId,
     pub before: Vec<EventId>,
     pub after: Vec<EventId>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct NearestTimestampRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct NearestTimestampReqBody {
     pub space_id: SpaceId,
     pub timestamp: DateTime<Utc>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct DirectorySearchRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct DirectorySearchReqBody {
     pub query: String,
     pub visibility: Option<SpaceVisibility>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -890,6 +610,7 @@ pub struct DirectorySearchRequest {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectorySearchResult {
     pub space_id: SpaceId,
     pub name: String,
@@ -898,25 +619,30 @@ pub struct DirectorySearchResult {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct DirectorySearchResponse {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct DirectorySearchOutput {
     pub results: Vec<DirectorySearchResult>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_batch: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DirectoryAliasRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters))]
+pub struct DirectoryAliasParams {
+    #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Path)))]
     pub alias: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DirectoryAliasResponse {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct DirectoryAliasOutput {
     pub alias: String,
     pub space_id: SpaceId,
     pub servers: Vec<String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum SyncServiceState {
     Offline,
@@ -927,6 +653,7 @@ pub enum SyncServiceState {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncSubscription {
     pub space_id: SpaceId,
     pub timeline_limit: u32,
@@ -943,7 +670,8 @@ impl SyncSubscription {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SyncSubscribeRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SyncSubscribeReqBody {
     pub since: Option<String>,
     pub subscriptions: Vec<SyncSubscription>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -951,13 +679,14 @@ pub struct SyncSubscribeRequest {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SlidingSyncRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SlidingSyncReqBody {
     pub window_start: u32,
     pub window_end: u32,
     pub subscriptions: Vec<SyncSubscription>,
 }
 
-impl SlidingSyncRequest {
+impl SlidingSyncReqBody {
     pub fn validate(&self) -> Result<()> {
         if self.window_end < self.window_start {
             return Err(Error::Protocol("sliding sync window end must be >= start".to_owned()));
@@ -970,15 +699,18 @@ impl SlidingSyncRequest {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncEnvelope {
     pub next_batch: String,
     pub state: SyncServiceState,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = Vec<serde_json::Value>)))]
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub updates: Vec<Value>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct TimelineGapRepairRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct TimelineGapRepairReqBody {
     pub space_id: SpaceId,
     pub from_event: EventId,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -986,7 +718,8 @@ pub struct TimelineGapRepairRequest {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MediaUploadRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct MediaUploadReqBody {
     pub filename: Option<String>,
     pub content_type: String,
     pub size: u64,
@@ -995,7 +728,7 @@ pub struct MediaUploadRequest {
     pub encrypted: bool,
 }
 
-impl MediaUploadRequest {
+impl MediaUploadReqBody {
     pub fn validate(&self) -> Result<()> {
         if self.content_type.trim().is_empty() {
             return Err(Error::Protocol("media content type must not be empty".to_owned()));
@@ -1008,6 +741,7 @@ impl MediaUploadRequest {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MediaUploadTicket {
     pub upload_id: String,
     pub upload_url: String,
@@ -1016,6 +750,7 @@ pub struct MediaUploadTicket {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ResumableUploadPart {
     pub upload_id: String,
     pub offset: u64,
@@ -1024,14 +759,23 @@ pub struct ResumableUploadPart {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MediaDownloadRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters))]
+pub struct MediaDownloadParams {
+    #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Path)))]
     pub blob_ref: BlobRef,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters))]
+pub struct MediaDownloadArgs {
+    #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
     #[serde(default)]
     pub authenticated: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct MediaDownloadResponse {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct MediaDownloadOutput {
     pub blob_ref: BlobRef,
     pub content_type: String,
     pub size: u64,
@@ -1040,14 +784,25 @@ pub struct MediaDownloadResponse {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ThumbnailRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters))]
+pub struct ThumbnailParams {
+    #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Path)))]
     pub blob_ref: BlobRef,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters))]
+pub struct ThumbnailArgs {
+    #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
     pub width: u32,
+    #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
     pub height: u32,
+    #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
     pub method: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MediaProgress {
     pub transferred: u64,
     pub total: u64,
@@ -1063,6 +818,7 @@ impl MediaProgress {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum MediaScannerVerdict {
     Clean,
@@ -1071,22 +827,33 @@ pub enum MediaScannerVerdict {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct EncryptedMediaDescriptor {
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     pub media: MediaEncryptionInfo,
     pub payload: EncryptedPayload,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct PusherListResponse {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct PusherListOutput {
     pub pushers: Vec<Pusher>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters))]
+pub struct SetPusherParams {
+    #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Path)))]
+    pub device_id: DeviceId,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct SetPusherRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SetPusherReqBody {
     pub pusher: Pusher,
 }
 
-impl SetPusherRequest {
+impl SetPusherReqBody {
     pub fn validate(&self) -> Result<()> {
         if self.pusher.push_gateway.trim().is_empty() {
             return Err(Error::Protocol("pusher gateway must not be empty".to_owned()));
@@ -1099,8 +866,15 @@ impl SetPusherRequest {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DeletePusherRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters))]
+pub struct DeletePusherParams {
+    #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Path)))]
     pub device_id: DeviceId,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct DeletePusherReqBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub push_key: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1108,22 +882,30 @@ pub struct DeletePusherRequest {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct PushRuleListResponse {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct PushRuleListOutput {
     pub rules: PushRuleSet,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PushRuleUpdateRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters))]
+pub struct PushRuleParams {
+    #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Path)))]
     pub rule_id: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct PushRuleUpdateReqBody {
     pub rule: PushRule,
 }
 
-impl PushRuleUpdateRequest {
-    pub fn validate(&self) -> Result<()> {
-        if self.rule_id.trim().is_empty() {
+impl PushRuleUpdateReqBody {
+    pub fn validate(&self, params: &PushRuleParams) -> Result<()> {
+        if params.rule_id.trim().is_empty() {
             return Err(Error::Protocol("push rule id must not be empty".to_owned()));
         }
-        if self.rule.rule_id != self.rule_id {
+        if self.rule.rule_id != params.rule_id {
             return Err(Error::Protocol("push rule path id must match request rule id".to_owned()));
         }
         Ok(())
@@ -1131,11 +913,7 @@ impl PushRuleUpdateRequest {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PushRuleDeleteRequest {
-    pub rule_id: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct QuietHours {
     pub starts_at: String,
     pub ends_at: String,
@@ -1157,6 +935,7 @@ impl QuietHours {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SpaceNotificationSettings {
     #[serde(default)]
     pub muted: bool,
@@ -1167,6 +946,7 @@ pub struct SpaceNotificationSettings {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct NotificationSettings {
     #[serde(default)]
     pub muted: bool,
@@ -1201,6 +981,7 @@ impl NotificationSettings {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct NotificationCounts {
     pub notification_count: u64,
     pub highlight_count: u64,
@@ -1208,20 +989,23 @@ pub struct NotificationCounts {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct NotificationCountsRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct NotificationCountsReqBody {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub spaces: Vec<SpaceId>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct NotificationCountsResponse {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct NotificationCountsOutput {
     pub global: NotificationCounts,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub spaces: BTreeMap<SpaceId, NotificationCounts>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct NotificationListRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct NotificationListReqBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub since: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1232,7 +1016,7 @@ pub struct NotificationListRequest {
     pub spaces: Vec<SpaceId>,
 }
 
-impl NotificationListRequest {
+impl NotificationListReqBody {
     pub fn validate(&self) -> Result<()> {
         if self.limit == Some(0) {
             Err(Error::Protocol("notification list limit must be non-zero".to_owned()))
@@ -1243,6 +1027,7 @@ impl NotificationListRequest {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ClientNotification {
     pub notification_id: String,
     pub event_id: EventId,
@@ -1254,19 +1039,22 @@ pub struct ClientNotification {
     pub read: bool,
     #[serde(default)]
     pub highlighted: bool,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub content: Value,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct NotificationListResponse {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct NotificationListOutput {
     pub notifications: Vec<ClientNotification>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_batch: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MarkNotificationsReadRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct MarkNotificationsReadReqBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub space_id: Option<SpaceId>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1274,6 +1062,7 @@ pub struct MarkNotificationsReadRequest {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum AbuseCategory {
     Spam,
@@ -1285,7 +1074,8 @@ pub enum AbuseCategory {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ReportRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ReportReqBody {
     pub category: AbuseCategory,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub event_id: Option<EventId>,
@@ -1296,7 +1086,7 @@ pub struct ReportRequest {
     pub reason: String,
 }
 
-impl ReportRequest {
+impl ReportReqBody {
     pub fn validate(&self) -> Result<()> {
         if self.event_id.is_none() && self.user_id.is_none() && self.space_id.is_none() {
             return Err(Error::Protocol("moderation report needs a target".to_owned()));
@@ -1309,18 +1099,21 @@ impl ReportRequest {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ReportResponse {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ReportOutput {
     pub report_id: String,
     pub accepted: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct CallSessionDescription {
     pub sdp_type: String,
     pub sdp: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct IceCandidate {
     pub candidate: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1330,15 +1123,23 @@ pub struct IceCandidate {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters))]
+pub struct CallSignalParams {
+    #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Path)))]
+    pub call_id: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case", tag = "type")]
-pub enum CallSignal {
+pub enum CallSignalReqBody {
     Invite { call_id: String, offer: CallSessionDescription },
     Answer { call_id: String, answer: CallSessionDescription },
     Candidates { call_id: String, candidates: Vec<IceCandidate> },
     Hangup { call_id: String, reason: Option<String> },
 }
 
-impl CallSignal {
+impl CallSignalReqBody {
     pub fn call_id(&self) -> &str {
         match self {
             Self::Invite { call_id, .. }
@@ -1356,67 +1157,18 @@ impl CallSignal {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ClientApiCoverageReport {
-    pub endpoints: usize,
-    pub covered_surfaces: BTreeSet<ClientApiSurface>,
-    pub missing_surfaces: BTreeSet<ClientApiSurface>,
-}
-
-impl ClientApiCoverageReport {
-    pub fn validate(&self) -> Result<()> {
-        if self.missing_surfaces.is_empty() {
-            Ok(())
-        } else {
-            Err(Error::Protocol(format!(
-                "client API missing surfaces: {:?}",
-                self.missing_surfaces
-            )))
-        }
-    }
-}
-
-pub fn client_api_coverage_report() -> ClientApiCoverageReport {
-    let covered_surfaces =
-        CLIENT_API_ENDPOINTS.iter().map(|endpoint| endpoint.surface).collect::<BTreeSet<_>>();
-    let required = [
-        ClientApiSurface::Account,
-        ClientApiSurface::InteractiveAuth,
-        ClientApiSurface::Device,
-        ClientApiSurface::Profile,
-        ClientApiSurface::Space,
-        ClientApiSurface::Membership,
-        ClientApiSurface::Events,
-        ClientApiSurface::Sync,
-        ClientApiSurface::Search,
-        ClientApiSurface::Directory,
-        ClientApiSurface::Media,
-        ClientApiSurface::Push,
-        ClientApiSurface::Moderation,
-        ClientApiSurface::Call,
-        ClientApiSurface::Extensions,
-    ]
-    .into_iter()
-    .collect::<BTreeSet<_>>();
-    let missing_surfaces = required.difference(&covered_surfaces).copied().collect();
-    ClientApiCoverageReport {
-        endpoints: CLIENT_API_ENDPOINTS.len(),
-        covered_surfaces,
-        missing_surfaces,
-    }
-}
-
 pub mod protocol {
     pub use contrix_core::{
-        DeviceMessagesReceiveResponse, DeviceMessagesSendRequest, DeviceMessagesSendResponse,
-        KeysClaimRequest, KeysClaimResponse, KeysQueryRequest, KeysQueryResponse,
-        KeysUploadRequest, KeysUploadResponse, ModerationReportRequest, ModerationReportResponse,
-        SyncRequest, SyncResponse,
+        DeviceMessagesReceiveOutput, DeviceMessagesSendReqBody, DeviceMessagesSendOutput,
+        KeysClaimReqBody, KeysClaimOutput, KeysQueryReqBody, KeysQueryOutput,
+        KeysUploadReqBody, KeysUploadOutput, ModerationReportReqBody, ModerationReportOutput,
+        SyncReqBody, SyncOutput,
     };
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ThirdPartyInviteRequest {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ThirdPartyInviteReqBody {
     pub invite_id: InviteId,
     pub medium: String,
     pub address: String,
@@ -1424,12 +1176,14 @@ pub struct ThirdPartyInviteRequest {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct TimelineAnchor {
     pub event_id: EventId,
     pub order: Hlc,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ExtensionDescriptor {
     pub name: String,
     pub version: String,
@@ -1438,7 +1192,8 @@ pub struct ExtensionDescriptor {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ExtensionDiscoveryResponse {
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ExtensionDiscoveryOutput {
     pub protocol_version: String,
     pub extensions: Vec<ExtensionDescriptor>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -1458,22 +1213,8 @@ mod tests {
     }
 
     #[test]
-    fn endpoint_catalog_covers_required_client_api_surfaces() {
-        let report = client_api_coverage_report();
-        report.validate().unwrap();
-        assert!(CLIENT_API_ENDPOINTS.iter().any(|endpoint| {
-            endpoint.operation_id == "cx.auth.interactive.submit"
-                && endpoint.surface == ClientApiSurface::InteractiveAuth
-        }));
-        assert!(CLIENT_API_ENDPOINTS.iter().any(|endpoint| {
-            endpoint.operation_id == "cx.notifications.counts"
-                && endpoint.surface == ClientApiSurface::Push
-        }));
-    }
-
-    #[test]
     fn interactive_auth_selects_satisfied_flow() {
-        let challenge = InteractiveAuthChallenge {
+        let challenge = InteractiveAuthChallengeOutput {
             session: "sess".to_owned(),
             flows: vec![InteractiveAuthFlow {
                 flow_id: "password-passkey".to_owned(),
@@ -1499,7 +1240,7 @@ mod tests {
 
     #[test]
     fn sliding_sync_validates_window_and_subscriptions() {
-        let request = SlidingSyncRequest {
+        let request = SlidingSyncReqBody {
             window_start: 0,
             window_end: 10,
             subscriptions: vec![SyncSubscription {
@@ -1510,13 +1251,13 @@ mod tests {
         };
         request.validate().unwrap();
 
-        let bad = SlidingSyncRequest { window_start: 10, window_end: 0, subscriptions: Vec::new() };
+        let bad = SlidingSyncReqBody { window_start: 10, window_end: 0, subscriptions: Vec::new() };
         assert!(matches!(bad.validate(), Err(Error::Protocol(_))));
     }
 
     #[test]
     fn media_and_moderation_contracts_validate_fail_closed() {
-        let upload = MediaUploadRequest {
+        let upload = MediaUploadReqBody {
             filename: Some("a.txt".to_owned()),
             content_type: "text/plain".to_owned(),
             size: 12,
@@ -1529,7 +1270,7 @@ mod tests {
         upload.validate().unwrap();
         assert_eq!(MediaProgress { transferred: 6, total: 12 }.percent(), 50);
 
-        let report = ReportRequest {
+        let report = ReportReqBody {
             category: AbuseCategory::Spam,
             event_id: None,
             user_id: Some(did("bad")),
@@ -1541,7 +1282,7 @@ mod tests {
 
     #[test]
     fn push_and_notification_contracts_validate_fail_closed() {
-        SetPusherRequest {
+        SetPusherReqBody {
             pusher: Pusher {
                 user_id: did("alice"),
                 device_id: DeviceId::new("cx:device:01904100-0000-7000-8000-000000000001").unwrap(),
@@ -1555,8 +1296,8 @@ mod tests {
         .validate()
         .unwrap();
 
-        PushRuleUpdateRequest {
-            rule_id: "mention".to_owned(),
+        let push_params = PushRuleParams { rule_id: "mention".to_owned() };
+        PushRuleUpdateReqBody {
             rule: PushRule {
                 rule_id: "mention".to_owned(),
                 enabled: true,
@@ -1565,7 +1306,7 @@ mod tests {
                 redact_content: true,
             },
         }
-        .validate()
+        .validate(&push_params)
         .unwrap();
 
         NotificationSettings {
@@ -1580,7 +1321,7 @@ mod tests {
         .unwrap();
 
         assert!(matches!(
-            NotificationListRequest {
+            NotificationListReqBody {
                 since: None,
                 limit: Some(0),
                 only_highlight: false,
@@ -1593,13 +1334,13 @@ mod tests {
 
     #[test]
     fn call_signal_requires_call_id() {
-        let signal = CallSignal::Hangup { call_id: String::new(), reason: None };
+        let signal = CallSignalReqBody::Hangup { call_id: String::new(), reason: None };
         assert!(matches!(signal.validate(), Err(Error::Protocol(_))));
     }
 
     #[test]
     fn space_membership_and_search_contracts_validate() {
-        SpaceCreateRequest {
+        SpaceCreateReqBody {
             name: "Project".to_owned(),
             visibility: SpaceVisibility::Private,
             aliases: vec!["project".to_owned()],
@@ -1608,8 +1349,7 @@ mod tests {
         .validate()
         .unwrap();
 
-        MembershipActionRequest {
-            space_id: space(),
+        MembershipActionReqBody {
             action: MembershipAction::Invite,
             target_user: Some(did("bob")),
             reason: Some("join".to_owned()),
@@ -1617,10 +1357,10 @@ mod tests {
         .validate()
         .unwrap();
 
-        MessageSearchRequest { query: "hello".to_owned(), spaces: vec![space()], limit: Some(10) }
+        MessageSearchReqBody { query: "hello".to_owned(), spaces: vec![space()], limit: Some(10) }
             .validate()
             .unwrap();
 
-        PresenceSubscriptionRequest { users: vec![did("alice")] }.validate().unwrap();
+        PresenceSubscriptionReqBody { users: vec![did("alice")] }.validate().unwrap();
     }
 }

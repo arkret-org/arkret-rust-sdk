@@ -42,7 +42,7 @@ pub struct AuthManager {
     revoked_sessions: BTreeMap<String, SessionRevocation>,
     passkey_challenges: BTreeMap<Did, PasskeyChallenge>,
     mfa_challenges: BTreeMap<Did, MfaChallenge>,
-    recovery_requests: BTreeMap<String, AccountRecoveryRequest>,
+    recovery_requests: BTreeMap<String, AccountRecoveryReqBody>,
     rate_limit_hook: Option<AuthRateLimitHook>,
     session_limit: usize,
 }
@@ -174,7 +174,7 @@ impl AuthManager {
             .password_users
             .get(username)
             .ok_or_else(|| Error::Protocol("user not found".to_owned()))?;
-        let verification = verifier.verify_password(&PasswordVerificationRequest {
+        let verification = verifier.verify_password(&PasswordVerificationReqBody {
             username: user.username.clone(),
             user_id: user.user_id.clone(),
             password: password.to_owned(),
@@ -203,7 +203,7 @@ impl AuthManager {
         client_id: impl Into<String>,
         redirect_uri: impl Into<String>,
         state: impl Into<String>,
-    ) -> OidcAuthRequest {
+    ) -> OidcAuthReqBody {
         let issuer = issuer.into();
         let client_id = client_id.into();
         let redirect_uri = redirect_uri.into();
@@ -211,7 +211,7 @@ impl AuthManager {
         let authorization_url = format!(
             "{issuer}/authorize?client_id={client_id}&redirect_uri={redirect_uri}&response_type=code&state={state}"
         );
-        OidcAuthRequest { issuer, client_id, redirect_uri, state, authorization_url }
+        OidcAuthReqBody { issuer, client_id, redirect_uri, state, authorization_url }
     }
 
     /// Complete an OIDC/OAuth2 login after upstream verification.
@@ -229,7 +229,7 @@ impl AuthManager {
     /// Complete an OIDC/OAuth2 login using an application-supplied verifier.
     pub fn complete_oidc_with_verifier<V>(
         &mut self,
-        request: OidcVerificationRequest,
+        request: OidcVerificationReqBody,
         device_id: DeviceId,
         verifier: &V,
     ) -> Result<AuthSession>
@@ -297,7 +297,7 @@ impl AuthManager {
     pub fn verify_passkey_with_verifier<V>(
         &mut self,
         user_id: &Did,
-        response: WebAuthnPasskeyResponse,
+        response: WebAuthnPasskeyOutput,
         origin: impl Into<String>,
         relying_party_id: impl Into<String>,
         device_id: DeviceId,
@@ -322,7 +322,7 @@ impl AuthManager {
         if challenge.expires_at <= now {
             return Err(Error::Protocol("passkey challenge expired".to_owned()));
         }
-        let verified = verifier.verify_passkey(&PasskeyVerificationRequest {
+        let verified = verifier.verify_passkey(&PasskeyVerificationReqBody {
             user_id: user_id.clone(),
             challenge,
             response,
@@ -651,7 +651,7 @@ impl AuthManager {
         &mut self,
         user_id: Did,
         method: AccountRecoveryMethod,
-    ) -> Result<AccountRecoveryRequest> {
+    ) -> Result<AccountRecoveryReqBody> {
         self.check_rate_limit(AuthRateLimitContext {
             action: AuthRateLimitAction::RecoveryStart,
             subject: None,
@@ -659,7 +659,7 @@ impl AuthManager {
             device_id: None,
             now: Utc::now(),
         })?;
-        let request = AccountRecoveryRequest {
+        let request = AccountRecoveryReqBody {
             request_id: format!("recovery_{}", Ulid::new()),
             user_id,
             method,
@@ -675,7 +675,7 @@ impl AuthManager {
         &mut self,
         request_id: &str,
         proof: &str,
-    ) -> Result<AccountRecoveryRequest> {
+    ) -> Result<AccountRecoveryReqBody> {
         let request = self
             .recovery_requests
             .get(request_id)
@@ -712,7 +712,7 @@ impl AuthManager {
         did_document: DidDocument,
         proof: Proof,
         verifier: &V,
-    ) -> Result<AccountRecoveryRequest>
+    ) -> Result<AccountRecoveryReqBody>
     where
         V: DidProofVerifier + ?Sized,
     {
@@ -748,7 +748,7 @@ impl AuthManager {
         if proof.verification_method != *verification_method {
             return Err(Error::Protocol("proof verification method mismatch".to_owned()));
         }
-        let verification = verifier.verify_did_proof(&DidProofVerificationRequest {
+        let verification = verifier.verify_did_proof(&DidProofVerificationReqBody {
             subject: request.user_id.clone(),
             did_document,
             verification_method: verification_method.clone(),

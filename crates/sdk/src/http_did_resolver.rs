@@ -24,8 +24,8 @@ use chrono::{DateTime, Utc};
 use reqwest::Client as HttpClient;
 
 use crate::identity::{
-    DID_WEB_MAX_DOCUMENT_BYTES, DidDocument, DidResolver, DidWebDocumentResponse, DidWebResolver,
-    DidWebvhDocumentResponse, DidWebvhLogResponse, DidWebvhResolver, ResolverFailMode,
+    DID_WEB_MAX_DOCUMENT_BYTES, DidDocument, DidResolver, DidWebDocumentOutput, DidWebResolver,
+    DidWebvhDocumentOutput, DidWebvhLogOutput, DidWebvhResolver, ResolverFailMode,
     ResolverPolicy,
 };
 use crate::{Did, Error, Result};
@@ -166,7 +166,7 @@ impl HttpDidResolver {
         let (content_type, body) = self.fetch_bytes(&url).await?;
         let mut resolver = DidWebResolver::new();
         let document = resolver
-            .insert_from_https_response(did, DidWebDocumentResponse { url, content_type, body })?;
+            .insert_from_https_response(did, DidWebDocumentOutput { url, content_type, body })?;
         Ok(document)
     }
 
@@ -178,12 +178,12 @@ impl HttpDidResolver {
         let mut resolver = DidWebvhResolver::new();
         let document = resolver.insert_from_https_response(
             did,
-            DidWebvhDocumentResponse { url: doc_url, content_type: doc_ct, body: doc_body },
+            DidWebvhDocumentOutput { url: doc_url, content_type: doc_ct, body: doc_body },
         )?;
         // Validate the log too — reject the document if the log chain is bad.
         resolver.ingest_log(
             did,
-            DidWebvhLogResponse { url: log_url, content_type: log_ct, body: log_body },
+            DidWebvhLogOutput { url: log_url, content_type: log_ct, body: log_body },
         )?;
         Ok(document)
     }

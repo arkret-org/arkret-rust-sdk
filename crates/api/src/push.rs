@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 
 use contrix_core::{
-    DeviceId, Did, EventId, PushNotifyRequest, PushNotifyResponse, PushRegisterDeviceRequest,
+    DeviceId, Did, EventId, PushNotifyReqBody, PushNotifyOutput, PushRegisterDeviceReqBody,
     SpaceId,
 };
 use serde::{Deserialize, Serialize};
@@ -11,12 +11,13 @@ use serde_json::{Value, json};
 
 pub mod protocol {
     pub use contrix_core::{
-        PushNotifyRequest, PushNotifyResponse, PushRegisterDeviceRequest,
-        PushRegisterDeviceResponse, PushUnregisterDeviceRequest,
+        PushNotifyReqBody, PushNotifyOutput, PushRegisterDeviceReqBody,
+        PushRegisterDeviceOutput, PushUnregisterDeviceReqBody,
     };
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum PushPlatform {
     Apns,
@@ -25,6 +26,7 @@ pub enum PushPlatform {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum PushPriority {
     Low,
@@ -34,6 +36,7 @@ pub enum PushPriority {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Pusher {
     pub user_id: Did,
     pub device_id: DeviceId,
@@ -47,7 +50,7 @@ pub struct Pusher {
 }
 
 impl Pusher {
-    pub fn from_register(user_id: Did, request: PushRegisterDeviceRequest) -> Self {
+    pub fn from_register(user_id: Did, request: PushRegisterDeviceReqBody) -> Self {
         Self {
             user_id,
             device_id: request.device_id,
@@ -65,6 +68,7 @@ impl Pusher {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct PushRule {
     pub rule_id: String,
     pub enabled: bool,
@@ -76,12 +80,14 @@ pub struct PushRule {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct PushNotification {
     pub event_id: EventId,
     pub user_id: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub space_id: Option<SpaceId>,
     pub event_kind: String,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub content: Value,
     #[serde(default)]
@@ -89,17 +95,20 @@ pub struct PushNotification {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct PushPayload {
     pub platform: PushPlatform,
     pub push_key: String,
     pub title: String,
     pub body: String,
     pub priority: PushPriority,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub data: Value,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct PushDeliveryReceipt {
     pub event_id: EventId,
     pub device_id: DeviceId,
@@ -147,14 +156,14 @@ pub fn format_push_payload(
     }
 }
 
-pub fn notification_from_gateway_request(request: PushNotifyRequest) -> Option<PushNotification> {
+pub fn notification_from_gateway_request(request: PushNotifyReqBody) -> Option<PushNotification> {
     serde_json::from_value(request.notification).ok()
 }
 
 pub fn rejected_response(
     receipts: impl IntoIterator<Item = PushDeliveryReceipt>,
-) -> PushNotifyResponse {
-    PushNotifyResponse {
+) -> PushNotifyOutput {
+    PushNotifyOutput {
         rejected: receipts
             .into_iter()
             .filter(|receipt| !receipt.accepted)
@@ -180,6 +189,7 @@ fn parse_platform(value: &str) -> Option<PushPlatform> {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct PushRuleSet {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub rules: BTreeMap<String, PushRule>,
@@ -206,7 +216,7 @@ mod tests {
 
     #[test]
     fn pusher_builds_from_register_request() {
-        let request = PushRegisterDeviceRequest {
+        let request = PushRegisterDeviceReqBody {
             device_id: DeviceId::new("cx:device:01904100-0000-7000-8000-000000000001").unwrap(),
             push_gateway: "https://push.example".to_owned(),
             push_key: "token".to_owned(),

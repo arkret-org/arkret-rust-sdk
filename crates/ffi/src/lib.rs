@@ -187,7 +187,7 @@ impl FfiCancellationHandle {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WasmHttpRequest {
+pub struct WasmHttpReqBody {
     pub method: String,
     pub url: String,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -195,7 +195,7 @@ pub struct WasmHttpRequest {
     pub body: Vec<u8>,
 }
 
-impl WasmHttpRequest {
+impl WasmHttpReqBody {
     pub fn validate(&self) -> Result<()> {
         if self.method.trim().is_empty() {
             return Err(Error::Protocol("WASM HTTP method must not be empty".to_owned()));
@@ -208,7 +208,7 @@ impl WasmHttpRequest {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WasmHttpResponse {
+pub struct WasmHttpOutput {
     pub status: u16,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub headers: BTreeMap<String, String>,
@@ -216,14 +216,14 @@ pub struct WasmHttpResponse {
 }
 
 pub trait WasmBrowserHttpTransport {
-    fn send_wasm_http(&self, request: WasmHttpRequest) -> Result<WasmHttpResponse>;
+    fn send_wasm_http(&self, request: WasmHttpReqBody) -> Result<WasmHttpOutput>;
 }
 
 impl<F> WasmBrowserHttpTransport for F
 where
-    F: Fn(WasmHttpRequest) -> Result<WasmHttpResponse>,
+    F: Fn(WasmHttpReqBody) -> Result<WasmHttpOutput>,
 {
-    fn send_wasm_http(&self, request: WasmHttpRequest) -> Result<WasmHttpResponse> {
+    fn send_wasm_http(&self, request: WasmHttpReqBody) -> Result<WasmHttpOutput> {
         self(request)
     }
 }

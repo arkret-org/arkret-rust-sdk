@@ -42,7 +42,7 @@ could compile while Salvo-native endpoint handlers had no real field-level DTO
 types to attach.
 
 Status: fixed in this review by adding explicit `<Operation>Params`,
-`<Operation>Billet`, and `<Operation>Output` structs with Salvo OAPI derives.
+`<Operation>ReqBody`, and `<Operation>Output` structs with Salvo OAPI derives.
 
 ### P1 - Synthetic Schemas Are Useful But Too Opaque
 

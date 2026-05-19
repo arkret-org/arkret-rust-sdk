@@ -16,7 +16,7 @@ use crate::{DeviceId, Did, Error, Event, EventId, Hlc, Result, SpaceId, canonica
 /// Sync request for incremental synchronization.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SyncRequest {
+pub struct SyncReqBody {
     /// Previous sync token for incremental sync
     #[serde(skip_serializing_if = "Option::is_none")]
     pub since: Option<String>,
@@ -40,7 +40,7 @@ pub struct SyncRequest {
 /// Sync response from the server.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SyncResponse {
+pub struct SyncOutput {
     /// Token for the next sync
     pub next_batch: String,
     /// Space sync results
@@ -280,7 +280,7 @@ pub enum TimelineFilter {
 /// Backfill request for historical events.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct BackfillRequest {
+pub struct BackfillReqBody {
     /// Space ID to backfill
     pub space_id: SpaceId,
     /// Starting point (cursor or event ID)
@@ -323,7 +323,7 @@ pub enum BackfillDirection {
 /// Backfill response.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct BackfillResponse {
+pub struct BackfillOutput {
     /// Events in reverse chronological order
     pub events: Vec<Value>,
     /// Count of total events available
@@ -511,7 +511,7 @@ pub struct SyncSemantics {
 
 impl SyncSemantics {
     /// Derive semantics from a request.
-    pub fn from_request(request: &SyncRequest) -> Self {
+    pub fn from_request(request: &SyncReqBody) -> Self {
         let mode = if request.since.is_some() { SyncMode::Incremental } else { SyncMode::Initial };
         Self {
             mode,
@@ -614,9 +614,9 @@ impl LimitedTimelineState {
     }
 
     /// Convert this limited section into a backfill request, if one is needed.
-    pub fn backfill_request(&self, limit: u32) -> Option<BackfillRequest> {
+    pub fn backfill_request(&self, limit: u32) -> Option<BackfillReqBody> {
         let gap = self.gap.as_ref()?;
-        Some(BackfillRequest {
+        Some(BackfillReqBody {
             space_id: self.space_id.clone(),
             from: gap
                 .prev_batch
@@ -712,8 +712,8 @@ impl SyncClient {
     }
 
     /// Create a sync request with current token.
-    pub fn create_request(&self) -> SyncRequest {
-        SyncRequest {
+    pub fn create_request(&self) -> SyncReqBody {
+        SyncReqBody {
             since: self.current_token.clone(),
             timeout_ms: Some(30000), // 30 second default
             set_presence: Some(PresenceStatus::Online),
@@ -729,8 +729,8 @@ impl SyncClient {
         timeout_ms: Option<u64>,
         filter: Option<SyncFilter>,
         subscriptions: Option<SubscriptionConfig>,
-    ) -> SyncRequest {
-        SyncRequest {
+    ) -> SyncReqBody {
+        SyncReqBody {
             since: self.current_token.clone(),
             timeout_ms,
             set_presence: Some(PresenceStatus::Online),
@@ -741,7 +741,7 @@ impl SyncClient {
     }
 
     /// Process a sync response and extract updates.
-    pub fn process_response(&mut self, response: SyncResponse) -> SyncUpdates {
+    pub fn process_response(&mut self, response: SyncOutput) -> SyncUpdates {
         // Update token
         self.current_token = Some(response.next_batch);
 
@@ -828,7 +828,7 @@ mod tests {
 
     #[test]
     fn sync_request_serializes_correctly() {
-        let request = SyncRequest {
+        let request = SyncReqBody {
             since: Some("token123".to_owned()),
             timeout_ms: Some(30000),
             set_presence: Some(PresenceStatus::Online),
@@ -872,7 +872,7 @@ mod tests {
             "partial": false
         }"#;
 
-        let response: SyncResponse = serde_json::from_str(json).unwrap();
+        let response: SyncOutput = serde_json::from_str(json).unwrap();
         assert_eq!(response.next_batch, "token456");
         assert_eq!(response.spaces.len(), 1);
     }
@@ -893,7 +893,7 @@ mod tests {
     fn sync_client_processes_response() {
         let mut client = SyncClient::new("device1".to_owned());
 
-        let response = SyncResponse {
+        let response = SyncOutput {
             next_batch: "token456".to_owned(),
             spaces: BTreeMap::new(),
             to_device: vec![],
@@ -910,7 +910,7 @@ mod tests {
 
     #[test]
     fn backfill_request_serializes_correctly() {
-        let request = BackfillRequest {
+        let request = BackfillReqBody {
             space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             from: BackfillFrom::Beginning,
             direction: BackfillDirection::Backward,

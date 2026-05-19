@@ -31,7 +31,7 @@ pub struct FederationTransaction {
 
 /// Signed cross-domain request.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct FederationRequest {
+pub struct FederationReqBody {
     pub request_id: String,
     pub origin: String,
     pub destination: String,
@@ -247,7 +247,7 @@ impl FederationManager {
         path: impl Into<String>,
         payload: Value,
         signing_key: &str,
-    ) -> FederationRequest {
+    ) -> FederationReqBody {
         let request_id = format!("req_{}", Ulid::new());
         let origin = origin.into();
         let destination = destination.into();
@@ -259,11 +259,11 @@ impl FederationManager {
             &format!("{path}:{}", serde_json::to_string(&payload).unwrap_or_default()),
             signing_key,
         );
-        FederationRequest { request_id, origin, destination, path, payload, signature }
+        FederationReqBody { request_id, origin, destination, path, payload, signature }
     }
 
     /// Verify a signed cross-domain request using the origin trust anchor.
-    pub fn verify_request(&self, request: &FederationRequest) -> bool {
+    pub fn verify_request(&self, request: &FederationReqBody) -> bool {
         self.trust_anchors
             .get(&request.origin)
             .map(|anchor| {

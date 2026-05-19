@@ -469,7 +469,7 @@ fn policy_server_no_action_never_grants_without_capability() {
         Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
     );
 
-    let allow_policy = PolicyCheckResponse::no_action();
+    let allow_policy = PolicyCheckOutput::no_action();
     assert!(!engine.check_authorization_with_policy(&ctx, &[], &allow_policy).is_allowed());
 
     let grant = grant_for(
@@ -494,7 +494,7 @@ fn policy_server_denies_quarantines_and_reports_moderation_outcomes() {
     );
     let grant =
         grant_for("post", message_selector("cx:space:01904100-0000-7000-8000-1a412919cd4b"));
-    let policy = PolicyCheckResponse {
+    let policy = PolicyCheckOutput {
         operation: "cx.policy.check".to_owned(),
         effect: PolicyServerEffect::Quarantine,
         reason: "possible abuse".to_owned(),

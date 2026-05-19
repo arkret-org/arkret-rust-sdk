@@ -333,16 +333,11 @@ pub fn endpoint_coverage_rows() -> Vec<EndpointCoverageRow> {
             response_schema: "OperationOutput".to_owned(),
         }
     }));
-    rows.extend(contrix_api::product::client::client_api_endpoints().iter().map(|endpoint| {
-        EndpointCoverageRow {
-            domain: ConformanceDomain::ProductClientApi,
-            operation_id: endpoint.operation_id.to_owned(),
-            method: format!("{:?}", endpoint.method),
-            path: endpoint.path.to_owned(),
-            request_schema: endpoint.request_schema.to_owned(),
-            response_schema: endpoint.response_schema.to_owned(),
-        }
-    }));
+    // Product client-API coverage rows were previously derived from the
+    // CLIENT_API_ENDPOINTS catalogue in `contrix-api`. That catalogue has been
+    // removed in favour of typed salvo route handlers + ToSchema derives, so
+    // this conformance report now reports only the canonical operation kinds
+    // and the boundary rows enumerated below.
     rows.extend(boundary_coverage_rows());
     rows
 }
@@ -430,8 +425,8 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
             operation_id: "cx.crypto.machine_request".to_owned(),
             method: "CONTRACT".to_owned(),
             path: "contrix-crypto://machine".to_owned(),
-            request_schema: "CryptoMachineRequest".to_owned(),
-            response_schema: "CryptoMachineResponse".to_owned(),
+            request_schema: "CryptoMachineReqBody".to_owned(),
+            response_schema: "CryptoMachineOutput".to_owned(),
         },
         EndpointCoverageRow {
             domain: ConformanceDomain::Crypto,
@@ -766,7 +761,7 @@ mod tests {
         let mut plan = contrix_crypto::CryptoMachinePlan::default();
         plan.push(
             "keys",
-            contrix_crypto::CryptoMachineRequest::QueryDeviceKeys {
+            contrix_crypto::CryptoMachineReqBody::QueryDeviceKeys {
                 users: vec![Did::new("did:web:alice.example").unwrap()],
             },
         )

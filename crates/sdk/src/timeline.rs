@@ -17,7 +17,7 @@ use crate::{
     model::{DeviceId, Did, Event, EventId, SpaceId},
     receipts::{ReadReceipt, ReceiptVisibility},
     sync::{
-        BackfillDirection, BackfillFrom, BackfillRequest, SyncGapReason, SyncTimeline,
+        BackfillDirection, BackfillFrom, BackfillReqBody, SyncGapReason, SyncTimeline,
         TimelineOrderKey,
     },
     typing::TypingNotification,
@@ -234,7 +234,7 @@ pub struct FocusedTimeline {
     pub gaps: Vec<TimelineGap>,
     /// Suggested backfill request when the target or surrounding context is missing.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub backfill_request: Option<BackfillRequest>,
+    pub backfill_request: Option<BackfillReqBody>,
 }
 
 /// Event cache insertion result.
@@ -426,9 +426,9 @@ impl EventCache {
         &self,
         space_id: &SpaceId,
         limit: u32,
-    ) -> Option<BackfillRequest> {
+    ) -> Option<BackfillReqBody> {
         let gap = self.gaps.get(space_id)?.first()?;
-        Some(BackfillRequest {
+        Some(BackfillReqBody {
             space_id: space_id.clone(),
             from: gap
                 .prev_batch
@@ -642,7 +642,7 @@ impl Timeline {
     }
 
     /// Create a backfill request based on timeline gaps.
-    pub fn create_backfill_request(&self, limit: u32) -> Option<BackfillRequest> {
+    pub fn create_backfill_request(&self, limit: u32) -> Option<BackfillReqBody> {
         // Find the oldest gap or the beginning
         let from = if let Some(gap) = self.gaps.first() {
             if let Some(prev_batch) = &gap.prev_batch {
@@ -658,7 +658,7 @@ impl Timeline {
             BackfillFrom::Beginning
         };
 
-        Some(BackfillRequest {
+        Some(BackfillReqBody {
             space_id: self.space_id.clone(),
             from,
             direction: BackfillDirection::Backward,
@@ -776,7 +776,7 @@ impl Timeline {
                 target: None,
                 after: Vec::new(),
                 gaps: self.gaps.clone(),
-                backfill_request: Some(BackfillRequest {
+                backfill_request: Some(BackfillReqBody {
                     space_id: self.space_id.clone(),
                     from: BackfillFrom::EventId { event_id: target_event_id },
                     direction: BackfillDirection::Both,
@@ -813,7 +813,7 @@ impl Timeline {
             target: self.items.get(&item_id).cloned(),
             after: after_items,
             gaps: self.gaps.clone(),
-            backfill_request: needs_backfill.then(|| BackfillRequest {
+            backfill_request: needs_backfill.then(|| BackfillReqBody {
                 space_id: self.space_id.clone(),
                 from: BackfillFrom::EventId {
                     event_id: self.items.get(&item_id).unwrap().event_id.clone(),

@@ -205,7 +205,7 @@ pub struct DisclosurePolicy {
 
 /// Presentation request sent to a wallet or identity provider.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PresentationRequest {
+pub struct PresentationReqBody {
     pub request_id: String,
     pub subject: Did,
     pub audience: String,
@@ -245,7 +245,7 @@ pub struct VerifierAuthorityLink {
     pub expires_at: DateTime<Utc>,
 }
 
-impl PresentationRequest {
+impl PresentationReqBody {
     /// Validate the verifier authority chain per
     /// `progressive-disclosure.md` §4.
     ///
@@ -339,7 +339,7 @@ impl DisclosureProofAdapterBoundary {
     /// Validate request binding before delegating to a format-specific verifier.
     pub fn validate_request_binding(
         &self,
-        request: &PresentationRequest,
+        request: &PresentationReqBody,
         expected_domain: Option<&str>,
     ) -> Result<()> {
         if self.holder != request.subject {
@@ -380,7 +380,7 @@ pub struct PresentationValidation {
 
 /// Validate claims against issuer trust, subject, expiry, revocation and disclosure policy.
 pub fn validate_presentation(
-    request: &PresentationRequest,
+    request: &PresentationReqBody,
     claims: &[PresentedClaim],
     revoked_claim_ids: &BTreeSet<String>,
     now: DateTime<Utc>,

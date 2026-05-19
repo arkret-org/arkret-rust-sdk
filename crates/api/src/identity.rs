@@ -3,15 +3,15 @@
 use std::collections::BTreeMap;
 
 use chrono::{DateTime, Utc};
-use contrix_core::{Did, DidDocumentRef, Hash, IdentityResolveResponse, Proof, Result};
+use contrix_core::{Did, DidDocumentRef, Hash, IdentityResolveOutput, Proof, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub mod protocol {
     pub use contrix_core::{
-        DidDocumentRef, IdentityDescription, IdentityDocumentResponse, IdentityLogResponse,
-        IdentityReceiptsResponse, IdentityResolveRequest, IdentityResolveResponse,
-        SubmitDidOperationRequest, SubmitDidOperationResponse,
+        DidDocumentRef, IdentityDescription, IdentityDocumentOutput, IdentityLogOutput,
+        IdentityReceiptsOutput, IdentityResolveReqBody, IdentityResolveOutput,
+        SubmitDidOperationReqBody, SubmitDidOperationOutput,
     };
 }
 
@@ -178,7 +178,7 @@ pub struct ThirdPartyIdentifierBinding {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct IdentityInvitationLookupRequest {
+pub struct IdentityInvitationLookupReqBody {
     pub medium: ThirdPartyIdentifierKind,
     pub address: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -186,7 +186,7 @@ pub struct IdentityInvitationLookupRequest {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct IdentityInvitationLookupResponse {
+pub struct IdentityInvitationLookupOutput {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub did: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -207,8 +207,8 @@ pub struct KeyLogHead {
 pub fn resolve_response_from_document(
     document: DidDocument,
     key_log_head: Option<KeyLogHead>,
-) -> IdentityResolveResponse {
-    IdentityResolveResponse {
+) -> IdentityResolveOutput {
+    IdentityResolveOutput {
         did_document: document.to_ref(),
         key_log_head: key_log_head.as_ref().map(|head| head.head_event_hash.clone()),
         seq: key_log_head.as_ref().map(|head| head.seq),
@@ -246,7 +246,7 @@ mod tests {
 
     #[test]
     fn invitation_lookup_can_return_privacy_preserving_empty_result() {
-        let response = IdentityInvitationLookupResponse {
+        let response = IdentityInvitationLookupOutput {
             did: None,
             invite_token: None,
             privacy_preserving: true,

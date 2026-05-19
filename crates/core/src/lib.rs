@@ -94,11 +94,11 @@ pub use state::{
     union_predecessor_frontiers, verify_move, view_hash,
 };
 pub use sync::{
-    AccountData, BackfillDirection, BackfillFrom, BackfillRequest, BackfillResponse,
+    AccountData, BackfillDirection, BackfillFrom, BackfillReqBody, BackfillOutput,
     BucketedSpaceUpdate, DeviceListChanges, LimitedTimelineState, MembershipBucket,
     NotificationDelta, PresenceEvent, PresenceStatus, SpaceSubscription, SpaceUpdate,
-    SubscriptionConfig, SyncClient, SyncFilter, SyncGap, SyncGapReason, SyncMode, SyncRequest,
-    SyncResponse, SyncSemantics, SyncSpace, SyncStreamPosition, SyncTimeline, SyncTokenBinding,
+    SubscriptionConfig, SyncClient, SyncFilter, SyncGap, SyncGapReason, SyncMode, SyncReqBody,
+    SyncOutput, SyncSemantics, SyncSpace, SyncStreamPosition, SyncTimeline, SyncTokenBinding,
     SyncUpdates, TimelineFilter, TimelineOrderKey, ToDeviceAck, ToDeviceAckStatus, ToDeviceMessage,
     WaitForFrontier, sync_filter_hash,
 };

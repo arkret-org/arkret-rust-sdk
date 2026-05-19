@@ -534,7 +534,7 @@ pub struct WithheldKeyRecord {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SecretGossipRequest {
+pub struct SecretGossipReqBody {
     pub request_id: String,
     pub name: String,
     pub requesting_device: DeviceId,
@@ -544,7 +544,7 @@ pub struct SecretGossipRequest {
     pub expires_at: Option<DateTime<Utc>>,
 }
 
-impl SecretGossipRequest {
+impl SecretGossipReqBody {
     pub fn validate(&self) -> Result<()> {
         if self.request_id.trim().is_empty() || self.name.trim().is_empty() {
             return Err(Error::Protocol("secret gossip request requires id and name".to_owned()));
@@ -676,7 +676,7 @@ pub struct UnableToDecryptRecord {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub enum CryptoMachineRequest {
+pub enum CryptoMachineReqBody {
     UploadDeviceKeys(DeviceKeyBundle),
     QueryDeviceKeys {
         users: Vec<Did>,
@@ -708,7 +708,7 @@ pub enum CryptoMachineRequest {
     },
 }
 
-impl CryptoMachineRequest {
+impl CryptoMachineReqBody {
     pub fn kind(&self) -> CryptoMachineRequestKind {
         match self {
             Self::UploadDeviceKeys(_) => CryptoMachineRequestKind::UploadDeviceKeys,
@@ -763,7 +763,7 @@ impl CryptoMachineRequest {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub enum CryptoMachineResponse {
+pub enum CryptoMachineOutput {
     Queued { request_id: String, kind: CryptoMachineRequestKind },
     DeviceKeysUploaded { device_id: DeviceId },
     DeviceKeys(Vec<DeviceKeyBundle>),
@@ -779,15 +779,15 @@ pub enum CryptoMachineResponse {
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct CryptoMachinePlan {
-    queue: VecDeque<(String, CryptoMachineRequest)>,
+    queue: VecDeque<(String, CryptoMachineReqBody)>,
 }
 
 impl CryptoMachinePlan {
     pub fn push(
         &mut self,
         request_id: impl Into<String>,
-        request: CryptoMachineRequest,
-    ) -> Result<CryptoMachineResponse> {
+        request: CryptoMachineReqBody,
+    ) -> Result<CryptoMachineOutput> {
         request.validate()?;
         let request_id = request_id.into();
         if request_id.trim().is_empty() {
@@ -795,10 +795,10 @@ impl CryptoMachinePlan {
         }
         let kind = request.kind();
         self.queue.push_back((request_id.clone(), request));
-        Ok(CryptoMachineResponse::Queued { request_id, kind })
+        Ok(CryptoMachineOutput::Queued { request_id, kind })
     }
 
-    pub fn pop(&mut self) -> Option<(String, CryptoMachineRequest)> {
+    pub fn pop(&mut self) -> Option<(String, CryptoMachineReqBody)> {
         self.queue.pop_front()
     }
 
@@ -902,23 +902,23 @@ mod tests {
     fn crypto_machine_plan_validates_and_orders_requests() {
         let mut plan = CryptoMachinePlan::default();
         let queued = plan
-            .push("r1", CryptoMachineRequest::QueryDeviceKeys { users: vec![did("alice")] })
+            .push("r1", CryptoMachineReqBody::QueryDeviceKeys { users: vec![did("alice")] })
             .unwrap();
         assert_eq!(
             queued,
-            CryptoMachineResponse::Queued {
+            CryptoMachineOutput::Queued {
                 request_id: "r1".to_owned(),
                 kind: CryptoMachineRequestKind::QueryDeviceKeys
             }
         );
         assert_eq!(plan.pending_kinds(), vec![CryptoMachineRequestKind::QueryDeviceKeys]);
         assert!(matches!(
-            plan.push("bad", CryptoMachineRequest::QueryDeviceKeys { users: Vec::new() }),
+            plan.push("bad", CryptoMachineReqBody::QueryDeviceKeys { users: Vec::new() }),
             Err(Error::Protocol(_))
         ));
         plan.push(
             "share",
-            CryptoMachineRequest::ShareRoomKey {
+            CryptoMachineReqBody::ShareRoomKey {
                 space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
                 session_id: "sess1".to_owned(),
                 recipients: vec![device()],

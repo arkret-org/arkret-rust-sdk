@@ -6,8 +6,8 @@ use super::*;
 use crate::Did;
 use crate::sync::{DeviceListChanges, SyncSpace, UnreadCounts};
 
-fn sync_response(next_batch: &str) -> SyncResponse {
-    SyncResponse {
+fn sync_response(next_batch: &str) -> SyncOutput {
+    SyncOutput {
         next_batch: next_batch.to_owned(),
         spaces: BTreeMap::new(),
         to_device: Vec::new(),
@@ -37,7 +37,7 @@ fn backoff_grows_until_capped() {
 #[test]
 fn sync_loop_recovers_after_failure() {
     let mut calls = 0;
-    let mut transport = |request: SyncRequest| {
+    let mut transport = |request: SyncReqBody| {
         calls += 1;
         if calls == 1 {
             assert_eq!(request.timeout_ms, Some(30_000));
@@ -56,7 +56,7 @@ fn sync_loop_recovers_after_failure() {
 
 #[tokio::test]
 async fn async_sync_loop_uses_transport_and_persists_token() {
-    let transport = |request: SyncRequest| async move {
+    let transport = |request: SyncReqBody| async move {
         assert_eq!(request.timeout_ms, Some(15));
         assert!(request.since.is_none());
         Ok(sync_response("async1"))
@@ -73,7 +73,7 @@ async fn async_sync_loop_uses_transport_and_persists_token() {
 
 #[tokio::test]
 async fn async_sync_loop_honors_cancellation() {
-    let transport = |_request: SyncRequest| async { Ok(sync_response("unused")) };
+    let transport = |_request: SyncReqBody| async { Ok(sync_response("unused")) };
     let control = SyncLoopControl::new();
     control.cancel();
 
@@ -119,7 +119,7 @@ fn sync_loop_can_reset_token_on_limited_timeline_gap() {
             unread: UnreadCounts::default(),
         },
     );
-    let mut transport = |_request: SyncRequest| Ok(response.clone());
+    let mut transport = |_request: SyncReqBody| Ok(response.clone());
     let mut sync_loop =
         SyncLoop::new().with_gap_strategy(SyncGapStrategy::ResetTokenOnLimitedTimeline);
 
@@ -529,20 +529,20 @@ fn frame_frontier_advance_round_trip() {
     assert!(!frame.requires_resubscribe());
 }
 
-// ─── EventsQueryRequest / EventsQueryResponse tests ─────────────
+// ─── EventsQueryReqBody / EventsQueryOutput tests ─────────────
 
 #[test]
 fn events_query_request_validates_non_empty() {
-    let empty = EventsQueryRequest::new();
+    let empty = EventsQueryReqBody::new();
     assert!(empty.validate_non_empty().is_err());
-    let with_space = EventsQueryRequest::new()
+    let with_space = EventsQueryReqBody::new()
         .with_spaces(vec![SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()]);
     with_space.validate_non_empty().unwrap();
 }
 
 #[test]
 fn events_query_request_renders_query_pairs() {
-    let req = EventsQueryRequest::new()
+    let req = EventsQueryReqBody::new()
         .with_spaces(vec![
             SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             SpaceId::new("cx:space:01904100-0000-7000-8000-46f8537dc94e").unwrap(),
@@ -568,13 +568,13 @@ fn events_query_response_round_trips_with_sync_backfill() {
         "prev_cursor": "sx:prev:0",
         "limited": true,
     });
-    let resp: EventsQueryResponse = serde_json::from_value(body).unwrap();
+    let resp: EventsQueryOutput = serde_json::from_value(body).unwrap();
     assert_eq!(resp.next_cursor.as_deref(), Some("sx:next:1"));
     assert_eq!(resp.prev_cursor.as_deref(), Some("sx:prev:0"));
     assert!(resp.limited);
-    // Round-trip via SyncBackfillResponse keeps cursors and flag.
-    let bf: contrix_core::SyncBackfillResponse = resp.clone().into();
-    let back: EventsQueryResponse = bf.into();
+    // Round-trip via SyncBackfillOutput keeps cursors and flag.
+    let bf: contrix_core::SyncBackfillOutput = resp.clone().into();
+    let back: EventsQueryOutput = bf.into();
     assert_eq!(back.next_cursor, resp.next_cursor);
     assert_eq!(back.prev_cursor, resp.prev_cursor);
     assert_eq!(back.limited, resp.limited);
@@ -582,6 +582,6 @@ fn events_query_response_round_trips_with_sync_backfill() {
 
 #[test]
 fn events_query_request_default_direction_is_forward() {
-    let req = EventsQueryRequest::new();
+    let req = EventsQueryReqBody::new();
     assert_eq!(req.direction, EventsQueryDirection::Forward);
 }

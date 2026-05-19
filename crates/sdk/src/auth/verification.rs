@@ -38,7 +38,7 @@ pub enum PasswordHashAlgorithm {
 
 /// Password hash verification request supplied to provider adapters.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PasswordVerificationRequest {
+pub struct PasswordVerificationReqBody {
     pub username: String,
     pub user_id: Did,
     pub password: String,
@@ -57,17 +57,17 @@ pub struct PasswordVerification {
 pub trait PasswordHashVerifier {
     fn verify_password(
         &self,
-        request: &PasswordVerificationRequest,
+        request: &PasswordVerificationReqBody,
     ) -> Result<PasswordVerification>;
 }
 
 impl<F> PasswordHashVerifier for F
 where
-    F: Fn(&PasswordVerificationRequest) -> Result<PasswordVerification>,
+    F: Fn(&PasswordVerificationReqBody) -> Result<PasswordVerification>,
 {
     fn verify_password(
         &self,
-        request: &PasswordVerificationRequest,
+        request: &PasswordVerificationReqBody,
     ) -> Result<PasswordVerification> {
         self(request)
     }
@@ -99,7 +99,7 @@ pub enum OidcCredential {
 
 /// OIDC verification request with issuer metadata and JWKS hooks already resolved by the app.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct OidcVerificationRequest {
+pub struct OidcVerificationReqBody {
     pub issuer_metadata: OidcIssuerMetadata,
     pub jwks: OidcJwks,
     pub client_id: String,
@@ -120,21 +120,21 @@ pub struct OidcVerifiedIdentity {
 
 /// Application-supplied OIDC code or token verifier.
 pub trait OidcVerifier {
-    fn verify_oidc(&self, request: &OidcVerificationRequest) -> Result<OidcVerifiedIdentity>;
+    fn verify_oidc(&self, request: &OidcVerificationReqBody) -> Result<OidcVerifiedIdentity>;
 }
 
 impl<F> OidcVerifier for F
 where
-    F: Fn(&OidcVerificationRequest) -> Result<OidcVerifiedIdentity>,
+    F: Fn(&OidcVerificationReqBody) -> Result<OidcVerifiedIdentity>,
 {
-    fn verify_oidc(&self, request: &OidcVerificationRequest) -> Result<OidcVerifiedIdentity> {
+    fn verify_oidc(&self, request: &OidcVerificationReqBody) -> Result<OidcVerifiedIdentity> {
         self(request)
     }
 }
 
 /// WebAuthn/passkey authenticator response supplied by an application verifier.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WebAuthnPasskeyResponse {
+pub struct WebAuthnPasskeyOutput {
     pub credential_id: String,
     pub client_data_json: Vec<u8>,
     pub authenticator_data: Vec<u8>,
@@ -144,10 +144,10 @@ pub struct WebAuthnPasskeyResponse {
 
 /// WebAuthn/passkey ceremony verification request.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PasskeyVerificationRequest {
+pub struct PasskeyVerificationReqBody {
     pub user_id: Did,
     pub challenge: PasskeyChallenge,
-    pub response: WebAuthnPasskeyResponse,
+    pub response: WebAuthnPasskeyOutput,
     pub origin: String,
     pub relying_party_id: String,
     pub now: DateTime<Utc>,
@@ -163,21 +163,21 @@ pub struct PasskeyVerification {
 
 /// Application-supplied WebAuthn/passkey response verifier.
 pub trait PasskeyVerifier {
-    fn verify_passkey(&self, request: &PasskeyVerificationRequest) -> Result<PasskeyVerification>;
+    fn verify_passkey(&self, request: &PasskeyVerificationReqBody) -> Result<PasskeyVerification>;
 }
 
 impl<F> PasskeyVerifier for F
 where
-    F: Fn(&PasskeyVerificationRequest) -> Result<PasskeyVerification>,
+    F: Fn(&PasskeyVerificationReqBody) -> Result<PasskeyVerification>,
 {
-    fn verify_passkey(&self, request: &PasskeyVerificationRequest) -> Result<PasskeyVerification> {
+    fn verify_passkey(&self, request: &PasskeyVerificationReqBody) -> Result<PasskeyVerification> {
         self(request)
     }
 }
 
 /// DID proof verification request against a DID document verification method.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DidProofVerificationRequest {
+pub struct DidProofVerificationReqBody {
     pub subject: Did,
     pub did_document: DidDocument,
     pub verification_method: String,
@@ -197,17 +197,17 @@ pub struct DidProofVerification {
 pub trait DidProofVerifier {
     fn verify_did_proof(
         &self,
-        request: &DidProofVerificationRequest,
+        request: &DidProofVerificationReqBody,
     ) -> Result<DidProofVerification>;
 }
 
 impl<F> DidProofVerifier for F
 where
-    F: Fn(&DidProofVerificationRequest) -> Result<DidProofVerification>,
+    F: Fn(&DidProofVerificationReqBody) -> Result<DidProofVerification>,
 {
     fn verify_did_proof(
         &self,
-        request: &DidProofVerificationRequest,
+        request: &DidProofVerificationReqBody,
     ) -> Result<DidProofVerification> {
         self(request)
     }

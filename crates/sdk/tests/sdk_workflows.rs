@@ -136,7 +136,7 @@ fn protocol_conformance_vectors_remain_stable() {
 fn interoperability_serialization_roundtrips() {
     let mut spaces = BTreeMap::new();
     spaces.insert("cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(), SyncSpace::default());
-    let response = SyncResponse {
+    let response = SyncOutput {
         next_batch: "s1".to_owned(),
         spaces,
         to_device: Vec::new(),
@@ -148,7 +148,7 @@ fn interoperability_serialization_roundtrips() {
     };
 
     let json = serde_json::to_string(&response).unwrap();
-    let decoded: SyncResponse = serde_json::from_str(&json).unwrap();
+    let decoded: SyncOutput = serde_json::from_str(&json).unwrap();
     assert_eq!(decoded.next_batch, "s1");
 }
 

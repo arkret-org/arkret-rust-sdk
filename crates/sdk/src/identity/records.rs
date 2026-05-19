@@ -316,7 +316,7 @@ impl StaridRegistryRecord {
 
 /// Request to prove control of a DID resolved from a StarID registry.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct StaridControlProofRequest {
+pub struct StaridControlProofReqBody {
     pub did: Did,
     pub verification_method: String,
     pub challenge: String,
@@ -365,7 +365,7 @@ pub trait StaridRegistryAdapter: DidResolver {
 
     fn verify_control_proof(
         &self,
-        request: &StaridControlProofRequest,
+        request: &StaridControlProofReqBody,
     ) -> Result<StaridControlProofVerification>;
 
     fn verify_registry_receipt(
@@ -427,7 +427,7 @@ impl StaridRegistryAdapter for InMemoryStaridRegistryAdapter {
 
     fn verify_control_proof(
         &self,
-        request: &StaridControlProofRequest,
+        request: &StaridControlProofReqBody,
     ) -> Result<StaridControlProofVerification> {
         let record = self.resolve_registry_record(&request.did)?;
         let public_key =

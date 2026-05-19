@@ -211,7 +211,7 @@ pub enum EventsQueryDirection {
 /// query string with [`Self::to_query_pairs`] (delegated to the inner
 /// [`EventsQuerySelector`]).
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct EventsQueryRequest {
+pub struct EventsQueryReqBody {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub spaces: Vec<SpaceId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -226,7 +226,7 @@ pub struct EventsQueryRequest {
     pub limit: Option<u32>,
 }
 
-impl EventsQueryRequest {
+impl EventsQueryReqBody {
     /// Construct an empty request. Caller MUST add at least one space or
     /// actor before issuing or [`Self::validate_non_empty`] will fail.
     pub fn new() -> Self {
@@ -302,7 +302,7 @@ impl EventsQueryRequest {
 /// `next_cursor` (forward) / `prev_cursor` (backward). Server returns
 /// `limited=true` when the page hit `limit` and more events remain.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct EventsQueryResponse {
+pub struct EventsQueryOutput {
     #[serde(default)]
     pub events: Vec<Event>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -317,8 +317,8 @@ fn is_false_default(v: &bool) -> bool {
     !*v
 }
 
-impl From<contrix_core::SyncBackfillResponse> for EventsQueryResponse {
-    fn from(r: contrix_core::SyncBackfillResponse) -> Self {
+impl From<contrix_core::SyncBackfillOutput> for EventsQueryOutput {
+    fn from(r: contrix_core::SyncBackfillOutput) -> Self {
         Self {
             events: r.events,
             next_cursor: r.next_cursor,
@@ -328,8 +328,8 @@ impl From<contrix_core::SyncBackfillResponse> for EventsQueryResponse {
     }
 }
 
-impl From<EventsQueryResponse> for contrix_core::SyncBackfillResponse {
-    fn from(r: EventsQueryResponse) -> Self {
+impl From<EventsQueryOutput> for contrix_core::SyncBackfillOutput {
+    fn from(r: EventsQueryOutput) -> Self {
         Self {
             events: r.events,
             next_cursor: r.next_cursor,

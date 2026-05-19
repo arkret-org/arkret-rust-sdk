@@ -67,7 +67,7 @@ pub struct QueryConsistency {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct QueryRequest {
+pub struct QueryReqBody {
     pub space_ids: Vec<SpaceId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub object_types: Vec<String>,
@@ -106,7 +106,7 @@ pub struct QueryFrontier {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct QueryResponse<T = Value> {
+pub struct QueryOutput<T = Value> {
     pub items: Vec<T>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<Cursor>,
@@ -119,7 +119,7 @@ pub struct QueryResponse<T = Value> {
 // Collection projection (T20) — board / list / table renderer responses.
 // Per `models/views.md` §6.3.
 //
-// Unlike `QueryResponse<T>`'s flat item list, a collection projection is
+// Unlike `QueryOutput<T>`'s flat item list, a collection projection is
 // nested: `groups` (Lists / status columns) each contain `items` (Flows
 // with rank + locked-discussion metadata). This shape lets a kanban
 // renderer paint the board in one pass without correlating two response
@@ -130,7 +130,7 @@ pub struct QueryResponse<T = Value> {
 /// canonical shape for kanban / list / table / calendar renderers.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct CollectionProjectionResponse {
+pub struct CollectionProjectionOutput {
     /// Always `"collection"`. Pinned to `ViewKind::Collection` for
     /// callers that match on it.
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = String)))]
@@ -239,7 +239,7 @@ pub struct View {
     pub renderer: Option<ViewRenderer>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
-    pub query: QueryRequest,
+    pub query: QueryReqBody,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub visible_fields: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

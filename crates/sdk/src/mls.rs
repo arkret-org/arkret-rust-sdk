@@ -898,7 +898,7 @@ pub fn epoch_recovery_step(
 
 /// Request for epoch recovery sent to a group member that has the missing commits.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct EpochRecoveryRequest {
+pub struct EpochRecoveryReqBody {
     /// Group that needs recovery.
     pub group_id: String,
     /// Device requesting recovery.
@@ -912,7 +912,7 @@ pub struct EpochRecoveryRequest {
 
 /// Response containing the commits needed for epoch recovery.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct EpochRecoveryResponse {
+pub struct EpochRecoveryOutput {
     /// Group that was recovered.
     pub group_id: String,
     /// The commits from `local_epoch + 1` through `target_epoch`.
@@ -924,7 +924,7 @@ pub struct EpochRecoveryResponse {
     pub responder_epoch: u64,
 }
 
-impl EpochRecoveryRequest {
+impl EpochRecoveryReqBody {
     /// Create a new epoch recovery request.
     pub fn new(
         group_id: impl Into<String>,
@@ -956,14 +956,14 @@ impl EpochRecoveryRequest {
     }
 }
 
-impl EpochRecoveryResponse {
+impl EpochRecoveryOutput {
     /// Apply all commits in this recovery response to a group.
     pub fn apply_to_group(&self, group: &mut ContrixMlsGroup) -> Result<u64> {
         group.apply_commits(&self.commits)
     }
 
     /// Validate that the response covers the requested epoch range.
-    pub fn validate_range(&self, request: &EpochRecoveryRequest) -> Result<()> {
+    pub fn validate_range(&self, request: &EpochRecoveryReqBody) -> Result<()> {
         if self.group_id != request.group_id {
             return Err(Error::Protocol("epoch recovery response group_id mismatch".to_owned()));
         }
@@ -983,8 +983,8 @@ impl EpochRecoveryResponse {
 pub fn build_epoch_recovery_response(
     group: &ContrixMlsGroup,
     store: &impl CryptoStore,
-    request: &EpochRecoveryRequest,
-) -> Result<EpochRecoveryResponse> {
+    request: &EpochRecoveryReqBody,
+) -> Result<EpochRecoveryOutput> {
     request.validate()?;
 
     let commits = store.commits_for_group(&request.group_id);
@@ -998,7 +998,7 @@ pub fn build_epoch_recovery_response(
         return Err(Error::Protocol("no commits available for epoch recovery".to_owned()));
     }
 
-    Ok(EpochRecoveryResponse {
+    Ok(EpochRecoveryOutput {
         group_id: request.group_id.clone(),
         commits: recovery_commits,
         ratchet_tree: Some(group.ratchet_tree()?),
@@ -1474,7 +1474,7 @@ mod tests {
         let bob_epoch_before = bob_group.epoch();
 
         // Create a recovery request.
-        let request = EpochRecoveryRequest::new(
+        let request = EpochRecoveryReqBody::new(
             bob_group.group_id(),
             Did::new("did:web:bob.example").unwrap(),
             DeviceId::new("cx:device:01904100-0000-7000-8000-00000000000e").unwrap(),
@@ -1506,7 +1506,7 @@ mod tests {
 
     #[test]
     fn epoch_recovery_request_validates_range() {
-        let request = EpochRecoveryRequest::new(
+        let request = EpochRecoveryReqBody::new(
             "",
             Did::new("did:web:alice.example").unwrap(),
             DeviceId::new("cx:device:01904100-0000-7000-8000-000000000006").unwrap(),
@@ -1515,7 +1515,7 @@ mod tests {
         );
         assert!(request.validate().is_err());
 
-        let request = EpochRecoveryRequest::new(
+        let request = EpochRecoveryReqBody::new(
             "group1",
             Did::new("did:web:alice.example").unwrap(),
             DeviceId::new("cx:device:01904100-0000-7000-8000-000000000006").unwrap(),

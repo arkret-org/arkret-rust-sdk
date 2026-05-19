@@ -13,6 +13,13 @@ version = "0.7.0"
 
 [features]
 default = []
+salvo = [
+    "dep:salvo",
+    "salvo/oapi",
+    "dep:salvo-oapi",
+    "salvo-oapi/chrono",
+    "contrix-core/salvo",
+]
 
 [dependencies]
 chrono.workspace = true
@@ -20,6 +27,8 @@ contrix-core.workspace = true
 contrix-crypto.workspace = true
 contrix-html.workspace = true
 contrix-signatures.workspace = true
+salvo = { workspace = true, optional = true, features = ["oapi"] }
+salvo-oapi = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
 

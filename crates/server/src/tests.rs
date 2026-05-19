@@ -97,10 +97,10 @@ fn framework_independent_handler_shape_can_be_mocked() {
     struct MockHandler;
 
     impl EndpointHandler for MockHandler {
-        fn handle(&mut self, request: ServerRequest) -> Result<ServerResponse> {
+        fn handle(&mut self, request: ServerReqBody) -> Result<ServerOutput> {
             match request {
-                ServerRequest::ServerDescribe => {
-                    Ok(ServerResponse::ServerDescription(ServerDescription {
+                ServerReqBody::ServerDescribe => {
+                    Ok(ServerOutput::ServerDescription(ServerDescription {
                         service_did: contrix_core::Did::new("did:web:svc.example").unwrap(),
                         service_type: "principal_server".to_owned(),
                         protocol_version: contrix_core::PROTOCOL_VERSION.to_owned(),
@@ -127,8 +127,8 @@ fn framework_independent_handler_shape_can_be_mocked() {
     }
 
     let mut handler = MockHandler;
-    let response = handler.handle(ServerRequest::ServerDescribe).unwrap();
-    let ServerResponse::ServerDescription(description) = response else {
+    let response = handler.handle(ServerReqBody::ServerDescribe).unwrap();
+    let ServerOutput::ServerDescription(description) = response else {
         panic!("unexpected response");
     };
     assert!(description.supported_operations.contains(&"cx.sync.account".to_owned()));

@@ -9,10 +9,10 @@ use ulid::Ulid;
 
 use crate::{
     Did, Error, Event, Result, SpaceId,
-    model::{AppletActorResponse, AppletSpaceResponse, AppletTransactionRequest},
+    model::{AppletActorOutput, AppletSpaceOutput, AppletTransactionReqBody},
 };
 #[cfg(test)]
-use crate::{canonical, model::AppletTransactionResponse};
+use crate::{canonical, model::AppletTransactionOutput};
 
 /// Applet permission.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -340,22 +340,22 @@ impl AppletEndpointRouteSet {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppletServiceTransaction {
     pub idempotency_key: String,
-    pub request: AppletTransactionRequest,
+    pub request: AppletTransactionReqBody,
 }
 
 /// Result of recording an idempotent transaction.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg(test)]
 pub(crate) enum AppletServiceTransactionRecord {
-    New(AppletTransactionResponse),
-    Duplicate(AppletTransactionResponse),
+    New(AppletTransactionOutput),
+    Duplicate(AppletTransactionOutput),
 }
 
 /// In-memory idempotent applet service transaction store.
 #[derive(Clone, Debug, Default)]
 #[cfg(test)]
 pub(crate) struct AppletServiceTransactionStore {
-    transactions: BTreeMap<String, (String, AppletTransactionResponse)>,
+    transactions: BTreeMap<String, (String, AppletTransactionOutput)>,
 }
 
 #[cfg(test)]
@@ -369,7 +369,7 @@ impl AppletServiceTransactionStore {
     pub fn record(
         &mut self,
         transaction: &AppletServiceTransaction,
-        response: AppletTransactionResponse,
+        response: AppletTransactionOutput,
     ) -> Result<AppletServiceTransactionRecord> {
         let digest = canonical::canonical_sha256(&transaction.request)?;
         if let Some((existing_digest, existing_response)) =
@@ -421,7 +421,7 @@ impl AppletServiceIntent {
     ) -> AppletServiceTransaction {
         AppletServiceTransaction {
             idempotency_key: format!("{}:{}", self.idempotency_prefix, idempotency_key.as_ref()),
-            request: AppletTransactionRequest {
+            request: AppletTransactionReqBody {
                 source_service_did: self.service_did.clone(),
                 events,
                 ephemeral: Value::Null,
@@ -440,7 +440,7 @@ pub enum ThirdPartyLookupKind {
 
 /// Third-party user or location lookup request.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct ThirdPartyLookupRequest {
+pub struct ThirdPartyLookupReqBody {
     pub kind: ThirdPartyLookupKind,
     pub protocol: String,
     #[serde(default)]
@@ -449,9 +449,9 @@ pub struct ThirdPartyLookupRequest {
 
 /// Third-party lookup response.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum ThirdPartyLookupResponse {
-    User(AppletActorResponse),
-    Location(AppletSpaceResponse),
+pub enum ThirdPartyLookupOutput {
+    User(AppletActorOutput),
+    Location(AppletSpaceOutput),
 }
 
 /// Bridge mapping from a remote user to a Contrix virtual actor.
@@ -710,7 +710,7 @@ mod tests {
         let intent = AppletServiceIntent::new(did("svc"), did("ghost"));
         let transaction = intent.transaction("k1", Vec::new());
         let response =
-            AppletTransactionResponse { ok: true, rejected: Vec::new(), retry_after_ms: None };
+            AppletTransactionOutput { ok: true, rejected: Vec::new(), retry_after_ms: None };
         let mut store = AppletServiceTransactionStore::new();
 
         assert!(matches!(
@@ -727,7 +727,7 @@ mod tests {
         assert!(matches!(
             store.record(
                 &changed,
-                AppletTransactionResponse { ok: true, rejected: Vec::new(), retry_after_ms: None },
+                AppletTransactionOutput { ok: true, rejected: Vec::new(), retry_after_ms: None },
             ),
             Err(Error::IdempotencyConflict(_))
         ));

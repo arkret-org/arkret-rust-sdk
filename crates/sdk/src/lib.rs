@@ -40,12 +40,12 @@
 //! Run one in-memory sync-loop step:
 //!
 //! ```rust
-//! use contrix::{SyncLoop, SyncLoopStep, SyncRequest, SyncResponse};
+//! use contrix::{SyncLoop, SyncLoopStep, SyncReqBody, SyncOutput};
 //!
 //! # fn main() {
 //! let mut sync_loop = SyncLoop::new();
-//! let mut transport = |_request: SyncRequest| {
-//!     Ok(SyncResponse {
+//! let mut transport = |_request: SyncReqBody| {
+//!     Ok(SyncOutput {
 //!         next_batch: "s1".to_owned(),
 //!         spaces: Default::default(),
 //!         to_device: Vec::new(),
@@ -219,26 +219,26 @@ pub use applet::{
     AppletNamespaceConflict, AppletNamespaceDeclaration, AppletNamespaceKind, AppletPermission,
     AppletPortal, AppletSchema, AppletServiceIntent, AppletServiceTransaction,
     GhostActorAccountability, OpenApiBinding, PortalMode, PortalSpaceMapping, RemoteSpaceMapping,
-    RemoteUserMapping, SignedAppletRegistration, ThirdPartyLookupKind, ThirdPartyLookupRequest,
-    ThirdPartyLookupResponse, VirtualActor,
+    RemoteUserMapping, SignedAppletRegistration, ThirdPartyLookupKind, ThirdPartyLookupReqBody,
+    ThirdPartyLookupOutput, VirtualActor,
 };
 #[cfg(feature = "full-surface")]
 pub use auth::{
-    AccountAuthState, AccountRecoveryMethod, AccountRecoveryRequest, AuthClaimType, AuthManager,
+    AccountAuthState, AccountRecoveryMethod, AccountRecoveryReqBody, AuthClaimType, AuthManager,
     AuthRateLimitAction, AuthRateLimitContext, AuthRateLimitHook, AuthSession, AuthStateSnapshot,
     CONTRIX_DEVICE_SCOPE_PREFIX, ClaimDisclosureRequirement, DidProofVerification,
-    DidProofVerificationRequest, DidProofVerifier, DisclosurePolicy,
+    DidProofVerificationReqBody, DidProofVerifier, DisclosurePolicy,
     DisclosureProofAdapterBoundary, DisclosureProofFormat, MemorySessionGrantOutbox, MfaChallenge,
-    OidcAuthRequest, OidcCredential, OidcIssuerMetadata, OidcJwks, OidcVerificationRequest,
+    OidcAuthReqBody, OidcCredential, OidcIssuerMetadata, OidcJwks, OidcVerificationReqBody,
     OidcVerifiedIdentity, OidcVerifier, PasskeyChallenge, PasskeyVerification,
-    PasskeyVerificationRequest, PasskeyVerifier, PasswordHashAlgorithm, PasswordHashVerifier,
-    PasswordUser, PasswordVerification, PasswordVerificationRequest, PersistedAuthSession,
-    PresentationRequest, PresentationValidation, PresentedClaim, PrincipalSessionGrantNotification,
-    PrincipalSessionGrantNotificationResponse, PrincipalSessionGrantNotifier, RefreshTokenMetadata,
+    PasskeyVerificationReqBody, PasskeyVerifier, PasswordHashAlgorithm, PasswordHashVerifier,
+    PasswordUser, PasswordVerification, PasswordVerificationReqBody, PersistedAuthSession,
+    PresentationReqBody, PresentationValidation, PresentedClaim, PrincipalSessionGrantNotification,
+    PrincipalSessionGrantNotificationOutput, PrincipalSessionGrantNotifier, RefreshTokenMetadata,
     RejectedClaim, SessionGrant, SessionGrantNotificationKind, SessionGrantOutboxEntry,
     SessionGrantOutboxState, SessionGrantPayload, SessionGrantRecord, SessionGrantRetryPolicy,
     SessionGrantSigner, SessionGrantVerification, SessionGrantVerifier, SessionPrincipalBinding,
-    SessionRevocation, WebAuthnPasskeyResponse, contrix_device_scope, device_id_from_scope_token,
+    SessionRevocation, WebAuthnPasskeyOutput, contrix_device_scope, device_id_from_scope_token,
     issue_session_grant_with_signer, primary_device_id_from_scopes, validate_presentation,
     verify_session_grant_with_verifier,
 };
@@ -247,7 +247,7 @@ pub use authz::{
     ApprovalFlowManager, ApprovalMode, AuthzContext, AuthzDecision, AuthzEngine,
     CapabilityFrontierValidation, CapabilityGrant, ClaimRequirement, Constraint,
     ConstraintDuration, ConstraintEffect, ConstraintEntry, FieldScope, GrantProposal,
-    ModerationReport, PolicyCheckRequest, PolicyCheckResponse, PolicyServerEffect,
+    ModerationReport, PolicyCheckReqBody, PolicyCheckOutput, PolicyServerEffect,
     ProposalApproval, ProposalStatus, ProtocolGrantApprovalRelation, ProtocolGrantClaimRequirement,
     ProtocolGrantConstraint, ProtocolGrantConstraintEffect, ProtocolGrantConstraintTrack,
     ProtocolGrantConstraintType, ProtocolResourceSelector, ProtocolResourceSelectorKind,
@@ -298,7 +298,7 @@ pub use e2ee::{
 pub use federation::{
     FederationBackfillAuthorization, FederationManager, FederationQuarantineKind,
     FederationQuarantineRecord, FederationReplayDecision, FederationReplayRecord,
-    FederationReplayStore, FederationRequest, FederationTransaction, FederationTransactionEnvelope,
+    FederationReplayStore, FederationReqBody, FederationTransaction, FederationTransactionEnvelope,
     HttpMessageSignature, HttpMessageSignatureInput, ServerInfo, ServiceEndpointDescriptor,
     SovereignDeployment, TrustAnchor, VerifyActorChallenge, VerifyActorChallengeSignature,
     WellKnownContrixServer, content_digest_sha256, did_document_service_endpoint_matches,
@@ -321,9 +321,9 @@ pub use http_did_resolver::{
 pub use identity::{
     CompositeDidResolver, DID_WEB_MAX_DOCUMENT_BYTES, DidDocument, DidKeriResolver, DidKeyLogEntry,
     DidKeyLogOperation, DidKeyResolver, DidMigration, DidRegistryReceipt, DidResolver,
-    DidVisibility, DidWebDocumentResponse, DidWebResolver, ExternalHandleProof, HandleAttestation,
+    DidVisibility, DidWebDocumentOutput, DidWebResolver, ExternalHandleProof, HandleAttestation,
     HandleClaim, HandleProofProfile, IdentityManager, InMemoryStaridRegistryAdapter,
-    PairwiseDidBinding, PairwiseDidResolutionProof, PairwiseDidStore, StaridControlProofRequest,
+    PairwiseDidBinding, PairwiseDidResolutionProof, PairwiseDidStore, StaridControlProofReqBody,
     StaridControlProofVerification, StaridRegistryAdapter, StaridRegistryRecord, VerifiedDidKeyLog,
     did_key_log_proof, did_registry_receipt_signature, handle_claim_proof, handle_dns_txt_name,
     handle_well_known_url, pairwise_resolution_proof, starid_control_proof, verify_did_key_log,
@@ -332,7 +332,7 @@ pub use identity::{
 pub use identity_link::{IdentityLinkCache, IdentityLinkCacheEntry};
 #[cfg(all(feature = "full-surface", feature = "device-runtime", feature = "client"))]
 pub use key_backup_client::{
-    KeyBackupClient, KeyBackupDeleteResponse, KeyBackupListResponse, KeyBackupPutResponse,
+    KeyBackupClient, KeyBackupDeleteOutput, KeyBackupListOutput, KeyBackupPutOutput,
 };
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub use key_verification::{
@@ -359,7 +359,7 @@ pub use notifications::{
 pub use platform::{
     FfiCallbackAction, FfiCallbackResult, FfiCancellationHandle, FfiError, FfiErrorCode, FfiEvent,
     FfiEventSink, FfiHandle, FfiHandleKind, IndexedDbStoreDescriptor, IndexedDbStoreKind,
-    WasmBrowserHttpTransport, WasmHttpRequest, WasmHttpResponse, WasmRuntimeContract,
+    WasmBrowserHttpTransport, WasmHttpReqBody, WasmHttpOutput, WasmRuntimeContract,
     WebCryptoKeyHandle, WebCryptoOperation,
 };
 #[cfg(feature = "full-surface")]
@@ -394,7 +394,7 @@ pub use search::{SpaceSearchEntry, SpaceSearchIndex, SpaceSearchQuery};
 #[cfg(all(feature = "full-surface", feature = "server"))]
 pub use server::{
     EndpointHandler, ProtocolFixtureFlow, ProtocolFixtureReport, ProtocolFixtureStep,
-    ProtocolGoldenVector, ProtocolServerFixture, ServerRequest, ServerResponse,
+    ProtocolGoldenVector, ProtocolServerFixture, ServerReqBody, ServerOutput,
     WireConformanceVector, protocol_golden_vectors, reject_query_auth, wire_negative_vectors,
 };
 #[cfg(feature = "full-surface")]
@@ -415,7 +415,7 @@ pub use store::{
 #[cfg(all(feature = "full-surface", feature = "sync-runtime"))]
 pub use sync_client::{
     AsyncSyncTransport, BackoffConfig, BackpressureConfig, BoxSyncFuture, CancellationToken,
-    EventsQueryDirection, EventsQueryRequest, EventsQueryResponse, EventsQuerySelector,
+    EventsQueryDirection, EventsQueryReqBody, EventsQueryOutput, EventsQuerySelector,
     EventsSubscribeFrame, EventsSubscribeTransport, ExponentialBackoff, LocalEcho, ProcessedSpace,
     SendQueue, SendQueueItem, SendQueueItemKind, SendQueueSnapshot, SendQueueStatus, SlidingSync,
     SlidingWindow, SpaceListChange, SpaceListEntry, SpaceListFilter, SpaceListService,

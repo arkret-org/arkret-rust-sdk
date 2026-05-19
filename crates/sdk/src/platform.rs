@@ -19,7 +19,7 @@ use crate::{Error, Result};
 
 /// Browser HTTP request shape for WASM transports.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WasmHttpRequest {
+pub struct WasmHttpReqBody {
     pub method: String,
     pub url: String,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -27,7 +27,7 @@ pub struct WasmHttpRequest {
     pub body: Vec<u8>,
 }
 
-impl WasmHttpRequest {
+impl WasmHttpReqBody {
     pub fn validate(&self) -> Result<()> {
         if self.method.trim().is_empty() {
             return Err(Error::Protocol("WASM HTTP method must not be empty".to_owned()));
@@ -41,7 +41,7 @@ impl WasmHttpRequest {
 
 /// Browser HTTP response shape returned by WASM transports.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WasmHttpResponse {
+pub struct WasmHttpOutput {
     pub status: u16,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub headers: BTreeMap<String, String>,
@@ -50,14 +50,14 @@ pub struct WasmHttpResponse {
 
 /// Host-provided browser transport boundary.
 pub trait WasmBrowserHttpTransport {
-    fn send_wasm_http(&self, request: WasmHttpRequest) -> Result<WasmHttpResponse>;
+    fn send_wasm_http(&self, request: WasmHttpReqBody) -> Result<WasmHttpOutput>;
 }
 
 impl<F> WasmBrowserHttpTransport for F
 where
-    F: Fn(WasmHttpRequest) -> Result<WasmHttpResponse>,
+    F: Fn(WasmHttpReqBody) -> Result<WasmHttpOutput>,
 {
-    fn send_wasm_http(&self, request: WasmHttpRequest) -> Result<WasmHttpResponse> {
+    fn send_wasm_http(&self, request: WasmHttpReqBody) -> Result<WasmHttpOutput> {
         self(request)
     }
 }
@@ -385,9 +385,9 @@ mod tests {
         assert_eq!(contract.crypto_store.kind, IndexedDbStoreKind::Crypto);
         assert!(!contract.webcrypto_key.extractable);
 
-        let transport = |request: WasmHttpRequest| {
+        let transport = |request: WasmHttpReqBody| {
             request.validate()?;
-            Ok(WasmHttpResponse {
+            Ok(WasmHttpOutput {
                 status: 200,
                 headers: BTreeMap::from([(
                     "content-type".to_owned(),
@@ -397,7 +397,7 @@ mod tests {
             })
         };
         let response = transport
-            .send_wasm_http(WasmHttpRequest {
+            .send_wasm_http(WasmHttpReqBody {
                 method: "POST".to_owned(),
                 url: "https://sync.example/contrix/v1/sync".to_owned(),
                 headers: BTreeMap::new(),

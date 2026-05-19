@@ -65,7 +65,7 @@ fn auth_uses_provider_password_verifier() {
     let mut auth = AuthManager::default();
     auth.register_password_hash("alice", "$argon2id$hash", alice.clone()).unwrap();
 
-    let verifier = |request: &PasswordVerificationRequest| {
+    let verifier = |request: &PasswordVerificationReqBody| {
         assert_eq!(request.username, "alice");
         assert_eq!(request.user_id, alice);
         assert_eq!(request.password_hash, "$argon2id$hash");
@@ -101,7 +101,7 @@ fn auth_uses_provider_oidc_verifier_with_metadata_and_jwks() {
     let alice = did("alice");
     let mut auth = AuthManager::default();
     auth.set_account_state(alice.clone(), AccountAuthState::Active);
-    let request = OidcVerificationRequest {
+    let request = OidcVerificationReqBody {
         issuer_metadata: OidcIssuerMetadata {
             issuer: "https://issuer.example".to_owned(),
             authorization_endpoint: "https://issuer.example/authorize".to_owned(),
@@ -113,7 +113,7 @@ fn auth_uses_provider_oidc_verifier_with_metadata_and_jwks() {
         expected_nonce: Some("nonce".to_owned()),
         credential: OidcCredential::IdToken { id_token: "token".to_owned() },
     };
-    let verifier = |request: &OidcVerificationRequest| {
+    let verifier = |request: &OidcVerificationReqBody| {
         assert_eq!(request.issuer_metadata.jwks_uri, "https://issuer.example/jwks");
         Ok(OidcVerifiedIdentity {
             user_id: alice.clone(),
@@ -136,14 +136,14 @@ fn auth_uses_provider_passkey_verifier() {
     let mut auth = AuthManager::default();
     auth.set_account_state(alice.clone(), AccountAuthState::Active);
     let challenge = auth.start_passkey(alice.clone());
-    let response = WebAuthnPasskeyResponse {
+    let response = WebAuthnPasskeyOutput {
         credential_id: "credential-1".to_owned(),
         client_data_json: br#"{"type":"webauthn.get"}"#.to_vec(),
         authenticator_data: vec![1, 2, 3],
         signature: vec![4, 5, 6],
         user_handle: None,
     };
-    let verifier = |request: &PasskeyVerificationRequest| {
+    let verifier = |request: &PasskeyVerificationReqBody| {
         assert_eq!(request.challenge.challenge, challenge.challenge);
         assert_eq!(request.origin, "https://app.example");
         assert_eq!(request.relying_party_id, "app.example");
@@ -267,7 +267,7 @@ fn session_grant_contract_redacts_and_notifies_principal_servers() {
 
     let notifier = |notification: &PrincipalSessionGrantNotification| {
         notification.validate()?;
-        Ok(PrincipalSessionGrantNotificationResponse {
+        Ok(PrincipalSessionGrantNotificationOutput {
             accepted: true,
             audit_id: Some("audit-1".to_owned()),
             retry_after_ms: None,
@@ -305,7 +305,7 @@ fn auth_validates_progressive_disclosure_claims_fail_closed() {
     let org = did("org");
     let guardian = did("guardian");
     let controller = did("controller");
-    let request = PresentationRequest {
+    let request = PresentationReqBody {
         request_id: "presentation-1".to_owned(),
         subject: alice.clone(),
         audience: "contrix-auth".to_owned(),
@@ -423,7 +423,7 @@ fn auth_uses_provider_did_proof_verifier_for_recovery() {
         audience: None,
         jws: "signed-proof".to_owned(),
     };
-    let verifier = |request: &DidProofVerificationRequest| {
+    let verifier = |request: &DidProofVerificationReqBody| {
         assert_eq!(request.subject, alice);
         assert_eq!(request.public_key, "public-key");
         assert_eq!(request.proof.jws, "signed-proof");

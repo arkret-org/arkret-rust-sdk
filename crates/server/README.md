@@ -15,5 +15,5 @@ dependency.
 When the `salvo` feature is enabled, the DTO types in `contrix-core` and
 `contrix-identifiers` carry feature-gated Salvo OAPI derives. Endpoint
 path/query/header inputs are grouped as `<Operation>Params`, JSON request
-bodies as `<Operation>Billet`, and successful outputs as `<Operation>Output`.
+bodies as `<Operation>ReqBody`, and successful outputs as `<Operation>Output`.
 Host applications wire these types into their own framework handlers.

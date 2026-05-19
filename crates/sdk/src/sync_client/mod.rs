@@ -24,7 +24,7 @@ use crate::{
     sync::{
         AccountData, DeviceListChanges, LimitedTimelineState, MembershipBucket, NotificationDelta,
         PresenceEvent, PresenceStatus, SpaceSubscription, SpaceUpdate, SubscriptionConfig,
-        SyncFilter, SyncRequest, SyncResponse, SyncTimeline, SyncUpdates, TimelineFilter,
+        SyncFilter, SyncReqBody, SyncOutput, SyncTimeline, SyncUpdates, TimelineFilter,
         TimelineOrderKey, ToDeviceAck, ToDeviceAckStatus, ToDeviceMessage, WaitForFrontier,
     },
 };

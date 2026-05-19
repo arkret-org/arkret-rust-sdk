@@ -182,12 +182,12 @@ pub enum PolicyServerEffect {
 
 /// Interoperable request model for policy checks.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PolicyCheckRequest {
+pub struct PolicyCheckReqBody {
     pub operation: String,
     pub context: AuthzContext,
 }
 
-impl PolicyCheckRequest {
+impl PolicyCheckReqBody {
     pub fn new(context: AuthzContext) -> Self {
         Self { operation: "cx.policy.check".to_owned(), context }
     }
@@ -195,7 +195,7 @@ impl PolicyCheckRequest {
 
 /// Interoperable response model for policy checks.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct PolicyCheckResponse {
+pub struct PolicyCheckOutput {
     pub operation: String,
     pub effect: PolicyServerEffect,
     pub reason: String,
@@ -205,7 +205,7 @@ pub struct PolicyCheckResponse {
     pub moderation_report_id: Option<String>,
 }
 
-impl PolicyCheckResponse {
+impl PolicyCheckOutput {
     pub fn no_action() -> Self {
         Self {
             operation: "cx.policy.check".to_owned(),
@@ -295,7 +295,7 @@ impl AuthzEngine {
         &mut self,
         ctx: &AuthzContext,
         grants: &[CapabilityGrant],
-        policy: &PolicyCheckResponse,
+        policy: &PolicyCheckOutput,
     ) -> AuthzDecision {
         apply_policy_response(self.check_authorization(ctx, grants), policy)
     }
@@ -1065,7 +1065,7 @@ impl Default for AuthzEngine {
 
 pub fn apply_policy_response(
     capability_decision: AuthzDecision,
-    policy: &PolicyCheckResponse,
+    policy: &PolicyCheckOutput,
 ) -> AuthzDecision {
     match policy.effect {
         PolicyServerEffect::NoAction => capability_decision,
@@ -1088,7 +1088,7 @@ pub fn grant_requires_approval(grant: &CapabilityGrant) -> bool {
 
 pub fn moderation_report_for_policy_outcome(
     ctx: &AuthzContext,
-    policy: &PolicyCheckResponse,
+    policy: &PolicyCheckOutput,
     now: DateTime<Utc>,
 ) -> Option<ModerationReport> {
     if policy.effect == PolicyServerEffect::NoAction {
