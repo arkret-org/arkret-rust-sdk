@@ -8,7 +8,7 @@ use crate::{ProtocolKeyBackup, Result as SdkResult};
 
 /// Response for `cx.keys.backups.put`.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
-pub struct KeyBackupPutOutput {
+pub struct KeyBackupPutResBody {
     pub status: String,
     pub backup_id: String,
     pub ciphertext_digest: String,
@@ -16,7 +16,7 @@ pub struct KeyBackupPutOutput {
 
 /// Response for `cx.keys.backups.list`.
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
-pub struct KeyBackupListOutput {
+pub struct KeyBackupListResBody {
     pub backups: Vec<ProtocolKeyBackup>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
@@ -50,7 +50,7 @@ impl KeyBackupClient {
         &self,
         backup_id: &str,
         record: &ProtocolKeyBackup,
-    ) -> SdkResult<KeyBackupPutOutput> {
+    ) -> SdkResult<KeyBackupPutResBody> {
         let path = format!("/api/v1/keys/backups/{backup_id}");
         self.client.put(&path, record).await
     }
@@ -63,19 +63,19 @@ impl KeyBackupClient {
 
     /// `GET /api/v1/keys/backups` (list current backups for the
     /// authenticated principal).
-    pub async fn list_key_backups(&self) -> SdkResult<KeyBackupListOutput> {
+    pub async fn list_key_backups(&self) -> SdkResult<KeyBackupListResBody> {
         self.client.get("/api/v1/keys/backups").await
     }
 
     /// `DELETE /api/v1/keys/backups/{backup_id}`.
-    pub async fn delete_key_backup(&self, backup_id: &str) -> SdkResult<KeyBackupDeleteOutput> {
+    pub async fn delete_key_backup(&self, backup_id: &str) -> SdkResult<KeyBackupDeleteResBody> {
         let path = format!("/api/v1/keys/backups/{backup_id}");
         self.client.delete(&path).await
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct KeyBackupDeleteOutput {
+pub struct KeyBackupDeleteResBody {
     pub deleted: bool,
 }
 
@@ -146,13 +146,13 @@ mod tests {
     #[test]
     fn key_backup_put_response_round_trips() {
         let record = backup_record();
-        let response = KeyBackupPutOutput {
+        let response = KeyBackupPutResBody {
             status: "accepted".to_owned(),
             backup_id: record.backup_id.clone(),
             ciphertext_digest: record.ciphertext_digest.clone(),
         };
         let json = serde_json::to_value(&response).unwrap();
-        let back: KeyBackupPutOutput = serde_json::from_value(json).unwrap();
+        let back: KeyBackupPutResBody = serde_json::from_value(json).unwrap();
         assert_eq!(back.backup_id, record.backup_id);
     }
 }

@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 
 use contrix_core::{
-    DeviceId, Did, EventId, PushNotifyReqBody, PushNotifyOutput, PushRegisterDeviceReqBody,
+    DeviceId, Did, EventId, PushNotifyReqBody, PushNotifyResBody, PushRegisterDeviceReqBody,
     SpaceId,
 };
 use serde::{Deserialize, Serialize};
@@ -11,8 +11,8 @@ use serde_json::{Value, json};
 
 pub mod protocol {
     pub use contrix_core::{
-        PushNotifyReqBody, PushNotifyOutput, PushRegisterDeviceReqBody,
-        PushRegisterDeviceOutput, PushUnregisterDeviceReqBody,
+        PushNotifyReqBody, PushNotifyResBody, PushRegisterDeviceReqBody,
+        PushRegisterDeviceResBody, PushUnregisterDeviceReqBody,
     };
 }
 
@@ -162,8 +162,8 @@ pub fn notification_from_gateway_request(request: PushNotifyReqBody) -> Option<P
 
 pub fn rejected_response(
     receipts: impl IntoIterator<Item = PushDeliveryReceipt>,
-) -> PushNotifyOutput {
-    PushNotifyOutput {
+) -> PushNotifyResBody {
+    PushNotifyResBody {
         rejected: receipts
             .into_iter()
             .filter(|receipt| !receipt.accepted)

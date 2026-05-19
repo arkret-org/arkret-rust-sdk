@@ -41,7 +41,7 @@ impl WasmHttpReqBody {
 
 /// Browser HTTP response shape returned by WASM transports.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WasmHttpOutput {
+pub struct WasmHttpResBody {
     pub status: u16,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub headers: BTreeMap<String, String>,
@@ -50,14 +50,14 @@ pub struct WasmHttpOutput {
 
 /// Host-provided browser transport boundary.
 pub trait WasmBrowserHttpTransport {
-    fn send_wasm_http(&self, request: WasmHttpReqBody) -> Result<WasmHttpOutput>;
+    fn send_wasm_http(&self, request: WasmHttpReqBody) -> Result<WasmHttpResBody>;
 }
 
 impl<F> WasmBrowserHttpTransport for F
 where
-    F: Fn(WasmHttpReqBody) -> Result<WasmHttpOutput>,
+    F: Fn(WasmHttpReqBody) -> Result<WasmHttpResBody>,
 {
-    fn send_wasm_http(&self, request: WasmHttpReqBody) -> Result<WasmHttpOutput> {
+    fn send_wasm_http(&self, request: WasmHttpReqBody) -> Result<WasmHttpResBody> {
         self(request)
     }
 }
@@ -387,7 +387,7 @@ mod tests {
 
         let transport = |request: WasmHttpReqBody| {
             request.validate()?;
-            Ok(WasmHttpOutput {
+            Ok(WasmHttpResBody {
                 status: 200,
                 headers: BTreeMap::from([(
                     "content-type".to_owned(),

@@ -5,7 +5,7 @@
 //! * `XxxParams`  — URL path parameters (`#[derive(ToParameters)]`).
 //! * `XxxArgs`    — query-string parameters (`#[derive(ToParameters)]`).
 //! * `XxxReqBody`  — request body payloads (`#[derive(ToSchema)]`).
-//! * `XxxOutput`  — response body payloads (`#[derive(ToSchema)]`).
+//! * `XxxResBody`  — response body payloads (`#[derive(ToSchema)]`).
 //!
 //! The previous untyped `ClientApiEndpoint` catalogue (and the
 //! `CLIENT_API_ENDPOINTS` constant) has been removed; the HTTP surface is
@@ -81,7 +81,7 @@ pub struct LogoutReqBody {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SessionOutput {
+pub struct SessionResBody {
     pub user_id: Did,
     pub device_id: DeviceId,
     pub access_token: String,
@@ -91,7 +91,7 @@ pub struct SessionOutput {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct WhoamiOutput {
+pub struct WhoamiResBody {
     pub user_id: Did,
     pub device_id: DeviceId,
     pub scopes: Vec<String>,
@@ -107,7 +107,7 @@ pub struct AccountDataReqBody {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AccountDataOutput {
+pub struct AccountDataResBody {
     pub user_id: Did,
     pub data_type: String,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
@@ -162,7 +162,7 @@ impl InteractiveAuthFlow {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct InteractiveAuthChallengeOutput {
+pub struct InteractiveAuthChallengeResBody {
     pub session: String,
     pub flows: Vec<InteractiveAuthFlow>,
     pub completed: BTreeSet<InteractiveAuthStageKind>,
@@ -171,7 +171,7 @@ pub struct InteractiveAuthChallengeOutput {
     pub params: BTreeMap<String, Value>,
 }
 
-impl InteractiveAuthChallengeOutput {
+impl InteractiveAuthChallengeResBody {
     pub fn select_satisfied_flow(&self) -> Option<&InteractiveAuthFlow> {
         self.flows.iter().find(|flow| flow.is_satisfied_by(&self.completed))
     }
@@ -210,7 +210,7 @@ pub struct DeviceInfo {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct DeviceListOutput {
+pub struct DeviceListResBody {
     pub devices: Vec<DeviceInfo>,
 }
 
@@ -283,7 +283,7 @@ pub struct ProfileParams {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct ProfileOutput {
+pub struct ProfileResBody {
     pub user_id: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
@@ -353,7 +353,7 @@ impl SpaceCreateReqBody {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SpaceOutput {
+pub struct SpaceResBody {
     pub space_id: SpaceId,
     pub name: String,
     pub visibility: SpaceVisibility,
@@ -370,7 +370,7 @@ pub struct SpacePreviewParams {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SpacePreviewOutput {
+pub struct SpacePreviewResBody {
     pub space_id: SpaceId,
     pub name: String,
     pub visibility: SpaceVisibility,
@@ -427,7 +427,7 @@ impl MembershipActionReqBody {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct MembershipActionOutput {
+pub struct MembershipActionResBody {
     pub event_id: EventId,
     pub membership: String,
 }
@@ -563,7 +563,7 @@ pub struct MessageSearchHit {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct MessageSearchOutput {
+pub struct MessageSearchResBody {
     pub hits: Vec<MessageSearchHit>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_batch: Option<String>,
@@ -587,7 +587,7 @@ pub struct EventContextArgs {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct EventContextOutput {
+pub struct EventContextResBody {
     pub event_id: EventId,
     pub before: Vec<EventId>,
     pub after: Vec<EventId>,
@@ -620,7 +620,7 @@ pub struct DirectorySearchResult {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct DirectorySearchOutput {
+pub struct DirectorySearchResBody {
     pub results: Vec<DirectorySearchResult>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_batch: Option<String>,
@@ -635,7 +635,7 @@ pub struct DirectoryAliasParams {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct DirectoryAliasOutput {
+pub struct DirectoryAliasResBody {
     pub alias: String,
     pub space_id: SpaceId,
     pub servers: Vec<String>,
@@ -775,7 +775,7 @@ pub struct MediaDownloadArgs {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct MediaDownloadOutput {
+pub struct MediaDownloadResBody {
     pub blob_ref: BlobRef,
     pub content_type: String,
     pub size: u64,
@@ -836,7 +836,7 @@ pub struct EncryptedMediaDescriptor {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct PusherListOutput {
+pub struct PusherListResBody {
     pub pushers: Vec<Pusher>,
 }
 
@@ -883,7 +883,7 @@ pub struct DeletePusherReqBody {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct PushRuleListOutput {
+pub struct PushRuleListResBody {
     pub rules: PushRuleSet,
 }
 
@@ -997,7 +997,7 @@ pub struct NotificationCountsReqBody {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct NotificationCountsOutput {
+pub struct NotificationCountsResBody {
     pub global: NotificationCounts,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub spaces: BTreeMap<SpaceId, NotificationCounts>,
@@ -1046,7 +1046,7 @@ pub struct ClientNotification {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct NotificationListOutput {
+pub struct NotificationListResBody {
     pub notifications: Vec<ClientNotification>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_batch: Option<String>,
@@ -1100,7 +1100,7 @@ impl ReportReqBody {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct ReportOutput {
+pub struct ReportResBody {
     pub report_id: String,
     pub accepted: bool,
 }
@@ -1159,10 +1159,10 @@ impl CallSignalReqBody {
 
 pub mod protocol {
     pub use contrix_core::{
-        DeviceMessagesReceiveOutput, DeviceMessagesSendReqBody, DeviceMessagesSendOutput,
-        KeysClaimReqBody, KeysClaimOutput, KeysQueryReqBody, KeysQueryOutput,
-        KeysUploadReqBody, KeysUploadOutput, ModerationReportReqBody, ModerationReportOutput,
-        SyncReqBody, SyncOutput,
+        DeviceMessagesReceiveResBody, DeviceMessagesSendReqBody, DeviceMessagesSendResBody,
+        KeysClaimReqBody, KeysClaimResBody, KeysQueryReqBody, KeysQueryResBody,
+        KeysUploadReqBody, KeysUploadResBody, ModerationReportReqBody, ModerationReportResBody,
+        SyncReqBody, SyncResBody,
     };
 }
 
@@ -1193,7 +1193,7 @@ pub struct ExtensionDescriptor {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct ExtensionDiscoveryOutput {
+pub struct ExtensionDiscoveryResBody {
     pub protocol_version: String,
     pub extensions: Vec<ExtensionDescriptor>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -1214,7 +1214,7 @@ mod tests {
 
     #[test]
     fn interactive_auth_selects_satisfied_flow() {
-        let challenge = InteractiveAuthChallengeOutput {
+        let challenge = InteractiveAuthChallengeResBody {
             session: "sess".to_owned(),
             flows: vec![InteractiveAuthFlow {
                 flow_id: "password-passkey".to_owned(),

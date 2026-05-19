@@ -13,10 +13,10 @@ use serde_json::Value;
 
 pub mod protocol {
     pub use contrix_core::{
-        FederationPullOperationsOutput, FederationPushOperationsReqBody,
-        FederationPushOperationsOutput, FederationSpaceMembersOutput,
-        FederationTransactionReqBody, FederationTransactionOutput, FederationVerifyActorReqBody,
-        FederationVerifyActorOutput,
+        FederationPullOperationsResBody, FederationPushOperationsReqBody,
+        FederationPushOperationsResBody, FederationSpaceMembersResBody,
+        FederationTransactionReqBody, FederationTransactionResBody, FederationVerifyActorReqBody,
+        FederationVerifyActorResBody,
     };
 }
 
@@ -183,7 +183,7 @@ impl FederationBackfillQuery {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct FederationBackfillOutput {
+pub struct FederationBackfillResBody {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub events: Vec<Value>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -201,7 +201,7 @@ pub struct FederationEventAuthQuery {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct FederationEventAuthOutput {
+pub struct FederationEventAuthResBody {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub auth_chain: Vec<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -216,7 +216,7 @@ pub struct FederationProfileQuery {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct FederationProfileOutput {
+pub struct FederationProfileResBody {
     pub user_id: Did,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub profile: BTreeMap<String, Value>,
@@ -241,7 +241,7 @@ impl FederationKeyQuery {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct FederationKeyOutput {
+pub struct FederationKeyResBody {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub keys: BTreeMap<Did, Value>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -256,7 +256,7 @@ pub struct FederationMediaReqBody {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FederationMediaOutput {
+pub struct FederationMediaResBody {
     pub blob_ref: BlobRef,
     pub content_type: String,
     pub size: u64,
@@ -265,7 +265,7 @@ pub struct FederationMediaOutput {
     pub redirect_url: Option<String>,
 }
 
-impl FederationMediaOutput {
+impl FederationMediaResBody {
     pub fn validate(&self) -> Result<()> {
         if self.content_type.trim().is_empty() || self.size == 0 {
             Err(Error::Protocol(
@@ -374,7 +374,7 @@ mod tests {
         ));
         FederationKeyQuery { services: vec![did("server")], users: Vec::new() }.validate().unwrap();
 
-        FederationMediaOutput {
+        FederationMediaResBody {
             blob_ref: BlobRef::from_bytes(b"media"),
             content_type: "image/png".to_owned(),
             size: 42,

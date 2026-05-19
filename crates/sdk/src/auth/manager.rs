@@ -297,7 +297,7 @@ impl AuthManager {
     pub fn verify_passkey_with_verifier<V>(
         &mut self,
         user_id: &Did,
-        response: WebAuthnPasskeyOutput,
+        response: WebAuthnPasskeyResBody,
         origin: impl Into<String>,
         relying_party_id: impl Into<String>,
         device_id: DeviceId,

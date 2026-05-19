@@ -763,7 +763,7 @@ impl CryptoMachineReqBody {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub enum CryptoMachineOutput {
+pub enum CryptoMachineResBody {
     Queued { request_id: String, kind: CryptoMachineRequestKind },
     DeviceKeysUploaded { device_id: DeviceId },
     DeviceKeys(Vec<DeviceKeyBundle>),
@@ -787,7 +787,7 @@ impl CryptoMachinePlan {
         &mut self,
         request_id: impl Into<String>,
         request: CryptoMachineReqBody,
-    ) -> Result<CryptoMachineOutput> {
+    ) -> Result<CryptoMachineResBody> {
         request.validate()?;
         let request_id = request_id.into();
         if request_id.trim().is_empty() {
@@ -795,7 +795,7 @@ impl CryptoMachinePlan {
         }
         let kind = request.kind();
         self.queue.push_back((request_id.clone(), request));
-        Ok(CryptoMachineOutput::Queued { request_id, kind })
+        Ok(CryptoMachineResBody::Queued { request_id, kind })
     }
 
     pub fn pop(&mut self) -> Option<(String, CryptoMachineReqBody)> {
@@ -906,7 +906,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             queued,
-            CryptoMachineOutput::Queued {
+            CryptoMachineResBody::Queued {
                 request_id: "r1".to_owned(),
                 kind: CryptoMachineRequestKind::QueryDeviceKeys
             }

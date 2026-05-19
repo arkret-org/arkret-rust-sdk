@@ -26,7 +26,7 @@ fn webvh_resolver_validates_url_shape_and_log_chain() {
     let resolved = resolver
         .insert_from_https_response(
             &did,
-            DidWebvhDocumentOutput {
+            DidWebvhDocumentResBody {
                 url: "https://starid.local/users/alice/did.json".to_owned(),
                 content_type: "application/did+json".to_owned(),
                 body,
@@ -56,7 +56,7 @@ fn webvh_resolver_validates_url_shape_and_log_chain() {
     let log = resolver
         .ingest_log(
             &did,
-            DidWebvhLogOutput {
+            DidWebvhLogResBody {
                 url: "https://starid.local/users/alice/did.jsonl".to_owned(),
                 content_type: "application/jsonl".to_owned(),
                 body: body.into_bytes(),
@@ -77,7 +77,7 @@ fn webvh_resolver_rejects_scid_mismatch() {
         "parameters": {"scid": "zwrong"},
         "state": {}
     });
-    let response = DidWebvhLogOutput {
+    let response = DidWebvhLogResBody {
         url: DidWebvhResolver::log_url(&did).unwrap(),
         content_type: "application/jsonl".to_owned(),
         body: serde_json::to_vec(&body).unwrap(),
@@ -106,7 +106,7 @@ fn webvh_resolver_rejects_chain_break() {
         serde_json::to_string(&entry1).unwrap(),
         serde_json::to_string(&entry2).unwrap()
     );
-    let response = DidWebvhLogOutput {
+    let response = DidWebvhLogResBody {
         url: DidWebvhResolver::log_url(&did).unwrap(),
         content_type: "application/jsonl".to_owned(),
         body: body.into_bytes(),
@@ -209,7 +209,7 @@ fn did_resolver_adapters_resolve_web_key_and_keri() {
     web_https_resolver
         .insert_from_https_response(
             &web,
-            DidWebDocumentOutput {
+            DidWebDocumentResBody {
                 url: DidWebResolver::document_url(&web).unwrap(),
                 content_type: "application/did+json; charset=utf-8".to_owned(),
                 body: web_body,
@@ -220,7 +220,7 @@ fn did_resolver_adapters_resolve_web_key_and_keri() {
         web_https_resolver
             .insert_from_https_response(
                 &web,
-                DidWebDocumentOutput {
+                DidWebDocumentResBody {
                     url: DidWebResolver::document_url(&web).unwrap(),
                     content_type: "text/plain".to_owned(),
                     body: b"{}".to_vec(),
@@ -232,7 +232,7 @@ fn did_resolver_adapters_resolve_web_key_and_keri() {
         web_https_resolver
             .insert_from_https_response(
                 &web,
-                DidWebDocumentOutput {
+                DidWebDocumentResBody {
                     url: DidWebResolver::document_url(&web).unwrap(),
                     content_type: "application/json".to_owned(),
                     body: vec![b' '; DID_WEB_MAX_DOCUMENT_BYTES + 1],

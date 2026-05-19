@@ -22,7 +22,7 @@ impl SyncResponseProcessor {
     }
 
     /// Process a full sync response into a delta and update local caches.
-    pub fn process(&mut self, response: SyncOutput) -> Result<SyncUpdates> {
+    pub fn process(&mut self, response: SyncResBody) -> Result<SyncUpdates> {
         self.last_token = Some(response.next_batch);
 
         let mut space_updates = Vec::new();

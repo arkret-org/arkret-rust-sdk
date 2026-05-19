@@ -134,7 +134,7 @@ where
 
 /// WebAuthn/passkey authenticator response supplied by an application verifier.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WebAuthnPasskeyOutput {
+pub struct WebAuthnPasskeyResBody {
     pub credential_id: String,
     pub client_data_json: Vec<u8>,
     pub authenticator_data: Vec<u8>,
@@ -147,7 +147,7 @@ pub struct WebAuthnPasskeyOutput {
 pub struct PasskeyVerificationReqBody {
     pub user_id: Did,
     pub challenge: PasskeyChallenge,
-    pub response: WebAuthnPasskeyOutput,
+    pub response: WebAuthnPasskeyResBody,
     pub origin: String,
     pub relying_party_id: String,
     pub now: DateTime<Utc>,

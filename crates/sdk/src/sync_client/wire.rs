@@ -302,7 +302,7 @@ impl EventsQueryReqBody {
 /// `next_cursor` (forward) / `prev_cursor` (backward). Server returns
 /// `limited=true` when the page hit `limit` and more events remain.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct EventsQueryOutput {
+pub struct EventsQueryResBody {
     #[serde(default)]
     pub events: Vec<Event>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -317,8 +317,8 @@ fn is_false_default(v: &bool) -> bool {
     !*v
 }
 
-impl From<contrix_core::SyncBackfillOutput> for EventsQueryOutput {
-    fn from(r: contrix_core::SyncBackfillOutput) -> Self {
+impl From<contrix_core::SyncBackfillResBody> for EventsQueryResBody {
+    fn from(r: contrix_core::SyncBackfillResBody) -> Self {
         Self {
             events: r.events,
             next_cursor: r.next_cursor,
@@ -328,8 +328,8 @@ impl From<contrix_core::SyncBackfillOutput> for EventsQueryOutput {
     }
 }
 
-impl From<EventsQueryOutput> for contrix_core::SyncBackfillOutput {
-    fn from(r: EventsQueryOutput) -> Self {
+impl From<EventsQueryResBody> for contrix_core::SyncBackfillResBody {
+    fn from(r: EventsQueryResBody) -> Self {
         Self {
             events: r.events,
             next_cursor: r.next_cursor,

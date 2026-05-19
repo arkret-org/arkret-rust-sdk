@@ -94,7 +94,7 @@ pub struct DidWebResolver {
 
 /// Host-fetched `did:web` document response validated by the SDK.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DidWebDocumentOutput {
+pub struct DidWebDocumentResBody {
     pub url: String,
     pub content_type: String,
     pub body: Vec<u8>,
@@ -126,7 +126,7 @@ impl DidWebResolver {
     pub fn insert_from_https_response(
         &mut self,
         did: &Did,
-        response: DidWebDocumentOutput,
+        response: DidWebDocumentResBody,
     ) -> Result<DidDocument> {
         let expected_url = Self::document_url(did)?;
         if response.url != expected_url {
@@ -199,9 +199,9 @@ pub struct DidWebvhLogEntry {
 }
 
 /// Bytes returned from fetching `did.json` over HTTPS, mirroring
-/// [`DidWebDocumentOutput`].
+/// [`DidWebDocumentResBody`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DidWebvhDocumentOutput {
+pub struct DidWebvhDocumentResBody {
     pub url: String,
     pub content_type: String,
     pub body: Vec<u8>,
@@ -209,7 +209,7 @@ pub struct DidWebvhDocumentOutput {
 
 /// Bytes returned from fetching `did.jsonl` over HTTPS.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DidWebvhLogOutput {
+pub struct DidWebvhLogResBody {
     pub url: String,
     pub content_type: String,
     pub body: Vec<u8>,
@@ -236,7 +236,7 @@ impl DidWebvhResolver {
     pub fn insert_from_https_response(
         &mut self,
         did: &Did,
-        response: DidWebvhDocumentOutput,
+        response: DidWebvhDocumentResBody,
     ) -> Result<DidDocument> {
         let expected_url = Self::document_url(did)?;
         if response.url != expected_url {
@@ -262,7 +262,7 @@ impl DidWebvhResolver {
     pub fn ingest_log(
         &mut self,
         did: &Did,
-        response: DidWebvhLogOutput,
+        response: DidWebvhLogResBody,
     ) -> Result<Vec<DidWebvhLogEntry>> {
         let expected_url = Self::log_url(did)?;
         if response.url != expected_url {

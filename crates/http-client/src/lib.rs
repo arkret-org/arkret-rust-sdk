@@ -11,27 +11,27 @@ use tokio::time::sleep;
 use url::Url;
 
 use contrix_core::{
-    AppletActorOutput, AppletDescription, AppletPingOutput, AppletProtocolOutput,
-    AppletSpaceOutput, AppletTransactionReqBody, AppletTransactionOutput, AuthzCheckReqBody,
-    AuthzCheckOutput, AuthzInvitesOutput, BackupId, BlobMetadata, BlobRef, BlobUploadMetadata,
-    BlobUploadOutput, DeviceMessagesReceiveOutput, DeviceMessagesSendReqBody,
-    DeviceMessagesSendOutput, DirectoryDescription, DirectoryResolveHandleReqBody,
-    DirectoryResolveHandleOutput, DirectoryResolveOrganizationReqBody,
-    DirectoryResolveOrganizationOutput, DirectoryResolveSpaceReqBody,
-    DirectoryResolveSpaceOutput, DirectorySearchActorsReqBody, DirectorySearchActorsOutput,
-    DirectorySearchOrganizationsReqBody, DirectorySearchOrganizationsOutput,
-    DirectorySearchSpacesReqBody, DirectorySearchSpacesOutput, DirectorySearchUsersReqBody,
-    DirectorySearchUsersOutput, EffectiveGrantsOutput, Error, ErrorEnvelope,
-    IdentityDescription, IdentityDocumentOutput, IdentityLogOutput, IdentityReceiptsOutput,
-    IdentityResolveReqBody, IdentityResolveOutput, KeyBackup, KeyBackupDeleteReqBody,
-    KeyBackupDeleteOutput, KeyBackupPutOutput, KeyBackupSummary, KeyBackupsListQuery,
-    KeyBackupsListOutput, KeysClaimReqBody, KeysClaimOutput, KeysQueryReqBody,
-    KeysQueryOutput, KeysUploadReqBody, KeysUploadOutput, MediaIceConfigReqBody,
-    MediaIceConfigOutput, ModerationReportReqBody, ModerationReportOutput, OkOutput,
-    PolicyCheckReqBody, PolicyCheckOutput, PushNotifyReqBody, PushNotifyOutput,
-    PushRegisterDeviceReqBody, PushRegisterDeviceOutput, PushUnregisterDeviceReqBody, Result,
-    ServerDescription, ServiceRequirements, SubmitDidOperationReqBody, SubmitDidOperationOutput,
-    SyncBackfillOutput, SyncDescription, SyncReqBody, SyncOutput, SyncSnapshotHeadOutput,
+    AppletActorResBody, AppletDescription, AppletPingResBody, AppletProtocolResBody,
+    AppletSpaceResBody, AppletTransactionReqBody, AppletTransactionResBody, AuthzCheckReqBody,
+    AuthzCheckResBody, AuthzInvitesResBody, BackupId, BlobMetadata, BlobRef, BlobUploadMetadata,
+    BlobUploadResBody, DeviceMessagesReceiveResBody, DeviceMessagesSendReqBody,
+    DeviceMessagesSendResBody, DirectoryDescription, DirectoryResolveHandleReqBody,
+    DirectoryResolveHandleResBody, DirectoryResolveOrganizationReqBody,
+    DirectoryResolveOrganizationResBody, DirectoryResolveSpaceReqBody,
+    DirectoryResolveSpaceResBody, DirectorySearchActorsReqBody, DirectorySearchActorsResBody,
+    DirectorySearchOrganizationsReqBody, DirectorySearchOrganizationsResBody,
+    DirectorySearchSpacesReqBody, DirectorySearchSpacesResBody, DirectorySearchUsersReqBody,
+    DirectorySearchUsersResBody, EffectiveGrantsResBody, Error, ErrorEnvelope,
+    IdentityDescription, IdentityDocumentResBody, IdentityLogResBody, IdentityReceiptsResBody,
+    IdentityResolveReqBody, IdentityResolveResBody, KeyBackup, KeyBackupDeleteReqBody,
+    KeyBackupDeleteResBody, KeyBackupPutResBody, KeyBackupSummary, KeyBackupsListQuery,
+    KeyBackupsListResBody, KeysClaimReqBody, KeysClaimResBody, KeysQueryReqBody,
+    KeysQueryResBody, KeysUploadReqBody, KeysUploadResBody, MediaIceConfigReqBody,
+    MediaIceConfigResBody, ModerationReportReqBody, ModerationReportResBody, OkResBody,
+    PolicyCheckReqBody, PolicyCheckResBody, PushNotifyReqBody, PushNotifyResBody,
+    PushRegisterDeviceReqBody, PushRegisterDeviceResBody, PushUnregisterDeviceReqBody, Result,
+    ServerDescription, ServiceRequirements, SubmitDidOperationReqBody, SubmitDidOperationResBody,
+    SyncBackfillResBody, SyncDescription, SyncReqBody, SyncResBody, SyncSnapshotHeadResBody,
 };
 
 pub const HEADER_REQUEST_ID: &str = "X-Contrix-Request-Id";
@@ -576,7 +576,7 @@ impl Client {
     pub async fn identity_resolve(
         &self,
         request: &IdentityResolveReqBody,
-    ) -> Result<IdentityResolveOutput> {
+    ) -> Result<IdentityResolveResBody> {
         self.post("/api/v1/identity/resolve", request).await
     }
 
@@ -584,7 +584,7 @@ impl Client {
         &self,
         did: &str,
         version: Option<&str>,
-    ) -> Result<IdentityDocumentOutput> {
+    ) -> Result<IdentityDocumentResBody> {
         let mut builder =
             self.request(Method::GET, "/api/v1/identity/document")?.query(&[("did", did)]);
         if let Some(version) = version {
@@ -598,7 +598,7 @@ impl Client {
         did: &str,
         cursor: Option<&str>,
         limit: Option<u32>,
-    ) -> Result<IdentityLogOutput> {
+    ) -> Result<IdentityLogResBody> {
         let mut builder = self.request(Method::GET, "/api/v1/identity/log")?.query(&[("did", did)]);
         if let Some(cursor) = cursor {
             builder = builder.query(&[("cursor", cursor)]);
@@ -612,7 +612,7 @@ impl Client {
     pub async fn identity_submit_did_operation(
         &self,
         request: &SubmitDidOperationReqBody,
-    ) -> Result<SubmitDidOperationOutput> {
+    ) -> Result<SubmitDidOperationResBody> {
         self.post("/api/v1/identity/submit-did-operation", request).await
     }
 
@@ -620,14 +620,14 @@ impl Client {
         &self,
         did: &str,
         head: &str,
-    ) -> Result<IdentityReceiptsOutput> {
+    ) -> Result<IdentityReceiptsResBody> {
         let builder = self
             .request(Method::GET, "/api/v1/identity/receipts")?
             .query(&[("did", did), ("head", head)]);
         self.send_json(builder).await
     }
 
-    pub async fn sync(&self, request: &SyncReqBody) -> Result<SyncOutput> {
+    pub async fn sync(&self, request: &SyncReqBody) -> Result<SyncResBody> {
         self.post("/api/v1/sync", request).await
     }
 
@@ -669,7 +669,7 @@ impl Client {
         until: Option<&str>,
         direction: Option<&str>,
         limit: Option<u32>,
-    ) -> Result<SyncBackfillOutput> {
+    ) -> Result<SyncBackfillResBody> {
         let mut builder =
             self.request(Method::GET, "/api/v1/events")?.query(&[("spaces", space_id)]);
         if let Some(from) = from {
@@ -687,14 +687,14 @@ impl Client {
         self.send_json(builder).await
     }
 
-    pub async fn sync_snapshot_head(&self, space_id: &str) -> Result<SyncSnapshotHeadOutput> {
+    pub async fn sync_snapshot_head(&self, space_id: &str) -> Result<SyncSnapshotHeadResBody> {
         let builder = self
             .request(Method::GET, "/api/v1/sync/snapshot-head")?
             .query(&[("space_id", space_id)]);
         self.send_json(builder).await
     }
 
-    pub async fn authz_check(&self, request: &AuthzCheckReqBody) -> Result<AuthzCheckOutput> {
+    pub async fn authz_check(&self, request: &AuthzCheckReqBody) -> Result<AuthzCheckResBody> {
         self.post("/api/v1/authz/check", request).await
     }
 
@@ -741,7 +741,7 @@ impl Client {
         space_id: &str,
         subject: &str,
         at: Option<&str>,
-    ) -> Result<EffectiveGrantsOutput> {
+    ) -> Result<EffectiveGrantsResBody> {
         let mut builder = self
             .request(Method::GET, "/api/v1/authz/effective-grants")?
             .query(&[("space_id", space_id), ("subject", subject)]);
@@ -756,7 +756,7 @@ impl Client {
         subject: &str,
         space_id: Option<&str>,
         cursor: Option<&str>,
-    ) -> Result<AuthzInvitesOutput> {
+    ) -> Result<AuthzInvitesResBody> {
         let mut builder =
             self.request(Method::GET, "/api/v1/authz/invites")?.query(&[("subject", subject)]);
         if let Some(space_id) = space_id {
@@ -782,7 +782,7 @@ impl Client {
         self.send_empty(builder).await
     }
 
-    pub async fn blob_upload(&self, body: &BlobUploadMetadata) -> Result<BlobUploadOutput> {
+    pub async fn blob_upload(&self, body: &BlobUploadMetadata) -> Result<BlobUploadResBody> {
         self.post("/api/v1/blob/upload", body).await
     }
 
@@ -790,7 +790,7 @@ impl Client {
         &self,
         metadata: &BlobUploadMetadata,
         bytes: Vec<u8>,
-    ) -> Result<BlobUploadOutput> {
+    ) -> Result<BlobUploadResBody> {
         let mut builder = self
             .request(Method::POST, "/api/v1/blob/upload")?
             .header("X-Contrix-Blob-Metadata", serde_json::to_string(metadata)?);
@@ -818,15 +818,15 @@ impl Client {
         Ok(response.bytes().await?.to_vec())
     }
 
-    pub async fn keys_upload(&self, request: &KeysUploadReqBody) -> Result<KeysUploadOutput> {
+    pub async fn keys_upload(&self, request: &KeysUploadReqBody) -> Result<KeysUploadResBody> {
         self.post("/api/v1/keys/upload", request).await
     }
 
-    pub async fn keys_query(&self, request: &KeysQueryReqBody) -> Result<KeysQueryOutput> {
+    pub async fn keys_query(&self, request: &KeysQueryReqBody) -> Result<KeysQueryResBody> {
         self.post("/api/v1/keys/query", request).await
     }
 
-    pub async fn keys_claim(&self, request: &KeysClaimReqBody) -> Result<KeysClaimOutput> {
+    pub async fn keys_claim(&self, request: &KeysClaimReqBody) -> Result<KeysClaimResBody> {
         self.post("/api/v1/keys/claim", request).await
     }
 
@@ -839,7 +839,7 @@ impl Client {
         &self,
         backup_id: &BackupId,
         body: &KeyBackup,
-    ) -> Result<KeyBackupPutOutput> {
+    ) -> Result<KeyBackupPutResBody> {
         let path = format!("/api/v1/keys/backups/{}", backup_id.as_str());
         self.put(&path, body).await
     }
@@ -850,7 +850,7 @@ impl Client {
     pub async fn list_key_backups(
         &self,
         query: &KeyBackupsListQuery,
-    ) -> Result<KeyBackupsListOutput> {
+    ) -> Result<KeyBackupsListResBody> {
         let mut builder = self.request(Method::GET, "/api/v1/keys/backups")?;
         if let Some(class) = query.backup_class {
             let class_str = match class {
@@ -873,7 +873,7 @@ impl Client {
     /// Convenience variant that returns just the summary list. Equivalent to
     /// [`list_key_backups`](Self::list_key_backups) with default query.
     pub async fn list_all_key_backups(&self) -> Result<Vec<KeyBackupSummary>> {
-        let response: KeyBackupsListOutput = self
+        let response: KeyBackupsListResBody = self
             .list_key_backups(&KeyBackupsListQuery {
                 backup_class: None,
                 cursor: None,
@@ -901,7 +901,7 @@ impl Client {
         &self,
         backup_id: &BackupId,
         request: &KeyBackupDeleteReqBody,
-    ) -> Result<KeyBackupDeleteOutput> {
+    ) -> Result<KeyBackupDeleteResBody> {
         let path = format!("/api/v1/keys/backups/{}", backup_id.as_str());
         let builder = self.request(Method::DELETE, &path)?.json(request);
         self.send_json(builder).await
@@ -911,7 +911,7 @@ impl Client {
         &self,
         idempotency_key: &str,
         request: &DeviceMessagesSendReqBody,
-    ) -> Result<DeviceMessagesSendOutput> {
+    ) -> Result<DeviceMessagesSendResBody> {
         let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
         self.post_with_options("/api/v1/device_messages", request, &options).await
     }
@@ -920,7 +920,7 @@ impl Client {
         &self,
         from: Option<&str>,
         limit: Option<u32>,
-    ) -> Result<DeviceMessagesReceiveOutput> {
+    ) -> Result<DeviceMessagesReceiveResBody> {
         let mut builder = self.request(Method::GET, "/api/v1/device_messages")?;
         if let Some(from) = from {
             builder = builder.query(&[("from", from)]);
@@ -938,35 +938,35 @@ impl Client {
     pub async fn directory_search_spaces(
         &self,
         request: &DirectorySearchSpacesReqBody,
-    ) -> Result<DirectorySearchSpacesOutput> {
+    ) -> Result<DirectorySearchSpacesResBody> {
         self.post("/api/v1/directory/search-spaces", request).await
     }
 
     pub async fn directory_resolve_space(
         &self,
         request: &DirectoryResolveSpaceReqBody,
-    ) -> Result<DirectoryResolveSpaceOutput> {
+    ) -> Result<DirectoryResolveSpaceResBody> {
         self.post("/api/v1/directory/resolve-space", request).await
     }
 
     pub async fn directory_search_organizations(
         &self,
         request: &DirectorySearchOrganizationsReqBody,
-    ) -> Result<DirectorySearchOrganizationsOutput> {
+    ) -> Result<DirectorySearchOrganizationsResBody> {
         self.post("/api/v1/directory/search-organizations", request).await
     }
 
     pub async fn directory_resolve_organization(
         &self,
         request: &DirectoryResolveOrganizationReqBody,
-    ) -> Result<DirectoryResolveOrganizationOutput> {
+    ) -> Result<DirectoryResolveOrganizationResBody> {
         self.post("/api/v1/directory/resolve-organization", request).await
     }
 
     pub async fn directory_search_actors(
         &self,
         request: &DirectorySearchActorsReqBody,
-    ) -> Result<DirectorySearchActorsOutput> {
+    ) -> Result<DirectorySearchActorsResBody> {
         self.post("/api/v1/directory/search-actors", request).await
     }
 
@@ -975,7 +975,7 @@ impl Client {
         q: &str,
         space_id: Option<&str>,
         limit: Option<u32>,
-    ) -> Result<DirectorySearchUsersOutput> {
+    ) -> Result<DirectorySearchUsersResBody> {
         let request = DirectorySearchUsersReqBody {
             q: q.to_owned(),
             space_id: space_id.map(str::parse).transpose()?,
@@ -987,47 +987,47 @@ impl Client {
     pub async fn directory_resolve_handle(
         &self,
         request: &DirectoryResolveHandleReqBody,
-    ) -> Result<DirectoryResolveHandleOutput> {
+    ) -> Result<DirectoryResolveHandleResBody> {
         self.post("/api/v1/directory/resolve-handle", request).await
     }
 
     pub async fn push_register_device(
         &self,
         request: &PushRegisterDeviceReqBody,
-    ) -> Result<PushRegisterDeviceOutput> {
+    ) -> Result<PushRegisterDeviceResBody> {
         self.post("/api/v1/push/register-device", request).await
     }
 
     pub async fn push_unregister_device(
         &self,
         request: &PushUnregisterDeviceReqBody,
-    ) -> Result<OkOutput> {
+    ) -> Result<OkResBody> {
         self.post("/api/v1/push/unregister-device", request).await
     }
 
-    pub async fn push_notify(&self, request: &PushNotifyReqBody) -> Result<PushNotifyOutput> {
+    pub async fn push_notify(&self, request: &PushNotifyReqBody) -> Result<PushNotifyResBody> {
         self.post("/api/v1/push/notify", request).await
     }
 
-    pub async fn policy_check(&self, request: &PolicyCheckReqBody) -> Result<PolicyCheckOutput> {
+    pub async fn policy_check(&self, request: &PolicyCheckReqBody) -> Result<PolicyCheckResBody> {
         self.post("/contrix/v1/check", request).await
     }
 
     pub async fn media_ice_config(
         &self,
         request: &MediaIceConfigReqBody,
-    ) -> Result<MediaIceConfigOutput> {
+    ) -> Result<MediaIceConfigResBody> {
         self.post("/contrix/v1/ice-config", request).await
     }
 
     pub async fn moderation_report(
         &self,
         request: &ModerationReportReqBody,
-    ) -> Result<ModerationReportOutput> {
+    ) -> Result<ModerationReportResBody> {
         self.post("/api/v1/moderation/report", request).await
     }
 
-    pub async fn applet_ping(&self) -> Result<AppletPingOutput> {
+    pub async fn applet_ping(&self) -> Result<AppletPingResBody> {
         self.get("/api/v1/applet/ping").await
     }
 
@@ -1039,24 +1039,24 @@ impl Client {
         &self,
         idempotency_key: &str,
         request: &AppletTransactionReqBody,
-    ) -> Result<AppletTransactionOutput> {
+    ) -> Result<AppletTransactionResBody> {
         let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
         self.post_with_options("/api/v1/applet/transactions", request, &options).await
     }
 
-    pub async fn applet_actor(&self, actor_id: &str) -> Result<AppletActorOutput> {
+    pub async fn applet_actor(&self, actor_id: &str) -> Result<AppletActorResBody> {
         reject_path_segment(actor_id)?;
         let path = format!("/api/v1/applet/actors/{actor_id}");
         self.get(&path).await
     }
 
-    pub async fn applet_space(&self, space_id_or_alias: &str) -> Result<AppletSpaceOutput> {
+    pub async fn applet_space(&self, space_id_or_alias: &str) -> Result<AppletSpaceResBody> {
         reject_path_segment(space_id_or_alias)?;
         let path = format!("/api/v1/applet/spaces/{space_id_or_alias}");
         self.get(&path).await
     }
 
-    pub async fn applet_protocol(&self, protocol: &str) -> Result<AppletProtocolOutput> {
+    pub async fn applet_protocol(&self, protocol: &str) -> Result<AppletProtocolResBody> {
         reject_path_segment(protocol)?;
         let path = format!("/api/v1/applet/protocols/{protocol}");
         self.get(&path).await

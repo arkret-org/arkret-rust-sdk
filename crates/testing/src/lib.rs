@@ -330,7 +330,7 @@ pub fn endpoint_coverage_rows() -> Vec<EndpointCoverageRow> {
             method: "CONTRACT".to_owned(),
             path: format!("contrix-core://operations/{operation_id}"),
             request_schema: "OperationInput".to_owned(),
-            response_schema: "OperationOutput".to_owned(),
+            response_schema: "OperationResBody".to_owned(),
         }
     }));
     // Product client-API coverage rows were previously derived from the
@@ -426,7 +426,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
             method: "CONTRACT".to_owned(),
             path: "contrix-crypto://machine".to_owned(),
             request_schema: "CryptoMachineReqBody".to_owned(),
-            response_schema: "CryptoMachineOutput".to_owned(),
+            response_schema: "CryptoMachineResBody".to_owned(),
         },
         EndpointCoverageRow {
             domain: ConformanceDomain::Crypto,

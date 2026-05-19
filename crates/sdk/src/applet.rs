@@ -9,10 +9,10 @@ use ulid::Ulid;
 
 use crate::{
     Did, Error, Event, Result, SpaceId,
-    model::{AppletActorOutput, AppletSpaceOutput, AppletTransactionReqBody},
+    model::{AppletActorResBody, AppletSpaceResBody, AppletTransactionReqBody},
 };
 #[cfg(test)]
-use crate::{canonical, model::AppletTransactionOutput};
+use crate::{canonical, model::AppletTransactionResBody};
 
 /// Applet permission.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -347,15 +347,15 @@ pub struct AppletServiceTransaction {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg(test)]
 pub(crate) enum AppletServiceTransactionRecord {
-    New(AppletTransactionOutput),
-    Duplicate(AppletTransactionOutput),
+    New(AppletTransactionResBody),
+    Duplicate(AppletTransactionResBody),
 }
 
 /// In-memory idempotent applet service transaction store.
 #[derive(Clone, Debug, Default)]
 #[cfg(test)]
 pub(crate) struct AppletServiceTransactionStore {
-    transactions: BTreeMap<String, (String, AppletTransactionOutput)>,
+    transactions: BTreeMap<String, (String, AppletTransactionResBody)>,
 }
 
 #[cfg(test)]
@@ -369,7 +369,7 @@ impl AppletServiceTransactionStore {
     pub fn record(
         &mut self,
         transaction: &AppletServiceTransaction,
-        response: AppletTransactionOutput,
+        response: AppletTransactionResBody,
     ) -> Result<AppletServiceTransactionRecord> {
         let digest = canonical::canonical_sha256(&transaction.request)?;
         if let Some((existing_digest, existing_response)) =
@@ -449,9 +449,9 @@ pub struct ThirdPartyLookupReqBody {
 
 /// Third-party lookup response.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum ThirdPartyLookupOutput {
-    User(AppletActorOutput),
-    Location(AppletSpaceOutput),
+pub enum ThirdPartyLookupResBody {
+    User(AppletActorResBody),
+    Location(AppletSpaceResBody),
 }
 
 /// Bridge mapping from a remote user to a Contrix virtual actor.
@@ -710,7 +710,7 @@ mod tests {
         let intent = AppletServiceIntent::new(did("svc"), did("ghost"));
         let transaction = intent.transaction("k1", Vec::new());
         let response =
-            AppletTransactionOutput { ok: true, rejected: Vec::new(), retry_after_ms: None };
+            AppletTransactionResBody { ok: true, rejected: Vec::new(), retry_after_ms: None };
         let mut store = AppletServiceTransactionStore::new();
 
         assert!(matches!(
@@ -727,7 +727,7 @@ mod tests {
         assert!(matches!(
             store.record(
                 &changed,
-                AppletTransactionOutput { ok: true, rejected: Vec::new(), retry_after_ms: None },
+                AppletTransactionResBody { ok: true, rejected: Vec::new(), retry_after_ms: None },
             ),
             Err(Error::IdempotencyConflict(_))
         ));

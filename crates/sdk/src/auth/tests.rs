@@ -136,7 +136,7 @@ fn auth_uses_provider_passkey_verifier() {
     let mut auth = AuthManager::default();
     auth.set_account_state(alice.clone(), AccountAuthState::Active);
     let challenge = auth.start_passkey(alice.clone());
-    let response = WebAuthnPasskeyOutput {
+    let response = WebAuthnPasskeyResBody {
         credential_id: "credential-1".to_owned(),
         client_data_json: br#"{"type":"webauthn.get"}"#.to_vec(),
         authenticator_data: vec![1, 2, 3],
@@ -267,7 +267,7 @@ fn session_grant_contract_redacts_and_notifies_principal_servers() {
 
     let notifier = |notification: &PrincipalSessionGrantNotification| {
         notification.validate()?;
-        Ok(PrincipalSessionGrantNotificationOutput {
+        Ok(PrincipalSessionGrantNotificationResBody {
             accepted: true,
             audit_id: Some("audit-1".to_owned()),
             retry_after_ms: None,

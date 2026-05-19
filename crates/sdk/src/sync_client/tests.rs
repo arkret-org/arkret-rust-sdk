@@ -6,8 +6,8 @@ use super::*;
 use crate::Did;
 use crate::sync::{DeviceListChanges, SyncSpace, UnreadCounts};
 
-fn sync_response(next_batch: &str) -> SyncOutput {
-    SyncOutput {
+fn sync_response(next_batch: &str) -> SyncResBody {
+    SyncResBody {
         next_batch: next_batch.to_owned(),
         spaces: BTreeMap::new(),
         to_device: Vec::new(),
@@ -529,7 +529,7 @@ fn frame_frontier_advance_round_trip() {
     assert!(!frame.requires_resubscribe());
 }
 
-// ─── EventsQueryReqBody / EventsQueryOutput tests ─────────────
+// ─── EventsQueryReqBody / EventsQueryResBody tests ─────────────
 
 #[test]
 fn events_query_request_validates_non_empty() {
@@ -568,13 +568,13 @@ fn events_query_response_round_trips_with_sync_backfill() {
         "prev_cursor": "sx:prev:0",
         "limited": true,
     });
-    let resp: EventsQueryOutput = serde_json::from_value(body).unwrap();
+    let resp: EventsQueryResBody = serde_json::from_value(body).unwrap();
     assert_eq!(resp.next_cursor.as_deref(), Some("sx:next:1"));
     assert_eq!(resp.prev_cursor.as_deref(), Some("sx:prev:0"));
     assert!(resp.limited);
-    // Round-trip via SyncBackfillOutput keeps cursors and flag.
-    let bf: contrix_core::SyncBackfillOutput = resp.clone().into();
-    let back: EventsQueryOutput = bf.into();
+    // Round-trip via SyncBackfillResBody keeps cursors and flag.
+    let bf: contrix_core::SyncBackfillResBody = resp.clone().into();
+    let back: EventsQueryResBody = bf.into();
     assert_eq!(back.next_cursor, resp.next_cursor);
     assert_eq!(back.prev_cursor, resp.prev_cursor);
     assert_eq!(back.limited, resp.limited);

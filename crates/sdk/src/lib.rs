@@ -40,12 +40,12 @@
 //! Run one in-memory sync-loop step:
 //!
 //! ```rust
-//! use contrix::{SyncLoop, SyncLoopStep, SyncReqBody, SyncOutput};
+//! use contrix::{SyncLoop, SyncLoopStep, SyncReqBody, SyncResBody};
 //!
 //! # fn main() {
 //! let mut sync_loop = SyncLoop::new();
 //! let mut transport = |_request: SyncReqBody| {
-//!     Ok(SyncOutput {
+//!     Ok(SyncResBody {
 //!         next_batch: "s1".to_owned(),
 //!         spaces: Default::default(),
 //!         to_device: Vec::new(),
@@ -220,7 +220,7 @@ pub use applet::{
     AppletPortal, AppletSchema, AppletServiceIntent, AppletServiceTransaction,
     GhostActorAccountability, OpenApiBinding, PortalMode, PortalSpaceMapping, RemoteSpaceMapping,
     RemoteUserMapping, SignedAppletRegistration, ThirdPartyLookupKind, ThirdPartyLookupReqBody,
-    ThirdPartyLookupOutput, VirtualActor,
+    ThirdPartyLookupResBody, VirtualActor,
 };
 #[cfg(feature = "full-surface")]
 pub use auth::{
@@ -234,11 +234,11 @@ pub use auth::{
     PasskeyVerificationReqBody, PasskeyVerifier, PasswordHashAlgorithm, PasswordHashVerifier,
     PasswordUser, PasswordVerification, PasswordVerificationReqBody, PersistedAuthSession,
     PresentationReqBody, PresentationValidation, PresentedClaim, PrincipalSessionGrantNotification,
-    PrincipalSessionGrantNotificationOutput, PrincipalSessionGrantNotifier, RefreshTokenMetadata,
+    PrincipalSessionGrantNotificationResBody, PrincipalSessionGrantNotifier, RefreshTokenMetadata,
     RejectedClaim, SessionGrant, SessionGrantNotificationKind, SessionGrantOutboxEntry,
     SessionGrantOutboxState, SessionGrantPayload, SessionGrantRecord, SessionGrantRetryPolicy,
     SessionGrantSigner, SessionGrantVerification, SessionGrantVerifier, SessionPrincipalBinding,
-    SessionRevocation, WebAuthnPasskeyOutput, contrix_device_scope, device_id_from_scope_token,
+    SessionRevocation, WebAuthnPasskeyResBody, contrix_device_scope, device_id_from_scope_token,
     issue_session_grant_with_signer, primary_device_id_from_scopes, validate_presentation,
     verify_session_grant_with_verifier,
 };
@@ -247,7 +247,7 @@ pub use authz::{
     ApprovalFlowManager, ApprovalMode, AuthzContext, AuthzDecision, AuthzEngine,
     CapabilityFrontierValidation, CapabilityGrant, ClaimRequirement, Constraint,
     ConstraintDuration, ConstraintEffect, ConstraintEntry, FieldScope, GrantProposal,
-    ModerationReport, PolicyCheckReqBody, PolicyCheckOutput, PolicyServerEffect,
+    ModerationReport, PolicyCheckReqBody, PolicyCheckResBody, PolicyServerEffect,
     ProposalApproval, ProposalStatus, ProtocolGrantApprovalRelation, ProtocolGrantClaimRequirement,
     ProtocolGrantConstraint, ProtocolGrantConstraintEffect, ProtocolGrantConstraintTrack,
     ProtocolGrantConstraintType, ProtocolResourceSelector, ProtocolResourceSelectorKind,
@@ -321,7 +321,7 @@ pub use http_did_resolver::{
 pub use identity::{
     CompositeDidResolver, DID_WEB_MAX_DOCUMENT_BYTES, DidDocument, DidKeriResolver, DidKeyLogEntry,
     DidKeyLogOperation, DidKeyResolver, DidMigration, DidRegistryReceipt, DidResolver,
-    DidVisibility, DidWebDocumentOutput, DidWebResolver, ExternalHandleProof, HandleAttestation,
+    DidVisibility, DidWebDocumentResBody, DidWebResolver, ExternalHandleProof, HandleAttestation,
     HandleClaim, HandleProofProfile, IdentityManager, InMemoryStaridRegistryAdapter,
     PairwiseDidBinding, PairwiseDidResolutionProof, PairwiseDidStore, StaridControlProofReqBody,
     StaridControlProofVerification, StaridRegistryAdapter, StaridRegistryRecord, VerifiedDidKeyLog,
@@ -332,7 +332,7 @@ pub use identity::{
 pub use identity_link::{IdentityLinkCache, IdentityLinkCacheEntry};
 #[cfg(all(feature = "full-surface", feature = "device-runtime", feature = "client"))]
 pub use key_backup_client::{
-    KeyBackupClient, KeyBackupDeleteOutput, KeyBackupListOutput, KeyBackupPutOutput,
+    KeyBackupClient, KeyBackupDeleteResBody, KeyBackupListResBody, KeyBackupPutResBody,
 };
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub use key_verification::{
@@ -359,7 +359,7 @@ pub use notifications::{
 pub use platform::{
     FfiCallbackAction, FfiCallbackResult, FfiCancellationHandle, FfiError, FfiErrorCode, FfiEvent,
     FfiEventSink, FfiHandle, FfiHandleKind, IndexedDbStoreDescriptor, IndexedDbStoreKind,
-    WasmBrowserHttpTransport, WasmHttpReqBody, WasmHttpOutput, WasmRuntimeContract,
+    WasmBrowserHttpTransport, WasmHttpReqBody, WasmHttpResBody, WasmRuntimeContract,
     WebCryptoKeyHandle, WebCryptoOperation,
 };
 #[cfg(feature = "full-surface")]
@@ -394,7 +394,7 @@ pub use search::{SpaceSearchEntry, SpaceSearchIndex, SpaceSearchQuery};
 #[cfg(all(feature = "full-surface", feature = "server"))]
 pub use server::{
     EndpointHandler, ProtocolFixtureFlow, ProtocolFixtureReport, ProtocolFixtureStep,
-    ProtocolGoldenVector, ProtocolServerFixture, ServerReqBody, ServerOutput,
+    ProtocolGoldenVector, ProtocolServerFixture, ServerReqBody, ServerResBody,
     WireConformanceVector, protocol_golden_vectors, reject_query_auth, wire_negative_vectors,
 };
 #[cfg(feature = "full-surface")]
@@ -415,7 +415,7 @@ pub use store::{
 #[cfg(all(feature = "full-surface", feature = "sync-runtime"))]
 pub use sync_client::{
     AsyncSyncTransport, BackoffConfig, BackpressureConfig, BoxSyncFuture, CancellationToken,
-    EventsQueryDirection, EventsQueryReqBody, EventsQueryOutput, EventsQuerySelector,
+    EventsQueryDirection, EventsQueryReqBody, EventsQueryResBody, EventsQuerySelector,
     EventsSubscribeFrame, EventsSubscribeTransport, ExponentialBackoff, LocalEcho, ProcessedSpace,
     SendQueue, SendQueueItem, SendQueueItemKind, SendQueueSnapshot, SendQueueStatus, SlidingSync,
     SlidingWindow, SpaceListChange, SpaceListEntry, SpaceListFilter, SpaceListService,

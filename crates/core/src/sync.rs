@@ -40,7 +40,7 @@ pub struct SyncReqBody {
 /// Sync response from the server.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SyncOutput {
+pub struct SyncResBody {
     /// Token for the next sync
     pub next_batch: String,
     /// Space sync results
@@ -323,7 +323,7 @@ pub enum BackfillDirection {
 /// Backfill response.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct BackfillOutput {
+pub struct BackfillResBody {
     /// Events in reverse chronological order
     pub events: Vec<Value>,
     /// Count of total events available
@@ -741,7 +741,7 @@ impl SyncClient {
     }
 
     /// Process a sync response and extract updates.
-    pub fn process_response(&mut self, response: SyncOutput) -> SyncUpdates {
+    pub fn process_response(&mut self, response: SyncResBody) -> SyncUpdates {
         // Update token
         self.current_token = Some(response.next_batch);
 
@@ -872,7 +872,7 @@ mod tests {
             "partial": false
         }"#;
 
-        let response: SyncOutput = serde_json::from_str(json).unwrap();
+        let response: SyncResBody = serde_json::from_str(json).unwrap();
         assert_eq!(response.next_batch, "token456");
         assert_eq!(response.spaces.len(), 1);
     }
@@ -893,7 +893,7 @@ mod tests {
     fn sync_client_processes_response() {
         let mut client = SyncClient::new("device1".to_owned());
 
-        let response = SyncOutput {
+        let response = SyncResBody {
             next_batch: "token456".to_owned(),
             spaces: BTreeMap::new(),
             to_device: vec![],

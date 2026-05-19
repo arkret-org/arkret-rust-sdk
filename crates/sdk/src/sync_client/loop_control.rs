@@ -84,14 +84,14 @@ pub enum SyncLoopStep {
 /// Minimal transport abstraction used by [`SyncLoop`].
 pub trait SyncTransport {
     /// Execute one sync request.
-    fn sync(&mut self, request: SyncReqBody) -> Result<SyncOutput>;
+    fn sync(&mut self, request: SyncReqBody) -> Result<SyncResBody>;
 }
 
 impl<F> SyncTransport for F
 where
-    F: FnMut(SyncReqBody) -> Result<SyncOutput>,
+    F: FnMut(SyncReqBody) -> Result<SyncResBody>,
 {
-    fn sync(&mut self, request: SyncReqBody) -> Result<SyncOutput> {
+    fn sync(&mut self, request: SyncReqBody) -> Result<SyncResBody> {
         self(request)
     }
 }
@@ -101,15 +101,15 @@ pub type BoxSyncFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + Send + 
 /// Async transport abstraction used by [`SyncLoop::step_async`].
 pub trait AsyncSyncTransport {
     /// Execute one async sync request.
-    fn sync_async<'a>(&'a self, request: SyncReqBody) -> BoxSyncFuture<'a, SyncOutput>;
+    fn sync_async<'a>(&'a self, request: SyncReqBody) -> BoxSyncFuture<'a, SyncResBody>;
 }
 
 impl<F, Fut> AsyncSyncTransport for F
 where
     F: Fn(SyncReqBody) -> Fut + Send + Sync,
-    Fut: Future<Output = Result<SyncOutput>> + Send + 'static,
+    Fut: Future<Output = Result<SyncResBody>> + Send + 'static,
 {
-    fn sync_async<'a>(&'a self, request: SyncReqBody) -> BoxSyncFuture<'a, SyncOutput> {
+    fn sync_async<'a>(&'a self, request: SyncReqBody) -> BoxSyncFuture<'a, SyncResBody> {
         Box::pin(self(request))
     }
 }
@@ -142,7 +142,7 @@ pub trait EventsSubscribeTransport {
 // for downstream impls.
 #[cfg(all(feature = "client", not(target_arch = "wasm32")))]
 impl AsyncSyncTransport for crate::Client {
-    fn sync_async<'a>(&'a self, request: SyncReqBody) -> BoxSyncFuture<'a, SyncOutput> {
+    fn sync_async<'a>(&'a self, request: SyncReqBody) -> BoxSyncFuture<'a, SyncResBody> {
         Box::pin(async move { self.sync(&request).await })
     }
 }
@@ -398,7 +398,7 @@ impl SyncLoop {
         }
     }
 
-    fn handle_response(&mut self, response: SyncOutput) -> SyncLoopStep {
+    fn handle_response(&mut self, response: SyncResBody) -> SyncLoopStep {
         self.backoff.reset();
         self.token = Some(response.next_batch.clone());
         match self.processor.process(response) {

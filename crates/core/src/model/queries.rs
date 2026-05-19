@@ -106,7 +106,7 @@ pub struct QueryFrontier {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct QueryOutput<T = Value> {
+pub struct QueryResBody<T = Value> {
     pub items: Vec<T>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<Cursor>,
@@ -119,7 +119,7 @@ pub struct QueryOutput<T = Value> {
 // Collection projection (T20) — board / list / table renderer responses.
 // Per `models/views.md` §6.3.
 //
-// Unlike `QueryOutput<T>`'s flat item list, a collection projection is
+// Unlike `QueryResBody<T>`'s flat item list, a collection projection is
 // nested: `groups` (Lists / status columns) each contain `items` (Flows
 // with rank + locked-discussion metadata). This shape lets a kanban
 // renderer paint the board in one pass without correlating two response
@@ -130,7 +130,7 @@ pub struct QueryOutput<T = Value> {
 /// canonical shape for kanban / list / table / calendar renderers.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct CollectionProjectionOutput {
+pub struct CollectionProjectionResBody {
     /// Always `"collection"`. Pinned to `ViewKind::Collection` for
     /// callers that match on it.
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = String)))]

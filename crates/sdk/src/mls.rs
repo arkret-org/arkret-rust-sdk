@@ -912,7 +912,7 @@ pub struct EpochRecoveryReqBody {
 
 /// Response containing the commits needed for epoch recovery.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct EpochRecoveryOutput {
+pub struct EpochRecoveryResBody {
     /// Group that was recovered.
     pub group_id: String,
     /// The commits from `local_epoch + 1` through `target_epoch`.
@@ -956,7 +956,7 @@ impl EpochRecoveryReqBody {
     }
 }
 
-impl EpochRecoveryOutput {
+impl EpochRecoveryResBody {
     /// Apply all commits in this recovery response to a group.
     pub fn apply_to_group(&self, group: &mut ContrixMlsGroup) -> Result<u64> {
         group.apply_commits(&self.commits)
@@ -984,7 +984,7 @@ pub fn build_epoch_recovery_response(
     group: &ContrixMlsGroup,
     store: &impl CryptoStore,
     request: &EpochRecoveryReqBody,
-) -> Result<EpochRecoveryOutput> {
+) -> Result<EpochRecoveryResBody> {
     request.validate()?;
 
     let commits = store.commits_for_group(&request.group_id);
@@ -998,7 +998,7 @@ pub fn build_epoch_recovery_response(
         return Err(Error::Protocol("no commits available for epoch recovery".to_owned()));
     }
 
-    Ok(EpochRecoveryOutput {
+    Ok(EpochRecoveryResBody {
         group_id: request.group_id.clone(),
         commits: recovery_commits,
         ratchet_tree: Some(group.ratchet_tree()?),
