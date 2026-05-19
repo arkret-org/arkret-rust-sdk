@@ -13,8 +13,8 @@ pub use contrix_identifiers::{
     ActorProfileId, AgentSessionId, AgentTaskId, AppletId, BackupId, BatchId, BlobId, BlobRef,
     BlockId, CallId, CapabilityId, ChunkId, ClaimId, Cursor, DeviceId, DevmsgId, Did, EventId,
     FilterId, FlowId, FrameId, FrankId, GrantId, Hash, Hlc, InviteId, KeyevtId, MessageId, ModqId,
-    MorphId, NotifId, OperationId, PlaceId, PolicyId, PresentationId, ReceiptId, RelationId,
-    ReportId, ReqId, SnapshotId, SpaceId, TxnId, ViewId, new_prefixed_uuid7,
+    MorphId, NotifId, OperationId, PlaceId, PolicyId, PresentationId, ReceiptId, RealmId,
+    RelationId, ReportId, ReqId, SnapshotId, SpaceId, TxnId, ViewId, new_prefixed_uuid7,
 };
 
 mod api;
@@ -30,6 +30,7 @@ mod operation;
 mod primitives;
 mod profiles;
 mod queries;
+mod realm_governance;
 mod registry;
 #[cfg(test)]
 mod tests;
@@ -48,4 +49,5 @@ pub use primitives::*;
 pub use primitives::proof_kind;
 pub use profiles::*;
 pub use queries::*;
+pub use realm_governance::*;
 pub use registry::*;

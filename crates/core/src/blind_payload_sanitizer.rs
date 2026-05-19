@@ -32,7 +32,8 @@
 //! [`BlindPayloadError::ForbiddenField`]:
 //!
 //! - Correlation identifiers: `event_id`, `message_id`, `flow_id`,
-//!   `space_id`, `thread_id`, `correlation_id`, `request_id`, `txn_id`.
+//!   `realm_id`, `space_id`, `place_id`, `thread_id`, `correlation_id`,
+//!   `request_id`, `txn_id`.
 //! - Sender identity: `sender`, `sender_did`, `sender_handle`,
 //!   `sender_display_name`, `sender_name`, `user_name`, `display_name`,
 //!   `from`, `to`, `target_did`.
@@ -424,7 +425,13 @@ pub fn is_forbidden_payload_key(key: &str) -> bool {
         "event_id"
             | "message_id"
             | "flow_id"
+            // Realm/Space inversion (spec 59ac1d4): the security-boundary
+            // identifier is now `realm_id`; the renamed container identifier
+            // continues to use `space_id`. Both are forbidden in blind push
+            // payloads since either leaks correlatable scope.
+            | "realm_id"
             | "space_id"
+            | "place_id"
             | "thread_id"
             | "correlation_id"
             | "request_id"

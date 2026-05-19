@@ -72,7 +72,7 @@ pub use identifiers::{
     BlobRef, BlockId, CallId, CapabilityId, CellRef, ChunkId, ClaimId, DeviceId, DevmsgId, Did,
     EventId, FilterId, FlowId, FrameId, FrankId, GrantId, Hash, Hlc, InviteId, KeyevtId, MessageId,
     ModqId, MorphId, MoveId, NotifId, OperationId, PlaceId, PolicyId, PresentationId, ReceiptId,
-    RelationId, ReportId, ReqId, SnapshotId, SpaceId, TxnId, ViewId,
+    RealmId, RelationId, ReportId, ReqId, SnapshotId, SpaceId, TxnId, ViewId,
 };
 pub use keystore::{
     InMemoryKeyStore, KeyStore, KeyStoreError, LinuxSecretServiceKeyStore, MacOsKeychainKeyStore,

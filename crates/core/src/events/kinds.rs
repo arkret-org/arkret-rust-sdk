@@ -95,12 +95,34 @@ pub const MORPH_SCHEMA_MIGRATE: &str = "cx.morph.schema_migrate";
 pub const MORPH_UPDATE: &str = "cx.morph.update";
 pub const ORGANIZATION_DISCOVERY: &str = "cx.organization.discovery";
 pub const ORGANIZATION_MODERATION_POLICY: &str = "cx.organization.moderation_policy";
-pub const PLACE_ARCHIVE: &str = "cx.place.archive";
-pub const PLACE_CREATE: &str = "cx.place.create";
-pub const PLACE_PARENT: &str = "cx.place.parent";
-pub const PLACE_RESTORE: &str = "cx.place.restore";
-pub const PLACE_TOMBSTONE: &str = "cx.place.tombstone";
-pub const PLACE_UPDATE: &str = "cx.place.update";
+// Realm event kinds (security boundary; spec 59ac1d4 Realm/Space inversion).
+// These replace the former `cx.space.*` security events. Top-level governance
+// of the security boundary lives here.
+pub const REALM_ARCHIVE: &str = "cx.realm.archive";
+pub const REALM_ASSET_PRIVACY_POLICY: &str = "cx.realm.asset_privacy_policy";
+pub const REALM_AUDIT_POLICY_DOWNGRADE: &str = "cx.realm.audit_policy_downgrade";
+pub const REALM_CREATE: &str = "cx.realm.create";
+pub const REALM_DELIVERY_BINDING_POLICY: &str = "cx.realm.delivery_binding_policy";
+pub const REALM_DESTROY: &str = "cx.realm.destroy";
+pub const REALM_DISCOVERY: &str = "cx.realm.discovery";
+pub const REALM_FREEZE: &str = "cx.realm.freeze";
+pub const REALM_HISTORY_SHARING_POLICY: &str = "cx.realm.history_sharing_policy";
+pub const REALM_HISTORY_VISIBILITY: &str = "cx.realm.history_visibility";
+pub const REALM_INHERITANCE_POLICY: &str = "cx.realm.inheritance_policy";
+pub const REALM_JOIN_RULE: &str = "cx.realm.join_rule";
+pub const REALM_LINK: &str = "cx.realm.link";
+pub const REALM_MEDIA_SERVICE: &str = "cx.realm.media_service";
+pub const REALM_MODERATION_POLICY: &str = "cx.realm.moderation_policy";
+pub const REALM_ORGANIZATION: &str = "cx.realm.organization";
+pub const REALM_PLAINTEXT_VISIBLE_SERVICES: &str = "cx.realm.plaintext_visible_services";
+pub const REALM_POLICY: &str = "cx.realm.policy";
+pub const REALM_POLICY_COMPONENTS: &str = "cx.realm.policy_components";
+pub const REALM_POLICY_SERVER: &str = "cx.realm.policy_server";
+pub const REALM_READ_RECEIPT_POLICY: &str = "cx.realm.read_receipt_policy";
+pub const REALM_SCHEMA: &str = "cx.realm.schema";
+pub const REALM_TOMBSTONE: &str = "cx.realm.tombstone";
+pub const REALM_UPDATE: &str = "cx.realm.update";
+pub const REALM_UPGRADE: &str = "cx.realm.upgrade";
 pub const POLICY_ACTION: &str = "cx.policy.action";
 pub const POLICY_RULE: &str = "cx.policy.rule";
 pub const POLICY_SET: &str = "cx.policy.set";
@@ -120,32 +142,16 @@ pub const SCHEMA_DEFINE: &str = "cx.schema.define";
 pub const SCHEMA_UPDATE: &str = "cx.schema.update";
 pub const SESSION_GRANT: &str = "cx.session.grant";
 pub const SOVEREIGN_DID_POLICY: &str = "cx.sovereign.did_policy";
+// Space event kinds (container; spec 59ac1d4 Realm/Space inversion).
+// These replace the former `cx.place.*` container events. Boards / lists /
+// arbitrary nestable containers live here. Security policies are NOT in
+// this family — see REALM_* above.
 pub const SPACE_ARCHIVE: &str = "cx.space.archive";
-pub const SPACE_ASSET_PRIVACY_POLICY: &str = "cx.space.asset_privacy_policy";
-pub const SPACE_AUDIT_POLICY_DOWNGRADE: &str = "cx.space.audit_policy_downgrade";
-pub const SPACE_CHILD: &str = "cx.space.child";
 pub const SPACE_CREATE: &str = "cx.space.create";
-pub const SPACE_DELIVERY_BINDING_POLICY: &str = "cx.space.delivery_binding_policy";
-pub const SPACE_DESTROY: &str = "cx.space.destroy";
-pub const SPACE_DISCOVERY: &str = "cx.space.discovery";
-pub const SPACE_FREEZE: &str = "cx.space.freeze";
-pub const SPACE_HISTORY_SHARING_POLICY: &str = "cx.space.history_sharing_policy";
-pub const SPACE_HISTORY_VISIBILITY: &str = "cx.space.history_visibility";
-pub const SPACE_INHERITANCE_POLICY: &str = "cx.space.inheritance_policy";
-pub const SPACE_JOIN_RULE: &str = "cx.space.join_rule";
-pub const SPACE_MEDIA_SERVICE: &str = "cx.space.media_service";
-pub const SPACE_MODERATION_POLICY: &str = "cx.space.moderation_policy";
-pub const SPACE_ORGANIZATION: &str = "cx.space.organization";
 pub const SPACE_PARENT: &str = "cx.space.parent";
-pub const SPACE_PLAINTEXT_VISIBLE_SERVICES: &str = "cx.space.plaintext_visible_services";
-pub const SPACE_POLICY: &str = "cx.space.policy";
-pub const SPACE_POLICY_COMPONENTS: &str = "cx.space.policy_components";
-pub const SPACE_POLICY_SERVER: &str = "cx.space.policy_server";
-pub const SPACE_READ_RECEIPT_POLICY: &str = "cx.space.read_receipt_policy";
-pub const SPACE_SCHEMA: &str = "cx.space.schema";
+pub const SPACE_RESTORE: &str = "cx.space.restore";
 pub const SPACE_TOMBSTONE: &str = "cx.space.tombstone";
 pub const SPACE_UPDATE: &str = "cx.space.update";
-pub const SPACE_UPGRADE: &str = "cx.space.upgrade";
 pub const SPACE_KEY_SHARE: &str = "cx.space_key.share";
 pub const SPACE_KEY_SHARE_AUDIT: &str = "cx.space_key.share_audit";
 pub const SPACE_KEY_WITHHELD: &str = "cx.space_key.withheld";
@@ -249,12 +255,6 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     MORPH_UPDATE,
     ORGANIZATION_DISCOVERY,
     ORGANIZATION_MODERATION_POLICY,
-    PLACE_ARCHIVE,
-    PLACE_CREATE,
-    PLACE_PARENT,
-    PLACE_RESTORE,
-    PLACE_TOMBSTONE,
-    PLACE_UPDATE,
     POLICY_ACTION,
     POLICY_RULE,
     POLICY_SET,
@@ -265,6 +265,31 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     REACTION_ADD,
     REACTION_REMOVE,
     READ_MARKER,
+    REALM_ARCHIVE,
+    REALM_ASSET_PRIVACY_POLICY,
+    REALM_AUDIT_POLICY_DOWNGRADE,
+    REALM_CREATE,
+    REALM_DELIVERY_BINDING_POLICY,
+    REALM_DESTROY,
+    REALM_DISCOVERY,
+    REALM_FREEZE,
+    REALM_HISTORY_SHARING_POLICY,
+    REALM_HISTORY_VISIBILITY,
+    REALM_INHERITANCE_POLICY,
+    REALM_JOIN_RULE,
+    REALM_LINK,
+    REALM_MEDIA_SERVICE,
+    REALM_MODERATION_POLICY,
+    REALM_ORGANIZATION,
+    REALM_PLAINTEXT_VISIBLE_SERVICES,
+    REALM_POLICY,
+    REALM_POLICY_COMPONENTS,
+    REALM_POLICY_SERVER,
+    REALM_READ_RECEIPT_POLICY,
+    REALM_SCHEMA,
+    REALM_TOMBSTONE,
+    REALM_UPDATE,
+    REALM_UPGRADE,
     RECEIPT_READ,
     REDACTION,
     RELATION_CREATE,
@@ -275,34 +300,14 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     SESSION_GRANT,
     SOVEREIGN_DID_POLICY,
     SPACE_ARCHIVE,
-    SPACE_ASSET_PRIVACY_POLICY,
-    SPACE_AUDIT_POLICY_DOWNGRADE,
-    SPACE_CHILD,
     SPACE_CREATE,
-    SPACE_DELIVERY_BINDING_POLICY,
-    SPACE_DESTROY,
-    SPACE_DISCOVERY,
-    SPACE_FREEZE,
-    SPACE_HISTORY_SHARING_POLICY,
-    SPACE_HISTORY_VISIBILITY,
-    SPACE_INHERITANCE_POLICY,
-    SPACE_JOIN_RULE,
-    SPACE_MEDIA_SERVICE,
-    SPACE_MODERATION_POLICY,
-    SPACE_ORGANIZATION,
-    SPACE_PARENT,
-    SPACE_PLAINTEXT_VISIBLE_SERVICES,
-    SPACE_POLICY,
-    SPACE_POLICY_COMPONENTS,
-    SPACE_POLICY_SERVER,
-    SPACE_READ_RECEIPT_POLICY,
-    SPACE_SCHEMA,
-    SPACE_TOMBSTONE,
-    SPACE_UPDATE,
-    SPACE_UPGRADE,
     SPACE_KEY_SHARE,
     SPACE_KEY_SHARE_AUDIT,
     SPACE_KEY_WITHHELD,
+    SPACE_PARENT,
+    SPACE_RESTORE,
+    SPACE_TOMBSTONE,
+    SPACE_UPDATE,
     TYPING,
     VIEW_CREATE,
     VIEW_RECONCILE,
@@ -340,7 +345,9 @@ pub enum EventWireScope {
 }
 
 pub fn is_reducer_input_event_kind(kind: &str) -> bool {
-    is_standard_event_kind(kind) && NON_REDUCER_EVENT_KINDS.binary_search(&kind).is_err()
+    // TODO(realm-rework): restore binary_search once STANDARD_EVENT_KINDS is
+    // re-sorted by event-kind string value after the Realm/Space inversion.
+    is_standard_event_kind(kind) && !NON_REDUCER_EVENT_KINDS.contains(&kind)
 }
 
 pub fn event_wire_scope(kind: &str) -> EventWireScope {
@@ -389,10 +396,10 @@ pub enum EventClass {
     Moderation,
     Morph,
     Organization,
-    Place,
     Policy,
     Profile,
     Read,
+    Realm,
     Relation,
     Schema,
     Sovereign,
@@ -402,7 +409,9 @@ pub enum EventClass {
 }
 
 pub fn is_standard_event_kind(kind: &str) -> bool {
-    STANDARD_EVENT_KINDS.binary_search(&kind).is_ok()
+    // TODO(realm-rework): restore binary_search once STANDARD_EVENT_KINDS is
+    // re-sorted by event-kind string value after the Realm/Space inversion.
+    STANDARD_EVENT_KINDS.contains(&kind)
 }
 
 /// Classify a protocol event kind without deserializing its content.
@@ -434,7 +443,7 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
         | AUDIT_EPOCH_KEY_DESTRUCTION
         | AUDIT_ERASURE_RECEIPT
         | AUDIT_RYW_RECEIPT
-        | SPACE_AUDIT_POLICY_DOWNGRADE => EventClass::Audit,
+        | REALM_AUDIT_POLICY_DOWNGRADE => EventClass::Audit,
         CAPABILITY_DELEGATE | CAPABILITY_DERIVED | CAPABILITY_GRANT | CAPABILITY_REVOKE
         | SESSION_GRANT => EventClass::Authz,
         CALL_RECORDING_START | CALL_SIGNAL | CALL_STATE => EventClass::Call,
@@ -484,40 +493,39 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
             EventClass::Morph
         }
         ORGANIZATION_DISCOVERY | ORGANIZATION_MODERATION_POLICY => EventClass::Organization,
-        PLACE_ARCHIVE | PLACE_CREATE | PLACE_PARENT | PLACE_RESTORE | PLACE_TOMBSTONE
-        | PLACE_UPDATE => EventClass::Place,
         POLICY_ACTION | POLICY_RULE | POLICY_SET => EventClass::Policy,
         PROFILE_CREATE | PROFILE_SPACE_OVERRIDE | PROFILE_UPDATE => EventClass::Profile,
         READ_MARKER | RECEIPT_READ => EventClass::Read,
+        REALM_ARCHIVE
+        | REALM_ASSET_PRIVACY_POLICY
+        | REALM_CREATE
+        | REALM_DELIVERY_BINDING_POLICY
+        | REALM_DESTROY
+        | REALM_DISCOVERY
+        | REALM_FREEZE
+        | REALM_HISTORY_SHARING_POLICY
+        | REALM_HISTORY_VISIBILITY
+        | REALM_INHERITANCE_POLICY
+        | REALM_JOIN_RULE
+        | REALM_LINK
+        | REALM_MEDIA_SERVICE
+        | REALM_MODERATION_POLICY
+        | REALM_ORGANIZATION
+        | REALM_PLAINTEXT_VISIBLE_SERVICES
+        | REALM_POLICY
+        | REALM_POLICY_COMPONENTS
+        | REALM_POLICY_SERVER
+        | REALM_READ_RECEIPT_POLICY
+        | REALM_SCHEMA
+        | REALM_TOMBSTONE
+        | REALM_UPDATE
+        | REALM_UPGRADE => EventClass::Realm,
         CONTAINER_MOVE_ITEM | CONTAINER_REBALANCE | RELATION_CREATE | RELATION_DELETE
         | RELATION_UPDATE => EventClass::Relation,
         SCHEMA_DEFINE | SCHEMA_UPDATE => EventClass::Schema,
         SOVEREIGN_DID_POLICY => EventClass::Sovereign,
-        SPACE_ARCHIVE
-        | SPACE_ASSET_PRIVACY_POLICY
-        | SPACE_CHILD
-        | SPACE_CREATE
-        | SPACE_DELIVERY_BINDING_POLICY
-        | SPACE_DESTROY
-        | SPACE_DISCOVERY
-        | SPACE_FREEZE
-        | SPACE_HISTORY_SHARING_POLICY
-        | SPACE_HISTORY_VISIBILITY
-        | SPACE_INHERITANCE_POLICY
-        | SPACE_JOIN_RULE
-        | SPACE_MEDIA_SERVICE
-        | SPACE_MODERATION_POLICY
-        | SPACE_ORGANIZATION
-        | SPACE_PARENT
-        | SPACE_PLAINTEXT_VISIBLE_SERVICES
-        | SPACE_POLICY
-        | SPACE_POLICY_COMPONENTS
-        | SPACE_POLICY_SERVER
-        | SPACE_READ_RECEIPT_POLICY
-        | SPACE_SCHEMA
-        | SPACE_TOMBSTONE
-        | SPACE_UPDATE
-        | SPACE_UPGRADE => EventClass::Space,
+        SPACE_ARCHIVE | SPACE_CREATE | SPACE_PARENT | SPACE_RESTORE | SPACE_TOMBSTONE
+        | SPACE_UPDATE => EventClass::Space,
         VIEW_CREATE | VIEW_RECONCILE | VIEW_UPDATE => EventClass::View,
         _ => EventClass::Custom(kind.to_owned()),
     }
@@ -531,6 +539,7 @@ mod tests {
     fn classifies_active_spec_event_kinds() {
         assert!(is_standard_event_kind(MESSAGE_CREATE));
         assert_eq!(classify_event_kind(MESSAGE_CREATE), EventClass::Message);
+        assert_eq!(classify_event_kind(REALM_CREATE), EventClass::Realm);
         assert_eq!(classify_event_kind(SPACE_CREATE), EventClass::Space);
         assert_eq!(classify_event_kind(AGENT_PROTOCOL_SESSION_STATUS), EventClass::Agent);
         assert_eq!(classify_event_kind(CALL_SIGNAL), EventClass::Call);

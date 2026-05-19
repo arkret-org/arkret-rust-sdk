@@ -303,7 +303,7 @@ fn candidate_to_delivery_binding(
     MemberDeliveryBinding {
         recipient_service_did: candidate.recipient_service_did.clone(),
         recipient_service_type: RecipientServiceType::PrincipalServer,
-        binding_scope: BindingScope::Space,
+        binding_scope: BindingScope::Realm,
         binding_source,
         delivery_modes,
         service_endpoint: None,

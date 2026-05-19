@@ -10,6 +10,15 @@ permitted; once `1.0` ships, breaking changes will require a major bump.
 
 ## [Unreleased]
 
+### Changed — Realm/Space terminology inversion (wire-breaking) (Round R1.x)
+
+- Old `Space` (security boundary) → **Realm**, old `Place` (container) →
+  **Space**. SDK public types, builders, and resolver paths are renamed
+  end-to-end; legacy names remain reachable as serde aliases on incoming
+  events for back-compat with older servers. New typed cells
+  `cx.realm.link`, `cx.realm.inheritance_policy`, and
+  `cx.capability.derived` model the boundary graph.
+
 ### Added — `authz::delegation` module (capability delegation chain check) (2026-05-18)
 
 - **`contrix::authz::delegation`** — new SDK-rooted home for capability

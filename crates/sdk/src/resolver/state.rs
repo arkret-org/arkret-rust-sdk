@@ -201,19 +201,23 @@ impl SpaceState {
             OP_VIEW_UPDATE => self.update_view(event)?,
             OP_VIEW_RECONCILE => self.reconcile_view(event)?,
 
-            // Space lifecycle — generic state reduction
-            OP_SPACE_CREATE
-            | OP_SPACE_UPDATE
-            | OP_SPACE_ORGANIZATION
-            | OP_SPACE_CHILD
-            | "cx.space.parent"
-            | "cx.space.inheritance_policy"
-            | "cx.space.join_rule"
-            | "cx.space.history_visibility"
-            | "cx.space.discovery"
-            | "cx.space.archive"
-            | "cx.space.freeze"
-            | "cx.space.destroy" => self.reduce_space_lifecycle_event(event)?,
+            // Realm lifecycle - generic state reduction
+            // TODO(realm-rework): rename `reduce_space_lifecycle_event` -> `reduce_realm_lifecycle_event`
+            // and route the new `cx.realm.*` event kinds through here.
+            // Container-level (`cx.space.*`) lifecycle is covered by the
+            // OP_PLACE_* arms above (which now resolve to `cx.space.*` after
+            // the Realm/Space inversion).
+            "cx.realm.create"
+            | "cx.realm.update"
+            | "cx.realm.organization"
+            | "cx.realm.link"
+            | "cx.realm.inheritance_policy"
+            | "cx.realm.join_rule"
+            | "cx.realm.history_visibility"
+            | "cx.realm.discovery"
+            | "cx.realm.archive"
+            | "cx.realm.freeze"
+            | "cx.realm.destroy" => self.reduce_space_lifecycle_event(event)?,
 
             // Member / capability / invite / policy / read-marker state
             "cx.member.state"

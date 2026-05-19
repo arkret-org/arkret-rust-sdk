@@ -143,10 +143,14 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         OP_MORPH_CREATE => vec!["object".to_owned()],
         OP_MORPH_UPDATE => vec!["morph_id".to_owned(), "patch".to_owned()],
         OP_MORPH_ARCHIVE | OP_MORPH_RESTORE => vec!["morph_id".to_owned()],
-        OP_PLACE_CREATE => vec!["object".to_owned()],
-        OP_PLACE_UPDATE => vec!["place_id".to_owned(), "patch".to_owned()],
-        OP_PLACE_PARENT => vec!["place_id".to_owned(), "parent_ref".to_owned()],
-        OP_PLACE_ARCHIVE | OP_PLACE_RESTORE | OP_PLACE_TOMBSTONE => vec!["place_id".to_owned()],
+        // Container event kinds (Realm/Space inversion spec 59ac1d4):
+        // `cx.place.*` is renamed to `cx.space.*`. Field name `place_id`
+        // remains for now until container fields are renamed; the wire
+        // event-kind strings are the spec-mandated `cx.space.*`.
+        OP_SPACE_CREATE => vec!["object".to_owned()],
+        OP_SPACE_UPDATE => vec!["place_id".to_owned(), "patch".to_owned()],
+        OP_SPACE_PARENT => vec!["place_id".to_owned(), "parent_ref".to_owned()],
+        OP_SPACE_ARCHIVE | OP_SPACE_RESTORE | OP_SPACE_TOMBSTONE => vec!["place_id".to_owned()],
         OP_RELATION_CREATE => vec!["object".to_owned()],
         OP_RELATION_UPDATE => vec!["relation_id".to_owned(), "patch".to_owned()],
         OP_RELATION_DELETE => vec!["relation_id".to_owned()],

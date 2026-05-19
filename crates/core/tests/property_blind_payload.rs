@@ -35,7 +35,12 @@ const FORBIDDEN_NAMES: &[&str] = &[
     "event_id",
     "message_id",
     "flow_id",
+    // Realm/Space inversion (spec 59ac1d4): the security-boundary identifier
+    // is `realm_id`; the renamed container identifier continues to use
+    // `space_id`; pre-inversion `place_id` is retained as forbidden alias.
+    "realm_id",
     "space_id",
+    "place_id",
     "thread_id",
     "correlation_id",
     "request_id",
@@ -354,6 +359,66 @@ proptest! {
             sanitize_blind_payload(&payload).is_err(),
             "sanitizer must reject `did:` / `cx:` literal `{literal}`"
         );
+    }
+
+    /// Property 6a — Realm/Space inversion strict assertions.
+    ///
+    /// Both `realm_id` (post-inversion security boundary) and `space_id`
+    /// (post-inversion container) MUST be rejected as forbidden keys; the
+    /// pre-inversion alias `place_id` is also rejected. Case-insensitive
+    /// variants MUST also lose (the sanitizer lowercases before matching).
+    /// Camel-case fused variants like `RealmId` are NOT classified as the
+    /// underscored token but the closed allow-list still rejects them as
+    /// unknown keys — the payload-level assertion below pins that.
+    #[test]
+    fn realm_space_inversion_identifiers_rejected(
+        leaf in arb_leaf(),
+        case in 0u8..3u8,
+    ) {
+        for raw in &["realm_id", "space_id", "place_id"] {
+            // is_forbidden_payload_key is the source of truth for the
+            // canonical token + case-insensitive form.
+            prop_assert!(
+                is_forbidden_payload_key(raw),
+                "is_forbidden_payload_key MUST classify `{raw}` as forbidden"
+            );
+            prop_assert!(
+                is_forbidden_payload_key(&raw.to_ascii_uppercase()),
+                "case-insensitive variant of `{raw}` MUST be classified as forbidden"
+            );
+
+            let key: String = match case {
+                0 => (*raw).to_owned(),
+                1 => raw.to_ascii_uppercase(),
+                _ => {
+                    // Camel-case'd: `realm_id` -> `RealmId`. The sanitizer
+                    // doesn't recognise the underscore-stripped form via
+                    // is_forbidden_payload_key, but the closed allow-list
+                    // MUST still reject it as an unknown key.
+                    let mut out = String::with_capacity(raw.len());
+                    let mut upper = true;
+                    for ch in raw.chars() {
+                        if ch == '_' {
+                            upper = true;
+                        } else if upper {
+                            out.extend(ch.to_uppercase());
+                            upper = false;
+                        } else {
+                            out.push(ch);
+                        }
+                    }
+                    out
+                }
+            };
+
+            let mut notif = ok_notification();
+            notif[&key] = leaf.clone();
+            let payload = json!({ "notification": notif });
+            prop_assert!(
+                sanitize_blind_payload(&payload).is_err(),
+                "sanitizer MUST reject blind payload carrying `{key}` (Realm/Space inversion)"
+            );
+        }
     }
 
     /// Property 6 — counts above MAX_COUNT_VALUE are rejected; counts

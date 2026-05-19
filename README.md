@@ -21,6 +21,18 @@ The active v1 wire contract follows `contrix-spec/spec/v1/zh` plus `contrix-spec
 All public SDK surfaces are expected to use `flow`, branch, relation and
 message semantics directly.
 
+## Realm vs Space
+
+After the Phase 1–4 terminology inversion (Round R1.x):
+
+- **Realm:** security boundary — membership, capability, E2EE, and federation
+  are governed at this level. Previously called `Space` on the wire.
+- **Space:** navigation container — board, list, section, calendar bucket.
+  Lives inside a Realm. Previously called `Place` on the wire.
+
+The SDK exposes both the new types and back-compat aliases; consult the
+spec under `contrix-spec/spec/v1` for the canonical wire layout.
+
 ## Entry Point
 
 Use the top-level crate:

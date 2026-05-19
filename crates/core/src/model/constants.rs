@@ -4,10 +4,19 @@ pub const CORE_REDUCER_PROFILE: &str = "cx.reducer.v1";
 pub const BUILT_IN_CONFORMANCE_FIXTURES_VERSION: &str = "contrix-sdk-builtin-v1";
 
 pub const CURSOR_SCHEMA: &str = "cx.schema.cursor.v1";
+// Realm/Space inversion (spec 59ac1d4):
+//   - `cx.schema.realm.v1` is the new security-boundary schema
+//     (formerly `cx.schema.space.v1`).
+//   - `cx.schema.space.v1` is now the container schema
+//     (formerly `cx.schema.place.v1`, which is deleted).
+pub const REALM_SCHEMA_ID: &str = "cx.schema.realm.v1";
 pub const SPACE_SCHEMA: &str = "cx.schema.space.v1";
+// TODO(realm-rework): remove PLACE_SCHEMA once all container call sites are
+// migrated to SPACE_SCHEMA. Kept here as a transitional compile-time alias
+// only; the wire id `cx.schema.place.v1` is retired by the spec.
+pub const PLACE_SCHEMA: &str = "cx.schema.space.v1";
 pub const ACTOR_PROFILE_SCHEMA: &str = "cx.schema.actor_profile.v1";
 pub const FLOW_SCHEMA: &str = "cx.schema.flow.v1";
-pub const PLACE_SCHEMA: &str = "cx.schema.place.v1";
 pub const RELATION_SCHEMA: &str = "cx.schema.relation.v1";
 pub const EVENT_SCHEMA: &str = "cx.schema.event.v1";
 pub const EVENT_PAYLOAD_SCHEMA: &str = "cx.schema.event_payload.v1";
@@ -57,13 +66,26 @@ pub const OP_MORPH_UPDATE: &str = "cx.morph.update";
 pub const OP_MORPH_ARCHIVE: &str = "cx.morph.archive";
 pub const OP_MORPH_RESTORE: &str = "cx.morph.restore";
 
-/// Place event kinds.
-pub const OP_PLACE_CREATE: &str = "cx.place.create";
-pub const OP_PLACE_UPDATE: &str = "cx.place.update";
-pub const OP_PLACE_PARENT: &str = "cx.place.parent";
-pub const OP_PLACE_ARCHIVE: &str = "cx.place.archive";
-pub const OP_PLACE_RESTORE: &str = "cx.place.restore";
-pub const OP_PLACE_TOMBSTONE: &str = "cx.place.tombstone";
+/// Space (container) event kinds. Realm/Space inversion (spec 59ac1d4):
+/// `cx.place.*` (container) is renamed to `cx.space.*`. The OP constant
+/// names migrate from OP_PLACE_* to OP_SPACE_* below; see the security
+/// boundary OP_REALM_* family for the renamed `cx.realm.*` events.
+pub const OP_SPACE_CREATE: &str = "cx.space.create";
+pub const OP_SPACE_UPDATE: &str = "cx.space.update";
+pub const OP_SPACE_PARENT: &str = "cx.space.parent";
+pub const OP_SPACE_ARCHIVE: &str = "cx.space.archive";
+pub const OP_SPACE_RESTORE: &str = "cx.space.restore";
+pub const OP_SPACE_TOMBSTONE: &str = "cx.space.tombstone";
+// TODO(realm-rework): drop these OP_PLACE_* aliases after migrating all
+// call sites to OP_SPACE_*. Wire values point at the new `cx.space.*`
+// container events; OP_PLACE_* names persist only for transitional
+// compile-time compatibility.
+pub const OP_PLACE_CREATE: &str = OP_SPACE_CREATE;
+pub const OP_PLACE_UPDATE: &str = OP_SPACE_UPDATE;
+pub const OP_PLACE_PARENT: &str = OP_SPACE_PARENT;
+pub const OP_PLACE_ARCHIVE: &str = OP_SPACE_ARCHIVE;
+pub const OP_PLACE_RESTORE: &str = OP_SPACE_RESTORE;
+pub const OP_PLACE_TOMBSTONE: &str = OP_SPACE_TOMBSTONE;
 
 /// Relation event kinds.
 pub const OP_RELATION_CREATE: &str = "cx.relation.create";
@@ -77,17 +99,28 @@ pub const OP_VIEW_CREATE: &str = "cx.view.create";
 pub const OP_VIEW_UPDATE: &str = "cx.view.update";
 pub const OP_VIEW_RECONCILE: &str = "cx.view.reconcile";
 
-/// Space event kinds.
-pub const OP_SPACE_CREATE: &str = "cx.space.create";
-pub const OP_SPACE_UPDATE: &str = "cx.space.update";
-pub const OP_SPACE_ORGANIZATION: &str = "cx.space.organization";
-pub const OP_SPACE_CHILD: &str = "cx.space.child";
-/// Round C45 (2026-05-19; spec 0a5ab85) — per-Space governance of member
-/// `delivery_binding`: which `binding_source` values are admissible, which
-/// recipient services are allowed, whether DID Document fallback is
-/// permitted, who may sign rebind. cell_family
-/// `cx.component.space.delivery_binding_policy.v1`, cas-register.
-pub const OP_SPACE_DELIVERY_BINDING_POLICY: &str = "cx.space.delivery_binding_policy";
+/// Realm event kinds (security boundary; spec 59ac1d4 inversion). These are
+/// the renamed `cx.space.*` security-boundary events from before the
+/// inversion. The container-level OP_SPACE_* family lives above.
+pub const OP_REALM_CREATE: &str = "cx.realm.create";
+pub const OP_REALM_UPDATE: &str = "cx.realm.update";
+pub const OP_REALM_ORGANIZATION: &str = "cx.realm.organization";
+pub const OP_REALM_LINK: &str = "cx.realm.link";
+/// Round C45 (2026-05-19; spec 0a5ab85) + Realm/Space inversion — per-Realm
+/// governance of member `delivery_binding`: which `binding_source` values
+/// are admissible, which recipient services are allowed, whether DID
+/// Document fallback is permitted, who may sign rebind. cell_family
+/// `cx.component.realm.delivery_binding_policy.v1`, cas-register.
+pub const OP_REALM_DELIVERY_BINDING_POLICY: &str = "cx.realm.delivery_binding_policy";
+pub const OP_REALM_INHERITANCE_POLICY: &str = "cx.realm.inheritance_policy";
+pub const OP_REALM_AUDIT_POLICY_DOWNGRADE: &str = "cx.realm.audit_policy_downgrade";
+pub const OP_CAPABILITY_DERIVED: &str = "cx.capability.derived";
+// TODO(realm-rework): drop these old OP_SPACE_* (security) aliases after
+// migrating all call sites to OP_REALM_*. Wire values now point at
+// `cx.realm.*` per the spec inversion.
+pub const OP_SPACE_CHILD: &str = OP_REALM_LINK;
+pub const OP_SPACE_ORGANIZATION: &str = OP_REALM_ORGANIZATION;
+pub const OP_SPACE_DELIVERY_BINDING_POLICY: &str = OP_REALM_DELIVERY_BINDING_POLICY;
 
 /// Device event kinds.
 ///

@@ -205,6 +205,11 @@ id_type!(FilterId, |value: &str| is_strict_typed_id(value, "cx:filter:"));
 id_type!(FrameId, |value: &str| is_strict_typed_id(value, "cx:frame:"));
 id_type!(FrankId, |value: &str| is_strict_typed_id(value, "cx:frank:"));
 id_type!(MorphId, |value: &str| is_strict_typed_id(value, "cx:morph:"));
+id_type!(RealmId, |value: &str| is_strict_typed_id(value, "cx:realm:"));
+// TODO(realm-rework): drop `PlaceId` once all container call sites migrate to
+// `SpaceId` (new container semantics). Per Realm/Space inversion (spec
+// 59ac1d4), the old `cx:place:` prefix is retired; this alias accepts
+// `cx:place:` for transitional compile-only purposes only.
 id_type!(PlaceId, |value: &str| is_strict_typed_id(value, "cx:place:"));
 id_type!(MessageId, |value: &str| is_strict_typed_id(value, "cx:message:"));
 id_type!(RelationId, |value: &str| is_strict_typed_id(value, "cx:relation:"));
@@ -431,6 +436,7 @@ mod tests {
         assert_id!(MorphId, "cx:morph:");
         assert_id!(NotifId, "cx:notif:");
         assert_id!(PlaceId, "cx:place:");
+        assert_id!(RealmId, "cx:realm:");
         assert_id!(PolicyId, "cx:policy:");
         assert_id!(PresentationId, "cx:presentation:");
         assert_id!(ReceiptId, "cx:receipt:");

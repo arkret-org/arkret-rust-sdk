@@ -5,7 +5,7 @@ use super::*;
 /// Authoritative source for Space-scoped event / sync / to-device / push /
 /// key-package delivery. Senders MUST NOT consult the actor's DID Document
 /// service entry as an alternative resolution path when this binding is
-/// present. Pairwise / unlinkability use-cases are orthogonal — see
+/// present. Pairwise / unlinkability use-cases are orthogonal - see
 /// `identity-did.md` and the pairwise DID guidance.
 ///
 /// Spec source: `event-payload.schema.json#/$defs/member_delivery_binding`
@@ -40,7 +40,7 @@ fn default_recipient_service_type() -> RecipientServiceType {
 }
 
 fn default_binding_scope() -> BindingScope {
-    BindingScope::Space
+    BindingScope::Realm
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -50,11 +50,14 @@ pub enum RecipientServiceType {
     PrincipalServer,
 }
 
+/// Realm/Space inversion (spec 59ac1d4): the binding is scoped to the
+/// security boundary, which is now the **Realm** (formerly named Space).
+/// The wire value is the canonical token `"realm"`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum BindingScope {
-    Space,
+    Realm,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -198,7 +201,7 @@ mod tests {
         let mut b = MemberDeliveryBinding {
             recipient_service_did: fake_did("rs"),
             recipient_service_type: RecipientServiceType::PrincipalServer,
-            binding_scope: BindingScope::Space,
+            binding_scope: BindingScope::Realm,
             binding_source: BindingSource::Explicit,
             delivery_modes: BTreeSet::new(),
             service_endpoint: None,
@@ -219,7 +222,7 @@ mod tests {
         let b = MemberDeliveryBinding {
             recipient_service_did: fake_did("rs"),
             recipient_service_type: RecipientServiceType::PrincipalServer,
-            binding_scope: BindingScope::Space,
+            binding_scope: BindingScope::Realm,
             binding_source: BindingSource::Explicit,
             delivery_modes: [DeliveryMode::Events].into_iter().collect(),
             service_endpoint: None,
@@ -233,12 +236,71 @@ mod tests {
         assert!(b.validate().is_err());
     }
 
+    /// R4.3 strict assertion: after the Realm/Space inversion (spec
+    /// 59ac1d4) the only legal `binding_scope` wire value is "realm". The
+    /// pre-inversion value "space" MUST be rejected at deserialisation —
+    /// the enum has a single variant `Realm` (serialised as "realm"), so
+    /// any other token (including the old "space") fails the serde tag
+    /// match.
+    #[test]
+    fn binding_scope_only_accepts_realm() {
+        // Positive: "realm" deserialises.
+        let ok: BindingScope = serde_json::from_value::<BindingScope>(
+            serde_json::json!("realm"),
+        )
+        .expect("realm MUST deserialise");
+        assert_eq!(ok, BindingScope::Realm);
+
+        // Negative: the pre-inversion "space" wire value MUST be rejected.
+        let err: std::result::Result<BindingScope, _> =
+            serde_json::from_value(serde_json::json!("space"));
+        assert!(
+            err.is_err(),
+            "pre-inversion BindingScope value 'space' MUST be rejected, got {err:?}"
+        );
+
+        // Defensive: arbitrary tokens MUST also be rejected.
+        for bad in &["Realm", "REALM", "place", "container", ""] {
+            let err: std::result::Result<BindingScope, _> =
+                serde_json::from_value(serde_json::json!(*bad));
+            assert!(
+                err.is_err(),
+                "BindingScope MUST reject `{bad}`, got {err:?}"
+            );
+        }
+    }
+
+    /// R4.3 strict assertion: the full member-delivery-binding payload
+    /// MUST reject the legacy "space" binding_scope at the envelope
+    /// level too (i.e., the field-level rejection above propagates).
+    #[test]
+    fn member_delivery_binding_rejects_space_binding_scope() {
+        let payload = serde_json::json!({
+            "recipient_service_did": "did:web:rs.example",
+            "recipient_service_type": "principal_server",
+            "binding_scope": "space",
+            "binding_source": "explicit",
+            "delivery_modes": ["events"],
+            "resolved_at": "2026-05-20T00:00:00Z",
+            "service_acceptance_ref": {
+                "id": "cx:event:01890000-0000-7000-8000-000000000001",
+                "tag": "authorized_by"
+            }
+        });
+        let parsed: std::result::Result<MemberDeliveryBinding, _> =
+            serde_json::from_value(payload);
+        assert!(
+            parsed.is_err(),
+            "pre-inversion binding_scope=space MUST be rejected at MemberDeliveryBinding deserialisation"
+        );
+    }
+
     #[test]
     fn binding_source_did_document_default_requires_hash() {
         let b = MemberDeliveryBinding {
             recipient_service_did: fake_did("rs"),
             recipient_service_type: RecipientServiceType::PrincipalServer,
-            binding_scope: BindingScope::Space,
+            binding_scope: BindingScope::Realm,
             binding_source: BindingSource::DidDocumentDefault,
             delivery_modes: [DeliveryMode::Events].into_iter().collect(),
             service_endpoint: None,

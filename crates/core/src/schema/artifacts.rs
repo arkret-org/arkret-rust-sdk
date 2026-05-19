@@ -435,6 +435,10 @@ pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     "cx.schema.content.mention_redirect.v1",
     "cx.schema.content.import_attestation.v1",
     "cx.schema.content.source_export_policy_attestation.v1",
+    // Realm/Space inversion (spec 59ac1d4): `cx.schema.realm.v1` is the new
+    // security-boundary schema. `cx.schema.space.v1` is now the container
+    // schema (former `cx.schema.place.v1` is removed).
+    "cx.schema.realm.v1",
     "cx.schema.space.v1",
     "cx.schema.actor_profile.v1",
     "cx.schema.message.v1",
