@@ -63,13 +63,13 @@ impl LatticeKind {
             ],
             Self::CasRegister => &[
                 "cx.space.upgrade",
-                "cx.space.organization",
-                "cx.space.policy",
-                "cx.space.join_rule",
-                "cx.space.history_visibility",
-                "cx.space.discovery",
-                "cx.space.policy_server",
-                "cx.space.policy_components",
+                "cx.realm.organization",
+                "cx.realm.policy",
+                "cx.realm.join_rule",
+                "cx.realm.history_visibility",
+                "cx.realm.discovery",
+                "cx.realm.policy_server",
+                "cx.realm.policy_components",
                 "cx.space.history_sharing_policy",
                 "cx.space.asset_privacy_policy",
                 "cx.space.read_receipt_policy",
@@ -199,7 +199,7 @@ mod kind_tests {
     #[test]
     fn cas_register_handles_mls_commit_and_creates() {
         let kinds = LatticeKind::CasRegister.event_kinds();
-        assert!(kinds.contains(&"cx.space.policy"));
+        assert!(kinds.contains(&"cx.realm.policy"));
         assert!(kinds.contains(&"cx.flow.move"));
         assert!(kinds.contains(&"cx.place.parent"));
     }

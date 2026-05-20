@@ -224,7 +224,7 @@ impl SpaceState {
             | "cx.capability.grant"
             | "cx.capability.delegate"
             | "cx.capability.revoke"
-            | "cx.space.policy"
+            | "cx.realm.policy"
             | "cx.policy.set"
             | "cx.invite.create"
             | "cx.invite.cancel"
@@ -707,7 +707,7 @@ impl SpaceState {
         let summary = self.extract_optional_field(object, "summary");
         let body = self.extract_optional_field(object, "body");
         let encrypted_payload = self.extract_optional_field(object, "encrypted_payload");
-        let discussion_space_ref = self.extract_optional_field(object, "discussion_space_ref");
+        let discussion_realm_ref = self.extract_optional_field(object, "discussion_realm_ref");
         let fields = self.extract_fields(object)?;
         let state = self
             .extract_optional_field::<String>(object, "state")
@@ -723,7 +723,7 @@ impl SpaceState {
             body,
             encrypted_payload,
             tracks,
-            discussion_space_ref,
+            discussion_realm_ref,
             fields,
             state: Some(state),
             state_changed_at: None,
@@ -756,8 +756,8 @@ impl SpaceState {
         let body = self.extract_optional_field::<Value>(&event.content, "body");
         let encrypted_payload =
             self.extract_optional_field::<Value>(&event.content, "encrypted_payload");
-        let discussion_space_ref =
-            self.extract_optional_field::<SpaceId>(&event.content, "discussion_space_ref");
+        let discussion_realm_ref =
+            self.extract_optional_field::<SpaceId>(&event.content, "discussion_realm_ref");
         let fields =
             self.extract_optional_field::<BTreeMap<String, Value>>(&event.content, "fields");
         let patch = self.extract_optional_field::<BTreeMap<String, Value>>(&event.content, "patch");
@@ -781,9 +781,9 @@ impl SpaceState {
         let patched_body = patch.as_ref().and_then(|patch| patch.get("body").cloned());
         let patched_encrypted_payload =
             patch.as_ref().and_then(|patch| patch.get("encrypted_payload").cloned());
-        let patched_discussion_space_ref = patch.as_ref().and_then(|patch| {
+        let patched_discussion_realm_ref = patch.as_ref().and_then(|patch| {
             patch
-                .get("discussion_space_ref")
+                .get("discussion_realm_ref")
                 .cloned()
                 .and_then(|value| serde_json::from_value(value).ok())
         });
@@ -810,8 +810,8 @@ impl SpaceState {
         if let Some(tracks) = tracks {
             subject.tracks = tracks;
         }
-        if let Some(discussion_space_ref) = discussion_space_ref.or(patched_discussion_space_ref) {
-            subject.discussion_space_ref = Some(discussion_space_ref);
+        if let Some(discussion_realm_ref) = discussion_realm_ref.or(patched_discussion_realm_ref) {
+            subject.discussion_realm_ref = Some(discussion_realm_ref);
         }
         if let Some(fields) = fields.or_else(|| patch_fields(&patch)) {
             subject.fields = fields;
@@ -958,16 +958,16 @@ impl SpaceState {
         self.reduce_generic_state_event(event)
     }
 
-    /// Reduce space lifecycle events into resolved state.
+    /// Reduce realm lifecycle events into resolved state.
     fn reduce_space_lifecycle_event(&mut self, event: &Event) -> Result<()> {
-        // Space lifecycle events update the space version and are stored as resolved state.
-        if (event.kind == "cx.space.create" || event.kind == "cx.space.update")
+        // Realm lifecycle events update the realm version and are stored as resolved state.
+        if (event.kind == "cx.realm.create" || event.kind == "cx.realm.update")
             && let Some(version) =
                 self.extract_optional_field::<String>(&event.content, "space_version")
         {
             self.space_version = version;
         }
-        if event.kind == "cx.space.destroy" {
+        if event.kind == "cx.realm.destroy" {
             // Treat destroy as tombstone
             self.tombstone_event_id = Some(event.event_id.clone());
         }
@@ -981,7 +981,7 @@ impl SpaceState {
                 "cx.capability"
             }
             "cx.invite.create" | "cx.invite.cancel" | "cx.invite.accept" => "cx.invite",
-            "cx.space.policy" | "cx.policy.set" => "cx.policy",
+            "cx.realm.policy" | "cx.policy.set" => "cx.policy",
             other => other,
         };
         let map_key = format!("{}|{}", family, subject);
@@ -1345,7 +1345,7 @@ impl SpaceState {
                 .ok_or_else(|| {
                     Error::Protocol("capability event requires capability_id or id".to_owned())
                 }),
-            "cx.space.policy" | "cx.policy.set" => Ok(self
+            "cx.realm.policy" | "cx.policy.set" => Ok(self
                 .extract_optional_field::<String>(&event.content, "policy_id")
                 .unwrap_or_else(|| "space_policy".to_owned())),
             "cx.invite.create" | "cx.invite.cancel" | "cx.invite.accept" => self
@@ -1358,19 +1358,18 @@ impl SpaceState {
                 .ok_or_else(|| {
                     Error::Protocol("read marker requires scope or target_ref".to_owned())
                 }),
-            // Space lifecycle events use the space_id as state key
-            "cx.space.create"
-            | "cx.space.update"
-            | "cx.space.organization"
-            | "cx.space.child"
-            | "cx.space.parent"
-            | "cx.space.inheritance_policy"
-            | "cx.space.join_rule"
-            | "cx.space.history_visibility"
-            | "cx.space.discovery"
-            | "cx.space.archive"
-            | "cx.space.freeze"
-            | "cx.space.destroy" => Ok(event.space_id.as_str().to_owned()),
+            // Realm lifecycle events use the space_id as state key
+            "cx.realm.create"
+            | "cx.realm.update"
+            | "cx.realm.organization"
+            | "cx.realm.link"
+            | "cx.realm.inheritance_policy"
+            | "cx.realm.join_rule"
+            | "cx.realm.history_visibility"
+            | "cx.realm.discovery"
+            | "cx.realm.archive"
+            | "cx.realm.freeze"
+            | "cx.realm.destroy" => Ok(event.space_id.as_str().to_owned()),
             // View events use view_id as state key
             "cx.view.create" | "cx.view.update" | "cx.view.reconcile" => self
                 .extract_optional_field::<String>(&event.content, "view_id")

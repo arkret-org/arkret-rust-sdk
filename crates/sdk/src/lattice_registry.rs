@@ -435,7 +435,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.space.policy"]
+    &["cx.realm.policy"]
 );
 
 singleton_lattice!(
@@ -453,7 +453,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.space.history_visibility"]
+    &["cx.realm.history_visibility"]
 );
 
 singleton_lattice!(
@@ -462,7 +462,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.space.join_rule"]
+    &["cx.realm.join_rule"]
 );
 
 singleton_lattice!(
@@ -471,7 +471,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.space.discovery"]
+    &["cx.realm.discovery"]
 );
 
 singleton_lattice!(
@@ -480,7 +480,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.space.organization", "cx.space.update"]
+    &["cx.realm.organization", "cx.realm.update"]
 );
 
 singleton_lattice!(
@@ -561,7 +561,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.space.policy_components"]
+    &["cx.realm.policy_components"]
 );
 
 singleton_lattice!(
@@ -570,7 +570,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.space.policy_server"]
+    &["cx.realm.policy_server"]
 );
 
 singleton_lattice!(

@@ -178,7 +178,7 @@ fn profile_requirement_drift_reports_missing_sdk_constants() {
         crate::PROFILE_DIRECTORY_SERVICE.to_owned(),
         json!({
             "required_endpoints": ["cx.directory.search_spaces", "cx.missing.operation"],
-            "required_event_kinds": ["cx.space.discovery"],
+            "required_event_kinds": ["cx.realm.discovery"],
             "required_schemas": ["cx.schema.actor_profile.v1"]
         }),
     );

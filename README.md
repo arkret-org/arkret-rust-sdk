@@ -72,13 +72,18 @@ cargo test
 
 ## Project documents
 
-- [Changelog](CHANGELOG.md) — release notes and unreleased changes.
+- [Changelog](CHANGELOG.md) — release notes and unreleased changes. The
+  `[Unreleased]` Round R2/R3 entry tracks the spec rounds 2+3 close-out
+  (4 new event kinds, 3 new schemas, 2 new typed ID kinds, 15 new error
+  codes, see [`../contrix-spec/CHANGELOG.md`](../contrix-spec/CHANGELOG.md)
+  for the normative source).
 - [Security policy](SECURITY.md) — supported versions and how to report
   vulnerabilities responsibly.
 - [Releasing](RELEASING.md) — how the 11-crate workspace is published in
   topological order.
 - [Contributing](CONTRIBUTING.md) — development checks, API rules, commit
   style.
+- Cross-project task plan: [`../_todos.md`](../_todos.md).
 
 ## Implemented Contrix Surface
 

@@ -364,7 +364,7 @@ pub struct Flow {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub tracks: BTreeMap<String, FlowTrackConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub discussion_space_ref: Option<SpaceId>,
+    pub discussion_realm_ref: Option<SpaceId>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub fields: BTreeMap<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -400,7 +400,7 @@ impl Flow {
             body: None,
             encrypted_payload: None,
             tracks,
-            discussion_space_ref: None,
+            discussion_realm_ref: None,
             fields: BTreeMap::new(),
             state: Some(ObjectState::Active),
             state_changed_at: None,
