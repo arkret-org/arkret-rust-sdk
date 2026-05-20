@@ -366,6 +366,10 @@ pub struct AuditRywReceipt {
     pub audit_event_id: EventId,
     pub audit_event_digest: Hash,
     pub space_id: SpaceId,
+    /// Round 4 (2026-05-20, spec a77b995) — REQUIRED trust domain
+    /// binding. Mixed into the canonical `audit_policy_version_hash`
+    /// 4-tuple so receipts cannot be replayed across deployments.
+    pub trust_domain: TypedTrustDomainId,
     pub audit_actor_id: Did,
     pub frontier: RywFrontier,
     pub observed_at: DateTime<Utc>,

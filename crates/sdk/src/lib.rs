@@ -285,7 +285,8 @@ pub use devices::{
     DeviceTrustBinding, DeviceTrustChainOutcome, DeviceVerificationChallenge,
     DeviceVerificationMessageContent, DeviceVerificationMessageKind, KeyBackup, KeyBackupClass,
     KeyBackupContentItem, KeyBackupEncryption, ProtocolKeyBackup, QrVerificationPayload,
-    SignedCrossSigningKey, ToDeviceEnvelope, device_verification_commitment,
+    SignedCrossSigningKey, ToDeviceEnvelope, cross_signing_publish_cell_subject,
+    device_verification_commitment,
 };
 #[cfg(feature = "full-surface")]
 pub use discovery::{DirectoryService, DirectoryUser, OpenGraphPreview, UrlPreviewCache};

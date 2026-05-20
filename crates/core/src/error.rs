@@ -113,6 +113,21 @@ pub const ERROR_CODE_EXPIRED_INVITE_TOKEN: &str = "expired_invite_token";
 pub const ERROR_CODE_LATE_RECOVERY_REJECTED_MEMBERSHIP: &str =
     "late_recovery_rejected_membership";
 
+// ── Round 4 (2026-05-20, spec a77b995) — registry add (3 wire-level codes).
+//
+// `delivery_binding_stale` (409): federation sender used an obsolete member
+// delivery binding frontier; response carries `new_recipient_service_did` and
+// `handover_frontier` so the sender can retry at the current service.
+// `delivery_binding_handed_over` (409): sender continued using a previous
+// `recipient_service_did` after the handover grace window expired; sender
+// MUST resolve current binding and retry there.
+// `historical_only` (200, diagnostic): idempotency cache replay served only
+// as a historical diagnostic after key or binding state changed; receivers
+// MUST NOT perform new reducer side effects.
+pub const ERROR_CODE_DELIVERY_BINDING_STALE: &str = "delivery_binding_stale";
+pub const ERROR_CODE_DELIVERY_BINDING_HANDED_OVER: &str = "delivery_binding_handed_over";
+pub const ERROR_CODE_HISTORICAL_ONLY: &str = "historical_only";
+
 /// All canonical error codes recognised by the registry. The order matches
 /// `error-code-registry.json`. Use [`is_known_error_code`] before populating
 /// `ErrorEnvelope.code` from arbitrary input.
@@ -187,6 +202,10 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
     ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE,
     ERROR_CODE_EXPIRED_INVITE_TOKEN,
     ERROR_CODE_LATE_RECOVERY_REJECTED_MEMBERSHIP,
+    // Round 4 (2026-05-20).
+    ERROR_CODE_DELIVERY_BINDING_STALE,
+    ERROR_CODE_DELIVERY_BINDING_HANDED_OVER,
+    ERROR_CODE_HISTORICAL_ONLY,
 ];
 
 // ── Failed-precondition reason codes (sub-codes inside `failed_precondition`)
@@ -525,7 +544,10 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_REALM_TERMINAL_STATE
         | ERROR_CODE_AUDIT_AGENT_ATTESTATION_MISMATCH
         | ERROR_CODE_AUDIT_PURPOSE_MISMATCH
-        | ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE => 409,
+        | ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE
+        | ERROR_CODE_DELIVERY_BINDING_STALE
+        | ERROR_CODE_DELIVERY_BINDING_HANDED_OVER => 409,
+        ERROR_CODE_HISTORICAL_ONLY => 200,
         ERROR_CODE_CURSOR_EXPIRED => 410,
         ERROR_CODE_PAYLOAD_TOO_LARGE => 413,
         ERROR_CODE_SCHEMA_VIOLATION
@@ -616,8 +638,10 @@ mod tests {
         // wire codes (cursor_integrity_invalid / failed_precondition /
         // unsupported_hash / anchor_incomplete / frank_unavailable /
         // turn_credential_expired) + 1 C47 wire code (stale_peer) +
-        // 15 Round R2/R3 wire codes (relaxed_window_exceeds_ceiling, ...).
-        assert_eq!(KNOWN_ERROR_CODES.len(), 69);
+        // 15 Round R2/R3 wire codes (relaxed_window_exceeds_ceiling, ...) +
+        // 3 Round 4 wire codes (delivery_binding_stale, delivery_binding_handed_over,
+        // historical_only).
+        assert_eq!(KNOWN_ERROR_CODES.len(), 72);
         assert!(codes.contains(ERROR_CODE_CURSOR_EXPIRED));
         assert!(codes.contains(ERROR_CODE_POLICY_COMBINATION_INVALID));
         assert!(codes.contains(ERROR_CODE_ANCHORER_RECOVERY_MISSING));

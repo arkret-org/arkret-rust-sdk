@@ -102,6 +102,10 @@ fn framework_independent_handler_shape_can_be_mocked() {
                 ServerReqBody::ServerDescribe => {
                     Ok(ServerResBody::ServerDescription(ServerDescription {
                         service_did: contrix_core::Did::new("did:web:svc.example").unwrap(),
+                        trust_domain: contrix_core::TypedTrustDomainId::new(
+                            "cx:trust_domain:example.net",
+                        )
+                        .unwrap(),
                         service_type: "principal_server".to_owned(),
                         protocol_version: contrix_core::PROTOCOL_VERSION.to_owned(),
                         supported_profiles: vec![],
@@ -111,10 +115,18 @@ fn framework_independent_handler_shape_can_be_mocked() {
                             .map(|route| route.operation_id.to_owned())
                             .collect(),
                         supported_bindings: vec![],
-                        supported_reducer_profiles: vec![],
-                        supported_schema_profiles: vec![],
                         auth_metadata: Value::Null,
                         limits: Value::Null,
+                        plaintext_visibility: Value::Null,
+                        implemented_features: vec![],
+                        claimed_profiles: vec![],
+                        verified_profiles: vec![],
+                        experimental_features: vec![],
+                        compat_surfaces: vec![],
+                        development_mode: false,
+                        rate_limit: Value::Null,
+                        supported_reducer_profiles: vec![],
+                        supported_schema_profiles: vec![],
                         frontier: Vec::new(),
                         snapshot_frontier: Vec::new(),
                         reducer_profile: None,

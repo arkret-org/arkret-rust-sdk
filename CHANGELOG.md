@@ -10,6 +10,63 @@ permitted; once `1.0` ships, breaking changes will require a major bump.
 
 ## [Unreleased]
 
+### Round R4 — protocol review closures (wire-breaking) (2026-05-20)
+
+Tracks contrix-spec range `2a4d39b..a77b9958e3c6535a39bf468d661a23ae5d38cb10`
+(8 commits). See [`../_todos.md`](../_todos.md) "协议变更摘要" for the canonical
+wire-breaking list.
+
+- **Added** new `round4` module aggregating Round R4 types, constants, and
+  validation helpers (re-exported from the umbrella `contrix` crate).
+- **Added** types: `EventsSubscribeFrame` (8-kind enum: `event` / `frontier` /
+  `heartbeat` / `catchup_complete` / `epoch_rotation` / `dropped{cursor}` /
+  `resync_required` / `unauthorized`), `SnapshotBootstrap`, `EventsFrontierResponse`
+  oneOf (`AccountClient` / `FederationPeer` / `AnonymousHealth` — the last
+  forbids `receipts` / `signatures` at the type level), `PolicyCheckRequest` /
+  `PolicyCheckResponse{bound_to{realm_id,actor,action,request_canonical_hash,
+  policy_server_id}, signature}`, `FederationServiceBindingRef` (6 required
+  fields), `EventsSubmitBatchRequest` / `EventsSubmitFederationRequest`,
+  `ThirdPartyInvite{oob_code_kind ∈ OfflineToken|Lookup}`,
+  `SpaceStateTransitionPayload` / `SpaceObjectTombstonePayload`,
+  `AppletId = enum { Did | Cx }`.
+- **BREAKING** DID regex tightened: `^did:[a-z0-9]+:[^\s]+$` (method-name
+  segment no longer accepts `.` / `-` / `_` / `:`). Applied across all DID
+  parsers, newtype validators, signature `kid` parsers, and schema-validation
+  hooks. All fixtures swept.
+- **BREAKING** `cx.call.signal` ephemeral envelope: `proof` is now required;
+  `signal_type` enum widened from 6 to 13 values (adds `reject`, `mute_state`,
+  `media_state`, `speaking`, `focus_join`, `focus_leave`, `error`); new helper
+  `validate_signal_seq(prev, next, key=(realm,call,actor,device))` enforces
+  per-(realm,call,actor,device) monotonic `seq`.
+- **BREAKING** `cx.cross_signing.publish` CAS: `CrossSigningPublishPayload`
+  gains required `expected_previous_generation: u64`; new
+  `cross_signing_publish_cell_subject(principal_id, expected_previous_generation)
+   -> CellSubject::Tuple`.
+- **BREAKING** `compute_audit_policy_version_hash(realm_id, trust_domain,
+  audit_disclosure, audit_assurance)` — old 2-arg signature removed; old
+  receipts no longer verify.
+- **BREAKING** `Realm` / `ServiceDescribe` / `AuditRywReceipt` gain required
+  `trust_domain: TypedTrustDomainId`. `ServiceDescribe` v2 carries 17 required
+  fields including `plaintext_visibility` / `claimed_profiles` /
+  `verified_profiles` / `compat_surfaces` / `development_mode` and a
+  `rate_limit` oneOf.
+- **BREAKING** `ConsentRevokePayload` gains required
+  `observed_dots: Vec<Dot>`; `MessagePayload` / `SystemMessagePayload` gain
+  `mention_redirect_target_actor_ids: Vec<TypedActorId>`; `AccessKind` gains
+  `E2EELateRecovery` with required `late_recovery_original_event_id`.
+- **Added** federation HTTP signature transcript now includes the three new
+  S2S headers `Source-Trust-Domain` / `Destination-Trust-Domain` /
+  `Request-Canonical-Hash` (re-exported constants
+  `HEADER_SOURCE_TRUST_DOMAIN` / `HEADER_DESTINATION_TRUST_DOMAIN` /
+  `HEADER_REQUEST_CANONICAL_HASH`).
+- **Added** 3 new error code constants (`ERROR_CODE_DELIVERY_BINDING_STALE` /
+  `_HANDED_OVER` / `_HISTORICAL_ONLY`) and 1 new capability action
+  (`CAPABILITY_ACTION_MORPH_CREATE = "cx.morph.create"`, medium risk,
+  required-constraints `[morph_type_allow]`).
+- **Added** `cx:space:<uuidv7>` accepted in `object_ref`; flow cell-metadata
+  helpers `flow_update_cell_subject(flow_id)` / `flow_tracks_patch_cell_subject(flow_id)`
+  (cell-family `cx.component.flow.fields.v1`, CAS-register, bottom=reject).
+
 ### Added — Round R2/R3 spec round 2+3 cleanup (wire-breaking) (2026-05-20)
 
 Tracks contrix-spec commits `f3c3bad..2a4d39b` (notably `8b7978d spec: round 2+3

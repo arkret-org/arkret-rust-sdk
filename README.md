@@ -70,13 +70,46 @@ cargo test
 - [Conformance certification](docs/conformance-certification.md)
 - [LTS policy](docs/lts-policy.md)
 
+## Round R4 (protocol review closures)
+
+Spec round 4 (`contrix-spec` range `2a4d39b..a77b995`, 8 commits) lands
+in the SDK as a new `round4` module re-exported from the umbrella crate.
+See [`CHANGELOG.md`](CHANGELOG.md) `[Unreleased]` and
+[`../_todos.md`](../_todos.md) for the canonical wire-breaking list.
+Headline additions:
+
+- **Types**: `EventsSubscribeFrame` (8-kind enum), `SnapshotBootstrap`,
+  `EventsFrontierResponse` oneOf (`AccountClient` / `FederationPeer` /
+  `AnonymousHealth`), `PolicyCheckRequest` / `PolicyCheckResponse`,
+  `FederationServiceBindingRef` (6 required fields),
+  `EventsSubmitBatchRequest` / `EventsSubmitFederationRequest`,
+  `ThirdPartyInvite{oob_code_kind}`, `SpaceStateTransitionPayload` /
+  `SpaceObjectTombstonePayload`, `AppletId` enum.
+- **DID method-name regex** tightened to `^did:[a-z0-9]+:[^\s]+$`
+  (method segment lowercase alnum only).
+- **3 new error code constants**: `delivery_binding_stale` /
+  `delivery_binding_handed_over` / `historical_only`.
+- **1 new capability action**: `cx.morph.create` (medium risk).
+- **3 new federation header constants**: `Source-Trust-Domain` /
+  `Destination-Trust-Domain` / `Request-Canonical-Hash` (entered into
+  the HTTP-message-signature transcript).
+- **CAS upgrade**: `CrossSigningPublishPayload` gains required
+  `expected_previous_generation`; `compute_audit_policy_version_hash`
+  takes 4 args (`realm_id, trust_domain, audit_disclosure,
+  audit_assurance`).
+- **`cx.call.signal` v2**: 13-value `signal_type` enum, required
+  `proof`, monotonic `seq` validator.
+- **`Realm` / `ServiceDescribe` / `AuditRywReceipt`** gain required
+  `trust_domain`; `ServiceDescribe` v2 carries 17 required fields.
+
 ## Project documents
 
 - [Changelog](CHANGELOG.md) — release notes and unreleased changes. The
-  `[Unreleased]` Round R2/R3 entry tracks the spec rounds 2+3 close-out
-  (4 new event kinds, 3 new schemas, 2 new typed ID kinds, 15 new error
-  codes, see [`../contrix-spec/CHANGELOG.md`](../contrix-spec/CHANGELOG.md)
-  for the normative source).
+  `[Unreleased]` Round R4 / R2 / R3 entries track the most recent
+  spec close-outs (round 4 ranges `2a4d39b..a77b995`; round 2+3 lands
+  4 new event kinds, 3 new schemas, 2 new typed ID kinds, 15 new error
+  codes); see [`../contrix-spec/CHANGELOG.md`](../contrix-spec/CHANGELOG.md)
+  for the normative source.
 - [Security policy](SECURITY.md) — supported versions and how to report
   vulnerabilities responsibly.
 - [Releasing](RELEASING.md) — how the 11-crate workspace is published in

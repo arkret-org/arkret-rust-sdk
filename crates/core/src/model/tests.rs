@@ -23,16 +23,25 @@ fn device_id_accepts_protocol_device_forms() {
 fn server_description_checks_protocol_version() {
     let desc = ServerDescription {
         service_did: Did::new("did:web:svc.example").unwrap(),
+        trust_domain: TypedTrustDomainId::new("cx:trust_domain:example.net").unwrap(),
         service_type: "principal_server".to_owned(),
         protocol_version: "1.0".to_owned(),
         supported_profiles: vec![],
         supported_features: vec![],
         supported_operations: vec![],
         supported_bindings: vec![],
-        supported_reducer_profiles: vec![],
-        supported_schema_profiles: vec![],
         auth_metadata: Value::Null,
         limits: Value::Null,
+        plaintext_visibility: Value::Null,
+        implemented_features: vec![],
+        claimed_profiles: vec![],
+        verified_profiles: vec![],
+        experimental_features: vec![],
+        compat_surfaces: vec![],
+        development_mode: false,
+        rate_limit: Value::Null,
+        supported_reducer_profiles: vec![],
+        supported_schema_profiles: vec![],
         frontier: Vec::new(),
         snapshot_frontier: Vec::new(),
         reducer_profile: None,
@@ -1210,6 +1219,7 @@ fn space_anchor_fields_default_none_and_builders_apply() {
         SpaceId::new("cx:space:0196419b-0000-7000-8000-000000000001").unwrap(),
         "Anchor Test",
         Did::new("did:web:alice.example").unwrap(),
+        TypedTrustDomainId::new("cx:trust_domain:example.net").unwrap(),
     );
     assert!(space.anchor_profile.is_none());
     assert!(space.anchorer.is_none());
@@ -1262,6 +1272,7 @@ fn space_anchor_fields_omitted_when_none() {
         SpaceId::new("cx:space:0196419b-0000-7000-8000-000000000002").unwrap(),
         "No Anchor Hint",
         Did::new("did:web:alice.example").unwrap(),
+        TypedTrustDomainId::new("cx:trust_domain:example.net").unwrap(),
     );
     let json = serde_json::to_value(&space).unwrap();
     let obj = json.as_object().unwrap();

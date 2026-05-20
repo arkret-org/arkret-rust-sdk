@@ -27,28 +27,72 @@ pub enum DeviceVerificationState {
     VerificationExpired,
 }
 
+/// Round 4 (2026-05-20, spec a77b995) — `ServiceDescribe` v2 has 17
+/// REQUIRED top-level fields plus a discriminated `rate_limit`. The
+/// pre-round-4 sparse-default surface is wire-broken; receivers MUST
+/// reject describe responses missing any required field with
+/// `schema_violation`.
+///
+/// The 17 required fields (matches `service-describe.schema.json`):
+/// `service_did`, `trust_domain`, `service_type`, `protocol_version`,
+/// `supported_profiles`, `supported_operations`, `supported_bindings`,
+/// `supported_features`, `auth_metadata`, `limits`,
+/// `plaintext_visibility`, `implemented_features`, `claimed_profiles`,
+/// `verified_profiles`, `experimental_features`, `compat_surfaces`,
+/// `development_mode`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ServerDescription {
     pub service_did: Did,
+    /// Round 4 — REQUIRED trust domain. Receivers MUST refuse to
+    /// register a peer whose `trust_domain` disagrees with the
+    /// expected deployment scope.
+    pub trust_domain: TypedTrustDomainId,
     pub service_type: String,
     pub protocol_version: String,
-    #[serde(default)]
+    /// Round 4 — REQUIRED (no longer defaulted): profiles the service
+    /// declares conformance to. Empty array is valid; missing is not.
     pub supported_profiles: Vec<String>,
-    #[serde(default)]
-    pub supported_features: Vec<String>,
-    #[serde(default)]
     pub supported_operations: Vec<String>,
-    #[serde(default)]
     pub supported_bindings: Vec<Value>,
-    #[serde(default)]
-    pub supported_reducer_profiles: Vec<String>,
-    #[serde(default)]
-    pub supported_schema_profiles: Vec<String>,
-    #[serde(default)]
+    pub supported_features: Vec<String>,
     pub auth_metadata: Value,
-    #[serde(default)]
     pub limits: Value,
+    /// Round 4 — plaintext visibility advertisement. Receivers MUST
+    /// treat a missing value as `untrusted` (fail-closed for the
+    /// mention-redirect / late-recovery paths). Wire shape per
+    /// `service-describe.schema.json#plaintext_visibility`.
+    pub plaintext_visibility: Value,
+    /// Round 4 — features the service has actually implemented (subset
+    /// of `supported_features`). Tracks the difference between
+    /// announce and run-time implementation.
+    pub implemented_features: Vec<String>,
+    /// Round 4 — profiles the service claims (self-declared).
+    pub claimed_profiles: Vec<String>,
+    /// Round 4 — profiles a third party has verified the service
+    /// against. MUST be empty when `development_mode == true`.
+    pub verified_profiles: Vec<String>,
+    /// Round 4 — non-final extension features. Treated as opt-in by
+    /// peers.
+    pub experimental_features: Vec<String>,
+    /// Round 4 — back-compat shims this service implements (e.g.
+    /// pre-round-4 frontier shape).
+    pub compat_surfaces: Vec<String>,
+    /// Round 4 — REQUIRED. When `true` the service is in development
+    /// mode; receivers MUST refuse to advertise `verified_profiles`
+    /// and SHOULD warn on connection.
+    pub development_mode: bool,
+    /// Round 4 — `oneOf` rate-limit declaration (windowed / token /
+    /// adaptive). Left as `Value` here so the SDK doesn't pin to one
+    /// variant; service-specific helpers may parse further.
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    pub rate_limit: Value,
+    /// Reducer profiles supported (kept for back-compat — populated
+    /// by the producer alongside `supported_profiles`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub supported_reducer_profiles: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub supported_schema_profiles: Vec<String>,
     /// Current causal frontier exposed by the service. Clients SHOULD
     /// use this to detect a service that has fallen behind a known
     /// snapshot.
@@ -66,6 +110,22 @@ pub struct ServerDescription {
     /// fresh `frontier` indicates the projection layer is degraded.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_materialized_at: Option<DateTime<Utc>>,
+}
+
+impl ServerDescription {
+    /// Round 4 — validate the cross-field invariants:
+    /// - `verified_profiles` MUST be empty when `development_mode = true`.
+    /// - `protocol_version` MUST equal [`crate::PROTOCOL_VERSION`].
+    pub fn validate_v2(&self) -> Result<()> {
+        if self.development_mode && !self.verified_profiles.is_empty() {
+            return Err(Error::Protocol(format!(
+                "ServiceDescribe v2: development_mode=true forbids non-empty verified_profiles \
+                 ({})",
+                crate::ERROR_CODE_SCHEMA_VIOLATION
+            )));
+        }
+        Ok(())
+    }
 }
 
 impl ServerDescription {

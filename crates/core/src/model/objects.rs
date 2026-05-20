@@ -17,6 +17,15 @@ pub struct Space {
     pub schema: String,
     pub id: SpaceId,
     pub title: String,
+    /// Round 4 (2026-05-20, spec a77b995) — REQUIRED trust domain binding.
+    /// Captured at create time (`cx.realm.create`) and immutable; any
+    /// later event whose `trust_domain` mismatches MUST be rejected with
+    /// `cross_domain_replay_rejected`. Mixed into the canonical signing
+    /// transcript of high-risk proofs (cross-signing reset,
+    /// audit_policy_version_hash). This field is `Realm`-scoped because
+    /// `Space` is the security-boundary type (Realm/Space inversion);
+    /// the container surface is `Place`.
+    pub trust_domain: TypedTrustDomainId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -141,11 +150,20 @@ pub enum CoWritePolicy {
 }
 
 impl Space {
-    pub fn new(id: SpaceId, title: impl Into<String>, created_by_principal: Did) -> Self {
+    /// Round 4 (2026-05-20, spec a77b995) — wire-breaking: `trust_domain`
+    /// is REQUIRED. Constructors MUST now pass the deployment-scope
+    /// trust domain captured at `cx.realm.create` time.
+    pub fn new(
+        id: SpaceId,
+        title: impl Into<String>,
+        created_by_principal: Did,
+        trust_domain: TypedTrustDomainId,
+    ) -> Self {
         Self {
             schema: SPACE_SCHEMA.to_owned(),
             id,
             title: title.into(),
+            trust_domain,
             summary: None,
             security_class: None,
             created_by_principal,

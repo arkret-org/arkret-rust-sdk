@@ -11,6 +11,7 @@ pub use contrix_crypto::{
     CrossSigningBinding, CrossSigningKeyKind, CrossSigningKeyRecord, CrossSigningPublishContent,
     CrossSigningResetContent, CrossSigningResetProof, DeviceBootstrapBinding,
     DeviceQuorumSignature, DeviceTrustBinding, DeviceTrustChainOutcome, SignedCrossSigningKey,
+    cross_signing_publish_cell_subject,
 };
 
 use crate::{DeviceId, DeviceVerificationState, Did, Error, Result, canonical};

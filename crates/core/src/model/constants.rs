@@ -264,6 +264,7 @@ pub const OP_EVENTS_QUERY: &str = "cx.events.query";
 /// string (large `spaces[]` / `actors[]` unions). HTTP path:
 /// `POST /events/query`. Identical selector / range / response shape.
 pub const OP_EVENTS_QUERY_POST: &str = "cx.events.query_post";
+// ROUND4-ALLOW: constant declaring the operation-id string, not a payload type.
 pub const OP_EVENTS_SUBSCRIBE: &str = "cx.events.subscribe";
 pub const OP_EVENTS_SUBMIT: &str = "cx.events.submit";
 
@@ -299,6 +300,62 @@ pub const OP_MODERATION_REPORT: &str = "cx.moderation.report";
 /// Spec: capability-action-registry.json.
 pub const CAP_ACTION_MODERATION_APPEAL_SUBMIT: &str = "cx.moderation.appeal.submit";
 pub const CAP_ACTION_MODERATION_APPEAL_REVIEW: &str = "cx.moderation.appeal.review";
+
+/// Round 4 (2026-05-20, spec a77b995) — capability action gating Morph
+/// creation. Medium risk; the spec
+/// `capability-action-registry.json` declares `required_constraints=[morph_type_allow]`.
+pub const CAP_ACTION_MORPH_CREATE: &str = "cx.morph.create";
+
+/// Round 4 (2026-05-20) — canonical signal_type enum values carried in the
+/// `cx.call.signal` ephemeral envelope payload. Wire-break: the
+/// pre-round-4 6-value enum (`invite, answer, candidate, renegotiate,
+/// hangup, ack`) is replaced by this 13-value set. Spec
+/// `schemas/ephemeral-envelope.schema.json` (Round 4 commit 58c5926).
+pub const CALL_SIGNAL_TYPE_INVITE: &str = "invite";
+pub const CALL_SIGNAL_TYPE_ANSWER: &str = "answer";
+pub const CALL_SIGNAL_TYPE_CANDIDATE: &str = "candidate";
+pub const CALL_SIGNAL_TYPE_RENEGOTIATE: &str = "renegotiate";
+pub const CALL_SIGNAL_TYPE_HANGUP: &str = "hangup";
+pub const CALL_SIGNAL_TYPE_ACK: &str = "ack";
+pub const CALL_SIGNAL_TYPE_REJECT: &str = "reject";
+pub const CALL_SIGNAL_TYPE_MUTE_STATE: &str = "mute_state";
+pub const CALL_SIGNAL_TYPE_MEDIA_STATE: &str = "media_state";
+pub const CALL_SIGNAL_TYPE_SPEAKING: &str = "speaking";
+pub const CALL_SIGNAL_TYPE_FOCUS_JOIN: &str = "focus_join";
+pub const CALL_SIGNAL_TYPE_FOCUS_LEAVE: &str = "focus_leave";
+pub const CALL_SIGNAL_TYPE_ERROR: &str = "error";
+
+/// All canonical `cx.call.signal` signal_type values. Round 4 (spec a77b995).
+/// Receivers MUST reject any envelope whose `payload.signal_type` is not in
+/// this set with `ERROR_CODE_SCHEMA_VIOLATION`.
+pub const CALL_SIGNAL_TYPES: &[&str] = &[
+    CALL_SIGNAL_TYPE_INVITE,
+    CALL_SIGNAL_TYPE_ANSWER,
+    CALL_SIGNAL_TYPE_CANDIDATE,
+    CALL_SIGNAL_TYPE_RENEGOTIATE,
+    CALL_SIGNAL_TYPE_HANGUP,
+    CALL_SIGNAL_TYPE_ACK,
+    CALL_SIGNAL_TYPE_REJECT,
+    CALL_SIGNAL_TYPE_MUTE_STATE,
+    CALL_SIGNAL_TYPE_MEDIA_STATE,
+    CALL_SIGNAL_TYPE_SPEAKING,
+    CALL_SIGNAL_TYPE_FOCUS_JOIN,
+    CALL_SIGNAL_TYPE_FOCUS_LEAVE,
+    CALL_SIGNAL_TYPE_ERROR,
+];
+
+/// Round 4 (2026-05-20) — federation S2S HTTP message-signature headers.
+/// MUST be present on every cross-trust-domain federation request and
+/// MUST be included in the canonical signing transcript so a sender from
+/// trust domain A cannot replay the same signed bytes into trust domain B.
+/// Spec commit f9bd7eb (`harden protocol review closures`).
+pub const HEADER_SOURCE_TRUST_DOMAIN: &str = "Source-Trust-Domain";
+pub const HEADER_DESTINATION_TRUST_DOMAIN: &str = "Destination-Trust-Domain";
+/// Round 4 — canonical hash of the request payload as bound into the
+/// signing transcript. Carried alongside the signing headers so receivers
+/// can detect transport-level body tampering after the signature was
+/// computed. Spec commit f9bd7eb.
+pub const HEADER_REQUEST_CANONICAL_HASH: &str = "Request-Canonical-Hash";
 
 /// Policy server check.
 pub const OP_POLICY_CHECK: &str = "cx.policy.check";

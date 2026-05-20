@@ -272,6 +272,17 @@ pub struct HttpMessageSignatureInput {
     pub destination_service_did: Did,
     pub created_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
+    /// Round 4 (spec a77b9958, commit f9bd7eb) — optional federation
+    /// trust-domain transcript fields. When present they are emitted
+    /// by [`http_message_signature_base`] under the lower-case header
+    /// names `source-trust-domain`, `destination-trust-domain`, and
+    /// `request-canonical-hash` per RFC 9421 §2.2.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_trust_domain: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub destination_trust_domain: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request_canonical_hash: Option<String>,
 }
 
 impl HttpMessageSignatureInput {
@@ -302,22 +313,30 @@ pub struct HttpMessageSignature {
 }
 
 pub fn http_message_signature_base(input: &HttpMessageSignatureInput) -> String {
-    [
-        ("@method", input.method.as_str()),
-        ("@target-uri", input.target_uri.as_str()),
-        ("host", input.authority.as_str()),
-        ("content-digest", input.content_digest.as_str()),
-        ("x-contrix-origin-service", input.origin_service_did.as_str()),
-        ("x-contrix-destination-service", input.destination_service_did.as_str()),
-    ]
-    .into_iter()
-    .map(|(name, value)| format!("\"{name}\": {value}"))
-    .chain([
-        format!("\"created\": {}", input.created_at.timestamp()),
-        format!("\"expires\": {}", input.expires_at.timestamp()),
-    ])
-    .collect::<Vec<_>>()
-    .join("\n")
+    let mut lines: Vec<String> = vec![
+        format!("\"@method\": {}", input.method),
+        format!("\"@target-uri\": {}", input.target_uri),
+        format!("\"host\": {}", input.authority),
+        format!("\"content-digest\": {}", input.content_digest),
+        format!("\"x-contrix-origin-service\": {}", input.origin_service_did),
+        format!("\"x-contrix-destination-service\": {}", input.destination_service_did),
+    ];
+    // Round 4 (spec f9bd7eb) — emit `Source-Trust-Domain`,
+    // `Destination-Trust-Domain`, and `Request-Canonical-Hash` headers
+    // when present. Receivers MUST refuse a signed transcript whose
+    // header set disagrees with the declared signed_fields.
+    if let Some(s) = &input.source_trust_domain {
+        lines.push(format!("\"source-trust-domain\": {s}"));
+    }
+    if let Some(d) = &input.destination_trust_domain {
+        lines.push(format!("\"destination-trust-domain\": {d}"));
+    }
+    if let Some(h) = &input.request_canonical_hash {
+        lines.push(format!("\"request-canonical-hash\": {h}"));
+    }
+    lines.push(format!("\"created\": {}", input.created_at.timestamp()));
+    lines.push(format!("\"expires\": {}", input.expires_at.timestamp()));
+    lines.join("\n")
 }
 
 pub fn sign_http_message<F>(
@@ -330,19 +349,29 @@ where
     F: Fn(&str) -> Result<String>,
 {
     let signature_base = http_message_signature_base(input);
+    let mut signed_fields = vec![
+        "@method".to_owned(),
+        "@target-uri".to_owned(),
+        "host".to_owned(),
+        "content-digest".to_owned(),
+        "x-contrix-origin-service".to_owned(),
+        "x-contrix-destination-service".to_owned(),
+    ];
+    if input.source_trust_domain.is_some() {
+        signed_fields.push("source-trust-domain".to_owned());
+    }
+    if input.destination_trust_domain.is_some() {
+        signed_fields.push("destination-trust-domain".to_owned());
+    }
+    if input.request_canonical_hash.is_some() {
+        signed_fields.push("request-canonical-hash".to_owned());
+    }
+    signed_fields.push("created".to_owned());
+    signed_fields.push("expires".to_owned());
     Ok(HttpMessageSignature {
         key_id: key_id.into(),
         alg: alg.into(),
-        signed_fields: vec![
-            "@method".to_owned(),
-            "@target-uri".to_owned(),
-            "host".to_owned(),
-            "content-digest".to_owned(),
-            "x-contrix-origin-service".to_owned(),
-            "x-contrix-destination-service".to_owned(),
-            "created".to_owned(),
-            "expires".to_owned(),
-        ],
+        signed_fields,
         signature: signer(&signature_base)?,
     })
 }
@@ -413,6 +442,9 @@ mod tests {
             destination_service_did: did("b"),
             created_at: now,
             expires_at: now + Duration::minutes(5),
+            source_trust_domain: None,
+            destination_trust_domain: None,
+            request_canonical_hash: None,
         };
         let signature = sign_http_message(&input, "did:web:a.example#key-1", "EdDSA", |base| {
             Ok(canonical::sha256_digest(base))

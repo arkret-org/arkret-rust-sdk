@@ -42,7 +42,10 @@ macro_rules! impl_string_schema {
     };
 }
 
-impl_string_schema!(Did, r"^did:[a-z0-9]+:.+$");
+// Round 4 (2026-05-20, spec a77b995) — tightened DID regex. Method name
+// MUST be lowercase alpha + digits only (no `.`/`-`/`_`/`:`), and the
+// method-specific-id is `[^\s]+` (no whitespace).
+impl_string_schema!(Did, r"^did:[a-z0-9]+:[^\s]+$");
 impl_string_schema!(
     ActorProfileId,
     r"^cx:actor_profile:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"

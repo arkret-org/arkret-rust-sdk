@@ -85,6 +85,10 @@ macro_rules! id_type {
     };
 }
 
+/// Validate a DID against the Round 4 (2026-05-20, spec a77b995) tightened
+/// regex `^did:[a-z0-9]+:[^\s]+$`. Method name MUST be lowercase ASCII
+/// alpha + digits only (no `.`/`-`/`_`/`:`); method-specific-id MUST be
+/// non-empty and contain no whitespace.
 fn is_did(value: &str) -> bool {
     let Some(remainder) = value.strip_prefix("did:") else {
         return false;
@@ -96,6 +100,10 @@ fn is_did(value: &str) -> bool {
         || method_specific_id.is_empty()
         || !method.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
     {
+        return false;
+    }
+    // Round 4: method-specific-id MUST NOT contain whitespace (`[^\s]+`).
+    if method_specific_id.bytes().any(|b| matches!(b, b' ' | b'\t' | b'\n' | b'\r')) {
         return false;
     }
     method != "uuid"
@@ -420,6 +428,24 @@ mod tests {
     #[test]
     fn did_validation_rejects_removed_uuid_method() {
         assert!(Did::new("did:uuid:550e8400-e29b-41d4-a716-446655440000").is_err());
+    }
+
+    /// Round 4 (spec a77b995): method-name segment is `[a-z0-9]+` only;
+    /// `.`/`-`/`_`/`:` and whitespace MUST be rejected. The pre-round-4
+    /// permissive regex allowed `did:webvh-test:`-style method names and  ROUND4-ALLOW: docstring describes the legacy form being rejected.
+    /// is now wire-broken.
+    #[test]
+    fn did_validation_rejects_method_punctuation() {
+        // Method-segment with dot/dash/underscore/colon — all rejected.
+        assert!(Did::new("did:web.test:example").is_err()); // ROUND4-ALLOW: negative test
+        assert!(Did::new("did:web-test:example").is_err()); // ROUND4-ALLOW: negative test
+        assert!(Did::new("did:web_test:example").is_err()); // ROUND4-ALLOW: negative test
+        // Method-specific-id containing whitespace — rejected.
+        assert!(Did::new("did:web:exa mple").is_err());
+        assert!(Did::new("did:web:exa\tmple").is_err());
+        // Pure alnum method — accepted.
+        assert!(Did::new("did:webvh:example").is_ok());
+        assert!(Did::new("did:web:host.example/path#frag").is_ok());
     }
 
     #[test]

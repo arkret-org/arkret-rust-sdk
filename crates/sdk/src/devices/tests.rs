@@ -27,6 +27,7 @@ fn fake_binding(generation: u64) -> DeviceTrustBinding {
 fn sample_publish(principal: &Did, generation: u64) -> CrossSigningPublishContent {
     CrossSigningPublishContent {
         principal_id: principal.clone(),
+        trust_domain: contrix_core::TypedTrustDomainId::new("cx:trust_domain:example.net").unwrap(),
         principal_signing_key: CrossSigningKeyRecord {
             kid: format!("{principal}#cx_principal_signing_v1"),
             alg: "EdDSA".to_owned(),
@@ -59,6 +60,7 @@ fn sample_publish(principal: &Did, generation: u64) -> CrossSigningPublishConten
                 signature: format!("psk-sig-usk-gen-{generation}"),
             },
         },
+        expected_previous_generation: generation.saturating_sub(1),
         generation,
         issued_at: Utc::now(),
     }
@@ -257,9 +259,12 @@ fn cross_signing_reset_marks_devices_needing_reverification() {
     // No publish accepted right now — attaching a new binding must fail.
     assert!(manager.attach_cross_signing_binding(&alice, &phone, fake_binding(2)).is_err());
 
-    // A fresh publish (gen 2) restores normal operation.
-    manager.record_cross_signing_publish(sample_publish(&alice, 2)).unwrap();
-    manager.attach_cross_signing_binding(&alice, &phone, fake_binding(2)).unwrap();
+    // Round 4 (spec a77b995): reset bumps generation high-water to
+    // `new_generation = 2`, so the next publish chains from there —
+    // expected_previous_generation = 2, generation = 3. The
+    // pre-round-4 wire (publish(gen=2) directly after reset) is rejected.
+    manager.record_cross_signing_publish(sample_publish(&alice, 3)).unwrap();
+    manager.attach_cross_signing_binding(&alice, &phone, fake_binding(3)).unwrap();
     let dev = manager.device(&alice, &phone).unwrap();
     assert!(dev.cross_signing_binding.is_some());
 }

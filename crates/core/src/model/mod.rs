@@ -34,6 +34,7 @@ mod queries;
 mod realm_governance;
 mod registry;
 mod round23;
+mod round4;
 #[cfg(test)]
 mod tests;
 
@@ -54,3 +55,4 @@ pub use queries::*;
 pub use realm_governance::*;
 pub use registry::*;
 pub use round23::*;
+pub use round4::*;

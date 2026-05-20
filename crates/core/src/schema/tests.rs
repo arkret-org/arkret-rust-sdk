@@ -16,13 +16,16 @@ fn schema_vectors_include_negative_security_extension_case() {
 #[test]
 fn event_payload_catalog_validates_known_payload_fields() {
     let catalog = event_payload_validator_catalog();
+    // Round 4 / Realm-Space inversion (spec a77b995): `cx.flow.move`
+    // payload requires `board_space_id` (cx:space prefix) + `space_id`
+    // (renamed from target_place_id).
     catalog
         .validate_payload(
             "cx.flow.move",
             &json!({
-                "board_place_id": "cx:place:01904100-0000-7000-8000-111111111111",
+                "board_space_id": "cx:space:01904100-0000-7000-8000-111111111111",
                 "flow_id": "cx:flow:01904100-0000-7000-8000-6c663fa0205f",
-                "target_place_id": "cx:place:01904100-0000-7000-8000-222222222222",
+                "target_space_id": "cx:space:01904100-0000-7000-8000-222222222222",
                 "rank": "U"
             }),
         )
@@ -32,7 +35,7 @@ fn event_payload_catalog_validates_known_payload_fields() {
             "cx.flow.move",
             &json!({
                 "flow_id": "cx:flow:01904100-0000-7000-8000-6c663fa0205f",
-                "target_place_id": "cx:place:01904100-0000-7000-8000-222222222222",
+                "target_space_id": "cx:space:01904100-0000-7000-8000-222222222222",
                 "rank": "U"
             })
         ),
@@ -70,13 +73,16 @@ fn artifact_payload_catalog_enforces_deep_schema_rules() {
         return;
     };
     let catalog = event_payload_validator_catalog_from_spec_artifacts(artifacts_dir).unwrap();
+    // Round 4 / Realm-Space inversion (spec a77b995): `cx.flow.move`
+    // requires `board_space_id` and `space_id` (renamed from
+    // board_place_id/target_place_id).
     catalog
         .validate_payload(
             crate::events::FLOW_MOVE,
             &json!({
-                "board_place_id": "cx:place:01904100-0000-7000-8000-111111111111",
+                "board_space_id": "cx:space:01904100-0000-7000-8000-111111111111",
                 "flow_id": "cx:flow:01904100-0000-7000-8000-6c663fa0205f",
-                "target_place_id": "cx:place:01904100-0000-7000-8000-222222222222",
+                "target_space_id": "cx:space:01904100-0000-7000-8000-222222222222",
                 "rank": "U"
             }),
         )
@@ -86,9 +92,9 @@ fn artifact_payload_catalog_enforces_deep_schema_rules() {
             .validate_payload(
                 crate::events::FLOW_MOVE,
                 &json!({
-                    "board_place_id": "not-a-place-id",
+                    "board_space_id": "not-a-space-id",
                     "flow_id": "cx:flow:01904100-0000-7000-8000-6c663fa0205f",
-                    "target_place_id": "cx:place:01904100-0000-7000-8000-222222222222",
+                    "target_space_id": "cx:space:01904100-0000-7000-8000-222222222222",
                     "rank": "U"
                 }),
             )
@@ -99,9 +105,9 @@ fn artifact_payload_catalog_enforces_deep_schema_rules() {
             .validate_payload(
                 crate::events::FLOW_MOVE,
                 &json!({
-                    "board_place_id": "cx:place:01904100-0000-7000-8000-111111111111",
+                    "board_space_id": "cx:space:01904100-0000-7000-8000-111111111111",
                     "flow_id": "cx:flow:01904100-0000-7000-8000-6c663fa0205f",
-                    "target_place_id": "cx:place:01904100-0000-7000-8000-222222222222",
+                    "target_space_id": "cx:space:01904100-0000-7000-8000-222222222222",
                     "rank": "U",
                     "unexpected": true
                 }),
@@ -138,9 +144,11 @@ fn artifact_payload_catalog_enforces_external_schema_refs_and_enums() {
             crate::events::CROSS_SIGNING_PUBLISH,
             &json!({
                 "principal_id": "did:web:alice.example",
+                "trust_domain": "cx:trust_domain:example.net",
                 "principal_signing_key": key,
                 "self_signing_key": subordinate_key,
                 "user_signing_key": subordinate_key,
+                "expected_previous_generation": 0,
                 "generation": 1,
                 "issued_at": "2026-05-02T00:00:00Z"
             }),

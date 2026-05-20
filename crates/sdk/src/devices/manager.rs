@@ -14,6 +14,13 @@ pub struct DeviceManager {
     revoked_devices: BTreeMap<Did, BTreeMap<DeviceId, DateTime<Utc>>>,
     /// Latest accepted `cx.cross_signing.publish.v1` per principal.
     cross_signing_publishes: BTreeMap<Did, CrossSigningPublishContent>,
+    /// Round 4 (spec a77b995) — generation lineage counter that survives
+    /// a `cx.cross_signing.reset`. The next accepted publish MUST carry
+    /// `expected_previous_generation == cross_signing_generation_high_water` and
+    /// `generation == cross_signing_generation_high_water + 1` for the CAS
+    /// to succeed. After a reset, the high-water survives but the publish
+    /// record is dropped — the principal is in `needs_publish` state.
+    cross_signing_generation_high_water: BTreeMap<Did, u64>,
 }
 
 impl DeviceManager {
@@ -557,16 +564,35 @@ impl DeviceManager {
     ) -> Result<()> {
         publish.validate_structure()?;
         let principal = publish.principal_id.clone();
-        if let Some(existing) = self.cross_signing_publishes.get(&principal) {
-            if publish.generation <= existing.generation {
-                return Err(Error::Protocol(format!(
-                    "cross_signing publish generation {} is not greater than current {}",
-                    publish.generation, existing.generation
-                )));
-            }
+        // Round 4 (spec a77b995) — high-water tracks the lineage across
+        // reset, so a publish following a reset must continue
+        // monotonically from `reset.new_generation`.
+        let current_generation = self
+            .cross_signing_generation_high_water
+            .get(&principal)
+            .copied()
+            .unwrap_or(0);
+        // Round 4 CAS guard: `expected_previous_generation` MUST equal
+        // the currently accepted generation BEFORE signature verification.
+        // Mismatch is `cas_conflict`, not `invalid_signature`.
+        if publish.expected_previous_generation != current_generation {
+            return Err(Error::Protocol(format!(
+                "cross_signing publish expected_previous_generation {} does not match accepted {} \
+                 (cas_conflict)",
+                publish.expected_previous_generation, current_generation
+            )));
+        }
+        if publish.generation != current_generation + 1 {
+            return Err(Error::Protocol(format!(
+                "cross_signing publish generation {} must equal current {} + 1 (cas_conflict)",
+                publish.generation, current_generation
+            )));
+        }
+        if self.cross_signing_publishes.contains_key(&principal) {
             // A new accepted generation invalidates every device chain.
             self.mark_principal_needs_reverification(&principal)?;
         }
+        self.cross_signing_generation_high_water.insert(principal.clone(), publish.generation);
         self.cross_signing_publishes.insert(principal, publish);
         Ok(())
     }
@@ -590,6 +616,9 @@ impl DeviceManager {
             )));
         }
         self.cross_signing_publishes.remove(principal);
+        // Round 4 — reset bumps the generation high-water so the next
+        // publish MUST chain from `reset.new_generation`.
+        self.cross_signing_generation_high_water.insert(principal.clone(), reset.new_generation);
         self.mark_principal_needs_reverification(principal)?;
         // Cancel any in-flight verification transactions for this principal
         // (spec §14.2 step 4).

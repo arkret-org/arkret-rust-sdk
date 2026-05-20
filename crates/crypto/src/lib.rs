@@ -128,16 +128,49 @@ pub struct CrossSigningBinding {
 }
 
 /// `cx.cross_signing.publish.v1` content (spec §5.1).
+///
+/// Round 4 (2026-05-20, spec a77b995) — wire-breaking: adds required
+/// `expected_previous_generation` so the reducer can run a CAS check
+/// `(principal_id, expected_previous_generation == current)` before the
+/// signature is verified. The CAS cell key is the tuple
+/// `(principal_id, expected_previous_generation)` (see
+/// [`cross_signing_publish_cell_subject`]). Reducer behaviour: reject with
+/// `cas_conflict` when `expected_previous_generation != current_generation`
+/// or `generation != current_generation + 1`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CrossSigningPublishContent {
     pub principal_id: Did,
+    /// Round 4 (spec a77b995) — REQUIRED deployment-scope trust domain.
+    /// Mixed into the canonical `cx-cross-signing-bind-v1` signing input
+    /// so a publish from deployment A cannot be replayed into deployment
+    /// B. MUST match the receiver's accepted trust domain.
+    pub trust_domain: contrix_core::TypedTrustDomainId,
     pub principal_signing_key: CrossSigningKeyRecord,
     pub self_signing_key: SignedCrossSigningKey,
     pub user_signing_key: SignedCrossSigningKey,
+    /// Round 4 (spec a77b995) — CAS guard: MUST equal the current accepted
+    /// generation. 0 for the very first publish, otherwise the prior
+    /// accepted generation. Reducer compares this against state BEFORE
+    /// verifying signatures.
+    pub expected_previous_generation: u64,
     /// Monotonic counter; MUST equal previous accepted generation + 1 when
     /// this publish follows a reset, or 1 for the very first publish.
     pub generation: u64,
     pub issued_at: DateTime<Utc>,
+}
+
+/// Round 4 (spec a77b995) — canonical cell_subject for the CAS-register
+/// guarding `cx.cross_signing.publish`. The wire form is the tuple
+/// `(principal_id, expected_previous_generation)` rendered as
+/// `<did>|<expected_previous_generation>` (the `|` is reserved in DID
+/// method-specific-ids by the round-4 DID regex tightening, so the boundary
+/// is unambiguous). Reducer uses this as the lattice cell key so concurrent
+/// publishes resolve via CAS rather than signature-order races.
+pub fn cross_signing_publish_cell_subject(
+    principal_id: &Did,
+    expected_previous_generation: u64,
+) -> String {
+    format!("{}|{}", principal_id.as_str(), expected_previous_generation)
 }
 
 /// SSK / USK record carrying its PSK binding.
@@ -184,6 +217,7 @@ impl CrossSigningPublishContent {
     pub fn self_signing_binding_input(&self) -> Result<Vec<u8>> {
         canonical_cross_signing_binding_input(
             &self.principal_id,
+            &self.trust_domain,
             CrossSigningKeyKind::SelfSigning,
             &self.self_signing_key.key,
             self.generation,
@@ -194,6 +228,7 @@ impl CrossSigningPublishContent {
     pub fn user_signing_binding_input(&self) -> Result<Vec<u8>> {
         canonical_cross_signing_binding_input(
             &self.principal_id,
+            &self.trust_domain,
             CrossSigningKeyKind::UserSigning,
             &self.user_signing_key.key,
             self.generation,
@@ -372,6 +407,7 @@ pub enum DeviceTrustChainOutcome {
 
 fn canonical_cross_signing_binding_input(
     principal_id: &Did,
+    trust_domain: &contrix_core::TypedTrustDomainId,
     subordinate_kind: CrossSigningKeyKind,
     subordinate: &CrossSigningKeyRecord,
     generation: u64,
@@ -387,6 +423,7 @@ fn canonical_cross_signing_binding_input(
     };
     let body = serde_json::json!({
         "principal_id": principal_id.as_str(),
+        "trust_domain": trust_domain.as_str(),
         "subordinate_key_kind": kind_str,
         "subordinate_kid": subordinate.kid,
         "subordinate_alg": subordinate.alg,

@@ -88,6 +88,25 @@ pub struct HttpMessageSignatureInput {
     pub destination_service_did: Did,
     pub created_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
+    /// Round 4 (spec a77b9958, commit f9bd7eb) — federation trust-domain
+    /// transcript headers. All three MUST appear on every cross-trust-
+    /// domain request and MUST enter the canonical signing transcript so
+    /// a sender from trust domain A cannot replay the same signed bytes
+    /// into trust domain B. `None` is permitted only for intra-trust-
+    /// domain transport (e.g. local development). Headers are emitted
+    /// by [`rfc9421_http_message_signature_base`] when present.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_trust_domain: Option<contrix_core::TypedTrustDomainId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub destination_trust_domain: Option<contrix_core::TypedTrustDomainId>,
+    /// Canonical hash of the request payload, mirrored into the
+    /// `Request-Canonical-Hash` header for transport-level tamper
+    /// detection. MUST agree with [`Self::content_digest`] for HTTP
+    /// transport — the SDK currently does not enforce that equality
+    /// (transport vs canonical may differ). TODO(round4-request-canonical-hash):
+    /// wire equality check once a settled body canonicalisation is chosen.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request_canonical_hash: Option<contrix_core::Hash>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -472,8 +491,30 @@ pub fn rfc9421_http_message_signature_base(input: &HttpMessageSignatureInput) ->
     out.push_str(&format!("\"content-digest\": {}\n", input.content_digest));
     out.push_str(&format!("\"origin-service-did\": {}\n", input.origin_service_did));
     out.push_str(&format!("\"destination-service-did\": {}\n", input.destination_service_did));
+    // Round 4 (spec f9bd7eb) — emit `Source-Trust-Domain`,
+    // `Destination-Trust-Domain`, and `Request-Canonical-Hash` headers
+    // into the canonical signing transcript when present.
+    let mut extra_fields: Vec<&'static str> = Vec::new();
+    if let Some(src) = &input.source_trust_domain {
+        out.push_str(&format!("\"source-trust-domain\": {}\n", src.as_str()));
+        extra_fields.push("\"source-trust-domain\"");
+    }
+    if let Some(dst) = &input.destination_trust_domain {
+        out.push_str(&format!("\"destination-trust-domain\": {}\n", dst.as_str()));
+        extra_fields.push("\"destination-trust-domain\"");
+    }
+    if let Some(hash) = &input.request_canonical_hash {
+        out.push_str(&format!("\"request-canonical-hash\": {}\n", hash.as_str()));
+        extra_fields.push("\"request-canonical-hash\"");
+    }
+    let base_fields = r#""@method" "@target-uri" "@authority" "content-digest" "origin-service-did" "destination-service-did""#;
+    let extras = if extra_fields.is_empty() {
+        String::new()
+    } else {
+        format!(" {}", extra_fields.join(" "))
+    };
     out.push_str(&format!(
-        "\"@signature-params\": (\"@method\" \"@target-uri\" \"@authority\" \"content-digest\" \"origin-service-did\" \"destination-service-did\");created={};expires={}",
+        "\"@signature-params\": ({base_fields}{extras});created={};expires={}",
         input.created_at.timestamp(),
         input.expires_at.timestamp()
     ));
@@ -485,19 +526,32 @@ pub fn sign_http_message(
     key_id: impl Into<String>,
     signing_key: &str,
 ) -> HttpMessageSignature {
+    let mut signed_fields = vec![
+        "method".to_owned(),
+        "target-uri".to_owned(),
+        "authority".to_owned(),
+        "content-digest".to_owned(),
+        "origin-service-did".to_owned(),
+        "destination-service-did".to_owned(),
+        "created".to_owned(),
+        "expires".to_owned(),
+    ];
+    // Round 4 (spec f9bd7eb) — declare the trust-domain transcript
+    // headers in `signed_fields` so receivers can short-circuit on a
+    // mismatched field list.
+    if input.source_trust_domain.is_some() {
+        signed_fields.push("source-trust-domain".to_owned());
+    }
+    if input.destination_trust_domain.is_some() {
+        signed_fields.push("destination-trust-domain".to_owned());
+    }
+    if input.request_canonical_hash.is_some() {
+        signed_fields.push("request-canonical-hash".to_owned());
+    }
     HttpMessageSignature {
         key_id: key_id.into(),
         alg: "cx-sha256-test".to_owned(),
-        signed_fields: vec![
-            "method".to_owned(),
-            "target-uri".to_owned(),
-            "authority".to_owned(),
-            "content-digest".to_owned(),
-            "origin-service-did".to_owned(),
-            "destination-service-did".to_owned(),
-            "created".to_owned(),
-            "expires".to_owned(),
-        ],
+        signed_fields,
         signature: signature_digest(&rfc9421_http_message_signature_base(input), signing_key),
     }
 }
@@ -807,6 +861,9 @@ mod tests {
             destination_service_did: Did::new("did:web:b.example").unwrap(),
             created_at: now,
             expires_at: now + chrono::Duration::minutes(5),
+            source_trust_domain: None,
+            destination_trust_domain: None,
+            request_canonical_hash: None,
         };
 
         let signature = sign_http_message(&input, "did:web:a.example#svc", "shared-key");
