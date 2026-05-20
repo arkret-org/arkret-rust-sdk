@@ -28,6 +28,7 @@ mod member_delivery_binding_candidate;
 mod mention;
 mod objects;
 mod operation;
+mod patch;
 mod primitives;
 mod profiles;
 mod queries;
@@ -35,6 +36,7 @@ mod realm_governance;
 mod registry;
 mod round23;
 mod round4;
+mod spec_objects;
 #[cfg(test)]
 mod tests;
 
@@ -48,6 +50,7 @@ pub use member_delivery_binding_candidate::*;
 pub use mention::*;
 pub use objects::*;
 pub use operation::*;
+pub use patch::*;
 pub use primitives::*;
 pub use primitives::proof_kind;
 pub use profiles::*;
@@ -56,3 +59,4 @@ pub use realm_governance::*;
 pub use registry::*;
 pub use round23::*;
 pub use round4::*;
+pub use spec_objects::*;

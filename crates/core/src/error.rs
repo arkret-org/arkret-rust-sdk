@@ -624,6 +624,299 @@ impl From<contrix_identifiers::IdentifierError> for Error {
     }
 }
 
+// ── Typed `ErrorCode` enum ────────────────────────────────────────────────
+//
+// Strongly-typed view over [`KNOWN_ERROR_CODES`]. Mirrors the wire-form
+// snake_case strings exactly through [`ErrorCode::as_str`] / [`ErrorCode::from_wire`].
+//
+// Adding a new error code to the registry MUST be paired with a new
+// [`ErrorCode`] variant + an entry in [`ErrorCode::ALL`]. The
+// `error_code_enum_matches_registry` test in this module catches drift
+// in either direction.
+
+/// Strongly-typed view over the canonical Contrix error code registry.
+///
+/// Every variant corresponds to one entry in [`KNOWN_ERROR_CODES`].
+/// Round-trip helpers:
+///
+/// - [`ErrorCode::as_str`] → wire-form snake_case string (same value as
+///   the matching `ERROR_CODE_*` constant).
+/// - [`ErrorCode::from_wire`] → parse a wire string back into the typed
+///   variant. Returns `None` for any code not in the registry.
+/// - [`ErrorCode::http_status`] → registered HTTP status, identical to
+///   what [`error_code_http_status`] returns for the same wire string.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum ErrorCode {
+    BadJson,
+    BadQuery,
+    SchemaViolation,
+    MissingParam,
+    InvalidParam,
+    Unauthenticated,
+    AuthExpired,
+    SoftLoggedOut,
+    InvalidSignature,
+    CapabilityDenied,
+    SpaceFrozen,
+    ClaimRequired,
+    NotFound,
+    UnrecognizedEndpoint,
+    MethodNotAllowed,
+    Conflict,
+    CasConflict,
+    CausalConflict,
+    DependencyMissing,
+    DiscussionTrackDisabled,
+    /// C14 / read-receipts §2.5: Sync Service drops `cx.receipt.read` when
+    /// the effective Space `disclosure="disabled"` policy is in force.
+    PolicyViolation,
+    EpochMismatch,
+    DuplicateConflict,
+    RankExhausted,
+    HlcLogicalOverflow,
+    PayloadTooLarge,
+    DigestMismatch,
+    AadDigestMismatch,
+    PayloadDigestMismatch,
+    KeyUnavailable,
+    StateMismatch,
+    AuditReceiptInvalidated,
+    UnknownDid,
+    QuotaExceeded,
+    RateLimited,
+    Timeout,
+    StaleFrontier,
+    /// Wire alias of [`ErrorCode::CursorExpired`] — `sync_token_expired`
+    /// and `cursor_expired` share the same canonical wire string. Older
+    /// callers may still construct this variant; new code SHOULD use
+    /// `CursorExpired`.
+    SyncTokenExpired,
+    CursorExpired,
+    UnsupportedFeature,
+    UnsupportedEventKind,
+    ProjectionIncomplete,
+    InternalError,
+    TemporarilyUnavailable,
+    PolicyCombinationInvalid,
+    AnchorerRecoveryMissing,
+    UnsupportedLatticeType,
+    ProfileUnsupported,
+    CursorIntegrityInvalid,
+    FailedPrecondition,
+    UnsupportedHash,
+    AnchorIncomplete,
+    FrankUnavailable,
+    TurnCredentialExpired,
+    StalePeer,
+    // ── Round R2/R3 (2026-05-20).
+    RelaxedWindowExceedsCeiling,
+    E2eeRelaxedDisallowedInComplianceProfile,
+    CrossDomainReplayRejected,
+    ResetEventIdMismatch,
+    AppealOverturnMissingLift,
+    AppealSelfReviewForbidden,
+    RealmTerminalState,
+    AuditAgentAttestationMismatch,
+    AuditPurposeMismatch,
+    LegalHoldActive,
+    BlobRedacted,
+    MediaPlaintextServiceNotAuthorised,
+    MlsGovernanceBindingStale,
+    ExpiredInviteToken,
+    LateRecoveryRejectedMembership,
+    // ── Round 4 (2026-05-20).
+    DeliveryBindingStale,
+    DeliveryBindingHandedOver,
+    HistoricalOnly,
+}
+
+impl ErrorCode {
+    /// All non-alias variants in registry order. `SyncTokenExpired` is
+    /// **omitted** from `ALL` because it shares its wire string with
+    /// `CursorExpired`; including both would make the canonical
+    /// `as_str → ErrorCode` map non-deterministic for the shared
+    /// wire form. Both variants still serialise to the same wire
+    /// string when used directly.
+    pub const ALL: &'static [Self] = &[
+        Self::BadJson,
+        Self::BadQuery,
+        Self::SchemaViolation,
+        Self::MissingParam,
+        Self::InvalidParam,
+        Self::Unauthenticated,
+        Self::AuthExpired,
+        Self::SoftLoggedOut,
+        Self::InvalidSignature,
+        Self::CapabilityDenied,
+        Self::SpaceFrozen,
+        Self::ClaimRequired,
+        Self::NotFound,
+        Self::UnrecognizedEndpoint,
+        Self::MethodNotAllowed,
+        Self::Conflict,
+        Self::CasConflict,
+        Self::CausalConflict,
+        Self::DependencyMissing,
+        Self::DiscussionTrackDisabled,
+        Self::PolicyViolation,
+        Self::EpochMismatch,
+        Self::DuplicateConflict,
+        Self::RankExhausted,
+        Self::HlcLogicalOverflow,
+        Self::PayloadTooLarge,
+        Self::DigestMismatch,
+        Self::AadDigestMismatch,
+        Self::PayloadDigestMismatch,
+        Self::KeyUnavailable,
+        Self::StateMismatch,
+        Self::AuditReceiptInvalidated,
+        Self::UnknownDid,
+        Self::QuotaExceeded,
+        Self::RateLimited,
+        Self::Timeout,
+        Self::StaleFrontier,
+        Self::CursorExpired,
+        Self::UnsupportedFeature,
+        Self::UnsupportedEventKind,
+        Self::ProjectionIncomplete,
+        Self::InternalError,
+        Self::TemporarilyUnavailable,
+        Self::PolicyCombinationInvalid,
+        Self::AnchorerRecoveryMissing,
+        Self::UnsupportedLatticeType,
+        Self::ProfileUnsupported,
+        Self::CursorIntegrityInvalid,
+        Self::FailedPrecondition,
+        Self::UnsupportedHash,
+        Self::AnchorIncomplete,
+        Self::FrankUnavailable,
+        Self::TurnCredentialExpired,
+        Self::StalePeer,
+        Self::RelaxedWindowExceedsCeiling,
+        Self::E2eeRelaxedDisallowedInComplianceProfile,
+        Self::CrossDomainReplayRejected,
+        Self::ResetEventIdMismatch,
+        Self::AppealOverturnMissingLift,
+        Self::AppealSelfReviewForbidden,
+        Self::RealmTerminalState,
+        Self::AuditAgentAttestationMismatch,
+        Self::AuditPurposeMismatch,
+        Self::LegalHoldActive,
+        Self::BlobRedacted,
+        Self::MediaPlaintextServiceNotAuthorised,
+        Self::MlsGovernanceBindingStale,
+        Self::ExpiredInviteToken,
+        Self::LateRecoveryRejectedMembership,
+        Self::DeliveryBindingStale,
+        Self::DeliveryBindingHandedOver,
+        Self::HistoricalOnly,
+    ];
+
+    /// Canonical wire-form code (snake_case string).
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::BadJson => ERROR_CODE_BAD_JSON,
+            Self::BadQuery => ERROR_CODE_BAD_QUERY,
+            Self::SchemaViolation => ERROR_CODE_SCHEMA_VIOLATION,
+            Self::MissingParam => ERROR_CODE_MISSING_PARAM,
+            Self::InvalidParam => ERROR_CODE_INVALID_PARAM,
+            Self::Unauthenticated => ERROR_CODE_UNAUTHENTICATED,
+            Self::AuthExpired => ERROR_CODE_AUTH_EXPIRED,
+            Self::SoftLoggedOut => ERROR_CODE_SOFT_LOGGED_OUT,
+            Self::InvalidSignature => ERROR_CODE_INVALID_SIGNATURE,
+            Self::CapabilityDenied => ERROR_CODE_CAPABILITY_DENIED,
+            Self::SpaceFrozen => ERROR_CODE_SPACE_FROZEN,
+            Self::ClaimRequired => ERROR_CODE_CLAIM_REQUIRED,
+            Self::NotFound => ERROR_CODE_NOT_FOUND,
+            Self::UnrecognizedEndpoint => ERROR_CODE_UNRECOGNIZED_ENDPOINT,
+            Self::MethodNotAllowed => ERROR_CODE_METHOD_NOT_ALLOWED,
+            Self::Conflict => ERROR_CODE_CONFLICT,
+            Self::CasConflict => ERROR_CODE_CAS_CONFLICT,
+            Self::CausalConflict => ERROR_CODE_CAUSAL_CONFLICT,
+            Self::DependencyMissing => ERROR_CODE_DEPENDENCY_MISSING,
+            Self::DiscussionTrackDisabled => ERROR_CODE_DISCUSSION_TRACK_DISABLED,
+            Self::PolicyViolation => ERROR_CODE_POLICY_VIOLATION,
+            Self::EpochMismatch => ERROR_CODE_EPOCH_MISMATCH,
+            Self::DuplicateConflict => ERROR_CODE_DUPLICATE_CONFLICT,
+            Self::RankExhausted => ERROR_CODE_RANK_EXHAUSTED,
+            Self::HlcLogicalOverflow => ERROR_CODE_HLC_LOGICAL_OVERFLOW,
+            Self::PayloadTooLarge => ERROR_CODE_PAYLOAD_TOO_LARGE,
+            Self::DigestMismatch => ERROR_CODE_DIGEST_MISMATCH,
+            Self::AadDigestMismatch => ERROR_CODE_AAD_DIGEST_MISMATCH,
+            Self::PayloadDigestMismatch => ERROR_CODE_PAYLOAD_DIGEST_MISMATCH,
+            Self::KeyUnavailable => ERROR_CODE_KEY_UNAVAILABLE,
+            Self::StateMismatch => ERROR_CODE_STATE_MISMATCH,
+            Self::AuditReceiptInvalidated => ERROR_CODE_AUDIT_RECEIPT_INVALIDATED,
+            Self::UnknownDid => ERROR_CODE_UNKNOWN_DID,
+            Self::QuotaExceeded => ERROR_CODE_QUOTA_EXCEEDED,
+            Self::RateLimited => ERROR_CODE_RATE_LIMITED,
+            Self::Timeout => ERROR_CODE_TIMEOUT,
+            Self::StaleFrontier => ERROR_CODE_STALE_FRONTIER,
+            Self::CursorExpired | Self::SyncTokenExpired => ERROR_CODE_CURSOR_EXPIRED,
+            Self::UnsupportedFeature => ERROR_CODE_UNSUPPORTED_FEATURE,
+            Self::UnsupportedEventKind => ERROR_CODE_UNSUPPORTED_EVENT_KIND,
+            Self::ProjectionIncomplete => ERROR_CODE_PROJECTION_INCOMPLETE,
+            Self::InternalError => ERROR_CODE_INTERNAL_ERROR,
+            Self::TemporarilyUnavailable => ERROR_CODE_TEMPORARILY_UNAVAILABLE,
+            Self::PolicyCombinationInvalid => ERROR_CODE_POLICY_COMBINATION_INVALID,
+            Self::AnchorerRecoveryMissing => ERROR_CODE_ANCHORER_RECOVERY_MISSING,
+            Self::UnsupportedLatticeType => ERROR_CODE_UNSUPPORTED_LATTICE_TYPE,
+            Self::ProfileUnsupported => ERROR_CODE_PROFILE_UNSUPPORTED,
+            Self::CursorIntegrityInvalid => ERROR_CODE_CURSOR_INTEGRITY_INVALID,
+            Self::FailedPrecondition => ERROR_CODE_FAILED_PRECONDITION,
+            Self::UnsupportedHash => ERROR_CODE_UNSUPPORTED_HASH,
+            Self::AnchorIncomplete => ERROR_CODE_ANCHOR_INCOMPLETE,
+            Self::FrankUnavailable => ERROR_CODE_FRANK_UNAVAILABLE,
+            Self::TurnCredentialExpired => ERROR_CODE_TURN_CREDENTIAL_EXPIRED,
+            Self::StalePeer => ERROR_CODE_STALE_PEER,
+            Self::RelaxedWindowExceedsCeiling => ERROR_CODE_RELAXED_WINDOW_EXCEEDS_CEILING,
+            Self::E2eeRelaxedDisallowedInComplianceProfile => {
+                ERROR_CODE_E2EE_RELAXED_DISALLOWED_IN_COMPLIANCE_PROFILE
+            }
+            Self::CrossDomainReplayRejected => ERROR_CODE_CROSS_DOMAIN_REPLAY_REJECTED,
+            Self::ResetEventIdMismatch => ERROR_CODE_RESET_EVENT_ID_MISMATCH,
+            Self::AppealOverturnMissingLift => ERROR_CODE_APPEAL_OVERTURN_MISSING_LIFT,
+            Self::AppealSelfReviewForbidden => ERROR_CODE_APPEAL_SELF_REVIEW_FORBIDDEN,
+            Self::RealmTerminalState => ERROR_CODE_REALM_TERMINAL_STATE,
+            Self::AuditAgentAttestationMismatch => ERROR_CODE_AUDIT_AGENT_ATTESTATION_MISMATCH,
+            Self::AuditPurposeMismatch => ERROR_CODE_AUDIT_PURPOSE_MISMATCH,
+            Self::LegalHoldActive => ERROR_CODE_LEGAL_HOLD_ACTIVE,
+            Self::BlobRedacted => ERROR_CODE_BLOB_REDACTED,
+            Self::MediaPlaintextServiceNotAuthorised => {
+                ERROR_CODE_MEDIA_PLAINTEXT_SERVICE_NOT_AUTHORISED
+            }
+            Self::MlsGovernanceBindingStale => ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE,
+            Self::ExpiredInviteToken => ERROR_CODE_EXPIRED_INVITE_TOKEN,
+            Self::LateRecoveryRejectedMembership => ERROR_CODE_LATE_RECOVERY_REJECTED_MEMBERSHIP,
+            Self::DeliveryBindingStale => ERROR_CODE_DELIVERY_BINDING_STALE,
+            Self::DeliveryBindingHandedOver => ERROR_CODE_DELIVERY_BINDING_HANDED_OVER,
+            Self::HistoricalOnly => ERROR_CODE_HISTORICAL_ONLY,
+        }
+    }
+
+    /// Registered HTTP status, identical to what
+    /// [`error_code_http_status`] returns for the same wire string.
+    /// Panics only if the constant table and the HTTP-status mapping
+    /// drift; the `every_variant_has_http_status` test catches this.
+    pub fn http_status(self) -> u16 {
+        error_code_http_status(self.as_str())
+            .expect("every ErrorCode variant has a registered HTTP status")
+    }
+
+    /// Parse a wire-form code back into its typed variant. `cursor_expired`
+    /// resolves to [`ErrorCode::CursorExpired`] (not the
+    /// [`ErrorCode::SyncTokenExpired`] alias).
+    pub fn from_wire(code: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|c| c.as_str() == code)
+    }
+}
+
+impl std::fmt::Display for ErrorCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -676,5 +969,61 @@ mod tests {
         assert_eq!(ERROR_CODE_SYNC_TOKEN_EXPIRED, ERROR_CODE_CURSOR_EXPIRED);
         assert_eq!(error_code_http_status(ERROR_CODE_SYNC_TOKEN_EXPIRED), Some(410));
         assert!(is_known_error_code(ERROR_CODE_SYNC_TOKEN_EXPIRED));
+    }
+
+    /// `ErrorCode::ALL` MUST contain one variant per entry in
+    /// `KNOWN_ERROR_CODES`. The alias variant `SyncTokenExpired` is
+    /// intentionally excluded from `ALL` (it shares its wire string
+    /// with `CursorExpired`).
+    #[test]
+    fn error_code_enum_matches_registry() {
+        assert_eq!(ErrorCode::ALL.len(), KNOWN_ERROR_CODES.len());
+        for code in ErrorCode::ALL {
+            let wire = code.as_str();
+            assert!(
+                is_known_error_code(wire),
+                "ErrorCode::{:?} → {wire:?} missing from KNOWN_ERROR_CODES",
+                code
+            );
+            assert_eq!(
+                ErrorCode::from_wire(wire),
+                Some(*code),
+                "round-trip mismatch for ErrorCode::{:?}",
+                code,
+            );
+        }
+        for wire in KNOWN_ERROR_CODES {
+            assert!(
+                ErrorCode::from_wire(wire).is_some(),
+                "registry wire {wire:?} has no ErrorCode variant",
+            );
+        }
+    }
+
+    /// The alias variant `SyncTokenExpired` MUST produce the same wire
+    /// string as `CursorExpired` and MUST resolve to the canonical
+    /// variant on parse.
+    #[test]
+    fn sync_token_expired_variant_aliases() {
+        assert_eq!(ErrorCode::SyncTokenExpired.as_str(), ErrorCode::CursorExpired.as_str());
+        assert_eq!(
+            ErrorCode::from_wire(ErrorCode::SyncTokenExpired.as_str()),
+            Some(ErrorCode::CursorExpired),
+        );
+    }
+
+    /// Every variant MUST resolve to an HTTP status via
+    /// `error_code_http_status`. Catches drift between the registry
+    /// table and the HTTP-status `match` arm.
+    #[test]
+    fn every_variant_has_http_status() {
+        for code in ErrorCode::ALL {
+            let status = code.http_status();
+            assert!(
+                (100..=599).contains(&status),
+                "ErrorCode::{:?} returned status {status}",
+                code,
+            );
+        }
     }
 }

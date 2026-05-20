@@ -822,35 +822,13 @@ fn operation_serializes_protocol_field_names() {
     assert_eq!(value["schema"], OPERATION_SCHEMA);
 }
 
-#[test]
-fn sync_response_uses_native_spaces_only() {
-    let response = SyncResBody {
-        next_batch: "cx:sync:abc".to_owned(),
-        spaces: BTreeMap::from([(
-            SpaceId::new("cx:space:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
-            SyncSpace {
-                timeline: Some(SyncTimeline {
-                    events: Vec::new(),
-                    limited: false,
-                    prev_batch: None,
-                }),
-                state: Vec::new(),
-                summary: Value::Null,
-                ephemeral: Vec::new(),
-                unread: Value::Null,
-            },
-        )]),
-        to_device: Vec::new(),
-        device_lists: Value::Null,
-        account_data: Vec::new(),
-        presence: Vec::new(),
-        partial: false,
-    };
-
-    let value = serde_json::to_value(response).unwrap();
-
-    assert!(value.get("spaces").unwrap().is_object());
-}
+// `sync_response_uses_native_spaces_only` removed: the previous
+// SyncResBody had a `next_batch` / `spaces` / `timeline` shape that no
+// longer exists. The new SyncResBody (in `model/api.rs`) carries
+// `cursor` / `left_spaces` / `notifications`; the corresponding wire
+// invariant (native space ids only, no Matrix room id leakage) is
+// enforced by the cursor + space-id types themselves and exercised by
+// the typed-ID validation tests above.
 
 fn valid_proof() -> Proof {
     Proof {
