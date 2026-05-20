@@ -400,7 +400,7 @@ impl SyncLoop {
 
     fn handle_response(&mut self, response: SyncResBody) -> SyncLoopStep {
         self.backoff.reset();
-        self.token = Some(response.next_batch.clone());
+        self.token = Some(response.cursor.clone());
         match self.processor.process(response) {
             Ok(updates) => {
                 if self.gap_strategy == SyncGapStrategy::ResetTokenOnLimitedTimeline

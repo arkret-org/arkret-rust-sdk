@@ -423,12 +423,37 @@ pub struct SyncReqBody {
     pub timeout_ms: Option<u64>,
 }
 
+/// HTTP wire shape for `POST /api/v1/sync` (`cx.sync.account`).
+///
+/// Field naming follows
+/// `contrix-spec/spec/v1/zh/sync/client-sync.md §2`: the top-level
+/// resume token is `cursor` (not `next_batch`; the latter is accepted
+/// as a serde alias so a pre-spec-rename server can still be decoded
+/// during the migration window). Per-realm bodies are kept as raw
+/// `Value` so HTTP layer consumers can introspect the bucket / inner
+/// shape without colliding with the typed SDK sync_client surface in
+/// [`crate::sync::SyncResBody`] / [`crate::sync::SyncSpace`].
+///
+/// This is the **wire** type used by `contrix-server` and `yougen`;
+/// the typed [`crate::sync`] views are the in-memory SDK projection.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncResBody {
-    pub next_batch: String,
+    /// Opaque stream cursor — clients MUST treat it as opaque and pass
+    /// it back as `since` on the next request.
+    #[serde(alias = "next_batch")]
+    pub cursor: String,
+    /// Realm sync bodies keyed by `cx:space:*` / `cx:realm:*`. Kept as
+    /// `Value` so the HTTP layer doesn't constrain per-realm extra
+    /// fields (e.g. `state_after`, `flows`) that the spec leaves open.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub spaces: BTreeMap<SpaceId, SyncSpace>,
+    pub spaces: BTreeMap<String, Value>,
+    /// Realms the viewer no longer has access to since the supplied
+    /// `since` cursor — left rooms, kicks, bans, server-side
+    /// deletions. Empty on full sync (omission from `spaces` is
+    /// authoritative there).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub left_spaces: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub to_device: Vec<Value>,
     #[serde(default, skip_serializing_if = "Value::is_null")]
@@ -437,39 +462,20 @@ pub struct SyncResBody {
     pub account_data: Vec<Value>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub presence: Vec<Value>,
+    /// Notification delta (inbox / push). `Value` to round-trip the
+    /// spec's events-container shape without committing to a typed
+    /// projection here.
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    pub notifications: Value,
     #[serde(default, skip_serializing_if = "is_false")]
     pub partial: bool,
 }
 
 impl SyncResBody {
-    /// Native Contrix space map.
-    pub fn effective_spaces(&self) -> &BTreeMap<SpaceId, SyncSpace> {
+    /// Realm sync map.
+    pub fn effective_spaces(&self) -> &BTreeMap<String, Value> {
         &self.spaces
     }
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SyncSpace {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub timeline: Option<SyncTimeline>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub state: Vec<Event>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub summary: Value,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub ephemeral: Vec<Value>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub unread: Value,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SyncTimeline {
-    pub events: Vec<Event>,
-    pub limited: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub prev_batch: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

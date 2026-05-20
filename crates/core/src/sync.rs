@@ -37,12 +37,17 @@ pub struct SyncReqBody {
     pub wait_for: Option<WaitForFrontier>,
 }
 
-/// Sync response from the server.
+/// Sync response — typed projection used by the SDK's in-memory
+/// `sync_client`. The HTTP wire shape lives in
+/// [`crate::model::api::SyncResBody`]; this typed view is for SDK
+/// consumers that want strong types over each event class.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncResBody {
-    /// Token for the next sync
-    pub next_batch: String,
+    /// Opaque stream cursor. Spec-aligned name; pre-spec wire payloads
+    /// using `next_batch` are accepted via serde alias.
+    #[serde(alias = "next_batch")]
+    pub cursor: String,
     /// Space sync results
     #[serde(default)]
     pub spaces: BTreeMap<String, SyncSpace>,
@@ -743,7 +748,7 @@ impl SyncClient {
     /// Process a sync response and extract updates.
     pub fn process_response(&mut self, response: SyncResBody) -> SyncUpdates {
         // Update token
-        self.current_token = Some(response.next_batch);
+        self.current_token = Some(response.cursor);
 
         // Extract updates
         let mut space_updates = Vec::new();
@@ -873,7 +878,9 @@ mod tests {
         }"#;
 
         let response: SyncResBody = serde_json::from_str(json).unwrap();
-        assert_eq!(response.next_batch, "token456");
+        // `next_batch` is accepted via serde alias for back-compat with
+        // pre-spec-rename payloads.
+        assert_eq!(response.cursor, "token456");
         assert_eq!(response.spaces.len(), 1);
     }
 
@@ -894,7 +901,7 @@ mod tests {
         let mut client = SyncClient::new("device1".to_owned());
 
         let response = SyncResBody {
-            next_batch: "token456".to_owned(),
+            cursor: "token456".to_owned(),
             spaces: BTreeMap::new(),
             to_device: vec![],
             device_lists: DeviceListChanges::default(),

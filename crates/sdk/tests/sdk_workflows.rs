@@ -137,7 +137,7 @@ fn interoperability_serialization_roundtrips() {
     let mut spaces = BTreeMap::new();
     spaces.insert("cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(), SyncSpace::default());
     let response = SyncResBody {
-        next_batch: "s1".to_owned(),
+        cursor: "s1".to_owned(),
         spaces,
         to_device: Vec::new(),
         device_lists: DeviceListChanges::default(),
@@ -149,7 +149,7 @@ fn interoperability_serialization_roundtrips() {
 
     let json = serde_json::to_string(&response).unwrap();
     let decoded: SyncResBody = serde_json::from_str(&json).unwrap();
-    assert_eq!(decoded.next_batch, "s1");
+    assert_eq!(decoded.cursor, "s1");
 }
 
 #[test]

@@ -6,9 +6,9 @@ use super::*;
 use crate::Did;
 use crate::sync::{DeviceListChanges, SyncSpace, UnreadCounts};
 
-fn sync_response(next_batch: &str) -> SyncResBody {
+fn sync_response(cursor: &str) -> SyncResBody {
     SyncResBody {
-        next_batch: next_batch.to_owned(),
+        cursor: cursor.to_owned(),
         spaces: BTreeMap::new(),
         to_device: Vec::new(),
         device_lists: DeviceListChanges::default(),
