@@ -21,13 +21,18 @@ impl SyncResponseProcessor {
         Self::default()
     }
 
-    /// Process a full sync response into a delta and update local caches.
+    /// Process a full sync response into a delta and update local
+    /// caches. `response` is the wire-shape [`SyncResBody`]; per-event
+    /// classes are projected out of the loose `Value` shape via the
+    /// `project_typed_*` helpers so the wire layer doesn't have to
+    /// commit to typed shapes that real servers may not emit.
     pub fn process(&mut self, response: SyncResBody) -> Result<SyncUpdates> {
         self.last_token = Some(response.cursor);
 
         let mut space_updates = Vec::new();
-        for (raw_space_id, sync_space) in response.spaces {
+        for (raw_space_id, raw_sync_space) in response.spaces {
             let space_id = SpaceId::new(raw_space_id)?;
+            let sync_space: SyncSpace = serde_json::from_value(raw_sync_space).unwrap_or_default();
             let processed = self.spaces.entry(space_id.clone()).or_default();
             if let Some(timeline) = &sync_space.timeline {
                 processed.timeline_events += timeline.events.len();
@@ -54,32 +59,40 @@ impl SyncResponseProcessor {
             });
         }
 
-        for message in &response.to_device {
+        let to_device: Vec<ToDeviceMessage> = project_typed_vec(response.to_device);
+        let device_lists: DeviceListChanges =
+            serde_json::from_value(response.device_lists).unwrap_or_default();
+        let presence: Vec<PresenceEvent> = project_typed_vec(response.presence);
+        let account_data: Vec<AccountData> = project_typed_vec(response.account_data);
+        let notifications: Vec<NotificationDelta> =
+            project_typed_vec_from_value(response.notifications);
+
+        for message in &to_device {
             self.to_device.push_back(message.clone());
         }
-        for user_id in &response.device_lists.changed {
+        for user_id in &device_lists.changed {
             self.changed_device_lists.insert(user_id.clone());
         }
-        for user_id in &response.device_lists.left {
+        for user_id in &device_lists.left {
             self.left_device_lists.insert(user_id.clone());
         }
-        for event in &response.presence {
+        for event in &presence {
             self.presence.insert(event.user_id.clone(), event.clone());
         }
-        for item in &response.account_data {
+        for item in &account_data {
             self.account_data.insert(item.data_type.clone(), item.clone());
         }
-        for notification in &response.notifications {
+        for notification in &notifications {
             self.notifications.insert(notification.id.clone(), notification.clone());
         }
 
         Ok(SyncUpdates {
             space_updates,
-            to_device: response.to_device,
-            device_lists: response.device_lists,
-            presence: response.presence,
-            account_data: response.account_data,
-            notifications: response.notifications,
+            to_device,
+            device_lists,
+            presence,
+            account_data,
+            notifications,
             partial: response.partial,
         })
     }

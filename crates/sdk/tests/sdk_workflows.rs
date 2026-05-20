@@ -135,15 +135,19 @@ fn protocol_conformance_vectors_remain_stable() {
 #[test]
 fn interoperability_serialization_roundtrips() {
     let mut spaces = BTreeMap::new();
-    spaces.insert("cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(), SyncSpace::default());
+    spaces.insert(
+        "cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
+        serde_json::to_value(SyncSpace::default()).unwrap(),
+    );
     let response = SyncResBody {
         cursor: "s1".to_owned(),
         spaces,
+        left_spaces: Vec::new(),
         to_device: Vec::new(),
-        device_lists: DeviceListChanges::default(),
-        presence: Vec::new(),
+        device_lists: serde_json::Value::Null,
         account_data: Vec::new(),
-        notifications: Vec::new(),
+        presence: Vec::new(),
+        notifications: serde_json::Value::Null,
         partial: false,
     };
 

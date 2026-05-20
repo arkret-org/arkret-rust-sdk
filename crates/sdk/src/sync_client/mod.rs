@@ -20,12 +20,13 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
-    DeviceId, Error, Event, EventId, Result, SpaceId, canonical,
+    DeviceId, Error, Event, EventId, Result, SpaceId, SyncResBody, canonical,
     sync::{
         AccountData, DeviceListChanges, LimitedTimelineState, MembershipBucket, NotificationDelta,
         PresenceEvent, PresenceStatus, SpaceSubscription, SpaceUpdate, SubscriptionConfig,
-        SyncFilter, SyncReqBody, SyncResBody, SyncTimeline, SyncUpdates, TimelineFilter,
+        SyncFilter, SyncReqBody, SyncSpace, SyncTimeline, SyncUpdates, TimelineFilter,
         TimelineOrderKey, ToDeviceAck, ToDeviceAckStatus, ToDeviceMessage, WaitForFrontier,
+        project_typed_vec, project_typed_vec_from_value,
     },
 };
 

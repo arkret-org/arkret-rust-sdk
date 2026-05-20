@@ -37,40 +37,6 @@ pub struct SyncReqBody {
     pub wait_for: Option<WaitForFrontier>,
 }
 
-/// Sync response — typed projection used by the SDK's in-memory
-/// `sync_client`. The HTTP wire shape lives in
-/// [`crate::model::api::SyncResBody`]; this typed view is for SDK
-/// consumers that want strong types over each event class.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SyncResBody {
-    /// Opaque stream cursor. Spec-aligned name; pre-spec wire payloads
-    /// using `next_batch` are accepted via serde alias.
-    #[serde(alias = "next_batch")]
-    pub cursor: String,
-    /// Space sync results
-    #[serde(default)]
-    pub spaces: BTreeMap<String, SyncSpace>,
-    /// To-device messages
-    #[serde(default)]
-    pub to_device: Vec<ToDeviceMessage>,
-    /// Device list changes
-    #[serde(default)]
-    pub device_lists: DeviceListChanges,
-    /// Presence events
-    #[serde(default)]
-    pub presence: Vec<PresenceEvent>,
-    /// Account data
-    #[serde(default)]
-    pub account_data: Vec<AccountData>,
-    /// Notifications
-    #[serde(default)]
-    pub notifications: Vec<NotificationDelta>,
-    /// Partial response flag
-    #[serde(default)]
-    pub partial: bool,
-}
-
 /// Sync result for a single Space.
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -690,6 +656,29 @@ fn event_id_from_value(value: &Value) -> Option<EventId> {
     serde_json::from_value::<Event>(value.clone()).ok().map(|event| event.event_id)
 }
 
+/// Project a `Vec<Value>` from the wire `SyncResBody` into typed
+/// entries (e.g. [`ToDeviceMessage`], [`AccountData`]); items that
+/// fail to parse are dropped silently. Callers that need strict
+/// validation should walk the wire `Vec<Value>` directly.
+pub fn project_typed_vec<T: serde::de::DeserializeOwned>(items: Vec<Value>) -> Vec<T> {
+    items.into_iter().filter_map(|value| serde_json::from_value(value).ok()).collect()
+}
+
+/// Project a single `Value` (the wire-shape `notifications` field —
+/// the spec leaves it as an events-container `{"events": [...]}`)
+/// into a typed `Vec<T>`. Accepts the spec's events-container shape
+/// or a bare array. Items that fail to parse are dropped.
+pub fn project_typed_vec_from_value<T: serde::de::DeserializeOwned>(value: Value) -> Vec<T> {
+    match value {
+        Value::Array(items) => project_typed_vec(items),
+        Value::Object(mut map) => match map.remove("events") {
+            Some(Value::Array(items)) => project_typed_vec(items),
+            _ => Vec::new(),
+        },
+        _ => Vec::new(),
+    }
+}
+
 /// Sync client for managing incremental synchronization.
 pub struct SyncClient {
     /// Current sync token
@@ -745,16 +734,22 @@ impl SyncClient {
         }
     }
 
-    /// Process a sync response and extract updates.
-    pub fn process_response(&mut self, response: SyncResBody) -> SyncUpdates {
+    /// Process a sync response and extract updates. The response is
+    /// the wire-shape [`crate::model::api::SyncResBody`] — per-event
+    /// classes ([`SyncSpace`], [`ToDeviceMessage`], [`AccountData`],
+    /// …) are projected out of the loose `Value` shape on demand so
+    /// the wire layer doesn't have to commit to the typed shape.
+    pub fn process_response(&mut self, response: crate::model::SyncResBody) -> SyncUpdates {
         // Update token
         self.current_token = Some(response.cursor);
 
         // Extract updates
         let mut space_updates = Vec::new();
-        for (space_id, sync_space) in response.spaces {
+        for (raw_space_id, raw_sync_space) in response.spaces {
+            let Ok(space_id) = SpaceId::new(raw_space_id) else { continue };
+            let sync_space: SyncSpace = serde_json::from_value(raw_sync_space).unwrap_or_default();
             space_updates.push(SpaceUpdate {
-                space_id: SpaceId::new(space_id).unwrap(),
+                space_id,
                 timeline: sync_space.timeline,
                 state: sync_space.state,
                 summary: sync_space.summary,
@@ -763,11 +758,11 @@ impl SyncClient {
 
         SyncUpdates {
             space_updates,
-            to_device: response.to_device,
-            device_lists: response.device_lists,
-            presence: response.presence,
-            account_data: response.account_data,
-            notifications: response.notifications,
+            to_device: project_typed_vec(response.to_device),
+            device_lists: serde_json::from_value(response.device_lists).unwrap_or_default(),
+            presence: project_typed_vec(response.presence),
+            account_data: project_typed_vec(response.account_data),
+            notifications: project_typed_vec_from_value(response.notifications),
             partial: response.partial,
         }
     }
@@ -877,7 +872,7 @@ mod tests {
             "partial": false
         }"#;
 
-        let response: SyncResBody = serde_json::from_str(json).unwrap();
+        let response: crate::model::SyncResBody = serde_json::from_str(json).unwrap();
         // `next_batch` is accepted via serde alias for back-compat with
         // pre-spec-rename payloads.
         assert_eq!(response.cursor, "token456");
@@ -900,14 +895,15 @@ mod tests {
     fn sync_client_processes_response() {
         let mut client = SyncClient::new("device1".to_owned());
 
-        let response = SyncResBody {
+        let response = crate::model::SyncResBody {
             cursor: "token456".to_owned(),
             spaces: BTreeMap::new(),
-            to_device: vec![],
-            device_lists: DeviceListChanges::default(),
-            presence: vec![],
-            account_data: vec![],
-            notifications: vec![],
+            left_spaces: Vec::new(),
+            to_device: Vec::new(),
+            device_lists: Value::Null,
+            account_data: Vec::new(),
+            presence: Vec::new(),
+            notifications: Value::Null,
             partial: false,
         };
 

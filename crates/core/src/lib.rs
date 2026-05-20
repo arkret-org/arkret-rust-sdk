@@ -120,7 +120,13 @@ pub use sync::{
     BucketedSpaceUpdate, DeviceListChanges, LimitedTimelineState, MembershipBucket,
     NotificationDelta, PresenceEvent, PresenceStatus, SpaceSubscription, SpaceUpdate,
     SubscriptionConfig, SyncClient, SyncFilter, SyncGap, SyncGapReason, SyncMode, SyncReqBody,
-    SyncResBody, SyncSemantics, SyncSpace, SyncStreamPosition, SyncTimeline, SyncTokenBinding,
+    SyncSemantics, SyncSpace, SyncStreamPosition, SyncTimeline, SyncTokenBinding,
     SyncUpdates, TimelineFilter, TimelineOrderKey, ToDeviceAck, ToDeviceAckStatus, ToDeviceMessage,
     WaitForFrontier, sync_filter_hash,
 };
+// `SyncResBody` is the wire-shape projection in [`model::api`]; the typed
+// per-event helpers above (SyncSpace, ToDeviceMessage, AccountData,
+// NotificationDelta, PresenceEvent, DeviceListChanges, UnreadCounts,
+// SyncTimeline) are typed views that consumers parse per-field from the
+// loose `BTreeMap<String, Value>` / `Vec<Value>` carried by the wire
+// type. `pub use model::*;` re-exports `SyncResBody` at the crate root.

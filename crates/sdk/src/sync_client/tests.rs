@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use serde_json::json;
+use serde_json::{Value, json};
 
 use super::*;
 use crate::Did;
@@ -10,11 +10,12 @@ fn sync_response(cursor: &str) -> SyncResBody {
     SyncResBody {
         cursor: cursor.to_owned(),
         spaces: BTreeMap::new(),
+        left_spaces: Vec::new(),
         to_device: Vec::new(),
-        device_lists: DeviceListChanges::default(),
-        presence: Vec::new(),
+        device_lists: Value::Null,
         account_data: Vec::new(),
-        notifications: Vec::new(),
+        presence: Vec::new(),
+        notifications: Value::Null,
         partial: false,
     }
 }
@@ -105,20 +106,20 @@ fn sync_loop_control_applies_backpressure() {
 fn sync_loop_can_reset_token_on_limited_timeline_gap() {
     let space_id = "cx:space:01904100-0000-7000-8000-9b64700c6ee8";
     let mut response = sync_response("gap-token");
-    response.spaces.insert(
-        space_id.to_owned(),
-        SyncSpace {
-            timeline: Some(SyncTimeline {
-                events: Vec::new(),
-                limited: true,
-                prev_batch: Some("prev".to_owned()),
-            }),
-            state: Vec::new(),
-            summary: json!({}),
-            ephemeral: Vec::new(),
-            unread: UnreadCounts::default(),
-        },
-    );
+    let sync_space = SyncSpace {
+        timeline: Some(SyncTimeline {
+            events: Vec::new(),
+            limited: true,
+            prev_batch: Some("prev".to_owned()),
+        }),
+        state: Vec::new(),
+        summary: json!({}),
+        ephemeral: Vec::new(),
+        unread: UnreadCounts::default(),
+    };
+    response
+        .spaces
+        .insert(space_id.to_owned(), serde_json::to_value(sync_space).unwrap());
     let mut transport = |_request: SyncReqBody| Ok(response.clone());
     let mut sync_loop =
         SyncLoop::new().with_gap_strategy(SyncGapStrategy::ResetTokenOnLimitedTimeline);
@@ -150,44 +151,57 @@ fn sync_loop_includes_wait_for_frontier() {
 fn processor_dispatches_all_update_categories() {
     let space_id = "cx:space:01904100-0000-7000-8000-9b64700c6ee8";
     let mut response = sync_response("s2");
-    response.spaces.insert(
-        space_id.to_owned(),
-        SyncSpace {
-            timeline: None,
-            state: vec![json!({"kind":"state"})],
-            summary: json!({"name":"space"}),
-            ephemeral: Vec::new(),
-            unread: UnreadCounts { notification_count: 3, highlight_count: 1 },
-        },
+    let sync_space = SyncSpace {
+        timeline: None,
+        state: vec![json!({"kind":"state"})],
+        summary: json!({"name":"space"}),
+        ephemeral: Vec::new(),
+        unread: UnreadCounts { notification_count: 3, highlight_count: 1 },
+    };
+    response
+        .spaces
+        .insert(space_id.to_owned(), serde_json::to_value(sync_space).unwrap());
+    response.to_device.push(
+        serde_json::to_value(ToDeviceMessage {
+            message_type: "m.test".to_owned(),
+            content: json!({"ok":true}),
+            sender_principal_id: None,
+            sender_device_id: None,
+            recipient_principal_id: None,
+            recipient_device_id: None,
+            sent_at: None,
+            expires_at: None,
+            device_proof: None,
+            unsigned: None,
+        })
+        .unwrap(),
     );
-    response.to_device.push(ToDeviceMessage {
-        message_type: "m.test".to_owned(),
-        content: json!({"ok":true}),
-        sender_principal_id: None,
-        sender_device_id: None,
-        recipient_principal_id: None,
-        recipient_device_id: None,
-        sent_at: None,
-        expires_at: None,
-        device_proof: None,
-        unsigned: None,
-    });
-    response.device_lists.changed.push("did:web:alice.example".to_owned());
-    response.presence.push(PresenceEvent {
-        user_id: "did:web:alice.example".to_owned(),
-        presence: PresenceStatus::Online,
-        last_active: None,
-        device_id: None,
-    });
-    response.account_data.push(AccountData {
-        data_type: "cx.settings".to_owned(),
-        content: json!({"theme":"light"}),
-    });
-    response.notifications.push(NotificationDelta {
-        id: "n1".to_owned(),
-        notification_type: "mention".to_owned(),
-        action: "add".to_owned(),
-        data: None,
+    response.device_lists = json!({"changed": ["did:web:alice.example"], "left": []});
+    response.presence.push(
+        serde_json::to_value(PresenceEvent {
+            user_id: "did:web:alice.example".to_owned(),
+            presence: PresenceStatus::Online,
+            last_active: None,
+            device_id: None,
+        })
+        .unwrap(),
+    );
+    response.account_data.push(
+        serde_json::to_value(AccountData {
+            data_type: "cx.settings".to_owned(),
+            content: json!({"theme":"light"}),
+        })
+        .unwrap(),
+    );
+    response.notifications = json!({
+        "events": [
+            serde_json::to_value(NotificationDelta {
+                id: "n1".to_owned(),
+                notification_type: "mention".to_owned(),
+                action: "add".to_owned(),
+                data: None,
+            }).unwrap()
+        ]
     });
 
     let mut processor = SyncResponseProcessor::new();
@@ -217,20 +231,20 @@ fn processor_tracks_limited_timelines_and_to_device_ack() {
     )
     .unwrap();
     let mut response = sync_response("s3");
-    response.spaces.insert(
-        space_id.to_owned(),
-        SyncSpace {
-            timeline: Some(SyncTimeline {
-                events: vec![serde_json::to_value(event).unwrap()],
-                limited: true,
-                prev_batch: Some("prev".to_owned()),
-            }),
-            state: Vec::new(),
-            summary: json!({}),
-            ephemeral: Vec::new(),
-            unread: UnreadCounts::default(),
-        },
-    );
+    let sync_space = SyncSpace {
+        timeline: Some(SyncTimeline {
+            events: vec![serde_json::to_value(event).unwrap()],
+            limited: true,
+            prev_batch: Some("prev".to_owned()),
+        }),
+        state: Vec::new(),
+        summary: json!({}),
+        ephemeral: Vec::new(),
+        unread: UnreadCounts::default(),
+    };
+    response
+        .spaces
+        .insert(space_id.to_owned(), serde_json::to_value(sync_space).unwrap());
 
     let mut processor = SyncResponseProcessor::new();
     processor.process(response).unwrap();
