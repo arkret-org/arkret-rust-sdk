@@ -390,7 +390,9 @@ mod tests {
             limits: Value::Null,
             plaintext_visibility: Value::Null,
             implemented_features: vec![],
-            claimed_profiles: vec![crate::PROFILE_DIRECTORY_SERVICE.to_owned()],
+            claimed_profiles: vec![crate::ClaimedProfileEntry::self_claimed(
+                crate::PROFILE_DIRECTORY_SERVICE,
+            )],
             verified_profiles: vec![],
             experimental_features: vec![],
             compat_surfaces: vec![],

@@ -67,17 +67,26 @@ pub struct ServerDescription {
     /// of `supported_features`). Tracks the difference between
     /// announce and run-time implementation.
     pub implemented_features: Vec<String>,
-    /// Round 4 — profiles the service claims (self-declared).
-    pub claimed_profiles: Vec<String>,
+    /// Round 4 — profiles the service claims (self-declared). Wire
+    /// shape per
+    /// `service-describe.schema.json#/properties/claimed_profiles`:
+    /// every entry MUST be an object with `profile_id` +
+    /// `claim_kind = "self_claimed"`; verified-only assertions live in
+    /// [`Self::verified_profiles`].
+    pub claimed_profiles: Vec<ClaimedProfileEntry>,
     /// Round 4 — profiles a third party has verified the service
-    /// against. MUST be empty when `development_mode == true`.
-    pub verified_profiles: Vec<String>,
+    /// against. MUST be empty when `development_mode == true`. Wire
+    /// shape per
+    /// `service-describe.schema.json#/properties/verified_profiles`.
+    pub verified_profiles: Vec<VerifiedProfileEntry>,
     /// Round 4 — non-final extension features. Treated as opt-in by
     /// peers.
     pub experimental_features: Vec<String>,
-    /// Round 4 — back-compat shims this service implements (e.g.
-    /// pre-round-4 frontier shape).
-    pub compat_surfaces: Vec<String>,
+    /// Round 4 — back-compat / external-interop surfaces this service
+    /// exposes outside its claimed v1 conformance (e.g. MIMI/Matrix
+    /// passthrough). Wire shape per
+    /// `service-describe.schema.json#/properties/compat_surfaces`.
+    pub compat_surfaces: Vec<CompatSurfaceEntry>,
     /// Round 4 — REQUIRED. When `true` the service is in development
     /// mode; receivers MUST refuse to advertise `verified_profiles`
     /// and SHOULD warn on connection.
@@ -132,6 +141,107 @@ impl ServerDescription {
     pub fn supports_contrix_v1(&self) -> bool {
         self.protocol_version == PROTOCOL_VERSION
     }
+}
+
+/// Round 4 — wire-level entry in
+/// [`ServerDescription::claimed_profiles`]. Mirrors
+/// `service-describe.schema.json#/properties/claimed_profiles/items`:
+/// `profile_id` + `claim_kind = "self_claimed"` are required, the rest
+/// is optional + open (`additionalProperties: true`) so receivers can
+/// round-trip future fields without losing them.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ClaimedProfileEntry {
+    pub profile_id: String,
+    pub claim_kind: SelfClaimedKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub claimed_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub notes: Option<String>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default, flatten)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+impl ClaimedProfileEntry {
+    pub fn self_claimed(profile_id: impl Into<String>) -> Self {
+        Self {
+            profile_id: profile_id.into(),
+            claim_kind: SelfClaimedKind::SelfClaimed,
+            claimed_at: None,
+            notes: None,
+            extra: BTreeMap::new(),
+        }
+    }
+}
+
+/// Round 4 — `claim_kind` discriminant for
+/// [`ClaimedProfileEntry`]. The spec restricts this slot to
+/// `self_claimed`; verified-by-cotest claims belong in
+/// [`VerifiedProfileEntry`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum SelfClaimedKind {
+    SelfClaimed,
+}
+
+/// Round 4 — wire-level entry in
+/// [`ServerDescription::verified_profiles`]. Mirrors
+/// `service-describe.schema.json#/properties/verified_profiles/items`:
+/// requires a cotest run id, artifact hash, and timestamp so consumers
+/// can pin the claim to an auditable run.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct VerifiedProfileEntry {
+    pub profile_id: String,
+    pub claim_kind: CotestVerifiedKind,
+    pub cotest_run_id: String,
+    pub artifact_hash: String,
+    pub timestamp: DateTime<Utc>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default, flatten)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+/// Round 4 — `claim_kind` discriminant for
+/// [`VerifiedProfileEntry`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum CotestVerifiedKind {
+    CotestVerified,
+}
+
+/// Round 4 — wire-level entry in
+/// [`ServerDescription::compat_surfaces`]. Mirrors
+/// `service-describe.schema.json#/properties/compat_surfaces/items`:
+/// `name` + `kind` are required and `kind` is restricted to a closed
+/// enum so receivers can fast-path the dispatch.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct CompatSurfaceEntry {
+    pub name: String,
+    pub kind: CompatSurfaceKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub since: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub notes: Option<String>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default, flatten)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+/// Round 4 — closed enum of compat-surface kinds the spec recognises.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum CompatSurfaceKind {
+    MatrixPassthrough,
+    MimiPassthrough,
+    LegacyAlias,
+    ExternalInterop,
+    DeprecatedAlias,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
