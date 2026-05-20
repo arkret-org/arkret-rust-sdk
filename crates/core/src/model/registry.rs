@@ -710,6 +710,53 @@ impl ProtocolSchemaRegistry {
                     )?;
                 }
             }
+            // Per JSON Schema 2020-12: `contains` requires at least one
+            // array item to validate against the subschema. Optional
+            // `minContains` / `maxContains` further constrain the count.
+            // Before this branch existed the validator silently treated
+            // `contains` as a no-op, which made every `if: { array:
+            // { contains: ... } }` block trivially pass and forced the
+            // THEN branch to fire regardless of the array's content —
+            // including the principal_control_realm guard on
+            // realm.schema.json that requires `fields` only for that
+            // very specific profile.
+            if let Some(contains_schema) = schema_object.get("contains") {
+                let matches: usize = array
+                    .iter()
+                    .enumerate()
+                    .filter(|(index, item)| {
+                        self.validate_schema(
+                            root_id,
+                            root,
+                            contains_schema,
+                            item,
+                            &format!("{path}[{index}]"),
+                            depth + 1,
+                        )
+                        .is_ok()
+                    })
+                    .count();
+                let min = schema_object
+                    .get("minContains")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(1) as usize;
+                let max = schema_object
+                    .get("maxContains")
+                    .and_then(Value::as_u64)
+                    .map(|value| value as usize);
+                if matches < min {
+                    return Err(Error::Protocol(format!(
+                        "schema '{root_id}' contains requires >= {min} matching items at {path} (got {matches})"
+                    )));
+                }
+                if let Some(max) = max
+                    && matches > max
+                {
+                    return Err(Error::Protocol(format!(
+                        "schema '{root_id}' contains allows <= {max} matching items at {path} (got {matches})"
+                    )));
+                }
+            }
         }
         Ok(())
     }
