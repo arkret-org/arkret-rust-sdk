@@ -820,12 +820,17 @@ singleton_lattice!(
     &["cx.space.child"]
 );
 
-singleton_lattice!(
+// R1.2 — spec event-kind registry declares `cx.component.space.parent.v1`
+// as `cas-register/reject` keyed by `payload.space_id`. The legacy
+// `OrderedLog` declaration here predates the registry rev and was caught
+// by `artifact_cell_family_lattice_and_bottom_drift_test`.
+per_subject_lattice!(
     SpaceParent,
     "cx.component.space.parent.v1",
-    SdkLatticeKind::OrderedLog,
-    BottomPolicy::Expose,
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
     Criticality::Required,
+    "space_id",
     &["cx.space.parent"]
 );
 
@@ -911,6 +916,260 @@ per_subject_lattice!(
     &["cx.mimi.room_binding"]
 );
 
+// ─────────── Realm-rename + spec-new families (R1.2) ───────────
+//
+// The spec event-kind registry has renamed the realm-scoped policy /
+// lifecycle cell families from `cx.component.space.*` to
+// `cx.component.realm.*` (per `contrix-spec/spec/v1/zh/models/realm-and-space.md`).
+// Two brand-new flow-shape families (`cx.component.flow.fields.v1`,
+// `cx.component.flow.tracks.v1`) and one cross-realm linking family
+// (`cx.component.realm.link.v1`) also landed in the same rev.
+//
+// These impls are registered AFTER the legacy `Space*` impls in
+// `default_lattice_registry()` so the event_kind index — which is
+// last-write-wins — resolves `cx.realm.<facet>` to the new
+// `cx.component.realm.<facet>.v1` family. The old `Space*` impls stay
+// registered for back-compat with existing soland reducer cell IDs
+// (`cx:cell:cx.component.space.policy.v1:<space_id>` etc.) until those
+// reducer paths follow the rename.
+
+// ── Realm CasRegister/Reject singleton families ──
+
+singleton_lattice!(
+    RealmPolicy,
+    "cx.component.realm.policy.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    &["cx.realm.policy"]
+);
+
+singleton_lattice!(
+    RealmReadReceiptPolicy,
+    "cx.component.realm.read_receipt_policy.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    &["cx.realm.read_receipt_policy"]
+);
+
+singleton_lattice!(
+    RealmHistoryVisibility,
+    "cx.component.realm.history_visibility.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    &["cx.realm.history_visibility"]
+);
+
+singleton_lattice!(
+    RealmJoinRule,
+    "cx.component.realm.join_rule.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    &["cx.realm.join_rule"]
+);
+
+singleton_lattice!(
+    RealmDiscovery,
+    "cx.component.realm.discovery.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    &["cx.realm.discovery"]
+);
+
+singleton_lattice!(
+    RealmOrganization,
+    "cx.component.realm.organization.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    &["cx.realm.organization"]
+);
+
+singleton_lattice!(
+    RealmArchive,
+    "cx.component.realm.archive.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    &["cx.realm.archive"]
+);
+
+singleton_lattice!(
+    RealmFreeze,
+    "cx.component.realm.freeze.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    &["cx.realm.freeze"]
+);
+
+singleton_lattice!(
+    RealmTombstone,
+    "cx.component.realm.tombstone.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    &["cx.realm.tombstone"]
+);
+
+singleton_lattice!(
+    RealmDestroy,
+    "cx.component.realm.destroy.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    &["cx.realm.destroy"]
+);
+
+singleton_lattice!(
+    RealmModerationPolicy,
+    "cx.component.realm.moderation_policy.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    &["cx.realm.moderation_policy"]
+);
+
+singleton_lattice!(
+    RealmHistorySharingPolicy,
+    "cx.component.realm.history_sharing_policy.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    &["cx.realm.history_sharing_policy"]
+);
+
+singleton_lattice!(
+    RealmAssetPrivacyPolicy,
+    "cx.component.realm.asset_privacy_policy.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    &["cx.realm.asset_privacy_policy"]
+);
+
+singleton_lattice!(
+    RealmPolicyComponents,
+    "cx.component.realm.policy_components.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    &["cx.realm.policy_components"]
+);
+
+singleton_lattice!(
+    RealmPolicyServer,
+    "cx.component.realm.policy_server.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    &["cx.realm.policy_server"]
+);
+
+singleton_lattice!(
+    RealmPlaintextVisibleServices,
+    "cx.component.realm.plaintext_visible_services.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    &["cx.realm.plaintext_visible_services"]
+);
+
+singleton_lattice!(
+    RealmMediaService,
+    "cx.component.realm.media_service.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    &["cx.realm.media_service"]
+);
+
+singleton_lattice!(
+    RealmSchema,
+    "cx.component.realm.schema.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    &["cx.realm.schema"]
+);
+
+singleton_lattice!(
+    RealmDeliveryBindingPolicy,
+    "cx.component.realm.delivery_binding_policy.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    &["cx.realm.delivery_binding_policy"]
+);
+
+// ── Realm CasRegister/Reject per-subject families ──
+
+per_subject_lattice!(
+    RealmInheritancePolicy,
+    "cx.component.realm.inheritance_policy.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    "parent_realm_id",
+    &["cx.realm.inheritance_policy"]
+);
+
+per_subject_lattice!(
+    RealmUpgrade,
+    "cx.component.realm.upgrade.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    "target_reducer_profile",
+    &["cx.realm.upgrade"]
+);
+
+// ── Realm OrderedLog/Expose families ──
+
+singleton_lattice!(
+    RealmCreate,
+    "cx.component.realm.create.v1",
+    SdkLatticeKind::OrderedLog,
+    BottomPolicy::Expose,
+    Criticality::Required,
+    &["cx.realm.create"]
+);
+
+singleton_lattice!(
+    RealmLink,
+    "cx.component.realm.link.v1",
+    SdkLatticeKind::OrderedLog,
+    BottomPolicy::Expose,
+    Criticality::Required,
+    &["cx.realm.link"]
+);
+
+// ── New Flow facet families (per-subject by flow_id) ──
+
+per_subject_lattice!(
+    FlowFields,
+    "cx.component.flow.fields.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    "flow_id",
+    &["cx.flow.update"]
+);
+
+per_subject_lattice!(
+    FlowTracks,
+    "cx.component.flow.tracks.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    "flow_id",
+    &["cx.flow.tracks.update"]
+);
+
 // ───────────────────────── Factory ─────────────────────────
 
 /// Build a [`LatticeRegistry`] pre-populated with every spec-normative
@@ -984,6 +1243,36 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(ViewReconcile);
     registry.register(MimiRoomBinding);
 
+    // R1.2 — Realm-rename families. Registered after the legacy `Space*`
+    // impls so the event_kind index (last-write-wins) resolves
+    // `cx.realm.<facet>` events to the new `cx.component.realm.<facet>.v1`
+    // families per the spec event-kind-registry.
+    registry.register(RealmPolicy);
+    registry.register(RealmReadReceiptPolicy);
+    registry.register(RealmHistoryVisibility);
+    registry.register(RealmJoinRule);
+    registry.register(RealmDiscovery);
+    registry.register(RealmOrganization);
+    registry.register(RealmArchive);
+    registry.register(RealmFreeze);
+    registry.register(RealmTombstone);
+    registry.register(RealmDestroy);
+    registry.register(RealmModerationPolicy);
+    registry.register(RealmHistorySharingPolicy);
+    registry.register(RealmAssetPrivacyPolicy);
+    registry.register(RealmPolicyComponents);
+    registry.register(RealmPolicyServer);
+    registry.register(RealmPlaintextVisibleServices);
+    registry.register(RealmMediaService);
+    registry.register(RealmSchema);
+    registry.register(RealmDeliveryBindingPolicy);
+    registry.register(RealmInheritancePolicy);
+    registry.register(RealmUpgrade);
+    registry.register(RealmCreate);
+    registry.register(RealmLink);
+    registry.register(FlowFields);
+    registry.register(FlowTracks);
+
     registry
 }
 
@@ -1050,6 +1339,32 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "cx.component.view.update.v1",
         "cx.component.view.reconcile.v1",
         "cx.component.mimi.room_binding.v1",
+        // R1.2 — Realm-rename + spec-new flow facet families.
+        "cx.component.realm.policy.v1",
+        "cx.component.realm.read_receipt_policy.v1",
+        "cx.component.realm.history_visibility.v1",
+        "cx.component.realm.join_rule.v1",
+        "cx.component.realm.discovery.v1",
+        "cx.component.realm.organization.v1",
+        "cx.component.realm.archive.v1",
+        "cx.component.realm.freeze.v1",
+        "cx.component.realm.tombstone.v1",
+        "cx.component.realm.destroy.v1",
+        "cx.component.realm.moderation_policy.v1",
+        "cx.component.realm.history_sharing_policy.v1",
+        "cx.component.realm.asset_privacy_policy.v1",
+        "cx.component.realm.policy_components.v1",
+        "cx.component.realm.policy_server.v1",
+        "cx.component.realm.plaintext_visible_services.v1",
+        "cx.component.realm.media_service.v1",
+        "cx.component.realm.schema.v1",
+        "cx.component.realm.delivery_binding_policy.v1",
+        "cx.component.realm.inheritance_policy.v1",
+        "cx.component.realm.upgrade.v1",
+        "cx.component.realm.create.v1",
+        "cx.component.realm.link.v1",
+        "cx.component.flow.fields.v1",
+        "cx.component.flow.tracks.v1",
     ];
     FAMILIES
         .iter()
@@ -1149,11 +1464,18 @@ mod tests {
     #[test]
     fn default_registry_kind_count_matches_expected_total() {
         // Sanity-check that the move from soland preserved every
-        // family. Locked at 49 to catch silent additions/removals;
-        // bump this number deliberately when the spec event-kind
+        // family. Bumped to 75 after R1.2 — the spec event-kind registry
+        // renamed `cx.component.space.*` realm-policy families to
+        // `cx.component.realm.*` and added `cx.component.flow.fields.v1`,
+        // `cx.component.flow.tracks.v1`, `cx.component.realm.link.v1`,
+        // `cx.component.realm.create.v1`, `cx.component.realm.destroy.v1`,
+        // `cx.component.realm.delivery_binding_policy.v1`. We keep the
+        // legacy `Space*` impls registered for reducer back-compat, so
+        // 50 (legacy) + 25 (new realm/flow) = 75.
+        // Bump this number deliberately when the spec event-kind
         // registry grows a new cell_family.
         let registry = default_lattice_registry();
-        assert_eq!(registry.len(), 50);
+        assert_eq!(registry.len(), 75);
     }
 
     #[test]
