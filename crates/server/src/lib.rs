@@ -12,6 +12,7 @@ pub use contrix_api as api;
 pub use contrix_api::federation as federation_api;
 pub use contrix_api::identity as identity_api;
 pub use contrix_api::push as push_gateway_api;
+pub use contrix_core::{AccountSubscribeFrame, AccountSubscribeFrameKind, AccountSubscribeRealms};
 pub use contrix_signatures as signatures;
 
 use contrix_core::{

@@ -37,7 +37,7 @@ pub const AGENT_AUTHORITY_SCHEMA: &str = "cx.schema.agent_authority.v1";
 pub const BOTTOM_SCHEMA: &str = "cx.schema.bottom.v1";
 pub const SNAPSHOT_SCHEMA: &str = "cx.schema.snapshot.v1";
 pub const ENCRYPTED_PAYLOAD_SCHEMA: &str = "cx.schema.encrypted_payload.v1";
-pub const CLIENT_SYNC_RESPONSE_SCHEMA: &str = "cx.schema.client_sync_response.v1";
+pub const ACCOUNT_SUBSCRIBE_FRAME_SCHEMA: &str = "cx.schema.account_subscribe_frame.v1";
 pub const RESOURCE_SELECTOR_SCHEMA: &str = "cx.schema.resource_selector.v1";
 pub const GRANT_CONSTRAINT_SCHEMA: &str = "cx.schema.grant_constraint.v1";
 pub const DEVICE_MESSAGE_SCHEMA: &str = "cx.schema.device_message.v1";
@@ -146,10 +146,10 @@ pub const OP_MESSAGE_REDACT: &str = "cx.message.redact";
 pub const OP_MEMBER_STATE: &str = "cx.member.state";
 pub const OP_INVITE_CREATE: &str = "cx.invite.create";
 
-/// Server and sync operations.
+/// Server and account/snapshot operations.
 pub const OP_SERVER_DESCRIBE: &str = "cx.server.describe";
 pub const OP_IDENTITY_RESOLVE: &str = "cx.identity.resolve";
-pub const OP_SYNC_DESCRIBE: &str = "cx.sync.describe";
+pub const OP_ACCOUNT_DESCRIBE: &str = "cx.account.describe";
 
 /// Directory operations.
 pub const OP_DIRECTORY_DESCRIBE: &str = "cx.directory.describe";
@@ -227,34 +227,22 @@ pub const OP_AGENT_PROTOCOL_SESSION_RESULT: &str = "cx.agent.protocol_session.re
 pub const OP_AGENT_PROTOCOL_SESSION_START: &str = "cx.agent.protocol_session.start";
 pub const OP_AGENT_PROTOCOL_SESSION_STATUS: &str = "cx.agent.protocol_session.status";
 
-/// Agent Workspace service operations.
-pub const OP_AGENT_WORKSPACE_LIST_PENDING_TASKS: &str = "cx.agent_workspace.list_pending_tasks";
-pub const OP_AGENT_WORKSPACE_RESOLVE_MIRROR_FLOW: &str = "cx.agent_workspace.resolve_mirror_flow";
-
 /// Directory operations beyond the bare `describe`.
 pub const OP_DIRECTORY_PRIVATE_CONTACT_DISCOVERY: &str = "cx.directory.private_contact_discovery";
 pub const OP_DIRECTORY_ANNOUNCE: &str = "cx.directory.announce";
 pub const OP_DIRECTORY_RESOLVE_HANDLE: &str = "cx.directory.resolve_handle";
 pub const OP_DIRECTORY_RESOLVE_ORGANIZATION: &str = "cx.directory.resolve_organization";
-pub const OP_DIRECTORY_RESOLVE_SPACE: &str = "cx.directory.resolve_space";
+pub const OP_DIRECTORY_RESOLVE_REALM: &str = "cx.directory.resolve_realm";
 pub const OP_DIRECTORY_SEARCH_ACTORS: &str = "cx.directory.search_actors";
 pub const OP_DIRECTORY_SEARCH_ORGANIZATIONS: &str = "cx.directory.search_organizations";
-pub const OP_DIRECTORY_SEARCH_SPACES: &str = "cx.directory.search_spaces";
+pub const OP_DIRECTORY_SEARCH_REALMS: &str = "cx.directory.search_realms";
 pub const OP_DIRECTORY_SEARCH_USERS: &str = "cx.directory.search_users";
 pub const OP_DIRECTORY_SUBSCRIBE: &str = "cx.directory.subscribe";
 pub const OP_DIRECTORY_WITHDRAW: &str = "cx.directory.withdraw";
 
 /// Events-API operations (low-level Event Envelope plane).
 ///
-/// C17 (spec 2026-05-08, wire-breaking): the read surface was reorganised by
-/// delivery shape. `cx.events.list` + `cx.sync.backfill` (forward / backward
-/// unary reads) are folded into [`OP_EVENTS_QUERY`] (selector = `spaces[]` ∪
-/// `actors[]`, range = `from?` + `until?` + `direction: forward|backward`).
-/// `cx.sync.subscribe` becomes [`OP_EVENTS_SUBSCRIBE`] (multi-space / actor
-/// stream, `include_history=true` flips to live after a `catchup_complete`
-/// frame). `cx.sync.client_sync` is renamed to [`OP_SYNC_ACCOUNT`] — the path
-/// `POST /api/v1/sync` does not change but the canonical operation_id does.
-pub const OP_EVENTS_BATCH_GET: &str = "cx.events.batch_get";
+pub const OP_EVENTS_RESOLVE: &str = "cx.events.resolve";
 pub const OP_EVENTS_DESCRIBE: &str = "cx.events.describe";
 pub const OP_EVENTS_FRONTIER: &str = "cx.events.frontier";
 pub const OP_EVENTS_GET: &str = "cx.events.get";
@@ -364,27 +352,20 @@ pub const OP_POLICY_CHECK: &str = "cx.policy.check";
 pub const OP_PUSH_REGISTER_DEVICE: &str = "cx.push.register_device";
 pub const OP_PUSH_UNREGISTER_DEVICE: &str = "cx.push.unregister_device";
 
-/// Sync surface — account aggregate sync & snapshot head.
-///
-/// C17: `cx.sync.client_sync` → [`OP_SYNC_ACCOUNT`]. The path `POST /api/v1/sync`
-/// is unchanged; only the canonical operation_id is renamed to clarify that this
-/// op is the **account-view aggregate** (to_device / account_data /
-/// device_lists / presence / cross-Space delta), distinct from raw Event
-/// Envelope reads which now go through [`OP_EVENTS_QUERY`] /
-/// [`OP_EVENTS_SUBSCRIBE`].
-pub const OP_SYNC_ACCOUNT: &str = "cx.sync.account";
-pub const OP_SYNC_GET_SNAPSHOT_HEAD: &str = "cx.sync.get_snapshot_head";
+/// Account aggregate stream and snapshot head.
+pub const OP_ACCOUNT_SUBSCRIBE: &str = "cx.account.subscribe";
+pub const OP_SNAPSHOT_HEAD: &str = "cx.snapshot.head";
 
 /// Canonical service operation IDs built into this SDK.
 ///
 /// Event kinds live in `crate::events`; this list mirrors the spec
 /// `operation-registry.json` service surface.
 pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
+    OP_ACCOUNT_DESCRIBE,
     OP_ACCOUNT_DEVICE_PAIR,
-    OP_AGENT_WORKSPACE_LIST_PENDING_TASKS,
-    OP_AGENT_WORKSPACE_RESOLVE_MIRROR_FLOW,
     OP_ACCOUNT_ISSUE_SESSION_GRANT,
     OP_ACCOUNT_OIDC_CALLBACK,
+    OP_ACCOUNT_SUBSCRIBE,
     OP_ADMIN_GET_MODERATION_QUEUE,
     OP_ADMIN_GET_SERVER_STATUS,
     OP_ADMIN_REVOKE_DEVICE,
@@ -422,19 +403,19 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_DIRECTORY_PRIVATE_CONTACT_DISCOVERY,
     OP_DIRECTORY_RESOLVE_HANDLE,
     OP_DIRECTORY_RESOLVE_ORGANIZATION,
-    OP_DIRECTORY_RESOLVE_SPACE,
+    OP_DIRECTORY_RESOLVE_REALM,
     OP_DIRECTORY_SEARCH_ACTORS,
     OP_DIRECTORY_SEARCH_ORGANIZATIONS,
-    OP_DIRECTORY_SEARCH_SPACES,
+    OP_DIRECTORY_SEARCH_REALMS,
     OP_DIRECTORY_SEARCH_USERS,
     OP_DIRECTORY_SUBSCRIBE,
     OP_DIRECTORY_WITHDRAW,
-    OP_EVENTS_BATCH_GET,
     OP_EVENTS_DESCRIBE,
     OP_EVENTS_FRONTIER,
     OP_EVENTS_GET,
     OP_EVENTS_QUERY,
     OP_EVENTS_QUERY_POST,
+    OP_EVENTS_RESOLVE,
     OP_EVENTS_SUBSCRIBE,
     OP_EVENTS_SUBMIT,
     OP_IDENTITY_DESCRIBE_REGISTRY,
@@ -471,7 +452,5 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_PUSH_NOTIFY,
     OP_PUSH_REGISTER_DEVICE,
     OP_PUSH_UNREGISTER_DEVICE,
-    OP_SYNC_DESCRIBE,
-    OP_SYNC_ACCOUNT,
-    OP_SYNC_GET_SNAPSHOT_HEAD,
+    OP_SNAPSHOT_HEAD,
 ];

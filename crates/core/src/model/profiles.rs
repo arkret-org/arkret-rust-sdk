@@ -344,7 +344,7 @@ pub struct RywActorFrontierEntry {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct RywFrontier {
-    pub space_frontier: Vec<EventId>,
+    pub realm_frontier: Vec<EventId>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub actor_frontier: BTreeMap<Did, RywActorFrontierEntry>,
 }

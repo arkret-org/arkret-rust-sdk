@@ -15,7 +15,7 @@ fn event(kind: &str, seq: u64, space_id: &SpaceId, content: Value) -> Event {
     Event {
         event_id: EventId::new(format!("cx:event:01904100-0000-7000-8000-{seq:012x}")).unwrap(),
         kind: kind.to_owned(),
-        space_id: space_id.clone(),
+        realm_id: RealmId::new(space_id.as_str().replacen("cx:space:", "cx:realm:", 1)).unwrap(),
         actor_id: Did::new("did:web:alice.example.com").unwrap(),
         actor_seq: seq,
         created_at: Utc::now(),
@@ -71,7 +71,7 @@ fn space_creates_morph_operation() {
         .unwrap();
 
     assert_eq!(op.operation_type, OperationType::Create);
-    assert_eq!(op.space_id, space_id);
+    assert_eq!(op.realm_id.as_str(), space_id.as_str().replacen("cx:space:", "cx:realm:", 1));
     assert_eq!(op.object_type, OP_MORPH_CREATE);
     assert_eq!(op.payload["object"]["morph_type"], "task");
     assert!(op.payload["object"]["id"].as_str().unwrap().starts_with("cx:morph:"));
@@ -91,7 +91,7 @@ fn space_creates_relation_operation() {
     let op = space.create_relation_operation(input).unwrap();
 
     assert_eq!(op.operation_type, OperationType::Create);
-    assert_eq!(op.space_id, space_id);
+    assert_eq!(op.realm_id.as_str(), space_id.as_str().replacen("cx:space:", "cx:realm:", 1));
     assert_eq!(op.payload["relation"]["relation_kind"], "depends_on");
     assert!(op.payload["relation"]["id"].as_str().unwrap().starts_with("cx:relation:"));
 }

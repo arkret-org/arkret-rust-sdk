@@ -113,7 +113,7 @@ pub struct IdentityGetReceiptsParams {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters, salvo::oapi::ToSchema))]
-pub struct SyncAccountParams {
+pub struct AccountSubscribeParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Contrix-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Contrix-Request-Id", parameter(parameter_in = Header)))]
     pub x_contrix_request_id: Option<String>,
@@ -124,7 +124,7 @@ pub struct SyncAccountParams {
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters, salvo::oapi::ToSchema))]
-pub struct SyncDescribeParams {
+pub struct AccountDescribeParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Contrix-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Contrix-Request-Id", parameter(parameter_in = Header)))]
     pub x_contrix_request_id: Option<String>,
@@ -181,7 +181,7 @@ pub struct EventsGetParams {
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters, salvo::oapi::ToSchema))]
-pub struct EventsBatchGetParams {
+pub struct EventsResolveParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Contrix-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Contrix-Request-Id", parameter(parameter_in = Header)))]
     pub x_contrix_request_id: Option<String>,
@@ -264,9 +264,9 @@ pub struct EventsQueryParams {
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters, salvo::oapi::ToSchema))]
-pub struct SyncSnapshotHeadParams {
+pub struct SnapshotHeadParams {
     #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
-    pub space_id: SpaceId,
+    pub realm_id: SpaceId,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Contrix-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Contrix-Request-Id", parameter(parameter_in = Header)))]
@@ -1176,7 +1176,7 @@ pub struct EventsSubmitResBody {
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub actor_frontier: Value,
     #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub space_frontier: Value,
+    pub realm_frontier: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cursor: Option<Cursor>,
 }
@@ -1193,7 +1193,7 @@ pub struct EventsGetResBody {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct EventsBatchGetReqBody {
+pub struct EventsResolveReqBody {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub event_ids: Vec<EventId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -1204,7 +1204,7 @@ pub struct EventsBatchGetReqBody {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct EventsBatchGetResBody {
+pub struct EventsResolveResBody {
     #[serde(default)]
     pub events: Vec<Event>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -1823,17 +1823,17 @@ pub struct IdentityGetReceiptsResBody(pub IdentityReceiptsResBody);
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[cfg_attr(feature = "salvo", salvo(schema(value_type = SyncReqBody)))]
-pub struct SyncAccountReqBody(pub SyncReqBody);
+pub struct AccountSubscribeReqBody(pub SyncReqBody);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[cfg_attr(feature = "salvo", salvo(schema(value_type = SyncResBody)))]
-pub struct SyncAccountResBody(pub SyncResBody);
+pub struct AccountSubscribeResBody(pub SyncResBody);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[cfg_attr(feature = "salvo", salvo(schema(value_type = SyncDescription)))]
-pub struct SyncDescribeResBody(pub SyncDescription);
+pub struct AccountDescribeResBody(pub SyncDescription);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

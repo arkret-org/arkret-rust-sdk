@@ -429,9 +429,9 @@ impl SpaceState {
         let object = event.content.get("object").unwrap_or(&event.content);
         let place_id = self.extract_place_id(object)?;
         let id = PlaceId::new(place_id.clone())?;
-        let space_id = self
-            .extract_optional_field(object, "space_id")
-            .unwrap_or_else(|| SpaceId::new(event.realm_id.to_string()).expect("validated realm id"));
+        let space_id = self.extract_optional_field(object, "space_id").unwrap_or_else(|| {
+            SpaceId::new(event.realm_id.to_string()).expect("validated realm id")
+        });
         let kind = self.extract_field::<String>(object, "kind")?;
         let title = self.extract_field::<String>(object, "title")?;
         let state = self
@@ -1116,12 +1116,6 @@ impl SpaceState {
         {
             self.space_version = target_version;
         }
-        Ok(())
-    }
-
-    /// Tombstone the space.
-    fn tombstone_space(&mut self, _event: &Event) -> Result<()> {
-        self.tombstone_event_id = Some(_event.event_id.clone());
         Ok(())
     }
 

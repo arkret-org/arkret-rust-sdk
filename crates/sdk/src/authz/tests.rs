@@ -1,5 +1,5 @@
 use super::*;
-use crate::{Event, EventId, EventRequirements, Hlc, SpaceState};
+use crate::{Event, EventId, EventRequirements, Hlc, RealmId, SpaceState};
 use serde_json::json;
 use std::collections::BTreeMap;
 
@@ -63,7 +63,7 @@ fn capability_event(
     Event {
         event_id: EventId::new(event_id).unwrap(),
         kind: kind.to_owned(),
-        space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+        realm_id: RealmId::new("cx:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
         actor_id: Did::new("did:web:authority.example.com").unwrap(),
         actor_seq,
         created_at: utc("2026-04-29T00:00:00Z"),

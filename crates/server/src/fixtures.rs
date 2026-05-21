@@ -130,15 +130,16 @@ fn fixture_operations(flow: ProtocolFixtureFlow) -> &'static [&'static str] {
             "cx.identity.get_receipts",
         ],
         ProtocolFixtureFlow::Sync => &[
-            "cx.sync.account",
+            "cx.account.describe",
+            "cx.account.subscribe",
             "cx.events.describe",
             "cx.events.submit",
             "cx.events.get",
-            "cx.events.batch_get",
+            "cx.events.resolve",
             "cx.events.frontier",
             "cx.events.subscribe",
             "cx.events.query",
-            "cx.sync.get_snapshot_head",
+            "cx.snapshot.head",
         ],
         ProtocolFixtureFlow::Blob => &["cx.blob.upload", "cx.blob.head", "cx.blob.get"],
         ProtocolFixtureFlow::Authz => {
@@ -146,8 +147,8 @@ fn fixture_operations(flow: ProtocolFixtureFlow) -> &'static [&'static str] {
         }
         ProtocolFixtureFlow::Directory => &[
             "cx.directory.describe",
-            "cx.directory.search_spaces",
-            "cx.directory.resolve_space",
+            "cx.directory.search_realms",
+            "cx.directory.resolve_realm",
             "cx.directory.search_organizations",
             "cx.directory.resolve_organization",
             "cx.directory.search_actors",

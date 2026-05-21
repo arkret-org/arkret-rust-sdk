@@ -46,7 +46,7 @@
 //! let mut sync_loop = SyncLoop::new();
 //! let mut transport = |_request: SyncReqBody| {
 //!     Ok(SyncResBody {
-//!         next_batch: "s1".to_owned(),
+//!         cursor: "s1".to_owned(),
 //!         spaces: Default::default(),
 //!         to_device: Vec::new(),
 //!         device_lists: Default::default(),

@@ -143,7 +143,7 @@ pub trait EventsSubscribeTransport {
 #[cfg(all(feature = "client", not(target_arch = "wasm32")))]
 impl AsyncSyncTransport for crate::Client {
     fn sync_async<'a>(&'a self, request: SyncReqBody) -> BoxSyncFuture<'a, SyncResBody> {
-        Box::pin(async move { self.sync(&request).await })
+        Box::pin(async move { self.account_subscribe_once(&request).await })
     }
 }
 
@@ -387,10 +387,10 @@ impl SyncLoop {
 
     /// Build the next long-poll request.
     pub fn next_request(&self) -> SyncReqBody {
-        let timeout_ms = self.timeout.as_millis().min(u128::from(u64::MAX)) as u64;
+        let _timeout_ms = self.timeout.as_millis().min(u128::from(u64::MAX)) as u64;
         SyncReqBody {
-            since: self.token.clone(),
-            timeout_ms: Some(timeout_ms),
+            after: self.token.clone(),
+            catchup: Some(true),
             set_presence: self.presence.clone(),
             filter: self.filter.clone(),
             subscriptions: self.subscriptions.clone(),

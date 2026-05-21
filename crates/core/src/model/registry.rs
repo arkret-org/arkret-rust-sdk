@@ -207,12 +207,12 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
             ["principal_id", "device_id", "keypackage_ref"].into_iter().map(str::to_owned).collect()
         }
         OP_DIRECTORY_RESOLVE_HANDLE => vec!["handle".to_owned()],
-        OP_DIRECTORY_RESOLVE_ORGANIZATION | OP_DIRECTORY_RESOLVE_SPACE => {
+        OP_DIRECTORY_RESOLVE_ORGANIZATION | OP_DIRECTORY_RESOLVE_REALM => {
             vec!["target".to_owned()]
         }
         OP_DIRECTORY_SEARCH_ACTORS
         | OP_DIRECTORY_SEARCH_ORGANIZATIONS
-        | OP_DIRECTORY_SEARCH_SPACES => {
+        | OP_DIRECTORY_SEARCH_REALMS => {
             vec!["query".to_owned()]
         }
         OP_DIRECTORY_SEARCH_USERS => vec!["q".to_owned()],
@@ -246,13 +246,13 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         OP_POLICY_CHECK => vec!["resource".to_owned()],
         OP_AUTHZ_GET_EFFECTIVE_GRANTS => vec!["actor_id".to_owned()],
         OP_AUTHZ_GET_INVITES => vec!["space_id".to_owned()],
-        OP_EVENTS_GET | OP_EVENTS_BATCH_GET => vec!["event_id".to_owned()],
+        OP_EVENTS_GET | OP_EVENTS_RESOLVE => vec!["event_id".to_owned()],
         OP_EVENTS_FRONTIER => vec!["space_id".to_owned()],
         OP_EVENTS_QUERY => Vec::new(), // selector = spaces[]?+actors[]? — neither is strictly required
         OP_EVENTS_SUBSCRIBE => Vec::new(), // selector arrays may be empty for "all reachable"; subscription
         OP_EVENTS_SUBMIT => vec!["events".to_owned()],
-        OP_SYNC_ACCOUNT => vec!["subscriptions".to_owned()],
-        OP_SYNC_GET_SNAPSHOT_HEAD => vec!["space_id".to_owned()],
+        OP_ACCOUNT_SUBSCRIBE => vec!["after".to_owned()],
+        OP_SNAPSHOT_HEAD => vec!["realm_id".to_owned()],
         _ => Vec::new(),
     }
 }
@@ -950,11 +950,11 @@ impl Default for ProtocolSchemaRegistry {
             ),
         );
         registry.register(
-            CLIENT_SYNC_RESPONSE_SCHEMA,
+            ACCOUNT_SUBSCRIBE_FRAME_SCHEMA,
             object_schema(
-                CLIENT_SYNC_RESPONSE_SCHEMA,
-                &["next_batch", "spaces"],
-                &[("next_batch", "string"), ("spaces", "object")],
+                ACCOUNT_SUBSCRIBE_FRAME_SCHEMA,
+                &["kind"],
+                &[("kind", "string"), ("cursor", "string"), ("realms", "object")],
             ),
         );
         registry

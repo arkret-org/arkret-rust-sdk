@@ -8,7 +8,7 @@
 //! safety-critical) or exposed to projections (`bottom=expose` cells, e.g.
 //! soft display state) — never silently winner-picked by the receiver.
 //!
-//! Wire diagnostic surfaced on `/sync`, `/events`, and state-query
+//! Wire diagnostic surfaced on `/account/subscribe`, `/events`, and state-query
 //! responses so clients (and admin UIs) can show structured "this cell is
 //! ⊥, here are the candidate heads, here is the Anchor view it was
 //! observed under" without re-implementing the conflict semantics.

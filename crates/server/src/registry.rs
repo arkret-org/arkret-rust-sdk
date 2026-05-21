@@ -33,32 +33,22 @@ pub(crate) struct ServiceRoute {
 
 const SERVICE_ROUTES: &[ServiceRoute] = &[
     endpoint!("cx.server.describe", Get, "/api/v1/server/describe"),
-    endpoint!("cx.agent_workspace.resolve_mirror_flow", Get, "/api/v1/agent_workspace/mirror_flow"),
-    endpoint!(
-        "cx.agent_workspace.list_pending_tasks",
-        Get,
-        "/api/v1/agent_workspace/pending_tasks"
-    ),
     endpoint!("cx.identity.describe_registry", Get, "/api/v1/identity/describe"),
     endpoint!("cx.identity.resolve", Post, "/api/v1/identity/resolve"),
     endpoint!("cx.identity.get_document", Get, "/api/v1/identity/document"),
     endpoint!("cx.identity.get_log", Get, "/api/v1/identity/log"),
     endpoint!("cx.identity.submit_did_operation", Post, "/api/v1/identity/submit-did-operation"),
     endpoint!("cx.identity.get_receipts", Get, "/api/v1/identity/receipts"),
-    // C17 (spec 2026-05-08, wire-breaking): cx.sync.client_sync → cx.sync.account
-    // (path unchanged, op_id renamed); cx.sync.subscribe → cx.events.subscribe at
-    // /api/v1/events/subscribe; cx.events.list + cx.sync.backfill folded into
-    // cx.events.query at /api/v1/events with `direction: forward|backward`.
-    endpoint!("cx.sync.account", Post, "/api/v1/sync"),
-    endpoint!("cx.sync.describe", Get, "/api/v1/sync/describe"),
+    endpoint!("cx.account.describe", Get, "/api/v1/account/describe"),
+    endpoint!("cx.account.subscribe", Get, "/api/v1/account/subscribe"),
     endpoint!("cx.events.describe", Get, "/api/v1/events/describe"),
     endpoint!("cx.events.submit", Post, "/api/v1/events"),
     endpoint!("cx.events.get", Get, "/api/v1/events/{event_id}"),
-    endpoint!("cx.events.batch_get", Post, "/api/v1/events/batch-get"),
+    endpoint!("cx.events.resolve", Post, "/api/v1/events/resolve"),
     endpoint!("cx.events.frontier", Get, "/api/v1/events/frontier"),
     endpoint!("cx.events.subscribe", Get, "/api/v1/events/subscribe"),
     endpoint!("cx.events.query", Get, "/api/v1/events"),
-    endpoint!("cx.sync.get_snapshot_head", Get, "/api/v1/sync/snapshot-head"),
+    endpoint!("cx.snapshot.head", Get, "/api/v1/snapshot/head"),
     endpoint!("cx.directory.describe", Get, "/api/v1/directory/describe"),
     endpoint!("cx.directory.search_realms", Post, "/api/v1/directory/search-realms"),
     endpoint!("cx.directory.resolve_realm", Post, "/api/v1/directory/resolve-realm"),
@@ -215,12 +205,12 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
             expected_error_code: "invalid_param".to_owned(),
         },
         WireConformanceVector {
-            name: "sync_stale_cursor_rejected".to_owned(),
-            method: "POST".to_owned(),
-            path: "/api/v1/sync".to_owned(),
-            query: BTreeMap::new(),
+            name: "account_subscribe_stale_cursor_rejected".to_owned(),
+            method: "GET".to_owned(),
+            path: "/api/v1/account/subscribe".to_owned(),
+            query: BTreeMap::from([("after".to_owned(), "cx:cursor:expired".to_owned())]),
             headers: BTreeMap::from([("Authorization".to_owned(), "Bearer redacted".to_owned())]),
-            body: json!({"since": "cx:cursor:expired"}),
+            body: Value::Null,
             expected_status: 410,
             expected_error_code: "cursor_expired".to_owned(),
         },
@@ -340,7 +330,7 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
         WireConformanceVector {
             name: "missing_idempotency_key_rejected".to_owned(),
             method: "POST".to_owned(),
-            path: "/api/v1/sync".to_owned(),
+            path: "/api/v1/events".to_owned(),
             query: BTreeMap::new(),
             headers: BTreeMap::from([("Authorization".to_owned(), "Bearer redacted".to_owned())]),
             body: json!({}),
@@ -350,7 +340,7 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
         WireConformanceVector {
             name: "idempotency_conflict_rejected".to_owned(),
             method: "POST".to_owned(),
-            path: "/api/v1/sync".to_owned(),
+            path: "/api/v1/events".to_owned(),
             query: BTreeMap::new(),
             headers: BTreeMap::from([
                 ("Authorization".to_owned(), "Bearer redacted".to_owned()),

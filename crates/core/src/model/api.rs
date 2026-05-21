@@ -416,40 +416,38 @@ pub struct IdentityReceiptsResBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncReqBody {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub since: Option<String>,
+    pub after: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub catchup: Option<bool>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub space_ids: Vec<SpaceId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timeout_ms: Option<u64>,
 }
 
-/// HTTP wire shape for `POST /api/v1/sync` (`cx.sync.account`).
+/// Folded account-aggregate delta used by SDK internals.
 ///
-/// Field naming follows
-/// `contrix-spec/spec/v1/zh/sync/client-sync.md §2`: the top-level
-/// resume token is `cursor` (not `next_batch`; the latter is accepted
-/// as a serde alias so a pre-spec-rename server can still be decoded
-/// during the migration window). Per-realm bodies are kept as raw
-/// `Value` so HTTP layer consumers can introspect the bucket / inner
-/// shape without colliding with the typed SDK sync_client surface in
-/// [`crate::sync::SyncResBody`] / [`crate::sync::SyncSpace`].
+/// Current wire delivery is `cx.account.subscribe`: an NDJSON stream of
+/// [`AccountSubscribeFrame`] values. The SDK folds `delta` frames into this
+/// shape so existing reducers and UI code can consume a single account snapshot
+/// value without depending on transport streaming details.
 ///
-/// This is the **wire** type used by `contrix-server` and `yougen`;
-/// the typed [`crate::sync`] views are the in-memory SDK projection.
+/// Per-realm bodies are kept as raw `Value` so consumers can introspect the
+/// bucket / inner shape without colliding with the typed SDK sync_client
+/// surface in [`crate::sync::SyncSpace`].
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncResBody {
-    /// Opaque stream cursor — clients MUST treat it as opaque and pass
-    /// it back as `since` on the next request.
-    #[serde(alias = "next_batch")]
+    /// Opaque stream cursor — clients MUST treat it as opaque and pass it back
+    /// as `after` on the next `/account/subscribe` request.
     pub cursor: String,
     /// Realm sync bodies keyed by `cx:space:*` / `cx:realm:*`. Kept as
     /// `Value` so the HTTP layer doesn't constrain per-realm extra
     /// fields (e.g. `state_after`, `flows`) that the spec leaves open.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub spaces: BTreeMap<String, Value>,
-    /// Realms the viewer no longer has access to since the supplied
-    /// `since` cursor — left rooms, kicks, bans, server-side
+    /// Realms the viewer no longer has access to after the supplied
+    /// `after` cursor — left rooms, kicks, bans, server-side
     /// deletions. Empty on full sync (omission from `spaces` is
     /// authoritative there).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -476,6 +474,105 @@ impl SyncResBody {
     pub fn effective_spaces(&self) -> &BTreeMap<String, Value> {
         &self.spaces
     }
+
+    /// Fold a single `cx.account.subscribe` data frame into the SDK aggregate
+    /// snapshot shape. Control frames without data return `None`.
+    pub fn from_account_subscribe_frame(frame: AccountSubscribeFrame) -> Option<Self> {
+        if frame.kind != AccountSubscribeFrameKind::Delta {
+            return None;
+        }
+        let cursor = frame.cursor?;
+        let mut spaces = BTreeMap::new();
+        let mut left_spaces = Vec::new();
+        if let Some(realms) = frame.realms {
+            spaces.extend(realms.join);
+            spaces.extend(realms.invite);
+            spaces.extend(realms.knock);
+            left_spaces.extend(realms.leave.into_keys());
+        }
+
+        Some(Self {
+            cursor,
+            spaces,
+            left_spaces,
+            to_device: frame
+                .to_device
+                .and_then(|value| value.get("events").cloned())
+                .and_then(|value| value.as_array().cloned())
+                .unwrap_or_default(),
+            device_lists: frame.device_lists.unwrap_or(Value::Null),
+            account_data: frame
+                .account_data
+                .and_then(|value| value.get("events").cloned())
+                .and_then(|value| value.as_array().cloned())
+                .unwrap_or_default(),
+            presence: frame
+                .presence
+                .and_then(|value| value.get("events").cloned())
+                .and_then(|value| value.as_array().cloned())
+                .unwrap_or_default(),
+            notifications: frame.notifications.unwrap_or(Value::Null),
+            partial: frame.partial.unwrap_or(false),
+        })
+    }
+}
+
+/// One NDJSON frame on `cx.account.subscribe`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct AccountSubscribeFrame {
+    pub kind: AccountSubscribeFrameKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub realms: Option<AccountSubscribeRealms>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub to_device: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_lists: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub account_data: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub presence: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub notifications: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub partial: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    #[serde(default, flatten)]
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AccountSubscribeFrameKind {
+    Delta,
+    CatchupComplete,
+    Frontier,
+    Heartbeat,
+    Dropped,
+    ResyncRequired,
+    Unauthorized,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct AccountSubscribeRealms {
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub join: BTreeMap<String, Value>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub invite: BTreeMap<String, Value>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub knock: BTreeMap<String, Value>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub leave: BTreeMap<String, Value>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

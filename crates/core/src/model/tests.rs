@@ -1,6 +1,10 @@
 use super::*;
 use serde_json::json;
 
+fn test_realm_id() -> RealmId {
+    RealmId::new("cx:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
+}
+
 #[test]
 fn did_validation_rejects_handles() {
     assert!(Did::new("did:web:alice.example").is_ok());
@@ -54,7 +58,7 @@ fn server_description_checks_protocol_version() {
 fn event_new_sets_required_event_id() {
     let event = Event::new(
         "cx.message.create",
-        SpaceId::new("cx:space:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
+        test_realm_id(),
         Did::new("did:web:alice.example").unwrap(),
         1,
         Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap(),
@@ -70,7 +74,7 @@ fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
     let event = Event {
         event_id: EventId::new("cx:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
         kind: "cx.message.create".to_owned(),
-        space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
+        realm_id: test_realm_id(),
         actor_id: Did::new("did:web:alice.example").unwrap(),
         actor_seq: 1,
         created_at: "2026-04-26T00:00:00Z".parse().unwrap(),
@@ -111,7 +115,7 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
     let envelope = OperationEnvelope {
         operation_id: OperationId::new("cx:operation:01904100-0000-7000-8000-0198d483044c")
             .unwrap(),
-        space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
+        realm_id: test_realm_id(),
         actor_id: Did::new("did:web:alice.example").unwrap(),
         kind: "cx.message.create".to_owned(),
         target_ref: Some("cx:thread:general".to_owned()),
@@ -180,7 +184,7 @@ fn operation_kind_registry_drives_envelope_semantics() {
     let envelope = OperationEnvelope {
         operation_id: OperationId::new("cx:operation:01904100-0000-7000-8000-0198d483044c")
             .unwrap(),
-        space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
+        realm_id: test_realm_id(),
         actor_id: Did::new("did:web:alice.example").unwrap(),
         kind: OP_MESSAGE_CREATE.to_owned(),
         target_ref: None,
@@ -209,14 +213,14 @@ fn operation_kind_registry_drives_envelope_semantics() {
 #[test]
 fn operation_envelope_builder_covers_every_builtin_kind() {
     let registry = OperationKindRegistry::default();
-    let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-65c7feb295d7").unwrap();
+    let realm_id = test_realm_id();
     let actor_id = Did::new("did:web:alice.example").unwrap();
     let hlc = Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap();
 
     for (index, kind) in BUILT_IN_OPERATION_KINDS.iter().enumerate() {
         let mut builder = OperationEnvelopeBuilder::new(
             OperationId::new(format!("cx:operation:01904100-0000-7000-8000-{index:012x}")).unwrap(),
-            space_id.clone(),
+            realm_id.clone(),
             actor_id.clone(),
             *kind,
             index as u64 + 1,
@@ -236,7 +240,7 @@ fn operation_envelope_builder_requires_registered_kind_and_payload_fields() {
     let registry = OperationKindRegistry::default();
     let builder = OperationEnvelopeBuilder::new(
         OperationId::new("cx:operation:01904100-0000-7000-8000-76b2a3b35ad0").unwrap(),
-        SpaceId::new("cx:space:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
+        test_realm_id(),
         Did::new("did:web:alice.example").unwrap(),
         OP_MESSAGE_CREATE,
         1,
@@ -253,7 +257,7 @@ fn operation_envelope_builder_requires_registered_kind_and_payload_fields() {
 
     let unknown = OperationEnvelopeBuilder::new(
         OperationId::new("cx:operation:01904100-0000-7000-8000-e9d434a97fb1").unwrap(),
-        SpaceId::new("cx:space:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
+        test_realm_id(),
         Did::new("did:web:alice.example").unwrap(),
         "unknown",
         1,
@@ -286,18 +290,20 @@ fn protocol_schema_registry_publishes_core_json_schemas() {
         EVENT_SCHEMA,
         CAPABILITY_SCHEMA,
         ENCRYPTED_PAYLOAD_SCHEMA,
-        CLIENT_SYNC_RESPONSE_SCHEMA,
+        ACCOUNT_SUBSCRIBE_FRAME_SCHEMA,
     ] {
         assert!(registry.schema(schema_id).is_some());
     }
 
     registry
         .validate_value(
-            CLIENT_SYNC_RESPONSE_SCHEMA,
-            &json!({"next_batch": "s1", "spaces": {}, "unknown_future_field": true}),
+            ACCOUNT_SUBSCRIBE_FRAME_SCHEMA,
+            &json!({"kind": "delta", "cursor": "cx:cursor:s1", "realms": {}, "unknown_future_field": true}),
         )
         .unwrap();
-    assert!(registry.validate_value(CLIENT_SYNC_RESPONSE_SCHEMA, &json!({"spaces": {}})).is_err());
+    assert!(
+        registry.validate_value(ACCOUNT_SUBSCRIBE_FRAME_SCHEMA, &json!({"realms": {}})).is_err()
+    );
     registry
         .validate_value(
             FLOW_SCHEMA,
@@ -315,7 +321,7 @@ fn protocol_schema_registry_publishes_core_json_schemas() {
         .unwrap();
     assert!(
         registry
-            .validate_value(CLIENT_SYNC_RESPONSE_SCHEMA, &json!({"next_batch": 1, "spaces": {}}))
+            .validate_value(ACCOUNT_SUBSCRIBE_FRAME_SCHEMA, &json!({"kind": 1, "realms": {}}))
             .is_err()
     );
 
@@ -607,7 +613,7 @@ fn encrypted_payload_digest_matches_conformance_vector() {
 
 #[test]
 fn mls_envelopes_build_protocol_operations() {
-    let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-65c7feb295d7").unwrap();
+    let realm_id = test_realm_id();
     let hash = Hash::new("sha256:1111111111111111111111111111111111111111111111111111111111111111")
         .unwrap();
     let proposal = MlsProposalEnvelope {
@@ -640,19 +646,19 @@ fn mls_envelopes_build_protocol_operations() {
     let proposal_op = proposal
         .operation(
             OperationId::new("cx:operation:01904100-0000-7000-8000-b88de80d815c").unwrap(),
-            space_id.clone(),
+            realm_id.clone(),
         )
         .unwrap();
     let commit_op = commit
         .operation(
             OperationId::new("cx:operation:01904100-0000-7000-8000-3bfead8e02bc").unwrap(),
-            space_id.clone(),
+            realm_id.clone(),
         )
         .unwrap();
     let welcome_op = welcome
         .operation(
             OperationId::new("cx:operation:01904100-0000-7000-8000-059e659fdcc8").unwrap(),
-            space_id,
+            realm_id,
         )
         .unwrap();
 
@@ -806,7 +812,7 @@ fn view_supports_renderer_and_facet_config_facades() {
 fn operation_serializes_protocol_field_names() {
     let mut operation = Operation::create(
         OperationId::new("cx:operation:01904100-0000-7000-8000-d408d6a2241c").unwrap(),
-        SpaceId::new("cx:space:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
+        RealmId::new("cx:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
         "morph",
         json!({"id":"cx:morph:01904100-0000-7000-8000-c12dc98b2948"}),
     );
@@ -968,7 +974,7 @@ fn proof_validate_binding_rejects_excessive_time_drift() {
 fn event_validate_proof_bindings_checks_digest_match() {
     let event = Event::new(
         "cx.message.create",
-        SpaceId::new("cx:space:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
+        test_realm_id(),
         Did::new("did:web:alice.example").unwrap(),
         1,
         Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap(),
@@ -997,7 +1003,7 @@ fn event_validate_proof_bindings_checks_digest_match() {
 fn event_validate_proof_bindings_rejects_mismatched_digest() {
     let event = Event::new(
         "cx.message.create",
-        SpaceId::new("cx:space:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
+        test_realm_id(),
         Did::new("did:web:alice.example").unwrap(),
         1,
         Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap(),
@@ -1028,7 +1034,7 @@ fn event_validate_proof_bindings_rejects_mismatched_digest() {
 fn event_digest_includes_profile_refs_features_and_critical_extensions() {
     let mut event = Event::new(
         "cx.message.create",
-        SpaceId::new("cx:space:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
+        test_realm_id(),
         Did::new("did:web:alice.example").unwrap(),
         1,
         Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap(),
@@ -1062,7 +1068,7 @@ fn event_digest_includes_profile_refs_features_and_critical_extensions() {
 fn operation_draft_explicitly_materializes_event_envelope_without_signed_operation_id() {
     let operation = OperationEnvelopeBuilder::new(
         OperationId::new("cx:operation:01904100-0000-7000-8000-9c5aa474063f").unwrap(),
-        SpaceId::new("cx:space:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
+        test_realm_id(),
         Did::new("did:web:alice.example").unwrap(),
         OP_MESSAGE_CREATE,
         7,

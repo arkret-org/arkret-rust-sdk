@@ -384,7 +384,7 @@ mod tests {
             protocol_version: "1.0".to_owned(),
             supported_profiles: vec![crate::PROFILE_DIRECTORY_SERVICE.to_owned()],
             supported_features: vec![],
-            supported_operations: vec!["cx.directory.search_spaces".to_owned()],
+            supported_operations: vec!["cx.directory.search_realms".to_owned()],
             supported_bindings: vec![],
             auth_metadata: Value::Null,
             limits: Value::Null,
@@ -411,7 +411,7 @@ mod tests {
             .profile(crate::PROFILE_DIRECTORY_SERVICE)
             .reducer_profile("cx.reducer.v1")
             .schema_profile("cx.schema.core.v1")
-            .operation("cx.directory.search_spaces")
+            .operation("cx.directory.search_realms")
             .verify(&description)
             .unwrap();
     }
@@ -423,7 +423,7 @@ mod tests {
             service_did: service_did.clone(),
             service_type: ServiceType::DirectoryService,
             endpoint: "https://svc.example/api/v1/directory".to_owned(),
-            operations: vec!["cx.directory.search_spaces".to_owned()],
+            operations: vec!["cx.directory.search_realms".to_owned()],
         });
         let description = ServerDescription {
             service_did,
@@ -432,7 +432,7 @@ mod tests {
             protocol_version: "1.0".to_owned(),
             supported_profiles: vec![],
             supported_features: vec![],
-            supported_operations: vec!["cx.directory.search_spaces".to_owned()],
+            supported_operations: vec!["cx.directory.search_realms".to_owned()],
             supported_bindings: vec![],
             auth_metadata: Value::Null,
             limits: Value::Null,

@@ -22,16 +22,15 @@ fn service_route_registry_matches_required_spec_operations() {
         .collect::<BTreeMap<_, _>>();
     for (operation_id, path) in [
         ("cx.identity.resolve", "/api/v1/identity/resolve"),
-        ("cx.sync.account", "/api/v1/sync"),
+        ("cx.account.subscribe", "/api/v1/account/subscribe"),
+        ("cx.account.describe", "/api/v1/account/describe"),
         ("cx.events.describe", "/api/v1/events/describe"),
         ("cx.events.submit", "/api/v1/events"),
         ("cx.events.get", "/api/v1/events/{event_id}"),
-        ("cx.events.batch_get", "/api/v1/events/batch-get"),
+        ("cx.events.resolve", "/api/v1/events/resolve"),
         ("cx.events.frontier", "/api/v1/events/frontier"),
         ("cx.events.subscribe", "/api/v1/events/subscribe"),
         ("cx.events.query", "/api/v1/events"),
-        ("cx.agent_workspace.resolve_mirror_flow", "/api/v1/agent_workspace/mirror_flow"),
-        ("cx.agent_workspace.list_pending_tasks", "/api/v1/agent_workspace/pending_tasks"),
         ("cx.directory.private_contact_discovery", "/api/v1/directory/private-contact-discovery"),
         ("cx.blob.upload", "/api/v1/blob/upload"),
         ("cx.push.register_device", "/api/v1/push/register-device"),
@@ -143,5 +142,5 @@ fn framework_independent_handler_shape_can_be_mocked() {
     let ServerResBody::ServerDescription(description) = response else {
         panic!("unexpected response");
     };
-    assert!(description.supported_operations.contains(&"cx.sync.account".to_owned()));
+    assert!(description.supported_operations.contains(&"cx.account.subscribe".to_owned()));
 }

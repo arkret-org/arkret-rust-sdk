@@ -89,15 +89,15 @@ pub fn classify_operation_kind(kind: &str) -> OperationSurface {
         | OP_DIRECTORY_PRIVATE_CONTACT_DISCOVERY
         | OP_DIRECTORY_RESOLVE_HANDLE
         | OP_DIRECTORY_RESOLVE_ORGANIZATION
-        | OP_DIRECTORY_RESOLVE_SPACE
+        | OP_DIRECTORY_RESOLVE_REALM
         | OP_DIRECTORY_SEARCH_ACTORS
         | OP_DIRECTORY_SEARCH_ORGANIZATIONS
-        | OP_DIRECTORY_SEARCH_SPACES
+        | OP_DIRECTORY_SEARCH_REALMS
         | OP_DIRECTORY_SEARCH_USERS
         | OP_DIRECTORY_SUBSCRIBE
         | OP_DIRECTORY_WITHDRAW => OperationSurface::Directory,
-        OP_EVENTS_BATCH_GET | OP_EVENTS_DESCRIBE | OP_EVENTS_FRONTIER | OP_EVENTS_GET
-        | OP_EVENTS_QUERY | OP_EVENTS_SUBSCRIBE | OP_EVENTS_SUBMIT => OperationSurface::Events,
+        OP_EVENTS_DESCRIBE | OP_EVENTS_FRONTIER | OP_EVENTS_GET | OP_EVENTS_QUERY
+        | OP_EVENTS_RESOLVE | OP_EVENTS_SUBSCRIBE | OP_EVENTS_SUBMIT => OperationSurface::Events,
         OP_IDENTITY_DESCRIBE_REGISTRY
         | OP_IDENTITY_GET_DOCUMENT
         | OP_IDENTITY_GET_LOG
@@ -133,7 +133,7 @@ pub fn classify_operation_kind(kind: &str) -> OperationSurface {
             OperationSurface::Push
         }
         OP_SERVER_DESCRIBE => OperationSurface::Server,
-        OP_SYNC_DESCRIBE | OP_SYNC_ACCOUNT | OP_SYNC_GET_SNAPSHOT_HEAD => OperationSurface::Sync,
+        OP_ACCOUNT_DESCRIBE | OP_ACCOUNT_SUBSCRIBE | OP_SNAPSHOT_HEAD => OperationSurface::Sync,
         _ => OperationSurface::Custom(kind.to_owned()),
     }
 }
@@ -443,15 +443,15 @@ fn mutation_for_kind(kind: &str) -> OperationMutation {
         | OP_DIRECTORY_SUBSCRIBE => OperationMutation::Create,
         OP_PUSH_UNREGISTER_DEVICE | OP_KEYS_BACKUPS_DELETE => OperationMutation::Delete,
         OP_SERVER_DESCRIBE
-        | OP_SYNC_DESCRIBE
+        | OP_ACCOUNT_DESCRIBE
         | OP_DIRECTORY_DESCRIBE
         | OP_EVENTS_DESCRIBE
         | OP_EVENTS_GET
-        | OP_EVENTS_BATCH_GET
+        | OP_EVENTS_RESOLVE
         | OP_EVENTS_FRONTIER
         | OP_EVENTS_QUERY
         | OP_EVENTS_SUBSCRIBE
-        | OP_SYNC_GET_SNAPSHOT_HEAD
+        | OP_SNAPSHOT_HEAD
         | OP_IDENTITY_DESCRIBE_REGISTRY
         | OP_IDENTITY_RESOLVE
         | OP_IDENTITY_GET_DOCUMENT
@@ -467,7 +467,7 @@ fn mutation_for_kind(kind: &str) -> OperationMutation {
         | OP_KEYS_QUERY
         | OP_AUTHZ_CHECK => OperationMutation::Read,
         OP_EVENTS_SUBMIT
-        | OP_SYNC_ACCOUNT
+        | OP_ACCOUNT_SUBSCRIBE
         | OP_PUSH_NOTIFY
         | OP_KEYS_UPLOAD
         | OP_KEYS_CLAIM
@@ -492,8 +492,8 @@ fn mutation_for_kind(kind: &str) -> OperationMutation {
 
 fn target_id_for_operation(kind: &str, content: &Value) -> Option<String> {
     let fields: &[&str] = match kind {
-        OP_EVENTS_GET | OP_EVENTS_BATCH_GET => &["event_id"],
-        OP_EVENTS_FRONTIER | OP_SYNC_GET_SNAPSHOT_HEAD | OP_AUTHZ_GET_INVITES => &["space_id"],
+        OP_EVENTS_GET | OP_EVENTS_RESOLVE => &["event_id"],
+        OP_EVENTS_FRONTIER | OP_SNAPSHOT_HEAD | OP_AUTHZ_GET_INVITES => &["space_id"],
         OP_IDENTITY_RESOLVE
         | OP_IDENTITY_GET_DOCUMENT
         | OP_IDENTITY_GET_LOG
@@ -575,7 +575,7 @@ pub mod protocol {
 mod tests {
     use crate::{
         Did, GrantId, Hlc, OP_EVENTS_QUERY, OP_PUSH_REGISTER_DEVICE, OP_PUSH_UNREGISTER_DEVICE,
-        OperationEnvelopeBuilder, SpaceId,
+        OperationEnvelopeBuilder,
     };
     use serde_json::json;
 
@@ -594,7 +594,7 @@ mod tests {
     ) -> OperationEnvelope {
         let mut builder = OperationEnvelopeBuilder::new(
             OperationId::new(id).unwrap(),
-            SpaceId::new("cx:space:01904100-0000-7000-8000-6b91994c774d").unwrap(),
+            RealmId::new("cx:realm:01904100-0000-7000-8000-6b91994c774d").unwrap(),
             Did::new("did:web:alice.example").unwrap(),
             kind,
             1,
@@ -721,7 +721,7 @@ mod tests {
     fn registry_requires_semantic_content_fields() {
         let result = OperationEnvelopeBuilder::new(
             OperationId::new("cx:operation:01904100-0000-7000-8000-e0d2820b21e0").unwrap(),
-            SpaceId::new("cx:space:01904100-0000-7000-8000-6b91994c774d").unwrap(),
+            RealmId::new("cx:realm:01904100-0000-7000-8000-6b91994c774d").unwrap(),
             Did::new("did:web:alice.example").unwrap(),
             OP_PUSH_REGISTER_DEVICE,
             1,

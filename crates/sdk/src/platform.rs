@@ -365,7 +365,7 @@ mod tests {
         let result = sink.on_event(FfiEvent {
             stream,
             sequence: 1,
-            event_kind: "cx.sync.account".to_owned(),
+            event_kind: "cx.account.subscribe".to_owned(),
             payload: json!({"ok": true}),
         });
         assert_eq!(result.action, FfiCallbackAction::Continue);
@@ -399,7 +399,7 @@ mod tests {
         let response = transport
             .send_wasm_http(WasmHttpReqBody {
                 method: "POST".to_owned(),
-                url: "https://sync.example/contrix/v1/sync".to_owned(),
+                url: "https://sync.example/api/v1/account/subscribe".to_owned(),
                 headers: BTreeMap::new(),
                 body: Vec::new(),
             })

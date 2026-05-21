@@ -11,10 +11,10 @@ use tokio::time::sleep;
 use url::Url;
 
 use contrix_core::{
-    AppletActorResBody, AppletDescription, AppletPingResBody, AppletProtocolResBody,
-    AppletSpaceResBody, AppletTransactionReqBody, AppletTransactionResBody, AuthzCheckReqBody,
-    AuthzCheckResBody, AuthzInvitesResBody, BackupId, BlobMetadata, BlobRef, BlobUploadMetadata,
-    BlobUploadResBody, DeviceMessagesReceiveResBody, DeviceMessagesSendReqBody,
+    AccountSubscribeFrame, AppletActorResBody, AppletDescription, AppletPingResBody,
+    AppletProtocolResBody, AppletSpaceResBody, AppletTransactionReqBody, AppletTransactionResBody,
+    AuthzCheckReqBody, AuthzCheckResBody, AuthzInvitesResBody, BackupId, BlobMetadata, BlobRef,
+    BlobUploadMetadata, BlobUploadResBody, DeviceMessagesReceiveResBody, DeviceMessagesSendReqBody,
     DeviceMessagesSendResBody, DirectoryDescription, DirectoryResolveHandleReqBody,
     DirectoryResolveHandleResBody, DirectoryResolveOrganizationReqBody,
     DirectoryResolveOrganizationResBody, DirectoryResolveSpaceReqBody,
@@ -49,6 +49,16 @@ const QUERY_AUTH_KEYS: &[&str] = &[
     "session_token",
     "token",
 ];
+
+fn trim_ascii(mut bytes: &[u8]) -> &[u8] {
+    while bytes.first().is_some_and(u8::is_ascii_whitespace) {
+        bytes = &bytes[1..];
+    }
+    while bytes.last().is_some_and(u8::is_ascii_whitespace) {
+        bytes = &bytes[..bytes.len() - 1];
+    }
+    bytes
+}
 
 #[derive(Clone, Debug)]
 pub enum Auth {
@@ -627,12 +637,41 @@ impl Client {
         self.send_json(builder).await
     }
 
-    pub async fn sync(&self, request: &SyncReqBody) -> Result<SyncResBody> {
-        self.post("/api/v1/sync", request).await
+    pub async fn account_subscribe(&self, request: &SyncReqBody) -> Result<Response> {
+        let mut builder = self
+            .request(Method::GET, "/api/v1/account/subscribe")?
+            .header("accept", "application/x-ndjson");
+        if let Some(after) = request.after.as_deref() {
+            builder = builder.query(&[("after", after)]);
+        }
+        if let Some(catchup) = request.catchup {
+            builder = builder.query(&[("catchup", catchup)]);
+        }
+        if let Some(presence) = request.set_presence.as_ref() {
+            builder = builder.query(&[("set_presence", presence)]);
+        }
+        self.send_response(builder).await
     }
 
-    pub async fn sync_describe(&self) -> Result<SyncDescription> {
-        self.get("/api/v1/sync/describe").await
+    pub async fn account_subscribe_once(&self, request: &SyncReqBody) -> Result<SyncResBody> {
+        let response = self.account_subscribe(request).await?;
+        let bytes = response.bytes().await.map_err(Error::Http)?;
+        for line in bytes.split(|byte| *byte == b'\n') {
+            let trimmed = trim_ascii(line);
+            if trimmed.is_empty() {
+                continue;
+            }
+            let frame: AccountSubscribeFrame = serde_json::from_slice(trimmed)
+                .map_err(|error| Error::Protocol(error.to_string()))?;
+            if let Some(sync) = SyncResBody::from_account_subscribe_frame(frame) {
+                return Ok(sync);
+            }
+        }
+        Err(Error::Protocol("account subscribe stream ended before a delta frame".to_owned()))
+    }
+
+    pub async fn account_describe(&self) -> Result<SyncDescription> {
+        self.get("/api/v1/account/describe").await
     }
 
     /// Subscribe to the Event stream for one or more Spaces / actors via
@@ -687,10 +726,9 @@ impl Client {
         self.send_json(builder).await
     }
 
-    pub async fn sync_snapshot_head(&self, space_id: &str) -> Result<SyncSnapshotHeadResBody> {
-        let builder = self
-            .request(Method::GET, "/api/v1/sync/snapshot-head")?
-            .query(&[("space_id", space_id)]);
+    pub async fn snapshot_head(&self, space_id: &str) -> Result<SyncSnapshotHeadResBody> {
+        let builder =
+            self.request(Method::GET, "/api/v1/snapshot/head")?.query(&[("realm_id", space_id)]);
         self.send_json(builder).await
     }
 
@@ -1468,7 +1506,7 @@ mod tests {
             .idempotency_key("idem-1")
             .wait_for("cx:cursor:01");
         let request = client
-            .apply_request_options(client.request(Method::PUT, "/api/v1/sync").unwrap(), &options)
+            .apply_request_options(client.request(Method::PUT, "/api/v1/events").unwrap(), &options)
             .unwrap()
             .build()
             .unwrap();

@@ -1073,7 +1073,7 @@ mod tests {
     use super::*;
     use std::collections::BTreeMap;
 
-    use crate::{DeviceId, Did, Hlc};
+    use crate::{DeviceId, Did, Hlc, RealmId};
     use chrono::Duration;
     use serde_json::json;
 
@@ -1082,7 +1082,8 @@ mod tests {
             event_id: EventId::new(format!("cx:event:01904100-0000-7000-8000-{:012x}", index))
                 .unwrap(),
             kind: crate::OP_MORPH_CREATE.to_owned(),
-            space_id: space_id.clone(),
+            realm_id: RealmId::new(space_id.as_str().replacen("cx:space:", "cx:realm:", 1))
+                .unwrap(),
             actor_id: Did::new("did:web:alice.example.com").unwrap(),
             actor_seq: index as u64,
             created_at: Utc::now(),

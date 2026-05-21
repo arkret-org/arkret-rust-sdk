@@ -1,6 +1,6 @@
 use super::*;
 use crate::events::kinds::FLOW_TRACKS_UPDATE as OP_FLOW_TRACKS_UPDATE;
-use crate::{EventRequirements, Hlc};
+use crate::{EventRequirements, Hlc, RealmId};
 use serde_json::json;
 
 fn space_id() -> SpaceId {
@@ -15,7 +15,7 @@ fn event(kind: &str, seq: u64, content: Value) -> Event {
     Event {
         event_id: EventId::new(format!("cx:event:01904100-0000-7000-8000-{seq:012x}")).unwrap(),
         kind: kind.to_owned(),
-        space_id: space_id(),
+        realm_id: realm_id(),
         actor_id: actor_id(),
         actor_seq: seq,
         created_at: chrono::Utc::now(),
@@ -31,6 +31,10 @@ fn event(kind: &str, seq: u64, content: Value) -> Event {
         unsigned: BTreeMap::new(),
         proofs: vec![],
     }
+}
+
+fn realm_id() -> RealmId {
+    RealmId::new("cx:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
 }
 
 fn morph_event(seq: u64, morph_id: &str, title: &str) -> Event {
@@ -430,7 +434,7 @@ fn flow_events_create_update_and_default_view_relation() {
 
     let create = Event::new(
         OP_FLOW_CREATE,
-        space_id(),
+        realm_id(),
         actor_id(),
         1,
         Hlc::new("01970e589d21-00000001-a13f9c2e").unwrap(),
@@ -450,7 +454,7 @@ fn flow_events_create_update_and_default_view_relation() {
     .unwrap();
     let mut update = Event::new(
         OP_FLOW_UPDATE,
-        space_id(),
+        realm_id(),
         actor_id(),
         2,
         Hlc::new("01970e589d21-00000002-a13f9c2e").unwrap(),
@@ -466,7 +470,7 @@ fn flow_events_create_update_and_default_view_relation() {
     update.prev_refs.push(create.event_id.clone());
     let mut relation = Event::new(
         OP_RELATION_CREATE,
-        space_id(),
+        realm_id(),
         actor_id(),
         3,
         Hlc::new("01970e589d21-00000003-a13f9c2e").unwrap(),

@@ -23,7 +23,7 @@ fn event(kind: &str, seq: u64, space_id: &SpaceId, content: serde_json::Value) -
     Event {
         event_id: EventId::new(format!("cx:event:01904100-0000-7000-8000-{seq:012x}")).unwrap(),
         kind: kind.to_owned(),
-        space_id: space_id.clone(),
+        realm_id: realm_from_space_id(space_id),
         actor_id: did("alice"),
         actor_seq: seq,
         created_at: chrono::Utc::now(),
@@ -39,6 +39,10 @@ fn event(kind: &str, seq: u64, space_id: &SpaceId, content: serde_json::Value) -
         unsigned: BTreeMap::new(),
         proofs: vec![],
     }
+}
+
+fn realm_from_space_id(space_id: &SpaceId) -> RealmId {
+    RealmId::new(space_id.as_str().replacen("cx:space:", "cx:realm:", 1)).unwrap()
 }
 
 #[test]

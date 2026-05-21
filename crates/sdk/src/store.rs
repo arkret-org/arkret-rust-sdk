@@ -157,10 +157,7 @@ impl EventCacheStore for MemoryPersistenceStore {
 
         let realm_scope = SpaceId::new(event.realm_id.to_string())?;
         self.event_index.insert(event.event_id.clone(), realm_scope.clone());
-        self.events
-            .entry(realm_scope)
-            .or_default()
-            .insert(event.event_id.clone(), (digest, event));
+        self.events.entry(realm_scope).or_default().insert(event.event_id.clone(), (digest, event));
         Ok(())
     }
 
@@ -367,15 +364,15 @@ mod tests {
 
     use super::*;
     use crate::{
-        AuditAction, BLOB_SCHEMA, BlobRef, DeviceId, Did, EventId, Hlc, ObjectState, SpaceId,
-        resolver::SnapshotRestoreSource,
+        AuditAction, BLOB_SCHEMA, BlobRef, DeviceId, Did, EventId, Hlc, ObjectState, RealmId,
+        SpaceId, resolver::SnapshotRestoreSource,
     };
 
     fn morph_event(event_id: &str, title: &str) -> Event {
         Event {
             event_id: EventId::new(event_id).unwrap(),
             kind: crate::OP_MORPH_CREATE.to_owned(),
-            space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+            realm_id: RealmId::new("cx:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             actor_id: Did::new("did:web:alice.example.com").unwrap(),
             actor_seq: 1,
             created_at: Utc::now(),

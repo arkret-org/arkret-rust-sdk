@@ -1079,12 +1079,12 @@ mod tests {
 
     #[test]
     fn builds_typed_envelope_from_core_event() {
-        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("cx:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let actor_id = Did::new("did:web:alice.example").unwrap();
         let hlc = Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap();
         let mut event = Event::new(
             MESSAGE_CREATE,
-            space_id.clone(),
+            realm_id.clone(),
             actor_id.clone(),
             1,
             hlc,
@@ -1102,7 +1102,7 @@ mod tests {
 
         assert_eq!(envelope.kind, MESSAGE_CREATE);
         assert_eq!(envelope.class, EventClass::Message);
-        assert_eq!(envelope.space_id, space_id);
+        assert_eq!(envelope.realm_id, realm_id);
         assert_eq!(envelope.actor_id, actor_id);
         assert_eq!(envelope.unsigned["age"], json!(12));
         assert!(matches!(

@@ -3,8 +3,8 @@ use std::collections::BTreeMap;
 use serde_json::{Value, json};
 
 use super::*;
-use crate::Did;
-use crate::sync::{DeviceListChanges, SyncSpace, UnreadCounts};
+use crate::sync::{SyncSpace, UnreadCounts};
+use crate::{Did, RealmId};
 
 fn sync_response(cursor: &str) -> SyncResBody {
     SyncResBody {
@@ -41,10 +41,11 @@ fn sync_loop_recovers_after_failure() {
     let mut transport = |request: SyncReqBody| {
         calls += 1;
         if calls == 1 {
-            assert_eq!(request.timeout_ms, Some(30_000));
+            assert_eq!(request.catchup, Some(true));
             Err(Error::Protocol("network down".to_owned()))
         } else {
-            assert!(request.since.is_none());
+            assert!(request.after.is_none());
+            assert_eq!(request.catchup, Some(true));
             Ok(sync_response("s1"))
         }
     };
@@ -58,8 +59,8 @@ fn sync_loop_recovers_after_failure() {
 #[tokio::test]
 async fn async_sync_loop_uses_transport_and_persists_token() {
     let transport = |request: SyncReqBody| async move {
-        assert_eq!(request.timeout_ms, Some(15));
-        assert!(request.since.is_none());
+        assert_eq!(request.catchup, Some(true));
+        assert!(request.after.is_none());
         Ok(sync_response("async1"))
     };
     let mut sync_loop = SyncLoop::new().with_timeout(Duration::from_millis(15));
@@ -69,7 +70,7 @@ async fn async_sync_loop_uses_transport_and_persists_token() {
     assert_eq!(snapshot.token.as_deref(), Some("async1"));
 
     let restored = SyncLoop::from_snapshot(snapshot);
-    assert_eq!(restored.next_request().since.as_deref(), Some("async1"));
+    assert_eq!(restored.next_request().after.as_deref(), Some("async1"));
 }
 
 #[tokio::test]
@@ -217,9 +218,10 @@ fn processor_dispatches_all_update_categories() {
 fn processor_tracks_limited_timelines_and_to_device_ack() {
     let space_id = "cx:space:01904100-0000-7000-8000-9b64700c6ee8";
     let parsed_space_id = SpaceId::new(space_id).unwrap();
+    let parsed_realm_id = RealmId::new(space_id.replacen("cx:space:", "cx:realm:", 1)).unwrap();
     let event = Event::new(
         "cx.message.create",
-        parsed_space_id.clone(),
+        parsed_realm_id,
         Did::new("did:web:alice.example").unwrap(),
         1,
         crate::Hlc::new("01970e589d21-00000000-a13f9c2e").unwrap(),

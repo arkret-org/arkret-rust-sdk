@@ -13,16 +13,16 @@ use std::collections::{BTreeSet, HashMap};
 
 use crate::{DeviceId, Did, Error, Event, EventId, Hlc, Result, SpaceId, canonical};
 
-/// Sync request for incremental synchronization.
+/// Query parameters for `cx.account.subscribe`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncReqBody {
-    /// Previous sync token for incremental sync
+    /// Exclusive stream cursor used to resume account-aggregate delivery.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub since: Option<String>,
-    /// Timeout for long-polling (milliseconds)
+    pub after: Option<String>,
+    /// Ask the server to replay account-aggregate deltas before live tail.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub timeout_ms: Option<u64>,
+    pub catchup: Option<bool>,
     /// Presence status update
     #[serde(skip_serializing_if = "Option::is_none")]
     pub set_presence: Option<PresenceStatus>,
@@ -459,9 +459,9 @@ impl SyncTokenBinding {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum SyncMode {
-    /// No `since` token. The response should establish full local state.
+    /// No `after` token. The response should establish full local state.
     Initial,
-    /// A `since` token is present. The response is an incremental delta.
+    /// An `after` token is present. The response is an incremental delta.
     Incremental,
 }
 
@@ -471,9 +471,9 @@ pub enum SyncMode {
 pub struct SyncSemantics {
     /// Initial or incremental.
     pub mode: SyncMode,
-    /// Token used for incremental sync, if any.
+    /// Token used for incremental account subscribe, if any.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub since: Option<String>,
+    pub after: Option<String>,
     /// Initial sync establishes state for the requested scope.
     pub expects_full_state: bool,
     /// Incremental sync requires the token binding context to match.
@@ -483,10 +483,10 @@ pub struct SyncSemantics {
 impl SyncSemantics {
     /// Derive semantics from a request.
     pub fn from_request(request: &SyncReqBody) -> Self {
-        let mode = if request.since.is_some() { SyncMode::Incremental } else { SyncMode::Initial };
+        let mode = if request.after.is_some() { SyncMode::Incremental } else { SyncMode::Initial };
         Self {
             mode,
-            since: request.since.clone(),
+            after: request.after.clone(),
             expects_full_state: mode == SyncMode::Initial,
             requires_token_binding: mode == SyncMode::Incremental,
         }
@@ -701,15 +701,15 @@ impl SyncClient {
     }
 
     /// Update the sync token from a response.
-    pub fn update_token(&mut self, next_batch: String) {
-        self.current_token = Some(next_batch);
+    pub fn update_token(&mut self, cursor: String) {
+        self.current_token = Some(cursor);
     }
 
     /// Create a sync request with current token.
     pub fn create_request(&self) -> SyncReqBody {
         SyncReqBody {
-            since: self.current_token.clone(),
-            timeout_ms: Some(30000), // 30 second default
+            after: self.current_token.clone(),
+            catchup: Some(true),
             set_presence: Some(PresenceStatus::Online),
             filter: None,
             subscriptions: None,
@@ -720,13 +720,13 @@ impl SyncClient {
     /// Create a sync request with custom options.
     pub fn create_request_with_options(
         &self,
-        timeout_ms: Option<u64>,
+        catchup: Option<bool>,
         filter: Option<SyncFilter>,
         subscriptions: Option<SubscriptionConfig>,
     ) -> SyncReqBody {
         SyncReqBody {
-            since: self.current_token.clone(),
-            timeout_ms,
+            after: self.current_token.clone(),
+            catchup,
             set_presence: Some(PresenceStatus::Online),
             filter,
             subscriptions,
@@ -825,12 +825,14 @@ pub struct SpaceUpdate {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::RealmId;
+    use std::collections::BTreeMap;
 
     #[test]
     fn sync_request_serializes_correctly() {
         let request = SyncReqBody {
-            since: Some("token123".to_owned()),
-            timeout_ms: Some(30000),
+            after: Some("token123".to_owned()),
+            catchup: Some(true),
             set_presence: Some(PresenceStatus::Online),
             filter: None,
             subscriptions: None,
@@ -838,14 +840,14 @@ mod tests {
         };
 
         let json = serde_json::to_string(&request).unwrap();
-        assert!(json.contains("\"since\":\"token123\""));
-        assert!(json.contains("\"timeout_ms\":30000"));
+        assert!(json.contains("\"after\":\"token123\""));
+        assert!(json.contains("\"catchup\":true"));
     }
 
     #[test]
     fn sync_response_deserializes_correctly() {
         let json = r#"{
-            "next_batch": "token456",
+            "cursor": "token456",
             "spaces": {
                 "cx:space:01904100-0000-7000-8000-9b64700c6ee8": {
                     "timeline": {
@@ -873,8 +875,6 @@ mod tests {
         }"#;
 
         let response: crate::model::SyncResBody = serde_json::from_str(json).unwrap();
-        // `next_batch` is accepted via serde alias for back-compat with
-        // pre-spec-rename payloads.
         assert_eq!(response.cursor, "token456");
         assert_eq!(response.spaces.len(), 1);
     }
@@ -888,7 +888,7 @@ mod tests {
         assert_eq!(client.current_token(), Some("token123"));
 
         let request = client.create_request();
-        assert_eq!(request.since, Some("token123".to_owned()));
+        assert_eq!(request.after, Some("token123".to_owned()));
     }
 
     #[test]
@@ -934,7 +934,7 @@ mod tests {
         assert!(initial.expects_full_state);
         assert!(!initial.requires_token_binding);
 
-        request.since = Some("token123".to_owned());
+        request.after = Some("token123".to_owned());
         let incremental = SyncSemantics::from_request(&request);
 
         assert_eq!(incremental.mode, SyncMode::Incremental);
@@ -984,11 +984,11 @@ mod tests {
 
     #[test]
     fn timeline_order_key_uses_causal_depth_then_hlc_actor_sequence_and_event() {
-        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("cx:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let actor = Did::new("did:web:alice.example").unwrap();
         let mut newer_hlc = Event::new(
             "cx.message.create",
-            space_id.clone(),
+            realm_id.clone(),
             actor.clone(),
             2,
             Hlc::new("01970e589d22-00000000-a13f9c2e").unwrap(),
@@ -998,7 +998,7 @@ mod tests {
         newer_hlc.event_id = EventId::new("cx:event:01904100-0000-7000-8000-233457bf6148").unwrap();
         let mut deeper = Event::new(
             "cx.message.create",
-            space_id,
+            realm_id,
             actor,
             1,
             Hlc::new("01970e589d21-00000000-a13f9c2e").unwrap(),
@@ -1041,9 +1041,10 @@ mod tests {
     #[test]
     fn limited_timeline_creates_backfill_gap_and_request() {
         let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("cx:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let event = Event::new(
             "cx.message.create",
-            space_id.clone(),
+            realm_id,
             Did::new("did:web:alice.example").unwrap(),
             1,
             Hlc::new("01970e589d21-00000000-a13f9c2e").unwrap(),
