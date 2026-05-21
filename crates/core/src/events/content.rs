@@ -1081,7 +1081,7 @@ mod tests {
     fn builds_typed_envelope_from_core_event() {
         let realm_id = RealmId::new("cx:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let actor_id = Did::new("did:web:alice.example").unwrap();
-        let hlc = Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap();
+        let hlc = Hlc::new("01970e589d21-0004-a13f9c2e").unwrap();
         let mut event = Event::new(
             MESSAGE_CREATE,
             realm_id.clone(),

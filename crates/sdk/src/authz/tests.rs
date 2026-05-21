@@ -330,7 +330,7 @@ fn authz_engine_evaluates_grants_from_space_state() {
         "cx:event:01904100-0000-7000-8000-db6fcaf186ba",
         "cx.capability.grant",
         1,
-        "01970e589d21-00000004-a13f9c2e",
+        "01970e589d21-0004-a13f9c2e",
         json!({
             "capability_id": "cap-message-send",
             "subject": "did:web:alice.example.com",
@@ -363,7 +363,7 @@ fn authz_engine_denies_after_revoke_wins_in_space_state() {
         "cx:event:01904100-0000-7000-8000-4fe0190ae99f",
         "cx.capability.grant",
         1,
-        "01970e589d21-00000004-a13f9c2e",
+        "01970e589d21-0004-a13f9c2e",
         json!({
             "capability_id": "cap-message-send",
             "subject": "did:web:alice.example.com",
@@ -375,7 +375,7 @@ fn authz_engine_denies_after_revoke_wins_in_space_state() {
         "cx:event:01904100-0000-7000-8000-a85aaf6d56fc",
         "cx.capability.revoke",
         2,
-        "01970e589d22-00000004-a13f9c2e",
+        "01970e589d22-0004-a13f9c2e",
         json!({ "target_capability_id": "cap-message-send" }),
     );
     state.apply_events(&[grant, revoke]).unwrap();
@@ -403,7 +403,7 @@ fn authz_engine_denies_after_delegate_revoke_wins_in_space_state() {
         "cx:event:01904100-0000-7000-8000-cadd1669a70a",
         "cx.capability.delegate",
         1,
-        "01970e589d21-00000004-a13f9c2e",
+        "01970e589d21-0004-a13f9c2e",
         json!({
             "capability_id": "cap-message-delegate",
             "parent_grant_id": "cap-root",
@@ -430,7 +430,7 @@ fn authz_engine_denies_after_delegate_revoke_wins_in_space_state() {
         "cx:event:01904100-0000-7000-8000-738d5fbe3070",
         "cx.capability.revoke",
         2,
-        "01970e589d22-00000004-a13f9c2e",
+        "01970e589d22-0004-a13f9c2e",
         json!({ "target_capability_id": "cap-message-delegate" }),
     );
     state.apply_events(&[revoke]).unwrap();

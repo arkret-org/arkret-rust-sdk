@@ -318,7 +318,7 @@ mod tests {
     }
 
     fn hlc() -> Hlc {
-        Hlc::new("01970e589d21-00000001-a13f9c2e").unwrap()
+        Hlc::new("01970e589d21-0001-a13f9c2e").unwrap()
     }
 
     #[test]

@@ -1,7 +1,7 @@
 //! Hybrid Logical Clock (HLC) implementation.
 //!
 //! This module implements the Contrix v1 HLC specification with:
-//! - Strict format validation: `^[0-9a-f]{12}-[0-9a-f]{8}-[0-9a-f]{8}$`
+//! - Strict format validation: `^[0-9a-f]{12}-[0-9a-f]{4}-[0-9a-f]{8}$`
 //! - Fixed-width hex encoding for correct lexicographic ordering
 //! - Clock skew handling up to ±5 minutes
 //! - Node ID calculation from DIDs
@@ -13,15 +13,15 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 /// Validate HLC format according to Contrix v1 spec.
 ///
-/// Format: `^[0-9a-f]{12}-[0-9a-f]{8}-[0-9a-f]{8}$`
+/// Format: `^[0-9a-f]{12}-[0-9a-f]{4}-[0-9a-f]{8}$`
 pub fn validate_hlc_format(hlc: &str) -> Result<()> {
     use regex::Regex;
-    let re = Regex::new(r"^[0-9a-f]{12}-[0-9a-f]{8}-[0-9a-f]{8}$").unwrap();
+    let re = Regex::new(r"^[0-9a-f]{12}-[0-9a-f]{4}-[0-9a-f]{8}$").unwrap();
     if re.is_match(hlc) {
         Ok(())
     } else {
         Err(Error::InvalidId(format!(
-            "invalid HLC format: {} (expected format: ^[0-9a-f]{{12}}-[0-9a-f]{{8}}-[0-9a-f]{{8}}$)",
+            "invalid HLC format: {} (expected format: ^[0-9a-f]{{12}}-[0-9a-f]{{4}}-[0-9a-f]{{8}}$)",
             hlc
         )))
     }
@@ -33,15 +33,15 @@ const MAX_SKEW_MS: i64 = 5 * 60 * 1000;
 /// Physical time maximum value (48-bit: 0xffffffffffff ms ≈ 8,925 years)
 const MAX_PHYSICAL: u64 = 0xffffffffffff;
 
-/// Logical counter maximum value (32-bit)
-const MAX_LOGICAL: u32 = 0xffffffff;
+/// Logical counter maximum value (16-bit, 4 lowercase hex digits).
+const MAX_LOGICAL: u32 = 0xffff;
 
 /// HLC components
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HlcComponents {
     /// Physical time in Unix milliseconds (48-bit)
     pub physical_ms: u64,
-    /// Logical counter (32-bit)
+    /// Logical counter (16-bit)
     pub logical: u32,
     /// Node identifier (8 hex chars)
     pub node_id: String,
@@ -94,10 +94,10 @@ impl HlcGenerator {
             self.physical = now;
             self.logical = 0;
         } else if now == self.physical {
-            self.logical = self.logical.saturating_add(1);
+            self.advance_logical_or_wait();
         } else {
             // Clock went backwards, advance logical
-            self.logical = self.logical.saturating_add(1);
+            self.advance_logical_or_wait();
         }
 
         // Ensure physical time doesn't exceed maximum
@@ -125,12 +125,18 @@ impl HlcGenerator {
             self.physical = max_physical;
             self.logical = 0;
         } else if max_physical == self.physical {
-            self.logical = self.logical.saturating_add(1);
+            self.advance_logical_or_error()?;
         }
 
         // If remote HLC has same physical time, ensure we're ahead
         if remote_parts.physical_ms == self.physical && remote_parts.logical >= self.logical {
-            self.logical = remote_parts.logical.saturating_add(1);
+            if remote_parts.logical >= MAX_LOGICAL {
+                return Err(Error::Protocol(
+                    "hlc_logical_overflow: remote HLC saturated the 4-hex logical counter"
+                        .to_owned(),
+                ));
+            }
+            self.logical = remote_parts.logical + 1;
         }
 
         Ok(HlcType::new(self.format())?)
@@ -180,7 +186,34 @@ impl HlcGenerator {
 
     /// Format current HLC as string.
     fn format(&self) -> String {
-        format!("{:012x}-{:08x}-{}", self.physical, self.logical, self.node_id)
+        format!("{:012x}-{:04x}-{}", self.physical, self.logical, self.node_id)
+    }
+
+    fn advance_logical_or_wait(&mut self) {
+        if self.logical < MAX_LOGICAL {
+            self.logical += 1;
+            return;
+        }
+        loop {
+            let now = Self::current_time_ms();
+            if now > self.physical {
+                self.physical = now;
+                self.logical = 0;
+                return;
+            }
+            std::thread::yield_now();
+        }
+    }
+
+    fn advance_logical_or_error(&mut self) -> Result<()> {
+        if self.logical < MAX_LOGICAL {
+            self.logical += 1;
+            Ok(())
+        } else {
+            Err(Error::Protocol(
+                "hlc_logical_overflow: local HLC saturated the 4-hex logical counter".to_owned(),
+            ))
+        }
     }
 }
 
@@ -255,30 +288,30 @@ mod tests {
 
     #[test]
     fn hlc_format_validation_accepts_valid() {
-        assert!(validate_hlc_format("000000000001-00000001-a13f9c2e").is_ok());
-        assert!(validate_hlc_format("01970e589d21-00000004-a13f9c2e").is_ok());
-        assert!(validate_hlc_format("ffffffffffff-ffffffff-12345678").is_ok());
+        assert!(validate_hlc_format("000000000001-0001-a13f9c2e").is_ok());
+        assert!(validate_hlc_format("01970e589d21-0004-a13f9c2e").is_ok());
+        assert!(validate_hlc_format("ffffffffffff-ffff-12345678").is_ok());
     }
 
     #[test]
     fn hlc_format_validation_rejects_invalid() {
         // Not zero-padded
-        assert!(validate_hlc_format("1970e589d21-00000001-a13f9c2e").is_err());
+        assert!(validate_hlc_format("1970e589d21-0001-a13f9c2e").is_err());
         // Missing node part
-        assert!(validate_hlc_format("01970e589d21-00000001").is_err());
+        assert!(validate_hlc_format("01970e589d21-0001").is_err());
         // Invalid hex
-        assert!(validate_hlc_format("xyz-00000001-a13f9c2e").is_err());
+        assert!(validate_hlc_format("xyz-0001-a13f9c2e").is_err());
         // Logical not zero-padded
         assert!(validate_hlc_format("01970e589d21-1-a13f9c2e").is_err());
         // Node too short
-        assert!(validate_hlc_format("01970e589d21-00000001-a13f").is_err());
+        assert!(validate_hlc_format("01970e589d21-0001-a13f").is_err());
         // Invalid logical hex
-        assert!(validate_hlc_format("01970e589d21-0000000g-a13f9c2e").is_err());
+        assert!(validate_hlc_format("01970e589d21-000g-a13f9c2e").is_err());
     }
 
     #[test]
     fn parse_hlc_extracts_components() {
-        let parts = parse_hlc("01970e589d21-00000004-a13f9c2e").unwrap();
+        let parts = parse_hlc("01970e589d21-0004-a13f9c2e").unwrap();
         assert_eq!(parts.physical_ms, 0x01970e589d21);
         assert_eq!(parts.logical, 4);
         assert_eq!(parts.node_id, "a13f9c2e");
@@ -288,21 +321,21 @@ mod tests {
     fn compare_hlc_lexicographic() {
         // Physical time takes precedence
         assert_eq!(
-            compare_hlc("01970e589d21-00000001-a13f9c2e", "01970e589d22-00000000-a13f9c2e")
+            compare_hlc("01970e589d21-0001-a13f9c2e", "01970e589d22-0000-a13f9c2e")
                 .unwrap(),
             std::cmp::Ordering::Less
         );
 
         // Logical counter breaks ties
         assert_eq!(
-            compare_hlc("01970e589d21-00000001-a13f9c2e", "01970e589d21-00000002-a13f9c2e")
+            compare_hlc("01970e589d21-0001-a13f9c2e", "01970e589d21-0002-a13f9c2e")
                 .unwrap(),
             std::cmp::Ordering::Less
         );
 
         // Node ID breaks ties
         assert_eq!(
-            compare_hlc("01970e589d21-00000001-a13f9c2e", "01970e589d21-00000001-b13f9c2e")
+            compare_hlc("01970e589d21-0001-a13f9c2e", "01970e589d21-0001-b13f9c2e")
                 .unwrap(),
             std::cmp::Ordering::Less
         );
@@ -337,7 +370,7 @@ mod tests {
     fn hlc_generator_advances_with_remote() {
         let mut hlc_gen = HlcGenerator::with_initial_time("test", 0x01970e589d21);
 
-        let remote = HlcType::new("01970e589d22-00000005-a13f9c2e").unwrap();
+        let remote = HlcType::new("01970e589d22-0005-a13f9c2e").unwrap();
         let hlc = hlc_gen.generate_with_remote(&remote).unwrap();
 
         let hlc_parts = parse_hlc(hlc.as_str()).unwrap();
@@ -351,8 +384,7 @@ mod tests {
         // Create HLC far in the future (> 5 minutes)
         // MAX_SKEW_MS is 5 minutes in milliseconds, so we add more than that
         let future_physical = HlcGenerator::current_time_ms() + MAX_SKEW_MS as u64 + 1000;
-        let future_hlc =
-            HlcType::new(format!("{:012x}-00000001-a13f9c2e", future_physical)).unwrap();
+        let future_hlc = HlcType::new(format!("{:012x}-0001-a13f9c2e", future_physical)).unwrap();
 
         assert!(hlc_gen.validate_incoming(&future_hlc).is_err());
     }
@@ -371,8 +403,8 @@ mod tests {
     #[test]
     fn clock_skew_check_within_bounds() {
         let current = 0x01970e589d21;
-        let within_skew = format!("{:012x}-00000001-a13f9c2e", current + MAX_SKEW_MS as u64);
-        let beyond_skew = format!("{:012x}-00000001-a13f9c2e", current + MAX_SKEW_MS as u64 + 1000);
+        let within_skew = format!("{:012x}-0001-a13f9c2e", current + MAX_SKEW_MS as u64);
+        let beyond_skew = format!("{:012x}-0001-a13f9c2e", current + MAX_SKEW_MS as u64 + 1000);
 
         assert!(is_clock_skew_acceptable(&within_skew, current).unwrap());
         assert!(!is_clock_skew_acceptable(&beyond_skew, current).unwrap());
@@ -381,8 +413,8 @@ mod tests {
     #[test]
     fn time_until_hlc_calculates_remaining() {
         let current = 0x01970e589d21;
-        let future = format!("{:012x}-00000001-a13f9c2e", current + 60000); // 1 minute ahead
-        let past = format!("{:012x}-00000001-a13f9c2e", current - 60000); // 1 minute ago
+        let future = format!("{:012x}-0001-a13f9c2e", current + 60000); // 1 minute ahead
+        let past = format!("{:012x}-0001-a13f9c2e", current - 60000); // 1 minute ago
 
         assert!(time_until_hlc(&future, current).is_some());
         assert_eq!(time_until_hlc(&future, current).unwrap(), Duration::from_secs(60));
@@ -394,7 +426,7 @@ mod tests {
         let mut hlc_gen = HlcGenerator::with_initial_time("test", 1);
 
         let hlc = hlc_gen.generate();
-        assert_eq!(hlc.as_str().len(), 30); // 12 + 1 + 8 + 1 + 8
+        assert_eq!(hlc.as_str().len(), 26); // 12 + 1 + 4 + 1 + 8
         // All characters should be hex digits (0-9, a-f) or dash (-)
         assert!(hlc.as_str().chars().all(|c| c.is_ascii_hexdigit() || c == '-'));
         // And specifically lowercase (no uppercase A-F)
@@ -406,10 +438,10 @@ mod tests {
     #[test]
     fn hlc_string_sorting_matches_numeric_sorting() {
         let mut hlcs = vec![
-            "01970e589d21-00000004-bbbbbbbb",
-            "01970e589d20-00000009-ffffffff",
-            "01970e589d21-00000003-ffffffff",
-            "01970e589d21-00000004-a13f9c2e",
+            "01970e589d21-0004-bbbbbbbb",
+            "01970e589d20-0009-ffffffff",
+            "01970e589d21-0003-ffffffff",
+            "01970e589d21-0004-a13f9c2e",
         ];
 
         hlcs.sort();
@@ -417,10 +449,10 @@ mod tests {
         assert_eq!(
             hlcs,
             vec![
-                "01970e589d20-00000009-ffffffff",
-                "01970e589d21-00000003-ffffffff",
-                "01970e589d21-00000004-a13f9c2e",
-                "01970e589d21-00000004-bbbbbbbb",
+                "01970e589d20-0009-ffffffff",
+                "01970e589d21-0003-ffffffff",
+                "01970e589d21-0004-a13f9c2e",
+                "01970e589d21-0004-bbbbbbbb",
             ]
         );
     }
@@ -428,7 +460,7 @@ mod tests {
     #[test]
     fn hlc_rejects_uppercase_hex() {
         // HLC must be lowercase
-        assert!(validate_hlc_format("01970E589D21-00000001-A13F9C2E").is_err());
-        assert!(validate_hlc_format("01970e589D21-00000001-a13f9c2e").is_err());
+        assert!(validate_hlc_format("01970E589D21-0001-A13F9C2E").is_err());
+        assert!(validate_hlc_format("01970e589D21-0001-a13f9c2e").is_err());
     }
 }

@@ -23,7 +23,7 @@
 //!     Did::new("did:web:alice.example")?,
 //!     OP_MESSAGE_CREATE,
 //!     1,
-//!     Hlc::new("01970e589d21-00000001-a13f9c2e")?,
+//!     Hlc::new("01970e589d21-0001-a13f9c2e")?,
 //! )
 //! .with_content(json!({
 //!     "flow_id": "cx:flow:01904100-0000-7000-8000-6c663fa0205f",

@@ -61,7 +61,7 @@ fn event_new_sets_required_event_id() {
         test_realm_id(),
         Did::new("did:web:alice.example").unwrap(),
         1,
-        Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap(),
+        Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         json!({ "body": "hello" }),
     )
     .unwrap();
@@ -78,7 +78,7 @@ fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
         actor_id: Did::new("did:web:alice.example").unwrap(),
         actor_seq: 1,
         created_at: "2026-04-26T00:00:00Z".parse().unwrap(),
-        hlc: Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap(),
+        hlc: Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         prev_refs: Vec::new(),
         refs: Vec::new(),
         preconditions: Vec::new(),
@@ -123,7 +123,7 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
             deps: vec![
                 OperationId::new("cx:operation:01904100-0000-7000-8000-5f8278b99124").unwrap(),
             ],
-            hlc: Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap(),
+            hlc: Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
             actor_seq: 7,
         },
         content: json!({"body": "hello"}),
@@ -190,7 +190,7 @@ fn operation_kind_registry_drives_envelope_semantics() {
         target_ref: None,
         causal: CausalRef {
             deps: Vec::new(),
-            hlc: Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap(),
+            hlc: Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
             actor_seq: 1,
         },
         content: json!({
@@ -215,7 +215,7 @@ fn operation_envelope_builder_covers_every_builtin_kind() {
     let registry = OperationKindRegistry::default();
     let realm_id = test_realm_id();
     let actor_id = Did::new("did:web:alice.example").unwrap();
-    let hlc = Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap();
+    let hlc = Hlc::new("01970e589d21-0004-a13f9c2e").unwrap();
 
     for (index, kind) in BUILT_IN_OPERATION_KINDS.iter().enumerate() {
         let mut builder = OperationEnvelopeBuilder::new(
@@ -244,7 +244,7 @@ fn operation_envelope_builder_requires_registered_kind_and_payload_fields() {
         Did::new("did:web:alice.example").unwrap(),
         OP_MESSAGE_CREATE,
         1,
-        Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap(),
+        Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
     );
 
     assert!(builder.clone().build(&registry).is_err());
@@ -261,7 +261,7 @@ fn operation_envelope_builder_requires_registered_kind_and_payload_fields() {
         Did::new("did:web:alice.example").unwrap(),
         "unknown",
         1,
-        Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap(),
+        Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
     );
     assert!(unknown.build(&registry).is_err());
 }
@@ -676,10 +676,10 @@ fn mls_envelopes_build_protocol_operations() {
 #[test]
 fn hlc_sorts_by_structured_parts() {
     let mut hlcs = [
-        "01970e589d21-00000004-bbbbbbbb",
-        "01970e589d20-00000009-ffffffff",
-        "01970e589d21-00000003-ffffffff",
-        "01970e589d21-00000004-a13f9c2e",
+        "01970e589d21-0004-bbbbbbbb",
+        "01970e589d20-0009-ffffffff",
+        "01970e589d21-0003-ffffffff",
+        "01970e589d21-0004-a13f9c2e",
     ]
     .map(|value| Hlc::new(value).unwrap());
     hlcs.sort();
@@ -687,10 +687,10 @@ fn hlc_sorts_by_structured_parts() {
     assert_eq!(
         actual,
         [
-            "01970e589d20-00000009-ffffffff",
-            "01970e589d21-00000003-ffffffff",
-            "01970e589d21-00000004-a13f9c2e",
-            "01970e589d21-00000004-bbbbbbbb",
+            "01970e589d20-0009-ffffffff",
+            "01970e589d21-0003-ffffffff",
+            "01970e589d21-0004-a13f9c2e",
+            "01970e589d21-0004-bbbbbbbb",
         ]
     );
 }
@@ -977,7 +977,7 @@ fn event_validate_proof_bindings_checks_digest_match() {
         test_realm_id(),
         Did::new("did:web:alice.example").unwrap(),
         1,
-        Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap(),
+        Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         json!({ "body": "hello" }),
     )
     .unwrap();
@@ -1006,7 +1006,7 @@ fn event_validate_proof_bindings_rejects_mismatched_digest() {
         test_realm_id(),
         Did::new("did:web:alice.example").unwrap(),
         1,
-        Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap(),
+        Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         json!({ "body": "hello" }),
     )
     .unwrap();
@@ -1037,7 +1037,7 @@ fn event_digest_includes_profile_refs_features_and_critical_extensions() {
         test_realm_id(),
         Did::new("did:web:alice.example").unwrap(),
         1,
-        Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap(),
+        Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         json!({ "body": "hello" }),
     )
     .unwrap();
@@ -1072,7 +1072,7 @@ fn operation_draft_explicitly_materializes_event_envelope_without_signed_operati
         Did::new("did:web:alice.example").unwrap(),
         OP_MESSAGE_CREATE,
         7,
-        Hlc::new("01970e589d21-00000004-a13f9c2e").unwrap(),
+        Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
     )
     .with_content(json!({
         "flow_id": "cx:flow:01904100-0000-7000-8000-6c663fa0205f",

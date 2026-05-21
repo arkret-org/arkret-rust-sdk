@@ -341,9 +341,9 @@ impl Hlc {
             .and_then(|part| parse_lower_hex(part, value))?;
         let node = parts.next().ok_or_else(|| IdentifierError::InvalidId(value.to_owned()))?;
         if parts.next().is_some()
-            || value.len() != 30
+            || value.len() != 26
             || value.as_bytes().get(12) != Some(&b'-')
-            || value.as_bytes().get(21) != Some(&b'-')
+            || value.as_bytes().get(17) != Some(&b'-')
             || node.is_empty()
             || node.len() != 8
             || !node.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
@@ -405,7 +405,7 @@ impl<'de> Deserialize<'de> for Hlc {
 
 fn parse_lower_hex(part: &str, original: &str) -> Result<u64> {
     if part.is_empty()
-        || !matches!(part.len(), 8 | 12)
+        || !matches!(part.len(), 4 | 8 | 12)
         || !part.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
     {
         return Err(IdentifierError::InvalidId(original.to_owned()));
@@ -575,15 +575,15 @@ mod tests {
 
         let valid: Envelope = serde_json::from_value(serde_json::json!({
             "space_id": "cx:space:01904100-0000-7000-8000-000000000001",
-            "hlc": "01970e589d21-00000004-a13f9c2e",
+            "hlc": "01970e589d21-0004-a13f9c2e",
         }))
         .unwrap();
         assert_eq!(valid.space_id.as_str(), "cx:space:01904100-0000-7000-8000-000000000001");
-        assert_eq!(valid.hlc.as_str(), "01970e589d21-00000004-a13f9c2e");
+        assert_eq!(valid.hlc.as_str(), "01970e589d21-0004-a13f9c2e");
 
         let invalid_id = serde_json::from_value::<Envelope>(serde_json::json!({
             "space_id": "space-01",
-            "hlc": "01970e589d21-00000004-a13f9c2e",
+            "hlc": "01970e589d21-0004-a13f9c2e",
         }));
         assert!(invalid_id.is_err());
 

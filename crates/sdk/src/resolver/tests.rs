@@ -19,7 +19,7 @@ fn event(kind: &str, seq: u64, content: Value) -> Event {
         actor_id: actor_id(),
         actor_seq: seq,
         created_at: chrono::Utc::now(),
-        hlc: Hlc::new(format!("01970e589d22-{seq:08x}-11111111")).unwrap(),
+        hlc: Hlc::new(format!("01970e589d22-{seq:04x}-11111111")).unwrap(),
         prev_refs: vec![],
         refs: vec![],
         preconditions: vec![],
@@ -437,7 +437,7 @@ fn flow_events_create_update_and_default_view_relation() {
         realm_id(),
         actor_id(),
         1,
-        Hlc::new("01970e589d21-00000001-a13f9c2e").unwrap(),
+        Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
         json!({
             "object": {
                 "id": flow_id,
@@ -457,7 +457,7 @@ fn flow_events_create_update_and_default_view_relation() {
         realm_id(),
         actor_id(),
         2,
-        Hlc::new("01970e589d21-00000002-a13f9c2e").unwrap(),
+        Hlc::new("01970e589d21-0002-a13f9c2e").unwrap(),
         json!({
             "flow_id": flow_id,
             "patch": {
@@ -473,7 +473,7 @@ fn flow_events_create_update_and_default_view_relation() {
         realm_id(),
         actor_id(),
         3,
-        Hlc::new("01970e589d21-00000003-a13f9c2e").unwrap(),
+        Hlc::new("01970e589d21-0003-a13f9c2e").unwrap(),
         json!({
             "relation": {
                 "id": "cx:relation:01904100-0000-7000-8000-4da53c8b9e89",
@@ -518,11 +518,11 @@ fn space_state_applies_morph_events() {
 #[test]
 fn space_state_sorts_events_by_hlc() {
     let event1 = Event {
-        hlc: Hlc::new("01970e589d21-00000002-a13f9c2e").unwrap(),
+        hlc: Hlc::new("01970e589d21-0002-a13f9c2e").unwrap(),
         ..morph_event(1, "cx:morph:01904100-0000-7000-8000-d48c478ecd0b", "Task 1")
     };
     let event2 = Event {
-        hlc: Hlc::new("01970e589d21-00000001-a13f9c2e").unwrap(),
+        hlc: Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
         ..morph_event(2, "cx:morph:01904100-0000-7000-8000-e75dc3f6ab2e", "Task 2")
     };
 

@@ -623,7 +623,7 @@ mod tests {
             "cx:space:0196419b-0000-7000-8000-000000000000",
             SpacePosition {
                 p: vec!["cx:event:0196419b-0000-7000-8000-000000000001".to_owned()],
-                order: "01970e589d21-00000004-a13f9c2e".to_owned(),
+                order: "01970e589d21-0004-a13f9c2e".to_owned(),
                 h: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                     .to_owned(),
             },
@@ -691,7 +691,7 @@ mod tests {
                 "cx:space:0196419b-0000-7000-8000-000000000000".to_owned(),
                 SpaceSyncPosition {
                     frontier: vec!["cx:event:0196419b-0000-7000-8000-000000000001".to_owned()],
-                    timeline_order: "01970e589d21-00000004-a13f9c2e".to_owned(),
+                    timeline_order: "01970e589d21-0004-a13f9c2e".to_owned(),
                     state_hash:
                         "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                             .to_owned(),

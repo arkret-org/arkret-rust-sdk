@@ -197,7 +197,7 @@ mod tests {
     }
 
     fn hlc() -> Hlc {
-        Hlc::new("0189c4d2af00-00000000-aabbccdd".to_owned()).unwrap()
+        Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap()
     }
 
     fn sample_unsigned() -> UnsignedMove {

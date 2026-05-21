@@ -27,7 +27,7 @@ fn event(kind: &str, seq: u64, space_id: &SpaceId, content: serde_json::Value) -
         actor_id: did("alice"),
         actor_seq: seq,
         created_at: chrono::Utc::now(),
-        hlc: Hlc::new(format!("01970e589d21-{seq:08x}-a13f9c2e")).unwrap(),
+        hlc: Hlc::new(format!("01970e589d21-{seq:04x}-a13f9c2e")).unwrap(),
         prev_refs: vec![],
         refs: vec![],
         preconditions: vec![],
@@ -126,7 +126,7 @@ fn protocol_conformance_vectors_remain_stable() {
             "cx:space:0196419b-0000-7000-8000-000000000000",
             SpacePosition {
                 p: vec!["cx:event:019640ed-8000-7000-8000-000000000000".to_owned()],
-                order: "01970e589d21-00000001-a13f9c2e".to_owned(),
+                order: "01970e589d21-0001-a13f9c2e".to_owned(),
                 h: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                     .to_owned(),
             },

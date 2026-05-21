@@ -636,7 +636,7 @@ mod tests {
             }],
             "anchor_ref": format!("cx:anchor:sha256:{}", "aa".repeat(32)),
             "refs": [],
-            "hlc": "0189c4d2af00-00000000-aabbccdd"
+            "hlc": "0189c4d2af00-0000-aabbccdd"
         });
         let body_bytes = crate::canonical::canonical_json_bytes(&body).unwrap();
         let payload_hash = crate::canonical::sha256_digest(&body_bytes);
@@ -670,7 +670,7 @@ mod tests {
             frontier,
             state_root: hash(0x77),
             anchorer_sig: AnchorerSig::Single(sig),
-            hlc: Hlc::new("0189c4d2af00-00000000-aabbccdd".to_owned()).unwrap(),
+            hlc: Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap(),
             kind: crate::AnchorKind::Normal,
         }
     }

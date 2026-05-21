@@ -19,7 +19,7 @@ fn event(kind: &str, seq: u64, space_id: &SpaceId, content: Value) -> Event {
         actor_id: Did::new("did:web:alice.example.com").unwrap(),
         actor_seq: seq,
         created_at: Utc::now(),
-        hlc: Hlc::new(format!("01970e589d21-{seq:08x}-a13f9c2e")).unwrap(),
+        hlc: Hlc::new(format!("01970e589d21-{seq:04x}-a13f9c2e")).unwrap(),
         prev_refs: vec![],
         refs: vec![],
         preconditions: vec![],

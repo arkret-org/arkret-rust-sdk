@@ -134,7 +134,7 @@ fn sync_loop_includes_wait_for_frontier() {
         positions: vec![crate::sync::SyncStreamPosition {
             space_id,
             frontier: Vec::new(),
-            timeline_order: crate::Hlc::new("01970e589d21-00000000-a13f9c2e").unwrap(),
+            timeline_order: crate::Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),
             state_hash: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                 .to_owned(),
         }],
@@ -224,7 +224,7 @@ fn processor_tracks_limited_timelines_and_to_device_ack() {
         parsed_realm_id,
         Did::new("did:web:alice.example").unwrap(),
         1,
-        crate::Hlc::new("01970e589d21-00000000-a13f9c2e").unwrap(),
+        crate::Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),
         json!({"body":"hello"}),
     )
     .unwrap();
@@ -558,8 +558,8 @@ fn events_query_request_renders_query_pairs() {
             SpaceId::new("cx:space:01904100-0000-7000-8000-46f8537dc94e").unwrap(),
         ])
         .with_actors(vec!["did:web:alice.example".to_owned()])
-        .with_from("hlc:0189c4d2af00-00000000-aabbccdd")
-        .with_until("hlc:0189c4d2af01-00000000-aabbccdd")
+        .with_from("hlc:0189c4d2af00-0000-aabbccdd")
+        .with_until("hlc:0189c4d2af01-0000-aabbccdd")
         .with_direction(EventsQueryDirection::Backward)
         .with_limit(50);
     let pairs = req.to_query_pairs();

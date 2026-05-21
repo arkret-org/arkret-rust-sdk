@@ -174,7 +174,7 @@ mod tests {
             frontier: vec![MoveId::new(format!("sha256:{}", "11".repeat(32))).unwrap()],
             state_root: Hash::new(format!("sha256:{}", "77".repeat(32))).unwrap(),
             anchorer_sig: AnchorerSig::Single(sig),
-            hlc: Hlc::new("0189c4d2af00-00000000-aabbccdd".to_owned()).unwrap(),
+            hlc: Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap(),
             kind,
         }
     }

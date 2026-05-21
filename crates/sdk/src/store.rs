@@ -376,7 +376,7 @@ mod tests {
             actor_id: Did::new("did:web:alice.example.com").unwrap(),
             actor_seq: 1,
             created_at: Utc::now(),
-            hlc: Hlc::new("01970e589d22-00000009-11111111").unwrap(),
+            hlc: Hlc::new("01970e589d22-0009-11111111").unwrap(),
             prev_refs: vec![],
             refs: vec![],
             preconditions: vec![],

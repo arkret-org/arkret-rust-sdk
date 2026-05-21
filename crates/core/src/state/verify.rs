@@ -272,7 +272,7 @@ mod tests {
             "effects": effects,
             "anchor_ref": format!("cx:anchor:sha256:{}", "aa".repeat(32)),
             "refs": [],
-            "hlc": "0189c4d2af00-00000000-aabbccdd"
+            "hlc": "0189c4d2af00-0000-aabbccdd"
         });
         let body_bytes = canonical::canonical_json_bytes(&body).unwrap();
         let payload_hash = canonical::sha256_digest(&body_bytes);

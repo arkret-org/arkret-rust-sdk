@@ -738,7 +738,7 @@ mod tests {
                 "cx:space:0196419b-0000-7000-8000-000000000000".to_owned(),
                 crate::cursor::SpaceSyncPosition {
                     frontier: vec!["cx:event:019640ed-8000-7000-8000-000000000000".to_owned()],
-                    timeline_order: "01970e589d21-00000004-a13f9c2e".to_owned(),
+                    timeline_order: "01970e589d21-0004-a13f9c2e".to_owned(),
                     state_hash:
                         "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                             .to_owned(),

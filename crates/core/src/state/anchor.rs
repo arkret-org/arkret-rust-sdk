@@ -312,7 +312,7 @@ mod tests {
             }],
             "anchor_ref": format!("cx:anchor:sha256:{}", "aa".repeat(32)),
             "refs": [],
-            "hlc": format!("0189c4d2af00-00000000-{:08x}", from.len() * 100 + to.len())
+            "hlc": format!("0189c4d2af00-0000-{:08x}", from.len() * 100 + to.len())
         });
         let body_bytes = canonical::canonical_json_bytes(&body).unwrap();
         let payload_hash = canonical::sha256_digest(&body_bytes);
@@ -352,7 +352,7 @@ mod tests {
             frontier,
             state_root,
             anchorer_sig: AnchorerSig::Single(sig),
-            hlc: Hlc::new("0189c4d2af00-00000000-aabbccdd".to_owned()).unwrap(),
+            hlc: Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap(),
             kind: crate::AnchorKind::Normal,
         };
         a.id = a.derive_id().unwrap();

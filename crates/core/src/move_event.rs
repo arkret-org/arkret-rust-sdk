@@ -309,7 +309,7 @@ mod tests {
             ],
             "anchor_ref": "cx:anchor:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "refs": [],
-            "hlc": "0189c4d2af00-00000000-aabbccdd"
+            "hlc": "0189c4d2af00-0000-aabbccdd"
         })
     }
 

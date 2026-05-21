@@ -991,7 +991,7 @@ mod tests {
             realm_id.clone(),
             actor.clone(),
             2,
-            Hlc::new("01970e589d22-00000000-a13f9c2e").unwrap(),
+            Hlc::new("01970e589d22-0000-a13f9c2e").unwrap(),
             serde_json::json!({"body":"newer"}),
         )
         .unwrap();
@@ -1001,7 +1001,7 @@ mod tests {
             realm_id,
             actor,
             1,
-            Hlc::new("01970e589d21-00000000-a13f9c2e").unwrap(),
+            Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),
             serde_json::json!({"body":"deeper"}),
         )
         .unwrap();
@@ -1022,7 +1022,7 @@ mod tests {
         let required = SyncStreamPosition {
             space_id: space_id.clone(),
             frontier: vec![event_id.clone()],
-            timeline_order: Hlc::new("01970e589d21-00000000-a13f9c2e").unwrap(),
+            timeline_order: Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),
             state_hash: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                 .to_owned(),
         };
@@ -1030,7 +1030,7 @@ mod tests {
         let current = SyncStreamPosition {
             space_id,
             frontier: vec![event_id],
-            timeline_order: Hlc::new("01970e589d22-00000000-a13f9c2e").unwrap(),
+            timeline_order: Hlc::new("01970e589d22-0000-a13f9c2e").unwrap(),
             state_hash: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                 .to_owned(),
         };
@@ -1047,7 +1047,7 @@ mod tests {
             realm_id,
             Did::new("did:web:alice.example").unwrap(),
             1,
-            Hlc::new("01970e589d21-00000000-a13f9c2e").unwrap(),
+            Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),
             serde_json::json!({"body":"hello"}),
         )
         .unwrap();

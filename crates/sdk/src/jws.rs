@@ -518,7 +518,7 @@ mod tests {
     // -- Replay-window tests --
 
     fn hlc_at_ms(physical_ms: u64) -> Hlc {
-        Hlc::new(format!("{physical_ms:012x}-00000000-aabbccdd")).unwrap()
+        Hlc::new(format!("{physical_ms:012x}-0000-aabbccdd")).unwrap()
     }
 
     #[test]
@@ -587,7 +587,7 @@ mod tests {
             anchor_ref: crate::AnchorId::new(format!("cx:anchor:sha256:{}", "00".repeat(32)))
                 .unwrap(),
             refs: vec![],
-            hlc: Hlc::new(format!("{hlc_ms:012x}-00000000-aabbccdd")).unwrap(),
+            hlc: Hlc::new(format!("{hlc_ms:012x}-0000-aabbccdd")).unwrap(),
             sig: MoveSignature {
                 alg: "EdDSA".to_owned(),
                 verification_method: "did:web:test#k1".to_owned(),

@@ -598,7 +598,7 @@ mod tests {
             Did::new("did:web:alice.example").unwrap(),
             kind,
             1,
-            Hlc::new("01970e589d21-00000001-a13f9c2e").unwrap(),
+            Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
         )
         .with_content(content);
         for dep in deps {
@@ -725,7 +725,7 @@ mod tests {
             Did::new("did:web:alice.example").unwrap(),
             OP_PUSH_REGISTER_DEVICE,
             1,
-            Hlc::new("01970e589d21-00000001-a13f9c2e").unwrap(),
+            Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
         )
         .with_content(json!({}))
         .build(&OperationKindRegistry::default());

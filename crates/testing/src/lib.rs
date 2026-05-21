@@ -204,7 +204,7 @@ pub fn redaction_vectors() -> Vec<RedactionVector> {
                 "role": "authorized_by",
                 "critical": true
             }],
-            "hlc": "01970e589d21-00000004-a13f9c2e",
+            "hlc": "01970e589d21-0004-a13f9c2e",
             "payload": { "body": "to be redacted" },
             "unsigned": { "transient": true }
         }),
@@ -428,7 +428,7 @@ pub fn event_taxonomy_vectors() -> Result<Vec<EventTaxonomyVector>> {
         RealmId::new("cx:realm:01904100-0000-7000-8000-9b64700c6ee8")?,
         Did::new("did:web:alice.example")?,
         1,
-        Hlc::new("01970e589d21-00000001-a13f9c2e")?,
+        Hlc::new("01970e589d21-0001-a13f9c2e")?,
         json!({"body": "hello"}),
     )?;
     let text_envelope = EventContentEnvelope::from_event(&text)?;
@@ -438,7 +438,7 @@ pub fn event_taxonomy_vectors() -> Result<Vec<EventTaxonomyVector>> {
         RealmId::new("cx:realm:01904100-0000-7000-8000-9b64700c6ee8")?,
         Did::new("did:web:alice.example")?,
         2,
-        Hlc::new("01970e589d21-00000002-a13f9c2e")?,
+        Hlc::new("01970e589d21-0002-a13f9c2e")?,
         json!({"opaque": true, "nested": {"n": 1}}),
     )?;
     let custom_envelope = EventContentEnvelope::from_event(&custom)?;
@@ -571,7 +571,7 @@ fn build_membership_move(space_id: &SpaceId, cell: &CellRef, from: &str, to: &st
         }],
         "anchor_ref": format!("cx:anchor:sha256:{}", "aa".repeat(32)),
         "refs": [],
-        "hlc": "0189c4d2af00-00000000-aabbccdd"
+        "hlc": "0189c4d2af00-0000-aabbccdd"
     });
     let body_bytes = canonical::canonical_json_bytes(&body)?;
     let payload_hash = canonical::sha256_digest(&body_bytes);
@@ -622,7 +622,7 @@ fn build_anchor(
         frontier: vec![frontier_move.clone()],
         state_root: state_root.clone(),
         anchorer_sig: AnchorerSig::Single(sig),
-        hlc: Hlc::new("0189c4d2af00-00000000-aabbccdd".to_owned())
+        hlc: Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned())
             .map_err(|e| Error::Protocol(format!("hlc: {e}")))?,
         kind: contrix_core::AnchorKind::Normal,
     };
