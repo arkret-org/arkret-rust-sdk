@@ -642,11 +642,7 @@ impl EventKind {
     /// in plain `String` fields, with [`is_standard_event_kind`] +
     /// [`classify_event_kind`] for routing.
     pub fn try_new(kind: &str) -> Option<Self> {
-        STANDARD_EVENT_KINDS
-            .iter()
-            .copied()
-            .find(|k| *k == kind)
-            .map(EventKind)
+        STANDARD_EVENT_KINDS.iter().copied().find(|k| *k == kind).map(EventKind)
     }
 
     /// Convenience constructor from one of the `pub const *: &str`
@@ -691,7 +687,7 @@ impl Serialize for EventKind {
     fn serialize<S: serde::Serializer>(
         &self,
         serializer: S,
-    ) -> std::result::Result<S::Ok, S::Error> {
+    ) -> Result<S::Ok, S::Error> {
         serializer.serialize_str(self.0)
     }
 }
@@ -699,7 +695,7 @@ impl Serialize for EventKind {
 impl<'de> Deserialize<'de> for EventKind {
     fn deserialize<D: serde::Deserializer<'de>>(
         deserializer: D,
-    ) -> std::result::Result<Self, D::Error> {
+    ) -> Result<Self, D::Error> {
         use serde::de::Error;
         let raw = String::deserialize(deserializer)?;
         Self::try_new(&raw).ok_or_else(|| {

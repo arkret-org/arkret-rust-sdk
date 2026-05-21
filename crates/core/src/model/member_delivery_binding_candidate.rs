@@ -276,7 +276,8 @@ mod tests {
                 "jws": "aaa.bbb.ccc"
             })],
             claim_digest: Some(
-                "sha256:0000000000000000000000000000000000000000000000000000000000000000".to_owned(),
+                "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+                    .to_owned(),
             ),
             intent: CandidateIntent::MemberAdd,
         }
@@ -295,8 +296,7 @@ mod tests {
     #[test]
     fn negative_subject_mismatch() {
         let c = sample_candidate();
-        let ctx =
-            valid_context(&c).with_expected_subject(fake_did("mallory"));
+        let ctx = valid_context(&c).with_expected_subject(fake_did("mallory"));
         match c.validate(&ctx).unwrap_err() {
             CandidateError::SubjectMismatch { .. } => {}
             other => panic!("expected SubjectMismatch, got {other:?}"),

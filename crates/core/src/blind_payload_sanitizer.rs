@@ -75,13 +75,8 @@ pub const MAX_COUNT_VALUE: u64 = 9_999;
 ///
 /// Custom tokens (snake_case ≤ 32 chars, no `did:` / `cx:` substring) are
 /// also accepted via [`is_valid_custom_wakeup_kind`].
-pub const ALLOWED_WAKEUP_KINDS: &[&str] = &[
-    "message",
-    "incoming_call",
-    "mention",
-    "member",
-    "presence",
-];
+pub const ALLOWED_WAKEUP_KINDS: &[&str] =
+    &["message", "incoming_call", "mention", "member", "presence"];
 
 /// Closed enum of `push_hint` values accepted in blind wakeups.
 ///
@@ -156,9 +151,7 @@ impl BlindPayloadError {
     fn forbidden(field_path: impl Into<String>) -> Self {
         let field_path = field_path.into();
         Self {
-            message: format!(
-                "field `{field_path}` is forbidden in blind wakeup payloads"
-            ),
+            message: format!("field `{field_path}` is forbidden in blind wakeup payloads"),
             field_path,
             reason_code: BlindPayloadReasonCode::ForbiddenField,
         }
@@ -175,9 +168,7 @@ impl BlindPayloadError {
     fn sensitive(field_path: impl Into<String>) -> Self {
         let field_path = field_path.into();
         Self {
-            message: format!(
-                "field `{field_path}` contains a sensitive `did:` / `cx:` literal"
-            ),
+            message: format!("field `{field_path}` contains a sensitive `did:` / `cx:` literal"),
             field_path,
             reason_code: BlindPayloadReasonCode::SensitiveLiteral,
         }
@@ -264,10 +255,7 @@ pub fn sanitize_blind_payload_with(
             None => map,
         },
         _ => {
-            return Err(BlindPayloadError::invalid(
-                "",
-                "blind payload must be a JSON object",
-            ));
+            return Err(BlindPayloadError::invalid("", "blind payload must be a JSON object"));
         }
     };
 
@@ -302,10 +290,7 @@ fn validate_allowed_field(key: &str, value: &Value) -> Result<(), BlindPayloadEr
                 "push_target_id must be an opaque pseudonym (cx:pseudonym:push:<token> \
                  or base64url ≥ 22 chars)",
             )),
-            None => Err(BlindPayloadError::invalid(
-                key,
-                "push_target_id must be a string",
-            )),
+            None => Err(BlindPayloadError::invalid(key, "push_target_id must be a string")),
         },
         "wakeup_kind" => match value.as_str() {
             Some(raw) if is_valid_wakeup_kind(raw) => Ok(()),
@@ -314,10 +299,7 @@ fn validate_allowed_field(key: &str, value: &Value) -> Result<(), BlindPayloadEr
                 "wakeup_kind must be one of message/incoming_call/mention/member/presence \
                  or a snake_case token ≤ 32 chars (no did:/cx:)",
             )),
-            None => Err(BlindPayloadError::invalid(
-                key,
-                "wakeup_kind must be a string",
-            )),
+            None => Err(BlindPayloadError::invalid(key, "wakeup_kind must be a string")),
         },
         "push_hint" => match value.as_str() {
             Some(raw) if is_valid_push_hint(raw) => Ok(()),
@@ -326,14 +308,9 @@ fn validate_allowed_field(key: &str, value: &Value) -> Result<(), BlindPayloadEr
                 "push_hint must be one of new_message/incoming_call/mention_self \
                  or `l10n_key:<token>`",
             )),
-            None => Err(BlindPayloadError::invalid(
-                key,
-                "push_hint must be a string",
-            )),
+            None => Err(BlindPayloadError::invalid(key, "push_hint must be a string")),
         },
-        "badge" | "unread_count" | "count" | "unread" => {
-            validate_count_number(key, value)
-        }
+        "badge" | "unread_count" | "count" | "unread" => validate_count_number(key, value),
         "counts" => validate_counts_tree(key, value),
         _ => Ok(()),
     }
@@ -342,14 +319,10 @@ fn validate_allowed_field(key: &str, value: &Value) -> Result<(), BlindPayloadEr
 fn validate_count_number(path: &str, value: &Value) -> Result<(), BlindPayloadError> {
     match value.as_u64() {
         Some(n) if n <= MAX_COUNT_VALUE => Ok(()),
-        Some(_) => Err(BlindPayloadError::invalid(
-            path,
-            format!("count must be ≤ {MAX_COUNT_VALUE}"),
-        )),
-        None => Err(BlindPayloadError::invalid(
-            path,
-            "count must be a non-negative integer",
-        )),
+        Some(_) => {
+            Err(BlindPayloadError::invalid(path, format!("count must be ≤ {MAX_COUNT_VALUE}")))
+        }
+        None => Err(BlindPayloadError::invalid(path, "count must be a non-negative integer")),
     }
 }
 
@@ -544,9 +517,7 @@ pub fn is_valid_push_target_id(value: &str) -> bool {
         trimmed
     };
     (22..=128).contains(&token.len())
-        && token
-            .chars()
-            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-'))
+        && token.chars().all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-'))
 }
 
 /// Return true if `value` is a valid `wakeup_kind` for blind wakeups.
@@ -567,9 +538,7 @@ pub fn is_valid_custom_wakeup_kind(value: &str) -> bool {
     if lower.contains("did:") || lower.contains("cx:") {
         return false;
     }
-    value
-        .chars()
-        .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_')
+    value.chars().all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_')
 }
 
 /// Return true if `value` is a valid `push_hint` for blind wakeups.
@@ -585,9 +554,7 @@ pub fn is_valid_push_hint(value: &str) -> bool {
         if lower.contains("did:") || lower.contains("cx:") {
             return false;
         }
-        return token
-            .chars()
-            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '.' | '_' | '-'));
+        return token.chars().all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '.' | '_' | '-'));
     }
     false
 }

@@ -350,10 +350,7 @@ impl CallSignalState {
 /// canonical `signal_type`.
 pub fn validate_call_signal_envelope(env: &EphemeralEnvelope) -> Result<CallSignalPayload> {
     if env.kind != "cx.call.signal" {
-        return Err(Error::Protocol(format!(
-            "envelope kind {:?} is not cx.call.signal",
-            env.kind
-        )));
+        return Err(Error::Protocol(format!("envelope kind {:?} is not cx.call.signal", env.kind)));
     }
     if env.device_id.is_none() {
         return Err(Error::Protocol(format!(
@@ -367,13 +364,12 @@ pub fn validate_call_signal_envelope(env: &EphemeralEnvelope) -> Result<CallSign
             crate::ERROR_CODE_SCHEMA_VIOLATION
         )));
     }
-    let payload: CallSignalPayload =
-        serde_json::from_value(env.payload.clone()).map_err(|e| {
-            Error::Protocol(format!(
-                "cx.call.signal payload must carry {{call_id, signal_type, seq}}: {e} ({})",
-                crate::ERROR_CODE_SCHEMA_VIOLATION
-            ))
-        })?;
+    let payload: CallSignalPayload = serde_json::from_value(env.payload.clone()).map_err(|e| {
+        Error::Protocol(format!(
+            "cx.call.signal payload must carry {{call_id, signal_type, seq}}: {e} ({})",
+            crate::ERROR_CODE_SCHEMA_VIOLATION
+        ))
+    })?;
     payload.validate_signal_type()?;
     Ok(payload)
 }
@@ -475,7 +471,7 @@ pub struct FederationServiceBindingRef {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct EventsSubmitBatchRequest {
-    pub envelopes: Vec<Value>,
+    pub events: Vec<Value>,
     /// Optional idempotency key for the entire batch.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub idempotency_key: Option<String>,
@@ -488,8 +484,8 @@ pub struct EventsSubmitBatchRequest {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct EventsSubmitFederationRequest {
-    pub envelopes: Vec<Value>,
     pub service_binding_ref: FederationServiceBindingRef,
+    pub events: Vec<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub idempotency_key: Option<String>,
 }
@@ -877,8 +873,7 @@ mod tests {
         // Missing token_commitment + token_salt_id → reject.
         assert!(invite.validate_minimal().is_err());
 
-        invite.token_commitment =
-            Some(Hash::new("sha256:".to_owned() + &"0".repeat(64)).unwrap());
+        invite.token_commitment = Some(Hash::new("sha256:".to_owned() + &"0".repeat(64)).unwrap());
         invite.token_salt_id = Some("salt-1".to_owned());
         // entropy_bits = 64 still < 128 → reject.
         assert!(invite.validate_minimal().is_err());

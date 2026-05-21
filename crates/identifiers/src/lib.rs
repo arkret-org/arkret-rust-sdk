@@ -222,7 +222,12 @@ id_type!(AgentSessionId, |value: &str| is_strict_typed_id(value, "cx:agent_sessi
 // Spec: contrix-spec/spec/v1/zh/extensions/agent-workspace-profile.md §7.1.
 id_type!(AgentTaskId, |value: &str| is_strict_typed_id(value, "cx:agent_task:"));
 id_type!(AppletId, |value: &str| is_strict_typed_id(value, "cx:applet:"));
-id_type!(SpaceId, |value: &str| is_strict_typed_id(value, "cx:space:"));
+// Historical SDK operation/reducer structs still name the scope field
+// `SpaceId`, but the protocol's security boundary is now Realm. Accept
+// `cx:realm:*` here so callers pass the canonical scope directly instead of
+// fabricating a `cx:space:*` mirror.
+id_type!(SpaceId, |value: &str| is_strict_typed_id(value, "cx:space:")
+    || is_strict_typed_id(value, "cx:realm:"));
 id_type!(BackupId, |value: &str| is_strict_typed_id(value, "cx:backup:"));
 id_type!(BatchId, |value: &str| is_strict_typed_id(value, "cx:batch:"));
 id_type!(BlobId, |value: &str| is_strict_typed_id(value, "cx:blob:"));
@@ -503,6 +508,7 @@ mod tests {
         assert_id!(ReqId, "cx:req:");
         assert_id!(SnapshotId, "cx:snapshot:");
         assert_id!(SpaceId, "cx:space:");
+        assert_id!(SpaceId, "cx:realm:");
         assert_id!(TxnId, "cx:txn:");
         assert_id!(ViewId, "cx:view:");
     }

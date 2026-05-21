@@ -58,12 +58,12 @@ pub use error::{
     ERROR_CODE_DEPENDENCY_MISSING, ERROR_CODE_DIGEST_MISMATCH,
     ERROR_CODE_DISCUSSION_TRACK_DISABLED, ERROR_CODE_DUPLICATE_CONFLICT,
     ERROR_CODE_E2EE_RELAXED_DISALLOWED_IN_COMPLIANCE_PROFILE, ERROR_CODE_EPOCH_MISMATCH,
-    ERROR_CODE_EXPIRED_INVITE_TOKEN, ERROR_CODE_HISTORICAL_ONLY,
-    ERROR_CODE_HLC_LOGICAL_OVERFLOW, ERROR_CODE_INTERNAL_ERROR,
-    ERROR_CODE_INVALID_PARAM, ERROR_CODE_INVALID_SIGNATURE, ERROR_CODE_KEY_UNAVAILABLE,
-    ERROR_CODE_LATE_RECOVERY_REJECTED_MEMBERSHIP, ERROR_CODE_LEGAL_HOLD_ACTIVE,
-    ERROR_CODE_MEDIA_PLAINTEXT_SERVICE_NOT_AUTHORISED, ERROR_CODE_METHOD_NOT_ALLOWED,
-    ERROR_CODE_MISSING_PARAM, ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE, ERROR_CODE_NOT_FOUND,
+    ERROR_CODE_EXPIRED_INVITE_TOKEN, ERROR_CODE_HISTORICAL_ONLY, ERROR_CODE_HLC_LOGICAL_OVERFLOW,
+    ERROR_CODE_INTERNAL_ERROR, ERROR_CODE_INVALID_PARAM, ERROR_CODE_INVALID_SIGNATURE,
+    ERROR_CODE_KEY_UNAVAILABLE, ERROR_CODE_LATE_RECOVERY_REJECTED_MEMBERSHIP,
+    ERROR_CODE_LEGAL_HOLD_ACTIVE, ERROR_CODE_MEDIA_PLAINTEXT_SERVICE_NOT_AUTHORISED,
+    ERROR_CODE_METHOD_NOT_ALLOWED, ERROR_CODE_MISSING_PARAM,
+    ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE, ERROR_CODE_NOT_FOUND,
     ERROR_CODE_PAYLOAD_DIGEST_MISMATCH, ERROR_CODE_PAYLOAD_TOO_LARGE,
     ERROR_CODE_POLICY_COMBINATION_INVALID, ERROR_CODE_POLICY_VIOLATION,
     ERROR_CODE_PROJECTION_INCOMPLETE, ERROR_CODE_QUOTA_EXCEEDED, ERROR_CODE_RANK_EXHAUSTED,
@@ -76,13 +76,14 @@ pub use error::{
     ERROR_CODE_UNSUPPORTED_FEATURE, ERROR_CODE_UNSUPPORTED_LATTICE_TYPE, Error, KNOWN_ERROR_CODES,
     Result, error_code_http_status, is_known_error_code,
 };
+pub use generated::profiles::{PROFILE_ROLES, ProfileRole, profile_ids_with_role, profile_role};
 pub use http::*;
 pub use identifiers::{
     ActorProfileId, AgentSessionId, AgentTaskId, AnchorId, AppletId, BackupId, BatchId, BlobId,
     BlobRef, BlockId, CallId, CapabilityId, CellRef, ChunkId, ClaimId, DeviceId, DevmsgId, Did,
     EventId, FilterId, FlowId, FrameId, FrankId, GrantId, Hash, Hlc, InviteId, KeyevtId, MessageId,
-    ModqId, MorphId, MoveId, NotifId, OperationId, PlaceId, PolicyId, PresentationId, ReceiptId,
-    RealmId, RelationId, ReportId, ReqId, SnapshotId, SpaceId, TxnId, TypedAppealId,
+    ModqId, MorphId, MoveId, NotifId, OperationId, PlaceId, PolicyId, PresentationId, RealmId,
+    ReceiptId, RelationId, ReportId, ReqId, SnapshotId, SpaceId, TxnId, TypedAppealId,
     TypedTrustDomainId, ViewId,
 };
 pub use keystore::{
@@ -95,7 +96,6 @@ pub use move_event::{
     Predicate, PredicateOp, SemanticRef,
 };
 pub use profile_claim::{ProfileClaim, ProfileClaimError, ProfileClaimKind, ProfileValidator};
-pub use generated::profiles::{PROFILE_ROLES, ProfileRole, profile_ids_with_role, profile_role};
 pub use service::{
     ApiConventionMetadata, HttpTraceMetadata, NotFoundPrivacy, QuotaKind, QuotaMetadata,
     RateLimitMetadata, RateLimitScopeKind, ServiceDidAllowlist, ServiceEndpointBinding,
@@ -120,8 +120,8 @@ pub use sync::{
     BucketedSpaceUpdate, DeviceListChanges, LimitedTimelineState, MembershipBucket,
     NotificationDelta, PresenceEvent, PresenceStatus, SpaceSubscription, SpaceUpdate,
     SubscriptionConfig, SyncClient, SyncFilter, SyncGap, SyncGapReason, SyncMode, SyncReqBody,
-    SyncSemantics, SyncSpace, SyncStreamPosition, SyncTimeline, SyncTokenBinding,
-    SyncUpdates, TimelineFilter, TimelineOrderKey, ToDeviceAck, ToDeviceAckStatus, ToDeviceMessage,
+    SyncSemantics, SyncSpace, SyncStreamPosition, SyncTimeline, SyncTokenBinding, SyncUpdates,
+    TimelineFilter, TimelineOrderKey, ToDeviceAck, ToDeviceAckStatus, ToDeviceMessage,
     WaitForFrontier, sync_filter_hash,
 };
 // `SyncResBody` is the wire-shape projection in [`model::api`]; the typed

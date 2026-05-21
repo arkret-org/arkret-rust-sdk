@@ -135,10 +135,7 @@ pub enum ProfileClaimError {
     /// `SelfClaimed` / `CotestVerified` provenance, but `Experimental` claims
     /// are surfaced as [`Self::ExperimentalUnknownProfile`] instead so they
     /// can be allow-listed by the caller.
-    UnknownProfile {
-        profile_id: String,
-        kind: ProfileClaimKind,
-    },
+    UnknownProfile { profile_id: String, kind: ProfileClaimKind },
     /// The profile is declared in the spec but its `profile_roles` entry is
     /// not in the allow-set of the claiming service.
     RoleMismatch {
@@ -160,12 +157,7 @@ impl fmt::Display for ProfileClaimError {
                 f,
                 "profile {profile_id} is not in the spec catalogue but was claimed as {kind}"
             ),
-            Self::RoleMismatch {
-                profile_id,
-                declared_role,
-                service_type,
-                permitted_roles,
-            } => {
+            Self::RoleMismatch { profile_id, declared_role, service_type, permitted_roles } => {
                 let permitted: Vec<&str> =
                     permitted_roles.iter().map(|role| role.as_str()).collect();
                 write!(
@@ -208,11 +200,7 @@ impl ProfileValidator {
     /// for the resolution rule.
     pub fn new(service_type: ServiceType) -> Self {
         let permitted_roles = Self::permitted_roles(service_type.clone());
-        Self {
-            service_type,
-            permitted_roles,
-            surface_experimental_unknown: true,
-        }
+        Self { service_type, permitted_roles, surface_experimental_unknown: true }
     }
 
     /// Treat `Experimental` claims with unknown profile ids as acceptable
@@ -281,11 +269,7 @@ impl ProfileValidator {
     pub fn for_client() -> Self {
         Self {
             service_type: ServiceType::PrincipalServer, // sentinel: never used
-            permitted_roles: vec![
-                ProfileRole::Client,
-                ProfileRole::Admin,
-                ProfileRole::Interop,
-            ],
+            permitted_roles: vec![ProfileRole::Client, ProfileRole::Admin, ProfileRole::Interop],
             surface_experimental_unknown: true,
         }
     }
@@ -300,11 +284,7 @@ impl ProfileValidator {
                 errors.push(error);
             }
         }
-        if errors.is_empty() {
-            Ok(())
-        } else {
-            Err(errors)
-        }
+        if errors.is_empty() { Ok(()) } else { Err(errors) }
     }
 
     /// Validate a single claim. Exposed for callers that want per-claim
@@ -390,9 +370,7 @@ mod tests {
             .validate(&[
                 ProfileClaim::cotest_verified("cx.profile.push_gateway.v1"),
                 ProfileClaim::cotest_verified("cx.profile.push_gateway.blind_wakeup.v1"),
-                ProfileClaim::cotest_verified(
-                    "cx.profile.push_gateway.matrix_passthrough.v1",
-                ),
+                ProfileClaim::cotest_verified("cx.profile.push_gateway.matrix_passthrough.v1"),
             ])
             .expect("push_gateway may claim gateway + interop");
     }
@@ -417,10 +395,7 @@ mod tests {
         let errors = validator
             .validate(&[ProfileClaim::experimental("cx.profile.experimental_thing.v1")])
             .expect_err("experimental + unknown surfaces by default");
-        assert!(matches!(
-            errors[0],
-            ProfileClaimError::ExperimentalUnknownProfile { .. }
-        ));
+        assert!(matches!(errors[0], ProfileClaimError::ExperimentalUnknownProfile { .. }));
 
         let permissive = ProfileValidator::for_client().accept_experimental_unknown();
         permissive

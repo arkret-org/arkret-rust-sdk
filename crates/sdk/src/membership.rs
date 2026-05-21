@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::{Did, Error, InviteId, Operation, OperationId, Result, SpaceId};
+use crate::{Did, Error, InviteId, Operation, OperationId, RealmId, Result, SpaceId};
 
 /// Generate a new UUIDv7-based wire ID with the given Contrix typed prefix
 /// (e.g. `cx:invite:`, `cx:operation:`). RFC 9562 §5.7 / `conformance/encoding.md` §4.
@@ -528,7 +528,7 @@ impl MembershipManager {
     ) -> Result<Operation> {
         Ok(Operation::create(
             OperationId::new(generate_id("cx:operation:"))?,
-            self.space_id.clone(),
+            RealmId::new(self.space_id.to_string())?,
             "membership",
             json!({
                 "actor_id": actor_id.as_str(),

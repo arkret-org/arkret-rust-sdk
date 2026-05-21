@@ -9,7 +9,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap};
 
 use crate::{DeviceId, Did, Error, Event, EventId, Hlc, Result, SpaceId, canonical};
 

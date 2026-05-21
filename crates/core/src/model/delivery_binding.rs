@@ -96,8 +96,7 @@ impl MemberDeliveryBinding {
             BindingSource::DidDocumentDefault => {
                 if self.did_document_hash.is_none() {
                     return Err(Error::Protocol(
-                        "binding_source=did_document_default requires did_document_hash"
-                            .to_owned(),
+                        "binding_source=did_document_default requires did_document_hash".to_owned(),
                     ));
                 }
             }
@@ -245,10 +244,8 @@ mod tests {
     #[test]
     fn binding_scope_only_accepts_realm() {
         // Positive: "realm" deserialises.
-        let ok: BindingScope = serde_json::from_value::<BindingScope>(
-            serde_json::json!("realm"),
-        )
-        .expect("realm MUST deserialise");
+        let ok: BindingScope = serde_json::from_value::<BindingScope>(serde_json::json!("realm"))
+            .expect("realm MUST deserialise");
         assert_eq!(ok, BindingScope::Realm);
 
         // Negative: the pre-inversion "space" wire value MUST be rejected.
@@ -263,10 +260,7 @@ mod tests {
         for bad in &["Realm", "REALM", "place", "container", ""] {
             let err: std::result::Result<BindingScope, _> =
                 serde_json::from_value(serde_json::json!(*bad));
-            assert!(
-                err.is_err(),
-                "BindingScope MUST reject `{bad}`, got {err:?}"
-            );
+            assert!(err.is_err(), "BindingScope MUST reject `{bad}`, got {err:?}");
         }
     }
 
@@ -287,8 +281,7 @@ mod tests {
                 "tag": "authorized_by"
             }
         });
-        let parsed: std::result::Result<MemberDeliveryBinding, _> =
-            serde_json::from_value(payload);
+        let parsed: std::result::Result<MemberDeliveryBinding, _> = serde_json::from_value(payload);
         assert!(
             parsed.is_err(),
             "pre-inversion binding_scope=space MUST be rejected at MemberDeliveryBinding deserialisation"

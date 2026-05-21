@@ -66,7 +66,7 @@ impl Default for EventRequirements {
 pub struct Event {
     pub event_id: EventId,
     pub kind: String,
-    pub space_id: SpaceId,
+    pub realm_id: RealmId,
     pub actor_id: Did,
     pub actor_seq: u64,
     pub created_at: DateTime<Utc>,
@@ -169,7 +169,7 @@ impl Event {
 
     pub fn new(
         kind: impl Into<String>,
-        space_id: SpaceId,
+        realm_id: RealmId,
         actor_id: Did,
         actor_seq: u64,
         hlc: Hlc,
@@ -178,7 +178,7 @@ impl Event {
         Ok(Self {
             event_id: EventId::new(new_prefixed_uuid7("cx:event:"))?,
             kind: kind.into(),
-            space_id,
+            realm_id,
             actor_id,
             actor_seq,
             created_at: Utc::now(),

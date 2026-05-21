@@ -81,7 +81,7 @@ impl Space {
 
         Ok(Operation::create(
             operation_id,
-            self.space_id.clone(),
+            self.realm_id()?,
             crate::OP_FLOW_CREATE,
             json!({ "object": object }),
         ))
@@ -146,7 +146,7 @@ impl Space {
 
         let mut operation = Operation::create(
             operation_id,
-            self.space_id.clone(),
+            self.realm_id()?,
             crate::OP_FLOW_UPDATE,
             json!({
                 "flow_id": flow_id.as_str(),
@@ -181,7 +181,7 @@ impl Space {
         let operation_id = OperationId::new(generate_id("cx:operation:"))?;
         let mut operation = Operation::create(
             operation_id,
-            self.space_id.clone(),
+            self.realm_id()?,
             kind,
             json!({ "flow_id": flow_id.as_str() }),
         );
@@ -252,7 +252,7 @@ impl Space {
             payload["expected_position"] = expected_position;
         }
 
-        let mut operation = Operation::create(operation_id, self.space_id.clone(), kind, payload);
+        let mut operation = Operation::create(operation_id, self.realm_id()?, kind, payload);
         operation.operation_type = OperationType::Update;
         operation.object_id = Some(flow_id.as_str().to_owned());
         Ok(operation)

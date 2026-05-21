@@ -38,10 +38,8 @@ pub fn generate_cursor_handle() -> String {
     let counter = COUNTER.fetch_add(1, Ordering::Relaxed);
     let mut hasher = Sha256::new();
     hasher.update(std::process::id().to_le_bytes());
-    let now_ns = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_nanos())
-        .unwrap_or_default();
+    let now_ns =
+        SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or_default();
     hasher.update(now_ns.to_le_bytes());
     hasher.update(counter.to_le_bytes());
     // Pointer to a stack local mixes in ASLR + thread layout entropy.

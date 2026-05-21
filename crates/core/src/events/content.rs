@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::{
     AnchorId, BlobRef, DeviceId, Did, Effect, Error, Event, EventId, EventRef, Hlc, Precondition,
-    PresenceStatus, Result, SpaceId,
+    PresenceStatus, RealmId, Result, SpaceId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -16,7 +16,7 @@ pub struct EventContentEnvelope {
     pub event_id: EventId,
     pub kind: String,
     pub class: EventClass,
-    pub space_id: SpaceId,
+    pub realm_id: RealmId,
     pub actor_id: Did,
     pub created_at: DateTime<Utc>,
     pub hlc: Hlc,
@@ -43,7 +43,7 @@ impl EventContentEnvelope {
             event_id: event.event_id.clone(),
             kind: event.kind.clone(),
             class: classify_event_kind(&event.kind),
-            space_id: event.space_id.clone(),
+            realm_id: event.realm_id.clone(),
             actor_id: event.actor_id.clone(),
             created_at: event.created_at,
             hlc: event.hlc.clone(),

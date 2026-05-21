@@ -736,10 +736,8 @@ impl ProtocolSchemaRegistry {
                         .is_ok()
                     })
                     .count();
-                let min = schema_object
-                    .get("minContains")
-                    .and_then(Value::as_u64)
-                    .unwrap_or(1) as usize;
+                let min =
+                    schema_object.get("minContains").and_then(Value::as_u64).unwrap_or(1) as usize;
                 let max = schema_object
                     .get("maxContains")
                     .and_then(Value::as_u64)

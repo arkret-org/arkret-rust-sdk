@@ -376,9 +376,7 @@ impl<V> ProductionVerifier<V> {
     /// Reject any `Proof` whose `kind` is in the canonical dev-kind
     /// allowlist (`dev` / `test` / `mock` / `stub` / `dummy`).
     pub fn assert_production_proof(&self, proof: &Proof) -> std::result::Result<(), VerifierError> {
-        proof
-            .validate_production()
-            .map_err(|err| VerifierError::DevProofRejected(err.to_string()))
+        proof.validate_production().map_err(|err| VerifierError::DevProofRejected(err.to_string()))
     }
 }
 
@@ -407,7 +405,7 @@ mod ed25519_jws {
     use contrix_core::{Audience, Hash, Proof, canonical, proof_kind};
 
     use super::{
-        EventProofBuilder, EventSigner, EventVerifier, PublicKeyMaterial, ProofType, SignerError,
+        EventProofBuilder, EventSigner, EventVerifier, ProofType, PublicKeyMaterial, SignerError,
         VerifierError,
     };
 
@@ -729,9 +727,7 @@ mod tests {
         let verifier = ProductionVerifier::wrap(AlwaysOk);
         let public = PublicKeyMaterial::Ed25519Raw { bytes: vec![0u8; 32] };
         let dev = ProofType::development("unit test stub");
-        let err = verifier
-            .verify_typed(&dev, b"bytes", b"sig", &public)
-            .unwrap_err();
+        let err = verifier.verify_typed(&dev, b"bytes", b"sig", &public).unwrap_err();
         assert!(matches!(err, VerifierError::DevProofRejected(_)));
     }
 
@@ -753,14 +749,11 @@ mod tests {
         use serde_json::json;
         let signer = Ed25519DetachedJwsSigner::from_seed([1u8; 32], "did:web:alice.example#key-1");
         let verifier = Ed25519DetachedJwsVerifier::new();
-        let public_key = PublicKeyMaterial::Ed25519Raw {
-            bytes: signer.verifying_key().to_bytes().to_vec(),
-        };
+        let public_key =
+            PublicKeyMaterial::Ed25519Raw { bytes: signer.verifying_key().to_bytes().to_vec() };
         let builder = EventProofBuilder::new();
         let signed = builder.sign(&json!({"hello": "world"}), &signer).unwrap();
-        verifier
-            .verify(&signed.canonical_bytes, &signed.signature, &public_key)
-            .unwrap();
+        verifier.verify(&signed.canonical_bytes, &signed.signature, &public_key).unwrap();
     }
 
     #[cfg(feature = "signer")]
@@ -771,9 +764,8 @@ mod tests {
             .sign_payload(&json!({"a": 1, "b": 2}), Some("api.example".to_owned()), None)
             .unwrap();
         let verifier = Ed25519DetachedJwsVerifier::new();
-        let public_key = PublicKeyMaterial::Ed25519Raw {
-            bytes: signer.verifying_key().to_bytes().to_vec(),
-        };
+        let public_key =
+            PublicKeyMaterial::Ed25519Raw { bytes: signer.verifying_key().to_bytes().to_vec() };
         verifier.verify_proof(&proof, &bytes, &public_key).unwrap();
         // Tampering MUST fail.
         let mut tampered = bytes.clone();

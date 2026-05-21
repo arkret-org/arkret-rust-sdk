@@ -117,9 +117,7 @@ fn sync_loop_can_reset_token_on_limited_timeline_gap() {
         ephemeral: Vec::new(),
         unread: UnreadCounts::default(),
     };
-    response
-        .spaces
-        .insert(space_id.to_owned(), serde_json::to_value(sync_space).unwrap());
+    response.spaces.insert(space_id.to_owned(), serde_json::to_value(sync_space).unwrap());
     let mut transport = |_request: SyncReqBody| Ok(response.clone());
     let mut sync_loop =
         SyncLoop::new().with_gap_strategy(SyncGapStrategy::ResetTokenOnLimitedTimeline);
@@ -158,9 +156,7 @@ fn processor_dispatches_all_update_categories() {
         ephemeral: Vec::new(),
         unread: UnreadCounts { notification_count: 3, highlight_count: 1 },
     };
-    response
-        .spaces
-        .insert(space_id.to_owned(), serde_json::to_value(sync_space).unwrap());
+    response.spaces.insert(space_id.to_owned(), serde_json::to_value(sync_space).unwrap());
     response.to_device.push(
         serde_json::to_value(ToDeviceMessage {
             message_type: "m.test".to_owned(),
@@ -242,9 +238,7 @@ fn processor_tracks_limited_timelines_and_to_device_ack() {
         ephemeral: Vec::new(),
         unread: UnreadCounts::default(),
     };
-    response
-        .spaces
-        .insert(space_id.to_owned(), serde_json::to_value(sync_space).unwrap());
+    response.spaces.insert(space_id.to_owned(), serde_json::to_value(sync_space).unwrap());
 
     let mut processor = SyncResponseProcessor::new();
     processor.process(response).unwrap();

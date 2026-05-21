@@ -21,9 +21,9 @@
 
 use std::collections::BTreeMap;
 
-use serde::{Deserialize, Serialize};
 use serde::de::{self, Deserializer, MapAccess, Visitor};
 use serde::ser::{SerializeMap, Serializer};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{Error, Result};
@@ -143,19 +143,12 @@ impl<'de> Deserialize<'de> for PatchOp {
                     .map_err(|err| de::Error::custom(format!("invalid $op: {err}")))?;
                 let inner_value = map.get("value").cloned();
                 if matches!(op_kind, PatchOpKind::Unset) && inner_value.is_some() {
-                    return Err(de::Error::custom(
-                        "patch op 'unset' must not carry a value",
-                    ));
+                    return Err(de::Error::custom("patch op 'unset' must not carry a value"));
                 }
                 if !matches!(op_kind, PatchOpKind::Unset) && inner_value.is_none() {
-                    return Err(de::Error::custom(format!(
-                        "patch op '{op}' requires a value",
-                    )));
+                    return Err(de::Error::custom(format!("patch op '{op}' requires a value",)));
                 }
-                if map
-                    .keys()
-                    .any(|k| k.as_str() != "$op" && k.as_str() != "value")
-                {
+                if map.keys().any(|k| k.as_str() != "$op" && k.as_str() != "value") {
                     return Err(de::Error::custom(
                         "patch op object must contain only $op and value",
                     ));
@@ -333,10 +326,7 @@ mod tests {
 
     #[test]
     fn unset_with_value_rejected() {
-        let err = serde_json::from_str::<Patch>(
-            r#"{"f":{"$op":"unset","value":1}}"#,
-        )
-        .unwrap_err();
+        let err = serde_json::from_str::<Patch>(r#"{"f":{"$op":"unset","value":1}}"#).unwrap_err();
         assert!(err.to_string().contains("must not carry a value"));
     }
 
@@ -348,10 +338,8 @@ mod tests {
 
     #[test]
     fn unknown_op_field_rejected() {
-        let err = serde_json::from_str::<Patch>(
-            r#"{"f":{"$op":"set","value":1,"extra":true}}"#,
-        )
-        .unwrap_err();
+        let err = serde_json::from_str::<Patch>(r#"{"f":{"$op":"set","value":1,"extra":true}}"#)
+            .unwrap_err();
         assert!(err.to_string().contains("must contain only $op and value"));
     }
 
@@ -382,10 +370,8 @@ mod tests {
 
     #[test]
     fn path_too_deep_rejected() {
-        let deep_path = std::iter::repeat("a")
-            .take(PATCH_PATH_MAX_SEGMENTS + 1)
-            .collect::<Vec<_>>()
-            .join(".");
+        let deep_path =
+            std::iter::repeat("a").take(PATCH_PATH_MAX_SEGMENTS + 1).collect::<Vec<_>>().join(".");
         let mut p = Patch::new();
         assert!(p.insert(deep_path, "x").is_err());
     }

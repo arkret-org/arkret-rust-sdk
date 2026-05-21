@@ -567,11 +567,8 @@ impl DeviceManager {
         // Round 4 (spec a77b995) — high-water tracks the lineage across
         // reset, so a publish following a reset must continue
         // monotonically from `reset.new_generation`.
-        let current_generation = self
-            .cross_signing_generation_high_water
-            .get(&principal)
-            .copied()
-            .unwrap_or(0);
+        let current_generation =
+            self.cross_signing_generation_high_water.get(&principal).copied().unwrap_or(0);
         // Round 4 CAS guard: `expected_previous_generation` MUST equal
         // the currently accepted generation BEFORE signature verification.
         // Mismatch is `cas_conflict`, not `invalid_signature`.

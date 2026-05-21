@@ -31,12 +31,11 @@ use contrix_core::{
     IdentityDescription, IdentityDocumentResBody, IdentityLogResBody, IdentityReceiptsResBody,
     IdentityResolveReqBody, IdentityResolveResBody, KeysClaimReqBody, KeysClaimResBody,
     KeysQueryReqBody, KeysQueryResBody, KeysUploadReqBody, KeysUploadResBody,
-    MediaIceConfigReqBody, MediaIceConfigResBody, ModerationReportReqBody,
-    ModerationReportResBody, OkResBody, PolicyCheckReqBody, PolicyCheckResBody,
-    PushNotifyReqBody, PushNotifyResBody, PushRegisterDeviceReqBody, PushRegisterDeviceResBody,
-    PushUnregisterDeviceReqBody, Result, ServerDescription, SubmitDidOperationReqBody,
-    SubmitDidOperationResBody, SyncBackfillResBody, SyncDescription, SyncReqBody, SyncResBody,
-    SyncSnapshotHeadResBody,
+    MediaIceConfigReqBody, MediaIceConfigResBody, ModerationReportReqBody, ModerationReportResBody,
+    OkResBody, PolicyCheckReqBody, PolicyCheckResBody, PushNotifyReqBody, PushNotifyResBody,
+    PushRegisterDeviceReqBody, PushRegisterDeviceResBody, PushUnregisterDeviceReqBody, Result,
+    ServerDescription, SubmitDidOperationReqBody, SubmitDidOperationResBody, SyncBackfillResBody,
+    SyncDescription, SyncReqBody, SyncResBody, SyncSnapshotHeadResBody,
 };
 
 mod fixtures;

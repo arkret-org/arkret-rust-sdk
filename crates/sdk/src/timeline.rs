@@ -200,7 +200,7 @@ impl TimelineItem {
             item_id,
             event_id: event.event_id.clone(),
             latest_event_id: event.event_id.clone(),
-            space_id: event.space_id.clone(),
+            space_id: SpaceId::new(event.realm_id.to_string()).expect("validated realm id"),
             sender: event.actor_id.clone(),
             kind,
             order: order.clone(),

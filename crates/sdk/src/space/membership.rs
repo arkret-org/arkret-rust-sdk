@@ -1,6 +1,4 @@
-use crate::model::{
-    CandidateError, CandidateValidationContext, MemberDeliveryBindingCandidate,
-};
+use crate::model::{CandidateError, CandidateValidationContext, MemberDeliveryBindingCandidate};
 
 use super::*;
 
@@ -22,10 +20,7 @@ impl Space {
     /// Create a routable join operation that carries a concrete
     /// `member_delivery_binding`. Returns an error if the binding is
     /// internally inconsistent (see [`MemberDeliveryBinding::validate`]).
-    pub fn join_space_with_binding(
-        &self,
-        binding: MemberDeliveryBinding,
-    ) -> Result<Operation> {
+    pub fn join_space_with_binding(&self, binding: MemberDeliveryBinding) -> Result<Operation> {
         binding.validate()?;
         let operation = self.create_join_with_binding(binding)?;
         self.base_client.update_space_state(&self.space_id, SpaceStateType::Joined)?;
@@ -82,7 +77,7 @@ impl Space {
             "issuer": session_meta.user_id.as_str(),
         });
 
-        Ok(Operation::create(operation_id, self.space_id.clone(), OP_INVITE_CREATE, payload))
+        Ok(Operation::create(operation_id, self.realm_id()?, OP_INVITE_CREATE, payload))
     }
 
     /// Build an invite operation from a validated
@@ -118,7 +113,7 @@ impl Space {
             "delivery_binding_candidate": candidate,
         });
 
-        Ok(Operation::create(operation_id, self.space_id.clone(), OP_INVITE_CREATE, payload))
+        Ok(Operation::create(operation_id, self.realm_id()?, OP_INVITE_CREATE, payload))
     }
 
     /// Build a `member_add` (`cx.member.state{membership=join}`) operation
@@ -156,7 +151,7 @@ impl Space {
             "handle_uri": candidate.handle_uri.canonical(),
         });
 
-        Ok(Operation::create(operation_id, self.space_id.clone(), OP_MEMBER_STATE, payload))
+        Ok(Operation::create(operation_id, self.realm_id()?, OP_MEMBER_STATE, payload))
     }
 
     /// Create a join operation for the current user to join this space.
@@ -179,17 +174,14 @@ impl Space {
             "delivery_status": DeliveryStatus::Unroutable,
         });
 
-        Ok(Operation::create(operation_id, self.space_id.clone(), OP_MEMBER_STATE, payload))
+        Ok(Operation::create(operation_id, self.realm_id()?, OP_MEMBER_STATE, payload))
     }
 
     /// Create a `routable` join operation that carries a concrete
     /// [`MemberDeliveryBinding`]. The binding is serialised onto the
     /// `cx.member.state{join}` payload under `delivery_binding` per
     /// `event-payload.schema.json#/$defs/membership_payload`.
-    pub fn create_join_with_binding(
-        &self,
-        binding: MemberDeliveryBinding,
-    ) -> Result<Operation> {
+    pub fn create_join_with_binding(&self, binding: MemberDeliveryBinding) -> Result<Operation> {
         let session_meta = self
             .base_client
             .session_meta()
@@ -204,7 +196,7 @@ impl Space {
             "delivery_binding": binding,
         });
 
-        Ok(Operation::create(operation_id, self.space_id.clone(), OP_MEMBER_STATE, payload))
+        Ok(Operation::create(operation_id, self.realm_id()?, OP_MEMBER_STATE, payload))
     }
 
     /// Create a leave operation for the current user to leave this space.
@@ -221,7 +213,7 @@ impl Space {
             "membership": "leave",
         });
 
-        Ok(Operation::create(operation_id, self.space_id.clone(), OP_MEMBER_STATE, payload))
+        Ok(Operation::create(operation_id, self.realm_id()?, OP_MEMBER_STATE, payload))
     }
 
     /// Create a ban operation for a user in this space.
@@ -242,7 +234,7 @@ impl Space {
             payload["reason"] = json!(reason);
         }
 
-        Ok(Operation::create(operation_id, self.space_id.clone(), OP_MEMBER_STATE, payload))
+        Ok(Operation::create(operation_id, self.realm_id()?, OP_MEMBER_STATE, payload))
     }
 
     /// Create an unban operation for a user in this space.
@@ -260,7 +252,7 @@ impl Space {
             "membership": "invite",
         });
 
-        Ok(Operation::create(operation_id, self.space_id.clone(), OP_MEMBER_STATE, payload))
+        Ok(Operation::create(operation_id, self.realm_id()?, OP_MEMBER_STATE, payload))
     }
 }
 
@@ -287,9 +279,14 @@ fn candidate_to_delivery_binding(
     };
     let delivery_modes: std::collections::BTreeSet<DeliveryMode> = if hint.delivery_modes.is_empty()
     {
-        [DeliveryMode::Events, DeliveryMode::Sync, DeliveryMode::ToDevice, DeliveryMode::KeyPackages]
-            .into_iter()
-            .collect()
+        [
+            DeliveryMode::Events,
+            DeliveryMode::Sync,
+            DeliveryMode::ToDevice,
+            DeliveryMode::KeyPackages,
+        ]
+        .into_iter()
+        .collect()
     } else {
         hint.delivery_modes.iter().copied().collect()
     };

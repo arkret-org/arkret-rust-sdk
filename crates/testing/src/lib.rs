@@ -3,7 +3,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use contrix_core::{
-    AnchorId, CellRef, Did, Error, Event, Hash, Hlc, Move, MoveId, Result, SpaceId, canonical,
+    AnchorId, CellRef, Did, Error, Event, Hash, Hlc, Move, MoveId, RealmId, Result, SpaceId,
+    canonical,
     events::{
         AGENT_PROTOCOL_SESSION_STATUS, AnyEventContent, CALL_SIGNAL, EventClass,
         EventContentEnvelope, MESSAGE_CREATE, MLS_WELCOME, REACTION_ADD, classify_event_kind,
@@ -490,7 +491,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
 pub fn event_taxonomy_vectors() -> Result<Vec<EventTaxonomyVector>> {
     let text = Event::new(
         MESSAGE_CREATE,
-        SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8")?,
+        RealmId::new("cx:realm:01904100-0000-7000-8000-9b64700c6ee8")?,
         Did::new("did:web:alice.example")?,
         1,
         Hlc::new("01970e589d21-00000001-a13f9c2e")?,
@@ -500,7 +501,7 @@ pub fn event_taxonomy_vectors() -> Result<Vec<EventTaxonomyVector>> {
 
     let custom = Event::new(
         "vendor.example.custom",
-        SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8")?,
+        RealmId::new("cx:realm:01904100-0000-7000-8000-9b64700c6ee8")?,
         Did::new("did:web:alice.example")?,
         2,
         Hlc::new("01970e589d21-00000002-a13f9c2e")?,

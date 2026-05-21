@@ -85,7 +85,7 @@ impl Space {
 
         let mut operation = Operation::create(
             operation_id,
-            self.space_id.clone(),
+            self.realm_id()?,
             crate::OP_PLACE_CREATE,
             json!({ "object": object }),
         );
@@ -144,7 +144,7 @@ impl Space {
 
         let mut operation = Operation::create(
             operation_id,
-            self.space_id.clone(),
+            self.realm_id()?,
             crate::OP_PLACE_UPDATE,
             json!({
                 "place_id": place_id.as_str(),
@@ -169,7 +169,7 @@ impl Space {
         let operation_id = OperationId::new(generate_id("cx:operation:"))?;
         let mut operation = Operation::create(
             operation_id,
-            self.space_id.clone(),
+            self.realm_id()?,
             crate::OP_PLACE_PARENT,
             json!({
                 "place_id": place_id.as_str(),
@@ -210,7 +210,7 @@ impl Space {
         let operation_id = OperationId::new(generate_id("cx:operation:"))?;
         let mut operation = Operation::create(
             operation_id,
-            self.space_id.clone(),
+            self.realm_id()?,
             kind,
             json!({ "place_id": place_id.as_str() }),
         );

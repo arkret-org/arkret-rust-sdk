@@ -13,10 +13,9 @@ use crate::{
     ActorProfileId, AgentSessionId, AnchorId, AppletId, BackupId, BatchId, BlobId, BlobRef,
     BlockId, CallId, CapabilityId, CellRef, ChunkId, ClaimId, Cursor, DeviceId, DevmsgId, Did,
     EventId, FilterId, FlowId, FrameId, FrankId, GrantId, Hash, Hlc, InviteId, KeyevtId, MessageId,
-    ModqId, MorphId, MoveId, NotifId, OperationId, PlaceId, RealmId, PolicyId, PresentationId,
-    ReceiptId,
-    RelationId, ReportId, ReqId, SnapshotId, SpaceId, TxnId, TypedAppealId, TypedTrustDomainId,
-    ViewId,
+    ModqId, MorphId, MoveId, NotifId, OperationId, PlaceId, PolicyId, PresentationId, RealmId,
+    ReceiptId, RelationId, ReportId, ReqId, SnapshotId, SpaceId, TxnId, TypedAppealId,
+    TypedTrustDomainId, ViewId,
 };
 
 fn string_schema(pattern: &str) -> RefOr<Schema> {
@@ -60,7 +59,7 @@ impl_string_schema!(
 );
 impl_string_schema!(
     SpaceId,
-    r"^cx:space:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    r"^cx:(space|realm):[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
 impl_string_schema!(
     BackupId,

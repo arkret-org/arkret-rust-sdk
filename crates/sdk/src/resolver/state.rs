@@ -250,9 +250,8 @@ impl SpaceState {
             // Reactions
             "cx.reaction.add" | "cx.reaction.remove" => self.reduce_reaction(event)?,
 
-            // Space upgrade / tombstone
+            // Space upgrade
             "cx.space.upgrade" => self.upgrade_space(event)?,
-            "cx.space.tombstone" => self.tombstone_space(event)?,
 
             // Generic redaction. Round 11 (2026-05-16): also flips Flow /
             // Morph subject state to Redacted per spec common-fields.md
@@ -297,7 +296,7 @@ impl SpaceState {
         let morph = Morph {
             schema: crate::MORPH_SCHEMA.to_owned(),
             id: morph_id_str.clone(),
-            space_id: event.space_id.clone(),
+            space_id: SpaceId::new(event.realm_id.to_string())?,
             // TODO(C47 Lane A4): once the resolver consumes `cx.morph.create`
             // payloads that include `schema_refs[]`, plumb them through here.
             // For now we hand back an empty set; reducer-side
@@ -432,7 +431,7 @@ impl SpaceState {
         let id = PlaceId::new(place_id.clone())?;
         let space_id = self
             .extract_optional_field(object, "space_id")
-            .unwrap_or_else(|| event.space_id.clone());
+            .unwrap_or_else(|| SpaceId::new(event.realm_id.to_string()).expect("validated realm id"));
         let kind = self.extract_field::<String>(object, "kind")?;
         let title = self.extract_field::<String>(object, "title")?;
         let state = self
@@ -663,7 +662,7 @@ impl SpaceState {
         let relation = Relation {
             schema: "cx.schema.relation.v1".to_owned(),
             id: relation_id,
-            space_id: event.space_id.clone(),
+            space_id: SpaceId::new(event.realm_id.to_string())?,
             relation_kind,
             from_ref,
             to_ref,
@@ -717,7 +716,7 @@ impl SpaceState {
         let subject = Flow {
             schema: crate::FLOW_SCHEMA.to_owned(),
             id: flow_id,
-            space_id: event.space_id.clone(),
+            space_id: SpaceId::new(event.realm_id.to_string())?,
             title,
             summary,
             body,
@@ -1162,8 +1161,7 @@ impl SpaceState {
     /// because `PlaceState` has no `Redacted` variant — spec routes Place
     /// removal through `cx.place.tombstone` instead.
     fn redact_object_for_event(&mut self, event: &Event) -> Result<()> {
-        let Some(object_ref) =
-            self.extract_optional_field::<String>(&event.content, "object_ref")
+        let Some(object_ref) = self.extract_optional_field::<String>(&event.content, "object_ref")
         else {
             return Ok(());
         };
@@ -1369,7 +1367,7 @@ impl SpaceState {
             | "cx.realm.discovery"
             | "cx.realm.archive"
             | "cx.realm.freeze"
-            | "cx.realm.destroy" => Ok(event.space_id.as_str().to_owned()),
+            | "cx.realm.destroy" => Ok(event.realm_id.as_str().to_owned()),
             // View events use view_id as state key
             "cx.view.create" | "cx.view.update" | "cx.view.reconcile" => self
                 .extract_optional_field::<String>(&event.content, "view_id")

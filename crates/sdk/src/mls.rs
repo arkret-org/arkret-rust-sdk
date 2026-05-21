@@ -18,7 +18,7 @@ use tls_codec::{Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTra
 use crate::{
     CryptoStore, DeviceId, Did, EncryptedPayload, EncryptedPayloadScheme, Error, Hash,
     MlsCommitEnvelope, MlsGroupStateRecord, MlsKeyPackageRecord, MlsWelcomeEnvelope, Operation,
-    OperationId, Result, SpaceId, ToDeviceMessage, canonical,
+    OperationId, RealmId, Result, ToDeviceMessage, canonical,
 };
 
 pub const CONTRIX_MLS_ALGORITHM: &str = "cx.mls.v1";
@@ -71,11 +71,11 @@ impl MlsRemoveMemberResult {
     pub fn commit_operation(
         &self,
         operation_id: OperationId,
-        space_id: SpaceId,
+        realm_id: RealmId,
     ) -> Result<Operation> {
         let mut operation = Operation::create(
             operation_id,
-            space_id,
+            realm_id,
             "mls_commit",
             serde_json::to_value(&self.commit)?,
         );
@@ -119,11 +119,11 @@ impl MlsAddMemberResult {
     pub fn commit_operation(
         &self,
         operation_id: OperationId,
-        space_id: SpaceId,
+        realm_id: RealmId,
     ) -> Result<Operation> {
         let mut operation = Operation::create(
             operation_id,
-            space_id,
+            realm_id,
             "mls_commit",
             serde_json::to_value(&self.commit)?,
         );
@@ -1365,7 +1365,7 @@ mod tests {
         let operation = add_result
             .commit_operation(
                 OperationId::new("cx:operation:01904100-0000-7000-8000-02369de2e9c6").unwrap(),
-                SpaceId::new("cx:space:01904100-0000-7000-8000-4ecefcf31ad2").unwrap(),
+                RealmId::new("cx:realm:01904100-0000-7000-8000-4ecefcf31ad2").unwrap(),
             )
             .unwrap();
         let to_device = add_result.welcome_to_device_message().unwrap();
@@ -1673,8 +1673,8 @@ mod tests {
             .unwrap();
 
         let op_id = OperationId::new("cx:operation:01904100-0000-7000-8000-00a9123c0f9c").unwrap();
-        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-bd49dfdbc804").unwrap();
-        let op = result.commit_operation(op_id, space_id).unwrap();
+        let realm_id = RealmId::new("cx:realm:01904100-0000-7000-8000-bd49dfdbc804").unwrap();
+        let op = result.commit_operation(op_id, realm_id).unwrap();
         assert_eq!(op.object_type, "mls_commit");
         assert!(op.object_id.unwrap().contains(&result.commit.group_id));
     }

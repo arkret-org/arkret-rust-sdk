@@ -155,9 +155,10 @@ impl EventCacheStore for MemoryPersistenceStore {
             };
         }
 
-        self.event_index.insert(event.event_id.clone(), event.space_id.clone());
+        let realm_scope = SpaceId::new(event.realm_id.to_string())?;
+        self.event_index.insert(event.event_id.clone(), realm_scope.clone());
         self.events
-            .entry(event.space_id.clone())
+            .entry(realm_scope)
             .or_default()
             .insert(event.event_id.clone(), (digest, event));
         Ok(())

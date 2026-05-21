@@ -11,8 +11,8 @@ use serde_json::{Value, json};
 
 pub mod protocol {
     pub use contrix_core::{
-        PushNotifyReqBody, PushNotifyResBody, PushRegisterDeviceReqBody,
-        PushRegisterDeviceResBody, PushUnregisterDeviceReqBody,
+        PushNotifyReqBody, PushNotifyResBody, PushRegisterDeviceReqBody, PushRegisterDeviceResBody,
+        PushUnregisterDeviceReqBody,
     };
 }
 

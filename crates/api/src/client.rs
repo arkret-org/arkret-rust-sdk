@@ -1160,9 +1160,9 @@ impl CallSignalReqBody {
 pub mod protocol {
     pub use contrix_core::{
         DeviceMessagesReceiveResBody, DeviceMessagesSendReqBody, DeviceMessagesSendResBody,
-        KeysClaimReqBody, KeysClaimResBody, KeysQueryReqBody, KeysQueryResBody,
-        KeysUploadReqBody, KeysUploadResBody, ModerationReportReqBody, ModerationReportResBody,
-        SyncReqBody, SyncResBody,
+        KeysClaimReqBody, KeysClaimResBody, KeysQueryReqBody, KeysQueryResBody, KeysUploadReqBody,
+        KeysUploadResBody, ModerationReportReqBody, ModerationReportResBody, SyncReqBody,
+        SyncResBody,
     };
 }
 

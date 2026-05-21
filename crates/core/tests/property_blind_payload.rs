@@ -210,9 +210,9 @@ fn contains_forbidden_key(value: &Value) -> bool {
 /// `push_target_id` slot.
 fn contains_sensitive_literal(path: &str, value: &Value) -> bool {
     match value {
-        Value::Object(map) => map
-            .iter()
-            .any(|(k, v)| contains_sensitive_literal(&format!("{path}.{k}"), v)),
+        Value::Object(map) => {
+            map.iter().any(|(k, v)| contains_sensitive_literal(&format!("{path}.{k}"), v))
+        }
         Value::Array(values) => values
             .iter()
             .enumerate()

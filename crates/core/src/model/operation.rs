@@ -8,7 +8,7 @@ pub struct Operation {
     #[serde(rename = "type")]
     pub record_type: String,
     pub operation_type: OperationType,
-    pub space_id: SpaceId,
+    pub realm_id: RealmId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub object_id: Option<String>,
     pub object_type: String,
@@ -21,7 +21,7 @@ pub struct Operation {
 impl Operation {
     pub fn create(
         operation_id: OperationId,
-        space_id: SpaceId,
+        realm_id: RealmId,
         object_type: impl Into<String>,
         payload: Value,
     ) -> Self {
@@ -30,7 +30,7 @@ impl Operation {
             operation_id,
             record_type: "operation".to_owned(),
             operation_type: OperationType::Create,
-            space_id,
+            realm_id,
             object_id: None,
             object_type: object_type.into(),
             payload,
@@ -56,7 +56,7 @@ impl Operation {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct OperationEnvelope {
     pub operation_id: OperationId,
-    pub space_id: SpaceId,
+    pub realm_id: RealmId,
     pub actor_id: Did,
     pub kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -123,7 +123,7 @@ impl OperationEnvelope {
     ) -> Result<EventEnvelope> {
         let mut event = Event::new(
             self.kind.clone(),
-            self.space_id,
+            self.realm_id,
             self.actor_id,
             self.causal.actor_seq,
             self.causal.hlc,
@@ -195,7 +195,7 @@ impl OperationEventConversion {
 #[derive(Clone, Debug)]
 pub struct OperationEnvelopeBuilder {
     operation_id: OperationId,
-    space_id: SpaceId,
+    realm_id: RealmId,
     actor_id: Did,
     kind: String,
     target_ref: Option<String>,
@@ -211,7 +211,7 @@ impl OperationEnvelopeBuilder {
     /// Create a builder for one registered operation kind.
     pub fn new(
         operation_id: OperationId,
-        space_id: SpaceId,
+        realm_id: RealmId,
         actor_id: Did,
         kind: impl Into<String>,
         actor_seq: u64,
@@ -219,7 +219,7 @@ impl OperationEnvelopeBuilder {
     ) -> Self {
         Self {
             operation_id,
-            space_id,
+            realm_id,
             actor_id,
             kind: kind.into(),
             target_ref: None,
@@ -278,7 +278,7 @@ impl OperationEnvelopeBuilder {
         let validation = registry.canonicalize(&self.kind)?;
         let envelope = OperationEnvelope {
             operation_id: self.operation_id,
-            space_id: self.space_id,
+            realm_id: self.realm_id,
             actor_id: self.actor_id,
             kind: validation.canonical_kind,
             target_ref: self.target_ref,
@@ -663,9 +663,9 @@ pub struct MlsProposalEnvelope {
 
 impl MlsProposalEnvelope {
     /// Build a repo operation that carries this MLS proposal.
-    pub fn operation(&self, operation_id: OperationId, space_id: SpaceId) -> Result<Operation> {
+    pub fn operation(&self, operation_id: OperationId, realm_id: RealmId) -> Result<Operation> {
         let mut operation =
-            Operation::create(operation_id, space_id, "mls_proposal", serde_json::to_value(self)?);
+            Operation::create(operation_id, realm_id, "mls_proposal", serde_json::to_value(self)?);
         operation.object_id =
             Some(format!("{}:{}:{}", self.group_id, self.epoch, self.proposal_type));
         Ok(operation)
@@ -782,9 +782,9 @@ pub struct MlsCommitEnvelope {
 
 impl MlsCommitEnvelope {
     /// Build a repo operation that carries this MLS commit.
-    pub fn operation(&self, operation_id: OperationId, space_id: SpaceId) -> Result<Operation> {
+    pub fn operation(&self, operation_id: OperationId, realm_id: RealmId) -> Result<Operation> {
         let mut operation =
-            Operation::create(operation_id, space_id, "mls_commit", serde_json::to_value(self)?);
+            Operation::create(operation_id, realm_id, "mls_commit", serde_json::to_value(self)?);
         operation.object_id = Some(format!("{}:{}", self.group_id, self.epoch));
         Ok(operation)
     }
@@ -805,9 +805,9 @@ pub struct MlsWelcomeEnvelope {
 
 impl MlsWelcomeEnvelope {
     /// Build a repo operation that records this MLS welcome delivery.
-    pub fn operation(&self, operation_id: OperationId, space_id: SpaceId) -> Result<Operation> {
+    pub fn operation(&self, operation_id: OperationId, realm_id: RealmId) -> Result<Operation> {
         let mut operation =
-            Operation::create(operation_id, space_id, "mls_welcome", serde_json::to_value(self)?);
+            Operation::create(operation_id, realm_id, "mls_welcome", serde_json::to_value(self)?);
         operation.object_id = Some(format!(
             "{}:{}:{}:{}",
             self.group_id, self.epoch, self.recipient_principal_id, self.recipient_device_id

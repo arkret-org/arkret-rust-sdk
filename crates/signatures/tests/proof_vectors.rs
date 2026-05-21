@@ -55,7 +55,8 @@ struct DevProofVectors {
 }
 
 fn read_vectors<T: for<'de> Deserialize<'de>>(name: &str) -> T {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests").join("vectors").join(name);
+    let path =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests").join("vectors").join(name);
     let bytes = std::fs::read(&path).unwrap_or_else(|err| {
         panic!("failed to read {}: {err}", path.display());
     });
@@ -108,16 +109,18 @@ fn canonical_json_vectors_match_event_proof_builder() {
 #[test]
 #[ignore]
 fn _dump_ed25519_vectors_helper() {
-    use contrix_signatures::proof::{
-        Ed25519DetachedJwsSigner, EventProofBuilder, EventSigner,
-    };
+    use contrix_signatures::proof::{Ed25519DetachedJwsSigner, EventProofBuilder, EventSigner};
     let cases = [
         ("seed_one_all_ones_with_object", [1u8; 32], serde_json::json!({"hello": "world"})),
-        ("seed_two_event_envelope_subset", [2u8; 32], serde_json::json!({
-            "actor_id": "did:web:alice.example",
-            "kind": "cx.message.posted.v1",
-            "payload": {"text": "hi"}
-        })),
+        (
+            "seed_two_event_envelope_subset",
+            [2u8; 32],
+            serde_json::json!({
+                "actor_id": "did:web:alice.example",
+                "kind": "cx.message.posted.v1",
+                "payload": {"text": "hi"}
+            }),
+        ),
         ("seed_three_integer_array", [3u8; 32], serde_json::json!({"nums": [10, 20, 30]})),
     ];
     let builder = EventProofBuilder::new();
@@ -164,12 +167,7 @@ fn ed25519_vectors_round_trip_through_signer_and_verifier() {
 
         // Public key matches recorded value.
         let pubkey = signer.verifying_key().to_bytes();
-        assert_eq!(
-            hex_encode(&pubkey),
-            v.public_key_hex,
-            "vector '{}' public key drift",
-            v.name
-        );
+        assert_eq!(hex_encode(&pubkey), v.public_key_hex, "vector '{}' public key drift", v.name);
 
         // Canonical bytes match.
         let bytes = builder.canonical_bytes(&v.value).unwrap();
@@ -206,23 +204,18 @@ fn ed25519_vectors_round_trip_through_signer_and_verifier() {
 
 #[test]
 fn dev_proof_vectors_are_rejected_by_production_verifier() {
+    use contrix_core::Hash;
     use contrix_signatures::proof::{
         EventVerifier, ProductionVerifier, ProofType, PublicKeyMaterial, VerifierError,
         build_proof_envelope,
     };
-    use contrix_core::Hash;
 
     let suite: DevProofVectors = read_vectors("dev_proofs.json");
     assert!(suite.vectors.len() >= 2, "must ship at least 2 dev-proof rejection vectors");
 
     struct AlwaysOk;
     impl EventVerifier for AlwaysOk {
-        fn verify(
-            &self,
-            _: &[u8],
-            _: &[u8],
-            _: &PublicKeyMaterial,
-        ) -> Result<(), VerifierError> {
+        fn verify(&self, _: &[u8], _: &[u8], _: &PublicKeyMaterial) -> Result<(), VerifierError> {
             Ok(())
         }
         fn algorithm(&self) -> &str {
@@ -232,7 +225,8 @@ fn dev_proof_vectors_are_rejected_by_production_verifier() {
 
     let verifier = ProductionVerifier::wrap(AlwaysOk);
     let dummy_hash =
-        Hash::new("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").unwrap();
+        Hash::new("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+            .unwrap();
     let public = PublicKeyMaterial::Ed25519Raw { bytes: vec![0u8; 32] };
 
     for v in suite.vectors {
@@ -263,11 +257,7 @@ fn dev_proof_vectors_are_rejected_by_production_verifier() {
         );
         let envelope_result = verifier.assert_production_proof(&proof);
         if v.expect_rejected {
-            assert!(
-                envelope_result.is_err(),
-                "vector '{}' envelope should be rejected",
-                v.name
-            );
+            assert!(envelope_result.is_err(), "vector '{}' envelope should be rejected", v.name);
         } else {
             assert!(
                 envelope_result.is_ok(),

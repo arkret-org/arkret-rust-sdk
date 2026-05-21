@@ -15,9 +15,7 @@
 
 use chrono::{Duration, Utc};
 use contrix_core::Did;
-use contrix_core::model::{
-    HandleBindingState, HandleClaim, HandleUri,
-};
+use contrix_core::model::{HandleBindingState, HandleClaim, HandleUri};
 use proptest::prelude::*;
 
 const PROPTEST_CASES: u32 = 64;

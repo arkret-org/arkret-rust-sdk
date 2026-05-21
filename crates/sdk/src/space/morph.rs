@@ -42,7 +42,7 @@ impl Space {
 
         Ok(Operation::create(
             operation_id,
-            self.space_id.clone(),
+            self.realm_id()?,
             OP_MORPH_CREATE,
             json!({ "object": object }),
         ))
@@ -80,7 +80,7 @@ impl Space {
 
         Ok(Operation::create(
             operation_id,
-            self.space_id.clone(),
+            self.realm_id()?,
             OP_MORPH_UPDATE,
             json!({
                 "morph_id": morph_id.as_str(),
@@ -99,7 +99,7 @@ impl Space {
         let operation_id = OperationId::new(generate_id("cx:operation:"))?;
         Ok(Operation::create(
             operation_id,
-            self.space_id.clone(),
+            self.realm_id()?,
             OP_MORPH_ARCHIVE,
             json!({ "morph_id": morph_id.as_str() }),
         ))

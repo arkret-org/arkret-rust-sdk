@@ -110,8 +110,7 @@ pub const ERROR_CODE_MEDIA_PLAINTEXT_SERVICE_NOT_AUTHORISED: &str =
     "media_plaintext_service_not_authorised";
 pub const ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE: &str = "mls_governance_binding_stale";
 pub const ERROR_CODE_EXPIRED_INVITE_TOKEN: &str = "expired_invite_token";
-pub const ERROR_CODE_LATE_RECOVERY_REJECTED_MEMBERSHIP: &str =
-    "late_recovery_rejected_membership";
+pub const ERROR_CODE_LATE_RECOVERY_REJECTED_MEMBERSHIP: &str = "late_recovery_rejected_membership";
 
 // ── Round 4 (2026-05-20, spec a77b995) — registry add (3 wire-level codes).
 //

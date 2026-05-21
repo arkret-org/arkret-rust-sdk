@@ -25,12 +25,12 @@ pub struct HandleUri {
 impl HandleUri {
     /// Parse a canonical `contrix://` handle URI. Lowercases the localpart.
     pub fn parse(input: &str) -> Result<Self> {
-        let rest = input
-            .strip_prefix("contrix://")
-            .ok_or_else(|| Error::Protocol(format!("handle uri must start with contrix://: {input}")))?;
-        let (authority, path) = rest
-            .split_once("/users/")
-            .ok_or_else(|| Error::Protocol(format!("handle uri must contain /users/ path: {input}")))?;
+        let rest = input.strip_prefix("contrix://").ok_or_else(|| {
+            Error::Protocol(format!("handle uri must start with contrix://: {input}"))
+        })?;
+        let (authority, path) = rest.split_once("/users/").ok_or_else(|| {
+            Error::Protocol(format!("handle uri must contain /users/ path: {input}"))
+        })?;
         if path.is_empty() {
             return Err(Error::Protocol(format!("handle uri localpart is empty: {input}")));
         }
@@ -132,7 +132,9 @@ fn is_valid_localpart(s: &str) -> bool {
     if s.is_empty() || s.len() > 128 {
         return false;
     }
-    s.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '.' | '_' | '+' | '~' | '-'))
+    s.chars().all(|c| {
+        c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '.' | '_' | '+' | '~' | '-')
+    })
 }
 
 fn is_valid_domain(s: &str) -> bool {
@@ -282,10 +284,7 @@ impl HandleClaim {
             }
         }
         if self.recipient_service_did.is_some() {
-            if self.handle_uri.is_none()
-                || self.audience.is_none()
-                || self.expires_at.is_none()
-            {
+            if self.handle_uri.is_none() || self.audience.is_none() || self.expires_at.is_none() {
                 return Err(Error::Protocol(
                     "recipient_service_did present requires handle_uri, audience, expires_at"
                         .to_owned(),
@@ -331,10 +330,8 @@ mod tests {
 
     #[test]
     fn verified_requires_uri_and_expires() {
-        let claim = HandleClaim {
-            binding_state: Some(HandleBindingState::Verified),
-            ..Default::default()
-        };
+        let claim =
+            HandleClaim { binding_state: Some(HandleBindingState::Verified), ..Default::default() };
         assert!(claim.validate().is_err());
     }
 

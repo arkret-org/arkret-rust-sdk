@@ -9,15 +9,15 @@ use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
 
 use crate::{
-    FlowId, Result,
+    FlowId, RealmId, Result,
     base::{BaseClient, SpaceStateType},
     media::{Attachment, MediaMetadata},
     model::{
-        BlobRef, DeliveryStatus, Did, EventId, FieldFilter, Filter, FilterOp, Flow, MemberDeliveryBinding,
-        MessageId, Morph, MorphId, NullsOrder, OP_INVITE_CREATE, OP_MEMBER_STATE,
-        OP_MESSAGE_CREATE, OP_MESSAGE_REDACT, OP_MESSAGE_REVISE, OP_MORPH_ARCHIVE, OP_MORPH_CREATE,
-        OP_MORPH_UPDATE, OP_RELATION_CREATE, OP_RELATION_DELETE, ObjectState, Operation,
-        OperationId, OperationType, Place, PlaceId, Relation, RelationId, RelationKind,
+        BlobRef, DeliveryStatus, Did, EventId, FieldFilter, Filter, FilterOp, Flow,
+        MemberDeliveryBinding, MessageId, Morph, MorphId, NullsOrder, OP_INVITE_CREATE,
+        OP_MEMBER_STATE, OP_MESSAGE_CREATE, OP_MESSAGE_REDACT, OP_MESSAGE_REVISE, OP_MORPH_ARCHIVE,
+        OP_MORPH_CREATE, OP_MORPH_UPDATE, OP_RELATION_CREATE, OP_RELATION_DELETE, ObjectState,
+        Operation, OperationId, OperationType, Place, PlaceId, Relation, RelationId, RelationKind,
         RelationState, SortDirection, SortSpec, SpaceId,
     },
     resolver::SpaceState,
@@ -160,6 +160,11 @@ impl Space {
     /// Get the space ID.
     pub fn id(&self) -> &SpaceId {
         &self.space_id
+    }
+
+    /// Canonical Realm scope for operations emitted by this client.
+    pub fn realm_id(&self) -> Result<RealmId> {
+        RealmId::new(self.space_id.to_string()).map_err(Into::into)
     }
 
     /// Get the current space state.
@@ -361,7 +366,7 @@ impl Space {
             "track": "discussion",
             "content": content,
         });
-        Ok(Operation::create(operation_id, self.space_id.clone(), OP_MESSAGE_CREATE, payload))
+        Ok(Operation::create(operation_id, self.realm_id()?, OP_MESSAGE_CREATE, payload))
     }
 
     /// Create a local plain-text message send operation.
@@ -379,7 +384,7 @@ impl Space {
         let operation_id = OperationId::new(generate_id("cx:operation:"))?;
         let mut operation = Operation::create(
             operation_id,
-            self.space_id.clone(),
+            self.realm_id()?,
             OP_MESSAGE_REVISE,
             json!({
                 "target_event_id": message_id.as_str(),
@@ -404,7 +409,7 @@ impl Space {
             payload["reason"] = json!(reason);
         }
         let mut operation =
-            Operation::create(operation_id, self.space_id.clone(), OP_MESSAGE_REDACT, payload);
+            Operation::create(operation_id, self.realm_id()?, OP_MESSAGE_REDACT, payload);
         operation.operation_type = OperationType::Redact;
         operation.object_id = Some(message_id.as_str().to_owned());
         Ok(operation)
