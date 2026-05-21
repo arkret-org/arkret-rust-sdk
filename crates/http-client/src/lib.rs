@@ -4,7 +4,7 @@ use reqwest::{
     Method, RequestBuilder, Response, StatusCode,
     header::{HeaderMap, HeaderValue, RETRY_AFTER, USER_AGENT},
 };
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
 #[cfg(not(target_arch = "wasm32"))]
 use tokio::time::sleep;
@@ -736,44 +736,6 @@ impl Client {
         self.post("/api/v1/authz/check", request).await
     }
 
-    /// `cx.profile.agent_workspace.v1` — resolve mirror Flow ID for a given
-    /// source Flow ID. Returns `None` when soland reports 404
-    /// (`not_provisioned`); returns `Err` for 401/403 / transport errors.
-    ///
-    /// Privacy invariant (spec §11.1): unauthenticated / non-owner callers
-    /// MUST receive 401/403, NOT 404. The 404 path is only valid for the
-    /// authenticated workspace owner.
-    pub async fn agent_workspace_resolve_mirror_flow(
-        &self,
-        source_flow_id: &str,
-    ) -> Result<Option<AgentWorkspaceMirrorFlow>> {
-        let builder = self
-            .request(Method::GET, "/api/v1/agent_workspace/mirror_flow")?
-            .query(&[("source_flow_id", source_flow_id)]);
-        match self.send_json::<AgentWorkspaceMirrorFlow>(builder).await {
-            Ok(mapping) => Ok(Some(mapping)),
-            Err(err) => {
-                // Map soland's "not_provisioned" 404 to None; everything
-                // else (401/403/5xx/transport) bubbles up as Err.
-                if err.to_string().contains("not_provisioned")
-                    || err.to_string().contains("status 404")
-                {
-                    Ok(None)
-                } else {
-                    Err(err)
-                }
-            }
-        }
-    }
-
-    /// `cx.profile.agent_workspace.v1` — list in-flight agent_task objects
-    /// whose execution_state is `pending_source_stub` or `active`. Used by
-    /// the client to reconcile unfinished Phase 2/3 work after offline.
-    /// Spec §11.2.
-    pub async fn agent_workspace_list_pending_tasks(&self) -> Result<AgentWorkspacePendingTasks> {
-        self.get("/api/v1/agent_workspace/pending_tasks").await
-    }
-
     pub async fn authz_effective_grants(
         &self,
         space_id: &str,
@@ -1379,39 +1341,6 @@ fn reject_path_segment(segment: &str) -> Result<()> {
     Ok(())
 }
 
-// ── `cx.profile.agent_workspace.v1` response types ──────────────────────────
-//
-// Spec: contrix-spec/spec/v1/zh/extensions/agent-workspace-profile.md §11.
-// These mirror the soland salvo ToSchema response types in
-// `soland/src/routing/agent_workspace.rs` and are kept locally in the
-// http-client crate to avoid widening contrix-core's wire surface for a
-// profile-gated extension.
-
-/// 200 response from `GET /api/v1/agent_workspace/mirror_flow`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct AgentWorkspaceMirrorFlow {
-    pub mirror_flow_id: String,
-    pub mirror_space_id: String,
-}
-
-/// 200 response from `GET /api/v1/agent_workspace/pending_tasks`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct AgentWorkspacePendingTasks {
-    pub tasks: Vec<AgentWorkspacePendingTask>,
-}
-
-/// One in-flight agent_task summary. `execution_state` ∈ {pending_source_stub,
-/// active}; `transparency` / `source_authority` are optional FSM cell heads.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct AgentWorkspacePendingTask {
-    pub agent_task_id: String,
-    pub execution_state: String,
-    pub transparency: Option<String>,
-    pub source_authority: Option<String>,
-    pub mirror_flow_id: String,
-    pub source_flow_id: Option<String>,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1422,38 +1351,6 @@ mod tests {
         let request =
             client.request(Method::GET, "/api/v1/server/describe").unwrap().build().unwrap();
         assert_eq!(request.url().as_str(), "https://alice.example/contrix/api/v1/server/describe");
-    }
-
-    #[test]
-    fn agent_workspace_resolve_mirror_flow_constructs_query_string() {
-        let client = Client::new(Url::parse("https://alice.example/").unwrap()).unwrap();
-        let builder = client
-            .request(Method::GET, "/api/v1/agent_workspace/mirror_flow")
-            .unwrap()
-            .query(&[("source_flow_id", "cx:flow:01964200-0000-7000-8000-000000000011")]);
-        let request = builder.build().unwrap();
-        let s = request.url().as_str();
-        assert!(s.contains("/api/v1/agent_workspace/mirror_flow"));
-        assert!(s.contains("source_flow_id=cx%3Aflow%3A"));
-    }
-
-    #[test]
-    fn agent_workspace_pending_tasks_response_roundtrip() {
-        let body = serde_json::json!({
-            "tasks": [
-                {
-                    "agent_task_id": "cx:agent_task:01",
-                    "execution_state": "active",
-                    "transparency": "ok",
-                    "source_authority": "ok",
-                    "mirror_flow_id": "cx:flow:01",
-                    "source_flow_id": "cx:flow:02"
-                }
-            ]
-        });
-        let parsed: AgentWorkspacePendingTasks = serde_json::from_value(body).unwrap();
-        assert_eq!(parsed.tasks.len(), 1);
-        assert_eq!(parsed.tasks[0].execution_state, "active");
     }
 
     #[test]

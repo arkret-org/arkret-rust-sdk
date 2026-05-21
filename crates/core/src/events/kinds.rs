@@ -8,15 +8,6 @@ pub const AGENT_ENDPOINT: &str = "cx.agent.endpoint";
 pub const AGENT_PROTOCOL_SESSION_RESULT: &str = "cx.agent.protocol_session.result";
 pub const AGENT_PROTOCOL_SESSION_START: &str = "cx.agent.protocol_session.start";
 pub const AGENT_PROTOCOL_SESSION_STATUS: &str = "cx.agent.protocol_session.status";
-pub const AGENT_TASK_CANCEL: &str = "cx.agent_task.cancel";
-pub const AGENT_TASK_CREATE: &str = "cx.agent_task.create";
-pub const AGENT_TASK_EXECUTION_TRANSITION: &str = "cx.agent_task.execution.transition";
-pub const AGENT_TASK_SOURCE_AUTHORITY_TRANSITION: &str =
-    "cx.agent_task.source_authority.transition";
-pub const AGENT_TASK_TRANSPARENCY_TRANSITION: &str = "cx.agent_task.transparency.transition";
-pub const AGENT_WORKSPACE_RESERVATION_CLEANUP: &str = "cx.agent_workspace.reservation.cleanup";
-pub const AGENT_WORKSPACE_RESERVATION_RECOVER: &str = "cx.agent_workspace.reservation.recover";
-pub const AGENT_WORKSPACE_RESERVATION_SET: &str = "cx.agent_workspace.reservation.set";
 pub const APPLET_BRIDGE_ERROR: &str = "cx.applet.bridge_error";
 pub const APPLET_DISCOVERY: &str = "cx.applet.discovery";
 pub const APPLET_PROTOCOL_SESSION_START: &str = "cx.applet.protocol_session.start";
@@ -241,14 +232,6 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     AGENT_PROTOCOL_SESSION_RESULT,
     AGENT_PROTOCOL_SESSION_START,
     AGENT_PROTOCOL_SESSION_STATUS,
-    AGENT_TASK_CANCEL,
-    AGENT_TASK_CREATE,
-    AGENT_TASK_EXECUTION_TRANSITION,
-    AGENT_TASK_SOURCE_AUTHORITY_TRANSITION,
-    AGENT_TASK_TRANSPARENCY_TRANSITION,
-    AGENT_WORKSPACE_RESERVATION_CLEANUP,
-    AGENT_WORKSPACE_RESERVATION_RECOVER,
-    AGENT_WORKSPACE_RESERVATION_SET,
     APPLET_BRIDGE_ERROR,
     APPLET_DISCOVERY,
     APPLET_PROTOCOL_SESSION_START,
@@ -500,15 +483,7 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
         AGENT_ENDPOINT
         | AGENT_PROTOCOL_SESSION_RESULT
         | AGENT_PROTOCOL_SESSION_START
-        | AGENT_PROTOCOL_SESSION_STATUS
-        | AGENT_TASK_CANCEL
-        | AGENT_TASK_CREATE
-        | AGENT_TASK_EXECUTION_TRANSITION
-        | AGENT_TASK_SOURCE_AUTHORITY_TRANSITION
-        | AGENT_TASK_TRANSPARENCY_TRANSITION
-        | AGENT_WORKSPACE_RESERVATION_CLEANUP
-        | AGENT_WORKSPACE_RESERVATION_RECOVER
-        | AGENT_WORKSPACE_RESERVATION_SET => EventClass::Agent,
+        | AGENT_PROTOCOL_SESSION_STATUS => EventClass::Agent,
         APPLET_BRIDGE_ERROR
         | APPLET_DISCOVERY
         | APPLET_PROTOCOL_SESSION_START

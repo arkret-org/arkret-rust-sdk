@@ -12,7 +12,7 @@ contrix (umbrella SDK)
     |-- contrix-core: wire models, canonical JSON, sync/cursor and service metadata
     |-- contrix-http-client: HTTP transport for Contrix service endpoints
     |-- contrix-server: endpoint registry, routed dispatch, server middleware, adapter contracts, OpenAPI helpers and optional Salvo router
-    |-- base/sync_client: local client state, response processing and sliding sync
+    |-- base/sync_client: local client state, response processing and account subscribe
     |-- membership/devices/receipts/notifications: client business state
     |-- content/media/profile/settings/search/discovery: feature helpers
     |-- auth/identity/e2ee/federation/push: production protocol services
@@ -115,4 +115,3 @@ these state machines without changing SDK-facing types.
   production deployments should connect them to platform-grade key storage and
   cryptographic signing.
 - Keep push payloads redacted for encrypted events.
-

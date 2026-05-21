@@ -20,9 +20,9 @@
 //!   space.read_receipt_policy, space.history_visibility,
 //!   space.join_rule, space.discovery, space.organization,
 //!   space.upgrade, flow.position, place.parent, anchorer (Move/Anchor
-//!   authority cell), mls_epoch, agent_workspace.reservation.
+//!   authority cell), mls_epoch.
 //! - **Fsm** (legal transitions only): member.state,
-//!   agent_task.{execution_state, transparency, source_authority}.
+//!   
 //! - **OrderedLog** (per-issuer monotonic append): space.create,
 //!   space.child, space.parent, account.status, policy.rule,
 //!   cross_signing.reset.
@@ -714,92 +714,6 @@ per_subject_lattice!(
     &["cx.member.state"]
 );
 
-per_subject_lattice!(
-    AgentTaskExecutionState,
-    "cx.component.agent_task.execution_state.v1",
-    SdkLatticeKind::Fsm,
-    BottomPolicy::Reject,
-    Criticality::Required,
-    "task_id",
-    &["cx.agent_task.create", "cx.agent_task.execution.transition", "cx.agent_task.cancel"]
-);
-
-per_subject_lattice!(
-    AgentTaskTransparency,
-    "cx.component.agent_task.transparency.v1",
-    SdkLatticeKind::Fsm,
-    BottomPolicy::Reject,
-    Criticality::Required,
-    "task_id",
-    &["cx.agent_task.create", "cx.agent_task.transparency.transition"]
-);
-
-per_subject_lattice!(
-    AgentTaskSourceAuthority,
-    "cx.component.agent_task.source_authority.v1",
-    SdkLatticeKind::Fsm,
-    BottomPolicy::Reject,
-    Criticality::Required,
-    "task_id",
-    &["cx.agent_task.create", "cx.agent_task.source_authority.transition"]
-);
-
-// `cx.profile.agent_workspace.v1` — reservation cells (cas-register).
-// Schema declares initial_value="__unset__" (spec PR 1.1, see
-// event-auth-state-resolution.md §5.3.3). The spec registry exposes one
-// family and multiplexes mirror_space_by_source / mirror_flow_by_source
-// through a composite subject: (cell_namespace, cell_namespace_subject).
-pub struct AgentWorkspaceReservation;
-impl LatticeKind for AgentWorkspaceReservation {
-    fn cell_family(&self) -> &'static str {
-        "cx.component.agent_workspace.reservation.v1"
-    }
-
-    fn lattice(&self) -> SdkLatticeKind {
-        SdkLatticeKind::CasRegister
-    }
-
-    fn bottom_policy(&self) -> BottomPolicy {
-        BottomPolicy::Reject
-    }
-
-    fn component(&self) -> ComponentDescriptor {
-        ComponentDescriptor {
-            component_type: self.cell_family(),
-            component_version: 1,
-            criticality: Criticality::Required,
-        }
-    }
-
-    fn subject_for_effect(
-        &self,
-        effect_payload: &Value,
-    ) -> Result<Option<String>, LatticeKindError> {
-        let cell_namespace = effect_payload.get("cell_namespace").and_then(Value::as_str).ok_or(
-            LatticeKindError::MissingSubjectField {
-                cell_family: self.cell_family(),
-                field: "cell_namespace",
-            },
-        )?;
-        let cell_namespace_subject = effect_payload
-            .get("cell_namespace_subject")
-            .and_then(Value::as_str)
-            .ok_or(LatticeKindError::MissingSubjectField {
-                cell_family: self.cell_family(),
-                field: "cell_namespace_subject",
-            })?;
-        Ok(Some(format!("{cell_namespace}:{cell_namespace_subject}")))
-    }
-
-    fn event_kinds(&self) -> &'static [&'static str] {
-        &[
-            "cx.agent_workspace.reservation.set",
-            "cx.agent_workspace.reservation.recover",
-            "cx.agent_workspace.reservation.cleanup",
-        ]
-    }
-}
-
 // ────────────────────────── OrderedLog families ──────────────────────────
 
 singleton_lattice!(
@@ -1220,13 +1134,9 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(CrossSigningPublish);
     registry.register(AnchorerCell);
     registry.register(MlsEpoch);
-    registry.register(AgentWorkspaceReservation);
 
     // Fsm
     registry.register(MemberState);
-    registry.register(AgentTaskExecutionState);
-    registry.register(AgentTaskTransparency);
-    registry.register(AgentTaskSourceAuthority);
 
     // OrderedLog
     registry.register(SpaceCreate);
@@ -1320,12 +1230,8 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "cx.component.cross_signing.publish.v1",
         "cx.component.anchorer.v1",
         "cx.component.mls.epoch.v1",
-        "cx.component.agent_workspace.reservation.v1",
         // Fsm
         "cx.component.member.state.v1",
-        "cx.component.agent_task.execution_state.v1",
-        "cx.component.agent_task.transparency.v1",
-        "cx.component.agent_task.source_authority.v1",
         // OrderedLog
         "cx.component.space.create.v1",
         "cx.component.space.child.v1",
@@ -1383,8 +1289,7 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
 /// `(family → Lattice)` for every effect.
 ///
 /// FSM families need their transition tables set via `register_fsm`; the
-/// spec-normative membership and agent-task FSM tables are encoded
-/// inline below.
+/// spec-normative membership FSM table is encoded inline below.
 pub fn build_sdk_cell_registry() -> MemoryCellRegistry {
     use serde_json::json;
 
@@ -1409,34 +1314,6 @@ pub fn build_sdk_cell_registry() -> MemoryCellRegistry {
             (json!("leave"), json!("knock")),
             (json!("ban"), json!("invite")),
             (json!("ban"), json!("knock")),
-        ],
-        BottomMode::Reject,
-    );
-    sdk_registry.register_fsm(
-        "cx.component.agent_task.execution_state.v1",
-        None,
-        vec![
-            (json!("pending_source_stub"), json!("active")),
-            (json!("pending_source_stub"), json!("cancelled_stub_rejected")),
-            (json!("pending_source_stub"), json!("cancelled_orphan")),
-            (json!("pending_source_stub"), json!("cancelled_by_controller")),
-            (json!("active"), json!("completed")),
-            (json!("active"), json!("cancelled_by_controller")),
-        ],
-        BottomMode::Reject,
-    );
-    sdk_registry.register_fsm(
-        "cx.component.agent_task.transparency.v1",
-        None,
-        vec![(json!("ok"), json!("lost")), (json!("lost"), json!("reconfirmed_after_loss"))],
-        BottomMode::Reject,
-    );
-    sdk_registry.register_fsm(
-        "cx.component.agent_task.source_authority.v1",
-        None,
-        vec![
-            (json!("ok"), json!("revoked")),
-            (json!("revoked"), json!("reconfirmed_after_revoke")),
         ],
         BottomMode::Reject,
     );
@@ -1471,11 +1348,12 @@ mod tests {
         // `cx.component.realm.create.v1`, `cx.component.realm.destroy.v1`,
         // `cx.component.realm.delivery_binding_policy.v1`. We keep the
         // legacy `Space*` impls registered for reducer back-compat, so
-        // 50 (legacy) + 25 (new realm/flow) = 75.
+        // 50 (legacy) + 25 (new realm/flow) - 4 withdrawn agent extension vectors
+        // families = 71.
         // Bump this number deliberately when the spec event-kind
         // registry grows a new cell_family.
         let registry = default_lattice_registry();
-        assert_eq!(registry.len(), 75);
+        assert_eq!(registry.len(), 71);
     }
 
     #[test]
@@ -1559,23 +1437,6 @@ mod tests {
         let payload = json!({"account_id": "act:01HXYZ"});
         let subject = kind.subject_for_effect(&payload).unwrap();
         assert_eq!(subject.as_deref(), Some("act:01HXYZ"));
-    }
-
-    #[test]
-    fn agent_workspace_reservation_uses_unified_family() {
-        let registry = default_lattice_registry();
-        let kind = registry
-            .lookup("cx.component.agent_workspace.reservation.v1")
-            .expect("unified agent workspace reservation family should be registered");
-        assert_eq!(kind.lattice(), SdkLatticeKind::CasRegister);
-        assert_eq!(kind.bottom_policy(), BottomPolicy::Reject);
-        let subject = kind
-            .subject_for_effect(&json!({
-                "cell_namespace": "mirror_space_by_source",
-                "cell_namespace_subject": "cx:space:source"
-            }))
-            .unwrap();
-        assert_eq!(subject.as_deref(), Some("mirror_space_by_source:cx:space:source"));
     }
 
     #[test]

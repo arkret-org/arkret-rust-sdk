@@ -51,9 +51,8 @@ wire-breaking list.
   `verified_profiles` / `compat_surfaces` / `development_mode` and a
   `rate_limit` oneOf.
 - **BREAKING** `ConsentRevokePayload` gains required
-  `observed_dots: Vec<Dot>`; `MessagePayload` / `SystemMessagePayload` gain
-  `mention_redirect_target_actor_ids: Vec<TypedActorId>`; `AccessKind` gains
-  `E2EELateRecovery` with required `late_recovery_original_event_id`.
+  `observed_dots: Vec<Dot>`; `AccessKind` gains `E2EELateRecovery` with
+  required `late_recovery_original_event_id`.
 - **Added** federation HTTP signature transcript now includes the three new
   S2S headers `Source-Trust-Domain` / `Destination-Trust-Domain` /
   `Request-Canonical-Hash` (re-exported constants
@@ -368,72 +367,6 @@ signatures, schema-id constants, and validation helpers. See contrix-spec
   reason byte-for-byte (e.g. `"unsupported recurrence timezone: UTC99"`,
   `"outside recurrence window"`, `"outside weekday recurrence: Sun"`).
   No compat shim — the enum is internal (`pub(super)`).
-
-### Internal — dedupe canonical JSON helpers in `agent_workspace` (2026-05-18)
-
-- **`contrix::agent_workspace`** — removed the module-local
-  `canonical_json_bytes` / `sha256_hex` helpers that had drifted
-  out of sync with the core implementation. `compute_content_hash`,
-  `import_attestation_signing_input`, and `export_policy_signing_input`
-  now delegate to `contrix::canonical::canonical_json_bytes` +
-  `contrix::canonical::sha256_digest` (the canonical RFC 8785 subset
-  with the integer-only number profile). Output bytes are unchanged;
-  the public return type tightens from
-  `Result<_, serde_json::Error>` to `crate::Result<_>` so that
-  non-canonical numbers surface as `Error::NonCanonicalNumber`
-  instead of being silently encoded as floats. v1 is unreleased so
-  this is a rip-and-replace with no compat shim.
-
-### Added — `cx.profile.agent_workspace.v1` wire types + helpers (2026-05-17)
-
-Mirror of contrix-spec PR landing `cx.profile.agent_workspace.v1` extension
-profile. The SDK gains a new `agent_workspace` module behind the
-`full-surface` feature flag, plus a typed ID and a `CapabilityGrant`
-extension.
-
-- **`contrix-identifiers`** — `AgentTaskId` typed ID with prefix
-  `cx:agent_task:` (RFC 9562 UUIDv7 payload), wired into the smoke
-  `assert_id!` matrix.
-
-- **`contrix` (sdk)** — new `agent_workspace` module exposing:
-  - `AgentTask` object (mirrors `cx.schema.agent_task.v1`)
-  - `ContextAnchor` (source-Space frontier binding)
-  - Three orthogonal FSM enums (`ExecutionState` / `TransparencyState` /
-    `SourceAuthorityState`) + `legal_transition` validators per cell +
-    `agent_runtime_may_execute` gate invariant
-  - `MentionRedirectContent`, `ImportAttestationContent`,
-    `SourceExportPolicyAttestation` content-block types
-  - `AttachedAuthority` enum (`anchored_event_ref` / `state_witness` —
-    `inline_copy` reserved for v2)
-  - Event payload helpers `AgentTaskCreatePayload` /
-    `AgentTaskTransitionPayload` / `AgentTaskCancelPayload`
-  - `mention_redirect_critical_extension()` descriptor that emits a
-    spec-compliant `Event.requirements.critical_extensions[]` entry
-    (`scope="payload"`, `fail_closed=true`)
-  - Reservation / recovery / orphan-cleanup Move drafts using the empty
-    sentinel pattern (`head_eq:"__unset__"`) — see spec §6
-  - `compute_recovery_move` with lex-min winner per §8 conflict repair
-  - `compute_content_hash` (RFC 8785 JCS canonical + SHA-256) and
-    `import_attestation_signing_input` / `export_policy_signing_input`
-    with domain separators
-  - 20 unit tests covering FSM legal/illegal transitions (incl. Rev 7
-    unreachable edges as explicit negative cases), reservation
-    sentinel use, recovery lex-min, canonical content hash
-    order-invariance, and roundtrip serde of `AgentTask` + the
-    extended `CapabilityGrant`
-
-- **`contrix::authz::grants::CapabilityGrant`** — new optional
-  `attached_authority: Option<AttachedAuthority>` field
-  (`full-surface` only). Reducer-enforced REQUIRED when grant subject is
-  an agent DID whose `agent_authority.acting_mode == "delegated_assistant"`.
-  Schema-side change in `capability-grant.schema.json` (oneOf two
-  evidence kinds).
-
-- **`contrix-testing`** — new `agent_workspace_vector_ids()` enumerator
-  returning the canonical 43-vector list from
-  `agent-workspace-profile.md §15`. Harnesses can diff this list against
-  the fixtures present under `contrix-spec/spec/v1/artifacts/conformance/agent-workspace/`
-  to detect missing land vectors.
 
 ### Added — Applet / Agent protocol-session OP constants + registry (2026-05-16)
 

@@ -191,7 +191,7 @@ pub struct FederationBackfillResBody {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub auth_events: Vec<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub next_batch: Option<String>,
+    pub next_cursor: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

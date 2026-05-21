@@ -829,7 +829,7 @@ fn operation_serializes_protocol_field_names() {
 }
 
 // `sync_response_uses_native_spaces_only` removed: the previous
-// SyncResBody had a `next_batch` / `spaces` / `timeline` shape that no
+// SyncResBody had a `cursor` / `spaces` / `timeline` shape that no
 // longer exists. The new SyncResBody (in `model/api.rs`) carries
 // `cursor` / `left_spaces` / `notifications`; the corresponding wire
 // invariant (native space ids only, no Matrix room id leakage) is

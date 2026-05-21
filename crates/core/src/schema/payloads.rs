@@ -223,20 +223,6 @@ fn payload_def_candidates(event_kind: &str) -> Vec<String> {
         ["agent", "protocol_session", "result"] => {
             candidates.push("agent_session_result_payload".to_owned());
         }
-        ["agent_task", "create"] => candidates.push("agent_task_create_payload".to_owned()),
-        ["agent_task", "cancel"] => candidates.push("agent_task_cancel_payload".to_owned()),
-        ["agent_task", "execution" | "transparency" | "source_authority", "transition"] => {
-            candidates.push("agent_task_transition_payload".to_owned());
-        }
-        ["agent_workspace", "reservation", "set"] => {
-            candidates.push("agent_workspace_reservation_set_payload".to_owned());
-        }
-        ["agent_workspace", "reservation", "recover"] => {
-            candidates.push("agent_workspace_reservation_recover_payload".to_owned());
-        }
-        ["agent_workspace", "reservation", "cleanup"] => {
-            candidates.push("agent_workspace_reservation_cleanup_payload".to_owned());
-        }
         ["capability", "grant" | "delegate" | "derived"] => {
             candidates.push("capability_grant_payload".to_owned());
         }

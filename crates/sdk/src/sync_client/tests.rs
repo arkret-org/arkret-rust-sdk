@@ -111,7 +111,7 @@ fn sync_loop_can_reset_token_on_limited_timeline_gap() {
         timeline: Some(SyncTimeline {
             events: Vec::new(),
             limited: true,
-            prev_batch: Some("prev".to_owned()),
+            prev_cursor: Some("prev".to_owned()),
         }),
         state: Vec::new(),
         summary: json!({}),
@@ -233,7 +233,7 @@ fn processor_tracks_limited_timelines_and_to_device_ack() {
         timeline: Some(SyncTimeline {
             events: vec![serde_json::to_value(event).unwrap()],
             limited: true,
-            prev_batch: Some("prev".to_owned()),
+            prev_cursor: Some("prev".to_owned()),
         }),
         state: Vec::new(),
         summary: json!({}),

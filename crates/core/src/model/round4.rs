@@ -40,8 +40,6 @@
 //!   enum variant with required `late_recovery_original_event_id`.
 //! - **ConsentRevokePayload.observed_dots** — required, prevents
 //!   implicit cascade.
-//! - **MessagePayload.mention_redirect_target_actor_ids** — plaintext
-//!   routing list for mention redirect.
 
 use super::*;
 use crate::canonical;
@@ -764,20 +762,6 @@ impl ConsentRevokePayload {
         }
         Ok(())
     }
-}
-
-// ── MessagePayload mention_redirect_target_actor_ids ───────────────────
-
-/// Round 4 — plaintext routing fragment carried inside `MessagePayload`
-/// and `SystemMessagePayload`. Receivers consult this list to decide
-/// whether to surface the (otherwise encrypted) message body to a
-/// given actor in mention-redirect scenarios; if the actor is NOT in
-/// the list, the body MUST NOT be decrypted at the push layer.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct MentionRedirectRouting {
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub mention_redirect_target_actor_ids: Vec<Did>,
 }
 
 // ── Flow cell metadata helpers ─────────────────────────────────────────

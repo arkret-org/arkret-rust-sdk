@@ -29,6 +29,23 @@ behavior being changed.
 - New service methods must verify profile compatibility where a server
   description is available.
 
+## Type Ownership
+
+Wire shape ownership is strict:
+
+- The protocol wire shape source of truth is `contrix-spec/spec/v1/artifacts/schemas/*.schema.json`
+  and the matching registry artifacts.
+- The Rust expression of shared protocol types belongs in
+  `contrix-rust-sdk/crates/{identifiers,core,api}`. Product crates should import
+  these types or wrap them; they should not redefine wire enums or DTOs.
+- Product-local types are fine for DB rows, UI view models, platform config,
+  service aggregates, and admin metadata. When they overlap a protocol type,
+  keep the SDK type as a field or provide an explicit conversion boundary.
+- Do not redefine protocol enums such as `ErrorCode`, `EventKind`,
+  `Discoverability`, `JoinRule`, `FederationPolicy`, `ActorKind`,
+  `RelationKind`, `ViewKind`, `Facet`, `EncryptionProfile`, `SecurityClass`,
+  or `HistoryVisibility`; add local behavior with traits or newtypes.
+
 ## Commit Messages
 
 Use Conventional Commits:

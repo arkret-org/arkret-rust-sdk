@@ -218,9 +218,6 @@ id_type!(Did, is_did);
 // Protocol object IDs use typed prefixes with canonical RFC 9562 UUIDv7 payloads.
 id_type!(ActorProfileId, |value: &str| is_strict_typed_id(value, "cx:actor_profile:"));
 id_type!(AgentSessionId, |value: &str| is_strict_typed_id(value, "cx:agent_session:"));
-// `cx.profile.agent_workspace.v1` — agent task in mirror Space.
-// Spec: contrix-spec/spec/v1/zh/extensions/agent-workspace-profile.md §7.1.
-id_type!(AgentTaskId, |value: &str| is_strict_typed_id(value, "cx:agent_task:"));
 id_type!(AppletId, |value: &str| is_strict_typed_id(value, "cx:applet:"));
 // Historical SDK operation/reducer structs still name the scope field
 // `SpaceId`, but the protocol's security boundary is now Realm. Accept
@@ -474,7 +471,6 @@ mod tests {
 
         assert_id!(ActorProfileId, "cx:actor_profile:");
         assert_id!(AgentSessionId, "cx:agent_session:");
-        assert_id!(AgentTaskId, "cx:agent_task:");
         assert_id!(AppletId, "cx:applet:");
         assert_id!(BackupId, "cx:backup:");
         assert_id!(BatchId, "cx:batch:");

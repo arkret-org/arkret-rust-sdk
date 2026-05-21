@@ -431,10 +431,6 @@ impl ArtifactDriftReport {
 /// Update this constant whenever the SDK adds typed support for a new
 /// schema; the drift report will then enforce that the spec still ships it.
 pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
-    "cx.schema.agent_task.v1",
-    "cx.schema.content.mention_redirect.v1",
-    "cx.schema.content.import_attestation.v1",
-    "cx.schema.content.source_export_policy_attestation.v1",
     // Realm/Space inversion (spec 59ac1d4): `cx.schema.realm.v1` is the new
     // security-boundary schema. `cx.schema.space.v1` is now the container
     // schema (former `cx.schema.place.v1` is removed).

@@ -66,9 +66,9 @@ pub struct SyncTimeline {
     pub events: Vec<Value>,
     /// Limited flag (if true, history was limited)
     pub limited: bool,
-    /// Previous batch token for backfill
+    /// Older-direction cursor for backfill
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub prev_batch: Option<String>,
+    pub prev_cursor: Option<String>,
 }
 
 /// Unread notification counts.
@@ -545,9 +545,9 @@ pub struct SyncGap {
     /// Newer edge event if known.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_event_id: Option<EventId>,
-    /// Backfill token supplied by the server.
+    /// Backfill cursor supplied by the server.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub prev_batch: Option<String>,
+    pub prev_cursor: Option<String>,
     /// Why the gap exists.
     pub reason: SyncGapReason,
 }
@@ -560,9 +560,9 @@ pub struct LimitedTimelineState {
     pub space_id: SpaceId,
     /// Whether the timeline was limited.
     pub limited: bool,
-    /// Previous batch token for historical pagination.
+    /// Older-direction cursor for historical pagination.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub prev_batch: Option<String>,
+    pub prev_cursor: Option<String>,
     /// Gap to persist and backfill, if limited.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub gap: Option<SyncGap>,
@@ -577,11 +577,11 @@ impl LimitedTimelineState {
             space_id: space_id.clone(),
             prev_event_id,
             next_event_id,
-            prev_batch: timeline.prev_batch.clone(),
+            prev_cursor: timeline.prev_cursor.clone(),
             reason: SyncGapReason::Limited,
         });
 
-        Self { space_id, limited: timeline.limited, prev_batch: timeline.prev_batch.clone(), gap }
+        Self { space_id, limited: timeline.limited, prev_cursor: timeline.prev_cursor.clone(), gap }
     }
 
     /// Convert this limited section into a backfill request, if one is needed.
@@ -590,7 +590,7 @@ impl LimitedTimelineState {
         Some(BackfillReqBody {
             space_id: self.space_id.clone(),
             from: gap
-                .prev_batch
+                .prev_cursor
                 .as_ref()
                 .map(|cursor| BackfillFrom::Cursor { cursor: cursor.clone() })
                 .or_else(|| {
@@ -1054,7 +1054,7 @@ mod tests {
         let timeline = SyncTimeline {
             events: vec![serde_json::to_value(event).unwrap()],
             limited: true,
-            prev_batch: Some("backfill-token".to_owned()),
+            prev_cursor: Some("backfill-token".to_owned()),
         };
 
         let state = LimitedTimelineState::from_timeline(space_id, &timeline);

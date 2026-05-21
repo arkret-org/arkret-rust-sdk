@@ -419,10 +419,10 @@ pub struct SyncReqBody {
     pub after: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub catchup: Option<bool>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub space_ids: Vec<SpaceId>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub timeout_ms: Option<u64>,
+    pub filter: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub set_presence: Option<String>,
 }
 
 /// Folded account-aggregate delta used by SDK internals.
@@ -1325,7 +1325,7 @@ pub struct DeviceMessagesSendResBody {
 pub struct DeviceMessagesReceiveResBody {
     pub events: Vec<ToDeviceMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub next_batch: Option<String>,
+    pub next_cursor: Option<String>,
     #[serde(default)]
     pub limited: bool,
 }

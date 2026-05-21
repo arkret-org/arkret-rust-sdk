@@ -38,7 +38,7 @@ impl SyncResponseProcessor {
                 processed.timeline_events += timeline.events.len();
                 processed.last_timeline = Some(timeline.clone());
                 processed.last_limited = timeline.limited;
-                processed.last_prev_batch = timeline.prev_batch.clone();
+                processed.last_prev_cursor = timeline.prev_cursor.clone();
                 if timeline.limited {
                     let limited = LimitedTimelineState::from_timeline(space_id.clone(), timeline);
                     processed.limited_timeline_count += 1;
@@ -186,8 +186,8 @@ pub struct ProcessedSpace {
     pub highlight_count: u64,
     /// Last timeline section had `limited: true`.
     pub last_limited: bool,
-    /// Last previous-batch token from timeline pagination.
-    pub last_prev_batch: Option<String>,
+    /// Last older-direction cursor from timeline pagination.
+    pub last_prev_cursor: Option<String>,
     /// Number of limited timeline sections processed.
     pub limited_timeline_count: usize,
     /// Pending gap created by the latest limited timeline.

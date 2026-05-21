@@ -566,7 +566,7 @@ pub struct MessageSearchHit {
 pub struct MessageSearchResBody {
     pub hits: Vec<MessageSearchHit>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub next_batch: Option<String>,
+    pub next_cursor: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -623,7 +623,7 @@ pub struct DirectorySearchResult {
 pub struct DirectorySearchResBody {
     pub results: Vec<DirectorySearchResult>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub next_batch: Option<String>,
+    pub next_cursor: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -639,73 +639,6 @@ pub struct DirectoryAliasResBody {
     pub alias: String,
     pub space_id: SpaceId,
     pub servers: Vec<String>,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(rename_all = "snake_case")]
-pub enum SyncServiceState {
-    Offline,
-    CatchingUp,
-    Live,
-    Error,
-    Terminated,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SyncSubscription {
-    pub space_id: SpaceId,
-    pub timeline_limit: u32,
-    pub include_state: bool,
-}
-
-impl SyncSubscription {
-    pub fn validate(&self) -> Result<()> {
-        if self.timeline_limit == 0 {
-            return Err(Error::Protocol("sync timeline limit must be non-zero".to_owned()));
-        }
-        Ok(())
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SyncSubscribeReqBody {
-    pub since: Option<String>,
-    pub subscriptions: Vec<SyncSubscription>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub timeout_ms: Option<u64>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SlidingSyncReqBody {
-    pub window_start: u32,
-    pub window_end: u32,
-    pub subscriptions: Vec<SyncSubscription>,
-}
-
-impl SlidingSyncReqBody {
-    pub fn validate(&self) -> Result<()> {
-        if self.window_end < self.window_start {
-            return Err(Error::Protocol("sliding sync window end must be >= start".to_owned()));
-        }
-        for subscription in &self.subscriptions {
-            subscription.validate()?;
-        }
-        Ok(())
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SyncEnvelope {
-    pub next_batch: String,
-    pub state: SyncServiceState,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = Vec<serde_json::Value>)))]
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub updates: Vec<Value>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1007,7 +940,7 @@ pub struct NotificationCountsResBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct NotificationListReqBody {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub since: Option<String>,
+    pub cursor: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<u32>,
     #[serde(default)]
@@ -1049,7 +982,7 @@ pub struct ClientNotification {
 pub struct NotificationListResBody {
     pub notifications: Vec<ClientNotification>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub next_batch: Option<String>,
+    pub next_cursor: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1239,23 +1172,6 @@ mod tests {
     }
 
     #[test]
-    fn sliding_sync_validates_window_and_subscriptions() {
-        let request = SlidingSyncReqBody {
-            window_start: 0,
-            window_end: 10,
-            subscriptions: vec![SyncSubscription {
-                space_id: space(),
-                timeline_limit: 50,
-                include_state: true,
-            }],
-        };
-        request.validate().unwrap();
-
-        let bad = SlidingSyncReqBody { window_start: 10, window_end: 0, subscriptions: Vec::new() };
-        assert!(matches!(bad.validate(), Err(Error::Protocol(_))));
-    }
-
-    #[test]
     fn media_and_moderation_contracts_validate_fail_closed() {
         let upload = MediaUploadReqBody {
             filename: Some("a.txt".to_owned()),
@@ -1322,7 +1238,7 @@ mod tests {
 
         assert!(matches!(
             NotificationListReqBody {
-                since: None,
+                cursor: None,
                 limit: Some(0),
                 only_highlight: false,
                 spaces: Vec::new(),

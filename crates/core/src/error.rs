@@ -14,6 +14,7 @@ pub const ERROR_CODE_BAD_QUERY: &str = "bad_query";
 pub const ERROR_CODE_SCHEMA_VIOLATION: &str = "schema_violation";
 pub const ERROR_CODE_MISSING_PARAM: &str = "missing_param";
 pub const ERROR_CODE_INVALID_PARAM: &str = "invalid_param";
+pub const ERROR_CODE_INVALID_RESPONSE: &str = "invalid_response";
 pub const ERROR_CODE_UNAUTHENTICATED: &str = "unauthenticated";
 pub const ERROR_CODE_AUTH_EXPIRED: &str = "auth_expired";
 pub const ERROR_CODE_SOFT_LOGGED_OUT: &str = "soft_logged_out";
@@ -51,7 +52,6 @@ pub const ERROR_CODE_RATE_LIMITED: &str = "rate_limited";
 pub const ERROR_CODE_TIMEOUT: &str = "timeout";
 pub const ERROR_CODE_STALE_FRONTIER: &str = "stale_frontier";
 pub const ERROR_CODE_CURSOR_EXPIRED: &str = "cursor_expired";
-pub const ERROR_CODE_SYNC_TOKEN_EXPIRED: &str = ERROR_CODE_CURSOR_EXPIRED;
 pub const ERROR_CODE_UNSUPPORTED_FEATURE: &str = "unsupported_feature";
 pub const ERROR_CODE_UNSUPPORTED_EVENT_KIND: &str = "unsupported_event_kind";
 pub const ERROR_CODE_PROJECTION_INCOMPLETE: &str = "projection_incomplete";
@@ -127,6 +127,21 @@ pub const ERROR_CODE_DELIVERY_BINDING_STALE: &str = "delivery_binding_stale";
 pub const ERROR_CODE_DELIVERY_BINDING_HANDED_OVER: &str = "delivery_binding_handed_over";
 pub const ERROR_CODE_HISTORICAL_ONLY: &str = "historical_only";
 
+// ── Directory ingest registry additions (2026-05-22).
+//
+// Teabay is the reference directory service implementation. These codes are
+// normative for directory announce / withdraw validation and are exposed here
+// so services do not maintain local wire-code enums.
+pub const ERROR_CODE_DIRECTORY_NOT_AUTHORIZED: &str = "directory_not_authorized";
+pub const ERROR_CODE_ACCEPT_POLICY_DENIED: &str = "accept_policy_denied";
+pub const ERROR_CODE_SIGNATURE_INVALID: &str = "signature_invalid";
+pub const ERROR_CODE_SIGNATURE_STALE: &str = "signature_stale";
+pub const ERROR_CODE_SOURCE_REFS_UNVERIFIABLE: &str = "source_refs_unverifiable";
+pub const ERROR_CODE_GOVERNANCE_KEY_INVALID: &str = "governance_key_invalid";
+pub const ERROR_CODE_TTL_OUT_OF_RANGE: &str = "ttl_out_of_range";
+pub const ERROR_CODE_TAKEDOWN_IN_FORCE: &str = "takedown_in_force";
+pub const ERROR_CODE_POLICY_REVISION_ROLLBACK: &str = "policy_revision_rollback";
+
 /// All canonical error codes recognised by the registry. The order matches
 /// `error-code-registry.json`. Use [`is_known_error_code`] before populating
 /// `ErrorEnvelope.code` from arbitrary input.
@@ -136,6 +151,7 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
     ERROR_CODE_SCHEMA_VIOLATION,
     ERROR_CODE_MISSING_PARAM,
     ERROR_CODE_INVALID_PARAM,
+    ERROR_CODE_INVALID_RESPONSE,
     ERROR_CODE_UNAUTHENTICATED,
     ERROR_CODE_AUTH_EXPIRED,
     ERROR_CODE_SOFT_LOGGED_OUT,
@@ -205,14 +221,24 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
     ERROR_CODE_DELIVERY_BINDING_STALE,
     ERROR_CODE_DELIVERY_BINDING_HANDED_OVER,
     ERROR_CODE_HISTORICAL_ONLY,
+    // Directory ingest (2026-05-22).
+    ERROR_CODE_DIRECTORY_NOT_AUTHORIZED,
+    ERROR_CODE_ACCEPT_POLICY_DENIED,
+    ERROR_CODE_SIGNATURE_INVALID,
+    ERROR_CODE_SIGNATURE_STALE,
+    ERROR_CODE_SOURCE_REFS_UNVERIFIABLE,
+    ERROR_CODE_GOVERNANCE_KEY_INVALID,
+    ERROR_CODE_TTL_OUT_OF_RANGE,
+    ERROR_CODE_TAKEDOWN_IN_FORCE,
+    ERROR_CODE_POLICY_REVISION_ROLLBACK,
 ];
 
 // ── Failed-precondition reason codes (sub-codes inside `failed_precondition`)
 //
 // These are NOT top-level wire error codes; they go in the
 // `failed_precondition` envelope's `reason` field. Round C44 (2026-05-18)
-// added a batch of reasons for Tier-0 security (S3/S4/S5/S6),
-// agent_workspace profile interactions, and source-export attestation.
+// added a batch of reasons for Tier-0 security (S3/S4/S5/S6) and profile
+// interactions.
 // Spec: `error-code-registry.json#reason_codes`.
 
 // Tier-0 S3 — `did:web` → `did:webvh` upgrade evidence (5 reasons).
@@ -244,22 +270,8 @@ pub const REASON_MLS_SEND_PAUSE_ADVISORY_REQUIRES_E2EE_RELAXED_PROFILE: &str =
     "mls_send_pause_advisory_requires_e2ee_relaxed_profile";
 pub const REASON_CONFLICTING_E2EE_PROFILES: &str = "conflicting_e2ee_profiles";
 
-// P-D13 — `cx.profile.agent_workspace.lite.v1` profile interactions.
-pub const REASON_CONFLICTING_AGENT_WORKSPACE_PROFILES: &str =
-    "conflicting_agent_workspace_profiles";
 pub const REASON_LITE_PROFILE_WRITES_DISALLOWED_EVENT_KIND: &str =
     "lite_profile_writes_disallowed_event_kind";
-
-// Agent Workspace reservation cell & source-export attestation.
-pub const REASON_RESERVATION_CELL_ALREADY_SET: &str = "reservation_cell_already_set";
-pub const REASON_SOURCE_EXPORT_ATTESTATION_MISSING: &str = "source_export_attestation_required";
-pub const REASON_SOURCE_EXPORT_ATTESTATION_INVALID: &str = "source_export_attestation_invalid";
-pub const REASON_SOURCE_EXPORT_ATTESTATION_EXPIRED: &str = "source_export_attestation_expired";
-pub const REASON_SOURCE_EXPORT_ATTESTATION_DENIED: &str = "source_export_attestation_denied";
-pub const REASON_SOURCE_EXPORT_AUTHORITY_UNAUTHORIZED: &str =
-    "source_export_authority_unauthorized";
-pub const REASON_SOURCE_EXPORT_CONTENT_HASH_MISMATCH: &str = "source_export_content_hash_mismatch";
-pub const REASON_SOURCE_EXPORT_DESTINATION_MISMATCH: &str = "source_export_destination_mismatch";
 
 // Misc.
 pub const REASON_CARDINALITY_VIOLATION: &str = "cardinality_violation";
@@ -473,16 +485,7 @@ pub const KNOWN_REASON_CODES_ROUND_C44: &[&str] = &[
     REASON_AUDIT_AGENT_ATTESTATION_MISMATCH,
     REASON_MLS_SEND_PAUSE_ADVISORY_REQUIRES_E2EE_RELAXED_PROFILE,
     REASON_CONFLICTING_E2EE_PROFILES,
-    REASON_CONFLICTING_AGENT_WORKSPACE_PROFILES,
     REASON_LITE_PROFILE_WRITES_DISALLOWED_EVENT_KIND,
-    REASON_RESERVATION_CELL_ALREADY_SET,
-    REASON_SOURCE_EXPORT_ATTESTATION_MISSING,
-    REASON_SOURCE_EXPORT_ATTESTATION_INVALID,
-    REASON_SOURCE_EXPORT_ATTESTATION_EXPIRED,
-    REASON_SOURCE_EXPORT_ATTESTATION_DENIED,
-    REASON_SOURCE_EXPORT_AUTHORITY_UNAUTHORIZED,
-    REASON_SOURCE_EXPORT_CONTENT_HASH_MISMATCH,
-    REASON_SOURCE_EXPORT_DESTINATION_MISMATCH,
     REASON_CARDINALITY_VIOLATION,
     REASON_CLAIM_FAILED,
 ];
@@ -500,16 +503,24 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_BAD_QUERY
         | ERROR_CODE_MISSING_PARAM
         | ERROR_CODE_INVALID_PARAM
+        | ERROR_CODE_INVALID_RESPONSE
         | ERROR_CODE_CURSOR_INTEGRITY_INVALID
         | ERROR_CODE_RELAXED_WINDOW_EXCEEDS_CEILING
         | ERROR_CODE_RESET_EVENT_ID_MISMATCH
-        | ERROR_CODE_EXPIRED_INVITE_TOKEN => 400,
+        | ERROR_CODE_EXPIRED_INVITE_TOKEN
+        | ERROR_CODE_SIGNATURE_INVALID
+        | ERROR_CODE_SIGNATURE_STALE
+        | ERROR_CODE_SOURCE_REFS_UNVERIFIABLE
+        | ERROR_CODE_GOVERNANCE_KEY_INVALID
+        | ERROR_CODE_TTL_OUT_OF_RANGE => 400,
         ERROR_CODE_UNAUTHENTICATED
         | ERROR_CODE_AUTH_EXPIRED
         | ERROR_CODE_SOFT_LOGGED_OUT
         | ERROR_CODE_INVALID_SIGNATURE
         | ERROR_CODE_TURN_CREDENTIAL_EXPIRED => 401,
         ERROR_CODE_CAPABILITY_DENIED
+        | ERROR_CODE_DIRECTORY_NOT_AUTHORIZED
+        | ERROR_CODE_ACCEPT_POLICY_DENIED
         | ERROR_CODE_SPACE_FROZEN
         | ERROR_CODE_CLAIM_REQUIRED
         | ERROR_CODE_POLICY_VIOLATION
@@ -545,7 +556,9 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_AUDIT_PURPOSE_MISMATCH
         | ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE
         | ERROR_CODE_DELIVERY_BINDING_STALE
-        | ERROR_CODE_DELIVERY_BINDING_HANDED_OVER => 409,
+        | ERROR_CODE_DELIVERY_BINDING_HANDED_OVER
+        | ERROR_CODE_TAKEDOWN_IN_FORCE
+        | ERROR_CODE_POLICY_REVISION_ROLLBACK => 409,
         ERROR_CODE_HISTORICAL_ONLY => 200,
         ERROR_CODE_CURSOR_EXPIRED => 410,
         ERROR_CODE_PAYLOAD_TOO_LARGE => 413,
@@ -651,6 +664,7 @@ pub enum ErrorCode {
     SchemaViolation,
     MissingParam,
     InvalidParam,
+    InvalidResponse,
     Unauthenticated,
     AuthExpired,
     SoftLoggedOut,
@@ -685,11 +699,6 @@ pub enum ErrorCode {
     RateLimited,
     Timeout,
     StaleFrontier,
-    /// Wire alias of [`ErrorCode::CursorExpired`] — `sync_token_expired`
-    /// and `cursor_expired` share the same canonical wire string. Older
-    /// callers may still construct this variant; new code SHOULD use
-    /// `CursorExpired`.
-    SyncTokenExpired,
     CursorExpired,
     UnsupportedFeature,
     UnsupportedEventKind,
@@ -727,21 +736,27 @@ pub enum ErrorCode {
     DeliveryBindingStale,
     DeliveryBindingHandedOver,
     HistoricalOnly,
+    // ── Directory ingest (2026-05-22).
+    DirectoryNotAuthorized,
+    AcceptPolicyDenied,
+    SignatureInvalid,
+    SignatureStale,
+    SourceRefsUnverifiable,
+    GovernanceKeyInvalid,
+    TtlOutOfRange,
+    TakedownInForce,
+    PolicyRevisionRollback,
 }
 
 impl ErrorCode {
-    /// All non-alias variants in registry order. `SyncTokenExpired` is
-    /// **omitted** from `ALL` because it shares its wire string with
-    /// `CursorExpired`; including both would make the canonical
-    /// `as_str → ErrorCode` map non-deterministic for the shared
-    /// wire form. Both variants still serialise to the same wire
-    /// string when used directly.
+    /// All variants in registry order.
     pub const ALL: &'static [Self] = &[
         Self::BadJson,
         Self::BadQuery,
         Self::SchemaViolation,
         Self::MissingParam,
         Self::InvalidParam,
+        Self::InvalidResponse,
         Self::Unauthenticated,
         Self::AuthExpired,
         Self::SoftLoggedOut,
@@ -809,6 +824,15 @@ impl ErrorCode {
         Self::DeliveryBindingStale,
         Self::DeliveryBindingHandedOver,
         Self::HistoricalOnly,
+        Self::DirectoryNotAuthorized,
+        Self::AcceptPolicyDenied,
+        Self::SignatureInvalid,
+        Self::SignatureStale,
+        Self::SourceRefsUnverifiable,
+        Self::GovernanceKeyInvalid,
+        Self::TtlOutOfRange,
+        Self::TakedownInForce,
+        Self::PolicyRevisionRollback,
     ];
 
     /// Canonical wire-form code (snake_case string).
@@ -819,6 +843,7 @@ impl ErrorCode {
             Self::SchemaViolation => ERROR_CODE_SCHEMA_VIOLATION,
             Self::MissingParam => ERROR_CODE_MISSING_PARAM,
             Self::InvalidParam => ERROR_CODE_INVALID_PARAM,
+            Self::InvalidResponse => ERROR_CODE_INVALID_RESPONSE,
             Self::Unauthenticated => ERROR_CODE_UNAUTHENTICATED,
             Self::AuthExpired => ERROR_CODE_AUTH_EXPIRED,
             Self::SoftLoggedOut => ERROR_CODE_SOFT_LOGGED_OUT,
@@ -851,7 +876,7 @@ impl ErrorCode {
             Self::RateLimited => ERROR_CODE_RATE_LIMITED,
             Self::Timeout => ERROR_CODE_TIMEOUT,
             Self::StaleFrontier => ERROR_CODE_STALE_FRONTIER,
-            Self::CursorExpired | Self::SyncTokenExpired => ERROR_CODE_CURSOR_EXPIRED,
+            Self::CursorExpired => ERROR_CODE_CURSOR_EXPIRED,
             Self::UnsupportedFeature => ERROR_CODE_UNSUPPORTED_FEATURE,
             Self::UnsupportedEventKind => ERROR_CODE_UNSUPPORTED_EVENT_KIND,
             Self::ProjectionIncomplete => ERROR_CODE_PROJECTION_INCOMPLETE,
@@ -890,6 +915,15 @@ impl ErrorCode {
             Self::DeliveryBindingStale => ERROR_CODE_DELIVERY_BINDING_STALE,
             Self::DeliveryBindingHandedOver => ERROR_CODE_DELIVERY_BINDING_HANDED_OVER,
             Self::HistoricalOnly => ERROR_CODE_HISTORICAL_ONLY,
+            Self::DirectoryNotAuthorized => ERROR_CODE_DIRECTORY_NOT_AUTHORIZED,
+            Self::AcceptPolicyDenied => ERROR_CODE_ACCEPT_POLICY_DENIED,
+            Self::SignatureInvalid => ERROR_CODE_SIGNATURE_INVALID,
+            Self::SignatureStale => ERROR_CODE_SIGNATURE_STALE,
+            Self::SourceRefsUnverifiable => ERROR_CODE_SOURCE_REFS_UNVERIFIABLE,
+            Self::GovernanceKeyInvalid => ERROR_CODE_GOVERNANCE_KEY_INVALID,
+            Self::TtlOutOfRange => ERROR_CODE_TTL_OUT_OF_RANGE,
+            Self::TakedownInForce => ERROR_CODE_TAKEDOWN_IN_FORCE,
+            Self::PolicyRevisionRollback => ERROR_CODE_POLICY_REVISION_ROLLBACK,
         }
     }
 
@@ -902,9 +936,7 @@ impl ErrorCode {
             .expect("every ErrorCode variant has a registered HTTP status")
     }
 
-    /// Parse a wire-form code back into its typed variant. `cursor_expired`
-    /// resolves to [`ErrorCode::CursorExpired`] (not the
-    /// [`ErrorCode::SyncTokenExpired`] alias).
+    /// Parse a wire-form code back into its typed variant.
     pub fn from_wire(code: &str) -> Option<Self> {
         Self::ALL.iter().copied().find(|c| c.as_str() == code)
     }
@@ -932,8 +964,8 @@ mod tests {
         // turn_credential_expired) + 1 C47 wire code (stale_peer) +
         // 15 Round R2/R3 wire codes (relaxed_window_exceeds_ceiling, ...) +
         // 3 Round 4 wire codes (delivery_binding_stale, delivery_binding_handed_over,
-        // historical_only).
-        assert_eq!(KNOWN_ERROR_CODES.len(), 72);
+        // historical_only) + 10 directory ingest wire codes.
+        assert_eq!(KNOWN_ERROR_CODES.len(), 82);
         assert!(codes.contains(ERROR_CODE_CURSOR_EXPIRED));
         assert!(codes.contains(ERROR_CODE_POLICY_COMBINATION_INVALID));
         assert!(codes.contains(ERROR_CODE_ANCHORER_RECOVERY_MISSING));
@@ -950,7 +982,8 @@ mod tests {
         assert!(codes.contains(ERROR_CODE_APPEAL_OVERTURN_MISSING_LIFT));
         assert!(codes.contains(ERROR_CODE_BLOB_REDACTED));
         assert!(codes.contains(ERROR_CODE_LATE_RECOVERY_REJECTED_MEMBERSHIP));
-        assert!(!codes.contains("sync_token_expired"));
+        assert!(codes.contains(ERROR_CODE_DIRECTORY_NOT_AUTHORIZED));
+        assert!(codes.contains(ERROR_CODE_POLICY_REVISION_ROLLBACK));
     }
 
     #[test]
@@ -963,17 +996,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn sync_token_expired_aliases_cursor_expired() {
-        assert_eq!(ERROR_CODE_SYNC_TOKEN_EXPIRED, ERROR_CODE_CURSOR_EXPIRED);
-        assert_eq!(error_code_http_status(ERROR_CODE_SYNC_TOKEN_EXPIRED), Some(410));
-        assert!(is_known_error_code(ERROR_CODE_SYNC_TOKEN_EXPIRED));
-    }
-
     /// `ErrorCode::ALL` MUST contain one variant per entry in
-    /// `KNOWN_ERROR_CODES`. The alias variant `SyncTokenExpired` is
-    /// intentionally excluded from `ALL` (it shares its wire string
-    /// with `CursorExpired`).
+    /// `KNOWN_ERROR_CODES`.
     #[test]
     fn error_code_enum_matches_registry() {
         assert_eq!(ErrorCode::ALL.len(), KNOWN_ERROR_CODES.len());
@@ -997,18 +1021,6 @@ mod tests {
                 "registry wire {wire:?} has no ErrorCode variant",
             );
         }
-    }
-
-    /// The alias variant `SyncTokenExpired` MUST produce the same wire
-    /// string as `CursorExpired` and MUST resolve to the canonical
-    /// variant on parse.
-    #[test]
-    fn sync_token_expired_variant_aliases() {
-        assert_eq!(ErrorCode::SyncTokenExpired.as_str(), ErrorCode::CursorExpired.as_str());
-        assert_eq!(
-            ErrorCode::from_wire(ErrorCode::SyncTokenExpired.as_str()),
-            Some(ErrorCode::CursorExpired),
-        );
     }
 
     /// Every variant MUST resolve to an HTTP status via

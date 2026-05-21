@@ -14,7 +14,7 @@ cover comparable capability classes while keeping Contrix wire shapes native.
 ## matrix-rust-sdk-Level Client Behaviors
 
 - Timeline: Contrix has local timeline pagination plus reducer-backed message create / revise / redact.
-- Space list: Contrix sliding sync tracks visible spaces and subscription windows.
+- Space list: Contrix account subscribe tracks visible spaces and subscription windows.
 - Event cache: reducer now maintains processed events, causal frontier, redactions, messages, reactions, and generic resolved state.
 - Encryption: MLS and envelope helpers exist; cross-device crypto store has typed three-tier cross-signing (see [Device Key Material & Cross-Signing](#device-key-material--cross-signing) below).
 - Device verification: device metadata, SAS/QR verification, typed cross-signing publish/reset/trust-chain, and to-device queues all exist; SAS/QR parity covers the Matrix state machine and adds a `cross_signing_reset` cancel code that has no Matrix analogue.

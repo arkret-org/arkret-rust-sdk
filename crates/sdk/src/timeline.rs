@@ -76,8 +76,8 @@ pub struct TimelineGap {
     pub next_event_id: Option<EventId>,
     /// Estimated number of missing events
     pub estimated_gap_count: Option<u64>,
-    /// Backfill token if supplied by sync.
-    pub prev_batch: Option<String>,
+    /// Older-direction cursor if supplied by sync.
+    pub prev_cursor: Option<String>,
     /// Why this gap exists.
     pub reason: SyncGapReason,
 }
@@ -353,7 +353,7 @@ impl EventCache {
                 prev_event_id: edge_event_ids.first().cloned(),
                 next_event_id: edge_event_ids.last().cloned(),
                 estimated_gap_count: None,
-                prev_batch: timeline.prev_batch.clone(),
+                prev_cursor: timeline.prev_cursor.clone(),
                 reason: SyncGapReason::Limited,
             };
             let gaps = self.gaps.entry(space_id.clone()).or_default();
@@ -431,7 +431,7 @@ impl EventCache {
         Some(BackfillReqBody {
             space_id: space_id.clone(),
             from: gap
-                .prev_batch
+                .prev_cursor
                 .as_ref()
                 .map(|cursor| BackfillFrom::Cursor { cursor: cursor.clone() })
                 .or_else(|| {
@@ -645,8 +645,8 @@ impl Timeline {
     pub fn create_backfill_request(&self, limit: u32) -> Option<BackfillReqBody> {
         // Find the oldest gap or the beginning
         let from = if let Some(gap) = self.gaps.first() {
-            if let Some(prev_batch) = &gap.prev_batch {
-                BackfillFrom::Cursor { cursor: prev_batch.clone() }
+            if let Some(prev_cursor) = &gap.prev_cursor {
+                BackfillFrom::Cursor { cursor: prev_cursor.clone() }
             } else if let Some(prev_id) = &gap.prev_event_id {
                 BackfillFrom::EventId { event_id: prev_id.clone() }
             } else {
@@ -677,7 +677,7 @@ impl Timeline {
             prev_event_id,
             next_event_id,
             estimated_gap_count: estimated_count,
-            prev_batch: None,
+            prev_cursor: None,
             reason: SyncGapReason::Backfill,
         };
         self.gaps.push(gap);
@@ -688,13 +688,13 @@ impl Timeline {
         &mut self,
         prev_event_id: Option<EventId>,
         next_event_id: Option<EventId>,
-        prev_batch: Option<String>,
+        prev_cursor: Option<String>,
     ) {
         self.gaps.push(TimelineGap {
             prev_event_id,
             next_event_id,
             estimated_gap_count: None,
-            prev_batch,
+            prev_cursor,
             reason: SyncGapReason::Limited,
         });
     }
@@ -1307,7 +1307,7 @@ mod tests {
         let event = create_test_event(&space_id, 1);
         let raw = serde_json::to_value(&event).unwrap();
         let timeline_section =
-            SyncTimeline { events: vec![raw], limited: true, prev_batch: Some("prev".to_owned()) };
+            SyncTimeline { events: vec![raw], limited: true, prev_cursor: Some("prev".to_owned()) };
         let mut cache = EventCache::new();
 
         let update = cache.apply_sync_timeline(space_id.clone(), &timeline_section).unwrap();

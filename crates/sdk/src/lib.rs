@@ -109,7 +109,6 @@ pub mod agent;
 #[cfg(feature = "full-surface")]
 pub mod agent_binding;
 #[cfg(feature = "full-surface")]
-pub mod agent_workspace;
 #[cfg(all(feature = "full-surface", feature = "applet-runtime"))]
 pub mod applet;
 #[cfg(feature = "full-surface")]
