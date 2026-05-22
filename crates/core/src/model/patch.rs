@@ -20,13 +20,14 @@
 //! wire grammar; semantic enforcement happens in the reducer layer.
 
 use std::collections::BTreeMap;
+use std::sync::OnceLock;
 
 use serde::de::{self, Deserializer, MapAccess, Visitor};
 use serde::ser::{SerializeMap, Serializer};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{Error, Result};
+use crate::{Error, Hash, Result};
 
 /// Registered schema id for the field-patch wire format.
 ///
@@ -283,6 +284,119 @@ impl<'de> Deserialize<'de> for Patch {
     }
 }
 
+/// Payload shape shared by all event kinds registered against
+/// `event-payload.schema.json#/$defs/object_patch_payload`.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct ObjectPatchPayload {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub object_ref: Option<String>,
+    pub patch: Patch,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expected_state_hash: Option<Hash>,
+}
+
+impl ObjectPatchPayload {
+    /// Build the minimal object-patch payload.
+    pub fn new(patch: Patch) -> Result<Self> {
+        let payload = Self { target_ref: None, object_ref: None, patch, expected_state_hash: None };
+        payload.validate()?;
+        Ok(payload)
+    }
+
+    /// Build an object-patch payload that targets a specific object.
+    pub fn for_target(target_ref: impl Into<String>, patch: Patch) -> Result<Self> {
+        let payload = Self {
+            target_ref: Some(target_ref.into()),
+            object_ref: None,
+            patch,
+            expected_state_hash: None,
+        };
+        payload.validate()?;
+        Ok(payload)
+    }
+
+    /// Build an object-patch payload using the schema's `object_ref`
+    /// alias.
+    pub fn for_object(object_ref: impl Into<String>, patch: Patch) -> Result<Self> {
+        let payload = Self {
+            target_ref: None,
+            object_ref: Some(object_ref.into()),
+            patch,
+            expected_state_hash: None,
+        };
+        payload.validate()?;
+        Ok(payload)
+    }
+
+    /// Attach an expected-state hash for CAS-style object updates.
+    pub fn with_expected_state_hash(mut self, expected_state_hash: Hash) -> Self {
+        self.expected_state_hash = Some(expected_state_hash);
+        self
+    }
+
+    /// Validate the typed payload's wire-level invariants.
+    pub fn validate(&self) -> Result<()> {
+        if let Some(target_ref) = &self.target_ref {
+            validate_object_patch_ref("target_ref", target_ref)?;
+        }
+        if let Some(object_ref) = &self.object_ref {
+            validate_object_patch_ref("object_ref", object_ref)?;
+        }
+        self.patch.validate()
+    }
+
+    /// Serialize after validating the same constraints enforced by the
+    /// shared type constructors.
+    pub fn to_value(&self) -> Result<Value> {
+        self.validate()?;
+        serde_json::to_value(self).map_err(Error::from)
+    }
+}
+
+impl<'de> Deserialize<'de> for ObjectPatchPayload {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        struct Wire {
+            #[serde(default)]
+            target_ref: Option<String>,
+            #[serde(default)]
+            object_ref: Option<String>,
+            patch: Patch,
+            #[serde(default)]
+            expected_state_hash: Option<Hash>,
+        }
+
+        let wire = Wire::deserialize(deserializer)?;
+        let payload = Self {
+            target_ref: wire.target_ref,
+            object_ref: wire.object_ref,
+            patch: wire.patch,
+            expected_state_hash: wire.expected_state_hash,
+        };
+        payload.validate().map_err(de::Error::custom)?;
+        Ok(payload)
+    }
+}
+
+fn validate_object_patch_ref(field: &str, value: &str) -> Result<()> {
+    static OBJECT_REF: OnceLock<regex::Regex> = OnceLock::new();
+    let object_ref = OBJECT_REF.get_or_init(|| {
+        regex::Regex::new(
+            r"^(cx:(realm|space|actor_profile|flow|message|morph|relation|view|policy|grant|invite|call|agent_session|blob|snapshot|event|frank|report):[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|cx:blob:sha256:[0-9a-f]{64}|did:[^\s]+|sha256:[0-9a-f]{64})$",
+        )
+        .expect("object_ref regex compiles")
+    });
+    if object_ref.is_match(value) {
+        Ok(())
+    } else {
+        Err(Error::Protocol(format!(
+            "object_patch_payload.{field} must match event-payload.schema.json#/$defs/object_ref"
+        )))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -380,5 +494,62 @@ mod tests {
     fn empty_path_rejected() {
         let mut p = Patch::new();
         assert!(p.insert("", "x").is_err());
+    }
+
+    #[test]
+    fn object_patch_payload_serializes_canonical_shape() {
+        let mut patch = Patch::new();
+        patch.insert_op("fields.document", PatchOp::set(json!({ "blocks": [] }))).unwrap();
+
+        let payload =
+            ObjectPatchPayload::for_target("cx:flow:0196419b-0000-7000-8000-000000000001", patch)
+                .unwrap();
+        let value = payload.to_value().unwrap();
+
+        assert_eq!(
+            value,
+            json!({
+                "target_ref": "cx:flow:0196419b-0000-7000-8000-000000000001",
+                "patch": {
+                    "fields.document": {
+                        "$op": "set",
+                        "value": { "blocks": [] }
+                    }
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn object_patch_payload_matches_registered_event_payload_schema() {
+        let mut patch = Patch::new();
+        patch.insert_op("title", PatchOp::set("Roadmap")).unwrap();
+        let payload =
+            ObjectPatchPayload::for_target("cx:flow:0196419b-0000-7000-8000-000000000002", patch)
+                .unwrap()
+                .to_value()
+                .unwrap();
+
+        crate::schema::event_payload_validator_catalog()
+            .validate_payload("cx.flow.update", &payload)
+            .unwrap();
+    }
+
+    #[test]
+    fn object_patch_payload_deserialize_rejects_empty_patch() {
+        let err = serde_json::from_value::<ObjectPatchPayload>(json!({
+            "target_ref": "cx:flow:0196419b-0000-7000-8000-000000000003",
+            "patch": {}
+        }))
+        .unwrap_err();
+        assert!(err.to_string().contains("minProperties"));
+    }
+
+    #[test]
+    fn object_patch_payload_rejects_non_schema_object_ref() {
+        let mut patch = Patch::new();
+        patch.insert_op("title", PatchOp::set("Roadmap")).unwrap();
+        let err = ObjectPatchPayload::for_target("cx:flow:not-a-uuid7", patch).unwrap_err();
+        assert!(err.to_string().contains("object_ref"));
     }
 }

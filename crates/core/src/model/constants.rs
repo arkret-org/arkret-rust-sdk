@@ -33,7 +33,6 @@ pub const NOTIFICATION_SCHEMA: &str = "cx.schema.notification.v1";
 pub const OPERATION_SCHEMA: &str = "cx.local.operation_draft.v1";
 pub const BLOB_SCHEMA: &str = "cx.schema.blob.v1";
 pub const ANCHOR_SCHEMA: &str = "cx.schema.anchor.v1";
-pub const AGENT_AUTHORITY_SCHEMA: &str = "cx.schema.agent_authority.v1";
 pub const BOTTOM_SCHEMA: &str = "cx.schema.bottom.v1";
 pub const SNAPSHOT_SCHEMA: &str = "cx.schema.snapshot.v1";
 pub const ENCRYPTED_PAYLOAD_SCHEMA: &str = "cx.schema.encrypted_payload.v1";

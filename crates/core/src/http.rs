@@ -266,7 +266,37 @@ pub struct EventsQueryParams {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters, salvo::oapi::ToSchema))]
 pub struct SnapshotHeadParams {
     #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
-    pub realm_id: SpaceId,
+    pub realm_id: RealmId,
+
+    #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Contrix-Request-Id")]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Contrix-Request-Id", parameter(parameter_in = Header)))]
+    pub x_contrix_request_id: Option<String>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
+    #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
+    pub traceparent: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters, salvo::oapi::ToSchema))]
+pub struct EphemeralSendParams {
+    #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Contrix-Request-Id")]
+    #[cfg_attr(feature = "salvo", salvo(rename = "X-Contrix-Request-Id", parameter(parameter_in = Header)))]
+    pub x_contrix_request_id: Option<String>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
+    #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
+    pub traceparent: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters, salvo::oapi::ToSchema))]
+pub struct ProjectionLifecycleParams {
+    #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
+    pub realm_id: RealmId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
+    pub include_terminal: Option<bool>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Contrix-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Contrix-Request-Id", parameter(parameter_in = Header)))]
@@ -1222,6 +1252,124 @@ pub struct EventsFrontierResBody {
     pub receipts: Vec<Value>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct EphemeralSubmitResBody {
+    pub accepted: bool,
+    pub kind: String,
+    pub realm_id: RealmId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dispatched_to: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub server_received_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum ProjectionSpaceState {
+    Active,
+    Archived,
+    Tombstoned,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum ProjectionObjectState {
+    Active,
+    Archived,
+    Redacted,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ProjectionSpaceRow {
+    pub space_id: SpaceId,
+    pub realm_id: RealmId,
+    pub kind: String,
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rank: Option<String>,
+    pub state: ProjectionSpaceState,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_by: Option<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub state_changed_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ProjectionSpacesResBody {
+    pub realm_id: RealmId,
+    #[serde(default)]
+    pub spaces: Vec<ProjectionSpaceRow>,
+    pub total: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ProjectionFlowRow {
+    pub flow_id: FlowId,
+    pub realm_id: RealmId,
+    pub state: ProjectionObjectState,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_by: Option<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub state_changed_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ProjectionFlowsResBody {
+    pub realm_id: RealmId,
+    #[serde(default)]
+    pub flows: Vec<ProjectionFlowRow>,
+    pub total: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ProjectionMorphRow {
+    pub morph_id: MorphId,
+    pub realm_id: RealmId,
+    pub morph_type: String,
+    pub state: ProjectionObjectState,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_by: Option<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub state_changed_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ProjectionMorphsResBody {
+    pub realm_id: RealmId,
+    #[serde(default)]
+    pub morphs: Vec<ProjectionMorphRow>,
+    pub total: u64,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
@@ -1631,26 +1779,47 @@ pub struct MimiProxyDownloadResBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AccountSessionGrantReqBody {
-    pub principal_did: Did,
-    pub device_id: DeviceId,
-    #[serde(default)]
-    pub requested_scopes: Vec<String>,
-    pub proof: Proof,
+    pub principal_id: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<DateTime<Utc>>,
+    pub device_id: Option<DeviceId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub requested_scope: Vec<String>,
+    pub proof: SessionGrantRequestProof,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum SessionGrantProofKind {
+    DidBoundSignature,
+    PairedDeviceProof,
+    PasskeyAssertion,
+    OidcCodeExchange,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SessionGrantRequestProof {
+    pub proof_kind: SessionGrantProofKind,
+    pub challenge: String,
+    pub request_canonical_hash: Hash,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub audience: Option<String>,
-    #[serde(default, skip_serializing_if = "Value::is_null")]
-    pub constraints: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+    pub signature: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AccountSessionGrantResBody {
-    pub session_grant: Value,
+    pub principal_id: Did,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub device_id: Option<DeviceId>,
+    pub session_grant: String,
     pub expires_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub capability_refs: Vec<CapabilityId>,
+    pub granted_scope: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1677,23 +1846,23 @@ pub struct AccountDevicePairResBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AccountOidcCallbackReqBody {
-    pub issuer: String,
-    pub code: String,
     pub state: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub redirect_uri: Option<String>,
+    pub code: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub nonce: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub device_id: Option<DeviceId>,
+    pub redirect_uri: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AccountOidcCallbackResBody {
-    pub principal_did: Did,
-    pub session_grant: Value,
-    pub account_status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub principal_id: Option<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session: Option<AccountSessionGrantResBody>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub redirect_url: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

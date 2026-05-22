@@ -21,6 +21,7 @@ impl EventPayloadValidatorCatalog {
                 "event kind '{event_kind}' has no payload validator"
             )));
         };
+        validate_required_payload_fields(event_kind, payload, &rule.required_fields)?;
         if let Some(registry) = &self.registry {
             registry.validate_value(&rule.payload_schema_id, payload).map_err(|error| {
                 Error::Protocol(format!(
@@ -28,17 +29,6 @@ impl EventPayloadValidatorCatalog {
                     rule.payload_schema_id
                 ))
             })?;
-        } else {
-            let object = payload.as_object().ok_or_else(|| {
-                Error::Protocol(format!("event kind '{event_kind}' payload must be a JSON object"))
-            })?;
-            for field in &rule.required_fields {
-                if !object.contains_key(field) {
-                    return Err(Error::Protocol(format!(
-                        "event kind '{event_kind}' payload requires field '{field}'"
-                    )));
-                }
-            }
         }
         Ok(())
     }
@@ -53,6 +43,24 @@ impl EventPayloadValidatorCatalog {
             .map(str::to_owned)
             .collect()
     }
+}
+
+fn validate_required_payload_fields(
+    event_kind: &str,
+    payload: &Value,
+    required_fields: &[String],
+) -> Result<()> {
+    let object = payload.as_object().ok_or_else(|| {
+        Error::Protocol(format!("event kind '{event_kind}' payload must be a JSON object"))
+    })?;
+    for field in required_fields {
+        if !object.contains_key(field) {
+            return Err(Error::Protocol(format!(
+                "event kind '{event_kind}' payload requires field '{field}'"
+            )));
+        }
+    }
+    Ok(())
 }
 
 pub fn event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
@@ -111,14 +119,18 @@ pub fn event_payload_validator_catalog_from_spec_artifacts(
 
 fn fallback_event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
     let rules = [
-        ("cx.flow.create", FLOW_SCHEMA, &["object"][..]),
-        ("cx.flow.update", FLOW_SCHEMA, &["patch"][..]),
+        ("cx.flow.create", EVENT_PAYLOAD_SCHEMA, &["object"][..]),
+        ("cx.flow.update", EVENT_PAYLOAD_SCHEMA, &["patch"][..]),
         (
             "cx.flow.move",
-            FLOW_SCHEMA,
-            &["board_place_id", "flow_id", "target_place_id", "rank"][..],
+            EVENT_PAYLOAD_SCHEMA,
+            &["board_space_id", "flow_id", "target_space_id", "rank"][..],
         ),
-        ("cx.flow.reorder", FLOW_SCHEMA, &["board_place_id", "flow_id", "place_id", "rank"][..]),
+        (
+            "cx.flow.reorder",
+            EVENT_PAYLOAD_SCHEMA,
+            &["board_space_id", "flow_id", "space_id", "rank"][..],
+        ),
         ("cx.message.create", EVENT_SCHEMA, &["flow_id", "track"][..]),
         ("cx.member.state", EVENT_SCHEMA, &["membership"][..]),
         (
@@ -175,7 +187,15 @@ fn payload_def_candidates(event_kind: &str) -> Vec<String> {
     let suffix = event_kind.strip_prefix("cx.").unwrap_or(event_kind);
     let exact = format!("{}_payload", suffix.replace('.', "_"));
     let parts = suffix.split('.').collect::<Vec<_>>();
-    let mut candidates = vec![exact];
+    let mut candidates = Vec::new();
+    match parts.as_slice() {
+        ["space", "archive" | "restore"] => {
+            candidates.push("space_state_transition_payload".to_owned());
+        }
+        ["space", "tombstone"] => candidates.push("space_object_tombstone_payload".to_owned()),
+        _ => {}
+    }
+    candidates.push(exact);
     match parts.as_slice() {
         ["space", "create"] => candidates.push("space_create_payload".to_owned()),
         ["space", "child"] => candidates.push("space_child_payload".to_owned()),
@@ -183,10 +203,9 @@ fn payload_def_candidates(event_kind: &str) -> Vec<String> {
         ["space", "inheritance_policy"] => {
             candidates.push("space_inheritance_policy_payload".to_owned());
         }
-        ["space", "archive"] => candidates.push("space_archive_payload".to_owned()),
         ["space", "freeze"] => candidates.push("space_freeze_payload".to_owned()),
-        ["space", "tombstone"] => candidates.push("space_tombstone_payload".to_owned()),
         ["space", "destroy"] => candidates.push("space_destroy_payload".to_owned()),
+        ["realm", "update"] => candidates.push("object_patch_payload".to_owned()),
         ["flow", "create"] => candidates.push("flow_create_payload".to_owned()),
         ["flow", "move"] => candidates.push("flow_move_payload".to_owned()),
         ["flow", "reorder"] => candidates.push("flow_reorder_payload".to_owned()),
@@ -195,7 +214,9 @@ fn payload_def_candidates(event_kind: &str) -> Vec<String> {
         ["flow", "track", "enable" | "disable" | "set_primary"] => {
             candidates.push("state_payload".to_owned());
         }
-        ["flow", "track", "update"] => candidates.push("object_patch_payload".to_owned()),
+        ["flow", "track" | "tracks", "update"] => {
+            candidates.push("object_patch_payload".to_owned())
+        }
         ["message", "create"] => candidates.push("message_create_payload".to_owned()),
         ["message", "revise"] => candidates.push("message_revise_payload".to_owned()),
         ["message", "redact"] | ["redaction"] => {
@@ -241,15 +262,18 @@ fn payload_def_candidates(event_kind: &str) -> Vec<String> {
         ["mls", "commit_failed"] => candidates.push("mls_commit_failed_payload".to_owned()),
         ["mls", "welcome"] => candidates.push("mls_welcome_payload".to_owned()),
         ["mls", "keypackage"] => candidates.push("mls_keypackage_payload".to_owned()),
-        ["space_key", "share"] => candidates.push("space_key_share_payload".to_owned()),
-        ["space_key", "withheld"] => candidates.push("space_key_withheld_payload".to_owned()),
-        ["space_key", "share_audit"] => candidates.push("space_key_share_audit_payload".to_owned()),
+        ["realm_key", "share"] => candidates.push("realm_key_share_payload".to_owned()),
+        ["realm_key", "withheld"] => candidates.push("realm_key_withheld_payload".to_owned()),
+        ["realm_key", "share_audit"] => candidates.push("realm_key_share_audit_payload".to_owned()),
         ["moderation", "report"] => candidates.push("moderation_report_payload".to_owned()),
         ["audit", "accessed" | "ryw_receipt"] => candidates.push("audit_payload".to_owned()),
         ["call", "state"] | ["call", "recording", "start"] => {
             candidates.push("call_payload".to_owned());
         }
         ["invite", ..] => candidates.push("invite_payload".to_owned()),
+        ["profile", "update" | "space_override"] => {
+            candidates.push("object_patch_payload".to_owned());
+        }
         ["space", ..]
         | ["organization", ..]
         | ["actor", ..]
@@ -259,7 +283,6 @@ fn payload_def_candidates(event_kind: &str) -> Vec<String> {
         | ["policy", ..]
         | ["account", ..]
         | ["profile", ..]
-        | ["place", ..]
         | ["applet", ..]
         | ["mimi", ..]
         | ["sovereign", ..] => candidates.push("state_payload".to_owned()),
@@ -329,4 +352,66 @@ pub fn generated_validators() -> Result<BTreeMap<String, GeneratedSchemaValidato
         .schema_ids()
         .map(|schema_id| Ok((schema_id.to_owned(), registry.generated_validator(schema_id)?)))
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn fallback_catalog_accepts_flow_create_payload_wrapper() {
+        let catalog = fallback_event_payload_validator_catalog();
+
+        assert_eq!(catalog.rules["cx.flow.create"].payload_schema_id, EVENT_PAYLOAD_SCHEMA);
+        catalog
+            .validate_payload(
+                "cx.flow.create",
+                &json!({
+                    "object": {
+                        "id": "cx:flow:0196419b-0000-7000-8000-000000000001",
+                        "schema": FLOW_SCHEMA,
+                        "realm_id": "cx:realm:0196419b-0000-7000-8000-000000000010",
+                        "title": "Move-backed card",
+                        "tracks": { "synthesis": { "is_primary": true } },
+                        "created_by": "did:web:alice.example",
+                        "created_at": "2026-05-22T00:00:00Z"
+                    }
+                }),
+            )
+            .unwrap();
+
+        assert!(catalog.validate_payload("cx.flow.create", &json!({ "title": "legacy" })).is_err());
+    }
+
+    #[test]
+    fn fallback_catalog_accepts_current_flow_move_keys() {
+        let catalog = fallback_event_payload_validator_catalog();
+
+        catalog
+            .validate_payload(
+                "cx.flow.move",
+                &json!({
+                    "board_space_id": "cx:space:0196419b-0000-7000-8000-000000000010",
+                    "flow_id": "cx:flow:0196419b-0000-7000-8000-000000000001",
+                    "target_space_id": "cx:space:0196419b-0000-7000-8000-000000000020",
+                    "rank": "U"
+                }),
+            )
+            .unwrap();
+
+        assert!(
+            catalog
+                .validate_payload(
+                    "cx.flow.move",
+                    &json!({
+                        "board_place_id": "cx:place:legacy",
+                        "flow_id": "cx:flow:0196419b-0000-7000-8000-000000000001",
+                        "target_place_id": "cx:place:legacy",
+                        "rank": "U"
+                    }),
+                )
+                .is_err()
+        );
+    }
 }

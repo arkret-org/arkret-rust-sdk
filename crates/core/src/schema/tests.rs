@@ -117,6 +117,75 @@ fn artifact_payload_catalog_enforces_deep_schema_rules() {
 }
 
 #[test]
+fn artifact_payload_catalog_prefers_registered_specialized_defs_over_name_matches() {
+    let Some(artifacts_dir) = default_spec_artifacts_dir() else {
+        return;
+    };
+    let catalog = event_payload_validator_catalog_from_spec_artifacts(artifacts_dir).unwrap();
+
+    assert_eq!(
+        catalog.rules["cx.space.archive"].payload_schema_id,
+        format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/space_state_transition_payload")
+    );
+    assert_eq!(
+        catalog.rules["cx.space.restore"].payload_schema_id,
+        format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/space_state_transition_payload")
+    );
+    assert_eq!(
+        catalog.rules["cx.space.tombstone"].payload_schema_id,
+        format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/space_object_tombstone_payload")
+    );
+
+    catalog
+        .validate_payload(
+            "cx.space.archive",
+            &json!({
+                "space_id": "cx:space:01904100-0000-7000-8000-111111111111",
+                "reason": "done"
+            }),
+        )
+        .unwrap();
+    assert!(catalog.validate_payload("cx.space.archive", &json!({ "archived": true })).is_err());
+}
+
+#[test]
+fn artifact_payload_catalog_maps_object_patch_event_family_to_object_patch_payload() {
+    let Some(artifacts_dir) = default_spec_artifacts_dir() else {
+        return;
+    };
+    let catalog = event_payload_validator_catalog_from_spec_artifacts(artifacts_dir).unwrap();
+    let object_patch_kinds = [
+        "cx.realm.update",
+        "cx.flow.update",
+        "cx.flow.tracks.update",
+        "cx.morph.update",
+        "cx.profile.update",
+        "cx.profile.space_override",
+    ];
+    for event_kind in object_patch_kinds {
+        assert_eq!(
+            catalog.rules[event_kind].payload_schema_id,
+            format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/object_patch_payload"),
+            "{event_kind} must use the shared object_patch_payload schema"
+        );
+        catalog
+            .validate_payload(
+                event_kind,
+                &json!({
+                    "patch": {
+                        "title": { "$op": "set", "value": "Roadmap" }
+                    }
+                }),
+            )
+            .unwrap_or_else(|err| panic!("{event_kind} should accept object_patch_payload: {err}"));
+        assert!(
+            catalog.validate_payload(event_kind, &json!({ "title": "Roadmap" })).is_err(),
+            "{event_kind} must reject legacy non-patch update payloads"
+        );
+    }
+}
+
+#[test]
 fn artifact_payload_catalog_enforces_external_schema_refs_and_enums() {
     let Some(artifacts_dir) = default_spec_artifacts_dir() else {
         return;

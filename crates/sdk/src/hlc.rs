@@ -321,22 +321,19 @@ mod tests {
     fn compare_hlc_lexicographic() {
         // Physical time takes precedence
         assert_eq!(
-            compare_hlc("01970e589d21-0001-a13f9c2e", "01970e589d22-0000-a13f9c2e")
-                .unwrap(),
+            compare_hlc("01970e589d21-0001-a13f9c2e", "01970e589d22-0000-a13f9c2e").unwrap(),
             std::cmp::Ordering::Less
         );
 
         // Logical counter breaks ties
         assert_eq!(
-            compare_hlc("01970e589d21-0001-a13f9c2e", "01970e589d21-0002-a13f9c2e")
-                .unwrap(),
+            compare_hlc("01970e589d21-0001-a13f9c2e", "01970e589d21-0002-a13f9c2e").unwrap(),
             std::cmp::Ordering::Less
         );
 
         // Node ID breaks ties
         assert_eq!(
-            compare_hlc("01970e589d21-0001-a13f9c2e", "01970e589d21-0001-b13f9c2e")
-                .unwrap(),
+            compare_hlc("01970e589d21-0001-a13f9c2e", "01970e589d21-0001-b13f9c2e").unwrap(),
             std::cmp::Ordering::Less
         );
     }

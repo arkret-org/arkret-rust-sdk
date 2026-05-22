@@ -189,8 +189,9 @@ pub enum SelfClaimedKind {
 /// Round 4 — wire-level entry in
 /// [`ServerDescription::verified_profiles`]. Mirrors
 /// `service-describe.schema.json#/properties/verified_profiles/items`:
-/// requires a cotest run id, artifact hash, and timestamp so consumers
-/// can pin the claim to an auditable run.
+/// requires a cotest run id, artifact hash, artifact reference, issuer DID,
+/// issuer signature, and timestamp so consumers can pin the claim to an
+/// auditable run.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct VerifiedProfileEntry {
@@ -198,7 +199,12 @@ pub struct VerifiedProfileEntry {
     pub claim_kind: CotestVerifiedKind,
     pub cotest_run_id: String,
     pub artifact_hash: String,
+    pub artifact_ref: String,
+    pub cotest_issuer_did: Did,
+    pub signature: String,
     pub timestamp: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub valid_until: Option<DateTime<Utc>>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,

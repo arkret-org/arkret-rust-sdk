@@ -891,14 +891,6 @@ impl Default for ProtocolSchemaRegistry {
             ),
         );
         registry.register(
-            AGENT_AUTHORITY_SCHEMA,
-            object_schema(
-                AGENT_AUTHORITY_SCHEMA,
-                &["agent_session_id", "actor_id", "authority"],
-                &[("agent_session_id", "string"), ("actor_id", "string"), ("authority", "object")],
-            ),
-        );
-        registry.register(
             BOTTOM_SCHEMA,
             object_schema(
                 BOTTOM_SCHEMA,

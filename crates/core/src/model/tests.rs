@@ -93,7 +93,7 @@ fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
 
     assert_eq!(
         event.event_digest().unwrap(),
-        "sha256:c807c361145a6a97b16bd0915e096b32a3ec0c837aec5199a7ff92b3cc404901"
+        "sha256:3912394f11171b786c8c8c42306589143eb65cdc316af6145cc3b9548660430b"
     );
 }
 

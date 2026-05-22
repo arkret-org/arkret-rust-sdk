@@ -172,6 +172,9 @@ pub const REALM_FREEZE: &str = "cx.realm.freeze";
 pub const REALM_HISTORY_SHARING_POLICY: &str = "cx.realm.history_sharing_policy";
 pub const REALM_HISTORY_VISIBILITY: &str = "cx.realm.history_visibility";
 pub const REALM_INHERITANCE_POLICY: &str = "cx.realm.inheritance_policy";
+pub const REALM_KEY_SHARE: &str = "cx.realm_key.share";
+pub const REALM_KEY_SHARE_AUDIT: &str = "cx.realm_key.share_audit";
+pub const REALM_KEY_WITHHELD: &str = "cx.realm_key.withheld";
 pub const REALM_JOIN_RULE: &str = "cx.realm.join_rule";
 pub const REALM_LINK: &str = "cx.realm.link";
 pub const REALM_MEDIA_SERVICE: &str = "cx.realm.media_service";
@@ -215,9 +218,6 @@ pub const SPACE_PARENT: &str = "cx.space.parent";
 pub const SPACE_RESTORE: &str = "cx.space.restore";
 pub const SPACE_TOMBSTONE: &str = "cx.space.tombstone";
 pub const SPACE_UPDATE: &str = "cx.space.update";
-pub const SPACE_KEY_SHARE: &str = "cx.space_key.share";
-pub const SPACE_KEY_SHARE_AUDIT: &str = "cx.space_key.share_audit";
-pub const SPACE_KEY_WITHHELD: &str = "cx.space_key.withheld";
 pub const TYPING: &str = "cx.typing";
 pub const VIEW_CREATE: &str = "cx.view.create";
 pub const VIEW_RECONCILE: &str = "cx.view.reconcile";
@@ -335,6 +335,9 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     REALM_HISTORY_SHARING_POLICY,
     REALM_HISTORY_VISIBILITY,
     REALM_INHERITANCE_POLICY,
+    REALM_KEY_SHARE,
+    REALM_KEY_SHARE_AUDIT,
+    REALM_KEY_WITHHELD,
     REALM_JOIN_RULE,
     REALM_LINK,
     REALM_MEDIA_SERVICE,
@@ -360,9 +363,6 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     SOVEREIGN_DID_POLICY,
     SPACE_ARCHIVE,
     SPACE_CREATE,
-    SPACE_KEY_SHARE,
-    SPACE_KEY_SHARE_AUDIT,
-    SPACE_KEY_WITHHELD,
     SPACE_PARENT,
     SPACE_RESTORE,
     SPACE_TOMBSTONE,
@@ -519,9 +519,9 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
         | MLS_KEYPACKAGE
         | MLS_PROPOSAL
         | MLS_WELCOME
-        | SPACE_KEY_SHARE
-        | SPACE_KEY_SHARE_AUDIT
-        | SPACE_KEY_WITHHELD => EventClass::E2ee,
+        | REALM_KEY_SHARE
+        | REALM_KEY_SHARE_AUDIT
+        | REALM_KEY_WITHHELD => EventClass::E2ee,
         FLOW_ARCHIVE | FLOW_CREATE | FLOW_MOVE | FLOW_REORDER | FLOW_RESTORE
         | FLOW_TRACKS_UPDATE | FLOW_UPDATE | FLOW_WATCH_SET => EventClass::Flow,
         HANDLE_DISCOVERY => EventClass::Handle,
