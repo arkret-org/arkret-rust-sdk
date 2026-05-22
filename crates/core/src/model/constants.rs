@@ -255,6 +255,12 @@ pub const OP_EVENTS_QUERY_POST: &str = "cx.events.query_post";
 // ROUND4-ALLOW: constant declaring the operation-id string, not a payload type.
 pub const OP_EVENTS_SUBSCRIBE: &str = "cx.events.subscribe";
 pub const OP_EVENTS_SUBMIT: &str = "cx.events.submit";
+pub const OP_EPHEMERAL_SEND: &str = "cx.ephemeral.send";
+
+/// Projection read-model operations.
+pub const OP_PROJECTION_SPACES: &str = "cx.projection.spaces";
+pub const OP_PROJECTION_FLOWS: &str = "cx.projection.flows";
+pub const OP_PROJECTION_MORPHS: &str = "cx.projection.morphs";
 
 /// Identity-registry operations.
 pub const OP_IDENTITY_DESCRIBE_REGISTRY: &str = "cx.identity.describe_registry";
@@ -418,6 +424,10 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_EVENTS_RESOLVE,
     OP_EVENTS_SUBSCRIBE,
     OP_EVENTS_SUBMIT,
+    OP_EPHEMERAL_SEND,
+    OP_PROJECTION_SPACES,
+    OP_PROJECTION_FLOWS,
+    OP_PROJECTION_MORPHS,
     OP_IDENTITY_DESCRIBE_REGISTRY,
     OP_IDENTITY_GET_DOCUMENT,
     OP_IDENTITY_GET_LOG,
