@@ -316,6 +316,33 @@ impl fmt::Display for ErrorEnvelope {
     }
 }
 
+#[cfg(test)]
+mod error_envelope_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn error_envelope_serializes_to_spec_canonical_shape() {
+        let envelope = ErrorEnvelope::new("capability_denied", "session grant is revoked")
+            .with_request_id("cx:req:test")
+            .with_retry_after_ms(None);
+
+        let value = serde_json::to_value(envelope).unwrap();
+
+        assert_eq!(
+            value,
+            json!({
+                "ok": false,
+                "error": {
+                    "code": "capability_denied",
+                    "message": "session grant is revoked"
+                },
+                "request_id": "cx:req:test"
+            })
+        );
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct IdentityDescription {
