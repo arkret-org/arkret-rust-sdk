@@ -131,7 +131,7 @@ fn fallback_event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
             EVENT_PAYLOAD_SCHEMA,
             &["board_space_id", "flow_id", "space_id", "rank"][..],
         ),
-        ("cx.message.create", EVENT_SCHEMA, &["flow_id", "track"][..]),
+        ("cx.message.create", EVENT_PAYLOAD_SCHEMA, &["flow_id", "track"][..]),
         ("cx.member.state", EVENT_SCHEMA, &["membership"][..]),
         (
             "cx.capability.grant",
@@ -409,6 +409,42 @@ mod tests {
                         "flow_id": "cx:flow:0196419b-0000-7000-8000-000000000001",
                         "target_place_id": "cx:place:legacy",
                         "rank": "U"
+                    }),
+                )
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn fallback_catalog_accepts_message_create_payload_not_event_envelope() {
+        let catalog = fallback_event_payload_validator_catalog();
+
+        assert_eq!(catalog.rules["cx.message.create"].payload_schema_id, EVENT_PAYLOAD_SCHEMA);
+        catalog
+            .validate_payload(
+                "cx.message.create",
+                &json!({
+                    "flow_id": "cx:flow:0196419b-0000-7000-8000-000000000001",
+                    "track": "discussion",
+                    "content": {
+                        "kind": "cx.content.text",
+                        "body": "hello"
+                    },
+                    "encrypted": false
+                }),
+            )
+            .unwrap();
+
+        assert!(
+            catalog
+                .validate_payload(
+                    "cx.message.create",
+                    &json!({
+                        "kind": "cx.message.create",
+                        "payload": {
+                            "flow_id": "cx:flow:0196419b-0000-7000-8000-000000000001",
+                            "track": "discussion"
+                        }
                     }),
                 )
                 .is_err()
