@@ -49,6 +49,7 @@ pub const MODERATION_QUEUE_ITEM_SCHEMA: &str = "cx.schema.moderation_queue_item.
 pub const DID_CONTINUITY_PROOF_SCHEMA: &str = "cx.schema.did_continuity_proof.v1";
 pub const IDENTITY_LINK_SCHEMA: &str = "cx.schema.identity_link.v1";
 pub const ERASURE_RECEIPT_SCHEMA: &str = "cx.schema.erasure_receipt.v1";
+pub const ERASURE_VERIFICATION_STUB_SCHEMA: &str = "cx.schema.erasure_verification_stub.v1";
 
 // Round R2/R3 (2026-05-20) — new schema ids for the moderation appeal flow,
 // the broadcast ephemeral envelope, and structured attestation evidence.
@@ -65,12 +66,14 @@ pub const OP_FLOW_ARCHIVE: &str = "cx.flow.archive";
 pub const OP_FLOW_RESTORE: &str = "cx.flow.restore";
 pub const OP_FLOW_MOVE: &str = "cx.flow.move";
 pub const OP_FLOW_REORDER: &str = "cx.flow.reorder";
+pub const OP_FLOW_STAGE_SET: &str = "cx.flow.stage.set";
 
 /// Morph event kinds.
 pub const OP_MORPH_CREATE: &str = "cx.morph.create";
 pub const OP_MORPH_UPDATE: &str = "cx.morph.update";
 pub const OP_MORPH_ARCHIVE: &str = "cx.morph.archive";
 pub const OP_MORPH_RESTORE: &str = "cx.morph.restore";
+pub const OP_MORPH_STAGE_SET: &str = "cx.morph.stage.set";
 
 /// Space (container) event kinds. Realm/Space inversion (spec 59ac1d4):
 /// `cx.place.*` (container) is renamed to `cx.space.*`. The OP constant
@@ -149,6 +152,7 @@ pub const OP_INVITE_CREATE: &str = "cx.invite.create";
 pub const OP_SERVER_DESCRIBE: &str = "cx.server.describe";
 pub const OP_IDENTITY_RESOLVE: &str = "cx.identity.resolve";
 pub const OP_ACCOUNT_DESCRIBE: &str = "cx.account.describe";
+pub const OP_ACCOUNT_CURSOR_REVOKE: &str = "cx.account.cursor_revoke";
 
 /// Directory operations.
 pub const OP_DIRECTORY_DESCRIBE: &str = "cx.directory.describe";
@@ -200,7 +204,7 @@ pub const OP_APPLET_DESCRIBE: &str = "cx.applet.describe";
 pub const OP_APPLET_PING: &str = "cx.applet.ping";
 pub const OP_APPLET_PROTOCOL_METADATA: &str = "cx.applet.protocol_metadata";
 pub const OP_APPLET_QUERY_ACTOR: &str = "cx.applet.query_actor";
-pub const OP_APPLET_QUERY_SPACE: &str = "cx.applet.query_space";
+pub const OP_APPLET_QUERY_REALM: &str = "cx.applet.query_realm";
 pub const OP_APPLET_THIRD_PARTY_LOCATIONS: &str = "cx.applet.third_party_locations";
 pub const OP_APPLET_THIRD_PARTY_USERS: &str = "cx.applet.third_party_users";
 pub const OP_APPLET_TRANSACTION: &str = "cx.applet.transaction";
@@ -222,6 +226,9 @@ pub const OP_APPLET_REGISTRATION: &str = "cx.applet.registration";
 /// applet family but the terminal `*.result` event carries a signed
 /// audit binding. Spec `extensions/agent-integration.md`.
 pub const OP_AGENT_ENDPOINT: &str = "cx.agent.endpoint";
+pub const OP_AGENT_KEY_AUTHORIZED: &str = "cx.agent.key.authorized";
+pub const OP_AGENT_KEY_REVOKED: &str = "cx.agent.key.revoked";
+pub const OP_AGENT_KEY_ROTATED: &str = "cx.agent.key.rotated";
 pub const OP_AGENT_PROTOCOL_SESSION_RESULT: &str = "cx.agent.protocol_session.result";
 pub const OP_AGENT_PROTOCOL_SESSION_START: &str = "cx.agent.protocol_session.start";
 pub const OP_AGENT_PROTOCOL_SESSION_STATUS: &str = "cx.agent.protocol_session.status";
@@ -371,6 +378,7 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_ACCOUNT_ISSUE_SESSION_GRANT,
     OP_ACCOUNT_OIDC_CALLBACK,
     OP_ACCOUNT_SUBSCRIBE,
+    OP_ACCOUNT_CURSOR_REVOKE,
     OP_ADMIN_GET_MODERATION_QUEUE,
     OP_ADMIN_GET_SERVER_STATUS,
     OP_ADMIN_REVOKE_DEVICE,
@@ -379,7 +387,7 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_APPLET_PING,
     OP_APPLET_PROTOCOL_METADATA,
     OP_APPLET_QUERY_ACTOR,
-    OP_APPLET_QUERY_SPACE,
+    OP_APPLET_QUERY_REALM,
     OP_APPLET_THIRD_PARTY_LOCATIONS,
     OP_APPLET_THIRD_PARTY_USERS,
     OP_APPLET_TRANSACTION,

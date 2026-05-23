@@ -1087,7 +1087,7 @@ mod tests {
             actor_id: Did::new("did:web:alice.example.com").unwrap(),
             actor_seq: index as u64,
             created_at: Utc::now(),
-            hlc: Hlc::new(format!("01970e589d21-000000{:02x}-a13f9c2e", index)).unwrap(),
+            hlc: Hlc::new(format!("01970e589d21-{:04x}-a13f9c2e", index)).unwrap(),
             prev_refs: vec![],
             refs: vec![],
             preconditions: vec![],

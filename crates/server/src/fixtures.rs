@@ -132,6 +132,7 @@ fn fixture_operations(flow: ProtocolFixtureFlow) -> &'static [&'static str] {
         ProtocolFixtureFlow::Sync => &[
             "cx.account.describe",
             "cx.account.subscribe",
+            "cx.account.cursor_revoke",
             "cx.events.describe",
             "cx.events.submit",
             "cx.events.get",
@@ -171,7 +172,7 @@ fn fixture_operations(flow: ProtocolFixtureFlow) -> &'static [&'static str] {
             "cx.applet.describe",
             "cx.applet.transaction",
             "cx.applet.query_actor",
-            "cx.applet.query_space",
+            "cx.applet.query_realm",
             "cx.applet.protocol_metadata",
             "cx.applet.third_party_users",
             "cx.applet.third_party_locations",

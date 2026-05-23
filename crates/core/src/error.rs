@@ -142,6 +142,18 @@ pub const ERROR_CODE_TTL_OUT_OF_RANGE: &str = "ttl_out_of_range";
 pub const ERROR_CODE_TAKEDOWN_IN_FORCE: &str = "takedown_in_force";
 pub const ERROR_CODE_POLICY_REVISION_ROLLBACK: &str = "policy_revision_rollback";
 
+// ── Spec main (2026-05-23) registry additions.
+pub const ERROR_CODE_DID_PROOF_REQUIRED: &str = "did_proof_required";
+pub const ERROR_CODE_READ_RECEIPT_COMPLIANCE_FLOOR_VIOLATED: &str =
+    "read_receipt_compliance_floor_violated";
+pub const ERROR_CODE_EPHEMERAL_KIND_NOT_PERMITTED: &str = "ephemeral_kind_not_permitted";
+pub const ERROR_CODE_EPHEMERAL_TTL_OUT_OF_RANGE: &str = "ephemeral_ttl_out_of_range";
+pub const ERROR_CODE_EPHEMERAL_CHANNEL_UNAVAILABLE: &str = "ephemeral_channel_unavailable";
+pub const ERROR_CODE_AUTHORIZED_GRANT_REVOKED: &str = "authorized_grant_revoked";
+pub const ERROR_CODE_DEVICE_RECOVERY_SSK_GENERATION_MISMATCH: &str =
+    "device_recovery_ssk_generation_mismatch";
+pub const ERROR_CODE_CURSOR_REVOKED: &str = "cursor_revoked";
+
 /// All canonical error codes recognised by the registry. The order matches
 /// `error-code-registry.json`. Use [`is_known_error_code`] before populating
 /// `ErrorEnvelope.code` from arbitrary input.
@@ -231,6 +243,15 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
     ERROR_CODE_TTL_OUT_OF_RANGE,
     ERROR_CODE_TAKEDOWN_IN_FORCE,
     ERROR_CODE_POLICY_REVISION_ROLLBACK,
+    // Spec main (2026-05-23).
+    ERROR_CODE_DID_PROOF_REQUIRED,
+    ERROR_CODE_READ_RECEIPT_COMPLIANCE_FLOOR_VIOLATED,
+    ERROR_CODE_EPHEMERAL_KIND_NOT_PERMITTED,
+    ERROR_CODE_EPHEMERAL_TTL_OUT_OF_RANGE,
+    ERROR_CODE_EPHEMERAL_CHANNEL_UNAVAILABLE,
+    ERROR_CODE_AUTHORIZED_GRANT_REVOKED,
+    ERROR_CODE_DEVICE_RECOVERY_SSK_GENERATION_MISMATCH,
+    ERROR_CODE_CURSOR_REVOKED,
 ];
 
 // ── Failed-precondition reason codes (sub-codes inside `failed_precondition`)
@@ -512,12 +533,14 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_SIGNATURE_STALE
         | ERROR_CODE_SOURCE_REFS_UNVERIFIABLE
         | ERROR_CODE_GOVERNANCE_KEY_INVALID
-        | ERROR_CODE_TTL_OUT_OF_RANGE => 400,
+        | ERROR_CODE_TTL_OUT_OF_RANGE
+        | ERROR_CODE_EPHEMERAL_TTL_OUT_OF_RANGE => 400,
         ERROR_CODE_UNAUTHENTICATED
         | ERROR_CODE_AUTH_EXPIRED
         | ERROR_CODE_SOFT_LOGGED_OUT
         | ERROR_CODE_INVALID_SIGNATURE
-        | ERROR_CODE_TURN_CREDENTIAL_EXPIRED => 401,
+        | ERROR_CODE_TURN_CREDENTIAL_EXPIRED
+        | ERROR_CODE_DID_PROOF_REQUIRED => 401,
         ERROR_CODE_CAPABILITY_DENIED
         | ERROR_CODE_DIRECTORY_NOT_AUTHORIZED
         | ERROR_CODE_ACCEPT_POLICY_DENIED
@@ -530,7 +553,8 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_LEGAL_HOLD_ACTIVE
         | ERROR_CODE_BLOB_REDACTED
         | ERROR_CODE_MEDIA_PLAINTEXT_SERVICE_NOT_AUTHORISED
-        | ERROR_CODE_LATE_RECOVERY_REJECTED_MEMBERSHIP => 403,
+        | ERROR_CODE_LATE_RECOVERY_REJECTED_MEMBERSHIP
+        | ERROR_CODE_EPHEMERAL_KIND_NOT_PERMITTED => 403,
         ERROR_CODE_NOT_FOUND | ERROR_CODE_UNRECOGNIZED_ENDPOINT => 404,
         ERROR_CODE_METHOD_NOT_ALLOWED => 405,
         ERROR_CODE_CONFLICT
@@ -558,9 +582,11 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_DELIVERY_BINDING_STALE
         | ERROR_CODE_DELIVERY_BINDING_HANDED_OVER
         | ERROR_CODE_TAKEDOWN_IN_FORCE
-        | ERROR_CODE_POLICY_REVISION_ROLLBACK => 409,
+        | ERROR_CODE_POLICY_REVISION_ROLLBACK
+        | ERROR_CODE_AUTHORIZED_GRANT_REVOKED
+        | ERROR_CODE_DEVICE_RECOVERY_SSK_GENERATION_MISMATCH => 409,
         ERROR_CODE_HISTORICAL_ONLY => 200,
-        ERROR_CODE_CURSOR_EXPIRED => 410,
+        ERROR_CODE_CURSOR_EXPIRED | ERROR_CODE_CURSOR_REVOKED => 410,
         ERROR_CODE_PAYLOAD_TOO_LARGE => 413,
         ERROR_CODE_SCHEMA_VIOLATION
         | ERROR_CODE_DIGEST_MISMATCH
@@ -570,12 +596,14 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_POLICY_COMBINATION_INVALID
         | ERROR_CODE_ANCHORER_RECOVERY_MISSING
         | ERROR_CODE_UNSUPPORTED_LATTICE_TYPE
-        | ERROR_CODE_UNSUPPORTED_HASH => 422,
+        | ERROR_CODE_UNSUPPORTED_HASH
+        | ERROR_CODE_READ_RECEIPT_COMPLIANCE_FLOOR_VIOLATED => 422,
         ERROR_CODE_RATE_LIMITED => 429,
         ERROR_CODE_INTERNAL_ERROR => 500,
         ERROR_CODE_HLC_LOGICAL_OVERFLOW
         | ERROR_CODE_TEMPORARILY_UNAVAILABLE
-        | ERROR_CODE_FRANK_UNAVAILABLE => 503,
+        | ERROR_CODE_FRANK_UNAVAILABLE
+        | ERROR_CODE_EPHEMERAL_CHANNEL_UNAVAILABLE => 503,
         ERROR_CODE_TIMEOUT => 504,
         ERROR_CODE_UNSUPPORTED_FEATURE
         | ERROR_CODE_UNSUPPORTED_EVENT_KIND
@@ -746,6 +774,15 @@ pub enum ErrorCode {
     TtlOutOfRange,
     TakedownInForce,
     PolicyRevisionRollback,
+    // ── Spec main (2026-05-23).
+    DidProofRequired,
+    ReadReceiptComplianceFloorViolated,
+    EphemeralKindNotPermitted,
+    EphemeralTtlOutOfRange,
+    EphemeralChannelUnavailable,
+    AuthorizedGrantRevoked,
+    DeviceRecoverySskGenerationMismatch,
+    CursorRevoked,
 }
 
 impl ErrorCode {
@@ -833,6 +870,14 @@ impl ErrorCode {
         Self::TtlOutOfRange,
         Self::TakedownInForce,
         Self::PolicyRevisionRollback,
+        Self::DidProofRequired,
+        Self::ReadReceiptComplianceFloorViolated,
+        Self::EphemeralKindNotPermitted,
+        Self::EphemeralTtlOutOfRange,
+        Self::EphemeralChannelUnavailable,
+        Self::AuthorizedGrantRevoked,
+        Self::DeviceRecoverySskGenerationMismatch,
+        Self::CursorRevoked,
     ];
 
     /// Canonical wire-form code (snake_case string).
@@ -924,6 +969,18 @@ impl ErrorCode {
             Self::TtlOutOfRange => ERROR_CODE_TTL_OUT_OF_RANGE,
             Self::TakedownInForce => ERROR_CODE_TAKEDOWN_IN_FORCE,
             Self::PolicyRevisionRollback => ERROR_CODE_POLICY_REVISION_ROLLBACK,
+            Self::DidProofRequired => ERROR_CODE_DID_PROOF_REQUIRED,
+            Self::ReadReceiptComplianceFloorViolated => {
+                ERROR_CODE_READ_RECEIPT_COMPLIANCE_FLOOR_VIOLATED
+            }
+            Self::EphemeralKindNotPermitted => ERROR_CODE_EPHEMERAL_KIND_NOT_PERMITTED,
+            Self::EphemeralTtlOutOfRange => ERROR_CODE_EPHEMERAL_TTL_OUT_OF_RANGE,
+            Self::EphemeralChannelUnavailable => ERROR_CODE_EPHEMERAL_CHANNEL_UNAVAILABLE,
+            Self::AuthorizedGrantRevoked => ERROR_CODE_AUTHORIZED_GRANT_REVOKED,
+            Self::DeviceRecoverySskGenerationMismatch => {
+                ERROR_CODE_DEVICE_RECOVERY_SSK_GENERATION_MISMATCH
+            }
+            Self::CursorRevoked => ERROR_CODE_CURSOR_REVOKED,
         }
     }
 
@@ -964,8 +1021,9 @@ mod tests {
         // turn_credential_expired) + 1 C47 wire code (stale_peer) +
         // 15 Round R2/R3 wire codes (relaxed_window_exceeds_ceiling, ...) +
         // 3 Round 4 wire codes (delivery_binding_stale, delivery_binding_handed_over,
-        // historical_only) + 10 directory ingest wire codes.
-        assert_eq!(KNOWN_ERROR_CODES.len(), 82);
+        // historical_only) + 10 directory ingest wire codes + 8 spec-main
+        // cursor / ephemeral / grant / device-recovery wire codes.
+        assert_eq!(KNOWN_ERROR_CODES.len(), 90);
         assert!(codes.contains(ERROR_CODE_CURSOR_EXPIRED));
         assert!(codes.contains(ERROR_CODE_POLICY_COMBINATION_INVALID));
         assert!(codes.contains(ERROR_CODE_ANCHORER_RECOVERY_MISSING));
@@ -984,6 +1042,10 @@ mod tests {
         assert!(codes.contains(ERROR_CODE_LATE_RECOVERY_REJECTED_MEMBERSHIP));
         assert!(codes.contains(ERROR_CODE_DIRECTORY_NOT_AUTHORIZED));
         assert!(codes.contains(ERROR_CODE_POLICY_REVISION_ROLLBACK));
+        assert!(codes.contains(ERROR_CODE_DID_PROOF_REQUIRED));
+        assert!(codes.contains(ERROR_CODE_EPHEMERAL_KIND_NOT_PERMITTED));
+        assert!(codes.contains(ERROR_CODE_AUTHORIZED_GRANT_REVOKED));
+        assert!(codes.contains(ERROR_CODE_CURSOR_REVOKED));
     }
 
     #[test]

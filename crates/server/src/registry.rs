@@ -112,10 +112,11 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
     endpoint!("cx.applet.describe", Get, "/api/v1/applet/describe"),
     endpoint!("cx.applet.transaction", Post, "/api/v1/applet/transactions"),
     endpoint!("cx.applet.query_actor", Get, "/api/v1/applet/actors/{actor_id}"),
-    endpoint!("cx.applet.query_space", Get, "/api/v1/applet/spaces/{space_id_or_alias}"),
+    endpoint!("cx.applet.query_realm", Get, "/api/v1/applet/realms/{realm_id_or_alias}"),
     endpoint!("cx.applet.protocol_metadata", Get, "/api/v1/applet/protocols/{protocol}"),
     endpoint!("cx.applet.third_party_users", Get, "/api/v1/applet/third_party/users"),
     endpoint!("cx.applet.third_party_locations", Get, "/api/v1/applet/third_party/locations"),
+    endpoint!("cx.account.cursor_revoke", Post, "/api/v1/account/cursor/revoke"),
 ];
 
 pub(crate) fn service_routes() -> &'static [ServiceRoute] {

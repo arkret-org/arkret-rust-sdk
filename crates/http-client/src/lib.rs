@@ -11,16 +11,17 @@ use tokio::time::sleep;
 use url::Url;
 
 use contrix_core::{
-    AccountSubscribeFrame, AppletActorResBody, AppletDescription, AppletPingResBody,
-    AppletProtocolResBody, AppletSpaceResBody, AppletTransactionReqBody, AppletTransactionResBody,
-    AuthzCheckReqBody, AuthzCheckResBody, AuthzInvitesResBody, BackupId, BlobMetadata, BlobRef,
-    BlobUploadMetadata, BlobUploadResBody, DeviceMessagesReceiveResBody, DeviceMessagesSendReqBody,
+    AccountCursorRevokeReqBody, AccountCursorRevokeResBody, AccountSubscribeFrame,
+    AppletActorResBody, AppletDescription, AppletPingResBody, AppletProtocolResBody,
+    AppletRealmResBody, AppletTransactionReqBody, AppletTransactionResBody, AuthzCheckReqBody,
+    AuthzCheckResBody, AuthzInvitesResBody, BackupId, BlobMetadata, BlobRef, BlobUploadMetadata,
+    BlobUploadResBody, DeviceMessagesReceiveResBody, DeviceMessagesSendReqBody,
     DeviceMessagesSendResBody, DirectoryDescription, DirectoryResolveHandleReqBody,
     DirectoryResolveHandleResBody, DirectoryResolveOrganizationReqBody,
-    DirectoryResolveOrganizationResBody, DirectoryResolveSpaceReqBody,
-    DirectoryResolveSpaceResBody, DirectorySearchActorsReqBody, DirectorySearchActorsResBody,
+    DirectoryResolveOrganizationResBody, DirectoryResolveRealmReqBody,
+    DirectoryResolveRealmResBody, DirectorySearchActorsReqBody, DirectorySearchActorsResBody,
     DirectorySearchOrganizationsReqBody, DirectorySearchOrganizationsResBody,
-    DirectorySearchSpacesReqBody, DirectorySearchSpacesResBody, DirectorySearchUsersReqBody,
+    DirectorySearchRealmsReqBody, DirectorySearchRealmsResBody, DirectorySearchUsersReqBody,
     DirectorySearchUsersResBody, EffectiveGrantsResBody, Error, ErrorEnvelope, IdentityDescription,
     IdentityDocumentResBody, IdentityLogResBody, IdentityReceiptsResBody, IdentityResolveReqBody,
     IdentityResolveResBody, KeyBackup, KeyBackupDeleteReqBody, KeyBackupDeleteResBody,
@@ -674,6 +675,13 @@ impl Client {
         self.get("/api/v1/account/describe").await
     }
 
+    pub async fn account_cursor_revoke(
+        &self,
+        request: &AccountCursorRevokeReqBody,
+    ) -> Result<AccountCursorRevokeResBody> {
+        self.post("/api/v1/account/cursor/revoke", request).await
+    }
+
     /// Subscribe to the Event stream for one or more Spaces / actors via
     /// `cx.events.subscribe` (`GET /api/v1/events/subscribe`). The selector is
     /// `spaces[]` ∪ `actors[]` repeated query args, and frames use top-level
@@ -935,18 +943,18 @@ impl Client {
         self.get("/api/v1/directory/describe").await
     }
 
-    pub async fn directory_search_spaces(
+    pub async fn directory_search_realms(
         &self,
-        request: &DirectorySearchSpacesReqBody,
-    ) -> Result<DirectorySearchSpacesResBody> {
-        self.post("/api/v1/directory/search-spaces", request).await
+        request: &DirectorySearchRealmsReqBody,
+    ) -> Result<DirectorySearchRealmsResBody> {
+        self.post("/api/v1/directory/search-realms", request).await
     }
 
-    pub async fn directory_resolve_space(
+    pub async fn directory_resolve_realm(
         &self,
-        request: &DirectoryResolveSpaceReqBody,
-    ) -> Result<DirectoryResolveSpaceResBody> {
-        self.post("/api/v1/directory/resolve-space", request).await
+        request: &DirectoryResolveRealmReqBody,
+    ) -> Result<DirectoryResolveRealmResBody> {
+        self.post("/api/v1/directory/resolve-realm", request).await
     }
 
     pub async fn directory_search_organizations(
@@ -1050,9 +1058,9 @@ impl Client {
         self.get(&path).await
     }
 
-    pub async fn applet_space(&self, space_id_or_alias: &str) -> Result<AppletSpaceResBody> {
-        reject_path_segment(space_id_or_alias)?;
-        let path = format!("/api/v1/applet/spaces/{space_id_or_alias}");
+    pub async fn applet_realm(&self, realm_id_or_alias: &str) -> Result<AppletRealmResBody> {
+        reject_path_segment(realm_id_or_alias)?;
+        let path = format!("/api/v1/applet/realms/{realm_id_or_alias}");
         self.get(&path).await
     }
 

@@ -164,7 +164,8 @@ impl Space {
 
     /// Canonical Realm scope for operations emitted by this client.
     pub fn realm_id(&self) -> Result<RealmId> {
-        RealmId::new(self.space_id.to_string()).map_err(Into::into)
+        RealmId::new(self.space_id.as_str().replacen("cx:space:", "cx:realm:", 1))
+            .map_err(Into::into)
     }
 
     /// Get the current space state.

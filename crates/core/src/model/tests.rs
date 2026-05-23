@@ -310,9 +310,9 @@ fn protocol_schema_registry_publishes_core_json_schemas() {
             &json!({
                 "schema": FLOW_SCHEMA,
                 "id": "cx:flow:01904100-0000-7000-8000-6c663fa0205f",
-                "type": "flow",
-                "space_id": "cx:space:01904100-0000-7000-8000-fd3637e8361f",
+                "realm_id": "cx:realm:01904100-0000-7000-8000-fd3637e8361f",
                 "title": "Topic",
+                "stage": "draft",
                 "tracks": {"synthesis": {}},
                 "created_by": "did:web:alice.example",
                 "created_at": "2026-05-02T00:00:00Z"

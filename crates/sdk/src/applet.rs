@@ -9,7 +9,7 @@ use ulid::Ulid;
 
 use crate::{
     Did, Error, Event, Result, SpaceId,
-    model::{AppletActorResBody, AppletSpaceResBody, AppletTransactionReqBody},
+    model::{AppletActorResBody, AppletRealmResBody, AppletTransactionReqBody},
 };
 #[cfg(test)]
 use crate::{canonical, model::AppletTransactionResBody};
@@ -313,8 +313,8 @@ impl AppletEndpointRouteSet {
                 },
                 AppletEndpointRoute {
                     method: "GET".to_owned(),
-                    path: "/api/v1/applet/spaces/{space_id_or_alias}".to_owned(),
-                    description: "query applet space".to_owned(),
+                    path: "/api/v1/applet/realms/{realm_id_or_alias}".to_owned(),
+                    description: "query applet realm".to_owned(),
                 },
                 AppletEndpointRoute {
                     method: "GET".to_owned(),
@@ -451,7 +451,7 @@ pub struct ThirdPartyLookupReqBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ThirdPartyLookupResBody {
     User(AppletActorResBody),
-    Location(AppletSpaceResBody),
+    Location(AppletRealmResBody),
 }
 
 /// Bridge mapping from a remote user to a Contrix virtual actor.

@@ -132,11 +132,7 @@ fn fallback_event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
             &["board_space_id", "flow_id", "space_id", "rank"][..],
         ),
         ("cx.message.create", EVENT_PAYLOAD_SCHEMA, &["flow_id", "track"][..]),
-        (
-            "cx.member.state",
-            EVENT_PAYLOAD_SCHEMA,
-            &["membership"][..],
-        ),
+        ("cx.member.state", EVENT_PAYLOAD_SCHEMA, &["membership"][..]),
         (
             "cx.capability.grant",
             CAPABILITY_SCHEMA,
@@ -459,10 +455,7 @@ mod tests {
     fn fallback_catalog_accepts_member_state_payload_not_event_envelope() {
         let catalog = fallback_event_payload_validator_catalog();
 
-        assert_eq!(
-            catalog.rules["cx.member.state"].payload_schema_id,
-            EVENT_PAYLOAD_SCHEMA
-        );
+        assert_eq!(catalog.rules["cx.member.state"].payload_schema_id, EVENT_PAYLOAD_SCHEMA);
         catalog
             .validate_payload(
                 "cx.member.state",

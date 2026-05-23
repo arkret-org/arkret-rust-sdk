@@ -108,6 +108,7 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         OP_FLOW_CREATE => vec!["object".to_owned()],
         OP_FLOW_UPDATE => vec!["flow_id".to_owned(), "patch".to_owned()],
         OP_FLOW_ARCHIVE | OP_FLOW_RESTORE => vec!["flow_id".to_owned()],
+        OP_FLOW_STAGE_SET => vec!["flow_id".to_owned(), "stage".to_owned()],
         OP_FLOW_MOVE => ["board_place_id", "flow_id", "target_place_id", "rank"]
             .into_iter()
             .map(str::to_owned)
@@ -131,6 +132,41 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         }
         OP_APPLET_BRIDGE_ERROR => vec!["session_id".to_owned(), "errcode".to_owned()],
         OP_AGENT_ENDPOINT => vec!["agent_did".to_owned(), "protocol".to_owned()],
+        OP_AGENT_KEY_AUTHORIZED => [
+            "agent_did",
+            "key_id",
+            "verification_method",
+            "accountable_actor",
+            "scope",
+            "audience",
+            "issued_at",
+            "expires_at",
+            "approval_evidence",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect(),
+        OP_AGENT_KEY_REVOKED => {
+            ["agent_did", "key_id", "revoked_at", "revoked_by", "revocation_frontier"]
+                .into_iter()
+                .map(str::to_owned)
+                .collect()
+        }
+        OP_AGENT_KEY_ROTATED => [
+            "agent_did",
+            "key_id",
+            "replacement_key_id",
+            "replacement_verification_method",
+            "accountable_actor",
+            "scope",
+            "audience",
+            "issued_at",
+            "expires_at",
+            "approval_evidence",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect(),
         OP_AGENT_PROTOCOL_SESSION_START => {
             vec!["agent_did".to_owned(), "session_id".to_owned(), "capability_proof".to_owned()]
         }
@@ -143,6 +179,7 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         OP_MORPH_CREATE => vec!["object".to_owned()],
         OP_MORPH_UPDATE => vec!["morph_id".to_owned(), "patch".to_owned()],
         OP_MORPH_ARCHIVE | OP_MORPH_RESTORE => vec!["morph_id".to_owned()],
+        OP_MORPH_STAGE_SET => vec!["morph_id".to_owned(), "stage".to_owned()],
         // Container event kinds (Realm/Space inversion spec 59ac1d4):
         // `cx.place.*` is renamed to `cx.space.*`. Field name `place_id`
         // remains for now until container fields are renamed; the wire
@@ -251,7 +288,10 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         OP_EVENTS_QUERY => Vec::new(), // selector = spaces[]?+actors[]? — neither is strictly required
         OP_EVENTS_SUBSCRIBE => Vec::new(), // selector arrays may be empty for "all reachable"; subscription
         OP_EVENTS_SUBMIT => vec!["events".to_owned()],
-        OP_ACCOUNT_SUBSCRIBE => vec!["after".to_owned()],
+        OP_ACCOUNT_SUBSCRIBE => Vec::new(),
+        OP_ACCOUNT_CURSOR_REVOKE => {
+            ["cursor", "reason_code"].into_iter().map(str::to_owned).collect()
+        }
         OP_SNAPSHOT_HEAD => vec!["realm_id".to_owned()],
         _ => Vec::new(),
     }
@@ -973,13 +1013,12 @@ fn flow_schema_document() -> Value {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": FLOW_SCHEMA,
         "type": "object",
-        "required": ["id", "type", "schema", "space_id", "title", "tracks", "created_by", "created_at"],
+        "required": ["id", "schema", "realm_id", "title", "stage", "tracks", "created_by", "created_at"],
         "not": { "required": ["body", "encrypted_payload"] },
         "properties": {
             "schema": { "type": "string" },
             "id": { "type": "string" },
-            "type": { "type": "string" },
-            "space_id": { "type": "string" },
+            "realm_id": { "type": "string" },
             "title": { "type": "string" },
             "summary": { "type": "string" },
             "body": { "type": "object" },
@@ -989,6 +1028,11 @@ fn flow_schema_document() -> Value {
             "fields": { "type": "object" },
             "state": { "type": "string" },
             "state_changed_at": { "type": "string" },
+            "stage": {
+                "type": "string",
+                "enum": ["draft", "proposed", "planned", "in_progress", "blocked", "done", "cancelled", "superseded"]
+            },
+            "stage_changed_at": { "type": "string" },
             "created_by": { "type": "string" },
             "created_at": { "type": "string" },
             "updated_by": { "type": "string" },

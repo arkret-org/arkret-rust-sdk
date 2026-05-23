@@ -15,12 +15,12 @@
 //! Coverage (mirrors soland `reducer::lattice_kinds`):
 //! - **OrSet** (causal add/remove): consent.grant, capability.grant /
 //!   delegate / derived, session.grant, device.authorized,
-//!   device.list_update, covered_frontier (MLS).
+//!   device.list_update, agent.key, covered_frontier (MLS).
 //! - **CasRegister** (last-writer-wins, conflict→Bottom): space.policy,
 //!   space.read_receipt_policy, space.history_visibility,
 //!   space.join_rule, space.discovery, space.organization,
-//!   space.upgrade, flow.position, place.parent, anchorer (Move/Anchor
-//!   authority cell), mls_epoch.
+//!   space.upgrade, flow.position, flow.stage, morph.stage, place.parent,
+//!   anchorer (Move/Anchor authority cell), mls_epoch.
 //! - **Fsm** (legal transitions only): member.state,
 //!   
 //! - **OrderedLog** (per-issuer monotonic append): space.create,
@@ -419,6 +419,47 @@ per_subject_lattice!(
     &["cx.device.list_update"]
 );
 
+pub struct AgentKey;
+impl LatticeKind for AgentKey {
+    fn cell_family(&self) -> &'static str {
+        "cx.component.agent.key.v1"
+    }
+    fn lattice(&self) -> SdkLatticeKind {
+        SdkLatticeKind::OrSet
+    }
+    fn bottom_policy(&self) -> BottomPolicy {
+        BottomPolicy::Reject
+    }
+    fn component(&self) -> ComponentDescriptor {
+        ComponentDescriptor {
+            component_type: "cx.component.agent.key.v1",
+            component_version: 1,
+            criticality: Criticality::Required,
+        }
+    }
+    fn subject_for_effect(
+        &self,
+        effect_payload: &Value,
+    ) -> Result<Option<String>, LatticeKindError> {
+        let agent_did = effect_payload.get("agent_did").and_then(Value::as_str).ok_or(
+            LatticeKindError::MissingSubjectField {
+                cell_family: "cx.component.agent.key.v1",
+                field: "agent_did",
+            },
+        )?;
+        let key_id = effect_payload.get("key_id").and_then(Value::as_str).ok_or(
+            LatticeKindError::MissingSubjectField {
+                cell_family: "cx.component.agent.key.v1",
+                field: "key_id",
+            },
+        )?;
+        Ok(Some(format!("{agent_did}::{key_id}")))
+    }
+    fn event_kinds(&self) -> &'static [&'static str] {
+        &["cx.agent.key.authorized", "cx.agent.key.revoked", "cx.agent.key.rotated"]
+    }
+}
+
 singleton_lattice!(
     CoveredFrontier,
     "cx.component.mls.covered_frontier.v1",
@@ -617,6 +658,26 @@ per_subject_lattice!(
     Criticality::Required,
     "flow_id",
     &["cx.flow.move", "cx.flow.reorder"]
+);
+
+per_subject_lattice!(
+    FlowStage,
+    "cx.component.flow.stage.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    "flow_id",
+    &["cx.flow.stage.set"]
+);
+
+per_subject_lattice!(
+    MorphStage,
+    "cx.component.morph.stage.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    "morph_id",
+    &["cx.morph.stage.set"]
 );
 
 // Flow notification subscription cell, keyed by (flow_id, actor_did).
@@ -1105,6 +1166,7 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(SessionGrant);
     registry.register(DeviceAuthorized);
     registry.register(DeviceListUpdate);
+    registry.register(AgentKey);
     registry.register(CoveredFrontier);
 
     // CasRegister
@@ -1129,6 +1191,8 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(SpaceSchema);
     registry.register(SpaceInheritancePolicy);
     registry.register(FlowPosition);
+    registry.register(FlowStage);
+    registry.register(MorphStage);
     registry.register(FlowWatch);
     registry.register(PlaceParent);
     registry.register(CrossSigningPublish);
@@ -1202,6 +1266,7 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "cx.component.session.grant.v1",
         "cx.component.device.authorized.v1",
         "cx.component.device.list_update.v1",
+        "cx.component.agent.key.v1",
         "cx.component.mls.covered_frontier.v1",
         // CasRegister
         "cx.component.space.policy.v1",
@@ -1225,6 +1290,8 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "cx.component.space.schema.v1",
         "cx.component.space.inheritance_policy.v1",
         "cx.component.flow.position.v1",
+        "cx.component.flow.stage.v1",
+        "cx.component.morph.stage.v1",
         "cx.component.flow.watch.v1",
         "cx.component.place.parent.v1",
         "cx.component.cross_signing.publish.v1",
@@ -1348,12 +1415,12 @@ mod tests {
         // `cx.component.realm.create.v1`, `cx.component.realm.destroy.v1`,
         // `cx.component.realm.delivery_binding_policy.v1`. We keep the
         // legacy `Space*` impls registered for reducer back-compat, so
-        // 50 (legacy) + 25 (new realm/flow) - 4 withdrawn agent extension vectors
-        // families = 71.
+        // 50 (legacy) + 28 (new realm/flow/morph/agent) - 4 withdrawn
+        // agent extension vectors families = 74.
         // Bump this number deliberately when the spec event-kind
         // registry grows a new cell_family.
         let registry = default_lattice_registry();
-        assert_eq!(registry.len(), 71);
+        assert_eq!(registry.len(), 74);
     }
 
     #[test]

@@ -82,6 +82,10 @@ pub struct Cursor {
     /// inline state or stateless integrity material.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub h: Option<String>,
+    /// Key identifier for the stateless cursor MAC/signature key.
+    /// Required whenever `h` is absent and forbidden for stateful handle form.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub issuer_kid: Option<String>,
     /// Stateless cursor MAC over the canonical cursor body.
     #[serde(default, rename = "_mac", skip_serializing_if = "Option::is_none")]
     pub mac: Option<String>,
@@ -137,6 +141,7 @@ impl Cursor {
     /// stateful `h` before issuing production cursors.
     pub const DEV_TEST_MAC: &'static str =
         "hmac-sha256:0000000000000000000000000000000000000000000000000000000000000000";
+    pub const DEV_TEST_ISSUER_KID: &'static str = "contrix-sdk-dev#cursor";
 
     /// Create a new cursor with current timestamp and default expiration.
     pub fn new() -> Self {
@@ -151,6 +156,7 @@ impl Cursor {
             target: None,
             x: now + Self::DEFAULT_EXPIRATION_MS,
             h: None,
+            issuer_kid: Some(Self::DEV_TEST_ISSUER_KID.to_owned()),
             mac: Some(Self::DEV_TEST_MAC.to_owned()),
             sig: None,
             filter_hash: None,
@@ -202,6 +208,7 @@ impl Cursor {
     /// Replace the stateless integrity MAC on this cursor.
     pub fn with_mac(mut self, mac: impl Into<String>) -> Self {
         self.h = None;
+        self.issuer_kid.get_or_insert_with(|| Self::DEV_TEST_ISSUER_KID.to_owned());
         self.mac = Some(mac.into());
         self.sig = None;
         self
@@ -210,8 +217,15 @@ impl Cursor {
     /// Replace the stateless integrity signature on this cursor.
     pub fn with_signature(mut self, signature: impl Into<String>) -> Self {
         self.h = None;
+        self.issuer_kid.get_or_insert_with(|| Self::DEV_TEST_ISSUER_KID.to_owned());
         self.mac = None;
         self.sig = Some(signature.into());
+        self
+    }
+
+    /// Set the stateless cursor issuer key id.
+    pub fn with_issuer_kid(mut self, issuer_kid: impl Into<String>) -> Self {
+        self.issuer_kid = Some(issuer_kid.into());
         self
     }
 
@@ -221,6 +235,7 @@ impl Cursor {
         self.s.clear();
         self.d = None;
         self.target = None;
+        self.issuer_kid = None;
         self.mac = None;
         self.sig = None;
         self
@@ -311,6 +326,11 @@ impl Cursor {
                     "stateful cursor handle must not carry _mac or _sig".to_owned(),
                 ));
             }
+            if self.issuer_kid.is_some() {
+                return Err(crate::Error::Protocol(
+                    "stateful cursor handle must not carry issuer_kid".to_owned(),
+                ));
+            }
             if !self.s.is_empty() || self.d.is_some() || self.target.is_some() {
                 return Err(crate::Error::Protocol(
                     "stateful cursor handle must not carry s, d, or target".to_owned(),
@@ -321,6 +341,11 @@ impl Cursor {
             }
         } else if self.mac.is_none() && self.sig.is_none() {
             return Err(crate::Error::Protocol("stateless cursor missing _mac or _sig".to_owned()));
+        } else {
+            let issuer_kid = self.issuer_kid.as_deref().ok_or_else(|| {
+                crate::Error::Protocol("stateless cursor missing issuer_kid".to_owned())
+            })?;
+            Self::validate_issuer_kid(issuer_kid)?;
         }
 
         if matches!(self.purpose, CursorPurpose::Barrier) && self.target.is_none() && !stateful {
@@ -370,7 +395,8 @@ impl Cursor {
     }
 
     fn validate_space_id(space_id: &str) -> Result<()> {
-        if !has_prefixed_uuid7(space_id, "cx:space:") {
+        if !has_prefixed_uuid7(space_id, "cx:realm:") && !has_prefixed_uuid7(space_id, "cx:space:")
+        {
             return Err(crate::Error::InvalidId(space_id.to_owned()));
         }
         Ok(())
@@ -429,6 +455,16 @@ impl Cursor {
             || !digest.bytes().all(|b| b.is_ascii_digit() || matches!(b, b'a'..=b'f'))
         {
             return Err(crate::Error::Protocol("invalid cursor _mac digest".to_owned()));
+        }
+        Ok(())
+    }
+
+    fn validate_issuer_kid(issuer_kid: &str) -> Result<()> {
+        if issuer_kid.is_empty()
+            || issuer_kid.len() > 256
+            || issuer_kid.bytes().any(|b| b.is_ascii_whitespace())
+        {
+            return Err(crate::Error::Protocol("invalid cursor issuer_kid".to_owned()));
         }
         Ok(())
     }
@@ -620,7 +656,7 @@ mod tests {
     fn cursor_encode_decode_roundtrip() {
         let mut cursor = Cursor::new();
         cursor = cursor.with_space_position(
-            "cx:space:0196419b-0000-7000-8000-000000000000",
+            "cx:realm:0196419b-0000-7000-8000-000000000000",
             SpacePosition {
                 p: vec!["cx:event:0196419b-0000-7000-8000-000000000001".to_owned()],
                 order: "01970e589d21-0004-a13f9c2e".to_owned(),
@@ -649,6 +685,7 @@ mod tests {
             target: None,
             x: 1714080000000,
             h: None,
+            issuer_kid: Some(Cursor::DEV_TEST_ISSUER_KID.to_owned()),
             mac: Some(Cursor::DEV_TEST_MAC.to_owned()),
             sig: None,
             filter_hash: None,
@@ -662,7 +699,7 @@ mod tests {
     fn cursor_rejects_invalid_hlc_format() {
         let mut cursor = Cursor::new();
         cursor = cursor.with_space_position(
-            "cx:space:01904100-0000-7000-8000-9b64700c6ee8",
+            "cx:realm:01904100-0000-7000-8000-9b64700c6ee8",
             SpacePosition {
                 p: vec![],
                 order: "invalid-hlc".to_owned(),
@@ -688,7 +725,7 @@ mod tests {
     fn sync_positions_roundtrip() {
         let positions = SyncPositions {
             spaces: BTreeMap::from([(
-                "cx:space:0196419b-0000-7000-8000-000000000000".to_owned(),
+                "cx:realm:0196419b-0000-7000-8000-000000000000".to_owned(),
                 SpaceSyncPosition {
                     frontier: vec!["cx:event:0196419b-0000-7000-8000-000000000001".to_owned()],
                     timeline_order: "01970e589d21-0004-a13f9c2e".to_owned(),
@@ -719,6 +756,7 @@ mod tests {
         assert_eq!(decoded.h.as_deref(), Some("cursor_handle_12345678"));
         assert!(decoded.s.is_empty());
         assert!(decoded.d.is_none());
+        assert!(decoded.issuer_kid.is_none());
         assert!(decoded.mac.is_none());
     }
 }

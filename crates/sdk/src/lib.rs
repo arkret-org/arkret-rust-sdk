@@ -12,14 +12,14 @@
 //! ```rust
 //! use contrix::{
 //!     Did, Hlc, OP_MESSAGE_CREATE, OperationEnvelopeBuilder, OperationEventConversion,
-//!     OperationId, OperationKindRegistry, SpaceId,
+//!     OperationId, OperationKindRegistry, RealmId,
 //! };
 //! use serde_json::json;
 //!
 //! # fn main() -> contrix::Result<()> {
 //! let draft = OperationEnvelopeBuilder::new(
 //!     OperationId::new("cx:operation:01904100-0000-7000-8000-57d7d85564c5")?,
-//!     SpaceId::new("cx:space:01904100-0000-7000-8000-668e2181b41d")?,
+//!     RealmId::new("cx:realm:01904100-0000-7000-8000-668e2181b41d")?,
 //!     Did::new("did:web:alice.example")?,
 //!     OP_MESSAGE_CREATE,
 //!     1,
@@ -48,11 +48,12 @@
 //!     Ok(SyncResBody {
 //!         cursor: "s1".to_owned(),
 //!         spaces: Default::default(),
+//!         left_spaces: Vec::new(),
 //!         to_device: Vec::new(),
 //!         device_lists: Default::default(),
 //!         presence: Vec::new(),
 //!         account_data: Vec::new(),
-//!         notifications: Vec::new(),
+//!         notifications: serde_json::Value::Null,
 //!         partial: false,
 //!     })
 //! };

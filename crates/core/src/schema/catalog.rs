@@ -62,9 +62,9 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
             input: json!({
                 "schema": "cx.schema.flow.v1",
                 "id": "cx:flow:01904100-0000-7000-8000-b30c13414158",
-                "type": "flow",
-                "space_id": "cx:space:01904100-0000-7000-8000-65c7feb295d7",
+                "realm_id": "cx:realm:01904100-0000-7000-8000-65c7feb295d7",
                 "title": "Payment refactor",
+                "stage": "draft",
                 "tracks": {"synthesis": {}},
                 "created_by": "did:web:alice.example",
                 "created_at": "2026-05-02T00:00:00Z"

@@ -320,7 +320,7 @@ pub struct DirectoryDescribeParams {
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters, salvo::oapi::ToSchema))]
-pub struct DirectorySearchSpacesParams {
+pub struct DirectorySearchRealmsParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Contrix-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Contrix-Request-Id", parameter(parameter_in = Header)))]
     pub x_contrix_request_id: Option<String>,
@@ -331,7 +331,7 @@ pub struct DirectorySearchSpacesParams {
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters, salvo::oapi::ToSchema))]
-pub struct DirectoryResolveSpaceParams {
+pub struct DirectoryResolveRealmParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Contrix-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Contrix-Request-Id", parameter(parameter_in = Header)))]
     pub x_contrix_request_id: Option<String>,
@@ -1092,9 +1092,9 @@ pub struct AppletActorParams {
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters, salvo::oapi::ToSchema))]
-pub struct AppletSpaceParams {
+pub struct AppletRealmParams {
     #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Path)))]
-    pub space_id_or_alias: String,
+    pub realm_id_or_alias: String,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Contrix-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Contrix-Request-Id", parameter(parameter_in = Header)))]

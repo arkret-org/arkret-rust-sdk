@@ -5,6 +5,9 @@ pub const ACCOUNT_STATUS: &str = "cx.account.status";
 pub const ACCOUNT_DATA_SET: &str = "cx.account_data.set";
 pub const ACTOR_DISCOVERY: &str = "cx.actor.discovery";
 pub const AGENT_ENDPOINT: &str = "cx.agent.endpoint";
+pub const AGENT_KEY_AUTHORIZED: &str = "cx.agent.key.authorized";
+pub const AGENT_KEY_REVOKED: &str = "cx.agent.key.revoked";
+pub const AGENT_KEY_ROTATED: &str = "cx.agent.key.rotated";
 pub const AGENT_PROTOCOL_SESSION_RESULT: &str = "cx.agent.protocol_session.result";
 pub const AGENT_PROTOCOL_SESSION_START: &str = "cx.agent.protocol_session.start";
 pub const AGENT_PROTOCOL_SESSION_STATUS: &str = "cx.agent.protocol_session.status";
@@ -41,6 +44,7 @@ pub const FLOW_CREATE: &str = "cx.flow.create";
 pub const FLOW_MOVE: &str = "cx.flow.move";
 pub const FLOW_REORDER: &str = "cx.flow.reorder";
 pub const FLOW_RESTORE: &str = "cx.flow.restore";
+pub const FLOW_STAGE_SET: &str = "cx.flow.stage.set";
 pub const FLOW_TRACKS_UPDATE: &str = "cx.flow.tracks.update";
 pub const FLOW_UPDATE: &str = "cx.flow.update";
 pub const FLOW_WATCH_SET: &str = "cx.flow.watch.set";
@@ -155,6 +159,7 @@ pub const MORPH_ARCHIVE: &str = "cx.morph.archive";
 pub const MORPH_CREATE: &str = "cx.morph.create";
 pub const MORPH_RESTORE: &str = "cx.morph.restore";
 pub const MORPH_SCHEMA_MIGRATE: &str = "cx.morph.schema_migrate";
+pub const MORPH_STAGE_SET: &str = "cx.morph.stage.set";
 pub const MORPH_UPDATE: &str = "cx.morph.update";
 pub const ORGANIZATION_DISCOVERY: &str = "cx.organization.discovery";
 pub const ORGANIZATION_MODERATION_POLICY: &str = "cx.organization.moderation_policy";
@@ -229,6 +234,9 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     ACCOUNT_DATA_SET,
     ACTOR_DISCOVERY,
     AGENT_ENDPOINT,
+    AGENT_KEY_AUTHORIZED,
+    AGENT_KEY_REVOKED,
+    AGENT_KEY_ROTATED,
     AGENT_PROTOCOL_SESSION_RESULT,
     AGENT_PROTOCOL_SESSION_START,
     AGENT_PROTOCOL_SESSION_STATUS,
@@ -265,6 +273,7 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     FLOW_MOVE,
     FLOW_REORDER,
     FLOW_RESTORE,
+    FLOW_STAGE_SET,
     FLOW_TRACKS_UPDATE,
     FLOW_UPDATE,
     FLOW_WATCH_SET,
@@ -311,6 +320,7 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     MORPH_CREATE,
     MORPH_RESTORE,
     MORPH_SCHEMA_MIGRATE,
+    MORPH_STAGE_SET,
     MORPH_UPDATE,
     ORGANIZATION_DISCOVERY,
     ORGANIZATION_MODERATION_POLICY,
@@ -481,6 +491,9 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
         }
         ACTOR_DISCOVERY => EventClass::Actor,
         AGENT_ENDPOINT
+        | AGENT_KEY_AUTHORIZED
+        | AGENT_KEY_REVOKED
+        | AGENT_KEY_ROTATED
         | AGENT_PROTOCOL_SESSION_RESULT
         | AGENT_PROTOCOL_SESSION_START
         | AGENT_PROTOCOL_SESSION_STATUS => EventClass::Agent,
@@ -522,7 +535,7 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
         | REALM_KEY_SHARE
         | REALM_KEY_SHARE_AUDIT
         | REALM_KEY_WITHHELD => EventClass::E2ee,
-        FLOW_ARCHIVE | FLOW_CREATE | FLOW_MOVE | FLOW_REORDER | FLOW_RESTORE
+        FLOW_ARCHIVE | FLOW_CREATE | FLOW_MOVE | FLOW_REORDER | FLOW_RESTORE | FLOW_STAGE_SET
         | FLOW_TRACKS_UPDATE | FLOW_UPDATE | FLOW_WATCH_SET => EventClass::Flow,
         HANDLE_DISCOVERY => EventClass::Handle,
         DID_PROOF
@@ -545,9 +558,8 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
         | MODERATION_DECISION_LIFT
         | MODERATION_FRANK
         | MODERATION_REPORT => EventClass::Moderation,
-        MORPH_ARCHIVE | MORPH_CREATE | MORPH_RESTORE | MORPH_SCHEMA_MIGRATE | MORPH_UPDATE => {
-            EventClass::Morph
-        }
+        MORPH_ARCHIVE | MORPH_CREATE | MORPH_RESTORE | MORPH_SCHEMA_MIGRATE | MORPH_STAGE_SET
+        | MORPH_UPDATE => EventClass::Morph,
         ORGANIZATION_DISCOVERY | ORGANIZATION_MODERATION_POLICY => EventClass::Organization,
         POLICY_ACTION | POLICY_RULE | POLICY_SET => EventClass::Policy,
         PROFILE_CREATE | PROFILE_SPACE_OVERRIDE | PROFILE_UPDATE => EventClass::Profile,

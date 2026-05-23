@@ -75,7 +75,7 @@ pub fn classify_operation_kind(kind: &str) -> OperationSurface {
         | OP_APPLET_PING
         | OP_APPLET_PROTOCOL_METADATA
         | OP_APPLET_QUERY_ACTOR
-        | OP_APPLET_QUERY_SPACE
+        | OP_APPLET_QUERY_REALM
         | OP_APPLET_THIRD_PARTY_LOCATIONS
         | OP_APPLET_THIRD_PARTY_USERS
         | OP_APPLET_TRANSACTION => OperationSurface::Applet,
@@ -133,7 +133,10 @@ pub fn classify_operation_kind(kind: &str) -> OperationSurface {
             OperationSurface::Push
         }
         OP_SERVER_DESCRIBE => OperationSurface::Server,
-        OP_ACCOUNT_DESCRIBE | OP_ACCOUNT_SUBSCRIBE | OP_SNAPSHOT_HEAD => OperationSurface::Sync,
+        OP_ACCOUNT_DESCRIBE
+        | OP_ACCOUNT_SUBSCRIBE
+        | OP_ACCOUNT_CURSOR_REVOKE
+        | OP_SNAPSHOT_HEAD => OperationSurface::Sync,
         _ => OperationSurface::Custom(kind.to_owned()),
     }
 }
@@ -468,6 +471,7 @@ fn mutation_for_kind(kind: &str) -> OperationMutation {
         | OP_AUTHZ_CHECK => OperationMutation::Read,
         OP_EVENTS_SUBMIT
         | OP_ACCOUNT_SUBSCRIBE
+        | OP_ACCOUNT_CURSOR_REVOKE
         | OP_PUSH_NOTIFY
         | OP_KEYS_UPLOAD
         | OP_KEYS_CLAIM

@@ -516,18 +516,14 @@ impl SyncResBody {
         }
         let cursor = frame.cursor?;
         let mut spaces = BTreeMap::new();
-        let mut left_spaces = Vec::new();
         if let Some(realms) = frame.realms {
-            spaces.extend(realms.join);
-            spaces.extend(realms.invite);
-            spaces.extend(realms.knock);
-            left_spaces.extend(realms.leave.into_keys());
+            spaces.extend(realms.entries);
         }
 
         Some(Self {
             cursor,
             spaces,
-            left_spaces,
+            left_spaces: Vec::new(),
             to_device: frame
                 .to_device
                 .and_then(|value| value.get("events").cloned())
@@ -594,18 +590,9 @@ pub enum AccountSubscribeFrameKind {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AccountSubscribeRealms {
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    pub join: BTreeMap<String, Value>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    pub invite: BTreeMap<String, Value>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    pub knock: BTreeMap<String, Value>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    pub leave: BTreeMap<String, Value>,
+    pub entries: BTreeMap<String, Value>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -831,7 +818,7 @@ pub struct DirectoryDescription {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct DirectorySearchSpacesReqBody {
+pub struct DirectorySearchRealmsReqBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub query: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -850,17 +837,17 @@ pub struct DirectorySearchSpacesReqBody {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct DirectorySearchSpacesResBody {
+pub struct DirectorySearchRealmsResBody {
     #[serde(default)]
-    pub results: Vec<SpacePreview>,
+    pub results: Vec<RealmPreview>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SpacePreview {
-    pub space_id: SpaceId,
+pub struct RealmPreview {
+    pub realm_id: RealmId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     #[serde(default, skip_serializing_if = "Value::is_null")]
@@ -869,9 +856,9 @@ pub struct SpacePreview {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct DirectoryResolveSpaceReqBody {
+pub struct DirectoryResolveRealmReqBody {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<SpaceId>,
+    pub realm_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub alias: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -886,8 +873,8 @@ pub struct DirectoryResolveSpaceReqBody {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct DirectoryResolveSpaceResBody {
-    pub space_preview: SpacePreview,
+pub struct DirectoryResolveRealmResBody {
+    pub realm_preview: RealmPreview,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub stripped_state: Vec<Event>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1241,14 +1228,45 @@ pub struct AppletActorResBody {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AppletSpaceResBody {
+pub struct AppletRealmResBody {
     pub exists: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<SpaceId>,
+    pub realm_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub external_ref: Value,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum CursorRevokeScope {
+    ThisCursor,
+    SameDevice,
+    SameSession,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct AccountCursorRevokeReqBody {
+    pub cursor: String,
+    pub reason_code: String,
+    #[serde(default = "default_cursor_revoke_scope")]
+    pub revoke_scope: CursorRevokeScope,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct AccountCursorRevokeResBody {
+    pub revoked: bool,
+    pub expires_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revoke_scope_effective: Option<CursorRevokeScope>,
+}
+
+fn default_cursor_revoke_scope() -> CursorRevokeScope {
+    CursorRevokeScope::ThisCursor
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

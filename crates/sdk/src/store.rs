@@ -171,8 +171,10 @@ impl EventCacheStore for MemoryPersistenceStore {
     }
 
     fn events_for_space(&self, space_id: &SpaceId) -> Vec<&Event> {
+        let realm_scope = SpaceId::new(space_id.as_str().replacen("cx:space:", "cx:realm:", 1))
+            .unwrap_or_else(|_| space_id.clone());
         self.events
-            .get(space_id)
+            .get(&realm_scope)
             .map(|events| events.values().map(|(_, event)| event).collect())
             .unwrap_or_default()
     }
