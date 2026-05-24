@@ -10,6 +10,21 @@ jobs:
   package:
     name: Package workspace locally
     runs-on: ubuntu-latest
+    env:
+      # Topologically sorted dependency order. Generated from
+      # `cargo metadata --no-deps`; keep in sync with `RELEASING.md`.
+      CRATES: >-
+        contrix-identifiers
+        contrix-core
+        contrix-ffi
+        contrix-html
+        contrix-http-client
+        contrix-signatures
+        contrix-crypto
+        contrix-api
+        contrix-server
+        contrix-testing
+        contrix
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master

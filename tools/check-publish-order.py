@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Verify the publish order in `.github/workflows/release-crates.yml`.
+"""Verify the local package order in `.github/workflows/release-crates.yml`.
 
-The workflow holds a flat list of workspace crates that must be published in
+The workflow holds a flat list of workspace crates that must be packaged in
 dependency order. Any valid topological order works; this script checks the
 workflow's curated list against the workspace's actual dependency graph
 (`cargo metadata --no-deps`) and complains when:
@@ -87,7 +87,7 @@ _CRATES_BLOCK_RE = re.compile(
 
 
 def workflow_order(workflow_text: str) -> list[str]:
-    """Extract the flat CRATES list from the release workflow YAML."""
+    """Extract the flat CRATES list from the package workflow YAML."""
     match = _CRATES_BLOCK_RE.search(workflow_text)
     if not match:
         raise SystemExit(
@@ -155,14 +155,14 @@ def main(argv: list[str]) -> int:
     problems = validate_workflow(workflow_list, workspace_deps)
     if problems:
         print(
-            "publish order in .github/workflows/release-crates.yml is not a valid "
+            "package order in .github/workflows/release-crates.yml is not a valid "
             "topological order:"
         )
         for line in problems:
             print(f"  {line}")
         return 1
     print(
-        f"publish order is a valid topological sort ({len(workflow_list)} crates)"
+        f"package order is a valid topological sort ({len(workflow_list)} crates)"
     )
     return 0
 

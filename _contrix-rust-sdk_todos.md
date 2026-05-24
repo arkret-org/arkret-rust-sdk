@@ -44,7 +44,7 @@
 
 ### Local freeze
 - [x] §21 Bump all 11 crates to `0.8.0-rc1`. `RELEASING.md` already encodes the order.
-- [ ] §22 Run local release package checks for `0.8.0-rc1`. Do not publish crates, create GitHub releases, or push release tags.
+- [x] §22 Run local release package checks for `0.8.0-rc1`. Do not publish crates, create GitHub releases, or push release tags.
 
 ## Phase 5 tasks (final 1.0)
 
