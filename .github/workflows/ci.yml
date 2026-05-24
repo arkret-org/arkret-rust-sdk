@@ -117,7 +117,7 @@ jobs:
           fail_ci_if_error: false
 
   publish-dry-run:
-    name: crates.io dry run
+    name: crates.io package check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -125,8 +125,12 @@ jobs:
         with:
           toolchain: "1.92"
       - uses: Swatinem/rust-cache@v2
-      # Crate package name is `contrix` (workspace path is `crates/sdk`).
-      - run: cargo publish -p contrix --dry-run --locked
+      - run: python tools/check-publish-order.py
+      - run: cargo package --workspace --locked --no-verify
+      # Full dependent publish dry-runs require the prior internal crate
+      # versions to already exist on crates.io. The leaf crate still verifies
+      # Cargo's upload preparation path on PRs.
+      - run: cargo publish -p contrix-identifiers --dry-run --locked
 
   spec-drift:
     name: spec artifact drift report

@@ -44,7 +44,7 @@
 
 ### Tag
 - [x] §21 Bump all 11 crates to `0.8.0-rc1`. `RELEASING.md` already encodes the order.
-- [ ] §22 Run `cargo publish -p ... --dry-run` for the full topological list. Push tag `v0.8.0-rc1`.
+- [ ] §22 Run release package checks and the coordinated publish/tag path for `v0.8.0-rc1`. Full dependent `cargo publish --dry-run` requires preceding internal RC crates to already exist on crates.io.
 
 ## Phase 5 tasks (final 1.0)
 

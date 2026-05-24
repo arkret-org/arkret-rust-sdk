@@ -50,11 +50,16 @@ jobs:
       - run: cargo clippy --all-features --all-targets -- -D warnings
       - run: cargo test --all-features
 
-      - name: cargo publish --dry-run (umbrella)
-        # The umbrella `contrix` crate's dry-run exercises all the path
-        # dependencies as a sanity check, so we don't need to dry-run each
-        # leaf separately on every push.
-        run: cargo publish -p contrix --dry-run --locked
+      - name: Validate publish order
+        run: python tools/check-publish-order.py
+
+      - name: Package workspace
+        run: cargo package --workspace --locked --no-verify
+
+      - name: cargo publish --dry-run (first crate)
+        # Dependent workspace crates cannot be publish-dry-run verified until
+        # the preceding RC versions are already present in the crates.io index.
+        run: cargo publish -p contrix-identifiers --dry-run --locked
 
       - name: Publish each crate in topological order
         if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == 'false')

@@ -50,10 +50,17 @@ tie-breaking is informational, not a requirement.
    cargo check --workspace --all-features
    cargo clippy --all-features --all-targets -- -D warnings
    cargo test --all-features
+   python tools/check-publish-order.py
+   cargo package --workspace --locked --no-verify
+   cargo publish -p contrix-identifiers --dry-run --locked
    cargo doc --no-deps --all-features --workspace
    cargo deny --config .deny.toml check --all-features
    cargo audit --deny warnings
    ```
+
+   Full `cargo publish --dry-run` verification for dependent workspace crates
+   requires each preceding internal crate version to already exist on crates.io,
+   so use the package assembly check before the coordinated publish.
 
 2. Confirm the public protocol surface is compatible with the current Contrix
    specification. Update `docs/release-evidence-<version>.md` with the
