@@ -66,14 +66,14 @@ fn space_state_creates_empty() {
 
 #[test]
 fn place_events_create_update_parent_and_tombstone() {
-    let place_id = "cx:place:01904100-0000-7000-8000-1fb50799ad3f";
+    let place_id = "cx:space:01904100-0000-7000-8000-1fb50799ad3f";
     let create = event(
-        OP_PLACE_CREATE,
+        OP_SPACE_CREATE,
         1,
         json!({
             "object": {
                 "id": place_id,
-                "schema": crate::PLACE_SCHEMA,
+                "schema": crate::SPACE_SCHEMA,
                 "space_id": space_id().as_str(),
                 "kind": "board",
                 "title": "Roadmap",
@@ -83,7 +83,7 @@ fn place_events_create_update_parent_and_tombstone() {
         }),
     );
     let mut update = event(
-        OP_PLACE_UPDATE,
+        OP_SPACE_UPDATE,
         2,
         json!({
             "place_id": place_id,
@@ -96,7 +96,7 @@ fn place_events_create_update_parent_and_tombstone() {
     );
     update.prev_refs.push(create.event_id.clone());
     let mut parent = event(
-        OP_PLACE_PARENT,
+        OP_SPACE_PARENT,
         3,
         json!({
             "place_id": place_id,
@@ -104,7 +104,7 @@ fn place_events_create_update_parent_and_tombstone() {
         }),
     );
     parent.prev_refs.push(update.event_id.clone());
-    let mut tombstone = event(OP_PLACE_TOMBSTONE, 4, json!({ "place_id": place_id }));
+    let mut tombstone = event(OP_SPACE_TOMBSTONE, 4, json!({ "place_id": place_id }));
     tombstone.prev_refs.push(parent.event_id.clone());
 
     let mut state = SpaceState::new(space_id(), "1".to_owned());
@@ -121,12 +121,12 @@ fn place_events_create_update_parent_and_tombstone() {
 
 fn place_create_event(seq: u64, place_id: &str) -> Event {
     event(
-        OP_PLACE_CREATE,
+        OP_SPACE_CREATE,
         seq,
         json!({
             "object": {
                 "id": place_id,
-                "schema": crate::PLACE_SCHEMA,
+                "schema": crate::SPACE_SCHEMA,
                 "space_id": space_id().as_str(),
                 "kind": "board",
                 "title": "Roadmap",
@@ -139,13 +139,13 @@ fn place_create_event(seq: u64, place_id: &str) -> Event {
 
 #[test]
 fn place_archive_then_restore_round_trip() {
-    let place_id = "cx:place:01904100-0000-7000-8000-1fb50799ad42";
+    let place_id = "cx:space:01904100-0000-7000-8000-1fb50799ad42";
     let create = place_create_event(1, place_id);
 
-    let mut archive = event(OP_PLACE_ARCHIVE, 2, json!({ "place_id": place_id }));
+    let mut archive = event(OP_SPACE_ARCHIVE, 2, json!({ "place_id": place_id }));
     archive.prev_refs.push(create.event_id.clone());
 
-    let mut restore = event(OP_PLACE_RESTORE, 3, json!({ "place_id": place_id }));
+    let mut restore = event(OP_SPACE_RESTORE, 3, json!({ "place_id": place_id }));
     restore.prev_refs.push(archive.event_id.clone());
     let restore_at = restore.created_at;
 
@@ -159,10 +159,10 @@ fn place_archive_then_restore_round_trip() {
 
 #[test]
 fn place_restore_rejected_when_active() {
-    let place_id = "cx:place:01904100-0000-7000-8000-1fb50799ad43";
+    let place_id = "cx:space:01904100-0000-7000-8000-1fb50799ad43";
     let create = place_create_event(1, place_id);
 
-    let mut restore = event(OP_PLACE_RESTORE, 2, json!({ "place_id": place_id }));
+    let mut restore = event(OP_SPACE_RESTORE, 2, json!({ "place_id": place_id }));
     restore.prev_refs.push(create.event_id.clone());
 
     let mut state = SpaceState::new(space_id(), "1".to_owned());
@@ -175,14 +175,14 @@ fn place_restore_rejected_when_active() {
 
 #[test]
 fn place_restore_rejected_when_tombstoned() {
-    let place_id = "cx:place:01904100-0000-7000-8000-1fb50799ad44";
+    let place_id = "cx:space:01904100-0000-7000-8000-1fb50799ad44";
     let create = place_create_event(1, place_id);
 
-    let mut tombstone = event(OP_PLACE_TOMBSTONE, 2, json!({ "place_id": place_id }));
+    let mut tombstone = event(OP_SPACE_TOMBSTONE, 2, json!({ "place_id": place_id }));
     tombstone.prev_refs.push(create.event_id.clone());
     let tombstone_at = tombstone.created_at;
 
-    let mut restore = event(OP_PLACE_RESTORE, 3, json!({ "place_id": place_id }));
+    let mut restore = event(OP_SPACE_RESTORE, 3, json!({ "place_id": place_id }));
     restore.prev_refs.push(tombstone.event_id.clone());
 
     let mut state = SpaceState::new(space_id(), "1".to_owned());
@@ -298,11 +298,11 @@ fn morph_restore_rejected_when_active() {
 
 #[test]
 fn place_archive_rejected_when_already_archived() {
-    let place_id = "cx:place:01904100-0000-7000-8000-2fb50799ad42";
+    let place_id = "cx:space:01904100-0000-7000-8000-2fb50799ad42";
     let create = place_create_event(1, place_id);
-    let mut archive1 = event(OP_PLACE_ARCHIVE, 2, json!({ "place_id": place_id }));
+    let mut archive1 = event(OP_SPACE_ARCHIVE, 2, json!({ "place_id": place_id }));
     archive1.prev_refs.push(create.event_id.clone());
-    let mut archive2 = event(OP_PLACE_ARCHIVE, 3, json!({ "place_id": place_id }));
+    let mut archive2 = event(OP_SPACE_ARCHIVE, 3, json!({ "place_id": place_id }));
     archive2.prev_refs.push(archive1.event_id.clone());
 
     let mut state = SpaceState::new(space_id(), "1".to_owned());
@@ -317,11 +317,11 @@ fn place_archive_rejected_when_already_archived() {
 
 #[test]
 fn place_archive_rejected_when_tombstoned() {
-    let place_id = "cx:place:01904100-0000-7000-8000-2fb50799ad43";
+    let place_id = "cx:space:01904100-0000-7000-8000-2fb50799ad43";
     let create = place_create_event(1, place_id);
-    let mut tombstone = event(OP_PLACE_TOMBSTONE, 2, json!({ "place_id": place_id }));
+    let mut tombstone = event(OP_SPACE_TOMBSTONE, 2, json!({ "place_id": place_id }));
     tombstone.prev_refs.push(create.event_id.clone());
-    let mut archive = event(OP_PLACE_ARCHIVE, 3, json!({ "place_id": place_id }));
+    let mut archive = event(OP_SPACE_ARCHIVE, 3, json!({ "place_id": place_id }));
     archive.prev_refs.push(tombstone.event_id.clone());
 
     let mut state = SpaceState::new(space_id(), "1".to_owned());
@@ -332,11 +332,11 @@ fn place_archive_rejected_when_tombstoned() {
 
 #[test]
 fn place_tombstone_rejected_when_already_terminal() {
-    let place_id = "cx:place:01904100-0000-7000-8000-2fb50799ad44";
+    let place_id = "cx:space:01904100-0000-7000-8000-2fb50799ad44";
     let create = place_create_event(1, place_id);
-    let mut tombstone1 = event(OP_PLACE_TOMBSTONE, 2, json!({ "place_id": place_id }));
+    let mut tombstone1 = event(OP_SPACE_TOMBSTONE, 2, json!({ "place_id": place_id }));
     tombstone1.prev_refs.push(create.event_id.clone());
-    let mut tombstone2 = event(OP_PLACE_TOMBSTONE, 3, json!({ "place_id": place_id }));
+    let mut tombstone2 = event(OP_SPACE_TOMBSTONE, 3, json!({ "place_id": place_id }));
     tombstone2.prev_refs.push(tombstone1.event_id.clone());
 
     let mut state = SpaceState::new(space_id(), "1".to_owned());
@@ -377,12 +377,12 @@ fn morph_archive_rejected_when_already_archived() {
 
 #[test]
 fn place_update_rejected_when_archived() {
-    let place_id = "cx:place:01904100-0000-7000-8000-3fb50799ad42";
+    let place_id = "cx:space:01904100-0000-7000-8000-3fb50799ad42";
     let create = place_create_event(1, place_id);
-    let mut archive = event(OP_PLACE_ARCHIVE, 2, json!({ "place_id": place_id }));
+    let mut archive = event(OP_SPACE_ARCHIVE, 2, json!({ "place_id": place_id }));
     archive.prev_refs.push(create.event_id.clone());
     let mut update =
-        event(OP_PLACE_UPDATE, 3, json!({ "place_id": place_id, "patch": { "title": "Renamed" } }));
+        event(OP_SPACE_UPDATE, 3, json!({ "place_id": place_id, "patch": { "title": "Renamed" } }));
     update.prev_refs.push(archive.event_id.clone());
 
     let mut state = SpaceState::new(space_id(), "1".to_owned());

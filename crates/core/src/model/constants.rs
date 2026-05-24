@@ -11,10 +11,6 @@ pub const CURSOR_SCHEMA: &str = "cx.schema.cursor.v1";
 //     (formerly `cx.schema.place.v1`, which is deleted).
 pub const REALM_SCHEMA_ID: &str = "cx.schema.realm.v1";
 pub const SPACE_SCHEMA: &str = "cx.schema.space.v1";
-// TODO(realm-rework): remove PLACE_SCHEMA once all container call sites are
-// migrated to SPACE_SCHEMA. Kept here as a transitional compile-time alias
-// only; the wire id `cx.schema.place.v1` is retired by the spec.
-pub const PLACE_SCHEMA: &str = "cx.schema.space.v1";
 pub const ACTOR_PROFILE_SCHEMA: &str = "cx.schema.actor_profile.v1";
 pub const FLOW_SCHEMA: &str = "cx.schema.flow.v1";
 pub const RELATION_SCHEMA: &str = "cx.schema.relation.v1";
@@ -78,8 +74,7 @@ pub const OP_MORPH_RESTORE: &str = "cx.morph.restore";
 pub const OP_MORPH_STAGE_SET: &str = "cx.morph.stage.set";
 
 /// Space (container) event kinds. Realm/Space inversion (spec 59ac1d4):
-/// `cx.place.*` (container) is renamed to `cx.space.*`. The OP constant
-/// names migrate from OP_PLACE_* to OP_SPACE_* below; see the security
+/// `cx.place.*` (container) is renamed to `cx.space.*`; see the security
 /// boundary OP_REALM_* family for the renamed `cx.realm.*` events.
 pub const OP_SPACE_CREATE: &str = "cx.space.create";
 pub const OP_SPACE_UPDATE: &str = "cx.space.update";
@@ -87,16 +82,6 @@ pub const OP_SPACE_PARENT: &str = "cx.space.parent";
 pub const OP_SPACE_ARCHIVE: &str = "cx.space.archive";
 pub const OP_SPACE_RESTORE: &str = "cx.space.restore";
 pub const OP_SPACE_TOMBSTONE: &str = "cx.space.tombstone";
-// TODO(realm-rework): drop these OP_PLACE_* aliases after migrating all
-// call sites to OP_SPACE_*. Wire values point at the new `cx.space.*`
-// container events; OP_PLACE_* names persist only for transitional
-// compile-time compatibility.
-pub const OP_PLACE_CREATE: &str = OP_SPACE_CREATE;
-pub const OP_PLACE_UPDATE: &str = OP_SPACE_UPDATE;
-pub const OP_PLACE_PARENT: &str = OP_SPACE_PARENT;
-pub const OP_PLACE_ARCHIVE: &str = OP_SPACE_ARCHIVE;
-pub const OP_PLACE_RESTORE: &str = OP_SPACE_RESTORE;
-pub const OP_PLACE_TOMBSTONE: &str = OP_SPACE_TOMBSTONE;
 
 /// Relation event kinds.
 pub const OP_RELATION_CREATE: &str = "cx.relation.create";
@@ -127,12 +112,6 @@ pub const OP_REALM_DELIVERY_BINDING_POLICY: &str = "cx.realm.delivery_binding_po
 pub const OP_REALM_INHERITANCE_POLICY: &str = "cx.realm.inheritance_policy";
 pub const OP_REALM_AUDIT_POLICY_DOWNGRADE: &str = "cx.realm.audit_policy_downgrade";
 pub const OP_CAPABILITY_DERIVED: &str = "cx.capability.derived";
-// TODO(realm-rework): drop these old OP_SPACE_* (security) aliases after
-// migrating all call sites to OP_REALM_*. Wire values now point at
-// `cx.realm.*` per the spec inversion.
-pub const OP_SPACE_CHILD: &str = OP_REALM_LINK;
-pub const OP_SPACE_ORGANIZATION: &str = OP_REALM_ORGANIZATION;
-pub const OP_SPACE_DELIVERY_BINDING_POLICY: &str = OP_REALM_DELIVERY_BINDING_POLICY;
 
 /// Device event kinds.
 ///

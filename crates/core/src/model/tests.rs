@@ -285,7 +285,7 @@ fn protocol_schema_registry_publishes_core_json_schemas() {
     for schema_id in [
         CURSOR_SCHEMA,
         FLOW_SCHEMA,
-        PLACE_SCHEMA,
+        SPACE_SCHEMA,
         VIEW_SCHEMA,
         EVENT_SCHEMA,
         CAPABILITY_SCHEMA,

@@ -22,6 +22,36 @@ fn deny_password_login(ctx: &AuthRateLimitContext) -> Result<()> {
     }
 }
 
+fn session_grant_notification(
+    now: DateTime<Utc>,
+    request_id: &str,
+) -> PrincipalSessionGrantNotification {
+    let payload = SessionGrantPayload {
+        issuer: did("coauth"),
+        subject: did("alice"),
+        principal_id: did("alice"),
+        device_id: device("desktop"),
+        audience: vec!["did:web:soland.example".to_owned()],
+        scopes: vec!["urn:contrix:principal-server:session.bind".to_owned()],
+        session_id: "browser-session-1".to_owned(),
+        grant_jti: "grant-1".to_owned(),
+        issued_at: now,
+        expires_at: now + Duration::minutes(10),
+        revocation_ref: "https://coauth.example/api/admin/v1/session-grants/grant-1".to_owned(),
+        session_public_key: Some("session-public-key".to_owned()),
+    };
+    let mut record = SessionGrant::new(payload, "signed.jwt.value").unwrap().into_record();
+    record.revoke(now + Duration::minutes(1), "logout");
+
+    PrincipalSessionGrantNotification {
+        request_id: request_id.to_owned(),
+        kind: SessionGrantNotificationKind::Revoked,
+        record,
+        admin_actor: Some(did("admin")),
+        reason: Some("logout".to_owned()),
+    }
+}
+
 #[test]
 fn auth_handles_password_mfa_and_sessions() {
     let alice = did("alice");
@@ -286,6 +316,81 @@ fn session_grant_contract_redacts_and_notifies_principal_servers() {
     assert_eq!(entry.state, SessionGrantOutboxState::Failed);
     entry.record_failure("still failing", now, policy);
     assert_eq!(entry.state, SessionGrantOutboxState::DeadLettered);
+}
+
+#[derive(Default)]
+struct MockPgSessionGrantOutbox {
+    rows: Vec<SessionGrantOutboxEntry>,
+    writes: Vec<String>,
+}
+
+impl SessionGrantOutbox for MockPgSessionGrantOutbox {
+    fn enqueue(
+        &mut self,
+        notification: PrincipalSessionGrantNotification,
+        now: DateTime<Utc>,
+    ) -> Result<()> {
+        self.writes.push(format!("insert:{}", notification.request_id));
+        self.rows.push(SessionGrantOutboxEntry::new(notification, now)?);
+        Ok(())
+    }
+
+    fn due(&self, now: DateTime<Utc>) -> Result<Vec<SessionGrantOutboxEntry>> {
+        Ok(self.rows.iter().filter(|entry| entry.due(now)).cloned().collect())
+    }
+
+    fn entries(&self) -> Result<Vec<SessionGrantOutboxEntry>> {
+        Ok(self.rows.clone())
+    }
+
+    fn record_delivery(&mut self, request_id: &str) -> Result<bool> {
+        let Some(entry) =
+            self.rows.iter_mut().find(|entry| entry.notification.request_id == request_id)
+        else {
+            return Ok(false);
+        };
+        self.writes.push(format!("delivered:{request_id}"));
+        entry.record_delivery();
+        Ok(true)
+    }
+
+    fn record_failure(
+        &mut self,
+        request_id: &str,
+        error: String,
+        now: DateTime<Utc>,
+        policy: SessionGrantRetryPolicy,
+    ) -> Result<bool> {
+        let Some(entry) =
+            self.rows.iter_mut().find(|entry| entry.notification.request_id == request_id)
+        else {
+            return Ok(false);
+        };
+        self.writes.push(format!("failure:{request_id}:{error}"));
+        entry.record_failure(error, now, policy);
+        Ok(true)
+    }
+}
+
+#[test]
+fn session_grant_outbox_slot_accepts_memory_and_pg_like_backends() {
+    let now = Utc::now();
+    let policy =
+        SessionGrantRetryPolicy { initial_backoff_ms: 10, max_backoff_ms: 100, max_attempts: 2 };
+
+    let mut memory = SessionGrantOutboxSlot::memory();
+    memory.enqueue(session_grant_notification(now, "memory-1"), now).unwrap();
+    assert_eq!(memory.due(now).unwrap().len(), 1);
+    assert!(memory.record_delivery("memory-1").unwrap());
+    assert_eq!(memory.due(now).unwrap().len(), 0);
+
+    let mut pg = SessionGrantOutboxSlot::new(Box::<MockPgSessionGrantOutbox>::default());
+    pg.enqueue(session_grant_notification(now, "pg-1"), now).unwrap();
+    assert_eq!(pg.due(now).unwrap().len(), 1);
+    assert!(pg.record_failure("pg-1", "serialization_failure", now, policy).unwrap());
+    let entry = pg.entries().unwrap().pop().unwrap();
+    assert_eq!(entry.state, SessionGrantOutboxState::Failed);
+    assert_eq!(entry.attempts, 1);
 }
 
 #[test]

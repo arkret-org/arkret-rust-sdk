@@ -20,7 +20,7 @@ This SDK audit checklist is intended for release review.
 
 - All signed protocol objects must use `canonical` helpers.
 - Floating point JSON values are rejected for canonical digests.
-- Identifier constructors validate DID, Space, Place, ActorProfile, Flow,
+- Identifier constructors validate DID, Realm, Space, ActorProfile, Flow,
   Message, Morph, Relation, Event, Operation, Device, Blob and Cursor forms
   before use.
 
@@ -98,4 +98,3 @@ audit item as `external_audit_required`.
 | E2EE and MLS | `crates/sdk/src/e2ee.rs`, `mls.rs`, `devices.rs` |
 | Federation and service identity | `crates/sdk/src/federation.rs`, `crates/core/src/service.rs` |
 | Log redaction and feature safety | `crates/sdk/src/crypto.rs`, `crates/http-client/src/lib.rs`, `crates/server/src/lib.rs` |
-

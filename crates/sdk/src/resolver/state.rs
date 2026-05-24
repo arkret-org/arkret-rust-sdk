@@ -184,12 +184,12 @@ impl SpaceState {
             OP_MORPH_ARCHIVE => self.archive_morph(event)?,
             OP_MORPH_RESTORE => self.restore_morph(event)?,
 
-            OP_PLACE_CREATE => self.create_place(event)?,
-            OP_PLACE_UPDATE => self.update_place(event)?,
-            OP_PLACE_PARENT => self.set_place_parent(event)?,
-            OP_PLACE_ARCHIVE => self.archive_place(event)?,
-            OP_PLACE_RESTORE => self.restore_place(event)?,
-            OP_PLACE_TOMBSTONE => self.tombstone_place(event)?,
+            OP_SPACE_CREATE => self.create_place(event)?,
+            OP_SPACE_UPDATE => self.update_place(event)?,
+            OP_SPACE_PARENT => self.set_place_parent(event)?,
+            OP_SPACE_ARCHIVE => self.archive_place(event)?,
+            OP_SPACE_RESTORE => self.restore_place(event)?,
+            OP_SPACE_TOMBSTONE => self.tombstone_place(event)?,
 
             // Relation lifecycle
             OP_RELATION_CREATE => self.create_relation(event)?,
@@ -201,12 +201,8 @@ impl SpaceState {
             OP_VIEW_UPDATE => self.update_view(event)?,
             OP_VIEW_RECONCILE => self.reconcile_view(event)?,
 
-            // Realm lifecycle - generic state reduction
-            // TODO(realm-rework): rename `reduce_space_lifecycle_event` -> `reduce_realm_lifecycle_event`
-            // and route the new `cx.realm.*` event kinds through here.
-            // Container-level (`cx.space.*`) lifecycle is covered by the
-            // OP_PLACE_* arms above (which now resolve to `cx.space.*` after
-            // the Realm/Space inversion).
+            // Realm lifecycle - generic state reduction. Container-level
+            // (`cx.space.*`) lifecycle is covered by the OP_SPACE_* arms above.
             "cx.realm.create"
             | "cx.realm.update"
             | "cx.realm.organization"
@@ -217,7 +213,7 @@ impl SpaceState {
             | "cx.realm.discovery"
             | "cx.realm.archive"
             | "cx.realm.freeze"
-            | "cx.realm.destroy" => self.reduce_space_lifecycle_event(event)?,
+            | "cx.realm.destroy" => self.reduce_realm_lifecycle_event(event)?,
 
             // Member / capability / invite / policy / read-marker state
             "cx.member.state"
@@ -297,11 +293,7 @@ impl SpaceState {
             schema: crate::MORPH_SCHEMA.to_owned(),
             id: morph_id_str.clone(),
             space_id: SpaceId::new(event.realm_id.to_string())?,
-            // TODO(C47 Lane A4): once the resolver consumes `cx.morph.create`
-            // payloads that include `schema_refs[]`, plumb them through here.
-            // For now we hand back an empty set; reducer-side
-            // `cx.morph.schema_migrate` enforcement is still TODO.
-            schema_refs: Vec::new(),
+            schema_refs: self.extract_optional_field(object, "schema_refs").unwrap_or_default(),
             morph_type,
             facets,
             title,
@@ -428,7 +420,7 @@ impl SpaceState {
     fn create_place(&mut self, event: &Event) -> Result<()> {
         let object = event.content.get("object").unwrap_or(&event.content);
         let place_id = self.extract_place_id(object)?;
-        let id = PlaceId::new(place_id.clone())?;
+        let id = SpaceId::new(place_id.clone())?;
         let space_id = self.extract_optional_field(object, "space_id").unwrap_or_else(|| {
             SpaceId::new(event.realm_id.to_string()).expect("validated realm id")
         });
@@ -441,7 +433,7 @@ impl SpaceState {
             .unwrap_or(crate::PlaceState::Active);
 
         let place = Place {
-            schema: crate::PLACE_SCHEMA.to_owned(),
+            schema: crate::SPACE_SCHEMA.to_owned(),
             id,
             space_id,
             parent_ref: self.extract_optional_field(object, "parent_ref"),
@@ -958,7 +950,7 @@ impl SpaceState {
     }
 
     /// Reduce realm lifecycle events into resolved state.
-    fn reduce_space_lifecycle_event(&mut self, event: &Event) -> Result<()> {
+    fn reduce_realm_lifecycle_event(&mut self, event: &Event) -> Result<()> {
         // Realm lifecycle events update the realm version and are stored as resolved state.
         if (event.kind == "cx.realm.create" || event.kind == "cx.realm.update")
             && let Some(version) =
@@ -1182,7 +1174,7 @@ impl SpaceState {
         }
         // Unknown object — causal / backfill window. Tolerate silently
         // (mirrors restore_*/archive_* guards). Note that Place is also
-        // hit here when `object_ref` is `cx:place:...` and Place is
+        // hit here when `object_ref` is `cx:space:...` and Place is
         // unmaterialised; that's also fine because cx.redaction targeting
         // a Place is undefined per spec (no `Redacted` variant), and
         // any place removal flow uses `cx.place.tombstone` directly.

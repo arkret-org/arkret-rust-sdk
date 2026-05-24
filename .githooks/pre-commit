@@ -1,0 +1,73 @@
+#!/usr/bin/env sh
+set -eu
+
+staged_paths=$(git diff --cached --name-only --diff-filter=ACMR)
+rust_touched=$(printf '%s\n' "$staged_paths" | grep -E '(^Cargo\.toml$|^Cargo\.lock$|^crates/.+/(Cargo\.toml|.+\.rs)$)' || true)
+
+if [ -z "$rust_touched" ]; then
+    exit 0
+fi
+
+cargo fmt --all -- --check
+
+workspace_touched=false
+packages=
+
+add_package() {
+    case " $packages " in
+        *" $1 "*) ;;
+        *) packages="$packages $1" ;;
+    esac
+}
+
+for path in $rust_touched; do
+    case "$path" in
+        Cargo.toml|Cargo.lock)
+            workspace_touched=true
+            ;;
+        crates/api/*)
+            add_package contrix-api
+            ;;
+        crates/core/*)
+            add_package contrix-core
+            ;;
+        crates/crypto/*)
+            add_package contrix-crypto
+            ;;
+        crates/ffi/*)
+            add_package contrix-ffi
+            ;;
+        crates/html/*)
+            add_package contrix-html
+            ;;
+        crates/http-client/*)
+            add_package contrix-http-client
+            ;;
+        crates/identifiers/*)
+            add_package contrix-identifiers
+            ;;
+        crates/sdk/*)
+            add_package contrix
+            ;;
+        crates/server/*)
+            add_package contrix-server
+            ;;
+        crates/signatures/*)
+            add_package contrix-signatures
+            ;;
+        crates/testing/*)
+            add_package contrix-testing
+            ;;
+        *)
+            workspace_touched=true
+            ;;
+    esac
+done
+
+if [ "$workspace_touched" = true ]; then
+    cargo clippy --workspace --all-targets --all-features
+else
+    for package in $packages; do
+        cargo clippy -p "$package" --all-targets --all-features
+    done
+fi

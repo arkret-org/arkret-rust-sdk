@@ -1,6 +1,8 @@
 # Contrix Rust SDK
 
-Release status: release candidate for Contrix v1 SDK `0.1.0`. The SDK includes
+[![codecov](https://codecov.io/gh/contrix/contrix-rust-sdk/branch/main/graph/badge.svg)](https://codecov.io/gh/contrix/contrix-rust-sdk)
+
+Release status: release candidate for Contrix v1 SDK `0.8.0-rc1`. The SDK includes
 authenticated local encryption helpers based on XChaCha20-Poly1305, OpenMLS MLS
 group encryption, framework-independent server contracts, HTTP client bindings
 and conformance-oriented tests. Before a stable non-0.x guarantee, run an
@@ -10,7 +12,7 @@ This repository contains the Rust SDK for Contrix v1. The public SDK surface is
 centered on:
 
 - DID principals
-- Space / Flow / Message / Morph / Relation / Event / View
+- Realm / Space / Flow / Message / Morph / Relation / Event / View
 - signed Event Envelopes as the canonical wire facts for durable history
 - Operations as SDK builders and offline draft objects before Event Envelope wrapping
 - capability grants and policy checks
@@ -30,8 +32,9 @@ After the Phase 1–4 terminology inversion (Round R1.x):
 - **Space:** navigation container — board, list, section, calendar bucket.
   Lives inside a Realm. Previously called `Place` on the wire.
 
-The SDK exposes both the new types and back-compat aliases; consult the
-spec under `contrix-spec/spec/v1` for the canonical wire layout.
+The 0.8 line uses the realm/space names directly; the 0.7 compile-time aliases
+are removed. See [MIGRATING-FROM-0.7.md](MIGRATING-FROM-0.7.md) for the
+wire-breaking rename notes.
 
 ## Entry Point
 

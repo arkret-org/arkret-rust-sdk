@@ -28,7 +28,7 @@ Contrix IDs, hashes, cursor tokens and HLC values. Serde decoding validates
 the same invariants as constructors so malformed wire identifiers fail at the
 edge.
 
-`crates/core/src/model.rs` owns object state enums, Space / Place /
+`crates/core/src/model.rs` owns object state enums, Realm /
 ActorProfile / Flow / Message / Morph / Relation / View objects, signed
 Events, canonical Operations, signed Operation envelopes, Commits, capability
 grants, policies, invites, read markers, notifications, blob metadata and
@@ -59,7 +59,7 @@ should remain available.
 
 ## MLS Layer
 
-`crates/sdk/src/mls.rs` binds Contrix encrypted Spaces to OpenMLS. It
+`crates/sdk/src/mls.rs` binds Contrix encrypted Realms to OpenMLS. It
 creates device KeyPackages, creates MLS groups, adds members, consumes Welcome
 messages, emits Commit / Welcome envelopes and encrypts application payloads
 into Contrix `EncryptedPayload` values.
@@ -99,7 +99,7 @@ HTTP client / federation / push
     -> sync protocol responses
     -> sync_client::SyncResponseProcessor
     -> base::BaseClient state
-    -> high-level managers (Space, Timeline, Presence, Receipts, Notifications)
+    -> high-level managers (Realm, Timeline, Presence, Receipts, Notifications)
     -> application event handlers
 ```
 

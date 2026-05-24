@@ -1,13 +1,18 @@
 use std::collections::BTreeMap;
 
 use chrono::{DateTime, Utc};
-use contrix_core::{DeviceId, Did, Error, Hash, IdentityLink, IdentityLinkStatus, RealmId, Result};
+use contrix_core::{
+    DeviceId, Did, Error, Hash, IdentityLink, IdentityLinkStatus, RealmId, Result,
+    compute_policy_frontier_digest,
+};
+use serde_json::Value;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IdentityLinkCacheEntry {
     pub link: IdentityLink,
     pub verified_at: DateTime<Utc>,
     pub proof_digest: Hash,
+    pub policy_frontier_digest: Option<[u8; 32]>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -25,6 +30,15 @@ impl IdentityLinkCache {
         link: IdentityLink,
         verified_at: DateTime<Utc>,
     ) -> Result<()> {
+        self.upsert_verified_with_policy_frontier_digest(link, verified_at, None)
+    }
+
+    pub fn upsert_verified_with_policy_frontier_digest(
+        &mut self,
+        link: IdentityLink,
+        verified_at: DateTime<Utc>,
+        policy_frontier_digest: Option<[u8; 32]>,
+    ) -> Result<()> {
         link.validate_minimal()?;
         let key = (link.realm_id.clone(), link.pairwise_did.clone());
         if matches!(link.status, IdentityLinkStatus::Revoked) {
@@ -32,8 +46,29 @@ impl IdentityLinkCache {
             return Ok(());
         }
         let proof_digest = link.canonical_payload_digest()?;
-        self.entries.insert(key, IdentityLinkCacheEntry { link, verified_at, proof_digest });
+        self.entries.insert(
+            key,
+            IdentityLinkCacheEntry { link, verified_at, proof_digest, policy_frontier_digest },
+        );
         Ok(())
+    }
+
+    pub fn upsert_verified_with_policy_frontier(
+        &mut self,
+        link: IdentityLink,
+        verified_at: DateTime<Utc>,
+        disclosure_policy: &Value,
+        history_visibility: &Value,
+        identity_disclosure_profile: &Value,
+        minimal_metadata_mode: &Value,
+    ) -> Result<()> {
+        let digest = compute_policy_frontier_digest(
+            disclosure_policy,
+            history_visibility,
+            identity_disclosure_profile,
+            minimal_metadata_mode,
+        )?;
+        self.upsert_verified_with_policy_frontier_digest(link, verified_at, Some(digest))
     }
 
     pub fn get(&self, realm_id: &RealmId, pairwise_did: &Did) -> Option<&IdentityLinkCacheEntry> {
@@ -62,6 +97,16 @@ impl IdentityLinkCache {
     pub fn invalidate_on_epoch_advance(&mut self, realm_id: &RealmId, new_epoch: u64) {
         self.entries
             .retain(|(realm, _), entry| realm != realm_id || entry.link.mls_epoch >= new_epoch);
+    }
+
+    pub fn invalidate_on_policy_frontier_change(
+        &mut self,
+        realm_id: &RealmId,
+        current_digest: [u8; 32],
+    ) {
+        self.entries.retain(|(realm, _), entry| {
+            realm != realm_id || entry.policy_frontier_digest == Some(current_digest)
+        });
     }
 
     pub fn require_principal(&self, realm_id: &RealmId, pairwise_did: &Did) -> Result<&Did> {
@@ -153,6 +198,37 @@ mod tests {
         cache.upsert_verified(active, Utc::now()).unwrap();
         let revoked = link(IdentityLinkStatus::Revoked, 1);
         cache.upsert_verified(revoked, Utc::now()).unwrap();
+        assert!(cache.get(&realm, &pairwise).is_none());
+    }
+
+    #[test]
+    fn policy_frontier_digest_invalidates_stale_identity_links() {
+        let mut cache = IdentityLinkCache::new();
+        let active = link(IdentityLinkStatus::Active, 1);
+        let realm = active.realm_id.clone();
+        let pairwise = active.pairwise_did.clone();
+        let current = compute_policy_frontier_digest(
+            &serde_json::json!({"mode": "strict"}),
+            &serde_json::json!("members_only"),
+            &serde_json::json!({"profile": "default"}),
+            &serde_json::json!(false),
+        )
+        .unwrap();
+        let changed = compute_policy_frontier_digest(
+            &serde_json::json!({"mode": "strict"}),
+            &serde_json::json!("members_only"),
+            &serde_json::json!({"profile": "default"}),
+            &serde_json::json!(true),
+        )
+        .unwrap();
+
+        cache
+            .upsert_verified_with_policy_frontier_digest(active, Utc::now(), Some(current))
+            .unwrap();
+        cache.invalidate_on_policy_frontier_change(&realm, current);
+        assert!(cache.get(&realm, &pairwise).is_some());
+
+        cache.invalidate_on_policy_frontier_change(&realm, changed);
         assert!(cache.get(&realm, &pairwise).is_none());
     }
 }

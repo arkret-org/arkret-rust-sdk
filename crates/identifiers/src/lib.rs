@@ -249,11 +249,6 @@ id_type!(TypedAppealId, |value: &str| is_strict_typed_id(value, "cx:appeal:"));
 // prevent cross-deployment replay of high-risk proofs (cross-signing reset).
 id_type!(TypedTrustDomainId, is_trust_domain);
 id_type!(RealmId, |value: &str| is_strict_typed_id(value, "cx:realm:"));
-// TODO(realm-rework): drop `PlaceId` once all container call sites migrate to
-// `SpaceId` (new container semantics). Per Realm/Space inversion (spec
-// 59ac1d4), the old `cx:place:` prefix is retired; this alias accepts
-// `cx:place:` for transitional compile-only purposes only.
-id_type!(PlaceId, |value: &str| is_strict_typed_id(value, "cx:place:"));
 id_type!(MessageId, |value: &str| is_strict_typed_id(value, "cx:message:"));
 id_type!(RelationId, |value: &str| is_strict_typed_id(value, "cx:relation:"));
 id_type!(EventId, |value: &str| is_strict_typed_id(value, "cx:event:"));
@@ -497,7 +492,6 @@ mod tests {
         assert_id!(ModqId, "cx:moderation_queue_item:");
         assert_id!(MorphId, "cx:morph:");
         assert_id!(NotifId, "cx:notification:");
-        assert_id!(PlaceId, "cx:place:");
         assert_id!(RealmId, "cx:realm:");
         assert_id!(PolicyId, "cx:policy:");
         assert_id!(PresentationId, "cx:presentation:");

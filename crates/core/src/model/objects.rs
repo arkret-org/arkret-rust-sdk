@@ -258,7 +258,7 @@ impl Space {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Place {
     pub schema: String,
-    pub id: PlaceId,
+    pub id: SpaceId,
     pub space_id: SpaceId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parent_ref: Option<String>,
@@ -293,14 +293,14 @@ pub struct Place {
 
 impl Place {
     pub fn new(
-        id: PlaceId,
+        id: SpaceId,
         space_id: SpaceId,
         kind: impl Into<String>,
         title: impl Into<String>,
         created_by: Did,
     ) -> Self {
         Self {
-            schema: PLACE_SCHEMA.to_owned(),
+            schema: SPACE_SCHEMA.to_owned(),
             id,
             space_id,
             parent_ref: None,
@@ -330,11 +330,9 @@ impl Place {
             return Err(Error::Protocol("place title must not be empty".to_owned()));
         }
         if let Some(parent_ref) = &self.parent_ref
-            && !(parent_ref.starts_with("cx:space:") || parent_ref.starts_with("cx:place:"))
+            && !parent_ref.starts_with("cx:space:")
         {
-            return Err(Error::Protocol(
-                "place parent_ref must be a Space or Place ref".to_owned(),
-            ));
+            return Err(Error::Protocol("place parent_ref must be a Space ref".to_owned()));
         }
         Ok(())
     }

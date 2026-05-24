@@ -911,7 +911,7 @@ impl Default for ProtocolSchemaRegistry {
             ),
         );
         registry.register(FLOW_SCHEMA, flow_schema_document());
-        registry.register(PLACE_SCHEMA, place_schema_document());
+        registry.register(SPACE_SCHEMA, place_schema_document());
         registry.register(VIEW_SCHEMA, view_schema_document());
         registry.register(
             EVENT_PAYLOAD_SCHEMA,
@@ -1045,7 +1045,7 @@ fn flow_schema_document() -> Value {
 fn place_schema_document() -> Value {
     json!({
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "$id": PLACE_SCHEMA,
+        "$id": SPACE_SCHEMA,
         "type": "object",
         "required": ["schema", "id", "space_id", "kind", "title", "created_by", "created_at"],
         "properties": {

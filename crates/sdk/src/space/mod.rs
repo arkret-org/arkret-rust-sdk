@@ -17,7 +17,7 @@ use crate::{
         MemberDeliveryBinding, MessageId, Morph, MorphId, NullsOrder, OP_INVITE_CREATE,
         OP_MEMBER_STATE, OP_MESSAGE_CREATE, OP_MESSAGE_REDACT, OP_MESSAGE_REVISE, OP_MORPH_ARCHIVE,
         OP_MORPH_CREATE, OP_MORPH_UPDATE, OP_RELATION_CREATE, OP_RELATION_DELETE, ObjectState,
-        Operation, OperationId, OperationType, Place, PlaceId, Relation, RelationId, RelationKind,
+        Operation, OperationId, OperationType, Place, Relation, RelationId, RelationKind,
         RelationState, SortDirection, SortSpec, SpaceId,
     },
     resolver::SpaceState,
@@ -247,7 +247,7 @@ impl Space {
     }
 
     /// Get a specific Place by ID.
-    pub fn get_place(&self, place_id: &PlaceId) -> Option<Place> {
+    pub fn get_place(&self, place_id: &SpaceId) -> Option<Place> {
         self.state.places.get(place_id.as_str()).cloned()
     }
 

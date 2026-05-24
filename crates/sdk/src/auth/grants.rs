@@ -332,7 +332,91 @@ impl SessionGrantOutboxEntry {
     }
 }
 
-/// In-memory contract helper for tests; production services should persist this queue.
+/// Pluggable session-grant outbox boundary.
+///
+/// Identity providers can use the default in-memory implementation for tests
+/// and inject a durable implementation (Postgres, queue table, etc.) through
+/// [`SessionGrantOutboxSlot`] in service integrations.
+pub trait SessionGrantOutbox: Send + Sync {
+    fn enqueue(
+        &mut self,
+        notification: PrincipalSessionGrantNotification,
+        now: DateTime<Utc>,
+    ) -> Result<()>;
+
+    fn due(&self, now: DateTime<Utc>) -> Result<Vec<SessionGrantOutboxEntry>>;
+
+    fn entries(&self) -> Result<Vec<SessionGrantOutboxEntry>>;
+
+    fn record_delivery(&mut self, request_id: &str) -> Result<bool>;
+
+    fn record_failure(
+        &mut self,
+        request_id: &str,
+        error: String,
+        now: DateTime<Utc>,
+        policy: SessionGrantRetryPolicy,
+    ) -> Result<bool>;
+}
+
+/// Boxed outbox slot used by hosts that want to swap persistence backends.
+pub struct SessionGrantOutboxSlot {
+    inner: Box<dyn SessionGrantOutbox>,
+}
+
+impl fmt::Debug for SessionGrantOutboxSlot {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SessionGrantOutboxSlot").finish_non_exhaustive()
+    }
+}
+
+impl Default for SessionGrantOutboxSlot {
+    fn default() -> Self {
+        Self::memory()
+    }
+}
+
+impl SessionGrantOutboxSlot {
+    pub fn new(inner: Box<dyn SessionGrantOutbox>) -> Self {
+        Self { inner }
+    }
+
+    pub fn memory() -> Self {
+        Self::new(Box::<MemorySessionGrantOutbox>::default())
+    }
+
+    pub fn enqueue(
+        &mut self,
+        notification: PrincipalSessionGrantNotification,
+        now: DateTime<Utc>,
+    ) -> Result<()> {
+        self.inner.enqueue(notification, now)
+    }
+
+    pub fn due(&self, now: DateTime<Utc>) -> Result<Vec<SessionGrantOutboxEntry>> {
+        self.inner.due(now)
+    }
+
+    pub fn entries(&self) -> Result<Vec<SessionGrantOutboxEntry>> {
+        self.inner.entries()
+    }
+
+    pub fn record_delivery(&mut self, request_id: &str) -> Result<bool> {
+        self.inner.record_delivery(request_id)
+    }
+
+    pub fn record_failure(
+        &mut self,
+        request_id: &str,
+        error: impl Into<String>,
+        now: DateTime<Utc>,
+        policy: SessionGrantRetryPolicy,
+    ) -> Result<bool> {
+        self.inner.record_failure(request_id, error.into(), now, policy)
+    }
+}
+
+/// In-memory contract helper for tests and single-process prototypes.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MemorySessionGrantOutbox {
     entries: VecDeque<SessionGrantOutboxEntry>,
@@ -355,13 +439,70 @@ impl MemorySessionGrantOutbox {
     pub fn entries(&self) -> impl Iterator<Item = &SessionGrantOutboxEntry> {
         self.entries.iter()
     }
+
+    pub fn record_delivery(&mut self, request_id: &str) -> bool {
+        let Some(entry) =
+            self.entries.iter_mut().find(|entry| entry.notification.request_id == request_id)
+        else {
+            return false;
+        };
+        entry.record_delivery();
+        true
+    }
+
+    pub fn record_failure(
+        &mut self,
+        request_id: &str,
+        error: impl Into<String>,
+        now: DateTime<Utc>,
+        policy: SessionGrantRetryPolicy,
+    ) -> bool {
+        let Some(entry) =
+            self.entries.iter_mut().find(|entry| entry.notification.request_id == request_id)
+        else {
+            return false;
+        };
+        entry.record_failure(error, now, policy);
+        true
+    }
+}
+
+impl SessionGrantOutbox for MemorySessionGrantOutbox {
+    fn enqueue(
+        &mut self,
+        notification: PrincipalSessionGrantNotification,
+        now: DateTime<Utc>,
+    ) -> Result<()> {
+        MemorySessionGrantOutbox::enqueue(self, notification, now)
+    }
+
+    fn due(&self, now: DateTime<Utc>) -> Result<Vec<SessionGrantOutboxEntry>> {
+        Ok(MemorySessionGrantOutbox::due(self, now).into_iter().cloned().collect())
+    }
+
+    fn entries(&self) -> Result<Vec<SessionGrantOutboxEntry>> {
+        Ok(MemorySessionGrantOutbox::entries(self).cloned().collect())
+    }
+
+    fn record_delivery(&mut self, request_id: &str) -> Result<bool> {
+        Ok(MemorySessionGrantOutbox::record_delivery(self, request_id))
+    }
+
+    fn record_failure(
+        &mut self,
+        request_id: &str,
+        error: String,
+        now: DateTime<Utc>,
+        policy: SessionGrantRetryPolicy,
+    ) -> Result<bool> {
+        Ok(MemorySessionGrantOutbox::record_failure(self, request_id, error, now, policy))
+    }
 }
 
 /// Host-supplied notifier for Principal Server session-grant propagation.
 ///
-/// TODO: real coauth/soland integrations should wrap this trait with a durable
-/// outbox, idempotency-key persistence and retry/backoff policy. The SDK only
-/// defines the stable request/response contract.
+/// Pair with [`SessionGrantOutbox`] for idempotency-key persistence and
+/// retry/backoff scheduling.
 pub trait PrincipalSessionGrantNotifier {
     fn notify_session_grant(
         &self,

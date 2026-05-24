@@ -300,7 +300,8 @@ pub struct ObjectPatchPayload {
 impl ObjectPatchPayload {
     /// Build the minimal object-patch payload.
     pub fn new(patch: Patch) -> Result<Self> {
-        let payload = Self { target_ref: None, object_ref: None, patch, expected_state_digest: None };
+        let payload =
+            Self { target_ref: None, object_ref: None, patch, expected_state_digest: None };
         payload.validate()?;
         Ok(payload)
     }

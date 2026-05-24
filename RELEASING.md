@@ -15,12 +15,12 @@ crates while the registry indexes the new version.
 ```text
 contrix-identifiers
 contrix-core
-contrix-api
+contrix-ffi
+contrix-html
 contrix-http-client
 contrix-signatures
 contrix-crypto
-contrix-html
-contrix-ffi
+contrix-api
 contrix-server
 contrix-testing
 contrix    # umbrella SDK; depends on every other crate above

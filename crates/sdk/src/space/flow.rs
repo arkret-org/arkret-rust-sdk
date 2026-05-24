@@ -194,8 +194,8 @@ impl Space {
     pub fn move_flow_operation(
         &self,
         flow_id: FlowId,
-        board_place_id: PlaceId,
-        target_place_id: PlaceId,
+        board_place_id: SpaceId,
+        target_place_id: SpaceId,
         rank: impl Into<String>,
         expected_position: Option<Value>,
     ) -> Result<Operation> {
@@ -213,8 +213,8 @@ impl Space {
     pub fn reorder_flow_operation(
         &self,
         flow_id: FlowId,
-        board_place_id: PlaceId,
-        place_id: PlaceId,
+        board_place_id: SpaceId,
+        place_id: SpaceId,
         rank: impl Into<String>,
         expected_position: Option<Value>,
     ) -> Result<Operation> {
@@ -232,8 +232,8 @@ impl Space {
         &self,
         kind: &str,
         flow_id: FlowId,
-        board_place_id: PlaceId,
-        place_field: (&str, PlaceId),
+        board_place_id: SpaceId,
+        place_field: (&str, SpaceId),
         rank: impl Into<String>,
         expected_position: Option<Value>,
     ) -> Result<Operation> {

@@ -14,6 +14,17 @@ cargo check
 cargo test
 ```
 
+To use the repository hook locally:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+The pre-commit hook runs `cargo fmt --all -- --check` and then runs
+`cargo clippy` for the workspace packages touched by staged Rust or Cargo
+manifest changes. Release readiness still requires the stricter CI clippy gate
+with `-D warnings`.
+
 For changes that touch canonical serialization, signed payloads, idempotency or
 authorization, add focused tests that prove the exact digest or conflict
 behavior being changed.

@@ -714,12 +714,13 @@ impl LatticeKind for FlowWatch {
                 field: "flow_id",
             },
         )?;
-        let watcher_actor_id = effect_payload.get("watcher_actor_id").and_then(Value::as_str).ok_or(
-            LatticeKindError::MissingSubjectField {
+        let watcher_actor_id = effect_payload
+            .get("watcher_actor_id")
+            .and_then(Value::as_str)
+            .ok_or(LatticeKindError::MissingSubjectField {
                 cell_family: "cx.component.flow.watch.v1",
                 field: "watcher_actor_id",
-            },
-        )?;
+            })?;
         Ok(Some(format!("{flow_id}::{watcher_actor_id}")))
     }
     fn event_kinds(&self) -> &'static [&'static str] {

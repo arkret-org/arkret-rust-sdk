@@ -383,8 +383,6 @@ impl AttestationEvidence {
 /// inputs change. Canonicalisation per RFC 8785 JCS over the JSON object
 /// `{disclosure_policy, history_visibility, identity_disclosure_profile,
 /// minimal_metadata_mode}`.
-// TODO(round23-T4): wire into the identity link router to invalidate cache
-// entries when any of these fields change at the policy frontier.
 pub fn compute_policy_frontier_digest(
     disclosure_policy: &Value,
     history_visibility: &Value,

@@ -285,9 +285,10 @@ mod tests {
 
     impl MoveSigner for TestSigner {
         fn sign_move(&self, _unsigned: &UnsignedMove) -> Result<contrix_core::Move> {
-            // Not exercised by these tests — the production builder calls
-            // `sign_payload` directly.
-            unimplemented!("sign_move not used by device-message tests")
+            panic!(
+                "TestSigner::sign_move is test-only and intentionally unsupported; \
+                 device-message tests call sign_payload directly"
+            )
         }
 
         fn signer_did(&self) -> &Did {

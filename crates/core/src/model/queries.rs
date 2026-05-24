@@ -157,7 +157,7 @@ pub struct CollectionProjectionResBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct CollectionProjectionGroup {
-    /// Stable id for this group. Typically a `cx:place:` (List form)
+    /// Stable id for this group. Typically a `cx:space:` (List form)
     /// or a synthetic id for status / facet buckets.
     pub group_id: String,
     /// Human-readable group title.

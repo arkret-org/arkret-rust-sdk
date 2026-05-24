@@ -9,8 +9,8 @@ use std::{
 use crate::{
     ACCOUNT_SUBSCRIBE_FRAME_SCHEMA, ANCHOR_SCHEMA, BOTTOM_SCHEMA, CAPABILITY_SCHEMA,
     CORE_SCHEMA_PROFILE, CURSOR_SCHEMA, ENCRYPTED_PAYLOAD_SCHEMA, EVENT_PAYLOAD_SCHEMA,
-    EVENT_SCHEMA, Error, FLOW_SCHEMA, GeneratedSchemaValidator, PLACE_SCHEMA,
-    ProtocolSchemaRegistry, Result, SNAPSHOT_SCHEMA, VIEW_SCHEMA,
+    EVENT_SCHEMA, Error, FLOW_SCHEMA, GeneratedSchemaValidator, ProtocolSchemaRegistry, Result,
+    SNAPSHOT_SCHEMA, SPACE_SCHEMA, VIEW_SCHEMA,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -34,7 +34,7 @@ pub mod protocol {
         ACCOUNT_SUBSCRIBE_FRAME_SCHEMA, ANCHOR_SCHEMA, BOTTOM_SCHEMA, CAPABILITY_SCHEMA,
         CORE_SCHEMA_PROFILE, CURSOR_SCHEMA, ENCRYPTED_PAYLOAD_SCHEMA, EVENT_PAYLOAD_SCHEMA,
         EVENT_SCHEMA, FLOW_SCHEMA, GeneratedSchemaField, GeneratedSchemaValidator,
-        GeneratedSchemaValueType, PLACE_SCHEMA, ProtocolSchemaRegistry, SNAPSHOT_SCHEMA,
+        GeneratedSchemaValueType, ProtocolSchemaRegistry, SNAPSHOT_SCHEMA, SPACE_SCHEMA,
         VIEW_SCHEMA,
     };
 }
@@ -42,7 +42,7 @@ pub mod protocol {
 pub const CORE_SCHEMA_IDS: &[&str] = &[
     CURSOR_SCHEMA,
     FLOW_SCHEMA,
-    PLACE_SCHEMA,
+    SPACE_SCHEMA,
     VIEW_SCHEMA,
     EVENT_SCHEMA,
     EVENT_PAYLOAD_SCHEMA,

@@ -9,8 +9,8 @@ license = "Apache-2.0"
 name = "contrix-core"
 readme = "README.md"
 repository = "https://github.com/contrix/contrix-rust-sdk"
-rust-version.workspace = true
-version = "0.7.0"
+rust-version = "1.92"
+version = "0.8.0-rc1"
 
 [package.metadata.docs.rs]
 all-features = true
@@ -32,6 +32,7 @@ keystore-windows = ["dep:windows"]
 base64.workspace = true
 chrono = { workspace = true, features = ["serde"] }
 contrix-identifiers.workspace = true
+getrandom.workspace = true
 reqwest = { workspace = true, optional = true }
 regex.workspace = true
 salvo = { workspace = true, optional = true, features = ["oapi"] }

@@ -25,30 +25,16 @@ pub const CURSOR_HANDLE_MIN_LEN: usize = 22;
 /// `cursor.schema.json` `h` constraints (minLength 22, pattern
 /// `^[A-Za-z0-9_-]+$`).
 ///
-/// Round R2/R3 (2026-05-20). Servers SHOULD replace this fallback with a
-/// CSPRNG-backed implementation (per schema description the handle MUST be
-/// unguessable). This implementation derives 16 bytes from process pid +
-/// monotonic time + thread id + an internal counter, mixed with SHA-256.
-// TODO(round23-T9): replace this fallback with a CSPRNG-backed generator
-// once servers move to a runtime that exposes one (rand_core or getrandom).
+/// # Panics
+///
+/// Panics if the operating system CSPRNG cannot be initialized. Cursor handles
+/// are part of the sync security boundary and must not fall back to predictable
+/// process-local entropy.
 pub fn generate_cursor_handle() -> String {
-    use sha2::{Digest, Sha256};
-    use std::sync::atomic::{AtomicU64, Ordering};
-    static COUNTER: AtomicU64 = AtomicU64::new(0);
-    let counter = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let mut hasher = Sha256::new();
-    hasher.update(std::process::id().to_le_bytes());
-    let now_ns =
-        SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or_default();
-    hasher.update(now_ns.to_le_bytes());
-    hasher.update(counter.to_le_bytes());
-    // Pointer to a stack local mixes in ASLR + thread layout entropy.
-    let local: u64 = 0;
-    let local_ptr: *const u64 = &local;
-    hasher.update((local_ptr as usize).to_le_bytes());
-    let digest = hasher.finalize();
+    let mut handle = [0u8; 16];
+    getrandom::fill(&mut handle).expect("cursor handle CSPRNG initialization failed");
     // Take 16 bytes — 128 bits — and base64url-encode (no pad).
-    let encoded = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&digest[..16]);
+    let encoded = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(handle);
     debug_assert!(encoded.len() >= CURSOR_HANDLE_MIN_LEN);
     encoded
 }
@@ -419,9 +405,7 @@ impl Cursor {
 
     fn validate_core_wire_shape(&self) -> Result<()> {
         let Some(handle) = &self.h else {
-            return Err(crate::Error::Protocol(
-                "core cursor missing stateful handle h".to_owned(),
-            ));
+            return Err(crate::Error::Protocol("core cursor missing stateful handle h".to_owned()));
         };
         Self::validate_cursor_handle(handle)?;
         if self.mac.is_some() || self.sig.is_some() {

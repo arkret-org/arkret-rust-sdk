@@ -13,7 +13,7 @@ use crate::{
     ActorProfileId, AgentSessionId, AnchorId, AnnounceId, AppletId, BackupId, BatchId, BlobId,
     BlobRef, BlockId, CallId, CapabilityId, CellRef, ChunkId, ClaimId, Cursor, DeviceId, DevmsgId,
     Did, EventId, FilterId, FlowId, FrameId, FrankId, GrantId, Hash, Hlc, InviteId, KeyevtId,
-    MessageId, ModqId, MorphId, MoveId, NotifId, OperationId, PlaceId, PolicyId, PresentationId,
+    MessageId, ModqId, MorphId, MoveId, NotifId, OperationId, PolicyId, PresentationId,
     ReadCursorId, RealmId, ReceiptId, RelationId, ReportId, ReqId, SnapshotId, SpaceId, TxnId,
     TypedAppealId, TypedTrustDomainId, ViewId,
 };
@@ -124,12 +124,6 @@ impl_string_schema!(
 impl_string_schema!(
     RealmId,
     r"^cx:realm:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
-);
-// TODO(realm-rework): drop PlaceId once container migration to SpaceId
-// is complete.
-impl_string_schema!(
-    PlaceId,
-    r"^cx:place:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
 impl_string_schema!(
     MessageId,

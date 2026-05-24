@@ -23,7 +23,7 @@ pub struct PlaceUpdateMetadata {
 }
 
 impl Space {
-    /// Create a spec-shaped `cx.place.create` operation.
+    /// Create a spec-shaped `cx.space.create` operation.
     pub fn create_place_operation(
         &self,
         kind: impl Into<String>,
@@ -39,7 +39,7 @@ impl Space {
         )
     }
 
-    /// Create a spec-shaped `cx.place.create` operation with extended Place fields.
+    /// Create a spec-shaped `cx.space.create` operation with extended Place fields.
     pub fn create_place_operation_with_metadata(
         &self,
         kind: impl Into<String>,
@@ -51,12 +51,12 @@ impl Space {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let place_id = PlaceId::new(generate_id("cx:place:"))?;
+        let place_id = SpaceId::new(generate_id("cx:space:"))?;
         let operation_id = OperationId::new(generate_id("cx:operation:"))?;
         let now = Utc::now();
         let mut object = json!({
             "id": place_id.as_str(),
-            "schema": crate::PLACE_SCHEMA,
+            "schema": crate::SPACE_SCHEMA,
             "space_id": self.space_id.as_str(),
             "kind": kind.into(),
             "title": title.into(),
@@ -86,17 +86,17 @@ impl Space {
         let mut operation = Operation::create(
             operation_id,
             self.realm_id()?,
-            crate::OP_PLACE_CREATE,
+            crate::OP_SPACE_CREATE,
             json!({ "object": object }),
         );
         operation.object_id = Some(place_id.as_str().to_owned());
         Ok(operation)
     }
 
-    /// Create a spec-shaped `cx.place.update` operation.
+    /// Create a spec-shaped `cx.space.update` operation.
     pub fn update_place_operation(
         &self,
-        place_id: PlaceId,
+        place_id: SpaceId,
         title: Option<String>,
         fields: Option<BTreeMap<String, Value>>,
     ) -> Result<Operation> {
@@ -107,10 +107,10 @@ impl Space {
         )
     }
 
-    /// Create a spec-shaped `cx.place.update` operation with extended Place fields.
+    /// Create a spec-shaped `cx.space.update` operation with extended Place fields.
     pub fn update_place_operation_with_metadata(
         &self,
-        place_id: PlaceId,
+        place_id: SpaceId,
         title: Option<String>,
         metadata: PlaceUpdateMetadata,
     ) -> Result<Operation> {
@@ -145,7 +145,7 @@ impl Space {
         let mut operation = Operation::create(
             operation_id,
             self.realm_id()?,
-            crate::OP_PLACE_UPDATE,
+            crate::OP_SPACE_UPDATE,
             json!({
                 "place_id": place_id.as_str(),
                 "patch": Value::Object(patch),
@@ -156,10 +156,10 @@ impl Space {
         Ok(operation)
     }
 
-    /// Create a `cx.place.parent` operation.
+    /// Create a `cx.space.parent` operation.
     pub fn set_place_parent_operation(
         &self,
-        place_id: PlaceId,
+        place_id: SpaceId,
         parent_ref: impl Into<String>,
     ) -> Result<Operation> {
         self.base_client
@@ -170,7 +170,7 @@ impl Space {
         let mut operation = Operation::create(
             operation_id,
             self.realm_id()?,
-            crate::OP_PLACE_PARENT,
+            crate::OP_SPACE_PARENT,
             json!({
                 "place_id": place_id.as_str(),
                 "parent_ref": parent_ref.into(),
@@ -181,25 +181,25 @@ impl Space {
         Ok(operation)
     }
 
-    /// Create a `cx.place.archive` operation.
-    pub fn archive_place_operation(&self, place_id: PlaceId) -> Result<Operation> {
-        self.place_lifecycle_operation(place_id, crate::OP_PLACE_ARCHIVE, OperationType::Update)
+    /// Create a `cx.space.archive` operation.
+    pub fn archive_place_operation(&self, place_id: SpaceId) -> Result<Operation> {
+        self.place_lifecycle_operation(place_id, crate::OP_SPACE_ARCHIVE, OperationType::Update)
     }
 
-    /// Create a `cx.place.restore` operation (`archived -> active`).
+    /// Create a `cx.space.restore` operation (`archived -> active`).
     /// Reducer rejects with `place_not_archived` when current state is not archived.
-    pub fn restore_place_operation(&self, place_id: PlaceId) -> Result<Operation> {
-        self.place_lifecycle_operation(place_id, crate::OP_PLACE_RESTORE, OperationType::Update)
+    pub fn restore_place_operation(&self, place_id: SpaceId) -> Result<Operation> {
+        self.place_lifecycle_operation(place_id, crate::OP_SPACE_RESTORE, OperationType::Update)
     }
 
-    /// Create a `cx.place.tombstone` operation.
-    pub fn tombstone_place_operation(&self, place_id: PlaceId) -> Result<Operation> {
-        self.place_lifecycle_operation(place_id, crate::OP_PLACE_TOMBSTONE, OperationType::Delete)
+    /// Create a `cx.space.tombstone` operation.
+    pub fn tombstone_place_operation(&self, place_id: SpaceId) -> Result<Operation> {
+        self.place_lifecycle_operation(place_id, crate::OP_SPACE_TOMBSTONE, OperationType::Delete)
     }
 
     fn place_lifecycle_operation(
         &self,
-        place_id: PlaceId,
+        place_id: SpaceId,
         kind: &str,
         operation_type: OperationType,
     ) -> Result<Operation> {

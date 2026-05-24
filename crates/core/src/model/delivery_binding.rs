@@ -96,7 +96,8 @@ impl MemberDeliveryBinding {
             BindingSource::DidDocumentDefault => {
                 if self.did_document_digest.is_none() {
                     return Err(Error::Protocol(
-                        "binding_source=did_document_default requires did_document_digest".to_owned(),
+                        "binding_source=did_document_default requires did_document_digest"
+                            .to_owned(),
                     ));
                 }
             }

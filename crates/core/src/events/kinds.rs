@@ -353,9 +353,6 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     REALM_HISTORY_SHARING_POLICY,
     REALM_HISTORY_VISIBILITY,
     REALM_INHERITANCE_POLICY,
-    REALM_KEY_SHARE,
-    REALM_KEY_SHARE_AUDIT,
-    REALM_KEY_WITHHELD,
     REALM_JOIN_RULE,
     REALM_LINK,
     REALM_MEDIA_SERVICE,
@@ -370,6 +367,9 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     REALM_TOMBSTONE,
     REALM_UPDATE,
     REALM_UPGRADE,
+    REALM_KEY_SHARE,
+    REALM_KEY_SHARE_AUDIT,
+    REALM_KEY_WITHHELD,
     RECEIPT_READ,
     REDACTION,
     RELATION_CREATE,
@@ -422,9 +422,7 @@ pub enum EventWireScope {
 }
 
 pub fn is_reducer_input_event_kind(kind: &str) -> bool {
-    // TODO(realm-rework): restore binary_search once STANDARD_EVENT_KINDS is
-    // re-sorted by event-kind string value after the Realm/Space inversion.
-    is_standard_event_kind(kind) && !NON_REDUCER_EVENT_KINDS.contains(&kind)
+    is_standard_event_kind(kind) && NON_REDUCER_EVENT_KINDS.binary_search(&kind).is_err()
 }
 
 pub fn event_wire_scope(kind: &str) -> EventWireScope {
@@ -486,9 +484,7 @@ pub enum EventClass {
 }
 
 pub fn is_standard_event_kind(kind: &str) -> bool {
-    // TODO(realm-rework): restore binary_search once STANDARD_EVENT_KINDS is
-    // re-sorted by event-kind string value after the Realm/Space inversion.
-    STANDARD_EVENT_KINDS.contains(&kind)
+    STANDARD_EVENT_KINDS.binary_search(&kind).is_ok()
 }
 
 /// Classify a protocol event kind without deserializing its content.
@@ -750,5 +746,17 @@ mod tests {
         assert_eq!(presence.wire_scope(), EventWireScope::EphemeralEvent);
         let create = EventKind::try_new(MESSAGE_CREATE).unwrap();
         assert_eq!(create.wire_scope(), EventWireScope::DurableEvent);
+    }
+
+    #[test]
+    fn standard_event_kind_tables_are_binary_searchable() {
+        assert!(
+            STANDARD_EVENT_KINDS.windows(2).all(|pair| pair[0] < pair[1]),
+            "STANDARD_EVENT_KINDS must stay sorted by wire string"
+        );
+        assert!(
+            NON_REDUCER_EVENT_KINDS.windows(2).all(|pair| pair[0] < pair[1]),
+            "NON_REDUCER_EVENT_KINDS must stay sorted by wire string"
+        );
     }
 }

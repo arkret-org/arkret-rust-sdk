@@ -611,18 +611,17 @@ pub enum EventsSubscribeFrameBody {
 
 // ── SnapshotBootstrap ───────────────────────────────────────────────────
 
-/// Round 4 — chunked snapshot delivery envelope. The full verifier
-/// chain (per-chunk digest + merkle proof + signature) is a soland
-/// TODO; the SDK only needs the wire shape so producer / consumer
-/// services can agree on field names.
+/// Round 4 — chunked snapshot delivery envelope.
+///
+/// The signature binds the canonical bootstrap header:
+/// `domain`, `state_digest`, `snapshot_frontier`, and a deterministic digest
+/// root over the ordered chunk digests. Consumers still fetch and verify each
+/// chunk by its declared digest before applying the snapshot.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SnapshotBootstrap {
-    /// Signature over the canonical bootstrap header (state_digest +
-    /// snapshot_frontier + per-chunk digest merkle root).
-    /// TODO(round4-snapshot-bootstrap): wire the full signing
-    /// transcript and verifier chain. SDK only needs the wire shape.
-    pub signature: Value,
+    /// Signature over [`SnapshotBootstrap::signing_payload_digest`].
+    pub signature: SnapshotBootstrapSignature,
     /// Canonical state root over the snapshot's projected state.
     pub state_digest: Hash,
     /// Frontier the snapshot was generated against.
@@ -630,6 +629,57 @@ pub struct SnapshotBootstrap {
     /// Ordered chunk digests. Consumers MUST verify each chunk's bytes
     /// match the declared digest before applying.
     pub chunks: Vec<SnapshotBootstrapChunk>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SnapshotBootstrapSignature {
+    pub alg: String,
+    pub verification_method: String,
+    pub payload_digest: Hash,
+    pub created_at: DateTime<Utc>,
+    pub jws: String,
+}
+
+impl SnapshotBootstrap {
+    pub const SIGNING_DOMAIN: &'static str = "cx.snapshot.bootstrap.v1";
+
+    pub fn chunk_digest_root(&self) -> Result<Hash> {
+        let digests: Vec<&str> = self.chunks.iter().map(|chunk| chunk.digest.as_str()).collect();
+        let digest = canonical::canonical_sha256(&serde_json::json!({
+            "domain": Self::SIGNING_DOMAIN,
+            "chunk_digests": digests,
+        }))?;
+        Hash::new(digest).map_err(Into::into)
+    }
+
+    pub fn signing_payload(&self) -> Result<Value> {
+        Ok(serde_json::json!({
+            "domain": Self::SIGNING_DOMAIN,
+            "state_digest": self.state_digest.as_str(),
+            "snapshot_frontier": self
+                .snapshot_frontier
+                .iter()
+                .map(EventId::as_str)
+                .collect::<Vec<_>>(),
+            "chunk_digest_root": self.chunk_digest_root()?.as_str(),
+        }))
+    }
+
+    pub fn signing_payload_digest(&self) -> Result<Hash> {
+        let digest = canonical::canonical_sha256(&self.signing_payload()?)?;
+        Hash::new(digest).map_err(Into::into)
+    }
+
+    pub fn validate_signature_binding(&self) -> Result<()> {
+        let expected = self.signing_payload_digest()?;
+        if self.signature.payload_digest != expected {
+            return Err(Error::Protocol(
+                "snapshot bootstrap signature payload_digest mismatch".to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -921,6 +971,46 @@ mod tests {
             reason: None,
         };
         assert!(payload.validate_minimal().is_err());
+    }
+
+    #[test]
+    fn snapshot_bootstrap_signature_binds_header_and_chunk_root() {
+        let mut bootstrap = SnapshotBootstrap {
+            signature: SnapshotBootstrapSignature {
+                alg: "EdDSA".to_owned(),
+                verification_method: "did:web:snapshot.example#k1".to_owned(),
+                payload_digest: Hash::new(
+                    "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+                )
+                .unwrap(),
+                created_at: Utc::now(),
+                jws: "AAAA.BBBB.CCCC".to_owned(),
+            },
+            state_digest: Hash::new(
+                "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            )
+            .unwrap(),
+            snapshot_frontier: vec![
+                EventId::new("cx:event:01904100-0000-7000-8000-000000000001").unwrap(),
+            ],
+            chunks: vec![SnapshotBootstrapChunk {
+                chunk_id: "0".to_owned(),
+                digest: Hash::new(
+                    "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+                )
+                .unwrap(),
+                size_bytes: 1024,
+                fetch_ref: "cx:blob:sha256:3333333333333333333333333333333333333333333333333333333333333333"
+                    .to_owned(),
+            }],
+        };
+        bootstrap.signature.payload_digest = bootstrap.signing_payload_digest().unwrap();
+        bootstrap.validate_signature_binding().unwrap();
+
+        bootstrap.chunks[0].digest =
+            Hash::new("sha256:4444444444444444444444444444444444444444444444444444444444444444")
+                .unwrap();
+        assert!(bootstrap.validate_signature_binding().is_err());
     }
 
     #[test]
