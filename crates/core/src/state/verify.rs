@@ -23,6 +23,7 @@ use crate::{
     BottomKind, CellRef, LatticeOp, Move, MoveId, Predicate, PredicateOp, canonical,
     lattice::CellState,
 };
+use serde::Deserialize;
 use serde_json::Value;
 use thiserror::Error;
 
@@ -107,15 +108,11 @@ where
     verify_jws(&canonical_bytes, &m.sig.jws, &m.sig.verification_method, m.issuer.as_str())
         .map_err(MoveReject::InvalidSignature)?;
 
-    // Step 3: capability — placeholder.
-    // TODO(M8): when capability typed model is wired (cx.capability.grant cell or-set),
-    // walk M.refs where role == "authorized_by" and resolve each grant id against
-    // pre_state's capability cells. For now, we accept any Move whose issuer is
-    // a non-empty DID; deeper capability check is layered on by the caller.
-    // The wire error_code 'capability_denied' remains reserved for that path.
+    // Step 3: capability.
     if m.issuer.as_str().is_empty() {
         return Err(MoveReject::CapabilityDenied("issuer DID is empty".to_owned()));
     }
+    verify_capability_refs(m, pre_state)?;
 
     // Step 4: preconditions
     for pre in &m.preconditions {
@@ -147,6 +144,157 @@ where
     }
 
     Ok(())
+}
+
+const AUTHORIZED_BY_ROLE: &str = "authorized_by";
+const CAPABILITY_GRANT_CELL_FAMILY: &str = "cx.component.capability.grant.v1";
+
+#[derive(Debug, Deserialize)]
+struct CapabilityGrantCellValue {
+    #[serde(default)]
+    id: Option<String>,
+    #[serde(default)]
+    grant_id: Option<String>,
+    #[serde(default)]
+    capability_id: Option<String>,
+    #[serde(default)]
+    subject: Option<String>,
+    #[serde(default)]
+    subject_did: Option<String>,
+    #[serde(default)]
+    actions: Vec<String>,
+    #[serde(default)]
+    resources: Vec<Value>,
+    #[serde(default)]
+    resource_selectors: Vec<Value>,
+    #[serde(default)]
+    revoked_at: Option<Value>,
+    #[serde(default)]
+    revoked_by: Option<Value>,
+}
+
+impl CapabilityGrantCellValue {
+    fn grant_ids(&self) -> impl Iterator<Item = &str> {
+        [self.id.as_deref(), self.grant_id.as_deref(), self.capability_id.as_deref()]
+            .into_iter()
+            .flatten()
+    }
+
+    fn subject(&self) -> Option<&str> {
+        self.subject.as_deref().or(self.subject_did.as_deref())
+    }
+
+    fn has_resources(&self) -> bool {
+        !self.resources.is_empty() || !self.resource_selectors.is_empty()
+    }
+
+    fn is_revoked(&self) -> bool {
+        self.revoked_at.is_some() || self.revoked_by.is_some()
+    }
+}
+
+fn verify_capability_refs(
+    m: &Move,
+    pre_state: &BTreeMap<CellRef, CellState>,
+) -> Result<(), MoveReject> {
+    for reference in m.refs.iter().filter(|reference| reference.role == AUTHORIZED_BY_ROLE) {
+        let grant = find_capability_grant(reference.id.as_str(), pre_state)?;
+        if grant.is_revoked() {
+            return Err(MoveReject::CapabilityDenied(format!(
+                "authorized_by grant '{}' is revoked",
+                reference.id
+            )));
+        }
+        let subject = grant.subject().ok_or_else(|| {
+            MoveReject::CapabilityDenied(format!(
+                "authorized_by grant '{}' has no subject",
+                reference.id
+            ))
+        })?;
+        if subject != m.issuer.as_str() {
+            return Err(MoveReject::CapabilityDenied(format!(
+                "authorized_by grant '{}' subject '{}' does not cover issuer '{}'",
+                reference.id, subject, m.issuer
+            )));
+        }
+        if grant.actions.is_empty() {
+            return Err(MoveReject::CapabilityDenied(format!(
+                "authorized_by grant '{}' has no actions",
+                reference.id
+            )));
+        }
+        if !grant.has_resources() {
+            return Err(MoveReject::CapabilityDenied(format!(
+                "authorized_by grant '{}' has no resources",
+                reference.id
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn find_capability_grant(
+    grant_id: &str,
+    pre_state: &BTreeMap<CellRef, CellState>,
+) -> Result<CapabilityGrantCellValue, MoveReject> {
+    let mut saw_bottom = false;
+    for (cell, state) in pre_state {
+        if !is_capability_grant_cell(cell) {
+            continue;
+        }
+        match state {
+            CellState::Bottom(_) => {
+                saw_bottom = true;
+            }
+            CellState::Value(value) => {
+                if let Some(grant) = grant_from_cell_value(grant_id, value)? {
+                    return Ok(grant);
+                }
+            }
+        }
+    }
+
+    if saw_bottom {
+        return Err(MoveReject::CapabilityDenied(format!(
+            "authorized_by grant '{grant_id}' is unavailable because a capability grant cell is bottom"
+        )));
+    }
+    Err(MoveReject::CapabilityDenied(format!(
+        "authorized_by grant '{grant_id}' not found in pre-state capability grant cells"
+    )))
+}
+
+fn is_capability_grant_cell(cell: &CellRef) -> bool {
+    crate::CellId::parse(cell.as_str())
+        .map(|cell_id| cell_id.component() == CAPABILITY_GRANT_CELL_FAMILY)
+        .unwrap_or(false)
+}
+
+fn grant_from_cell_value(
+    grant_id: &str,
+    value: &Value,
+) -> Result<Option<CapabilityGrantCellValue>, MoveReject> {
+    let Some(items) = value.as_array() else {
+        return Ok(None);
+    };
+    for item in items {
+        let tag_matches = item.get("tag").and_then(Value::as_str) == Some(grant_id);
+        let Some(raw_grant) =
+            item.get("value").or_else(|| if tag_matches { Some(item) } else { None })
+        else {
+            continue;
+        };
+        let grant: CapabilityGrantCellValue =
+            serde_json::from_value(raw_grant.clone()).map_err(|err| {
+                MoveReject::CapabilityDenied(format!(
+                    "authorized_by grant '{grant_id}' has invalid typed value: {err}"
+                ))
+            })?;
+        if tag_matches || grant.grant_ids().any(|candidate| candidate == grant_id) {
+            return Ok(Some(grant));
+        }
+    }
+    Ok(None)
 }
 
 fn evaluate_predicate(
@@ -248,7 +396,7 @@ pub type MoveRejectMap = BTreeMap<MoveId, MoveReject>;
 mod tests {
     use super::*;
     use crate::{
-        CellRef, Effect, LatticeOp, LatticeOpType, Precondition, PredicateOp, SpaceId,
+        CellRef, Effect, LatticeOp, LatticeOpType, Precondition, PredicateOp, SemanticRef, SpaceId,
         lattice::CellState,
     };
     use serde_json::json;
@@ -264,14 +412,30 @@ mod tests {
             .unwrap()
     }
 
+    fn cell_capability_grant() -> CellRef {
+        CellRef::new(
+            "cx:cell:cx.component.capability.grant.v1:cx.grant.01js0gr0000000000000000000"
+                .to_owned(),
+        )
+        .unwrap()
+    }
+
     fn build_move(preconditions: Vec<Precondition>, effects: Vec<Effect>) -> Move {
+        build_move_with_refs(preconditions, effects, vec![])
+    }
+
+    fn build_move_with_refs(
+        preconditions: Vec<Precondition>,
+        effects: Vec<Effect>,
+        refs: Vec<SemanticRef>,
+    ) -> Move {
         let body = json!({
             "issuer": "did:web:admin.example",
             "space_id": space().as_str(),
             "preconditions": preconditions,
             "effects": effects,
             "anchor_ref": format!("cx:anchor:sha256:{}", "aa".repeat(32)),
-            "refs": [],
+            "refs": refs,
             "hlc": "0189c4d2af00-0000-aabbccdd"
         });
         let body_bytes = canonical::canonical_json_bytes(&body).unwrap();
@@ -297,6 +461,25 @@ mod tests {
             }),
         );
         serde_json::from_value(Value::Object(full)).unwrap()
+    }
+
+    fn authorized_ref(id: &str) -> SemanticRef {
+        SemanticRef { id: id.to_owned(), role: AUTHORIZED_BY_ROLE.to_owned(), critical: true }
+    }
+
+    fn grant_cell_state(grant_id: &str, subject: &str) -> CellState {
+        CellState::Value(json!([
+            {
+                "tag": grant_id,
+                "value": {
+                    "id": grant_id,
+                    "issuer": "did:web:owner.example",
+                    "subject": subject,
+                    "actions": ["cx.member.state"],
+                    "resources": [{"kind": "space", "space_id": space().as_str()}]
+                }
+            }
+        ]))
     }
 
     fn ok_jws(_: &[u8], _: &str, _: &str, _: &str) -> Result<(), String> {
@@ -354,6 +537,74 @@ mod tests {
         let pre_state = BTreeMap::new();
         let err = verify_move(&m, &pre_state, &MemoryCellRegistry::new(), fail_jws).unwrap_err();
         assert!(matches!(err, MoveReject::InvalidSignature(_)));
+    }
+
+    #[test]
+    fn authorized_by_ref_resolves_capability_grant_cell() {
+        let grant_id = "cx:grant:0196419b-0000-7000-8000-000000000111";
+        let eff = Effect {
+            cell: cell_member(),
+            op: LatticeOp {
+                op_type: LatticeOpType::Transition,
+                tag: None,
+                value: None,
+                from: Some(json!("invited")),
+                to: Some(json!("join")),
+                reason: None,
+                issuer_seq: None,
+            },
+        };
+        let m = build_move_with_refs(vec![], vec![eff], vec![authorized_ref(grant_id)]);
+        let mut pre_state = BTreeMap::new();
+        pre_state.insert(cell_capability_grant(), grant_cell_state(grant_id, m.issuer.as_str()));
+
+        verify_move(&m, &pre_state, &MemoryCellRegistry::new(), ok_jws).unwrap();
+    }
+
+    #[test]
+    fn missing_authorized_by_grant_rejects() {
+        let grant_id = "cx:grant:0196419b-0000-7000-8000-000000000111";
+        let eff = Effect {
+            cell: cell_member(),
+            op: LatticeOp {
+                op_type: LatticeOpType::Transition,
+                tag: None,
+                value: None,
+                from: Some(json!("invited")),
+                to: Some(json!("join")),
+                reason: None,
+                issuer_seq: None,
+            },
+        };
+        let m = build_move_with_refs(vec![], vec![eff], vec![authorized_ref(grant_id)]);
+        let err =
+            verify_move(&m, &BTreeMap::new(), &MemoryCellRegistry::new(), ok_jws).unwrap_err();
+        assert!(matches!(err, MoveReject::CapabilityDenied(_)));
+        assert_eq!(reject_to_error_code(&err), crate::ERROR_CODE_CAPABILITY_DENIED);
+    }
+
+    #[test]
+    fn authorized_by_subject_mismatch_rejects() {
+        let grant_id = "cx:grant:0196419b-0000-7000-8000-000000000111";
+        let eff = Effect {
+            cell: cell_member(),
+            op: LatticeOp {
+                op_type: LatticeOpType::Transition,
+                tag: None,
+                value: None,
+                from: Some(json!("invited")),
+                to: Some(json!("join")),
+                reason: None,
+                issuer_seq: None,
+            },
+        };
+        let m = build_move_with_refs(vec![], vec![eff], vec![authorized_ref(grant_id)]);
+        let mut pre_state = BTreeMap::new();
+        pre_state
+            .insert(cell_capability_grant(), grant_cell_state(grant_id, "did:web:bob.example"));
+
+        let err = verify_move(&m, &pre_state, &MemoryCellRegistry::new(), ok_jws).unwrap_err();
+        assert!(matches!(err, MoveReject::CapabilityDenied(_)));
     }
 
     #[test]

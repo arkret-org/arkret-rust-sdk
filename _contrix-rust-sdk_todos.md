@@ -19,7 +19,7 @@
 - [x] §2 `crates/core/src/cursor.rs:32` — replace the weak PRNG fallback with `getrandom` (and document panic on init failure).
 - [x] §3 `crates/core/src/model/round23.rs:386` — wire identity-link cache invalidation into the link router.
 - [x] §4 `crates/core/src/model/round4.rs:616,623` — finish `wire_shape` comment + snapshot bootstrap signing.
-- [ ] §5 `crates/core/src/state/verify.rs:111` — wire M8 capability typed model when soland lands the `cx.capability.grant` cell.
+- [x] §5 `crates/core/src/state/verify.rs:111` — wire M8 capability typed model when soland lands the `cx.capability.grant` cell.
 - [x] §6 `crates/sdk/src/resolver/state.rs:205` — rename `reduce_space_lifecycle_event` → `reduce_realm_lifecycle_event`.
 - [x] §7 `crates/sdk/src/resolver/state.rs:300` — consume `cx.morph.create` per C47 Lane A4.
 - [x] §8 `crates/sdk/src/device_message.rs:290` — implement `sign_move` (or document it as test-only and panic with a clearer message).
