@@ -2,12 +2,11 @@
 
 [![codecov](https://codecov.io/gh/contrix/contrix-rust-sdk/branch/main/graph/badge.svg)](https://codecov.io/gh/contrix/contrix-rust-sdk)
 
-Release status: release candidate for Contrix v1 SDK `0.8.0-rc1`. The SDK includes
+Release status: local Contrix v1 SDK `1.0.0` freeze candidate. The SDK includes
 authenticated local encryption helpers based on XChaCha20-Poly1305, OpenMLS MLS
 group encryption, framework-independent server contracts, HTTP client bindings
-and conformance-oriented tests. Before the stable `1.0.0` local freeze, record
-the local security-review packet and at least one cotest release-gate
-interoperability suite.
+and conformance-oriented tests. The local security-review packet and cotest
+release-gate interoperability suite are recorded under `docs/`.
 
 This repository contains the Rust SDK for Contrix v1. The public SDK surface is
 centered on:

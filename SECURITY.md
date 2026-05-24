@@ -2,14 +2,14 @@
 
 ## Supported versions
 
-The Contrix Rust SDK is in its local `0.8.0-rc1` release-candidate line. Until
-the API is frozen for `1.0`, only the latest local RC branch receives security
-updates.
+The Contrix Rust SDK is in its local `1.0.0` freeze line. Local fixes should
+target the latest `1.0.x` branch; remote publication is outside this readiness
+workflow.
 
 | Version | Supported |
 | ------- | --------- |
-| `0.8.0-rc1` | Yes       |
-| < `0.8` | No        |
+| `1.0.x` | Yes       |
+| < `1.0` | No        |
 
 After `1.0`, the support window will track the latest stable major plus one
 prior minor; the table here will be updated to reflect that.
@@ -70,11 +70,11 @@ Out of scope:
 
 ## Cryptographic guarantees
 
-The current `0.8.0-rc1` release line targets release-candidate functional
-parity. Until the local security-review packet is logged in
-`docs/security-review-1.0.0.md` and one real-server interoperability run is
-recorded in `docs/release-evidence-*.md`, treat the cryptographic surface as
-"reviewed but unhardened." Production deployments should:
+The current `1.0.0` local freeze records a security-review packet in
+`docs/security-review-1.0.0.md` and real-server interoperability evidence in
+`docs/release-evidence-1.0.0.md`. Treat the cryptographic surface as locally
+reviewed, with external audit claims still out-of-scope for this workflow.
+Production deployments should:
 
 - Back MLS state with a platform key store and durable `CryptoStore`
   implementation.

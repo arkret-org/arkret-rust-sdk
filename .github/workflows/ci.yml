@@ -99,7 +99,7 @@ jobs:
       - name: Install cargo-semver-checks
         run: cargo install cargo-semver-checks --locked
       - name: Check public API compatibility
-        run: cargo semver-checks check-release --workspace
+        run: cargo semver-checks check-release --workspace --baseline-rev HEAD~1
 
   coverage:
     name: coverage

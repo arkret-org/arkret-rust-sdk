@@ -5,10 +5,24 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-While the SDK is on the `0.1.x` line, breaking changes within a minor are
-permitted; once `1.0` ships, breaking changes will require a major bump.
+Starting with the local `1.0.0` freeze, breaking public API changes require a
+major-version bump.
 
 ## [Unreleased]
+
+## [1.0.0] - 2026-05-25
+
+### Release Engineering
+
+- Bumped all 11 workspace crates to `1.0.0` for the local freeze.
+- Recorded local interop evidence in `docs/release-evidence-1.0.0.md` using
+  cotest release-gate run `artifacts/runs/20260525-055932` from the sibling
+  `cotest` checkout.
+- Kept the release flow local-only: no crates.io publish, no GitHub release,
+  and no release tag.
+- Promoted
+  `cargo semver-checks check-release --workspace --baseline-rev HEAD~1` to a
+  blocking local CI gate for the 1.0 API surface.
 
 ### Release Engineering
 

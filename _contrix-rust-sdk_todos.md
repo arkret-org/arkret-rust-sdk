@@ -49,9 +49,9 @@
 ## Phase 5 tasks (final 1.0)
 
 - [x] §23 Local 1.0 security-review packet recorded — per `SECURITY.md` and `README.md`, external audit claims remain out-of-scope for local readiness.
-- [ ] §24 Final interop evidence (link to cotest release-gate run from `docs/release-evidence-0.1.0.md` → rename to `release-evidence-1.0.0.md`).
+- [x] §24 Final interop evidence recorded in `docs/release-evidence-1.0.0.md` with cotest run `artifacts/runs/20260525-055932`.
 - [x] §25 Flip `cargo semver-checks` from warn/continue-on-error to a blocking CI gate.
-- [ ] §26 Bump to 1.0.0 and pass local package checks.
+- [x] §26 Bump to 1.0.0 and pass local package checks.
 
 ## Exit gate (phase 1)
 

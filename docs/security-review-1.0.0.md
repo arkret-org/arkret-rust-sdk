@@ -28,7 +28,8 @@ attestation; it is the evidence bundle a reviewer needs before the local
   - `cargo deny check --config .deny.toml`
   - `cargo audit --deny warnings --ignore RUSTSEC-2024-0384 --ignore RUSTSEC-2026-0124`
 - Public API gate:
-  - `cargo semver-checks check-release --workspace` is blocking in CI.
+  - `cargo semver-checks check-release --workspace --baseline-rev HEAD~1` is
+    blocking in local CI.
 - Interop gate:
   - Final cotest release-gate evidence is tracked separately in
     `docs/release-evidence-1.0.0.md` once the cross-project gate is green.
