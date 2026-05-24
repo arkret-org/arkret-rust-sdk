@@ -378,15 +378,94 @@ pub enum NotificationState {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
-pub enum ReadScope {
-    Space,
+pub enum ReadScopeKind {
+    Realm,
     Flow,
-    FlowDiscussion,
-    FlowSynthesis,
     Thread,
     View,
     Message,
     Morph,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ReadScope {
+    pub kind: ReadScopeKind,
+    #[serde(rename = "ref", skip_serializing_if = "Option::is_none")]
+    pub object_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub track: Option<String>,
+}
+
+impl ReadScope {
+    pub fn realm() -> Self {
+        Self { kind: ReadScopeKind::Realm, object_ref: None, track: None }
+    }
+
+    pub fn flow(flow_id: impl Into<String>, track: Option<impl Into<String>>) -> Self {
+        Self {
+            kind: ReadScopeKind::Flow,
+            object_ref: Some(flow_id.into()),
+            track: track.map(Into::into),
+        }
+    }
+
+    pub fn thread(thread_id: impl Into<String>) -> Self {
+        Self { kind: ReadScopeKind::Thread, object_ref: Some(thread_id.into()), track: None }
+    }
+
+    pub fn view(view_id: impl Into<String>) -> Self {
+        Self { kind: ReadScopeKind::View, object_ref: Some(view_id.into()), track: None }
+    }
+
+    pub fn message(message_id: impl Into<String>) -> Self {
+        Self { kind: ReadScopeKind::Message, object_ref: Some(message_id.into()), track: None }
+    }
+
+    pub fn morph(morph_id: impl Into<String>) -> Self {
+        Self { kind: ReadScopeKind::Morph, object_ref: Some(morph_id.into()), track: None }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.kind == ReadScopeKind::Realm {
+            if self.object_ref.is_some() {
+                return Err(Error::Protocol(
+                    "read_scope.ref must be omitted when kind is realm".to_owned(),
+                ));
+            }
+        } else if self.object_ref.as_deref().unwrap_or("").trim().is_empty() {
+            return Err(Error::Protocol(
+                "read_scope.ref is required when kind is not realm".to_owned(),
+            ));
+        }
+
+        if let Some(track) = self.track.as_deref() {
+            if self.kind != ReadScopeKind::Flow {
+                return Err(Error::Protocol(
+                    "read_scope.track is only valid when kind is flow".to_owned(),
+                ));
+            }
+            validate_read_scope_track(track)?;
+        }
+
+        Ok(())
+    }
+}
+
+fn validate_read_scope_track(track: &str) -> Result<()> {
+    let mut bytes = track.bytes();
+    let Some(first) = bytes.next() else {
+        return Err(Error::Protocol("read_scope.track must not be empty".to_owned()));
+    };
+    if !first.is_ascii_lowercase() {
+        return Err(Error::Protocol(format!("invalid read_scope.track '{track}'")));
+    }
+    if track.len() > 64
+        || !bytes.all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+    {
+        return Err(Error::Protocol(format!("invalid read_scope.track '{track}'")));
+    }
+    Ok(())
 }
 
 /// Account lifecycle states.

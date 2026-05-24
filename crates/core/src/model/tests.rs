@@ -1158,6 +1158,28 @@ fn flow_discussion_constructor_sets_room_shape() {
     assert_eq!(discussion.profile.as_deref(), Some("discussion"));
 }
 
+#[test]
+fn read_scope_flow_track_uses_explicit_track_field() {
+    let scope = ReadScope::flow("cx:flow:01904100-0000-7000-8000-58754cf88c25", Some("discussion"));
+    scope.validate().unwrap();
+
+    let value = serde_json::to_value(&scope).unwrap();
+    assert_eq!(
+        value,
+        serde_json::json!({
+            "kind": "flow",
+            "ref": "cx:flow:01904100-0000-7000-8000-58754cf88c25",
+            "track": "discussion"
+        })
+    );
+}
+
+#[test]
+fn read_scope_rejects_removed_track_kind_variants() {
+    let old = serde_json::json!("flow_discussion");
+    assert!(serde_json::from_value::<ReadScope>(old).is_err());
+}
+
 /// T21 — synthesis-only Flows are not conversational.
 #[test]
 fn synthesis_flow_is_not_conversational() {
