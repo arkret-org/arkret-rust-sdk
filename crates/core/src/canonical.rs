@@ -30,7 +30,7 @@ pub fn sha256_digest(bytes: impl AsRef<[u8]>) -> String {
 ///
 /// Downstream services that have already produced canonical JSON bytes
 /// (e.g. via [`canonical_json_bytes`]) call this to derive the wire-form
-/// `canonical_digest` / `request_canonical_hash` value used in event
+/// `canonical_digest` / `request_canonical_digest` value used in event
 /// envelopes, anchors, and policy-check payloads.
 ///
 /// The output format is `sha256:<lowercase-hex>` and is byte-stable for

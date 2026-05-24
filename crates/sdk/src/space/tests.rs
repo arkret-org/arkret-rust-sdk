@@ -488,7 +488,7 @@ fn member_add_with_candidate_emits_routable_join_with_typed_binding() {
             "kind": "detached_jws",
             "alg": "EdDSA",
             "verification_method": "did:web:principal.acme.example#key-1",
-            "payload_hash": "sha256:00000000000000000000000000000000000000000000000000000000000000aa",
+            "payload_digest": "sha256:00000000000000000000000000000000000000000000000000000000000000aa",
             "created_at": "2026-05-19T00:00:00Z",
             "audience": space_id.as_str(),
             "jws": "aaa.bbb.ccc"

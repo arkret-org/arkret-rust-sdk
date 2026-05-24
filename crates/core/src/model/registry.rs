@@ -201,7 +201,7 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
             "scope_container_id",
             "container_id",
             "relation_kind",
-            "expected_state_hash",
+            "expected_state_digest",
             "assignments",
         ]
         .into_iter()

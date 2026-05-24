@@ -574,7 +574,7 @@ fn build_membership_move(space_id: &SpaceId, cell: &CellRef, from: &str, to: &st
         "hlc": "0189c4d2af00-0000-aabbccdd"
     });
     let body_bytes = canonical::canonical_json_bytes(&body)?;
-    let payload_hash = canonical::sha256_digest(&body_bytes);
+    let payload_digest = canonical::sha256_digest(&body_bytes);
     let id_hex: String = {
         use sha2::{Digest, Sha256};
         let mut s = String::with_capacity(64);
@@ -590,7 +590,7 @@ fn build_membership_move(space_id: &SpaceId, cell: &CellRef, from: &str, to: &st
         json!({
             "alg": "EdDSA",
             "verification_method": "did:web:admin.example#k1",
-            "payload_hash": payload_hash,
+            "payload_digest": payload_digest,
             "created_at": "2026-05-08T00:00:00Z",
             "jws": "AAAA.BBBB.CCCC"
         }),
@@ -609,7 +609,7 @@ fn build_anchor(
     let sig = MoveSignature {
         alg: "EdDSA".to_owned(),
         verification_method: "did:web:anchorer.example#k1".to_owned(),
-        payload_hash: Hash::new(format!("sha256:{}", "ff".repeat(32)))
+        payload_digest: Hash::new(format!("sha256:{}", "ff".repeat(32)))
             .map_err(|e| Error::Protocol(format!("hash: {e}")))?,
         created_at: Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
         jws: "AAAA.BBBB.CCCC".to_owned(),

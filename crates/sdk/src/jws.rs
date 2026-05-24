@@ -591,7 +591,7 @@ mod tests {
             sig: MoveSignature {
                 alg: "EdDSA".to_owned(),
                 verification_method: "did:web:test#k1".to_owned(),
-                payload_hash: Hash::new(format!("sha256:{}", "ff".repeat(32))).unwrap(),
+                payload_digest: Hash::new(format!("sha256:{}", "ff".repeat(32))).unwrap(),
                 created_at: Utc::now(),
                 jws: "eyJhbGciOiJFZERTQSJ9..ZmFrZS1zaWctZm9yLXRlc3Rz".to_owned(),
             },

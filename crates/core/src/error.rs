@@ -75,7 +75,7 @@ pub const ERROR_CODE_PROFILE_UNSUPPORTED: &str = "profile_unsupported";
 // `REASON_*` constants further below.
 pub const ERROR_CODE_CURSOR_INTEGRITY_INVALID: &str = "cursor_integrity_invalid";
 pub const ERROR_CODE_FAILED_PRECONDITION: &str = "failed_precondition";
-pub const ERROR_CODE_UNSUPPORTED_HASH: &str = "unsupported_hash";
+pub const ERROR_CODE_UNSUPPORTED_HASH: &str = "unsupported_digest_algorithm";
 pub const ERROR_CODE_ANCHOR_INCOMPLETE: &str = "anchor_incomplete";
 pub const ERROR_CODE_FRANKING_PROOF_UNAVAILABLE: &str = "franking_proof_unavailable";
 pub const ERROR_CODE_FRANK_UNAVAILABLE: &str = ERROR_CODE_FRANKING_PROOF_UNAVAILABLE;
@@ -1019,7 +1019,7 @@ mod tests {
         assert_eq!(codes.len(), KNOWN_ERROR_CODES.len(), "duplicate error code");
         // Registry v2026-05-18 main (round C47, spec e10b6ad): C44's 47 + 6 C45
         // wire codes (cursor_integrity_invalid / failed_precondition /
-        // unsupported_hash / anchor_incomplete / franking_proof_unavailable /
+        // unsupported_digest_algorithm / anchor_incomplete / franking_proof_unavailable /
         // turn_credential_expired) + 1 C47 wire code (stale_peer) +
         // 15 Round R2/R3 wire codes (relaxed_window_exceeds_ceiling, ...) +
         // 3 Round 4 wire codes (delivery_binding_stale, delivery_binding_handed_over,

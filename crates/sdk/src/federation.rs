@@ -100,13 +100,13 @@ pub struct HttpMessageSignatureInput {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub destination_trust_domain: Option<contrix_core::TypedTrustDomainId>,
     /// Canonical hash of the request payload, mirrored into the
-    /// `Request-Canonical-Hash` header for transport-level tamper
+    /// `Request-Canonical-Digest` header for transport-level tamper
     /// detection. MUST agree with [`Self::content_digest`] for HTTP
     /// transport — the SDK currently does not enforce that equality
-    /// (transport vs canonical may differ). TODO(round4-request-canonical-hash):
+    /// (transport vs canonical may differ). TODO(round4-request-canonical-digest):
     /// wire equality check once a settled body canonicalisation is chosen.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub request_canonical_hash: Option<contrix_core::Hash>,
+    pub request_canonical_digest: Option<contrix_core::Hash>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -185,7 +185,7 @@ pub struct VerifyActorChallenge {
     pub purpose: String,
     pub expires_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub payload_hash: Option<String>,
+    pub payload_digest: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -492,7 +492,7 @@ pub fn rfc9421_http_message_signature_base(input: &HttpMessageSignatureInput) ->
     out.push_str(&format!("\"origin-service-did\": {}\n", input.origin_service_did));
     out.push_str(&format!("\"destination-service-did\": {}\n", input.destination_service_did));
     // Round 4 (spec f9bd7eb) — emit `Source-Trust-Domain`,
-    // `Destination-Trust-Domain`, and `Request-Canonical-Hash` headers
+    // `Destination-Trust-Domain`, and `Request-Canonical-Digest` headers
     // into the canonical signing transcript when present.
     let mut extra_fields: Vec<&'static str> = Vec::new();
     if let Some(src) = &input.source_trust_domain {
@@ -503,9 +503,9 @@ pub fn rfc9421_http_message_signature_base(input: &HttpMessageSignatureInput) ->
         out.push_str(&format!("\"destination-trust-domain\": {}\n", dst.as_str()));
         extra_fields.push("\"destination-trust-domain\"");
     }
-    if let Some(hash) = &input.request_canonical_hash {
-        out.push_str(&format!("\"request-canonical-hash\": {}\n", hash.as_str()));
-        extra_fields.push("\"request-canonical-hash\"");
+    if let Some(hash) = &input.request_canonical_digest {
+        out.push_str(&format!("\"request-canonical-digest\": {}\n", hash.as_str()));
+        extra_fields.push("\"request-canonical-digest\"");
     }
     let base_fields = r#""@method" "@target-uri" "@authority" "content-digest" "origin-service-did" "destination-service-did""#;
     let extras = if extra_fields.is_empty() {
@@ -545,8 +545,8 @@ pub fn sign_http_message(
     if input.destination_trust_domain.is_some() {
         signed_fields.push("destination-trust-domain".to_owned());
     }
-    if input.request_canonical_hash.is_some() {
-        signed_fields.push("request-canonical-hash".to_owned());
+    if input.request_canonical_digest.is_some() {
+        signed_fields.push("request-canonical-digest".to_owned());
     }
     HttpMessageSignature {
         key_id: key_id.into(),
@@ -709,7 +709,7 @@ pub fn verify_actor_challenge_payload(challenge: &VerifyActorChallenge) -> Strin
         challenge.challenge,
         challenge.purpose,
         challenge.expires_at.to_rfc3339(),
-        challenge.payload_hash.as_deref().unwrap_or("")
+        challenge.payload_digest.as_deref().unwrap_or("")
     )
 }
 
@@ -863,7 +863,7 @@ mod tests {
             expires_at: now + chrono::Duration::minutes(5),
             source_trust_domain: None,
             destination_trust_domain: None,
-            request_canonical_hash: None,
+            request_canonical_digest: None,
         };
 
         let signature = sign_http_message(&input, "did:web:a.example#svc", "shared-key");
@@ -961,7 +961,7 @@ mod tests {
             challenge: "chal_123".to_owned(),
             purpose: "federation.verify_actor".to_owned(),
             expires_at: now + chrono::Duration::minutes(5),
-            payload_hash: Some(content_digest_sha256(b"actor-proof")),
+            payload_digest: Some(content_digest_sha256(b"actor-proof")),
         };
         let signature =
             sign_verify_actor_challenge(&challenge, "did:web:actor.example#key", "actor-key");

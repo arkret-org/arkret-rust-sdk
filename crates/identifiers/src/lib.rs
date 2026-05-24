@@ -289,7 +289,7 @@ fn is_content_addressed<'a>(prefix: &'a str) -> impl Fn(&str) -> bool + 'a {
 }
 
 // Anchor frontier items are bare `<algo>:<hex>` hashes equal to the
-// reducer-input event's `proof.payload_hash` (spec field name
+// reducer-input event's `proof.payload_digest` (spec field name
 // `event_digest`).
 id_type!(MoveId, is_hash);
 id_type!(AnchorId, is_content_addressed("cx:anchor:"));

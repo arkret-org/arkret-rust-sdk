@@ -319,7 +319,7 @@ mod tests {
         MoveSignature {
             alg: "EdDSA".to_owned(),
             verification_method: "did:web:anchorer.example#k1".to_owned(),
-            payload_hash: hash(0xff),
+            payload_digest: hash(0xff),
             created_at: chrono::Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
             jws: "AAAA.BBBB.CCCC".to_owned(),
         }
@@ -465,7 +465,7 @@ mod tests {
         let json = json!({
             "alg": "EdDSA",
             "verification_method": "did:web:anchorer.example#k1",
-            "payload_hash": format!("sha256:{}", "ff".repeat(32)),
+            "payload_digest": format!("sha256:{}", "ff".repeat(32)),
             "created_at": "2026-05-08T00:00:00Z",
             "jws": "AAAA.BBBB.CCCC"
         });

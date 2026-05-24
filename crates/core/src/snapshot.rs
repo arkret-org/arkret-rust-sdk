@@ -327,7 +327,7 @@ struct GeneratorProofBody<'a> {
 
 impl GeneratorProof {
     /// Canonical bytes the generator signs and the receiver verifies
-    /// against `signature.payload_hash`.
+    /// against `signature.payload_digest`.
     pub fn body_bytes(
         generator_did: &Did,
         space_id: &SpaceId,
@@ -350,7 +350,7 @@ impl GeneratorProof {
     }
 
     /// SHA-256 of the canonical body bytes — convenience helper for
-    /// generators populating `signature.payload_hash`.
+    /// generators populating `signature.payload_digest`.
     pub fn body_digest(
         generator_did: &Did,
         space_id: &SpaceId,
@@ -373,10 +373,10 @@ impl GeneratorProof {
     }
 
     /// Recompute the canonical bytes for **this** proof and check
-    /// whether they match `signature.payload_hash`. Returns Ok on
+    /// whether they match `signature.payload_digest`. Returns Ok on
     /// match, Err with a diagnostic message otherwise. Does NOT verify
     /// the JWS itself — that's the caller's job (signature pluggability).
-    pub fn verify_payload_hash(&self) -> Result<()> {
+    pub fn verify_payload_digest(&self) -> Result<()> {
         let derived = Self::body_digest(
             &self.generator_did,
             &self.space_id,
@@ -386,10 +386,10 @@ impl GeneratorProof {
             self.total_bytes,
             self.chunk_bytes,
         )?;
-        if derived != self.signature.payload_hash {
+        if derived != self.signature.payload_digest {
             return Err(Error::Protocol(format!(
-                "GeneratorProof payload_hash mismatch: declared {} but body hashes to {}",
-                self.signature.payload_hash, derived
+                "GeneratorProof payload_digest mismatch: declared {} but body hashes to {}",
+                self.signature.payload_digest, derived
             )));
         }
         Ok(())
@@ -547,11 +547,11 @@ mod tests {
 
     // ── GeneratorProof ─────────────────────────────────────────────────
 
-    fn move_sig(payload_hash: Hash) -> MoveSignature {
+    fn move_sig(payload_digest: Hash) -> MoveSignature {
         MoveSignature {
             alg: "EdDSA".to_owned(),
             verification_method: "did:web:generator.example#k1".to_owned(),
-            payload_hash,
+            payload_digest,
             created_at: chrono::Utc::now(),
             jws: "AAAA.BBBB.CCCC".to_owned(),
         }
@@ -575,11 +575,11 @@ mod tests {
             chunk_bytes: 256,
             signature: move_sig(digest.clone()),
         };
-        proof.verify_payload_hash().unwrap();
+        proof.verify_payload_digest().unwrap();
     }
 
     #[test]
-    fn generator_proof_mismatched_payload_hash_rejected() {
+    fn generator_proof_mismatched_payload_digest_rejected() {
         let state_root = Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap();
         let merkle_root = Hash::new(format!("sha256:{}", "cd".repeat(32))).unwrap();
         let wrong = Hash::new(format!("sha256:{}", "ee".repeat(32))).unwrap();
@@ -593,8 +593,8 @@ mod tests {
             chunk_bytes: 4,
             signature: move_sig(wrong),
         };
-        let err = proof.verify_payload_hash().unwrap_err();
-        assert!(format!("{err}").contains("payload_hash mismatch"));
+        let err = proof.verify_payload_digest().unwrap_err();
+        assert!(format!("{err}").contains("payload_digest mismatch"));
     }
 
     #[test]

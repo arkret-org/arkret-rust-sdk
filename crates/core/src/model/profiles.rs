@@ -367,7 +367,7 @@ pub struct AuditRywReceipt {
     pub audit_event_digest: Hash,
     pub space_id: SpaceId,
     /// Round 4 (2026-05-20, spec a77b995) — REQUIRED trust domain
-    /// binding. Mixed into the canonical `audit_policy_version_hash`
+    /// binding. Mixed into the canonical `audit_policy_version_digest`
     /// 4-tuple so receipts cannot be replayed across deployments.
     pub trust_domain: TypedTrustDomainId,
     pub audit_actor_id: Did,
@@ -415,7 +415,7 @@ fn identity_link_default_status() -> IdentityLinkStatus {
 pub struct IdentityLinkProof {
     pub verification_method: String,
     pub signature_algorithm: String,
-    pub payload_hash: Hash,
+    pub payload_digest: Hash,
     pub signature: String,
 }
 
@@ -467,9 +467,9 @@ impl IdentityLink {
                     .to_owned(),
             ));
         }
-        let expected = self.canonical_payload_hash()?;
-        if self.proof.payload_hash != expected {
-            return Err(Error::Protocol("identity_link proof payload_hash mismatch".to_owned()));
+        let expected = self.canonical_payload_digest()?;
+        if self.proof.payload_digest != expected {
+            return Err(Error::Protocol("identity_link proof payload_digest mismatch".to_owned()));
         }
         Ok(())
     }
@@ -481,7 +481,7 @@ impl IdentityLink {
         if let Value::Object(object) = &mut value
             && let Some(Value::Object(proof)) = object.get_mut("proof")
         {
-            proof.remove("payload_hash");
+            proof.remove("payload_digest");
             proof.remove("signature");
         }
         let canonical = canonical::canonical_json_bytes(&value)?;
@@ -491,7 +491,7 @@ impl IdentityLink {
         Ok(input)
     }
 
-    pub fn canonical_payload_hash(&self) -> Result<Hash> {
+    pub fn canonical_payload_digest(&self) -> Result<Hash> {
         let input = self.canonical_proof_input()?;
         let digest = Sha256::digest(&input);
         Hash::new(format!("sha256:{digest:x}")).map_err(|error| {
@@ -577,7 +577,7 @@ pub struct ErasureScope {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ErasureReceiptProof {
     pub verification_method: String,
-    pub payload_hash: Hash,
+    pub payload_digest: Hash,
     pub signature: String,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(flatten)]
@@ -594,7 +594,7 @@ pub struct ErasureReceipt {
     pub scope: ErasureScope,
     pub outcome: ErasureOutcome,
     pub erased_classes: Vec<ErasedClass>,
-    pub retained_stub_hash: Hash,
+    pub retained_stub_digest: Hash,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub legal_hold_ref: Option<String>,
     pub completed_at: DateTime<Utc>,

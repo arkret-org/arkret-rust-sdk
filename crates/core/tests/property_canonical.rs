@@ -12,7 +12,7 @@
 //!    filter — only the encoding shape is normalised).
 //!
 //! These guarantees are the foundation for cross-service
-//! `payload_hash` agreement: if two services serialise the same logical
+//! `payload_digest` agreement: if two services serialise the same logical
 //! object via the SDK, they MUST get the same bytes.
 
 use contrix_core::canonical::{canonical_json_bytes, canonical_json_string, canonical_sha256};

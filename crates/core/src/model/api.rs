@@ -198,7 +198,7 @@ pub struct VerifiedProfileEntry {
     pub profile_id: String,
     pub claim_kind: CotestVerifiedKind,
     pub cotest_run_id: String,
-    pub artifact_hash: String,
+    pub artifact_digest: String,
     pub artifact_ref: String,
     pub cotest_issuer_did: Did,
     pub signature: String,
@@ -396,7 +396,7 @@ pub struct DidDocumentRef {
 pub struct IdentityDocumentResBody {
     pub did_document: DidDocumentRef,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub head_event_hash: Option<Hash>,
+    pub head_event_digest: Option<Hash>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub seq: Option<u64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -420,7 +420,7 @@ pub struct SubmitDidOperationReqBody {
     pub did: Did,
     pub seq: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub prev_event_hash: Option<Hash>,
+    pub prev_event_digest: Option<Hash>,
     pub patch: Value,
     #[serde(default)]
     pub proofs: Vec<Proof>,
@@ -430,7 +430,7 @@ pub struct SubmitDidOperationReqBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SubmitDidOperationResBody {
     pub status: String,
-    pub head_event_hash: Hash,
+    pub head_event_digest: Hash,
     pub seq: u64,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub receipts: Vec<Value>,
@@ -526,7 +526,7 @@ impl SyncResBody {
             left_spaces: Vec::new(),
             to_device: frame
                 .to_device
-                .and_then(|value| value.get("events").cloned())
+                .and_then(|value| value.get("messages").cloned())
                 .and_then(|value| value.as_array().cloned())
                 .unwrap_or_default(),
             device_lists: frame.device_lists.unwrap_or(Value::Null),
@@ -624,7 +624,7 @@ pub struct SyncBackfillResBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncSnapshotHeadResBody {
     pub snapshot_ref: String,
-    pub state_hash: Hash,
+    pub state_digest: Hash,
     pub frontier: String,
     pub signature: Value,
 }
@@ -671,7 +671,7 @@ pub struct EffectiveGrantsResBody {
     #[serde(default)]
     pub grants: Vec<Capability>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub state_hash: Option<Hash>,
+    pub state_digest: Option<Hash>,
     pub evaluated_at: DateTime<Utc>,
 }
 
@@ -770,7 +770,7 @@ pub struct FederationVerifyActorReqBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub challenge: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub signed_payload_hash: Option<Hash>,
+    pub signed_payload_digest: Option<Hash>,
     pub signature: Value,
     pub purpose: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1095,7 +1095,7 @@ pub struct PolicyCheckReqBody {
     pub request_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub space_id: Option<SpaceId>,
-    pub request_canonical_hash: Hash,
+    pub request_canonical_digest: Hash,
     pub action: String,
     pub actor: Did,
     pub source: String,

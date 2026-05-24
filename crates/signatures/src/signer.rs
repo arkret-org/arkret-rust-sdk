@@ -109,13 +109,13 @@ impl MoveSigner for Ed25519MoveSigner {
         let sig_b64 = URL_SAFE_NO_PAD.encode(signature.to_bytes());
         let jws = format!("{header_b64}..{sig_b64}");
 
-        let payload_hash = Hash::new(canonical::sha256_digest(canonical_bytes))
+        let payload_digest = Hash::new(canonical::sha256_digest(canonical_bytes))
             .map_err(|err| Error::Protocol(format!("invalid canonical hash: {err}")))?;
 
         Ok(MoveSignature {
             alg: "EdDSA".to_owned(),
             verification_method: self.kid.clone(),
-            payload_hash,
+            payload_digest,
             created_at: Utc::now(),
             jws,
         })
@@ -126,7 +126,7 @@ impl MoveSigner for Ed25519MoveSigner {
 /// [`Ed25519MoveSigner`]. Useful for tests and round-trip vectors.
 ///
 /// Returns `Ok(())` on success, `Err(Error::Protocol(...))` if the canonical
-/// bytes don't match the declared `payload_hash` or the signature fails to
+/// bytes don't match the declared `payload_digest` or the signature fails to
 /// verify against the supplied public key.
 pub fn verify_ed25519_move_signature(
     canonical_bytes: &[u8],
@@ -134,10 +134,10 @@ pub fn verify_ed25519_move_signature(
     verifying_key: &ed25519_dalek::VerifyingKey,
 ) -> Result<()> {
     let expected = canonical::sha256_digest(canonical_bytes);
-    if sig.payload_hash.as_str() != expected {
+    if sig.payload_digest.as_str() != expected {
         return Err(Error::Protocol(format!(
-            "payload_hash {} does not match canonical bytes hash {}",
-            sig.payload_hash, expected
+            "payload_digest {} does not match canonical bytes hash {}",
+            sig.payload_digest, expected
         )));
     }
     let parts: Vec<&str> = sig.jws.split('.').collect();
@@ -296,7 +296,7 @@ mod tests {
         bytes.push(b'X'); // tamper
         let err =
             verify_ed25519_move_signature(&bytes, &m.sig, &signer.verifying_key()).unwrap_err();
-        assert!(format!("{err}").contains("payload_hash"));
+        assert!(format!("{err}").contains("payload_digest"));
     }
 
     // Disambiguate the trait import for the test modules above using a no-op.

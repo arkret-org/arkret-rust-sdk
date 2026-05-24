@@ -23,7 +23,7 @@ pub struct MemberDeliveryBinding {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub service_endpoint: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub did_document_hash: Option<Hash>,
+    pub did_document_digest: Option<Hash>,
     pub resolved_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub service_acceptance_ref: Option<EventRef>,
@@ -94,9 +94,9 @@ impl MemberDeliveryBinding {
         }
         match self.binding_source {
             BindingSource::DidDocumentDefault => {
-                if self.did_document_hash.is_none() {
+                if self.did_document_digest.is_none() {
                     return Err(Error::Protocol(
-                        "binding_source=did_document_default requires did_document_hash".to_owned(),
+                        "binding_source=did_document_default requires did_document_digest".to_owned(),
                     ));
                 }
             }
@@ -204,7 +204,7 @@ mod tests {
             binding_source: BindingSource::Explicit,
             delivery_modes: BTreeSet::new(),
             service_endpoint: None,
-            did_document_hash: None,
+            did_document_digest: None,
             resolved_at: Utc::now(),
             service_acceptance_ref: Some(fake_event_ref()),
             holder_proof_ref: None,
@@ -225,7 +225,7 @@ mod tests {
             binding_source: BindingSource::Explicit,
             delivery_modes: [DeliveryMode::Events].into_iter().collect(),
             service_endpoint: None,
-            did_document_hash: None,
+            did_document_digest: None,
             resolved_at: Utc::now(),
             service_acceptance_ref: None,
             holder_proof_ref: None,
@@ -297,7 +297,7 @@ mod tests {
             binding_source: BindingSource::DidDocumentDefault,
             delivery_modes: [DeliveryMode::Events].into_iter().collect(),
             service_endpoint: None,
-            did_document_hash: None,
+            did_document_digest: None,
             resolved_at: Utc::now(),
             service_acceptance_ref: None,
             holder_proof_ref: None,

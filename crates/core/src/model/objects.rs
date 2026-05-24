@@ -22,7 +22,7 @@ pub struct Space {
     /// later event whose `trust_domain` mismatches MUST be rejected with
     /// `cross_domain_replay_rejected`. Mixed into the canonical signing
     /// transcript of high-risk proofs (cross-signing reset,
-    /// audit_policy_version_hash). This field is `Realm`-scoped because
+    /// audit_policy_version_digest). This field is `Realm`-scoped because
     /// `Space` is the security-boundary type (Realm/Space inversion);
     /// the container surface is `Place`.
     pub trust_domain: TypedTrustDomainId,

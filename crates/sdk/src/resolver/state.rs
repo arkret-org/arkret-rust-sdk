@@ -1,6 +1,6 @@
 use super::snapshot::{
     StateHashInput, canonicalize_flow_ref, membership_rank, object_state_from_str, patch_fields,
-    patch_state, patch_string, place_state_from_str, state_hash_payload, state_merkle_root,
+    patch_state, patch_string, place_state_from_str, state_digest_payload, state_merkle_root,
 };
 use super::*;
 use crate::events::kinds::FLOW_TRACKS_UPDATE as OP_FLOW_TRACKS_UPDATE;
@@ -1425,7 +1425,7 @@ impl SpaceState {
             resolved_state: self.resolved_state.clone(),
             messages: self.messages.clone(),
             reactions: self.reactions.clone(),
-            state_hash: self.compute_state_hash(),
+            state_digest: self.compute_state_digest(),
             snapshot_timestamp: chrono::Utc::now(),
             tombstone_event_id: self.tombstone_event_id.clone(),
             manifest: None,
@@ -1452,8 +1452,8 @@ impl SpaceState {
     }
 
     /// Compute state hash for verification.
-    pub fn compute_state_hash(&self) -> String {
-        canonical_sha256(&state_hash_payload(StateHashInput {
+    pub fn compute_state_digest(&self) -> String {
+        canonical_sha256(&state_digest_payload(StateHashInput {
             space_id: &self.space_id,
             space_version: &self.space_version,
             frontier: &self.frontier,
@@ -1470,7 +1470,7 @@ impl SpaceState {
     }
 
     pub fn state_merkle_root(&self) -> Result<String> {
-        state_merkle_root(&state_hash_payload(StateHashInput {
+        state_merkle_root(&state_digest_payload(StateHashInput {
             space_id: &self.space_id,
             space_version: &self.space_version,
             frontier: &self.frontier,

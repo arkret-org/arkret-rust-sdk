@@ -13,7 +13,7 @@
 //!   `cx.profile.attested_audit.e2ee.v1`.
 //! - Updated `CrossSigningResetPayload` carrying `trust_domain` +
 //!   `reset_event_id` (Round R2/R3 wire-break: required fields).
-//! - `IdentityLinkCacheEntry` carrying `policy_frontier_hash` (Round R2/R3).
+//! - `IdentityLinkCacheEntry` carrying `policy_frontier_digest` (Round R2/R3).
 
 use super::*;
 use crate::events::{
@@ -285,7 +285,7 @@ pub struct AttestationPlatform {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AttestationMeasurement {
-    pub code_hash: Hash,
+    pub code_digest: Hash,
     pub policy_version: String,
     /// Optional REPORTDATA-equivalent that binds the attestation to the
     /// Audit Agent's MLS leaf public key.
@@ -366,7 +366,7 @@ pub struct AttestationEvidence {
     pub revocation: Option<AttestationRevocation>,
     pub operator_did: Did,
     pub audit_purpose: AuditPurpose,
-    pub audit_policy_version_hash: Hash,
+    pub audit_policy_version_digest: Hash,
     pub created_at: DateTime<Utc>,
     pub proofs: Vec<Value>,
 }
@@ -378,14 +378,14 @@ impl AttestationEvidence {
 /// Compute the canonical-JSON SHA-256 of the four policy-frontier fields
 /// that gate identity link routing. Round R2/R3.
 ///
-/// Used by `IdentityLinkCacheEntry.policy_frontier_hash` to invalidate
+/// Used by `IdentityLinkCacheEntry.policy_frontier_digest` to invalidate
 /// cached identity-link routing decisions when any of these four governance
 /// inputs change. Canonicalisation per RFC 8785 JCS over the JSON object
 /// `{disclosure_policy, history_visibility, identity_disclosure_profile,
 /// minimal_metadata_mode}`.
 // TODO(round23-T4): wire into the identity link router to invalidate cache
 // entries when any of these fields change at the policy frontier.
-pub fn compute_policy_frontier_hash(
+pub fn compute_policy_frontier_digest(
     disclosure_policy: &Value,
     history_visibility: &Value,
     identity_disclosure_profile: &Value,
@@ -403,7 +403,7 @@ pub fn compute_policy_frontier_hash(
 
 /// Cached projection of an identity-link routing decision.
 ///
-/// Round R2/R3 — adds `policy_frontier_hash` so consumers can detect
+/// Round R2/R3 — adds `policy_frontier_digest` so consumers can detect
 /// when the four governance inputs (`disclosure_policy`,
 /// `history_visibility`, `identity_disclosure_profile`,
 /// `minimal_metadata_mode`) have shifted at the policy frontier and the
@@ -417,9 +417,9 @@ pub struct IdentityLinkCacheEntry {
     pub space_id: SpaceId,
     pub mls_epoch: u64,
     /// SHA-256 of canonical JSON over the four policy-frontier inputs.
-    /// See [`compute_policy_frontier_hash`].
+    /// See [`compute_policy_frontier_digest`].
     #[serde(with = "serde_bytes_32_hex")]
-    pub policy_frontier_hash: [u8; 32],
+    pub policy_frontier_digest: [u8; 32],
     pub effective_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<DateTime<Utc>>,
@@ -434,7 +434,7 @@ mod serde_bytes_32_hex {
     pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<[u8; 32], D::Error> {
         let s = String::deserialize(d)?;
         if s.len() != 64 {
-            return Err(D::Error::custom("policy_frontier_hash hex must be 64 chars"));
+            return Err(D::Error::custom("policy_frontier_digest hex must be 64 chars"));
         }
         let mut out = [0u8; 32];
         for (i, chunk) in s.as_bytes().chunks(2).enumerate() {
@@ -565,15 +565,15 @@ mod tests {
     }
 
     #[test]
-    fn policy_frontier_hash_is_deterministic() {
-        let h1 = compute_policy_frontier_hash(
+    fn policy_frontier_digest_is_deterministic() {
+        let h1 = compute_policy_frontier_digest(
             &serde_json::json!({"mode": "strict"}),
             &serde_json::json!("members_only"),
             &serde_json::json!({"profile": "default"}),
             &serde_json::json!(false),
         )
         .unwrap();
-        let h2 = compute_policy_frontier_hash(
+        let h2 = compute_policy_frontier_digest(
             &serde_json::json!({"mode": "strict"}),
             &serde_json::json!("members_only"),
             &serde_json::json!({"profile": "default"}),
@@ -581,7 +581,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(h1, h2);
-        let h3 = compute_policy_frontier_hash(
+        let h3 = compute_policy_frontier_digest(
             &serde_json::json!({"mode": "strict"}),
             &serde_json::json!("members_only"),
             &serde_json::json!({"profile": "default"}),

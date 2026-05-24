@@ -1227,7 +1227,7 @@ pub struct EventsResolveReqBody {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub event_ids: Vec<EventId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub event_hashes: Vec<Hash>,
+    pub event_digests: Vec<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub include_payload: Option<bool>,
 }
@@ -1802,7 +1802,7 @@ pub enum SessionGrantProofKind {
 pub struct SessionGrantRequestProof {
     pub proof_kind: SessionGrantProofKind,
     pub challenge: String,
-    pub request_canonical_hash: Hash,
+    pub request_canonical_digest: Hash,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub audience: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

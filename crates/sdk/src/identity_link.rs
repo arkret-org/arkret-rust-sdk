@@ -31,7 +31,7 @@ impl IdentityLinkCache {
             self.entries.remove(&key);
             return Ok(());
         }
-        let proof_digest = link.canonical_payload_hash()?;
+        let proof_digest = link.canonical_payload_digest()?;
         self.entries.insert(key, IdentityLinkCacheEntry { link, verified_at, proof_digest });
         Ok(())
     }
@@ -108,14 +108,14 @@ mod tests {
             proof: IdentityLinkProof {
                 verification_method: "did:web:alice.example#key-1".to_owned(),
                 signature_algorithm: "Ed25519".to_owned(),
-                payload_hash: Hash::new(
+                payload_digest: Hash::new(
                     "sha256:0000000000000000000000000000000000000000000000000000000000000000",
                 )
                 .unwrap(),
                 signature: "sig".to_owned(),
             },
         };
-        link.proof.payload_hash = link.canonical_payload_hash().unwrap();
+        link.proof.payload_digest = link.canonical_payload_digest().unwrap();
         link
     }
 

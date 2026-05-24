@@ -307,7 +307,7 @@ pub fn security_review_checklist() -> Vec<SecurityReviewItem> {
             source_files: vec!["canonical.rs".to_owned(), "model.rs".to_owned()],
             test_targets: vec![
                 "model::tests::signature_binding_payload_matches_canonical_vector".to_owned(),
-                "model::tests::proof_validate_binding_rejects_mismatched_payload_hash".to_owned(),
+                "model::tests::proof_validate_binding_rejects_mismatched_payload_digest".to_owned(),
                 "model::tests::proof_validate_production_rejects_dev_kinds".to_owned(),
             ],
             status: SecurityReviewStatus::Tested,

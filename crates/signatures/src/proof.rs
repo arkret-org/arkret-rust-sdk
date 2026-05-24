@@ -239,7 +239,7 @@ impl EventProofBuilder {
     }
 
     /// Compute the `sha256:<hex>` payload hash for `value`.
-    pub fn payload_hash<T: Serialize>(&self, value: &T) -> Result<Hash> {
+    pub fn payload_digest<T: Serialize>(&self, value: &T) -> Result<Hash> {
         Hash::new(canonical::canonical_sha256(value)?).map_err(Into::into)
     }
 
@@ -263,7 +263,7 @@ impl EventProofBuilder {
         let bytes = self.canonical_bytes(value)?;
         let hash = Hash::new(canonical::sha256_digest(&bytes))?;
         let signature = signer.sign(&bytes)?;
-        Ok(SignedPayload { canonical_bytes: bytes, payload_hash: hash, signature })
+        Ok(SignedPayload { canonical_bytes: bytes, payload_digest: hash, signature })
     }
 }
 
@@ -271,7 +271,7 @@ impl EventProofBuilder {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SignedPayload {
     pub canonical_bytes: Vec<u8>,
-    pub payload_hash: Hash,
+    pub payload_digest: Hash,
     pub signature: Vec<u8>,
 }
 
@@ -456,12 +456,12 @@ mod ed25519_jws {
             audience: Option<Audience>,
         ) -> contrix_core::Result<Proof> {
             let jws = detached_jws_over(&self.signing_key, bytes);
-            let payload_hash = Hash::new(canonical::sha256_digest(bytes))?;
+            let payload_digest = Hash::new(canonical::sha256_digest(bytes))?;
             Ok(Proof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
                 alg: "EdDSA".to_owned(),
                 verification_method: self.verification_method.clone(),
-                payload_hash,
+                payload_digest,
                 created_at: Utc::now(),
                 domain,
                 audience,
@@ -515,10 +515,10 @@ mod ed25519_jws {
                 )));
             }
             let expected = canonical::sha256_digest(canonical_bytes);
-            if proof.payload_hash.as_str() != expected {
+            if proof.payload_digest.as_str() != expected {
                 return Err(VerifierError::Binding(format!(
-                    "proof payload_hash '{}' does not match canonical bytes '{}'",
-                    proof.payload_hash, expected
+                    "proof payload_digest '{}' does not match canonical bytes '{}'",
+                    proof.payload_digest, expected
                 )));
             }
             let parts: Vec<&str> = proof.jws.split('.').collect();
@@ -602,7 +602,7 @@ pub fn build_proof_envelope(
     kind: impl Into<String>,
     algorithm: impl Into<String>,
     verification_method: impl Into<String>,
-    payload_hash: Hash,
+    payload_digest: Hash,
     domain: Option<String>,
     audience: Option<contrix_core::Audience>,
     jws: impl Into<String>,
@@ -611,7 +611,7 @@ pub fn build_proof_envelope(
         kind: kind.into(),
         alg: algorithm.into(),
         verification_method: verification_method.into(),
-        payload_hash,
+        payload_digest,
         created_at: Utc::now(),
         domain,
         audience,
@@ -654,9 +654,9 @@ mod tests {
     }
 
     #[test]
-    fn payload_hash_is_sha256_of_canonical_bytes() {
+    fn payload_digest_is_sha256_of_canonical_bytes() {
         let builder = EventProofBuilder::new();
-        let hash = builder.payload_hash(&json!({"a": 1})).unwrap();
+        let hash = builder.payload_digest(&json!({"a": 1})).unwrap();
         assert!(hash.as_str().starts_with("sha256:"));
         // Stable digest for canonical `{"a":1}`.
         assert_eq!(

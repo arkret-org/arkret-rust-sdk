@@ -89,7 +89,7 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
                     "kind": "detached_jws",
                     "alg": "EdDSA",
                     "verification_method": "did:web:alice.example#key-1",
-                    "payload_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+                    "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
                     "created_at": "2026-05-02T00:00:00Z",
                     "jws": "a..b"
                 }]
@@ -114,7 +114,7 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
                     "kind": "detached_jws",
                     "alg": "EdDSA",
                     "verification_method": "did:web:alice.example#key-1",
-                    "payload_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+                    "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
                     "created_at": "2026-05-02T00:00:00Z",
                     "jws": "a..b"
                 }],

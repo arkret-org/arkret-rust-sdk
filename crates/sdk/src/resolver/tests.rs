@@ -606,7 +606,7 @@ fn message_revision_redaction_and_reaction_converge() {
 }
 
 #[test]
-fn snapshot_manifest_tracks_state_hash_and_merkle_root() {
+fn snapshot_manifest_tracks_state_digest_and_merkle_root() {
     let event = morph_event(9, "cx:morph:01904100-0000-7000-8000-b7a4e10c8c77", "Snapshot task");
     let mut state = SpaceState::new(space_id(), "1".to_owned());
 
@@ -616,7 +616,7 @@ fn snapshot_manifest_tracks_state_hash_and_merkle_root() {
 
     assert_eq!(manifest.schema, REDUCER_SNAPSHOT_SCHEMA);
     assert_eq!(manifest.reducer_profile, REDUCER_SNAPSHOT_PROFILE);
-    assert_eq!(manifest.state_hash, snapshot.state_hash);
+    assert_eq!(manifest.state_digest, snapshot.state_digest);
     assert_eq!(manifest.merkle_root, snapshot.state_merkle_root().unwrap());
     snapshot.verify().unwrap();
 }
@@ -658,7 +658,7 @@ fn restore_snapshot_or_replay_falls_back_on_verification_failure() {
     let mut state = SpaceState::new(space_id(), "1".to_owned());
     state.apply_events(std::slice::from_ref(&event)).unwrap();
     let mut snapshot = state.snapshot();
-    snapshot.state_hash =
+    snapshot.state_digest =
         "sha256:0000000000000000000000000000000000000000000000000000000000000000".to_owned();
 
     let restored =

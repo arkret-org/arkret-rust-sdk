@@ -236,7 +236,7 @@ verify_move(M, pre_state, registry) -> Result<(), MoveReject>:
   step 2: signature
     canonical = M.canonical_bytes_for_id()
     digest = sha256(canonical)
-    assert M.sig.payload_hash == digest
+    assert M.sig.payload_digest == digest
     verify_jws(M.sig.jws, canonical, M.sig.verification_method, M.issuer)
 
   step 3: capability
@@ -522,7 +522,7 @@ soland 接线。
 
 ## 11. 与现有 state-res / reducer 的关系
 
-- 旧 `StateReducer` / `state_hash` / `is_state_event`
+- 旧 `StateReducer` / `state_digest` / `is_state_event`
   / `subject_for_event` / `candidate_wins` **整体废弃**，但代码先标
   `#[deprecated]` 让 soland 在新代码就位前可以共存编译。
 - 旧 `soland::reducer::ReducerKind` (per event_kind) 改为 spec

@@ -294,7 +294,7 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
             path: "/contrix/v1/check".to_owned(),
             query: BTreeMap::new(),
             headers: BTreeMap::from([("Authorization".to_owned(), "Bearer redacted".to_owned())]),
-            body: json!({"request_canonical_hash": "sha256:not-hex"}),
+            body: json!({"request_canonical_digest": "sha256:not-hex"}),
             expected_status: 400,
             expected_error_code: "digest_mismatch".to_owned(),
         },

@@ -315,7 +315,7 @@ mod tests {
             "hlc": format!("0189c4d2af00-0000-{:08x}", from.len() * 100 + to.len())
         });
         let body_bytes = canonical::canonical_json_bytes(&body).unwrap();
-        let payload_hash = canonical::sha256_digest(&body_bytes);
+        let payload_digest = canonical::sha256_digest(&body_bytes);
         let id_hex: String =
             Sha256::digest(&body_bytes).iter().map(|b| format!("{b:02x}")).collect();
         let mut full = body.as_object().unwrap().clone();
@@ -325,7 +325,7 @@ mod tests {
             json!({
                 "alg": "EdDSA",
                 "verification_method": "did:web:admin.example#k1",
-                "payload_hash": payload_hash,
+                "payload_digest": payload_digest,
                 "created_at": "2026-05-08T00:00:00Z",
                 "jws": "AAAA.BBBB.CCCC"
             }),
@@ -341,7 +341,7 @@ mod tests {
         let sig = MoveSignature {
             alg: "EdDSA".to_owned(),
             verification_method: "did:web:anchorer.example#k1".to_owned(),
-            payload_hash: Hash::new(format!("sha256:{}", "ff".repeat(32))).unwrap(),
+            payload_digest: Hash::new(format!("sha256:{}", "ff".repeat(32))).unwrap(),
             created_at: chrono::Utc::now(),
             jws: "AAAA.BBBB.CCCC".to_owned(),
         };

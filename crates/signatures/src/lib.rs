@@ -33,7 +33,7 @@ pub const HTTP_MESSAGE_SIGNATURE_PROFILE: &str = "cx.http-message-signature.v1";
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DetachedSignatureBinding {
-    pub payload_hash: Hash,
+    pub payload_digest: Hash,
     pub signer: Did,
     pub verification_method: String,
     pub created_at: DateTime<Utc>,
@@ -50,7 +50,7 @@ impl DetachedSignatureBinding {
         verification_method: impl Into<String>,
     ) -> Result<Self> {
         Ok(Self {
-            payload_hash: canonical_payload_hash(payload)?,
+            payload_digest: canonical_payload_digest(payload)?,
             signer,
             verification_method: verification_method.into(),
             created_at: Utc::now(),
@@ -61,7 +61,7 @@ impl DetachedSignatureBinding {
 
     pub fn proof_binding_payload(&self) -> SignatureBindingPayload {
         SignatureBindingPayload {
-            payload_hash: self.payload_hash.clone(),
+            payload_digest: self.payload_digest.clone(),
             actor_id: self.signer.clone(),
             verification_method: self.verification_method.clone(),
             created_at: self.created_at,
@@ -76,7 +76,7 @@ pub struct DetachedSignature {
     pub kind: String,
     pub alg: String,
     pub verification_method: String,
-    pub payload_hash: Hash,
+    pub payload_digest: Hash,
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub domain: Option<String>,
@@ -91,7 +91,7 @@ impl DetachedSignature {
             kind: proof.kind,
             alg: proof.alg,
             verification_method: proof.verification_method,
-            payload_hash: proof.payload_hash,
+            payload_digest: proof.payload_digest,
             created_at: proof.created_at,
             domain: proof.domain,
             audience: proof.audience,
@@ -104,7 +104,7 @@ impl DetachedSignature {
             kind: self.kind,
             alg: self.alg,
             verification_method: self.verification_method,
-            payload_hash: self.payload_hash,
+            payload_digest: self.payload_digest,
             created_at: self.created_at,
             domain: self.domain,
             audience: self.audience,
@@ -170,7 +170,7 @@ impl DidVerificationMethodResolver for StaticDidVerificationMethodResolver {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProofVerificationContext {
     pub actor_id: Did,
-    pub expected_payload_hash: Hash,
+    pub expected_payload_digest: Hash,
     pub now: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub domain: Option<String>,
@@ -182,10 +182,10 @@ pub struct ProofVerificationContext {
 }
 
 impl ProofVerificationContext {
-    pub fn new(actor_id: Did, expected_payload_hash: Hash) -> Self {
+    pub fn new(actor_id: Did, expected_payload_digest: Hash) -> Self {
         Self {
             actor_id,
-            expected_payload_hash,
+            expected_payload_digest,
             now: Utc::now(),
             domain: None,
             audience: None,
@@ -206,9 +206,9 @@ where
     F: Fn(&VerificationMethodDocument, &Proof) -> Result<bool>,
 {
     proof.validate_production()?;
-    if proof.payload_hash != context.expected_payload_hash {
+    if proof.payload_digest != context.expected_payload_digest {
         return Err(Error::Protocol(
-            "proof payload_hash does not match expected digest".to_owned(),
+            "proof payload_digest does not match expected digest".to_owned(),
         ));
     }
     if proof.domain != context.domain {
@@ -254,7 +254,7 @@ pub struct SignatureVerification {
     pub warnings: Vec<String>,
 }
 
-pub fn canonical_payload_hash<T: Serialize>(payload: &T) -> Result<Hash> {
+pub fn canonical_payload_digest<T: Serialize>(payload: &T) -> Result<Hash> {
     Hash::new(canonical::canonical_sha256(payload)?).map_err(Into::into)
 }
 
@@ -276,13 +276,13 @@ pub struct HttpMessageSignatureInput {
     /// trust-domain transcript fields. When present they are emitted
     /// by [`http_message_signature_base`] under the lower-case header
     /// names `source-trust-domain`, `destination-trust-domain`, and
-    /// `request-canonical-hash` per RFC 9421 §2.2.
+    /// `request-canonical-digest` per RFC 9421 §2.2.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_trust_domain: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub destination_trust_domain: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub request_canonical_hash: Option<String>,
+    pub request_canonical_digest: Option<String>,
 }
 
 impl HttpMessageSignatureInput {
@@ -322,7 +322,7 @@ pub fn http_message_signature_base(input: &HttpMessageSignatureInput) -> String 
         format!("\"x-contrix-destination-service\": {}", input.destination_service_did),
     ];
     // Round 4 (spec f9bd7eb) — emit `Source-Trust-Domain`,
-    // `Destination-Trust-Domain`, and `Request-Canonical-Hash` headers
+    // `Destination-Trust-Domain`, and `Request-Canonical-Digest` headers
     // when present. Receivers MUST refuse a signed transcript whose
     // header set disagrees with the declared signed_fields.
     if let Some(s) = &input.source_trust_domain {
@@ -331,8 +331,8 @@ pub fn http_message_signature_base(input: &HttpMessageSignatureInput) -> String 
     if let Some(d) = &input.destination_trust_domain {
         lines.push(format!("\"destination-trust-domain\": {d}"));
     }
-    if let Some(h) = &input.request_canonical_hash {
-        lines.push(format!("\"request-canonical-hash\": {h}"));
+    if let Some(h) = &input.request_canonical_digest {
+        lines.push(format!("\"request-canonical-digest\": {h}"));
     }
     lines.push(format!("\"created\": {}", input.created_at.timestamp()));
     lines.push(format!("\"expires\": {}", input.expires_at.timestamp()));
@@ -363,8 +363,8 @@ where
     if input.destination_trust_domain.is_some() {
         signed_fields.push("destination-trust-domain".to_owned());
     }
-    if input.request_canonical_hash.is_some() {
-        signed_fields.push("request-canonical-hash".to_owned());
+    if input.request_canonical_digest.is_some() {
+        signed_fields.push("request-canonical-digest".to_owned());
     }
     signed_fields.push("created".to_owned());
     signed_fields.push("expires".to_owned());
@@ -402,8 +402,8 @@ mod tests {
     }
 
     #[test]
-    fn canonical_payload_hash_matches_sha256_shape() {
-        let hash = canonical_payload_hash(&json!({"b": 2, "a": 1})).unwrap();
+    fn canonical_payload_digest_matches_sha256_shape() {
+        let hash = canonical_payload_digest(&json!({"b": 2, "a": 1})).unwrap();
         assert!(hash.as_str().starts_with("sha256:"));
     }
 
@@ -419,7 +419,7 @@ mod tests {
             kind: "did".to_owned(),
             alg: "EdDSA".to_owned(),
             verification_method: binding.verification_method.clone(),
-            payload_hash: binding.payload_hash.clone(),
+            payload_digest: binding.payload_digest.clone(),
             created_at: binding.created_at,
             domain: None,
             audience: None,
@@ -444,7 +444,7 @@ mod tests {
             expires_at: now + Duration::minutes(5),
             source_trust_domain: None,
             destination_trust_domain: None,
-            request_canonical_hash: None,
+            request_canonical_digest: None,
         };
         let signature = sign_http_message(&input, "did:web:a.example#key-1", "EdDSA", |base| {
             Ok(canonical::sha256_digest(base))
@@ -465,7 +465,7 @@ mod tests {
     #[test]
     fn proof_verifier_resolves_method_binds_service_and_replay_window() {
         let actor = did("alice");
-        let payload_hash =
+        let payload_digest =
             Hash::new("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
                 .unwrap();
         let mut resolver = StaticDidVerificationMethodResolver::default();
@@ -479,13 +479,13 @@ mod tests {
             kind: "detached_jws".to_owned(),
             alg: "EdDSA".to_owned(),
             verification_method: "did:web:alice.example#key-1".to_owned(),
-            payload_hash: payload_hash.clone(),
+            payload_digest: payload_digest.clone(),
             created_at: Utc::now(),
             domain: Some("api.example".to_owned()),
             audience: Some(Audience::Single("did:web:service.example".to_owned())),
             jws: "sig".to_owned(),
         };
-        let mut context = ProofVerificationContext::new(actor, payload_hash);
+        let mut context = ProofVerificationContext::new(actor, payload_digest);
         context.domain = proof.domain.clone();
         context.audience = proof.audience.clone();
         context.service_did = Some(did("service"));

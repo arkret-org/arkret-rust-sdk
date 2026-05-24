@@ -495,7 +495,7 @@ impl ContrixMlsGroup {
     ///
     /// Returns an `MlsCommitEnvelope` whose `commit` field is the
     /// TLS-serialised commit message (base64-url encoded) and whose
-    /// `commit_hash` is the SHA-256 of that wire bytes — the same
+    /// `commit_digest` is the SHA-256 of that wire bytes — the same
     /// shape the SDK already emits from `add_member` / `remove_member_*`.
     /// Side-effect: the group's pending commit is `merge`-d on success
     /// so subsequent `encrypt_payload` calls run against the new
@@ -516,7 +516,7 @@ impl ContrixMlsGroup {
             group_id: self.group_id(),
             epoch: self.epoch(),
             commit: encode(&commit_bytes),
-            commit_hash: Hash::new(canonical::sha256_digest(&commit_bytes))?,
+            commit_digest: Hash::new(canonical::sha256_digest(&commit_bytes))?,
             ratchet_tree,
             app_state_ref: None,
         })
@@ -550,7 +550,7 @@ impl ContrixMlsGroup {
                 group_id: self.group_id(),
                 epoch: self.epoch(),
                 commit: encode(&commit_bytes),
-                commit_hash: Hash::new(canonical::sha256_digest(&commit_bytes))?,
+                commit_digest: Hash::new(canonical::sha256_digest(&commit_bytes))?,
                 ratchet_tree: ratchet_tree.clone(),
                 app_state_ref: None,
             },
@@ -667,7 +667,7 @@ impl ContrixMlsGroup {
                 group_id: self.group_id(),
                 epoch: self.epoch(),
                 commit: encode(&commit_bytes),
-                commit_hash: Hash::new(canonical::sha256_digest(&commit_bytes))?,
+                commit_digest: Hash::new(canonical::sha256_digest(&commit_bytes))?,
                 ratchet_tree,
                 app_state_ref: None,
             },
@@ -802,8 +802,8 @@ impl ContrixMlsGroup {
 
     pub fn apply_commit(&mut self, envelope: &MlsCommitEnvelope) -> Result<u64> {
         let commit_bytes = decode(&envelope.commit)?;
-        let actual_commit_hash = canonical::sha256_digest(&commit_bytes);
-        if actual_commit_hash != envelope.commit_hash.as_str() {
+        let actual_commit_digest = canonical::sha256_digest(&commit_bytes);
+        if actual_commit_digest != envelope.commit_digest.as_str() {
             return Err(Error::Protocol("MLS Commit hash mismatch".to_owned()));
         }
 
@@ -1134,7 +1134,7 @@ mod tests {
 
     /// `self_update_commit` MUST advance the group epoch by exactly 1
     /// and surface a typed `MlsCommitEnvelope` with the new
-    /// (group_id, epoch) pair. The `commit_hash` MUST be the SHA-256
+    /// (group_id, epoch) pair. The `commit_digest` MUST be the SHA-256
     /// of the wire bytes.
     #[test]
     fn self_update_commit_advances_epoch_and_returns_typed_envelope() {
@@ -1152,8 +1152,8 @@ mod tests {
         assert_eq!(envelope.epoch, pre_epoch + 1);
         // post-call: group's view agrees.
         assert_eq!(group.epoch(), pre_epoch + 1);
-        // commit_hash is non-empty + sha256:-prefixed.
-        assert!(envelope.commit_hash.as_str().starts_with("sha256:"));
+        // commit_digest is non-empty + sha256:-prefixed.
+        assert!(envelope.commit_digest.as_str().starts_with("sha256:"));
         // commit bytes round-trip through base64.
         assert!(!envelope.commit.is_empty());
         // schedule_hash MUST also change since epoch_authenticator

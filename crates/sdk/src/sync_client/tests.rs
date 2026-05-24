@@ -135,7 +135,7 @@ fn sync_loop_includes_wait_for_frontier() {
             space_id,
             frontier: Vec::new(),
             timeline_order: crate::Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),
-            state_hash: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+            state_digest: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                 .to_owned(),
         }],
         timeout_ms: 5000,
@@ -275,7 +275,7 @@ fn send_queue_is_idempotent_orders_dependencies_and_snapshots() {
         )
         .unwrap();
 
-    assert_eq!(message.payload_hash, duplicate.payload_hash);
+    assert_eq!(message.payload_digest, duplicate.payload_digest);
     assert_eq!(queue.ready_batch(Utc::now(), 10), vec![message]);
 
     queue.mark_sending("txn1").unwrap();

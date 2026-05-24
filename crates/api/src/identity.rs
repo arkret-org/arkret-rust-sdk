@@ -199,7 +199,7 @@ pub struct IdentityInvitationLookupResBody {
 pub struct KeyLogHead {
     pub did: Did,
     pub seq: u64,
-    pub head_event_hash: Hash,
+    pub head_event_digest: Hash,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub receipts: Vec<Value>,
 }
@@ -210,7 +210,7 @@ pub fn resolve_response_from_document(
 ) -> IdentityResolveResBody {
     IdentityResolveResBody {
         did_document: document.to_ref(),
-        key_log_head: key_log_head.as_ref().map(|head| head.head_event_hash.clone()),
+        key_log_head: key_log_head.as_ref().map(|head| head.head_event_digest.clone()),
         seq: key_log_head.as_ref().map(|head| head.seq),
         receipts: key_log_head.map(|head| head.receipts).unwrap_or_default(),
         method_evidence: Value::Null,

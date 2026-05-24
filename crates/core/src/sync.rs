@@ -352,7 +352,7 @@ pub struct SyncStreamPosition {
     /// Last deterministic timeline order key observed for this space.
     pub timeline_order: Hlc,
     /// State hash or Merkle root at this point.
-    pub state_hash: String,
+    pub state_digest: String,
 }
 
 impl SyncStreamPosition {
@@ -361,7 +361,7 @@ impl SyncStreamPosition {
         if self.space_id != required.space_id || self.timeline_order < required.timeline_order {
             return false;
         }
-        if !required.state_hash.is_empty() && self.state_hash != required.state_hash {
+        if !required.state_digest.is_empty() && self.state_digest != required.state_digest {
             return false;
         }
 
@@ -1023,7 +1023,7 @@ mod tests {
             space_id: space_id.clone(),
             frontier: vec![event_id.clone()],
             timeline_order: Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),
-            state_hash: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+            state_digest: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                 .to_owned(),
         };
         let wait_for = WaitForFrontier { positions: vec![required], timeout_ms: 1500 };
@@ -1031,7 +1031,7 @@ mod tests {
             space_id,
             frontier: vec![event_id],
             timeline_order: Hlc::new("01970e589d22-0000-a13f9c2e").unwrap(),
-            state_hash: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+            state_digest: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                 .to_owned(),
         };
 

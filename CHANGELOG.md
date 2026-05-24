@@ -23,7 +23,7 @@ wire-breaking list.
   `resync_required` / `unauthorized`), `SnapshotBootstrap`, `EventsFrontierResponse`
   oneOf (`AccountClient` / `FederationPeer` / `AnonymousHealth` — the last
   forbids `receipts` / `signatures` at the type level), `PolicyCheckRequest` /
-  `PolicyCheckResponse{bound_to{realm_id,actor,action,request_canonical_hash,
+  `PolicyCheckResponse{bound_to{realm_id,actor,action,request_canonical_digest,
   policy_server_id}, signature}`, `FederationServiceBindingRef` (6 required
   fields), `EventsSubmitBatchRequest` / `EventsSubmitFederationRequest`,
   `ThirdPartyInvite{oob_code_kind ∈ OfflineToken|Lookup}`,
@@ -42,7 +42,7 @@ wire-breaking list.
   gains required `expected_previous_generation: u64`; new
   `cross_signing_publish_cell_subject(principal_id, expected_previous_generation)
    -> CellSubject::Tuple`.
-- **BREAKING** `compute_audit_policy_version_hash(realm_id, trust_domain,
+- **BREAKING** `compute_audit_policy_version_digest(realm_id, trust_domain,
   audit_disclosure, audit_assurance)` — old 2-arg signature removed; old
   receipts no longer verify.
 - **BREAKING** `Realm` / `ServiceDescribe` / `AuditRywReceipt` gain required
@@ -55,9 +55,9 @@ wire-breaking list.
   required `late_recovery_original_event_id`.
 - **Added** federation HTTP signature transcript now includes the three new
   S2S headers `Source-Trust-Domain` / `Destination-Trust-Domain` /
-  `Request-Canonical-Hash` (re-exported constants
+  `Request-Canonical-Digest` (re-exported constants
   `HEADER_SOURCE_TRUST_DOMAIN` / `HEADER_DESTINATION_TRUST_DOMAIN` /
-  `HEADER_REQUEST_CANONICAL_HASH`).
+  `HEADER_REQUEST_CANONICAL_DIGEST`).
 - **Added** 3 new error code constants (`ERROR_CODE_DELIVERY_BINDING_STALE` /
   `_HANDED_OVER` / `_HISTORICAL_ONLY`) and 1 new capability action
   (`CAPABILITY_ACTION_MORPH_CREATE = "cx.morph.create"`, medium risk,
@@ -95,8 +95,8 @@ signatures, schema-id constants, and validation helpers. See contrix-spec
   cross-check; `AttestationEvidence` mirroring all schema fields;
   `CrossSigningResetPayload` with required `trust_domain` and
   `reset_event_id` (wire-breaking); `IdentityLinkCacheEntry` carrying a
-  32-byte `policy_frontier_hash`; helper
-  `compute_policy_frontier_hash(disclosure_policy, history_visibility,
+  32-byte `policy_frontier_digest`; helper
+  `compute_policy_frontier_digest(disclosure_policy, history_visibility,
   identity_disclosure_profile, minimal_metadata_mode)`.
 - **Anchor canonical bytes**: free-function shims `anchor_canonical_bytes`
   and `compute_anchor_id` exposing the existing body canonicalisation
@@ -263,11 +263,11 @@ signatures, schema-id constants, and validation helpers. See contrix-spec
   `canonical_json_bytes`) and returns the wire-form
   `sha256:<lowercase-hex>` digest used in event envelopes
   (`canonical_digest` field), anchors, and policy-check payloads
-  (`request_canonical_hash`). Thin alias for `sha256_digest` kept
+  (`request_canonical_digest`). Thin alias for `sha256_digest` kept
   distinct so the call-site intent ("this is the wire-form canonical
   digest") is self-documenting. Downstream services (soland
   `wire.rs:560,793,816` Move/Anchor `canonical_hash` and
-  `request_canonical_hash` fields, plus yougen / floria / chime as
+  `request_canonical_digest` fields, plus yougen / floria / chime as
   they migrate) call this so the same canonical bytes produce
   byte-identical digest strings everywhere. SDK-2.
 
@@ -775,7 +775,7 @@ Three new SDK surfaces requested by the soland principal server.
   - `GeneratorProof` — generator's signed commitment to
     `(state_root, merkle_root, chunk_count, total_bytes, chunk_bytes)`.
     `body_digest` returns the canonical payload hash; receivers call
-    `verify_payload_hash()` then run their own JWS verifier on
+    `verify_payload_digest()` then run their own JWS verifier on
     `signature.jws`.
 - **Per-admin signing key + session-grant introspection** in
   `contrix-core::admin_signer`:
@@ -1019,7 +1019,7 @@ from 0.4.0; this is an additive SDK API release.
 - **`contrix-core::MoveSigner` trait + `UnsignedMove` builder** — public
   signer abstraction for Move/Anchor signing. `Move::sign(&unsigned, &signer)`
   produces a fully-signed Move whose `id` matches canonical bytes hash
-  and `sig.payload_hash` matches the same canonical bytes. 8 unit tests.
+  and `sig.payload_digest` matches the same canonical bytes. 8 unit tests.
 - **`Anchor::sign_single` / `Anchor::sign_threshold` / `Anchor::sign_multi`**
   constructors that take a [`MoveSigner`] (or threshold proof bytes) +
   predecessor refs + frontier and produce a fully-signed [`Anchor`]
@@ -1120,7 +1120,7 @@ typed model are all gone. v1 was unreleased; no compat shim is provided.
 
 ### Removed (wire-breaking)
 
-- **Old `contrix-state-res` API**: `StateReducer`, `state_hash`,
+- **Old `contrix-state-res` API**: `StateReducer`, `state_digest`,
   `is_state_event`, `subject_for_event`, `candidate_wins`,
   `ResolvedStateEvent`, `ConflictRecord`, `StateResolutionSnapshot`,
   `StateAuthority`, `evaluate_state_auth`, `BoardReducer` —

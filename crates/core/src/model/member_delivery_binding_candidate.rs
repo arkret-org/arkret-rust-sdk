@@ -258,7 +258,7 @@ mod tests {
                 "kind": "detached_jws",
                 "alg": "EdDSA",
                 "verification_method": "did:web:principal.example#key-1",
-                "payload_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "payload_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "created_at": "2026-05-19T00:00:00Z",
                 "audience": "cx:space:0196419b-0000-7000-8000-000000000000",
                 "jws": "aaa.bbb.ccc"

@@ -12,7 +12,7 @@ struct CanonicalVector {
     name: String,
     value: serde_json::Value,
     canonical_bytes: String,
-    payload_hash: String,
+    payload_digest: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -27,7 +27,7 @@ struct Ed25519Vector {
     public_key_hex: String,
     value: serde_json::Value,
     canonical_bytes: String,
-    payload_hash: String,
+    payload_digest: String,
     /// Raw 64-byte signature, lowercase hex.
     signature_hex: String,
     /// Full detached-JWS string (`header..signature`).
@@ -73,7 +73,7 @@ fn _dump_canonical_vectors_helper() {
     let builder = EventProofBuilder::new();
     for v in suite.vectors {
         let bytes = builder.canonical_bytes(&v.value).unwrap();
-        let hash = builder.payload_hash(&v.value).unwrap();
+        let hash = builder.payload_digest(&v.value).unwrap();
         println!(
             "name={} canonical={} hash={}",
             v.name,
@@ -99,9 +99,9 @@ fn canonical_json_vectors_match_event_proof_builder() {
         assert_eq!(bytes_str, v.canonical_bytes, "vector '{}' canonical bytes drift", v.name);
 
         let hash = builder
-            .payload_hash(&v.value)
-            .unwrap_or_else(|err| panic!("vector '{}' failed payload_hash: {err}", v.name));
-        assert_eq!(hash.as_str(), v.payload_hash, "vector '{}' payload_hash drift", v.name);
+            .payload_digest(&v.value)
+            .unwrap_or_else(|err| panic!("vector '{}' failed payload_digest: {err}", v.name));
+        assert_eq!(hash.as_str(), v.payload_digest, "vector '{}' payload_digest drift", v.name);
     }
 }
 
@@ -128,7 +128,7 @@ fn _dump_ed25519_vectors_helper() {
         let signer = Ed25519DetachedJwsSigner::from_seed(seed, "did:web:test.example#key-1");
         let pubkey = signer.verifying_key().to_bytes();
         let bytes = builder.canonical_bytes(&value).unwrap();
-        let hash = builder.payload_hash(&value).unwrap();
+        let hash = builder.payload_digest(&value).unwrap();
         let sig = signer.sign(&bytes).unwrap();
         let (_, proof) = signer.sign_payload(&value, None, None).unwrap();
         println!(
@@ -179,8 +179,8 @@ fn ed25519_vectors_round_trip_through_signer_and_verifier() {
         );
 
         // Payload hash matches.
-        let hash = builder.payload_hash(&v.value).unwrap();
-        assert_eq!(hash.as_str(), v.payload_hash, "vector '{}' payload hash drift", v.name);
+        let hash = builder.payload_digest(&v.value).unwrap();
+        assert_eq!(hash.as_str(), v.payload_digest, "vector '{}' payload hash drift", v.name);
 
         // Raw signature bytes match.
         let sig = signer.sign(&bytes).unwrap();

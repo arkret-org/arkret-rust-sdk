@@ -91,10 +91,10 @@ Headline additions:
   `delivery_binding_handed_over` / `historical_only`.
 - **1 new capability action**: `cx.morph.create` (medium risk).
 - **3 new federation header constants**: `Source-Trust-Domain` /
-  `Destination-Trust-Domain` / `Request-Canonical-Hash` (entered into
+  `Destination-Trust-Domain` / `Request-Canonical-Digest` (entered into
   the HTTP-message-signature transcript).
 - **CAS upgrade**: `CrossSigningPublishPayload` gains required
-  `expected_previous_generation`; `compute_audit_policy_version_hash`
+  `expected_previous_generation`; `compute_audit_policy_version_digest`
   takes 4 args (`realm_id, trust_domain, audit_disclosure,
   audit_assurance`).
 - **`cx.call.signal` v2**: 13-value `signal_type` enum, required

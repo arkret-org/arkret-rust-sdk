@@ -639,7 +639,7 @@ mod tests {
             "hlc": "0189c4d2af00-0000-aabbccdd"
         });
         let body_bytes = crate::canonical::canonical_json_bytes(&body).unwrap();
-        let payload_hash = crate::canonical::sha256_digest(&body_bytes);
+        let payload_digest = crate::canonical::sha256_digest(&body_bytes);
         let mut full = body.as_object().unwrap().clone();
         full.insert("id".into(), Value::String(id.as_str().to_owned()));
         full.insert(
@@ -647,7 +647,7 @@ mod tests {
             serde_json::json!({
                 "alg": "EdDSA",
                 "verification_method": "did:web:admin.example#k1",
-                "payload_hash": payload_hash,
+                "payload_digest": payload_digest,
                 "created_at": "2026-05-08T00:00:00Z",
                 "jws": "AAAA.BBBB.CCCC"
             }),
@@ -659,7 +659,7 @@ mod tests {
         let sig = MoveSignature {
             alg: "EdDSA".to_owned(),
             verification_method: "did:web:anchorer.example#k1".to_owned(),
-            payload_hash: hash(0xff),
+            payload_digest: hash(0xff),
             created_at: Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
             jws: "AAAA.BBBB.CCCC".to_owned(),
         };

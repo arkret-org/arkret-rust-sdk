@@ -76,7 +76,7 @@ pub struct SendQueueItem {
     /// Event content.
     pub content: Value,
     /// Canonical hash of the idempotent payload.
-    pub payload_hash: String,
+    pub payload_digest: String,
     /// Other transaction IDs that must be sent first.
     #[serde(default)]
     pub depends_on: Vec<String>,
@@ -235,12 +235,12 @@ impl SendQueue {
         content: Value,
         depends_on: Vec<String>,
     ) -> Result<SendQueueItem> {
-        let payload_hash = queue_payload_hash(&space_id, &kind, &content, &depends_on)?;
+        let payload_digest = queue_payload_digest(&space_id, &kind, &content, &depends_on)?;
         let transaction_id = transaction_id
-            .unwrap_or_else(|| format!("txn_{}", payload_hash.trim_start_matches("sha256:")));
+            .unwrap_or_else(|| format!("txn_{}", payload_digest.trim_start_matches("sha256:")));
 
         if let Some(existing) = self.items.get(&transaction_id) {
-            if existing.payload_hash == payload_hash {
+            if existing.payload_digest == payload_digest {
                 return Ok(existing.clone());
             }
             return Err(Error::IdempotencyConflict(transaction_id));
@@ -264,7 +264,7 @@ impl SendQueue {
             space_id,
             kind,
             content,
-            payload_hash,
+            payload_digest,
             depends_on,
             status: SendQueueStatus::Queued,
             attempts: 0,
@@ -379,7 +379,7 @@ impl SendQueue {
     }
 }
 
-fn queue_payload_hash(
+fn queue_payload_digest(
     space_id: &SpaceId,
     kind: &SendQueueItemKind,
     content: &Value,

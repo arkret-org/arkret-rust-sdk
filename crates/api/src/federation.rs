@@ -205,7 +205,7 @@ pub struct FederationEventAuthResBody {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub auth_chain: Vec<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub state_hash: Option<Hash>,
+    pub state_digest: Option<Hash>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

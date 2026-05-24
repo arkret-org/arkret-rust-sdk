@@ -241,10 +241,6 @@ pub struct HandleClaim {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub claim_scope: BTreeMap<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub service_acceptance_ref: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub policy_ref: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub member_delivery_binding: Option<DeliveryBindingHint>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub claims: Vec<Value>,
@@ -364,8 +360,6 @@ impl Default for HandleClaim {
             audience: None,
             challenge: None,
             claim_scope: BTreeMap::new(),
-            service_acceptance_ref: None,
-            policy_ref: None,
             member_delivery_binding: None,
             claims: Vec::new(),
             issued_at: None,

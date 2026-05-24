@@ -136,9 +136,8 @@ impl Cursor {
     /// Maximum cursor size after encoding (4KB).
     pub const MAX_ENCODED_SIZE: usize = 4096;
 
-    /// SDK-local placeholder integrity binding used by offline builders and
-    /// tests. Servers should replace it with a keyed `_mac`, `_sig`, or
-    /// stateful `h` before issuing production cursors.
+    /// SDK-local placeholder constants retained for profile-specific
+    /// stateless cursor tests. v1 core emits stateful `h` handles by default.
     pub const DEV_TEST_MAC: &'static str =
         "hmac-sha256:0000000000000000000000000000000000000000000000000000000000000000";
     pub const DEV_TEST_ISSUER_KID: &'static str = "contrix-sdk-dev#cursor";
@@ -155,9 +154,9 @@ impl Cursor {
             d: None,
             target: None,
             x: now + Self::DEFAULT_EXPIRATION_MS,
-            h: None,
-            issuer_kid: Some(Self::DEV_TEST_ISSUER_KID.to_owned()),
-            mac: Some(Self::DEV_TEST_MAC.to_owned()),
+            h: Some(generate_cursor_handle()),
+            issuer_kid: None,
+            mac: None,
             sig: None,
             filter_hash: None,
         }
@@ -266,6 +265,8 @@ impl Cursor {
     /// - Cursor size exceeds MAX_ENCODED_SIZE
     /// - Base64URL encoding fails
     pub fn encode(&self) -> Result<String> {
+        self.validate_core_wire_shape()?;
+
         let json = crate::canonical::canonical_json_bytes(self)?;
 
         if json.len() > Self::MAX_ENCODED_SIZE {
@@ -319,38 +320,7 @@ impl Cursor {
             return Err(crate::Error::Protocol(format!("unsupported cursor version: {}", self.v)));
         }
 
-        let stateful = self.h.is_some();
-        if stateful {
-            if self.mac.is_some() || self.sig.is_some() {
-                return Err(crate::Error::Protocol(
-                    "stateful cursor handle must not carry _mac or _sig".to_owned(),
-                ));
-            }
-            if self.issuer_kid.is_some() {
-                return Err(crate::Error::Protocol(
-                    "stateful cursor handle must not carry issuer_kid".to_owned(),
-                ));
-            }
-            if !self.s.is_empty() || self.d.is_some() || self.target.is_some() {
-                return Err(crate::Error::Protocol(
-                    "stateful cursor handle must not carry s, d, or target".to_owned(),
-                ));
-            }
-            if let Some(handle) = &self.h {
-                Self::validate_cursor_handle(handle)?;
-            }
-        } else if self.mac.is_none() && self.sig.is_none() {
-            return Err(crate::Error::Protocol("stateless cursor missing _mac or _sig".to_owned()));
-        } else {
-            let issuer_kid = self.issuer_kid.as_deref().ok_or_else(|| {
-                crate::Error::Protocol("stateless cursor missing issuer_kid".to_owned())
-            })?;
-            Self::validate_issuer_kid(issuer_kid)?;
-        }
-
-        if matches!(self.purpose, CursorPurpose::Barrier) && self.target.is_none() && !stateful {
-            return Err(crate::Error::Protocol("barrier cursor missing target".to_owned()));
-        }
+        self.validate_core_wire_shape()?;
 
         // Check expiration
         let now_ms = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as i64;
@@ -447,6 +417,31 @@ impl Cursor {
         Ok(())
     }
 
+    fn validate_core_wire_shape(&self) -> Result<()> {
+        let Some(handle) = &self.h else {
+            return Err(crate::Error::Protocol(
+                "core cursor missing stateful handle h".to_owned(),
+            ));
+        };
+        Self::validate_cursor_handle(handle)?;
+        if self.mac.is_some() || self.sig.is_some() {
+            return Err(crate::Error::Protocol(
+                "core stateful cursor must not carry _mac or _sig".to_owned(),
+            ));
+        }
+        if self.issuer_kid.is_some() {
+            return Err(crate::Error::Protocol(
+                "core stateful cursor must not carry issuer_kid".to_owned(),
+            ));
+        }
+        if !self.s.is_empty() || self.d.is_some() || self.target.is_some() {
+            return Err(crate::Error::Protocol(
+                "core stateful cursor must not carry s, d, or target".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
     fn validate_cursor_mac(mac: &str) -> Result<()> {
         let Some(digest) = mac.strip_prefix("hmac-sha256:") else {
             return Err(crate::Error::Protocol("cursor _mac must use hmac-sha256".to_owned()));
@@ -459,6 +454,7 @@ impl Cursor {
         Ok(())
     }
 
+    #[allow(dead_code)]
     fn validate_issuer_kid(issuer_kid: &str) -> Result<()> {
         if issuer_kid.is_empty()
             || issuer_kid.len() > 256
@@ -470,23 +466,10 @@ impl Cursor {
     }
 
     /// Create a cursor from sync positions.
-    pub fn from_positions(positions: SyncPositions) -> Self {
-        let mut cursor = Self::new();
-
-        for (space_id, pos) in positions.spaces {
-            cursor = cursor.with_space_position(
-                space_id,
-                SpacePosition { p: pos.frontier, order: pos.timeline_order, h: pos.state_hash },
-            );
-        }
-
-        if let Some(devices) = positions.devices {
-            for (device_id, message_id) in devices {
-                cursor = cursor.with_device_position(device_id, message_id);
-            }
-        }
-
-        cursor
+    pub fn from_positions(_positions: SyncPositions) -> Self {
+        // v1 core cursor bytes carry only an opaque server handle. Callers that
+        // need to preserve positions must store them server-side keyed by `h`.
+        Self::new()
     }
 
     /// Extract sync positions from the cursor.
@@ -499,7 +482,7 @@ impl Cursor {
                 SpaceSyncPosition {
                     frontier: pos.p.clone(),
                     timeline_order: pos.order.clone(),
-                    state_hash: pos.h.clone(),
+                    state_digest: pos.h.clone(),
                 },
             );
         }
@@ -603,8 +586,8 @@ pub struct SpaceSyncPosition {
     pub frontier: Vec<String>,
     /// Timeline order HLC.
     pub timeline_order: String,
-    /// State hash at this position.
-    pub state_hash: String,
+    /// State digest at this position.
+    pub state_digest: String,
 }
 
 /// Sync positions for tracking incremental synchronization.
@@ -654,21 +637,13 @@ mod tests {
 
     #[test]
     fn cursor_encode_decode_roundtrip() {
-        let mut cursor = Cursor::new();
-        cursor = cursor.with_space_position(
-            "cx:realm:0196419b-0000-7000-8000-000000000000",
-            SpacePosition {
-                p: vec!["cx:event:0196419b-0000-7000-8000-000000000001".to_owned()],
-                order: "01970e589d21-0004-a13f9c2e".to_owned(),
-                h: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-                    .to_owned(),
-            },
-        );
+        let cursor = Cursor::new();
 
         let encoded = cursor.encode().unwrap();
         let decoded = Cursor::decode(&encoded).unwrap();
 
-        assert_eq!(decoded.s.len(), cursor.s.len());
+        assert!(decoded.s.is_empty());
+        assert!(decoded.h.is_some());
         assert_eq!(decoded.v, cursor.v);
         assert_eq!(decoded.purpose, CursorPurpose::Stream);
         assert!(encoded.starts_with("cx:cursor:"));
@@ -684,9 +659,9 @@ mod tests {
             d: None,
             target: None,
             x: 1714080000000,
-            h: None,
-            issuer_kid: Some(Cursor::DEV_TEST_ISSUER_KID.to_owned()),
-            mac: Some(Cursor::DEV_TEST_MAC.to_owned()),
+            h: Some(generate_cursor_handle()),
+            issuer_kid: None,
+            mac: None,
             sig: None,
             filter_hash: None,
         };
@@ -696,7 +671,7 @@ mod tests {
     }
 
     #[test]
-    fn cursor_rejects_invalid_hlc_format() {
+    fn core_cursor_rejects_inline_positions() {
         let mut cursor = Cursor::new();
         cursor = cursor.with_space_position(
             "cx:realm:01904100-0000-7000-8000-9b64700c6ee8",
@@ -707,8 +682,7 @@ mod tests {
             },
         );
 
-        let encoded = cursor.encode().unwrap();
-        assert!(Cursor::decode(&encoded).is_err());
+        assert!(cursor.encode().is_err());
     }
 
     #[test]
@@ -722,14 +696,14 @@ mod tests {
     }
 
     #[test]
-    fn sync_positions_roundtrip() {
+    fn sync_positions_are_server_side_for_core_cursor() {
         let positions = SyncPositions {
             spaces: BTreeMap::from([(
                 "cx:realm:0196419b-0000-7000-8000-000000000000".to_owned(),
                 SpaceSyncPosition {
                     frontier: vec!["cx:event:0196419b-0000-7000-8000-000000000001".to_owned()],
                     timeline_order: "01970e589d21-0004-a13f9c2e".to_owned(),
-                    state_hash:
+                    state_digest:
                         "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                             .to_owned(),
                 },
@@ -741,10 +715,10 @@ mod tests {
         };
 
         let cursor = Cursor::from_positions(positions.clone());
-        let extracted = cursor.to_positions().unwrap();
 
-        assert_eq!(extracted.spaces.len(), positions.spaces.len());
-        assert_eq!(extracted.devices, positions.devices);
+        assert!(cursor.h.is_some());
+        assert!(cursor.s.is_empty());
+        assert!(cursor.d.is_none());
     }
 
     #[test]

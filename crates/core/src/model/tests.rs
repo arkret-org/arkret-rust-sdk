@@ -103,7 +103,7 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
         verification_method: "did:web:alice.example#device-1".to_owned(),
-        payload_hash: Hash::new(
+        payload_digest: Hash::new(
             "sha256:43258cff783fe7036d8a43033f830adfc60ec037382473548ac742b888292777",
         )
         .unwrap(),
@@ -539,7 +539,7 @@ fn signature_binding_payload_matches_canonical_vector() {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
         verification_method: "did:web:alice.example#device-1".to_owned(),
-        payload_hash: Hash::new(
+        payload_digest: Hash::new(
             "sha256:43258cff783fe7036d8a43033f830adfc60ec037382473548ac742b888292777",
         )
         .unwrap(),
@@ -552,7 +552,7 @@ fn signature_binding_payload_matches_canonical_vector() {
 
     assert_eq!(
         canonical::canonical_sha256(&payload).unwrap(),
-        "sha256:5b8863e858c1964ca1901d27ce687b65d87dcef0d3535ed617de7b4763cfdaf8"
+        "sha256:162e738349897274ed2feabf220989183c7342e65b607f61c955716478529de9"
     );
 }
 
@@ -566,7 +566,7 @@ fn fact_chain_echo_validates_server_proof_binding() {
             "sha256:1111111111111111111111111111111111111111111111111111111111111111",
         )
         .unwrap(),
-        commit_hash: Some(
+        commit_digest: Some(
             Hash::new("sha256:2222222222222222222222222222222222222222222222222222222222222222")
                 .unwrap(),
         ),
@@ -579,7 +579,7 @@ fn fact_chain_echo_validates_server_proof_binding() {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
         verification_method: "did:web:server.example#key-1".to_owned(),
-        payload_hash: digest,
+        payload_digest: digest,
         created_at: echo.observed_at,
         domain: None,
         audience: None,
@@ -589,7 +589,7 @@ fn fact_chain_echo_validates_server_proof_binding() {
     echo.validate_server_proofs().unwrap();
 
     let mut tampered = echo;
-    tampered.proofs[0].payload_hash =
+    tampered.proofs[0].payload_digest =
         Hash::new("sha256:3333333333333333333333333333333333333333333333333333333333333333")
             .unwrap();
     assert!(tampered.validate_server_proofs().is_err());
@@ -621,14 +621,14 @@ fn mls_envelopes_build_protocol_operations() {
         epoch: 1,
         proposal_type: "add".to_owned(),
         proposal: "proposal-bytes".to_owned(),
-        proposal_hash: hash.clone(),
+        proposal_digest: hash.clone(),
         ratchet_tree: None,
     };
     let commit = MlsCommitEnvelope {
         group_id: "group1".to_owned(),
         epoch: 2,
         commit: "commit-bytes".to_owned(),
-        commit_hash: hash.clone(),
+        commit_digest: hash.clone(),
         ratchet_tree: None,
         app_state_ref: None,
     };
@@ -841,7 +841,7 @@ fn valid_proof() -> Proof {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
         verification_method: "did:web:alice.example#key-1".to_owned(),
-        payload_hash: Hash::new(
+        payload_digest: Hash::new(
             "sha256:0000000000000000000000000000000000000000000000000000000000000000",
         )
         .unwrap(),
@@ -936,10 +936,10 @@ fn proof_validate_binding_rejects_mismatched_verification_method() {
 }
 
 #[test]
-fn proof_validate_binding_rejects_mismatched_payload_hash() {
+fn proof_validate_binding_rejects_mismatched_payload_digest() {
     let proof = valid_proof();
     let mut expected = proof.binding_payload(&Did::new("did:web:alice.example").unwrap());
-    expected.payload_hash =
+    expected.payload_digest =
         Hash::new("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
             .unwrap();
     assert!(proof.validate_binding(&expected).is_err());
@@ -987,7 +987,7 @@ fn event_validate_proof_bindings_checks_digest_match() {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
         verification_method: "did:web:alice.example#key-1".to_owned(),
-        payload_hash: Hash::new(digest).unwrap(),
+        payload_digest: Hash::new(digest).unwrap(),
         created_at: Utc::now(),
         domain: None,
         audience: None,
@@ -1015,7 +1015,7 @@ fn event_validate_proof_bindings_rejects_mismatched_digest() {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
         verification_method: "did:web:alice.example#key-1".to_owned(),
-        payload_hash: Hash::new(
+        payload_digest: Hash::new(
             "sha256:0000000000000000000000000000000000000000000000000000000000000000",
         )
         .unwrap(),

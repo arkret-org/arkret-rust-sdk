@@ -360,11 +360,11 @@ pub const CALL_SIGNAL_TYPES: &[&str] = &[
 /// Spec commit f9bd7eb (`harden protocol review closures`).
 pub const HEADER_SOURCE_TRUST_DOMAIN: &str = "Source-Trust-Domain";
 pub const HEADER_DESTINATION_TRUST_DOMAIN: &str = "Destination-Trust-Domain";
-/// Round 4 — canonical hash of the request payload as bound into the
+/// Round 4 — canonical digest of the request payload as bound into the
 /// signing transcript. Carried alongside the signing headers so receivers
 /// can detect transport-level body tampering after the signature was
 /// computed. Spec commit f9bd7eb.
-pub const HEADER_REQUEST_CANONICAL_HASH: &str = "Request-Canonical-Hash";
+pub const HEADER_REQUEST_CANONICAL_DIGEST: &str = "Request-Canonical-Digest";
 
 /// Policy server check.
 pub const OP_POLICY_CHECK: &str = "cx.policy.check";

@@ -739,7 +739,7 @@ mod tests {
                 crate::cursor::SpaceSyncPosition {
                     frontier: vec!["cx:event:019640ed-8000-7000-8000-000000000000".to_owned()],
                     timeline_order: "01970e589d21-0004-a13f9c2e".to_owned(),
-                    state_hash:
+                    state_digest:
                         "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                             .to_owned(),
                 },
@@ -751,7 +751,9 @@ mod tests {
         client.bind_sync_token("did:web:sync.example", "sync-token").unwrap();
 
         assert_eq!(client.sync_positions().spaces.len(), 1);
-        assert_eq!(client.current_cursor().unwrap().s.len(), 1);
+        let current_cursor = client.current_cursor().unwrap();
+        assert!(current_cursor.h.is_some());
+        assert!(current_cursor.s.is_empty());
         assert_eq!(client.sync_token_for("did:web:sync.example"), Some("sync-token".to_owned()));
     }
 

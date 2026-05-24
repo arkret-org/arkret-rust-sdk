@@ -121,19 +121,11 @@ fn protocol_conformance_vectors_remain_stable() {
         "sha256:43258cff783fe7036d8a43033f830adfc60ec037382473548ac742b888292777"
     );
 
-    let cursor = Cursor::new()
-        .with_space_position(
-            "cx:space:0196419b-0000-7000-8000-000000000000",
-            SpacePosition {
-                p: vec!["cx:event:019640ed-8000-7000-8000-000000000000".to_owned()],
-                order: "01970e589d21-0001-a13f9c2e".to_owned(),
-                h: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-                    .to_owned(),
-            },
-        )
-        .encode()
-        .unwrap();
-    assert_eq!(Cursor::decode(&cursor).unwrap().v, "1");
+    let cursor = Cursor::new().encode().unwrap();
+    let decoded = Cursor::decode(&cursor).unwrap();
+    assert_eq!(decoded.v, "1");
+    assert!(decoded.h.is_some());
+    assert!(decoded.s.is_empty());
 }
 
 #[test]

@@ -492,7 +492,7 @@ pub struct Proof {
     pub kind: String,
     pub alg: String,
     pub verification_method: String,
-    pub payload_hash: Hash,
+    pub payload_digest: Hash,
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub domain: Option<String>,
@@ -526,7 +526,7 @@ const DEV_PROOF_KINDS: &[&str] = &["dev", "test", "mock", "stub", "dummy"];
 impl Proof {
     pub fn binding_payload(&self, actor_id: &Did) -> SignatureBindingPayload {
         SignatureBindingPayload {
-            payload_hash: self.payload_hash.clone(),
+            payload_digest: self.payload_digest.clone(),
             actor_id: actor_id.clone(),
             verification_method: self.verification_method.clone(),
             created_at: self.created_at,
@@ -580,7 +580,7 @@ impl Proof {
 
     /// Validate that the proof's structural fields match the expected binding.
     ///
-    /// Checks: verification_method, payload_hash, created_at (within tolerance),
+    /// Checks: verification_method, payload_digest, created_at (within tolerance),
     /// domain, and audience.
     pub fn validate_binding(&self, expected: &SignatureBindingPayload) -> Result<()> {
         self.validate()?;
@@ -590,9 +590,9 @@ impl Proof {
                 self.verification_method, expected.verification_method
             )));
         }
-        if self.payload_hash != expected.payload_hash {
+        if self.payload_digest != expected.payload_digest {
             return Err(Error::Protocol(
-                "proof payload_hash does not match expected digest".to_owned(),
+                "proof payload_digest does not match expected digest".to_owned(),
             ));
         }
         // Allow 5-minute clock skew tolerance for created_at
@@ -622,14 +622,14 @@ impl Proof {
         Ok(())
     }
 
-    /// Validate that the proof's payload_hash matches the canonical digest of a payload.
+    /// Validate that the proof's payload_digest matches the canonical digest of a payload.
     pub fn validate_payload_digest(&self, payload: &impl Serialize) -> Result<()> {
         let computed = canonical::canonical_sha256(payload)?;
         let expected = Hash::new(computed)?;
-        if self.payload_hash != expected {
+        if self.payload_digest != expected {
             return Err(Error::Protocol(format!(
-                "proof payload_hash '{}' does not match computed digest '{}'",
-                self.payload_hash, expected
+                "proof payload_digest '{}' does not match computed digest '{}'",
+                self.payload_digest, expected
             )));
         }
         Ok(())
@@ -645,7 +645,7 @@ pub struct FactChainEcho {
     pub server_did: Did,
     pub operation_hash: Hash,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub commit_hash: Option<Hash>,
+    pub commit_digest: Option<Hash>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub previous_echo_hash: Option<Hash>,
     pub observed_at: DateTime<Utc>,
@@ -676,10 +676,10 @@ impl FactChainEcho {
         let expected = Hash::new(self.echo_digest()?)?;
         for proof in &self.proofs {
             proof.validate_production()?;
-            if proof.payload_hash != expected {
+            if proof.payload_digest != expected {
                 return Err(Error::Protocol(format!(
-                    "fact-chain proof payload_hash '{}' does not match echo digest '{}'",
-                    proof.payload_hash, expected
+                    "fact-chain proof payload_digest '{}' does not match echo digest '{}'",
+                    proof.payload_digest, expected
                 )));
             }
         }
@@ -690,7 +690,7 @@ impl FactChainEcho {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SignatureBindingPayload {
-    pub payload_hash: Hash,
+    pub payload_digest: Hash,
     pub actor_id: Did,
     pub verification_method: String,
     pub created_at: DateTime<Utc>,

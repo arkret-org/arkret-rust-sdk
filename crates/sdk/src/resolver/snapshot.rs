@@ -16,7 +16,7 @@ pub struct StateSnapshot {
     pub resolved_state: BTreeMap<String, ResolvedStateEvent>,
     pub messages: BTreeMap<String, ResolvedMessage>,
     pub reactions: BTreeMap<String, ResolvedReaction>,
-    pub state_hash: String,
+    pub state_digest: String,
     pub snapshot_timestamp: chrono::DateTime<chrono::Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tombstone_event_id: Option<EventId>,
@@ -31,7 +31,7 @@ pub struct ReducerSnapshotManifest {
     pub space_id: SpaceId,
     pub space_version: String,
     pub frontier: Vec<EventId>,
-    pub state_hash: String,
+    pub state_digest: String,
     pub merkle_root: String,
     pub chunk_count: u32,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -53,7 +53,7 @@ pub struct SnapshotSignature {
     pub kind: String,
     pub alg: String,
     pub verification_method: String,
-    pub payload_hash: String,
+    pub payload_digest: String,
     pub created_at: chrono::DateTime<chrono::Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub domain: Option<String>,
@@ -68,7 +68,7 @@ impl SnapshotSignature {
         manifest: &ReducerSnapshotManifest,
     ) -> Result<SnapshotSignatureBindingPayload> {
         Ok(SnapshotSignatureBindingPayload {
-            payload_hash: canonical_sha256(&manifest.signature_payload())?,
+            payload_digest: canonical_sha256(&manifest.signature_payload())?,
             verification_method: self.verification_method.clone(),
             created_at: self.created_at,
             domain: self.domain.clone(),
@@ -79,7 +79,7 @@ impl SnapshotSignature {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SnapshotSignatureBindingPayload {
-    pub payload_hash: String,
+    pub payload_digest: String,
     pub verification_method: String,
     pub created_at: chrono::DateTime<chrono::Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -203,10 +203,10 @@ pub(super) fn canonicalize_flow_ref(value: &str) -> String {
 impl StateSnapshot {
     /// Verify the state hash.
     pub fn verify_hash(&self) -> Result<bool> {
-        Ok(self.compute_state_hash()? == self.state_hash)
+        Ok(self.compute_state_digest()? == self.state_digest)
     }
 
-    pub fn compute_state_hash(&self) -> Result<String> {
+    pub fn compute_state_digest(&self) -> Result<String> {
         canonical_sha256(&self.state_payload())
     }
 
@@ -246,7 +246,7 @@ impl StateSnapshot {
             space_id: self.space_id.clone(),
             space_version: self.space_version.clone(),
             frontier: self.frontier.clone(),
-            state_hash: self.state_hash.clone(),
+            state_digest: self.state_digest.clone(),
             merkle_root,
             chunk_count: 0,
             chunks: Vec::new(),
@@ -275,7 +275,7 @@ impl StateSnapshot {
     }
 
     fn state_payload(&self) -> Value {
-        state_hash_payload(StateHashInput {
+        state_digest_payload(StateHashInput {
             space_id: &self.space_id,
             space_version: &self.space_version,
             frontier: &self.frontier,
@@ -306,7 +306,7 @@ impl ReducerSnapshotManifest {
         if self.space_id != snapshot.space_id
             || self.space_version != snapshot.space_version
             || self.frontier != snapshot.frontier
-            || self.state_hash != snapshot.state_hash
+            || self.state_digest != snapshot.state_digest
         {
             return Err(Error::Protocol("snapshot manifest does not match snapshot".to_owned()));
         }
@@ -459,7 +459,7 @@ pub(super) struct StateHashInput<'a> {
     pub(super) tombstone_event_id: &'a Option<EventId>,
 }
 
-pub(super) fn state_hash_payload(input: StateHashInput<'_>) -> Value {
+pub(super) fn state_digest_payload(input: StateHashInput<'_>) -> Value {
     serde_json::json!({
         "space_id": input.space_id,
         "space_version": input.space_version,

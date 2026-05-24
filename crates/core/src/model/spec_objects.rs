@@ -93,7 +93,7 @@ pub struct AgentAuditBinding {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub grant_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub actor: Option<Did>,
+    pub actor_id: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub signature: Option<String>,
 }
@@ -188,7 +188,7 @@ pub enum ModerationQueueVisibility {
     MetadataOnly,
     EncryptedEvidence,
     PlaintextEvidence,
-    FrankOnly,
+    FrankingProofOnly,
 }
 
 /// Evidence-handling policy embedded in a queue item.
@@ -196,9 +196,9 @@ pub enum ModerationQueueVisibility {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ModerationEvidencePolicy {
     pub plaintext_allowed: bool,
-    pub requires_frank_verification: bool,
+    pub requires_franking_proof_verification: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub retention_until: Option<DateTime<Utc>>,
+    pub retention_expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub legal_hold: Option<bool>,
 }
@@ -209,7 +209,7 @@ pub struct ModerationEvidencePolicy {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ModerationQueueItem {
     /// `cx:moderation_queue_item:<uuidv7>`.
-    pub queue_item_id: String,
+    pub id: String,
     /// The full report this queue entry represents. Stored as
     /// [`serde_json::Value`] so callers can choose to deserialise into
     /// the existing `ModerationReport` struct without forcing a
@@ -293,7 +293,7 @@ mod tests {
     #[test]
     fn queue_item_round_trips() {
         let item = ModerationQueueItem {
-            queue_item_id: "cx:moderation_queue_item:01970e58-9d21-7000-8000-aaaaaaaaaaaa".to_owned(),
+            id: "cx:moderation_queue_item:01970e58-9d21-7000-8000-aaaaaaaaaaaa".to_owned(),
             report: json!({"realm_id": "cx:realm:...", "reason": "spam"}),
             status: ModerationQueueStatus::Submitted,
             priority: Some(ModerationQueuePriority::Normal),
@@ -301,8 +301,8 @@ mod tests {
             assigned_to: vec![],
             evidence_policy: Some(ModerationEvidencePolicy {
                 plaintext_allowed: false,
-                requires_frank_verification: true,
-                retention_until: None,
+                requires_franking_proof_verification: true,
+                retention_expires_at: None,
                 legal_hold: None,
             }),
             audit_refs: vec![],

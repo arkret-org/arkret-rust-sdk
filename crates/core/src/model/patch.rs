@@ -294,13 +294,13 @@ pub struct ObjectPatchPayload {
     pub object_ref: Option<String>,
     pub patch: Patch,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected_state_hash: Option<Hash>,
+    pub expected_state_digest: Option<Hash>,
 }
 
 impl ObjectPatchPayload {
     /// Build the minimal object-patch payload.
     pub fn new(patch: Patch) -> Result<Self> {
-        let payload = Self { target_ref: None, object_ref: None, patch, expected_state_hash: None };
+        let payload = Self { target_ref: None, object_ref: None, patch, expected_state_digest: None };
         payload.validate()?;
         Ok(payload)
     }
@@ -311,7 +311,7 @@ impl ObjectPatchPayload {
             target_ref: Some(target_ref.into()),
             object_ref: None,
             patch,
-            expected_state_hash: None,
+            expected_state_digest: None,
         };
         payload.validate()?;
         Ok(payload)
@@ -324,15 +324,15 @@ impl ObjectPatchPayload {
             target_ref: None,
             object_ref: Some(object_ref.into()),
             patch,
-            expected_state_hash: None,
+            expected_state_digest: None,
         };
         payload.validate()?;
         Ok(payload)
     }
 
     /// Attach an expected-state hash for CAS-style object updates.
-    pub fn with_expected_state_hash(mut self, expected_state_hash: Hash) -> Self {
-        self.expected_state_hash = Some(expected_state_hash);
+    pub fn with_expected_state_digest(mut self, expected_state_digest: Hash) -> Self {
+        self.expected_state_digest = Some(expected_state_digest);
         self
     }
 
@@ -365,7 +365,7 @@ impl<'de> Deserialize<'de> for ObjectPatchPayload {
             object_ref: Option<String>,
             patch: Patch,
             #[serde(default)]
-            expected_state_hash: Option<Hash>,
+            expected_state_digest: Option<Hash>,
         }
 
         let wire = Wire::deserialize(deserializer)?;
@@ -373,7 +373,7 @@ impl<'de> Deserialize<'de> for ObjectPatchPayload {
             target_ref: wire.target_ref,
             object_ref: wire.object_ref,
             patch: wire.patch,
-            expected_state_hash: wire.expected_state_hash,
+            expected_state_digest: wire.expected_state_digest,
         };
         payload.validate().map_err(de::Error::custom)?;
         Ok(payload)

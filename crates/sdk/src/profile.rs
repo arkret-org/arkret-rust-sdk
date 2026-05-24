@@ -121,7 +121,7 @@ pub struct SpaceExportManifest {
     pub exported_by: Did,
     pub source_service_did: Did,
     pub event_count: u64,
-    pub state_hash: String,
+    pub state_digest: String,
     pub created_at: DateTime<Utc>,
 }
 
@@ -174,7 +174,7 @@ pub fn validate_space_import(
     if manifest.event_count == 0 {
         errors.push("export contains no events".to_owned());
     }
-    if !manifest.state_hash.starts_with("sha256:") {
+    if !manifest.state_digest.starts_with("sha256:") {
         errors.push("state hash is not a sha256 digest".to_owned());
     }
     if !allowed_source_services.is_empty()
@@ -368,7 +368,7 @@ mod tests {
             exported_by: alice,
             source_service_did: service.clone(),
             event_count: 10,
-            state_hash: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+            state_digest: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                 .to_owned(),
             created_at: Utc::now(),
         };

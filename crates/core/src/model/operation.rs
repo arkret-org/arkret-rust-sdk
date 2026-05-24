@@ -102,10 +102,10 @@ impl OperationEnvelope {
         let expected_hash = Hash::new(digest)?;
         for proof in &self.proofs {
             proof.validate()?;
-            if proof.payload_hash != expected_hash {
+            if proof.payload_digest != expected_hash {
                 return Err(Error::Protocol(format!(
-                    "operation proof payload_hash '{}' does not match operation digest '{}'",
-                    proof.payload_hash, expected_hash
+                    "operation proof payload_digest '{}' does not match operation digest '{}'",
+                    proof.payload_digest, expected_hash
                 )));
             }
         }
@@ -679,7 +679,7 @@ pub struct MlsProposalEnvelope {
     pub epoch: u64,
     pub proposal_type: String,
     pub proposal: String,
-    pub proposal_hash: Hash,
+    pub proposal_digest: Hash,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ratchet_tree: Option<String>,
 }
@@ -710,7 +710,7 @@ impl MlsProposalEnvelope {
 /// 1. `membership_frontier: bstr` — frontier state-hash
 /// 2. `policy_root:        bstr` — Merkle root of policy events
 /// 3. `capability_root:    bstr` — Merkle root of capability events
-/// 4. `discussion_metadata_hash: bstr` — hash of discussion-track metadata
+/// 4. `discussion_metadata_digest: bstr` — hash of discussion-track metadata
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MlsAppStateRef {
@@ -718,7 +718,7 @@ pub struct MlsAppStateRef {
     pub membership_frontier: String,
     pub policy_root: String,
     pub capability_root: String,
-    pub discussion_metadata_hash: String,
+    pub discussion_metadata_digest: String,
 }
 
 impl MlsAppStateRef {
@@ -778,7 +778,7 @@ impl MlsAppStateRef {
             (1, self.membership_frontier.as_bytes()),
             (2, self.policy_root.as_bytes()),
             (3, self.capability_root.as_bytes()),
-            (4, self.discussion_metadata_hash.as_bytes()),
+            (4, self.discussion_metadata_digest.as_bytes()),
         ];
         for (k, v) in entries {
             put_uint(&mut out, k);
@@ -794,7 +794,7 @@ pub struct MlsCommitEnvelope {
     pub group_id: String,
     pub epoch: u64,
     pub commit: String,
-    pub commit_hash: Hash,
+    pub commit_digest: Hash,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ratchet_tree: Option<String>,
     /// `cx_app_state_ref` GroupContext extension binding the

@@ -272,7 +272,7 @@ impl CryptoStore for MemoryCryptoStore {
             return Err(Error::Protocol("MLS commit group_id is empty".to_owned()));
         }
         let commits = self.commits.entry(record.group_id.clone()).or_default();
-        if commits.iter().any(|commit| commit.commit_hash == record.commit_hash) {
+        if commits.iter().any(|commit| commit.commit_digest == record.commit_digest) {
             return Ok(());
         }
         if commits.iter().any(|commit| commit.epoch == record.epoch) {
@@ -882,7 +882,7 @@ mod tests {
             group_id: "group1".to_owned(),
             epoch: 2,
             commit: "commit".to_owned(),
-            commit_hash: Hash::new(
+            commit_digest: Hash::new(
                 "sha256:4444444444444444444444444444444444444444444444444444444444444444",
             )
             .unwrap(),
@@ -894,7 +894,7 @@ mod tests {
         assert_eq!(store.commits_for_group("group1").len(), 1);
 
         let mut conflicting_commit = commit;
-        conflicting_commit.commit_hash =
+        conflicting_commit.commit_digest =
             Hash::new("sha256:5555555555555555555555555555555555555555555555555555555555555555")
                 .unwrap();
         assert!(matches!(store.put_commit(conflicting_commit), Err(Error::IdempotencyConflict(_))));

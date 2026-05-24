@@ -7,7 +7,7 @@
 //! | step | check | wire error_code on fail |
 //! | --- | --- | --- |
 //! | 1 structural | id round-trip, `validate_structural` | `schema_violation` |
-//! | 2 signature | `payload_hash` matches canonical bytes; JWS verify | `invalid_signature` |
+//! | 2 signature | `payload_digest` matches canonical bytes; JWS verify | `invalid_signature` |
 //! | 3 capability | each `refs[role=authorized_by]` resolves to a covering grant | `capability_denied` |
 //! | 4 preconditions | every `(cell, predicate)` evaluates true on `pre_state` | `state_mismatch` (or `failed_bottom`) |
 //! | 5 effect-shape | every effect's `LatticeOp` passes the cell's `validate_op` | `schema_violation` |
@@ -98,10 +98,10 @@ where
         .canonical_bytes_for_id()
         .map_err(|e| MoveReject::SchemaViolation(format!("canonical bytes: {e}")))?;
     let observed_hash = canonical::sha256_digest(&canonical_bytes);
-    if m.sig.payload_hash.as_str() != observed_hash {
+    if m.sig.payload_digest.as_str() != observed_hash {
         return Err(MoveReject::InvalidSignature(format!(
-            "payload_hash {} != canonical bytes hash {}",
-            m.sig.payload_hash, observed_hash
+            "payload_digest {} != canonical bytes hash {}",
+            m.sig.payload_digest, observed_hash
         )));
     }
     verify_jws(&canonical_bytes, &m.sig.jws, &m.sig.verification_method, m.issuer.as_str())
@@ -275,7 +275,7 @@ mod tests {
             "hlc": "0189c4d2af00-0000-aabbccdd"
         });
         let body_bytes = canonical::canonical_json_bytes(&body).unwrap();
-        let payload_hash = canonical::sha256_digest(&body_bytes);
+        let payload_digest = canonical::sha256_digest(&body_bytes);
         let id_hex = {
             use sha2::{Digest, Sha256};
             let mut s = String::with_capacity(64);
@@ -291,7 +291,7 @@ mod tests {
             json!({
                 "alg": "EdDSA",
                 "verification_method": "did:web:admin.example#k1",
-                "payload_hash": payload_hash,
+                "payload_digest": payload_digest,
                 "created_at": "2026-05-08T00:00:00Z",
                 "jws": "AAAA.BBBB.CCCC"
             }),

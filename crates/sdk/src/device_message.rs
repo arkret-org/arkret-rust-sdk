@@ -83,7 +83,7 @@ impl DeviceMessage {
     /// by the same keypair the signer would use *now* by re-signing the
     /// canonical bytes and comparing the JWS / verification method. Bench
     /// scenarios that need offline verification (no live signer) should
-    /// instead recompute canonical bytes and check `sig.payload_hash`
+    /// instead recompute canonical bytes and check `sig.payload_digest`
     /// against the canonical SHA-256.
     pub fn verify<S: MoveSigner + ?Sized>(&self, signer: &S) -> Result<()> {
         if signer.signer_did() != &self.sender {
@@ -101,8 +101,8 @@ impl DeviceMessage {
         if expected.alg != self.sig.alg {
             return Err(Error::Protocol("device message sig alg mismatch".to_owned()));
         }
-        if expected.payload_hash != self.sig.payload_hash {
-            return Err(Error::Protocol("device message sig payload_hash mismatch".to_owned()));
+        if expected.payload_digest != self.sig.payload_digest {
+            return Err(Error::Protocol("device message sig payload_digest mismatch".to_owned()));
         }
         if expected.jws != self.sig.jws {
             return Err(Error::Protocol("device message sig jws mismatch".to_owned()));
@@ -110,15 +110,15 @@ impl DeviceMessage {
         Ok(())
     }
 
-    /// Verify only the `payload_hash` against canonical bytes — useful
+    /// Verify only the `payload_digest` against canonical bytes — useful
     /// when no live signer is available but the producer's signature
     /// algorithm is known to be deterministic over canonical bytes.
-    pub fn verify_payload_hash(&self) -> Result<()> {
+    pub fn verify_payload_digest(&self) -> Result<()> {
         let bytes = self.canonical_bytes()?;
         let actual = canonical::sha256_digest(&bytes);
-        if actual != self.sig.payload_hash.as_str() {
+        if actual != self.sig.payload_digest.as_str() {
             return Err(Error::Protocol(
-                "device message canonical hash does not match sig.payload_hash".to_owned(),
+                "device message canonical hash does not match sig.payload_digest".to_owned(),
             ));
         }
         Ok(())
@@ -299,11 +299,11 @@ mod tests {
         }
 
         fn sign_payload(&self, canonical_bytes: &[u8]) -> Result<MoveSignature> {
-            let payload_hash = Hash::new(canonical::sha256_digest(canonical_bytes)).unwrap();
+            let payload_digest = Hash::new(canonical::sha256_digest(canonical_bytes)).unwrap();
             Ok(MoveSignature {
                 alg: "EdDSA".to_owned(),
                 verification_method: self.kid.clone(),
-                payload_hash,
+                payload_digest,
                 created_at: Utc.with_ymd_and_hms(2026, 5, 9, 0, 0, 0).unwrap(),
                 jws: "AAAA.BBBB.CCCC".to_owned(),
             })
@@ -338,7 +338,7 @@ mod tests {
             .unwrap();
 
         msg.verify(&alice).unwrap();
-        msg.verify_payload_hash().unwrap();
+        msg.verify_payload_digest().unwrap();
     }
 
     #[test]
@@ -385,6 +385,6 @@ mod tests {
             .unwrap();
         msg.body = json!({"session": "EVIL"});
         assert!(msg.verify(&alice).is_err());
-        assert!(msg.verify_payload_hash().is_err());
+        assert!(msg.verify_payload_digest().is_err());
     }
 }

@@ -25,7 +25,7 @@ use crate::{
 ///
 /// Constructed via `UnsignedMove::new(...)`; `sign(signer)` (or `MoveSigner::sign_move`)
 /// turns it into a fully-signed [`Move`] whose `id` is the canonical-bytes
-/// hash and whose `sig.payload_hash` matches the same canonical bytes.
+/// hash and whose `sig.payload_digest` matches the same canonical bytes.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UnsignedMove {
     pub issuer: Did,
@@ -84,7 +84,7 @@ impl UnsignedMove {
         let placeholder_sig = MoveSignature {
             alg: "EdDSA".to_owned(),
             verification_method: String::new(),
-            payload_hash: Hash::new(
+            payload_digest: Hash::new(
                 "sha256:0000000000000000000000000000000000000000000000000000000000000000",
             )
             .map_err(|err| Error::Protocol(format!("placeholder hash invalid: {err}")))?,
@@ -112,7 +112,7 @@ impl UnsignedMove {
 /// 1. Compute canonical bytes via `unsigned.canonical_bytes()`.
 /// 2. Produce a JWS over those bytes using the signer's keypair.
 /// 3. Return a [`Move`] whose `id` = `derive_id` of the canonical bytes
-///    and whose `sig.payload_hash` = sha256 of the canonical bytes.
+///    and whose `sig.payload_digest` = sha256 of the canonical bytes.
 pub trait MoveSigner {
     /// Sign an unsigned Move and return the fully-formed wire object.
     fn sign_move(&self, unsigned: &UnsignedMove) -> Result<Move>;
@@ -481,7 +481,7 @@ impl ThresholdAggregator {
     /// not met.
     ///
     /// The resulting [`MultiSignature`] has one [`MoveSignature`] per
-    /// partial, with `payload_hash` = the supplied canonical-bytes hash and
+    /// partial, with `payload_digest` = the supplied canonical-bytes hash and
     /// `jws` = the partial's raw signature base64-encoded so the wire shape
     /// is uniform regardless of the underlying scheme.
     pub fn aggregate<F>(&self, canonical_bytes: &[u8], verify: F) -> Result<MultiSignature>
@@ -495,7 +495,7 @@ impl ThresholdAggregator {
                 self.threshold
             )));
         }
-        let payload_hash = Hash::new(canonical::sha256_digest(canonical_bytes))
+        let payload_digest = Hash::new(canonical::sha256_digest(canonical_bytes))
             .map_err(|err| Error::Protocol(format!("invalid canonical hash: {err}")))?;
         let mut signatures = Vec::with_capacity(self.partials.len());
         for partial in &self.partials {
@@ -509,7 +509,7 @@ impl ThresholdAggregator {
             signatures.push(MoveSignature {
                 alg: "EdDSA".to_owned(),
                 verification_method: partial.kid.clone(),
-                payload_hash: payload_hash.clone(),
+                payload_digest: payload_digest.clone(),
                 created_at: Utc::now(),
                 jws: format!("..{encoded_sig}"),
             });
@@ -634,7 +634,7 @@ mod tests {
         Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap()
     }
 
-    /// Deterministic test signer: produces a JWS that's just hex(payload_hash)
+    /// Deterministic test signer: produces a JWS that's just hex(payload_digest)
     /// so test vectors don't need real ed25519. Real signers live in
     /// `contrix-signatures::signer`.
     struct StubSigner {
@@ -669,11 +669,11 @@ mod tests {
         }
 
         fn sign_payload(&self, canonical_bytes: &[u8]) -> Result<MoveSignature> {
-            let payload_hash = Hash::new(canonical::sha256_digest(canonical_bytes)).unwrap();
+            let payload_digest = Hash::new(canonical::sha256_digest(canonical_bytes)).unwrap();
             Ok(MoveSignature {
                 alg: "EdDSA".to_owned(),
                 verification_method: self.kid.clone(),
-                payload_hash,
+                payload_digest,
                 created_at: Utc.with_ymd_and_hms(2026, 5, 9, 0, 0, 0).unwrap(),
                 jws: "AAAA.BBBB.CCCC".to_owned(),
             })
@@ -709,7 +709,7 @@ mod tests {
     }
 
     #[test]
-    fn move_sign_round_trip_validates_id_and_payload_hash() {
+    fn move_sign_round_trip_validates_id_and_payload_digest() {
         let s = signer();
         let m = Move::sign(&unsigned_move(), &s).unwrap();
         m.validate_id().unwrap();
@@ -879,7 +879,7 @@ mod tests {
         // Each signature carries the canonical-bytes payload hash.
         let expected = canonical::sha256_digest(fixture_canonical_bytes());
         for sig in &multi.signatures {
-            assert_eq!(sig.payload_hash.as_str(), expected);
+            assert_eq!(sig.payload_digest.as_str(), expected);
         }
     }
 

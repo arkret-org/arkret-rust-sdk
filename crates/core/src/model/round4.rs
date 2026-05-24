@@ -10,10 +10,10 @@
 //! - **Trust-domain binding** — [`crate::TypedTrustDomainId`] is now a
 //!   required field on `Realm` / `ServiceDescribe` / `AuditRywReceipt`
 //!   and is mixed into the canonical signing transcript of high-risk
-//!   proofs ([`compute_audit_policy_version_hash`]).
+//!   proofs ([`compute_audit_policy_version_digest`]).
 //! - **Federation S2S headers** — [`crate::HEADER_SOURCE_TRUST_DOMAIN`],
 //!   [`crate::HEADER_DESTINATION_TRUST_DOMAIN`], and
-//!   [`crate::HEADER_REQUEST_CANONICAL_HASH`] are mandatory request
+//!   [`crate::HEADER_REQUEST_CANONICAL_DIGEST`] are mandatory request
 //!   headers that MUST appear in the canonical message-signature
 //!   transcript so a sender from trust domain A cannot replay the same
 //!   signed bytes into trust domain B.
@@ -30,7 +30,7 @@
 //!   `account_client` / `federation_peer` / `anonymous_health` variants.
 //!   `anonymous_health` carries NO receipts / signatures.
 //! - **PolicyCheck v2** — request carries `signed_transport`, response
-//!   carries `bound_to{realm_id, actor, action, request_canonical_hash,
+//!   carries `bound_to{realm_id, actor, action, request_canonical_digest,
 //!   policy_server_id}` and signing transcript fields.
 //! - **Object-level lifecycle payloads** — `space.archive` / `restore` /
 //!   `tombstone` now carry the typed
@@ -51,7 +51,7 @@ use crate::canonical;
 
 // ── Trust domain plumbing ───────────────────────────────────────────────
 
-/// Round 4 — compute the canonical `audit_policy_version_hash` 4-tuple
+/// Round 4 — compute the canonical `audit_policy_version_digest` 4-tuple
 /// digest. Wire-breaking: the pre-round-4 2-arg signature
 /// `(audit_disclosure, audit_assurance)` is deleted. Receipts issued
 /// against the old hash MUST be rejected.
@@ -64,7 +64,7 @@ use crate::canonical;
 ///   "audit_assurance": <audit_assurance> }
 /// ```
 /// hashed with SHA-256 per RFC 8785 JCS.
-pub fn compute_audit_policy_version_hash(
+pub fn compute_audit_policy_version_digest(
     realm_id: &RealmId,
     trust_domain: &TypedTrustDomainId,
     audit_disclosure: &Value,
@@ -457,7 +457,7 @@ pub struct FederationServiceBindingRef {
     pub membership_frontier: Vec<EventId>,
     pub delivery_binding_frontier: Vec<EventId>,
     pub destination_service_type: String,
-    pub reducer_profile_hash: Hash,
+    pub reducer_profile_digest: Hash,
 }
 
 // ── EventsSubmit variants ───────────────────────────────────────────────
@@ -510,11 +510,11 @@ pub struct PolicyCheckRequest {
     pub realm_id: RealmId,
     pub actor: Did,
     pub action: String,
-    pub request_canonical_hash: Hash,
+    pub request_canonical_digest: Hash,
     pub source: PolicyCheckSource,
     /// Hex-encoded hash of the source IP (privacy-preserving), see
     /// `policy-server.md` §4.2.
-    pub source_ip_hash: Hash,
+    pub source_ip_digest: Hash,
     /// Signed transport envelope (HTTP message-signature transcript).
     /// Required so policy server can verify the originating request
     /// is bound to the calling service.
@@ -535,7 +535,7 @@ pub struct PolicyCheckBoundTo {
     pub realm_id: RealmId,
     pub actor: Did,
     pub action: String,
-    pub request_canonical_hash: Hash,
+    pub request_canonical_digest: Hash,
     pub policy_server_id: Did,
 }
 
@@ -556,9 +556,9 @@ pub struct PolicyCheckSignature {
 pub struct PolicyCheckResponse {
     pub decision: AuthzDecision,
     pub bound_to: PolicyCheckBoundTo,
-    pub auth_state_hash: Hash,
-    pub policy_frontier_hash: Hash,
-    pub membership_frontier_hash: Hash,
+    pub auth_state_digest: Hash,
+    pub policy_frontier_digest: Hash,
+    pub membership_frontier_digest: Hash,
     pub signature: PolicyCheckSignature,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason_code: Option<String>,
@@ -618,13 +618,13 @@ pub enum EventsSubscribeFrameBody {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SnapshotBootstrap {
-    /// Signature over the canonical bootstrap header (state_hash +
+    /// Signature over the canonical bootstrap header (state_digest +
     /// snapshot_frontier + per-chunk digest merkle root).
     /// TODO(round4-snapshot-bootstrap): wire the full signing
     /// transcript and verifier chain. SDK only needs the wire shape.
     pub signature: Value,
     /// Canonical state root over the snapshot's projected state.
-    pub state_hash: Hash,
+    pub state_digest: Hash,
     /// Frontier the snapshot was generated against.
     pub snapshot_frontier: Vec<EventId>,
     /// Ordered chunk digests. Consumers MUST verify each chunk's bytes
@@ -798,17 +798,17 @@ pub fn flow_tracks_patch_cell_subject(flow_id: &FlowId) -> String {
 pub fn federation_trust_domain_transcript_fragment(
     source_trust_domain: &TypedTrustDomainId,
     destination_trust_domain: &TypedTrustDomainId,
-    request_canonical_hash: &Hash,
+    request_canonical_digest: &Hash,
 ) -> String {
     let header_name = |s: &str| s.to_ascii_lowercase();
     format!(
         "\"{src_h}\": {src}\n\"{dst_h}\": {dst}\n\"{rch_h}\": {rch}\n",
         src_h = header_name(HEADER_SOURCE_TRUST_DOMAIN),
         dst_h = header_name(HEADER_DESTINATION_TRUST_DOMAIN),
-        rch_h = header_name(HEADER_REQUEST_CANONICAL_HASH),
+        rch_h = header_name(HEADER_REQUEST_CANONICAL_DIGEST),
         src = source_trust_domain.as_str(),
         dst = destination_trust_domain.as_str(),
-        rch = request_canonical_hash.as_str()
+        rch = request_canonical_digest.as_str()
     )
 }
 
@@ -827,17 +827,17 @@ mod tests {
     }
 
     #[test]
-    fn audit_policy_version_hash_is_deterministic_and_domain_separates() {
+    fn audit_policy_version_digest_is_deterministic_and_domain_separates() {
         let disclosure = serde_json::json!({"mode": "strict"});
         let assurance = serde_json::json!("attested_hardware");
         let h1 =
-            compute_audit_policy_version_hash(&realm(), &td(), &disclosure, &assurance).unwrap();
+            compute_audit_policy_version_digest(&realm(), &td(), &disclosure, &assurance).unwrap();
         let h2 =
-            compute_audit_policy_version_hash(&realm(), &td(), &disclosure, &assurance).unwrap();
+            compute_audit_policy_version_digest(&realm(), &td(), &disclosure, &assurance).unwrap();
         assert_eq!(h1, h2);
         // Different trust domain MUST produce a different digest.
         let h3 =
-            compute_audit_policy_version_hash(&realm(), &td2(), &disclosure, &assurance).unwrap();
+            compute_audit_policy_version_digest(&realm(), &td2(), &disclosure, &assurance).unwrap();
         assert_ne!(h1, h3);
     }
 

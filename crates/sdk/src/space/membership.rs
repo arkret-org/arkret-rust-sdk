@@ -304,7 +304,7 @@ fn candidate_to_delivery_binding(
         binding_source,
         delivery_modes,
         service_endpoint: None,
-        did_document_hash: None,
+        did_document_digest: None,
         resolved_at: Utc::now(),
         service_acceptance_ref,
         holder_proof_ref: None,

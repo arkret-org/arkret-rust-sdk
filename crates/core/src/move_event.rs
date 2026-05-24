@@ -165,7 +165,7 @@ fn is_default_critical(value: &bool) -> bool {
 pub struct MoveSignature {
     pub alg: String,
     pub verification_method: String,
-    pub payload_hash: Hash,
+    pub payload_digest: Hash,
     pub created_at: DateTime<Utc>,
     pub jws: String,
 }
@@ -240,7 +240,7 @@ impl Move {
     /// 2. `preconditions.len()` and `effects.len()` MUST be `<= 256`
     ///    (schema bound).
     /// 3. Signature `alg` MUST be in [`MOVE_SIGNATURE_ALGS`].
-    /// 4. `payload_hash` MUST equal sha256 of canonical bytes.
+    /// 4. `payload_digest` MUST equal sha256 of canonical bytes.
     pub fn validate_structural(&self) -> Result<()> {
         if self.effects.is_empty() {
             return Err(Error::Protocol(
@@ -267,10 +267,10 @@ impl Move {
             )));
         }
         let canonical_hash = canonical::sha256_digest(self.canonical_bytes_for_id()?);
-        if self.sig.payload_hash.as_str() != canonical_hash {
+        if self.sig.payload_digest.as_str() != canonical_hash {
             return Err(Error::Protocol(format!(
-                "Move signature payload_hash {} does not match canonical bytes hash {}",
-                self.sig.payload_hash, canonical_hash
+                "Move signature payload_digest {} does not match canonical bytes hash {}",
+                self.sig.payload_digest, canonical_hash
             )));
         }
         Ok(())
@@ -316,7 +316,7 @@ mod tests {
     fn sample_move() -> Move {
         let body = sample_move_body_json();
         let body_bytes = canonical::canonical_json_bytes(&body).unwrap();
-        let payload_hash = sha256_digest(&body_bytes);
+        let payload_digest = sha256_digest(&body_bytes);
         let move_id_hex = {
             let digest = Sha256::digest(&body_bytes);
             format!("sha256:{digest:x}")
@@ -328,7 +328,7 @@ mod tests {
             json!({
                 "alg": "EdDSA",
                 "verification_method": "did:web:admin.example#k1",
-                "payload_hash": payload_hash,
+                "payload_digest": payload_digest,
                 "created_at": "2026-05-08T00:00:00Z",
                 "jws": "AAAA.BBBB.CCCC"
             }),
@@ -371,13 +371,13 @@ mod tests {
     }
 
     #[test]
-    fn structural_validation_rejects_payload_hash_drift() {
+    fn structural_validation_rejects_payload_digest_drift() {
         let mut m = sample_move();
-        m.sig.payload_hash =
+        m.sig.payload_digest =
             Hash::new("sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd")
                 .unwrap();
         let err = m.validate_structural().unwrap_err();
-        assert!(format!("{err}").contains("payload_hash"));
+        assert!(format!("{err}").contains("payload_digest"));
     }
 
     #[test]
