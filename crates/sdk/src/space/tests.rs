@@ -466,11 +466,10 @@ fn member_add_with_candidate_emits_routable_join_with_typed_binding() {
     modes.insert(DeliveryMode::Events);
     modes.insert(DeliveryMode::Sync);
     let candidate = MemberDeliveryBindingCandidate {
-        subject_did: subject.clone(),
+        subject_id: subject.clone(),
         handle_uri: HandleUri::parse("contrix://acme.example/users/bob").unwrap(),
         handle_aliases: vec![],
-        recipient_service_did: principal.clone(),
-        delivery_binding_hint: DeliveryBindingHint {
+        member_delivery_binding: DeliveryBindingHint {
             recipient_service_did: principal.clone(),
             recipient_service_type: RecipientServiceType::PrincipalServer,
             binding_source: HandleHintBindingSource::OrganizationPolicy,
@@ -524,11 +523,10 @@ fn member_add_with_candidate_rejects_audience_mismatch() {
     let mut modes = std::collections::BTreeSet::new();
     modes.insert(DeliveryMode::Events);
     let candidate = MemberDeliveryBindingCandidate {
-        subject_did: Did::new("did:web:bob.example".to_owned()).unwrap(),
+        subject_id: Did::new("did:web:bob.example".to_owned()).unwrap(),
         handle_uri: HandleUri::parse("contrix://acme.example/users/bob").unwrap(),
         handle_aliases: vec![],
-        recipient_service_did: principal.clone(),
-        delivery_binding_hint: DeliveryBindingHint {
+        member_delivery_binding: DeliveryBindingHint {
             recipient_service_did: principal.clone(),
             recipient_service_type: RecipientServiceType::PrincipalServer,
             binding_source: HandleHintBindingSource::OrganizationPolicy,

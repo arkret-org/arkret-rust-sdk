@@ -14,8 +14,8 @@ fn grant_for(action: &str, resource: ResourceSelector) -> CapabilityGrant {
         constraints: vec![],
         delegable: false,
         parent_grant_id: None,
-        valid_from: None,
-        valid_until: None,
+        not_before: None,
+        expires_at: None,
         revoked_by: None,
         revoked_at: None,
     }
@@ -537,8 +537,8 @@ fn capability_frontier_rejects_cycles_widening_and_unknown_critical_constraints(
         constraints: Vec::new(),
         delegable: false,
         parent_grant_id: Some("root".to_owned()),
-        valid_from: None,
-        valid_until: None,
+        not_before: None,
+        expires_at: None,
         revoked_by: None,
         revoked_at: None,
     };
@@ -744,7 +744,7 @@ fn authz_cache_rechecks_future_not_before_grants() {
             space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
         },
     );
-    grant.valid_from = Some(utc("2026-04-29T03:00:00Z"));
+    grant.not_before = Some(utc("2026-04-29T03:00:00Z"));
 
     let before_valid = ctx_at(
         "2026-04-29T02:30:00Z",

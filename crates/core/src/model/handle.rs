@@ -180,9 +180,7 @@ pub enum HandleClass {
     ServiceHandle,
 }
 
-/// Builder-side hint that lets verifiers construct a Space
-/// `member_delivery_binding` from a handle claim. Mirrors
-/// `handle-claim.schema.json#/$defs/delivery_binding_hint`.
+/// Builder-side member delivery binding offered by a handle claim.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DeliveryBindingHint {
@@ -213,7 +211,7 @@ pub enum HandleHintBindingSource {
     Invite,
     JoinPolicy,
     OrganizationPolicy,
-    SpacePolicy,
+    RealmPolicy,
 }
 
 /// Canonical handle claim shape — matches `handle-claim.schema.json`.
@@ -226,8 +224,6 @@ pub struct HandleClaim {
     pub handle_aliases: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub subject: Option<Did>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub recipient_service_did: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub issuer: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -243,13 +239,13 @@ pub struct HandleClaim {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub challenge: Option<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub scope: BTreeMap<String, Value>,
+    pub claim_scope: BTreeMap<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub service_acceptance_ref: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub policy_ref: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub delivery_binding_hint: Option<DeliveryBindingHint>,
+    pub member_delivery_binding: Option<DeliveryBindingHint>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub claims: Vec<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -267,8 +263,8 @@ pub struct HandleClaim {
 impl HandleClaim {
     /// Enforce schema `allOf` conditional required fields:
     ///   - `binding_state=verified` ⇒ `handle_uri` + `expires_at`
-    ///   - `recipient_service_did` present ⇒ `handle_uri` + `audience` +
-    ///     `expires_at`, and `delivery_binding_hint.binding_source != did_document_default`
+    ///   - `member_delivery_binding` present ⇒ `handle_uri` + `audience` +
+    ///     `expires_at`, and binding_source != did_document_default
     ///     (enforced by the [`HandleHintBindingSource`] type itself).
     pub fn validate(&self) -> Result<()> {
         if matches!(self.binding_state, Some(HandleBindingState::Verified)) {
@@ -283,10 +279,10 @@ impl HandleClaim {
                 ));
             }
         }
-        if self.recipient_service_did.is_some() {
+        if self.member_delivery_binding.is_some() {
             if self.handle_uri.is_none() || self.audience.is_none() || self.expires_at.is_none() {
                 return Err(Error::Protocol(
-                    "recipient_service_did present requires handle_uri, audience, expires_at"
+                    "member_delivery_binding present requires handle_uri, audience, expires_at"
                         .to_owned(),
                 ));
             }
@@ -336,10 +332,17 @@ mod tests {
     }
 
     #[test]
-    fn recipient_service_did_requires_audience() {
+    fn member_delivery_binding_requires_audience() {
         let claim = HandleClaim {
             handle_uri: Some(HandleUri::parse("contrix://example.com/users/alice").unwrap()),
-            recipient_service_did: Some(Did::new("did:web:rs.example".to_owned()).unwrap()),
+            member_delivery_binding: Some(DeliveryBindingHint {
+                recipient_service_did: Did::new("did:web:rs.example".to_owned()).unwrap(),
+                recipient_service_type: RecipientServiceType::PrincipalServer,
+                binding_source: HandleHintBindingSource::Explicit,
+                delivery_modes: BTreeSet::new(),
+                service_acceptance_ref: None,
+                policy_ref: None,
+            }),
             expires_at: Some(Utc::now()),
             ..Default::default()
         };
@@ -353,7 +356,6 @@ impl Default for HandleClaim {
             handle_uri: None,
             handle_aliases: Vec::new(),
             subject: None,
-            recipient_service_did: None,
             issuer: None,
             issuer_service_did: None,
             binding_state: None,
@@ -361,10 +363,10 @@ impl Default for HandleClaim {
             visibility: None,
             audience: None,
             challenge: None,
-            scope: BTreeMap::new(),
+            claim_scope: BTreeMap::new(),
             service_acceptance_ref: None,
             policy_ref: None,
-            delivery_binding_hint: None,
+            member_delivery_binding: None,
             claims: Vec::new(),
             issued_at: None,
             expires_at: None,

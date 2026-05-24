@@ -28,13 +28,13 @@ impl Lattice for MvRegister {
         match op.op_type {
             LatticeOpType::Set => {
                 if op.value.is_none() {
-                    return Err(OpError::MissingField { kind: "mv-register", field: "value" });
+                    return Err(OpError::MissingField { kind: "mv_register", field: "value" });
                 }
                 Ok(())
             }
             other => Err(OpError::UnsupportedOpType {
                 got: format!("{other:?}").to_lowercase(),
-                expected_kind: "mv-register",
+                expected_kind: "mv_register",
             }),
         }
     }
@@ -183,6 +183,6 @@ mod tests {
     #[test]
     fn kind_is_mv_register() {
         assert_eq!(MvRegister.kind(), LatticeKind::MvRegister);
-        assert_eq!(LatticeKind::MvRegister.as_wire_str(), "mv-register");
+        assert_eq!(LatticeKind::MvRegister.as_wire_str(), "mv_register");
     }
 }

@@ -204,7 +204,7 @@ pub struct VerifiedProfileEntry {
     pub signature: String,
     pub timestamp: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub valid_until: Option<DateTime<Utc>>,
+    pub expires_at: Option<DateTime<Utc>>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
@@ -330,7 +330,7 @@ mod error_envelope_tests {
     #[test]
     fn error_envelope_serializes_to_spec_canonical_shape() {
         let envelope = ErrorEnvelope::new("capability_denied", "session grant is revoked")
-            .with_request_id("cx:req:test")
+            .with_request_id("cx:request:test")
             .with_retry_after_ms(None);
 
         let value = serde_json::to_value(envelope).unwrap();
@@ -343,7 +343,7 @@ mod error_envelope_tests {
                     "code": "capability_denied",
                     "message": "session grant is revoked"
                 },
-                "request_id": "cx:req:test"
+                "request_id": "cx:request:test"
             })
         );
     }
@@ -660,7 +660,7 @@ pub struct AuthzCheckResBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub frontier: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub cache_valid_until: Option<DateTime<Utc>>,
+    pub cache_expires_at: Option<DateTime<Utc>>,
 }
 
 pub type Capability = CapabilityGrant;

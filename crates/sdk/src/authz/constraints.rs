@@ -21,7 +21,7 @@ pub enum Resource {
     /// Invite resource
     Invite { space_id: String, invite_id: String },
     /// Read marker resource
-    ReadMarker { space_id: String },
+    ReadCursor { space_id: String },
     /// Morph resource (canonical open-typed object).
     Morph { space_id: String, morph_id: String, morph_type: String },
     /// Notification resource (per-actor private channel).
@@ -48,7 +48,7 @@ impl Resource {
             Self::Schema { space_id, .. } => space_id,
             Self::Policy { space_id, .. } => space_id,
             Self::Invite { space_id, .. } => space_id,
-            Self::ReadMarker { space_id } => space_id,
+            Self::ReadCursor { space_id } => space_id,
             Self::Morph { space_id, .. } => space_id,
             Self::Blob { space_id, .. } => space_id,
             Self::Event { space_id, .. } => space_id,
@@ -707,17 +707,17 @@ impl ConstraintEntry {
             Constraint::FieldAccess { .. } => EvaluationClass::GrantLocal,
             Constraint::TypeRestriction { .. } => EvaluationClass::GrantLocal,
             Constraint::DelegationControl { .. } => EvaluationClass::GrantLocal,
-            Constraint::RateLimiting { .. } => EvaluationClass::SpaceState,
-            Constraint::ApprovalWorkflow { .. } => EvaluationClass::SpaceState,
+            Constraint::RateLimiting { .. } => EvaluationClass::RealmState,
+            Constraint::ApprovalWorkflow { .. } => EvaluationClass::RealmState,
             Constraint::ClaimBased { .. } => EvaluationClass::External,
             Constraint::Accountability { .. } => EvaluationClass::GrantLocal,
-            Constraint::EncryptionRequirement { .. } => EvaluationClass::SpaceState,
-            Constraint::VisibilityControl { .. } => EvaluationClass::SpaceState,
+            Constraint::EncryptionRequirement { .. } => EvaluationClass::RealmState,
+            Constraint::VisibilityControl { .. } => EvaluationClass::RealmState,
             // single-call blob_max_bytes is stateless; per-scope total is external.
             // Default to SpaceState because the SDK can't tell at type-level.
-            Constraint::ResourceLimit { .. } => EvaluationClass::SpaceState,
+            Constraint::ResourceLimit { .. } => EvaluationClass::RealmState,
             Constraint::EditWindow { .. } => EvaluationClass::Stateless,
-            Constraint::ContainerMove { .. } => EvaluationClass::SpaceState,
+            Constraint::ContainerMove { .. } => EvaluationClass::RealmState,
             Constraint::ScopeLimitation { .. } => EvaluationClass::Stateless,
         }
     }

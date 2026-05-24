@@ -17,9 +17,9 @@ pub struct CapabilityGrant {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parent_grant_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub valid_from: Option<DateTime<Utc>>,
+    pub not_before: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub valid_until: Option<DateTime<Utc>>,
+    pub expires_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub revoked_by: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -143,7 +143,7 @@ fn validate_delegation_chain(
                 child.id
             )));
         }
-        if let (Some(child_from), Some(parent_from)) = (child.valid_from, parent.valid_from)
+        if let (Some(child_from), Some(parent_from)) = (child.not_before, parent.not_before)
             && child_from < parent_from
         {
             return Err(Error::Protocol(format!(
@@ -151,7 +151,7 @@ fn validate_delegation_chain(
                 child.id
             )));
         }
-        if let (Some(child_until), Some(parent_until)) = (child.valid_until, parent.valid_until)
+        if let (Some(child_until), Some(parent_until)) = (child.expires_at, parent.expires_at)
             && child_until > parent_until
         {
             return Err(Error::Protocol(format!(
@@ -296,8 +296,8 @@ fn capability_grant_from_resolved_event(
         constraints: optional_from_value(content.get("constraints"))?.unwrap_or_default(),
         delegable: content.get("delegable").and_then(Value::as_bool).unwrap_or(false),
         parent_grant_id: optional_string(content, "parent_grant_id"),
-        valid_from: optional_from_value(content.get("valid_from"))?,
-        valid_until: optional_from_value(content.get("valid_until"))?,
+        not_before: optional_from_value(content.get("not_before"))?,
+        expires_at: optional_from_value(content.get("expires_at"))?,
         revoked_by: optional_did(content, "revoked_by")?,
         revoked_at: optional_from_value(content.get("revoked_at"))?,
     })

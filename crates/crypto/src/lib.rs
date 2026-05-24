@@ -80,7 +80,7 @@ pub enum CrossSigningKeyKind {
     /// DID-control-rooted principal signing key. Rotation MUST enter DID
     /// method history / key log.
     PrincipalSigning,
-    /// Signs the principal's own devices (`cx.device.authorized` bindings).
+    /// Signs the principal's own devices (`cx.device.authorize` bindings).
     SelfSigning,
     /// Signs other principals' identity keys to express manual trust.
     UserSigning,
@@ -348,7 +348,7 @@ impl CrossSigningResetContent {
     }
 }
 
-/// Per-device binding signed by SSK and embedded in `cx.device.authorized`
+/// Per-device binding signed by SSK and embedded in `cx.device.authorize`
 /// (spec §5.2 `content.cross_signing_binding`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeviceTrustBinding {

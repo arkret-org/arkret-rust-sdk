@@ -428,7 +428,7 @@ impl Cursor {
     }
 
     fn validate_device_message_id(message_id: &str) -> Result<()> {
-        if has_prefixed_uuid7(message_id, "cx:devmsg:") {
+        if has_prefixed_uuid7(message_id, "cx:device_message:") {
             Ok(())
         } else {
             Err(crate::Error::InvalidId(message_id.to_owned()))
@@ -736,7 +736,7 @@ mod tests {
             )]),
             devices: Some(BTreeMap::from([(
                 "device-laptop".to_owned(),
-                "cx:devmsg:019640da-0000-7000-8000-000000000000".to_owned(),
+                "cx:device_message:019640da-0000-7000-8000-000000000000".to_owned(),
             )])),
         };
 

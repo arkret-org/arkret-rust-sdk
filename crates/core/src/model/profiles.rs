@@ -426,9 +426,10 @@ pub struct IdentityLink {
     #[serde(default = "identity_link_default_status")]
     pub status: IdentityLinkStatus,
     pub pairwise_did: Did,
-    pub principal_did: Did,
+    pub principal_id: Did,
     pub device_id: DeviceId,
-    pub space_id: SpaceId,
+    pub realm_id: RealmId,
+    pub trust_domain: TypedTrustDomainId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub flow_id: Option<FlowId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -655,7 +656,7 @@ impl BackupClass {
 pub enum EvaluationClass {
     Stateless,
     GrantLocal,
-    SpaceState,
+    RealmState,
     External,
 }
 
@@ -687,49 +688,53 @@ pub enum ModerationAction {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ModerationReport {
-    pub schema: String,
-    pub id: String,
-    pub space_id: SpaceId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schema: Option<String>,
+    pub report_id: String,
+    pub realm_id: RealmId,
     pub target_ref: String,
-    pub reason: String,
+    pub report_reason_code: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
     pub reporter: Did,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub evidence_refs: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub franking: Option<ModerationFrank>,
+    pub franking_proof: Option<ModerationFrankingProof>,
     pub created_at: DateTime<Utc>,
 }
 
 impl ModerationReport {
     pub fn new(
         id: impl Into<String>,
-        space_id: SpaceId,
+        realm_id: RealmId,
         target_ref: impl Into<String>,
-        reason: impl Into<String>,
+        report_reason_code: impl Into<String>,
         reporter: Did,
     ) -> Self {
         Self {
-            schema: MODERATION_REPORT_SCHEMA.to_owned(),
-            id: id.into(),
-            space_id,
+            schema: Some(MODERATION_REPORT_SCHEMA.to_owned()),
+            report_id: id.into(),
+            realm_id,
             target_ref: target_ref.into(),
-            reason: reason.into(),
+            report_reason_code: report_reason_code.into(),
+            description: None,
             reporter,
             evidence_refs: Vec::new(),
-            franking: None,
+            franking_proof: None,
             created_at: Utc::now(),
         }
     }
 }
 
-/// Moderation frank for E2EE content (moderation.md §3.4).
+/// Moderation franking proof for E2EE content (moderation.md §3.4).
 ///
 /// `franking_tag` MUST be a key-bound MAC of the reported ciphertext that
 /// only the reporter could have produced; spec leaves the algorithm open
 /// per profile — this struct just carries the wire shape.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct ModerationFrank {
+pub struct ModerationFrankingProof {
     pub algorithm: String,
     pub franking_tag: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -737,6 +742,8 @@ pub struct ModerationFrank {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub key_ref: Option<String>,
 }
+
+pub type ModerationFrank = ModerationFrankingProof;
 
 /// Verification class returned by federation `verify_actor` (M-19).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

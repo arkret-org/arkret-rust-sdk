@@ -11,7 +11,7 @@ use super::{AnchoredOp, CellState};
 /// Per spec §5.4 profiles MUST NOT introduce new variants here without a
 /// schema profile bump. Receivers MUST fail closed on unrecognized kinds.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[serde(rename_all = "snake_case")]
 pub enum LatticeKind {
     OrSet,
     MvRegister,
@@ -24,12 +24,12 @@ pub enum LatticeKind {
 impl LatticeKind {
     pub fn as_wire_str(self) -> &'static str {
         match self {
-            Self::OrSet => "or-set",
-            Self::MvRegister => "mv-register",
-            Self::CasRegister => "cas-register",
+            Self::OrSet => "or_set",
+            Self::MvRegister => "mv_register",
+            Self::CasRegister => "cas_register",
             Self::Fsm => "fsm",
             Self::Counter => "counter",
-            Self::OrderedLog => "ordered-log",
+            Self::OrderedLog => "ordered_log",
         }
     }
 
@@ -49,8 +49,8 @@ impl LatticeKind {
                 "cx.session.grant",
                 "cx.consent.grant",
                 "cx.consent.revoke",
-                "cx.device.authorized",
-                "cx.device.revoked",
+                "cx.device.authorize",
+                "cx.device.revoke",
                 "cx.device.list_update",
             ],
             Self::MvRegister => &[

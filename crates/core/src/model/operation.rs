@@ -382,7 +382,7 @@ pub struct CapabilityGrant {
     #[serde(rename = "type")]
     pub object_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<SpaceId>,
+    pub realm_id: Option<RealmId>,
     pub issuer: Did,
     pub subject: CapabilitySubject,
     pub actions: Vec<String>,
@@ -394,9 +394,9 @@ pub struct CapabilityGrant {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parent_grant_id: Option<GrantId>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub valid_from: Option<DateTime<Utc>>,
+    pub not_before: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub valid_until: Option<DateTime<Utc>>,
+    pub expires_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub revoked_by: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -413,16 +413,16 @@ pub struct Policy {
     #[serde(rename = "type")]
     pub object_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<SpaceId>,
+    pub realm_id: Option<RealmId>,
     pub policy_type: PolicyType,
     pub rules: Vec<Value>,
     pub default_effect: PolicyEffect,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub priority: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub valid_from: Option<DateTime<Utc>>,
+    pub not_before: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub valid_until: Option<DateTime<Utc>>,
+    pub expires_at: Option<DateTime<Utc>>,
     pub created_by: Did,
     pub created_at: DateTime<Utc>,
 }
@@ -451,7 +451,30 @@ pub struct Invite {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct ReadMarker {
+pub struct ReadCursor {
+    pub schema: String,
+    pub id: ReadCursorId,
+    pub actor_id: Did,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub device_id: Option<DeviceId>,
+    pub realm_id: RealmId,
+    pub read_scope: ReadScope,
+    pub position: ReadCursorPosition,
+    pub updated_at: DateTime<Utc>,
+}
+
+pub type ReadMarker = ReadCursor;
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ReadCursorPosition {
+    pub event_id: EventId,
+    pub hlc: Hlc,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct LegacyReadMarker {
     pub schema: String,
     pub id: String,
     #[serde(rename = "type")]

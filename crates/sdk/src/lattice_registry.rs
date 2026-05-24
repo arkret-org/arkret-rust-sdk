@@ -401,12 +401,12 @@ per_subject_lattice!(
 
 per_subject_lattice!(
     DeviceAuthorized,
-    "cx.component.device.authorized.v1",
+    "cx.component.device.authorization.v1",
     SdkLatticeKind::OrSet,
     BottomPolicy::Reject,
     Criticality::Required,
     "device_id",
-    &["cx.device.authorized", "cx.device.revoked"]
+    &["cx.device.authorize", "cx.device.revoke"]
 );
 
 per_subject_lattice!(
@@ -456,7 +456,7 @@ impl LatticeKind for AgentKey {
         Ok(Some(format!("{agent_did}::{key_id}")))
     }
     fn event_kinds(&self) -> &'static [&'static str] {
-        &["cx.agent.key.authorized", "cx.agent.key.revoked", "cx.agent.key.rotated"]
+        &["cx.agent.key.authorize", "cx.agent.key.revoke", "cx.agent.key.rotate"]
     }
 }
 
@@ -680,7 +680,7 @@ per_subject_lattice!(
     &["cx.morph.stage.set"]
 );
 
-// Flow notification subscription cell, keyed by (flow_id, actor_did).
+// Flow notification subscription cell, keyed by (flow_id, watcher_actor_id).
 // Spec: contrix-spec/spec/v1/zh/models/flow-and-message.md §8.
 // SDK's subject derivation composes both keys into a single string so the
 // existing per-subject lattice infra (single Option<String>) works without
@@ -714,13 +714,13 @@ impl LatticeKind for FlowWatch {
                 field: "flow_id",
             },
         )?;
-        let actor_did = effect_payload.get("actor_did").and_then(Value::as_str).ok_or(
+        let watcher_actor_id = effect_payload.get("watcher_actor_id").and_then(Value::as_str).ok_or(
             LatticeKindError::MissingSubjectField {
                 cell_family: "cx.component.flow.watch.v1",
-                field: "actor_did",
+                field: "watcher_actor_id",
             },
         )?;
-        Ok(Some(format!("{flow_id}::{actor_did}")))
+        Ok(Some(format!("{flow_id}::{watcher_actor_id}")))
     }
     fn event_kinds(&self) -> &'static [&'static str] {
         &["cx.flow.watch.set"]
@@ -1089,7 +1089,7 @@ per_subject_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    "parent_realm_id",
+    "source_realm_id",
     &["cx.realm.inheritance_policy"]
 );
 
@@ -1264,7 +1264,7 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "cx.component.capability.delegate.v1",
         "cx.component.capability.derived.v1",
         "cx.component.session.grant.v1",
-        "cx.component.device.authorized.v1",
+        "cx.component.device.authorization.v1",
         "cx.component.device.list_update.v1",
         "cx.component.agent.key.v1",
         "cx.component.mls.covered_frontier.v1",

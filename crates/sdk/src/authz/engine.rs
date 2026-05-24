@@ -241,7 +241,7 @@ pub struct AuthzEngine {
 struct CachedDecision {
     decision: AuthzDecision,
     _cached_at: DateTime<Utc>,
-    valid_until: Option<DateTime<Utc>>,
+    expires_at: Option<DateTime<Utc>>,
 }
 
 impl AuthzEngine {
@@ -259,7 +259,7 @@ impl AuthzEngine {
         // Check cache first
         let cache_key = self.cache_key(ctx, grants);
         if let Some(cached) = self.cache.get(&cache_key)
-            && cached.valid_until.as_ref().is_none_or(|valid| &ctx.now < valid)
+            && cached.expires_at.as_ref().is_none_or(|valid| &ctx.now < valid)
         {
             return cached.decision.clone();
         }
@@ -413,13 +413,13 @@ impl AuthzEngine {
         {
             return false;
         }
-        if let Some(valid_from) = grant.valid_from
-            && ctx.now < valid_from
+        if let Some(not_before) = grant.not_before
+            && ctx.now < not_before
         {
             return false;
         }
-        if let Some(valid_until) = grant.valid_until
-            && ctx.now > valid_until
+        if let Some(expires_at) = grant.expires_at
+            && ctx.now > expires_at
         {
             return false;
         }
@@ -1014,41 +1014,41 @@ impl AuthzEngine {
             self.cache.clear();
         }
 
-        let valid_until = self.cache_valid_until(ctx, grants);
+        let expires_at = self.cache_expires_at(ctx, grants);
         self.cache.insert(
             key,
-            CachedDecision { decision: decision.clone(), _cached_at: ctx.now, valid_until },
+            CachedDecision { decision: decision.clone(), _cached_at: ctx.now, expires_at },
         );
     }
 
-    fn cache_valid_until(
+    fn cache_expires_at(
         &self,
         ctx: &AuthzContext,
         grants: &[CapabilityGrant],
     ) -> Option<DateTime<Utc>> {
-        let mut valid_until = None;
+        let mut cache_expires_at = None;
 
         for grant in grants {
-            update_earliest_future(&mut valid_until, ctx.now, grant.valid_from);
-            update_earliest_future(&mut valid_until, ctx.now, grant.valid_until);
-            update_earliest_future(&mut valid_until, ctx.now, grant.revoked_at);
+            update_earliest_future(&mut cache_expires_at, ctx.now, grant.not_before);
+            update_earliest_future(&mut cache_expires_at, ctx.now, grant.expires_at);
+            update_earliest_future(&mut cache_expires_at, ctx.now, grant.revoked_at);
 
             for entry in &grant.constraints {
                 if let Constraint::Temporal { not_before, expires_at, recurrence } =
                     &entry.constraint
                 {
-                    update_earliest_future(&mut valid_until, ctx.now, *not_before);
-                    update_earliest_future(&mut valid_until, ctx.now, *expires_at);
+                    update_earliest_future(&mut cache_expires_at, ctx.now, *not_before);
+                    update_earliest_future(&mut cache_expires_at, ctx.now, *expires_at);
                     if let Some(recurrence) = recurrence
                         && let Ok(next) = recurrence_next_transition_after(ctx.now, recurrence)
                     {
-                        update_earliest_future(&mut valid_until, ctx.now, next);
+                        update_earliest_future(&mut cache_expires_at, ctx.now, next);
                     }
                 }
             }
         }
 
-        valid_until
+        cache_expires_at
     }
 
     /// Clear the cache.

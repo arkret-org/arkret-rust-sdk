@@ -208,7 +208,7 @@ pub struct ModerationEvidencePolicy {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ModerationQueueItem {
-    /// `cx:modq:<uuidv7>`.
+    /// `cx:moderation_queue_item:<uuidv7>`.
     pub queue_item_id: String,
     /// The full report this queue entry represents. Stored as
     /// [`serde_json::Value`] so callers can choose to deserialise into
@@ -293,7 +293,7 @@ mod tests {
     #[test]
     fn queue_item_round_trips() {
         let item = ModerationQueueItem {
-            queue_item_id: "cx:modq:01970e58-9d21-7000-8000-aaaaaaaaaaaa".to_owned(),
+            queue_item_id: "cx:moderation_queue_item:01970e58-9d21-7000-8000-aaaaaaaaaaaa".to_owned(),
             report: json!({"realm_id": "cx:realm:...", "reason": "spam"}),
             status: ModerationQueueStatus::Submitted,
             priority: Some(ModerationQueuePriority::Normal),

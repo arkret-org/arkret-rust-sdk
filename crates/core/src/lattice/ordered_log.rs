@@ -74,16 +74,16 @@ impl Lattice for OrderedLog {
         match op.op_type {
             LatticeOpType::Append => {
                 if op.value.is_none() {
-                    return Err(OpError::MissingField { kind: "ordered-log", field: "value" });
+                    return Err(OpError::MissingField { kind: "ordered_log", field: "value" });
                 }
                 if op.issuer_seq.is_none() {
-                    return Err(OpError::MissingField { kind: "ordered-log", field: "issuer_seq" });
+                    return Err(OpError::MissingField { kind: "ordered_log", field: "issuer_seq" });
                 }
                 Ok(())
             }
             other => Err(OpError::UnsupportedOpType {
                 got: format!("{other:?}").to_lowercase(),
-                expected_kind: "ordered-log",
+                expected_kind: "ordered_log",
             }),
         }
     }
@@ -278,6 +278,6 @@ mod tests {
     #[test]
     fn kind_is_ordered_log() {
         assert_eq!(OrderedLog.kind(), LatticeKind::OrderedLog);
-        assert_eq!(LatticeKind::OrderedLog.as_wire_str(), "ordered-log");
+        assert_eq!(LatticeKind::OrderedLog.as_wire_str(), "ordered_log");
     }
 }

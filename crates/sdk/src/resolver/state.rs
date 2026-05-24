@@ -229,7 +229,7 @@ impl SpaceState {
             | "cx.invite.create"
             | "cx.invite.cancel"
             | "cx.invite.accept"
-            | "cx.read.marker"
+            | "cx.read_cursor.advance"
             // Account lifecycle (account-lifecycle.md §3 +
             // event-auth-state-resolution.md). The cell subject is the
             // account DID; the latest event wins per HLC ordering.
@@ -240,7 +240,7 @@ impl SpaceState {
             // Reports are state events keyed by `(target_ref, reporter)`;
             // franks bind a per-message receipt for E2EE accountability.
             | "cx.moderation.report"
-            | "cx.moderation.frank" => self.reduce_generic_state_event(event)?,
+            | "cx.moderation.franking_proof" => self.reduce_generic_state_event(event)?,
 
             // Message timeline
             "cx.message.create" => self.create_message(event)?,
@@ -1344,7 +1344,7 @@ impl SpaceState {
                 .extract_optional_field::<String>(&event.content, "invite_id")
                 .or_else(|| self.extract_optional_field::<String>(&event.content, "id"))
                 .ok_or_else(|| Error::Protocol("invite event requires invite_id or id".to_owned())),
-            "cx.read.marker" => self
+            "cx.read_cursor.advance" => self
                 .extract_optional_field::<String>(&event.content, "scope")
                 .or_else(|| self.extract_optional_field::<String>(&event.content, "target_ref"))
                 .ok_or_else(|| {

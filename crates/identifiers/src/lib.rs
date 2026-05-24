@@ -218,6 +218,7 @@ id_type!(Did, is_did);
 // Protocol object IDs use typed prefixes with canonical RFC 9562 UUIDv7 payloads.
 id_type!(ActorProfileId, |value: &str| is_strict_typed_id(value, "cx:actor_profile:"));
 id_type!(AgentSessionId, |value: &str| is_strict_typed_id(value, "cx:agent_session:"));
+id_type!(AnnounceId, |value: &str| is_strict_typed_id(value, "cx:announce:"));
 id_type!(AppletId, |value: &str| is_strict_typed_id(value, "cx:applet:"));
 // Historical SDK operation/reducer structs still name the scope field
 // `SpaceId`, but the protocol's security boundary is now Realm. Accept
@@ -233,11 +234,11 @@ id_type!(CallId, |value: &str| is_strict_typed_id(value, "cx:call:"));
 id_type!(CapabilityId, |value: &str| is_strict_typed_id(value, "cx:capability:"));
 id_type!(ChunkId, |value: &str| is_strict_typed_id(value, "cx:chunk:"));
 id_type!(ClaimId, |value: &str| is_strict_typed_id(value, "cx:claim:"));
-id_type!(DevmsgId, |value: &str| is_strict_typed_id(value, "cx:devmsg:"));
+id_type!(DevmsgId, |value: &str| is_strict_typed_id(value, "cx:device_message:"));
 id_type!(FlowId, |value: &str| is_strict_typed_id(value, "cx:flow:"));
 id_type!(FilterId, |value: &str| is_strict_typed_id(value, "cx:filter:"));
 id_type!(FrameId, |value: &str| is_strict_typed_id(value, "cx:frame:"));
-id_type!(FrankId, |value: &str| is_strict_typed_id(value, "cx:frank:"));
+id_type!(FrankId, |value: &str| is_strict_typed_id(value, "cx:franking_proof:"));
 id_type!(MorphId, |value: &str| is_strict_typed_id(value, "cx:morph:"));
 // Round R2/R3 (2026-05-20) — moderation appeal cell key (`cx:appeal:<uuidv7>`).
 // id-kind-registry kind=appeal; see schemas/moderation-appeal.schema.json.
@@ -259,17 +260,18 @@ id_type!(EventId, |value: &str| is_strict_typed_id(value, "cx:event:"));
 id_type!(OperationId, |value: &str| is_strict_typed_id(value, "cx:operation:") || is_hash(value));
 id_type!(GrantId, |value: &str| is_strict_typed_id(value, "cx:grant:"));
 id_type!(InviteId, |value: &str| is_strict_typed_id(value, "cx:invite:"));
-id_type!(KeyevtId, |value: &str| is_strict_typed_id(value, "cx:keyevt:"));
+id_type!(KeyevtId, |value: &str| is_strict_typed_id(value, "cx:key_event:"));
 id_type!(DeviceId, |value: &str| is_strict_typed_id(value, "cx:device:"));
-id_type!(NotifId, |value: &str| is_strict_typed_id(value, "cx:notif:"));
+id_type!(NotifId, |value: &str| is_strict_typed_id(value, "cx:notification:"));
 id_type!(PolicyId, |value: &str| is_strict_typed_id(value, "cx:policy:"));
 id_type!(PresentationId, |value: &str| is_strict_typed_id(value, "cx:presentation:"));
 id_type!(ReceiptId, |value: &str| is_strict_typed_id(value, "cx:receipt:"));
 id_type!(ReportId, |value: &str| is_strict_typed_id(value, "cx:report:"));
-id_type!(ModqId, |value: &str| is_strict_typed_id(value, "cx:modq:"));
-id_type!(ReqId, |value: &str| is_strict_typed_id(value, "cx:req:"));
+id_type!(ReadCursorId, |value: &str| is_strict_typed_id(value, "cx:read_cursor:"));
+id_type!(ModqId, |value: &str| is_strict_typed_id(value, "cx:moderation_queue_item:"));
+id_type!(ReqId, |value: &str| is_strict_typed_id(value, "cx:request:"));
 id_type!(SnapshotId, |value: &str| is_strict_typed_id(value, "cx:snapshot:"));
-id_type!(TxnId, |value: &str| is_strict_typed_id(value, "cx:txn:"));
+id_type!(TxnId, |value: &str| is_strict_typed_id(value, "cx:transaction:"));
 id_type!(BlobRef, is_blob_ref);
 id_type!(ViewId, |value: &str| is_strict_typed_id(value, "cx:view:"));
 id_type!(Hash, is_hash);
@@ -471,6 +473,7 @@ mod tests {
 
         assert_id!(ActorProfileId, "cx:actor_profile:");
         assert_id!(AgentSessionId, "cx:agent_session:");
+        assert_id!(AnnounceId, "cx:announce:");
         assert_id!(AppletId, "cx:applet:");
         assert_id!(BackupId, "cx:backup:");
         assert_id!(BatchId, "cx:batch:");
@@ -481,19 +484,19 @@ mod tests {
         assert_id!(ChunkId, "cx:chunk:");
         assert_id!(ClaimId, "cx:claim:");
         assert_id!(DeviceId, "cx:device:");
-        assert_id!(DevmsgId, "cx:devmsg:");
+        assert_id!(DevmsgId, "cx:device_message:");
         assert_id!(EventId, "cx:event:");
         assert_id!(FilterId, "cx:filter:");
         assert_id!(FlowId, "cx:flow:");
         assert_id!(FrameId, "cx:frame:");
-        assert_id!(FrankId, "cx:frank:");
+        assert_id!(FrankId, "cx:franking_proof:");
         assert_id!(GrantId, "cx:grant:");
         assert_id!(InviteId, "cx:invite:");
-        assert_id!(KeyevtId, "cx:keyevt:");
+        assert_id!(KeyevtId, "cx:key_event:");
         assert_id!(MessageId, "cx:message:");
-        assert_id!(ModqId, "cx:modq:");
+        assert_id!(ModqId, "cx:moderation_queue_item:");
         assert_id!(MorphId, "cx:morph:");
-        assert_id!(NotifId, "cx:notif:");
+        assert_id!(NotifId, "cx:notification:");
         assert_id!(PlaceId, "cx:place:");
         assert_id!(RealmId, "cx:realm:");
         assert_id!(PolicyId, "cx:policy:");
@@ -501,11 +504,12 @@ mod tests {
         assert_id!(ReceiptId, "cx:receipt:");
         assert_id!(RelationId, "cx:relation:");
         assert_id!(ReportId, "cx:report:");
-        assert_id!(ReqId, "cx:req:");
+        assert_id!(ReadCursorId, "cx:read_cursor:");
+        assert_id!(ReqId, "cx:request:");
         assert_id!(SnapshotId, "cx:snapshot:");
         assert_id!(SpaceId, "cx:space:");
         assert_id!(SpaceId, "cx:realm:");
-        assert_id!(TxnId, "cx:txn:");
+        assert_id!(TxnId, "cx:transaction:");
         assert_id!(ViewId, "cx:view:");
     }
 

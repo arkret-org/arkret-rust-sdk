@@ -29,19 +29,19 @@ impl Lattice for OrSet {
         match op.op_type {
             LatticeOpType::Add => {
                 if op.tag.as_deref().unwrap_or("").is_empty() {
-                    return Err(OpError::MissingField { kind: "or-set", field: "tag" });
+                    return Err(OpError::MissingField { kind: "or_set", field: "tag" });
                 }
                 Ok(())
             }
             LatticeOpType::Remove => {
                 if op.tag.as_deref().unwrap_or("").is_empty() {
-                    return Err(OpError::MissingField { kind: "or-set", field: "tag" });
+                    return Err(OpError::MissingField { kind: "or_set", field: "tag" });
                 }
                 Ok(())
             }
             other => Err(OpError::UnsupportedOpType {
                 got: format!("{other:?}").to_lowercase(),
-                expected_kind: "or-set",
+                expected_kind: "or_set",
             }),
         }
     }
@@ -254,6 +254,6 @@ mod tests {
     #[test]
     fn kind_is_or_set() {
         assert_eq!(OrSet.kind(), LatticeKind::OrSet);
-        assert_eq!(LatticeKind::OrSet.as_wire_str(), "or-set");
+        assert_eq!(LatticeKind::OrSet.as_wire_str(), "or_set");
     }
 }

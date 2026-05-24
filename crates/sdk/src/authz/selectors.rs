@@ -43,7 +43,7 @@ pub enum ResourceSelector {
     /// Invite selector
     Invite { space_id: String, invite_id: Option<String> },
     /// Read marker selector
-    ReadMarker { space_id: String },
+    ReadCursor { space_id: String },
     /// Morph selector — `morph_type` is the canonical filter per
     /// `resource-selector-grammar.md` §6 (matches by exact type name).
     Morph { space_id: String, morph_id: Option<String>, morph_type: Option<String> },
@@ -167,10 +167,10 @@ impl ResourceSelector {
             (Self::Invite { .. }, _) => false,
 
             // Read marker selector
-            (Self::ReadMarker { space_id }, Resource::ReadMarker { space_id: target_space }) => {
+            (Self::ReadCursor { space_id }, Resource::ReadCursor { space_id: target_space }) => {
                 space_id == target_space || space_id == "*"
             }
-            (Self::ReadMarker { .. }, _) => false,
+            (Self::ReadCursor { .. }, _) => false,
 
             // Morph selector
             (
@@ -302,7 +302,7 @@ impl ResourceSelector {
                 let (space_id, invite_id) = split_space_tail(remainder, selector)?;
                 Ok(Self::Invite { space_id, invite_id })
             }
-            "read_marker" => Ok(Self::ReadMarker { space_id: remainder.to_owned() }),
+            "read_cursor" => Ok(Self::ReadCursor { space_id: remainder.to_owned() }),
             "*" => Ok(Self::Wildcard),
             _ => Err(Error::Protocol(format!("unknown selector type: {}", selector))),
         }
@@ -326,7 +326,7 @@ pub enum ProtocolResourceSelectorKind {
     Policy,
     Invite,
     Notification,
-    ReadMarker,
+    ReadCursor,
     Blob,
     Wildcard,
 }
@@ -338,7 +338,7 @@ pub enum ProtocolResourceSelectorScope {
     Exact,
     Subtree,
     Children,
-    SpaceWide,
+    RealmWide,
 }
 
 /// Schema-aligned selector facade used for REST/OpenAPI/scaffold surfaces.
@@ -378,7 +378,7 @@ pub struct ProtocolResourceSelector {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub blob_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub scope: Option<ProtocolResourceSelectorScope>,
+    pub match_scope: Option<ProtocolResourceSelectorScope>,
 }
 
 impl ProtocolResourceSelector {
@@ -403,7 +403,7 @@ impl ProtocolResourceSelector {
                 policy_id: None,
                 invite_id: None,
                 blob_ref: None,
-                scope: None,
+                match_scope: None,
             },
             ResourceSelector::Flow { space_id, flow_id } => Self {
                 kind: ProtocolResourceSelectorKind::Flow,
@@ -423,7 +423,7 @@ impl ProtocolResourceSelector {
                 policy_id: None,
                 invite_id: None,
                 blob_ref: None,
-                scope: None,
+                match_scope: None,
             },
             ResourceSelector::Object { space_id, object_type, object_ref } => Self {
                 kind: ProtocolResourceSelectorKind::Object,
@@ -443,7 +443,7 @@ impl ProtocolResourceSelector {
                 policy_id: None,
                 invite_id: None,
                 blob_ref: None,
-                scope: None,
+                match_scope: None,
             },
             ResourceSelector::Message { space_id, message_id } => Self {
                 kind: ProtocolResourceSelectorKind::Message,
@@ -463,7 +463,7 @@ impl ProtocolResourceSelector {
                 policy_id: None,
                 invite_id: None,
                 blob_ref: None,
-                scope: None,
+                match_scope: None,
             },
             ResourceSelector::Relation { space_id, relation_kind } => Self {
                 kind: ProtocolResourceSelectorKind::Relation,
@@ -483,7 +483,7 @@ impl ProtocolResourceSelector {
                 policy_id: None,
                 invite_id: None,
                 blob_ref: None,
-                scope: None,
+                match_scope: None,
             },
             ResourceSelector::View { space_id, view_id } => Self {
                 kind: ProtocolResourceSelectorKind::View,
@@ -503,7 +503,7 @@ impl ProtocolResourceSelector {
                 policy_id: None,
                 invite_id: None,
                 blob_ref: None,
-                scope: None,
+                match_scope: None,
             },
             ResourceSelector::Schema { space_id, schema_id } => Self {
                 kind: ProtocolResourceSelectorKind::Schema,
@@ -523,7 +523,7 @@ impl ProtocolResourceSelector {
                 policy_id: None,
                 invite_id: None,
                 blob_ref: None,
-                scope: None,
+                match_scope: None,
             },
             ResourceSelector::Policy { space_id, policy_id } => Self {
                 kind: ProtocolResourceSelectorKind::Policy,
@@ -543,7 +543,7 @@ impl ProtocolResourceSelector {
                 schema_ref: None,
                 invite_id: None,
                 blob_ref: None,
-                scope: None,
+                match_scope: None,
             },
             ResourceSelector::Invite { space_id, invite_id } => Self {
                 kind: ProtocolResourceSelectorKind::Invite,
@@ -563,10 +563,10 @@ impl ProtocolResourceSelector {
                 schema_ref: None,
                 policy_id: None,
                 blob_ref: None,
-                scope: None,
+                match_scope: None,
             },
-            ResourceSelector::ReadMarker { space_id } => Self {
-                kind: ProtocolResourceSelectorKind::ReadMarker,
+            ResourceSelector::ReadCursor { space_id } => Self {
+                kind: ProtocolResourceSelectorKind::ReadCursor,
                 space_id: Some(space_id.clone()),
                 object_type: None,
                 object_ref: None,
@@ -583,7 +583,7 @@ impl ProtocolResourceSelector {
                 policy_id: None,
                 invite_id: None,
                 blob_ref: None,
-                scope: None,
+                match_scope: None,
             },
             _ => Self {
                 kind: ProtocolResourceSelectorKind::Wildcard,
@@ -603,7 +603,7 @@ impl ProtocolResourceSelector {
                 policy_id: None,
                 invite_id: None,
                 blob_ref: None,
-                scope: None,
+                match_scope: None,
             },
         }
     }
@@ -630,7 +630,7 @@ impl ProtocolResourceSelector {
                 policy_id: None,
                 invite_id: None,
                 blob_ref: None,
-                scope: Some(ProtocolResourceSelectorScope::Exact),
+                match_scope: Some(ProtocolResourceSelectorScope::Exact),
             },
             Self {
                 kind: ProtocolResourceSelectorKind::Actor,
@@ -650,7 +650,7 @@ impl ProtocolResourceSelector {
                 policy_id: None,
                 invite_id: None,
                 blob_ref: None,
-                scope: Some(ProtocolResourceSelectorScope::Exact),
+                match_scope: Some(ProtocolResourceSelectorScope::Exact),
             },
             Self {
                 kind: ProtocolResourceSelectorKind::Notification,
@@ -670,7 +670,7 @@ impl ProtocolResourceSelector {
                 policy_id: None,
                 invite_id: None,
                 blob_ref: None,
-                scope: Some(ProtocolResourceSelectorScope::Exact),
+                match_scope: Some(ProtocolResourceSelectorScope::Exact),
             },
             Self {
                 kind: ProtocolResourceSelectorKind::Blob,
@@ -690,7 +690,7 @@ impl ProtocolResourceSelector {
                 schema_ref: None,
                 policy_id: None,
                 invite_id: None,
-                scope: Some(ProtocolResourceSelectorScope::Exact),
+                match_scope: Some(ProtocolResourceSelectorScope::Exact),
             },
         ]
     }

@@ -69,7 +69,7 @@ pub enum BindingSource {
     Invite,
     JoinPolicy,
     OrganizationPolicy,
-    SpacePolicy,
+    RealmPolicy,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -117,7 +117,7 @@ impl MemberDeliveryBinding {
                     ));
                 }
             }
-            BindingSource::JoinPolicy | BindingSource::SpacePolicy => {
+            BindingSource::JoinPolicy | BindingSource::RealmPolicy => {
                 if self.policy_ref.is_none() {
                     return Err(Error::Protocol(format!(
                         "binding_source={:?} requires policy_ref",

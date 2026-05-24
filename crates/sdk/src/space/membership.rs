@@ -105,7 +105,7 @@ impl Space {
 
         let operation_id = OperationId::new(generate_id("cx:operation:"))?;
         let payload = json!({
-            "actor_id": candidate.subject_did,
+            "actor_id": candidate.subject_id,
             "role": role,
             "space_id": self.space_id.as_str(),
             "issuer": session_meta.user_id.as_str(),
@@ -142,7 +142,7 @@ impl Space {
         let operation_id = OperationId::new(generate_id("cx:operation:"))?;
         let payload = json!({
             "space_id": self.space_id.as_str(),
-            "actor_id": candidate.subject_did,
+            "actor_id": candidate.subject_id,
             "issuer": session_meta.user_id.as_str(),
             "membership": "join",
             "delivery_status": DeliveryStatus::Routable,
@@ -256,7 +256,7 @@ impl Space {
     }
 }
 
-/// Materialise the candidate's `delivery_binding_hint` into a fully formed
+/// Materialise the candidate's `member_delivery_binding` into a fully formed
 /// [`MemberDeliveryBinding`]. Callers MUST still run
 /// [`MemberDeliveryBinding::validate`] before using the binding — this
 /// helper only translates field-for-field; it does not enforce conditional
@@ -269,13 +269,13 @@ fn candidate_to_delivery_binding(
         RecipientServiceType,
     };
 
-    let hint = &candidate.delivery_binding_hint;
+    let hint = &candidate.member_delivery_binding;
     let binding_source = match hint.binding_source {
         HandleHintBindingSource::Explicit => BindingSource::Explicit,
         HandleHintBindingSource::Invite => BindingSource::Invite,
         HandleHintBindingSource::JoinPolicy => BindingSource::JoinPolicy,
         HandleHintBindingSource::OrganizationPolicy => BindingSource::OrganizationPolicy,
-        HandleHintBindingSource::SpacePolicy => BindingSource::SpacePolicy,
+        HandleHintBindingSource::RealmPolicy => BindingSource::RealmPolicy,
     };
     let delivery_modes: std::collections::BTreeSet<DeliveryMode> = if hint.delivery_modes.is_empty()
     {
@@ -298,7 +298,7 @@ fn candidate_to_delivery_binding(
         hint.policy_ref.as_ref().map(|id| EventRef::new(id.clone(), "authorized_by".to_owned()));
 
     MemberDeliveryBinding {
-        recipient_service_did: candidate.recipient_service_did.clone(),
+        recipient_service_did: hint.recipient_service_did.clone(),
         recipient_service_type: RecipientServiceType::PrincipalServer,
         binding_scope: BindingScope::Realm,
         binding_source,

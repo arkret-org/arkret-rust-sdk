@@ -20,7 +20,8 @@ pub const ERROR_CODE_AUTH_EXPIRED: &str = "auth_expired";
 pub const ERROR_CODE_SOFT_LOGGED_OUT: &str = "soft_logged_out";
 pub const ERROR_CODE_INVALID_SIGNATURE: &str = "invalid_signature";
 pub const ERROR_CODE_CAPABILITY_DENIED: &str = "capability_denied";
-pub const ERROR_CODE_SPACE_FROZEN: &str = "space_frozen";
+pub const ERROR_CODE_REALM_FROZEN: &str = "realm_frozen";
+pub const ERROR_CODE_SPACE_FROZEN: &str = ERROR_CODE_REALM_FROZEN;
 pub const ERROR_CODE_CLAIM_REQUIRED: &str = "claim_required";
 pub const ERROR_CODE_NOT_FOUND: &str = "not_found";
 pub const ERROR_CODE_UNRECOGNIZED_ENDPOINT: &str = "unrecognized_endpoint";
@@ -76,7 +77,8 @@ pub const ERROR_CODE_CURSOR_INTEGRITY_INVALID: &str = "cursor_integrity_invalid"
 pub const ERROR_CODE_FAILED_PRECONDITION: &str = "failed_precondition";
 pub const ERROR_CODE_UNSUPPORTED_HASH: &str = "unsupported_hash";
 pub const ERROR_CODE_ANCHOR_INCOMPLETE: &str = "anchor_incomplete";
-pub const ERROR_CODE_FRANK_UNAVAILABLE: &str = "frank_unavailable";
+pub const ERROR_CODE_FRANKING_PROOF_UNAVAILABLE: &str = "franking_proof_unavailable";
+pub const ERROR_CODE_FRANK_UNAVAILABLE: &str = ERROR_CODE_FRANKING_PROOF_UNAVAILABLE;
 pub const ERROR_CODE_TURN_CREDENTIAL_EXPIRED: &str = "turn_credential_expired";
 
 // ── Round C47 (2026-05-18 main, spec e10b6ad) — registry add (1 wire-level code).
@@ -169,7 +171,7 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
     ERROR_CODE_SOFT_LOGGED_OUT,
     ERROR_CODE_INVALID_SIGNATURE,
     ERROR_CODE_CAPABILITY_DENIED,
-    ERROR_CODE_SPACE_FROZEN,
+    ERROR_CODE_REALM_FROZEN,
     ERROR_CODE_CLAIM_REQUIRED,
     ERROR_CODE_NOT_FOUND,
     ERROR_CODE_UNRECOGNIZED_ENDPOINT,
@@ -210,7 +212,7 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
     ERROR_CODE_FAILED_PRECONDITION,
     ERROR_CODE_UNSUPPORTED_HASH,
     ERROR_CODE_ANCHOR_INCOMPLETE,
-    ERROR_CODE_FRANK_UNAVAILABLE,
+    ERROR_CODE_FRANKING_PROOF_UNAVAILABLE,
     ERROR_CODE_TURN_CREDENTIAL_EXPIRED,
     ERROR_CODE_STALE_PEER,
     // Round R2/R3 (2026-05-20).
@@ -544,7 +546,7 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         ERROR_CODE_CAPABILITY_DENIED
         | ERROR_CODE_DIRECTORY_NOT_AUTHORIZED
         | ERROR_CODE_ACCEPT_POLICY_DENIED
-        | ERROR_CODE_SPACE_FROZEN
+        | ERROR_CODE_REALM_FROZEN
         | ERROR_CODE_CLAIM_REQUIRED
         | ERROR_CODE_POLICY_VIOLATION
         | ERROR_CODE_QUOTA_EXCEEDED
@@ -602,7 +604,7 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         ERROR_CODE_INTERNAL_ERROR => 500,
         ERROR_CODE_HLC_LOGICAL_OVERFLOW
         | ERROR_CODE_TEMPORARILY_UNAVAILABLE
-        | ERROR_CODE_FRANK_UNAVAILABLE
+        | ERROR_CODE_FRANKING_PROOF_UNAVAILABLE
         | ERROR_CODE_EPHEMERAL_CHANNEL_UNAVAILABLE => 503,
         ERROR_CODE_TIMEOUT => 504,
         ERROR_CODE_UNSUPPORTED_FEATURE
@@ -698,7 +700,7 @@ pub enum ErrorCode {
     SoftLoggedOut,
     InvalidSignature,
     CapabilityDenied,
-    SpaceFrozen,
+    RealmFrozen,
     ClaimRequired,
     NotFound,
     UnrecognizedEndpoint,
@@ -741,7 +743,7 @@ pub enum ErrorCode {
     FailedPrecondition,
     UnsupportedHash,
     AnchorIncomplete,
-    FrankUnavailable,
+    FrankingProofUnavailable,
     TurnCredentialExpired,
     StalePeer,
     // ── Round R2/R3 (2026-05-20).
@@ -799,7 +801,7 @@ impl ErrorCode {
         Self::SoftLoggedOut,
         Self::InvalidSignature,
         Self::CapabilityDenied,
-        Self::SpaceFrozen,
+        Self::RealmFrozen,
         Self::ClaimRequired,
         Self::NotFound,
         Self::UnrecognizedEndpoint,
@@ -840,7 +842,7 @@ impl ErrorCode {
         Self::FailedPrecondition,
         Self::UnsupportedHash,
         Self::AnchorIncomplete,
-        Self::FrankUnavailable,
+        Self::FrankingProofUnavailable,
         Self::TurnCredentialExpired,
         Self::StalePeer,
         Self::RelaxedWindowExceedsCeiling,
@@ -894,7 +896,7 @@ impl ErrorCode {
             Self::SoftLoggedOut => ERROR_CODE_SOFT_LOGGED_OUT,
             Self::InvalidSignature => ERROR_CODE_INVALID_SIGNATURE,
             Self::CapabilityDenied => ERROR_CODE_CAPABILITY_DENIED,
-            Self::SpaceFrozen => ERROR_CODE_SPACE_FROZEN,
+            Self::RealmFrozen => ERROR_CODE_REALM_FROZEN,
             Self::ClaimRequired => ERROR_CODE_CLAIM_REQUIRED,
             Self::NotFound => ERROR_CODE_NOT_FOUND,
             Self::UnrecognizedEndpoint => ERROR_CODE_UNRECOGNIZED_ENDPOINT,
@@ -935,7 +937,7 @@ impl ErrorCode {
             Self::FailedPrecondition => ERROR_CODE_FAILED_PRECONDITION,
             Self::UnsupportedHash => ERROR_CODE_UNSUPPORTED_HASH,
             Self::AnchorIncomplete => ERROR_CODE_ANCHOR_INCOMPLETE,
-            Self::FrankUnavailable => ERROR_CODE_FRANK_UNAVAILABLE,
+            Self::FrankingProofUnavailable => ERROR_CODE_FRANKING_PROOF_UNAVAILABLE,
             Self::TurnCredentialExpired => ERROR_CODE_TURN_CREDENTIAL_EXPIRED,
             Self::StalePeer => ERROR_CODE_STALE_PEER,
             Self::RelaxedWindowExceedsCeiling => ERROR_CODE_RELAXED_WINDOW_EXCEEDS_CEILING,
@@ -1017,7 +1019,7 @@ mod tests {
         assert_eq!(codes.len(), KNOWN_ERROR_CODES.len(), "duplicate error code");
         // Registry v2026-05-18 main (round C47, spec e10b6ad): C44's 47 + 6 C45
         // wire codes (cursor_integrity_invalid / failed_precondition /
-        // unsupported_hash / anchor_incomplete / frank_unavailable /
+        // unsupported_hash / anchor_incomplete / franking_proof_unavailable /
         // turn_credential_expired) + 1 C47 wire code (stale_peer) +
         // 15 Round R2/R3 wire codes (relaxed_window_exceeds_ceiling, ...) +
         // 3 Round 4 wire codes (delivery_binding_stale, delivery_binding_handed_over,
@@ -1033,7 +1035,7 @@ mod tests {
         assert!(codes.contains(ERROR_CODE_FAILED_PRECONDITION));
         assert!(codes.contains(ERROR_CODE_UNSUPPORTED_HASH));
         assert!(codes.contains(ERROR_CODE_ANCHOR_INCOMPLETE));
-        assert!(codes.contains(ERROR_CODE_FRANK_UNAVAILABLE));
+        assert!(codes.contains(ERROR_CODE_FRANKING_PROOF_UNAVAILABLE));
         assert!(codes.contains(ERROR_CODE_TURN_CREDENTIAL_EXPIRED));
         assert!(codes.contains(ERROR_CODE_RELAXED_WINDOW_EXCEEDS_CEILING));
         assert!(codes.contains(ERROR_CODE_RESET_EVENT_ID_MISMATCH));

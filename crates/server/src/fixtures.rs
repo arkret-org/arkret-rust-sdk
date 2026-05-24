@@ -155,7 +155,7 @@ fn fixture_operations(flow: ProtocolFixtureFlow) -> &'static [&'static str] {
             "cx.directory.search_actors",
             "cx.directory.search_users",
             "cx.directory.resolve_handle",
-            "cx.directory.subscribe",
+            "cx.directory.push.register",
         ],
         ProtocolFixtureFlow::Push => {
             &["cx.push.register_device", "cx.push.unregister_device", "cx.push.notify"]
@@ -171,8 +171,8 @@ fn fixture_operations(flow: ProtocolFixtureFlow) -> &'static [&'static str] {
             "cx.applet.ping",
             "cx.applet.describe",
             "cx.applet.transaction",
-            "cx.applet.query_actor",
-            "cx.applet.query_realm",
+            "cx.applet.resolve_actor",
+            "cx.applet.resolve_realm",
             "cx.applet.protocol_metadata",
             "cx.applet.third_party_users",
             "cx.applet.third_party_locations",

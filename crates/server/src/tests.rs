@@ -37,7 +37,7 @@ fn service_route_registry_matches_required_spec_operations() {
         ("cx.keys.keypackages.claim", "/api/v1/keys/keypackages/claim"),
         ("cx.authz.check", "/api/v1/authz/check"),
         ("cx.policy.check", "/contrix/v1/check"),
-        ("cx.mimi.room_update", "/api/v1/mimi/rooms/{flow_id}/update"),
+        ("cx.mimi.room_update", "/api/v1/mimi/flows/{flow_id}/update"),
         ("cx.account.issue_session_grant", "/api/v1/auth/account/session-grants"),
         ("cx.admin.revoke_device", "/api/v1/admin/devices/{device_id}/revoke"),
         ("cx.applet.transaction", "/api/v1/applet/transactions"),

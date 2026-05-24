@@ -205,8 +205,8 @@ pub struct SessionPrincipalBinding {
 /// (`key-management.md` §4.1). These events MUST be written into the
 /// principal's dedicated control space; resolvers and federation peers
 /// MUST refuse them in any other Space.
-pub const CX_DEVICE_AUTHORIZED: &str = "cx.device.authorized";
-pub const CX_DEVICE_REVOKED: &str = "cx.device.revoked";
+pub const CX_DEVICE_AUTHORIZED: &str = "cx.device.authorize";
+pub const CX_DEVICE_REVOKED: &str = "cx.device.revoke";
 pub const CX_SESSION_GRANT: &str = "cx.session.grant";
 
 /// Derive the canonical principal control space ID from a principal DID.

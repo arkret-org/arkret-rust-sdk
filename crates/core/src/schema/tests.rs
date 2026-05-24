@@ -172,6 +172,7 @@ fn artifact_payload_catalog_maps_object_patch_event_family_to_object_patch_paylo
             .validate_payload(
                 event_kind,
                 &json!({
+                    "target_ref": "cx:realm:0196419b-0000-7000-8000-000000000001",
                     "patch": {
                         "title": { "$op": "set", "value": "Roadmap" }
                     }
@@ -203,7 +204,7 @@ fn artifact_payload_catalog_enforces_external_schema_refs_and_enums() {
         "public_key": "z6MkiExampleSub",
         "key_format": "multibase",
         "binding": {
-            "signed_by": "did:web:alice.example#psk-1",
+            "verification_method": "did:web:alice.example#psk-1",
             "alg": "EdDSA",
             "signature": "sig"
         }

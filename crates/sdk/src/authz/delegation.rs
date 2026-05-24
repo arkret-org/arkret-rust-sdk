@@ -15,7 +15,7 @@
 //! soland's in-memory runtime form (stringly-typed `resource`, single
 //! [`GrantConstraint`] list, top-level `expires_at` + `delegated_from`). The
 //! wire-spec shape — with typed [`crate::authz::ResourceSelector`] and richer
-//! valid_from/valid_until pairs — is the separate [`crate::authz::CapabilityGrant`]
+//! not_before/expires_at pairs — is the separate [`crate::authz::CapabilityGrant`]
 //! used at the canonical event boundary. The two shapes are siblings, not
 //! alternatives: typically a capability event resolves into a
 //! `CapabilityGrant`, then projects down to a `Grant` for fast in-memory

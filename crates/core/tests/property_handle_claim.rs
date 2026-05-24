@@ -10,12 +10,15 @@
 //!     to `acct:` without information loss.
 //!  3. **`HandleClaim::validate` enforces conditional required fields.**
 //!     If `binding_state=verified`, both `handle_uri` and `expires_at`
-//!     MUST be present. If `recipient_service_did` is present, both
+//!     MUST be present. If `member_delivery_binding` is present, both
 //!     `handle_uri` + `audience` + `expires_at` MUST also be present.
 
 use chrono::{Duration, Utc};
 use contrix_core::Did;
-use contrix_core::model::{HandleBindingState, HandleClaim, HandleUri};
+use contrix_core::model::{
+    DeliveryBindingHint, HandleBindingState, HandleClaim, HandleHintBindingSource, HandleUri,
+    RecipientServiceType,
+};
 use proptest::prelude::*;
 
 const PROPTEST_CASES: u32 = 64;
@@ -97,10 +100,10 @@ proptest! {
         }
     }
 
-    /// MUST rule: recipient_service_did set ⇒ requires handle_uri AND
+    /// MUST rule: member_delivery_binding set ⇒ requires handle_uri AND
     /// audience AND expires_at.
     #[test]
-    fn recipient_service_did_requires_full_binding(
+    fn member_delivery_binding_requires_full_binding(
         has_uri in any::<bool>(),
         has_audience in any::<bool>(),
         has_expiry in any::<bool>(),
@@ -108,9 +111,14 @@ proptest! {
         audience in "[a-z]{1,8}",
     ) {
         let mut claim = HandleClaim::default();
-        claim.recipient_service_did = Some(
-            Did::new("did:web:recipient.example".to_owned()).unwrap(),
-        );
+        claim.member_delivery_binding = Some(DeliveryBindingHint {
+            recipient_service_did: Did::new("did:web:recipient.example".to_owned()).unwrap(),
+            recipient_service_type: RecipientServiceType::PrincipalServer,
+            binding_source: HandleHintBindingSource::Explicit,
+            delivery_modes: Default::default(),
+            service_acceptance_ref: None,
+            policy_ref: None,
+        });
         if has_uri {
             claim.handle_uri = Some(HandleUri::parse(&uri).unwrap());
         }

@@ -24,7 +24,8 @@ pub const VIEW_SCHEMA: &str = "cx.schema.view.v1";
 pub const POLICY_SCHEMA: &str = "cx.schema.policy.v1";
 pub const CAPABILITY_SCHEMA: &str = "cx.schema.capability.v1";
 pub const INVITE_SCHEMA: &str = "cx.schema.invite.v1";
-pub const READ_MARKER_SCHEMA: &str = "cx.schema.read_marker.v1";
+pub const READ_CURSOR_SCHEMA: &str = "cx.schema.read_cursor.v1";
+pub const READ_MARKER_SCHEMA: &str = READ_CURSOR_SCHEMA;
 pub const NOTIFICATION_SCHEMA: &str = "cx.schema.notification.v1";
 /// SDK-local operation draft schema marker.
 ///
@@ -35,7 +36,8 @@ pub const BLOB_SCHEMA: &str = "cx.schema.blob.v1";
 pub const ANCHOR_SCHEMA: &str = "cx.schema.anchor.v1";
 pub const BOTTOM_SCHEMA: &str = "cx.schema.bottom.v1";
 pub const SNAPSHOT_SCHEMA: &str = "cx.schema.snapshot.v1";
-pub const ENCRYPTED_PAYLOAD_SCHEMA: &str = "cx.schema.encrypted_payload.v1";
+pub const ENCRYPTED_ENVELOPE_SCHEMA: &str = "cx.schema.encrypted_envelope.v1";
+pub const ENCRYPTED_PAYLOAD_SCHEMA: &str = ENCRYPTED_ENVELOPE_SCHEMA;
 pub const ACCOUNT_SUBSCRIBE_FRAME_SCHEMA: &str = "cx.schema.account_subscribe_frame.v1";
 pub const RESOURCE_SELECTOR_SCHEMA: &str = "cx.schema.resource_selector.v1";
 pub const GRANT_CONSTRAINT_SCHEMA: &str = "cx.schema.grant_constraint.v1";
@@ -99,7 +101,8 @@ pub const OP_PLACE_TOMBSTONE: &str = OP_SPACE_TOMBSTONE;
 /// Relation event kinds.
 pub const OP_RELATION_CREATE: &str = "cx.relation.create";
 pub const OP_RELATION_UPDATE: &str = "cx.relation.update";
-pub const OP_RELATION_DELETE: &str = "cx.relation.delete";
+pub const OP_RELATION_TOMBSTONE: &str = "cx.relation.tombstone";
+pub const OP_RELATION_DELETE: &str = OP_RELATION_TOMBSTONE;
 pub const OP_CONTAINER_MOVE_ITEM: &str = "cx.container.move_item";
 pub const OP_CONTAINER_REBALANCE: &str = "cx.container.rebalance";
 
@@ -203,8 +206,10 @@ pub const OP_ADMIN_UPDATE_ACCOUNT_STATUS: &str = "cx.admin.update_account_status
 pub const OP_APPLET_DESCRIBE: &str = "cx.applet.describe";
 pub const OP_APPLET_PING: &str = "cx.applet.ping";
 pub const OP_APPLET_PROTOCOL_METADATA: &str = "cx.applet.protocol_metadata";
-pub const OP_APPLET_QUERY_ACTOR: &str = "cx.applet.query_actor";
-pub const OP_APPLET_QUERY_REALM: &str = "cx.applet.query_realm";
+pub const OP_APPLET_RESOLVE_ACTOR: &str = "cx.applet.resolve_actor";
+pub const OP_APPLET_RESOLVE_REALM: &str = "cx.applet.resolve_realm";
+pub const OP_APPLET_QUERY_ACTOR: &str = OP_APPLET_RESOLVE_ACTOR;
+pub const OP_APPLET_QUERY_REALM: &str = OP_APPLET_RESOLVE_REALM;
 pub const OP_APPLET_THIRD_PARTY_LOCATIONS: &str = "cx.applet.third_party_locations";
 pub const OP_APPLET_THIRD_PARTY_USERS: &str = "cx.applet.third_party_users";
 pub const OP_APPLET_TRANSACTION: &str = "cx.applet.transaction";
@@ -226,9 +231,12 @@ pub const OP_APPLET_REGISTRATION: &str = "cx.applet.registration";
 /// applet family but the terminal `*.result` event carries a signed
 /// audit binding. Spec `extensions/agent-integration.md`.
 pub const OP_AGENT_ENDPOINT: &str = "cx.agent.endpoint";
-pub const OP_AGENT_KEY_AUTHORIZED: &str = "cx.agent.key.authorized";
-pub const OP_AGENT_KEY_REVOKED: &str = "cx.agent.key.revoked";
-pub const OP_AGENT_KEY_ROTATED: &str = "cx.agent.key.rotated";
+pub const OP_AGENT_KEY_AUTHORIZE: &str = "cx.agent.key.authorize";
+pub const OP_AGENT_KEY_REVOKE: &str = "cx.agent.key.revoke";
+pub const OP_AGENT_KEY_ROTATE: &str = "cx.agent.key.rotate";
+pub const OP_AGENT_KEY_AUTHORIZED: &str = OP_AGENT_KEY_AUTHORIZE;
+pub const OP_AGENT_KEY_REVOKED: &str = OP_AGENT_KEY_REVOKE;
+pub const OP_AGENT_KEY_ROTATED: &str = OP_AGENT_KEY_ROTATE;
 pub const OP_AGENT_PROTOCOL_SESSION_RESULT: &str = "cx.agent.protocol_session.result";
 pub const OP_AGENT_PROTOCOL_SESSION_START: &str = "cx.agent.protocol_session.start";
 pub const OP_AGENT_PROTOCOL_SESSION_STATUS: &str = "cx.agent.protocol_session.status";
@@ -243,7 +251,8 @@ pub const OP_DIRECTORY_SEARCH_ACTORS: &str = "cx.directory.search_actors";
 pub const OP_DIRECTORY_SEARCH_ORGANIZATIONS: &str = "cx.directory.search_organizations";
 pub const OP_DIRECTORY_SEARCH_REALMS: &str = "cx.directory.search_realms";
 pub const OP_DIRECTORY_SEARCH_USERS: &str = "cx.directory.search_users";
-pub const OP_DIRECTORY_SUBSCRIBE: &str = "cx.directory.subscribe";
+pub const OP_DIRECTORY_PUSH_REGISTER: &str = "cx.directory.push.register";
+pub const OP_DIRECTORY_SUBSCRIBE: &str = OP_DIRECTORY_PUSH_REGISTER;
 pub const OP_DIRECTORY_WITHDRAW: &str = "cx.directory.withdraw";
 
 /// Events-API operations (low-level Event Envelope plane).
@@ -386,8 +395,8 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_APPLET_DESCRIBE,
     OP_APPLET_PING,
     OP_APPLET_PROTOCOL_METADATA,
-    OP_APPLET_QUERY_ACTOR,
-    OP_APPLET_QUERY_REALM,
+    OP_APPLET_RESOLVE_ACTOR,
+    OP_APPLET_RESOLVE_REALM,
     OP_APPLET_THIRD_PARTY_LOCATIONS,
     OP_APPLET_THIRD_PARTY_USERS,
     OP_APPLET_TRANSACTION,
@@ -421,7 +430,7 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_DIRECTORY_SEARCH_ORGANIZATIONS,
     OP_DIRECTORY_SEARCH_REALMS,
     OP_DIRECTORY_SEARCH_USERS,
-    OP_DIRECTORY_SUBSCRIBE,
+    OP_DIRECTORY_PUSH_REGISTER,
     OP_DIRECTORY_WITHDRAW,
     OP_EVENTS_DESCRIBE,
     OP_EVENTS_FRONTIER,

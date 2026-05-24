@@ -50,7 +50,7 @@ pub struct MlsAddMemberResult {
 /// Unlike `MlsAddMemberResult`, Remove never produces a Welcome — surviving
 /// members simply apply the commit to advance the epoch. The list of
 /// `removed_leaves` makes the audit trail explicit so callers can correlate
-/// the result with the originating `cx.device.revoked` / `cx.member.state`
+/// the result with the originating `cx.device.revoke` / `cx.member.state`
 /// events.
 #[derive(Clone, Debug)]
 pub struct MlsRemoveMemberResult {
@@ -60,7 +60,7 @@ pub struct MlsRemoveMemberResult {
     pub removed_leaves: Vec<u32>,
     /// The principal DIDs whose leaves were removed (one per leaf, may
     /// contain duplicates if the principal had multiple leaves / devices in
-    /// the same group). Useful for downstream `cx.device.revoked` event
+    /// the same group). Useful for downstream `cx.device.revoke` event
     /// envelopes that index by principal.
     pub removed_principals: Vec<Did>,
 }

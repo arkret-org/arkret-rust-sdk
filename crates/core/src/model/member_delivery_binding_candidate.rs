@@ -1,5 +1,5 @@
 //! `MemberDeliveryBindingCandidate` — typed builder-side payload for the
-//! Handle → `delivery_binding_hint` → member delivery binding → Space-scoped
+//! Handle → member delivery binding → Realm-scoped
 //! delivery pipeline.
 //!
 //! Spec source: `identity-handles.md` §3.7 +
@@ -42,7 +42,7 @@ pub struct CandidateValidationContext {
     pub now: DateTime<Utc>,
     /// Optional subject the caller asserts the candidate must address.
     /// When present, the validator MUST reject candidates whose
-    /// `subject_did` does not match byte-for-byte. This guards against
+    /// `subject_id` does not match byte-for-byte. This guards against
     /// directory caches reusing a candidate across reassignments.
     pub expected_subject: Option<Did>,
 }
@@ -81,7 +81,7 @@ pub enum CandidateError {
     Expired { expires_at: DateTime<Utc>, now: DateTime<Utc> },
     #[error(
         "candidate proofs[] missing or empty; at least one proof MUST bind \
-         handle_uri / subject_did / recipient_service_did / audience / \
+         handle_uri / subject_id / member_delivery_binding.recipient_service_did / audience / \
          issuer_service_did / expires_at"
     )]
     MissingProof,
@@ -91,14 +91,14 @@ pub enum CandidateError {
     )]
     SubjectMismatch { expected: String, actual: String },
     #[error(
-        "candidate delivery_binding_hint.binding_source did_document_default \
+        "candidate member_delivery_binding.binding_source did_document_default \
          is forbidden — handle-resolved candidates and DID Document fallback \
          are independent materialisation paths"
     )]
     ForbiddenBindingSource,
     #[error(
         "candidate recipient_service_did ({outer}) does not match \
-         delivery_binding_hint.recipient_service_did ({inner})"
+         member_delivery_binding.recipient_service_did ({inner})"
     )]
     RecipientServiceDidMismatch { outer: String, inner: String },
     #[error("candidate source_refs MUST NOT be empty")]
@@ -117,12 +117,11 @@ pub enum CandidateError {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MemberDeliveryBindingCandidate {
-    pub subject_did: Did,
+    pub subject_id: Did,
     pub handle_uri: HandleUri,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub handle_aliases: Vec<String>,
-    pub recipient_service_did: Did,
-    pub delivery_binding_hint: DeliveryBindingHint,
+    pub member_delivery_binding: DeliveryBindingHint,
     pub issuer_service_did: Did,
     pub audience: String,
     pub expires_at: DateTime<Utc>,
@@ -175,34 +174,24 @@ impl MemberDeliveryBindingCandidate {
 
         // (6) subject / handle association — caller-provided expectation
         if let Some(expected) = &context.expected_subject {
-            if expected.as_str() != self.subject_did.as_str() {
+            if expected.as_str() != self.subject_id.as_str() {
                 return Err(CandidateError::SubjectMismatch {
                     expected: expected.as_str().to_owned(),
-                    actual: self.subject_did.as_str().to_owned(),
+                    actual: self.subject_id.as_str().to_owned(),
                 });
             }
         }
 
-        // (7) delivery_binding_hint.binding_source legal values — the
+        // (7) member_delivery_binding.binding_source legal values — the
         //     `HandleHintBindingSource` enum already excludes
         //     `did_document_default`, but re-assert here for clarity in
         //     case the enum gains new variants downstream.
-        match self.delivery_binding_hint.binding_source {
+        match self.member_delivery_binding.binding_source {
             HandleHintBindingSource::Explicit
             | HandleHintBindingSource::Invite
             | HandleHintBindingSource::JoinPolicy
             | HandleHintBindingSource::OrganizationPolicy
-            | HandleHintBindingSource::SpacePolicy => {}
-        }
-
-        // (8) recipient_service_did consistency outer <-> hint
-        if self.recipient_service_did.as_str()
-            != self.delivery_binding_hint.recipient_service_did.as_str()
-        {
-            return Err(CandidateError::RecipientServiceDidMismatch {
-                outer: self.recipient_service_did.as_str().to_owned(),
-                inner: self.delivery_binding_hint.recipient_service_did.as_str().to_owned(),
-            });
+            | HandleHintBindingSource::RealmPolicy => {}
         }
 
         // source_refs MUST be non-empty per the schema
@@ -256,11 +245,10 @@ mod tests {
     fn sample_candidate() -> MemberDeliveryBindingCandidate {
         let rs = fake_did("principal");
         MemberDeliveryBindingCandidate {
-            subject_did: fake_did("alice"),
+            subject_id: fake_did("alice"),
             handle_uri: HandleUri::parse("contrix://acme.example/users/alice").unwrap(),
             handle_aliases: vec!["acct:alice@acme.example".to_owned()],
-            recipient_service_did: rs.clone(),
-            delivery_binding_hint: sample_hint(&rs),
+            member_delivery_binding: sample_hint(&rs),
             issuer_service_did: fake_did("principal"),
             audience: "cx:space:0196419b-0000-7000-8000-000000000000".to_owned(),
             expires_at: Utc::now() + chrono::Duration::hours(1),
@@ -320,16 +308,6 @@ mod tests {
         match c.validate(&ctx).unwrap_err() {
             CandidateError::AudienceMismatch { .. } => {}
             other => panic!("expected AudienceMismatch, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn negative_recipient_did_mismatch() {
-        let mut c = sample_candidate();
-        c.recipient_service_did = fake_did("evil");
-        match c.validate(&valid_context(&c)).unwrap_err() {
-            CandidateError::RecipientServiceDidMismatch { .. } => {}
-            other => panic!("expected RecipientServiceDidMismatch, got {other:?}"),
         }
     }
 

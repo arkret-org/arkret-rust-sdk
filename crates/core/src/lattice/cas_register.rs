@@ -30,13 +30,13 @@ impl Lattice for CasRegister {
         match op.op_type {
             LatticeOpType::Set => {
                 if op.value.is_none() {
-                    return Err(OpError::MissingField { kind: "cas-register", field: "value" });
+                    return Err(OpError::MissingField { kind: "cas_register", field: "value" });
                 }
                 Ok(())
             }
             other => Err(OpError::UnsupportedOpType {
                 got: format!("{other:?}").to_lowercase(),
-                expected_kind: "cas-register",
+                expected_kind: "cas_register",
             }),
         }
     }
@@ -134,6 +134,6 @@ mod tests {
     #[test]
     fn kind_is_cas_register() {
         assert_eq!(CasRegister.kind(), LatticeKind::CasRegister);
-        assert_eq!(LatticeKind::CasRegister.as_wire_str(), "cas-register");
+        assert_eq!(LatticeKind::CasRegister.as_wire_str(), "cas_register");
     }
 }
