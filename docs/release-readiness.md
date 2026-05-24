@@ -18,12 +18,12 @@ This repository is ready for local `0.8.0-rc1` freeze only when these gates pass
 - `cargo deny check --config .deny.toml`
 - `cargo audit --deny warnings --ignore RUSTSEC-2024-0384 --ignore RUSTSEC-2026-0124`
 - `cargo run --example spec_drift_report`
-- `cargo semver-checks check-release --workspace` runs in CI as a
-  non-blocking warning until the 1.0 API freeze.
+- `cargo semver-checks check-release --workspace` is a blocking CI gate for
+  the 1.0 API freeze.
 - `cargo tarpaulin --config tarpaulin.toml --out Xml` uploads coverage to
   Codecov without a hard threshold.
-- README and crate docs clearly state the remaining external security review
-  and current interoperability evidence status.
+- README and crate docs clearly state the local security-review packet and
+  current interoperability evidence status.
 - Local encryption helpers use authenticated encryption and no obsolete placeholder encryption remains.
 - Mobile bindings stay unpublished until the runtime-facing FFI and callback
   contracts have real downstream consumers and release commitments.

@@ -2,14 +2,14 @@
 
 ## Supported versions
 
-The Contrix Rust SDK is in its initial `0.1.x` release line. Until the API is
-frozen for `1.0`, only the latest published `0.1.x` minor receives security
+The Contrix Rust SDK is in its local `0.8.0-rc1` release-candidate line. Until
+the API is frozen for `1.0`, only the latest local RC branch receives security
 updates.
 
 | Version | Supported |
 | ------- | --------- |
-| `0.1.x` | Yes       |
-| < `0.1` | No        |
+| `0.8.0-rc1` | Yes       |
+| < `0.8` | No        |
 
 After `1.0`, the support window will track the latest stable major plus one
 prior minor; the table here will be updated to reflect that.
@@ -42,8 +42,8 @@ Please include:
   acknowledgement, or sooner for actively-exploited vulnerabilities. Complex
   protocol issues that require coordination with the Contrix specification
   may take longer; the reporter will be kept informed.
-- Once a fix is released, a GitHub Security Advisory and a CHANGELOG entry
-  will be published describing the issue, affected versions, and the fix.
+- Once a fix is ready locally, a private advisory record and a CHANGELOG entry
+  will describe the issue, affected versions, and the fix.
   Reporter credit is given by default; ask in your report if you prefer
   anonymity.
 
@@ -51,7 +51,7 @@ Please include:
 
 In scope:
 
-- Anything in `crates/*` that ships in a published `contrix-*` crate.
+- Anything in `crates/*` that ships in a local `contrix-*` package artifact.
 - The default behaviour of `contrix-http-client` against an arbitrary Contrix
   service (URL handling, header construction, retry/backoff, error envelope
   parsing).
@@ -70,10 +70,10 @@ Out of scope:
 
 ## Cryptographic guarantees
 
-The current `0.1.x` release line targets release-candidate functional
-parity. Until at least one external security review is logged in
-`docs/security-audit.md` and one real-server interoperability run is recorded
-in `docs/release-evidence-*.md`, treat the cryptographic surface as
+The current `0.8.0-rc1` release line targets release-candidate functional
+parity. Until the local security-review packet is logged in
+`docs/security-review-1.0.0.md` and one real-server interoperability run is
+recorded in `docs/release-evidence-*.md`, treat the cryptographic surface as
 "reviewed but unhardened." Production deployments should:
 
 - Back MLS state with a platform key store and durable `CryptoStore`

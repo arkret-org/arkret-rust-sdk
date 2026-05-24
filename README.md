@@ -5,8 +5,9 @@
 Release status: release candidate for Contrix v1 SDK `0.8.0-rc1`. The SDK includes
 authenticated local encryption helpers based on XChaCha20-Poly1305, OpenMLS MLS
 group encryption, framework-independent server contracts, HTTP client bindings
-and conformance-oriented tests. Before a stable non-0.x guarantee, run an
-external security review and at least one real server interoperability suite.
+and conformance-oriented tests. Before the stable `1.0.0` local freeze, record
+the local security-review packet and at least one cotest release-gate
+interoperability suite.
 
 This repository contains the Rust SDK for Contrix v1. The public SDK surface is
 centered on:

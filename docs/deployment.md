@@ -128,7 +128,7 @@ behalf of the unit.
 
 - HTTPS everywhere; `ClientBuilder::allow_insecure_localhost()` is for
   development and integration tests only.
-- Pin the SDK by minor version; subscribe to GitHub releases or
+- Pin the SDK by minor version; track local CHANGELOG updates and
   `cargo audit` notifications.
 - Run `cargo deny check --config .deny.toml --all-features` in CI of any
   downstream binary that depends on the SDK.
