@@ -1,16 +1,13 @@
-# Releasing
+# Local Release Readiness
 
-The Contrix Rust SDK is a 11-crate Cargo workspace. The full crate set is
-published in a single coordinated release (one version, one tag) so that
-downstream callers can pin a single `contrix = "x.y.z"` and have all the
-transitively-published crates line up.
+The Contrix Rust SDK is an 11-crate Cargo workspace. This repository's release
+readiness flow is local-only: it validates the coordinated crate set without
+publishing to crates.io, creating GitHub releases, or pushing tags.
 
-## Crate set and publish order
+## Crate set and package order
 
-These crates are published in dependency order. crates.io requires every
-listed dependency to already exist on the registry before a dependent crate
-can be published, so order matters and re-runs may need a small delay between
-crates while the registry indexes the new version.
+These crates are packaged in dependency order so local package checks catch
+workspace dependency and manifest drift:
 
 ```text
 contrix-identifiers
@@ -28,79 +25,48 @@ contrix    # umbrella SDK; depends on every other crate above
 
 The order is generated from `cargo metadata --no-deps`. If any crate is added
 or its dependency surface changes, regenerate it and update both this file and
-the `CRATES:` block in `.github/workflows/release-crates.yml`.
-
-To validate the workflow list locally before tagging, run:
+the package-check workflow:
 
 ```sh
-python tools/check-publish-order.py            # validate the workflow's order
-python tools/check-publish-order.py --print    # print a fresh topological order
+python tools/check-publish-order.py
+python tools/check-publish-order.py --print
 ```
-
-The validator confirms every crate in the workflow appears after its
-workspace dependencies. Any valid topological order works — alphabetical
-tie-breaking is informational, not a requirement.
 
 ## Checklist
 
-1. Run verification:
+Run verification locally:
 
-   ```sh
-   cargo fmt --all -- --check
-   cargo check --workspace --all-features
-   cargo clippy --all-features --all-targets -- -D warnings
-   cargo test --all-features
-   python tools/check-publish-order.py
-   cargo package --workspace --locked --no-verify
-   cargo publish -p contrix-identifiers --dry-run --locked
-   cargo doc --no-deps --all-features --workspace
-   cargo deny check --config .deny.toml
-   cargo audit --deny warnings --ignore RUSTSEC-2024-0384 --ignore RUSTSEC-2026-0124
-   ```
+```sh
+cargo fmt --all -- --check
+cargo check --no-default-features
+cargo check --no-default-features --features client
+cargo check --no-default-features --features server
+cargo check --no-default-features --features mls
+cargo check --workspace --all-features
+cargo clippy --all-features --all-targets -- -D warnings
+cargo test --all-features
+python tools/check-publish-order.py
+cargo package --workspace --locked --no-verify
+cargo doc --no-deps --all-features --workspace
+cargo deny check --config .deny.toml
+cargo audit --deny warnings --ignore RUSTSEC-2024-0384 --ignore RUSTSEC-2026-0124
+cargo run --example spec_drift_report
+```
 
-   Full `cargo publish --dry-run` verification for dependent workspace crates
-   requires each preceding internal crate version to already exist on crates.io,
-   so use the package assembly check before the coordinated publish.
+Do not run `cargo publish`, do not create/push release tags, and do not create
+GitHub releases as part of this local readiness workflow.
 
-   The two `cargo audit` ignores are release-blocker exceptions for packages
-   that are present in `Cargo.lock` but have no current upstream upgrade path:
-   `RUSTSEC-2024-0384` is `instant` via OpenMLS's wasm timer dependency, and
-   `RUSTSEC-2026-0124` is the optional `hpke-rs-libcrux` backend recorded in
-   the lockfile while Contrix uses the RustCrypto HPKE backend.
-
-2. Confirm the public protocol surface is compatible with the current Contrix
-   specification. Update `docs/release-evidence-<version>.md` with the
-   interoperability run results.
-
-3. Update the workspace version in `Cargo.toml` (or run `cargo release` —
-   `release.toml` is configured with `shared-version = true` so every member
-   moves together).
-
-4. Update `CHANGELOG.md`: rename the `## [Unreleased]` heading to the new
-   version + date, then start a fresh `## [Unreleased]` block.
-
-5. Tag and push:
-
-   ```sh
-   git tag "v$(grep -m1 '^version =' crates/sdk/Cargo.toml | cut -d'\"' -f2)"
-   git push origin --tags
-   ```
-
-   The `Release crates.io` GitHub Actions workflow watches `v*.*.*` tag pushes
-   and publishes every crate above in order. The tag push is the single
-   release trigger; do **not** run `cargo publish` manually unless rescuing a
-   partial release.
-
-6. Manual rescue (only if the workflow fails partway through): re-run from the
-   first crate that did not publish. The workflow's loop tolerates "version
-   already exists" responses, so it is safe to re-trigger via
-   `workflow_dispatch` with `dry_run = false`.
+The two `cargo audit` ignores are tracked upstream-dependency exceptions for
+packages that are present in `Cargo.lock` but have no current upstream upgrade
+path: `RUSTSEC-2024-0384` is `instant` via OpenMLS's wasm timer dependency,
+and `RUSTSEC-2026-0124` is the optional `hpke-rs-libcrux` backend recorded in
+the lockfile while Contrix uses the RustCrypto HPKE backend.
 
 ## Compatibility notes
 
-Do not publish a release that changes canonical digest behavior (`canonical`
-JSON encoder, signed payload shape, AAD layout, redaction rules) without an
-explicit compatibility note in `CHANGELOG.md` and a major-version bump.
+Canonical digest behavior (`canonical` JSON encoder, signed payload shape,
+AAD layout, redaction rules) is a local wire contract. Changing it requires an
+explicit compatibility note in `CHANGELOG.md` and matching downstream updates.
 
 The MSRV is pinned in `[workspace.package].rust-version`. Bumping it requires
 a CHANGELOG entry and a CI run with the new pinned toolchain.

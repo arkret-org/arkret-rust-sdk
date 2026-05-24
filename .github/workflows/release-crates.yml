@@ -1,44 +1,15 @@
-name: Release crates.io
+name: Local package checks
 
 on:
-  push:
-    tags:
-      - "v*.*.*"
   workflow_dispatch:
-    inputs:
-      dry_run:
-        description: "Run cargo publish without uploading"
-        required: true
-        default: "true"
-        type: choice
-        options:
-          - "true"
-          - "false"
 
 permissions:
   contents: read
 
 jobs:
-  publish:
-    name: Publish workspace crates
+  package:
+    name: Package workspace locally
     runs-on: ubuntu-latest
-    environment: crates-io
-    env:
-      # Topologically sorted dependency order. Generated from `cargo metadata
-      # --no-deps`; keep in sync with `RELEASING.md`. Each crate must be on
-      # crates.io before any crate that depends on it.
-      CRATES: >-
-        contrix-identifiers
-        contrix-core
-        contrix-ffi
-        contrix-html
-        contrix-http-client
-        contrix-signatures
-        contrix-crypto
-        contrix-api
-        contrix-server
-        contrix-testing
-        contrix
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
@@ -49,40 +20,5 @@ jobs:
       - run: cargo fmt --all -- --check
       - run: cargo clippy --all-features --all-targets -- -D warnings
       - run: cargo test --all-features
-
-      - name: Validate publish order
-        run: python tools/check-publish-order.py
-
-      - name: Package workspace
-        run: cargo package --workspace --locked --no-verify
-
-      - name: cargo publish --dry-run (first crate)
-        # Dependent workspace crates cannot be publish-dry-run verified until
-        # the preceding RC versions are already present in the crates.io index.
-        run: cargo publish -p contrix-identifiers --dry-run --locked
-
-      - name: Publish each crate in topological order
-        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == 'false')
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: |
-          set -euo pipefail
-          for crate in $CRATES; do
-            echo "::group::Publishing $crate"
-            # Allow re-runs after a partial failure: if the version is
-            # already on crates.io, treat it as a no-op.
-            if cargo publish -p "$crate" --locked --token "$CARGO_REGISTRY_TOKEN"; then
-              echo "Published $crate"
-            else
-              status=$?
-              if cargo search "$crate" --limit 1 | grep -q "^$crate ="; then
-                echo "Crate $crate appears to already be published; continuing"
-              else
-                exit $status
-              fi
-            fi
-            # crates.io needs a moment to index the new version before the
-            # next dependent crate can resolve it.
-            sleep 20
-            echo "::endgroup::"
-          done
+      - run: python tools/check-publish-order.py
+      - run: cargo package --workspace --locked --no-verify

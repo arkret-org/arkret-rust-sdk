@@ -115,8 +115,8 @@ Headline additions:
   for the normative source.
 - [Security policy](SECURITY.md) — supported versions and how to report
   vulnerabilities responsibly.
-- [Releasing](RELEASING.md) — how the 11-crate workspace is published in
-  topological order.
+- [Releasing](RELEASING.md) — local package checks for the 11-crate workspace
+  in topological order.
 - [Contributing](CONTRIBUTING.md) — development checks, API rules, commit
   style.
 - Cross-project task plan: [`../_todos.md`](../_todos.md).

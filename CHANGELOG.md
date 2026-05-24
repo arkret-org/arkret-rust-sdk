@@ -12,6 +12,9 @@ permitted; once `1.0` ships, breaking changes will require a major bump.
 
 ### Release Engineering
 
+- Release verification is local-only: the workflow validates package assembly
+  with `cargo package --workspace --locked --no-verify` and does not publish
+  crates, create GitHub releases, or push release tags.
 - Release verification now uses the current `cargo deny check --config
   .deny.toml` invocation and runs `cargo audit --deny warnings` with explicit
   tracked exceptions for `RUSTSEC-2024-0384` and `RUSTSEC-2026-0124`, matching

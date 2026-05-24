@@ -7,12 +7,12 @@
 ## State at start (2026-05-24)
 
 - 11 crates at version 0.7.0; resolver=3; MSRV 1.92.
-- 1,001 unit tests pass; clippy/audit/deny/MSRV/docs/dry-publish/spec-drift all in CI.
+- 1,001 unit tests pass; clippy/audit/deny/MSRV/docs/package/spec-drift all in CI.
 - ~15 TODOs identified across core + sdk crates.
 - No semver-checks, no codecov, no tests/ integration dir for the umbrella crate.
 - Public API surface clean; realm-rework backward-compat aliases (`PlaceId`, `PLACE_SCHEMA`, `OP_PLACE_*`) still present.
 
-## Phase 1 tasks (close before tagging 0.8.0-rc1)
+## Phase 1 tasks (close before local 0.8.0-rc1 freeze)
 
 ### Critical TODOs (in code)
 - [x] §1 `crates/sdk/src/auth/grants.rs:362` — make `SessionGrantOutbox` a trait with a default in-memory impl + a `Box<dyn>` slot so coauth/soland can plug a Pg-backed implementation. Tests: add an in-memory + a mock-pg test.
@@ -42,16 +42,16 @@
 - [x] §19 Refresh `docs/release-readiness.md` checklist for 0.8.0-rc1.
 - [x] §20 Add a `MIGRATING-FROM-0.7.md` documenting alias removal.
 
-### Tag
+### Local freeze
 - [x] §21 Bump all 11 crates to `0.8.0-rc1`. `RELEASING.md` already encodes the order.
-- [ ] §22 Run release package checks and the coordinated publish/tag path for `v0.8.0-rc1`. Full dependent `cargo publish --dry-run` requires preceding internal RC crates to already exist on crates.io.
+- [ ] §22 Run local release package checks for `0.8.0-rc1`. Do not publish crates, create GitHub releases, or push release tags.
 
 ## Phase 5 tasks (final 1.0)
 
 - [ ] §23 External security review — per `SECURITY.md` and `README.md`, this is a hard gate.
 - [ ] §24 Final interop evidence (link to cotest release-gate run from `docs/release-evidence-0.1.0.md` → rename to `release-evidence-1.0.0.md`).
 - [ ] §25 Flip `cargo semver-checks` from warn to `-D warnings`.
-- [ ] §26 Bump to 1.0.0, publish.
+- [ ] §26 Bump to 1.0.0 and pass local package checks.
 
 ## Exit gate (phase 1)
 
@@ -59,7 +59,7 @@ All of:
 1. §1-§22 closed.
 2. CI green on all 4 feature variants (no-default, client, server, mls).
 3. `cargo run --example spec_drift_report` reports zero drift vs `contrix-spec v1.0.0-rc1` artifacts.
-4. `0.8.0-rc1` published.
+4. `cargo package --workspace --locked --no-verify` succeeds locally.
 
 ## Notes
 
