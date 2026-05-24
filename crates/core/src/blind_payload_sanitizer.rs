@@ -29,7 +29,7 @@
 //! ## Forbidden fields
 //!
 //! Any presence of these top-level or nested keys triggers a
-//! [`BlindPayloadError::ForbiddenField`]:
+//! [`BlindPayloadReasonCode::ForbiddenField`]:
 //!
 //! - Correlation identifiers: `event_id`, `message_id`, `flow_id`,
 //!   `realm_id`, `space_id`, `place_id`, `thread_id`, `correlation_id`,

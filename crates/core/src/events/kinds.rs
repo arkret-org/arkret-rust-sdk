@@ -638,7 +638,7 @@ impl EventKind {
 
     /// Convenience constructor from one of the `pub const *: &str`
     /// declarations in this module. Same membership check as
-    /// [`try_new`] but accepts `&'static str` directly so the result
+    /// [`Self::try_new`] but accepts `&'static str` directly so the result
     /// can be stored in `const` contexts that consume the wire string
     /// via `.as_str()`.
     pub fn from_const(kind: &'static str) -> Option<Self> {

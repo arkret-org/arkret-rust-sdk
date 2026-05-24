@@ -10,6 +10,13 @@ permitted; once `1.0` ships, breaking changes will require a major bump.
 
 ## [Unreleased]
 
+### Release Engineering
+
+- Release verification now uses the current `cargo deny check --config
+  .deny.toml` invocation and runs `cargo audit --deny warnings` with explicit
+  tracked exceptions for `RUSTSEC-2024-0384` and `RUSTSEC-2026-0124`, matching
+  the documented OpenMLS/HPKE upstream dependency constraints.
+
 ### Round R4 — protocol review closures (wire-breaking) (2026-05-20)
 
 Tracks contrix-spec range `2a4d39b..a77b9958e3c6535a39bf468d661a23ae5d38cb10`

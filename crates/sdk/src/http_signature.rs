@@ -191,7 +191,7 @@ impl Component {
 /// parameter list (created, expires, keyid, alg, nonce, …).
 ///
 /// Only the parameters listed below are surfaced; unknown parameters
-/// are preserved in [`Self::raw_params_suffix`] so the original
+/// are preserved in [`Self::params_value`] so the original
 /// `@signature-params` line can be reconstructed byte-for-byte when
 /// building the signing string.
 #[derive(Debug, Clone, PartialEq, Eq)]

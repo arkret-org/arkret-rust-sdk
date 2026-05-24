@@ -54,13 +54,19 @@ tie-breaking is informational, not a requirement.
    cargo package --workspace --locked --no-verify
    cargo publish -p contrix-identifiers --dry-run --locked
    cargo doc --no-deps --all-features --workspace
-   cargo deny --config .deny.toml check --all-features
-   cargo audit --deny warnings
+   cargo deny check --config .deny.toml
+   cargo audit --deny warnings --ignore RUSTSEC-2024-0384 --ignore RUSTSEC-2026-0124
    ```
 
    Full `cargo publish --dry-run` verification for dependent workspace crates
    requires each preceding internal crate version to already exist on crates.io,
    so use the package assembly check before the coordinated publish.
+
+   The two `cargo audit` ignores are release-blocker exceptions for packages
+   that are present in `Cargo.lock` but have no current upstream upgrade path:
+   `RUSTSEC-2024-0384` is `instant` via OpenMLS's wasm timer dependency, and
+   `RUSTSEC-2026-0124` is the optional `hpke-rs-libcrux` backend recorded in
+   the lockfile while Contrix uses the RustCrypto HPKE backend.
 
 2. Confirm the public protocol surface is compatible with the current Contrix
    specification. Update `docs/release-evidence-<version>.md` with the

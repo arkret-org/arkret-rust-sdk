@@ -735,7 +735,7 @@ impl SyncClient {
     }
 
     /// Process a sync response and extract updates. The response is
-    /// the wire-shape [`crate::model::api::SyncResBody`] — per-event
+    /// the wire-shape [`crate::model::SyncResBody`] — per-event
     /// classes ([`SyncSpace`], [`ToDeviceMessage`], [`AccountData`],
     /// …) are projected out of the loose `Value` shape on demand so
     /// the wire layer doesn't have to commit to the typed shape.

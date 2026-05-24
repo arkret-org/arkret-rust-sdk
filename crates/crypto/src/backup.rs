@@ -1,4 +1,4 @@
-//! Client-side crypto for [`cx.schema.key_backup.v1`] envelopes.
+//! Client-side crypto for `cx.schema.key_backup.v1` envelopes.
 //!
 //! Spec: `crypto-media/key-management.md` §7 (Key Backup), §8 (Threshold
 //! Recovery) and `crypto-media/devices-and-auth.md` §4.1 (Encrypted Cloud

@@ -113,6 +113,8 @@ impl FfiError {
             Error::Mls(_) => FfiErrorCode::Mls,
             Error::Api { .. } => FfiErrorCode::Api,
             Error::Protocol(_) => FfiErrorCode::Protocol,
+            #[allow(unreachable_patterns)]
+            _ => FfiErrorCode::Protocol,
         };
         Self { code, message: error.to_string() }
     }

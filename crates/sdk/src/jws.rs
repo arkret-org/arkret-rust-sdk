@@ -19,25 +19,25 @@
 //!
 //! # API surface
 //!
-//! - [`sign_jws_ed25519`] — produce a detached JWS over `canonical_bytes`
+//! - `sign_jws_ed25519` — produce a detached JWS over `canonical_bytes`
 //!   with an `ed25519_dalek::SigningKey`. Symmetric counterpart of
-//!   [`verify_jws_ed25519`]: a `verify` after a `sign` over the same
+//!   `verify_jws_ed25519`: a `verify` after a `sign` over the same
 //!   bytes round-trips, given the matching public key resolves through
 //!   the supplied `DidResolver`.
-//! - [`verify_jws_ed25519`] — full detached-JWS verify pipeline (shape +
+//! - `verify_jws_ed25519` — full detached-JWS verify pipeline (shape +
 //!   alg + DID resolve + Ed25519 verify). Takes a `&dyn DidResolver` so
 //!   callers control which DID methods are reachable.
-//! - [`resolve_ed25519_pubkey`] — resolve a `did[#frag]` URL to a
-//!   [`VerifyingKey`] via the supplied resolver.
-//! - [`verify_replay_window`] / [`verify_replay_window_at`] — bound the
+//! - `resolve_ed25519_pubkey` — resolve a `did[#frag]` URL to a
+//!   `VerifyingKey` via the supplied resolver.
+//! - `verify_replay_window` / `verify_replay_window_at` — bound the
 //!   freshness of an [`Hlc`] against wall-clock now (or an injected time
 //!   for tests).
-//! - [`verify_replay_window_for_move`] / [`verify_replay_window_for_move_at`]
+//! - `verify_replay_window_for_move` / `verify_replay_window_for_move_at`
 //!   — same, but with per-cell-family overrides so authority-cell Moves
 //!   (e.g. `cx.component.anchorer.v1`) can have tighter freshness windows
 //!   than ordinary message Moves.
-//! - [`effective_window_for_move`] — exposed for inspection / tests.
-//! - [`physical_millis_from_hlc`] — extract the physical-ms prefix of an
+//! - `effective_window_for_move` — exposed for inspection / tests.
+//! - `physical_millis_from_hlc` — extract the physical-ms prefix of an
 //!   HLC string for low-level freshness telemetry.
 //!
 //! All error paths return `Result<_, String>` with descriptive reasons;

@@ -261,6 +261,7 @@ pub use base::{
     BaseClient, BootstrapSequence, BootstrapStep, BootstrapStepKind, BootstrapStepStatus,
     ClientSpace, SessionMeta, SessionRestore, SpaceStateType,
 };
+#[cfg(feature = "full-surface")]
 pub use crypto::{
     AEAD_ALGORITHM, EncryptedEnvelopeAad, EncryptedEnvelopeDigestReport, FeatureSafetyReport,
     KeyLifecycleHook, KeyLifecyclePhase, REDACTED_SECRET, SecurityReviewItem, SecurityReviewStatus,
