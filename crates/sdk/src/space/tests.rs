@@ -458,7 +458,7 @@ fn member_add_with_candidate_emits_routable_join_with_typed_binding() {
 
     let base_client = sessioned_base();
     let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-000000000300").unwrap();
-    let space = Space::new(space_id.clone(), base_client.clone());
+    let space = Space::new(space_id.clone(), base_client);
 
     let subject = Did::new("did:web:bob.example".to_owned()).unwrap();
     let principal = Did::new("did:web:principal.acme.example".to_owned()).unwrap();
@@ -517,7 +517,7 @@ fn member_add_with_candidate_rejects_audience_mismatch() {
 
     let base_client = sessioned_base();
     let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-000000000301").unwrap();
-    let space = Space::new(space_id.clone(), base_client.clone());
+    let space = Space::new(space_id, base_client);
 
     let principal = Did::new("did:web:principal.acme.example".to_owned()).unwrap();
     let mut modes = std::collections::BTreeSet::new();

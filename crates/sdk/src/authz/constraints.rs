@@ -735,9 +735,8 @@ mod constraint_parse_error_tests {
     #[test]
     fn parse_recurrence_zone_invalid_returns_invalid_timezone_variant() {
         // RecurrenceZone is not Debug, so use a match instead of unwrap_err().
-        let err = match parse_recurrence_zone(Some("UTC99")) {
-            Ok(_) => panic!("expected InvalidTimezone error for UTC99"),
-            Err(err) => err,
+        let Err(err) = parse_recurrence_zone(Some("UTC99")) else {
+            panic!("expected InvalidTimezone error for UTC99");
         };
         assert!(
             matches!(err, ConstraintParseError::InvalidTimezone(ref value) if value == "UTC99")

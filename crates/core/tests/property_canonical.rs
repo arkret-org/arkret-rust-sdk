@@ -117,7 +117,7 @@ proptest! {
             0..32,
         ).prop_map(|chars| chars.into_iter().collect::<String>())
     ) {
-        let value = json!({ "k": s.clone() });
+        let value = json!({ "k": s });
         let bytes = canonical_json_bytes(&value).expect("encode unicode");
         let parsed: Value = serde_json::from_slice(&bytes).expect("re-parse canonical bytes");
         prop_assert_eq!(parsed.get("k").and_then(Value::as_str).map(str::to_owned), Some(s));

@@ -386,7 +386,7 @@ fn check_sensitive_literal(path: &str, raw: &str) -> Result<(), BlindPayloadErro
 /// Return true if `key` is an allow-listed field name for the blind
 /// wakeup contract.
 pub fn is_allowed_blind_field(key: &str) -> bool {
-    ALLOWED_BLIND_FIELDS.iter().any(|allowed| *allowed == key)
+    ALLOWED_BLIND_FIELDS.contains(&key)
 }
 
 /// Return true if `key` is a forbidden payload key for the blind wakeup
@@ -522,7 +522,7 @@ pub fn is_valid_push_target_id(value: &str) -> bool {
 
 /// Return true if `value` is a valid `wakeup_kind` for blind wakeups.
 pub fn is_valid_wakeup_kind(value: &str) -> bool {
-    if ALLOWED_WAKEUP_KINDS.iter().any(|kind| *kind == value) {
+    if ALLOWED_WAKEUP_KINDS.contains(&value) {
         return true;
     }
     is_valid_custom_wakeup_kind(value)
@@ -543,7 +543,7 @@ pub fn is_valid_custom_wakeup_kind(value: &str) -> bool {
 
 /// Return true if `value` is a valid `push_hint` for blind wakeups.
 pub fn is_valid_push_hint(value: &str) -> bool {
-    if ALLOWED_PUSH_HINTS.iter().any(|hint| *hint == value) {
+    if ALLOWED_PUSH_HINTS.contains(&value) {
         return true;
     }
     if let Some(token) = value.strip_prefix("l10n_key:") {

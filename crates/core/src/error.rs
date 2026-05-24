@@ -651,7 +651,7 @@ pub enum Error {
     Mls(String),
 
     #[error("Contrix API returned {status}: {error}")]
-    Api { status: u16, error: ErrorEnvelope },
+    Api { status: u16, error: Box<ErrorEnvelope> },
 
     #[error("protocol error: {0}")]
     Protocol(String),

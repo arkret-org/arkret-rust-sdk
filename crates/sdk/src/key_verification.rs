@@ -247,17 +247,15 @@ pub fn derive_sas_bytes(shared_secret: &[u8], info: &[u8]) -> ShortAuthenticatio
     // [0..6) (48 bits = 8 × 6 bits, we take the first seven).
     let mut emoji_indices = [0u8; 7];
     let mut bit_cursor = 0usize;
-    for slot in 0..7 {
+    for emoji_index in &mut emoji_indices {
         let mut idx: u8 = 0;
-        for bit in 0..6 {
+        for _ in 0..6 {
             let byte = okm[bit_cursor / 8];
             let bit_in_byte = 7 - (bit_cursor % 8);
             idx = (idx << 1) | ((byte >> bit_in_byte) & 1);
             bit_cursor += 1;
-            let _ = bit;
         }
-        emoji_indices[slot] = idx;
-        let _ = slot;
+        *emoji_index = idx;
     }
 
     // Decimal digits — 3 × 13-bit values from bytes [6..11).
@@ -763,7 +761,7 @@ mod tests {
         }
         // Decimal digits fit in [1000, 9999].
         for d in sas_a1.decimal_digits {
-            assert!(d >= 1000 && d <= 9999);
+            assert!((1000..=9999).contains(&d));
         }
         // emoji_pairs MUST return 7 valid entries.
         let pairs = sas_a1.emoji_pairs();

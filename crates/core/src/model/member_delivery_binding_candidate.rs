@@ -147,7 +147,7 @@ impl MemberDeliveryBindingCandidate {
         //      was bypassed. Re-check defensively so the SDK refuses
         //      `acct:` / bare host strings that snuck in via raw JSON.
         let canonical = self.handle_uri.canonical();
-        if !canonical.starts_with("contrix://") || !canonical.contains("/users/") {
+        if !(canonical.starts_with("contrix://") && canonical.contains("/users/")) {
             return Err(CandidateError::NonCanonicalHandleUri(canonical.to_owned()));
         }
 
@@ -173,13 +173,13 @@ impl MemberDeliveryBindingCandidate {
         }
 
         // (6) subject / handle association — caller-provided expectation
-        if let Some(expected) = &context.expected_subject {
-            if expected.as_str() != self.subject_id.as_str() {
-                return Err(CandidateError::SubjectMismatch {
-                    expected: expected.as_str().to_owned(),
-                    actual: self.subject_id.as_str().to_owned(),
-                });
-            }
+        if let Some(expected) = &context.expected_subject
+            && expected.as_str() != self.subject_id.as_str()
+        {
+            return Err(CandidateError::SubjectMismatch {
+                expected: expected.as_str().to_owned(),
+                actual: self.subject_id.as_str().to_owned(),
+            });
         }
 
         // (7) member_delivery_binding.binding_source legal values — the

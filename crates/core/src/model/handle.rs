@@ -215,7 +215,7 @@ pub enum HandleHintBindingSource {
 }
 
 /// Canonical handle claim shape — matches `handle-claim.schema.json`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct HandleClaim {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -275,13 +275,13 @@ impl HandleClaim {
                 ));
             }
         }
-        if self.member_delivery_binding.is_some() {
-            if self.handle_uri.is_none() || self.audience.is_none() || self.expires_at.is_none() {
-                return Err(Error::Protocol(
-                    "member_delivery_binding present requires handle_uri, audience, expires_at"
-                        .to_owned(),
-                ));
-            }
+        if self.member_delivery_binding.is_some()
+            && (self.handle_uri.is_none() || self.audience.is_none() || self.expires_at.is_none())
+        {
+            return Err(Error::Protocol(
+                "member_delivery_binding present requires handle_uri, audience, expires_at"
+                    .to_owned(),
+            ));
         }
         Ok(())
     }
@@ -343,30 +343,5 @@ mod tests {
             ..Default::default()
         };
         assert!(claim.validate().is_err());
-    }
-}
-
-impl Default for HandleClaim {
-    fn default() -> Self {
-        Self {
-            handle_uri: None,
-            handle_aliases: Vec::new(),
-            subject: None,
-            issuer: None,
-            issuer_service_did: None,
-            binding_state: None,
-            class: None,
-            visibility: None,
-            audience: None,
-            challenge: None,
-            claim_scope: BTreeMap::new(),
-            member_delivery_binding: None,
-            claims: Vec::new(),
-            issued_at: None,
-            expires_at: None,
-            verified_at: None,
-            source_refs: Vec::new(),
-            proofs: Vec::new(),
-        }
     }
 }

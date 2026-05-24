@@ -486,7 +486,7 @@ mod tests {
     #[test]
     fn path_too_deep_rejected() {
         let deep_path =
-            std::iter::repeat("a").take(PATCH_PATH_MAX_SEGMENTS + 1).collect::<Vec<_>>().join(".");
+            std::iter::repeat_n("a", PATCH_PATH_MAX_SEGMENTS + 1).collect::<Vec<_>>().join(".");
         let mut p = Patch::new();
         assert!(p.insert(deep_path, "x").is_err());
     }

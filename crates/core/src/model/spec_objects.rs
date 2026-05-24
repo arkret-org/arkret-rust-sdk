@@ -83,8 +83,8 @@ pub struct AgentProtocolEnvelope {
 /// agent runtime executed under a specific capability grant.
 ///
 /// This is the **wire envelope** that gets serialised onto the
-/// `audit_binding` field of [`AgentProtocolEnvelope`]. Verification
-/// + signing of these bindings lives in
+/// `audit_binding` field of [`AgentProtocolEnvelope`]. Verification and
+/// signing of these bindings lives in
 /// `contrix_sdk::agent_binding` (Ed25519 implementation).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

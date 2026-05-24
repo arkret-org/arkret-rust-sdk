@@ -64,10 +64,10 @@ fn validate_required_payload_fields(
 }
 
 pub fn event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
-    if let Some(artifacts_dir) = default_spec_artifacts_dir() {
-        if let Ok(catalog) = event_payload_validator_catalog_from_spec_artifacts(artifacts_dir) {
-            return catalog;
-        }
+    if let Some(artifacts_dir) = default_spec_artifacts_dir()
+        && let Ok(catalog) = event_payload_validator_catalog_from_spec_artifacts(artifacts_dir)
+    {
+        return catalog;
     }
     fallback_event_payload_validator_catalog()
 }

@@ -436,6 +436,7 @@ pub struct EventsFrontierAnonymousHealthResponse {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
+#[allow(clippy::large_enum_variant)]
 pub enum EventsFrontierResponse {
     AccountClient(EventsFrontierAccountClientResponse),
     FederationPeer(EventsFrontierFederationPeerResponse),

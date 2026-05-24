@@ -81,8 +81,10 @@ proptest! {
         has_expiry in any::<bool>(),
         uri in arb_handle_uri(),
     ) {
-        let mut claim = HandleClaim::default();
-        claim.binding_state = Some(HandleBindingState::Verified);
+        let mut claim = HandleClaim {
+            binding_state: Some(HandleBindingState::Verified),
+            ..Default::default()
+        };
         if has_uri {
             claim.handle_uri = Some(HandleUri::parse(&uri).unwrap());
         }
@@ -110,15 +112,17 @@ proptest! {
         uri in arb_handle_uri(),
         audience in "[a-z]{1,8}",
     ) {
-        let mut claim = HandleClaim::default();
-        claim.member_delivery_binding = Some(DeliveryBindingHint {
-            recipient_service_did: Did::new("did:web:recipient.example".to_owned()).unwrap(),
-            recipient_service_type: RecipientServiceType::PrincipalServer,
-            binding_source: HandleHintBindingSource::Explicit,
-            delivery_modes: Default::default(),
-            service_acceptance_ref: None,
-            policy_ref: None,
-        });
+        let mut claim = HandleClaim {
+            member_delivery_binding: Some(DeliveryBindingHint {
+                recipient_service_did: Did::new("did:web:recipient.example".to_owned()).unwrap(),
+                recipient_service_type: RecipientServiceType::PrincipalServer,
+                binding_source: HandleHintBindingSource::Explicit,
+                delivery_modes: Default::default(),
+                service_acceptance_ref: None,
+                policy_ref: None,
+            }),
+            ..Default::default()
+        };
         if has_uri {
             claim.handle_uri = Some(HandleUri::parse(&uri).unwrap());
         }

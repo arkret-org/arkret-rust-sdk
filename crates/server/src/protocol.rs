@@ -56,7 +56,7 @@ pub enum ServerReqBody {
 
 #[derive(Clone, Debug)]
 pub enum ServerResBody {
-    ServerDescription(ServerDescription),
+    ServerDescription(Box<ServerDescription>),
     IdentityDescription(IdentityDescription),
     IdentityResolve(IdentityResolveResBody),
     IdentityDocument(IdentityDocumentResBody),

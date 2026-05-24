@@ -698,7 +698,7 @@ mod tests {
             )])),
         };
 
-        let cursor = Cursor::from_positions(positions.clone());
+        let cursor = Cursor::from_positions(positions);
 
         assert!(cursor.h.is_some());
         assert!(cursor.s.is_empty());

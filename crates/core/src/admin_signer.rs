@@ -170,10 +170,7 @@ impl SessionGrantIntrospection {
         if !self.active {
             return false;
         }
-        match self.expires_at_unix {
-            Some(exp) if exp <= now_unix => false,
-            _ => true,
-        }
+        !matches!(self.expires_at_unix, Some(exp) if exp <= now_unix)
     }
 
     /// True iff the grant lists `scope`. Note: this is **exact match**;

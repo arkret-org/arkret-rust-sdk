@@ -28,7 +28,7 @@ fn default_event_ref_critical() -> bool {
     true
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct EventRequirements {
     #[serde(default, rename = "schema", skip_serializing_if = "Vec::is_empty")]
@@ -47,17 +47,6 @@ impl EventRequirements {
             && self.reducer_profile_ref.is_none()
             && self.required_features.is_empty()
             && self.critical_extensions.is_empty()
-    }
-}
-
-impl Default for EventRequirements {
-    fn default() -> Self {
-        Self {
-            schema_profile_refs: Vec::new(),
-            reducer_profile_ref: None,
-            required_features: Vec::new(),
-            critical_extensions: Vec::new(),
-        }
     }
 }
 

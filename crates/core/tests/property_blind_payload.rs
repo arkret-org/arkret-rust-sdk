@@ -245,11 +245,11 @@ proptest! {
     /// envelope, and run the sanitizer. If the sanitizer accepts, the
     /// payload must not carry any name on the forbidden list.
     #[test]
-    fn accept_implies_no_forbidden_field(extra in arb_value()) {
-        let payload = json!({
-            "notification": ok_notification(),
-            "extra": extra.clone(),
-        });
+        fn accept_implies_no_forbidden_field(extra in arb_value()) {
+            let payload = json!({
+                "notification": ok_notification(),
+                "extra": extra,
+            });
         if sanitize_blind_payload(&payload).is_ok() {
             prop_assert!(
                 !contains_forbidden_key(&payload),
@@ -268,19 +268,19 @@ proptest! {
     ) {
         let mut payload = json!({ "notification": ok_notification() });
         match location {
-            0 => {
-                // Inside `notification`.
-                payload["notification"][forbidden] = leaf.clone();
-            }
-            1 => {
-                // At the wrapper top level.
-                payload[forbidden] = leaf.clone();
-            }
-            _ => {
-                // Inside a nested wrapper object.
-                payload["context"] = json!({ forbidden: leaf.clone() });
-            }
-        };
+                0 => {
+                    // Inside `notification`.
+                    payload["notification"][forbidden] = leaf;
+                }
+                1 => {
+                    // At the wrapper top level.
+                    payload[forbidden] = leaf;
+                }
+                _ => {
+                    // Inside a nested wrapper object.
+                    payload["context"] = json!({ forbidden: leaf });
+                }
+        }
         let err = sanitize_blind_payload(&payload)
             .expect_err("forbidden key injection must be rejected");
         prop_assert!(
@@ -343,14 +343,14 @@ proptest! {
     ) {
         let literal = format!("{prefix}{suffix}");
         let mut payload = json!({ "notification": ok_notification() });
-        match path_choice {
-            0 => {
-                payload["context"] = json!({ "trace": literal.clone() });
-            }
-            _ => {
-                payload["context"] = json!({ "nested": { "deep": literal.clone() } });
-            }
-        };
+            match path_choice {
+                0 => {
+                    payload["context"] = json!({ "trace": literal });
+                }
+                _ => {
+                    payload["context"] = json!({ "nested": { "deep": literal } });
+                }
+        }
         prop_assert!(
             contains_sensitive_literal("", &payload),
             "sanity check: literal should be in payload"

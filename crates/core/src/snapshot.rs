@@ -172,7 +172,7 @@ impl SnapshotMerkleTree {
         let mut path = Vec::new();
         let mut idx = leaf_index;
         for level in &self.levels[..self.levels.len() - 1] {
-            let sibling_idx = if idx % 2 == 0 {
+            let sibling_idx = if idx.is_multiple_of(2) {
                 if idx + 1 < level.len() { idx + 1 } else { idx } // promoted: same node
             } else {
                 idx - 1
@@ -205,7 +205,7 @@ impl SnapshotMerkleTree {
             let Some(sib_bytes) = parse_sha256(sibling) else {
                 return false;
             };
-            let (left, right) = if idx % 2 == 0 {
+            let (left, right) = if idx.is_multiple_of(2) {
                 // We're left, sibling is right (or promoted self).
                 (current, sib_bytes)
             } else {
@@ -568,12 +568,12 @@ mod tests {
         let proof = GeneratorProof {
             generator_did: did(),
             space_id: space(),
-            state_root: state_root.clone(),
-            merkle_root: merkle_root.clone(),
+            state_root,
+            merkle_root,
             chunk_count: 42,
             total_bytes: 1024,
             chunk_bytes: 256,
-            signature: move_sig(digest.clone()),
+            signature: move_sig(digest),
         };
         proof.verify_payload_digest().unwrap();
     }

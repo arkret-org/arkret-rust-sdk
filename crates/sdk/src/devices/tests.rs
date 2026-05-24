@@ -348,7 +348,7 @@ fn evaluate_trust_chain_states() {
     manager.upsert_device_with_key(
         alice.clone(),
         phone.clone(),
-        device_ref.metadata.clone(),
+        device_ref.metadata,
         "z6MkVerifyKey",
     );
     // Force-set the stale binding back through the manager API:

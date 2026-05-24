@@ -1176,7 +1176,7 @@ impl Client {
         let status = response.status();
         if !status.is_success() {
             let error = error_envelope_from_response(response).await;
-            return Err(Error::Api { status: status.as_u16(), error });
+            return Err(Error::Api { status: status.as_u16(), error: Box::new(error) });
         }
 
         Ok(response.json().await?)
@@ -1192,7 +1192,7 @@ impl Client {
         let status = response.status();
         if !status.is_success() {
             let error = error_envelope_from_response(response).await;
-            return Err(Error::Api { status: status.as_u16(), error });
+            return Err(Error::Api { status: status.as_u16(), error: Box::new(error) });
         }
 
         Ok(response)

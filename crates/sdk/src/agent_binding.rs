@@ -206,9 +206,8 @@ fn verify_ed25519_audit_binding_from_payload(
     payload: &Value,
     binding: &Value,
 ) -> AuditBindingVerifyOutcome {
-    let session_id = match payload.get("session_id").and_then(Value::as_str) {
-        Some(s) => s,
-        None => return AuditBindingVerifyOutcome::Malformed,
+    let Some(session_id) = payload.get("session_id").and_then(Value::as_str) else {
+        return AuditBindingVerifyOutcome::Malformed;
     };
     let agent_did = payload
         .get("result")
@@ -219,9 +218,8 @@ fn verify_ed25519_audit_binding_from_payload(
     let actor = binding.get("actor_id").and_then(Value::as_str).unwrap_or("");
     let canonical_subject = binding.get("canonical_subject").and_then(Value::as_str).unwrap_or("");
     let signature = binding.get("signature").and_then(Value::as_str).unwrap_or("");
-    let public_key_b64 = match binding.get("public_key_b64").and_then(Value::as_str) {
-        Some(s) => s,
-        None => return AuditBindingVerifyOutcome::Malformed,
+    let Some(public_key_b64) = binding.get("public_key_b64").and_then(Value::as_str) else {
+        return AuditBindingVerifyOutcome::Malformed;
     };
     let outcome = verify_ed25519_audit_binding(
         public_key_b64,

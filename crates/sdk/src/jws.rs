@@ -104,6 +104,7 @@ pub fn sign_jws_ed25519(
 ///
 /// Returns `Ok(())` on successful verification (shape valid + DID resolves
 /// + signature checks against `canonical_bytes`); `Err(message)` otherwise.
+///
 /// All error paths are uniform — any deviation from spec rejects with a
 /// descriptive reason (callers map to `schema_violation` 4xx, never 5xx).
 pub fn verify_jws_ed25519(

@@ -63,6 +63,7 @@ impl EphemeralEnvelope {
     /// - non-ephemeral `kind`
     /// - `expires_at - sent_at > EPHEMERAL_ABSOLUTE_HARD_CEILING_MS` (5 min)
     /// - `expires_at <= sent_at`
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         kind: impl Into<String>,
         realm_id: RealmId,

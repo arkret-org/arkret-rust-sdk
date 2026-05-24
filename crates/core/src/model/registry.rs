@@ -580,18 +580,16 @@ impl ProtocolSchemaRegistry {
             );
         }
 
-        if let Some(constant) = schema_object.get("const") {
-            if value != constant {
-                return Err(Error::Protocol(format!(
-                    "schema '{root_id}' const mismatch at {path}"
-                )));
-            }
+        if let Some(constant) = schema_object.get("const")
+            && value != constant
+        {
+            return Err(Error::Protocol(format!("schema '{root_id}' const mismatch at {path}")));
         }
 
-        if let Some(enum_values) = schema_object.get("enum").and_then(Value::as_array) {
-            if !enum_values.iter().any(|candidate| candidate == value) {
-                return Err(Error::Protocol(format!("schema '{root_id}' enum mismatch at {path}")));
-            }
+        if let Some(enum_values) = schema_object.get("enum").and_then(Value::as_array)
+            && !enum_values.iter().any(|candidate| candidate == value)
+        {
+            return Err(Error::Protocol(format!("schema '{root_id}' enum mismatch at {path}")));
         }
 
         if let Some(schema_type) = schema_object.get("type") {
@@ -623,12 +621,12 @@ impl ProtocolSchemaRegistry {
             }
         }
 
-        if let Some(not_schema) = schema_object.get("not") {
-            if self.validate_schema(root_id, root, not_schema, value, path, depth + 1).is_ok() {
-                return Err(Error::Protocol(format!(
-                    "schema '{root_id}' not schema matched at {path}"
-                )));
-            }
+        if let Some(not_schema) = schema_object.get("not")
+            && self.validate_schema(root_id, root, not_schema, value, path, depth + 1).is_ok()
+        {
+            return Err(Error::Protocol(format!(
+                "schema '{root_id}' not schema matched at {path}"
+            )));
         }
 
         if let Some(if_schema) = schema_object.get("if") {
@@ -1193,19 +1191,15 @@ fn validate_json_schema_string_lengths(
         return Ok(());
     };
     let len = text.chars().count() as u64;
-    if let Some(min) = schema.get("minLength").and_then(Value::as_u64) {
-        if len < min {
-            return Err(Error::Protocol(format!(
-                "schema '{schema_id}' minLength mismatch at {path}"
-            )));
-        }
+    if let Some(min) = schema.get("minLength").and_then(Value::as_u64)
+        && len < min
+    {
+        return Err(Error::Protocol(format!("schema '{schema_id}' minLength mismatch at {path}")));
     }
-    if let Some(max) = schema.get("maxLength").and_then(Value::as_u64) {
-        if len > max {
-            return Err(Error::Protocol(format!(
-                "schema '{schema_id}' maxLength mismatch at {path}"
-            )));
-        }
+    if let Some(max) = schema.get("maxLength").and_then(Value::as_u64)
+        && len > max
+    {
+        return Err(Error::Protocol(format!("schema '{schema_id}' maxLength mismatch at {path}")));
     }
     Ok(())
 }
@@ -1217,19 +1211,15 @@ fn validate_json_schema_array_sizes(
     value: &[Value],
 ) -> Result<()> {
     let len = value.len() as u64;
-    if let Some(min) = schema.get("minItems").and_then(Value::as_u64) {
-        if len < min {
-            return Err(Error::Protocol(format!(
-                "schema '{schema_id}' minItems mismatch at {path}"
-            )));
-        }
+    if let Some(min) = schema.get("minItems").and_then(Value::as_u64)
+        && len < min
+    {
+        return Err(Error::Protocol(format!("schema '{schema_id}' minItems mismatch at {path}")));
     }
-    if let Some(max) = schema.get("maxItems").and_then(Value::as_u64) {
-        if len > max {
-            return Err(Error::Protocol(format!(
-                "schema '{schema_id}' maxItems mismatch at {path}"
-            )));
-        }
+    if let Some(max) = schema.get("maxItems").and_then(Value::as_u64)
+        && len > max
+    {
+        return Err(Error::Protocol(format!("schema '{schema_id}' maxItems mismatch at {path}")));
     }
     Ok(())
 }
@@ -1241,19 +1231,19 @@ fn validate_json_schema_object_sizes(
     value: &serde_json::Map<String, Value>,
 ) -> Result<()> {
     let len = value.len() as u64;
-    if let Some(min) = schema.get("minProperties").and_then(Value::as_u64) {
-        if len < min {
-            return Err(Error::Protocol(format!(
-                "schema '{schema_id}' minProperties mismatch at {path}"
-            )));
-        }
+    if let Some(min) = schema.get("minProperties").and_then(Value::as_u64)
+        && len < min
+    {
+        return Err(Error::Protocol(format!(
+            "schema '{schema_id}' minProperties mismatch at {path}"
+        )));
     }
-    if let Some(max) = schema.get("maxProperties").and_then(Value::as_u64) {
-        if len > max {
-            return Err(Error::Protocol(format!(
-                "schema '{schema_id}' maxProperties mismatch at {path}"
-            )));
-        }
+    if let Some(max) = schema.get("maxProperties").and_then(Value::as_u64)
+        && len > max
+    {
+        return Err(Error::Protocol(format!(
+            "schema '{schema_id}' maxProperties mismatch at {path}"
+        )));
     }
     Ok(())
 }

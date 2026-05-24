@@ -265,14 +265,7 @@ mod tests {
         match &a.anchorer_sig {
             AnchorerSig::Single(sig) => {
                 assert_eq!(sig.alg, "EdDSA");
-                let bytes = canonical::canonical_json_bytes(&serde_json::json!({
-                    "space_id": a.space_id,
-                    "predecessor_refs": a.predecessor_refs,
-                    "frontier": a.frontier,
-                    "state_root": a.state_root,
-                    "hlc": a.hlc,
-                }))
-                .unwrap();
+                let bytes = a.canonical_bytes_for_id().unwrap();
                 verify_ed25519_move_signature(&bytes, sig, &signer.verifying_key()).unwrap();
             }
             other => panic!("expected single sig, got {other:?}"),

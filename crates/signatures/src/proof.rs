@@ -768,7 +768,7 @@ mod tests {
             PublicKeyMaterial::Ed25519Raw { bytes: signer.verifying_key().to_bytes().to_vec() };
         verifier.verify_proof(&proof, &bytes, &public_key).unwrap();
         // Tampering MUST fail.
-        let mut tampered = bytes.clone();
+        let mut tampered = bytes;
         tampered.push(b'!');
         assert!(verifier.verify_proof(&proof, &tampered, &public_key).is_err());
     }

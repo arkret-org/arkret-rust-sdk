@@ -404,10 +404,10 @@ impl ContrixMlsGroup {
         let mut seen = std::collections::BTreeSet::new();
         for member in self.group.members() {
             let bytes = member.credential.serialized_content();
-            if let Ok(s) = std::str::from_utf8(bytes) {
-                if let Ok(did) = Did::new(s.to_owned()) {
-                    seen.insert(did);
-                }
+            if let Ok(s) = std::str::from_utf8(bytes)
+                && let Ok(did) = Did::new(s.to_owned())
+            {
+                seen.insert(did);
             }
         }
         seen.into_iter().collect()

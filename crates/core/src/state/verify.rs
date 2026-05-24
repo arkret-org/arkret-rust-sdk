@@ -279,8 +279,7 @@ fn grant_from_cell_value(
     };
     for item in items {
         let tag_matches = item.get("tag").and_then(Value::as_str) == Some(grant_id);
-        let Some(raw_grant) =
-            item.get("value").or_else(|| if tag_matches { Some(item) } else { None })
+        let Some(raw_grant) = item.get("value").or(if tag_matches { Some(item) } else { None })
         else {
             continue;
         };

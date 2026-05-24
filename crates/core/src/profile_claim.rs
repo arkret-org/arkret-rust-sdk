@@ -19,18 +19,18 @@
 //!
 //! Roles partition the profile namespace into:
 //!
-//! * `client`   — locally implemented end-user surface (chat, kanban, e2ee,
-//!                franking sender commitment, …).
-//! * `server`   — wire-conformance principal / federation / agent runtime
-//!                surfaces (core event store, principal server, agent
-//!                workspace flavours, …).
-//! * `gateway`  — push / blob / media relay surfaces.
+//! * `client` — locally implemented end-user surface (chat, kanban, e2ee,
+//!   franking sender commitment, …).
+//! * `server` — wire-conformance principal / federation / agent runtime
+//!   surfaces (core event store, principal server, agent workspace flavours,
+//!   …).
+//! * `gateway` — push / blob / media relay surfaces.
 //! * `directory`— directory / identity-registry surfaces.
-//! * `admin`    — deployment / hardening / constraint posture profiles that
-//!                describe operator stance rather than wire conformance.
-//! * `interop`  — explicit cross-role bridge surfaces (mimi_interop,
-//!                matrix_compat, push_gateway.matrix_passthrough, encoding /
-//!                hash interop, conformance vector packs).
+//! * `admin` — deployment / hardening / constraint posture profiles that
+//!   describe operator stance rather than wire conformance.
+//! * `interop` — explicit cross-role bridge surfaces (mimi_interop,
+//!   matrix_compat, push_gateway.matrix_passthrough, encoding / hash interop,
+//!   conformance vector packs).
 //!
 //! A [`ServiceType`] declares which roles it can legitimately claim; profiles
 //! whose role is not in that allow-set are rejected. `interop` profiles are

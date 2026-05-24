@@ -99,7 +99,7 @@ fn framework_independent_handler_shape_can_be_mocked() {
         fn handle(&mut self, request: ServerReqBody) -> Result<ServerResBody> {
             match request {
                 ServerReqBody::ServerDescribe => {
-                    Ok(ServerResBody::ServerDescription(ServerDescription {
+                    Ok(ServerResBody::ServerDescription(Box::new(ServerDescription {
                         service_did: contrix_core::Did::new("did:web:svc.example").unwrap(),
                         trust_domain: contrix_core::TypedTrustDomainId::new(
                             "cx:trust_domain:example.net",
@@ -130,7 +130,7 @@ fn framework_independent_handler_shape_can_be_mocked() {
                         snapshot_frontier: Vec::new(),
                         reducer_profile: None,
                         last_materialized_at: None,
-                    }))
+                    })))
                 }
                 _ => Err(contrix_core::Error::Protocol("mock endpoint not implemented".to_owned())),
             }
