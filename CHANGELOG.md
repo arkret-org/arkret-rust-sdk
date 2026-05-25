@@ -1230,16 +1230,16 @@ See `docs/move-anchor-runtime.md` for the full architecture.
   process and the project's response timeline.
 - CI hardening: `cargo audit`, `cargo deny check`, `cargo doc --all-features`
   with `-D rustdoc::broken_intra_doc_links`, and a separate MSRV job.
-- `RELEASING.md` enumerates the full 22-crate publish set in topological
-  order and is now in lockstep with `.github/workflows/release-crates.yml`.
+- `RELEASING.md` enumerates the full 22-crate local package verification set
+  in topological order and is now in lockstep with local release-gate evidence.
 
 ### Changed
 
 - `ClientBuilder::build` now rejects calls that combine a pre-built
   `http_client(...)` with any transport-shaping option, instead of silently
   ignoring the option.
-- `.github/workflows/release-crates.yml` publishes every workspace crate in
-  dependency order, not just the umbrella `contrix` crate.
+- Local package verification covers every workspace crate in dependency order,
+  not just the umbrella `contrix` crate.
 - `.github/workflows/ci.yml` corrects the publish dry-run package spec from
   `-p contrix-sdk` (which never matched any crate) to `-p contrix`.
 
