@@ -147,3 +147,10 @@ The first Contrix crate currently includes:
 ## License
 
 Apache-2.0
+
+---
+
+<!-- circle-rollout milestone pointer -->
+> **Active milestone tracking** (local-only, gitignored): see
+> `_contrix-rust-sdk_todos.md` in the parent `contrix-dev/` directory for the
+> circle-rollout (CXP-0007) work item list and per-stage checkpoints.
