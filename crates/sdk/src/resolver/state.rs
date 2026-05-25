@@ -289,6 +289,8 @@ impl SpaceState {
             .transpose()?
             .unwrap_or(crate::ObjectState::Active);
 
+        let scope_circle_id =
+            self.extract_optional_field::<contrix_core::CircleId>(object, "scope_circle_id");
         let morph = Morph {
             schema: crate::MORPH_SCHEMA.to_owned(),
             id: morph_id_str.clone(),
@@ -301,6 +303,7 @@ impl SpaceState {
             content,
             fields,
             state: Some(state),
+            scope_circle_id,
             created_by: event.actor_id.clone(),
             created_at: event.created_at,
             updated_by: None,
@@ -447,6 +450,12 @@ impl SpaceState {
             avatar_blob_ref: self.extract_optional_field(object, "avatar_blob_ref"),
             state: Some(state),
             state_changed_at: self.extract_optional_field(object, "state_changed_at"),
+            scope_circle_id: self.extract_optional_field(object, "scope_circle_id"),
+            default_scope_circle_id: self
+                .extract_optional_field(object, "default_scope_circle_id"),
+            child_scope_policy: object
+                .get("child_scope_policy")
+                .and_then(|v| serde_json::from_value(v.clone()).ok()),
             created_by: self
                 .extract_optional_field(object, "created_by")
                 .unwrap_or_else(|| event.actor_id.clone()),
@@ -698,6 +707,8 @@ impl SpaceState {
         let summary = self.extract_optional_field(object, "summary");
         let body = self.extract_optional_field(object, "body");
         let encrypted_payload = self.extract_optional_field(object, "encrypted_payload");
+        let scope_circle_id =
+            self.extract_optional_field::<contrix_core::CircleId>(object, "scope_circle_id");
         let fields = self.extract_fields(object)?;
         let state = self
             .extract_optional_field::<String>(object, "state")
@@ -713,6 +724,7 @@ impl SpaceState {
             body,
             encrypted_payload,
             tracks,
+            scope_circle_id,
             fields,
             state: Some(state),
             state_changed_at: None,

@@ -280,6 +280,21 @@ pub struct Place {
     pub state: Option<PlaceState>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state_changed_at: Option<DateTime<Utc>>,
+    /// CXP-0007 (spec b7d35be) — optional Circle scope binding on the Space
+    /// (container). Authorization-transparent: never carries its own
+    /// membership/policy/E2EE group; this field places the Space's metadata
+    /// inside an existing Circle encryption scope.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope_circle_id: Option<CircleId>,
+    /// CXP-0007 — optional default Circle scope for newly created child
+    /// resources. Creation hint only; reducer enforcement uses
+    /// [`ChildScopePolicy`].
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default_scope_circle_id: Option<CircleId>,
+    /// CXP-0007 — reducer-enforced constraint on how child resources may
+    /// pick their scope.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub child_scope_policy: Option<ChildScopePolicy>,
     pub created_by: Did,
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -289,6 +304,38 @@ pub struct Place {
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(flatten)]
     pub extra: BTreeMap<String, Value>,
+}
+
+/// CXP-0007 (spec b7d35be) — Space `child_scope_policy` discriminator.
+///
+/// Mirrors `spec/v1/artifacts/schemas/space.schema.json` `$defs.child_scope_policy`.
+/// The `require_scope_circle_id` variant carries the required Circle id.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum ChildScopePolicy {
+    /// Any scope is accepted, including unscoped.
+    AllowAny {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        metadata_encryption_floor: Option<CircleMetadataEncryptionFloor>,
+    },
+    /// Child resources MUST live in an E2EE scope (any Circle or the
+    /// Realm-default E2EE scope).
+    RequireE2ee {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        metadata_encryption_floor: Option<CircleMetadataEncryptionFloor>,
+    },
+    /// Child resources MUST share the parent Space's `scope_circle_id`.
+    RequireSameScope {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        metadata_encryption_floor: Option<CircleMetadataEncryptionFloor>,
+    },
+    /// Child resources MUST set `scope_circle_id` to the named Circle.
+    RequireScopeCircleId {
+        scope_circle_id: CircleId,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        metadata_encryption_floor: Option<CircleMetadataEncryptionFloor>,
+    },
 }
 
 impl Place {
@@ -314,6 +361,9 @@ impl Place {
             avatar_blob_ref: None,
             state: Some(PlaceState::Active),
             state_changed_at: None,
+            scope_circle_id: None,
+            default_scope_circle_id: None,
+            child_scope_policy: None,
             created_by,
             created_at: Utc::now(),
             updated_by: None,
@@ -379,6 +429,14 @@ pub struct Flow {
     /// Active Flow tracks keyed by canonical track name.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub tracks: BTreeMap<String, FlowTrackConfig>,
+    /// CXP-0007 (spec b7d35be) — optional Circle scope binding. When set, all
+    /// Flow tracks share the referenced Circle's MLS group, membership and
+    /// history visibility; when unset the Flow lives in the Realm-default
+    /// scope. Rebinding `scope_circle_id` is forbidden by default (reducer
+    /// reason `scope_rebind_forbidden`). The Circle's parent Realm MUST
+    /// equal the Flow's Realm.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope_circle_id: Option<CircleId>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub fields: BTreeMap<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -414,6 +472,7 @@ impl Flow {
             body: None,
             encrypted_payload: None,
             tracks,
+            scope_circle_id: None,
             fields: BTreeMap::new(),
             state: Some(ObjectState::Active),
             state_changed_at: None,

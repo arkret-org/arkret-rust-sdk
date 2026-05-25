@@ -178,6 +178,12 @@ pub enum RelationKind {
     PromotedFromDiscussion,
     AttachedTo,
     HasDefaultView,
+    /// CXP-0007 (spec b7d35be) — couples a "wide synthesis" Flow (often
+    /// Realm-default scope) to a "narrow discussion" Flow bound to a
+    /// `scope_circle_id` Circle. The discussion side carries the confidential
+    /// conversation; the synthesis side stays in the Realm scope. See
+    /// zh/models/circle.md §7.2.
+    ConfidentialDiscussionOf,
     #[serde(untagged)]
     Custom(String),
 }

@@ -972,6 +972,23 @@ impl AuthzEngine {
                 }
                 AuthzDecision::Allow
             }
+            // CXP-0007: gate Circle-management actions on a static
+            // allow-list of Circle ids baked into the grant body. Until a
+            // typed `circle_id` selector lands in
+            // `resource-selector-grammar.md`, the SDK engine returns
+            // `RequireReview` so the caller routes the decision to a
+            // higher-level evaluator that understands the resource shape.
+            //
+            // TODO(circle-rollout-P1.3): replace with a precise allow/deny
+            // once the resource selector grammar exposes circle_id.
+            Constraint::AllowedCircleRefs { allowed_circle_refs } => {
+                let _ = allowed_circle_refs;
+                AuthzDecision::Deny {
+                    reason: "allowed_circle_refs constraint requires a circle-aware \
+                            evaluator (CXP-0007); SDK engine fails closed"
+                        .to_owned(),
+                }
+            }
         }
     }
 

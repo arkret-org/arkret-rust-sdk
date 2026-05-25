@@ -6,6 +6,8 @@ pub struct FlowCreateMetadata {
     pub body: Option<Value>,
     pub encrypted_payload: Option<Value>,
     pub tracks: BTreeMap<String, crate::FlowTrackConfig>,
+    /// CXP-0007 — optional Circle that defines this Flow's encryption scope.
+    pub scope_circle_id: Option<contrix_core::CircleId>,
 }
 
 /// Optional Flow patch metadata accepted by [`Space::update_flow_operation_with_metadata`].
@@ -69,6 +71,9 @@ impl Space {
         }
         if let Some(encrypted_payload) = metadata.encrypted_payload {
             object["encrypted_payload"] = encrypted_payload;
+        }
+        if let Some(scope_circle_id) = metadata.scope_circle_id {
+            object["scope_circle_id"] = json!(scope_circle_id.as_str());
         }
         if !fields.is_empty() {
             object["fields"] = json!(fields);

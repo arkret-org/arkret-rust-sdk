@@ -61,6 +61,15 @@ pub struct Event {
     pub created_at: DateTime<Utc>,
     pub hlc: Hlc,
     pub prev_refs: Vec<EventId>,
+    /// CXP-0007 (spec b7d35be, schemas/event-schema.json
+    /// `$defs.effective_scope`) — reducer-stamped immutable scope binding.
+    /// `Realm` for events emitted in Realm-default scope; `Circle` for
+    /// events emitted in a Circle scope. SDK helpers that mint envelopes
+    /// for a Flow / Morph / Space carrying `scope_circle_id` MUST set the
+    /// `Circle` variant; envelopes for scope-unaware events MAY omit the
+    /// field (deserializes as `None`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effective_scope: Option<EffectiveScope>,
     #[serde(default)]
     pub refs: Vec<EventRef>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -78,6 +87,39 @@ pub struct Event {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub unsigned: BTreeMap<String, Value>,
     pub proofs: Vec<Proof>,
+}
+
+/// CXP-0007 (spec b7d35be, schemas/event-schema.json
+/// `$defs.effective_scope`) — reducer-stamped immutable scope binding on
+/// an [`Event`].
+///
+/// The wire form is an internally-tagged JSON object on `kind`:
+/// - `{ "kind": "realm", "realm_id": "cx:realm:..." }`
+/// - `{ "kind": "circle", "realm_id": "cx:realm:...", "circle_id": "cx:circle:..." }`
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum EffectiveScope {
+    /// Event was emitted under Realm-default encryption scope.
+    Realm { realm_id: RealmId },
+    /// Event was emitted under the named Circle's encryption scope.
+    Circle { realm_id: RealmId, circle_id: CircleId },
+}
+
+impl EffectiveScope {
+    /// The parent Realm of this scope, regardless of variant.
+    pub fn realm_id(&self) -> &RealmId {
+        match self {
+            Self::Realm { realm_id } | Self::Circle { realm_id, .. } => realm_id,
+        }
+    }
+
+    /// The Circle id when this scope is a Circle, otherwise `None`.
+    pub fn circle_id(&self) -> Option<&CircleId> {
+        match self {
+            Self::Realm { .. } => None,
+            Self::Circle { circle_id, .. } => Some(circle_id),
+        }
+    }
 }
 
 impl Event {
@@ -173,6 +215,7 @@ impl Event {
             created_at: Utc::now(),
             hlc,
             prev_refs: Vec::new(),
+            effective_scope: None,
             refs: Vec::new(),
             preconditions: Vec::new(),
             effects: Vec::new(),
