@@ -11,9 +11,9 @@ use salvo::oapi::{
 
 use crate::{
     ActorProfileId, AgentSessionId, AnchorId, AnnounceId, AppletId, BackupId, BatchId, BlobId,
-    BlobRef, BlockId, CallId, CapabilityId, CellRef, ChunkId, ClaimId, Cursor, DeviceId, DevmsgId,
-    Did, EventId, FilterId, FlowId, FrameId, FrankId, GrantId, Hash, Hlc, InviteId, KeyevtId,
-    MessageId, ModqId, MorphId, MoveId, NotifId, OperationId, PolicyId, PresentationId,
+    BlobRef, BlockId, CallId, CapabilityId, CellRef, ChunkId, CircleId, ClaimId, Cursor, DeviceId,
+    DevmsgId, Did, EventId, FilterId, FlowId, FrameId, FrankId, GrantId, Hash, Hlc, InviteId,
+    KeyevtId, MessageId, ModqId, MorphId, MoveId, NotifId, OperationId, PolicyId, PresentationId,
     ReadCursorId, RealmId, ReceiptId, RelationId, ReportId, ReqId, SnapshotId, SpaceId, TxnId,
     TypedAppealId, TypedTrustDomainId, ViewId,
 };
@@ -92,6 +92,10 @@ impl_string_schema!(
 impl_string_schema!(
     ChunkId,
     r"^cx:chunk:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+);
+impl_string_schema!(
+    CircleId,
+    r"^cx:circle:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
 impl_string_schema!(
     ClaimId,

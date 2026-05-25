@@ -289,6 +289,8 @@ impl SpaceState {
             .transpose()?
             .unwrap_or(crate::ObjectState::Active);
 
+        let scope_circle_id =
+            self.extract_optional_field::<contrix_core::CircleId>(object, "scope_circle_id");
         let morph = Morph {
             schema: crate::MORPH_SCHEMA.to_owned(),
             id: morph_id_str.clone(),
@@ -301,6 +303,7 @@ impl SpaceState {
             content,
             fields,
             state: Some(state),
+            scope_circle_id,
             created_by: event.actor_id.clone(),
             created_at: event.created_at,
             updated_by: None,
@@ -436,7 +439,7 @@ impl SpaceState {
             schema: crate::SPACE_SCHEMA.to_owned(),
             id,
             space_id,
-            parent_ref: self.extract_optional_field(object, "parent_ref"),
+            parent_space_id: self.extract_optional_field(object, "parent_space_id"),
             kind,
             title,
             summary: self.extract_optional_field(object, "summary"),
@@ -447,6 +450,12 @@ impl SpaceState {
             avatar_blob_ref: self.extract_optional_field(object, "avatar_blob_ref"),
             state: Some(state),
             state_changed_at: self.extract_optional_field(object, "state_changed_at"),
+            scope_circle_id: self.extract_optional_field(object, "scope_circle_id"),
+            default_scope_circle_id: self
+                .extract_optional_field(object, "default_scope_circle_id"),
+            child_scope_policy: object
+                .get("child_scope_policy")
+                .and_then(|v| serde_json::from_value(v.clone()).ok()),
             created_by: self
                 .extract_optional_field(object, "created_by")
                 .unwrap_or_else(|| event.actor_id.clone()),
@@ -561,14 +570,17 @@ impl SpaceState {
 
     fn set_place_parent(&mut self, event: &Event) -> Result<()> {
         let place_id = self.extract_place_id(&event.content)?;
-        let parent_ref = self
-            .extract_optional_field::<String>(&event.content, "parent_ref")
-            .ok_or_else(|| Error::Protocol("place parent event requires parent_ref".to_owned()))?;
+        let parent_space_id_str = self
+            .extract_optional_field::<String>(&event.content, "parent_space_id")
+            .ok_or_else(|| {
+                Error::Protocol("place parent event requires parent_space_id".to_owned())
+            })?;
+        let parent_space_id = SpaceId::new(parent_space_id_str)?;
         let place = self
             .places
             .get_mut(&place_id)
             .ok_or_else(|| Error::Protocol(format!("place not found: {}", place_id)))?;
-        place.parent_ref = Some(parent_ref);
+        place.parent_space_id = Some(parent_space_id);
         place.updated_by = Some(event.actor_id.clone());
         place.updated_at = Some(event.created_at);
         place.validate()?;
@@ -698,7 +710,8 @@ impl SpaceState {
         let summary = self.extract_optional_field(object, "summary");
         let body = self.extract_optional_field(object, "body");
         let encrypted_payload = self.extract_optional_field(object, "encrypted_payload");
-        let discussion_realm_ref = self.extract_optional_field(object, "discussion_realm_ref");
+        let scope_circle_id =
+            self.extract_optional_field::<contrix_core::CircleId>(object, "scope_circle_id");
         let fields = self.extract_fields(object)?;
         let state = self
             .extract_optional_field::<String>(object, "state")
@@ -714,7 +727,7 @@ impl SpaceState {
             body,
             encrypted_payload,
             tracks,
-            discussion_realm_ref,
+            scope_circle_id,
             fields,
             state: Some(state),
             state_changed_at: None,
@@ -747,8 +760,6 @@ impl SpaceState {
         let body = self.extract_optional_field::<Value>(&event.content, "body");
         let encrypted_payload =
             self.extract_optional_field::<Value>(&event.content, "encrypted_payload");
-        let discussion_realm_ref =
-            self.extract_optional_field::<SpaceId>(&event.content, "discussion_realm_ref");
         let fields =
             self.extract_optional_field::<BTreeMap<String, Value>>(&event.content, "fields");
         let patch = self.extract_optional_field::<BTreeMap<String, Value>>(&event.content, "patch");
@@ -772,12 +783,6 @@ impl SpaceState {
         let patched_body = patch.as_ref().and_then(|patch| patch.get("body").cloned());
         let patched_encrypted_payload =
             patch.as_ref().and_then(|patch| patch.get("encrypted_payload").cloned());
-        let patched_discussion_realm_ref = patch.as_ref().and_then(|patch| {
-            patch
-                .get("discussion_realm_ref")
-                .cloned()
-                .and_then(|value| serde_json::from_value(value).ok())
-        });
 
         let subject = self
             .subjects
@@ -800,9 +805,6 @@ impl SpaceState {
         }
         if let Some(tracks) = tracks {
             subject.tracks = tracks;
-        }
-        if let Some(discussion_realm_ref) = discussion_realm_ref.or(patched_discussion_realm_ref) {
-            subject.discussion_realm_ref = Some(discussion_realm_ref);
         }
         if let Some(fields) = fields.or_else(|| patch_fields(&patch)) {
             subject.fields = fields;

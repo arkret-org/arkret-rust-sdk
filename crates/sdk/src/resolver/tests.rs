@@ -21,6 +21,7 @@ fn event(kind: &str, seq: u64, content: Value) -> Event {
         created_at: chrono::Utc::now(),
         hlc: Hlc::new(format!("01970e589d22-{seq:04x}-11111111")).unwrap(),
         prev_refs: vec![],
+        effective_scope: None,
         refs: vec![],
         preconditions: vec![],
         effects: vec![],
@@ -100,7 +101,7 @@ fn place_events_create_update_parent_and_tombstone() {
         3,
         json!({
             "place_id": place_id,
-            "parent_ref": space_id().as_str()
+            "parent_space_id": space_id().as_str()
         }),
     );
     parent.prev_refs.push(update.event_id.clone());
@@ -113,7 +114,7 @@ fn place_events_create_update_parent_and_tombstone() {
     let place = state.places.get(place_id).unwrap();
     assert_eq!(place.kind, "board");
     assert_eq!(place.title, "Roadmap 2026");
-    assert_eq!(place.parent_ref.as_deref(), Some(space_id().as_str()));
+    assert_eq!(place.parent_space_id.as_ref().map(|p| p.as_str()), Some(space_id().as_str()));
     assert_eq!(place.rank.as_deref(), Some("a0"));
     assert_eq!(place.fields["wip_limit"], 5);
     assert_eq!(place.state, Some(crate::PlaceState::Tombstoned));

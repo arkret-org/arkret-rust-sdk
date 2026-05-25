@@ -43,7 +43,7 @@ pub struct Space {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub federation_policy: Option<FederationPolicy>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub retention_policy_ref: Option<PolicyId>,
+    pub retention_policy_id: Option<PolicyId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_blob_ref: Option<BlobRef>,
     pub created_at: DateTime<Utc>,
@@ -175,7 +175,7 @@ impl Space {
             history_visibility: HistoryVisibility::Joined,
             encryption_profile: EncryptionProfile::None,
             federation_policy: None,
-            retention_policy_ref: None,
+            retention_policy_id: None,
             avatar_blob_ref: None,
             created_at: Utc::now(),
             updated_at: None,
@@ -261,7 +261,7 @@ pub struct Place {
     pub id: SpaceId,
     pub space_id: SpaceId,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub parent_ref: Option<String>,
+    pub parent_space_id: Option<SpaceId>,
     pub kind: String,
     pub title: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -280,6 +280,21 @@ pub struct Place {
     pub state: Option<PlaceState>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state_changed_at: Option<DateTime<Utc>>,
+    /// CXP-0007 (spec b7d35be) — optional Circle scope binding on the Space
+    /// (container). Authorization-transparent: never carries its own
+    /// membership/policy/E2EE group; this field places the Space's metadata
+    /// inside an existing Circle encryption scope.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope_circle_id: Option<CircleId>,
+    /// CXP-0007 — optional default Circle scope for newly created child
+    /// resources. Creation hint only; reducer enforcement uses
+    /// [`ChildScopePolicy`].
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default_scope_circle_id: Option<CircleId>,
+    /// CXP-0007 — reducer-enforced constraint on how child resources may
+    /// pick their scope.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub child_scope_policy: Option<ChildScopePolicy>,
     pub created_by: Did,
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -289,6 +304,38 @@ pub struct Place {
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(flatten)]
     pub extra: BTreeMap<String, Value>,
+}
+
+/// CXP-0007 (spec b7d35be) — Space `child_scope_policy` discriminator.
+///
+/// Mirrors `spec/v1/artifacts/schemas/space.schema.json` `$defs.child_scope_policy`.
+/// The `require_scope_circle_id` variant carries the required Circle id.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum ChildScopePolicy {
+    /// Any scope is accepted, including unscoped.
+    AllowAny {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        metadata_encryption_floor: Option<CircleMetadataEncryptionFloor>,
+    },
+    /// Child resources MUST live in an E2EE scope (any Circle or the
+    /// Realm-default E2EE scope).
+    RequireE2ee {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        metadata_encryption_floor: Option<CircleMetadataEncryptionFloor>,
+    },
+    /// Child resources MUST share the parent Space's `scope_circle_id`.
+    RequireSameScope {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        metadata_encryption_floor: Option<CircleMetadataEncryptionFloor>,
+    },
+    /// Child resources MUST set `scope_circle_id` to the named Circle.
+    RequireScopeCircleId {
+        scope_circle_id: CircleId,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        metadata_encryption_floor: Option<CircleMetadataEncryptionFloor>,
+    },
 }
 
 impl Place {
@@ -303,7 +350,7 @@ impl Place {
             schema: SPACE_SCHEMA.to_owned(),
             id,
             space_id,
-            parent_ref: None,
+            parent_space_id: None,
             kind: kind.into(),
             title: title.into(),
             summary: None,
@@ -314,6 +361,9 @@ impl Place {
             avatar_blob_ref: None,
             state: Some(PlaceState::Active),
             state_changed_at: None,
+            scope_circle_id: None,
+            default_scope_circle_id: None,
+            child_scope_policy: None,
             created_by,
             created_at: Utc::now(),
             updated_by: None,
@@ -329,10 +379,13 @@ impl Place {
         if self.title.trim().is_empty() {
             return Err(Error::Protocol("place title must not be empty".to_owned()));
         }
-        if let Some(parent_ref) = &self.parent_ref
-            && !parent_ref.starts_with("cx:space:")
+        if let Some(parent_space_id) = &self.parent_space_id
+            && !parent_space_id.as_ref().starts_with("cx:space:")
+            && !parent_space_id.as_ref().starts_with("cx:realm:")
         {
-            return Err(Error::Protocol("place parent_ref must be a Space ref".to_owned()));
+            return Err(Error::Protocol(
+                "place parent_space_id must be a typed Space/Realm id".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -379,8 +432,14 @@ pub struct Flow {
     /// Active Flow tracks keyed by canonical track name.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub tracks: BTreeMap<String, FlowTrackConfig>,
+    /// CXP-0007 (spec b7d35be) — optional Circle scope binding. When set, all
+    /// Flow tracks share the referenced Circle's MLS group, membership and
+    /// history visibility; when unset the Flow lives in the Realm-default
+    /// scope. Rebinding `scope_circle_id` is forbidden by default (reducer
+    /// reason `scope_rebind_forbidden`). The Circle's parent Realm MUST
+    /// equal the Flow's Realm.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub discussion_realm_ref: Option<SpaceId>,
+    pub scope_circle_id: Option<CircleId>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub fields: BTreeMap<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -416,7 +475,7 @@ impl Flow {
             body: None,
             encrypted_payload: None,
             tracks,
-            discussion_realm_ref: None,
+            scope_circle_id: None,
             fields: BTreeMap::new(),
             state: Some(ObjectState::Active),
             state_changed_at: None,

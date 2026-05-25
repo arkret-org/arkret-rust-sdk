@@ -6,7 +6,8 @@ pub struct FlowCreateMetadata {
     pub body: Option<Value>,
     pub encrypted_payload: Option<Value>,
     pub tracks: BTreeMap<String, crate::FlowTrackConfig>,
-    pub discussion_realm_ref: Option<SpaceId>,
+    /// CXP-0007 — optional Circle that defines this Flow's encryption scope.
+    pub scope_circle_id: Option<contrix_core::CircleId>,
 }
 
 /// Optional Flow patch metadata accepted by [`Space::update_flow_operation_with_metadata`].
@@ -15,7 +16,6 @@ pub struct FlowUpdateMetadata {
     pub body: Option<Value>,
     pub encrypted_payload: Option<Value>,
     pub tracks: Option<BTreeMap<String, crate::FlowTrackConfig>>,
-    pub discussion_realm_ref: Option<SpaceId>,
 }
 
 impl Space {
@@ -72,8 +72,8 @@ impl Space {
         if let Some(encrypted_payload) = metadata.encrypted_payload {
             object["encrypted_payload"] = encrypted_payload;
         }
-        if let Some(discussion_realm_ref) = metadata.discussion_realm_ref {
-            object["discussion_realm_ref"] = json!(discussion_realm_ref.as_str());
+        if let Some(scope_circle_id) = metadata.scope_circle_id {
+            object["scope_circle_id"] = json!(scope_circle_id.as_str());
         }
         if !fields.is_empty() {
             object["fields"] = json!(fields);
@@ -139,9 +139,6 @@ impl Space {
         }
         if let Some(tracks) = metadata.tracks {
             patch.insert("tracks".to_owned(), json!(tracks));
-        }
-        if let Some(discussion_realm_ref) = metadata.discussion_realm_ref {
-            patch.insert("discussion_realm_ref".to_owned(), json!(discussion_realm_ref.as_str()));
         }
 
         let mut operation = Operation::create(

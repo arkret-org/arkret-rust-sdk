@@ -8,6 +8,7 @@ pub mod admin_signer;
 pub mod anchor;
 pub mod anchorer;
 pub mod blind_payload_sanitizer;
+pub mod forbidden_wire_fields;
 pub mod bottom;
 pub mod canonical;
 pub mod cell;
@@ -43,6 +44,10 @@ pub use blind_payload_sanitizer::{
     sanitize_blind_payload_strict, sanitize_blind_payload_with,
 };
 pub use bottom::{AnchorView, Bottom, BottomKind};
+pub use forbidden_wire_fields::{
+    FORBIDDEN_ID_PREFIXES, FORBIDDEN_WIRE_FIELDS, WireContext, is_forbidden_id_prefix,
+    is_forbidden_in_context, is_forbidden_wire_field,
+};
 pub use cell::{CellId, composite_subject, composite_subject_pipe};
 pub use contrix_identifiers as identifiers;
 pub use cursor::{Cursor, CursorPurpose, CursorTarget, SpacePosition, SyncPositions, SyncTracker};
@@ -89,11 +94,11 @@ pub use generated::profiles::{PROFILE_ROLES, ProfileRole, profile_ids_with_role,
 pub use http::*;
 pub use identifiers::{
     ActorProfileId, AgentSessionId, AnchorId, AnnounceId, AppletId, BackupId, BatchId, BlobId,
-    BlobRef, BlockId, CallId, CapabilityId, CellRef, ChunkId, ClaimId, DeviceId, DevmsgId, Did,
-    EventId, FilterId, FlowId, FrameId, FrankId, GrantId, Hash, Hlc, InviteId, KeyevtId, MessageId,
-    ModqId, MorphId, MoveId, NotifId, OperationId, PolicyId, PresentationId, ReadCursorId, RealmId,
-    ReceiptId, RelationId, ReportId, ReqId, SnapshotId, SpaceId, TxnId, TypedAppealId,
-    TypedTrustDomainId, ViewId,
+    BlobRef, BlockId, CallId, CapabilityId, CellRef, ChunkId, CircleId, ClaimId, DeviceId,
+    DevmsgId, Did, EventId, FilterId, FlowId, FrameId, FrankId, GrantId, Hash, Hlc, InviteId,
+    KeyevtId, MessageId, ModqId, MorphId, MoveId, NotifId, OperationId, PolicyId, PresentationId,
+    ReadCursorId, RealmId, ReceiptId, RelationId, ReportId, ReqId, SnapshotId, SpaceId, TxnId,
+    TypedAppealId, TypedTrustDomainId, ViewId,
 };
 pub use keystore::{
     InMemoryKeyStore, KeyStore, KeyStoreError, LinuxSecretServiceKeyStore, MacOsKeychainKeyStore,

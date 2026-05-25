@@ -80,6 +80,7 @@ fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
         created_at: "2026-04-26T00:00:00Z".parse().unwrap(),
         hlc: Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         prev_refs: Vec::new(),
+        effective_scope: None,
         refs: Vec::new(),
         preconditions: Vec::new(),
         effects: Vec::new(),

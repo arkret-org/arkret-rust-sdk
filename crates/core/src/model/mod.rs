@@ -11,14 +11,15 @@ use sha2::{Digest, Sha256};
 use crate::{Error, Result, canonical};
 pub use contrix_identifiers::{
     ActorProfileId, AgentSessionId, AppletId, BackupId, BatchId, BlobId, BlobRef, BlockId, CallId,
-    CapabilityId, ChunkId, ClaimId, Cursor, DeviceId, DevmsgId, Did, EventId, FilterId, FlowId,
-    FrameId, FrankId, GrantId, Hash, Hlc, InviteId, KeyevtId, MessageId, ModqId, MorphId, NotifId,
-    OperationId, PolicyId, PresentationId, ReadCursorId, RealmId, ReceiptId, RelationId, ReportId,
-    ReqId, SnapshotId, SpaceId, TxnId, TypedAppealId, TypedTrustDomainId, ViewId,
+    CapabilityId, ChunkId, CircleId, ClaimId, Cursor, DeviceId, DevmsgId, Did, EventId, FilterId,
+    FlowId, FrameId, FrankId, GrantId, Hash, Hlc, InviteId, KeyevtId, MessageId, ModqId, MorphId,
+    NotifId, OperationId, PolicyId, PresentationId, ReadCursorId, RealmId, ReceiptId, RelationId,
+    ReportId, ReqId, SnapshotId, SpaceId, TxnId, TypedAppealId, TypedTrustDomainId, ViewId,
     new_prefixed_uuid7,
 };
 
 mod api;
+mod circle;
 mod conformance;
 mod constants;
 mod delivery_binding;
@@ -41,6 +42,7 @@ mod spec_objects;
 mod tests;
 
 pub use api::*;
+pub use circle::*;
 pub use conformance::*;
 pub use constants::*;
 pub use delivery_binding::*;

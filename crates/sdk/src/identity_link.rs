@@ -149,7 +149,7 @@ mod tests {
             mls_epoch: epoch,
             effective_at: Utc::now(),
             expires_at: None,
-            disclosure_policy_ref: None,
+            disclosure_policy_id: None,
             proof: IdentityLinkProof {
                 verification_method: "did:web:alice.example#key-1".to_owned(),
                 signature_algorithm: "Ed25519".to_owned(),

@@ -132,6 +132,11 @@ pub struct Morph {
     pub fields: BTreeMap<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state: Option<ObjectState>,
+    /// CXP-0007 (spec b7d35be) — optional Circle scope binding. Morphs that
+    /// carry confidential synthesis fields can be bound to a Circle so their
+    /// payload is encrypted inside that Circle's MLS group.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope_circle_id: Option<CircleId>,
     pub created_by: Did,
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -166,6 +171,7 @@ impl Morph {
             content: None,
             fields: BTreeMap::new(),
             state: Some(ObjectState::Active),
+            scope_circle_id: None,
             created_by,
             created_at: Utc::now(),
             updated_by: None,
@@ -442,7 +448,7 @@ pub struct IdentityLink {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub disclosure_policy_ref: Option<PolicyId>,
+    pub disclosure_policy_id: Option<PolicyId>,
     pub proof: IdentityLinkProof,
 }
 
@@ -568,7 +574,7 @@ pub struct ErasureScope {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub target_refs: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub retention_policy_ref: Option<String>,
+    pub retention_policy_id: Option<PolicyId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub service_scope: Option<String>,
 }

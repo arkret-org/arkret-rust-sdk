@@ -1089,6 +1089,7 @@ mod tests {
             created_at: Utc::now(),
             hlc: Hlc::new(format!("01970e589d21-{:04x}-a13f9c2e", index)).unwrap(),
             prev_refs: vec![],
+            effective_scope: None,
             refs: vec![],
             preconditions: vec![],
             effects: vec![],

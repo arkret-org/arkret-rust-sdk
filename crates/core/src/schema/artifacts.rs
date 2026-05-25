@@ -477,6 +477,8 @@ pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     "cx.schema.ephemeral_envelope.v1",
     "cx.schema.moderation_appeal.v1",
     "cx.schema.attestation_evidence.v1",
+    // CXP-0007 (spec b7d35be) — Circle primitive schema.
+    "cx.schema.circle.v1",
     EVENT_SCHEMA,
     EVENT_PAYLOAD_SCHEMA,
     FLOW_SCHEMA,
