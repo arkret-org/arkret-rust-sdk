@@ -439,7 +439,7 @@ impl SpaceState {
             schema: crate::SPACE_SCHEMA.to_owned(),
             id,
             space_id,
-            parent_ref: self.extract_optional_field(object, "parent_ref"),
+            parent_space_id: self.extract_optional_field(object, "parent_space_id"),
             kind,
             title,
             summary: self.extract_optional_field(object, "summary"),
@@ -570,14 +570,17 @@ impl SpaceState {
 
     fn set_place_parent(&mut self, event: &Event) -> Result<()> {
         let place_id = self.extract_place_id(&event.content)?;
-        let parent_ref = self
-            .extract_optional_field::<String>(&event.content, "parent_ref")
-            .ok_or_else(|| Error::Protocol("place parent event requires parent_ref".to_owned()))?;
+        let parent_space_id_str = self
+            .extract_optional_field::<String>(&event.content, "parent_space_id")
+            .ok_or_else(|| {
+                Error::Protocol("place parent event requires parent_space_id".to_owned())
+            })?;
+        let parent_space_id = SpaceId::new(parent_space_id_str)?;
         let place = self
             .places
             .get_mut(&place_id)
             .ok_or_else(|| Error::Protocol(format!("place not found: {}", place_id)))?;
-        place.parent_ref = Some(parent_ref);
+        place.parent_space_id = Some(parent_space_id);
         place.updated_by = Some(event.actor_id.clone());
         place.updated_at = Some(event.created_at);
         place.validate()?;

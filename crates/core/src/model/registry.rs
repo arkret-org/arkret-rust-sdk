@@ -186,7 +186,7 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         // event-kind strings are the spec-mandated `cx.space.*`.
         OP_SPACE_CREATE => vec!["object".to_owned()],
         OP_SPACE_UPDATE => vec!["place_id".to_owned(), "patch".to_owned()],
-        OP_SPACE_PARENT => vec!["place_id".to_owned(), "parent_ref".to_owned()],
+        OP_SPACE_PARENT => vec!["place_id".to_owned(), "parent_space_id".to_owned()],
         OP_SPACE_ARCHIVE | OP_SPACE_RESTORE | OP_SPACE_TOMBSTONE => vec!["place_id".to_owned()],
         OP_RELATION_CREATE => vec!["object".to_owned()],
         OP_RELATION_UPDATE => vec!["relation_id".to_owned(), "patch".to_owned()],
@@ -1051,7 +1051,7 @@ fn place_schema_document() -> Value {
             "space_id": { "type": "string" },
             "kind": { "type": "string" },
             "title": { "type": "string" },
-            "parent_ref": { "type": "string" },
+            "parent_space_id": { "type": "string" },
             "rank": { "type": "string" },
             "state": { "type": "string" },
             "state_changed_at": { "type": "string" },

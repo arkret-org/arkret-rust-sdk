@@ -1290,7 +1290,7 @@ pub struct ProjectionSpaceRow {
     pub kind: String,
     pub title: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub parent_ref: Option<String>,
+    pub parent_space_id: Option<SpaceId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rank: Option<String>,
     pub state: ProjectionSpaceState,

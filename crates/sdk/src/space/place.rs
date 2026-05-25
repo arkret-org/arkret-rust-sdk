@@ -3,7 +3,7 @@ use super::*;
 /// Optional Place create metadata accepted by [`Space::create_place_operation_with_metadata`].
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct PlaceCreateMetadata {
-    pub parent_ref: Option<String>,
+    pub parent_space_id: Option<String>,
     pub summary: Option<String>,
     pub rank: Option<String>,
     pub schema_refs: Vec<String>,
@@ -28,14 +28,14 @@ impl Space {
         &self,
         kind: impl Into<String>,
         title: impl Into<String>,
-        parent_ref: Option<String>,
+        parent_space_id: Option<String>,
         rank: Option<String>,
         fields: BTreeMap<String, Value>,
     ) -> Result<Operation> {
         self.create_place_operation_with_metadata(
             kind,
             title,
-            PlaceCreateMetadata { parent_ref, rank, fields, ..Default::default() },
+            PlaceCreateMetadata { parent_space_id, rank, fields, ..Default::default() },
         )
     }
 
@@ -64,8 +64,8 @@ impl Space {
             "created_at": now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
         });
 
-        if let Some(parent_ref) = metadata.parent_ref {
-            object["parent_ref"] = json!(parent_ref);
+        if let Some(parent_space_id) = metadata.parent_space_id {
+            object["parent_space_id"] = json!(parent_space_id);
         }
         if let Some(summary) = metadata.summary {
             object["summary"] = json!(summary);
@@ -160,7 +160,7 @@ impl Space {
     pub fn set_place_parent_operation(
         &self,
         place_id: SpaceId,
-        parent_ref: impl Into<String>,
+        parent_space_id: impl Into<String>,
     ) -> Result<Operation> {
         self.base_client
             .session_meta()
@@ -173,7 +173,7 @@ impl Space {
             crate::OP_SPACE_PARENT,
             json!({
                 "place_id": place_id.as_str(),
-                "parent_ref": parent_ref.into(),
+                "parent_space_id": parent_space_id.into(),
             }),
         );
         operation.operation_type = OperationType::Update;

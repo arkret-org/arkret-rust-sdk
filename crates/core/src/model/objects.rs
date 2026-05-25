@@ -43,7 +43,7 @@ pub struct Space {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub federation_policy: Option<FederationPolicy>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub retention_policy_ref: Option<PolicyId>,
+    pub retention_policy_id: Option<PolicyId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_blob_ref: Option<BlobRef>,
     pub created_at: DateTime<Utc>,
@@ -175,7 +175,7 @@ impl Space {
             history_visibility: HistoryVisibility::Joined,
             encryption_profile: EncryptionProfile::None,
             federation_policy: None,
-            retention_policy_ref: None,
+            retention_policy_id: None,
             avatar_blob_ref: None,
             created_at: Utc::now(),
             updated_at: None,
@@ -261,7 +261,7 @@ pub struct Place {
     pub id: SpaceId,
     pub space_id: SpaceId,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub parent_ref: Option<String>,
+    pub parent_space_id: Option<SpaceId>,
     pub kind: String,
     pub title: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -350,7 +350,7 @@ impl Place {
             schema: SPACE_SCHEMA.to_owned(),
             id,
             space_id,
-            parent_ref: None,
+            parent_space_id: None,
             kind: kind.into(),
             title: title.into(),
             summary: None,
@@ -379,10 +379,13 @@ impl Place {
         if self.title.trim().is_empty() {
             return Err(Error::Protocol("place title must not be empty".to_owned()));
         }
-        if let Some(parent_ref) = &self.parent_ref
-            && !parent_ref.starts_with("cx:space:")
+        if let Some(parent_space_id) = &self.parent_space_id
+            && !parent_space_id.as_ref().starts_with("cx:space:")
+            && !parent_space_id.as_ref().starts_with("cx:realm:")
         {
-            return Err(Error::Protocol("place parent_ref must be a Space ref".to_owned()));
+            return Err(Error::Protocol(
+                "place parent_space_id must be a typed Space/Realm id".to_owned(),
+            ));
         }
         Ok(())
     }

@@ -448,7 +448,7 @@ pub struct IdentityLink {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub disclosure_policy_ref: Option<PolicyId>,
+    pub disclosure_policy_id: Option<PolicyId>,
     pub proof: IdentityLinkProof,
 }
 
@@ -574,7 +574,7 @@ pub struct ErasureScope {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub target_refs: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub retention_policy_ref: Option<String>,
+    pub retention_policy_id: Option<PolicyId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub service_scope: Option<String>,
 }
