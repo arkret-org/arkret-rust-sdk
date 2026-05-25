@@ -494,6 +494,45 @@ pub const KNOWN_REASON_CODES_ROUND_C45: &[&str] = &[
     REASON_RANGE_COMPLETENESS_ACTOR_SEQ_GAP,
 ];
 
+// ── CXP-0007 (spec b7d35be) — Circle primitive reason codes.
+//
+// `failed_precondition` / `schema_violation` sub-codes for the Circle
+// invariants in zh/models/circle.md. Spec `error-code-registry.json`
+// reason_codes section.
+/// `schema_violation` sub-reason: object's `scope_circle_id` references a
+/// Circle whose `realm_id` does not match the object's `realm_id`.
+pub const REASON_CIRCLE_REALM_MISMATCH: &str = "circle_realm_mismatch";
+/// `failed_precondition` sub-reason: `scope_circle_id` points at a Circle
+/// whose state is `archived` or `tombstoned`.
+pub const REASON_CIRCLE_NOT_ACTIVE: &str = "circle_not_active";
+/// `failed_precondition` sub-reason on `cx.circle.member.state → active`
+/// when the target actor is not yet an active member of the parent Realm.
+/// Reflects the strict-subset invariant
+/// `Circle.members ⊆ Realm.members`.
+pub const REASON_CIRCLE_MEMBER_MUST_BE_REALM_MEMBER: &str =
+    "circle_member_must_be_realm_member";
+/// `failed_precondition` sub-reason: attempted `scope_circle_id` rebind
+/// without an explicitly profile-permitted audited-high-risk path.
+pub const REASON_SCOPE_REBIND_FORBIDDEN: &str = "scope_rebind_forbidden";
+/// `failed_precondition` sub-reason: a write would expose metadata below
+/// the effective `metadata_encryption_profile` floor (max of parent
+/// Realm, Circle, Space child-scope-policy, and object profile floors).
+pub const REASON_METADATA_ENCRYPTION_FLOOR_VIOLATION: &str =
+    "metadata_encryption_floor_violation";
+
+/// CXP-0007 (spec b7d35be) — Circle reason codes registered under the
+/// `failed_precondition` / `schema_violation` wire-code families. The
+/// 6th CXP-0007 code is the top-level
+/// [`ERROR_CODE_DELIVERY_BINDING_HANDED_OVER`] already registered in
+/// round 4 (CXP-0006).
+pub const KNOWN_REASON_CODES_CXP_0007: &[&str] = &[
+    REASON_CIRCLE_REALM_MISMATCH,
+    REASON_CIRCLE_NOT_ACTIVE,
+    REASON_CIRCLE_MEMBER_MUST_BE_REALM_MEMBER,
+    REASON_SCOPE_REBIND_FORBIDDEN,
+    REASON_METADATA_ENCRYPTION_FLOOR_VIOLATION,
+];
+
 /// Known `failed_precondition` reason codes registered in round C44.
 pub const KNOWN_REASON_CODES_ROUND_C44: &[&str] = &[
     REASON_INCEPTION_UPGRADE_FINGERPRINT_MISMATCH,

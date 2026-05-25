@@ -69,6 +69,40 @@ pub const OP_FLOW_MOVE: &str = "cx.flow.move";
 pub const OP_FLOW_REORDER: &str = "cx.flow.reorder";
 pub const OP_FLOW_STAGE_SET: &str = "cx.flow.stage.set";
 
+/// CXP-0007 (spec b7d35be) — Circle event kinds. The 7th kind
+/// (`cx.circle.anchor_commit`) is reducer-derived and MUST NOT be
+/// submitted by clients; it is exported for receiver-side dispatch only.
+pub const OP_CIRCLE_CREATE: &str = "cx.circle.create";
+pub const OP_CIRCLE_UPDATE: &str = "cx.circle.update";
+pub const OP_CIRCLE_ARCHIVE: &str = "cx.circle.archive";
+pub const OP_CIRCLE_RESTORE: &str = "cx.circle.restore";
+pub const OP_CIRCLE_TOMBSTONE: &str = "cx.circle.tombstone";
+pub const OP_CIRCLE_MEMBER_STATE: &str = "cx.circle.member.state";
+pub const OP_CIRCLE_ANCHOR_COMMIT: &str = "cx.circle.anchor_commit";
+
+/// CXP-0007 (spec b7d35be) — Circle capability action ids. Spec
+/// `capability-action-registry.json`. `cx.circle.manage`,
+/// `cx.circle.member.manage`, `cx.circle.member.add.others`, and
+/// `cx.circle.audit` declare `required_constraints=["allowed_circle_refs"]`;
+/// unconstrained Realm-wide grants for those actions MUST be rejected.
+pub const CAP_ACTION_CIRCLE_CREATE: &str = "cx.circle.create";
+pub const CAP_ACTION_CIRCLE_MANAGE: &str = "cx.circle.manage";
+pub const CAP_ACTION_CIRCLE_MEMBER_ADD: &str = "cx.circle.member.add";
+pub const CAP_ACTION_CIRCLE_MEMBER_MANAGE: &str = "cx.circle.member.manage";
+pub const CAP_ACTION_CIRCLE_MEMBER_ADD_OTHERS: &str = "cx.circle.member.add.others";
+pub const CAP_ACTION_CIRCLE_AUDIT: &str = "cx.circle.audit";
+
+/// CXP-0007 capability action list (6 actions). Useful for downstream
+/// services that want to iterate the Circle-management surface.
+pub const CIRCLE_CAPABILITY_ACTIONS: &[&str] = &[
+    CAP_ACTION_CIRCLE_CREATE,
+    CAP_ACTION_CIRCLE_MANAGE,
+    CAP_ACTION_CIRCLE_MEMBER_ADD,
+    CAP_ACTION_CIRCLE_MEMBER_MANAGE,
+    CAP_ACTION_CIRCLE_MEMBER_ADD_OTHERS,
+    CAP_ACTION_CIRCLE_AUDIT,
+];
+
 /// Morph event kinds.
 pub const OP_MORPH_CREATE: &str = "cx.morph.create";
 pub const OP_MORPH_UPDATE: &str = "cx.morph.update";

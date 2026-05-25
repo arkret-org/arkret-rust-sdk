@@ -31,6 +31,15 @@ pub const CAPABILITY_DELEGATE: &str = "cx.capability.delegate";
 pub const CAPABILITY_DERIVED: &str = "cx.capability.derived";
 pub const CAPABILITY_GRANT: &str = "cx.capability.grant";
 pub const CAPABILITY_REVOKE: &str = "cx.capability.revoke";
+// CXP-0007 (spec b7d35be) — Circle primitive event kinds. 7 active kinds
+// registered in `event-kind-registry.json` v2026-05-08.
+pub const CIRCLE_CREATE: &str = "cx.circle.create";
+pub const CIRCLE_UPDATE: &str = "cx.circle.update";
+pub const CIRCLE_ARCHIVE: &str = "cx.circle.archive";
+pub const CIRCLE_RESTORE: &str = "cx.circle.restore";
+pub const CIRCLE_TOMBSTONE: &str = "cx.circle.tombstone";
+pub const CIRCLE_MEMBER_STATE: &str = "cx.circle.member.state";
+pub const CIRCLE_ANCHOR_COMMIT: &str = "cx.circle.anchor_commit";
 pub const CONSENT_GRANT: &str = "cx.consent.grant";
 pub const CONSENT_REVOKE: &str = "cx.consent.revoke";
 pub const CONTAINER_MOVE_ITEM: &str = "cx.container.move_item";
@@ -265,6 +274,13 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     CAPABILITY_DERIVED,
     CAPABILITY_GRANT,
     CAPABILITY_REVOKE,
+    CIRCLE_ANCHOR_COMMIT,
+    CIRCLE_ARCHIVE,
+    CIRCLE_CREATE,
+    CIRCLE_MEMBER_STATE,
+    CIRCLE_RESTORE,
+    CIRCLE_TOMBSTONE,
+    CIRCLE_UPDATE,
     CONSENT_GRANT,
     CONSENT_REVOKE,
     CONTAINER_MOVE_ITEM,
@@ -398,6 +414,10 @@ pub const NON_REDUCER_EVENT_KINDS: &[&str] = &[
     AUDIT_ERASURE_RECEIPT,
     AUDIT_RYW_RECEIPT,
     CALL_SIGNAL,
+    // CXP-0007: cx.circle.anchor_commit is reducer-derived (sub-anchor
+    // commit emitted by the reducer on the Circle's profile cadence);
+    // it is NOT a reducer-input event.
+    CIRCLE_ANCHOR_COMMIT,
     KEY_VERIFICATION_ACCEPT,
     KEY_VERIFICATION_CANCEL,
     KEY_VERIFICATION_DONE,
@@ -458,6 +478,8 @@ pub enum EventClass {
     Audit,
     Authz,
     Call,
+    /// CXP-0007 (spec b7d35be) — Circle lifecycle / membership events.
+    Circle,
     Consent,
     Device,
     E2ee,
@@ -515,6 +537,8 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
         CAPABILITY_DELEGATE | CAPABILITY_DERIVED | CAPABILITY_GRANT | CAPABILITY_REVOKE
         | SESSION_GRANT => EventClass::Authz,
         CALL_RECORDING_START | CALL_SIGNAL | CALL_STATE => EventClass::Call,
+        CIRCLE_CREATE | CIRCLE_UPDATE | CIRCLE_ARCHIVE | CIRCLE_RESTORE | CIRCLE_TOMBSTONE
+        | CIRCLE_MEMBER_STATE | CIRCLE_ANCHOR_COMMIT => EventClass::Circle,
         CONSENT_GRANT | CONSENT_REVOKE => EventClass::Consent,
         DEVICE_AUTHORIZED
         | CROSS_SIGNING_PUBLISH
