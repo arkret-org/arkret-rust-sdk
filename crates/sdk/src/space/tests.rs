@@ -21,6 +21,7 @@ fn event(kind: &str, seq: u64, space_id: &SpaceId, content: Value) -> Event {
         created_at: Utc::now(),
         hlc: Hlc::new(format!("01970e589d21-{seq:04x}-a13f9c2e")).unwrap(),
         prev_refs: vec![],
+        effective_scope: None,
         refs: vec![],
         preconditions: vec![],
         effects: vec![],

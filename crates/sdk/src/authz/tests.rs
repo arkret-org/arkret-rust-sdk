@@ -67,6 +67,7 @@ fn capability_event(
         created_at: utc("2026-04-29T00:00:00Z"),
         hlc: Hlc::new(hlc).unwrap(),
         prev_refs: vec![],
+        effective_scope: None,
         refs: vec![],
         preconditions: vec![],
         effects: vec![],

@@ -29,6 +29,7 @@ fn event(kind: &str, seq: u64, space_id: &SpaceId, content: serde_json::Value) -
         created_at: chrono::Utc::now(),
         hlc: Hlc::new(format!("01970e589d21-{seq:04x}-a13f9c2e")).unwrap(),
         prev_refs: vec![],
+        effective_scope: None,
         refs: vec![],
         preconditions: vec![],
         effects: vec![],
