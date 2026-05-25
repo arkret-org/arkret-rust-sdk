@@ -1323,6 +1323,18 @@ pub struct ProjectionFlowRow {
     pub title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
+    /// Derived board Space id from `cx.component.flow.position.v1`.
+    /// This is read-model state, not canonical Flow object state.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub board_space_id: Option<SpaceId>,
+    /// Derived list Space id from `cx.component.flow.position.v1`.
+    /// This is read-model state, not canonical Flow object state.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub list_space_id: Option<SpaceId>,
+    /// Derived rank inside `list_space_id` from
+    /// `cx.component.flow.position.v1`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rank: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created_by: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
