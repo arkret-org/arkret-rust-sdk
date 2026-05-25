@@ -233,6 +233,10 @@ id_type!(BlockId, |value: &str| is_strict_typed_id(value, "cx:block:"));
 id_type!(CallId, |value: &str| is_strict_typed_id(value, "cx:call:"));
 id_type!(CapabilityId, |value: &str| is_strict_typed_id(value, "cx:capability:"));
 id_type!(ChunkId, |value: &str| is_strict_typed_id(value, "cx:chunk:"));
+// CXP-0007 (2026-05-08) — Circle id-kind. Intra-Realm cryptographic
+// sub-boundary; see spec artifacts/registry/id-kind-registry.json and
+// zh/models/circle.md.
+id_type!(CircleId, |value: &str| is_strict_typed_id(value, "cx:circle:"));
 id_type!(ClaimId, |value: &str| is_strict_typed_id(value, "cx:claim:"));
 id_type!(DevmsgId, |value: &str| is_strict_typed_id(value, "cx:device_message:"));
 id_type!(FlowId, |value: &str| is_strict_typed_id(value, "cx:flow:"));

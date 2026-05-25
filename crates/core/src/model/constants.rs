@@ -40,6 +40,9 @@ pub const GRANT_CONSTRAINT_SCHEMA: &str = "cx.schema.grant_constraint.v1";
 pub const DEVICE_MESSAGE_SCHEMA: &str = "cx.schema.device_message.v1";
 pub const KEY_BACKUP_SCHEMA: &str = "cx.schema.key_backup.v1";
 pub const MORPH_SCHEMA: &str = "cx.schema.morph.v1";
+/// CXP-0007 (2026-05-08) — Circle object schema id. See spec
+/// `artifacts/schemas/circle.schema.json`.
+pub const CIRCLE_SCHEMA_ID: &str = "cx.schema.circle.v1";
 pub const MORPH_CUSTOMER_RISK_SCHEMA: &str = "cx.schema.morph.customer_risk.v1";
 pub const MESSAGE_SCHEMA: &str = "cx.schema.message.v1";
 pub const MODERATION_REPORT_SCHEMA: &str = "cx.schema.moderation_report.v1";
