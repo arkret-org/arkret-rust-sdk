@@ -44,7 +44,10 @@ pub use blind_payload_sanitizer::{
     sanitize_blind_payload_strict, sanitize_blind_payload_with,
 };
 pub use bottom::{AnchorView, Bottom, BottomKind};
-pub use forbidden_wire_fields::{FORBIDDEN_WIRE_FIELDS, is_forbidden_wire_field};
+pub use forbidden_wire_fields::{
+    FORBIDDEN_ID_PREFIXES, FORBIDDEN_WIRE_FIELDS, WireContext, is_forbidden_id_prefix,
+    is_forbidden_in_context, is_forbidden_wire_field,
+};
 pub use cell::{CellId, composite_subject, composite_subject_pipe};
 pub use contrix_identifiers as identifiers;
 pub use cursor::{Cursor, CursorPurpose, CursorTarget, SpacePosition, SyncPositions, SyncTracker};

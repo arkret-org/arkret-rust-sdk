@@ -10,6 +10,57 @@ major-version bump.
 
 ## [Unreleased]
 
+### CXP-0007 follow-up — P1 closeout (wire-breaking, no release)
+
+#### Breaking
+
+- `crates/sdk/src/authz/delegation.rs::GrantConstraint` is now a typed
+  enum (`Decision`, `Temporal`, `AllowedCircleRefs`, `AllowedObjectFacets`,
+  `DelegationControl`) instead of the previous
+  `{ constraint_type: String, value: serde_json::Value }` stringly-typed
+  struct. No serde alias, no compat shim. Soland's `AuthzEngine`
+  callers, the `cx.authz.create_grant` HTTP handler, and every grant
+  test pick up the typed variants directly (`Constraint::Decision {
+  decision: GrantDecisionVerdict::Allow }` etc.). New public type
+  `GrantDecisionVerdict` mirrors the spec's `effect` enum.
+- `Space.retention_policy_ref` → `Space.retention_policy_id`,
+  `Place.parent_ref` → `Place.parent_space_id` (now typed `SpaceId`),
+  `IdentityLink.disclosure_policy_ref` → `disclosure_policy_id`,
+  `ErasureScope.retention_policy_ref` → `retention_policy_id` (now typed
+  `PolicyId`), `ProjectionSpaceRow.parent_ref` →
+  `parent_space_id`. Mirrors spec
+  `identifier_suffix_ref_to_id_batch` hard-reject batch — concrete
+  single-object identifiers use `_id`; `_ref` is reserved for causal /
+  proof / polymorphic / content-addressed reference material. SDK
+  `cx.space.create` / `cx.space.parent` operation builders, resolver,
+  registry schema, and HTTP DTOs all rename to `parent_space_id`.
+
+#### Added
+
+- `crates/core/src/forbidden_wire_fields.rs` grows a context-aware
+  checker. New `WireContext` enum + `is_forbidden_in_context(field,
+  context)` distinguishes e.g. `policy_ref` (forbidden on `handle_claim`
+  and `member_delivery_binding`, legal as a generic reference name on a
+  Policy object itself) and `stage` (forbidden as a JSON-Patch op path
+  on Flow/Morph patch payloads, canonical as a top-level field). New
+  `is_forbidden_id_prefix(id)` covers the spec's `typed_id_prefix`
+  context (`cx:notif:`, `cx:devmsg:`, `cx:keyevt:`, `cx:modq:`,
+  `cx:req:`, `cx:txn:`, `cx:frank:`). 60+ in-Rust entries now mirror
+  the spec's `forbidden-wire-fields.json` hard-reject set.
+- `AuthzContext.circle_id: Option<CircleId>` plus
+  `AuthzContext::with_circle_id`. The SDK `AuthzEngine` now evaluates
+  `Constraint::AllowedCircleRefs` precisely (allow when
+  `ctx.circle_id` is in the grant's set; deny when missing; pass when
+  the operation is not Circle-scoped). Replaces the previous fail-
+  closed `Deny` branch.
+
+#### Fixed
+
+- `TODO(circle-rollout-P1.3)` in `crates/sdk/src/authz/engine.rs` and
+  `TODO(circle-rollout-P1.5)` in
+  `crates/core/src/forbidden_wire_fields.rs` are both closed by this
+  round.
+
 ### CXP-0007 — Circle primitive rollout (wire-breaking, no release)
 
 Tracks `contrix-spec` range `9cb47c1..2b0d70d` (21 commits). Version
