@@ -698,7 +698,6 @@ impl SpaceState {
         let summary = self.extract_optional_field(object, "summary");
         let body = self.extract_optional_field(object, "body");
         let encrypted_payload = self.extract_optional_field(object, "encrypted_payload");
-        let discussion_realm_ref = self.extract_optional_field(object, "discussion_realm_ref");
         let fields = self.extract_fields(object)?;
         let state = self
             .extract_optional_field::<String>(object, "state")
@@ -714,7 +713,6 @@ impl SpaceState {
             body,
             encrypted_payload,
             tracks,
-            discussion_realm_ref,
             fields,
             state: Some(state),
             state_changed_at: None,
@@ -747,8 +745,6 @@ impl SpaceState {
         let body = self.extract_optional_field::<Value>(&event.content, "body");
         let encrypted_payload =
             self.extract_optional_field::<Value>(&event.content, "encrypted_payload");
-        let discussion_realm_ref =
-            self.extract_optional_field::<SpaceId>(&event.content, "discussion_realm_ref");
         let fields =
             self.extract_optional_field::<BTreeMap<String, Value>>(&event.content, "fields");
         let patch = self.extract_optional_field::<BTreeMap<String, Value>>(&event.content, "patch");
@@ -772,12 +768,6 @@ impl SpaceState {
         let patched_body = patch.as_ref().and_then(|patch| patch.get("body").cloned());
         let patched_encrypted_payload =
             patch.as_ref().and_then(|patch| patch.get("encrypted_payload").cloned());
-        let patched_discussion_realm_ref = patch.as_ref().and_then(|patch| {
-            patch
-                .get("discussion_realm_ref")
-                .cloned()
-                .and_then(|value| serde_json::from_value(value).ok())
-        });
 
         let subject = self
             .subjects
@@ -800,9 +790,6 @@ impl SpaceState {
         }
         if let Some(tracks) = tracks {
             subject.tracks = tracks;
-        }
-        if let Some(discussion_realm_ref) = discussion_realm_ref.or(patched_discussion_realm_ref) {
-            subject.discussion_realm_ref = Some(discussion_realm_ref);
         }
         if let Some(fields) = fields.or_else(|| patch_fields(&patch)) {
             subject.fields = fields;

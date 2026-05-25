@@ -1022,7 +1022,6 @@ fn flow_schema_document() -> Value {
             "body": { "type": "object" },
             "encrypted_payload": { "type": "object" },
             "tracks": { "type": "object", "minProperties": 1 },
-            "discussion_realm_ref": { "type": "string" },
             "fields": { "type": "object" },
             "state": { "type": "string" },
             "state_changed_at": { "type": "string" },
