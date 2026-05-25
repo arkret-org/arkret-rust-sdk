@@ -10,6 +10,85 @@ major-version bump.
 
 ## [Unreleased]
 
+### CXP-0007 — Circle primitive rollout (wire-breaking, no release)
+
+Tracks `contrix-spec` range `9cb47c1..2b0d70d` (21 commits). Version
+numbers are intentionally **not** bumped this round; this changelog
+section will roll into the next published release.
+
+#### Breaking
+
+- `Flow.discussion_realm_ref` is removed outright. No serde alias, no
+  `#[deprecated]` shim. The replacement is `Flow.scope_circle_id:
+  Option<CircleId>` per `spec/v1/artifacts/schemas/flow.schema.json`.
+- `crates/sdk/src/authz/constraints.rs::Constraint` gains an
+  `AllowedCircleRefs { allowed_circle_refs: BTreeSet<CircleId> }`
+  variant. The SDK fallback engine returns `Deny` for the new variant
+  until the resource-selector grammar grows a `circle_id` selector
+  (see TODO in `crates/sdk/src/authz/engine.rs`).
+- The forbidden-wire receiver path (new
+  `crates/core/src/forbidden_wire_fields.rs`) hard-rejects the spec's
+  `identifier_suffix_ref_to_id_batch` entries — including the legacy
+  `parent_ref`, `default_realm_ref`, `scope_ref`, `default_scope_ref`,
+  `retention_policy_ref`, `disclosure_policy_ref`,
+  `rate_limit_policy_ref`, plus the deleted `discussion_realm_ref` /
+  `discussion_space_ref` Flow scope fields.
+- `Event` envelope grows a required-positionally `effective_scope:
+  Option<EffectiveScope>` field. Struct literals across the workspace
+  pick up `effective_scope: None`; downstream consumers building
+  `Event { .. }` literals must do the same.
+
+#### Added
+
+- `CircleId` typed id (`cx:circle:<uuidv7>`), and the `Circle` model
+  with the spec-shaped `CircleDisplay`, `CircleColorToken`,
+  `CircleGlyph`, `CircleSymbol`, `CircleJoinRule`,
+  `CircleDirectoryVisibility`, `CircleMetadataEncryptionFloor`, and
+  `CircleState` enums.
+- `Circle::assert_members_strict_subset` strict-subset member
+  validator covering the CXP-0007 `circle_member_must_be_realm_member`
+  reducer invariant.
+- `Flow.scope_circle_id`, `Space.scope_circle_id` /
+  `default_scope_circle_id` / `child_scope_policy`, `Morph.scope_circle_id`.
+  The `ChildScopePolicy` enum mirrors
+  `spec/v1/artifacts/schemas/space.schema.json` 4-kind discriminator.
+- `EffectiveScope { Realm | Circle }` enum on `Event` envelope.
+- `RelationKind::ConfidentialDiscussionOf` for the
+  "wide synthesis + narrow discussion" CXP-0007 pattern.
+- 7 `cx.circle.*` event-kind constants in `events::kinds`, classified
+  into the new `EventClass::Circle` bucket. `cx.circle.anchor_commit`
+  is recorded in `NON_REDUCER_EVENT_KINDS` (reducer-derived).
+- 6 `CAP_ACTION_CIRCLE_*` constants in `model::constants`, plus a
+  `CIRCLE_CAPABILITY_ACTIONS` slice for iteration.
+- 5 CXP-0007 `REASON_*` constants (`circle_realm_mismatch`,
+  `circle_not_active`, `circle_member_must_be_realm_member`,
+  `scope_rebind_forbidden`, `metadata_encryption_floor_violation`)
+  registered in `KNOWN_REASON_CODES_CXP_0007`. The 6th CXP-0007 code
+  (`delivery_binding_handed_over`) was already shipped in round 4.
+- `cx.schema.circle.v1` added to `ARTIFACT_BACKED_SCHEMA_IDS` so the
+  spec-drift gate covers the new schema.
+- Public re-exports: `contrix::Circle`, `contrix::CircleId`,
+  `contrix::CIRCLE_SCHEMA_ID`, `contrix::FORBIDDEN_WIRE_FIELDS`,
+  `contrix::is_forbidden_wire_field`, plus the kind / capability /
+  reason constants above.
+- `docs/circle-integration.md` integration guide.
+- `MIGRATING-FROM-0.7.md` § "CXP-0007 follow-up" migration cookbook.
+
+#### Fixed
+
+- Spec-drift gate now covers the CXP-0007 schemas / event kinds; the
+  `spec_drift_report` example reports 0 hard drift against spec floor
+  `2b0d70d` and `spec_artifact_registry_covers_key_local_schema_and_event_contracts`
+  passes again.
+
+#### Notes
+
+- No version bump. No tag. No crates.io publish.
+- Three TODO markers left in tree for follow-up rounds:
+  `TODO(circle-rollout-P1.3)` in `crates/sdk/src/authz/engine.rs`,
+  `TODO(circle-rollout-P1.5)` in `crates/core/src/forbidden_wire_fields.rs`
+  (path-shaped + prefix-shaped forbidden entries).
+
 ## [1.0.0] - 2026-05-25
 
 ### Release Engineering
