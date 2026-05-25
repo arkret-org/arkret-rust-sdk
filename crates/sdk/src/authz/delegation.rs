@@ -28,9 +28,10 @@
 //! I/O. That makes them safe to call from yougen (compile-to-wasm) and
 //! from sodmin admin UI as well as the server-side `AuthzEngine`.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{DateTime, Utc};
+use contrix_core::CircleId;
 use serde::{Deserialize, Serialize};
 
 /// A capability grant in its runtime / in-memory form.
@@ -66,13 +67,63 @@ pub struct Grant {
 
 /// A constraint entry attached to a [`Grant`].
 ///
-/// The runtime form is intentionally loosely-typed (`constraint_type` is a
-/// string, `value` is `serde_json::Value`); typed validation lives upstream
-/// in [`crate::authz::ConstraintEntry`].
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct GrantConstraint {
-    pub constraint_type: String,
-    pub value: serde_json::Value,
+/// Typed enum mirroring the v1 spec's `grant-constraint.schema.json`
+/// `constraint_type` discriminator plus runtime-only families used by
+/// soland's HTTP authz path (`Decision`, `AllowedObjectFacets`). The
+/// upstream typed validator in [`crate::authz::ConstraintEntry`] /
+/// [`crate::authz::Constraint`] remains the canonical schema-aligned
+/// representation; this enum is the in-memory runtime projection that
+/// soland threads through `AuthzEngine::check`.
+///
+/// CXP-0007 P1.3.4: the previous `{ constraint_type: String, value:
+/// serde_json::Value }` weakly-typed form has been removed (no backwards
+/// compat). All call sites construct one of these variants directly.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "constraint_type", rename_all = "snake_case")]
+pub enum GrantConstraint {
+    /// Hard decision constraint used by soland to attach explicit
+    /// allow/deny/quarantine/require_review verdicts to a grant
+    /// (capabilities.md §B5 priority: deny > quarantine > require_review >
+    /// allow). Maps onto the spec `effect` field but is materialised as a
+    /// standalone constraint type because soland's engine treats decision
+    /// constraints separately from the spec-typed evaluation families.
+    Decision { decision: GrantDecisionVerdict },
+    /// Temporal constraint with an optional `expires_at`. The top-level
+    /// `Grant::expires_at` field and any `Temporal { expires_at }` entry
+    /// are intersected; the stricter wins (see [`grant_effective_expiry`]).
+    Temporal {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        expires_at: Option<DateTime<Utc>>,
+    },
+    /// CXP-0007 (spec b7d35be) — narrow a Circle-management capability
+    /// (`cx.circle.manage`, `cx.circle.member.manage`,
+    /// `cx.circle.member.add.others`, `cx.circle.audit`) to a specific set
+    /// of Circle ids. Spec `capability-action-registry.json` declares
+    /// `required_constraints=["allowed_circle_refs"]` on each gated
+    /// action; unconstrained Realm-wide grants for these actions MUST be
+    /// rejected by the grant-issue guard.
+    AllowedCircleRefs { allowed_circle_refs: BTreeSet<CircleId> },
+    /// Resource must carry at least one of the listed facets. soland uses
+    /// this on `cx:flow:` / `cx:space:` / `cx:morph:` projections; an
+    /// unfaceted target falls outside scope (fail-closed).
+    AllowedObjectFacets { facets: Vec<String> },
+    /// Delegation depth control. v1 always passes (depth is enforced at
+    /// the chain-walking helper level rather than per-constraint).
+    DelegationControl {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max_delegation_depth: Option<u32>,
+    },
+}
+
+/// Verdict carried by [`GrantConstraint::Decision`]. Mirrors the spec's
+/// `effect` enum and capabilities.md §B5 priority ordering.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GrantDecisionVerdict {
+    Allow,
+    Deny,
+    Quarantine,
+    RequireReview,
 }
 
 /// A request to issue a delegated grant. See [`create_delegated_grant`].
@@ -122,17 +173,9 @@ pub enum DelegationError {
 /// `constraints[]`. `None` means the grant never expires.
 pub fn grant_effective_expiry(grant: &Grant) -> Option<DateTime<Utc>> {
     let top_level = grant.expires_at;
-    let from_constraint = grant.constraints.iter().find_map(|constraint| {
-        if constraint.constraint_type == "temporal" {
-            constraint
-                .value
-                .get("expires_at")
-                .and_then(|value| value.as_str())
-                .and_then(|raw| DateTime::parse_from_rfc3339(raw).ok())
-                .map(|dt| dt.with_timezone(&Utc))
-        } else {
-            None
-        }
+    let from_constraint = grant.constraints.iter().find_map(|constraint| match constraint {
+        GrantConstraint::Temporal { expires_at } => *expires_at,
+        _ => None,
     });
     match (top_level, from_constraint) {
         (Some(a), Some(b)) => Some(a.min(b)),
@@ -608,15 +651,37 @@ mod tests {
         let now = Utc::now();
         let mut grant = root_grant("g1", &["read"], "cx:space:1");
         grant.expires_at = Some(now + Duration::hours(2));
-        grant.constraints.push(GrantConstraint {
-            constraint_type: "temporal".to_owned(),
-            value: serde_json::json!({
-                "expires_at": (now + Duration::hours(1)).to_rfc3339(),
-            }),
+        grant.constraints.push(GrantConstraint::Temporal {
+            expires_at: Some(now + Duration::hours(1)),
         });
         let effective = grant_effective_expiry(&grant).expect("has expiry");
         // The constraint says 1h; top-level says 2h. Stricter (1h) wins.
         assert!(effective <= now + Duration::hours(1));
         assert!(effective > now + Duration::minutes(59));
+    }
+
+    #[test]
+    fn allowed_circle_refs_constraint_round_trips_through_serde() {
+        let circle = CircleId::new("cx:circle:01904100-0000-7000-8000-000000000000".to_owned())
+            .expect("valid CircleId");
+        let constraint =
+            GrantConstraint::AllowedCircleRefs { allowed_circle_refs: BTreeSet::from([circle]) };
+        let json = serde_json::to_string(&constraint).expect("serde round trip");
+        assert!(json.contains("allowed_circle_refs"));
+        assert!(json.contains("cx:circle:01904100-0000-7000-8000-000000000000"));
+        let round_tripped: GrantConstraint =
+            serde_json::from_str(&json).expect("deserialize typed");
+        assert_eq!(constraint, round_tripped);
+    }
+
+    #[test]
+    fn decision_constraint_round_trips_through_serde() {
+        let constraint =
+            GrantConstraint::Decision { decision: GrantDecisionVerdict::RequireReview };
+        let json = serde_json::to_string(&constraint).expect("serde");
+        assert!(json.contains("decision"));
+        assert!(json.contains("require_review"));
+        let round_tripped: GrantConstraint = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(constraint, round_tripped);
     }
 }

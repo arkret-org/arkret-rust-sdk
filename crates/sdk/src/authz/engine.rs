@@ -84,6 +84,13 @@ pub struct AuthzContext {
     /// Whether the destination container would exceed its WIP limit.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub wip_over_limit: Option<bool>,
+    /// CXP-0007 — Circle id when the operation targets a Circle-management
+    /// capability (`cx.circle.manage`, `cx.circle.member.manage`,
+    /// `cx.circle.member.add.others`, `cx.circle.audit`). Used by
+    /// [`Constraint::AllowedCircleRefs`] to membership-test against the
+    /// grant's allow-list.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub circle_id: Option<contrix_core::CircleId>,
 }
 
 impl AuthzContext {
@@ -117,7 +124,16 @@ impl AuthzContext {
             from_container_id: None,
             to_container_id: None,
             wip_over_limit: None,
+            circle_id: None,
         }
+    }
+
+    /// Set the target Circle id for `AllowedCircleRefs` constraint
+    /// evaluation. Pass when the operation targets a Circle-management
+    /// capability (`cx.circle.*`).
+    pub fn with_circle_id(mut self, circle_id: contrix_core::CircleId) -> Self {
+        self.circle_id = Some(circle_id);
+        self
     }
 
     /// Set the space ID.
@@ -973,20 +989,37 @@ impl AuthzEngine {
                 AuthzDecision::Allow
             }
             // CXP-0007: gate Circle-management actions on a static
-            // allow-list of Circle ids baked into the grant body. Until a
-            // typed `circle_id` selector lands in
-            // `resource-selector-grammar.md`, the SDK engine returns
-            // `RequireReview` so the caller routes the decision to a
-            // higher-level evaluator that understands the resource shape.
-            //
-            // TODO(circle-rollout-P1.3): replace with a precise allow/deny
-            // once the resource selector grammar exposes circle_id.
+            // allow-list of Circle ids baked into the grant body. The
+            // caller MUST set `ctx.circle_id` to the operation's target
+            // Circle for Circle-scoped actions (`cx.circle.manage`,
+            // `cx.circle.member.manage`, `cx.circle.member.add.others`,
+            // `cx.circle.audit`). Non-Circle-scoped operations leave
+            // `circle_id` unset; per the constraint's narrow scope it
+            // does not apply and silently passes.
             Constraint::AllowedCircleRefs { allowed_circle_refs } => {
-                let _ = allowed_circle_refs;
-                AuthzDecision::Deny {
-                    reason: "allowed_circle_refs constraint requires a circle-aware \
-                            evaluator (CXP-0007); SDK engine fails closed"
-                        .to_owned(),
+                if allowed_circle_refs.is_empty() {
+                    return AuthzDecision::Deny {
+                        reason: "allowed_circle_refs constraint requires a \
+                                non-empty allow list"
+                            .to_owned(),
+                    };
+                }
+                match &ctx.circle_id {
+                    Some(circle_id) => {
+                        if allowed_circle_refs.contains(circle_id) {
+                            AuthzDecision::Allow
+                        } else {
+                            AuthzDecision::Deny {
+                                reason: format!(
+                                    "circle '{}' not in allowed_circle_refs allow list",
+                                    circle_id.as_ref()
+                                ),
+                            }
+                        }
+                    }
+                    // Constraint is Circle-scoped — non-Circle-targeted
+                    // operations are out of scope; pass through.
+                    None => AuthzDecision::Allow,
                 }
             }
         }
