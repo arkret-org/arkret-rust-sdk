@@ -97,6 +97,7 @@ pub struct Event {
 /// - `{ "kind": "realm", "realm_id": "cx:realm:..." }`
 /// - `{ "kind": "circle", "realm_id": "cx:realm:...", "circle_id": "cx:circle:..." }`
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum EffectiveScope {
     /// Event was emitted under Realm-default encryption scope.

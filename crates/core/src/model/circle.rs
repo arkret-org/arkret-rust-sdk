@@ -50,6 +50,7 @@ pub enum CircleJoinRule {
 /// circle.schema.json `metadata_encryption_floor` enum). MAY only
 /// tighten parent Realm floor; reducer enforces.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum CircleMetadataEncryptionFloor {
     BodyOnly,
