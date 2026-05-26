@@ -24,20 +24,89 @@ use sha2::{Digest, Sha256};
 
 pub use contrix_signatures::{DetachedSignature, DetachedSignatureBinding, DetachedVerifier};
 
+/// Typed crypto-machine validation errors.
+///
+/// Round 2 (post-improve): introduced so call sites can branch on the
+/// specific validation failure (bounds vs replay vs key mismatch)
+/// instead of inspecting the free-form `Error::Protocol` string. The
+/// `From<CryptoError> for contrix_core::Error` impl below preserves
+/// the existing wire surface — every `CryptoError` still renders as
+/// `Error::Protocol(<message>)` for callers that haven't migrated.
+///
+/// New code SHOULD return `CryptoError` directly; bridge to
+/// `contrix_core::Error` only at the protocol-boundary using `?` or
+/// `Into::into`.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
+pub enum CryptoError {
+    /// Generic validation failure with a free-form message. Prefer one
+    /// of the typed variants when the failure has structure.
+    #[error("crypto validation failed: {0}")]
+    Validation(String),
+    /// Two values that should be identical (e.g. a binding's
+    /// `signed_by` and the PSK kid it references) disagreed.
+    #[error("crypto key mismatch")]
+    KeyMismatch,
+    /// A message-index / generation / nonce that should be strictly
+    /// monotonic was observed at or below the high-water mark.
+    #[error("crypto replay detected")]
+    ReplayDetected,
+    /// A string or collection field exceeded its declared maximum.
+    #[error("crypto bound exceeded for {field}: limit {limit}")]
+    BoundsExceeded {
+        /// Name of the field that overflowed.
+        field: String,
+        /// The maximum the field is allowed to take.
+        limit: usize,
+    },
+}
+
+impl From<CryptoError> for Error {
+    fn from(err: CryptoError) -> Self {
+        // Preserve the v1 wire surface — every typed crypto error still
+        // renders as `Error::Protocol(<message>)` for callers that
+        // haven't migrated to matching on `CryptoError` directly.
+        Self::Protocol(err.to_string())
+    }
+}
+
+/// Common validation entry-point implemented by every crypto-machine
+/// payload that has structural invariants beyond what `serde` can
+/// enforce. Round 2 — introduced as a typed counterpart to the ad-hoc
+/// inherent `validate()` methods so callers can dispatch generically.
+pub trait Validate {
+    /// Round-trippable validation. Returns the first failure as a typed
+    /// [`CryptoError`].
+    fn validate(&self) -> std::result::Result<(), CryptoError>;
+}
+
+/// Discriminator for the request variants the crypto-machine plan
+/// queue dispatches on. One variant per `CryptoMachineReqBody` arm.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CryptoMachineRequestKind {
+    /// `cx.keys.upload_device_keys` — publish this device's keys.
     UploadDeviceKeys,
+    /// `cx.keys.query_device_keys` — fetch peers' keys.
     QueryDeviceKeys,
+    /// `cx.keys.claim_one_time_keys` — claim peers' OTKs.
     ClaimOneTimeKeys,
+    /// `cx.event.encrypt` — encrypt an event into a Space session.
     EncryptEvent,
+    /// `cx.event.decrypt` — decrypt a received encrypted event.
     DecryptEvent,
+    /// `cx.keys.share_room_key` — distribute a Space session key.
     ShareRoomKey,
+    /// `cx.keys.request_room_key` — request a missing session key.
     RequestRoomKey,
+    /// `cx.keys.backup_secrets` — push to secret backup storage.
     BackupSecrets,
+    /// `cx.keys.restore_secrets` — pull from secret backup storage.
     RestoreSecrets,
 }
 
+/// Per-device public key bundle published via
+/// `cx.keys.upload_device_keys`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DeviceKeyBundle {
     pub user_id: Did,
@@ -124,12 +193,18 @@ fn validate_max_length(field: &str, value: &str, max: usize) -> Result<()> {
     Ok(())
 }
 
+/// Per-device cross-signing trust verdict tracked alongside the
+/// device-key bundle in `CryptoStoreBinding::device_trust`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DeviceTrustState {
+    /// No verification path is yet established.
     Unverified,
+    /// User has marked the device trusted on this client only.
     LocallyTrusted,
+    /// Device key is signed by the principal's SSK.
     CrossSigned,
+    /// Verified end-to-end (cross-signed plus an interactive verification).
     Verified,
     /// After a cross-signing reset (spec §14.2), trust state drops here and
     /// the device must be re-verified before it can be treated as
@@ -346,11 +421,17 @@ pub enum CrossSigningResetProof {
     },
 }
 
+/// One device's signature contribution in a `device_quorum`
+/// cross-signing-reset proof.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeviceQuorumSignature {
+    /// Quorum-contributing device.
     pub device_id: DeviceId,
+    /// DID URL / verification-method identifying the signing key.
     pub signed_by: String,
+    /// Signature algorithm (e.g. `EdDSA`).
     pub alg: String,
+    /// Detached signature bytes (multibase / base64).
     pub signature: String,
 }
 
@@ -568,18 +649,29 @@ fn canonical_device_trust_binding_input(
     Ok(out)
 }
 
+/// Interactive verification-flow state machine
+/// (`cx.device.verification.v1`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum VerificationFlowState {
+    /// Initial state — request sent, awaiting peer ready.
     Requested,
+    /// Peer accepted; negotiation can start.
     Ready,
+    /// SAS (short-authentication-string) leg started.
     SasStarted,
+    /// QR-code leg scanned.
     QrScanned,
+    /// Verification completed successfully.
     Done,
+    /// Either party cancelled.
     Cancelled,
+    /// Window expired before completion.
     TimedOut,
 }
 
+/// Active interactive-verification flow between two of the principal's
+/// own devices (or a peer and a verifier).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeviceVerificationFlow {
     pub transaction_id: String,
@@ -642,16 +734,24 @@ impl DeviceVerificationFlow {
     }
 }
 
+/// Lifecycle state of a Space E2EE session key tracked locally.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CryptoSessionState {
+    /// Session keys received but no message decrypted yet.
     Pending,
+    /// In active use for inbound / outbound payloads.
     Active,
+    /// Sender deliberately withheld the key (see `UnableToDecryptReason::Withheld`).
     Withheld,
+    /// Session age / message count exceeded its rotation budget.
     Expired,
+    /// Session was revoked (e.g. on device removal).
     Revoked,
 }
 
+/// Local record of a single Space session — key id, sender device key,
+/// algorithm, current state and replay watermark.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CryptoSessionRecord {
     pub space_id: SpaceId,
@@ -695,16 +795,25 @@ impl CryptoSessionRecord {
     }
 }
 
+/// Sender-explicit refusal to share a Space session key with this
+/// device (e.g. via `m.blacklisted` or recipient-not-trusted).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WithheldKeyRecord {
+    /// Space the withheld session belongs to.
     pub space_id: SpaceId,
+    /// Session that the sender refused to share.
     pub session_id: String,
+    /// Sending principal.
     pub sender: Did,
+    /// Wire `code` (e.g. `m.blacklisted`).
     pub code: String,
+    /// Mapped `UnableToDecryptReason` for renderer convenience.
     pub reason: UnableToDecryptReason,
+    /// Time the withheld notice was observed locally.
     pub received_at: DateTime<Utc>,
 }
 
+/// Inbound device-to-device secret-gossip request body.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SecretGossipReqBody {
     pub request_id: String,
@@ -731,11 +840,17 @@ impl SecretGossipReqBody {
     }
 }
 
+/// Request to claim `count` one-time keys for a (user, device) pair on a
+/// specific algorithm.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OneTimeKeyClaim {
+    /// Target principal.
     pub user_id: Did,
+    /// Target device.
     pub device_id: DeviceId,
+    /// One-time key algorithm (e.g. `signed_curve25519`).
     pub algorithm: String,
+    /// How many keys to claim in this batch.
     pub count: u32,
 }
 
@@ -756,15 +871,22 @@ impl OneTimeKeyClaim {
     }
 }
 
+/// Lifecycle state of the principal's secret-storage backup.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SecretBackupState {
+    /// Backup not configured.
     Disabled,
+    /// Backup active and accepting writes.
     Enabled,
+    /// Mid-rotation to a new recovery key / public key.
     Rotating,
+    /// Restore in progress from a recovery key.
     Recovering,
 }
 
+/// Public descriptor of the principal's secret-storage backup
+/// (`cx.schema.key_backup.v1`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SecretBackupDescriptor {
     pub backup_id: String,
@@ -800,29 +922,46 @@ impl SecretBackupDescriptor {
     }
 }
 
+/// Discrete phase in a key's lifecycle journal.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum KeyLifecyclePhase {
+    /// Material generated locally.
     Created,
+    /// Public half published to the server.
     Uploaded,
+    /// One-time key claimed by a peer.
     Claimed,
+    /// Session key shared via `share_room_key`.
     Shared,
+    /// Replaced as part of a rotation cadence.
     Rotated,
+    /// Captured into secret backup.
     BackedUp,
+    /// Restored from secret backup.
     Recovered,
+    /// Revoked / blacklisted.
     Revoked,
 }
 
+/// Lifecycle-journal row emitted whenever a key transitions phases.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct KeyLifecycleEvent {
+    /// Stable reference identifying the key (kid / session id / backup id).
     pub key_ref: String,
+    /// Phase the key moved into.
     pub phase: KeyLifecyclePhase,
+    /// Principal that performed the transition.
     pub actor: Did,
+    /// Device that performed the transition.
     pub device_id: DeviceId,
+    /// Wall-clock time of the transition.
     pub occurred_at: DateTime<Utc>,
+    /// Free-form reason / context string.
     pub reason: String,
 }
 
+/// Decryption metadata bound to an encrypted media blob.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MediaEncryptionInfo {
     pub blob_ref: BlobRef,
@@ -843,17 +982,27 @@ impl MediaEncryptionInfo {
     }
 }
 
+/// Classification of why an encrypted event failed to decrypt locally.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum UnableToDecryptReason {
+    /// No session key recorded for the session id.
     NoSession,
+    /// Sender DID is not known to the local store.
     UnknownSender,
+    /// Sender device key is not known to the local store.
     UnknownDevice,
+    /// Olm/Megolm message-index key is missing.
     MissingMegolmKey,
+    /// Ciphertext failed MAC / shape validation.
     BadCiphertext,
+    /// Sender withheld the session key (`m.withheld`).
     Withheld,
 }
 
+/// Inbound record kept on the local store when an encrypted event
+/// could not be decrypted; renderers display it as a placeholder until
+/// retry succeeds.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UnableToDecryptRecord {
     pub event_id: EventId,
@@ -864,6 +1013,8 @@ pub struct UnableToDecryptRecord {
     pub first_seen_at: DateTime<Utc>,
 }
 
+/// Request body the crypto-machine plan queue dispatches on. Each
+/// variant corresponds 1:1 with a [`CryptoMachineRequestKind`].
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum CryptoMachineReqBody {
@@ -958,21 +1109,35 @@ impl CryptoMachineReqBody {
     }
 }
 
+/// Response body the crypto-machine plan returns once a request is
+/// processed (or queued for processing).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum CryptoMachineResBody {
+    /// Request accepted and queued for asynchronous processing.
     Queued { request_id: String, kind: CryptoMachineRequestKind },
+    /// `UploadDeviceKeys` accepted.
     DeviceKeysUploaded { device_id: DeviceId },
+    /// `QueryDeviceKeys` result set.
     DeviceKeys(Vec<DeviceKeyBundle>),
+    /// `ClaimOneTimeKeys` result set (one per claimed device).
     OneTimeKeysClaimed(Vec<DeviceKeyBundle>),
+    /// `EncryptEvent` produced this payload.
     Encrypted(EncryptedPayload),
+    /// `DecryptEvent` resolved to this plaintext value.
     Decrypted(Value),
+    /// `DecryptEvent` could not decrypt — caller should display a placeholder.
     UnableToDecrypt(UnableToDecryptRecord),
+    /// `ShareRoomKey` fanned out to this many recipients.
     RoomKeyShared { space_id: SpaceId, session_id: String, recipients: usize },
+    /// `RequestRoomKey` was emitted on the wire.
     RoomKeyRequested { event_id: EventId, session_id: String },
+    /// `BackupSecrets` flushed this descriptor to storage.
     BackupReady(SecretBackupDescriptor),
+    /// `RestoreSecrets` pulled the named backup and recovered this many secrets.
     Restored { backup_id: String, recovered_secrets: usize },
 }
 
+/// In-memory FIFO queue of pending crypto-machine requests.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct CryptoMachinePlan {
     queue: VecDeque<(String, CryptoMachineReqBody)>,
@@ -1007,6 +1172,10 @@ impl CryptoMachinePlan {
     }
 }
 
+/// Aggregate local cache of every per-device crypto fact this client
+/// has observed (device keys, trust verdicts, verification flows,
+/// sessions, secret backup, withheld notices, UTD records, lifecycle
+/// journal).
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct CryptoStoreBinding {
     pub device_keys: BTreeMap<DeviceId, DeviceKeyBundle>,
@@ -1061,6 +1230,106 @@ impl CryptoStoreBinding {
 
 pub(crate) fn session_key(space_id: &SpaceId, session_id: &str) -> String {
     format!("{}|{}", space_id.as_str(), session_id)
+}
+
+// ── Round-2 typed `Validate` trait impls ────────────────────────────────
+//
+// These implementations mirror the existing inherent `validate()`
+// methods (when present) but return the typed `CryptoError` instead of
+// `contrix_core::Error::Protocol`. The inherent methods stay for
+// backward compatibility; new call sites should prefer the trait form
+// (`<T as Validate>::validate(&value)`).
+
+impl Validate for DeviceVerificationFlow {
+    fn validate(&self) -> std::result::Result<(), CryptoError> {
+        if self.transaction_id.trim().is_empty() {
+            return Err(CryptoError::Validation(
+                "verification transaction id must not be empty".to_owned(),
+            ));
+        }
+        if self.transaction_id.len() > MAX_IDENTIFIER_LEN {
+            return Err(CryptoError::BoundsExceeded {
+                field: "verification transaction id".to_owned(),
+                limit: MAX_IDENTIFIER_LEN,
+            });
+        }
+        if self.from_device == self.to_device {
+            return Err(CryptoError::Validation(
+                "verification requires two distinct devices".to_owned(),
+            ));
+        }
+        if self.methods.len() > MAX_VERIFICATION_METHODS {
+            return Err(CryptoError::BoundsExceeded {
+                field: "verification methods".to_owned(),
+                limit: MAX_VERIFICATION_METHODS,
+            });
+        }
+        for method in &self.methods {
+            if method.trim().is_empty() {
+                return Err(CryptoError::Validation(
+                    "verification method must not be empty".to_owned(),
+                ));
+            }
+            if method.len() > MAX_IDENTIFIER_LEN {
+                return Err(CryptoError::BoundsExceeded {
+                    field: "verification method".to_owned(),
+                    limit: MAX_IDENTIFIER_LEN,
+                });
+            }
+        }
+        Ok(())
+    }
+}
+
+impl Validate for WithheldKeyRecord {
+    fn validate(&self) -> std::result::Result<(), CryptoError> {
+        if self.session_id.trim().is_empty() {
+            return Err(CryptoError::Validation(
+                "withheld key record requires session id".to_owned(),
+            ));
+        }
+        if self.session_id.len() > MAX_IDENTIFIER_LEN {
+            return Err(CryptoError::BoundsExceeded {
+                field: "withheld session id".to_owned(),
+                limit: MAX_IDENTIFIER_LEN,
+            });
+        }
+        if self.code.trim().is_empty() {
+            return Err(CryptoError::Validation(
+                "withheld key record requires wire code".to_owned(),
+            ));
+        }
+        if self.code.len() > MAX_IDENTIFIER_LEN {
+            return Err(CryptoError::BoundsExceeded {
+                field: "withheld code".to_owned(),
+                limit: MAX_IDENTIFIER_LEN,
+            });
+        }
+        Ok(())
+    }
+}
+
+impl Validate for KeyLifecycleEvent {
+    fn validate(&self) -> std::result::Result<(), CryptoError> {
+        if self.key_ref.trim().is_empty() {
+            return Err(CryptoError::Validation(
+                "key lifecycle event requires key_ref".to_owned(),
+            ));
+        }
+        if self.key_ref.len() > MAX_IDENTIFIER_LEN {
+            return Err(CryptoError::BoundsExceeded {
+                field: "key lifecycle key_ref".to_owned(),
+                limit: MAX_IDENTIFIER_LEN,
+            });
+        }
+        if self.reason.len() > MAX_REASON_LEN {
+            return Err(CryptoError::BoundsExceeded {
+                field: "key lifecycle reason".to_owned(),
+                limit: MAX_REASON_LEN,
+            });
+        }
+        Ok(())
+    }
 }
 
 #[allow(dead_code)] // Retained as a crate-internal utility for future callers.
@@ -1231,5 +1500,372 @@ mod tests {
         };
         info.validate_plaintext(plaintext).unwrap();
         assert!(matches!(info.validate_plaintext(b"changed"), Err(Error::Protocol(_))));
+    }
+
+    // ── Round-2 typed Validate trait coverage ───────────────────────
+
+    #[test]
+    fn typed_validate_rejects_invalid_device_verification_flow() {
+        let mut flow = DeviceVerificationFlow {
+            transaction_id: String::new(),
+            user_id: did("alice"),
+            from_device: DeviceId::new("cx:device:01904100-0000-7000-8000-000000000001").unwrap(),
+            to_device: DeviceId::new("cx:device:01904100-0000-7000-8000-000000000002").unwrap(),
+            methods: Vec::new(),
+            state: VerificationFlowState::Requested,
+            created_at: Utc::now(),
+            expires_at: None,
+        };
+
+        // Empty transaction id.
+        assert!(matches!(
+            <DeviceVerificationFlow as Validate>::validate(&flow),
+            Err(CryptoError::Validation(_))
+        ));
+
+        // Same device on both sides.
+        flow.transaction_id = "tx".to_owned();
+        flow.to_device = flow.from_device.clone();
+        assert!(matches!(
+            <DeviceVerificationFlow as Validate>::validate(&flow),
+            Err(CryptoError::Validation(_))
+        ));
+
+        // Too many methods → BoundsExceeded.
+        flow.to_device = DeviceId::new("cx:device:01904100-0000-7000-8000-000000000002").unwrap();
+        flow.methods = (0..(MAX_VERIFICATION_METHODS + 1))
+            .map(|i| format!("m{i}"))
+            .collect();
+        let err = <DeviceVerificationFlow as Validate>::validate(&flow).unwrap_err();
+        assert!(matches!(err, CryptoError::BoundsExceeded { ref field, limit }
+            if field == "verification methods" && limit == MAX_VERIFICATION_METHODS));
+    }
+
+    #[test]
+    fn typed_validate_rejects_invalid_withheld_key_record() {
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-6c355fb9dada").unwrap();
+        let mut record = WithheldKeyRecord {
+            space_id: space_id.clone(),
+            session_id: String::new(),
+            sender: did("alice"),
+            code: "m.blacklisted".to_owned(),
+            reason: UnableToDecryptReason::Withheld,
+            received_at: Utc::now(),
+        };
+        assert!(matches!(
+            <WithheldKeyRecord as Validate>::validate(&record),
+            Err(CryptoError::Validation(_))
+        ));
+
+        record.session_id = "sess1".to_owned();
+        record.code = String::new();
+        assert!(matches!(
+            <WithheldKeyRecord as Validate>::validate(&record),
+            Err(CryptoError::Validation(_))
+        ));
+
+        record.code = "x".repeat(MAX_IDENTIFIER_LEN + 1);
+        let err = <WithheldKeyRecord as Validate>::validate(&record).unwrap_err();
+        assert!(matches!(err, CryptoError::BoundsExceeded { ref field, .. }
+            if field == "withheld code"));
+    }
+
+    #[test]
+    fn typed_validate_rejects_invalid_key_lifecycle_event() {
+        let mut ev = KeyLifecycleEvent {
+            key_ref: String::new(),
+            phase: KeyLifecyclePhase::Created,
+            actor: did("alice"),
+            device_id: device(),
+            occurred_at: Utc::now(),
+            reason: "init".to_owned(),
+        };
+        assert!(matches!(
+            <KeyLifecycleEvent as Validate>::validate(&ev),
+            Err(CryptoError::Validation(_))
+        ));
+
+        ev.key_ref = "kid".to_owned();
+        ev.reason = "r".repeat(MAX_REASON_LEN + 1);
+        let err = <KeyLifecycleEvent as Validate>::validate(&ev).unwrap_err();
+        assert!(matches!(err, CryptoError::BoundsExceeded { ref field, .. }
+            if field == "key lifecycle reason"));
+    }
+
+    #[test]
+    fn crypto_error_converts_to_core_protocol_error() {
+        // Backward-compat: every CryptoError still renders to
+        // Error::Protocol so callers that have not migrated keep
+        // seeing the same shape.
+        let core_err: Error = CryptoError::ReplayDetected.into();
+        assert!(matches!(core_err, Error::Protocol(_)));
+
+        let core_err: Error = CryptoError::BoundsExceeded {
+            field: "field".to_owned(),
+            limit: 10,
+        }
+        .into();
+        if let Error::Protocol(message) = core_err {
+            assert!(message.contains("field"));
+            assert!(message.contains("10"));
+        } else {
+            panic!("expected Error::Protocol");
+        }
+    }
+
+    // ── Round-3 hardening tests ─────────────────────────────────────
+
+    /// Deterministic LCG so the property test is reproducible without
+    /// pulling in `proptest` / `quickcheck` as deps. Seeded inputs are
+    /// always the same and any failure is easy to repro by rerunning.
+    fn xorshift_next(state: &mut u64) -> u64 {
+        let mut x = *state;
+        x ^= x << 13;
+        x ^= x >> 7;
+        x ^= x << 17;
+        *state = x;
+        x
+    }
+
+    fn make_session() -> CryptoSessionRecord {
+        CryptoSessionRecord {
+            space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
+            session_id: "sess-prop".to_owned(),
+            sender_key: "curve25519:def".to_owned(),
+            algorithm: "cx.mls.v1".to_owned(),
+            state: CryptoSessionState::Active,
+            created_at: Utc::now(),
+            last_used_at: Utc::now(),
+            message_index_high_watermark: None,
+        }
+    }
+
+    /// Property: for any strictly increasing sequence of indices, every
+    /// `accept_message_index` call succeeds; for any index ≤ the running
+    /// high-water mark, the call must reject with `Error::Protocol`.
+    #[test]
+    fn message_index_monotonicity_property() {
+        const RUNS: usize = 64;
+        const STEPS: usize = 32;
+        let mut state: u64 = 0xC0FFEE_u64;
+        let now = Utc::now();
+
+        for run in 0..RUNS {
+            let mut session = make_session();
+            let mut high: u64 = 0;
+            let mut saw_increase = false;
+            for _ in 0..STEPS {
+                // Pick a random *delta* up to 1024. delta == 0 must be
+                // rejected as replay; delta > 0 must be accepted and
+                // advance the watermark.
+                let delta = xorshift_next(&mut state) % 1024;
+                let candidate = high.saturating_add(delta);
+                let res = session.accept_message_index(candidate, now);
+                if delta == 0 && session.message_index_high_watermark.is_some() {
+                    assert!(
+                        matches!(res, Err(Error::Protocol(_))),
+                        "run {run}: replay at index {candidate} (high={high}) must reject"
+                    );
+                } else if candidate == 0 && high == 0 && session.message_index_high_watermark.is_none() {
+                    // Very first call at index 0 is accepted (no prior watermark).
+                    res.unwrap();
+                    high = candidate;
+                    saw_increase = true;
+                } else if delta > 0 {
+                    res.unwrap();
+                    high = candidate;
+                    saw_increase = true;
+                    assert_eq!(session.message_index_high_watermark, Some(high));
+                }
+            }
+            // Sanity: most runs must observe at least one accepted step.
+            assert!(saw_increase || RUNS > 1);
+        }
+    }
+
+    /// Wraparound: u64::MAX is accepted as a one-off, but every following
+    /// candidate (including u64::MAX itself) must reject. This documents
+    /// the contract that the watermark is sticky at the top of the range
+    /// — callers MUST rotate the session before they can submit more.
+    #[test]
+    fn message_index_wraparound_at_u64_max() {
+        let mut session = make_session();
+        let now = Utc::now();
+        session.accept_message_index(u64::MAX, now).unwrap();
+        // Every subsequent index (including u64::MAX) must reject.
+        assert!(matches!(session.accept_message_index(u64::MAX, now), Err(Error::Protocol(_))));
+        assert!(matches!(session.accept_message_index(0, now), Err(Error::Protocol(_))));
+        assert!(matches!(
+            session.accept_message_index(u64::MAX - 1, now),
+            Err(Error::Protocol(_))
+        ));
+        // Watermark stays pinned.
+        assert_eq!(session.message_index_high_watermark, Some(u64::MAX));
+    }
+
+    /// `CrossSigningResetProof::DeviceQuorum { threshold: 0, .. }` must
+    /// be rejected even when the signatures vector is non-empty.
+    #[test]
+    fn cross_signing_reset_proof_threshold_zero_rejected() {
+        let content = CrossSigningResetContent {
+            principal_id: did("alice"),
+            previous_generation: 1,
+            new_generation: 2,
+            reset_reason: "lost phone".to_owned(),
+            proof: CrossSigningResetProof::DeviceQuorum {
+                threshold: 0,
+                signatures: vec![DeviceQuorumSignature {
+                    device_id: device(),
+                    signed_by: "did:web:alice.example#dev1".to_owned(),
+                    alg: "EdDSA".to_owned(),
+                    signature: "AAAA".to_owned(),
+                }],
+            },
+            issued_at: Utc::now(),
+        };
+        let err = content.validate_structure().unwrap_err();
+        if let Error::Protocol(message) = err {
+            assert!(
+                message.contains("threshold >= 1"),
+                "unexpected message: {message}"
+            );
+        } else {
+            panic!("expected Error::Protocol");
+        }
+    }
+
+    /// `PrincipalSigning` / `TrustedRecoveryService` / `RecoveryUnlock`:
+    /// blank kid/alg/signature strings must all be rejected.
+    #[test]
+    fn cross_signing_reset_proof_rejects_malformed_kid_alg() {
+        // PrincipalSigning with whitespace-only `signed_by`.
+        let blank_signed_by = CrossSigningResetContent {
+            principal_id: did("alice"),
+            previous_generation: 1,
+            new_generation: 2,
+            reset_reason: "rot".to_owned(),
+            proof: CrossSigningResetProof::PrincipalSigning {
+                signed_by: "   ".to_owned(),
+                alg: "EdDSA".to_owned(),
+                signature: "sig".to_owned(),
+            },
+            issued_at: Utc::now(),
+        };
+        assert!(matches!(blank_signed_by.validate_structure(), Err(Error::Protocol(_))));
+
+        // PrincipalSigning with empty `alg`.
+        let blank_alg = CrossSigningResetContent {
+            proof: CrossSigningResetProof::PrincipalSigning {
+                signed_by: "did:web:a.example#k1".to_owned(),
+                alg: String::new(),
+                signature: "sig".to_owned(),
+            },
+            ..blank_signed_by.clone()
+        };
+        assert!(matches!(blank_alg.validate_structure(), Err(Error::Protocol(_))));
+
+        // RecoveryUnlock with blank `unlock_commitment` is rejected.
+        let blank_unlock = CrossSigningResetContent {
+            proof: CrossSigningResetProof::RecoveryUnlock {
+                recovery_secret_ref: "ref".to_owned(),
+                unlock_commitment: "  ".to_owned(),
+                alg: "EdDSA".to_owned(),
+                signature: "sig".to_owned(),
+            },
+            ..blank_signed_by.clone()
+        };
+        assert!(matches!(blank_unlock.validate_structure(), Err(Error::Protocol(_))));
+
+        // device_quorum with one signature whose `alg` is empty.
+        let bad_quorum = CrossSigningResetContent {
+            proof: CrossSigningResetProof::DeviceQuorum {
+                threshold: 1,
+                signatures: vec![DeviceQuorumSignature {
+                    device_id: device(),
+                    signed_by: "did:web:a.example#d".to_owned(),
+                    alg: String::new(),
+                    signature: "AAAA".to_owned(),
+                }],
+            },
+            ..blank_signed_by
+        };
+        assert!(matches!(bad_quorum.validate_structure(), Err(Error::Protocol(_))));
+    }
+
+    /// `CrossSigningResetProof::DeviceQuorum`: an over-long `alg` string
+    /// must be rejected as bounds-exceeded, not silently accepted.
+    #[test]
+    fn cross_signing_reset_proof_oversized_alg_rejected() {
+        let content = CrossSigningResetContent {
+            principal_id: did("alice"),
+            previous_generation: 1,
+            new_generation: 2,
+            reset_reason: "rot".to_owned(),
+            proof: CrossSigningResetProof::DeviceQuorum {
+                threshold: 1,
+                signatures: vec![DeviceQuorumSignature {
+                    device_id: device(),
+                    signed_by: "did:web:a.example#d".to_owned(),
+                    alg: "X".repeat(MAX_ALGORITHM_NAME_LEN + 1),
+                    signature: "AAAA".to_owned(),
+                }],
+            },
+            issued_at: Utc::now(),
+        };
+        let err = content.validate_structure().unwrap_err();
+        assert!(matches!(err, Error::Protocol(_)));
+    }
+
+    /// Recording an `UnableToDecryptRecord` with a `BadCiphertext`
+    /// reason: the binding accepts it but the encrypted payload is
+    /// observable (the renderer needs it to show a placeholder) and
+    /// later inserts under the same event id MUST overwrite.
+    #[test]
+    fn unable_to_decrypt_path_bad_ciphertext() {
+        let mut binding = CryptoStoreBinding::default();
+        let event_id =
+            EventId::new("cx:event:01904100-0000-7000-8000-4e7fda181f9f").unwrap();
+        let space_id =
+            SpaceId::new("cx:space:01904100-0000-7000-8000-6c355fb9dada").unwrap();
+        let payload = EncryptedPayload {
+            scheme: EncryptedPayloadScheme::MlsRfc9420,
+            group_id: "group".to_owned(),
+            epoch: 1,
+            content_type: "application/json".to_owned(),
+            // intentionally non-decryptable: empty ciphertext + mismatched digest
+            ciphertext: String::new(),
+            aad: None,
+            payload_digest: Hash::new(sha256_prefixed(b"not-the-ciphertext")).unwrap(),
+            key_ref: None,
+        };
+        let record = UnableToDecryptRecord {
+            event_id: event_id.clone(),
+            space_id: space_id.clone(),
+            sender: did("alice"),
+            reason: UnableToDecryptReason::BadCiphertext,
+            encrypted_payload: payload.clone(),
+            first_seen_at: Utc::now(),
+        };
+        binding.record_unable_to_decrypt(record);
+        assert_eq!(binding.unable_to_decrypt.len(), 1);
+        let stored = binding.unable_to_decrypt.get(&event_id).unwrap();
+        assert_eq!(stored.reason, UnableToDecryptReason::BadCiphertext);
+        assert!(stored.encrypted_payload.ciphertext.is_empty());
+
+        // Recording again with NoSession overwrites the prior entry —
+        // the keyed event id is stable so the second observation wins.
+        binding.record_unable_to_decrypt(UnableToDecryptRecord {
+            event_id: event_id.clone(),
+            space_id,
+            sender: did("alice"),
+            reason: UnableToDecryptReason::NoSession,
+            encrypted_payload: payload,
+            first_seen_at: Utc::now(),
+        });
+        assert_eq!(binding.unable_to_decrypt.len(), 1);
+        assert_eq!(
+            binding.unable_to_decrypt.get(&event_id).unwrap().reason,
+            UnableToDecryptReason::NoSession
+        );
     }
 }
