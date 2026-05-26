@@ -11,6 +11,16 @@ pub const AGENT_KEY_ROTATE: &str = "cx.agent.key.rotate";
 pub const AGENT_KEY_AUTHORIZED: &str = AGENT_KEY_AUTHORIZE;
 pub const AGENT_KEY_REVOKED: &str = AGENT_KEY_REVOKE;
 pub const AGENT_KEY_ROTATED: &str = AGENT_KEY_ROTATE;
+// CXP-0008 / CXP-0009 (spec head 37ce729) — personal-agent lifecycle event
+// kinds (durable, reducer-input).
+pub const AGENT_PAUSE: &str = "cx.agent.pause";
+pub const AGENT_RESUME: &str = "cx.agent.resume";
+pub const AGENT_DEACTIVATE: &str = "cx.agent.deactivate";
+// CXP-0008 / CXP-0009 — agent action / draft event kinds (actor_private).
+pub const AGENT_DRAFT_PROPOSE: &str = "cx.agent.draft.propose";
+pub const AGENT_ACTION_REQUEST: &str = "cx.agent.action_request";
+pub const AGENT_ACTION_APPROVE: &str = "cx.agent.action_approve";
+pub const AGENT_ACTION_REJECT: &str = "cx.agent.action_reject";
 pub const AGENT_PROTOCOL_SESSION_RESULT: &str = "cx.agent.protocol_session.result";
 pub const AGENT_PROTOCOL_SESSION_START: &str = "cx.agent.protocol_session.start";
 pub const AGENT_PROTOCOL_SESSION_STATUS: &str = "cx.agent.protocol_session.status";
@@ -250,13 +260,20 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     ACCOUNT_STATUS,
     ACCOUNT_DATA_SET,
     ACTOR_DISCOVERY,
+    AGENT_ACTION_APPROVE,
+    AGENT_ACTION_REJECT,
+    AGENT_ACTION_REQUEST,
+    AGENT_DEACTIVATE,
+    AGENT_DRAFT_PROPOSE,
     AGENT_ENDPOINT,
     AGENT_KEY_AUTHORIZED,
     AGENT_KEY_REVOKED,
     AGENT_KEY_ROTATED,
+    AGENT_PAUSE,
     AGENT_PROTOCOL_SESSION_RESULT,
     AGENT_PROTOCOL_SESSION_START,
     AGENT_PROTOCOL_SESSION_STATUS,
+    AGENT_RESUME,
     APPLET_BRIDGE_ERROR,
     APPLET_DISCOVERY,
     APPLET_PROTOCOL_SESSION_START,
@@ -410,6 +427,10 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
 pub const NON_REDUCER_EVENT_KINDS: &[&str] = &[
     ACCOUNT_BLOCKLIST,
     ACCOUNT_DATA_SET,
+    AGENT_ACTION_APPROVE,
+    AGENT_ACTION_REJECT,
+    AGENT_ACTION_REQUEST,
+    AGENT_DRAFT_PROPOSE,
     ATTESTATION_RANGE_COMPLETENESS,
     AUDIT_ERASURE_RECEIPT,
     AUDIT_RYW_RECEIPT,
@@ -447,7 +468,8 @@ pub fn is_reducer_input_event_kind(kind: &str) -> bool {
 
 pub fn event_wire_scope(kind: &str) -> EventWireScope {
     match kind {
-        ACCOUNT_BLOCKLIST | ACCOUNT_DATA_SET | DEVICE_PUSH_ROUTE | READ_MARKER => {
+        ACCOUNT_BLOCKLIST | ACCOUNT_DATA_SET | AGENT_ACTION_APPROVE | AGENT_ACTION_REJECT
+        | AGENT_ACTION_REQUEST | AGENT_DRAFT_PROPOSE | DEVICE_PUSH_ROUTE | READ_MARKER => {
             EventWireScope::ActorPrivateEvent
         }
         CALL_SIGNAL
@@ -516,13 +538,20 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
             EventClass::Account
         }
         ACTOR_DISCOVERY => EventClass::Actor,
-        AGENT_ENDPOINT
+        AGENT_ACTION_APPROVE
+        | AGENT_ACTION_REJECT
+        | AGENT_ACTION_REQUEST
+        | AGENT_DEACTIVATE
+        | AGENT_DRAFT_PROPOSE
+        | AGENT_ENDPOINT
         | AGENT_KEY_AUTHORIZED
         | AGENT_KEY_REVOKED
         | AGENT_KEY_ROTATED
+        | AGENT_PAUSE
         | AGENT_PROTOCOL_SESSION_RESULT
         | AGENT_PROTOCOL_SESSION_START
-        | AGENT_PROTOCOL_SESSION_STATUS => EventClass::Agent,
+        | AGENT_PROTOCOL_SESSION_STATUS
+        | AGENT_RESUME => EventClass::Agent,
         APPLET_BRIDGE_ERROR
         | APPLET_DISCOVERY
         | APPLET_PROTOCOL_SESSION_START

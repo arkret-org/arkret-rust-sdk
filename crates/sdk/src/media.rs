@@ -22,7 +22,9 @@ pub struct MediaMetadata {
     /// SHA-256 digest.
     pub sha256: String,
     /// Size in bytes.
-    pub size: u64,
+    ///
+    /// Spec rename (head 37ce729): `size` → `size_bytes` on blob/media metadata.
+    pub size_bytes: u64,
     /// Media type.
     pub media_type: String,
     /// Optional filename.
@@ -51,7 +53,9 @@ pub struct Thumbnail {
     /// Maximum height requested.
     pub height: u32,
     /// Thumbnail size in bytes.
-    pub size: u64,
+    ///
+    /// Spec rename (head 37ce729): `size` → `size_bytes` on blob/media metadata.
+    pub size_bytes: u64,
 }
 
 /// Attachment metadata.
@@ -66,7 +70,9 @@ pub struct Attachment {
     /// Media type.
     pub media_type: String,
     /// Plaintext size for encrypted attachments, blob size otherwise.
-    pub size: u64,
+    ///
+    /// Spec rename (head 37ce729): `size` → `size_bytes` on blob/media metadata.
+    pub size_bytes: u64,
     /// Encryption metadata if stored encrypted.
     pub encryption: Option<EncryptedAttachment>,
 }
@@ -175,7 +181,7 @@ impl MemoryBlobStore {
         let metadata = MediaMetadata {
             blob_ref: blob_ref.clone(),
             sha256: sha256_hex(bytes),
-            size: bytes.len() as u64,
+            size_bytes: bytes.len() as u64,
             media_type: media_type.into(),
             filename,
             uploaded_by,
@@ -223,7 +229,7 @@ impl MemoryBlobStore {
             media_type: "image/preview".to_owned(),
             width,
             height,
-            size: preview.len() as u64,
+            size_bytes: preview.len() as u64,
         };
         self.thumbnails.insert(source_blob_ref.clone(), thumbnail.clone());
         Ok(thumbnail)
@@ -252,7 +258,7 @@ impl MemoryBlobStore {
             blob_ref: metadata.blob_ref,
             filename,
             media_type,
-            size: metadata.size,
+            size_bytes: metadata.size_bytes,
             encryption: None,
         };
         self.attachments.insert(attachment.id.clone(), attachment.clone());
@@ -289,7 +295,7 @@ impl MemoryBlobStore {
             blob_ref: metadata.blob_ref,
             filename,
             media_type,
-            size: plaintext.len() as u64,
+            size_bytes: plaintext.len() as u64,
             encryption: Some(EncryptedAttachment {
                 algorithm: AEAD_ALGORITHM.to_owned(),
                 key_sha256: sha256_hex(key),
@@ -490,7 +496,7 @@ mod tests {
         let attachment = store
             .upload_attachment("a1", "note.txt", "text/plain", b"hello", did("alice"))
             .unwrap();
-        assert_eq!(attachment.size, 5);
+        assert_eq!(attachment.size_bytes, 5);
         assert_eq!(store.download_attachment("a1"), Some(&b"hello"[..]));
 
         let encrypted = store

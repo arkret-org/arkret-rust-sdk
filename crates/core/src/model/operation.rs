@@ -517,7 +517,8 @@ pub struct BlobMetadata {
     pub schema: String,
     pub blob_ref: BlobRef,
     pub sha256: String,
-    pub size: u64,
+    /// Spec rename (head 37ce729): `size` → `size_bytes` on blob/media metadata.
+    pub size_bytes: u64,
     pub media_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub filename: Option<String>,

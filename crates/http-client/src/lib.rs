@@ -27,9 +27,9 @@ use contrix_core::{
     IdentityReceiptsResBody, IdentityResolveReqBody, IdentityResolveResBody, KeyBackup,
     KeyBackupDeleteReqBody, KeyBackupDeleteResBody, KeyBackupPutResBody, KeyBackupSummary,
     KeyBackupsListQuery, KeyBackupsListResBody, KeysClaimReqBody, KeysClaimResBody,
-    KeysQueryReqBody, KeysQueryResBody, KeysUploadReqBody, KeysUploadResBody, MediaIceConfigReqBody,
-    MediaIceConfigResBody, ModerationReportReqBody, ModerationReportResBody, OkResBody,
-    PolicyCheckReqBody, PolicyCheckResBody, PushNotifyReqBody, PushNotifyResBody,
+    KeysQueryReqBody, KeysQueryResBody, KeysUploadReqBody, KeysUploadResBody,
+    MediaIceConfigReqBody, MediaIceConfigResBody, ModerationReportReqBody, ModerationReportResBody,
+    OkResBody, PolicyCheckReqBody, PolicyCheckResBody, PushNotifyReqBody, PushNotifyResBody,
     PushRegisterDeviceReqBody, PushRegisterDeviceResBody, PushUnregisterDeviceReqBody, Result,
     ServerDescription, ServiceRequirements, SubmitDidOperationReqBody, SubmitDidOperationResBody,
     SyncBackfillResBody, SyncDescription, SyncReqBody, SyncResBody, SyncSnapshotHeadResBody,
@@ -1599,6 +1599,9 @@ mod tests {
                 requirements: EventRequirements::default(),
                 redacts: None,
                 content: json!({ "body": content_body }),
+                executed_by: None,
+                authorization_ref: None,
+                actor_kind: None,
                 unsigned: BTreeMap::new(),
                 proofs: Vec::new(),
             }
@@ -1633,8 +1636,7 @@ mod tests {
                     }
                     buf.extend_from_slice(&tmp[..n]);
                     if headers_end.is_none()
-                        && let Some(idx) =
-                            buf.windows(4).position(|window| window == b"\r\n\r\n")
+                        && let Some(idx) = buf.windows(4).position(|window| window == b"\r\n\r\n")
                     {
                         headers_end = Some(idx + 4);
                         let header_str = std::str::from_utf8(&buf[..idx]).unwrap_or("");
@@ -1665,8 +1667,7 @@ mod tests {
             });
 
             let base = Url::parse(&format!("http://{addr}/")).unwrap();
-            let client =
-                Client::builder(base).allow_insecure_localhost().build().unwrap();
+            let client = Client::builder(base).allow_insecure_localhost().build().unwrap();
             (client, rx)
         }
 
@@ -1701,7 +1702,10 @@ mod tests {
             let parsed: Value = serde_json::from_slice(&body).unwrap();
             // The wire body is the bare envelope, not wrapped in `{"event":..}`
             // or `{"events":[..]}`.
-            assert!(parsed.get("events").is_none(), "single-event POST must not wrap in events[]: {parsed}");
+            assert!(
+                parsed.get("events").is_none(),
+                "single-event POST must not wrap in events[]: {parsed}"
+            );
             assert_eq!(parsed["kind"], "cx.message.create");
             assert_eq!(parsed["payload"]["body"], "hello");
             assert_eq!(parsed["actor_id"], "did:web:alice.example");
@@ -1738,8 +1742,10 @@ mod tests {
             }"#;
             let (client, _capture) = spawn_capture_server(canned).await;
 
-            let response =
-                client.events_submit_batch(&[fixture_event("a"), fixture_event("b")]).await.unwrap();
+            let response = client
+                .events_submit_batch(&[fixture_event("a"), fixture_event("b")])
+                .await
+                .unwrap();
 
             assert!(
                 matches!(response.status, contrix_core::EventsSubmitStatus::Partial),

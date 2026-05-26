@@ -655,7 +655,8 @@ pub struct TimelineGapRepairReqBody {
 pub struct MediaUploadReqBody {
     pub filename: Option<String>,
     pub content_type: String,
-    pub size: u64,
+    /// Spec rename (head 37ce729): `size` → `size_bytes` on blob/media metadata.
+    pub size_bytes: u64,
     pub sha256: Hash,
     #[serde(default)]
     pub encrypted: bool,
@@ -666,7 +667,7 @@ impl MediaUploadReqBody {
         if self.content_type.trim().is_empty() {
             return Err(Error::Protocol("media content type must not be empty".to_owned()));
         }
-        if self.size == 0 {
+        if self.size_bytes == 0 {
             return Err(Error::Protocol("media upload size must be non-zero".to_owned()));
         }
         Ok(())
@@ -711,7 +712,8 @@ pub struct MediaDownloadArgs {
 pub struct MediaDownloadResBody {
     pub blob_ref: BlobRef,
     pub content_type: String,
-    pub size: u64,
+    /// Spec rename (head 37ce729): `size` → `size_bytes` on blob/media metadata.
+    pub size_bytes: u64,
     pub sha256: Hash,
     pub encrypted_payload: Option<EncryptedPayload>,
 }
@@ -1176,7 +1178,7 @@ mod tests {
         let upload = MediaUploadReqBody {
             filename: Some("a.txt".to_owned()),
             content_type: "text/plain".to_owned(),
-            size: 12,
+            size_bytes: 12,
             sha256: Hash::new(
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             )

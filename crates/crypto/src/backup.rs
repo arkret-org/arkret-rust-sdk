@@ -336,6 +336,17 @@ pub fn build_key_backup_envelope(
             extra: Default::default(),
         })
         .collect();
+    // Key-backup hardening (B-C, spec head 37ce729): every envelope MUST
+    // carry `series_id` + `series_seq`. This helper produces a *genesis*
+    // envelope by minting a fresh series_id and seq=0.
+    //
+    // TODO(P1): expose a successor-builder API that takes a parent series_id
+    // + the predecessor `ciphertext_digest` and produces an envelope with
+    // `supersedes_digest` + `frontier_ref` populated, so callers can build
+    // chained backups end-to-end. The current shape is genesis-only.
+    let series_id =
+        contrix_core::BackupSeriesId::new(contrix_core::new_prefixed_uuid7("cx:backup_series:"))
+            .map_err(|err| anyhow!("failed to mint backup_series id: {err}"))?;
     Ok(KeyBackup {
         backup_id,
         actor_id,
@@ -353,6 +364,11 @@ pub fn build_key_backup_envelope(
         plaintext_commitment: None,
         auth_data: None,
         retention: None,
+        series_id,
+        series_seq: 0,
+        supersedes: None,
+        supersedes_digest: None,
+        frontier_ref: None,
         extra: Default::default(),
     })
 }

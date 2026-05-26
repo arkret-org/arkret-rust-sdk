@@ -259,7 +259,8 @@ pub struct FederationMediaReqBody {
 pub struct FederationMediaResBody {
     pub blob_ref: BlobRef,
     pub content_type: String,
-    pub size: u64,
+    /// Spec rename (head 37ce729): `size` → `size_bytes` on blob/media metadata.
+    pub size_bytes: u64,
     pub sha256: Hash,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub redirect_url: Option<String>,
@@ -267,7 +268,7 @@ pub struct FederationMediaResBody {
 
 impl FederationMediaResBody {
     pub fn validate(&self) -> Result<()> {
-        if self.content_type.trim().is_empty() || self.size == 0 {
+        if self.content_type.trim().is_empty() || self.size_bytes == 0 {
             Err(Error::Protocol(
                 "federation media response requires content type and size".to_owned(),
             ))
@@ -377,7 +378,7 @@ mod tests {
         FederationMediaResBody {
             blob_ref: BlobRef::from_bytes(b"media"),
             content_type: "image/png".to_owned(),
-            size: 42,
+            size_bytes: 42,
             sha256: Hash::new(
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             )

@@ -207,18 +207,12 @@ const FORBIDDEN_ENTRIES: &[ForbiddenEntry] = &[
     ForbiddenEntry { field: "stage_changed_at", context: WireContext::MorphPatchPath },
     // Identifier rename batch (post-2026-05-25): single concrete object ids
     // use `_id`; `_ref` is reserved for causal / proof / polymorphic refs.
-    ForbiddenEntry {
-        field: "parent_ref",
-        context: WireContext::EventEnvelopeOrPayloadTopLevel,
-    },
+    ForbiddenEntry { field: "parent_ref", context: WireContext::EventEnvelopeOrPayloadTopLevel },
     ForbiddenEntry {
         field: "default_realm_ref",
         context: WireContext::EventEnvelopeOrPayloadTopLevel,
     },
-    ForbiddenEntry {
-        field: "scope_ref",
-        context: WireContext::EventEnvelopeOrPayloadTopLevel,
-    },
+    ForbiddenEntry { field: "scope_ref", context: WireContext::EventEnvelopeOrPayloadTopLevel },
     ForbiddenEntry {
         field: "default_scope_ref",
         context: WireContext::EventEnvelopeOrPayloadTopLevel,
@@ -267,24 +261,12 @@ const FORBIDDEN_ENTRIES: &[ForbiddenEntry] = &[
     // Directory projection / search
     ForbiddenEntry { field: "name", context: WireContext::DirectoryProjection },
     ForbiddenEntry { field: "avatar", context: WireContext::DirectoryProjection },
-    ForbiddenEntry {
-        field: "official_organizations",
-        context: WireContext::DirectoryProjection,
-    },
-    ForbiddenEntry {
-        field: "parent_realm_id",
-        context: WireContext::DirectorySearchRequest,
-    },
+    ForbiddenEntry { field: "official_organizations", context: WireContext::DirectoryProjection },
+    ForbiddenEntry { field: "parent_realm_id", context: WireContext::DirectorySearchRequest },
     // Encrypted envelope
-    ForbiddenEntry {
-        field: "cleartext_commitment",
-        context: WireContext::EncryptedEnvelope,
-    },
+    ForbiddenEntry { field: "cleartext_commitment", context: WireContext::EncryptedEnvelope },
     // Capability delegate
-    ForbiddenEntry {
-        field: "source_capability",
-        context: WireContext::CapabilityDelegatePayload,
-    },
+    ForbiddenEntry { field: "source_capability", context: WireContext::CapabilityDelegatePayload },
     // Object-patch payload
     ForbiddenEntry { field: "object_ref", context: WireContext::ObjectPatchPayload },
     ForbiddenEntry { field: "object_ref", context: WireContext::ObjectLifecyclePayload },
@@ -297,24 +279,15 @@ const FORBIDDEN_ENTRIES: &[ForbiddenEntry] = &[
         field: "events",
         context: WireContext::AccountSubscribeDeviceMessageContainer,
     },
-    ForbiddenEntry {
-        field: "space_entry",
-        context: WireContext::AccountSubscribeFrameSchemaDef,
-    },
+    ForbiddenEntry { field: "space_entry", context: WireContext::AccountSubscribeFrameSchemaDef },
     // Agent audit binding
     ForbiddenEntry { field: "actor", context: WireContext::AgentAuditBinding },
     // Snapshot chunk
     ForbiddenEntry { field: "sha256", context: WireContext::SnapshotChunk },
     // Moderation payloads
     ForbiddenEntry { field: "frank", context: WireContext::ModerationReportPayload },
-    ForbiddenEntry {
-        field: "frank_id",
-        context: WireContext::ModerationFrankingProofPayload,
-    },
-    ForbiddenEntry {
-        field: "frank_only",
-        context: WireContext::ModerationQueueItemVisibility,
-    },
+    ForbiddenEntry { field: "frank_id", context: WireContext::ModerationFrankingProofPayload },
+    ForbiddenEntry { field: "frank_only", context: WireContext::ModerationQueueItemVisibility },
     ForbiddenEntry {
         field: "requires_frank_verification",
         context: WireContext::ModerationQueueItemEvidencePolicy,
@@ -363,15 +336,8 @@ pub fn is_forbidden_in_context(field: &str, context: WireContext) -> bool {
 /// `context: typed_id_prefix`. Receivers MUST hard-reject any typed id
 /// whose prefix matches an entry here; the canonical replacement is
 /// listed in the spec entry.
-pub const FORBIDDEN_ID_PREFIXES: &[&str] = &[
-    "cx:notif:",
-    "cx:devmsg:",
-    "cx:keyevt:",
-    "cx:modq:",
-    "cx:req:",
-    "cx:txn:",
-    "cx:frank:",
-];
+pub const FORBIDDEN_ID_PREFIXES: &[&str] =
+    &["cx:notif:", "cx:devmsg:", "cx:keyevt:", "cx:modq:", "cx:req:", "cx:txn:", "cx:frank:"];
 
 /// Returns `true` when `id` starts with a forbidden typed-id prefix
 /// (e.g. `cx:notif:01234...` — canonical is `cx:notification:`).
@@ -395,9 +361,7 @@ mod tests {
 
     #[test]
     fn rejects_legacy_scope_ref_batch() {
-        for field in
-            ["parent_ref", "default_realm_ref", "scope_ref", "default_scope_ref"]
-        {
+        for field in ["parent_ref", "default_realm_ref", "scope_ref", "default_scope_ref"] {
             assert!(
                 is_forbidden_wire_field(field),
                 "field `{field}` must be in the hard-reject set"
@@ -407,9 +371,7 @@ mod tests {
 
     #[test]
     fn accepts_canonical_replacements() {
-        for field in
-            ["scope_circle_id", "default_scope_circle_id", "parent_space_id"]
-        {
+        for field in ["scope_circle_id", "default_scope_circle_id", "parent_space_id"] {
             assert!(
                 !is_forbidden_wire_field(field),
                 "canonical replacement `{field}` must not be hard-rejected"
@@ -442,29 +404,18 @@ mod tests {
     fn context_aware_fields_dot_stage_rejected_on_flow_and_morph() {
         assert!(is_forbidden_in_context("fields.stage", WireContext::FlowPayload));
         assert!(is_forbidden_in_context("fields.stage", WireContext::MorphPayload));
-        assert!(is_forbidden_in_context(
-            "fields.stage_changed_at",
-            WireContext::FlowPayload
-        ));
+        assert!(is_forbidden_in_context("fields.stage_changed_at", WireContext::FlowPayload));
         // Not flagged on unrelated payload contexts.
         assert!(!is_forbidden_in_context("fields.stage", WireContext::SpacePayload));
     }
 
     #[test]
     fn id_prefix_rejects_abbreviations() {
-        assert!(is_forbidden_id_prefix(
-            "cx:notif:01904100-0000-7000-8000-000000000000"
-        ));
-        assert!(is_forbidden_id_prefix(
-            "cx:devmsg:01904100-0000-7000-8000-000000000000"
-        ));
-        assert!(is_forbidden_id_prefix(
-            "cx:keyevt:01904100-0000-7000-8000-000000000000"
-        ));
+        assert!(is_forbidden_id_prefix("cx:notif:01904100-0000-7000-8000-000000000000"));
+        assert!(is_forbidden_id_prefix("cx:devmsg:01904100-0000-7000-8000-000000000000"));
+        assert!(is_forbidden_id_prefix("cx:keyevt:01904100-0000-7000-8000-000000000000"));
         // Canonical full-form prefix is not flagged.
-        assert!(!is_forbidden_id_prefix(
-            "cx:notification:01904100-0000-7000-8000-000000000000"
-        ));
+        assert!(!is_forbidden_id_prefix("cx:notification:01904100-0000-7000-8000-000000000000"));
     }
 
     #[test]

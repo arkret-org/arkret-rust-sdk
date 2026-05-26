@@ -88,6 +88,9 @@ fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
         requirements: EventRequirements::default(),
         redacts: None,
         content: json!({ "body": "hello" }),
+        executed_by: None,
+        authorization_ref: None,
+        actor_kind: None,
         unsigned: BTreeMap::from([("local_receive_time".to_owned(), json!("ignored"))]),
         proofs: Vec::new(),
     };

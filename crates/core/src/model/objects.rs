@@ -28,7 +28,8 @@ pub struct Space {
     pub summary: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub security_class: Option<SecurityClass>,
-    pub created_by_principal: Did,
+    /// Spec rename (head 37ce729): `created_by_principal` → `created_by`.
+    pub created_by: Did,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub owning_organizations: Vec<Did>,
     pub schema_refs: Vec<String>,
@@ -154,7 +155,7 @@ impl Space {
     pub fn new(
         id: SpaceId,
         title: impl Into<String>,
-        created_by_principal: Did,
+        created_by: Did,
         trust_domain: TypedTrustDomainId,
     ) -> Self {
         Self {
@@ -164,7 +165,7 @@ impl Space {
             trust_domain,
             summary: None,
             security_class: None,
-            created_by_principal,
+            created_by,
             owning_organizations: Vec::new(),
             schema_refs: vec![CORE_SCHEMA_PROFILE.to_owned()],
             policy_ref: None,

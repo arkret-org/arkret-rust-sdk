@@ -651,9 +651,9 @@ mod tests {
         let now = Utc::now();
         let mut grant = root_grant("g1", &["read"], "cx:space:1");
         grant.expires_at = Some(now + Duration::hours(2));
-        grant.constraints.push(GrantConstraint::Temporal {
-            expires_at: Some(now + Duration::hours(1)),
-        });
+        grant
+            .constraints
+            .push(GrantConstraint::Temporal { expires_at: Some(now + Duration::hours(1)) });
         let effective = grant_effective_expiry(&grant).expect("has expiry");
         // The constraint says 1h; top-level says 2h. Stricter (1h) wins.
         assert!(effective <= now + Duration::hours(1));

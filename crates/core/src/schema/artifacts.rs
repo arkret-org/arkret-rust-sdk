@@ -479,6 +479,10 @@ pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     "cx.schema.attestation_evidence.v1",
     // CXP-0007 (spec b7d35be) — Circle primitive schema.
     "cx.schema.circle.v1",
+    // Key-backup hardening (B-C, spec head 37ce729) — recovery policy and
+    // recovery receipt schemas.
+    "cx.schema.recovery_policy.v1",
+    "cx.schema.recovery_receipt.v1",
     EVENT_SCHEMA,
     EVENT_PAYLOAD_SCHEMA,
     FLOW_SCHEMA,

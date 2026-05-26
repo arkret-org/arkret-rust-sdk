@@ -156,6 +156,22 @@ pub const ERROR_CODE_DEVICE_RECOVERY_SSK_GENERATION_MISMATCH: &str =
     "device_recovery_ssk_generation_mismatch";
 pub const ERROR_CODE_CURSOR_REVOKED: &str = "cursor_revoked";
 
+// ── Key-backup hardening (B-C, spec head 37ce729) — 11 new wire-level error
+// codes covering the key-backup series chain, recovery-policy alignment,
+// share commitment, frontier staleness, legacy secret_storage rejection,
+// recovery evidence binding, AEAD profile gating, and attestation presence.
+pub const ERROR_CODE_SERIES_CHAIN_BROKEN: &str = "series_chain_broken";
+pub const ERROR_CODE_SERIES_SEQ_NOT_MONOTONIC: &str = "series_seq_not_monotonic";
+pub const ERROR_CODE_SERIES_PREDECESSOR_NOT_FOUND: &str = "series_predecessor_not_found";
+pub const ERROR_CODE_RECOVERY_POLICY_MISMATCH: &str = "recovery_policy_mismatch";
+pub const ERROR_CODE_SHARE_COMMITMENT_MISMATCH: &str = "share_commitment_mismatch";
+pub const ERROR_CODE_BACKUP_FRONTIER_STALE: &str = "backup_frontier_stale";
+pub const ERROR_CODE_BACKUP_POST_RESET_STALE: &str = "backup_post_reset_stale";
+pub const ERROR_CODE_LEGACY_SECRET_STORAGE_WIRE_FORM: &str = "legacy_secret_storage_wire_form";
+pub const ERROR_CODE_RECOVERY_EVIDENCE_UNBOUND: &str = "recovery_evidence_unbound";
+pub const ERROR_CODE_UNSUPPORTED_AEAD_PROFILE: &str = "unsupported_aead_profile";
+pub const ERROR_CODE_ATTESTATION_MISSING: &str = "attestation_missing";
+
 /// All canonical error codes recognised by the registry. The order matches
 /// `error-code-registry.json`. Use [`is_known_error_code`] before populating
 /// `ErrorEnvelope.code` from arbitrary input.
@@ -254,6 +270,18 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
     ERROR_CODE_AUTHORIZED_GRANT_REVOKED,
     ERROR_CODE_DEVICE_RECOVERY_SSK_GENERATION_MISMATCH,
     ERROR_CODE_CURSOR_REVOKED,
+    // Key-backup hardening (B-C, spec head 37ce729) — 11 codes.
+    ERROR_CODE_SERIES_CHAIN_BROKEN,
+    ERROR_CODE_SERIES_SEQ_NOT_MONOTONIC,
+    ERROR_CODE_SERIES_PREDECESSOR_NOT_FOUND,
+    ERROR_CODE_RECOVERY_POLICY_MISMATCH,
+    ERROR_CODE_SHARE_COMMITMENT_MISMATCH,
+    ERROR_CODE_BACKUP_FRONTIER_STALE,
+    ERROR_CODE_BACKUP_POST_RESET_STALE,
+    ERROR_CODE_LEGACY_SECRET_STORAGE_WIRE_FORM,
+    ERROR_CODE_RECOVERY_EVIDENCE_UNBOUND,
+    ERROR_CODE_UNSUPPORTED_AEAD_PROFILE,
+    ERROR_CODE_ATTESTATION_MISSING,
 ];
 
 // ── Failed-precondition reason codes (sub-codes inside `failed_precondition`)
@@ -509,16 +537,14 @@ pub const REASON_CIRCLE_NOT_ACTIVE: &str = "circle_not_active";
 /// when the target actor is not yet an active member of the parent Realm.
 /// Reflects the strict-subset invariant
 /// `Circle.members ⊆ Realm.members`.
-pub const REASON_CIRCLE_MEMBER_MUST_BE_REALM_MEMBER: &str =
-    "circle_member_must_be_realm_member";
+pub const REASON_CIRCLE_MEMBER_MUST_BE_REALM_MEMBER: &str = "circle_member_must_be_realm_member";
 /// `failed_precondition` sub-reason: attempted `scope_circle_id` rebind
 /// without an explicitly profile-permitted audited-high-risk path.
 pub const REASON_SCOPE_REBIND_FORBIDDEN: &str = "scope_rebind_forbidden";
 /// `failed_precondition` sub-reason: a write would expose metadata below
 /// the effective `metadata_encryption_profile` floor (max of parent
 /// Realm, Circle, Space child-scope-policy, and object profile floors).
-pub const REASON_METADATA_ENCRYPTION_FLOOR_VIOLATION: &str =
-    "metadata_encryption_floor_violation";
+pub const REASON_METADATA_ENCRYPTION_FLOOR_VIOLATION: &str = "metadata_encryption_floor_violation";
 
 /// CXP-0007 (spec b7d35be) — Circle reason codes registered under the
 /// `failed_precondition` / `schema_violation` wire-code families. The
@@ -581,6 +607,7 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_SOFT_LOGGED_OUT
         | ERROR_CODE_INVALID_SIGNATURE
         | ERROR_CODE_TURN_CREDENTIAL_EXPIRED
+        | ERROR_CODE_ATTESTATION_MISSING
         | ERROR_CODE_DID_PROOF_REQUIRED => 401,
         ERROR_CODE_CAPABILITY_DENIED
         | ERROR_CODE_DIRECTORY_NOT_AUTHORIZED
@@ -625,7 +652,13 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_TAKEDOWN_IN_FORCE
         | ERROR_CODE_POLICY_REVISION_ROLLBACK
         | ERROR_CODE_AUTHORIZED_GRANT_REVOKED
-        | ERROR_CODE_DEVICE_RECOVERY_SSK_GENERATION_MISMATCH => 409,
+        | ERROR_CODE_DEVICE_RECOVERY_SSK_GENERATION_MISMATCH
+        | ERROR_CODE_SERIES_CHAIN_BROKEN
+        | ERROR_CODE_SERIES_SEQ_NOT_MONOTONIC
+        | ERROR_CODE_SERIES_PREDECESSOR_NOT_FOUND
+        | ERROR_CODE_RECOVERY_POLICY_MISMATCH
+        | ERROR_CODE_BACKUP_FRONTIER_STALE
+        | ERROR_CODE_BACKUP_POST_RESET_STALE => 409,
         ERROR_CODE_HISTORICAL_ONLY => 200,
         ERROR_CODE_CURSOR_EXPIRED | ERROR_CODE_CURSOR_REVOKED => 410,
         ERROR_CODE_PAYLOAD_TOO_LARGE => 413,
@@ -638,6 +671,9 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_ANCHORER_RECOVERY_MISSING
         | ERROR_CODE_UNSUPPORTED_LATTICE_TYPE
         | ERROR_CODE_UNSUPPORTED_HASH
+        | ERROR_CODE_SHARE_COMMITMENT_MISMATCH
+        | ERROR_CODE_LEGACY_SECRET_STORAGE_WIRE_FORM
+        | ERROR_CODE_RECOVERY_EVIDENCE_UNBOUND
         | ERROR_CODE_READ_RECEIPT_COMPLIANCE_FLOOR_VIOLATED => 422,
         ERROR_CODE_RATE_LIMITED => 429,
         ERROR_CODE_INTERNAL_ERROR => 500,
@@ -648,6 +684,7 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         ERROR_CODE_TIMEOUT => 504,
         ERROR_CODE_UNSUPPORTED_FEATURE
         | ERROR_CODE_UNSUPPORTED_EVENT_KIND
+        | ERROR_CODE_UNSUPPORTED_AEAD_PROFILE
         | ERROR_CODE_PROFILE_UNSUPPORTED => 501,
         _ => return None,
     })
@@ -824,6 +861,18 @@ pub enum ErrorCode {
     AuthorizedGrantRevoked,
     DeviceRecoverySskGenerationMismatch,
     CursorRevoked,
+    // ── Key-backup hardening (B-C, spec head 37ce729).
+    SeriesChainBroken,
+    SeriesSeqNotMonotonic,
+    SeriesPredecessorNotFound,
+    RecoveryPolicyMismatch,
+    ShareCommitmentMismatch,
+    BackupFrontierStale,
+    BackupPostResetStale,
+    LegacySecretStorageWireForm,
+    RecoveryEvidenceUnbound,
+    UnsupportedAeadProfile,
+    AttestationMissing,
 }
 
 impl ErrorCode {
@@ -919,6 +968,17 @@ impl ErrorCode {
         Self::AuthorizedGrantRevoked,
         Self::DeviceRecoverySskGenerationMismatch,
         Self::CursorRevoked,
+        Self::SeriesChainBroken,
+        Self::SeriesSeqNotMonotonic,
+        Self::SeriesPredecessorNotFound,
+        Self::RecoveryPolicyMismatch,
+        Self::ShareCommitmentMismatch,
+        Self::BackupFrontierStale,
+        Self::BackupPostResetStale,
+        Self::LegacySecretStorageWireForm,
+        Self::RecoveryEvidenceUnbound,
+        Self::UnsupportedAeadProfile,
+        Self::AttestationMissing,
     ];
 
     /// Canonical wire-form code (snake_case string).
@@ -1022,6 +1082,17 @@ impl ErrorCode {
                 ERROR_CODE_DEVICE_RECOVERY_SSK_GENERATION_MISMATCH
             }
             Self::CursorRevoked => ERROR_CODE_CURSOR_REVOKED,
+            Self::SeriesChainBroken => ERROR_CODE_SERIES_CHAIN_BROKEN,
+            Self::SeriesSeqNotMonotonic => ERROR_CODE_SERIES_SEQ_NOT_MONOTONIC,
+            Self::SeriesPredecessorNotFound => ERROR_CODE_SERIES_PREDECESSOR_NOT_FOUND,
+            Self::RecoveryPolicyMismatch => ERROR_CODE_RECOVERY_POLICY_MISMATCH,
+            Self::ShareCommitmentMismatch => ERROR_CODE_SHARE_COMMITMENT_MISMATCH,
+            Self::BackupFrontierStale => ERROR_CODE_BACKUP_FRONTIER_STALE,
+            Self::BackupPostResetStale => ERROR_CODE_BACKUP_POST_RESET_STALE,
+            Self::LegacySecretStorageWireForm => ERROR_CODE_LEGACY_SECRET_STORAGE_WIRE_FORM,
+            Self::RecoveryEvidenceUnbound => ERROR_CODE_RECOVERY_EVIDENCE_UNBOUND,
+            Self::UnsupportedAeadProfile => ERROR_CODE_UNSUPPORTED_AEAD_PROFILE,
+            Self::AttestationMissing => ERROR_CODE_ATTESTATION_MISSING,
         }
     }
 
@@ -1063,8 +1134,9 @@ mod tests {
         // 15 Round R2/R3 wire codes (relaxed_window_exceeds_ceiling, ...) +
         // 3 Round 4 wire codes (delivery_binding_stale, delivery_binding_handed_over,
         // historical_only) + 10 directory ingest wire codes + 8 spec-main
-        // cursor / ephemeral / grant / device-recovery wire codes.
-        assert_eq!(KNOWN_ERROR_CODES.len(), 90);
+        // cursor / ephemeral / grant / device-recovery wire codes +
+        // 11 key-backup hardening codes (B-C, spec head 37ce729).
+        assert_eq!(KNOWN_ERROR_CODES.len(), 101);
         assert!(codes.contains(ERROR_CODE_CURSOR_EXPIRED));
         assert!(codes.contains(ERROR_CODE_POLICY_COMBINATION_INVALID));
         assert!(codes.contains(ERROR_CODE_ANCHORER_RECOVERY_MISSING));

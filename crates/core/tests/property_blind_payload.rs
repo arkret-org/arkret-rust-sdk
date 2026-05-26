@@ -62,7 +62,7 @@ const FORBIDDEN_NAMES: &[&str] = &[
     "device_id",
     "device_name",
     "body",
-    "message_body",
+    "message_content",
     "formatted_body",
     "notification_body",
     "message",

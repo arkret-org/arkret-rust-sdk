@@ -429,7 +429,8 @@ pub fn is_forbidden_payload_key(key: &str) -> bool {
             | "device_name"
             // Content / preview.
             | "body"
-            | "message_body"
+            // Spec rename (head 37ce729): `message_body` → `message_content`.
+            | "message_content"
             | "formatted_body"
             | "notification_body"
             | "message"

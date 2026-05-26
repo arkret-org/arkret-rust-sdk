@@ -184,6 +184,11 @@ pub enum RelationKind {
     /// conversation; the synthesis side stays in the Realm scope. See
     /// zh/models/circle.md §7.2.
     ConfidentialDiscussionOf,
+    /// CXP-0008 / CXP-0009 (spec head 37ce729) — links a sidecar Circle to
+    /// its (controller, native agent) actor pair. Weak-semantic,
+    /// non-structural, non-cascading: reducers and federation invariants
+    /// MUST NOT drive lifecycle cascade through this relation.
+    AgentSidecarOf,
     #[serde(untagged)]
     Custom(String),
 }

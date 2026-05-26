@@ -103,6 +103,86 @@ pub const CIRCLE_CAPABILITY_ACTIONS: &[&str] = &[
     CAP_ACTION_CIRCLE_AUDIT,
 ];
 
+/// CXP-0008 / CXP-0009 (spec head 37ce729) — personal-agent capability actions
+/// registered in `capability-action-registry.json`. 14 actions: 8 lifecycle /
+/// runtime actions on the agent itself, plus 3 sidecar-thread actions, plus
+/// 3 aggregate actions that fan out to `target_event_kinds` (publish / write /
+/// ensure trio carries the migration_group metadata in the spec; SDK consumers
+/// MUST consult the registry artifact for the target_event_kinds expansion).
+pub const CAP_ACTION_AGENT_PROVISION: &str = "cx.agent.provision";
+pub const CAP_ACTION_AGENT_PAUSE: &str = "cx.agent.pause";
+pub const CAP_ACTION_AGENT_RESUME: &str = "cx.agent.resume";
+pub const CAP_ACTION_AGENT_DEACTIVATE: &str = "cx.agent.deactivate";
+pub const CAP_ACTION_AGENT_DRAFT_PROPOSE: &str = "cx.agent.draft.propose";
+pub const CAP_ACTION_AGENT_ACTION_REQUEST: &str = "cx.agent.action_request";
+pub const CAP_ACTION_AGENT_ACTION_APPROVE: &str = "cx.agent.action_approve";
+pub const CAP_ACTION_AGENT_ACTION_REJECT: &str = "cx.agent.action_reject";
+pub const CAP_ACTION_AGENT_SIDECAR_THREAD_ENSURE: &str = "cx.agent.sidecar_thread.ensure";
+pub const CAP_ACTION_AGENT_SIDECAR_THREAD_WRITE: &str = "cx.agent.sidecar_thread.write";
+pub const CAP_ACTION_AGENT_SIDECAR_THREAD_PUBLISH: &str = "cx.agent.sidecar_thread.publish";
+
+/// CXP-0008 / CXP-0009 — full capability-action list (11 base + 3 aggregate
+/// = 14 entries per `_before_todos.md` §1.4).
+///
+// TODO(P1): the spec carries three aggregate actions that fan out to
+// `target_event_kinds` with `migration_group` metadata; the SDK consumer
+// MUST consult `capability-action-registry.json` to expand the fan-out.
+// The trio is the publish/write/ensure on sidecar_thread, which appears
+// once here per concrete action.
+pub const AGENT_CAPABILITY_ACTIONS: &[&str] = &[
+    CAP_ACTION_AGENT_PROVISION,
+    CAP_ACTION_AGENT_PAUSE,
+    CAP_ACTION_AGENT_RESUME,
+    CAP_ACTION_AGENT_DEACTIVATE,
+    CAP_ACTION_AGENT_DRAFT_PROPOSE,
+    CAP_ACTION_AGENT_ACTION_REQUEST,
+    CAP_ACTION_AGENT_ACTION_APPROVE,
+    CAP_ACTION_AGENT_ACTION_REJECT,
+    CAP_ACTION_AGENT_SIDECAR_THREAD_ENSURE,
+    CAP_ACTION_AGENT_SIDECAR_THREAD_WRITE,
+    CAP_ACTION_AGENT_SIDECAR_THREAD_PUBLISH,
+];
+
+/// CXP-0008 / CXP-0009 — personal-agent operation IDs (registered in
+/// `operation-registry.json`). Used by the RPC dispatch layer; reducer-input
+/// agent lifecycle events are registered separately under `AGENT_*`
+/// event-kind constants above.
+pub const OP_ACCOUNT_AGENT_KEY_PAIR: &str = "cx.account.agent_key_pair";
+pub const OP_AGENT_PROVISION: &str = "cx.agent.provision";
+pub const OP_AGENT_LIST: &str = "cx.agent.list";
+pub const OP_AGENT_GET: &str = "cx.agent.get";
+pub const OP_AGENT_PAUSE: &str = "cx.agent.pause";
+pub const OP_AGENT_RESUME: &str = "cx.agent.resume";
+pub const OP_AGENT_DEACTIVATE: &str = "cx.agent.deactivate";
+pub const OP_AGENT_ROTATE_KEY: &str = "cx.agent.rotate_key";
+pub const OP_AGENT_GRANT_ATTACH: &str = "cx.agent.grant.attach";
+pub const OP_AGENT_GRANT_DETACH: &str = "cx.agent.grant.detach";
+pub const OP_AGENT_SIDECAR_THREAD_ENSURE: &str = "cx.agent.sidecar_thread.ensure";
+
+/// CXP-0008 / CXP-0009 — controller-private account-data types. Reducer
+/// MUST reject writes from non-controller actors.
+pub const ACCOUNT_DATA_TYPE_AGENT_DRAFT: &str = "cx.agent.draft.v1";
+pub const ACCOUNT_DATA_TYPE_AGENT_SIDECAR_PROJECTION: &str = "cx.agent.sidecar_projection.v1";
+
+/// Key-backup hardening (B-C) — new schema ids registered in
+/// `schema-registry.json` for recovery policy and recovery receipts.
+pub const RECOVERY_POLICY_SCHEMA: &str = "cx.schema.recovery_policy.v1";
+pub const RECOVERY_RECEIPT_SCHEMA: &str = "cx.schema.recovery_receipt.v1";
+
+/// CXP-0008 / CXP-0009 — agent sidecar thread profile id.
+///
+/// Per spec head 37ce729 §B-F, the default home policy for the
+/// agent sidecar thread is **"context realm preferred"**: the sidecar
+/// Circle is provisioned in the context Realm of the controller's
+/// current focused conversation when available, falling back to the
+/// controller's home Realm only when no context Realm exists.
+///
+// TODO(P1): wire the "context realm preferred" home-selection policy
+// into the agent sidecar profile loader and `cx.agent.sidecar_thread.ensure`
+// once the SDK gains a profile loader for `cx.profile.agent_sidecar_thread.v1`.
+pub const PROFILE_AGENT_SIDECAR_THREAD: &str = "cx.profile.agent_sidecar_thread.v1";
+pub const AGENT_SIDECAR_HOME_POLICY_CONTEXT_REALM_PREFERRED: &str = "context_realm_preferred";
+
 /// Morph event kinds.
 pub const OP_MORPH_CREATE: &str = "cx.morph.create";
 pub const OP_MORPH_UPDATE: &str = "cx.morph.update";
@@ -398,12 +478,23 @@ pub const OP_SNAPSHOT_HEAD: &str = "cx.snapshot.head";
 /// Event kinds live in `crate::events`; this list mirrors the spec
 /// `operation-registry.json` service surface.
 pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
+    OP_ACCOUNT_AGENT_KEY_PAIR,
     OP_ACCOUNT_DESCRIBE,
     OP_ACCOUNT_DEVICE_PAIR,
     OP_ACCOUNT_ISSUE_SESSION_GRANT,
     OP_ACCOUNT_OIDC_CALLBACK,
     OP_ACCOUNT_SUBSCRIBE,
     OP_ACCOUNT_CURSOR_REVOKE,
+    OP_AGENT_DEACTIVATE,
+    OP_AGENT_GET,
+    OP_AGENT_GRANT_ATTACH,
+    OP_AGENT_GRANT_DETACH,
+    OP_AGENT_LIST,
+    OP_AGENT_PAUSE,
+    OP_AGENT_PROVISION,
+    OP_AGENT_RESUME,
+    OP_AGENT_ROTATE_KEY,
+    OP_AGENT_SIDECAR_THREAD_ENSURE,
     OP_ADMIN_GET_MODERATION_QUEUE,
     OP_ADMIN_GET_SERVER_STATUS,
     OP_ADMIN_REVOKE_DEVICE,

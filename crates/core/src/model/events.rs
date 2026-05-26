@@ -3,6 +3,34 @@ use crate::{AnchorId, Effect, Precondition};
 
 pub const EVENT_REF_ROLE_AUTHORIZED_BY: &str = "authorized_by";
 
+/// CXP-0008 / CXP-0009 (spec head 37ce729) — runtime classifier stamped by
+/// the reducer on every Envelope. Distinct from the existing `ActorKind`
+/// enum (which classifies `ActorProfile.actor_kind` as user/org/team/...)
+/// — this 4-value classifier describes the runtime origin of the
+/// envelope itself: native devices, applet-bound ghost actors, service
+/// principals, and personal agent runtimes.
+///
+/// Reducer rules:
+/// - This field is reducer-stamped. Clients MUST NOT supply it; reducers
+///   MUST reject envelopes that arrive with a client-supplied value
+///   (return `actor_kind_self_stamped`).
+/// - The serialized wire form on the Envelope is the field name
+///   `actor_kind`, distinct from the `ActorProfile.actor_kind` slot.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum EnvelopeActorKind {
+    /// Envelope originated from a native device controlled by the principal.
+    Native,
+    /// Envelope originated from an applet-managed ghost actor.
+    Ghost,
+    /// Envelope originated from a service principal (e.g. policy server).
+    Service,
+    /// Envelope originated from a personal agent runtime acting on
+    /// behalf of a controller.
+    Agent,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct EventRef {
@@ -84,6 +112,30 @@ pub struct Event {
     pub redacts: Option<EventId>,
     #[serde(rename = "payload")]
     pub content: Value,
+    /// CXP-0008 / CXP-0009 (spec head 37ce729) — DID of the runtime that
+    /// actually executed this envelope on behalf of `actor_id`. When
+    /// present, the reducer MUST verify that the DID resolved from
+    /// `proof.verification_method` equals `executed_by`. Signed; nested
+    /// into the canonical signing transcript when set.
+    ///
+    // TODO(P1): reducer MUST stamp `actor_kind` and reject client-supplied;
+    // reducer MUST verify `executed_by` == proof verification_method DID.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub executed_by: Option<Did>,
+    /// CXP-0008 / CXP-0009 — typed reference (e.g. `cx:grant:<uuidv7>` /
+    /// `cx:accountability_grant:<uuidv7>`) to the authorization artifact
+    /// that authorized this envelope. Conditional; when present, MUST be
+    /// included in the canonical signing transcript.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authorization_ref: Option<String>,
+    /// CXP-0008 / CXP-0009 — runtime-origin classifier. Reducer-stamped
+    /// projection; clients MUST NOT supply it. See
+    /// [`EnvelopeActorKind`] for invariants.
+    ///
+    // TODO(P1): reducer MUST stamp this and reject client-supplied values;
+    // wire-form rejection code `actor_kind_self_stamped`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub actor_kind: Option<EnvelopeActorKind>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub unsigned: BTreeMap<String, Value>,
     pub proofs: Vec<Proof>,
@@ -224,6 +276,9 @@ impl Event {
             requirements: EventRequirements::default(),
             redacts: None,
             content,
+            executed_by: None,
+            authorization_ref: None,
+            actor_kind: None,
             unsigned: BTreeMap::new(),
             proofs: Vec::new(),
         })

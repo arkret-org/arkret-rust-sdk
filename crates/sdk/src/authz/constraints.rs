@@ -221,9 +221,7 @@ pub enum Constraint {
     /// of Circle ids. Spec `capability-action-registry.json` declares
     /// `required_constraints=["allowed_circle_refs"]` on each gated action;
     /// unconstrained Realm-wide grants for these actions MUST be rejected.
-    AllowedCircleRefs {
-        allowed_circle_refs: std::collections::BTreeSet<contrix_core::CircleId>,
-    },
+    AllowedCircleRefs { allowed_circle_refs: std::collections::BTreeSet<contrix_core::CircleId> },
 }
 
 /// Constraint effect.

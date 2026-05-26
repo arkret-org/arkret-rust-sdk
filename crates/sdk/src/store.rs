@@ -398,17 +398,20 @@ mod tests {
                     "created_at": "2026-05-02T00:00:00.000Z"
                 }
             }),
+            executed_by: None,
+            authorization_ref: None,
+            actor_kind: None,
             unsigned: BTreeMap::new(),
             proofs: vec![],
         }
     }
 
-    fn blob_metadata(blob_ref: BlobRef, size: u64) -> BlobMetadata {
+    fn blob_metadata(blob_ref: BlobRef, size_bytes: u64) -> BlobMetadata {
         BlobMetadata {
             schema: BLOB_SCHEMA.to_owned(),
             blob_ref,
             sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned(),
-            size,
+            size_bytes,
             media_type: "text/plain".to_owned(),
             filename: Some("note.txt".to_owned()),
             encryption: json!({"scheme": "none"}),
@@ -495,12 +498,12 @@ mod tests {
         store.put_blob_metadata(metadata.clone()).unwrap();
         store.put_blob_metadata(metadata.clone()).unwrap();
         let mut conflicting_metadata = metadata;
-        conflicting_metadata.size = 13;
+        conflicting_metadata.size_bytes = 13;
         assert!(matches!(
             store.put_blob_metadata(conflicting_metadata),
             Err(Error::IdempotencyConflict(_))
         ));
-        assert_eq!(store.blob_metadata(&blob_ref).unwrap().size, 12);
+        assert_eq!(store.blob_metadata(&blob_ref).unwrap().size_bytes, 12);
 
         store
             .append_audit_entry(AuditEntry {

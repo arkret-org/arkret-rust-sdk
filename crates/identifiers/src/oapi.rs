@@ -10,12 +10,13 @@ use salvo::oapi::{
 };
 
 use crate::{
-    ActorProfileId, AgentSessionId, AnchorId, AnnounceId, AppletId, BackupId, BatchId, BlobId,
+    AccountabilityGrantId, ActorProfileId, AgentDraftId, AgentKeyId, AgentPrincipalId,
+    AgentSessionId, AnchorId, AnnounceId, AppletId, BackupId, BackupSeriesId, BatchId, BlobId,
     BlobRef, BlockId, CallId, CapabilityId, CellRef, ChunkId, CircleId, ClaimId, Cursor, DeviceId,
     DevmsgId, Did, EventId, FilterId, FlowId, FrameId, FrankId, GrantId, Hash, Hlc, InviteId,
     KeyevtId, MessageId, ModqId, MorphId, MoveId, NotifId, OperationId, PolicyId, PresentationId,
-    ReadCursorId, RealmId, ReceiptId, RelationId, ReportId, ReqId, SnapshotId, SpaceId, TxnId,
-    TypedAppealId, TypedTrustDomainId, ViewId,
+    ReadCursorId, RealmId, ReceiptId, RecoverySessionId, RelationId, ReportId, ReqId,
+    SidecarCircleId, SnapshotId, SpaceId, TxnId, TypedAppealId, TypedTrustDomainId, ViewId,
 };
 
 fn string_schema(pattern: &str) -> RefOr<Schema> {
@@ -52,6 +53,36 @@ impl_string_schema!(
 impl_string_schema!(
     AgentSessionId,
     r"^cx:agent_session:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+);
+// CXP-0008 / CXP-0009 (spec head 37ce729) — personal agent + key-backup
+// hardening typed ids.
+impl_string_schema!(
+    AgentPrincipalId,
+    r"^cx:agent_principal:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+);
+impl_string_schema!(
+    AgentKeyId,
+    r"^cx:agent_key:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+);
+impl_string_schema!(
+    AgentDraftId,
+    r"^cx:agent_draft:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+);
+impl_string_schema!(
+    AccountabilityGrantId,
+    r"^cx:accountability_grant:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+);
+impl_string_schema!(
+    SidecarCircleId,
+    r"^cx:sidecar_circle:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+);
+impl_string_schema!(
+    BackupSeriesId,
+    r"^cx:backup_series:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+);
+impl_string_schema!(
+    RecoverySessionId,
+    r"^cx:recovery_session:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
 impl_string_schema!(
     AnnounceId,

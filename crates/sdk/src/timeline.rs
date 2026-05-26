@@ -1106,6 +1106,9 @@ mod tests {
                     "created_at": "2026-05-02T00:00:00.000Z"
                 }
             }),
+            executed_by: None,
+            authorization_ref: None,
+            actor_kind: None,
             unsigned: BTreeMap::new(),
             proofs: vec![],
         }

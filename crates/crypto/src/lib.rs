@@ -184,11 +184,7 @@ fn validate_nonempty_key(field: &str, value: &str) -> Result<()> {
 /// Helper: reject string fields above a per-field byte ceiling.
 fn validate_max_length(field: &str, value: &str, max: usize) -> Result<()> {
     if value.len() > max {
-        return Err(Error::Protocol(format!(
-            "{field} length {} exceeds {}",
-            value.len(),
-            max
-        )));
+        return Err(Error::Protocol(format!("{field} length {} exceeds {}", value.len(), max)));
     }
     Ok(())
 }
@@ -475,11 +471,7 @@ impl CrossSigningResetContent {
                         MAX_IDENTIFIER_LEN,
                     )?;
                     validate_nonempty_key("device_quorum alg", &sig.alg)?;
-                    validate_max_length(
-                        "device_quorum alg",
-                        &sig.alg,
-                        MAX_ALGORITHM_NAME_LEN,
-                    )?;
+                    validate_max_length("device_quorum alg", &sig.alg, MAX_ALGORITHM_NAME_LEN)?;
                     validate_nonempty_key("device_quorum signature", &sig.signature)?;
                     validate_max_length(
                         "device_quorum signature",
@@ -529,16 +521,8 @@ impl CrossSigningResetContent {
                     unlock_commitment,
                     MAX_KEY_FIELD_LEN,
                 )?;
-                validate_max_length(
-                    "recovery_unlock alg",
-                    alg,
-                    MAX_ALGORITHM_NAME_LEN,
-                )?;
-                validate_max_length(
-                    "recovery_unlock signature",
-                    signature,
-                    MAX_KEY_FIELD_LEN,
-                )?;
+                validate_max_length("recovery_unlock alg", alg, MAX_ALGORITHM_NAME_LEN)?;
+                validate_max_length("recovery_unlock signature", signature, MAX_KEY_FIELD_LEN)?;
             }
         }
         Ok(())
@@ -777,11 +761,7 @@ impl CryptoSessionRecord {
         }
         validate_max_length("crypto session id", &self.session_id, MAX_IDENTIFIER_LEN)?;
         validate_max_length("crypto session sender_key", &self.sender_key, MAX_KEY_FIELD_LEN)?;
-        validate_max_length(
-            "crypto session algorithm",
-            &self.algorithm,
-            MAX_ALGORITHM_NAME_LEN,
-        )?;
+        validate_max_length("crypto session algorithm", &self.algorithm, MAX_ALGORITHM_NAME_LEN)?;
         Ok(())
     }
 
@@ -908,16 +888,8 @@ impl SecretBackupDescriptor {
             ));
         }
         validate_max_length("secret backup id", &self.backup_id, MAX_IDENTIFIER_LEN)?;
-        validate_max_length(
-            "secret backup algorithm",
-            &self.algorithm,
-            MAX_ALGORITHM_NAME_LEN,
-        )?;
-        validate_max_length(
-            "secret backup public_key",
-            &self.public_key,
-            MAX_KEY_FIELD_LEN,
-        )?;
+        validate_max_length("secret backup algorithm", &self.algorithm, MAX_ALGORITHM_NAME_LEN)?;
+        validate_max_length("secret backup public_key", &self.public_key, MAX_KEY_FIELD_LEN)?;
         Ok(())
     }
 }
@@ -1312,9 +1284,7 @@ impl Validate for WithheldKeyRecord {
 impl Validate for KeyLifecycleEvent {
     fn validate(&self) -> std::result::Result<(), CryptoError> {
         if self.key_ref.trim().is_empty() {
-            return Err(CryptoError::Validation(
-                "key lifecycle event requires key_ref".to_owned(),
-            ));
+            return Err(CryptoError::Validation("key lifecycle event requires key_ref".to_owned()));
         }
         if self.key_ref.len() > MAX_IDENTIFIER_LEN {
             return Err(CryptoError::BoundsExceeded {
@@ -1533,9 +1503,7 @@ mod tests {
 
         // Too many methods → BoundsExceeded.
         flow.to_device = DeviceId::new("cx:device:01904100-0000-7000-8000-000000000002").unwrap();
-        flow.methods = (0..(MAX_VERIFICATION_METHODS + 1))
-            .map(|i| format!("m{i}"))
-            .collect();
+        flow.methods = (0..(MAX_VERIFICATION_METHODS + 1)).map(|i| format!("m{i}")).collect();
         let err = <DeviceVerificationFlow as Validate>::validate(&flow).unwrap_err();
         assert!(matches!(err, CryptoError::BoundsExceeded { ref field, limit }
             if field == "verification methods" && limit == MAX_VERIFICATION_METHODS));
@@ -1600,11 +1568,8 @@ mod tests {
         let core_err: Error = CryptoError::ReplayDetected.into();
         assert!(matches!(core_err, Error::Protocol(_)));
 
-        let core_err: Error = CryptoError::BoundsExceeded {
-            field: "field".to_owned(),
-            limit: 10,
-        }
-        .into();
+        let core_err: Error =
+            CryptoError::BoundsExceeded { field: "field".to_owned(), limit: 10 }.into();
         if let Error::Protocol(message) = core_err {
             assert!(message.contains("field"));
             assert!(message.contains("10"));
@@ -1666,7 +1631,10 @@ mod tests {
                         matches!(res, Err(Error::Protocol(_))),
                         "run {run}: replay at index {candidate} (high={high}) must reject"
                     );
-                } else if candidate == 0 && high == 0 && session.message_index_high_watermark.is_none() {
+                } else if candidate == 0
+                    && high == 0
+                    && session.message_index_high_watermark.is_none()
+                {
                     // Very first call at index 0 is accepted (no prior watermark).
                     res.unwrap();
                     high = candidate;
@@ -1695,10 +1663,7 @@ mod tests {
         // Every subsequent index (including u64::MAX) must reject.
         assert!(matches!(session.accept_message_index(u64::MAX, now), Err(Error::Protocol(_))));
         assert!(matches!(session.accept_message_index(0, now), Err(Error::Protocol(_))));
-        assert!(matches!(
-            session.accept_message_index(u64::MAX - 1, now),
-            Err(Error::Protocol(_))
-        ));
+        assert!(matches!(session.accept_message_index(u64::MAX - 1, now), Err(Error::Protocol(_))));
         // Watermark stays pinned.
         assert_eq!(session.message_index_high_watermark, Some(u64::MAX));
     }
@@ -1725,10 +1690,7 @@ mod tests {
         };
         let err = content.validate_structure().unwrap_err();
         if let Error::Protocol(message) = err {
-            assert!(
-                message.contains("threshold >= 1"),
-                "unexpected message: {message}"
-            );
+            assert!(message.contains("threshold >= 1"), "unexpected message: {message}");
         } else {
             panic!("expected Error::Protocol");
         }
@@ -1823,10 +1785,8 @@ mod tests {
     #[test]
     fn unable_to_decrypt_path_bad_ciphertext() {
         let mut binding = CryptoStoreBinding::default();
-        let event_id =
-            EventId::new("cx:event:01904100-0000-7000-8000-4e7fda181f9f").unwrap();
-        let space_id =
-            SpaceId::new("cx:space:01904100-0000-7000-8000-6c355fb9dada").unwrap();
+        let event_id = EventId::new("cx:event:01904100-0000-7000-8000-4e7fda181f9f").unwrap();
+        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-6c355fb9dada").unwrap();
         let payload = EncryptedPayload {
             scheme: EncryptedPayloadScheme::MlsRfc9420,
             group_id: "group".to_owned(),

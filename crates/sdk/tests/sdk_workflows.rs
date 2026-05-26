@@ -37,6 +37,9 @@ fn event(kind: &str, seq: u64, space_id: &SpaceId, content: serde_json::Value) -
         requirements: EventRequirements::default(),
         redacts: None,
         content,
+        executed_by: None,
+        authorization_ref: None,
+        actor_kind: None,
         unsigned: BTreeMap::new(),
         proofs: vec![],
     }

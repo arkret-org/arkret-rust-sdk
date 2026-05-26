@@ -451,8 +451,7 @@ impl SpaceState {
             state: Some(state),
             state_changed_at: self.extract_optional_field(object, "state_changed_at"),
             scope_circle_id: self.extract_optional_field(object, "scope_circle_id"),
-            default_scope_circle_id: self
-                .extract_optional_field(object, "default_scope_circle_id"),
+            default_scope_circle_id: self.extract_optional_field(object, "default_scope_circle_id"),
             child_scope_policy: object
                 .get("child_scope_policy")
                 .and_then(|v| serde_json::from_value(v.clone()).ok()),
@@ -570,11 +569,10 @@ impl SpaceState {
 
     fn set_place_parent(&mut self, event: &Event) -> Result<()> {
         let place_id = self.extract_place_id(&event.content)?;
-        let parent_space_id_str = self
-            .extract_optional_field::<String>(&event.content, "parent_space_id")
-            .ok_or_else(|| {
-                Error::Protocol("place parent event requires parent_space_id".to_owned())
-            })?;
+        let parent_space_id_str =
+            self.extract_optional_field::<String>(&event.content, "parent_space_id").ok_or_else(
+                || Error::Protocol("place parent event requires parent_space_id".to_owned()),
+            )?;
         let parent_space_id = SpaceId::new(parent_space_id_str)?;
         let place = self
             .places

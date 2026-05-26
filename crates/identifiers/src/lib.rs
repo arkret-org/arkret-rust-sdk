@@ -217,7 +217,19 @@ pub fn is_lowercase_uuidv7(value: &str) -> bool {
 id_type!(Did, is_did);
 // Protocol object IDs use typed prefixes with canonical RFC 9562 UUIDv7 payloads.
 id_type!(ActorProfileId, |value: &str| is_strict_typed_id(value, "cx:actor_profile:"));
+// CXP-0008/0009 (spec head 37ce729) — personal agent typed ids.
+id_type!(AgentPrincipalId, |value: &str| is_strict_typed_id(value, "cx:agent_principal:"));
 id_type!(AgentSessionId, |value: &str| is_strict_typed_id(value, "cx:agent_session:"));
+id_type!(AgentKeyId, |value: &str| is_strict_typed_id(value, "cx:agent_key:"));
+id_type!(AgentDraftId, |value: &str| is_strict_typed_id(value, "cx:agent_draft:"));
+id_type!(AccountabilityGrantId, |value: &str| is_strict_typed_id(
+    value,
+    "cx:accountability_grant:"
+));
+id_type!(SidecarCircleId, |value: &str| is_strict_typed_id(value, "cx:sidecar_circle:"));
+// Key-backup hardening (B-C) typed ids.
+id_type!(BackupSeriesId, |value: &str| is_strict_typed_id(value, "cx:backup_series:"));
+id_type!(RecoverySessionId, |value: &str| is_strict_typed_id(value, "cx:recovery_session:"));
 id_type!(AnnounceId, |value: &str| is_strict_typed_id(value, "cx:announce:"));
 id_type!(AppletId, |value: &str| is_strict_typed_id(value, "cx:applet:"));
 // Historical SDK operation/reducer structs still name the scope field
@@ -471,7 +483,14 @@ mod tests {
         }
 
         assert_id!(ActorProfileId, "cx:actor_profile:");
+        assert_id!(AgentPrincipalId, "cx:agent_principal:");
         assert_id!(AgentSessionId, "cx:agent_session:");
+        assert_id!(AgentKeyId, "cx:agent_key:");
+        assert_id!(AgentDraftId, "cx:agent_draft:");
+        assert_id!(AccountabilityGrantId, "cx:accountability_grant:");
+        assert_id!(SidecarCircleId, "cx:sidecar_circle:");
+        assert_id!(BackupSeriesId, "cx:backup_series:");
+        assert_id!(RecoverySessionId, "cx:recovery_session:");
         assert_id!(AnnounceId, "cx:announce:");
         assert_id!(AppletId, "cx:applet:");
         assert_id!(BackupId, "cx:backup:");

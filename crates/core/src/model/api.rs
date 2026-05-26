@@ -623,7 +623,11 @@ pub struct SyncBackfillResBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncSnapshotHeadResBody {
-    pub snapshot_ref: String,
+    /// Self-field on the snapshot manifest. Spec rename: `snapshot_ref` → `id`
+    /// (CXP spec head 37ce729). External references to a snapshot in other
+    /// objects keep the `snapshot_ref` name; only the manifest's own self-id
+    /// is renamed here.
+    pub id: String,
     pub state_digest: Hash,
     pub frontier: String,
     pub signature: Value,
@@ -1015,7 +1019,8 @@ pub struct BlobUploadMetadata {
     pub space_id: Option<SpaceId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sha256: Option<Hash>,
-    pub size: u64,
+    /// Spec rename (head 37ce729): `size` → `size_bytes` on blob/media metadata.
+    pub size_bytes: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub media_type: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1028,7 +1033,8 @@ pub struct BlobUploadMetadata {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct BlobUploadResBody {
     pub blob_ref: BlobRef,
-    pub size: u64,
+    /// Spec rename (head 37ce729): `size` → `size_bytes` on blob/media metadata.
+    pub size_bytes: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub media_type: Option<String>,
     pub sha256: Hash,
@@ -1545,6 +1551,33 @@ pub struct KeyBackup {
     pub auth_data: Option<KeyBackupAuthData>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retention: Option<KeyBackupRetention>,
+    /// Key-backup hardening (B-C, spec head 37ce729) — series chain identifier.
+    /// Every envelope in a backup chain shares the same `series_id`; the chain
+    /// is ordered by `series_seq`. Genesis vs successor are distinguished by
+    /// `series_seq == 0` (genesis) vs `series_seq > 0` (successor with
+    /// `supersedes` + `supersedes_digest` REQUIRED).
+    pub series_id: BackupSeriesId,
+    /// Key-backup hardening — monotonically increasing chain sequence number.
+    /// `0` for the genesis envelope; reducer MUST reject non-monotonic
+    /// successors with `series_seq_not_monotonic`.
+    pub series_seq: u64,
+    /// Key-backup hardening — `backup_id` of the immediate predecessor in
+    /// the chain. REQUIRED on every successor (`series_seq >= 1`); MUST be
+    /// absent on genesis. Reducer MUST reject mismatches with
+    /// `series_chain_broken` or `series_predecessor_not_found`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub supersedes: Option<BackupId>,
+    /// Key-backup hardening — content digest of the predecessor's
+    /// `ciphertext_digest` mixed into the signing transcript on successor
+    /// envelopes. REQUIRED whenever `supersedes` is set.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub supersedes_digest: Option<String>,
+    /// Key-backup hardening — opaque reference to the originating-key
+    /// frontier the backup encrypts (e.g. recovery key frontier, MLS group
+    /// epoch frontier). Reducer rejects stale frontiers with
+    /// `backup_frontier_stale`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub frontier_ref: Option<String>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
@@ -1660,6 +1693,71 @@ pub struct KeyBackupRetention {
     pub delete_after: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub legal_hold: Option<bool>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default, flatten)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+/// Key-backup hardening (B-C, spec head 37ce729) — minimal Rust shape for
+/// `cx.schema.recovery_policy.v1`. Carries the policy lifecycle plus the
+/// commitment / KDF profile branches.
+///
+/// The fields below mirror the spec's `policy_id` / `lifecycle` / `body`
+/// shape but leave `body` as a free-form `Value` for now: the full
+/// commitment-branch shape (passphrase commitment, threshold params, AEAD
+/// profile, etc.) lands in a follow-up.
+///
+// TODO(P1): expand `body` into a tagged enum (passphrase | recovery_key |
+// threshold | hardware_wrapped) matching the spec's `oneOf` branches.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct RecoveryPolicy {
+    /// Schema id (`cx.schema.recovery_policy.v1`).
+    pub schema: String,
+    pub policy_id: String,
+    pub lifecycle: RecoveryPolicyLifecycle,
+    pub epoch: u64,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub body: Value,
+    pub created_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retired_at: Option<DateTime<Utc>>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default, flatten)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+/// Key-backup hardening — three-state lifecycle for recovery policy.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum RecoveryPolicyLifecycle {
+    Pending,
+    Active,
+    Retired,
+}
+
+/// Key-backup hardening (B-C, spec head 37ce729) — minimal Rust shape for
+/// `cx.schema.recovery_receipt.v1`. Captures verification evidence + a
+/// proof that binds the receipt to a specific recovery session.
+///
+// TODO(P1): expand `evidence` into a tagged enum matching the spec's
+// recovery-attestation oneOf (self-asserted | hardware-attested | quorum).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct RecoveryReceipt {
+    /// Schema id (`cx.schema.recovery_receipt.v1`).
+    pub schema: String,
+    pub recovery_session_id: RecoverySessionId,
+    pub policy_id: String,
+    pub policy_epoch: u64,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub evidence: Value,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub bound_proof: Value,
+    pub issued_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
