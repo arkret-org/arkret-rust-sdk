@@ -22,17 +22,17 @@ use contrix_core::{
     DirectoryResolveRealmResBody, DirectorySearchActorsReqBody, DirectorySearchActorsResBody,
     DirectorySearchOrganizationsReqBody, DirectorySearchOrganizationsResBody,
     DirectorySearchRealmsReqBody, DirectorySearchRealmsResBody, DirectorySearchUsersReqBody,
-    DirectorySearchUsersResBody, EffectiveGrantsResBody, Error, ErrorEnvelope, IdentityDescription,
-    IdentityDocumentResBody, IdentityLogResBody, IdentityReceiptsResBody, IdentityResolveReqBody,
-    IdentityResolveResBody, KeyBackup, KeyBackupDeleteReqBody, KeyBackupDeleteResBody,
-    KeyBackupPutResBody, KeyBackupSummary, KeyBackupsListQuery, KeyBackupsListResBody,
-    KeysClaimReqBody, KeysClaimResBody, KeysQueryReqBody, KeysQueryResBody, KeysUploadReqBody,
-    KeysUploadResBody, MediaIceConfigReqBody, MediaIceConfigResBody, ModerationReportReqBody,
-    ModerationReportResBody, OkResBody, PolicyCheckReqBody, PolicyCheckResBody, PushNotifyReqBody,
-    PushNotifyResBody, PushRegisterDeviceReqBody, PushRegisterDeviceResBody,
-    PushUnregisterDeviceReqBody, Result, ServerDescription, ServiceRequirements,
-    SubmitDidOperationReqBody, SubmitDidOperationResBody, SyncBackfillResBody, SyncDescription,
-    SyncReqBody, SyncResBody, SyncSnapshotHeadResBody,
+    DirectorySearchUsersResBody, EffectiveGrantsResBody, Error, ErrorEnvelope, Event,
+    EventsSubmitResBody, IdentityDescription, IdentityDocumentResBody, IdentityLogResBody,
+    IdentityReceiptsResBody, IdentityResolveReqBody, IdentityResolveResBody, KeyBackup,
+    KeyBackupDeleteReqBody, KeyBackupDeleteResBody, KeyBackupPutResBody, KeyBackupSummary,
+    KeyBackupsListQuery, KeyBackupsListResBody, KeysClaimReqBody, KeysClaimResBody,
+    KeysQueryReqBody, KeysQueryResBody, KeysUploadReqBody, KeysUploadResBody, MediaIceConfigReqBody,
+    MediaIceConfigResBody, ModerationReportReqBody, ModerationReportResBody, OkResBody,
+    PolicyCheckReqBody, PolicyCheckResBody, PushNotifyReqBody, PushNotifyResBody,
+    PushRegisterDeviceReqBody, PushRegisterDeviceResBody, PushUnregisterDeviceReqBody, Result,
+    ServerDescription, ServiceRequirements, SubmitDidOperationReqBody, SubmitDidOperationResBody,
+    SyncBackfillResBody, SyncDescription, SyncReqBody, SyncResBody, SyncSnapshotHeadResBody,
 };
 
 pub const HEADER_REQUEST_ID: &str = "X-Contrix-Request-Id";
@@ -732,6 +732,23 @@ impl Client {
             builder = builder.query(&[("limit", limit)]);
         }
         self.send_json(builder).await
+    }
+
+    /// Submit a single signed Event Envelope via `cx.events.submit`
+    /// (`POST /api/v1/events`). Wire body is the bare envelope per the OpenAPI
+    /// `oneOf` first arm (`event-envelope.schema.json`).
+    pub async fn events_submit(&self, event: &Event) -> Result<EventsSubmitResBody> {
+        self.post("/api/v1/events", event).await
+    }
+
+    /// Submit a batch of signed Event Envelopes via `cx.events.submit`
+    /// (`POST /api/v1/events`) using the `EventsSubmitBatchRequest` body shape.
+    pub async fn events_submit_batch(&self, events: &[Event]) -> Result<EventsSubmitResBody> {
+        #[derive(serde::Serialize)]
+        struct Batch<'a> {
+            events: &'a [Event],
+        }
+        self.post("/api/v1/events", &Batch { events }).await
     }
 
     pub async fn snapshot_head(&self, space_id: &str) -> Result<SyncSnapshotHeadResBody> {
@@ -1548,5 +1565,190 @@ mod tests {
             .build()
             .unwrap();
         assert_eq!(client.base_url().as_str(), "https://alice.example/contrix/");
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    mod events_submit_tests {
+        use super::*;
+        use contrix_core::{Did, EventId, EventRequirements, Hlc, RealmId};
+        use serde_json::json;
+        use std::collections::BTreeMap;
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        use tokio::net::TcpListener;
+
+        /// Build an `Event` suitable for wire-shape tests. The fixture is not
+        /// signed and would fail `validate_for_submit`, but the SDK methods
+        /// under test do not invoke that validation — they just serialise the
+        /// envelope into the request body. The fixture is deliberately
+        /// stripped down so the serialised body is easy to assert against.
+        fn fixture_event(content_body: &str) -> Event {
+            Event {
+                event_id: EventId::new("cx:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
+                kind: "cx.message.create".to_owned(),
+                realm_id: RealmId::new("cx:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
+                actor_id: Did::new("did:web:alice.example").unwrap(),
+                actor_seq: 1,
+                created_at: "2026-04-26T00:00:00Z".parse().unwrap(),
+                hlc: Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
+                prev_refs: Vec::new(),
+                effective_scope: None,
+                refs: Vec::new(),
+                preconditions: Vec::new(),
+                effects: Vec::new(),
+                anchor_ref: None,
+                requirements: EventRequirements::default(),
+                redacts: None,
+                content: json!({ "body": content_body }),
+                unsigned: BTreeMap::new(),
+                proofs: Vec::new(),
+            }
+        }
+
+        /// Spin up a single-shot HTTP listener on `127.0.0.1` and return both
+        /// a [`Client`] pointing at it and a oneshot receiver that yields the
+        /// raw request bytes once the listener has served `body_response`.
+        ///
+        /// The listener accepts exactly one connection, reads until the body
+        /// is consumed (assuming a `Content-Length` header is present, which
+        /// `reqwest::RequestBuilder::json` guarantees), and replies with the
+        /// supplied `body_response` JSON under HTTP/1.1 200 OK. The chosen
+        /// port is allocated by the OS so tests can run in parallel.
+        async fn spawn_capture_server(
+            body_response: &'static str,
+        ) -> (Client, tokio::sync::oneshot::Receiver<Vec<u8>>) {
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let addr = listener.local_addr().unwrap();
+            let (tx, rx) = tokio::sync::oneshot::channel();
+
+            tokio::spawn(async move {
+                let (mut socket, _) = listener.accept().await.unwrap();
+                let mut buf = Vec::new();
+                let mut tmp = [0u8; 4096];
+                let mut headers_end = None;
+                let mut content_length: Option<usize> = None;
+                loop {
+                    let n = socket.read(&mut tmp).await.unwrap();
+                    if n == 0 {
+                        break;
+                    }
+                    buf.extend_from_slice(&tmp[..n]);
+                    if headers_end.is_none()
+                        && let Some(idx) =
+                            buf.windows(4).position(|window| window == b"\r\n\r\n")
+                    {
+                        headers_end = Some(idx + 4);
+                        let header_str = std::str::from_utf8(&buf[..idx]).unwrap_or("");
+                        for line in header_str.split("\r\n") {
+                            if let Some(value) = line
+                                .strip_prefix("Content-Length: ")
+                                .or_else(|| line.strip_prefix("content-length: "))
+                            {
+                                content_length = value.trim().parse().ok();
+                            }
+                        }
+                    }
+                    if let (Some(hdr_end), Some(len)) = (headers_end, content_length) {
+                        if buf.len() >= hdr_end + len {
+                            break;
+                        }
+                    }
+                }
+
+                let response = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    body_response.len(),
+                    body_response
+                );
+                socket.write_all(response.as_bytes()).await.unwrap();
+                socket.shutdown().await.ok();
+                let _ = tx.send(buf);
+            });
+
+            let base = Url::parse(&format!("http://{addr}/")).unwrap();
+            let client =
+                Client::builder(base).allow_insecure_localhost().build().unwrap();
+            (client, rx)
+        }
+
+        /// Split a raw HTTP/1.1 request capture into (request-line, headers, body).
+        fn split_request(raw: &[u8]) -> (String, String, Vec<u8>) {
+            let idx = raw.windows(4).position(|window| window == b"\r\n\r\n").unwrap();
+            let head = std::str::from_utf8(&raw[..idx]).unwrap();
+            let body = raw[idx + 4..].to_vec();
+            let mut lines = head.splitn(2, "\r\n");
+            let request_line = lines.next().unwrap_or("").to_owned();
+            let headers = lines.next().unwrap_or("").to_owned();
+            (request_line, headers, body)
+        }
+
+        #[tokio::test]
+        async fn events_submit_single_event_posts_envelope() {
+            let canned = r#"{"status":"accepted","accepted":["cx:event:01904100-0000-7000-8000-a0086f45c575"]}"#;
+            let (client, capture) = spawn_capture_server(canned).await;
+
+            let event = fixture_event("hello");
+            let response = client.events_submit(&event).await.unwrap();
+
+            assert!(matches!(response.status, contrix_core::EventsSubmitStatus::Accepted));
+            assert_eq!(response.accepted.len(), 1);
+
+            let raw = capture.await.unwrap();
+            let (request_line, _headers, body) = split_request(&raw);
+            assert!(
+                request_line.starts_with("POST /api/v1/events "),
+                "unexpected request line: {request_line}",
+            );
+            let parsed: Value = serde_json::from_slice(&body).unwrap();
+            // The wire body is the bare envelope, not wrapped in `{"event":..}`
+            // or `{"events":[..]}`.
+            assert!(parsed.get("events").is_none(), "single-event POST must not wrap in events[]: {parsed}");
+            assert_eq!(parsed["kind"], "cx.message.create");
+            assert_eq!(parsed["payload"]["body"], "hello");
+            assert_eq!(parsed["actor_id"], "did:web:alice.example");
+        }
+
+        #[tokio::test]
+        async fn events_submit_batch_posts_events_array() {
+            let canned = r#"{"status":"accepted","accepted":["cx:event:01904100-0000-7000-8000-a0086f45c575"]}"#;
+            let (client, capture) = spawn_capture_server(canned).await;
+
+            let events = vec![fixture_event("first"), fixture_event("second")];
+            let response = client.events_submit_batch(&events).await.unwrap();
+            assert!(matches!(response.status, contrix_core::EventsSubmitStatus::Accepted));
+
+            let raw = capture.await.unwrap();
+            let (request_line, _headers, body) = split_request(&raw);
+            assert!(request_line.starts_with("POST /api/v1/events "));
+            let parsed: Value = serde_json::from_slice(&body).unwrap();
+            let events_value = parsed.get("events").expect("batch body must carry events[]");
+            let arr = events_value.as_array().expect("events must be an array");
+            assert_eq!(arr.len(), 2);
+            assert_eq!(arr[0]["payload"]["body"], "first");
+            assert_eq!(arr[1]["payload"]["body"], "second");
+        }
+
+        #[tokio::test]
+        async fn events_submit_returns_partial_status() {
+            let canned = r#"{
+                "status": "partial",
+                "accepted": ["cx:event:01904100-0000-7000-8000-a0086f45c575"],
+                "rejected": [
+                    {"event_id": "cx:event:01904100-0000-7000-8000-deadbeefdead", "reason": "schema_violation"}
+                ]
+            }"#;
+            let (client, _capture) = spawn_capture_server(canned).await;
+
+            let response =
+                client.events_submit_batch(&[fixture_event("a"), fixture_event("b")]).await.unwrap();
+
+            assert!(
+                matches!(response.status, contrix_core::EventsSubmitStatus::Partial),
+                "expected Partial status, got {:?}",
+                response.status
+            );
+            assert_eq!(response.accepted.len(), 1);
+            assert_eq!(response.rejected.len(), 1);
+            assert_eq!(response.rejected[0]["reason"], "schema_violation");
+        }
     }
 }

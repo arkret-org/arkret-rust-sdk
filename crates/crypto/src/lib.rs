@@ -52,11 +52,76 @@ pub struct DeviceKeyBundle {
 
 impl DeviceKeyBundle {
     pub fn validate(&self) -> Result<()> {
-        if self.signing_key.trim().is_empty() || self.identity_key.trim().is_empty() {
-            return Err(Error::Protocol("device key bundle keys must not be empty".to_owned()));
+        validate_nonempty_key("signing_key", &self.signing_key)?;
+        validate_nonempty_key("identity_key", &self.identity_key)?;
+        validate_max_length("signing_key", &self.signing_key, MAX_KEY_FIELD_LEN)?;
+        validate_max_length("identity_key", &self.identity_key, MAX_KEY_FIELD_LEN)?;
+        if self.algorithms.len() > MAX_ALGORITHMS_PER_BUNDLE {
+            return Err(Error::Protocol(format!(
+                "device key bundle algorithms count {} exceeds {}",
+                self.algorithms.len(),
+                MAX_ALGORITHMS_PER_BUNDLE
+            )));
+        }
+        for (name, value) in &self.algorithms {
+            validate_max_length("algorithm name", name, MAX_ALGORITHM_NAME_LEN)?;
+            validate_max_length("algorithm value", value, MAX_ALGORITHM_VALUE_LEN)?;
         }
         Ok(())
     }
+}
+
+/// Maximum length (bytes) for serialized device/cross-signing public keys and
+/// signature values. 4 KiB comfortably covers any RFC-defined public key /
+/// signature format the v1 crypto suite emits.
+pub const MAX_KEY_FIELD_LEN: usize = 4096;
+
+/// Maximum length (bytes) for short identifier strings (kid, algorithm,
+/// reason codes, transaction ids).
+pub const MAX_IDENTIFIER_LEN: usize = 256;
+
+/// Maximum length (bytes) for a free-form reason or label string.
+pub const MAX_REASON_LEN: usize = 1024;
+
+/// Maximum length (bytes) for an algorithm-name map key (e.g. `ed25519`).
+pub const MAX_ALGORITHM_NAME_LEN: usize = 64;
+
+/// Maximum length (bytes) for an algorithm-map value (parameter string).
+pub const MAX_ALGORITHM_VALUE_LEN: usize = 256;
+
+/// Maximum number of algorithm entries inside a single `DeviceKeyBundle`.
+pub const MAX_ALGORITHMS_PER_BUNDLE: usize = 32;
+
+/// Maximum number of one-time keys a single `OneTimeKeyClaim` may request.
+/// Protects the server claim path from unbounded per-claim allocation.
+pub const MAX_ONE_TIME_KEY_CLAIM_COUNT: u32 = 1000;
+
+/// Maximum number of verification-method names attached to a single
+/// `DeviceVerificationFlow`.
+pub const MAX_VERIFICATION_METHODS: usize = 32;
+
+/// Maximum number of device-quorum signatures attached to a single
+/// `CrossSigningResetProof::DeviceQuorum`.
+pub const MAX_DEVICE_QUORUM_SIGNATURES: usize = 256;
+
+/// Helper: reject empty / whitespace-only key strings with a uniform error.
+fn validate_nonempty_key(field: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() {
+        return Err(Error::Protocol(format!("{field} must not be empty")));
+    }
+    Ok(())
+}
+
+/// Helper: reject string fields above a per-field byte ceiling.
+fn validate_max_length(field: &str, value: &str, max: usize) -> Result<()> {
+    if value.len() > max {
+        return Err(Error::Protocol(format!(
+            "{field} length {} exceeds {}",
+            value.len(),
+            max
+        )));
+    }
+    Ok(())
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -296,11 +361,12 @@ impl CrossSigningResetContent {
                 "cross-signing reset new_generation must equal previous_generation + 1".to_owned(),
             ));
         }
-        if self.reset_reason.trim().is_empty() {
-            return Err(Error::Protocol(
-                "cross-signing reset requires a non-empty reset_reason".to_owned(),
-            ));
-        }
+        validate_nonempty_key("cross-signing reset reset_reason", &self.reset_reason)?;
+        validate_max_length(
+            "cross-signing reset reset_reason",
+            &self.reset_reason,
+            MAX_REASON_LEN,
+        )?;
         match &self.proof {
             CrossSigningResetProof::DeviceQuorum { threshold, signatures } => {
                 if signatures.is_empty() {
@@ -312,6 +378,33 @@ impl CrossSigningResetContent {
                     return Err(Error::Protocol(
                         "device_quorum reset proof requires threshold >= 1".to_owned(),
                     ));
+                }
+                if signatures.len() > MAX_DEVICE_QUORUM_SIGNATURES {
+                    return Err(Error::Protocol(format!(
+                        "device_quorum reset proof signatures count {} exceeds {}",
+                        signatures.len(),
+                        MAX_DEVICE_QUORUM_SIGNATURES
+                    )));
+                }
+                for sig in signatures {
+                    validate_nonempty_key("device_quorum signed_by", &sig.signed_by)?;
+                    validate_max_length(
+                        "device_quorum signed_by",
+                        &sig.signed_by,
+                        MAX_IDENTIFIER_LEN,
+                    )?;
+                    validate_nonempty_key("device_quorum alg", &sig.alg)?;
+                    validate_max_length(
+                        "device_quorum alg",
+                        &sig.alg,
+                        MAX_ALGORITHM_NAME_LEN,
+                    )?;
+                    validate_nonempty_key("device_quorum signature", &sig.signature)?;
+                    validate_max_length(
+                        "device_quorum signature",
+                        &sig.signature,
+                        MAX_KEY_FIELD_LEN,
+                    )?;
                 }
             }
             CrossSigningResetProof::PrincipalSigning { signed_by, alg, signature }
@@ -326,6 +419,9 @@ impl CrossSigningResetContent {
                         "reset proof requires signed_by + alg + signature".to_owned(),
                     ));
                 }
+                validate_max_length("reset proof signed_by", signed_by, MAX_IDENTIFIER_LEN)?;
+                validate_max_length("reset proof alg", alg, MAX_ALGORITHM_NAME_LEN)?;
+                validate_max_length("reset proof signature", signature, MAX_KEY_FIELD_LEN)?;
             }
             CrossSigningResetProof::RecoveryUnlock {
                 recovery_secret_ref,
@@ -342,6 +438,26 @@ impl CrossSigningResetContent {
                         "recovery_unlock proof requires recovery_secret_ref + unlock_commitment + alg + signature".to_owned(),
                     ));
                 }
+                validate_max_length(
+                    "recovery_unlock recovery_secret_ref",
+                    recovery_secret_ref,
+                    MAX_IDENTIFIER_LEN,
+                )?;
+                validate_max_length(
+                    "recovery_unlock unlock_commitment",
+                    unlock_commitment,
+                    MAX_KEY_FIELD_LEN,
+                )?;
+                validate_max_length(
+                    "recovery_unlock alg",
+                    alg,
+                    MAX_ALGORITHM_NAME_LEN,
+                )?;
+                validate_max_length(
+                    "recovery_unlock signature",
+                    signature,
+                    MAX_KEY_FIELD_LEN,
+                )?;
             }
         }
         Ok(())
@@ -480,13 +596,25 @@ pub struct DeviceVerificationFlow {
 
 impl DeviceVerificationFlow {
     pub fn validate(&self) -> Result<()> {
-        if self.transaction_id.trim().is_empty() {
-            return Err(Error::Protocol(
-                "verification transaction id must not be empty".to_owned(),
-            ));
-        }
+        validate_nonempty_key("verification transaction id", &self.transaction_id)?;
+        validate_max_length(
+            "verification transaction id",
+            &self.transaction_id,
+            MAX_IDENTIFIER_LEN,
+        )?;
         if self.from_device == self.to_device {
             return Err(Error::Protocol("verification requires two distinct devices".to_owned()));
+        }
+        if self.methods.len() > MAX_VERIFICATION_METHODS {
+            return Err(Error::Protocol(format!(
+                "verification methods count {} exceeds {}",
+                self.methods.len(),
+                MAX_VERIFICATION_METHODS
+            )));
+        }
+        for method in &self.methods {
+            validate_nonempty_key("verification method", method)?;
+            validate_max_length("verification method", method, MAX_IDENTIFIER_LEN)?;
         }
         Ok(())
     }
@@ -547,6 +675,13 @@ impl CryptoSessionRecord {
                 "crypto session requires id, sender key and algorithm".to_owned(),
             ));
         }
+        validate_max_length("crypto session id", &self.session_id, MAX_IDENTIFIER_LEN)?;
+        validate_max_length("crypto session sender_key", &self.sender_key, MAX_KEY_FIELD_LEN)?;
+        validate_max_length(
+            "crypto session algorithm",
+            &self.algorithm,
+            MAX_ALGORITHM_NAME_LEN,
+        )?;
         Ok(())
     }
 
@@ -583,9 +718,10 @@ pub struct SecretGossipReqBody {
 
 impl SecretGossipReqBody {
     pub fn validate(&self) -> Result<()> {
-        if self.request_id.trim().is_empty() || self.name.trim().is_empty() {
-            return Err(Error::Protocol("secret gossip request requires id and name".to_owned()));
-        }
+        validate_nonempty_key("secret gossip request_id", &self.request_id)?;
+        validate_max_length("secret gossip request_id", &self.request_id, MAX_IDENTIFIER_LEN)?;
+        validate_nonempty_key("secret gossip name", &self.name)?;
+        validate_max_length("secret gossip name", &self.name, MAX_IDENTIFIER_LEN)?;
         if self.requesting_device == self.recipient_device {
             return Err(Error::Protocol(
                 "secret gossip request requires distinct devices".to_owned(),
@@ -605,11 +741,16 @@ pub struct OneTimeKeyClaim {
 
 impl OneTimeKeyClaim {
     pub fn validate(&self) -> Result<()> {
-        if self.algorithm.trim().is_empty() {
-            return Err(Error::Protocol("one-time key algorithm must not be empty".to_owned()));
-        }
+        validate_nonempty_key("one-time key algorithm", &self.algorithm)?;
+        validate_max_length("one-time key algorithm", &self.algorithm, MAX_ALGORITHM_NAME_LEN)?;
         if self.count == 0 {
             return Err(Error::Protocol("one-time key claim count must be non-zero".to_owned()));
+        }
+        if self.count > MAX_ONE_TIME_KEY_CLAIM_COUNT {
+            return Err(Error::Protocol(format!(
+                "one-time key claim count {} exceeds {}",
+                self.count, MAX_ONE_TIME_KEY_CLAIM_COUNT
+            )));
         }
         Ok(())
     }
@@ -644,6 +785,17 @@ impl SecretBackupDescriptor {
                 "secret backup descriptor requires id, algorithm and public key".to_owned(),
             ));
         }
+        validate_max_length("secret backup id", &self.backup_id, MAX_IDENTIFIER_LEN)?;
+        validate_max_length(
+            "secret backup algorithm",
+            &self.algorithm,
+            MAX_ALGORITHM_NAME_LEN,
+        )?;
+        validate_max_length(
+            "secret backup public_key",
+            &self.public_key,
+            MAX_KEY_FIELD_LEN,
+        )?;
         Ok(())
     }
 }
@@ -713,6 +865,7 @@ pub struct UnableToDecryptRecord {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum CryptoMachineReqBody {
     UploadDeviceKeys(DeviceKeyBundle),
     QueryDeviceKeys {
@@ -906,20 +1059,21 @@ impl CryptoStoreBinding {
     }
 }
 
-fn session_key(space_id: &SpaceId, session_id: &str) -> String {
+pub(crate) fn session_key(space_id: &SpaceId, session_id: &str) -> String {
     format!("{}|{}", space_id.as_str(), session_id)
 }
 
-pub fn encrypted_payload_digest(payload: &EncryptedPayload) -> Result<Hash> {
+#[allow(dead_code)] // Retained as a crate-internal utility for future callers.
+pub(crate) fn encrypted_payload_digest(payload: &EncryptedPayload) -> Result<Hash> {
     let bytes = contrix_core::canonical::canonical_json_bytes(payload)?;
     Hash::new(sha256_prefixed(&bytes)).map_err(Into::into)
 }
 
-fn sha256_prefixed(bytes: &[u8]) -> String {
+pub(crate) fn sha256_prefixed(bytes: &[u8]) -> String {
     format!("sha256:{}", base16_lower(&Sha256::digest(bytes)))
 }
 
-fn base16_lower(bytes: &[u8]) -> String {
+pub(crate) fn base16_lower(bytes: &[u8]) -> String {
     const HEX: &[u8; 16] = b"0123456789abcdef";
     let mut out = String::with_capacity(bytes.len() * 2);
     for byte in bytes {
