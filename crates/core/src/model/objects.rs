@@ -6,9 +6,7 @@ use super::*;
 // gradually. The container that used to be `Place` is the new `Space` —
 // see the `Place` struct further down (kept under its old name for
 // transitional compile-only compatibility; new code should refer to it
-// as Space via the alias `pub type Space = ...`). TODO(realm-rework):
-// invert the struct names once the rename is propagated through all
-// reducers / resolvers / API call sites.
+// as Space via the alias `pub type Space = ...`).
 pub type Realm = Space;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -33,8 +33,8 @@ After the Phase 1–4 terminology inversion (Round R1.x):
   Lives inside a Realm. Previously called `Place` on the wire.
 
 The 0.8 line uses the realm/space names directly; the 0.7 compile-time aliases
-are removed. See [MIGRATING-FROM-0.7.md](MIGRATING-FROM-0.7.md) for the
-wire-breaking rename notes.
+are removed. See [`CHANGELOG.md`](CHANGELOG.md) for the wire-breaking rename
+notes.
 
 ## Entry Point
 
@@ -77,8 +77,8 @@ cargo test
 
 Spec round 4 (`contrix-spec` range `2a4d39b..a77b995`, 8 commits) lands
 in the SDK as a new `round4` module re-exported from the umbrella crate.
-See [`CHANGELOG.md`](CHANGELOG.md) `[Unreleased]` and
-[`../_todos.md`](../_todos.md) for the canonical wire-breaking list.
+See [`CHANGELOG.md`](CHANGELOG.md) `[Unreleased]` for the canonical
+wire-breaking list.
 Headline additions:
 
 - **Types**: `EventsSubscribeFrame` (8-kind enum), `SnapshotBootstrap`,
@@ -119,7 +119,6 @@ Headline additions:
   in topological order.
 - [Contributing](CONTRIBUTING.md) — development checks, API rules, commit
   style.
-- Cross-project task plan: [`../_todos.md`](../_todos.md).
 
 ## Implemented Contrix Surface
 
