@@ -220,7 +220,7 @@ pub use applet::{
     AppletPortal, AppletSchema, AppletServiceIntent, AppletServiceTransaction,
     GhostActorAccountability, OpenApiBinding, PortalMode, PortalSpaceMapping, RemoteSpaceMapping,
     RemoteUserMapping, SignedAppletRegistration, ThirdPartyLookupKind, ThirdPartyLookupReqBody,
-    ThirdPartyLookupResBody, VirtualActor,
+    ThirdPartyLookupResBody, VirtualActor, namespace_pattern_matches,
 };
 #[cfg(feature = "full-surface")]
 pub use auth::{

@@ -88,6 +88,11 @@ impl AppletNamespaceDeclaration {
             && (self.exclusive || other.exclusive)
             && namespace_patterns_overlap(&self.pattern, &other.pattern)
     }
+
+    /// True iff `candidate` matches this declaration's pattern.
+    pub fn matches(&self, candidate: &str) -> bool {
+        namespace_pattern_matches(&self.pattern, candidate)
+    }
 }
 
 /// Namespace conflict detected during applet registration.
@@ -622,6 +627,92 @@ fn namespace_patterns_overlap(left: &str, right: &str) -> bool {
     left_prefix.starts_with(right_prefix) || right_prefix.starts_with(left_prefix)
 }
 
+/// Test whether a candidate string matches an applet namespace pattern.
+///
+/// Grammar (spec applet-schema.md §2):
+/// - `*` matches one path-like segment (i.e. one or more consecutive
+///   non-separator chars, where separators are `:`, `/`, `#`). Empty matches
+///   are not allowed.
+/// - `**` matches multiple segments — any chars, including separators. May
+///   match the empty string when consumed at the end of the pattern.
+/// - Literal `*` is escaped as `\*`.
+/// - All other characters match literally.
+///
+/// An empty pattern never matches a non-empty candidate; an empty pattern
+/// matches only an empty candidate.
+pub fn namespace_pattern_matches(pattern: &str, candidate: &str) -> bool {
+    namespace_pattern_match_bytes(pattern.as_bytes(), candidate.as_bytes())
+}
+
+fn is_namespace_separator(byte: u8) -> bool {
+    matches!(byte, b':' | b'/' | b'#')
+}
+
+fn namespace_pattern_match_bytes(pattern: &[u8], candidate: &[u8]) -> bool {
+    let mut pi = 0;
+    let mut ci = 0;
+
+    while pi < pattern.len() {
+        match pattern[pi] {
+            b'\\' if pi + 1 < pattern.len() && pattern[pi + 1] == b'*' => {
+                // Escaped literal `*`.
+                if ci >= candidate.len() || candidate[ci] != b'*' {
+                    return false;
+                }
+                pi += 2;
+                ci += 1;
+            }
+            b'*' => {
+                // Detect `**` vs `*`.
+                if pi + 1 < pattern.len() && pattern[pi + 1] == b'*' {
+                    // `**`: any chars, including separators, possibly empty.
+                    let rest = &pattern[pi + 2..];
+                    if rest.is_empty() {
+                        // Trailing `**` consumes everything remaining.
+                        return true;
+                    }
+                    // Try every possible split point for the remainder of
+                    // the candidate.
+                    for split in ci..=candidate.len() {
+                        if namespace_pattern_match_bytes(rest, &candidate[split..]) {
+                            return true;
+                        }
+                    }
+                    return false;
+                } else {
+                    // `*`: one or more non-separator chars.
+                    let rest = &pattern[pi + 1..];
+                    let mut split = ci + 1;
+                    // Must consume at least one non-separator char.
+                    if split > candidate.len() || is_namespace_separator(candidate[ci]) {
+                        return false;
+                    }
+                    // Greedy/backtracking walk: extend the consumed span as
+                    // long as we stay on non-separator chars.
+                    loop {
+                        if namespace_pattern_match_bytes(rest, &candidate[split..]) {
+                            return true;
+                        }
+                        if split >= candidate.len() || is_namespace_separator(candidate[split]) {
+                            return false;
+                        }
+                        split += 1;
+                    }
+                }
+            }
+            byte => {
+                if ci >= candidate.len() || candidate[ci] != byte {
+                    return false;
+                }
+                pi += 1;
+                ci += 1;
+            }
+        }
+    }
+
+    ci == candidate.len()
+}
+
 #[cfg(test)]
 fn remote_key(protocol: &str, remote_id: &str) -> String {
     format!("{protocol}:{remote_id}")
@@ -759,5 +850,78 @@ mod tests {
 
         assert_eq!(mappings.user("slack", "U1").unwrap().display_name, Some("User One".to_owned()));
         assert!(mappings.space("slack", "C1").is_some());
+    }
+
+    #[test]
+    fn namespace_pattern_single_star_matches_one_segment() {
+        assert!(namespace_pattern_matches(
+            "did:web:slack-bridge.example#ghost-*",
+            "did:web:slack-bridge.example#ghost-u123"
+        ));
+    }
+
+    #[test]
+    fn namespace_pattern_single_star_rejects_different_host() {
+        assert!(!namespace_pattern_matches(
+            "did:web:slack-bridge.example#ghost-*",
+            "did:web:other.example#ghost-u123"
+        ));
+    }
+
+    #[test]
+    fn namespace_pattern_single_star_rejects_missing_prefix() {
+        assert!(!namespace_pattern_matches(
+            "did:web:slack-bridge.example#ghost-*",
+            "did:web:slack-bridge.example#bot"
+        ));
+    }
+
+    #[test]
+    fn namespace_pattern_multiple_single_stars_match_segments() {
+        assert!(namespace_pattern_matches(
+            "slack:team:*:channel:*",
+            "slack:team:T123:channel:C456"
+        ));
+    }
+
+    #[test]
+    fn namespace_pattern_single_star_does_not_cross_separator() {
+        assert!(!namespace_pattern_matches(
+            "slack:team:*:channel:*",
+            "slack:team:T123:channel:C456:thread:1"
+        ));
+    }
+
+    #[test]
+    fn namespace_pattern_double_star_matches_multiple_segments() {
+        assert!(namespace_pattern_matches(
+            "slack:team:**",
+            "slack:team:T123:channel:C456:thread:1"
+        ));
+    }
+
+    #[test]
+    fn namespace_pattern_escaped_star_matches_literal() {
+        assert!(namespace_pattern_matches("literal\\*pattern", "literal*pattern"));
+    }
+
+    #[test]
+    fn namespace_pattern_escaped_star_rejects_non_star() {
+        assert!(!namespace_pattern_matches("literal\\*pattern", "literalXpattern"));
+    }
+
+    #[test]
+    fn namespace_pattern_empty_pattern_rejects_non_empty_candidate() {
+        assert!(!namespace_pattern_matches("", "did:web:anything.example"));
+    }
+
+    #[test]
+    fn namespace_declaration_matches_uses_pattern() {
+        let decl = AppletNamespaceDeclaration::exclusive(
+            AppletNamespaceKind::Actor,
+            "did:web:slack-bridge.example#ghost-*",
+        );
+        assert!(decl.matches("did:web:slack-bridge.example#ghost-u123"));
+        assert!(!decl.matches("did:web:slack-bridge.example#bot"));
     }
 }
