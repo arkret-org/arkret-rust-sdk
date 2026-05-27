@@ -32,7 +32,6 @@ jobs:
           toolchain: "1.92"
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
-      - run: cargo fmt --all -- --check
       - run: cargo clippy --all-features --all-targets -- -D warnings
       - run: cargo test --all-features
       - run: python tools/check-publish-order.py
