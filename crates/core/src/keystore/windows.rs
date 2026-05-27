@@ -52,6 +52,8 @@ impl KeyStore for WindowsCredentialKeyStore {
         validate_id(id)?;
         let target = wide(&self.target_name(id));
         let mut cred_ptr: *mut CREDENTIALW = std::ptr::null_mut();
+        // SAFETY: `target` is a valid NUL-terminated UTF-16 buffer owned for the duration of the call;
+        // `cred_ptr` is an out-parameter the Win32 API writes into.
         let res =
             unsafe { CredReadW(PCWSTR(target.as_ptr()), CRED_TYPE_GENERIC, None, &mut cred_ptr) };
         match res {
@@ -59,6 +61,8 @@ impl KeyStore for WindowsCredentialKeyStore {
                 if cred_ptr.is_null() {
                     return Err(KeyStoreError::not_found(id).into());
                 }
+                // SAFETY: CredReadW returned Ok and cred_ptr is non-null; the credential
+                // struct and its CredentialBlob buffer are valid until we call CredFree below.
                 let bytes = unsafe {
                     let cred = &*cred_ptr;
                     let len = cred.CredentialBlobSize as usize;
@@ -68,6 +72,7 @@ impl KeyStore for WindowsCredentialKeyStore {
                         std::slice::from_raw_parts(cred.CredentialBlob, len).to_vec()
                     }
                 };
+                // SAFETY: cred_ptr was allocated by CredReadW and is freed exactly once here.
                 unsafe { CredFree(cred_ptr as *const _) };
                 Ok(bytes)
             }
@@ -100,6 +105,9 @@ impl KeyStore for WindowsCredentialKeyStore {
             TargetAlias: windows::core::PWSTR::null(),
             UserName: PWSTR_from_slice(&user),
         };
+        // SAFETY: `cred` is a valid CREDENTIALW whose pointer members (TargetName,
+        // CredentialBlob, UserName) remain valid through the call because their
+        // backing buffers (`target`, `blob`, `user`) outlive this expression.
         let res = unsafe { CredWriteW(&cred, 0) };
         res.map_err(|err| KeyStoreError::backend(format!("CredWriteW: {err}")))?;
         Ok(())
@@ -109,13 +117,19 @@ impl KeyStore for WindowsCredentialKeyStore {
         let filter = wide(&self.filter());
         let mut count: u32 = 0;
         let mut creds: *mut *mut CREDENTIALW = std::ptr::null_mut();
+        // SAFETY: `filter` is a NUL-terminated UTF-16 buffer; `count` and `creds`
+        // are out-parameters that Win32 writes into.
         let res = unsafe { CredEnumerateW(PCWSTR(filter.as_ptr()), None, &mut count, &mut creds) };
         match res {
             Ok(()) => {
                 let mut ids = Vec::with_capacity(count as usize);
                 let prefix_len = self.service.len() + 1; // service + ':'
                 for i in 0..count as isize {
+                    // SAFETY: `creds` points to a Win32-allocated array of length `count`;
+                    // `i` is strictly less than `count` so the offset and double-deref are in-bounds.
                     let cred = unsafe { &**(creds.offset(i)) };
+                    // SAFETY: TargetName originates from the Win32 credential array above;
+                    // the pointer is valid until CredFree(creds) runs below.
                     let target = unsafe { read_pwstr(cred.TargetName.as_ptr()) };
                     if let Some(id) = target.strip_prefix(&format!("{}:", self.service)) {
                         ids.push(id.to_owned());
@@ -125,6 +139,7 @@ impl KeyStore for WindowsCredentialKeyStore {
                     }
                 }
                 if !creds.is_null() {
+                    // SAFETY: `creds` was allocated by CredEnumerateW and is freed exactly once here.
                     unsafe { CredFree(creds as *const _) };
                 }
                 ids.sort();
@@ -143,6 +158,7 @@ impl KeyStore for WindowsCredentialKeyStore {
     fn delete(&self, id: &str) -> Result<()> {
         validate_id(id)?;
         let target = wide(&self.target_name(id));
+        // SAFETY: `target` is a valid NUL-terminated UTF-16 buffer owned for the duration of the call.
         let res = unsafe { CredDeleteW(PCWSTR(target.as_ptr()), CRED_TYPE_GENERIC, None) };
         match res {
             Ok(()) => Ok(()),
@@ -170,9 +186,13 @@ unsafe fn read_pwstr(ptr: *const u16) -> String {
         return String::new();
     }
     let mut len = 0;
+    // SAFETY: caller-contract requires `ptr` to reference a NUL-terminated UTF-16 string,
+    // so walking until the first 0 word stays within the allocation.
     while unsafe { *ptr.offset(len) } != 0 {
         len += 1;
     }
+    // SAFETY: `len` was just measured as the distance to the NUL terminator,
+    // so `ptr..ptr+len` covers a valid, initialised UTF-16 sequence.
     let slice = unsafe { std::slice::from_raw_parts(ptr, len as usize) };
     OsString::from_wide(slice).to_string_lossy().into_owned()
 }
