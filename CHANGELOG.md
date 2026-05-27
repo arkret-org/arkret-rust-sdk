@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Starting with the local `1.0.0` freeze, breaking public API changes require a
 major-version bump.
 
+## R3 — Spec sync 2026-05-27 (contrix-spec @ b47ff6ec)
+
+- Call / media (CXP-0010): client helper `call_media_token_exchange`, `MediaTokenResponse` / `ParticipantBinding` / `MediaBackendType` types, TTL gate `<=600s`, five new capability actions, op registry mirror at `cx.call.media.token_exchange`.
+- Agent (CXP-0008 / 0009): `cx.agent.deactivate` HTTP path canonicalised (no `/revoke`), draft / action_request / approve / reject event kinds wired, `pause/resume/deactivate` FSM lattice metadata, agent_runtime surface tier definition.
+- Errors: 20 new error codes added to SDK `Error` / `ServiceError` (pairing, proof, agent lifecycle, media binding, focus, recording, recovery, handle homograph).
+- Recovery: `RecoveryPolicy`, `RecoveryReceipt`, `RecoveryProofKind`, `RecoverySession` id-kind + codec round-trip per the new schemas.
+- Profiles / cursor / selector / data: media-service-binding + `accountable_to.strict_reject` profile entries, stateful core cursor enforcement, `ResourceSelector::Circle(CircleId)`, `AccountDataSet` / `AccountBlocklist` payloads, handle NFC + confusable skeleton helper.
+
+> No version tag, no crates.io / Docker Hub / npm publish — git commit only.
+
 ## [Unreleased]
 
 ### R3 — Spec sync 2026-05-27 (contrix-spec b47ff6ec, no release)

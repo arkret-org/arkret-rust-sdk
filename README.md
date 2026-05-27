@@ -1,5 +1,7 @@
 # Contrix Rust SDK
 
+> **Spec target**: [contrix-spec @ b47ff6ec](../contrix-spec) (R3 sync 2026-05-27)
+
 [![codecov](https://codecov.io/gh/contrix/contrix-rust-sdk/branch/main/graph/badge.svg)](https://codecov.io/gh/contrix/contrix-rust-sdk)
 
 Release status: local Contrix v1 SDK `1.0.0` freeze candidate. The SDK includes
