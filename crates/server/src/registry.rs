@@ -89,6 +89,8 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
     endpoint!("cx.authz.check", Post, "/api/v1/authz/check"),
     endpoint!("cx.policy.check", Post, "/contrix/v1/check"),
     endpoint!("cx.media.ice_config", Post, "/contrix/v1/ice-config"),
+    // CXP-0010 (R3 spec-sync 2026-05-27, contrix-spec b47ff6ec).
+    endpoint!("cx.call.media.token_exchange", Post, "/contrix/v1/rtc/token"),
     endpoint!("cx.moderation.report", Post, "/api/v1/moderation/report"),
     endpoint!("cx.mimi.provider_directory", Get, "/api/v1/mimi/provider-directory"),
     endpoint!("cx.mimi.key_material", Post, "/api/v1/mimi/key-material"),

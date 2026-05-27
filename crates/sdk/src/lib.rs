@@ -217,7 +217,10 @@ pub mod typing;
 pub mod webrtc;
 
 #[cfg(feature = "full-surface")]
-pub use account::{ACCOUNT_DATA_BLOCKLIST, AccountBlocklist, AccountDataManager, BlocklistEntry};
+pub use account::{
+    ACCOUNT_DATA_BLOCKLIST, AccountBlocklist, AccountBlocklistPayload,
+    AccountBlocklistPayloadEntry, AccountDataManager, AccountDataSetPayload, BlocklistEntry,
+};
 #[cfg(feature = "full-surface")]
 pub use agent::{
     AgentBridgeMetadata, AgentPrincipal, AgentProtocol, AgentProtocolEndpoint,
@@ -360,8 +363,10 @@ pub use key_verification::{
 };
 #[cfg(feature = "full-surface")]
 pub use media::{
-    Attachment, AuthenticatedDownloadGrant, DownloadGrantScope, EncryptedAttachment, MediaMetadata,
-    MemoryBlobStore, Thumbnail, safe_content_disposition, safe_content_type,
+    Attachment, AuthenticatedDownloadGrant, DownloadGrantScope, EncryptedAttachment,
+    MediaBackendType, MediaMetadata, MediaTokenExchangeRequest, MediaTokenResponse, MemoryBlobStore,
+    ParticipantBinding, Thumbnail, call_media_token_exchange, safe_content_disposition,
+    safe_content_type, validate_token_ttl,
 };
 #[cfg(feature = "full-surface")]
 pub use membership::{

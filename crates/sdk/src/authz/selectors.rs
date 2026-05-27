@@ -55,6 +55,11 @@ pub enum ResourceSelector {
     Event { space_id: String, event_kind: Option<String>, event_id: Option<String> },
     /// Actor selector (e.g. account-lifecycle, profile updates).
     Actor { actor_did: String },
+    /// CXP-0007 (R3 spec-sync 2026-05-27) — Circle selector. Matches a
+    /// specific Circle by its `cx:circle:<uuid>` identifier. The Circle
+    /// is scoped to its parent Realm; cross-Realm selectors MUST be
+    /// rejected by the resolver (`circle_realm_mismatch`).
+    Circle { circle_id: contrix_core::CircleId },
     /// Wildcard selector (all resources)
     Wildcard,
 }
@@ -232,6 +237,13 @@ impl ResourceSelector {
             }
             (Self::Actor { .. }, _) => false,
 
+            // Circle selector — matches by exact CircleId. The Resource
+            // enum does not yet carry a dedicated Circle variant; circle
+            // resolution drives through the parent Realm so we fall
+            // through to `false` here and rely on the reducer-side check.
+            // TODO(R3.1): add `Resource::Circle` and wire the match arm.
+            (Self::Circle { .. }, _) => false,
+
             // Wildcard matches everything
             (Self::Wildcard, _) => true,
         }
@@ -303,6 +315,18 @@ impl ResourceSelector {
                 Ok(Self::Invite { space_id, invite_id })
             }
             "read_cursor" => Ok(Self::ReadCursor { space_id: remainder.to_owned() }),
+            "circle" => {
+                // Accept either `circle:cx:circle:<uuid>` (typed) or bare
+                // `circle:<uuid>` (parser tail).
+                let raw = if remainder.starts_with("cx:circle:") {
+                    remainder.to_owned()
+                } else {
+                    format!("cx:circle:{remainder}")
+                };
+                let circle_id = contrix_core::CircleId::new(raw)
+                    .map_err(|err| Error::Protocol(format!("invalid circle selector: {err}")))?;
+                Ok(Self::Circle { circle_id })
+            }
             "*" => Ok(Self::Wildcard),
             _ => Err(Error::Protocol(format!("unknown selector type: {}", selector))),
         }
@@ -328,6 +352,8 @@ pub enum ProtocolResourceSelectorKind {
     Notification,
     ReadCursor,
     Blob,
+    /// CXP-0007 (R3 spec-sync 2026-05-27).
+    Circle,
     Wildcard,
 }
 

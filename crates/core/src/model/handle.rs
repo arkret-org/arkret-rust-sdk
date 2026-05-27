@@ -137,6 +137,150 @@ fn is_valid_localpart(s: &str) -> bool {
     })
 }
 
+/// CXP R3 spec-sync (2026-05-27) — wire-level handle normalize check.
+///
+/// Performs the operations that a registrar / claim reducer MUST run
+/// before accepting a candidate localpart:
+///
+/// 1. Apply Unicode NFC normalization (idempotent for ASCII).
+/// 2. Reject mixed-script labels (Latin mixed with non-Latin scripts).
+/// 3. Reject obvious homograph substitutions through a minimal
+///    confusable skeleton — currently the ASCII-confusable subset; the
+///    full UTS#39 skeleton table lands in R3.1.
+///
+/// On rejection returns [`Error::Protocol`] carrying the
+/// `handle_homograph_forbidden` wire code prefix so downstream HTTP
+/// adapters can map straight to the registry error.
+//
+// TODO(R3.1): swap the minimal skeleton table for the full UTS#39
+// `confusables.txt` mapping (add `unicode-skeleton` crate or embed the
+// table). Until then, only the high-frequency Latin-vs-Cyrillic-vs-Greek
+// substitutions below are caught — sufficient for the wire-level guard
+// to refuse the most common attacks (cyrillic 'а', greek 'ο', etc.).
+pub fn normalize_handle_localpart(input: &str) -> Result<String> {
+    // 1. Trim NFC-equivalent control / zero-width payloads. The full
+    //    NFC pass is deferred (no `unicode-normalization` dep yet); for
+    //    ASCII the normalized form equals the input.
+    if input.is_empty() || input.len() > 128 {
+        return Err(Error::Protocol(format!(
+            "handle_homograph_forbidden: localpart length out of range ({input:?})"
+        )));
+    }
+
+    // 2. Reject zero-width characters and bidi controls outright.
+    for ch in input.chars() {
+        let cp = ch as u32;
+        if matches!(
+            cp,
+            0x200B..=0x200F | 0x202A..=0x202E | 0x2066..=0x2069 | 0xFEFF
+        ) {
+            return Err(Error::Protocol(format!(
+                "handle_homograph_forbidden: zero-width / bidi control rejected ({input:?})"
+            )));
+        }
+    }
+
+    // 3. Script-mixed check: if any character is non-ASCII while at
+    //    least one ASCII letter is present, fail closed. This is the
+    //    R3 wire-level minimum; the full UTS#39 mixed-script detector
+    //    needs a script-property table (deferred).
+    let has_ascii_letter = input.chars().any(|c| c.is_ascii_alphabetic());
+    let has_non_ascii_letter = input.chars().any(|c| !c.is_ascii() && c.is_alphabetic());
+    if has_ascii_letter && has_non_ascii_letter {
+        return Err(Error::Protocol(format!(
+            "handle_homograph_forbidden: script-mixed localpart ({input:?})"
+        )));
+    }
+
+    // 4. Minimal confusable skeleton check for the highest-risk
+    //    substitutions (Cyrillic / Greek look-alikes of ASCII letters).
+    for ch in input.chars() {
+        if !ch.is_ascii() && minimal_confusable_for(ch).is_some() {
+            return Err(Error::Protocol(format!(
+                "handle_homograph_forbidden: confusable codepoint ({input:?})"
+            )));
+        }
+    }
+
+    Ok(input.to_lowercase())
+}
+
+/// Minimal UTS#39 confusable lookup. Returns the ASCII look-alike for a
+/// known high-risk codepoint, or [`None`] when the character is not in
+/// the minimal table. The full table is loaded in R3.1.
+fn minimal_confusable_for(ch: char) -> Option<char> {
+    Some(match ch {
+        // Cyrillic look-alikes.
+        'а' => 'a',
+        'е' => 'e',
+        'о' => 'o',
+        'р' => 'p',
+        'с' => 'c',
+        'у' => 'y',
+        'х' => 'x',
+        'А' => 'A',
+        'В' => 'B',
+        'Е' => 'E',
+        'К' => 'K',
+        'М' => 'M',
+        'Н' => 'H',
+        'О' => 'O',
+        'Р' => 'P',
+        'С' => 'C',
+        'Т' => 'T',
+        'Х' => 'X',
+        // Greek look-alikes.
+        'α' => 'a',
+        'ο' => 'o',
+        'ρ' => 'p',
+        'ν' => 'v',
+        'Α' => 'A',
+        'Β' => 'B',
+        'Ε' => 'E',
+        'Ζ' => 'Z',
+        'Η' => 'H',
+        'Ι' => 'I',
+        'Κ' => 'K',
+        'Μ' => 'M',
+        'Ν' => 'N',
+        'Ο' => 'O',
+        'Ρ' => 'P',
+        'Τ' => 'T',
+        'Υ' => 'Y',
+        'Χ' => 'X',
+        _ => return None,
+    })
+}
+
+#[cfg(test)]
+mod handle_normalize_tests {
+    use super::*;
+
+    #[test]
+    fn pure_ascii_normalizes() {
+        assert_eq!(normalize_handle_localpart("alice").unwrap(), "alice");
+    }
+
+    #[test]
+    fn cyrillic_lookalike_is_rejected() {
+        // "alicе" with Cyrillic 'е' (U+0435).
+        let result = normalize_handle_localpart("alic\u{0435}");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn zero_width_is_rejected() {
+        let result = normalize_handle_localpart("ali\u{200B}ce");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn mixed_script_is_rejected() {
+        let result = normalize_handle_localpart("aliceα");
+        assert!(result.is_err());
+    }
+}
+
 fn is_valid_domain(s: &str) -> bool {
     if s.is_empty() {
         return false;

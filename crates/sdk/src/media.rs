@@ -6,7 +6,146 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::{AEAD_ALGORITHM, BlobRef, Did, Error, Result, SpaceId, crypto};
+use crate::{AEAD_ALGORITHM, BlobRef, CallId, DeviceId, Did, Error, RealmId, Result, SpaceId, crypto};
+
+// ─── CXP-0010 (R3 spec-sync 2026-05-27) — media token exchange ────────────
+
+/// Backend type for a call's media focus. Wire enum mirrors
+/// `cx.realm.media_service.foci[].type`. Receivers MUST fail closed with
+/// [`unknown_focus_type`](contrix_core::error::ERROR_CODE_UNKNOWN_FOCUS_TYPE)
+/// on unrecognized variants.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MediaBackendType {
+    Livekit,
+    Mediasoup,
+    Janus,
+    ContrixNative,
+    MoqRelay,
+    /// Unknown / forward-compat backend label. Helpers MUST reject this
+    /// with `unknown_focus_type` before forwarding to the wire layer.
+    #[serde(other)]
+    Unknown,
+}
+
+impl MediaBackendType {
+    /// Reject the focus when the SDK does not understand the backend
+    /// label. Surface: [`unknown_focus_type`].
+    pub fn ensure_known(&self) -> Result<()> {
+        match self {
+            Self::Unknown => Err(Error::Protocol(
+                "unknown_focus_type: media focus backend label not recognised".to_owned(),
+            )),
+            _ => Ok(()),
+        }
+    }
+}
+
+/// Participant binding envelope per `cx.media.participant_binding.v1`.
+///
+/// Carried inside `MediaTokenResponse.participant_binding`. The token
+/// issuer signs the canonical body with its `service_signature.kid`
+/// equal to `issuer_kid`. Receivers MUST verify that `issuer_kid`
+/// resolves to the current `cx.realm.media_service.service_id` epoch
+/// and that all bound tuple fields match the call state.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ParticipantBinding {
+    /// Always `cx.media.participant_binding.v1`.
+    pub scheme: String,
+    /// Detached signature over the canonical binding body.
+    pub sig: String,
+    /// Key identifier of the signing media-service key.
+    pub issuer_kid: String,
+    pub realm_id: RealmId,
+    pub call_id: CallId,
+    pub focus_id: String,
+    pub actor_id: Did,
+    pub device_id: DeviceId,
+    /// Opaque per-participant identity assigned by the focus backend.
+    pub participant_identity: String,
+    /// Token expiry (RFC 3339).
+    pub expires_at: DateTime<Utc>,
+}
+
+impl ParticipantBinding {
+    pub const SCHEME: &'static str = contrix_core::PARTICIPANT_BINDING_SCHEMA;
+}
+
+/// Response payload of `POST /rtc/token` (`cx.call.media.token_exchange`).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MediaTokenResponse {
+    /// Opaque backend token (e.g. LiveKit JWT, Mediasoup ticket).
+    pub backend_token: String,
+    /// Backend-issued participant identifier.
+    pub participant_identity: String,
+    pub participant_binding: ParticipantBinding,
+    /// Token expiry (RFC 3339).
+    pub expires_at: DateTime<Utc>,
+    /// Service signature over the response body. Receivers MUST check
+    /// the `kid` matches the current `cx.realm.media_service.service_id`.
+    pub service_signature: String,
+    /// Optional websocket / SDP connect URL for backends that require
+    /// out-of-band signalling.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub connect_url: Option<String>,
+}
+
+/// Validate that `expires_at - now` is within the spec TTL ceiling
+/// ([`MEDIA_TOKEN_TTL_MAX_SECS`](contrix_core::MEDIA_TOKEN_TTL_MAX_SECS)).
+/// Returns [`Ok(())`] when the TTL is within bounds, otherwise a
+/// `participant_binding_invalid` protocol error.
+pub fn validate_token_ttl(now: DateTime<Utc>, expires_at: DateTime<Utc>) -> Result<()> {
+    let remaining = (expires_at - now).num_seconds();
+    if remaining <= 0 {
+        return Err(Error::Protocol("participant_binding_invalid: token already expired".to_owned()));
+    }
+    if (remaining as u64) > contrix_core::MEDIA_TOKEN_TTL_MAX_SECS {
+        return Err(Error::Protocol(
+            "participant_binding_invalid: token TTL exceeds 600s ceiling".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+/// Request body for `POST /rtc/token` (`cx.call.media.token_exchange`).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MediaTokenExchangeRequest {
+    pub realm_id: RealmId,
+    pub call_id: CallId,
+    pub actor_id: Did,
+    pub device_id: DeviceId,
+    /// Focus id chosen by the client (oldest-membership-wins per spec).
+    pub focus_id: String,
+}
+
+/// Client helper that builds a `cx.call.media.token_exchange` request body.
+///
+/// Implementations using a concrete HTTP transport (e.g. [`reqwest`])
+/// POST the body to `/contrix/v1/rtc/token` and feed the JSON response
+/// to [`MediaTokenResponse`] / [`validate_token_ttl`]. This helper keeps
+/// the SDK transport-agnostic; downstream crates wrap it with their own
+/// HTTP client.
+//
+// TODO(R3.1): land a transport-backed `BaseClient::call_media_token_exchange`
+// that signs the request, performs the POST, validates the response
+// `service_signature.kid` against the current
+// `cx.realm.media_service.service_id`, calls `validate_token_ttl`, and
+// rejects unknown focus types via [`MediaBackendType::ensure_known`].
+pub fn call_media_token_exchange(
+    realm_id: RealmId,
+    call_id: CallId,
+    actor_id: Did,
+    device_id: DeviceId,
+    focus_id: impl Into<String>,
+) -> MediaTokenExchangeRequest {
+    MediaTokenExchangeRequest {
+        realm_id,
+        call_id,
+        actor_id,
+        device_id,
+        focus_id: focus_id.into(),
+    }
+}
 
 /// Stored media metadata.
 ///

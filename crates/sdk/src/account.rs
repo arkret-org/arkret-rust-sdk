@@ -17,6 +17,59 @@ use crate::{Did, Result, base::BaseClient};
 /// (`moderation.md` §4.1).
 pub const ACCOUNT_DATA_BLOCKLIST: &str = "cx.account.blocklist";
 
+/// CXP R3 spec-sync (2026-05-27) — wire payload for `cx.account_data.set`.
+/// Mirrors the spec event payload `account-data-set.schema.json` shape:
+/// owner/key/body/encrypted_payload/body_digest/tombstone/updated_at/
+/// expected_state_digest.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AccountDataSetPayload {
+    /// Account owner DID. MUST equal the submitting actor.
+    pub owner: Did,
+    /// Account-data type key (e.g. `cx.account.blocklist`,
+    /// `m.push_rules`).
+    pub key: String,
+    /// Cleartext body. Mutually exclusive with `encrypted_payload`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub body: Option<Value>,
+    /// AEAD-wrapped body (preferred at rest for sensitive types).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub encrypted_payload: Option<Value>,
+    /// SHA-256 digest of the canonical body for tombstone-safe deletes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub body_digest: Option<String>,
+    /// Tombstone marker — when true the entry is logically deleted.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub tombstone: bool,
+    pub updated_at: DateTime<Utc>,
+    /// CAS guard against expected per-key state digest.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expected_state_digest: Option<String>,
+}
+
+/// CXP R3 spec-sync (2026-05-27) — `cx.account.blocklist` payload shape.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AccountBlocklistPayload {
+    pub owner: Did,
+    pub version: u64,
+    #[serde(default)]
+    pub entries: Vec<AccountBlocklistPayloadEntry>,
+}
+
+/// Single entry inside an [`AccountBlocklistPayload`].
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AccountBlocklistPayloadEntry {
+    /// DID of the blocked subject.
+    pub target: Did,
+    /// Block mode (`hide`, `mute`, `block`, ...). Reducer treats unknown
+    /// modes as `block` by default.
+    pub mode: String,
+    pub created_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
 /// Personal-blocklist entry.
 ///
 /// The blocklist is **actor-private**: it MUST NOT be federated, MUST NOT

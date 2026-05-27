@@ -411,6 +411,57 @@ pub const CAP_ACTION_MODERATION_APPEAL_REVIEW: &str = "cx.moderation.appeal.revi
 /// `capability-action-registry.json` declares `required_constraints=[morph_type_allow]`.
 pub const CAP_ACTION_MORPH_CREATE: &str = "cx.morph.create";
 
+/// CXP-0010 (R3 spec-sync 2026-05-27, contrix-spec b47ff6ec) — call /
+/// media capability actions registered in
+/// `capability-action-registry.json`. Five actions gate the join,
+/// screen-share, recording, transcription, and moderation surfaces of
+/// the cx.call.* feature.
+pub const CAP_ACTION_CALL_JOIN: &str = "cx.call.join";
+pub const CAP_ACTION_CALL_SCREEN_SHARE: &str = "cx.call.screen_share";
+pub const CAP_ACTION_CALL_RECORD: &str = "cx.call.record";
+pub const CAP_ACTION_CALL_TRANSCRIBE: &str = "cx.call.transcribe";
+pub const CAP_ACTION_CALL_MODERATE: &str = "cx.call.moderate";
+
+/// CXP-0010 — full call/media capability-action list.
+pub const CALL_CAPABILITY_ACTIONS: &[&str] = &[
+    CAP_ACTION_CALL_JOIN,
+    CAP_ACTION_CALL_SCREEN_SHARE,
+    CAP_ACTION_CALL_RECORD,
+    CAP_ACTION_CALL_TRANSCRIBE,
+    CAP_ACTION_CALL_MODERATE,
+];
+
+/// CXP-0010 — `cx.call.media.token_exchange` operation id. HTTP route:
+/// `POST /rtc/token`. Surface tier `core_personal`. Registered in
+/// `operation-registry.json` v2026-05-27.
+pub const OP_CALL_MEDIA_TOKEN_EXCHANGE: &str = "cx.call.media.token_exchange";
+
+/// CXP-0010 — schema id for the participant_binding signing envelope.
+pub const PARTICIPANT_BINDING_SCHEMA: &str = "cx.media.participant_binding.v1";
+
+/// CXP-0010 — maximum TTL bound for media tokens (600 seconds). Tokens
+/// MUST be rejected when `expires_at - now > 600s`. SHOULD floor: 300s.
+pub const MEDIA_TOKEN_TTL_MAX_SECS: u64 = 600;
+/// CXP-0010 — SHOULD-bound (recommended) TTL for media tokens.
+pub const MEDIA_TOKEN_TTL_SHOULD_SECS: u64 = 300;
+
+/// CXP-0008 / CXP-0009 (R3 spec-sync 2026-05-27) — agent_runtime
+/// surface tier: list of operations that live under the
+/// `cx.profile.agent_runtime.v1` server-profile surface.
+pub const AGENT_RUNTIME_SURFACE_OPERATIONS: &[&str] = &[
+    OP_ACCOUNT_AGENT_KEY_PAIR,
+    OP_AGENT_PROVISION,
+    OP_AGENT_LIST,
+    OP_AGENT_GET,
+    OP_AGENT_PAUSE,
+    OP_AGENT_RESUME,
+    OP_AGENT_DEACTIVATE,
+    OP_AGENT_ROTATE_KEY,
+    OP_AGENT_GRANT_ATTACH,
+    OP_AGENT_GRANT_DETACH,
+    OP_AGENT_SIDECAR_THREAD_ENSURE,
+];
+
 /// Round 4 (2026-05-20) — canonical signal_type enum values carried in the
 /// `cx.call.signal` ephemeral envelope payload. Wire-break: the
 /// pre-round-4 6-value enum (`invite, answer, candidate, renegotiate,
@@ -524,6 +575,7 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_BLOB_HEAD,
     OP_BLOB_PRESIGN,
     OP_BLOB_UPLOAD,
+    OP_CALL_MEDIA_TOKEN_EXCHANGE,
     OP_DEVICE_MESSAGES_GET,
     OP_DEVICE_MESSAGES_PUT,
     OP_DIRECTORY_ANNOUNCE,

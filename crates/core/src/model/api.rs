@@ -1845,6 +1845,48 @@ pub enum RecoveryPolicyLifecycle {
     Retired,
 }
 
+/// CXP recovery policy proof-kind enum (R3 spec-sync 2026-05-27,
+/// contrix-spec b47ff6ec). Mirrors `recovery-policy.schema.json`
+/// `body.proof_kinds[]`. Validation of the proof internals is
+/// deferred to R3.1 (verifier implementation).
+//
+// TODO(R3.1): internal proof verification (cross-signing reset proof
+// equivalents, threshold device quorum, OIDC trusted recovery service,
+// principal-signing) — wire-level shape only at this round.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum RecoveryProofKind {
+    /// Device-quorum signed reset (threshold of trusted devices).
+    DeviceQuorum,
+    /// Recovery passphrase / hardware-wrapped unlock evidence.
+    RecoveryUnlock,
+    /// External trusted recovery service (e.g. OIDC, custodian).
+    TrustedRecoveryService,
+    /// Principal-key direct signature (sovereign deployments).
+    PrincipalSigning,
+}
+
+impl RecoveryProofKind {
+    /// All variants in registry order. Helpful for schema-driven
+    /// validators.
+    pub const ALL: &'static [Self] = &[
+        Self::DeviceQuorum,
+        Self::RecoveryUnlock,
+        Self::TrustedRecoveryService,
+        Self::PrincipalSigning,
+    ];
+
+    pub fn as_wire_str(self) -> &'static str {
+        match self {
+            Self::DeviceQuorum => "device_quorum",
+            Self::RecoveryUnlock => "recovery_unlock",
+            Self::TrustedRecoveryService => "trusted_recovery_service",
+            Self::PrincipalSigning => "principal_signing",
+        }
+    }
+}
+
 /// Key-backup hardening (B-C, spec head 37ce729) — minimal Rust shape for
 /// `cx.schema.recovery_receipt.v1`. Captures verification evidence + a
 /// proof that binds the receipt to a specific recovery session.

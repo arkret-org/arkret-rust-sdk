@@ -86,7 +86,14 @@ impl LatticeKind {
                 "cx.flow.reorder",
                 "cx.place.parent",
             ],
-            Self::Fsm => &["cx.member.state"],
+            Self::Fsm => &[
+                "cx.member.state",
+                // CXP-0008 / CXP-0009 (R3 spec-sync 2026-05-27) — personal-agent
+                // lifecycle is an FSM with bottom=reject; deactivate is terminal.
+                "cx.agent.pause",
+                "cx.agent.resume",
+                "cx.agent.deactivate",
+            ],
             Self::Counter => &[],
             Self::OrderedLog => &[
                 "cx.space.create",

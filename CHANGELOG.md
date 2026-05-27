@@ -10,6 +10,93 @@ major-version bump.
 
 ## [Unreleased]
 
+### R3 — Spec sync 2026-05-27 (contrix-spec b47ff6ec, no release)
+
+Aggressive spec-sync round; no version bump, `git commit` only.
+
+#### CXP-0010 — Call / Media token exchange
+
+- New op `cx.call.media.token_exchange` mounted at
+  `POST /contrix/v1/rtc/token` with surface tier `core_personal`
+  (`crates/core/src/model/constants.rs`,
+  `crates/server/src/registry.rs`).
+- New SDK types in `crates/sdk/src/media.rs`:
+  - `MediaTokenResponse { backend_token, participant_identity,
+    participant_binding, expires_at, service_signature, connect_url? }`
+  - `ParticipantBinding` (`scheme=cx.media.participant_binding.v1`,
+    `sig`, `issuer_kid`, realm/call/focus/actor/device tuple,
+    `participant_identity`, `expires_at`).
+  - `MediaBackendType { Livekit, Mediasoup, Janus, ContrixNative,
+    MoqRelay, Unknown }` with `ensure_known()` rejection helper.
+  - `MediaTokenExchangeRequest` and `call_media_token_exchange(...)`
+    request builder (transport-agnostic; reqwest-backed helper land
+    in R3.1).
+  - `validate_token_ttl()` enforcing ≤ 600 s ceiling
+    (`MEDIA_TOKEN_TTL_MAX_SECS`, SHOULD ≤ 300 s).
+- New capability actions: `cx.call.{join, screen_share, record,
+  transcribe, moderate}` plus `CALL_CAPABILITY_ACTIONS` list.
+
+#### CXP-0008 / CXP-0009 — Personal agent
+
+- `cx.agent.{pause, resume, deactivate}` declared as `Fsm` lattice
+  kinds (`crates/core/src/lattice/traits.rs`).
+- `AGENT_RUNTIME_SURFACE_OPERATIONS` exported in
+  `model::constants` listing the 11 ops under
+  `cx.profile.agent_runtime.v1`.
+- HTTP path already canonical at `/agents/{id}/deactivate`
+  (no `/revoke` references remain in the SDK).
+
+#### Errors
+
+- 20 new wire-level error codes registered in
+  `crates/core/src/error.rs` (`pairing_request_expired`,
+  `proof_invalid`, `verification_method_principal_mismatch`,
+  `agent_paused`, `agent_deactivated`, `approval_already_consumed`,
+  `sidecar_create_denied`, `actor_kind_reducer_managed`,
+  `focus_mismatch`, `unknown_focus_type`, `token_issuer_unauthorised`,
+  `participant_binding_invalid`, `participant_identity_unrecognised`,
+  `session_focus_already_committed`, `e2ee_key_source_unauthorised`,
+  `recording_artifact_pipeline_bypassed`,
+  `legacy_single_endpoint_media_service`,
+  `focus_unavailable_for_client`,
+  `recovery_witness_revoke_lagging`,
+  `handle_homograph_forbidden`). `KNOWN_ERROR_CODES.len()` now 121.
+  Each variant mirrored on `ErrorCode` enum with `as_str` /
+  `http_status` arms.
+
+#### Recovery
+
+- New `RecoveryProofKind { DeviceQuorum, RecoveryUnlock,
+  TrustedRecoveryService, PrincipalSigning }` enum in
+  `crates/core/src/model/api.rs`. Existing `RecoveryPolicy` /
+  `RecoveryReceipt` / `RecoverySessionId` already covered the
+  wire shape. Internal proof verification deferred to R3.1
+  (`TODO(R3.1)` markers in place).
+
+#### Profile / cursor / selector / data / handle
+
+- `ResourceSelector::Circle(CircleId)` variant added; `circle:`
+  selector grammar parser accepts `cx:circle:<uuid>`
+  (`crates/sdk/src/authz/selectors.rs`).
+- `AccountDataSetPayload` and `AccountBlocklistPayload` payload
+  structs added in `crates/sdk/src/account.rs`.
+- Wire-level handle normalize helper `normalize_handle_localpart`
+  in `crates/core/src/model/handle.rs`: zero-width / bidi reject,
+  script-mixed reject, minimal Cyrillic / Greek confusable
+  skeleton (full UTS#39 table → R3.1).
+- Cursor parser already defaults to stateful `{v,purpose,t,x,h}`
+  (`validate_core_wire_shape`); stateless body remains accessible
+  via the `cx.profile.stateless_cursor.v1` profile gate.
+- Profile ids `cx.profile.{accountable_to.strict_reject,
+  media_service_binding[.livekit/.contrix_native]}.v1` already
+  present in `crates/core/src/generated/profiles.rs`.
+
+#### Deferred (R3.1)
+
+- Reducer-side enforcement for agent FSM transitions, recovery
+  proof validators, full UTS#39 confusable table, transport-backed
+  `BaseClient::call_media_token_exchange`.
+
 ### CXP-0007 follow-up — P1 closeout (wire-breaking, no release)
 
 #### Breaking

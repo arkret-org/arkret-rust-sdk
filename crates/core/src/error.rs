@@ -172,6 +172,35 @@ pub const ERROR_CODE_RECOVERY_EVIDENCE_UNBOUND: &str = "recovery_evidence_unboun
 pub const ERROR_CODE_UNSUPPORTED_AEAD_PROFILE: &str = "unsupported_aead_profile";
 pub const ERROR_CODE_ATTESTATION_MISSING: &str = "attestation_missing";
 
+// ── R3 spec-sync (2026-05-27, contrix-spec b47ff6ec) — 20 new wire-level
+// error codes spanning CXP-0008/0009 (personal-agent / pairing / sidecar),
+// CXP-0010 (call media token exchange / focus / e2ee / recording artifact
+// pipeline), recovery witness revoke lag, and the wire-level handle
+// homograph guard. Spec `error-code-registry.json` v2026-05-27.
+pub const ERROR_CODE_PAIRING_REQUEST_EXPIRED: &str = "pairing_request_expired";
+pub const ERROR_CODE_PROOF_INVALID: &str = "proof_invalid";
+pub const ERROR_CODE_VERIFICATION_METHOD_PRINCIPAL_MISMATCH: &str =
+    "verification_method_principal_mismatch";
+pub const ERROR_CODE_AGENT_PAUSED: &str = "agent_paused";
+pub const ERROR_CODE_AGENT_DEACTIVATED: &str = "agent_deactivated";
+pub const ERROR_CODE_APPROVAL_ALREADY_CONSUMED: &str = "approval_already_consumed";
+pub const ERROR_CODE_SIDECAR_CREATE_DENIED: &str = "sidecar_create_denied";
+pub const ERROR_CODE_ACTOR_KIND_REDUCER_MANAGED: &str = "actor_kind_reducer_managed";
+pub const ERROR_CODE_FOCUS_MISMATCH: &str = "focus_mismatch";
+pub const ERROR_CODE_UNKNOWN_FOCUS_TYPE: &str = "unknown_focus_type";
+pub const ERROR_CODE_TOKEN_ISSUER_UNAUTHORISED: &str = "token_issuer_unauthorised";
+pub const ERROR_CODE_PARTICIPANT_BINDING_INVALID: &str = "participant_binding_invalid";
+pub const ERROR_CODE_PARTICIPANT_IDENTITY_UNRECOGNISED: &str = "participant_identity_unrecognised";
+pub const ERROR_CODE_SESSION_FOCUS_ALREADY_COMMITTED: &str = "session_focus_already_committed";
+pub const ERROR_CODE_E2EE_KEY_SOURCE_UNAUTHORISED: &str = "e2ee_key_source_unauthorised";
+pub const ERROR_CODE_RECORDING_ARTIFACT_PIPELINE_BYPASSED: &str =
+    "recording_artifact_pipeline_bypassed";
+pub const ERROR_CODE_LEGACY_SINGLE_ENDPOINT_MEDIA_SERVICE: &str =
+    "legacy_single_endpoint_media_service";
+pub const ERROR_CODE_FOCUS_UNAVAILABLE_FOR_CLIENT: &str = "focus_unavailable_for_client";
+pub const ERROR_CODE_RECOVERY_WITNESS_REVOKE_LAGGING: &str = "recovery_witness_revoke_lagging";
+pub const ERROR_CODE_HANDLE_HOMOGRAPH_FORBIDDEN: &str = "handle_homograph_forbidden";
+
 /// All canonical error codes recognised by the registry. The order matches
 /// `error-code-registry.json`. Use [`is_known_error_code`] before populating
 /// `ErrorEnvelope.code` from arbitrary input.
@@ -282,6 +311,27 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
     ERROR_CODE_RECOVERY_EVIDENCE_UNBOUND,
     ERROR_CODE_UNSUPPORTED_AEAD_PROFILE,
     ERROR_CODE_ATTESTATION_MISSING,
+    // R3 spec-sync (2026-05-27) — 20 new codes.
+    ERROR_CODE_PAIRING_REQUEST_EXPIRED,
+    ERROR_CODE_PROOF_INVALID,
+    ERROR_CODE_VERIFICATION_METHOD_PRINCIPAL_MISMATCH,
+    ERROR_CODE_AGENT_PAUSED,
+    ERROR_CODE_AGENT_DEACTIVATED,
+    ERROR_CODE_APPROVAL_ALREADY_CONSUMED,
+    ERROR_CODE_SIDECAR_CREATE_DENIED,
+    ERROR_CODE_ACTOR_KIND_REDUCER_MANAGED,
+    ERROR_CODE_FOCUS_MISMATCH,
+    ERROR_CODE_UNKNOWN_FOCUS_TYPE,
+    ERROR_CODE_TOKEN_ISSUER_UNAUTHORISED,
+    ERROR_CODE_PARTICIPANT_BINDING_INVALID,
+    ERROR_CODE_PARTICIPANT_IDENTITY_UNRECOGNISED,
+    ERROR_CODE_SESSION_FOCUS_ALREADY_COMMITTED,
+    ERROR_CODE_E2EE_KEY_SOURCE_UNAUTHORISED,
+    ERROR_CODE_RECORDING_ARTIFACT_PIPELINE_BYPASSED,
+    ERROR_CODE_LEGACY_SINGLE_ENDPOINT_MEDIA_SERVICE,
+    ERROR_CODE_FOCUS_UNAVAILABLE_FOR_CLIENT,
+    ERROR_CODE_RECOVERY_WITNESS_REVOKE_LAGGING,
+    ERROR_CODE_HANDLE_HOMOGRAPH_FORBIDDEN,
 ];
 
 // ── Failed-precondition reason codes (sub-codes inside `failed_precondition`)
@@ -608,7 +658,10 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_INVALID_SIGNATURE
         | ERROR_CODE_TURN_CREDENTIAL_EXPIRED
         | ERROR_CODE_ATTESTATION_MISSING
-        | ERROR_CODE_DID_PROOF_REQUIRED => 401,
+        | ERROR_CODE_DID_PROOF_REQUIRED
+        | ERROR_CODE_PROOF_INVALID
+        | ERROR_CODE_VERIFICATION_METHOD_PRINCIPAL_MISMATCH
+        | ERROR_CODE_TOKEN_ISSUER_UNAUTHORISED => 401,
         ERROR_CODE_CAPABILITY_DENIED
         | ERROR_CODE_DIRECTORY_NOT_AUTHORIZED
         | ERROR_CODE_ACCEPT_POLICY_DENIED
@@ -622,7 +675,13 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_BLOB_REDACTED
         | ERROR_CODE_MEDIA_PLAINTEXT_SERVICE_NOT_AUTHORISED
         | ERROR_CODE_LATE_RECOVERY_REJECTED_MEMBERSHIP
-        | ERROR_CODE_EPHEMERAL_KIND_NOT_PERMITTED => 403,
+        | ERROR_CODE_EPHEMERAL_KIND_NOT_PERMITTED
+        | ERROR_CODE_AGENT_PAUSED
+        | ERROR_CODE_AGENT_DEACTIVATED
+        | ERROR_CODE_SIDECAR_CREATE_DENIED
+        | ERROR_CODE_E2EE_KEY_SOURCE_UNAUTHORISED
+        | ERROR_CODE_RECORDING_ARTIFACT_PIPELINE_BYPASSED
+        | ERROR_CODE_HANDLE_HOMOGRAPH_FORBIDDEN => 403,
         ERROR_CODE_NOT_FOUND | ERROR_CODE_UNRECOGNIZED_ENDPOINT => 404,
         ERROR_CODE_METHOD_NOT_ALLOWED => 405,
         ERROR_CODE_CONFLICT
@@ -658,7 +717,14 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_SERIES_PREDECESSOR_NOT_FOUND
         | ERROR_CODE_RECOVERY_POLICY_MISMATCH
         | ERROR_CODE_BACKUP_FRONTIER_STALE
-        | ERROR_CODE_BACKUP_POST_RESET_STALE => 409,
+        | ERROR_CODE_BACKUP_POST_RESET_STALE
+        | ERROR_CODE_APPROVAL_ALREADY_CONSUMED
+        | ERROR_CODE_ACTOR_KIND_REDUCER_MANAGED
+        | ERROR_CODE_FOCUS_MISMATCH
+        | ERROR_CODE_SESSION_FOCUS_ALREADY_COMMITTED
+        | ERROR_CODE_LEGACY_SINGLE_ENDPOINT_MEDIA_SERVICE
+        | ERROR_CODE_FOCUS_UNAVAILABLE_FOR_CLIENT
+        | ERROR_CODE_RECOVERY_WITNESS_REVOKE_LAGGING => 409,
         ERROR_CODE_HISTORICAL_ONLY => 200,
         ERROR_CODE_CURSOR_EXPIRED | ERROR_CODE_CURSOR_REVOKED => 410,
         ERROR_CODE_PAYLOAD_TOO_LARGE => 413,
@@ -674,7 +740,11 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_SHARE_COMMITMENT_MISMATCH
         | ERROR_CODE_LEGACY_SECRET_STORAGE_WIRE_FORM
         | ERROR_CODE_RECOVERY_EVIDENCE_UNBOUND
-        | ERROR_CODE_READ_RECEIPT_COMPLIANCE_FLOOR_VIOLATED => 422,
+        | ERROR_CODE_READ_RECEIPT_COMPLIANCE_FLOOR_VIOLATED
+        | ERROR_CODE_PAIRING_REQUEST_EXPIRED
+        | ERROR_CODE_UNKNOWN_FOCUS_TYPE
+        | ERROR_CODE_PARTICIPANT_BINDING_INVALID
+        | ERROR_CODE_PARTICIPANT_IDENTITY_UNRECOGNISED => 422,
         ERROR_CODE_RATE_LIMITED => 429,
         ERROR_CODE_INTERNAL_ERROR => 500,
         ERROR_CODE_HLC_LOGICAL_OVERFLOW
@@ -873,6 +943,27 @@ pub enum ErrorCode {
     RecoveryEvidenceUnbound,
     UnsupportedAeadProfile,
     AttestationMissing,
+    // ── R3 spec-sync (2026-05-27, contrix-spec b47ff6ec).
+    PairingRequestExpired,
+    ProofInvalid,
+    VerificationMethodPrincipalMismatch,
+    AgentPaused,
+    AgentDeactivated,
+    ApprovalAlreadyConsumed,
+    SidecarCreateDenied,
+    ActorKindReducerManaged,
+    FocusMismatch,
+    UnknownFocusType,
+    TokenIssuerUnauthorised,
+    ParticipantBindingInvalid,
+    ParticipantIdentityUnrecognised,
+    SessionFocusAlreadyCommitted,
+    E2eeKeySourceUnauthorised,
+    RecordingArtifactPipelineBypassed,
+    LegacySingleEndpointMediaService,
+    FocusUnavailableForClient,
+    RecoveryWitnessRevokeLagging,
+    HandleHomographForbidden,
 }
 
 impl ErrorCode {
@@ -979,6 +1070,27 @@ impl ErrorCode {
         Self::RecoveryEvidenceUnbound,
         Self::UnsupportedAeadProfile,
         Self::AttestationMissing,
+        // ── R3 spec-sync (2026-05-27).
+        Self::PairingRequestExpired,
+        Self::ProofInvalid,
+        Self::VerificationMethodPrincipalMismatch,
+        Self::AgentPaused,
+        Self::AgentDeactivated,
+        Self::ApprovalAlreadyConsumed,
+        Self::SidecarCreateDenied,
+        Self::ActorKindReducerManaged,
+        Self::FocusMismatch,
+        Self::UnknownFocusType,
+        Self::TokenIssuerUnauthorised,
+        Self::ParticipantBindingInvalid,
+        Self::ParticipantIdentityUnrecognised,
+        Self::SessionFocusAlreadyCommitted,
+        Self::E2eeKeySourceUnauthorised,
+        Self::RecordingArtifactPipelineBypassed,
+        Self::LegacySingleEndpointMediaService,
+        Self::FocusUnavailableForClient,
+        Self::RecoveryWitnessRevokeLagging,
+        Self::HandleHomographForbidden,
     ];
 
     /// Canonical wire-form code (snake_case string).
@@ -1093,6 +1205,33 @@ impl ErrorCode {
             Self::RecoveryEvidenceUnbound => ERROR_CODE_RECOVERY_EVIDENCE_UNBOUND,
             Self::UnsupportedAeadProfile => ERROR_CODE_UNSUPPORTED_AEAD_PROFILE,
             Self::AttestationMissing => ERROR_CODE_ATTESTATION_MISSING,
+            // ── R3 spec-sync (2026-05-27).
+            Self::PairingRequestExpired => ERROR_CODE_PAIRING_REQUEST_EXPIRED,
+            Self::ProofInvalid => ERROR_CODE_PROOF_INVALID,
+            Self::VerificationMethodPrincipalMismatch => {
+                ERROR_CODE_VERIFICATION_METHOD_PRINCIPAL_MISMATCH
+            }
+            Self::AgentPaused => ERROR_CODE_AGENT_PAUSED,
+            Self::AgentDeactivated => ERROR_CODE_AGENT_DEACTIVATED,
+            Self::ApprovalAlreadyConsumed => ERROR_CODE_APPROVAL_ALREADY_CONSUMED,
+            Self::SidecarCreateDenied => ERROR_CODE_SIDECAR_CREATE_DENIED,
+            Self::ActorKindReducerManaged => ERROR_CODE_ACTOR_KIND_REDUCER_MANAGED,
+            Self::FocusMismatch => ERROR_CODE_FOCUS_MISMATCH,
+            Self::UnknownFocusType => ERROR_CODE_UNKNOWN_FOCUS_TYPE,
+            Self::TokenIssuerUnauthorised => ERROR_CODE_TOKEN_ISSUER_UNAUTHORISED,
+            Self::ParticipantBindingInvalid => ERROR_CODE_PARTICIPANT_BINDING_INVALID,
+            Self::ParticipantIdentityUnrecognised => ERROR_CODE_PARTICIPANT_IDENTITY_UNRECOGNISED,
+            Self::SessionFocusAlreadyCommitted => ERROR_CODE_SESSION_FOCUS_ALREADY_COMMITTED,
+            Self::E2eeKeySourceUnauthorised => ERROR_CODE_E2EE_KEY_SOURCE_UNAUTHORISED,
+            Self::RecordingArtifactPipelineBypassed => {
+                ERROR_CODE_RECORDING_ARTIFACT_PIPELINE_BYPASSED
+            }
+            Self::LegacySingleEndpointMediaService => {
+                ERROR_CODE_LEGACY_SINGLE_ENDPOINT_MEDIA_SERVICE
+            }
+            Self::FocusUnavailableForClient => ERROR_CODE_FOCUS_UNAVAILABLE_FOR_CLIENT,
+            Self::RecoveryWitnessRevokeLagging => ERROR_CODE_RECOVERY_WITNESS_REVOKE_LAGGING,
+            Self::HandleHomographForbidden => ERROR_CODE_HANDLE_HOMOGRAPH_FORBIDDEN,
         }
     }
 
@@ -1135,8 +1274,9 @@ mod tests {
         // 3 Round 4 wire codes (delivery_binding_stale, delivery_binding_handed_over,
         // historical_only) + 10 directory ingest wire codes + 8 spec-main
         // cursor / ephemeral / grant / device-recovery wire codes +
-        // 11 key-backup hardening codes (B-C, spec head 37ce729).
-        assert_eq!(KNOWN_ERROR_CODES.len(), 101);
+        // 11 key-backup hardening codes (B-C, spec head 37ce729) +
+        // 20 R3 spec-sync codes (2026-05-27, contrix-spec b47ff6ec).
+        assert_eq!(KNOWN_ERROR_CODES.len(), 121);
         assert!(codes.contains(ERROR_CODE_CURSOR_EXPIRED));
         assert!(codes.contains(ERROR_CODE_POLICY_COMBINATION_INVALID));
         assert!(codes.contains(ERROR_CODE_ANCHORER_RECOVERY_MISSING));
