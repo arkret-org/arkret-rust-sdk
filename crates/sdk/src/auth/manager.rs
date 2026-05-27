@@ -791,7 +791,7 @@ impl AuthManager {
 /// `POST /auth/account/session-grants` end-to-end.
 ///
 /// The helper is split off into its own impl block (gated on `client`
-/// + `signer`) so the in-process `AuthManager` core surface stays
+/// and `signer`) so the in-process `AuthManager` core surface stays
 /// transport-free.
 #[cfg(all(feature = "client", feature = "signer"))]
 impl AuthManager {
@@ -804,12 +804,12 @@ impl AuthManager {
     pub async fn login_did_proof<S>(
         &mut self,
         client: &contrix_http_client::Client,
-        principal_did: crate::Did,
-        device_id: crate::DeviceId,
+        principal_did: Did,
+        device_id: DeviceId,
         signer: &S,
         verification_method: &str,
         audience: &str,
-    ) -> crate::Result<AuthSession>
+    ) -> Result<AuthSession>
     where
         S: contrix_core::MoveSigner + ?Sized,
     {
@@ -825,19 +825,19 @@ impl AuthManager {
 
         // Fail-closed on expired / mismatched challenges before signing.
         if !challenge.is_session_grant_purpose() {
-            return Err(crate::Error::Protocol(format!(
+            return Err(Error::Protocol(format!(
                 "challenge purpose must be cx.session.grant, got '{}'",
                 challenge.purpose
             )));
         }
         if challenge.audience != audience {
-            return Err(crate::Error::Protocol(format!(
+            return Err(Error::Protocol(format!(
                 "challenge audience '{}' does not match requested '{}'",
                 challenge.audience, audience
             )));
         }
-        if challenge.expires_at <= chrono::Utc::now() {
-            return Err(crate::Error::Protocol("session grant challenge expired".to_owned()));
+        if challenge.expires_at <= Utc::now() {
+            return Err(Error::Protocol("session grant challenge expired".to_owned()));
         }
 
         // Step 2: build the cx.did.proof payload, sign it, and submit.
@@ -850,12 +850,12 @@ impl AuthManager {
         let move_sig = signer.sign_payload(&payload_bytes)?;
         let payload_digest =
             crate::Hash::new(contrix_core::canonical::sha256_digest(&payload_bytes))?;
-        let proof = crate::model::Proof {
+        let proof = Proof {
             kind: contrix_core::proof_kind::DETACHED_JWS.to_owned(),
             alg: move_sig.alg,
             verification_method: verification_method.to_owned(),
             payload_digest,
-            created_at: chrono::Utc::now(),
+            created_at: Utc::now(),
             domain: None,
             audience: Some(contrix_core::Audience::Single(audience.to_owned())),
             jws: move_sig.jws,

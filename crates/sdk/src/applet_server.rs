@@ -82,7 +82,7 @@ mod salvo_router {
     /// Install the [`AppletService`] for the process and build the
     /// salvo [`Router`] for the 6 standard Applet endpoints. Returns
     /// `Err` if called more than once.
-    pub fn router(service: AppletService) -> crate::Result<Router> {
+    pub fn router(service: AppletService) -> Result<Router> {
         SERVICE.set(service).map_err(|_| {
             crate::Error::Protocol("applet_server::router already installed".to_owned())
         })?;

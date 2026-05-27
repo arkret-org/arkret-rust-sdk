@@ -621,8 +621,9 @@ mod tests {
     fn strict_subset_rejects_outsider() {
         let alice: Did = "did:web:alice.example".parse().unwrap();
         let bob: Did = "did:web:bob.example".parse().unwrap();
-        let realm = vec![alice.clone()];
-        let err = Circle::assert_members_strict_subset(&[bob.clone()], &realm).unwrap_err();
+        let realm = vec![alice];
+        let err = Circle::assert_members_strict_subset(std::slice::from_ref(&bob), &realm)
+            .unwrap_err();
         match err {
             CircleScopeError::MemberNotInRealm { circle_member } => {
                 assert_eq!(circle_member, bob);

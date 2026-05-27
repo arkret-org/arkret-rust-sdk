@@ -1730,10 +1730,10 @@ mod tests {
                             }
                         }
                     }
-                    if let (Some(hdr_end), Some(len)) = (headers_end, content_length) {
-                        if buf.len() >= hdr_end + len {
-                            break;
-                        }
+                    if let (Some(hdr_end), Some(len)) = (headers_end, content_length)
+                        && buf.len() >= hdr_end + len
+                    {
+                        break;
                     }
                 }
 

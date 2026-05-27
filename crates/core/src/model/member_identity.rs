@@ -179,6 +179,10 @@ pub struct MemberIdentityReplacementRef {
 /// `oneOf` in the spec schema: plaintext [`MemberIdentity`] OR encrypted
 /// envelope (carried as raw [`Value`] because the SDK does not yet ship
 /// a typed `EncryptedEnvelope`).
+// API-stable carrier wrapper consumed by yougen/cotest. Boxing
+// `MemberIdentity` would be a breaking change for the constructor
+// pattern `IdentityPayloadCarrier::MemberIdentity { member_identity }`.
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum IdentityPayloadCarrier {
@@ -267,10 +271,10 @@ where
     for (_, payload) in &materialised {
         for edge in &payload.replaces {
             let edge_event = edge.event_id.as_str();
-            if let Some(actual_digest) = carrier_digests.get(edge_event) {
-                if edge.payload_digest.as_str() == actual_digest.as_str() {
-                    replaced.insert(edge_event.to_owned());
-                }
+            if let Some(actual_digest) = carrier_digests.get(edge_event)
+                && edge.payload_digest.as_str() == actual_digest.as_str()
+            {
+                replaced.insert(edge_event.to_owned());
             }
         }
     }
@@ -387,14 +391,13 @@ mod tests {
 
     #[test]
     fn canonical_payload_digest_excludes_proof() {
-        let mut a = sample_identity("Alice");
+        let a = sample_identity("Alice");
         let mut b = a.clone();
         // Mutate proof.signature; canonical_payload_sha256 MUST be
         // invariant under proof field mutations.
         b.proof.signature = "BBBB".to_owned();
         // asserted_at is the only timestamp; pin it equal across both.
         b.asserted_at = a.asserted_at;
-        a.asserted_at = b.asserted_at;
         assert_eq!(
             a.canonical_payload_sha256().unwrap(),
             b.canonical_payload_sha256().unwrap(),

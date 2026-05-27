@@ -354,9 +354,9 @@ pub struct ProfileCreateBuilder {
     actor_kind: Option<String>,
     managed_by_applet: Option<String>,
     accountable_to: Option<Did>,
-    external_ref: Option<serde_json::Value>,
+    external_ref: Option<Value>,
     kind: ProfileEventKind,
-    extra: serde_json::Map<String, serde_json::Value>,
+    extra: serde_json::Map<String, Value>,
 }
 
 impl ProfileCreateBuilder {
@@ -410,7 +410,7 @@ impl ProfileCreateBuilder {
 
     /// Attach the bridge-side external reference (e.g. `{"slack_user_id":
     /// "U12345"}`) so receivers can dedupe across bridges.
-    pub fn with_external_ref(mut self, external_ref: serde_json::Value) -> Self {
+    pub fn with_external_ref(mut self, external_ref: Value) -> Self {
         self.external_ref = Some(external_ref);
         self
     }
@@ -418,7 +418,7 @@ impl ProfileCreateBuilder {
     /// Open-shape: stash future / spec-deferred keys into the
     /// payload's content object. Use sparingly — keyed fields should
     /// land in spec-mirroring methods above instead.
-    pub fn with_extra(mut self, key: impl Into<String>, value: serde_json::Value) -> Self {
+    pub fn with_extra(mut self, key: impl Into<String>, value: Value) -> Self {
         self.extra.insert(key.into(), value);
         self
     }
@@ -428,33 +428,29 @@ impl ProfileCreateBuilder {
     /// [`contrix_signatures::sign_event`].
     pub fn build(self, actor_seq: u64, hlc: crate::Hlc) -> Result<crate::Event> {
         let mut content = serde_json::Map::new();
-        content.insert("actor_id".to_owned(), serde_json::Value::String(self.actor_id.to_string()));
+        content.insert("actor_id".to_owned(), Value::String(self.actor_id.to_string()));
         if let Some(display_name) = &self.display_name {
-            content
-                .insert("display_name".to_owned(), serde_json::Value::String(display_name.clone()));
+            content.insert("display_name".to_owned(), Value::String(display_name.clone()));
         }
         if let Some(avatar_url) = &self.avatar_url {
-            content.insert("avatar_url".to_owned(), serde_json::Value::String(avatar_url.clone()));
+            content.insert("avatar_url".to_owned(), Value::String(avatar_url.clone()));
         }
         if let Some(bio) = &self.bio {
-            content.insert("bio".to_owned(), serde_json::Value::String(bio.clone()));
+            content.insert("bio".to_owned(), Value::String(bio.clone()));
         }
         if let Some(actor_kind) = &self.actor_kind {
-            content.insert("actor_kind".to_owned(), serde_json::Value::String(actor_kind.clone()));
+            content.insert("actor_kind".to_owned(), Value::String(actor_kind.clone()));
         }
         if let Some(applet_id) = &self.managed_by_applet {
-            content.insert(
-                "managed_by_applet".to_owned(),
-                serde_json::Value::String(applet_id.clone()),
-            );
+            content.insert("managed_by_applet".to_owned(), Value::String(applet_id.clone()));
         }
         if let Some(accountable_to) = &self.accountable_to {
             let mut accountability = serde_json::Map::new();
             accountability.insert(
                 "accountable_to".to_owned(),
-                serde_json::Value::String(accountable_to.to_string()),
+                Value::String(accountable_to.to_string()),
             );
-            content.insert("accountability".to_owned(), serde_json::Value::Object(accountability));
+            content.insert("accountability".to_owned(), Value::Object(accountability));
         }
         for (k, v) in &self.extra {
             content.insert(k.clone(), v.clone());
@@ -466,7 +462,7 @@ impl ProfileCreateBuilder {
             self.actor_id,
             actor_seq,
             hlc,
-            serde_json::Value::Object(content),
+            Value::Object(content),
         )?;
         // S-7: stash external_ref on the top-level slot, not in `content`.
         if let Some(external_ref) = self.external_ref {

@@ -110,6 +110,14 @@ impl IdempotencyWindow {
     pub fn len(&self) -> usize {
         self.inner.lock().expect("idempotency window poisoned").len()
     }
+
+    /// Whether the window has zero recorded entries. Test-only
+    /// helper; paired with [`Self::len`] to satisfy
+    /// `clippy::len_without_is_empty`.
+    #[cfg(test)]
+    pub fn is_empty(&self) -> bool {
+        self.inner.lock().expect("idempotency window poisoned").is_empty()
+    }
 }
 
 #[cfg(test)]

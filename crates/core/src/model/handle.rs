@@ -133,12 +133,6 @@ impl From<Handle> for String {
     }
 }
 
-/// Backward-compatibility alias retained for one release after R3.1.
-///
-/// New code SHOULD use [`Handle`] directly.
-#[deprecated(note = "Use `Handle`; R3.1 retired the contrix:// URI form for handles.")]
-pub type HandleUri = Handle;
-
 fn is_valid_localpart(s: &str) -> bool {
     if s.is_empty() || s.len() > 128 {
         return false;

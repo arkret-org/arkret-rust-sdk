@@ -1513,7 +1513,7 @@ mod tests {
     fn typed_validate_rejects_invalid_withheld_key_record() {
         let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-6c355fb9dada").unwrap();
         let mut record = WithheldKeyRecord {
-            space_id: space_id.clone(),
+            space_id,
             session_id: String::new(),
             sender: did("alice"),
             code: "m.blacklisted".to_owned(),

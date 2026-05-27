@@ -8,11 +8,11 @@ use serde_json::Value;
 use ulid::Ulid;
 
 use crate::{
-    Did, Error, Event, Result, SpaceId,
+    Did, Error, Event, Result, SpaceId, canonical,
     model::{AppletActorResBody, AppletRealmResBody, AppletTransactionReqBody},
 };
 #[cfg(test)]
-use crate::{canonical, model::AppletTransactionResBody};
+use crate::model::AppletTransactionResBody;
 
 /// Applet permission.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -177,7 +177,7 @@ pub struct AppletWireNamespaces {
 /// Optional inbound-webhook auth metadata. Open-shape (`Value`) so
 /// receivers can round-trip future extensions; today the spec leaves
 /// the inner shape Applet-defined.
-pub type WebhookAuth = serde_json::Value;
+pub type WebhookAuth = Value;
 
 /// Wire-format `cx.applet.registration` Event content per spec
 /// `applet-schema.md` §1.
@@ -253,7 +253,7 @@ impl WireAppletRegistration {
     pub fn payload_digest(&self) -> Result<crate::Hash> {
         let mut unsigned = self.clone();
         unsigned.proof = None;
-        let hash = contrix_core::canonical::canonical_sha256(&unsigned)?;
+        let hash = canonical::canonical_sha256(&unsigned)?;
         crate::Hash::new(hash).map_err(Into::into)
     }
 }
@@ -268,9 +268,9 @@ pub fn sign_registration<S: contrix_core::MoveSigner + ?Sized>(
 ) -> Result<()> {
     let mut unsigned = reg.clone();
     unsigned.proof = None;
-    let canonical_bytes = contrix_core::canonical::canonical_json_bytes(&unsigned)?;
+    let canonical_bytes = canonical::canonical_json_bytes(&unsigned)?;
     let payload_digest =
-        crate::Hash::new(contrix_core::canonical::sha256_digest(&canonical_bytes))?;
+        crate::Hash::new(canonical::sha256_digest(&canonical_bytes))?;
     let sig = signer.sign_payload(&canonical_bytes)?;
     reg.proof = Some(crate::model::Proof {
         kind: contrix_core::proof_kind::DETACHED_JWS.to_owned(),
@@ -316,8 +316,8 @@ pub struct AppletBridgeErrorBuilder {
     code: String,
     message: String,
     severity: AppletBridgeErrorSeverity,
-    external_ref: Option<serde_json::Value>,
-    extra: serde_json::Map<String, serde_json::Value>,
+    external_ref: Option<Value>,
+    extra: serde_json::Map<String, Value>,
 }
 
 impl AppletBridgeErrorBuilder {
@@ -355,39 +355,39 @@ impl AppletBridgeErrorBuilder {
         self
     }
 
-    pub fn with_external_ref(mut self, external_ref: serde_json::Value) -> Self {
+    pub fn with_external_ref(mut self, external_ref: Value) -> Self {
         self.external_ref = Some(external_ref);
         self
     }
 
-    pub fn with_extra(mut self, key: impl Into<String>, value: serde_json::Value) -> Self {
+    pub fn with_extra(mut self, key: impl Into<String>, value: Value) -> Self {
         self.extra.insert(key.into(), value);
         self
     }
 
-    pub fn build(self, actor_seq: u64, hlc: crate::Hlc) -> Result<crate::Event> {
+    pub fn build(self, actor_seq: u64, hlc: crate::Hlc) -> Result<Event> {
         let mut content = serde_json::Map::new();
-        content.insert("applet_id".to_owned(), serde_json::Value::String(self.applet_id.clone()));
-        content.insert("code".to_owned(), serde_json::Value::String(self.code.clone()));
-        content.insert("message".to_owned(), serde_json::Value::String(self.message.clone()));
+        content.insert("applet_id".to_owned(), Value::String(self.applet_id.clone()));
+        content.insert("code".to_owned(), Value::String(self.code.clone()));
+        content.insert("message".to_owned(), Value::String(self.message.clone()));
         content.insert(
             "severity".to_owned(),
             serde_json::to_value(self.severity).expect("severity is a closed enum"),
         );
         if let Some(target_ref) = &self.target_ref {
-            content.insert("target_ref".to_owned(), serde_json::Value::String(target_ref.clone()));
+            content.insert("target_ref".to_owned(), Value::String(target_ref.clone()));
         }
         for (k, v) in &self.extra {
             content.insert(k.clone(), v.clone());
         }
 
-        let mut event = crate::Event::new(
+        let mut event = Event::new(
             "cx.applet.bridge_error",
             self.realm_id,
             self.actor_id,
             actor_seq,
             hlc,
-            serde_json::Value::Object(content),
+            Value::Object(content),
         )?;
         event.applet_id = Some(self.applet_id);
         if let Some(external_ref) = self.external_ref {
@@ -1204,13 +1204,13 @@ mod tests {
         let reg = sample_wire_registration();
         let digest_before = reg.payload_digest().unwrap();
 
-        let mut with_proof = reg.clone();
+        let mut with_proof = reg;
         with_proof.proof = Some(crate::model::Proof {
             kind: "detached_jws".to_owned(),
             alg: "EdDSA".to_owned(),
             verification_method: "did:web:alice.example#key-1".to_owned(),
             payload_digest: digest_before.clone(),
-            created_at: chrono::Utc::now(),
+            created_at: Utc::now(),
             domain: None,
             audience: None,
             jws: "header..sig".to_owned(),
@@ -1288,7 +1288,7 @@ mod tests {
                     alg: "EdDSA".to_owned(),
                     verification_method: self.kid.clone(),
                     payload_digest: payload_digest.clone(),
-                    created_at: chrono::Utc::now(),
+                    created_at: Utc::now(),
                     jws: format!("stub..{}", payload_digest.as_str()),
                 })
             }

@@ -410,12 +410,12 @@ impl CapabilityGrantBuilder {
         self
     }
 
-    pub fn with_not_before(mut self, not_before: chrono::DateTime<chrono::Utc>) -> Self {
+    pub fn with_not_before(mut self, not_before: DateTime<Utc>) -> Self {
         self.grant.not_before = Some(not_before);
         self
     }
 
-    pub fn with_expires_at(mut self, expires_at: chrono::DateTime<chrono::Utc>) -> Self {
+    pub fn with_expires_at(mut self, expires_at: DateTime<Utc>) -> Self {
         self.grant.expires_at = Some(expires_at);
         self
     }
