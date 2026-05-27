@@ -364,9 +364,9 @@ pub use key_verification::{
 #[cfg(feature = "full-surface")]
 pub use media::{
     Attachment, AuthenticatedDownloadGrant, DownloadGrantScope, EncryptedAttachment,
-    MediaBackendType, MediaMetadata, MediaTokenExchangeRequest, MediaTokenResponse, MemoryBlobStore,
-    ParticipantBinding, Thumbnail, call_media_token_exchange, safe_content_disposition,
-    safe_content_type, validate_token_ttl,
+    MediaBackendType, MediaMetadata, MediaTokenExchangeRequest, MediaTokenResponse,
+    MemoryBlobStore, ParticipantBinding, Thumbnail, call_media_token_exchange,
+    safe_content_disposition, safe_content_type, validate_token_ttl,
 };
 #[cfg(feature = "full-surface")]
 pub use membership::{

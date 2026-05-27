@@ -6,7 +6,9 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::{AEAD_ALGORITHM, BlobRef, CallId, DeviceId, Did, Error, RealmId, Result, SpaceId, crypto};
+use crate::{
+    AEAD_ALGORITHM, BlobRef, CallId, DeviceId, Did, Error, RealmId, Result, SpaceId, crypto,
+};
 
 // ─── CXP-0010 (R3 spec-sync 2026-05-27) — media token exchange ────────────
 
@@ -97,7 +99,9 @@ pub struct MediaTokenResponse {
 pub fn validate_token_ttl(now: DateTime<Utc>, expires_at: DateTime<Utc>) -> Result<()> {
     let remaining = (expires_at - now).num_seconds();
     if remaining <= 0 {
-        return Err(Error::Protocol("participant_binding_invalid: token already expired".to_owned()));
+        return Err(Error::Protocol(
+            "participant_binding_invalid: token already expired".to_owned(),
+        ));
     }
     if (remaining as u64) > contrix_core::MEDIA_TOKEN_TTL_MAX_SECS {
         return Err(Error::Protocol(
@@ -138,13 +142,7 @@ pub fn call_media_token_exchange(
     device_id: DeviceId,
     focus_id: impl Into<String>,
 ) -> MediaTokenExchangeRequest {
-    MediaTokenExchangeRequest {
-        realm_id,
-        call_id,
-        actor_id,
-        device_id,
-        focus_id: focus_id.into(),
-    }
+    MediaTokenExchangeRequest { realm_id, call_id, actor_id, device_id, focus_id: focus_id.into() }
 }
 
 /// Stored media metadata.
