@@ -95,8 +95,7 @@ pub fn sign_event<S: MoveSigner + ?Sized>(
 ) -> Result<()> {
     // Refuse to mix proofs from different signers — caller mistake.
     if let Some(existing) = event.proofs.iter().find(|proof| {
-        proof.verification_method != verification_method
-            && proof.kind == proof_kind::DETACHED_JWS
+        proof.verification_method != verification_method && proof.kind == proof_kind::DETACHED_JWS
     }) {
         return Err(Error::Protocol(format!(
             "sign_event refuses to append: event already carries a detached-jws proof for a \
@@ -124,10 +123,8 @@ pub fn sign_event<S: MoveSigner + ?Sized>(
 
     // Idempotent: replace any existing proof from the same verification
     // method (e.g. a re-sign with a refreshed `created_at`).
-    if let Some(slot) = event
-        .proofs
-        .iter_mut()
-        .find(|proof| proof.verification_method == verification_method)
+    if let Some(slot) =
+        event.proofs.iter_mut().find(|proof| proof.verification_method == verification_method)
     {
         *slot = proof;
     } else {
@@ -149,8 +146,7 @@ mod tests {
 
     use contrix_core::{
         Audience, Did, Event, EventId, EventRequirements, Hash, Hlc, MoveSignature, MoveSigner,
-        RealmId, Result, UnsignedMove, canonical,
-        move_event::Move,
+        RealmId, Result, UnsignedMove, canonical, move_event::Move,
     };
 
     fn realm() -> RealmId {

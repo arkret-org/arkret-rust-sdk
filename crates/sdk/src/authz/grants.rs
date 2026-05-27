@@ -480,9 +480,8 @@ mod capability_grant_builder_tests {
 
     #[test]
     fn capability_grant_builder_emits_canonical_kind() {
-        let event = CapabilityGrantBuilder::new(realm(), alice(), base_grant())
-            .build(1, hlc())
-            .unwrap();
+        let event =
+            CapabilityGrantBuilder::new(realm(), alice(), base_grant()).build(1, hlc()).unwrap();
         assert_eq!(event.kind, crate::events::CAPABILITY_GRANT);
         assert_eq!(event.content["id"], "cx:grant:01904100-0000-7000-8000-aaaaaaaaaaaa");
         assert_eq!(event.content["issuer"], "did:web:alice.example");

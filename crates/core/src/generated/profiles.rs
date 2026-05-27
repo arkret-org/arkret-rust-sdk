@@ -4,7 +4,11 @@
 //! contrix-spec/spec/v1/artifacts/profiles/conformance-profiles.json; do not edit by hand.
 
 pub const PROFILE_IDS: &[&str] = &[
+    "cx.profile.accountable_to.strict_reject.v1",
+    "cx.profile.agent_auth.v1",
+    "cx.profile.agent_delegation_policy.v1",
     "cx.profile.agent_runtime.v1",
+    "cx.profile.agent_sidecar_thread.v1",
     "cx.profile.anchor.mixed_recovery.v1",
     "cx.profile.anchor.open_set.v1",
     "cx.profile.anchor.single_did.v1",
@@ -16,6 +20,7 @@ pub const PROFILE_IDS: &[&str] = &[
     "cx.profile.candidate.join_policy.v1",
     "cx.profile.capability_vectors.v1",
     "cx.profile.chat_mvp.v1",
+    "cx.profile.circle_conformance.v1",
     "cx.profile.collaborative_text.v1",
     "cx.profile.constraint.approval_workflow.v1",
     "cx.profile.constraint.claim_based.v1",
@@ -54,6 +59,9 @@ pub const PROFILE_IDS: &[&str] = &[
     "cx.profile.kanban_mvp.v1",
     "cx.profile.key_backup.memory_hard.v1",
     "cx.profile.matrix_compat.v1",
+    "cx.profile.media_service_binding.contrix_native.v1",
+    "cx.profile.media_service_binding.livekit.v1",
+    "cx.profile.media_service_binding.v1",
     "cx.profile.mimi_interop.v1",
     "cx.profile.mimi_interop_vectors.v1",
     "cx.profile.minimal_client.v1",
@@ -64,6 +72,7 @@ pub const PROFILE_IDS: &[&str] = &[
     "cx.profile.operation_registry_coverage_vectors.v1",
     "cx.profile.org_high_assurance_identity.v1",
     "cx.profile.organization.v1",
+    "cx.profile.personal_agent_provisioning.v1",
     "cx.profile.personal_node.v1",
     "cx.profile.principal_control_realm.v1",
     "cx.profile.principal_server.v1",
@@ -136,6 +145,7 @@ impl std::str::FromStr for ProfileRole {
 /// `conformance-profiles.json#/profile_roles`. The order matches Rust's
 /// byte-ordered `str::cmp` so binary search is valid.
 pub const PROFILE_ROLES: &[(&str, ProfileRole)] = &[
+    ("cx.profile.accountable_to.strict_reject.v1", ProfileRole::Admin),
     ("cx.profile.agent_runtime.v1", ProfileRole::Server),
     ("cx.profile.anchor.mixed_recovery.v1", ProfileRole::Admin),
     ("cx.profile.anchor.open_set.v1", ProfileRole::Admin),
@@ -148,6 +158,7 @@ pub const PROFILE_ROLES: &[(&str, ProfileRole)] = &[
     ("cx.profile.candidate.join_policy.v1", ProfileRole::Admin),
     ("cx.profile.capability_vectors.v1", ProfileRole::Interop),
     ("cx.profile.chat_mvp.v1", ProfileRole::Client),
+    ("cx.profile.circle_conformance.v1", ProfileRole::Interop),
     ("cx.profile.collaborative_text.v1", ProfileRole::Client),
     ("cx.profile.constraint.approval_workflow.v1", ProfileRole::Admin),
     ("cx.profile.constraint.claim_based.v1", ProfileRole::Admin),
@@ -186,6 +197,9 @@ pub const PROFILE_ROLES: &[(&str, ProfileRole)] = &[
     ("cx.profile.kanban_mvp.v1", ProfileRole::Client),
     ("cx.profile.key_backup.memory_hard.v1", ProfileRole::Admin),
     ("cx.profile.matrix_compat.v1", ProfileRole::Interop),
+    ("cx.profile.media_service_binding.contrix_native.v1", ProfileRole::Server),
+    ("cx.profile.media_service_binding.livekit.v1", ProfileRole::Server),
+    ("cx.profile.media_service_binding.v1", ProfileRole::Server),
     ("cx.profile.mimi_interop.v1", ProfileRole::Interop),
     ("cx.profile.mimi_interop_vectors.v1", ProfileRole::Interop),
     ("cx.profile.minimal_client.v1", ProfileRole::Client),

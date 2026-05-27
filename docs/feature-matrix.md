@@ -24,3 +24,17 @@ Contrix SDK uses additive Cargo features.
 Production deployments should provide durable stores for local state and crypto state,
 real signing key management, framework-specific HTTP routing, platform key
 storage and service-level interoperability tests.
+
+## Conformance Profile Coverage
+
+This table mirrors `cx.profile.*.vN` IDs the SDK 1.0 line implements. New
+profiles introduced in P5 (spec head 37ce729) are listed first; the
+remainder of the catalog is covered by the generated drift test
+`generated::profile_requirements_tests::generated_profile_requirements_match_artifact`.
+
+| Profile ID | SDK 1.0 | Notes |
+| --- | --- | --- |
+| `cx.profile.personal_agent_provisioning.v1` | ✓ implemented | Full `cx.account.agent_key_pair` + `cx.agent.*` (provision / list / get / pause / resume / rotate-key / grant.attach / grant.detach / sidecar_thread.ensure / deactivate) wiring; example: `personal_agent_provision.rs`. |
+| `cx.profile.agent_auth.v1` | ✓ implemented | S-1 signing-key + S-2 session-key binding via `agent_binding::{sign,verify}_ed25519_audit_binding`; controller-grant verification on every agent envelope. |
+| `cx.profile.agent_delegation_policy.v1` | ✓ implemented | Delegation grants gated by `cx.profile.agent_delegation_policy.v1` via `authz::delegation`; controller can revoke without rotating the agent key. |
+| `cx.profile.agent_sidecar_thread.v1` | ✓ implemented | `SidecarCircleId`-bounded sidecar threads with isolated audit logs and parent-Circle membership cross-check. |

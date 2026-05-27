@@ -269,7 +269,8 @@ pub fn sign_registration<S: contrix_core::MoveSigner + ?Sized>(
     let mut unsigned = reg.clone();
     unsigned.proof = None;
     let canonical_bytes = contrix_core::canonical::canonical_json_bytes(&unsigned)?;
-    let payload_digest = crate::Hash::new(contrix_core::canonical::sha256_digest(&canonical_bytes))?;
+    let payload_digest =
+        crate::Hash::new(contrix_core::canonical::sha256_digest(&canonical_bytes))?;
     let sig = signer.sign_payload(&canonical_bytes)?;
     reg.proof = Some(crate::model::Proof {
         kind: contrix_core::proof_kind::DETACHED_JWS.to_owned(),
@@ -374,8 +375,7 @@ impl AppletBridgeErrorBuilder {
             serde_json::to_value(self.severity).expect("severity is a closed enum"),
         );
         if let Some(target_ref) = &self.target_ref {
-            content
-                .insert("target_ref".to_owned(), serde_json::Value::String(target_ref.clone()));
+            content.insert("target_ref".to_owned(), serde_json::Value::String(target_ref.clone()));
         }
         for (k, v) in &self.extra {
             content.insert(k.clone(), v.clone());
@@ -1251,7 +1251,10 @@ mod tests {
         assert_eq!(event.content["message"], "Slack returned 429");
         assert_eq!(event.content["severity"], "warning");
         assert_eq!(event.content["target_ref"], "cx:event:01904100-0000-7000-8000-deadbeefdead");
-        assert_eq!(event.applet_id.as_deref(), Some("cx:applet:01904100-0000-7000-8000-aaaaaaaaaaaa"));
+        assert_eq!(
+            event.applet_id.as_deref(),
+            Some("cx:applet:01904100-0000-7000-8000-aaaaaaaaaaaa")
+        );
         assert_eq!(event.external_ref.as_ref().unwrap()["slack_response_code"], 429);
     }
 
@@ -1280,8 +1283,7 @@ mod tests {
                 &self.kid
             }
             fn sign_payload(&self, canonical_bytes: &[u8]) -> CoreResult<MoveSignature> {
-                let payload_digest =
-                    CoreHash::new(canonical::sha256_digest(canonical_bytes))?;
+                let payload_digest = CoreHash::new(canonical::sha256_digest(canonical_bytes))?;
                 Ok(MoveSignature {
                     alg: "EdDSA".to_owned(),
                     verification_method: self.kid.clone(),
@@ -1292,10 +1294,8 @@ mod tests {
             }
         }
 
-        let signer = StubSigner {
-            did: did("alice"),
-            kid: "did:web:alice.example#key-1".to_owned(),
-        };
+        let signer =
+            StubSigner { did: did("alice"), kid: "did:web:alice.example#key-1".to_owned() };
         let mut reg = sample_wire_registration();
         sign_registration(&mut reg, &signer, "did:web:alice.example#key-1").unwrap();
 

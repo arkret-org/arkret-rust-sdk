@@ -60,10 +60,7 @@ impl AppletService {
         Self { handler: Arc::new(handler), idempotency: Arc::new(idempotency) }
     }
 
-    pub fn from_arcs(
-        handler: Arc<dyn AppletHandler>,
-        idempotency: Arc<IdempotencyWindow>,
-    ) -> Self {
+    pub fn from_arcs(handler: Arc<dyn AppletHandler>, idempotency: Arc<IdempotencyWindow>) -> Self {
         Self { handler, idempotency }
     }
 }
@@ -86,9 +83,9 @@ mod salvo_router {
     /// salvo [`Router`] for the 6 standard Applet endpoints. Returns
     /// `Err` if called more than once.
     pub fn router(service: AppletService) -> crate::Result<Router> {
-        SERVICE
-            .set(service)
-            .map_err(|_| crate::Error::Protocol("applet_server::router already installed".to_owned()))?;
+        SERVICE.set(service).map_err(|_| {
+            crate::Error::Protocol("applet_server::router already installed".to_owned())
+        })?;
         Ok(Router::with_path("api/v1/applet")
             .push(Router::with_path("ping").get(ping_handler))
             .push(Router::with_path("describe").get(describe_handler))
@@ -204,11 +201,7 @@ mod tests {
             _idempotency_key: Option<&str>,
             _req: AppletTransactionReqBody,
         ) -> Result<AppletTransactionResBody> {
-            Ok(AppletTransactionResBody {
-                ok: true,
-                rejected: vec![],
-                retry_after_ms: None,
-            })
+            Ok(AppletTransactionResBody { ok: true, rejected: vec![], retry_after_ms: None })
         }
         fn resolve_actor(&self, _actor_id: &str) -> Result<AppletActorResBody> {
             Ok(AppletActorResBody {
@@ -239,10 +232,8 @@ mod tests {
 
     #[test]
     fn applet_service_constructs_with_handler_and_idempotency_window() {
-        let svc = AppletService::new(
-            StubHandler,
-            IdempotencyWindow::new(Duration::from_secs(5 * 60)),
-        );
+        let svc =
+            AppletService::new(StubHandler, IdempotencyWindow::new(Duration::from_secs(5 * 60)));
         let body = svc.handler.ping().unwrap();
         assert!(body.ok);
     }

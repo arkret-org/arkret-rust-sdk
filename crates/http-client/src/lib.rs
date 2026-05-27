@@ -725,18 +725,14 @@ impl Client {
         &self,
         request: &SyncReqBody,
     ) -> Result<
-        std::pin::Pin<
-            Box<dyn futures_util::Stream<Item = Result<AccountSubscribeFrame>> + Send>,
-        >,
+        std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<AccountSubscribeFrame>> + Send>>,
     > {
         use futures_util::StreamExt;
         use tokio_util::codec::{FramedRead, LinesCodec};
         use tokio_util::io::StreamReader;
 
         let response = self.account_subscribe(request).await?;
-        let byte_stream = response
-            .bytes_stream()
-            .map(|chunk| chunk.map_err(std::io::Error::other));
+        let byte_stream = response.bytes_stream().map(|chunk| chunk.map_err(std::io::Error::other));
         let reader = StreamReader::new(byte_stream);
         let lines = FramedRead::new(reader, LinesCodec::new());
         let stream = lines.filter_map(|line_res| async move {
@@ -746,9 +742,9 @@ impl Client {
                     Ok(None) => None,
                     Err(err) => Some(Err(err)),
                 },
-                Err(err) => Some(Err(Error::Protocol(format!(
-                    "account subscribe line read failed: {err}"
-                )))),
+                Err(err) => {
+                    Some(Err(Error::Protocol(format!("account subscribe line read failed: {err}"))))
+                }
             }
         });
         Ok(Box::pin(stream))
@@ -1916,7 +1912,13 @@ mod tests {
                 got.push(item.expect("frame decode"));
             }
             assert_eq!(got.len(), 3, "expected 3 frames, got {got:?}");
-            assert_eq!(got[0].kind, AccountSubscribeFrame::from_ndjson_line(r#"{"kind":"heartbeat"}"#).unwrap().unwrap().kind);
+            assert_eq!(
+                got[0].kind,
+                AccountSubscribeFrame::from_ndjson_line(r#"{"kind":"heartbeat"}"#)
+                    .unwrap()
+                    .unwrap()
+                    .kind
+            );
             assert!(got[1].cursor.is_some());
             assert!(got[2].is_catchup_complete());
         }

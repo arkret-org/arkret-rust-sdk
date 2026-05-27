@@ -98,3 +98,94 @@ audit item as `external_audit_required`.
 | E2EE and MLS | `crates/sdk/src/e2ee.rs`, `mls.rs`, `devices.rs` |
 | Federation and service identity | `crates/sdk/src/federation.rs`, `crates/core/src/service.rs` |
 | Log redaction and feature safety | `crates/sdk/src/crypto.rs`, `crates/http-client/src/lib.rs`, `crates/server/src/lib.rs` |
+
+## Agent Runtime + Recovery Surface (P5 / spec head 37ce729)
+
+The following sections cover the surface introduced by commits 4d5a1af and
+bf29056 (agent runtime, recovery policy/receipt, sidecar Circle boundary,
+first-backup gate, DID format regex).
+
+### Agent runtime auth (S-1 / S-2)
+
+*Threat model.* A compromised agent key (S-1: signing key, S-2: session key)
+must not let an attacker escalate beyond the controller's grant; key theft
+must be containable to the bound `agent_principal_id` and revocable without
+revoking the controller. The agent runtime also exposes a quiesce surface
+(`pause`/`resume`/`deactivate`) that a hostile caller could abuse to stage
+DOS against the controller's automated workflows.
+
+*Mitigations.* `cx.profile.agent_auth.v1` constrains every agent-authenticated
+request to a signed envelope binding the agent's S-1 key, the calling
+`agent_session_id` (S-2), and the controller DID; the verifier rejects any
+envelope whose `agent_key_id` is not in the active rotation window from
+`cx.agent.rotate_key`. `cx.agent.pause` / `deactivate` are gated on the
+controller's session grant (`cx.profile.agent_delegation_policy.v1`), so a
+stolen agent key cannot deactivate itself or extend its own scope. SDK
+helpers `agent_binding::sign_ed25519_audit_binding` /
+`verify_ed25519_audit_binding` produce and check the canonical subject so
+all hosts apply the same transcript.
+
+### recovery_policy / recovery_receipt schemas
+
+*Threat model.* Recovery is the highest-leverage operation in the protocol —
+the holder of a valid recovery receipt can rebind a DID's controller set.
+Risks include receipt forgery, replay across realms, premature revocation
+acceptance, and confused-deputy attacks where a stale `recovery_policy`
+references a body branch the verifier does not understand.
+
+*Mitigations.* `cx.schema.recovery_policy.v1` pins the lifecycle and KDF
+profile branch as canonical fields covered by the policy's signature;
+verifiers reject `body` branches they cannot parse rather than silently
+accepting them. `cx.schema.recovery_receipt.v1` binds the `policy_id`,
+`recovery_session_id` and `frontier_ref` of the originating key state, so
+receipts cannot be replayed against a rotated frontier. The
+first-backup gate (below) ensures recovery cannot land before the controller
+has staged at least one chain envelope.
+
+### Sidecar Circle boundary
+
+*Threat model.* Sidecar threads are how an agent collaborates with external
+tools without exposing the controller's full space membership. The risk is
+that a sidecar thread leaks events out of its parent Circle, or that a
+hostile agent fabricates a sidecar thread referencing a Circle it does not
+have a grant for.
+
+*Mitigations.* `cx.profile.agent_sidecar_thread.v1` requires every
+`cx.agent.sidecar_thread.ensure` request to carry a `SidecarCircleId`
+bounded by the controller's existing membership in the parent
+`CircleId`; the reducer cross-checks the bound circle's policy before
+creating the thread. The sidecar's audit log is isolated from the parent
+Circle's audit log even though both flow through the same store, so
+visibility violations are loud failures rather than silent join-and-leak.
+
+### First-backup gate
+
+*Threat model.* Without a first-backup gate, a malicious party who steals an
+unbacked-up device can complete a recovery flow that produces a valid
+controller switch with no historical state to compare against — the attacker
+becomes the canonical history.
+
+*Mitigations.* The gate requires at least one
+`cx.schema.key_backup.v1` envelope (with `series_seq == 0`) to be visible
+on the home soland before any `recovery_policy` can accept a binding. SDK
+callers see this as `Error::Protocol("first_backup_required")` from the
+recovery client; the spec layer codifies it as the
+`first_backup_required` failure mode on `cx.account.recovery.*` operations.
+Operators MUST NOT disable this gate in production.
+
+### DID format regex
+
+*Threat model.* DID parsing has historically been an injection surface: a
+permissive parser that accepts `did:web:alice.example?evil=1` lets attackers
+smuggle parameters into downstream HTTP requests, log injection sinks, or
+ACL keys. The risk is silent acceptance of malformed input that later
+collides with a legitimate DID.
+
+*Mitigations.* The strict DID regex
+(`^did:[a-z0-9]+:[A-Za-z0-9._:%-]+$`, anchored, no query / fragment) is
+applied at every entry point: `Did::new`, sync ingestion, capability
+resolvers, and the federation transport. Method-specific extensions
+(e.g. `did:key` log entries, `did:keri` log proofs) layer their own
+syntactic checks on top of the base regex; none of them can broaden it.
+The regex is checked by `identifiers::tests::did_rejects_malformed`
+across every public input on the boundary.

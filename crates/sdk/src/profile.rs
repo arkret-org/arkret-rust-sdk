@@ -401,11 +401,7 @@ impl ProfileCreateBuilder {
     /// Stamp this profile as an Applet-managed ghost actor. Sets
     /// `actor_kind = "ghost"`, `managed_by_applet = <applet_id>`, and
     /// `accountability.accountable_to = <accountable_to>` per spec §9.
-    pub fn with_ghost_kind(
-        mut self,
-        applet_id: impl Into<String>,
-        accountable_to: Did,
-    ) -> Self {
+    pub fn with_ghost_kind(mut self, applet_id: impl Into<String>, accountable_to: Did) -> Self {
         self.actor_kind = Some("ghost".to_owned());
         self.managed_by_applet = Some(applet_id.into());
         self.accountable_to = Some(accountable_to);
@@ -434,21 +430,17 @@ impl ProfileCreateBuilder {
         let mut content = serde_json::Map::new();
         content.insert("actor_id".to_owned(), serde_json::Value::String(self.actor_id.to_string()));
         if let Some(display_name) = &self.display_name {
-            content.insert(
-                "display_name".to_owned(),
-                serde_json::Value::String(display_name.clone()),
-            );
+            content
+                .insert("display_name".to_owned(), serde_json::Value::String(display_name.clone()));
         }
         if let Some(avatar_url) = &self.avatar_url {
-            content
-                .insert("avatar_url".to_owned(), serde_json::Value::String(avatar_url.clone()));
+            content.insert("avatar_url".to_owned(), serde_json::Value::String(avatar_url.clone()));
         }
         if let Some(bio) = &self.bio {
             content.insert("bio".to_owned(), serde_json::Value::String(bio.clone()));
         }
         if let Some(actor_kind) = &self.actor_kind {
-            content
-                .insert("actor_kind".to_owned(), serde_json::Value::String(actor_kind.clone()));
+            content.insert("actor_kind".to_owned(), serde_json::Value::String(actor_kind.clone()));
         }
         if let Some(applet_id) = &self.managed_by_applet {
             content.insert(
@@ -462,8 +454,7 @@ impl ProfileCreateBuilder {
                 "accountable_to".to_owned(),
                 serde_json::Value::String(accountable_to.to_string()),
             );
-            content
-                .insert("accountability".to_owned(), serde_json::Value::Object(accountability));
+            content.insert("accountability".to_owned(), serde_json::Value::Object(accountability));
         }
         for (k, v) in &self.extra {
             content.insert(k.clone(), v.clone());
@@ -534,7 +525,10 @@ mod profile_builder_tests {
             .build(1, hlc())
             .unwrap();
         assert_eq!(event.content["actor_kind"], "ghost");
-        assert_eq!(event.content["managed_by_applet"], "cx:applet:01904100-0000-7000-8000-aaaaaaaaaaaa");
+        assert_eq!(
+            event.content["managed_by_applet"],
+            "cx:applet:01904100-0000-7000-8000-aaaaaaaaaaaa"
+        );
         assert_eq!(event.content["accountability"]["accountable_to"], "did:web:owner.example");
         assert_eq!(event.external_ref.as_ref().unwrap()["slack_user_id"], "U12345");
     }

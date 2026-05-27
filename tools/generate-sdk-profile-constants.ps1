@@ -137,16 +137,20 @@ $lines.Add("            Self::Admin => `"admin`",") | Out-Null
 $lines.Add("            Self::Interop => `"interop`",") | Out-Null
 $lines.Add("        }") | Out-Null
 $lines.Add("    }") | Out-Null
+$lines.Add("}") | Out-Null
 $lines.Add("") | Out-Null
-$lines.Add("    pub fn from_str(value: &str) -> Option<Self> {") | Out-Null
+$lines.Add("impl std::str::FromStr for ProfileRole {") | Out-Null
+$lines.Add("    type Err = ();") | Out-Null
+$lines.Add("") | Out-Null
+$lines.Add("    fn from_str(value: &str) -> Result<Self, Self::Err> {") | Out-Null
 $lines.Add("        match value {") | Out-Null
-$lines.Add("            `"client`" => Some(Self::Client),") | Out-Null
-$lines.Add("            `"server`" => Some(Self::Server),") | Out-Null
-$lines.Add("            `"gateway`" => Some(Self::Gateway),") | Out-Null
-$lines.Add("            `"directory`" => Some(Self::Directory),") | Out-Null
-$lines.Add("            `"admin`" => Some(Self::Admin),") | Out-Null
-$lines.Add("            `"interop`" => Some(Self::Interop),") | Out-Null
-$lines.Add("            _ => None,") | Out-Null
+$lines.Add("            `"client`" => Ok(Self::Client),") | Out-Null
+$lines.Add("            `"server`" => Ok(Self::Server),") | Out-Null
+$lines.Add("            `"gateway`" => Ok(Self::Gateway),") | Out-Null
+$lines.Add("            `"directory`" => Ok(Self::Directory),") | Out-Null
+$lines.Add("            `"admin`" => Ok(Self::Admin),") | Out-Null
+$lines.Add("            `"interop`" => Ok(Self::Interop),") | Out-Null
+$lines.Add("            _ => Err(()),") | Out-Null
 $lines.Add("        }") | Out-Null
 $lines.Add("    }") | Out-Null
 $lines.Add("}") | Out-Null
