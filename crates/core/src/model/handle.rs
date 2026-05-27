@@ -2,69 +2,73 @@ use std::fmt;
 
 use super::*;
 
-/// Canonical Contrix-native handle URI.
+/// Canonical Contrix handle string.
 ///
-/// Wire form: `contrix://<domain>(:<port>)?/users/<localpart>` with
-/// lowercase `localpart`. Self-hosted single-user deployments use the
-/// same shape; there is no bare-host or `acct:` canonical variant.
-/// `acct:<localpart>@<domain>` is interop-only and lives in
-/// [`HandleClaim::handle_aliases`].
+/// R3.1 wire form: `<localpart>:<domain>(:<port>)?` with lowercase
+/// `localpart`. The previous `contrix://<domain>/users/<localpart>` URI
+/// form has been retired (contrix-spec @ 7157ee8 — 2026-05-27).
 ///
-/// Spec source: `handle-claim.schema.json#/$defs/handle_uri`
-/// (commit 0a5ab85, 2026-05-19).
+/// `acct:<localpart>@<domain>` remains an interop alias only and lives in
+/// [`HandleClaim::handle_aliases`]; the `@` mention sigil is not part of
+/// this field.
+///
+/// Spec source: `handle-claim.schema.json#/properties/handle`
+/// (commit 7157ee8).
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(try_from = "String", into = "String")]
-pub struct HandleUri {
+pub struct Handle {
     canonical: String,
     localpart: String,
     domain: String,
     port: Option<u16>,
 }
 
-impl HandleUri {
-    /// Parse a canonical `contrix://` handle URI. Lowercases the localpart.
+impl Handle {
+    /// Parse a canonical `<localpart>:<domain>(:<port>)?` handle.
+    /// Lowercases both the localpart and domain.
     pub fn parse(input: &str) -> Result<Self> {
-        let rest = input.strip_prefix("contrix://").ok_or_else(|| {
-            Error::Protocol(format!("handle uri must start with contrix://: {input}"))
-        })?;
-        let (authority, path) = rest.split_once("/users/").ok_or_else(|| {
-            Error::Protocol(format!("handle uri must contain /users/ path: {input}"))
-        })?;
-        if path.is_empty() {
-            return Err(Error::Protocol(format!("handle uri localpart is empty: {input}")));
-        }
-        if path.contains('/') {
+        let mut parts = input.split(':');
+        let local = parts
+            .next()
+            .ok_or_else(|| Error::Protocol(format!("handle is empty: {input}")))?;
+        let domain_part = parts
+            .next()
+            .ok_or_else(|| Error::Protocol(format!("handle missing ':<domain>': {input}")))?;
+        let port_part = parts.next();
+        if parts.next().is_some() {
             return Err(Error::Protocol(format!(
-                "handle uri localpart must not contain '/': {input}"
+                "handle has too many ':' separators: {input}"
             )));
         }
-        let localpart = path.to_ascii_lowercase();
+        if local.is_empty() {
+            return Err(Error::Protocol(format!("handle localpart is empty: {input}")));
+        }
+        let localpart = local.to_ascii_lowercase();
         if !is_valid_localpart(&localpart) {
-            return Err(Error::Protocol(format!("handle uri localpart invalid: {input}")));
+            return Err(Error::Protocol(format!("handle localpart invalid: {input}")));
         }
-        let (domain, port) = match authority.rsplit_once(':') {
-            Some((host, port)) if !host.is_empty() && port.chars().all(|c| c.is_ascii_digit()) => {
-                let port: u16 = port
-                    .parse()
-                    .map_err(|_| Error::Protocol(format!("handle uri port invalid: {input}")))?;
-                (host.to_ascii_lowercase(), Some(port))
-            }
-            _ => (authority.to_ascii_lowercase(), None),
-        };
+        let domain = domain_part.to_ascii_lowercase();
         if !is_valid_domain(&domain) {
-            return Err(Error::Protocol(format!("handle uri domain invalid: {input}")));
+            return Err(Error::Protocol(format!("handle domain invalid: {input}")));
         }
+        let port = match port_part {
+            Some(p) => Some(
+                p.parse::<u16>()
+                    .map_err(|_| Error::Protocol(format!("handle port invalid: {input}")))?,
+            ),
+            None => None,
+        };
         let canonical = match port {
-            Some(p) => format!("contrix://{domain}:{p}/users/{localpart}"),
-            None => format!("contrix://{domain}/users/{localpart}"),
+            Some(p) => format!("{localpart}:{domain}:{p}"),
+            None => format!("{localpart}:{domain}"),
         };
         Ok(Self { canonical, localpart, domain, port })
     }
 
     /// Build from `acct:<local>@<domain>` interop form. The result is the
-    /// canonical `contrix://` URI; the original `acct:` string is intended
-    /// to be carried separately as a handle alias.
+    /// canonical handle; the original `acct:` string is intended to be
+    /// carried separately as a handle alias.
     pub fn from_acct(acct: &str) -> Result<Self> {
         let rest = acct
             .strip_prefix("acct:")
@@ -72,10 +76,11 @@ impl HandleUri {
         let (local, domain) = rest
             .rsplit_once('@')
             .ok_or_else(|| Error::Protocol(format!("acct uri must contain @: {acct}")))?;
-        let synthesized = format!("contrix://{}/users/{}", domain, local.to_ascii_lowercase());
+        let synthesized = format!("{}:{}", local.to_ascii_lowercase(), domain);
         Self::parse(&synthesized)
     }
 
+    /// Canonical wire form `<localpart>:<domain>(:<port>)?`.
     pub fn canonical(&self) -> &str {
         &self.canonical
     }
@@ -109,24 +114,30 @@ impl HandleUri {
     }
 }
 
-impl fmt::Display for HandleUri {
+impl fmt::Display for Handle {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.canonical)
     }
 }
 
-impl TryFrom<String> for HandleUri {
+impl TryFrom<String> for Handle {
     type Error = Error;
     fn try_from(value: String) -> Result<Self> {
-        HandleUri::parse(&value)
+        Handle::parse(&value)
     }
 }
 
-impl From<HandleUri> for String {
-    fn from(value: HandleUri) -> Self {
+impl From<Handle> for String {
+    fn from(value: Handle) -> Self {
         value.canonical
     }
 }
+
+/// Backward-compatibility alias retained for one release after R3.1.
+///
+/// New code SHOULD use [`Handle`] directly.
+#[deprecated(note = "Use `Handle`; R3.1 retired the contrix:// URI form for handles.")]
+pub type HandleUri = Handle;
 
 fn is_valid_localpart(s: &str) -> bool {
     if s.is_empty() || s.len() > 128 {
@@ -285,11 +296,25 @@ fn is_valid_domain(s: &str) -> bool {
     if s.is_empty() {
         return false;
     }
-    s.split('.').all(|label| {
-        !label.is_empty()
-            && label.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
-            && !label.starts_with('-')
-            && !label.ends_with('-')
+    // R3.1 schema: at least 2 dot-separated labels, each label is
+    // `[a-z0-9]([a-z0-9-]*[a-z0-9])?`.
+    let labels: Vec<&str> = s.split('.').collect();
+    if labels.len() < 2 {
+        return false;
+    }
+    labels.iter().all(|label| {
+        if label.is_empty() {
+            return false;
+        }
+        let bytes = label.as_bytes();
+        let first_ok = bytes[0].is_ascii_lowercase() || bytes[0].is_ascii_digit();
+        let last_ok = bytes[bytes.len() - 1].is_ascii_lowercase()
+            || bytes[bytes.len() - 1].is_ascii_digit();
+        first_ok
+            && last_ok
+            && label
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
     })
 }
 
@@ -362,8 +387,10 @@ pub enum HandleHintBindingSource {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct HandleClaim {
+    /// Canonical handle `<localpart>:<domain>`. R3.1 wire rename from
+    /// the prior `handle_uri` field name (contrix-spec @ 7157ee8).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub handle_uri: Option<HandleUri>,
+    pub handle: Option<Handle>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub handle_aliases: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -402,15 +429,15 @@ pub struct HandleClaim {
 
 impl HandleClaim {
     /// Enforce schema `allOf` conditional required fields:
-    ///   - `binding_state=verified` ⇒ `handle_uri` + `expires_at`
-    ///   - `member_delivery_binding` present ⇒ `handle_uri` + `audience` +
+    ///   - `binding_state=verified` ⇒ `handle` + `expires_at`
+    ///   - `member_delivery_binding` present ⇒ `handle` + `audience` +
     ///     `expires_at`, and binding_source != did_document_default
     ///     (enforced by the [`HandleHintBindingSource`] type itself).
     pub fn validate(&self) -> Result<()> {
         if matches!(self.binding_state, Some(HandleBindingState::Verified)) {
-            if self.handle_uri.is_none() {
+            if self.handle.is_none() {
                 return Err(Error::Protocol(
-                    "binding_state=verified requires handle_uri".to_owned(),
+                    "binding_state=verified requires handle".to_owned(),
                 ));
             }
             if self.expires_at.is_none() {
@@ -420,14 +447,21 @@ impl HandleClaim {
             }
         }
         if self.member_delivery_binding.is_some()
-            && (self.handle_uri.is_none() || self.audience.is_none() || self.expires_at.is_none())
+            && (self.handle.is_none() || self.audience.is_none() || self.expires_at.is_none())
         {
             return Err(Error::Protocol(
-                "member_delivery_binding present requires handle_uri, audience, expires_at"
+                "member_delivery_binding present requires handle, audience, expires_at"
                     .to_owned(),
             ));
         }
         Ok(())
+    }
+
+    /// Canonical handle wire form, if any. R3.1 helper exported so
+    /// soland / yougen / cotest all agree on the bytes used for
+    /// signature / digest transcripts.
+    pub fn handle_canonical(&self) -> Option<&str> {
+        self.handle.as_ref().map(Handle::canonical)
     }
 }
 
@@ -436,45 +470,59 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parses_canonical_uri() {
-        let h = HandleUri::parse("contrix://example.com/users/alice").unwrap();
+    fn parses_canonical_handle() {
+        let h = Handle::parse("alice:example.com").unwrap();
         assert_eq!(h.localpart(), "alice");
         assert_eq!(h.domain(), "example.com");
-        assert_eq!(h.canonical(), "contrix://example.com/users/alice");
+        assert_eq!(h.canonical(), "alice:example.com");
     }
 
     #[test]
     fn lowercases_localpart() {
-        let h = HandleUri::parse("contrix://example.com/users/Alice").unwrap();
+        let h = Handle::parse("Alice:example.com").unwrap();
         assert_eq!(h.localpart(), "alice");
-        assert_eq!(h.canonical(), "contrix://example.com/users/alice");
+        assert_eq!(h.canonical(), "alice:example.com");
     }
 
     #[test]
-    fn rejects_bare_host() {
-        assert!(HandleUri::parse("contrix://example.com").is_err());
-        assert!(HandleUri::parse("user:domain").is_err());
-        assert!(HandleUri::parse("acct:alice@example.com").is_err());
+    fn rejects_bare_host_and_uri_form() {
+        // `<localpart>:<domain>` requires a localpart segment AND a
+        // multi-label domain (`example.com`, not `example`).
+        assert!(Handle::parse("example.com").is_err());
+        assert!(Handle::parse("alice:example").is_err());
+        // contrix:// URI form is no longer accepted (R3.1 wire rename).
+        assert!(Handle::parse("contrix://example.com/users/alice").is_err());
+        // acct: alias must be routed through `from_acct`.
+        assert!(Handle::parse("acct:alice@example.com").is_err());
+    }
+
+    #[test]
+    fn accepts_optional_port() {
+        let h = Handle::parse("alice:example.com:8443").unwrap();
+        assert_eq!(h.port(), Some(8443));
+        assert_eq!(h.canonical(), "alice:example.com:8443");
     }
 
     #[test]
     fn from_acct_normalises_to_canonical() {
-        let h = HandleUri::from_acct("acct:Bob@example.com").unwrap();
-        assert_eq!(h.canonical(), "contrix://example.com/users/bob");
+        let h = Handle::from_acct("acct:Bob@example.com").unwrap();
+        assert_eq!(h.canonical(), "bob:example.com");
         assert_eq!(h.to_acct(), "acct:bob@example.com");
     }
 
     #[test]
-    fn verified_requires_uri_and_expires() {
-        let claim =
-            HandleClaim { binding_state: Some(HandleBindingState::Verified), ..Default::default() };
+    fn verified_requires_handle_and_expires() {
+        let claim = HandleClaim {
+            binding_state: Some(HandleBindingState::Verified),
+            ..Default::default()
+        };
         assert!(claim.validate().is_err());
     }
 
     #[test]
     fn member_delivery_binding_requires_audience() {
         let claim = HandleClaim {
-            handle_uri: Some(HandleUri::parse("contrix://example.com/users/alice").unwrap()),
+            handle: Some(Handle::parse("alice:example.com").unwrap()),
             member_delivery_binding: Some(DeliveryBindingHint {
                 recipient_service_did: Did::new("did:web:rs.example".to_owned()).unwrap(),
                 recipient_service_type: RecipientServiceType::PrincipalServer,

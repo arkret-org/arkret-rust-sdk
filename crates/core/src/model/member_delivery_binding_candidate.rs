@@ -4,7 +4,7 @@
 //!
 //! Spec source: `identity-handles.md` §3.7 +
 //! `artifacts/schemas/member-delivery-binding-candidate.schema.json`
-//! (commit 0a5ab85, 2026-05-19).
+//! (contrix-spec @ 7157ee8, 2026-05-27 — `handle_uri` → `handle` wire rename).
 //!
 //! A candidate is the **input** to `member_add` / `invite` builders. It is
 //! *not* a grant and *not* a materialised `member_delivery_binding`; the
@@ -73,15 +73,15 @@ impl CandidateValidationContext {
 /// branches so callers can build precise audit / failure receipts.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum CandidateError {
-    #[error("candidate handle_uri is not canonical contrix:// form: {0}")]
-    NonCanonicalHandleUri(String),
+    #[error("candidate handle is not in canonical <localpart>:<domain> form: {0}")]
+    NonCanonicalHandle(String),
     #[error("candidate audience mismatch: expected {expected}, got {actual}")]
     AudienceMismatch { expected: String, actual: String },
     #[error("candidate expired at {expires_at} (now = {now})")]
     Expired { expires_at: DateTime<Utc>, now: DateTime<Utc> },
     #[error(
         "candidate proofs[] missing or empty; at least one proof MUST bind \
-         handle_uri / subject_id / member_delivery_binding.recipient_service_did / audience / \
+         handle / subject_id / member_delivery_binding.recipient_service_did / audience / \
          issuer_service_did / expires_at"
     )]
     MissingProof,
@@ -118,7 +118,9 @@ pub enum CandidateError {
 #[serde(deny_unknown_fields)]
 pub struct MemberDeliveryBindingCandidate {
     pub subject_id: Did,
-    pub handle_uri: HandleUri,
+    /// Canonical `<localpart>:<domain>` handle (R3.1 wire rename from
+    /// the prior `handle_uri` field).
+    pub handle: Handle,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub handle_aliases: Vec<String>,
     pub member_delivery_binding: DeliveryBindingHint,
@@ -141,14 +143,18 @@ impl MemberDeliveryBindingCandidate {
         &self,
         context: &CandidateValidationContext,
     ) -> std::result::Result<(), CandidateError> {
-        // (2) handle_uri canonical — `HandleUri::parse` already accepted
-        //      only the canonical form on construction, so reaching this
-        //      point with a non-canonical value implies the typed field
-        //      was bypassed. Re-check defensively so the SDK refuses
-        //      `acct:` / bare host strings that snuck in via raw JSON.
-        let canonical = self.handle_uri.canonical();
-        if !(canonical.starts_with("contrix://") && canonical.contains("/users/")) {
-            return Err(CandidateError::NonCanonicalHandleUri(canonical.to_owned()));
+        // (2) handle canonical — `Handle::parse` already accepted only
+        //      the canonical `<localpart>:<domain>` form on construction,
+        //      so reaching this point with a non-canonical value implies
+        //      the typed field was bypassed. Re-check defensively so the
+        //      SDK refuses `acct:` / bare host / contrix:// strings that
+        //      snuck in via raw JSON.
+        let canonical = self.handle.canonical();
+        let has_localpart_colon = canonical.contains(':');
+        let has_dotted_domain =
+            canonical.split(':').nth(1).is_some_and(|domain| domain.contains('.'));
+        if !has_localpart_colon || !has_dotted_domain {
+            return Err(CandidateError::NonCanonicalHandle(canonical.to_owned()));
         }
 
         // (3) audience match
@@ -246,7 +252,7 @@ mod tests {
         let rs = fake_did("principal");
         MemberDeliveryBindingCandidate {
             subject_id: fake_did("alice"),
-            handle_uri: HandleUri::parse("contrix://acme.example/users/alice").unwrap(),
+            handle: Handle::parse("alice:acme.example").unwrap(),
             handle_aliases: vec!["acct:alice@acme.example".to_owned()],
             member_delivery_binding: sample_hint(&rs),
             issuer_service_did: fake_did("principal"),
@@ -332,19 +338,19 @@ mod tests {
     }
 
     #[test]
-    fn negative_non_canonical_handle_uri_via_raw_json() {
-        // Force a non-canonical handle_uri by patching the serialized
-        // form. HandleUri::parse rejects acct: / bare-host strings, so
+    fn negative_non_canonical_handle_via_raw_json() {
+        // Force a non-canonical handle by patching the serialized form.
+        // Handle::parse rejects acct: / bare-host / contrix:// strings, so
         // this exercises the defensive re-check inside validate().
         let c = sample_candidate();
         let mut value = serde_json::to_value(&c).unwrap();
-        // Inject an obviously bogus URI through serde_json::Value direct
-        // mutation; deserialization back through MemberDeliveryBindingCandidate
-        // MUST fail because HandleUri::parse rejects non-canonical input.
-        value["handle_uri"] = json!("acct:alice@acme.example");
+        // Inject an obviously bogus value; deserialization back through
+        // MemberDeliveryBindingCandidate MUST fail because Handle::parse
+        // rejects non-canonical input.
+        value["handle"] = json!("acct:alice@acme.example");
         let parsed: std::result::Result<MemberDeliveryBindingCandidate, _> =
             serde_json::from_value(value);
-        assert!(parsed.is_err(), "non-canonical handle_uri must be rejected at deserialisation");
+        assert!(parsed.is_err(), "non-canonical handle must be rejected at deserialisation");
     }
 
     #[test]

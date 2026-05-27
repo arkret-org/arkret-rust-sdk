@@ -458,7 +458,7 @@ fn space_provides_message_membership_and_media_convenience_helpers() {
 #[test]
 fn member_add_with_candidate_emits_routable_join_with_typed_binding() {
     use crate::model::{
-        CandidateIntent, DeliveryBindingHint, DeliveryMode, HandleHintBindingSource, HandleUri,
+        CandidateIntent, DeliveryBindingHint, DeliveryMode, Handle, HandleHintBindingSource,
         MemberDeliveryBindingCandidate, RecipientServiceType,
     };
 
@@ -473,7 +473,7 @@ fn member_add_with_candidate_emits_routable_join_with_typed_binding() {
     modes.insert(DeliveryMode::Sync);
     let candidate = MemberDeliveryBindingCandidate {
         subject_id: subject.clone(),
-        handle_uri: HandleUri::parse("contrix://acme.example/users/bob").unwrap(),
+        handle: Handle::parse("bob:acme.example").unwrap(),
         handle_aliases: vec![],
         member_delivery_binding: DeliveryBindingHint {
             recipient_service_did: principal.clone(),
@@ -509,7 +509,7 @@ fn member_add_with_candidate_emits_routable_join_with_typed_binding() {
     assert_eq!(payload["actor_id"], serde_json::json!(subject));
     assert_eq!(payload["membership"], "join");
     assert_eq!(payload["delivery_status"], "routable");
-    assert_eq!(payload["handle_uri"], "contrix://acme.example/users/bob");
+    assert_eq!(payload["handle"], "bob:acme.example");
     assert!(payload["delivery_binding"].is_object());
     assert!(payload["delivery_binding_candidate"].is_object());
 }
@@ -517,7 +517,7 @@ fn member_add_with_candidate_emits_routable_join_with_typed_binding() {
 #[test]
 fn member_add_with_candidate_rejects_audience_mismatch() {
     use crate::model::{
-        CandidateIntent, DeliveryBindingHint, DeliveryMode, HandleHintBindingSource, HandleUri,
+        CandidateIntent, DeliveryBindingHint, DeliveryMode, Handle, HandleHintBindingSource,
         MemberDeliveryBindingCandidate, RecipientServiceType,
     };
 
@@ -530,7 +530,7 @@ fn member_add_with_candidate_rejects_audience_mismatch() {
     modes.insert(DeliveryMode::Events);
     let candidate = MemberDeliveryBindingCandidate {
         subject_id: Did::new("did:web:bob.example".to_owned()).unwrap(),
-        handle_uri: HandleUri::parse("contrix://acme.example/users/bob").unwrap(),
+        handle: Handle::parse("bob:acme.example").unwrap(),
         handle_aliases: vec![],
         member_delivery_binding: DeliveryBindingHint {
             recipient_service_did: principal.clone(),

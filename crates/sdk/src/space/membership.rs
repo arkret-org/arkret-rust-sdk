@@ -109,7 +109,7 @@ impl Space {
             "role": role,
             "space_id": self.space_id.as_str(),
             "issuer": session_meta.user_id.as_str(),
-            "handle_uri": candidate.handle_uri.canonical(),
+            "handle": candidate.handle.canonical(),
             "delivery_binding_candidate": candidate,
         });
 
@@ -148,7 +148,7 @@ impl Space {
             "delivery_status": DeliveryStatus::Routable,
             "delivery_binding": binding,
             "delivery_binding_candidate": candidate,
-            "handle_uri": candidate.handle_uri.canonical(),
+            "handle": candidate.handle.canonical(),
         });
 
         Ok(Operation::create(operation_id, self.realm_id()?, OP_MEMBER_STATE, payload))
