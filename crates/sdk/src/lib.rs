@@ -112,6 +112,12 @@ pub mod agent_binding;
 #[cfg(feature = "full-surface")]
 #[cfg(all(feature = "full-surface", feature = "applet-runtime"))]
 pub mod applet;
+// S-8 (savfox SDK gap): salvo Router factory for the 6 Applet
+// endpoints. Trait surface is always compiled (under `applet-runtime`)
+// so callers can implement it without pulling salvo; the actual
+// Router factory only links when the `salvo` feature is on.
+#[cfg(all(feature = "full-surface", feature = "applet-runtime"))]
+pub mod applet_server;
 #[cfg(feature = "full-surface")]
 pub mod auth;
 #[cfg(feature = "full-surface")]
@@ -136,6 +142,10 @@ pub mod e2ee;
 pub mod federation;
 #[cfg(feature = "full-surface")]
 pub mod hlc;
+// S-5 (savfox SDK gap): `(source_service_did, Idempotency-Key)`
+// deduplication window. Open to all profiles — Applets, gateways,
+// any inbound handler can use it without dragging in `full-surface`.
+pub mod idempotency;
 // RFC 9421 HTTP Message Signatures (Ed25519) + RFC 9530
 // Content-Digest. Pure-Rust (ed25519-dalek + sha2 + base64), no
 // transport / runtime deps — safe on wasm32 (yougen).
@@ -216,12 +226,18 @@ pub use agent::{
 };
 #[cfg(all(feature = "full-surface", feature = "applet-runtime"))]
 pub use applet::{
-    AppletNamespaceConflict, AppletNamespaceDeclaration, AppletNamespaceKind, AppletPermission,
-    AppletPortal, AppletSchema, AppletServiceIntent, AppletServiceTransaction,
+    AppletBridgeErrorBuilder, AppletBridgeErrorSeverity, AppletNamespaceConflict,
+    AppletNamespaceDeclaration, AppletNamespaceKind, AppletPermission, AppletPortal,
+    AppletSchema, AppletServiceIntent, AppletServiceTransaction, AppletWireNamespaces,
     GhostActorAccountability, OpenApiBinding, PortalMode, PortalSpaceMapping, RemoteSpaceMapping,
     RemoteUserMapping, SignedAppletRegistration, ThirdPartyLookupKind, ThirdPartyLookupReqBody,
-    ThirdPartyLookupResBody, VirtualActor, namespace_pattern_matches,
+    ThirdPartyLookupResBody, VirtualActor, WebhookAuth, WireAppletRegistration,
+    namespace_pattern_matches, sign_registration,
 };
+#[cfg(all(feature = "full-surface", feature = "applet-runtime"))]
+pub use applet_server::{AppletHandler, AppletService};
+#[cfg(all(feature = "full-surface", feature = "applet-runtime", feature = "salvo"))]
+pub use applet_server::router as applet_router;
 #[cfg(feature = "full-surface")]
 pub use auth::{
     AccountAuthState, AccountRecoveryMethod, AccountRecoveryReqBody, AuthClaimType, AuthManager,
@@ -245,16 +261,17 @@ pub use auth::{
 #[cfg(feature = "full-surface")]
 pub use authz::{
     ApprovalFlowManager, ApprovalMode, AuthzContext, AuthzDecision, AuthzEngine,
-    CapabilityFrontierValidation, CapabilityGrant, ClaimRequirement, Constraint,
-    ConstraintDuration, ConstraintEffect, ConstraintEntry, FieldScope, GrantProposal,
-    ModerationReport, PolicyCheckReqBody, PolicyCheckResBody, PolicyServerEffect, ProposalApproval,
-    ProposalStatus, ProtocolGrantApprovalRelation, ProtocolGrantClaimRequirement,
-    ProtocolGrantConstraint, ProtocolGrantConstraintEffect, ProtocolGrantConstraintTrack,
-    ProtocolGrantConstraintType, ProtocolResourceSelector, ProtocolResourceSelectorKind,
-    ProtocolResourceSelectorScope, RateLimitScope, Recurrence, Resource, ResourceSelector,
-    ScopeLimitation, VerifiedClaim, apply_policy_response, capability_grants_from_space_state,
-    grant_requires_approval, moderation_report_for_policy_outcome,
-    reject_unknown_critical_constraints, validate_capability_frontier,
+    CapabilityFrontierValidation, CapabilityGrant, CapabilityGrantBuilder, ClaimRequirement,
+    Constraint, ConstraintDuration, ConstraintEffect, ConstraintEntry, FieldScope,
+    GrantProposal, ModerationReport, PolicyCheckReqBody, PolicyCheckResBody, PolicyServerEffect,
+    ProposalApproval, ProposalStatus, ProtocolGrantApprovalRelation,
+    ProtocolGrantClaimRequirement, ProtocolGrantConstraint, ProtocolGrantConstraintEffect,
+    ProtocolGrantConstraintTrack, ProtocolGrantConstraintType, ProtocolResourceSelector,
+    ProtocolResourceSelectorKind, ProtocolResourceSelectorScope, RateLimitScope, Recurrence,
+    Resource, ResourceSelector, ScopeLimitation, VerifiedClaim, apply_policy_response,
+    capability_grants_from_space_state, grant_requires_approval,
+    moderation_report_for_policy_outcome, reject_unknown_critical_constraints,
+    validate_capability_frontier,
 };
 #[cfg(feature = "full-surface")]
 pub use base::{
@@ -313,6 +330,7 @@ pub use hlc::{
     HlcComponents, HlcGenerator, compare_hlc, is_clock_skew_acceptable, parse_hlc, time_until_hlc,
     validate_hlc_format,
 };
+pub use idempotency::{IdempotencyDecision, IdempotencyWindow};
 #[cfg(feature = "client")]
 pub use http_client::{Auth, Client, ClientBuilder, ClientRequestOptions, RetryConfig};
 #[cfg(all(feature = "full-surface", feature = "client", not(target_arch = "wasm32")))]
@@ -369,9 +387,9 @@ pub use presence::{Presence, PresenceManager};
 #[cfg(feature = "full-surface")]
 pub use profile::{
     DataClassification, ExternalDeviceApprovalMode, PairwiseControlMessage,
-    PairwiseControlMessageKind, ProfileManager, ServiceReplacementPlan, SovereignDeploymentPolicy,
-    SpaceExportManifest, SpaceImportValidation, TspTrustBinding, UserProfile,
-    validate_space_import,
+    PairwiseControlMessageKind, ProfileCreateBuilder, ProfileEventKind, ProfileManager,
+    ServiceReplacementPlan, SovereignDeploymentPolicy, SpaceExportManifest,
+    SpaceImportValidation, TspTrustBinding, UserProfile, validate_space_import,
 };
 #[cfg(feature = "full-surface")]
 pub use push::{

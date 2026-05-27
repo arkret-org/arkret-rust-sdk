@@ -136,6 +136,20 @@ pub struct Event {
     // wire-form rejection code `actor_kind_self_stamped`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub actor_kind: Option<EnvelopeActorKind>,
+    /// S-7 (savfox SDK gap, 2026-05-27) — when set, the typed Applet
+    /// id (`cx:applet:<uuidv7>`) that produced this Envelope. First-class
+    /// per `applet-integration.md` §8; included in the canonical
+    /// signing transcript (folds naturally because top-level fields
+    /// land in the canonical event bytes when present).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub applet_id: Option<String>,
+    /// S-7 (savfox SDK gap, 2026-05-27) — when set, opaque external
+    /// reference for bridge-routed Envelopes (e.g. upstream message id,
+    /// bridge correlation token). First-class per
+    /// `applet-integration.md` §8; included in the canonical signing
+    /// transcript via canonical event bytes when present.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub external_ref: Option<Value>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub unsigned: BTreeMap<String, Value>,
     pub proofs: Vec<Proof>,
@@ -279,6 +293,8 @@ impl Event {
             executed_by: None,
             authorization_ref: None,
             actor_kind: None,
+            applet_id: None,
+            external_ref: None,
             unsigned: BTreeMap::new(),
             proofs: Vec::new(),
         })
@@ -287,3 +303,89 @@ impl Event {
 
 /// Canonical signed Event Envelope wire model.
 pub type EventEnvelope = Event;
+
+#[cfg(test)]
+mod applet_routing_field_tests {
+    //! S-7 (savfox SDK gap, 2026-05-27) — guard the `applet_id` /
+    //! `external_ref` top-level slots against accidental wire drift.
+
+    use super::*;
+    use serde_json::json;
+
+    fn realm() -> RealmId {
+        RealmId::new("cx:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
+    }
+
+    fn alice() -> Did {
+        Did::new("did:web:alice.example").unwrap()
+    }
+
+    fn base_event() -> Event {
+        Event {
+            event_id: EventId::new("cx:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
+            kind: "cx.message.create".to_owned(),
+            realm_id: realm(),
+            actor_id: alice(),
+            actor_seq: 1,
+            created_at: "2026-04-26T00:00:00Z".parse().unwrap(),
+            hlc: Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
+            prev_refs: Vec::new(),
+            effective_scope: None,
+            refs: Vec::new(),
+            preconditions: Vec::new(),
+            effects: Vec::new(),
+            anchor_ref: None,
+            requirements: EventRequirements::default(),
+            redacts: None,
+            content: json!({ "body": "hello" }),
+            executed_by: None,
+            authorization_ref: None,
+            actor_kind: None,
+            applet_id: None,
+            external_ref: None,
+            unsigned: BTreeMap::new(),
+            proofs: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn event_digest_unchanged_when_applet_id_and_external_ref_absent() {
+        let event = base_event();
+        // Spec absence-symmetric: omitting both fields MUST be
+        // serialization-equivalent to the legacy event.
+        let serialized = serde_json::to_value(&event).unwrap();
+        assert!(serialized.get("applet_id").is_none());
+        assert!(serialized.get("external_ref").is_none());
+    }
+
+    #[test]
+    fn event_digest_changes_when_applet_id_is_set() {
+        let baseline = base_event().event_digest().unwrap();
+        let mut event = base_event();
+        event.applet_id = Some("cx:applet:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned());
+        let with = event.event_digest().unwrap();
+        assert_ne!(baseline, with, "applet_id must enter the canonical event bytes");
+    }
+
+    #[test]
+    fn event_digest_changes_when_external_ref_is_set() {
+        let baseline = base_event().event_digest().unwrap();
+        let mut event = base_event();
+        event.external_ref = Some(json!({"upstream_id": "slack:msg:12345"}));
+        let with = event.event_digest().unwrap();
+        assert_ne!(baseline, with, "external_ref must enter the canonical event bytes");
+    }
+
+    #[test]
+    fn event_round_trips_applet_id_and_external_ref() {
+        let mut event = base_event();
+        event.applet_id = Some("cx:applet:01904100-0000-7000-8000-bbbbbbbbbbbb".to_owned());
+        event.external_ref = Some(json!({"slack_msg_id": "1234567890.0001"}));
+        let value = serde_json::to_value(&event).unwrap();
+        assert_eq!(value["applet_id"], "cx:applet:01904100-0000-7000-8000-bbbbbbbbbbbb");
+        assert_eq!(value["external_ref"]["slack_msg_id"], "1234567890.0001");
+        let back: Event = serde_json::from_value(value).unwrap();
+        assert_eq!(back.applet_id.as_deref(), event.applet_id.as_deref());
+        assert_eq!(back.external_ref, event.external_ref);
+    }
+}

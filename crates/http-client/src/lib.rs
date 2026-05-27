@@ -31,13 +31,33 @@ use contrix_core::{
     MediaIceConfigReqBody, MediaIceConfigResBody, ModerationReportReqBody, ModerationReportResBody,
     OkResBody, PolicyCheckReqBody, PolicyCheckResBody, PushNotifyReqBody, PushNotifyResBody,
     PushRegisterDeviceReqBody, PushRegisterDeviceResBody, PushUnregisterDeviceReqBody, Result,
-    ServerDescription, ServiceRequirements, SubmitDidOperationReqBody, SubmitDidOperationResBody,
+    ServerDescription, ServiceRequirements, SessionGrantChallenge, SessionGrantChallengeReq,
+    SessionGrantSubmitReq, SubmitDidOperationReqBody, SubmitDidOperationResBody,
     SyncBackfillResBody, SyncDescription, SyncReqBody, SyncResBody, SyncSnapshotHeadResBody,
 };
 
 pub const HEADER_REQUEST_ID: &str = "X-Contrix-Request-Id";
 pub const HEADER_WAIT_FOR: &str = "X-Contrix-Wait-For";
 pub const HEADER_IDEMPOTENCY_KEY: &str = "Idempotency-Key";
+
+/// S-2 (savfox SDK gap): wire-shape session returned by
+/// `POST /auth/account/session-grants/submit`. Matches the SDK
+/// `AuthSession` struct field-for-field but lives here so the
+/// transport crate doesn't depend on `contrix` (the SDK reuses this
+/// or maps it to its own type).
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct AuthSessionWire {
+    pub session_id: String,
+    pub user_id: contrix_core::Did,
+    pub principal_id: contrix_core::Did,
+    pub device_id: contrix_core::DeviceId,
+    pub access_token: String,
+    pub refresh_token: String,
+    pub expires_at: chrono::DateTime<chrono::Utc>,
+    #[serde(default)]
+    pub revoked: bool,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
 
 const QUERY_AUTH_KEYS: &[&str] = &[
     "access_token",
@@ -638,6 +658,27 @@ impl Client {
         self.send_json(builder).await
     }
 
+    /// S-2 (savfox SDK gap): `POST /auth/account/session-grants` step 1 —
+    /// request a `cx.did.proof` challenge bound to `(principal_did,
+    /// device_id, audience)`. Spec `identity-did.md` §5.1.
+    pub async fn auth_session_grant_challenge(
+        &self,
+        req: &SessionGrantChallengeReq,
+    ) -> Result<SessionGrantChallenge> {
+        self.post("/api/v1/auth/account/session-grants/challenge", req).await
+    }
+
+    /// S-2 (savfox SDK gap): `POST /auth/account/session-grants` step 2 —
+    /// submit the signed `cx.did.proof` and exchange it for a session
+    /// grant. The returned [`AuthSession`] is opaque-token-shaped; the
+    /// SDK never inspects the tokens.
+    pub async fn auth_session_grant_submit(
+        &self,
+        req: &SessionGrantSubmitReq,
+    ) -> Result<AuthSessionWire> {
+        self.post("/api/v1/auth/account/session-grants/submit", req).await
+    }
+
     pub async fn account_subscribe(&self, request: &SyncReqBody) -> Result<Response> {
         let mut builder = self
             .request(Method::GET, "/api/v1/account/subscribe")?
@@ -669,6 +710,48 @@ impl Client {
             }
         }
         Err(Error::Protocol("account subscribe stream ended before a delta frame".to_owned()))
+    }
+
+    /// S-6 (savfox SDK gap): NDJSON-streamed account subscribe. Yields
+    /// one [`AccountSubscribeFrame`] per line; transient per-line
+    /// decode errors surface as `Err` items but the stream continues
+    /// until the underlying HTTP body ends.
+    ///
+    /// Native-only — the wasm32 fetch backend's response streaming
+    /// shape is incompatible with the `bytes_stream` codec pipeline
+    /// used here.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub async fn account_subscribe_frames(
+        &self,
+        request: &SyncReqBody,
+    ) -> Result<
+        std::pin::Pin<
+            Box<dyn futures_util::Stream<Item = Result<AccountSubscribeFrame>> + Send>,
+        >,
+    > {
+        use futures_util::StreamExt;
+        use tokio_util::codec::{FramedRead, LinesCodec};
+        use tokio_util::io::StreamReader;
+
+        let response = self.account_subscribe(request).await?;
+        let byte_stream = response
+            .bytes_stream()
+            .map(|chunk| chunk.map_err(std::io::Error::other));
+        let reader = StreamReader::new(byte_stream);
+        let lines = FramedRead::new(reader, LinesCodec::new());
+        let stream = lines.filter_map(|line_res| async move {
+            match line_res {
+                Ok(line) => match AccountSubscribeFrame::from_ndjson_line(&line) {
+                    Ok(Some(frame)) => Some(Ok(frame)),
+                    Ok(None) => None,
+                    Err(err) => Some(Err(err)),
+                },
+                Err(err) => Some(Err(Error::Protocol(format!(
+                    "account subscribe line read failed: {err}"
+                )))),
+            }
+        });
+        Ok(Box::pin(stream))
     }
 
     pub async fn account_describe(&self) -> Result<SyncDescription> {
@@ -1602,6 +1685,8 @@ mod tests {
                 executed_by: None,
                 authorization_ref: None,
                 actor_kind: None,
+                applet_id: None,
+                external_ref: None,
                 unsigned: BTreeMap::new(),
                 proofs: Vec::new(),
             }
@@ -1755,6 +1840,85 @@ mod tests {
             assert_eq!(response.accepted.len(), 1);
             assert_eq!(response.rejected.len(), 1);
             assert_eq!(response.rejected[0]["reason"], "schema_violation");
+        }
+
+        /// S-6 (savfox SDK gap): the streaming API yields one
+        /// [`AccountSubscribeFrame`] per NDJSON line, including across
+        /// chunk boundaries. Backed by a minimal stub server that
+        /// dribbles the body out in slices.
+        async fn spawn_chunked_ndjson_server(body_parts: Vec<&'static str>) -> Client {
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let addr = listener.local_addr().unwrap();
+
+            tokio::spawn(async move {
+                let (mut socket, _) = listener.accept().await.unwrap();
+                // Read & discard request headers.
+                let mut buf = [0u8; 4096];
+                let mut acc = Vec::new();
+                loop {
+                    let n = socket.read(&mut buf).await.unwrap_or(0);
+                    if n == 0 {
+                        break;
+                    }
+                    acc.extend_from_slice(&buf[..n]);
+                    if acc.windows(4).any(|w| w == b"\r\n\r\n") {
+                        break;
+                    }
+                }
+
+                let body: String = body_parts.iter().copied().collect();
+                let response = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/x-ndjson\r\n\
+                     Content-Length: {}\r\nConnection: close\r\n\r\n",
+                    body.len()
+                );
+                socket.write_all(response.as_bytes()).await.unwrap();
+                for part in body_parts {
+                    socket.write_all(part.as_bytes()).await.unwrap();
+                    // Yield so the client side observes >1 chunk.
+                    tokio::task::yield_now().await;
+                }
+                socket.shutdown().await.ok();
+            });
+
+            let base = Url::parse(&format!("http://{addr}/")).unwrap();
+            Client::builder(base).allow_insecure_localhost().build().unwrap()
+        }
+
+        #[tokio::test]
+        async fn account_subscribe_frames_yields_one_frame_per_line() {
+            use futures_util::StreamExt;
+
+            // Three frames split across 4 chunks; the second frame
+            // straddles a chunk boundary mid-line so the codec must
+            // buffer to assemble it.
+            let parts = vec![
+                r#"{"kind":"heartbeat"}"#,
+                "\n{\"kind\":\"frontier\"",
+                ",\"cursor\":\"sx:adv:1\"}\n",
+                "{\"kind\":\"catchup_complete\",\"cursor\":\"sx:live:0\"}\n",
+            ];
+            let client = spawn_chunked_ndjson_server(parts).await;
+            let mut stream = client
+                .account_subscribe_frames(&SyncReqBody {
+                    after: None,
+                    catchup: None,
+                    set_presence: None,
+                    filter: None,
+                    subscriptions: None,
+                    wait_for: None,
+                })
+                .await
+                .expect("stream init");
+
+            let mut got = Vec::new();
+            while let Some(item) = stream.next().await {
+                got.push(item.expect("frame decode"));
+            }
+            assert_eq!(got.len(), 3, "expected 3 frames, got {got:?}");
+            assert_eq!(got[0].kind, AccountSubscribeFrame::from_ndjson_line(r#"{"kind":"heartbeat"}"#).unwrap().unwrap().kind);
+            assert!(got[1].cursor.is_some());
+            assert!(got[2].is_catchup_complete());
         }
     }
 }

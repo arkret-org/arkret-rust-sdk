@@ -11,6 +11,12 @@ pub use signer::Ed25519MoveSigner;
 // `signer` feature also exposes the Ed25519 detached-JWS backend.
 pub mod proof;
 
+// S-1 (savfox SDK gap): one-shot `sign_event` helper that owns the
+// canonical-JSON + detached-JWS pipeline external Applets used to roll
+// themselves.
+pub mod event_signer;
+pub use event_signer::{SignEventOptions, sign_event};
+
 pub use proof::{
     EventProofBuilder, EventSigner, EventVerifier, ProductionVerifier, ProofType,
     PublicKeyMaterial, SignedPayload, SignerError, VerifierError, build_proof_envelope,

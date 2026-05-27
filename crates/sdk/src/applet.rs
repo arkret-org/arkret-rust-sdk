@@ -156,6 +156,247 @@ impl SignedAppletRegistration {
     }
 }
 
+// ─── S-4 (savfox SDK gap): wire-format `cx.applet.registration` ────────────
+//
+// Spec `applet-schema.md` §1. Distinct from [`SignedAppletRegistration`]
+// (SDK-internal). Co-exists so existing callers don't break; new
+// integrations (savfox bridge, ghost-actor controllers) MUST use this.
+
+/// Per-domain namespaces an Applet claims on registration. Wire shape
+/// per `applet-schema.md` §1.namespaces.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AppletWireNamespaces {
+    #[serde(default)]
+    pub actors: Vec<String>,
+    #[serde(default)]
+    pub realms: Vec<String>,
+    #[serde(default)]
+    pub handles: Vec<String>,
+}
+
+/// Optional inbound-webhook auth metadata. Open-shape (`Value`) so
+/// receivers can round-trip future extensions; today the spec leaves
+/// the inner shape Applet-defined.
+pub type WebhookAuth = serde_json::Value;
+
+/// Wire-format `cx.applet.registration` Event content per spec
+/// `applet-schema.md` §1.
+///
+/// Distinct from [`SignedAppletRegistration`] — that one is an
+/// SDK-internal model used by the in-process applet registry; this is
+/// the on-the-wire shape every external Applet implementation sends.
+/// See [`crate::KNOWN_GAPS`] for migration notes.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct WireAppletRegistration {
+    /// Always `"cx.applet.registration"`. Reducer rejects other values.
+    pub kind: String,
+    pub applet_id: String,
+    pub service_did: Did,
+    pub controller_did: Did,
+    pub base_url: String,
+    pub bot_actor_id: Did,
+    #[serde(default)]
+    pub protocols: Vec<String>,
+    #[serde(default)]
+    pub namespaces: AppletWireNamespaces,
+    #[serde(default)]
+    pub receive_events: bool,
+    #[serde(default)]
+    pub receive_ephemeral: bool,
+    #[serde(default)]
+    pub rate_limited: bool,
+    #[serde(default)]
+    pub requested_scopes: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub webhook_auth: Option<WebhookAuth>,
+    pub created_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proof: Option<crate::model::Proof>,
+}
+
+impl WireAppletRegistration {
+    pub const KIND: &'static str = "cx.applet.registration";
+
+    /// Build an unsigned registration. Caller MUST attach `proof` via
+    /// [`sign_registration`].
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        applet_id: impl Into<String>,
+        service_did: Did,
+        controller_did: Did,
+        base_url: impl Into<String>,
+        bot_actor_id: Did,
+        protocols: Vec<String>,
+        namespaces: AppletWireNamespaces,
+    ) -> Self {
+        Self {
+            kind: Self::KIND.to_owned(),
+            applet_id: applet_id.into(),
+            service_did,
+            controller_did,
+            base_url: base_url.into(),
+            bot_actor_id,
+            protocols,
+            namespaces,
+            receive_events: false,
+            receive_ephemeral: false,
+            rate_limited: false,
+            requested_scopes: Vec::new(),
+            webhook_auth: None,
+            created_at: Utc::now(),
+            proof: None,
+        }
+    }
+
+    /// Canonical-JSON SHA256 of the registration **with `proof` set to
+    /// `None`**. This is what the controller signs.
+    pub fn payload_digest(&self) -> Result<crate::Hash> {
+        let mut unsigned = self.clone();
+        unsigned.proof = None;
+        let hash = contrix_core::canonical::canonical_sha256(&unsigned)?;
+        crate::Hash::new(hash).map_err(Into::into)
+    }
+}
+
+/// Sign a [`WireAppletRegistration`] in-place: compute the canonical
+/// digest (with `proof` removed), sign it with the supplied
+/// [`contrix_core::MoveSigner`], and stamp `reg.proof`.
+pub fn sign_registration<S: contrix_core::MoveSigner + ?Sized>(
+    reg: &mut WireAppletRegistration,
+    signer: &S,
+    verification_method: &str,
+) -> Result<()> {
+    let mut unsigned = reg.clone();
+    unsigned.proof = None;
+    let canonical_bytes = contrix_core::canonical::canonical_json_bytes(&unsigned)?;
+    let payload_digest = crate::Hash::new(contrix_core::canonical::sha256_digest(&canonical_bytes))?;
+    let sig = signer.sign_payload(&canonical_bytes)?;
+    reg.proof = Some(crate::model::Proof {
+        kind: contrix_core::proof_kind::DETACHED_JWS.to_owned(),
+        alg: sig.alg,
+        verification_method: verification_method.to_owned(),
+        payload_digest,
+        created_at: Utc::now(),
+        domain: None,
+        audience: None,
+        jws: sig.jws,
+    });
+    Ok(())
+}
+
+// ─── S-11 (savfox SDK gap): cx.applet.bridge_error builder ────────────────
+
+/// Severity hint for [`AppletBridgeErrorBuilder`]. Spec
+/// `applet-integration.md` §14 keeps the slot opaque, so we expose a
+/// closed enum that serializes as snake_case.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AppletBridgeErrorSeverity {
+    /// Recoverable upstream blip; retry SHOULD succeed.
+    Warning,
+    /// Single-attempt failure; downstream MAY surface.
+    Error,
+    /// Repeated / unrecoverable failure; downstream MUST surface.
+    Fatal,
+}
+
+/// Build a `cx.applet.bridge_error` Event Envelope per spec
+/// `applet-integration.md` §14 + `applet-schema.md` §7.
+///
+/// External Applets MUST emit this Event rather than silently dropping
+/// upstream-network failures (savfox's current tracing-only path
+/// fails-closed in production).
+#[derive(Clone, Debug)]
+pub struct AppletBridgeErrorBuilder {
+    realm_id: crate::RealmId,
+    applet_id: String,
+    actor_id: Did,
+    target_ref: Option<String>,
+    code: String,
+    message: String,
+    severity: AppletBridgeErrorSeverity,
+    external_ref: Option<serde_json::Value>,
+    extra: serde_json::Map<String, serde_json::Value>,
+}
+
+impl AppletBridgeErrorBuilder {
+    /// `applet_id` is the typed `cx:applet:<uuidv7>`; `actor_id` is
+    /// the bot / system DID emitting the error.
+    pub fn new(
+        realm_id: crate::RealmId,
+        applet_id: impl Into<String>,
+        actor_id: Did,
+        code: impl Into<String>,
+        message: impl Into<String>,
+    ) -> Self {
+        Self {
+            realm_id,
+            applet_id: applet_id.into(),
+            actor_id,
+            target_ref: None,
+            code: code.into(),
+            message: message.into(),
+            severity: AppletBridgeErrorSeverity::Error,
+            external_ref: None,
+            extra: serde_json::Map::new(),
+        }
+    }
+
+    /// Typed reference to the Object the failure relates to (e.g.
+    /// `cx:event:...`, `cx:morph:...`).
+    pub fn with_target_ref(mut self, target_ref: impl Into<String>) -> Self {
+        self.target_ref = Some(target_ref.into());
+        self
+    }
+
+    pub fn with_severity(mut self, severity: AppletBridgeErrorSeverity) -> Self {
+        self.severity = severity;
+        self
+    }
+
+    pub fn with_external_ref(mut self, external_ref: serde_json::Value) -> Self {
+        self.external_ref = Some(external_ref);
+        self
+    }
+
+    pub fn with_extra(mut self, key: impl Into<String>, value: serde_json::Value) -> Self {
+        self.extra.insert(key.into(), value);
+        self
+    }
+
+    pub fn build(self, actor_seq: u64, hlc: crate::Hlc) -> Result<crate::Event> {
+        let mut content = serde_json::Map::new();
+        content.insert("applet_id".to_owned(), serde_json::Value::String(self.applet_id.clone()));
+        content.insert("code".to_owned(), serde_json::Value::String(self.code.clone()));
+        content.insert("message".to_owned(), serde_json::Value::String(self.message.clone()));
+        content.insert(
+            "severity".to_owned(),
+            serde_json::to_value(self.severity).expect("severity is a closed enum"),
+        );
+        if let Some(target_ref) = &self.target_ref {
+            content
+                .insert("target_ref".to_owned(), serde_json::Value::String(target_ref.clone()));
+        }
+        for (k, v) in &self.extra {
+            content.insert(k.clone(), v.clone());
+        }
+
+        let mut event = crate::Event::new(
+            "cx.applet.bridge_error",
+            self.realm_id,
+            self.actor_id,
+            actor_seq,
+            hlc,
+            serde_json::Value::Object(content),
+        )?;
+        event.applet_id = Some(self.applet_id);
+        if let Some(external_ref) = self.external_ref {
+            event.external_ref = Some(external_ref);
+        }
+        Ok(event)
+    }
+}
+
 /// Applet registry.
 #[derive(Clone, Debug, Default)]
 #[cfg(test)]
@@ -923,5 +1164,148 @@ mod tests {
         );
         assert!(decl.matches("did:web:slack-bridge.example#ghost-u123"));
         assert!(!decl.matches("did:web:slack-bridge.example#bot"));
+    }
+
+    // ─── S-4 (savfox SDK gap) tests ──────────────────────────────────
+
+    fn sample_wire_registration() -> WireAppletRegistration {
+        WireAppletRegistration::new(
+            "cx:applet:01904100-0000-7000-8000-aaaaaaaaaaaa",
+            did("slackbridge"),
+            did("alice"),
+            "https://applet.example/cx",
+            did("bot"),
+            vec!["cx.applet.v1".to_owned()],
+            AppletWireNamespaces {
+                actors: vec!["did:web:slackbridge.example#ghost-*".to_owned()],
+                realms: vec![],
+                handles: vec![],
+            },
+        )
+    }
+
+    #[test]
+    fn wire_registration_round_trips_through_json() {
+        let reg = sample_wire_registration();
+        let value = serde_json::to_value(&reg).unwrap();
+        assert_eq!(value["kind"], "cx.applet.registration");
+        assert_eq!(value["applet_id"], reg.applet_id);
+        assert_eq!(value["service_did"], reg.service_did.as_str());
+        assert_eq!(value["controller_did"], reg.controller_did.as_str());
+        assert_eq!(value["base_url"], reg.base_url);
+        assert_eq!(value["bot_actor_id"], reg.bot_actor_id.as_str());
+        let back: WireAppletRegistration = serde_json::from_value(value).unwrap();
+        assert_eq!(back.applet_id, reg.applet_id);
+        assert_eq!(back.namespaces.actors, reg.namespaces.actors);
+    }
+
+    #[test]
+    fn wire_registration_payload_digest_is_stable_and_excludes_proof() {
+        let reg = sample_wire_registration();
+        let digest_before = reg.payload_digest().unwrap();
+
+        let mut with_proof = reg.clone();
+        with_proof.proof = Some(crate::model::Proof {
+            kind: "detached_jws".to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method: "did:web:alice.example#key-1".to_owned(),
+            payload_digest: digest_before.clone(),
+            created_at: chrono::Utc::now(),
+            domain: None,
+            audience: None,
+            jws: "header..sig".to_owned(),
+        });
+        let digest_after = with_proof.payload_digest().unwrap();
+        assert_eq!(
+            digest_before, digest_after,
+            "payload_digest MUST exclude `proof` so re-signing is idempotent"
+        );
+    }
+
+    // ─── S-11 (savfox SDK gap) tests ─────────────────────────────────
+
+    fn realm() -> crate::RealmId {
+        crate::RealmId::new("cx:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
+    }
+
+    fn hlc() -> crate::Hlc {
+        crate::Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()
+    }
+
+    #[test]
+    fn applet_bridge_error_builder_emits_canonical_kind_and_payload() {
+        let event = AppletBridgeErrorBuilder::new(
+            realm(),
+            "cx:applet:01904100-0000-7000-8000-aaaaaaaaaaaa",
+            did("bot"),
+            "upstream_rate_limited",
+            "Slack returned 429",
+        )
+        .with_severity(AppletBridgeErrorSeverity::Warning)
+        .with_target_ref("cx:event:01904100-0000-7000-8000-deadbeefdead")
+        .with_external_ref(serde_json::json!({"slack_response_code": 429}))
+        .build(1, hlc())
+        .unwrap();
+        assert_eq!(event.kind, "cx.applet.bridge_error");
+        assert_eq!(event.content["code"], "upstream_rate_limited");
+        assert_eq!(event.content["message"], "Slack returned 429");
+        assert_eq!(event.content["severity"], "warning");
+        assert_eq!(event.content["target_ref"], "cx:event:01904100-0000-7000-8000-deadbeefdead");
+        assert_eq!(event.applet_id.as_deref(), Some("cx:applet:01904100-0000-7000-8000-aaaaaaaaaaaa"));
+        assert_eq!(event.external_ref.as_ref().unwrap()["slack_response_code"], 429);
+    }
+
+    #[test]
+    fn sign_registration_attaches_proof_with_matching_digest() {
+        use std::collections::BTreeMap;
+
+        use contrix_core::{
+            Did as CoreDid, Hash as CoreHash, MoveSignature, MoveSigner, Result as CoreResult,
+            UnsignedMove, canonical, move_event::Move,
+        };
+
+        struct StubSigner {
+            did: CoreDid,
+            kid: String,
+        }
+
+        impl MoveSigner for StubSigner {
+            fn sign_move(&self, _: &UnsignedMove) -> CoreResult<Move> {
+                unreachable!()
+            }
+            fn signer_did(&self) -> &CoreDid {
+                &self.did
+            }
+            fn verification_method_id(&self) -> &str {
+                &self.kid
+            }
+            fn sign_payload(&self, canonical_bytes: &[u8]) -> CoreResult<MoveSignature> {
+                let payload_digest =
+                    CoreHash::new(canonical::sha256_digest(canonical_bytes))?;
+                Ok(MoveSignature {
+                    alg: "EdDSA".to_owned(),
+                    verification_method: self.kid.clone(),
+                    payload_digest: payload_digest.clone(),
+                    created_at: chrono::Utc::now(),
+                    jws: format!("stub..{}", payload_digest.as_str()),
+                })
+            }
+        }
+
+        let signer = StubSigner {
+            did: did("alice"),
+            kid: "did:web:alice.example#key-1".to_owned(),
+        };
+        let mut reg = sample_wire_registration();
+        sign_registration(&mut reg, &signer, "did:web:alice.example#key-1").unwrap();
+
+        let proof = reg.proof.as_ref().expect("proof must be attached");
+        assert_eq!(proof.alg, "EdDSA");
+        assert_eq!(proof.verification_method, "did:web:alice.example#key-1");
+        assert_eq!(proof.payload_digest, reg.payload_digest().unwrap());
+
+        // Silence any unused warnings on the BTreeMap import — kept for symmetry.
+        let _ = BTreeMap::<String, ()>::new();
+        let _ = json!({});
     }
 }

@@ -318,6 +318,228 @@ impl ProfileManager {
     }
 }
 
+// ─── S-9 (savfox SDK gap): cx.profile.create / cx.profile.update builder ──
+
+/// Operation kind discriminant for [`ProfileCreateBuilder::build`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ProfileEventKind {
+    /// `cx.profile.create` — first appearance of an actor profile.
+    Create,
+    /// `cx.profile.update` — subsequent revisions.
+    Update,
+}
+
+impl ProfileEventKind {
+    /// Wire string for `Event::kind`.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ProfileEventKind::Create => "cx.profile.create",
+            ProfileEventKind::Update => "cx.profile.update",
+        }
+    }
+}
+
+/// Build a `cx.profile.create` / `cx.profile.update` Event Envelope
+/// payload. Ghost-actor profiles (spec §9) MUST carry `actor_kind =
+/// "ghost"`, `managed_by_applet`, and `accountability` blocks; this
+/// builder stamps those slots so callers no longer drift between
+/// applets.
+#[derive(Clone, Debug)]
+pub struct ProfileCreateBuilder {
+    realm_id: crate::RealmId,
+    actor_id: Did,
+    display_name: Option<String>,
+    avatar_url: Option<String>,
+    bio: Option<String>,
+    actor_kind: Option<String>,
+    managed_by_applet: Option<String>,
+    accountable_to: Option<Did>,
+    external_ref: Option<serde_json::Value>,
+    kind: ProfileEventKind,
+    extra: serde_json::Map<String, serde_json::Value>,
+}
+
+impl ProfileCreateBuilder {
+    /// Construct a new builder for a `cx.profile.create` Envelope.
+    /// Switch to `cx.profile.update` via [`Self::for_update`].
+    pub fn new(realm_id: crate::RealmId, actor_id: Did) -> Self {
+        Self {
+            realm_id,
+            actor_id,
+            display_name: None,
+            avatar_url: None,
+            bio: None,
+            actor_kind: None,
+            managed_by_applet: None,
+            accountable_to: None,
+            external_ref: None,
+            kind: ProfileEventKind::Create,
+            extra: serde_json::Map::new(),
+        }
+    }
+
+    pub fn for_update(mut self) -> Self {
+        self.kind = ProfileEventKind::Update;
+        self
+    }
+
+    pub fn with_display_name(mut self, display_name: impl Into<String>) -> Self {
+        self.display_name = Some(display_name.into());
+        self
+    }
+
+    pub fn with_avatar_url(mut self, avatar_url: impl Into<String>) -> Self {
+        self.avatar_url = Some(avatar_url.into());
+        self
+    }
+
+    pub fn with_bio(mut self, bio: impl Into<String>) -> Self {
+        self.bio = Some(bio.into());
+        self
+    }
+
+    /// Stamp this profile as an Applet-managed ghost actor. Sets
+    /// `actor_kind = "ghost"`, `managed_by_applet = <applet_id>`, and
+    /// `accountability.accountable_to = <accountable_to>` per spec §9.
+    pub fn with_ghost_kind(
+        mut self,
+        applet_id: impl Into<String>,
+        accountable_to: Did,
+    ) -> Self {
+        self.actor_kind = Some("ghost".to_owned());
+        self.managed_by_applet = Some(applet_id.into());
+        self.accountable_to = Some(accountable_to);
+        self
+    }
+
+    /// Attach the bridge-side external reference (e.g. `{"slack_user_id":
+    /// "U12345"}`) so receivers can dedupe across bridges.
+    pub fn with_external_ref(mut self, external_ref: serde_json::Value) -> Self {
+        self.external_ref = Some(external_ref);
+        self
+    }
+
+    /// Open-shape: stash future / spec-deferred keys into the
+    /// payload's content object. Use sparingly — keyed fields should
+    /// land in spec-mirroring methods above instead.
+    pub fn with_extra(mut self, key: impl Into<String>, value: serde_json::Value) -> Self {
+        self.extra.insert(key.into(), value);
+        self
+    }
+
+    /// Build the unsigned `Event` Envelope. Caller is responsible for
+    /// `actor_seq` + `hlc` + (re-)signing via
+    /// [`contrix_signatures::sign_event`].
+    pub fn build(self, actor_seq: u64, hlc: crate::Hlc) -> Result<crate::Event> {
+        let mut content = serde_json::Map::new();
+        content.insert("actor_id".to_owned(), serde_json::Value::String(self.actor_id.to_string()));
+        if let Some(display_name) = &self.display_name {
+            content.insert(
+                "display_name".to_owned(),
+                serde_json::Value::String(display_name.clone()),
+            );
+        }
+        if let Some(avatar_url) = &self.avatar_url {
+            content
+                .insert("avatar_url".to_owned(), serde_json::Value::String(avatar_url.clone()));
+        }
+        if let Some(bio) = &self.bio {
+            content.insert("bio".to_owned(), serde_json::Value::String(bio.clone()));
+        }
+        if let Some(actor_kind) = &self.actor_kind {
+            content
+                .insert("actor_kind".to_owned(), serde_json::Value::String(actor_kind.clone()));
+        }
+        if let Some(applet_id) = &self.managed_by_applet {
+            content.insert(
+                "managed_by_applet".to_owned(),
+                serde_json::Value::String(applet_id.clone()),
+            );
+        }
+        if let Some(accountable_to) = &self.accountable_to {
+            let mut accountability = serde_json::Map::new();
+            accountability.insert(
+                "accountable_to".to_owned(),
+                serde_json::Value::String(accountable_to.to_string()),
+            );
+            content
+                .insert("accountability".to_owned(), serde_json::Value::Object(accountability));
+        }
+        for (k, v) in &self.extra {
+            content.insert(k.clone(), v.clone());
+        }
+
+        let mut event = crate::Event::new(
+            self.kind.as_str(),
+            self.realm_id,
+            self.actor_id,
+            actor_seq,
+            hlc,
+            serde_json::Value::Object(content),
+        )?;
+        // S-7: stash external_ref on the top-level slot, not in `content`.
+        if let Some(external_ref) = self.external_ref {
+            event.external_ref = Some(external_ref);
+        }
+        Ok(event)
+    }
+}
+
+#[cfg(test)]
+mod profile_builder_tests {
+    use super::*;
+
+    fn realm() -> crate::RealmId {
+        crate::RealmId::new("cx:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
+    }
+
+    fn alice() -> Did {
+        Did::new("did:web:alice.example").unwrap()
+    }
+
+    fn applet_owner() -> Did {
+        Did::new("did:web:owner.example").unwrap()
+    }
+
+    fn hlc() -> crate::Hlc {
+        crate::Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()
+    }
+
+    #[test]
+    fn profile_create_builder_stamps_kind_and_actor_id() {
+        let event = ProfileCreateBuilder::new(realm(), alice())
+            .with_display_name("Alice")
+            .build(1, hlc())
+            .unwrap();
+        assert_eq!(event.kind, "cx.profile.create");
+        assert_eq!(event.content["actor_id"], "did:web:alice.example");
+        assert_eq!(event.content["display_name"], "Alice");
+    }
+
+    #[test]
+    fn profile_update_switches_event_kind() {
+        let event = ProfileCreateBuilder::new(realm(), alice())
+            .for_update()
+            .with_display_name("Alice 2")
+            .build(2, hlc())
+            .unwrap();
+        assert_eq!(event.kind, "cx.profile.update");
+    }
+
+    #[test]
+    fn profile_ghost_kind_stamps_required_fields() {
+        let event = ProfileCreateBuilder::new(realm(), alice())
+            .with_ghost_kind("cx:applet:01904100-0000-7000-8000-aaaaaaaaaaaa", applet_owner())
+            .with_external_ref(serde_json::json!({"slack_user_id": "U12345"}))
+            .build(1, hlc())
+            .unwrap();
+        assert_eq!(event.content["actor_kind"], "ghost");
+        assert_eq!(event.content["managed_by_applet"], "cx:applet:01904100-0000-7000-8000-aaaaaaaaaaaa");
+        assert_eq!(event.content["accountability"]["accountable_to"], "did:web:owner.example");
+        assert_eq!(event.external_ref.as_ref().unwrap()["slack_user_id"], "U12345");
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

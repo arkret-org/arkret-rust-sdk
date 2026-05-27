@@ -349,3 +349,172 @@ fn resource_selectors(value: Option<&Value>) -> Result<Option<Vec<ResourceSelect
     }
     Ok(Some(selectors))
 }
+
+// ─── S-10 (savfox SDK gap): cx.capability.grant builder ───────────────────
+
+/// Build a `cx.capability.grant` Event Envelope content payload around
+/// a [`CapabilityGrant`].
+///
+/// Chain verification (subject ⇒ issuer narrowing, action / resource
+/// narrowing, time-window narrowing, cycle detection) is already in
+/// [`validate_capability_frontier`]. This builder is the bookend: it
+/// mints the Envelope that goes onto the wire.
+#[derive(Clone, Debug)]
+pub struct CapabilityGrantBuilder {
+    realm_id: crate::RealmId,
+    /// The Envelope `actor_id` (signer / issuer of the grant).
+    actor_id: Did,
+    grant: CapabilityGrant,
+}
+
+impl CapabilityGrantBuilder {
+    /// Construct a new builder bound to the issuing Realm + actor.
+    /// `grant.issuer` MUST equal `actor_id`; the builder enforces this
+    /// at `build` time.
+    pub fn new(realm_id: crate::RealmId, actor_id: Did, grant: CapabilityGrant) -> Self {
+        Self { realm_id, actor_id, grant }
+    }
+
+    /// Override the grant subject (delegee).
+    pub fn with_subject(mut self, subject: Did) -> Self {
+        self.grant.subject = subject;
+        self
+    }
+
+    /// Replace the allowed actions list.
+    pub fn with_actions(mut self, actions: Vec<String>) -> Self {
+        self.grant.actions = actions;
+        self
+    }
+
+    /// Replace the resource selector list.
+    pub fn with_resources(mut self, resources: Vec<ResourceSelector>) -> Self {
+        self.grant.resources = resources;
+        self
+    }
+
+    /// Mark this grant as delegable so children can chain off it.
+    pub fn with_delegable(mut self, delegable: bool) -> Self {
+        self.grant.delegable = delegable;
+        self
+    }
+
+    /// Bind this grant to a parent grant id (chains the delegation).
+    pub fn with_parent_grant_id(mut self, parent_grant_id: impl Into<String>) -> Self {
+        self.grant.parent_grant_id = Some(parent_grant_id.into());
+        self
+    }
+
+    pub fn with_constraints(mut self, constraints: Vec<ConstraintEntry>) -> Self {
+        self.grant.constraints = constraints;
+        self
+    }
+
+    pub fn with_not_before(mut self, not_before: chrono::DateTime<chrono::Utc>) -> Self {
+        self.grant.not_before = Some(not_before);
+        self
+    }
+
+    pub fn with_expires_at(mut self, expires_at: chrono::DateTime<chrono::Utc>) -> Self {
+        self.grant.expires_at = Some(expires_at);
+        self
+    }
+
+    /// Materialize the unsigned `cx.capability.grant` Envelope.
+    pub fn build(self, actor_seq: u64, hlc: crate::Hlc) -> Result<crate::Event> {
+        if self.grant.issuer != self.actor_id {
+            return Err(Error::Protocol(format!(
+                "CapabilityGrantBuilder: grant.issuer '{}' does not match actor_id '{}'",
+                self.grant.issuer, self.actor_id
+            )));
+        }
+        let content = serde_json::to_value(&self.grant)?;
+        crate::Event::new(
+            crate::events::CAPABILITY_GRANT,
+            self.realm_id,
+            self.actor_id,
+            actor_seq,
+            hlc,
+            content,
+        )
+    }
+}
+
+#[cfg(test)]
+mod capability_grant_builder_tests {
+    use super::*;
+
+    fn realm() -> crate::RealmId {
+        crate::RealmId::new("cx:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
+    }
+
+    fn alice() -> Did {
+        Did::new("did:web:alice.example").unwrap()
+    }
+
+    fn bob() -> Did {
+        Did::new("did:web:bob.example").unwrap()
+    }
+
+    fn hlc() -> crate::Hlc {
+        crate::Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()
+    }
+
+    fn base_grant() -> CapabilityGrant {
+        CapabilityGrant {
+            id: "cx:grant:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
+            space_id: None,
+            issuer: alice(),
+            subject: bob(),
+            actions: vec!["cx.message.create".to_owned()],
+            resources: vec![ResourceSelector::Wildcard],
+            constraints: Vec::new(),
+            delegable: false,
+            parent_grant_id: None,
+            not_before: None,
+            expires_at: None,
+            revoked_by: None,
+            revoked_at: None,
+        }
+    }
+
+    #[test]
+    fn capability_grant_builder_emits_canonical_kind() {
+        let event = CapabilityGrantBuilder::new(realm(), alice(), base_grant())
+            .build(1, hlc())
+            .unwrap();
+        assert_eq!(event.kind, crate::events::CAPABILITY_GRANT);
+        assert_eq!(event.content["id"], "cx:grant:01904100-0000-7000-8000-aaaaaaaaaaaa");
+        assert_eq!(event.content["issuer"], "did:web:alice.example");
+        assert_eq!(event.content["subject"], "did:web:bob.example");
+    }
+
+    #[test]
+    fn capability_grant_builder_rejects_issuer_actor_mismatch() {
+        let err = CapabilityGrantBuilder::new(realm(), bob(), base_grant())
+            .build(1, hlc())
+            .expect_err("issuer / actor mismatch must be rejected");
+        assert!(format!("{err}").contains("does not match"));
+    }
+
+    #[test]
+    fn capability_chain_verifier_accepts_narrowing_child() {
+        let parent = CapabilityGrant {
+            id: "cx:grant:00000000-0000-7000-8000-000000000001".to_owned(),
+            delegable: true,
+            actions: vec!["*".to_owned()],
+            ..base_grant()
+        };
+        let child = CapabilityGrant {
+            id: "cx:grant:00000000-0000-7000-8000-000000000002".to_owned(),
+            parent_grant_id: Some(parent.id.clone()),
+            issuer: bob(),
+            subject: Did::new("did:web:carol.example").unwrap(),
+            actions: vec!["cx.message.create".to_owned()],
+            ..base_grant()
+        };
+        let validation = validate_capability_frontier(&[parent, child]).unwrap();
+        assert_eq!(validation.checked_grants, 2);
+        assert!(validation.max_delegation_depth >= 1);
+    }
+}

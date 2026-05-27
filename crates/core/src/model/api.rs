@@ -587,6 +587,114 @@ pub enum AccountSubscribeFrameKind {
     Unauthorized,
 }
 
+impl AccountSubscribeFrame {
+    /// Parse one NDJSON line. Empty / whitespace-only lines return
+    /// `Ok(None)` so callers can chunk-read transparently. Mirrors the
+    /// existing `EventsSubscribeFrame::from_ndjson_line` API
+    /// (see `crates/sdk/src/sync_client/wire.rs`).
+    pub fn from_ndjson_line(line: &str) -> Result<Option<Self>> {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            return Ok(None);
+        }
+        let frame: Self = serde_json::from_str(trimmed).map_err(Error::from)?;
+        Ok(Some(frame))
+    }
+
+    /// True iff this frame requires the client to reset its cursor and
+    /// re-subscribe (kinds `dropped` / `resync_required`).
+    pub fn requires_resubscribe(&self) -> bool {
+        matches!(
+            self.kind,
+            AccountSubscribeFrameKind::Dropped | AccountSubscribeFrameKind::ResyncRequired
+        )
+    }
+
+    /// True iff `kind == catchup_complete`.
+    pub fn is_catchup_complete(&self) -> bool {
+        matches!(self.kind, AccountSubscribeFrameKind::CatchupComplete)
+    }
+}
+
+#[cfg(test)]
+mod account_subscribe_frame_tests {
+    use super::*;
+
+    #[test]
+    fn account_subscribe_frame_from_ndjson_line_delta() {
+        let line = r#"{"kind":"delta","cursor":"sx:acc:1"}"#;
+        let frame = AccountSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
+        assert_eq!(frame.kind, AccountSubscribeFrameKind::Delta);
+        assert_eq!(frame.cursor.as_deref(), Some("sx:acc:1"));
+        assert!(!frame.requires_resubscribe());
+        assert!(!frame.is_catchup_complete());
+    }
+
+    #[test]
+    fn account_subscribe_frame_from_ndjson_line_catchup_complete() {
+        let line = r#"{"kind":"catchup_complete","cursor":"sx:live:0"}"#;
+        let frame = AccountSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
+        assert!(frame.is_catchup_complete());
+        assert!(!frame.requires_resubscribe());
+    }
+
+    #[test]
+    fn account_subscribe_frame_from_ndjson_line_frontier() {
+        let line = r#"{"kind":"frontier","cursor":"sx:adv:7"}"#;
+        let frame = AccountSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
+        assert_eq!(frame.kind, AccountSubscribeFrameKind::Frontier);
+        assert!(!frame.requires_resubscribe());
+        assert!(!frame.is_catchup_complete());
+    }
+
+    #[test]
+    fn account_subscribe_frame_from_ndjson_line_heartbeat() {
+        let line = r#"{"kind":"heartbeat"}"#;
+        let frame = AccountSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
+        assert_eq!(frame.kind, AccountSubscribeFrameKind::Heartbeat);
+        assert!(!frame.requires_resubscribe());
+    }
+
+    #[test]
+    fn account_subscribe_frame_from_ndjson_line_dropped_requires_resubscribe() {
+        let line = r#"{"kind":"dropped","reason":"buffer overflow"}"#;
+        let frame = AccountSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
+        assert!(frame.requires_resubscribe());
+        assert_eq!(frame.reason.as_deref(), Some("buffer overflow"));
+    }
+
+    #[test]
+    fn account_subscribe_frame_from_ndjson_line_resync_required_requires_resubscribe() {
+        let line = r#"{"kind":"resync_required","reason":"epoch rotated"}"#;
+        let frame = AccountSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
+        assert!(frame.requires_resubscribe());
+    }
+
+    #[test]
+    fn account_subscribe_frame_from_ndjson_line_unauthorized() {
+        let line = r#"{"kind":"unauthorized","reason":"revoked"}"#;
+        let frame = AccountSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
+        assert_eq!(frame.kind, AccountSubscribeFrameKind::Unauthorized);
+        assert!(!frame.requires_resubscribe());
+    }
+
+    #[test]
+    fn account_subscribe_frame_from_ndjson_line_empty_returns_none() {
+        assert!(AccountSubscribeFrame::from_ndjson_line("").unwrap().is_none());
+        assert!(AccountSubscribeFrame::from_ndjson_line("   \n  ").unwrap().is_none());
+    }
+
+    #[test]
+    fn account_subscribe_frame_from_ndjson_line_unknown_kind_errors() {
+        // AccountSubscribeFrameKind is a closed enum: parsing an unknown
+        // discriminant returns Err, distinct from the "Unknown" variant
+        // tolerance EventsSubscribeFrame has.
+        let line = r#"{"kind":"future_kind_42"}"#;
+        let err = AccountSubscribeFrame::from_ndjson_line(line).unwrap_err();
+        assert!(format!("{err}").contains("future_kind_42"));
+    }
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AccountSubscribeRealms {
@@ -1761,4 +1869,106 @@ pub struct RecoveryReceipt {
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
+}
+
+// ─── S-2 (savfox SDK gap): DID-proof session grant flow ────────────────────
+//
+// Wire shapes for `POST /auth/account/session-grants` per spec
+// `identity-did.md` §5.1. Step 1 returns a `SessionGrantChallenge`; step 2
+// submits a signed `cx.did.proof` (envelope inside `SessionGrantSubmitReq`).
+
+/// Step 1 request: client asks for a challenge bound to a `(principal_did,
+/// device_id, audience)` tuple. Spec `identity-did.md` §5.1.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SessionGrantChallengeReq {
+    pub principal_did: Did,
+    pub device_id: DeviceId,
+    /// DID of the Principal Server / service the grant is for. Bound
+    /// into the `cx.did.proof` audience.
+    pub audience: String,
+    /// Optional origin hint (per spec §5.1 the proof carries `origin`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<String>,
+}
+
+/// Step 1 response: server-issued challenge for `cx.did.proof`.
+///
+/// `purpose` is always `cx.session.grant` (only purpose the SDK helper
+/// drives today). `expires_at` bounds the challenge's freshness window.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SessionGrantChallenge {
+    pub challenge_id: String,
+    pub purpose: String,
+    pub audience: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<String>,
+    pub challenge: String,
+    pub expires_at: DateTime<Utc>,
+}
+
+impl SessionGrantChallenge {
+    pub const PURPOSE_SESSION_GRANT: &'static str = "cx.session.grant";
+
+    /// True iff `purpose == cx.session.grant`. Receivers MUST refuse
+    /// any other purpose for the session-grant exchange.
+    pub fn is_session_grant_purpose(&self) -> bool {
+        self.purpose == Self::PURPOSE_SESSION_GRANT
+    }
+}
+
+/// Step 2 request: client submits the signed `cx.did.proof` body.
+///
+/// The proof payload (`SessionGrantDidProof`) is what the controller
+/// actually signed; `proof` is the detached-JWS `Proof` envelope
+/// produced by the SDK signer.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SessionGrantSubmitReq {
+    pub challenge_id: String,
+    pub principal_did: Did,
+    pub device_id: DeviceId,
+    pub proof_payload: SessionGrantDidProof,
+    pub proof: Proof,
+}
+
+/// Canonical body of the `cx.did.proof` payload spec
+/// `identity-did.md` §5.1. The signer commits to this object; the
+/// receiver re-derives canonical bytes and verifies.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SessionGrantDidProof {
+    pub kind: String,
+    pub purpose: String,
+    pub audience: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<String>,
+    pub challenge: String,
+    pub principal_did: Did,
+    pub device_id: DeviceId,
+    pub expires_at: DateTime<Utc>,
+}
+
+impl SessionGrantDidProof {
+    pub const KIND: &'static str = "cx.did.proof";
+
+    /// Build the canonical proof payload for a given challenge. Stamps
+    /// `kind=cx.did.proof` so callers don't have to.
+    pub fn from_challenge(
+        challenge: &SessionGrantChallenge,
+        principal_did: Did,
+        device_id: DeviceId,
+    ) -> Self {
+        Self {
+            kind: Self::KIND.to_owned(),
+            purpose: challenge.purpose.clone(),
+            audience: challenge.audience.clone(),
+            origin: challenge.origin.clone(),
+            challenge: challenge.challenge.clone(),
+            principal_did,
+            device_id,
+            expires_at: challenge.expires_at,
+        }
+    }
 }

@@ -787,6 +787,104 @@ impl AuthManager {
     }
 }
 
+/// S-2 (savfox SDK gap): one-shot DID-proof login flow that drives
+/// `POST /auth/account/session-grants` end-to-end.
+///
+/// The helper is split off into its own impl block (gated on `client`
+/// + `signer`) so the in-process `AuthManager` core surface stays
+/// transport-free.
+#[cfg(all(feature = "client", feature = "signer"))]
+impl AuthManager {
+    /// One-shot DID-proof login. Performs the challenge round-trip
+    /// internally using the supplied signer, then maps the wire
+    /// `AuthSessionWire` into the SDK's [`AuthSession`].
+    ///
+    /// Spec: `identity-did.md` §5.1 (`cx.did.proof` purpose
+    /// `cx.session.grant`).
+    pub async fn login_did_proof<S>(
+        &mut self,
+        client: &contrix_http_client::Client,
+        principal_did: crate::Did,
+        device_id: crate::DeviceId,
+        signer: &S,
+        verification_method: &str,
+        audience: &str,
+    ) -> crate::Result<AuthSession>
+    where
+        S: contrix_core::MoveSigner + ?Sized,
+    {
+        // Step 1: request the challenge.
+        let challenge = client
+            .auth_session_grant_challenge(&crate::model::SessionGrantChallengeReq {
+                principal_did: principal_did.clone(),
+                device_id: device_id.clone(),
+                audience: audience.to_owned(),
+                origin: None,
+            })
+            .await?;
+
+        // Fail-closed on expired / mismatched challenges before signing.
+        if !challenge.is_session_grant_purpose() {
+            return Err(crate::Error::Protocol(format!(
+                "challenge purpose must be cx.session.grant, got '{}'",
+                challenge.purpose
+            )));
+        }
+        if challenge.audience != audience {
+            return Err(crate::Error::Protocol(format!(
+                "challenge audience '{}' does not match requested '{}'",
+                challenge.audience, audience
+            )));
+        }
+        if challenge.expires_at <= chrono::Utc::now() {
+            return Err(crate::Error::Protocol("session grant challenge expired".to_owned()));
+        }
+
+        // Step 2: build the cx.did.proof payload, sign it, and submit.
+        let proof_payload = crate::model::SessionGrantDidProof::from_challenge(
+            &challenge,
+            principal_did.clone(),
+            device_id.clone(),
+        );
+        let payload_bytes = contrix_core::canonical::canonical_json_bytes(&proof_payload)?;
+        let move_sig = signer.sign_payload(&payload_bytes)?;
+        let payload_digest =
+            crate::Hash::new(contrix_core::canonical::sha256_digest(&payload_bytes))?;
+        let proof = crate::model::Proof {
+            kind: contrix_core::proof_kind::DETACHED_JWS.to_owned(),
+            alg: move_sig.alg,
+            verification_method: verification_method.to_owned(),
+            payload_digest,
+            created_at: chrono::Utc::now(),
+            domain: None,
+            audience: Some(contrix_core::Audience::Single(audience.to_owned())),
+            jws: move_sig.jws,
+        };
+
+        let wire = client
+            .auth_session_grant_submit(&crate::model::SessionGrantSubmitReq {
+                challenge_id: challenge.challenge_id.clone(),
+                principal_did: principal_did.clone(),
+                device_id: device_id.clone(),
+                proof_payload,
+                proof,
+            })
+            .await?;
+
+        Ok(AuthSession {
+            session_id: wire.session_id,
+            user_id: wire.user_id,
+            principal_id: wire.principal_id,
+            device_id: wire.device_id,
+            access_token: wire.access_token,
+            refresh_token: wire.refresh_token,
+            expires_at: wire.expires_at,
+            revoked: wire.revoked,
+            created_at: wire.created_at,
+        })
+    }
+}
+
 impl Default for AuthManager {
     fn default() -> Self {
         Self::new(8)
