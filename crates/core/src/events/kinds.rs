@@ -92,6 +92,7 @@ pub const KEY_VERIFICATION_MAC: &str = "cx.key.verification.mac";
 pub const KEY_VERIFICATION_READY: &str = "cx.key.verification.ready";
 pub const KEY_VERIFICATION_REQUEST: &str = "cx.key.verification.request";
 pub const KEY_VERIFICATION_START: &str = "cx.key.verification.start";
+pub const MEMBER_IDENTITY_UPDATE: &str = "cx.member.identity.update";
 pub const MEMBER_STATE: &str = "cx.member.state";
 pub const MESSAGE_CREATE: &str = "cx.message.create";
 pub const MESSAGE_REDACT: &str = "cx.message.redact";
@@ -156,6 +157,24 @@ pub fn is_ephemeral_kind(kind: &str) -> bool {
 /// `Event.kind` on the wire (`cx.event_batch_receipt`). Round R2/R3.
 pub fn is_receipt_object_only(kind: &str) -> bool {
     RECEIPT_OBJECT_KINDS.contains(&kind)
+}
+
+/// MID-7 — event payload schema-dispatcher.
+///
+/// Returns the JSON-Schema `$ref` fragment under
+/// `event-payload.schema.json#/$defs/...` that validates the `payload`
+/// for `kind`, or `None` when the SDK does not yet ship a typed payload
+/// schema ref (callers fall back to the generic event envelope check).
+///
+/// R3.1 adds `cx.member.identity.update` →
+/// `event-payload.schema.json#/$defs/member_identity_update_payload`.
+pub fn event_payload_schema_ref(kind: &str) -> Option<&'static str> {
+    match kind {
+        MEMBER_IDENTITY_UPDATE => {
+            Some("event-payload.schema.json#/$defs/member_identity_update_payload")
+        }
+        _ => None,
+    }
 }
 
 /// Round R2/R3 (2026-05-20) — Realm lifecycle state classifier.
@@ -338,6 +357,7 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     KEY_VERIFICATION_READY,
     KEY_VERIFICATION_REQUEST,
     KEY_VERIFICATION_START,
+    MEMBER_IDENTITY_UPDATE,
     MEMBER_STATE,
     MESSAGE_CREATE,
     MESSAGE_REDACT,
@@ -603,7 +623,7 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
         | IDENTITY_PRESENTATION_RESPONSE => EventClass::Identity,
         INVITE_ACCEPT | INVITE_CANCEL | INVITE_CLAIM | INVITE_CREATE | INVITE_REVOKE
         | INVITE_THIRD_PARTY => EventClass::Invite,
-        MEMBER_STATE => EventClass::Membership,
+        MEMBER_IDENTITY_UPDATE | MEMBER_STATE => EventClass::Membership,
         MESSAGE_CREATE | MESSAGE_REDACT | MESSAGE_REVISE | REACTION_ADD | REACTION_REMOVE
         | REDACTION => EventClass::Message,
         MIMI_ROOM_BINDING => EventClass::Mimi,

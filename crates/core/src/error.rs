@@ -201,6 +201,18 @@ pub const ERROR_CODE_FOCUS_UNAVAILABLE_FOR_CLIENT: &str = "focus_unavailable_for
 pub const ERROR_CODE_RECOVERY_WITNESS_REVOKE_LAGGING: &str = "recovery_witness_revoke_lagging";
 pub const ERROR_CODE_HANDLE_HOMOGRAPH_FORBIDDEN: &str = "handle_homograph_forbidden";
 
+// ── R3.1 spec-sync (contrix-spec @ 7157ee8, 2026-05-27) — 4 new error
+// codes for the MemberIdentity append-only replacement pipeline.
+//
+// Spec source:
+//   * member-identity.schema.json
+//   * event-payload.schema.json#/$defs/member_identity_update_payload
+pub const ERROR_CODE_MEMBER_IDENTITY_STATE_MISMATCH: &str = "member_identity_state_mismatch";
+pub const ERROR_CODE_MEMBER_IDENTITY_PROOF_INVALID: &str = "member_identity_proof_invalid";
+pub const ERROR_CODE_MEMBER_IDENTITY_REPLACEMENT_DIGEST_MISMATCH: &str =
+    "member_identity_replacement_digest_mismatch";
+pub const ERROR_CODE_MEMBER_IDENTITY_UNKNOWN_SEGMENT: &str = "member_identity_unknown_segment";
+
 /// All canonical error codes recognised by the registry. The order matches
 /// `error-code-registry.json`. Use [`is_known_error_code`] before populating
 /// `ErrorEnvelope.code` from arbitrary input.
@@ -332,6 +344,11 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
     ERROR_CODE_FOCUS_UNAVAILABLE_FOR_CLIENT,
     ERROR_CODE_RECOVERY_WITNESS_REVOKE_LAGGING,
     ERROR_CODE_HANDLE_HOMOGRAPH_FORBIDDEN,
+    // R3.1 spec-sync (2026-05-27) — 4 MemberIdentity codes.
+    ERROR_CODE_MEMBER_IDENTITY_STATE_MISMATCH,
+    ERROR_CODE_MEMBER_IDENTITY_PROOF_INVALID,
+    ERROR_CODE_MEMBER_IDENTITY_REPLACEMENT_DIGEST_MISMATCH,
+    ERROR_CODE_MEMBER_IDENTITY_UNKNOWN_SEGMENT,
 ];
 
 // ── Failed-precondition reason codes (sub-codes inside `failed_precondition`)
@@ -661,7 +678,8 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_DID_PROOF_REQUIRED
         | ERROR_CODE_PROOF_INVALID
         | ERROR_CODE_VERIFICATION_METHOD_PRINCIPAL_MISMATCH
-        | ERROR_CODE_TOKEN_ISSUER_UNAUTHORISED => 401,
+        | ERROR_CODE_TOKEN_ISSUER_UNAUTHORISED
+        | ERROR_CODE_MEMBER_IDENTITY_PROOF_INVALID => 401,
         ERROR_CODE_CAPABILITY_DENIED
         | ERROR_CODE_DIRECTORY_NOT_AUTHORIZED
         | ERROR_CODE_ACCEPT_POLICY_DENIED
@@ -724,7 +742,9 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_SESSION_FOCUS_ALREADY_COMMITTED
         | ERROR_CODE_LEGACY_SINGLE_ENDPOINT_MEDIA_SERVICE
         | ERROR_CODE_FOCUS_UNAVAILABLE_FOR_CLIENT
-        | ERROR_CODE_RECOVERY_WITNESS_REVOKE_LAGGING => 409,
+        | ERROR_CODE_RECOVERY_WITNESS_REVOKE_LAGGING
+        | ERROR_CODE_MEMBER_IDENTITY_STATE_MISMATCH
+        | ERROR_CODE_MEMBER_IDENTITY_REPLACEMENT_DIGEST_MISMATCH => 409,
         ERROR_CODE_HISTORICAL_ONLY => 200,
         ERROR_CODE_CURSOR_EXPIRED | ERROR_CODE_CURSOR_REVOKED => 410,
         ERROR_CODE_PAYLOAD_TOO_LARGE => 413,
@@ -744,7 +764,8 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_PAIRING_REQUEST_EXPIRED
         | ERROR_CODE_UNKNOWN_FOCUS_TYPE
         | ERROR_CODE_PARTICIPANT_BINDING_INVALID
-        | ERROR_CODE_PARTICIPANT_IDENTITY_UNRECOGNISED => 422,
+        | ERROR_CODE_PARTICIPANT_IDENTITY_UNRECOGNISED
+        | ERROR_CODE_MEMBER_IDENTITY_UNKNOWN_SEGMENT => 422,
         ERROR_CODE_RATE_LIMITED => 429,
         ERROR_CODE_INTERNAL_ERROR => 500,
         ERROR_CODE_HLC_LOGICAL_OVERFLOW
@@ -964,6 +985,11 @@ pub enum ErrorCode {
     FocusUnavailableForClient,
     RecoveryWitnessRevokeLagging,
     HandleHomographForbidden,
+    // ── R3.1 spec-sync (2026-05-27, contrix-spec 7157ee8).
+    MemberIdentityStateMismatch,
+    MemberIdentityProofInvalid,
+    MemberIdentityReplacementDigestMismatch,
+    MemberIdentityUnknownSegment,
 }
 
 impl ErrorCode {
@@ -1091,6 +1117,11 @@ impl ErrorCode {
         Self::FocusUnavailableForClient,
         Self::RecoveryWitnessRevokeLagging,
         Self::HandleHomographForbidden,
+        // ── R3.1 spec-sync (2026-05-27).
+        Self::MemberIdentityStateMismatch,
+        Self::MemberIdentityProofInvalid,
+        Self::MemberIdentityReplacementDigestMismatch,
+        Self::MemberIdentityUnknownSegment,
     ];
 
     /// Canonical wire-form code (snake_case string).
@@ -1232,6 +1263,13 @@ impl ErrorCode {
             Self::FocusUnavailableForClient => ERROR_CODE_FOCUS_UNAVAILABLE_FOR_CLIENT,
             Self::RecoveryWitnessRevokeLagging => ERROR_CODE_RECOVERY_WITNESS_REVOKE_LAGGING,
             Self::HandleHomographForbidden => ERROR_CODE_HANDLE_HOMOGRAPH_FORBIDDEN,
+            // ── R3.1 spec-sync (2026-05-27).
+            Self::MemberIdentityStateMismatch => ERROR_CODE_MEMBER_IDENTITY_STATE_MISMATCH,
+            Self::MemberIdentityProofInvalid => ERROR_CODE_MEMBER_IDENTITY_PROOF_INVALID,
+            Self::MemberIdentityReplacementDigestMismatch => {
+                ERROR_CODE_MEMBER_IDENTITY_REPLACEMENT_DIGEST_MISMATCH
+            }
+            Self::MemberIdentityUnknownSegment => ERROR_CODE_MEMBER_IDENTITY_UNKNOWN_SEGMENT,
         }
     }
 
@@ -1275,8 +1313,9 @@ mod tests {
         // historical_only) + 10 directory ingest wire codes + 8 spec-main
         // cursor / ephemeral / grant / device-recovery wire codes +
         // 11 key-backup hardening codes (B-C, spec head 37ce729) +
-        // 20 R3 spec-sync codes (2026-05-27, contrix-spec b47ff6ec).
-        assert_eq!(KNOWN_ERROR_CODES.len(), 121);
+        // 20 R3 spec-sync codes (2026-05-27, contrix-spec b47ff6ec) +
+        // 4 R3.1 MemberIdentity codes (2026-05-27, contrix-spec 7157ee8).
+        assert_eq!(KNOWN_ERROR_CODES.len(), 125);
         assert!(codes.contains(ERROR_CODE_CURSOR_EXPIRED));
         assert!(codes.contains(ERROR_CODE_POLICY_COMBINATION_INVALID));
         assert!(codes.contains(ERROR_CODE_ANCHORER_RECOVERY_MISSING));

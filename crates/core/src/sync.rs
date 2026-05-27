@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeSet, HashMap};
 
-use crate::{DeviceId, Did, Error, Event, EventId, Hlc, Result, SpaceId, canonical};
+use crate::{Cursor, DeviceId, Did, Error, Event, EventId, Hlc, Result, SpaceId, canonical};
 
 /// Query parameters for `cx.account.subscribe`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -37,7 +37,7 @@ pub struct SyncReqBody {
     pub wait_for: Option<WaitForFrontier>,
 }
 
-/// Sync result for a single Space.
+/// Sync result for a single Space / Realm payload entry.
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncSpace {
@@ -56,6 +56,26 @@ pub struct SyncSpace {
     /// Unread counts
     #[serde(default)]
     pub unread: UnreadCounts,
+    /// R3.1 — typed member roster projection (per
+    /// `account-subscribe-frame.schema.json#/$defs/member_roster_entry`).
+    /// Entries are derived from effective `cx.member.state` plus the
+    /// effective set of `cx.member.identity.update` references; raw
+    /// handle / display fields MUST NOT be carried here.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub members: Vec<crate::model::MemberRosterEntry>,
+    /// R3.1 — SYNC-2: true when `members` is truncated and MUST NOT be
+    /// treated as the complete Realm roster.
+    #[serde(default, skip_serializing_if = "is_false_default")]
+    pub members_limited: bool,
+    /// R3.1 — SYNC-2: optional pagination cursor for continuing member
+    /// roster retrieval. Mirrors
+    /// `account-subscribe-frame.schema.json#/properties/members_next_cursor`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub members_next_cursor: Option<Cursor>,
+}
+
+fn is_false_default(v: &bool) -> bool {
+    !*v
 }
 
 /// Timeline events with pagination.

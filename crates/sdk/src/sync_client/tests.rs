@@ -117,6 +117,7 @@ fn sync_loop_can_reset_token_on_limited_timeline_gap() {
         summary: json!({}),
         ephemeral: Vec::new(),
         unread: UnreadCounts::default(),
+        ..Default::default()
     };
     response.spaces.insert(space_id.to_owned(), serde_json::to_value(sync_space).unwrap());
     let mut transport = |_request: SyncReqBody| Ok(response.clone());
@@ -156,6 +157,7 @@ fn processor_dispatches_all_update_categories() {
         summary: json!({"name":"space"}),
         ephemeral: Vec::new(),
         unread: UnreadCounts { notification_count: 3, highlight_count: 1 },
+        ..Default::default()
     };
     response.spaces.insert(space_id.to_owned(), serde_json::to_value(sync_space).unwrap());
     response.to_device.push(
@@ -239,6 +241,7 @@ fn processor_tracks_limited_timelines_and_to_device_ack() {
         summary: json!({}),
         ephemeral: Vec::new(),
         unread: UnreadCounts::default(),
+        ..Default::default()
     };
     response.spaces.insert(space_id.to_owned(), serde_json::to_value(sync_space).unwrap());
 
