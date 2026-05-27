@@ -138,6 +138,11 @@ jobs:
     # Best-effort informational job: prints any active spec event kinds the
     # SDK has not yet declared coverage for. Fails only on *hard* drift —
     # entries the SDK declares but the spec no longer ships.
+    # R3 sync (spec @ b47ff6ec): coverage extended to the new agent event
+    # kinds (cx.agent.draft.propose, cx.agent.action_request,
+    # cx.agent.action_{approve,reject}), the cx.call.media.token_exchange
+    # operation, and the new media-service-binding / accountable_to.strict_reject
+    # profiles. See docs/architecture.md#spec-drift-coverage-ci for the runbook.
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
