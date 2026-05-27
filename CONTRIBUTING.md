@@ -4,6 +4,18 @@ Contrix SDK changes should keep protocol concepts explicit and stable. Avoid
 introducing application-specific shortcuts into the public API unless they are
 clearly layered on top of the protocol model.
 
+## After clone
+
+Once you have cloned the repository, enable the in-tree git hooks so the
+pre-commit gate runs locally:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+This single command is all you need before your first commit. The hook
+itself lives at `.githooks/pre-commit`.
+
 ## Development
 
 Run the standard checks before sending changes:
@@ -14,16 +26,10 @@ cargo check
 cargo test
 ```
 
-To use the repository hook locally:
-
-```sh
-git config core.hooksPath .githooks
-```
-
-The pre-commit hook runs `cargo fmt --all -- --check` and then runs
-`cargo clippy` for the workspace packages touched by staged Rust or Cargo
-manifest changes. Release readiness still requires the stricter CI clippy gate
-with `-D warnings`.
+The pre-commit hook (enabled by the "After clone" step above) runs
+`cargo fmt --all -- --check` and then runs `cargo clippy` for the workspace
+packages touched by staged Rust or Cargo manifest changes. Release readiness
+still requires the stricter CI clippy gate with `-D warnings`.
 
 For changes that touch canonical serialization, signed payloads, idempotency or
 authorization, add focused tests that prove the exact digest or conflict
