@@ -23,6 +23,7 @@ pub mod model;
 pub mod move_event;
 pub mod operations;
 pub mod profile_claim;
+pub mod push_rule_core;
 pub mod schema;
 pub mod service;
 pub mod signer;

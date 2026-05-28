@@ -74,7 +74,9 @@ pub use contrix_core::events;
 pub use contrix_core::schema;
 pub use contrix_core::state;
 pub use contrix_core::*;
-pub use contrix_core::{canonical, cursor, error, identifiers, keystore, model, service, sync};
+pub use contrix_core::{
+    canonical, cursor, error, identifiers, keystore, model, push_rule_core, service, sync,
+};
 #[cfg(feature = "client")]
 pub use contrix_http_client as http_client;
 // Platform-native KeyStore backends. The glob import above already
