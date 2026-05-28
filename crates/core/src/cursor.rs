@@ -438,17 +438,6 @@ impl Cursor {
         Ok(())
     }
 
-    #[allow(dead_code)]
-    fn validate_issuer_kid(issuer_kid: &str) -> Result<()> {
-        if issuer_kid.is_empty()
-            || issuer_kid.len() > 256
-            || issuer_kid.bytes().any(|b| b.is_ascii_whitespace())
-        {
-            return Err(crate::Error::Protocol("invalid cursor issuer_kid".to_owned()));
-        }
-        Ok(())
-    }
-
     /// Create a cursor from sync positions.
     pub fn from_positions(_positions: SyncPositions) -> Self {
         // v1 core cursor bytes carry only an opaque server handle. Callers that

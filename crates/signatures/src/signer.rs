@@ -171,9 +171,7 @@ pub fn verify_ed25519_move_signature(
 mod tests {
     use super::*;
     use contrix_core::move_event::{Effect, LatticeOp, LatticeOpType};
-    use contrix_core::{
-        Anchor, AnchorId, AnchorerSig, CellRef, Hlc, Move, MoveId, SpaceId, UnsignedMove,
-    };
+    use contrix_core::{Anchor, AnchorId, AnchorerSig, CellRef, Hlc, MoveId, SpaceId, UnsignedMove};
     use serde_json::json;
 
     fn alice() -> Did {
@@ -291,13 +289,4 @@ mod tests {
             verify_ed25519_move_signature(&bytes, &m.sig, &signer.verifying_key()).unwrap_err();
         assert!(format!("{err}").contains("payload_digest"));
     }
-
-    // Disambiguate the trait import for the test modules above using a no-op.
-    #[allow(dead_code)]
-    fn _trait_check<T: MoveSigner>(_t: &T) {}
-
-    /// Avoid unused import warning when the signer crate is built without the
-    /// `Move` re-export getting used directly.
-    #[allow(dead_code)]
-    fn _silence_move(_: &Move) {}
 }

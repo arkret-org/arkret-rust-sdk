@@ -465,7 +465,8 @@ pub fn verify_rfc9530_content_digest(header_value: &str, bytes: &[u8]) -> Result
     let mut hasher = Sha256::new();
     hasher.update(bytes);
     let expected = hasher.finalize();
-    if expected.as_slice() == provided.as_slice() {
+    let expected_bytes: &[u8] = expected.as_ref();
+    if expected_bytes == provided.as_slice() {
         Ok(())
     } else {
         Err(Error::Protocol("digest_mismatch: Content-Digest does not match body".to_owned()))

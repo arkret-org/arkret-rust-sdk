@@ -1302,12 +1302,6 @@ impl Validate for KeyLifecycleEvent {
     }
 }
 
-#[allow(dead_code)] // Retained as a crate-internal utility for future callers.
-pub(crate) fn encrypted_payload_digest(payload: &EncryptedPayload) -> Result<Hash> {
-    let bytes = contrix_core::canonical::canonical_json_bytes(payload)?;
-    Hash::new(sha256_prefixed(&bytes)).map_err(Into::into)
-}
-
 pub(crate) fn sha256_prefixed(bytes: &[u8]) -> String {
     format!("sha256:{}", base16_lower(&Sha256::digest(bytes)))
 }

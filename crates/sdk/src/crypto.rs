@@ -1,7 +1,7 @@
 //! Shared authenticated encryption helpers.
 
 use chacha20poly1305::{
-    Key, XChaCha20Poly1305, XNonce,
+    XChaCha20Poly1305,
     aead::{Aead, KeyInit, Payload},
 };
 use serde::{Deserialize, Serialize};
@@ -231,11 +231,12 @@ pub fn redact_log_value(value: &Value) -> Value {
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(plaintext_len = plaintext.len())))]
 pub fn seal(plaintext: &[u8], key_material: &[u8], aad: &[u8]) -> Result<Vec<u8>> {
     let key = Sha256::digest(key_material);
-    let cipher = XChaCha20Poly1305::new(Key::from_slice(&key));
+    let cipher = XChaCha20Poly1305::new_from_slice(key.as_ref())
+        .map_err(|_| Error::Crypto("AEAD key derivation failed".to_owned()))?;
     let mut nonce = [0u8; NONCE_LEN];
     getrandom::fill(&mut nonce).map_err(|error| Error::Crypto(error.to_string()))?;
     let ciphertext = cipher
-        .encrypt(XNonce::from_slice(&nonce), Payload { msg: plaintext, aad })
+        .encrypt(&nonce.into(), Payload { msg: plaintext, aad })
         .map_err(|_| Error::Crypto("AEAD encryption failed".to_owned()))?;
     let mut envelope = Vec::with_capacity(NONCE_LEN + ciphertext.len());
     envelope.extend_from_slice(&nonce);
@@ -251,9 +252,13 @@ pub fn open(envelope: &[u8], key_material: &[u8], aad: &[u8]) -> Result<Vec<u8>>
     }
     let (nonce, ciphertext) = envelope.split_at(NONCE_LEN);
     let key = Sha256::digest(key_material);
-    let cipher = XChaCha20Poly1305::new(Key::from_slice(&key));
+    let cipher = XChaCha20Poly1305::new_from_slice(key.as_ref())
+        .map_err(|_| Error::Crypto("AEAD key derivation failed".to_owned()))?;
+    let nonce: [u8; NONCE_LEN] = nonce
+        .try_into()
+        .map_err(|_| Error::Crypto("AEAD envelope nonce has invalid length".to_owned()))?;
     cipher
-        .decrypt(XNonce::from_slice(nonce), Payload { msg: ciphertext, aad })
+        .decrypt(&nonce.into(), Payload { msg: ciphertext, aad })
         .map_err(|_| Error::Crypto("AEAD decryption failed".to_owned()))
 }
 

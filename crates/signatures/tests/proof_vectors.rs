@@ -5,7 +5,7 @@
 //! bytes, payload hashes, and Ed25519 signatures below. Drift here is a
 //! breaking protocol change.
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 struct CanonicalVector {
@@ -20,6 +20,7 @@ struct CanonicalVectors {
     vectors: Vec<CanonicalVector>,
 }
 
+#[cfg(feature = "signer")]
 #[derive(Debug, Deserialize)]
 struct Ed25519Vector {
     name: String,
@@ -34,6 +35,7 @@ struct Ed25519Vector {
     detached_jws: String,
 }
 
+#[cfg(feature = "signer")]
 #[derive(Debug, Deserialize)]
 struct Ed25519Vectors {
     vectors: Vec<Ed25519Vector>,
@@ -269,6 +271,7 @@ fn dev_proof_vectors_are_rejected_by_production_verifier() {
     }
 }
 
+#[cfg(feature = "signer")]
 fn hex_decode(input: &str) -> Vec<u8> {
     let mut out = Vec::with_capacity(input.len() / 2);
     let bytes = input.as_bytes();
@@ -282,6 +285,7 @@ fn hex_decode(input: &str) -> Vec<u8> {
     out
 }
 
+#[cfg(feature = "signer")]
 fn decode_hex_nibble(b: u8) -> u8 {
     match b {
         b'0'..=b'9' => b - b'0',
@@ -291,6 +295,7 @@ fn decode_hex_nibble(b: u8) -> u8 {
     }
 }
 
+#[cfg(feature = "signer")]
 fn hex_encode(bytes: &[u8]) -> String {
     let mut out = String::with_capacity(bytes.len() * 2);
     for b in bytes {
@@ -298,7 +303,3 @@ fn hex_encode(bytes: &[u8]) -> String {
     }
     out
 }
-
-// Silence unused-import warning when the Serialize derive is feature-gated away.
-#[allow(dead_code)]
-fn _serialize_unused<T: Serialize>(_: &T) {}
