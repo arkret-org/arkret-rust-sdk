@@ -462,6 +462,8 @@ pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     "cx.schema.member_delivery_binding_candidate.v1",
     // R3.1 spec-sync (contrix-spec @ 7157ee8, 2026-05-27).
     "cx.schema.member_identity.v1",
+    // R3.2 spec-sync (contrix-spec @ b56cab1, 2026-05-28).
+    "cx.schema.list_handles_for_subject_response.v1",
     "cx.schema.grant_constraint.v1",
     "cx.schema.resource_selector.v1",
     "cx.schema.mimi_interop.v1",

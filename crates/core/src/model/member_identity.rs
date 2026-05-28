@@ -1,14 +1,27 @@
-//! R3.1 — Realm-scoped `MemberIdentity` segment + replacement event payload.
+//! R3.2 — Realm-scoped `MemberIdentity` segment + replacement event payload.
 //!
-//! Spec source (contrix-spec @ 7157ee8, 2026-05-27):
+//! Spec source (contrix-spec @ b56cab1, 2026-05-28):
 //! * `artifacts/schemas/member-identity.schema.json`
 //! * `artifacts/schemas/event-payload.schema.json#/$defs/member_identity_update_payload`
+//! * `artifacts/schemas/account-subscribe-frame.schema.json#/$defs/member_roster_entry`
 //!
-//! Wire surface only. The TODO(R4) MLS / proof verification sits in the
-//! reducer side of the protocol; this module covers the typed payload,
-//! the canonical-bytes digest helper, the replacement-edge effective-set
-//! filter, and the per-actor `identity_state_digest` projection helper
-//! so soland + yougen + cotest agree on the canonical bytes.
+//! R3.2 wire-breaking changes:
+//! * `MemberIdentity` no longer carries `primary_handle` / `handles[]`;
+//!   handle lifecycle is governed solely by `cx.schema.handle_claim.v1`.
+//!   This object discloses `subject_id` + `display_profile` for Realm UI
+//!   projection only.
+//! * Payload field `identity_state_digest` renamed to
+//!   `identity_payload_digest` (carrier cache key).
+//! * Roster `identity_state_digest` renamed to `member_display_state_digest`
+//!   and now folds the visible handle-claim digest set.
+//!
+//! Three distinct digests live here and MUST NOT be confused:
+//! * [`IdentityPayloadCarrier::carrier_sha256`] → `identity_payload_digest`
+//!   (digest of the exact `identity_payload` carrier object).
+//! * [`member_identity_effective_set_digest`] → `expected_state_digest`
+//!   (writer-observed effective-set guard, includes `segment`).
+//! * [`member_display_state_digest`] → roster display cache key
+//!   (includes effective events + visible handle-claim digests).
 
 use super::*;
 use crate::canonical;
@@ -31,10 +44,6 @@ pub struct MemberIdentity {
     pub realm_id: RealmId,
     pub actor_id: Did,
     pub subject_id: Did,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub primary_handle: Option<Handle>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub handles: Vec<VerifiedHandle>,
     pub display_profile: DisplayProfile,
     pub asserted_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -58,8 +67,6 @@ impl MemberIdentity {
             realm_id,
             actor_id,
             subject_id,
-            primary_handle: None,
-            handles: Vec::new(),
             display_profile,
             asserted_at,
             expires_at: None,
@@ -89,29 +96,6 @@ impl MemberIdentity {
         }
         canonical::canonical_json_bytes(&value)
     }
-}
-
-/// Verified handle projection (compact, embedded in [`MemberIdentity`]).
-/// Refers back to a `cx.schema.handle_claim.v1` evidence record by
-/// `claim_digest`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct VerifiedHandle {
-    pub handle: Handle,
-    /// Schema `const: true`; the carrier of this projection asserts the
-    /// underlying handle claim has been verified end-to-end.
-    pub verified: bool,
-    pub issuer: Did,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub issuer_service_did: Option<Did>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub audience: Option<String>,
-    pub claim_digest: Hash,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub source_refs: Vec<EventId>,
-    pub issued_at: DateTime<Utc>,
-    pub expires_at: DateTime<Utc>,
 }
 
 /// Display profile carried inside a [`MemberIdentity`].
@@ -197,7 +181,7 @@ pub enum IdentityPayloadCarrier {
 impl IdentityPayloadCarrier {
     /// Canonical-JSON digest of the carrier wrapper object. This is the
     /// value that goes into `MemberIdentityReplacementRef.payload_digest`
-    /// and (when set) [`MemberIdentityUpdatePayload::identity_state_digest`].
+    /// and (when set) [`MemberIdentityUpdatePayload::identity_payload_digest`].
     pub fn carrier_sha256(&self) -> Result<String> {
         Ok(canonical::sha256_digest(canonical::canonical_json_bytes(self)?))
     }
@@ -218,21 +202,39 @@ pub struct MemberIdentityUpdatePayload {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub replaces: Vec<MemberIdentityReplacementRef>,
     pub identity_payload: IdentityPayloadCarrier,
+    /// R3.2 rename of the prior `identity_state_digest` field. Digest over
+    /// the exact `identity_payload` carrier object (cache-invalidation key
+    /// only). Equals [`IdentityPayloadCarrier::carrier_sha256`].
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub identity_state_digest: Option<Hash>,
+    pub identity_payload_digest: Option<Hash>,
     /// Optimistic concurrency guard. When present, MUST equal the
-    /// `identity_state_digest` of the effective set observed by the
-    /// writer before applying this event.
+    /// writer-observed effective-set digest computed by
+    /// [`member_identity_effective_set_digest`]. This is NOT the
+    /// `identity_payload_digest`, and NOT the roster
+    /// `member_display_state_digest`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expected_state_digest: Option<Hash>,
 }
 
-/// Per-(event_id, segment) entry used by [`identity_state_digest`].
+/// Per-(event_id, segment) entry used by
+/// [`member_identity_effective_set_digest`] and
+/// [`member_display_state_digest`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct EffectiveIdentityEntry {
     pub event_id: EventId,
     pub segment: MemberIdentitySegment,
     pub payload_digest: Hash,
+}
+
+/// Visible handle-claim summary folded into the roster
+/// [`member_display_state_digest`]. Mirrors the spec
+/// `{claim_digest, binding_state, expires_at}` triplet.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct RosterHandleClaimDigestEntry {
+    pub claim_digest: Hash,
+    pub binding_state: HandleBindingState,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
 }
 
 /// MID-6 — effective-set helper.
@@ -286,20 +288,64 @@ where
     Ok(effective)
 }
 
-/// MID-8 — per-actor `identity_state_digest` projection.
+/// R3.2 — `expected_state_digest` writer-observed effective-set guard.
 ///
 /// SHA-256 over RFC 8785 JCS canonical JSON of
-/// `{realm_id, actor_id, effective_events:[{event_id, segment, payload_digest}]}`
+/// `{realm_id, actor_id, segment, effective_events:[{event_id, segment, payload_digest}]}`
 /// with `effective_events` sorted by `(segment, event_id)`.
 ///
-/// `entries` should be the slice produced from [`effective_identity_events`]
-/// (one entry per effective event, with the carrier digest already
-/// computed).
-pub fn identity_state_digest(
+/// This is the value a writer places in
+/// [`MemberIdentityUpdatePayload::expected_state_digest`] before applying
+/// a replacement. It is NOT the `identity_payload_digest` and NOT the
+/// roster [`member_display_state_digest`].
+pub fn member_identity_effective_set_digest(
+    realm_id: &RealmId,
+    actor_id: &Did,
+    segment: MemberIdentitySegment,
+    entries: &[EffectiveIdentityEntry],
+) -> Result<String> {
+    let sorted = sorted_effective_entries(entries);
+    let projection = serde_json::json!({
+        "realm_id": realm_id,
+        "actor_id": actor_id,
+        "segment": segment,
+        "effective_events": sorted,
+    });
+    Ok(canonical::sha256_digest(canonical::canonical_json_bytes(&projection)?))
+}
+
+/// R3.2 — roster `member_display_state_digest` projection.
+///
+/// SHA-256 over RFC 8785 JCS canonical JSON of
+/// `{realm_id, actor_id, effective_events:[{event_id, segment, payload_digest}],
+///   handle_claims:[{claim_digest, binding_state, expires_at}]}`
+/// with `effective_events` sorted by `(segment, event_id)` and
+/// `handle_claims` sorted by `claim_digest`.
+///
+/// Used for roster display cache invalidation. Folds the visible
+/// handle-claim digest set so handle reassignment (issuer signs a new
+/// claim / revokes an old one) changes the digest, while a pure
+/// `verified_at` / proof-repacking refresh leaves it stable.
+pub fn member_display_state_digest(
     realm_id: &RealmId,
     actor_id: &Did,
     entries: &[EffectiveIdentityEntry],
+    handle_claims: &[RosterHandleClaimDigestEntry],
 ) -> Result<String> {
+    let sorted_events = sorted_effective_entries(entries);
+    let mut sorted_claims: Vec<&RosterHandleClaimDigestEntry> = handle_claims.iter().collect();
+    sorted_claims.sort_by(|a, b| a.claim_digest.as_str().cmp(b.claim_digest.as_str()));
+
+    let projection = serde_json::json!({
+        "realm_id": realm_id,
+        "actor_id": actor_id,
+        "effective_events": sorted_events,
+        "handle_claims": sorted_claims,
+    });
+    Ok(canonical::sha256_digest(canonical::canonical_json_bytes(&projection)?))
+}
+
+fn sorted_effective_entries(entries: &[EffectiveIdentityEntry]) -> Vec<&EffectiveIdentityEntry> {
     let mut sorted: Vec<&EffectiveIdentityEntry> = entries.iter().collect();
     sorted.sort_by(|a, b| {
         let seg_a = serde_json::to_string(&a.segment).unwrap_or_default();
@@ -308,13 +354,7 @@ pub fn identity_state_digest(
             .cmp(&seg_b)
             .then_with(|| a.event_id.as_str().cmp(b.event_id.as_str()))
     });
-
-    let projection = serde_json::json!({
-        "realm_id": realm_id,
-        "actor_id": actor_id,
-        "effective_events": sorted,
-    });
-    Ok(canonical::sha256_digest(canonical::canonical_json_bytes(&projection)?))
+    sorted
 }
 
 /// Membership state in [`MemberRosterEntry`]. Mirrors
@@ -328,30 +368,88 @@ pub enum MembershipState {
     Knock,
 }
 
-/// SYNC-1 — Lightweight per-actor entry on the Realm members roster
-/// projection carried by `account.subscribe` frames.
+/// R3.2 roster v2 — Lightweight per-actor entry on the Realm members
+/// roster projection carried by `account.subscribe` frames.
 ///
-/// Entries MUST NOT carry raw handle / display fields directly; clients
-/// resolve identity by following `identity_event_ids[]` or applying the
-/// inline `identity_events[]` originals (when the server chose to bundle
-/// them).
+/// Entries MUST NOT carry display name or naked handle strings directly;
+/// handle strings may appear only inside signed `HandleClaim` objects in
+/// [`Self::handle_claims`]. The disclosure-gated fields (`identity_events`,
+/// `handle_claim_digests`, `handle_claims`, `handle_claims_limited`) MUST
+/// be omitted unless [`Self::subject_id`] is disclosed — enforced by
+/// [`Self::validate`].
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MemberRosterEntry {
     pub actor_id: Did,
     pub membership: MembershipState,
+    /// Disclosed principal / holder DID for this member. Required whenever
+    /// any handle-claim / identity-event evidence is included (see
+    /// [`Self::validate`]). Omitted when subject disclosure is not
+    /// authorized for the caller.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subject_id: Option<Did>,
     /// Effective `cx.member.identity.update` event ids for this actor
     /// after replacement edges are applied.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub identity_event_ids: Vec<EventId>,
+    /// R3.2 rename of the prior `identity_state_digest` roster field.
+    /// Digest over effective identity events + visible handle-claim
+    /// digests; see [`member_display_state_digest`].
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub identity_state_digest: Option<Hash>,
+    pub member_display_state_digest: Option<Hash>,
     /// Optional inline effective `cx.member.identity.update` Event
     /// envelopes. When present these are the original events, NOT
-    /// query-time re-encryption or projection rewrites.
+    /// query-time re-encryption or projection rewrites. MUST be omitted
+    /// unless `subject_id` is disclosed.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub identity_events: Vec<Event>,
+    /// Digests of currently visible effective `cx.schema.handle_claim.v1`
+    /// objects. MUST be omitted unless `subject_id` is disclosed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub handle_claim_digests: Option<Vec<Hash>>,
+    /// Optional inline signed handle-claim evidence. Every claim's
+    /// `subject` MUST equal `subject_id`. MUST be omitted unless
+    /// `subject_id` is disclosed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub handle_claims: Option<Vec<HandleClaim>>,
+    /// `true` when `handle_claims` is truncated or replaced by digest-only
+    /// hints. Clients MUST NOT interpret missing claims as "no handle".
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub handle_claims_limited: Option<bool>,
+}
+
+impl MemberRosterEntry {
+    /// R3.2 dependentRequired enforcement: the disclosure-gated fields MUST
+    /// NOT appear unless `subject_id` is present, and every inline
+    /// `handle_claims[].subject` MUST equal `subject_id`.
+    pub fn validate(&self) -> Result<()> {
+        let gated_present = !self.identity_events.is_empty()
+            || self.handle_claim_digests.is_some()
+            || self.handle_claims.is_some()
+            || self.handle_claims_limited.is_some();
+        if gated_present && self.subject_id.is_none() {
+            return Err(Error::Protocol(
+                "member_roster_entry: identity_events / handle_claim_digests / handle_claims / \
+                 handle_claims_limited require subject_id disclosure"
+                    .to_owned(),
+            ));
+        }
+        if let (Some(subject), Some(claims)) = (&self.subject_id, &self.handle_claims) {
+            for claim in claims {
+                match &claim.subject {
+                    Some(s) if s == subject => {}
+                    _ => {
+                        return Err(Error::Protocol(
+                            "member_roster_entry: handle_claims[].subject must equal subject_id"
+                                .to_owned(),
+                        ));
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -422,7 +520,7 @@ mod tests {
             segment: MemberIdentitySegment::MemberIdentity,
             replaces: vec![],
             identity_payload: carrier_a,
-            identity_state_digest: None,
+            identity_payload_digest: None,
             expected_state_digest: None,
         };
         let payload_b = MemberIdentityUpdatePayload {
@@ -434,7 +532,7 @@ mod tests {
                 payload_digest: digest_a,
             }],
             identity_payload: carrier_b,
-            identity_state_digest: None,
+            identity_payload_digest: None,
             expected_state_digest: None,
         };
 
@@ -460,7 +558,7 @@ mod tests {
             segment: MemberIdentitySegment::MemberIdentity,
             replaces: vec![],
             identity_payload: carrier_a,
-            identity_state_digest: None,
+            identity_payload_digest: None,
             expected_state_digest: None,
         };
         let payload_b = MemberIdentityUpdatePayload {
@@ -476,7 +574,7 @@ mod tests {
                 .unwrap(),
             }],
             identity_payload: carrier_b,
-            identity_state_digest: None,
+            identity_payload_digest: None,
             expected_state_digest: None,
         };
 
@@ -490,14 +588,18 @@ mod tests {
         let entry = MemberRosterEntry {
             actor_id: fake_actor("alice"),
             membership: MembershipState::Join,
+            subject_id: None,
             identity_event_ids: vec![fake_event_ref("0030"), fake_event_ref("0031")],
-            identity_state_digest: Some(
+            member_display_state_digest: Some(
                 Hash::new(
                     "sha256:abababababababababababababababababababababababababababababababab",
                 )
                 .unwrap(),
             ),
             identity_events: vec![],
+            handle_claim_digests: None,
+            handle_claims: None,
+            handle_claims_limited: None,
         };
         let json = serde_json::to_value(&entry).unwrap();
         // Confirm wire shape: actor_id + membership are always present;
@@ -506,6 +608,24 @@ mod tests {
         assert_eq!(json["membership"], serde_json::json!("join"));
         let decoded: MemberRosterEntry = serde_json::from_value(json).unwrap();
         assert_eq!(decoded, entry);
+        entry.validate().unwrap();
+    }
+
+    #[test]
+    fn member_roster_entry_gated_fields_require_subject_id() {
+        // handle_claims_limited present without subject_id MUST fail.
+        let entry = MemberRosterEntry {
+            actor_id: fake_actor("alice"),
+            membership: MembershipState::Join,
+            subject_id: None,
+            identity_event_ids: vec![],
+            member_display_state_digest: None,
+            identity_events: vec![],
+            handle_claim_digests: None,
+            handle_claims: None,
+            handle_claims_limited: Some(true),
+        };
+        assert!(entry.validate().is_err());
     }
 
     #[test]
@@ -540,8 +660,11 @@ mod tests {
             .unwrap(),
         };
 
-        let forward = identity_state_digest(&realm, &actor, &[e1.clone(), e2.clone()]).unwrap();
-        let reverse = identity_state_digest(&realm, &actor, &[e2, e1]).unwrap();
+        let seg = MemberIdentitySegment::MemberIdentity;
+        let forward =
+            member_identity_effective_set_digest(&realm, &actor, seg, &[e1.clone(), e2.clone()])
+                .unwrap();
+        let reverse = member_identity_effective_set_digest(&realm, &actor, seg, &[e2, e1]).unwrap();
         assert_eq!(forward, reverse);
     }
 }

@@ -1120,6 +1120,70 @@ pub struct DirectoryResolveHandleResBody {
     pub claims: Value,
 }
 
+/// R3.2 (contrix-spec @ b56cab1) — request body for
+/// `cx.directory.list_handles_for_subject`. Known holder/principal DID +
+/// context → current visible handle claims (inverse of `resolve_handle`).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct DirectoryListHandlesForSubjectReqBody {
+    /// Holder/principal DID reverse-lookup key. NOT a Realm actor_id.
+    pub subject: Did,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub realm_id: Option<RealmId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub intent: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requester: Option<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proof_challenge: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub proofs: Vec<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub as_of: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<u32>,
+}
+
+/// R3.2 — response body for `cx.directory.list_handles_for_subject`.
+/// Schema `cx.schema.list_handles_for_subject_response.v1`. Every
+/// `claims[].subject` MUST equal [`Self::subject`] (byte-equal); use
+/// [`Self::validate`] to enforce.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct DirectoryListHandlesForSubjectResBody {
+    pub subject: Did,
+    #[serde(default)]
+    pub claims: Vec<HandleClaim>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub primary_handle: Option<Handle>,
+    pub as_of: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_cursor: Option<String>,
+    pub has_more: bool,
+}
+
+impl DirectoryListHandlesForSubjectResBody {
+    /// Enforce the schema invariant that every claim's `subject` equals the
+    /// top-level `subject`. Mismatching claims MUST be dropped or fail the
+    /// response closed; this validator fails closed.
+    pub fn validate(&self) -> Result<()> {
+        for claim in &self.claims {
+            match &claim.subject {
+                Some(s) if *s == self.subject => {}
+                _ => {
+                    return Err(Error::Protocol(
+                        "list_handles_for_subject: claims[].subject must equal response.subject"
+                            .to_owned(),
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct BlobUploadMetadata {

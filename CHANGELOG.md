@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Starting with the local `1.0.0` freeze, breaking public API changes require a
 major-version bump.
 
+## R3.2 — Spec sync 2026-05-28 (contrix-spec @ b56cab1)
+
+- **MemberIdentity wire-breaking**: `MemberIdentity` no longer carries `primary_handle` / `handles[]`; `VerifiedHandle` removed. Handle lifecycle is governed solely by `cx.schema.handle_claim.v1`. This object discloses `subject_id` + `display_profile` only.
+- **Digest renames**: payload `identity_state_digest` → `identity_payload_digest`; roster `identity_state_digest` → `member_display_state_digest` (now folds the visible handle-claim digest set). New `member_identity_effective_set_digest` helper backs `expected_state_digest`.
+- **Mention shape v2**: `Mention` field `subject` → `subject_id` (sole authoritative field); `handle` → `handle_at_time`, `display_snapshot` → `display_name_at_time`, new `mention_text_original`; all handle/name fields are audit metadata only.
+- **HandleClaim**: `claim_type=service_handle` removed (`HandleClass::ServiceHandle` deleted); `validate_handle_claim_subject` rejects `cx:actor:` / `cx:account:` / non-DID subjects.
+- **Roster v2**: `MemberRosterEntry` gains `subject_id` + `handle_claim_digests` + `handle_claims` + `handle_claims_limited` with dependentRequired enforcement (`validate`).
+- **New operation**: `cx.directory.list_handles_for_subject` (`POST /api/v1/directory/list-handles-for-subject`, `Directory/ListHandlesForSubject`, `directory.list_handles_for_subject`) + `DirectoryListHandlesForSubject{Req,Res}Body` + http-client method with `claims[].subject == subject` validation. New schema `cx.schema.list_handles_for_subject_response.v1`.
+- **§3.2.1 primary handle selection**: `select_primary_handle` (6-tuple deterministic algorithm), `claim_digest` (semantic-projection canonical digest, stable under hint mutation), `DidDocumentSnapshotResolver` hook. **§3.8.2 mention render**: `render_mention` + `MentionRender` fallback tiers.
+
+> No version tag, no crates.io / Docker Hub / npm publish — git commit only.
+
 ## R3 — Spec sync 2026-05-27 (contrix-spec @ b47ff6ec)
 
 - Call / media (CXP-0010): client helper `call_media_token_exchange`, `MediaTokenResponse` / `ParticipantBinding` / `MediaBackendType` types, TTL gate `<=600s`, five new capability actions, op registry mirror at `cx.call.media.token_exchange`.

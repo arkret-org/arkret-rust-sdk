@@ -27,6 +27,7 @@ pub mod protocol {
         BlobMetadata, BlobUploadMetadata, BlobUploadResBody, CursorRevokeScope,
         DeviceMessagesReceiveResBody, DeviceMessagesSendReqBody, DeviceMessagesSendResBody,
         DirectoryAnnounceReqBody, DirectoryAnnounceResBody, DirectoryDescription,
+        DirectoryListHandlesForSubjectReqBody, DirectoryListHandlesForSubjectResBody,
         DirectoryResolveHandleReqBody, DirectoryResolveHandleResBody,
         DirectoryResolveOrganizationReqBody, DirectoryResolveOrganizationResBody,
         DirectoryResolveRealmReqBody, DirectoryResolveRealmResBody, DirectorySearchActorsReqBody,

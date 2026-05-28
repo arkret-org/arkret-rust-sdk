@@ -16,7 +16,8 @@ use contrix_core::{
     AppletRealmResBody, AppletTransactionReqBody, AppletTransactionResBody, AuthzCheckReqBody,
     AuthzCheckResBody, AuthzInvitesResBody, BackupId, BlobMetadata, BlobRef, BlobUploadMetadata,
     BlobUploadResBody, DeviceMessagesReceiveResBody, DeviceMessagesSendReqBody,
-    DeviceMessagesSendResBody, DirectoryDescription, DirectoryResolveHandleReqBody,
+    DeviceMessagesSendResBody, DirectoryDescription, DirectoryListHandlesForSubjectReqBody,
+    DirectoryListHandlesForSubjectResBody, DirectoryResolveHandleReqBody,
     DirectoryResolveHandleResBody, DirectoryResolveOrganizationReqBody,
     DirectoryResolveOrganizationResBody, DirectoryResolveRealmReqBody,
     DirectoryResolveRealmResBody, DirectorySearchActorsReqBody, DirectorySearchActorsResBody,
@@ -1093,6 +1094,20 @@ impl Client {
         request: &DirectoryResolveHandleReqBody,
     ) -> Result<DirectoryResolveHandleResBody> {
         self.post("/api/v1/directory/resolve-handle", request).await
+    }
+
+    /// R3.2 (contrix-spec @ b56cab1) — `cx.directory.list_handles_for_subject`.
+    /// Known holder/principal DID → current visible handle claims. The
+    /// response invariant `claims[].subject == subject` is enforced via
+    /// [`DirectoryListHandlesForSubjectResBody::validate`] before returning.
+    pub async fn directory_list_handles_for_subject(
+        &self,
+        request: &DirectoryListHandlesForSubjectReqBody,
+    ) -> Result<DirectoryListHandlesForSubjectResBody> {
+        let body: DirectoryListHandlesForSubjectResBody =
+            self.post("/api/v1/directory/list-handles-for-subject", request).await?;
+        body.validate()?;
+        Ok(body)
     }
 
     pub async fn push_register_device(

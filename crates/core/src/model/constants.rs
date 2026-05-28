@@ -341,6 +341,9 @@ pub const OP_AGENT_PROTOCOL_SESSION_STATUS: &str = "cx.agent.protocol_session.st
 pub const OP_DIRECTORY_PRIVATE_CONTACT_DISCOVERY: &str = "cx.directory.private_contact_discovery";
 pub const OP_DIRECTORY_ANNOUNCE: &str = "cx.directory.announce";
 pub const OP_DIRECTORY_RESOLVE_HANDLE: &str = "cx.directory.resolve_handle";
+/// R3.2 (contrix-spec @ b56cab1) — subject/context → current visible
+/// handle claims; the inverse of `resolve_handle`.
+pub const OP_DIRECTORY_LIST_HANDLES_FOR_SUBJECT: &str = "cx.directory.list_handles_for_subject";
 pub const OP_DIRECTORY_RESOLVE_ORGANIZATION: &str = "cx.directory.resolve_organization";
 pub const OP_DIRECTORY_RESOLVE_REALM: &str = "cx.directory.resolve_realm";
 pub const OP_DIRECTORY_SEARCH_ACTORS: &str = "cx.directory.search_actors";
@@ -583,6 +586,7 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_DIRECTORY_DESCRIBE,
     OP_DIRECTORY_PRIVATE_CONTACT_DISCOVERY,
     OP_DIRECTORY_RESOLVE_HANDLE,
+    OP_DIRECTORY_LIST_HANDLES_FOR_SUBJECT,
     OP_DIRECTORY_RESOLVE_ORGANIZATION,
     OP_DIRECTORY_RESOLVE_REALM,
     OP_DIRECTORY_SEARCH_ACTORS,

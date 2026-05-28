@@ -312,6 +312,34 @@ fn is_valid_domain(s: &str) -> bool {
     })
 }
 
+/// R3.2 — `cx.schema.handle_claim.v1.subject` validator.
+///
+/// The handle claim subject MUST be a holder / principal DID. It is NOT a
+/// Realm `actor_id` (`cx:actor:`), a server-local `account_id`
+/// (`cx:account:`), a service DID, an administrative identifier, or a
+/// generic resource id. We accept any `did:<method>:...` and reject the
+/// typed-id prefixes; a deployment-specific "is this a service DID"
+/// distinction is left to the issuer, but the typed-id rejection here
+/// catches the structural misuse the spec calls out.
+///
+/// On rejection returns [`Error::Protocol`] carrying the
+/// `handle_claim_subject_not_principal_did` wire code prefix.
+pub fn validate_handle_claim_subject(subject: &Did) -> Result<()> {
+    let s = subject.as_str();
+    if s.starts_with("cx:actor:") || s.starts_with("cx:account:") {
+        return Err(Error::Protocol(format!(
+            "handle_claim_subject_not_principal_did: subject must be a holder/principal DID, \
+             not a typed id ({s})"
+        )));
+    }
+    if !s.starts_with("did:") {
+        return Err(Error::Protocol(format!(
+            "handle_claim_subject_not_principal_did: subject must be a DID ({s})"
+        )));
+    }
+    Ok(())
+}
+
 /// Default visibility for a handle claim disclosure boundary.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -333,14 +361,18 @@ pub enum HandleBindingState {
     Revoked,
 }
 
-/// Class of handle being asserted.
+/// Class of handle being asserted (`claim_type` in the wire schema).
+///
+/// R3.2 wire-breaking: the draft-era `service_handle` value is removed.
+/// Service-readable names / resource labels need their own service /
+/// resource schema; organization-assigned user / principal handles use
+/// `organization_handle`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum HandleClass {
     UserHandle,
     OrganizationHandle,
-    ServiceHandle,
 }
 
 /// Builder-side member delivery binding offered by a handle claim.
@@ -447,6 +479,9 @@ impl HandleClaim {
                 "member_delivery_binding present requires handle, audience, expires_at"
                     .to_owned(),
             ));
+        }
+        if let Some(subject) = &self.subject {
+            validate_handle_claim_subject(subject)?;
         }
         Ok(())
     }
