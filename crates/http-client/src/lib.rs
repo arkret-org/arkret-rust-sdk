@@ -20,7 +20,8 @@ use contrix_core::{
     DirectoryListHandlesForSubjectResBody, DirectoryResolveHandleReqBody,
     DirectoryResolveHandleResBody, DirectoryResolveOrganizationReqBody,
     DirectoryResolveOrganizationResBody, DirectoryResolveRealmReqBody,
-    DirectoryResolveRealmResBody, DirectorySearchActorsReqBody, DirectorySearchActorsResBody,
+    DirectoryResolveRealmResBody, DirectoryResolveTargetReqBody, DirectoryResolveTargetResBody,
+    DirectorySearchActorsReqBody, DirectorySearchActorsResBody,
     DirectorySearchOrganizationsReqBody, DirectorySearchOrganizationsResBody,
     DirectorySearchRealmsReqBody, DirectorySearchRealmsResBody, DirectorySearchUsersReqBody,
     DirectorySearchUsersResBody, EffectiveGrantsResBody, Error, ErrorEnvelope, Event,
@@ -1052,6 +1053,19 @@ impl Client {
         request: &DirectoryResolveRealmReqBody,
     ) -> Result<DirectoryResolveRealmResBody> {
         self.post("/api/v1/directory/resolve-realm", request).await
+    }
+
+    /// R3.3 (CXP-0011, contrix-spec @ cced4b8) — `cx.directory.resolve_target`.
+    /// Resolve a client-agnostic shareable object address (Realm / Flow /
+    /// Message) to a preview. The `address` and any `token` should be derived
+    /// from [`contrix_core::model::parse_address`]; an invite `token` MUST be
+    /// bound to the resolved object server-side via
+    /// [`contrix_core::model::verify_token_target`].
+    pub async fn directory_resolve_target(
+        &self,
+        request: &DirectoryResolveTargetReqBody,
+    ) -> Result<DirectoryResolveTargetResBody> {
+        self.post("/api/v1/directory/resolve-target", request).await
     }
 
     pub async fn directory_search_organizations(

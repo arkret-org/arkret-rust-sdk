@@ -995,6 +995,68 @@ pub struct DirectoryResolveRealmResBody {
     pub via_services: Vec<String>,
 }
 
+/// R3.3 (CXP-0011, contrix-spec @ cced4b8) — the resolved object class of a
+/// shareable address. The address grammar (`crate::model::object_address`)
+/// fixes the hierarchy `realm` ⊃ `flow` ⊃ `m` (message).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum TargetKind {
+    Realm,
+    Flow,
+    Message,
+}
+
+/// R3.3 (CXP-0011) — request body for `cx.directory.resolve_target`.
+///
+/// `address` is a client-agnostic shareable object address in either the
+/// `web+contrix:` URI form or the HTTPS-landing fragment form (see
+/// [`crate::model::object_address::parse_address`]). `token` is present iff
+/// the address carries `lt=invite`; the server MUST bind it to the resolved
+/// object via [`crate::model::object_address::verify_token_target`].
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct DirectoryResolveTargetReqBody {
+    pub address: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requester: Option<Did>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub proofs: Vec<Proof>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token: Option<String>,
+}
+
+/// R3.3 (CXP-0011) — response body for `cx.directory.resolve_target`.
+///
+/// Common §9.1 directory fields (`as_of`, `source_refs`, `via_services`,
+/// `policy_revision`, `stale`, `divergent`) mirror the other directory
+/// responses. `object_preview` is a target-kind-dependent opaque preview
+/// (a stripped Flow / Message projection); it stays a `serde_json::Value`
+/// because its shape varies by `target_kind`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct DirectoryResolveTargetResBody {
+    pub target_kind: TargetKind,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub realm_preview: Option<RealmPreview>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub object_preview: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub join_rule: Option<JoinRule>,
+    pub as_of: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub source_refs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub via_services: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub policy_revision: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stale: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub divergent: Option<bool>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectorySearchOrganizationsReqBody {

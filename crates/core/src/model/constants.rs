@@ -346,6 +346,10 @@ pub const OP_DIRECTORY_RESOLVE_HANDLE: &str = "cx.directory.resolve_handle";
 pub const OP_DIRECTORY_LIST_HANDLES_FOR_SUBJECT: &str = "cx.directory.list_handles_for_subject";
 pub const OP_DIRECTORY_RESOLVE_ORGANIZATION: &str = "cx.directory.resolve_organization";
 pub const OP_DIRECTORY_RESOLVE_REALM: &str = "cx.directory.resolve_realm";
+/// R3.3 (CXP-0011, contrix-spec @ cced4b8) — resolve a client-agnostic
+/// shareable object address (Realm / Flow / Message) to a preview. Pure ADD;
+/// `resolve_realm` is retained and NOT deprecated.
+pub const OP_DIRECTORY_RESOLVE_TARGET: &str = "cx.directory.resolve_target";
 pub const OP_DIRECTORY_SEARCH_ACTORS: &str = "cx.directory.search_actors";
 pub const OP_DIRECTORY_SEARCH_ORGANIZATIONS: &str = "cx.directory.search_organizations";
 pub const OP_DIRECTORY_SEARCH_REALMS: &str = "cx.directory.search_realms";
@@ -589,6 +593,7 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_DIRECTORY_LIST_HANDLES_FOR_SUBJECT,
     OP_DIRECTORY_RESOLVE_ORGANIZATION,
     OP_DIRECTORY_RESOLVE_REALM,
+    OP_DIRECTORY_RESOLVE_TARGET,
     OP_DIRECTORY_SEARCH_ACTORS,
     OP_DIRECTORY_SEARCH_ORGANIZATIONS,
     OP_DIRECTORY_SEARCH_REALMS,

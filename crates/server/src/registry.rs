@@ -52,6 +52,10 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
     endpoint!("cx.directory.describe", Get, "/api/v1/directory/describe"),
     endpoint!("cx.directory.search_realms", Post, "/api/v1/directory/search-realms"),
     endpoint!("cx.directory.resolve_realm", Post, "/api/v1/directory/resolve-realm"),
+    // R3.3 (CXP-0011, contrix-spec @ cced4b8). gRPC `Directory/ResolveTarget`
+    // and MQ `directory.resolve_target` mirrors live in the spec
+    // operation-registry; this HTTP route is the SDK-side binding.
+    endpoint!("cx.directory.resolve_target", Post, "/api/v1/directory/resolve-target"),
     endpoint!("cx.directory.search_organizations", Post, "/api/v1/directory/search-organizations"),
     endpoint!("cx.directory.resolve_organization", Post, "/api/v1/directory/resolve-organization"),
     endpoint!("cx.directory.search_actors", Post, "/api/v1/directory/search-actors"),

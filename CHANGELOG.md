@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Starting with the local `1.0.0` freeze, breaking public API changes require a
 major-version bump.
 
+## R3.3 — Spec sync 2026-05-28 (contrix-spec @ cced4b8, CXP-0011)
+
+- **New operation**: `cx.directory.resolve_target` (`POST /api/v1/directory/resolve-target`, gRPC `Directory/ResolveTarget`, MQ `directory.resolve_target`). Pure ADD — operation count 100 → 101; `cx.directory.resolve_realm` is retained and NOT deprecated. No new event kinds, registered `cx.schema.*`, or wire/reducer changes.
+- **Wire types**: `DirectoryResolveTargetReqBody { address, requester, proofs, token }` + `DirectoryResolveTargetResBody { target_kind, realm_preview, object_preview, join_rule, as_of, source_refs, via_services, policy_revision, stale, divergent }` + `enum TargetKind { Realm, Flow, Message }`. http-client method `directory_resolve_target`.
+- **Object-addressing grammar** (`contrix_core::model::object_address`): client-agnostic shareable address pointing at a Realm / Flow / Message. `parse_address` accepts both the `web+contrix:` URI form and the HTTPS-landing fragment form (`https://<host>/#realm/...`), fixed hierarchy `realm` ⊃ `flow` ⊃ `m`; fails closed on unknown/misordered keyword, missing intermediate level, non-uuid flow/message segment, or a flow/message address missing `via`. `build_address` / `build_https_landing` re-serialize. `RealmRef { RealmId | Alias }` (UUIDv7-vs-alias rule); `enum LinkType { Reference, Invite }` (omitted/unknown/reserved `preview` → `Reference`); `enum AddressAction { View, Join, Reply }` (default `View`).
+- **Invite-token target binding** (scope-confusion defence): `TargetDescriptor { realm_id, flow_id?, message_id?, link_type }` with absent hierarchy fields OMITTED (never `null`) and typed canonical id values (`cx:realm:` / `cx:flow:` / `cx:message:`). `target_digest` reuses the shared canonicalizer (`canonical::canonical_sha256`) and covers ONLY the identity tuple + `link_type` — never `via` / `action` / `tok` / `lt`. `verify_token_target` recomputes + compares the digest so a token minted for object A cannot be replayed onto a different object B (and fails closed when the realm is still an unresolved alias).
+
+> No version tag, no crates.io / Docker Hub / npm publish — git commit only.
+
 ## R3.2 — Spec sync 2026-05-28 (contrix-spec @ b56cab1)
 
 - **MemberIdentity wire-breaking**: `MemberIdentity` no longer carries `primary_handle` / `handles[]`; `VerifiedHandle` removed. Handle lifecycle is governed solely by `cx.schema.handle_claim.v1`. This object discloses `subject_id` + `display_profile` only.
