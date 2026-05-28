@@ -124,6 +124,9 @@ fn framework_independent_handler_shape_can_be_mocked() {
                         compat_surfaces: vec![],
                         development_mode: false,
                         rate_limit: Value::Null,
+                        egress_network_policy: Some(
+                            contrix_core::EgressNetworkPolicy::deny_private_defaults(),
+                        ),
                         supported_reducer_profiles: vec![],
                         supported_schema_profiles: vec![],
                         frontier: Vec::new(),

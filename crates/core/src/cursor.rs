@@ -78,9 +78,9 @@ pub struct Cursor {
     /// Stateless cursor detached signature over the canonical cursor body.
     #[serde(default, rename = "_sig", skip_serializing_if = "Option::is_none")]
     pub sig: Option<String>,
-    /// Server-private filter hash binding.
-    #[serde(default, rename = "_filter_hash", skip_serializing_if = "Option::is_none")]
-    pub filter_hash: Option<String>,
+    /// Server-private filter digest binding.
+    #[serde(default, rename = "_filter_digest", skip_serializing_if = "Option::is_none")]
+    pub filter_digest: Option<String>,
 }
 
 /// Cursor purpose discriminator.
@@ -144,28 +144,28 @@ impl Cursor {
             issuer_kid: None,
             mac: None,
             sig: None,
-            filter_hash: None,
+            filter_digest: None,
         }
     }
 
-    /// Bind a `filter_hash` to this cursor. Servers MUST refuse to
+    /// Bind a `filter_digest` to this cursor. Servers MUST refuse to
     /// reuse the cursor when the next request carries a different
-    /// hash (M-15 / M-16). The hash is opaque to the SDK; callers
-    /// typically pass [`crate::sync::sync_filter_hash`].
-    pub fn with_filter_hash(mut self, hash: impl Into<String>) -> Self {
-        self.filter_hash = Some(hash.into());
+    /// digest. The digest is opaque to the SDK; callers typically pass
+    /// [`crate::sync::sync_filter_digest`].
+    pub fn with_filter_digest(mut self, digest: impl Into<String>) -> Self {
+        self.filter_digest = Some(digest.into());
         self
     }
 
-    /// Verify that the cursor's `filter_hash` matches `expected`.
+    /// Verify that the cursor's `filter_digest` matches `expected`.
     /// Returns an error when the cursor is unbound or was issued for a
     /// different filter.
-    pub fn assert_filter_hash(&self, expected: &str) -> Result<()> {
-        match self.filter_hash.as_deref() {
-            None => Err(crate::Error::Protocol("filter_hash_missing".to_owned())),
+    pub fn assert_filter_digest(&self, expected: &str) -> Result<()> {
+        match self.filter_digest.as_deref() {
+            None => Err(crate::Error::Protocol("filter_digest_missing".to_owned())),
             Some(found) if found == expected => Ok(()),
             Some(found) => Err(crate::Error::Protocol(format!(
-                "filter_hash_mismatch: cursor was issued for '{found}', current request is '{expected}'"
+                "filter_digest_mismatch: cursor was issued for '{found}', current request is '{expected}'"
             ))),
         }
     }
@@ -636,7 +636,7 @@ mod tests {
             issuer_kid: None,
             mac: None,
             sig: None,
-            filter_hash: None,
+            filter_digest: None,
         };
 
         let encoded = cursor.encode().unwrap();

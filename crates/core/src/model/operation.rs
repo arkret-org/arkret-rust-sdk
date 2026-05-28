@@ -516,7 +516,7 @@ pub struct Notification {
 pub struct BlobMetadata {
     pub schema: String,
     pub blob_ref: BlobRef,
-    pub sha256: String,
+    pub content_digest: String,
     /// Spec rename (head 37ce729): `size` → `size_bytes` on blob/media metadata.
     pub size_bytes: u64,
     pub media_type: String,

@@ -1,10 +1,11 @@
 //! Circle primitive (CXP-0007, spec b7d35be..2b0d70d).
 //!
-//! A `Circle` is an intra-Realm cryptographic sub-boundary. It hosts its
-//! own MLS group, its own membership (which MUST be a strict subset of
-//! the parent Realm's membership), and its own history visibility. It
-//! does NOT carry federation identity, policy server, or capability
-//! registry — those remain on the parent Realm.
+//! A `Circle` is an intra-Realm scoped event/message boundary. It hosts
+//! its own membership (which MUST be a strict subset of the parent
+//! Realm's membership), history visibility and delivery/query/projection
+//! boundary. A Circle may be plaintext delivery-only
+//! (`encryption_profile=none`) or MLS-backed (`mls_rfc9420`) depending on
+//! the parent Realm policy floor.
 //!
 //! Wire/serde shape mirrors spec
 //! `spec/v1/artifacts/schemas/circle.schema.json`. The struct is
@@ -53,9 +54,19 @@ pub enum CircleJoinRule {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum CircleMetadataEncryptionFloor {
-    BodyOnly,
+    ContentOnly,
     MinimalEncrypted,
     FullEncrypted,
+}
+
+/// Realm-wide content encryption floor (spec realm.schema.json
+/// `content_encryption_floor`).
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum ContentEncryptionFloor {
+    AllowPlaintext,
+    E2eeRequired,
 }
 
 /// Color tokens accepted on `Circle.display.color_token` (spec
@@ -396,7 +407,7 @@ pub fn compute_effective_history_visibility(
 /// larger rank.
 fn metadata_floor_rank(floor: CircleMetadataEncryptionFloor) -> u8 {
     match floor {
-        CircleMetadataEncryptionFloor::BodyOnly => 0,
+        CircleMetadataEncryptionFloor::ContentOnly => 0,
         CircleMetadataEncryptionFloor::MinimalEncrypted => 1,
         CircleMetadataEncryptionFloor::FullEncrypted => 2,
     }
@@ -419,6 +430,43 @@ pub fn validate_metadata_floor_tightens(
     }
 }
 
+/// Reducer-pure validator: Circle encryption MUST NOT fall below the
+/// parent Realm or effective content encryption floor.
+pub fn validate_circle_encryption_floor(
+    realm_encryption_profile: &EncryptionProfile,
+    content_encryption_floor: ContentEncryptionFloor,
+    circle_encryption_profile: &EncryptionProfile,
+) -> std::result::Result<(), CircleScopeError> {
+    let requires_mls = matches!(realm_encryption_profile, EncryptionProfile::MlsRfc9420)
+        || matches!(content_encryption_floor, ContentEncryptionFloor::E2eeRequired);
+    if requires_mls && !matches!(circle_encryption_profile, EncryptionProfile::MlsRfc9420) {
+        Err(CircleScopeError::CircleEncryptionBelowRealmFloor {
+            realm_encryption_profile: realm_encryption_profile.clone(),
+            content_encryption_floor,
+            circle_encryption_profile: circle_encryption_profile.clone(),
+        })
+    } else {
+        Ok(())
+    }
+}
+
+/// Reducer-pure validator for Flow / Message / Morph / Blob content writes
+/// under `Realm.content_encryption_floor`.
+pub fn validate_content_encryption_floor(
+    content_encryption_floor: ContentEncryptionFloor,
+    realm_encryption_profile: &EncryptionProfile,
+    circle_encryption_profile: Option<&EncryptionProfile>,
+) -> std::result::Result<(), CircleScopeError> {
+    if !matches!(content_encryption_floor, ContentEncryptionFloor::E2eeRequired) {
+        return Ok(());
+    }
+    let mls_backed = match circle_encryption_profile {
+        Some(profile) => matches!(profile, EncryptionProfile::MlsRfc9420),
+        None => matches!(realm_encryption_profile, EncryptionProfile::MlsRfc9420),
+    };
+    if mls_backed { Ok(()) } else { Err(CircleScopeError::ContentEncryptionFloorViolation) }
+}
+
 /// Reducer-pure predicate for `Space.child_scope_policy` enforcement
 /// (CXP-0007 §3.4.2).
 ///
@@ -435,10 +483,40 @@ pub fn enforce_child_scope_policy(
     parent_space_scope: Option<&CircleId>,
     realm_encryption_profile: &EncryptionProfile,
 ) -> std::result::Result<(), CircleScopeError> {
+    enforce_child_scope_policy_with_circle_profile(
+        policy,
+        child_scope,
+        parent_space_scope,
+        realm_encryption_profile,
+        None,
+    )
+}
+
+/// Variant of [`enforce_child_scope_policy`] for reducers that have already
+/// resolved the child Circle and can distinguish plaintext delivery-only
+/// Circles from MLS-backed Circles.
+pub fn enforce_child_scope_policy_with_circle_profile(
+    policy: &ChildScopePolicy,
+    child_scope: Option<&CircleId>,
+    parent_space_scope: Option<&CircleId>,
+    realm_encryption_profile: &EncryptionProfile,
+    child_circle_encryption_profile: Option<&EncryptionProfile>,
+) -> std::result::Result<(), CircleScopeError> {
     match policy {
         ChildScopePolicy::AllowAny { .. } => Ok(()),
         ChildScopePolicy::RequireE2ee { .. } => match child_scope {
-            Some(_) => Ok(()), // Circle scope is always MLS-backed.
+            Some(_)
+                if matches!(
+                    child_circle_encryption_profile,
+                    Some(EncryptionProfile::MlsRfc9420)
+                ) =>
+            {
+                Ok(())
+            }
+            Some(_) => Err(CircleScopeError::ChildScopePolicyViolated {
+                policy_kind: "require_e2ee",
+                detail: "Circle-scoped child requires circle.encryption_profile = mls_rfc9420",
+            }),
             None => match realm_encryption_profile {
                 EncryptionProfile::MlsRfc9420 => Ok(()),
                 _ => Err(CircleScopeError::ChildScopePolicyViolated {
@@ -519,6 +597,18 @@ pub enum CircleScopeError {
         realm_floor: CircleMetadataEncryptionFloor,
         circle_floor: CircleMetadataEncryptionFloor,
     },
+    /// Circle encryption profile would be weaker than the Realm content floor.
+    #[error(
+        "reason=circle_encryption_below_realm_floor: circle_encryption_profile={circle_encryption_profile:?} is below realm_encryption_profile={realm_encryption_profile:?} / content_encryption_floor={content_encryption_floor:?}"
+    )]
+    CircleEncryptionBelowRealmFloor {
+        realm_encryption_profile: EncryptionProfile,
+        content_encryption_floor: ContentEncryptionFloor,
+        circle_encryption_profile: EncryptionProfile,
+    },
+    /// Plaintext content write under `content_encryption_floor=e2ee_required`.
+    #[error("reason=content_encryption_floor_violation: content write is not MLS-backed")]
+    ContentEncryptionFloorViolation,
     /// `Space.child_scope_policy` rejected the child's scope.
     #[error("child_scope_policy={policy_kind} violated: {detail} (CXP-0007 §3.4.2)")]
     ChildScopePolicyViolated { policy_kind: &'static str, detail: &'static str },
@@ -549,7 +639,7 @@ impl Circle {
             join_rule: CircleJoinRule::Invite,
             history_visibility: HistoryVisibility::Joined,
             metadata_encryption_floor: None,
-            encryption_profile: EncryptionProfile::MlsRfc9420,
+            encryption_profile: EncryptionProfile::None,
             mls_group_ref: None,
             state: CircleState::Active,
             state_changed_at: None,
@@ -622,8 +712,8 @@ mod tests {
         let alice: Did = "did:web:alice.example".parse().unwrap();
         let bob: Did = "did:web:bob.example".parse().unwrap();
         let realm = vec![alice];
-        let err = Circle::assert_members_strict_subset(std::slice::from_ref(&bob), &realm)
-            .unwrap_err();
+        let err =
+            Circle::assert_members_strict_subset(std::slice::from_ref(&bob), &realm).unwrap_err();
         match err {
             CircleScopeError::MemberNotInRealm { circle_member } => {
                 assert_eq!(circle_member, bob);
@@ -756,9 +846,9 @@ mod tests {
     #[test]
     fn metadata_floor_accepts_tightening() {
         use CircleMetadataEncryptionFloor::*;
-        validate_metadata_floor_tightens(BodyOnly, BodyOnly).unwrap();
-        validate_metadata_floor_tightens(BodyOnly, MinimalEncrypted).unwrap();
-        validate_metadata_floor_tightens(BodyOnly, FullEncrypted).unwrap();
+        validate_metadata_floor_tightens(ContentOnly, ContentOnly).unwrap();
+        validate_metadata_floor_tightens(ContentOnly, MinimalEncrypted).unwrap();
+        validate_metadata_floor_tightens(ContentOnly, FullEncrypted).unwrap();
         validate_metadata_floor_tightens(MinimalEncrypted, FullEncrypted).unwrap();
         validate_metadata_floor_tightens(FullEncrypted, FullEncrypted).unwrap();
     }
@@ -767,11 +857,11 @@ mod tests {
     fn metadata_floor_rejects_loosening() {
         use CircleMetadataEncryptionFloor::*;
         assert!(matches!(
-            validate_metadata_floor_tightens(MinimalEncrypted, BodyOnly),
+            validate_metadata_floor_tightens(MinimalEncrypted, ContentOnly),
             Err(CircleScopeError::MetadataEncryptionFloorViolation { .. })
         ));
         assert!(matches!(
-            validate_metadata_floor_tightens(FullEncrypted, BodyOnly),
+            validate_metadata_floor_tightens(FullEncrypted, ContentOnly),
             Err(CircleScopeError::MetadataEncryptionFloorViolation { .. })
         ));
         assert!(matches!(
@@ -793,9 +883,27 @@ mod tests {
     #[test]
     fn child_scope_require_e2ee_needs_circle_or_mls_realm() {
         let policy = ChildScopePolicy::RequireE2ee { metadata_encryption_floor: None };
-        // Circle-scoped child → accept regardless of realm profile.
-        enforce_child_scope_policy(&policy, Some(&circle_a()), None, &EncryptionProfile::None)
-            .unwrap();
+        // Circle-scoped child requires the reducer to resolve the Circle's
+        // encryption profile; plaintext delivery-only Circles do not satisfy
+        // require_e2ee.
+        enforce_child_scope_policy_with_circle_profile(
+            &policy,
+            Some(&circle_a()),
+            None,
+            &EncryptionProfile::None,
+            Some(&EncryptionProfile::MlsRfc9420),
+        )
+        .unwrap();
+        assert!(matches!(
+            enforce_child_scope_policy_with_circle_profile(
+                &policy,
+                Some(&circle_a()),
+                None,
+                &EncryptionProfile::None,
+                Some(&EncryptionProfile::None),
+            ),
+            Err(CircleScopeError::ChildScopePolicyViolated { policy_kind: "require_e2ee", .. })
+        ));
         // Realm-default child + MLS realm → accept.
         enforce_child_scope_policy(&policy, None, None, &EncryptionProfile::MlsRfc9420).unwrap();
         // Realm-default child + non-MLS realm → reject.

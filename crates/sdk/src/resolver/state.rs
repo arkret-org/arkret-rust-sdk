@@ -660,11 +660,17 @@ impl SpaceState {
         let to_ref = self.extract_field(object, "to_ref")?;
         let rank = self.extract_optional_field(object, "rank");
         let fields = self.extract_fields(object)?;
+        let scope_circle_id =
+            self.extract_optional_field::<contrix_core::CircleId>(object, "scope_circle_id");
+        let effective_scope =
+            self.extract_optional_field::<contrix_core::EffectiveScope>(object, "effective_scope");
 
         let relation = Relation {
             schema: "cx.schema.relation.v1".to_owned(),
             id: relation_id,
             space_id: SpaceId::new(event.realm_id.to_string())?,
+            scope_circle_id,
+            effective_scope,
             relation_kind,
             from_ref,
             to_ref,

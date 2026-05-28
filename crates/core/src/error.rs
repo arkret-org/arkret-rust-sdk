@@ -522,6 +522,7 @@ pub const REASON_SENDER_COMMITMENT_EPOCH_MISMATCH: &str = "sender_commitment_epo
 // Range-completeness attestation (zh/sync/operations-sync.md §4.2.4).
 pub const REASON_RANGE_COMPLETENESS_ROOT_MISMATCH: &str = "range_completeness_root_mismatch";
 pub const REASON_RANGE_COMPLETENESS_ACTOR_SEQ_GAP: &str = "range_completeness_actor_seq_gap";
+pub const REASON_WITNESS_DISAGREEMENT: &str = "witness_disagreement";
 
 /// Known `failed_precondition` reason codes registered in round C45.
 pub const KNOWN_REASON_CODES_ROUND_C45: &[&str] = &[
@@ -587,6 +588,7 @@ pub const KNOWN_REASON_CODES_ROUND_C45: &[&str] = &[
     REASON_SENDER_COMMITMENT_EPOCH_MISMATCH,
     REASON_RANGE_COMPLETENESS_ROOT_MISMATCH,
     REASON_RANGE_COMPLETENESS_ACTOR_SEQ_GAP,
+    REASON_WITNESS_DISAGREEMENT,
 ];
 
 // ── CXP-0007 (spec b7d35be) — Circle primitive reason codes.
@@ -605,9 +607,19 @@ pub const REASON_CIRCLE_NOT_ACTIVE: &str = "circle_not_active";
 /// Reflects the strict-subset invariant
 /// `Circle.members ⊆ Realm.members`.
 pub const REASON_CIRCLE_MEMBER_MUST_BE_REALM_MEMBER: &str = "circle_member_must_be_realm_member";
+/// `failed_precondition` sub-reason: Circle encryption profile would be
+/// weaker than the parent Realm encryption profile or content encryption
+/// floor.
+pub const REASON_CIRCLE_ENCRYPTION_BELOW_REALM_FLOOR: &str = "circle_encryption_below_realm_floor";
+/// `failed_precondition` sub-reason: content write would land in a
+/// non-MLS-backed effective scope while the Realm content floor requires E2EE.
+pub const REASON_CONTENT_ENCRYPTION_FLOOR_VIOLATION: &str = "content_encryption_floor_violation";
 /// `failed_precondition` sub-reason: attempted `scope_circle_id` rebind
 /// without an explicitly profile-permitted audited-high-risk path.
 pub const REASON_SCOPE_REBIND_FORBIDDEN: &str = "scope_rebind_forbidden";
+/// `schema_violation` sub-reason: actor-side submit payload supplied the
+/// reducer-managed `effective_scope` field directly.
+pub const REASON_EFFECTIVE_SCOPE_REDUCER_MANAGED: &str = "effective_scope_reducer_managed";
 /// `failed_precondition` sub-reason: a write would expose metadata below
 /// the effective `metadata_encryption_profile` floor (max of parent
 /// Realm, Circle, Space child-scope-policy, and object profile floors).
@@ -622,7 +634,10 @@ pub const KNOWN_REASON_CODES_CXP_0007: &[&str] = &[
     REASON_CIRCLE_REALM_MISMATCH,
     REASON_CIRCLE_NOT_ACTIVE,
     REASON_CIRCLE_MEMBER_MUST_BE_REALM_MEMBER,
+    REASON_CIRCLE_ENCRYPTION_BELOW_REALM_FLOOR,
+    REASON_CONTENT_ENCRYPTION_FLOOR_VIOLATION,
     REASON_SCOPE_REBIND_FORBIDDEN,
+    REASON_EFFECTIVE_SCOPE_REDUCER_MANAGED,
     REASON_METADATA_ENCRYPTION_FLOOR_VIOLATION,
 ];
 

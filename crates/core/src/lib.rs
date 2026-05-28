@@ -138,7 +138,7 @@ pub use sync::{
     SubscriptionConfig, SyncClient, SyncFilter, SyncGap, SyncGapReason, SyncMode, SyncReqBody,
     SyncSemantics, SyncSpace, SyncStreamPosition, SyncTimeline, SyncTokenBinding, SyncUpdates,
     TimelineFilter, TimelineOrderKey, ToDeviceAck, ToDeviceAckStatus, ToDeviceMessage,
-    WaitForFrontier, sync_filter_hash,
+    WaitForFrontier, sync_filter_digest,
 };
 // `SyncResBody` is the wire-shape projection in [`model::api`]; the typed
 // per-event helpers above (SyncSpace, ToDeviceMessage, AccountData,

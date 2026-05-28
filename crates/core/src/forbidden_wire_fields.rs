@@ -122,6 +122,22 @@ pub enum WireContext {
     CapabilityAction,
     /// Event payload field carrying sender identity.
     EventPayloadOrProjection,
+    /// Service describe response property.
+    ServiceDescribe,
+    /// Blob metadata object property.
+    BlobMetadata,
+    /// Blob upload metadata object property.
+    BlobUploadMetadata,
+    /// Applet protocol metadata response property.
+    AppletProtocolMetadata,
+    /// MemberIdentity display_profile property.
+    MemberIdentityDisplayProfile,
+    /// Media metadata visibility enum / object value.
+    MediaMetadataVisibility,
+    /// Actor kind string value.
+    ActorKindValue,
+    /// Cursor body property.
+    CursorBody,
 }
 
 /// Spec `forbidden-wire-fields.json` entries that name a single
@@ -148,6 +164,26 @@ pub const FORBIDDEN_WIRE_FIELDS: &[&str] = &[
     "retention_policy_ref",
     "disclosure_policy_ref",
     "rate_limit_policy_ref",
+    "event_hashes",
+    "cache_until",
+    "signed_payload_hash",
+    "avatar_ref",
+    "icon_blob",
+    "space_bound",
+    "sha256",
+    "size",
+    "filter_hash",
+    "derived_hash_prefix",
+    "application_receipt_hash",
+    "review_receipt_hash",
+    "receipt_hash",
+    "pattern_hash",
+    "media_hash",
+    "presentation_hash",
+    "raw_document_hash",
+    "signature_over_content_hash",
+    "prev_frontier_hash",
+    "constraint_hash",
     // policy_ref is canonical on a Policy object itself (object-self id)
     // and forbidden everywhere else; see context-aware checker below.
 ];
@@ -322,6 +358,34 @@ const FORBIDDEN_ENTRIES: &[ForbiddenEntry] = &[
     ForbiddenEntry { field: "cx.schema.read_marker.v1", context: WireContext::SchemaId },
     // Flow kind value
     ForbiddenEntry { field: "kind=room", context: WireContext::FlowPayload },
+    // R3.4 naming hard rejects.
+    ForbiddenEntry { field: "event_hashes", context: WireContext::WireSchemaOrPayload },
+    ForbiddenEntry { field: "cache_until", context: WireContext::WireSchemaOrPayload },
+    ForbiddenEntry { field: "signed_payload_hash", context: WireContext::WireSchemaOrPayload },
+    ForbiddenEntry { field: "avatar_ref", context: WireContext::MemberIdentityDisplayProfile },
+    ForbiddenEntry { field: "icon_blob", context: WireContext::AppletProtocolMetadata },
+    ForbiddenEntry { field: "space_bound", context: WireContext::MediaMetadataVisibility },
+    ForbiddenEntry { field: "sha256", context: WireContext::BlobMetadata },
+    ForbiddenEntry { field: "sha256", context: WireContext::BlobUploadMetadata },
+    ForbiddenEntry { field: "size", context: WireContext::BlobUploadMetadata },
+    ForbiddenEntry { field: "filter_hash", context: WireContext::CursorBody },
+    ForbiddenEntry { field: "derived_hash_prefix", context: WireContext::WireSchemaOrPayload },
+    ForbiddenEntry { field: "application_receipt_hash", context: WireContext::WireSchemaOrPayload },
+    ForbiddenEntry { field: "review_receipt_hash", context: WireContext::WireSchemaOrPayload },
+    ForbiddenEntry { field: "receipt_hash", context: WireContext::WireSchemaOrPayload },
+    ForbiddenEntry { field: "pattern_hash", context: WireContext::WireSchemaOrPayload },
+    ForbiddenEntry { field: "media_hash", context: WireContext::WireSchemaOrPayload },
+    ForbiddenEntry { field: "presentation_hash", context: WireContext::WireSchemaOrPayload },
+    ForbiddenEntry { field: "raw_document_hash", context: WireContext::WireSchemaOrPayload },
+    ForbiddenEntry {
+        field: "signature_over_content_hash",
+        context: WireContext::WireSchemaOrPayload,
+    },
+    ForbiddenEntry { field: "prev_frontier_hash", context: WireContext::WireSchemaOrPayload },
+    ForbiddenEntry { field: "constraint_hash", context: WireContext::WireSchemaOrPayload },
+    ForbiddenEntry { field: "actor_kind=ghost", context: WireContext::ActorKindValue },
+    ForbiddenEntry { field: "actor_kind=agent_native", context: WireContext::ActorKindValue },
+    ForbiddenEntry { field: "actor_kind=agent_ghost", context: WireContext::ActorKindValue },
 ];
 
 /// Returns `true` when `field` is forbidden in the given `context` per the

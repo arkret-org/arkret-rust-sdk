@@ -657,7 +657,7 @@ pub struct MediaUploadReqBody {
     pub content_type: String,
     /// Spec rename (head 37ce729): `size` → `size_bytes` on blob/media metadata.
     pub size_bytes: u64,
-    pub sha256: Hash,
+    pub content_digest: Hash,
     #[serde(default)]
     pub encrypted: bool,
 }
@@ -689,7 +689,7 @@ pub struct ResumableUploadPart {
     pub upload_id: String,
     pub offset: u64,
     pub length: u64,
-    pub sha256: Hash,
+    pub content_digest: Hash,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -714,7 +714,7 @@ pub struct MediaDownloadResBody {
     pub content_type: String,
     /// Spec rename (head 37ce729): `size` → `size_bytes` on blob/media metadata.
     pub size_bytes: u64,
-    pub sha256: Hash,
+    pub content_digest: Hash,
     pub encrypted_payload: Option<EncryptedPayload>,
 }
 
@@ -1179,7 +1179,7 @@ mod tests {
             filename: Some("a.txt".to_owned()),
             content_type: "text/plain".to_owned(),
             size_bytes: 12,
-            sha256: Hash::new(
+            content_digest: Hash::new(
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             )
             .unwrap(),

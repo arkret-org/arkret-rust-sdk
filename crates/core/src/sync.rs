@@ -390,8 +390,8 @@ impl SyncStreamPosition {
     }
 }
 
-/// Hash the request filter and subscriptions for token binding.
-pub fn sync_filter_hash(
+/// Digest the request filter and subscriptions for token binding.
+pub fn sync_filter_digest(
     filter: Option<&SyncFilter>,
     subscriptions: Option<&SubscriptionConfig>,
 ) -> Result<String> {
@@ -413,8 +413,8 @@ pub struct SyncTokenBinding {
     pub device_id: DeviceId,
     /// Service that minted the token.
     pub service_id: Did,
-    /// Canonical hash of filter and subscription shape.
-    pub filter_hash: String,
+    /// Canonical digest of filter and subscription shape.
+    pub filter_digest: String,
     /// Stream positions captured by the token.
     #[serde(default)]
     pub positions: Vec<SyncStreamPosition>,
@@ -440,7 +440,7 @@ impl SyncTokenBinding {
             principal_id,
             device_id,
             service_id,
-            filter_hash: sync_filter_hash(filter, subscriptions)?,
+            filter_digest: sync_filter_digest(filter, subscriptions)?,
             positions,
             expires_at,
         })
@@ -452,7 +452,7 @@ impl SyncTokenBinding {
         principal_id: &Did,
         device_id: &DeviceId,
         service_id: &Did,
-        filter_hash: &str,
+        filter_digest: &str,
         now: DateTime<Utc>,
     ) -> Result<()> {
         if self.expires_at <= now {
@@ -461,7 +461,7 @@ impl SyncTokenBinding {
         if &self.principal_id != principal_id
             || &self.device_id != device_id
             || &self.service_id != service_id
-            || self.filter_hash != filter_hash
+            || self.filter_digest != filter_digest
         {
             return Err(Error::Protocol("sync token binding mismatch".to_owned()));
         }
@@ -975,7 +975,7 @@ mod tests {
             event_types: vec!["cx.message.create".to_owned()],
             not_event_types: Vec::new(),
         };
-        let filter_hash = sync_filter_hash(Some(&filter), None).unwrap();
+        let filter_digest = sync_filter_digest(Some(&filter), None).unwrap();
         let binding = SyncTokenBinding::for_request(
             "token123".to_owned(),
             principal.clone(),
@@ -988,7 +988,9 @@ mod tests {
         )
         .unwrap();
 
-        binding.validate_context(&principal, &device, &service, &filter_hash, Utc::now()).unwrap();
+        binding
+            .validate_context(&principal, &device, &service, &filter_digest, Utc::now())
+            .unwrap();
         assert!(
             binding
                 .validate_context(

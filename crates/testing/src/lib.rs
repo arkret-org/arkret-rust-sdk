@@ -130,9 +130,9 @@ pub struct CapabilityVector {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SyncVector {
     pub vector_id: String,
-    pub filter_hash: String,
+    pub filter_digest: String,
     pub frontier_size: usize,
-    pub expects_filter_hash_mismatch: bool,
+    pub expects_filter_digest_mismatch: bool,
 }
 
 pub fn conformance_report() -> Result<ConformanceReport> {
@@ -236,22 +236,22 @@ pub fn capability_vectors() -> Vec<CapabilityVector> {
     ]
 }
 
-/// Reference sync vectors covering cursor `filter_hash` binding.
+/// Reference sync vectors covering cursor `filter_digest` binding.
 pub fn sync_vectors() -> Vec<SyncVector> {
     vec![
         SyncVector {
-            vector_id: "sync/m-15-filter-hash-bound".to_owned(),
-            filter_hash: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-                .to_owned(),
+            vector_id: "sync/m-15-filter-digest-bound".to_owned(),
+            filter_digest:
+                "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef".to_owned(),
             frontier_size: 1,
-            expects_filter_hash_mismatch: false,
+            expects_filter_digest_mismatch: false,
         },
         SyncVector {
-            vector_id: "sync/m-16-filter-hash-mismatch-rejected".to_owned(),
-            filter_hash: "sha256:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"
-                .to_owned(),
+            vector_id: "sync/m-16-filter-digest-mismatch-rejected".to_owned(),
+            filter_digest:
+                "sha256:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210".to_owned(),
             frontier_size: 1,
-            expects_filter_hash_mismatch: true,
+            expects_filter_digest_mismatch: true,
         },
     ]
 }

@@ -7,12 +7,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use ulid::Ulid;
 
+#[cfg(test)]
+use crate::model::AppletTransactionResBody;
 use crate::{
     Did, Error, Event, Result, SpaceId, canonical,
     model::{AppletActorResBody, AppletRealmResBody, AppletTransactionReqBody},
 };
-#[cfg(test)]
-use crate::model::AppletTransactionResBody;
 
 /// Applet permission.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -269,8 +269,7 @@ pub fn sign_registration<S: contrix_core::MoveSigner + ?Sized>(
     let mut unsigned = reg.clone();
     unsigned.proof = None;
     let canonical_bytes = canonical::canonical_json_bytes(&unsigned)?;
-    let payload_digest =
-        crate::Hash::new(canonical::sha256_digest(&canonical_bytes))?;
+    let payload_digest = crate::Hash::new(canonical::sha256_digest(&canonical_bytes))?;
     let sig = signer.sign_payload(&canonical_bytes)?;
     reg.proof = Some(crate::model::Proof {
         kind: contrix_core::proof_kind::DETACHED_JWS.to_owned(),

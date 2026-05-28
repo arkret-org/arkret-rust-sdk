@@ -96,6 +96,11 @@ pub struct ServerDescription {
     /// variant; service-specific helpers may parse further.
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub rate_limit: Value,
+    /// R3.4 — coarse outbound network policy for SSRF-sensitive service
+    /// calls such as DID resolution, federation, media fetch, snapshots,
+    /// webhooks, applets, agents, directory and push.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub egress_network_policy: Option<EgressNetworkPolicy>,
     /// Reducer profiles supported (kept for back-compat — populated
     /// by the producer alongside `supported_profiles`).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -141,6 +146,94 @@ impl ServerDescription {
     pub fn supports_contrix_v1(&self) -> bool {
         self.protocol_version == PROTOCOL_VERSION
     }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct EgressNetworkPolicy {
+    pub version: u32,
+    pub private_network_default: EgressPrivateNetworkDefault,
+    #[serde(default)]
+    pub protected_purposes: Vec<EgressProtectedPurpose>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub deny_cidrs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub allow_cidrs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub allow_private_exceptions: Vec<EgressPrivateException>,
+    pub dns_rebind_protection: bool,
+    pub redirect_recheck: bool,
+}
+
+impl EgressNetworkPolicy {
+    /// Fail-closed baseline recommended for public service descriptions.
+    pub fn deny_private_defaults() -> Self {
+        Self {
+            version: 1,
+            private_network_default: EgressPrivateNetworkDefault::Deny,
+            protected_purposes: EgressProtectedPurpose::ALL.to_vec(),
+            deny_cidrs: Vec::new(),
+            allow_cidrs: Vec::new(),
+            allow_private_exceptions: Vec::new(),
+            dns_rebind_protection: true,
+            redirect_recheck: true,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum EgressPrivateNetworkDefault {
+    Deny,
+    DenyUnlessExplicitException,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum EgressProtectedPurpose {
+    DidResolution,
+    Federation,
+    MediaFetch,
+    PolicyServer,
+    SnapshotFetch,
+    Webhook,
+    Applet,
+    Agent,
+    Directory,
+    Push,
+}
+
+impl EgressProtectedPurpose {
+    pub const ALL: &'static [Self] = &[
+        Self::DidResolution,
+        Self::Federation,
+        Self::MediaFetch,
+        Self::PolicyServer,
+        Self::SnapshotFetch,
+        Self::Webhook,
+        Self::Applet,
+        Self::Agent,
+        Self::Directory,
+        Self::Push,
+    ];
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct EgressPrivateException {
+    pub purpose: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub service_did: Option<Did>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trust_domain: Option<TypedTrustDomainId>,
+    pub cidrs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ports: Vec<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub development_mode_only: Option<bool>,
+    pub expires_at: DateTime<Utc>,
 }
 
 /// Round 4 — wire-level entry in
@@ -1250,9 +1343,9 @@ impl DirectoryListHandlesForSubjectResBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct BlobUploadMetadata {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<SpaceId>,
+    pub realm_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sha256: Option<Hash>,
+    pub content_digest: Option<Hash>,
     /// Spec rename (head 37ce729): `size` → `size_bytes` on blob/media metadata.
     pub size_bytes: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1271,7 +1364,7 @@ pub struct BlobUploadResBody {
     pub size_bytes: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub media_type: Option<String>,
-    pub sha256: Hash,
+    pub content_digest: Hash,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub upload_receipt: Value,
 }
@@ -1515,7 +1608,7 @@ pub struct AppletProtocolResBody {
     pub protocol: String,
     pub display_name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub icon_blob: Option<BlobRef>,
+    pub icon_blob_ref: Option<BlobRef>,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub field_types: Value,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

@@ -193,11 +193,14 @@ fn strip_shell(input: &str) -> Result<(String, String)> {
         // HTTPS landing: everything AFTER the first `#` is the same grammar.
         // TODO(R3.3.1): tolerate landing URLs whose fragment itself was
         // percent-encoded by an over-eager link rewriter.
-        let (_, fragment) =
-            input.split_once('#').ok_or_else(|| protocol_err("https landing missing '#' fragment"))?;
+        let (_, fragment) = input
+            .split_once('#')
+            .ok_or_else(|| protocol_err("https landing missing '#' fragment"))?;
         fragment.trim_start_matches('/').to_owned()
     } else {
-        return Err(protocol_err("unrecognized address envelope (expected web+contrix: or https://.../#)"));
+        return Err(protocol_err(
+            "unrecognized address envelope (expected web+contrix: or https://.../#)",
+        ));
     };
 
     let (path, query) = match body.split_once('?') {
@@ -225,9 +228,8 @@ fn parse_path(path: &str) -> Result<(RealmRef, Option<String>, Option<String>)> 
         }
         None => return Err(protocol_err("empty path")),
     }
-    let realm_seg = segments
-        .next()
-        .ok_or_else(|| protocol_err("missing realm identifier after 'realm/'"))?;
+    let realm_seg =
+        segments.next().ok_or_else(|| protocol_err("missing realm identifier after 'realm/'"))?;
     if realm_seg == "flow" || realm_seg == "m" || realm_seg == "realm" {
         return Err(protocol_err("missing realm identifier (found keyword in id slot)"));
     }
@@ -255,7 +257,9 @@ fn parse_path(path: &str) -> Result<(RealmRef, Option<String>, Option<String>)> 
                         .next()
                         .ok_or_else(|| protocol_err("missing message identifier after 'm/'"))?;
                     if !is_lowercase_uuidv7(msg_seg) {
-                        return Err(protocol_err("message segment must be a bare lowercase uuidv7"));
+                        return Err(protocol_err(
+                            "message segment must be a bare lowercase uuidv7",
+                        ));
                     }
                     message = Some(msg_seg.to_owned());
                 }
@@ -438,21 +442,13 @@ fn build_query(parsed: &ParsedAddress) -> String {
             parts.push(format!("tok={token}"));
         }
     }
-    if parts.is_empty() {
-        String::new()
-    } else {
-        format!("?{}", parts.join("&"))
-    }
+    if parts.is_empty() { String::new() } else { format!("?{}", parts.join("&")) }
 }
 
 /// Wrap a bare uuid (or already-typed id) into a canonical `cx:<kind>:<uuid>`
 /// identifier. Idempotent if the input already carries the prefix.
 fn typed_id(prefix: &str, bare: &str) -> String {
-    if bare.starts_with(prefix) {
-        bare.to_owned()
-    } else {
-        format!("{prefix}{bare}")
-    }
+    if bare.starts_with(prefix) { bare.to_owned() } else { format!("{prefix}{bare}") }
 }
 
 /// The canonical signed-payload target descriptor bound into an `invite` token.
@@ -604,10 +600,9 @@ mod tests {
 
     #[test]
     fn multi_valued_via_preserved_in_order() {
-        let parsed = parse_address(&format!(
-            "web+contrix:realm/{R}/flow/{F}?via=did:web:a&via=did:web:b"
-        ))
-        .unwrap();
+        let parsed =
+            parse_address(&format!("web+contrix:realm/{R}/flow/{F}?via=did:web:a&via=did:web:b"))
+                .unwrap();
         assert_eq!(parsed.via, vec!["did:web:a".to_owned(), "did:web:b".to_owned()]);
     }
 
@@ -625,7 +620,8 @@ mod tests {
     #[test]
     fn https_landing_equivalence() {
         let parsed =
-            parse_address(&format!("web+contrix:realm/{R}/flow/{F}?via={VIA}&action=join")).unwrap();
+            parse_address(&format!("web+contrix:realm/{R}/flow/{F}?via={VIA}&action=join"))
+                .unwrap();
         let landing = build_https_landing("https://share.contrix.example", &parsed);
         assert!(landing.starts_with("https://share.contrix.example/#realm/"));
         // Everything after `#` is the same grammar → reparse yields the same
@@ -680,7 +676,9 @@ mod tests {
 
     #[test]
     fn non_uuid_flow_segment_fails_closed() {
-        assert!(parse_address(&format!("web+contrix:realm/{R}/flow/not-a-uuid?via={VIA}")).is_err());
+        assert!(
+            parse_address(&format!("web+contrix:realm/{R}/flow/not-a-uuid?via={VIA}")).is_err()
+        );
     }
 
     #[test]
@@ -694,10 +692,9 @@ mod tests {
             parse_address(&format!("web+contrix:realm/{R}/flow/{F}?via={VIA}&lt=preview")).unwrap();
         assert_eq!(parsed.link_type, LinkType::Reference);
         // A stray token on a non-invite link is dropped.
-        let parsed2 = parse_address(&format!(
-            "web+contrix:realm/{R}/flow/{F}?via={VIA}&lt=preview&tok=xyz"
-        ))
-        .unwrap();
+        let parsed2 =
+            parse_address(&format!("web+contrix:realm/{R}/flow/{F}?via={VIA}&lt=preview&tok=xyz"))
+                .unwrap();
         assert_eq!(parsed2.token, None);
     }
 
@@ -734,7 +731,8 @@ mod tests {
     fn target_digest_changes_when_object_changes() {
         let flow_a = parse_address(&format!("web+contrix:realm/{R}/flow/{F}?via={VIA}")).unwrap();
         let flow_b = parse_address(&format!("web+contrix:realm/{R}/flow/{F2}?via={VIA}")).unwrap();
-        let msg = parse_address(&format!("web+contrix:realm/{R}/flow/{F}/m/{M}?via={VIA}")).unwrap();
+        let msg =
+            parse_address(&format!("web+contrix:realm/{R}/flow/{F}/m/{M}?via={VIA}")).unwrap();
         let d_a = target_digest(&TargetDescriptor::from_parsed(&flow_a)).unwrap();
         let d_b = target_digest(&TargetDescriptor::from_parsed(&flow_b)).unwrap();
         let d_m = target_digest(&TargetDescriptor::from_parsed(&msg)).unwrap();
@@ -745,10 +743,9 @@ mod tests {
     #[test]
     fn verify_token_target_accepts_matching_object() {
         // Token minted for flow A (invite link).
-        let addr_a = parse_address(&format!(
-            "web+contrix:realm/{R}/flow/{F}?via={VIA}&lt=invite&tok=t"
-        ))
-        .unwrap();
+        let addr_a =
+            parse_address(&format!("web+contrix:realm/{R}/flow/{F}?via={VIA}&lt=invite&tok=t"))
+                .unwrap();
         let token_desc = {
             let mut d = TargetDescriptor::from_parsed(&addr_a);
             d.link_type = LinkType::Invite;
@@ -760,20 +757,18 @@ mod tests {
     #[test]
     fn verify_token_target_rejects_scope_confusion_replay() {
         // Token minted for object A.
-        let addr_a = parse_address(&format!(
-            "web+contrix:realm/{R}/flow/{F}?via={VIA}&lt=invite&tok=t"
-        ))
-        .unwrap();
+        let addr_a =
+            parse_address(&format!("web+contrix:realm/{R}/flow/{F}?via={VIA}&lt=invite&tok=t"))
+                .unwrap();
         let token_desc = {
             let mut d = TargetDescriptor::from_parsed(&addr_a);
             d.link_type = LinkType::Invite;
             d
         };
         // Replayed onto a different object B (different flow).
-        let addr_b = parse_address(&format!(
-            "web+contrix:realm/{R}/flow/{F2}?via={VIA}&lt=invite&tok=t"
-        ))
-        .unwrap();
+        let addr_b =
+            parse_address(&format!("web+contrix:realm/{R}/flow/{F2}?via={VIA}&lt=invite&tok=t"))
+                .unwrap();
         assert!(
             !verify_token_target(&token_desc, &addr_b, LinkType::Invite),
             "A-object token must not validate against a B address"

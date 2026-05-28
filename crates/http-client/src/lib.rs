@@ -907,8 +907,8 @@ impl Client {
             builder = builder
                 .header("Content-Disposition", format!("attachment; filename=\"{filename}\""));
         }
-        if let Some(sha256) = &metadata.sha256 {
-            builder = builder.header("Digest", sha256.as_str());
+        if let Some(content_digest) = &metadata.content_digest {
+            builder = builder.header("Digest", content_digest.as_str());
         }
         self.send_json(builder.body(bytes)).await
     }

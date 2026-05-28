@@ -39,6 +39,10 @@ pub struct Space {
     pub default_join_rule: JoinRule,
     pub history_visibility: HistoryVisibility,
     pub encryption_profile: EncryptionProfile,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content_encryption_floor: Option<ContentEncryptionFloor>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata_encryption_profile: Option<CircleMetadataEncryptionFloor>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub federation_policy: Option<FederationPolicy>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -173,6 +177,8 @@ impl Space {
             default_join_rule: JoinRule::Invite,
             history_visibility: HistoryVisibility::Joined,
             encryption_profile: EncryptionProfile::None,
+            content_encryption_floor: Some(ContentEncryptionFloor::AllowPlaintext),
+            metadata_encryption_profile: Some(CircleMetadataEncryptionFloor::ContentOnly),
             federation_policy: None,
             retention_policy_id: None,
             avatar_blob_ref: None,
@@ -528,6 +534,10 @@ pub struct Relation {
     pub schema: String,
     pub id: RelationId,
     pub space_id: SpaceId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope_circle_id: Option<CircleId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effective_scope: Option<EffectiveScope>,
     pub relation_kind: RelationKind,
     pub from_ref: String,
     pub to_ref: String,

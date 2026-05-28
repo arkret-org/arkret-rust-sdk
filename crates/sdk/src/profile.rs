@@ -446,10 +446,8 @@ impl ProfileCreateBuilder {
         }
         if let Some(accountable_to) = &self.accountable_to {
             let mut accountability = serde_json::Map::new();
-            accountability.insert(
-                "accountable_to".to_owned(),
-                Value::String(accountable_to.to_string()),
-            );
+            accountability
+                .insert("accountable_to".to_owned(), Value::String(accountable_to.to_string()));
             content.insert("accountability".to_owned(), Value::Object(accountability));
         }
         for (k, v) in &self.extra {

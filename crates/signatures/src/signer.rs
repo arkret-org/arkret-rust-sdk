@@ -171,7 +171,9 @@ pub fn verify_ed25519_move_signature(
 mod tests {
     use super::*;
     use contrix_core::move_event::{Effect, LatticeOp, LatticeOpType};
-    use contrix_core::{Anchor, AnchorId, AnchorerSig, CellRef, Hlc, MoveId, SpaceId, UnsignedMove};
+    use contrix_core::{
+        Anchor, AnchorId, AnchorerSig, CellRef, Hlc, MoveId, SpaceId, UnsignedMove,
+    };
     use serde_json::json;
 
     fn alice() -> Did {

@@ -66,22 +66,16 @@ pub struct PrimaryHandleSelectInput<'a> {
 /// MUST then follow the §3.8.2 unresolved fallback path).
 pub fn select_primary_handle(input: &PrimaryHandleSelectInput<'_>) -> Option<HandleClaim> {
     // Step 0 — candidate pre-filter.
-    let candidates: Vec<&HandleClaim> = input
-        .claim_set_snapshot
-        .iter()
-        .filter(|c| candidate_passes_step0(c, input))
-        .collect();
+    let candidates: Vec<&HandleClaim> =
+        input.claim_set_snapshot.iter().filter(|c| candidate_passes_step0(c, input)).collect();
     if candidates.is_empty() {
         return None;
     }
 
     // Step 1 — priority layers.
     let layer: Vec<&HandleClaim> = {
-        let audience_matched: Vec<&HandleClaim> = candidates
-            .iter()
-            .copied()
-            .filter(|c| matches_audience(c, input.context))
-            .collect();
+        let audience_matched: Vec<&HandleClaim> =
+            candidates.iter().copied().filter(|c| matches_audience(c, input.context)).collect();
         if !audience_matched.is_empty() {
             audience_matched
         } else {
@@ -101,11 +95,7 @@ pub fn select_primary_handle(input: &PrimaryHandleSelectInput<'_>) -> Option<Han
 
     // Step 2 — deterministic tie-breaker.
     let winner = layer.into_iter().reduce(|best, candidate| {
-        if tie_break_prefers(candidate, best, input.accepted_issuers) {
-            candidate
-        } else {
-            best
-        }
+        if tie_break_prefers(candidate, best, input.accepted_issuers) { candidate } else { best }
     })?;
     Some(winner.clone())
 }
@@ -154,7 +144,11 @@ fn holder_flagged(c: &HandleClaim, holder_primary: Option<&str>) -> bool {
 /// tie-breaker ordering: accepted_issuers position (earlier wins) →
 /// created_at (later wins) → `claim_digest` (lexicographically smaller
 /// wins).
-fn tie_break_prefers(candidate: &HandleClaim, best: &HandleClaim, accepted_issuers: &[String]) -> bool {
+fn tie_break_prefers(
+    candidate: &HandleClaim,
+    best: &HandleClaim,
+    accepted_issuers: &[String],
+) -> bool {
     let cand_pos = issuer_position(candidate, accepted_issuers);
     let best_pos = issuer_position(best, accepted_issuers);
     if cand_pos != best_pos {
@@ -173,10 +167,7 @@ fn tie_break_prefers(candidate: &HandleClaim, best: &HandleClaim, accepted_issue
 
 fn issuer_position(c: &HandleClaim, accepted_issuers: &[String]) -> usize {
     match &c.issuer {
-        Some(issuer) => accepted_issuers
-            .iter()
-            .position(|i| i == issuer)
-            .unwrap_or(usize::MAX),
+        Some(issuer) => accepted_issuers.iter().position(|i| i == issuer).unwrap_or(usize::MAX),
         None => usize::MAX,
     }
 }
@@ -210,9 +201,7 @@ pub fn claim_digest(claim: &HandleClaim) -> Result<String> {
 
 fn sort_string_array(slot: Option<&mut serde_json::Value>) {
     if let Some(serde_json::Value::Array(items)) = slot {
-        items.sort_by(|a, b| {
-            a.as_str().unwrap_or_default().cmp(b.as_str().unwrap_or_default())
-        });
+        items.sort_by(|a, b| a.as_str().unwrap_or_default().cmp(b.as_str().unwrap_or_default()));
     }
 }
 
@@ -322,8 +311,15 @@ mod tests {
         let acc = vec![issuer("did:web:acme.example"), issuer("did:web:other.example")];
         let s = subject();
         // older claim with matching audience vs newer claim without.
-        let matching = verified_claim("alice:acme.example", "did:web:acme.example", earlier, expires, Some("cx:realm:r1"));
-        let newer = verified_claim("alice:other.example", "did:web:other.example", later, expires, None);
+        let matching = verified_claim(
+            "alice:acme.example",
+            "did:web:acme.example",
+            earlier,
+            expires,
+            Some("cx:realm:r1"),
+        );
+        let newer =
+            verified_claim("alice:other.example", "did:web:other.example", later, expires, None);
         let snapshot = vec![newer, matching.clone()];
         let input = PrimaryHandleSelectInput {
             subject_id: &s,
@@ -342,7 +338,13 @@ mod tests {
         let now = Utc::now();
         let expires = now + chrono::Duration::days(30);
         let s = subject();
-        let claim = verified_claim("alice:rogue.example", "did:web:rogue.example", now - chrono::Duration::hours(1), expires, None);
+        let claim = verified_claim(
+            "alice:rogue.example",
+            "did:web:rogue.example",
+            now - chrono::Duration::hours(1),
+            expires,
+            None,
+        );
         let snapshot = vec![claim];
         let input = PrimaryHandleSelectInput {
             subject_id: &s,
@@ -359,7 +361,8 @@ mod tests {
     fn claim_digest_stable_under_hint_mutation() {
         let now = Utc::now();
         let expires = now + chrono::Duration::days(30);
-        let mut a = verified_claim("alice:acme.example", "did:web:acme.example", now, expires, None);
+        let mut a =
+            verified_claim("alice:acme.example", "did:web:acme.example", now, expires, None);
         let mut b = a.clone();
         // Mutating non-semantic hint fields MUST NOT change the digest.
         a.verified_at = Some(now);

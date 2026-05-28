@@ -261,7 +261,7 @@ pub struct FederationMediaResBody {
     pub content_type: String,
     /// Spec rename (head 37ce729): `size` → `size_bytes` on blob/media metadata.
     pub size_bytes: u64,
-    pub sha256: Hash,
+    pub content_digest: Hash,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub redirect_url: Option<String>,
 }
@@ -379,7 +379,7 @@ mod tests {
             blob_ref: BlobRef::from_bytes(b"media"),
             content_type: "image/png".to_owned(),
             size_bytes: 42,
-            sha256: Hash::new(
+            content_digest: Hash::new(
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             )
             .unwrap(),

@@ -223,7 +223,7 @@ mod tests {
             Ok(AppletProtocolResBody {
                 protocol: "cx.unknown".to_owned(),
                 display_name: "Unknown".to_owned(),
-                icon_blob: None,
+                icon_blob_ref: None,
                 field_types: serde_json::Value::Null,
                 instances: Vec::new(),
             })

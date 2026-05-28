@@ -107,7 +107,7 @@ pub struct DisplayProfile {
     /// rather than re-implementing UTF-16 codepoint counting here.
     pub display_name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub avatar_ref: Option<BlobRef>,
+    pub avatar_blob_ref: Option<BlobRef>,
 }
 
 /// Signing proof carried by every [`MemberIdentity`]. Verified
@@ -170,12 +170,8 @@ pub struct MemberIdentityReplacementRef {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum IdentityPayloadCarrier {
-    MemberIdentity {
-        member_identity: MemberIdentity,
-    },
-    EncryptedPayload {
-        encrypted_payload: Value,
-    },
+    MemberIdentity { member_identity: MemberIdentity },
+    EncryptedPayload { encrypted_payload: Value },
 }
 
 impl IdentityPayloadCarrier {
@@ -350,9 +346,7 @@ fn sorted_effective_entries(entries: &[EffectiveIdentityEntry]) -> Vec<&Effectiv
     sorted.sort_by(|a, b| {
         let seg_a = serde_json::to_string(&a.segment).unwrap_or_default();
         let seg_b = serde_json::to_string(&b.segment).unwrap_or_default();
-        seg_a
-            .cmp(&seg_b)
-            .then_with(|| a.event_id.as_str().cmp(b.event_id.as_str()))
+        seg_a.cmp(&seg_b).then_with(|| a.event_id.as_str().cmp(b.event_id.as_str()))
     });
     sorted
 }
@@ -469,7 +463,7 @@ mod tests {
             fake_realm(),
             fake_actor("alice"),
             fake_actor("alice-principal"),
-            DisplayProfile { display_name: name.to_owned(), avatar_ref: None },
+            DisplayProfile { display_name: name.to_owned(), avatar_blob_ref: None },
             Utc::now(),
             MemberIdentityProof {
                 verification_method: "did:web:alice.example#key-1".to_owned(),
@@ -496,10 +490,7 @@ mod tests {
         b.proof.signature = "BBBB".to_owned();
         // asserted_at is the only timestamp; pin it equal across both.
         b.asserted_at = a.asserted_at;
-        assert_eq!(
-            a.canonical_payload_sha256().unwrap(),
-            b.canonical_payload_sha256().unwrap(),
-        );
+        assert_eq!(a.canonical_payload_sha256().unwrap(), b.canonical_payload_sha256().unwrap(),);
     }
 
     #[test]
@@ -536,8 +527,8 @@ mod tests {
             expected_state_digest: None,
         };
 
-        let effective = effective_identity_events([(&event_a, &payload_a), (&event_b, &payload_b)])
-            .unwrap();
+        let effective =
+            effective_identity_events([(&event_a, &payload_a), (&event_b, &payload_b)]).unwrap();
         assert_eq!(effective.len(), 1);
         assert_eq!(effective[0].0.as_str(), event_b.as_str());
     }
@@ -578,8 +569,8 @@ mod tests {
             expected_state_digest: None,
         };
 
-        let effective = effective_identity_events([(&event_a, &payload_a), (&event_b, &payload_b)])
-            .unwrap();
+        let effective =
+            effective_identity_events([(&event_a, &payload_a), (&event_b, &payload_b)]).unwrap();
         assert_eq!(effective.len(), 2);
     }
 

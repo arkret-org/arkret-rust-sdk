@@ -29,17 +29,14 @@ impl Handle {
     /// Lowercases both the localpart and domain.
     pub fn parse(input: &str) -> Result<Self> {
         let mut parts = input.split(':');
-        let local = parts
-            .next()
-            .ok_or_else(|| Error::Protocol(format!("handle is empty: {input}")))?;
+        let local =
+            parts.next().ok_or_else(|| Error::Protocol(format!("handle is empty: {input}")))?;
         let domain_part = parts
             .next()
             .ok_or_else(|| Error::Protocol(format!("handle missing ':<domain>': {input}")))?;
         let port_part = parts.next();
         if parts.next().is_some() {
-            return Err(Error::Protocol(format!(
-                "handle has too many ':' separators: {input}"
-            )));
+            return Err(Error::Protocol(format!("handle has too many ':' separators: {input}")));
         }
         if local.is_empty() {
             return Err(Error::Protocol(format!("handle localpart is empty: {input}")));
@@ -302,13 +299,11 @@ fn is_valid_domain(s: &str) -> bool {
         }
         let bytes = label.as_bytes();
         let first_ok = bytes[0].is_ascii_lowercase() || bytes[0].is_ascii_digit();
-        let last_ok = bytes[bytes.len() - 1].is_ascii_lowercase()
-            || bytes[bytes.len() - 1].is_ascii_digit();
+        let last_ok =
+            bytes[bytes.len() - 1].is_ascii_lowercase() || bytes[bytes.len() - 1].is_ascii_digit();
         first_ok
             && last_ok
-            && label
-                .chars()
-                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+            && label.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
     })
 }
 
@@ -462,9 +457,7 @@ impl HandleClaim {
     pub fn validate(&self) -> Result<()> {
         if matches!(self.binding_state, Some(HandleBindingState::Verified)) {
             if self.handle.is_none() {
-                return Err(Error::Protocol(
-                    "binding_state=verified requires handle".to_owned(),
-                ));
+                return Err(Error::Protocol("binding_state=verified requires handle".to_owned()));
             }
             if self.expires_at.is_none() {
                 return Err(Error::Protocol(
@@ -476,8 +469,7 @@ impl HandleClaim {
             && (self.handle.is_none() || self.audience.is_none() || self.expires_at.is_none())
         {
             return Err(Error::Protocol(
-                "member_delivery_binding present requires handle, audience, expires_at"
-                    .to_owned(),
+                "member_delivery_binding present requires handle, audience, expires_at".to_owned(),
             ));
         }
         if let Some(subject) = &self.subject {
@@ -541,10 +533,8 @@ mod tests {
 
     #[test]
     fn verified_requires_handle_and_expires() {
-        let claim = HandleClaim {
-            binding_state: Some(HandleBindingState::Verified),
-            ..Default::default()
-        };
+        let claim =
+            HandleClaim { binding_state: Some(HandleBindingState::Verified), ..Default::default() };
         assert!(claim.validate().is_err());
     }
 
