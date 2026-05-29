@@ -89,7 +89,7 @@ pub enum CryptoMachineRequestKind {
     UploadDeviceKeys,
     /// `cx.keys.query_device_keys` — fetch peers' keys.
     QueryDeviceKeys,
-    /// `cx.keys.claim_one_time_keys` — claim peers' OTKs.
+    /// `cx.keys.claim_one_time_keys` — claim peers' one-time keys.
     ClaimOneTimeKeys,
     /// `cx.event.encrypt` — encrypt an event into a Space session.
     EncryptEvent,

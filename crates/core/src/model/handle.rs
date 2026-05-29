@@ -195,7 +195,7 @@ pub fn normalize_handle_localpart(input: &str) -> Result<String> {
     }
 
     // 4. Minimal confusable skeleton check for the highest-risk
-    //    substitutions (Cyrillic / Greek look-alikes of ASCII letters).
+    //    substitutions (Cyrillic / Greek lookalikes of ASCII letters).
     for ch in input.chars() {
         if !ch.is_ascii() && minimal_confusable_for(ch).is_some() {
             return Err(Error::Protocol(format!(
@@ -212,7 +212,7 @@ pub fn normalize_handle_localpart(input: &str) -> Result<String> {
 /// the minimal table. The full table is loaded in R3.1.
 fn minimal_confusable_for(ch: char) -> Option<char> {
     Some(match ch {
-        // Cyrillic look-alikes.
+        // Cyrillic lookalikes.
         'а' => 'a',
         'е' => 'e',
         'о' => 'o',
@@ -231,7 +231,7 @@ fn minimal_confusable_for(ch: char) -> Option<char> {
         'С' => 'C',
         'Т' => 'T',
         'Х' => 'X',
-        // Greek look-alikes.
+        // Greek lookalikes.
         'α' => 'a',
         'ο' => 'o',
         'ρ' => 'p',

@@ -47,7 +47,7 @@ pub struct Move {
     pub sig: MoveSignature,
 }
 
-/// Single precondition: a cell + a predicate. ANDed across the Move.
+/// Single precondition: a cell + a predicate. Combined with AND across the Move.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Precondition {

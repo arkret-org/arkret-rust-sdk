@@ -244,7 +244,7 @@ verify_move(M, pre_state, registry) -> Result<(), MoveReject>:
       grant = resolve_grant(ref.id, pre_state)
       assert grant covers (M.issuer, M.effects, M.space_id)
     if no authorized_by ref: M.issuer MUST be a Space-builtin role
-      (creator / member / device-owner) suficient for all M.effects per
+      (creator / member / device-owner) sufficient for all M.effects per
       cell schema.
 
   step 4: preconditions

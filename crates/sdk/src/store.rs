@@ -412,7 +412,8 @@ mod tests {
         BlobMetadata {
             schema: BLOB_SCHEMA.to_owned(),
             blob_ref,
-            sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned(),
+            content_digest:
+                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned(),
             size_bytes,
             media_type: "text/plain".to_owned(),
             filename: Some("note.txt".to_owned()),

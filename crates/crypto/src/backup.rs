@@ -199,7 +199,7 @@ pub fn decrypt_vault(
 
 /// Generate a fresh Recovery Key as a human-readable string of
 /// Crockford-base32-style groups (alphabet `0-9 + A-Z` minus `I/L/O/U`
-/// to avoid look-alikes). 32 random bytes (256 bits) are encoded as 50
+/// to avoid lookalikes). 32 random bytes (256 bits) are encoded as 50
 /// characters in five-character groups separated by `-`.
 pub fn generate_recovery_key() -> Result<String> {
     let mut bytes = [0u8; RECOVERY_KEY_BYTES];

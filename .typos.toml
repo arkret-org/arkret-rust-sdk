@@ -16,9 +16,15 @@ extend-ignore-re = [
 
 [default.extend-identifiers]
 WeeChat = "WeeChat"
+WebAuthnCose = "WebAuthnCose"
+CoseCbor = "CoseCbor"
 
 [default.extend-words]
 bellow = "below"
+COSE = "COSE"
+Cose = "Cose"
+OTKs = "OTKs"
+PN = "PN"
 stat = "state"
 sing = "sign"
 singed = "signed"

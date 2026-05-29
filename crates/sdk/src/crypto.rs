@@ -662,7 +662,7 @@ mod tests {
     #[test]
     fn constant_time_eq_matches_standard_equality() {
         let pairs: Vec<(&str, &str)> =
-            vec![("", ""), ("a", "a"), ("abc", "abc"), ("abc", "abd"), ("abc", "ab"), ("", "a")];
+            vec![("", ""), ("a", "a"), ("abc", "abc"), ("abc", "abe"), ("abc", "ab"), ("", "a")];
         for (left, right) in pairs {
             let ct_result = constant_time_eq(left, right);
             let eq_result = left == right;
