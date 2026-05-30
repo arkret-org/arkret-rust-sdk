@@ -146,7 +146,7 @@ impl Space {
             self.realm_id()?,
             crate::OP_FLOW_UPDATE,
             json!({
-                "flow_id": flow_id.as_str(),
+                "target_ref": flow_id.as_str(),
                 "patch": Value::Object(patch),
             }),
         );
@@ -180,7 +180,7 @@ impl Space {
             operation_id,
             self.realm_id()?,
             kind,
-            json!({ "flow_id": flow_id.as_str() }),
+            json!({ "target_ref": flow_id.as_str() }),
         );
         operation.operation_type = operation_type;
         operation.object_id = Some(flow_id.as_str().to_owned());

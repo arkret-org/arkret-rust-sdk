@@ -288,8 +288,7 @@ impl<'de> Deserialize<'de> for Patch {
 /// `event-payload.schema.json#/$defs/object_patch_payload`.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct ObjectPatchPayload {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_ref: Option<String>,
+    pub target_ref: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub object_ref: Option<String>,
     pub patch: Patch,
@@ -299,17 +298,17 @@ pub struct ObjectPatchPayload {
 
 impl ObjectPatchPayload {
     /// Build the minimal object-patch payload.
-    pub fn new(patch: Patch) -> Result<Self> {
-        let payload =
-            Self { target_ref: None, object_ref: None, patch, expected_state_digest: None };
-        payload.validate()?;
-        Ok(payload)
+    pub fn new(_patch: Patch) -> Result<Self> {
+        Err(Error::Protocol(
+            "object_patch_payload requires target_ref; use ObjectPatchPayload::for_target"
+                .to_owned(),
+        ))
     }
 
     /// Build an object-patch payload that targets a specific object.
     pub fn for_target(target_ref: impl Into<String>, patch: Patch) -> Result<Self> {
         let payload = Self {
-            target_ref: Some(target_ref.into()),
+            target_ref: target_ref.into(),
             object_ref: None,
             patch,
             expected_state_digest: None,
@@ -321,14 +320,10 @@ impl ObjectPatchPayload {
     /// Build an object-patch payload using the schema's `object_ref`
     /// alias.
     pub fn for_object(object_ref: impl Into<String>, patch: Patch) -> Result<Self> {
-        let payload = Self {
-            target_ref: None,
-            object_ref: Some(object_ref.into()),
-            patch,
-            expected_state_digest: None,
-        };
-        payload.validate()?;
-        Ok(payload)
+        let _ = (object_ref.into(), patch);
+        Err(Error::Protocol(
+            "object_patch_payload.object_ref is not canonical; use target_ref".to_owned(),
+        ))
     }
 
     /// Attach an expected-state hash for CAS-style object updates.
@@ -339,11 +334,12 @@ impl ObjectPatchPayload {
 
     /// Validate the typed payload's wire-level invariants.
     pub fn validate(&self) -> Result<()> {
-        if let Some(target_ref) = &self.target_ref {
-            validate_object_patch_ref("target_ref", target_ref)?;
-        }
+        validate_object_patch_ref("target_ref", &self.target_ref)?;
         if let Some(object_ref) = &self.object_ref {
             validate_object_patch_ref("object_ref", object_ref)?;
+            return Err(Error::Protocol(
+                "object_patch_payload.object_ref is not canonical; use target_ref".to_owned(),
+            ));
         }
         self.patch.validate()
     }
@@ -360,8 +356,7 @@ impl<'de> Deserialize<'de> for ObjectPatchPayload {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
         #[derive(Deserialize)]
         struct Wire {
-            #[serde(default)]
-            target_ref: Option<String>,
+            target_ref: String,
             #[serde(default)]
             object_ref: Option<String>,
             patch: Patch,

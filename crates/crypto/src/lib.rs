@@ -378,6 +378,7 @@ pub struct CrossSigningResetContent {
     pub principal_id: Did,
     pub previous_generation: u64,
     pub new_generation: u64,
+    #[serde(rename = "reset_reason_code", alias = "reset_reason")]
     pub reset_reason: String,
     pub proof: CrossSigningResetProof,
     pub issued_at: DateTime<Utc>,
@@ -396,7 +397,12 @@ pub struct CrossSigningResetContent {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum CrossSigningResetProof {
     /// Signature from the principal's current DID control key.
-    PrincipalSigning { signed_by: String, alg: String, signature: String },
+    PrincipalSigning {
+        #[serde(rename = "verification_method", alias = "signed_by")]
+        signed_by: String,
+        alg: String,
+        signature: String,
+    },
     /// Unlock of secret storage with the recovery key.
     RecoveryUnlock {
         recovery_secret_ref: String,
@@ -409,6 +415,7 @@ pub enum CrossSigningResetProof {
     /// Signature from a recovery service declared in the principal's DID document.
     TrustedRecoveryService {
         service_did: Did,
+        #[serde(rename = "verification_method", alias = "signed_by")]
         signed_by: String,
         alg: String,
         signature: String,
@@ -424,6 +431,7 @@ pub struct DeviceQuorumSignature {
     /// Quorum-contributing device.
     pub device_id: DeviceId,
     /// DID URL / verification-method identifying the signing key.
+    #[serde(rename = "verification_method", alias = "signed_by")]
     pub signed_by: String,
     /// Signature algorithm (e.g. `EdDSA`).
     pub alg: String,

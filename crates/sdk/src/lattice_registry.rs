@@ -21,7 +21,7 @@
 //!   space.join_rule, space.discovery, space.organization,
 //!   space.upgrade, flow.position, flow.stage, morph.stage, place.parent,
 //!   anchorer (Move/Anchor authority cell), mls_epoch.
-//! - **Fsm** (legal transitions only): member.state,
+//! - **Fsm** (legal transitions only): member.state, agent.status.
 //!   
 //! - **OrderedLog** (per-issuer monotonic append): space.create,
 //!   space.child, space.parent, account.status, policy.rule,
@@ -441,12 +441,14 @@ impl LatticeKind for AgentKey {
         &self,
         effect_payload: &Value,
     ) -> Result<Option<String>, LatticeKindError> {
-        let agent_did = effect_payload.get("agent_did").and_then(Value::as_str).ok_or(
-            LatticeKindError::MissingSubjectField {
+        let agent_did = effect_payload
+            .get("agent_principal_id")
+            .or_else(|| effect_payload.get("agent_did"))
+            .and_then(Value::as_str)
+            .ok_or(LatticeKindError::MissingSubjectField {
                 cell_family: "cx.component.agent.key.v1",
-                field: "agent_did",
-            },
-        )?;
+                field: "agent_principal_id",
+            })?;
         let key_id = effect_payload.get("key_id").and_then(Value::as_str).ok_or(
             LatticeKindError::MissingSubjectField {
                 cell_family: "cx.component.agent.key.v1",
@@ -567,6 +569,15 @@ singleton_lattice!(
     BottomPolicy::Reject,
     Criticality::Required,
     &["cx.space.destroy"]
+);
+
+singleton_lattice!(
+    CircleTombstone,
+    "cx.component.circle.tombstone.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    &["cx.circle.tombstone"]
 );
 
 singleton_lattice!(
@@ -776,6 +787,57 @@ per_subject_lattice!(
     &["cx.member.state"]
 );
 
+per_subject_lattice!(
+    AgentStatus,
+    "cx.component.agent.status.v1",
+    SdkLatticeKind::Fsm,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    "agent_principal_id",
+    &["cx.agent.pause", "cx.agent.resume", "cx.agent.deactivate"]
+);
+
+pub struct CircleMember;
+impl LatticeKind for CircleMember {
+    fn cell_family(&self) -> &'static str {
+        "cx.component.circle.member.v1"
+    }
+    fn lattice(&self) -> SdkLatticeKind {
+        SdkLatticeKind::CasRegister
+    }
+    fn bottom_policy(&self) -> BottomPolicy {
+        BottomPolicy::Reject
+    }
+    fn component(&self) -> ComponentDescriptor {
+        ComponentDescriptor {
+            component_type: "cx.component.circle.member.v1",
+            component_version: 1,
+            criticality: Criticality::Required,
+        }
+    }
+    fn subject_for_effect(
+        &self,
+        effect_payload: &Value,
+    ) -> Result<Option<String>, LatticeKindError> {
+        let circle_id = effect_payload.get("circle_id").and_then(Value::as_str).ok_or(
+            LatticeKindError::MissingSubjectField {
+                cell_family: "cx.component.circle.member.v1",
+                field: "circle_id",
+            },
+        )?;
+        let actor_id = effect_payload.get("actor_id").and_then(Value::as_str).ok_or(
+            LatticeKindError::MissingSubjectField {
+                cell_family: "cx.component.circle.member.v1",
+                field: "actor_id",
+            },
+        )?;
+        Ok(Some(format!("{circle_id}::{actor_id}")))
+    }
+    fn event_kinds(&self) -> &'static [&'static str] {
+        &["cx.circle.member.state"]
+    }
+}
+
 // ────────────────────────── OrderedLog families ──────────────────────────
 
 singleton_lattice!(
@@ -794,6 +856,15 @@ singleton_lattice!(
     BottomPolicy::Expose,
     Criticality::Required,
     &["cx.space.child"]
+);
+
+singleton_lattice!(
+    CircleCreate,
+    "cx.component.circle.create.v1",
+    SdkLatticeKind::OrderedLog,
+    BottomPolicy::Expose,
+    Criticality::Required,
+    &["cx.circle.create"]
 );
 
 // R1.2 — spec event-kind registry declares `cx.component.space.parent.v1`
@@ -839,6 +910,53 @@ per_subject_lattice!(
     "principal_id",
     &["cx.cross_signing.reset"]
 );
+
+pub struct MemberIdentity;
+impl LatticeKind for MemberIdentity {
+    fn cell_family(&self) -> &'static str {
+        "cx.component.member.identity.v1"
+    }
+    fn lattice(&self) -> SdkLatticeKind {
+        SdkLatticeKind::OrderedLog
+    }
+    fn bottom_policy(&self) -> BottomPolicy {
+        BottomPolicy::Expose
+    }
+    fn component(&self) -> ComponentDescriptor {
+        ComponentDescriptor {
+            component_type: "cx.component.member.identity.v1",
+            component_version: 1,
+            criticality: Criticality::Required,
+        }
+    }
+    fn subject_for_effect(
+        &self,
+        effect_payload: &Value,
+    ) -> Result<Option<String>, LatticeKindError> {
+        let realm_id = effect_payload.get("realm_id").and_then(Value::as_str).ok_or(
+            LatticeKindError::MissingSubjectField {
+                cell_family: "cx.component.member.identity.v1",
+                field: "realm_id",
+            },
+        )?;
+        let actor_id = effect_payload.get("actor_id").and_then(Value::as_str).ok_or(
+            LatticeKindError::MissingSubjectField {
+                cell_family: "cx.component.member.identity.v1",
+                field: "actor_id",
+            },
+        )?;
+        let segment = effect_payload.get("segment").and_then(Value::as_str).ok_or(
+            LatticeKindError::MissingSubjectField {
+                cell_family: "cx.component.member.identity.v1",
+                field: "segment",
+            },
+        )?;
+        Ok(Some(format!("{realm_id}::{actor_id}::{segment}")))
+    }
+    fn event_kinds(&self) -> &'static [&'static str] {
+        &["cx.member.identity.update"]
+    }
+}
 
 // ────────────────────────── MvRegister families ──────────────────────────
 
@@ -1124,17 +1242,44 @@ singleton_lattice!(
     &["cx.realm.link"]
 );
 
-// ── New Flow facet families (per-subject by flow_id) ──
+// ── New Flow facet families (per-subject by Flow id) ──
 
-per_subject_lattice!(
-    FlowFields,
-    "cx.component.flow.fields.v1",
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
-    Criticality::Required,
-    "flow_id",
-    &["cx.flow.update"]
-);
+pub struct FlowFields;
+impl LatticeKind for FlowFields {
+    fn cell_family(&self) -> &'static str {
+        "cx.component.flow.fields.v1"
+    }
+    fn lattice(&self) -> SdkLatticeKind {
+        SdkLatticeKind::CasRegister
+    }
+    fn bottom_policy(&self) -> BottomPolicy {
+        BottomPolicy::Reject
+    }
+    fn component(&self) -> ComponentDescriptor {
+        ComponentDescriptor {
+            component_type: "cx.component.flow.fields.v1",
+            component_version: 1,
+            criticality: Criticality::Required,
+        }
+    }
+    fn subject_for_effect(
+        &self,
+        effect_payload: &Value,
+    ) -> Result<Option<String>, LatticeKindError> {
+        effect_payload
+            .get("target_ref")
+            .or_else(|| effect_payload.get("flow_id"))
+            .and_then(Value::as_str)
+            .map(|s| Some(s.to_owned()))
+            .ok_or(LatticeKindError::MissingSubjectField {
+                cell_family: "cx.component.flow.fields.v1",
+                field: "target_ref",
+            })
+    }
+    fn event_kinds(&self) -> &'static [&'static str] {
+        &["cx.flow.update"]
+    }
+}
 
 per_subject_lattice!(
     FlowTracks,
@@ -1182,6 +1327,8 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(SpaceFreeze);
     registry.register(SpaceTombstone);
     registry.register(SpaceDestroy);
+    registry.register(CircleTombstone);
+    registry.register(CircleMember);
     registry.register(SpaceModerationPolicy);
     registry.register(SpaceHistorySharingPolicy);
     registry.register(SpaceAssetPrivacyPolicy);
@@ -1202,14 +1349,17 @@ pub fn default_lattice_registry() -> LatticeRegistry {
 
     // Fsm
     registry.register(MemberState);
+    registry.register(AgentStatus);
 
     // OrderedLog
     registry.register(SpaceCreate);
     registry.register(SpaceChild);
+    registry.register(CircleCreate);
     registry.register(SpaceParent);
     registry.register(AccountStatus);
     registry.register(PolicyRule);
     registry.register(CrossSigningReset);
+    registry.register(MemberIdentity);
 
     // MvRegister
     registry.register(ProfileCreate);
@@ -1281,6 +1431,8 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "cx.component.space.freeze.v1",
         "cx.component.space.tombstone.v1",
         "cx.component.space.destroy.v1",
+        "cx.component.circle.tombstone.v1",
+        "cx.component.circle.member.v1",
         "cx.component.space.moderation_policy.v1",
         "cx.component.space.history_sharing_policy.v1",
         "cx.component.space.asset_privacy_policy.v1",
@@ -1300,13 +1452,16 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "cx.component.mls.epoch.v1",
         // Fsm
         "cx.component.member.state.v1",
+        "cx.component.agent.status.v1",
         // OrderedLog
         "cx.component.space.create.v1",
         "cx.component.space.child.v1",
+        "cx.component.circle.create.v1",
         "cx.component.space.parent.v1",
         "cx.component.account.status.v1",
         "cx.component.policy.rule.v1",
         "cx.component.cross_signing.reset.v1",
+        "cx.component.member.identity.v1",
         // MvRegister
         "cx.component.profile.create.v1",
         "cx.component.view.create.v1",
@@ -1385,6 +1540,19 @@ pub fn build_sdk_cell_registry() -> MemoryCellRegistry {
         ],
         BottomMode::Reject,
     );
+    sdk_registry.register_fsm(
+        "cx.component.agent.status.v1",
+        None,
+        vec![
+            (json!("active"), json!("paused")),
+            (json!("paused"), json!("active")),
+            (json!("pending_runtime_key"), json!("deactivated")),
+            (json!("active"), json!("deactivated")),
+            (json!("paused"), json!("deactivated")),
+            (json!("pairing_expired"), json!("deactivated")),
+        ],
+        BottomMode::Reject,
+    );
     sdk_registry
 }
 
@@ -1417,11 +1585,12 @@ mod tests {
         // `cx.component.realm.delivery_binding_policy.v1`. We keep the
         // legacy `Space*` impls registered for reducer back-compat, so
         // 50 (legacy) + 28 (new realm/flow/morph/agent) - 4 withdrawn
-        // agent extension vectors families = 74.
+        // agent extension vectors families, plus agent status, Circle, and
+        // member identity cells = 79.
         // Bump this number deliberately when the spec event-kind
         // registry grows a new cell_family.
         let registry = default_lattice_registry();
-        assert_eq!(registry.len(), 74);
+        assert_eq!(registry.len(), 79);
     }
 
     #[test]
