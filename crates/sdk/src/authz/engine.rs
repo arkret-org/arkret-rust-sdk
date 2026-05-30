@@ -87,7 +87,7 @@ pub struct AuthzContext {
     /// CXP-0007 — Circle id when the operation targets a Circle-management
     /// capability (`cx.circle.manage`, `cx.circle.member.manage`,
     /// `cx.circle.member.add.others`, `cx.circle.audit`). Used by
-    /// [`Constraint::AllowedCircleRefs`] to membership-test against the
+    /// [`Constraint::AllowedCircleIds`] to membership-test against the
     /// grant's allow-list.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub circle_id: Option<contrix_core::CircleId>,
@@ -128,7 +128,7 @@ impl AuthzContext {
         }
     }
 
-    /// Set the target Circle id for `AllowedCircleRefs` constraint
+    /// Set the target Circle id for `AllowedCircleIds` constraint
     /// evaluation. Pass when the operation targets a Circle-management
     /// capability (`cx.circle.*`).
     pub fn with_circle_id(mut self, circle_id: contrix_core::CircleId) -> Self {
@@ -539,6 +539,7 @@ impl AuthzEngine {
                             | (ScopeLimitation::Relation, Resource::Relation { .. })
                             | (ScopeLimitation::View, Resource::View { .. })
                             | (ScopeLimitation::Policy, Resource::Policy { .. })
+                            | (ScopeLimitation::Circle, Resource::Circle { .. })
                     );
                     if !scope_matches {
                         return AuthzDecision::Deny {
@@ -558,6 +559,7 @@ impl AuthzEngine {
                     Resource::Relation { .. } => (Some("relation"), None),
                     Resource::View { .. } => (Some("view"), None),
                     Resource::Space { .. } => (Some("space"), None),
+                    Resource::Circle { .. } => (Some("circle"), None),
                     _ => (None, None),
                 };
 
@@ -647,7 +649,7 @@ impl AuthzEngine {
             }
             Constraint::ApprovalWorkflow {
                 approval_required,
-                approval_actor_refs,
+                approval_actor_ids,
                 timeout,
                 approval_mode,
                 approval_relation,
@@ -655,7 +657,7 @@ impl AuthzEngine {
                 controller_approval_required,
             } => {
                 if *approval_required {
-                    let reason = if let Some(approvers) = approval_actor_refs {
+                    let reason = if let Some(approvers) = approval_actor_ids {
                         format!(
                             "approval required from one of: {}",
                             approvers.iter().map(|a| a.as_str()).collect::<Vec<_>>().join(", ")
@@ -873,7 +875,7 @@ impl AuthzEngine {
             }
             Constraint::ContainerMove {
                 relation_kind_allow,
-                allowed_view_refs,
+                allowed_view_ids,
                 allowed_from_container_refs,
                 allowed_to_container_refs,
                 wip_limit_override,
@@ -886,9 +888,9 @@ impl AuthzEngine {
                         reason: format!("relation_kind '{}' not in allow list", rk),
                     };
                 }
-                if !allowed_view_refs.is_empty()
+                if !allowed_view_ids.is_empty()
                     && let Some(view_id) = ctx.view_id.as_deref()
-                    && !allowed_view_refs.iter().any(|v| v == view_id)
+                    && !allowed_view_ids.iter().any(|v| v == view_id)
                 {
                     return AuthzDecision::Deny {
                         reason: format!("view '{}' not allowed for container move", view_id),
@@ -921,8 +923,8 @@ impl AuthzEngine {
                 AuthzDecision::Allow
             }
             Constraint::ScopeLimitation {
-                allowed_flow_refs,
-                denied_flow_refs,
+                allowed_flow_ids,
+                denied_flow_ids,
                 allowed_tracks,
                 denied_tracks,
                 allowed_view_kinds,
@@ -931,13 +933,13 @@ impl AuthzEngine {
                 denied_view_renderers,
             } => {
                 if let Resource::Flow { flow_id, .. } = &ctx.resource {
-                    if denied_flow_refs.iter().any(|v| v == flow_id) {
+                    if denied_flow_ids.iter().any(|v| v == flow_id) {
                         return AuthzDecision::Deny {
                             reason: format!("flow '{}' is denied", flow_id),
                         };
                     }
-                    if !allowed_flow_refs.is_empty()
-                        && !allowed_flow_refs.iter().any(|v| v == flow_id)
+                    if !allowed_flow_ids.is_empty()
+                        && !allowed_flow_ids.iter().any(|v| v == flow_id)
                     {
                         return AuthzDecision::Deny {
                             reason: format!("flow '{}' not in allow list", flow_id),
@@ -996,22 +998,22 @@ impl AuthzEngine {
             // `cx.circle.audit`). Non-Circle-scoped operations leave
             // `circle_id` unset; per the constraint's narrow scope it
             // does not apply and silently passes.
-            Constraint::AllowedCircleRefs { allowed_circle_refs } => {
-                if allowed_circle_refs.is_empty() {
+            Constraint::AllowedCircleIds { allowed_circle_ids } => {
+                if allowed_circle_ids.is_empty() {
                     return AuthzDecision::Deny {
-                        reason: "allowed_circle_refs constraint requires a \
+                        reason: "allowed_circle_ids constraint requires a \
                                 non-empty allow list"
                             .to_owned(),
                     };
                 }
                 match &ctx.circle_id {
                     Some(circle_id) => {
-                        if allowed_circle_refs.contains(circle_id) {
+                        if allowed_circle_ids.contains(circle_id) {
                             AuthzDecision::Allow
                         } else {
                             AuthzDecision::Deny {
                                 reason: format!(
-                                    "circle '{}' not in allowed_circle_refs allow list",
+                                    "circle '{}' not in allowed_circle_ids allow list",
                                     circle_id.as_ref()
                                 ),
                             }

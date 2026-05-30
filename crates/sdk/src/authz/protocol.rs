@@ -110,7 +110,7 @@ pub struct ProtocolGrantConstraint {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub facet_deny: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub allowed_view_refs: Vec<String>,
+    pub allowed_view_ids: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub relation_kind_allow: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -132,7 +132,7 @@ pub struct ProtocolGrantConstraint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approval_mode: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub approval_actor_refs: Vec<String>,
+    pub approval_actor_ids: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approval_relation: Option<ProtocolGrantApprovalRelation>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -161,7 +161,7 @@ impl ProtocolGrantConstraint {
                 morph_type_deny: Vec::new(),
                 facet_allow: Vec::new(),
                 facet_deny: Vec::new(),
-                allowed_view_refs: vec!["cx:view:01904100-0000-7000-8000-b74ef68eeddf".to_owned()],
+                allowed_view_ids: vec!["cx:view:01904100-0000-7000-8000-b74ef68eeddf".to_owned()],
                 relation_kind_allow: vec!["responsible".to_owned()],
                 allowed_from_container_refs: Vec::new(),
                 allowed_to_container_refs: Vec::new(),
@@ -172,7 +172,7 @@ impl ProtocolGrantConstraint {
                 max_delegation_depth: Some(1),
                 approval_required: Some(true),
                 approval_mode: Some("two_man_rule".to_owned()),
-                approval_actor_refs: vec![
+                approval_actor_ids: vec![
                     "did:web:controller.example".to_owned(),
                     "did:web:guardian.example".to_owned(),
                 ],
@@ -196,7 +196,7 @@ impl ProtocolGrantConstraint {
                 morph_type_deny: Vec::new(),
                 facet_allow: vec!["recovery".to_owned()],
                 facet_deny: Vec::new(),
-                allowed_view_refs: Vec::new(),
+                allowed_view_ids: Vec::new(),
                 relation_kind_allow: Vec::new(),
                 allowed_from_container_refs: Vec::new(),
                 allowed_to_container_refs: Vec::new(),
@@ -207,7 +207,7 @@ impl ProtocolGrantConstraint {
                 max_delegation_depth: Some(0),
                 approval_required: Some(false),
                 approval_mode: None,
-                approval_actor_refs: Vec::new(),
+                approval_actor_ids: Vec::new(),
                 approval_relation: None,
                 requires_claims: vec![ProtocolGrantClaimRequirement {
                     claim_type: "recovery_operator".to_owned(),
@@ -235,7 +235,7 @@ impl ProtocolGrantConstraint {
                 morph_type_deny: Vec::new(),
                 facet_allow: Vec::new(),
                 facet_deny: Vec::new(),
-                allowed_view_refs: Vec::new(),
+                allowed_view_ids: Vec::new(),
                 relation_kind_allow: Vec::new(),
                 allowed_from_container_refs: vec!["cx:list:triage".to_owned()],
                 allowed_to_container_refs: vec!["cx:list:ready".to_owned()],
@@ -246,7 +246,7 @@ impl ProtocolGrantConstraint {
                 max_delegation_depth: Some(0),
                 approval_required: Some(true),
                 approval_mode: Some("move_gate".to_owned()),
-                approval_actor_refs: vec!["did:web:ops.example".to_owned()],
+                approval_actor_ids: vec!["did:web:ops.example".to_owned()],
                 approval_relation: Some(ProtocolGrantApprovalRelation::Responsible),
                 requires_claims: Vec::new(),
                 evaluation_class: None,

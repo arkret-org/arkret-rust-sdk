@@ -237,11 +237,10 @@ impl ResourceSelector {
             }
             (Self::Actor { .. }, _) => false,
 
-            // Circle selector — matches by exact CircleId. The Resource
-            // enum does not yet carry a dedicated Circle variant; circle
-            // resolution drives through the parent Realm so we fall
-            // through to `false` here and rely on the reducer-side check.
-            // TODO(R3.1): add `Resource::Circle` and wire the match arm.
+            // Circle selector
+            (Self::Circle { circle_id }, Resource::Circle { circle_id: target_id }) => {
+                circle_id == target_id
+            }
             (Self::Circle { .. }, _) => false,
 
             // Wildcard matches everything
@@ -374,6 +373,8 @@ pub struct ProtocolResourceSelector {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub space_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub circle_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub object_type: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub object_ref: Option<String>,
@@ -414,6 +415,7 @@ impl ProtocolResourceSelector {
             ResourceSelector::Space { space_id } => Self {
                 kind: ProtocolResourceSelectorKind::Space,
                 space_id: Some(space_id.clone()),
+                circle_id: None,
                 object_type: None,
                 object_ref: None,
                 flow_id: None,
@@ -434,6 +436,7 @@ impl ProtocolResourceSelector {
             ResourceSelector::Flow { space_id, flow_id } => Self {
                 kind: ProtocolResourceSelectorKind::Flow,
                 space_id: Some(space_id.clone()),
+                circle_id: None,
                 flow_id: flow_id.clone(),
                 object_type: None,
                 object_ref: None,
@@ -454,6 +457,7 @@ impl ProtocolResourceSelector {
             ResourceSelector::Object { space_id, object_type, object_ref } => Self {
                 kind: ProtocolResourceSelectorKind::Object,
                 space_id: Some(space_id.clone()),
+                circle_id: None,
                 object_type: object_type.clone(),
                 object_ref: object_ref.clone(),
                 flow_id: None,
@@ -474,6 +478,7 @@ impl ProtocolResourceSelector {
             ResourceSelector::Message { space_id, message_id } => Self {
                 kind: ProtocolResourceSelectorKind::Message,
                 space_id: Some(space_id.clone()),
+                circle_id: None,
                 message_id: message_id.clone(),
                 object_type: None,
                 object_ref: None,
@@ -494,6 +499,7 @@ impl ProtocolResourceSelector {
             ResourceSelector::Relation { space_id, relation_kind } => Self {
                 kind: ProtocolResourceSelectorKind::Relation,
                 space_id: Some(space_id.clone()),
+                circle_id: None,
                 relation_kind: Some(relation_kind.clone()),
                 object_type: None,
                 object_ref: None,
@@ -514,6 +520,7 @@ impl ProtocolResourceSelector {
             ResourceSelector::View { space_id, view_id } => Self {
                 kind: ProtocolResourceSelectorKind::View,
                 space_id: Some(space_id.clone()),
+                circle_id: None,
                 view_id: view_id.clone(),
                 object_type: None,
                 object_ref: None,
@@ -534,6 +541,7 @@ impl ProtocolResourceSelector {
             ResourceSelector::Schema { space_id, schema_id } => Self {
                 kind: ProtocolResourceSelectorKind::Schema,
                 space_id: Some(space_id.clone()),
+                circle_id: None,
                 schema_ref: schema_id.clone(),
                 object_type: None,
                 object_ref: None,
@@ -554,6 +562,7 @@ impl ProtocolResourceSelector {
             ResourceSelector::Policy { space_id, policy_id } => Self {
                 kind: ProtocolResourceSelectorKind::Policy,
                 space_id: Some(space_id.clone()),
+                circle_id: None,
                 policy_id: policy_id.clone(),
                 object_type: None,
                 object_ref: None,
@@ -574,6 +583,7 @@ impl ProtocolResourceSelector {
             ResourceSelector::Invite { space_id, invite_id } => Self {
                 kind: ProtocolResourceSelectorKind::Invite,
                 space_id: Some(space_id.clone()),
+                circle_id: None,
                 invite_id: invite_id.clone(),
                 object_type: None,
                 object_ref: None,
@@ -594,6 +604,7 @@ impl ProtocolResourceSelector {
             ResourceSelector::ReadCursor { space_id } => Self {
                 kind: ProtocolResourceSelectorKind::ReadCursor,
                 space_id: Some(space_id.clone()),
+                circle_id: None,
                 object_type: None,
                 object_ref: None,
                 flow_id: None,
@@ -611,9 +622,136 @@ impl ProtocolResourceSelector {
                 blob_ref: None,
                 match_scope: None,
             },
-            _ => Self {
+            ResourceSelector::Morph { space_id, morph_id, morph_type } => Self {
+                kind: ProtocolResourceSelectorKind::Morph,
+                space_id: Some(space_id.clone()),
+                circle_id: None,
+                morph_id: morph_id.clone(),
+                morph_type: morph_type.clone(),
+                object_type: None,
+                object_ref: None,
+                flow_id: None,
+                message_id: None,
+                relation_kind: None,
+                relation_id: None,
+                view_id: None,
+                event_id: None,
+                actor_id: None,
+                schema_ref: None,
+                policy_id: None,
+                invite_id: None,
+                blob_ref: None,
+                match_scope: None,
+            },
+            ResourceSelector::Notification { actor_did, notification_id } => Self {
+                kind: ProtocolResourceSelectorKind::Notification,
+                space_id: None,
+                circle_id: None,
+                actor_id: Some(actor_did.clone()),
+                object_ref: notification_id.clone(),
+                object_type: None,
+                flow_id: None,
+                message_id: None,
+                morph_id: None,
+                morph_type: None,
+                relation_kind: None,
+                relation_id: None,
+                view_id: None,
+                event_id: None,
+                schema_ref: None,
+                policy_id: None,
+                invite_id: None,
+                blob_ref: None,
+                match_scope: None,
+            },
+            ResourceSelector::Blob { space_id, blob_id } => Self {
+                kind: ProtocolResourceSelectorKind::Blob,
+                space_id: Some(space_id.clone()),
+                circle_id: None,
+                blob_ref: blob_id.clone(),
+                object_type: None,
+                object_ref: None,
+                flow_id: None,
+                message_id: None,
+                morph_id: None,
+                morph_type: None,
+                relation_kind: None,
+                relation_id: None,
+                view_id: None,
+                event_id: None,
+                actor_id: None,
+                schema_ref: None,
+                policy_id: None,
+                invite_id: None,
+                match_scope: None,
+            },
+            ResourceSelector::Event { space_id, event_kind, event_id } => Self {
+                kind: ProtocolResourceSelectorKind::Event,
+                space_id: Some(space_id.clone()),
+                circle_id: None,
+                object_type: event_kind.clone(),
+                event_id: event_id.clone(),
+                object_ref: None,
+                flow_id: None,
+                message_id: None,
+                morph_id: None,
+                morph_type: None,
+                relation_kind: None,
+                relation_id: None,
+                view_id: None,
+                actor_id: None,
+                schema_ref: None,
+                policy_id: None,
+                invite_id: None,
+                blob_ref: None,
+                match_scope: None,
+            },
+            ResourceSelector::Actor { actor_did } => Self {
+                kind: ProtocolResourceSelectorKind::Actor,
+                space_id: None,
+                circle_id: None,
+                actor_id: Some(actor_did.clone()),
+                object_type: None,
+                object_ref: None,
+                flow_id: None,
+                message_id: None,
+                morph_id: None,
+                morph_type: None,
+                relation_kind: None,
+                relation_id: None,
+                view_id: None,
+                event_id: None,
+                schema_ref: None,
+                policy_id: None,
+                invite_id: None,
+                blob_ref: None,
+                match_scope: None,
+            },
+            ResourceSelector::Circle { circle_id } => Self {
+                kind: ProtocolResourceSelectorKind::Circle,
+                space_id: None,
+                circle_id: Some(circle_id.to_string()),
+                object_type: None,
+                object_ref: None,
+                flow_id: None,
+                message_id: None,
+                morph_id: None,
+                morph_type: None,
+                relation_kind: None,
+                relation_id: None,
+                view_id: None,
+                event_id: None,
+                actor_id: None,
+                schema_ref: None,
+                policy_id: None,
+                invite_id: None,
+                blob_ref: None,
+                match_scope: None,
+            },
+            ResourceSelector::Wildcard => Self {
                 kind: ProtocolResourceSelectorKind::Wildcard,
                 space_id: None,
+                circle_id: None,
                 object_type: None,
                 object_ref: None,
                 flow_id: None,
@@ -641,6 +779,7 @@ impl ProtocolResourceSelector {
             Self {
                 kind: ProtocolResourceSelectorKind::Event,
                 space_id: Some("cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned()),
+                circle_id: None,
                 event_id: Some("cx:event:01904100-0000-7000-8000-51495aba0a08".to_owned()),
                 object_type: None,
                 object_ref: None,
@@ -661,6 +800,7 @@ impl ProtocolResourceSelector {
             Self {
                 kind: ProtocolResourceSelectorKind::Actor,
                 space_id: Some("cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned()),
+                circle_id: None,
                 actor_id: Some("did:web:alice.example".to_owned()),
                 object_type: None,
                 object_ref: None,
@@ -681,6 +821,7 @@ impl ProtocolResourceSelector {
             Self {
                 kind: ProtocolResourceSelectorKind::Notification,
                 space_id: Some("cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned()),
+                circle_id: None,
                 actor_id: Some("did:web:alice.example".to_owned()),
                 object_type: Some("device_verification".to_owned()),
                 object_ref: Some("cx:notify:01JS0NT000000000000000000".to_owned()),
@@ -701,6 +842,7 @@ impl ProtocolResourceSelector {
             Self {
                 kind: ProtocolResourceSelectorKind::Blob,
                 space_id: Some("cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned()),
+                circle_id: None,
                 blob_ref: Some("cx:blob:sha256:0123456789abcdef".to_owned()),
                 object_type: Some("encrypted_backup".to_owned()),
                 object_ref: Some("backup-scaffold-current-device".to_owned()),

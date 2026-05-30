@@ -33,6 +33,7 @@ pub enum EnvelopeActorKind {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct EventRef {
     pub id: String,
     pub role: String,
@@ -58,6 +59,7 @@ fn default_event_ref_critical() -> bool {
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct EventRequirements {
     #[serde(default, rename = "schema", skip_serializing_if = "Vec::is_empty")]
     pub schema_profile_refs: Vec<String>,
@@ -80,6 +82,7 @@ impl EventRequirements {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(try_from = "EventWire")]
 pub struct Event {
     pub event_id: EventId,
     pub kind: String,
@@ -153,6 +156,82 @@ pub struct Event {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub unsigned: BTreeMap<String, Value>,
     pub proofs: Vec<Proof>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct EventWire {
+    pub event_id: EventId,
+    pub kind: String,
+    pub realm_id: RealmId,
+    pub actor_id: Did,
+    pub actor_seq: u64,
+    pub created_at: DateTime<Utc>,
+    pub hlc: Hlc,
+    pub prev_refs: Vec<EventId>,
+    #[serde(default)]
+    pub effective_scope: Option<EffectiveScope>,
+    #[serde(default)]
+    pub refs: Vec<EventRef>,
+    #[serde(default)]
+    pub preconditions: Vec<Precondition>,
+    #[serde(default)]
+    pub effects: Vec<Effect>,
+    #[serde(default)]
+    pub anchor_ref: Option<AnchorId>,
+    #[serde(default)]
+    pub requirements: EventRequirements,
+    #[serde(default)]
+    pub redacts: Option<EventId>,
+    #[serde(rename = "payload")]
+    pub content: Value,
+    #[serde(default)]
+    pub executed_by: Option<Did>,
+    #[serde(default)]
+    pub authorization_ref: Option<String>,
+    #[serde(default)]
+    pub actor_kind: Option<EnvelopeActorKind>,
+    #[serde(default)]
+    pub applet_id: Option<String>,
+    #[serde(default)]
+    pub external_ref: Option<Value>,
+    #[serde(default)]
+    pub unsigned: BTreeMap<String, Value>,
+    pub proofs: Vec<Proof>,
+}
+
+impl TryFrom<EventWire> for Event {
+    type Error = String;
+
+    fn try_from(wire: EventWire) -> std::result::Result<Self, Self::Error> {
+        let event = Self {
+            event_id: wire.event_id,
+            kind: wire.kind,
+            realm_id: wire.realm_id,
+            actor_id: wire.actor_id,
+            actor_seq: wire.actor_seq,
+            created_at: wire.created_at,
+            hlc: wire.hlc,
+            prev_refs: wire.prev_refs,
+            effective_scope: wire.effective_scope,
+            refs: wire.refs,
+            preconditions: wire.preconditions,
+            effects: wire.effects,
+            anchor_ref: wire.anchor_ref,
+            requirements: wire.requirements,
+            redacts: wire.redacts,
+            content: wire.content,
+            executed_by: wire.executed_by,
+            authorization_ref: wire.authorization_ref,
+            actor_kind: wire.actor_kind,
+            applet_id: wire.applet_id,
+            external_ref: wire.external_ref,
+            unsigned: wire.unsigned,
+            proofs: wire.proofs,
+        };
+        event.validate_forbidden_wire_surface().map_err(|err| err.to_string())?;
+        Ok(event)
+    }
 }
 
 /// CXP-0007 (spec b7d35be, schemas/event-schema.json
@@ -240,10 +319,27 @@ impl Event {
     }
 
     pub fn validate_wire_schema(&self) -> Result<()> {
+        self.validate_forbidden_wire_surface()?;
         let value = serde_json::to_value(self)?;
         let registry = crate::schema::schema_registry_from_default_spec_artifacts()?
             .unwrap_or_else(ProtocolSchemaRegistry::default);
         registry.validate_value(EVENT_SCHEMA, &value)
+    }
+
+    pub fn validate_forbidden_wire_surface(&self) -> Result<()> {
+        validate_forbidden_object_keys(
+            "Event.payload",
+            &self.content,
+            crate::WireContext::EventEnvelopeOrPayloadTopLevel,
+        )?;
+        if let Some(context) = payload_context_for_event_kind(&self.kind) {
+            validate_forbidden_object_keys("Event.payload", &self.content, context)?;
+        }
+        validate_forbidden_id_prefixes("Event.payload", &self.content)?;
+        validate_forbidden_id_prefixes(
+            "Event.external_ref",
+            self.external_ref.as_ref().unwrap_or(&Value::Null),
+        )
     }
 
     /// Validate that all proofs bind to this event's digest.
@@ -298,6 +394,76 @@ impl Event {
             unsigned: BTreeMap::new(),
             proofs: Vec::new(),
         })
+    }
+}
+
+fn payload_context_for_event_kind(kind: &str) -> Option<crate::WireContext> {
+    let suffix = kind.strip_prefix("cx.").unwrap_or(kind);
+    match suffix.split('.').next()? {
+        "flow" => Some(crate::WireContext::FlowPayload),
+        "morph" => Some(crate::WireContext::MorphPayload),
+        "space" => Some(crate::WireContext::SpacePayload),
+        "relation" => Some(crate::WireContext::RelationPayload),
+        "message" if suffix == "message.create" => Some(crate::WireContext::MessageCreatePayload),
+        "realm" if suffix == "realm.freeze" => Some(crate::WireContext::RealmFreezePayload),
+        _ => None,
+    }
+}
+
+fn validate_forbidden_object_keys(
+    label: &str,
+    value: &Value,
+    context: crate::WireContext,
+) -> Result<()> {
+    let Some(object) = value.as_object() else {
+        return Ok(());
+    };
+    for (key, child) in object {
+        if crate::is_forbidden_in_context(key, context) {
+            return Err(Error::Protocol(format!(
+                "{label} contains forbidden wire field '{key}' in context {context:?}"
+            )));
+        }
+        if let Some(fields) = child.as_object().filter(|_| key == "fields") {
+            for nested_key in fields.keys() {
+                let nested = format!("fields.{nested_key}");
+                if crate::is_forbidden_in_context(&nested, context) {
+                    return Err(Error::Protocol(format!(
+                        "{label}.fields contains forbidden wire field '{nested}' in context {context:?}"
+                    )));
+                }
+            }
+        }
+        if key == "kind"
+            && child.as_str() == Some("room")
+            && crate::is_forbidden_in_context("kind=room", context)
+        {
+            return Err(Error::Protocol(format!(
+                "{label}.kind contains forbidden value 'room' in context {context:?}"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_forbidden_id_prefixes(label: &str, value: &Value) -> Result<()> {
+    match value {
+        Value::String(s) if crate::is_forbidden_id_prefix(s) => Err(Error::Protocol(format!(
+            "{label} contains forbidden typed-id prefix in value '{s}'"
+        ))),
+        Value::Array(items) => {
+            for item in items {
+                validate_forbidden_id_prefixes(label, item)?;
+            }
+            Ok(())
+        }
+        Value::Object(map) => {
+            for value in map.values() {
+                validate_forbidden_id_prefixes(label, value)?;
+            }
+            Ok(())
+        }
+        _ => Ok(()),
     }
 }
 
@@ -387,5 +553,42 @@ mod applet_routing_field_tests {
         let back: Event = serde_json::from_value(value).unwrap();
         assert_eq!(back.applet_id.as_deref(), event.applet_id.as_deref());
         assert_eq!(back.external_ref, event.external_ref);
+    }
+
+    #[test]
+    fn event_deserialize_rejects_unknown_top_level_fields() {
+        let event = base_event();
+        let mut value = serde_json::to_value(&event).unwrap();
+        value.as_object_mut().unwrap().insert("branch".to_owned(), json!("legacy"));
+
+        let err = serde_json::from_value::<Event>(value).unwrap_err();
+        assert!(err.to_string().contains("unknown field"));
+    }
+
+    #[test]
+    fn event_deserialize_rejects_forbidden_payload_fields() {
+        let event = base_event();
+        let mut value = serde_json::to_value(&event).unwrap();
+        value.as_object_mut().unwrap().insert("kind".to_owned(), json!("cx.flow.create"));
+        value
+            .as_object_mut()
+            .unwrap()
+            .insert("payload".to_owned(), json!({"discussion_space_ref": "cx:space:old"}));
+
+        let err = serde_json::from_value::<Event>(value).unwrap_err();
+        assert!(err.to_string().contains("forbidden wire field"));
+    }
+
+    #[test]
+    fn event_deserialize_rejects_forbidden_typed_id_prefixes() {
+        let event = base_event();
+        let mut value = serde_json::to_value(&event).unwrap();
+        value.as_object_mut().unwrap().insert(
+            "payload".to_owned(),
+            json!({"participant_identity": "cx:rtcpart:0198c2f4-0000-7000-8000-000000000000"}),
+        );
+
+        let err = serde_json::from_value::<Event>(value).unwrap_err();
+        assert!(err.to_string().contains("forbidden typed-id prefix"));
     }
 }

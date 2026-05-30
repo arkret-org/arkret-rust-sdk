@@ -102,9 +102,7 @@ pub struct HttpMessageSignatureInput {
     /// Canonical hash of the request payload, mirrored into the
     /// `Request-Canonical-Digest` header for transport-level tamper
     /// detection. MUST agree with [`Self::content_digest`] for HTTP
-    /// transport — the SDK currently does not enforce that equality
-    /// (transport vs canonical may differ). TODO(round4-request-canonical-digest):
-    /// wire equality check once a settled body canonicalisation is chosen.
+    /// transport.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub request_canonical_digest: Option<contrix_core::Hash>,
 }
@@ -522,11 +520,25 @@ pub fn rfc9421_http_message_signature_base(input: &HttpMessageSignatureInput) ->
     out
 }
 
+pub fn validate_http_message_signature_input(input: &HttpMessageSignatureInput) -> Result<()> {
+    if let Some(hash) = &input.request_canonical_digest
+        && hash.as_str() != input.content_digest
+    {
+        return Err(Error::Protocol(format!(
+            "request_canonical_digest {} does not match content_digest {}",
+            hash.as_str(),
+            input.content_digest
+        )));
+    }
+    Ok(())
+}
+
 pub fn sign_http_message(
     input: &HttpMessageSignatureInput,
     key_id: impl Into<String>,
     signing_key: &str,
-) -> HttpMessageSignature {
+) -> Result<HttpMessageSignature> {
+    validate_http_message_signature_input(input)?;
     let mut signed_fields = vec![
         "method".to_owned(),
         "target-uri".to_owned(),
@@ -549,12 +561,12 @@ pub fn sign_http_message(
     if input.request_canonical_digest.is_some() {
         signed_fields.push("request-canonical-digest".to_owned());
     }
-    HttpMessageSignature {
+    Ok(HttpMessageSignature {
         key_id: key_id.into(),
         alg: "cx-sha256-test".to_owned(),
         signed_fields,
         signature: signature_digest(&rfc9421_http_message_signature_base(input), signing_key),
-    }
+    })
 }
 
 pub fn verify_http_message_signature(
@@ -564,6 +576,9 @@ pub fn verify_http_message_signature(
     now: DateTime<Utc>,
 ) -> bool {
     if now < input.created_at || now > input.expires_at {
+        return false;
+    }
+    if validate_http_message_signature_input(input).is_err() {
         return false;
     }
     signature.alg == "cx-sha256-test"
@@ -867,7 +882,7 @@ mod tests {
             request_canonical_digest: None,
         };
 
-        let signature = sign_http_message(&input, "did:web:a.example#svc", "shared-key");
+        let signature = sign_http_message(&input, "did:web:a.example#svc", "shared-key").unwrap();
         assert!(verify_http_message_signature(&input, &signature, "shared-key", now));
 
         let mut tampered = input.clone();
@@ -879,6 +894,31 @@ mod tests {
             "shared-key",
             now + chrono::Duration::minutes(6)
         ));
+    }
+
+    #[test]
+    fn http_message_signature_rejects_digest_mismatch() {
+        let now = Utc::now();
+        let mut input = HttpMessageSignatureInput {
+            method: "post".to_owned(),
+            target_uri: "https://b.example/api/v1/federation/push-operations".to_owned(),
+            authority: "b.example".to_owned(),
+            content_digest: content_digest_sha256(br#"{"ok":true}"#),
+            origin_service_did: Did::new("did:web:a.example").unwrap(),
+            destination_service_did: Did::new("did:web:b.example").unwrap(),
+            created_at: now,
+            expires_at: now + chrono::Duration::minutes(5),
+            source_trust_domain: None,
+            destination_trust_domain: None,
+            request_canonical_digest: Some(
+                contrix_core::Hash::new(content_digest_sha256(br#"{"ok":true}"#)).unwrap(),
+            ),
+        };
+        let signature = sign_http_message(&input, "did:web:a.example#svc", "shared-key").unwrap();
+        input.request_canonical_digest =
+            Some(contrix_core::Hash::new(content_digest_sha256(br#"{"ok":false}"#)).unwrap());
+        assert!(sign_http_message(&input, "did:web:a.example#svc", "shared-key").is_err());
+        assert!(!verify_http_message_signature(&input, &signature, "shared-key", now));
     }
 
     #[test]

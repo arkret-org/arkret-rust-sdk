@@ -4,7 +4,7 @@
 //! contrix-spec/spec/v1/artifacts/profiles/conformance-profiles.json; do not edit by hand.
 
 pub const PROFILE_IDS: &[&str] = &[
-    "cx.profile.accountable_to.strict_reject.v1",
+    "cx.profile.accountable_principals.strict_reject.v1",
     "cx.profile.agent_auth.v1",
     "cx.profile.agent_delegation_policy.v1",
     "cx.profile.agent_runtime.v1",
@@ -20,6 +20,7 @@ pub const PROFILE_IDS: &[&str] = &[
     "cx.profile.candidate.join_policy.v1",
     "cx.profile.capability_vectors.v1",
     "cx.profile.chat_mvp.v1",
+    "cx.profile.circle_anchor_cadence.fixed_5m.v1",
     "cx.profile.circle_conformance.v1",
     "cx.profile.collaborative_text.v1",
     "cx.profile.constraint.approval_workflow.v1",
@@ -145,7 +146,7 @@ impl std::str::FromStr for ProfileRole {
 /// `conformance-profiles.json#/profile_roles`. The order matches Rust's
 /// byte-ordered `str::cmp` so binary search is valid.
 pub const PROFILE_ROLES: &[(&str, ProfileRole)] = &[
-    ("cx.profile.accountable_to.strict_reject.v1", ProfileRole::Admin),
+    ("cx.profile.accountable_principals.strict_reject.v1", ProfileRole::Admin),
     ("cx.profile.agent_runtime.v1", ProfileRole::Server),
     ("cx.profile.anchor.mixed_recovery.v1", ProfileRole::Admin),
     ("cx.profile.anchor.open_set.v1", ProfileRole::Admin),
@@ -158,6 +159,7 @@ pub const PROFILE_ROLES: &[(&str, ProfileRole)] = &[
     ("cx.profile.candidate.join_policy.v1", ProfileRole::Admin),
     ("cx.profile.capability_vectors.v1", ProfileRole::Interop),
     ("cx.profile.chat_mvp.v1", ProfileRole::Client),
+    ("cx.profile.circle_anchor_cadence.fixed_5m.v1", ProfileRole::Admin),
     ("cx.profile.circle_conformance.v1", ProfileRole::Interop),
     ("cx.profile.collaborative_text.v1", ProfileRole::Client),
     ("cx.profile.constraint.approval_workflow.v1", ProfileRole::Admin),

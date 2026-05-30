@@ -9,9 +9,7 @@ fn builtin_operation_ids_are_unique() {
 
 #[test]
 fn core_registry_matches_spec_operation_registry_when_available() {
-    let Some(path) = spec_operation_registry_path() else {
-        return;
-    };
+    let path = spec_operation_registry_path();
 
     let registry = std::fs::read_to_string(&path)
         .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
@@ -46,7 +44,7 @@ fn core_registry_matches_spec_operation_registry_when_available() {
     );
 }
 
-fn spec_operation_registry_path() -> Option<PathBuf> {
+fn spec_operation_registry_path() -> PathBuf {
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     [
         manifest_dir
@@ -55,4 +53,10 @@ fn spec_operation_registry_path() -> Option<PathBuf> {
     ]
     .into_iter()
     .find(|path| path.exists())
+    .unwrap_or_else(|| {
+        panic!(
+            "spec operation registry artifact is required for drift tests; looked next to {}",
+            manifest_dir.display()
+        )
+    })
 }

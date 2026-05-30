@@ -601,9 +601,13 @@ pub enum EventsSubscribeFrameBody {
         /// frame.
         cursor: Cursor,
         reason: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        reconnect_after_ms: Option<u64>,
     },
     ResyncRequired {
         reason: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        reconnect_after_ms: Option<u64>,
     },
     Unauthorized {
         reason: String,

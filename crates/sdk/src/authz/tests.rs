@@ -158,10 +158,39 @@ fn resource_selector_parse_space_scoped_resources_with_colon_ids() {
 }
 
 #[test]
+fn resource_selector_parse_and_match_circle() {
+    let circle_id =
+        contrix_core::CircleId::new("cx:circle:01904100-0000-7000-8000-000000000000".to_owned())
+            .unwrap();
+    let selector = ResourceSelector::parse("circle:01904100-0000-7000-8000-000000000000").unwrap();
+    assert_eq!(selector, ResourceSelector::Circle { circle_id: circle_id.clone() });
+    assert!(selector.matches(&Resource::Circle { circle_id: circle_id.clone() }));
+    assert!(
+        !selector.matches(&Resource::Circle {
+            circle_id: contrix_core::CircleId::new(
+                "cx:circle:01904100-0000-7000-8000-000000000001".to_owned()
+            )
+            .unwrap()
+        })
+    );
+    let protocol = ProtocolResourceSelector::from_engine(&selector);
+    assert_eq!(protocol.kind, ProtocolResourceSelectorKind::Circle);
+    assert_eq!(protocol.circle_id.as_deref(), Some(circle_id.as_ref()));
+}
+
+#[test]
 fn resource_selector_wildcard_matches_all() {
     let selector = ResourceSelector::Wildcard;
     assert!(selector.matches(&Resource::Space { space_id: "test".to_owned() }));
     assert!(selector.matches(&morph_resource("test", "task", "cx:morph:test")));
+    assert!(
+        selector.matches(&Resource::Circle {
+            circle_id: contrix_core::CircleId::new(
+                "cx:circle:01904100-0000-7000-8000-000000000000".to_owned()
+            )
+            .unwrap()
+        })
+    );
 }
 
 #[test]
@@ -954,7 +983,7 @@ fn approval_flow_manager_submits_records_and_resolves_proposals() {
         grant_for("send", message_selector("cx:space:01904100-0000-7000-8000-1a412919cd4b"));
     grant.constraints = vec![ConstraintEntry::new(Constraint::ApprovalWorkflow {
         approval_required: true,
-        approval_actor_refs: Some(vec![approver1.clone(), approver2.clone()]),
+        approval_actor_ids: Some(vec![approver1.clone(), approver2.clone()]),
         timeout: None,
         approval_mode: Some(ApprovalMode::All),
         approval_relation: None,
@@ -1025,7 +1054,7 @@ fn authz_engine_filters_unapproved_grants_with_approval_flow() {
         grant_for("send", message_selector("cx:space:01904100-0000-7000-8000-1a412919cd4b"));
     grant.constraints = vec![ConstraintEntry::new(Constraint::ApprovalWorkflow {
         approval_required: true,
-        approval_actor_refs: Some(vec![approver.clone()]),
+        approval_actor_ids: Some(vec![approver.clone()]),
         timeout: None,
         approval_mode: Some(ApprovalMode::Any),
         approval_relation: None,

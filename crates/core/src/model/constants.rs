@@ -10,6 +10,7 @@ pub const CURSOR_SCHEMA: &str = "cx.schema.cursor.v1";
 //   - `cx.schema.space.v1` is now the container schema
 //     (formerly `cx.schema.place.v1`, which is deleted).
 pub const REALM_SCHEMA_ID: &str = "cx.schema.realm.v1";
+pub const REALM_JOIN_CANDIDATE_SCHEMA: &str = "cx.schema.realm_join_candidate.v1";
 pub const SPACE_SCHEMA: &str = "cx.schema.space.v1";
 pub const ACTOR_PROFILE_SCHEMA: &str = "cx.schema.actor_profile.v1";
 pub const FLOW_SCHEMA: &str = "cx.schema.flow.v1";
@@ -83,7 +84,7 @@ pub const OP_CIRCLE_ANCHOR_COMMIT: &str = "cx.circle.anchor_commit";
 /// CXP-0007 (spec b7d35be) — Circle capability action ids. Spec
 /// `capability-action-registry.json`. `cx.circle.manage`,
 /// `cx.circle.member.manage`, `cx.circle.member.add.others`, and
-/// `cx.circle.audit` declare `required_constraints=["allowed_circle_refs"]`;
+/// `cx.circle.audit` declare `required_constraints=["allowed_circle_ids"]`;
 /// unconstrained Realm-wide grants for those actions MUST be rejected.
 pub const CAP_ACTION_CIRCLE_CREATE: &str = "cx.circle.create";
 pub const CAP_ACTION_CIRCLE_MANAGE: &str = "cx.circle.manage";
@@ -123,12 +124,6 @@ pub const CAP_ACTION_AGENT_SIDECAR_THREAD_PUBLISH: &str = "cx.agent.sidecar_thre
 
 /// CXP-0008 / CXP-0009 — full capability-action list (11 base + 3 aggregate
 /// = 14 entries per `_before_todos.md` §1.4).
-///
-// TODO(P1): the spec carries three aggregate actions that fan out to
-// `target_event_kinds` with `migration_group` metadata; the SDK consumer
-// MUST consult `capability-action-registry.json` to expand the fan-out.
-// The trio is the publish/write/ensure on sidecar_thread, which appears
-// once here per concrete action.
 pub const AGENT_CAPABILITY_ACTIONS: &[&str] = &[
     CAP_ACTION_AGENT_PROVISION,
     CAP_ACTION_AGENT_PAUSE,
@@ -142,6 +137,33 @@ pub const AGENT_CAPABILITY_ACTIONS: &[&str] = &[
     CAP_ACTION_AGENT_SIDECAR_THREAD_WRITE,
     CAP_ACTION_AGENT_SIDECAR_THREAD_PUBLISH,
 ];
+
+pub const AGENT_SIDECAR_THREAD_ENSURE_TARGET_EVENT_KINDS: &[&str] =
+    &["cx.circle.create", "cx.circle.member.state", "cx.flow.create", "cx.relation.create"];
+pub const AGENT_SIDECAR_THREAD_WRITE_TARGET_EVENT_KINDS: &[&str] = &["cx.message.create"];
+pub const AGENT_SIDECAR_THREAD_PUBLISH_TARGET_EVENT_KINDS: &[&str] = &["cx.message.create"];
+
+pub fn agent_capability_target_event_kinds(action: &str) -> &'static [&'static str] {
+    match action {
+        CAP_ACTION_AGENT_PROVISION => &[
+            "cx.profile.create",
+            "cx.identity.accountability_grant",
+            "cx.agent.key.authorize",
+            "cx.capability.grant",
+        ],
+        CAP_ACTION_AGENT_PAUSE => &["cx.agent.pause"],
+        CAP_ACTION_AGENT_RESUME => &["cx.agent.resume"],
+        CAP_ACTION_AGENT_DEACTIVATE => &["cx.agent.deactivate"],
+        CAP_ACTION_AGENT_DRAFT_PROPOSE => &["cx.agent.draft.propose"],
+        CAP_ACTION_AGENT_ACTION_REQUEST => &["cx.agent.action_request"],
+        CAP_ACTION_AGENT_ACTION_APPROVE => &["cx.agent.action_approve"],
+        CAP_ACTION_AGENT_ACTION_REJECT => &["cx.agent.action_reject"],
+        CAP_ACTION_AGENT_SIDECAR_THREAD_ENSURE => AGENT_SIDECAR_THREAD_ENSURE_TARGET_EVENT_KINDS,
+        CAP_ACTION_AGENT_SIDECAR_THREAD_WRITE => AGENT_SIDECAR_THREAD_WRITE_TARGET_EVENT_KINDS,
+        CAP_ACTION_AGENT_SIDECAR_THREAD_PUBLISH => AGENT_SIDECAR_THREAD_PUBLISH_TARGET_EVENT_KINDS,
+        _ => &[],
+    }
+}
 
 /// CXP-0008 / CXP-0009 — personal-agent operation IDs (registered in
 /// `operation-registry.json`). Used by the RPC dispatch layer; reducer-input
@@ -177,11 +199,15 @@ pub const RECOVERY_RECEIPT_SCHEMA: &str = "cx.schema.recovery_receipt.v1";
 /// current focused conversation when available, falling back to the
 /// controller's home Realm only when no context Realm exists.
 ///
-// TODO(P1): wire the "context realm preferred" home-selection policy
-// into the agent sidecar profile loader and `cx.agent.sidecar_thread.ensure`
-// once the SDK gains a profile loader for `cx.profile.agent_sidecar_thread.v1`.
 pub const PROFILE_AGENT_SIDECAR_THREAD: &str = "cx.profile.agent_sidecar_thread.v1";
 pub const AGENT_SIDECAR_HOME_POLICY_CONTEXT_REALM_PREFERRED: &str = "context_realm_preferred";
+
+pub fn select_agent_sidecar_home_realm<'a>(
+    context_realm_id: Option<&'a str>,
+    controller_home_realm_id: &'a str,
+) -> &'a str {
+    context_realm_id.unwrap_or(controller_home_realm_id)
+}
 
 /// Morph event kinds.
 pub const OP_MORPH_CREATE: &str = "cx.morph.create";
@@ -228,6 +254,7 @@ pub const OP_REALM_LINK: &str = "cx.realm.link";
 pub const OP_REALM_DELIVERY_BINDING_POLICY: &str = "cx.realm.delivery_binding_policy";
 pub const OP_REALM_INHERITANCE_POLICY: &str = "cx.realm.inheritance_policy";
 pub const OP_REALM_AUDIT_POLICY_DOWNGRADE: &str = "cx.realm.audit_policy_downgrade";
+pub const OP_REALM_PREVIEW_POLICY: &str = "cx.realm.preview_policy";
 pub const OP_CAPABILITY_DERIVED: &str = "cx.capability.derived";
 
 /// Device event kinds.
@@ -648,3 +675,29 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_PUSH_UNREGISTER_DEVICE,
     OP_SNAPSHOT_HEAD,
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn agent_sidecar_actions_expand_to_target_event_kinds() {
+        assert_eq!(
+            agent_capability_target_event_kinds(CAP_ACTION_AGENT_SIDECAR_THREAD_ENSURE),
+            AGENT_SIDECAR_THREAD_ENSURE_TARGET_EVENT_KINDS
+        );
+        assert_eq!(
+            agent_capability_target_event_kinds(CAP_ACTION_AGENT_SIDECAR_THREAD_WRITE),
+            &["cx.message.create"]
+        );
+    }
+
+    #[test]
+    fn agent_sidecar_home_prefers_context_realm() {
+        assert_eq!(
+            select_agent_sidecar_home_realm(Some("cx:realm:context"), "cx:realm:home"),
+            "cx:realm:context"
+        );
+        assert_eq!(select_agent_sidecar_home_realm(None, "cx:realm:home"), "cx:realm:home");
+    }
+}

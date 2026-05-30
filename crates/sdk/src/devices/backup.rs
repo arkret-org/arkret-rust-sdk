@@ -160,6 +160,7 @@ pub fn key_backup_aad(
 
 /// Schema-aligned backup encryption descriptor.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(try_from = "KeyBackupEncryptionWire")]
 pub struct KeyBackupEncryption {
     pub recipient_method: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -169,6 +170,45 @@ pub struct KeyBackupEncryption {
     pub aead: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub key_commitment: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct KeyBackupEncryptionWire {
+    recipient_method: String,
+    recipient_key_ref: Option<String>,
+    kdf: Option<Value>,
+    aead: Value,
+    key_commitment: Option<String>,
+}
+
+impl TryFrom<KeyBackupEncryptionWire> for KeyBackupEncryption {
+    type Error = String;
+
+    fn try_from(wire: KeyBackupEncryptionWire) -> std::result::Result<Self, Self::Error> {
+        if wire
+            .kdf
+            .as_ref()
+            .and_then(|kdf| kdf.get("params"))
+            .and_then(Value::as_object)
+            .is_some_and(|params| {
+                params.keys().any(|key| {
+                    contrix_core::is_forbidden_in_context(
+                        key,
+                        contrix_core::WireContext::KeyBackupKdfParams,
+                    )
+                })
+            })
+        {
+            return Err("KeyBackupEncryption.kdf.params contains forbidden wire field".to_owned());
+        }
+        Ok(Self {
+            recipient_method: wire.recipient_method,
+            recipient_key_ref: wire.recipient_key_ref,
+            kdf: wire.kdf,
+            aead: wire.aead,
+            key_commitment: wire.key_commitment,
+        })
+    }
 }
 
 /// Schema-aligned backup content item.
@@ -226,5 +266,33 @@ pub(super) fn validate_key_backup_payload(backup: &KeyBackup) -> Result<()> {
         Ok(())
     } else {
         Err(Error::Protocol("key backup payload digest mismatch".to_owned()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn protocol_key_backup_encryption_rejects_legacy_hash_param() {
+        let err = serde_json::from_value::<KeyBackupEncryption>(json!({
+            "recipient_method": "passphrase_kdf",
+            "kdf": {
+                "name": "pbkdf2",
+                "salt": "salt",
+                "params": {
+                    "iterations": 600000,
+                    "hash": "sha256"
+                },
+                "degraded_profile_reason": "legacy"
+            },
+            "aead": {
+                "name": "xchacha20_poly1305",
+                "nonce": "nonce"
+            }
+        }))
+        .unwrap_err();
+        assert!(err.to_string().contains("forbidden wire field"));
     }
 }

@@ -1,6 +1,7 @@
 use serde::Serialize;
 use serde_json::{Map, Number, Value};
 use sha2::{Digest, Sha256};
+use std::io::Write as _;
 
 use crate::{Error, Result};
 
@@ -155,9 +156,7 @@ fn write_canonical_value(value: &Value, out: &mut Vec<u8>) -> Result<()> {
         Value::Bool(true) => out.extend_from_slice(b"true"),
         Value::Bool(false) => out.extend_from_slice(b"false"),
         Value::Number(number) => write_number(number, out)?,
-        Value::String(string) => {
-            serde_json::to_writer(out, string)?;
-        }
+        Value::String(string) => write_string(string, out),
         Value::Array(items) => {
             out.push(b'[');
             for (idx, item) in items.iter().enumerate() {
@@ -197,36 +196,57 @@ fn write_number(number: &Number, out: &mut Vec<u8>) -> Result<()> {
 }
 
 fn reject_leading_zeros(s: &str) -> Result<()> {
-    let bytes = s.as_bytes();
-    if bytes.len() > 1 && bytes[0] == b'0' && bytes[1] != b'-' {
+    let digits = s.strip_prefix('-').unwrap_or(s);
+    if digits.len() > 1 && digits.as_bytes()[0] == b'0' {
         return Err(Error::NonCanonicalNumber);
     }
-    if bytes.len() > 2 && bytes[0] == b'-' && bytes[1] == b'0' && bytes[2] != b'\0' {
-        // -0 is fine, but -01 is not
-        if bytes.len() > 2 && bytes[1] == b'0' && bytes[2] != b'0' {
-            return Err(Error::NonCanonicalNumber);
+    Ok(())
+}
+
+fn write_string(string: &str, out: &mut Vec<u8>) {
+    out.push(b'"');
+    for ch in string.chars() {
+        match ch {
+            '"' => out.extend_from_slice(br#"\""#),
+            '\\' => out.extend_from_slice(br#"\\"#),
+            '\u{08}' => out.extend_from_slice(br#"\b"#),
+            '\t' => out.extend_from_slice(br#"\t"#),
+            '\n' => out.extend_from_slice(br#"\n"#),
+            '\u{0c}' => out.extend_from_slice(br#"\f"#),
+            '\r' => out.extend_from_slice(br#"\r"#),
+            '\u{00}'..='\u{1f}' => {
+                write!(out, "\\u{:04x}", ch as u32).expect("writing to Vec cannot fail");
+            }
+            _ => {
+                let mut buf = [0_u8; 4];
+                out.extend_from_slice(ch.encode_utf8(&mut buf).as_bytes());
+            }
         }
     }
-    Ok(())
+    out.push(b'"');
 }
 
 fn write_object(map: &Map<String, Value>, out: &mut Vec<u8>) -> Result<()> {
     out.push(b'{');
 
     let mut keys = map.keys().collect::<Vec<_>>();
-    keys.sort_unstable();
+    keys.sort_unstable_by(|a, b| compare_utf16(a, b));
 
     for (idx, key) in keys.into_iter().enumerate() {
         if idx > 0 {
             out.push(b',');
         }
-        serde_json::to_writer(&mut *out, key)?;
+        write_string(key, out);
         out.push(b':');
         write_canonical_value(&map[key], out)?;
     }
 
     out.push(b'}');
     Ok(())
+}
+
+fn compare_utf16(a: &str, b: &str) -> std::cmp::Ordering {
+    a.encode_utf16().cmp(b.encode_utf16())
 }
 
 #[cfg(test)]
@@ -312,12 +332,27 @@ mod tests {
     }
 
     #[test]
+    fn canonical_json_sorts_object_keys_by_utf16_code_units() {
+        let supplementary = char::from_u32(0x10000).unwrap().to_string();
+        let private_use = char::from_u32(0xE000).unwrap().to_string();
+        let value = json!({ private_use.clone(): 2, supplementary.clone(): 1 });
+        let actual = canonical_json_string(&value).unwrap();
+        let supplementary_pos = actual.find(&format!("\"{supplementary}\"")).unwrap();
+        let private_use_pos = actual.find(&format!("\"{private_use}\"")).unwrap();
+        assert!(
+            supplementary_pos < private_use_pos,
+            "JCS sorts by UTF-16 code units, so U+10000 sorts before U+E000"
+        );
+    }
+
+    #[test]
     fn canonical_json_string_escapes_special_characters() {
-        let value = json!({ "key": "value\nwith\ttabs\"quotes" });
+        let value = json!({ "key": "value\nwith\ttabs\"quotes\u{0001}" });
         let actual = canonical_json_string(&value).unwrap();
         assert!(actual.contains("\\n"));
         assert!(actual.contains("\\t"));
         assert!(actual.contains("\\\""));
+        assert!(actual.contains("\\u0001"));
     }
 
     #[test]

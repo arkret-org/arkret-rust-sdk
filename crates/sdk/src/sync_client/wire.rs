@@ -35,6 +35,8 @@ pub enum EventsSubscribeFrame {
         recovery_from: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         reason: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        reconnect_after_ms: Option<u64>,
     },
     /// E2EE epoch advanced for `space_id`. Plaintext readers MUST refresh
     /// MLS group state before consuming subsequent encrypted events on this
@@ -66,6 +68,8 @@ pub enum EventsSubscribeFrame {
         last_frontier: Vec<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         reason: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        reconnect_after_ms: Option<u64>,
     },
     /// Informational frontier advance without an event payload. Useful when
     /// the server processed events that aren't visible to this subscriber

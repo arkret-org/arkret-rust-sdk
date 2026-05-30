@@ -11,7 +11,7 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use crate::{Hlc, Result};
+use crate::{Error, Hlc, Result};
 
 /// Round R2/R3 (2026-05-20) — minimum length of a stateful cursor handle's
 /// base64url alphabet representation. Schema `cursor.schema.json` raises
@@ -25,18 +25,14 @@ pub const CURSOR_HANDLE_MIN_LEN: usize = 22;
 /// `cursor.schema.json` `h` constraints (minLength 22, pattern
 /// `^[A-Za-z0-9_-]+$`).
 ///
-/// # Panics
-///
-/// Panics if the operating system CSPRNG cannot be initialized. Cursor handles
-/// are part of the sync security boundary and must not fall back to predictable
-/// process-local entropy.
-pub fn generate_cursor_handle() -> String {
+pub fn generate_cursor_handle() -> Result<String> {
     let mut handle = [0u8; 16];
-    getrandom::fill(&mut handle).expect("cursor handle CSPRNG initialization failed");
+    getrandom::fill(&mut handle)
+        .map_err(|error| Error::Protocol(format!("cursor_handle_rng_unavailable: {error}")))?;
     // Take 16 bytes — 128 bits — and base64url-encode (no pad).
     let encoded = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(handle);
     debug_assert!(encoded.len() >= CURSOR_HANDLE_MIN_LEN);
-    encoded
+    Ok(encoded)
 }
 
 /// Contrix v1 sync cursor.
@@ -129,10 +125,10 @@ impl Cursor {
     pub const DEV_TEST_ISSUER_KID: &'static str = "contrix-sdk-dev#cursor";
 
     /// Create a new cursor with current timestamp and default expiration.
-    pub fn new() -> Self {
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as i64;
+    pub fn new() -> Result<Self> {
+        let now = unix_time_millis()?;
 
-        Self {
+        Ok(Self {
             v: "1".to_owned(),
             purpose: CursorPurpose::Stream,
             t: chrono::Utc::now().to_rfc3339(),
@@ -140,12 +136,12 @@ impl Cursor {
             d: None,
             target: None,
             x: now + Self::DEFAULT_EXPIRATION_MS,
-            h: Some(generate_cursor_handle()),
+            h: Some(generate_cursor_handle()?),
             issuer_kid: None,
             mac: None,
             sig: None,
             filter_digest: None,
-        }
+        })
     }
 
     /// Bind a `filter_digest` to this cursor. Servers MUST refuse to
@@ -162,9 +158,9 @@ impl Cursor {
     /// different filter.
     pub fn assert_filter_digest(&self, expected: &str) -> Result<()> {
         match self.filter_digest.as_deref() {
-            None => Err(crate::Error::Protocol("filter_digest_missing".to_owned())),
+            None => Err(Error::Protocol("filter_digest_missing".to_owned())),
             Some(found) if found == expected => Ok(()),
-            Some(found) => Err(crate::Error::Protocol(format!(
+            Some(found) => Err(Error::Protocol(format!(
                 "filter_digest_mismatch: cursor was issued for '{found}', current request is '{expected}'"
             ))),
         }
@@ -256,7 +252,7 @@ impl Cursor {
         let json = crate::canonical::canonical_json_bytes(self)?;
 
         if json.len() > Self::MAX_ENCODED_SIZE {
-            return Err(crate::Error::Protocol(format!(
+            return Err(Error::Protocol(format!(
                 "cursor too large: {} bytes (max {})",
                 json.len(),
                 Self::MAX_ENCODED_SIZE
@@ -280,19 +276,19 @@ impl Cursor {
     /// - Cursor version is unsupported
     /// - Cursor has expired
     pub fn decode(encoded: &str) -> Result<Self> {
-        let encoded = encoded.strip_prefix("cx:cursor:").ok_or_else(|| {
-            crate::Error::Protocol("cursor token must start with cx:cursor:".to_owned())
-        })?;
+        let encoded = encoded
+            .strip_prefix("cx:cursor:")
+            .ok_or_else(|| Error::Protocol("cursor token must start with cx:cursor:".to_owned()))?;
 
         // Decode from unpadded Base64URL, the only v1 cursor transport form.
         use base64::Engine as _;
 
         let json = base64::engine::general_purpose::URL_SAFE_NO_PAD
             .decode(encoded)
-            .map_err(|_| crate::Error::Protocol("invalid Base64URL encoding".to_owned()))?;
+            .map_err(|_| Error::Protocol("invalid Base64URL encoding".to_owned()))?;
 
         let cursor: Cursor = serde_json::from_slice(&json)
-            .map_err(|_| crate::Error::Protocol("invalid cursor JSON".to_owned()))?;
+            .map_err(|_| Error::Protocol("invalid cursor JSON".to_owned()))?;
 
         cursor.validate()?;
 
@@ -303,7 +299,7 @@ impl Cursor {
     fn validate(&self) -> Result<()> {
         // Check version
         if self.v != "1" {
-            return Err(crate::Error::Protocol(format!("unsupported cursor version: {}", self.v)));
+            return Err(Error::Protocol(format!("unsupported cursor version: {}", self.v)));
         }
 
         self.validate_core_wire_shape()?;
@@ -312,7 +308,7 @@ impl Cursor {
         let now_ms = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as i64;
 
         if self.x < now_ms {
-            return Err(crate::Error::Protocol("cursor has expired".to_owned()));
+            return Err(Error::Protocol("cursor has expired".to_owned()));
         }
 
         // Validate space positions
@@ -331,7 +327,7 @@ impl Cursor {
         if let Some(target) = &self.target {
             Self::validate_event_id(&target.event_id)?;
             if !is_digest(&target.event_digest) {
-                return Err(crate::Error::InvalidId(target.event_digest.clone()));
+                return Err(Error::InvalidId(target.event_digest.clone()));
             }
             if let Some(space_id) = &target.space_id {
                 Self::validate_space_id(space_id)?;
@@ -344,7 +340,7 @@ impl Cursor {
         if let Some(sig) = &self.sig
             && sig.trim().is_empty()
         {
-            return Err(crate::Error::Protocol("cursor _sig must not be empty".to_owned()));
+            return Err(Error::Protocol("cursor _sig must not be empty".to_owned()));
         }
 
         Ok(())
@@ -353,7 +349,7 @@ impl Cursor {
     fn validate_space_id(space_id: &str) -> Result<()> {
         if !has_prefixed_uuid7(space_id, "cx:realm:") && !has_prefixed_uuid7(space_id, "cx:space:")
         {
-            return Err(crate::Error::InvalidId(space_id.to_owned()));
+            return Err(Error::InvalidId(space_id.to_owned()));
         }
         Ok(())
     }
@@ -363,7 +359,7 @@ impl Cursor {
         Hlc::new(&pos.order)?;
 
         if !is_digest(&pos.h) {
-            return Err(crate::Error::InvalidId(pos.h.clone()));
+            return Err(Error::InvalidId(pos.h.clone()));
         }
 
         // Validate event IDs in causal frontier
@@ -378,7 +374,7 @@ impl Cursor {
         let is_valid = has_prefixed_uuid7(event_id, "cx:event:");
 
         if !is_valid {
-            return Err(crate::Error::InvalidId(event_id.to_owned()));
+            return Err(Error::InvalidId(event_id.to_owned()));
         }
         Ok(())
     }
@@ -387,7 +383,7 @@ impl Cursor {
         if has_prefixed_uuid7(message_id, "cx:device_message:") {
             Ok(())
         } else {
-            Err(crate::Error::InvalidId(message_id.to_owned()))
+            Err(Error::InvalidId(message_id.to_owned()))
         }
     }
 
@@ -398,28 +394,28 @@ impl Cursor {
         if !(CURSOR_HANDLE_MIN_LEN..=256).contains(&len)
             || !handle.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'))
         {
-            return Err(crate::Error::Protocol("invalid cursor handle".to_owned()));
+            return Err(Error::Protocol("invalid cursor handle".to_owned()));
         }
         Ok(())
     }
 
     fn validate_core_wire_shape(&self) -> Result<()> {
         let Some(handle) = &self.h else {
-            return Err(crate::Error::Protocol("core cursor missing stateful handle h".to_owned()));
+            return Err(Error::Protocol("core cursor missing stateful handle h".to_owned()));
         };
         Self::validate_cursor_handle(handle)?;
         if self.mac.is_some() || self.sig.is_some() {
-            return Err(crate::Error::Protocol(
+            return Err(Error::Protocol(
                 "core stateful cursor must not carry _mac or _sig".to_owned(),
             ));
         }
         if self.issuer_kid.is_some() {
-            return Err(crate::Error::Protocol(
+            return Err(Error::Protocol(
                 "core stateful cursor must not carry issuer_kid".to_owned(),
             ));
         }
         if !self.s.is_empty() || self.d.is_some() || self.target.is_some() {
-            return Err(crate::Error::Protocol(
+            return Err(Error::Protocol(
                 "core stateful cursor must not carry s, d, or target".to_owned(),
             ));
         }
@@ -428,18 +424,18 @@ impl Cursor {
 
     fn validate_cursor_mac(mac: &str) -> Result<()> {
         let Some(digest) = mac.strip_prefix("hmac-sha256:") else {
-            return Err(crate::Error::Protocol("cursor _mac must use hmac-sha256".to_owned()));
+            return Err(Error::Protocol("cursor _mac must use hmac-sha256".to_owned()));
         };
         if digest.len() != 64
             || !digest.bytes().all(|b| b.is_ascii_digit() || matches!(b, b'a'..=b'f'))
         {
-            return Err(crate::Error::Protocol("invalid cursor _mac digest".to_owned()));
+            return Err(Error::Protocol("invalid cursor _mac digest".to_owned()));
         }
         Ok(())
     }
 
     /// Create a cursor from sync positions.
-    pub fn from_positions(_positions: SyncPositions) -> Self {
+    pub fn from_positions(_positions: SyncPositions) -> Result<Self> {
         // v1 core cursor bytes carry only an opaque server handle. Callers that
         // need to preserve positions must store them server-side keyed by `h`.
         Self::new()
@@ -473,22 +469,22 @@ impl Cursor {
 
     /// Check if the cursor is expired.
     pub fn is_expired(&self) -> bool {
-        let now_ms = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as i64;
-        self.x < now_ms
+        unix_time_millis().map_or(true, |now_ms| self.x < now_ms)
     }
 
     /// Get the remaining time before expiration.
     pub fn time_until_expiration(&self) -> Option<Duration> {
-        let now_ms = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as i64;
+        let now_ms = unix_time_millis().ok()?;
 
         if self.x > now_ms { Some(Duration::from_millis((self.x - now_ms) as u64)) } else { None }
     }
 }
 
-impl Default for Cursor {
-    fn default() -> Self {
-        Self::new()
-    }
+fn unix_time_millis() -> Result<i64> {
+    Ok(SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|error| Error::Protocol(format!("cursor_clock_before_unix_epoch: {error}")))?
+        .as_millis() as i64)
 }
 
 /// Validate that `value` matches the typed-id wire form `<prefix><uuidv7>`.
@@ -594,7 +590,7 @@ impl SyncTracker {
 
     /// Get the current cursor for resuming sync.
     pub fn current_cursor(&self) -> Result<Cursor> {
-        Ok(Cursor::from_positions(self.positions.clone()))
+        Cursor::from_positions(self.positions.clone())
     }
 
     /// Clear all tracked positions.
@@ -610,7 +606,7 @@ mod tests {
 
     #[test]
     fn cursor_encode_decode_roundtrip() {
-        let cursor = Cursor::new();
+        let cursor = Cursor::new().unwrap();
 
         let encoded = cursor.encode().unwrap();
         let decoded = Cursor::decode(&encoded).unwrap();
@@ -632,7 +628,7 @@ mod tests {
             d: None,
             target: None,
             x: 1714080000000,
-            h: Some(generate_cursor_handle()),
+            h: Some(generate_cursor_handle().unwrap()),
             issuer_kid: None,
             mac: None,
             sig: None,
@@ -645,7 +641,7 @@ mod tests {
 
     #[test]
     fn core_cursor_rejects_inline_positions() {
-        let mut cursor = Cursor::new();
+        let mut cursor = Cursor::new().unwrap();
         cursor = cursor.with_space_position(
             "cx:realm:01904100-0000-7000-8000-9b64700c6ee8",
             SpacePosition {
@@ -660,7 +656,7 @@ mod tests {
 
     #[test]
     fn cursor_expires_after_7_days() {
-        let mut cursor = Cursor::new();
+        let mut cursor = Cursor::new().unwrap();
         // Simulate a cursor from 1 day ago
         cursor.x -= 6 * 24 * 60 * 60 * 1000;
 
@@ -687,7 +683,7 @@ mod tests {
             )])),
         };
 
-        let cursor = Cursor::from_positions(positions);
+        let cursor = Cursor::from_positions(positions).unwrap();
 
         assert!(cursor.h.is_some());
         assert!(cursor.s.is_empty());
@@ -696,7 +692,7 @@ mod tests {
 
     #[test]
     fn stateful_handle_cursor_excludes_inline_state() {
-        let cursor = Cursor::new().with_stateful_handle("cursor_handle_12345678");
+        let cursor = Cursor::new().unwrap().with_stateful_handle("cursor_handle_12345678");
         let encoded = cursor.encode().unwrap();
         let decoded = Cursor::decode(&encoded).unwrap();
 

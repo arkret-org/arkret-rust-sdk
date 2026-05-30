@@ -9,8 +9,8 @@ use std::{
 use crate::{
     ACCOUNT_SUBSCRIBE_FRAME_SCHEMA, ANCHOR_SCHEMA, BOTTOM_SCHEMA, CAPABILITY_SCHEMA,
     CORE_SCHEMA_PROFILE, CURSOR_SCHEMA, ENCRYPTED_PAYLOAD_SCHEMA, EVENT_PAYLOAD_SCHEMA,
-    EVENT_SCHEMA, Error, FLOW_SCHEMA, GeneratedSchemaValidator, ProtocolSchemaRegistry, Result,
-    SNAPSHOT_SCHEMA, SPACE_SCHEMA, VIEW_SCHEMA,
+    EVENT_SCHEMA, Error, FLOW_SCHEMA, GeneratedSchemaValidator, ProtocolSchemaRegistry,
+    REALM_JOIN_CANDIDATE_SCHEMA, Result, SNAPSHOT_SCHEMA, SPACE_SCHEMA, VIEW_SCHEMA,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};

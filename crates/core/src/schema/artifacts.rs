@@ -435,6 +435,7 @@ pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     // security-boundary schema. `cx.schema.space.v1` is now the container
     // schema (former `cx.schema.place.v1` is removed).
     "cx.schema.realm.v1",
+    REALM_JOIN_CANDIDATE_SCHEMA,
     "cx.schema.space.v1",
     "cx.schema.actor_profile.v1",
     "cx.schema.message.v1",

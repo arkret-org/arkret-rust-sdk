@@ -99,10 +99,10 @@ pub enum GrantConstraint {
     /// (`cx.circle.manage`, `cx.circle.member.manage`,
     /// `cx.circle.member.add.others`, `cx.circle.audit`) to a specific set
     /// of Circle ids. Spec `capability-action-registry.json` declares
-    /// `required_constraints=["allowed_circle_refs"]` on each gated
+    /// `required_constraints=["allowed_circle_ids"]` on each gated
     /// action; unconstrained Realm-wide grants for these actions MUST be
     /// rejected by the grant-issue guard.
-    AllowedCircleRefs { allowed_circle_refs: BTreeSet<CircleId> },
+    AllowedCircleIds { allowed_circle_ids: BTreeSet<CircleId> },
     /// Resource must carry at least one of the listed facets. soland uses
     /// this on `cx:flow:` / `cx:space:` / `cx:morph:` projections; an
     /// unfaceted target falls outside scope (fail-closed).
@@ -661,13 +661,13 @@ mod tests {
     }
 
     #[test]
-    fn allowed_circle_refs_constraint_round_trips_through_serde() {
+    fn allowed_circle_ids_constraint_round_trips_through_serde() {
         let circle = CircleId::new("cx:circle:01904100-0000-7000-8000-000000000000".to_owned())
             .expect("valid CircleId");
         let constraint =
-            GrantConstraint::AllowedCircleRefs { allowed_circle_refs: BTreeSet::from([circle]) };
+            GrantConstraint::AllowedCircleIds { allowed_circle_ids: BTreeSet::from([circle]) };
         let json = serde_json::to_string(&constraint).expect("serde round trip");
-        assert!(json.contains("allowed_circle_refs"));
+        assert!(json.contains("allowed_circle_ids"));
         assert!(json.contains("cx:circle:01904100-0000-7000-8000-000000000000"));
         let round_tripped: GrantConstraint =
             serde_json::from_str(&json).expect("deserialize typed");

@@ -138,6 +138,10 @@ pub enum WireContext {
     ActorKindValue,
     /// Cursor body property.
     CursorBody,
+    /// Capability grant constraint object property.
+    GrantConstraint,
+    /// Key backup `encryption.kdf.params` object property.
+    KeyBackupKdfParams,
 }
 
 /// Spec `forbidden-wire-fields.json` entries that name a single
@@ -184,6 +188,14 @@ pub const FORBIDDEN_WIRE_FIELDS: &[&str] = &[
     "signature_over_content_hash",
     "prev_frontier_hash",
     "constraint_hash",
+    "allowed_view_refs",
+    "allowed_flow_refs",
+    "allowed_circle_refs",
+    "denied_flow_refs",
+    "allowed_space_refs",
+    "denied_space_refs",
+    "realm_refs",
+    "approval_actor_refs",
     // policy_ref is canonical on a Policy object itself (object-self id)
     // and forbidden everywhere else; see context-aware checker below.
 ];
@@ -383,6 +395,17 @@ const FORBIDDEN_ENTRIES: &[ForbiddenEntry] = &[
     },
     ForbiddenEntry { field: "prev_frontier_hash", context: WireContext::WireSchemaOrPayload },
     ForbiddenEntry { field: "constraint_hash", context: WireContext::WireSchemaOrPayload },
+    // 2026-05-31: single-kind grant constraint identifiers use `_ids`, not `_refs`.
+    ForbiddenEntry { field: "allowed_view_refs", context: WireContext::GrantConstraint },
+    ForbiddenEntry { field: "allowed_flow_refs", context: WireContext::GrantConstraint },
+    ForbiddenEntry { field: "allowed_circle_refs", context: WireContext::GrantConstraint },
+    ForbiddenEntry { field: "denied_flow_refs", context: WireContext::GrantConstraint },
+    ForbiddenEntry { field: "allowed_space_refs", context: WireContext::GrantConstraint },
+    ForbiddenEntry { field: "denied_space_refs", context: WireContext::GrantConstraint },
+    ForbiddenEntry { field: "realm_refs", context: WireContext::GrantConstraint },
+    ForbiddenEntry { field: "approval_actor_refs", context: WireContext::GrantConstraint },
+    // 2026-05-31: key-backup KDF algorithm selector.
+    ForbiddenEntry { field: "hash", context: WireContext::KeyBackupKdfParams },
     ForbiddenEntry { field: "actor_kind=ghost", context: WireContext::ActorKindValue },
     ForbiddenEntry { field: "actor_kind=agent_native", context: WireContext::ActorKindValue },
     ForbiddenEntry { field: "actor_kind=agent_ghost", context: WireContext::ActorKindValue },
@@ -400,8 +423,16 @@ pub fn is_forbidden_in_context(field: &str, context: WireContext) -> bool {
 /// `context: typed_id_prefix`. Receivers MUST hard-reject any typed id
 /// whose prefix matches an entry here; the canonical replacement is
 /// listed in the spec entry.
-pub const FORBIDDEN_ID_PREFIXES: &[&str] =
-    &["cx:notif:", "cx:devmsg:", "cx:keyevt:", "cx:modq:", "cx:req:", "cx:txn:", "cx:frank:"];
+pub const FORBIDDEN_ID_PREFIXES: &[&str] = &[
+    "cx:notif:",
+    "cx:devmsg:",
+    "cx:keyevt:",
+    "cx:modq:",
+    "cx:req:",
+    "cx:txn:",
+    "cx:frank:",
+    "cx:rtcpart:",
+];
 
 /// Returns `true` when `id` starts with a forbidden typed-id prefix
 /// (e.g. `cx:notif:01234...` — canonical is `cx:notification:`).

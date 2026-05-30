@@ -578,6 +578,7 @@ pub enum Audience {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct Proof {
     pub kind: String,
     pub alg: String,
@@ -599,6 +600,7 @@ pub mod proof_kind {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct CriticalExtension {
     pub id: String,
     pub scope: String,

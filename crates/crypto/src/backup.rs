@@ -336,13 +336,9 @@ pub fn build_key_backup_envelope(
         })
         .collect();
     // Key-backup hardening (B-C, spec head 37ce729): every envelope MUST
-    // carry `series_id` + `series_seq`. This helper produces a *genesis*
-    // envelope by minting a fresh series_id and seq=0.
-    //
-    // TODO(P1): expose a successor-builder API that takes a parent series_id
-    // + the predecessor `ciphertext_digest` and produces an envelope with
-    // `supersedes_digest` + `frontier_ref` populated, so callers can build
-    // chained backups end-to-end. The current shape is genesis-only.
+    // carry `series_id` + `series_seq`. This helper produces a genesis
+    // envelope by minting a fresh series_id and seq=0; successors are built
+    // with `build_key_backup_successor_envelope`.
     let series_id =
         contrix_core::BackupSeriesId::new(contrix_core::new_prefixed_uuid7("cx:backup_series:"))
             .map_err(|err| anyhow!("failed to mint backup_series id: {err}"))?;
@@ -370,6 +366,50 @@ pub fn build_key_backup_envelope(
         frontier_ref: None,
         extra: Default::default(),
     })
+}
+
+/// Build a successor envelope in an existing key-backup series.
+///
+/// The successor inherits actor/device/class from `predecessor`, increments
+/// `series_seq`, and binds the predecessor by both `backup_id` and
+/// `ciphertext_digest`. Callers supply the new ciphertext and the current
+/// originating-key frontier reference.
+#[allow(clippy::too_many_arguments)]
+pub fn build_key_backup_successor_envelope(
+    backup_id: BackupId,
+    predecessor: &KeyBackup,
+    backup_version: &str,
+    kek: &VaultKek,
+    ciphertext: &VaultCiphertext,
+    contents: &[(&str, Option<&str>)],
+    frontier_ref: impl Into<String>,
+) -> Result<KeyBackup> {
+    if backup_id == predecessor.backup_id {
+        return Err(anyhow!("successor backup_id must differ from predecessor"));
+    }
+    let frontier_ref = frontier_ref.into();
+    if frontier_ref.trim().is_empty() {
+        return Err(anyhow!("successor frontier_ref must not be empty"));
+    }
+    let mut successor = build_key_backup_envelope(
+        backup_id,
+        predecessor.actor_id.clone(),
+        predecessor.device_id.clone(),
+        predecessor.backup_class,
+        backup_version,
+        kek,
+        ciphertext,
+        contents,
+    )?;
+    successor.series_id = predecessor.series_id.clone();
+    successor.series_seq = predecessor
+        .series_seq
+        .checked_add(1)
+        .ok_or_else(|| anyhow!("successor series_seq overflow"))?;
+    successor.supersedes = Some(predecessor.backup_id.clone());
+    successor.supersedes_digest = Some(predecessor.ciphertext_digest.clone());
+    successor.frontier_ref = Some(frontier_ref);
+    Ok(successor)
 }
 
 /// Key commitment used by the AEAD envelope (spec §7.2). Local fast
@@ -502,6 +542,42 @@ mod tests {
         assert!(envelope.encryption.key_commitment.is_some());
         assert_eq!(envelope.contents.len(), 1);
         assert_eq!(envelope.contents[0].item_type, "recovery_secret");
+    }
+
+    #[test]
+    fn successor_envelope_binds_predecessor_and_frontier() {
+        let kek = derive_vault_kek_with_salt(b"pp", &[5u8; VAULT_SALT_LEN]).unwrap();
+        let genesis_ct = encrypt_vault(&kek, b"genesis").unwrap();
+        let successor_ct = encrypt_vault(&kek, b"successor").unwrap();
+        let genesis = build_key_backup_envelope(
+            "cx:backup:01964137-0000-7000-8000-000000000001".parse().unwrap(),
+            "did:webvh:alice.example".parse().unwrap(),
+            None,
+            BackupClass::SecretStorage,
+            "kb_1",
+            &kek,
+            &genesis_ct,
+            &[("recovery_secret", Some("genesis"))],
+        )
+        .unwrap();
+        let successor = build_key_backup_successor_envelope(
+            "cx:backup:01964137-0000-7000-8000-000000000002".parse().unwrap(),
+            &genesis,
+            "kb_2",
+            &kek,
+            &successor_ct,
+            &[("recovery_secret", Some("successor"))],
+            "cx:frontier:recovery:2",
+        )
+        .unwrap();
+        assert_eq!(successor.series_id, genesis.series_id);
+        assert_eq!(successor.series_seq, genesis.series_seq + 1);
+        assert_eq!(successor.supersedes.as_ref(), Some(&genesis.backup_id));
+        assert_eq!(
+            successor.supersedes_digest.as_deref(),
+            Some(genesis.ciphertext_digest.as_str())
+        );
+        assert_eq!(successor.frontier_ref.as_deref(), Some("cx:frontier:recovery:2"));
     }
 
     #[test]

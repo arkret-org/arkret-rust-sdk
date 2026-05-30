@@ -32,6 +32,8 @@ pub enum Resource {
     Event { space_id: String, event_kind: String, event_id: String },
     /// Actor resource (account-lifecycle, profile updates).
     Actor { actor_did: String },
+    /// Circle resource.
+    Circle { circle_id: contrix_core::CircleId },
 }
 
 impl Resource {
@@ -52,7 +54,7 @@ impl Resource {
             Self::Morph { space_id, .. } => space_id,
             Self::Blob { space_id, .. } => space_id,
             Self::Event { space_id, .. } => space_id,
-            Self::Notification { .. } | Self::Actor { .. } => "*",
+            Self::Notification { .. } | Self::Actor { .. } | Self::Circle { .. } => "*",
         }
     }
 }
@@ -108,7 +110,7 @@ pub enum Constraint {
         #[serde(default = "default_false")]
         approval_required: bool,
         #[serde(skip_serializing_if = "Option::is_none")]
-        approval_actor_refs: Option<Vec<Did>>,
+        approval_actor_ids: Option<Vec<Did>>,
         #[serde(skip_serializing_if = "Option::is_none")]
         timeout: Option<ConstraintDuration>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -187,7 +189,7 @@ pub enum Constraint {
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         relation_kind_allow: Vec<String>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
-        allowed_view_refs: Vec<String>,
+        allowed_view_ids: Vec<String>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         allowed_from_container_refs: Vec<String>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -199,9 +201,9 @@ pub enum Constraint {
     /// See `constraint-schema.md` §6.1 / §6.2.
     ScopeLimitation {
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
-        allowed_flow_refs: Vec<String>,
+        allowed_flow_ids: Vec<String>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
-        denied_flow_refs: Vec<String>,
+        denied_flow_ids: Vec<String>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         allowed_tracks: Vec<String>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -219,9 +221,9 @@ pub enum Constraint {
     /// (`cx.circle.manage`, `cx.circle.member.manage`,
     /// `cx.circle.member.add.others`, `cx.circle.audit`) to a specific set
     /// of Circle ids. Spec `capability-action-registry.json` declares
-    /// `required_constraints=["allowed_circle_refs"]` on each gated action;
+    /// `required_constraints=["allowed_circle_ids"]` on each gated action;
     /// unconstrained Realm-wide grants for these actions MUST be rejected.
-    AllowedCircleRefs { allowed_circle_refs: std::collections::BTreeSet<contrix_core::CircleId> },
+    AllowedCircleIds { allowed_circle_ids: std::collections::BTreeSet<contrix_core::CircleId> },
 }
 
 /// Constraint effect.
@@ -284,6 +286,7 @@ pub enum ScopeLimitation {
     View,
     Relation,
     Policy,
+    Circle,
 }
 
 /// Approval semantics for approval workflow constraints.
@@ -693,7 +696,7 @@ impl ConstraintEntry {
             Constraint::EditWindow { .. } => ConstraintEffect::Allow,
             Constraint::ContainerMove { .. } => ConstraintEffect::Allow,
             Constraint::ScopeLimitation { .. } => ConstraintEffect::Allow,
-            Constraint::AllowedCircleRefs { .. } => ConstraintEffect::Allow,
+            Constraint::AllowedCircleIds { .. } => ConstraintEffect::Allow,
         }
     }
 
@@ -727,10 +730,10 @@ impl ConstraintEntry {
             Constraint::EditWindow { .. } => EvaluationClass::Stateless,
             Constraint::ContainerMove { .. } => EvaluationClass::RealmState,
             Constraint::ScopeLimitation { .. } => EvaluationClass::Stateless,
-            // CXP-0007: allowed_circle_refs is a static set baked into the
+            // CXP-0007: allowed_circle_ids is a static set baked into the
             // grant body. Evaluator only needs to membership-test against the
             // request's circle_id; no Realm state or external lookup.
-            Constraint::AllowedCircleRefs { .. } => EvaluationClass::GrantLocal,
+            Constraint::AllowedCircleIds { .. } => EvaluationClass::GrantLocal,
         }
     }
 }

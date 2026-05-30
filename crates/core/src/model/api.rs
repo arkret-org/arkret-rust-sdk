@@ -662,6 +662,8 @@ pub struct AccountSubscribeFrame {
     pub partial: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reconnect_after_ms: Option<u64>,
     #[serde(default, flatten)]
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     pub extra: BTreeMap<String, Value>,
@@ -701,6 +703,12 @@ impl AccountSubscribeFrame {
             self.kind,
             AccountSubscribeFrameKind::Dropped | AccountSubscribeFrameKind::ResyncRequired
         )
+    }
+
+    /// Server-advertised lower bound before reconnecting the same
+    /// account-subscribe scope.
+    pub fn reconnect_after_ms(&self) -> Option<u64> {
+        self.reconnect_after_ms
     }
 
     /// True iff `kind == catchup_complete`.
@@ -750,17 +758,20 @@ mod account_subscribe_frame_tests {
 
     #[test]
     fn account_subscribe_frame_from_ndjson_line_dropped_requires_resubscribe() {
-        let line = r#"{"kind":"dropped","reason":"buffer overflow"}"#;
+        let line = r#"{"kind":"dropped","reason":"buffer overflow","reconnect_after_ms":10000}"#;
         let frame = AccountSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
         assert!(frame.requires_resubscribe());
         assert_eq!(frame.reason.as_deref(), Some("buffer overflow"));
+        assert_eq!(frame.reconnect_after_ms(), Some(10_000));
     }
 
     #[test]
     fn account_subscribe_frame_from_ndjson_line_resync_required_requires_resubscribe() {
-        let line = r#"{"kind":"resync_required","reason":"epoch rotated"}"#;
+        let line =
+            r#"{"kind":"resync_required","reason":"epoch rotated","reconnect_after_ms":7500}"#;
         let frame = AccountSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
         assert!(frame.requires_resubscribe());
+        assert_eq!(frame.reconnect_after_ms(), Some(7_500));
     }
 
     #[test]
@@ -1105,8 +1116,8 @@ pub enum TargetKind {
 /// `address` is a client-agnostic shareable object address in either the
 /// `web+contrix:` URI form or the HTTPS-landing fragment form (see
 /// [`crate::model::object_address::parse_address`]). `token` is present iff
-/// the address carries `lt=invite`; the server MUST bind it to the resolved
-/// object via [`crate::model::object_address::verify_token_target`].
+/// the address carries `lt=invite` or `lt=preview`; the server MUST bind it to
+/// the resolved object via [`crate::model::object_address::verify_token_target`].
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryResolveTargetReqBody {
@@ -1995,6 +2006,7 @@ pub struct KeyBackupEncryption {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(try_from = "KeyBackupKdfWire")]
 pub struct KeyBackupKdf {
     pub name: String,
     pub salt: String,
@@ -2006,6 +2018,38 @@ pub struct KeyBackupKdf {
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct KeyBackupKdfWire {
+    name: String,
+    salt: String,
+    #[serde(default)]
+    params: Value,
+    degraded_profile_reason: Option<String>,
+    #[serde(default, flatten)]
+    extra: BTreeMap<String, Value>,
+}
+
+impl TryFrom<KeyBackupKdfWire> for KeyBackupKdf {
+    type Error = String;
+
+    fn try_from(wire: KeyBackupKdfWire) -> std::result::Result<Self, Self::Error> {
+        if wire.params.as_object().is_some_and(|params| {
+            params.keys().any(|key| {
+                crate::is_forbidden_in_context(key, crate::WireContext::KeyBackupKdfParams)
+            })
+        }) {
+            return Err("KeyBackupKdf.params contains forbidden wire field".to_owned());
+        }
+        Ok(Self {
+            name: wire.name,
+            salt: wire.salt,
+            params: wire.params,
+            degraded_profile_reason: wire.degraded_profile_reason,
+            extra: wire.extra,
+        })
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2283,5 +2327,20 @@ mod tests {
         assert_eq!(json, serde_json::json!("device_snapshot_secret"));
         let parsed: KeyBackupRecipientMethod = serde_json::from_value(json).unwrap();
         assert_eq!(parsed, KeyBackupRecipientMethod::DeviceSnapshotSecret);
+    }
+
+    #[test]
+    fn key_backup_kdf_rejects_legacy_hash_param() {
+        let err = serde_json::from_value::<KeyBackupKdf>(serde_json::json!({
+            "name": "pbkdf2",
+            "salt": "salt",
+            "params": {
+                "iterations": 600000,
+                "hash": "sha256"
+            },
+            "degraded_profile_reason": "legacy"
+        }))
+        .unwrap_err();
+        assert!(err.to_string().contains("forbidden wire field"));
     }
 }

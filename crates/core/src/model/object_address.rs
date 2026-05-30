@@ -29,10 +29,8 @@
 //! * `via=<service_did>` — MULTI-valued routing hint.
 //! * `action=<view|join|reply>` — default `view`; pure UI hint, MUST NOT
 //!   escalate permissions.
-//! * `lt=<reference|invite>` — omitted == `reference`; any other value
-//!   (INCLUDING the reserved `preview`) is treated as the strictest
-//!   `reference`.
-//! * `tok=<opaque-token>` — present iff `lt=invite`.
+//! * `lt=<reference|invite|preview>` — omitted == `reference`.
+//! * `tok=<opaque-token>` — present iff `lt=invite` or `lt=preview`.
 //!
 //! ## Token target binding (security-critical)
 //! An `invite` token's signed payload MUST carry a [`TargetDescriptor`]. Its
@@ -52,25 +50,26 @@ use crate::{Error, Result, canonical};
 pub const WEB_CONTRIX_SCHEME: &str = "web+contrix:";
 
 /// Link type carried by an address. `reference` is the default and carries no
-/// authorization; `invite` carries an opaque `tok`. The spec reserves
-/// `preview` but it is NOT implemented in v1: an omitted/unknown/`preview`
-/// `lt` value collapses to the strictest [`LinkType::Reference`].
+/// authorization; `invite` carries membership/join material; `preview` carries
+/// only policy-limited pre-join preview authority.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum LinkType {
     Reference,
     Invite,
+    Preview,
 }
 
 impl LinkType {
-    /// Parse an `lt=` query value. Omitted/unknown/reserved `preview` → the
+    /// Parse an `lt=` query value. Omitted/unknown values collapse to the
     /// strictest [`LinkType::Reference`] (fail-closed, never escalate).
     pub fn from_query(value: Option<&str>) -> Self {
         match value {
             Some("invite") => LinkType::Invite,
-            // "reference", omitted, the reserved "preview", or anything else
-            // collapses to the strictest reference.
+            Some("preview") => LinkType::Preview,
+            // "reference", omitted, or anything else collapses to the
+            // strictest reference.
             _ => LinkType::Reference,
         }
     }
@@ -79,6 +78,7 @@ impl LinkType {
         match self {
             LinkType::Reference => "reference",
             LinkType::Invite => "invite",
+            LinkType::Preview => "preview",
         }
     }
 }
@@ -158,7 +158,8 @@ pub struct ParsedAddress {
     pub via: Vec<String>,
     pub action: AddressAction,
     pub link_type: LinkType,
-    /// Opaque invite token; present iff `link_type == Invite`.
+    /// Opaque invite / preview token; present iff `link_type == Invite` or
+    /// `link_type == Preview`.
     pub token: Option<String>,
 }
 
@@ -290,10 +291,8 @@ fn parse_path(path: &str) -> Result<(RealmRef, Option<String>, Option<String>)> 
 }
 
 /// Minimal `application/x-www-form-urlencoded` query decoder for the hint set.
-///
-/// TODO(R3.3.1): full RFC 3986 percent-decoding for `tok`/`via` values that
-/// contain reserved characters; v1 only `+`→space and `%XX` for the common
-/// cases below.
+/// Valid `%XX` octets are decoded; malformed or truncated percent sequences are
+/// left literal so link rewriters cannot change parsing by dropping bytes.
 fn percent_decode(value: &str) -> String {
     let bytes = value.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
@@ -304,7 +303,7 @@ fn percent_decode(value: &str) -> String {
                 out.push(b' ');
                 i += 1;
             }
-            b'%' if i + 2 < bytes.len() => {
+            b'%' if i + 3 <= bytes.len() => {
                 let hex = |b: u8| -> Option<u8> {
                     match b {
                         b'0'..=b'9' => Some(b - b'0'),
@@ -357,9 +356,9 @@ fn parse_query(query: &str) -> (Vec<String>, AddressAction, LinkType, Option<Str
 
     let action = AddressAction::from_query(action_raw.as_deref());
     let link_type = LinkType::from_query(lt_raw.as_deref());
-    // `tok` is meaningful iff `lt=invite`; drop a stray token on a reference
-    // link so it can never be mistaken for authorization.
-    let tok = if link_type == LinkType::Invite { tok } else { None };
+    // `tok` is meaningful iff `lt=invite|preview`; drop a stray token on a
+    // reference link so it can never be mistaken for authorization.
+    let tok = if matches!(link_type, LinkType::Invite | LinkType::Preview) { tok } else { None };
     (via, action, link_type, tok)
 }
 
@@ -388,7 +387,7 @@ pub fn parse_address(input: &str) -> Result<ParsedAddress> {
 
 /// Build a canonical `web+contrix:` address from its parts. `via` is emitted in
 /// order; `action` is emitted only when non-default; `lt`/`tok` are emitted
-/// only for invite links.
+/// only for invite / preview links.
 pub fn build_address(parsed: &ParsedAddress) -> String {
     let mut out = String::from(WEB_CONTRIX_SCHEME);
     out.push_str("realm/");
@@ -436,7 +435,7 @@ fn build_query(parsed: &ParsedAddress) -> String {
     if parsed.action != AddressAction::View {
         parts.push(format!("action={}", parsed.action.as_str()));
     }
-    if parsed.link_type == LinkType::Invite {
+    if matches!(parsed.link_type, LinkType::Invite | LinkType::Preview) {
         parts.push(format!("lt={}", parsed.link_type.as_str()));
         if let Some(token) = &parsed.token {
             parts.push(format!("tok={token}"));
@@ -606,6 +605,16 @@ mod tests {
         assert_eq!(parsed.via, vec!["did:web:a".to_owned(), "did:web:b".to_owned()]);
     }
 
+    #[test]
+    fn query_percent_decode_handles_complete_and_truncated_octets() {
+        let parsed = parse_address(&format!(
+            "web+contrix:realm/{R}/flow/{F}?via=did%3Aweb%3Arelay.example&lt=preview&tok=a%2Fb%25c%2"
+        ))
+        .unwrap();
+        assert_eq!(parsed.via, vec!["did:web:relay.example".to_owned()]);
+        assert_eq!(parsed.token.as_deref(), Some("a/b%c%2"));
+    }
+
     // ── Round-trip equivalence ──────────────────────────────────────────────
 
     #[test]
@@ -687,15 +696,16 @@ mod tests {
     }
 
     #[test]
-    fn reserved_preview_lt_collapses_to_reference() {
+    fn preview_link_type_round_trips_token() {
         let parsed =
             parse_address(&format!("web+contrix:realm/{R}/flow/{F}?via={VIA}&lt=preview")).unwrap();
-        assert_eq!(parsed.link_type, LinkType::Reference);
-        // A stray token on a non-invite link is dropped.
+        assert_eq!(parsed.link_type, LinkType::Preview);
+        assert_eq!(parsed.token, None);
         let parsed2 =
             parse_address(&format!("web+contrix:realm/{R}/flow/{F}?via={VIA}&lt=preview&tok=xyz"))
                 .unwrap();
-        assert_eq!(parsed2.token, None);
+        assert_eq!(parsed2.link_type, LinkType::Preview);
+        assert_eq!(parsed2.token.as_deref(), Some("xyz"));
     }
 
     // ── target_digest stability & scope confusion ───────────────────────────

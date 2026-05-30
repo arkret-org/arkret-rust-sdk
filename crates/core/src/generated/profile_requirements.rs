@@ -35,9 +35,9 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
     LazyLock::new(|| {
         let mut map: BTreeMap<&'static str, ProfileRequirements> = BTreeMap::new();
         map.insert(
-            "cx.profile.accountable_to.strict_reject.v1",
+            "cx.profile.accountable_principals.strict_reject.v1",
             ProfileRequirements {
-                profile_id: "cx.profile.accountable_to.strict_reject.v1",
+                profile_id: "cx.profile.accountable_principals.strict_reject.v1",
                 inherits: &[],
                 required_operations: &["cx.events.submit"],
                 required_event_kinds: &[
@@ -400,6 +400,23 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_cell_namespaces: &[],
                 required_cells: &[],
                 required_constraint_kinds: &["edit_window", "temporal"],
+            },
+        );
+        map.insert(
+            "cx.profile.circle_anchor_cadence.fixed_5m.v1",
+            ProfileRequirements {
+                profile_id: "cx.profile.circle_anchor_cadence.fixed_5m.v1",
+                inherits: &[],
+                required_operations: &["cx.events.submit", "cx.events.subscribe"],
+                required_event_kinds: &["cx.circle.anchor_commit"],
+                required_schemas: &["cx.schema.event.v1", "cx.schema.event_payload.v1"],
+                rejected_event_kinds: &[],
+                required_fixtures: &["circle-scope-fixture.json"],
+                required_capability_actions: &[],
+                required_features: &[],
+                required_cell_namespaces: &[],
+                required_cells: &[],
+                required_constraint_kinds: &[],
             },
         );
         map.insert(
@@ -817,6 +834,23 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             },
         );
         map.insert(
+            "cx.profile.federation.high_assurance.v1",
+            ProfileRequirements {
+                profile_id: "cx.profile.federation.high_assurance.v1",
+                inherits: &["cx.profile.federation_minimal.v1"],
+                required_operations: &[],
+                required_event_kinds: &[],
+                required_schemas: &[],
+                rejected_event_kinds: &[],
+                required_fixtures: &["federation-fixture.json"],
+                required_capability_actions: &[],
+                required_features: &[],
+                required_cell_namespaces: &[],
+                required_cells: &[],
+                required_constraint_kinds: &[],
+            },
+        );
+        map.insert(
             "cx.profile.federation_minimal.v1",
             ProfileRequirements {
                 profile_id: "cx.profile.federation_minimal.v1",
@@ -853,23 +887,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_operations: &[],
                 required_event_kinds: &["cx.member.state", "cx.realm.create"],
                 required_schemas: &["cx.schema.anchor.v1", "cx.schema.event.v1"],
-                rejected_event_kinds: &[],
-                required_fixtures: &["federation-fixture.json"],
-                required_capability_actions: &[],
-                required_features: &[],
-                required_cell_namespaces: &[],
-                required_cells: &[],
-                required_constraint_kinds: &[],
-            },
-        );
-        map.insert(
-            "cx.profile.federation.high_assurance.v1",
-            ProfileRequirements {
-                profile_id: "cx.profile.federation.high_assurance.v1",
-                inherits: &["cx.profile.federation_minimal.v1"],
-                required_operations: &[],
-                required_event_kinds: &[],
-                required_schemas: &[],
                 rejected_event_kinds: &[],
                 required_fixtures: &["federation-fixture.json"],
                 required_capability_actions: &[],
@@ -1203,27 +1220,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             },
         );
         map.insert(
-            "cx.profile.mimi_interop_vectors.v1",
-            ProfileRequirements {
-                profile_id: "cx.profile.mimi_interop_vectors.v1",
-                inherits: &[],
-                required_operations: &[
-                    "cx.mimi.provider_directory",
-                    "cx.mimi.room_update",
-                    "cx.mimi.submit_message",
-                ],
-                required_event_kinds: &["cx.mimi.room_binding", "cx.mls.keypackage"],
-                required_schemas: &["cx.schema.mimi_interop.v1"],
-                rejected_event_kinds: &[],
-                required_fixtures: &["mimi-interop-fixture.json"],
-                required_capability_actions: &[],
-                required_features: &[],
-                required_cell_namespaces: &[],
-                required_cells: &[],
-                required_constraint_kinds: &[],
-            },
-        );
-        map.insert(
             "cx.profile.mimi_interop.v1",
             ProfileRequirements {
                 profile_id: "cx.profile.mimi_interop.v1",
@@ -1252,6 +1248,27 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             },
         );
         map.insert(
+            "cx.profile.mimi_interop_vectors.v1",
+            ProfileRequirements {
+                profile_id: "cx.profile.mimi_interop_vectors.v1",
+                inherits: &[],
+                required_operations: &[
+                    "cx.mimi.provider_directory",
+                    "cx.mimi.room_update",
+                    "cx.mimi.submit_message",
+                ],
+                required_event_kinds: &["cx.mimi.room_binding", "cx.mls.keypackage"],
+                required_schemas: &["cx.schema.mimi_interop.v1"],
+                rejected_event_kinds: &[],
+                required_fixtures: &["mimi-interop-fixture.json"],
+                required_capability_actions: &[],
+                required_features: &[],
+                required_cell_namespaces: &[],
+                required_cells: &[],
+                required_constraint_kinds: &[],
+            },
+        );
+        map.insert(
             "cx.profile.minimal_client.v1",
             ProfileRequirements {
                 profile_id: "cx.profile.minimal_client.v1",
@@ -1268,6 +1285,30 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 ],
                 rejected_event_kinds: &[],
                 required_fixtures: &["encoding-fixture.json", "sync-fixture.json"],
+                required_capability_actions: &[],
+                required_features: &[],
+                required_cell_namespaces: &[],
+                required_cells: &[],
+                required_constraint_kinds: &[],
+            },
+        );
+        map.insert(
+            "cx.profile.mls.minimal_metadata_realm.v1",
+            ProfileRequirements {
+                profile_id: "cx.profile.mls.minimal_metadata_realm.v1",
+                inherits: &["cx.profile.e2ee_client.v1"],
+                required_operations: &["cx.events.query", "cx.events.submit"],
+                required_event_kinds: &["cx.message.create", "cx.mls.commit"],
+                required_schemas: &[
+                    "cx.schema.encrypted_envelope.v1",
+                    "cx.schema.event.v1",
+                    "cx.schema.identity_link.v1",
+                ],
+                rejected_event_kinds: &[],
+                required_fixtures: &[
+                    "crypto-signature-fixture.json",
+                    "privacy-security-fixture.json",
+                ],
                 required_capability_actions: &[],
                 required_features: &[],
                 required_cell_namespaces: &[],
@@ -1304,30 +1345,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "cx:cell:cx.component.key_schedule.v1:<mls_group_id>",
                     "cx:cell:cx.component.mls_epoch.v1:<mls_group_id>",
                 ],
-                required_constraint_kinds: &[],
-            },
-        );
-        map.insert(
-            "cx.profile.mls.minimal_metadata_realm.v1",
-            ProfileRequirements {
-                profile_id: "cx.profile.mls.minimal_metadata_realm.v1",
-                inherits: &["cx.profile.e2ee_client.v1"],
-                required_operations: &["cx.events.query", "cx.events.submit"],
-                required_event_kinds: &["cx.message.create", "cx.mls.commit"],
-                required_schemas: &[
-                    "cx.schema.encrypted_envelope.v1",
-                    "cx.schema.event.v1",
-                    "cx.schema.identity_link.v1",
-                ],
-                rejected_event_kinds: &[],
-                required_fixtures: &[
-                    "crypto-signature-fixture.json",
-                    "privacy-security-fixture.json",
-                ],
-                required_capability_actions: &[],
-                required_features: &[],
-                required_cell_namespaces: &[],
-                required_cells: &[],
                 required_constraint_kinds: &[],
             },
         );
@@ -1576,42 +1593,6 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
             },
         );
         map.insert(
-            "cx.profile.principal_server_events_api.v1",
-            ProfileRequirements {
-                profile_id: "cx.profile.principal_server_events_api.v1",
-                inherits: &["cx.profile.core_event_store.v1"],
-                required_operations: &[
-                    "cx.events.describe",
-                    "cx.events.frontier",
-                    "cx.events.get",
-                    "cx.events.query",
-                    "cx.events.resolve",
-                    "cx.events.submit",
-                ],
-                required_event_kinds: &["cx.member.state", "cx.realm.create"],
-                required_schemas: &[
-                    "cx.schema.anchor.v1",
-                    "cx.schema.cursor.v1",
-                    "cx.schema.event.v1",
-                    "cx.schema.event_payload.v1",
-                ],
-                rejected_event_kinds: &[
-                    "wire_scope:actor_private_event",
-                    "wire_scope:ephemeral_event",
-                ],
-                required_fixtures: &[
-                    "crypto-signature-fixture.json",
-                    "event-envelope-negative-fixture.json",
-                    "sync-fixture.json",
-                ],
-                required_capability_actions: &[],
-                required_features: &[],
-                required_cell_namespaces: &[],
-                required_cells: &[],
-                required_constraint_kinds: &[],
-            },
-        );
-        map.insert(
             "cx.profile.principal_server.v1",
             ProfileRequirements {
                 profile_id: "cx.profile.principal_server.v1",
@@ -1649,6 +1630,42 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "event-envelope-negative-fixture.json",
                     "move-anchor-lattice-fixture.json",
                     "privacy-security-fixture.json",
+                    "sync-fixture.json",
+                ],
+                required_capability_actions: &[],
+                required_features: &[],
+                required_cell_namespaces: &[],
+                required_cells: &[],
+                required_constraint_kinds: &[],
+            },
+        );
+        map.insert(
+            "cx.profile.principal_server_events_api.v1",
+            ProfileRequirements {
+                profile_id: "cx.profile.principal_server_events_api.v1",
+                inherits: &["cx.profile.core_event_store.v1"],
+                required_operations: &[
+                    "cx.events.describe",
+                    "cx.events.frontier",
+                    "cx.events.get",
+                    "cx.events.query",
+                    "cx.events.resolve",
+                    "cx.events.submit",
+                ],
+                required_event_kinds: &["cx.member.state", "cx.realm.create"],
+                required_schemas: &[
+                    "cx.schema.anchor.v1",
+                    "cx.schema.cursor.v1",
+                    "cx.schema.event.v1",
+                    "cx.schema.event_payload.v1",
+                ],
+                rejected_event_kinds: &[
+                    "wire_scope:actor_private_event",
+                    "wire_scope:ephemeral_event",
+                ],
+                required_fixtures: &[
+                    "crypto-signature-fixture.json",
+                    "event-envelope-negative-fixture.json",
                     "sync-fixture.json",
                 ],
                 required_capability_actions: &[],

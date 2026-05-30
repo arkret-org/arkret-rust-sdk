@@ -129,12 +129,11 @@ pub struct MediaTokenExchangeRequest {
 /// to [`MediaTokenResponse`] / [`validate_token_ttl`]. This helper keeps
 /// the SDK transport-agnostic; downstream crates wrap it with their own
 /// HTTP client.
-//
-// TODO(R3.1): land a transport-backed `BaseClient::call_media_token_exchange`
-// that signs the request, performs the POST, validates the response
-// `service_signature.kid` against the current
-// `cx.realm.media_service.service_id`, calls `validate_token_ttl`, and
-// rejects unknown focus types via [`MediaBackendType::ensure_known`].
+///
+/// Transport-backed clients MUST sign the request, perform the POST, validate
+/// the response `service_signature.kid` against the current
+/// `cx.realm.media_service.service_id`, call [`validate_token_ttl`], and
+/// reject unknown focus types via [`MediaBackendType::ensure_known`].
 pub fn call_media_token_exchange(
     realm_id: RealmId,
     call_id: CallId,

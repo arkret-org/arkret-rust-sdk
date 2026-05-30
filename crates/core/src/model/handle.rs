@@ -144,25 +144,15 @@ fn is_valid_localpart(s: &str) -> bool {
 /// Performs the operations that a registrar / claim reducer MUST run
 /// before accepting a candidate localpart:
 ///
-/// 1. Apply Unicode NFC normalization (idempotent for ASCII).
-/// 2. Reject mixed-script labels (Latin mixed with non-Latin scripts).
-/// 3. Reject obvious homograph substitutions through a minimal
-///    confusable skeleton — currently the ASCII-confusable subset; the
-///    full UTS#39 skeleton table lands in R3.1.
+/// 1. Reject zero-width / bidi controls before any display processing.
+/// 2. Enforce the v1 canonical ASCII localpart alphabet.
+/// 3. Reject common non-ASCII Latin lookalikes with the
+///    `handle_homograph_forbidden` wire code.
 ///
 /// On rejection returns [`Error::Protocol`] carrying the
 /// `handle_homograph_forbidden` wire code prefix so downstream HTTP
 /// adapters can map straight to the registry error.
-//
-// TODO(R3.1): swap the minimal skeleton table for the full UTS#39
-// `confusables.txt` mapping (add `unicode-skeleton` crate or embed the
-// table). Until then, only the high-frequency Latin-vs-Cyrillic-vs-Greek
-// substitutions below are caught — sufficient for the wire-level guard
-// to refuse the most common attacks (cyrillic 'а', greek 'ο', etc.).
 pub fn normalize_handle_localpart(input: &str) -> Result<String> {
-    // 1. Trim NFC-equivalent control / zero-width payloads. The full
-    //    NFC pass is deferred (no `unicode-normalization` dep yet); for
-    //    ASCII the normalized form equals the input.
     if input.is_empty() || input.len() > 128 {
         return Err(Error::Protocol(format!(
             "handle_homograph_forbidden: localpart length out of range ({input:?})"
@@ -182,20 +172,12 @@ pub fn normalize_handle_localpart(input: &str) -> Result<String> {
         }
     }
 
-    // 3. Script-mixed check: if any character is non-ASCII while at
-    //    least one ASCII letter is present, fail closed. This is the
-    //    R3 wire-level minimum; the full UTS#39 mixed-script detector
-    //    needs a script-property table (deferred).
-    let has_ascii_letter = input.chars().any(|c| c.is_ascii_alphabetic());
-    let has_non_ascii_letter = input.chars().any(|c| !c.is_ascii() && c.is_alphabetic());
-    if has_ascii_letter && has_non_ascii_letter {
+    if input.chars().any(|c| !is_valid_localpart_char(c)) {
         return Err(Error::Protocol(format!(
-            "handle_homograph_forbidden: script-mixed localpart ({input:?})"
+            "handle_homograph_forbidden: localpart outside canonical ASCII alphabet ({input:?})"
         )));
     }
 
-    // 4. Minimal confusable skeleton check for the highest-risk
-    //    substitutions (Cyrillic / Greek lookalikes of ASCII letters).
     for ch in input.chars() {
         if !ch.is_ascii() && minimal_confusable_for(ch).is_some() {
             return Err(Error::Protocol(format!(
@@ -207,9 +189,11 @@ pub fn normalize_handle_localpart(input: &str) -> Result<String> {
     Ok(input.to_lowercase())
 }
 
-/// Minimal UTS#39 confusable lookup. Returns the ASCII look-alike for a
-/// known high-risk codepoint, or [`None`] when the character is not in
-/// the minimal table. The full table is loaded in R3.1.
+fn is_valid_localpart_char(c: char) -> bool {
+    c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '+' | '~' | '-')
+}
+
+/// UTS#39-inspired high-risk lookup retained for diagnostics and tests.
 fn minimal_confusable_for(ch: char) -> Option<char> {
     Some(match ch {
         // Cyrillic lookalikes.
@@ -279,6 +263,12 @@ mod handle_normalize_tests {
     #[test]
     fn mixed_script_is_rejected() {
         let result = normalize_handle_localpart("aliceα");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn all_non_ascii_localpart_is_rejected() {
+        let result = normalize_handle_localpart("\u{0430}\u{043B}\u{0438}\u{0441}\u{0430}");
         assert!(result.is_err());
     }
 }
@@ -407,6 +397,7 @@ pub enum HandleHintBindingSource {
 /// Canonical handle claim shape — matches `handle-claim.schema.json`.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct HandleClaim {
     /// Canonical handle `<localpart>:<domain>`. R3.1 wire rename from
     /// the prior `handle_uri` field name (contrix-spec @ 7157ee8).

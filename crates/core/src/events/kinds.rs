@@ -233,6 +233,7 @@ pub const REALM_PLAINTEXT_VISIBLE_SERVICES: &str = "cx.realm.plaintext_visible_s
 pub const REALM_POLICY: &str = "cx.realm.policy";
 pub const REALM_POLICY_COMPONENTS: &str = "cx.realm.policy_components";
 pub const REALM_POLICY_SERVER: &str = "cx.realm.policy_server";
+pub const REALM_PREVIEW_POLICY: &str = "cx.realm.preview_policy";
 pub const REALM_READ_RECEIPT_POLICY: &str = "cx.realm.read_receipt_policy";
 pub const REALM_SCHEMA: &str = "cx.realm.schema";
 pub const REALM_TOMBSTONE: &str = "cx.realm.tombstone";
@@ -415,6 +416,7 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     REALM_POLICY,
     REALM_POLICY_COMPONENTS,
     REALM_POLICY_SERVER,
+    REALM_PREVIEW_POLICY,
     REALM_READ_RECEIPT_POLICY,
     REALM_SCHEMA,
     REALM_TOMBSTONE,
@@ -660,6 +662,7 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
         | REALM_POLICY
         | REALM_POLICY_COMPONENTS
         | REALM_POLICY_SERVER
+        | REALM_PREVIEW_POLICY
         | REALM_READ_RECEIPT_POLICY
         | REALM_SCHEMA
         | REALM_TOMBSTONE

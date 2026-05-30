@@ -127,7 +127,7 @@ fn protocol_conformance_vectors_remain_stable() {
         "sha256:43258cff783fe7036d8a43033f830adfc60ec037382473548ac742b888292777"
     );
 
-    let cursor = Cursor::new().encode().unwrap();
+    let cursor = Cursor::new().unwrap().encode().unwrap();
     let decoded = Cursor::decode(&cursor).unwrap();
     assert_eq!(decoded.v, "1");
     assert!(decoded.h.is_some());

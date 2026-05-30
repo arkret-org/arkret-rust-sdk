@@ -398,24 +398,29 @@ fn frame_event_round_trip() {
 
 #[test]
 fn frame_dropped_requires_resubscribe() {
-    let line = r#"{"kind":"dropped","recovery_from":"sx:resume:9","reason":"buffer overflow"}"#;
+    let line = r#"{"kind":"dropped","recovery_from":"sx:resume:9","reason":"buffer overflow","reconnect_after_ms":10000}"#;
     let frame = EventsSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
     assert!(frame.requires_resubscribe());
-    assert!(matches!(
-        &frame,
-        EventsSubscribeFrame::Dropped { recovery_from: Some(rf), .. } if rf == "sx:resume:9"
-    ));
+    match &frame {
+        EventsSubscribeFrame::Dropped { recovery_from: Some(rf), reconnect_after_ms, .. } => {
+            assert_eq!(rf, "sx:resume:9");
+            assert_eq!(*reconnect_after_ms, Some(10_000));
+        }
+        other => panic!("expected Dropped, got {other:?}"),
+    }
 }
 
 #[test]
 fn frame_resync_required_carries_frontier() {
-    let line = r#"{"kind":"resync_required","last_frontier":["sx:f1","sx:f2"]}"#;
+    let line =
+        r#"{"kind":"resync_required","last_frontier":["sx:f1","sx:f2"],"reconnect_after_ms":7500}"#;
     let frame = EventsSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
     assert!(frame.requires_resubscribe());
     match &frame {
-        EventsSubscribeFrame::ResyncRequired { last_frontier, reason } => {
+        EventsSubscribeFrame::ResyncRequired { last_frontier, reason, reconnect_after_ms } => {
             assert_eq!(last_frontier, &["sx:f1".to_owned(), "sx:f2".to_owned()]);
             assert!(reason.is_none());
+            assert_eq!(*reconnect_after_ms, Some(7_500));
         }
         other => panic!("expected ResyncRequired, got {other:?}"),
     }

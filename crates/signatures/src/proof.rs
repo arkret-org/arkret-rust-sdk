@@ -401,6 +401,7 @@ mod ed25519_jws {
     use base64::engine::general_purpose::URL_SAFE_NO_PAD;
     use chrono::Utc;
     use ed25519_dalek::{Signer as _, SigningKey, Verifier as _, VerifyingKey};
+    use serde::Deserialize;
 
     use contrix_core::{Audience, Hash, Proof, canonical, proof_kind};
 
@@ -495,6 +496,14 @@ mod ed25519_jws {
     #[derive(Default, Clone, Copy)]
     pub struct Ed25519DetachedJwsVerifier;
 
+    #[derive(Debug, Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct JwsProtectedHeader {
+        alg: String,
+        #[serde(default)]
+        typ: Option<String>,
+    }
+
     impl Ed25519DetachedJwsVerifier {
         pub fn new() -> Self {
             Self
@@ -527,17 +536,42 @@ mod ed25519_jws {
                     "detached JWS must be header..signature with empty payload segment".to_owned(),
                 ));
             }
+            let header_bytes = URL_SAFE_NO_PAD
+                .decode(parts[0].as_bytes())
+                .map_err(|err| VerifierError::Encoding(format!("invalid header base64: {err}")))?;
+            let header: JwsProtectedHeader =
+                serde_json::from_slice(&header_bytes).map_err(|err| {
+                    VerifierError::Encoding(format!("invalid protected header: {err}"))
+                })?;
+            if header.alg != proof.alg {
+                return Err(VerifierError::Binding(format!(
+                    "protected header alg '{}' does not match proof alg '{}'",
+                    header.alg, proof.alg
+                )));
+            }
+            if header.alg != "EdDSA" {
+                return Err(VerifierError::Backend(format!(
+                    "Ed25519 verifier received non-EdDSA protected alg '{}'",
+                    header.alg
+                )));
+            }
+            if let Some(typ) = header.typ.as_deref()
+                && typ != "JWT"
+            {
+                return Err(VerifierError::Encoding(format!(
+                    "unsupported detached JWS typ '{typ}'"
+                )));
+            }
             let sig_bytes = URL_SAFE_NO_PAD
                 .decode(parts[2].as_bytes())
                 .map_err(|err| VerifierError::Encoding(format!("invalid sig base64: {err}")))?;
-            self.verify(canonical_bytes, &sig_bytes, public_key)
+            let signing_input = format!("{}.{}", parts[0], URL_SAFE_NO_PAD.encode(canonical_bytes));
+            self.verify_signing_input(&signing_input, &sig_bytes, public_key)
         }
-    }
 
-    impl EventVerifier for Ed25519DetachedJwsVerifier {
-        fn verify(
+        fn verify_signing_input(
             &self,
-            bytes: &[u8],
+            signing_input: &str,
             signature: &[u8],
             public_key: &PublicKeyMaterial,
         ) -> Result<(), VerifierError> {
@@ -555,11 +589,22 @@ mod ed25519_jws {
             let mut sig_arr = [0u8; 64];
             sig_arr.copy_from_slice(signature);
             let sig = ed25519_dalek::Signature::from_bytes(&sig_arr);
-            let signing_input = detached_signing_input(bytes);
             verifying.verify(signing_input.as_bytes(), &sig).map_err(|err| {
                 VerifierError::Backend(format!("Ed25519 verification failed: {err}"))
             })?;
             Ok(())
+        }
+    }
+
+    impl EventVerifier for Ed25519DetachedJwsVerifier {
+        fn verify(
+            &self,
+            bytes: &[u8],
+            signature: &[u8],
+            public_key: &PublicKeyMaterial,
+        ) -> Result<(), VerifierError> {
+            let signing_input = detached_signing_input(bytes);
+            self.verify_signing_input(&signing_input, signature, public_key)
         }
 
         fn algorithm(&self) -> &str {
@@ -759,6 +804,9 @@ mod tests {
     #[cfg(feature = "signer")]
     #[test]
     fn ed25519_signer_proof_round_trips_through_jws_verifier() {
+        use base64::Engine;
+        use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+
         let signer = Ed25519DetachedJwsSigner::from_seed([2u8; 32], "did:web:bob.example#key-1");
         let (bytes, proof) = signer
             .sign_payload(&json!({"a": 1, "b": 2}), Some("api.example".to_owned()), None)
@@ -771,6 +819,25 @@ mod tests {
         let mut tampered = bytes;
         tampered.push(b'!');
         assert!(verifier.verify_proof(&proof, &tampered, &public_key).is_err());
+
+        let signature = proof.jws.rsplit('.').next().unwrap();
+        let bad_header = URL_SAFE_NO_PAD.encode(br#"{"alg":"none","typ":"JWT"}"#);
+        let mut header_tampered = proof.clone();
+        header_tampered.jws = format!("{bad_header}..{signature}");
+        assert!(
+            verifier
+                .verify_proof(&header_tampered, &tampered[..tampered.len() - 1], &public_key)
+                .is_err()
+        );
+
+        let crit_header = URL_SAFE_NO_PAD.encode(br#"{"alg":"EdDSA","typ":"JWT","crit":["b64"]}"#);
+        let mut crit_tampered = proof.clone();
+        crit_tampered.jws = format!("{crit_header}..{signature}");
+        assert!(
+            verifier
+                .verify_proof(&crit_tampered, &tampered[..tampered.len() - 1], &public_key)
+                .is_err()
+        );
     }
 
     #[cfg(feature = "signer")]

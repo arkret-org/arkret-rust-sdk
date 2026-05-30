@@ -26,9 +26,12 @@ pub trait DidDocumentSnapshotResolver {
     ) -> Result<Option<String>>;
 }
 
-/// Default resolver: never returns a holder preference. Equivalent to a
-/// deployment that does not expose `metadata.primary_handle`. The
-/// selection then falls through to audience-match / most-recent layers.
+/// Test/offline resolver: never returns a holder preference.
+///
+/// Production callers that support DID Document `metadata.primary_handle`
+/// MUST inject a real [`DidDocumentSnapshotResolver`]. Using this resolver in
+/// production deliberately disables the holder-flagged priority layer and
+/// falls through to audience-match / most-recent selection.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct NoHolderPreferenceResolver;
 
