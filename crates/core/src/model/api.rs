@@ -1263,16 +1263,54 @@ pub struct DirectoryResolveHandleReqBody {
     pub expected_did: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof_challenge: Option<String>,
+    /// Resolution purpose. `lookup` / `mention` return display-safe
+    /// identity data; `member_add` / `invite` request a Realm/audience-bound
+    /// membership candidate per `identity-handles.md` §3.7.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub intent: Option<String>,
+    /// DID or service DID of the requester. Required by directory policy for
+    /// `member_add` / `invite` disclosure.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requester: Option<Did>,
+    /// Target Realm ID or inviting service DID the result must be bound to.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub audience: Option<String>,
+    /// Target Realm for membership-builder intents. Used by directory
+    /// implementations to apply `delivery_binding_policy`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub realm_id: Option<RealmId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub proofs: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryResolveHandleResBody {
+    #[serde(alias = "subject")]
     pub did: Did,
     pub handle: String,
+    #[serde(default)]
     pub verified: bool,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub claims: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub audience: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub member_delivery_binding: Option<DeliveryBindingHint>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub handle_claim: Option<HandleClaim>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub as_of: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub source_refs: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub policy_revision: Option<String>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub stale: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub divergent: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub via_services: Vec<String>,
 }
 
 /// R3.2 (contrix-spec @ b56cab1) — request body for
