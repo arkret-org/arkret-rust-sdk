@@ -1932,6 +1932,7 @@ impl KeyBackup {
 #[serde(rename_all = "snake_case")]
 pub enum KeyBackupRecipientMethod {
     PassphraseKdf,
+    DeviceSnapshotSecret,
     RecoveryPublicKey,
     SecretStorageKey,
     ThresholdRecovery,
@@ -2231,5 +2232,18 @@ impl SessionGrantDidProof {
             device_id,
             expires_at: challenge.expires_at,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn key_backup_recipient_method_round_trips_device_snapshot_secret() {
+        let json = serde_json::to_value(KeyBackupRecipientMethod::DeviceSnapshotSecret).unwrap();
+        assert_eq!(json, serde_json::json!("device_snapshot_secret"));
+        let parsed: KeyBackupRecipientMethod = serde_json::from_value(json).unwrap();
+        assert_eq!(parsed, KeyBackupRecipientMethod::DeviceSnapshotSecret);
     }
 }

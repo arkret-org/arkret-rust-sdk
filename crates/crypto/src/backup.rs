@@ -9,13 +9,9 @@
 //! filesystem, or the DOM, and round-trip identically on every Rust
 //! target the SDK supports (native + wasm32).
 //!
-//! End-to-end the spec mandates **three cryptographically isolated
-//! backup classes** (`did_recovery`, `secret_storage`, `mls_history`);
-//! the [`build_key_backup_envelope`] helper composes the typed
-//! [`KeyBackup`] wire object so the caller cannot accidentally swap
-//! domains. The HKDF info string is generated via
-//! [`contrix_core::BackupClass::hkdf_info`] so the KDF subdomain stays
-//! in lockstep with the wire schema.
+//! This module builds passphrase-KDF envelopes for recovery and secret
+//! storage. MLS history snapshots are device-secret wrapped by the
+//! application runtime and must not use this builder.
 //!
 //! ```no_run
 //! use contrix_crypto::backup::{derive_vault_kek, encrypt_vault, build_key_backup_envelope};
@@ -292,6 +288,9 @@ pub fn build_key_backup_envelope(
     ciphertext: &VaultCiphertext,
     contents: &[(&str, Option<&str>)],
 ) -> Result<KeyBackup> {
+    if backup_class == BackupClass::MlsHistory {
+        return Err(anyhow!("mls_history backups must use device_snapshot_secret envelopes"));
+    }
     if !backup_version.starts_with("kb_") {
         return Err(anyhow!(
             "backup_version must match the kb_<id> pattern (got {backup_version:?})"
@@ -521,5 +520,23 @@ mod tests {
         )
         .unwrap_err();
         assert!(err.to_string().contains("backup_version"));
+    }
+
+    #[test]
+    fn passphrase_envelope_builder_rejects_mls_history() {
+        let kek = derive_vault_kek_with_salt(b"pp", &[5u8; VAULT_SALT_LEN]).unwrap();
+        let ct = encrypt_vault(&kek, b"x").unwrap();
+        let err = build_key_backup_envelope(
+            "cx:backup:01964137-0000-7000-8000-000000000000".parse().unwrap(),
+            "did:webvh:alice.example".parse().unwrap(),
+            None,
+            BackupClass::MlsHistory,
+            "kb_1",
+            &kek,
+            &ct,
+            &[("mls_group_state", Some("snapshot"))],
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("device_snapshot_secret"));
     }
 }
