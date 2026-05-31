@@ -119,6 +119,7 @@ impl MarkdownDocument {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MentionTarget {
+    Audience,
     Actor,
     Space,
     Flow,
@@ -405,7 +406,12 @@ fn extract_href_links(html: &str) -> Vec<String> {
 }
 
 fn classify_mention_token(token: &str) -> (Option<MentionTarget>, Option<String>) {
-    if token.starts_with("did:") {
+    if matches!(
+        token.to_ascii_lowercase().as_str(),
+        "all" | "participants" | "watchers" | "here" | "assigned" | "assignees"
+    ) {
+        (Some(MentionTarget::Audience), Some(token.to_ascii_lowercase()))
+    } else if token.starts_with("did:") {
         (Some(MentionTarget::Actor), Some(token.to_owned()))
     } else if token.starts_with("cx:space:") {
         (Some(MentionTarget::Space), Some(token.to_owned()))

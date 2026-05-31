@@ -28,7 +28,7 @@ pub use anchor::{
     union_predecessor_frontiers, view_hash,
 };
 pub use compaction::{CompactionPolicy, PruneCandidate, PruneEligibility};
-pub use state_root::{compute_state_root, leaf_hash};
+pub use state_root::{EMPTY_STATE_ROOT, compute_state_root, leaf_hash};
 pub use store::{
     AnchorStore, AnchoredMoveRecord, BottomMode, CellLatticeBinding, CellRegistry, CellStore,
     MoveStore, StoreError, StoreResult,

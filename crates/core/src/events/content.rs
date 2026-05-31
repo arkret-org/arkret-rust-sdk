@@ -207,6 +207,8 @@ pub struct TextMessageContent {
     pub formatted: Option<FormattedBody>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub mentions: Vec<MentionRef>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub audience_mentions: Vec<crate::AudienceMention>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub relates_to: Option<RelationRef>,
 }
@@ -221,12 +223,21 @@ impl TextMessageContent {
             body: body.into(),
             formatted: Some(FormattedBody { format: "html".to_owned(), body: html.into() }),
             mentions: Vec::new(),
+            audience_mentions: Vec::new(),
             relates_to: None,
         }
     }
 
     pub fn with_mentions(mut self, mentions: Vec<MentionRef>) -> Self {
         self.mentions = mentions;
+        self
+    }
+
+    pub fn with_audience_mentions(
+        mut self,
+        audience_mentions: Vec<crate::AudienceMention>,
+    ) -> Self {
+        self.audience_mentions = audience_mentions;
         self
     }
 
@@ -242,6 +253,8 @@ pub struct HtmlMessageContent {
     pub html: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub mentions: Vec<MentionRef>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub audience_mentions: Vec<crate::AudienceMention>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub relates_to: Option<RelationRef>,
 }
@@ -253,6 +266,14 @@ impl HtmlMessageContent {
 
     pub fn with_mentions(mut self, mentions: Vec<MentionRef>) -> Self {
         self.mentions = mentions;
+        self
+    }
+
+    pub fn with_audience_mentions(
+        mut self,
+        audience_mentions: Vec<crate::AudienceMention>,
+    ) -> Self {
+        self.audience_mentions = audience_mentions;
         self
     }
 

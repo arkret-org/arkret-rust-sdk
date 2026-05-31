@@ -68,6 +68,12 @@ where
     // Step 1: structural + id round-trip.
     a.validate_id().map_err(|e| AnchorReject::Structural(format!("id: {e}")))?;
     a.validate_structural().map_err(|e| AnchorReject::Structural(e.to_string()))?;
+    if a.predecessor_refs.is_empty() && !a.frontier.is_empty() {
+        return Err(AnchorReject::Structural(
+            "Genesis Anchor MUST have frontier=[]; predecessor_refs=[] with non-empty frontier is invalid"
+                .to_owned(),
+        ));
+    }
 
     // Step 2: predecessors known.
     if !anchors.predecessors_known(&a.predecessor_refs)? {
@@ -401,7 +407,7 @@ mod tests {
     }
 
     #[test]
-    fn apply_anchor_genesis_with_one_move_succeeds() {
+    fn apply_anchor_genesis_then_successor_with_one_move_succeeds() {
         let moves = MemoryMoveStore::default();
         let anchors = MemoryAnchorStore::default();
         let cells = MemoryCellStore::default();
@@ -410,18 +416,46 @@ mod tests {
         let m = build_move("invited", "join");
         moves.put_pending(&m).unwrap();
 
+        let empty_root = Hash::new(crate::state::state_root::EMPTY_STATE_ROOT.to_owned()).unwrap();
+        let genesis = build_anchor(vec![], vec![], empty_root.clone());
+        let genesis_effect =
+            apply_anchor(&genesis, &moves, &anchors, &cells, &registry, ok_jws).unwrap();
+        assert!(genesis_effect.accepted_move_ids.is_empty());
+        assert_eq!(genesis_effect.post_state_root, empty_root);
+
         // Compute expected state_root: after this Move, member.state = "join" via FSM.
         let mut expected = BTreeMap::new();
         expected.insert(cell_member(), CellState::Value(json!("join")));
         let expected_root = compute_state_root(&expected).unwrap();
 
-        let a = build_anchor(vec![], vec![m.id.clone()], expected_root.clone());
+        let a = build_anchor(vec![genesis.id.clone()], vec![m.id.clone()], expected_root.clone());
         let effect = apply_anchor(&a, &moves, &anchors, &cells, &registry, ok_jws).unwrap();
 
         assert_eq!(effect.accepted_move_ids, vec![m.id]);
         assert!(effect.rejected_moves.is_empty());
         assert_eq!(effect.post_state_root, expected_root);
         assert_eq!(anchors.list_leaves(&space()).unwrap(), vec![a.id]);
+    }
+
+    #[test]
+    fn apply_anchor_rejects_non_empty_frontier_without_genesis_predecessor() {
+        let moves = MemoryMoveStore::default();
+        let anchors = MemoryAnchorStore::default();
+        let cells = MemoryCellStore::default();
+        let registry = MemoryCellRegistry::new();
+
+        let m = build_move("invited", "join");
+        moves.put_pending(&m).unwrap();
+        let mut expected = BTreeMap::new();
+        expected.insert(cell_member(), CellState::Value(json!("join")));
+        let expected_root = compute_state_root(&expected).unwrap();
+
+        let a = build_anchor(vec![], vec![m.id], expected_root);
+        let err = apply_anchor(&a, &moves, &anchors, &cells, &registry, ok_jws).unwrap_err();
+        match err {
+            AnchorReject::Structural(reason) => assert!(reason.contains("frontier=[]")),
+            other => panic!("expected Structural reject, got {other:?}"),
+        }
     }
 
     #[test]
@@ -451,15 +485,19 @@ mod tests {
         let m = build_move("invited", "join");
         moves.put_pending(&m).unwrap();
 
+        let empty_root = Hash::new(crate::state::state_root::EMPTY_STATE_ROOT.to_owned()).unwrap();
+        let genesis = build_anchor(vec![], vec![], empty_root);
+        apply_anchor(&genesis, &moves, &anchors, &cells, &registry, ok_jws).unwrap();
+
         // Wrong state_root: claim it's still empty, even though the Move changes the cell.
         let wrong_root = Hash::new(crate::state::state_root::EMPTY_STATE_ROOT.to_owned()).unwrap();
-        let a = build_anchor(vec![], vec![m.id], wrong_root);
+        let a = build_anchor(vec![genesis.id], vec![m.id], wrong_root);
         let err = apply_anchor(&a, &moves, &anchors, &cells, &registry, ok_jws).unwrap_err();
         match err {
             AnchorReject::StateRootMismatch { .. } => {}
             other => panic!("expected StateRootMismatch, got {other:?}"),
         }
-        // Cell store rolled back to empty.
+        // Cell store rolled back to the genesis-empty baseline.
         assert!(cells.list_cells(&space()).unwrap().is_empty());
     }
 
@@ -469,16 +507,23 @@ mod tests {
         let cells = MemoryCellStore::default();
         let registry = MemoryCellRegistry::new();
 
-        // Two genesis-style anchors as fake leaves.
+        let genesis = build_anchor(
+            vec![],
+            vec![],
+            Hash::new(crate::state::state_root::EMPTY_STATE_ROOT.to_owned()).unwrap(),
+        );
+        anchors.put(&genesis).unwrap();
+
+        // Two successor leaves share the Genesis Anchor as predecessor.
         let m1 = build_move("invited", "join");
         let m2 = build_move("join", "leave");
         let a1 = build_anchor(
-            vec![],
+            vec![genesis.id.clone()],
             vec![m1.id.clone()],
             Hash::new(crate::state::state_root::EMPTY_STATE_ROOT.to_owned()).unwrap(),
         );
         let a2 = build_anchor(
-            vec![],
+            vec![genesis.id],
             vec![m2.id.clone()],
             Hash::new(crate::state::state_root::EMPTY_STATE_ROOT.to_owned()).unwrap(),
         );

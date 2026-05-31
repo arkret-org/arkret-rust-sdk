@@ -545,7 +545,17 @@ pub fn state_resolution_vectors() -> Result<Vec<StateResolutionVector>> {
     expected.insert(cell, CellState::Value(json!("join")));
     let expected_root = compute_state_root(&expected)?;
 
-    let anchor = build_anchor(&space_id, &move_obj.id, &expected_root)?;
+    let empty_root = Hash::new(contrix_core::EMPTY_STATE_ROOT.to_owned())?;
+    let genesis = build_anchor(&space_id, &[], &[], &empty_root)?;
+    apply_anchor(&genesis, &moves, &anchors, &cells, &registry, |_, _, _, _| Ok::<(), String>(()))
+        .map_err(|e| Error::Protocol(format!("apply_genesis_anchor: {e}")))?;
+
+    let anchor = build_anchor(
+        &space_id,
+        std::slice::from_ref(&genesis.id),
+        std::slice::from_ref(&move_obj.id),
+        &expected_root,
+    )?;
     let effect = apply_anchor(&anchor, &moves, &anchors, &cells, &registry, |_, _, _, _| {
         Ok::<(), String>(())
     })
@@ -601,7 +611,8 @@ fn build_membership_move(space_id: &SpaceId, cell: &CellRef, from: &str, to: &st
 
 fn build_anchor(
     space_id: &SpaceId,
-    frontier_move: &MoveId,
+    predecessor_refs: &[AnchorId],
+    frontier: &[MoveId],
     state_root: &Hash,
 ) -> Result<contrix_core::Anchor> {
     use chrono::{TimeZone, Utc};
@@ -618,8 +629,8 @@ fn build_anchor(
         id: AnchorId::new(format!("cx:anchor:sha256:{}", "00".repeat(32)))
             .map_err(|e| Error::Protocol(format!("anchor id: {e}")))?,
         realm_id: space_id.clone(),
-        predecessor_refs: vec![],
-        frontier: vec![frontier_move.clone()],
+        predecessor_refs: predecessor_refs.to_vec(),
+        frontier: frontier.to_vec(),
         state_root: state_root.clone(),
         previous_state_root: None,
         previous_digest_algorithm: None,

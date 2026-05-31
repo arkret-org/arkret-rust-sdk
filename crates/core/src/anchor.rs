@@ -218,19 +218,25 @@ impl Anchor {
     /// Lightweight structural validation independent of the lattice runtime.
     ///
     /// Per spec §4:
-    /// 1. `predecessor_refs=[]` is allowed only for genesis Anchor — but
-    ///    detecting "this is the genesis Anchor of this Space" requires
-    ///    knowledge of Space history, so this method only enforces the
-    ///    weaker rule that empty `frontier` + empty `predecessor_refs` is
-    ///    rejected (such an Anchor commits to nothing).
+    /// 1. `predecessor_refs=[]` is allowed only for the Genesis Anchor.
+    ///    The Genesis Anchor itself MUST have `frontier=[]` and an empty
+    ///    state root; a no-predecessor Anchor with a non-empty frontier is a
+    ///    schema violation because it would cover Moves without a baseline.
     /// 2. Threshold signatures: `threshold >= 1`, `threshold <= signers.len()`.
     /// 3. Multi-sig: `signatures.len() >= 1`, alg in allowlist.
     /// 4. Single sig alg in allowlist.
     pub fn validate_structural(&self) -> Result<()> {
-        if self.predecessor_refs.is_empty() && self.frontier.is_empty() {
+        if self.predecessor_refs.is_empty() && !self.frontier.is_empty() {
             return Err(Error::Protocol(
-                "Anchor with empty predecessor_refs[] and empty frontier[] commits to nothing"
+                "Genesis Anchor MUST have frontier=[]; predecessor_refs=[] with non-empty frontier is invalid"
                     .to_owned(),
+            ));
+        }
+        if self.predecessor_refs.is_empty()
+            && self.state_root.as_str() != crate::state::state_root::EMPTY_STATE_ROOT
+        {
+            return Err(Error::Protocol(
+                "Genesis Anchor MUST commit to the empty state_root".to_owned(),
             ));
         }
         if self.previous_state_root.is_some() != self.previous_digest_algorithm.is_some() {
@@ -418,12 +424,32 @@ mod tests {
     }
 
     #[test]
-    fn empty_predecessor_and_frontier_rejected() {
+    fn genesis_anchor_with_empty_frontier_is_valid() {
+        let mut a = build_anchor(AnchorerSig::Single(signature()));
+        a.predecessor_refs.clear();
+        a.frontier.clear();
+        a.state_root = Hash::new(crate::state::state_root::EMPTY_STATE_ROOT.to_owned()).unwrap();
+        a.id = a.derive_id().unwrap();
+        a.validate_structural().expect("Genesis Anchor is the empty-frontier root");
+    }
+
+    #[test]
+    fn no_predecessor_anchor_with_frontier_rejected() {
+        let mut a = build_anchor(AnchorerSig::Single(signature()));
+        a.predecessor_refs.clear();
+        a.id = a.derive_id().unwrap();
+        let err = a.validate_structural().unwrap_err();
+        assert!(format!("{err}").contains("frontier=[]"));
+    }
+
+    #[test]
+    fn genesis_anchor_with_non_empty_state_root_rejected() {
         let mut a = build_anchor(AnchorerSig::Single(signature()));
         a.predecessor_refs.clear();
         a.frontier.clear();
         a.id = a.derive_id().unwrap();
-        a.validate_structural().expect_err("empty pred + empty frontier commits to nothing");
+        let err = a.validate_structural().unwrap_err();
+        assert!(format!("{err}").contains("empty state_root"));
     }
 
     #[test]

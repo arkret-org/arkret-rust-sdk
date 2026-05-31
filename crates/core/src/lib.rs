@@ -127,9 +127,9 @@ pub use snapshot::{
 };
 pub use state::{
     AnchorEffect, AnchorReject, AnchorStore, AnchoredMoveRecord, BottomMode, CellLatticeBinding,
-    CellRegistry, CellStore, CompactionPolicy, MemoryAnchorStore, MemoryCellRegistry,
-    MemoryCellStore, MemoryMoveStore, MoveReject, MoveRejectMap, MoveStore, PruneCandidate,
-    PruneEligibility, StoreError, StoreResult, apply_anchor, compute_state_root,
+    CellRegistry, CellStore, CompactionPolicy, EMPTY_STATE_ROOT, MemoryAnchorStore,
+    MemoryCellRegistry, MemoryCellStore, MemoryMoveStore, MoveReject, MoveRejectMap, MoveStore,
+    PruneCandidate, PruneEligibility, StoreError, StoreResult, apply_anchor, compute_state_root,
     deterministic_order, effective_anchor_view, leaf_hash, reject_to_error_code,
     union_predecessor_frontiers, verify_move, view_hash,
 };

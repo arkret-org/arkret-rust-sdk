@@ -269,6 +269,10 @@ pub const OP_DEVICE_PUSH_ROUTE: &str = "cx.device.push_route";
 pub const OP_MESSAGE_CREATE: &str = "cx.message.create";
 pub const OP_MESSAGE_REVISE: &str = "cx.message.revise";
 pub const OP_MESSAGE_REDACT: &str = "cx.message.redact";
+/// High-risk capability required in addition to `cx.message.create` or
+/// `cx.message.revise` whenever a Message introduces an `audience_mention`
+/// node such as `@all` or v1 `@here` (`audience="flow_engaged"`).
+pub const CAP_ACTION_MESSAGE_MENTION_BROADCAST: &str = "cx.message.mention.broadcast";
 
 /// Membership and invite event kinds.
 pub const OP_MEMBER_STATE: &str = "cx.member.state";

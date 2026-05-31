@@ -37,6 +37,101 @@ pub struct Mention {
     pub resolved_at: Option<DateTime<Utc>>,
 }
 
+/// Canonical audience variants for an `audience_mention` AST node.
+///
+/// `FlowEngaged` is the v1 mapping for common UI token `@here`; it means
+/// `flow_participants ∪ flow_watchers` and is never presence-filtered.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AudienceMentionAudience {
+    EffectiveScopeMembers,
+    FlowParticipants,
+    FlowWatchers,
+    FlowEngaged,
+    AssignedActors,
+}
+
+impl AudienceMentionAudience {
+    pub fn from_ui_token(token: &str) -> Option<Self> {
+        match token.trim().trim_start_matches('@').to_ascii_lowercase().as_str() {
+            "all" => Some(Self::EffectiveScopeMembers),
+            "participants" => Some(Self::FlowParticipants),
+            "watchers" => Some(Self::FlowWatchers),
+            "here" => Some(Self::FlowEngaged),
+            "assigned" | "assignees" => Some(Self::AssignedActors),
+            _ => None,
+        }
+    }
+
+    pub fn as_wire(self) -> &'static str {
+        match self {
+            Self::EffectiveScopeMembers => "effective_scope_members",
+            Self::FlowParticipants => "flow_participants",
+            Self::FlowWatchers => "flow_watchers",
+            Self::FlowEngaged => "flow_engaged",
+            Self::AssignedActors => "assigned_actors",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub enum AudienceMentionKind {
+    #[serde(rename = "audience_mention")]
+    AudienceMention,
+}
+
+/// Structured broadcast mention node embedded in a Message content AST.
+///
+/// This node is not expanded into direct [`Mention`] entries in shared
+/// history. Dispatcher-side expansion is gated by
+/// `cx.message.mention.broadcast`, Realm/Circle audience policy, finite
+/// recipient/quota limits, and receiver visibility.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AudienceMention {
+    pub kind: AudienceMentionKind,
+    pub audience: AudienceMentionAudience,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mention_text_original: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resolved_at: Option<DateTime<Utc>>,
+}
+
+impl AudienceMention {
+    pub fn new(audience: AudienceMentionAudience) -> Self {
+        Self {
+            kind: AudienceMentionKind::AudienceMention,
+            audience,
+            mention_text_original: None,
+            resolved_at: None,
+        }
+    }
+
+    pub fn from_ui_token(token: &str) -> Option<Self> {
+        AudienceMentionAudience::from_ui_token(token).map(|audience| {
+            Self::new(audience)
+                .with_mention_text_original(format!("@{}", token.trim().trim_start_matches('@')))
+        })
+    }
+
+    pub fn with_mention_text_original(mut self, text: impl Into<String>) -> Self {
+        self.mention_text_original = Some(text.into());
+        self
+    }
+
+    pub fn with_resolved_at(mut self, at: DateTime<Utc>) -> Self {
+        self.resolved_at = Some(at);
+        self
+    }
+
+    pub fn is_flow_engaged_here(&self) -> bool {
+        self.audience == AudienceMentionAudience::FlowEngaged
+    }
+}
+
 impl Mention {
     /// Construct a mention from its authoritative `subject_id`. Audit
     /// metadata is attached via the builder setters.
@@ -98,5 +193,20 @@ mod tests {
         });
         let parsed: std::result::Result<Mention, _> = serde_json::from_value(raw);
         assert!(parsed.is_err(), "legacy mention shape must be rejected");
+    }
+
+    #[test]
+    fn audience_mention_here_maps_to_flow_engaged() {
+        let node = AudienceMention::from_ui_token("@here").expect("@here should be known");
+        assert_eq!(node.audience, AudienceMentionAudience::FlowEngaged);
+        assert!(node.is_flow_engaged_here());
+        let json = serde_json::to_value(&node).unwrap();
+        assert_eq!(json["kind"], "audience_mention");
+        assert_eq!(json["audience"], "flow_engaged");
+    }
+
+    #[test]
+    fn audience_mention_rejects_presence_online_without_profile() {
+        assert!(AudienceMention::from_ui_token("@online").is_none());
     }
 }

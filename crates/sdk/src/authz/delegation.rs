@@ -107,6 +107,12 @@ pub enum GrantConstraint {
     /// this on `cx:flow:` / `cx:space:` / `cx:morph:` projections; an
     /// unfaceted target falls outside scope (fail-closed).
     AllowedObjectFacets { facets: Vec<String> },
+    /// Runtime mirror of the spec `max_operations` + `period` constraint
+    /// used by high-risk burst surfaces such as
+    /// `cx.message.mention.broadcast`. The pure delegation helper only
+    /// preserves and validates shape; concrete counter enforcement is done
+    /// by the service-side evaluator for the relevant action.
+    RateLimiting { max_operations: u64, period: String },
     /// Delegation depth control. v1 always passes (depth is enforced at
     /// the chain-walking helper level rather than per-constraint).
     DelegationControl {

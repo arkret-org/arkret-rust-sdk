@@ -50,6 +50,11 @@ impl WatchLevel {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct EventContext {
     /// Whether the event explicitly mentions the receiver.
+    ///
+    /// This is the receiver-side result after direct mention matching or
+    /// authorized `audience_mention` expansion. The shared push payload must
+    /// not carry the audience name, recipient count, watcher list, or sender
+    /// visible expansion diagnostics.
     pub mentions_actor: bool,
     /// Whether the event is addressed or assigned to the receiver.
     pub assigned_to_actor: bool,

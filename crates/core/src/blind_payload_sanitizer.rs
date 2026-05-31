@@ -417,6 +417,23 @@ pub fn is_forbidden_payload_key(key: &str) -> bool {
             | "to"
             | "target_did"
             | "actor"
+            // Audience mention expansion state. Servers may compute
+            // receiver-side `mentions_actor`, but push payloads must not
+            // leak which audience was expanded, recipient counts, or the
+            // concrete recipient list.
+            | "audience"
+            | "audiences"
+            | "audience_mention"
+            | "audience_mentions"
+            | "audience_mention_policy"
+            | "audience_mention_routing_hint"
+            | "audience_recipient_count"
+            | "recipient_count"
+            | "recipient_counts"
+            | "expanded_recipients"
+            | "watcher_count"
+            | "participant_count"
+            | "engaged_count"
             // Device identity.
             | "device_did"
             | "device_url"
@@ -598,6 +615,23 @@ mod tests {
         v["notification"]["event_id"] = json!("cx:event:01JS0EV000000000000000000");
         let err = sanitize_blind_payload(&v).unwrap_err();
         assert_eq!(err.reason_code, BlindPayloadReasonCode::ForbiddenField);
+    }
+
+    #[test]
+    fn rejects_audience_mention_expansion_leaks() {
+        for field in [
+            "audience",
+            "audience_mentions",
+            "audience_mention_routing_hint",
+            "recipient_count",
+            "expanded_recipients",
+        ] {
+            let mut v = ok_notification();
+            v["notification"][field] = json!("flow_engaged");
+            let err = sanitize_blind_payload(&v).unwrap_err();
+            assert_eq!(err.reason_code, BlindPayloadReasonCode::ForbiddenField);
+            assert_eq!(err.field_path, field);
+        }
     }
 
     #[test]
