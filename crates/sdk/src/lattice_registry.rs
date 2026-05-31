@@ -441,21 +441,20 @@ impl LatticeKind for AgentKey {
         &self,
         effect_payload: &Value,
     ) -> Result<Option<String>, LatticeKindError> {
-        let agent_did = effect_payload
+        let agent_principal_id = effect_payload
             .get("agent_principal_id")
-            .or_else(|| effect_payload.get("agent_did"))
             .and_then(Value::as_str)
             .ok_or(LatticeKindError::MissingSubjectField {
-                cell_family: "cx.component.agent.key.v1",
-                field: "agent_principal_id",
-            })?;
+            cell_family: "cx.component.agent.key.v1",
+            field: "agent_principal_id",
+        })?;
         let key_id = effect_payload.get("key_id").and_then(Value::as_str).ok_or(
             LatticeKindError::MissingSubjectField {
                 cell_family: "cx.component.agent.key.v1",
                 field: "key_id",
             },
         )?;
-        Ok(Some(format!("{agent_did}::{key_id}")))
+        Ok(Some(format!("{agent_principal_id}::{key_id}")))
     }
     fn event_kinds(&self) -> &'static [&'static str] {
         &["cx.agent.key.authorize", "cx.agent.key.revoke", "cx.agent.key.rotate"]

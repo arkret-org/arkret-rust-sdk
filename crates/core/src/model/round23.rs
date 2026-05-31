@@ -355,7 +355,7 @@ pub enum AuditPurpose {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AttestationEvidence {
     pub evidence_id: String,
-    pub audit_agent_did: Did,
+    pub audit_agent_principal_id: Did,
     pub service_did: Did,
     pub platform: AttestationPlatform,
     pub measurement: AttestationMeasurement,

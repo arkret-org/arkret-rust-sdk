@@ -213,7 +213,7 @@ Error surfaced specifically on this lane:
 - `cx.profile.media_service_binding.v1` — generic media-service binding.
 - `cx.profile.media_service_binding.livekit.v1`
 - `cx.profile.media_service_binding.contrix_native.v1`
-- `cx.profile.accountable_to.strict_reject.v1` — see soland runbook for
+- `cx.profile.accountable_principals.strict_reject.v1` — see soland runbook for
   operational implications.
 - `cx.profile.stateless_cursor.v1` — feature-gated `stateless_cursor` cargo
   feature; advertised separately from the stateful core wire path.

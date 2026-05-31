@@ -2088,7 +2088,7 @@ pub struct KeyBackupContentItem {
 pub struct KeyBackupAuthData {
     pub device_id: DeviceId,
     pub verification_method: String,
-    pub signature_alg: String,
+    pub signature_algorithm: String,
     pub signature: String,
     pub signed_fields: Vec<String>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]

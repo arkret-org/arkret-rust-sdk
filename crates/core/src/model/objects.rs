@@ -413,7 +413,7 @@ pub struct ActorProfile {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<ActorStatus>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub accountable_to: Vec<Did>,
+    pub accountable_principal_ids: Vec<Did>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub profile_fields: BTreeMap<String, Value>,
     pub created_at: DateTime<Utc>,

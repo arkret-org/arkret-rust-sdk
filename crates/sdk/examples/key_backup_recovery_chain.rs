@@ -92,7 +92,7 @@ fn build_envelope(
         auth_data: Some(KeyBackupAuthData {
             device_id: device_id.clone(),
             verification_method: "did:web:alice.example#device-1".to_owned(),
-            signature_alg: "ed25519".to_owned(),
+            signature_algorithm: "ed25519".to_owned(),
             signature: format!("sig-{seq}"),
             signed_fields: vec![
                 "backup_id".to_owned(),

@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Starting with the local `1.0.0` freeze, breaking public API changes require a
 major-version bump.
 
+## R3.4 — Spec sync 2026-05-31 (contrix-spec @ c2848a4)
+
+- Synced protocol-facing names and fixtures to `c2848a4`: event envelope schema naming, `_ids` grant constraints, accountability principal vocabulary, `cx:rtc_participant:` media participants, agent session start fields, and key-backup signature algorithm naming where applicable.
+
+> No version tag, no crates.io / Docker Hub / npm publish — git commit only.
+
 ## R3.3 — Spec sync 2026-05-28 (contrix-spec @ cced4b8, CXP-0011)
 
 - **New operation**: `cx.directory.resolve_target` (`POST /api/v1/directory/resolve-target`, gRPC `Directory/ResolveTarget`, MQ `directory.resolve_target`). Pure ADD — operation count 100 → 101; `cx.directory.resolve_realm` is retained and NOT deprecated. No new event kinds, registered `cx.schema.*`, or wire/reducer changes.
@@ -35,7 +41,7 @@ major-version bump.
 - Agent (CXP-0008 / 0009): `cx.agent.deactivate` HTTP path canonicalised (no `/revoke`), draft / action_request / approve / reject event kinds wired, `pause/resume/deactivate` FSM lattice metadata, agent_runtime surface tier definition.
 - Errors: 20 new error codes added to SDK `Error` / `ServiceError` (pairing, proof, agent lifecycle, media binding, focus, recording, recovery, handle homograph).
 - Recovery: `RecoveryPolicy`, `RecoveryReceipt`, `RecoveryProofKind`, `RecoverySession` id-kind + codec round-trip per the new schemas.
-- Profiles / cursor / selector / data: media-service-binding + `accountable_to.strict_reject` profile entries, stateful core cursor enforcement, `ResourceSelector::Circle(CircleId)`, `AccountDataSet` / `AccountBlocklist` payloads, handle NFC + confusable skeleton helper.
+- Profiles / cursor / selector / data: media-service-binding + `accountable_principals.strict_reject` profile entries, stateful core cursor enforcement, `ResourceSelector::Circle(CircleId)`, `AccountDataSet` / `AccountBlocklist` payloads, handle NFC + confusable skeleton helper.
 
 > No version tag, no crates.io / Docker Hub / npm publish — git commit only.
 
@@ -118,7 +124,7 @@ Aggressive spec-sync round; no version bump, `git commit` only.
 - Cursor parser already defaults to stateful `{v,purpose,t,x,h}`
   (`validate_core_wire_shape`); stateless body remains accessible
   via the `cx.profile.stateless_cursor.v1` profile gate.
-- Profile ids `cx.profile.{accountable_to.strict_reject,
+- Profile ids `cx.profile.{accountable_principals.strict_reject,
   media_service_binding[.livekit/.contrix_native]}.v1` already
   present in `crates/core/src/generated/profiles.rs`.
 
@@ -191,7 +197,7 @@ section will roll into the next published release.
   `#[deprecated]` shim. The replacement is `Flow.scope_circle_id:
   Option<CircleId>` per `spec/v1/artifacts/schemas/flow.schema.json`.
 - `crates/sdk/src/authz/constraints.rs::Constraint` gains an
-  `AllowedCircleRefs { allowed_circle_refs: BTreeSet<CircleId> }`
+  `AllowedCircleIds { allowed_circle_ids: BTreeSet<CircleId> }`
   variant. The SDK fallback engine returns `Deny` for the new variant
   until the resource-selector grammar grows a `circle_id` selector
   (see TODO in `crates/sdk/src/authz/engine.rs`).
@@ -359,7 +365,7 @@ signatures, schema-id constants, and validation helpers. See contrix-spec
   to `ARTIFACT_BACKED_SCHEMA_IDS`. The SDK reads the JSON Schema bodies
   directly from the spec artifacts directory at runtime; no in-source copy.
   `cursor.schema.json` (h.minLength=22), `cross-signing-reset.schema.json`
-  (required `trust_domain` + `reset_event_id`) and `event-schema.json` (not
+  (required `trust_domain` + `reset_event_id`) and `event-envelope.schema.json` (not
   branch reject 12 ephemeral kinds) update upstream.
 - **Rust types**: `EphemeralEnvelope` with `EPHEMERAL_ABSOLUTE_HARD_CEILING_MS`
   (300_000 ms) enforced by the constructor; `ModerationAppealPayload` enum
@@ -671,8 +677,8 @@ abstraction as the rest of the reducer-input event family.
     `OP_APPLET_PROTOCOL_SESSION_START` → `[applet_id, session_id]`
     `OP_APPLET_PROTOCOL_SESSION_STATUS` → `[session_id, status]`
     `OP_APPLET_BRIDGE_ERROR` → `[session_id, errcode]`
-    `OP_AGENT_ENDPOINT` → `[agent_did, protocol]`
-    `OP_AGENT_PROTOCOL_SESSION_START` → `[agent_did, session_id, capability_proof]`
+    `OP_AGENT_ENDPOINT` → `[agent_id, endpoints]`
+    `OP_AGENT_PROTOCOL_SESSION_START` → `[session_id, counterparty_agent, protocol, capability_grant]`
     `OP_AGENT_PROTOCOL_SESSION_STATUS` → `[session_id, status]`
     `OP_AGENT_PROTOCOL_SESSION_RESULT` → `[session_id, result, audit_binding]`
     Mirrors soland round 14f `FLOW_TRACK_REQUIREMENTS` shape exactly.

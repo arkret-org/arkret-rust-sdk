@@ -1,6 +1,6 @@
 # Contrix Rust SDK
 
-> **Spec target**: [contrix-spec @ cced4b8](../contrix-spec) (R3.3 sync 2026-05-28, CXP-0011)
+> **Spec target**: [contrix-spec @ c2848a4](../contrix-spec) (R3.4 sync 2026-05-31)
 
 [![codecov](https://codecov.io/gh/contrix/contrix-rust-sdk/branch/main/graph/badge.svg)](https://codecov.io/gh/contrix/contrix-rust-sdk)
 

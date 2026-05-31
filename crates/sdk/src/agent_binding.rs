@@ -16,7 +16,7 @@
 //!   "key_id": "did:web:agent.example#key-1",
 //!   "public_key_b64": "<base64-no-pad Ed25519 verifying key, 32 bytes>",
 //!   "signature": "<base64-no-pad Ed25519 signature, 64 bytes>",
-//!   "canonical_subject": "session_id=...\nagent_did=...\necho=...\nactor_id=...\nbinding_kind=ed25519_v1"
+//!   "canonical_subject": "session_id=...\nagent_principal_id=...\necho=...\nactor_id=...\nbinding_kind=ed25519_v1"
 //! }
 //! ```
 //!
@@ -40,21 +40,21 @@ pub struct Ed25519SignedAuditBinding {
 
 /// Build the canonical subject for an Ed25519 binding. Pins the four
 /// fields a verifier needs to bind a result to its originating
-/// request: session_id, agent_did, the result echo body
+/// request: session_id, agent_principal_id, the result echo body
 /// (canonical-JSON compact form), and the actor id that authored the
 /// start event. The trailing `binding_kind=ed25519_v1` line scopes
 /// the signature to this scheme so a hypothetical future
 /// alternative binding cannot re-use the same bytes.
 pub fn build_ed25519_canonical_subject(
     session_id: &str,
-    agent_did: &str,
+    agent_principal_id: &str,
     echo: &Value,
     actor_id: &str,
 ) -> String {
     let echo_canonical = serde_json::to_string(echo).unwrap_or_else(|_| "null".to_owned());
     format!(
         "session_id={session_id}\n\
-         agent_did={agent_did}\n\
+         agent_principal_id={agent_principal_id}\n\
          echo={echo_canonical}\n\
          actor_id={actor_id}\n\
          binding_kind=ed25519_v1"
@@ -68,12 +68,13 @@ pub fn build_ed25519_canonical_subject(
 pub fn sign_ed25519_audit_binding(
     signing_key_seed: &[u8; 32],
     session_id: &str,
-    agent_did: &str,
+    agent_principal_id: &str,
     echo: &Value,
     actor_id: &str,
 ) -> Ed25519SignedAuditBinding {
     let signing_key = SigningKey::from_bytes(signing_key_seed);
-    let canonical_subject = build_ed25519_canonical_subject(session_id, agent_did, echo, actor_id);
+    let canonical_subject =
+        build_ed25519_canonical_subject(session_id, agent_principal_id, echo, actor_id);
     let signature: Signature = signing_key.sign(canonical_subject.as_bytes());
     Ed25519SignedAuditBinding {
         signature_b64: base64_url_no_pad_encode(&signature.to_bytes()),
@@ -102,13 +103,14 @@ pub enum Ed25519AuditBindingVerifyOutcome {
 pub fn verify_ed25519_audit_binding(
     public_key_b64: &str,
     session_id: &str,
-    agent_did: &str,
+    agent_principal_id: &str,
     echo: &Value,
     actor_id: &str,
     signature_b64: &str,
     canonical_subject_from_envelope: &str,
 ) -> Ed25519AuditBindingVerifyOutcome {
-    let expected_subject = build_ed25519_canonical_subject(session_id, agent_did, echo, actor_id);
+    let expected_subject =
+        build_ed25519_canonical_subject(session_id, agent_principal_id, echo, actor_id);
     if expected_subject != canonical_subject_from_envelope {
         return Ed25519AuditBindingVerifyOutcome::SubjectMismatch;
     }
@@ -156,7 +158,7 @@ pub enum AuditBindingVerifyOutcome {
     /// Signature recomputes against the carried key.
     Valid,
     /// `canonical_subject` field disagrees with the per-field
-    /// (session_id, agent_did, echo, actor_id) tuple.
+    /// (session_id, agent_principal_id, echo, actor_id) tuple.
     SubjectMismatch,
     /// Signature decoded fine but does not verify against the
     /// declared public key.
@@ -177,7 +179,7 @@ pub enum AuditBindingVerifyOutcome {
 /// The `payload` is the projection event's `payload` field as
 /// returned by `/api/v1/events`. The dispatcher reads the binding
 /// plus the four canonical-subject inputs (`session_id`,
-/// `result.agent_did`, `result.echo`, `audit_binding.actor_id`) and
+/// `result.agent_principal_id`, `result.echo`, `audit_binding.actor_id`) and
 /// routes to the scheme-specific verifier:
 ///
 ///   * `ed25519_v1` → [`verify_ed25519_audit_binding`] using the
@@ -209,9 +211,9 @@ fn verify_ed25519_audit_binding_from_payload(
     let Some(session_id) = payload.get("session_id").and_then(Value::as_str) else {
         return AuditBindingVerifyOutcome::Malformed;
     };
-    let agent_did = payload
+    let agent_principal_id = payload
         .get("result")
-        .and_then(|r| r.get("agent_did"))
+        .and_then(|r| r.get("agent_principal_id"))
         .and_then(Value::as_str)
         .unwrap_or("");
     let echo = payload.get("result").and_then(|r| r.get("echo")).cloned().unwrap_or(Value::Null);
@@ -224,7 +226,7 @@ fn verify_ed25519_audit_binding_from_payload(
     let outcome = verify_ed25519_audit_binding(
         public_key_b64,
         session_id,
-        agent_did,
+        agent_principal_id,
         &echo,
         actor,
         signature,
@@ -307,7 +309,7 @@ mod tests {
         );
         assert!(subject.ends_with("binding_kind=ed25519_v1"));
         assert!(subject.contains("session_id=cx:session:cross"));
-        assert!(subject.contains("agent_did=did:web:agent.example"));
+        assert!(subject.contains("agent_principal_id=did:web:agent.example"));
         assert!(subject.contains("actor_id=did:web:alice.example"));
     }
 
@@ -407,12 +409,17 @@ mod tests {
     }
 
     fn build_signed_payload(session_id: &str, actor: &str, echo: Value) -> Value {
-        let agent_did = "did:web:agent.example";
-        let signed =
-            sign_ed25519_audit_binding(TEST_ED25519_SEED, session_id, agent_did, &echo, actor);
+        let agent_principal_id = "did:web:agent.example";
+        let signed = sign_ed25519_audit_binding(
+            TEST_ED25519_SEED,
+            session_id,
+            agent_principal_id,
+            &echo,
+            actor,
+        );
         json!({
             "session_id": session_id,
-            "result": { "agent_did": agent_did, "echo": echo },
+            "result": { "agent_principal_id": agent_principal_id, "echo": echo },
             "audit_binding": {
                 "binding_kind": "ed25519_v1",
                 "actor_id": actor,
@@ -437,7 +444,7 @@ mod tests {
     fn verify_by_kind_returns_absent_when_audit_binding_missing() {
         let payload = json!({
             "session_id": "cx:session:no-binding",
-            "result": { "agent_did": "did:web:agent.example", "echo": {} },
+            "result": { "agent_principal_id": "did:web:agent.example", "echo": {} },
         });
         assert_eq!(verify_audit_binding_by_kind(&payload), AuditBindingVerifyOutcome::Absent);
     }
@@ -446,7 +453,7 @@ mod tests {
     fn verify_by_kind_returns_unsupported_for_unknown_binding_kind() {
         let payload = json!({
             "session_id": "cx:session:future",
-            "result": { "agent_did": "did:web:agent.example", "echo": {} },
+            "result": { "agent_principal_id": "did:web:agent.example", "echo": {} },
             "audit_binding": {
                 "binding_kind": "future_scheme_v9",
                 "actor_id": "did:web:alice.example",
@@ -465,7 +472,7 @@ mod tests {
         // unrecognized kind so callers don't have to special-case it.
         let payload = json!({
             "session_id": "cx:session:no-kind",
-            "result": { "agent_did": "did:web:agent.example", "echo": {} },
+            "result": { "agent_principal_id": "did:web:agent.example", "echo": {} },
             "audit_binding": {
                 "actor_id": "did:web:alice.example",
                 "signature": "sig"

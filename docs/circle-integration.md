@@ -22,7 +22,7 @@ Circles are intentionally rare and stable. They are not a replacement
 for capability constraints, role-based ACLs, or per-resource visibility
 filters. If you need to narrow read access for a subset of Realm
 members on a single resource, prefer a capability grant with
-`allowed_circle_refs` over creating a new Circle.
+`allowed_circle_ids` over creating a new Circle.
 
 ## When to use a Circle
 

@@ -145,7 +145,7 @@ pub const EPHEMERAL_EVENT_KIND_PATTERNS: &[&str] = &[
 /// True for the 12 wire-scope-ephemeral kinds — broadcast ephemerals
 /// (`cx.call.signal`, `cx.presence`, `cx.typing`, `cx.receipt.read`) plus
 /// the `cx.key.verification.*` to-device family. These MUST be rejected by
-/// reducers if delivered as a durable Event (event-schema.json `not` branch).
+/// reducers if delivered as a durable Event (event-envelope.schema.json `not` branch).
 pub fn is_ephemeral_kind(kind: &str) -> bool {
     if kind.starts_with("cx.key.verification.") {
         return true;

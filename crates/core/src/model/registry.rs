@@ -131,13 +131,13 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
             vec!["session_id".to_owned(), "status".to_owned()]
         }
         OP_APPLET_BRIDGE_ERROR => vec!["session_id".to_owned(), "errcode".to_owned()],
-        OP_AGENT_ENDPOINT => vec!["agent_did".to_owned(), "protocol".to_owned()],
+        OP_AGENT_ENDPOINT => vec!["agent_id".to_owned(), "endpoints".to_owned()],
         OP_AGENT_KEY_AUTHORIZED => [
-            "agent_did",
+            "agent_principal_id",
             "key_id",
             "verification_method",
-            "accountable_actor",
-            "scope",
+            "accountable_principal_id",
+            "agent_key_scope",
             "audience",
             "issued_at",
             "expires_at",
@@ -147,18 +147,18 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         .map(str::to_owned)
         .collect(),
         OP_AGENT_KEY_REVOKED => {
-            ["agent_did", "key_id", "revoked_at", "revoked_by", "revocation_frontier"]
+            ["agent_principal_id", "key_id", "revoked_at", "revoked_by", "revocation_frontier"]
                 .into_iter()
                 .map(str::to_owned)
                 .collect()
         }
         OP_AGENT_KEY_ROTATED => [
-            "agent_did",
+            "agent_principal_id",
             "key_id",
             "replacement_key_id",
             "replacement_verification_method",
-            "accountable_actor",
-            "scope",
+            "accountable_principal_id",
+            "agent_key_scope",
             "audience",
             "issued_at",
             "expires_at",
@@ -168,7 +168,12 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         .map(str::to_owned)
         .collect(),
         OP_AGENT_PROTOCOL_SESSION_START => {
-            vec!["agent_did".to_owned(), "session_id".to_owned(), "capability_proof".to_owned()]
+            vec![
+                "session_id".to_owned(),
+                "counterparty_agent".to_owned(),
+                "protocol".to_owned(),
+                "capability_grant".to_owned(),
+            ]
         }
         OP_AGENT_PROTOCOL_SESSION_STATUS => {
             vec!["session_id".to_owned(), "status".to_owned()]

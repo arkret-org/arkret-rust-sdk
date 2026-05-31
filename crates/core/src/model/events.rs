@@ -92,7 +92,7 @@ pub struct Event {
     pub created_at: DateTime<Utc>,
     pub hlc: Hlc,
     pub prev_refs: Vec<EventId>,
-    /// CXP-0007 (spec b7d35be, schemas/event-schema.json
+    /// CXP-0007 (spec b7d35be, schemas/event-envelope.schema.json
     /// `$defs.effective_scope`) — reducer-stamped immutable scope binding.
     /// `Realm` for events emitted in Realm-default scope; `Circle` for
     /// events emitted in a Circle scope. SDK helpers that mint envelopes
@@ -234,7 +234,7 @@ impl TryFrom<EventWire> for Event {
     }
 }
 
-/// CXP-0007 (spec b7d35be, schemas/event-schema.json
+/// CXP-0007 (spec b7d35be, schemas/event-envelope.schema.json
 /// `$defs.effective_scope`) — reducer-stamped immutable scope binding on
 /// an [`Event`].
 ///
@@ -585,7 +585,7 @@ mod applet_routing_field_tests {
         let mut value = serde_json::to_value(&event).unwrap();
         value.as_object_mut().unwrap().insert(
             "payload".to_owned(),
-            json!({"participant_identity": "cx:rtcpart:0198c2f4-0000-7000-8000-000000000000"}),
+            json!({"participant_identity": "cx:rtc_participant:0198c2f4-0000-7000-8000-000000000000"}),
         );
 
         let err = serde_json::from_value::<Event>(value).unwrap_err();

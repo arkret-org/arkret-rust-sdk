@@ -641,7 +641,7 @@ pub struct VirtualActor {
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub external_ref: Value,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub accountable_to: Vec<Did>,
+    pub accountable_principal_ids: Vec<Did>,
 }
 
 /// Applet service intent for acting as a virtual actor.
@@ -764,7 +764,7 @@ impl BridgeMappingStore {
 pub struct GhostActorAccountability {
     pub ghost_actor: Did,
     pub service_did: Did,
-    pub accountable_to: Vec<Did>,
+    pub accountable_principal_ids: Vec<Did>,
     pub reason: String,
 }
 

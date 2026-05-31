@@ -353,7 +353,7 @@ pub struct ProfileCreateBuilder {
     bio: Option<String>,
     actor_kind: Option<String>,
     managed_by_applet: Option<String>,
-    accountable_to: Option<Did>,
+    accountable_principal_id: Option<Did>,
     external_ref: Option<Value>,
     kind: ProfileEventKind,
     extra: serde_json::Map<String, Value>,
@@ -371,7 +371,7 @@ impl ProfileCreateBuilder {
             bio: None,
             actor_kind: None,
             managed_by_applet: None,
-            accountable_to: None,
+            accountable_principal_id: None,
             external_ref: None,
             kind: ProfileEventKind::Create,
             extra: serde_json::Map::new(),
@@ -398,13 +398,17 @@ impl ProfileCreateBuilder {
         self
     }
 
-    /// Stamp this profile as an Applet-managed ghost actor. Sets
-    /// `actor_kind = "ghost"`, `managed_by_applet = <applet_id>`, and
-    /// `accountability.accountable_to = <accountable_to>` per spec §9.
-    pub fn with_ghost_kind(mut self, applet_id: impl Into<String>, accountable_to: Did) -> Self {
-        self.actor_kind = Some("ghost".to_owned());
+    /// Stamp this profile as an Applet-managed integration actor. Sets
+    /// `actor_kind = "integration"`, `managed_by_applet = <applet_id>`,
+    /// and `accountability.accountable_principal_ids[]`.
+    pub fn with_ghost_kind(
+        mut self,
+        applet_id: impl Into<String>,
+        accountable_principal_id: Did,
+    ) -> Self {
+        self.actor_kind = Some("integration".to_owned());
         self.managed_by_applet = Some(applet_id.into());
-        self.accountable_to = Some(accountable_to);
+        self.accountable_principal_id = Some(accountable_principal_id);
         self
     }
 
@@ -444,10 +448,12 @@ impl ProfileCreateBuilder {
         if let Some(applet_id) = &self.managed_by_applet {
             content.insert("managed_by_applet".to_owned(), Value::String(applet_id.clone()));
         }
-        if let Some(accountable_to) = &self.accountable_to {
+        if let Some(accountable_principal_id) = &self.accountable_principal_id {
             let mut accountability = serde_json::Map::new();
-            accountability
-                .insert("accountable_to".to_owned(), Value::String(accountable_to.to_string()));
+            accountability.insert(
+                "accountable_principal_ids".to_owned(),
+                Value::Array(vec![Value::String(accountable_principal_id.to_string())]),
+            );
             content.insert("accountability".to_owned(), Value::Object(accountability));
         }
         for (k, v) in &self.extra {
@@ -518,12 +524,15 @@ mod profile_builder_tests {
             .with_external_ref(serde_json::json!({"slack_user_id": "U12345"}))
             .build(1, hlc())
             .unwrap();
-        assert_eq!(event.content["actor_kind"], "ghost");
+        assert_eq!(event.content["actor_kind"], "integration");
         assert_eq!(
             event.content["managed_by_applet"],
             "cx:applet:01904100-0000-7000-8000-aaaaaaaaaaaa"
         );
-        assert_eq!(event.content["accountability"]["accountable_to"], "did:web:owner.example");
+        assert_eq!(
+            event.content["accountability"]["accountable_principal_ids"][0],
+            "did:web:owner.example"
+        );
         assert_eq!(event.external_ref.as_ref().unwrap()["slack_user_id"], "U12345");
     }
 }
