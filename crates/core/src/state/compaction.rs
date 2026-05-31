@@ -168,12 +168,15 @@ mod tests {
         };
         Anchor {
             id: AnchorId::new(format!("cx:anchor:sha256:{}", "00".repeat(32))).unwrap(),
-            space_id: SpaceId::new("cx:space:0196419b-0000-7000-8000-00000000014a".to_owned())
+            realm_id: SpaceId::new("cx:space:0196419b-0000-7000-8000-00000000014a".to_owned())
                 .unwrap(),
             predecessor_refs: vec![],
             frontier: vec![MoveId::new(format!("sha256:{}", "11".repeat(32))).unwrap()],
             state_root: Hash::new(format!("sha256:{}", "77".repeat(32))).unwrap(),
-            anchorer_sig: AnchorerSig::Single(sig),
+            previous_state_root: None,
+            previous_digest_algorithm: None,
+            anchorer_signature: AnchorerSig::Single(sig),
+            anchored_at: chrono::Utc::now(),
             hlc: Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap(),
             kind,
         }

@@ -12,7 +12,7 @@
 //!   threshold-scheme-specific aggregated proof bytes.
 //!
 //! `Anchor.id` is `cx:anchor:sha256:<hex>` derived from canonical bytes
-//! that exclude both `id` and `anchorer_sig` (sig is over the same bytes).
+//! that exclude both `id` and `anchorer_signature` (sig is over the same bytes).
 //! Per §4 rule 5, `state_root` is the canonical Merkle root of all cell
 //! Lattice values + bottom diagnostics under this Anchor view; computing
 //! it requires the lattice runtime so it is a hash field here that the
@@ -20,6 +20,8 @@
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+
+use chrono::{DateTime, Utc};
 
 use crate::canonical;
 use crate::move_event::MoveSignature;
@@ -29,7 +31,7 @@ use crate::{AnchorId, Did, Error, Hash, Hlc, MoveId, Result, SpaceId};
 pub const ANCHOR_SIGNATURE_ALGS: &[&str] = &["EdDSA", "ES256", "ES384", "ES512"];
 
 /// Compute canonical Anchor body bytes for id derivation / signature input.
-/// Excludes both `id` and `anchorer_sig` per `anchor.schema.json`.
+/// Excludes both `id` and `anchorer_signature` per `anchor.schema.json`.
 /// Round R2/R3 (2026-05-20) — explicit free-function shim mirroring the
 /// spec name for downstream implementers.
 pub fn anchor_canonical_bytes(anchor: &Anchor) -> Result<Vec<u8>> {
@@ -123,7 +125,7 @@ pub enum AnchorKind {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Anchor {
     pub id: AnchorId,
-    pub space_id: SpaceId,
+    pub realm_id: SpaceId,
     /// Empty only for genesis Anchor. Otherwise must reference all
     /// predecessor leaves.
     pub predecessor_refs: Vec<AnchorId>,
@@ -133,9 +135,15 @@ pub struct Anchor {
     /// Canonical Merkle root over the per-cell Lattice values + bottom
     /// diagnostics under this Anchor view.
     pub state_root: Hash,
-    pub anchorer_sig: AnchorerSig,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub previous_state_root: Option<Hash>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub previous_digest_algorithm: Option<String>,
+    pub anchorer_signature: AnchorerSig,
+    pub anchored_at: DateTime<Utc>,
     pub hlc: Hlc,
     /// MAL-11: explicit anchor categorization.
+    #[serde(default, skip)]
     pub kind: AnchorKind,
 }
 
@@ -148,7 +156,7 @@ impl AnchorKind {
 
 /// Body view used for canonical-bytes derivation.
 ///
-/// Excludes both `id` and `anchorer_sig`. The anchorer hashes these bytes
+/// Excludes both `id` and `anchorer_signature`. The anchorer hashes these bytes
 /// to populate `id`, then signs the same bytes (every signer in
 /// multi/threshold cases signs the same canonical bytes).
 ///
@@ -157,24 +165,30 @@ impl AnchorKind {
 /// into pruning based on a forged compaction tag.
 #[derive(Serialize)]
 struct AnchorBody<'a> {
-    space_id: &'a SpaceId,
+    realm_id: &'a SpaceId,
     predecessor_refs: &'a [AnchorId],
     frontier: &'a [MoveId],
     state_root: &'a Hash,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    previous_state_root: &'a Option<Hash>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    previous_digest_algorithm: &'a Option<String>,
+    anchored_at: &'a DateTime<Utc>,
     hlc: &'a Hlc,
-    kind: &'a AnchorKind,
 }
 
 impl Anchor {
     /// Canonical bytes for Anchor id derivation and signature input.
     pub fn canonical_bytes_for_id(&self) -> Result<Vec<u8>> {
         let body = AnchorBody {
-            space_id: &self.space_id,
+            realm_id: &self.realm_id,
             predecessor_refs: &self.predecessor_refs,
             frontier: &self.frontier,
             state_root: &self.state_root,
+            previous_state_root: &self.previous_state_root,
+            previous_digest_algorithm: &self.previous_digest_algorithm,
+            anchored_at: &self.anchored_at,
             hlc: &self.hlc,
-            kind: &self.kind,
         };
         canonical::canonical_json_bytes(&body)
     }
@@ -219,7 +233,13 @@ impl Anchor {
                     .to_owned(),
             ));
         }
-        match &self.anchorer_sig {
+        if self.previous_state_root.is_some() != self.previous_digest_algorithm.is_some() {
+            return Err(Error::Protocol(
+                "Anchor previous_state_root and previous_digest_algorithm must be present together"
+                    .to_owned(),
+            ));
+        }
+        match &self.anchorer_signature {
             AnchorerSig::Single(sig) => Self::validate_signature_alg(&sig.alg)?,
             AnchorerSig::Multi(multi) => {
                 if multi.signatures.is_empty() {
@@ -293,7 +313,7 @@ mod tests {
     use serde_json::{Value, json};
 
     fn space() -> SpaceId {
-        SpaceId::new("cx:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+        SpaceId::new("cx:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn move_id(hex_byte: u8) -> MoveId {
@@ -320,7 +340,7 @@ mod tests {
             alg: "EdDSA".to_owned(),
             verification_method: "did:web:anchorer.example#k1".to_owned(),
             payload_digest: hash(0xff),
-            created_at: chrono::Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
+            created_at: Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
             jws: "AAAA.BBBB.CCCC".to_owned(),
         }
     }
@@ -328,11 +348,14 @@ mod tests {
     fn build_anchor(sig: AnchorerSig) -> Anchor {
         let mut a = Anchor {
             id: anchor_id(0x00),
-            space_id: space(),
+            realm_id: space(),
             predecessor_refs: vec![anchor_id(0xaa)],
             frontier: vec![move_id(0x11), move_id(0x22)],
             state_root: hash(0x77),
-            anchorer_sig: sig,
+            previous_state_root: None,
+            previous_digest_algorithm: None,
+            anchorer_signature: sig,
+            anchored_at: Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
             hlc: hlc(),
             kind: AnchorKind::Normal,
         };
@@ -387,7 +410,10 @@ mod tests {
         let bytes = a.canonical_bytes_for_id().unwrap();
         let s = std::str::from_utf8(&bytes).unwrap();
         assert!(!s.contains("\"id\":"), "canonical bytes must not contain id");
-        assert!(!s.contains("\"anchorer_sig\""), "canonical bytes must not contain anchorer_sig");
+        assert!(
+            !s.contains("\"anchorer_signature\""),
+            "canonical bytes must not contain anchorer_signature"
+        );
         assert!(!s.contains("\"jws\""), "canonical bytes must not leak signature internals");
     }
 
@@ -444,7 +470,7 @@ mod tests {
     }
 
     #[test]
-    fn anchorer_sig_serializes_with_kind_discriminator_for_multi_and_threshold() {
+    fn anchorer_signature_serializes_with_kind_discriminator_for_multi_and_threshold() {
         let multi = MultiSignature { kind: MultiSigKind::MultiSig, signatures: vec![signature()] };
         let s = serde_json::to_string(&AnchorerSig::Multi(multi)).unwrap();
         assert!(s.contains("\"kind\":\"multi_sig\""), "got {s}");
@@ -491,7 +517,7 @@ mod tests {
         assert!(s.contains("\"frontier\""));
         assert!(s.contains("\"predecessor_refs\""));
         assert!(s.contains("\"state_root\""));
-        assert!(s.contains("\"space_id\""));
+        assert!(s.contains("\"realm_id\""));
     }
 
     // Sanity: parsed Value structure has expected fields.
@@ -499,9 +525,16 @@ mod tests {
     fn anchor_serializes_all_top_level_required_fields() {
         let a = build_anchor(AnchorerSig::Single(signature()));
         let v: Value = serde_json::to_value(&a).unwrap();
-        for field in
-            ["id", "space_id", "predecessor_refs", "frontier", "state_root", "anchorer_sig", "hlc"]
-        {
+        for field in [
+            "id",
+            "realm_id",
+            "predecessor_refs",
+            "frontier",
+            "state_root",
+            "anchorer_signature",
+            "anchored_at",
+            "hlc",
+        ] {
             assert!(v.get(field).is_some(), "missing required field {field}");
         }
     }
@@ -509,36 +542,32 @@ mod tests {
     // ── MAL-11: AnchorKind ───────────────────────────────────────────────
 
     #[test]
-    fn anchor_kind_compaction_serializes_explicitly() {
+    fn anchor_kind_is_internal_not_wire() {
         let mut a = build_anchor(AnchorerSig::Single(signature()));
         a.kind = AnchorKind::Compaction;
         a.id = a.derive_id().unwrap();
         let v = serde_json::to_value(&a).unwrap();
-        assert_eq!(v["kind"], json!("compaction"));
+        assert!(v.get("kind").is_none());
     }
 
     #[test]
-    fn anchor_kind_compaction_changes_canonical_id() {
-        // Same frontier / predecessor, but `kind` flip MUST yield a
-        // different canonical hash. This is the MAL-11 forgery defense:
-        // an attacker can't relabel a normal anchor as compaction after
-        // the fact (the id won't validate against the signed bytes).
+    fn anchor_kind_compaction_does_not_change_wire_id() {
         let mut normal = build_anchor(AnchorerSig::Single(signature()));
         let mut compaction = normal.clone();
         compaction.kind = AnchorKind::Compaction;
         normal.id = normal.derive_id().unwrap();
         compaction.id = compaction.derive_id().unwrap();
-        assert_ne!(normal.id, compaction.id);
+        assert_eq!(normal.id, compaction.id);
     }
 
     #[test]
-    fn anchor_kind_round_trip_through_json() {
+    fn anchor_kind_round_trip_through_json_defaults_to_normal() {
         let mut a = build_anchor(AnchorerSig::Single(signature()));
         a.kind = AnchorKind::Compaction;
         a.id = a.derive_id().unwrap();
         let v = serde_json::to_value(&a).unwrap();
         let r: Anchor = serde_json::from_value(v).unwrap();
-        assert_eq!(r.kind, AnchorKind::Compaction);
+        assert_eq!(r.kind, AnchorKind::Normal);
         assert_eq!(r.id, a.id);
     }
 

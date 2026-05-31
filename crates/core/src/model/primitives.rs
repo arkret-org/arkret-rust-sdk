@@ -294,7 +294,7 @@ pub enum PlaceState {
 #[serde(rename_all = "snake_case")]
 pub enum RelationState {
     Active,
-    Tombstone,
+    Tombstoned,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -262,7 +262,7 @@ mod tests {
         .unwrap();
         a.validate_id().unwrap();
         a.validate_structural().unwrap();
-        match &a.anchorer_sig {
+        match &a.anchorer_signature {
             AnchorerSig::Single(sig) => {
                 assert_eq!(sig.alg, "EdDSA");
                 let bytes = a.canonical_bytes_for_id().unwrap();

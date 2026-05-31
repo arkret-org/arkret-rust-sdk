@@ -617,11 +617,14 @@ fn build_anchor(
     let mut a = Anchor {
         id: AnchorId::new(format!("cx:anchor:sha256:{}", "00".repeat(32)))
             .map_err(|e| Error::Protocol(format!("anchor id: {e}")))?,
-        space_id: space_id.clone(),
+        realm_id: space_id.clone(),
         predecessor_refs: vec![],
         frontier: vec![frontier_move.clone()],
         state_root: state_root.clone(),
-        anchorer_sig: AnchorerSig::Single(sig),
+        previous_state_root: None,
+        previous_digest_algorithm: None,
+        anchorer_signature: AnchorerSig::Single(sig),
+        anchored_at: Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
         hlc: Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned())
             .map_err(|e| Error::Protocol(format!("hlc: {e}")))?,
         kind: contrix_core::AnchorKind::Normal,

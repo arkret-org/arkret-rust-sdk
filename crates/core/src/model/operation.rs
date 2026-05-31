@@ -523,8 +523,6 @@ pub struct BlobMetadata {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub filename: Option<String>,
     pub encryption: Value,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub thumbnail_ref: Option<BlobRef>,
     pub created_by: Did,
     pub created_at: DateTime<Utc>,
 }

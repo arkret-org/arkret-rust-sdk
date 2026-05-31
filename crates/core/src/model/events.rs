@@ -284,6 +284,11 @@ impl Event {
 
     pub fn validate_for_submit(&self) -> Result<()> {
         self.validate_wire_schema()?;
+        if self.effective_scope.is_some() {
+            return Err(Error::Protocol(
+                "event effective_scope is reducer-managed on actor submit".to_owned(),
+            ));
+        }
         if self.proofs.is_empty() {
             return Err(Error::Protocol("event proofs must contain at least one proof".to_owned()));
         }
@@ -585,7 +590,7 @@ mod applet_routing_field_tests {
         let mut value = serde_json::to_value(&event).unwrap();
         value.as_object_mut().unwrap().insert(
             "payload".to_owned(),
-            json!({"participant_identity": "cx:rtc_participant:0198c2f4-0000-7000-8000-000000000000"}),
+            json!({"participant_identity": "cx:rtcpart:0198c2f4-0000-7000-8000-000000000000"}),
         );
 
         let err = serde_json::from_value::<Event>(value).unwrap_err();

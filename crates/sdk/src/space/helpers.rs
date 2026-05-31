@@ -189,7 +189,7 @@ pub(super) fn scalar_value_key(value: &Value) -> String {
 }
 
 pub(super) fn relation_is_active(relation: &Relation) -> bool {
-    !matches!(relation.state, Some(RelationState::Tombstone))
+    !matches!(relation.state, Some(RelationState::Tombstoned))
 }
 
 pub(super) fn parse_object_state(value: &str) -> Option<ObjectState> {

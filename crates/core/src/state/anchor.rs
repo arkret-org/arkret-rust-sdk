@@ -82,7 +82,7 @@ where
     }
 
     // Step 4: pre_state from predecessor view.
-    let pre_state = effective_state_at(&a.predecessor_refs, &a.space_id, cells, registry)?;
+    let pre_state = effective_state_at(&a.predecessor_refs, &a.realm_id, cells, registry)?;
 
     // Step 5: deterministic_order over new Moves; verify each.
     let new_move_ids: Vec<MoveId> =
@@ -113,21 +113,21 @@ where
             new_ops.push((effect.cell.clone(), aop));
         }
     }
-    cells.append_anchored_effects(&a.space_id, &a.id, &new_ops)?;
+    cells.append_anchored_effects(&a.realm_id, &a.id, &new_ops)?;
 
     // Step 7: recompute state_root, compare against declared.
-    let post_state = effective_state_at(std::slice::from_ref(&a.id), &a.space_id, cells, registry)
+    let post_state = effective_state_at(std::slice::from_ref(&a.id), &a.realm_id, cells, registry)
         .unwrap_or_else(|_| {
             // If post-state computation fails (e.g. we just appended; the new Anchor
             // isn't yet in AnchorStore), recompute directly from the cell store
             // contents — equivalent to "all anchored ops applied so far".
-            compute_post_state_direct(&a.space_id, cells, registry)
+            compute_post_state_direct(&a.realm_id, cells, registry)
         });
     let recomputed = compute_state_root(&post_state)
         .map_err(|e| AnchorReject::Store(format!("state_root recompute failed: {e}")))?;
     if recomputed.as_str() != a.state_root.as_str() {
         // Roll back step 6.
-        cells.rollback_anchor(&a.space_id, &a.id)?;
+        cells.rollback_anchor(&a.realm_id, &a.id)?;
         return Err(AnchorReject::StateRootMismatch {
             declared: a.state_root.as_str().to_owned(),
             recomputed: recomputed.as_str().to_owned(),
@@ -347,11 +347,14 @@ mod tests {
         };
         let mut a = Anchor {
             id: AnchorId::new(format!("cx:anchor:sha256:{}", "00".repeat(32))).unwrap(),
-            space_id: space(),
+            realm_id: space(),
             predecessor_refs: predecessors,
             frontier,
             state_root,
-            anchorer_sig: AnchorerSig::Single(sig),
+            previous_state_root: None,
+            previous_digest_algorithm: None,
+            anchorer_signature: AnchorerSig::Single(sig),
+            anchored_at: chrono::Utc::now(),
             hlc: Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap(),
             kind: crate::AnchorKind::Normal,
         };

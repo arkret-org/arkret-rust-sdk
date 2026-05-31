@@ -690,7 +690,7 @@ impl SpaceState {
     fn delete_relation(&mut self, event: &Event) -> Result<()> {
         let relation_id_str = self.extract_relation_id(&event.content)?;
         if let Some(relation) = self.relations.get_mut(&relation_id_str) {
-            relation.state = Some(crate::RelationState::Tombstone);
+            relation.state = Some(crate::RelationState::Tombstoned);
             relation.state_changed_at = Some(event.created_at);
         }
         Ok(())

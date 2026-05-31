@@ -182,24 +182,32 @@ impl Anchor {
         kind: crate::AnchorKind,
         signer: &S,
     ) -> Result<Anchor> {
-        // Compute canonical body bytes (excluding id + anchorer_sig).
+        // Compute canonical body bytes (excluding id + anchorer_signature).
+        let anchored_at = Utc::now();
+        let previous_state_root = None;
+        let previous_digest_algorithm = None;
         let body_bytes = canonical::canonical_json_bytes(&AnchorBodyView {
-            space_id: &space_id,
+            realm_id: &space_id,
             predecessor_refs: &predecessor_refs,
             frontier: &frontier,
             state_root: &state_root,
+            previous_state_root: &previous_state_root,
+            previous_digest_algorithm: &previous_digest_algorithm,
+            anchored_at: &anchored_at,
             hlc: &hlc,
-            kind: &kind,
         })?;
         let id = Anchor::id_from_canonical_bytes(&body_bytes)?;
         let sig = signer.sign_payload(&body_bytes)?;
         Ok(Anchor {
             id,
-            space_id,
+            realm_id: space_id,
             predecessor_refs,
             frontier,
             state_root,
-            anchorer_sig: AnchorerSig::Single(sig),
+            previous_state_root,
+            previous_digest_algorithm,
+            anchorer_signature: AnchorerSig::Single(sig),
+            anchored_at,
             hlc,
             kind,
         })
@@ -246,13 +254,18 @@ impl Anchor {
         signers: Vec<Did>,
         aggregated_proof: String,
     ) -> Result<Anchor> {
+        let anchored_at = Utc::now();
+        let previous_state_root = None;
+        let previous_digest_algorithm = None;
         let body_bytes = canonical::canonical_json_bytes(&AnchorBodyView {
-            space_id: &space_id,
+            realm_id: &space_id,
             predecessor_refs: &predecessor_refs,
             frontier: &frontier,
             state_root: &state_root,
+            previous_state_root: &previous_state_root,
+            previous_digest_algorithm: &previous_digest_algorithm,
+            anchored_at: &anchored_at,
             hlc: &hlc,
-            kind: &kind,
         })?;
         let id = Anchor::id_from_canonical_bytes(&body_bytes)?;
         let sig = AnchorerSig::Threshold(ThresholdSignature {
@@ -263,11 +276,14 @@ impl Anchor {
         });
         let anchor = Anchor {
             id,
-            space_id,
+            realm_id: space_id,
             predecessor_refs,
             frontier,
             state_root,
-            anchorer_sig: sig,
+            previous_state_root,
+            previous_digest_algorithm,
+            anchorer_signature: sig,
+            anchored_at,
             hlc,
             kind,
         };
@@ -320,13 +336,18 @@ impl Anchor {
                 "Anchor::sign_multi requires at least one signer".to_owned(),
             ));
         }
+        let anchored_at = Utc::now();
+        let previous_state_root = None;
+        let previous_digest_algorithm = None;
         let body_bytes = canonical::canonical_json_bytes(&AnchorBodyView {
-            space_id: &space_id,
+            realm_id: &space_id,
             predecessor_refs: &predecessor_refs,
             frontier: &frontier,
             state_root: &state_root,
+            previous_state_root: &previous_state_root,
+            previous_digest_algorithm: &previous_digest_algorithm,
+            anchored_at: &anchored_at,
             hlc: &hlc,
-            kind: &kind,
         })?;
         let id = Anchor::id_from_canonical_bytes(&body_bytes)?;
         let mut signatures = Vec::with_capacity(signers.len());
@@ -335,14 +356,17 @@ impl Anchor {
         }
         let anchor = Anchor {
             id,
-            space_id,
+            realm_id: space_id,
             predecessor_refs,
             frontier,
             state_root,
-            anchorer_sig: AnchorerSig::Multi(MultiSignature {
+            previous_state_root,
+            previous_digest_algorithm,
+            anchorer_signature: AnchorerSig::Multi(MultiSignature {
                 kind: MultiSigKind::MultiSig,
                 signatures,
             }),
+            anchored_at,
             hlc,
             kind,
         };
@@ -594,12 +618,16 @@ impl Anchor {
 /// fields MUST hash differently).
 #[derive(serde::Serialize)]
 struct AnchorBodyView<'a> {
-    space_id: &'a SpaceId,
+    realm_id: &'a SpaceId,
     predecessor_refs: &'a [AnchorId],
     frontier: &'a [MoveId],
     state_root: &'a Hash,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    previous_state_root: &'a Option<Hash>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    previous_digest_algorithm: &'a Option<String>,
+    anchored_at: &'a chrono::DateTime<Utc>,
     hlc: &'a Hlc,
-    kind: &'a crate::AnchorKind,
 }
 
 #[cfg(test)]
@@ -742,7 +770,7 @@ mod tests {
         .unwrap();
         a.validate_id().unwrap();
         a.validate_structural().unwrap();
-        match &a.anchorer_sig {
+        match &a.anchorer_signature {
             AnchorerSig::Single(sig) => assert_eq!(sig.alg, "EdDSA"),
             other => panic!("expected single sig, got {other:?}"),
         }
@@ -763,7 +791,7 @@ mod tests {
         .unwrap();
         a.validate_id().unwrap();
         a.validate_structural().unwrap();
-        match &a.anchorer_sig {
+        match &a.anchorer_signature {
             AnchorerSig::Threshold(t) => {
                 assert_eq!(t.threshold, 2);
                 assert_eq!(t.signers.len(), 2);
@@ -806,7 +834,7 @@ mod tests {
             signers,
         )
         .unwrap();
-        match &a.anchorer_sig {
+        match &a.anchorer_signature {
             AnchorerSig::Multi(m) => assert_eq!(m.signatures.len(), 2),
             other => panic!("expected multi, got {other:?}"),
         }
@@ -949,7 +977,7 @@ mod tests {
 
         a.validate_id().unwrap();
         a.validate_structural().unwrap();
-        match &a.anchorer_sig {
+        match &a.anchorer_signature {
             AnchorerSig::Threshold(t) => {
                 assert_eq!(t.threshold, 2);
                 assert_eq!(t.signers.len(), 2);

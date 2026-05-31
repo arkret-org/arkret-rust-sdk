@@ -1070,6 +1070,84 @@ pub struct RealmPreview {
     pub preview: Value,
 }
 
+/// Service class that can receive Realm join-side submissions.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum RealmJoinCandidateServiceType {
+    PrincipalServer,
+    SyncNode,
+    Anchorer,
+}
+
+/// Routing role for a Realm join candidate. This is an ordering and
+/// diagnostics hint, not an authorization grant.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum RealmJoinCandidateRole {
+    Primary,
+    Mirror,
+    Anchorer,
+    Sync,
+    FederationPeer,
+    InviteOrigin,
+    ReviewerIngress,
+}
+
+/// Join-side flow supported by a Realm join candidate.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum RealmJoinMethod {
+    InviteAccept,
+    MemberJoin,
+    Knock,
+    Application,
+    RestrictedJoin,
+}
+
+/// Source from which a Realm join candidate was derived.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum RealmJoinCandidateSource {
+    RealmSyncEndpoint,
+    DirectoryIngest,
+    InviteHint,
+    SignedLinkHint,
+    FederationRedirect,
+    LocalCache,
+}
+
+/// `cx.schema.realm_join_candidate.v1`: time-bounded routing hint for
+/// submitting Realm join, invite-accept, knock, or restricted-join material.
+/// It is distinct from member delivery binding and does not authorize
+/// membership by itself.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct RealmJoinCandidate {
+    pub realm_id: RealmId,
+    pub service_did: Did,
+    pub service_type: RealmJoinCandidateServiceType,
+    pub role: RealmJoinCandidateRole,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub endpoint: Option<String>,
+    pub operations: Vec<String>,
+    pub join_methods: Vec<RealmJoinMethod>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub priority: Option<u16>,
+    pub source: RealmJoinCandidateSource,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub source_refs: Vec<EventId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub frontier_ref: Option<String>,
+    pub as_of: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub proofs: Vec<Proof>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryResolveRealmReqBody {
@@ -1096,7 +1174,7 @@ pub struct DirectoryResolveRealmResBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub join_rule: Option<JoinRule>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub via_services: Vec<String>,
+    pub join_candidates: Vec<RealmJoinCandidate>,
 }
 
 /// R3.3 (CXP-0011, contrix-spec @ cced4b8) — the resolved object class of a
@@ -1132,7 +1210,7 @@ pub struct DirectoryResolveTargetReqBody {
 
 /// R3.3 (CXP-0011) — response body for `cx.directory.resolve_target`.
 ///
-/// Common §9.1 directory fields (`as_of`, `source_refs`, `via_services`,
+/// Common §9.1 directory fields (`as_of`, `source_refs`, `join_candidates`,
 /// `policy_revision`, `stale`, `divergent`) mirror the other directory
 /// responses. `object_preview` is a target-kind-dependent opaque preview
 /// (a stripped Flow / Message projection); it stays a `serde_json::Value`
@@ -1152,7 +1230,7 @@ pub struct DirectoryResolveTargetResBody {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub source_refs: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub via_services: Vec<String>,
+    pub join_candidates: Vec<RealmJoinCandidate>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub policy_revision: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

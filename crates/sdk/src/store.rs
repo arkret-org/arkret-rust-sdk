@@ -418,7 +418,6 @@ mod tests {
             media_type: "text/plain".to_owned(),
             filename: Some("note.txt".to_owned()),
             encryption: json!({"scheme": "none"}),
-            thumbnail_ref: None,
             created_by: Did::new("did:web:alice.example").unwrap(),
             created_at: Utc::now(),
         }

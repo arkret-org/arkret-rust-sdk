@@ -6,8 +6,8 @@
 //!
 //! * logical id `cx:<kind>:<uuid>` — opaque, never carries via/action/token.
 //! * `web+contrix:` URI scheme:
-//!   `web+contrix:realm/<realm>/flow/<flow>/m/<msg>?via=<did>&action=view`
-//! * HTTPS landing: `https://<landing>/#realm/.../flow/...?via=...` — everything
+//!   `web+contrix:realm/<realm>/flow/<flow>/m/<msg>?action=view`
+//! * HTTPS landing: `https://<landing>/#realm/.../flow/...?action=...` — everything
 //!   AFTER the `#` is the SAME grammar as the `web+contrix:` form (strip the
 //!   `https://<host>/#` shell, then reuse the same parser).
 //!
@@ -18,15 +18,13 @@
 //! * The `<realm>` segment: a UUIDv7 textual form is a `realm_id`; otherwise it
 //!   is an ALIAS (domain-style). `<flow>` and `<msg>` segments accept ONLY a
 //!   bare uuid.
-//! * Flow/Message addresses MUST carry `realm/<r>` plus at least one `via`; if
-//!   either is missing, parsing fails closed (the caller returns `not_found`).
-//!   A global flow_id is never guessed.
+//! * Flow/Message addresses MUST carry `realm/<r>`. A global flow_id is never
+//!   guessed. Retired `via` query hints are ignored.
 //! * Unknown path keyword, wrong order, or a missing intermediate level fails
 //!   closed. v1 legal keywords are ONLY `realm` / `flow` / `m`; an unknown
 //!   keyword is always fail-closed (forward-compat, no fork).
 //!
 //! ## QUERY hints (never identity)
-//! * `via=<service_did>` — MULTI-valued routing hint.
 //! * `action=<view|join|reply>` — default `view`; pure UI hint, MUST NOT
 //!   escalate permissions.
 //! * `lt=<reference|invite|preview>` — omitted == `reference`.
@@ -35,8 +33,8 @@
 //! ## Token target binding (security-critical)
 //! An `invite` token's signed payload MUST carry a [`TargetDescriptor`]. Its
 //! digest [`target_digest`] covers ONLY the identity tuple + `link_type` and
-//! NEVER `via` / `action` / `tok` / `lt`. Consequence: refreshing routing
-//! hints does not invalidate the token, but switching to a different
+//! NEVER `action` / `tok` / `lt`. Consequence: refreshing UI hints
+//! does not invalidate the token, but switching to a different
 //! Flow/Message necessarily changes the digest, so a token cannot be replayed
 //! across objects (scope-confusion defence). See [`verify_token_target`].
 
@@ -154,8 +152,6 @@ pub struct ParsedAddress {
     pub flow: Option<String>,
     /// Bare message uuid; `Some` only for message targets.
     pub message: Option<String>,
-    /// Routing-hint service DIDs (multi-valued `via=`).
-    pub via: Vec<String>,
     pub action: AddressAction,
     pub link_type: LinkType,
     /// Opaque invite / preview token; present iff `link_type == Invite` or
@@ -332,8 +328,7 @@ fn percent_decode(value: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
-fn parse_query(query: &str) -> (Vec<String>, AddressAction, LinkType, Option<String>) {
-    let mut via = Vec::new();
+fn parse_query(query: &str) -> (AddressAction, LinkType, Option<String>) {
     let mut action_raw: Option<String> = None;
     let mut lt_raw: Option<String> = None;
     let mut tok: Option<String> = None;
@@ -344,12 +339,12 @@ fn parse_query(query: &str) -> (Vec<String>, AddressAction, LinkType, Option<Str
             None => (pair, String::new()),
         };
         match key {
-            "via" if !value.is_empty() => via.push(value),
             "action" => action_raw = Some(value),
             "lt" => lt_raw = Some(value),
             "tok" if !value.is_empty() => tok = Some(value),
-            // Empty via/tok, unknown query keys (forward-compat for new hints),
-            // and never-identity-bearing extras are ignored.
+            // `via` is retired as a client-derived routing hint. Empty tok,
+            // unknown query keys (forward-compat for new hints), and
+            // never-identity-bearing extras are ignored.
             _ => {}
         }
     }
@@ -359,7 +354,7 @@ fn parse_query(query: &str) -> (Vec<String>, AddressAction, LinkType, Option<Str
     // `tok` is meaningful iff `lt=invite|preview`; drop a stray token on a
     // reference link so it can never be mistaken for authorization.
     let tok = if matches!(link_type, LinkType::Invite | LinkType::Preview) { tok } else { None };
-    (via, action, link_type, tok)
+    (action, link_type, tok)
 }
 
 /// Parse a shareable object address from EITHER the `web+contrix:` URI form or
@@ -367,26 +362,17 @@ fn parse_query(query: &str) -> (Vec<String>, AddressAction, LinkType, Option<Str
 ///
 /// Fails closed on: unrecognized envelope, unknown/misordered path keyword, a
 /// missing intermediate hierarchy level, a non-uuid flow/message segment, or a
-/// Flow/Message address missing `realm/<r>` or all `via` hints.
+/// Flow/Message address missing `realm/<r>`.
 pub fn parse_address(input: &str) -> Result<ParsedAddress> {
     let (path, query) = strip_shell(input)?;
     let (realm, flow, message) = parse_path(&path)?;
-    let (via, action, link_type, token) = parse_query(&query);
+    let (action, link_type, token) = parse_query(&query);
 
-    // Flow/Message targets MUST carry at least one `via` (a global flow_id is
-    // never guessed). The `realm/<r>` requirement is structurally guaranteed
-    // by `parse_path` (the path always begins with `realm/<r>`).
-    if (flow.is_some() || message.is_some()) && via.is_empty() {
-        return Err(protocol_err(
-            "flow/message address MUST carry at least one 'via' service DID (fail-closed)",
-        ));
-    }
-
-    Ok(ParsedAddress { realm, flow, message, via, action, link_type, token })
+    Ok(ParsedAddress { realm, flow, message, action, link_type, token })
 }
 
-/// Build a canonical `web+contrix:` address from its parts. `via` is emitted in
-/// order; `action` is emitted only when non-default; `lt`/`tok` are emitted
+/// Build a canonical `web+contrix:` address from its parts. `action` is emitted
+/// only when non-default; `lt`/`tok` are emitted
 /// only for invite / preview links.
 pub fn build_address(parsed: &ParsedAddress) -> String {
     let mut out = String::from(WEB_CONTRIX_SCHEME);
@@ -426,12 +412,9 @@ pub fn build_https_landing(landing: &str, parsed: &ParsedAddress) -> String {
     format!("{host}/#{fragment}")
 }
 
-/// Build the shared `?via=...&action=...&lt=...&tok=...` query suffix.
+/// Build the shared `?action=...&lt=...&tok=...` query suffix.
 fn build_query(parsed: &ParsedAddress) -> String {
     let mut parts: Vec<String> = Vec::new();
-    for via in &parsed.via {
-        parts.push(format!("via={via}"));
-    }
     if parsed.action != AddressAction::View {
         parts.push(format!("action={}", parsed.action.as_str()));
     }
@@ -560,7 +543,6 @@ mod tests {
             realm: RealmRef::RealmId(R.to_owned()),
             flow: None,
             message: None,
-            via: vec![],
             action: AddressAction::View,
             link_type: LinkType::Reference,
             token: None,
@@ -584,34 +566,30 @@ mod tests {
 
     #[test]
     fn parse_flow_and_message_addresses() {
-        let flow = parse_address(&format!("web+contrix:realm/{R}/flow/{F}?via={VIA}")).unwrap();
+        let flow = parse_address(&format!("web+contrix:realm/{R}/flow/{F}")).unwrap();
         assert!(flow.is_flow());
         assert_eq!(flow.flow.as_deref(), Some(F));
 
         let msg =
-            parse_address(&format!("web+contrix:realm/{R}/flow/{F}/m/{M}?via={VIA}&action=reply"))
-                .unwrap();
+            parse_address(&format!("web+contrix:realm/{R}/flow/{F}/m/{M}?action=reply")).unwrap();
         assert!(msg.is_message());
         assert_eq!(msg.message.as_deref(), Some(M));
         assert_eq!(msg.action, AddressAction::Reply);
-        assert_eq!(msg.via, vec![VIA.to_owned()]);
     }
 
     #[test]
-    fn multi_valued_via_preserved_in_order() {
+    fn retired_via_hint_is_ignored() {
         let parsed =
             parse_address(&format!("web+contrix:realm/{R}/flow/{F}?via=did:web:a&via=did:web:b"))
                 .unwrap();
-        assert_eq!(parsed.via, vec!["did:web:a".to_owned(), "did:web:b".to_owned()]);
+        assert!(parsed.is_flow());
     }
 
     #[test]
     fn query_percent_decode_handles_complete_and_truncated_octets() {
-        let parsed = parse_address(&format!(
-            "web+contrix:realm/{R}/flow/{F}?via=did%3Aweb%3Arelay.example&lt=preview&tok=a%2Fb%25c%2"
-        ))
-        .unwrap();
-        assert_eq!(parsed.via, vec!["did:web:relay.example".to_owned()]);
+        let parsed =
+            parse_address(&format!("web+contrix:realm/{R}/flow/{F}?lt=preview&tok=a%2Fb%25c%2"))
+                .unwrap();
         assert_eq!(parsed.token.as_deref(), Some("a/b%c%2"));
     }
 
@@ -619,8 +597,7 @@ mod tests {
 
     #[test]
     fn web_contrix_roundtrip() {
-        let parsed =
-            parse_address(&format!("web+contrix:realm/{R}/flow/{F}/m/{M}?via={VIA}")).unwrap();
+        let parsed = parse_address(&format!("web+contrix:realm/{R}/flow/{F}/m/{M}")).unwrap();
         let rebuilt = build_address(&parsed);
         let reparsed = parse_address(&rebuilt).unwrap();
         assert_eq!(parsed, reparsed);
@@ -628,9 +605,7 @@ mod tests {
 
     #[test]
     fn https_landing_equivalence() {
-        let parsed =
-            parse_address(&format!("web+contrix:realm/{R}/flow/{F}?via={VIA}&action=join"))
-                .unwrap();
+        let parsed = parse_address(&format!("web+contrix:realm/{R}/flow/{F}?action=join")).unwrap();
         let landing = build_https_landing("https://share.contrix.example", &parsed);
         assert!(landing.starts_with("https://share.contrix.example/#realm/"));
         // Everything after `#` is the same grammar → reparse yields the same
@@ -645,7 +620,6 @@ mod tests {
             realm: RealmRef::RealmId(R.to_owned()),
             flow: Some(F.to_owned()),
             message: None,
-            via: vec![VIA.to_owned()],
             action: AddressAction::View,
             link_type: LinkType::Invite,
             token: Some("opaque-tok-123".to_owned()),
@@ -667,9 +641,9 @@ mod tests {
     }
 
     #[test]
-    fn flow_or_message_missing_via_fails_closed() {
-        assert!(parse_address(&format!("web+contrix:realm/{R}/flow/{F}")).is_err());
-        assert!(parse_address(&format!("web+contrix:realm/{R}/flow/{F}/m/{M}")).is_err());
+    fn flow_or_message_without_via_is_valid() {
+        assert!(parse_address(&format!("web+contrix:realm/{R}/flow/{F}")).is_ok());
+        assert!(parse_address(&format!("web+contrix:realm/{R}/flow/{F}/m/{M}")).is_ok());
     }
 
     #[test]
@@ -697,13 +671,11 @@ mod tests {
 
     #[test]
     fn preview_link_type_round_trips_token() {
-        let parsed =
-            parse_address(&format!("web+contrix:realm/{R}/flow/{F}?via={VIA}&lt=preview")).unwrap();
+        let parsed = parse_address(&format!("web+contrix:realm/{R}/flow/{F}?lt=preview")).unwrap();
         assert_eq!(parsed.link_type, LinkType::Preview);
         assert_eq!(parsed.token, None);
         let parsed2 =
-            parse_address(&format!("web+contrix:realm/{R}/flow/{F}?via={VIA}&lt=preview&tok=xyz"))
-                .unwrap();
+            parse_address(&format!("web+contrix:realm/{R}/flow/{F}?lt=preview&tok=xyz")).unwrap();
         assert_eq!(parsed2.link_type, LinkType::Preview);
         assert_eq!(parsed2.token.as_deref(), Some("xyz"));
     }
@@ -726,7 +698,7 @@ mod tests {
 
     #[test]
     fn target_digest_ignores_via_action_tok_lt() {
-        let base = parse_address(&format!("web+contrix:realm/{R}/flow/{F}?via={VIA}")).unwrap();
+        let base = parse_address(&format!("web+contrix:realm/{R}/flow/{F}")).unwrap();
         let hinted = parse_address(&format!(
             "web+contrix:realm/{R}/flow/{F}?via=did:web:a&via=did:web:b&action=join"
         ))
@@ -739,10 +711,9 @@ mod tests {
 
     #[test]
     fn target_digest_changes_when_object_changes() {
-        let flow_a = parse_address(&format!("web+contrix:realm/{R}/flow/{F}?via={VIA}")).unwrap();
-        let flow_b = parse_address(&format!("web+contrix:realm/{R}/flow/{F2}?via={VIA}")).unwrap();
-        let msg =
-            parse_address(&format!("web+contrix:realm/{R}/flow/{F}/m/{M}?via={VIA}")).unwrap();
+        let flow_a = parse_address(&format!("web+contrix:realm/{R}/flow/{F}")).unwrap();
+        let flow_b = parse_address(&format!("web+contrix:realm/{R}/flow/{F2}")).unwrap();
+        let msg = parse_address(&format!("web+contrix:realm/{R}/flow/{F}/m/{M}")).unwrap();
         let d_a = target_digest(&TargetDescriptor::from_parsed(&flow_a)).unwrap();
         let d_b = target_digest(&TargetDescriptor::from_parsed(&flow_b)).unwrap();
         let d_m = target_digest(&TargetDescriptor::from_parsed(&msg)).unwrap();
@@ -754,8 +725,7 @@ mod tests {
     fn verify_token_target_accepts_matching_object() {
         // Token minted for flow A (invite link).
         let addr_a =
-            parse_address(&format!("web+contrix:realm/{R}/flow/{F}?via={VIA}&lt=invite&tok=t"))
-                .unwrap();
+            parse_address(&format!("web+contrix:realm/{R}/flow/{F}?lt=invite&tok=t")).unwrap();
         let token_desc = {
             let mut d = TargetDescriptor::from_parsed(&addr_a);
             d.link_type = LinkType::Invite;
@@ -768,8 +738,7 @@ mod tests {
     fn verify_token_target_rejects_scope_confusion_replay() {
         // Token minted for object A.
         let addr_a =
-            parse_address(&format!("web+contrix:realm/{R}/flow/{F}?via={VIA}&lt=invite&tok=t"))
-                .unwrap();
+            parse_address(&format!("web+contrix:realm/{R}/flow/{F}?lt=invite&tok=t")).unwrap();
         let token_desc = {
             let mut d = TargetDescriptor::from_parsed(&addr_a);
             d.link_type = LinkType::Invite;
@@ -777,8 +746,7 @@ mod tests {
         };
         // Replayed onto a different object B (different flow).
         let addr_b =
-            parse_address(&format!("web+contrix:realm/{R}/flow/{F2}?via={VIA}&lt=invite&tok=t"))
-                .unwrap();
+            parse_address(&format!("web+contrix:realm/{R}/flow/{F2}?lt=invite&tok=t")).unwrap();
         assert!(
             !verify_token_target(&token_desc, &addr_b, LinkType::Invite),
             "A-object token must not validate against a B address"
@@ -787,10 +755,9 @@ mod tests {
 
     #[test]
     fn verify_token_target_fails_closed_on_alias_realm() {
-        let alias_addr = parse_address(&format!(
-            "web+contrix:realm/team.example.com/flow/{F}?via={VIA}&lt=invite&tok=t"
-        ))
-        .unwrap();
+        let alias_addr =
+            parse_address(&format!("web+contrix:realm/team.example.com/flow/{F}?lt=invite&tok=t"))
+                .unwrap();
         let token_desc = {
             let mut d = TargetDescriptor::from_parsed(&alias_addr);
             d.link_type = LinkType::Invite;

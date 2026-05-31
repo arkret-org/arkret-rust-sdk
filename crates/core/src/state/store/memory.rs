@@ -140,7 +140,7 @@ struct MemoryAnchorStoreInner {
 impl AnchorStore for MemoryAnchorStore {
     fn put(&self, a: &Anchor) -> StoreResult<()> {
         let mut inner = self.inner.lock().unwrap();
-        let space = a.space_id.as_str().to_owned();
+        let space = a.realm_id.as_str().to_owned();
         let id_str = a.id.as_str().to_owned();
         inner.anchors.insert(id_str, a.clone());
 
@@ -179,7 +179,7 @@ impl AnchorStore for MemoryAnchorStore {
         let inner = self.inner.lock().unwrap();
         let mut out = Vec::new();
         for anchor in inner.anchors.values() {
-            if anchor.space_id.as_str() != space_id.as_str() {
+            if anchor.realm_id.as_str() != space_id.as_str() {
                 continue;
             }
             if anchor.predecessor_refs.iter().any(|p| p == anchor_id) {
@@ -208,7 +208,7 @@ impl AnchorStore for MemoryAnchorStore {
             .anchors
             .values()
             .filter(|a| {
-                a.space_id.as_str() == space_id.as_str()
+                a.realm_id.as_str() == space_id.as_str()
                     && a.predecessor_refs.iter().any(|p| p == anchor_id)
             })
             .map(|a| a.id.as_str().to_owned())
@@ -665,11 +665,14 @@ mod tests {
         };
         Anchor {
             id,
-            space_id: space(),
+            realm_id: space(),
             predecessor_refs: predecessors,
             frontier,
             state_root: hash(0x77),
-            anchorer_sig: AnchorerSig::Single(sig),
+            previous_state_root: None,
+            previous_digest_algorithm: None,
+            anchorer_signature: AnchorerSig::Single(sig),
+            anchored_at: Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
             hlc: Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap(),
             kind: crate::AnchorKind::Normal,
         }
