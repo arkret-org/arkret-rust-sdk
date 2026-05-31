@@ -294,8 +294,10 @@ fn candidate_to_delivery_binding(
         .service_acceptance_ref
         .as_ref()
         .map(|id| EventRef::new(id.clone(), "authorized_by".to_owned()));
-    let policy_ref =
-        hint.policy_ref.as_ref().map(|id| EventRef::new(id.clone(), "authorized_by".to_owned()));
+    let policy_event_ref = hint
+        .policy_event_ref
+        .as_ref()
+        .map(|id| EventRef::new(id.clone(), "authorized_by".to_owned()));
 
     MemberDeliveryBinding {
         recipient_service_did: hint.recipient_service_did.clone(),
@@ -308,7 +310,7 @@ fn candidate_to_delivery_binding(
         resolved_at: Utc::now(),
         service_acceptance_ref,
         holder_proof_ref: None,
-        policy_ref,
+        policy_event_ref,
         expires_at: Some(candidate.expires_at),
     }
 }

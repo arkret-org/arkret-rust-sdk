@@ -17,9 +17,8 @@
 //! ## Allowed fields
 //!
 //! - `push_target_id` — opaque pseudonym token (see [`is_valid_push_target_id`]).
-//! - `wakeup_kind` — closed enum (`message`, `incoming_call`, `mention`,
-//!   `member`, `presence`, or a strict snake_case custom token of ≤ 32 chars
-//!   that does not contain `did:` / `cx:` substrings).
+//! - `wakeup_kind` — closed enum (`message`, `mention`, `reaction`,
+//!   `call_invite`).
 //! - `badge`, `unread_count`, `count`, `unread` — small non-negative
 //!   integers (≤ `MAX_COUNT_VALUE`). May be carried inside a `counts` object.
 //! - `push_hint` — closed enum (`new_message`, `incoming_call`,
@@ -73,10 +72,7 @@ pub const MAX_COUNT_VALUE: u64 = 9_999;
 
 /// Closed enum of wakeup_kind values accepted in blind wakeups.
 ///
-/// Custom tokens (snake_case ≤ 32 chars, no `did:` / `cx:` substring) are
-/// also accepted via [`is_valid_custom_wakeup_kind`].
-pub const ALLOWED_WAKEUP_KINDS: &[&str] =
-    &["message", "incoming_call", "mention", "member", "presence"];
+pub const ALLOWED_WAKEUP_KINDS: &[&str] = &["message", "mention", "reaction", "call_invite"];
 
 /// Closed enum of `push_hint` values accepted in blind wakeups.
 ///
@@ -296,8 +292,7 @@ fn validate_allowed_field(key: &str, value: &Value) -> Result<(), BlindPayloadEr
             Some(raw) if is_valid_wakeup_kind(raw) => Ok(()),
             Some(_) => Err(BlindPayloadError::invalid(
                 key,
-                "wakeup_kind must be one of message/incoming_call/mention/member/presence \
-                 or a snake_case token ≤ 32 chars (no did:/cx:)",
+                "wakeup_kind must be one of message/mention/reaction/call_invite",
             )),
             None => Err(BlindPayloadError::invalid(key, "wakeup_kind must be a string")),
         },
@@ -523,14 +518,11 @@ pub fn is_valid_push_target_id(value: &str) -> bool {
 
 /// Return true if `value` is a valid `wakeup_kind` for blind wakeups.
 pub fn is_valid_wakeup_kind(value: &str) -> bool {
-    if ALLOWED_WAKEUP_KINDS.contains(&value) {
-        return true;
-    }
-    is_valid_custom_wakeup_kind(value)
+    ALLOWED_WAKEUP_KINDS.contains(&value)
 }
 
-/// Custom `wakeup_kind` token rule (strict snake_case, ≤ 32 chars, no
-/// `did:` / `cx:` substring).
+/// Legacy helper retained for callers that need to validate private extension
+/// tokens before mapping them onto the closed v1 wakeup_kind enum.
 pub fn is_valid_custom_wakeup_kind(value: &str) -> bool {
     if value.is_empty() || value.len() > 32 {
         return false;
@@ -586,7 +578,7 @@ mod tests {
     fn accepts_bare_notification_object() {
         sanitize_blind_payload(&json!({
             "push_target_id": "cx:pseudonym:push:01HYZ8Z000000000000000",
-            "wakeup_kind": "incoming_call",
+            "wakeup_kind": "call_invite",
         }))
         .unwrap();
     }

@@ -107,8 +107,8 @@ fn candidate_passes_step0(c: &HandleClaim, input: &PrimaryHandleSelectInput<'_>)
     if !matches!(c.binding_state, Some(HandleBindingState::Verified)) {
         return false;
     }
-    // created_at (issued_at) MUST be <= resolution_as_of.
-    match c.issued_at {
+    // created_at MUST be <= resolution_as_of.
+    match c.created_at {
         Some(created) if created <= input.resolution_as_of => {}
         _ => return false,
     }
@@ -157,8 +157,8 @@ fn tie_break_prefers(
     if cand_pos != best_pos {
         return cand_pos < best_pos;
     }
-    let cand_created = candidate.issued_at;
-    let best_created = best.issued_at;
+    let cand_created = candidate.created_at;
+    let best_created = best.created_at;
     if cand_created != best_created {
         return cand_created > best_created;
     }
@@ -281,7 +281,7 @@ mod tests {
             issuer: Some(issuer_did.to_owned()),
             binding_state: Some(HandleBindingState::Verified),
             audience: audience.map(str::to_owned),
-            issued_at: Some(created),
+            created_at: Some(created),
             expires_at: Some(expires),
             ..Default::default()
         }

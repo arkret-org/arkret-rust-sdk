@@ -244,7 +244,7 @@ mod tests {
             service_acceptance_ref: Some(
                 "cx:event:01890000-0000-7000-8000-000000000001".to_owned(),
             ),
-            policy_ref: Some("cx:event:01890000-0000-7000-8000-000000000002".to_owned()),
+            policy_event_ref: Some("cx:event:01890000-0000-7000-8000-000000000002".to_owned()),
         }
     }
 

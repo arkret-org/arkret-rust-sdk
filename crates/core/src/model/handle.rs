@@ -346,17 +346,18 @@ pub enum HandleBindingState {
     Revoked,
 }
 
-/// Class of handle being asserted (`claim_type` in the wire schema).
+/// Protocol kind of handle claim (`claim_kind` in the wire schema).
 ///
-/// R3.2 wire-breaking: the draft-era `service_handle` value is removed.
+/// R3.5 wire-breaking: the draft-era `claim_type` / `class` discriminators
+/// are forbidden. The draft-era `service_handle` value is removed.
 /// Service-readable names / resource labels need their own service /
 /// resource schema; organization-assigned user / principal handles use
 /// `organization_handle`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
-pub enum HandleClass {
-    UserHandle,
+pub enum HandleClaimKind {
+    HandleBinding,
     OrganizationHandle,
 }
 
@@ -373,7 +374,7 @@ pub struct DeliveryBindingHint {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub service_acceptance_ref: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub policy_ref: Option<String>,
+    pub policy_event_ref: Option<String>,
 }
 
 fn default_hint_recipient_service_type() -> RecipientServiceType {
@@ -414,7 +415,7 @@ pub struct HandleClaim {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub binding_state: Option<HandleBindingState>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub class: Option<HandleClass>,
+    pub claim_kind: Option<HandleClaimKind>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub visibility: Option<HandleVisibility>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -428,7 +429,7 @@ pub struct HandleClaim {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub claims: Vec<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub issued_at: Option<DateTime<Utc>>,
+    pub created_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -539,11 +540,50 @@ mod tests {
                 binding_source: HandleHintBindingSource::Explicit,
                 delivery_modes: BTreeSet::new(),
                 service_acceptance_ref: None,
-                policy_ref: None,
+                policy_event_ref: None,
             }),
             expires_at: Some(Utc::now()),
             ..Default::default()
         };
         assert!(claim.validate().is_err());
+    }
+
+    #[test]
+    fn handle_claim_serializes_current_wire_names_only() {
+        let claim = HandleClaim {
+            handle: Some(Handle::parse("alice:example.com").unwrap()),
+            subject: Some(Did::new("did:web:alice.example".to_owned()).unwrap()),
+            issuer: Some("did:web:issuer.example".to_owned()),
+            binding_state: Some(HandleBindingState::Verified),
+            claim_kind: Some(HandleClaimKind::HandleBinding),
+            created_at: Some(Utc::now()),
+            expires_at: Some(Utc::now() + chrono::Duration::hours(1)),
+            proofs: vec![serde_json::json!({"kind":"detached_jws"})],
+            member_delivery_binding: Some(DeliveryBindingHint {
+                recipient_service_did: Did::new("did:web:rs.example".to_owned()).unwrap(),
+                recipient_service_type: RecipientServiceType::PrincipalServer,
+                binding_source: HandleHintBindingSource::OrganizationPolicy,
+                delivery_modes: BTreeSet::from([DeliveryMode::Events]),
+                service_acceptance_ref: Some(
+                    "cx:event:01890000-0000-7000-8000-000000000001".to_owned(),
+                ),
+                policy_event_ref: Some(
+                    "cx:event:01890000-0000-7000-8000-000000000002".to_owned(),
+                ),
+            }),
+            ..Default::default()
+        };
+
+        let value = serde_json::to_value(&claim).unwrap();
+        assert_eq!(value["claim_kind"], "handle_binding");
+        assert!(value.get("class").is_none());
+        assert!(value.get("claim_type").is_none());
+        assert!(value.get("issued_at").is_none());
+        assert!(value["created_at"].is_string());
+        assert_eq!(
+            value["member_delivery_binding"]["policy_event_ref"],
+            "cx:event:01890000-0000-7000-8000-000000000002"
+        );
+        assert!(value["member_delivery_binding"].get("policy_ref").is_none());
     }
 }

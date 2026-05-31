@@ -483,7 +483,7 @@ fn member_add_with_candidate_emits_routable_join_with_typed_binding() {
             service_acceptance_ref: Some(
                 "cx:event:01890000-0000-7000-8000-0000000000a1".to_owned(),
             ),
-            policy_ref: Some("cx:event:01890000-0000-7000-8000-0000000000a2".to_owned()),
+            policy_event_ref: Some("cx:event:01890000-0000-7000-8000-0000000000a2".to_owned()),
         },
         issuer_service_did: principal,
         audience: space_id.as_str().to_owned(),
@@ -540,7 +540,7 @@ fn member_add_with_candidate_rejects_audience_mismatch() {
             service_acceptance_ref: Some(
                 "cx:event:01890000-0000-7000-8000-0000000000a1".to_owned(),
             ),
-            policy_ref: Some("cx:event:01890000-0000-7000-8000-0000000000a2".to_owned()),
+            policy_event_ref: Some("cx:event:01890000-0000-7000-8000-0000000000a2".to_owned()),
         },
         issuer_service_did: principal,
         // Wrong audience — Space id does not match.

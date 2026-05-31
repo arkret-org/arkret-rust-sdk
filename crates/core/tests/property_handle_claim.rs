@@ -119,7 +119,7 @@ proptest! {
                 binding_source: HandleHintBindingSource::Explicit,
                 delivery_modes: Default::default(),
                 service_acceptance_ref: None,
-                policy_ref: None,
+                policy_event_ref: None,
             }),
             ..Default::default()
         };

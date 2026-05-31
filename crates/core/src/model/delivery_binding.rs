@@ -30,7 +30,7 @@ pub struct MemberDeliveryBinding {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub holder_proof_ref: Option<EventRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub policy_ref: Option<EventRef>,
+    pub policy_event_ref: Option<EventRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<DateTime<Utc>>,
 }
@@ -110,18 +110,18 @@ impl MemberDeliveryBinding {
                 }
             }
             BindingSource::OrganizationPolicy => {
-                if self.service_acceptance_ref.is_none() || self.policy_ref.is_none() {
+                if self.service_acceptance_ref.is_none() || self.policy_event_ref.is_none() {
                     return Err(Error::Protocol(
                         "binding_source=organization_policy requires service_acceptance_ref + \
-                         policy_ref"
+                         policy_event_ref"
                             .to_owned(),
                     ));
                 }
             }
             BindingSource::JoinPolicy | BindingSource::RealmPolicy => {
-                if self.policy_ref.is_none() {
+                if self.policy_event_ref.is_none() {
                     return Err(Error::Protocol(format!(
-                        "binding_source={:?} requires policy_ref",
+                        "binding_source={:?} requires policy_event_ref",
                         self.binding_source
                     )));
                 }
@@ -209,7 +209,7 @@ mod tests {
             resolved_at: Utc::now(),
             service_acceptance_ref: Some(fake_event_ref()),
             holder_proof_ref: None,
-            policy_ref: None,
+            policy_event_ref: None,
             expires_at: None,
         };
         assert!(b.validate().is_err());
@@ -230,7 +230,7 @@ mod tests {
             resolved_at: Utc::now(),
             service_acceptance_ref: None,
             holder_proof_ref: None,
-            policy_ref: None,
+            policy_event_ref: None,
             expires_at: None,
         };
         assert!(b.validate().is_err());
@@ -302,7 +302,7 @@ mod tests {
             resolved_at: Utc::now(),
             service_acceptance_ref: None,
             holder_proof_ref: None,
-            policy_ref: None,
+            policy_event_ref: None,
             expires_at: None,
         };
         assert!(b.validate().is_err());
