@@ -250,6 +250,7 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         }
         OP_DIRECTORY_RESOLVE_HANDLE => vec!["handle".to_owned()],
         OP_DIRECTORY_LIST_HANDLES_FOR_SUBJECT => vec!["subject".to_owned()],
+        OP_DIRECTORY_RESOLVE_TARGET => vec!["address".to_owned()],
         OP_DIRECTORY_RESOLVE_ORGANIZATION | OP_DIRECTORY_RESOLVE_REALM => {
             vec!["target".to_owned()]
         }

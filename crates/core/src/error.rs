@@ -59,6 +59,9 @@ pub const ERROR_CODE_PROJECTION_INCOMPLETE: &str = "projection_incomplete";
 pub const ERROR_CODE_INTERNAL_ERROR: &str = "internal_error";
 pub const ERROR_CODE_TEMPORARILY_UNAVAILABLE: &str = "temporarily_unavailable";
 pub const ERROR_CODE_POLICY_COMBINATION_INVALID: &str = "policy_combination_invalid";
+pub const ERROR_CODE_HISTORY_SHARING_POLICY_MISSING: &str = "history_sharing_policy_missing";
+pub const ERROR_CODE_HISTORY_NOT_VISIBLE: &str = "history_not_visible";
+pub const ERROR_CODE_PREVIEW_POLICY_DENIED: &str = "preview_policy_denied";
 pub const ERROR_CODE_ANCHORER_RECOVERY_MISSING: &str = "anchorer_recovery_missing";
 pub const ERROR_CODE_UNSUPPORTED_LATTICE_TYPE: &str = "unsupported_lattice_type";
 /// Round C44 (2026-05-18) — registry add: peer or ServiceDescribe advertises a
@@ -262,6 +265,9 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
     ERROR_CODE_INTERNAL_ERROR,
     ERROR_CODE_TEMPORARILY_UNAVAILABLE,
     ERROR_CODE_POLICY_COMBINATION_INVALID,
+    ERROR_CODE_HISTORY_SHARING_POLICY_MISSING,
+    ERROR_CODE_HISTORY_NOT_VISIBLE,
+    ERROR_CODE_PREVIEW_POLICY_DENIED,
     ERROR_CODE_ANCHORER_RECOVERY_MISSING,
     ERROR_CODE_UNSUPPORTED_LATTICE_TYPE,
     ERROR_CODE_PROFILE_UNSUPPORTED,
@@ -714,6 +720,8 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_SIDECAR_CREATE_DENIED
         | ERROR_CODE_E2EE_KEY_SOURCE_UNAUTHORISED
         | ERROR_CODE_RECORDING_ARTIFACT_PIPELINE_BYPASSED
+        | ERROR_CODE_HISTORY_NOT_VISIBLE
+        | ERROR_CODE_PREVIEW_POLICY_DENIED
         | ERROR_CODE_HANDLE_HOMOGRAPH_FORBIDDEN => 403,
         ERROR_CODE_NOT_FOUND | ERROR_CODE_UNRECOGNIZED_ENDPOINT => 404,
         ERROR_CODE_METHOD_NOT_ALLOWED => 405,
@@ -769,6 +777,7 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_PAYLOAD_DIGEST_MISMATCH
         | ERROR_CODE_UNKNOWN_DID
         | ERROR_CODE_POLICY_COMBINATION_INVALID
+        | ERROR_CODE_HISTORY_SHARING_POLICY_MISSING
         | ERROR_CODE_ANCHORER_RECOVERY_MISSING
         | ERROR_CODE_UNSUPPORTED_LATTICE_TYPE
         | ERROR_CODE_UNSUPPORTED_HASH
@@ -918,6 +927,9 @@ pub enum ErrorCode {
     InternalError,
     TemporarilyUnavailable,
     PolicyCombinationInvalid,
+    HistorySharingPolicyMissing,
+    HistoryNotVisible,
+    PreviewPolicyDenied,
     AnchorerRecoveryMissing,
     UnsupportedLatticeType,
     ProfileUnsupported,
@@ -1055,6 +1067,9 @@ impl ErrorCode {
         Self::InternalError,
         Self::TemporarilyUnavailable,
         Self::PolicyCombinationInvalid,
+        Self::HistorySharingPolicyMissing,
+        Self::HistoryNotVisible,
+        Self::PreviewPolicyDenied,
         Self::AnchorerRecoveryMissing,
         Self::UnsupportedLatticeType,
         Self::ProfileUnsupported,
@@ -1187,6 +1202,9 @@ impl ErrorCode {
             Self::InternalError => ERROR_CODE_INTERNAL_ERROR,
             Self::TemporarilyUnavailable => ERROR_CODE_TEMPORARILY_UNAVAILABLE,
             Self::PolicyCombinationInvalid => ERROR_CODE_POLICY_COMBINATION_INVALID,
+            Self::HistorySharingPolicyMissing => ERROR_CODE_HISTORY_SHARING_POLICY_MISSING,
+            Self::HistoryNotVisible => ERROR_CODE_HISTORY_NOT_VISIBLE,
+            Self::PreviewPolicyDenied => ERROR_CODE_PREVIEW_POLICY_DENIED,
             Self::AnchorerRecoveryMissing => ERROR_CODE_ANCHORER_RECOVERY_MISSING,
             Self::UnsupportedLatticeType => ERROR_CODE_UNSUPPORTED_LATTICE_TYPE,
             Self::ProfileUnsupported => ERROR_CODE_PROFILE_UNSUPPORTED,
@@ -1328,11 +1346,15 @@ mod tests {
         // historical_only) + 10 directory ingest wire codes + 8 spec-main
         // cursor / ephemeral / grant / device-recovery wire codes +
         // 11 key-backup hardening codes (B-C, spec head 37ce729) +
+        // 3 history/preview-policy denial codes (2026-05-31 sync) +
         // 20 R3 spec-sync codes (2026-05-27, contrix-spec b47ff6ec) +
         // 4 R3.1 MemberIdentity codes (2026-05-27, contrix-spec 7157ee8).
-        assert_eq!(KNOWN_ERROR_CODES.len(), 125);
+        assert_eq!(KNOWN_ERROR_CODES.len(), 128);
         assert!(codes.contains(ERROR_CODE_CURSOR_EXPIRED));
         assert!(codes.contains(ERROR_CODE_POLICY_COMBINATION_INVALID));
+        assert!(codes.contains(ERROR_CODE_HISTORY_SHARING_POLICY_MISSING));
+        assert!(codes.contains(ERROR_CODE_HISTORY_NOT_VISIBLE));
+        assert!(codes.contains(ERROR_CODE_PREVIEW_POLICY_DENIED));
         assert!(codes.contains(ERROR_CODE_ANCHORER_RECOVERY_MISSING));
         assert!(codes.contains(ERROR_CODE_UNSUPPORTED_LATTICE_TYPE));
         assert!(codes.contains(ERROR_CODE_PROFILE_UNSUPPORTED));

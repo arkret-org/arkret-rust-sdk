@@ -215,7 +215,7 @@ fn payload_def_candidates(event_kind: &str) -> Vec<String> {
             candidates.push("state_payload".to_owned());
         }
         ["flow", "track" | "tracks", "update"] => {
-            candidates.push("object_patch_payload".to_owned())
+            candidates.push("generic_standard_payload".to_owned())
         }
         ["message", "create"] => candidates.push("message_create_payload".to_owned()),
         ["message", "revise"] => candidates.push("message_revise_payload".to_owned()),
@@ -243,6 +243,10 @@ fn payload_def_candidates(event_kind: &str) -> Vec<String> {
         }
         ["agent", "protocol_session", "result"] => {
             candidates.push("agent_session_result_payload".to_owned());
+        }
+        ["applet", "registration" | "discovery"]
+        | ["applet", "protocol_session", "start" | "status" | "result"] => {
+            candidates.push("generic_standard_payload".to_owned());
         }
         ["capability", "grant" | "delegate" | "derived"] => {
             candidates.push("capability_grant_payload".to_owned());

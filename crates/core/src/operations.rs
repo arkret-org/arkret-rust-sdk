@@ -91,6 +91,7 @@ pub fn classify_operation_kind(kind: &str) -> OperationSurface {
         | OP_DIRECTORY_LIST_HANDLES_FOR_SUBJECT
         | OP_DIRECTORY_RESOLVE_ORGANIZATION
         | OP_DIRECTORY_RESOLVE_REALM
+        | OP_DIRECTORY_RESOLVE_TARGET
         | OP_DIRECTORY_SEARCH_ACTORS
         | OP_DIRECTORY_SEARCH_ORGANIZATIONS
         | OP_DIRECTORY_SEARCH_REALMS
@@ -463,6 +464,14 @@ fn mutation_for_kind(kind: &str) -> OperationMutation {
         | OP_IDENTITY_GET_RECEIPTS
         | OP_BLOB_HEAD
         | OP_BLOB_GET
+        | OP_DIRECTORY_RESOLVE_HANDLE
+        | OP_DIRECTORY_LIST_HANDLES_FOR_SUBJECT
+        | OP_DIRECTORY_RESOLVE_ORGANIZATION
+        | OP_DIRECTORY_RESOLVE_REALM
+        | OP_DIRECTORY_RESOLVE_TARGET
+        | OP_DIRECTORY_SEARCH_ACTORS
+        | OP_DIRECTORY_SEARCH_ORGANIZATIONS
+        | OP_DIRECTORY_SEARCH_REALMS
         | OP_DIRECTORY_SEARCH_USERS
         | OP_AUTHZ_GET_EFFECTIVE_GRANTS
         | OP_AUTHZ_GET_INVITES
@@ -509,6 +518,7 @@ fn target_id_for_operation(kind: &str, content: &Value) -> Option<String> {
         OP_KEYS_KEYPACKAGES_CONSUME => &["claim_id"],
         OP_KEYS_KEYPACKAGES_REVOKE => &["principal_id", "keypackage_ref"],
         OP_PUSH_REGISTER_DEVICE | OP_PUSH_UNREGISTER_DEVICE => &["device_id"],
+        OP_DIRECTORY_RESOLVE_TARGET => &["address"],
         OP_DIRECTORY_SUBSCRIBE => &["subscriber_did", "webhook_endpoint"],
         OP_DEVICE_MESSAGES_PUT | OP_DEVICE_MESSAGES_GET => {
             &["recipient_principal_id", "recipient_device_id"]

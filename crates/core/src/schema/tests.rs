@@ -157,7 +157,6 @@ fn artifact_payload_catalog_maps_object_patch_event_family_to_object_patch_paylo
     let object_patch_kinds = [
         "cx.realm.update",
         "cx.flow.update",
-        "cx.flow.tracks.update",
         "cx.morph.update",
         "cx.profile.update",
         "cx.profile.space_override",
@@ -184,6 +183,34 @@ fn artifact_payload_catalog_maps_object_patch_event_family_to_object_patch_paylo
             "{event_kind} must reject legacy non-patch update payloads"
         );
     }
+    assert_eq!(
+        catalog.rules["cx.flow.tracks.update"].payload_schema_id,
+        format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/generic_standard_payload"),
+        "cx.flow.tracks.update has dedicated track-table semantics and must not be folded into object_patch_payload"
+    );
+    catalog
+        .validate_payload(
+            "cx.flow.tracks.update",
+            &json!({
+                "flow_id": "cx:flow:0196419b-0000-7000-8000-000000000001",
+                "tracks": {
+                    "main": { "title": "Main", "rank": "a0" }
+                }
+            }),
+        )
+        .unwrap_or_else(|err| panic!("cx.flow.tracks.update should accept track payloads: {err}"));
+    assert!(
+        catalog
+            .validate_payload(
+                "cx.flow.tracks.update",
+                &json!({
+                    "type": "cx.flow.tracks.update",
+                    "flow_id": "cx:flow:0196419b-0000-7000-8000-000000000001"
+                }),
+            )
+            .is_err(),
+        "cx.flow.tracks.update must still reject the retired type discriminator"
+    );
 }
 
 #[test]

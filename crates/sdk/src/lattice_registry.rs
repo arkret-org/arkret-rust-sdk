@@ -1137,6 +1137,15 @@ singleton_lattice!(
 );
 
 singleton_lattice!(
+    RealmPreviewPolicy,
+    "cx.component.realm.preview_policy.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    &["cx.realm.preview_policy"]
+);
+
+singleton_lattice!(
     RealmAssetPrivacyPolicy,
     "cx.component.realm.asset_privacy_policy.v1",
     SdkLatticeKind::CasRegister,
@@ -1383,6 +1392,7 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(RealmDestroy);
     registry.register(RealmModerationPolicy);
     registry.register(RealmHistorySharingPolicy);
+    registry.register(RealmPreviewPolicy);
     registry.register(RealmAssetPrivacyPolicy);
     registry.register(RealmPolicyComponents);
     registry.register(RealmPolicyServer);
@@ -1480,6 +1490,7 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "cx.component.realm.destroy.v1",
         "cx.component.realm.moderation_policy.v1",
         "cx.component.realm.history_sharing_policy.v1",
+        "cx.component.realm.preview_policy.v1",
         "cx.component.realm.asset_privacy_policy.v1",
         "cx.component.realm.policy_components.v1",
         "cx.component.realm.policy_server.v1",
@@ -1585,11 +1596,11 @@ mod tests {
         // legacy `Space*` impls registered for reducer back-compat, so
         // 50 (legacy) + 28 (new realm/flow/morph/agent) - 4 withdrawn
         // agent extension vectors families, plus agent status, Circle, and
-        // member identity cells = 79.
+        // member identity cells, plus preview policy = 80.
         // Bump this number deliberately when the spec event-kind
         // registry grows a new cell_family.
         let registry = default_lattice_registry();
-        assert_eq!(registry.len(), 79);
+        assert_eq!(registry.len(), 80);
     }
 
     #[test]
