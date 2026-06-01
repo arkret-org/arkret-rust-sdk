@@ -142,11 +142,7 @@ impl MlsGovernanceBindingPayload {
         if let Some(binding_profile) = &self.binding_profile {
             validate_profile_id("mls_governance_binding.binding_profile", binding_profile)?;
         }
-        if self
-            .reducer_profile
-            .as_ref()
-            .is_some_and(|profile| profile.is_empty())
-        {
+        if self.reducer_profile.as_ref().is_some_and(|profile| profile.is_empty()) {
             return Err(Error::Protocol(format!(
                 "mls_governance_binding.reducer_profile must be non-empty ({ERROR_CODE_SCHEMA_VIOLATION})"
             )));
@@ -473,10 +469,7 @@ mod tests {
         )
         .unwrap();
 
-        binding
-            .clone()
-            .with_binding_profile("cx.profile.mls_governance_binding.full.v1")
-            .unwrap();
+        binding.clone().with_binding_profile("cx.profile.mls_governance_binding.full.v1").unwrap();
         assert!(binding.clone().with_binding_profile("mls.full").is_err());
         assert!(binding.with_reducer_profile("").is_err());
     }
