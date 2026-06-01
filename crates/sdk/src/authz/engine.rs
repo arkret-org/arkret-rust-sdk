@@ -507,15 +507,42 @@ impl AuthzEngine {
                     FieldScope::Write => &ctx.write_fields,
                 };
 
-                for field in target_fields {
-                    if fields.contains(field) {
-                        return match effect {
-                            ConstraintEffect::Allow => AuthzDecision::Allow,
-                            ConstraintEffect::Deny => AuthzDecision::Deny {
+                match effect {
+                    ConstraintEffect::Allow => {
+                        if let Some(field) =
+                            target_fields.iter().find(|field| !fields.contains(*field))
+                        {
+                            return AuthzDecision::Deny {
+                                reason: format!("field access not allowed: {}", field),
+                            };
+                        }
+                    }
+                    ConstraintEffect::Deny => {
+                        if let Some(field) =
+                            target_fields.iter().find(|field| fields.contains(*field))
+                        {
+                            return AuthzDecision::Deny {
                                 reason: format!("field access denied: {}", field),
-                            },
-                            _ => AuthzDecision::Allow,
-                        };
+                            };
+                        }
+                    }
+                    ConstraintEffect::Quarantine => {
+                        if let Some(field) =
+                            target_fields.iter().find(|field| fields.contains(*field))
+                        {
+                            return AuthzDecision::Quarantine {
+                                reason: format!("field access quarantined: {}", field),
+                            };
+                        }
+                    }
+                    ConstraintEffect::RequireReview => {
+                        if let Some(field) =
+                            target_fields.iter().find(|field| fields.contains(*field))
+                        {
+                            return AuthzDecision::RequireReview {
+                                reason: format!("field access requires review: {}", field),
+                            };
+                        }
                     }
                 }
                 AuthzDecision::Allow
@@ -1038,12 +1065,18 @@ impl AuthzEngine {
             .unwrap_or_else(|_| ctx.resource.space_id().to_owned());
         let facets_digest = crate::canonical::canonical_sha256(&ctx.facets)
             .unwrap_or_else(|_| format!("facet-count:{}", ctx.facets.len()));
+        let field_digest =
+            crate::canonical::canonical_sha256(&(&ctx.read_fields, &ctx.write_fields))
+                .unwrap_or_else(|_| {
+                    format!("fields:{}:{}", ctx.read_fields.len(), ctx.write_fields.len())
+                });
         format!(
-            "{}:{}:{}:{}:{}:{:?}:{:?}:{}:{}:{}",
+            "{}:{}:{}:{}:{}:{}:{:?}:{:?}:{}:{}:{}",
             ctx.actor_id,
             ctx.action,
             resource_digest,
             facets_digest,
+            field_digest,
             ctx.delegation_depth,
             ctx.rate_limit_count,
             ctx.encryption_level,

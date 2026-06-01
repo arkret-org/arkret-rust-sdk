@@ -274,6 +274,120 @@ pub const OP_MESSAGE_REDACT: &str = "cx.message.redact";
 /// node such as `@all` or v1 `@here` (`audience="flow_engaged"`).
 pub const CAP_ACTION_MESSAGE_MENTION_BROADCAST: &str = "cx.message.mention.broadcast";
 
+/// Capability constraint shorthand from `capability-action-registry.json`.
+pub const CAP_CONSTRAINT_FIELDS_WRITE_ALLOW: &str = "fields_write_allow";
+
+/// Capability-action IDs sampled in `_randmon.md` and promoted to SDK
+/// constants so downstream grant builders do not hard-code raw strings.
+pub const CAP_ACTION_OBJECT_ARCHIVE: &str = "cx.object.archive";
+pub const CAP_ACTION_EVENT_READ: &str = "cx.event.read";
+pub const CAP_ACTION_MODERATION_DECISION_LIFT: &str = "cx.moderation.decision.lift";
+pub const CAP_ACTION_FLOW_UPDATE: &str = "cx.flow.update";
+pub const CAP_ACTION_APPROVAL_VOTE: &str = "cx.approval.vote";
+pub const CAP_ACTION_AUDIT_ACCESSED: &str = "cx.audit.accessed";
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CapabilityRiskTier {
+    Low,
+    Medium,
+    High,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CapabilityActionDefinition {
+    pub action: &'static str,
+    pub category: &'static str,
+    pub risk_tier: CapabilityRiskTier,
+    pub required_constraints: &'static [&'static str],
+    pub target_event_kinds: &'static [&'static str],
+    pub profile: Option<&'static str>,
+    pub event_mapping_kind: &'static str,
+}
+
+pub const CAP_ACTION_OBJECT_ARCHIVE_TARGET_EVENT_KINDS: &[&str] =
+    &[OP_FLOW_ARCHIVE, OP_MORPH_ARCHIVE];
+pub const CAP_ACTION_EVENT_READ_TARGET_EVENT_KINDS: &[&str] = &[];
+pub const CAP_ACTION_MODERATION_DECISION_LIFT_TARGET_EVENT_KINDS: &[&str] =
+    &[CAP_ACTION_MODERATION_DECISION_LIFT];
+pub const CAP_ACTION_FLOW_UPDATE_REQUIRED_CONSTRAINTS: &[&str] =
+    &[CAP_CONSTRAINT_FIELDS_WRITE_ALLOW];
+pub const CAP_ACTION_FLOW_UPDATE_TARGET_EVENT_KINDS: &[&str] = &[OP_FLOW_UPDATE];
+pub const CAP_ACTION_APPROVAL_VOTE_TARGET_EVENT_KINDS: &[&str] = &[];
+pub const CAP_ACTION_AUDIT_ACCESSED_TARGET_EVENT_KINDS: &[&str] = &[CAP_ACTION_AUDIT_ACCESSED];
+
+pub const REVIEWED_CAPABILITY_ACTION_DEFINITIONS: &[CapabilityActionDefinition] = &[
+    CapabilityActionDefinition {
+        action: CAP_ACTION_OBJECT_ARCHIVE,
+        category: "general",
+        risk_tier: CapabilityRiskTier::Medium,
+        required_constraints: &[],
+        target_event_kinds: CAP_ACTION_OBJECT_ARCHIVE_TARGET_EVENT_KINDS,
+        profile: None,
+        event_mapping_kind: "polymorphic_object",
+    },
+    CapabilityActionDefinition {
+        action: CAP_ACTION_EVENT_READ,
+        category: "discussion",
+        risk_tier: CapabilityRiskTier::Low,
+        required_constraints: &[],
+        target_event_kinds: CAP_ACTION_EVENT_READ_TARGET_EVENT_KINDS,
+        profile: None,
+        event_mapping_kind: "non_event_surface",
+    },
+    CapabilityActionDefinition {
+        action: CAP_ACTION_MODERATION_DECISION_LIFT,
+        category: "management",
+        risk_tier: CapabilityRiskTier::High,
+        required_constraints: &[],
+        target_event_kinds: CAP_ACTION_MODERATION_DECISION_LIFT_TARGET_EVENT_KINDS,
+        profile: None,
+        event_mapping_kind: "same_name",
+    },
+    CapabilityActionDefinition {
+        action: CAP_ACTION_FLOW_UPDATE,
+        category: "flow",
+        risk_tier: CapabilityRiskTier::Medium,
+        required_constraints: CAP_ACTION_FLOW_UPDATE_REQUIRED_CONSTRAINTS,
+        target_event_kinds: CAP_ACTION_FLOW_UPDATE_TARGET_EVENT_KINDS,
+        profile: None,
+        event_mapping_kind: "same_name",
+    },
+    CapabilityActionDefinition {
+        action: CAP_ACTION_APPROVAL_VOTE,
+        category: "management",
+        risk_tier: CapabilityRiskTier::Medium,
+        required_constraints: &[],
+        target_event_kinds: CAP_ACTION_APPROVAL_VOTE_TARGET_EVENT_KINDS,
+        profile: None,
+        event_mapping_kind: "non_event_surface",
+    },
+    CapabilityActionDefinition {
+        action: CAP_ACTION_AUDIT_ACCESSED,
+        category: "service",
+        risk_tier: CapabilityRiskTier::Medium,
+        required_constraints: &[],
+        target_event_kinds: CAP_ACTION_AUDIT_ACCESSED_TARGET_EVENT_KINDS,
+        profile: None,
+        event_mapping_kind: "same_name",
+    },
+];
+
+pub fn capability_action_definition(action: &str) -> Option<&'static CapabilityActionDefinition> {
+    REVIEWED_CAPABILITY_ACTION_DEFINITIONS.iter().find(|definition| definition.action == action)
+}
+
+pub fn capability_action_target_event_kinds(action: &str) -> &'static [&'static str] {
+    capability_action_definition(action)
+        .map(|definition| definition.target_event_kinds)
+        .unwrap_or(&[])
+}
+
+pub fn capability_action_required_constraints(action: &str) -> &'static [&'static str] {
+    capability_action_definition(action)
+        .map(|definition| definition.required_constraints)
+        .unwrap_or(&[])
+}
+
 /// Membership and invite event kinds.
 pub const OP_MEMBER_STATE: &str = "cx.member.state";
 pub const OP_INVITE_CREATE: &str = "cx.invite.create";
@@ -703,5 +817,24 @@ mod tests {
             "cx:realm:context"
         );
         assert_eq!(select_agent_sidecar_home_realm(None, "cx:realm:home"), "cx:realm:home");
+    }
+
+    #[test]
+    fn reviewed_capability_action_definitions_cover_randmon_sample() {
+        let flow_update = capability_action_definition(CAP_ACTION_FLOW_UPDATE)
+            .expect("cx.flow.update definition");
+        assert_eq!(flow_update.risk_tier, CapabilityRiskTier::Medium);
+        assert_eq!(
+            capability_action_required_constraints(CAP_ACTION_FLOW_UPDATE),
+            &[CAP_CONSTRAINT_FIELDS_WRITE_ALLOW]
+        );
+        assert_eq!(capability_action_target_event_kinds(CAP_ACTION_FLOW_UPDATE), &[OP_FLOW_UPDATE]);
+
+        assert_eq!(
+            capability_action_target_event_kinds(CAP_ACTION_OBJECT_ARCHIVE),
+            &[OP_FLOW_ARCHIVE, OP_MORPH_ARCHIVE]
+        );
+        assert!(capability_action_target_event_kinds(CAP_ACTION_APPROVAL_VOTE).is_empty());
+        assert!(capability_action_definition("cx.unknown.action").is_none());
     }
 }

@@ -829,6 +829,49 @@ fn authz_engine_field_access_deny() {
 }
 
 #[test]
+fn authz_engine_field_access_allow_is_fail_closed_and_cache_keys_fields() {
+    let mut engine = AuthzEngine::new();
+    let resource = Resource::Flow {
+        space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+        flow_id: "cx:flow:01904100-0000-7000-8000-f571eead1fc4".to_owned(),
+    };
+    let mut allowed_ctx = AuthzContext::new(
+        Did::new("did:web:alice.example.com").unwrap(),
+        "cx.flow.update".to_owned(),
+        resource.clone(),
+    );
+    allowed_ctx.write_fields = vec!["title".to_owned()];
+
+    let mut grant = grant_for(
+        "cx.flow.update",
+        ResourceSelector::Flow {
+            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            flow_id: None,
+        },
+    );
+    grant.constraints = vec![ConstraintEntry::new(Constraint::FieldAccess {
+        effect: ConstraintEffect::Allow,
+        scope: FieldScope::Write,
+        fields: vec!["title".to_owned()],
+    })];
+
+    assert!(engine.check_authorization(&allowed_ctx, &[grant.clone()]).is_allowed());
+
+    let mut denied_ctx = AuthzContext::new(
+        Did::new("did:web:alice.example.com").unwrap(),
+        "cx.flow.update".to_owned(),
+        resource,
+    );
+    denied_ctx.write_fields = vec!["title".to_owned(), "status".to_owned()];
+
+    let decision = engine.check_authorization(&denied_ctx, &[grant]);
+    assert!(matches!(
+        decision,
+        AuthzDecision::Deny { reason } if reason.contains("field access not allowed: status")
+    ));
+}
+
+#[test]
 fn authz_engine_enforces_runtime_constraints() {
     let mut engine = AuthzEngine::new();
     let ctx = AuthzContext::new(

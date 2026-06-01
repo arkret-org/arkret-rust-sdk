@@ -30,12 +30,15 @@ use contrix_core::{
     KeyBackupDeleteReqBody, KeyBackupDeleteResBody, KeyBackupPutResBody, KeyBackupSummary,
     KeyBackupsListQuery, KeyBackupsListResBody, KeysClaimReqBody, KeysClaimResBody,
     KeysQueryReqBody, KeysQueryResBody, KeysUploadReqBody, KeysUploadResBody,
-    MediaIceConfigReqBody, MediaIceConfigResBody, ModerationReportReqBody, ModerationReportResBody,
-    OkResBody, PolicyCheckReqBody, PolicyCheckResBody, PushNotifyReqBody, PushNotifyResBody,
-    PushRegisterDeviceReqBody, PushRegisterDeviceResBody, PushUnregisterDeviceReqBody, Result,
-    ServerDescription, ServiceRequirements, SessionGrantChallenge, SessionGrantChallengeReq,
-    SessionGrantSubmitReq, SubmitDidOperationReqBody, SubmitDidOperationResBody,
-    SyncBackfillResBody, SyncDescription, SyncReqBody, SyncResBody, SyncSnapshotHeadResBody,
+    MediaIceConfigReqBody, MediaIceConfigResBody, MimiProviderDirectoryResBody,
+    MimiReportAbuseReqBody, MimiReportAbuseResBody, ModerationReportReqBody,
+    ModerationReportResBody, OkResBody, PolicyCheckReqBody, PolicyCheckResBody,
+    PrivateContactDiscoveryReqBody, PrivateContactDiscoveryResBody, PushNotifyReqBody,
+    PushNotifyResBody, PushRegisterDeviceReqBody, PushRegisterDeviceResBody,
+    PushUnregisterDeviceReqBody, Result, ServerDescription, ServiceRequirements,
+    SessionGrantChallenge, SessionGrantChallengeReq, SessionGrantSubmitReq,
+    SubmitDidOperationReqBody, SubmitDidOperationResBody, SyncBackfillResBody, SyncDescription,
+    SyncReqBody, SyncResBody, SyncSnapshotHeadResBody,
 };
 
 pub const HEADER_REQUEST_ID: &str = "X-Contrix-Request-Id";
@@ -1124,6 +1127,13 @@ impl Client {
         Ok(body)
     }
 
+    pub async fn directory_private_contact_discovery(
+        &self,
+        request: &PrivateContactDiscoveryReqBody,
+    ) -> Result<PrivateContactDiscoveryResBody> {
+        self.post("/api/v1/directory/private-contact-discovery", request).await
+    }
+
     pub async fn push_register_device(
         &self,
         request: &PushRegisterDeviceReqBody,
@@ -1158,6 +1168,28 @@ impl Client {
         request: &ModerationReportReqBody,
     ) -> Result<ModerationReportResBody> {
         self.post("/api/v1/moderation/report", request).await
+    }
+
+    pub async fn mimi_provider_directory(
+        &self,
+        provider_id: Option<&str>,
+        features: &[String],
+    ) -> Result<MimiProviderDirectoryResBody> {
+        let mut builder = self.request(Method::GET, "/api/v1/mimi/provider-directory")?;
+        if let Some(provider_id) = provider_id {
+            builder = builder.query(&[("provider_id", provider_id)]);
+        }
+        for feature in features {
+            builder = builder.query(&[("features", feature)]);
+        }
+        self.send_json(builder).await
+    }
+
+    pub async fn mimi_report_abuse(
+        &self,
+        request: &MimiReportAbuseReqBody,
+    ) -> Result<MimiReportAbuseResBody> {
+        self.post("/api/v1/mimi/report-abuse", request).await
     }
 
     pub async fn applet_ping(&self) -> Result<AppletPingResBody> {
@@ -1678,7 +1710,7 @@ mod tests {
     #[cfg(not(target_arch = "wasm32"))]
     mod events_submit_tests {
         use super::*;
-        use contrix_core::{Did, EventId, EventRequirements, Hlc, RealmId};
+        use contrix_core::{Did, EventId, EventRequirements, FlowId, Hlc, RealmId};
         use serde_json::json;
         use std::collections::BTreeMap;
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -1764,6 +1796,9 @@ mod tests {
                     {
                         break;
                     }
+                    if headers_end.is_some() && content_length.is_none() {
+                        break;
+                    }
                 }
 
                 let response = format!(
@@ -1839,6 +1874,78 @@ mod tests {
             assert_eq!(arr.len(), 2);
             assert_eq!(arr[0]["payload"]["body"], "first");
             assert_eq!(arr[1]["payload"]["body"], "second");
+        }
+
+        #[tokio::test]
+        async fn directory_private_contact_discovery_posts_canonical_path() {
+            let (client, capture) = spawn_capture_server(r#"{"matches":[],"proofs":[]}"#).await;
+            let request = PrivateContactDiscoveryReqBody {
+                requester: Did::new("did:web:alice.example").unwrap(),
+                contacts: vec![json!({"contact_digest": "sha256:contact"})],
+                proofs: Vec::new(),
+                privacy_profile: Some("psi-v1".to_owned()),
+                padding: Value::Null,
+            };
+
+            let response = client.directory_private_contact_discovery(&request).await.unwrap();
+            assert!(response.matches.is_empty());
+
+            let raw = capture.await.unwrap();
+            let (request_line, _headers, body) = split_request(&raw);
+            assert!(
+                request_line.starts_with("POST /api/v1/directory/private-contact-discovery "),
+                "unexpected request line: {request_line}",
+            );
+            let parsed: Value = serde_json::from_slice(&body).unwrap();
+            assert_eq!(parsed["requester"], "did:web:alice.example");
+            assert_eq!(parsed["privacy_profile"], "psi-v1");
+        }
+
+        #[tokio::test]
+        async fn mimi_provider_directory_gets_canonical_path_with_filters() {
+            let (client, capture) = spawn_capture_server(r#"{"providers":[]}"#).await;
+            let features = vec!["blind_wakeup".to_owned(), "mimi_v1".to_owned()];
+
+            let response =
+                client.mimi_provider_directory(Some("provider-a"), &features).await.unwrap();
+            assert!(response.providers.is_empty());
+
+            let raw = capture.await.unwrap();
+            let (request_line, _headers, _body) = split_request(&raw);
+            assert!(
+                request_line.starts_with("GET /api/v1/mimi/provider-directory?"),
+                "unexpected request line: {request_line}",
+            );
+            assert!(request_line.contains("provider_id=provider-a"));
+            assert!(request_line.contains("features=blind_wakeup"));
+            assert!(request_line.contains("features=mimi_v1"));
+        }
+
+        #[tokio::test]
+        async fn mimi_report_abuse_posts_canonical_path() {
+            let (client, capture) = spawn_capture_server(r#"{"ok":true}"#).await;
+            let request = MimiReportAbuseReqBody {
+                flow_id: FlowId::new("cx:flow:01904100-0000-7000-8000-f571eead1fc4").unwrap(),
+                target_ref: "mimi://provider/rooms/room-1/messages/msg-1".to_owned(),
+                reporter: Did::new("did:web:alice.example").unwrap(),
+                reason: "spam".to_owned(),
+                evidence_package: Value::Null,
+                frank: Value::Null,
+                description: Some("unsolicited message".to_owned()),
+            };
+
+            let response = client.mimi_report_abuse(&request).await.unwrap();
+            assert!(response.0.ok);
+
+            let raw = capture.await.unwrap();
+            let (request_line, _headers, body) = split_request(&raw);
+            assert!(
+                request_line.starts_with("POST /api/v1/mimi/report-abuse "),
+                "unexpected request line: {request_line}",
+            );
+            let parsed: Value = serde_json::from_slice(&body).unwrap();
+            assert_eq!(parsed["reason"], "spam");
+            assert_eq!(parsed["reporter"], "did:web:alice.example");
         }
 
         #[tokio::test]
