@@ -1,23 +1,14 @@
 //! Identity-link cache projection helpers.
 
 use super::*;
-
 /// Compute the canonical-JSON SHA-256 of the four policy-frontier fields
-
 /// that gate identity link routing. Round R2/R3.
-
 ///
-
 /// Used by `IdentityLinkCacheEntry.policy_frontier_digest` to invalidate
-
 /// cached identity-link routing decisions when any of these four governance
-
 /// inputs change. Canonicalisation per RFC 8785 JCS over the JSON object
-
 /// `{disclosure_policy, history_visibility, identity_disclosure_profile,
-
 /// minimal_metadata_mode}`.
-
 pub fn compute_policy_frontier_digest(
     disclosure_policy: &Value,
 
@@ -43,24 +34,15 @@ pub fn compute_policy_frontier_digest(
 
     Ok(digest.into())
 }
-
 /// Cached projection of an identity-link routing decision.
-
 ///
-
 /// Round R2/R3 — adds `policy_frontier_digest` so consumers can detect
-
 /// when the four governance inputs (`disclosure_policy`,
-
 /// `history_visibility`, `identity_disclosure_profile`,
-
 /// `minimal_metadata_mode`) have shifted at the policy frontier and the
-
 /// cached link must be re-derived.
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-
 pub struct IdentityLinkCacheEntry {
     pub pairwise_did: Did,
 
@@ -71,16 +53,12 @@ pub struct IdentityLinkCacheEntry {
     pub space_id: SpaceId,
 
     pub mls_epoch: u64,
-
     /// SHA-256 of canonical JSON over the four policy-frontier inputs.
-
     /// See [`compute_policy_frontier_digest`].
-
     #[serde(with = "serde_bytes_32_hex")]
     pub policy_frontier_digest: [u8; 32],
 
     pub effective_at: DateTime<Utc>,
-
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<DateTime<Utc>>,
 }

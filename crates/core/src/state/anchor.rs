@@ -428,7 +428,7 @@ mod tests {
         expected.insert(cell_member(), CellState::Value(json!("join")));
         let expected_root = compute_state_root(&expected).unwrap();
 
-        let a = build_anchor(vec![genesis.id.clone()], vec![m.id.clone()], expected_root.clone());
+        let a = build_anchor(vec![genesis.id], vec![m.id.clone()], expected_root.clone());
         let effect = apply_anchor(&a, &moves, &anchors, &cells, &registry, ok_jws).unwrap();
 
         assert_eq!(effect.accepted_move_ids, vec![m.id]);

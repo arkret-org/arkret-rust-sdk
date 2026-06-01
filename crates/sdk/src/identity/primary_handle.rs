@@ -323,7 +323,7 @@ mod tests {
         );
         let newer =
             verified_claim("alice:other.example", "did:web:other.example", later, expires, None);
-        let snapshot = vec![newer, matching.clone()];
+        let snapshot = vec![newer, matching];
         let input = PrimaryHandleSelectInput {
             subject_id: &s,
             context: Some("cx:realm:r1"),

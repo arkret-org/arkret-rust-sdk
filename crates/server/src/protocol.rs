@@ -80,7 +80,7 @@ pub enum ServerResBody {
     DirectoryResolveOrganization(DirectoryResolveOrganizationResBody),
     DirectorySearchActors(DirectorySearchActorsResBody),
     DirectorySearchUsers(DirectorySearchUsersResBody),
-    DirectoryResolveHandle(DirectoryResolveHandleResBody),
+    DirectoryResolveHandle(Box<DirectoryResolveHandleResBody>),
     BlobUpload(BlobUploadResBody),
     BlobHead(BlobMetadata),
     BlobBytes(Vec<u8>),

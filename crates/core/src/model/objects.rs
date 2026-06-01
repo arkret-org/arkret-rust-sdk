@@ -554,7 +554,7 @@ impl Flow {
         self.metadata
             .as_ref()
             .and_then(|metadata| metadata.title.as_deref())
-            .or_else(|| if self.title.is_empty() { None } else { Some(self.title.as_str()) })
+            .or(if self.title.is_empty() { None } else { Some(self.title.as_str()) })
     }
 
     pub fn metadata_fields(&self) -> &BTreeMap<String, Value> {

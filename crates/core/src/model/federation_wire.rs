@@ -3,21 +3,13 @@
 use super::*;
 
 // ── HTTP message-signature transcript extension ────────────────────────
-
 /// Round 4 — build the canonical signing-transcript fragment for the
-
 /// three federation trust-domain headers. Callers append this fragment
-
 /// to the existing RFC 9421 signature base produced by
-
 /// `crates/sdk/src/federation::rfc9421_http_message_signature_base`.
-
 ///
-
 /// Wire shape: three lines, each with the header name in lower-case
-
 /// quoted form per RFC 9421 §2.2.
-
 pub fn federation_trust_domain_transcript_fragment(
     source_trust_domain: &TypedTrustDomainId,
 

@@ -3,17 +3,12 @@
 use super::*;
 
 // ── AccessKind (cx.audit.policy_access) ────────────────────────────────
-
 /// Round 4 (commit 7fae9ba) — `cx.audit.policy_access.access_kind`
-
 /// enum. Round 4 adds `E2EELateRecovery`; deployments emitting it
-
 /// MUST also populate `late_recovery_original_event_id`.
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
-
 pub enum AccessKind {
     Plaintext,
 
@@ -22,29 +17,21 @@ pub enum AccessKind {
     Erasure,
 
     Backup,
-
     /// Round 4 — late-key-recovery path. Carried alongside
-
     /// `late_recovery_original_event_id` on the payload.
     E2EELateRecovery,
 }
-
 /// Round 4 — typed `cx.audit.policy_access` payload.
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-
 pub struct AuditPolicyAccessPayload {
     pub realm_id: RealmId,
 
     pub actor: Did,
 
     pub access_kind: AccessKind,
-
     /// REQUIRED when `access_kind == E2EELateRecovery`. References the
-
     /// original event the late recovery targets.
-
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub late_recovery_original_event_id: Option<EventId>,
 
@@ -72,37 +59,24 @@ impl AuditPolicyAccessPayload {
 }
 
 // ── ConsentRevokePayload (observed_dots required) ──────────────────────
-
 /// Round 4 (commit 7fae9ba) — Dot identifier for `observed_dots`.
-
 ///
-
 /// Wire shape: `(actor_id, actor_seq)` per zh/identity/consent-model.md
-
 /// §3.3.1. Receivers MUST NOT silently cascade revoke to dots not
-
 /// explicitly observed.
-
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-
 pub struct Dot {
     pub actor_id: Did,
 
     pub actor_seq: u64,
 }
-
 /// Round 4 — typed `cx.consent.revoke` payload with REQUIRED
-
 /// `observed_dots`. Reducers MUST reject envelopes that omit this
-
 /// field with `schema_violation` (it would otherwise enable implicit
-
 /// cascade revoke).
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-
 pub struct ConsentRevokePayload {
     pub consent_id: String,
 
@@ -111,10 +85,8 @@ pub struct ConsentRevokePayload {
     pub scope: String,
 
     pub observed_dots: Vec<Dot>,
-
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub revoked_at: Option<DateTime<Utc>>,
-
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
 }

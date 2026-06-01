@@ -1,13 +1,10 @@
 //! Structured attestation evidence for audited E2EE and audit agents.
 
 use super::*;
-
 /// Attestation chain item format identifier.
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
-
 pub enum AttestationChainFormat {
     X509Der,
 
@@ -21,25 +18,19 @@ pub enum AttestationChainFormat {
 
     Tpm2Quote,
 }
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-
 pub struct AttestationChainItem {
     pub format: AttestationChainFormat,
 
     pub bytes_b64u: String,
-
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub issued_at: Option<DateTime<Utc>>,
 }
-
 /// Platform family identifier for attestation evidence.
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
-
 pub enum AttestationPlatformFamily {
     TeeSgx,
 
@@ -52,70 +43,52 @@ pub enum AttestationPlatformFamily {
     HsmPkcs11,
 
     NitroEnclave,
-
     /// Conformance-fixture-only — MUST be rejected by deployments declaring
-
     /// `attested_hardware` assurance.
     SoftwareTestOnly,
 }
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-
 pub struct AttestationPlatform {
     pub family: AttestationPlatformFamily,
 
     pub vendor: String,
 
     pub model: String,
-
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub firmware_version: Option<String>,
 }
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-
 pub struct AttestationMeasurement {
     pub code_digest: Hash,
 
     pub policy_version: String,
-
     /// Optional REPORTDATA-equivalent that binds the attestation to the
-
     /// Audit Agent's MLS leaf public key.
-
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub report_data: Option<String>,
 }
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-
 pub struct AttestationKey {
     pub alg: String,
 
     pub public_key_b64u: String,
-
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kid: Option<String>,
 }
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-
 pub struct AttestationValidity {
     pub not_before: DateTime<Utc>,
 
     pub not_after: DateTime<Utc>,
 }
-
 /// Revocation check method for the attestation chain.
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
-
 pub enum AttestationRevocationMethod {
     SgxPccsCrl,
 
@@ -127,30 +100,22 @@ pub enum AttestationRevocationMethod {
 
     NoneSupported,
 }
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-
 pub struct AttestationRevocation {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub method: Option<AttestationRevocationMethod>,
-
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub endpoint: Option<String>,
-
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_checked_at: Option<DateTime<Utc>>,
-
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_check_before: Option<DateTime<Utc>>,
 }
-
 /// Audit purpose declared by this attestation evidence.
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
-
 pub enum AuditPurpose {
     ComplianceLawfulAccess,
 
@@ -160,20 +125,13 @@ pub enum AuditPurpose {
 
     InternalPolicyAudit,
 }
-
 /// `cx.schema.attestation_evidence.v1` structured evidence carrier.
-
 ///
-
 /// Used at Audit Agent join time and by the reducer when validating
-
 /// `cx.audit.epoch_key_destruction`. See zh/crypto-media/audited-e2ee.md §2
-
 /// (attested_hardware binding) and §3.1.1.2 (epoch key destruction).
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-
 pub struct AttestationEvidence {
     pub evidence_id: String,
 
@@ -192,7 +150,6 @@ pub struct AttestationEvidence {
     pub verification_method: String,
 
     pub validity: AttestationValidity,
-
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub revocation: Option<AttestationRevocation>,
 
