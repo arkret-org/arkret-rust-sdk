@@ -163,6 +163,11 @@ fn artifact_payload_catalog_maps_object_patch_event_family_to_object_patch_paylo
         "cx.profile.space_override",
     ];
     for event_kind in object_patch_kinds {
+        let patch = if matches!(event_kind, "cx.flow.update" | "cx.morph.update") {
+            json!({ "metadata.title": { "$op": "set", "value": "Roadmap" } })
+        } else {
+            json!({ "title": { "$op": "set", "value": "Roadmap" } })
+        };
         assert_eq!(
             catalog.rules[event_kind].payload_schema_id,
             format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/object_patch_payload"),
@@ -173,9 +178,7 @@ fn artifact_payload_catalog_maps_object_patch_event_family_to_object_patch_paylo
                 event_kind,
                 &json!({
                     "target_ref": "cx:realm:0196419b-0000-7000-8000-000000000001",
-                    "patch": {
-                        "title": { "$op": "set", "value": "Roadmap" }
-                    }
+                "patch": patch
                 }),
             )
             .unwrap_or_else(|err| panic!("{event_kind} should accept object_patch_payload: {err}"));

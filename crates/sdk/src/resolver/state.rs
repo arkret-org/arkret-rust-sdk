@@ -273,15 +273,19 @@ impl SpaceState {
 
     fn create_morph(&mut self, event: &Event) -> Result<()> {
         let object = event.content.get("object").unwrap_or(&event.content);
+        reject_legacy_morph_metadata_fields(object)?;
         let morph_id_str = self.extract_morph_id(object)?;
         MorphId::new(morph_id_str.clone())?;
         let morph_type = self.extract_field::<String>(object, "morph_type")?;
         let facets = self
             .extract_optional_field::<BTreeMap<String, Value>>(object, "facets")
             .unwrap_or_default();
-        let title = self.extract_optional_field(object, "title");
-        let summary = self.extract_optional_field(object, "summary");
+        let metadata = self.extract_optional_field::<crate::MorphMetadata>(object, "metadata");
+        let encrypted_metadata = self.extract_optional_field(object, "encrypted_metadata");
+        let title = metadata.as_ref().and_then(|metadata| metadata.title.clone());
+        let summary = metadata.as_ref().and_then(|metadata| metadata.summary.clone());
         let content = self.extract_optional_field(object, "content");
+        let encrypted_content = self.extract_optional_field(object, "encrypted_content");
         let fields = self.extract_fields(object)?;
         let state = self
             .extract_optional_field::<String>(object, "state")
@@ -298,9 +302,13 @@ impl SpaceState {
             schema_refs: self.extract_optional_field(object, "schema_refs").unwrap_or_default(),
             morph_type,
             facets,
+            metadata,
+            encrypted_metadata,
             title,
             summary,
             content,
+            encrypted_content,
+            encrypted_payload: None,
             fields,
             state: Some(state),
             scope_circle_id,
@@ -309,7 +317,6 @@ impl SpaceState {
             updated_by: None,
             updated_at: None,
             labels: Vec::new(),
-            metadata: BTreeMap::new(),
             extra: BTreeMap::new(),
         };
         morph.validate_morph_type(&[])?;
@@ -325,16 +332,27 @@ impl SpaceState {
         {
             return Err(Error::Protocol("morph_not_active".to_owned()));
         }
+        reject_legacy_morph_metadata_fields(&event.content)?;
         let patch = self.extract_optional_field::<BTreeMap<String, Value>>(&event.content, "patch");
-        let title = self
-            .extract_optional_field::<String>(&event.content, "title")
-            .or_else(|| patch_string(&patch, "title"));
-        let summary = self
-            .extract_optional_field::<String>(&event.content, "summary")
-            .or_else(|| patch_string(&patch, "summary"));
+        reject_legacy_morph_patch_fields(&patch)?;
+        let metadata =
+            self.extract_optional_field::<crate::MorphMetadata>(&event.content, "metadata");
+        let encrypted_metadata =
+            self.extract_optional_field::<Value>(&event.content, "encrypted_metadata");
+        let title = metadata
+            .as_ref()
+            .and_then(|metadata| metadata.title.clone())
+            .or_else(|| patch_metadata_string(&patch, "title"));
+        let summary = metadata
+            .as_ref()
+            .and_then(|metadata| metadata.summary.clone())
+            .or_else(|| patch_metadata_string(&patch, "summary"));
         let content = self
             .extract_optional_field::<Value>(&event.content, "content")
             .or_else(|| patch.as_ref().and_then(|patch| patch.get("content").cloned()));
+        let encrypted_content = self
+            .extract_optional_field::<Value>(&event.content, "encrypted_content")
+            .or_else(|| patch.as_ref().and_then(|patch| patch.get("encrypted_content").cloned()));
         let fields = self
             .extract_optional_field::<BTreeMap<String, Value>>(&event.content, "fields")
             .or_else(|| patch_fields(&patch));
@@ -355,14 +373,34 @@ impl SpaceState {
             .morphs
             .get_mut(&morph_id_str)
             .ok_or_else(|| Error::Protocol(format!("morph not found: {}", morph_id_str)))?;
+        if let Some(metadata) = metadata {
+            morph.title = metadata.title.clone();
+            morph.summary = metadata.summary.clone();
+            morph.metadata = Some(metadata);
+        }
         if let Some(title) = title {
             morph.title = Some(title);
+            morph.metadata.get_or_insert_with(crate::MorphMetadata::default).title =
+                morph.title.clone();
         }
         if let Some(summary) = summary {
             morph.summary = Some(summary);
+            morph.metadata.get_or_insert_with(crate::MorphMetadata::default).summary =
+                morph.summary.clone();
+        }
+        if let Some(encrypted_metadata) = encrypted_metadata {
+            morph.encrypted_metadata = Some(encrypted_metadata);
+            morph.metadata = None;
         }
         if let Some(content) = content {
             morph.content = Some(content);
+            morph.encrypted_content = None;
+            morph.encrypted_payload = None;
+        }
+        if let Some(encrypted_content) = encrypted_content {
+            morph.encrypted_content = Some(encrypted_content);
+            morph.encrypted_payload = None;
+            morph.content = None;
         }
         if let Some(fields) = fields {
             morph.fields = fields;
@@ -1595,6 +1633,54 @@ fn reject_legacy_flow_patch_fields(patch: &Option<BTreeMap<String, Value>>) -> R
                 "flow patch path '{field}' is retired; use metadata.*, content, or encrypted_content"
             )));
         }
+    }
+    Ok(())
+}
+
+fn reject_legacy_morph_metadata_fields(value: &Value) -> Result<()> {
+    let Some(object) = value.as_object() else {
+        return Ok(());
+    };
+    for field in ["title", "summary", "encrypted_payload"] {
+        if object.contains_key(field) {
+            return Err(Error::Protocol(format!(
+                "morph payload field '{field}' is retired; use metadata.*, encrypted_metadata, or encrypted_content"
+            )));
+        }
+    }
+    if object.contains_key("content") && object.contains_key("encrypted_content") {
+        return Err(Error::Protocol(
+            "morph payload must not carry both content and encrypted_content".to_owned(),
+        ));
+    }
+    if object.contains_key("metadata") && object.contains_key("encrypted_metadata") {
+        return Err(Error::Protocol(
+            "morph payload must not carry both metadata and encrypted_metadata".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+fn reject_legacy_morph_patch_fields(patch: &Option<BTreeMap<String, Value>>) -> Result<()> {
+    let Some(patch) = patch else {
+        return Ok(());
+    };
+    for field in ["title", "summary", "encrypted_payload"] {
+        if patch.contains_key(field) {
+            return Err(Error::Protocol(format!(
+                "morph patch path '{field}' is retired; use metadata.*, encrypted_metadata, or encrypted_content"
+            )));
+        }
+    }
+    if patch.contains_key("content") && patch.contains_key("encrypted_content") {
+        return Err(Error::Protocol(
+            "morph patch must not carry both content and encrypted_content".to_owned(),
+        ));
+    }
+    if patch.contains_key("metadata") && patch.contains_key("encrypted_metadata") {
+        return Err(Error::Protocol(
+            "morph patch must not carry both metadata and encrypted_metadata".to_owned(),
+        ));
     }
     Ok(())
 }

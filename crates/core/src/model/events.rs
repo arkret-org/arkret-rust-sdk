@@ -339,6 +339,12 @@ impl Event {
         )?;
         if let Some(context) = payload_context_for_event_kind(&self.kind) {
             validate_forbidden_object_keys("Event.payload", &self.content, context)?;
+            if let Some(object) = self.content.get("object") {
+                validate_forbidden_object_keys("Event.payload.object", object, context)?;
+            }
+            if let Some(patch) = self.content.get("patch") {
+                validate_forbidden_object_keys("Event.payload.patch", patch, context)?;
+            }
         }
         validate_forbidden_id_prefixes("Event.payload", &self.content)?;
         validate_forbidden_id_prefixes(

@@ -179,7 +179,10 @@ impl Space {
             match event.kind.as_str() {
                 OP_MORPH_CREATE => {
                     version = Some(0);
-                    title = object.get("title").and_then(Value::as_str).map(str::to_owned);
+                    title = object
+                        .pointer("/metadata/title")
+                        .and_then(Value::as_str)
+                        .map(str::to_owned);
                     content = object.get("content").cloned();
                     fields = object
                         .get("fields")
@@ -196,8 +199,13 @@ impl Space {
                     let patch = event.content.get("patch").and_then(Value::as_object);
                     if let Some(next_title) = event
                         .content
-                        .get("title")
-                        .or_else(|| patch.and_then(|patch| patch.get("title")))
+                        .pointer("/metadata/title")
+                        .or_else(|| patch.and_then(|patch| patch.get("metadata.title")))
+                        .or_else(|| {
+                            patch.and_then(|patch| {
+                                patch.get("metadata").and_then(|metadata| metadata.get("title"))
+                            })
+                        })
                         .and_then(Value::as_str)
                     {
                         title = Some(next_title.to_owned());

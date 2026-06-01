@@ -70,6 +70,16 @@ fn validate_fallback_payload_shape(event_kind: &str, payload: &Value) -> Result<
         return Ok(());
     };
     match event_kind {
+        "cx.flow.create" => validate_create_object_fallback_payload(
+            event_kind,
+            object,
+            crate::WireContext::FlowPayload,
+        ),
+        "cx.morph.create" => validate_create_object_fallback_payload(
+            event_kind,
+            object,
+            crate::WireContext::MorphPayload,
+        ),
         "cx.realm.update" | "cx.flow.update" | "cx.morph.update" | "cx.space.update" => {
             validate_known_fields(
                 event_kind,
@@ -135,6 +145,34 @@ fn validate_required_object_fields(
                 "event kind '{event_kind}' payload requires field '{field}'"
             )));
         }
+    }
+    Ok(())
+}
+
+fn validate_create_object_fallback_payload(
+    event_kind: &str,
+    wrapper: &serde_json::Map<String, Value>,
+    context: crate::WireContext,
+) -> Result<()> {
+    let object = wrapper.get("object").and_then(Value::as_object).ok_or_else(|| {
+        Error::Protocol(format!("event kind '{event_kind}' payload object must be an object"))
+    })?;
+    for key in object.keys() {
+        if crate::is_forbidden_in_context(key, context) {
+            return Err(Error::Protocol(format!(
+                "event kind '{event_kind}' payload object contains forbidden wire field '{key}'"
+            )));
+        }
+    }
+    if object.contains_key("content") && object.contains_key("encrypted_content") {
+        return Err(Error::Protocol(format!(
+            "event kind '{event_kind}' payload object must not carry both content and encrypted_content"
+        )));
+    }
+    if object.contains_key("metadata") && object.contains_key("encrypted_metadata") {
+        return Err(Error::Protocol(format!(
+            "event kind '{event_kind}' payload object must not carry both metadata and encrypted_metadata"
+        )));
     }
     Ok(())
 }
@@ -345,6 +383,7 @@ pub fn event_payload_validator_catalog_from_spec_artifacts(
 fn fallback_event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
     let rules = [
         ("cx.flow.create", EVENT_PAYLOAD_SCHEMA, &["object"][..]),
+        ("cx.morph.create", EVENT_PAYLOAD_SCHEMA, &["object"][..]),
         ("cx.realm.update", EVENT_PAYLOAD_SCHEMA, &["target_ref", "patch"][..]),
         ("cx.flow.update", EVENT_PAYLOAD_SCHEMA, &["target_ref", "patch"][..]),
         ("cx.morph.update", EVENT_PAYLOAD_SCHEMA, &["target_ref", "patch"][..]),
@@ -603,6 +642,7 @@ pub fn generated_validators() -> Result<BTreeMap<String, GeneratedSchemaValidato
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::MORPH_SCHEMA;
     use serde_json::json;
 
     #[test]
@@ -629,6 +669,51 @@ mod tests {
             .unwrap();
 
         assert!(catalog.validate_payload("cx.flow.create", &json!({ "title": "legacy" })).is_err());
+    }
+
+    #[test]
+    fn fallback_catalog_accepts_morph_create_metadata_and_rejects_legacy_fields() {
+        let catalog = fallback_event_payload_validator_catalog();
+
+        catalog
+            .validate_payload(
+                "cx.morph.create",
+                &json!({
+                    "object": {
+                        "id": "cx:morph:0196419b-0000-7000-8000-000000000001",
+                        "schema": MORPH_SCHEMA,
+                        "realm_id": "cx:realm:0196419b-0000-7000-8000-000000000010",
+                        "schema_refs": [MORPH_SCHEMA],
+                        "morph_type": "document",
+                        "metadata": { "title": "Spec" },
+                        "stage": "draft",
+                        "fields": {"document": {"type": "doc", "content": []}},
+                        "created_by": "did:web:alice.example",
+                        "created_at": "2026-05-22T00:00:00Z"
+                    }
+                }),
+            )
+            .unwrap();
+
+        assert!(
+            catalog
+                .validate_payload(
+                    "cx.morph.create",
+                    &json!({
+                        "object": {
+                            "id": "cx:morph:0196419b-0000-7000-8000-000000000001",
+                            "schema": MORPH_SCHEMA,
+                            "realm_id": "cx:realm:0196419b-0000-7000-8000-000000000010",
+                            "schema_refs": [MORPH_SCHEMA],
+                            "morph_type": "document",
+                            "title": "legacy",
+                            "created_by": "did:web:alice.example",
+                            "created_at": "2026-05-22T00:00:00Z"
+                        }
+                    }),
+                )
+                .is_err()
+        );
     }
 
     #[test]

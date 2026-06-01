@@ -247,6 +247,9 @@ const FORBIDDEN_ENTRIES: &[ForbiddenEntry] = &[
     ForbiddenEntry { field: "summary", context: WireContext::FlowPayload },
     ForbiddenEntry { field: "fields", context: WireContext::FlowPayload },
     ForbiddenEntry { field: "encrypted_payload", context: WireContext::FlowPayload },
+    ForbiddenEntry { field: "title", context: WireContext::MorphPayload },
+    ForbiddenEntry { field: "summary", context: WireContext::MorphPayload },
+    ForbiddenEntry { field: "encrypted_payload", context: WireContext::MorphPayload },
     ForbiddenEntry { field: "track", context: WireContext::MessageCreatePayload },
     ForbiddenEntry { field: "encrypted_payload", context: WireContext::MessageCreatePayload },
     ForbiddenEntry { field: "discussion_space_ref", context: WireContext::FlowPayload },
@@ -545,6 +548,15 @@ mod tests {
         ));
         // Not flagged on unrelated payload contexts.
         assert!(!is_forbidden_in_context("fields.stage", WireContext::SpacePayload));
+    }
+
+    #[test]
+    fn context_aware_morph_legacy_metadata_and_payload_names_rejected() {
+        assert!(is_forbidden_in_context("title", WireContext::MorphPayload));
+        assert!(is_forbidden_in_context("summary", WireContext::MorphPayload));
+        assert!(is_forbidden_in_context("encrypted_payload", WireContext::MorphPayload));
+        assert!(!is_forbidden_in_context("metadata", WireContext::MorphPayload));
+        assert!(!is_forbidden_in_context("encrypted_content", WireContext::MorphPayload));
     }
 
     #[test]

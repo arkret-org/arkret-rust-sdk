@@ -940,6 +940,7 @@ impl Default for ProtocolSchemaRegistry {
             ),
         );
         registry.register(FLOW_SCHEMA, flow_schema_document());
+        registry.register(MORPH_SCHEMA, morph_schema_document());
         registry.register(SPACE_SCHEMA, place_schema_document());
         registry.register(VIEW_SCHEMA, view_schema_document());
         registry.register(
@@ -1075,6 +1076,80 @@ fn flow_schema_document() -> Value {
             "updated_at": { "type": "string" },
         },
         "additionalProperties": false
+    })
+}
+
+fn morph_schema_document() -> Value {
+    json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": MORPH_SCHEMA,
+        "type": "object",
+        "required": ["schema", "id", "realm_id", "schema_refs", "morph_type", "created_by", "created_at"],
+        "not": {
+            "anyOf": [
+                { "required": ["title"] },
+                { "required": ["summary"] },
+                { "required": ["encrypted_payload"] },
+                { "required": ["content", "encrypted_content"] },
+                { "required": ["metadata", "encrypted_metadata"] }
+            ]
+        },
+        "properties": {
+            "schema": { "type": "string" },
+            "id": { "type": "string" },
+            "realm_id": { "type": "string" },
+            "scope_circle_id": { "type": "string" },
+            "schema_refs": { "type": "array", "minItems": 1, "uniqueItems": true },
+            "morph_type": { "type": "string" },
+            "facets": { "type": "object" },
+            "metadata": {
+                "type": "object",
+                "not": {
+                    "anyOf": [
+                        { "required": ["id"] },
+                        { "required": ["schema"] },
+                        { "required": ["realm_id"] },
+                        { "required": ["scope_circle_id"] },
+                        { "required": ["schema_refs"] },
+                        { "required": ["morph_type"] },
+                        { "required": ["facets"] },
+                        { "required": ["fields"] },
+                        { "required": ["stage"] },
+                        { "required": ["stage_changed_at"] },
+                        { "required": ["state"] },
+                        { "required": ["state_changed_at"] },
+                        { "required": ["created_by"] },
+                        { "required": ["created_at"] },
+                        { "required": ["updated_by"] },
+                        { "required": ["updated_at"] },
+                        { "required": ["content"] },
+                        { "required": ["encrypted_content"] },
+                        { "required": ["encrypted_payload"] }
+                    ]
+                },
+                "properties": {
+                    "title": { "type": "string", "minLength": 1, "maxLength": 512 },
+                    "summary": { "type": "string", "maxLength": 2048 }
+                },
+                "additionalProperties": true
+            },
+            "encrypted_metadata": { "type": "object" },
+            "content": { "type": "object" },
+            "encrypted_content": { "type": "object" },
+            "fields": { "type": "object" },
+            "state": { "type": "string" },
+            "state_changed_at": { "type": "string" },
+            "stage": {
+                "type": "string",
+                "enum": ["draft", "proposed", "planned", "in_progress", "blocked", "done", "cancelled", "superseded"]
+            },
+            "stage_changed_at": { "type": "string" },
+            "created_by": { "type": "string" },
+            "created_at": { "type": "string" },
+            "updated_by": { "type": "string" },
+            "updated_at": { "type": "string" }
+        },
+        "additionalProperties": true
     })
 }
 

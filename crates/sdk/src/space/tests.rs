@@ -46,7 +46,7 @@ fn morph_create_payload(morph_id: &MorphId, morph_type: &str, title: &str) -> Va
             "schema": crate::MORPH_SCHEMA,
             "space_id": "cx:space:01904100-0000-7000-8000-9b64700c6ee8",
             "morph_type": morph_type,
-            "title": title,
+            "metadata": {"title": title},
             "created_by": "did:web:alice.example.com",
             "created_at": "2026-05-02T00:00:00.000Z"
         }
@@ -80,6 +80,7 @@ fn space_creates_morph_operation() {
     assert_eq!(op.realm_id.as_str(), space_id.as_str().replacen("cx:space:", "cx:realm:", 1));
     assert_eq!(op.object_type, OP_MORPH_CREATE);
     assert_eq!(op.payload["object"]["morph_type"], "task");
+    assert_eq!(op.payload["object"]["metadata"]["title"], "Test task");
     assert!(op.payload["object"]["id"].as_str().unwrap().starts_with("cx:morph:"));
 }
 
@@ -187,7 +188,7 @@ fn space_queries_searches_and_aggregates_morphs() {
                             "schema": crate::MORPH_SCHEMA,
                             "space_id": space_id.as_str(),
                             "morph_type": "task",
-                            "title": "Alpha task",
+                            "metadata": {"title": "Alpha task"},
                             "content": {"kind": "cx.content.text", "body": "implement local search"},
                             "fields": {"status": "todo", "priority": 2},
                             "created_by": "did:web:alice.example.com",
@@ -205,7 +206,7 @@ fn space_queries_searches_and_aggregates_morphs() {
                             "schema": crate::MORPH_SCHEMA,
                             "space_id": space_id.as_str(),
                             "morph_type": "document",
-                            "title": "Spec",
+                            "metadata": {"title": "Spec"},
                             "fields": {"status": "done", "priority": 1},
                             "created_by": "did:web:alice.example.com",
                             "created_at": "2026-05-02T00:00:00.000Z"
@@ -329,7 +330,7 @@ fn space_tracks_morph_versions_compares_and_rolls_back() {
                             "schema": crate::MORPH_SCHEMA,
                             "space_id": space_id.as_str(),
                             "morph_type": "task",
-                            "title": "Initial",
+                            "metadata": {"title": "Initial"},
                             "fields": {"status": "todo"},
                             "created_by": "did:web:alice.example.com",
                             "created_at": "2026-05-02T00:00:00.000Z"
@@ -342,7 +343,7 @@ fn space_tracks_morph_versions_compares_and_rolls_back() {
                     &space_id,
                     json!({
                         "morph_id": morph_id.as_str(),
-                        "patch": {"title": "Updated", "fields": {"status": "done", "owner": "alice"}}
+                        "patch": {"metadata.title": "Updated", "fields": {"status": "done", "owner": "alice"}}
                     }),
                 ),
             ],
@@ -361,7 +362,7 @@ fn space_tracks_morph_versions_compares_and_rolls_back() {
     assert_eq!(diff.changed_fields, vec!["status".to_owned()]);
 
     let rollback = space.rollback_morph_operation(morph_id, 0).unwrap();
-    assert_eq!(rollback.payload["patch"]["title"], "Initial");
+    assert_eq!(rollback.payload["patch"]["metadata.title"], "Initial");
     assert_eq!(rollback.payload["rollback_to_version"], 0);
 }
 

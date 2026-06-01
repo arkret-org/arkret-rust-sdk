@@ -393,7 +393,7 @@ mod tests {
                     "schema": crate::MORPH_SCHEMA,
                     "space_id": "cx:space:01904100-0000-7000-8000-9b64700c6ee8",
                     "morph_type": "task",
-                    "title": title,
+                    "metadata": {"title": title},
                     "created_by": "did:web:alice.example.com",
                     "created_at": "2026-05-02T00:00:00.000Z"
                 }
@@ -438,7 +438,7 @@ mod tests {
                 "schema": crate::MORPH_SCHEMA,
                 "space_id": "cx:space:01904100-0000-7000-8000-9b64700c6ee8",
                 "morph_type": "task",
-                "title": "Changed",
+                "metadata": {"title": "Changed"},
                 "created_by": "did:web:alice.example.com",
                 "created_at": "2026-05-02T00:00:00.000Z"
             }

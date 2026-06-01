@@ -20,6 +20,14 @@ impl Space {
         let operation_id = OperationId::new(generate_id("cx:operation:"))?;
         let now = Utc::now();
 
+        let mut metadata = serde_json::Map::new();
+        if let Some(title) = title {
+            metadata.insert("title".to_owned(), json!(title));
+        }
+        if let Some(summary) = summary {
+            metadata.insert("summary".to_owned(), json!(summary));
+        }
+
         let mut object = json!({
             "id": morph_id.as_str(),
             "schema": crate::MORPH_SCHEMA,
@@ -30,11 +38,8 @@ impl Space {
             "fields": fields,
         });
 
-        if let Some(title) = title {
-            object["title"] = json!(title);
-        }
-        if let Some(summary) = summary {
-            object["summary"] = json!(summary);
+        if !metadata.is_empty() {
+            object["metadata"] = Value::Object(metadata);
         }
         if let Some(content) = content {
             object["content"] = content;
@@ -66,10 +71,10 @@ impl Space {
         let mut patch = serde_json::Map::new();
 
         if let Some(title) = title {
-            patch.insert("title".to_owned(), json!(title));
+            patch.insert("metadata.title".to_owned(), json!(title));
         }
         if let Some(summary) = summary {
-            patch.insert("summary".to_owned(), json!(summary));
+            patch.insert("metadata.summary".to_owned(), json!(summary));
         }
         if let Some(content) = content {
             patch.insert("content".to_owned(), content);

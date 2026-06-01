@@ -53,7 +53,7 @@ fn morph_event(seq: u64, morph_id: &str, title: &str) -> Event {
                 "schema": crate::MORPH_SCHEMA,
                 "space_id": space_id().as_str(),
                 "morph_type": "task",
-                "title": title,
+                "metadata": {"title": title},
                 "created_by": actor_id().as_str(),
                 "created_at": "2026-05-02T00:00:00.000Z"
             }
@@ -426,7 +426,7 @@ fn morph_update_rejected_when_archived() {
     let mut update = event(
         OP_MORPH_UPDATE,
         3,
-        json!({ "morph_id": morph_id, "patch": { "title": "Renamed Morph" } }),
+        json!({ "morph_id": morph_id, "patch": { "metadata.title": "Renamed Morph" } }),
     );
     update.prev_refs.push(archive.event_id.clone());
 

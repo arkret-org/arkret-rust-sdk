@@ -280,6 +280,25 @@ pub enum ObjectState {
     Redacted,
 }
 
+/// Business progression stage shared by Flow and Morph objects.
+///
+/// This is distinct from physical lifecycle [`ObjectState`]. The stage
+/// lattice is mutated only through the dedicated `cx.<object>.stage.set`
+/// event family; create payloads must set an initial stage.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum ObjectStage {
+    Draft,
+    Proposed,
+    Planned,
+    InProgress,
+    Blocked,
+    Done,
+    Cancelled,
+    Superseded,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
