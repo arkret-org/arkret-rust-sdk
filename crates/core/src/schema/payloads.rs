@@ -29,6 +29,8 @@ impl EventPayloadValidatorCatalog {
                     rule.payload_schema_id
                 ))
             })?;
+        } else {
+            validate_fallback_payload_shape(event_kind, payload)?;
         }
         Ok(())
     }
@@ -57,6 +59,77 @@ fn validate_required_payload_fields(
         if !object.contains_key(field) {
             return Err(Error::Protocol(format!(
                 "event kind '{event_kind}' payload requires field '{field}'"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_fallback_payload_shape(event_kind: &str, payload: &Value) -> Result<()> {
+    let Some(object) = payload.as_object() else {
+        return Ok(());
+    };
+    match event_kind {
+        "cx.realm.update" | "cx.flow.update" | "cx.morph.update" | "cx.space.update" => {
+            validate_known_fields(
+                event_kind,
+                object,
+                &["target_ref", "patch", "expected_state_digest"],
+            )
+        }
+        "cx.member.state" => validate_known_fields(
+            event_kind,
+            object,
+            &[
+                "flow_id",
+                "actor_id",
+                "membership",
+                "delivery_status",
+                "delivery_binding",
+                "via_service_dids",
+                "reason",
+                "invite_ref",
+            ],
+        ),
+        "cx.message.create" => {
+            validate_known_fields(
+                event_kind,
+                object,
+                &[
+                    "flow_id",
+                    "message_id",
+                    "track",
+                    "content",
+                    "encrypted_payload",
+                    "blob_refs",
+                    "reply_to",
+                ],
+            )?;
+            let has_content = object.contains_key("content");
+            let has_encrypted_payload = object.contains_key("encrypted_payload");
+            match (has_content, has_encrypted_payload) {
+                (true, false) | (false, true) => Ok(()),
+                (false, false) => Err(Error::Protocol(format!(
+                    "event kind '{event_kind}' payload requires exactly one of content or encrypted_payload"
+                ))),
+                (true, true) => Err(Error::Protocol(format!(
+                    "event kind '{event_kind}' payload must not carry both content and encrypted_payload"
+                ))),
+            }
+        }
+        _ => Ok(()),
+    }
+}
+
+fn validate_known_fields(
+    event_kind: &str,
+    object: &serde_json::Map<String, Value>,
+    allowed_fields: &[&str],
+) -> Result<()> {
+    for field in object.keys() {
+        if !allowed_fields.contains(&field.as_str()) {
+            return Err(Error::Protocol(format!(
+                "event kind '{event_kind}' payload field '{field}' is not allowed by fallback schema"
             )));
         }
     }
@@ -120,7 +193,10 @@ pub fn event_payload_validator_catalog_from_spec_artifacts(
 fn fallback_event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
     let rules = [
         ("cx.flow.create", EVENT_PAYLOAD_SCHEMA, &["object"][..]),
-        ("cx.flow.update", EVENT_PAYLOAD_SCHEMA, &["patch"][..]),
+        ("cx.realm.update", EVENT_PAYLOAD_SCHEMA, &["target_ref", "patch"][..]),
+        ("cx.flow.update", EVENT_PAYLOAD_SCHEMA, &["target_ref", "patch"][..]),
+        ("cx.morph.update", EVENT_PAYLOAD_SCHEMA, &["target_ref", "patch"][..]),
+        ("cx.space.update", EVENT_PAYLOAD_SCHEMA, &["target_ref", "patch"][..]),
         (
             "cx.flow.move",
             EVENT_PAYLOAD_SCHEMA,
@@ -151,7 +227,7 @@ fn fallback_event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
         )
     })
     .collect();
-    EventPayloadValidatorCatalog { rules, registry: Some(ProtocolSchemaRegistry::default()) }
+    EventPayloadValidatorCatalog { rules, registry: None }
 }
 
 pub(super) fn payload_schema_ref_for_event_entry(
@@ -205,6 +281,7 @@ fn payload_def_candidates(event_kind: &str) -> Vec<String> {
         }
         ["space", "freeze"] => candidates.push("space_freeze_payload".to_owned()),
         ["space", "destroy"] => candidates.push("space_destroy_payload".to_owned()),
+        ["space", "update"] => candidates.push("object_patch_payload".to_owned()),
         ["realm", "update"] => candidates.push("object_patch_payload".to_owned()),
         ["flow", "create"] => candidates.push("flow_create_payload".to_owned()),
         ["flow", "move"] => candidates.push("flow_move_payload".to_owned()),
@@ -420,6 +497,41 @@ mod tests {
     }
 
     #[test]
+    fn fallback_catalog_closes_object_patch_wire_shape() {
+        let catalog = fallback_event_payload_validator_catalog();
+
+        for event_kind in
+            ["cx.realm.update", "cx.flow.update", "cx.morph.update", "cx.space.update"]
+        {
+            catalog
+                .validate_payload(
+                    event_kind,
+                    &json!({
+                        "target_ref": "cx:flow:01904100-0000-7000-8000-000000000001",
+                        "patch": {
+                            "title": { "$op": "set", "value": "Roadmap" }
+                        }
+                    }),
+                )
+                .unwrap_or_else(|err| panic!("{event_kind} must accept object_patch: {err}"));
+
+            let err = catalog
+                .validate_payload(
+                    event_kind,
+                    &json!({
+                        "target_ref": "cx:flow:01904100-0000-7000-8000-000000000001",
+                        "flow_id": "cx:flow:01904100-0000-7000-8000-000000000001",
+                        "patch": {
+                            "title": { "$op": "set", "value": "Roadmap" }
+                        }
+                    }),
+                )
+                .expect_err("legacy object id sidecar must fail when artifacts are unavailable");
+            assert!(err.to_string().contains("flow_id"));
+        }
+    }
+
+    #[test]
     fn fallback_catalog_accepts_message_create_payload_not_event_envelope() {
         let catalog = fallback_event_payload_validator_catalog();
 
@@ -433,8 +545,7 @@ mod tests {
                     "content": {
                         "kind": "cx.content.text",
                         "body": "hello"
-                    },
-                    "encrypted": false
+                    }
                 }),
             )
             .unwrap();
@@ -483,5 +594,90 @@ mod tests {
                 )
                 .is_err()
         );
+    }
+
+    #[test]
+    fn fallback_catalog_rejects_legacy_member_state_invite_id() {
+        let catalog = fallback_event_payload_validator_catalog();
+
+        catalog
+            .validate_payload(
+                "cx.member.state",
+                &json!({
+                    "actor_id": "did:web:bob.example",
+                    "membership": "join",
+                    "reason": "invite_accept",
+                    "invite_ref": "cx:invite:01904100-0000-7000-8000-000000000001",
+                    "delivery_status": "unroutable"
+                }),
+            )
+            .unwrap();
+
+        let err = catalog
+            .validate_payload(
+                "cx.member.state",
+                &json!({
+                    "actor_id": "did:web:bob.example",
+                    "membership": "join",
+                    "reason": "invite_accept",
+                    "invite_id": "cx:invite:01904100-0000-7000-8000-000000000001",
+                    "delivery_status": "unroutable"
+                }),
+            )
+            .expect_err("legacy invite_id must fail when artifacts are unavailable");
+        assert!(err.to_string().contains("invite_id"));
+    }
+
+    #[test]
+    fn fallback_catalog_closes_message_create_wire_shape() {
+        let catalog = fallback_event_payload_validator_catalog();
+
+        catalog
+            .validate_payload(
+                "cx.message.create",
+                &json!({
+                    "flow_id": "cx:flow:01904100-0000-7000-8000-000000000001",
+                    "track": "discussion",
+                    "content": {
+                        "kind": "cx.content.text",
+                        "body": "hello"
+                    }
+                }),
+            )
+            .unwrap();
+
+        let extra_field = catalog
+            .validate_payload(
+                "cx.message.create",
+                &json!({
+                    "flow_id": "cx:flow:01904100-0000-7000-8000-000000000001",
+                    "track": "discussion",
+                    "body": "legacy body",
+                    "content": {
+                        "kind": "cx.content.text",
+                        "body": "hello"
+                    }
+                }),
+            )
+            .expect_err("legacy body must fail when artifacts are unavailable");
+        assert!(extra_field.to_string().contains("body"));
+
+        let both_content_forms = catalog
+            .validate_payload(
+                "cx.message.create",
+                &json!({
+                    "flow_id": "cx:flow:01904100-0000-7000-8000-000000000001",
+                    "track": "discussion",
+                    "content": {
+                        "kind": "cx.content.text",
+                        "body": "[encrypted]"
+                    },
+                    "encrypted_payload": {
+                        "ciphertext": "opaque"
+                    }
+                }),
+            )
+            .expect_err("content and encrypted_payload are mutually exclusive");
+        assert!(both_content_forms.to_string().contains("both content and encrypted_payload"));
     }
 }

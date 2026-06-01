@@ -158,6 +158,7 @@ fn artifact_payload_catalog_maps_object_patch_event_family_to_object_patch_paylo
         "cx.realm.update",
         "cx.flow.update",
         "cx.morph.update",
+        "cx.space.update",
         "cx.profile.update",
         "cx.profile.space_override",
     ];
