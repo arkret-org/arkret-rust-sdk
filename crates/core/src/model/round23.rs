@@ -130,6 +130,7 @@ pub enum AppealEvidenceVisibility {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppealSubmitPayload {
     pub appeal_id: TypedAppealId,
+    pub realm_id: RealmId,
     pub decision_ref: EventId,
     pub target_ref: String,
     pub appellant: Did,

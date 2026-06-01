@@ -396,13 +396,16 @@ fn schema_registry_enforces_json_schema_composition_and_value_rules() {
                 }
             },
             "allOf": [{"properties": {"kind": {"type": "string"}}}],
+            "patternProperties": {
+                "^x_[a-z][a-z0-9_]{0,63}$": {"type": "string"}
+            },
             "additionalProperties": false
         }),
     );
     registry
         .validate_value(
             "cx.schema.deep_test.v1",
-            &json!({"kind": "demo", "items": ["alpha"], "target": "user"}),
+            &json!({"kind": "demo", "items": ["alpha"], "target": "user", "x_role": "member"}),
         )
         .unwrap();
     assert!(
@@ -434,6 +437,14 @@ fn schema_registry_enforces_json_schema_composition_and_value_rules() {
             .validate_value(
                 "cx.schema.deep_test.v1",
                 &json!({"kind": "demo", "items": ["alpha"], "target": "user", "extra": true}),
+            )
+            .is_err()
+    );
+    assert!(
+        registry
+            .validate_value(
+                "cx.schema.deep_test.v1",
+                &json!({"kind": "demo", "items": ["alpha"], "target": "user", "x_role": false}),
             )
             .is_err()
     );

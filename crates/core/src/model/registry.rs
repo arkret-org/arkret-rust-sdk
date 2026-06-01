@@ -694,6 +694,31 @@ impl ProtocolSchemaRegistry {
                     )?;
                 }
             }
+            let mut pattern_matches = BTreeSet::new();
+            if let Some(pattern_properties) =
+                schema_object.get("patternProperties").and_then(Value::as_object)
+            {
+                for (pattern, pattern_schema) in pattern_properties {
+                    let regex = Regex::new(pattern).map_err(|error| {
+                        Error::Protocol(format!(
+                            "schema '{root_id}' has invalid patternProperties regex at {path}: {error}"
+                        ))
+                    })?;
+                    for (field, field_value) in object {
+                        if regex.is_match(field) {
+                            pattern_matches.insert(field.clone());
+                            self.validate_schema(
+                                root_id,
+                                root,
+                                pattern_schema,
+                                field_value,
+                                &format!("{path}.{field}"),
+                                depth + 1,
+                            )?;
+                        }
+                    }
+                }
+            }
             if let Some(additional) = schema_object.get("additionalProperties") {
                 let known = schema_object
                     .get("properties")
@@ -701,7 +726,7 @@ impl ProtocolSchemaRegistry {
                     .map(|properties| properties.keys().collect::<BTreeSet<_>>())
                     .unwrap_or_default();
                 for (field, field_value) in object {
-                    if known.contains(field) {
+                    if known.contains(field) || pattern_matches.contains(field) {
                         continue;
                     }
                     match additional {
