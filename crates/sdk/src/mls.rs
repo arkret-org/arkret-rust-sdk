@@ -161,6 +161,148 @@ pub struct EncryptedMessage {
     pub payload: EncryptedPayload,
 }
 
+/// AAD event-id visibility discriminator for `cx.schema.encrypted_envelope.v1`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AadVisibility {
+    Hidden,
+    RoutingDigest,
+    OpaqueId,
+}
+
+/// Structured AAD for `cx.schema.encrypted_envelope.v1`. `realm_id` +
+/// `event_kind` are mandatory; the event-id fields are governed by
+/// [`AadVisibility`] and the schema discriminator (a `hidden` envelope MUST
+/// omit both `event_id` and `event_ref_digest`).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EncryptedEnvelopeAadV1 {
+    pub realm_id: String,
+    pub event_kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event_ref_digest: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub causal_refs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub causal_ref_digests: Vec<String>,
+}
+
+impl EncryptedEnvelopeAadV1 {
+    /// Minimal `hidden`-visibility AAD: realm + canonical event kind only.
+    pub fn hidden(realm_id: impl Into<String>, event_kind: impl Into<String>) -> Self {
+        Self {
+            realm_id: realm_id.into(),
+            event_kind: event_kind.into(),
+            event_id: None,
+            event_ref_digest: None,
+            causal_refs: Vec::new(),
+            causal_ref_digests: Vec::new(),
+        }
+    }
+}
+
+/// `key_ref` for `cx.schema.encrypted_envelope.v1`. `algorithm` is the fixed
+/// const `"MLS"`; `group_state_ref` MUST point at an accepted
+/// `cx.mls.genesis` / winning `cx.mls.commit` event id (or equivalent group
+/// state proof hash).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EnvelopeKeyRefV1 {
+    pub algorithm: String,
+    pub group_state_ref: String,
+}
+
+/// Wire-canonical encrypted payload envelope matching
+/// `cx.schema.encrypted_envelope.v1` — the single source of truth for the
+/// encrypted-message wire shape across produce / validate / consume. Build it
+/// from an [`EncryptedPayload`] (the MLS encrypt primitive output) plus the
+/// caller-supplied AAD context and the `cx.mls.commit` event id that bounds
+/// the group state.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EncryptedEnvelopeV1 {
+    pub scheme: EncryptedPayloadScheme,
+    pub version: String,
+    pub group_id: String,
+    pub epoch: u64,
+    pub content_type: String,
+    pub ciphertext: String,
+    pub aad_visibility_event_id: AadVisibility,
+    pub aad: EncryptedEnvelopeAadV1,
+    pub key_ref: EnvelopeKeyRefV1,
+    pub aad_digest: String,
+    pub payload_digest: String,
+}
+
+impl EncryptedEnvelopeV1 {
+    /// Envelope format version (`^\d+\.\d+$`).
+    pub const VERSION: &'static str = "1.0";
+    /// Fixed `key_ref.algorithm` const required by the schema.
+    pub const KEY_REF_ALGORITHM: &'static str = "MLS";
+
+    /// Assemble a conforming envelope from an MLS [`EncryptedPayload`].
+    ///
+    /// The `payload` MUST have been produced by
+    /// [`ContrixMlsGroup::encrypt_payload_with_aad`] with AAD equal to
+    /// `serde_json::to_value(&aad)` — the AAD is bound into `payload_digest`,
+    /// so a mismatch would make the receiver's digest verification fail. We
+    /// fail closed if they disagree. `group_state_ref` is the `cx.mls.commit`
+    /// (or genesis) event id carrying the epoch this payload was encrypted
+    /// under.
+    pub fn from_payload(
+        payload: &EncryptedPayload,
+        aad: EncryptedEnvelopeAadV1,
+        visibility: AadVisibility,
+        group_state_ref: impl Into<String>,
+    ) -> Result<Self> {
+        let aad_value = serde_json::to_value(&aad)
+            .map_err(|err| Error::Protocol(format!("encode envelope aad: {err}")))?;
+        if payload.aad.as_ref() != Some(&aad_value) {
+            return Err(Error::Protocol(
+                "encrypted envelope aad does not match the aad bound at encryption time"
+                    .to_owned(),
+            ));
+        }
+        let aad_digest = crate::crypto::json_aad_digest(&aad_value)?;
+        Ok(Self {
+            scheme: payload.scheme.clone(),
+            version: Self::VERSION.to_owned(),
+            group_id: payload.group_id.clone(),
+            epoch: payload.epoch,
+            content_type: payload.content_type.clone(),
+            ciphertext: payload.ciphertext.clone(),
+            aad_visibility_event_id: visibility,
+            aad,
+            key_ref: EnvelopeKeyRefV1 {
+                algorithm: Self::KEY_REF_ALGORITHM.to_owned(),
+                group_state_ref: group_state_ref.into(),
+            },
+            aad_digest,
+            payload_digest: payload.payload_digest.as_str().to_owned(),
+        })
+    }
+
+    /// Reconstruct the MLS [`EncryptedPayload`] needed to decrypt this
+    /// envelope. The reconstructed AAD round-trips byte-identically with the
+    /// AAD bound at encryption time, so `payload_digest` verification holds.
+    pub fn to_payload(&self) -> Result<EncryptedPayload> {
+        let aad_value = serde_json::to_value(&self.aad)
+            .map_err(|err| Error::Protocol(format!("encode envelope aad: {err}")))?;
+        Ok(EncryptedPayload {
+            scheme: self.scheme.clone(),
+            group_id: self.group_id.clone(),
+            epoch: self.epoch,
+            content_type: self.content_type.clone(),
+            ciphertext: self.ciphertext.clone(),
+            aad: Some(aad_value),
+            payload_digest: Hash::new(self.payload_digest.clone())?,
+            key_ref: Some(contrix_core::KeyRefObject::mls_rfc9420(
+                self.group_id.clone(),
+                self.epoch,
+            )),
+        })
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MessageCryptoDecrypt {
     Plaintext { message_id: String, content_type: String, plaintext: Vec<u8> },
@@ -1616,6 +1758,86 @@ mod tests {
         let absent = Did::new("did:web:nobody.example").unwrap();
         let err = alice_group.remove_member_by_principal(&absent);
         assert!(matches!(err, Err(Error::Protocol(_))));
+    }
+
+    #[test]
+    fn encrypted_envelope_v1_conforms_and_round_trips_losslessly() {
+        let alice = ContrixMlsIdentity::new_basic(
+            Did::new("did:web:alice.example").unwrap(),
+            DeviceId::new("cx:device:01904100-0000-7000-8000-00000000abcd").unwrap(),
+        )
+        .unwrap();
+        let mut group =
+            alice.create_group(b"cx:space:01904100-0000-7000-8000-0abc0abc0abc").unwrap();
+
+        let realm_id = "cx:realm:01904100-0000-7000-8000-0abc0abc0abc";
+        let aad = EncryptedEnvelopeAadV1::hidden(realm_id, "cx.message.create");
+        let aad_value = serde_json::to_value(&aad).unwrap();
+        let plaintext = br#"{"body":"hello encrypted discussion"}"#;
+        let payload = group
+            .encrypt_payload_with_aad(
+                "application/vnd.contrix.message+json",
+                Some(aad_value),
+                plaintext,
+            )
+            .unwrap();
+
+        let commit_ref = "cx:event:01904100-0000-7000-8000-00000000c0m1";
+        let envelope =
+            EncryptedEnvelopeV1::from_payload(&payload, aad, AadVisibility::Hidden, commit_ref)
+                .unwrap();
+
+        // Conformance with cx.schema.encrypted_envelope.v1: required fields,
+        // fixed consts, hidden-visibility AAD discipline, no forbidden extras.
+        let json = serde_json::to_value(&envelope).unwrap();
+        let obj = json.as_object().unwrap();
+        for field in [
+            "scheme",
+            "version",
+            "group_id",
+            "epoch",
+            "content_type",
+            "ciphertext",
+            "aad_visibility_event_id",
+            "aad",
+            "key_ref",
+            "aad_digest",
+            "payload_digest",
+        ] {
+            assert!(obj.contains_key(field), "missing required field {field}");
+        }
+        assert_eq!(obj["scheme"], "mls-rfc9420");
+        assert_eq!(obj["version"], "1.0");
+        assert_eq!(obj["aad_visibility_event_id"], "hidden");
+        assert_eq!(obj["key_ref"]["algorithm"], "MLS");
+        assert_eq!(obj["key_ref"]["group_state_ref"], commit_ref);
+        assert_eq!(obj["aad"]["realm_id"], realm_id);
+        assert_eq!(obj["aad"]["event_kind"], "cx.message.create");
+        let aad_obj = obj["aad"].as_object().unwrap();
+        assert!(!aad_obj.contains_key("event_id"));
+        assert!(!aad_obj.contains_key("event_ref_digest"));
+        assert!(obj["aad_digest"].as_str().unwrap().starts_with("sha256:"));
+        assert!(obj["payload_digest"].as_str().unwrap().starts_with("sha256:"));
+        assert!(!obj.contains_key("authentication_tag"));
+        assert!(!obj.contains_key("digests"));
+        assert!(!obj.contains_key("cleartext_commitment"));
+
+        // Wire round-trip is stable and to_payload reconstructs the exact MLS
+        // payload (lossless for every field decrypt_payload relies on).
+        let wire = serde_json::to_string(&envelope).unwrap();
+        let parsed: EncryptedEnvelopeV1 = serde_json::from_str(&wire).unwrap();
+        assert_eq!(parsed, envelope);
+        assert_eq!(parsed.to_payload().unwrap(), payload);
+
+        // Fail closed when the supplied AAD doesn't match the AAD bound into
+        // payload_digest at encryption time.
+        let mismatch = EncryptedEnvelopeV1::from_payload(
+            &payload,
+            EncryptedEnvelopeAadV1::hidden(realm_id, "cx.flow.update"),
+            AadVisibility::Hidden,
+            commit_ref,
+        );
+        assert!(mismatch.is_err());
     }
 
     /// T31 — `remove_member_by_leaf` accepts a raw OpenMLS leaf index and
