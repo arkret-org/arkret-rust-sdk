@@ -7,6 +7,10 @@ as `membership`, `devices`, `receipts`, `notifications`, `content`, `media`,
 `profile`, `settings`, `search`, `discovery`, `e2ee`, `auth`, `identity`,
 `federation`, `push`, `typing`, `webrtc` and `store`.
 
+Shared product and service DTOs live in `contrix-contracts` and are re-exported
+from the umbrella crate as `contrix::api`, with narrower facades for
+`client_api`, `identity_api`, `federation_api` and `push_gateway_api`.
+
 Most fallible APIs return `contrix::Result<T>`, whose error type is
 `contrix::Error`.
 

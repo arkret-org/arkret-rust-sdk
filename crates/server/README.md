@@ -1,11 +1,12 @@
 # Contrix Server
 
-Protocol request/response enums for Contrix v1 services.
+Framework-independent server handler contracts for Contrix v1 services.
 
 > **Not a reference implementation.** `contrix-server` ships protocol contract
 > types. It does not provide a backing protocol service. A production
 > deployment plugs in its own implementation (`soland` is the canonical one
-> today).
+> today). Shared DTOs used by both producers and consumers live in
+> `contrix-contracts` and are re-exported here for server-side users.
 
 ## Salvo OAPI integration
 

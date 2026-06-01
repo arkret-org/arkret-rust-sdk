@@ -10,7 +10,7 @@ attestation; it is the evidence bundle a reviewer needs before the local
 
 - Workspace crates: `contrix-identifiers`, `contrix-core`, `contrix-ffi`,
   `contrix-html`, `contrix-http-client`, `contrix-signatures`,
-  `contrix-crypto`, `contrix-api`, `contrix-server`, `contrix-testing`, and
+  `contrix-crypto`, `contrix-contracts`, `contrix-server`, `contrix-testing`, and
   `contrix`.
 - Wire-critical surfaces: canonical JSON, Event Envelope signatures,
   capability grants, profile claims, federation signatures, MLS helpers,

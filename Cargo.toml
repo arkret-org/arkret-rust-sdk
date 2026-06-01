@@ -7,7 +7,7 @@ resolver = "3"
 rust-version = "1.92"
 
 [workspace.dependencies]
-contrix-api = { version = "1.0.0", path = "crates/api", default-features = false }
+contrix-contracts = { version = "1.0.0", path = "crates/contracts", default-features = false }
 contrix-http-client = { version = "1.0.0", path = "crates/http-client", default-features = false }
 contrix-core = { version = "1.0.0", path = "crates/core", default-features = false }
 contrix-ffi = { version = "1.0.0", path = "crates/ffi", default-features = false }

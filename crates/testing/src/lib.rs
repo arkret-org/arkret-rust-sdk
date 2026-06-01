@@ -269,7 +269,7 @@ pub fn endpoint_coverage_rows() -> Vec<EndpointCoverageRow> {
         }
     }));
     // Product client-API coverage rows were previously derived from the
-    // CLIENT_API_ENDPOINTS catalogue in `contrix-api`. That catalogue has been
+    // now-removed CLIENT_API_ENDPOINTS catalogue in the contracts crate. That catalogue has been
     // removed in favour of typed salvo route handlers + ToSchema derives, so
     // this conformance report now reports only the canonical operation kinds
     // and the boundary rows enumerated below.

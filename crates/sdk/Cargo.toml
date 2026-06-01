@@ -57,7 +57,7 @@ base64.workspace = true
 chacha20poly1305.workspace = true
 chrono = { workspace = true, features = ["serde"] }
 chrono-tz.workspace = true
-contrix-api.workspace = true
+contrix-contracts.workspace = true
 contrix-http-client = { workspace = true, optional = true }
 contrix-core.workspace = true
 contrix-crypto.workspace = true

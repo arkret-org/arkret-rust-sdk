@@ -6,7 +6,7 @@ Contrix SDK uses additive Cargo features.
 | --- | --- | --- |
 | Model-only | `default-features = false` | Protocol IDs, wire models, canonical digests, stores and local state helpers without HTTP or OpenMLS dependencies. |
 | Client | `--features client` | Reqwest-based HTTP client for the Contrix v1 service binding. |
-| Server | `--features server` | Framework-independent protocol request/response enums and endpoint fixture coverage. |
+| Server | `--features server` | Framework-independent server handler contracts, shared contract re-exports and endpoint fixture coverage. |
 | Salvo OAPI | `--features salvo` | Server feature plus Salvo OAPI derives on Contrix DTO and identifier types. |
 | MLS | `--features mls` | OpenMLS-backed group creation, Welcome/Commit envelopes and payload encryption/decryption. |
 | Default | `client,mls` | Application SDK default: HTTP client plus MLS crypto primitives. |
@@ -18,7 +18,7 @@ Contrix SDK uses additive Cargo features.
 | --- | --- | --- |
 | Protocol model support | Supported | IDs, operations, events, commits, cursor, canonical JSON and digest helpers are covered by unit and integration vectors. |
 | Local helper support | Supported | In-memory stores, reducers, auth state machines, event handlers, timeline helpers and test transports are intended for SDK and app integration tests. |
-| Production-ready support | Release-candidate | HTTP client/server contracts, MLS-backed helpers and durable-store contracts are present, including SQLite/IndexedDB/CryptoStore conformance facades. Deployments must still provide real key custody, storage backends and service operations. |
+| Production-ready support | Release-candidate | HTTP client/server contracts, shared DTO contracts, MLS-backed helpers and durable-store contracts are present, including SQLite/IndexedDB/CryptoStore conformance facades. Deployments must still provide real key custody, storage backends and service operations. |
 | Experimental / facade support | Experimental | Browser HTTP, IndexedDB, WebCrypto, applet, bridge, sovereign deployment, FFI and extended profile helpers are API-shaping surfaces until real product/server interop hardens them. |
 
 Production deployments should provide durable stores for local state and crypto state,

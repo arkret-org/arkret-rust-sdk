@@ -1,11 +1,11 @@
 [package]
 authors = ["Chris Young <chris@sonc.ai>"]
-description = "Contrix v1 protocol surface catalog, service endpoint metadata, and wire helper models."
+description = "Contrix v1 shared wire contracts, product surface DTOs, and helper models."
 edition = "2024"
 homepage = "https://github.com/contrix/contrix-rust-sdk"
-keywords = ["contrix", "api", "protocol", "sdk"]
+keywords = ["contrix", "contracts", "protocol", "sdk"]
 license = "Apache-2.0"
-name = "contrix-api"
+name = "contrix-contracts"
 readme = "README.md"
 repository = "https://github.com/contrix/contrix-rust-sdk"
 rust-version = "1.92"

@@ -50,9 +50,10 @@ The workspace is split into focused crates and the top-level `contrix` crate
 re-exports the public SDK surface:
 
 - `contrix-core`: protocol identifiers, canonical JSON, wire models, sync/cursor types and service metadata
+- `contrix-contracts`: shared wire-contract DTOs for product-local client APIs, identity, federation and push gateway integration
 - `contrix-identifiers`: validated DIDs, typed IDs, hashes, cursors and HLC values
 - `contrix-http-client`: HTTP transport bindings
-- `contrix-server`: framework-independent protocol request/response contracts and endpoint fixture coverage
+- `contrix-server`: framework-independent server handler contracts, service route metadata and endpoint fixture coverage
 - `contrix`: umbrella SDK crate with high-level state managers and feature forwarding
 
 The workspace default members include all crates:
@@ -141,7 +142,8 @@ The first Contrix crate currently includes:
 - in-memory persistence helpers for event cache, verified state snapshots and account-local records
 - Server description and profile version checks
 - HTTP client methods for the Contrix v1 service HTTP binding, including request metadata, retry/backoff and `Retry-After` handling
-- framework-independent server protocol contracts, endpoint fixture coverage and Salvo OAPI DTO support through `contrix-core`
+- shared contract DTOs exposed through `contrix-contracts` and re-exported from the umbrella SDK as `contrix::api`, `contrix::client_api`, `contrix::identity_api`, `contrix::federation_api` and `contrix::push_gateway_api`
+- framework-independent server handler contracts, endpoint fixture coverage and Salvo OAPI DTO support through `contrix-core`
 - high-level sync loop, membership, devices, receipts, notifications, content,
   media, profile/settings, discovery, E2EE, auth/identity, federation, push,
   typing, WebRTC, store and event-handler helpers

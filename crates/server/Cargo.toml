@@ -21,7 +21,7 @@ default = []
 salvo = ["contrix-core/salvo"]
 
 [dependencies]
-contrix-api.workspace = true
+contrix-contracts.workspace = true
 contrix-core.workspace = true
 contrix-signatures.workspace = true
 serde.workspace = true

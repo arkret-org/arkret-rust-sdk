@@ -8,8 +8,8 @@ Scope: `D:\Works\contrix-dev\contrix-rust-sdk` checked against
 
 The current SDK design is broadly reasonable and mostly aligned with the v1
 spec. The workspace split is healthy: identifiers validate wire IDs,
-`contrix-core` owns protocol models and canonical behavior, `contrix-api` owns
-the service operation catalog, `contrix-server` owns framework-neutral routing
+`contrix-core` owns protocol models and canonical behavior, `contrix-contracts` owns
+shared wire contracts and product-local DTOs, `contrix-server` owns framework-neutral routing
 plus Salvo integration, and the top-level SDK crate keeps high-level client
 state and feature helpers out of the protocol core.
 
@@ -23,10 +23,10 @@ types themselves through `ToSchema` / `ToParameters` derives.
 
 ### P0 - No Blocking Spec Gap Found In Operation Coverage
 
-`contrix-api` currently exposes 79 endpoint contracts, matching the 79 active
-operation IDs in `operation-registry.json`. Existing tests also enforce this
-drift boundary. This is the right design: service surface truth is constrained
-by spec artifacts rather than by an unbounded hand-written SDK list.
+Historically the API-named contracts crate exposed endpoint contracts matching the active
+operation IDs in `operation-registry.json`. The crate has since been renamed to
+`contrix-contracts`, and service route truth now lives with the server/core
+registries while this crate carries shared DTO contracts.
 
 ### P1 - Salvo OAPI Types Were Previously Incomplete
 
@@ -70,6 +70,6 @@ wire schema registries.
 
 - `cargo check -p contrix-server --features salvo`
 - `cargo test -p contrix-core --features salvo --no-default-features`
-- `cargo test -p contrix-api`
+- `cargo test -p contrix-contracts`
 - `cargo test -p contrix-server --features salvo`
 - `cargo check -p contrix --features salvo --no-default-features`

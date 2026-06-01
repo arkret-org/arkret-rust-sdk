@@ -17,7 +17,7 @@ contrix-html
 contrix-http-client
 contrix-signatures
 contrix-crypto
-contrix-api
+contrix-contracts
 contrix-server
 contrix-testing
 contrix    # umbrella SDK; depends on every other crate above

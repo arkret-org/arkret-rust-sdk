@@ -68,8 +68,8 @@
 //! let did: contrix::Did = "did:web:alice.example";
 //! ```
 
-pub use contrix_api as api;
-pub use contrix_api::product::client as client_api;
+pub use contrix_contracts as api;
+pub use contrix_contracts::product::client as client_api;
 pub use contrix_core::events;
 pub use contrix_core::schema;
 pub use contrix_core::state;
@@ -85,9 +85,9 @@ pub use contrix_http_client as http_client;
 // downstream crates that depend only on `contrix` (not `contrix-core`).
 #[cfg(feature = "full-surface")]
 pub use crate::store as store_contracts;
-pub use contrix_api::federation as federation_api;
-pub use contrix_api::identity as identity_api;
-pub use contrix_api::push as push_gateway_api;
+pub use contrix_contracts::federation as federation_api;
+pub use contrix_contracts::identity as identity_api;
+pub use contrix_contracts::push as push_gateway_api;
 pub use contrix_core::lattice;
 pub use contrix_core::operations;
 pub use contrix_core::schema as schema_contracts;
