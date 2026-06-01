@@ -364,7 +364,7 @@ impl Space {
         let payload = json!({
             "message_id": generate_id("cx:message:"),
             "flow_id": generate_id("cx:flow:"),
-            "track": "discussion",
+            "track_name": "discussion",
             "content": content,
         });
         Ok(Operation::create(operation_id, self.realm_id()?, OP_MESSAGE_CREATE, payload))

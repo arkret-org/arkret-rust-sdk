@@ -27,12 +27,12 @@
 //! )
 //! .with_content(json!({
 //!     "flow_id": "cx:flow:01904100-0000-7000-8000-6c663fa0205f",
-//!     "track": "main",
-//!     "body": "hello"
+//!     "track_name": "main",
+//!     "content": {"kind": "cx.content.text", "body": "hello"}
 //! }))
 //! .build(&OperationKindRegistry::default())?;
 //! let event = draft.into_event_envelope(OperationEventConversion::default())?;
-//! assert_eq!(event.content["body"], "hello");
+//! assert_eq!(event.content["content"]["body"], "hello");
 //! # Ok(())
 //! # }
 //! ```

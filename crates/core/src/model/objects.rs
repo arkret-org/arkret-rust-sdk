@@ -421,18 +421,62 @@ pub struct ActorProfile {
     pub updated_at: Option<DateTime<Utc>>,
 }
 
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct FlowMetadata {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub fields: BTreeMap<String, Value>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(flatten)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+impl FlowMetadata {
+    pub fn with_title(title: impl Into<String>) -> Self {
+        Self { title: Some(title.into()), ..Self::default() }
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct MessageMetadata {
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub fields: BTreeMap<String, Value>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(flatten)]
+    pub extra: BTreeMap<String, Value>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Flow {
     pub schema: String,
     pub id: String,
     pub space_id: SpaceId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<FlowMetadata>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub encrypted_metadata: Option<Value>,
+    /// SDK-local compatibility cache for callers that still read `flow.title`.
+    /// Not serialized; the current wire path is `metadata.title`.
+    #[serde(skip)]
     pub title: String,
+    /// SDK-local compatibility cache. Not serialized; current wire path is
+    /// `metadata.summary`.
+    #[serde(skip)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "content", skip_serializing_if = "Option::is_none")]
     pub body: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub encrypted_content: Option<Value>,
+    /// SDK-local compatibility cache. Not serialized; current wire path is
+    /// `encrypted_content`.
+    #[serde(skip)]
     pub encrypted_payload: Option<Value>,
     /// Active Flow tracks keyed by canonical track name.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -445,6 +489,9 @@ pub struct Flow {
     /// equal the Flow's Realm.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scope_circle_id: Option<CircleId>,
+    /// SDK-local compatibility cache. Not serialized; current wire path is
+    /// `metadata.fields`.
+    #[serde(skip)]
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub fields: BTreeMap<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -469,15 +516,19 @@ impl Flow {
         title: impl Into<String>,
         created_by: Did,
     ) -> Self {
+        let title = title.into();
         let mut tracks = BTreeMap::new();
         tracks.insert(FLOW_TRACK_NAME_SYNTHESIS.to_owned(), FlowTrackConfig::synthesis());
         Self {
             schema: FLOW_SCHEMA.to_owned(),
             id: id.into(),
             space_id,
-            title: title.into(),
+            metadata: Some(FlowMetadata::with_title(title.clone())),
+            encrypted_metadata: None,
+            title,
             summary: None,
             body: None,
+            encrypted_content: None,
             encrypted_payload: None,
             tracks,
             scope_circle_id: None,
@@ -490,6 +541,24 @@ impl Flow {
             updated_at: None,
             extra: BTreeMap::new(),
         }
+    }
+
+    pub fn with_metadata_title(mut self, title: impl Into<String>) -> Self {
+        let title = title.into();
+        self.title = title.clone();
+        self.metadata.get_or_insert_with(FlowMetadata::default).title = Some(title);
+        self
+    }
+
+    pub fn metadata_title(&self) -> Option<&str> {
+        self.metadata
+            .as_ref()
+            .and_then(|metadata| metadata.title.as_deref())
+            .or_else(|| if self.title.is_empty() { None } else { Some(self.title.as_str()) })
+    }
+
+    pub fn metadata_fields(&self) -> &BTreeMap<String, Value> {
+        self.metadata.as_ref().map(|metadata| &metadata.fields).unwrap_or(&self.fields)
     }
 
     /// Construct a Flow whose primary entry point is the `discussion` track.
@@ -515,7 +584,7 @@ impl Flow {
     }
 
     pub fn validate_title(&self) -> Result<()> {
-        if self.title.trim().is_empty() {
+        if self.metadata_title().is_none_or(|title| title.trim().is_empty()) {
             return Err(Error::Protocol("flow title must not be empty".to_owned()));
         }
         if self.tracks.is_empty() {

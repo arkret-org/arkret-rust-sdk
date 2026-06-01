@@ -18,7 +18,7 @@ fn umbrella_crate_builds_client_signs_event_and_verifies_binding() {
         json!({
             "message_id": "cx:message:01904100-0000-7000-8000-000000000001",
             "flow_id": "cx:flow:01904100-0000-7000-8000-000000000001",
-            "track": "discussion",
+            "track_name": "discussion",
             "content": {"kind": "cx.content.text", "body": "hello"}
         }),
     )

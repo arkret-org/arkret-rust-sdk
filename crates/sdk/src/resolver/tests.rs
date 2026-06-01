@@ -209,7 +209,7 @@ fn flow_create_event(seq: u64, flow_id: &str) -> Event {
                 "id": flow_id,
                 "schema": crate::FLOW_SCHEMA,
                 "space_id": space_id().as_str(),
-                "title": "Payment refactor",
+                "metadata": {"title": "Payment refactor"},
                 "tracks": {"synthesis": {}},
                 "created_by": actor_id().as_str(),
                 "created_at": "2026-05-02T00:00:00.000Z"
@@ -404,8 +404,11 @@ fn flow_update_rejected_when_archived() {
     let create = flow_create_event(1, flow_id);
     let mut archive = event(OP_FLOW_ARCHIVE, 2, json!({ "flow_id": flow_id }));
     archive.prev_refs.push(create.event_id.clone());
-    let mut update =
-        event(OP_FLOW_UPDATE, 3, json!({ "flow_id": flow_id, "patch": { "title": "New title" } }));
+    let mut update = event(
+        OP_FLOW_UPDATE,
+        3,
+        json!({ "flow_id": flow_id, "patch": { "metadata": {"title": "New title"} } }),
+    );
     update.prev_refs.push(archive.event_id.clone());
 
     let mut state = SpaceState::new(space_id(), "1".to_owned());
@@ -449,8 +452,10 @@ fn flow_events_create_update_and_default_view_relation() {
                 "id": flow_id,
                 "schema": crate::FLOW_SCHEMA,
                 "space_id": space_id().as_str(),
-                "title": "Payment refactor",
-                "summary": "Unify payment flows",
+                "metadata": {
+                    "title": "Payment refactor",
+                    "summary": "Unify payment flows"
+                },
                 "tracks": {"synthesis": {}},
                 "created_by": actor_id().as_str(),
                 "created_at": "2026-05-02T00:00:00.000Z"
@@ -467,8 +472,10 @@ fn flow_events_create_update_and_default_view_relation() {
         json!({
             "flow_id": flow_id,
             "patch": {
-                "summary": "Risk, refunds and callbacks are tracked together.",
-                "fields": {"priority": "high"}
+                "metadata": {
+                    "summary": "Risk, refunds and callbacks are tracked together.",
+                    "fields": {"priority": "high"}
+                }
             }
         }),
     )
@@ -785,7 +792,7 @@ fn flow_tracks_update_merges_tracks_from_patch_tracks_and_top_level_tracks() {
             "tracks": {
                 "discussion": {
                     "profile": "discussion",
-                    "fields": {"capacity": 25}
+                    "metadata": {"capacity": 25}
                 }
             },
             "patch": {
@@ -806,7 +813,7 @@ fn flow_tracks_update_merges_tracks_from_patch_tracks_and_top_level_tracks() {
     let flow = state.subjects.get(flow_id).unwrap();
     assert!(flow.tracks.contains_key(crate::FLOW_TRACK_NAME_SYNTHESIS));
     assert_eq!(flow.tracks["discussion"].profile.as_deref(), Some("discussion"));
-    assert_eq!(flow.tracks["discussion"].fields["capacity"], 25);
+    assert_eq!(flow.tracks["discussion"].metadata["capacity"], 25);
     assert_eq!(flow.tracks["review"].profile.as_deref(), Some("review"));
     assert_eq!(flow.tracks["review"].template.as_deref(), Some("Review"));
 }

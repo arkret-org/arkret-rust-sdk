@@ -34,10 +34,10 @@ pub struct SpaceObjectTombstonePayload {
     pub successor_space_id: Option<SpaceId>,
 }
 
-/// Round 4 — cell family for `cx.flow.update` / `cx.flow.tracks_patch`
+/// Cell family for `cx.flow.update` / `cx.flow.tracks.update`
 /// CAS-register cells. `bottom=reject` semantics — concurrent writes
 /// to the same cell are not joinable (CAS contention).
-pub const FLOW_FIELDS_CELL_FAMILY: &str = "cx.component.flow.fields.v1";
+pub const FLOW_FIELDS_CELL_FAMILY: &str = "cx.component.flow.metadata.v1";
 
 /// Round 4 — build the cell_subject for `cx.flow.update`.
 /// `(family=FLOW_FIELDS_CELL_FAMILY, subject=flow_id)`, CAS-register

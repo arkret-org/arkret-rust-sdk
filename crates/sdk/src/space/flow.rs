@@ -3,8 +3,9 @@ use super::*;
 /// Optional Flow create metadata accepted by [`Space::create_flow_operation_with_metadata`].
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct FlowCreateMetadata {
-    pub body: Option<Value>,
-    pub encrypted_payload: Option<Value>,
+    pub content: Option<Value>,
+    pub encrypted_content: Option<Value>,
+    pub encrypted_metadata: Option<Value>,
     pub tracks: BTreeMap<String, crate::FlowTrackConfig>,
     /// CXP-0007 — optional Circle that defines this Flow's encryption scope.
     pub scope_circle_id: Option<contrix_core::CircleId>,
@@ -13,8 +14,9 @@ pub struct FlowCreateMetadata {
 /// Optional Flow patch metadata accepted by [`Space::update_flow_operation_with_metadata`].
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct FlowUpdateMetadata {
-    pub body: Option<Value>,
-    pub encrypted_payload: Option<Value>,
+    pub content: Option<Value>,
+    pub encrypted_content: Option<Value>,
+    pub encrypted_metadata: Option<Value>,
     pub tracks: Option<BTreeMap<String, crate::FlowTrackConfig>>,
 }
 
@@ -53,30 +55,36 @@ impl Space {
         let tracks =
             if metadata.tracks.is_empty() { default_flow_tracks() } else { metadata.tracks };
 
+        let mut flow_metadata = serde_json::Map::new();
+        flow_metadata.insert("title".to_owned(), json!(title.into()));
+        if let Some(summary) = summary {
+            flow_metadata.insert("summary".to_owned(), json!(summary));
+        }
+        if !fields.is_empty() {
+            flow_metadata.insert("fields".to_owned(), json!(fields));
+        }
+
         let mut object = json!({
             "id": flow_id.as_str(),
             "schema": crate::FLOW_SCHEMA,
             "space_id": self.space_id.as_str(),
-            "title": title.into(),
+            "metadata": Value::Object(flow_metadata),
             "tracks": tracks,
             "created_by": session_meta.user_id.as_str(),
             "created_at": now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
         });
 
-        if let Some(summary) = summary {
-            object["summary"] = json!(summary);
+        if let Some(content) = metadata.content {
+            object["content"] = content;
         }
-        if let Some(body) = metadata.body {
-            object["body"] = body;
+        if let Some(encrypted_content) = metadata.encrypted_content {
+            object["encrypted_content"] = encrypted_content;
         }
-        if let Some(encrypted_payload) = metadata.encrypted_payload {
-            object["encrypted_payload"] = encrypted_payload;
+        if let Some(encrypted_metadata) = metadata.encrypted_metadata {
+            object["encrypted_metadata"] = encrypted_metadata;
         }
         if let Some(scope_circle_id) = metadata.scope_circle_id {
             object["scope_circle_id"] = json!(scope_circle_id.as_str());
-        }
-        if !fields.is_empty() {
-            object["fields"] = json!(fields);
         }
 
         Ok(Operation::create(
@@ -119,23 +127,31 @@ impl Space {
 
         let operation_id = OperationId::new(generate_id("cx:operation:"))?;
         let mut patch = serde_json::Map::new();
+        let mut metadata_patch = serde_json::Map::new();
 
         if let Some(title) = title {
-            patch.insert("title".to_owned(), json!(title));
+            metadata_patch.insert("title".to_owned(), json!(title));
         }
         if let Some(summary) = summary {
-            patch.insert("summary".to_owned(), json!(summary));
+            metadata_patch.insert("summary".to_owned(), json!(summary));
         }
         if let Some(fields) = fields {
-            patch.insert("fields".to_owned(), json!(fields));
+            metadata_patch.insert("fields".to_owned(), json!(fields));
         }
-        if let Some(body) = metadata.body {
-            patch.insert("body".to_owned(), body);
-            patch.insert("encrypted_payload".to_owned(), Value::Null);
+        if !metadata_patch.is_empty() {
+            patch.insert("metadata".to_owned(), Value::Object(metadata_patch));
         }
-        if let Some(encrypted_payload) = metadata.encrypted_payload {
-            patch.insert("encrypted_payload".to_owned(), encrypted_payload);
-            patch.insert("body".to_owned(), Value::Null);
+        if let Some(content) = metadata.content {
+            patch.insert("content".to_owned(), content);
+            patch.insert("encrypted_content".to_owned(), Value::Null);
+        }
+        if let Some(encrypted_content) = metadata.encrypted_content {
+            patch.insert("encrypted_content".to_owned(), encrypted_content);
+            patch.insert("content".to_owned(), Value::Null);
+        }
+        if let Some(encrypted_metadata) = metadata.encrypted_metadata {
+            patch.insert("encrypted_metadata".to_owned(), encrypted_metadata);
+            patch.insert("metadata".to_owned(), Value::Null);
         }
         if let Some(tracks) = metadata.tracks {
             patch.insert("tracks".to_owned(), json!(tracks));

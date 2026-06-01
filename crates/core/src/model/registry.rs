@@ -212,7 +212,7 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         .into_iter()
         .map(str::to_owned)
         .collect(),
-        OP_MESSAGE_CREATE => vec!["flow_id".to_owned(), "track".to_owned()],
+        OP_MESSAGE_CREATE => vec!["flow_id".to_owned(), "track_name".to_owned()],
         OP_DEVICE_MESSAGES_PUT => {
             ["kind", "recipient_principal_id", "recipient_device_id", "content"]
                 .into_iter()
@@ -1043,18 +1043,26 @@ fn flow_schema_document() -> Value {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": FLOW_SCHEMA,
         "type": "object",
-        "required": ["id", "schema", "realm_id", "title", "stage", "tracks", "created_by", "created_at"],
-        "not": { "required": ["body", "encrypted_payload"] },
+        "required": ["id", "schema", "realm_id", "stage", "tracks", "created_by", "created_at"],
+        "not": {
+            "anyOf": [
+                { "required": ["title"] },
+                { "required": ["summary"] },
+                { "required": ["fields"] },
+                { "required": ["encrypted_payload"] },
+                { "required": ["content", "encrypted_content"] },
+                { "required": ["metadata", "encrypted_metadata"] }
+            ]
+        },
         "properties": {
             "schema": { "type": "string" },
             "id": { "type": "string" },
             "realm_id": { "type": "string" },
-            "title": { "type": "string" },
-            "summary": { "type": "string" },
-            "body": { "type": "object" },
-            "encrypted_payload": { "type": "object" },
+            "metadata": { "type": "object" },
+            "encrypted_metadata": { "type": "object" },
+            "content": { "type": "object" },
+            "encrypted_content": { "type": "object" },
             "tracks": { "type": "object", "minProperties": 1 },
-            "fields": { "type": "object" },
             "state": { "type": "string" },
             "state_changed_at": { "type": "string" },
             "stage": {
@@ -1067,7 +1075,7 @@ fn flow_schema_document() -> Value {
             "updated_by": { "type": "string" },
             "updated_at": { "type": "string" },
         },
-        "additionalProperties": true
+        "additionalProperties": false
     })
 }
 

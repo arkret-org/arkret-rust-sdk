@@ -1057,7 +1057,7 @@ mod tests {
     fn parses_standard_spec_content() {
         let payload = json!({
             "flow_id": "cx:flow:01904100-0000-7000-8000-fb8cfd35e274",
-            "track": "main",
+            "track_name": "main",
             "content": { "body": "hello" }
         });
         let content = parse_event_content(MESSAGE_CREATE, payload.clone()).unwrap();
@@ -1111,7 +1111,7 @@ mod tests {
             hlc,
             json!({
                 "flow_id": "cx:flow:01904100-0000-7000-8000-fb8cfd35e274",
-                "track": "main",
+                "track_name": "main",
                 "content": { "body": "hello" }
             }),
         )

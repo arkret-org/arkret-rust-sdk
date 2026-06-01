@@ -451,12 +451,12 @@ pub struct Invite {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct ReadCursor {
     pub schema: String,
     pub id: ReadCursorId,
     pub actor_id: Did,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub device_id: Option<DeviceId>,
+    pub device_id: DeviceId,
     pub realm_id: RealmId,
     pub read_scope: ReadScope,
     pub position: ReadCursorPosition,
@@ -467,9 +467,25 @@ pub type ReadMarker = ReadCursor;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct ReadCursorPosition {
     pub event_id: EventId,
     pub hlc: Hlc,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct ReadReceipt {
+    pub receipt_type: String,
+    pub schema: String,
+    pub realm_id: RealmId,
+    pub actor_id: Did,
+    pub read_scope: ReadScope,
+    pub event_id: EventId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hlc: Option<Hlc>,
+    pub created_at: DateTime<Utc>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -500,6 +516,10 @@ pub struct Notification {
     pub actor_id: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub space_id: Option<SpaceId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub flow_id: Option<FlowId>,
+    #[serde(rename = "track_name", skip_serializing_if = "Option::is_none")]
+    pub track: Option<String>,
     pub source_event_id: EventId,
     pub notification_type: NotificationType,
     pub priority: NotificationPriority,

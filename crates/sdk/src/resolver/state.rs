@@ -700,7 +700,11 @@ impl SpaceState {
         let object = event.content.get("object").unwrap_or(&event.content);
         let flow_id = self.extract_flow_id(object)?;
         FlowId::new(flow_id.clone())?;
-        let title = self.extract_field::<String>(object, "title")?;
+        reject_legacy_flow_metadata_fields(object)?;
+        let metadata = self
+            .extract_optional_field::<crate::FlowMetadata>(object, "metadata")
+            .unwrap_or_default();
+        let title = metadata.title.clone().unwrap_or_default();
         let tracks = self
             .extract_optional_field::<BTreeMap<String, crate::FlowTrackConfig>>(object, "tracks")
             .unwrap_or_else(|| {
@@ -711,12 +715,13 @@ impl SpaceState {
                 );
                 tracks
             });
-        let summary = self.extract_optional_field(object, "summary");
-        let body = self.extract_optional_field(object, "body");
-        let encrypted_payload = self.extract_optional_field(object, "encrypted_payload");
+        let summary = metadata.summary.clone();
+        let body = self.extract_optional_field(object, "content");
+        let encrypted_content = self.extract_optional_field(object, "encrypted_content");
+        let encrypted_metadata = self.extract_optional_field(object, "encrypted_metadata");
         let scope_circle_id =
             self.extract_optional_field::<contrix_core::CircleId>(object, "scope_circle_id");
-        let fields = self.extract_fields(object)?;
+        let fields = metadata.fields.clone();
         let state = self
             .extract_optional_field::<String>(object, "state")
             .map(|state| object_state_from_str(&state))
@@ -726,10 +731,13 @@ impl SpaceState {
             schema: crate::FLOW_SCHEMA.to_owned(),
             id: flow_id,
             space_id: SpaceId::new(event.realm_id.to_string())?,
+            metadata: Some(metadata),
+            encrypted_metadata,
             title,
             summary,
             body,
-            encrypted_payload,
+            encrypted_content,
+            encrypted_payload: None,
             tracks,
             scope_circle_id,
             fields,
@@ -759,14 +767,17 @@ impl SpaceState {
         {
             return Err(Error::Protocol("flow_not_active".to_owned()));
         }
-        let title = self.extract_optional_field::<String>(&event.content, "title");
-        let summary = self.extract_optional_field::<String>(&event.content, "summary");
-        let body = self.extract_optional_field::<Value>(&event.content, "body");
-        let encrypted_payload =
-            self.extract_optional_field::<Value>(&event.content, "encrypted_payload");
-        let fields =
-            self.extract_optional_field::<BTreeMap<String, Value>>(&event.content, "fields");
+        reject_legacy_flow_metadata_fields(&event.content)?;
         let patch = self.extract_optional_field::<BTreeMap<String, Value>>(&event.content, "patch");
+        reject_legacy_flow_patch_fields(&patch)?;
+        let metadata =
+            self.extract_optional_field::<crate::FlowMetadata>(&event.content, "metadata");
+        let encrypted_metadata =
+            self.extract_optional_field::<Value>(&event.content, "encrypted_metadata");
+        let body = self.extract_optional_field::<Value>(&event.content, "content");
+        let encrypted_content =
+            self.extract_optional_field::<Value>(&event.content, "encrypted_content");
+        let fields = metadata.as_ref().map(|metadata| metadata.fields.clone());
         let state = self
             .extract_optional_field::<String>(&event.content, "state")
             .map(|state| object_state_from_str(&state))
@@ -784,34 +795,52 @@ impl SpaceState {
                         .ok()
                 })
             });
-        let patched_body = patch.as_ref().and_then(|patch| patch.get("body").cloned());
-        let patched_encrypted_payload =
-            patch.as_ref().and_then(|patch| patch.get("encrypted_payload").cloned());
+        let patched_body = patch.as_ref().and_then(|patch| patch.get("content").cloned());
+        let patched_encrypted_content =
+            patch.as_ref().and_then(|patch| patch.get("encrypted_content").cloned());
 
         let subject = self
             .subjects
             .get_mut(&flow_id_str)
             .ok_or_else(|| Error::Protocol(format!("flow not found: {}", flow_id_str)))?;
 
-        if let Some(title) = title.or_else(|| patch_string(&patch, "title")) {
-            subject.title = title;
+        if let Some(metadata) = metadata {
+            if let Some(title) = metadata.title.clone() {
+                subject.title = title;
+            }
+            subject.summary = metadata.summary.clone();
+            subject.fields = metadata.fields.clone();
+            subject.metadata = Some(metadata);
         }
-        if let Some(summary) = summary.or_else(|| patch_string(&patch, "summary")) {
-            subject.summary = Some(summary);
+        if let Some(title) = patch_metadata_string(&patch, "title") {
+            subject.title = title.clone();
+            subject.metadata.get_or_insert_with(crate::FlowMetadata::default).title = Some(title);
+        }
+        if let Some(summary) = patch_metadata_string(&patch, "summary") {
+            subject.summary = Some(summary.clone());
+            subject.metadata.get_or_insert_with(crate::FlowMetadata::default).summary =
+                Some(summary);
+        }
+        if let Some(fields) = fields.or_else(|| patch_metadata_fields(&patch)) {
+            subject.fields = fields.clone();
+            subject.metadata.get_or_insert_with(crate::FlowMetadata::default).fields = fields;
+        }
+        if let Some(encrypted_metadata) = encrypted_metadata {
+            subject.encrypted_metadata = Some(encrypted_metadata);
+            subject.metadata = None;
         }
         if let Some(body) = body.or(patched_body) {
             subject.body = Some(body);
+            subject.encrypted_content = None;
             subject.encrypted_payload = None;
         }
-        if let Some(encrypted_payload) = encrypted_payload.or(patched_encrypted_payload) {
-            subject.encrypted_payload = Some(encrypted_payload);
+        if let Some(encrypted_content) = encrypted_content.or(patched_encrypted_content) {
+            subject.encrypted_content = Some(encrypted_content);
+            subject.encrypted_payload = None;
             subject.body = None;
         }
         if let Some(tracks) = tracks {
             subject.tracks = tracks;
-        }
-        if let Some(fields) = fields.or_else(|| patch_fields(&patch)) {
-            subject.fields = fields;
         }
         if let Some(state) = state.or(patched_state) {
             subject.state = Some(state);
@@ -1540,4 +1569,52 @@ impl SpaceState {
             snapshot_error: None,
         })
     }
+}
+
+fn reject_legacy_flow_metadata_fields(value: &Value) -> Result<()> {
+    let Some(object) = value.as_object() else {
+        return Ok(());
+    };
+    for field in ["title", "summary", "fields", "body", "encrypted_payload"] {
+        if object.contains_key(field) {
+            return Err(Error::Protocol(format!(
+                "flow payload field '{field}' is retired; use metadata.*, content, or encrypted_content"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn reject_legacy_flow_patch_fields(patch: &Option<BTreeMap<String, Value>>) -> Result<()> {
+    let Some(patch) = patch else {
+        return Ok(());
+    };
+    for field in ["title", "summary", "fields", "body", "encrypted_payload"] {
+        if patch.contains_key(field) {
+            return Err(Error::Protocol(format!(
+                "flow patch path '{field}' is retired; use metadata.*, content, or encrypted_content"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn patch_metadata_fields(
+    patch: &Option<BTreeMap<String, Value>>,
+) -> Option<BTreeMap<String, Value>> {
+    let patch = patch.as_ref()?;
+    if let Some(value) = patch.get("metadata.fields") {
+        return serde_json::from_value(value.clone()).ok();
+    }
+    patch.get("metadata").and_then(|metadata| {
+        metadata.get("fields").cloned().and_then(|fields| serde_json::from_value(fields).ok())
+    })
+}
+
+fn patch_metadata_string(patch: &Option<BTreeMap<String, Value>>, field: &str) -> Option<String> {
+    let patch = patch.as_ref()?;
+    if let Some(value) = patch.get(&format!("metadata.{field}")) {
+        return value.as_str().map(ToOwned::to_owned);
+    }
+    patch.get("metadata")?.get(field)?.as_str().map(ToOwned::to_owned)
 }

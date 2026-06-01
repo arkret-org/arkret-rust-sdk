@@ -1014,7 +1014,7 @@ per_subject_lattice!(
 // The spec event-kind registry has renamed the realm-scoped policy /
 // lifecycle cell families from `cx.component.space.*` to
 // `cx.component.realm.*` (per `contrix-spec/spec/v1/zh/models/realm-and-space.md`).
-// Two brand-new flow-shape families (`cx.component.flow.fields.v1`,
+// Two brand-new flow-shape families (`cx.component.flow.metadata.v1`,
 // `cx.component.flow.tracks.v1`) and one cross-realm linking family
 // (`cx.component.realm.link.v1`) also landed in the same rev.
 //
@@ -1252,10 +1252,10 @@ singleton_lattice!(
 
 // ── New Flow facet families (per-subject by Flow id) ──
 
-pub struct FlowFields;
-impl LatticeKind for FlowFields {
+pub struct FlowMetadata;
+impl LatticeKind for FlowMetadata {
     fn cell_family(&self) -> &'static str {
-        "cx.component.flow.fields.v1"
+        "cx.component.flow.metadata.v1"
     }
     fn lattice(&self) -> SdkLatticeKind {
         SdkLatticeKind::CasRegister
@@ -1265,7 +1265,7 @@ impl LatticeKind for FlowFields {
     }
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
-            component_type: "cx.component.flow.fields.v1",
+            component_type: "cx.component.flow.metadata.v1",
             component_version: 1,
             criticality: Criticality::Required,
         }
@@ -1280,7 +1280,7 @@ impl LatticeKind for FlowFields {
             .and_then(Value::as_str)
             .map(|s| Some(s.to_owned()))
             .ok_or(LatticeKindError::MissingSubjectField {
-                cell_family: "cx.component.flow.fields.v1",
+                cell_family: "cx.component.flow.metadata.v1",
                 field: "target_ref",
             })
     }
@@ -1404,7 +1404,7 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(RealmUpgrade);
     registry.register(RealmCreate);
     registry.register(RealmLink);
-    registry.register(FlowFields);
+    registry.register(FlowMetadata);
     registry.register(FlowTracks);
 
     registry
@@ -1502,7 +1502,7 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "cx.component.realm.upgrade.v1",
         "cx.component.realm.create.v1",
         "cx.component.realm.link.v1",
-        "cx.component.flow.fields.v1",
+        "cx.component.flow.metadata.v1",
         "cx.component.flow.tracks.v1",
     ];
     FAMILIES
@@ -1589,7 +1589,7 @@ mod tests {
         // Sanity-check that the move from soland preserved every
         // family. Bumped to 75 after R1.2 — the spec event-kind registry
         // renamed `cx.component.space.*` realm-policy families to
-        // `cx.component.realm.*` and added `cx.component.flow.fields.v1`,
+        // `cx.component.realm.*` and added `cx.component.flow.metadata.v1`,
         // `cx.component.flow.tracks.v1`, `cx.component.realm.link.v1`,
         // `cx.component.realm.create.v1`, `cx.component.realm.destroy.v1`,
         // `cx.component.realm.delivery_binding_policy.v1`. We keep the

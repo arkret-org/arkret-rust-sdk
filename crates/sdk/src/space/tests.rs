@@ -133,7 +133,7 @@ fn space_creates_flow_operations_and_reads_default_view_relations() {
                             "id": flow_id.as_str(),
                             "schema": crate::FLOW_SCHEMA,
                             "space_id": space_id.as_str(),
-                            "title": "Payment refactor",
+                            "metadata": {"title": "Payment refactor"},
                             "tracks": {"synthesis": {}},
                             "created_by": "did:web:alice.example.com",
                             "created_at": "2026-05-02T00:00:00.000Z"

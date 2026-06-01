@@ -5,9 +5,11 @@ pub const FLOW_TRACK_NAME_SYNTHESIS: &str = "synthesis";
 pub const FLOW_TRACK_NAME_DISCUSSION: &str = "discussion";
 
 /// Per-track configuration carried as the value side of the `Flow.tracks` map.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct FlowTrackConfig {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub is_primary: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -15,7 +17,43 @@ pub struct FlowTrackConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub template: Option<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub metadata: BTreeMap<String, Value>,
+    /// SDK-local compatibility cache for pre-9dabf26 callers. Not serialized:
+    /// the current wire name is `metadata`.
+    #[serde(skip)]
     pub fields: BTreeMap<String, Value>,
+}
+
+impl<'de> Deserialize<'de> for FlowTrackConfig {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct FlowTrackConfigWire {
+            #[serde(default)]
+            enabled: Option<bool>,
+            #[serde(default)]
+            is_primary: Option<bool>,
+            #[serde(default)]
+            profile: Option<String>,
+            #[serde(default)]
+            template: Option<String>,
+            #[serde(default)]
+            metadata: BTreeMap<String, Value>,
+        }
+
+        let wire = FlowTrackConfigWire::deserialize(deserializer)?;
+        Ok(Self {
+            enabled: wire.enabled,
+            is_primary: wire.is_primary,
+            profile: wire.profile,
+            template: wire.template,
+            fields: wire.metadata.clone(),
+            metadata: wire.metadata,
+        })
+    }
 }
 
 impl FlowTrackConfig {
@@ -47,6 +85,12 @@ impl FlowTrackConfig {
     /// Set a profile string.
     pub fn with_profile(mut self, profile: impl Into<String>) -> Self {
         self.profile = Some(profile.into());
+        self
+    }
+
+    /// Add one track-local UI metadata field.
+    pub fn with_metadata_field(mut self, key: impl Into<String>, value: Value) -> Self {
+        self.metadata.insert(key.into(), value);
         self
     }
 }
@@ -438,7 +482,7 @@ pub struct IdentityLink {
     pub trust_domain: TypedTrustDomainId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub flow_id: Option<FlowId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "track_name", default, skip_serializing_if = "Option::is_none")]
     pub track: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mls_group_id: Option<String>,
@@ -462,7 +506,10 @@ impl IdentityLink {
             ));
         }
         if self.flow_id.is_some() && self.track.as_deref().is_none_or(str::is_empty) {
-            return Err(Error::Protocol("identity_link flow_id requires track".to_owned()));
+            return Err(Error::Protocol("identity_link flow_id requires track_name".to_owned()));
+        }
+        if let Some(track_name) = self.track.as_deref() {
+            validate_flow_track_name(track_name)?;
         }
         if self.proof.verification_method.trim().is_empty()
             || self.proof.signature_algorithm.trim().is_empty()

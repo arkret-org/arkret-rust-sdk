@@ -205,6 +205,7 @@ pub const FORBIDDEN_WIRE_FIELDS: &[&str] = &[
     "thumbnail_ref",
     "claim_type",
     "anchorer_sig",
+    "track",
     "inception_pubkey_fingerprint",
     "commitment_b64",
     "changed_at",
@@ -239,18 +240,25 @@ struct ForbiddenEntry {
 const FORBIDDEN_ENTRIES: &[ForbiddenEntry] = &[
     // Top-level / generic
     ForbiddenEntry { field: "branch", context: WireContext::TimelineEventTopLevel },
+    ForbiddenEntry { field: "track", context: WireContext::TimelineEventTopLevel },
     ForbiddenEntry { field: "room_kind", context: WireContext::EventEnvelopeOrPayloadTopLevel },
     // Flow / Morph / Space / Relation payload guards
+    ForbiddenEntry { field: "title", context: WireContext::FlowPayload },
+    ForbiddenEntry { field: "summary", context: WireContext::FlowPayload },
+    ForbiddenEntry { field: "fields", context: WireContext::FlowPayload },
+    ForbiddenEntry { field: "encrypted_payload", context: WireContext::FlowPayload },
+    ForbiddenEntry { field: "track", context: WireContext::MessageCreatePayload },
+    ForbiddenEntry { field: "encrypted_payload", context: WireContext::MessageCreatePayload },
     ForbiddenEntry { field: "discussion_space_ref", context: WireContext::FlowPayload },
     ForbiddenEntry { field: "discussion_realm_ref", context: WireContext::FlowPayload },
     ForbiddenEntry { field: "fields.rank", context: WireContext::RelationPayload },
     ForbiddenEntry { field: "fields.rank", context: WireContext::SpacePayload },
-    ForbiddenEntry { field: "fields.stage", context: WireContext::FlowPayload },
-    ForbiddenEntry { field: "fields.stage_changed_at", context: WireContext::FlowPayload },
-    ForbiddenEntry { field: "fields.stage_reason", context: WireContext::FlowPayload },
-    ForbiddenEntry { field: "fields.stage_note", context: WireContext::FlowPayload },
-    ForbiddenEntry { field: "fields.lifecycle", context: WireContext::FlowPayload },
-    ForbiddenEntry { field: "fields.progress_state", context: WireContext::FlowPayload },
+    ForbiddenEntry { field: "metadata.fields.stage", context: WireContext::FlowPayload },
+    ForbiddenEntry { field: "metadata.fields.stage_changed_at", context: WireContext::FlowPayload },
+    ForbiddenEntry { field: "metadata.fields.stage_reason", context: WireContext::FlowPayload },
+    ForbiddenEntry { field: "metadata.fields.stage_note", context: WireContext::FlowPayload },
+    ForbiddenEntry { field: "metadata.fields.lifecycle", context: WireContext::FlowPayload },
+    ForbiddenEntry { field: "metadata.fields.progress_state", context: WireContext::FlowPayload },
     ForbiddenEntry { field: "fields.stage", context: WireContext::MorphPayload },
     ForbiddenEntry { field: "fields.stage_changed_at", context: WireContext::MorphPayload },
     ForbiddenEntry { field: "fields.stage_reason", context: WireContext::MorphPayload },
@@ -529,9 +537,12 @@ mod tests {
 
     #[test]
     fn context_aware_fields_dot_stage_rejected_on_flow_and_morph() {
-        assert!(is_forbidden_in_context("fields.stage", WireContext::FlowPayload));
+        assert!(is_forbidden_in_context("metadata.fields.stage", WireContext::FlowPayload));
         assert!(is_forbidden_in_context("fields.stage", WireContext::MorphPayload));
-        assert!(is_forbidden_in_context("fields.stage_changed_at", WireContext::FlowPayload));
+        assert!(is_forbidden_in_context(
+            "metadata.fields.stage_changed_at",
+            WireContext::FlowPayload
+        ));
         // Not flagged on unrelated payload contexts.
         assert!(!is_forbidden_in_context("fields.stage", WireContext::SpacePayload));
     }

@@ -98,22 +98,24 @@ fn validate_fallback_payload_shape(event_kind: &str, payload: &Value) -> Result<
                 &[
                     "flow_id",
                     "message_id",
-                    "track",
+                    "track_name",
                     "content",
-                    "encrypted_payload",
+                    "encrypted_content",
+                    "metadata",
+                    "encrypted_metadata",
                     "blob_refs",
                     "reply_to",
                 ],
             )?;
             let has_content = object.contains_key("content");
-            let has_encrypted_payload = object.contains_key("encrypted_payload");
-            match (has_content, has_encrypted_payload) {
+            let has_encrypted_content = object.contains_key("encrypted_content");
+            match (has_content, has_encrypted_content) {
                 (true, false) | (false, true) => Ok(()),
                 (false, false) => Err(Error::Protocol(format!(
-                    "event kind '{event_kind}' payload requires exactly one of content or encrypted_payload"
+                    "event kind '{event_kind}' payload requires exactly one of content or encrypted_content"
                 ))),
                 (true, true) => Err(Error::Protocol(format!(
-                    "event kind '{event_kind}' payload must not carry both content and encrypted_payload"
+                    "event kind '{event_kind}' payload must not carry both content and encrypted_content"
                 ))),
             }
         }
@@ -357,7 +359,7 @@ fn fallback_event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
             EVENT_PAYLOAD_SCHEMA,
             &["board_space_id", "flow_id", "space_id", "rank"][..],
         ),
-        ("cx.message.create", EVENT_PAYLOAD_SCHEMA, &["flow_id", "track"][..]),
+        ("cx.message.create", EVENT_PAYLOAD_SCHEMA, &["flow_id", "track_name"][..]),
         ("cx.member.state", EVENT_PAYLOAD_SCHEMA, &["membership"][..]),
         (
             "cx.mls.commit",
@@ -616,7 +618,8 @@ mod tests {
                         "id": "cx:flow:0196419b-0000-7000-8000-000000000001",
                         "schema": FLOW_SCHEMA,
                         "realm_id": "cx:realm:0196419b-0000-7000-8000-000000000010",
-                        "title": "Move-backed card",
+                        "metadata": { "title": "Move-backed card" },
+                        "stage": "draft",
                         "tracks": { "synthesis": { "is_primary": true } },
                         "created_by": "did:web:alice.example",
                         "created_at": "2026-05-22T00:00:00Z"
@@ -704,7 +707,7 @@ mod tests {
                 "cx.message.create",
                 &json!({
                     "flow_id": "cx:flow:0196419b-0000-7000-8000-000000000001",
-                    "track": "discussion",
+                    "track_name": "discussion",
                     "content": {
                         "kind": "cx.content.text",
                         "body": "hello"
@@ -721,7 +724,7 @@ mod tests {
                         "kind": "cx.message.create",
                         "payload": {
                             "flow_id": "cx:flow:0196419b-0000-7000-8000-000000000001",
-                            "track": "discussion"
+                            "track_name": "discussion"
                         }
                     }),
                 )
@@ -800,7 +803,7 @@ mod tests {
                 "cx.message.create",
                 &json!({
                     "flow_id": "cx:flow:01904100-0000-7000-8000-000000000001",
-                    "track": "discussion",
+                    "track_name": "discussion",
                     "content": {
                         "kind": "cx.content.text",
                         "body": "hello"
@@ -814,7 +817,7 @@ mod tests {
                 "cx.message.create",
                 &json!({
                     "flow_id": "cx:flow:01904100-0000-7000-8000-000000000001",
-                    "track": "discussion",
+                    "track_name": "discussion",
                     "body": "legacy body",
                     "content": {
                         "kind": "cx.content.text",
@@ -830,18 +833,18 @@ mod tests {
                 "cx.message.create",
                 &json!({
                     "flow_id": "cx:flow:01904100-0000-7000-8000-000000000001",
-                    "track": "discussion",
+                    "track_name": "discussion",
                     "content": {
                         "kind": "cx.content.text",
                         "body": "[encrypted]"
                     },
-                    "encrypted_payload": {
+                    "encrypted_content": {
                         "ciphertext": "opaque"
                     }
                 }),
             )
-            .expect_err("content and encrypted_payload are mutually exclusive");
-        assert!(both_content_forms.to_string().contains("both content and encrypted_payload"));
+            .expect_err("content and encrypted_content are mutually exclusive");
+        assert!(both_content_forms.to_string().contains("both content and encrypted_content"));
     }
 
     #[test]

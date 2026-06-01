@@ -202,7 +202,7 @@ fn operation_kind_registry_drives_envelope_semantics() {
         },
         content: json!({
             "flow_id": "cx:flow:01904100-0000-7000-8000-6c663fa0205f",
-            "track": "discussion",
+            "track_name": "discussion",
             "content": {"kind": "cx.content.text", "body": "hello"}
         }),
         authz_ref: None,
@@ -213,7 +213,7 @@ fn operation_kind_registry_drives_envelope_semantics() {
     assert_eq!(validation.canonical_kind, OP_MESSAGE_CREATE);
 
     let mut missing_flow = envelope;
-    missing_flow.content = json!({"track": "discussion"});
+    missing_flow.content = json!({"track_name": "discussion"});
     assert!(registry.validate_envelope(&missing_flow).is_err());
 }
 
@@ -257,7 +257,7 @@ fn operation_envelope_builder_requires_registered_kind_and_payload_fields() {
     assert!(builder.clone().build(&registry).is_err());
     let envelope = builder
         .with_content_field("flow_id", json!("cx:flow:01904100-0000-7000-8000-6c663fa0205f"))
-        .with_content_field("track", json!("discussion"))
+        .with_content_field("track_name", json!("discussion"))
         .build(&registry)
         .unwrap();
     assert_eq!(envelope.kind, OP_MESSAGE_CREATE);
@@ -318,7 +318,7 @@ fn protocol_schema_registry_publishes_core_json_schemas() {
                 "schema": FLOW_SCHEMA,
                 "id": "cx:flow:01904100-0000-7000-8000-6c663fa0205f",
                 "realm_id": "cx:realm:01904100-0000-7000-8000-fd3637e8361f",
-                "title": "Topic",
+                "metadata": {"title": "Topic"},
                 "stage": "draft",
                 "tracks": {"synthesis": {}},
                 "created_by": "did:web:alice.example",
@@ -1085,7 +1085,7 @@ fn operation_draft_explicitly_materializes_event_envelope_without_signed_operati
     )
     .with_content(json!({
         "flow_id": "cx:flow:01904100-0000-7000-8000-6c663fa0205f",
-        "track": "discussion",
+        "track_name": "discussion",
         "content": {"kind": "cx.content.text", "body": "hello"}
     }))
     .build(&OperationKindRegistry::default())
@@ -1098,7 +1098,7 @@ fn operation_draft_explicitly_materializes_event_envelope_without_signed_operati
         event.content,
         json!({
             "flow_id": "cx:flow:01904100-0000-7000-8000-6c663fa0205f",
-            "track": "discussion",
+            "track_name": "discussion",
             "content": {"kind": "cx.content.text", "body": "hello"}
         })
     );
@@ -1143,7 +1143,7 @@ fn flow_constructor_sets_protocol_shape() {
     assert_eq!(subject.state, Some(ObjectState::Active));
     subject.validate_title().unwrap();
 
-    subject.title = " ".to_owned();
+    subject = subject.with_metadata_title(" ");
     assert!(subject.validate_title().is_err());
 }
 
@@ -1178,7 +1178,7 @@ fn read_scope_flow_track_uses_explicit_track_field() {
         serde_json::json!({
             "kind": "flow",
             "ref": "cx:flow:01904100-0000-7000-8000-58754cf88c25",
-            "track": "discussion"
+            "track_name": "discussion"
         })
     );
 }

@@ -439,6 +439,18 @@ fn validate_forbidden_object_keys(
                 }
             }
         }
+        if let Some(metadata) = child.as_object().filter(|_| key == "metadata")
+            && let Some(fields) = metadata.get("fields").and_then(Value::as_object)
+        {
+            for nested_key in fields.keys() {
+                let nested = format!("metadata.fields.{nested_key}");
+                if crate::is_forbidden_in_context(&nested, context) {
+                    return Err(Error::Protocol(format!(
+                        "{label}.metadata.fields contains forbidden wire field '{nested}' in context {context:?}"
+                    )));
+                }
+            }
+        }
         if key == "kind"
             && child.as_str() == Some("room")
             && crate::is_forbidden_in_context("kind=room", context)

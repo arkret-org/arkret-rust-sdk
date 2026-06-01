@@ -400,17 +400,27 @@ pub enum ReadScopeKind {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct ReadScope {
     pub kind: ReadScopeKind,
     #[serde(rename = "ref", skip_serializing_if = "Option::is_none")]
     pub object_ref: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "track_name", skip_serializing_if = "Option::is_none")]
     pub track: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub track_scope: Option<ReadScopeTrackScope>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum ReadScopeTrackScope {
+    All,
 }
 
 impl ReadScope {
     pub fn realm() -> Self {
-        Self { kind: ReadScopeKind::Realm, object_ref: None, track: None }
+        Self { kind: ReadScopeKind::Realm, object_ref: None, track: None, track_scope: None }
     }
 
     pub fn flow(flow_id: impl Into<String>, track: Option<impl Into<String>>) -> Self {
@@ -418,23 +428,53 @@ impl ReadScope {
             kind: ReadScopeKind::Flow,
             object_ref: Some(flow_id.into()),
             track: track.map(Into::into),
+            track_scope: None,
+        }
+    }
+
+    pub fn flow_all(flow_id: impl Into<String>) -> Self {
+        Self {
+            kind: ReadScopeKind::Flow,
+            object_ref: Some(flow_id.into()),
+            track: None,
+            track_scope: Some(ReadScopeTrackScope::All),
         }
     }
 
     pub fn thread(thread_id: impl Into<String>) -> Self {
-        Self { kind: ReadScopeKind::Thread, object_ref: Some(thread_id.into()), track: None }
+        Self {
+            kind: ReadScopeKind::Thread,
+            object_ref: Some(thread_id.into()),
+            track: None,
+            track_scope: None,
+        }
     }
 
     pub fn view(view_id: impl Into<String>) -> Self {
-        Self { kind: ReadScopeKind::View, object_ref: Some(view_id.into()), track: None }
+        Self {
+            kind: ReadScopeKind::View,
+            object_ref: Some(view_id.into()),
+            track: None,
+            track_scope: None,
+        }
     }
 
     pub fn message(message_id: impl Into<String>) -> Self {
-        Self { kind: ReadScopeKind::Message, object_ref: Some(message_id.into()), track: None }
+        Self {
+            kind: ReadScopeKind::Message,
+            object_ref: Some(message_id.into()),
+            track: None,
+            track_scope: None,
+        }
     }
 
     pub fn morph(morph_id: impl Into<String>) -> Self {
-        Self { kind: ReadScopeKind::Morph, object_ref: Some(morph_id.into()), track: None }
+        Self {
+            kind: ReadScopeKind::Morph,
+            object_ref: Some(morph_id.into()),
+            track: None,
+            track_scope: None,
+        }
     }
 
     pub fn validate(&self) -> Result<()> {
@@ -444,19 +484,39 @@ impl ReadScope {
                     "read_scope.ref must be omitted when kind is realm".to_owned(),
                 ));
             }
+            if self.track.is_some() || self.track_scope.is_some() {
+                return Err(Error::Protocol(
+                    "read_scope.track_name/track_scope must be omitted when kind is realm"
+                        .to_owned(),
+                ));
+            }
         } else if self.object_ref.as_deref().unwrap_or("").trim().is_empty() {
             return Err(Error::Protocol(
                 "read_scope.ref is required when kind is not realm".to_owned(),
             ));
         }
 
-        if let Some(track) = self.track.as_deref() {
-            if self.kind != ReadScopeKind::Flow {
+        match self.kind {
+            ReadScopeKind::Flow => match (self.track.as_deref(), self.track_scope.as_ref()) {
+                (Some(track), None) => validate_read_scope_track(track)?,
+                (None, Some(ReadScopeTrackScope::All)) => {}
+                (Some(_), Some(_)) => {
+                    return Err(Error::Protocol(
+                        "read_scope must not carry both track_name and track_scope".to_owned(),
+                    ));
+                }
+                (None, None) => {
+                    return Err(Error::Protocol(
+                        "read_scope kind=flow requires track_name or track_scope=all".to_owned(),
+                    ));
+                }
+            },
+            _ if self.track.is_some() || self.track_scope.is_some() => {
                 return Err(Error::Protocol(
-                    "read_scope.track is only valid when kind is flow".to_owned(),
+                    "read_scope.track_name/track_scope is only valid when kind is flow".to_owned(),
                 ));
             }
-            validate_read_scope_track(track)?;
+            _ => {}
         }
 
         Ok(())
@@ -466,15 +526,15 @@ impl ReadScope {
 fn validate_read_scope_track(track: &str) -> Result<()> {
     let mut bytes = track.bytes();
     let Some(first) = bytes.next() else {
-        return Err(Error::Protocol("read_scope.track must not be empty".to_owned()));
+        return Err(Error::Protocol("read_scope.track_name must not be empty".to_owned()));
     };
     if !first.is_ascii_lowercase() {
-        return Err(Error::Protocol(format!("invalid read_scope.track '{track}'")));
+        return Err(Error::Protocol(format!("invalid read_scope.track_name '{track}'")));
     }
     if track.len() > 64
         || !bytes.all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
     {
-        return Err(Error::Protocol(format!("invalid read_scope.track '{track}'")));
+        return Err(Error::Protocol(format!("invalid read_scope.track_name '{track}'")));
     }
     Ok(())
 }
