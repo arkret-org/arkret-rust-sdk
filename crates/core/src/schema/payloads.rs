@@ -117,7 +117,157 @@ fn validate_fallback_payload_shape(event_kind: &str, payload: &Value) -> Result<
                 ))),
             }
         }
+        "cx.mls.commit" => validate_mls_commit_fallback_payload(event_kind, object),
         _ => Ok(()),
+    }
+}
+
+fn validate_required_object_fields(
+    event_kind: &str,
+    object: &serde_json::Map<String, Value>,
+    required_fields: &[&str],
+) -> Result<()> {
+    for field in required_fields {
+        if !object.contains_key(*field) {
+            return Err(Error::Protocol(format!(
+                "event kind '{event_kind}' payload requires field '{field}'"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_mls_commit_fallback_payload(
+    event_kind: &str,
+    object: &serde_json::Map<String, Value>,
+) -> Result<()> {
+    validate_known_fields(
+        event_kind,
+        object,
+        &[
+            "mls_group_id",
+            "base_epoch",
+            "base_epoch_ref",
+            "proposal_refs",
+            "next_epoch",
+            "commit_message_ref",
+            "commit_digest",
+            "governance_binding",
+        ],
+    )?;
+
+    let base_epoch = object.get("base_epoch").and_then(Value::as_u64).ok_or_else(|| {
+        Error::Protocol(format!("event kind '{event_kind}' payload base_epoch must be an integer"))
+    })?;
+    let next_epoch = object.get("next_epoch").and_then(Value::as_u64).ok_or_else(|| {
+        Error::Protocol(format!("event kind '{event_kind}' payload next_epoch must be an integer"))
+    })?;
+    if base_epoch.checked_add(1) != Some(next_epoch) {
+        return Err(Error::Protocol(format!(
+            "event kind '{event_kind}' payload next_epoch must equal base_epoch + 1"
+        )));
+    }
+    if object.get("proposal_refs").and_then(Value::as_array).is_none() {
+        return Err(Error::Protocol(format!(
+            "event kind '{event_kind}' payload proposal_refs must be an array"
+        )));
+    }
+
+    let binding = object.get("governance_binding").and_then(Value::as_object).ok_or_else(|| {
+        Error::Protocol(format!(
+            "event kind '{event_kind}' payload governance_binding must be an object"
+        ))
+    })?;
+    validate_required_object_fields(
+        event_kind,
+        binding,
+        &[
+            "binding_version",
+            "encoding_profile",
+            "realm_id",
+            "effective_scope",
+            "mls_group_id",
+            "previous_epoch",
+            "next_epoch",
+            "membership_frontier",
+            "policy_root",
+        ],
+    )?;
+    validate_known_fields(
+        event_kind,
+        binding,
+        &[
+            "binding_version",
+            "encoding_profile",
+            "realm_id",
+            "circle_id",
+            "effective_scope",
+            "mls_group_id",
+            "previous_epoch",
+            "next_epoch",
+            "membership_frontier",
+            "policy_root",
+            "capability_root",
+            "discussion_metadata_digest",
+            "binding_profile",
+            "reducer_profile",
+        ],
+    )?;
+    if binding.get("binding_version").and_then(Value::as_u64) != Some(1) {
+        return Err(Error::Protocol(format!(
+            "event kind '{event_kind}' payload governance_binding.binding_version must be 1"
+        )));
+    }
+    if binding.get("encoding_profile").and_then(Value::as_str)
+        != Some("cbor-deterministic-rfc8949-v1")
+    {
+        return Err(Error::Protocol(format!(
+            "event kind '{event_kind}' payload governance_binding.encoding_profile is invalid"
+        )));
+    }
+    if binding.get("membership_frontier").and_then(Value::as_array).is_none_or(Vec::is_empty) {
+        return Err(Error::Protocol(format!(
+            "event kind '{event_kind}' payload governance_binding.membership_frontier must be non-empty"
+        )));
+    }
+
+    let Some(payload_group_id) = object.get("mls_group_id").and_then(Value::as_str) else {
+        return Err(Error::Protocol(format!(
+            "event kind '{event_kind}' payload mls_group_id must be a string"
+        )));
+    };
+    if binding.get("mls_group_id").and_then(Value::as_str) != Some(payload_group_id) {
+        return Err(Error::Protocol(format!(
+            "event kind '{event_kind}' payload governance_binding.mls_group_id mismatch"
+        )));
+    }
+    if binding.get("previous_epoch").and_then(Value::as_u64) != Some(base_epoch)
+        || binding.get("next_epoch").and_then(Value::as_u64) != Some(next_epoch)
+    {
+        return Err(Error::Protocol(format!(
+            "event kind '{event_kind}' payload governance_binding epoch mismatch"
+        )));
+    }
+
+    let effective_scope = binding
+        .get("effective_scope")
+        .and_then(Value::as_object)
+        .ok_or_else(|| {
+            Error::Protocol(format!(
+                "event kind '{event_kind}' payload governance_binding.effective_scope must be an object"
+            ))
+        })?;
+    match effective_scope.get("kind").and_then(Value::as_str) {
+        Some("realm") if binding.contains_key("circle_id") => Err(Error::Protocol(format!(
+            "event kind '{event_kind}' payload governance_binding.circle_id must be absent for realm scope"
+        ))),
+        Some("circle") if !binding.contains_key("circle_id") => Err(Error::Protocol(format!(
+            "event kind '{event_kind}' payload governance_binding.circle_id is required for circle scope"
+        ))),
+        Some("realm" | "circle") => Ok(()),
+        _ => Err(Error::Protocol(format!(
+            "event kind '{event_kind}' payload governance_binding.effective_scope.kind is invalid"
+        ))),
     }
 }
 
@@ -209,6 +359,19 @@ fn fallback_event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
         ),
         ("cx.message.create", EVENT_PAYLOAD_SCHEMA, &["flow_id", "track"][..]),
         ("cx.member.state", EVENT_PAYLOAD_SCHEMA, &["membership"][..]),
+        (
+            "cx.mls.commit",
+            EVENT_PAYLOAD_SCHEMA,
+            &[
+                "mls_group_id",
+                "base_epoch",
+                "base_epoch_ref",
+                "proposal_refs",
+                "next_epoch",
+                "commit_digest",
+                "governance_binding",
+            ][..],
+        ),
         (
             "cx.capability.grant",
             CAPABILITY_SCHEMA,
@@ -679,5 +842,105 @@ mod tests {
             )
             .expect_err("content and encrypted_payload are mutually exclusive");
         assert!(both_content_forms.to_string().contains("both content and encrypted_payload"));
+    }
+
+    #[test]
+    fn fallback_catalog_closes_mls_commit_wire_shape() {
+        let catalog = fallback_event_payload_validator_catalog();
+
+        catalog
+            .validate_payload(
+                "cx.mls.commit",
+                &json!({
+                    "mls_group_id": "cx:mls_group:test",
+                    "base_epoch": 0,
+                    "base_epoch_ref": "cx:event:0196419b-0000-7000-8000-000000000001",
+                    "proposal_refs": [],
+                    "next_epoch": 1,
+                    "commit_digest": format!("sha256:{}", "7".repeat(64)),
+                    "governance_binding": {
+                        "binding_version": 1,
+                        "encoding_profile": "cbor-deterministic-rfc8949-v1",
+                        "realm_id": "cx:realm:0196419b-0000-7000-8000-000000000010",
+                        "effective_scope": {
+                            "kind": "realm",
+                            "realm_id": "cx:realm:0196419b-0000-7000-8000-000000000010"
+                        },
+                        "mls_group_id": "cx:mls_group:test",
+                        "previous_epoch": 0,
+                        "next_epoch": 1,
+                        "membership_frontier": [
+                            "cx:event:0196419b-0000-7000-8000-000000000002"
+                        ],
+                        "policy_root": format!("sha256:{}", "2".repeat(64))
+                    }
+                }),
+            )
+            .unwrap();
+
+        let legacy_top_level = catalog
+            .validate_payload(
+                "cx.mls.commit",
+                &json!({
+                    "group_id": "cx:mls_group:test",
+                    "mls_group_id": "cx:mls_group:test",
+                    "expected_prev_epoch": 0,
+                    "base_epoch": 0,
+                    "base_epoch_ref": "cx:event:0196419b-0000-7000-8000-000000000001",
+                    "proposal_refs": [],
+                    "next_epoch": 1,
+                    "commit_bytes_b64": "opaque",
+                    "commit_digest": format!("sha256:{}", "7".repeat(64)),
+                    "governance_binding": {
+                        "binding_version": 1,
+                        "encoding_profile": "cbor-deterministic-rfc8949-v1",
+                        "realm_id": "cx:realm:0196419b-0000-7000-8000-000000000010",
+                        "effective_scope": {
+                            "kind": "realm",
+                            "realm_id": "cx:realm:0196419b-0000-7000-8000-000000000010"
+                        },
+                        "mls_group_id": "cx:mls_group:test",
+                        "previous_epoch": 0,
+                        "next_epoch": 1,
+                        "membership_frontier": [
+                            "cx:event:0196419b-0000-7000-8000-000000000002"
+                        ],
+                        "policy_root": format!("sha256:{}", "2".repeat(64))
+                    }
+                }),
+            )
+            .expect_err("legacy top-level MLS commit fields must fail without artifacts");
+        assert!(legacy_top_level.to_string().contains("not allowed by fallback schema"));
+
+        let legacy_binding = catalog
+            .validate_payload(
+                "cx.mls.commit",
+                &json!({
+                    "mls_group_id": "cx:mls_group:test",
+                    "base_epoch": 0,
+                    "base_epoch_ref": "cx:event:0196419b-0000-7000-8000-000000000001",
+                    "proposal_refs": [],
+                    "next_epoch": 1,
+                    "commit_digest": format!("sha256:{}", "7".repeat(64)),
+                    "governance_binding": {
+                        "binding_version": 1,
+                        "encoding_profile": "cbor-deterministic-rfc8949-v1",
+                        "realm_id": "cx:realm:0196419b-0000-7000-8000-000000000010",
+                        "effective_scope": {
+                            "kind": "realm",
+                            "realm_id": "cx:realm:0196419b-0000-7000-8000-000000000010"
+                        },
+                        "mls_group_id": "cx:mls_group:test",
+                        "prev_epoch": 0,
+                        "new_epoch": 1,
+                        "membership_frontier": [
+                            "cx:event:0196419b-0000-7000-8000-000000000002"
+                        ],
+                        "policy_root": format!("sha256:{}", "2".repeat(64))
+                    }
+                }),
+            )
+            .expect_err("legacy governance binding epoch fields must fail without artifacts");
+        assert!(legacy_binding.to_string().contains("previous_epoch"));
     }
 }
