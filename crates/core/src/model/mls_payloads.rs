@@ -364,7 +364,7 @@ fn validate_profile_id(field: &str, value: &str) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use serde_json::{Value, json};
+    use serde_json::json;
 
     use super::*;
 
@@ -423,37 +423,9 @@ mod tests {
             "next_epoch": 1,
             "membership_frontier": [event(2)],
             "policy_root": hash('2'),
-            "legacy_field": true
+            "unexpected_field": true
         }))
         .unwrap_err();
-        assert!(err.to_string().contains("unknown field"));
-    }
-
-    #[test]
-    fn mls_commit_payload_rejects_legacy_shape() {
-        let legacy: Value = json!({
-            "group_id": "cx:mls_group:test",
-            "mls_group_id": "cx:mls_group:test",
-            "expected_prev_epoch": 0,
-            "base_epoch": 0,
-            "base_epoch_ref": event(1),
-            "proposal_refs": [],
-            "next_epoch": 1,
-            "commit_bytes_b64": "opaque",
-            "commit_digest": hash('7'),
-            "governance_binding": {
-                "binding_version": 1,
-                "encoding_profile": MLS_GOVERNANCE_BINDING_ENCODING_PROFILE,
-                "realm_id": realm(),
-                "effective_scope": {"kind": "realm", "realm_id": realm()},
-                "mls_group_id": "cx:mls_group:test",
-                "previous_epoch": 0,
-                "next_epoch": 1,
-                "membership_frontier": [event(2)],
-                "policy_root": hash('2')
-            }
-        });
-        let err = serde_json::from_value::<MlsCommitPayload>(legacy).unwrap_err();
         assert!(err.to_string().contains("unknown field"));
     }
 

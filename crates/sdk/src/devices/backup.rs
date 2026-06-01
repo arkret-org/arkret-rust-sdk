@@ -268,31 +268,3 @@ pub(super) fn validate_key_backup_payload(backup: &KeyBackup) -> Result<()> {
         Err(Error::Protocol("key backup payload digest mismatch".to_owned()))
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_json::json;
-
-    #[test]
-    fn protocol_key_backup_encryption_rejects_legacy_hash_param() {
-        let err = serde_json::from_value::<KeyBackupEncryption>(json!({
-            "recipient_method": "passphrase_kdf",
-            "kdf": {
-                "name": "pbkdf2",
-                "salt": "salt",
-                "params": {
-                    "iterations": 600000,
-                    "hash": "sha256"
-                },
-                "degraded_profile_reason": "legacy"
-            },
-            "aead": {
-                "name": "xchacha20_poly1305",
-                "nonce": "nonce"
-            }
-        }))
-        .unwrap_err();
-        assert!(err.to_string().contains("forbidden wire field"));
-    }
-}

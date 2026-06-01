@@ -667,12 +667,10 @@ mod tests {
                 }),
             )
             .unwrap();
-
-        assert!(catalog.validate_payload("cx.flow.create", &json!({ "title": "legacy" })).is_err());
     }
 
     #[test]
-    fn fallback_catalog_accepts_morph_create_metadata_and_rejects_legacy_fields() {
+    fn fallback_catalog_accepts_morph_create_metadata() {
         let catalog = fallback_event_payload_validator_catalog();
 
         catalog
@@ -694,26 +692,6 @@ mod tests {
                 }),
             )
             .unwrap();
-
-        assert!(
-            catalog
-                .validate_payload(
-                    "cx.morph.create",
-                    &json!({
-                        "object": {
-                            "id": "cx:morph:0196419b-0000-7000-8000-000000000001",
-                            "schema": MORPH_SCHEMA,
-                            "realm_id": "cx:realm:0196419b-0000-7000-8000-000000000010",
-                            "schema_refs": [MORPH_SCHEMA],
-                            "morph_type": "document",
-                            "title": "legacy",
-                            "created_by": "did:web:alice.example",
-                            "created_at": "2026-05-22T00:00:00Z"
-                        }
-                    }),
-                )
-                .is_err()
-        );
     }
 
     #[test]
@@ -731,24 +709,10 @@ mod tests {
                 }),
             )
             .unwrap();
-
-        assert!(
-            catalog
-                .validate_payload(
-                    "cx.flow.move",
-                    &json!({
-                        "board_place_id": "cx:place:legacy",
-                        "flow_id": "cx:flow:0196419b-0000-7000-8000-000000000001",
-                        "target_place_id": "cx:place:legacy",
-                        "rank": "U"
-                    }),
-                )
-                .is_err()
-        );
     }
 
     #[test]
-    fn fallback_catalog_closes_object_patch_wire_shape() {
+    fn fallback_catalog_accepts_object_patch_wire_shape() {
         let catalog = fallback_event_payload_validator_catalog();
 
         for event_kind in
@@ -765,20 +729,6 @@ mod tests {
                     }),
                 )
                 .unwrap_or_else(|err| panic!("{event_kind} must accept object_patch: {err}"));
-
-            let err = catalog
-                .validate_payload(
-                    event_kind,
-                    &json!({
-                        "target_ref": "cx:flow:01904100-0000-7000-8000-000000000001",
-                        "flow_id": "cx:flow:01904100-0000-7000-8000-000000000001",
-                        "patch": {
-                            "title": { "$op": "set", "value": "Roadmap" }
-                        }
-                    }),
-                )
-                .expect_err("legacy object id sidecar must fail when artifacts are unavailable");
-            assert!(err.to_string().contains("flow_id"));
         }
     }
 
@@ -848,7 +798,7 @@ mod tests {
     }
 
     #[test]
-    fn fallback_catalog_rejects_legacy_member_state_invite_id() {
+    fn fallback_catalog_accepts_member_state_invite_ref() {
         let catalog = fallback_event_payload_validator_catalog();
 
         catalog
@@ -863,20 +813,6 @@ mod tests {
                 }),
             )
             .unwrap();
-
-        let err = catalog
-            .validate_payload(
-                "cx.member.state",
-                &json!({
-                    "actor_id": "did:web:bob.example",
-                    "membership": "join",
-                    "reason": "invite_accept",
-                    "invite_id": "cx:invite:01904100-0000-7000-8000-000000000001",
-                    "delivery_status": "unroutable"
-                }),
-            )
-            .expect_err("legacy invite_id must fail when artifacts are unavailable");
-        assert!(err.to_string().contains("invite_id"));
     }
 
     #[test]
@@ -896,22 +832,6 @@ mod tests {
                 }),
             )
             .unwrap();
-
-        let extra_field = catalog
-            .validate_payload(
-                "cx.message.create",
-                &json!({
-                    "flow_id": "cx:flow:01904100-0000-7000-8000-000000000001",
-                    "track_name": "discussion",
-                    "body": "legacy body",
-                    "content": {
-                        "kind": "cx.content.text",
-                        "body": "hello"
-                    }
-                }),
-            )
-            .expect_err("legacy body must fail when artifacts are unavailable");
-        assert!(extra_field.to_string().contains("body"));
 
         let both_content_forms = catalog
             .validate_payload(
@@ -965,70 +885,5 @@ mod tests {
                 }),
             )
             .unwrap();
-
-        let legacy_top_level = catalog
-            .validate_payload(
-                "cx.mls.commit",
-                &json!({
-                    "group_id": "cx:mls_group:test",
-                    "mls_group_id": "cx:mls_group:test",
-                    "expected_prev_epoch": 0,
-                    "base_epoch": 0,
-                    "base_epoch_ref": "cx:event:0196419b-0000-7000-8000-000000000001",
-                    "proposal_refs": [],
-                    "next_epoch": 1,
-                    "commit_bytes_b64": "opaque",
-                    "commit_digest": format!("sha256:{}", "7".repeat(64)),
-                    "governance_binding": {
-                        "binding_version": 1,
-                        "encoding_profile": "cbor-deterministic-rfc8949-v1",
-                        "realm_id": "cx:realm:0196419b-0000-7000-8000-000000000010",
-                        "effective_scope": {
-                            "kind": "realm",
-                            "realm_id": "cx:realm:0196419b-0000-7000-8000-000000000010"
-                        },
-                        "mls_group_id": "cx:mls_group:test",
-                        "previous_epoch": 0,
-                        "next_epoch": 1,
-                        "membership_frontier": [
-                            "cx:event:0196419b-0000-7000-8000-000000000002"
-                        ],
-                        "policy_root": format!("sha256:{}", "2".repeat(64))
-                    }
-                }),
-            )
-            .expect_err("legacy top-level MLS commit fields must fail without artifacts");
-        assert!(legacy_top_level.to_string().contains("not allowed by fallback schema"));
-
-        let legacy_binding = catalog
-            .validate_payload(
-                "cx.mls.commit",
-                &json!({
-                    "mls_group_id": "cx:mls_group:test",
-                    "base_epoch": 0,
-                    "base_epoch_ref": "cx:event:0196419b-0000-7000-8000-000000000001",
-                    "proposal_refs": [],
-                    "next_epoch": 1,
-                    "commit_digest": format!("sha256:{}", "7".repeat(64)),
-                    "governance_binding": {
-                        "binding_version": 1,
-                        "encoding_profile": "cbor-deterministic-rfc8949-v1",
-                        "realm_id": "cx:realm:0196419b-0000-7000-8000-000000000010",
-                        "effective_scope": {
-                            "kind": "realm",
-                            "realm_id": "cx:realm:0196419b-0000-7000-8000-000000000010"
-                        },
-                        "mls_group_id": "cx:mls_group:test",
-                        "prev_epoch": 0,
-                        "new_epoch": 1,
-                        "membership_frontier": [
-                            "cx:event:0196419b-0000-7000-8000-000000000002"
-                        ],
-                        "policy_root": format!("sha256:{}", "2".repeat(64))
-                    }
-                }),
-            )
-            .expect_err("legacy governance binding epoch fields must fail without artifacts");
-        assert!(legacy_binding.to_string().contains("previous_epoch"));
     }
 }

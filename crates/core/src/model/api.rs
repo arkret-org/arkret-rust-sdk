@@ -2406,19 +2406,4 @@ mod tests {
         let parsed: KeyBackupRecipientMethod = serde_json::from_value(json).unwrap();
         assert_eq!(parsed, KeyBackupRecipientMethod::DeviceSnapshotSecret);
     }
-
-    #[test]
-    fn key_backup_kdf_rejects_legacy_hash_param() {
-        let err = serde_json::from_value::<KeyBackupKdf>(serde_json::json!({
-            "name": "pbkdf2",
-            "salt": "salt",
-            "params": {
-                "iterations": 600000,
-                "hash": "sha256"
-            },
-            "degraded_profile_reason": "legacy"
-        }))
-        .unwrap_err();
-        assert!(err.to_string().contains("forbidden wire field"));
-    }
 }

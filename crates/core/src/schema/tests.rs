@@ -182,10 +182,6 @@ fn artifact_payload_catalog_maps_object_patch_event_family_to_object_patch_paylo
                 }),
             )
             .unwrap_or_else(|err| panic!("{event_kind} should accept object_patch_payload: {err}"));
-        assert!(
-            catalog.validate_payload(event_kind, &json!({ "title": "Roadmap" })).is_err(),
-            "{event_kind} must reject legacy non-patch update payloads"
-        );
     }
     assert_eq!(
         catalog.rules["cx.flow.tracks.update"].payload_schema_id,

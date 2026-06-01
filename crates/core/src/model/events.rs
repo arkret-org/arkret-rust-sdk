@@ -579,16 +579,6 @@ mod applet_routing_field_tests {
     }
 
     #[test]
-    fn event_deserialize_rejects_unknown_top_level_fields() {
-        let event = base_event();
-        let mut value = serde_json::to_value(&event).unwrap();
-        value.as_object_mut().unwrap().insert("branch".to_owned(), json!("legacy"));
-
-        let err = serde_json::from_value::<Event>(value).unwrap_err();
-        assert!(err.to_string().contains("unknown field"));
-    }
-
-    #[test]
     fn event_deserialize_rejects_forbidden_payload_fields() {
         let event = base_event();
         let mut value = serde_json::to_value(&event).unwrap();

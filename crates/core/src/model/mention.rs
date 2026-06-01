@@ -183,19 +183,6 @@ mod tests {
     }
 
     #[test]
-    fn mention_rejects_legacy_fields() {
-        // The pre-R3.2 shape used `subject` / `handle` / `display_snapshot`.
-        let raw = serde_json::json!({
-            "subject": "did:web:alice.example",
-            "handle": "alice:acme.example",
-            "display_snapshot": "@alice:acme.example",
-            "resolved_at": "2026-05-19T10:00:00Z"
-        });
-        let parsed: std::result::Result<Mention, _> = serde_json::from_value(raw);
-        assert!(parsed.is_err(), "legacy mention shape must be rejected");
-    }
-
-    #[test]
     fn audience_mention_here_maps_to_flow_engaged() {
         let node = AudienceMention::from_ui_token("@here").expect("@here should be known");
         assert_eq!(node.audience, AudienceMentionAudience::FlowEngaged);

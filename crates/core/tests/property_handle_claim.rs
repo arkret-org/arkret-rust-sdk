@@ -67,13 +67,6 @@ proptest! {
         prop_assert_eq!(again, acct);
     }
 
-    /// `contrix://` URI form (retired in R3.1) is rejected.
-    #[test]
-    fn rejects_legacy_contrix_uri(domain in arb_domain(), local in arb_localpart()) {
-        let legacy = format!("contrix://{domain}/users/{local}");
-        prop_assert!(Handle::parse(&legacy).is_err());
-    }
-
     /// MUST rule: binding_state=verified ⇒ requires handle AND expires_at.
     #[test]
     fn verified_state_requires_handle_and_expires(

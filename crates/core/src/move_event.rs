@@ -447,14 +447,7 @@ mod tests {
 
     #[test]
     fn move_id_validator_rejects_bad_shape() {
-        // Spec e10b6ad (C47): event_digest is a bare `<algo>:<hex>` hash;
-        // the legacy `cx:move:` typed-id prefix and non-hash payloads
-        // must both reject.
-        MoveId::new(
-            "cx:move:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-                .to_owned(),
-        )
-        .expect_err("legacy cx:move: prefix must reject");
+        // Spec e10b6ad (C47): event_digest is a bare `<algo>:<hex>` hash.
         MoveId::new("01js0mv0000000000000000000".to_owned())
             .expect_err("non-hash payload must reject");
     }

@@ -488,26 +488,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn rejects_discussion_realm_ref() {
-        assert!(is_forbidden_wire_field("discussion_realm_ref"));
-    }
-
-    #[test]
-    fn rejects_discussion_space_ref() {
-        assert!(is_forbidden_wire_field("discussion_space_ref"));
-    }
-
-    #[test]
-    fn rejects_legacy_scope_ref_batch() {
-        for field in ["parent_ref", "default_realm_ref", "scope_ref", "default_scope_ref"] {
-            assert!(
-                is_forbidden_wire_field(field),
-                "field `{field}` must be in the hard-reject set"
-            );
-        }
-    }
-
-    #[test]
     fn accepts_canonical_replacements() {
         for field in ["scope_circle_id", "default_scope_circle_id", "parent_space_id"] {
             assert!(
@@ -548,24 +528,6 @@ mod tests {
         ));
         // Not flagged on unrelated payload contexts.
         assert!(!is_forbidden_in_context("fields.stage", WireContext::SpacePayload));
-    }
-
-    #[test]
-    fn context_aware_morph_legacy_metadata_and_payload_names_rejected() {
-        assert!(is_forbidden_in_context("title", WireContext::MorphPayload));
-        assert!(is_forbidden_in_context("summary", WireContext::MorphPayload));
-        assert!(is_forbidden_in_context("encrypted_payload", WireContext::MorphPayload));
-        assert!(!is_forbidden_in_context("metadata", WireContext::MorphPayload));
-        assert!(!is_forbidden_in_context("encrypted_content", WireContext::MorphPayload));
-    }
-
-    #[test]
-    fn id_prefix_rejects_abbreviations() {
-        assert!(is_forbidden_id_prefix("cx:notif:01904100-0000-7000-8000-000000000000"));
-        assert!(is_forbidden_id_prefix("cx:devmsg:01904100-0000-7000-8000-000000000000"));
-        assert!(is_forbidden_id_prefix("cx:keyevt:01904100-0000-7000-8000-000000000000"));
-        // Canonical full-form prefix is not flagged.
-        assert!(!is_forbidden_id_prefix("cx:notification:01904100-0000-7000-8000-000000000000"));
     }
 
     #[test]

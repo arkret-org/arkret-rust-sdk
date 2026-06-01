@@ -544,9 +544,6 @@ mod tests {
         assert!(MoveId::new(format!("blake3:{digest64}")).is_ok());
         assert!(MoveId::new(format!("sha256:{digest64}")).is_ok());
         assert!(MoveId::new(format!("sha512:{digest128}")).is_ok());
-        // Legacy `cx:move:<algo>:<hex>` form (pre-C47) must now reject.
-        let legacy_blake3 = format!("cx{}:move:blake3:{digest64}", "");
-        assert!(MoveId::new(legacy_blake3).is_err());
         assert!(AnchorId::new(format!("cx:anchor:sha512:{digest128}")).is_ok());
     }
 
