@@ -1,6 +1,7 @@
 //! Contrix push surface models and helpers.
 
 use std::collections::BTreeMap;
+use std::time::Duration;
 
 use contrix_core::{
     DeviceId, Did, EventId, PushNotifyReqBody, PushNotifyResBody, PushRegisterDeviceReqBody,
@@ -8,6 +9,10 @@ use contrix_core::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+
+fn list_contains_ignore_ascii_case(haystack: &[String], needle: &str) -> bool {
+    haystack.iter().any(|entry| entry.eq_ignore_ascii_case(needle))
+}
 
 pub mod protocol {
     pub use contrix_core::{
@@ -206,6 +211,329 @@ impl PushRuleSet {
     }
 }
 
+/// B.5 #6 — spec revision chime was compiled against. Used by
+/// [`PushBridgeDescribeResponse::warn_on_spec_version_mismatch`] to flag
+/// gateway responses pinned to a different revision.
+pub const EXPECTED_SPEC_VERSION: &str = "contrix-spec@2026-05-26";
+
+/// Response body for `GET /api/v1/push/bridge/describe`.
+///
+/// This is a product-local push-gateway contract shared by the gateway
+/// implementation and clients that probe it before registration / notify
+/// flows. It intentionally lives in `contrix-api` rather than individual
+/// services so bridge producers and consumers cannot drift silently.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct PushBridgeDescribeResponse {
+    pub contract: String,
+    pub version: String,
+    pub api_base_path: String,
+    /// Optional spec revision the gateway is built against.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spec_version: Option<String>,
+    pub gateway: PushBridgeDescribeGatewayDescriptor,
+    pub notify: PushBridgeDescribeNotifyDescriptor,
+    pub privacy: PushBridgeDescribePrivacyDescriptor,
+    #[serde(default)]
+    pub examples: PushBridgeDescribeExamples,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_capabilities_version: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub provider_capabilities: Vec<ProviderCapabilityDescriptor>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub failure_codes: Vec<PushBridgeFailureCodeDescriptor>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub todos: Vec<String>,
+}
+
+impl PushBridgeDescribeResponse {
+    /// Emit a warning when the gateway's advertised `spec_version` does not
+    /// match the SDK's compiled-in [`EXPECTED_SPEC_VERSION`].
+    ///
+    /// Returns `true` when the response carried a matching spec version,
+    /// `false` when it carried a mismatch or did not advertise the field.
+    pub fn warn_on_spec_version_mismatch(&self) -> bool {
+        match self.spec_version.as_deref() {
+            Some(advertised) if advertised == EXPECTED_SPEC_VERSION => true,
+            Some(advertised) => {
+                tracing::warn!(
+                    advertised_spec_version = advertised,
+                    expected_spec_version = EXPECTED_SPEC_VERSION,
+                    contract = %self.contract,
+                    version = %self.version,
+                    "push bridge spec_version mismatch; gateway/SDK may drift",
+                );
+                false
+            }
+            None => false,
+        }
+    }
+
+    /// Look up a per-app provider capability descriptor by configured app
+    /// name (case-insensitive).
+    pub fn provider_capability(&self, name: &str) -> Option<&ProviderCapabilityDescriptor> {
+        self.provider_capabilities.iter().find(|cap| cap.name.eq_ignore_ascii_case(name))
+    }
+
+    /// Look up the first capability descriptor whose stable provider `kind`
+    /// matches (case-insensitive).
+    pub fn provider_capability_by_kind(&self, kind: &str) -> Option<&ProviderCapabilityDescriptor> {
+        self.provider_capabilities.iter().find(|cap| cap.kind.eq_ignore_ascii_case(kind))
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct PushBridgeDescribeGatewayDescriptor {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub service_did: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub supported_profiles: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub supported_providers: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub auth_modes: Vec<String>,
+}
+
+impl PushBridgeDescribeGatewayDescriptor {
+    /// Whether this gateway advertises support for `name` as a push profile
+    /// (case-insensitive).
+    pub fn supports_profile(&self, name: &str) -> bool {
+        list_contains_ignore_ascii_case(&self.supported_profiles, name)
+    }
+
+    /// Whether this gateway advertises support for `name` as a downstream
+    /// provider (case-insensitive).
+    pub fn supports_provider(&self, name: &str) -> bool {
+        list_contains_ignore_ascii_case(&self.supported_providers, name)
+    }
+
+    /// Whether the gateway will accept the requested auth mode such as
+    /// `"http-message-signature"` or `"bearer"`.
+    pub fn supports_auth_mode(&self, name: &str) -> bool {
+        list_contains_ignore_ascii_case(&self.auth_modes, name)
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct PushBridgeDescribeNotifyDescriptor {
+    pub notify_path: String,
+    pub operation_id: String,
+    pub request_id_header: String,
+    pub idempotency_key_header: String,
+    pub origin_service_did_header: String,
+    pub destination_service_did_header: String,
+    pub max_request_size_bytes: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dedup_backend: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dedup_ttl_seconds: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rate_limit_window_seconds: Option<u64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rate_limit_scopes: Vec<String>,
+}
+
+impl PushBridgeDescribeNotifyDescriptor {
+    /// Whether the gateway has any deduplication backend configured.
+    pub fn supports_dedup(&self) -> bool {
+        self.dedup_backend.as_deref().is_some_and(|backend| !backend.trim().is_empty())
+    }
+
+    /// Deduplication retention window, when advertised.
+    pub fn dedup_window(&self) -> Option<Duration> {
+        self.dedup_ttl_seconds.map(Duration::from_secs)
+    }
+
+    /// Rate-limit window length, when advertised.
+    pub fn rate_limit_window(&self) -> Option<Duration> {
+        self.rate_limit_window_seconds.map(Duration::from_secs)
+    }
+
+    /// Whether the gateway advertises the named rate-limit scope.
+    pub fn rate_limits_by(&self, scope: &str) -> bool {
+        list_contains_ignore_ascii_case(&self.rate_limit_scopes, scope)
+    }
+
+    /// Maximum request size in bytes, exposed as `usize` for convenience.
+    pub fn max_request_size(&self) -> usize {
+        self.max_request_size_bytes
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct PushBridgeDescribePrivacyDescriptor {
+    pub default_mode: String,
+    pub plaintext_visibility_class: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub active_reference_fields: Vec<String>,
+}
+
+/// Per-app frozen capability matrix entry, surfaced by the gateway via
+/// `bridge/describe.provider_capabilities[]`.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ProviderCapabilityDescriptor {
+    /// Configured app name as known to the gateway registry.
+    pub name: String,
+    /// Stable provider kind, e.g. `"apns"`, `"fcm"`, `"webpush"`.
+    pub kind: String,
+    /// Multi-recipient send shape: `"none"`, `"multicast"`, or `"topic"`.
+    pub batch: String,
+    /// Maximum TTL in seconds the upstream provider accepts.
+    #[serde(default)]
+    pub ttl_seconds_max: Option<u64>,
+    /// Whether the provider supports a collapse / replace key.
+    #[serde(default)]
+    pub supports_collapse: bool,
+    /// Whether the provider has first-class badge / unread count support.
+    #[serde(default)]
+    pub supports_badge: bool,
+    /// Default outbound payload shape.
+    pub default_payload_shape: String,
+    /// Credential material this provider expects.
+    #[serde(default)]
+    pub credential_kinds: Vec<String>,
+    /// Documented credential rotation cadence for this provider kind.
+    pub credential_rotation: String,
+    /// Whether the provider can carry an encrypted body that the gateway must
+    /// not inspect.
+    #[serde(default)]
+    pub blind_wakeup_required: bool,
+}
+
+impl ProviderCapabilityDescriptor {
+    /// TTL cap exposed as `Duration`, when advertised.
+    pub fn ttl_max(&self) -> Option<Duration> {
+        self.ttl_seconds_max.map(Duration::from_secs)
+    }
+
+    /// Whether this provider accepts a multi-recipient batch shape.
+    pub fn supports_batch(&self) -> bool {
+        !self.batch.eq_ignore_ascii_case("none") && !self.batch.is_empty()
+    }
+
+    /// Whether this provider lists `kind` among its accepted credential
+    /// material (case-insensitive).
+    pub fn accepts_credential(&self, kind: &str) -> bool {
+        list_contains_ignore_ascii_case(&self.credential_kinds, kind)
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct PushBridgeFailureCodeDescriptor {
+    pub code: String,
+    pub http_status: u16,
+    pub retryable: bool,
+    pub description: String,
+}
+
+impl PushBridgeFailureCodeDescriptor {
+    pub fn new(
+        code: impl Into<String>,
+        http_status: u16,
+        retryable: bool,
+        description: impl Into<String>,
+    ) -> Self {
+        Self { code: code.into(), http_status, retryable, description: description.into() }
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct PushBridgeDescribeExamples {
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default)]
+    pub notify_headers: Value,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default)]
+    pub blind_wakeup_request: Value,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default)]
+    pub plaintext_visible_service_request: Value,
+}
+
+/// Response body for `GET /api/v1/integration/describe` on a push gateway.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct PushGatewayIntegrationDescribeResponse {
+    pub contract: String,
+    pub version: String,
+    pub service: String,
+    pub service_kind: String,
+    pub api_base_path: String,
+    pub describe_path: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub dependencies: Vec<PushGatewayIntegrationDependency>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub surfaces: Vec<PushGatewayIntegrationSurface>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default)]
+    pub examples: Value,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub todos: Vec<String>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct PushGatewayIntegrationDependency {
+    pub service: String,
+    pub purpose: String,
+    pub required_contract: String,
+    pub discovery_path: String,
+    pub mode: String,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct PushGatewayIntegrationSurface {
+    pub name: String,
+    pub method: String,
+    pub path: String,
+    pub contract: String,
+    pub stability: String,
+    pub todo: String,
+}
+
+/// Combined view of a push gateway's high-level integration manifest plus its
+/// active bridge contract.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[non_exhaustive]
+pub struct IntegrationView {
+    /// Service-level integration manifest (`/api/v1/integration/describe`).
+    pub manifest: PushGatewayIntegrationDescribeResponse,
+    /// Active bridge contract (`/api/v1/push/bridge/describe`).
+    pub bridge: PushBridgeDescribeResponse,
+}
+
+impl IntegrationView {
+    /// Construct an integration view from the two describe responses.
+    pub fn new(
+        manifest: PushGatewayIntegrationDescribeResponse,
+        bridge: PushBridgeDescribeResponse,
+    ) -> Self {
+        Self { manifest, bridge }
+    }
+
+    /// Whether the manifest declares a dependency on the given service kind
+    /// with the given purpose.
+    pub fn requires(&self, service: &str, purpose: &str) -> bool {
+        self.manifest
+            .dependencies
+            .iter()
+            .any(|dep| dep.service == service && dep.purpose == purpose)
+    }
+
+    /// The active bridge contract id.
+    pub fn contract_digest(&self) -> &str {
+        &self.bridge.contract
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -280,5 +608,149 @@ mod tests {
             },
         ]);
         assert_eq!(rejected.rejected.len(), 1);
+    }
+
+    #[test]
+    fn bridge_descriptor_helpers_match_supported_lists() {
+        let descriptor = PushBridgeDescribeGatewayDescriptor {
+            service_did: Some("did:web:gateway.example".to_owned()),
+            supported_profiles: vec!["fcm".to_owned(), "APNs".to_owned()],
+            supported_providers: vec!["huawei".to_owned()],
+            auth_modes: vec!["http-message-signature".to_owned()],
+        };
+
+        assert!(descriptor.supports_profile("FCM"));
+        assert!(descriptor.supports_profile("apns"));
+        assert!(!descriptor.supports_profile("webpush"));
+        assert!(descriptor.supports_provider("Huawei"));
+        assert!(!descriptor.supports_provider("xiaomi"));
+        assert!(descriptor.supports_auth_mode("HTTP-Message-Signature"));
+    }
+
+    #[test]
+    fn bridge_notify_descriptor_exposes_dedup_and_rate_limit_windows() {
+        let descriptor = PushBridgeDescribeNotifyDescriptor {
+            notify_path: "/api/v1/push/notify".to_owned(),
+            operation_id: "cx.push.notify".to_owned(),
+            request_id_header: "X-Contrix-Request-Id".to_owned(),
+            idempotency_key_header: "X-Contrix-Idempotency-Key".to_owned(),
+            origin_service_did_header: "X-Contrix-Origin-Service-Did".to_owned(),
+            destination_service_did_header: "X-Contrix-Destination-Service-Did".to_owned(),
+            max_request_size_bytes: 16 * 1024,
+            dedup_backend: Some("redis".to_owned()),
+            dedup_ttl_seconds: Some(300),
+            rate_limit_window_seconds: Some(60),
+            rate_limit_scopes: vec!["per-app".to_owned()],
+        };
+
+        assert!(descriptor.supports_dedup());
+        assert_eq!(descriptor.dedup_window(), Some(Duration::from_secs(300)));
+        assert_eq!(descriptor.rate_limit_window(), Some(Duration::from_secs(60)));
+        assert!(descriptor.rate_limits_by("per-app"));
+        assert!(!descriptor.rate_limits_by("per-actor"));
+        assert_eq!(descriptor.max_request_size(), 16 * 1024);
+
+        let empty = PushBridgeDescribeNotifyDescriptor::default();
+        assert!(!empty.supports_dedup());
+        assert!(empty.dedup_window().is_none());
+    }
+
+    #[test]
+    fn provider_capability_descriptor_roundtrips_fcm_fixture() {
+        let json = serde_json::json!({
+            "name": "default-fcm-app",
+            "kind": "fcm",
+            "batch": "multicast",
+            "ttl_seconds_max": 28u64 * 24 * 60 * 60,
+            "supports_collapse": true,
+            "supports_badge": true,
+            "default_payload_shape": "data_only_blind_wakeup",
+            "credential_kinds": ["service_account_v1"],
+            "credential_rotation": "rotate_service_account_yearly_or_on_compromise",
+            "blind_wakeup_required": true,
+        });
+
+        let cap: ProviderCapabilityDescriptor =
+            serde_json::from_value(json.clone()).expect("deserialize fixture");
+        assert_eq!(cap.name, "default-fcm-app");
+        assert_eq!(cap.kind, "fcm");
+        assert_eq!(cap.batch, "multicast");
+        assert_eq!(cap.ttl_max(), Some(Duration::from_secs(28 * 24 * 60 * 60)));
+        assert!(cap.supports_collapse);
+        assert!(cap.supports_badge);
+        assert!(cap.supports_batch());
+        assert!(cap.accepts_credential("service_account_v1"));
+        assert!(!cap.accepts_credential("vapid_keypair"));
+        assert!(cap.blind_wakeup_required);
+
+        let reserialized = serde_json::to_value(&cap).expect("serialize fixture");
+        assert_eq!(reserialized, json);
+    }
+
+    #[test]
+    fn bridge_describe_response_decodes_without_optional_matrices() {
+        let json = serde_json::json!({
+            "contract": "cx.push.bridge.v1",
+            "version": "1.0.0",
+            "api_base_path": "/api/v1",
+            "gateway": {},
+            "notify": {
+                "notify_path": "/api/v1/push/notify",
+                "operation_id": "cx.push.notify",
+                "request_id_header": "X-Contrix-Request-Id",
+                "idempotency_key_header": "X-Contrix-Idempotency-Key",
+                "origin_service_did_header": "X-Contrix-Origin-Service-Did",
+                "destination_service_did_header": "X-Contrix-Destination-Service-Did",
+                "max_request_size_bytes": 16384,
+            },
+            "privacy": {
+                "default_mode": "blind_wakeup",
+                "plaintext_visibility_class": "service-visible",
+            },
+        });
+
+        let response: PushBridgeDescribeResponse =
+            serde_json::from_value(json).expect("decode response");
+        assert!(response.provider_capabilities_version.is_none());
+        assert!(response.provider_capabilities.is_empty());
+        assert!(response.failure_codes.is_empty());
+        assert!(response.provider_capability("anything").is_none());
+
+        let reserialized = serde_json::to_value(&response).expect("re-serialize");
+        let obj = reserialized.as_object().expect("object");
+        assert!(!obj.contains_key("provider_capabilities_version"));
+        assert!(!obj.contains_key("provider_capabilities"));
+        assert!(!obj.contains_key("failure_codes"));
+    }
+
+    #[test]
+    fn integration_view_exposes_manifest_dependency_lookup() {
+        let manifest = PushGatewayIntegrationDescribeResponse {
+            contract: "cx.integration.push_gateway.v1".to_owned(),
+            version: "1.0.0".to_owned(),
+            service: "push-gateway".to_owned(),
+            service_kind: "push-gateway".to_owned(),
+            api_base_path: "/api/v1".to_owned(),
+            describe_path: "/api/v1/integration/describe".to_owned(),
+            dependencies: vec![PushGatewayIntegrationDependency {
+                service: "soland".to_owned(),
+                purpose: "register-device".to_owned(),
+                required_contract: "cx.auth.bridge.v1".to_owned(),
+                discovery_path: "/api/v1/auth/bridge/describe".to_owned(),
+                mode: "required".to_owned(),
+            }],
+            surfaces: Vec::new(),
+            examples: Value::Null,
+            todos: Vec::new(),
+        };
+        let bridge = PushBridgeDescribeResponse {
+            contract: "cx.push.bridge.v1".to_owned(),
+            ..Default::default()
+        };
+
+        let view = IntegrationView::new(manifest, bridge);
+        assert!(view.requires("soland", "register-device"));
+        assert!(!view.requires("soland", "unregister-device"));
+        assert_eq!(view.contract_digest(), "cx.push.bridge.v1");
     }
 }

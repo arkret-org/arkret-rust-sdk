@@ -85,10 +85,11 @@ macro_rules! id_type {
     };
 }
 
-/// Validate a DID against the Round 4 (2026-05-20, spec a77b995) tightened
-/// regex `^did:[a-z0-9]+:[^\s]+$`. Method name MUST be lowercase ASCII
-/// alpha + digits only (no `.`/`-`/`_`/`:`); method-specific-id MUST be
-/// non-empty and contain no whitespace.
+/// Validate a DID scalar against the Round 4 tightened pattern. Method name
+/// MUST be lowercase ASCII alpha + digits only (no `.`/`-`/`_`/`:`);
+/// method-specific-id MUST be non-empty and contain no whitespace, fragment,
+/// or query marker. DID URL fields use a separate string surface and require a
+/// `#key` fragment.
 fn is_did(value: &str) -> bool {
     let Some(remainder) = value.strip_prefix("did:") else {
         return false;
@@ -102,8 +103,7 @@ fn is_did(value: &str) -> bool {
     {
         return false;
     }
-    // Round 4: method-specific-id MUST NOT contain whitespace (`[^\s]+`).
-    if method_specific_id.bytes().any(|b| matches!(b, b' ' | b'\t' | b'\n' | b'\r')) {
+    if method_specific_id.bytes().any(|b| matches!(b, b' ' | b'\t' | b'\n' | b'\r' | b'#' | b'?')) {
         return false;
     }
     method != "uuid"
@@ -217,8 +217,8 @@ pub fn is_lowercase_uuidv7(value: &str) -> bool {
 id_type!(Did, is_did);
 // Protocol object IDs use typed prefixes with canonical RFC 9562 UUIDv7 payloads.
 id_type!(ActorProfileId, |value: &str| is_strict_typed_id(value, "cx:actor_profile:"));
-// CXP-0008/0009 (spec head 37ce729) — personal agent typed ids.
-id_type!(AgentPrincipalId, |value: &str| is_strict_typed_id(value, "cx:agent_principal:"));
+// CXP-0008/0009 (spec head 37ce729) — personal agent auxiliary typed ids.
+// `agent_principal_id` is a DID scalar, represented by `Did`.
 id_type!(AgentSessionId, |value: &str| is_strict_typed_id(value, "cx:agent_session:"));
 id_type!(AgentKeyId, |value: &str| is_strict_typed_id(value, "cx:agent_key:"));
 id_type!(AgentDraftId, |value: &str| is_strict_typed_id(value, "cx:agent_draft:"));
@@ -446,9 +446,8 @@ mod tests {
     }
 
     /// Round 4 (spec a77b995): method-name segment is `[a-z0-9]+` only;
-    /// `.`/`-`/`_`/`:` and whitespace MUST be rejected. The pre-round-4
-    /// permissive regex allowed `did:webvh-test:`-style method names and  ROUND4-ALLOW: docstring describes the legacy form being rejected.
-    /// is now wire-broken.
+    /// `.`/`-`/`_`/`:` and whitespace MUST be rejected. DID scalar fields
+    /// also reject DID URL query / fragment markers.
     #[test]
     fn did_validation_rejects_method_punctuation() {
         // Method-segment with dot/dash/underscore/colon — all rejected.
@@ -460,7 +459,9 @@ mod tests {
         assert!(Did::new("did:web:exa\tmple").is_err());
         // Pure alnum method — accepted.
         assert!(Did::new("did:webvh:example").is_ok());
-        assert!(Did::new("did:web:host.example/path#frag").is_ok());
+        assert!(Did::new("did:web:host.example/path").is_ok());
+        assert!(Did::new("did:web:host.example/path#frag").is_err());
+        assert!(Did::new("did:web:host.example/path?versionId=1").is_err());
     }
 
     #[test]
@@ -483,7 +484,6 @@ mod tests {
         }
 
         assert_id!(ActorProfileId, "cx:actor_profile:");
-        assert_id!(AgentPrincipalId, "cx:agent_principal:");
         assert_id!(AgentSessionId, "cx:agent_session:");
         assert_id!(AgentKeyId, "cx:agent_key:");
         assert_id!(AgentDraftId, "cx:agent_draft:");

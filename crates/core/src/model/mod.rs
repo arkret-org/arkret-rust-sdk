@@ -10,13 +10,13 @@ use sha2::{Digest, Sha256};
 
 use crate::{Error, Result, canonical};
 pub use contrix_identifiers::{
-    AccountabilityGrantId, ActorProfileId, AgentDraftId, AgentKeyId, AgentPrincipalId,
-    AgentSessionId, AppletId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId, CallId,
-    CapabilityId, ChunkId, CircleId, ClaimId, Cursor, DeviceId, DevmsgId, Did, EventId, FilterId,
-    FlowId, FrameId, FrankId, GrantId, Hash, Hlc, InviteId, KeyevtId, MessageId, ModqId, MorphId,
-    NotifId, OperationId, PolicyId, PresentationId, ReadCursorId, RealmId, ReceiptId,
-    RecoverySessionId, RelationId, ReportId, ReqId, SidecarCircleId, SnapshotId, SpaceId, TxnId,
-    TypedAppealId, TypedTrustDomainId, ViewId, new_prefixed_uuid7,
+    AccountabilityGrantId, ActorProfileId, AgentDraftId, AgentKeyId, AgentSessionId, AppletId,
+    BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId, CallId, CapabilityId, ChunkId,
+    CircleId, ClaimId, Cursor, DeviceId, DevmsgId, Did, EventId, FilterId, FlowId, FrameId,
+    FrankId, GrantId, Hash, Hlc, InviteId, KeyevtId, MessageId, ModqId, MorphId, NotifId,
+    OperationId, PolicyId, PresentationId, ReadCursorId, RealmId, ReceiptId, RecoverySessionId,
+    RelationId, ReportId, ReqId, SidecarCircleId, SnapshotId, SpaceId, TxnId, TypedAppealId,
+    TypedTrustDomainId, ViewId, new_prefixed_uuid7,
 };
 
 mod api;

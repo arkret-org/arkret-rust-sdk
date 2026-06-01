@@ -31,6 +31,7 @@ salvo = { workspace = true, optional = true, features = ["oapi"] }
 salvo-oapi = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
+tracing.workspace = true
 
 [lints]
 workspace = true

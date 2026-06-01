@@ -10,13 +10,13 @@ use salvo::oapi::{
 };
 
 use crate::{
-    AccountabilityGrantId, ActorProfileId, AgentDraftId, AgentKeyId, AgentPrincipalId,
-    AgentSessionId, AnchorId, AnnounceId, AppletId, BackupId, BackupSeriesId, BatchId, BlobId,
-    BlobRef, BlockId, CallId, CapabilityId, CellRef, ChunkId, CircleId, ClaimId, Cursor, DeviceId,
-    DevmsgId, Did, EventId, FilterId, FlowId, FrameId, FrankId, GrantId, Hash, Hlc, InviteId,
-    KeyevtId, MessageId, ModqId, MorphId, MoveId, NotifId, OperationId, PolicyId, PresentationId,
-    ReadCursorId, RealmId, ReceiptId, RecoverySessionId, RelationId, ReportId, ReqId,
-    SidecarCircleId, SnapshotId, SpaceId, TxnId, TypedAppealId, TypedTrustDomainId, ViewId,
+    AccountabilityGrantId, ActorProfileId, AgentDraftId, AgentKeyId, AgentSessionId, AnchorId,
+    AnnounceId, AppletId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId, CallId,
+    CapabilityId, CellRef, ChunkId, CircleId, ClaimId, Cursor, DeviceId, DevmsgId, Did, EventId,
+    FilterId, FlowId, FrameId, FrankId, GrantId, Hash, Hlc, InviteId, KeyevtId, MessageId, ModqId,
+    MorphId, MoveId, NotifId, OperationId, PolicyId, PresentationId, ReadCursorId, RealmId,
+    ReceiptId, RecoverySessionId, RelationId, ReportId, ReqId, SidecarCircleId, SnapshotId,
+    SpaceId, TxnId, TypedAppealId, TypedTrustDomainId, ViewId,
 };
 
 fn string_schema(pattern: &str) -> RefOr<Schema> {
@@ -42,10 +42,10 @@ macro_rules! impl_string_schema {
     };
 }
 
-// Round 4 (2026-05-20, spec a77b995) — tightened DID regex. Method name
-// MUST be lowercase alpha + digits only (no `.`/`-`/`_`/`:`), and the
-// method-specific-id is `[^\s]+` (no whitespace).
-impl_string_schema!(Did, r"^did:[a-z0-9]+:[^\s]+$");
+// Round 4 (2026-05-20, spec a77b995) — tightened DID scalar regex. Method
+// name MUST be lowercase alpha + digits only (no `.`/`-`/`_`/`:`), and the
+// method-specific-id contains no whitespace, query, or fragment marker.
+impl_string_schema!(Did, r"^did:[a-z0-9]+:[^\s#?]+$");
 impl_string_schema!(
     ActorProfileId,
     r"^cx:actor_profile:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
@@ -54,12 +54,9 @@ impl_string_schema!(
     AgentSessionId,
     r"^cx:agent_session:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
-// CXP-0008 / CXP-0009 (spec head 37ce729) — personal agent + key-backup
-// hardening typed ids.
-impl_string_schema!(
-    AgentPrincipalId,
-    r"^cx:agent_principal:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
-);
+// CXP-0008 / CXP-0009 (spec head 37ce729) — personal agent auxiliary
+// typed ids + key-backup hardening typed ids. `agent_principal_id` uses
+// the DID schema above.
 impl_string_schema!(
     AgentKeyId,
     r"^cx:agent_key:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"

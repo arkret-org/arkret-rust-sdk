@@ -28,6 +28,7 @@
 
 use contrix::{DeviceId, Did};
 use serde_json::{Value, json};
+use std::fmt::Write;
 
 /// Stand-in for a wire send. Returns the mock response a real soland would
 /// produce for each operation so the example stays self-contained.
@@ -40,7 +41,7 @@ fn mock_send(op_id: &str, method: &str, path: &str, body: &Value) -> Value {
             "public_key": "ed25519:base64-pub-key",
         }),
         "cx.agent.provision" => json!({
-            "agent_principal_id": "did:cx:agent:01964137-0000-7000-8000-00000000000a",
+            "agent_principal_id": "did:web:agent.example",
             "status": "active",
         }),
         "cx.agent.list" => json!({ "agents": [], "next_cursor": null }),
@@ -65,6 +66,18 @@ fn mock_send(op_id: &str, method: &str, path: &str, body: &Value) -> Value {
         "cx.agent.deactivate" => json!({ "status": "deactivated" }),
         _ => Value::Null,
     }
+}
+
+fn path_component(value: &str) -> String {
+    let mut encoded = String::with_capacity(value.len());
+    for byte in value.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~') {
+            encoded.push(char::from(byte));
+        } else {
+            let _ = write!(&mut encoded, "%{byte:02X}");
+        }
+    }
+    encoded
 }
 
 fn main() -> contrix::Result<()> {
@@ -97,6 +110,7 @@ fn main() -> contrix::Result<()> {
         }),
     );
     let agent_principal_id = provisioned["agent_principal_id"].as_str().unwrap().to_owned();
+    let agent_principal_path = path_component(&agent_principal_id);
 
     // 3. cx.agent.list
     let _list =
@@ -106,7 +120,7 @@ fn main() -> contrix::Result<()> {
     let _get = mock_send(
         "cx.agent.get",
         "GET",
-        &format!("/agents/{agent_principal_id}"),
+        &format!("/agents/{agent_principal_path}"),
         &json!({ "agent_principal_id": agent_principal_id }),
     );
 
@@ -114,13 +128,13 @@ fn main() -> contrix::Result<()> {
     let _paused = mock_send(
         "cx.agent.pause",
         "POST",
-        &format!("/agents/{agent_principal_id}/pause"),
+        &format!("/agents/{agent_principal_path}/pause"),
         &json!({ "reason": "user_requested" }),
     );
     let _resumed = mock_send(
         "cx.agent.resume",
         "POST",
-        &format!("/agents/{agent_principal_id}/resume"),
+        &format!("/agents/{agent_principal_path}/resume"),
         &Value::Null,
     );
 
@@ -128,7 +142,7 @@ fn main() -> contrix::Result<()> {
     let _rotated = mock_send(
         "cx.agent.rotate_key",
         "POST",
-        &format!("/agents/{agent_principal_id}/rotate-key"),
+        &format!("/agents/{agent_principal_path}/rotate-key"),
         &json!({ "previous_key_id": agent_key_id }),
     );
 
@@ -136,19 +150,20 @@ fn main() -> contrix::Result<()> {
     let grant = mock_send(
         "cx.agent.grant.attach",
         "POST",
-        &format!("/agents/{agent_principal_id}/grants"),
+        &format!("/agents/{agent_principal_path}/grants"),
         &json!({
             "scope": ["cx:capability:send_message"],
             "ttl_secs": 3_600,
         }),
     );
     let grant_id = grant["grant_id"].as_str().unwrap().to_owned();
+    let grant_path = path_component(&grant_id);
 
     // 9. grant.detach
     let _detached = mock_send(
         "cx.agent.grant.detach",
         "DELETE",
-        &format!("/agents/{agent_principal_id}/grants/{grant_id}"),
+        &format!("/agents/{agent_principal_path}/grants/{grant_path}"),
         &Value::Null,
     );
 
@@ -167,7 +182,7 @@ fn main() -> contrix::Result<()> {
     let _deactivated = mock_send(
         "cx.agent.deactivate",
         "POST",
-        &format!("/agents/{agent_principal_id}/deactivate"),
+        &format!("/agents/{agent_principal_path}/deactivate"),
         &json!({ "reason": "demo_complete" }),
     );
 
