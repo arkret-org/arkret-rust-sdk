@@ -1,0 +1,115 @@
+//! Policy-check request and response bindings.
+
+use super::*;
+use crate::canonical;
+
+// ── Trust domain plumbing ───────────────────────────────────────────────
+
+/// Round 4 — compute the canonical `audit_policy_version_digest` 4-tuple
+/// digest. Wire-breaking: the pre-round-4 2-arg signature
+/// `(audit_disclosure, audit_assurance)` is deleted. Receipts issued
+/// against the old hash MUST be rejected.
+///
+/// Canonical JSON over the object:
+/// ```text
+/// { "realm_id": <realm_id>,
+///   "trust_domain": <trust_domain>,
+///   "audit_disclosure": <audit_disclosure>,
+///   "audit_assurance": <audit_assurance> }
+/// ```
+/// hashed with SHA-256 per RFC 8785 JCS.
+pub fn compute_audit_policy_version_digest(
+    realm_id: &RealmId,
+    trust_domain: &TypedTrustDomainId,
+    audit_disclosure: &Value,
+    audit_assurance: &Value,
+) -> Result<[u8; 32]> {
+    let canonical_bytes = canonical::canonical_json_bytes(&serde_json::json!({
+        "realm_id": realm_id.as_str(),
+        "trust_domain": trust_domain.as_str(),
+        "audit_disclosure": audit_disclosure,
+        "audit_assurance": audit_assurance,
+    }))?;
+    let digest = Sha256::digest(&canonical_bytes);
+    Ok(digest.into())
+}
+
+// ── PolicyCheck v2 ──────────────────────────────────────────────────────
+
+/// Round 4 — `source` discriminator for [`PolicyCheckRequest`].
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct PolicyCheckSource {
+    pub service_did: Did,
+    pub service_type: String,
+}
+
+/// Round 4 (commit 7446832) — typed `/policy/check` request body.
+///
+/// Wire-breaking: replaces the pre-round-4 `PolicyCheckReqBody` (kept
+/// in `model::api` only for transport-layer salvo compatibility while
+/// upstream consumers migrate).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct PolicyCheckRequest {
+    pub request_id: String,
+    pub realm_id: RealmId,
+    pub actor: Did,
+    pub action: String,
+    pub request_canonical_digest: Hash,
+    pub source: PolicyCheckSource,
+    /// Hex-encoded hash of the source IP (privacy-preserving), see
+    /// `policy-server.md` §4.2.
+    pub source_ip_digest: Hash,
+    /// Signed transport envelope (HTTP message-signature transcript).
+    /// Required so policy server can verify the originating request
+    /// is bound to the calling service.
+    pub signed_transport: Value,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    pub event_preview: Value,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    pub auth_context: Value,
+}
+
+/// Round 4 — `bound_to` binding inside [`PolicyCheckResponse`].
+///
+/// MUST include all five fields so the response can be verified against
+/// the request transcript without trusting the policy server.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct PolicyCheckBoundTo {
+    pub realm_id: RealmId,
+    pub actor: Did,
+    pub action: String,
+    pub request_canonical_digest: Hash,
+    pub policy_server_id: Did,
+}
+
+/// Round 4 — signature carrier for [`PolicyCheckResponse`].
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct PolicyCheckSignature {
+    /// DID URL verification method, MUST match
+    /// `^did:[a-z0-9]+:[^\s]+#.+$`.
+    pub kid: String,
+    pub sig: String,
+}
+
+/// Round 4 (commit 7446832) — `/policy/check` response with full
+/// binding transcript.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct PolicyCheckResponse {
+    pub decision: AuthzDecision,
+    pub bound_to: PolicyCheckBoundTo,
+    pub auth_state_digest: Hash,
+    pub policy_frontier_digest: Hash,
+    pub membership_frontier_digest: Hash,
+    pub signature: PolicyCheckSignature,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason_code: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub obligations: Vec<Value>,
+}

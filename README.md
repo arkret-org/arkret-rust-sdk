@@ -75,10 +75,11 @@ cargo test
 - [Conformance certification](docs/conformance-certification.md)
 - [LTS policy](docs/lts-policy.md)
 
-## Round R4 (protocol review closures)
+## Protocol review closures
 
-Spec round 4 (`contrix-spec` range `2a4d39b..a77b995`, 8 commits) lands
-in the SDK as a new `round4` module re-exported from the umbrella crate.
+Spec review closure `contrix-spec` range `2a4d39b..a77b995` (8 commits)
+lands in the SDK as domain-named model modules re-exported from the
+umbrella crate.
 See [`CHANGELOG.md`](CHANGELOG.md) `[Unreleased]` for the canonical
 wire-breaking list.
 Headline additions:

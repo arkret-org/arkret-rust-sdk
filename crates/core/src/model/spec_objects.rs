@@ -12,10 +12,9 @@
 //! ### Sibling moderation-appeal types
 //!
 //! `moderation-appeal.schema.json` is already implemented in
-//! [`super::round23`] as [`super::round23::ModerationAppealPayload`],
-//! [`super::round23::AppealVerdict`] etc. — those names are NOT
-//! redefined here. New downstream code MUST consume the round23
-//! versions; they use richer typed-ID fields
+//! [`super::ModerationAppealPayload`], [`super::AppealVerdict`] etc.
+//! Those names are NOT redefined here. New downstream code MUST consume
+//! the existing typed versions; they use richer typed-ID fields
 //! (`TypedAppealId` / `EventId`) than a raw-string rewrite would.
 
 use chrono::{DateTime, Utc};
