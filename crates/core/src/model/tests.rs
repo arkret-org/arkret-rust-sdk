@@ -603,7 +603,7 @@ fn fact_chain_echo_validates_server_proof_binding() {
 }
 
 #[test]
-fn encrypted_payload_digest_matches_conformance_vector() {
+fn encrypted_content_digest_matches_conformance_vector() {
     let digest = EncryptedPayload::mls_payload_digest(
         7,
         "application/json",

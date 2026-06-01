@@ -1,10 +1,10 @@
 use super::helpers::{default_true, disclose_claim, validate_presented_claim};
 use super::*;
 
-/// Standard claim type names used by auth and progressive disclosure helpers.
+/// Standard claim kind names used by auth and progressive disclosure helpers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum AuthClaimType {
+pub enum AuthClaimKind {
     VerifiedHandle,
     EmailDomain,
     OrganizationMembership,
@@ -15,7 +15,7 @@ pub enum AuthClaimType {
     RiskLevel,
 }
 
-impl AuthClaimType {
+impl AuthClaimKind {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::VerifiedHandle => "verified_handle",
@@ -36,7 +36,7 @@ pub struct PresentedClaim {
     pub claim_id: String,
     pub subject: Did,
     pub issuer: Did,
-    pub claim_type: String,
+    pub claim_kind: String,
     pub value: Value,
     pub issued_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -54,14 +54,14 @@ impl PresentedClaim {
         claim_id: impl Into<String>,
         subject: Did,
         issuer: Did,
-        claim_type: impl Into<String>,
+        claim_kind: impl Into<String>,
         value: Value,
     ) -> Self {
         Self {
             claim_id: claim_id.into(),
             subject,
             issuer,
-            claim_type: claim_type.into(),
+            claim_kind: claim_kind.into(),
             value,
             issued_at: Utc::now(),
             refreshed_at: None,
@@ -81,7 +81,7 @@ impl PresentedClaim {
             claim_id,
             subject,
             issuer,
-            AuthClaimType::VerifiedHandle.as_str(),
+            AuthClaimKind::VerifiedHandle.as_str(),
             serde_json::json!({ "handle": handle.into() }),
         )
     }
@@ -96,7 +96,7 @@ impl PresentedClaim {
             claim_id,
             subject,
             issuer,
-            AuthClaimType::EmailDomain.as_str(),
+            AuthClaimKind::EmailDomain.as_str(),
             serde_json::json!({ "domain": domain.into() }),
         )
     }
@@ -112,7 +112,7 @@ impl PresentedClaim {
             claim_id,
             subject,
             issuer,
-            AuthClaimType::OrganizationMembership.as_str(),
+            AuthClaimKind::OrganizationMembership.as_str(),
             serde_json::json!({ "organization": organization, "roles": roles }),
         )
     }
@@ -128,7 +128,7 @@ impl PresentedClaim {
             claim_id,
             subject,
             issuer,
-            AuthClaimType::DeviceTrust.as_str(),
+            AuthClaimKind::DeviceTrust.as_str(),
             serde_json::json!({ "device_id": device_id, "trust_state": trust_state.into() }),
         )
     }
@@ -144,7 +144,7 @@ impl PresentedClaim {
             claim_id,
             subject,
             issuer,
-            AuthClaimType::GuardianController.as_str(),
+            AuthClaimKind::GuardianController.as_str(),
             serde_json::json!({ "guardian": guardian, "controller": controller }),
         )
     }
@@ -159,7 +159,7 @@ impl PresentedClaim {
             claim_id,
             subject,
             issuer,
-            AuthClaimType::MfaLevel.as_str(),
+            AuthClaimKind::MfaLevel.as_str(),
             serde_json::json!({ "level": level.into() }),
         )
     }
@@ -174,7 +174,7 @@ impl PresentedClaim {
             claim_id,
             subject,
             issuer,
-            AuthClaimType::RiskLevel.as_str(),
+            AuthClaimKind::RiskLevel.as_str(),
             serde_json::json!({ "level": level.into() }),
         )
     }
@@ -183,7 +183,7 @@ impl PresentedClaim {
 /// One claim requested by a progressive disclosure policy.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClaimDisclosureRequirement {
-    pub claim_type: String,
+    pub claim_kind: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub trusted_issuers: Vec<Did>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -365,7 +365,7 @@ impl DisclosureProofAdapterBoundary {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RejectedClaim {
     pub claim_id: String,
-    pub claim_type: String,
+    pub claim_kind: String,
     pub reason: String,
 }
 
@@ -399,7 +399,7 @@ pub fn validate_presentation(
     {
         rejected_claims.push(RejectedClaim {
             claim_id: format!("verifier_authority:{verifier}"),
-            claim_type: "verifier_authority".to_owned(),
+            claim_kind: "verifier_authority".to_owned(),
             reason: reason.to_string(),
         });
         return PresentationValidation {
@@ -412,7 +412,7 @@ pub fn validate_presentation(
 
     for requirement in &request.policy.requirements {
         let mut matched = false;
-        for claim in claims.iter().filter(|claim| claim.claim_type == requirement.claim_type) {
+        for claim in claims.iter().filter(|claim| claim.claim_kind == requirement.claim_kind) {
             match validate_presented_claim(request, requirement, claim, revoked_claim_ids, now) {
                 Ok(()) => {
                     disclosed_claims.push(disclose_claim(claim, &requirement.reveal_fields));
@@ -421,13 +421,13 @@ pub fn validate_presentation(
                 }
                 Err(reason) => rejected_claims.push(RejectedClaim {
                     claim_id: claim.claim_id.clone(),
-                    claim_type: claim.claim_type.clone(),
+                    claim_kind: claim.claim_kind.clone(),
                     reason,
                 }),
             }
         }
         if !matched && requirement.required {
-            missing_required.push(requirement.claim_type.clone());
+            missing_required.push(requirement.claim_kind.clone());
         }
     }
 

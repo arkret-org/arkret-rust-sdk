@@ -19,7 +19,7 @@ pub const ACCOUNT_DATA_BLOCKLIST: &str = "cx.account.blocklist";
 
 /// CXP R3 spec-sync (2026-05-27) — wire payload for `cx.account_data.set`.
 /// Mirrors the spec event payload `account-data-set.schema.json` shape:
-/// owner/key/body/encrypted_payload/body_digest/tombstone/updated_at/
+/// owner/key/body/encrypted_content/body_digest/tombstone/updated_at/
 /// expected_state_digest.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AccountDataSetPayload {
@@ -28,12 +28,12 @@ pub struct AccountDataSetPayload {
     /// Account-data type key (e.g. `cx.account.blocklist`,
     /// `m.push_rules`).
     pub key: String,
-    /// Cleartext body. Mutually exclusive with `encrypted_payload`.
+    /// Cleartext body. Mutually exclusive with `encrypted_content`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub body: Option<Value>,
     /// AEAD-wrapped body (preferred at rest for sensitive types).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub encrypted_payload: Option<Value>,
+    pub encrypted_content: Option<Value>,
     /// SHA-256 digest of the canonical body for tombstone-safe deletes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub body_digest: Option<String>,

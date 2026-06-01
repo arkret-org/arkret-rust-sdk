@@ -105,7 +105,7 @@ impl SnapshotChunker {
         }
         let mut out = Vec::with_capacity(bytes.len().div_ceil(self.target_chunk_bytes));
         for (chunk_id, slice) in bytes.chunks(self.target_chunk_bytes).enumerate() {
-            let digest = sha256_hash(slice);
+            let digest = sha256_digest(slice);
             out.push(SnapshotChunk { chunk_id: chunk_id as u32, bytes: slice.to_vec(), digest });
         }
         out
@@ -251,7 +251,7 @@ fn build_levels(leaves: &[Hash]) -> Result<Vec<Vec<Hash>>> {
     Ok(levels)
 }
 
-fn sha256_hash(bytes: &[u8]) -> Hash {
+fn sha256_digest(bytes: &[u8]) -> Hash {
     let digest = Sha256::digest(bytes);
     let hex: String = digest.iter().map(|b| format!("{b:02x}")).collect();
     Hash::new(format!("sha256:{hex}")).expect("sha256 wire form")
@@ -369,7 +369,7 @@ impl GeneratorProof {
             total_bytes,
             chunk_bytes,
         )?;
-        Ok(sha256_hash(&bytes))
+        Ok(sha256_digest(&bytes))
     }
 
     /// Recompute the canonical bytes for **this** proof and check
@@ -448,7 +448,7 @@ mod tests {
         let c = SnapshotChunker::new(8).unwrap();
         let chunks = c.chunk(b"the quick brown fox jumps over the lazy dog");
         for chunk in &chunks {
-            let recomputed = sha256_hash(&chunk.bytes);
+            let recomputed = sha256_digest(&chunk.bytes);
             assert_eq!(chunk.digest, recomputed);
         }
     }

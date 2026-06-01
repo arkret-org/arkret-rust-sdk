@@ -19,7 +19,7 @@
 //! - **CasRegister** (last-writer-wins, conflict→Bottom): space.policy,
 //!   space.read_receipt_policy, space.history_visibility,
 //!   space.join_rule, space.discovery, space.organization,
-//!   space.upgrade, flow.position, flow.stage, morph.stage, place.parent,
+//!   realm.upgrade, flow.position, flow.stage, morph.stage, space.parent,
 //!   anchorer (Move/Anchor authority cell), mls_epoch.
 //! - **Fsm** (legal transitions only): member.state, agent.status.
 //!   
@@ -486,7 +486,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.space.read_receipt_policy"]
+    &["cx.realm.read_receipt_policy"]
 );
 
 singleton_lattice!(
@@ -531,7 +531,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.space.upgrade"]
+    &["cx.realm.upgrade"]
 );
 
 singleton_lattice!(
@@ -540,7 +540,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.space.archive"]
+    &["cx.realm.archive"]
 );
 
 singleton_lattice!(
@@ -549,7 +549,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.space.freeze"]
+    &["cx.realm.freeze"]
 );
 
 singleton_lattice!(
@@ -558,7 +558,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.space.tombstone"]
+    &["cx.realm.tombstone"]
 );
 
 singleton_lattice!(
@@ -567,7 +567,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.space.destroy"]
+    &["cx.realm.destroy"]
 );
 
 singleton_lattice!(
@@ -585,7 +585,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.space.moderation_policy"]
+    &["cx.realm.moderation_policy"]
 );
 
 singleton_lattice!(
@@ -594,7 +594,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.space.history_sharing_policy"]
+    &["cx.realm.history_sharing_policy"]
 );
 
 singleton_lattice!(
@@ -603,7 +603,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.space.asset_privacy_policy"]
+    &["cx.realm.asset_privacy_policy"]
 );
 
 singleton_lattice!(
@@ -630,7 +630,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.space.plaintext_visible_services"]
+    &["cx.realm.plaintext_visible_services"]
 );
 
 singleton_lattice!(
@@ -639,7 +639,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.space.media_service"]
+    &["cx.realm.media_service"]
 );
 
 singleton_lattice!(
@@ -648,7 +648,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.space.schema"]
+    &["cx.realm.schema"]
 );
 
 singleton_lattice!(
@@ -657,7 +657,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.space.inheritance_policy"]
+    &["cx.realm.inheritance_policy"]
 );
 
 per_subject_lattice!(
@@ -737,16 +737,6 @@ impl LatticeKind for FlowWatch {
         &["cx.flow.watch.set"]
     }
 }
-
-per_subject_lattice!(
-    PlaceParent,
-    "cx.component.place.parent.v1",
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
-    Criticality::Required,
-    "place_id",
-    &["cx.place.parent"]
-);
 
 per_subject_lattice!(
     CrossSigningPublish,
@@ -1350,7 +1340,6 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(FlowStage);
     registry.register(MorphStage);
     registry.register(FlowWatch);
-    registry.register(PlaceParent);
     registry.register(CrossSigningPublish);
     registry.register(AnchorerCell);
     registry.register(MlsEpoch);
@@ -1455,7 +1444,6 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "cx.component.flow.stage.v1",
         "cx.component.morph.stage.v1",
         "cx.component.flow.watch.v1",
-        "cx.component.place.parent.v1",
         "cx.component.cross_signing.publish.v1",
         "cx.component.anchorer.v1",
         "cx.component.mls.epoch.v1",
@@ -1594,13 +1582,13 @@ mod tests {
         // `cx.component.realm.create.v1`, `cx.component.realm.destroy.v1`,
         // `cx.component.realm.delivery_binding_policy.v1`. We keep the
         // legacy `Space*` impls registered for reducer back-compat, so
-        // 50 (legacy) + 28 (new realm/flow/morph/agent) - 4 withdrawn
+        // 49 (legacy) + 28 (new realm/flow/morph/agent) - 4 withdrawn
         // agent extension vectors families, plus agent status, Circle, and
-        // member identity cells, plus preview policy = 80.
+        // member identity cells, plus preview policy = 79.
         // Bump this number deliberately when the spec event-kind
         // registry grows a new cell_family.
         let registry = default_lattice_registry();
-        assert_eq!(registry.len(), 80);
+        assert_eq!(registry.len(), 79);
     }
 
     #[test]

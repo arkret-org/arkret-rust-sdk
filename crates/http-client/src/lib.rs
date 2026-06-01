@@ -664,7 +664,7 @@ impl Client {
     }
 
     /// S-2 (savfox SDK gap): `POST /auth/account/session-grants` step 1 —
-    /// request a `cx.did.proof` challenge bound to `(principal_did,
+    /// request a `cx.did.proof` challenge bound to `(principal_id,
     /// device_id, audience)`. Spec `identity-did.md` §5.1.
     pub async fn auth_session_grant_challenge(
         &self,

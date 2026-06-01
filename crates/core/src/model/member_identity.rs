@@ -171,7 +171,7 @@ pub struct MemberIdentityReplacementRef {
 #[serde(untagged)]
 pub enum IdentityPayloadCarrier {
     MemberIdentity { member_identity: MemberIdentity },
-    EncryptedPayload { encrypted_payload: Value },
+    EncryptedContent { encrypted_content: Value },
 }
 
 impl IdentityPayloadCarrier {

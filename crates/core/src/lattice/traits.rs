@@ -62,7 +62,7 @@ impl LatticeKind {
                 "cx.mimi.room_binding",
             ],
             Self::CasRegister => &[
-                "cx.space.upgrade",
+                "cx.realm.upgrade",
                 "cx.realm.organization",
                 "cx.realm.policy",
                 "cx.realm.join_rule",
@@ -70,21 +70,21 @@ impl LatticeKind {
                 "cx.realm.discovery",
                 "cx.realm.policy_server",
                 "cx.realm.policy_components",
-                "cx.space.history_sharing_policy",
-                "cx.space.asset_privacy_policy",
-                "cx.space.read_receipt_policy",
-                "cx.space.moderation_policy",
-                "cx.space.plaintext_visible_services",
-                "cx.space.media_service",
-                "cx.space.schema",
-                "cx.space.inheritance_policy",
-                "cx.space.archive",
-                "cx.space.freeze",
-                "cx.space.tombstone",
-                "cx.space.destroy",
+                "cx.realm.history_sharing_policy",
+                "cx.realm.asset_privacy_policy",
+                "cx.realm.read_receipt_policy",
+                "cx.realm.moderation_policy",
+                "cx.realm.plaintext_visible_services",
+                "cx.realm.media_service",
+                "cx.realm.schema",
+                "cx.realm.inheritance_policy",
+                "cx.realm.archive",
+                "cx.realm.freeze",
+                "cx.realm.tombstone",
+                "cx.realm.destroy",
                 "cx.flow.move",
                 "cx.flow.reorder",
-                "cx.place.parent",
+                "cx.space.parent",
             ],
             Self::Fsm => &[
                 "cx.member.state",
@@ -95,13 +95,9 @@ impl LatticeKind {
                 "cx.agent.deactivate",
             ],
             Self::Counter => &[],
-            Self::OrderedLog => &[
-                "cx.space.create",
-                "cx.space.child",
-                "cx.space.parent",
-                "cx.policy.rule",
-                "cx.account.status",
-            ],
+            Self::OrderedLog => {
+                &["cx.space.create", "cx.space.child", "cx.policy.rule", "cx.account.status"]
+            }
         }
     }
 }
@@ -208,7 +204,7 @@ mod kind_tests {
         let kinds = LatticeKind::CasRegister.event_kinds();
         assert!(kinds.contains(&"cx.realm.policy"));
         assert!(kinds.contains(&"cx.flow.move"));
-        assert!(kinds.contains(&"cx.place.parent"));
+        assert!(kinds.contains(&"cx.space.parent"));
     }
 
     #[test]

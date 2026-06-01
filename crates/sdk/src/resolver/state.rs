@@ -246,16 +246,16 @@ impl SpaceState {
             // Reactions
             "cx.reaction.add" | "cx.reaction.remove" => self.reduce_reaction(event)?,
 
-            // Space upgrade
-            "cx.space.upgrade" => self.upgrade_space(event)?,
+            // Realm upgrade
+            "cx.realm.upgrade" => self.upgrade_space(event)?,
 
             // Generic redaction. Round 11 (2026-05-16): also flips Flow /
             // Morph subject state to Redacted per spec common-fields.md
             // §5.1 when the event content carries an `object_ref` pointing
             // to a `cx:flow:` / `cx:morph:` typed-id. State-machine guard
             // rejects already-terminal source with `<kind>_already_terminal`.
-            // Place is excluded — spec note "Place 没有 redacted" routes
-            // Place removal through `cx.place.tombstone` only.
+            // Space is excluded — spec note "Space has no redacted state" routes
+            // Space removal through `cx.space.tombstone` only.
             "cx.redaction" => {
                 self.redact_object_for_event(event)?;
                 if let Some(redacted_ref) = &event.redacts {
@@ -596,7 +596,7 @@ impl SpaceState {
         Ok(())
     }
 
-    // Reducer for `cx.place.archive`: validate current state == active per
+    // Reducer for `cx.space.archive`: validate current state == active per
     // contrix-spec common-fields.md §5.1 canonical state-transition table.
     // Archived / Tombstoned / unset MUST be rejected with `place_not_active`;
     // unknown Place is tolerated (causal / backfill).
@@ -611,7 +611,7 @@ impl SpaceState {
         self.set_place_state(event, crate::PlaceState::Archived)
     }
 
-    // Reducer for `cx.place.tombstone`: validate current state ∈
+    // Reducer for `cx.space.tombstone`: validate current state ∈
     // {Active, Archived} per contrix-spec common-fields.md §5.1. Tombstoned /
     // unset MUST be rejected with `place_already_terminal`; unknown Place is
     // tolerated (causal / backfill).
@@ -627,7 +627,7 @@ impl SpaceState {
         self.set_place_state(event, crate::PlaceState::Tombstoned)
     }
 
-    // Reducer for `cx.place.restore`: validate current state == archived per
+    // Reducer for `cx.space.restore`: validate current state == archived per
     // contrix-spec space-and-place.md §4.4. Active / Tombstoned / unset MUST
     // be rejected with `place_not_archived`; unknown Place is tolerated
     // (causal / backfill not yet caught up — mirrors set_place_state).
@@ -1180,7 +1180,7 @@ impl SpaceState {
     /// as restore guards). Returns `Ok(())` for redactions without
     /// `object_ref` (message-only path). Place is intentionally excluded
     /// because `PlaceState` has no `Redacted` variant — spec routes Place
-    /// removal through `cx.place.tombstone` instead.
+    /// removal through `cx.space.tombstone` instead.
     fn redact_object_for_event(&mut self, event: &Event) -> Result<()> {
         let Some(object_ref) = self.extract_optional_field::<String>(&event.content, "object_ref")
         else {
@@ -1212,7 +1212,7 @@ impl SpaceState {
         // hit here when `object_ref` is `cx:space:...` and Place is
         // unmaterialised; that's also fine because cx.redaction targeting
         // a Place is undefined per spec (no `Redacted` variant), and
-        // any place removal flow uses `cx.place.tombstone` directly.
+        // any place removal flow uses `cx.space.tombstone` directly.
         Ok(())
     }
 
@@ -1267,12 +1267,12 @@ impl SpaceState {
         matches!(
             event.kind.as_str(),
             "cx.message.redact"
-                | "cx.space.redact"
-                | "cx.space.export"
-                | "cx.space.legal_hold"
-                | "cx.space.migration_proof"
-                | "cx.space.upgrade"
-                | "cx.space.destroy"
+                | "cx.realm.redact"
+                | "cx.realm.export"
+                | "cx.realm.legal_hold"
+                | "cx.realm.migration_proof"
+                | "cx.realm.upgrade"
+                | "cx.realm.destroy"
                 | "cx.redaction"
         ) || event.redacts.is_some()
     }

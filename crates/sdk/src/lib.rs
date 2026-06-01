@@ -245,7 +245,7 @@ pub use applet_server::router as applet_router;
 pub use applet_server::{AppletHandler, AppletService};
 #[cfg(feature = "full-surface")]
 pub use auth::{
-    AccountAuthState, AccountRecoveryMethod, AccountRecoveryReqBody, AuthClaimType, AuthManager,
+    AccountAuthState, AccountRecoveryMethod, AccountRecoveryReqBody, AuthClaimKind, AuthManager,
     AuthRateLimitAction, AuthRateLimitContext, AuthRateLimitHook, AuthSession, AuthStateSnapshot,
     CONTRIX_DEVICE_SCOPE_PREFIX, ClaimDisclosureRequirement, DidProofVerification,
     DidProofVerificationReqBody, DidProofVerifier, DisclosurePolicy,

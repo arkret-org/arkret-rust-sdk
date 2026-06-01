@@ -210,7 +210,7 @@ impl ReceiptManager {
 
 // ─── Read Receipt disclosure policy (spec read-receipts.md §2.5) ────────
 
-/// `disclosure` field of `cx.space.read_receipt_policy`. Soft policy —
+/// `disclosure` field of `cx.realm.read_receipt_policy`. Soft policy —
 /// not cryptographically enforceable. Compliant clients honor `Required`
 /// by sending and `Disabled` by suppressing; `Optional` defers to user
 /// [`ReadReceiptPreferences`].

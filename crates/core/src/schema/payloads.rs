@@ -477,7 +477,7 @@ fn payload_def_candidates(event_kind: &str) -> Vec<String> {
         }
         ["view", "create" | "update" | "reconcile"] => candidates.push("view_payload".to_owned()),
         ["agent", "endpoint"] => candidates.push("agent_endpoint_payload".to_owned()),
-        ["agent", "protocol_session", "start"] => {
+        ["agent", "session", "start"] => {
             candidates.push("agent_session_start_payload".to_owned());
         }
         ["agent", "protocol_session", "status"] => {

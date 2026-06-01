@@ -22,7 +22,7 @@ pub const AGENT_ACTION_REQUEST: &str = "cx.agent.action_request";
 pub const AGENT_ACTION_APPROVE: &str = "cx.agent.action_approve";
 pub const AGENT_ACTION_REJECT: &str = "cx.agent.action_reject";
 pub const AGENT_PROTOCOL_SESSION_RESULT: &str = "cx.agent.protocol_session.result";
-pub const AGENT_PROTOCOL_SESSION_START: &str = "cx.agent.protocol_session.start";
+pub const AGENT_PROTOCOL_SESSION_START: &str = "cx.agent.session.start";
 pub const AGENT_PROTOCOL_SESSION_STATUS: &str = "cx.agent.protocol_session.status";
 pub const APPLET_BRIDGE_ERROR: &str = "cx.applet.bridge_error";
 pub const APPLET_DISCOVERY: &str = "cx.applet.discovery";
@@ -208,8 +208,7 @@ pub const MORPH_UPDATE: &str = "cx.morph.update";
 pub const ORGANIZATION_DISCOVERY: &str = "cx.organization.discovery";
 pub const ORGANIZATION_MODERATION_POLICY: &str = "cx.organization.moderation_policy";
 // Realm event kinds (security boundary; spec 59ac1d4 Realm/Space inversion).
-// These replace the former `cx.space.*` security events. Top-level governance
-// of the security boundary lives here.
+// Top-level governance of the security boundary lives here.
 pub const REALM_ARCHIVE: &str = "cx.realm.archive";
 pub const REALM_ASSET_PRIVACY_POLICY: &str = "cx.realm.asset_privacy_policy";
 pub const REALM_AUDIT_POLICY_DOWNGRADE: &str = "cx.realm.audit_policy_downgrade";
@@ -261,9 +260,8 @@ pub const SCHEMA_UPDATE: &str = "cx.schema.update";
 pub const SESSION_GRANT: &str = "cx.session.grant";
 pub const SOVEREIGN_DID_POLICY: &str = "cx.sovereign.did_policy";
 // Space event kinds (container; spec 59ac1d4 Realm/Space inversion).
-// These replace the former `cx.place.*` container events. Boards / lists /
-// arbitrary nestable containers live here. Security policies are NOT in
-// this family — see REALM_* above.
+// Boards / lists / arbitrary nestable containers live here. Security
+// policies are NOT in this family — see REALM_* above.
 pub const SPACE_ARCHIVE: &str = "cx.space.archive";
 pub const SPACE_CREATE: &str = "cx.space.create";
 pub const SPACE_PARENT: &str = "cx.space.parent";

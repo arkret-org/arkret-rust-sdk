@@ -44,7 +44,7 @@ pub enum CryptoError {
     #[error("crypto validation failed: {0}")]
     Validation(String),
     /// Two values that should be identical (e.g. a binding's
-    /// `signed_by` and the PSK kid it references) disagreed.
+    /// `verification_method` and the PSK kid it references) disagreed.
     #[error("crypto key mismatch")]
     KeyMismatch,
     /// A message-index / generation / nonce that should be strictly
@@ -258,7 +258,7 @@ fn default_key_format() -> String {
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CrossSigningBinding {
-    pub signed_by: String,
+    pub verification_method: String,
     pub alg: String,
     pub signature: String,
 }
@@ -336,12 +336,12 @@ impl CrossSigningPublishContent {
             return Err(Error::Protocol("cross-signing publish generation must be ≥ 1".to_owned()));
         }
         // Bindings must reference the published PSK kid.
-        if self.self_signing_key.binding.signed_by != self.principal_signing_key.kid {
+        if self.self_signing_key.binding.verification_method != self.principal_signing_key.kid {
             return Err(Error::Protocol(
                 "self_signing_key binding must reference the published PSK kid".to_owned(),
             ));
         }
-        if self.user_signing_key.binding.signed_by != self.principal_signing_key.kid {
+        if self.user_signing_key.binding.verification_method != self.principal_signing_key.kid {
             return Err(Error::Protocol(
                 "user_signing_key binding must reference the published PSK kid".to_owned(),
             ));
@@ -389,20 +389,15 @@ pub struct CrossSigningResetContent {
 /// Round C47 (spec e10b6ad): `cross-signing-reset.schema.json` moved from an
 /// open `additionalProperties: true` object to a strict `oneOf` discriminator
 /// with per-variant `required` fields. Every variant now carries `alg`; the
-/// `verification_method` field is renamed to `signed_by` (DID URL); the
+/// signing key is identified by `verification_method` (DID URL); the
 /// recovery-unlock variant uses `recovery_secret_ref` + `unlock_commitment`;
-/// the device-quorum variant gains a `threshold` int and per-signature
-/// `signed_by` / `alg`.
+/// the device-quorum variant carries a `threshold` int and per-signature
+/// `verification_method` / `alg`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum CrossSigningResetProof {
     /// Signature from the principal's current DID control key.
-    PrincipalSigning {
-        #[serde(rename = "verification_method", alias = "signed_by")]
-        signed_by: String,
-        alg: String,
-        signature: String,
-    },
+    PrincipalSigning { verification_method: String, alg: String, signature: String },
     /// Unlock of secret storage with the recovery key.
     RecoveryUnlock {
         recovery_secret_ref: String,
@@ -415,8 +410,7 @@ pub enum CrossSigningResetProof {
     /// Signature from a recovery service declared in the principal's DID document.
     TrustedRecoveryService {
         service_did: Did,
-        #[serde(rename = "verification_method", alias = "signed_by")]
-        signed_by: String,
+        verification_method: String,
         alg: String,
         signature: String,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -431,8 +425,7 @@ pub struct DeviceQuorumSignature {
     /// Quorum-contributing device.
     pub device_id: DeviceId,
     /// DID URL / verification-method identifying the signing key.
-    #[serde(rename = "verification_method", alias = "signed_by")]
-    pub signed_by: String,
+    pub verification_method: String,
     /// Signature algorithm (e.g. `EdDSA`).
     pub alg: String,
     /// Detached signature bytes (multibase / base64).
@@ -472,10 +465,13 @@ impl CrossSigningResetContent {
                     )));
                 }
                 for sig in signatures {
-                    validate_nonempty_key("device_quorum signed_by", &sig.signed_by)?;
+                    validate_nonempty_key(
+                        "device_quorum verification_method",
+                        &sig.verification_method,
+                    )?;
                     validate_max_length(
-                        "device_quorum signed_by",
-                        &sig.signed_by,
+                        "device_quorum verification_method",
+                        &sig.verification_method,
                         MAX_IDENTIFIER_LEN,
                     )?;
                     validate_nonempty_key("device_quorum alg", &sig.alg)?;
@@ -488,19 +484,26 @@ impl CrossSigningResetContent {
                     )?;
                 }
             }
-            CrossSigningResetProof::PrincipalSigning { signed_by, alg, signature }
+            CrossSigningResetProof::PrincipalSigning { verification_method, alg, signature }
             | CrossSigningResetProof::TrustedRecoveryService {
-                signed_by, alg, signature, ..
+                verification_method,
+                alg,
+                signature,
+                ..
             } => {
-                if signed_by.trim().is_empty()
+                if verification_method.trim().is_empty()
                     || alg.trim().is_empty()
                     || signature.trim().is_empty()
                 {
                     return Err(Error::Protocol(
-                        "reset proof requires signed_by + alg + signature".to_owned(),
+                        "reset proof requires verification_method + alg + signature".to_owned(),
                     ));
                 }
-                validate_max_length("reset proof signed_by", signed_by, MAX_IDENTIFIER_LEN)?;
+                validate_max_length(
+                    "reset proof verification_method",
+                    verification_method,
+                    MAX_IDENTIFIER_LEN,
+                )?;
                 validate_max_length("reset proof alg", alg, MAX_ALGORITHM_NAME_LEN)?;
                 validate_max_length("reset proof signature", signature, MAX_KEY_FIELD_LEN)?;
             }
@@ -541,7 +544,7 @@ impl CrossSigningResetContent {
 /// (spec §5.2 `content.cross_signing_binding`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeviceTrustBinding {
-    pub signed_by: String,
+    pub verification_method: String,
     pub alg: String,
     pub ssk_generation: u64,
     pub signature: String,
@@ -989,7 +992,7 @@ pub struct UnableToDecryptRecord {
     pub space_id: SpaceId,
     pub sender: Did,
     pub reason: UnableToDecryptReason,
-    pub encrypted_payload: EncryptedPayload,
+    pub encrypted_content: EncryptedPayload,
     pub first_seen_at: DateTime<Utc>,
 }
 
@@ -1398,7 +1401,7 @@ mod tests {
             space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
             sender: did("alice"),
             reason: UnableToDecryptReason::NoSession,
-            encrypted_payload: payload,
+            encrypted_content: payload,
             first_seen_at: Utc::now(),
         });
         assert_eq!(binding.unable_to_decrypt.len(), 1);
@@ -1683,7 +1686,7 @@ mod tests {
                 threshold: 0,
                 signatures: vec![DeviceQuorumSignature {
                     device_id: device(),
-                    signed_by: "did:web:alice.example#dev1".to_owned(),
+                    verification_method: "did:web:alice.example#dev1".to_owned(),
                     alg: "EdDSA".to_owned(),
                     signature: "AAAA".to_owned(),
                 }],
@@ -1702,29 +1705,29 @@ mod tests {
     /// blank kid/alg/signature strings must all be rejected.
     #[test]
     fn cross_signing_reset_proof_rejects_malformed_kid_alg() {
-        // PrincipalSigning with whitespace-only `signed_by`.
-        let blank_signed_by = CrossSigningResetContent {
+        // PrincipalSigning with whitespace-only `verification_method`.
+        let blank_verification_method = CrossSigningResetContent {
             principal_id: did("alice"),
             previous_generation: 1,
             new_generation: 2,
             reset_reason: "rot".to_owned(),
             proof: CrossSigningResetProof::PrincipalSigning {
-                signed_by: "   ".to_owned(),
+                verification_method: "   ".to_owned(),
                 alg: "EdDSA".to_owned(),
                 signature: "sig".to_owned(),
             },
             issued_at: Utc::now(),
         };
-        assert!(matches!(blank_signed_by.validate_structure(), Err(Error::Protocol(_))));
+        assert!(matches!(blank_verification_method.validate_structure(), Err(Error::Protocol(_))));
 
         // PrincipalSigning with empty `alg`.
         let blank_alg = CrossSigningResetContent {
             proof: CrossSigningResetProof::PrincipalSigning {
-                signed_by: "did:web:a.example#k1".to_owned(),
+                verification_method: "did:web:a.example#k1".to_owned(),
                 alg: String::new(),
                 signature: "sig".to_owned(),
             },
-            ..blank_signed_by.clone()
+            ..blank_verification_method.clone()
         };
         assert!(matches!(blank_alg.validate_structure(), Err(Error::Protocol(_))));
 
@@ -1736,7 +1739,7 @@ mod tests {
                 alg: "EdDSA".to_owned(),
                 signature: "sig".to_owned(),
             },
-            ..blank_signed_by.clone()
+            ..blank_verification_method.clone()
         };
         assert!(matches!(blank_unlock.validate_structure(), Err(Error::Protocol(_))));
 
@@ -1746,12 +1749,12 @@ mod tests {
                 threshold: 1,
                 signatures: vec![DeviceQuorumSignature {
                     device_id: device(),
-                    signed_by: "did:web:a.example#d".to_owned(),
+                    verification_method: "did:web:a.example#d".to_owned(),
                     alg: String::new(),
                     signature: "AAAA".to_owned(),
                 }],
             },
-            ..blank_signed_by
+            ..blank_verification_method
         };
         assert!(matches!(bad_quorum.validate_structure(), Err(Error::Protocol(_))));
     }
@@ -1769,7 +1772,7 @@ mod tests {
                 threshold: 1,
                 signatures: vec![DeviceQuorumSignature {
                     device_id: device(),
-                    signed_by: "did:web:a.example#d".to_owned(),
+                    verification_method: "did:web:a.example#d".to_owned(),
                     alg: "X".repeat(MAX_ALGORITHM_NAME_LEN + 1),
                     signature: "AAAA".to_owned(),
                 }],
@@ -1805,14 +1808,14 @@ mod tests {
             space_id: space_id.clone(),
             sender: did("alice"),
             reason: UnableToDecryptReason::BadCiphertext,
-            encrypted_payload: payload.clone(),
+            encrypted_content: payload.clone(),
             first_seen_at: Utc::now(),
         };
         binding.record_unable_to_decrypt(record);
         assert_eq!(binding.unable_to_decrypt.len(), 1);
         let stored = binding.unable_to_decrypt.get(&event_id).unwrap();
         assert_eq!(stored.reason, UnableToDecryptReason::BadCiphertext);
-        assert!(stored.encrypted_payload.ciphertext.is_empty());
+        assert!(stored.encrypted_content.ciphertext.is_empty());
 
         // Recording again with NoSession overwrites the prior entry —
         // the keyed event id is stable so the second observation wins.
@@ -1821,7 +1824,7 @@ mod tests {
             space_id,
             sender: did("alice"),
             reason: UnableToDecryptReason::NoSession,
-            encrypted_payload: payload,
+            encrypted_content: payload,
             first_seen_at: Utc::now(),
         });
         assert_eq!(binding.unable_to_decrypt.len(), 1);

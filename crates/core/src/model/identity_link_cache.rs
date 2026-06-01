@@ -64,7 +64,7 @@ pub fn compute_policy_frontier_digest(
 pub struct IdentityLinkCacheEntry {
     pub pairwise_did: Did,
 
-    pub principal_did: Did,
+    pub principal_id: Did,
 
     pub device_id: DeviceId,
 

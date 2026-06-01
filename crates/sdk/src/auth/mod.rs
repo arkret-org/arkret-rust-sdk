@@ -198,7 +198,7 @@ pub struct SessionPrincipalBinding {
     pub principal_id: Did,
     pub device_id: DeviceId,
     pub created_at: DateTime<Utc>,
-    pub valid_until: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
 }
 
 /// Canonical event kinds for the principal control space

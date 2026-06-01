@@ -17,7 +17,7 @@ fn device(id: &str) -> DeviceId {
 
 fn fake_binding(generation: u64) -> DeviceTrustBinding {
     DeviceTrustBinding {
-        signed_by: "did:web:alice.example#cx_self_signing_v1".to_owned(),
+        verification_method: "did:web:alice.example#cx_self_signing_v1".to_owned(),
         alg: "EdDSA".to_owned(),
         ssk_generation: generation,
         signature: format!("test-sig-gen-{generation}"),
@@ -42,7 +42,7 @@ fn sample_publish(principal: &Did, generation: u64) -> CrossSigningPublishConten
                 key_format: "multibase".to_owned(),
             },
             binding: CrossSigningBinding {
-                signed_by: format!("{principal}#cx_principal_signing_v1"),
+                verification_method: format!("{principal}#cx_principal_signing_v1"),
                 alg: "EdDSA".to_owned(),
                 signature: format!("psk-sig-ssk-gen-{generation}"),
             },
@@ -55,7 +55,7 @@ fn sample_publish(principal: &Did, generation: u64) -> CrossSigningPublishConten
                 key_format: "multibase".to_owned(),
             },
             binding: CrossSigningBinding {
-                signed_by: format!("{principal}#cx_principal_signing_v1"),
+                verification_method: format!("{principal}#cx_principal_signing_v1"),
                 alg: "EdDSA".to_owned(),
                 signature: format!("psk-sig-usk-gen-{generation}"),
             },
@@ -243,7 +243,7 @@ fn cross_signing_reset_marks_devices_needing_reverification() {
         new_generation: 2,
         reset_reason: "rotation".to_owned(),
         proof: CrossSigningResetProof::PrincipalSigning {
-            signed_by: "did:web:alice.example#did-control".to_owned(),
+            verification_method: "did:web:alice.example#did-control".to_owned(),
             alg: "EdDSA".to_owned(),
             signature: "test-psk-sig".to_owned(),
         },
@@ -378,7 +378,7 @@ fn cross_signing_reset_cancels_in_flight_verifications() {
         new_generation: 2,
         reset_reason: "compromise".to_owned(),
         proof: CrossSigningResetProof::PrincipalSigning {
-            signed_by: "did:web:alice.example#did-control".to_owned(),
+            verification_method: "did:web:alice.example#did-control".to_owned(),
             alg: "EdDSA".to_owned(),
             signature: "psk-sig".to_owned(),
         },

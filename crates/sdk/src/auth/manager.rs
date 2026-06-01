@@ -523,7 +523,7 @@ impl AuthManager {
             principal_id: session.principal_id.clone(),
             device_id: session.device_id.clone(),
             created_at: session.created_at,
-            valid_until: session.expires_at,
+            expires_at: session.expires_at,
         })
     }
 
@@ -804,7 +804,7 @@ impl AuthManager {
     pub async fn login_did_proof<S>(
         &mut self,
         client: &contrix_http_client::Client,
-        principal_did: Did,
+        principal_id: Did,
         device_id: DeviceId,
         signer: &S,
         verification_method: &str,
@@ -816,7 +816,7 @@ impl AuthManager {
         // Step 1: request the challenge.
         let challenge = client
             .auth_session_grant_challenge(&crate::model::SessionGrantChallengeReq {
-                principal_did: principal_did.clone(),
+                principal_id: principal_id.clone(),
                 device_id: device_id.clone(),
                 audience: audience.to_owned(),
                 origin: None,
@@ -843,7 +843,7 @@ impl AuthManager {
         // Step 2: build the cx.did.proof payload, sign it, and submit.
         let proof_payload = crate::model::SessionGrantDidProof::from_challenge(
             &challenge,
-            principal_did.clone(),
+            principal_id.clone(),
             device_id.clone(),
         );
         let payload_bytes = contrix_core::canonical::canonical_json_bytes(&proof_payload)?;
@@ -864,7 +864,7 @@ impl AuthManager {
         let wire = client
             .auth_session_grant_submit(&crate::model::SessionGrantSubmitReq {
                 challenge_id: challenge.challenge_id.clone(),
-                principal_did: principal_did.clone(),
+                principal_id: principal_id.clone(),
                 device_id: device_id.clone(),
                 proof_payload,
                 proof,

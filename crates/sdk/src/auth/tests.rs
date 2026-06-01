@@ -419,19 +419,19 @@ fn auth_validates_progressive_disclosure_claims_fail_closed() {
             policy_id: "policy-1".to_owned(),
             requirements: vec![
                 ClaimDisclosureRequirement {
-                    claim_type: AuthClaimType::VerifiedHandle.as_str().to_owned(),
+                    claim_kind: AuthClaimKind::VerifiedHandle.as_str().to_owned(),
                     trusted_issuers: vec![issuer.clone()],
                     reveal_fields: vec!["handle".to_owned()],
                     required: true,
                 },
                 ClaimDisclosureRequirement {
-                    claim_type: AuthClaimType::OrganizationMembership.as_str().to_owned(),
+                    claim_kind: AuthClaimKind::OrganizationMembership.as_str().to_owned(),
                     trusted_issuers: vec![issuer.clone()],
                     reveal_fields: vec!["organization".to_owned()],
                     required: true,
                 },
                 ClaimDisclosureRequirement {
-                    claim_type: AuthClaimType::GuardianController.as_str().to_owned(),
+                    claim_kind: AuthClaimKind::GuardianController.as_str().to_owned(),
                     trusted_issuers: vec![issuer.clone()],
                     reveal_fields: vec!["guardian".to_owned(), "controller".to_owned()],
                     required: true,

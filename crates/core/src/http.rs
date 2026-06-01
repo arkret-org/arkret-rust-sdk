@@ -1837,7 +1837,7 @@ pub struct AccountSessionGrantResBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AccountDevicePairReqBody {
-    pub principal_did: Did,
+    pub principal_id: Did,
     pub new_device_key: Value,
     pub pairing_proof: Proof,
     #[serde(skip_serializing_if = "Option::is_none")]

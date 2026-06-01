@@ -889,7 +889,7 @@ fn authz_engine_enforces_runtime_constraints() {
     .with_verified_claim(VerifiedClaim {
         claim_id: None,
         subject: Did::new("did:web:alice.example.com").unwrap(),
-        claim_type: "employee".to_owned(),
+        claim_kind: "employee".to_owned(),
         issuer: Did::new("did:web:issuer.example.com").unwrap(),
         organization: Some(Did::new("did:web:org.example.com").unwrap()),
         status: Some("active".to_owned()),
@@ -913,7 +913,7 @@ fn authz_engine_enforces_runtime_constraints() {
         }),
         ConstraintEntry::new(Constraint::ClaimBased {
             requires_claims: vec![ClaimRequirement {
-                claim_type: "employee".to_owned(),
+                claim_kind: "employee".to_owned(),
                 issuer: None,
                 organization: Some(Did::new("did:web:org.example.com").unwrap()),
                 status: Some("active".to_owned()),
@@ -942,7 +942,7 @@ fn authz_claim_constraints_fail_closed_on_subject_time_and_revocation() {
     let base_claim = VerifiedClaim {
         claim_id: Some("claim-1".to_owned()),
         subject: Did::new("did:web:alice.example.com").unwrap(),
-        claim_type: "employee".to_owned(),
+        claim_kind: "employee".to_owned(),
         issuer: Did::new("did:web:issuer.example.com").unwrap(),
         organization: None,
         status: Some("active".to_owned()),
@@ -965,7 +965,7 @@ fn authz_claim_constraints_fail_closed_on_subject_time_and_revocation() {
         grant_for("send", message_selector("cx:space:01904100-0000-7000-8000-1a412919cd4b"));
     grant.constraints = vec![ConstraintEntry::new(Constraint::ClaimBased {
         requires_claims: vec![ClaimRequirement {
-            claim_type: "employee".to_owned(),
+            claim_kind: "employee".to_owned(),
             issuer: None,
             organization: None,
             status: Some("active".to_owned()),

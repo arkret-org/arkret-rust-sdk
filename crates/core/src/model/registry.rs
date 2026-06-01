@@ -185,10 +185,9 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         OP_MORPH_UPDATE => vec!["morph_id".to_owned(), "patch".to_owned()],
         OP_MORPH_ARCHIVE | OP_MORPH_RESTORE => vec!["morph_id".to_owned()],
         OP_MORPH_STAGE_SET => vec!["morph_id".to_owned(), "stage".to_owned()],
-        // Container event kinds (Realm/Space inversion spec 59ac1d4):
-        // `cx.place.*` is renamed to `cx.space.*`. Field name `place_id`
-        // remains for now until container fields are renamed; the wire
-        // event-kind strings are the spec-mandated `cx.space.*`.
+        // Container event kinds (Realm/Space inversion spec 59ac1d4).
+        // Field name `place_id` remains for now until container fields are
+        // renamed; the wire event-kind strings are `cx.space.*`.
         OP_SPACE_CREATE => vec!["object".to_owned()],
         OP_SPACE_UPDATE => vec!["place_id".to_owned(), "patch".to_owned()],
         OP_SPACE_PARENT => vec!["place_id".to_owned(), "parent_space_id".to_owned()],

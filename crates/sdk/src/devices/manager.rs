@@ -736,8 +736,12 @@ impl DeviceManager {
             device_public_key,
             binding.ssk_generation,
         )?;
-        let device_ok =
-            verify_signature(&binding.signed_by, &binding.alg, &device_input, &binding.signature)?;
+        let device_ok = verify_signature(
+            &binding.verification_method,
+            &binding.alg,
+            &device_input,
+            &binding.signature,
+        )?;
         if !device_ok {
             return Ok(DeviceTrustChainOutcome::Invalid);
         }

@@ -34,8 +34,8 @@
 //!   `realm_id`, `space_id`, `place_id`, `thread_id`, `correlation_id`,
 //!   `request_id`, `txn_id`.
 //! - Sender identity: `sender`, `sender_did`, `sender_handle`,
-//!   `sender_display_name`, `sender_name`, `user_name`, `display_name`,
-//!   `from`, `to`, `target_did`.
+//!   `sender_actor_display_name`, `sender_display_name`, `sender_name`,
+//!   `user_name`, `display_name`, `from`, `to`, `target_did`.
 //! - Device identity: `device_did`, `device_url`, `device_id`,
 //!   `device_name`.
 //! - Content / preview: `body`, `content`, `text`, `message`, `title`,
@@ -48,7 +48,7 @@
 //!   `room_display_name`.
 //! - Provider escape hatches: `provider_payload`, `provider_data`,
 //!   `notification_payload`, `payload`, `aps`, `android`, `webpush`,
-//!   `encrypted_payload`, `ciphertext`.
+//!   `encrypted_content`, `ciphertext`.
 //! - Call setup: `sdp`, `offer`, `candidate`, `ice`, `ice_candidate`,
 //!   `ice_candidates`, `turn`, `turns`, `turn_credential`,
 //!   `turn_credentials`, `call_setup`.
@@ -409,6 +409,7 @@ pub fn is_forbidden_payload_key(key: &str) -> bool {
             | "sender"
             | "sender_did"
             | "sender_handle"
+            | "sender_actor_display_name"
             | "sender_display_name"
             | "sender_name"
             | "user_name"
@@ -481,7 +482,7 @@ pub fn is_forbidden_payload_key(key: &str) -> bool {
             | "aps"
             | "android"
             | "webpush"
-            | "encrypted_payload"
+            | "encrypted_content"
             | "ciphertext"
             // Call setup.
             | "sdp"

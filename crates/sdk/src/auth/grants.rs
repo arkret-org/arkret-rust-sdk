@@ -57,7 +57,7 @@ impl SessionGrantPayload {
             principal_id: self.principal_id.clone(),
             device_id: self.device_id.clone(),
             created_at: self.issued_at,
-            valid_until: self.expires_at,
+            expires_at: self.expires_at,
         }
     }
 }

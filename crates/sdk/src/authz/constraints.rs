@@ -25,13 +25,13 @@ pub enum Resource {
     /// Morph resource (canonical open-typed object).
     Morph { space_id: String, morph_id: String, morph_type: String },
     /// Notification resource (per-actor private channel).
-    Notification { actor_did: String, notification_id: String },
+    Notification { actor_id: String, notification_id: String },
     /// Blob resource. `space_id` may be `*` for global blobs.
     Blob { space_id: String, blob_id: String },
     /// Event resource (audit / redaction / state-resolution targets).
     Event { space_id: String, event_kind: String, event_id: String },
     /// Actor resource (account-lifecycle, profile updates).
-    Actor { actor_did: String },
+    Actor { actor_id: String },
     /// Circle resource.
     Circle { circle_id: contrix_core::CircleId },
 }
@@ -622,7 +622,7 @@ pub(super) fn update_earliest_future(
 /// Claim requirement.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ClaimRequirement {
-    pub claim_type: String,
+    pub claim_kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub issuer: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -639,7 +639,7 @@ pub struct VerifiedClaim {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub claim_id: Option<String>,
     pub subject: Did,
-    pub claim_type: String,
+    pub claim_kind: String,
     pub issuer: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub organization: Option<Did>,

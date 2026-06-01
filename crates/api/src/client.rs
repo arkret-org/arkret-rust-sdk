@@ -715,7 +715,7 @@ pub struct MediaDownloadResBody {
     /// Spec rename (head 37ce729): `size` → `size_bytes` on blob/media metadata.
     pub size_bytes: u64,
     pub content_digest: Hash,
-    pub encrypted_payload: Option<EncryptedPayload>,
+    pub encrypted_content: Option<EncryptedPayload>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

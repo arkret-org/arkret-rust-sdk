@@ -139,9 +139,9 @@ pub struct SessionGrantIntrospection {
     /// Whether the bearer token is currently valid. Receivers MUST
     /// reject any introspection where `active=false`.
     pub active: bool,
-    /// The operator's principal DID. Populated from
-    /// `org.contrix.principal_did` (or `sub`) on the IdP side.
-    pub principal_did: Did,
+    /// The operator's principal ID. Populated from
+    /// `org.contrix.principal_id` (or `sub`) on the IdP side.
+    pub principal_id: Did,
     /// Granted admin scopes — e.g.
     /// [`admin_scopes::ANCHORER_RECONFIGURE`]. Receivers gate
     /// individual admin operations on whether the relevant scope is
@@ -268,7 +268,7 @@ mod tests {
     fn grant_active(scopes: &[&str]) -> SessionGrantIntrospection {
         SessionGrantIntrospection {
             active: true,
-            principal_did: admin("did:web:alice.example"),
+            principal_id: admin("did:web:alice.example"),
             admin_scopes: scopes.iter().map(|s| (*s).to_owned()).collect(),
             expires_at_unix: Some(2_000_000_000),
             device_id: None,
@@ -322,7 +322,7 @@ mod tests {
     fn introspection_serializes_with_defaults() {
         let g = SessionGrantIntrospection {
             active: true,
-            principal_did: admin("did:web:alice.example"),
+            principal_id: admin("did:web:alice.example"),
             admin_scopes: vec![],
             expires_at_unix: None,
             device_id: None,
@@ -335,8 +335,8 @@ mod tests {
 
     #[test]
     fn introspection_deserializes_minimal_envelope() {
-        // Only `active` and `principal_did` required; the rest default.
-        let s = r#"{"active":true,"principal_did":"did:web:alice.example"}"#;
+        // Only `active` and `principal_id` required; the rest default.
+        let s = r#"{"active":true,"principal_id":"did:web:alice.example"}"#;
         let g: SessionGrantIntrospection = serde_json::from_str(s).unwrap();
         assert!(g.active);
         assert!(g.admin_scopes.is_empty());

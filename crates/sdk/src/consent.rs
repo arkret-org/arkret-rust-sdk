@@ -99,7 +99,7 @@ pub fn consent_tag(consent_id: &str, peer: &Did, scope: Scope) -> String {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ConsentGrantOptions {
     pub not_before: Option<DateTime<Utc>>,
-    pub valid_until: Option<DateTime<Utc>>,
+    pub expires_at: Option<DateTime<Utc>>,
     pub evidence_ref: Option<String>,
     pub reason: Option<String>,
     pub constraints: Vec<Value>,
@@ -115,7 +115,7 @@ pub struct ConsentGrantValue {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub not_before: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub valid_until: Option<DateTime<Utc>>,
+    pub expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub evidence_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -152,7 +152,7 @@ pub fn grant_effect(
         peer,
         scope,
         not_before: options.not_before,
-        valid_until: options.valid_until,
+        expires_at: options.expires_at,
         evidence_ref: options.evidence_ref.clone(),
         reason: options.reason.clone(),
         constraints: options.constraints.clone(),
@@ -246,7 +246,7 @@ pub fn evaluate_consent(
         {
             return false;
         }
-        if let Some(end) = grant.valid_until
+        if let Some(end) = grant.expires_at
             && now > end
         {
             return false;
@@ -328,7 +328,7 @@ mod tests {
     #[test]
     fn grant_effect_produces_or_set_add() {
         let opts = ConsentGrantOptions {
-            valid_until: Some(ts(2026, 12, 31)),
+            expires_at: Some(ts(2026, 12, 31)),
             evidence_ref: Some("cx:event:01904100-0000-7000-8000-4ad9d5ef0089".to_owned()),
             ..Default::default()
         };
@@ -339,7 +339,7 @@ mod tests {
         assert_eq!(value.get("consent_id").unwrap(), "cs-001");
         assert_eq!(value.get("scope").unwrap(), "invite");
         assert_eq!(value.get("peer").unwrap(), "did:web:bob.example");
-        assert!(value.get("valid_until").is_some());
+        assert!(value.get("expires_at").is_some());
     }
 
     #[test]
@@ -378,7 +378,7 @@ mod tests {
     fn evaluate_consent_respects_window() {
         let opts = ConsentGrantOptions {
             not_before: Some(ts(2026, 1, 1)),
-            valid_until: Some(ts(2026, 12, 31)),
+            expires_at: Some(ts(2026, 12, 31)),
             ..Default::default()
         };
         let grant = grant_effect("cs-001", bob(), Scope::Invite, &opts).unwrap();
@@ -465,7 +465,7 @@ mod tests {
             peer: bob(),
             scope: Scope::Invite,
             not_before: None,
-            valid_until: Some(ts(2026, 12, 31)),
+            expires_at: Some(ts(2026, 12, 31)),
             evidence_ref: Some("cx:event:01904100-0000-7000-8000-4ad9d5ef0089".to_owned()),
             reason: None,
             constraints: vec![],

@@ -108,7 +108,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_event_kinds: &[
                     "cx.agent.endpoint",
                     "cx.agent.protocol_session.result",
-                    "cx.agent.protocol_session.start",
+                    "cx.agent.session.start",
                     "cx.agent.protocol_session.status",
                 ],
                 required_schemas: &["cx.schema.capability.v1"],

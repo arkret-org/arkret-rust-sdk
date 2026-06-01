@@ -34,7 +34,7 @@ pub struct Space {
     pub owning_organizations: Vec<Did>,
     pub schema_refs: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub policy_ref: Option<PolicyId>,
+    pub policy_id: Option<PolicyId>,
     pub default_discoverability: Discoverability,
     pub default_join_rule: JoinRule,
     pub history_visibility: HistoryVisibility,
@@ -172,7 +172,7 @@ impl Space {
             created_by,
             owning_organizations: Vec::new(),
             schema_refs: vec![CORE_SCHEMA_PROFILE.to_owned()],
-            policy_ref: None,
+            policy_id: None,
             default_discoverability: Discoverability::InviteOnly,
             default_join_rule: JoinRule::Invite,
             history_visibility: HistoryVisibility::Joined,

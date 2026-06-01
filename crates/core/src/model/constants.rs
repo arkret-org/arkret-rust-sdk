@@ -217,8 +217,8 @@ pub const OP_MORPH_RESTORE: &str = "cx.morph.restore";
 pub const OP_MORPH_STAGE_SET: &str = "cx.morph.stage.set";
 
 /// Space (container) event kinds. Realm/Space inversion (spec 59ac1d4):
-/// `cx.place.*` (container) is renamed to `cx.space.*`; see the security
-/// boundary OP_REALM_* family for the renamed `cx.realm.*` events.
+/// container events use `cx.space.*`; see the security boundary
+/// OP_REALM_* family for `cx.realm.*` events.
 pub const OP_SPACE_CREATE: &str = "cx.space.create";
 pub const OP_SPACE_UPDATE: &str = "cx.space.update";
 pub const OP_SPACE_PARENT: &str = "cx.space.parent";
@@ -239,9 +239,8 @@ pub const OP_VIEW_CREATE: &str = "cx.view.create";
 pub const OP_VIEW_UPDATE: &str = "cx.view.update";
 pub const OP_VIEW_RECONCILE: &str = "cx.view.reconcile";
 
-/// Realm event kinds (security boundary; spec 59ac1d4 inversion). These are
-/// the renamed `cx.space.*` security-boundary events from before the
-/// inversion. The container-level OP_SPACE_* family lives above.
+/// Realm event kinds (security boundary; spec 59ac1d4 inversion). The
+/// container-level OP_SPACE_* family lives above.
 pub const OP_REALM_CREATE: &str = "cx.realm.create";
 pub const OP_REALM_UPDATE: &str = "cx.realm.update";
 pub const OP_REALM_ORGANIZATION: &str = "cx.realm.organization";
@@ -479,7 +478,7 @@ pub const OP_AGENT_KEY_AUTHORIZED: &str = OP_AGENT_KEY_AUTHORIZE;
 pub const OP_AGENT_KEY_REVOKED: &str = OP_AGENT_KEY_REVOKE;
 pub const OP_AGENT_KEY_ROTATED: &str = OP_AGENT_KEY_ROTATE;
 pub const OP_AGENT_PROTOCOL_SESSION_RESULT: &str = "cx.agent.protocol_session.result";
-pub const OP_AGENT_PROTOCOL_SESSION_START: &str = "cx.agent.protocol_session.start";
+pub const OP_AGENT_PROTOCOL_SESSION_START: &str = "cx.agent.session.start";
 pub const OP_AGENT_PROTOCOL_SESSION_STATUS: &str = "cx.agent.protocol_session.status";
 
 /// Directory operations beyond the bare `describe`.

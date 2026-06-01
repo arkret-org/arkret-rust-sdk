@@ -47,14 +47,14 @@ pub enum ResourceSelector {
     /// Morph selector — `morph_type` is the canonical filter per
     /// `resource-selector-grammar.md` §6 (matches by exact type name).
     Morph { space_id: String, morph_id: Option<String>, morph_type: Option<String> },
-    /// Notification selector (per-actor private). `actor_did` may be `*`.
-    Notification { actor_did: String, notification_id: Option<String> },
+    /// Notification selector (per-actor private). `actor_id` may be `*`.
+    Notification { actor_id: String, notification_id: Option<String> },
     /// Blob selector. `space_id` MAY be `*` for global blobs (e.g. avatars).
     Blob { space_id: String, blob_id: Option<String> },
     /// Event selector (audit/redaction). Matches by event kind / id.
     Event { space_id: String, event_kind: Option<String>, event_id: Option<String> },
     /// Actor selector (e.g. account-lifecycle, profile updates).
-    Actor { actor_did: String },
+    Actor { actor_id: String },
     /// CXP-0007 (R3 spec-sync 2026-05-27) — Circle selector. Matches a
     /// specific Circle by its `cx:circle:<uuid>` identifier. The Circle
     /// is scoped to its parent Realm; cross-Realm selectors MUST be
@@ -195,10 +195,10 @@ impl ResourceSelector {
 
             // Notification selector
             (
-                Self::Notification { actor_did, notification_id },
-                Resource::Notification { actor_did: target_actor, notification_id: target_id },
+                Self::Notification { actor_id, notification_id },
+                Resource::Notification { actor_id: target_actor, notification_id: target_id },
             ) => {
-                let actor_match = actor_did == target_actor || actor_did == "*";
+                let actor_match = actor_id == target_actor || actor_id == "*";
                 let id_match = notification_id.as_ref().is_none_or(|id| id == target_id);
                 actor_match && id_match
             }
@@ -232,8 +232,8 @@ impl ResourceSelector {
             (Self::Event { .. }, _) => false,
 
             // Actor selector
-            (Self::Actor { actor_did }, Resource::Actor { actor_did: target_actor }) => {
-                actor_did == target_actor || actor_did == "*"
+            (Self::Actor { actor_id }, Resource::Actor { actor_id: target_actor }) => {
+                actor_id == target_actor || actor_id == "*"
             }
             (Self::Actor { .. }, _) => false,
 
@@ -643,11 +643,11 @@ impl ProtocolResourceSelector {
                 blob_ref: None,
                 match_scope: None,
             },
-            ResourceSelector::Notification { actor_did, notification_id } => Self {
+            ResourceSelector::Notification { actor_id, notification_id } => Self {
                 kind: ProtocolResourceSelectorKind::Notification,
                 space_id: None,
                 circle_id: None,
-                actor_id: Some(actor_did.clone()),
+                actor_id: Some(actor_id.clone()),
                 object_ref: notification_id.clone(),
                 object_type: None,
                 flow_id: None,
@@ -706,11 +706,11 @@ impl ProtocolResourceSelector {
                 blob_ref: None,
                 match_scope: None,
             },
-            ResourceSelector::Actor { actor_did } => Self {
+            ResourceSelector::Actor { actor_id } => Self {
                 kind: ProtocolResourceSelectorKind::Actor,
                 space_id: None,
                 circle_id: None,
-                actor_id: Some(actor_did.clone()),
+                actor_id: Some(actor_id.clone()),
                 object_type: None,
                 object_ref: None,
                 flow_id: None,

@@ -719,7 +719,7 @@ impl AuthzEngine {
                             "claims required ({}) but no trusted issuers specified",
                             requires_claims
                                 .iter()
-                                .map(|c| c.claim_type.as_str())
+                                .map(|c| c.claim_kind.as_str())
                                 .collect::<Vec<_>>()
                                 .join(", ")
                         ),
@@ -732,7 +732,7 @@ impl AuthzEngine {
                             .as_ref()
                             .is_none_or(|claim_id| !ctx.revoked_claim_ids.contains(claim_id));
                         let freshness_basis = claim.refreshed_at.or(claim.issued_at);
-                        claim.claim_type == requirement.claim_type
+                        claim.claim_kind == requirement.claim_kind
                             && claim.subject == ctx.actor_id
                             && trusted_issuers.contains(&claim.issuer)
                             && requirement
@@ -763,7 +763,7 @@ impl AuthzEngine {
                         return AuthzDecision::Deny {
                             reason: format!(
                                 "required claim not satisfied: {}",
-                                requirement.claim_type
+                                requirement.claim_kind
                             ),
                         };
                     }

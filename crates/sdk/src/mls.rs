@@ -258,8 +258,7 @@ impl EncryptedEnvelopeV1 {
             .map_err(|err| Error::Protocol(format!("encode envelope aad: {err}")))?;
         if payload.aad.as_ref() != Some(&aad_value) {
             return Err(Error::Protocol(
-                "encrypted envelope aad does not match the aad bound at encryption time"
-                    .to_owned(),
+                "encrypted envelope aad does not match the aad bound at encryption time".to_owned(),
             ));
         }
         let aad_digest = crate::crypto::json_aad_digest(&aad_value)?;
@@ -531,7 +530,7 @@ impl ContrixMlsGroup {
             .expect("sha256:<hex> is always a valid Hash typed-id")
     }
 
-    /// Snapshot the current MLS group's member principals as canonical DIDs.
+    /// Snapshot the current MLS group's member principals as canonical IDs.
     /// Iterates the OpenMLS `members()` view, parses each leaf's credential
     /// content as a UTF-8 DID string, and folds the results into a stable
     /// (deduplicated, BTreeSet-sorted) `Vec<Did>`. Useful for `cx.audit.
@@ -540,9 +539,9 @@ impl ContrixMlsGroup {
     ///
     /// Credentials that don't parse as a [`Did`] (e.g. opaque BasicCredential
     /// payloads from legacy groups) are silently skipped — the caller can
-    /// detect this case by comparing `members_principal_dids().len()` against
+    /// detect this case by comparing `member_principal_ids().len()` against
     /// the group's true member count if it cares.
-    pub fn member_principal_dids(&self) -> Vec<Did> {
+    pub fn member_principal_ids(&self) -> Vec<Did> {
         let mut seen = std::collections::BTreeSet::new();
         for member in self.group.members() {
             let bytes = member.credential.serialized_content();
@@ -1237,7 +1236,7 @@ mod tests {
     }
 
     #[test]
-    fn member_principal_dids_returns_credentials_as_dids() {
+    fn member_principal_ids_returns_credentials_as_dids() {
         // After Add, both Alice and Bob are members; both DIDs MUST appear
         // in the snapshot. After Remove, only the surviving DID remains.
         let alice = ContrixMlsIdentity::new_basic(
@@ -1255,12 +1254,12 @@ mod tests {
         let mut alice_group =
             alice.create_group(b"cx:space:01904100-0000-7000-8000-1ad6479d4a41").unwrap();
         assert_eq!(
-            alice_group.member_principal_dids(),
+            alice_group.member_principal_ids(),
             vec![Did::new("did:web:alice.example").unwrap()],
         );
 
         let _ = alice_group.add_member(&bob_key_package).unwrap();
-        let members = alice_group.member_principal_dids();
+        let members = alice_group.member_principal_ids();
         assert_eq!(members.len(), 2);
         assert!(members.contains(&Did::new("did:web:alice.example").unwrap()));
         assert!(members.contains(&Did::new("did:web:bob.example").unwrap()));
@@ -1269,7 +1268,7 @@ mod tests {
             .remove_member_by_principal(&Did::new("did:web:bob.example").unwrap())
             .unwrap();
         assert_eq!(
-            alice_group.member_principal_dids(),
+            alice_group.member_principal_ids(),
             vec![Did::new("did:web:alice.example").unwrap()],
         );
     }
@@ -1521,7 +1520,7 @@ mod tests {
     }
 
     #[test]
-    fn message_crypto_preserves_encrypted_payload_without_available_key() {
+    fn message_crypto_preserves_encrypted_content_without_available_key() {
         let alice = ContrixMlsIdentity::new_basic(
             Did::new("did:web:alice.example").unwrap(),
             DeviceId::new("cx:device:01904100-0000-7000-8000-000000000006").unwrap(),

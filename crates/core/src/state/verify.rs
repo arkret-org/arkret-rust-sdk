@@ -160,8 +160,6 @@ struct CapabilityGrantCellValue {
     #[serde(default)]
     subject: Option<String>,
     #[serde(default)]
-    subject_did: Option<String>,
-    #[serde(default)]
     actions: Vec<String>,
     #[serde(default)]
     resources: Vec<Value>,
@@ -181,7 +179,7 @@ impl CapabilityGrantCellValue {
     }
 
     fn subject(&self) -> Option<&str> {
-        self.subject.as_deref().or(self.subject_did.as_deref())
+        self.subject.as_deref()
     }
 
     fn has_resources(&self) -> bool {

@@ -55,7 +55,7 @@ pub enum ProtocolGrantApprovalRelation {
 /// Schema-aligned claim requirement.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProtocolGrantClaimRequirement {
-    pub claim_type: String,
+    pub claim_kind: String,
     pub issuer: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub organization: Option<String>,
@@ -210,7 +210,7 @@ impl ProtocolGrantConstraint {
                 approval_actor_ids: Vec::new(),
                 approval_relation: None,
                 requires_claims: vec![ProtocolGrantClaimRequirement {
-                    claim_type: "recovery_operator".to_owned(),
+                    claim_kind: "recovery_operator".to_owned(),
                     issuer: "did:web:coauth.example".to_owned(),
                     organization: Some("example-org".to_owned()),
                     status: Some("active".to_owned()),

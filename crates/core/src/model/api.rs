@@ -2299,12 +2299,12 @@ pub struct RecoveryReceipt {
 // `identity-did.md` §5.1. Step 1 returns a `SessionGrantChallenge`; step 2
 // submits a signed `cx.did.proof` (envelope inside `SessionGrantSubmitReq`).
 
-/// Step 1 request: client asks for a challenge bound to a `(principal_did,
+/// Step 1 request: client asks for a challenge bound to a `(principal_id,
 /// device_id, audience)` tuple. Spec `identity-did.md` §5.1.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SessionGrantChallengeReq {
-    pub principal_did: Did,
+    pub principal_id: Did,
     pub device_id: DeviceId,
     /// DID of the Principal Server / service the grant is for. Bound
     /// into the `cx.did.proof` audience.
@@ -2349,7 +2349,7 @@ impl SessionGrantChallenge {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SessionGrantSubmitReq {
     pub challenge_id: String,
-    pub principal_did: Did,
+    pub principal_id: Did,
     pub device_id: DeviceId,
     pub proof_payload: SessionGrantDidProof,
     pub proof: Proof,
@@ -2367,7 +2367,7 @@ pub struct SessionGrantDidProof {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin: Option<String>,
     pub challenge: String,
-    pub principal_did: Did,
+    pub principal_id: Did,
     pub device_id: DeviceId,
     pub expires_at: DateTime<Utc>,
 }
@@ -2379,7 +2379,7 @@ impl SessionGrantDidProof {
     /// `kind=cx.did.proof` so callers don't have to.
     pub fn from_challenge(
         challenge: &SessionGrantChallenge,
-        principal_did: Did,
+        principal_id: Did,
         device_id: DeviceId,
     ) -> Self {
         Self {
@@ -2388,7 +2388,7 @@ impl SessionGrantDidProof {
             audience: challenge.audience.clone(),
             origin: challenge.origin.clone(),
             challenge: challenge.challenge.clone(),
-            principal_did,
+            principal_id,
             device_id,
             expires_at: challenge.expires_at,
         }
