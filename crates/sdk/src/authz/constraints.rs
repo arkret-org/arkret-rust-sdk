@@ -260,7 +260,7 @@ pub struct Recurrence {
 }
 
 /// Duration representation.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ConstraintDuration {
     pub value: u64,
     pub unit: String, // "s", "m", "h", "d"

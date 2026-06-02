@@ -530,6 +530,23 @@ impl ContrixMlsGroup {
             .expect("sha256:<hex> is always a valid Hash typed-id")
     }
 
+    /// Derive an MLS RFC 9420 §8.5 exporter secret bound to the current
+    /// epoch's key schedule. The output is deterministic for a given
+    /// `(group, epoch, label, context, length)` and rotates on every commit,
+    /// so two members on the same epoch derive identical bytes without
+    /// exchanging material.
+    ///
+    /// Used for spec-defined key derivations layered on the group secret —
+    /// e.g. the reaction routing tag (`encryption-and-audit.md` §2.9, label
+    /// `contrix-reaction-routing-v2`, context = `realm_id`) and SFrame media
+    /// keys (`webrtc-signaling.md` §11). Callers MUST treat the returned
+    /// bytes as secret key material (never log or persist them in the clear).
+    pub fn export_secret(&self, label: &str, context: &[u8], length: usize) -> Result<Vec<u8>> {
+        self.group
+            .export_secret(self.identity.provider.crypto(), label, context, length)
+            .map_err(mls_error)
+    }
+
     /// Snapshot the current MLS group's member principals as canonical IDs.
     /// Iterates the OpenMLS `members()` view, parses each leaf's credential
     /// content as a UTF-8 DID string, and folds the results into a stable
@@ -1233,6 +1250,42 @@ mod tests {
 
         // Bob's view of the same epoch MUST produce the same hash.
         assert_eq!(hash_post, bob_group.schedule_hash());
+    }
+
+    #[test]
+    fn export_secret_agrees_across_members_and_binds_label_context() {
+        // RFC 9420 §8.5: members on the same epoch derive identical exporter
+        // bytes; distinct (label, context) MUST yield distinct outputs. This
+        // is the primitive the reaction routing tag (encryption-and-audit.md
+        // §2.9) and SFrame keys are built on.
+        let alice = ContrixMlsIdentity::new_basic(
+            Did::new("did:web:alice.example").unwrap(),
+            DeviceId::new("cx:device:01904100-0000-7000-8000-000000000016").unwrap(),
+        )
+        .unwrap();
+        let bob = ContrixMlsIdentity::new_basic(
+            Did::new("did:web:bob.example").unwrap(),
+            DeviceId::new("cx:device:01904100-0000-7000-8000-00000000001e").unwrap(),
+        )
+        .unwrap();
+        let bob_key_package = bob.key_package_record().unwrap();
+
+        let mut alice_group =
+            alice.create_group(b"cx:space:01904100-0000-7000-8000-1ad6479d4a41").unwrap();
+        let add_result = alice_group.add_member(&bob_key_package).unwrap();
+        let bob_group = ContrixMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
+
+        let realm = b"cx:realm:01904100-0000-7000-8000-1ad6479d4a41";
+        let a = alice_group.export_secret("contrix-reaction-routing-v2", realm, 32).unwrap();
+        let b = bob_group.export_secret("contrix-reaction-routing-v2", realm, 32).unwrap();
+        assert_eq!(a.len(), 32);
+        assert_eq!(a, b, "same epoch + label + context MUST agree across members");
+
+        // Different context (realm) MUST diverge.
+        let other_realm = b"cx:realm:01904100-0000-7000-8000-1ad6479d4a42";
+        assert_ne!(a, alice_group.export_secret("contrix-reaction-routing-v2", other_realm, 32).unwrap());
+        // Different label MUST diverge.
+        assert_ne!(a, alice_group.export_secret("cx-rtc-frame-key/v1", realm, 32).unwrap());
     }
 
     #[test]

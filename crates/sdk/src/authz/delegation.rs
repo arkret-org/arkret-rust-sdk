@@ -34,6 +34,8 @@ use chrono::{DateTime, Utc};
 use contrix_core::CircleId;
 use serde::{Deserialize, Serialize};
 
+use crate::authz::constraints::ConstraintDuration;
+
 /// A capability grant in its runtime / in-memory form.
 ///
 /// Mirrors soland's `crate::authz::Grant`. The fields `delegated_from` and
@@ -88,12 +90,35 @@ pub enum GrantConstraint {
     /// standalone constraint type because soland's engine treats decision
     /// constraints separately from the spec-typed evaluation families.
     Decision { decision: GrantDecisionVerdict },
-    /// Temporal constraint with an optional `expires_at`. The top-level
-    /// `Grant::expires_at` field and any `Temporal { expires_at }` entry
-    /// are intersected; the stricter wins (see [`grant_effective_expiry`]).
+    /// Temporal constraint (`constraint_type: "temporal"`). Carries two
+    /// independent facets that share the spec `temporal` discriminator:
+    ///
+    /// - Grant expiry: optional `expires_at`. The top-level
+    ///   `Grant::expires_at` field and any `Temporal { expires_at }` entry
+    ///   are intersected; the stricter wins (see [`grant_effective_expiry`]).
+    /// - Message edit / redact window (`subtype = "edit_window" |
+    ///   "redact_window"`, constraint-schema.md §14.2). `message_edit_window`
+    ///   governs `cx.message.revise[.own]`; `message_redact_window` governs
+    ///   `cx.message.redact[.own]`. `allow_redact_after_window` controls
+    ///   whether redact stays coupled to the edit window when no separate
+    ///   redact window is declared (default `false` = coupled; omitting a
+    ///   redact window then means unbounded recall once the edit window
+    ///   closes only if this flag is `true`). When `message_redact_window` is
+    ///   declared it is authoritative for redact and the flag no longer
+    ///   changes the redact verdict. Enforcement (which requires the target
+    ///   Message `created_at`) lives in the service-side evaluator, not in
+    ///   the pure delegation helper.
     Temporal {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         expires_at: Option<DateTime<Utc>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        subtype: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        message_edit_window: Option<ConstraintDuration>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        message_redact_window: Option<ConstraintDuration>,
+        #[serde(default, skip_serializing_if = "is_false")]
+        allow_redact_after_window: bool,
     },
     /// CXP-0007 (spec b7d35be) — narrow a Circle-management capability
     /// (`cx.circle.manage`, `cx.circle.member.manage`,
@@ -180,7 +205,7 @@ pub enum DelegationError {
 pub fn grant_effective_expiry(grant: &Grant) -> Option<DateTime<Utc>> {
     let top_level = grant.expires_at;
     let from_constraint = grant.constraints.iter().find_map(|constraint| match constraint {
-        GrantConstraint::Temporal { expires_at } => *expires_at,
+        GrantConstraint::Temporal { expires_at, .. } => *expires_at,
         _ => None,
     });
     match (top_level, from_constraint) {
@@ -189,6 +214,12 @@ pub fn grant_effective_expiry(grant: &Grant) -> Option<DateTime<Utc>> {
         (None, Some(b)) => Some(b),
         (None, None) => None,
     }
+}
+
+/// serde `skip_serializing_if` helper — omits `allow_redact_after_window`
+/// from the wire form when it carries its default (`false`).
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 /// Returns `true` when the grant has reached or passed its effective
@@ -659,7 +690,13 @@ mod tests {
         grant.expires_at = Some(now + Duration::hours(2));
         grant
             .constraints
-            .push(GrantConstraint::Temporal { expires_at: Some(now + Duration::hours(1)) });
+            .push(GrantConstraint::Temporal {
+                expires_at: Some(now + Duration::hours(1)),
+                subtype: None,
+                message_edit_window: None,
+                message_redact_window: None,
+                allow_redact_after_window: false,
+            });
         let effective = grant_effective_expiry(&grant).expect("has expiry");
         // The constraint says 1h; top-level says 2h. Stricter (1h) wins.
         assert!(effective <= now + Duration::hours(1));

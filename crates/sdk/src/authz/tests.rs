@@ -617,6 +617,158 @@ fn authz_engine_temporal_constraint_expires() {
     assert!(!decision.is_allowed());
 }
 
+// ── constraint-schema.md §14.2: message edit / redact window ──
+
+fn edit_window_grant(action: &str, constraint: Constraint) -> CapabilityGrant {
+    let mut grant = grant_for(
+        action,
+        message_selector("cx:space:01904100-0000-7000-8000-1a412919cd4b"),
+    );
+    grant.constraints = vec![ConstraintEntry::new(constraint)];
+    grant
+}
+
+fn edit_window_ctx(action: &str, created_at: &str, now: &str) -> AuthzContext {
+    let mut ctx = ctx_at(
+        now,
+        action,
+        message_resource(
+            "cx:space:01904100-0000-7000-8000-1a412919cd4b",
+            "cx:message:01904100-0000-7000-8000-1a412919abcd",
+        ),
+    );
+    ctx.target_created_at = Some(utc(created_at));
+    ctx
+}
+
+fn duration(value: u64, unit: &str) -> ConstraintDuration {
+    ConstraintDuration { value, unit: unit.to_owned() }
+}
+
+#[test]
+fn redact_window_is_authoritative_and_denies_after_window() {
+    let mut engine = AuthzEngine::new();
+    let grant = edit_window_grant(
+        "cx.message.redact.own",
+        Constraint::EditWindow {
+            applies_to_actions: vec![],
+            message_edit_window: None,
+            message_redact_window: Some(duration(24, "h")),
+            allow_redact_after_window: false,
+        },
+    );
+    let ctx = edit_window_ctx(
+        "cx.message.redact.own",
+        "2026-06-01T00:00:00Z",
+        "2026-06-02T01:00:00Z", // 25h later
+    );
+    assert!(!engine.check_authorization(&ctx, &[grant]).is_allowed());
+}
+
+#[test]
+fn redact_window_allows_within_window() {
+    let mut engine = AuthzEngine::new();
+    let grant = edit_window_grant(
+        "cx.message.redact.own",
+        Constraint::EditWindow {
+            applies_to_actions: vec![],
+            message_edit_window: None,
+            message_redact_window: Some(duration(24, "h")),
+            allow_redact_after_window: false,
+        },
+    );
+    let ctx = edit_window_ctx(
+        "cx.message.redact.own",
+        "2026-06-01T00:00:00Z",
+        "2026-06-01T01:00:00Z", // 1h later
+    );
+    assert!(engine.check_authorization(&ctx, &[grant]).is_allowed());
+}
+
+#[test]
+fn redact_window_authoritative_ignores_allow_redact_after_window() {
+    // When message_redact_window is declared it is authoritative;
+    // allow_redact_after_window MUST NOT lift the redact verdict.
+    let mut engine = AuthzEngine::new();
+    let grant = edit_window_grant(
+        "cx.message.redact.own",
+        Constraint::EditWindow {
+            applies_to_actions: vec![],
+            message_edit_window: Some(duration(15, "m")),
+            message_redact_window: Some(duration(24, "h")),
+            allow_redact_after_window: true,
+        },
+    );
+    let ctx = edit_window_ctx(
+        "cx.message.redact.own",
+        "2026-06-01T00:00:00Z",
+        "2026-06-02T01:00:00Z", // 25h later, past the 24h redact window
+    );
+    assert!(!engine.check_authorization(&ctx, &[grant]).is_allowed());
+}
+
+#[test]
+fn redact_shares_edit_window_when_no_redact_window_declared() {
+    // Default allow_redact_after_window=false couples redact to the edit
+    // window when no separate redact window is declared.
+    let mut engine = AuthzEngine::new();
+    let grant = edit_window_grant(
+        "cx.message.redact.own",
+        Constraint::EditWindow {
+            applies_to_actions: vec![],
+            message_edit_window: Some(duration(15, "m")),
+            message_redact_window: None,
+            allow_redact_after_window: false,
+        },
+    );
+    let ctx = edit_window_ctx(
+        "cx.message.redact.own",
+        "2026-06-01T00:00:00Z",
+        "2026-06-01T00:16:00Z", // 16m later, past the 15m edit window
+    );
+    assert!(!engine.check_authorization(&ctx, &[grant]).is_allowed());
+}
+
+#[test]
+fn allow_redact_after_window_lifts_edit_window_coupling() {
+    let mut engine = AuthzEngine::new();
+    let grant = edit_window_grant(
+        "cx.message.redact.own",
+        Constraint::EditWindow {
+            applies_to_actions: vec![],
+            message_edit_window: Some(duration(15, "m")),
+            message_redact_window: None,
+            allow_redact_after_window: true,
+        },
+    );
+    let ctx = edit_window_ctx(
+        "cx.message.redact.own",
+        "2026-06-01T00:00:00Z",
+        "2026-06-01T00:16:00Z", // 16m later: redact still allowed (unbounded recall)
+    );
+    assert!(engine.check_authorization(&ctx, &[grant]).is_allowed());
+}
+
+#[test]
+fn edit_window_denies_revise_after_window() {
+    let mut engine = AuthzEngine::new();
+    let grant = edit_window_grant(
+        "cx.message.revise.own",
+        Constraint::EditWindow {
+            applies_to_actions: vec![],
+            message_edit_window: Some(duration(15, "m")),
+            message_redact_window: None,
+            allow_redact_after_window: false,
+        },
+    );
+    let ctx = edit_window_ctx(
+        "cx.message.revise.own",
+        "2026-06-01T00:00:00Z",
+        "2026-06-01T00:16:00Z", // 16m later
+    );
+    assert!(!engine.check_authorization(&ctx, &[grant]).is_allowed());
+}
+
 #[test]
 fn authz_engine_temporal_recurrence_allows_weekday_window_in_timezone() {
     let mut engine = AuthzEngine::new();

@@ -880,22 +880,52 @@ impl AuthzEngine {
                     return AuthzDecision::Allow;
                 };
                 let age = ctx.now - origin;
-                let pick_window = if ctx.action.contains("redact") {
-                    message_redact_window.as_ref()
-                } else {
-                    message_edit_window.as_ref()
-                };
-                if let Some(window) = pick_window
-                    && !max_age_contains(age, window)
-                {
-                    if ctx.action.contains("redact") && *allow_redact_after_window {
+                // constraint-schema.md §14.2.
+                //
+                // Redact: `message_redact_window` is authoritative when
+                // declared (and `allow_redact_after_window` no longer changes
+                // the redact verdict). When no redact window is declared,
+                // redact shares the edit window unless
+                // `allow_redact_after_window` lifts that coupling — omitting a
+                // redact window then means unbounded recall.
+                //
+                // Revise: governed solely by `message_edit_window`. Omitting it
+                // means unbounded edits.
+                if ctx.action.contains("redact") {
+                    if let Some(window) = message_redact_window.as_ref() {
+                        if max_age_contains(age, window) {
+                            return AuthzDecision::Allow;
+                        }
+                        return AuthzDecision::Deny {
+                            reason: format!(
+                                "redact window {}{} elapsed",
+                                window.value, window.unit
+                            ),
+                        };
+                    }
+                    // No explicit redact window: redact is coupled to the edit
+                    // window unless the grant opts out via
+                    // `allow_redact_after_window`.
+                    if *allow_redact_after_window {
                         return AuthzDecision::Allow;
                     }
+                    if let Some(window) = message_edit_window.as_ref()
+                        && !max_age_contains(age, window)
+                    {
+                        return AuthzDecision::Deny {
+                            reason: format!(
+                                "redact shares edit window {}{}, which elapsed",
+                                window.value, window.unit
+                            ),
+                        };
+                    }
+                    return AuthzDecision::Allow;
+                }
+                if let Some(window) = message_edit_window.as_ref()
+                    && !max_age_contains(age, window)
+                {
                     return AuthzDecision::Deny {
-                        reason: format!(
-                            "edit/redact window {}{} elapsed",
-                            window.value, window.unit
-                        ),
+                        reason: format!("edit window {}{} elapsed", window.value, window.unit),
                     };
                 }
                 AuthzDecision::Allow

@@ -666,6 +666,27 @@ pub const KNOWN_REASON_CODES_ROUND_C44: &[&str] = &[
     REASON_CLAIM_FAILED,
 ];
 
+// ── Reaction model (spec flow-and-message.md §9.8) reason codes.
+//
+// Sub-reasons registered against `schema_violation` / `failed_precondition`
+// for the v1 Reaction target-scope invariants.
+// Spec: `error-code-registry.json#reason_codes` (commit 4d9438f).
+
+/// `schema_violation` sub-reason: a `cx.reaction.add` / `cx.reaction.remove`
+/// `target_ref` points at an object kind that the deployment does not allow
+/// reactions on. v1 core only allows `cx:message:` targets; profiles MAY
+/// register additional target kinds. See zh/models/flow-and-message.md §9.8.2.
+pub const REASON_REACTION_TARGET_UNSUPPORTED: &str = "reaction_target_unsupported";
+/// `failed_precondition` sub-reason: a `cx.reaction.*` `target_ref` resolves
+/// to an object outside the reaction event's stamped effective scope.
+/// Reactions MUST target an object within their own effective scope. See
+/// zh/models/flow-and-message.md §9.8.2.
+pub const REASON_REACTION_SCOPE_MISMATCH: &str = "reaction_scope_mismatch";
+
+/// Reaction reason codes registered for the §9.8 Reaction model.
+pub const KNOWN_REASON_CODES_REACTION: &[&str] =
+    &[REASON_REACTION_TARGET_UNSUPPORTED, REASON_REACTION_SCOPE_MISMATCH];
+
 /// Return `true` when `code` is a registered canonical error code.
 pub fn is_known_error_code(code: &str) -> bool {
     KNOWN_ERROR_CODES.contains(&code)
