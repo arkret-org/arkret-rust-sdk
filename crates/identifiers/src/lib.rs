@@ -451,9 +451,9 @@ mod tests {
     #[test]
     fn did_validation_rejects_method_punctuation() {
         // Method-segment with dot/dash/underscore/colon — all rejected.
-        assert!(Did::new("did:web.test:example").is_err()); // ROUND4-ALLOW: negative test
-        assert!(Did::new("did:web-test:example").is_err()); // ROUND4-ALLOW: negative test
-        assert!(Did::new("did:web_test:example").is_err()); // ROUND4-ALLOW: negative test
+        assert!(Did::new("did:web.test:example").is_err()); // DRIFT-ALLOW: negative test
+        assert!(Did::new("did:web-test:example").is_err()); // DRIFT-ALLOW: negative test
+        assert!(Did::new("did:web_test:example").is_err()); // DRIFT-ALLOW: negative test
         // Method-specific-id containing whitespace — rejected.
         assert!(Did::new("did:web:exa mple").is_err());
         assert!(Did::new("did:web:exa\tmple").is_err());

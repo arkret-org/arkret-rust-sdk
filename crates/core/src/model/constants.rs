@@ -514,7 +514,7 @@ pub const OP_EVENTS_QUERY: &str = "cx.events.query";
 /// string (large `spaces[]` / `actors[]` unions). HTTP path:
 /// `POST /events/query`. Identical selector / range / response shape.
 pub const OP_EVENTS_QUERY_POST: &str = "cx.events.query_post";
-// ROUND4-ALLOW: constant declaring the operation-id string, not a payload type.
+// DRIFT-ALLOW: constant declaring the operation-id string, not a payload type.
 pub const OP_EVENTS_SUBSCRIBE: &str = "cx.events.subscribe";
 pub const OP_EVENTS_SUBMIT: &str = "cx.events.submit";
 pub const OP_EPHEMERAL_SEND: &str = "cx.ephemeral.send";
