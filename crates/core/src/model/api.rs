@@ -130,10 +130,10 @@ impl ServerDescription {
     /// Round 4 — validate the cross-field invariants:
     /// - `verified_profiles` MUST be empty when `development_mode = true`.
     /// - `protocol_version` MUST equal [`crate::PROTOCOL_VERSION`].
-    pub fn validate_v2(&self) -> Result<()> {
+    pub fn validate(&self) -> Result<()> {
         if self.development_mode && !self.verified_profiles.is_empty() {
             return Err(Error::Protocol(format!(
-                "ServiceDescribe v2: development_mode=true forbids non-empty verified_profiles \
+                "ServiceDescribe: development_mode=true forbids non-empty verified_profiles \
                  ({})",
                 crate::ERROR_CODE_SCHEMA_VIOLATION
             )));

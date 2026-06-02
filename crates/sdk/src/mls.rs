@@ -538,7 +538,7 @@ impl ContrixMlsGroup {
     ///
     /// Used for spec-defined key derivations layered on the group secret —
     /// e.g. the reaction routing tag (`encryption-and-audit.md` §2.9, label
-    /// `contrix-reaction-routing-v2`, context = `realm_id`) and SFrame media
+    /// `contrix-reaction-routing-v1`, context = `realm_id`) and SFrame media
     /// keys (`webrtc-signaling.md` §11). Callers MUST treat the returned
     /// bytes as secret key material (never log or persist them in the clear).
     pub fn export_secret(&self, label: &str, context: &[u8], length: usize) -> Result<Vec<u8>> {
@@ -1276,14 +1276,14 @@ mod tests {
         let bob_group = ContrixMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
 
         let realm = b"cx:realm:01904100-0000-7000-8000-1ad6479d4a41";
-        let a = alice_group.export_secret("contrix-reaction-routing-v2", realm, 32).unwrap();
-        let b = bob_group.export_secret("contrix-reaction-routing-v2", realm, 32).unwrap();
+        let a = alice_group.export_secret("contrix-reaction-routing-v1", realm, 32).unwrap();
+        let b = bob_group.export_secret("contrix-reaction-routing-v1", realm, 32).unwrap();
         assert_eq!(a.len(), 32);
         assert_eq!(a, b, "same epoch + label + context MUST agree across members");
 
         // Different context (realm) MUST diverge.
         let other_realm = b"cx:realm:01904100-0000-7000-8000-1ad6479d4a42";
-        assert_ne!(a, alice_group.export_secret("contrix-reaction-routing-v2", other_realm, 32).unwrap());
+        assert_ne!(a, alice_group.export_secret("contrix-reaction-routing-v1", other_realm, 32).unwrap());
         // Different label MUST diverge.
         assert_ne!(a, alice_group.export_secret("cx-rtc-frame-key/v1", realm, 32).unwrap());
     }
