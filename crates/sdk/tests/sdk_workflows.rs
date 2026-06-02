@@ -81,7 +81,7 @@ fn end_to_end_auth_session_space_query_and_notifications() {
                     "schema": MORPH_SCHEMA,
                     "space_id": space_id.as_str(),
                     "morph_type": "task",
-                    "title": "Ship SDK",
+                    "metadata": {"title": "Ship SDK"},
                     "fields": {"status": "todo"},
                     "created_by": "did:web:alice.example",
                     "created_at": "2026-05-02T00:00:00.000Z"

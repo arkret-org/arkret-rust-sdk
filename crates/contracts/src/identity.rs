@@ -17,6 +17,12 @@ pub mod protocol {
 
 pub const DID_WEB_MAX_DOCUMENT_BYTES: usize = 64 * 1024;
 
+/// Shared identity wire helper for DID resolution producers/consumers.
+///
+/// This is intentionally a product/shared contract, not the normative DID
+/// data model for `contrix-core`. Core keeps the protocol response envelope
+/// (`DidDocumentRef`, `IdentityResolveResBody`) while this type provides the
+/// serde shape and convenience helpers used by identity resolvers.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DidDocument {
     pub id: Did,

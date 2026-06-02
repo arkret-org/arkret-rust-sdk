@@ -457,46 +457,15 @@ pub struct PushBridgeDescribeExamples {
 }
 
 /// Response body for `GET /api/v1/integration/describe` on a push gateway.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct PushGatewayIntegrationDescribeResponse {
-    pub contract: String,
-    pub version: String,
-    pub service: String,
-    pub service_kind: String,
-    pub api_base_path: String,
-    pub describe_path: String,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub dependencies: Vec<PushGatewayIntegrationDependency>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub surfaces: Vec<PushGatewayIntegrationSurface>,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    #[serde(default)]
-    pub examples: Value,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub todos: Vec<String>,
-}
+///
+/// Compatibility alias for the generic integration manifest contract.
+pub type PushGatewayIntegrationDescribeResponse = crate::integration::IntegrationDescribeResponse;
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct PushGatewayIntegrationDependency {
-    pub service: String,
-    pub purpose: String,
-    pub required_contract: String,
-    pub discovery_path: String,
-    pub mode: String,
-}
+/// Compatibility alias for a generic integration dependency descriptor.
+pub type PushGatewayIntegrationDependency = crate::integration::IntegrationDependencyDescriptor;
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct PushGatewayIntegrationSurface {
-    pub name: String,
-    pub method: String,
-    pub path: String,
-    pub contract: String,
-    pub stability: String,
-    pub todo: String,
-}
+/// Compatibility alias for a generic integration surface descriptor.
+pub type PushGatewayIntegrationSurface = crate::integration::IntegrationSurfaceDescriptor;
 
 /// Combined view of a push gateway's high-level integration manifest plus its
 /// active bridge contract.
@@ -522,10 +491,7 @@ impl IntegrationView {
     /// Whether the manifest declares a dependency on the given service kind
     /// with the given purpose.
     pub fn requires(&self, service: &str, purpose: &str) -> bool {
-        self.manifest
-            .dependencies
-            .iter()
-            .any(|dep| dep.service == service && dep.purpose == purpose)
+        self.manifest.requires(service, purpose)
     }
 
     /// The active bridge contract id.

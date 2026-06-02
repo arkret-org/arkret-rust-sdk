@@ -8,7 +8,14 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use ulid::Ulid;
 
-use crate::{Did, Error, Result, SpaceId};
+pub use contrix_contracts::federation::{
+    FederationBackfillAuthorization, FederationQuarantineKind, FederationQuarantineRecord,
+    FederationReplayDecision, FederationReplayRecord, FederationTransactionEnvelope,
+    HttpMessageSignature, HttpMessageSignatureInput, ServiceEndpointDescriptor,
+    VerifyActorChallenge, VerifyActorChallengeSignature, WellKnownContrixServer,
+};
+
+use crate::{Did, Error, Hash, Result, SpaceId};
 
 /// Trust anchor for a federated domain.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -56,140 +63,6 @@ pub struct SovereignDeployment {
     pub allow_federation: bool,
     pub allowed_domains: BTreeSet<String>,
     pub policy: BTreeMap<String, String>,
-}
-
-/// `.well-known/contrix/server` discovery record.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WellKnownContrixServer {
-    pub service_did: Did,
-    pub base_url: String,
-    pub protocol_versions: Vec<String>,
-    #[serde(default)]
-    pub endpoints: Vec<ServiceEndpointDescriptor>,
-    #[serde(default)]
-    pub capabilities: BTreeSet<String>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ServiceEndpointDescriptor {
-    pub service_type: String,
-    pub service_endpoint: String,
-    #[serde(default)]
-    pub operations: Vec<String>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct HttpMessageSignatureInput {
-    pub method: String,
-    pub target_uri: String,
-    pub authority: String,
-    pub content_digest: String,
-    pub origin_service_did: Did,
-    pub destination_service_did: Did,
-    pub created_at: DateTime<Utc>,
-    pub expires_at: DateTime<Utc>,
-    /// Round 4 (spec a77b9958, commit f9bd7eb) — federation trust-domain
-    /// transcript headers. All three MUST appear on every cross-trust-
-    /// domain request and MUST enter the canonical signing transcript so
-    /// a sender from trust domain A cannot replay the same signed bytes
-    /// into trust domain B. `None` is permitted only for intra-trust-
-    /// domain transport (e.g. local development). Headers are emitted
-    /// by [`rfc9421_http_message_signature_base`] when present.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub source_trust_domain: Option<contrix_core::TypedTrustDomainId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub destination_trust_domain: Option<contrix_core::TypedTrustDomainId>,
-    /// Canonical hash of the request payload, mirrored into the
-    /// `Request-Canonical-Digest` header for transport-level tamper
-    /// detection. MUST agree with [`Self::content_digest`] for HTTP
-    /// transport.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub request_canonical_digest: Option<contrix_core::Hash>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct HttpMessageSignature {
-    pub key_id: String,
-    pub alg: String,
-    pub signed_fields: Vec<String>,
-    pub signature: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct FederationTransactionEnvelope<T = Value> {
-    pub transaction_id: String,
-    pub origin_service_did: Did,
-    pub destination_service_did: Did,
-    pub issued_at: DateTime<Utc>,
-    pub expires_at: DateTime<Utc>,
-    pub content_digest: String,
-    pub payload: T,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub signature: Option<HttpMessageSignature>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FederationReplayRecord {
-    pub transaction_id: String,
-    pub content_digest: String,
-    pub first_seen_at: DateTime<Utc>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum FederationReplayDecision {
-    AcceptedNew,
-    AcceptedDuplicate,
-    QuarantinedConflict,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum FederationQuarantineKind {
-    DuplicateTransactionConflict,
-    CommitFork,
-    OperationFork,
-    BadDigest,
-    StaleCursor,
-    UnauthorizedPull,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FederationQuarantineRecord {
-    pub kind: FederationQuarantineKind,
-    pub object_id: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub expected_digest: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub observed_digest: Option<String>,
-    pub reason: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FederationBackfillAuthorization {
-    pub requester_service_did: Did,
-    pub space_id: SpaceId,
-    pub history_visible: bool,
-    pub service_delegated: bool,
-    pub plaintext_visible_to_service: bool,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct VerifyActorChallenge {
-    pub actor_id: Did,
-    pub origin_service_did: Did,
-    pub destination_service_did: Did,
-    pub challenge: String,
-    pub purpose: String,
-    pub expires_at: DateTime<Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub payload_digest: Option<String>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct VerifyActorChallengeSignature {
-    pub key_id: String,
-    pub signature: String,
 }
 
 pub trait FederationReplayStore {
@@ -372,10 +245,10 @@ impl FederationManager {
     pub fn check_transaction_replay(
         &mut self,
         transaction_id: impl Into<String>,
-        content_digest: impl Into<String>,
+        content_digest: Hash,
         now: DateTime<Utc>,
     ) -> FederationReplayDecision {
-        check_replay(self, transaction_id.into(), content_digest.into(), now)
+        check_replay(self, transaction_id.into(), content_digest, now)
     }
 }
 
@@ -386,43 +259,6 @@ impl FederationReplayStore for FederationManager {
 
     fn remember_replay_record(&mut self, record: FederationReplayRecord) {
         self.replay.insert(record.transaction_id.clone(), record);
-    }
-}
-
-impl<T> FederationTransactionEnvelope<T>
-where
-    T: Serialize,
-{
-    pub fn new(
-        transaction_id: impl Into<String>,
-        origin_service_did: Did,
-        destination_service_did: Did,
-        issued_at: DateTime<Utc>,
-        expires_at: DateTime<Utc>,
-        payload: T,
-    ) -> Result<Self> {
-        let content_digest = content_digest_sha256(&serde_json::to_vec(&payload)?);
-        Ok(Self {
-            transaction_id: transaction_id.into(),
-            origin_service_did,
-            destination_service_did,
-            issued_at,
-            expires_at,
-            content_digest,
-            payload,
-            signature: None,
-        })
-    }
-
-    pub fn with_signature(mut self, signature: HttpMessageSignature) -> Self {
-        self.signature = Some(signature);
-        self
-    }
-}
-
-impl FederationBackfillAuthorization {
-    pub fn allows_pull(&self) -> bool {
-        self.history_visible && (self.service_delegated || self.plaintext_visible_to_service)
     }
 }
 
@@ -608,7 +444,7 @@ pub fn did_document_service_endpoint_matches(
 pub fn check_replay<S>(
     store: &mut S,
     transaction_id: String,
-    content_digest: String,
+    content_digest: Hash,
     now: DateTime<Utc>,
 ) -> FederationReplayDecision
 where
@@ -632,14 +468,14 @@ where
 
 pub fn duplicate_transaction_quarantine(
     transaction_id: impl Into<String>,
-    expected_digest: impl Into<String>,
-    observed_digest: impl Into<String>,
+    expected_digest: Hash,
+    observed_digest: Hash,
 ) -> FederationQuarantineRecord {
     FederationQuarantineRecord {
         kind: FederationQuarantineKind::DuplicateTransactionConflict,
         object_id: transaction_id.into(),
-        expected_digest: Some(expected_digest.into()),
-        observed_digest: Some(observed_digest.into()),
+        expected_digest: Some(expected_digest),
+        observed_digest: Some(observed_digest),
         reason: "idempotent transaction id was reused with different bytes".to_owned(),
     }
 }
@@ -647,8 +483,8 @@ pub fn duplicate_transaction_quarantine(
 pub fn fork_quarantine_record(
     kind: FederationQuarantineKind,
     object_id: impl Into<String>,
-    expected_digest: impl Into<String>,
-    observed_digest: impl Into<String>,
+    expected_ref: impl Into<String>,
+    observed_ref: impl Into<String>,
 ) -> Result<FederationQuarantineRecord> {
     if !matches!(
         kind,
@@ -662,9 +498,13 @@ pub fn fork_quarantine_record(
     Ok(FederationQuarantineRecord {
         kind,
         object_id: object_id.into(),
-        expected_digest: Some(expected_digest.into()),
-        observed_digest: Some(observed_digest.into()),
-        reason: "same logical object observed with conflicting digest".to_owned(),
+        expected_digest: None,
+        observed_digest: None,
+        reason: format!(
+            "same logical object observed with conflicting refs: expected {}, observed {}",
+            expected_ref.into(),
+            observed_ref.into()
+        ),
     })
 }
 
@@ -911,12 +751,12 @@ mod tests {
             source_trust_domain: None,
             destination_trust_domain: None,
             request_canonical_digest: Some(
-                contrix_core::Hash::new(content_digest_sha256(br#"{"ok":true}"#)).unwrap(),
+                Hash::new(content_digest_sha256(br#"{"ok":true}"#)).unwrap(),
             ),
         };
         let signature = sign_http_message(&input, "did:web:a.example#svc", "shared-key").unwrap();
         input.request_canonical_digest =
-            Some(contrix_core::Hash::new(content_digest_sha256(br#"{"ok":false}"#)).unwrap());
+            Some(Hash::new(content_digest_sha256(br#"{"ok":false}"#)).unwrap());
         assert!(sign_http_message(&input, "did:web:a.example#svc", "shared-key").is_err());
         assert!(!verify_http_message_signature(&input, &signature, "shared-key", now));
     }
@@ -951,21 +791,27 @@ mod tests {
     fn replay_and_fork_conflicts_are_quarantined() {
         let now = Utc::now();
         let mut manager = FederationManager::new();
+        let first_digest =
+            Hash::new("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+                .unwrap();
+        let second_digest =
+            Hash::new("sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+                .unwrap();
 
         assert_eq!(
-            manager.check_transaction_replay("txn-1", "sha256:first", now),
+            manager.check_transaction_replay("txn-1", first_digest.clone(), now),
             FederationReplayDecision::AcceptedNew
         );
         assert_eq!(
-            manager.check_transaction_replay("txn-1", "sha256:first", now),
+            manager.check_transaction_replay("txn-1", first_digest.clone(), now),
             FederationReplayDecision::AcceptedDuplicate
         );
         assert_eq!(
-            manager.check_transaction_replay("txn-1", "sha256:second", now),
+            manager.check_transaction_replay("txn-1", second_digest.clone(), now),
             FederationReplayDecision::QuarantinedConflict
         );
 
-        let record = duplicate_transaction_quarantine("txn-1", "sha256:first", "sha256:second");
+        let record = duplicate_transaction_quarantine("txn-1", first_digest, second_digest);
         assert_eq!(record.kind, FederationQuarantineKind::DuplicateTransactionConflict);
         let fork = fork_quarantine_record(
             FederationQuarantineKind::OperationFork,

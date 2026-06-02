@@ -1,13 +1,13 @@
-//! Contrix federation surface models and helpers.
+//! Contrix federation wire contracts and shared helpers.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{DateTime, Utc};
 use contrix_core::{
     BlobRef, Did, Error, EventId, FederationTransactionReqBody, Hash, Operation, OperationId,
-    Result, SpaceId, canonical,
+    Result, SpaceId, TypedTrustDomainId, canonical,
 };
-use contrix_signatures::HttpMessageSignature;
+pub use contrix_signatures::HttpMessageSignature;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -26,7 +26,39 @@ pub struct WellKnownContrixServer {
     pub base_url: String,
     pub protocol_versions: Vec<String>,
     #[serde(default)]
+    pub endpoints: Vec<ServiceEndpointDescriptor>,
+    #[serde(default)]
+    pub capabilities: BTreeSet<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub operations: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ServiceEndpointDescriptor {
+    pub service_type: String,
+    pub service_endpoint: String,
+    #[serde(default)]
+    pub operations: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HttpMessageSignatureInput {
+    pub method: String,
+    pub target_uri: String,
+    pub authority: String,
+    pub content_digest: String,
+    pub origin_service_did: Did,
+    pub destination_service_did: Did,
+    pub created_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+    /// Optional federation trust-domain transcript fields. When present they
+    /// MUST be included in the canonical HTTP message signature base.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_trust_domain: Option<TypedTrustDomainId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub destination_trust_domain: Option<TypedTrustDomainId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request_canonical_digest: Option<Hash>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -64,6 +96,11 @@ where
             payload,
             signature: None,
         })
+    }
+
+    pub fn with_signature(mut self, signature: HttpMessageSignature) -> Self {
+        self.signature = Some(signature);
+        self
     }
 
     pub fn validate_digest(&self) -> Result<()> {
@@ -159,6 +196,30 @@ impl FederationBackfillAuthorization {
     pub fn is_authorized(&self) -> bool {
         self.history_visible && self.service_delegated && self.plaintext_visible_to_service
     }
+
+    /// SDK compatibility helper for callers that model read access as either
+    /// explicit delegation or plaintext service visibility.
+    pub fn allows_pull(&self) -> bool {
+        self.history_visible && (self.service_delegated || self.plaintext_visible_to_service)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VerifyActorChallenge {
+    pub actor_id: Did,
+    pub origin_service_did: Did,
+    pub destination_service_did: Did,
+    pub challenge: String,
+    pub purpose: String,
+    pub expires_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub payload_digest: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VerifyActorChallengeSignature {
+    pub key_id: String,
+    pub signature: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

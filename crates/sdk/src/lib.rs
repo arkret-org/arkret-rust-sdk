@@ -87,6 +87,8 @@ pub use contrix_http_client as http_client;
 pub use crate::store as store_contracts;
 pub use contrix_contracts::federation as federation_api;
 pub use contrix_contracts::identity as identity_api;
+pub use contrix_contracts::integration as integration_api;
+pub use contrix_contracts::principal as principal_api;
 pub use contrix_contracts::push as push_gateway_api;
 pub use contrix_core::lattice;
 pub use contrix_core::operations;

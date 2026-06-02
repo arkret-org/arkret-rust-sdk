@@ -1,0 +1,108 @@
+//! Shared `/api/v1/integration/describe` contract.
+//!
+//! This manifest shape is emitted by multiple services (for example floria,
+//! soland, and coauth) and consumed by SDKs/admin UIs to discover dependent
+//! contracts and advertised REST surfaces. It is intentionally generic: service
+//! specific bridge payloads live in their own modules.
+
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct IntegrationDescribeResponse {
+    pub contract: String,
+    pub version: String,
+    pub service: String,
+    pub service_kind: String,
+    pub api_base_path: String,
+    pub describe_path: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub dependencies: Vec<IntegrationDependencyDescriptor>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub surfaces: Vec<IntegrationSurfaceDescriptor>,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default)]
+    pub examples: Value,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub todos: Vec<String>,
+}
+
+impl IntegrationDescribeResponse {
+    pub fn surface(&self, name: &str) -> Option<&IntegrationSurfaceDescriptor> {
+        self.surfaces.iter().find(|surface| surface.name == name)
+    }
+
+    pub fn requires(&self, service: &str, purpose: &str) -> bool {
+        self.dependencies.iter().any(|dep| dep.service == service && dep.purpose == purpose)
+    }
+}
+
+/// Compatibility alias for services/docs that call this an integration
+/// manifest rather than a describe response.
+pub type IntegrationManifest = IntegrationDescribeResponse;
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct IntegrationDependencyDescriptor {
+    pub service: String,
+    pub purpose: String,
+    pub required_contract: String,
+    pub discovery_path: String,
+    pub mode: String,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct IntegrationSurfaceDescriptor {
+    pub name: String,
+    pub method: String,
+    pub path: String,
+    pub contract: String,
+    pub stability: String,
+    pub todo: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn integration_describe_round_trips_common_wire_shape() {
+        let value = json!({
+            "contract": "contrix.rest.integration_manifest.v1",
+            "version": "2026-05-07",
+            "service": "floria",
+            "service_kind": "push_gateway",
+            "api_base_path": "/api/v1",
+            "describe_path": "/api/v1/integration/describe",
+            "dependencies": [{
+                "service": "soland",
+                "purpose": "principal_outbound_push_delivery",
+                "required_contract": "contrix.rest.outbound_push_bridge.v1",
+                "discovery_path": "/api/v1/push/outbound/bridge/describe",
+                "mode": "remote_principal_contract"
+            }],
+            "surfaces": [{
+                "name": "push_bridge",
+                "method": "GET",
+                "path": "/api/v1/push/bridge/describe",
+                "contract": "cx.push.bridge.describe",
+                "stability": "active",
+                "todo": "pin provider_capabilities_version"
+            }],
+            "examples": {"compose_flow": {"step_1": {"service": "soland"}}}
+        });
+
+        let manifest: IntegrationDescribeResponse =
+            serde_json::from_value(value).expect("integration manifest decodes");
+        assert!(manifest.requires("soland", "principal_outbound_push_delivery"));
+        assert_eq!(manifest.surface("push_bridge").unwrap().method, "GET");
+
+        let encoded = serde_json::to_value(manifest).expect("integration manifest encodes");
+        assert!(encoded.get("todos").is_none());
+        assert!(encoded["examples"].get("compose_flow").is_some());
+    }
+}

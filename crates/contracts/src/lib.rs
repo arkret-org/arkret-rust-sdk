@@ -2,6 +2,11 @@
 //!
 //! This crate is deliberately framework-free. It exports protocol wire types
 //! and product-local API models without maintaining an HTTP endpoint catalog.
+//!
+//! Admission rule for new local DTOs: a type belongs here only when it is
+//! consumed by two or more repos, is a spec-defined cross-service wire
+//! contract, or is a producer/consumer contract that must be shared to prevent
+//! drift. Otherwise keep it in the owning service or SDK feature module.
 
 /// Product-local client API contracts.
 ///
@@ -15,6 +20,8 @@ pub mod product {
 }
 pub mod federation;
 pub mod identity;
+pub mod integration;
+pub mod principal;
 pub mod push;
 
 /// Protocol request/response types grouped behind the API boundary.

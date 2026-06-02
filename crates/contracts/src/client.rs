@@ -1,5 +1,10 @@
 //! Client-server protocol API contracts.
 //!
+//! Owner: product-local client API producers/consumers. These DTOs are kept in
+//! `contrix-contracts` only for shared product surfaces that need a common
+//! schema across services, SDKs, or fixtures. Canonical protocol request/
+//! response bodies generated from `contrix-spec` stay in `contrix-core`.
+//!
 //! Naming convention follows the OpenAPI shape of each operation:
 //!
 //! * `XxxParams`  — URL path parameters (`#[derive(ToParameters)]`).
