@@ -44,13 +44,11 @@
 //! callers typically map these to wire `schema_violation` / `invalid_signature`
 //! 4xx responses.
 
-use base64::Engine;
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use chrono::{DateTime, Duration, Utc};
+use cokret_core::{base64url_decode, base64url_encode};
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 
 use crate::identity::DidResolver;
-use crate::identity::helpers::decode_base58btc;
 use crate::{Did, Hlc};
 
 /// Protected JOSE header for SDK-issued detached JWS. The verifier in
@@ -92,11 +90,11 @@ pub fn sign_jws_ed25519(
     if canonical_bytes.is_empty() {
         return Err("empty canonical bytes".to_owned());
     }
-    let protected_b64 = URL_SAFE_NO_PAD.encode(PROTECTED_HEADER_EDDSA);
-    let payload_b64 = URL_SAFE_NO_PAD.encode(canonical_bytes);
+    let protected_b64 = base64url_encode(PROTECTED_HEADER_EDDSA);
+    let payload_b64 = base64url_encode(canonical_bytes);
     let signing_input = format!("{protected_b64}.{payload_b64}");
     let signature = signing_key.sign(signing_input.as_bytes());
-    let signature_b64 = URL_SAFE_NO_PAD.encode(signature.to_bytes());
+    let signature_b64 = base64url_encode(signature.to_bytes());
     Ok(format!("{protected_b64}..{signature_b64}"))
 }
 
@@ -126,23 +124,25 @@ pub fn verify_jws_ed25519(
         return Err("empty canonical bytes".to_owned());
     }
 
-    // Step 2: protected header must declare alg=EdDSA.
-    let header_bytes = URL_SAFE_NO_PAD
-        .decode(protected_b64)
-        .map_err(|e| format!("JWS header is not base64url: {e}"))?;
+    // Step 2: protected header must declare alg=EdDSA and MUST NOT declare
+    // any `crit` extensions (RFC 7515 §4.1.11 — Cokret v1 understands none).
+    let header_bytes =
+        base64url_decode(protected_b64).map_err(|e| format!("JWS header is not base64url: {e}"))?;
     let header: serde_json::Value = serde_json::from_slice(&header_bytes)
         .map_err(|e| format!("JWS header is not JSON: {e}"))?;
     let alg = header.get("alg").and_then(serde_json::Value::as_str).unwrap_or("");
     if alg != "EdDSA" {
         return Err(format!("JWS alg `{alg}` is not EdDSA"));
     }
+    if header.get("crit").is_some() {
+        return Err("JWS protected header declares unsupported `crit` extensions".to_owned());
+    }
 
     // Step 3: signature segment must decode to a 64-byte Ed25519 signature.
     if signature_b64.bytes().all(|b| b == b'A') {
         return Err("JWS signature is the all-zero sentinel".to_owned());
     }
-    let signature_bytes = URL_SAFE_NO_PAD
-        .decode(signature_b64)
+    let signature_bytes = base64url_decode(signature_b64)
         .map_err(|e| format!("JWS signature is not base64url: {e}"))?;
     if signature_bytes.len() != 64 {
         return Err(format!("Ed25519 signature must be 64 bytes, got {}", signature_bytes.len()));
@@ -155,7 +155,7 @@ pub fn verify_jws_ed25519(
 
     // Step 5: reconstruct the signing input per RFC 7515 §5.2 with the
     // (now known) canonical_bytes payload.
-    let payload_b64 = URL_SAFE_NO_PAD.encode(canonical_bytes);
+    let payload_b64 = base64url_encode(canonical_bytes);
     let signing_input = format!("{protected_b64}.{payload_b64}");
 
     // Step 6: verify.
@@ -223,28 +223,11 @@ pub fn resolve_ed25519_pubkey(
 /// Strips the multicodec varint (0xed01 = ed25519-pub) and extracts the
 /// 32-byte raw key.
 fn decode_ed25519_multibase(multibase: &str) -> Result<VerifyingKey, String> {
-    let stripped = multibase
-        .strip_prefix('z')
-        .ok_or_else(|| format!("public key multibase missing `z` prefix: `{multibase}`"))?;
-    let decoded = decode_base58btc(stripped)
-        .ok_or_else(|| format!("base58btc decode failed for `{stripped}`"))?;
-    if decoded.len() < 2 {
-        return Err(format!("multicodec key too short ({} bytes)", decoded.len()));
-    }
-    // Ed25519-pub multicodec: 0xed 0x01 (varint).
-    if decoded[0] != 0xed || decoded[1] != 0x01 {
-        return Err(format!(
-            "expected ed25519-pub multicodec (0xed 0x01), got 0x{:02x} 0x{:02x}",
-            decoded[0], decoded[1]
-        ));
-    }
-    let key_bytes = &decoded[2..];
-    if key_bytes.len() != 32 {
-        return Err(format!("Ed25519 public key must be 32 bytes, got {}", key_bytes.len()));
-    }
-    let key_array: [u8; 32] = key_bytes
-        .try_into()
-        .map_err(|_| "Ed25519 public key array conversion failed".to_owned())?;
+    // Underlying base58btc + multicodec strip is the single `core::multibase`
+    // helper (backed by the `bs58` crate); this only adds the VerifyingKey
+    // parse + String-error mapping the JWS verify path expects.
+    let key_array = cokret_core::decode_ed25519_multibase(multibase)
+        .map_err(|e| format!("ed25519 multibase decode failed: {e}"))?;
     VerifyingKey::from_bytes(&key_array)
         .map_err(|e| format!("Ed25519 public key parse failed: {e}"))
 }
@@ -433,43 +416,10 @@ mod tests {
     }
 
     /// Encode an Ed25519 public key as the multibase form used by did:key
-    /// and DID Document verificationMethod entries. Pure test helper —
-    /// production code never re-encodes, only decodes.
+    /// and DID Document verificationMethod entries. Pure test helper that
+    /// reuses the single `core::multibase` encoder.
     fn encode_ed25519_multibase(verifying_key: &VerifyingKey) -> String {
-        let mut bytes = Vec::with_capacity(34);
-        bytes.push(0xed);
-        bytes.push(0x01);
-        bytes.extend_from_slice(verifying_key.as_bytes());
-        format!("z{}", encode_base58btc(&bytes))
-    }
-
-    /// Test-only base58btc encoder. We don't ship one in production
-    /// because we never need to encode — only the multibase decoder is
-    /// part of the verify path.
-    fn encode_base58btc(input: &[u8]) -> String {
-        const ALPHABET: &[u8; 58] = b"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-        let leading_zeroes = input.iter().take_while(|b| **b == 0).count();
-        let mut digits: Vec<u32> = Vec::new();
-        for byte in &input[leading_zeroes..] {
-            let mut carry = u32::from(*byte);
-            for digit in digits.iter_mut() {
-                let value = *digit * 256 + carry;
-                *digit = value % 58;
-                carry = value / 58;
-            }
-            while carry > 0 {
-                digits.push(carry % 58);
-                carry /= 58;
-            }
-        }
-        let mut out = String::with_capacity(input.len());
-        for _ in 0..leading_zeroes {
-            out.push('1');
-        }
-        for digit in digits.iter().rev() {
-            out.push(ALPHABET[*digit as usize] as char);
-        }
-        out
+        cokret_core::ed25519_pubkey_to_did_key_multibase(verifying_key.as_bytes())
     }
 
     #[test]
@@ -486,7 +436,7 @@ mod tests {
         // 0xe7 is secp256k1-pub, not ed25519.
         let mut bytes = vec![0xe7u8, 0x01];
         bytes.extend_from_slice(&[0u8; 32]);
-        let mb = format!("z{}", encode_base58btc(&bytes));
+        let mb = cokret_core::encode_multibase_base58btc(bytes);
         let err = decode_ed25519_multibase(&mb).unwrap_err();
         assert!(err.contains("ed25519-pub multicodec"));
     }
@@ -494,7 +444,7 @@ mod tests {
     #[test]
     fn decode_rejects_missing_z_prefix() {
         let err = decode_ed25519_multibase("not-multibase").unwrap_err();
-        assert!(err.contains("missing `z` prefix"));
+        assert!(err.contains("missing 'z' prefix"));
     }
 
     #[test]
@@ -674,10 +624,10 @@ mod tests {
         assert_eq!(parts.len(), 3, "JWS must have 3 segments");
         assert!(parts[1].is_empty(), "payload segment must be empty");
         // Header decodes to the SDK-canonical EdDSA marker.
-        let header = URL_SAFE_NO_PAD.decode(parts[0]).expect("header decode");
+        let header = base64url_decode(parts[0]).expect("header decode");
         assert_eq!(header.as_slice(), PROTECTED_HEADER_EDDSA);
         // Signature decodes to exactly 64 bytes.
-        let sig = URL_SAFE_NO_PAD.decode(parts[2]).expect("sig decode");
+        let sig = base64url_decode(parts[2]).expect("sig decode");
         assert_eq!(sig.len(), 64);
     }
 

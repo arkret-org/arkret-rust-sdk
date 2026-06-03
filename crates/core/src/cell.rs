@@ -25,9 +25,9 @@
 //! - [`composite_subject_pipe`] — produce the diagnostic `a|b|c` form
 //!   (informational only; never wire-canonical).
 
-use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use sha2::{Digest, Sha256};
 
+use crate::base64url::base64url_encode;
 use crate::canonical;
 use crate::{CellRef, Error, Result};
 
@@ -104,7 +104,7 @@ impl CellId {
 pub fn composite_subject(parts: &[&str]) -> Result<String> {
     let bytes = canonical::canonical_json_bytes(&parts)?;
     let digest = Sha256::digest(&bytes);
-    Ok(URL_SAFE_NO_PAD.encode(digest))
+    Ok(base64url_encode(digest))
 }
 
 /// Pipe-joined diagnostic form (`a|b|c`, with `|` and `%` percent-encoded).

@@ -252,13 +252,11 @@ fn verify_ed25519_audit_binding_from_payload(
 /// public keys, etc.) so audit_binding fields play nicely with the
 /// rest of the protocol.
 fn base64_url_no_pad_encode(bytes: &[u8]) -> String {
-    use base64::Engine;
-    base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
+    cokret_core::base64url_encode(bytes)
 }
 
 fn base64_url_no_pad_decode(s: &str) -> Option<Vec<u8>> {
-    use base64::Engine;
-    base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(s).ok()
+    cokret_core::base64url_decode(s).ok()
 }
 
 #[cfg(test)]

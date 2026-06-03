@@ -527,9 +527,7 @@ impl ThresholdAggregator {
             // Encode the raw signature bytes via base64url-no-pad so the
             // wire shape stays uniform; receivers re-decode and re-verify
             // via the same scheme verifier.
-            use base64::Engine;
-            use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-            let encoded_sig = URL_SAFE_NO_PAD.encode(&partial.signature);
+            let encoded_sig = crate::base64url::base64url_encode(&partial.signature);
             signatures.push(MoveSignature {
                 alg: "EdDSA".to_owned(),
                 verification_method: partial.kid.clone(),
@@ -557,14 +555,13 @@ impl ThresholdAggregator {
                 self.threshold
             )));
         }
-        use base64::Engine;
-        use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+        use crate::base64url::base64url_encode;
         let lines: Vec<String> = self
             .partials
             .iter()
-            .map(|p| format!("{}:{}", p.signer_did, URL_SAFE_NO_PAD.encode(&p.signature)))
+            .map(|p| format!("{}:{}", p.signer_did, base64url_encode(&p.signature)))
             .collect();
-        Ok(URL_SAFE_NO_PAD.encode(lines.join("\n").as_bytes()))
+        Ok(base64url_encode(lines.join("\n").as_bytes()))
     }
 
     pub fn signers(&self) -> Vec<Did> {

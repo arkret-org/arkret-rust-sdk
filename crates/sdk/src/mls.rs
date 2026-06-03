@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
-use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use chrono::Utc;
+use cokret_core::{base64url_decode, base64url_encode};
 use openmls::prelude::{
     BasicCredential, Ciphersuite, CredentialWithKey, GroupId, KeyPackage, KeyPackageIn,
     LeafNodeIndex, LeafNodeParameters, MlsGroup, MlsGroupCreateConfig, MlsGroupJoinConfig,
@@ -1190,7 +1190,7 @@ fn restore_provider_storage(
 }
 
 fn encode(bytes: &[u8]) -> String {
-    URL_SAFE_NO_PAD.encode(bytes)
+    base64url_encode(bytes)
 }
 
 fn hex_lower(bytes: &[u8]) -> String {
@@ -1202,7 +1202,7 @@ fn hex_lower(bytes: &[u8]) -> String {
 }
 
 fn decode(value: &str) -> Result<Vec<u8>> {
-    URL_SAFE_NO_PAD.decode(value).map_err(|error| Error::Protocol(error.to_string()))
+    base64url_decode(value)
 }
 
 fn mls_error(error: impl std::fmt::Debug) -> Error {

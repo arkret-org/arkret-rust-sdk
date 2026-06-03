@@ -36,8 +36,7 @@
 //! [`decode_signature_b64`] use the standard alphabet rather than
 //! URL-safe.
 
-use base64::Engine;
-use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
+use cokret_core::{base64_standard_decode, base64_standard_encode};
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 use sha2::{Digest, Sha256, Sha512};
 use std::collections::BTreeSet;
@@ -553,7 +552,7 @@ impl ContentDigest {
             ContentDigestAlgorithm::Sha256 => Sha256::digest(body).to_vec(),
             ContentDigestAlgorithm::Sha512 => Sha512::digest(body).to_vec(),
         };
-        let wire_value = format!("{}=:{}:", algorithm.wire_name(), BASE64_STANDARD.encode(&digest));
+        let wire_value = format!("{}=:{}:", algorithm.wire_name(), base64_standard_encode(&digest));
         ContentDigest { algorithm, digest, wire_value }
     }
 
@@ -575,7 +574,7 @@ impl ContentDigest {
             .and_then(|v| v.strip_suffix(':'))
             .ok_or(SignatureError::MalformedContentDigest)?;
         let digest =
-            BASE64_STANDARD.decode(encoded).map_err(|_| SignatureError::MalformedContentDigest)?;
+            base64_standard_decode(encoded).map_err(|_| SignatureError::MalformedContentDigest)?;
         let expected_len = match algorithm {
             ContentDigestAlgorithm::Sha256 => 32,
             ContentDigestAlgorithm::Sha512 => 64,
@@ -702,13 +701,13 @@ pub fn signing_key_from_seed(seed: &[u8; 32]) -> Ed25519SigningKey {
 /// Standard-alphabet base64 encode (RFC 9421 §3.1 Inner List Byte
 /// Sequence).
 pub fn encode_signature_b64(bytes: &[u8]) -> String {
-    BASE64_STANDARD.encode(bytes)
+    base64_standard_encode(bytes)
 }
 
 /// Standard-alphabet base64 decode. Returns
 /// [`SignatureError::InvalidSignatureBase64`] on failure.
 pub fn decode_signature_b64(s: &str) -> Result<Vec<u8>, SignatureError> {
-    BASE64_STANDARD.decode(s.trim()).map_err(|_| SignatureError::InvalidSignatureBase64)
+    base64_standard_decode(s.trim()).map_err(|_| SignatureError::InvalidSignatureBase64)
 }
 
 // =====================================================================
@@ -996,7 +995,7 @@ mod tests {
 
     #[test]
     fn parse_signature_header_finds_label_among_multiple() {
-        let raw = base64::engine::general_purpose::STANDARD.encode([0xABu8; 64]);
+        let raw = cokret_core::base64_standard_encode([0xABu8; 64]);
         let header = format!("sigA=:{raw}:, sigB=:{raw}:");
         let bytes = parse_signature_header(&header, "sigB").unwrap();
         assert_eq!(bytes.len(), 64);

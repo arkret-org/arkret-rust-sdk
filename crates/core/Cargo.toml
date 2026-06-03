@@ -24,6 +24,7 @@ salvo = ["dep:salvo", "salvo/oapi", "dep:salvo-oapi", "salvo-oapi/chrono", "cokr
 
 [dependencies]
 base64.workspace = true
+bs58.workspace = true
 chrono = { workspace = true, features = ["serde"] }
 cokret-identifiers.workspace = true
 getrandom.workspace = true

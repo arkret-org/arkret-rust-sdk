@@ -17,6 +17,12 @@ pub mod proof;
 pub mod event_signer;
 pub use event_signer::{SignEventOptions, sign_event};
 
+// 报告 03 #5 / 09 #2 收敛:RFC 9421 HTTP Message Signatures + RFC 9530
+// Content-Digest 的**唯一**真源实现。floria(push)、teabay(ingest)、soland
+// (federation)、chime 全部消费这一套(此前下沉前位于 `sdk::http_signature`);
+// `sdk` 现以 `pub use cokret_signatures::http_signature` re-export。
+pub mod http_signature;
+
 pub use proof::{
     EventProofBuilder, EventSigner, EventVerifier, ProductionVerifier, ProofType,
     PublicKeyMaterial, SignedPayload, SignerError, VerifierError, build_proof_envelope,
@@ -268,132 +274,20 @@ pub fn validate_production_proof(proof: &Proof) -> Result<()> {
     proof.validate_production()
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct HttpMessageSignatureInput {
-    pub method: String,
-    pub target_uri: String,
-    pub authority: String,
-    pub content_digest: String,
-    pub origin_service_did: Did,
-    pub destination_service_did: Did,
-    pub created_at: DateTime<Utc>,
-    pub expires_at: DateTime<Utc>,
-    /// Round 4 (spec a77b9958, commit f9bd7eb) — optional federation
-    /// trust-domain transcript fields. When present they are emitted
-    /// by [`http_message_signature_base`] under the lower-case header
-    /// names `source-trust-domain`, `destination-trust-domain`, and
-    /// `request-canonical-digest` per RFC 9421 §2.2.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub source_trust_domain: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub destination_trust_domain: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub request_canonical_digest: Option<String>,
-}
-
-impl HttpMessageSignatureInput {
-    pub fn validate_time_window(&self, now: DateTime<Utc>) -> Result<()> {
-        if self.expires_at <= self.created_at {
-            return Err(Error::Protocol(
-                "signature expires_at must be after created_at".to_owned(),
-            ));
-        }
-        if now < self.created_at - Duration::minutes(5) {
-            return Err(Error::Protocol(
-                "signature created_at is too far in the future".to_owned(),
-            ));
-        }
-        if now > self.expires_at {
-            return Err(Error::Protocol("signature has expired".to_owned()));
-        }
-        Ok(())
-    }
-}
-
+/// Wire-form HTTP Message Signature container.
+///
+/// `key_id` / `alg` / `signed_fields` / `signature` mirror the RFC 9421
+/// `Signature-Input` parameters plus the detached `Signature` value. The
+/// **canonical signature base** (the bytes actually signed) is built by the
+/// single RFC 9421 implementation in [`crate::http_signature`] — this struct
+/// is just the resulting wire envelope, re-exported by `cokret-contracts`
+/// and embedded in `FederationTransactionEnvelope`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HttpMessageSignature {
     pub key_id: String,
     pub alg: String,
     pub signed_fields: Vec<String>,
     pub signature: String,
-}
-
-pub fn http_message_signature_base(input: &HttpMessageSignatureInput) -> String {
-    let mut lines: Vec<String> = vec![
-        format!("\"@method\": {}", input.method),
-        format!("\"@target-uri\": {}", input.target_uri),
-        format!("\"host\": {}", input.authority),
-        format!("\"content-digest\": {}", input.content_digest),
-        format!("\"x-cokret-origin-service\": {}", input.origin_service_did),
-        format!("\"x-cokret-destination-service\": {}", input.destination_service_did),
-    ];
-    // Round 4 (spec f9bd7eb) — emit `Source-Trust-Domain`,
-    // `Destination-Trust-Domain`, and `Request-Canonical-Digest` headers
-    // when present. Receivers MUST refuse a signed transcript whose
-    // header set disagrees with the declared signed_fields.
-    if let Some(s) = &input.source_trust_domain {
-        lines.push(format!("\"source-trust-domain\": {s}"));
-    }
-    if let Some(d) = &input.destination_trust_domain {
-        lines.push(format!("\"destination-trust-domain\": {d}"));
-    }
-    if let Some(h) = &input.request_canonical_digest {
-        lines.push(format!("\"request-canonical-digest\": {h}"));
-    }
-    lines.push(format!("\"created\": {}", input.created_at.timestamp()));
-    lines.push(format!("\"expires\": {}", input.expires_at.timestamp()));
-    lines.join("\n")
-}
-
-pub fn sign_http_message<F>(
-    input: &HttpMessageSignatureInput,
-    key_id: impl Into<String>,
-    alg: impl Into<String>,
-    signer: F,
-) -> Result<HttpMessageSignature>
-where
-    F: Fn(&str) -> Result<String>,
-{
-    let signature_base = http_message_signature_base(input);
-    let mut signed_fields = vec![
-        "@method".to_owned(),
-        "@target-uri".to_owned(),
-        "host".to_owned(),
-        "content-digest".to_owned(),
-        "x-cokret-origin-service".to_owned(),
-        "x-cokret-destination-service".to_owned(),
-    ];
-    if input.source_trust_domain.is_some() {
-        signed_fields.push("source-trust-domain".to_owned());
-    }
-    if input.destination_trust_domain.is_some() {
-        signed_fields.push("destination-trust-domain".to_owned());
-    }
-    if input.request_canonical_digest.is_some() {
-        signed_fields.push("request-canonical-digest".to_owned());
-    }
-    signed_fields.push("created".to_owned());
-    signed_fields.push("expires".to_owned());
-    Ok(HttpMessageSignature {
-        key_id: key_id.into(),
-        alg: alg.into(),
-        signed_fields,
-        signature: signer(&signature_base)?,
-    })
-}
-
-pub fn verify_http_message<F>(
-    input: &HttpMessageSignatureInput,
-    signature: &HttpMessageSignature,
-    now: DateTime<Utc>,
-    verifier: F,
-) -> Result<SignatureVerification>
-where
-    F: Fn(&str, &HttpMessageSignature) -> Result<bool>,
-{
-    input.validate_time_window(now)?;
-    let signature_base = http_message_signature_base(input);
-    Ok(SignatureVerification { valid: verifier(&signature_base, signature)?, warnings: Vec::new() })
 }
 
 #[cfg(test)]
@@ -433,39 +327,6 @@ mod tests {
         };
 
         signature.validate_against(&binding).unwrap();
-    }
-
-    #[test]
-    fn http_message_signature_binds_inputs_and_expires() {
-        let now = Utc::now();
-        let input = HttpMessageSignatureInput {
-            method: "POST".to_owned(),
-            target_uri: "https://b.example/_cokret/peer/federation/push-operations".to_owned(),
-            authority: "b.example".to_owned(),
-            content_digest:
-                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned(),
-            origin_service_did: did("a"),
-            destination_service_did: did("b"),
-            created_at: now,
-            expires_at: now + Duration::minutes(5),
-            source_trust_domain: None,
-            destination_trust_domain: None,
-            request_canonical_digest: None,
-        };
-        let signature = sign_http_message(&input, "did:web:a.example#key-1", "EdDSA", |base| {
-            Ok(canonical::sha256_digest(base))
-        })
-        .unwrap();
-
-        let verified = verify_http_message(&input, &signature, now, |base, signature| {
-            Ok(signature.signature == canonical::sha256_digest(base))
-        })
-        .unwrap();
-        assert!(verified.valid);
-
-        let mut expired = input;
-        expired.expires_at = now - Duration::seconds(1);
-        assert!(verify_http_message(&expired, &signature, now, |_, _| Ok(true)).is_err());
     }
 
     #[test]

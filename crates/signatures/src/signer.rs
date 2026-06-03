@@ -15,15 +15,14 @@
 //! assert_eq!(signer.signer_did().as_str(), "did:web:alice.example");
 //! ```
 
-use base64::Engine;
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use chrono::Utc;
 use ed25519_dalek::{Signer as _, SigningKey};
-use sha2::{Digest, Sha256};
 
 use cokret_core::canonical;
 use cokret_core::move_event::{Move, MoveSignature};
-use cokret_core::{Did, Error, Hash, MoveSigner, Result, UnsignedMove};
+use cokret_core::{
+    Did, Error, Hash, MoveSigner, Result, UnsignedMove, base64url_decode, base64url_encode,
+};
 
 /// Ed25519 [`MoveSigner`] backend.
 ///
@@ -97,16 +96,17 @@ impl MoveSigner for Ed25519MoveSigner {
     }
 
     fn sign_payload(&self, canonical_bytes: &[u8]) -> Result<MoveSignature> {
-        // Detached JWS over canonical bytes: header "{"alg":"EdDSA"}" then
-        // base64url-no-pad(header) + "." + "" (detached payload) + "." +
-        // base64url-no-pad(signature). Per spec §3 the SDK keeps the JWS
-        // detached so the receiver re-derives the payload from the canonical
-        // body bytes rather than from the JWS itself.
-        let header = r#"{"alg":"EdDSA","typ":"JWT"}"#;
-        let header_b64 = URL_SAFE_NO_PAD.encode(header.as_bytes());
-        let signing_input = format!("{header_b64}.{}", URL_SAFE_NO_PAD.encode(canonical_bytes));
+        // Detached JWS over canonical bytes: SDK-canonical header
+        // `{"alg":"EdDSA"}` (no `typ`, matching spec §6 / soland / cotest /
+        // teabay), then base64url-no-pad(header) + "." + "" (detached
+        // payload) + "." + base64url-no-pad(signature). Per spec §3 the SDK
+        // keeps the JWS detached so the receiver re-derives the payload from
+        // the canonical body bytes rather than from the JWS itself.
+        let header = r#"{"alg":"EdDSA"}"#;
+        let header_b64 = base64url_encode(header.as_bytes());
+        let signing_input = format!("{header_b64}.{}", base64url_encode(canonical_bytes));
         let signature = self.signing_key.sign(signing_input.as_bytes());
-        let sig_b64 = URL_SAFE_NO_PAD.encode(signature.to_bytes());
+        let sig_b64 = base64url_encode(signature.to_bytes());
         let jws = format!("{header_b64}..{sig_b64}");
 
         let payload_digest = Hash::new(canonical::sha256_digest(canonical_bytes))
@@ -148,8 +148,7 @@ pub fn verify_ed25519_move_signature(
     }
     let header_b64 = parts[0];
     let sig_b64 = parts[2];
-    let sig_bytes = URL_SAFE_NO_PAD
-        .decode(sig_b64.as_bytes())
+    let sig_bytes = base64url_decode(sig_b64)
         .map_err(|err| Error::Protocol(format!("invalid sig base64: {err}")))?;
     if sig_bytes.len() != 64 {
         return Err(Error::Protocol("Ed25519 signature must be 64 bytes".to_owned()));
@@ -157,13 +156,11 @@ pub fn verify_ed25519_move_signature(
     let mut sig_arr = [0u8; 64];
     sig_arr.copy_from_slice(&sig_bytes);
     let signature = ed25519_dalek::Signature::from_bytes(&sig_arr);
-    let signing_input = format!("{header_b64}.{}", URL_SAFE_NO_PAD.encode(canonical_bytes));
+    let signing_input = format!("{header_b64}.{}", base64url_encode(canonical_bytes));
     use ed25519_dalek::Verifier as _;
     verifying_key
         .verify(signing_input.as_bytes(), &signature)
         .map_err(|err| Error::Protocol(format!("Ed25519 signature verification failed: {err}")))?;
-    // Suppress unused import warning if no other helpers consume Sha256.
-    let _ = Sha256::new();
     Ok(())
 }
 

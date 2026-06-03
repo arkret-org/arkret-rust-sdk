@@ -78,38 +78,35 @@ impl PublicKeyMaterial {
     }
 }
 
-mod key_bytes {
-    use base64::Engine;
-    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-    use serde::{Deserialize, Deserializer, Serializer};
-
-    pub fn serialize<S: Serializer>(bytes: &[u8], s: S) -> Result<S::Ok, S::Error> {
-        s.serialize_str(&URL_SAFE_NO_PAD.encode(bytes))
-    }
-
-    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<u8>, D::Error> {
-        let s = String::deserialize(d)?;
-        URL_SAFE_NO_PAD.decode(s.as_bytes()).map_err(serde::de::Error::custom)
-    }
-}
-
+/// Decode a `did:key` Ed25519 multibase string into raw key bytes.
+///
+/// Tolerates either the standard 2-byte multicodec prefix (`0xed 0x01`) or a
+/// bare 32-byte payload. The base58btc primitive comes from
+/// [`cokret_core::multibase`] — the single base58 home shared with `sdk`.
 fn decode_multibase_btc58(value: &str) -> Result<Vec<u8>> {
-    if !value.starts_with('z') {
-        return Err(Error::Protocol(format!(
-            "multibase Ed25519 keys must start with 'z' (base58-btc): {value}"
-        )));
-    }
-    // `did:key` Ed25519 multibase strings carry a 2-byte multicodec prefix
-    // (0xed 0x01) followed by the 32-byte verifying key. We only need the
-    // raw key, so the caller passes the strip step through `ed25519_bytes`.
-    let body = &value[1..];
-    let decoded = bs58_decode(body)?;
-    // Tolerate either bare 32-byte payloads or the standard 2-byte multicodec
-    // prefix. Strip the prefix when present.
+    let decoded = canonical_decode_multibase(value)?;
     if decoded.len() == 34 && decoded[0] == 0xed && decoded[1] == 0x01 {
         Ok(decoded[2..].to_vec())
     } else {
         Ok(decoded)
+    }
+}
+
+fn canonical_decode_multibase(value: &str) -> Result<Vec<u8>> {
+    cokret_core::decode_multibase_base58btc(value)
+}
+
+mod key_bytes {
+    use cokret_core::{base64url_decode, base64url_encode};
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S: Serializer>(bytes: &[u8], s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(&base64url_encode(bytes))
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<u8>, D::Error> {
+        let s = String::deserialize(d)?;
+        base64url_decode(&s).map_err(serde::de::Error::custom)
     }
 }
 
@@ -125,45 +122,7 @@ fn decode_jwk_ed25519(value: &serde_json::Value) -> Result<Vec<u8>> {
         .get("x")
         .and_then(|v| v.as_str())
         .ok_or_else(|| Error::Protocol("Ed25519 JWK missing 'x' parameter".to_owned()))?;
-    use base64::Engine;
-    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-    URL_SAFE_NO_PAD
-        .decode(x.as_bytes())
-        .map_err(|err| Error::Protocol(format!("invalid base64url in Ed25519 JWK 'x': {err}")))
-}
-
-// Minimal base58-btc decoder — kept in-crate so we don't pull a new
-// dependency in just to parse `did:key` strings for test vectors.
-fn bs58_decode(input: &str) -> Result<Vec<u8>> {
-    const ALPHABET: &[u8] = b"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-    let mut num = vec![0u8];
-    for ch in input.bytes() {
-        let digit = ALPHABET
-            .iter()
-            .position(|&c| c == ch)
-            .ok_or_else(|| Error::Protocol(format!("invalid base58 char: {ch:?}")))?;
-        let mut carry = digit;
-        for byte in num.iter_mut() {
-            carry += (*byte as usize) * 58;
-            *byte = (carry & 0xff) as u8;
-            carry >>= 8;
-        }
-        while carry > 0 {
-            num.push((carry & 0xff) as u8);
-            carry >>= 8;
-        }
-    }
-    let mut leading = 0;
-    for ch in input.bytes() {
-        if ch == b'1' {
-            leading += 1;
-        } else {
-            break;
-        }
-    }
-    let mut out = vec![0u8; leading];
-    out.extend(num.iter().rev());
-    Ok(out)
+    cokret_core::base64url_decode(x)
 }
 
 /// Error raised by [`EventSigner`] backends.
@@ -397,13 +356,21 @@ impl<V: EventVerifier> EventVerifier for ProductionVerifier<V> {
 
 #[cfg(feature = "signer")]
 mod ed25519_jws {
-    use base64::Engine;
-    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
     use chrono::Utc;
     use ed25519_dalek::{Signer as _, SigningKey, Verifier as _, VerifyingKey};
     use serde::Deserialize;
 
-    use cokret_core::{Audience, Hash, Proof, canonical, proof_kind};
+    use cokret_core::{
+        Audience, Hash, Proof, base64url_decode, base64url_encode, canonical, proof_kind,
+    };
+
+    /// SDK-canonical detached-JWS protected header (`{"alg":"EdDSA"}`).
+    ///
+    /// 这是全生态(spec fixtures、soland `move_anchor_wire`、cotest、teabay
+    /// `sdk::jws`)统一的 detached JWS header 字节;Move/Anchor/event-proof
+    /// 三类签名共用同一 header,使 signing input 字节唯一,跨实现可互验。
+    /// **不含** `typ`(spec §6 default proof 不声明 `typ`)。
+    pub(super) const PROTECTED_HEADER_EDDSA: &str = r#"{"alg":"EdDSA"}"#;
 
     use super::{
         EventProofBuilder, EventSigner, EventVerifier, ProofType, PublicKeyMaterial, SignerError,
@@ -502,6 +469,12 @@ mod ed25519_jws {
         alg: String,
         #[serde(default)]
         typ: Option<String>,
+        /// RFC 7515 §4.1.11 `crit`. Cokret v1 understands no critical
+        /// extensions, so any present `crit` member MUST be rejected
+        /// (`deny_unknown_fields` already rejects unrecognized members; this
+        /// field makes the rejection explicit and self-documenting).
+        #[serde(default)]
+        crit: Option<serde_json::Value>,
     }
 
     impl Ed25519DetachedJwsVerifier {
@@ -536,8 +509,7 @@ mod ed25519_jws {
                     "detached JWS must be header..signature with empty payload segment".to_owned(),
                 ));
             }
-            let header_bytes = URL_SAFE_NO_PAD
-                .decode(parts[0].as_bytes())
+            let header_bytes = base64url_decode(parts[0])
                 .map_err(|err| VerifierError::Encoding(format!("invalid header base64: {err}")))?;
             let header: JwsProtectedHeader =
                 serde_json::from_slice(&header_bytes).map_err(|err| {
@@ -555,6 +527,15 @@ mod ed25519_jws {
                     header.alg
                 )));
             }
+            // RFC 7515 §4.1.11 — we recognise no critical extensions, so any
+            // `crit` member fails closed.
+            if header.crit.is_some() {
+                return Err(VerifierError::Encoding(
+                    "detached JWS declares unsupported `crit` extensions".to_owned(),
+                ));
+            }
+            // Legacy producers may have emitted `typ:"JWT"`; accept it for
+            // backward verification but the SDK-canonical header omits `typ`.
             if let Some(typ) = header.typ.as_deref()
                 && typ != "JWT"
             {
@@ -562,10 +543,9 @@ mod ed25519_jws {
                     "unsupported detached JWS typ '{typ}'"
                 )));
             }
-            let sig_bytes = URL_SAFE_NO_PAD
-                .decode(parts[2].as_bytes())
+            let sig_bytes = base64url_decode(parts[2])
                 .map_err(|err| VerifierError::Encoding(format!("invalid sig base64: {err}")))?;
-            let signing_input = format!("{}.{}", parts[0], URL_SAFE_NO_PAD.encode(canonical_bytes));
+            let signing_input = format!("{}.{}", parts[0], base64url_encode(canonical_bytes));
             self.verify_signing_input(&signing_input, &sig_bytes, public_key)
         }
 
@@ -621,17 +601,15 @@ mod ed25519_jws {
     /// segment is stripped — but the signing-input stays
     /// `header.payload`.
     pub(super) fn detached_signing_input(bytes: &[u8]) -> String {
-        let header = r#"{"alg":"EdDSA","typ":"JWT"}"#;
-        let header_b64 = URL_SAFE_NO_PAD.encode(header.as_bytes());
-        format!("{header_b64}.{}", URL_SAFE_NO_PAD.encode(bytes))
+        let header_b64 = base64url_encode(PROTECTED_HEADER_EDDSA.as_bytes());
+        format!("{header_b64}.{}", base64url_encode(bytes))
     }
 
     pub(super) fn detached_jws_over(signing_key: &SigningKey, bytes: &[u8]) -> String {
         let signing_input = detached_signing_input(bytes);
         let signature = signing_key.sign(signing_input.as_bytes());
-        let sig_b64 = URL_SAFE_NO_PAD.encode(signature.to_bytes());
-        let header = r#"{"alg":"EdDSA","typ":"JWT"}"#;
-        let header_b64 = URL_SAFE_NO_PAD.encode(header.as_bytes());
+        let sig_b64 = base64url_encode(signature.to_bytes());
+        let header_b64 = base64url_encode(PROTECTED_HEADER_EDDSA.as_bytes());
         format!("{header_b64}..{sig_b64}")
     }
 }

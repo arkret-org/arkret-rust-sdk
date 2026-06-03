@@ -4,7 +4,6 @@
 //! opaque `ck:cursor:<base64url(canonical_json)>` tokens used for stream
 //! continuation and read-your-writes barriers.
 
-use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, HashMap},
@@ -30,7 +29,7 @@ pub fn generate_cursor_handle() -> Result<String> {
     getrandom::fill(&mut handle)
         .map_err(|error| Error::Protocol(format!("cursor_handle_rng_unavailable: {error}")))?;
     // Take 16 bytes — 128 bits — and base64url-encode (no pad).
-    let encoded = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(handle);
+    let encoded = crate::base64url::base64url_encode(handle);
     debug_assert!(encoded.len() >= CURSOR_HANDLE_MIN_LEN);
     Ok(encoded)
 }
@@ -260,7 +259,7 @@ impl Cursor {
         }
 
         // Encode to Base64URL without padding
-        let encoded = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&json);
+        let encoded = crate::base64url::base64url_encode(&json);
 
         Ok(format!("ck:cursor:{encoded}"))
     }
@@ -281,10 +280,7 @@ impl Cursor {
             .ok_or_else(|| Error::Protocol("cursor token must start with ck:cursor:".to_owned()))?;
 
         // Decode from unpadded Base64URL, the only v1 cursor transport form.
-        use base64::Engine as _;
-
-        let json = base64::engine::general_purpose::URL_SAFE_NO_PAD
-            .decode(encoded)
+        let json = crate::base64url::base64url_decode(encoded)
             .map_err(|_| Error::Protocol("invalid Base64URL encoding".to_owned()))?;
 
         let cursor: Cursor = serde_json::from_slice(&json)

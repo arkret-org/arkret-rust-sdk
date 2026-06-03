@@ -8,8 +8,8 @@
       "value": {"hello": "world"},
       "canonical_bytes": "{\"hello\":\"world\"}",
       "payload_digest": "sha256:93a23971a914e5eacbf0a8d25154cda309c3c1c72fbb9914d47c60f3cb681588",
-      "signature_hex": "8f96582b9fbb7e1725c43980a34876d8619628790a9890624e4b5115a148dd5149b61c3a50085ea52ee4fb5a6e0064a04facee8ef29fd78a8a1bcfce258b2a06",
-      "detached_jws": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9..j5ZYK5-7fhclxDmAo0h22GGWKHkKmJBiTktRFaFI3VFJthw6UAhepS7k-1puAGSgT6zujvKf14qKG8_OJYsqBg"
+      "signature_hex": "01f4049e6d03f012b266158023fe43daecc4e3e26643416e01f944e40861fbec54ac7266a5deeff2679ef5838c4f0c7af95f8db6bf8bb7dcb43f02e12981ac08",
+      "detached_jws": "eyJhbGciOiJFZERTQSJ9..AfQEnm0D8BKyZhWAI_5D2uzE4-JmQ0FuAflE5Ahh--xUrHJmpd7v8mee9YOMTwx6-V-Ntr-Lt9y0PwLhKYGsCA"
     },
     {
       "name": "seed_two_event_envelope_subset",
@@ -22,8 +22,8 @@
       },
       "canonical_bytes": "{\"actor_id\":\"did:web:alice.example\",\"kind\":\"cx.message.posted.v1\",\"payload\":{\"text\":\"hi\"}}",
       "payload_digest": "sha256:4855b204680a93fbcbb9ee2c92dfad77839f2de59b88c890bdfebe5c6733d475",
-      "signature_hex": "7f26e0353607e021cfc21e1ede147aa24418d20089a5ca2b297007b5c0cd1a318f92eff60754d27f0951ae1f63aee82a9226f8f4b74bd77d4f9fdc816bbfb60d",
-      "detached_jws": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9..fybgNTYH4CHPwh4e3hR6okQY0gCJpcorKXAHtcDNGjGPku_2B1TSfwlRrh9jrugqkib49LdL131Pn9yBa7-2DQ"
+      "signature_hex": "09138fe9e02f939b9556807a69d91172768e46c5b1290c3d99831284de64f876c6978d9a71c2c1b28c1c16467dc09ee0ca4a8769c6cd95aac0c9c5ddd4133c05",
+      "detached_jws": "eyJhbGciOiJFZERTQSJ9..CROP6eAvk5uVVoB6adkRcnaORsWxKQw9mYMShN5k-HbGl42accLBsowcFkZ9wJ7gykqHacbNlarAycXd1BM8BQ"
     },
     {
       "name": "seed_three_integer_array",
@@ -32,8 +32,8 @@
       "value": {"nums": [10, 20, 30]},
       "canonical_bytes": "{\"nums\":[10,20,30]}",
       "payload_digest": "sha256:65e22434a27b5fef6030b420dd3f223b819e9b6686fdcfbfad6f27297abc52ae",
-      "signature_hex": "7e4c39a465a0a3acff38aa8d3241fcf3c75253e3383b893d1f822ac3cecea96cac9bc6102251c5f837a7fce594a201cf42f85a01026f427a420be38dc959b707",
-      "detached_jws": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9..fkw5pGWgo6z_OKqNMkH888dSU-M4O4k9H4Iqw87OqWysm8YQIlHF-Den_OWUogHPQvhaAQJvQnpCC-ONyVm3Bw"
+      "signature_hex": "7c5f22a2edec35479b33514f7e5e91f5b7d6e686f3591ef402d6c3cc4fcc670851cf703ceaee2679e80af40cbeeb6812593683e392f0848ec5f61ea7adf83602",
+      "detached_jws": "eyJhbGciOiJFZERTQSJ9..fF8iou3sNUebM1FPfl6R9bfW5obzWR70AtbDzE_MZwhRz3A86u4meegK9Ay-62gSWTaD45LwhI7F9h6nrfg2Ag"
     }
   ]
 }

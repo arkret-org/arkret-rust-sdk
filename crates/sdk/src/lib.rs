@@ -155,11 +155,12 @@ pub mod hlc;
 // deduplication window. Open to all profiles — Applets, gateways,
 // any inbound handler can use it without dragging in `full-surface`.
 pub mod idempotency;
-// RFC 9421 HTTP Message Signatures (Ed25519) + RFC 9530
-// Content-Digest. Pure-Rust (ed25519-dalek + sha2 + base64), no
-// transport / runtime deps — safe on wasm32 (yougen).
+// RFC 9421 HTTP Message Signatures (Ed25519) + RFC 9530 Content-Digest.
+// 报告 03 #5 / 09 #2 收敛:唯一真源实现已下沉到 `cokret-signatures`;此处
+// re-export 保持 `cokret::http_signature::*` / `cokret_sdk::http_signature::*`
+// 调用路径不变(floria / teabay / chime 仍直接消费这一套)。
 #[cfg(feature = "full-surface")]
-pub mod http_signature;
+pub use cokret_signatures::http_signature;
 // HttpDidResolver leans on a live Tokio runtime, blocking off-thread
 // scheduling, and reqwest's native ClientBuilder transport knobs — none
 // of which are available on the wasm32 fetch backend. Gate the module out
@@ -329,12 +330,11 @@ pub use federation::{
     FederationBackfillAuthorization, FederationManager, FederationQuarantineKind,
     FederationQuarantineRecord, FederationReplayDecision, FederationReplayRecord,
     FederationReplayStore, FederationReqBody, FederationTransaction, FederationTransactionEnvelope,
-    HttpMessageSignature, HttpMessageSignatureInput, ServerInfo, ServiceEndpointDescriptor,
-    SovereignDeployment, TrustAnchor, VerifyActorChallenge, VerifyActorChallengeSignature,
-    WellKnownCokretServer, content_digest_sha256, did_document_service_endpoint_matches,
-    duplicate_transaction_quarantine, fork_quarantine_record, rfc9421_http_message_signature_base,
-    sign_http_message, sign_verify_actor_challenge, verify_actor_challenge_signature,
-    verify_http_message_signature,
+    HttpMessageSignature, ServerInfo, ServiceEndpointDescriptor, SovereignDeployment, TrustAnchor,
+    VerifyActorChallenge, VerifyActorChallengeSignature, WellKnownCokretServer,
+    content_digest_sha256, did_document_service_endpoint_matches, duplicate_transaction_quarantine,
+    fork_quarantine_record, rfc9530_content_digest_sha256, sign_verify_actor_challenge,
+    verify_actor_challenge_signature, verify_rfc9530_content_digest,
 };
 #[cfg(feature = "full-surface")]
 pub use hlc::{

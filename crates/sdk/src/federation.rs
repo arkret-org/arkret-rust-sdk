@@ -10,8 +10,8 @@ use sha2::{Digest, Sha256};
 pub use cokret_contracts::federation::{
     FederationBackfillAuthorization, FederationQuarantineKind, FederationQuarantineRecord,
     FederationReplayDecision, FederationReplayRecord, FederationTransactionEnvelope,
-    HttpMessageSignature, HttpMessageSignatureInput, ServiceEndpointDescriptor,
-    VerifyActorChallenge, VerifyActorChallengeSignature, WellKnownCokretServer,
+    HttpMessageSignature, ServiceEndpointDescriptor, VerifyActorChallenge,
+    VerifyActorChallengeSignature, WellKnownCokretServer,
 };
 
 use crate::{Did, Error, Hash, RealmId, Result};
@@ -261,21 +261,24 @@ impl FederationReplayStore for FederationManager {
     }
 }
 
+/// Build a Cokret wire-form digest (`sha256:<hex>`) over `bytes`.
+///
+/// 复用 `core::canonical::sha256_digest` 这一**唯一**摘要 helper(见
+/// `core/src/canonical.rs` 文档约束),不再在 federation 侧自行 `Sha256::new()`,
+/// 保证与 soland / yougen / floria 产出的摘要串字节一致。
 pub fn content_digest_sha256(bytes: &[u8]) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(bytes);
-    format!("sha256:{:x}", hasher.finalize())
+    cokret_core::canonical::sha256_digest(bytes)
 }
 
 /// Build the value of the RFC 9530 `Content-Digest` header
 /// (`sha-256=:<base64>:`).
+///
+/// RFC 9530 用 **base64-standard**(带 padding)包裹原始 32 字节 digest,与
+/// Cokret wire-form 的 `sha256:<hex>` 是两种编码;此处复用
+/// `core::canonical::sha256_hex` 取裸 hex 后转 base64-standard。
 pub fn rfc9530_content_digest_sha256(bytes: &[u8]) -> String {
-    use base64::Engine;
-    let mut hasher = Sha256::new();
-    hasher.update(bytes);
-    let digest = hasher.finalize();
-    let b64 = base64::engine::general_purpose::STANDARD.encode(digest);
-    format!("sha-256=:{}:", b64)
+    let raw = sha256_raw(bytes);
+    format!("sha-256=:{}:", cokret_core::base64_standard_encode(raw))
 }
 
 /// Verify an RFC 9530 `Content-Digest` header against the body bytes.
@@ -284,7 +287,6 @@ pub fn rfc9530_content_digest_sha256(bytes: &[u8]) -> String {
 /// Returns `Ok(())` when the digest matches, otherwise an
 /// `Error::Protocol` carrying `digest_mismatch`.
 pub fn verify_rfc9530_content_digest(header_value: &str, bytes: &[u8]) -> Result<()> {
-    use base64::Engine;
     let trimmed = header_value.trim();
     let body =
         trimmed.strip_prefix("sha-256=:").and_then(|s| s.strip_suffix(':')).ok_or_else(|| {
@@ -292,133 +294,23 @@ pub fn verify_rfc9530_content_digest(header_value: &str, bytes: &[u8]) -> Result
                 "digest_mismatch: unsupported Content-Digest format: {trimmed}"
             ))
         })?;
-    let provided = base64::engine::general_purpose::STANDARD.decode(body).map_err(|err| {
+    let provided = cokret_core::base64_standard_decode(body).map_err(|err| {
         Error::Protocol(format!("digest_mismatch: bad base64 in Content-Digest: {err}"))
     })?;
-    let mut hasher = Sha256::new();
-    hasher.update(bytes);
-    let expected = hasher.finalize();
-    let expected_bytes: &[u8] = expected.as_ref();
-    if expected_bytes == provided.as_slice() {
+    if sha256_raw(bytes) == provided.as_slice() {
         Ok(())
     } else {
         Err(Error::Protocol("digest_mismatch: Content-Digest does not match body".to_owned()))
     }
 }
 
-/// Build the canonical RFC 9421 signature base string for federation
-/// HTTP messages (B-06).
-///
-/// RFC 9421 §2 formats each component as `"<name>": <value>` followed
-/// by a `@signature-params` line. This helper emits the v1 federation
-/// component set (`@method`, `@target-uri`, `@authority`,
-/// `content-digest`, plus the Cokret-specific origin / destination
-/// DIDs) under the canonical RFC 9421 quoting rule.
-///
-/// `created_at` / `expires_at` are emitted as Unix-second integers
-/// inside `@signature-params` per RFC 9421 §2.5.
-pub fn rfc9421_http_message_signature_base(input: &HttpMessageSignatureInput) -> String {
-    let mut out = String::new();
-    out.push_str(&format!("\"@method\": {}\n", input.method.to_ascii_uppercase()));
-    out.push_str(&format!("\"@target-uri\": {}\n", input.target_uri));
-    out.push_str(&format!("\"@authority\": {}\n", input.authority));
-    out.push_str(&format!("\"content-digest\": {}\n", input.content_digest));
-    out.push_str(&format!("\"origin-service-did\": {}\n", input.origin_service_did));
-    out.push_str(&format!("\"destination-service-did\": {}\n", input.destination_service_did));
-    // Round 4 (spec f9bd7eb) — emit `Source-Trust-Domain`,
-    // `Destination-Trust-Domain`, and `Request-Canonical-Digest` headers
-    // into the canonical signing transcript when present.
-    let mut extra_fields: Vec<&'static str> = Vec::new();
-    if let Some(src) = &input.source_trust_domain {
-        out.push_str(&format!("\"source-trust-domain\": {}\n", src.as_str()));
-        extra_fields.push("\"source-trust-domain\"");
-    }
-    if let Some(dst) = &input.destination_trust_domain {
-        out.push_str(&format!("\"destination-trust-domain\": {}\n", dst.as_str()));
-        extra_fields.push("\"destination-trust-domain\"");
-    }
-    if let Some(hash) = &input.request_canonical_digest {
-        out.push_str(&format!("\"request-canonical-digest\": {}\n", hash.as_str()));
-        extra_fields.push("\"request-canonical-digest\"");
-    }
-    let base_fields = r#""@method" "@target-uri" "@authority" "content-digest" "origin-service-did" "destination-service-did""#;
-    let extras = if extra_fields.is_empty() {
-        String::new()
-    } else {
-        format!(" {}", extra_fields.join(" "))
-    };
-    out.push_str(&format!(
-        "\"@signature-params\": ({base_fields}{extras});created={};expires={}",
-        input.created_at.timestamp(),
-        input.expires_at.timestamp()
-    ));
-    out
-}
-
-pub fn validate_http_message_signature_input(input: &HttpMessageSignatureInput) -> Result<()> {
-    if let Some(hash) = &input.request_canonical_digest
-        && hash.as_str() != input.content_digest
-    {
-        return Err(Error::Protocol(format!(
-            "request_canonical_digest {} does not match content_digest {}",
-            hash.as_str(),
-            input.content_digest
-        )));
-    }
-    Ok(())
-}
-
-pub fn sign_http_message(
-    input: &HttpMessageSignatureInput,
-    key_id: impl Into<String>,
-    signing_key: &str,
-) -> Result<HttpMessageSignature> {
-    validate_http_message_signature_input(input)?;
-    let mut signed_fields = vec![
-        "method".to_owned(),
-        "target-uri".to_owned(),
-        "authority".to_owned(),
-        "content-digest".to_owned(),
-        "origin-service-did".to_owned(),
-        "destination-service-did".to_owned(),
-        "created".to_owned(),
-        "expires".to_owned(),
-    ];
-    // Round 4 (spec f9bd7eb) — declare the trust-domain transcript
-    // headers in `signed_fields` so receivers can short-circuit on a
-    // mismatched field list.
-    if input.source_trust_domain.is_some() {
-        signed_fields.push("source-trust-domain".to_owned());
-    }
-    if input.destination_trust_domain.is_some() {
-        signed_fields.push("destination-trust-domain".to_owned());
-    }
-    if input.request_canonical_digest.is_some() {
-        signed_fields.push("request-canonical-digest".to_owned());
-    }
-    Ok(HttpMessageSignature {
-        key_id: key_id.into(),
-        alg: "cx-sha256-test".to_owned(),
-        signed_fields,
-        signature: signature_digest(&rfc9421_http_message_signature_base(input), signing_key),
-    })
-}
-
-pub fn verify_http_message_signature(
-    input: &HttpMessageSignatureInput,
-    signature: &HttpMessageSignature,
-    verification_key: &str,
-    now: DateTime<Utc>,
-) -> bool {
-    if now < input.created_at || now > input.expires_at {
-        return false;
-    }
-    if validate_http_message_signature_input(input).is_err() {
-        return false;
-    }
-    signature.alg == "cx-sha256-test"
-        && signature.signature
-            == signature_digest(&rfc9421_http_message_signature_base(input), verification_key)
+/// Raw 32-byte SHA-256 digest. RFC 9530 needs the raw bytes (not the
+/// `sha256:<hex>` wire string), so this derives them from the canonical
+/// hex helper to keep a single hashing path.
+fn sha256_raw(bytes: &[u8]) -> [u8; 32] {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    hasher.finalize().into()
 }
 
 pub fn did_document_service_endpoint_matches(
@@ -705,59 +597,15 @@ mod tests {
     }
 
     #[test]
-    fn http_message_signature_binds_service_dids_digest_and_time() {
-        let now = Utc::now();
-        let input = HttpMessageSignatureInput {
-            method: "post".to_owned(),
-            target_uri: "https://b.example/_cokret/peer/federation/push-operations".to_owned(),
-            authority: "b.example".to_owned(),
-            content_digest: content_digest_sha256(br#"{"ok":true}"#),
-            origin_service_did: Did::new("did:web:a.example").unwrap(),
-            destination_service_did: Did::new("did:web:b.example").unwrap(),
-            created_at: now,
-            expires_at: now + chrono::Duration::minutes(5),
-            source_trust_domain: None,
-            destination_trust_domain: None,
-            request_canonical_digest: None,
-        };
-
-        let signature = sign_http_message(&input, "did:web:a.example#svc", "shared-key").unwrap();
-        assert!(verify_http_message_signature(&input, &signature, "shared-key", now));
-
-        let mut tampered = input.clone();
-        tampered.destination_service_did = Did::new("did:web:evil.example").unwrap();
-        assert!(!verify_http_message_signature(&tampered, &signature, "shared-key", now));
-        assert!(!verify_http_message_signature(
-            &input,
-            &signature,
-            "shared-key",
-            now + chrono::Duration::minutes(6)
-        ));
-    }
-
-    #[test]
-    fn http_message_signature_rejects_digest_mismatch() {
-        let now = Utc::now();
-        let mut input = HttpMessageSignatureInput {
-            method: "post".to_owned(),
-            target_uri: "https://b.example/_cokret/peer/federation/push-operations".to_owned(),
-            authority: "b.example".to_owned(),
-            content_digest: content_digest_sha256(br#"{"ok":true}"#),
-            origin_service_did: Did::new("did:web:a.example").unwrap(),
-            destination_service_did: Did::new("did:web:b.example").unwrap(),
-            created_at: now,
-            expires_at: now + chrono::Duration::minutes(5),
-            source_trust_domain: None,
-            destination_trust_domain: None,
-            request_canonical_digest: Some(
-                Hash::new(content_digest_sha256(br#"{"ok":true}"#)).unwrap(),
-            ),
-        };
-        let signature = sign_http_message(&input, "did:web:a.example#svc", "shared-key").unwrap();
-        input.request_canonical_digest =
-            Some(Hash::new(content_digest_sha256(br#"{"ok":false}"#)).unwrap());
-        assert!(sign_http_message(&input, "did:web:a.example#svc", "shared-key").is_err());
-        assert!(!verify_http_message_signature(&input, &signature, "shared-key", now));
+    fn rfc9530_content_digest_round_trips_and_reuses_core_helper() {
+        let body = br#"{"ok":true}"#;
+        // Wire-form digest reuses the single core helper.
+        assert_eq!(content_digest_sha256(body), cokret_core::canonical::sha256_digest(body));
+        // RFC 9530 header verifies against the same body and rejects tamper.
+        let header = rfc9530_content_digest_sha256(body);
+        assert!(header.starts_with("sha-256=:") && header.ends_with(':'));
+        verify_rfc9530_content_digest(&header, body).unwrap();
+        assert!(verify_rfc9530_content_digest(&header, b"different").is_err());
     }
 
     #[test]

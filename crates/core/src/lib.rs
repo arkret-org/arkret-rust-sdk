@@ -7,6 +7,7 @@
 pub mod admin_signer;
 pub mod anchor;
 pub mod anchorer;
+pub mod base64url;
 pub mod blind_payload_sanitizer;
 pub mod bottom;
 pub mod canonical;
@@ -21,6 +22,7 @@ pub mod keystore;
 pub mod lattice;
 pub mod model;
 pub mod move_event;
+pub mod multibase;
 pub mod operations;
 pub mod profile_claim;
 pub mod push_rule_core;
@@ -37,6 +39,9 @@ pub use anchor::{
     ThresholdSigKind, ThresholdSignature, anchor_canonical_bytes, compute_anchor_id,
 };
 pub use anchorer::AnchorerValue;
+pub use base64url::{
+    base64_standard_decode, base64_standard_encode, base64url_decode, base64url_encode,
+};
 pub use blind_payload_sanitizer::{
     ALLOWED_BLIND_FIELDS, ALLOWED_PUSH_HINTS, ALLOWED_WAKEUP_KINDS, BlindPayloadError,
     BlindPayloadReasonCode, MAX_COUNT_VALUE, SanitizerMode, is_allowed_blind_field,
@@ -110,6 +115,11 @@ pub use model::*;
 pub use move_event::{
     Effect, LatticeOp, LatticeOpType, MOVE_SIGNATURE_ALGS, Move, MoveSignature, Precondition,
     Predicate, PredicateOp, SemanticRef,
+};
+pub use multibase::{
+    MULTICODEC_ED25519_PUB, decode_base58btc, decode_ed25519_multibase, decode_multibase_base58btc,
+    decode_multicodec_varint, ed25519_pubkey_to_did_key_multibase, encode_base58btc,
+    encode_multibase_base58btc,
 };
 pub use profile_claim::{ProfileClaim, ProfileClaimError, ProfileClaimKind, ProfileValidator};
 pub use service::{

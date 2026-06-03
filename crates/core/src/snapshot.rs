@@ -58,16 +58,16 @@ pub struct SnapshotChunk {
 }
 
 mod base64_url {
-    use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
+    use crate::base64url::{base64url_decode, base64url_encode};
     use serde::{Deserialize, Deserializer, Serializer};
 
     pub fn serialize<S: Serializer>(bytes: &[u8], serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(&URL_SAFE_NO_PAD.encode(bytes))
+        serializer.serialize_str(&base64url_encode(bytes))
     }
 
     pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<u8>, D::Error> {
         let s = String::deserialize(deserializer)?;
-        URL_SAFE_NO_PAD.decode(s.as_bytes()).map_err(serde::de::Error::custom)
+        base64url_decode(&s).map_err(serde::de::Error::custom)
     }
 }
 

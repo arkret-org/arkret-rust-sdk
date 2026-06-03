@@ -190,68 +190,23 @@ pub(super) fn did_key_material(did: &Did) -> Option<String> {
     Some(method_id.to_owned())
 }
 
+/// Decode a base58btc (Bitcoin alphabet) string, returning `None` on any
+/// invalid character. Thin wrapper over the single `core::multibase`
+/// primitive (backed by the `bs58` crate) so the `did:key` / `did:webvh`
+/// paths share one base58 implementation.
 pub(crate) fn decode_base58btc(input: &str) -> Option<Vec<u8>> {
     if input.is_empty() {
         return None;
     }
-    let mut output = Vec::<u8>::new();
-    for byte in input.bytes() {
-        let mut carry = base58btc_value(byte)?;
-        for item in output.iter_mut().rev() {
-            let value = u32::from(*item) * 58 + carry;
-            *item = (value & 0xff) as u8;
-            carry = value >> 8;
-        }
-        while carry > 0 {
-            output.insert(0, (carry & 0xff) as u8);
-            carry >>= 8;
-        }
-    }
-    let leading_zeroes = input.bytes().take_while(|byte| *byte == b'1').count();
-    for _ in 0..leading_zeroes {
-        output.insert(0, 0);
-    }
-    Some(output)
-}
-
-pub(super) fn base58btc_value(byte: u8) -> Option<u32> {
-    const ALPHABET: &[u8; 58] = b"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-    ALPHABET.iter().position(|candidate| *candidate == byte).map(|index| index as u32)
+    cokret_core::decode_base58btc(input).ok()
 }
 
 /// Encode `bytes` as a base58btc string (Bitcoin alphabet, no multibase
 /// `z` prefix). Inverse of [`decode_base58btc`]. Used by the `did:webvh`
 /// SCID / entry-hash derivation, which wraps a SHA-256 multihash in
-/// base58btc.
+/// base58btc. Delegates to the single `core::multibase` encoder.
 pub(crate) fn encode_base58btc(bytes: &[u8]) -> String {
-    const ALPHABET: &[u8; 58] = b"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-    if bytes.is_empty() {
-        return String::new();
-    }
-    let leading_zeros = bytes.iter().take_while(|&&b| b == 0).count();
-    let mut input = bytes.to_vec();
-    let mut output = Vec::<u8>::with_capacity(bytes.len() * 138 / 100 + 1);
-    let mut start = leading_zeros;
-    while start < input.len() {
-        let mut remainder: u32 = 0;
-        for byte in input.iter_mut().skip(start) {
-            let acc = (remainder << 8) | u32::from(*byte);
-            *byte = (acc / 58) as u8;
-            remainder = acc % 58;
-        }
-        output.push(ALPHABET[remainder as usize]);
-        while start < input.len() && input[start] == 0 {
-            start += 1;
-        }
-    }
-    let mut s = String::with_capacity(leading_zeros + output.len());
-    for _ in 0..leading_zeros {
-        s.push('1');
-    }
-    for &b in output.iter().rev() {
-        s.push(b as char);
-    }
-    s
+    cokret_core::encode_base58btc(bytes)
 }
 
 /// Wrap a SHA-256 digest of `canonical_bytes` in a multihash envelope
@@ -268,7 +223,8 @@ pub(crate) fn webvh_multihash_base58(canonical_bytes: &[u8]) -> String {
 }
 
 pub(super) fn is_supported_did_key_multicodec(bytes: &[u8]) -> bool {
-    let Some((code, offset)) = decode_multicodec_varint(bytes) else {
+    // multicodec varint parsing reuses the single `core::multibase` helper.
+    let Some((code, offset)) = cokret_core::decode_multicodec_varint(bytes) else {
         return false;
     };
     let key = &bytes[offset..];
@@ -280,22 +236,6 @@ pub(super) fn is_supported_did_key_multicodec(bytes: &[u8]) -> bool {
         0x1205 => key.len() >= 64,                // RSA-pub
         _ => false,
     }
-}
-
-pub(super) fn decode_multicodec_varint(bytes: &[u8]) -> Option<(u64, usize)> {
-    let mut value = 0u64;
-    let mut shift = 0u32;
-    for (index, byte) in bytes.iter().copied().enumerate() {
-        value |= u64::from(byte & 0x7f) << shift;
-        if byte & 0x80 == 0 {
-            return Some((value, index + 1));
-        }
-        shift += 7;
-        if shift >= 64 {
-            return None;
-        }
-    }
-    None
 }
 
 pub(super) fn operation_payload(operation: &DidKeyLogOperation) -> String {
