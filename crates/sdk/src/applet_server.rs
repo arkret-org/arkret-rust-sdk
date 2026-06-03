@@ -86,7 +86,7 @@ mod salvo_router {
         SERVICE.set(service).map_err(|_| {
             crate::Error::Protocol("applet_server::router already installed".to_owned())
         })?;
-        Ok(Router::with_path("api/v1/applet")
+        Ok(Router::with_path("_cokret/edge/applet")
             .push(Router::with_path("ping").get(ping_handler))
             .push(Router::with_path("describe").get(describe_handler))
             .push(Router::with_path("transactions").post(transactions_handler))
