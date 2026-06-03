@@ -239,6 +239,8 @@ fn cross_signing_reset_marks_devices_needing_reverification() {
 
     let reset = CrossSigningResetContent {
         principal_id: alice.clone(),
+        trust_domain: contrix_core::TypedTrustDomainId::new("cx:trust_domain:example.net").unwrap(),
+        reset_event_id: "cx:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
         previous_generation: 1,
         new_generation: 2,
         reset_reason: "rotation".to_owned(),
@@ -374,6 +376,8 @@ fn cross_signing_reset_cancels_in_flight_verifications() {
     let challenge = manager.begin_sas_verification(&alice, &phone, "000000").unwrap();
     let reset = CrossSigningResetContent {
         principal_id: alice.clone(),
+        trust_domain: contrix_core::TypedTrustDomainId::new("cx:trust_domain:example.net").unwrap(),
+        reset_event_id: "cx:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
         previous_generation: 1,
         new_generation: 2,
         reset_reason: "compromise".to_owned(),

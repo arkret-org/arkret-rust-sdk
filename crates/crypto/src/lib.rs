@@ -376,6 +376,12 @@ impl CrossSigningPublishContent {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CrossSigningResetContent {
     pub principal_id: Did,
+    /// Deployment-scope trust domain — enters the reset proof transcript so a
+    /// proof cannot be replayed across deployments (spec §14.1).
+    pub trust_domain: contrix_core::TypedTrustDomainId,
+    /// Typed event_id of the enclosing Event Envelope; bound into the transcript
+    /// so the same proof bytes cannot be wrapped into a different Event shell.
+    pub reset_event_id: String,
     pub previous_generation: u64,
     pub new_generation: u64,
     #[serde(rename = "reset_reason_code", alias = "reset_reason")]
@@ -537,6 +543,26 @@ impl CrossSigningResetContent {
             }
         }
         Ok(())
+    }
+
+    /// Canonical signing input for a `cx.cross_signing.reset` proof
+    /// (`cx-cross-signing-reset-v1`, spec crypto-media/device-lifecycle.md §14.1).
+    ///
+    /// Binds the reset's principal + generation transition + reason so the proof
+    /// cannot be replayed onto a different reset. Both the proving client and the
+    /// verifying receiver MUST reconstruct this byte-identically.
+    pub fn reset_signing_input(&self) -> Result<Vec<u8>> {
+        let body = serde_json::json!({
+            "principal_id": self.principal_id.as_str(),
+            "trust_domain": self.trust_domain.as_str(),
+            "reset_event_id": self.reset_event_id,
+            "previous_generation": self.previous_generation,
+            "new_generation": self.new_generation,
+            "reset_reason": self.reset_reason,
+        });
+        let mut out = b"cx-cross-signing-reset-v1\n".to_vec();
+        out.extend_from_slice(&contrix_core::canonical::canonical_json_bytes(&body)?);
+        Ok(out)
     }
 }
 
@@ -1676,9 +1702,48 @@ mod tests {
     /// `CrossSigningResetProof::DeviceQuorum { threshold: 0, .. }` must
     /// be rejected even when the signatures vector is non-empty.
     #[test]
+    fn reset_signing_input_is_stable_and_binds_replay_fields() {
+        let content = CrossSigningResetContent {
+            principal_id: did("alice"),
+            trust_domain: contrix_core::TypedTrustDomainId::new("cx:trust_domain:example.net")
+                .unwrap(),
+            reset_event_id: "cx:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
+            previous_generation: 1,
+            new_generation: 2,
+            reset_reason: "lost phone".to_owned(),
+            proof: CrossSigningResetProof::PrincipalSigning {
+                verification_method: "did:web:alice.example#psk".to_owned(),
+                alg: "EdDSA".to_owned(),
+                signature: "AAAA".to_owned(),
+            },
+            issued_at: Utc::now(),
+        };
+        let base = content.reset_signing_input().unwrap();
+        assert!(base.starts_with(b"cx-cross-signing-reset-v1\n"));
+        // Deterministic.
+        assert_eq!(base, content.reset_signing_input().unwrap());
+        // Generation transition is bound.
+        let mut gen_changed = content.clone();
+        gen_changed.previous_generation = 2;
+        gen_changed.new_generation = 3;
+        assert_ne!(base, gen_changed.reset_signing_input().unwrap());
+        // trust_domain is bound (cross-deployment replay protection).
+        let mut domain_changed = content.clone();
+        domain_changed.trust_domain =
+            contrix_core::TypedTrustDomainId::new("cx:trust_domain:other.net").unwrap();
+        assert_ne!(base, domain_changed.reset_signing_input().unwrap());
+        // reset_event_id is bound (event-shell replay protection).
+        let mut event_changed = content.clone();
+        event_changed.reset_event_id = "cx:event:01964137-0000-7000-8000-0000000000bb".to_owned();
+        assert_ne!(base, event_changed.reset_signing_input().unwrap());
+    }
+
+    #[test]
     fn cross_signing_reset_proof_threshold_zero_rejected() {
         let content = CrossSigningResetContent {
             principal_id: did("alice"),
+            trust_domain: contrix_core::TypedTrustDomainId::new("cx:trust_domain:example.net").unwrap(),
+            reset_event_id: "cx:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
             previous_generation: 1,
             new_generation: 2,
             reset_reason: "lost phone".to_owned(),
@@ -1708,6 +1773,8 @@ mod tests {
         // PrincipalSigning with whitespace-only `verification_method`.
         let blank_verification_method = CrossSigningResetContent {
             principal_id: did("alice"),
+            trust_domain: contrix_core::TypedTrustDomainId::new("cx:trust_domain:example.net").unwrap(),
+            reset_event_id: "cx:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
             previous_generation: 1,
             new_generation: 2,
             reset_reason: "rot".to_owned(),
@@ -1765,6 +1832,8 @@ mod tests {
     fn cross_signing_reset_proof_oversized_alg_rejected() {
         let content = CrossSigningResetContent {
             principal_id: did("alice"),
+            trust_domain: contrix_core::TypedTrustDomainId::new("cx:trust_domain:example.net").unwrap(),
+            reset_event_id: "cx:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
             previous_generation: 1,
             new_generation: 2,
             reset_reason: "rot".to_owned(),
