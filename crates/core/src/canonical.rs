@@ -159,6 +159,39 @@ pub fn validate_timestamp_canonical(timestamp: &str) -> Result<()> {
     Ok(())
 }
 
+/// Format a [`chrono::DateTime<chrono::Utc>`] into the canonical
+/// `YYYY-MM-DDTHH:MM:SSZ` timestamp string accepted by
+/// [`validate_timestamp_canonical`].
+///
+/// The output is RFC 3339 UTC, ends with `Z`, has **no** fractional
+/// seconds, and is exactly 20 characters long. Sub-second precision in
+/// the input is truncated.
+///
+/// 产出与 [`validate_timestamp_canonical`] 接受口径完全一致的规范时间戳串:
+/// RFC3339 UTC、以 `Z` 结尾、无小数秒、固定 20 字符。亚秒精度被截断。
+pub fn format_timestamp_canonical(when: chrono::DateTime<chrono::Utc>) -> String {
+    when.format("%Y-%m-%dT%H:%M:%SZ").to_string()
+}
+
+/// Convenience: format a Unix timestamp in **milliseconds** (UTC) into the
+/// canonical `YYYY-MM-DDTHH:MM:SSZ` string. Returns `None` if the value is
+/// out of the representable range. Sub-second milliseconds are truncated.
+///
+/// 便捷重载:从 Unix 毫秒构造规范时间戳串(超出可表示范围时返回 `None`)。
+pub fn format_timestamp_canonical_millis(unix_millis: i64) -> Option<String> {
+    chrono::DateTime::<chrono::Utc>::from_timestamp_millis(unix_millis)
+        .map(format_timestamp_canonical)
+}
+
+/// Convenience: format a Unix timestamp in **seconds** (UTC) into the
+/// canonical `YYYY-MM-DDTHH:MM:SSZ` string. Returns `None` if the value is
+/// out of the representable range.
+///
+/// 便捷重载:从 Unix 秒构造规范时间戳串(超出可表示范围时返回 `None`)。
+pub fn format_timestamp_canonical_secs(unix_secs: i64) -> Option<String> {
+    chrono::DateTime::<chrono::Utc>::from_timestamp(unix_secs, 0).map(format_timestamp_canonical)
+}
+
 fn write_canonical_value(value: &Value, out: &mut Vec<u8>) -> Result<()> {
     match value {
         Value::Null => out.extend_from_slice(b"null"),
@@ -309,6 +342,38 @@ mod tests {
     fn validate_timestamp_canonical_rejects_lowercase_t_or_z() {
         assert!(validate_timestamp_canonical("2026-04-26t00:00:00Z").is_err());
         assert!(validate_timestamp_canonical("2026-04-26T00:00:00z").is_err());
+    }
+
+    #[test]
+    fn format_timestamp_canonical_roundtrips_through_validate() {
+        let when = chrono::DateTime::parse_from_rfc3339("2026-06-03T12:34:56.789Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        let formatted = format_timestamp_canonical(when);
+        // Fractional seconds are truncated and the string is exactly 20 chars.
+        assert_eq!(formatted, "2026-06-03T12:34:56Z");
+        assert_eq!(formatted.len(), 20);
+        // The formatter's output MUST be accepted by the validator.
+        validate_timestamp_canonical(&formatted).expect("formatted timestamp must validate");
+    }
+
+    #[test]
+    fn format_timestamp_canonical_from_unix_passes_validate() {
+        let millis = format_timestamp_canonical_millis(1_780_000_000_999).unwrap();
+        validate_timestamp_canonical(&millis).expect("millis form must validate");
+        let secs = format_timestamp_canonical_secs(1_780_000_000).unwrap();
+        validate_timestamp_canonical(&secs).expect("secs form must validate");
+        // The two forms agree once sub-second precision is dropped.
+        assert_eq!(millis, secs);
+    }
+
+    #[test]
+    fn sha256_hex_has_no_prefix_and_matches_digest() {
+        let hex = sha256_hex(b"hello");
+        assert_eq!(hex, "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824");
+        assert_eq!(hex.len(), 64);
+        assert!(!hex.starts_with("sha256:"));
+        assert_eq!(sha256_digest(b"hello"), format!("sha256:{hex}"));
     }
 
     #[test]

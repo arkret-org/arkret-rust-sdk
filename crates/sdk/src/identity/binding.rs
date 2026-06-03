@@ -293,6 +293,41 @@ pub fn decode_multicodec_ed25519(encoded: &str) -> Result<[u8; 32], BindingError
     Ok(out)
 }
 
+/// Decode a multibase `z…` string carrying a **64-byte Ed25519 signature**
+/// back into its raw bytes.
+///
+/// Mirrors [`decode_multicodec_ed25519`] (public-key side): validates the
+/// leading multibase `z`, requires the `0xed 0x01` Ed25519 multicodec tag,
+/// and enforces the fixed 64-byte signature length. Any other multicodec
+/// prefix or a wrong length is rejected.
+///
+/// 与公钥侧的 [`decode_multicodec_ed25519`] 对应,解码 64 字节 ed25519 签名:
+/// 校验 `z` 前缀、`0xed01` multicodec 标签,并强制签名固定 64 字节;非-ed25519
+/// 前缀或长度不符一律拒绝。
+pub fn decode_multicodec_ed25519_signature(encoded: &str) -> Result<[u8; 64], BindingError> {
+    let body = encoded.strip_prefix('z').ok_or_else(|| {
+        BindingError::InvalidMulticodec("missing multibase 'z' prefix".to_owned())
+    })?;
+    let decoded = decode_base58btc(body)
+        .ok_or_else(|| BindingError::InvalidMulticodec("invalid base58btc body".to_owned()))?;
+    if decoded.len() != 66 {
+        return Err(BindingError::InvalidMulticodec(format!(
+            "expected 66-byte envelope (2-byte tag + 64-byte signature), got {} bytes",
+            decoded.len()
+        )));
+    }
+    if decoded[..2] != MULTICODEC_ED25519_PUB {
+        return Err(BindingError::InvalidMulticodec(format!(
+            "expected multicodec tag {:02x?}, got {:02x?}",
+            MULTICODEC_ED25519_PUB,
+            &decoded[..2]
+        )));
+    }
+    let mut out = [0u8; 64];
+    out.copy_from_slice(&decoded[2..]);
+    Ok(out)
+}
+
 /// Minimal base58btc encoder. Accepts an arbitrary byte slice and
 /// returns the base58btc-encoded string (no leading multibase tag —
 /// that's the caller's job).

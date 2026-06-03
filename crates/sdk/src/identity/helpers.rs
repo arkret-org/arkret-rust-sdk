@@ -54,7 +54,13 @@ pub(super) fn is_allowed_did_web_content_type(content_type: &str) -> bool {
     matches!(media_type.as_str(), "application/did+json" | "application/json")
 }
 
-pub(super) fn did_webvh_parts(did: &Did) -> Option<(String, String, Option<u16>, Vec<String>)> {
+/// Split a `did:webvh:<scid>:<host>[%3A<port>][:<path>…]` DID into its
+/// component parts: `(scid, host, port, path_segments)`.
+///
+/// Returns `None` for any non-`did:webvh` input or malformed component
+/// (empty scid/host, or a path segment containing `/` or `..`). 公开拆分
+/// 助手:供 starid 等下游直接解析 did:webvh,无需经过 SDK 内部。
+pub fn did_webvh_parts(did: &Did) -> Option<(String, String, Option<u16>, Vec<String>)> {
     let method_id = did.as_str().strip_prefix("did:webvh:")?;
     let mut parts = method_id.split(':');
     let scid = parts.next()?.to_owned();
