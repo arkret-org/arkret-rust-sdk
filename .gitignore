@@ -27,3 +27,6 @@ bindings/kotlin/buildSrc/.gradle/
 _*.md
 /_circle_rollout_baseline.md
 /_*_todos.md
+
+# Claude Code worktrees / session state
+.claude/
