@@ -22,9 +22,18 @@ pub fn canonical_json_string<T: Serialize>(value: &T) -> Result<String> {
         .map_err(|err| Error::Protocol(format!("canonical JSON produced invalid UTF-8: {err}")))
 }
 
+/// Compute the SHA-256 of `bytes` and return the **bare** 64-character
+/// lowercase hex digest (no `sha256:` prefix).
+///
+/// 返回不带 `sha256:` 前缀的裸 hex 摘要(固定 64 位小写十六进制),供需要
+/// 原始 hash 原语的下游直接使用。[`sha256_digest`] 在此之上加前缀。
+pub fn sha256_hex(bytes: &[u8]) -> String {
+    let digest = Sha256::digest(bytes);
+    format!("{digest:x}")
+}
+
 pub fn sha256_digest(bytes: impl AsRef<[u8]>) -> String {
-    let digest = Sha256::digest(bytes.as_ref());
-    format!("sha256:{digest:x}")
+    format!("sha256:{}", sha256_hex(bytes.as_ref()))
 }
 
 /// Canonical digest helper for already-canonicalized JSON byte streams.

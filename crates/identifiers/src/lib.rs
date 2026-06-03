@@ -90,7 +90,11 @@ macro_rules! id_type {
 /// method-specific-id MUST be non-empty and contain no whitespace, fragment,
 /// or query marker. DID URL fields use a separate string surface and require a
 /// `#key` fragment.
-fn is_did(value: &str) -> bool {
+///
+/// 零分配的公开校验入口:对任意 `&str` 返回它是否为合法 DID 标量。
+/// 与 `id_type!(Did, is_did)` 内部使用的判定完全一致,供下游直接复用而无需
+/// 构造 `Did`。Zero-allocation public validator for the DID scalar form.
+pub fn is_did(value: &str) -> bool {
     let Some(remainder) = value.strip_prefix("did:") else {
         return false;
     };
@@ -131,7 +135,11 @@ fn has_prefix<'a>(prefix: &'a str) -> impl Fn(&str) -> bool + 'a {
 /// non-empty. Round R2/R3 (2026-05-20). Spec: id-kind-registry.json
 /// special_forms[trust_domain]; pattern matches cross-signing-reset.schema.json
 /// `^cx:trust_domain:[a-z0-9][a-z0-9._\-:]{0,127}$`.
-fn is_trust_domain(value: &str) -> bool {
+///
+/// 零分配的公开校验入口:对任意 `&str` 返回它是否为合法 `cx:trust_domain:<scope>`
+/// 线格式。与 `id_type!(TypedTrustDomainId, is_trust_domain)` 内部判定一致。
+/// Zero-allocation public validator for the trust-domain wire form.
+pub fn is_trust_domain(value: &str) -> bool {
     let Some(scope) = value.strip_prefix("cx:trust_domain:") else {
         return false;
     };
