@@ -10,8 +10,8 @@
 //! `discovery/client-preferences.md` §3.6.
 //!
 //! Note: the `cx.flow.track.read_receipt_policy` cell was REMOVED in
-//! contrix-spec revision `0a5ab85` (see
-//! `contrix-spec/spec/v1/artifacts/registry/removed-event-kinds.json`).
+//! cokret-spec revision `0a5ab85` (see
+//! `cokret-spec/spec/v1/artifacts/registry/removed-event-kinds.json`).
 //! Read receipts evaluate at the Space / child Space level only — create
 //! a child Space if a discussion needs an independent boundary.
 
@@ -374,9 +374,9 @@ mod tests {
 
     #[test]
     fn receipts_manage_markers_public_private_and_threads() {
-        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
-        let event = EventId::new("cx:event:01904100-0000-7000-8000-834e21b98552").unwrap();
+        let event = EventId::new("ck:event:01904100-0000-7000-8000-834e21b98552").unwrap();
         let mut manager = ReceiptManager::new();
 
         manager.set_read_marker(
@@ -407,11 +407,11 @@ mod tests {
     }
 
     fn space() -> SpaceId {
-        SpaceId::new("cx:space:01904100-0000-7000-8000-906bb8c30a80").unwrap()
+        SpaceId::new("ck:space:01904100-0000-7000-8000-906bb8c30a80").unwrap()
     }
 
     fn flow() -> FlowId {
-        FlowId::new("cx:flow:01904100-0000-7000-8000-c1fe7e18f6fe").unwrap()
+        FlowId::new("ck:flow:01904100-0000-7000-8000-c1fe7e18f6fe").unwrap()
     }
 
     #[test]
@@ -439,7 +439,7 @@ mod tests {
         // space overrides default when no flow override
         assert!(!prefs.effective_send(None, Some(&space())));
         // default applies when nothing else matches
-        let other_space = SpaceId::new("cx:space:01904100-0000-7000-8000-de7b2d3c4472").unwrap();
+        let other_space = SpaceId::new("ck:space:01904100-0000-7000-8000-de7b2d3c4472").unwrap();
         assert!(prefs.effective_send(None, Some(&other_space)));
     }
 

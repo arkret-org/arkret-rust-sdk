@@ -51,8 +51,8 @@ impl Space {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let place_id = SpaceId::new(generate_id("cx:space:"))?;
-        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let place_id = SpaceId::new(generate_id("ck:space:"))?;
+        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         let now = Utc::now();
         let mut object = json!({
             "id": place_id.as_str(),
@@ -118,7 +118,7 @@ impl Space {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         let mut patch = serde_json::Map::new();
         if let Some(title) = title {
             patch.insert("title".to_owned(), json!(title));
@@ -166,7 +166,7 @@ impl Space {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         let mut operation = Operation::create(
             operation_id,
             self.realm_id()?,
@@ -207,7 +207,7 @@ impl Space {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         let mut operation = Operation::create(
             operation_id,
             self.realm_id()?,

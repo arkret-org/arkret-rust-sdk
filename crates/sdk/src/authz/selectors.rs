@@ -56,7 +56,7 @@ pub enum ResourceSelector {
     /// Actor selector (e.g. account-lifecycle, profile updates).
     Actor { actor_id: String },
     /// CXP-0007 (R3 spec-sync 2026-05-27) — Circle selector. Matches a
-    /// specific Circle by its `cx:circle:<uuid>` identifier. The Circle
+    /// specific Circle by its `ck:circle:<uuid>` identifier. The Circle
     /// is scoped to its parent Realm; cross-Realm selectors MUST be
     /// rejected by the resolver (`circle_realm_mismatch`).
     Circle { circle_id: contrix_core::CircleId },
@@ -251,9 +251,9 @@ impl ResourceSelector {
     /// Parse a resource selector from a string.
     ///
     /// Supports formats like:
-    /// - "space:cx:space:..."
-    /// - "object:cx:space:...:task"
-    /// - "relation:cx:space:...:assigned_to"
+    /// - "space:ck:space:..."
+    /// - "object:ck:space:...:task"
+    /// - "relation:ck:space:...:assigned_to"
     pub fn parse(selector: &str) -> Result<Self> {
         // Split on the first colon to get the type
         let parts: Vec<&str> = selector.splitn(2, ':').collect();
@@ -276,7 +276,7 @@ impl ResourceSelector {
                 let (object_type, object_ref) = match tail {
                     None => (None, None),
                     Some(tail) if tail == "*" => (None, None),
-                    Some(tail) if tail.starts_with("cx:") || tail.starts_with("did:") => {
+                    Some(tail) if tail.starts_with("ck:") || tail.starts_with("did:") => {
                         (None, Some(tail))
                     }
                     Some(tail) => (Some(tail), None),
@@ -315,12 +315,12 @@ impl ResourceSelector {
             }
             "read_cursor" => Ok(Self::ReadCursor { space_id: remainder.to_owned() }),
             "circle" => {
-                // Accept either `circle:cx:circle:<uuid>` (typed) or bare
+                // Accept either `circle:ck:circle:<uuid>` (typed) or bare
                 // `circle:<uuid>` (parser tail).
-                let raw = if remainder.starts_with("cx:circle:") {
+                let raw = if remainder.starts_with("ck:circle:") {
                     remainder.to_owned()
                 } else {
-                    format!("cx:circle:{remainder}")
+                    format!("ck:circle:{remainder}")
                 };
                 let circle_id = contrix_core::CircleId::new(raw)
                     .map_err(|err| Error::Protocol(format!("invalid circle selector: {err}")))?;
@@ -778,9 +778,9 @@ impl ProtocolResourceSelector {
         vec![
             Self {
                 kind: ProtocolResourceSelectorKind::Event,
-                space_id: Some("cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned()),
+                space_id: Some("ck:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned()),
                 circle_id: None,
-                event_id: Some("cx:event:01904100-0000-7000-8000-51495aba0a08".to_owned()),
+                event_id: Some("ck:event:01904100-0000-7000-8000-51495aba0a08".to_owned()),
                 object_type: None,
                 object_ref: None,
                 flow_id: None,
@@ -799,7 +799,7 @@ impl ProtocolResourceSelector {
             },
             Self {
                 kind: ProtocolResourceSelectorKind::Actor,
-                space_id: Some("cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned()),
+                space_id: Some("ck:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned()),
                 circle_id: None,
                 actor_id: Some("did:web:alice.example".to_owned()),
                 object_type: None,
@@ -820,12 +820,12 @@ impl ProtocolResourceSelector {
             },
             Self {
                 kind: ProtocolResourceSelectorKind::Notification,
-                space_id: Some("cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned()),
+                space_id: Some("ck:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned()),
                 circle_id: None,
                 actor_id: Some("did:web:alice.example".to_owned()),
                 object_type: Some("device_verification".to_owned()),
-                object_ref: Some("cx:notify:01JS0NT000000000000000000".to_owned()),
-                flow_id: Some("cx:flow:01904100-0000-7000-8000-a1fffe3a8cc9".to_owned()),
+                object_ref: Some("ck:notify:01JS0NT000000000000000000".to_owned()),
+                flow_id: Some("ck:flow:01904100-0000-7000-8000-a1fffe3a8cc9".to_owned()),
                 message_id: None,
                 morph_id: None,
                 morph_type: None,
@@ -841,9 +841,9 @@ impl ProtocolResourceSelector {
             },
             Self {
                 kind: ProtocolResourceSelectorKind::Blob,
-                space_id: Some("cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned()),
+                space_id: Some("ck:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned()),
                 circle_id: None,
-                blob_ref: Some("cx:blob:sha256:0123456789abcdef".to_owned()),
+                blob_ref: Some("ck:blob:sha256:0123456789abcdef".to_owned()),
                 object_type: Some("encrypted_backup".to_owned()),
                 object_ref: Some("backup-scaffold-current-device".to_owned()),
                 flow_id: None,

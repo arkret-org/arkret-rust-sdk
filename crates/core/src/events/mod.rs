@@ -1,4 +1,4 @@
-//! Contrix-native event taxonomy, typed content models, and rich text helpers.
+//! Cokret-native event taxonomy, typed content models, and rich text helpers.
 
 pub mod content;
 pub mod kinds;

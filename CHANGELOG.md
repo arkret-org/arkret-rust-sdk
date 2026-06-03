@@ -8,34 +8,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Starting with the local `1.0.0` freeze, breaking public API changes require a
 major-version bump.
 
-## R3.4 — Spec sync 2026-05-31 (contrix-spec @ c2848a4)
+## R3.4 — Spec sync 2026-05-31 (cokret-spec @ c2848a4)
 
-- Synced protocol-facing names and fixtures to `c2848a4`: event envelope schema naming, `_ids` grant constraints, accountability principal vocabulary, `cx:rtc_participant:` media participants, agent session start fields, and key-backup signature algorithm naming where applicable.
+- Synced protocol-facing names and fixtures to `c2848a4`: event envelope schema naming, `_ids` grant constraints, accountability principal vocabulary, `ck:rtc_participant:` media participants, agent session start fields, and key-backup signature algorithm naming where applicable.
 
 > No version tag, no crates.io / Docker Hub / npm publish — git commit only.
 
-## R3.3 — Spec sync 2026-05-28 (contrix-spec @ cced4b8, CXP-0011)
+## R3.3 — Spec sync 2026-05-28 (cokret-spec @ cced4b8, CXP-0011)
 
 - **New operation**: `cx.directory.resolve_target` (`POST /api/v1/directory/resolve-target`, gRPC `Directory/ResolveTarget`, MQ `directory.resolve_target`). Pure ADD — operation count 100 → 101; `cx.directory.resolve_realm` is retained and NOT deprecated. No new event kinds, registered `cx.schema.*`, or wire/reducer changes.
 - **Wire types**: `DirectoryResolveTargetReqBody { address, requester, proofs, token }` + `DirectoryResolveTargetResBody { target_kind, realm_preview, object_preview, join_rule, as_of, source_refs, via_services, policy_revision, stale, divergent }` + `enum TargetKind { Realm, Flow, Message }`. http-client method `directory_resolve_target`.
-- **Object-addressing grammar** (`contrix_core::model::object_address`): client-agnostic shareable address pointing at a Realm / Flow / Message. `parse_address` accepts both the `web+contrix:` URI form and the HTTPS-landing fragment form (`https://<host>/#realm/...`), fixed hierarchy `realm` ⊃ `flow` ⊃ `m`; fails closed on unknown/misordered keyword, missing intermediate level, non-uuid flow/message segment, or a flow/message address missing `via`. `build_address` / `build_https_landing` re-serialize. `RealmRef { RealmId | Alias }` (UUIDv7-vs-alias rule); `enum LinkType { Reference, Invite }` (omitted/unknown/reserved `preview` → `Reference`); `enum AddressAction { View, Join, Reply }` (default `View`).
-- **Invite-token target binding** (scope-confusion defence): `TargetDescriptor { realm_id, flow_id?, message_id?, link_type }` with absent hierarchy fields OMITTED (never `null`) and typed canonical id values (`cx:realm:` / `cx:flow:` / `cx:message:`). `target_digest` reuses the shared canonicalizer (`canonical::canonical_sha256`) and covers ONLY the identity tuple + `link_type` — never `via` / `action` / `tok` / `lt`. `verify_token_target` recomputes + compares the digest so a token minted for object A cannot be replayed onto a different object B (and fails closed when the realm is still an unresolved alias).
+- **Object-addressing grammar** (`contrix_core::model::object_address`): client-agnostic shareable address pointing at a Realm / Flow / Message. `parse_address` accepts both the `web+cokret:` URI form and the HTTPS-landing fragment form (`https://<host>/#realm/...`), fixed hierarchy `realm` ⊃ `flow` ⊃ `m`; fails closed on unknown/misordered keyword, missing intermediate level, non-uuid flow/message segment, or a flow/message address missing `via`. `build_address` / `build_https_landing` re-serialize. `RealmRef { RealmId | Alias }` (UUIDv7-vs-alias rule); `enum LinkType { Reference, Invite }` (omitted/unknown/reserved `preview` → `Reference`); `enum AddressAction { View, Join, Reply }` (default `View`).
+- **Invite-token target binding** (scope-confusion defence): `TargetDescriptor { realm_id, flow_id?, message_id?, link_type }` with absent hierarchy fields OMITTED (never `null`) and typed canonical id values (`ck:realm:` / `ck:flow:` / `ck:message:`). `target_digest` reuses the shared canonicalizer (`canonical::canonical_sha256`) and covers ONLY the identity tuple + `link_type` — never `via` / `action` / `tok` / `lt`. `verify_token_target` recomputes + compares the digest so a token minted for object A cannot be replayed onto a different object B (and fails closed when the realm is still an unresolved alias).
 
 > No version tag, no crates.io / Docker Hub / npm publish — git commit only.
 
-## R3.2 — Spec sync 2026-05-28 (contrix-spec @ b56cab1)
+## R3.2 — Spec sync 2026-05-28 (cokret-spec @ b56cab1)
 
 - **MemberIdentity wire-breaking**: `MemberIdentity` no longer carries `primary_handle` / `handles[]`; `VerifiedHandle` removed. Handle lifecycle is governed solely by `cx.schema.handle_claim.v1`. This object discloses `subject_id` + `display_profile` only.
 - **Digest renames**: payload `identity_state_digest` → `identity_payload_digest`; roster `identity_state_digest` → `member_display_state_digest` (now folds the visible handle-claim digest set). New `member_identity_effective_set_digest` helper backs `expected_state_digest`.
 - **Mention shape v2**: `Mention` field `subject` → `subject_id` (sole authoritative field); `handle` → `handle_at_time`, `display_snapshot` → `display_name_at_time`, new `mention_text_original`; all handle/name fields are audit metadata only.
-- **HandleClaim**: `claim_type=service_handle` removed (`HandleClass::ServiceHandle` deleted); `validate_handle_claim_subject` rejects `cx:actor:` / `cx:account:` / non-DID subjects.
+- **HandleClaim**: `claim_type=service_handle` removed (`HandleClass::ServiceHandle` deleted); `validate_handle_claim_subject` rejects `ck:actor:` / `ck:account:` / non-DID subjects.
 - **Roster v2**: `MemberRosterEntry` gains `subject_id` + `handle_claim_digests` + `handle_claims` + `handle_claims_limited` with dependentRequired enforcement (`validate`).
 - **New operation**: `cx.directory.list_handles_for_subject` (`POST /api/v1/directory/list-handles-for-subject`, `Directory/ListHandlesForSubject`, `directory.list_handles_for_subject`) + `DirectoryListHandlesForSubject{Req,Res}Body` + http-client method with `claims[].subject == subject` validation. New schema `cx.schema.list_handles_for_subject_response.v1`.
 - **§3.2.1 primary handle selection**: `select_primary_handle` (6-tuple deterministic algorithm), `claim_digest` (semantic-projection canonical digest, stable under hint mutation), `DidDocumentSnapshotResolver` hook. **§3.8.2 mention render**: `render_mention` + `MentionRender` fallback tiers.
 
 > No version tag, no crates.io / Docker Hub / npm publish — git commit only.
 
-## R3 — Spec sync 2026-05-27 (contrix-spec @ b47ff6ec)
+## R3 — Spec sync 2026-05-27 (cokret-spec @ b47ff6ec)
 
 - Call / media (CXP-0010): client helper `call_media_token_exchange`, `MediaTokenResponse` / `ParticipantBinding` / `MediaBackendType` types, TTL gate `<=600s`, five new capability actions, op registry mirror at `cx.call.media.token_exchange`.
 - Agent (CXP-0008 / 0009): `cx.agent.deactivate` HTTP path canonicalised (no `/revoke`), draft / action_request / approve / reject event kinds wired, `pause/resume/deactivate` FSM lattice metadata, agent_runtime surface tier definition.
@@ -47,14 +47,14 @@ major-version bump.
 
 ## [Unreleased]
 
-### R3 — Spec sync 2026-05-27 (contrix-spec b47ff6ec, no release)
+### R3 — Spec sync 2026-05-27 (cokret-spec b47ff6ec, no release)
 
 Aggressive spec-sync round; no version bump, `git commit` only.
 
 #### CXP-0010 — Call / Media token exchange
 
 - New op `cx.call.media.token_exchange` mounted at
-  `POST /contrix/v1/rtc/token` with surface tier `core_personal`
+  `POST /cokret/v1/rtc/token` with surface tier `core_personal`
   (`crates/core/src/model/constants.rs`,
   `crates/server/src/registry.rs`).
 - New SDK types in `crates/sdk/src/media.rs`:
@@ -63,7 +63,7 @@ Aggressive spec-sync round; no version bump, `git commit` only.
   - `ParticipantBinding` (`scheme=cx.media.participant_binding.v1`,
     `sig`, `issuer_kid`, realm/call/focus/actor/device tuple,
     `participant_identity`, `expires_at`).
-  - `MediaBackendType { Livekit, Mediasoup, Janus, ContrixNative,
+  - `MediaBackendType { Livekit, Mediasoup, Janus, CokretNative,
     MoqRelay, Unknown }` with `ensure_known()` rejection helper.
   - `MediaTokenExchangeRequest` and `call_media_token_exchange(...)`
     request builder (transport-agnostic; reqwest-backed helper land
@@ -113,7 +113,7 @@ Aggressive spec-sync round; no version bump, `git commit` only.
 #### Profile / cursor / selector / data / handle
 
 - `ResourceSelector::Circle(CircleId)` variant added; `circle:`
-  selector grammar parser accepts `cx:circle:<uuid>`
+  selector grammar parser accepts `ck:circle:<uuid>`
   (`crates/sdk/src/authz/selectors.rs`).
 - `AccountDataSetPayload` and `AccountBlocklistPayload` payload
   structs added in `crates/sdk/src/account.rs`.
@@ -168,8 +168,8 @@ Aggressive spec-sync round; no version bump, `git commit` only.
   Policy object itself) and `stage` (forbidden as a JSON-Patch op path
   on Flow/Morph patch payloads, canonical as a top-level field). New
   `is_forbidden_id_prefix(id)` covers the spec's `typed_id_prefix`
-  context (`cx:notif:`, `cx:devmsg:`, `cx:keyevt:`, `cx:modq:`,
-  `cx:req:`, `cx:txn:`, `cx:frank:`). 60+ in-Rust entries now mirror
+  context (`ck:notif:`, `ck:devmsg:`, `ck:keyevt:`, `ck:modq:`,
+  `ck:req:`, `ck:txn:`, `ck:frank:`). 60+ in-Rust entries now mirror
   the spec's `forbidden-wire-fields.json` hard-reject set.
 - `AuthzContext.circle_id: Option<CircleId>` plus
   `AuthzContext::with_circle_id`. The SDK `AuthzEngine` now evaluates
@@ -187,7 +187,7 @@ Aggressive spec-sync round; no version bump, `git commit` only.
 
 ### CXP-0007 — Circle primitive rollout (wire-breaking, no release)
 
-Tracks `contrix-spec` range `9cb47c1..2b0d70d` (21 commits). Version
+Tracks `cokret-spec` range `9cb47c1..2b0d70d` (21 commits). Version
 numbers are intentionally **not** bumped this round; this changelog
 section will roll into the next published release.
 
@@ -215,7 +215,7 @@ section will roll into the next published release.
 
 #### Added
 
-- `CircleId` typed id (`cx:circle:<uuidv7>`), and the `Circle` model
+- `CircleId` typed id (`ck:circle:<uuidv7>`), and the `Circle` model
   with the spec-shaped `CircleDisplay`, `CircleColorToken`,
   `CircleGlyph`, `CircleSymbol`, `CircleJoinRule`,
   `CircleDirectoryVisibility`, `CircleMetadataEncryptionFloor`, and
@@ -242,9 +242,9 @@ section will roll into the next published release.
   (`delivery_binding_handed_over`) was already shipped in round 4.
 - `cx.schema.circle.v1` added to `ARTIFACT_BACKED_SCHEMA_IDS` so the
   spec-drift gate covers the new schema.
-- Public re-exports: `contrix::Circle`, `contrix::CircleId`,
-  `contrix::CIRCLE_SCHEMA_ID`, `contrix::FORBIDDEN_WIRE_FIELDS`,
-  `contrix::is_forbidden_wire_field`, plus the kind / capability /
+- Public re-exports: `cokret::Circle`, `cokret::CircleId`,
+  `cokret::CIRCLE_SCHEMA_ID`, `cokret::FORBIDDEN_WIRE_FIELDS`,
+  `cokret::is_forbidden_wire_field`, plus the kind / capability /
   reason constants above.
 - `docs/circle-integration.md` integration guide.
 - `MIGRATING-FROM-0.7.md` § "CXP-0007 follow-up" migration cookbook.
@@ -290,12 +290,12 @@ section will roll into the next published release.
 
 ### Round R4 — protocol review closures (wire-breaking) (2026-05-20)
 
-Tracks contrix-spec range `2a4d39b..a77b9958e3c6535a39bf468d661a23ae5d38cb10`
+Tracks cokret-spec range `2a4d39b..a77b9958e3c6535a39bf468d661a23ae5d38cb10`
 (8 commits). See [`../_todos.md`](../_todos.md) "协议变更摘要" for the canonical
 wire-breaking list.
 
 - **Added** new `round4` module aggregating Round R4 types, constants, and
-  validation helpers (re-exported from the umbrella `contrix` crate).
+  validation helpers (re-exported from the umbrella `cokret` crate).
 - **Added** types: `EventsSubscribeFrame` (8-kind enum: `event` / `frontier` /
   `heartbeat` / `catchup_complete` / `epoch_rotation` / `dropped{cursor}` /
   `resync_required` / `unauthorized`), `SnapshotBootstrap`, `EventsFrontierResponse`
@@ -340,15 +340,15 @@ wire-breaking list.
   `_HANDED_OVER` / `_HISTORICAL_ONLY`) and 1 new capability action
   (`CAPABILITY_ACTION_MORPH_CREATE = "cx.morph.create"`, medium risk,
   required-constraints `[morph_type_allow]`).
-- **Added** `cx:space:<uuidv7>` accepted in `object_ref`; flow cell-metadata
+- **Added** `ck:space:<uuidv7>` accepted in `object_ref`; flow cell-metadata
   helpers `flow_update_cell_subject(flow_id)` / `flow_tracks_patch_cell_subject(flow_id)`
   (cell-family `cx.component.flow.fields.v1`, CAS-register, bottom=reject).
 
 ### Added — Round R2/R3 spec round 2+3 cleanup (wire-breaking) (2026-05-20)
 
-Tracks contrix-spec commits `f3c3bad..2a4d39b` (notably `8b7978d spec: round 2+3
+Tracks cokret-spec commits `f3c3bad..2a4d39b` (notably `8b7978d spec: round 2+3
 cleanup`). All 17 new normative requirements landed in the SDK as type
-signatures, schema-id constants, and validation helpers. See contrix-spec
+signatures, schema-id constants, and validation helpers. See cokret-spec
 `CHANGELOG.md` Round R2/R3 entries for the normative source.
 
 - **Event kinds**: 4 new active `durable_event` kinds — `cx.moderation.appeal.submit`
@@ -357,8 +357,8 @@ signatures, schema-id constants, and validation helpers. See contrix-spec
   `cx.call.signal`, `cx.presence`, `cx.typing`, `cx.receipt.read`, and the
   `cx.key.verification.*` family) and `is_receipt_object_only`
   (`cx.event_batch_receipt`).
-- **Typed IDs**: `TypedAppealId` (`cx:appeal:<uuidv7>`) and
-  `TypedTrustDomainId` (`cx:trust_domain:<scope>` with lowercase `[a-z0-9._:-]`
+- **Typed IDs**: `TypedAppealId` (`ck:appeal:<uuidv7>`) and
+  `TypedTrustDomainId` (`ck:trust_domain:<scope>` with lowercase `[a-z0-9._:-]`
   max-128 scope validator).
 - **Schemas**: `cx.schema.ephemeral_envelope.v1`,
   `cx.schema.moderation_appeal.v1`, `cx.schema.attestation_evidence.v1` added
@@ -380,7 +380,7 @@ signatures, schema-id constants, and validation helpers. See contrix-spec
   and `compute_anchor_id` exposing the existing body canonicalisation
   (excludes `id` and `anchorer_sig`); new
   `Anchor::validate_frontier_format` rejects the dropped
-  `cx:event:<uuid>` frontier form (only `sha256:<hex>` etc are accepted).
+  `ck:event:<uuid>` frontier form (only `sha256:<hex>` etc are accepted).
 - **Error codes** (15 new wire-level top codes): `relaxed_window_exceeds_ceiling`,
   `e2ee_relaxed_disallowed_in_compliance_profile`, `cross_domain_replay_rejected`,
   `reset_event_id_mismatch`, `appeal_overturn_missing_lift`,
@@ -415,7 +415,7 @@ signatures, schema-id constants, and validation helpers. See contrix-spec
 
 ### Added — `authz::delegation` module (capability delegation chain check) (2026-05-18)
 
-- **`contrix::authz::delegation`** — new SDK-rooted home for capability
+- **`cokret::authz::delegation`** — new SDK-rooted home for capability
   delegation primitives that were previously inlined in soland's
   `AuthzEngine`. Hosts: `Grant` (runtime in-memory form), `GrantConstraint`,
   `GrantRequest`, `DelegationError` enum (variants `ParentNotFound`,
@@ -451,7 +451,7 @@ signatures, schema-id constants, and validation helpers. See contrix-spec
   (`required_operations` / `required_event_kinds` / `required_schemas`
   / `required_constraint_kinds`) as a `LazyLock<BTreeMap<&'static
   str, ProfileRequirements>>` keyed by `profile_id`. Built from
-  `contrix-spec/spec/v1/artifacts/profiles/conformance-profiles.json`
+  `cokret-spec/spec/v1/artifacts/profiles/conformance-profiles.json`
   by a new `tools/generate-sdk-profile-requirements.ps1` that mirrors
   the existing profile-ID constants generator. The module ships
   `validate_profile_requirements` (returns
@@ -471,7 +471,7 @@ signatures, schema-id constants, and validation helpers. See contrix-spec
 
 ### Added — `identity::binding` module (DID key binding proof verify, Ed25519V1) (2026-05-18)
 
-- **`contrix::identity::binding`** — new SDK-rooted module hosting the
+- **`cokret::identity::binding`** — new SDK-rooted module hosting the
   pure-protocol DID key binding proof primitive that coauth (and any
   future consumer — yougen, cotest, starid) calls into for the
   cryptographic verify step. Exposes:
@@ -513,7 +513,7 @@ signatures, schema-id constants, and validation helpers. See contrix-spec
 
 ### Added — `jws::sign_jws_ed25519` symmetric signer (2026-05-18)
 
-- **`contrix::jws::sign_jws_ed25519`** — new SDK-rooted detached
+- **`cokret::jws::sign_jws_ed25519`** — new SDK-rooted detached
   Ed25519 JWS signer. Symmetric counterpart of the existing
   `verify_jws_ed25519`: a `verify` after a `sign` over the same
   `canonical_bytes` (with a resolver that returns the matching public
@@ -536,7 +536,7 @@ signatures, schema-id constants, and validation helpers. See contrix-spec
 
 ### Added — `canonical::canonical_digest` helper (2026-05-18)
 
-- **`contrix::canonical::canonical_digest`** — new one-liner that takes
+- **`cokret::canonical::canonical_digest`** — new one-liner that takes
   already-canonicalized JSON bytes (e.g. produced via
   `canonical_json_bytes`) and returns the wire-form
   `sha256:<lowercase-hex>` digest used in event envelopes
@@ -551,7 +551,7 @@ signatures, schema-id constants, and validation helpers. See contrix-spec
 
 ### Added — `agent_binding::verify_audit_binding_by_kind` dispatcher (2026-05-18)
 
-- **`contrix::agent_binding::verify_audit_binding_by_kind`** — single
+- **`cokret::agent_binding::verify_audit_binding_by_kind`** — single
   SDK entry point for verifying `cx.agent.protocol_session.result`
   `audit_binding` blocks, dispatched by `binding_kind` so consumers
   don't have to re-implement the scheme switch. Routes `ed25519_v1`
@@ -565,7 +565,7 @@ signatures, schema-id constants, and validation helpers. See contrix-spec
 
 ### Moved — `default_lattice_registry()` from soland to SDK (2026-05-18)
 
-- **`contrix::lattice_registry`** — new SDK-rooted module owning the
+- **`cokret::lattice_registry`** — new SDK-rooted module owning the
   cell-family `LatticeKind` trait + `LatticeRegistry` plus the
   spec-normative cell-family bindings and the `default_lattice_registry`
   / `build_sdk_cell_registry` / `lattice_bindings_for_sdk_registry`
@@ -583,7 +583,7 @@ signatures, schema-id constants, and validation helpers. See contrix-spec
 
 ### Added — `jws` module (RFC 7515 detached Ed25519) (2026-05-18)
 
-- **`contrix::jws`** — new SDK-rooted module consolidating the
+- **`cokret::jws`** — new SDK-rooted module consolidating the
   RFC 7515 detached Ed25519 JWS verifier that previously lived in
   `soland/src/jws_verify.rs`. Same wire bytes / same accept-reject
   decision, now shared across every consumer (yougen, floria, cotest,
@@ -609,7 +609,7 @@ signatures, schema-id constants, and validation helpers. See contrix-spec
 
 ### Added — `http_signature` module (RFC 9421) (2026-05-18)
 
-- **`contrix::http_signature`** — new HTTP-framework-agnostic
+- **`cokret::http_signature`** — new HTTP-framework-agnostic
   module that consolidates the RFC 9421 HTTP Message Signature
   logic previously duplicated in `floria/src/auth.rs` (verifier)
   and `chime/src/push/signing.rs` (signer). Surfaces:
@@ -630,7 +630,7 @@ signatures, schema-id constants, and validation helpers. See contrix-spec
 
 ### Internal — typed `ConstraintParseError` for recurrence helpers (2026-05-18)
 
-- **`contrix::authz::constraints`** — the recurrence parsing helpers
+- **`cokret::authz::constraints`** — the recurrence parsing helpers
   (`recurrence_allows`, `recurrence_next_transition_after`,
   `parse_recurrence_zone`, `parse_recurrence_day`, `parse_recurrence_time`,
   `recurrence_frequency_allows`) now return `Result<_, ConstraintParseError>`
@@ -657,7 +657,7 @@ in `crates/core/src/model/`. This round adds both so downstream consumers
 (soland, yougen, …) can validate submit payloads using the same registry
 abstraction as the rest of the reducer-input event family.
 
-- **`contrix-core`** — all changes in `crates/core/src/model/`:
+- **`cokret-core`** — all changes in `crates/core/src/model/`:
   - `constants.rs`: new `OP_APPLET_BRIDGE_ERROR` / `OP_APPLET_DISCOVERY` /
     `OP_APPLET_PROTOCOL_SESSION_START` / `OP_APPLET_PROTOCOL_SESSION_STATUS`
     / `OP_APPLET_REGISTRATION` / `OP_AGENT_ENDPOINT` /
@@ -683,7 +683,7 @@ abstraction as the rest of the reducer-input event family.
     `OP_AGENT_PROTOCOL_SESSION_RESULT` → `[session_id, result, audit_binding]`
     Mirrors soland round 14f `FLOW_TRACK_REQUIREMENTS` shape exactly.
 
-- **`contrix` (sdk)** — no changes. These events don't affect
+- **`cokret` (sdk)** — no changes. These events don't affect
   client-side projection state (applet bridge state machine lives in
   the client app; agent session signing audit binding is verified at
   the agent endpoint). The reducer's `process_event_content` already
@@ -715,7 +715,7 @@ dispatcher branches — events landed and dispatched as "Unknown event
 type" no-ops. This round wires the full reducer surface so client-side
 state machines correctly maintain `Flow.tracks` from the event log.
 
-- **`contrix-core`**:
+- **`cokret-core`**:
   - `crates/core/src/model/constants.rs`: new `OP_FLOW_TRACK_DISABLE` /
     `OP_FLOW_TRACK_ENABLE` / `OP_FLOW_TRACK_SET_PRIMARY` /
     `OP_FLOW_TRACK_UPDATE` constants (alphabetically grouped under the
@@ -725,7 +725,7 @@ state machines correctly maintain `Flow.tracks` from the event log.
     OP_FLOW_TRACK_SET_PRIMARY` → `[flow_id, track_id]`;
     `OP_FLOW_TRACK_UPDATE` → `[flow_id, track_id, patch]`.
 
-- **`contrix` (sdk)**:
+- **`cokret` (sdk)**:
   - `crates/sdk/src/resolver/mod.rs`: re-export the four new `OP_*` from
     the `model::*` use list.
   - `crates/sdk/src/resolver/state.rs`:
@@ -790,10 +790,10 @@ the corresponding Flow / Morph subject's `state` remained `Active` —
 soland round 14b had to add the same logic server-side to enforce the
 spec rule, and SDK was the divergent side. Now the two are symmetric.
 
-- **`contrix` (sdk)** — all changes in `crates/sdk/src/resolver/state.rs`:
+- **`cokret` (sdk)** — all changes in `crates/sdk/src/resolver/state.rs`:
   - New helper `redact_object_for_event(event)` extracts `object_ref`
     (fallback `target_object_ref`) from the redaction event's `content`.
-    When that names a Flow / Morph subject (`cx:flow:` / `cx:morph:`),
+    When that names a Flow / Morph subject (`ck:flow:` / `ck:morph:`),
     the helper validates `state ∈ {Active, Archived}` and flips it to
     `Redacted` along with `state_changed_at`, `updated_by`, `updated_at`.
     Terminal source (`Deleted` / `Redacted`) MUST `failed_precondition`
@@ -845,7 +845,7 @@ paragraph rule that `*.update` MUST fail on a non-active object (otherwise
 edits would silently revive an archived/tombstoned object, conflicting
 with `*.restore` semantics).
 
-- **`contrix` (sdk)** — all changes in `crates/sdk/src/resolver/state.rs`:
+- **`cokret` (sdk)** — all changes in `crates/sdk/src/resolver/state.rs`:
   - `archive_flow` previously delegated unconditionally to
     `set_flow_state(Archived)`. It now validates
     `state == Some(ObjectState::Active)` first; non-Active source MUST
@@ -906,7 +906,7 @@ source. Spec is explicit: `*.restore` is the canonical `archived → active`
 path, and `tombstoned` / `deleted` / `redacted` MUST NOT be restored. This
 round pins that invariant in the reducer for Flow and Morph as well.
 
-- **`contrix` (sdk)**:
+- **`cokret` (sdk)**:
   - `restore_flow` in `crates/sdk/src/resolver/state.rs` now validates
     `state == Some(ObjectState::Archived)` before delegating to
     `set_flow_state(Active)`. Source state Active / Deleted / Redacted /
@@ -949,14 +949,14 @@ round pins that invariant in the reducer for Flow and Morph as well.
 
 ### Added — `cx.place.restore` (2026-05-15)
 
-Mirror the new `cx.place.restore` event kind landed in `../contrix-spec`
+Mirror the new `cx.place.restore` event kind landed in `../cokret-spec`
 (Unreleased changelog entry "新增 `cx.place.restore` 修正 Place 生命周期对称性").
 Previously the SDK had `cx.place.archive` / `cx.place.tombstone` but no way to
 reverse archive — clients had no wire-legal path to unarchive a board / list,
 and reducers had no spec-aligned state-machine entry. With this round the SDK
 implements the canonical `archived -> active` transition end-to-end.
 
-- **`contrix-core`**:
+- **`cokret-core`**:
   - `events::PLACE_RESTORE` constant (`"cx.place.restore"`) added in
     `crates/core/src/events/kinds.rs`, inserted into the sorted
     `STANDARD_EVENT_KINDS` array (binary-searched by
@@ -970,14 +970,14 @@ implements the canonical `archived -> active` transition end-to-end.
     `OP_PLACE_ARCHIVE | OP_PLACE_RESTORE | OP_PLACE_TOMBSTONE` — restore
     requires the same single `place_id` field as archive.
 
-- **`contrix` (sdk)**:
+- **`cokret` (sdk)**:
   - `Space::restore_place_operation(place_id)` constructs the spec-shaped
     `cx.place.restore` operation, mirroring `archive_place_operation`
     (same `OperationType::Update`, same `{ "place_id": ... }` payload).
   - Resolver `SpaceState::process_event_content` adds an `OP_PLACE_RESTORE`
     branch backed by a new `restore_place` reducer in
     `crates/sdk/src/resolver/state.rs`. The reducer validates current
-    `state == Archived` per `contrix-spec` `space-and-place.md §4.4`; any
+    `state == Archived` per `cokret-spec` `space-and-place.md §4.4`; any
     other state (`Active`, `Tombstoned`, unset) MUST `failed_precondition`
     with `place_not_archived` and the reducer makes no mutations. Unknown
     Place (causal / backfill not yet caught up) is tolerated, matching the
@@ -991,7 +991,7 @@ implements the canonical `archived -> active` transition end-to-end.
     event does not mutate the Place state.
 
 - **Spec references**:
-  - `contrix-spec` event_kind_registry / capability_action_registry now
+  - `cokret-spec` event_kind_registry / capability_action_registry now
     list `cx.place.restore`.
   - `space-and-place.md §4.4` "Restore Place" subsection is the normative
     source for the reducer guard above.
@@ -1014,7 +1014,7 @@ implements the canonical `archived -> active` transition end-to-end.
 
 Three new SDK surfaces requested by the soland principal server.
 
-- **MAL-11 anchor compaction primitives** in `contrix-core`:
+- **MAL-11 anchor compaction primitives** in `cokret-core`:
   - New `AnchorKind` enum (`Normal` / `Compaction`) added to the
     `Anchor` struct as a `#[serde(default)]` field — `Normal` is
     omitted from the wire, so pre-MAL-11 envelopes deserialize as
@@ -1041,7 +1041,7 @@ Three new SDK surfaces requested by the soland principal server.
     `min_anchor_age_seconds` (default 7 days),
     `min_compaction_witnesses` (default 1), `preserve_genesis`
     (default true), `prune_only_singleton_successors` (default true).
-- **Snapshot chunk v2 primitives** in `contrix-core::snapshot`:
+- **Snapshot chunk v2 primitives** in `cokret-core::snapshot`:
   - `SnapshotChunker` — deterministic byte-range partitioning with
     configurable `target_chunk_bytes` (default 256 KiB).
   - `SnapshotChunk` — `{chunk_id, bytes, digest}` with base64-url
@@ -1056,10 +1056,10 @@ Three new SDK surfaces requested by the soland principal server.
     `verify_payload_digest()` then run their own JWS verifier on
     `signature.jws`.
 - **Per-admin signing key + session-grant introspection** in
-  `contrix-core::admin_signer`:
+  `cokret-core::admin_signer`:
   - `AdminKeyStore` wraps any `KeyStore` and addresses per-admin
     signing keys via canonical id
-    `contrix:signer:admin:<application_id>:<did>`. `load_admin_key` /
+    `cokret:signer:admin:<application_id>:<did>`. `load_admin_key` /
     `store_admin_key` / `delete_admin_key` / `has_admin_key` /
     `list_admin_dids` all key off `Did`.
   - `SessionGrantIntrospection` is the typed view of an OAuth-style
@@ -1073,7 +1073,7 @@ Three new SDK surfaces requested by the soland principal server.
 
 ### Test coverage
 
-`contrix-core` lib tests: **298 → 342 passed** (rounds 6/7 baseline →
+`cokret-core` lib tests: **298 → 342 passed** (rounds 6/7 baseline →
 round 8, +44 new). Highlights:
 - 6 new tests for `AnchorKind` (default, wire omission, canonical-id
   forgery defense, JSON round-trip, missing-field default).
@@ -1121,7 +1121,7 @@ the bump is for the SDK API surface adjustments described below.
 
 ### Changed
 
-- **`contrix-client` `TransportConfig` is now per-target.** The native
+- **`cokret-client` `TransportConfig` is now per-target.** The native
   variant retains the full set of fields (`timeout`, `connect_timeout`,
   `pool_idle_timeout`, `pool_max_idle_per_host`, `tcp_nodelay`,
   `tcp_keepalive`, `http2_keep_alive_*`, `proxies`, `no_proxy`,
@@ -1171,7 +1171,7 @@ the bump is for the SDK API surface adjustments described below.
   available pending an openmls upstream bump). `cargo deny check` is
   green: `advisories ok, bans ok, licenses ok, sources ok`.
 
-## [0.6.0] – 2026-05-10 — Spec sync (`contrix-spec` `f724863..48898bf`)
+## [0.6.0] – 2026-05-10 — Spec sync (`cokret-spec` `f724863..48898bf`)
 
 Wire-breaking spec alignment pass. v1 is unreleased so this is a hard
 break with no compat shims, no `#[deprecated]` adapters, and no
@@ -1246,7 +1246,7 @@ unchanged; this is an additive SDK API release.
   `keystore-macos` feature, wired to the `security-framework` crate's
   generic-password APIs (`set_generic_password` / `get_generic_password`
   / `delete_generic_password` plus `ItemSearchOptions` for `list()`).
-  Items live under service name `"contrix.<application_id>"`. 5 unit
+  Items live under service name `"cokret.<application_id>"`. 5 unit
   tests gated on `cfg(target_os = "macos")`.
 - **`LinuxSecretServiceKeyStore` (D-Bus Secret Service)** behind the new
   `keystore-linux` feature, wired to the `secret-service` crate's
@@ -1258,7 +1258,7 @@ unchanged; this is an additive SDK API release.
   the new `keystore-windows` feature, wired to the `windows` crate's
   `Cred*W` family (`CredReadW` / `CredWriteW` / `CredDeleteW` /
   `CredEnumerateW`). Target name pattern
-  `"contrix.<application_id>:<key_id>"`. 5 unit tests; on Windows CI
+  `"cokret.<application_id>:<key_id>"`. 5 unit tests; on Windows CI
   these run live against the user's Credential Manager.
 - **`KeyStoreError`** strongly-typed error enum (`Unsupported` /
   `NotFound` / `InvalidId` / `Backend`) convertible to
@@ -1294,7 +1294,7 @@ from 0.4.0; this is an additive SDK API release.
 
 ### Added
 
-- **`contrix-core::MoveSigner` trait + `UnsignedMove` builder** — public
+- **`cokret-core::MoveSigner` trait + `UnsignedMove` builder** — public
   signer abstraction for Move/Anchor signing. `Move::sign(&unsigned, &signer)`
   produces a fully-signed Move whose `id` matches canonical bytes hash
   and `sig.payload_digest` matches the same canonical bytes. 8 unit tests.
@@ -1302,15 +1302,15 @@ from 0.4.0; this is an additive SDK API release.
   constructors that take a [`MoveSigner`] (or threshold proof bytes) +
   predecessor refs + frontier and produce a fully-signed [`Anchor`]
   with `id` derived from canonical bytes.
-- **`contrix-signatures::Ed25519MoveSigner`** behind the new `signer`
+- **`cokret-signatures::Ed25519MoveSigner`** behind the new `signer`
   feature: wraps `ed25519_dalek::SigningKey`, exposes
   `new(signing_key, did, kid)` + `from_did_key_seed(seed)`, produces
   detached EdDSA JWS strings. Includes
   `verify_ed25519_move_signature` helper for round-trip vectors. 5
   unit tests.
-- Re-exported at the top-level `contrix` crate root behind the
-  `contrix/signer = ["contrix-signatures/signer"]` feature flag.
-- **`contrix::EventsQueryRequest` / `EventsQueryResponse`** typed
+- Re-exported at the top-level `cokret` crate root behind the
+  `cokret/signer = ["cokret-signatures/signer"]` feature flag.
+- **`cokret::EventsQueryRequest` / `EventsQueryResponse`** typed
   wrappers in `sync_client.rs` for `cx.events.query`. Multi-selector
   (`spaces[] ∪ actors[]`), `from` / `until` HLC bounds, `direction`
   (forward/backward), `limit`. `EventsQueryResponse` carries `events`,
@@ -1343,48 +1343,48 @@ from 0.4.0; this is an additive SDK API release.
 ## [0.2.0] – 2026-05-08 — Move / Anchor / Lattice rebase ⚠ wire-breaking
 
 This release rebases the SDK onto the Move/Anchor/Lattice three-primitive
-state-convergence model introduced by `contrix-spec` 2026-05-08. The
+state-convergence model introduced by `cokret-spec` 2026-05-08. The
 v1 wire surface is **incompatible** with 0.1.0: `cx.consent.*` events,
 the legacy `StateReducer` API, and the host-endorsement / writer-model
 typed model are all gone. v1 was unreleased; no compat shim is provided.
 
 ### Added
 
-- **`contrix-lattice` crate** — new independent crate providing the
+- **`cokret-lattice` crate** — new independent crate providing the
   closed `Lattice` trait and six normative implementations
   (`or-set` / `mv-register` / `cas-register` / `fsm` / `counter` /
   `ordered-log`) plus `AnchoredOp` / `CellState` types. 55 unit tests.
-- **`contrix-core::Move`** typed model with canonical-bytes id derivation
+- **`cokret-core::Move`** typed model with canonical-bytes id derivation
   (spec §3); 13 unit tests covering id round-trip / signature payload
   hash / SemanticRef default-skip / snake-case op enums.
-- **`contrix-core::Anchor`** typed model with three signature shapes
+- **`cokret-core::Anchor`** typed model with three signature shapes
   (`Single` / `Multi` / `Threshold`); 13 unit tests covering id
   round-trip + threshold below-quorum reject + wire `kind`
   discriminator.
-- **`contrix-core::Bottom`** structured diagnostic typed model with six
+- **`cokret-core::Bottom`** structured diagnostic typed model with six
   `BottomKind` variants matching `bottom.schema.json`.
-- **`contrix-core::AnchorerValue`** four-variant typed enum
+- **`cokret-core::AnchorerValue`** four-variant typed enum
   (`SingleDid` / `Threshold` / `OpenSet` / `Mixed`); validates the
   anchorer cell's cas-register value shape per spec §4.4.
-- **`contrix-core::CellId`** parser + `composite_subject` (base64url +
+- **`cokret-core::CellId`** parser + `composite_subject` (base64url +
   sha256 hash form per encoding.md §9.5) + `composite_subject_pipe`
   diagnostic form.
-- New typed identifiers: `MoveId` (`cx:move:sha256:<hex>`), `AnchorId`
-  (`cx:anchor:sha256:<hex>`), `CellRef` (`cx:cell:<component>:<subject>`)
+- New typed identifiers: `MoveId` (`ck:move:sha256:<hex>`), `AnchorId`
+  (`ck:anchor:sha256:<hex>`), `CellRef` (`ck:cell:<component>:<subject>`)
   with OpenAPI schemas.
-- **`contrix-state-res` rewrite** — `MoveStore` / `AnchorStore` /
+- **`cokret-state-res` rewrite** — `MoveStore` / `AnchorStore` /
   `CellStore` / `CellRegistry` trait contracts + Memory backends +
   `verify_move` five-step pipeline + `apply_anchor` eight-step
   algorithm + `effective_anchor_view` pure function +
   `compute_state_root` (RFC 6962 Merkle, empty-list root locked to
   spec §4.2). 32 unit tests.
-- **`contrix::consent`** rewritten as or-set Move builder per spec
+- **`cokret::consent`** rewritten as or-set Move builder per spec
   consent-model §3:
   `grant_effect` / `revoke_effect_with_precondition` /
   `evaluate_consent` / `require_consent_precondition`. Cell family
   `cx.component.consent.grant.v1`. Tag form
   `grant:<consent_id>:<peer>:<scope>` for deterministic dedupe.
-- **`contrix::mls_move`** new module — MLS commit Move helpers per
+- **`cokret::mls_move`** new module — MLS commit Move helpers per
   spec §10: `mls_commit_preconditions` / `mls_commit_effects` /
   `e2ee_message_precondition` / `covered_frontier_contains` plus
   cell families `cx.component.mls_epoch.v1` (cas-register, reject) /
@@ -1398,7 +1398,7 @@ typed model are all gone. v1 was unreleased; no compat shim is provided.
 
 ### Removed (wire-breaking)
 
-- **Old `contrix-state-res` API**: `StateReducer`, `state_digest`,
+- **Old `cokret-state-res` API**: `StateReducer`, `state_digest`,
   `is_state_event`, `subject_for_event`, `candidate_wins`,
   `ResolvedStateEvent`, `ConflictRecord`, `StateResolutionSnapshot`,
   `StateAuthority`, `evaluate_state_auth`, `BoardReducer` —
@@ -1423,9 +1423,9 @@ typed model are all gone. v1 was unreleased; no compat shim is provided.
 
 ### Changed
 
-- `contrix-state-res` Cargo.toml gains `contrix-lattice`, `sha2`,
+- `cokret-state-res` Cargo.toml gains `cokret-lattice`, `sha2`,
   `thiserror` deps to support the new runtime.
-- `contrix-testing::state_resolution_vectors` rewritten to drive
+- `cokret-testing::state_resolution_vectors` rewritten to drive
   `apply_anchor` end-to-end. `StateResolutionVector` struct fields
   changed from `{name, winner_event_id, conflict_count}` to
   `{name, anchor, accepted_count, rejected_count, post_state_root}`
@@ -1493,27 +1493,27 @@ See `docs/move-anchor-runtime.md` for the full architecture.
   `http_client(...)` with any transport-shaping option, instead of silently
   ignoring the option.
 - Local package verification covers every workspace crate in dependency order,
-  not just the umbrella `contrix` crate.
+  not just the umbrella `cokret` crate.
 - `.github/workflows/ci.yml` corrects the publish dry-run package spec from
-  `-p contrix-sdk` (which never matched any crate) to `-p contrix`.
+  `-p cokret-sdk` (which never matched any crate) to `-p cokret`.
 
 ## [0.1.0] – TBD
 
-Initial release candidate for Contrix v1 SDK.
+Initial release candidate for Cokret v1 SDK.
 
 ### Added
 
-- Workspace of 22 focused crates plus an umbrella `contrix` crate
+- Workspace of 22 focused crates plus an umbrella `cokret` crate
   re-exporting the public SDK surface (high-level state managers, sync
   client, MLS encryption, identity, federation, push, presence, …).
 - Wire models for Space / Flow / Message / Morph / Relation / Event / View
-  matching the Contrix v1 `data-structures.md` shape, including `FlowBranch`
+  matching the Cokret v1 `data-structures.md` shape, including `FlowBranch`
   end-to-end migration and `Morph` as a canonical object.
 - Canonical JSON encoder + SHA-256 digest helpers; signed payloads use this
   module so different clients compute identical hashes.
 - HLC parsing and deterministic ordering, RFC 9421 / RFC 9530 transcript
   helpers, and replay/CommitFork detection.
-- HTTP `contrix-client` with HTTPS-by-default, retry/backoff, idempotency,
+- HTTP `cokret-client` with HTTPS-by-default, retry/backoff, idempotency,
   read-your-writes wait header support, and query-string-auth rejection.
 - Framework-independent server endpoint registry plus optional Salvo
   adapter and OpenAPI integration. Every public model carries
@@ -1546,5 +1546,5 @@ Initial release candidate for Contrix v1 SDK.
   review. See `SECURITY.md` for the disclosure process and
   `docs/security-audit.md` for current evidence.
 
-[Unreleased]: https://github.com/contrix/contrix-rust-sdk/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/contrix/contrix-rust-sdk/releases/tag/v0.1.0
+[Unreleased]: https://github.com/cokret/cokret-rust-sdk/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/cokret/cokret-rust-sdk/releases/tag/v0.1.0

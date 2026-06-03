@@ -116,7 +116,7 @@ mod tests {
     }
 
     fn anchor_id(hex: &str) -> AnchorId {
-        AnchorId::new(format!("cx:anchor:sha256:{hex}")).unwrap()
+        AnchorId::new(format!("ck:anchor:sha256:{hex}")).unwrap()
     }
 
     #[test]
@@ -138,7 +138,7 @@ mod tests {
     #[test]
     fn minimal_bottom_serializes_only_required_fields() {
         let b =
-            Bottom::new(BottomKind::Conflict, vec![cell("cx:cell:cx.component.space.policy.v1:x")]);
+            Bottom::new(BottomKind::Conflict, vec![cell("ck:cell:cx.component.space.policy.v1:x")]);
         let s = serde_json::to_string(&b).unwrap();
         assert!(s.contains("\"kind\":\"conflict\""));
         assert!(s.contains("\"cells\""));
@@ -154,7 +154,7 @@ mod tests {
     fn conflict_bottom_with_heads_round_trips() {
         let b = Bottom {
             kind: BottomKind::Conflict,
-            cells: vec![cell("cx:cell:cx.component.space.policy.v1:x")],
+            cells: vec![cell("ck:cell:cx.component.space.policy.v1:x")],
             move_ids: vec![
                 move_id("4444444444444444444444444444444444444444444444444444444444444444"),
                 move_id("5555555555555555555555555555555555555555555555555555555555555555"),
@@ -178,7 +178,7 @@ mod tests {
     fn invalid_transition_with_details() {
         let b = Bottom {
             kind: BottomKind::InvalidTransition,
-            cells: vec![cell("cx:cell:cx.component.member.state.v1:did.web.alice.example")],
+            cells: vec![cell("ck:cell:cx.component.member.state.v1:did.web.alice.example")],
             move_ids: vec![],
             anchor_view: None,
             heads: vec![],
@@ -198,7 +198,7 @@ mod tests {
     fn anchorer_split_kind_carries_no_move_ids() {
         let b = Bottom::new(
             BottomKind::AnchorerSplit,
-            vec![cell("cx:cell:cx.component.anchorer.v1:cx.space.01js0sp00000000000000000aa")],
+            vec![cell("ck:cell:cx.component.anchorer.v1:cx.space.01js0sp00000000000000000aa")],
         );
         assert!(b.move_ids.is_empty());
         let r: Bottom = serde_json::from_str(&serde_json::to_string(&b).unwrap()).unwrap();
@@ -209,7 +209,7 @@ mod tests {
     fn deserialize_unknown_kind_is_rejected() {
         let raw = json!({
             "kind": "future_unknown_bottom",
-            "cells": ["cx:cell:cx.component.member.state.v1:did.web.alice.example"]
+            "cells": ["ck:cell:cx.component.member.state.v1:did.web.alice.example"]
         });
         let r: Result<Bottom, _> = serde_json::from_value(raw);
         assert!(r.is_err(), "unknown BottomKind must fail closed");

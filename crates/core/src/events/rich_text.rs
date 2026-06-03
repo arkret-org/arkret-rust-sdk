@@ -228,13 +228,13 @@ fn classify_mention_token(token: &str) -> (Option<MentionTarget>, Option<String>
         (Some(MentionTarget::Audience), Some(token.to_ascii_lowercase()))
     } else if token.starts_with("did:") {
         (Some(MentionTarget::Actor), Some(token.to_owned()))
-    } else if token.starts_with("cx:space:") {
+    } else if token.starts_with("ck:space:") {
         (Some(MentionTarget::Space), Some(token.to_owned()))
-    } else if token.starts_with("cx:flow:") {
+    } else if token.starts_with("ck:flow:") {
         (Some(MentionTarget::Flow), Some(token.to_owned()))
-    } else if token.starts_with("cx:message:") {
+    } else if token.starts_with("ck:message:") {
         (Some(MentionTarget::Message), Some(token.to_owned()))
-    } else if token.starts_with("cx:morph:") {
+    } else if token.starts_with("ck:morph:") {
         (Some(MentionTarget::Morph), Some(token.to_owned()))
     } else {
         (None, None)

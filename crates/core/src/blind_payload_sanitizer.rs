@@ -1,6 +1,6 @@
 //! Blind push-payload sanitizer (T1.1).
 //!
-//! Single source of truth for the Contrix v1 push gateway "blind wakeup"
+//! Single source of truth for the Cokret v1 push gateway "blind wakeup"
 //! payload contract. Both push gateways (e.g. floria) and gateway clients
 //! (e.g. chime) call into the same sanitizer so the allowed/forbidden field
 //! rules cannot drift between implementations.
@@ -56,7 +56,7 @@
 //!   `view_renderer`, `view_renderers`, `rendered_view`, `renderer`.
 //!
 //! In addition, any string value containing the literal substring `did:` or
-//! the typed-id prefix `cx:` is rejected as a sensitive correlation key,
+//! the typed-id prefix `ck:` is rejected as a sensitive correlation key,
 //! except inside `push_target_id` (which has its own opaque-pseudonym
 //! contract — see [`is_valid_push_target_id`]).
 
@@ -105,7 +105,7 @@ pub enum BlindPayloadReasonCode {
     /// A key was forbidden by name (correlation id, sender info, content,
     /// provider escape hatch, call setup, view renderer, …).
     ForbiddenField,
-    /// A string value contained `did:` or `cx:` substring outside the
+    /// A string value contained `did:` or `ck:` substring outside the
     /// `push_target_id` opaque-pseudonym slot.
     SensitiveLiteral,
     /// A required field (e.g. `push_target_id` or `wakeup_kind` in strict
@@ -164,7 +164,7 @@ impl BlindPayloadError {
     fn sensitive(field_path: impl Into<String>) -> Self {
         let field_path = field_path.into();
         Self {
-            message: format!("field `{field_path}` contains a sensitive `did:` / `cx:` literal"),
+            message: format!("field `{field_path}` contains a sensitive `did:` / `ck:` literal"),
             field_path,
             reason_code: BlindPayloadReasonCode::SensitiveLiteral,
         }
@@ -283,7 +283,7 @@ fn validate_allowed_field(key: &str, value: &Value) -> Result<(), BlindPayloadEr
             Some(raw) if is_valid_push_target_id(raw) => Ok(()),
             Some(_) => Err(BlindPayloadError::invalid(
                 key,
-                "push_target_id must be an opaque pseudonym (cx:pseudonym:push:<token> \
+                "push_target_id must be an opaque pseudonym (ck:pseudonym:push:<token> \
                  or base64url ≥ 22 chars)",
             )),
             None => Err(BlindPayloadError::invalid(key, "push_target_id must be a string")),
@@ -365,14 +365,14 @@ fn scan_forbidden(path: &str, value: &Value) -> Result<(), BlindPayloadError> {
 }
 
 fn check_sensitive_literal(path: &str, raw: &str) -> Result<(), BlindPayloadError> {
-    // push_target_id can legitimately contain a `cx:pseudonym:push:` prefix
+    // push_target_id can legitimately contain a `ck:pseudonym:push:` prefix
     // (the allow-list path validates the rest of the token). For everything
-    // else `did:` or `cx:` substrings are correlation leaks.
+    // else `did:` or `ck:` substrings are correlation leaks.
     if path.ends_with("push_target_id") {
         return Ok(());
     }
     let lower = raw.to_ascii_lowercase();
-    if lower.contains("did:") || lower.contains("cx:") {
+    if lower.contains("did:") || lower.contains("ck:") {
         return Err(BlindPayloadError::sensitive(path));
     }
     Ok(())
@@ -510,10 +510,10 @@ pub fn is_forbidden_payload_key(key: &str) -> bool {
 
 /// Return true if `value` is a valid `push_target_id` (opaque pseudonym).
 ///
-/// Accepts either the typed `cx:pseudonym:push:<token>` form **or** a bare
+/// Accepts either the typed `ck:pseudonym:push:<token>` form **or** a bare
 /// base64url-shaped token (≥ 22 ASCII alphanumeric/`-_` characters, ≤ 128).
-/// Rejects DIDs and any other `cx:` typed-id whose prefix is not
-/// `cx:pseudonym:push:`.
+/// Rejects DIDs and any other `ck:` typed-id whose prefix is not
+/// `ck:pseudonym:push:`.
 pub fn is_valid_push_target_id(value: &str) -> bool {
     let trimmed = value.trim();
     if trimmed.is_empty() {
@@ -523,9 +523,9 @@ pub fn is_valid_push_target_id(value: &str) -> bool {
     if lower.contains("did:") {
         return false;
     }
-    let token = if let Some(token) = trimmed.strip_prefix("cx:pseudonym:push:") {
+    let token = if let Some(token) = trimmed.strip_prefix("ck:pseudonym:push:") {
         token
-    } else if trimmed.starts_with("cx:") || trimmed.contains(':') {
+    } else if trimmed.starts_with("ck:") || trimmed.contains(':') {
         return false;
     } else {
         trimmed
@@ -546,7 +546,7 @@ pub fn is_valid_custom_wakeup_kind(value: &str) -> bool {
         return false;
     }
     let lower = value.to_ascii_lowercase();
-    if lower.contains("did:") || lower.contains("cx:") {
+    if lower.contains("did:") || lower.contains("ck:") {
         return false;
     }
     value.chars().all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_')
@@ -562,7 +562,7 @@ pub fn is_valid_push_hint(value: &str) -> bool {
             return false;
         }
         let lower = token.to_ascii_lowercase();
-        if lower.contains("did:") || lower.contains("cx:") {
+        if lower.contains("did:") || lower.contains("ck:") {
             return false;
         }
         return token.chars().all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '.' | '_' | '-'));
@@ -578,7 +578,7 @@ mod tests {
     fn ok_notification() -> Value {
         json!({
             "notification": {
-                "push_target_id": "cx:pseudonym:push:01HYZ8Z000000000000000",
+                "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
                 "wakeup_kind": "message",
                 "push_hint": "new_message",
                 "counts": { "unread": 1 },
@@ -595,7 +595,7 @@ mod tests {
     #[test]
     fn accepts_bare_notification_object() {
         sanitize_blind_payload(&json!({
-            "push_target_id": "cx:pseudonym:push:01HYZ8Z000000000000000",
+            "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
             "wakeup_kind": "call_invite",
         }))
         .unwrap();
@@ -613,7 +613,7 @@ mod tests {
     #[test]
     fn rejects_event_id() {
         let mut v = ok_notification();
-        v["notification"]["event_id"] = json!("cx:event:01JS0EV000000000000000000");
+        v["notification"]["event_id"] = json!("ck:event:01JS0EV000000000000000000");
         let err = sanitize_blind_payload(&v).unwrap_err();
         assert_eq!(err.reason_code, BlindPayloadReasonCode::ForbiddenField);
     }
@@ -642,7 +642,7 @@ mod tests {
         // catch it at the wrapper-scan stage.
         let payload = json!({
             "notification": {
-                "push_target_id": "cx:pseudonym:push:01HYZ8Z000000000000000",
+                "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
                 "wakeup_kind": "message",
             },
             "operation_id": "cx.push.notify",
@@ -672,8 +672,8 @@ mod tests {
     #[test]
     fn rejects_did_target_id() {
         assert!(!is_valid_push_target_id("did:web:alice.example"));
-        assert!(!is_valid_push_target_id("cx:device:01HYZ8Z000000000000000"));
-        assert!(is_valid_push_target_id("cx:pseudonym:push:01HYZ8Z000000000000000"));
+        assert!(!is_valid_push_target_id("ck:device:01HYZ8Z000000000000000"));
+        assert!(is_valid_push_target_id("ck:pseudonym:push:01HYZ8Z000000000000000"));
         assert!(is_valid_push_target_id("01HYZ8Z000000000000000"));
     }
 

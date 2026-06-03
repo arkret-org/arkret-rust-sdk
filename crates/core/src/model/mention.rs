@@ -3,7 +3,7 @@ use super::*;
 /// Structured `@mention` node embedded in message body.
 ///
 /// Spec source: `models/flow-and-message.md §9.4` + `identity/identity-handles.md §3.8.1`
-/// (contrix-spec @ b56cab1, 2026-05-28).
+/// (cokret-spec @ b56cab1, 2026-05-28).
 ///
 /// R3.2 wire-breaking change: the authoritative reference field is
 /// `subject_id` (principal DID). The handle / display strings are now

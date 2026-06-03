@@ -252,7 +252,7 @@ impl SpaceState {
             // Generic redaction. Round 11 (2026-05-16): also flips Flow /
             // Morph subject state to Redacted per spec common-fields.md
             // §5.1 when the event content carries an `object_ref` pointing
-            // to a `cx:flow:` / `cx:morph:` typed-id. State-machine guard
+            // to a `ck:flow:` / `ck:morph:` typed-id. State-machine guard
             // rejects already-terminal source with `<kind>_already_terminal`.
             // Space is excluded — spec note "Space has no redacted state" routes
             // Space removal through `cx.space.tombstone` only.
@@ -431,7 +431,7 @@ impl SpaceState {
     }
 
     // Reducer for `cx.morph.archive`: validate current state == active per
-    // contrix-spec common-fields.md §5.1 canonical state-transition table.
+    // cokret-spec common-fields.md §5.1 canonical state-transition table.
     // Archived / Deleted / Redacted / unset MUST be rejected with
     // `morph_not_active`; unknown Morph is tolerated (causal / backfill).
     fn archive_morph(&mut self, event: &Event) -> Result<()> {
@@ -644,7 +644,7 @@ impl SpaceState {
     }
 
     // Reducer for `cx.space.archive`: validate current state == active per
-    // contrix-spec common-fields.md §5.1 canonical state-transition table.
+    // cokret-spec common-fields.md §5.1 canonical state-transition table.
     // Archived / Tombstoned / unset MUST be rejected with `place_not_active`;
     // unknown Place is tolerated (causal / backfill).
     fn archive_place(&mut self, event: &Event) -> Result<()> {
@@ -659,7 +659,7 @@ impl SpaceState {
     }
 
     // Reducer for `cx.space.tombstone`: validate current state ∈
-    // {Active, Archived} per contrix-spec common-fields.md §5.1. Tombstoned /
+    // {Active, Archived} per cokret-spec common-fields.md §5.1. Tombstoned /
     // unset MUST be rejected with `place_already_terminal`; unknown Place is
     // tolerated (causal / backfill).
     fn tombstone_place(&mut self, event: &Event) -> Result<()> {
@@ -675,7 +675,7 @@ impl SpaceState {
     }
 
     // Reducer for `cx.space.restore`: validate current state == archived per
-    // contrix-spec space-and-place.md §4.4. Active / Tombstoned / unset MUST
+    // cokret-spec space-and-place.md §4.4. Active / Tombstoned / unset MUST
     // be rejected with `place_not_archived`; unknown Place is tolerated
     // (causal / backfill not yet caught up — mirrors set_place_state).
     fn restore_place(&mut self, event: &Event) -> Result<()> {
@@ -900,7 +900,7 @@ impl SpaceState {
     }
 
     // Reducer for `cx.flow.archive`: validate current state == active per
-    // contrix-spec common-fields.md §5.1 canonical state-transition table.
+    // cokret-spec common-fields.md §5.1 canonical state-transition table.
     // Archived / Deleted / Redacted / unset MUST be rejected with
     // `flow_not_active`; unknown Flow is tolerated (causal / backfill not
     // yet caught up — mirrors archive_morph / archive_place).
@@ -916,7 +916,7 @@ impl SpaceState {
     }
 
     // Reducer for `cx.flow.restore`: validate current state == archived per
-    // contrix-spec common-fields.md §5 (`*.restore` is the canonical
+    // cokret-spec common-fields.md §5 (`*.restore` is the canonical
     // archived -> active path; tombstoned / deleted / redacted MUST NOT be
     // restored). Active / Deleted / Redacted / unset MUST be rejected with
     // `flow_not_archived`; unknown Flow is tolerated (causal / backfill
@@ -1256,7 +1256,7 @@ impl SpaceState {
         }
         // Unknown object — causal / backfill window. Tolerate silently
         // (mirrors restore_*/archive_* guards). Note that Place is also
-        // hit here when `object_ref` is `cx:space:...` and Place is
+        // hit here when `object_ref` is `ck:space:...` and Place is
         // unmaterialised; that's also fine because cx.redaction targeting
         // a Place is undefined per spec (no `Redacted` variant), and
         // any place removal flow uses `cx.space.tombstone` directly.

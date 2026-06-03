@@ -80,7 +80,7 @@ impl ApprovalFlowManager {
         approval_mode: ApprovalMode,
         expires_at: Option<DateTime<Utc>>,
     ) -> GrantProposal {
-        let proposal_id = format!("cx:proposal:{}", grant.id);
+        let proposal_id = format!("ck:proposal:{}", grant.id);
         let proposal = GrantProposal {
             proposal_id: proposal_id.clone(),
             grant,
@@ -182,7 +182,7 @@ impl ApprovalFlowManager {
 
     /// Check if a grant has been approved through a proposal.
     pub fn is_grant_approved(&self, grant_id: &str) -> bool {
-        let proposal_id = format!("cx:proposal:{grant_id}");
+        let proposal_id = format!("ck:proposal:{grant_id}");
         self.is_proposal_approved(&proposal_id)
     }
 

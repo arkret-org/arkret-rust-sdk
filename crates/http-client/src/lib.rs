@@ -41,14 +41,14 @@ use contrix_core::{
     SyncReqBody, SyncResBody, SyncSnapshotHeadResBody,
 };
 
-pub const HEADER_REQUEST_ID: &str = "X-Contrix-Request-Id";
-pub const HEADER_WAIT_FOR: &str = "X-Contrix-Wait-For";
+pub const HEADER_REQUEST_ID: &str = "X-Cokret-Request-Id";
+pub const HEADER_WAIT_FOR: &str = "X-Cokret-Wait-For";
 pub const HEADER_IDEMPOTENCY_KEY: &str = "Idempotency-Key";
 
 /// S-2 (savfox SDK gap): wire-shape session returned by
 /// `POST /auth/account/session-grants/submit`. Matches the SDK
 /// `AuthSession` struct field-for-field but lives here so the
-/// transport crate doesn't depend on `contrix` (the SDK reuses this
+/// transport crate doesn't depend on `cokret` (the SDK reuses this
 /// or maps it to its own type).
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct AuthSessionWire {
@@ -525,7 +525,7 @@ impl ClientBuilder {
     }
 
     /// Toggle gzip response decoding (the `gzip` feature is on by default
-    /// in `contrix-http-client`'s `reqwest` profile, so this method exists to
+    /// in `cokret-http-client`'s `reqwest` profile, so this method exists to
     /// let callers turn it *off* when stricter content negotiation matters).
     ///
     /// Native-only: gzip negotiation is owned by the browser on wasm32.
@@ -902,7 +902,7 @@ impl Client {
     ) -> Result<BlobUploadResBody> {
         let mut builder = self
             .request(Method::POST, "/api/v1/blob/upload")?
-            .header("X-Contrix-Blob-Metadata", serde_json::to_string(metadata)?);
+            .header("X-Cokret-Blob-Metadata", serde_json::to_string(metadata)?);
         if let Some(media_type) = &metadata.media_type {
             builder = builder.header("Content-Type", media_type);
         }
@@ -1058,7 +1058,7 @@ impl Client {
         self.post("/api/v1/directory/resolve-realm", request).await
     }
 
-    /// R3.3 (CXP-0011, contrix-spec @ cced4b8) — `cx.directory.resolve_target`.
+    /// R3.3 (CXP-0011, cokret-spec @ cced4b8) — `cx.directory.resolve_target`.
     /// Resolve a client-agnostic shareable object address (Realm / Flow /
     /// Message) to a preview. The `address` and any `token` should be derived
     /// from [`contrix_core::model::parse_address`]; invite and preview tokens
@@ -1113,7 +1113,7 @@ impl Client {
         self.post("/api/v1/directory/resolve-handle", request).await
     }
 
-    /// R3.2 (contrix-spec @ b56cab1) — `cx.directory.list_handles_for_subject`.
+    /// R3.2 (cokret-spec @ b56cab1) — `cx.directory.list_handles_for_subject`.
     /// Known holder/principal DID → current visible handle claims. The
     /// response invariant `claims[].subject == subject` is enforced via
     /// [`DirectoryListHandlesForSubjectResBody::validate`] before returning.
@@ -1153,14 +1153,14 @@ impl Client {
     }
 
     pub async fn policy_check(&self, request: &PolicyCheckReqBody) -> Result<PolicyCheckResBody> {
-        self.post("/contrix/v1/check", request).await
+        self.post("/cokret/v1/check", request).await
     }
 
     pub async fn media_ice_config(
         &self,
         request: &MediaIceConfigReqBody,
     ) -> Result<MediaIceConfigResBody> {
-        self.post("/contrix/v1/ice-config", request).await
+        self.post("/cokret/v1/ice-config", request).await
     }
 
     pub async fn moderation_report(
@@ -1300,9 +1300,9 @@ impl Client {
     fn apply_auth(&self, builder: RequestBuilder) -> RequestBuilder {
         match &self.auth {
             Some(Auth::Bearer(token)) => builder.bearer_auth(token),
-            Some(Auth::DeviceProof(proof)) => builder.header("X-Contrix-Device-Proof", proof),
+            Some(Auth::DeviceProof(proof)) => builder.header("X-Cokret-Device-Proof", proof),
             Some(Auth::ServiceSignature(signature)) => {
-                builder.header("Signature", signature).header("X-Contrix-Service-Signature", "1")
+                builder.header("Signature", signature).header("X-Cokret-Service-Signature", "1")
             }
             None => builder,
         }
@@ -1395,7 +1395,7 @@ impl Client {
     }
 
     /// Wasm32 fast path. The browser fetch backend has neither a sleep
-    /// primitive we can call from the contrix-http-client crate (no
+    /// primitive we can call from the cokret-http-client crate (no
     /// `tokio::time` driver) nor an `is_connect` accessor on
     /// `reqwest::Error`, and status-based retry windows would require
     /// pulling in `gloo-timers` or similar. We deliberately collapse retry
@@ -1442,7 +1442,7 @@ fn is_localhost(url: &Url) -> bool {
 fn reject_absolute_path(path: &str) -> Result<()> {
     if path.starts_with("//") || Url::parse(path).is_ok() {
         return Err(Error::Protocol(
-            "request path must be relative to the Contrix service".to_owned(),
+            "request path must be relative to the Cokret service".to_owned(),
         ));
     }
     Ok(())
@@ -1512,15 +1512,15 @@ mod tests {
 
     #[test]
     fn builds_relative_api_url() {
-        let client = Client::new(Url::parse("https://alice.example/contrix/").unwrap()).unwrap();
+        let client = Client::new(Url::parse("https://alice.example/cokret/").unwrap()).unwrap();
         let request =
             client.request(Method::GET, "/api/v1/server/describe").unwrap().build().unwrap();
-        assert_eq!(request.url().as_str(), "https://alice.example/contrix/api/v1/server/describe");
+        assert_eq!(request.url().as_str(), "https://alice.example/cokret/api/v1/server/describe");
     }
 
     #[test]
     fn rejects_remote_http_by_default() {
-        let error = Client::new(Url::parse("http://alice.example/contrix/").unwrap()).unwrap_err();
+        let error = Client::new(Url::parse("http://alice.example/cokret/").unwrap()).unwrap_err();
         assert!(matches!(error, Error::InsecureUrl(_)));
     }
 
@@ -1537,14 +1537,14 @@ mod tests {
 
     #[test]
     fn rejects_absolute_request_paths() {
-        let client = Client::new(Url::parse("https://alice.example/contrix/").unwrap()).unwrap();
+        let client = Client::new(Url::parse("https://alice.example/cokret/").unwrap()).unwrap();
         let error = client.request(Method::GET, "https://evil.example/api").unwrap_err();
         assert!(matches!(error, Error::Protocol(_)));
     }
 
     #[test]
     fn rejects_header_unsafe_auth_material() {
-        let error = Client::builder(Url::parse("https://alice.example/contrix/").unwrap())
+        let error = Client::builder(Url::parse("https://alice.example/cokret/").unwrap())
             .auth(Auth::Bearer("token\r\nX-Evil: true".to_owned()))
             .build()
             .unwrap_err();
@@ -1559,29 +1559,29 @@ mod tests {
 
     #[test]
     fn request_options_add_standard_headers() {
-        let client = Client::builder(Url::parse("https://alice.example/contrix/").unwrap())
-            .user_agent("contrix-sdk-test/1")
+        let client = Client::builder(Url::parse("https://alice.example/cokret/").unwrap())
+            .user_agent("cokret-sdk-test/1")
             .build()
             .unwrap();
         let options = ClientRequestOptions::new()
             .request_id("req-1")
             .idempotency_key("idem-1")
-            .wait_for("cx:cursor:01");
+            .wait_for("ck:cursor:01");
         let request = client
             .apply_request_options(client.request(Method::PUT, "/api/v1/events").unwrap(), &options)
             .unwrap()
             .build()
             .unwrap();
 
-        assert_eq!(request.headers()[USER_AGENT], "contrix-sdk-test/1");
+        assert_eq!(request.headers()[USER_AGENT], "cokret-sdk-test/1");
         assert_eq!(request.headers()[HEADER_REQUEST_ID], "req-1");
         assert_eq!(request.headers()[HEADER_IDEMPOTENCY_KEY], "idem-1");
-        assert_eq!(request.headers()[HEADER_WAIT_FOR], "cx:cursor:01");
+        assert_eq!(request.headers()[HEADER_WAIT_FOR], "ck:cursor:01");
     }
 
     #[test]
     fn request_options_reject_header_injection() {
-        let client = Client::new(Url::parse("https://alice.example/contrix/").unwrap()).unwrap();
+        let client = Client::new(Url::parse("https://alice.example/cokret/").unwrap()).unwrap();
         let options = ClientRequestOptions::new().request_id("req\r\nX-Evil: true");
 
         let error = client
@@ -1596,11 +1596,11 @@ mod tests {
     #[test]
     fn rejects_query_auth_on_base_path_and_built_request() {
         assert!(
-            Client::new(Url::parse("https://alice.example/contrix/?access_token=secret").unwrap())
+            Client::new(Url::parse("https://alice.example/cokret/?access_token=secret").unwrap())
                 .is_err()
         );
 
-        let client = Client::new(Url::parse("https://alice.example/contrix/").unwrap()).unwrap();
+        let client = Client::new(Url::parse("https://alice.example/cokret/").unwrap()).unwrap();
         let builder = client
             .request(Method::GET, "/api/v1/events")
             .unwrap()
@@ -1655,7 +1655,7 @@ mod tests {
     #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn transport_options_apply_without_panic() {
-        let client = Client::builder(Url::parse("https://alice.example/contrix/").unwrap())
+        let client = Client::builder(Url::parse("https://alice.example/cokret/").unwrap())
             .timeout(Duration::from_secs(30))
             .connect_timeout(Duration::from_secs(5))
             .pool_idle_timeout(Duration::from_secs(60))
@@ -1671,25 +1671,25 @@ mod tests {
             .build()
             .unwrap();
 
-        assert_eq!(client.base_url().as_str(), "https://alice.example/contrix/");
+        assert_eq!(client.base_url().as_str(), "https://alice.example/cokret/");
     }
 
     #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn proxy_can_be_added_via_builder() {
         let proxy = reqwest::Proxy::http("http://proxy.example:3128").unwrap();
-        let client = Client::builder(Url::parse("https://alice.example/contrix/").unwrap())
+        let client = Client::builder(Url::parse("https://alice.example/cokret/").unwrap())
             .proxy(proxy)
             .build()
             .unwrap();
-        assert_eq!(client.base_url().as_str(), "https://alice.example/contrix/");
+        assert_eq!(client.base_url().as_str(), "https://alice.example/cokret/");
     }
 
     #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn transport_options_conflict_with_pre_built_http_client() {
         let http = reqwest::Client::new();
-        let error = Client::builder(Url::parse("https://alice.example/contrix/").unwrap())
+        let error = Client::builder(Url::parse("https://alice.example/cokret/").unwrap())
             .http_client(http)
             .timeout(Duration::from_secs(5))
             .build()
@@ -1700,11 +1700,11 @@ mod tests {
     #[test]
     fn pre_built_http_client_alone_is_accepted() {
         let http = reqwest::Client::new();
-        let client = Client::builder(Url::parse("https://alice.example/contrix/").unwrap())
+        let client = Client::builder(Url::parse("https://alice.example/cokret/").unwrap())
             .http_client(http)
             .build()
             .unwrap();
-        assert_eq!(client.base_url().as_str(), "https://alice.example/contrix/");
+        assert_eq!(client.base_url().as_str(), "https://alice.example/cokret/");
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -1723,9 +1723,9 @@ mod tests {
         /// stripped down so the serialised body is easy to assert against.
         fn fixture_event(content_body: &str) -> Event {
             Event {
-                event_id: EventId::new("cx:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
+                event_id: EventId::new("ck:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
                 kind: "cx.message.create".to_owned(),
-                realm_id: RealmId::new("cx:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
+                realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
                 actor_id: Did::new("did:web:alice.example").unwrap(),
                 actor_seq: 1,
                 created_at: "2026-04-26T00:00:00Z".parse().unwrap(),
@@ -1829,7 +1829,7 @@ mod tests {
 
         #[tokio::test]
         async fn events_submit_single_event_posts_envelope() {
-            let canned = r#"{"status":"accepted","accepted":["cx:event:01904100-0000-7000-8000-a0086f45c575"]}"#;
+            let canned = r#"{"status":"accepted","accepted":["ck:event:01904100-0000-7000-8000-a0086f45c575"]}"#;
             let (client, capture) = spawn_capture_server(canned).await;
 
             let event = fixture_event("hello");
@@ -1858,7 +1858,7 @@ mod tests {
 
         #[tokio::test]
         async fn events_submit_batch_posts_events_array() {
-            let canned = r#"{"status":"accepted","accepted":["cx:event:01904100-0000-7000-8000-a0086f45c575"]}"#;
+            let canned = r#"{"status":"accepted","accepted":["ck:event:01904100-0000-7000-8000-a0086f45c575"]}"#;
             let (client, capture) = spawn_capture_server(canned).await;
 
             let events = vec![fixture_event("first"), fixture_event("second")];
@@ -1925,7 +1925,7 @@ mod tests {
         async fn mimi_report_abuse_posts_canonical_path() {
             let (client, capture) = spawn_capture_server(r#"{"ok":true}"#).await;
             let request = MimiReportAbuseReqBody {
-                flow_id: FlowId::new("cx:flow:01904100-0000-7000-8000-f571eead1fc4").unwrap(),
+                flow_id: FlowId::new("ck:flow:01904100-0000-7000-8000-f571eead1fc4").unwrap(),
                 target_ref: "mimi://provider/rooms/room-1/messages/msg-1".to_owned(),
                 reporter: Did::new("did:web:alice.example").unwrap(),
                 reason: "spam".to_owned(),
@@ -1952,9 +1952,9 @@ mod tests {
         async fn events_submit_returns_partial_status() {
             let canned = r#"{
                 "status": "partial",
-                "accepted": ["cx:event:01904100-0000-7000-8000-a0086f45c575"],
+                "accepted": ["ck:event:01904100-0000-7000-8000-a0086f45c575"],
                 "rejected": [
-                    {"event_id": "cx:event:01904100-0000-7000-8000-deadbeefdead", "reason": "schema_violation"}
+                    {"event_id": "ck:event:01904100-0000-7000-8000-deadbeefdead", "reason": "schema_violation"}
                 ]
             }"#;
             let (client, _capture) = spawn_capture_server(canned).await;

@@ -24,9 +24,9 @@ use crate::{
 pub const CONTRIX_MLS_ALGORITHM: &str = "cx.mls.v1";
 pub const CONTRIX_MLS_CIPHERSUITE: Ciphersuite =
     Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;
-const CONTRIX_OPENMLS_STATE_SNAPSHOT: &str = "contrix-openmls-provider-state-v1";
+const CONTRIX_OPENMLS_STATE_SNAPSHOT: &str = "cokret-openmls-provider-state-v1";
 
-pub struct ContrixMlsIdentity {
+pub struct CokretMlsIdentity {
     pub principal_id: Did,
     pub device_id: DeviceId,
     provider: OpenMlsRustCrypto,
@@ -34,8 +34,8 @@ pub struct ContrixMlsIdentity {
     credential: CredentialWithKey,
 }
 
-pub struct ContrixMlsGroup {
-    identity: ContrixMlsIdentity,
+pub struct CokretMlsGroup {
+    identity: CokretMlsIdentity,
     group: MlsGroup,
 }
 
@@ -242,7 +242,7 @@ impl EncryptedEnvelopeV1 {
     /// Assemble a conforming envelope from an MLS [`EncryptedPayload`].
     ///
     /// The `payload` MUST have been produced by
-    /// [`ContrixMlsGroup::encrypt_payload_with_aad`] with AAD equal to
+    /// [`CokretMlsGroup::encrypt_payload_with_aad`] with AAD equal to
     /// `serde_json::to_value(&aad)` — the AAD is bound into `payload_digest`,
     /// so a mismatch would make the receiver's digest verification fail. We
     /// fail closed if they disagree. `group_state_ref` is the `cx.mls.commit`
@@ -320,7 +320,7 @@ pub struct MessageCrypto;
 
 impl MessageCrypto {
     pub fn encrypt(
-        group: &mut ContrixMlsGroup,
+        group: &mut CokretMlsGroup,
         message_id: impl Into<String>,
         content_type: impl Into<String>,
         plaintext: &[u8],
@@ -332,7 +332,7 @@ impl MessageCrypto {
     }
 
     pub fn encrypt_with_aad(
-        group: &mut ContrixMlsGroup,
+        group: &mut CokretMlsGroup,
         message_id: impl Into<String>,
         content_type: impl Into<String>,
         aad: serde_json::Value,
@@ -367,13 +367,13 @@ impl MessageCrypto {
         Ok(())
     }
 
-    pub fn decrypt(group: &mut ContrixMlsGroup, message: &EncryptedMessage) -> Result<Vec<u8>> {
+    pub fn decrypt(group: &mut CokretMlsGroup, message: &EncryptedMessage) -> Result<Vec<u8>> {
         Self::verify_opaque_payload_digest(message)?;
         group.decrypt_payload(&message.payload)
     }
 
     pub fn decrypt_or_preserve(
-        group: Option<&mut ContrixMlsGroup>,
+        group: Option<&mut CokretMlsGroup>,
         message: EncryptedMessage,
     ) -> Result<MessageCryptoDecrypt> {
         Self::verify_opaque_payload_digest(&message)?;
@@ -422,7 +422,7 @@ impl MessageCrypto {
     }
 }
 
-impl ContrixMlsIdentity {
+impl CokretMlsIdentity {
     pub fn new_basic(principal_id: Did, device_id: DeviceId) -> Result<Self> {
         let provider = OpenMlsRustCrypto::default();
         let signer = SignatureKeyPair::new(CONTRIX_MLS_CIPHERSUITE.signature_algorithm())
@@ -445,7 +445,7 @@ impl ContrixMlsIdentity {
         let keypackage_ref = Hash::new(canonical::sha256_digest(&key_package_bytes))?;
 
         Ok(MlsKeyPackageRecord {
-            keypackage_id: format!("cx:mls:kp:{}", uuid::Uuid::now_v7()),
+            keypackage_id: format!("ck:mls:kp:{}", uuid::Uuid::now_v7()),
             principal_id: self.principal_id.clone(),
             device_id: self.device_id.clone(),
             key_package: encode(&key_package_bytes),
@@ -471,7 +471,7 @@ impl ContrixMlsIdentity {
         }
     }
 
-    pub fn create_group(self, group_id: impl AsRef<[u8]>) -> Result<ContrixMlsGroup> {
+    pub fn create_group(self, group_id: impl AsRef<[u8]>) -> Result<CokretMlsGroup> {
         let config = MlsGroupCreateConfig::builder()
             .ciphersuite(CONTRIX_MLS_CIPHERSUITE)
             .use_ratchet_tree_extension(true)
@@ -485,12 +485,12 @@ impl ContrixMlsIdentity {
         )
         .map_err(mls_error)?;
 
-        Ok(ContrixMlsGroup { identity: self, group })
+        Ok(CokretMlsGroup { identity: self, group })
     }
 }
 
-impl ContrixMlsGroup {
-    pub fn identity(&self) -> &ContrixMlsIdentity {
+impl CokretMlsGroup {
+    pub fn identity(&self) -> &CokretMlsIdentity {
         &self.identity
     }
 
@@ -538,7 +538,7 @@ impl ContrixMlsGroup {
     ///
     /// Used for spec-defined key derivations layered on the group secret —
     /// e.g. the reaction routing tag (`encryption-and-audit.md` §2.9, label
-    /// `contrix-reaction-routing-v1`, context = `realm_id`) and SFrame media
+    /// `cokret-reaction-routing-v1`, context = `realm_id`) and SFrame media
     /// keys (`webrtc-signaling.md` §11). Callers MUST treat the returned
     /// bytes as secret key material (never log or persist them in the clear).
     pub fn export_secret(&self, label: &str, context: &[u8], length: usize) -> Result<Vec<u8>> {
@@ -633,7 +633,7 @@ impl ContrixMlsGroup {
         }
 
         Ok(Self {
-            identity: ContrixMlsIdentity {
+            identity: CokretMlsIdentity {
                 principal_id: record.principal_id.clone(),
                 device_id: record.device_id.clone(),
                 provider,
@@ -726,7 +726,7 @@ impl ContrixMlsGroup {
 
     /// Remove every leaf whose BasicCredential identity matches `target`.
     ///
-    /// In the current credential encoding (`mls.rs::ContrixMlsIdentity::new_basic`)
+    /// In the current credential encoding (`mls.rs::CokretMlsIdentity::new_basic`)
     /// the leaf identity bytes are `principal_id.as_str().as_bytes()` — they
     /// do NOT include the device id. Therefore matching by principal removes
     /// **all leaves** owned by that principal in this group. To remove a
@@ -809,12 +809,12 @@ impl ContrixMlsGroup {
             // bytes are not valid UTF-8 / not a parseable Did we fall back
             // to a placeholder so the audit trail still records the leaf
             // index; this should never happen in practice because all
-            // ContrixMlsIdentity leaves carry UTF-8 DID strings.
+            // CokretMlsIdentity leaves carry UTF-8 DID strings.
             let principal = std::str::from_utf8(&identity_bytes)
                 .ok()
                 .and_then(|s| Did::new(s.to_owned()).ok())
                 .unwrap_or_else(|| {
-                    Did::new(format!("did:contrix:unknown-leaf-{}", idx.u32()))
+                    Did::new(format!("did:cokret:unknown-leaf-{}", idx.u32()))
                         .expect("placeholder DID is well-formed")
                 });
             removed_principals.push(principal);
@@ -835,7 +835,7 @@ impl ContrixMlsGroup {
     }
 
     pub fn join_from_welcome(
-        identity: ContrixMlsIdentity,
+        identity: CokretMlsIdentity,
         envelope: &MlsWelcomeEnvelope,
     ) -> Result<Self> {
         if envelope.recipient_principal_id != identity.principal_id
@@ -1116,7 +1116,7 @@ impl EpochRecoveryReqBody {
 
 impl EpochRecoveryResBody {
     /// Apply all commits in this recovery response to a group.
-    pub fn apply_to_group(&self, group: &mut ContrixMlsGroup) -> Result<u64> {
+    pub fn apply_to_group(&self, group: &mut CokretMlsGroup) -> Result<u64> {
         group.apply_commits(&self.commits)
     }
 
@@ -1139,7 +1139,7 @@ impl EpochRecoveryResBody {
 
 /// Build an epoch recovery response from a group that has the needed commits.
 pub fn build_epoch_recovery_response(
-    group: &ContrixMlsGroup,
+    group: &CokretMlsGroup,
     store: &impl CryptoStore,
     request: &EpochRecoveryReqBody,
 ) -> Result<EpochRecoveryResBody> {
@@ -1220,20 +1220,20 @@ mod tests {
         // commit that advances the epoch MUST produce a fresh hash. This
         // pins the contract `chat.rs` relies on when binding governance
         // payloads to the local group's schedule.
-        let alice = ContrixMlsIdentity::new_basic(
+        let alice = CokretMlsIdentity::new_basic(
             Did::new("did:web:alice.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
-        let bob = ContrixMlsIdentity::new_basic(
+        let bob = CokretMlsIdentity::new_basic(
             Did::new("did:web:bob.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group =
-            alice.create_group(b"cx:space:01904100-0000-7000-8000-1ad6479d4a40").unwrap();
+            alice.create_group(b"ck:space:01904100-0000-7000-8000-1ad6479d4a40").unwrap();
         let hash_pre = alice_group.schedule_hash();
         assert!(
             hash_pre.as_str().starts_with("sha256:"),
@@ -1244,7 +1244,7 @@ mod tests {
 
         // Add a member → epoch advances → schedule_hash MUST change.
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
-        let bob_group = ContrixMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
+        let bob_group = CokretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
         let hash_post = alice_group.schedule_hash();
         assert_ne!(hash_pre, hash_post);
 
@@ -1258,32 +1258,32 @@ mod tests {
         // bytes; distinct (label, context) MUST yield distinct outputs. This
         // is the primitive the reaction routing tag (encryption-and-audit.md
         // §2.9) and SFrame keys are built on.
-        let alice = ContrixMlsIdentity::new_basic(
+        let alice = CokretMlsIdentity::new_basic(
             Did::new("did:web:alice.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-000000000016").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000016").unwrap(),
         )
         .unwrap();
-        let bob = ContrixMlsIdentity::new_basic(
+        let bob = CokretMlsIdentity::new_basic(
             Did::new("did:web:bob.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-00000000001e").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000001e").unwrap(),
         )
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group =
-            alice.create_group(b"cx:space:01904100-0000-7000-8000-1ad6479d4a41").unwrap();
+            alice.create_group(b"ck:space:01904100-0000-7000-8000-1ad6479d4a41").unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
-        let bob_group = ContrixMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
+        let bob_group = CokretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
 
-        let realm = b"cx:realm:01904100-0000-7000-8000-1ad6479d4a41";
-        let a = alice_group.export_secret("contrix-reaction-routing-v1", realm, 32).unwrap();
-        let b = bob_group.export_secret("contrix-reaction-routing-v1", realm, 32).unwrap();
+        let realm = b"ck:realm:01904100-0000-7000-8000-1ad6479d4a41";
+        let a = alice_group.export_secret("cokret-reaction-routing-v1", realm, 32).unwrap();
+        let b = bob_group.export_secret("cokret-reaction-routing-v1", realm, 32).unwrap();
         assert_eq!(a.len(), 32);
         assert_eq!(a, b, "same epoch + label + context MUST agree across members");
 
         // Different context (realm) MUST diverge.
-        let other_realm = b"cx:realm:01904100-0000-7000-8000-1ad6479d4a42";
-        assert_ne!(a, alice_group.export_secret("contrix-reaction-routing-v1", other_realm, 32).unwrap());
+        let other_realm = b"ck:realm:01904100-0000-7000-8000-1ad6479d4a42";
+        assert_ne!(a, alice_group.export_secret("cokret-reaction-routing-v1", other_realm, 32).unwrap());
         // Different label MUST diverge.
         assert_ne!(a, alice_group.export_secret("cx-rtc-frame-key/v1", realm, 32).unwrap());
     }
@@ -1292,20 +1292,20 @@ mod tests {
     fn member_principal_ids_returns_credentials_as_dids() {
         // After Add, both Alice and Bob are members; both DIDs MUST appear
         // in the snapshot. After Remove, only the surviving DID remains.
-        let alice = ContrixMlsIdentity::new_basic(
+        let alice = CokretMlsIdentity::new_basic(
             Did::new("did:web:alice.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
-        let bob = ContrixMlsIdentity::new_basic(
+        let bob = CokretMlsIdentity::new_basic(
             Did::new("did:web:bob.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group =
-            alice.create_group(b"cx:space:01904100-0000-7000-8000-1ad6479d4a41").unwrap();
+            alice.create_group(b"ck:space:01904100-0000-7000-8000-1ad6479d4a41").unwrap();
         assert_eq!(
             alice_group.member_principal_ids(),
             vec![Did::new("did:web:alice.example").unwrap()],
@@ -1332,13 +1332,13 @@ mod tests {
     /// of the wire bytes.
     #[test]
     fn self_update_commit_advances_epoch_and_returns_typed_envelope() {
-        let alice = ContrixMlsIdentity::new_basic(
+        let alice = CokretMlsIdentity::new_basic(
             Did::new("did:web:alice.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let mut group =
-            alice.create_group(b"cx:space:01904100-0000-7000-8000-555555555555").unwrap();
+            alice.create_group(b"ck:space:01904100-0000-7000-8000-555555555555").unwrap();
         let pre_epoch = group.epoch();
         let pre_group_id = group.group_id();
         let envelope = group.self_update_commit().expect("self_update succeeds");
@@ -1361,22 +1361,22 @@ mod tests {
 
     #[test]
     fn openmls_group_can_add_member_encrypt_and_decrypt() {
-        let alice = ContrixMlsIdentity::new_basic(
+        let alice = CokretMlsIdentity::new_basic(
             Did::new("did:web:alice.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
-        let bob = ContrixMlsIdentity::new_basic(
+        let bob = CokretMlsIdentity::new_basic(
             Did::new("did:web:bob.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group =
-            alice.create_group(b"cx:space:01904100-0000-7000-8000-d652c78259d9").unwrap();
+            alice.create_group(b"ck:space:01904100-0000-7000-8000-d652c78259d9").unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
-        let mut bob_group = ContrixMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
+        let mut bob_group = CokretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
 
         let encrypted =
             alice_group.encrypt_payload("application/json", br#"{"body":"hello"}"#).unwrap();
@@ -1390,27 +1390,27 @@ mod tests {
 
     #[test]
     fn message_crypto_encrypts_decrypts_and_verifies_opaque_digest() {
-        let alice = ContrixMlsIdentity::new_basic(
+        let alice = CokretMlsIdentity::new_basic(
             Did::new("did:web:alice.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
-        let bob = ContrixMlsIdentity::new_basic(
+        let bob = CokretMlsIdentity::new_basic(
             Did::new("did:web:bob.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group =
-            alice.create_group(b"cx:space:01904100-0000-7000-8000-f2f103987ef3").unwrap();
+            alice.create_group(b"ck:space:01904100-0000-7000-8000-f2f103987ef3").unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
-        let mut bob_group = ContrixMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
+        let mut bob_group = CokretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
 
         let encrypted = MessageCrypto::encrypt(
             &mut alice_group,
-            "cx:message:01",
-            "application/vnd.contrix.message+json",
+            "ck:message:01",
+            "application/vnd.cokret.message+json",
             br#"{"body":"hello secure workflow"}"#,
         )
         .unwrap();
@@ -1422,33 +1422,33 @@ mod tests {
 
     #[test]
     fn message_crypto_encrypts_with_aad_and_verifies_digest() {
-        let alice = ContrixMlsIdentity::new_basic(
+        let alice = CokretMlsIdentity::new_basic(
             Did::new("did:web:alice.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
-        let bob = ContrixMlsIdentity::new_basic(
+        let bob = CokretMlsIdentity::new_basic(
             Did::new("did:web:bob.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group =
-            alice.create_group(b"cx:space:01904100-0000-7000-8000-65bef476aed3").unwrap();
+            alice.create_group(b"ck:space:01904100-0000-7000-8000-65bef476aed3").unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
-        let mut bob_group = ContrixMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
+        let mut bob_group = CokretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
         let aad = serde_json::json!({
-            "space_id": "cx:space:01904100-0000-7000-8000-65bef476aed3",
+            "space_id": "ck:space:01904100-0000-7000-8000-65bef476aed3",
             "event_kind": "cx.message.create",
-            "event_id": "cx:event:01904100-0000-7000-8000-d5afe7e3de96",
+            "event_id": "ck:event:01904100-0000-7000-8000-d5afe7e3de96",
             "causal_refs": []
         });
         let aad_digest = crate::crypto::json_aad_digest(&aad).unwrap();
 
         let encrypted = MessageCrypto::encrypt_with_aad(
             &mut alice_group,
-            "cx:message:aad",
+            "ck:message:aad",
             "application/json",
             aad,
             br#"{"body":"aad bound"}"#,
@@ -1463,25 +1463,25 @@ mod tests {
 
     #[test]
     fn openmls_state_persists_through_crypto_store_record() {
-        let alice = ContrixMlsIdentity::new_basic(
+        let alice = CokretMlsIdentity::new_basic(
             Did::new("did:web:alice.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
-        let bob = ContrixMlsIdentity::new_basic(
+        let bob = CokretMlsIdentity::new_basic(
             Did::new("did:web:bob.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group =
-            alice.create_group(b"cx:space:01904100-0000-7000-8000-1ad6479d4a3f").unwrap();
+            alice.create_group(b"ck:space:01904100-0000-7000-8000-1ad6479d4a3f").unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
-        let bob_group = ContrixMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
+        let bob_group = CokretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
         let mut store = crate::MemoryCryptoStore::new();
         let record = bob_group.persist_state(&mut store).unwrap();
-        let mut restored_bob = ContrixMlsGroup::restore_from_state_record(&record).unwrap();
+        let mut restored_bob = CokretMlsGroup::restore_from_state_record(&record).unwrap();
 
         assert_eq!(restored_bob.epoch(), bob_group.epoch());
         assert_eq!(store.mls_group_state(&record.group_id).unwrap().epoch, record.epoch);
@@ -1497,19 +1497,19 @@ mod tests {
 
     #[test]
     fn multi_device_workflow_applies_missed_commits_and_models_recovery() {
-        let alice = ContrixMlsIdentity::new_basic(
+        let alice = CokretMlsIdentity::new_basic(
             Did::new("did:web:alice.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
-        let bob = ContrixMlsIdentity::new_basic(
+        let bob = CokretMlsIdentity::new_basic(
             Did::new("did:web:bob.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
-        let charlie = ContrixMlsIdentity::new_basic(
+        let charlie = CokretMlsIdentity::new_basic(
             Did::new("did:web:charlie.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-00000000000f").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000f").unwrap(),
         )
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
@@ -1520,9 +1520,9 @@ mod tests {
         assert_eq!(revoke_step.action, MlsDeviceWorkflowAction::RevokeKeyPackage);
 
         let mut alice_group =
-            alice.create_group(b"cx:space:01904100-0000-7000-8000-877788250807").unwrap();
+            alice.create_group(b"ck:space:01904100-0000-7000-8000-877788250807").unwrap();
         let bob_add = alice_group.add_member(&bob_key_package).unwrap();
-        let mut bob_group = ContrixMlsGroup::join_from_welcome(bob, &bob_add.welcome).unwrap();
+        let mut bob_group = CokretMlsGroup::join_from_welcome(bob, &bob_add.welcome).unwrap();
         let charlie_add = alice_group.add_member(&charlie_key_package).unwrap();
         let workflow = late_device_join_steps(&charlie_add.welcome);
         assert_eq!(workflow[0].action, MlsDeviceWorkflowAction::ConsumeWelcome);
@@ -1531,7 +1531,7 @@ mod tests {
         assert_eq!(bob_group.epoch(), alice_group.epoch());
         let recovery = epoch_recovery_step(
             Did::new("did:web:bob.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
             bob_group.group_id(),
             bob_group.epoch() + 1,
             bob_group.epoch() + 3,
@@ -1541,25 +1541,25 @@ mod tests {
 
     #[test]
     fn add_member_result_projects_to_repo_operation_and_to_device_message() {
-        let alice = ContrixMlsIdentity::new_basic(
+        let alice = CokretMlsIdentity::new_basic(
             Did::new("did:web:alice.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
-        let bob = ContrixMlsIdentity::new_basic(
+        let bob = CokretMlsIdentity::new_basic(
             Did::new("did:web:bob.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group =
-            alice.create_group(b"cx:space:01904100-0000-7000-8000-4ecefcf31ad2").unwrap();
+            alice.create_group(b"ck:space:01904100-0000-7000-8000-4ecefcf31ad2").unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let operation = add_result
             .commit_operation(
-                OperationId::new("cx:operation:01904100-0000-7000-8000-02369de2e9c6").unwrap(),
-                RealmId::new("cx:realm:01904100-0000-7000-8000-4ecefcf31ad2").unwrap(),
+                OperationId::new("ck:operation:01904100-0000-7000-8000-02369de2e9c6").unwrap(),
+                RealmId::new("ck:realm:01904100-0000-7000-8000-4ecefcf31ad2").unwrap(),
             )
             .unwrap();
         let to_device = add_result.welcome_to_device_message().unwrap();
@@ -1568,22 +1568,22 @@ mod tests {
         assert_eq!(to_device.message_type, "cx.mls.welcome.v1");
         assert_eq!(
             to_device.content["recipient_device_id"],
-            "cx:device:01904100-0000-7000-8000-00000000000e"
+            "ck:device:01904100-0000-7000-8000-00000000000e"
         );
     }
 
     #[test]
     fn message_crypto_preserves_encrypted_content_without_available_key() {
-        let alice = ContrixMlsIdentity::new_basic(
+        let alice = CokretMlsIdentity::new_basic(
             Did::new("did:web:alice.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let mut alice_group =
-            alice.create_group(b"cx:space:01904100-0000-7000-8000-f2f103987ef3").unwrap();
+            alice.create_group(b"ck:space:01904100-0000-7000-8000-f2f103987ef3").unwrap();
         let encrypted = MessageCrypto::encrypt(
             &mut alice_group,
-            "cx:message:02",
+            "ck:message:02",
             "application/json",
             br#"{"body":"keep ciphertext"}"#,
         )
@@ -1596,7 +1596,7 @@ mod tests {
         let MessageCryptoDecrypt::Encrypted { message_id, payload, reason } = result else {
             panic!("message should stay encrypted without a local MLS session");
         };
-        assert_eq!(message_id, "cx:message:02");
+        assert_eq!(message_id, "ck:message:02");
         assert!(matches!(reason, MessageCryptoUnavailable::NoSession));
         assert_eq!(payload.payload_digest, expected_digest);
         assert_eq!(payload.ciphertext, expected_ciphertext);
@@ -1604,25 +1604,25 @@ mod tests {
 
     #[test]
     fn encrypted_timeline_preserves_then_decrypts_after_welcome_arrives() {
-        let alice = ContrixMlsIdentity::new_basic(
+        let alice = CokretMlsIdentity::new_basic(
             Did::new("did:web:alice.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
-        let bob = ContrixMlsIdentity::new_basic(
+        let bob = CokretMlsIdentity::new_basic(
             Did::new("did:web:bob.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group =
-            alice.create_group(b"cx:space:01904100-0000-7000-8000-469a459e1b8f").unwrap();
+            alice.create_group(b"ck:space:01904100-0000-7000-8000-469a459e1b8f").unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let encrypted = MessageCrypto::encrypt(
             &mut alice_group,
-            "cx:event:01904100-0000-7000-8000-f2fbe0d55fb4",
-            "application/vnd.contrix.message+json",
+            "ck:event:01904100-0000-7000-8000-f2fbe0d55fb4",
+            "application/vnd.cokret.message+json",
             br#"{"body":"arrives before local key"}"#,
         )
         .unwrap();
@@ -1630,26 +1630,26 @@ mod tests {
         let preserved = MessageCrypto::decrypt_or_preserve(None, encrypted.clone()).unwrap();
         assert!(matches!(preserved, MessageCryptoDecrypt::Encrypted { .. }));
 
-        let mut bob_group = ContrixMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
+        let mut bob_group = CokretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
         let decrypted = MessageCrypto::decrypt(&mut bob_group, &encrypted).unwrap();
         assert_eq!(decrypted, br#"{"body":"arrives before local key"}"#);
     }
 
     #[test]
     fn epoch_recovery_request_and_response_catch_up_offline_device() {
-        let alice = ContrixMlsIdentity::new_basic(
+        let alice = CokretMlsIdentity::new_basic(
             Did::new("did:web:alice.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
-        let bob = ContrixMlsIdentity::new_basic(
+        let bob = CokretMlsIdentity::new_basic(
             Did::new("did:web:bob.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
-        let charlie = ContrixMlsIdentity::new_basic(
+        let charlie = CokretMlsIdentity::new_basic(
             Did::new("did:web:charlie.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-00000000000f").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000f").unwrap(),
         )
         .unwrap();
 
@@ -1658,9 +1658,9 @@ mod tests {
 
         // Alice creates group and adds Bob and Charlie.
         let mut alice_group =
-            alice.create_group(b"cx:space:01904100-0000-7000-8000-4cc289f6471e").unwrap();
+            alice.create_group(b"ck:space:01904100-0000-7000-8000-4cc289f6471e").unwrap();
         let bob_add = alice_group.add_member(&bob_kp).unwrap();
-        let mut bob_group = ContrixMlsGroup::join_from_welcome(bob, &bob_add.welcome).unwrap();
+        let mut bob_group = CokretMlsGroup::join_from_welcome(bob, &bob_add.welcome).unwrap();
         let charlie_add = alice_group.add_member(&charlie_kp).unwrap();
 
         // Bob is now offline. Alice adds Charlie (epoch advances).
@@ -1671,7 +1671,7 @@ mod tests {
         let request = EpochRecoveryReqBody::new(
             bob_group.group_id(),
             Did::new("did:web:bob.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
             bob_epoch_before,
             alice_group.epoch(),
         );
@@ -1703,7 +1703,7 @@ mod tests {
         let request = EpochRecoveryReqBody::new(
             "",
             Did::new("did:web:alice.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
             5,
             3,
         );
@@ -1712,7 +1712,7 @@ mod tests {
         let request = EpochRecoveryReqBody::new(
             "group1",
             Did::new("did:web:alice.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
             5,
             5,
         );
@@ -1721,27 +1721,27 @@ mod tests {
 
     #[test]
     fn welcome_recipient_must_match_identity() {
-        let alice = ContrixMlsIdentity::new_basic(
+        let alice = CokretMlsIdentity::new_basic(
             Did::new("did:web:alice.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
-        let bob = ContrixMlsIdentity::new_basic(
+        let bob = CokretMlsIdentity::new_basic(
             Did::new("did:web:bob.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
-        let mallory = ContrixMlsIdentity::new_basic(
+        let mallory = CokretMlsIdentity::new_basic(
             Did::new("did:web:mallory.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-000000000010").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000010").unwrap(),
         )
         .unwrap();
 
         let bob_key_package = bob.key_package_record().unwrap();
         let mut alice_group =
-            alice.create_group(b"cx:space:01904100-0000-7000-8000-d652c78259d9").unwrap();
+            alice.create_group(b"ck:space:01904100-0000-7000-8000-d652c78259d9").unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
-        let Err(error) = ContrixMlsGroup::join_from_welcome(mallory, &add_result.welcome) else {
+        let Err(error) = CokretMlsGroup::join_from_welcome(mallory, &add_result.welcome) else {
             panic!("Mallory should not be able to consume Bob's Welcome");
         };
 
@@ -1753,31 +1753,31 @@ mod tests {
     /// can apply to converge.
     #[test]
     fn remove_member_by_principal_advances_epoch_and_emits_commit() {
-        let alice = ContrixMlsIdentity::new_basic(
+        let alice = CokretMlsIdentity::new_basic(
             Did::new("did:web:alice.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
-        let bob = ContrixMlsIdentity::new_basic(
+        let bob = CokretMlsIdentity::new_basic(
             Did::new("did:web:bob.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
-        let charlie = ContrixMlsIdentity::new_basic(
+        let charlie = CokretMlsIdentity::new_basic(
             Did::new("did:web:charlie.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-00000000000f").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000f").unwrap(),
         )
         .unwrap();
         let bob_kp = bob.key_package_record().unwrap();
         let charlie_kp = charlie.key_package_record().unwrap();
 
         let mut alice_group =
-            alice.create_group(b"cx:space:01904100-0000-7000-8000-a78a8b504d40").unwrap();
+            alice.create_group(b"ck:space:01904100-0000-7000-8000-a78a8b504d40").unwrap();
         let add_bob = alice_group.add_member(&bob_kp).unwrap();
-        let _bob_group = ContrixMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
+        let _bob_group = CokretMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
         let add_charlie = alice_group.add_member(&charlie_kp).unwrap();
         let _charlie_group =
-            ContrixMlsGroup::join_from_welcome(charlie, &add_charlie.welcome).unwrap();
+            CokretMlsGroup::join_from_welcome(charlie, &add_charlie.welcome).unwrap();
 
         let epoch_before = alice_group.epoch();
         let target = Did::new("did:web:charlie.example").unwrap();
@@ -1799,13 +1799,13 @@ mod tests {
     /// this to surface "leaf already gone" as a recoverable state.
     #[test]
     fn remove_member_by_principal_errors_when_target_absent() {
-        let alice = ContrixMlsIdentity::new_basic(
+        let alice = CokretMlsIdentity::new_basic(
             Did::new("did:web:alice.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
         let mut alice_group =
-            alice.create_group(b"cx:space:01904100-0000-7000-8000-3cf34eced3c3").unwrap();
+            alice.create_group(b"ck:space:01904100-0000-7000-8000-3cf34eced3c3").unwrap();
 
         let absent = Did::new("did:web:nobody.example").unwrap();
         let err = alice_group.remove_member_by_principal(&absent);
@@ -1814,27 +1814,27 @@ mod tests {
 
     #[test]
     fn encrypted_envelope_v1_conforms_and_round_trips_losslessly() {
-        let alice = ContrixMlsIdentity::new_basic(
+        let alice = CokretMlsIdentity::new_basic(
             Did::new("did:web:alice.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-00000000abcd").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000abcd").unwrap(),
         )
         .unwrap();
         let mut group =
-            alice.create_group(b"cx:space:01904100-0000-7000-8000-0abc0abc0abc").unwrap();
+            alice.create_group(b"ck:space:01904100-0000-7000-8000-0abc0abc0abc").unwrap();
 
-        let realm_id = "cx:realm:01904100-0000-7000-8000-0abc0abc0abc";
+        let realm_id = "ck:realm:01904100-0000-7000-8000-0abc0abc0abc";
         let aad = EncryptedEnvelopeAadV1::hidden(realm_id, "cx.message.create");
         let aad_value = serde_json::to_value(&aad).unwrap();
         let plaintext = br#"{"body":"hello encrypted discussion"}"#;
         let payload = group
             .encrypt_payload_with_aad(
-                "application/vnd.contrix.message+json",
+                "application/vnd.cokret.message+json",
                 Some(aad_value),
                 plaintext,
             )
             .unwrap();
 
-        let commit_ref = "cx:event:01904100-0000-7000-8000-00000000c0m1";
+        let commit_ref = "ck:event:01904100-0000-7000-8000-00000000c0m1";
         let envelope =
             EncryptedEnvelopeV1::from_payload(&payload, aad, AadVisibility::Hidden, commit_ref)
                 .unwrap();
@@ -1898,22 +1898,22 @@ mod tests {
     /// out-of-band.
     #[test]
     fn remove_member_by_leaf_accepts_raw_index() {
-        let alice = ContrixMlsIdentity::new_basic(
+        let alice = CokretMlsIdentity::new_basic(
             Did::new("did:web:alice.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
-        let bob = ContrixMlsIdentity::new_basic(
+        let bob = CokretMlsIdentity::new_basic(
             Did::new("did:web:bob.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let bob_kp = bob.key_package_record().unwrap();
 
         let mut alice_group =
-            alice.create_group(b"cx:space:01904100-0000-7000-8000-89444e193497").unwrap();
+            alice.create_group(b"ck:space:01904100-0000-7000-8000-89444e193497").unwrap();
         let add_bob = alice_group.add_member(&bob_kp).unwrap();
-        let _bob_group = ContrixMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
+        let _bob_group = CokretMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
 
         // Bob's leaf is at index 1 (Alice is index 0 as group creator).
         let result = alice_group.remove_member_by_leaf(1).unwrap();
@@ -1926,28 +1926,28 @@ mod tests {
     /// audit pipelines can ingest both consistently.
     #[test]
     fn remove_result_commit_operation_uses_mls_commit_op_type() {
-        let alice = ContrixMlsIdentity::new_basic(
+        let alice = CokretMlsIdentity::new_basic(
             Did::new("did:web:alice.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-000000000006").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").unwrap(),
         )
         .unwrap();
-        let bob = ContrixMlsIdentity::new_basic(
+        let bob = CokretMlsIdentity::new_basic(
             Did::new("did:web:bob.example").unwrap(),
-            DeviceId::new("cx:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000e").unwrap(),
         )
         .unwrap();
         let bob_kp = bob.key_package_record().unwrap();
 
         let mut alice_group =
-            alice.create_group(b"cx:space:01904100-0000-7000-8000-bd49dfdbc804").unwrap();
+            alice.create_group(b"ck:space:01904100-0000-7000-8000-bd49dfdbc804").unwrap();
         let add_bob = alice_group.add_member(&bob_kp).unwrap();
-        let _bob_group = ContrixMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
+        let _bob_group = CokretMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
         let result = alice_group
             .remove_member_by_principal(&Did::new("did:web:bob.example").unwrap())
             .unwrap();
 
-        let op_id = OperationId::new("cx:operation:01904100-0000-7000-8000-00a9123c0f9c").unwrap();
-        let realm_id = RealmId::new("cx:realm:01904100-0000-7000-8000-bd49dfdbc804").unwrap();
+        let op_id = OperationId::new("ck:operation:01904100-0000-7000-8000-00a9123c0f9c").unwrap();
+        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-bd49dfdbc804").unwrap();
         let op = result.commit_operation(op_id, realm_id).unwrap();
         assert_eq!(op.object_type, "mls_commit");
         assert!(op.object_id.unwrap().contains(&result.commit.group_id));

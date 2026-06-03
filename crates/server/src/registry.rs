@@ -52,7 +52,7 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
     endpoint!("cx.directory.describe", Get, "/api/v1/directory/describe"),
     endpoint!("cx.directory.search_realms", Post, "/api/v1/directory/search-realms"),
     endpoint!("cx.directory.resolve_realm", Post, "/api/v1/directory/resolve-realm"),
-    // R3.3 (CXP-0011, contrix-spec @ cced4b8). gRPC `Directory/ResolveTarget`
+    // R3.3 (CXP-0011, cokret-spec @ cced4b8). gRPC `Directory/ResolveTarget`
     // and MQ `directory.resolve_target` mirrors live in the spec
     // operation-registry; this HTTP route is the SDK-side binding.
     endpoint!("cx.directory.resolve_target", Post, "/api/v1/directory/resolve-target"),
@@ -91,10 +91,10 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
     endpoint!("cx.authz.get_effective_grants", Get, "/api/v1/authz/effective-grants"),
     endpoint!("cx.authz.get_invites", Get, "/api/v1/authz/invites"),
     endpoint!("cx.authz.check", Post, "/api/v1/authz/check"),
-    endpoint!("cx.policy.check", Post, "/contrix/v1/check"),
-    endpoint!("cx.media.ice_config", Post, "/contrix/v1/ice-config"),
-    // CXP-0010 (R3 spec-sync 2026-05-27, contrix-spec b47ff6ec).
-    endpoint!("cx.call.media.token_exchange", Post, "/contrix/v1/rtc/token"),
+    endpoint!("cx.policy.check", Post, "/cokret/v1/check"),
+    endpoint!("cx.media.ice_config", Post, "/cokret/v1/ice-config"),
+    // CXP-0010 (R3 spec-sync 2026-05-27, cokret-spec b47ff6ec).
+    endpoint!("cx.call.media.token_exchange", Post, "/cokret/v1/rtc/token"),
     endpoint!("cx.moderation.report", Post, "/api/v1/moderation/report"),
     endpoint!("cx.mimi.provider_directory", Get, "/api/v1/mimi/provider-directory"),
     endpoint!("cx.mimi.key_material", Post, "/api/v1/mimi/key-material"),
@@ -111,7 +111,7 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
     endpoint!("cx.account.device_pair", Post, "/api/v1/auth/account/device-pair"),
     endpoint!("cx.account.oidc_callback", Post, "/api/v1/auth/account/oidc/callback"),
     // Admin is a deployment-local namespace served at the bare `/admin/*`
-    // path (NOT under the `/api/v1` protocol prefix), per contrix-spec
+    // path (NOT under the `/api/v1` protocol prefix), per cokret-spec
     // service-http-binding.md §2.1.
     endpoint!("cx.admin.get_server_status", Get, "/admin/server/status"),
     endpoint!("cx.admin.update_account_status", Post, "/admin/accounts/{account_id}/status"),
@@ -158,7 +158,7 @@ pub fn protocol_golden_vectors() -> Vec<ProtocolGoldenVector> {
         ProtocolGoldenVector {
             name: "cursor_prefix".to_owned(),
             profile: "cx.conformance.cursor.v1".to_owned(),
-            input: json!({"cursor": "cx:cursor:sync:01JS0SP000000000000000000"}),
+            input: json!({"cursor": "ck:cursor:sync:01JS0SP000000000000000000"}),
             expected: json!({"valid": true}),
         },
         ProtocolGoldenVector {
@@ -218,7 +218,7 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
             name: "account_subscribe_stale_cursor_rejected".to_owned(),
             method: "GET".to_owned(),
             path: "/api/v1/account/subscribe".to_owned(),
-            query: BTreeMap::from([("after".to_owned(), "cx:cursor:expired".to_owned())]),
+            query: BTreeMap::from([("after".to_owned(), "ck:cursor:expired".to_owned())]),
             headers: BTreeMap::from([("Authorization".to_owned(), "Bearer redacted".to_owned())]),
             body: Value::Null,
             expected_status: 410,
@@ -239,8 +239,8 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
             method: "GET".to_owned(),
             path: "/api/v1/federation/pull-operations".to_owned(),
             query: BTreeMap::from([
-                ("space_id".to_owned(), "cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned()),
-                ("after_cursor".to_owned(), "cx:cursor:expired".to_owned()),
+                ("space_id".to_owned(), "ck:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned()),
+                ("after_cursor".to_owned(), "ck:cursor:expired".to_owned()),
             ]),
             headers: BTreeMap::new(),
             body: Value::Null,
@@ -300,7 +300,7 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
         WireConformanceVector {
             name: "policy_bad_digest_rejected".to_owned(),
             method: "POST".to_owned(),
-            path: "/contrix/v1/check".to_owned(),
+            path: "/cokret/v1/check".to_owned(),
             query: BTreeMap::new(),
             headers: BTreeMap::from([("Authorization".to_owned(), "Bearer redacted".to_owned())]),
             body: json!({"request_canonical_digest": "sha256:not-hex"}),
@@ -310,7 +310,7 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
         WireConformanceVector {
             name: "media_missing_auth_rejected".to_owned(),
             method: "POST".to_owned(),
-            path: "/contrix/v1/ice-config".to_owned(),
+            path: "/cokret/v1/ice-config".to_owned(),
             query: BTreeMap::new(),
             headers: BTreeMap::new(),
             body: json!({}),

@@ -7,19 +7,19 @@ as `membership`, `devices`, `receipts`, `notifications`, `content`, `media`,
 `profile`, `settings`, `search`, `discovery`, `e2ee`, `auth`, `identity`,
 `federation`, `push`, `typing`, `webrtc` and `store`.
 
-Shared product and service DTOs live in `contrix-contracts` and are re-exported
-from the umbrella crate as `contrix::api`, with narrower facades for
+Shared product and service DTOs live in `cokret-contracts` and are re-exported
+from the umbrella crate as `cokret::api`, with narrower facades for
 `client_api`, `identity_api`, `federation_api` and `push_gateway_api`.
 
-Most fallible APIs return `contrix::Result<T>`, whose error type is
-`contrix::Error`.
+Most fallible APIs return `cokret::Result<T>`, whose error type is
+`cokret::Error`.
 
 Common error categories:
 
 - `InvalidId`: identifier validation failed.
 - `IdempotencyConflict`: a Repo object ID was reused with different bytes.
 - `Protocol`: local protocol contract failure.
-- `Api`: remote Contrix API error envelope.
+- `Api`: remote Cokret API error envelope.
 - `Http` and `Url`: client feature transport failures.
 - `Mls`: MLS feature failures.
 
@@ -35,7 +35,7 @@ and soland can consume grant-created / grant-revoked notifications without
 copying private key material into persistence. `SessionGrant` redacts the
 serialized grant token in `Debug`; durable stores should persist `grant_hash`.
 
-Device binding scopes must use `urn:contrix:client:device:{id}`. Non-Contrix
+Device binding scopes must use `urn:cokret:client:device:{id}`. Non-Cokret
 scope prefixes are rejected by `device_id_from_scope_token(...)`.
 
 The identity surface exposes `StaridRegistryAdapter` and
@@ -44,10 +44,10 @@ adapter is for tests and offline development only; production adapters still
 need registry-network fetching, key-log receipt validation, stale-head handling
 and bounded response parsing.
 
-Server bindings should preserve the standard Contrix error envelope and retry
+Server bindings should preserve the standard Cokret error envelope and retry
 metadata while implementing authentication, idempotency and rate limiting in
 their host framework stack.
 
-The HTTP client preserves Contrix error envelopes and retry metadata. Standard
+The HTTP client preserves Cokret error envelopes and retry metadata. Standard
 retry mode covers transient statuses, applies bounded exponential backoff, and
 uses `Retry-After` when the server supplies it.

@@ -1209,15 +1209,15 @@ fn is_security_sensitive_extension(field: &str) -> bool {
         "x-authz"
             | "x-policy"
             | "x-security"
-            | "x-contrix-authz"
-            | "x-contrix-policy"
-            | "x-contrix-security"
+            | "x-cokret-authz"
+            | "x-cokret-policy"
+            | "x-cokret-security"
     ) || field.starts_with("x-authz-")
         || field.starts_with("x-policy-")
         || field.starts_with("x-security-")
-        || field.starts_with("x-contrix-authz-")
-        || field.starts_with("x-contrix-policy-")
-        || field.starts_with("x-contrix-security-")
+        || field.starts_with("x-cokret-authz-")
+        || field.starts_with("x-cokret-policy-")
+        || field.starts_with("x-cokret-security-")
 }
 
 fn validate_json_schema_type_value(

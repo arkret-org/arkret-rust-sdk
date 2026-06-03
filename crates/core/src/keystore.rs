@@ -22,8 +22,8 @@
 //!
 //! ## Service-name namespacing
 //!
-//! Backends namespace credentials under `"contrix.<application_id>"` so
-//! multiple Contrix-using apps on the same host (yougen, sodmin, soland
+//! Backends namespace credentials under `"cokret.<application_id>"` so
+//! multiple Cokret-using apps on the same host (yougen, sodmin, soland
 //! anchorer, …) don't trample each other's keychain items. The
 //! `application_id` is supplied at construction time and SHOULD be a stable
 //! reverse-DNS-like identifier for the host application
@@ -33,7 +33,7 @@
 //!
 //! Keys are addressed by an opaque `id: &str`; the SDK does not interpret
 //! the id beyond passing it through to the backend. Conventional ids look
-//! like `"contrix:signer:<did>:<kid>"` so independent backends can share a
+//! like `"cokret:signer:<did>:<kid>"` so independent backends can share a
 //! namespace without collisions.
 
 use std::collections::BTreeMap;
@@ -171,7 +171,7 @@ pub(crate) fn validate_id(id: &str) -> std::result::Result<(), KeyStoreError> {
 }
 
 /// Build the per-backend service / target name. All platform backends use
-/// `contrix.<application_id>` as the service-prefix so independent Contrix
+/// `cokret.<application_id>` as the service-prefix so independent Cokret
 /// apps on the same host don't collide.
 #[cfg(any(
     test,
@@ -180,7 +180,7 @@ pub(crate) fn validate_id(id: &str) -> std::result::Result<(), KeyStoreError> {
     all(target_os = "windows", feature = "keystore-windows"),
 ))]
 pub(crate) fn service_name(application_id: &str) -> String {
-    format!("contrix.{application_id}")
+    format!("cokret.{application_id}")
 }
 
 /// Construct the platform-default [`KeyStore`] for the given application
@@ -276,21 +276,21 @@ mod tests {
     #[test]
     fn in_memory_key_store_round_trips_store_load_delete() {
         let store = InMemoryKeyStore::new();
-        store.store("contrix:signer:alice:key-1", b"secret-bytes-1").unwrap();
-        store.store("contrix:signer:bob:key-1", b"secret-bytes-2").unwrap();
+        store.store("cokret:signer:alice:key-1", b"secret-bytes-1").unwrap();
+        store.store("cokret:signer:bob:key-1", b"secret-bytes-2").unwrap();
 
-        let loaded = store.load("contrix:signer:alice:key-1").unwrap();
+        let loaded = store.load("cokret:signer:alice:key-1").unwrap();
         assert_eq!(loaded, b"secret-bytes-1");
 
         let mut listed = store.list().unwrap();
         listed.sort();
         assert_eq!(
             listed,
-            vec!["contrix:signer:alice:key-1".to_owned(), "contrix:signer:bob:key-1".to_owned(),]
+            vec!["cokret:signer:alice:key-1".to_owned(), "cokret:signer:bob:key-1".to_owned(),]
         );
 
-        store.delete("contrix:signer:alice:key-1").unwrap();
-        let err = store.load("contrix:signer:alice:key-1").unwrap_err();
+        store.delete("cokret:signer:alice:key-1").unwrap();
+        let err = store.load("cokret:signer:alice:key-1").unwrap_err();
         assert!(format!("{err}").contains("key not found"));
     }
 
@@ -334,8 +334,8 @@ mod tests {
 
     #[test]
     fn service_name_namespaces_per_application_id() {
-        assert_eq!(service_name("yougen"), "contrix.yougen");
-        assert_eq!(service_name("soland.anchorer"), "contrix.soland.anchorer");
+        assert_eq!(service_name("yougen"), "cokret.yougen");
+        assert_eq!(service_name("soland.anchorer"), "cokret.soland.anchorer");
     }
 
     #[test]
@@ -343,11 +343,11 @@ mod tests {
         // On targets/features without a native backend this falls back to
         // InMemoryKeyStore. On targets WITH a native backend, the native
         // backend is constructed; either way we can round-trip a key.
-        let store = platform_default_keystore("contrix.test.platform_default");
+        let store = platform_default_keystore("cokret.test.platform_default");
         // We can't reuse a fixed id across runs because some backends
         // persist; use a per-process unique id instead.
         let id = format!(
-            "contrix:test:platform-default:{}",
+            "cokret:test:platform-default:{}",
             std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
         );
         store.store(&id, b"platform-default-secret").unwrap();

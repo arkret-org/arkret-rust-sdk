@@ -49,8 +49,8 @@ impl Space {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let flow_id = FlowId::new(generate_id("cx:flow:"))?;
-        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let flow_id = FlowId::new(generate_id("ck:flow:"))?;
+        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         let now = Utc::now();
         let tracks =
             if metadata.tracks.is_empty() { default_flow_tracks() } else { metadata.tracks };
@@ -125,7 +125,7 @@ impl Space {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         let mut patch = serde_json::Map::new();
         let mut metadata_patch = serde_json::Map::new();
 
@@ -191,7 +191,7 @@ impl Space {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         let mut operation = Operation::create(
             operation_id,
             self.realm_id()?,
@@ -254,7 +254,7 @@ impl Space {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         let mut payload = json!({
             "flow_id": flow_id.as_str(),
             "board_space_id": board_space_id.as_str(),

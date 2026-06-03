@@ -1,7 +1,7 @@
 pub const PROTOCOL_VERSION: &str = "1.0";
 pub const CORE_SCHEMA_PROFILE: &str = "cx.schema.core.v1";
 pub const CORE_REDUCER_PROFILE: &str = "cx.reducer.v1";
-pub const BUILT_IN_CONFORMANCE_FIXTURES_VERSION: &str = "contrix-sdk-builtin-v1";
+pub const BUILT_IN_CONFORMANCE_FIXTURES_VERSION: &str = "cokret-sdk-builtin-v1";
 
 pub const CURSOR_SCHEMA: &str = "cx.schema.cursor.v1";
 // Realm/Space inversion (spec 59ac1d4):
@@ -25,7 +25,7 @@ pub const READ_CURSOR_SCHEMA: &str = "cx.schema.read_cursor.v1";
 pub const NOTIFICATION_SCHEMA: &str = "cx.schema.notification.v1";
 /// SDK-local operation draft schema marker.
 ///
-/// Operation drafts are builder inputs only; they are not a Contrix wire
+/// Operation drafts are builder inputs only; they are not a Cokret wire
 /// schema and must be materialized as Event envelopes before submission.
 pub const OPERATION_SCHEMA: &str = "cx.local.operation_draft.v1";
 pub const BLOB_SCHEMA: &str = "cx.schema.blob.v1";
@@ -477,12 +477,12 @@ pub const OP_AGENT_PROTOCOL_SESSION_STATUS: &str = "cx.agent.protocol_session.st
 pub const OP_DIRECTORY_PRIVATE_CONTACT_DISCOVERY: &str = "cx.directory.private_contact_discovery";
 pub const OP_DIRECTORY_ANNOUNCE: &str = "cx.directory.announce";
 pub const OP_DIRECTORY_RESOLVE_HANDLE: &str = "cx.directory.resolve_handle";
-/// R3.2 (contrix-spec @ b56cab1) — subject/context → current visible
+/// R3.2 (cokret-spec @ b56cab1) — subject/context → current visible
 /// handle claims; the inverse of `resolve_handle`.
 pub const OP_DIRECTORY_LIST_HANDLES_FOR_SUBJECT: &str = "cx.directory.list_handles_for_subject";
 pub const OP_DIRECTORY_RESOLVE_ORGANIZATION: &str = "cx.directory.resolve_organization";
 pub const OP_DIRECTORY_RESOLVE_REALM: &str = "cx.directory.resolve_realm";
-/// R3.3 (CXP-0011, contrix-spec @ cced4b8) — resolve a client-agnostic
+/// R3.3 (CXP-0011, cokret-spec @ cced4b8) — resolve a client-agnostic
 /// shareable object address (Realm / Flow / Message) to a preview. Pure ADD;
 /// `resolve_realm` is retained and NOT deprecated.
 pub const OP_DIRECTORY_RESOLVE_TARGET: &str = "cx.directory.resolve_target";
@@ -553,7 +553,7 @@ pub const CAP_ACTION_MODERATION_APPEAL_REVIEW: &str = "cx.moderation.appeal.revi
 /// `capability-action-registry.json` declares `required_constraints=[morph_type_allow]`.
 pub const CAP_ACTION_MORPH_CREATE: &str = "cx.morph.create";
 
-/// CXP-0010 (R3 spec-sync 2026-05-27, contrix-spec b47ff6ec) — call /
+/// CXP-0010 (R3 spec-sync 2026-05-27, cokret-spec b47ff6ec) — call /
 /// media capability actions registered in
 /// `capability-action-registry.json`. Five actions gate the join,
 /// screen-share, recording, transcription, and moderation surfaces of
@@ -803,10 +803,10 @@ mod tests {
     #[test]
     fn agent_sidecar_home_prefers_context_realm() {
         assert_eq!(
-            select_agent_sidecar_home_realm(Some("cx:realm:context"), "cx:realm:home"),
-            "cx:realm:context"
+            select_agent_sidecar_home_realm(Some("ck:realm:context"), "ck:realm:home"),
+            "ck:realm:context"
         );
-        assert_eq!(select_agent_sidecar_home_realm(None, "cx:realm:home"), "cx:realm:home");
+        assert_eq!(select_agent_sidecar_home_realm(None, "ck:realm:home"), "ck:realm:home");
     }
 
     #[test]

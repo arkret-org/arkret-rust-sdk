@@ -1,6 +1,6 @@
-# contrix-crypto
+# cokret-crypto
 
-Protocol crypto machine contracts for Contrix.
+Protocol crypto machine contracts for Cokret.
 
 This crate models the E2EE boundary that client runtimes and stores need to
 agree on: device-key upload/query/claim, key lifecycle, secret backup,

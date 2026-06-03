@@ -373,7 +373,7 @@ mod tests {
     }
 
     fn space() -> SpaceId {
-        SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
+        SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
     }
 
     #[test]

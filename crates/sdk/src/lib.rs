@@ -1,6 +1,6 @@
-//! Contrix v1 Rust SDK.
+//! Cokret v1 Rust SDK.
 //!
-//! This crate exposes Contrix protocol concepts directly. The source of truth
+//! This crate exposes Cokret protocol concepts directly. The source of truth
 //! is signed Event Envelopes; Operations are SDK-local builders or offline
 //! drafts that must be materialized as Events before network, sync, federation
 //! or reducer use.
@@ -10,23 +10,23 @@
 //! Build a local operation draft and materialize it as an Event Envelope:
 //!
 //! ```rust
-//! use contrix::{
+//! use cokret::{
 //!     Did, Hlc, OP_MESSAGE_CREATE, OperationEnvelopeBuilder, OperationEventConversion,
 //!     OperationId, OperationKindRegistry, RealmId,
 //! };
 //! use serde_json::json;
 //!
-//! # fn main() -> contrix::Result<()> {
+//! # fn main() -> cokret::Result<()> {
 //! let draft = OperationEnvelopeBuilder::new(
-//!     OperationId::new("cx:operation:01904100-0000-7000-8000-57d7d85564c5")?,
-//!     RealmId::new("cx:realm:01904100-0000-7000-8000-668e2181b41d")?,
+//!     OperationId::new("ck:operation:01904100-0000-7000-8000-57d7d85564c5")?,
+//!     RealmId::new("ck:realm:01904100-0000-7000-8000-668e2181b41d")?,
 //!     Did::new("did:web:alice.example")?,
 //!     OP_MESSAGE_CREATE,
 //!     1,
 //!     Hlc::new("01970e589d21-0001-a13f9c2e")?,
 //! )
 //! .with_content(json!({
-//!     "flow_id": "cx:flow:01904100-0000-7000-8000-6c663fa0205f",
+//!     "flow_id": "ck:flow:01904100-0000-7000-8000-6c663fa0205f",
 //!     "track_name": "main",
 //!     "content": {"kind": "cx.content.text", "body": "hello"}
 //! }))
@@ -40,7 +40,7 @@
 //! Run one in-memory sync-loop step:
 //!
 //! ```rust
-//! use contrix::{SyncLoop, SyncLoopStep, SyncReqBody, SyncResBody};
+//! use cokret::{SyncLoop, SyncLoopStep, SyncReqBody, SyncResBody};
 //!
 //! # fn main() {
 //! let mut sync_loop = SyncLoop::new();
@@ -65,7 +65,7 @@
 //! raw strings:
 //!
 //! ```compile_fail
-//! let did: contrix::Did = "did:web:alice.example";
+//! let did: cokret::Did = "did:web:alice.example";
 //! ```
 
 pub use contrix_contracts as api;
@@ -82,7 +82,7 @@ pub use contrix_http_client as http_client;
 // Platform-native KeyStore backends. The glob import above already
 // re-exports these symbols, but listing them explicitly keeps them
 // visible in `cargo doc` and signals the supported surface to
-// downstream crates that depend only on `contrix` (not `contrix-core`).
+// downstream crates that depend only on `cokret` (not `cokret-core`).
 #[cfg(feature = "full-surface")]
 pub use crate::store as store_contracts;
 pub use contrix_contracts::federation as federation_api;
@@ -327,7 +327,7 @@ pub use federation::{
     FederationReplayStore, FederationReqBody, FederationTransaction, FederationTransactionEnvelope,
     HttpMessageSignature, HttpMessageSignatureInput, ServerInfo, ServiceEndpointDescriptor,
     SovereignDeployment, TrustAnchor, VerifyActorChallenge, VerifyActorChallengeSignature,
-    WellKnownContrixServer, content_digest_sha256, did_document_service_endpoint_matches,
+    WellKnownCokretServer, content_digest_sha256, did_document_service_endpoint_matches,
     duplicate_transaction_quarantine, fork_quarantine_record, rfc9421_http_message_signature_base,
     sign_http_message, sign_verify_actor_challenge, verify_actor_challenge_signature,
     verify_http_message_signature,

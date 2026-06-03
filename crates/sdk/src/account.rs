@@ -1,4 +1,4 @@
-//! Account data management for Contrix v1.
+//! Account data management for Cokret v1.
 //!
 //! This module provides account data management for users, including:
 //! - User-specific settings

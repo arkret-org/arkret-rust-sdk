@@ -2,11 +2,11 @@ use std::fmt;
 
 use super::*;
 
-/// Canonical Contrix handle string.
+/// Canonical Cokret handle string.
 ///
 /// R3.1 wire form: `<localpart>:<domain>(:<port>)?` with lowercase
-/// `localpart`. The previous `contrix://<domain>/users/<localpart>` URI
-/// form has been retired (contrix-spec @ 7157ee8 — 2026-05-27).
+/// `localpart`. The previous `cokret://<domain>/users/<localpart>` URI
+/// form has been retired (cokret-spec @ 7157ee8 — 2026-05-27).
 ///
 /// `acct:<localpart>@<domain>` remains an interop alias only and lives in
 /// [`HandleClaim::handle_aliases`]; the `@` mention sigil is not part of
@@ -300,8 +300,8 @@ fn is_valid_domain(s: &str) -> bool {
 /// R3.2 — `cx.schema.handle_claim.v1.subject` validator.
 ///
 /// The handle claim subject MUST be a holder / principal DID. It is NOT a
-/// Realm `actor_id` (`cx:actor:`), a server-local `account_id`
-/// (`cx:account:`), a service DID, an administrative identifier, or a
+/// Realm `actor_id` (`ck:actor:`), a server-local `account_id`
+/// (`ck:account:`), a service DID, an administrative identifier, or a
 /// generic resource id. We accept any `did:<method>:...` and reject the
 /// typed-id prefixes; a deployment-specific "is this a service DID"
 /// distinction is left to the issuer, but the typed-id rejection here
@@ -311,7 +311,7 @@ fn is_valid_domain(s: &str) -> bool {
 /// `handle_claim_subject_not_principal_did` wire code prefix.
 pub fn validate_handle_claim_subject(subject: &Did) -> Result<()> {
     let s = subject.as_str();
-    if s.starts_with("cx:actor:") || s.starts_with("cx:account:") {
+    if s.starts_with("ck:actor:") || s.starts_with("ck:account:") {
         return Err(Error::Protocol(format!(
             "handle_claim_subject_not_principal_did: subject must be a holder/principal DID, \
              not a typed id ({s})"
@@ -401,7 +401,7 @@ pub enum HandleHintBindingSource {
 #[serde(deny_unknown_fields)]
 pub struct HandleClaim {
     /// Canonical handle `<localpart>:<domain>`. R3.1 wire rename from
-    /// the prior `handle_uri` field name (contrix-spec @ 7157ee8).
+    /// the prior `handle_uri` field name (cokret-spec @ 7157ee8).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub handle: Option<Handle>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -503,8 +503,8 @@ mod tests {
         // multi-label domain (`example.com`, not `example`).
         assert!(Handle::parse("example.com").is_err());
         assert!(Handle::parse("alice:example").is_err());
-        // contrix:// URI form is no longer accepted (R3.1 wire rename).
-        assert!(Handle::parse("contrix://example.com/users/alice").is_err());
+        // cokret:// URI form is no longer accepted (R3.1 wire rename).
+        assert!(Handle::parse("cokret://example.com/users/alice").is_err());
         // acct: alias must be routed through `from_acct`.
         assert!(Handle::parse("acct:alice@example.com").is_err());
     }
@@ -565,9 +565,9 @@ mod tests {
                 binding_source: HandleHintBindingSource::OrganizationPolicy,
                 delivery_modes: BTreeSet::from([DeliveryMode::Events]),
                 service_acceptance_ref: Some(
-                    "cx:event:01890000-0000-7000-8000-000000000001".to_owned(),
+                    "ck:event:01890000-0000-7000-8000-000000000001".to_owned(),
                 ),
-                policy_event_ref: Some("cx:event:01890000-0000-7000-8000-000000000002".to_owned()),
+                policy_event_ref: Some("ck:event:01890000-0000-7000-8000-000000000002".to_owned()),
             }),
             ..Default::default()
         };
@@ -580,7 +580,7 @@ mod tests {
         assert!(value["created_at"].is_string());
         assert_eq!(
             value["member_delivery_binding"]["policy_event_ref"],
-            "cx:event:01890000-0000-7000-8000-000000000002"
+            "ck:event:01890000-0000-7000-8000-000000000002"
         );
         assert!(value["member_delivery_binding"].get("policy_ref").is_none());
     }

@@ -1,4 +1,4 @@
-//! Contrix client-server wire type exports.
+//! Cokret client-server wire type exports.
 //!
 //! This crate is deliberately framework-free. It exports protocol wire types
 //! and product-local API models without maintaining an HTTP endpoint catalog.
@@ -10,7 +10,7 @@
 
 /// Product-local client API contracts.
 ///
-/// These endpoints are product API metadata, not the canonical Contrix service
+/// These endpoints are product API metadata, not the canonical Cokret service
 /// operation registry.
 pub mod client;
 pub mod product {

@@ -405,7 +405,7 @@ mod tests {
     }
 
     fn space() -> SpaceId {
-        SpaceId::new("cx:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+        SpaceId::new("ck:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     // ── Chunker ───────────────────────────────────────────────────────

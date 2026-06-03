@@ -105,7 +105,7 @@ fn sync_loop_control_applies_backpressure() {
 
 #[test]
 fn sync_loop_can_reset_token_on_limited_timeline_gap() {
-    let space_id = "cx:space:01904100-0000-7000-8000-9b64700c6ee8";
+    let space_id = "ck:space:01904100-0000-7000-8000-9b64700c6ee8";
     let mut response = sync_response("gap-token");
     let sync_space = SyncSpace {
         timeline: Some(SyncTimeline {
@@ -130,7 +130,7 @@ fn sync_loop_can_reset_token_on_limited_timeline_gap() {
 
 #[test]
 fn sync_loop_includes_wait_for_frontier() {
-    let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
     let wait_for = WaitForFrontier {
         positions: vec![crate::sync::SyncStreamPosition {
             space_id,
@@ -149,7 +149,7 @@ fn sync_loop_includes_wait_for_frontier() {
 
 #[test]
 fn processor_dispatches_all_update_categories() {
-    let space_id = "cx:space:01904100-0000-7000-8000-9b64700c6ee8";
+    let space_id = "ck:space:01904100-0000-7000-8000-9b64700c6ee8";
     let mut response = sync_response("s2");
     let sync_space = SyncSpace {
         timeline: None,
@@ -218,9 +218,9 @@ fn processor_dispatches_all_update_categories() {
 
 #[test]
 fn processor_tracks_limited_timelines_and_to_device_ack() {
-    let space_id = "cx:space:01904100-0000-7000-8000-9b64700c6ee8";
+    let space_id = "ck:space:01904100-0000-7000-8000-9b64700c6ee8";
     let parsed_space_id = SpaceId::new(space_id).unwrap();
-    let parsed_realm_id = RealmId::new(space_id.replacen("cx:space:", "cx:realm:", 1)).unwrap();
+    let parsed_realm_id = RealmId::new(space_id.replacen("ck:space:", "ck:realm:", 1)).unwrap();
     let event = Event::new(
         "cx.message.create",
         parsed_realm_id,
@@ -249,7 +249,7 @@ fn processor_tracks_limited_timelines_and_to_device_ack() {
     processor.process(response).unwrap();
     let ack = processor.acknowledge_to_device(
         "devmsg1",
-        DeviceId::new("cx:device:01904100-0000-7000-8000-000000000005").unwrap(),
+        DeviceId::new("ck:device:01904100-0000-7000-8000-000000000005").unwrap(),
         ToDeviceAckStatus::Processed,
     );
 
@@ -260,7 +260,7 @@ fn processor_tracks_limited_timelines_and_to_device_ack() {
 
 #[test]
 fn send_queue_is_idempotent_orders_dependencies_and_snapshots() {
-    let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
     let mut queue = SendQueue::new();
     let message = queue
         .enqueue_message(Some("txn1".to_owned()), space_id.clone(), json!({"body":"hello"}))
@@ -272,7 +272,7 @@ fn send_queue_is_idempotent_orders_dependencies_and_snapshots() {
         .enqueue_edit(
             Some("txn2".to_owned()),
             space_id,
-            EventId::new("cx:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap(),
+            EventId::new("ck:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap(),
             json!({"content":{"body":"hi"}}),
             vec!["txn1".to_owned()],
         )
@@ -283,7 +283,7 @@ fn send_queue_is_idempotent_orders_dependencies_and_snapshots() {
 
     queue.mark_sending("txn1").unwrap();
     queue
-        .mark_sent("txn1", EventId::new("cx:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap())
+        .mark_sent("txn1", EventId::new("ck:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap())
         .unwrap();
     assert_eq!(queue.ready_batch(Utc::now(), 10), vec![edit]);
 
@@ -294,8 +294,8 @@ fn send_queue_is_idempotent_orders_dependencies_and_snapshots() {
 
 #[test]
 fn send_queue_cancels_dependent_edit_redaction_and_reaction() {
-    let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
-    let event_id = EventId::new("cx:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap();
+    let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let event_id = EventId::new("ck:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap();
     let mut queue = SendQueue::new();
     queue
         .enqueue_message(Some("txn1".to_owned()), space_id.clone(), json!({"body":"hello"}))
@@ -329,10 +329,10 @@ fn send_queue_cancels_dependent_edit_redaction_and_reaction() {
 
 #[test]
 fn sliding_sync_builds_windowed_subscriptions_and_applies_deltas() {
-    let s1 = SpaceId::new("cx:space:01904100-0000-7000-8000-000000000001").unwrap();
-    let s2 = SpaceId::new("cx:space:01904100-0000-7000-8000-000000000002").unwrap();
-    let s3 = SpaceId::new("cx:space:01904100-0000-7000-8000-000000000003").unwrap();
-    let s4 = SpaceId::new("cx:space:01904100-0000-7000-8000-000000000004").unwrap();
+    let s1 = SpaceId::new("ck:space:01904100-0000-7000-8000-000000000001").unwrap();
+    let s2 = SpaceId::new("ck:space:01904100-0000-7000-8000-000000000002").unwrap();
+    let s3 = SpaceId::new("ck:space:01904100-0000-7000-8000-000000000003").unwrap();
+    let s4 = SpaceId::new("ck:space:01904100-0000-7000-8000-000000000004").unwrap();
 
     let mut sliding = SlidingSync::new();
     sliding.set_space_list(vec![s1.clone(), s2.clone(), s3]);
@@ -349,8 +349,8 @@ fn sliding_sync_builds_windowed_subscriptions_and_applies_deltas() {
 
 #[test]
 fn space_list_sorts_filters_and_reports_incremental_changes() {
-    let s1 = SpaceId::new("cx:space:01904100-0000-7000-8000-f949e0272316").unwrap();
-    let s2 = SpaceId::new("cx:space:01904100-0000-7000-8000-46f8537dc94e").unwrap();
+    let s1 = SpaceId::new("ck:space:01904100-0000-7000-8000-f949e0272316").unwrap();
+    let s2 = SpaceId::new("ck:space:01904100-0000-7000-8000-46f8537dc94e").unwrap();
     let mut list = SpaceListService::new();
     let mut alpha = SpaceListEntry::joined(s1);
     alpha.name = Some("Alpha".to_owned());
@@ -381,13 +381,13 @@ fn space_list_sorts_filters_and_reports_incremental_changes() {
 
 #[test]
 fn frame_event_round_trip() {
-    let line = r#"{"kind":"event","seq":42,"cursor":"sx:e2e:42","payload":{"event_id":"cx:event:01904100-0000-7000-8000-834e21b98552"}}"#;
+    let line = r#"{"kind":"event","seq":42,"cursor":"sx:e2e:42","payload":{"event_id":"ck:event:01904100-0000-7000-8000-834e21b98552"}}"#;
     let frame = EventsSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
     match &frame {
         EventsSubscribeFrame::Event { seq, cursor, payload } => {
             assert_eq!(*seq, 42);
             assert_eq!(cursor, "sx:e2e:42");
-            assert_eq!(payload["event_id"], "cx:event:01904100-0000-7000-8000-834e21b98552");
+            assert_eq!(payload["event_id"], "ck:event:01904100-0000-7000-8000-834e21b98552");
         }
         other => panic!("expected Event, got {other:?}"),
     }
@@ -428,11 +428,11 @@ fn frame_resync_required_carries_frontier() {
 
 #[test]
 fn frame_epoch_rotation_parses_space_and_epoch() {
-    let line = r#"{"kind":"epoch_rotation","space_id":"cx:space:01904100-0000-7000-8000-9b64700c6ee8","new_epoch":7,"previous_epoch":6}"#;
+    let line = r#"{"kind":"epoch_rotation","space_id":"ck:space:01904100-0000-7000-8000-9b64700c6ee8","new_epoch":7,"previous_epoch":6}"#;
     let frame = EventsSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
     match &frame {
         EventsSubscribeFrame::EpochRotation { space_id, new_epoch, previous_epoch } => {
-            assert_eq!(space_id.as_str(), "cx:space:01904100-0000-7000-8000-9b64700c6ee8");
+            assert_eq!(space_id.as_str(), "ck:space:01904100-0000-7000-8000-9b64700c6ee8");
             assert_eq!(*new_epoch, 7);
             assert_eq!(*previous_epoch, Some(6));
         }
@@ -493,7 +493,7 @@ fn events_query_selector_validates_non_empty() {
     let empty = EventsQuerySelector::default();
     assert!(empty.validate_non_empty().is_err());
     let with_space = EventsQuerySelector {
-        spaces: vec![SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()],
+        spaces: vec![SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()],
         ..Default::default()
     };
     with_space.validate_non_empty().unwrap();
@@ -508,8 +508,8 @@ fn events_query_selector_validates_non_empty() {
 fn events_query_selector_renders_repeated_query_args() {
     let selector = EventsQuerySelector {
         spaces: vec![
-            SpaceId::new("cx:space:01904100-0000-7000-8000-f949e0272316").unwrap(),
-            SpaceId::new("cx:space:01904100-0000-7000-8000-46f8537dc94e").unwrap(),
+            SpaceId::new("ck:space:01904100-0000-7000-8000-f949e0272316").unwrap(),
+            SpaceId::new("ck:space:01904100-0000-7000-8000-46f8537dc94e").unwrap(),
         ],
         actors: vec!["did:web:alice.example".to_owned()],
         from: Some("sx:cursor:1".to_owned()),
@@ -554,7 +554,7 @@ fn events_query_request_validates_non_empty() {
     let empty = EventsQueryReqBody::new();
     assert!(empty.validate_non_empty().is_err());
     let with_space = EventsQueryReqBody::new()
-        .with_spaces(vec![SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()]);
+        .with_spaces(vec![SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()]);
     with_space.validate_non_empty().unwrap();
 }
 
@@ -562,8 +562,8 @@ fn events_query_request_validates_non_empty() {
 fn events_query_request_renders_query_pairs() {
     let req = EventsQueryReqBody::new()
         .with_spaces(vec![
-            SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
-            SpaceId::new("cx:space:01904100-0000-7000-8000-46f8537dc94e").unwrap(),
+            SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+            SpaceId::new("ck:space:01904100-0000-7000-8000-46f8537dc94e").unwrap(),
         ])
         .with_actors(vec!["did:web:alice.example".to_owned()])
         .with_from("hlc:0189c4d2af00-0000-aabbccdd")

@@ -565,14 +565,14 @@ pub fn handle_claim_proof(handle: &str, user_id: &Did, challenge: &str) -> Strin
     sha256_hex(format!("{}:{}:{}", normalize_handle(handle), user_id, challenge).as_bytes())
 }
 
-/// DNS TXT name that should contain the Contrix handle proof.
+/// DNS TXT name that should contain the Cokret handle proof.
 pub fn handle_dns_txt_name(handle: &str) -> Result<String> {
     let (local, domain) = split_domain_handle(handle)?;
     Ok(format!("_contrix-handle.{local}.{domain}"))
 }
 
-/// HTTPS well-known URL that should return the Contrix handle proof.
+/// HTTPS well-known URL that should return the Cokret handle proof.
 pub fn handle_well_known_url(handle: &str) -> Result<String> {
     let (local, domain) = split_domain_handle(handle)?;
-    Ok(format!("https://{domain}/.well-known/contrix/handle/{local}.json"))
+    Ok(format!("https://{domain}/.well-known/cokret/handle/{local}.json"))
 }

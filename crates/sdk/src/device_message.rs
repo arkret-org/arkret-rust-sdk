@@ -275,7 +275,7 @@ mod tests {
     use super::*;
     use crate::{DeviceId, Did, Hash, Hlc, MoveSignature, MoveSigner, UnsignedMove};
 
-    /// Deterministic test signer mirroring `contrix-core::signer::StubSigner`.
+    /// Deterministic test signer mirroring `cokret-core::signer::StubSigner`.
     /// Local to this module so tests stay self-contained without pulling in
     /// the optional `signer` feature.
     struct TestSigner {
@@ -327,10 +327,10 @@ mod tests {
         let alice = signer("alice");
         let msg = DeviceMessageBuilder::new()
             .sender(alice.signer_did().clone())
-            .sender_device(DeviceId::new("cx:device:01904100-0000-7000-8000-00000000000a").unwrap())
+            .sender_device(DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000a").unwrap())
             .recipient(Did::new("did:web:bob.example").unwrap())
             .recipient_device(
-                DeviceId::new("cx:device:01904100-0000-7000-8000-00000000000b").unwrap(),
+                DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000b").unwrap(),
             )
             .message_type("cx.keys.room_key")
             .body(json!({"session": "abc"}))
@@ -348,7 +348,7 @@ mod tests {
         let bob = signer("bob");
         let err = DeviceMessageBuilder::new()
             .sender(bob.signer_did().clone())
-            .sender_device(DeviceId::new("cx:device:01904100-0000-7000-8000-00000000000c").unwrap())
+            .sender_device(DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000c").unwrap())
             .recipient(Did::new("did:web:carol.example").unwrap())
             .message_type("cx.keys.room_key")
             .body(json!({}))
@@ -363,7 +363,7 @@ mod tests {
         let alice = signer("alice");
         let err = DeviceMessageBuilder::new()
             .sender(alice.signer_did().clone())
-            .sender_device(DeviceId::new("cx:device:01904100-0000-7000-8000-00000000000a").unwrap())
+            .sender_device(DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000a").unwrap())
             .message_type("cx.keys.room_key")
             .body(json!({}))
             .hlc(hlc())
@@ -377,7 +377,7 @@ mod tests {
         let alice = signer("alice");
         let mut msg = DeviceMessageBuilder::new()
             .sender(alice.signer_did().clone())
-            .sender_device(DeviceId::new("cx:device:01904100-0000-7000-8000-00000000000a").unwrap())
+            .sender_device(DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000a").unwrap())
             .recipient(Did::new("did:web:bob.example").unwrap())
             .message_type("cx.keys.room_key")
             .body(json!({"session": "abc"}))

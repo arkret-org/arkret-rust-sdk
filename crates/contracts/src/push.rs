@@ -1,4 +1,4 @@
-//! Contrix push surface models and helpers.
+//! Cokret push surface models and helpers.
 
 use std::collections::BTreeMap;
 use std::time::Duration;
@@ -142,9 +142,9 @@ pub fn format_push_payload(
             .collect()
     };
     let title = match pusher.platform {
-        PushPlatform::Apns => "Contrix",
-        PushPlatform::Fcm => "Contrix update",
-        PushPlatform::WebPush => "Contrix notification",
+        PushPlatform::Apns => "Cokret",
+        PushPlatform::Fcm => "Cokret update",
+        PushPlatform::WebPush => "Cokret notification",
     }
     .to_owned();
     PushPayload {
@@ -214,13 +214,13 @@ impl PushRuleSet {
 /// B.5 #6 — spec revision chime was compiled against. Used by
 /// [`PushBridgeDescribeResponse::warn_on_spec_version_mismatch`] to flag
 /// gateway responses pinned to a different revision.
-pub const EXPECTED_SPEC_VERSION: &str = "contrix-spec@2026-05-26";
+pub const EXPECTED_SPEC_VERSION: &str = "cokret-spec@2026-05-26";
 
 /// Response body for `GET /api/v1/push/bridge/describe`.
 ///
 /// This is a product-local push-gateway contract shared by the gateway
 /// implementation and clients that probe it before registration / notify
-/// flows. It intentionally lives in `contrix-contracts` rather than individual
+/// flows. It intentionally lives in `cokret-contracts` rather than individual
 /// services so bridge producers and consumers cannot drift silently.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -511,7 +511,7 @@ mod tests {
     #[test]
     fn pusher_builds_from_register_request() {
         let request = PushRegisterDeviceReqBody {
-            device_id: DeviceId::new("cx:device:01904100-0000-7000-8000-000000000001").unwrap(),
+            device_id: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000001").unwrap(),
             push_gateway: "https://push.example".to_owned(),
             push_key: "token".to_owned(),
             platform: Some("fcm".to_owned()),
@@ -526,7 +526,7 @@ mod tests {
     fn payload_redacts_encrypted_notifications() {
         let pusher = Pusher {
             user_id: did("alice"),
-            device_id: DeviceId::new("cx:device:01904100-0000-7000-8000-000000000001").unwrap(),
+            device_id: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000001").unwrap(),
             platform: PushPlatform::Apns,
             push_gateway: "https://push.example".to_owned(),
             push_key: "token".to_owned(),
@@ -544,7 +544,7 @@ mod tests {
             &pusher,
             &rule,
             &PushNotification {
-                event_id: EventId::new("cx:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
+                event_id: EventId::new("ck:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
                 user_id: did("alice"),
                 space_id: None,
                 event_kind: "cx.message.create".to_owned(),
@@ -559,15 +559,15 @@ mod tests {
     fn rejected_response_keeps_only_failures() {
         let rejected = rejected_response([
             PushDeliveryReceipt {
-                event_id: EventId::new("cx:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
-                device_id: DeviceId::new("cx:device:01904100-0000-7000-8000-000000000002").unwrap(),
+                event_id: EventId::new("ck:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
+                device_id: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000002").unwrap(),
                 platform: PushPlatform::Fcm,
                 accepted: true,
                 error: None,
             },
             PushDeliveryReceipt {
-                event_id: EventId::new("cx:event:01904100-0000-7000-8000-6008ddd67225").unwrap(),
-                device_id: DeviceId::new("cx:device:01904100-0000-7000-8000-000000000003").unwrap(),
+                event_id: EventId::new("ck:event:01904100-0000-7000-8000-6008ddd67225").unwrap(),
+                device_id: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000003").unwrap(),
                 platform: PushPlatform::Fcm,
                 accepted: false,
                 error: Some("invalid_token".to_owned()),
@@ -598,10 +598,10 @@ mod tests {
         let descriptor = PushBridgeDescribeNotifyDescriptor {
             notify_path: "/api/v1/push/notify".to_owned(),
             operation_id: "cx.push.notify".to_owned(),
-            request_id_header: "X-Contrix-Request-Id".to_owned(),
-            idempotency_key_header: "X-Contrix-Idempotency-Key".to_owned(),
-            origin_service_did_header: "X-Contrix-Origin-Service-Did".to_owned(),
-            destination_service_did_header: "X-Contrix-Destination-Service-Did".to_owned(),
+            request_id_header: "X-Cokret-Request-Id".to_owned(),
+            idempotency_key_header: "X-Cokret-Idempotency-Key".to_owned(),
+            origin_service_did_header: "X-Cokret-Origin-Service-Did".to_owned(),
+            destination_service_did_header: "X-Cokret-Destination-Service-Did".to_owned(),
             max_request_size_bytes: 16 * 1024,
             dedup_backend: Some("redis".to_owned()),
             dedup_ttl_seconds: Some(300),
@@ -663,10 +663,10 @@ mod tests {
             "notify": {
                 "notify_path": "/api/v1/push/notify",
                 "operation_id": "cx.push.notify",
-                "request_id_header": "X-Contrix-Request-Id",
-                "idempotency_key_header": "X-Contrix-Idempotency-Key",
-                "origin_service_did_header": "X-Contrix-Origin-Service-Did",
-                "destination_service_did_header": "X-Contrix-Destination-Service-Did",
+                "request_id_header": "X-Cokret-Request-Id",
+                "idempotency_key_header": "X-Cokret-Idempotency-Key",
+                "origin_service_did_header": "X-Cokret-Origin-Service-Did",
+                "destination_service_did_header": "X-Cokret-Destination-Service-Did",
                 "max_request_size_bytes": 16384,
             },
             "privacy": {

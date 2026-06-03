@@ -22,7 +22,7 @@ pub enum MediaBackendType {
     Livekit,
     Mediasoup,
     Janus,
-    ContrixNative,
+    CokretNative,
     MoqRelay,
     /// Unknown / forward-compat backend label. Helpers MUST reject this
     /// with `unknown_focus_type` before forwarding to the wire layer.
@@ -125,7 +125,7 @@ pub struct MediaTokenExchangeRequest {
 /// Client helper that builds a `cx.call.media.token_exchange` request body.
 ///
 /// Implementations using a concrete HTTP transport (e.g. [`reqwest`])
-/// POST the body to `/contrix/v1/rtc/token` and feed the JSON response
+/// POST the body to `/cokret/v1/rtc/token` and feed the JSON response
 /// to [`MediaTokenResponse`] / [`validate_token_ttl`]. This helper keeps
 /// the SDK transport-agnostic; downstream crates wrap it with their own
 /// HTTP client.
@@ -417,7 +417,7 @@ impl MemoryBlobStore {
         uploaded_by: Did,
     ) -> Result<Attachment> {
         let plaintext = plaintext.as_ref();
-        let ciphertext = crypto::seal(plaintext, key, b"contrix-media-attachment-v1")?;
+        let ciphertext = crypto::seal(plaintext, key, b"cokret-media-attachment-v1")?;
         let filename = filename.into();
         let media_type = media_type.into();
         let metadata = self.upload(
@@ -461,7 +461,7 @@ impl MemoryBlobStore {
         if encryption.algorithm != AEAD_ALGORITHM {
             return Err(Error::Protocol("unsupported attachment encryption algorithm".to_owned()));
         }
-        let plaintext = crypto::open(ciphertext, key, b"contrix-media-attachment-v1")?;
+        let plaintext = crypto::open(ciphertext, key, b"cokret-media-attachment-v1")?;
         if encryption.plaintext_sha256 != sha256_hex(&plaintext) {
             return Err(Error::Protocol("attachment digest mismatch".to_owned()));
         }

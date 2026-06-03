@@ -1,16 +1,16 @@
-# Contrix Rust SDK
+# Cokret Rust SDK
 
-> **Spec target**: [contrix-spec @ c2848a4](../contrix-spec) (R3.4 sync 2026-05-31)
+> **Spec target**: [cokret-spec @ c2848a4](../cokret-spec) (R3.4 sync 2026-05-31)
 
-[![codecov](https://codecov.io/gh/contrix/contrix-rust-sdk/branch/main/graph/badge.svg)](https://codecov.io/gh/contrix/contrix-rust-sdk)
+[![codecov](https://codecov.io/gh/cokret/cokret-rust-sdk/branch/main/graph/badge.svg)](https://codecov.io/gh/cokret/cokret-rust-sdk)
 
-Release status: local Contrix v1 SDK `1.0.0` freeze candidate. The SDK includes
+Release status: local Cokret v1 SDK `1.0.0` freeze candidate. The SDK includes
 authenticated local encryption helpers based on XChaCha20-Poly1305, OpenMLS MLS
 group encryption, framework-independent server contracts, HTTP client bindings
 and conformance-oriented tests. The local security-review packet and cotest
 release-gate interoperability suite are recorded under `docs/`.
 
-This repository contains the Rust SDK for Contrix v1. The public SDK surface is
+This repository contains the Rust SDK for Cokret v1. The public SDK surface is
 centered on:
 
 - DID principals
@@ -21,7 +21,7 @@ centered on:
 - MLS RFC 9420 group E2EE based on OpenMLS
 - Principal Server, Events, Index, Blob, Directory and Authz service surfaces
 
-The active v1 wire contract follows `contrix-spec/spec/v1/zh` plus `contrix-spec/spec/v1/artifacts`.
+The active v1 wire contract follows `cokret-spec/spec/v1/zh` plus `cokret-spec/spec/v1/artifacts`.
 All public SDK surfaces are expected to use `flow`, `track`, relation and
 message semantics directly.
 
@@ -45,18 +45,18 @@ wire-breaking rename notes.
 Use the top-level crate:
 
 ```toml
-contrix = { path = "crates/sdk" }
+cokret = { path = "crates/sdk" }
 ```
 
-The workspace is split into focused crates and the top-level `contrix` crate
+The workspace is split into focused crates and the top-level `cokret` crate
 re-exports the public SDK surface:
 
-- `contrix-core`: protocol identifiers, canonical JSON, wire models, sync/cursor types and service metadata
-- `contrix-contracts`: shared wire-contract DTOs for product-local client APIs, identity, federation and push gateway integration
-- `contrix-identifiers`: validated DIDs, typed IDs, hashes, cursors and HLC values
-- `contrix-http-client`: HTTP transport bindings
-- `contrix-server`: framework-independent server handler contracts, service route metadata and endpoint fixture coverage
-- `contrix`: umbrella SDK crate with high-level state managers and feature forwarding
+- `cokret-core`: protocol identifiers, canonical JSON, wire models, sync/cursor types and service metadata
+- `cokret-contracts`: shared wire-contract DTOs for product-local client APIs, identity, federation and push gateway integration
+- `cokret-identifiers`: validated DIDs, typed IDs, hashes, cursors and HLC values
+- `cokret-http-client`: HTTP transport bindings
+- `cokret-server`: framework-independent server handler contracts, service route metadata and endpoint fixture coverage
+- `cokret`: umbrella SDK crate with high-level state managers and feature forwarding
 
 The workspace default members include all crates:
 
@@ -80,7 +80,7 @@ cargo test
 
 ## Protocol review closures
 
-Spec review closure `contrix-spec` range `2a4d39b..a77b995` (8 commits)
+Spec review closure `cokret-spec` range `2a4d39b..a77b995` (8 commits)
 lands in the SDK as domain-named model modules re-exported from the
 umbrella crate.
 See [`CHANGELOG.md`](CHANGELOG.md) `[Unreleased]` for the canonical
@@ -117,7 +117,7 @@ Headline additions:
   `[Unreleased]` Round R4 / R2 / R3 entries track the most recent
   spec close-outs (round 4 ranges `2a4d39b..a77b995`; round 2+3 lands
   4 new event kinds, 3 new schemas, 2 new typed ID kinds, 15 new error
-  codes); see [`../contrix-spec/CHANGELOG.md`](../contrix-spec/CHANGELOG.md)
+  codes); see [`../cokret-spec/CHANGELOG.md`](../cokret-spec/CHANGELOG.md)
   for the normative source.
 - [Security policy](SECURITY.md) — supported versions and how to report
   vulnerabilities responsibly.
@@ -126,9 +126,9 @@ Headline additions:
 - [Contributing](CONTRIBUTING.md) — development checks, API rules, commit
   style.
 
-## Implemented Contrix Surface
+## Implemented Cokret Surface
 
-The first Contrix crate currently includes:
+The first Cokret crate currently includes:
 
 - v1 identifiers and protocol constants
 - canonical JSON and SHA-256 digest helpers
@@ -143,9 +143,9 @@ The first Contrix crate currently includes:
 - OpenMLS-backed group creation, member add, Welcome join, payload encryption and decryption
 - in-memory persistence helpers for event cache, verified state snapshots and account-local records
 - Server description and profile version checks
-- HTTP client methods for the Contrix v1 service HTTP binding, including request metadata, retry/backoff and `Retry-After` handling
-- shared contract DTOs exposed through `contrix-contracts` and re-exported from the umbrella SDK as `contrix::api`, `contrix::client_api`, `contrix::identity_api`, `contrix::federation_api` and `contrix::push_gateway_api`
-- framework-independent server handler contracts, endpoint fixture coverage and Salvo OAPI DTO support through `contrix-core`
+- HTTP client methods for the Cokret v1 service HTTP binding, including request metadata, retry/backoff and `Retry-After` handling
+- shared contract DTOs exposed through `cokret-contracts` and re-exported from the umbrella SDK as `cokret::api`, `cokret::client_api`, `cokret::identity_api`, `cokret::federation_api` and `cokret::push_gateway_api`
+- framework-independent server handler contracts, endpoint fixture coverage and Salvo OAPI DTO support through `cokret-core`
 - high-level sync loop, membership, devices, receipts, notifications, content,
   media, profile/settings, discovery, E2EE, auth/identity, federation, push,
   typing, WebRTC, store and event-handler helpers
@@ -158,5 +158,5 @@ Apache-2.0
 
 <!-- circle-rollout milestone pointer -->
 > **Active milestone tracking** (local-only, gitignored): see
-> `_contrix-rust-sdk_todos.md` in the parent `contrix-dev/` directory for the
+> `_contrix-rust-sdk_todos.md` in the parent `cokret-dev/` directory for the
 > circle-rollout (CXP-0007) work item list and per-stage checkpoints.

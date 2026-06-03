@@ -1,4 +1,4 @@
-//! Core Contrix v1 protocol types and helpers.
+//! Core Cokret v1 protocol types and helpers.
 //!
 //! This crate is the stable foundation shared by clients, servers and higher
 //! level SDK state machines. It intentionally contains no HTTP transport,

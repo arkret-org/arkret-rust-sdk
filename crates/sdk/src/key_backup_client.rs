@@ -87,10 +87,10 @@ mod tests {
 
     fn backup_record() -> ProtocolKeyBackup {
         ProtocolKeyBackup {
-            backup_id: "cx:backup:01964137-0000-7000-8000-000000000000".to_owned(),
+            backup_id: "ck:backup:01964137-0000-7000-8000-000000000000".to_owned(),
             actor_id: crate::Did::new("did:web:alice.example").unwrap(),
             device_id: Some(
-                crate::DeviceId::new("cx:device:01964137-0000-7000-8000-000000000000").unwrap(),
+                crate::DeviceId::new("ck:device:01964137-0000-7000-8000-000000000000").unwrap(),
             ),
             backup_class: crate::KeyBackupClass::DidRecovery,
             mixed_secret_storage: false,

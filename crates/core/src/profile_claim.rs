@@ -1,7 +1,7 @@
 //! Profile claim validator.
 //!
 //! Wraps the generated `profile_roles` table (mirror of
-//! `contrix-spec/spec/v1/artifacts/profiles/conformance-profiles.json#/profile_roles`)
+//! `cokret-spec/spec/v1/artifacts/profiles/conformance-profiles.json#/profile_roles`)
 //! with a typed API that SDK consumers, conformance harnesses, and capability
 //! manifests can use to refuse role-mismatched profile claims at construction
 //! time.

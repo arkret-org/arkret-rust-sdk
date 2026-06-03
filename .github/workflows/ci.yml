@@ -147,11 +147,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          path: contrix-rust-sdk
+          path: cokret-rust-sdk
       - uses: actions/checkout@v4
         with:
-          repository: contrix-dev/contrix-spec
-          path: contrix-spec
+          repository: cokret-dev/cokret-spec
+          path: cokret-spec
           # Public spec repo; if private, set a PAT under
           # secrets.SPEC_READ_TOKEN and pass `token: ${{ secrets.SPEC_READ_TOKEN }}`.
         continue-on-error: true
@@ -160,10 +160,10 @@ jobs:
           toolchain: "1.92"
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: contrix-rust-sdk
+          workspaces: cokret-rust-sdk
       - name: Run spec_drift_report
-        if: hashFiles('contrix-spec/spec/v1/artifacts/registry/schema-registry.json') != ''
-        working-directory: contrix-rust-sdk
+        if: hashFiles('cokret-spec/spec/v1/artifacts/registry/schema-registry.json') != ''
+        working-directory: cokret-rust-sdk
         env:
-          CONTRIX_SPEC_ARTIFACTS: ${{ github.workspace }}/contrix-spec/spec/v1/artifacts
+          CONTRIX_SPEC_ARTIFACTS: ${{ github.workspace }}/cokret-spec/spec/v1/artifacts
         run: cargo run --example spec_drift_report

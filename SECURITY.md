@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-The Contrix Rust SDK is in its local `1.0.0` freeze line. Local fixes should
+The Cokret Rust SDK is in its local `1.0.0` freeze line. Local fixes should
 target the latest `1.0.x` branch; remote publication is outside this readiness
 workflow.
 
@@ -23,11 +23,11 @@ vulnerabilities. Instead, report privately via either channel:
   button on the repository's Security tab. This creates a private advisory
   visible only to maintainers.
 - Email: `chris@acroidea.com`. Use a subject line that starts with
-  `[contrix-rust-sdk security]`.
+  `[cokret-rust-sdk security]`.
 
 Please include:
 
-- Affected SDK version (`cargo pkgid contrix` output is fine).
+- Affected SDK version (`cargo pkgid cokret` output is fine).
 - A minimal reproduction (a Rust snippet, an HTTP transcript, or a failing
   conformance vector).
 - Your assessment of impact (information disclosure, signature forgery,
@@ -40,7 +40,7 @@ Please include:
 - We aim to acknowledge new reports within **3 business days**.
 - For confirmed issues we aim to ship a fix within **30 days** of the
   acknowledgement, or sooner for actively-exploited vulnerabilities. Complex
-  protocol issues that require coordination with the Contrix specification
+  protocol issues that require coordination with the Cokret specification
   may take longer; the reporter will be kept informed.
 - Once a fix is ready locally, a private advisory record and a CHANGELOG entry
   will describe the issue, affected versions, and the fix.
@@ -51,8 +51,8 @@ Please include:
 
 In scope:
 
-- Anything in `crates/*` that ships in a local `contrix-*` package artifact.
-- The default behaviour of `contrix-http-client` against an arbitrary Contrix
+- Anything in `crates/*` that ships in a local `cokret-*` package artifact.
+- The default behaviour of `cokret-http-client` against an arbitrary Cokret
   service (URL handling, header construction, retry/backoff, error envelope
   parsing).
 - Cryptographic primitives and AEAD/MLS bindings under the default features.

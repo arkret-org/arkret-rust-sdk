@@ -1,14 +1,14 @@
 [package]
 authors = ["Chris Young <chris@sonc.ai>"]
 categories = ["data-structures", "encoding"]
-description = "Validated Contrix v1 identifiers, DID helpers, hashes, cursors and HLC values."
+description = "Validated Cokret v1 identifiers, DID helpers, hashes, cursors and HLC values."
 edition = "2024"
-homepage = "https://github.com/contrix/contrix-rust-sdk"
-keywords = ["contrix", "identifiers", "did", "protocol"]
+homepage = "https://github.com/cokret/cokret-rust-sdk"
+keywords = ["cokret", "identifiers", "did", "protocol"]
 license = "Apache-2.0"
-name = "contrix-identifiers"
+name = "cokret-identifiers"
 readme = "README.md"
-repository = "https://github.com/contrix/contrix-rust-sdk"
+repository = "https://github.com/cokret/cokret-rust-sdk"
 rust-version = "1.92"
 version = "1.0.0"
 

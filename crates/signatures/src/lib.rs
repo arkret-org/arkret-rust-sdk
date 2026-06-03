@@ -324,8 +324,8 @@ pub fn http_message_signature_base(input: &HttpMessageSignatureInput) -> String 
         format!("\"@target-uri\": {}", input.target_uri),
         format!("\"host\": {}", input.authority),
         format!("\"content-digest\": {}", input.content_digest),
-        format!("\"x-contrix-origin-service\": {}", input.origin_service_did),
-        format!("\"x-contrix-destination-service\": {}", input.destination_service_did),
+        format!("\"x-cokret-origin-service\": {}", input.origin_service_did),
+        format!("\"x-cokret-destination-service\": {}", input.destination_service_did),
     ];
     // Round 4 (spec f9bd7eb) — emit `Source-Trust-Domain`,
     // `Destination-Trust-Domain`, and `Request-Canonical-Digest` headers
@@ -360,8 +360,8 @@ where
         "@target-uri".to_owned(),
         "host".to_owned(),
         "content-digest".to_owned(),
-        "x-contrix-origin-service".to_owned(),
-        "x-contrix-destination-service".to_owned(),
+        "x-cokret-origin-service".to_owned(),
+        "x-cokret-destination-service".to_owned(),
     ];
     if input.source_trust_domain.is_some() {
         signed_fields.push("source-trust-domain".to_owned());

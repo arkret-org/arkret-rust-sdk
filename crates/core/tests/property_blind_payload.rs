@@ -12,7 +12,7 @@
 //!     name) or, when not on the list, validated as ordinary unknown
 //!     keys (forbidden because the allow-list is closed).
 //!  3. **Sensitive literals are caught everywhere except
-//!     `push_target_id`.** A string value containing `did:` or `cx:` in
+//!     `push_target_id`.** A string value containing `did:` or `ck:` in
 //!     any non-pseudonym slot MUST be rejected.
 //!
 //! All proptest blocks use 64 cases to keep CI fast.
@@ -207,7 +207,7 @@ fn contains_forbidden_key(value: &Value) -> bool {
 }
 
 /// Helper: recursively scan a JSON value for any string containing
-/// `did:` or `cx:` (case-insensitive) in any path EXCEPT inside a
+/// `did:` or `ck:` (case-insensitive) in any path EXCEPT inside a
 /// `push_target_id` slot.
 fn contains_sensitive_literal(path: &str, value: &Value) -> bool {
     match value {
@@ -223,7 +223,7 @@ fn contains_sensitive_literal(path: &str, value: &Value) -> bool {
                 return false;
             }
             let lower = s.to_ascii_lowercase();
-            lower.contains("did:") || lower.contains("cx:")
+            lower.contains("did:") || lower.contains("ck:")
         }
         _ => false,
     }
@@ -232,7 +232,7 @@ fn contains_sensitive_literal(path: &str, value: &Value) -> bool {
 /// Build a baseline notification object that passes the sanitizer.
 fn ok_notification() -> Value {
     json!({
-        "push_target_id": "cx:pseudonym:push:01HYZ8Z000000000000000",
+        "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
         "wakeup_kind": "message",
     })
 }
@@ -303,7 +303,7 @@ proptest! {
         if !drop_target {
             notif.insert(
                 "push_target_id".into(),
-                json!("cx:pseudonym:push:01HYZ8Z000000000000000"),
+                json!("ck:pseudonym:push:01HYZ8Z000000000000000"),
             );
         }
         if !drop_kind {
@@ -334,11 +334,11 @@ proptest! {
         );
     }
 
-    /// Property 5 — `did:` / `cx:` literals in any non-pseudonym slot
+    /// Property 5 — `did:` / `ck:` literals in any non-pseudonym slot
     /// trigger SensitiveLiteral.
     #[test]
     fn sensitive_literals_caught_everywhere(
-        prefix in prop_oneof![Just("did:web:"), Just("cx:event:"), Just("cx:device:")],
+        prefix in prop_oneof![Just("did:web:"), Just("ck:event:"), Just("ck:device:")],
         suffix in "[a-z0-9.]{1,32}",
         path_choice in 0u8..2u8,
     ) {
@@ -358,7 +358,7 @@ proptest! {
         );
         prop_assert!(
             sanitize_blind_payload(&payload).is_err(),
-            "sanitizer must reject `did:` / `cx:` literal `{literal}`"
+            "sanitizer must reject `did:` / `ck:` literal `{literal}`"
         );
     }
 
@@ -428,7 +428,7 @@ proptest! {
     fn count_boundary_is_enforced(n in 0u64..(MAX_COUNT_VALUE * 3)) {
         let payload = json!({
             "notification": {
-                "push_target_id": "cx:pseudonym:push:01HYZ8Z000000000000000",
+                "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
                 "wakeup_kind": "message",
                 "counts": { "unread": n },
             }

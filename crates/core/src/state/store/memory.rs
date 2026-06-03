@@ -572,7 +572,7 @@ impl MemoryCellRegistry {
 
 impl CellRegistry for MemoryCellRegistry {
     fn resolve(&self, _space_id: &SpaceId, cell: &CellRef) -> StoreResult<CellLatticeBinding> {
-        // Parse "cx:cell:<family>:<subject>" — family is between the 2nd and 3rd colons.
+        // Parse "ck:cell:<family>:<subject>" — family is between the 2nd and 3rd colons.
         let cell_id = crate::CellId::parse(cell.as_str())
             .map_err(|e| StoreError::Backend(format!("invalid cell ref: {e}")))?;
         let family = cell_id.component();
@@ -605,7 +605,7 @@ mod tests {
     use chrono::{TimeZone, Utc};
 
     fn space() -> SpaceId {
-        SpaceId::new("cx:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+        SpaceId::new("ck:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn move_id(byte: u8) -> MoveId {
@@ -613,7 +613,7 @@ mod tests {
     }
 
     fn anchor_id(byte: u8) -> AnchorId {
-        AnchorId::new(format!("cx:anchor:sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
+        AnchorId::new(format!("ck:anchor:sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
     }
 
     fn hash(byte: u8) -> Hash {
@@ -621,7 +621,7 @@ mod tests {
     }
 
     fn cell_member() -> CellRef {
-        CellRef::new("cx:cell:cx.component.member.state.v1:did.web.alice.example".to_owned())
+        CellRef::new("ck:cell:cx.component.member.state.v1:did.web.alice.example".to_owned())
             .unwrap()
     }
 
@@ -634,7 +634,7 @@ mod tests {
                 "cell": cell_member().as_str(),
                 "op": { "kind": "transition", "from": "invited", "to": "join" }
             }],
-            "anchor_ref": format!("cx:anchor:sha256:{}", "aa".repeat(32)),
+            "anchor_ref": format!("ck:anchor:sha256:{}", "aa".repeat(32)),
             "refs": [],
             "hlc": "0189c4d2af00-0000-aabbccdd"
         });
@@ -894,7 +894,7 @@ mod tests {
     #[test]
     fn cell_registry_unknown_family_fails_closed() {
         let reg = MemoryCellRegistry::new();
-        let weird = CellRef::new("cx:cell:cx.component.future.unknown.v1:x".to_owned()).unwrap();
+        let weird = CellRef::new("ck:cell:cx.component.future.unknown.v1:x".to_owned()).unwrap();
         let err = reg.resolve(&space(), &weird).unwrap_err();
         assert!(format!("{err}").contains("unknown cell family"));
     }
@@ -903,11 +903,11 @@ mod tests {
     fn cell_registry_or_set_and_cas_lattices_resolve() {
         let reg = MemoryCellRegistry::new();
         let consent =
-            CellRef::new("cx:cell:cx.component.consent.grant.v1:cx.consent.x".to_owned()).unwrap();
+            CellRef::new("ck:cell:cx.component.consent.grant.v1:cx.consent.x".to_owned()).unwrap();
         assert_eq!(reg.resolve(&space(), &consent).unwrap().lattice.kind(), LatticeKind::OrSet);
 
         let policy =
-            CellRef::new("cx:cell:cx.component.space.policy.v1:cx.space.x".to_owned()).unwrap();
+            CellRef::new("ck:cell:cx.component.space.policy.v1:cx.space.x".to_owned()).unwrap();
         assert_eq!(
             reg.resolve(&space(), &policy).unwrap().lattice.kind(),
             LatticeKind::CasRegister

@@ -74,7 +74,7 @@ mod tests {
     #[test]
     fn principal_auth_bridge_decodes_soland_yougen_shape() {
         let value = json!({
-            "contract": "contrix.rest.principal_bridge.v1",
+            "contract": "cokret.rest.principal_bridge.v1",
             "version": "2026-05-12-oauth-introspection",
             "api_base_path": "/api/v1",
             "auth": {
@@ -86,7 +86,7 @@ mod tests {
             "push": {
                 "register_device_path": "/api/v1/push/register-device",
                 "unregister_device_path": "/api/v1/push/unregister-device",
-                "session_grant_header": "X-Contrix-Session-Grant",
+                "session_grant_header": "X-Cokret-Session-Grant",
                 "principal_id_body_field": "principal_id",
                 "register_device_mode": "bearer_session_or_oauth_bearer_introspection"
             },

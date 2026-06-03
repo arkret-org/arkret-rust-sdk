@@ -8,8 +8,8 @@ use serde_json::json;
 
 use crate::{Did, Error, InviteId, Operation, OperationId, RealmId, Result, SpaceId};
 
-/// Generate a new UUIDv7-based wire ID with the given Contrix typed prefix
-/// (e.g. `cx:invite:`, `cx:operation:`). RFC 9562 §5.7 / `conformance/encoding.md` §4.
+/// Generate a new UUIDv7-based wire ID with the given Cokret typed prefix
+/// (e.g. `ck:invite:`, `ck:operation:`). RFC 9562 §5.7 / `conformance/encoding.md` §4.
 fn generate_id(prefix: &str) -> String {
     format!("{prefix}{}", uuid::Uuid::now_v7())
 }
@@ -359,7 +359,7 @@ impl MembershipManager {
         role: MemberRole,
     ) -> Result<Invite> {
         let invite = Invite {
-            invite_id: InviteId::new(generate_id("cx:invite:"))?,
+            invite_id: InviteId::new(generate_id("ck:invite:"))?,
             user_id: Some(user_id.clone()),
             third_party: None,
             role,
@@ -397,7 +397,7 @@ impl MembershipManager {
         role: MemberRole,
     ) -> Result<Invite> {
         let invite = Invite {
-            invite_id: InviteId::new(generate_id("cx:invite:"))?,
+            invite_id: InviteId::new(generate_id("ck:invite:"))?,
             user_id: None,
             third_party: Some(third_party),
             role,
@@ -527,7 +527,7 @@ impl MembershipManager {
         state: MembershipState,
     ) -> Result<Operation> {
         Ok(Operation::create(
-            OperationId::new(generate_id("cx:operation:"))?,
+            OperationId::new(generate_id("ck:operation:"))?,
             RealmId::new(self.space_id.to_string())?,
             "membership",
             json!({
@@ -541,11 +541,11 @@ impl MembershipManager {
 
 // Track-scoped membership (`cx.flow.track.member` and
 // `FlowTrackMembership` / `FlowTrackMembershipManager`) was REMOVED in
-// contrix-spec revision `0a5ab85`. Track no longer carries independent
+// cokret-spec revision `0a5ab85`. Track no longer carries independent
 // membership; access semantics inherit from the Flow's Space. Use
 // `cx.member.state` at the Space or child Space level instead.
 //
-// See `contrix-spec/spec/v1/artifacts/registry/removed-event-kinds.json`.
+// See `cokret-spec/spec/v1/artifacts/registry/removed-event-kinds.json`.
 
 #[cfg(test)]
 mod tests {
@@ -557,7 +557,7 @@ mod tests {
 
     #[test]
     fn membership_transitions_cover_invite_join_leave_and_ban() {
-        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let mut manager = MembershipManager::new(space_id, alice.clone());
 
@@ -579,7 +579,7 @@ mod tests {
 
     #[test]
     fn membership_checks_role_capabilities() {
-        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let mut manager = MembershipManager::new(space_id, alice.clone());
         manager.upsert_member(alice, MembershipState::Joined, MemberRole::Admin, None);
@@ -591,7 +591,7 @@ mod tests {
 
     #[test]
     fn membership_manages_member_list_profiles_and_changes() {
-        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let bob = did("bob");
         let mut manager = MembershipManager::new(space_id, alice);
@@ -615,7 +615,7 @@ mod tests {
 
     #[test]
     fn membership_handles_did_and_third_party_invites() {
-        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let bob = did("bob");
         let mut manager = MembershipManager::new(space_id, alice.clone());
@@ -640,7 +640,7 @@ mod tests {
 
     #[test]
     fn invite_revocation_blocks_acceptance() {
-        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let bob = did("bob");
         let mut manager = MembershipManager::new(space_id, alice.clone());
@@ -658,7 +658,7 @@ mod tests {
 
     #[test]
     fn invite_cannot_revoke_accepted() {
-        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let bob = did("bob");
         let mut manager = MembershipManager::new(space_id, alice.clone());
@@ -670,7 +670,7 @@ mod tests {
 
     #[test]
     fn invite_expiration_marks_revoked() {
-        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let bob = did("bob");
         let mut manager = MembershipManager::new(space_id, alice.clone());
@@ -692,7 +692,7 @@ mod tests {
 
     #[test]
     fn invite_pending_invites_excludes_expired_and_revoked() {
-        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let bob = did("bob");
         let carol = did("carol");

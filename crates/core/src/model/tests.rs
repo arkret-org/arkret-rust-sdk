@@ -2,7 +2,7 @@ use super::*;
 use serde_json::json;
 
 fn test_realm_id() -> RealmId {
-    RealmId::new("cx:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
+    RealmId::new("ck:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
 }
 
 #[test]
@@ -18,8 +18,8 @@ fn did_validation_rejects_removed_uuid_method() {
 
 #[test]
 fn device_id_accepts_protocol_device_forms() {
-    assert!(DeviceId::new("cx:device:01904100-0000-7000-8000-000000000006").is_ok());
-    assert!(DeviceId::new("cx:device:01904100-0000-7000-8000-8b3ad8ecac70").is_ok());
+    assert!(DeviceId::new("ck:device:01904100-0000-7000-8000-000000000006").is_ok());
+    assert!(DeviceId::new("ck:device:01904100-0000-7000-8000-8b3ad8ecac70").is_ok());
     assert!(DeviceId::new("device-1").is_err());
 }
 
@@ -27,7 +27,7 @@ fn device_id_accepts_protocol_device_forms() {
 fn server_description_checks_protocol_version() {
     let desc = ServerDescription {
         service_did: Did::new("did:web:svc.example").unwrap(),
-        trust_domain: TypedTrustDomainId::new("cx:trust_domain:example.net").unwrap(),
+        trust_domain: TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
         service_type: "principal_server".to_owned(),
         protocol_version: "1.0".to_owned(),
         supported_profiles: vec![],
@@ -67,13 +67,13 @@ fn event_new_sets_required_event_id() {
     )
     .unwrap();
 
-    assert!(event.event_id.as_str().starts_with("cx:event:"));
+    assert!(event.event_id.as_str().starts_with("ck:event:"));
 }
 
 #[test]
 fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
     let event = Event {
-        event_id: EventId::new("cx:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
+        event_id: EventId::new("ck:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
         kind: "cx.message.create".to_owned(),
         realm_id: test_realm_id(),
         actor_id: Did::new("did:web:alice.example").unwrap(),
@@ -120,15 +120,15 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
         jws: "sig-a".to_owned(),
     };
     let envelope = OperationEnvelope {
-        operation_id: OperationId::new("cx:operation:01904100-0000-7000-8000-0198d483044c")
+        operation_id: OperationId::new("ck:operation:01904100-0000-7000-8000-0198d483044c")
             .unwrap(),
         realm_id: test_realm_id(),
         actor_id: Did::new("did:web:alice.example").unwrap(),
         kind: "cx.message.create".to_owned(),
-        target_ref: Some("cx:thread:general".to_owned()),
+        target_ref: Some("ck:thread:general".to_owned()),
         causal: CausalRef {
             deps: vec![
-                OperationId::new("cx:operation:01904100-0000-7000-8000-5f8278b99124").unwrap(),
+                OperationId::new("ck:operation:01904100-0000-7000-8000-5f8278b99124").unwrap(),
             ],
             hlc: Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
             actor_seq: 7,
@@ -189,7 +189,7 @@ fn operation_kind_registry_rejects_removed_flow_alias_kinds() {
 fn operation_kind_registry_drives_envelope_semantics() {
     let registry = OperationKindRegistry::default();
     let envelope = OperationEnvelope {
-        operation_id: OperationId::new("cx:operation:01904100-0000-7000-8000-0198d483044c")
+        operation_id: OperationId::new("ck:operation:01904100-0000-7000-8000-0198d483044c")
             .unwrap(),
         realm_id: test_realm_id(),
         actor_id: Did::new("did:web:alice.example").unwrap(),
@@ -201,7 +201,7 @@ fn operation_kind_registry_drives_envelope_semantics() {
             actor_seq: 1,
         },
         content: json!({
-            "flow_id": "cx:flow:01904100-0000-7000-8000-6c663fa0205f",
+            "flow_id": "ck:flow:01904100-0000-7000-8000-6c663fa0205f",
             "track_name": "discussion",
             "content": {"kind": "cx.content.text", "body": "hello"}
         }),
@@ -226,7 +226,7 @@ fn operation_envelope_builder_covers_every_builtin_kind() {
 
     for (index, kind) in BUILT_IN_OPERATION_KINDS.iter().enumerate() {
         let mut builder = OperationEnvelopeBuilder::new(
-            OperationId::new(format!("cx:operation:01904100-0000-7000-8000-{index:012x}")).unwrap(),
+            OperationId::new(format!("ck:operation:01904100-0000-7000-8000-{index:012x}")).unwrap(),
             realm_id.clone(),
             actor_id.clone(),
             *kind,
@@ -246,7 +246,7 @@ fn operation_envelope_builder_covers_every_builtin_kind() {
 fn operation_envelope_builder_requires_registered_kind_and_payload_fields() {
     let registry = OperationKindRegistry::default();
     let builder = OperationEnvelopeBuilder::new(
-        OperationId::new("cx:operation:01904100-0000-7000-8000-76b2a3b35ad0").unwrap(),
+        OperationId::new("ck:operation:01904100-0000-7000-8000-76b2a3b35ad0").unwrap(),
         test_realm_id(),
         Did::new("did:web:alice.example").unwrap(),
         OP_MESSAGE_CREATE,
@@ -256,14 +256,14 @@ fn operation_envelope_builder_requires_registered_kind_and_payload_fields() {
 
     assert!(builder.clone().build(&registry).is_err());
     let envelope = builder
-        .with_content_field("flow_id", json!("cx:flow:01904100-0000-7000-8000-6c663fa0205f"))
+        .with_content_field("flow_id", json!("ck:flow:01904100-0000-7000-8000-6c663fa0205f"))
         .with_content_field("track_name", json!("discussion"))
         .build(&registry)
         .unwrap();
     assert_eq!(envelope.kind, OP_MESSAGE_CREATE);
 
     let unknown = OperationEnvelopeBuilder::new(
-        OperationId::new("cx:operation:01904100-0000-7000-8000-e9d434a97fb1").unwrap(),
+        OperationId::new("ck:operation:01904100-0000-7000-8000-e9d434a97fb1").unwrap(),
         test_realm_id(),
         Did::new("did:web:alice.example").unwrap(),
         "unknown",
@@ -305,7 +305,7 @@ fn protocol_schema_registry_publishes_core_json_schemas() {
     registry
         .validate_value(
             ACCOUNT_SUBSCRIBE_FRAME_SCHEMA,
-            &json!({"kind": "delta", "cursor": "cx:cursor:s1", "realms": {}, "unknown_future_field": true}),
+            &json!({"kind": "delta", "cursor": "ck:cursor:s1", "realms": {}, "unknown_future_field": true}),
         )
         .unwrap();
     assert!(
@@ -316,8 +316,8 @@ fn protocol_schema_registry_publishes_core_json_schemas() {
             FLOW_SCHEMA,
             &json!({
                 "schema": FLOW_SCHEMA,
-                "id": "cx:flow:01904100-0000-7000-8000-6c663fa0205f",
-                "realm_id": "cx:realm:01904100-0000-7000-8000-fd3637e8361f",
+                "id": "ck:flow:01904100-0000-7000-8000-6c663fa0205f",
+                "realm_id": "ck:realm:01904100-0000-7000-8000-fd3637e8361f",
                 "metadata": {"title": "Topic"},
                 "stage": "draft",
                 "tracks": {"synthesis": {}},
@@ -367,8 +367,8 @@ fn schema_registry_generates_runtime_validators_from_supported_schema_subset() {
     }));
 
     let event = json!({
-        "event_id": "cx:event:01904100-0000-7000-8000-d408d6a2241c",
-        "space_id": "cx:space:01904100-0000-7000-8000-fd3637e8361f",
+        "event_id": "ck:event:01904100-0000-7000-8000-d408d6a2241c",
+        "space_id": "ck:space:01904100-0000-7000-8000-fd3637e8361f",
         "actor_id": "did:web:alice.example",
         "kind": "cx.message.create",
         "actor_seq": 1,
@@ -383,8 +383,8 @@ fn schema_registry_generates_runtime_validators_from_supported_schema_subset() {
     validator.validate(&event).unwrap();
 
     let wrong_type = json!({
-        "event_id": "cx:event:01904100-0000-7000-8000-d408d6a2241c",
-        "space_id": "cx:space:01904100-0000-7000-8000-fd3637e8361f",
+        "event_id": "ck:event:01904100-0000-7000-8000-d408d6a2241c",
+        "space_id": "ck:space:01904100-0000-7000-8000-fd3637e8361f",
         "actor_id": "did:web:alice.example",
         "kind": "cx.message.create",
         "actor_seq": 1,
@@ -398,8 +398,8 @@ fn schema_registry_generates_runtime_validators_from_supported_schema_subset() {
     assert!(validator.validate(&wrong_type).is_err());
 
     let sensitive_extension = json!({
-        "event_id": "cx:event:01904100-0000-7000-8000-d408d6a2241c",
-        "space_id": "cx:space:01904100-0000-7000-8000-fd3637e8361f",
+        "event_id": "ck:event:01904100-0000-7000-8000-d408d6a2241c",
+        "space_id": "ck:space:01904100-0000-7000-8000-fd3637e8361f",
         "actor_id": "did:web:alice.example",
         "kind": "cx.message.create",
         "actor_seq": 1,
@@ -439,8 +439,8 @@ fn schema_registry_generates_runtime_validators_from_supported_schema_subset() {
 fn schema_registry_fails_closed_for_unknown_security_extensions() {
     let mut registry = ProtocolSchemaRegistry::default();
     let value = json!({
-        "event_id": "cx:event:01904100-0000-7000-8000-d408d6a2241c",
-        "space_id": "cx:space:01904100-0000-7000-8000-fd3637e8361f",
+        "event_id": "ck:event:01904100-0000-7000-8000-d408d6a2241c",
+        "space_id": "ck:space:01904100-0000-7000-8000-fd3637e8361f",
         "actor_id": "did:web:alice.example",
         "kind": "cx.message.create",
         "actor_seq": 1,
@@ -458,8 +458,8 @@ fn schema_registry_fails_closed_for_unknown_security_extensions() {
     registry.validate_value(EVENT_SCHEMA, &value).unwrap();
 
     let ordinary_extension = json!({
-        "event_id": "cx:event:01904100-0000-7000-8000-d408d6a2241c",
-        "space_id": "cx:space:01904100-0000-7000-8000-fd3637e8361f",
+        "event_id": "ck:event:01904100-0000-7000-8000-d408d6a2241c",
+        "space_id": "ck:space:01904100-0000-7000-8000-fd3637e8361f",
         "actor_id": "did:web:alice.example",
         "kind": "cx.message.create",
         "actor_seq": 1,
@@ -567,7 +567,7 @@ fn signature_binding_payload_matches_canonical_vector() {
 fn fact_chain_echo_validates_server_proof_binding() {
     let mut echo = FactChainEcho {
         echo_id: "echo1".to_owned(),
-        subject_ref: "cx:event:01904100-0000-7000-8000-834e21b98552".to_owned(),
+        subject_ref: "ck:event:01904100-0000-7000-8000-834e21b98552".to_owned(),
         server_did: Did::new("did:web:server.example").unwrap(),
         operation_hash: Hash::new(
             "sha256:1111111111111111111111111111111111111111111111111111111111111111",
@@ -643,7 +643,7 @@ fn mls_envelopes_build_protocol_operations() {
         group_id: "group1".to_owned(),
         epoch: 2,
         recipient_principal_id: Did::new("did:web:bob.example").unwrap(),
-        recipient_device_id: DeviceId::new("cx:device:01904100-0000-7000-8000-000000000007")
+        recipient_device_id: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000007")
             .unwrap(),
         welcome: "welcome-bytes".to_owned(),
         welcome_hash: hash,
@@ -652,19 +652,19 @@ fn mls_envelopes_build_protocol_operations() {
 
     let proposal_op = proposal
         .operation(
-            OperationId::new("cx:operation:01904100-0000-7000-8000-b88de80d815c").unwrap(),
+            OperationId::new("ck:operation:01904100-0000-7000-8000-b88de80d815c").unwrap(),
             realm_id.clone(),
         )
         .unwrap();
     let commit_op = commit
         .operation(
-            OperationId::new("cx:operation:01904100-0000-7000-8000-3bfead8e02bc").unwrap(),
+            OperationId::new("ck:operation:01904100-0000-7000-8000-3bfead8e02bc").unwrap(),
             realm_id.clone(),
         )
         .unwrap();
     let welcome_op = welcome
         .operation(
-            OperationId::new("cx:operation:01904100-0000-7000-8000-059e659fdcc8").unwrap(),
+            OperationId::new("ck:operation:01904100-0000-7000-8000-059e659fdcc8").unwrap(),
             realm_id,
         )
         .unwrap();
@@ -676,7 +676,7 @@ fn mls_envelopes_build_protocol_operations() {
     assert_eq!(commit_op.payload["epoch"], 2);
     assert_eq!(
         welcome_op.payload["recipient_device_id"],
-        "cx:device:01904100-0000-7000-8000-000000000007"
+        "ck:device:01904100-0000-7000-8000-000000000007"
     );
 }
 
@@ -706,12 +706,12 @@ fn hlc_sorts_by_structured_parts() {
 fn relation_requires_exact_wire_endpoints() {
     let relation = Relation {
         schema: RELATION_SCHEMA.to_owned(),
-        id: RelationId::new("cx:relation:01904100-0000-7000-8000-7b3bf7d6e46b").unwrap(),
-        realm_id: RealmId::new("cx:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
+        id: RelationId::new("ck:relation:01904100-0000-7000-8000-7b3bf7d6e46b").unwrap(),
+        realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
         scope_circle_id: None,
         effective_scope: None,
         relation_kind: RelationKind::Mentions,
-        from_ref: "cx:morph:01904100-0000-7000-8000-c12dc98b2948".to_owned(),
+        from_ref: "ck:morph:01904100-0000-7000-8000-c12dc98b2948".to_owned(),
         to_ref: "did:web:alice.example".to_owned(),
         rank: None,
         fields: BTreeMap::new(),
@@ -726,7 +726,7 @@ fn relation_requires_exact_wire_endpoints() {
 #[test]
 fn query_request_uses_protocol_filters_array() {
     let request = QueryReqBody {
-        realm_ids: vec![RealmId::new("cx:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap()],
+        realm_ids: vec![RealmId::new("ck:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap()],
         object_types: vec!["morph".to_owned()],
         morph_types: vec!["task".to_owned()],
         facets: vec![Facet::Stateful, Facet::Rankable],
@@ -772,7 +772,7 @@ fn facets_accept_name_lists_and_config_maps() {
 #[test]
 fn view_supports_renderer_and_facet_config_facades() {
     let request = QueryReqBody {
-        realm_ids: vec![RealmId::new("cx:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap()],
+        realm_ids: vec![RealmId::new("ck:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap()],
         object_types: Vec::new(),
         morph_types: Vec::new(),
         facets: vec![Facet::Stateful, Facet::Rankable],
@@ -788,8 +788,8 @@ fn view_supports_renderer_and_facet_config_facades() {
     };
     let view = View {
         schema: VIEW_SCHEMA.to_owned(),
-        id: ViewId::new("cx:view:01904100-0000-7000-8000-848727f328fe").unwrap(),
-        realm_id: RealmId::new("cx:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
+        id: ViewId::new("ck:view:01904100-0000-7000-8000-848727f328fe").unwrap(),
+        realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
         kind: ViewKind::Collection,
         visibility: None,
         renderer: Some(ViewRenderer::Board),
@@ -820,18 +820,18 @@ fn view_supports_renderer_and_facet_config_facades() {
 #[test]
 fn operation_serializes_protocol_field_names() {
     let mut operation = Operation::create(
-        OperationId::new("cx:operation:01904100-0000-7000-8000-d408d6a2241c").unwrap(),
-        RealmId::new("cx:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
+        OperationId::new("ck:operation:01904100-0000-7000-8000-d408d6a2241c").unwrap(),
+        RealmId::new("ck:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
         "morph",
-        json!({"id":"cx:morph:01904100-0000-7000-8000-c12dc98b2948"}),
+        json!({"id":"ck:morph:01904100-0000-7000-8000-c12dc98b2948"}),
     );
-    operation.object_id = Some("cx:morph:01904100-0000-7000-8000-c12dc98b2948".to_owned());
+    operation.object_id = Some("ck:morph:01904100-0000-7000-8000-c12dc98b2948".to_owned());
 
     let value = serde_json::to_value(operation).unwrap();
 
     assert_eq!(value["type"], "operation");
     assert_eq!(value["operation_type"], "create");
-    assert_eq!(value["object_id"], "cx:morph:01904100-0000-7000-8000-c12dc98b2948");
+    assert_eq!(value["object_id"], "ck:morph:01904100-0000-7000-8000-c12dc98b2948");
     assert_eq!(value["object_type"], "morph");
     assert!(value.get("target_object_id").is_none());
     assert_eq!(value["schema"], OPERATION_SCHEMA);
@@ -1076,7 +1076,7 @@ fn event_digest_includes_profile_refs_features_and_critical_extensions() {
 #[test]
 fn operation_draft_explicitly_materializes_event_envelope_without_signed_operation_id() {
     let operation = OperationEnvelopeBuilder::new(
-        OperationId::new("cx:operation:01904100-0000-7000-8000-9c5aa474063f").unwrap(),
+        OperationId::new("ck:operation:01904100-0000-7000-8000-9c5aa474063f").unwrap(),
         test_realm_id(),
         Did::new("did:web:alice.example").unwrap(),
         OP_MESSAGE_CREATE,
@@ -1084,7 +1084,7 @@ fn operation_draft_explicitly_materializes_event_envelope_without_signed_operati
         Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
     )
     .with_content(json!({
-        "flow_id": "cx:flow:01904100-0000-7000-8000-6c663fa0205f",
+        "flow_id": "ck:flow:01904100-0000-7000-8000-6c663fa0205f",
         "track_name": "discussion",
         "content": {"kind": "cx.content.text", "body": "hello"}
     }))
@@ -1097,14 +1097,14 @@ fn operation_draft_explicitly_materializes_event_envelope_without_signed_operati
     assert_eq!(
         event.content,
         json!({
-            "flow_id": "cx:flow:01904100-0000-7000-8000-6c663fa0205f",
+            "flow_id": "ck:flow:01904100-0000-7000-8000-6c663fa0205f",
             "track_name": "discussion",
             "content": {"kind": "cx.content.text", "body": "hello"}
         })
     );
     assert_eq!(
         event.unsigned["local_operation_idempotency_alias"],
-        json!("cx:operation:01904100-0000-7000-8000-9c5aa474063f")
+        json!("ck:operation:01904100-0000-7000-8000-9c5aa474063f")
     );
     assert!(!event.digest_payload().unwrap().to_string().contains("local_operation_id"));
 }
@@ -1117,9 +1117,9 @@ fn rank_helpers_generate_between_and_rebalance_assignments() {
     assert!(rank_exhausted(Some("r:0000000000000001"), Some("r:0000000000000002")).unwrap());
 
     let assignments = container_rebalance_assignments(&[
-        "cx:morph:01904100-0000-7000-8000-8b4aa2ca29ef".to_owned(),
-        "cx:morph:01904100-0000-7000-8000-d5864c129df4".to_owned(),
-        "cx:morph:01904100-0000-7000-8000-6057e4215f24".to_owned(),
+        "ck:morph:01904100-0000-7000-8000-8b4aa2ca29ef".to_owned(),
+        "ck:morph:01904100-0000-7000-8000-d5864c129df4".to_owned(),
+        "ck:morph:01904100-0000-7000-8000-6057e4215f24".to_owned(),
     ])
     .unwrap();
     assert_eq!(assignments.len(), 3);
@@ -1130,8 +1130,8 @@ fn rank_helpers_generate_between_and_rebalance_assignments() {
 #[test]
 fn flow_constructor_sets_protocol_shape() {
     let mut subject = Flow::new(
-        "cx:flow:01904100-0000-7000-8000-6c663fa0205f",
-        RealmId::new("cx:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
+        "ck:flow:01904100-0000-7000-8000-6c663fa0205f",
+        RealmId::new("ck:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
         "Payment refactor",
         Did::new("did:web:alice.example").unwrap(),
     );
@@ -1151,8 +1151,8 @@ fn flow_constructor_sets_protocol_shape() {
 #[test]
 fn flow_discussion_constructor_sets_room_shape() {
     let flow = Flow::discussion(
-        "cx:flow:01904100-0000-7000-8000-58754cf88c25",
-        RealmId::new("cx:realm:01904100-0000-7000-8000-2007b59d0dc4").unwrap(),
+        "ck:flow:01904100-0000-7000-8000-58754cf88c25",
+        RealmId::new("ck:realm:01904100-0000-7000-8000-2007b59d0dc4").unwrap(),
         "Launch board discussion",
         Did::new("did:web:alice.example").unwrap(),
     );
@@ -1169,7 +1169,7 @@ fn flow_discussion_constructor_sets_room_shape() {
 
 #[test]
 fn read_scope_flow_track_uses_explicit_track_field() {
-    let scope = ReadScope::flow("cx:flow:01904100-0000-7000-8000-58754cf88c25", Some("discussion"));
+    let scope = ReadScope::flow("ck:flow:01904100-0000-7000-8000-58754cf88c25", Some("discussion"));
     scope.validate().unwrap();
 
     let value = serde_json::to_value(&scope).unwrap();
@@ -1177,7 +1177,7 @@ fn read_scope_flow_track_uses_explicit_track_field() {
         value,
         serde_json::json!({
             "kind": "flow",
-            "ref": "cx:flow:01904100-0000-7000-8000-58754cf88c25",
+            "ref": "ck:flow:01904100-0000-7000-8000-58754cf88c25",
             "track_name": "discussion"
         })
     );
@@ -1193,8 +1193,8 @@ fn read_scope_rejects_removed_track_kind_variants() {
 #[test]
 fn synthesis_flow_is_not_conversational() {
     let flow = Flow::new(
-        "cx:flow:01904100-0000-7000-8000-58754cf88c25",
-        RealmId::new("cx:realm:01904100-0000-7000-8000-2007b59d0dc4").unwrap(),
+        "ck:flow:01904100-0000-7000-8000-58754cf88c25",
+        RealmId::new("ck:realm:01904100-0000-7000-8000-2007b59d0dc4").unwrap(),
         "Launch board synthesis",
         Did::new("did:web:alice.example").unwrap(),
     );
@@ -1231,10 +1231,10 @@ fn space_anchor_fields_default_none_and_builders_apply() {
     use crate::anchorer::AnchorerValue;
 
     let mut space = Space::new(
-        SpaceId::new("cx:space:0196419b-0000-7000-8000-000000000001").unwrap(),
+        SpaceId::new("ck:space:0196419b-0000-7000-8000-000000000001").unwrap(),
         "Anchor Test",
         Did::new("did:web:alice.example").unwrap(),
-        TypedTrustDomainId::new("cx:trust_domain:example.net").unwrap(),
+        TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
     );
     assert!(space.anchor_profile.is_none());
     assert!(space.anchorer.is_none());
@@ -1284,10 +1284,10 @@ fn space_anchor_fields_default_none_and_builders_apply() {
 #[test]
 fn space_anchor_fields_omitted_when_none() {
     let space = Space::new(
-        SpaceId::new("cx:space:0196419b-0000-7000-8000-000000000002").unwrap(),
+        SpaceId::new("ck:space:0196419b-0000-7000-8000-000000000002").unwrap(),
         "No Anchor Hint",
         Did::new("did:web:alice.example").unwrap(),
-        TypedTrustDomainId::new("cx:trust_domain:example.net").unwrap(),
+        TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
     );
     let json = serde_json::to_value(&space).unwrap();
     let obj = json.as_object().unwrap();
@@ -1306,22 +1306,22 @@ fn collection_projection_response_serde_round_trip() {
     let payload = serde_json::json!({
         "kind": "collection",
         "renderer": "board",
-        "view_id": "cx:view:019641be-0000-7000-8000-000000000000",
-        "frontier": ["cx:event:01904100-0000-7000-8000-69b393b5179f"],
+        "view_id": "ck:view:019641be-0000-7000-8000-000000000000",
+        "frontier": ["ck:event:01904100-0000-7000-8000-69b393b5179f"],
         "groups": [
             {
-                "group_id": "cx:space:01c3b617-7000-7000-8000-000000000000",
+                "group_id": "ck:space:01c3b617-7000-7000-8000-000000000000",
                 "title": "Review",
                 "rank": "mV",
                 "items": [
                     {
                         "object": {
-                            "id": "cx:flow:01d2b330-0000-7000-8000-000000000000",
+                            "id": "ck:flow:01d2b330-0000-7000-8000-000000000000",
                             "type": "flow",
                             "title": "Legal review"
                         },
                         "position": {
-                            "relation_id": "cx:relation:01b03200-0000-7000-8000-000000000000",
+                            "relation_id": "ck:relation:01b03200-0000-7000-8000-000000000000",
                             "rank": "mV"
                         },
                         "discussion": {
@@ -1338,21 +1338,21 @@ fn collection_projection_response_serde_round_trip() {
         serde_json::from_value(payload.clone()).expect("deserialize");
     assert!(matches!(resp.kind, ViewKind::Collection));
     assert!(matches!(resp.renderer, ViewRenderer::Board));
-    assert_eq!(resp.view_id.as_str(), "cx:view:019641be-0000-7000-8000-000000000000");
+    assert_eq!(resp.view_id.as_str(), "ck:view:019641be-0000-7000-8000-000000000000");
     assert_eq!(resp.frontier.len(), 1);
     assert_eq!(resp.groups.len(), 1);
     let group = &resp.groups[0];
-    assert_eq!(group.group_id, "cx:space:01c3b617-7000-7000-8000-000000000000");
+    assert_eq!(group.group_id, "ck:space:01c3b617-7000-7000-8000-000000000000");
     assert_eq!(group.title, "Review");
     assert_eq!(group.rank.as_deref(), Some("mV"));
     assert_eq!(group.items.len(), 1);
     let item = &group.items[0];
     assert_eq!(
         item.object.get("id").and_then(|v| v.as_str()),
-        Some("cx:flow:01d2b330-0000-7000-8000-000000000000")
+        Some("ck:flow:01d2b330-0000-7000-8000-000000000000")
     );
     let position = item.position.as_ref().expect("position");
-    assert_eq!(position.relation_id, "cx:relation:01b03200-0000-7000-8000-000000000000");
+    assert_eq!(position.relation_id, "ck:relation:01b03200-0000-7000-8000-000000000000");
     assert_eq!(position.rank, "mV");
     let discussion = item.discussion.as_ref().expect("discussion");
     assert!(discussion.enabled);
@@ -1370,7 +1370,7 @@ fn collection_projection_response_serde_round_trip() {
 #[test]
 fn collection_projection_group_omits_hidden_count_when_none() {
     let group = CollectionProjectionGroup {
-        group_id: "cx:space:01904100-0000-7000-8000-b83c6d2ca363".to_owned(),
+        group_id: "ck:space:01904100-0000-7000-8000-b83c6d2ca363".to_owned(),
         title: "List".to_owned(),
         rank: Some("a0".to_owned()),
         items: Vec::new(),

@@ -1,9 +1,9 @@
 //! macOS Keychain Services backend for [`KeyStore`].
 //!
 //! Wires generic-password keychain items via the `security-framework`
-//! crate. Each Contrix-using app supplies an `application_id` at
+//! crate. Each Cokret-using app supplies an `application_id` at
 //! construction time; items are stored under the service name
-//! `"contrix.<application_id>"` so independent apps don't trample each
+//! `"cokret.<application_id>"` so independent apps don't trample each
 //! other on a shared host.
 //!
 //! Implementation notes:
@@ -28,7 +28,7 @@ use crate::keystore::{KeyStore, KeyStoreError, service_name, validate_id};
 /// Construct with [`MacOsKeychainKeyStore::new`] supplying the host
 /// application id (a stable reverse-DNS string, e.g.
 /// `"chat.acroidea.yougen"`). All keychain items written through this
-/// keystore live under service `"contrix.<application_id>"`.
+/// keystore live under service `"cokret.<application_id>"`.
 pub struct MacOsKeychainKeyStore {
     service: String,
 }
@@ -138,7 +138,7 @@ mod tests {
     use super::*;
 
     fn unique_app_id() -> String {
-        format!("contrix.test.{}", uuid_like())
+        format!("cokret.test.{}", uuid_like())
     }
 
     fn uuid_like() -> String {
@@ -150,7 +150,7 @@ mod tests {
     #[test]
     fn round_trip_store_load_delete() {
         let store = MacOsKeychainKeyStore::new(&unique_app_id()).unwrap();
-        let id = "contrix:signer:alice:k1";
+        let id = "cokret:signer:alice:k1";
         store.store(id, b"keychain-secret-1").unwrap();
         assert_eq!(store.load(id).unwrap(), b"keychain-secret-1");
         store.delete(id).unwrap();
@@ -161,7 +161,7 @@ mod tests {
     #[test]
     fn store_overwrites_existing_id() {
         let store = MacOsKeychainKeyStore::new(&unique_app_id()).unwrap();
-        let id = "contrix:signer:bob:k1";
+        let id = "cokret:signer:bob:k1";
         store.store(id, b"first").unwrap();
         store.store(id, b"second").unwrap();
         assert_eq!(store.load(id).unwrap(), b"second");

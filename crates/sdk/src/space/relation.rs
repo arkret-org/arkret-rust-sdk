@@ -33,8 +33,8 @@ impl Space {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let relation_id = RelationId::new(generate_id("cx:relation:"))?;
-        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let relation_id = RelationId::new(generate_id("ck:relation:"))?;
+        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
 
         let mut relation = json!({
             "id": relation_id.as_str(),
@@ -63,7 +63,7 @@ impl Space {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         let payload = json!({ "relation_id": relation_id.as_str() });
 
         Ok(Operation::create(operation_id, self.realm_id()?, OP_RELATION_TOMBSTONE, payload))

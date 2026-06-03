@@ -181,11 +181,11 @@ mod tests {
     }
 
     fn space() -> SpaceId {
-        SpaceId::new("cx:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+        SpaceId::new("ck:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn anchor_id(byte: u8) -> AnchorId {
-        AnchorId::new(format!("cx:anchor:sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
+        AnchorId::new(format!("ck:anchor:sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
     }
 
     fn move_id(byte: u8) -> MoveId {
@@ -207,7 +207,7 @@ mod tests {
             anchor_id(0xaa),
             vec![Effect {
                 cell: CellRef::new(
-                    "cx:cell:cx.component.member.state.v1:did.web.alice.example".to_owned(),
+                    "ck:cell:cx.component.member.state.v1:did.web.alice.example".to_owned(),
                 )
                 .unwrap(),
                 op: LatticeOp {

@@ -1,18 +1,18 @@
-//! R3.3 (CXP-0011, contrix-spec @ cced4b8) — client-agnostic shareable object
+//! R3.3 (CXP-0011, cokret-spec @ cced4b8) — client-agnostic shareable object
 //! addressing grammar + invite-token target binding.
 //!
 //! A shareable address points at a Realm, a Flow inside a Realm, or a Message
 //! inside a Flow. Three envelopes share ONE grammar:
 //!
-//! * logical id `cx:<kind>:<uuid>` — opaque, never carries via/action/token.
-//! * `web+contrix:` URI scheme:
-//!   `web+contrix:realm/<realm>/flow/<flow>/m/<msg>?action=view`
+//! * logical id `ck:<kind>:<uuid>` — opaque, never carries via/action/token.
+//! * `web+cokret:` URI scheme:
+//!   `web+cokret:realm/<realm>/flow/<flow>/m/<msg>?action=view`
 //! * HTTPS landing: `https://<landing>/#realm/.../flow/...?action=...` — everything
-//!   AFTER the `#` is the SAME grammar as the `web+contrix:` form (strip the
+//!   AFTER the `#` is the SAME grammar as the `web+cokret:` form (strip the
 //!   `https://<host>/#` shell, then reuse the same parser).
 //!
 //! ## Normative grammar rules
-//! * PATH carries identity: keyword + bare uuid (the `cx:<kind>:` sigil is
+//! * PATH carries identity: keyword + bare uuid (the `ck:<kind>:` sigil is
 //!   stripped). Hierarchy is fixed `realm/<r>` ⊃ `flow/<f>` ⊃ `m/<msg>`. The
 //!   message anchor keyword is exactly `m/`.
 //! * The `<realm>` segment: a UUIDv7 textual form is a `realm_id`; otherwise it
@@ -44,8 +44,8 @@ use contrix_identifiers::is_lowercase_uuidv7;
 
 use crate::{Error, Result, canonical};
 
-/// `web+contrix:` URI scheme prefix.
-pub const WEB_CONTRIX_SCHEME: &str = "web+contrix:";
+/// `web+cokret:` URI scheme prefix.
+pub const WEB_CONTRIX_SCHEME: &str = "web+cokret:";
 
 /// Link type carried by an address. `reference` is the default and carries no
 /// authorization; `invite` carries membership/join material; `preview` carries
@@ -118,7 +118,7 @@ impl AddressAction {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmRef {
-    /// Bare lowercase UUIDv7 (sigil-stripped `cx:realm:` identity).
+    /// Bare lowercase UUIDv7 (sigil-stripped `ck:realm:` identity).
     RealmId(String),
     /// Domain-style alias requiring server-side resolution.
     Alias(String),
@@ -144,7 +144,7 @@ impl RealmRef {
 }
 
 /// A parsed shareable address. `flow` / `message` are bare uuid strings (the
-/// `cx:<kind>:` sigil is stripped on the wire).
+/// `ck:<kind>:` sigil is stripped on the wire).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ParsedAddress {
     pub realm: RealmRef,
@@ -179,12 +179,12 @@ fn protocol_err(reason: &str) -> Error {
 }
 
 /// Split an address string into its `(path, query)` halves after stripping the
-/// envelope shell. Accepts the `web+contrix:` scheme and the HTTPS-fragment
+/// envelope shell. Accepts the `web+cokret:` scheme and the HTTPS-fragment
 /// landing form. Returns the raw path (no leading `/`) and the raw query (no
 /// leading `?`), both percent-encoded as received.
 fn strip_shell(input: &str) -> Result<(String, String)> {
     let body = if let Some(rest) = input.strip_prefix(WEB_CONTRIX_SCHEME) {
-        // `web+contrix:realm/...` — opaque-path URI, no `//` authority.
+        // `web+cokret:realm/...` — opaque-path URI, no `//` authority.
         rest.trim_start_matches('/').to_owned()
     } else if input.starts_with("https://") || input.starts_with("http://") {
         // HTTPS landing: everything AFTER the first `#` is the same grammar.
@@ -196,7 +196,7 @@ fn strip_shell(input: &str) -> Result<(String, String)> {
         fragment.trim_start_matches('/').to_owned()
     } else {
         return Err(protocol_err(
-            "unrecognized address envelope (expected web+contrix: or https://.../#)",
+            "unrecognized address envelope (expected web+cokret: or https://.../#)",
         ));
     };
 
@@ -357,7 +357,7 @@ fn parse_query(query: &str) -> (AddressAction, LinkType, Option<String>) {
     (action, link_type, tok)
 }
 
-/// Parse a shareable object address from EITHER the `web+contrix:` URI form or
+/// Parse a shareable object address from EITHER the `web+cokret:` URI form or
 /// the HTTPS-landing fragment form into a [`ParsedAddress`].
 ///
 /// Fails closed on: unrecognized envelope, unknown/misordered path keyword, a
@@ -371,7 +371,7 @@ pub fn parse_address(input: &str) -> Result<ParsedAddress> {
     Ok(ParsedAddress { realm, flow, message, action, link_type, token })
 }
 
-/// Build a canonical `web+contrix:` address from its parts. `action` is emitted
+/// Build a canonical `web+cokret:` address from its parts. `action` is emitted
 /// only when non-default; `lt`/`tok` are emitted
 /// only for invite / preview links.
 pub fn build_address(parsed: &ParsedAddress) -> String {
@@ -392,7 +392,7 @@ pub fn build_address(parsed: &ParsedAddress) -> String {
 }
 
 /// Build an HTTPS landing URL. The target + token live in the fragment, which
-/// reuses the canonical `web+contrix:` grammar (sans scheme).
+/// reuses the canonical `web+cokret:` grammar (sans scheme).
 ///
 /// TODO(R3.3.1): RFC 3986 percent-encode the `landing` host/path and the
 /// fragment's reserved characters; v1 assumes a bare host and ASCII-safe ids.
@@ -427,7 +427,7 @@ fn build_query(parsed: &ParsedAddress) -> String {
     if parts.is_empty() { String::new() } else { format!("?{}", parts.join("&")) }
 }
 
-/// Wrap a bare uuid (or already-typed id) into a canonical `cx:<kind>:<uuid>`
+/// Wrap a bare uuid (or already-typed id) into a canonical `ck:<kind>:<uuid>`
 /// identifier. Idempotent if the input already carries the prefix.
 fn typed_id(prefix: &str, bare: &str) -> String {
     if bare.starts_with(prefix) { bare.to_owned() } else { format!("{prefix}{bare}") }
@@ -439,7 +439,7 @@ fn typed_id(prefix: &str, bare: &str) -> String {
 /// only for flow/message targets; `message_id` only for message targets. Absent
 /// hierarchy fields are OMITTED ENTIRELY (never serialized as `null`) so the
 /// canonical-JSON digest does not drift. VALUES are typed canonical ids
-/// (`cx:realm:<uuid>` etc.), never the bare path uuid or an alias string.
+/// (`ck:realm:<uuid>` etc.), never the bare path uuid or an alias string.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct TargetDescriptor {
@@ -461,7 +461,7 @@ impl TargetDescriptor {
     /// digest is computed — the digest is meaningless over an alias.
     pub fn from_parsed(parsed: &ParsedAddress) -> Self {
         let realm_id = match &parsed.realm {
-            RealmRef::RealmId(uuid) => typed_id("cx:realm:", uuid),
+            RealmRef::RealmId(uuid) => typed_id("ck:realm:", uuid),
             // TODO(R3.3.1): alias → canonical realm_id needs a directory
             // round-trip; the caller MUST inject the resolved id via
             // `set_realm_id` before digesting/signing.
@@ -469,17 +469,17 @@ impl TargetDescriptor {
         };
         TargetDescriptor {
             realm_id,
-            flow_id: parsed.flow.as_deref().map(|f| typed_id("cx:flow:", f)),
-            message_id: parsed.message.as_deref().map(|m| typed_id("cx:message:", m)),
+            flow_id: parsed.flow.as_deref().map(|f| typed_id("ck:flow:", f)),
+            message_id: parsed.message.as_deref().map(|m| typed_id("ck:message:", m)),
             link_type: parsed.link_type,
         }
     }
 
-    /// Inject the server-resolved canonical `cx:realm:<uuid>` id (used when the
+    /// Inject the server-resolved canonical `ck:realm:<uuid>` id (used when the
     /// address arrived as an alias). Idempotent prefix handling.
     pub fn set_realm_id(&mut self, realm_id: impl Into<String>) {
         let realm_id = realm_id.into();
-        self.realm_id = typed_id("cx:realm:", &realm_id);
+        self.realm_id = typed_id("ck:realm:", &realm_id);
     }
 }
 
@@ -518,7 +518,7 @@ pub fn verify_token_target(
 
     // If the address still carries an alias realm, we cannot honestly compare
     // identity — fail closed.
-    if !expected.realm_id.starts_with("cx:realm:") {
+    if !expected.realm_id.starts_with("ck:realm:") {
         return false;
     }
 
@@ -551,7 +551,7 @@ mod tests {
 
     #[test]
     fn parse_realm_address_uuid() {
-        let parsed = parse_address(&format!("web+contrix:realm/{R}")).unwrap();
+        let parsed = parse_address(&format!("web+cokret:realm/{R}")).unwrap();
         assert_eq!(parsed.realm, RealmRef::RealmId(R.to_owned()));
         assert!(parsed.is_realm());
         assert_eq!(parsed.link_type, LinkType::Reference);
@@ -560,18 +560,18 @@ mod tests {
 
     #[test]
     fn parse_realm_address_alias() {
-        let parsed = parse_address("web+contrix:realm/team.example.com").unwrap();
+        let parsed = parse_address("web+cokret:realm/team.example.com").unwrap();
         assert_eq!(parsed.realm, RealmRef::Alias("team.example.com".to_owned()));
     }
 
     #[test]
     fn parse_flow_and_message_addresses() {
-        let flow = parse_address(&format!("web+contrix:realm/{R}/flow/{F}")).unwrap();
+        let flow = parse_address(&format!("web+cokret:realm/{R}/flow/{F}")).unwrap();
         assert!(flow.is_flow());
         assert_eq!(flow.flow.as_deref(), Some(F));
 
         let msg =
-            parse_address(&format!("web+contrix:realm/{R}/flow/{F}/m/{M}?action=reply")).unwrap();
+            parse_address(&format!("web+cokret:realm/{R}/flow/{F}/m/{M}?action=reply")).unwrap();
         assert!(msg.is_message());
         assert_eq!(msg.message.as_deref(), Some(M));
         assert_eq!(msg.action, AddressAction::Reply);
@@ -580,7 +580,7 @@ mod tests {
     #[test]
     fn retired_via_hint_is_ignored() {
         let parsed =
-            parse_address(&format!("web+contrix:realm/{R}/flow/{F}?via=did:web:a&via=did:web:b"))
+            parse_address(&format!("web+cokret:realm/{R}/flow/{F}?via=did:web:a&via=did:web:b"))
                 .unwrap();
         assert!(parsed.is_flow());
     }
@@ -588,7 +588,7 @@ mod tests {
     #[test]
     fn query_percent_decode_handles_complete_and_truncated_octets() {
         let parsed =
-            parse_address(&format!("web+contrix:realm/{R}/flow/{F}?lt=preview&tok=a%2Fb%25c%2"))
+            parse_address(&format!("web+cokret:realm/{R}/flow/{F}?lt=preview&tok=a%2Fb%25c%2"))
                 .unwrap();
         assert_eq!(parsed.token.as_deref(), Some("a/b%c%2"));
     }
@@ -597,7 +597,7 @@ mod tests {
 
     #[test]
     fn web_contrix_roundtrip() {
-        let parsed = parse_address(&format!("web+contrix:realm/{R}/flow/{F}/m/{M}")).unwrap();
+        let parsed = parse_address(&format!("web+cokret:realm/{R}/flow/{F}/m/{M}")).unwrap();
         let rebuilt = build_address(&parsed);
         let reparsed = parse_address(&rebuilt).unwrap();
         assert_eq!(parsed, reparsed);
@@ -605,11 +605,11 @@ mod tests {
 
     #[test]
     fn https_landing_equivalence() {
-        let parsed = parse_address(&format!("web+contrix:realm/{R}/flow/{F}?action=join")).unwrap();
-        let landing = build_https_landing("https://share.contrix.example", &parsed);
-        assert!(landing.starts_with("https://share.contrix.example/#realm/"));
+        let parsed = parse_address(&format!("web+cokret:realm/{R}/flow/{F}?action=join")).unwrap();
+        let landing = build_https_landing("https://share.cokret.example", &parsed);
+        assert!(landing.starts_with("https://share.cokret.example/#realm/"));
         // Everything after `#` is the same grammar → reparse yields the same
-        // ParsedAddress as the web+contrix: form.
+        // ParsedAddress as the web+cokret: form.
         let reparsed = parse_address(&landing).unwrap();
         assert_eq!(parsed, reparsed);
     }
@@ -636,31 +636,31 @@ mod tests {
 
     #[test]
     fn unknown_keyword_fails_closed() {
-        assert!(parse_address(&format!("web+contrix:space/{R}")).is_err());
-        assert!(parse_address(&format!("web+contrix:realm/{R}/thread/{F}?via={VIA}")).is_err());
+        assert!(parse_address(&format!("web+cokret:space/{R}")).is_err());
+        assert!(parse_address(&format!("web+cokret:realm/{R}/thread/{F}?via={VIA}")).is_err());
     }
 
     #[test]
     fn flow_or_message_without_via_is_valid() {
-        assert!(parse_address(&format!("web+contrix:realm/{R}/flow/{F}")).is_ok());
-        assert!(parse_address(&format!("web+contrix:realm/{R}/flow/{F}/m/{M}")).is_ok());
+        assert!(parse_address(&format!("web+cokret:realm/{R}/flow/{F}")).is_ok());
+        assert!(parse_address(&format!("web+cokret:realm/{R}/flow/{F}/m/{M}")).is_ok());
     }
 
     #[test]
     fn missing_intermediate_level_fails_closed() {
         // `m/` without a `flow/` level.
-        assert!(parse_address(&format!("web+contrix:realm/{R}/m/{M}?via={VIA}")).is_err());
+        assert!(parse_address(&format!("web+cokret:realm/{R}/m/{M}?via={VIA}")).is_err());
     }
 
     #[test]
     fn wrong_order_fails_closed() {
-        assert!(parse_address(&format!("web+contrix:flow/{F}/realm/{R}?via={VIA}")).is_err());
+        assert!(parse_address(&format!("web+cokret:flow/{F}/realm/{R}?via={VIA}")).is_err());
     }
 
     #[test]
     fn non_uuid_flow_segment_fails_closed() {
         assert!(
-            parse_address(&format!("web+contrix:realm/{R}/flow/not-a-uuid?via={VIA}")).is_err()
+            parse_address(&format!("web+cokret:realm/{R}/flow/not-a-uuid?via={VIA}")).is_err()
         );
     }
 
@@ -671,11 +671,11 @@ mod tests {
 
     #[test]
     fn preview_link_type_round_trips_token() {
-        let parsed = parse_address(&format!("web+contrix:realm/{R}/flow/{F}?lt=preview")).unwrap();
+        let parsed = parse_address(&format!("web+cokret:realm/{R}/flow/{F}?lt=preview")).unwrap();
         assert_eq!(parsed.link_type, LinkType::Preview);
         assert_eq!(parsed.token, None);
         let parsed2 =
-            parse_address(&format!("web+contrix:realm/{R}/flow/{F}?lt=preview&tok=xyz")).unwrap();
+            parse_address(&format!("web+cokret:realm/{R}/flow/{F}?lt=preview&tok=xyz")).unwrap();
         assert_eq!(parsed2.link_type, LinkType::Preview);
         assert_eq!(parsed2.token.as_deref(), Some("xyz"));
     }
@@ -686,7 +686,7 @@ mod tests {
     fn descriptor_uses_typed_ids_and_omits_absent_levels() {
         let parsed = realm_addr();
         let desc = TargetDescriptor::from_parsed(&parsed);
-        assert_eq!(desc.realm_id, format!("cx:realm:{R}"));
+        assert_eq!(desc.realm_id, format!("ck:realm:{R}"));
         assert_eq!(desc.flow_id, None);
         assert_eq!(desc.message_id, None);
         // Absent levels MUST be omitted, not null.
@@ -698,9 +698,9 @@ mod tests {
 
     #[test]
     fn target_digest_ignores_via_action_tok_lt() {
-        let base = parse_address(&format!("web+contrix:realm/{R}/flow/{F}")).unwrap();
+        let base = parse_address(&format!("web+cokret:realm/{R}/flow/{F}")).unwrap();
         let hinted = parse_address(&format!(
-            "web+contrix:realm/{R}/flow/{F}?via=did:web:a&via=did:web:b&action=join"
+            "web+cokret:realm/{R}/flow/{F}?via=did:web:a&via=did:web:b&action=join"
         ))
         .unwrap();
         let d1 = target_digest(&TargetDescriptor::from_parsed(&base)).unwrap();
@@ -711,9 +711,9 @@ mod tests {
 
     #[test]
     fn target_digest_changes_when_object_changes() {
-        let flow_a = parse_address(&format!("web+contrix:realm/{R}/flow/{F}")).unwrap();
-        let flow_b = parse_address(&format!("web+contrix:realm/{R}/flow/{F2}")).unwrap();
-        let msg = parse_address(&format!("web+contrix:realm/{R}/flow/{F}/m/{M}")).unwrap();
+        let flow_a = parse_address(&format!("web+cokret:realm/{R}/flow/{F}")).unwrap();
+        let flow_b = parse_address(&format!("web+cokret:realm/{R}/flow/{F2}")).unwrap();
+        let msg = parse_address(&format!("web+cokret:realm/{R}/flow/{F}/m/{M}")).unwrap();
         let d_a = target_digest(&TargetDescriptor::from_parsed(&flow_a)).unwrap();
         let d_b = target_digest(&TargetDescriptor::from_parsed(&flow_b)).unwrap();
         let d_m = target_digest(&TargetDescriptor::from_parsed(&msg)).unwrap();
@@ -725,7 +725,7 @@ mod tests {
     fn verify_token_target_accepts_matching_object() {
         // Token minted for flow A (invite link).
         let addr_a =
-            parse_address(&format!("web+contrix:realm/{R}/flow/{F}?lt=invite&tok=t")).unwrap();
+            parse_address(&format!("web+cokret:realm/{R}/flow/{F}?lt=invite&tok=t")).unwrap();
         let token_desc = {
             let mut d = TargetDescriptor::from_parsed(&addr_a);
             d.link_type = LinkType::Invite;
@@ -738,7 +738,7 @@ mod tests {
     fn verify_token_target_rejects_scope_confusion_replay() {
         // Token minted for object A.
         let addr_a =
-            parse_address(&format!("web+contrix:realm/{R}/flow/{F}?lt=invite&tok=t")).unwrap();
+            parse_address(&format!("web+cokret:realm/{R}/flow/{F}?lt=invite&tok=t")).unwrap();
         let token_desc = {
             let mut d = TargetDescriptor::from_parsed(&addr_a);
             d.link_type = LinkType::Invite;
@@ -746,7 +746,7 @@ mod tests {
         };
         // Replayed onto a different object B (different flow).
         let addr_b =
-            parse_address(&format!("web+contrix:realm/{R}/flow/{F2}?lt=invite&tok=t")).unwrap();
+            parse_address(&format!("web+cokret:realm/{R}/flow/{F2}?lt=invite&tok=t")).unwrap();
         assert!(
             !verify_token_target(&token_desc, &addr_b, LinkType::Invite),
             "A-object token must not validate against a B address"
@@ -756,7 +756,7 @@ mod tests {
     #[test]
     fn verify_token_target_fails_closed_on_alias_realm() {
         let alias_addr =
-            parse_address(&format!("web+contrix:realm/team.example.com/flow/{F}?lt=invite&tok=t"))
+            parse_address(&format!("web+cokret:realm/team.example.com/flow/{F}?lt=invite&tok=t"))
                 .unwrap();
         let token_desc = {
             let mut d = TargetDescriptor::from_parsed(&alias_addr);

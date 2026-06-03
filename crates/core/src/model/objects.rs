@@ -71,7 +71,7 @@ pub struct Space {
     /// after Space creation; this field is the **create-time hint** so
     /// servers can populate the anchorer cell without an extra round-trip.
     /// Subsequent anchorer changes flow through Move on the
-    /// `cx:cell:cx.component.anchorer.v1:<space_id>` cell.
+    /// `ck:cell:cx.component.anchorer.v1:<space_id>` cell.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub anchorer: Option<crate::anchorer::AnchorerValue>,
     /// Soft cap on how stale the latest Anchor leaf may be before clients
@@ -101,7 +101,7 @@ pub struct Space {
 /// Move/Anchor/Lattice).
 ///
 /// This is a **hint field on `Space`** — the live anchorer identity always
-/// lives in the `cx:cell:cx.component.anchorer.v1:<space_id>` cell. The
+/// lives in the `ck:cell:cx.component.anchorer.v1:<space_id>` cell. The
 /// hint exists so clients can pre-allocate state before observing the cell.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -207,7 +207,7 @@ impl Space {
     }
 
     /// Builder: declare the initial anchorer cell value. Servers seed the
-    /// `cx:cell:cx.component.anchorer.v1:<space_id>` cell from this hint at
+    /// `ck:cell:cx.component.anchorer.v1:<space_id>` cell from this hint at
     /// Space creation time. Subsequent rotations flow through Move.
     pub fn with_anchorer(mut self, anchorer: crate::anchorer::AnchorerValue) -> Self {
         self.anchorer = Some(anchorer);
@@ -387,8 +387,8 @@ impl Place {
             return Err(Error::Protocol("place title must not be empty".to_owned()));
         }
         if let Some(parent_space_id) = &self.parent_space_id
-            && !parent_space_id.as_ref().starts_with("cx:space:")
-            && !parent_space_id.as_ref().starts_with("cx:realm:")
+            && !parent_space_id.as_ref().starts_with("ck:space:")
+            && !parent_space_id.as_ref().starts_with("ck:realm:")
         {
             return Err(Error::Protocol(
                 "place parent_space_id must be a typed Space/Realm id".to_owned(),

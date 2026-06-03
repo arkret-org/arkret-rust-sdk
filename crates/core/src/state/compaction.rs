@@ -167,8 +167,8 @@ mod tests {
             jws: "AAAA.BBBB.CCCC".to_owned(),
         };
         Anchor {
-            id: AnchorId::new(format!("cx:anchor:sha256:{}", "00".repeat(32))).unwrap(),
-            realm_id: SpaceId::new("cx:space:0196419b-0000-7000-8000-00000000014a".to_owned())
+            id: AnchorId::new(format!("ck:anchor:sha256:{}", "00".repeat(32))).unwrap(),
+            realm_id: SpaceId::new("ck:space:0196419b-0000-7000-8000-00000000014a".to_owned())
                 .unwrap(),
             predecessor_refs: vec![],
             frontier: vec![MoveId::new(format!("sha256:{}", "11".repeat(32))).unwrap()],

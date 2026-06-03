@@ -299,11 +299,11 @@ mod tests {
     };
 
     fn space() -> SpaceId {
-        SpaceId::new("cx:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+        SpaceId::new("ck:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn cell_member() -> CellRef {
-        CellRef::new("cx:cell:cx.component.member.state.v1:did.web.alice.example".to_owned())
+        CellRef::new("ck:cell:cx.component.member.state.v1:did.web.alice.example".to_owned())
             .unwrap()
     }
 
@@ -316,7 +316,7 @@ mod tests {
                 "cell": cell_member().as_str(),
                 "op": { "kind": "transition", "from": from, "to": to }
             }],
-            "anchor_ref": format!("cx:anchor:sha256:{}", "aa".repeat(32)),
+            "anchor_ref": format!("ck:anchor:sha256:{}", "aa".repeat(32)),
             "refs": [],
             "hlc": format!("0189c4d2af00-0000-{:08x}", from.len() * 100 + to.len())
         });
@@ -352,7 +352,7 @@ mod tests {
             jws: "AAAA.BBBB.CCCC".to_owned(),
         };
         let mut a = Anchor {
-            id: AnchorId::new(format!("cx:anchor:sha256:{}", "00".repeat(32))).unwrap(),
+            id: AnchorId::new(format!("ck:anchor:sha256:{}", "00".repeat(32))).unwrap(),
             realm_id: space(),
             predecessor_refs: predecessors,
             frontier,
@@ -383,8 +383,8 @@ mod tests {
 
     #[test]
     fn view_hash_is_order_independent() {
-        let a = AnchorId::new(format!("cx:anchor:sha256:{}", "11".repeat(32))).unwrap();
-        let b = AnchorId::new(format!("cx:anchor:sha256:{}", "22".repeat(32))).unwrap();
+        let a = AnchorId::new(format!("ck:anchor:sha256:{}", "11".repeat(32))).unwrap();
+        let b = AnchorId::new(format!("ck:anchor:sha256:{}", "22".repeat(32))).unwrap();
         let h1 = view_hash(&[a.clone(), b.clone()]).unwrap();
         let h2 = view_hash(&[b, a]).unwrap();
         assert_eq!(h1, h2);
@@ -392,8 +392,8 @@ mod tests {
 
     #[test]
     fn view_hash_distinguishes_different_leaf_sets() {
-        let a = AnchorId::new(format!("cx:anchor:sha256:{}", "11".repeat(32))).unwrap();
-        let b = AnchorId::new(format!("cx:anchor:sha256:{}", "22".repeat(32))).unwrap();
+        let a = AnchorId::new(format!("ck:anchor:sha256:{}", "11".repeat(32))).unwrap();
+        let b = AnchorId::new(format!("ck:anchor:sha256:{}", "22".repeat(32))).unwrap();
         let h1 = view_hash(std::slice::from_ref(&a)).unwrap();
         let h2 = view_hash(&[a, b]).unwrap();
         assert_ne!(h1, h2);
@@ -465,7 +465,7 @@ mod tests {
         let cells = MemoryCellStore::default();
         let registry = MemoryCellRegistry::new();
 
-        let bad_pred = AnchorId::new(format!("cx:anchor:sha256:{}", "ee".repeat(32))).unwrap();
+        let bad_pred = AnchorId::new(format!("ck:anchor:sha256:{}", "ee".repeat(32))).unwrap();
         let a = build_anchor(
             vec![bad_pred],
             vec![],

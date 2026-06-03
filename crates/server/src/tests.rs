@@ -8,10 +8,10 @@ fn service_route_operation_ids_are_unique() {
         assert!(ids.insert(route.operation_id), "duplicate {}", route.operation_id);
         assert!(
             route.path.starts_with("/api/v1/")
-                || route.path.starts_with("/contrix/v1/")
+                || route.path.starts_with("/cokret/v1/")
                 || route.path.starts_with("/.well-known/")
                 // Admin is a deployment-local namespace served at the bare
-                // `/admin/*` path (no `/api/v1` prefix), per contrix-spec
+                // `/admin/*` path (no `/api/v1` prefix), per cokret-spec
                 // service-http-binding.md §2.1.
                 || route.path.starts_with("/admin/"),
             "unexpected route namespace: {} ({})",
@@ -43,7 +43,7 @@ fn service_route_registry_matches_required_spec_operations() {
         ("cx.push.register_device", "/api/v1/push/register-device"),
         ("cx.keys.keypackages.claim", "/api/v1/keys/keypackages/claim"),
         ("cx.authz.check", "/api/v1/authz/check"),
-        ("cx.policy.check", "/contrix/v1/check"),
+        ("cx.policy.check", "/cokret/v1/check"),
         ("cx.mimi.room_update", "/api/v1/mimi/flows/{flow_id}/update"),
         ("cx.account.issue_session_grant", "/api/v1/auth/account/session-grants"),
         ("cx.admin.revoke_device", "/admin/devices/{device_id}/revoke"),
@@ -109,7 +109,7 @@ fn framework_independent_handler_shape_can_be_mocked() {
                     Ok(ServerResBody::ServerDescription(Box::new(ServerDescription {
                         service_did: contrix_core::Did::new("did:web:svc.example").unwrap(),
                         trust_domain: contrix_core::TypedTrustDomainId::new(
-                            "cx:trust_domain:example.net",
+                            "ck:trust_domain:example.net",
                         )
                         .unwrap(),
                         service_type: "principal_server".to_owned(),

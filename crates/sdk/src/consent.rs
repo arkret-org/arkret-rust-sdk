@@ -1,8 +1,8 @@
 //! Holder-private **consent** as an or-set Lattice cell.
 //!
-//! Per [`identity/consent-model.md`](https://contrix.io/spec/v1/zh/identity/consent-model.md)
+//! Per [`identity/consent-model.md`](https://cokret.io/spec/v1/zh/identity/consent-model.md)
 //! §3, consent is a Move on the holder's principal-control-Space cell
-//! `cx:cell:cx.component.consent.grant.v1:<consent_id>` (or-set lattice).
+//! `ck:cell:cx.component.consent.grant.v1:<consent_id>` (or-set lattice).
 //!
 //! - `grant` = `add(tag, value)`, where
 //!   `tag = "grant:<consent_id>:<peer>:<scope>"` (deterministic so identical
@@ -31,7 +31,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 /// Cell family for consent grants. Used as the prefix in cell ids of the
-/// form `cx:cell:cx.component.consent.grant.v1:<consent_id>`.
+/// form `ck:cell:cx.component.consent.grant.v1:<consent_id>`.
 pub const CONSENT_CELL_FAMILY: &str = "cx.component.consent.grant.v1";
 
 /// Scope of the consent grant. See spec consent-model §4.
@@ -78,12 +78,12 @@ impl Scope {
 /// Build the canonical consent cell id for a `consent_id`.
 ///
 /// Returns a `CellRef` with the canonical wire form
-/// `cx:cell:cx.component.consent.grant.v1:<consent_id>`.
+/// `ck:cell:cx.component.consent.grant.v1:<consent_id>`.
 pub fn consent_cell_id(consent_id: &str) -> Result<CellRef, contrix_core::Error> {
     if consent_id.is_empty() {
         return Err(contrix_core::Error::Protocol("consent_id must not be empty".to_owned()));
     }
-    CellRef::new(format!("cx:cell:{CONSENT_CELL_FAMILY}:{consent_id}"))
+    CellRef::new(format!("ck:cell:{CONSENT_CELL_FAMILY}:{consent_id}"))
         .map_err(|e| contrix_core::Error::Protocol(format!("invalid consent cell id: {e}")))
 }
 
@@ -136,7 +136,7 @@ pub struct ConsentRevokeValue {
 
 /// Build the [`Effect`] that a consent.grant Move writes.
 ///
-/// Spec §3.2: cell = `cx:cell:cx.component.consent.grant.v1:<consent_id>`,
+/// Spec §3.2: cell = `ck:cell:cx.component.consent.grant.v1:<consent_id>`,
 /// op = `add(tag, value)`, tag = `grant:<consent_id>:<peer>:<scope>`,
 /// value = [`ConsentGrantValue`].
 pub fn grant_effect(
@@ -301,7 +301,7 @@ mod tests {
     #[test]
     fn cell_id_is_canonical() {
         let cell = consent_cell_id("cs-001").unwrap();
-        assert_eq!(cell.as_str(), "cx:cell:cx.component.consent.grant.v1:cs-001");
+        assert_eq!(cell.as_str(), "ck:cell:cx.component.consent.grant.v1:cs-001");
     }
 
     #[test]
@@ -329,7 +329,7 @@ mod tests {
     fn grant_effect_produces_or_set_add() {
         let opts = ConsentGrantOptions {
             expires_at: Some(ts(2026, 12, 31)),
-            evidence_ref: Some("cx:event:01904100-0000-7000-8000-4ad9d5ef0089".to_owned()),
+            evidence_ref: Some("ck:event:01904100-0000-7000-8000-4ad9d5ef0089".to_owned()),
             ..Default::default()
         };
         let eff = grant_effect("cs-001", bob(), Scope::Invite, &opts).unwrap();
@@ -443,7 +443,7 @@ mod tests {
     #[test]
     fn require_consent_precondition_round_trip() {
         let pre = require_consent_precondition("cs-001", &bob(), Scope::Invite).unwrap();
-        assert_eq!(pre.cell.as_str(), "cx:cell:cx.component.consent.grant.v1:cs-001");
+        assert_eq!(pre.cell.as_str(), "ck:cell:cx.component.consent.grant.v1:cs-001");
         assert_eq!(pre.predicate.op, PredicateOp::Contains);
         assert_eq!(
             pre.predicate.value.as_ref().unwrap(),
@@ -466,7 +466,7 @@ mod tests {
             scope: Scope::Invite,
             not_before: None,
             expires_at: Some(ts(2026, 12, 31)),
-            evidence_ref: Some("cx:event:01904100-0000-7000-8000-4ad9d5ef0089".to_owned()),
+            evidence_ref: Some("ck:event:01904100-0000-7000-8000-4ad9d5ef0089".to_owned()),
             reason: None,
             constraints: vec![],
         };

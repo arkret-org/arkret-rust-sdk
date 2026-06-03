@@ -1,13 +1,13 @@
 [package]
 authors = ["Chris Young <chris@sonc.ai>"]
-description = "Contrix v1 protocol crypto machine contracts."
+description = "Cokret v1 protocol crypto machine contracts."
 edition = "2024"
-homepage = "https://github.com/contrix/contrix-rust-sdk"
-keywords = ["contrix", "crypto", "e2ee", "backup"]
+homepage = "https://github.com/cokret/cokret-rust-sdk"
+keywords = ["cokret", "crypto", "e2ee", "backup"]
 license = "Apache-2.0"
-name = "contrix-crypto"
+name = "cokret-crypto"
 readme = "README.md"
-repository = "https://github.com/contrix/contrix-rust-sdk"
+repository = "https://github.com/cokret/cokret-rust-sdk"
 rust-version = "1.92"
 version = "1.0.0"
 
@@ -17,7 +17,7 @@ default = []
 # typed `cx.schema.key_backup.v1` envelope builder + recovery-key codec.
 # Spec: crypto-media/key-management.md §7. Pulls in `argon2`,
 # `chacha20poly1305`, `base64`, `getrandom`, `anyhow` only when enabled
-# so the bare `contrix-crypto` types crate stays light.
+# so the bare `cokret-crypto` types crate stays light.
 backup = [
     "dep:anyhow",
     "dep:argon2",
@@ -28,8 +28,8 @@ backup = [
 
 [dependencies]
 chrono = { workspace = true, features = ["serde"] }
-contrix-core.workspace = true
-contrix-signatures.workspace = true
+cokret-core.workspace = true
+cokret-signatures.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true

@@ -1,6 +1,6 @@
 //! Move verifier pipeline.
 //!
-//! Per `contrix-rust-sdk/docs/move-anchor-runtime.md` §4 and spec §3-§4.
+//! Per `cokret-rust-sdk/docs/move-anchor-runtime.md` §4 and spec §3-§4.
 //! Five steps; failure at any step rejects the Move with a typed reason
 //! that maps onto a wire `error_code`:
 //!
@@ -13,7 +13,7 @@
 //! | 5 effect-shape | every effect's `LatticeOp` passes the cell's `validate_op` | `schema_violation` |
 //!
 //! `verify_jws` and `resolve_grant` are out-of-scope here: they live in
-//! `contrix-signatures` and `contrix-sdk::authz` respectively. This
+//! `cokret-signatures` and `cokret-sdk::authz` respectively. This
 //! module assumes those primitives are passed in (or stubbed) so the
 //! pipeline orchestration stays pure.
 
@@ -57,16 +57,16 @@ impl From<StoreError> for MoveReject {
 }
 
 /// Map a [`MoveReject`] variant to its wire-level `error_code` constant
-/// (from `contrix-spec` `error-code-registry.json`).
+/// (from `cokret-spec` `error-code-registry.json`).
 pub fn reject_to_error_code(r: &MoveReject) -> &'static str {
     use crate as cx;
     match r {
-        MoveReject::SchemaViolation(_) => cx::ERROR_CODE_SCHEMA_VIOLATION,
-        MoveReject::InvalidSignature(_) => cx::ERROR_CODE_INVALID_SIGNATURE,
-        MoveReject::CapabilityDenied(_) => cx::ERROR_CODE_CAPABILITY_DENIED,
-        MoveReject::FailedPrecondition { .. } => cx::ERROR_CODE_STATE_MISMATCH,
+        MoveReject::SchemaViolation(_) => ck::ERROR_CODE_SCHEMA_VIOLATION,
+        MoveReject::InvalidSignature(_) => ck::ERROR_CODE_INVALID_SIGNATURE,
+        MoveReject::CapabilityDenied(_) => ck::ERROR_CODE_CAPABILITY_DENIED,
+        MoveReject::FailedPrecondition { .. } => ck::ERROR_CODE_STATE_MISMATCH,
         MoveReject::FailedBottom { .. } => "failed_bottom",
-        MoveReject::Registry(_) => cx::ERROR_CODE_INTERNAL_ERROR,
+        MoveReject::Registry(_) => ck::ERROR_CODE_INTERNAL_ERROR,
     }
 }
 
@@ -401,17 +401,17 @@ mod tests {
     use crate::state::store::memory::MemoryCellRegistry;
 
     fn space() -> SpaceId {
-        SpaceId::new("cx:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+        SpaceId::new("ck:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn cell_member() -> CellRef {
-        CellRef::new("cx:cell:cx.component.member.state.v1:did.web.alice.example".to_owned())
+        CellRef::new("ck:cell:cx.component.member.state.v1:did.web.alice.example".to_owned())
             .unwrap()
     }
 
     fn cell_capability_grant() -> CellRef {
         CellRef::new(
-            "cx:cell:cx.component.capability.grant.v1:cx.grant.01js0gr0000000000000000000"
+            "ck:cell:cx.component.capability.grant.v1:cx.grant.01js0gr0000000000000000000"
                 .to_owned(),
         )
         .unwrap()
@@ -431,7 +431,7 @@ mod tests {
             "space_id": space().as_str(),
             "preconditions": preconditions,
             "effects": effects,
-            "anchor_ref": format!("cx:anchor:sha256:{}", "aa".repeat(32)),
+            "anchor_ref": format!("ck:anchor:sha256:{}", "aa".repeat(32)),
             "refs": refs,
             "hlc": "0189c4d2af00-0000-aabbccdd"
         });
@@ -538,7 +538,7 @@ mod tests {
 
     #[test]
     fn authorized_by_ref_resolves_capability_grant_cell() {
-        let grant_id = "cx:grant:0196419b-0000-7000-8000-000000000111";
+        let grant_id = "ck:grant:0196419b-0000-7000-8000-000000000111";
         let eff = Effect {
             cell: cell_member(),
             op: LatticeOp {
@@ -560,7 +560,7 @@ mod tests {
 
     #[test]
     fn missing_authorized_by_grant_rejects() {
-        let grant_id = "cx:grant:0196419b-0000-7000-8000-000000000111";
+        let grant_id = "ck:grant:0196419b-0000-7000-8000-000000000111";
         let eff = Effect {
             cell: cell_member(),
             op: LatticeOp {
@@ -582,7 +582,7 @@ mod tests {
 
     #[test]
     fn authorized_by_subject_mismatch_rejects() {
-        let grant_id = "cx:grant:0196419b-0000-7000-8000-000000000111";
+        let grant_id = "ck:grant:0196419b-0000-7000-8000-000000000111";
         let eff = Effect {
             cell: cell_member(),
             op: LatticeOp {

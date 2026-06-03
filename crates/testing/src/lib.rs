@@ -198,9 +198,9 @@ pub fn redaction_vectors() -> Vec<RedactionVector> {
         before: json!({
             "kind": "cx.message.create",
             "actor_seq": 7,
-            "prev_refs": ["cx:event:01904100-0000-7000-8000-021bde4eea9d"],
+            "prev_refs": ["ck:event:01904100-0000-7000-8000-021bde4eea9d"],
             "refs": [{
-                "id": "cx:event:01904100-0000-7000-8000-d7332fb47d1a",
+                "id": "ck:event:01904100-0000-7000-8000-d7332fb47d1a",
                 "role": "authorized_by",
                 "critical": true
             }],
@@ -263,7 +263,7 @@ pub fn endpoint_coverage_rows() -> Vec<EndpointCoverageRow> {
             domain: operation_domain(operation_id),
             operation_id: (*operation_id).to_owned(),
             method: "CONTRACT".to_owned(),
-            path: format!("contrix-core://operations/{operation_id}"),
+            path: format!("cokret-core://operations/{operation_id}"),
             request_schema: "OperationInput".to_owned(),
             response_schema: "OperationResBody".to_owned(),
         }
@@ -295,7 +295,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
             domain: ConformanceDomain::Operations,
             operation_id: "cx.operations.catalog".to_owned(),
             method: "CONTRACT".to_owned(),
-            path: "contrix-core://operations/catalog".to_owned(),
+            path: "cokret-core://operations/catalog".to_owned(),
             request_schema: "OperationKindRegistry".to_owned(),
             response_schema: "OperationCatalogReport".to_owned(),
         },
@@ -303,7 +303,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
             domain: ConformanceDomain::Operations,
             operation_id: "cx.operations.dag".to_owned(),
             method: "CONTRACT".to_owned(),
-            path: "contrix-core://operations/dag".to_owned(),
+            path: "cokret-core://operations/dag".to_owned(),
             request_schema: "OperationEnvelope".to_owned(),
             response_schema: "OperationDagReport".to_owned(),
         },
@@ -311,7 +311,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
             domain: ConformanceDomain::Operations,
             operation_id: "cx.operations.semantic_reducer".to_owned(),
             method: "CONTRACT".to_owned(),
-            path: "contrix-core://operations/semantics".to_owned(),
+            path: "cokret-core://operations/semantics".to_owned(),
             request_schema: "OperationEnvelope".to_owned(),
             response_schema: "OperationSemanticReport".to_owned(),
         },
@@ -319,7 +319,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
             domain: ConformanceDomain::Operations,
             operation_id: "cx.operations.negative_vectors".to_owned(),
             method: "CONTRACT".to_owned(),
-            path: "contrix-core://operations/negative-vectors".to_owned(),
+            path: "cokret-core://operations/negative-vectors".to_owned(),
             request_schema: "OperationDagNegativeVector".to_owned(),
             response_schema: "OperationDagNegativeVector".to_owned(),
         },
@@ -327,7 +327,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
             domain: ConformanceDomain::Schema,
             operation_id: "cx.schema.catalog".to_owned(),
             method: "CONTRACT".to_owned(),
-            path: "contrix-core://schema/catalog".to_owned(),
+            path: "cokret-core://schema/catalog".to_owned(),
             request_schema: "ProtocolSchemaRegistry".to_owned(),
             response_schema: "SchemaCatalogReport".to_owned(),
         },
@@ -335,7 +335,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
             domain: ConformanceDomain::Schema,
             operation_id: "cx.schema.validation_vectors".to_owned(),
             method: "CONTRACT".to_owned(),
-            path: "contrix-core://schema/vectors".to_owned(),
+            path: "cokret-core://schema/vectors".to_owned(),
             request_schema: "SchemaValidationVector".to_owned(),
             response_schema: "SchemaValidationVector".to_owned(),
         },
@@ -343,7 +343,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
             domain: ConformanceDomain::Html,
             operation_id: "cx.html.normalize".to_owned(),
             method: "CONTRACT".to_owned(),
-            path: "contrix-html://normalize".to_owned(),
+            path: "cokret-html://normalize".to_owned(),
             request_schema: "RichTextDocument".to_owned(),
             response_schema: "RichTextDocument".to_owned(),
         },
@@ -351,7 +351,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
             domain: ConformanceDomain::Html,
             operation_id: "cx.html.sanitize".to_owned(),
             method: "CONTRACT".to_owned(),
-            path: "contrix-html://sanitize".to_owned(),
+            path: "cokret-html://sanitize".to_owned(),
             request_schema: "Html".to_owned(),
             response_schema: "SanitizedHtml".to_owned(),
         },
@@ -359,7 +359,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
             domain: ConformanceDomain::Crypto,
             operation_id: "cx.crypto.machine_request".to_owned(),
             method: "CONTRACT".to_owned(),
-            path: "contrix-crypto://machine".to_owned(),
+            path: "cokret-crypto://machine".to_owned(),
             request_schema: "CryptoMachineReqBody".to_owned(),
             response_schema: "CryptoMachineResBody".to_owned(),
         },
@@ -367,7 +367,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
             domain: ConformanceDomain::Crypto,
             operation_id: "cx.crypto.store_binding".to_owned(),
             method: "CONTRACT".to_owned(),
-            path: "contrix-crypto://store-binding".to_owned(),
+            path: "cokret-crypto://store-binding".to_owned(),
             request_schema: "CryptoStoreBinding".to_owned(),
             response_schema: "KeyLifecycleEvent".to_owned(),
         },
@@ -375,7 +375,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
             domain: ConformanceDomain::Crypto,
             operation_id: "cx.crypto.verification_flow".to_owned(),
             method: "CONTRACT".to_owned(),
-            path: "contrix-crypto://verification-flow".to_owned(),
+            path: "cokret-crypto://verification-flow".to_owned(),
             request_schema: "DeviceVerificationFlow".to_owned(),
             response_schema: "DeviceTrustState".to_owned(),
         },
@@ -383,7 +383,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
             domain: ConformanceDomain::Crypto,
             operation_id: "cx.crypto.session_lifecycle".to_owned(),
             method: "CONTRACT".to_owned(),
-            path: "contrix-crypto://session-lifecycle".to_owned(),
+            path: "cokret-crypto://session-lifecycle".to_owned(),
             request_schema: "CryptoSessionRecord".to_owned(),
             response_schema: "WithheldKeyRecord".to_owned(),
         },
@@ -391,7 +391,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
             domain: ConformanceDomain::Ui,
             operation_id: "cx.ui.timeline_projection".to_owned(),
             method: "CONTRACT".to_owned(),
-            path: "contrix-sdk://timeline".to_owned(),
+            path: "cokret-sdk://timeline".to_owned(),
             request_schema: "Event".to_owned(),
             response_schema: "TimelineItem".to_owned(),
         },
@@ -399,7 +399,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
             domain: ConformanceDomain::Ui,
             operation_id: "cx.ui.notification_evaluation".to_owned(),
             method: "CONTRACT".to_owned(),
-            path: "contrix-sdk://notifications".to_owned(),
+            path: "cokret-sdk://notifications".to_owned(),
             request_schema: "Event".to_owned(),
             response_schema: "NotificationAction".to_owned(),
         },
@@ -407,7 +407,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
             domain: ConformanceDomain::Ffi,
             operation_id: "cx.ffi.handle".to_owned(),
             method: "CONTRACT".to_owned(),
-            path: "contrix-ffi://handle-table".to_owned(),
+            path: "cokret-ffi://handle-table".to_owned(),
             request_schema: "FfiHandle".to_owned(),
             response_schema: "FfiError".to_owned(),
         },
@@ -415,7 +415,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
             domain: ConformanceDomain::Ffi,
             operation_id: "cx.ffi.wasm_runtime".to_owned(),
             method: "CONTRACT".to_owned(),
-            path: "contrix-ffi://wasm-runtime".to_owned(),
+            path: "cokret-ffi://wasm-runtime".to_owned(),
             request_schema: "WasmRuntimeContract".to_owned(),
             response_schema: "WasmRuntimeContract".to_owned(),
         },
@@ -425,7 +425,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
 pub fn event_taxonomy_vectors() -> Result<Vec<EventTaxonomyVector>> {
     let text = Event::new(
         MESSAGE_CREATE,
-        RealmId::new("cx:realm:01904100-0000-7000-8000-9b64700c6ee8")?,
+        RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8")?,
         Did::new("did:web:alice.example")?,
         1,
         Hlc::new("01970e589d21-0001-a13f9c2e")?,
@@ -435,7 +435,7 @@ pub fn event_taxonomy_vectors() -> Result<Vec<EventTaxonomyVector>> {
 
     let custom = Event::new(
         "vendor.example.custom",
-        RealmId::new("cx:realm:01904100-0000-7000-8000-9b64700c6ee8")?,
+        RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8")?,
         Did::new("did:web:alice.example")?,
         2,
         Hlc::new("01970e589d21-0002-a13f9c2e")?,
@@ -444,7 +444,7 @@ pub fn event_taxonomy_vectors() -> Result<Vec<EventTaxonomyVector>> {
     let custom_envelope = EventContentEnvelope::from_event(&custom)?;
 
     let poll_response = json!({
-        "poll_event_id": "cx:event:01904100-0000-7000-8000-fb8cfd35e274",
+        "poll_event_id": "ck:event:01904100-0000-7000-8000-fb8cfd35e274",
         "answer_ids": ["a"]
     });
     parse_event_content(REACTION_ADD, poll_response.clone())?;
@@ -452,14 +452,14 @@ pub fn event_taxonomy_vectors() -> Result<Vec<EventTaxonomyVector>> {
     let call_device_mapping = json!({
         "call_id": "call-1",
         "devices_by_user": {
-            "did:web:alice.example": ["cx:device:01904100-0000-7000-8000-000000000008"]
+            "did:web:alice.example": ["ck:device:01904100-0000-7000-8000-000000000008"]
         }
     });
     parse_event_content(CALL_SIGNAL, call_device_mapping.clone())?;
 
     let activity_beacon = json!({
         "user_id": "did:web:alice.example",
-        "device_id": "cx:device:01904100-0000-7000-8000-000000000008",
+        "device_id": "ck:device:01904100-0000-7000-8000-000000000008",
         "activity": "viewing",
         "observed_at": "2026-05-01T00:00:00Z"
     });
@@ -526,8 +526,8 @@ pub fn event_taxonomy_vectors() -> Result<Vec<EventTaxonomyVector>> {
 }
 
 pub fn state_resolution_vectors() -> Result<Vec<StateResolutionVector>> {
-    let space_id = SpaceId::new("cx:space:0196419b-0000-7000-8000-00000000014a")?;
-    let cell = CellRef::new("cx:cell:cx.component.member.state.v1:did.web.bob.example".to_owned())
+    let space_id = SpaceId::new("ck:space:0196419b-0000-7000-8000-00000000014a")?;
+    let cell = CellRef::new("ck:cell:cx.component.member.state.v1:did.web.bob.example".to_owned())
         .map_err(|e| Error::Protocol(format!("invalid cell ref: {e}")))?;
 
     // Build a Move that transitions Bob's membership cell from `invited` to `join`.
@@ -579,7 +579,7 @@ fn build_membership_move(space_id: &SpaceId, cell: &CellRef, from: &str, to: &st
             "cell": cell.as_str(),
             "op": { "kind": "transition", "from": from, "to": to }
         }],
-        "anchor_ref": format!("cx:anchor:sha256:{}", "aa".repeat(32)),
+        "anchor_ref": format!("ck:anchor:sha256:{}", "aa".repeat(32)),
         "refs": [],
         "hlc": "0189c4d2af00-0000-aabbccdd"
     });
@@ -626,7 +626,7 @@ fn build_anchor(
         jws: "AAAA.BBBB.CCCC".to_owned(),
     };
     let mut a = Anchor {
-        id: AnchorId::new(format!("cx:anchor:sha256:{}", "00".repeat(32)))
+        id: AnchorId::new(format!("ck:anchor:sha256:{}", "00".repeat(32)))
             .map_err(|e| Error::Protocol(format!("anchor id: {e}")))?,
         realm_id: space_id.clone(),
         predecessor_refs: predecessor_refs.to_vec(),

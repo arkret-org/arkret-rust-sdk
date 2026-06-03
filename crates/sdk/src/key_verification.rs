@@ -709,7 +709,7 @@ impl KeyVerificationFlow {
                 .map(|(_, d)| d.clone())
                 .or_else(|| self.responder.as_ref().map(|(_, d)| d.clone()))
                 .unwrap_or_else(|| {
-                    DeviceId::new("cx:device:01904100-0000-7000-8000-00000000000d").unwrap()
+                    DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000d").unwrap()
                 }),
             code: code.to_owned(),
             reason: reason.to_owned(),
@@ -945,7 +945,7 @@ mod tests {
             acc = (acc ^ u64::from(byte)).wrapping_mul(0x100000001b3);
         }
         DeviceId::new(format!(
-            "cx:device:01904100-0000-7000-8000-{:012x}",
+            "ck:device:01904100-0000-7000-8000-{:012x}",
             acc & 0x0000_ffff_ffff_ffff
         ))
         .unwrap()

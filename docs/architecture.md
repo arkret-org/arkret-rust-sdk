@@ -1,7 +1,7 @@
 # SDK Architecture (v1 wire surfaces — R3 sync)
 
 This page is a focused architectural reference for the **R3** sync of
-`contrix-rust-sdk` against `contrix-spec @ b47ff6ec`. The umbrella architecture
+`cokret-rust-sdk` against `cokret-spec @ b47ff6ec`. The umbrella architecture
 at [`ARCHITECTURE.md`](../ARCHITECTURE.md) covers crate layering and the broad
 client/server split; this document drills into the surfaces that R3 added or
 re-shaped.
@@ -77,8 +77,8 @@ ride on the agent's own actor stream.
 
 ### Call media (`cx.call.media.token_exchange`)
 
-The call media surface lets a participant exchange a Contrix call grant for
-a backend-specific media token (LiveKit, Mediasoup, Janus, Contrix-native,
+The call media surface lets a participant exchange a Cokret call grant for
+a backend-specific media token (LiveKit, Mediasoup, Janus, Cokret-native,
 MoQ relay). The SDK helper:
 
 ```rust
@@ -96,7 +96,7 @@ async fn call_media_token_exchange(
 ```rust
 pub struct MediaTokenResponse {
     pub backend_token: String,           // opaque to SDK; passes through to backend
-    pub participant_identity: String,    // canonical: cx:participant:<realm>:<actor>:<device>:<call>
+    pub participant_identity: String,    // canonical: ck:participant:<realm>:<actor>:<device>:<call>
     pub participant_binding: ParticipantBinding,
     pub expires_at: Timestamp,           // <= 600s; SHOULD <= 300s
     pub service_signature: ServiceSignature, // includes rotating `kid`
@@ -142,7 +142,7 @@ pub enum MediaBackendType {
     LiveKit,
     Mediasoup,
     Janus,
-    ContrixNative,
+    CokretNative,
     MoqRelay,
     Unknown(String),
 }
@@ -175,7 +175,7 @@ pub struct RecoveryPolicy {
 ```rust
 pub struct RecoveryReceipt {
     pub receipt_id: Uuid,
-    pub recovery_session_id: RecoverySessionId, // cx:recovery_session:<uuid>
+    pub recovery_session_id: RecoverySessionId, // ck:recovery_session:<uuid>
     pub principal_id: Did,
     pub proof_summary: Vec<ProofSummaryEntry>,
     pub completion_timestamp: Timestamp,
@@ -193,8 +193,8 @@ pub enum RecoveryProofKind {
 }
 ```
 
-Identifier `RecoverySession` uses wire form `cx:recovery_session:<uuid>` and
-lives in `contrix-identifiers`.
+Identifier `RecoverySession` uses wire form `ck:recovery_session:<uuid>` and
+lives in `cokret-identifiers`.
 
 Round-trip validation matches the spec JSON-Schemas
 (`recovery-policy.schema.json`, `recovery-receipt.schema.json`). Proof-witness
@@ -224,7 +224,7 @@ The `spec-drift` job in
 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) (named
 `spec artifact drift report` — also referred to as **`spec-drift-report`** in
 plans) runs `cargo run --example spec_drift_report` against the latest
-`contrix-spec` checkout and prints any event kinds, operations, or profiles
+`cokret-spec` checkout and prints any event kinds, operations, or profiles
 the SDK has not declared coverage for. It is informational
 (`continue-on-error: true`), failing only on *hard* drift (entries the SDK
 declares but the spec no longer ships).
@@ -233,14 +233,14 @@ R3's new event kinds (`cx.agent.draft.propose`, `cx.agent.action_request`,
 `cx.agent.action_approve`, `cx.agent.action_reject`), new operation
 (`cx.call.media.token_exchange`), and new profiles are all in the SDK's
 declared-coverage set, so the drift report runs clean against
-`contrix-spec @ b47ff6ec`.
+`cokret-spec @ b47ff6ec`.
 
 If the spec-drift job is ever removed or its coverage list narrowed, the
 runbook for adding it back is:
 
 1. Add a `spec-drift` job to `.github/workflows/ci.yml` with
    `continue-on-error: true` initially.
-2. Check out `contrix-dev/contrix-spec` at the SDK's pinned spec SHA into a
+2. Check out `cokret-dev/cokret-spec` at the SDK's pinned spec SHA into a
    sibling path; set `CONTRIX_SPEC_ARTIFACTS` to its `spec/v1/artifacts`
    directory.
 3. Invoke `cargo run --example spec_drift_report`. The example crate iterates

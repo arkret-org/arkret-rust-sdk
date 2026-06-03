@@ -1,13 +1,13 @@
 # Feature Matrix
 
-Contrix SDK uses additive Cargo features.
+Cokret SDK uses additive Cargo features.
 
 | Build | Feature flags | Intended use |
 | --- | --- | --- |
 | Model-only | `default-features = false` | Protocol IDs, wire models, canonical digests, stores and local state helpers without HTTP or OpenMLS dependencies. |
-| Client | `--features client` | Reqwest-based HTTP client for the Contrix v1 service binding. |
+| Client | `--features client` | Reqwest-based HTTP client for the Cokret v1 service binding. |
 | Server | `--features server` | Framework-independent server handler contracts, shared contract re-exports and endpoint fixture coverage. |
-| Salvo OAPI | `--features salvo` | Server feature plus Salvo OAPI derives on Contrix DTO and identifier types. |
+| Salvo OAPI | `--features salvo` | Server feature plus Salvo OAPI derives on Cokret DTO and identifier types. |
 | MLS | `--features mls` | OpenMLS-backed group creation, Welcome/Commit envelopes and payload encryption/decryption. |
 | Default | `client,mls` | Application SDK default: HTTP client plus MLS crypto primitives. |
 | All features | `--all-features` | Release and conformance validation build. |

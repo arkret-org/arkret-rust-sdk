@@ -278,9 +278,9 @@ impl PushGateway {
             )
         };
         let title = match token.platform {
-            PushPlatform::Apns => "Contrix",
-            PushPlatform::Fcm => "Contrix update",
-            PushPlatform::WebPush => "Contrix notification",
+            PushPlatform::Apns => "Cokret",
+            PushPlatform::Fcm => "Cokret update",
+            PushPlatform::WebPush => "Cokret notification",
         }
         .to_owned();
         PushPayload {
@@ -311,7 +311,7 @@ impl PushGateway {
     /// Encrypt a push payload for E2EE transport using authenticated encryption.
     pub fn encrypt_payload(payload: &PushPayload, key: &[u8]) -> Result<EncryptedPushPayload> {
         let plaintext = serde_json::to_vec(payload).unwrap_or_default();
-        let ciphertext = crypto::seal(&plaintext, key, b"contrix-push-payload-v1")?;
+        let ciphertext = crypto::seal(&plaintext, key, b"cokret-push-payload-v1")?;
         Ok(EncryptedPushPayload {
             algorithm: PUSH_ENCRYPTION_ALGORITHM.to_owned(),
             digest: sha256_hex(&plaintext),
@@ -349,7 +349,7 @@ mod tests {
             acc = (acc ^ u64::from(byte)).wrapping_mul(0x100000001b3);
         }
         DeviceId::new(format!(
-            "cx:device:01904100-0000-7000-8000-{:012x}",
+            "ck:device:01904100-0000-7000-8000-{:012x}",
             acc & 0x0000_ffff_ffff_ffff
         ))
         .unwrap()
@@ -357,9 +357,9 @@ mod tests {
 
     fn event(encrypted: bool) -> PushEvent {
         PushEvent {
-            event_id: EventId::new("cx:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
+            event_id: EventId::new("ck:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
             user_id: did("alice"),
-            space_id: Some(SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()),
+            space_id: Some(SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()),
             event_kind: "cx.message".to_owned(),
             content: json!({"body": "hello"}),
             encrypted,

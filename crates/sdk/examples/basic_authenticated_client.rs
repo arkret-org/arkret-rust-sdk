@@ -1,8 +1,8 @@
-use contrix::{AuthManager, BaseClient, DeviceId, Did, SessionMeta};
+use cokret::{AuthManager, BaseClient, DeviceId, Did, SessionMeta};
 
-fn main() -> contrix::Result<()> {
+fn main() -> cokret::Result<()> {
     let user_id = Did::new("did:web:alice.example")?;
-    let device_id = DeviceId::new("cx:device:01904100-0000-7000-8000-000000000009")?;
+    let device_id = DeviceId::new("ck:device:01904100-0000-7000-8000-000000000009")?;
 
     let mut auth = AuthManager::default();
     auth.register_password_user("alice", "correct-horse-battery-staple", user_id)?;

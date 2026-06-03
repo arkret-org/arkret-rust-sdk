@@ -655,9 +655,9 @@ mod tests {
                 "cx.flow.create",
                 &json!({
                     "object": {
-                        "id": "cx:flow:0196419b-0000-7000-8000-000000000001",
+                        "id": "ck:flow:0196419b-0000-7000-8000-000000000001",
                         "schema": FLOW_SCHEMA,
-                        "realm_id": "cx:realm:0196419b-0000-7000-8000-000000000010",
+                        "realm_id": "ck:realm:0196419b-0000-7000-8000-000000000010",
                         "metadata": { "title": "Move-backed card" },
                         "stage": "draft",
                         "tracks": { "synthesis": { "is_primary": true } },
@@ -678,9 +678,9 @@ mod tests {
                 "cx.morph.create",
                 &json!({
                     "object": {
-                        "id": "cx:morph:0196419b-0000-7000-8000-000000000001",
+                        "id": "ck:morph:0196419b-0000-7000-8000-000000000001",
                         "schema": MORPH_SCHEMA,
-                        "realm_id": "cx:realm:0196419b-0000-7000-8000-000000000010",
+                        "realm_id": "ck:realm:0196419b-0000-7000-8000-000000000010",
                         "schema_refs": [MORPH_SCHEMA],
                         "morph_type": "document",
                         "metadata": { "title": "Spec" },
@@ -702,9 +702,9 @@ mod tests {
             .validate_payload(
                 "cx.flow.move",
                 &json!({
-                    "board_space_id": "cx:space:0196419b-0000-7000-8000-000000000010",
-                    "flow_id": "cx:flow:0196419b-0000-7000-8000-000000000001",
-                    "target_space_id": "cx:space:0196419b-0000-7000-8000-000000000020",
+                    "board_space_id": "ck:space:0196419b-0000-7000-8000-000000000010",
+                    "flow_id": "ck:flow:0196419b-0000-7000-8000-000000000001",
+                    "target_space_id": "ck:space:0196419b-0000-7000-8000-000000000020",
                     "rank": "U"
                 }),
             )
@@ -722,7 +722,7 @@ mod tests {
                 .validate_payload(
                     event_kind,
                     &json!({
-                        "target_ref": "cx:flow:01904100-0000-7000-8000-000000000001",
+                        "target_ref": "ck:flow:01904100-0000-7000-8000-000000000001",
                         "patch": {
                             "title": { "$op": "set", "value": "Roadmap" }
                         }
@@ -741,7 +741,7 @@ mod tests {
             .validate_payload(
                 "cx.message.create",
                 &json!({
-                    "flow_id": "cx:flow:0196419b-0000-7000-8000-000000000001",
+                    "flow_id": "ck:flow:0196419b-0000-7000-8000-000000000001",
                     "track_name": "discussion",
                     "content": {
                         "kind": "cx.content.text",
@@ -758,7 +758,7 @@ mod tests {
                     &json!({
                         "kind": "cx.message.create",
                         "payload": {
-                            "flow_id": "cx:flow:0196419b-0000-7000-8000-000000000001",
+                            "flow_id": "ck:flow:0196419b-0000-7000-8000-000000000001",
                             "track_name": "discussion"
                         }
                     }),
@@ -788,7 +788,7 @@ mod tests {
                 .validate_payload(
                     "cx.member.state",
                     &json!({
-                        "event_id": "cx:event:0196419b-0000-7000-8000-000000000001",
+                        "event_id": "ck:event:0196419b-0000-7000-8000-000000000001",
                         "kind": "cx.member.state",
                         "actor_id": "did:web:bob.example"
                     }),
@@ -808,7 +808,7 @@ mod tests {
                     "actor_id": "did:web:bob.example",
                     "membership": "join",
                     "reason": "invite_accept",
-                    "invite_ref": "cx:invite:01904100-0000-7000-8000-000000000001",
+                    "invite_ref": "ck:invite:01904100-0000-7000-8000-000000000001",
                     "delivery_status": "unroutable"
                 }),
             )
@@ -823,7 +823,7 @@ mod tests {
             .validate_payload(
                 "cx.message.create",
                 &json!({
-                    "flow_id": "cx:flow:01904100-0000-7000-8000-000000000001",
+                    "flow_id": "ck:flow:01904100-0000-7000-8000-000000000001",
                     "track_name": "discussion",
                     "content": {
                         "kind": "cx.content.text",
@@ -837,7 +837,7 @@ mod tests {
             .validate_payload(
                 "cx.message.create",
                 &json!({
-                    "flow_id": "cx:flow:01904100-0000-7000-8000-000000000001",
+                    "flow_id": "ck:flow:01904100-0000-7000-8000-000000000001",
                     "track_name": "discussion",
                     "content": {
                         "kind": "cx.content.text",
@@ -860,25 +860,25 @@ mod tests {
             .validate_payload(
                 "cx.mls.commit",
                 &json!({
-                    "mls_group_id": "cx:mls_group:test",
+                    "mls_group_id": "ck:mls_group:test",
                     "base_epoch": 0,
-                    "base_epoch_ref": "cx:event:0196419b-0000-7000-8000-000000000001",
+                    "base_epoch_ref": "ck:event:0196419b-0000-7000-8000-000000000001",
                     "proposal_refs": [],
                     "next_epoch": 1,
                     "commit_digest": format!("sha256:{}", "7".repeat(64)),
                     "governance_binding": {
                         "binding_version": 1,
                         "encoding_profile": "cbor-deterministic-rfc8949-v1",
-                        "realm_id": "cx:realm:0196419b-0000-7000-8000-000000000010",
+                        "realm_id": "ck:realm:0196419b-0000-7000-8000-000000000010",
                         "effective_scope": {
                             "kind": "realm",
-                            "realm_id": "cx:realm:0196419b-0000-7000-8000-000000000010"
+                            "realm_id": "ck:realm:0196419b-0000-7000-8000-000000000010"
                         },
-                        "mls_group_id": "cx:mls_group:test",
+                        "mls_group_id": "ck:mls_group:test",
                         "previous_epoch": 0,
                         "next_epoch": 1,
                         "membership_frontier": [
-                            "cx:event:0196419b-0000-7000-8000-000000000002"
+                            "ck:event:0196419b-0000-7000-8000-000000000002"
                         ],
                         "policy_root": format!("sha256:{}", "2".repeat(64))
                     }

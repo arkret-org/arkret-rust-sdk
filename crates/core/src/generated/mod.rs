@@ -1,4 +1,4 @@
-//! Generated constants derived from Contrix spec artifacts.
+//! Generated constants derived from Cokret spec artifacts.
 
 pub mod profile_requirements;
 pub mod profiles;

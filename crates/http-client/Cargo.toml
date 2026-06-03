@@ -1,14 +1,14 @@
 [package]
 authors = ["Chris Young <chris@sonc.ai>"]
 categories = ["api-bindings", "network-programming"]
-description = "HTTP transport bindings for Contrix v1 service endpoints."
+description = "HTTP transport bindings for Cokret v1 service endpoints."
 edition = "2024"
-homepage = "https://github.com/contrix/contrix-rust-sdk"
-keywords = ["contrix", "client", "http", "sdk"]
+homepage = "https://github.com/cokret/cokret-rust-sdk"
+keywords = ["cokret", "client", "http", "sdk"]
 license = "Apache-2.0"
-name = "contrix-http-client"
+name = "cokret-http-client"
 readme = "README.md"
-repository = "https://github.com/contrix/contrix-rust-sdk"
+repository = "https://github.com/cokret/cokret-rust-sdk"
 rust-version = "1.92"
 version = "1.0.0"
 
@@ -21,7 +21,7 @@ default = []
 
 [dependencies]
 chrono = { workspace = true, features = ["serde"] }
-contrix-core = { workspace = true, features = ["client"] }
+cokret-core = { workspace = true, features = ["client"] }
 reqwest = { workspace = true, features = ["json", "gzip", "http2", "stream"] }
 serde.workspace = true
 serde_json.workspace = true

@@ -7,16 +7,16 @@ resolver = "3"
 rust-version = "1.92"
 
 [workspace.dependencies]
-contrix-contracts = { version = "1.0.0", path = "crates/contracts", default-features = false }
-contrix-http-client = { version = "1.0.0", path = "crates/http-client", default-features = false }
-contrix-core = { version = "1.0.0", path = "crates/core", default-features = false }
-contrix-ffi = { version = "1.0.0", path = "crates/ffi", default-features = false }
-contrix-html = { version = "1.0.0", path = "crates/html", default-features = false }
-contrix-identifiers = { version = "1.0.0", path = "crates/identifiers", default-features = false }
-contrix-crypto = { version = "1.0.0", path = "crates/crypto", default-features = false }
-contrix-server = { version = "1.0.0", path = "crates/server", default-features = false }
-contrix-signatures = { version = "1.0.0", path = "crates/signatures", default-features = false }
-contrix-testing = { version = "1.0.0", path = "crates/testing", default-features = false }
+cokret-contracts = { version = "1.0.0", path = "crates/contracts", default-features = false }
+cokret-http-client = { version = "1.0.0", path = "crates/http-client", default-features = false }
+cokret-core = { version = "1.0.0", path = "crates/core", default-features = false }
+cokret-ffi = { version = "1.0.0", path = "crates/ffi", default-features = false }
+cokret-html = { version = "1.0.0", path = "crates/html", default-features = false }
+cokret-identifiers = { version = "1.0.0", path = "crates/identifiers", default-features = false }
+cokret-crypto = { version = "1.0.0", path = "crates/crypto", default-features = false }
+cokret-server = { version = "1.0.0", path = "crates/server", default-features = false }
+cokret-signatures = { version = "1.0.0", path = "crates/signatures", default-features = false }
+cokret-testing = { version = "1.0.0", path = "crates/testing", default-features = false }
 base64 = { version = "0.22.1", default-features = false, features = ["std"] }
 chacha20poly1305 = { version = "0.10.1", default-features = false, features = ["alloc"] }
 chrono = { version = "0.4.42", default-features = false, features = ["clock", "std", "serde"] }

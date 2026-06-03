@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use contrix::{canonical, *};
+use cokret::{canonical, *};
 use serde_json::json;
 
 fn did(name: &str) -> Did {
@@ -15,13 +15,13 @@ fn device(id: &str) -> DeviceId {
     for byte in id.bytes() {
         acc = (acc ^ u64::from(byte)).wrapping_mul(0x100000001b3);
     }
-    DeviceId::new(format!("cx:device:01904100-0000-7000-8000-{:012x}", acc & 0x0000_ffff_ffff_ffff))
+    DeviceId::new(format!("ck:device:01904100-0000-7000-8000-{:012x}", acc & 0x0000_ffff_ffff_ffff))
         .unwrap()
 }
 
 fn event(kind: &str, seq: u64, space_id: &SpaceId, content: serde_json::Value) -> Event {
     Event {
-        event_id: EventId::new(format!("cx:event:01904100-0000-7000-8000-{seq:012x}")).unwrap(),
+        event_id: EventId::new(format!("ck:event:01904100-0000-7000-8000-{seq:012x}")).unwrap(),
         kind: kind.to_owned(),
         realm_id: realm_from_space_id(space_id),
         actor_id: did("alice"),
@@ -48,7 +48,7 @@ fn event(kind: &str, seq: u64, space_id: &SpaceId, content: serde_json::Value) -
 }
 
 fn realm_from_space_id(space_id: &SpaceId) -> RealmId {
-    RealmId::new(space_id.as_str().replacen("cx:space:", "cx:realm:", 1)).unwrap()
+    RealmId::new(space_id.as_str().replacen("ck:space:", "ck:realm:", 1)).unwrap()
 }
 
 #[test]
@@ -67,8 +67,8 @@ fn end_to_end_auth_session_space_query_and_notifications() {
     })
     .unwrap();
 
-    let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
-    let morph_id = MorphId::new("cx:morph:01904100-0000-7000-8000-d48c478ecd0b").unwrap();
+    let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let morph_id = MorphId::new("ck:morph:01904100-0000-7000-8000-d48c478ecd0b").unwrap();
     base.process_events(
         &space_id,
         vec![event(
@@ -98,7 +98,7 @@ fn end_to_end_auth_session_space_query_and_notifications() {
     notifications.add_notification(
         "n1",
         Some(space_id.clone()),
-        EventId::new("cx:event:01904100-0000-7000-8000-b2b79cd5161d").unwrap(),
+        EventId::new("ck:event:01904100-0000-7000-8000-b2b79cd5161d").unwrap(),
         alice,
         "cx.message",
         Some(json!({"body": "hello"})),
@@ -138,7 +138,7 @@ fn protocol_conformance_vectors_remain_stable() {
 fn interoperability_serialization_roundtrips() {
     let mut spaces = BTreeMap::new();
     spaces.insert(
-        "cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
+        "ck:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
         serde_json::to_value(SyncSpace::default()).unwrap(),
     );
     let response = SyncResBody {
@@ -163,7 +163,7 @@ fn stress_smoke_processes_many_index_and_cache_entries() {
     let mut directory = DirectoryService::new();
     for index in 0..250 {
         let mut entry = SpaceSearchEntry::new(
-            SpaceId::new(format!("cx:space:01904100-0000-7000-8000-{index:012x}")).unwrap(),
+            SpaceId::new(format!("ck:space:01904100-0000-7000-8000-{index:012x}")).unwrap(),
             format!("Space {index}"),
         );
         entry.tags.insert(if index % 2 == 0 { "even" } else { "odd" }.to_owned());

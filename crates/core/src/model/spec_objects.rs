@@ -1,7 +1,7 @@
 //! Spec object types that did not have a Rust mirror until now.
 //!
 //! Each struct here mirrors a JSON schema in
-//! `contrix-spec/spec/v1/artifacts/schemas/`:
+//! `cokret-spec/spec/v1/artifacts/schemas/`:
 //!
 //! - `agent.schema.json` → [`AgentProtocolEnvelope`] + [`AgentAuditBinding`]
 //! - `applet.schema.json` → [`AppletProtocolEnvelope`] + [`AppletErrorContext`]
@@ -47,7 +47,7 @@ pub enum ProtocolSessionStatus {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AgentProtocolEnvelope {
     /// Stable agent runtime identifier. Spec v1: this is a DID;
-    /// `cx:agent:*` is not a registered typed-id kind.
+    /// `ck:agent:*` is not a registered typed-id kind.
     pub agent_id: Did,
     /// HTTPS endpoint advertised by `cx.agent.endpoint` events.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -88,7 +88,7 @@ pub struct AgentProtocolEnvelope {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AgentAuditBinding {
-    /// Grant reference. Wire form: `cx:grant:<uuidv7>`.
+    /// Grant reference. Wire form: `ck:grant:<uuidv7>`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub grant_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -108,7 +108,7 @@ pub struct AgentAuditBinding {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppletProtocolEnvelope {
     /// Stable applet identifier. Either a DID or the registered
-    /// typed-id form `cx:applet:<uuidv7>`. Arbitrary opaque strings
+    /// typed-id form `ck:applet:<uuidv7>`. Arbitrary opaque strings
     /// are NOT valid wire identifiers — bridge-specific aliases
     /// belong in `namespace` / `external_ref` extension fields.
     pub applet_id: String,
@@ -207,7 +207,7 @@ pub struct ModerationEvidencePolicy {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ModerationQueueItem {
-    /// `cx:moderation_queue_item:<uuidv7>`.
+    /// `ck:moderation_queue_item:<uuidv7>`.
     pub id: String,
     /// The full report this queue entry represents. Stored as
     /// [`serde_json::Value`] so callers can choose to deserialise into
@@ -222,7 +222,7 @@ pub struct ModerationQueueItem {
     pub assigned_to: Vec<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub evidence_policy: Option<ModerationEvidencePolicy>,
-    /// `cx:event:<uuidv7>` references to audit events recording queue
+    /// `ck:event:<uuidv7>` references to audit events recording queue
     /// actions (decisions, redirects, dismissals).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub audit_refs: Vec<String>,
@@ -275,7 +275,7 @@ mod tests {
     #[test]
     fn applet_envelope_round_trips() {
         let env = AppletProtocolEnvelope {
-            applet_id: "cx:applet:01970e58-9d21-7000-8000-aaaaaaaaaaaa".to_owned(),
+            applet_id: "ck:applet:01970e58-9d21-7000-8000-aaaaaaaaaaaa".to_owned(),
             service_did: Some(Did::new("did:web:bridge.example.com".to_owned()).unwrap()),
             session_id: Some("sess-1".to_owned()),
             status: Some(ProtocolSessionStatus::Completed),
@@ -292,8 +292,8 @@ mod tests {
     #[test]
     fn queue_item_round_trips() {
         let item = ModerationQueueItem {
-            id: "cx:moderation_queue_item:01970e58-9d21-7000-8000-aaaaaaaaaaaa".to_owned(),
-            report: json!({"realm_id": "cx:realm:...", "reason": "spam"}),
+            id: "ck:moderation_queue_item:01970e58-9d21-7000-8000-aaaaaaaaaaaa".to_owned(),
+            report: json!({"realm_id": "ck:realm:...", "reason": "spam"}),
             status: ModerationQueueStatus::Submitted,
             priority: Some(ModerationQueuePriority::Normal),
             visibility: ModerationQueueVisibility::MetadataOnly,

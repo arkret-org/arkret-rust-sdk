@@ -17,15 +17,15 @@ fn schema_vectors_include_negative_security_extension_case() {
 fn event_payload_catalog_validates_known_payload_fields() {
     let catalog = event_payload_validator_catalog();
     // Round 4 / Realm-Space inversion (spec a77b995): `cx.flow.move`
-    // payload requires `board_space_id` (cx:space prefix) + `space_id`
+    // payload requires `board_space_id` (ck:space prefix) + `space_id`
     // (renamed from target_place_id).
     catalog
         .validate_payload(
             "cx.flow.move",
             &json!({
-                "board_space_id": "cx:space:01904100-0000-7000-8000-111111111111",
-                "flow_id": "cx:flow:01904100-0000-7000-8000-6c663fa0205f",
-                "target_space_id": "cx:space:01904100-0000-7000-8000-222222222222",
+                "board_space_id": "ck:space:01904100-0000-7000-8000-111111111111",
+                "flow_id": "ck:flow:01904100-0000-7000-8000-6c663fa0205f",
+                "target_space_id": "ck:space:01904100-0000-7000-8000-222222222222",
                 "rank": "U"
             }),
         )
@@ -34,8 +34,8 @@ fn event_payload_catalog_validates_known_payload_fields() {
         catalog.validate_payload(
             "cx.flow.move",
             &json!({
-                "flow_id": "cx:flow:01904100-0000-7000-8000-6c663fa0205f",
-                "target_space_id": "cx:space:01904100-0000-7000-8000-222222222222",
+                "flow_id": "ck:flow:01904100-0000-7000-8000-6c663fa0205f",
+                "target_space_id": "ck:space:01904100-0000-7000-8000-222222222222",
                 "rank": "U"
             })
         ),
@@ -80,9 +80,9 @@ fn artifact_payload_catalog_enforces_deep_schema_rules() {
         .validate_payload(
             crate::events::FLOW_MOVE,
             &json!({
-                "board_space_id": "cx:space:01904100-0000-7000-8000-111111111111",
-                "flow_id": "cx:flow:01904100-0000-7000-8000-6c663fa0205f",
-                "target_space_id": "cx:space:01904100-0000-7000-8000-222222222222",
+                "board_space_id": "ck:space:01904100-0000-7000-8000-111111111111",
+                "flow_id": "ck:flow:01904100-0000-7000-8000-6c663fa0205f",
+                "target_space_id": "ck:space:01904100-0000-7000-8000-222222222222",
                 "rank": "U"
             }),
         )
@@ -93,8 +93,8 @@ fn artifact_payload_catalog_enforces_deep_schema_rules() {
                 crate::events::FLOW_MOVE,
                 &json!({
                     "board_space_id": "not-a-space-id",
-                    "flow_id": "cx:flow:01904100-0000-7000-8000-6c663fa0205f",
-                    "target_space_id": "cx:space:01904100-0000-7000-8000-222222222222",
+                    "flow_id": "ck:flow:01904100-0000-7000-8000-6c663fa0205f",
+                    "target_space_id": "ck:space:01904100-0000-7000-8000-222222222222",
                     "rank": "U"
                 }),
             )
@@ -105,9 +105,9 @@ fn artifact_payload_catalog_enforces_deep_schema_rules() {
             .validate_payload(
                 crate::events::FLOW_MOVE,
                 &json!({
-                    "board_space_id": "cx:space:01904100-0000-7000-8000-111111111111",
-                    "flow_id": "cx:flow:01904100-0000-7000-8000-6c663fa0205f",
-                    "target_space_id": "cx:space:01904100-0000-7000-8000-222222222222",
+                    "board_space_id": "ck:space:01904100-0000-7000-8000-111111111111",
+                    "flow_id": "ck:flow:01904100-0000-7000-8000-6c663fa0205f",
+                    "target_space_id": "ck:space:01904100-0000-7000-8000-222222222222",
                     "rank": "U",
                     "unexpected": true
                 }),
@@ -140,7 +140,7 @@ fn artifact_payload_catalog_prefers_registered_specialized_defs_over_name_matche
         .validate_payload(
             "cx.space.archive",
             &json!({
-                "space_id": "cx:space:01904100-0000-7000-8000-111111111111",
+                "space_id": "ck:space:01904100-0000-7000-8000-111111111111",
                 "reason": "done"
             }),
         )
@@ -177,7 +177,7 @@ fn artifact_payload_catalog_maps_object_patch_event_family_to_object_patch_paylo
             .validate_payload(
                 event_kind,
                 &json!({
-                    "target_ref": "cx:realm:0196419b-0000-7000-8000-000000000001",
+                    "target_ref": "ck:realm:0196419b-0000-7000-8000-000000000001",
                 "patch": patch
                 }),
             )
@@ -192,7 +192,7 @@ fn artifact_payload_catalog_maps_object_patch_event_family_to_object_patch_paylo
         .validate_payload(
             "cx.flow.tracks.update",
             &json!({
-                "flow_id": "cx:flow:0196419b-0000-7000-8000-000000000001",
+                "flow_id": "ck:flow:0196419b-0000-7000-8000-000000000001",
                 "tracks": {
                     "main": { "title": "Main", "rank": "a0" }
                 }
@@ -205,7 +205,7 @@ fn artifact_payload_catalog_maps_object_patch_event_family_to_object_patch_paylo
                 "cx.flow.tracks.update",
                 &json!({
                     "type": "cx.flow.tracks.update",
-                    "flow_id": "cx:flow:0196419b-0000-7000-8000-000000000001"
+                    "flow_id": "ck:flow:0196419b-0000-7000-8000-000000000001"
                 }),
             )
             .is_err(),
@@ -241,7 +241,7 @@ fn artifact_payload_catalog_enforces_external_schema_refs_and_enums() {
             crate::events::CROSS_SIGNING_PUBLISH,
             &json!({
                 "principal_id": "did:web:alice.example",
-                "trust_domain": "cx:trust_domain:example.net",
+                "trust_domain": "ck:trust_domain:example.net",
                 "principal_signing_key": key,
                 "self_signing_key": subordinate_key,
                 "user_signing_key": subordinate_key,
@@ -558,7 +558,7 @@ fn spec_artifact_registry_covers_key_local_schema_and_event_contracts() {
     }
 
     for (kind, wire_form) in
-        [("event", "cx:event:<uuid>"), ("space", "cx:space:<uuid>"), ("flow", "cx:flow:<uuid>")]
+        [("event", "ck:event:<uuid>"), ("space", "ck:space:<uuid>"), ("flow", "ck:flow:<uuid>")]
     {
         let entry = registry_entry(&bundle.id_kind_registry, "id_kinds", "kind", kind)
             .unwrap_or_else(|| panic!("missing id kind {kind}"));

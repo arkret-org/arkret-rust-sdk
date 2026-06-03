@@ -5,7 +5,7 @@ fn sessioned_base() -> Arc<BaseClient> {
     let base_client = Arc::new(BaseClient::new());
     let meta = SessionMeta::new(
         Did::new("did:web:alice.example.com").unwrap(),
-        DeviceId::new("cx:device:01904100-0000-7000-8000-000000000005").unwrap(),
+        DeviceId::new("ck:device:01904100-0000-7000-8000-000000000005").unwrap(),
     );
     base_client.set_session_meta(meta).unwrap();
     base_client
@@ -13,9 +13,9 @@ fn sessioned_base() -> Arc<BaseClient> {
 
 fn event(kind: &str, seq: u64, space_id: &SpaceId, content: Value) -> Event {
     Event {
-        event_id: EventId::new(format!("cx:event:01904100-0000-7000-8000-{seq:012x}")).unwrap(),
+        event_id: EventId::new(format!("ck:event:01904100-0000-7000-8000-{seq:012x}")).unwrap(),
         kind: kind.to_owned(),
-        realm_id: RealmId::new(space_id.as_str().replacen("cx:space:", "cx:realm:", 1)).unwrap(),
+        realm_id: RealmId::new(space_id.as_str().replacen("ck:space:", "ck:realm:", 1)).unwrap(),
         actor_id: Did::new("did:web:alice.example.com").unwrap(),
         actor_seq: seq,
         created_at: Utc::now(),
@@ -44,7 +44,7 @@ fn morph_create_payload(morph_id: &MorphId, morph_type: &str, title: &str) -> Va
         "object": {
             "id": morph_id.as_str(),
             "schema": crate::MORPH_SCHEMA,
-            "space_id": "cx:space:01904100-0000-7000-8000-9b64700c6ee8",
+            "space_id": "ck:space:01904100-0000-7000-8000-9b64700c6ee8",
             "morph_type": morph_type,
             "metadata": {"title": title},
             "created_by": "did:web:alice.example.com",
@@ -56,7 +56,7 @@ fn morph_create_payload(morph_id: &MorphId, morph_type: &str, title: &str) -> Va
 #[test]
 fn space_checks_membership() {
     let base_client = Arc::new(BaseClient::new());
-    let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
 
     base_client.update_space_state(&space_id, SpaceStateType::Joined).unwrap();
 
@@ -69,7 +69,7 @@ fn space_checks_membership() {
 #[test]
 fn space_creates_morph_operation() {
     let base_client = sessioned_base();
-    let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
     let space = Space::new(space_id.clone(), base_client);
 
     let op = space
@@ -77,36 +77,36 @@ fn space_creates_morph_operation() {
         .unwrap();
 
     assert_eq!(op.operation_type, OperationType::Create);
-    assert_eq!(op.realm_id.as_str(), space_id.as_str().replacen("cx:space:", "cx:realm:", 1));
+    assert_eq!(op.realm_id.as_str(), space_id.as_str().replacen("ck:space:", "ck:realm:", 1));
     assert_eq!(op.object_type, OP_MORPH_CREATE);
     assert_eq!(op.payload["object"]["morph_type"], "task");
     assert_eq!(op.payload["object"]["metadata"]["title"], "Test task");
-    assert!(op.payload["object"]["id"].as_str().unwrap().starts_with("cx:morph:"));
+    assert!(op.payload["object"]["id"].as_str().unwrap().starts_with("ck:morph:"));
 }
 
 #[test]
 fn space_creates_relation_operation() {
     let base_client = sessioned_base();
-    let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
     let space = Space::new(space_id.clone(), base_client);
 
     let input = RelationOperationInput::new(
         RelationKind::DependsOn,
-        "cx:morph:01904100-0000-7000-8000-d48c478ecd0b",
-        "cx:morph:01904100-0000-7000-8000-e75dc3f6ab2e",
+        "ck:morph:01904100-0000-7000-8000-d48c478ecd0b",
+        "ck:morph:01904100-0000-7000-8000-e75dc3f6ab2e",
     );
     let op = space.create_relation_operation(input).unwrap();
 
     assert_eq!(op.operation_type, OperationType::Create);
-    assert_eq!(op.realm_id.as_str(), space_id.as_str().replacen("cx:space:", "cx:realm:", 1));
+    assert_eq!(op.realm_id.as_str(), space_id.as_str().replacen("ck:space:", "ck:realm:", 1));
     assert_eq!(op.payload["relation"]["relation_kind"], "depends_on");
-    assert!(op.payload["relation"]["id"].as_str().unwrap().starts_with("cx:relation:"));
+    assert!(op.payload["relation"]["id"].as_str().unwrap().starts_with("ck:relation:"));
 }
 
 #[test]
 fn space_creates_flow_operations_and_reads_default_view_relations() {
     let base_client = sessioned_base();
-    let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
     let space = Space::new(space_id.clone(), base_client.clone());
 
     let create = space
@@ -147,12 +147,12 @@ fn space_creates_flow_operations_and_reads_default_view_relations() {
                     &space_id,
                     json!({
                         "relation": {
-                            "id": "cx:relation:01904100-0000-7000-8000-4da53c8b9e89",
+                            "id": "ck:relation:01904100-0000-7000-8000-4da53c8b9e89",
                             "schema": crate::RELATION_SCHEMA,
                             "space_id": space_id.as_str(),
                             "relation_kind": "has_default_view",
                             "from_ref": flow_id.as_str(),
-                            "to_ref": "cx:view:01904100-0000-7000-8000-08ca7b733afd",
+                            "to_ref": "ck:view:01904100-0000-7000-8000-08ca7b733afd",
                             "created_by": "did:web:alice.example.com",
                             "created_at": "2026-05-02T00:00:00.000Z",
                             "fields": {"primary": true}
@@ -171,9 +171,9 @@ fn space_creates_flow_operations_and_reads_default_view_relations() {
 #[test]
 fn space_queries_searches_and_aggregates_morphs() {
     let base_client = sessioned_base();
-    let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
-    let task_id = MorphId::new("cx:morph:01904100-0000-7000-8000-d48c478ecd0b").unwrap();
-    let doc_id = MorphId::new("cx:morph:01904100-0000-7000-8000-e75dc3f6ab2e").unwrap();
+    let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let task_id = MorphId::new("ck:morph:01904100-0000-7000-8000-d48c478ecd0b").unwrap();
+    let doc_id = MorphId::new("ck:morph:01904100-0000-7000-8000-e75dc3f6ab2e").unwrap();
     base_client
         .process_events(
             &space_id,
@@ -246,10 +246,10 @@ fn space_queries_searches_and_aggregates_morphs() {
 #[test]
 fn space_traverses_relation_ref_graph_paths_and_cycles() {
     let base_client = sessioned_base();
-    let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
-    let a = "cx:morph:01904100-0000-7000-8000-093d58d9d0c4";
-    let b = "cx:morph:01904100-0000-7000-8000-af13d24f756d";
-    let c = "cx:morph:01904100-0000-7000-8000-28bb259aec1d";
+    let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let a = "ck:morph:01904100-0000-7000-8000-093d58d9d0c4";
+    let b = "ck:morph:01904100-0000-7000-8000-af13d24f756d";
+    let c = "ck:morph:01904100-0000-7000-8000-28bb259aec1d";
     base_client
         .process_events(
             &space_id,
@@ -276,19 +276,19 @@ fn space_traverses_relation_ref_graph_paths_and_cycles() {
                     OP_RELATION_CREATE,
                     4,
                     &space_id,
-                    json!({"relation": {"id": "cx:relation:01904100-0000-7000-8000-7b3bf7d6e46b", "schema": crate::RELATION_SCHEMA, "space_id": space_id.as_str(), "relation_kind": "depends_on", "from_ref": a, "to_ref": b, "created_by": "did:web:alice.example.com", "created_at": "2026-05-02T00:00:00.000Z"}}),
+                    json!({"relation": {"id": "ck:relation:01904100-0000-7000-8000-7b3bf7d6e46b", "schema": crate::RELATION_SCHEMA, "space_id": space_id.as_str(), "relation_kind": "depends_on", "from_ref": a, "to_ref": b, "created_by": "did:web:alice.example.com", "created_at": "2026-05-02T00:00:00.000Z"}}),
                 ),
                 event(
                     OP_RELATION_CREATE,
                     5,
                     &space_id,
-                    json!({"relation": {"id": "cx:relation:01904100-0000-7000-8000-8b48e0461d8c", "schema": crate::RELATION_SCHEMA, "space_id": space_id.as_str(), "relation_kind": "depends_on", "from_ref": b, "to_ref": c, "created_by": "did:web:alice.example.com", "created_at": "2026-05-02T00:00:00.000Z"}}),
+                    json!({"relation": {"id": "ck:relation:01904100-0000-7000-8000-8b48e0461d8c", "schema": crate::RELATION_SCHEMA, "space_id": space_id.as_str(), "relation_kind": "depends_on", "from_ref": b, "to_ref": c, "created_by": "did:web:alice.example.com", "created_at": "2026-05-02T00:00:00.000Z"}}),
                 ),
                 event(
                     OP_RELATION_CREATE,
                     6,
                     &space_id,
-                    json!({"relation": {"id": "cx:relation:01904100-0000-7000-8000-f891fd92960d", "schema": crate::RELATION_SCHEMA, "space_id": space_id.as_str(), "relation_kind": "depends_on", "from_ref": c, "to_ref": a, "created_by": "did:web:alice.example.com", "created_at": "2026-05-02T00:00:00.000Z"}}),
+                    json!({"relation": {"id": "ck:relation:01904100-0000-7000-8000-f891fd92960d", "schema": crate::RELATION_SCHEMA, "space_id": space_id.as_str(), "relation_kind": "depends_on", "from_ref": c, "to_ref": a, "created_by": "did:web:alice.example.com", "created_at": "2026-05-02T00:00:00.000Z"}}),
                 ),
             ],
         )
@@ -314,8 +314,8 @@ fn space_traverses_relation_ref_graph_paths_and_cycles() {
 #[test]
 fn space_tracks_morph_versions_compares_and_rolls_back() {
     let base_client = sessioned_base();
-    let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
-    let morph_id = MorphId::new("cx:morph:01904100-0000-7000-8000-69c57da8d707").unwrap();
+    let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let morph_id = MorphId::new("ck:morph:01904100-0000-7000-8000-69c57da8d707").unwrap();
     base_client
         .process_events(
             &space_id,
@@ -369,7 +369,7 @@ fn space_tracks_morph_versions_compares_and_rolls_back() {
 #[test]
 fn space_creates_batch_morph_operations() {
     let base_client = sessioned_base();
-    let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
     let space = Space::new(space_id, base_client);
 
     let creates = space
@@ -394,7 +394,7 @@ fn space_creates_batch_morph_operations() {
 
     let updates = space
         .batch_update_morph_operations(vec![BatchUpdateMorph {
-            morph_id: MorphId::new("cx:morph:01904100-0000-7000-8000-604e58949e32").unwrap(),
+            morph_id: MorphId::new("ck:morph:01904100-0000-7000-8000-604e58949e32").unwrap(),
             title: Some("Updated".to_owned()),
             summary: None,
             content: None,
@@ -405,7 +405,7 @@ fn space_creates_batch_morph_operations() {
 
     let archives = space
         .batch_archive_morph_operations(vec![
-            MorphId::new("cx:morph:01904100-0000-7000-8000-604e58949e32").unwrap(),
+            MorphId::new("ck:morph:01904100-0000-7000-8000-604e58949e32").unwrap(),
         ])
         .unwrap();
     assert_eq!(archives.len(), 1);
@@ -414,7 +414,7 @@ fn space_creates_batch_morph_operations() {
 #[test]
 fn space_provides_message_membership_and_media_convenience_helpers() {
     let base_client = sessioned_base();
-    let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
     let space = Space::new(space_id.clone(), base_client.clone());
     let bob = Did::new("did:web:bob.example.com").unwrap();
 
@@ -464,7 +464,7 @@ fn member_add_with_candidate_emits_routable_join_with_typed_binding() {
     };
 
     let base_client = sessioned_base();
-    let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-000000000300").unwrap();
+    let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-000000000300").unwrap();
     let space = Space::new(space_id.clone(), base_client);
 
     let subject = Did::new("did:web:bob.example".to_owned()).unwrap();
@@ -482,15 +482,15 @@ fn member_add_with_candidate_emits_routable_join_with_typed_binding() {
             binding_source: HandleHintBindingSource::OrganizationPolicy,
             delivery_modes: modes,
             service_acceptance_ref: Some(
-                "cx:event:01890000-0000-7000-8000-0000000000a1".to_owned(),
+                "ck:event:01890000-0000-7000-8000-0000000000a1".to_owned(),
             ),
-            policy_event_ref: Some("cx:event:01890000-0000-7000-8000-0000000000a2".to_owned()),
+            policy_event_ref: Some("ck:event:01890000-0000-7000-8000-0000000000a2".to_owned()),
         },
         issuer_service_did: principal,
         audience: space_id.as_str().to_owned(),
         expires_at: Utc::now() + chrono::Duration::hours(1),
         issued_at: Some(Utc::now()),
-        source_refs: vec!["cx:event:01890000-0000-7000-8000-0000000000a3".to_owned()],
+        source_refs: vec!["ck:event:01890000-0000-7000-8000-0000000000a3".to_owned()],
         proofs: vec![serde_json::json!({
             "kind": "detached_jws",
             "alg": "EdDSA",
@@ -523,7 +523,7 @@ fn member_add_with_candidate_rejects_audience_mismatch() {
     };
 
     let base_client = sessioned_base();
-    let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-000000000301").unwrap();
+    let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-000000000301").unwrap();
     let space = Space::new(space_id, base_client);
 
     let principal = Did::new("did:web:principal.acme.example".to_owned()).unwrap();
@@ -539,16 +539,16 @@ fn member_add_with_candidate_rejects_audience_mismatch() {
             binding_source: HandleHintBindingSource::OrganizationPolicy,
             delivery_modes: modes,
             service_acceptance_ref: Some(
-                "cx:event:01890000-0000-7000-8000-0000000000a1".to_owned(),
+                "ck:event:01890000-0000-7000-8000-0000000000a1".to_owned(),
             ),
-            policy_event_ref: Some("cx:event:01890000-0000-7000-8000-0000000000a2".to_owned()),
+            policy_event_ref: Some("ck:event:01890000-0000-7000-8000-0000000000a2".to_owned()),
         },
         issuer_service_did: principal,
         // Wrong audience — Space id does not match.
-        audience: "cx:space:DEADBEEF-0000-7000-8000-00000000ffff".to_owned(),
+        audience: "ck:space:DEADBEEF-0000-7000-8000-00000000ffff".to_owned(),
         expires_at: Utc::now() + chrono::Duration::hours(1),
         issued_at: Some(Utc::now()),
-        source_refs: vec!["cx:event:01890000-0000-7000-8000-0000000000a3".to_owned()],
+        source_refs: vec!["ck:event:01890000-0000-7000-8000-0000000000a3".to_owned()],
         proofs: vec![serde_json::json!({"kind":"detached_jws","jws":"a.b.c"})],
         claim_digest: None,
         intent: CandidateIntent::MemberAdd,

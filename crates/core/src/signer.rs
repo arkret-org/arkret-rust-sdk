@@ -7,8 +7,8 @@
 //! production keys in without re-implementing canonical bytes / id / payload
 //! hash plumbing.
 //!
-//! The trait deliberately stays in `contrix-core` (no crypto deps): an
-//! Ed25519 implementation lives in `contrix-signatures` behind the `signer`
+//! The trait deliberately stays in `cokret-core` (no crypto deps): an
+//! Ed25519 implementation lives in `cokret-signatures` behind the `signer`
 //! feature, and other backends (HSM, threshold scheme) can layer on the
 //! same trait.
 
@@ -639,7 +639,7 @@ mod tests {
     use serde_json::json;
 
     fn space() -> SpaceId {
-        SpaceId::new("cx:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+        SpaceId::new("ck:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn alice() -> Did {
@@ -647,7 +647,7 @@ mod tests {
     }
 
     fn anchor_id(byte: u8) -> AnchorId {
-        AnchorId::new(format!("cx:anchor:sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
+        AnchorId::new(format!("ck:anchor:sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
     }
 
     fn move_id(byte: u8) -> MoveId {
@@ -664,7 +664,7 @@ mod tests {
 
     /// Deterministic test signer: produces a JWS that's just hex(payload_digest)
     /// so test vectors don't need real ed25519. Real signers live in
-    /// `contrix-signatures::signer`.
+    /// `cokret-signatures::signer`.
     struct StubSigner {
         did: Did,
         kid: String,
@@ -719,7 +719,7 @@ mod tests {
             anchor_id(0xaa),
             vec![Effect {
                 cell: CellRef::new(
-                    "cx:cell:cx.component.member.state.v1:did.web.alice.example".to_owned(),
+                    "ck:cell:cx.component.member.state.v1:did.web.alice.example".to_owned(),
                 )
                 .unwrap(),
                 op: LatticeOp {

@@ -445,7 +445,7 @@ mod capability_grant_builder_tests {
     use super::*;
 
     fn realm() -> crate::RealmId {
-        crate::RealmId::new("cx:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
+        crate::RealmId::new("ck:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
     }
 
     fn alice() -> Did {
@@ -462,7 +462,7 @@ mod capability_grant_builder_tests {
 
     fn base_grant() -> CapabilityGrant {
         CapabilityGrant {
-            id: "cx:grant:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
+            id: "ck:grant:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
             space_id: None,
             issuer: alice(),
             subject: bob(),
@@ -483,7 +483,7 @@ mod capability_grant_builder_tests {
         let event =
             CapabilityGrantBuilder::new(realm(), alice(), base_grant()).build(1, hlc()).unwrap();
         assert_eq!(event.kind, crate::events::CAPABILITY_GRANT);
-        assert_eq!(event.content["id"], "cx:grant:01904100-0000-7000-8000-aaaaaaaaaaaa");
+        assert_eq!(event.content["id"], "ck:grant:01904100-0000-7000-8000-aaaaaaaaaaaa");
         assert_eq!(event.content["issuer"], "did:web:alice.example");
         assert_eq!(event.content["subject"], "did:web:bob.example");
     }
@@ -499,13 +499,13 @@ mod capability_grant_builder_tests {
     #[test]
     fn capability_chain_verifier_accepts_narrowing_child() {
         let parent = CapabilityGrant {
-            id: "cx:grant:00000000-0000-7000-8000-000000000001".to_owned(),
+            id: "ck:grant:00000000-0000-7000-8000-000000000001".to_owned(),
             delegable: true,
             actions: vec!["*".to_owned()],
             ..base_grant()
         };
         let child = CapabilityGrant {
-            id: "cx:grant:00000000-0000-7000-8000-000000000002".to_owned(),
+            id: "ck:grant:00000000-0000-7000-8000-000000000002".to_owned(),
             parent_grant_id: Some(parent.id.clone()),
             issuer: bob(),
             subject: Did::new("did:web:carol.example").unwrap(),

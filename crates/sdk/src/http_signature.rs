@@ -16,8 +16,8 @@
 //!
 //! ```text
 //! Signature-Input: sig1=("@method" "@target-uri" "@authority" \
-//!     "content-digest" "x-contrix-origin-service-did" \
-//!     "x-contrix-destination-service-did");\
+//!     "content-digest" "x-cokret-origin-service-did" \
+//!     "x-cokret-destination-service-did");\
 //!     created=1715990000;expires=1715990300;\
 //!     keyid="did:web:sync.example.com#push";alg="ed25519"
 //! Signature: sig1=:BASE64URLSAFE_OR_STANDARD_64B:
@@ -251,7 +251,7 @@ impl SignatureVerificationPolicy {
         }
     }
 
-    /// Minimal Contrix service-ingest policy: method, absolute target URI,
+    /// Minimal Cokret service-ingest policy: method, absolute target URI,
     /// authority and content digest must all be covered.
     pub fn service_ingest() -> Self {
         Self::new(vec![
@@ -726,7 +726,7 @@ mod tests {
     fn floria_signature_input(created: i64, expires: i64) -> String {
         format!(
             "sig1=(\"@method\" \"@target-uri\" \"@authority\" \"content-digest\" \
-             \"x-contrix-origin-service-did\" \"x-contrix-destination-service-did\");\
+             \"x-cokret-origin-service-did\" \"x-cokret-destination-service-did\");\
              created={created};expires={expires};\
              keyid=\"did:web:sync.example.com#push\";alg=\"ed25519\""
         )
@@ -748,7 +748,7 @@ mod tests {
         assert_eq!(parsed.covered_components[3], Component::Header("content-digest".to_owned()));
         assert_eq!(
             parsed.covered_components[4],
-            Component::Header("x-contrix-origin-service-did".to_owned())
+            Component::Header("x-cokret-origin-service-did".to_owned())
         );
         // covers_all check
         assert!(parsed.covers_all(&[
@@ -844,9 +844,9 @@ mod tests {
             authority: "127.0.0.1".to_owned(),
             path: "/api/v1/push/notify".to_owned(),
             headers: vec![
-                ("x-contrix-origin-service-did".to_owned(), "did:web:sync.example.com".to_owned()),
+                ("x-cokret-origin-service-did".to_owned(), "did:web:sync.example.com".to_owned()),
                 (
-                    "x-contrix-destination-service-did".to_owned(),
+                    "x-cokret-destination-service-did".to_owned(),
                     "did:web:push.example.com".to_owned(),
                 ),
             ],
@@ -860,11 +860,11 @@ mod tests {
              \"@target-uri\": http://127.0.0.1/api/v1/push/notify\n\
              \"@authority\": 127.0.0.1\n\
              \"content-digest\": {digest_val}\n\
-             \"x-contrix-origin-service-did\": did:web:sync.example.com\n\
-             \"x-contrix-destination-service-did\": did:web:push.example.com\n\
+             \"x-cokret-origin-service-did\": did:web:sync.example.com\n\
+             \"x-cokret-destination-service-did\": did:web:push.example.com\n\
              \"@signature-params\": ({components});created={created};expires={expires};keyid=\"did:web:sync.example.com#push\";alg=\"ed25519\"",
             digest_val = digest.wire_value,
-            components = "\"@method\" \"@target-uri\" \"@authority\" \"content-digest\" \"x-contrix-origin-service-did\" \"x-contrix-destination-service-did\"",
+            components = "\"@method\" \"@target-uri\" \"@authority\" \"content-digest\" \"x-cokret-origin-service-did\" \"x-cokret-destination-service-did\"",
         );
         assert_eq!(text, expected);
     }
@@ -885,9 +885,9 @@ mod tests {
             authority: "push.example".to_owned(),
             path: "/api/v1/push/notify".to_owned(),
             headers: vec![
-                ("x-contrix-origin-service-did".to_owned(), "did:web:sync.example.com".to_owned()),
+                ("x-cokret-origin-service-did".to_owned(), "did:web:sync.example.com".to_owned()),
                 (
-                    "x-contrix-destination-service-did".to_owned(),
+                    "x-cokret-destination-service-did".to_owned(),
                     "did:web:push.example.com".to_owned(),
                 ),
             ],
@@ -916,9 +916,9 @@ mod tests {
             authority: "push.example".to_owned(),
             path: "/".to_owned(),
             headers: vec![
-                ("x-contrix-origin-service-did".to_owned(), "did:web:sync.example.com".to_owned()),
+                ("x-cokret-origin-service-did".to_owned(), "did:web:sync.example.com".to_owned()),
                 (
-                    "x-contrix-destination-service-did".to_owned(),
+                    "x-cokret-destination-service-did".to_owned(),
                     "did:web:push.example.com".to_owned(),
                 ),
             ],

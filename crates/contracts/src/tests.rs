@@ -64,10 +64,10 @@ fn push_bridge_describe_serde_shape_is_stable() {
         "notify": {
             "notify_path": "/api/v1/push/notify",
             "operation_id": "cx.push.notify",
-            "request_id_header": "X-Contrix-Request-Id",
-            "idempotency_key_header": "X-Contrix-Idempotency-Key",
-            "origin_service_did_header": "X-Contrix-Origin-Service-Did",
-            "destination_service_did_header": "X-Contrix-Destination-Service-Did",
+            "request_id_header": "X-Cokret-Request-Id",
+            "idempotency_key_header": "X-Cokret-Idempotency-Key",
+            "origin_service_did_header": "X-Cokret-Origin-Service-Did",
+            "destination_service_did_header": "X-Cokret-Destination-Service-Did",
             "max_request_size_bytes": 16384,
             "dedup_ttl_seconds": 300
         },
@@ -163,8 +163,8 @@ fn spec_operation_registry_path() -> PathBuf {
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     [
         manifest_dir
-            .join("../../../contrix-spec/spec/v1/artifacts/registry/operation-registry.json"),
-        PathBuf::from("../contrix-spec/spec/v1/artifacts/registry/operation-registry.json"),
+            .join("../../../cokret-spec/spec/v1/artifacts/registry/operation-registry.json"),
+        PathBuf::from("../cokret-spec/spec/v1/artifacts/registry/operation-registry.json"),
     ]
     .into_iter()
     .find(|path| path.exists())

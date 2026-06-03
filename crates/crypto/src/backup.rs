@@ -20,7 +20,7 @@
 //! let kek = derive_vault_kek(b"correct horse battery staple")?;
 //! let ct = encrypt_vault(&kek, br#"{"recovery":"..."}"#)?;
 //! let envelope = build_key_backup_envelope(
-//!     "cx:backup:01964137-0000-7000-8000-000000000000".parse()?,
+//!     "ck:backup:01964137-0000-7000-8000-000000000000".parse()?,
 //!     "did:webvh:alice.example".parse()?,
 //!     None,
 //!     BackupClass::SecretStorage,
@@ -340,7 +340,7 @@ pub fn build_key_backup_envelope(
     // envelope by minting a fresh series_id and seq=0; successors are built
     // with `build_key_backup_successor_envelope`.
     let series_id =
-        contrix_core::BackupSeriesId::new(contrix_core::new_prefixed_uuid7("cx:backup_series:"))
+        contrix_core::BackupSeriesId::new(contrix_core::new_prefixed_uuid7("ck:backup_series:"))
             .map_err(|err| anyhow!("failed to mint backup_series id: {err}"))?;
     Ok(KeyBackup {
         backup_id,
@@ -414,12 +414,12 @@ pub fn build_key_backup_successor_envelope(
 
 /// Key commitment used by the AEAD envelope (spec §7.2). Local fast
 /// rejection of a wrong passphrase: `sha256(HKDF(key,
-/// info="contrix-key-backup-commitment-v1"))` collapses to
-/// `sha256(key || "contrix-key-backup-commitment-v1")` because we don't
+/// info="cokret-key-backup-commitment-v1"))` collapses to
+/// `sha256(key || "cokret-key-backup-commitment-v1")` because we don't
 /// need a stretching pass here — the key is already the KDF output.
 fn commitment_digest(key: &[u8; VAULT_KDF_OUTPUT_LEN]) -> Vec<u8> {
     static INFO: OnceLock<&'static [u8]> = OnceLock::new();
-    let info = *INFO.get_or_init(|| b"contrix-key-backup-commitment-v1".as_slice());
+    let info = *INFO.get_or_init(|| b"cokret-key-backup-commitment-v1".as_slice());
     let mut hasher = Sha256::new();
     hasher.update(key);
     hasher.update(info);
@@ -517,7 +517,7 @@ mod tests {
         let kek = derive_vault_kek_with_salt(b"pp", &[5u8; VAULT_SALT_LEN]).unwrap();
         let ct = encrypt_vault(&kek, b"hello").unwrap();
         let envelope = build_key_backup_envelope(
-            "cx:backup:01964137-0000-7000-8000-000000000000".parse().unwrap(),
+            "ck:backup:01964137-0000-7000-8000-000000000000".parse().unwrap(),
             "did:webvh:alice.example".parse().unwrap(),
             None,
             BackupClass::SecretStorage,
@@ -536,7 +536,7 @@ mod tests {
         assert_eq!(kdf.params["memory_kib"], VAULT_ARGON2_M_KIB);
         assert_eq!(kdf.params["iterations"], VAULT_ARGON2_T);
         assert_eq!(kdf.params["parallelism"], VAULT_ARGON2_P);
-        assert_eq!(kdf.params["hkdf_info"], "contrix-key-backup/secret_storage/envelope/v1");
+        assert_eq!(kdf.params["hkdf_info"], "cokret-key-backup/secret_storage/envelope/v1");
         assert_eq!(envelope.ciphertext, ct.ciphertext_b64);
         assert_eq!(envelope.ciphertext_digest, ct.digest_sha256);
         assert!(envelope.encryption.key_commitment.is_some());
@@ -550,7 +550,7 @@ mod tests {
         let genesis_ct = encrypt_vault(&kek, b"genesis").unwrap();
         let successor_ct = encrypt_vault(&kek, b"successor").unwrap();
         let genesis = build_key_backup_envelope(
-            "cx:backup:01964137-0000-7000-8000-000000000001".parse().unwrap(),
+            "ck:backup:01964137-0000-7000-8000-000000000001".parse().unwrap(),
             "did:webvh:alice.example".parse().unwrap(),
             None,
             BackupClass::SecretStorage,
@@ -561,13 +561,13 @@ mod tests {
         )
         .unwrap();
         let successor = build_key_backup_successor_envelope(
-            "cx:backup:01964137-0000-7000-8000-000000000002".parse().unwrap(),
+            "ck:backup:01964137-0000-7000-8000-000000000002".parse().unwrap(),
             &genesis,
             "kb_2",
             &kek,
             &successor_ct,
             &[("recovery_secret", Some("successor"))],
-            "cx:frontier:recovery:2",
+            "ck:frontier:recovery:2",
         )
         .unwrap();
         assert_eq!(successor.series_id, genesis.series_id);
@@ -577,7 +577,7 @@ mod tests {
             successor.supersedes_digest.as_deref(),
             Some(genesis.ciphertext_digest.as_str())
         );
-        assert_eq!(successor.frontier_ref.as_deref(), Some("cx:frontier:recovery:2"));
+        assert_eq!(successor.frontier_ref.as_deref(), Some("ck:frontier:recovery:2"));
     }
 
     #[test]
@@ -585,7 +585,7 @@ mod tests {
         let kek = derive_vault_kek_with_salt(b"pp", &[5u8; VAULT_SALT_LEN]).unwrap();
         let ct = encrypt_vault(&kek, b"x").unwrap();
         let err = build_key_backup_envelope(
-            "cx:backup:01964137-0000-7000-8000-000000000000".parse().unwrap(),
+            "ck:backup:01964137-0000-7000-8000-000000000000".parse().unwrap(),
             "did:webvh:alice.example".parse().unwrap(),
             None,
             BackupClass::SecretStorage,
@@ -603,7 +603,7 @@ mod tests {
         let kek = derive_vault_kek_with_salt(b"pp", &[5u8; VAULT_SALT_LEN]).unwrap();
         let ct = encrypt_vault(&kek, b"x").unwrap();
         let err = build_key_backup_envelope(
-            "cx:backup:01964137-0000-7000-8000-000000000000".parse().unwrap(),
+            "ck:backup:01964137-0000-7000-8000-000000000000".parse().unwrap(),
             "did:webvh:alice.example".parse().unwrap(),
             None,
             BackupClass::MlsHistory,

@@ -15,8 +15,8 @@ use crate::{Error, Result};
 pub const AEAD_ALGORITHM: &str = "xchacha20poly1305-hkdf-sha256-v1";
 /// HKDF salt that domain-separates the `seal`/`open` AEAD key derivation
 /// from any other use of the same key material.
-const AEAD_HKDF_SALT: &[u8] = b"contrix-aead-seal-hkdf-v1";
-pub const ENCRYPTED_ENVELOPE_AAD_CONTEXT: &str = "contrix-encrypted-envelope-aad-v1";
+const AEAD_HKDF_SALT: &[u8] = b"cokret-aead-seal-hkdf-v1";
+pub const ENCRYPTED_ENVELOPE_AAD_CONTEXT: &str = "cokret-encrypted-envelope-aad-v1";
 pub const REDACTED_SECRET: &str = "<redacted>";
 const NONCE_LEN: usize = 24;
 
@@ -466,10 +466,10 @@ mod tests {
     #[test]
     fn encrypted_envelope_aad_digest_is_canonical() {
         let aad = EncryptedEnvelopeAad {
-            space_id: "cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
+            space_id: "ck:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
             event_kind: "cx.message.create".to_owned(),
-            event_id: "cx:event:01904100-0000-7000-8000-51495aba0a08".to_owned(),
-            causal_refs: vec!["cx:event:01904100-0000-7000-8000-2b39e7197b88".to_owned()],
+            event_id: "ck:event:01904100-0000-7000-8000-51495aba0a08".to_owned(),
+            causal_refs: vec!["ck:event:01904100-0000-7000-8000-2b39e7197b88".to_owned()],
         };
         let digest = envelope_aad_digest(&aad).unwrap();
         verify_envelope_aad_digest(&aad, &digest).unwrap();
@@ -648,9 +648,9 @@ mod tests {
     #[test]
     fn canonical_digest_is_deterministic_for_same_input() {
         let aad = EncryptedEnvelopeAad {
-            space_id: "cx:space:01904100-0000-7000-8000-cfc039892036".to_owned(),
+            space_id: "ck:space:01904100-0000-7000-8000-cfc039892036".to_owned(),
             event_kind: "cx.message.create".to_owned(),
-            event_id: "cx:event:01904100-0000-7000-8000-b70714ca75c5".to_owned(),
+            event_id: "ck:event:01904100-0000-7000-8000-b70714ca75c5".to_owned(),
             causal_refs: vec![],
         };
         let digest1 = envelope_aad_digest(&aad).unwrap();
@@ -662,15 +662,15 @@ mod tests {
     #[test]
     fn canonical_digest_differs_for_different_inputs() {
         let aad1 = EncryptedEnvelopeAad {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
             event_kind: "cx.message.create".to_owned(),
-            event_id: "cx:event:01904100-0000-7000-8000-0b94566027c1".to_owned(),
+            event_id: "ck:event:01904100-0000-7000-8000-0b94566027c1".to_owned(),
             causal_refs: vec![],
         };
         let aad2 = EncryptedEnvelopeAad {
-            space_id: "cx:space:01904100-0000-7000-8000-2a9d538f2fcf".to_owned(),
+            space_id: "ck:space:01904100-0000-7000-8000-2a9d538f2fcf".to_owned(),
             event_kind: "cx.message.create".to_owned(),
-            event_id: "cx:event:01904100-0000-7000-8000-0b94566027c1".to_owned(),
+            event_id: "ck:event:01904100-0000-7000-8000-0b94566027c1".to_owned(),
             causal_refs: vec![],
         };
         let digest1 = envelope_aad_digest(&aad1).unwrap();

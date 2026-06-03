@@ -819,7 +819,7 @@ pub struct EncryptedContent {
 // not a Room. The `room_id` field name is retained verbatim because the
 // wire schema is fixed by the interop binding; new code SHOULD use the
 // Space-typed accessor via `RoomKeyContent::space_id`. See
-// `contrix-spec/spec/v1/artifacts/registry/forbidden-model-terms.json`
+// `cokret-spec/spec/v1/artifacts/registry/forbidden-model-terms.json`
 // "Room" entry (interop allow-listed) and
 // `crypto-media/device-lifecycle.md` for the device-message transport.
 
@@ -1023,7 +1023,7 @@ pub fn require_known_content(content: AnyEventContent) -> Result<KnownEventConte
     match content {
         AnyEventContent::Known { content } => Ok(content),
         AnyEventContent::Custom { content } => Err(Error::Protocol(format!(
-            "event kind '{}' does not have a built-in Contrix content model",
+            "event kind '{}' does not have a built-in Cokret content model",
             content.kind
         ))),
     }
@@ -1037,7 +1037,7 @@ mod tests {
 
     #[test]
     fn text_content_builders_preserve_mentions_and_relations() {
-        let target = EventId::new("cx:event:01904100-0000-7000-8000-79a90338768b").unwrap();
+        let target = EventId::new("ck:event:01904100-0000-7000-8000-79a90338768b").unwrap();
         let content = TextMessageContent::html("hello", "<strong>hello</strong>")
             .with_mentions(vec![
                 MentionRef::new("did:web:alice.example").with_display_name("Alice"),
@@ -1056,7 +1056,7 @@ mod tests {
     #[test]
     fn parses_standard_spec_content() {
         let payload = json!({
-            "flow_id": "cx:flow:01904100-0000-7000-8000-fb8cfd35e274",
+            "flow_id": "ck:flow:01904100-0000-7000-8000-fb8cfd35e274",
             "track_name": "main",
             "content": { "body": "hello" }
         });
@@ -1100,7 +1100,7 @@ mod tests {
 
     #[test]
     fn builds_typed_envelope_from_core_event() {
-        let realm_id = RealmId::new("cx:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let actor_id = Did::new("did:web:alice.example").unwrap();
         let hlc = Hlc::new("01970e589d21-0004-a13f9c2e").unwrap();
         let mut event = Event::new(
@@ -1110,7 +1110,7 @@ mod tests {
             1,
             hlc,
             json!({
-                "flow_id": "cx:flow:01904100-0000-7000-8000-fb8cfd35e274",
+                "flow_id": "ck:flow:01904100-0000-7000-8000-fb8cfd35e274",
                 "track_name": "main",
                 "content": { "body": "hello" }
             }),
@@ -1140,17 +1140,17 @@ mod tests {
             (
                 "relation_aggregations".to_owned(),
                 json!([{
-                    "target_event_id": "cx:event:01904100-0000-7000-8000-79a90338768b",
+                    "target_event_id": "ck:event:01904100-0000-7000-8000-79a90338768b",
                     "relation_type": "reaction",
                     "key": "+1",
                     "count": 2,
-                    "latest_event_id": "cx:event:01904100-0000-7000-8000-80da3b20e8ac"
+                    "latest_event_id": "ck:event:01904100-0000-7000-8000-80da3b20e8ac"
                 }]),
             ),
             (
                 "redacted_because".to_owned(),
                 json!({
-                    "event_id": "cx:event:01904100-0000-7000-8000-743d43d94991",
+                    "event_id": "ck:event:01904100-0000-7000-8000-743d43d94991",
                     "actor_id": "did:web:moderator.example",
                     "reason": "policy"
                 }),

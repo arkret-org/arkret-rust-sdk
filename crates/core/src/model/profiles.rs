@@ -761,7 +761,7 @@ impl BackupClass {
             BackupClass::MlsHistory => "mls_history",
             BackupClass::External => "external",
         };
-        format!("contrix-key-backup/{class}/{subdomain}/v1")
+        format!("cokret-key-backup/{class}/{subdomain}/v1")
     }
 }
 

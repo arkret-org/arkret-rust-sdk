@@ -210,11 +210,11 @@ pub const CX_SESSION_GRANT: &str = "cx.session.grant";
 
 /// Derive the canonical principal control space ID from a principal DID.
 ///
-/// The format is `cx:space:control:<did>`; downstream code MUST treat
+/// The format is `ck:space:control:<did>`; downstream code MUST treat
 /// this as opaque. This space holds the principal's device ledger, key
 /// log, and session grants.
 pub fn principal_control_space_id(principal_id: &Did) -> String {
-    format!("cx:space:control:{}", principal_id.as_str())
+    format!("ck:space:control:{}", principal_id.as_str())
 }
 
 /// Returns `true` when `event_kind` MUST be pinned to a principal
@@ -245,15 +245,15 @@ pub fn assert_control_space_pinning(
     }
 }
 
-/// Canonical OAuth2 scope prefix for binding a Contrix client device to a session.
-pub const CONTRIX_DEVICE_SCOPE_PREFIX: &str = "urn:contrix:client:device:";
+/// Canonical OAuth2 scope prefix for binding a Cokret client device to a session.
+pub const CONTRIX_DEVICE_SCOPE_PREFIX: &str = "urn:cokret:client:device:";
 
-/// Build the canonical Contrix device scope token for a device.
+/// Build the canonical Cokret device scope token for a device.
 pub fn contrix_device_scope(device_id: &DeviceId) -> String {
     format!("{CONTRIX_DEVICE_SCOPE_PREFIX}{device_id}")
 }
 
-/// Extract a device ID from a canonical Contrix device scope token.
+/// Extract a device ID from a canonical Cokret device scope token.
 pub fn device_id_from_scope_token(scope_token: &str) -> Option<DeviceId> {
     let raw = scope_token.strip_prefix(CONTRIX_DEVICE_SCOPE_PREFIX)?;
     DeviceId::new(raw).ok()

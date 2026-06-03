@@ -1,13 +1,13 @@
 [package]
 authors = ["Chris Young <chris@sonc.ai>"]
-description = "Contrix v1 rich text, mention, and link normalization contracts."
+description = "Cokret v1 rich text, mention, and link normalization contracts."
 edition = "2024"
-homepage = "https://github.com/contrix/contrix-rust-sdk"
-keywords = ["contrix", "html", "rich-text", "mentions"]
+homepage = "https://github.com/cokret/cokret-rust-sdk"
+keywords = ["cokret", "html", "rich-text", "mentions"]
 license = "Apache-2.0"
-name = "contrix-html"
+name = "cokret-html"
 readme = "README.md"
-repository = "https://github.com/contrix/contrix-rust-sdk"
+repository = "https://github.com/cokret/cokret-rust-sdk"
 rust-version = "1.92"
 version = "1.0.0"
 
@@ -15,7 +15,7 @@ version = "1.0.0"
 default = []
 
 [dependencies]
-contrix-core.workspace = true
+cokret-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 

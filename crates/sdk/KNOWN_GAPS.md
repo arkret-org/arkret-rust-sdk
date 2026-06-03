@@ -15,9 +15,9 @@ file.
 `spec/v1/zh/applet-integration.md` §8 shows `cx.applet.bridge_event`
 Envelopes carrying top-level `applet_id` and `external_ref`. Prior to
 this release the SDK had no slot for either field; downstream
-integrators (savfox `crates/channels/src/contrix/applet/outbound.rs`)
+integrators (savfox `crates/channels/src/cokret/applet/outbound.rs`)
 were stuffing them into `Event.unsigned` and tagging the line with
-`TODO(contrix-spec-drift)`.
+`TODO(cokret-spec-drift)`.
 
 As of this commit:
 
@@ -38,7 +38,7 @@ new bytes.
 
 **Status:** **Co-exists; new integrations MUST use `WireAppletRegistration` (S-4).**
 
-The legacy `contrix::SignedAppletRegistration`
+The legacy `cokret::SignedAppletRegistration`
 (`crates/sdk/src/applet.rs`) is an SDK-internal model whose field names
 (`registration_id`, `schema`, `namespaces: Vec<…Declaration>`) do not
 match the on-wire `cx.applet.registration` Event content shape spec'd
@@ -48,8 +48,8 @@ The wire shape — `kind / applet_id / service_did / controller_did /
 base_url / bot_actor_id / protocols / namespaces { actors, realms,
 handles } / receive_events / receive_ephemeral / rate_limited /
 requested_scopes / webhook_auth / created_at / proof` — is now
-available as `contrix::WireAppletRegistration`. Sign it with
-`contrix::sign_registration(&mut reg, signer, vm_id)`.
+available as `cokret::WireAppletRegistration`. Sign it with
+`cokret::sign_registration(&mut reg, signer, vm_id)`.
 
 `SignedAppletRegistration` is kept for in-process registry callers
 (`AppletRegistry`); new external-facing code MUST use
@@ -58,7 +58,7 @@ available as `contrix::WireAppletRegistration`. Sign it with
 ## 3. Other intentionally-deferred items
 
 - `cx.principal.provision` / managed-account auto-creation lives in
-  `contrix-spec` proposal review. Not in scope for the SDK until the
+  `cokret-spec` proposal review. Not in scope for the SDK until the
   spec lands.
 - MLS / E2EE Ghost actor encryption path: spec §12 defines it but
   savfox Phase 6 explicitly defers.

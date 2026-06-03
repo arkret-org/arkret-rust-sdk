@@ -1,6 +1,6 @@
-# contrix-html
+# cokret-html
 
-Rich text, mention and link normalization contracts for Contrix.
+Rich text, mention and link normalization contracts for Cokret.
 
 This crate is the protocol-facing boundary for safe rich text: Markdown subset
 rendering, HTML sanitization, plaintext fallback, structured mentions and link

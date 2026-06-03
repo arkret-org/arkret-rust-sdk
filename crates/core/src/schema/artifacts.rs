@@ -461,9 +461,9 @@ pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     "cx.schema.identity_link.v1",
     "cx.schema.handle_claim.v1",
     "cx.schema.member_delivery_binding_candidate.v1",
-    // R3.1 spec-sync (contrix-spec @ 7157ee8, 2026-05-27).
+    // R3.1 spec-sync (cokret-spec @ 7157ee8, 2026-05-27).
     "cx.schema.member_identity.v1",
-    // R3.2 spec-sync (contrix-spec @ b56cab1, 2026-05-28).
+    // R3.2 spec-sync (cokret-spec @ b56cab1, 2026-05-28).
     "cx.schema.list_handles_for_subject_response.v1",
     "cx.schema.grant_constraint.v1",
     "cx.schema.resource_selector.v1",
@@ -558,7 +558,7 @@ pub const ARTIFACT_BACKED_ID_KINDS: &[&str] = &[
 
 /// Special-form id kinds (non-UUIDv7) the SDK declares coverage for from
 /// the spec id-kind-registry `special_forms` array. Round R2/R3 (2026-05-20)
-/// adds `trust_domain` (`cx:trust_domain:<scope>`). These are validated
+/// adds `trust_domain` (`ck:trust_domain:<scope>`). These are validated
 /// separately from `ARTIFACT_BACKED_ID_KINDS` because the spec lists them
 /// under `special_forms`, not `id_kinds`.
 pub const ARTIFACT_BACKED_SPECIAL_FORM_ID_KINDS: &[&str] =
@@ -572,7 +572,7 @@ pub fn default_spec_artifacts_dir() -> Option<PathBuf> {
         .join("..")
         .join("..")
         .join("..")
-        .join("contrix-spec");
+        .join("cokret-spec");
     let artifacts_dir = spec_root.join("spec").join("v1").join("artifacts");
     artifacts_dir.join("registry").join("schema-registry.json").exists().then_some(artifacts_dir)
 }

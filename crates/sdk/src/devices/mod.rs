@@ -48,7 +48,7 @@ pub struct Device {
     pub metadata: DeviceMetadata,
     /// Verification state.
     pub verification: DeviceVerificationState,
-    /// Public verify_key of the device. SDK-side mirror of `cx:device:`
+    /// Public verify_key of the device. SDK-side mirror of `ck:device:`
     /// record `verify_key` (`crypto-media/device-lifecycle.md` §4); used as
     /// the canonical input to the SSK trust binding.
     #[serde(default, skip_serializing_if = "Option::is_none")]

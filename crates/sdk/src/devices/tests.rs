@@ -11,7 +11,7 @@ fn device(id: &str) -> DeviceId {
     for byte in id.bytes() {
         acc = (acc ^ u64::from(byte)).wrapping_mul(0x100000001b3);
     }
-    DeviceId::new(format!("cx:device:01904100-0000-7000-8000-{:012x}", acc & 0x0000_ffff_ffff_ffff))
+    DeviceId::new(format!("ck:device:01904100-0000-7000-8000-{:012x}", acc & 0x0000_ffff_ffff_ffff))
         .unwrap()
 }
 
@@ -27,7 +27,7 @@ fn fake_binding(generation: u64) -> DeviceTrustBinding {
 fn sample_publish(principal: &Did, generation: u64) -> CrossSigningPublishContent {
     CrossSigningPublishContent {
         principal_id: principal.clone(),
-        trust_domain: contrix_core::TypedTrustDomainId::new("cx:trust_domain:example.net").unwrap(),
+        trust_domain: contrix_core::TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
         principal_signing_key: CrossSigningKeyRecord {
             kid: format!("{principal}#cx_principal_signing_v1"),
             alg: "EdDSA".to_owned(),
@@ -239,8 +239,8 @@ fn cross_signing_reset_marks_devices_needing_reverification() {
 
     let reset = CrossSigningResetContent {
         principal_id: alice.clone(),
-        trust_domain: contrix_core::TypedTrustDomainId::new("cx:trust_domain:example.net").unwrap(),
-        reset_event_id: "cx:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
+        trust_domain: contrix_core::TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
+        reset_event_id: "ck:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
         previous_generation: 1,
         new_generation: 2,
         reset_reason: "rotation".to_owned(),
@@ -376,8 +376,8 @@ fn cross_signing_reset_cancels_in_flight_verifications() {
     let challenge = manager.begin_sas_verification(&alice, &phone, "000000").unwrap();
     let reset = CrossSigningResetContent {
         principal_id: alice.clone(),
-        trust_domain: contrix_core::TypedTrustDomainId::new("cx:trust_domain:example.net").unwrap(),
-        reset_event_id: "cx:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
+        trust_domain: contrix_core::TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
+        reset_event_id: "ck:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
         previous_generation: 1,
         new_generation: 2,
         reset_reason: "compromise".to_owned(),

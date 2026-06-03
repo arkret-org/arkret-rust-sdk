@@ -1,6 +1,6 @@
-# contrix-signatures
+# cokret-signatures
 
-Contrix canonical signature, proof binding, and HTTP message signature models.
+Cokret canonical signature, proof binding, and HTTP message signature models.
 
 This crate is the single source of truth for:
 

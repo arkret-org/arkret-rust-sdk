@@ -1,4 +1,4 @@
-//! Contrix Move typed model.
+//! Cokret Move typed model.
 //!
 //! A Move is the protocol's atomic conditional multi-cell write primitive
 //! introduced by spec 2026-05-08 (`spec/v1/zh/authz/event-auth-state-resolution.md`
@@ -286,10 +286,10 @@ mod tests {
     fn sample_move_body_json() -> Value {
         json!({
             "issuer": "did:web:admin.example",
-            "space_id": "cx:space:0196419b-0000-7000-8000-00000000014a",
+            "space_id": "ck:space:0196419b-0000-7000-8000-00000000014a",
             "preconditions": [
                 {
-                    "cell": "cx:cell:cx.component.member.state.v1:did.web.alice.example",
+                    "cell": "ck:cell:cx.component.member.state.v1:did.web.alice.example",
                     "predicate": {
                         "op": "head_eq",
                         "value": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
@@ -298,7 +298,7 @@ mod tests {
             ],
             "effects": [
                 {
-                    "cell": "cx:cell:cx.component.member.state.v1:did.web.alice.example",
+                    "cell": "ck:cell:cx.component.member.state.v1:did.web.alice.example",
                     "op": {
                         "kind": "transition",
                         "from": "join",
@@ -307,7 +307,7 @@ mod tests {
                     }
                 }
             ],
-            "anchor_ref": "cx:anchor:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "anchor_ref": "ck:anchor:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "refs": [],
             "hlc": "0189c4d2af00-0000-aabbccdd"
         })
@@ -425,7 +425,7 @@ mod tests {
     #[test]
     fn semantic_ref_default_critical_true_omitted_on_serialize() {
         let r = SemanticRef {
-            id: "cx:grant:01964105-0000-7000-8000-000000000000".to_owned(),
+            id: "ck:grant:01964105-0000-7000-8000-000000000000".to_owned(),
             role: "authorized_by".to_owned(),
             critical: true,
         };
@@ -437,7 +437,7 @@ mod tests {
     #[test]
     fn semantic_ref_critical_false_serialized() {
         let r = SemanticRef {
-            id: "cx:grant:01964105-0000-7000-8000-000000000000".to_owned(),
+            id: "ck:grant:01964105-0000-7000-8000-000000000000".to_owned(),
             role: "after".to_owned(),
             critical: false,
         };
@@ -455,7 +455,7 @@ mod tests {
     #[test]
     fn anchor_id_validator_accepts_valid() {
         AnchorId::new(
-            "cx:anchor:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            "ck:anchor:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                 .to_owned(),
         )
         .expect("valid anchor id");
@@ -463,10 +463,10 @@ mod tests {
 
     #[test]
     fn cell_ref_validator_accepts_simple_and_composite() {
-        CellRef::new("cx:cell:cx.component.member.state.v1:did.web.alice.example".to_owned())
+        CellRef::new("ck:cell:cx.component.member.state.v1:did.web.alice.example".to_owned())
             .unwrap();
         CellRef::new(
-            "cx:cell:cx.component.capability.grant.v1:cx.grant.01js0gr0000000000000000000"
+            "ck:cell:cx.component.capability.grant.v1:cx.grant.01js0gr0000000000000000000"
                 .to_owned(),
         )
         .unwrap();

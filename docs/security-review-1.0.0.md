@@ -8,10 +8,10 @@ attestation; it is the evidence bundle a reviewer needs before the local
 
 ## Scope
 
-- Workspace crates: `contrix-identifiers`, `contrix-core`, `contrix-ffi`,
-  `contrix-html`, `contrix-http-client`, `contrix-signatures`,
-  `contrix-crypto`, `contrix-contracts`, `contrix-server`, `contrix-testing`, and
-  `contrix`.
+- Workspace crates: `cokret-identifiers`, `cokret-core`, `cokret-ffi`,
+  `cokret-html`, `cokret-http-client`, `cokret-signatures`,
+  `cokret-crypto`, `cokret-contracts`, `cokret-server`, `cokret-testing`, and
+  `cokret`.
 - Wire-critical surfaces: canonical JSON, Event Envelope signatures,
   capability grants, profile claims, federation signatures, MLS helpers,
   blind-payload sanitizer, and session-grant outbox.
@@ -22,8 +22,8 @@ attestation; it is the evidence bundle a reviewer needs before the local
 
 - Internal checklist: `docs/security-audit.md`.
 - Machine-readable review surface:
-  `contrix::security_review_checklist()`.
-- Feature safety gate: `contrix::current_feature_safety_report().validate()`.
+  `cokret::security_review_checklist()`.
+- Feature safety gate: `cokret::current_feature_safety_report().validate()`.
 - Dependency gates:
   - `cargo deny check --config .deny.toml`
   - `cargo audit --deny warnings --ignore RUSTSEC-2024-0384 --ignore RUSTSEC-2026-0124`

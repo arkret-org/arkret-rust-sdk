@@ -191,7 +191,7 @@ mod tests {
 
     fn fake_event_ref() -> EventRef {
         EventRef::new(
-            "cx:event:01890000-0000-7000-8000-000000000001".to_owned(),
+            "ck:event:01890000-0000-7000-8000-000000000001".to_owned(),
             "authorized_by".to_owned(),
         )
     }
@@ -278,7 +278,7 @@ mod tests {
             "delivery_modes": ["events"],
             "resolved_at": "2026-05-20T00:00:00Z",
             "service_acceptance_ref": {
-                "id": "cx:event:01890000-0000-7000-8000-000000000001",
+                "id": "ck:event:01890000-0000-7000-8000-000000000001",
                 "tag": "authorized_by"
             }
         });

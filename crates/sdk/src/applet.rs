@@ -319,7 +319,7 @@ pub struct AppletBridgeErrorBuilder {
 }
 
 impl AppletBridgeErrorBuilder {
-    /// `applet_id` is the typed `cx:applet:<uuidv7>`; `actor_id` is
+    /// `applet_id` is the typed `ck:applet:<uuidv7>`; `actor_id` is
     /// the bot / system DID emitting the error.
     pub fn new(
         realm_id: crate::RealmId,
@@ -342,7 +342,7 @@ impl AppletBridgeErrorBuilder {
     }
 
     /// Typed reference to the Object the failure relates to (e.g.
-    /// `cx:event:...`, `cx:morph:...`).
+    /// `ck:event:...`, `ck:morph:...`).
     pub fn with_target_ref(mut self, target_ref: impl Into<String>) -> Self {
         self.target_ref = Some(target_ref.into());
         self
@@ -531,7 +531,7 @@ pub(crate) struct AppletEndpointRouteSet {
 
 #[cfg(test)]
 impl AppletEndpointRouteSet {
-    /// Standard applet service routes from the Contrix service binding.
+    /// Standard applet service routes from the Cokret service binding.
     pub fn contrix_default() -> Self {
         Self {
             routes: vec![
@@ -698,7 +698,7 @@ pub enum ThirdPartyLookupResBody {
     Location(AppletRealmResBody),
 }
 
-/// Bridge mapping from a remote user to a Contrix virtual actor.
+/// Bridge mapping from a remote user to a Cokret virtual actor.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RemoteUserMapping {
     pub protocol: String,
@@ -710,7 +710,7 @@ pub struct RemoteUserMapping {
     pub external_ref: Value,
 }
 
-/// Bridge mapping from a remote location to a Contrix space.
+/// Bridge mapping from a remote location to a Cokret space.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RemoteSpaceMapping {
     pub protocol: String,
@@ -993,7 +993,7 @@ mod tests {
     fn applet_portal_manages_space_bridge_and_ghost_actor() {
         let mut manager = AppletPortalManager::new();
         let portal = manager
-            .create_portal(SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap());
+            .create_portal(SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap());
         manager.install_applet(&portal.portal_id, "todo").unwrap();
         manager.enable_bridge(&portal.portal_id).unwrap();
         manager.set_ghost_actor(&portal.portal_id, did("ghost")).unwrap();
@@ -1081,7 +1081,7 @@ mod tests {
         mappings.upsert_space(RemoteSpaceMapping {
             protocol: "slack".to_owned(),
             remote_space_id: "C1".to_owned(),
-            space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-f949e0272316").unwrap(),
+            space_id: SpaceId::new("ck:space:01904100-0000-7000-8000-f949e0272316").unwrap(),
             portal_id: Some("portal".to_owned()),
             title: Some("general".to_owned()),
             external_ref: Value::Null,
@@ -1168,7 +1168,7 @@ mod tests {
 
     fn sample_wire_registration() -> WireAppletRegistration {
         WireAppletRegistration::new(
-            "cx:applet:01904100-0000-7000-8000-aaaaaaaaaaaa",
+            "ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa",
             did("slackbridge"),
             did("alice"),
             "https://applet.example/cx",
@@ -1223,7 +1223,7 @@ mod tests {
     // ─── S-11 (savfox SDK gap) tests ─────────────────────────────────
 
     fn realm() -> crate::RealmId {
-        crate::RealmId::new("cx:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
+        crate::RealmId::new("ck:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
     }
 
     fn hlc() -> crate::Hlc {
@@ -1234,13 +1234,13 @@ mod tests {
     fn applet_bridge_error_builder_emits_canonical_kind_and_payload() {
         let event = AppletBridgeErrorBuilder::new(
             realm(),
-            "cx:applet:01904100-0000-7000-8000-aaaaaaaaaaaa",
+            "ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa",
             did("bot"),
             "upstream_rate_limited",
             "Slack returned 429",
         )
         .with_severity(AppletBridgeErrorSeverity::Warning)
-        .with_target_ref("cx:event:01904100-0000-7000-8000-deadbeefdead")
+        .with_target_ref("ck:event:01904100-0000-7000-8000-deadbeefdead")
         .with_external_ref(serde_json::json!({"slack_response_code": 429}))
         .build(1, hlc())
         .unwrap();
@@ -1248,10 +1248,10 @@ mod tests {
         assert_eq!(event.content["code"], "upstream_rate_limited");
         assert_eq!(event.content["message"], "Slack returned 429");
         assert_eq!(event.content["severity"], "warning");
-        assert_eq!(event.content["target_ref"], "cx:event:01904100-0000-7000-8000-deadbeefdead");
+        assert_eq!(event.content["target_ref"], "ck:event:01904100-0000-7000-8000-deadbeefdead");
         assert_eq!(
             event.applet_id.as_deref(),
-            Some("cx:applet:01904100-0000-7000-8000-aaaaaaaaaaaa")
+            Some("ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa")
         );
         assert_eq!(event.external_ref.as_ref().unwrap()["slack_response_code"], 429);
     }

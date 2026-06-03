@@ -163,10 +163,10 @@ mod tests {
         let alice = did("alice");
         let mut index = SpaceSearchIndex::new();
         let mut entry = SpaceSearchEntry::new(
-            SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+            SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             "Rust SDK",
         );
-        entry.description = Some("Contrix development".to_owned());
+        entry.description = Some("Cokret development".to_owned());
         entry.tags.insert("rust".to_owned());
         entry.members.insert(alice.clone());
         entry.public = true;
@@ -179,7 +179,7 @@ mod tests {
         let mut tags = BTreeSet::new();
         tags.insert("rust".to_owned());
         let results = index.search(SpaceSearchQuery {
-            text: Some("contrix".to_owned()),
+            text: Some("cokret".to_owned()),
             tags,
             members: BTreeSet::from([alice]),
             public_only: true,

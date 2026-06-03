@@ -3,8 +3,8 @@
 //! Wraps the Win32 `Cred*W` family
 //! (`CredReadW` / `CredWriteW` / `CredDeleteW` / `CredEnumerateW`) via the
 //! `windows` crate. Each entry is stored as a generic credential whose
-//! `TargetName` is `"contrix.<application_id>:<key_id>"`. The
-//! `"contrix.<application_id>"` prefix namespaces multiple Contrix apps on
+//! `TargetName` is `"cokret.<application_id>:<key_id>"`. The
+//! `"cokret.<application_id>"` prefix namespaces multiple Cokret apps on
 //! the same host; the `<key_id>` is the caller-supplied opaque id.
 
 use std::ffi::OsString;
@@ -22,7 +22,7 @@ use crate::keystore::{KeyStore, KeyStoreError, service_name, validate_id};
 
 /// Windows Credential Manager-backed [`KeyStore`].
 pub struct WindowsCredentialKeyStore {
-    /// `"contrix.<application_id>"`. Used as the prefix on the generic
+    /// `"cokret.<application_id>"`. Used as the prefix on the generic
     /// credential `TargetName`, so we can enumerate by filter.
     service: String,
 }
@@ -222,7 +222,7 @@ mod tests {
     #[test]
     fn round_trip_store_load_delete() {
         let store = WindowsCredentialKeyStore::new(&unique_app_id()).unwrap();
-        let id = "contrix:signer:alice:k1";
+        let id = "cokret:signer:alice:k1";
         store.store(id, b"win-secret-1").unwrap();
         assert_eq!(store.load(id).unwrap(), b"win-secret-1");
         store.delete(id).unwrap();
@@ -233,7 +233,7 @@ mod tests {
     #[test]
     fn store_overwrites_existing_id() {
         let store = WindowsCredentialKeyStore::new(&unique_app_id()).unwrap();
-        let id = "contrix:signer:bob:k1";
+        let id = "cokret:signer:bob:k1";
         store.store(id, b"first").unwrap();
         store.store(id, b"second").unwrap();
         assert_eq!(store.load(id).unwrap(), b"second");

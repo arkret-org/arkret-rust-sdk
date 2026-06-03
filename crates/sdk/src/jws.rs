@@ -307,7 +307,7 @@ pub fn effective_window_for_move(
 ) -> u64 {
     let mut effective = default_window_seconds;
     for effect in &move_obj.effects {
-        // CellRef shape: `cx:cell:<family>:<subject>` — extract family.
+        // CellRef shape: `ck:cell:<family>:<subject>` — extract family.
         let Ok(cell_id) = crate::CellId::parse(effect.cell.as_str()) else {
             continue;
         };
@@ -569,7 +569,7 @@ mod tests {
             id: MoveId::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
             issuer: Did::new("did:web:test").unwrap(),
             space_id: crate::SpaceId::new(
-                "cx:space:0196419b-0000-7000-8000-000000000000".to_owned(),
+                "ck:space:0196419b-0000-7000-8000-000000000000".to_owned(),
             )
             .unwrap(),
             preconditions: vec![],
@@ -585,7 +585,7 @@ mod tests {
                     issuer_seq: None,
                 },
             }],
-            anchor_ref: crate::AnchorId::new(format!("cx:anchor:sha256:{}", "00".repeat(32)))
+            anchor_ref: crate::AnchorId::new(format!("ck:anchor:sha256:{}", "00".repeat(32)))
                 .unwrap(),
             refs: vec![],
             hlc: Hlc::new(format!("{hlc_ms:012x}-0000-aabbccdd")).unwrap(),
@@ -601,14 +601,14 @@ mod tests {
 
     #[test]
     fn effective_window_picks_default_when_no_overrides_apply() {
-        let m = build_test_move_touching("cx:cell:cx.component.message.create.v1:cx.event.foo", 0);
+        let m = build_test_move_touching("ck:cell:cx.component.message.create.v1:cx.event.foo", 0);
         let overrides = BTreeMap::new();
         assert_eq!(effective_window_for_move(&m, 300, &overrides), 300);
     }
 
     #[test]
     fn effective_window_uses_anchorer_override_when_anchorer_cell_touched() {
-        let m = build_test_move_touching("cx:cell:cx.component.anchorer.v1:cx.space.x", 0);
+        let m = build_test_move_touching("ck:cell:cx.component.anchorer.v1:cx.space.x", 0);
         let mut overrides = BTreeMap::new();
         overrides.insert("cx.component.anchorer.v1", 60u64);
         // Default 300, anchorer override 60 -> effective 60.
@@ -617,7 +617,7 @@ mod tests {
 
     #[test]
     fn effective_window_takes_minimum_when_default_tighter_than_override() {
-        let m = build_test_move_touching("cx:cell:cx.component.anchorer.v1:cx.space.x", 0);
+        let m = build_test_move_touching("ck:cell:cx.component.anchorer.v1:cx.space.x", 0);
         let mut overrides = BTreeMap::new();
         overrides.insert("cx.component.anchorer.v1", 600u64); // looser than default
         // Default 300, anchorer override 600 -> min = 300 (default wins because tighter).
@@ -628,7 +628,7 @@ mod tests {
     fn effective_window_zero_default_with_override_uses_override() {
         // Test config has window=0 but spec-critical cells should still
         // be window-checked. The override "wins" in this case.
-        let m = build_test_move_touching("cx:cell:cx.component.anchorer.v1:cx.space.x", 0);
+        let m = build_test_move_touching("ck:cell:cx.component.anchorer.v1:cx.space.x", 0);
         let mut overrides = BTreeMap::new();
         overrides.insert("cx.component.anchorer.v1", 60u64);
         assert_eq!(effective_window_for_move(&m, 0, &overrides), 60);
@@ -639,7 +639,7 @@ mod tests {
         let now = Utc::now();
         let two_min_ago_ms = (now - Duration::minutes(2)).timestamp_millis() as u64;
         let m =
-            build_test_move_touching("cx:cell:cx.component.anchorer.v1:cx.space.x", two_min_ago_ms);
+            build_test_move_touching("ck:cell:cx.component.anchorer.v1:cx.space.x", two_min_ago_ms);
         let mut overrides = BTreeMap::new();
         overrides.insert("cx.component.anchorer.v1", 60u64);
         let err = verify_replay_window_for_move_at(&m, 300, &overrides, now).unwrap_err();
@@ -654,7 +654,7 @@ mod tests {
         let now = Utc::now();
         let two_min_ago_ms = (now - Duration::minutes(2)).timestamp_millis() as u64;
         let m = build_test_move_touching(
-            "cx:cell:cx.component.message.create.v1:cx.event.foo",
+            "ck:cell:cx.component.message.create.v1:cx.event.foo",
             two_min_ago_ms,
         );
         // Default 300s, no override for message family -> 2min = 120s < 300s -> accept.

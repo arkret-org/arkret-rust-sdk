@@ -1,14 +1,14 @@
 # Circle integration guide (CXP-0007)
 
-> Spec baseline: `contrix-spec` 2b0d70d (`zh/models/circle.md`,
+> Spec baseline: `cokret-spec` 2b0d70d (`zh/models/circle.md`,
 > `artifacts/schemas/circle.schema.json`).
 >
 > Normative language in this document follows
-> [`spec/v1/zh/conformance/normative-language.md`](https://github.com/contrix-spec/spec/blob/main/v1/zh/conformance/normative-language.md)
+> [`spec/v1/zh/conformance/normative-language.md`](https://github.com/cokret-spec/spec/blob/main/v1/zh/conformance/normative-language.md)
 > (RFC 2119 / 8174 keywords).
 
 This guide explains when and how to use `Circle` in services that
-consume the Contrix Rust SDK.
+consume the Cokret Rust SDK.
 
 ## What is a Circle?
 
@@ -43,7 +43,7 @@ organisation-level federation boundaries (use a child Realm).
 ## How a Flow picks its scope
 
 ```rust
-use contrix::{
+use cokret::{
     Circle, CircleColorToken, CircleDisplay, CircleGlyph, CircleId,
     CircleSymbol, Did, FlowCreateMetadata, RealmId,
 };
@@ -51,10 +51,10 @@ use contrix::{
 // 1. Create the Circle (typically via a dedicated cx.circle.create
 //    event; the example below shows the local in-memory struct).
 let circle_id = CircleId::new(
-    "cx:circle:0196419b-0000-7000-8000-000000000001".to_owned(),
+    "ck:circle:0196419b-0000-7000-8000-000000000001".to_owned(),
 )?;
 let realm_id = RealmId::new(
-    "cx:realm:0196419b-0000-7000-8000-000000000002".to_owned(),
+    "ck:realm:0196419b-0000-7000-8000-000000000002".to_owned(),
 )?;
 let alice: Did = "did:web:alice.example".parse()?;
 let display = CircleDisplay {
@@ -95,7 +95,7 @@ Realm-default scope) plus a confidential discussion (the "narrow" Flow
 bound to a Circle), link the two Flows with the new Relation kind:
 
 ```rust
-use contrix::RelationKind;
+use cokret::RelationKind;
 
 let rel = RelationKind::ConfidentialDiscussionOf;
 // emit cx.relation.create with `from = <wide flow>` and

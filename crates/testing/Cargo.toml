@@ -1,13 +1,13 @@
 [package]
 authors = ["Chris Young <chris@sonc.ai>"]
-description = "Contrix v1 reusable conformance fixtures and catalog coverage helpers."
+description = "Cokret v1 reusable conformance fixtures and catalog coverage helpers."
 edition = "2024"
-homepage = "https://github.com/contrix/contrix-rust-sdk"
-keywords = ["contrix", "testing", "conformance", "fixtures"]
+homepage = "https://github.com/cokret/cokret-rust-sdk"
+keywords = ["cokret", "testing", "conformance", "fixtures"]
 license = "Apache-2.0"
-name = "contrix-testing"
+name = "cokret-testing"
 readme = "README.md"
-repository = "https://github.com/contrix/contrix-rust-sdk"
+repository = "https://github.com/cokret/cokret-rust-sdk"
 rust-version = "1.92"
 version = "1.0.0"
 
@@ -15,12 +15,12 @@ version = "1.0.0"
 default = []
 
 [dependencies]
-contrix-contracts.workspace = true
-contrix-core.workspace = true
-contrix-crypto.workspace = true
-contrix-ffi.workspace = true
-contrix-html.workspace = true
-contrix-signatures.workspace = true
+cokret-contracts.workspace = true
+cokret-core.workspace = true
+cokret-crypto.workspace = true
+cokret-ffi.workspace = true
+cokret-html.workspace = true
+cokret-signatures.workspace = true
 sha2.workspace = true
 chrono = { workspace = true, features = ["serde"] }
 serde.workspace = true

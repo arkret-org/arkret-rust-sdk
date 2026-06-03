@@ -6,8 +6,8 @@
 //! collection (`/org/freedesktop/secrets/aliases/default`) and are tagged
 //! with two attributes:
 //!
-//! - `service = "contrix.<application_id>"` — namespaces items so multiple
-//!   Contrix-using apps on the same desktop don't collide.
+//! - `service = "cokret.<application_id>"` — namespaces items so multiple
+//!   Cokret-using apps on the same desktop don't collide.
 //! - `account = <key_id>` — the caller-supplied opaque key id.
 //!
 //! Collisions on `(service, account)` are resolved by overwriting the
@@ -120,7 +120,7 @@ impl KeyStore for LinuxSecretServiceKeyStore {
 
     fn list(&self) -> Result<Vec<String>> {
         let ss = Self::connect()?;
-        // Search by `service = "contrix.<app>"` only; account is the key
+        // Search by `service = "cokret.<app>"` only; account is the key
         // id we're enumerating.
         let mut attrs = std::collections::HashMap::new();
         attrs.insert("service", self.service.as_str());
@@ -179,7 +179,7 @@ mod tests {
             return;
         }
         let store = LinuxSecretServiceKeyStore::new(&unique_app_id()).unwrap();
-        let id = "contrix:signer:alice:k1";
+        let id = "cokret:signer:alice:k1";
         store.store(id, b"linux-secret-1").unwrap();
         assert_eq!(store.load(id).unwrap(), b"linux-secret-1");
         store.delete(id).unwrap();
@@ -193,7 +193,7 @@ mod tests {
             return;
         }
         let store = LinuxSecretServiceKeyStore::new(&unique_app_id()).unwrap();
-        let id = "contrix:signer:bob:k1";
+        let id = "cokret:signer:bob:k1";
         store.store(id, b"first").unwrap();
         store.store(id, b"second").unwrap();
         assert_eq!(store.load(id).unwrap(), b"second");

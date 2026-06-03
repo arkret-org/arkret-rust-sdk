@@ -328,7 +328,7 @@ fn object_ref_regex() -> &'static Regex {
     static OBJECT_REF: OnceLock<Regex> = OnceLock::new();
     OBJECT_REF.get_or_init(|| {
         Regex::new(
-            r"^(cx:(realm|circle|space|actor_profile|flow|message|morph|relation|view|policy|grant|invite|call|agent_session|blob|snapshot|event|franking_proof|report):[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|cx:blob:sha256:[0-9a-f]{64}|did:[^\s]+|sha256:[0-9a-f]{64})$",
+            r"^(ck:(realm|circle|space|actor_profile|flow|message|morph|relation|view|policy|grant|invite|call|agent_session|blob|snapshot|event|franking_proof|report):[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|ck:blob:sha256:[0-9a-f]{64}|did:[^\s]+|sha256:[0-9a-f]{64})$",
         )
         .expect("object_ref regex compiles")
     })
@@ -369,11 +369,11 @@ mod tests {
     use super::*;
 
     fn realm() -> RealmId {
-        RealmId::new("cx:realm:0196419b-0000-7000-8000-000000000001").unwrap()
+        RealmId::new("ck:realm:0196419b-0000-7000-8000-000000000001").unwrap()
     }
 
     fn event(n: u8) -> EventId {
-        EventId::new(format!("cx:event:0196419b-0000-7000-8000-00000000000{n}")).unwrap()
+        EventId::new(format!("ck:event:0196419b-0000-7000-8000-00000000000{n}")).unwrap()
     }
 
     fn hash(byte: char) -> Hash {
@@ -384,7 +384,7 @@ mod tests {
     fn mls_commit_payload_matches_registered_event_schema() {
         let binding = MlsGovernanceBindingPayload::realm(
             realm(),
-            "cx:mls_group:test",
+            "ck:mls_group:test",
             0,
             1,
             vec![event(2)],
@@ -392,7 +392,7 @@ mod tests {
         )
         .unwrap();
         let payload = MlsCommitPayload::new(
-            "cx:mls_group:test",
+            "ck:mls_group:test",
             0,
             event(1).to_string(),
             Vec::new(),
@@ -418,7 +418,7 @@ mod tests {
             "encoding_profile": MLS_GOVERNANCE_BINDING_ENCODING_PROFILE,
             "realm_id": realm(),
             "effective_scope": {"kind": "realm", "realm_id": realm()},
-            "mls_group_id": "cx:mls_group:test",
+            "mls_group_id": "ck:mls_group:test",
             "previous_epoch": 0,
             "next_epoch": 1,
             "membership_frontier": [event(2)],
@@ -433,7 +433,7 @@ mod tests {
     fn mls_governance_binding_validates_optional_profile_fields() {
         let binding = MlsGovernanceBindingPayload::realm(
             realm(),
-            "cx:mls_group:test",
+            "ck:mls_group:test",
             0,
             1,
             vec![event(2)],

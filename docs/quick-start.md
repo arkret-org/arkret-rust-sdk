@@ -3,32 +3,32 @@
 Add the SDK crate:
 
 ```toml
-contrix = { path = "crates/sdk" }
+cokret = { path = "crates/sdk" }
 ```
 
 Create local client state and a session:
 
 ```rust
 use std::sync::Arc;
-use contrix::{BaseClient, DeviceId, Did, SessionMeta};
+use cokret::{BaseClient, DeviceId, Did, SessionMeta};
 
 let base = Arc::new(BaseClient::new());
 base.set_session_meta(SessionMeta::new(
     Did::new("did:web:alice.example")?,
     DeviceId::new("dev_desktop")?,
 ))?;
-# Ok::<(), contrix::Error>(())
+# Ok::<(), cokret::Error>(())
 ```
 
 Process events and query a space:
 
 ```rust
-use contrix::{EntityQuery, Space, SpaceId};
+use cokret::{EntityQuery, Space, SpaceId};
 
-let space_id = SpaceId::new("cx:space:01JS0SP000000000000000000")?;
+let space_id = SpaceId::new("ck:space:01JS0SP000000000000000000")?;
 let space = Space::new(space_id, base);
 let tasks = space.query_entities(EntityQuery::default());
-# Ok::<(), contrix::Error>(())
+# Ok::<(), cokret::Error>(())
 ```
 
 Run verification:
@@ -42,7 +42,7 @@ cargo test
 ### Build A Simple Client
 
 Use `BaseClient` for local session and space state, then enable the `client`
-feature when the application is ready to call a Contrix service over HTTP.
+feature when the application is ready to call a Cokret service over HTTP.
 
 ### Run Sync With Durable Storage
 
@@ -82,7 +82,7 @@ Use the `EndpointHandler` shape and the typed `ServerRequest` /
 `ServerResponse` protocol enums. Host applications own HTTP parsing, routing,
 authentication and response writing.
 
-When `salvo` is enabled, every public `contrix-core` model and identifier
+When `salvo` is enabled, every public `cokret-core` model and identifier
 type derives `salvo::oapi::ToSchema` / `ToParameters`, so applications that use
 Salvo OAPI can attach real field-level schemas directly to their own handlers.
 

@@ -21,7 +21,7 @@
 //! `CapabilityGrant`, then projects down to a `Grant` for fast in-memory
 //! check / delegation enforcement. The fields critical to delegation —
 //! `delegated_from` and `expires_at` — live on both shapes verbatim per
-//! `contrix-spec/spec/v1/zh/authz/capabilities.md` §3 + §10.
+//! `cokret-spec/spec/v1/zh/authz/capabilities.md` §3 + §10.
 //!
 //! All functions in this module are **pure**: they take a slice of grants
 //! and a `now` instant and return a decision. No interior mutability, no
@@ -129,7 +129,7 @@ pub enum GrantConstraint {
     /// rejected by the grant-issue guard.
     AllowedCircleIds { allowed_circle_ids: BTreeSet<CircleId> },
     /// Resource must carry at least one of the listed facets. soland uses
-    /// this on `cx:flow:` / `cx:space:` / `cx:morph:` projections; an
+    /// this on `ck:flow:` / `ck:space:` / `ck:morph:` projections; an
     /// unfaceted target falls outside scope (fail-closed).
     AllowedObjectFacets { facets: Vec<String> },
     /// Runtime mirror of the spec `max_operations` + `period` constraint
@@ -418,7 +418,7 @@ mod tests {
     fn root_grant(id: &str, actions: &[&str], resource: &str) -> Grant {
         Grant {
             grant_id: id.to_owned(),
-            space_id: "cx:space:1".to_owned(),
+            space_id: "ck:space:1".to_owned(),
             issuer: "did:web:alice".to_owned(),
             subject: "did:web:bob".to_owned(),
             resource: resource.to_owned(),
@@ -442,7 +442,7 @@ mod tests {
     ) -> Grant {
         Grant {
             grant_id: id.to_owned(),
-            space_id: "cx:space:1".to_owned(),
+            space_id: "ck:space:1".to_owned(),
             issuer: issuer.to_owned(),
             subject: subject.to_owned(),
             resource: resource.to_owned(),
@@ -457,9 +457,9 @@ mod tests {
 
     #[test]
     fn happy_path_root_plus_one_delegation_chain_intact() {
-        let root = root_grant("g1", &["read"], "cx:space:1");
+        let root = root_grant("g1", &["read"], "ck:space:1");
         let child =
-            child_grant("g2", "g1", "did:web:bob", "did:web:carol", &["read"], "cx:space:1", None);
+            child_grant("g2", "g1", "did:web:bob", "did:web:carol", &["read"], "ck:space:1", None);
         let grants = vec![root, child];
         let now = Utc::now();
         assert!(delegation_chain_intact(&grants, "g1", now));
@@ -468,10 +468,10 @@ mod tests {
 
     #[test]
     fn parent_revoked_breaks_chain() {
-        let mut root = root_grant("g1", &["read"], "cx:space:1");
+        let mut root = root_grant("g1", &["read"], "ck:space:1");
         root.revoked = true;
         let child =
-            child_grant("g2", "g1", "did:web:bob", "did:web:carol", &["read"], "cx:space:1", None);
+            child_grant("g2", "g1", "did:web:bob", "did:web:carol", &["read"], "ck:space:1", None);
         let grants = vec![root, child];
         let now = Utc::now();
         assert!(!delegation_chain_intact(&grants, "g1", now));
@@ -481,10 +481,10 @@ mod tests {
     #[test]
     fn parent_expired_breaks_chain() {
         let now = Utc::now();
-        let mut root = root_grant("g1", &["read"], "cx:space:1");
+        let mut root = root_grant("g1", &["read"], "ck:space:1");
         root.expires_at = Some(now - Duration::seconds(1));
         let child =
-            child_grant("g2", "g1", "did:web:bob", "did:web:carol", &["read"], "cx:space:1", None);
+            child_grant("g2", "g1", "did:web:bob", "did:web:carol", &["read"], "ck:space:1", None);
         let grants = vec![root, child];
         assert!(!delegation_chain_intact(&grants, "g1", now));
         assert!(!delegation_chain_intact(&grants, "g2", now));
@@ -493,14 +493,14 @@ mod tests {
     #[test]
     fn create_delegated_grant_happy_path() {
         let now = Utc::now();
-        let mut root = root_grant("g1", &["read", "send"], "cx:space:1");
+        let mut root = root_grant("g1", &["read", "send"], "ck:space:1");
         root.expires_at = Some(now + Duration::hours(1));
         let parents = vec![root];
         let req = GrantReqBody {
-            space_id: "cx:space:1".to_owned(),
+            space_id: "ck:space:1".to_owned(),
             issuer: "did:web:bob".to_owned(),
             subject: "did:web:carol".to_owned(),
-            resource: "cx:space:1".to_owned(),
+            resource: "ck:space:1".to_owned(),
             actions: vec!["read".to_owned()],
             constraints: Vec::new(),
             expires_at: Some(now + Duration::minutes(30)),
@@ -514,14 +514,14 @@ mod tests {
     #[test]
     fn create_delegated_grant_rejects_over_expire() {
         let now = Utc::now();
-        let mut root = root_grant("g1", &["read"], "cx:space:1");
+        let mut root = root_grant("g1", &["read"], "ck:space:1");
         root.expires_at = Some(now + Duration::hours(1));
         let parents = vec![root];
         let req = GrantReqBody {
-            space_id: "cx:space:1".to_owned(),
+            space_id: "ck:space:1".to_owned(),
             issuer: "did:web:bob".to_owned(),
             subject: "did:web:carol".to_owned(),
-            resource: "cx:space:1".to_owned(),
+            resource: "ck:space:1".to_owned(),
             actions: vec!["read".to_owned()],
             constraints: Vec::new(),
             // Child outlives parent → reject.
@@ -543,13 +543,13 @@ mod tests {
     #[test]
     fn create_delegated_grant_rejects_actions_overreach() {
         let now = Utc::now();
-        let root = root_grant("g1", &["read"], "cx:space:1");
+        let root = root_grant("g1", &["read"], "ck:space:1");
         let parents = vec![root];
         let req = GrantReqBody {
-            space_id: "cx:space:1".to_owned(),
+            space_id: "ck:space:1".to_owned(),
             issuer: "did:web:bob".to_owned(),
             subject: "did:web:carol".to_owned(),
-            resource: "cx:space:1".to_owned(),
+            resource: "ck:space:1".to_owned(),
             // Parent only has `read`; child asking for `send` and `delete`.
             actions: vec!["read".to_owned(), "send".to_owned(), "delete".to_owned()],
             constraints: Vec::new(),
@@ -567,14 +567,14 @@ mod tests {
     #[test]
     fn create_delegated_grant_rejects_resource_out_of_scope() {
         let now = Utc::now();
-        let root = root_grant("g1", &["read"], "cx:space:1");
+        let root = root_grant("g1", &["read"], "ck:space:1");
         let parents = vec![root];
         let req = GrantReqBody {
-            space_id: "cx:space:2".to_owned(),
+            space_id: "ck:space:2".to_owned(),
             issuer: "did:web:bob".to_owned(),
             subject: "did:web:carol".to_owned(),
-            // Parent's resource is "cx:space:1"; child trying a sibling space.
-            resource: "cx:space:2".to_owned(),
+            // Parent's resource is "ck:space:1"; child trying a sibling space.
+            resource: "ck:space:2".to_owned(),
             actions: vec!["read".to_owned()],
             constraints: Vec::new(),
             expires_at: None,
@@ -588,14 +588,14 @@ mod tests {
     #[test]
     fn create_delegated_grant_rejects_non_holder() {
         let now = Utc::now();
-        let root = root_grant("g1", &["read"], "cx:space:1");
+        let root = root_grant("g1", &["read"], "ck:space:1");
         let parents = vec![root];
         let req = GrantReqBody {
-            space_id: "cx:space:1".to_owned(),
+            space_id: "ck:space:1".to_owned(),
             // Bob is the parent's subject; Eve trying to delegate is not.
             issuer: "did:web:eve".to_owned(),
             subject: "did:web:carol".to_owned(),
-            resource: "cx:space:1".to_owned(),
+            resource: "ck:space:1".to_owned(),
             actions: vec!["read".to_owned()],
             constraints: Vec::new(),
             expires_at: None,
@@ -609,11 +609,11 @@ mod tests {
     #[test]
     fn three_level_chain_middle_revoke_breaks_both_descendants() {
         let now = Utc::now();
-        let root = root_grant("g1", &["read"], "cx:space:1");
+        let root = root_grant("g1", &["read"], "ck:space:1");
         let mut middle =
-            child_grant("g2", "g1", "did:web:bob", "did:web:carol", &["read"], "cx:space:1", None);
+            child_grant("g2", "g1", "did:web:bob", "did:web:carol", &["read"], "ck:space:1", None);
         let leaf =
-            child_grant("g3", "g2", "did:web:carol", "did:web:dave", &["read"], "cx:space:1", None);
+            child_grant("g3", "g2", "did:web:carol", "did:web:dave", &["read"], "ck:space:1", None);
         // Pre-condition: all three chain-intact.
         let intact = vec![root.clone(), middle.clone(), leaf.clone()];
         assert!(delegation_chain_intact(&intact, "g1", now));
@@ -630,18 +630,18 @@ mod tests {
 
     #[test]
     fn revoke_with_cascade_includes_all_descendants() {
-        let root = root_grant("g1", &["read"], "cx:space:1");
+        let root = root_grant("g1", &["read"], "ck:space:1");
         let middle_a =
-            child_grant("g2a", "g1", "did:web:bob", "did:web:carol", &["read"], "cx:space:1", None);
+            child_grant("g2a", "g1", "did:web:bob", "did:web:carol", &["read"], "ck:space:1", None);
         let middle_b =
-            child_grant("g2b", "g1", "did:web:bob", "did:web:dave", &["read"], "cx:space:1", None);
+            child_grant("g2b", "g1", "did:web:bob", "did:web:dave", &["read"], "ck:space:1", None);
         let leaf_a = child_grant(
             "g3a",
             "g2a",
             "did:web:carol",
             "did:web:erin",
             &["read"],
-            "cx:space:1",
+            "ck:space:1",
             None,
         );
         let leaf_b = child_grant(
@@ -650,7 +650,7 @@ mod tests {
             "did:web:dave",
             "did:web:frank",
             &["read"],
-            "cx:space:1",
+            "ck:space:1",
             None,
         );
         let grants = vec![root, middle_a, middle_b, leaf_a, leaf_b];
@@ -669,10 +669,10 @@ mod tests {
         let now = Utc::now();
         let parents: Vec<Grant> = Vec::new();
         let req = GrantReqBody {
-            space_id: "cx:space:1".to_owned(),
+            space_id: "ck:space:1".to_owned(),
             issuer: "did:web:bob".to_owned(),
             subject: "did:web:carol".to_owned(),
-            resource: "cx:space:1".to_owned(),
+            resource: "ck:space:1".to_owned(),
             actions: vec!["read".to_owned()],
             constraints: Vec::new(),
             expires_at: None,
@@ -686,7 +686,7 @@ mod tests {
     #[test]
     fn grant_effective_expiry_picks_stricter_of_top_level_and_constraint() {
         let now = Utc::now();
-        let mut grant = root_grant("g1", &["read"], "cx:space:1");
+        let mut grant = root_grant("g1", &["read"], "ck:space:1");
         grant.expires_at = Some(now + Duration::hours(2));
         grant
             .constraints
@@ -705,13 +705,13 @@ mod tests {
 
     #[test]
     fn allowed_circle_ids_constraint_round_trips_through_serde() {
-        let circle = CircleId::new("cx:circle:01904100-0000-7000-8000-000000000000".to_owned())
+        let circle = CircleId::new("ck:circle:01904100-0000-7000-8000-000000000000".to_owned())
             .expect("valid CircleId");
         let constraint =
             GrantConstraint::AllowedCircleIds { allowed_circle_ids: BTreeSet::from([circle]) };
         let json = serde_json::to_string(&constraint).expect("serde round trip");
         assert!(json.contains("allowed_circle_ids"));
-        assert!(json.contains("cx:circle:01904100-0000-7000-8000-000000000000"));
+        assert!(json.contains("ck:circle:01904100-0000-7000-8000-000000000000"));
         let round_tripped: GrantConstraint =
             serde_json::from_str(&json).expect("deserialize typed");
         assert_eq!(constraint, round_tripped);

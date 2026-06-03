@@ -1,6 +1,6 @@
 # Deployment
 
-This guide covers running a Contrix service implemented with the SDK in a
+This guide covers running a Cokret service implemented with the SDK in a
 production environment. The SDK ships protocol request/response types and the
 Salvo OAPI-ready DTO types; host applications own HTTP routing.
 
@@ -25,13 +25,13 @@ the host service stack.
 
 ## TLS termination
 
-The Contrix client (`crates/http-client/src/lib.rs::ClientBuilder`) rejects
+The Cokret client (`crates/http-client/src/lib.rs::ClientBuilder`) rejects
 non-HTTPS base URLs unless the caller opts into
 `allow_insecure_localhost()`. So every production server must terminate TLS
 somewhere. Two patterns are common:
 
 - **Reverse proxy** (recommended). Terminate TLS in nginx, Caddy, Traefik
-  or a cloud load balancer and forward plain HTTP to the Contrix binary
+  or a cloud load balancer and forward plain HTTP to the Cokret binary
   bound on `127.0.0.1`. The proxy handles cert rotation, OCSP stapling,
   HTTP/2 negotiation, request body limits and access logging.
 - **Runtime-native TLS**. Use the TLS support from the chosen HTTP runtime.
@@ -43,7 +43,7 @@ operational concern.
 
 ## CORS
 
-Browsers calling a Contrix service from a different origin need CORS. The
+Browsers calling a Cokret service from a different origin need CORS. The
 SDK does not include a CORS layer; configure it in the chosen HTTP runtime:
 
 ```rust,ignore
@@ -53,8 +53,8 @@ allow_headers([
     "authorization",
     "content-type",
     "idempotency-key",
-    "x-contrix-request-id",
-    "x-contrix-wait-for",
+    "x-cokret-request-id",
+    "x-cokret-wait-for",
 ]);
 ```
 
@@ -86,28 +86,28 @@ verification (DID resolved, key store loaded, MLS state ready).
 
 - The SDK gates all `tracing` calls on the `tracing` feature flag, off by
   default. Enable it in the binary when you wire in a `tracing-subscriber`.
-- Log redaction: use `redact_log_value()` (re-exported from `contrix`) on any
+- Log redaction: use `redact_log_value()` (re-exported from `cokret`) on any
   structured field that may contain DIDs, tokens, signatures or proof
   references. The push-payload validator and TURN credential validator do
   this automatically; manual log sites must opt in.
-- Surface `X-Contrix-Request-Id` from inbound requests into log fields and
+- Surface `X-Cokret-Request-Id` from inbound requests into log fields and
   echo it on outbound responses so client traces line up with server traces.
 
 ## Running with systemd
 
-A minimal `contrix.service` unit for a binary built into `/usr/local/bin/`:
+A minimal `cokret.service` unit for a binary built into `/usr/local/bin/`:
 
 ```ini
 [Unit]
-Description=Contrix v1 service
+Description=Cokret v1 service
 After=network-online.target
 Wants=network-online.target
 
 [Service]
-ExecStart=/usr/local/bin/contrix-service --listen 127.0.0.1:8080
+ExecStart=/usr/local/bin/cokret-service --listen 127.0.0.1:8080
 Restart=on-failure
 RestartSec=2s
-Environment=RUST_LOG=info,contrix=info
+Environment=RUST_LOG=info,cokret=info
 DynamicUser=yes
 NoNewPrivileges=true
 ProtectSystem=strict
@@ -137,5 +137,5 @@ behalf of the unit.
   not production back ends.
 - Front the service with a reverse proxy or CDN that enforces request
   body size limits, HTTP/2 keep-alive timeouts, and basic rate limiting.
-- Subscribe to the Contrix specification repository so capability and
+- Subscribe to the Cokret specification repository so capability and
   schema changes can be tracked alongside the SDK release notes.

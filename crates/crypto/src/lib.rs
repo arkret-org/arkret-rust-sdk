@@ -1362,7 +1362,7 @@ mod tests {
     }
 
     fn device() -> DeviceId {
-        DeviceId::new("cx:device:01904100-0000-7000-8000-000000000001").unwrap()
+        DeviceId::new("ck:device:01904100-0000-7000-8000-000000000001").unwrap()
     }
 
     #[test]
@@ -1386,7 +1386,7 @@ mod tests {
         plan.push(
             "share",
             CryptoMachineReqBody::ShareRoomKey {
-                space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
+                space_id: SpaceId::new("ck:space:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
                 session_id: "sess1".to_owned(),
                 recipients: vec![device()],
             },
@@ -1423,8 +1423,8 @@ mod tests {
             key_ref: None,
         };
         binding.record_unable_to_decrypt(UnableToDecryptRecord {
-            event_id: EventId::new("cx:event:01904100-0000-7000-8000-4e7fda181f9f").unwrap(),
-            space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
+            event_id: EventId::new("ck:event:01904100-0000-7000-8000-4e7fda181f9f").unwrap(),
+            space_id: SpaceId::new("ck:space:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
             sender: did("alice"),
             reason: UnableToDecryptReason::NoSession,
             encrypted_content: payload,
@@ -1439,8 +1439,8 @@ mod tests {
         let mut flow = DeviceVerificationFlow {
             transaction_id: "verif1".to_owned(),
             user_id: did("alice"),
-            from_device: DeviceId::new("cx:device:01904100-0000-7000-8000-000000000001").unwrap(),
-            to_device: DeviceId::new("cx:device:01904100-0000-7000-8000-000000000004").unwrap(),
+            from_device: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000001").unwrap(),
+            to_device: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000004").unwrap(),
             methods: vec!["sas".to_owned(), "qr".to_owned()],
             state: VerificationFlowState::Requested,
             created_at: Utc::now(),
@@ -1451,17 +1451,17 @@ mod tests {
         flow.advance(VerificationFlowState::Done).unwrap();
         binding.record_verification_flow(flow).unwrap();
         binding.set_device_trust(
-            DeviceId::new("cx:device:01904100-0000-7000-8000-000000000004").unwrap(),
+            DeviceId::new("ck:device:01904100-0000-7000-8000-000000000004").unwrap(),
             DeviceTrustState::Verified,
         );
         assert_eq!(
             binding
                 .device_trust
-                .get(&DeviceId::new("cx:device:01904100-0000-7000-8000-000000000004").unwrap()),
+                .get(&DeviceId::new("ck:device:01904100-0000-7000-8000-000000000004").unwrap()),
             Some(&DeviceTrustState::Verified)
         );
 
-        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-6c355fb9dada").unwrap();
+        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-6c355fb9dada").unwrap();
         binding
             .record_session(CryptoSessionRecord {
                 space_id: space_id.clone(),
@@ -1510,8 +1510,8 @@ mod tests {
         let mut flow = DeviceVerificationFlow {
             transaction_id: String::new(),
             user_id: did("alice"),
-            from_device: DeviceId::new("cx:device:01904100-0000-7000-8000-000000000001").unwrap(),
-            to_device: DeviceId::new("cx:device:01904100-0000-7000-8000-000000000002").unwrap(),
+            from_device: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000001").unwrap(),
+            to_device: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000002").unwrap(),
             methods: Vec::new(),
             state: VerificationFlowState::Requested,
             created_at: Utc::now(),
@@ -1533,7 +1533,7 @@ mod tests {
         ));
 
         // Too many methods → BoundsExceeded.
-        flow.to_device = DeviceId::new("cx:device:01904100-0000-7000-8000-000000000002").unwrap();
+        flow.to_device = DeviceId::new("ck:device:01904100-0000-7000-8000-000000000002").unwrap();
         flow.methods = (0..(MAX_VERIFICATION_METHODS + 1)).map(|i| format!("m{i}")).collect();
         let err = <DeviceVerificationFlow as Validate>::validate(&flow).unwrap_err();
         assert!(matches!(err, CryptoError::BoundsExceeded { ref field, limit }
@@ -1542,7 +1542,7 @@ mod tests {
 
     #[test]
     fn typed_validate_rejects_invalid_withheld_key_record() {
-        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-6c355fb9dada").unwrap();
+        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-6c355fb9dada").unwrap();
         let mut record = WithheldKeyRecord {
             space_id,
             session_id: String::new(),
@@ -1625,7 +1625,7 @@ mod tests {
 
     fn make_session() -> CryptoSessionRecord {
         CryptoSessionRecord {
-            space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
+            space_id: SpaceId::new("ck:space:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
             session_id: "sess-prop".to_owned(),
             sender_key: "curve25519:def".to_owned(),
             algorithm: "cx.mls.v1".to_owned(),
@@ -1705,9 +1705,9 @@ mod tests {
     fn reset_signing_input_is_stable_and_binds_replay_fields() {
         let content = CrossSigningResetContent {
             principal_id: did("alice"),
-            trust_domain: contrix_core::TypedTrustDomainId::new("cx:trust_domain:example.net")
+            trust_domain: contrix_core::TypedTrustDomainId::new("ck:trust_domain:example.net")
                 .unwrap(),
-            reset_event_id: "cx:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
+            reset_event_id: "ck:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
             previous_generation: 1,
             new_generation: 2,
             reset_reason: "lost phone".to_owned(),
@@ -1730,11 +1730,11 @@ mod tests {
         // trust_domain is bound (cross-deployment replay protection).
         let mut domain_changed = content.clone();
         domain_changed.trust_domain =
-            contrix_core::TypedTrustDomainId::new("cx:trust_domain:other.net").unwrap();
+            contrix_core::TypedTrustDomainId::new("ck:trust_domain:other.net").unwrap();
         assert_ne!(base, domain_changed.reset_signing_input().unwrap());
         // reset_event_id is bound (event-shell replay protection).
         let mut event_changed = content.clone();
-        event_changed.reset_event_id = "cx:event:01964137-0000-7000-8000-0000000000bb".to_owned();
+        event_changed.reset_event_id = "ck:event:01964137-0000-7000-8000-0000000000bb".to_owned();
         assert_ne!(base, event_changed.reset_signing_input().unwrap());
     }
 
@@ -1742,8 +1742,8 @@ mod tests {
     fn cross_signing_reset_proof_threshold_zero_rejected() {
         let content = CrossSigningResetContent {
             principal_id: did("alice"),
-            trust_domain: contrix_core::TypedTrustDomainId::new("cx:trust_domain:example.net").unwrap(),
-            reset_event_id: "cx:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
+            trust_domain: contrix_core::TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
+            reset_event_id: "ck:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
             previous_generation: 1,
             new_generation: 2,
             reset_reason: "lost phone".to_owned(),
@@ -1773,8 +1773,8 @@ mod tests {
         // PrincipalSigning with whitespace-only `verification_method`.
         let blank_verification_method = CrossSigningResetContent {
             principal_id: did("alice"),
-            trust_domain: contrix_core::TypedTrustDomainId::new("cx:trust_domain:example.net").unwrap(),
-            reset_event_id: "cx:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
+            trust_domain: contrix_core::TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
+            reset_event_id: "ck:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
             previous_generation: 1,
             new_generation: 2,
             reset_reason: "rot".to_owned(),
@@ -1832,8 +1832,8 @@ mod tests {
     fn cross_signing_reset_proof_oversized_alg_rejected() {
         let content = CrossSigningResetContent {
             principal_id: did("alice"),
-            trust_domain: contrix_core::TypedTrustDomainId::new("cx:trust_domain:example.net").unwrap(),
-            reset_event_id: "cx:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
+            trust_domain: contrix_core::TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
+            reset_event_id: "ck:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
             previous_generation: 1,
             new_generation: 2,
             reset_reason: "rot".to_owned(),
@@ -1859,8 +1859,8 @@ mod tests {
     #[test]
     fn unable_to_decrypt_path_bad_ciphertext() {
         let mut binding = CryptoStoreBinding::default();
-        let event_id = EventId::new("cx:event:01904100-0000-7000-8000-4e7fda181f9f").unwrap();
-        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-6c355fb9dada").unwrap();
+        let event_id = EventId::new("ck:event:01904100-0000-7000-8000-4e7fda181f9f").unwrap();
+        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-6c355fb9dada").unwrap();
         let payload = EncryptedPayload {
             scheme: EncryptedPayloadScheme::MlsRfc9420,
             group_id: "group".to_owned(),

@@ -37,7 +37,7 @@ use crate::lattice::LatticeKind as SdkLatticeKind;
 use crate::state_res::{BottomMode, MemoryCellRegistry};
 
 /// Cell-cardinality declared by a [`LatticeKind`] — corresponds to the
-/// contrix-spec event-kind-registry's `cell_subject` shape.
+/// cokret-spec event-kind-registry's `cell_subject` shape.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StateCardinality {
     /// One projection slot per `(space_id, cell_family)`. Subject empty.
@@ -51,7 +51,7 @@ pub enum StateCardinality {
 }
 
 /// Receiver behaviour when an unknown component_type/version is seen
-/// (matches the `criticality` field in the contrix-spec registry).
+/// (matches the `criticality` field in the cokret-spec registry).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Criticality {
     /// MUST fail closed (schema_violation / soft_fail / quarantine
@@ -143,7 +143,7 @@ impl std::fmt::Display for LatticeKindError {
 
 impl std::error::Error for LatticeKindError {}
 
-/// One canonical Contrix cell-family implementation.
+/// One canonical Cokret cell-family implementation.
 ///
 /// Each impl owns one `cell_family` (e.g. `cx.component.consent.v1`),
 /// declares the lattice algebra that resolves it (one of the six
@@ -178,7 +178,7 @@ pub trait LatticeKind: Send + Sync {
         Ok(None)
     }
 
-    /// Durable Contrix event kinds whose projection feeds this cell
+    /// Durable Cokret event kinds whose projection feeds this cell
     /// family. Empty by default — only kinds with a 1:N event-kind →
     /// cell-family mapping declare it.
     fn event_kinds(&self) -> &'static [&'static str] {
@@ -691,7 +691,7 @@ per_subject_lattice!(
 );
 
 // Flow notification subscription cell, keyed by (flow_id, watcher_actor_id).
-// Spec: contrix-spec/spec/v1/zh/models/flow-and-message.md §8.
+// Spec: cokret-spec/spec/v1/zh/models/flow-and-message.md §8.
 // SDK's subject derivation composes both keys into a single string so the
 // existing per-subject lattice infra (single Option<String>) works without
 // growing tuple support; the cell store still treats each (flow, actor)
@@ -1003,7 +1003,7 @@ per_subject_lattice!(
 //
 // The spec event-kind registry has renamed the realm-scoped policy /
 // lifecycle cell families from `cx.component.space.*` to
-// `cx.component.realm.*` (per `contrix-spec/spec/v1/zh/models/realm-and-space.md`).
+// `cx.component.realm.*` (per `cokret-spec/spec/v1/zh/models/realm-and-space.md`).
 // Two brand-new flow-shape families (`cx.component.flow.metadata.v1`,
 // `cx.component.flow.tracks.v1`) and one cross-realm linking family
 // (`cx.component.realm.link.v1`) also landed in the same rev.
@@ -1013,7 +1013,7 @@ per_subject_lattice!(
 // last-write-wins — resolves `cx.realm.<facet>` to the new
 // `cx.component.realm.<facet>.v1` family. The old `Space*` impls stay
 // registered for back-compat with existing soland reducer cell IDs
-// (`cx:cell:cx.component.space.policy.v1:<space_id>` etc.) until those
+// (`ck:cell:cx.component.space.policy.v1:<space_id>` etc.) until those
 // reducer paths follow the rename.
 
 // ── Realm CasRegister/Reject singleton families ──

@@ -26,7 +26,7 @@
 //! cargo run --example personal_agent_provision
 //! ```
 
-use contrix::{DeviceId, Did};
+use cokret::{DeviceId, Did};
 use serde_json::{Value, json};
 use std::fmt::Write;
 
@@ -37,7 +37,7 @@ fn mock_send(op_id: &str, method: &str, path: &str, body: &Value) -> Value {
     println!("  request: {body}");
     match op_id {
         "cx.account.agent_key_pair" => json!({
-            "agent_key_id": "cx:agent_key:01964137-0000-7000-8000-000000000001",
+            "agent_key_id": "ck:agent_key:01964137-0000-7000-8000-000000000001",
             "public_key": "ed25519:base64-pub-key",
         }),
         "cx.agent.provision" => json!({
@@ -51,16 +51,16 @@ fn mock_send(op_id: &str, method: &str, path: &str, body: &Value) -> Value {
         "cx.agent.pause" => json!({ "status": "paused" }),
         "cx.agent.resume" => json!({ "status": "active" }),
         "cx.agent.rotate_key" => json!({
-            "agent_key_id": "cx:agent_key:01964137-0000-7000-8000-000000000002",
+            "agent_key_id": "ck:agent_key:01964137-0000-7000-8000-000000000002",
             "status": "rotated",
         }),
         "cx.agent.grant.attach" => json!({
-            "grant_id": "cx:grant:01964137-0000-7000-8000-000000000010",
+            "grant_id": "ck:grant:01964137-0000-7000-8000-000000000010",
             "status": "active",
         }),
         "cx.agent.grant.detach" => json!({ "status": "detached" }),
         "cx.agent.sidecar_thread.ensure" => json!({
-            "sidecar_thread_id": "cx:thread:01964137-0000-7000-8000-000000000020",
+            "sidecar_thread_id": "ck:thread:01964137-0000-7000-8000-000000000020",
             "created": true,
         }),
         "cx.agent.deactivate" => json!({ "status": "deactivated" }),
@@ -80,11 +80,11 @@ fn path_component(value: &str) -> String {
     encoded
 }
 
-fn main() -> contrix::Result<()> {
+fn main() -> cokret::Result<()> {
     let controller: Did = Did::new("did:web:alice.example")?;
-    let device_id: DeviceId = DeviceId::new("cx:device:01964137-0000-7000-8000-000000000009")?;
+    let device_id: DeviceId = DeviceId::new("ck:device:01964137-0000-7000-8000-000000000009")?;
 
-    // A real integration would construct a `contrix::Client` against the
+    // A real integration would construct a `cokret::Client` against the
     // home soland's base URL and replace `mock_send` with `client.post(...)`
     // / `client.get(...)` / `client.delete(...)`. The example skips the
     // live transport so it compiles without network access.
@@ -152,7 +152,7 @@ fn main() -> contrix::Result<()> {
         "POST",
         &format!("/agents/{agent_principal_path}/grants"),
         &json!({
-            "scope": ["cx:capability:send_message"],
+            "scope": ["ck:capability:send_message"],
             "ttl_secs": 3_600,
         }),
     );
@@ -174,7 +174,7 @@ fn main() -> contrix::Result<()> {
         "/agent-sidecar-threads:ensure",
         &json!({
             "agent_principal_id": agent_principal_id,
-            "space_id": "cx:space:01964137-0000-7000-8000-000000000030",
+            "space_id": "ck:space:01964137-0000-7000-8000-000000000030",
         }),
     );
 

@@ -1,9 +1,9 @@
 //! Client-server protocol API contracts.
 //!
 //! Owner: product-local client API producers/consumers. These DTOs are kept in
-//! `contrix-contracts` only for shared product surfaces that need a common
+//! `cokret-contracts` only for shared product surfaces that need a common
 //! schema across services, SDKs, or fixtures. Canonical protocol request/
-//! response bodies generated from `contrix-spec` stay in `contrix-core`.
+//! response bodies generated from `cokret-spec` stay in `cokret-core`.
 //!
 //! Naming convention follows the OpenAPI shape of each operation:
 //!
@@ -1149,7 +1149,7 @@ mod tests {
     }
 
     fn space() -> SpaceId {
-        SpaceId::new("cx:space:01904100-0000-7000-8000-a035cff9ef92").unwrap()
+        SpaceId::new("ck:space:01904100-0000-7000-8000-a035cff9ef92").unwrap()
     }
 
     #[test]
@@ -1208,7 +1208,7 @@ mod tests {
         SetPusherReqBody {
             pusher: Pusher {
                 user_id: did("alice"),
-                device_id: DeviceId::new("cx:device:01904100-0000-7000-8000-000000000001").unwrap(),
+                device_id: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000001").unwrap(),
                 platform: crate::push::PushPlatform::Fcm,
                 push_gateway: "https://push.example".to_owned(),
                 push_key: "token".to_owned(),

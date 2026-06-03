@@ -1,6 +1,6 @@
 //! Hybrid Logical Clock (HLC) implementation.
 //!
-//! This module implements the Contrix v1 HLC specification with:
+//! This module implements the Cokret v1 HLC specification with:
 //! - Strict format validation: `^[0-9a-f]{12}-[0-9a-f]{4}-[0-9a-f]{8}$`
 //! - Fixed-width hex encoding for correct lexicographic ordering
 //! - Clock skew handling up to ±5 minutes
@@ -11,7 +11,7 @@ use crate::{Error, Hlc as HlcType, Result};
 use sha2::{Digest, Sha256};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-/// Validate HLC format according to Contrix v1 spec.
+/// Validate HLC format according to Cokret v1 spec.
 ///
 /// Format: `^[0-9a-f]{12}-[0-9a-f]{4}-[0-9a-f]{8}$`
 pub fn validate_hlc_format(hlc: &str) -> Result<()> {

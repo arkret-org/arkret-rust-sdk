@@ -423,7 +423,7 @@ mod error_envelope_tests {
     #[test]
     fn error_envelope_serializes_to_spec_canonical_shape() {
         let envelope = ErrorEnvelope::new("capability_denied", "session grant is revoked")
-            .with_request_id("cx:request:test")
+            .with_request_id("ck:request:test")
             .with_retry_after_ms(None);
 
         let value = serde_json::to_value(envelope).unwrap();
@@ -436,7 +436,7 @@ mod error_envelope_tests {
                     "code": "capability_denied",
                     "message": "session grant is revoked"
                 },
-                "request_id": "cx:request:test"
+                "request_id": "ck:request:test"
             })
         );
     }
@@ -567,7 +567,7 @@ pub struct SyncResBody {
     /// Opaque stream cursor — clients MUST treat it as opaque and pass it back
     /// as `after` on the next `/account/subscribe` request.
     pub cursor: String,
-    /// Realm sync bodies keyed by `cx:space:*` / `cx:realm:*`. Kept as
+    /// Realm sync bodies keyed by `ck:space:*` / `ck:realm:*`. Kept as
     /// `Value` so the HTTP layer doesn't constrain per-realm extra
     /// fields (e.g. `state_after`, `flows`) that the spec leaves open.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -1177,7 +1177,7 @@ pub struct DirectoryResolveRealmResBody {
     pub join_candidates: Vec<RealmJoinCandidate>,
 }
 
-/// R3.3 (CXP-0011, contrix-spec @ cced4b8) — the resolved object class of a
+/// R3.3 (CXP-0011, cokret-spec @ cced4b8) — the resolved object class of a
 /// shareable address. The address grammar (`crate::model::object_address`)
 /// fixes the hierarchy `realm` ⊃ `flow` ⊃ `m` (message).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1192,7 +1192,7 @@ pub enum TargetKind {
 /// R3.3 (CXP-0011) — request body for `cx.directory.resolve_target`.
 ///
 /// `address` is a client-agnostic shareable object address in either the
-/// `web+contrix:` URI form or the HTTPS-landing fragment form (see
+/// `web+cokret:` URI form or the HTTPS-landing fragment form (see
 /// [`crate::model::object_address::parse_address`]). `token` is present iff
 /// the address carries `lt=invite` or `lt=preview`; the server MUST bind it to
 /// the resolved object via [`crate::model::object_address::verify_token_target`].
@@ -1402,7 +1402,7 @@ pub struct DirectoryResolveHandleResBody {
     pub via_services: Vec<String>,
 }
 
-/// R3.2 (contrix-spec @ b56cab1) — request body for
+/// R3.2 (cokret-spec @ b56cab1) — request body for
 /// `cx.directory.list_handles_for_subject`. Known holder/principal DID +
 /// context → current visible handle claims (inverse of `resolve_handle`).
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1844,7 +1844,7 @@ pub struct DeviceMessagesReceiveResBody {
 // ── Spec-aligned canonical types added in 2026-05 alignment pass ───────────
 //
 // These types fill gaps identified in `_todos.md` between the Rust SDK
-// surface and `contrix-spec/spec/v1/zh/` v1-core-rc.
+// surface and `cokret-spec/spec/v1/zh/` v1-core-rc.
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -2226,7 +2226,7 @@ pub enum RecoveryPolicyLifecycle {
 }
 
 /// CXP recovery policy proof-kind enum (R3 spec-sync 2026-05-27,
-/// contrix-spec b47ff6ec). Mirrors `recovery-policy.schema.json`
+/// cokret-spec b47ff6ec). Mirrors `recovery-policy.schema.json`
 /// `body.proof_kinds[]`. Validation of the proof internals is
 /// deferred to R3.1 (verifier implementation).
 //

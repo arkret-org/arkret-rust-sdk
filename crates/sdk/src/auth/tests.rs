@@ -10,7 +10,7 @@ fn device(id: &str) -> DeviceId {
     for byte in id.bytes() {
         acc = (acc ^ u64::from(byte)).wrapping_mul(0x100000001b3);
     }
-    DeviceId::new(format!("cx:device:01904100-0000-7000-8000-{:012x}", acc & 0x0000_ffff_ffff_ffff))
+    DeviceId::new(format!("ck:device:01904100-0000-7000-8000-{:012x}", acc & 0x0000_ffff_ffff_ffff))
         .unwrap()
 }
 
@@ -32,7 +32,7 @@ fn session_grant_notification(
         principal_id: did("alice"),
         device_id: device("desktop"),
         audience: vec!["did:web:soland.example".to_owned()],
-        scopes: vec!["urn:contrix:principal-server:session.bind".to_owned()],
+        scopes: vec!["urn:cokret:principal-server:session.bind".to_owned()],
         session_id: "browser-session-1".to_owned(),
         grant_jti: "grant-1".to_owned(),
         issued_at: now,
@@ -270,7 +270,7 @@ fn session_grant_contract_redacts_and_notifies_principal_servers() {
         principal_id: did("alice"),
         device_id: device("desktop"),
         audience: vec!["did:web:soland.example".to_owned()],
-        scopes: vec!["urn:contrix:principal-server:session.bind".to_owned()],
+        scopes: vec!["urn:cokret:principal-server:session.bind".to_owned()],
         session_id: "browser-session-1".to_owned(),
         grant_jti: "grant-1".to_owned(),
         issued_at: now,
@@ -430,7 +430,7 @@ fn auth_validates_progressive_disclosure_claims_fail_closed() {
     let request = PresentationReqBody {
         request_id: "presentation-1".to_owned(),
         subject: alice.clone(),
-        audience: "contrix-auth".to_owned(),
+        audience: "cokret-auth".to_owned(),
         nonce: "nonce".to_owned(),
         policy: DisclosurePolicy {
             policy_id: "policy-1".to_owned(),
@@ -505,13 +505,13 @@ fn auth_validates_progressive_disclosure_claims_fail_closed() {
         issuer,
         audience: request.audience.clone(),
         nonce: request.nonce.clone(),
-        domain: Some("contrix-auth".to_owned()),
+        domain: Some("cokret-auth".to_owned()),
         encoded_presentation: "compact.sd-jwt".to_owned(),
     };
-    boundary.validate_request_binding(&request, Some("contrix-auth")).unwrap();
+    boundary.validate_request_binding(&request, Some("cokret-auth")).unwrap();
     let mut wrong_audience = boundary;
     wrong_audience.audience = "other-audience".to_owned();
-    assert!(wrong_audience.validate_request_binding(&request, Some("contrix-auth")).is_err());
+    assert!(wrong_audience.validate_request_binding(&request, Some("cokret-auth")).is_err());
 
     let rejected = validate_presentation(
         &request,
@@ -541,7 +541,7 @@ fn auth_uses_provider_did_proof_verifier_for_recovery() {
         verification_method: verification_method.to_owned(),
         payload_digest: crate::Hash::new(format!("sha256:{}", sha256_hex(b"payload"))).unwrap(),
         created_at: Utc::now(),
-        domain: Some("contrix-auth".to_owned()),
+        domain: Some("cokret-auth".to_owned()),
         audience: None,
         jws: "signed-proof".to_owned(),
     };

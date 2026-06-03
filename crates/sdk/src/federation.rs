@@ -11,7 +11,7 @@ pub use contrix_contracts::federation::{
     FederationBackfillAuthorization, FederationQuarantineKind, FederationQuarantineRecord,
     FederationReplayDecision, FederationReplayRecord, FederationTransactionEnvelope,
     HttpMessageSignature, HttpMessageSignatureInput, ServiceEndpointDescriptor,
-    VerifyActorChallenge, VerifyActorChallengeSignature, WellKnownContrixServer,
+    VerifyActorChallenge, VerifyActorChallengeSignature, WellKnownCokretServer,
 };
 
 use crate::{Did, Error, Hash, Result, SpaceId};
@@ -312,7 +312,7 @@ pub fn verify_rfc9530_content_digest(header_value: &str, bytes: &[u8]) -> Result
 /// RFC 9421 §2 formats each component as `"<name>": <value>` followed
 /// by a `@signature-params` line. This helper emits the v1 federation
 /// component set (`@method`, `@target-uri`, `@authority`,
-/// `content-digest`, plus the Contrix-specific origin / destination
+/// `content-digest`, plus the Cokret-specific origin / destination
 /// DIDs) under the canonical RFC 9421 quoting rule.
 ///
 /// `created_at` / `expires_at` are emitted as Unix-second integers
@@ -650,7 +650,7 @@ mod tests {
             "a.example",
             "b.example",
             "/_contrix/federation/state",
-            json!({"space":"cx:space:01904100-0000-7000-8000-fd3637e8361f"}),
+            json!({"space":"ck:space:01904100-0000-7000-8000-fd3637e8361f"}),
             "shared-key",
         );
         assert_eq!(request.origin, "a.example");
@@ -678,7 +678,7 @@ mod tests {
     #[test]
     fn federation_forwards_queries_and_backfills_events() {
         let mut manager = FederationManager::new();
-        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         manager.forward_event(space_id.clone(), json!({"event": 1}));
         manager.forward_event(space_id.clone(), json!({"event": 2}));
 
@@ -766,8 +766,8 @@ mod tests {
         let document = json!({
             "id": did.as_str(),
             "service": [{
-                "id": "did:web:a.example#contrix-federation",
-                "type": "ContrixFederation",
+                "id": "did:web:a.example#cokret-federation",
+                "type": "CokretFederation",
                 "serviceEndpoint": "https://a.example/api/v1/federation"
             }]
         });
@@ -775,13 +775,13 @@ mod tests {
         assert!(did_document_service_endpoint_matches(
             &document,
             &did,
-            "ContrixFederation",
+            "CokretFederation",
             "https://a.example/api/v1/federation"
         ));
         assert!(!did_document_service_endpoint_matches(
             &document,
             &Did::new("did:web:b.example").unwrap(),
-            "ContrixFederation",
+            "CokretFederation",
             "https://a.example/api/v1/federation"
         ));
     }
@@ -814,7 +814,7 @@ mod tests {
         assert_eq!(record.kind, FederationQuarantineKind::DuplicateTransactionConflict);
         let fork = fork_quarantine_record(
             FederationQuarantineKind::OperationFork,
-            "cx:operation:01904100-0000-7000-8000-b24c1b0f1a32",
+            "ck:operation:01904100-0000-7000-8000-b24c1b0f1a32",
             "sha256:first",
             "sha256:second",
         )
@@ -826,7 +826,7 @@ mod tests {
     fn backfill_and_verify_actor_helpers_fail_closed() {
         let authorization = FederationBackfillAuthorization {
             requester_service_did: Did::new("did:web:b.example").unwrap(),
-            space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+            space_id: SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             history_visible: true,
             service_delegated: false,
             plaintext_visible_to_service: true,

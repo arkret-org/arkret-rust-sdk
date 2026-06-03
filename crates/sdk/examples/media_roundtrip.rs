@@ -1,6 +1,6 @@
-use contrix::{Did, MemoryBlobStore, safe_content_disposition, safe_content_type};
+use cokret::{Did, MemoryBlobStore, safe_content_disposition, safe_content_type};
 
-fn main() -> contrix::Result<()> {
+fn main() -> cokret::Result<()> {
     let mut blobs = MemoryBlobStore::new();
     let media_type =
         safe_content_type("IMAGE/PNG").unwrap_or_else(|| "application/octet-stream".to_owned());

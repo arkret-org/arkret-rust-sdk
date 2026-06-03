@@ -1,7 +1,7 @@
 //! Cursor encoding, decoding, and validation.
 //!
-//! This module implements the Contrix v1 cursor specification. Cursors are
-//! opaque `cx:cursor:<base64url(canonical_json)>` tokens used for stream
+//! This module implements the Cokret v1 cursor specification. Cursors are
+//! opaque `ck:cursor:<base64url(canonical_json)>` tokens used for stream
 //! continuation and read-your-writes barriers.
 
 use base64::Engine as _;
@@ -35,7 +35,7 @@ pub fn generate_cursor_handle() -> Result<String> {
     Ok(encoded)
 }
 
-/// Contrix v1 sync cursor.
+/// Cokret v1 sync cursor.
 ///
 /// Cursors contain all information needed to resume synchronization from a
 /// specific point in the event stream. They are encoded as JSON and then
@@ -43,7 +43,7 @@ pub fn generate_cursor_handle() -> Result<String> {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Cursor {
-    /// Cursor version. Must be "1" for Contrix v1.
+    /// Cursor version. Must be "1" for Cokret v1.
     pub v: String,
     /// Cursor purpose.
     pub purpose: CursorPurpose,
@@ -122,7 +122,7 @@ impl Cursor {
     /// stateless cursor tests. v1 core emits stateful `h` handles by default.
     pub const DEV_TEST_MAC: &'static str =
         "hmac-sha256:0000000000000000000000000000000000000000000000000000000000000000";
-    pub const DEV_TEST_ISSUER_KID: &'static str = "contrix-sdk-dev#cursor";
+    pub const DEV_TEST_ISSUER_KID: &'static str = "cokret-sdk-dev#cursor";
 
     /// Create a new cursor with current timestamp and default expiration.
     pub fn new() -> Result<Self> {
@@ -262,7 +262,7 @@ impl Cursor {
         // Encode to Base64URL without padding
         let encoded = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&json);
 
-        Ok(format!("cx:cursor:{encoded}"))
+        Ok(format!("ck:cursor:{encoded}"))
     }
 
     /// Decode a cursor from its wire token.
@@ -277,8 +277,8 @@ impl Cursor {
     /// - Cursor has expired
     pub fn decode(encoded: &str) -> Result<Self> {
         let encoded = encoded
-            .strip_prefix("cx:cursor:")
-            .ok_or_else(|| Error::Protocol("cursor token must start with cx:cursor:".to_owned()))?;
+            .strip_prefix("ck:cursor:")
+            .ok_or_else(|| Error::Protocol("cursor token must start with ck:cursor:".to_owned()))?;
 
         // Decode from unpadded Base64URL, the only v1 cursor transport form.
         use base64::Engine as _;
@@ -347,7 +347,7 @@ impl Cursor {
     }
 
     fn validate_space_id(space_id: &str) -> Result<()> {
-        if !has_prefixed_uuid7(space_id, "cx:realm:") && !has_prefixed_uuid7(space_id, "cx:space:")
+        if !has_prefixed_uuid7(space_id, "ck:realm:") && !has_prefixed_uuid7(space_id, "ck:space:")
         {
             return Err(Error::InvalidId(space_id.to_owned()));
         }
@@ -371,7 +371,7 @@ impl Cursor {
     }
 
     fn validate_event_id(event_id: &str) -> Result<()> {
-        let is_valid = has_prefixed_uuid7(event_id, "cx:event:");
+        let is_valid = has_prefixed_uuid7(event_id, "ck:event:");
 
         if !is_valid {
             return Err(Error::InvalidId(event_id.to_owned()));
@@ -380,7 +380,7 @@ impl Cursor {
     }
 
     fn validate_device_message_id(message_id: &str) -> Result<()> {
-        if has_prefixed_uuid7(message_id, "cx:device_message:") {
+        if has_prefixed_uuid7(message_id, "ck:device_message:") {
             Ok(())
         } else {
             Err(Error::InvalidId(message_id.to_owned()))
@@ -615,7 +615,7 @@ mod tests {
         assert!(decoded.h.is_some());
         assert_eq!(decoded.v, cursor.v);
         assert_eq!(decoded.purpose, CursorPurpose::Stream);
-        assert!(encoded.starts_with("cx:cursor:"));
+        assert!(encoded.starts_with("ck:cursor:"));
     }
 
     #[test]
@@ -643,7 +643,7 @@ mod tests {
     fn core_cursor_rejects_inline_positions() {
         let mut cursor = Cursor::new().unwrap();
         cursor = cursor.with_space_position(
-            "cx:realm:01904100-0000-7000-8000-9b64700c6ee8",
+            "ck:realm:01904100-0000-7000-8000-9b64700c6ee8",
             SpacePosition {
                 p: vec![],
                 order: "invalid-hlc".to_owned(),
@@ -668,9 +668,9 @@ mod tests {
     fn sync_positions_are_server_side_for_core_cursor() {
         let positions = SyncPositions {
             spaces: BTreeMap::from([(
-                "cx:realm:0196419b-0000-7000-8000-000000000000".to_owned(),
+                "ck:realm:0196419b-0000-7000-8000-000000000000".to_owned(),
                 SpaceSyncPosition {
-                    frontier: vec!["cx:event:0196419b-0000-7000-8000-000000000001".to_owned()],
+                    frontier: vec!["ck:event:0196419b-0000-7000-8000-000000000001".to_owned()],
                     timeline_order: "01970e589d21-0004-a13f9c2e".to_owned(),
                     state_digest:
                         "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -679,7 +679,7 @@ mod tests {
             )]),
             devices: Some(BTreeMap::from([(
                 "device-laptop".to_owned(),
-                "cx:device_message:019640da-0000-7000-8000-000000000000".to_owned(),
+                "ck:device_message:019640da-0000-7000-8000-000000000000".to_owned(),
             )])),
         };
 

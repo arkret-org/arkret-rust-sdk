@@ -61,7 +61,7 @@ fn capability_event(
     Event {
         event_id: EventId::new(event_id).unwrap(),
         kind: kind.to_owned(),
-        realm_id: RealmId::new("cx:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+        realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
         actor_id: Did::new("did:web:authority.example.com").unwrap(),
         actor_seq,
         created_at: utc("2026-04-29T00:00:00Z"),
@@ -88,11 +88,11 @@ fn capability_event(
 #[test]
 fn resource_selector_parse_space() {
     let selector =
-        ResourceSelector::parse("space:cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        ResourceSelector::parse("space:ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
     assert_eq!(
         selector,
         ResourceSelector::Space {
-            space_id: "cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned()
+            space_id: "ck:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned()
         }
     );
 }
@@ -100,12 +100,12 @@ fn resource_selector_parse_space() {
 #[test]
 fn resource_selector_parse_object() {
     let selector =
-        ResourceSelector::parse("object:cx:space:01904100-0000-7000-8000-b721a5c84b0d:task")
+        ResourceSelector::parse("object:ck:space:01904100-0000-7000-8000-b721a5c84b0d:task")
             .unwrap();
     assert_eq!(
         selector,
         ResourceSelector::Object {
-            space_id: "cx:space:01904100-0000-7000-8000-b721a5c84b0d".to_owned(),
+            space_id: "ck:space:01904100-0000-7000-8000-b721a5c84b0d".to_owned(),
             object_type: Some("task".to_owned()),
             object_ref: None,
         }
@@ -115,43 +115,43 @@ fn resource_selector_parse_object() {
 #[test]
 fn flow_selector_matches_flow_resource() {
     let selector = ResourceSelector::parse(
-        "flow:cx:space:01904100-0000-7000-8000-9b64700c6ee8:cx:flow:01904100-0000-7000-8000-5a9f22e193a1",
+        "flow:ck:space:01904100-0000-7000-8000-9b64700c6ee8:ck:flow:01904100-0000-7000-8000-5a9f22e193a1",
     )
     .unwrap();
     assert_eq!(
         selector,
         ResourceSelector::Flow {
-            space_id: "cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
-            flow_id: Some("cx:flow:01904100-0000-7000-8000-5a9f22e193a1".to_owned()),
+            space_id: "ck:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
+            flow_id: Some("ck:flow:01904100-0000-7000-8000-5a9f22e193a1".to_owned()),
         }
     );
     assert!(selector.matches(&Resource::Flow {
-        space_id: "cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
-        flow_id: "cx:flow:01904100-0000-7000-8000-5a9f22e193a1".to_owned(),
+        space_id: "ck:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
+        flow_id: "ck:flow:01904100-0000-7000-8000-5a9f22e193a1".to_owned(),
     }));
     assert!(!selector.matches(&Resource::Flow {
-        space_id: "cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
-        flow_id: "cx:flow:01904100-0000-7000-8000-9c74a047a052".to_owned(),
+        space_id: "ck:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
+        flow_id: "ck:flow:01904100-0000-7000-8000-9c74a047a052".to_owned(),
     }));
 }
 
 #[test]
 fn resource_selector_parse_space_scoped_resources_with_colon_ids() {
     assert_eq!(
-        ResourceSelector::parse("policy:cx:space:01904100-0000-7000-8000-9b64700c6ee8:policy-main")
+        ResourceSelector::parse("policy:ck:space:01904100-0000-7000-8000-9b64700c6ee8:policy-main")
             .unwrap(),
         ResourceSelector::Policy {
-            space_id: "cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
+            space_id: "ck:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
             policy_id: Some("policy-main".to_owned()),
         }
     );
     assert_eq!(
         ResourceSelector::parse(
-            "relation:cx:space:01904100-0000-7000-8000-9b64700c6ee8:assigned_to"
+            "relation:ck:space:01904100-0000-7000-8000-9b64700c6ee8:assigned_to"
         )
         .unwrap(),
         ResourceSelector::Relation {
-            space_id: "cx:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
+            space_id: "ck:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
             relation_kind: "assigned_to".to_owned(),
         }
     );
@@ -160,7 +160,7 @@ fn resource_selector_parse_space_scoped_resources_with_colon_ids() {
 #[test]
 fn resource_selector_parse_and_match_circle() {
     let circle_id =
-        contrix_core::CircleId::new("cx:circle:01904100-0000-7000-8000-000000000000".to_owned())
+        contrix_core::CircleId::new("ck:circle:01904100-0000-7000-8000-000000000000".to_owned())
             .unwrap();
     let selector = ResourceSelector::parse("circle:01904100-0000-7000-8000-000000000000").unwrap();
     assert_eq!(selector, ResourceSelector::Circle { circle_id: circle_id.clone() });
@@ -168,7 +168,7 @@ fn resource_selector_parse_and_match_circle() {
     assert!(
         !selector.matches(&Resource::Circle {
             circle_id: contrix_core::CircleId::new(
-                "cx:circle:01904100-0000-7000-8000-000000000001".to_owned()
+                "ck:circle:01904100-0000-7000-8000-000000000001".to_owned()
             )
             .unwrap()
         })
@@ -182,11 +182,11 @@ fn resource_selector_parse_and_match_circle() {
 fn resource_selector_wildcard_matches_all() {
     let selector = ResourceSelector::Wildcard;
     assert!(selector.matches(&Resource::Space { space_id: "test".to_owned() }));
-    assert!(selector.matches(&morph_resource("test", "task", "cx:morph:test")));
+    assert!(selector.matches(&morph_resource("test", "task", "ck:morph:test")));
     assert!(
         selector.matches(&Resource::Circle {
             circle_id: contrix_core::CircleId::new(
-                "cx:circle:01904100-0000-7000-8000-000000000000".to_owned()
+                "ck:circle:01904100-0000-7000-8000-000000000000".to_owned()
             )
             .unwrap()
         })
@@ -196,32 +196,32 @@ fn resource_selector_wildcard_matches_all() {
 #[test]
 fn space_selector_matches_space() {
     let selector = ResourceSelector::Space {
-        space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+        space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
     };
     assert!(selector.matches(&Resource::Space {
-        space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned()
+        space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned()
     }));
     assert!(!selector.matches(&Resource::Space {
-        space_id: "cx:space:01904100-0000-7000-8000-2a9d538f2fcf".to_owned()
+        space_id: "ck:space:01904100-0000-7000-8000-2a9d538f2fcf".to_owned()
     }));
 }
 
 #[test]
 fn object_selector_matches_morph() {
     let selector = ResourceSelector::Object {
-        space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+        space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
         object_type: Some("task".to_owned()),
         object_ref: None,
     };
     assert!(selector.matches(&morph_resource(
-        "cx:space:01904100-0000-7000-8000-1a412919cd4b",
+        "ck:space:01904100-0000-7000-8000-1a412919cd4b",
         "task",
-        "cx:morph:01904100-0000-7000-8000-20ec63a5423d",
+        "ck:morph:01904100-0000-7000-8000-20ec63a5423d",
     )));
     assert!(!selector.matches(&morph_resource(
-        "cx:space:01904100-0000-7000-8000-1a412919cd4b",
+        "ck:space:01904100-0000-7000-8000-1a412919cd4b",
         "note",
-        "cx:morph:01904100-0000-7000-8000-20ec63a5423d",
+        "ck:morph:01904100-0000-7000-8000-20ec63a5423d",
     )));
 }
 
@@ -232,14 +232,14 @@ fn type_restriction_respects_flow_scope_limitation() {
         Did::new("did:web:alice.example.com").unwrap(),
         "read".to_owned(),
         Resource::Flow {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-            flow_id: "cx:flow:01904100-0000-7000-8000-f571eead1fc4".to_owned(),
+            space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            flow_id: "ck:flow:01904100-0000-7000-8000-f571eead1fc4".to_owned(),
         },
     );
     let mut grant = grant_for(
         "read",
         ResourceSelector::Flow {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
             flow_id: None,
         },
     );
@@ -263,16 +263,16 @@ fn type_restriction_requires_entity_facets_from_context() {
         Did::new("did:web:alice.example.com").unwrap(),
         "write".to_owned(),
         morph_resource(
-            "cx:space:01904100-0000-7000-8000-1a412919cd4b",
+            "ck:space:01904100-0000-7000-8000-1a412919cd4b",
             "task",
-            "cx:morph:01904100-0000-7000-8000-20ec63a5423d",
+            "ck:morph:01904100-0000-7000-8000-20ec63a5423d",
         ),
     )
     .with_facets([Facet::Stateful, Facet::Rankable]);
     let mut grant = grant_for(
         "write",
         ResourceSelector::Object {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
             object_type: Some("task".to_owned()),
             object_ref: None,
         },
@@ -293,9 +293,9 @@ fn type_restriction_requires_entity_facets_from_context() {
         Did::new("did:web:alice.example.com").unwrap(),
         "write".to_owned(),
         morph_resource(
-            "cx:space:01904100-0000-7000-8000-1a412919cd4b",
+            "ck:space:01904100-0000-7000-8000-1a412919cd4b",
             "task",
-            "cx:morph:01904100-0000-7000-8000-20ec63a5423d",
+            "ck:morph:01904100-0000-7000-8000-20ec63a5423d",
         ),
     )
     .with_facets([Facet::Stateful]);
@@ -308,7 +308,7 @@ fn authz_engine_deny_without_grant() {
     let ctx = AuthzContext::new(
         Did::new("did:web:alice.example.com").unwrap(),
         "read".to_owned(),
-        Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
+        Resource::Space { space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
     );
 
     let decision = engine.check_authorization(&ctx, &[]);
@@ -321,13 +321,13 @@ fn authz_engine_allow_with_matching_grant() {
     let ctx = AuthzContext::new(
         Did::new("did:web:alice.example.com").unwrap(),
         "read".to_owned(),
-        Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
+        Resource::Space { space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
     );
 
     let grant = grant_for(
         "read",
         ResourceSelector::Space {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
         },
     );
 
@@ -341,13 +341,13 @@ fn authz_engine_deny_wrong_action() {
     let ctx = AuthzContext::new(
         Did::new("did:web:alice.example.com").unwrap(),
         "write".to_owned(),
-        Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
+        Resource::Space { space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
     );
 
     let grant = grant_for(
         "read",
         ResourceSelector::Space {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
         },
     );
 
@@ -358,11 +358,11 @@ fn authz_engine_deny_wrong_action() {
 #[test]
 fn authz_engine_evaluates_grants_from_space_state() {
     let mut state = SpaceState::new(
-        SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+        SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
         "1".to_owned(),
     );
     let grant = capability_event(
-        "cx:event:01904100-0000-7000-8000-db6fcaf186ba",
+        "ck:event:01904100-0000-7000-8000-db6fcaf186ba",
         "cx.capability.grant",
         1,
         "01970e589d21-0004-a13f9c2e",
@@ -370,7 +370,7 @@ fn authz_engine_evaluates_grants_from_space_state() {
             "capability_id": "cap-message-send",
             "subject": "did:web:alice.example.com",
             "actions": ["cx.message.create"],
-            "resources": ["message:cx:space:01904100-0000-7000-8000-9b64700c6ee8"]
+            "resources": ["message:ck:space:01904100-0000-7000-8000-9b64700c6ee8"]
         }),
     );
     state.apply_events(&[grant]).unwrap();
@@ -379,8 +379,8 @@ fn authz_engine_evaluates_grants_from_space_state() {
         "2026-04-29T01:00:00Z",
         "cx.message.create",
         message_resource(
-            "cx:space:01904100-0000-7000-8000-9b64700c6ee8",
-            "cx:message:01904100-0000-7000-8000-424c57fe6d8e",
+            "ck:space:01904100-0000-7000-8000-9b64700c6ee8",
+            "ck:message:01904100-0000-7000-8000-424c57fe6d8e",
         ),
     );
 
@@ -391,11 +391,11 @@ fn authz_engine_evaluates_grants_from_space_state() {
 #[test]
 fn authz_engine_denies_after_revoke_wins_in_space_state() {
     let mut state = SpaceState::new(
-        SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+        SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
         "1".to_owned(),
     );
     let grant = capability_event(
-        "cx:event:01904100-0000-7000-8000-4fe0190ae99f",
+        "ck:event:01904100-0000-7000-8000-4fe0190ae99f",
         "cx.capability.grant",
         1,
         "01970e589d21-0004-a13f9c2e",
@@ -403,11 +403,11 @@ fn authz_engine_denies_after_revoke_wins_in_space_state() {
             "capability_id": "cap-message-send",
             "subject": "did:web:alice.example.com",
             "actions": ["cx.message.create"],
-            "resources": ["message:cx:space:01904100-0000-7000-8000-9b64700c6ee8"]
+            "resources": ["message:ck:space:01904100-0000-7000-8000-9b64700c6ee8"]
         }),
     );
     let revoke = capability_event(
-        "cx:event:01904100-0000-7000-8000-a85aaf6d56fc",
+        "ck:event:01904100-0000-7000-8000-a85aaf6d56fc",
         "cx.capability.revoke",
         2,
         "01970e589d22-0004-a13f9c2e",
@@ -419,8 +419,8 @@ fn authz_engine_denies_after_revoke_wins_in_space_state() {
         "2026-04-29T01:00:00Z",
         "cx.message.create",
         message_resource(
-            "cx:space:01904100-0000-7000-8000-9b64700c6ee8",
-            "cx:message:01904100-0000-7000-8000-424c57fe6d8e",
+            "ck:space:01904100-0000-7000-8000-9b64700c6ee8",
+            "ck:message:01904100-0000-7000-8000-424c57fe6d8e",
         ),
     );
 
@@ -431,11 +431,11 @@ fn authz_engine_denies_after_revoke_wins_in_space_state() {
 #[test]
 fn authz_engine_denies_after_delegate_revoke_wins_in_space_state() {
     let mut state = SpaceState::new(
-        SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+        SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
         "1".to_owned(),
     );
     let delegate = capability_event(
-        "cx:event:01904100-0000-7000-8000-cadd1669a70a",
+        "ck:event:01904100-0000-7000-8000-cadd1669a70a",
         "cx.capability.delegate",
         1,
         "01970e589d21-0004-a13f9c2e",
@@ -444,7 +444,7 @@ fn authz_engine_denies_after_delegate_revoke_wins_in_space_state() {
             "parent_grant_id": "cap-root",
             "subject": "did:web:alice.example.com",
             "actions": ["cx.message.create"],
-            "resources": ["message:cx:space:01904100-0000-7000-8000-9b64700c6ee8"]
+            "resources": ["message:ck:space:01904100-0000-7000-8000-9b64700c6ee8"]
         }),
     );
     state.apply_events(std::slice::from_ref(&delegate)).unwrap();
@@ -453,8 +453,8 @@ fn authz_engine_denies_after_delegate_revoke_wins_in_space_state() {
         "2026-04-29T01:00:00Z",
         "cx.message.create",
         message_resource(
-            "cx:space:01904100-0000-7000-8000-9b64700c6ee8",
-            "cx:message:01904100-0000-7000-8000-424c57fe6d8e",
+            "ck:space:01904100-0000-7000-8000-9b64700c6ee8",
+            "ck:message:01904100-0000-7000-8000-424c57fe6d8e",
         ),
     );
 
@@ -462,7 +462,7 @@ fn authz_engine_denies_after_delegate_revoke_wins_in_space_state() {
     assert!(engine.check_authorization_from_space_state(&ctx, &state).is_allowed());
 
     let revoke = capability_event(
-        "cx:event:01904100-0000-7000-8000-738d5fbe3070",
+        "ck:event:01904100-0000-7000-8000-738d5fbe3070",
         "cx.capability.revoke",
         2,
         "01970e589d22-0004-a13f9c2e",
@@ -479,13 +479,13 @@ fn authz_engine_denies_wrong_subject() {
     let ctx = AuthzContext::new(
         Did::new("did:web:bob.example.com").unwrap(),
         "read".to_owned(),
-        Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
+        Resource::Space { space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
     );
 
     let grant = grant_for(
         "read",
         ResourceSelector::Space {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
         },
     );
 
@@ -499,7 +499,7 @@ fn policy_server_no_action_never_grants_without_capability() {
     let ctx = AuthzContext::new(
         Did::new("did:web:alice.example.com").unwrap(),
         "read".to_owned(),
-        Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
+        Resource::Space { space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
     );
 
     let allow_policy = PolicyCheckResBody::no_action();
@@ -508,7 +508,7 @@ fn policy_server_no_action_never_grants_without_capability() {
     let grant = grant_for(
         "read",
         ResourceSelector::Space {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
         },
     );
     assert!(engine.check_authorization_with_policy(&ctx, &[grant], &allow_policy).is_allowed());
@@ -521,12 +521,12 @@ fn policy_server_denies_quarantines_and_reports_moderation_outcomes() {
         Did::new("did:web:alice.example.com").unwrap(),
         "post".to_owned(),
         message_resource(
-            "cx:space:01904100-0000-7000-8000-1a412919cd4b",
-            "cx:message:01904100-0000-7000-8000-c89a39a907e5",
+            "ck:space:01904100-0000-7000-8000-1a412919cd4b",
+            "ck:message:01904100-0000-7000-8000-c89a39a907e5",
         ),
     );
     let grant =
-        grant_for("post", message_selector("cx:space:01904100-0000-7000-8000-1a412919cd4b"));
+        grant_for("post", message_selector("ck:space:01904100-0000-7000-8000-1a412919cd4b"));
     let policy = PolicyCheckResBody {
         operation: "cx.policy.check".to_owned(),
         effect: PolicyServerEffect::Quarantine,
@@ -551,7 +551,7 @@ fn capability_frontier_rejects_cycles_widening_and_unknown_critical_constraints(
     let mut root = grant_for(
         "cx.message.create",
         ResourceSelector::Message {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
             message_id: None,
         },
     );
@@ -566,7 +566,7 @@ fn capability_frontier_rejects_cycles_widening_and_unknown_critical_constraints(
         subject: bob,
         actions: vec!["cx.message.create".to_owned()],
         resources: vec![ResourceSelector::Message {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
             message_id: Some("message-1".to_owned()),
         }],
         constraints: Vec::new(),
@@ -598,13 +598,13 @@ fn authz_engine_temporal_constraint_expires() {
     let ctx = AuthzContext::new(
         Did::new("did:web:alice.example.com").unwrap(),
         "read".to_owned(),
-        Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
+        Resource::Space { space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
     );
 
     let mut grant = grant_for(
         "read",
         ResourceSelector::Space {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
         },
     );
     grant.constraints = vec![ConstraintEntry::new(Constraint::Temporal {
@@ -622,7 +622,7 @@ fn authz_engine_temporal_constraint_expires() {
 fn edit_window_grant(action: &str, constraint: Constraint) -> CapabilityGrant {
     let mut grant = grant_for(
         action,
-        message_selector("cx:space:01904100-0000-7000-8000-1a412919cd4b"),
+        message_selector("ck:space:01904100-0000-7000-8000-1a412919cd4b"),
     );
     grant.constraints = vec![ConstraintEntry::new(constraint)];
     grant
@@ -633,8 +633,8 @@ fn edit_window_ctx(action: &str, created_at: &str, now: &str) -> AuthzContext {
         now,
         action,
         message_resource(
-            "cx:space:01904100-0000-7000-8000-1a412919cd4b",
-            "cx:message:01904100-0000-7000-8000-1a412919abcd",
+            "ck:space:01904100-0000-7000-8000-1a412919cd4b",
+            "ck:message:01904100-0000-7000-8000-1a412919abcd",
         ),
     );
     ctx.target_created_at = Some(utc(created_at));
@@ -775,12 +775,12 @@ fn authz_engine_temporal_recurrence_allows_weekday_window_in_timezone() {
     let ctx = ctx_at(
         "2026-04-29T02:30:00Z",
         "read",
-        Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
+        Resource::Space { space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
     );
     let mut grant = grant_for(
         "read",
         ResourceSelector::Space {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
         },
     );
     grant.constraints = vec![ConstraintEntry::new(Constraint::Temporal {
@@ -804,12 +804,12 @@ fn authz_engine_temporal_recurrence_denies_outside_window() {
     let ctx = ctx_at(
         "2026-04-29T11:30:00Z",
         "read",
-        Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
+        Resource::Space { space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
     );
     let mut grant = grant_for(
         "read",
         ResourceSelector::Space {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
         },
     );
     grant.constraints = vec![ConstraintEntry::new(Constraint::Temporal {
@@ -833,12 +833,12 @@ fn authz_engine_temporal_recurrence_allows_cross_midnight_window() {
     let ctx = ctx_at(
         "2026-04-29T15:30:00Z",
         "read",
-        Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
+        Resource::Space { space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
     );
     let mut grant = grant_for(
         "read",
         ResourceSelector::Space {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
         },
     );
     grant.constraints = vec![ConstraintEntry::new(Constraint::Temporal {
@@ -862,7 +862,7 @@ fn authz_engine_temporal_recurrence_handles_dst_boundary() {
     let mut grant = grant_for(
         "read",
         ResourceSelector::Space {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
         },
     );
     grant.constraints = vec![ConstraintEntry::new(Constraint::Temporal {
@@ -880,12 +880,12 @@ fn authz_engine_temporal_recurrence_handles_dst_boundary() {
     let before_jump = ctx_at(
         "2026-03-08T06:30:00Z",
         "read",
-        Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
+        Resource::Space { space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
     );
     let after_jump = ctx_at(
         "2026-03-08T07:30:00Z",
         "read",
-        Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
+        Resource::Space { space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
     );
 
     assert!(engine.check_authorization(&before_jump, &[grant.clone()]).is_allowed());
@@ -898,7 +898,7 @@ fn authz_cache_expires_at_temporal_boundaries() {
     let mut grant = grant_for(
         "read",
         ResourceSelector::Space {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
         },
     );
     grant.constraints = vec![ConstraintEntry::new(Constraint::Temporal {
@@ -910,12 +910,12 @@ fn authz_cache_expires_at_temporal_boundaries() {
     let before_expiry = ctx_at(
         "2026-04-29T02:30:00Z",
         "read",
-        Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
+        Resource::Space { space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
     );
     let after_expiry = ctx_at(
         "2026-04-29T03:30:00Z",
         "read",
-        Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
+        Resource::Space { space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
     );
 
     assert!(engine.check_authorization(&before_expiry, &[grant.clone()]).is_allowed());
@@ -928,7 +928,7 @@ fn authz_cache_rechecks_future_not_before_grants() {
     let mut grant = grant_for(
         "read",
         ResourceSelector::Space {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
         },
     );
     grant.not_before = Some(utc("2026-04-29T03:00:00Z"));
@@ -936,12 +936,12 @@ fn authz_cache_rechecks_future_not_before_grants() {
     let before_valid = ctx_at(
         "2026-04-29T02:30:00Z",
         "read",
-        Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
+        Resource::Space { space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
     );
     let after_valid = ctx_at(
         "2026-04-29T03:30:00Z",
         "read",
-        Resource::Space { space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
+        Resource::Space { space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned() },
     );
 
     assert!(!engine.check_authorization(&before_valid, &[grant.clone()]).is_allowed());
@@ -955,9 +955,9 @@ fn authz_engine_field_access_deny() {
         Did::new("did:web:alice.example.com").unwrap(),
         "update".to_owned(),
         morph_resource(
-            "cx:space:01904100-0000-7000-8000-1a412919cd4b",
+            "ck:space:01904100-0000-7000-8000-1a412919cd4b",
             "task",
-            "cx:morph:01904100-0000-7000-8000-20ec63a5423d",
+            "ck:morph:01904100-0000-7000-8000-20ec63a5423d",
         ),
     );
     ctx.write_fields = vec!["id".to_owned(), "title".to_owned()];
@@ -965,7 +965,7 @@ fn authz_engine_field_access_deny() {
     let mut grant = grant_for(
         "update",
         ResourceSelector::Object {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
             object_type: Some("task".to_owned()),
             object_ref: None,
         },
@@ -984,8 +984,8 @@ fn authz_engine_field_access_deny() {
 fn authz_engine_field_access_allow_is_fail_closed_and_cache_keys_fields() {
     let mut engine = AuthzEngine::new();
     let resource = Resource::Flow {
-        space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-        flow_id: "cx:flow:01904100-0000-7000-8000-f571eead1fc4".to_owned(),
+        space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+        flow_id: "ck:flow:01904100-0000-7000-8000-f571eead1fc4".to_owned(),
     };
     let mut allowed_ctx = AuthzContext::new(
         Did::new("did:web:alice.example.com").unwrap(),
@@ -997,7 +997,7 @@ fn authz_engine_field_access_allow_is_fail_closed_and_cache_keys_fields() {
     let mut grant = grant_for(
         "cx.flow.update",
         ResourceSelector::Flow {
-            space_id: "cx:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
             flow_id: None,
         },
     );
@@ -1030,8 +1030,8 @@ fn authz_engine_enforces_runtime_constraints() {
         Did::new("did:web:alice.example.com").unwrap(),
         "send".to_owned(),
         message_resource(
-            "cx:space:01904100-0000-7000-8000-1a412919cd4b",
-            "cx:message:01904100-0000-7000-8000-20ec63a5423d",
+            "ck:space:01904100-0000-7000-8000-1a412919cd4b",
+            "ck:message:01904100-0000-7000-8000-20ec63a5423d",
         ),
     )
     .with_delegation_depth(2)
@@ -1052,7 +1052,7 @@ fn authz_engine_enforces_runtime_constraints() {
         refreshed_at: None,
     });
     let mut grant =
-        grant_for("send", message_selector("cx:space:01904100-0000-7000-8000-1a412919cd4b"));
+        grant_for("send", message_selector("ck:space:01904100-0000-7000-8000-1a412919cd4b"));
     grant.constraints = vec![
         ConstraintEntry::new(Constraint::DelegationControl {
             max_delegation_depth: Some(2),
@@ -1108,13 +1108,13 @@ fn authz_claim_constraints_fail_closed_on_subject_time_and_revocation() {
         "2026-04-29T00:00:00Z",
         "send",
         message_resource(
-            "cx:space:01904100-0000-7000-8000-1a412919cd4b",
-            "cx:message:01904100-0000-7000-8000-20ec63a5423d",
+            "ck:space:01904100-0000-7000-8000-1a412919cd4b",
+            "ck:message:01904100-0000-7000-8000-20ec63a5423d",
         ),
     )
     .with_verified_claim(base_claim.clone());
     let mut grant =
-        grant_for("send", message_selector("cx:space:01904100-0000-7000-8000-1a412919cd4b"));
+        grant_for("send", message_selector("ck:space:01904100-0000-7000-8000-1a412919cd4b"));
     grant.constraints = vec![ConstraintEntry::new(Constraint::ClaimBased {
         requires_claims: vec![ClaimRequirement {
             claim_kind: "employee".to_owned(),
@@ -1138,8 +1138,8 @@ fn authz_claim_constraints_fail_closed_on_subject_time_and_revocation() {
         "2026-04-29T00:00:00Z",
         "send",
         message_resource(
-            "cx:space:01904100-0000-7000-8000-1a412919cd4b",
-            "cx:message:01904100-0000-7000-8000-20ec63a5423d",
+            "ck:space:01904100-0000-7000-8000-1a412919cd4b",
+            "ck:message:01904100-0000-7000-8000-20ec63a5423d",
         ),
     )
     .with_verified_claim(wrong_subject);
@@ -1153,12 +1153,12 @@ fn authz_engine_denies_missing_encryption() {
         Did::new("did:web:alice.example.com").unwrap(),
         "send".to_owned(),
         message_resource(
-            "cx:space:01904100-0000-7000-8000-1a412919cd4b",
-            "cx:message:01904100-0000-7000-8000-20ec63a5423d",
+            "ck:space:01904100-0000-7000-8000-1a412919cd4b",
+            "ck:message:01904100-0000-7000-8000-20ec63a5423d",
         ),
     );
     let mut grant =
-        grant_for("send", message_selector("cx:space:01904100-0000-7000-8000-1a412919cd4b"));
+        grant_for("send", message_selector("ck:space:01904100-0000-7000-8000-1a412919cd4b"));
     grant.constraints = vec![ConstraintEntry::new(Constraint::EncryptionRequirement {
         encryption_required: true,
         min_encryption_level: Some("mls_rfc9420".to_owned()),
@@ -1175,7 +1175,7 @@ fn approval_flow_manager_submits_records_and_resolves_proposals() {
     let approver2 = Did::new("did:web:carol.example.com").unwrap();
 
     let mut grant =
-        grant_for("send", message_selector("cx:space:01904100-0000-7000-8000-1a412919cd4b"));
+        grant_for("send", message_selector("ck:space:01904100-0000-7000-8000-1a412919cd4b"));
     grant.constraints = vec![ConstraintEntry::new(Constraint::ApprovalWorkflow {
         approval_required: true,
         approval_actor_ids: Some(vec![approver1.clone(), approver2.clone()]),
@@ -1214,7 +1214,7 @@ fn approval_flow_rejects_unauthorized_approvers_and_duplicate_responses() {
     let outsider = Did::new("did:web:eve.example.com").unwrap();
 
     let grant =
-        grant_for("send", message_selector("cx:space:01904100-0000-7000-8000-1a412919cd4b"));
+        grant_for("send", message_selector("ck:space:01904100-0000-7000-8000-1a412919cd4b"));
 
     let proposal =
         manager.submit_proposal(grant, proposer, vec![approver.clone()], ApprovalMode::Any, None);
@@ -1240,13 +1240,13 @@ fn authz_engine_filters_unapproved_grants_with_approval_flow() {
         "2026-04-29T12:00:00Z",
         "send",
         message_resource(
-            "cx:space:01904100-0000-7000-8000-1a412919cd4b",
-            "cx:message:01904100-0000-7000-8000-20ec63a5423d",
+            "ck:space:01904100-0000-7000-8000-1a412919cd4b",
+            "ck:message:01904100-0000-7000-8000-20ec63a5423d",
         ),
     );
 
     let mut grant =
-        grant_for("send", message_selector("cx:space:01904100-0000-7000-8000-1a412919cd4b"));
+        grant_for("send", message_selector("ck:space:01904100-0000-7000-8000-1a412919cd4b"));
     grant.constraints = vec![ConstraintEntry::new(Constraint::ApprovalWorkflow {
         approval_required: true,
         approval_actor_ids: Some(vec![approver.clone()]),

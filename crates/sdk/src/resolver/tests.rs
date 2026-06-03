@@ -4,7 +4,7 @@ use crate::{EventRequirements, Hlc, RealmId};
 use serde_json::json;
 
 fn space_id() -> SpaceId {
-    SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
+    SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
 }
 
 fn actor_id() -> Did {
@@ -13,7 +13,7 @@ fn actor_id() -> Did {
 
 fn event(kind: &str, seq: u64, content: Value) -> Event {
     Event {
-        event_id: EventId::new(format!("cx:event:01904100-0000-7000-8000-{seq:012x}")).unwrap(),
+        event_id: EventId::new(format!("ck:event:01904100-0000-7000-8000-{seq:012x}")).unwrap(),
         kind: kind.to_owned(),
         realm_id: realm_id(),
         actor_id: actor_id(),
@@ -40,7 +40,7 @@ fn event(kind: &str, seq: u64, content: Value) -> Event {
 }
 
 fn realm_id() -> RealmId {
-    RealmId::new("cx:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
+    RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
 }
 
 fn morph_event(seq: u64, morph_id: &str, title: &str) -> Event {
@@ -72,7 +72,7 @@ fn space_state_creates_empty() {
 
 #[test]
 fn place_events_create_update_parent_and_tombstone() {
-    let place_id = "cx:space:01904100-0000-7000-8000-1fb50799ad3f";
+    let place_id = "ck:space:01904100-0000-7000-8000-1fb50799ad3f";
     let create = event(
         OP_SPACE_CREATE,
         1,
@@ -145,7 +145,7 @@ fn place_create_event(seq: u64, place_id: &str) -> Event {
 
 #[test]
 fn place_archive_then_restore_round_trip() {
-    let place_id = "cx:space:01904100-0000-7000-8000-1fb50799ad42";
+    let place_id = "ck:space:01904100-0000-7000-8000-1fb50799ad42";
     let create = place_create_event(1, place_id);
 
     let mut archive = event(OP_SPACE_ARCHIVE, 2, json!({ "space_id": place_id }));
@@ -165,7 +165,7 @@ fn place_archive_then_restore_round_trip() {
 
 #[test]
 fn place_restore_rejected_when_active() {
-    let place_id = "cx:space:01904100-0000-7000-8000-1fb50799ad43";
+    let place_id = "ck:space:01904100-0000-7000-8000-1fb50799ad43";
     let create = place_create_event(1, place_id);
 
     let mut restore = event(OP_SPACE_RESTORE, 2, json!({ "space_id": place_id }));
@@ -181,7 +181,7 @@ fn place_restore_rejected_when_active() {
 
 #[test]
 fn place_restore_rejected_when_tombstoned() {
-    let place_id = "cx:space:01904100-0000-7000-8000-1fb50799ad44";
+    let place_id = "ck:space:01904100-0000-7000-8000-1fb50799ad44";
     let create = place_create_event(1, place_id);
 
     let mut tombstone = event(OP_SPACE_TOMBSTONE, 2, json!({ "space_id": place_id }));
@@ -220,7 +220,7 @@ fn flow_create_event(seq: u64, flow_id: &str) -> Event {
 
 #[test]
 fn flow_archive_then_restore_round_trip() {
-    let flow_id = "cx:flow:01904100-0000-7000-8000-1fb50799ad50";
+    let flow_id = "ck:flow:01904100-0000-7000-8000-1fb50799ad50";
     let create = flow_create_event(1, flow_id);
 
     let mut archive = event(OP_FLOW_ARCHIVE, 2, json!({ "flow_id": flow_id }));
@@ -240,7 +240,7 @@ fn flow_archive_then_restore_round_trip() {
 
 #[test]
 fn flow_restore_rejected_when_active() {
-    let flow_id = "cx:flow:01904100-0000-7000-8000-1fb50799ad51";
+    let flow_id = "ck:flow:01904100-0000-7000-8000-1fb50799ad51";
     let create = flow_create_event(1, flow_id);
 
     let mut restore = event(OP_FLOW_RESTORE, 2, json!({ "flow_id": flow_id }));
@@ -263,7 +263,7 @@ fn flow_restore_rejected_when_active() {
 
 #[test]
 fn morph_archive_then_restore_round_trip() {
-    let morph_id = "cx:morph:01904100-0000-7000-8000-1fb50799ad60";
+    let morph_id = "ck:morph:01904100-0000-7000-8000-1fb50799ad60";
     let create = morph_event(1, morph_id, "Task A");
 
     let mut archive = event(OP_MORPH_ARCHIVE, 2, json!({ "morph_id": morph_id }));
@@ -281,7 +281,7 @@ fn morph_archive_then_restore_round_trip() {
 
 #[test]
 fn morph_restore_rejected_when_active() {
-    let morph_id = "cx:morph:01904100-0000-7000-8000-1fb50799ad61";
+    let morph_id = "ck:morph:01904100-0000-7000-8000-1fb50799ad61";
     let create = morph_event(1, morph_id, "Task B");
 
     let mut restore = event(OP_MORPH_RESTORE, 2, json!({ "morph_id": morph_id }));
@@ -304,7 +304,7 @@ fn morph_restore_rejected_when_active() {
 
 #[test]
 fn place_archive_rejected_when_already_archived() {
-    let place_id = "cx:space:01904100-0000-7000-8000-2fb50799ad42";
+    let place_id = "ck:space:01904100-0000-7000-8000-2fb50799ad42";
     let create = place_create_event(1, place_id);
     let mut archive1 = event(OP_SPACE_ARCHIVE, 2, json!({ "space_id": place_id }));
     archive1.prev_refs.push(create.event_id.clone());
@@ -323,7 +323,7 @@ fn place_archive_rejected_when_already_archived() {
 
 #[test]
 fn place_archive_rejected_when_tombstoned() {
-    let place_id = "cx:space:01904100-0000-7000-8000-2fb50799ad43";
+    let place_id = "ck:space:01904100-0000-7000-8000-2fb50799ad43";
     let create = place_create_event(1, place_id);
     let mut tombstone = event(OP_SPACE_TOMBSTONE, 2, json!({ "space_id": place_id }));
     tombstone.prev_refs.push(create.event_id.clone());
@@ -338,7 +338,7 @@ fn place_archive_rejected_when_tombstoned() {
 
 #[test]
 fn place_tombstone_rejected_when_already_terminal() {
-    let place_id = "cx:space:01904100-0000-7000-8000-2fb50799ad44";
+    let place_id = "ck:space:01904100-0000-7000-8000-2fb50799ad44";
     let create = place_create_event(1, place_id);
     let mut tombstone1 = event(OP_SPACE_TOMBSTONE, 2, json!({ "space_id": place_id }));
     tombstone1.prev_refs.push(create.event_id.clone());
@@ -353,7 +353,7 @@ fn place_tombstone_rejected_when_already_terminal() {
 
 #[test]
 fn flow_archive_rejected_when_already_archived() {
-    let flow_id = "cx:flow:01904100-0000-7000-8000-2fb50799ad50";
+    let flow_id = "ck:flow:01904100-0000-7000-8000-2fb50799ad50";
     let create = flow_create_event(1, flow_id);
     let mut archive1 = event(OP_FLOW_ARCHIVE, 2, json!({ "flow_id": flow_id }));
     archive1.prev_refs.push(create.event_id.clone());
@@ -368,7 +368,7 @@ fn flow_archive_rejected_when_already_archived() {
 
 #[test]
 fn morph_archive_rejected_when_already_archived() {
-    let morph_id = "cx:morph:01904100-0000-7000-8000-2fb50799ad60";
+    let morph_id = "ck:morph:01904100-0000-7000-8000-2fb50799ad60";
     let create = morph_event(1, morph_id, "Task C");
     let mut archive1 = event(OP_MORPH_ARCHIVE, 2, json!({ "morph_id": morph_id }));
     archive1.prev_refs.push(create.event_id.clone());
@@ -383,7 +383,7 @@ fn morph_archive_rejected_when_already_archived() {
 
 #[test]
 fn place_update_rejected_when_archived() {
-    let place_id = "cx:space:01904100-0000-7000-8000-3fb50799ad42";
+    let place_id = "ck:space:01904100-0000-7000-8000-3fb50799ad42";
     let create = place_create_event(1, place_id);
     let mut archive = event(OP_SPACE_ARCHIVE, 2, json!({ "space_id": place_id }));
     archive.prev_refs.push(create.event_id.clone());
@@ -400,7 +400,7 @@ fn place_update_rejected_when_archived() {
 
 #[test]
 fn flow_update_rejected_when_archived() {
-    let flow_id = "cx:flow:01904100-0000-7000-8000-3fb50799ad50";
+    let flow_id = "ck:flow:01904100-0000-7000-8000-3fb50799ad50";
     let create = flow_create_event(1, flow_id);
     let mut archive = event(OP_FLOW_ARCHIVE, 2, json!({ "flow_id": flow_id }));
     archive.prev_refs.push(create.event_id.clone());
@@ -419,7 +419,7 @@ fn flow_update_rejected_when_archived() {
 
 #[test]
 fn morph_update_rejected_when_archived() {
-    let morph_id = "cx:morph:01904100-0000-7000-8000-3fb50799ad60";
+    let morph_id = "ck:morph:01904100-0000-7000-8000-3fb50799ad60";
     let create = morph_event(1, morph_id, "Original Title");
     let mut archive = event(OP_MORPH_ARCHIVE, 2, json!({ "morph_id": morph_id }));
     archive.prev_refs.push(create.event_id.clone());
@@ -438,8 +438,8 @@ fn morph_update_rejected_when_archived() {
 
 #[test]
 fn flow_events_create_update_and_default_view_relation() {
-    let flow_id = "cx:flow:01904100-0000-7000-8000-1fb50799ad3f";
-    let view_ref = "cx:view:01904100-0000-7000-8000-08ca7b733afd";
+    let flow_id = "ck:flow:01904100-0000-7000-8000-1fb50799ad3f";
+    let view_ref = "ck:view:01904100-0000-7000-8000-08ca7b733afd";
 
     let create = Event::new(
         OP_FLOW_CREATE,
@@ -489,7 +489,7 @@ fn flow_events_create_update_and_default_view_relation() {
         Hlc::new("01970e589d21-0003-a13f9c2e").unwrap(),
         json!({
             "relation": {
-                "id": "cx:relation:01904100-0000-7000-8000-4da53c8b9e89",
+                "id": "ck:relation:01904100-0000-7000-8000-4da53c8b9e89",
                 "schema": crate::RELATION_SCHEMA,
                 "space_id": space_id().as_str(),
                 "relation_kind": "has_default_view",
@@ -512,7 +512,7 @@ fn flow_events_create_update_and_default_view_relation() {
     assert_eq!(flow.summary.as_deref(), Some("Risk, refunds and callbacks are tracked together."));
     assert_eq!(flow.fields["priority"], "high");
 
-    let relation = state.relations.get("cx:relation:01904100-0000-7000-8000-4da53c8b9e89").unwrap();
+    let relation = state.relations.get("ck:relation:01904100-0000-7000-8000-4da53c8b9e89").unwrap();
     assert_eq!(relation.relation_kind, crate::RelationKind::HasDefaultView);
     assert_eq!(relation.from_ref, flow_id);
     assert_eq!(relation.to_ref, view_ref);
@@ -522,7 +522,7 @@ fn flow_events_create_update_and_default_view_relation() {
 #[test]
 fn space_state_applies_morph_events() {
     let mut state = SpaceState::new(space_id(), "1".to_owned());
-    let create_event = morph_event(1, "cx:morph:01904100-0000-7000-8000-bbe051c5f72e", "Test task");
+    let create_event = morph_event(1, "ck:morph:01904100-0000-7000-8000-bbe051c5f72e", "Test task");
 
     state.apply_events(&[create_event]).unwrap();
     assert_eq!(state.morphs.len(), 1);
@@ -532,11 +532,11 @@ fn space_state_applies_morph_events() {
 fn space_state_sorts_events_by_hlc() {
     let event1 = Event {
         hlc: Hlc::new("01970e589d21-0002-a13f9c2e").unwrap(),
-        ..morph_event(1, "cx:morph:01904100-0000-7000-8000-d48c478ecd0b", "Task 1")
+        ..morph_event(1, "ck:morph:01904100-0000-7000-8000-d48c478ecd0b", "Task 1")
     };
     let event2 = Event {
         hlc: Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
-        ..morph_event(2, "cx:morph:01904100-0000-7000-8000-e75dc3f6ab2e", "Task 2")
+        ..morph_event(2, "ck:morph:01904100-0000-7000-8000-e75dc3f6ab2e", "Task 2")
     };
 
     let mut state = SpaceState::new(space_id(), "1".to_owned());
@@ -544,7 +544,7 @@ fn space_state_sorts_events_by_hlc() {
 
     assert_eq!(
         state.frontier.first().unwrap().as_str(),
-        "cx:event:01904100-0000-7000-8000-000000000001"
+        "ck:event:01904100-0000-7000-8000-000000000001"
     );
 }
 
@@ -561,7 +561,7 @@ fn member_state_conflict_prefers_ban_semantics() {
         json!({ "actor_id": "did:web:alice.example", "membership": "ban" }),
     );
     ban.hlc = leave.hlc.clone();
-    ban.event_id = EventId::new("cx:event:01904100-0000-7000-8000-c9d398595fe8").unwrap();
+    ban.event_id = EventId::new("ck:event:01904100-0000-7000-8000-c9d398595fe8").unwrap();
 
     let mut state = SpaceState::new(space_id(), "1".to_owned());
     state.apply_events(&[leave, ban]).unwrap();
@@ -620,7 +620,7 @@ fn message_revision_redaction_and_reaction_converge() {
 
 #[test]
 fn snapshot_manifest_tracks_state_digest_and_merkle_root() {
-    let event = morph_event(9, "cx:morph:01904100-0000-7000-8000-b7a4e10c8c77", "Snapshot task");
+    let event = morph_event(9, "ck:morph:01904100-0000-7000-8000-b7a4e10c8c77", "Snapshot task");
     let mut state = SpaceState::new(space_id(), "1".to_owned());
 
     state.apply_events(std::slice::from_ref(&event)).unwrap();
@@ -667,7 +667,7 @@ fn merkle_root_is_order_independent_for_leaf_hashes() {
 
 #[test]
 fn restore_snapshot_or_replay_falls_back_on_verification_failure() {
-    let event = morph_event(10, "cx:morph:01904100-0000-7000-8000-b7a4e10c8c77", "Replayed task");
+    let event = morph_event(10, "ck:morph:01904100-0000-7000-8000-b7a4e10c8c77", "Replayed task");
     let mut state = SpaceState::new(space_id(), "1".to_owned());
     state.apply_events(std::slice::from_ref(&event)).unwrap();
     let mut snapshot = state.snapshot();
@@ -688,7 +688,7 @@ fn reducer_convergence_is_order_independent() {
         .map(|i| {
             morph_event(
                 i + 1,
-                &format!("cx:morph:01904100-0000-7000-8000-{i:012x}"),
+                &format!("ck:morph:01904100-0000-7000-8000-{i:012x}"),
                 &format!("Task {i}"),
             )
         })
@@ -722,14 +722,14 @@ fn redaction_event(seq: u64, object_ref: &str) -> Event {
         "cx.redaction",
         seq,
         json!({
-            "target_event_id": format!("cx:event:01904100-0000-7000-8000-{:012x}", 0xdeadbeef + seq),
+            "target_event_id": format!("ck:event:01904100-0000-7000-8000-{:012x}", 0xdeadbeef + seq),
             "object_ref": object_ref,
         }),
     );
     // `cx.redaction` dispatch path uses `event.redacts`; populate it so
     // the dispatcher invokes redact_event AND redact_object_for_event.
     ev.redacts = Some(
-        EventId::new(format!("cx:event:01904100-0000-7000-8000-{:012x}", 0xdeadbeef + seq))
+        EventId::new(format!("ck:event:01904100-0000-7000-8000-{:012x}", 0xdeadbeef + seq))
             .unwrap(),
     );
     ev
@@ -737,7 +737,7 @@ fn redaction_event(seq: u64, object_ref: &str) -> Event {
 
 #[test]
 fn redaction_with_flow_object_ref_flips_subject_to_redacted() {
-    let flow_id = "cx:flow:01904100-0000-7000-8000-3fb50799ad50";
+    let flow_id = "ck:flow:01904100-0000-7000-8000-3fb50799ad50";
     let create = flow_create_event(1, flow_id);
     let mut redact = redaction_event(2, flow_id);
     redact.prev_refs.push(create.event_id.clone());
@@ -753,7 +753,7 @@ fn redaction_with_flow_object_ref_flips_subject_to_redacted() {
 
 #[test]
 fn redaction_with_morph_object_ref_flips_subject_to_redacted() {
-    let morph_id = "cx:morph:01904100-0000-7000-8000-3fb50799ad60";
+    let morph_id = "ck:morph:01904100-0000-7000-8000-3fb50799ad60";
     let create = morph_event(1, morph_id, "Sensitive task");
     let mut redact = redaction_event(2, morph_id);
     redact.prev_refs.push(create.event_id.clone());
@@ -767,7 +767,7 @@ fn redaction_with_morph_object_ref_flips_subject_to_redacted() {
 
 #[test]
 fn redaction_against_already_redacted_flow_rejects() {
-    let flow_id = "cx:flow:01904100-0000-7000-8000-3fb50799ad51";
+    let flow_id = "ck:flow:01904100-0000-7000-8000-3fb50799ad51";
     let create = flow_create_event(1, flow_id);
     let mut redact1 = redaction_event(2, flow_id);
     redact1.prev_refs.push(create.event_id.clone());
@@ -782,7 +782,7 @@ fn redaction_against_already_redacted_flow_rejects() {
 
 #[test]
 fn flow_tracks_update_merges_tracks_from_patch_tracks_and_top_level_tracks() {
-    let flow_id = "cx:flow:01904100-0000-7000-8000-4fb50799ad55";
+    let flow_id = "ck:flow:01904100-0000-7000-8000-4fb50799ad55";
     let create = flow_create_event(1, flow_id);
     let mut update = event(
         OP_FLOW_TRACKS_UPDATE,
@@ -820,7 +820,7 @@ fn flow_tracks_update_merges_tracks_from_patch_tracks_and_top_level_tracks() {
 
 #[test]
 fn redaction_against_already_redacted_morph_rejects() {
-    let morph_id = "cx:morph:01904100-0000-7000-8000-3fb50799ad61";
+    let morph_id = "ck:morph:01904100-0000-7000-8000-3fb50799ad61";
     let create = morph_event(1, morph_id, "Task");
     let mut redact1 = redaction_event(2, morph_id);
     redact1.prev_refs.push(create.event_id.clone());

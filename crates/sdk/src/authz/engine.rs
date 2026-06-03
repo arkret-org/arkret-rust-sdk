@@ -1213,7 +1213,7 @@ pub fn moderation_report_for_policy_outcome(
         report_id: policy
             .moderation_report_id
             .clone()
-            .unwrap_or_else(|| format!("cx:moderation:{}", now.timestamp_millis())),
+            .unwrap_or_else(|| format!("ck:moderation:{}", now.timestamp_millis())),
         policy_id: policy.policy_id.clone(),
         actor_id: ctx.actor_id.clone(),
         resource: ctx.resource.clone(),

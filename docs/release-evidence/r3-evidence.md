@@ -1,6 +1,6 @@
 # R3 Sync — Release Evidence
 
-> Spec target: **contrix-spec @ `b47ff6ec`**
+> Spec target: **cokret-spec @ `b47ff6ec`**
 > SDK sync window: pre-R3.1 (handle rename / MemberIdentity work tracked
 > separately under R3.1).
 > Companion: [`release-evidence-1.0.0.md`](../release-evidence-1.0.0.md)
@@ -10,8 +10,8 @@
 
 | Anchor | Value |
 |---|---|
-| contrix-spec source | `b47ff6ec` |
-| Local mirror | `D:/Works/contrix-dev/spec-synced-b47ff6ec17cb53b6d94a65fbb86385b1075d5e52/` |
+| cokret-spec source | `b47ff6ec` |
+| Local mirror | `D:/Works/cokret-dev/spec-synced-b47ff6ec17cb53b6d94a65fbb86385b1075d5e52/` |
 | SDK head at sync | `main` (no version bump) |
 
 No `git tag` is cut for R3. The CHANGELOG carries a dated R3 entry rather
@@ -21,8 +21,8 @@ than a version stamp — see [`CHANGELOG.md`](../../CHANGELOG.md).
 
 ### Identifiers (`crates/identifiers/`)
 
-- Added id-kind `RecoverySession` (wire form `cx:recovery_session:<uuid>`).
-- Added id-kind / wire form for `CircleId` (`^cx:circle:[0-9a-f]{8}-...$`)
+- Added id-kind `RecoverySession` (wire form `ck:recovery_session:<uuid>`).
+- Added id-kind / wire form for `CircleId` (`^ck:circle:[0-9a-f]{8}-...$`)
   to back `ResourceSelector::Circle(CircleId)`.
 
 ### Core wire models (`crates/core/`)
@@ -41,7 +41,7 @@ than a version stamp — see [`CHANGELOG.md`](../../CHANGELOG.md).
   (proof verification deferred — see TODO list below).
 - `model/profile.rs` / `generated/profiles.rs` — added profile IDs
   `MediaServiceBinding`, `MediaServiceBindingLivekit`,
-  `MediaServiceBindingContrixNative`, `AccountableToStrictReject`.
+  `MediaServiceBindingCokretNative`, `AccountableToStrictReject`.
 - `cursor/` — default parser is now stateful `{v, purpose, t, x, h}`;
   stateless cursor (`{v, purpose, t, s, d?, target?, x, _mac/_sig,
   issuer_kid}`) is feature-gated under `stateless_cursor` and advertised via

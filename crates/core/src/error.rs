@@ -175,7 +175,7 @@ pub const ERROR_CODE_RECOVERY_EVIDENCE_UNBOUND: &str = "recovery_evidence_unboun
 pub const ERROR_CODE_UNSUPPORTED_AEAD_PROFILE: &str = "unsupported_aead_profile";
 pub const ERROR_CODE_ATTESTATION_MISSING: &str = "attestation_missing";
 
-// ── R3 spec-sync (2026-05-27, contrix-spec b47ff6ec) — 20 new wire-level
+// ── R3 spec-sync (2026-05-27, cokret-spec b47ff6ec) — 20 new wire-level
 // error codes spanning CXP-0008/0009 (personal-agent / pairing / sidecar),
 // CXP-0010 (call media token exchange / focus / e2ee / recording artifact
 // pipeline), recovery witness revoke lag, and the wire-level handle
@@ -204,7 +204,7 @@ pub const ERROR_CODE_FOCUS_UNAVAILABLE_FOR_CLIENT: &str = "focus_unavailable_for
 pub const ERROR_CODE_RECOVERY_WITNESS_REVOKE_LAGGING: &str = "recovery_witness_revoke_lagging";
 pub const ERROR_CODE_HANDLE_HOMOGRAPH_FORBIDDEN: &str = "handle_homograph_forbidden";
 
-// ── R3.1 spec-sync (contrix-spec @ 7157ee8, 2026-05-27) — 4 new error
+// ── R3.1 spec-sync (cokret-spec @ 7157ee8, 2026-05-27) — 4 new error
 // codes for the MemberIdentity append-only replacement pipeline.
 //
 // Spec source:
@@ -674,7 +674,7 @@ pub const KNOWN_REASON_CODES_ROUND_C44: &[&str] = &[
 
 /// `schema_violation` sub-reason: a `cx.reaction.add` / `cx.reaction.remove`
 /// `target_ref` points at an object kind that the deployment does not allow
-/// reactions on. v1 core only allows `cx:message:` targets; profiles MAY
+/// reactions on. v1 core only allows `ck:message:` targets; profiles MAY
 /// register additional target kinds. See zh/models/flow-and-message.md §9.8.2.
 pub const REASON_REACTION_TARGET_UNSUPPORTED: &str = "reaction_target_unsupported";
 /// `failed_precondition` sub-reason: a `cx.reaction.*` `target_ref` resolves
@@ -828,7 +828,7 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("invalid Contrix identifier: {0}")]
+    #[error("invalid Cokret identifier: {0}")]
     InvalidId(String),
 
     #[error("conflicting bytes for idempotent object {0}")]
@@ -862,7 +862,7 @@ pub enum Error {
     #[error("MLS operation failed: {0}")]
     Mls(String),
 
-    #[error("Contrix API returned {status}: {error}")]
+    #[error("Cokret API returned {status}: {error}")]
     Api { status: u16, error: Box<ErrorEnvelope> },
 
     #[error("protocol error: {0}")]
@@ -888,7 +888,7 @@ impl From<contrix_identifiers::IdentifierError> for Error {
 // `error_code_enum_matches_registry` test in this module catches drift
 // in either direction.
 
-/// Strongly-typed view over the canonical Contrix error code registry.
+/// Strongly-typed view over the canonical Cokret error code registry.
 ///
 /// Every variant corresponds to one entry in [`KNOWN_ERROR_CODES`].
 /// Round-trip helpers:
@@ -1012,7 +1012,7 @@ pub enum ErrorCode {
     RecoveryEvidenceUnbound,
     UnsupportedAeadProfile,
     AttestationMissing,
-    // ── R3 spec-sync (2026-05-27, contrix-spec b47ff6ec).
+    // ── R3 spec-sync (2026-05-27, cokret-spec b47ff6ec).
     PairingRequestExpired,
     ProofInvalid,
     VerificationMethodPrincipalMismatch,
@@ -1033,7 +1033,7 @@ pub enum ErrorCode {
     FocusUnavailableForClient,
     RecoveryWitnessRevokeLagging,
     HandleHomographForbidden,
-    // ── R3.1 spec-sync (2026-05-27, contrix-spec 7157ee8).
+    // ── R3.1 spec-sync (2026-05-27, cokret-spec 7157ee8).
     MemberIdentityStateMismatch,
     MemberIdentityProofInvalid,
     MemberIdentityReplacementDigestMismatch,
@@ -1368,8 +1368,8 @@ mod tests {
         // cursor / ephemeral / grant / device-recovery wire codes +
         // 11 key-backup hardening codes (B-C, spec head 37ce729) +
         // 3 history/preview-policy denial codes (2026-05-31 sync) +
-        // 20 R3 spec-sync codes (2026-05-27, contrix-spec b47ff6ec) +
-        // 4 R3.1 MemberIdentity codes (2026-05-27, contrix-spec 7157ee8).
+        // 20 R3 spec-sync codes (2026-05-27, cokret-spec b47ff6ec) +
+        // 4 R3.1 MemberIdentity codes (2026-05-27, cokret-spec 7157ee8).
         assert_eq!(KNOWN_ERROR_CODES.len(), 128);
         assert!(codes.contains(ERROR_CODE_CURSOR_EXPIRED));
         assert!(codes.contains(ERROR_CODE_POLICY_COMBINATION_INVALID));

@@ -134,7 +134,7 @@ mod tests {
             acc = (acc ^ u64::from(byte)).wrapping_mul(0x100000001b3);
         }
         DeviceId::new(format!(
-            "cx:device:01904100-0000-7000-8000-{:012x}",
+            "ck:device:01904100-0000-7000-8000-{:012x}",
             acc & 0x0000_ffff_ffff_ffff
         ))
         .unwrap()
@@ -142,7 +142,7 @@ mod tests {
 
     #[test]
     fn typing_sends_processes_merges_devices_and_expires() {
-        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let mut manager = TypingManager::new(Duration::zero());
 
@@ -170,7 +170,7 @@ mod tests {
 
     #[test]
     fn typing_debounces_repeated_notifications_and_stops() {
-        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let mut manager = TypingManager::new(Duration::seconds(60));
 

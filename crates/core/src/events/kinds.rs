@@ -760,7 +760,7 @@ impl<'de> Deserialize<'de> for EventKind {
         let raw = String::deserialize(deserializer)?;
         Self::try_new(&raw).ok_or_else(|| {
             D::Error::custom(format!(
-                "unknown Contrix event kind {raw:?} — not in STANDARD_EVENT_KINDS"
+                "unknown Cokret event kind {raw:?} — not in STANDARD_EVENT_KINDS"
             ))
         })
     }
@@ -811,7 +811,7 @@ mod tests {
     #[test]
     fn event_kind_deserialise_rejects_unknown() {
         let err = serde_json::from_str::<EventKind>(r#""vendor.example.widget""#).unwrap_err();
-        assert!(err.to_string().contains("unknown Contrix event kind"));
+        assert!(err.to_string().contains("unknown Cokret event kind"));
     }
 
     #[test]

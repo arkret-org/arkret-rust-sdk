@@ -1,6 +1,6 @@
 # Contributing
 
-Contrix SDK changes should keep protocol concepts explicit and stable. Avoid
+Cokret SDK changes should keep protocol concepts explicit and stable. Avoid
 introducing application-specific shortcuts into the public API unless they are
 clearly layered on top of the protocol model.
 
@@ -41,7 +41,7 @@ behavior being changed.
 - Digest helpers must use the canonical JSON module.
 - Repeated submission of the same identifier and digest must be idempotent.
 - Reusing an identifier with different content must be treated as a conflict.
-- Service clients must parse Contrix error envelopes instead of discarding
+- Service clients must parse Cokret error envelopes instead of discarding
   machine-readable error codes.
 - New service methods must verify profile compatibility where a server
   description is available.
@@ -50,10 +50,10 @@ behavior being changed.
 
 Wire shape ownership is strict:
 
-- The protocol wire shape source of truth is `contrix-spec/spec/v1/artifacts/schemas/*.schema.json`
+- The protocol wire shape source of truth is `cokret-spec/spec/v1/artifacts/schemas/*.schema.json`
   and the matching registry artifacts.
 - The Rust expression of shared protocol types belongs in
-  `contrix-rust-sdk/crates/{identifiers,core,api}`. Product crates should import
+  `cokret-rust-sdk/crates/{identifiers,core,api}`. Product crates should import
   these types or wrap them; they should not redefine wire enums or DTOs.
 - Product-local types are fine for DB rows, UI view models, platform config,
   service aggregates, and admin metadata. When they overlap a protocol type,

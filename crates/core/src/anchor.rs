@@ -1,4 +1,4 @@
-//! Contrix Anchor typed model.
+//! Cokret Anchor typed model.
 //!
 //! Per spec `event-auth-state-resolution.md` §4 and schema `anchor.schema.json`.
 //! An Anchor is the ordering-authority's persistent commitment to a set of
@@ -11,7 +11,7 @@
 //! - **Threshold** — `k`-of-`n` threshold; the `proof` field carries the
 //!   threshold-scheme-specific aggregated proof bytes.
 //!
-//! `Anchor.id` is `cx:anchor:sha256:<hex>` derived from canonical bytes
+//! `Anchor.id` is `ck:anchor:sha256:<hex>` derived from canonical bytes
 //! that exclude both `id` and `anchorer_signature` (sig is over the same bytes).
 //! Per §4 rule 5, `state_root` is the canonical Merkle root of all cell
 //! Lattice values + bottom diagnostics under this Anchor view; computing
@@ -39,7 +39,7 @@ pub fn anchor_canonical_bytes(anchor: &Anchor) -> Result<Vec<u8>> {
 }
 
 /// Compute the content-addressed Anchor id from canonical bytes:
-/// `cx:anchor:sha256:` || hex(SHA-256(canonical_bytes)).
+/// `ck:anchor:sha256:` || hex(SHA-256(canonical_bytes)).
 pub fn compute_anchor_id(canonical_bytes: &[u8]) -> Result<AnchorId> {
     Anchor::id_from_canonical_bytes(canonical_bytes)
 }
@@ -125,7 +125,7 @@ pub enum AnchorKind {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Anchor {
     pub id: AnchorId,
-    // NOTE: typed as `SpaceId` (which also accepts `cx:realm:` ids) rather
+    // NOTE: typed as `SpaceId` (which also accepts `ck:realm:` ids) rather
     // than `RealmId` because the entire cell/store/state layer is keyed by
     // `SpaceId`; tightening this to `RealmId` is part of the larger
     // Realm/Space type inversion (see _code_review report 06 #2). Wire output
@@ -205,7 +205,7 @@ impl Anchor {
 
     pub fn id_from_canonical_bytes(bytes: &[u8]) -> Result<AnchorId> {
         let digest = Sha256::digest(bytes);
-        let id = format!("cx:anchor:sha256:{digest:x}");
+        let id = format!("ck:anchor:sha256:{digest:x}");
         AnchorId::new(id).map_err(|err| Error::Protocol(format!("invalid Anchor id: {err}")))
     }
 
@@ -291,15 +291,15 @@ impl Anchor {
     }
 
     /// Round R2/R3 (2026-05-20) — validate frontier items use the bare
-    /// `<algo>:<hex>` hash form. Reject legacy `cx:event:<uuid>` form which
+    /// `<algo>:<hex>` hash form. Reject legacy `ck:event:<uuid>` form which
     /// has been removed by the spec. (MoveId only accepts hash form per
     /// `is_hash`, so this method primarily catches strings that bypassed
     /// the typed constructor by being deserialized as raw JSON.)
     pub fn validate_frontier_format(frontier_strs: &[&str]) -> Result<()> {
         for entry in frontier_strs {
-            if entry.starts_with("cx:event:") {
+            if entry.starts_with("ck:event:") {
                 return Err(Error::Protocol(format!(
-                    "anchor frontier item {entry:?} uses removed cx:event:<uuid> form; \
+                    "anchor frontier item {entry:?} uses removed ck:event:<uuid> form; \
                      MUST be bare <algo>:<hex> hash"
                 )));
             }
@@ -324,7 +324,7 @@ mod tests {
     use serde_json::{Value, json};
 
     fn space() -> SpaceId {
-        SpaceId::new("cx:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+        SpaceId::new("ck:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn move_id(hex_byte: u8) -> MoveId {
@@ -334,7 +334,7 @@ mod tests {
 
     fn anchor_id(hex_byte: u8) -> AnchorId {
         let hex = format!("{hex_byte:02x}").repeat(32);
-        AnchorId::new(format!("cx:anchor:sha256:{hex}")).unwrap()
+        AnchorId::new(format!("ck:anchor:sha256:{hex}")).unwrap()
     }
 
     fn hash(hex_byte: u8) -> Hash {

@@ -1,6 +1,6 @@
 # Long-Term Support Policy
 
-Contrix Rust SDK follows a conservative compatibility policy for `0.x` releases:
+Cokret Rust SDK follows a conservative compatibility policy for `0.x` releases:
 
 - Public protocol model fields should not be renamed without a migration note.
 - New optional fields should use serde defaults or `Option`.

@@ -165,7 +165,7 @@ impl DeviceManager {
         let created_at = Utc::now();
         let expires_at = created_at + Duration::minutes(10);
         let transaction_id = format!(
-            "cx:verify:{}:{}:{}",
+            "ck:verify:{}:{}:{}",
             user_id.as_str(),
             device_id.as_str(),
             created_at.timestamp_millis()
@@ -771,7 +771,7 @@ pub fn device_verification_commitment(
     created_at: DateTime<Utc>,
 ) -> Result<String> {
     let payload = serde_json::json!({
-        "context": "contrix-device-verification-v1",
+        "context": "cokret-device-verification-v1",
         "user_id": user_id,
         "device_id": device_id,
         "challenge": challenge,

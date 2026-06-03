@@ -1,23 +1,23 @@
 [package]
 authors = ["Chris Young <chris@sonc.ai>"]
-description = "Contrix v1 FFI and WASM embedding contracts."
+description = "Cokret v1 FFI and WASM embedding contracts."
 edition = "2024"
-homepage = "https://github.com/contrix/contrix-rust-sdk"
-keywords = ["contrix", "ffi", "wasm", "uniffi"]
+homepage = "https://github.com/cokret/cokret-rust-sdk"
+keywords = ["cokret", "ffi", "wasm", "uniffi"]
 license = "Apache-2.0"
-name = "contrix-ffi"
+name = "cokret-ffi"
 readme = "README.md"
-repository = "https://github.com/contrix/contrix-rust-sdk"
+repository = "https://github.com/cokret/cokret-rust-sdk"
 rust-version = "1.92"
 version = "1.0.0"
 
 [features]
 default = []
-client = ["contrix-core/client"]
-mls = ["contrix-core/mls"]
+client = ["cokret-core/client"]
+mls = ["cokret-core/mls"]
 
 [dependencies]
-contrix-core.workspace = true
+cokret-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 

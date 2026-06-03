@@ -17,8 +17,8 @@
 //!    class, whether it is a JSON-Patch op path, whether it is a typed-id
 //!    prefix) and the checker returns only the entries that the spec
 //!    forbids in that exact context.
-//! 3. [`is_forbidden_id_prefix`] — typed-id prefix check (e.g. `cx:notif:`
-//!    is forbidden as an id prefix anywhere on the wire; `cx:notification:`
+//! 3. [`is_forbidden_id_prefix`] — typed-id prefix check (e.g. `ck:notif:`
+//!    is forbidden as an id prefix anywhere on the wire; `ck:notification:`
 //!    is canonical).
 
 /// Surface a forbidden field can appear in. Mirrors the `context` field
@@ -467,18 +467,18 @@ pub fn is_forbidden_in_context(field: &str, context: WireContext) -> bool {
 /// whose prefix matches an entry here; the canonical replacement is
 /// listed in the spec entry.
 pub const FORBIDDEN_ID_PREFIXES: &[&str] = &[
-    "cx:notif:",
-    "cx:devmsg:",
-    "cx:keyevt:",
-    "cx:modq:",
-    "cx:req:",
-    "cx:txn:",
-    "cx:frank:",
-    "cx:rtcpart:",
+    "ck:notif:",
+    "ck:devmsg:",
+    "ck:keyevt:",
+    "ck:modq:",
+    "ck:req:",
+    "ck:txn:",
+    "ck:frank:",
+    "ck:rtcpart:",
 ];
 
 /// Returns `true` when `id` starts with a forbidden typed-id prefix
-/// (e.g. `cx:notif:01234...` — canonical is `cx:notification:`).
+/// (e.g. `ck:notif:01234...` — canonical is `ck:notification:`).
 pub fn is_forbidden_id_prefix(id: &str) -> bool {
     FORBIDDEN_ID_PREFIXES.iter().any(|prefix| id.starts_with(prefix))
 }

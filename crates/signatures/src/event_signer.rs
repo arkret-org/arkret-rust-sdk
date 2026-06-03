@@ -1,4 +1,4 @@
-//! High-level `sign_event` helper for Contrix Event Envelopes.
+//! High-level `sign_event` helper for Cokret Event Envelopes.
 //!
 //! S-1 (savfox SDK gap, 2026-05-27) — external Applet implementations
 //! (savfox, gateway-server channels, etc.) were rolling their own
@@ -150,7 +150,7 @@ mod tests {
     };
 
     fn realm() -> RealmId {
-        RealmId::new("cx:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
+        RealmId::new("ck:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
     }
 
     fn alice() -> Did {
@@ -167,7 +167,7 @@ mod tests {
 
     fn make_event() -> Event {
         Event {
-            event_id: EventId::new("cx:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
+            event_id: EventId::new("ck:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
             kind: "cx.message.create".to_owned(),
             realm_id: realm(),
             actor_id: alice(),
@@ -274,7 +274,7 @@ mod tests {
     fn sign_event_with_authorization_ref_signs_over_it() {
         let mut without = make_event();
         let mut with = make_event();
-        with.authorization_ref = Some("cx:grant:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned());
+        with.authorization_ref = Some("ck:grant:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned());
 
         let signer = StubMoveSigner::new(alice(), vm_alice());
         sign_event(&mut without, &signer, vm_alice(), SignEventOptions::new()).unwrap();

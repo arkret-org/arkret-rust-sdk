@@ -466,8 +466,8 @@ mod tests {
     #[test]
     fn object_create_payload_wraps_object() {
         let actor = Did::new("did:web:alice.example".to_owned()).unwrap();
-        let realm_id = RealmId::new("cx:realm:01904100-0000-7000-8000-000000000001").unwrap();
-        let flow_id = FlowId::new("cx:flow:01904100-0000-7000-8000-000000000002").unwrap();
+        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap();
+        let flow_id = FlowId::new("ck:flow:01904100-0000-7000-8000-000000000002").unwrap();
         let flow = FlowCreateObject::new(flow_id, realm_id, actor)
             .with_metadata_title("Incident")
             .with_track("discussion", FlowTrackConfig::discussion_primary());
@@ -480,8 +480,8 @@ mod tests {
     #[test]
     fn morph_create_payload_uses_metadata_and_encrypted_content_names() {
         let actor = Did::new("did:web:alice.example".to_owned()).unwrap();
-        let realm_id = RealmId::new("cx:realm:01904100-0000-7000-8000-000000000001").unwrap();
-        let morph_id = MorphId::new("cx:morph:01904100-0000-7000-8000-000000000002").unwrap();
+        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap();
+        let morph_id = MorphId::new("ck:morph:01904100-0000-7000-8000-000000000002").unwrap();
         let morph = MorphCreateObject::new(morph_id, realm_id, "document", actor)
             .with_title("Spec")
             .with_summary("Draft")
@@ -497,7 +497,7 @@ mod tests {
 
     #[test]
     fn message_create_payload_requires_exactly_one_content_carrier() {
-        let flow_id = FlowId::new("cx:flow:01904100-0000-7000-8000-000000000002").unwrap();
+        let flow_id = FlowId::new("ck:flow:01904100-0000-7000-8000-000000000002").unwrap();
         let payload = MessageCreatePayload::with_content(
             flow_id,
             "discussion",
@@ -512,8 +512,8 @@ mod tests {
     #[test]
     fn morph_create_object_rejects_both_content_carriers() {
         let actor = Did::new("did:web:alice.example".to_owned()).unwrap();
-        let realm_id = RealmId::new("cx:realm:01904100-0000-7000-8000-000000000001").unwrap();
-        let morph_id = MorphId::new("cx:morph:01904100-0000-7000-8000-000000000003").unwrap();
+        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap();
+        let morph_id = MorphId::new("ck:morph:01904100-0000-7000-8000-000000000003").unwrap();
         let mut morph = MorphCreateObject::new(morph_id, realm_id, "document", actor);
         morph.content = Some(json!({"kind": "cx.content.text", "body": "hello"}));
         morph.encrypted_content = Some(json!({"schema": ENCRYPTED_ENVELOPE_SCHEMA}));

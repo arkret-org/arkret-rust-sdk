@@ -1,6 +1,6 @@
 # Local Release Readiness
 
-The Contrix Rust SDK is an 11-crate Cargo workspace. This repository's release
+The Cokret Rust SDK is an 11-crate Cargo workspace. This repository's release
 readiness flow is local-only: it validates the coordinated crate set without
 publishing to crates.io, creating GitHub releases, or pushing tags.
 
@@ -10,17 +10,17 @@ These crates are packaged in dependency order so local package checks catch
 workspace dependency and manifest drift:
 
 ```text
-contrix-identifiers
-contrix-core
-contrix-ffi
-contrix-html
-contrix-http-client
-contrix-signatures
-contrix-crypto
-contrix-contracts
-contrix-server
-contrix-testing
-contrix    # umbrella SDK; depends on every other crate above
+cokret-identifiers
+cokret-core
+cokret-ffi
+cokret-html
+cokret-http-client
+cokret-signatures
+cokret-crypto
+cokret-contracts
+cokret-server
+cokret-testing
+cokret    # umbrella SDK; depends on every other crate above
 ```
 
 The order is generated from `cargo metadata --no-deps`. If any crate is added
@@ -60,7 +60,7 @@ The two `cargo audit` ignores are tracked upstream-dependency exceptions for
 packages that are present in `Cargo.lock` but have no current upstream upgrade
 path: `RUSTSEC-2024-0384` is `instant` via OpenMLS's wasm timer dependency,
 and `RUSTSEC-2026-0124` is the optional `hpke-rs-libcrux` backend recorded in
-the lockfile while Contrix uses the RustCrypto HPKE backend.
+the lockfile while Cokret uses the RustCrypto HPKE backend.
 
 ## Compatibility notes
 

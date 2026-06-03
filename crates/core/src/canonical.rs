@@ -5,7 +5,7 @@ use std::io::Write as _;
 
 use crate::{Error, Result};
 
-/// Serialize a value with Contrix canonical JSON.
+/// Serialize a value with Cokret canonical JSON.
 ///
 /// The v1 SDK uses an integer-only number profile for signing and hashing. This
 /// rejects JSON floats even if serde_json can represent them.
@@ -441,11 +441,11 @@ mod tests {
     #[test]
     fn state_subject_encoding_roundtrips_simple_parts() {
         let parts =
-            ["did:web:alice.example", "discussion", "cx:flow:01904100-0000-7000-8000-6c663fa0205f"];
+            ["did:web:alice.example", "discussion", "ck:flow:01904100-0000-7000-8000-6c663fa0205f"];
         let encoded = encode_state_subject(&parts);
         assert_eq!(
             encoded,
-            "did:web:alice.example|discussion|cx:flow:01904100-0000-7000-8000-6c663fa0205f"
+            "did:web:alice.example|discussion|ck:flow:01904100-0000-7000-8000-6c663fa0205f"
         );
         let decoded = decode_state_subject_parts(&encoded).unwrap();
         assert_eq!(decoded, parts);

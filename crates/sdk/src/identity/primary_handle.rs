@@ -1,4 +1,4 @@
-//! R3.2 (contrix-spec @ b56cab1) — §3.2.1 primary handle selection,
+//! R3.2 (cokret-spec @ b56cab1) — §3.2.1 primary handle selection,
 //! `claim_digest(c)`, and §3.8.2 mention rendering.
 //!
 //! These helpers are shared across yougen / sodmin / soland / cotest so
@@ -319,14 +319,14 @@ mod tests {
             "did:web:acme.example",
             earlier,
             expires,
-            Some("cx:realm:r1"),
+            Some("ck:realm:r1"),
         );
         let newer =
             verified_claim("alice:other.example", "did:web:other.example", later, expires, None);
         let snapshot = vec![newer, matching];
         let input = PrimaryHandleSelectInput {
             subject_id: &s,
-            context: Some("cx:realm:r1"),
+            context: Some("ck:realm:r1"),
             claim_set_snapshot: &snapshot,
             accepted_issuers: &acc,
             holder_primary_handle_at_as_of: None,

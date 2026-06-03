@@ -33,9 +33,9 @@ cotest local release gate against soland:
 - Passed: 28
 - Failed: 0
 - Summary:
-  `D:\Works\contrix-dev\cotest\artifacts\runs\20260525-055932\summary.md`
+  `D:\Works\cokret-dev\cotest\artifacts\runs\20260525-055932\summary.md`
 - Release gate:
-  `D:\Works\contrix-dev\cotest\artifacts\runs\20260525-055932\release-gate.md`
+  `D:\Works\cokret-dev\cotest\artifacts\runs\20260525-055932\release-gate.md`
 
 The gate covers protocol conformance fixtures, profile discovery, privacy
 boundary checks, push-rule consistency, account/session edges, federation
@@ -46,7 +46,7 @@ yougen mock-vs-live soland parity.
 
 - Local review packet: `docs/security-review-1.0.0.md`
 - Internal checklist: `docs/security-audit.md`
-- Feature safety API: `contrix::current_feature_safety_report().validate()`
+- Feature safety API: `cokret::current_feature_safety_report().validate()`
 - Semver gate: `.github/workflows/ci.yml` now treats
   `cargo semver-checks check-release --workspace --baseline-rev HEAD~1` as
   blocking. Local pre-commit validation used `--baseline-rev HEAD` so the

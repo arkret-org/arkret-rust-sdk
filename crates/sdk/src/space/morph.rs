@@ -16,8 +16,8 @@ impl Space {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let morph_id = MorphId::new(generate_id("cx:morph:"))?;
-        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let morph_id = MorphId::new(generate_id("ck:morph:"))?;
+        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         let now = Utc::now();
 
         let mut metadata = serde_json::Map::new();
@@ -67,7 +67,7 @@ impl Space {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         let mut patch = serde_json::Map::new();
 
         if let Some(title) = title {
@@ -101,7 +101,7 @@ impl Space {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         Ok(Operation::create(
             operation_id,
             self.realm_id()?,

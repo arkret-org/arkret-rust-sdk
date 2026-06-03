@@ -5,7 +5,7 @@
 //! The chain semantics this example exercises:
 //!
 //! * Every envelope in a chain shares the same `series_id` (a
-//!   `cx:backup_series:` strict-typed id).
+//!   `ck:backup_series:` strict-typed id).
 //! * `series_seq == 0` marks the genesis envelope; `supersedes` MUST be absent.
 //! * `series_seq >= 1` marks a successor; `supersedes` and
 //!   `supersedes_digest` are REQUIRED and the chain must be contiguous.
@@ -25,11 +25,11 @@
 
 use std::collections::BTreeMap;
 
-use contrix::model::{
+use cokret::model::{
     BackupClass, KeyBackup, KeyBackupAead, KeyBackupAuthData, KeyBackupContentItem,
     KeyBackupEncryption, KeyBackupKdf, KeyBackupRecipientMethod,
 };
-use contrix::{BackupId, BackupSeriesId, DeviceId, Did};
+use cokret::{BackupId, BackupSeriesId, DeviceId, Did};
 use serde_json::json;
 
 fn build_envelope(
@@ -40,7 +40,7 @@ fn build_envelope(
     predecessor: Option<&KeyBackup>,
     ciphertext: &str,
 ) -> KeyBackup {
-    let backup_id_str = format!("cx:backup:01964137-0000-7000-8000-{:012x}", 0xA000_u64 + seq);
+    let backup_id_str = format!("ck:backup:01964137-0000-7000-8000-{:012x}", 0xA000_u64 + seq);
     let ciphertext_digest = format!(
         "sha256:{:0>64}",
         format!("{seq:02x}").repeat(32).chars().take(64).collect::<String>()
@@ -152,10 +152,10 @@ fn validate_chain(envelopes: &[KeyBackup]) -> Result<(), String> {
     Ok(())
 }
 
-fn main() -> contrix::Result<()> {
+fn main() -> cokret::Result<()> {
     let actor_id = Did::new("did:web:alice.example")?;
-    let device_id = DeviceId::new("cx:device:01964137-0000-7000-8000-000000000009")?;
-    let series_id = BackupSeriesId::new("cx:backup_series:01964137-0000-7000-8000-000000000777")?;
+    let device_id = DeviceId::new("ck:device:01964137-0000-7000-8000-000000000009")?;
+    let series_id = BackupSeriesId::new("ck:backup_series:01964137-0000-7000-8000-000000000777")?;
 
     // Build the chain: genesis + two rotations.
     let genesis = build_envelope(&actor_id, &device_id, &series_id, 0, None, "ciphertext-genesis");

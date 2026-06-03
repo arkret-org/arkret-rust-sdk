@@ -157,7 +157,7 @@ pub struct CollectionProjectionResBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct CollectionProjectionGroup {
-    /// Stable id for this group. Typically a `cx:space:` (List form)
+    /// Stable id for this group. Typically a `ck:space:` (List form)
     /// or a synthetic id for status / facet buckets.
     pub group_id: String,
     /// Human-readable group title.
@@ -203,7 +203,7 @@ pub struct CollectionProjectionItem {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct CollectionProjectionPosition {
-    /// `cx:relation:` id for the `contains` Relation that places this
+    /// `ck:relation:` id for the `contains` Relation that places this
     /// item in this group. Stable across reducer recomputation.
     pub relation_id: String,
     /// Rank string (lexicographic). Same ordering rules as

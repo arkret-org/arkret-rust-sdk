@@ -171,7 +171,7 @@ impl EventCacheStore for MemoryPersistenceStore {
     }
 
     fn events_for_space(&self, space_id: &SpaceId) -> Vec<&Event> {
-        let realm_scope = SpaceId::new(space_id.as_str().replacen("cx:space:", "cx:realm:", 1))
+        let realm_scope = SpaceId::new(space_id.as_str().replacen("ck:space:", "ck:realm:", 1))
             .unwrap_or_else(|_| space_id.clone());
         self.events
             .get(&realm_scope)
@@ -374,7 +374,7 @@ mod tests {
         Event {
             event_id: EventId::new(event_id).unwrap(),
             kind: crate::OP_MORPH_CREATE.to_owned(),
-            realm_id: RealmId::new("cx:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+            realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             actor_id: Did::new("did:web:alice.example.com").unwrap(),
             actor_seq: 1,
             created_at: Utc::now(),
@@ -389,9 +389,9 @@ mod tests {
             redacts: None,
             content: json!({
                 "object": {
-                    "id": "cx:morph:01904100-0000-7000-8000-b7a4e10c8c77",
+                    "id": "ck:morph:01904100-0000-7000-8000-b7a4e10c8c77",
                     "schema": crate::MORPH_SCHEMA,
-                    "space_id": "cx:space:01904100-0000-7000-8000-9b64700c6ee8",
+                    "space_id": "ck:space:01904100-0000-7000-8000-9b64700c6ee8",
                     "morph_type": "task",
                     "metadata": {"title": title},
                     "created_by": "did:web:alice.example.com",
@@ -425,8 +425,8 @@ mod tests {
 
     #[test]
     fn projection_rebuild_helpers_replay_event_cache_and_use_valid_snapshot() {
-        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
-        let event = morph_event("cx:event:01904100-0000-7000-8000-ec26a4d295c0", "Stored task");
+        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let event = morph_event("ck:event:01904100-0000-7000-8000-ec26a4d295c0", "Stored task");
         let mut store = MemoryPersistenceStore::new();
         store.put_event(event.clone()).unwrap();
         store.put_event(event.clone()).unwrap();
@@ -434,9 +434,9 @@ mod tests {
         let mut conflicting = event;
         conflicting.content = json!({
             "object": {
-                "id": "cx:morph:01904100-0000-7000-8000-b7a4e10c8c77",
+                "id": "ck:morph:01904100-0000-7000-8000-b7a4e10c8c77",
                 "schema": crate::MORPH_SCHEMA,
-                "space_id": "cx:space:01904100-0000-7000-8000-9b64700c6ee8",
+                "space_id": "ck:space:01904100-0000-7000-8000-9b64700c6ee8",
                 "morph_type": "task",
                 "metadata": {"title": "Changed"},
                 "created_by": "did:web:alice.example.com",
@@ -448,7 +448,7 @@ mod tests {
         let state = rebuild_space_state_from_events(&store, &space_id, "1").unwrap();
         assert_eq!(state.morphs.len(), 1);
         assert_eq!(
-            state.morphs.get("cx:morph:01904100-0000-7000-8000-b7a4e10c8c77").unwrap().state,
+            state.morphs.get("ck:morph:01904100-0000-7000-8000-b7a4e10c8c77").unwrap().state,
             Some(ObjectState::Active)
         );
 
@@ -462,7 +462,7 @@ mod tests {
     fn memory_persistence_store_roundtrips_auxiliary_records() {
         let mut store = MemoryPersistenceStore::new();
         let principal_id = Did::new("did:web:alice.example").unwrap();
-        let device_id = DeviceId::new("cx:device:01904100-0000-7000-8000-000000000001").unwrap();
+        let device_id = DeviceId::new("ck:device:01904100-0000-7000-8000-000000000001").unwrap();
         let session = AuthSession {
             session_id: "sess-1".to_owned(),
             user_id: principal_id.clone(),

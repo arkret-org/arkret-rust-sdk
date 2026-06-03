@@ -1,6 +1,6 @@
-# contrix-ffi
+# cokret-ffi
 
-FFI and WASM embedding contracts for Contrix.
+FFI and WASM embedding contracts for Cokret.
 
 This crate provides layout-stable handles, error payloads, callback results,
 WASM HTTP/store/WebCrypto descriptors and API-freeze review artifacts that can
@@ -17,32 +17,32 @@ ABI surface.
 ### C header
 
 ```c
-// contrix.h — minimal C ABI sketch (layout-stable handles + error payload).
+// cokret.h — minimal C ABI sketch (layout-stable handles + error payload).
 #include <stdint.h>
 #include <stddef.h>
 
-typedef struct ContrixHandle ContrixHandle;
+typedef struct CokretHandle CokretHandle;
 
 typedef struct {
     int32_t  code;          // 0 == ok; non-zero matches ErrorPayload.code
     const char *message;    // UTF-8, owned by SDK; valid until next call
-} ContrixError;
+} CokretError;
 
-ContrixHandle *contrix_client_new(const char *base_url, ContrixError *err);
-int32_t        contrix_client_whoami(ContrixHandle *h, char **out_json,
-                                     ContrixError *err);
+CokretHandle *contrix_client_new(const char *base_url, CokretError *err);
+int32_t        contrix_client_whoami(CokretHandle *h, char **out_json,
+                                     CokretError *err);
 void           contrix_string_free(char *s);
-void           contrix_client_free(ContrixHandle *h);
+void           contrix_client_free(CokretHandle *h);
 ```
 
 ### WASM glue (TypeScript host)
 
 ```ts
-// contrix-wasm.ts — calling the Wasm export surface from a browser host.
-import init, { ContrixClient } from "./contrix_ffi_wasm.js";
+// cokret-wasm.ts — calling the Wasm export surface from a browser host.
+import init, { CokretClient } from "./contrix_ffi_wasm.js";
 
 await init();                                  // load .wasm
-const client = new ContrixClient("https://home.example");
+const client = new CokretClient("https://home.example");
 client.setDidResolver(async (did: string) => {
     const res = await fetch(`/.well-known/did.json?did=${did}`);
     return new Uint8Array(await res.arrayBuffer());
@@ -55,8 +55,8 @@ client.free();                                 // explicit drop — wasm has no 
 ### JNI (Android / Kotlin host)
 
 ```kotlin
-// ContrixClient.kt — UniFFI-style JNI bridge for Android.
-class ContrixClient(baseUrl: String) : AutoCloseable {
+// CokretClient.kt — UniFFI-style JNI bridge for Android.
+class CokretClient(baseUrl: String) : AutoCloseable {
     private val handle: Long = nativeNew(baseUrl)
     fun whoami(): String = nativeWhoami(handle)
     override fun close() { nativeFree(handle) }

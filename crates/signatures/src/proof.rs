@@ -434,7 +434,7 @@ mod ed25519_jws {
             self.signing_key.verifying_key()
         }
 
-        /// Produce a full Contrix [`Proof`] over `value` using this
+        /// Produce a full Cokret [`Proof`] over `value` using this
         /// signer. Returns the canonical bytes alongside the proof so
         /// callers can persist them next to the envelope.
         pub fn sign_payload<T: serde::Serialize>(
@@ -449,7 +449,7 @@ mod ed25519_jws {
             Ok((bytes, proof))
         }
 
-        /// Assemble a Contrix [`Proof`] over pre-canonicalized `bytes`.
+        /// Assemble a Cokret [`Proof`] over pre-canonicalized `bytes`.
         pub fn build_proof(
             &self,
             bytes: &[u8],
@@ -509,7 +509,7 @@ mod ed25519_jws {
             Self
         }
 
-        /// Verify a full Contrix [`Proof`] against the canonical bytes
+        /// Verify a full Cokret [`Proof`] against the canonical bytes
         /// it should be bound to.
         pub fn verify_proof(
             &self,
@@ -615,7 +615,7 @@ mod ed25519_jws {
     /// RFC 7797 unencoded-payload signing input: `b64url(header) "." b64url(payload)`.
     ///
     /// We base64-encode the canonical bytes here (rather than passing
-    /// them in directly with `b64="false"`) because every Contrix SDK
+    /// them in directly with `b64="false"`) because every Cokret SDK
     /// that talks to this verifier today expects the standard JWS
     /// shape. The detached form lives in the wire JWS — the middle
     /// segment is stripped — but the signing-input stays

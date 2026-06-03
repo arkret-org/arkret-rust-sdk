@@ -181,14 +181,14 @@ mod tests {
         fn ping(&self) -> Result<AppletPingResBody> {
             Ok(AppletPingResBody {
                 ok: true,
-                applet_id: "cx:applet:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
+                applet_id: "ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
                 service_did: crate::Did::new("did:web:svc.example").unwrap(),
                 protocol_version: "1.0".to_owned(),
             })
         }
         fn describe(&self) -> Result<AppletDescription> {
             Ok(AppletDescription {
-                applet_id: "cx:applet:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
+                applet_id: "ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
                 service_did: crate::Did::new("did:web:svc.example").unwrap(),
                 protocols: vec!["cx.applet.v1".to_owned()],
                 namespaces: serde_json::Value::Null,

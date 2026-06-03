@@ -481,7 +481,7 @@ mod profile_builder_tests {
     use super::*;
 
     fn realm() -> crate::RealmId {
-        crate::RealmId::new("cx:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
+        crate::RealmId::new("ck:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
     }
 
     fn alice() -> Did {
@@ -520,14 +520,14 @@ mod profile_builder_tests {
     #[test]
     fn profile_ghost_kind_stamps_required_fields() {
         let event = ProfileCreateBuilder::new(realm(), alice())
-            .with_ghost_kind("cx:applet:01904100-0000-7000-8000-aaaaaaaaaaaa", applet_owner())
+            .with_ghost_kind("ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa", applet_owner())
             .with_external_ref(serde_json::json!({"slack_user_id": "U12345"}))
             .build(1, hlc())
             .unwrap();
         assert_eq!(event.content["actor_kind"], "integration");
         assert_eq!(
             event.content["managed_by_applet"],
-            "cx:applet:01904100-0000-7000-8000-aaaaaaaaaaaa"
+            "ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa"
         );
         assert_eq!(
             event.content["accountability"]["accountable_principal_ids"][0],
@@ -554,10 +554,10 @@ mod tests {
         assert_eq!(v1.version, 1);
         assert_eq!(v1.display_name, Some("Alice".to_owned()));
 
-        let v2 = manager.set_avatar_url(alice.clone(), "cx:blob:avatar");
+        let v2 = manager.set_avatar_url(alice.clone(), "ck:blob:avatar");
         assert_eq!(v2.version, 2);
         assert_eq!(v2.display_name, Some("Alice".to_owned()));
-        assert_eq!(v2.avatar_url, Some("cx:blob:avatar".to_owned()));
+        assert_eq!(v2.avatar_url, Some("ck:blob:avatar".to_owned()));
 
         let v3 = manager.set_bio(alice.clone(), "Builder");
         assert_eq!(v3.version, 3);
@@ -583,7 +583,7 @@ mod tests {
 
         let manifest = SpaceExportManifest {
             export_id: "export1".to_owned(),
-            space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+            space_id: SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             exported_by: alice,
             source_service_did: service.clone(),
             event_count: 10,

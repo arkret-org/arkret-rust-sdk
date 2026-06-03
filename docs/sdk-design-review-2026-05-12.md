@@ -1,15 +1,15 @@
 # SDK Design Review - 2026-05-12
 
-Scope: `D:\Works\contrix-dev\contrix-rust-sdk` checked against
-`D:\Works\contrix-dev\contrix-spec\spec\v1\zh` and
-`D:\Works\contrix-dev\contrix-spec\spec\v1\artifacts`.
+Scope: `D:\Works\cokret-dev\cokret-rust-sdk` checked against
+`D:\Works\cokret-dev\cokret-spec\spec\v1\zh` and
+`D:\Works\cokret-dev\cokret-spec\spec\v1\artifacts`.
 
 ## Summary
 
 The current SDK design is broadly reasonable and mostly aligned with the v1
 spec. The workspace split is healthy: identifiers validate wire IDs,
-`contrix-core` owns protocol models and canonical behavior, `contrix-contracts` owns
-shared wire contracts and product-local DTOs, `contrix-server` owns framework-neutral routing
+`cokret-core` owns protocol models and canonical behavior, `cokret-contracts` owns
+shared wire contracts and product-local DTOs, `cokret-server` owns framework-neutral routing
 plus Salvo integration, and the top-level SDK crate keeps high-level client
 state and feature helpers out of the protocol core.
 
@@ -25,7 +25,7 @@ types themselves through `ToSchema` / `ToParameters` derives.
 
 Historically the API-named contracts crate exposed endpoint contracts matching the active
 operation IDs in `operation-registry.json`. The crate has since been renamed to
-`contrix-contracts`, and service route truth now lives with the server/core
+`cokret-contracts`, and service route truth now lives with the server/core
 registries while this crate carries shared DTO contracts.
 
 ### P1 - Salvo OAPI Types Were Previously Incomplete
@@ -68,8 +68,8 @@ wire schema registries.
 
 ## Verification Performed
 
-- `cargo check -p contrix-server --features salvo`
-- `cargo test -p contrix-core --features salvo --no-default-features`
-- `cargo test -p contrix-contracts`
-- `cargo test -p contrix-server --features salvo`
-- `cargo check -p contrix --features salvo --no-default-features`
+- `cargo check -p cokret-server --features salvo`
+- `cargo test -p cokret-core --features salvo --no-default-features`
+- `cargo test -p cokret-contracts`
+- `cargo test -p cokret-server --features salvo`
+- `cargo check -p cokret --features salvo --no-default-features`

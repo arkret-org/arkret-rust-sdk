@@ -114,7 +114,7 @@ impl OperationEnvelope {
 
     /// Materialize this SDK-local operation draft as a signed Event Envelope.
     ///
-    /// Operation envelopes are not Contrix v1 wire facts. Callers must choose
+    /// Operation envelopes are not Cokret v1 wire facts. Callers must choose
     /// the event causal/auth references during conversion, then submit the
     /// returned [`EventEnvelope`] to network, sync, federation or reducers.
     pub fn into_event_envelope(
@@ -697,7 +697,7 @@ pub enum MlsKeyPackageState {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MlsKeyPackageRecord {
-    /// Globally unique identifier (`cx:mls:kp:<uuid>`, RFC 9562 UUIDv7).
+    /// Globally unique identifier (`ck:mls:kp:<uuid>`, RFC 9562 UUIDv7).
     pub keypackage_id: String,
     pub principal_id: Did,
     pub device_id: DeviceId,
@@ -758,7 +758,7 @@ impl MlsProposalEnvelope {
 /// `cx_app_state_ref` MLS GroupContext extension
 /// (encryption-and-audit.md / B-12).
 ///
-/// Binds a Contrix Space's reduced state into the MLS GroupContext so
+/// Binds a Cokret Space's reduced state into the MLS GroupContext so
 /// that any commit's signature transcript covers the application-layer
 /// frontier. Carried as a private-use GroupContext extension at
 /// codepoint [`MlsAppStateRef::CODEPOINT`] (within the IANA private
@@ -783,7 +783,7 @@ pub struct MlsAppStateRef {
 
 impl MlsAppStateRef {
     /// IANA private-use codepoint chosen for `cx_app_state_ref`. The
-    /// Contrix spec reserves it within the `[0xF000, 0xFFFF]` MLS
+    /// Cokret spec reserves it within the `[0xF000, 0xFFFF]` MLS
     /// extension private-use range; deployments MAY override via
     /// future negotiation but MUST stay inside the private range.
     pub const CODEPOINT: u16 = 0xCAFE;

@@ -1,14 +1,14 @@
 [package]
 authors = ["Chris Young <chris@sonc.ai>"]
 categories = ["api-bindings", "network-programming", "cryptography"]
-description = "Contrix v1 decentralized collaboration protocol SDK."
+description = "Cokret v1 decentralized collaboration protocol SDK."
 edition = "2024"
-homepage = "https://github.com/contrix/contrix-rust-sdk"
-keywords = ["contrix", "collaboration", "did", "sdk"]
+homepage = "https://github.com/cokret/cokret-rust-sdk"
+keywords = ["cokret", "collaboration", "did", "sdk"]
 license = "Apache-2.0"
-name = "contrix"
+name = "cokret"
 readme = "README.md"
-repository = "https://github.com/contrix/contrix-rust-sdk"
+repository = "https://github.com/cokret/cokret-rust-sdk"
 rust-version = "1.92"
 version = "1.0.0"
 
@@ -26,13 +26,13 @@ default = [
     "sync-runtime",
     "timeline-runtime",
 ]
-client = ["dep:contrix-http-client", "dep:reqwest", "dep:tokio", "contrix-core/client", "contrix-ffi/client"]
-signer = ["contrix-signatures/signer"]
-server = ["dep:contrix-server", "full-surface"]
+client = ["dep:cokret-http-client", "dep:reqwest", "dep:tokio", "cokret-core/client", "cokret-ffi/client"]
+signer = ["cokret-signatures/signer"]
+server = ["dep:cokret-server", "full-surface"]
 mls = [
     "full-surface",
-    "contrix-core/mls",
-    "contrix-ffi/mls",
+    "cokret-core/mls",
+    "cokret-ffi/mls",
     "dep:openmls",
     "dep:openmls_basic_credential",
     "dep:openmls_rust_crypto",
@@ -41,35 +41,35 @@ mls = [
 full-surface = []
 tracing = ["dep:tracing"]
 # Re-export the conformance/test-fixture crate. Opt-in so it never lands in
-# downstream production builds of the umbrella `contrix` crate.
-testing = ["dep:contrix-testing"]
-salvo = ["server", "dep:salvo", "salvo/oapi", "contrix-server/salvo", "contrix-core/salvo"]
+# downstream production builds of the umbrella `cokret` crate.
+testing = ["dep:cokret-testing"]
+salvo = ["server", "dep:salvo", "salvo/oapi", "cokret-server/salvo", "cokret-core/salvo"]
 applet-runtime = ["full-surface"]
 device-runtime = ["full-surface"]
 sync-runtime = ["full-surface"]
 timeline-runtime = ["full-surface"]
-# Round 23 (2026-05-09): expose contrix-core's platform KeyStore feature
-# gates so apps embedding the umbrella `contrix` crate can opt into
-# OS-native key storage without a direct contrix-core dependency.
-keystore-macos = ["contrix-core/keystore-macos"]
-keystore-linux = ["contrix-core/keystore-linux"]
-keystore-windows = ["contrix-core/keystore-windows"]
+# Round 23 (2026-05-09): expose cokret-core's platform KeyStore feature
+# gates so apps embedding the umbrella `cokret` crate can opt into
+# OS-native key storage without a direct cokret-core dependency.
+keystore-macos = ["cokret-core/keystore-macos"]
+keystore-linux = ["cokret-core/keystore-linux"]
+keystore-windows = ["cokret-core/keystore-windows"]
 
 [dependencies]
 base64.workspace = true
 chacha20poly1305.workspace = true
 chrono = { workspace = true, features = ["serde"] }
 chrono-tz.workspace = true
-contrix-contracts.workspace = true
-contrix-http-client = { workspace = true, optional = true }
-contrix-core.workspace = true
-contrix-crypto.workspace = true
-contrix-ffi.workspace = true
-contrix-html.workspace = true
-contrix-server = { workspace = true, optional = true }
+cokret-contracts.workspace = true
+cokret-http-client = { workspace = true, optional = true }
+cokret-core.workspace = true
+cokret-crypto.workspace = true
+cokret-ffi.workspace = true
+cokret-html.workspace = true
+cokret-server = { workspace = true, optional = true }
 salvo = { workspace = true, optional = true, features = ["oapi"] }
-contrix-signatures.workspace = true
-contrix-testing = { workspace = true, optional = true }
+cokret-signatures.workspace = true
+cokret-testing = { workspace = true, optional = true }
 getrandom.workspace = true
 openmls_basic_credential = { workspace = true, optional = true }
 openmls_rust_crypto = { workspace = true, optional = true }

@@ -689,9 +689,9 @@ mod tests {
     #[test]
     fn circle_round_trips_json() {
         let id =
-            CircleId::new("cx:circle:0196419b-0000-7000-8000-000000000001".to_owned()).unwrap();
+            CircleId::new("ck:circle:0196419b-0000-7000-8000-000000000001".to_owned()).unwrap();
         let realm_id =
-            RealmId::new("cx:realm:0196419b-0000-7000-8000-000000000002".to_owned()).unwrap();
+            RealmId::new("ck:realm:0196419b-0000-7000-8000-000000000002".to_owned()).unwrap();
         let actor: Did = "did:web:alice.example".parse().unwrap();
         let circle = Circle::new(id, realm_id, "Ops Circle", sample_display(), actor);
         let json = serde_json::to_value(&circle).unwrap();
@@ -781,10 +781,10 @@ mod tests {
     // ── validate_no_scope_rebind ───────────────────────────────────────────
 
     fn circle_a() -> CircleId {
-        CircleId::new("cx:circle:0196419b-0000-7000-8000-000000000a01".to_owned()).unwrap()
+        CircleId::new("ck:circle:0196419b-0000-7000-8000-000000000a01".to_owned()).unwrap()
     }
     fn circle_b() -> CircleId {
-        CircleId::new("cx:circle:0196419b-0000-7000-8000-000000000a02".to_owned()).unwrap()
+        CircleId::new("ck:circle:0196419b-0000-7000-8000-000000000a02".to_owned()).unwrap()
     }
 
     #[test]

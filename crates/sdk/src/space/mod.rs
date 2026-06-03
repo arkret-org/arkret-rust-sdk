@@ -1,4 +1,4 @@
-//! High-level space API for Contrix v1.
+//! High-level space API for Cokret v1.
 //!
 //! This module provides a high-level interface for working with spaces,
 //! including Morph management, relations, timeline operations, and membership.
@@ -23,7 +23,7 @@ use crate::{
     resolver::SpaceState,
 };
 
-/// Generate a new UUIDv7-based wire ID with the given Contrix typed prefix.
+/// Generate a new UUIDv7-based wire ID with the given Cokret typed prefix.
 mod flow;
 mod helpers;
 mod membership;
@@ -164,7 +164,7 @@ impl Space {
 
     /// Canonical Realm scope for operations emitted by this client.
     pub fn realm_id(&self) -> Result<RealmId> {
-        RealmId::new(self.space_id.as_str().replacen("cx:space:", "cx:realm:", 1))
+        RealmId::new(self.space_id.as_str().replacen("ck:space:", "ck:realm:", 1))
             .map_err(Into::into)
     }
 
@@ -360,10 +360,10 @@ impl Space {
     /// Create a local message send operation using a structured message content object.
     pub fn send_message(&self, content: Value) -> Result<Operation> {
         self.base_client.whoami()?;
-        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         let payload = json!({
-            "message_id": generate_id("cx:message:"),
-            "flow_id": generate_id("cx:flow:"),
+            "message_id": generate_id("ck:message:"),
+            "flow_id": generate_id("ck:flow:"),
             "track_name": "discussion",
             "content": content,
         });
@@ -382,7 +382,7 @@ impl Space {
     /// Create a local message edit operation.
     pub fn edit_message(&self, message_id: MessageId, content: Value) -> Result<Operation> {
         self.base_client.whoami()?;
-        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         let mut operation = Operation::create(
             operation_id,
             self.realm_id()?,
@@ -404,7 +404,7 @@ impl Space {
         reason: Option<String>,
     ) -> Result<Operation> {
         self.base_client.whoami()?;
-        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         let mut payload = json!({ "target_event_id": message_id.as_str() });
         if let Some(reason) = reason {
             payload["reason"] = json!(reason);

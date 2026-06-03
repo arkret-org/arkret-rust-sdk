@@ -1,6 +1,6 @@
 //! MLS commit Move + `covered_frontier` cell helpers.
 //!
-//! Per spec [`event-auth-state-resolution.md`](https://contrix.io/spec/v1/zh/authz/event-auth-state-resolution.md)
+//! Per spec [`event-auth-state-resolution.md`](https://cokret.io/spec/v1/zh/authz/event-auth-state-resolution.md)
 //! §10, an MLS commit is **a Move**, not an Anchor. It writes three
 //! well-known cells:
 //!
@@ -39,30 +39,30 @@ pub const MLS_EPOCH_CELL_FAMILY: &str = "cx.component.mls_epoch.v1";
 pub const KEY_SCHEDULE_CELL_FAMILY: &str = "cx.component.key_schedule.v1";
 pub const COVERED_FRONTIER_CELL_FAMILY: &str = "cx.component.covered_frontier.v1";
 
-/// `cx:cell:cx.component.mls_epoch.v1:<group_id>` — cas-register on the
+/// `ck:cell:cx.component.mls_epoch.v1:<group_id>` — cas-register on the
 /// MLS group's current epoch counter.
 pub fn mls_epoch_cell_id(group_id: &str) -> Result<CellRef, contrix_core::Error> {
     if group_id.is_empty() {
         return Err(contrix_core::Error::Protocol("MLS group_id must not be empty".to_owned()));
     }
-    CellRef::new(format!("cx:cell:{MLS_EPOCH_CELL_FAMILY}:{group_id}"))
+    CellRef::new(format!("ck:cell:{MLS_EPOCH_CELL_FAMILY}:{group_id}"))
         .map_err(|e| contrix_core::Error::Protocol(format!("invalid mls_epoch cell id: {e}")))
 }
 
-/// `cx:cell:cx.component.key_schedule.v1:<group_id>` — cas-register on
+/// `ck:cell:cx.component.key_schedule.v1:<group_id>` — cas-register on
 /// the MLS group's latest key schedule pointer.
 pub fn key_schedule_cell_id(group_id: &str) -> Result<CellRef, contrix_core::Error> {
     if group_id.is_empty() {
         return Err(contrix_core::Error::Protocol("MLS group_id must not be empty".to_owned()));
     }
-    CellRef::new(format!("cx:cell:{KEY_SCHEDULE_CELL_FAMILY}:{group_id}"))
+    CellRef::new(format!("ck:cell:{KEY_SCHEDULE_CELL_FAMILY}:{group_id}"))
         .map_err(|e| contrix_core::Error::Protocol(format!("invalid key_schedule cell id: {e}")))
 }
 
-/// `cx:cell:cx.component.covered_frontier.v1:<space_id>` — or-set listing
+/// `ck:cell:cx.component.covered_frontier.v1:<space_id>` — or-set listing
 /// the governance Anchor frontiers this MLS group is currently bound to.
 pub fn covered_frontier_cell_id(space_id: &SpaceId) -> Result<CellRef, contrix_core::Error> {
-    CellRef::new(format!("cx:cell:{COVERED_FRONTIER_CELL_FAMILY}:{}", space_id.as_str())).map_err(
+    CellRef::new(format!("ck:cell:{COVERED_FRONTIER_CELL_FAMILY}:{}", space_id.as_str())).map_err(
         |e| contrix_core::Error::Protocol(format!("invalid covered_frontier cell id: {e}")),
     )
 }
@@ -261,11 +261,11 @@ mod tests {
     };
 
     fn space() -> SpaceId {
-        SpaceId::new("cx:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+        SpaceId::new("ck:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn anchor(byte: u8) -> AnchorId {
-        AnchorId::new(format!("cx:anchor:sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
+        AnchorId::new(format!("ck:anchor:sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
     }
 
     fn move_id(byte: u8) -> MoveId {
@@ -281,15 +281,15 @@ mod tests {
         let group = "group.01js0mls0000000000000000";
         assert_eq!(
             mls_epoch_cell_id(group).unwrap().as_str(),
-            format!("cx:cell:cx.component.mls_epoch.v1:{group}")
+            format!("ck:cell:cx.component.mls_epoch.v1:{group}")
         );
         assert_eq!(
             key_schedule_cell_id(group).unwrap().as_str(),
-            format!("cx:cell:cx.component.key_schedule.v1:{group}")
+            format!("ck:cell:cx.component.key_schedule.v1:{group}")
         );
         assert_eq!(
             covered_frontier_cell_id(&space()).unwrap().as_str(),
-            format!("cx:cell:cx.component.covered_frontier.v1:{}", space().as_str())
+            format!("ck:cell:cx.component.covered_frontier.v1:{}", space().as_str())
         );
     }
 
@@ -314,14 +314,14 @@ mod tests {
         // First: head_eq on mls_epoch_cell.
         assert_eq!(
             pres[0].cell.as_str(),
-            format!("cx:cell:cx.component.mls_epoch.v1:{}", "group.01js0mls0000000000000000")
+            format!("ck:cell:cx.component.mls_epoch.v1:{}", "group.01js0mls0000000000000000")
         );
         assert_eq!(pres[0].predicate.op, PredicateOp::HeadEq);
         assert_eq!(pres[0].predicate.value.as_ref().unwrap().as_u64().unwrap(), 5);
         // Second: contains on covered_frontier_cell.
         assert_eq!(
             pres[1].cell.as_str(),
-            format!("cx:cell:cx.component.covered_frontier.v1:{}", space().as_str())
+            format!("ck:cell:cx.component.covered_frontier.v1:{}", space().as_str())
         );
         assert_eq!(pres[1].predicate.op, PredicateOp::Contains);
         assert_eq!(
@@ -379,7 +379,7 @@ mod tests {
         let pre = e2ee_message_precondition(&space(), &anchor(0xaa)).unwrap();
         assert_eq!(
             pre.cell.as_str(),
-            format!("cx:cell:cx.component.covered_frontier.v1:{}", space().as_str())
+            format!("ck:cell:cx.component.covered_frontier.v1:{}", space().as_str())
         );
         assert_eq!(pre.predicate.op, PredicateOp::Contains);
         assert_eq!(pre.predicate.value.as_ref().unwrap().as_str().unwrap(), anchor(0xaa).as_str());

@@ -70,11 +70,11 @@ impl AdminKeyStore {
     }
 
     /// Canonical key id for a given admin DID. Format:
-    /// `contrix:signer:admin:<application_id>:<did>`. Stable across
+    /// `cokret:signer:admin:<application_id>:<did>`. Stable across
     /// processes so a key written by one server boot is readable by the
     /// next.
     pub fn key_id(application_id: &str, admin_did: &Did) -> String {
-        format!("contrix:signer:admin:{application_id}:{}", admin_did.as_str())
+        format!("cokret:signer:admin:{application_id}:{}", admin_did.as_str())
     }
 
     /// Load the raw signing seed for `admin_did`. Returns
@@ -111,7 +111,7 @@ impl AdminKeyStore {
     /// Enumerate admin DIDs known to this store. Walks the backend's
     /// id list and filters by the per-admin id prefix.
     pub fn list_admin_dids(&self) -> Result<Vec<Did>> {
-        let prefix = format!("contrix:signer:admin:{}:", self.application_id);
+        let prefix = format!("cokret:signer:admin:{}:", self.application_id);
         let ids = self.inner.list()?;
         let mut out = Vec::new();
         for id in ids {
@@ -132,7 +132,7 @@ impl AdminKeyStore {
 /// Principal servers receive this from their upstream IdP (coauth, by
 /// convention) when introspecting a bearer token. The fields are a
 /// strict subset of the RFC 7662 introspection response plus the
-/// `org.contrix.*` extensions soland already uses.
+/// `org.cokret.*` extensions soland already uses.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SessionGrantIntrospection {
@@ -140,7 +140,7 @@ pub struct SessionGrantIntrospection {
     /// reject any introspection where `active=false`.
     pub active: bool,
     /// The operator's principal ID. Populated from
-    /// `org.contrix.principal_id` (or `sub`) on the IdP side.
+    /// `org.cokret.principal_id` (or `sub`) on the IdP side.
     pub principal_id: Did,
     /// Granted admin scopes — e.g.
     /// [`admin_scopes::ANCHORER_RECONFIGURE`]. Receivers gate
@@ -208,7 +208,7 @@ mod tests {
         let did = admin("did:web:alice.example");
         assert_eq!(
             AdminKeyStore::key_id("soland.demo", &did),
-            "contrix:signer:admin:soland.demo:did:web:alice.example"
+            "cokret:signer:admin:soland.demo:did:web:alice.example"
         );
     }
 

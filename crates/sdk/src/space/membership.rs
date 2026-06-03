@@ -69,7 +69,7 @@ impl Space {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         let payload = json!({
             "actor_id": user_id,
             "role": role,
@@ -103,7 +103,7 @@ impl Space {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         let payload = json!({
             "actor_id": candidate.subject_id,
             "role": role,
@@ -139,7 +139,7 @@ impl Space {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         let payload = json!({
             "space_id": self.space_id.as_str(),
             "actor_id": candidate.subject_id,
@@ -166,7 +166,7 @@ impl Space {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         let payload = json!({
             "space_id": self.space_id.as_str(),
             "actor_id": session_meta.user_id.as_str(),
@@ -187,7 +187,7 @@ impl Space {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         let payload = json!({
             "space_id": self.space_id.as_str(),
             "actor_id": session_meta.user_id.as_str(),
@@ -206,7 +206,7 @@ impl Space {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         let payload = json!({
             "space_id": self.space_id.as_str(),
             "actor_id": session_meta.user_id.as_str(),
@@ -223,7 +223,7 @@ impl Space {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         let mut payload = json!({
             "actor_id": user_id.as_str(),
             "space_id": self.space_id.as_str(),
@@ -244,7 +244,7 @@ impl Space {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let operation_id = OperationId::new(generate_id("cx:operation:"))?;
+        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         let payload = json!({
             "actor_id": user_id.as_str(),
             "space_id": self.space_id.as_str(),

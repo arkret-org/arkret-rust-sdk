@@ -205,7 +205,7 @@ mod tests {
 
     #[test]
     fn notifications_apply_rules_counts_highlights_and_clear() {
-        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let mut manager = NotificationManager::new();
         manager.upsert_rule(NotificationRule {
@@ -220,7 +220,7 @@ mod tests {
             .add_notification(
                 "n1",
                 Some(space_id.clone()),
-                EventId::new("cx:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
+                EventId::new("ck:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
                 alice,
                 "cx.mention",
                 Some(json!({"body":"hi"})),
@@ -236,7 +236,7 @@ mod tests {
 
     #[test]
     fn notifications_can_suppress_and_clear_space() {
-        let space_id = SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let mut manager = NotificationManager::new();
         manager.upsert_rule(NotificationRule {
             rule_id: "suppress".to_owned(),
@@ -251,7 +251,7 @@ mod tests {
                 .add_notification(
                     "n0",
                     Some(space_id.clone()),
-                    EventId::new("cx:event:01904100-0000-7000-8000-155d51e9508a").unwrap(),
+                    EventId::new("ck:event:01904100-0000-7000-8000-155d51e9508a").unwrap(),
                     did("alice"),
                     "cx.noisy",
                     None,
@@ -262,7 +262,7 @@ mod tests {
         manager.add_notification(
             "n1",
             Some(space_id.clone()),
-            EventId::new("cx:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
+            EventId::new("ck:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
             did("bob"),
             "cx.message",
             None,
@@ -270,7 +270,7 @@ mod tests {
         manager.add_notification(
             "n2",
             Some(space_id.clone()),
-            EventId::new("cx:event:01904100-0000-7000-8000-6008ddd67225").unwrap(),
+            EventId::new("ck:event:01904100-0000-7000-8000-6008ddd67225").unwrap(),
             did("carol"),
             "cx.message",
             None,

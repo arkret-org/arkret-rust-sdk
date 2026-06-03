@@ -125,8 +125,8 @@ pub struct Event {
     // reducer MUST verify `executed_by` == proof verification_method DID.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub executed_by: Option<Did>,
-    /// CXP-0008 / CXP-0009 — typed reference (e.g. `cx:grant:<uuidv7>` /
-    /// `cx:accountability_grant:<uuidv7>`) to the authorization artifact
+    /// CXP-0008 / CXP-0009 — typed reference (e.g. `ck:grant:<uuidv7>` /
+    /// `ck:accountability_grant:<uuidv7>`) to the authorization artifact
     /// that authorized this envelope. Conditional; when present, MUST be
     /// included in the canonical signing transcript.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -140,7 +140,7 @@ pub struct Event {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub actor_kind: Option<EnvelopeActorKind>,
     /// S-7 (savfox SDK gap, 2026-05-27) — when set, the typed Applet
-    /// id (`cx:applet:<uuidv7>`) that produced this Envelope. First-class
+    /// id (`ck:applet:<uuidv7>`) that produced this Envelope. First-class
     /// per `applet-integration.md` §8; included in the canonical
     /// signing transcript (folds naturally because top-level fields
     /// land in the canonical event bytes when present).
@@ -239,8 +239,8 @@ impl TryFrom<EventWire> for Event {
 /// an [`Event`].
 ///
 /// The wire form is an internally-tagged JSON object on `kind`:
-/// - `{ "kind": "realm", "realm_id": "cx:realm:..." }`
-/// - `{ "kind": "circle", "realm_id": "cx:realm:...", "circle_id": "cx:circle:..." }`
+/// - `{ "kind": "realm", "realm_id": "ck:realm:..." }`
+/// - `{ "kind": "circle", "realm_id": "ck:realm:...", "circle_id": "ck:circle:..." }`
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -381,7 +381,7 @@ impl Event {
         content: Value,
     ) -> Result<Self> {
         Ok(Self {
-            event_id: EventId::new(new_prefixed_uuid7("cx:event:"))?,
+            event_id: EventId::new(new_prefixed_uuid7("ck:event:"))?,
             kind: kind.into(),
             realm_id,
             actor_id,
@@ -502,7 +502,7 @@ mod applet_routing_field_tests {
     use serde_json::json;
 
     fn realm() -> RealmId {
-        RealmId::new("cx:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
+        RealmId::new("ck:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
     }
 
     fn alice() -> Did {
@@ -511,7 +511,7 @@ mod applet_routing_field_tests {
 
     fn base_event() -> Event {
         Event {
-            event_id: EventId::new("cx:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
+            event_id: EventId::new("ck:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
             kind: "cx.message.create".to_owned(),
             realm_id: realm(),
             actor_id: alice(),
@@ -551,7 +551,7 @@ mod applet_routing_field_tests {
     fn event_digest_changes_when_applet_id_is_set() {
         let baseline = base_event().event_digest().unwrap();
         let mut event = base_event();
-        event.applet_id = Some("cx:applet:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned());
+        event.applet_id = Some("ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned());
         let with = event.event_digest().unwrap();
         assert_ne!(baseline, with, "applet_id must enter the canonical event bytes");
     }
@@ -568,10 +568,10 @@ mod applet_routing_field_tests {
     #[test]
     fn event_round_trips_applet_id_and_external_ref() {
         let mut event = base_event();
-        event.applet_id = Some("cx:applet:01904100-0000-7000-8000-bbbbbbbbbbbb".to_owned());
+        event.applet_id = Some("ck:applet:01904100-0000-7000-8000-bbbbbbbbbbbb".to_owned());
         event.external_ref = Some(json!({"slack_msg_id": "1234567890.0001"}));
         let value = serde_json::to_value(&event).unwrap();
-        assert_eq!(value["applet_id"], "cx:applet:01904100-0000-7000-8000-bbbbbbbbbbbb");
+        assert_eq!(value["applet_id"], "ck:applet:01904100-0000-7000-8000-bbbbbbbbbbbb");
         assert_eq!(value["external_ref"]["slack_msg_id"], "1234567890.0001");
         let back: Event = serde_json::from_value(value).unwrap();
         assert_eq!(back.applet_id.as_deref(), event.applet_id.as_deref());
@@ -586,7 +586,7 @@ mod applet_routing_field_tests {
         value
             .as_object_mut()
             .unwrap()
-            .insert("payload".to_owned(), json!({"discussion_space_ref": "cx:space:old"}));
+            .insert("payload".to_owned(), json!({"discussion_space_ref": "ck:space:old"}));
 
         let err = serde_json::from_value::<Event>(value).unwrap_err();
         assert!(err.to_string().contains("forbidden wire field"));
@@ -598,7 +598,7 @@ mod applet_routing_field_tests {
         let mut value = serde_json::to_value(&event).unwrap();
         value.as_object_mut().unwrap().insert(
             "payload".to_owned(),
-            json!({"participant_identity": "cx:rtcpart:0198c2f4-0000-7000-8000-000000000000"}),
+            json!({"participant_identity": "ck:rtcpart:0198c2f4-0000-7000-8000-000000000000"}),
         );
 
         let err = serde_json::from_value::<Event>(value).unwrap_err();

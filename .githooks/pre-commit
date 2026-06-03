@@ -26,37 +26,37 @@ for path in $rust_touched; do
             workspace_touched=true
             ;;
         crates/api/*)
-            add_package contrix-api
+            add_package cokret-api
             ;;
         crates/core/*)
-            add_package contrix-core
+            add_package cokret-core
             ;;
         crates/crypto/*)
-            add_package contrix-crypto
+            add_package cokret-crypto
             ;;
         crates/ffi/*)
-            add_package contrix-ffi
+            add_package cokret-ffi
             ;;
         crates/html/*)
-            add_package contrix-html
+            add_package cokret-html
             ;;
         crates/http-client/*)
-            add_package contrix-http-client
+            add_package cokret-http-client
             ;;
         crates/identifiers/*)
-            add_package contrix-identifiers
+            add_package cokret-identifiers
             ;;
         crates/sdk/*)
-            add_package contrix
+            add_package cokret
             ;;
         crates/server/*)
-            add_package contrix-server
+            add_package cokret-server
             ;;
         crates/signatures/*)
-            add_package contrix-signatures
+            add_package cokret-signatures
             ;;
         crates/testing/*)
-            add_package contrix-testing
+            add_package cokret-testing
             ;;
         *)
             workspace_touched=true

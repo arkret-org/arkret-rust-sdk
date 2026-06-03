@@ -232,7 +232,7 @@ mod tests {
         assert!(directory.user_profile(&alice).is_some());
 
         let mut entry = SpaceSearchEntry::new(
-            SpaceId::new("cx:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+            SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             "Rust SDK",
         );
         entry.tags.insert("rust".to_owned());
@@ -255,7 +255,7 @@ mod tests {
             <html>
               <head>
                 <title>Fallback</title>
-                <meta property="og:title" content="Contrix">
+                <meta property="og:title" content="Cokret">
                 <meta property="og:description" content="SDK docs">
                 <meta property="og:image" content="https://example.com/og.png">
               </head>
@@ -264,7 +264,7 @@ mod tests {
         let mut cache = UrlPreviewCache::new();
         let preview = cache.parse_and_store("https://example.com", html);
 
-        assert_eq!(preview.title, Some("Contrix".to_owned()));
+        assert_eq!(preview.title, Some("Cokret".to_owned()));
         assert_eq!(preview.description, Some("SDK docs".to_owned()));
         assert!(cache.get("https://example.com").is_some());
         assert!(cache.clear("https://example.com"));
