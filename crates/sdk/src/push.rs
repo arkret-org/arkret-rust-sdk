@@ -360,7 +360,7 @@ mod tests {
             event_id: EventId::new("ck:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
             user_id: did("alice"),
             space_id: Some(RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()),
-            event_kind: "cx.message".to_owned(),
+            event_kind: "ck.message".to_owned(),
             content: json!({"body": "hello"}),
             encrypted,
         }
@@ -379,7 +379,7 @@ mod tests {
         gateway.upsert_rule(PushRule {
             rule_id: "messages".to_owned(),
             enabled: true,
-            event_kind: Some("cx.message".to_owned()),
+            event_kind: Some("ck.message".to_owned()),
             priority: PushPriority::High,
             redact_content: false,
         });

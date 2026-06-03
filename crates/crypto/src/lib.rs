@@ -85,28 +85,28 @@ pub trait Validate {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CryptoMachineRequestKind {
-    /// `cx.keys.upload_device_keys` — publish this device's keys.
+    /// `ck.keys.upload_device_keys` — publish this device's keys.
     UploadDeviceKeys,
-    /// `cx.keys.query_device_keys` — fetch peers' keys.
+    /// `ck.keys.query_device_keys` — fetch peers' keys.
     QueryDeviceKeys,
-    /// `cx.keys.claim_one_time_keys` — claim peers' one-time keys.
+    /// `ck.keys.claim_one_time_keys` — claim peers' one-time keys.
     ClaimOneTimeKeys,
-    /// `cx.event.encrypt` — encrypt an event into a Space session.
+    /// `ck.event.encrypt` — encrypt an event into a Space session.
     EncryptEvent,
-    /// `cx.event.decrypt` — decrypt a received encrypted event.
+    /// `ck.event.decrypt` — decrypt a received encrypted event.
     DecryptEvent,
-    /// `cx.keys.share_room_key` — distribute a Space session key.
+    /// `ck.keys.share_room_key` — distribute a Space session key.
     ShareRoomKey,
-    /// `cx.keys.request_room_key` — request a missing session key.
+    /// `ck.keys.request_room_key` — request a missing session key.
     RequestRoomKey,
-    /// `cx.keys.backup_secrets` — push to secret backup storage.
+    /// `ck.keys.backup_secrets` — push to secret backup storage.
     BackupSecrets,
-    /// `cx.keys.restore_secrets` — pull from secret backup storage.
+    /// `ck.keys.restore_secrets` — pull from secret backup storage.
     RestoreSecrets,
 }
 
 /// Per-device public key bundle published via
-/// `cx.keys.upload_device_keys`.
+/// `ck.keys.upload_device_keys`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DeviceKeyBundle {
     pub user_id: Did,
@@ -222,7 +222,7 @@ pub enum CrossSigningKeyKind {
     UserSigning,
 }
 
-/// Public key record used inside `cx.cross_signing.publish.v1` content.
+/// Public key record used inside `ck.cross_signing.publish.v1` content.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CrossSigningKeyRecord {
     /// Verification method id, e.g. `did:webvh:...#cx_self_signing_v1`.
@@ -263,7 +263,7 @@ pub struct CrossSigningBinding {
     pub signature: String,
 }
 
-/// `cx.cross_signing.publish.v1` content (spec §5.1).
+/// `ck.cross_signing.publish.v1` content (spec §5.1).
 ///
 /// Round 4 (2026-05-20, spec a77b995) — wire-breaking: adds required
 /// `expected_previous_generation` so the reducer can run a CAS check
@@ -372,7 +372,7 @@ impl CrossSigningPublishContent {
     }
 }
 
-/// `cx.cross_signing.reset.v1` content (spec §14.1).
+/// `ck.cross_signing.reset.v1` content (spec §14.1).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CrossSigningResetContent {
     pub principal_id: Did,
@@ -671,7 +671,7 @@ fn canonical_device_trust_binding_input(
 }
 
 /// Interactive verification-flow state machine
-/// (`cx.device.verification.v1`).
+/// (`ck.device.verification.v1`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum VerificationFlowState {
@@ -1043,14 +1043,14 @@ pub enum CryptoMachineReqBody {
     },
     /// Matrix/MIMI compat name. The v1 concept is sharing a Space
     /// E2EE session key — the `ShareRoomKey` variant name maps to the
-    /// `cx.keys.room_key` interop device-message kind.
+    /// `ck.keys.room_key` interop device-message kind.
     ShareRoomKey {
         space_id: RealmId,
         session_id: String,
         recipients: Vec<DeviceId>,
     },
     /// Matrix/MIMI compat name. Requests a Space E2EE session key
-    /// re-share from peers; maps to the interop `cx.keys.room_key`
+    /// re-share from peers; maps to the interop `ck.keys.room_key`
     /// device-message kind.
     RequestRoomKey {
         event_id: EventId,

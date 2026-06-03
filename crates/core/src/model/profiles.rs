@@ -289,14 +289,14 @@ impl Morph {
             .or(self.summary.as_deref())
     }
 
-    /// Validate that `morph_type` does not use the reserved `cx.` prefix
-    /// for unregistered types (data-structures.md §7).
-    pub fn validate_morph_type(&self, registered_cx_types: &[&str]) -> Result<()> {
-        if self.morph_type.starts_with("cx.")
-            && !registered_cx_types.contains(&self.morph_type.as_str())
+    /// Validate that `morph_type` does not use the reserved `ck.` prefix
+    /// for unregistered types (morph.md §3 / data-structures.md §7).
+    pub fn validate_morph_type(&self, registered_ck_types: &[&str]) -> Result<()> {
+        if self.morph_type.starts_with("ck.")
+            && !registered_ck_types.contains(&self.morph_type.as_str())
         {
             return Err(Error::Protocol(format!(
-                "morph_type '{}' uses reserved cx. prefix without registration",
+                "morph_type '{}' uses reserved ck. prefix without registration",
                 self.morph_type
             )));
         }

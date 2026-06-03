@@ -133,7 +133,7 @@ impl MlsAddMemberResult {
 
     pub fn welcome_to_device_message(&self) -> Result<ToDeviceMessage> {
         Ok(ToDeviceMessage {
-            message_type: "cx.mls.welcome.v1".to_owned(),
+            message_type: "ck.mls.welcome.v1".to_owned(),
             sender_principal_id: None,
             sender_device_id: None,
             recipient_principal_id: None,
@@ -550,7 +550,7 @@ impl CokretMlsGroup {
     /// Snapshot the current MLS group's member principals as canonical IDs.
     /// Iterates the OpenMLS `members()` view, parses each leaf's credential
     /// content as a UTF-8 DID string, and folds the results into a stable
-    /// (deduplicated, BTreeSet-sorted) `Vec<Did>`. Useful for `cx.audit.
+    /// (deduplicated, BTreeSet-sorted) `Vec<Did>`. Useful for `ck.audit.
     /// ryw_receipt.delivered_to_devices` and for downstream auditors that
     /// want to know "which principals does this commit reach".
     ///
@@ -1568,7 +1568,7 @@ mod tests {
         let to_device = add_result.welcome_to_device_message().unwrap();
 
         assert_eq!(operation.object_type, "mls_commit");
-        assert_eq!(to_device.message_type, "cx.mls.welcome.v1");
+        assert_eq!(to_device.message_type, "ck.mls.welcome.v1");
         assert_eq!(
             to_device.content["recipient_device_id"],
             "ck:device:01904100-0000-7000-8000-00000000000e"

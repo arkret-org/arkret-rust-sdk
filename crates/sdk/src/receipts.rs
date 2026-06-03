@@ -2,14 +2,14 @@
 //!
 //! In addition to per-actor receipts and markers, this module hosts the
 //! Space `ReadReceiptPolicy` typed model (component cell
-//! `cx.component.space.read_receipt_policy.v1`) and the
+//! `ck.component.space.read_receipt_policy.v1`) and the
 //! `ReadReceiptPreferences` actor-private account-data model
 //! (standard key `ck.read_receipt.preferences`). Together they implement
 //! the disclosure / preference rules from spec
 //! `discovery/read-receipts.md` §2.4-§2.5 and
 //! `discovery/client-preferences.md` §3.6.
 //!
-//! Note: the `cx.flow.track.read_receipt_policy` cell was REMOVED in
+//! Note: the `ck.flow.track.read_receipt_policy` cell was REMOVED in
 //! cokret-spec revision `0a5ab85` (see
 //! `cokret-spec/spec/v1/artifacts/registry/removed-event-kinds.json`).
 //! Read receipts evaluate at the Space / child Space level only — create
@@ -245,8 +245,8 @@ pub enum ReadReceiptVisibility {
 /// Typed value of the read-receipt disclosure policy cell.
 ///
 /// Carried only by the Space-level cell
-/// `cx.component.space.read_receipt_policy.v1`. The Flow-track variant
-/// (`cx.flow.track.read_receipt_policy`) was removed from spec
+/// `ck.component.space.read_receipt_policy.v1`. The Flow-track variant
+/// (`ck.flow.track.read_receipt_policy`) was removed from spec
 /// revision `0a5ab85`; create a child Space for an independent
 /// disclosure boundary instead.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

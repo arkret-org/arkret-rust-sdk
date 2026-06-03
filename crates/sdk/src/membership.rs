@@ -539,7 +539,7 @@ impl MembershipManager {
     }
 }
 
-// Track-scoped membership (`cx.flow.track.member` and
+// Track-scoped membership (`ck.flow.track.member` and
 // `FlowTrackMembership` / `FlowTrackMembershipManager`) was REMOVED in
 // cokret-spec revision `0a5ab85`. Track no longer carries independent
 // membership; access semantics inherit from the Flow's Space. Use

@@ -66,7 +66,7 @@ mod tests {
 
     fn cell() -> CellRef {
         CellRef::new(
-            "ck:cell:cx.component.space.title.v1:cx.space.01js0sp00000000000000000aa".to_owned(),
+            "ck:cell:ck.component.space.title.v1:ck.space.01js0sp00000000000000000aa".to_owned(),
         )
         .unwrap()
     }

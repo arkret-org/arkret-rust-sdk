@@ -40,7 +40,7 @@ pub enum ProtocolSessionStatus {
     Cancelled,
 }
 
-/// Wire shape for the `cx.agent.*` event family
+/// Wire shape for the `ck.agent.*` event family
 /// (`agent.schema.json`). Mirrors the applet envelope but terminates
 /// in a `*.result` event carrying [`AgentAuditBinding`].
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -101,7 +101,7 @@ pub struct AgentAuditBinding {
 // Applet protocol envelope (applet.schema.json)
 // ---------------------------------------------------------------------------
 
-/// Wire shape for the `cx.applet.*` event family
+/// Wire shape for the `ck.applet.*` event family
 /// (`applet.schema.json`): registration, discovery,
 /// `protocol_session.start`, `.status`, and `bridge_error`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -202,7 +202,7 @@ pub struct ModerationEvidencePolicy {
     pub legal_hold: Option<bool>,
 }
 
-/// Moderation queue container (`cx.component.moderation_queue.v1` cell
+/// Moderation queue container (`ck.component.moderation_queue.v1` cell
 /// body). Mirrors `moderation-queue-item.schema.json`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

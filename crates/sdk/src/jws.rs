@@ -551,14 +551,14 @@ mod tests {
 
     #[test]
     fn effective_window_picks_default_when_no_overrides_apply() {
-        let m = build_test_move_touching("ck:cell:cx.component.message.create.v1:cx.event.foo", 0);
+        let m = build_test_move_touching("ck:cell:ck.component.message.create.v1:ck.event.foo", 0);
         let overrides = BTreeMap::new();
         assert_eq!(effective_window_for_move(&m, 300, &overrides), 300);
     }
 
     #[test]
     fn effective_window_uses_anchorer_override_when_anchorer_cell_touched() {
-        let m = build_test_move_touching("ck:cell:ck.component.anchorer.v1:cx.space.x", 0);
+        let m = build_test_move_touching("ck:cell:ck.component.anchorer.v1:ck.space.x", 0);
         let mut overrides = BTreeMap::new();
         overrides.insert("ck.component.anchorer.v1", 60u64);
         // Default 300, anchorer override 60 -> effective 60.
@@ -567,7 +567,7 @@ mod tests {
 
     #[test]
     fn effective_window_takes_minimum_when_default_tighter_than_override() {
-        let m = build_test_move_touching("ck:cell:ck.component.anchorer.v1:cx.space.x", 0);
+        let m = build_test_move_touching("ck:cell:ck.component.anchorer.v1:ck.space.x", 0);
         let mut overrides = BTreeMap::new();
         overrides.insert("ck.component.anchorer.v1", 600u64); // looser than default
         // Default 300, anchorer override 600 -> min = 300 (default wins because tighter).
@@ -578,7 +578,7 @@ mod tests {
     fn effective_window_zero_default_with_override_uses_override() {
         // Test config has window=0 but spec-critical cells should still
         // be window-checked. The override "wins" in this case.
-        let m = build_test_move_touching("ck:cell:ck.component.anchorer.v1:cx.space.x", 0);
+        let m = build_test_move_touching("ck:cell:ck.component.anchorer.v1:ck.space.x", 0);
         let mut overrides = BTreeMap::new();
         overrides.insert("ck.component.anchorer.v1", 60u64);
         assert_eq!(effective_window_for_move(&m, 0, &overrides), 60);
@@ -589,7 +589,7 @@ mod tests {
         let now = Utc::now();
         let two_min_ago_ms = (now - Duration::minutes(2)).timestamp_millis() as u64;
         let m =
-            build_test_move_touching("ck:cell:ck.component.anchorer.v1:cx.space.x", two_min_ago_ms);
+            build_test_move_touching("ck:cell:ck.component.anchorer.v1:ck.space.x", two_min_ago_ms);
         let mut overrides = BTreeMap::new();
         overrides.insert("ck.component.anchorer.v1", 60u64);
         let err = verify_replay_window_for_move_at(&m, 300, &overrides, now).unwrap_err();
@@ -604,7 +604,7 @@ mod tests {
         let now = Utc::now();
         let two_min_ago_ms = (now - Duration::minutes(2)).timestamp_millis() as u64;
         let m = build_test_move_touching(
-            "ck:cell:cx.component.message.create.v1:cx.event.foo",
+            "ck:cell:ck.component.message.create.v1:ck.event.foo",
             two_min_ago_ms,
         );
         // Default 300s, no override for message family -> 2min = 120s < 300s -> accept.

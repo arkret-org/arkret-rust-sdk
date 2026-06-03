@@ -108,7 +108,7 @@ mod tests {
 
     fn cell() -> CellRef {
         CellRef::new(
-            "ck:cell:cx.component.audit.log.v1:cx.audit.01js0au0000000000000000000".to_owned(),
+            "ck:cell:ck.component.audit.log.v1:ck.audit.01js0au0000000000000000000".to_owned(),
         )
         .unwrap()
     }

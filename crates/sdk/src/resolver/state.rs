@@ -202,7 +202,7 @@ impl SpaceState {
             OP_VIEW_RECONCILE => self.reconcile_view(event)?,
 
             // Realm lifecycle - generic state reduction. Container-level
-            // (`cx.space.*`) lifecycle is covered by the OP_SPACE_* arms above.
+            // (`ck.space.*`) lifecycle is covered by the OP_SPACE_* arms above.
             "ck.realm.create"
             | "ck.realm.update"
             | "ck.realm.organization"
@@ -230,8 +230,8 @@ impl SpaceState {
             // event-auth-state-resolution.md). The cell subject is the
             // account DID; the latest event wins per HLC ordering.
             | "ck.account.status"
-            | "cx.account.deactivation"
-            | "cx.account.erasure"
+            | "ck.account.deactivation"
+            | "ck.account.erasure"
             // Moderation reports / franks (moderation.md §3).
             // Reports are state events keyed by `(target_ref, reporter)`;
             // franks bind a per-message receipt for E2EE accountability.
@@ -256,7 +256,7 @@ impl SpaceState {
             // rejects already-terminal source with `<kind>_already_terminal`.
             // Space is excluded — spec note "Space has no redacted state" routes
             // Space removal through `ck.space.tombstone` only.
-            "cx.redaction" => {
+            "ck.redaction" => {
                 self.redact_object_for_event(event)?;
                 if let Some(redacted_ref) = &event.redacts {
                     self.redact_event(redacted_ref)?;
@@ -1051,10 +1051,10 @@ impl SpaceState {
         let subject = self.subject_for_event(event)?;
         let family = match event.kind.as_str() {
             "ck.capability.grant" | "ck.capability.delegate" | "ck.capability.revoke" => {
-                "cx.capability"
+                "ck.capability"
             }
-            "ck.invite.create" | "ck.invite.cancel" | "ck.invite.accept" => "cx.invite",
-            "ck.realm.policy" | "ck.policy.set" => "cx.policy",
+            "ck.invite.create" | "ck.invite.cancel" | "ck.invite.accept" => "ck.invite",
+            "ck.realm.policy" | "ck.policy.set" => "ck.policy",
             other => other,
         };
         let map_key = format!("{}|{}", family, subject);
@@ -1217,7 +1217,7 @@ impl SpaceState {
     }
 
     /// Round 11 (2026-05-16) — Object-level redaction state-machine
-    /// guard for `cx.redaction` events. Looks at the redaction event's
+    /// guard for `ck.redaction` events. Looks at the redaction event's
     /// content for `object_ref`, and when that points to a Flow / Morph
     /// subject, flips the projection state to `ObjectState::Redacted` per
     /// spec common-fields.md §5.1. Source state MUST be `Active` or
@@ -1257,7 +1257,7 @@ impl SpaceState {
         // Unknown object — causal / backfill window. Tolerate silently
         // (mirrors restore_*/archive_* guards). Note that Place is also
         // hit here when `object_ref` is `ck:space:...` and Place is
-        // unmaterialised; that's also fine because cx.redaction targeting
+        // unmaterialised; that's also fine because ck.redaction targeting
         // a Place is undefined per spec (no `Redacted` variant), and
         // any place removal flow uses `ck.space.tombstone` directly.
         Ok(())
@@ -1314,13 +1314,13 @@ impl SpaceState {
         matches!(
             event.kind.as_str(),
             "ck.message.redact"
-                | "cx.realm.redact"
-                | "cx.realm.export"
-                | "cx.realm.legal_hold"
-                | "cx.realm.migration_proof"
+                | "ck.realm.redact"
+                | "ck.realm.export"
+                | "ck.realm.legal_hold"
+                | "ck.realm.migration_proof"
                 | "ck.realm.upgrade"
                 | "ck.realm.destroy"
-                | "cx.redaction"
+                | "ck.redaction"
         ) || event.redacts.is_some()
     }
 
@@ -1509,7 +1509,7 @@ impl SpaceState {
     }
 
     pub fn effective_capability(&self, capability_id: &str) -> Option<&ResolvedStateEvent> {
-        self.resolved_state.get(&format!("cx.capability|{}", capability_id)).filter(|event| {
+        self.resolved_state.get(&format!("ck.capability|{}", capability_id)).filter(|event| {
             matches!(event.kind.as_str(), "ck.capability.grant" | "ck.capability.delegate")
         })
     }

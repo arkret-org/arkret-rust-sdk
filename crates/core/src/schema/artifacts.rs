@@ -164,7 +164,7 @@ impl SpecArtifactBundle {
         ))
     }
 
-    /// Return every `cx.profile.*.vN` ID referenced by the conformance profile
+    /// Return every `ck.profile.*.vN` ID referenced by the conformance profile
     /// artifact, including profile requirement keys and optional-extension refs.
     pub fn profile_ids(&self) -> BTreeSet<String> {
         let mut ids = BTreeSet::new();
@@ -433,10 +433,9 @@ impl ArtifactDriftReport {
 pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     // Realm/Space inversion (spec 59ac1d4): `ck.schema.realm.v1` is the new
     // security-boundary schema. `ck.schema.space.v1` is now the container
-    // schema (former `cx.schema.place.v1` is removed).
+    // schema (former `ck.schema.place.v1` is removed).
     "ck.schema.realm.v1",
     REALM_JOIN_CANDIDATE_SCHEMA,
-    "ck.schema.space.v1",
     "ck.schema.actor_profile.v1",
     "ck.schema.message.v1",
     "ck.schema.morph.v1",
@@ -488,6 +487,8 @@ pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     // recovery receipt schemas.
     "ck.schema.recovery_policy.v1",
     "ck.schema.recovery_receipt.v1",
+    "ck.schema.recovery_session.v1",
+    "ck.schema.service_describe.v1",
     EVENT_SCHEMA,
     EVENT_PAYLOAD_SCHEMA,
     FLOW_SCHEMA,
@@ -654,7 +655,7 @@ fn collect_profile_ids(value: &Value, out: &mut BTreeSet<String>) {
 }
 
 fn is_profile_id(value: &str) -> bool {
-    value.starts_with("cx.profile.") && value.rsplit_once(".v").is_some()
+    value.starts_with("ck.profile.") && value.rsplit_once(".v").is_some()
 }
 
 fn optional_string_array(value: &Value, field: &str, profile_id: &str) -> Result<Vec<String>> {

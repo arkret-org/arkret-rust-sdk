@@ -12,7 +12,7 @@ file.
 
 **Status:** **Resolved this release (S-7).**
 
-`spec/v1/zh/applet-integration.md` §8 shows `cx.applet.bridge_event`
+`spec/v1/zh/applet-integration.md` §8 shows `ck.applet.bridge_event`
 Envelopes carrying top-level `applet_id` and `external_ref`. Prior to
 this release the SDK had no slot for either field; downstream
 integrators (savfox `crates/channels/src/cokret/applet/outbound.rs`)
@@ -57,7 +57,7 @@ available as `cokret::WireAppletRegistration`. Sign it with
 
 ## 3. Other intentionally-deferred items
 
-- `cx.principal.provision` / managed-account auto-creation lives in
+- `ck.principal.provision` / managed-account auto-creation lives in
   `cokret-spec` proposal review. Not in scope for the SDK until the
   spec lands.
 - MLS / E2EE Ghost actor encryption path: spec §12 defines it but

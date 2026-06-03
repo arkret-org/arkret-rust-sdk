@@ -22,7 +22,7 @@ pub const AGENT_ACTION_REQUEST: &str = "ck.agent.action_request";
 pub const AGENT_ACTION_APPROVE: &str = "ck.agent.action_approve";
 pub const AGENT_ACTION_REJECT: &str = "ck.agent.action_reject";
 pub const AGENT_PROTOCOL_SESSION_RESULT: &str = "ck.agent.protocol_session.result";
-pub const AGENT_PROTOCOL_SESSION_START: &str = "ck.agent.session.start";
+pub const AGENT_PROTOCOL_SESSION_START: &str = "ck.agent.protocol_session.start";
 pub const AGENT_PROTOCOL_SESSION_STATUS: &str = "ck.agent.protocol_session.status";
 pub const APPLET_BRIDGE_ERROR: &str = "ck.applet.bridge_error";
 pub const APPLET_DISCOVERY: &str = "ck.applet.discovery";
@@ -114,10 +114,10 @@ pub const MODERATION_FRANKING_PROOF: &str = "ck.moderation.franking_proof";
 pub const MODERATION_FRANK: &str = MODERATION_FRANKING_PROOF;
 pub const MODERATION_REPORT: &str = "ck.moderation.report";
 
-/// Object-only schema id — `cx.event_batch_receipt` is NOT an Event.kind.
+/// Object-only schema id — `ck.event_batch_receipt` is NOT an Event.kind.
 /// Returns `true` for kinds that may only appear as a separate object,
 /// MUST NOT appear as `Event.kind` on the wire. Round R2/R3 (2026-05-20).
-pub const RECEIPT_OBJECT_KINDS: &[&str] = &["cx.event_batch_receipt"];
+pub const RECEIPT_OBJECT_KINDS: &[&str] = &["ck.event_batch_receipt"];
 
 /// Broadcast ephemeral signal kinds + the to-device key-verification family.
 /// Round R2/R3 (2026-05-20). Items here MUST NOT be reduced into durable
@@ -143,7 +143,7 @@ pub const EPHEMERAL_EVENT_KIND_PATTERNS: &[&str] = &[
 ];
 
 /// True for the 12 wire-scope-ephemeral kinds — broadcast ephemerals
-/// (`ck.call.signal`, `cx.presence`, `cx.typing`, `ck.receipt.read`) plus
+/// (`ck.call.signal`, `ck.presence`, `ck.typing`, `ck.receipt.read`) plus
 /// the `ck.key.verification.*` to-device family. These MUST be rejected by
 /// reducers if delivered as a durable Event (event-envelope.schema.json `not` branch).
 pub fn is_ephemeral_kind(kind: &str) -> bool {
@@ -154,7 +154,7 @@ pub fn is_ephemeral_kind(kind: &str) -> bool {
 }
 
 /// True for receipt-style object-only schema ids that MUST NOT appear as
-/// `Event.kind` on the wire (`cx.event_batch_receipt`). Round R2/R3.
+/// `Event.kind` on the wire (`ck.event_batch_receipt`). Round R2/R3.
 pub fn is_receipt_object_only(kind: &str) -> bool {
     RECEIPT_OBJECT_KINDS.contains(&kind)
 }
@@ -241,7 +241,7 @@ pub const REALM_UPGRADE: &str = "ck.realm.upgrade";
 pub const POLICY_ACTION: &str = "ck.policy.action";
 pub const POLICY_RULE: &str = "ck.policy.rule";
 pub const POLICY_SET: &str = "ck.policy.set";
-pub const PRESENCE: &str = "cx.presence";
+pub const PRESENCE: &str = "ck.presence";
 pub const PROFILE_CREATE: &str = "ck.profile.create";
 pub const PROFILE_SPACE_OVERRIDE: &str = "ck.profile.space_override";
 pub const PROFILE_UPDATE: &str = "ck.profile.update";
@@ -250,7 +250,7 @@ pub const REACTION_REMOVE: &str = "ck.reaction.remove";
 pub const READ_CURSOR_ADVANCE: &str = "ck.read_cursor.advance";
 pub const READ_MARKER: &str = READ_CURSOR_ADVANCE;
 pub const RECEIPT_READ: &str = "ck.receipt.read";
-pub const REDACTION: &str = "cx.redaction";
+pub const REDACTION: &str = "ck.redaction";
 pub const RELATION_CREATE: &str = "ck.relation.create";
 pub const RELATION_TOMBSTONE: &str = "ck.relation.tombstone";
 pub const RELATION_DELETE: &str = RELATION_TOMBSTONE;
@@ -268,7 +268,7 @@ pub const SPACE_PARENT: &str = "ck.space.parent";
 pub const SPACE_RESTORE: &str = "ck.space.restore";
 pub const SPACE_TOMBSTONE: &str = "ck.space.tombstone";
 pub const SPACE_UPDATE: &str = "ck.space.update";
-pub const TYPING: &str = "cx.typing";
+pub const TYPING: &str = "ck.typing";
 pub const VIEW_CREATE: &str = "ck.view.create";
 pub const VIEW_RECONCILE: &str = "ck.view.reconcile";
 pub const VIEW_UPDATE: &str = "ck.view.update";
@@ -687,7 +687,7 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
 // enum while still giving function signatures a type-safe alternative
 // to bare `&str`.
 
-/// Validated wrapper around one of the canonical `cx.*` event kinds.
+/// Validated wrapper around one of the canonical `ck.*` event kinds.
 ///
 /// Use [`EventKind::try_new`] to parse an untrusted wire string, or
 /// [`EventKind::from_const`] when you have one of the `pub const *`

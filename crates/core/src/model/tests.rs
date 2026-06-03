@@ -100,7 +100,7 @@ fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
 
     assert_eq!(
         event.event_digest().unwrap(),
-        "sha256:3912394f11171b786c8c8c42306589143eb65cdc316af6145cc3b9548660430b"
+        "sha256:533f847cefd04de2dfa28b6f0651ec8debcedf5bf9c61df9defea00ebcd66b61"
     );
 }
 
@@ -416,10 +416,10 @@ fn schema_registry_generates_runtime_validators_from_supported_schema_subset() {
     registry.generated_validator(EVENT_SCHEMA).unwrap().validate(&sensitive_extension).unwrap();
 
     registry.register(
-        "cx.schema.strict.v1",
+        "ck.schema.strict.v1",
         json!({
             "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "$id": "cx.schema.strict.v1",
+            "$id": "ck.schema.strict.v1",
             "type": "object",
             "required": ["id"],
             "properties": {"id": {"type": "string"}},
@@ -428,7 +428,7 @@ fn schema_registry_generates_runtime_validators_from_supported_schema_subset() {
     );
     assert!(
         registry
-            .generated_validator("cx.schema.strict.v1")
+            .generated_validator("ck.schema.strict.v1")
             .unwrap()
             .validate(&json!({"id": "1", "extra": true}))
             .is_err()
@@ -1052,11 +1052,11 @@ fn event_digest_includes_profile_refs_features_and_critical_extensions() {
     .unwrap();
     let base_digest = event.event_digest().unwrap();
 
-    event.requirements.schema_profile_refs.push("cx.schema.core_event.v1".to_owned());
-    event.requirements.reducer_profile_ref = Some("cx.reducer.core_event.v1".to_owned());
-    event.requirements.required_features.push("cx.feature.event_extensions.v1".to_owned());
+    event.requirements.schema_profile_refs.push("ck.schema.core_event.v1".to_owned());
+    event.requirements.reducer_profile_ref = Some("ck.reducer.core_event.v1".to_owned());
+    event.requirements.required_features.push("ck.feature.event_extensions.v1".to_owned());
     event.requirements.critical_extensions.push(CriticalExtension {
-        id: "cx.feature.policy_gate.v1".to_owned(),
+        id: "ck.feature.policy_gate.v1".to_owned(),
         scope: "authz".to_owned(),
         schema_ref: Some("ck.schema.policy.v1".to_owned()),
         fail_closed: true,
@@ -1065,9 +1065,9 @@ fn event_digest_includes_profile_refs_features_and_critical_extensions() {
     assert_ne!(base_digest, event.event_digest().unwrap());
     let value = serde_json::to_value(&event).unwrap();
     assert!(value.get("schema_profile_refs").is_none());
-    assert_eq!(value["requirements"]["schema"][0], "cx.schema.core_event.v1");
-    assert_eq!(value["requirements"]["reducer"], "cx.reducer.core_event.v1");
-    assert_eq!(value["requirements"]["features"][0], "cx.feature.event_extensions.v1");
+    assert_eq!(value["requirements"]["schema"][0], "ck.schema.core_event.v1");
+    assert_eq!(value["requirements"]["reducer"], "ck.reducer.core_event.v1");
+    assert_eq!(value["requirements"]["features"][0], "ck.feature.event_extensions.v1");
 
     event.requirements.critical_extensions[0].fail_closed = false;
     assert!(event.validate_for_submit().is_err());
@@ -1254,14 +1254,14 @@ fn space_anchor_fields_default_none_and_builders_apply() {
             ],
         })
         .with_max_anchor_staleness(60_000)
-        .with_cell_lattice("cx.component.flow.track.v1", "or_set", Some("reject".to_owned()))
+        .with_cell_lattice("ck.component.flow.track.v1", "or_set", Some("reject".to_owned()))
         .with_co_write_policy(CoWritePolicy::CausalOnly);
 
     assert_eq!(space.anchor_profile, Some(AnchorProfile::Threshold));
     assert!(matches!(space.anchorer, Some(AnchorerValue::Threshold { k: 2, n: 3, .. })));
     assert_eq!(space.max_anchor_staleness_ms, Some(60_000));
     assert_eq!(space.cell_lattices.len(), 1);
-    assert_eq!(space.cell_lattices[0].cell_family, "cx.component.flow.track.v1");
+    assert_eq!(space.cell_lattices[0].cell_family, "ck.component.flow.track.v1");
     assert_eq!(space.cell_lattices[0].lattice, "or_set");
     assert_eq!(space.cell_lattices[0].bottom.as_deref(), Some("reject"));
     assert_eq!(space.co_write_policy, Some(CoWritePolicy::CausalOnly));
@@ -1271,7 +1271,7 @@ fn space_anchor_fields_default_none_and_builders_apply() {
     assert_eq!(json["anchor_profile"], "threshold");
     assert_eq!(json["max_anchor_staleness_ms"], 60_000);
     assert_eq!(json["co_write_policy"], "causal_only");
-    assert_eq!(json["cell_lattices"][0]["cell_family"], "cx.component.flow.track.v1");
+    assert_eq!(json["cell_lattices"][0]["cell_family"], "ck.component.flow.track.v1");
 
     let restored: Space = serde_json::from_value(json).unwrap();
     assert_eq!(restored.anchor_profile, space.anchor_profile);

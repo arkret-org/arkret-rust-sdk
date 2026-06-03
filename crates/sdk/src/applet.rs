@@ -1173,7 +1173,7 @@ mod tests {
             did("alice"),
             "https://applet.example/cx",
             did("bot"),
-            vec!["cx.applet.v1".to_owned()],
+            vec!["ck.applet.v1".to_owned()],
             AppletWireNamespaces {
                 actors: vec!["did:web:slackbridge.example#ghost-*".to_owned()],
                 realms: vec![],

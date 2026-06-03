@@ -282,7 +282,7 @@ fn profile_requirement_drift_reports_missing_sdk_constants() {
     profile_requirements.insert(
         crate::PROFILE_DIRECTORY_SERVICE.to_owned(),
         json!({
-            "required_endpoints": ["ck.directory.search_realms", "cx.missing.operation"],
+            "required_endpoints": ["ck.directory.search_realms", "ck.missing.operation"],
             "required_event_kinds": ["ck.realm.discovery"],
             "required_schemas": ["ck.schema.actor_profile.v1"]
         }),
@@ -309,7 +309,7 @@ fn profile_requirement_drift_reports_missing_sdk_constants() {
         report
             .profile_requirement_issues
             .iter()
-            .any(|issue| issue.contains("cx.missing.operation")),
+            .any(|issue| issue.contains("ck.missing.operation")),
         "{:?}",
         report.profile_requirement_issues
     );
@@ -374,10 +374,10 @@ fn generated_profile_constants_match_artifact_profile_ids() {
 fn schema_registry_enforces_json_schema_composition_and_value_rules() {
     let mut registry = ProtocolSchemaRegistry::new();
     registry.register(
-        "cx.schema.deep_test.v1",
+        "ck.schema.deep_test.v1",
         json!({
             "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "$id": "cx.schema.deep_test.v1",
+            "$id": "ck.schema.deep_test.v1",
             "type": "object",
             "required": ["kind", "items", "target"],
             "properties": {
@@ -403,14 +403,14 @@ fn schema_registry_enforces_json_schema_composition_and_value_rules() {
     );
     registry
         .validate_value(
-            "cx.schema.deep_test.v1",
+            "ck.schema.deep_test.v1",
             &json!({"kind": "demo", "items": ["alpha"], "target": "user", "x_role": "member"}),
         )
         .unwrap();
     assert!(
         registry
             .validate_value(
-                "cx.schema.deep_test.v1",
+                "ck.schema.deep_test.v1",
                 &json!({"kind": "demo", "items": [], "target": "user"}),
             )
             .is_err()
@@ -418,7 +418,7 @@ fn schema_registry_enforces_json_schema_composition_and_value_rules() {
     assert!(
         registry
             .validate_value(
-                "cx.schema.deep_test.v1",
+                "ck.schema.deep_test.v1",
                 &json!({"kind": "demo", "items": ["alpha"], "target": "other"}),
             )
             .is_err()
@@ -426,7 +426,7 @@ fn schema_registry_enforces_json_schema_composition_and_value_rules() {
     assert!(
         registry
             .validate_value(
-                "cx.schema.deep_test.v1",
+                "ck.schema.deep_test.v1",
                 &json!({"kind": "other", "items": ["alpha"], "target": "user"}),
             )
             .is_err()
@@ -434,7 +434,7 @@ fn schema_registry_enforces_json_schema_composition_and_value_rules() {
     assert!(
         registry
             .validate_value(
-                "cx.schema.deep_test.v1",
+                "ck.schema.deep_test.v1",
                 &json!({"kind": "demo", "items": ["alpha"], "target": "user", "extra": true}),
             )
             .is_err()
@@ -442,7 +442,7 @@ fn schema_registry_enforces_json_schema_composition_and_value_rules() {
     assert!(
         registry
             .validate_value(
-                "cx.schema.deep_test.v1",
+                "ck.schema.deep_test.v1",
                 &json!({"kind": "demo", "items": ["alpha"], "target": "user", "x_role": false}),
             )
             .is_err()
@@ -579,7 +579,7 @@ fn component_descriptor_resolves_canonical_and_alias_kinds() {
         .unwrap()
         .expect("ck.capability.grant should be registered");
     assert_eq!(canonical.criticality, Criticality::Required);
-    assert!(canonical.component_type.starts_with("cx.component."));
+    assert!(canonical.component_type.starts_with("ck.component."));
     assert!(canonical.component_version >= 1);
     assert!(canonical.component_slot_alias_of.is_none());
 
@@ -597,7 +597,7 @@ fn component_descriptor_resolves_canonical_and_alias_kinds() {
     assert_eq!(alias.component_version, canonical.component_version);
 
     // Unknown kind is a clean None, not an error.
-    assert!(bundle.component("cx.bogus.kind").unwrap().is_none());
+    assert!(bundle.component("ck.bogus.kind").unwrap().is_none());
 }
 
 #[test]

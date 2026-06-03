@@ -24,7 +24,7 @@ const NONCE_LEN: usize = 24;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EncryptedEnvelopeAad {
     pub space_id: String,
-    /// Canonical event kind (`cx.<category>.<verb>`).
+    /// Canonical event kind (`ck.<category>.<verb>`).
     #[serde(rename = "event_kind")]
     pub event_kind: String,
     pub event_id: String,

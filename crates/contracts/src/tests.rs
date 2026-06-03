@@ -51,7 +51,7 @@ fn core_registry_matches_spec_operation_registry_when_available() {
 #[test]
 fn push_bridge_describe_serde_shape_is_stable() {
     let value = json!({
-        "contract": "cx.push.bridge.v1",
+        "contract": "ck.push.bridge.v1",
         "version": "1.0.0",
         "api_base_path": "/_cokret/edge/push",
         "spec_version": crate::push::EXPECTED_SPEC_VERSION,

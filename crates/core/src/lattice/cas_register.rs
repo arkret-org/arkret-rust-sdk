@@ -5,7 +5,7 @@
 //! - Two concurrent `set` ops produce a `kind=conflict` Bottom (default
 //!   `bottom=reject`). Unlike `mv-register`, dependent Moves must fail
 //!   closed because this Lattice serves safety-critical state (e.g.
-//!   `cx.component.space.policy.v1`, `ck.component.anchorer.v1`).
+//!   `ck.component.space.policy.v1`, `ck.component.anchorer.v1`).
 //!
 //! Wire-shape and signature mirror `MvRegister`; the only behavioural
 //! difference is the implicit `bottom=reject` semantics enforced by
@@ -68,7 +68,7 @@ mod tests {
 
     fn cell() -> CellRef {
         CellRef::new(
-            "ck:cell:cx.component.space.policy.v1:cx.space.01js0sp00000000000000000aa".to_owned(),
+            "ck:cell:ck.component.space.policy.v1:ck.space.01js0sp00000000000000000aa".to_owned(),
         )
         .unwrap()
     }

@@ -277,11 +277,11 @@ pub fn endpoint_coverage_rows() -> Vec<EndpointCoverageRow> {
 }
 
 fn operation_domain(operation_id: &str) -> ConformanceDomain {
-    if operation_id.starts_with("cx.applet.") {
+    if operation_id.starts_with("ck.applet.") {
         ConformanceDomain::Applet
-    } else if operation_id.starts_with("cx.push.") {
+    } else if operation_id.starts_with("ck.push.") {
         ConformanceDomain::PushGateway
-    } else if operation_id.starts_with("cx.identity.") {
+    } else if operation_id.starts_with("ck.identity.") {
         ConformanceDomain::Identity
     } else {
         ConformanceDomain::ClientServer
@@ -292,7 +292,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
     vec![
         EndpointCoverageRow {
             domain: ConformanceDomain::Operations,
-            operation_id: "cx.operations.catalog".to_owned(),
+            operation_id: "ck.operations.catalog".to_owned(),
             method: "CONTRACT".to_owned(),
             path: "cokret-core://operations/catalog".to_owned(),
             request_schema: "OperationKindRegistry".to_owned(),
@@ -300,7 +300,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
         },
         EndpointCoverageRow {
             domain: ConformanceDomain::Operations,
-            operation_id: "cx.operations.dag".to_owned(),
+            operation_id: "ck.operations.dag".to_owned(),
             method: "CONTRACT".to_owned(),
             path: "cokret-core://operations/dag".to_owned(),
             request_schema: "OperationEnvelope".to_owned(),
@@ -308,7 +308,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
         },
         EndpointCoverageRow {
             domain: ConformanceDomain::Operations,
-            operation_id: "cx.operations.semantic_reducer".to_owned(),
+            operation_id: "ck.operations.semantic_reducer".to_owned(),
             method: "CONTRACT".to_owned(),
             path: "cokret-core://operations/semantics".to_owned(),
             request_schema: "OperationEnvelope".to_owned(),
@@ -316,7 +316,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
         },
         EndpointCoverageRow {
             domain: ConformanceDomain::Operations,
-            operation_id: "cx.operations.negative_vectors".to_owned(),
+            operation_id: "ck.operations.negative_vectors".to_owned(),
             method: "CONTRACT".to_owned(),
             path: "cokret-core://operations/negative-vectors".to_owned(),
             request_schema: "OperationDagNegativeVector".to_owned(),
@@ -324,7 +324,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
         },
         EndpointCoverageRow {
             domain: ConformanceDomain::Schema,
-            operation_id: "cx.schema.catalog".to_owned(),
+            operation_id: "ck.schema.catalog".to_owned(),
             method: "CONTRACT".to_owned(),
             path: "cokret-core://schema/catalog".to_owned(),
             request_schema: "ProtocolSchemaRegistry".to_owned(),
@@ -332,7 +332,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
         },
         EndpointCoverageRow {
             domain: ConformanceDomain::Schema,
-            operation_id: "cx.schema.validation_vectors".to_owned(),
+            operation_id: "ck.schema.validation_vectors".to_owned(),
             method: "CONTRACT".to_owned(),
             path: "cokret-core://schema/vectors".to_owned(),
             request_schema: "SchemaValidationVector".to_owned(),
@@ -340,7 +340,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
         },
         EndpointCoverageRow {
             domain: ConformanceDomain::Html,
-            operation_id: "cx.html.normalize".to_owned(),
+            operation_id: "ck.html.normalize".to_owned(),
             method: "CONTRACT".to_owned(),
             path: "cokret-html://normalize".to_owned(),
             request_schema: "RichTextDocument".to_owned(),
@@ -348,7 +348,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
         },
         EndpointCoverageRow {
             domain: ConformanceDomain::Html,
-            operation_id: "cx.html.sanitize".to_owned(),
+            operation_id: "ck.html.sanitize".to_owned(),
             method: "CONTRACT".to_owned(),
             path: "cokret-html://sanitize".to_owned(),
             request_schema: "Html".to_owned(),
@@ -356,7 +356,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
         },
         EndpointCoverageRow {
             domain: ConformanceDomain::Crypto,
-            operation_id: "cx.crypto.machine_request".to_owned(),
+            operation_id: "ck.crypto.machine_request".to_owned(),
             method: "CONTRACT".to_owned(),
             path: "cokret-crypto://machine".to_owned(),
             request_schema: "CryptoMachineReqBody".to_owned(),
@@ -364,7 +364,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
         },
         EndpointCoverageRow {
             domain: ConformanceDomain::Crypto,
-            operation_id: "cx.crypto.store_binding".to_owned(),
+            operation_id: "ck.crypto.store_binding".to_owned(),
             method: "CONTRACT".to_owned(),
             path: "cokret-crypto://store-binding".to_owned(),
             request_schema: "CryptoStoreBinding".to_owned(),
@@ -372,7 +372,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
         },
         EndpointCoverageRow {
             domain: ConformanceDomain::Crypto,
-            operation_id: "cx.crypto.verification_flow".to_owned(),
+            operation_id: "ck.crypto.verification_flow".to_owned(),
             method: "CONTRACT".to_owned(),
             path: "cokret-crypto://verification-flow".to_owned(),
             request_schema: "DeviceVerificationFlow".to_owned(),
@@ -380,7 +380,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
         },
         EndpointCoverageRow {
             domain: ConformanceDomain::Crypto,
-            operation_id: "cx.crypto.session_lifecycle".to_owned(),
+            operation_id: "ck.crypto.session_lifecycle".to_owned(),
             method: "CONTRACT".to_owned(),
             path: "cokret-crypto://session-lifecycle".to_owned(),
             request_schema: "CryptoSessionRecord".to_owned(),
@@ -388,7 +388,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
         },
         EndpointCoverageRow {
             domain: ConformanceDomain::Ui,
-            operation_id: "cx.ui.timeline_projection".to_owned(),
+            operation_id: "ck.ui.timeline_projection".to_owned(),
             method: "CONTRACT".to_owned(),
             path: "cokret-sdk://timeline".to_owned(),
             request_schema: "Event".to_owned(),
@@ -396,7 +396,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
         },
         EndpointCoverageRow {
             domain: ConformanceDomain::Ui,
-            operation_id: "cx.ui.notification_evaluation".to_owned(),
+            operation_id: "ck.ui.notification_evaluation".to_owned(),
             method: "CONTRACT".to_owned(),
             path: "cokret-sdk://notifications".to_owned(),
             request_schema: "Event".to_owned(),
@@ -404,7 +404,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
         },
         EndpointCoverageRow {
             domain: ConformanceDomain::Ffi,
-            operation_id: "cx.ffi.handle".to_owned(),
+            operation_id: "ck.ffi.handle".to_owned(),
             method: "CONTRACT".to_owned(),
             path: "cokret-ffi://handle-table".to_owned(),
             request_schema: "FfiHandle".to_owned(),
@@ -412,7 +412,7 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
         },
         EndpointCoverageRow {
             domain: ConformanceDomain::Ffi,
-            operation_id: "cx.ffi.wasm_runtime".to_owned(),
+            operation_id: "ck.ffi.wasm_runtime".to_owned(),
             method: "CONTRACT".to_owned(),
             path: "cokret-ffi://wasm-runtime".to_owned(),
             request_schema: "WasmRuntimeContract".to_owned(),
@@ -468,7 +468,7 @@ pub fn event_taxonomy_vectors() -> Result<Vec<EventTaxonomyVector>> {
         "request_id": "req-1",
         "name": "recovery",
         "encrypted_secret": {
-            "algorithm": "cx.v1",
+            "algorithm": "ck.v1",
             "sender_key": "ed25519:abc",
             "ciphertext": { "body": "encrypted" }
         }
@@ -682,12 +682,12 @@ mod tests {
         }
         assert!(report.operation_ids().contains("ck.events.submit"));
         assert!(report.operation_ids().contains("ck.identity.resolve"));
-        assert!(report.operation_ids().contains("cx.crypto.machine_request"));
-        assert!(report.operation_ids().contains("cx.ui.timeline_projection"));
-        assert!(report.operation_ids().contains("cx.ffi.wasm_runtime"));
-        assert!(report.operation_ids().contains("cx.operations.catalog"));
-        assert!(report.operation_ids().contains("cx.schema.catalog"));
-        assert!(report.operation_ids().contains("cx.html.normalize"));
+        assert!(report.operation_ids().contains("ck.crypto.machine_request"));
+        assert!(report.operation_ids().contains("ck.ui.timeline_projection"));
+        assert!(report.operation_ids().contains("ck.ffi.wasm_runtime"));
+        assert!(report.operation_ids().contains("ck.operations.catalog"));
+        assert!(report.operation_ids().contains("ck.schema.catalog"));
+        assert!(report.operation_ids().contains("ck.html.normalize"));
     }
 
     #[test]

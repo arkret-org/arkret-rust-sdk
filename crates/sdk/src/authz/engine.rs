@@ -130,7 +130,7 @@ impl AuthzContext {
 
     /// Set the target Circle id for `AllowedCircleIds` constraint
     /// evaluation. Pass when the operation targets a Circle-management
-    /// capability (`cx.circle.*`).
+    /// capability (`ck.circle.*`).
     pub fn with_circle_id(mut self, circle_id: cokret_core::CircleId) -> Self {
         self.circle_id = Some(circle_id);
         self

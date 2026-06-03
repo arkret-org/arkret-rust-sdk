@@ -108,7 +108,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 required_event_kinds: &[
                     "ck.agent.endpoint",
                     "ck.agent.protocol_session.result",
-                    "ck.agent.session.start",
+                    "ck.agent.protocol_session.start",
                     "ck.agent.protocol_session.status",
                 ],
                 required_schemas: &["ck.schema.capability.v1"],
@@ -379,7 +379,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.reaction.add",
                     "ck.reaction.remove",
                     "ck.realm.create",
-                    "cx.redaction",
+                    "ck.redaction",
                 ],
                 required_schemas: &[
                     "ck.schema.account_subscribe_frame.v1",
@@ -781,7 +781,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 profile_id: "ck.profile.event_envelope_negative_vectors.v1",
                 inherits: &[],
                 required_operations: &["ck.events.submit"],
-                required_event_kinds: &["ck.message.create", "ck.read_cursor.advance", "cx.typing"],
+                required_event_kinds: &["ck.message.create", "ck.read_cursor.advance", "ck.typing"],
                 required_schemas: &[
                     "ck.schema.anchor.v1",
                     "ck.schema.event.v1",
@@ -952,7 +952,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.reaction.add",
                     "ck.read_cursor.advance",
                     "ck.realm.create",
-                    "cx.redaction",
+                    "ck.redaction",
                 ],
                 required_schemas: &[
                     "ck.schema.account_subscribe_frame.v1",
@@ -1134,6 +1134,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                     "ck.schema.key_backup.v1",
                     "ck.schema.recovery_policy.v1",
                     "ck.schema.recovery_receipt.v1",
+                    "ck.schema.recovery_session.v1",
                 ],
                 rejected_event_kinds: &[],
                 required_fixtures: &["key-backup-fixture.json", "privacy-security-fixture.json"],
@@ -1823,7 +1824,7 @@ pub static PROFILE_REQUIREMENTS: LazyLock<BTreeMap<&'static str, ProfileRequirem
                 profile_id: "ck.profile.redaction_vectors.v1",
                 inherits: &[],
                 required_operations: &["ck.events.query", "ck.events.submit"],
-                required_event_kinds: &["ck.message.create", "ck.message.redact", "cx.redaction"],
+                required_event_kinds: &["ck.message.create", "ck.message.redact", "ck.redaction"],
                 required_schemas: &[
                     "ck.schema.anchor.v1",
                     "ck.schema.event.v1",

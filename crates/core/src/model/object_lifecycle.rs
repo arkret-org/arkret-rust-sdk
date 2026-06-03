@@ -46,7 +46,7 @@ pub fn flow_update_cell_subject(flow_id: &FlowId) -> String {
     flow_id.as_str().to_owned()
 }
 
-/// Round 4 — build the cell_subject for `cx.flow.tracks_patch`. Same
+/// Round 4 — build the cell_subject for `ck.flow.tracks_patch`. Same
 /// cell family and bottom semantics as [`flow_update_cell_subject`];
 /// the two events share the cell so they compete via CAS rather than
 /// silently overwriting each other.

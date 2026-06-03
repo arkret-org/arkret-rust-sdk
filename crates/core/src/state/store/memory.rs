@@ -453,7 +453,7 @@ impl Default for MemoryCellRegistry {
 
         // Generic Space policy — cas-register, bottom=reject (spec §5 example).
         bindings.insert(
-            "cx.component.space.policy.v1".to_owned(),
+            "ck.component.space.policy.v1".to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::CasRegister,
                 bottom_mode: BottomMode::Reject,
@@ -464,7 +464,7 @@ impl Default for MemoryCellRegistry {
 
         // Soft display state — mv-register, bottom=expose.
         bindings.insert(
-            "cx.component.space.title.v1".to_owned(),
+            "ck.component.space.title.v1".to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::MvRegister,
                 bottom_mode: BottomMode::Expose,
@@ -475,7 +475,7 @@ impl Default for MemoryCellRegistry {
 
         // Counter (audit / quota counters).
         bindings.insert(
-            "cx.component.metric.counter.v1".to_owned(),
+            "ck.component.metric.counter.v1".to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::Counter,
                 bottom_mode: BottomMode::Reject,
@@ -486,7 +486,7 @@ impl Default for MemoryCellRegistry {
 
         // Audit log / message log — ordered-log.
         bindings.insert(
-            "cx.component.audit.log.v1".to_owned(),
+            "ck.component.audit.log.v1".to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::OrderedLog,
                 bottom_mode: BottomMode::Reject,
@@ -894,7 +894,7 @@ mod tests {
     #[test]
     fn cell_registry_unknown_family_fails_closed() {
         let reg = MemoryCellRegistry::new();
-        let weird = CellRef::new("ck:cell:cx.component.future.unknown.v1:x".to_owned()).unwrap();
+        let weird = CellRef::new("ck:cell:ck.component.future.unknown.v1:x".to_owned()).unwrap();
         let err = reg.resolve(&space(), &weird).unwrap_err();
         assert!(format!("{err}").contains("unknown cell family"));
     }
@@ -903,11 +903,11 @@ mod tests {
     fn cell_registry_or_set_and_cas_lattices_resolve() {
         let reg = MemoryCellRegistry::new();
         let consent =
-            CellRef::new("ck:cell:ck.component.consent.grant.v1:cx.consent.x".to_owned()).unwrap();
+            CellRef::new("ck:cell:ck.component.consent.grant.v1:ck.consent.x".to_owned()).unwrap();
         assert_eq!(reg.resolve(&space(), &consent).unwrap().lattice.kind(), LatticeKind::OrSet);
 
         let policy =
-            CellRef::new("ck:cell:cx.component.space.policy.v1:cx.space.x".to_owned()).unwrap();
+            CellRef::new("ck:cell:ck.component.space.policy.v1:ck.space.x".to_owned()).unwrap();
         assert_eq!(
             reg.resolve(&space(), &policy).unwrap().lattice.kind(),
             LatticeKind::CasRegister

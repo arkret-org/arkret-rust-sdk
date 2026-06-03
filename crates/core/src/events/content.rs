@@ -813,7 +813,7 @@ pub struct EncryptedContent {
 // ─── Matrix / MIMI interop key-share payloads ───────────────────────────
 //
 // `RoomKeyContent` / `ForwardedRoomKeyContent` model the Matrix-shaped
-// `cx.keys.room_key` / `cx.keys.forwarded_room_key` device-message
+// `ck.keys.room_key` / `ck.keys.forwarded_room_key` device-message
 // payloads. These exist purely as a compat surface for clients bridging
 // to Matrix / MIMI E2EE sessions — the v1 native concept is the Space,
 // not a Room. The `room_id` field name is retained verbatim because the

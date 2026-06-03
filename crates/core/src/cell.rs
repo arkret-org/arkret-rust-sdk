@@ -8,9 +8,9 @@
 //! ```
 //!
 //! - `<component>` is the cell family (e.g. `ck.component.member.state.v1`,
-//!   `ck.component.capability.grant.v1`, `cx.component.consent.v1`).
+//!   `ck.component.capability.grant.v1`, `ck.component.consent.v1`).
 //! - `<subject>` may be a flat identifier (`did.web.alice.example`,
-//!   `cx.grant.01js0gr0000000000000000000`) or a deterministic composite
+//!   `ck.grant.01js0gr0000000000000000000`) or a deterministic composite
 //!   subject when the spec event-kind-registry's `cell_subject` declares
 //!   `composite` form.
 //!
@@ -50,7 +50,7 @@ impl CellId {
     ///
     /// Both `<component>` and `<subject>` may contain dots and additional
     /// colons (subject can itself be a typed id like
-    /// `cx.grant.01js0gr...`). The split happens on the **first** colon
+    /// `ck.grant.01js0gr...`). The split happens on the **first** colon
     /// after the `ck:cell:` prefix to keep the component canonical.
     pub fn parse(value: &str) -> Result<Self> {
         let rest = value.strip_prefix(CELL_PREFIX).ok_or_else(|| {
@@ -132,20 +132,20 @@ mod tests {
     #[test]
     fn parse_composite_typed_id_subject() {
         let id = CellId::parse(
-            "ck:cell:ck.component.capability.grant.v1:cx.grant.01js0gr0000000000000000000",
+            "ck:cell:ck.component.capability.grant.v1:ck.grant.01js0gr0000000000000000000",
         )
         .unwrap();
         assert_eq!(id.component(), "ck.component.capability.grant.v1");
-        assert_eq!(id.subject(), "cx.grant.01js0gr0000000000000000000");
+        assert_eq!(id.subject(), "ck.grant.01js0gr0000000000000000000");
     }
 
     #[test]
     fn parse_subject_with_inner_colons_keeps_them_in_subject() {
         // Subject can include further colons (e.g. typed ids inside).
         let id =
-            CellId::parse("ck:cell:cx.component.consent.v1:ck:consent:01js0c00000000000000000000")
+            CellId::parse("ck:cell:ck.component.consent.v1:ck:consent:01js0c00000000000000000000")
                 .unwrap();
-        assert_eq!(id.component(), "cx.component.consent.v1");
+        assert_eq!(id.component(), "ck.component.consent.v1");
         assert_eq!(id.subject(), "ck:consent:01js0c00000000000000000000");
     }
 
@@ -157,7 +157,7 @@ mod tests {
 
     #[test]
     fn parse_rejects_missing_separator() {
-        let err = CellId::parse("ck:cell:cx.component.consent.v1").unwrap_err();
+        let err = CellId::parse("ck:cell:ck.component.consent.v1").unwrap_err();
         assert!(format!("{err}").contains("missing component:subject separator"));
     }
 
@@ -210,10 +210,10 @@ mod tests {
     #[test]
     fn from_ref_uses_typed_cell_ref() {
         let cref =
-            CellRef::new("ck:cell:cx.component.consent.v1:cx.consent.01js0cc0000000000000000000")
+            CellRef::new("ck:cell:ck.component.consent.v1:ck.consent.01js0cc0000000000000000000")
                 .unwrap();
         let id = CellId::from_ref(&cref).unwrap();
-        assert_eq!(id.component(), "cx.component.consent.v1");
+        assert_eq!(id.component(), "ck.component.consent.v1");
     }
 
     #[test]

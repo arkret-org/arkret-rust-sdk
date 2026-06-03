@@ -100,7 +100,7 @@ fn end_to_end_auth_session_space_query_and_notifications() {
         Some(space_id.clone()),
         EventId::new("ck:event:01904100-0000-7000-8000-b2b79cd5161d").unwrap(),
         alice,
-        "cx.message",
+        "ck.message",
         Some(json!({"body": "hello"})),
     );
     assert_eq!(notifications.counts(Some(&space_id)).notification_count, 1);

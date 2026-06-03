@@ -409,7 +409,7 @@ impl Event {
 }
 
 fn payload_context_for_event_kind(kind: &str) -> Option<crate::WireContext> {
-    let suffix = kind.strip_prefix("cx.").unwrap_or(kind);
+    let suffix = kind.strip_prefix("ck.").unwrap_or(kind);
     match suffix.split('.').next()? {
         "flow" => Some(crate::WireContext::FlowPayload),
         "morph" => Some(crate::WireContext::MorphPayload),

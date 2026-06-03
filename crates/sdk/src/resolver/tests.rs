@@ -588,7 +588,7 @@ fn capability_rebind_uses_deterministic_lww_order() {
     let mut state = SpaceState::new(space_id(), "1".to_owned());
     state.apply_events(&[revoke, grant]).unwrap();
 
-    let resolved = state.resolved_state.get("cx.capability|cap-chan-post").unwrap();
+    let resolved = state.resolved_state.get("ck.capability|cap-chan-post").unwrap();
     assert_eq!(resolved.content["actions"][1], "ck.reaction.add");
     assert!(state.capability_allows("cap-chan-post", "ck.reaction.add"));
     assert!(!state.capability_allows("cap-chan-post", "message.delete"));
@@ -711,22 +711,22 @@ fn reducer_convergence_is_order_independent() {
     assert_eq!(state_a.frontier, state_b.frontier);
 }
 
-// ── SDK Round 11 (2026-05-16): cx.redaction → Flow / Morph state flip ──
-// Mirror of soland round 14b. When cx.redaction event content carries
+// ── SDK Round 11 (2026-05-16): ck.redaction → Flow / Morph state flip ──
+// Mirror of soland round 14b. When ck.redaction event content carries
 // `object_ref` pointing to a Flow / Morph, the reducer flips the subject
 // state to Redacted (terminal). State-machine guard rejects already-
 // terminal source with `<kind>_already_terminal`.
 
 fn redaction_event(seq: u64, object_ref: &str) -> Event {
     let mut ev = event(
-        "cx.redaction",
+        "ck.redaction",
         seq,
         json!({
             "target_event_id": format!("ck:event:01904100-0000-7000-8000-{:012x}", 0xdeadbeef + seq),
             "object_ref": object_ref,
         }),
     );
-    // `cx.redaction` dispatch path uses `event.redacts`; populate it so
+    // `ck.redaction` dispatch path uses `event.redacts`; populate it so
     // the dispatcher invokes redact_event AND redact_object_for_event.
     ev.redacts = Some(
         EventId::new(format!("ck:event:01904100-0000-7000-8000-{:012x}", 0xdeadbeef + seq))

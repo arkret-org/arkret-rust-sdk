@@ -13,8 +13,8 @@ pub const EPHEMERAL_ABSOLUTE_HARD_CEILING_MS: u32 = 300_000;
 
 /// Broadcast ephemeral envelope (`ck.schema.ephemeral_envelope.v1`).
 ///
-/// Wire shape for the four broadcast ephemeral signal kinds — `cx.presence`,
-/// `cx.typing`, `ck.receipt.read`, `ck.call.signal`. Carried on dedicated
+/// Wire shape for the four broadcast ephemeral signal kinds — `ck.presence`,
+/// `ck.typing`, `ck.receipt.read`, `ck.call.signal`. Carried on dedicated
 /// ephemeral channels (sync subscribe live stream, presence/typing fanout,
 /// call signaling channel) and dropped at TTL. Point-to-point to-device
 /// signals (`ck.key.verification.*`) use the device message schema instead.
@@ -60,10 +60,10 @@ impl EphemeralEnvelope {
         let kind = kind.into();
         if !matches!(
             kind.as_str(),
-            "ck.call.signal" | "cx.presence" | "cx.typing" | "ck.receipt.read"
+            "ck.call.signal" | "ck.presence" | "ck.typing" | "ck.receipt.read"
         ) {
             return Err(Error::Protocol(format!(
-                "ephemeral envelope kind {kind:?} not in {{ck.call.signal, cx.presence, cx.typing, ck.receipt.read}}"
+                "ephemeral envelope kind {kind:?} not in {{ck.call.signal, ck.presence, ck.typing, ck.receipt.read}}"
             )));
         }
         if expires_at <= sent_at {

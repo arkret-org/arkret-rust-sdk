@@ -173,25 +173,25 @@ pub fn protocol_golden_vectors() -> Vec<ProtocolGoldenVector> {
     vec![
         ProtocolGoldenVector {
             name: "cursor_prefix".to_owned(),
-            profile: "cx.conformance.cursor.v1".to_owned(),
+            profile: "ck.conformance.cursor.v1".to_owned(),
             input: json!({"cursor": "ck:cursor:sync:01JS0SP000000000000000000"}),
             expected: json!({"valid": true}),
         },
         ProtocolGoldenVector {
             name: "canonical_digest_prefix".to_owned(),
-            profile: "cx.conformance.digest.v1".to_owned(),
+            profile: "ck.conformance.digest.v1".to_owned(),
             input: json!({"hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000"}),
             expected: json!({"valid": true, "algorithm": "sha256"}),
         },
         ProtocolGoldenVector {
             name: "canonical_json_object_order".to_owned(),
-            profile: "cx.conformance.canonical_json.v1".to_owned(),
+            profile: "ck.conformance.canonical_json.v1".to_owned(),
             input: json!({"b": 2, "a": 1}),
             expected: json!({"canonical": "{\"a\":1,\"b\":2}"}),
         },
         ProtocolGoldenVector {
             name: "hlc_shape".to_owned(),
-            profile: "cx.conformance.hlc.v1".to_owned(),
+            profile: "ck.conformance.hlc.v1".to_owned(),
             input: json!({"hlc": "2026-04-29T00:00:00.000Z-0000-node"}),
             expected: json!({"valid": true, "monotonic_components": ["wall_time", "counter", "node"]}),
         },

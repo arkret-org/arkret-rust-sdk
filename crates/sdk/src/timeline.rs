@@ -884,7 +884,7 @@ impl Timeline {
         match event.kind.as_str() {
             "ck.message.create" => self.upsert_message_item(event, order),
             "ck.message.revise" => self.apply_message_revision(event, order),
-            "ck.message.redact" | "cx.redaction" => self.apply_message_redaction(event, order),
+            "ck.message.redact" | "ck.redaction" => self.apply_message_redaction(event, order),
             "ck.reaction.add" | "ck.reaction.remove" => self.apply_reaction(event),
             _ if event.redacts.is_some() => self.apply_message_redaction(event, order),
             _ => self.upsert_generic_item(event, order),

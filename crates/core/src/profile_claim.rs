@@ -388,18 +388,18 @@ mod tests {
     fn unknown_profile_is_unknown_unless_experimental() {
         let validator = ProfileValidator::for_client();
         let errors = validator
-            .validate(&[ProfileClaim::cotest_verified("cx.profile.not_in_spec.v1")])
+            .validate(&[ProfileClaim::cotest_verified("ck.profile.not_in_spec.v1")])
             .expect_err("unknown profile must fail closed");
         assert!(matches!(errors[0], ProfileClaimError::UnknownProfile { .. }));
 
         let errors = validator
-            .validate(&[ProfileClaim::experimental("cx.profile.experimental_thing.v1")])
+            .validate(&[ProfileClaim::experimental("ck.profile.experimental_thing.v1")])
             .expect_err("experimental + unknown surfaces by default");
         assert!(matches!(errors[0], ProfileClaimError::ExperimentalUnknownProfile { .. }));
 
         let permissive = ProfileValidator::for_client().accept_experimental_unknown();
         permissive
-            .validate(&[ProfileClaim::experimental("cx.profile.experimental_thing.v1")])
+            .validate(&[ProfileClaim::experimental("ck.profile.experimental_thing.v1")])
             .expect("permissive validator accepts experimental unknown ids");
     }
 

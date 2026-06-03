@@ -15,7 +15,7 @@ mod session_and_identity {
     fn ephemeral_envelope_rejects_window_over_ceiling() {
         let now = Utc::now();
         let bad = EphemeralEnvelope::new(
-            "cx.presence",
+            "ck.presence",
             realm(),
             did(),
             None,
@@ -31,7 +31,7 @@ mod session_and_identity {
     fn ephemeral_envelope_accepts_window_at_ceiling() {
         let now = Utc::now();
         let ok = EphemeralEnvelope::new(
-            "cx.presence",
+            "ck.presence",
             realm(),
             did(),
             None,

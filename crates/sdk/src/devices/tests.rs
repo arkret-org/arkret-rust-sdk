@@ -95,11 +95,11 @@ fn devices_queues_to_device_messages() {
     let device_id = device("laptop");
     let mut manager = DeviceManager::new();
 
-    manager.send_to_device(alice, bob, device_id, "cx.keys.room_key", json!({"session":"abc"}));
+    manager.send_to_device(alice, bob, device_id, "ck.keys.room_key", json!({"session":"abc"}));
 
     let messages = manager.drain_to_device();
     assert_eq!(messages.len(), 1);
-    assert_eq!(messages[0].message_type, "cx.keys.room_key");
+    assert_eq!(messages[0].message_type, "ck.keys.room_key");
     assert!(manager.drain_to_device().is_empty());
 }
 

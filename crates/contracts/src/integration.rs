@@ -89,7 +89,7 @@ mod tests {
                 "name": "push_bridge",
                 "method": "GET",
                 "path": "/_cokret/edge/push/bridge/describe",
-                "contract": "cx.push.bridge.describe",
+                "contract": "ck.push.bridge.describe",
                 "stability": "active",
                 "todo": "pin provider_capabilities_version"
             }],

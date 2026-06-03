@@ -12,7 +12,7 @@ pub struct DeviceManager {
     protocol_key_backups: BTreeMap<String, ProtocolKeyBackup>,
     verification_challenges: BTreeMap<String, DeviceVerificationChallenge>,
     revoked_devices: BTreeMap<Did, BTreeMap<DeviceId, DateTime<Utc>>>,
-    /// Latest accepted `cx.cross_signing.publish.v1` per principal.
+    /// Latest accepted `ck.cross_signing.publish.v1` per principal.
     cross_signing_publishes: BTreeMap<Did, CrossSigningPublishContent>,
     /// Round 4 (spec a77b995) — generation lineage counter that survives
     /// a `ck.cross_signing.reset`. The next accepted publish MUST carry
@@ -331,7 +331,7 @@ impl DeviceManager {
     }
 
     /// Attach a bootstrap binding (spec §5.3 — first-device inception).
-    /// Only valid before any `cx.cross_signing.publish.v1` has been
+    /// Only valid before any `ck.cross_signing.publish.v1` has been
     /// recorded for the principal.
     pub fn attach_bootstrap_binding(
         &mut self,
@@ -383,7 +383,7 @@ impl DeviceManager {
     ///
     /// Unlike the legacy "copy a field" implementation, this now requires
     /// a valid `cross_signing_binding` on the target device AND a current
-    /// `cx.cross_signing.publish.v1` for the principal — otherwise it
+    /// `ck.cross_signing.publish.v1` for the principal — otherwise it
     /// returns `Error::Protocol`. This implements spec §5.2.1 step 4:
     /// "cross-signed" status MUST come from a SSK signature over the
     /// target device's `verify_key`, not from a sibling device's trust
@@ -551,7 +551,7 @@ impl DeviceManager {
 
     // ---- Cross-signing publish / reset / trust-chain ------------------
 
-    /// Record a `cx.cross_signing.publish.v1` event for `principal` (spec
+    /// Record a `ck.cross_signing.publish.v1` event for `principal` (spec
     /// §5.1). The publish MUST monotonically advance `generation` unless it
     /// is the first one (generation 1). Stale publishes are rejected.
     ///
@@ -594,7 +594,7 @@ impl DeviceManager {
         Ok(())
     }
 
-    /// Record a `cx.cross_signing.reset.v1` event (spec §14.1) and drop the
+    /// Record a `ck.cross_signing.reset.v1` event (spec §14.1) and drop the
     /// current PSK / SSK / USK state for `principal`. The caller MUST follow
     /// with a fresh `record_cross_signing_publish` within the window
     /// declared by §14.2 step 5.

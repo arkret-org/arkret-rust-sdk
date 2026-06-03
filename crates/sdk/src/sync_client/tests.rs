@@ -187,7 +187,7 @@ fn processor_dispatches_all_update_categories() {
     );
     response.account_data.push(
         serde_json::to_value(AccountData {
-            data_type: "cx.settings".to_owned(),
+            data_type: "ck.settings".to_owned(),
             content: json!({"theme":"light"}),
         })
         .unwrap(),
@@ -211,7 +211,7 @@ fn processor_dispatches_all_update_categories() {
     assert_eq!(processor.space(&parsed_space_id).unwrap().notification_count, 3);
     assert_eq!(processor.drain_to_device().len(), 1);
     assert!(processor.presence("did:web:alice.example").is_some());
-    assert!(processor.account_data("cx.settings").is_some());
+    assert!(processor.account_data("ck.settings").is_some());
     assert!(processor.notification("n1").is_some());
     assert_eq!(processor.device_lists().changed.len(), 1);
 }

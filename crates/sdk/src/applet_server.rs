@@ -190,7 +190,7 @@ mod tests {
             Ok(AppletDescription {
                 applet_id: "ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
                 service_did: crate::Did::new("did:web:svc.example").unwrap(),
-                protocols: vec!["cx.applet.v1".to_owned()],
+                protocols: vec!["ck.applet.v1".to_owned()],
                 namespaces: serde_json::Value::Null,
                 limits: serde_json::Value::Null,
                 auth: serde_json::Value::Null,
@@ -221,7 +221,7 @@ mod tests {
         }
         fn resolve_protocol(&self, _: &str) -> Result<AppletProtocolResBody> {
             Ok(AppletProtocolResBody {
-                protocol: "cx.unknown".to_owned(),
+                protocol: "ck.unknown".to_owned(),
                 display_name: "Unknown".to_owned(),
                 icon_blob_ref: None,
                 field_types: serde_json::Value::Null,

@@ -66,7 +66,7 @@ fn query_auth_and_wire_negative_vectors_are_available() {
     assert!(vectors.iter().any(|vector| vector.expected_error_code == "missing_param"));
 
     let golden = protocol_golden_vectors();
-    assert!(golden.iter().any(|vector| vector.profile == "cx.conformance.digest.v1"));
+    assert!(golden.iter().any(|vector| vector.profile == "ck.conformance.digest.v1"));
 }
 
 #[test]

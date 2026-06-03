@@ -1,5 +1,5 @@
 pub const PROTOCOL_VERSION: &str = "1.0";
-pub const CORE_SCHEMA_PROFILE: &str = "cx.schema.core.v1";
+pub const CORE_SCHEMA_PROFILE: &str = "ck.schema.core.v1";
 pub const CORE_REDUCER_PROFILE: &str = "ck.reducer.v1";
 pub const BUILT_IN_CONFORMANCE_FIXTURES_VERSION: &str = "cokret-sdk-builtin-v1";
 
@@ -8,7 +8,7 @@ pub const CURSOR_SCHEMA: &str = "ck.schema.cursor.v1";
 //   - `ck.schema.realm.v1` is the new security-boundary schema
 //     (formerly `ck.schema.space.v1`).
 //   - `ck.schema.space.v1` is now the container schema
-//     (formerly `cx.schema.place.v1`, which is deleted).
+//     (formerly `ck.schema.place.v1`, which is deleted).
 pub const REALM_SCHEMA_ID: &str = "ck.schema.realm.v1";
 pub const REALM_JOIN_CANDIDATE_SCHEMA: &str = "ck.schema.realm_join_candidate.v1";
 pub const SPACE_SCHEMA: &str = "ck.schema.space.v1";
@@ -27,7 +27,7 @@ pub const NOTIFICATION_SCHEMA: &str = "ck.schema.notification.v1";
 ///
 /// Operation drafts are builder inputs only; they are not a Cokret wire
 /// schema and must be materialized as Event envelopes before submission.
-pub const OPERATION_SCHEMA: &str = "cx.local.operation_draft.v1";
+pub const OPERATION_SCHEMA: &str = "ck.local.operation_draft.v1";
 pub const BLOB_SCHEMA: &str = "ck.schema.blob.v1";
 pub const ANCHOR_SCHEMA: &str = "ck.schema.anchor.v1";
 pub const BOTTOM_SCHEMA: &str = "ck.schema.bottom.v1";
@@ -58,7 +58,7 @@ pub const MODERATION_APPEAL_SCHEMA: &str = "ck.schema.moderation_appeal.v1";
 pub const ATTESTATION_EVIDENCE_SCHEMA: &str = "ck.schema.attestation_evidence.v1";
 pub const CROSS_SIGNING_RESET_SCHEMA: &str = "ck.schema.cross_signing_reset.v1";
 
-// ── Canonical cx.* event kinds ──────────────────────────────────────────────
+// ── Canonical ck.* event kinds ──────────────────────────────────────────────
 /// Flow event kinds.
 pub const OP_FLOW_CREATE: &str = "ck.flow.create";
 pub const OP_FLOW_UPDATE: &str = "ck.flow.update";
@@ -215,8 +215,8 @@ pub const OP_MORPH_RESTORE: &str = "ck.morph.restore";
 pub const OP_MORPH_STAGE_SET: &str = "ck.morph.stage.set";
 
 /// Space (container) event kinds. Realm/Space inversion (spec 59ac1d4):
-/// container events use `cx.space.*`; see the security boundary
-/// OP_REALM_* family for `cx.realm.*` events.
+/// container events use `ck.space.*`; see the security boundary
+/// OP_REALM_* family for `ck.realm.*` events.
 pub const OP_SPACE_CREATE: &str = "ck.space.create";
 pub const OP_SPACE_UPDATE: &str = "ck.space.update";
 pub const OP_SPACE_PARENT: &str = "ck.space.parent";
@@ -470,7 +470,7 @@ pub const OP_AGENT_KEY_AUTHORIZE: &str = "ck.agent.key.authorize";
 pub const OP_AGENT_KEY_REVOKE: &str = "ck.agent.key.revoke";
 pub const OP_AGENT_KEY_ROTATE: &str = "ck.agent.key.rotate";
 pub const OP_AGENT_PROTOCOL_SESSION_RESULT: &str = "ck.agent.protocol_session.result";
-pub const OP_AGENT_PROTOCOL_SESSION_START: &str = "ck.agent.session.start";
+pub const OP_AGENT_PROTOCOL_SESSION_START: &str = "ck.agent.protocol_session.start";
 pub const OP_AGENT_PROTOCOL_SESSION_STATUS: &str = "ck.agent.protocol_session.status";
 
 /// Directory operations beyond the bare `describe`.
@@ -557,7 +557,7 @@ pub const CAP_ACTION_MORPH_CREATE: &str = "ck.morph.create";
 /// media capability actions registered in
 /// `capability-action-registry.json`. Five actions gate the join,
 /// screen-share, recording, transcription, and moderation surfaces of
-/// the cx.call.* feature.
+/// the ck.call.* feature.
 pub const CAP_ACTION_CALL_JOIN: &str = "ck.call.join";
 pub const CAP_ACTION_CALL_SCREEN_SHARE: &str = "ck.call.screen_share";
 pub const CAP_ACTION_CALL_RECORD: &str = "ck.call.record";
@@ -825,6 +825,6 @@ mod tests {
             &[OP_FLOW_ARCHIVE, OP_MORPH_ARCHIVE]
         );
         assert!(capability_action_target_event_kinds(CAP_ACTION_APPROVAL_VOTE).is_empty());
-        assert!(capability_action_definition("cx.unknown.action").is_none());
+        assert!(capability_action_definition("ck.unknown.action").is_none());
     }
 }

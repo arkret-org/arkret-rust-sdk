@@ -656,7 +656,7 @@ mod tests {
     #[test]
     fn bridge_describe_response_decodes_without_optional_matrices() {
         let json = serde_json::json!({
-            "contract": "cx.push.bridge.v1",
+            "contract": "ck.push.bridge.v1",
             "version": "1.0.0",
             "api_base_path": "/_cokret/edge/push",
             "gateway": {},
@@ -692,7 +692,7 @@ mod tests {
     #[test]
     fn integration_view_exposes_manifest_dependency_lookup() {
         let manifest = PushGatewayIntegrationDescribeResponse {
-            contract: "cx.integration.push_gateway.v1".to_owned(),
+            contract: "ck.integration.push_gateway.v1".to_owned(),
             version: "1.0.0".to_owned(),
             service: "push-gateway".to_owned(),
             service_kind: "push-gateway".to_owned(),
@@ -701,7 +701,7 @@ mod tests {
             dependencies: vec![PushGatewayIntegrationDependency {
                 service: "soland".to_owned(),
                 purpose: "register-device".to_owned(),
-                required_contract: "cx.auth.bridge.v1".to_owned(),
+                required_contract: "ck.auth.bridge.v1".to_owned(),
                 discovery_path: "/_cokret/gate/auth/bridge/describe".to_owned(),
                 mode: "required".to_owned(),
             }],
@@ -710,13 +710,13 @@ mod tests {
             todos: Vec::new(),
         };
         let bridge = PushBridgeDescribeResponse {
-            contract: "cx.push.bridge.v1".to_owned(),
+            contract: "ck.push.bridge.v1".to_owned(),
             ..Default::default()
         };
 
         let view = IntegrationView::new(manifest, bridge);
         assert!(view.requires("soland", "register-device"));
         assert!(!view.requires("soland", "unregister-device"));
-        assert_eq!(view.contract_digest(), "cx.push.bridge.v1");
+        assert_eq!(view.contract_digest(), "ck.push.bridge.v1");
     }
 }

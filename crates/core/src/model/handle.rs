@@ -297,7 +297,7 @@ fn is_valid_domain(s: &str) -> bool {
     })
 }
 
-/// R3.2 — `cx.schema.handle_claim.v1.subject` validator.
+/// R3.2 — `ck.schema.handle_claim.v1.subject` validator.
 ///
 /// The handle claim subject MUST be a holder / principal DID. It is NOT a
 /// Realm `actor_id` (`ck:actor:`), a server-local `account_id`

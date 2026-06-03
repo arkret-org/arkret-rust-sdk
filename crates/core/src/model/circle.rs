@@ -198,11 +198,11 @@ pub struct Circle {
 ///   is sealed and no further writes (or member changes) are accepted.
 /// * `ObjectState::Redacted` is the object-payload terminal state
 ///   (round C47, spec e10b6ad): the object's content is wiped via a
-///   `cx.redaction` event, but the object id and lifecycle history remain.
+///   `ck.redaction` event, but the object id and lifecycle history remain.
 ///
 /// Reducers MUST keep these enums separate. In particular: never silently
 /// translate `Tombstoned ↔ Redacted` — Circle lifecycle events
-/// (`ck.circle.tombstone`) and per-object redaction events (`cx.redaction`)
+/// (`ck.circle.tombstone`) and per-object redaction events (`ck.redaction`)
 /// run on independent state machines.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

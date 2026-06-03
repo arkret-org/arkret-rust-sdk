@@ -65,7 +65,7 @@ pub const ERROR_CODE_PREVIEW_POLICY_DENIED: &str = "preview_policy_denied";
 pub const ERROR_CODE_ANCHORER_RECOVERY_MISSING: &str = "anchorer_recovery_missing";
 pub const ERROR_CODE_UNSUPPORTED_LATTICE_TYPE: &str = "unsupported_lattice_type";
 /// Round C44 (2026-05-18) — registry add: peer or ServiceDescribe advertises a
-/// `cx.profile.*` ID this implementation does not support. Wire-level top
+/// `ck.profile.*` ID this implementation does not support. Wire-level top
 /// error code (not a `failed_precondition` sub-reason). Spec
 /// `error-code-registry.json` v2026-05-18.
 pub const ERROR_CODE_PROFILE_UNSUPPORTED: &str = "profile_unsupported";
@@ -677,7 +677,7 @@ pub const KNOWN_REASON_CODES_ROUND_C44: &[&str] = &[
 /// reactions on. v1 core only allows `ck:message:` targets; profiles MAY
 /// register additional target kinds. See zh/models/flow-and-message.md §9.8.2.
 pub const REASON_REACTION_TARGET_UNSUPPORTED: &str = "reaction_target_unsupported";
-/// `failed_precondition` sub-reason: a `cx.reaction.*` `target_ref` resolves
+/// `failed_precondition` sub-reason: a `ck.reaction.*` `target_ref` resolves
 /// to an object outside the reaction event's stamped effective scope.
 /// Reactions MUST target an object within their own effective scope. See
 /// zh/models/flow-and-message.md §9.8.2.

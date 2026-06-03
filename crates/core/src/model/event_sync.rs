@@ -198,7 +198,7 @@ pub struct SnapshotBootstrapSignature {
 }
 
 impl SnapshotBootstrap {
-    pub const SIGNING_DOMAIN: &'static str = "cx.snapshot.bootstrap.v1";
+    pub const SIGNING_DOMAIN: &'static str = "ck.snapshot.bootstrap.v1";
 
     pub fn chunk_digest_root(&self) -> Result<Hash> {
         let digests: Vec<&str> = self.chunks.iter().map(|chunk| chunk.digest.as_str()).collect();

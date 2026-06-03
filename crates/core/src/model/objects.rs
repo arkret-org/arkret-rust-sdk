@@ -129,7 +129,7 @@ pub enum AnchorProfile {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct CellLatticeDeclaration {
-    /// `cx.component.<...>.v<N>` cell family identifier.
+    /// `ck.component.<...>.v<N>` cell family identifier.
     pub cell_family: String,
     /// One of `or_set` / `mv_register` / `cas_register` / `fsm` / `counter` /
     /// `ordered_log` per spec event-auth-state-resolution.md §5.3.

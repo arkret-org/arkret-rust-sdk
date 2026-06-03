@@ -2,8 +2,8 @@
 
 use super::*;
 
-// ── AccessKind (cx.audit.policy_access) ────────────────────────────────
-/// Round 4 (commit 7fae9ba) — `cx.audit.policy_access.access_kind`
+// ── AccessKind (ck.audit.policy_access) ────────────────────────────────
+/// Round 4 (commit 7fae9ba) — `ck.audit.policy_access.access_kind`
 /// enum. Round 4 adds `E2EELateRecovery`; deployments emitting it
 /// MUST also populate `late_recovery_original_event_id`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -21,7 +21,7 @@ pub enum AccessKind {
     /// `late_recovery_original_event_id` on the payload.
     E2EELateRecovery,
 }
-/// Round 4 — typed `cx.audit.policy_access` payload.
+/// Round 4 — typed `ck.audit.policy_access` payload.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AuditPolicyAccessPayload {
@@ -42,13 +42,13 @@ impl AuditPolicyAccessPayload {
     pub fn validate_minimal(&self) -> Result<()> {
         match (self.access_kind, &self.late_recovery_original_event_id) {
             (AccessKind::E2EELateRecovery, None) => Err(Error::Protocol(format!(
-                "cx.audit.policy_access access_kind=e2ee_late_recovery requires late_recovery_original_event_id ({})",
+                "ck.audit.policy_access access_kind=e2ee_late_recovery requires late_recovery_original_event_id ({})",
                 crate::ERROR_CODE_SCHEMA_VIOLATION
             ))),
 
             (kind, Some(_)) if !matches!(kind, AccessKind::E2EELateRecovery) => {
                 Err(Error::Protocol(format!(
-                    "cx.audit.policy_access late_recovery_original_event_id is only valid for access_kind=e2ee_late_recovery ({})",
+                    "ck.audit.policy_access late_recovery_original_event_id is only valid for access_kind=e2ee_late_recovery ({})",
                     crate::ERROR_CODE_SCHEMA_VIOLATION
                 )))
             }

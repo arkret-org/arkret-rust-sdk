@@ -464,7 +464,7 @@ fn payload_def_name_for_event_kind(
 }
 
 fn payload_def_candidates(event_kind: &str) -> Vec<String> {
-    let suffix = event_kind.strip_prefix("cx.").unwrap_or(event_kind);
+    let suffix = event_kind.strip_prefix("ck.").unwrap_or(event_kind);
     let exact = format!("{}_payload", suffix.replace('.', "_"));
     let parts = suffix.split('.').collect::<Vec<_>>();
     let mut candidates = Vec::new();

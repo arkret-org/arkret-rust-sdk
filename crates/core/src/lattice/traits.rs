@@ -96,7 +96,7 @@ impl LatticeKind {
             ],
             Self::Counter => &[],
             Self::OrderedLog => {
-                &["ck.space.create", "cx.space.child", "ck.policy.rule", "ck.account.status"]
+                &["ck.space.create", "ck.space.child", "ck.policy.rule", "ck.account.status"]
             }
         }
     }
@@ -164,8 +164,8 @@ mod kind_tests {
         ] {
             for ek in kind.event_kinds() {
                 assert!(
-                    ek.starts_with("cx."),
-                    "lattice kind {kind:?} event kind {ek} must start with 'cx.'"
+                    ek.starts_with("ck."),
+                    "lattice kind {kind:?} event kind {ek} must start with 'ck.'"
                 );
             }
         }
@@ -173,7 +173,7 @@ mod kind_tests {
 
     #[test]
     fn event_kinds_have_no_cross_kind_overlap() {
-        // Every cx.<...> event kind MUST belong to exactly one lattice kind
+        // Every ck.<...> event kind MUST belong to exactly one lattice kind
         // so the LatticeRegistry route is unambiguous.
         let mut seen: BTreeSet<&'static str> = BTreeSet::new();
         for kind in [

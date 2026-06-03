@@ -139,33 +139,33 @@ mod tests {
     fn deterministic_across_insertion_order() {
         // Map order doesn't affect output because we sort by cell wire.
         let mut a = BTreeMap::new();
-        a.insert(cell("ck:cell:cx.x:1"), CellState::Value(json!(1)));
-        a.insert(cell("ck:cell:cx.y:2"), CellState::Value(json!(2)));
+        a.insert(cell("ck:cell:ck.x:1"), CellState::Value(json!(1)));
+        a.insert(cell("ck:cell:ck.y:2"), CellState::Value(json!(2)));
         let mut b = BTreeMap::new();
-        b.insert(cell("ck:cell:cx.y:2"), CellState::Value(json!(2)));
-        b.insert(cell("ck:cell:cx.x:1"), CellState::Value(json!(1)));
+        b.insert(cell("ck:cell:ck.y:2"), CellState::Value(json!(2)));
+        b.insert(cell("ck:cell:ck.x:1"), CellState::Value(json!(1)));
         assert_eq!(compute_state_root(&a).unwrap(), compute_state_root(&b).unwrap());
     }
 
     #[test]
     fn different_values_yield_different_roots() {
         let mut a = BTreeMap::new();
-        a.insert(cell("ck:cell:cx.x:1"), CellState::Value(json!("a")));
+        a.insert(cell("ck:cell:ck.x:1"), CellState::Value(json!("a")));
         let mut b = BTreeMap::new();
-        b.insert(cell("ck:cell:cx.x:1"), CellState::Value(json!("b")));
+        b.insert(cell("ck:cell:ck.x:1"), CellState::Value(json!("b")));
         assert_ne!(compute_state_root(&a).unwrap(), compute_state_root(&b).unwrap());
     }
 
     #[test]
     fn bottom_state_serializes_without_anchor_view() {
         // Two Bottoms differing only in anchor_view MUST yield the same leaf.
-        let mut bottom_a = Bottom::new(BottomKind::Conflict, vec![cell("ck:cell:cx.x:1")]);
+        let mut bottom_a = Bottom::new(BottomKind::Conflict, vec![cell("ck:cell:ck.x:1")]);
         bottom_a.anchor_view = Some(AnchorView { leaves: vec![], state_root: None });
         let mut bottom_b = bottom_a.clone();
         bottom_b.anchor_view = None;
 
-        let h_a = leaf_hash(&cell("ck:cell:cx.x:1"), &CellState::Bottom(bottom_a)).unwrap();
-        let h_b = leaf_hash(&cell("ck:cell:cx.x:1"), &CellState::Bottom(bottom_b)).unwrap();
+        let h_a = leaf_hash(&cell("ck:cell:ck.x:1"), &CellState::Bottom(bottom_a)).unwrap();
+        let h_b = leaf_hash(&cell("ck:cell:ck.x:1"), &CellState::Bottom(bottom_b)).unwrap();
         assert_eq!(h_a, h_b, "anchor_view must be stripped before hashing");
     }
 

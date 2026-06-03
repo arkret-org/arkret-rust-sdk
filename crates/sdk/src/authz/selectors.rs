@@ -873,7 +873,7 @@ fn split_space_tail(remainder: &str, selector: &str) -> Result<(String, Option<S
     }
 
     let parts = remainder.split(':').collect::<Vec<_>>();
-    if parts.len() < 3 || parts[0] != "cx" || parts[1] != "space" || parts[2].is_empty() {
+    if parts.len() < 3 || parts[0] != "ck" || parts[1] != "space" || parts[2].is_empty() {
         return Err(Error::Protocol(format!("invalid space-scoped selector: {selector}")));
     }
     let space_id = format!("{}:{}:{}", parts[0], parts[1], parts[2]);

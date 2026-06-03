@@ -23,7 +23,7 @@ use crate::{
     },
 };
 
-pub const REDUCER_SNAPSHOT_SCHEMA: &str = "cx.schema.reducer_snapshot.v1";
+pub const REDUCER_SNAPSHOT_SCHEMA: &str = "ck.schema.reducer_snapshot.v1";
 pub const REDUCER_SNAPSHOT_PROFILE: &str = "ck.reducer.v1";
 
 mod snapshot;

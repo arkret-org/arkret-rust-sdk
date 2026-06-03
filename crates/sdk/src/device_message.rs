@@ -17,7 +17,7 @@ use serde_json::Value;
 use crate::{DeviceId, Did, Error, Hlc, MoveSignature, MoveSigner, Result, canonical};
 
 /// Canonical signed device message envelope shipped over the
-/// `cx.device.message.v1` device-message transport.
+/// `ck.device.message.v1` device-message transport.
 ///
 /// `sig` is a detached JWS over canonical-JSON bytes covering
 /// `recipient`, `sender`, `message_type`, `body` and `hlc` — the `sig`
@@ -36,7 +36,7 @@ pub struct DeviceMessage {
     /// Sending device.
     pub sender_device_id: DeviceId,
     /// Spec event-kind string, e.g. `ck.key.verification.start` or
-    /// `cx.keys.room_key` (the latter is a Matrix/MIMI interop name
+    /// `ck.keys.room_key` (the latter is a Matrix/MIMI interop name
     /// retained on the wire for E2EE key share — the v1 concept is
     /// the Space).
     pub message_type: String,
@@ -332,7 +332,7 @@ mod tests {
             .recipient_device(
                 DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000b").unwrap(),
             )
-            .message_type("cx.keys.room_key")
+            .message_type("ck.keys.room_key")
             .body(json!({"session": "abc"}))
             .hlc(hlc())
             .sign(&alice)
@@ -350,7 +350,7 @@ mod tests {
             .sender(bob.signer_did().clone())
             .sender_device(DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000c").unwrap())
             .recipient(Did::new("did:web:carol.example").unwrap())
-            .message_type("cx.keys.room_key")
+            .message_type("ck.keys.room_key")
             .body(json!({}))
             .hlc(hlc())
             .sign(&alice)
@@ -364,7 +364,7 @@ mod tests {
         let err = DeviceMessageBuilder::new()
             .sender(alice.signer_did().clone())
             .sender_device(DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000a").unwrap())
-            .message_type("cx.keys.room_key")
+            .message_type("ck.keys.room_key")
             .body(json!({}))
             .hlc(hlc())
             .sign(&alice)
@@ -379,7 +379,7 @@ mod tests {
             .sender(alice.signer_did().clone())
             .sender_device(DeviceId::new("ck:device:01904100-0000-7000-8000-00000000000a").unwrap())
             .recipient(Did::new("did:web:bob.example").unwrap())
-            .message_type("cx.keys.room_key")
+            .message_type("ck.keys.room_key")
             .body(json!({"session": "abc"}))
             .hlc(hlc())
             .sign(&alice)

@@ -269,8 +269,8 @@ pub enum ViewVisibility {
 ///
 /// Round C47 (spec e10b6ad): the `deleted` terminal state was dropped from
 /// both `flow.schema.json` and `morph.schema.json`. Only `redacted` is a
-/// terminal state now; `cx.flow.tombstone` / `cx.flow.delete` / equivalent
-/// kinds collapse into a single `cx.redaction` event targeting the object.
+/// terminal state now; `ck.flow.tombstone` / `ck.flow.delete` / equivalent
+/// kinds collapse into a single `ck.redaction` event targeting the object.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
@@ -283,7 +283,7 @@ pub enum ObjectState {
 /// Business progression stage shared by Flow and Morph objects.
 ///
 /// This is distinct from physical lifecycle [`ObjectState`]. The stage
-/// lattice is mutated only through the dedicated `cx.<object>.stage.set`
+/// lattice is mutated only through the dedicated `ck.<object>.stage.set`
 /// event family; create payloads must set an initial stage.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

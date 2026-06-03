@@ -337,7 +337,7 @@ fn object_ref_regex() -> &'static Regex {
 fn profile_id_regex() -> &'static Regex {
     static PROFILE_ID: OnceLock<Regex> = OnceLock::new();
     PROFILE_ID.get_or_init(|| {
-        Regex::new(r"^cx\.profile\.[a-z0-9][a-z0-9_.-]*\.v[0-9]+$")
+        Regex::new(r"^ck\.profile\.[a-z0-9][a-z0-9_.-]*\.v[0-9]+$")
             .expect("profile id regex compiles")
     })
 }

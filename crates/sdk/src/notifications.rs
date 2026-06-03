@@ -211,7 +211,7 @@ mod tests {
         manager.upsert_rule(NotificationRule {
             rule_id: "mentions".to_owned(),
             enabled: true,
-            event_kind: Some("cx.mention".to_owned()),
+            event_kind: Some("ck.mention".to_owned()),
             sender: None,
             action: NotificationAction::Highlight,
         });
@@ -222,7 +222,7 @@ mod tests {
                 Some(space_id.clone()),
                 EventId::new("ck:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
                 alice,
-                "cx.mention",
+                "ck.mention",
                 Some(json!({"body":"hi"})),
             )
             .unwrap();
@@ -241,7 +241,7 @@ mod tests {
         manager.upsert_rule(NotificationRule {
             rule_id: "suppress".to_owned(),
             enabled: true,
-            event_kind: Some("cx.noisy".to_owned()),
+            event_kind: Some("ck.noisy".to_owned()),
             sender: None,
             action: NotificationAction::DontNotify,
         });
@@ -253,7 +253,7 @@ mod tests {
                     Some(space_id.clone()),
                     EventId::new("ck:event:01904100-0000-7000-8000-155d51e9508a").unwrap(),
                     did("alice"),
-                    "cx.noisy",
+                    "ck.noisy",
                     None,
                 )
                 .is_none()
@@ -264,7 +264,7 @@ mod tests {
             Some(space_id.clone()),
             EventId::new("ck:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
             did("bob"),
-            "cx.message",
+            "ck.message",
             None,
         );
         manager.add_notification(
@@ -272,7 +272,7 @@ mod tests {
             Some(space_id.clone()),
             EventId::new("ck:event:01904100-0000-7000-8000-6008ddd67225").unwrap(),
             did("carol"),
-            "cx.message",
+            "ck.message",
             None,
         );
 

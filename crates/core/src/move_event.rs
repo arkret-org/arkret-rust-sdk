@@ -466,7 +466,7 @@ mod tests {
         CellRef::new("ck:cell:ck.component.member.state.v1:did.web.alice.example".to_owned())
             .unwrap();
         CellRef::new(
-            "ck:cell:ck.component.capability.grant.v1:cx.grant.01js0gr0000000000000000000"
+            "ck:cell:ck.component.capability.grant.v1:ck.grant.01js0gr0000000000000000000"
                 .to_owned(),
         )
         .unwrap();

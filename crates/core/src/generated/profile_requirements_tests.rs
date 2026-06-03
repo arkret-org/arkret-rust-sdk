@@ -207,12 +207,12 @@ fn known_profile_ids_matches_static_map() {
 
 #[test]
 fn validate_profile_requirements_rejects_unknown_profile() {
-    let err = validate_profile_requirements("cx.profile.does_not_exist.v1", &[], &[], &[])
+    let err = validate_profile_requirements("ck.profile.does_not_exist.v1", &[], &[], &[])
         .expect_err("unknown profile must fail");
     assert!(matches!(
         err,
         ProfileRequirementsError::UnknownProfile { ref profile_id }
-            if profile_id == "cx.profile.does_not_exist.v1"
+            if profile_id == "ck.profile.does_not_exist.v1"
     ));
 }
 

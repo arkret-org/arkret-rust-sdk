@@ -56,35 +56,35 @@ impl ServiceType {
     /// Operation-kind prefixes a service of this type is allowed to
     /// advertise (T3-10 / `service-surface.md` capability matrix).
     ///
-    /// `cx.applet.*` for applet services, `cx.events.*` / `cx.sync.*` for
+    /// `ck.applet.*` for applet services, `ck.events.*` / `ck.sync.*` for
     /// sync nodes, etc. An empty slice means "no allow-list constraint".
     pub fn allowed_operation_prefixes(&self) -> &'static [&'static str] {
         match self {
             Self::PrincipalServer => &[
-                "cx.events.",
-                "cx.sync.",
-                "cx.account.",
-                "cx.policy.",
-                "cx.authz.",
-                "cx.identity.",
-                "cx.server.",
-                "cx.admin.",
-                "cx.moderation.",
+                "ck.events.",
+                "ck.sync.",
+                "ck.account.",
+                "ck.policy.",
+                "ck.authz.",
+                "ck.identity.",
+                "ck.server.",
+                "ck.admin.",
+                "ck.moderation.",
             ],
-            Self::IdentityRegistry => &["cx.identity.", "ck.directory.resolve_handle"],
-            Self::AuthServer => &["cx.account.", "ck.identity.resolve"],
-            Self::SyncNode => &["cx.sync.", "cx.events."],
-            Self::BlobNode | Self::MediaService => &["cx.blob.", "cx.media."],
-            Self::DirectoryService => &["cx.directory."],
-            Self::DeviceKeyService => &["cx.keys.", "cx.device_messages."],
-            Self::AuthzService => &["cx.authz.", "cx.policy."],
-            Self::PolicyServer => &["cx.policy."],
-            Self::PushGateway => &["cx.push."],
-            Self::AppletService => &["cx.applet."],
-            Self::AgentRuntime => &["cx.applet.", "cx.agent."],
-            Self::SfuService => &["cx.media.", "cx.webrtc."],
+            Self::IdentityRegistry => &["ck.identity.", "ck.directory.resolve_handle"],
+            Self::AuthServer => &["ck.account.", "ck.identity.resolve"],
+            Self::SyncNode => &["ck.sync.", "ck.events."],
+            Self::BlobNode | Self::MediaService => &["ck.blob.", "ck.media."],
+            Self::DirectoryService => &["ck.directory."],
+            Self::DeviceKeyService => &["ck.keys.", "ck.device_messages."],
+            Self::AuthzService => &["ck.authz.", "ck.policy."],
+            Self::PolicyServer => &["ck.policy."],
+            Self::PushGateway => &["ck.push."],
+            Self::AppletService => &["ck.applet."],
+            Self::AgentRuntime => &["ck.applet.", "ck.agent."],
+            Self::SfuService => &["ck.media.", "ck.webrtc."],
             Self::TurnService => &["ck.media.ice_config"],
-            Self::ModerationService => &["cx.moderation.", "ck.admin.get_moderation_queue"],
+            Self::ModerationService => &["ck.moderation.", "ck.admin.get_moderation_queue"],
         }
     }
 
@@ -400,7 +400,7 @@ mod tests {
             rate_limit: Value::Null,
             egress_network_policy: Some(crate::EgressNetworkPolicy::deny_private_defaults()),
             supported_reducer_profiles: vec!["ck.reducer.v1".to_owned()],
-            supported_schema_profiles: vec!["cx.schema.core.v1".to_owned()],
+            supported_schema_profiles: vec!["ck.schema.core.v1".to_owned()],
             frontier: Vec::new(),
             snapshot_frontier: Vec::new(),
             reducer_profile: None,
@@ -411,7 +411,7 @@ mod tests {
             .service_type(ServiceType::DirectoryService)
             .profile(crate::PROFILE_DIRECTORY_SERVICE)
             .reducer_profile("ck.reducer.v1")
-            .schema_profile("cx.schema.core.v1")
+            .schema_profile("ck.schema.core.v1")
             .operation("ck.directory.search_realms")
             .verify(&description)
             .unwrap();
