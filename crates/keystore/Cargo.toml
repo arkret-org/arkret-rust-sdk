@@ -1,0 +1,44 @@
+[package]
+authors = ["Chris Young <chris@sonc.ai>"]
+categories = ["api-bindings", "cryptography", "os"]
+description = "Platform-native KeyStore backends (macOS Keychain, Linux Secret Service, Windows Credential Manager) for the Cokret v1 SDK."
+edition = "2024"
+homepage = "https://github.com/cokret/cokret-rust-sdk"
+keywords = ["cokret", "keystore", "keychain", "secrets"]
+license = "Apache-2.0"
+name = "cokret-keystore"
+readme = "README.md"
+repository = "https://github.com/cokret/cokret-rust-sdk"
+rust-version = "1.92"
+version = "1.0.0"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[features]
+default = []
+# Platform KeyStore native backends. Each pulls its target-specific dep
+# only on the matching target_os via `[target.*]` blocks below, so
+# enabling all three on a non-matching host is a no-op for that backend.
+keystore-macos = ["dep:security-framework"]
+keystore-linux = ["dep:secret-service"]
+keystore-windows = ["dep:windows"]
+
+[dependencies]
+cokret-core.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+security-framework = { workspace = true, optional = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+secret-service = { workspace = true, optional = true }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { workspace = true, optional = true, features = [
+    "Win32_Foundation",
+    "Win32_Security_Credentials",
+] }
+
+[lints]
+workspace = true

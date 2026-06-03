@@ -17,8 +17,10 @@ use windows::Win32::Security::Credentials::{
 };
 use windows::core::PCWSTR;
 
-use crate::Result;
-use crate::keystore::{KeyStore, KeyStoreError, service_name, validate_id};
+use cokret_core::Result;
+use cokret_core::keystore::{service_name, validate_id};
+
+use crate::{KeyStore, KeyStoreError};
 
 /// Windows Credential Manager-backed [`KeyStore`].
 pub struct WindowsCredentialKeyStore {

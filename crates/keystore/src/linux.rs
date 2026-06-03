@@ -16,8 +16,10 @@
 use secret_service::EncryptionType;
 use secret_service::blocking::SecretService;
 
-use crate::Result;
-use crate::keystore::{KeyStore, KeyStoreError, service_name, validate_id};
+use cokret_core::Result;
+use cokret_core::keystore::{service_name, validate_id};
+
+use crate::{KeyStore, KeyStoreError};
 
 /// Linux Secret Service-backed [`KeyStore`].
 pub struct LinuxSecretServiceKeyStore {

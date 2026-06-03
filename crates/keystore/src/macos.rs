@@ -20,8 +20,10 @@ use security_framework::passwords::{
     delete_generic_password, get_generic_password, set_generic_password,
 };
 
-use crate::Result;
-use crate::keystore::{KeyStore, KeyStoreError, service_name, validate_id};
+use cokret_core::Result;
+use cokret_core::keystore::{service_name, validate_id};
+
+use crate::{KeyStore, KeyStoreError};
 
 /// macOS Keychain-backed [`KeyStore`].
 ///

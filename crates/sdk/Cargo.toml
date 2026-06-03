@@ -48,12 +48,12 @@ applet-runtime = ["full-surface"]
 device-runtime = ["full-surface"]
 sync-runtime = ["full-surface"]
 timeline-runtime = ["full-surface"]
-# Round 23 (2026-05-09): expose cokret-core's platform KeyStore feature
-# gates so apps embedding the umbrella `cokret` crate can opt into
-# OS-native key storage without a direct cokret-core dependency.
-keystore-macos = ["cokret-core/keystore-macos"]
-keystore-linux = ["cokret-core/keystore-linux"]
-keystore-windows = ["cokret-core/keystore-windows"]
+# Round 23 (2026-05-09): expose the platform KeyStore feature gates so apps
+# embedding the umbrella `cokret` crate can opt into OS-native key storage
+# without a direct cokret-keystore dependency.
+keystore-macos = ["cokret-keystore/keystore-macos"]
+keystore-linux = ["cokret-keystore/keystore-linux"]
+keystore-windows = ["cokret-keystore/keystore-windows"]
 
 [dependencies]
 base64.workspace = true
@@ -66,6 +66,7 @@ cokret-core.workspace = true
 cokret-crypto.workspace = true
 cokret-ffi.workspace = true
 cokret-html.workspace = true
+cokret-keystore.workspace = true
 cokret-server = { workspace = true, optional = true }
 salvo = { workspace = true, optional = true, features = ["oapi"] }
 cokret-signatures.workspace = true

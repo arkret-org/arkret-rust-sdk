@@ -13,6 +13,7 @@ cokret-core = { version = "1.0.0", path = "crates/core", default-features = fals
 cokret-ffi = { version = "1.0.0", path = "crates/ffi", default-features = false }
 cokret-html = { version = "1.0.0", path = "crates/html", default-features = false }
 cokret-identifiers = { version = "1.0.0", path = "crates/identifiers", default-features = false }
+cokret-keystore = { version = "1.0.0", path = "crates/keystore", default-features = false }
 cokret-crypto = { version = "1.0.0", path = "crates/crypto", default-features = false }
 cokret-server = { version = "1.0.0", path = "crates/server", default-features = false }
 cokret-signatures = { version = "1.0.0", path = "crates/signatures", default-features = false }

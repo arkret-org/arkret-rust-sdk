@@ -4,8 +4,9 @@
 //! feature is disabled. Constructors return [`KeyStoreError::Unsupported`];
 //! trait methods do the same so naive callers don't panic.
 
-use crate::Result;
-use crate::keystore::{KeyStore, KeyStoreError};
+use cokret_core::Result;
+
+use crate::{KeyStore, KeyStoreError};
 
 /// Windows Credential Manager-backed [`KeyStore`] (off-target stub).
 #[derive(Debug)]

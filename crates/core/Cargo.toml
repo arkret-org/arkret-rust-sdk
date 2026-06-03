@@ -21,12 +21,6 @@ default = []
 client = ["dep:reqwest", "dep:url"]
 mls = []
 salvo = ["dep:salvo", "salvo/oapi", "dep:salvo-oapi", "salvo-oapi/chrono", "cokret-identifiers/salvo"]
-# Platform KeyStore native backends. Each pulls its target-specific dep
-# only on the matching target_os via `[target.*]` blocks below, so
-# enabling all three on a non-matching host is a no-op for that backend.
-keystore-macos = ["dep:security-framework"]
-keystore-linux = ["dep:secret-service"]
-keystore-windows = ["dep:windows"]
 
 [dependencies]
 base64.workspace = true
@@ -42,18 +36,6 @@ serde_json.workspace = true
 sha2.workspace = true
 thiserror.workspace = true
 url = { workspace = true, optional = true }
-
-[target.'cfg(target_os = "macos")'.dependencies]
-security-framework = { workspace = true, optional = true }
-
-[target.'cfg(target_os = "linux")'.dependencies]
-secret-service = { workspace = true, optional = true }
-
-[target.'cfg(target_os = "windows")'.dependencies]
-windows = { workspace = true, optional = true, features = [
-    "Win32_Foundation",
-    "Win32_Security_Credentials",
-] }
 
 [dev-dependencies]
 serde_json.workspace = true

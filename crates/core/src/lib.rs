@@ -104,10 +104,7 @@ pub use identifiers::{
     RecoverySessionId, RelationId, ReportId, RequestId, SidecarCircleId, SnapshotId, SpaceId, TransactionId,
     TypedAppealId, TypedTrustDomainId, ViewId,
 };
-pub use keystore::{
-    InMemoryKeyStore, KeyStore, KeyStoreError, LinuxSecretServiceKeyStore, MacOsKeychainKeyStore,
-    WindowsCredentialKeyStore, platform_default_keystore,
-};
+pub use keystore::{InMemoryKeyStore, KeyStore, KeyStoreError};
 pub use model::*;
 pub use move_event::{
     Effect, LatticeOp, LatticeOpType, MOVE_SIGNATURE_ALGS, Move, MoveSignature, Precondition,

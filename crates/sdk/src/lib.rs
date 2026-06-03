@@ -94,13 +94,17 @@ pub use cokret_core::lattice;
 pub use cokret_core::operations;
 pub use cokret_core::schema as schema_contracts;
 pub use cokret_core::state as state_res;
-pub use cokret_core::{
-    InMemoryKeyStore, KeyStore, KeyStoreError, LinuxSecretServiceKeyStore, MacOsKeychainKeyStore,
-    WindowsCredentialKeyStore, platform_default_keystore,
-};
+// The pure KeyStore contract (trait + in-memory backend + error type) lives
+// in `cokret-core`; the OS-native backends and the platform-default
+// constructor now live in the dedicated `cokret-keystore` crate.
+pub use cokret_core::{InMemoryKeyStore, KeyStore, KeyStoreError};
 pub use cokret_crypto as crypto_protocol;
 pub use cokret_ffi as ffi;
 pub use cokret_html as html;
+pub use cokret_keystore::{
+    LinuxSecretServiceKeyStore, MacOsKeychainKeyStore, WindowsCredentialKeyStore,
+    platform_default_keystore,
+};
 #[cfg(feature = "server")]
 pub use cokret_server as server;
 pub use cokret_signatures as signatures;
