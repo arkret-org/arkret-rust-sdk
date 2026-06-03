@@ -17,13 +17,13 @@
       "public_key_hex": "8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394",
       "value": {
         "actor_id": "did:web:alice.example",
-        "kind": "cx.message.posted.v1",
+        "kind": "ck.message.posted.v1",
         "payload": {"text": "hi"}
       },
-      "canonical_bytes": "{\"actor_id\":\"did:web:alice.example\",\"kind\":\"cx.message.posted.v1\",\"payload\":{\"text\":\"hi\"}}",
-      "payload_digest": "sha256:4855b204680a93fbcbb9ee2c92dfad77839f2de59b88c890bdfebe5c6733d475",
-      "signature_hex": "09138fe9e02f939b9556807a69d91172768e46c5b1290c3d99831284de64f876c6978d9a71c2c1b28c1c16467dc09ee0ca4a8769c6cd95aac0c9c5ddd4133c05",
-      "detached_jws": "eyJhbGciOiJFZERTQSJ9..CROP6eAvk5uVVoB6adkRcnaORsWxKQw9mYMShN5k-HbGl42accLBsowcFkZ9wJ7gykqHacbNlarAycXd1BM8BQ"
+      "canonical_bytes": "{\"actor_id\":\"did:web:alice.example\",\"kind\":\"ck.message.posted.v1\",\"payload\":{\"text\":\"hi\"}}",
+      "payload_digest": "sha256:2cd093faa64434f21f4c3c5db94c059597972936d85ce88eaebb5924d487aeb5",
+      "signature_hex": "00b4a0618a30bd562e94aef3d73d07d02ba7b75a309cc946f78b2ce2c782f6448f9a1281b91ebda8c8427d56b4ea4bbae42e359239b0f4411cbcd9180137130a",
+      "detached_jws": "eyJhbGciOiJFZERTQSJ9..ALSgYYowvVYulK7z1z0H0Cunt1ownMlG94ss4seC9kSPmhKBuR69qMhCfVa06ku65C41kjmw9EEcvNkYATcTCg"
     },
     {
       "name": "seed_three_integer_array",

@@ -119,7 +119,7 @@ fn _dump_ed25519_vectors_helper() {
             [2u8; 32],
             serde_json::json!({
                 "actor_id": "did:web:alice.example",
-                "kind": "cx.message.posted.v1",
+                "kind": "ck.message.posted.v1",
                 "payload": {"text": "hi"}
             }),
         ),
