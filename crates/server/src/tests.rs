@@ -10,6 +10,13 @@ fn service_route_operation_ids_are_unique() {
             route.path.starts_with("/api/v1/")
                 || route.path.starts_with("/contrix/v1/")
                 || route.path.starts_with("/.well-known/")
+                // Admin is a deployment-local namespace served at the bare
+                // `/admin/*` path (no `/api/v1` prefix), per contrix-spec
+                // service-http-binding.md §2.1.
+                || route.path.starts_with("/admin/"),
+            "unexpected route namespace: {} ({})",
+            route.path,
+            route.operation_id,
         );
     }
 }
@@ -39,7 +46,7 @@ fn service_route_registry_matches_required_spec_operations() {
         ("cx.policy.check", "/contrix/v1/check"),
         ("cx.mimi.room_update", "/api/v1/mimi/flows/{flow_id}/update"),
         ("cx.account.issue_session_grant", "/api/v1/auth/account/session-grants"),
-        ("cx.admin.revoke_device", "/api/v1/admin/devices/{device_id}/revoke"),
+        ("cx.admin.revoke_device", "/admin/devices/{device_id}/revoke"),
         ("cx.applet.transaction", "/api/v1/applet/transactions"),
     ] {
         assert_eq!(actual.get(operation_id), Some(&path), "{operation_id}");

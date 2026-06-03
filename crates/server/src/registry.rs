@@ -110,10 +110,13 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
     endpoint!("cx.account.issue_session_grant", Post, "/api/v1/auth/account/session-grants"),
     endpoint!("cx.account.device_pair", Post, "/api/v1/auth/account/device-pair"),
     endpoint!("cx.account.oidc_callback", Post, "/api/v1/auth/account/oidc/callback"),
-    endpoint!("cx.admin.get_server_status", Get, "/api/v1/admin/server/status"),
-    endpoint!("cx.admin.update_account_status", Post, "/api/v1/admin/accounts/{account_id}/status"),
-    endpoint!("cx.admin.revoke_device", Post, "/api/v1/admin/devices/{device_id}/revoke"),
-    endpoint!("cx.admin.get_moderation_queue", Get, "/api/v1/admin/moderation/queue"),
+    // Admin is a deployment-local namespace served at the bare `/admin/*`
+    // path (NOT under the `/api/v1` protocol prefix), per contrix-spec
+    // service-http-binding.md §2.1.
+    endpoint!("cx.admin.get_server_status", Get, "/admin/server/status"),
+    endpoint!("cx.admin.update_account_status", Post, "/admin/accounts/{account_id}/status"),
+    endpoint!("cx.admin.revoke_device", Post, "/admin/devices/{device_id}/revoke"),
+    endpoint!("cx.admin.get_moderation_queue", Get, "/admin/moderation/queue"),
     endpoint!("cx.applet.ping", Get, "/api/v1/applet/ping"),
     endpoint!("cx.applet.describe", Get, "/api/v1/applet/describe"),
     endpoint!("cx.applet.transaction", Post, "/api/v1/applet/transactions"),
