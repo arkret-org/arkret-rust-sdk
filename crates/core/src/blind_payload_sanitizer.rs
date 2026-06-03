@@ -645,7 +645,7 @@ mod tests {
                 "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
                 "wakeup_kind": "message",
             },
-            "operation_id": "cx.push.notify",
+            "operation_id": "ck.push.notify",
             "context": { "trace": "did:web:alice.example" },
         });
         let err = sanitize_blind_payload(&payload).unwrap_err();

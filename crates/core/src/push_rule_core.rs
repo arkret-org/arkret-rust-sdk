@@ -7,7 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Receiver-level watch state. Mirrors `cx.flow.watch.set`'s `level` field
+/// Receiver-level watch state. Mirrors `ck.flow.watch.set`'s `level` field
 /// wire encoding.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

@@ -29,10 +29,10 @@ pub use proof::{Ed25519DetachedJwsSigner, Ed25519DetachedJwsVerifier};
 use std::collections::BTreeMap;
 
 use chrono::{DateTime, Duration, Utc};
-use contrix_core::{Audience, Did, Error, Hash, Proof, Result, SignatureBindingPayload, canonical};
+use cokret_core::{Audience, Did, Error, Hash, Proof, Result, SignatureBindingPayload, canonical};
 use serde::{Deserialize, Serialize};
 
-pub use contrix_core::Proof as ProtocolProof;
+pub use cokret_core::Proof as ProtocolProof;
 
 pub const PRODUCTION_ALGORITHMS: &[&str] = &["EdDSA", "ES256", "ES256K", "RS256", "PS256"];
 pub const HTTP_MESSAGE_SIGNATURE_PROFILE: &str = "cx.http-message-signature.v1";
@@ -440,7 +440,7 @@ mod tests {
         let now = Utc::now();
         let input = HttpMessageSignatureInput {
             method: "POST".to_owned(),
-            target_uri: "https://b.example/api/v1/federation/push-operations".to_owned(),
+            target_uri: "https://b.example/_cokret/peer/federation/push-operations".to_owned(),
             authority: "b.example".to_owned(),
             content_digest:
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned(),

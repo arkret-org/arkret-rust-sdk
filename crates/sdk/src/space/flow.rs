@@ -8,7 +8,7 @@ pub struct FlowCreateMetadata {
     pub encrypted_metadata: Option<Value>,
     pub tracks: BTreeMap<String, crate::FlowTrackConfig>,
     /// CXP-0007 — optional Circle that defines this Flow's encryption scope.
-    pub scope_circle_id: Option<contrix_core::CircleId>,
+    pub scope_circle_id: Option<cokret_core::CircleId>,
 }
 
 /// Optional Flow patch metadata accepted by [`Space::update_flow_operation_with_metadata`].
@@ -21,7 +21,7 @@ pub struct FlowUpdateMetadata {
 }
 
 impl Space {
-    /// Create a spec-shaped `cx.flow.create` operation.
+    /// Create a spec-shaped `ck.flow.create` operation.
     pub fn create_flow_operation(
         &self,
         title: impl Into<String>,
@@ -36,7 +36,7 @@ impl Space {
         )
     }
 
-    /// Create a spec-shaped `cx.flow.create` operation with extended Flow fields.
+    /// Create a spec-shaped `ck.flow.create` operation with extended Flow fields.
     pub fn create_flow_operation_with_metadata(
         &self,
         title: impl Into<String>,
@@ -95,7 +95,7 @@ impl Space {
         ))
     }
 
-    /// Create a spec-shaped `cx.flow.update` operation.
+    /// Create a spec-shaped `ck.flow.update` operation.
     pub fn update_flow_operation(
         &self,
         flow_id: FlowId,
@@ -112,7 +112,7 @@ impl Space {
         )
     }
 
-    /// Create a spec-shaped `cx.flow.update` operation with extended Flow fields.
+    /// Create a spec-shaped `ck.flow.update` operation with extended Flow fields.
     pub fn update_flow_operation_with_metadata(
         &self,
         flow_id: FlowId,
@@ -203,7 +203,7 @@ impl Space {
         Ok(operation)
     }
 
-    /// Create a `cx.flow.move` operation.
+    /// Create a `ck.flow.move` operation.
     pub fn move_flow_operation(
         &self,
         flow_id: FlowId,
@@ -222,7 +222,7 @@ impl Space {
         )
     }
 
-    /// Create a `cx.flow.reorder` operation.
+    /// Create a `ck.flow.reorder` operation.
     pub fn reorder_flow_operation(
         &self,
         flow_id: FlowId,

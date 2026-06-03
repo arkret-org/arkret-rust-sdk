@@ -7,13 +7,13 @@ fn service_route_operation_ids_are_unique() {
     for route in service_routes() {
         assert!(ids.insert(route.operation_id), "duplicate {}", route.operation_id);
         assert!(
-            route.path.starts_with("/api/v1/")
-                || route.path.starts_with("/cokret/v1/")
-                || route.path.starts_with("/.well-known/")
-                // Admin is a deployment-local namespace served at the bare
-                // `/admin/*` path (no `/api/v1` prefix), per cokret-spec
-                // service-http-binding.md §2.1.
-                || route.path.starts_with("/admin/"),
+            // All HTTP/JSON binding paths live under the negative-space root
+            // `/_cokret/` with no version segment; the first segment is a
+            // trust-circle name (self/gate/root/find/peer/open/edge/local),
+            // per cokret-spec service-http-binding.md §2.1. Admin is the
+            // deployment-local namespace at `/_cokret/local/admin/*`.
+            route.path.starts_with("/_cokret/")
+                || route.path.starts_with("/.well-known/"),
             "unexpected route namespace: {} ({})",
             route.path,
             route.operation_id,
@@ -28,26 +28,26 @@ fn service_route_registry_matches_required_spec_operations() {
         .map(|route| (route.operation_id, route.path))
         .collect::<BTreeMap<_, _>>();
     for (operation_id, path) in [
-        ("cx.identity.resolve", "/api/v1/identity/resolve"),
-        ("cx.account.subscribe", "/api/v1/account/subscribe"),
-        ("cx.account.describe", "/api/v1/account/describe"),
-        ("cx.events.describe", "/api/v1/events/describe"),
-        ("cx.events.submit", "/api/v1/events"),
-        ("cx.events.get", "/api/v1/events/{event_id}"),
-        ("cx.events.resolve", "/api/v1/events/resolve"),
-        ("cx.events.frontier", "/api/v1/events/frontier"),
-        ("cx.events.subscribe", "/api/v1/events/subscribe"),
-        ("cx.events.query", "/api/v1/events"),
-        ("cx.directory.private_contact_discovery", "/api/v1/directory/private-contact-discovery"),
-        ("cx.blob.upload", "/api/v1/blob/upload"),
-        ("cx.push.register_device", "/api/v1/push/register-device"),
-        ("cx.keys.keypackages.claim", "/api/v1/keys/keypackages/claim"),
-        ("cx.authz.check", "/api/v1/authz/check"),
-        ("cx.policy.check", "/cokret/v1/check"),
-        ("cx.mimi.room_update", "/api/v1/mimi/flows/{flow_id}/update"),
-        ("cx.account.issue_session_grant", "/api/v1/auth/account/session-grants"),
-        ("cx.admin.revoke_device", "/admin/devices/{device_id}/revoke"),
-        ("cx.applet.transaction", "/api/v1/applet/transactions"),
+        ("ck.identity.resolve", "/_cokret/root/identity/resolve"),
+        ("ck.account.subscribe", "/_cokret/self/account/subscribe"),
+        ("ck.account.describe", "/_cokret/self/account/describe"),
+        ("ck.events.describe", "/_cokret/self/events/describe"),
+        ("ck.events.submit", "/_cokret/self/events"),
+        ("ck.events.get", "/_cokret/self/events/{event_id}"),
+        ("ck.events.resolve", "/_cokret/self/events/resolve"),
+        ("ck.events.frontier", "/_cokret/self/events/frontier"),
+        ("ck.events.subscribe", "/_cokret/self/events/subscribe"),
+        ("ck.events.query", "/_cokret/self/events/query"),
+        ("ck.directory.private_contact_discovery", "/_cokret/find/directory/private-contact-discovery"),
+        ("ck.blob.upload", "/_cokret/self/blob/upload"),
+        ("ck.push.register_device", "/_cokret/edge/push/register-device"),
+        ("ck.keys.keypackages.claim", "/_cokret/self/keys/keypackages/claim"),
+        ("ck.authz.check", "/_cokret/self/authz/check"),
+        ("ck.policy.check", "/_cokret/self/policy/check"),
+        ("ck.mimi.room_update", "/_cokret/open/mimi/flows/{flow_id}/update"),
+        ("ck.account.issue_session_grant", "/_cokret/gate/account/session-grants"),
+        ("ck.admin.revoke_device", "/_cokret/local/admin/devices/{device_id}/revoke"),
+        ("ck.applet.transaction", "/_cokret/edge/applet/transactions"),
     ] {
         assert_eq!(actual.get(operation_id), Some(&path), "{operation_id}");
     }
@@ -90,11 +90,11 @@ fn protocol_server_fixture_covers_core_flow_groups() {
     }
     assert!(
         report.steps.iter().any(
-            |step| step.flow == ProtocolFixtureFlow::Blob && step.operation_id == "cx.blob.get"
+            |step| step.flow == ProtocolFixtureFlow::Blob && step.operation_id == "ck.blob.get"
         )
     );
     assert!(report.steps.iter().any(|step| {
-        step.flow == ProtocolFixtureFlow::Sync && step.operation_id == "cx.events.submit"
+        step.flow == ProtocolFixtureFlow::Sync && step.operation_id == "ck.events.submit"
     }));
 }
 
@@ -107,13 +107,13 @@ fn framework_independent_handler_shape_can_be_mocked() {
             match request {
                 ServerReqBody::ServerDescribe => {
                     Ok(ServerResBody::ServerDescription(Box::new(ServerDescription {
-                        service_did: contrix_core::Did::new("did:web:svc.example").unwrap(),
-                        trust_domain: contrix_core::TypedTrustDomainId::new(
+                        service_did: cokret_core::Did::new("did:web:svc.example").unwrap(),
+                        trust_domain: cokret_core::TypedTrustDomainId::new(
                             "ck:trust_domain:example.net",
                         )
                         .unwrap(),
                         service_type: "principal_server".to_owned(),
-                        protocol_version: contrix_core::PROTOCOL_VERSION.to_owned(),
+                        protocol_version: cokret_core::PROTOCOL_VERSION.to_owned(),
                         supported_profiles: vec![],
                         supported_features: vec![],
                         supported_operations: service_routes()
@@ -132,7 +132,7 @@ fn framework_independent_handler_shape_can_be_mocked() {
                         development_mode: false,
                         rate_limit: Value::Null,
                         egress_network_policy: Some(
-                            contrix_core::EgressNetworkPolicy::deny_private_defaults(),
+                            cokret_core::EgressNetworkPolicy::deny_private_defaults(),
                         ),
                         supported_reducer_profiles: vec![],
                         supported_schema_profiles: vec![],
@@ -142,7 +142,7 @@ fn framework_independent_handler_shape_can_be_mocked() {
                         last_materialized_at: None,
                     })))
                 }
-                _ => Err(contrix_core::Error::Protocol("mock endpoint not implemented".to_owned())),
+                _ => Err(cokret_core::Error::Protocol("mock endpoint not implemented".to_owned())),
             }
         }
     }
@@ -152,5 +152,5 @@ fn framework_independent_handler_shape_can_be_mocked() {
     let ServerResBody::ServerDescription(description) = response else {
         panic!("unexpected response");
     };
-    assert!(description.supported_operations.contains(&"cx.account.subscribe".to_owned()));
+    assert!(description.supported_operations.contains(&"ck.account.subscribe".to_owned()));
 }

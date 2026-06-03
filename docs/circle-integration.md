@@ -48,7 +48,7 @@ use cokret::{
     CircleSymbol, Did, FlowCreateMetadata, RealmId,
 };
 
-// 1. Create the Circle (typically via a dedicated cx.circle.create
+// 1. Create the Circle (typically via a dedicated ck.circle.create
 //    event; the example below shows the local in-memory struct).
 let circle_id = CircleId::new(
     "ck:circle:0196419b-0000-7000-8000-000000000001".to_owned(),
@@ -85,7 +85,7 @@ attempt to change `scope_circle_id` with
 `failed_precondition reason=scope_rebind_forbidden`
 ([`REASON_SCOPE_REBIND_FORBIDDEN`](../crates/core/src/error.rs)).
 Profiles MAY permit an explicitly audited high-risk rebind path; in
-that case the caller MUST include a paired `cx.audit.accessed` event in
+that case the caller MUST include a paired `ck.audit.accessed` event in
 the same batch.
 
 ## Wide synthesis + narrow discussion
@@ -98,7 +98,7 @@ bound to a Circle), link the two Flows with the new Relation kind:
 use cokret::RelationKind;
 
 let rel = RelationKind::ConfidentialDiscussionOf;
-// emit cx.relation.create with `from = <wide flow>` and
+// emit ck.relation.create with `from = <wide flow>` and
 // `to = <narrow flow>`; reducer validates that the narrow side carries
 // `scope_circle_id` and the wide side does not (or carries a different
 // Circle).
@@ -112,12 +112,12 @@ CXP-0007 adds 6 capability action constants:
 
 | Constant                                | Action wire string             | Notes                                                    |
 |-----------------------------------------|--------------------------------|----------------------------------------------------------|
-| `CAP_ACTION_CIRCLE_CREATE`              | `cx.circle.create`             | Not in the default member bundle.                        |
-| `CAP_ACTION_CIRCLE_MANAGE`              | `cx.circle.manage`             | Requires `AllowedCircleRefs` constraint.                 |
-| `CAP_ACTION_CIRCLE_MEMBER_ADD`          | `cx.circle.member.add`         | Self-service (own actor only).                           |
-| `CAP_ACTION_CIRCLE_MEMBER_MANAGE`       | `cx.circle.member.manage`      | Requires `AllowedCircleRefs` constraint.                 |
-| `CAP_ACTION_CIRCLE_MEMBER_ADD_OTHERS`   | `cx.circle.member.add.others`  | High-risk; requires paired `cx.audit.accessed` event.     |
-| `CAP_ACTION_CIRCLE_AUDIT`               | `cx.circle.audit`              | High-risk; requires paired `cx.audit.accessed` event.     |
+| `CAP_ACTION_CIRCLE_CREATE`              | `ck.circle.create`             | Not in the default member bundle.                        |
+| `CAP_ACTION_CIRCLE_MANAGE`              | `ck.circle.manage`             | Requires `AllowedCircleRefs` constraint.                 |
+| `CAP_ACTION_CIRCLE_MEMBER_ADD`          | `ck.circle.member.add`         | Self-service (own actor only).                           |
+| `CAP_ACTION_CIRCLE_MEMBER_MANAGE`       | `ck.circle.member.manage`      | Requires `AllowedCircleRefs` constraint.                 |
+| `CAP_ACTION_CIRCLE_MEMBER_ADD_OTHERS`   | `ck.circle.member.add.others`  | High-risk; requires paired `ck.audit.accessed` event.     |
+| `CAP_ACTION_CIRCLE_AUDIT`               | `ck.circle.audit`              | High-risk; requires paired `ck.audit.accessed` event.     |
 
 The `AllowedCircleRefs(BTreeSet<CircleId>)` constraint variant on the
 `Constraint` enum gates these actions to a static set of Circle ids;

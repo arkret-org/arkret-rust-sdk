@@ -1,118 +1,118 @@
 use serde::{Deserialize, Serialize};
 
-pub const ACCOUNT_BLOCKLIST: &str = "cx.account.blocklist";
-pub const ACCOUNT_STATUS: &str = "cx.account.status";
-pub const ACCOUNT_DATA_SET: &str = "cx.account_data.set";
-pub const ACTOR_DISCOVERY: &str = "cx.actor.discovery";
-pub const AGENT_ENDPOINT: &str = "cx.agent.endpoint";
-pub const AGENT_KEY_AUTHORIZE: &str = "cx.agent.key.authorize";
-pub const AGENT_KEY_REVOKE: &str = "cx.agent.key.revoke";
-pub const AGENT_KEY_ROTATE: &str = "cx.agent.key.rotate";
+pub const ACCOUNT_BLOCKLIST: &str = "ck.account.blocklist";
+pub const ACCOUNT_STATUS: &str = "ck.account.status";
+pub const ACCOUNT_DATA_SET: &str = "ck.account_data.set";
+pub const ACTOR_DISCOVERY: &str = "ck.actor.discovery";
+pub const AGENT_ENDPOINT: &str = "ck.agent.endpoint";
+pub const AGENT_KEY_AUTHORIZE: &str = "ck.agent.key.authorize";
+pub const AGENT_KEY_REVOKE: &str = "ck.agent.key.revoke";
+pub const AGENT_KEY_ROTATE: &str = "ck.agent.key.rotate";
 pub const AGENT_KEY_AUTHORIZED: &str = AGENT_KEY_AUTHORIZE;
 pub const AGENT_KEY_REVOKED: &str = AGENT_KEY_REVOKE;
 pub const AGENT_KEY_ROTATED: &str = AGENT_KEY_ROTATE;
 // CXP-0008 / CXP-0009 (spec head 37ce729) — personal-agent lifecycle event
 // kinds (durable, reducer-input).
-pub const AGENT_PAUSE: &str = "cx.agent.pause";
-pub const AGENT_RESUME: &str = "cx.agent.resume";
-pub const AGENT_DEACTIVATE: &str = "cx.agent.deactivate";
+pub const AGENT_PAUSE: &str = "ck.agent.pause";
+pub const AGENT_RESUME: &str = "ck.agent.resume";
+pub const AGENT_DEACTIVATE: &str = "ck.agent.deactivate";
 // CXP-0008 / CXP-0009 — agent action / draft event kinds (actor_private).
-pub const AGENT_DRAFT_PROPOSE: &str = "cx.agent.draft.propose";
-pub const AGENT_ACTION_REQUEST: &str = "cx.agent.action_request";
-pub const AGENT_ACTION_APPROVE: &str = "cx.agent.action_approve";
-pub const AGENT_ACTION_REJECT: &str = "cx.agent.action_reject";
-pub const AGENT_PROTOCOL_SESSION_RESULT: &str = "cx.agent.protocol_session.result";
-pub const AGENT_PROTOCOL_SESSION_START: &str = "cx.agent.session.start";
-pub const AGENT_PROTOCOL_SESSION_STATUS: &str = "cx.agent.protocol_session.status";
-pub const APPLET_BRIDGE_ERROR: &str = "cx.applet.bridge_error";
-pub const APPLET_DISCOVERY: &str = "cx.applet.discovery";
-pub const APPLET_PROTOCOL_SESSION_START: &str = "cx.applet.protocol_session.start";
-pub const APPLET_PROTOCOL_SESSION_STATUS: &str = "cx.applet.protocol_session.status";
-pub const APPLET_REGISTRATION: &str = "cx.applet.registration";
-pub const ATTESTATION_RANGE_COMPLETENESS: &str = "cx.attestation.range_completeness";
-pub const AUDIT_ACCESSED: &str = "cx.audit.accessed";
-pub const AUDIT_EPOCH_KEY_DESTRUCTION: &str = "cx.audit.epoch_key_destruction";
-pub const AUDIT_ERASURE_RECEIPT: &str = "cx.audit.erasure_receipt";
-pub const AUDIT_RYW_RECEIPT: &str = "cx.audit.ryw_receipt";
-pub const CALL_RECORDING_START: &str = "cx.call.recording.start";
-pub const CALL_SIGNAL: &str = "cx.call.signal";
-pub const CALL_STATE: &str = "cx.call.state";
-pub const CAPABILITY_DELEGATE: &str = "cx.capability.delegate";
-pub const CAPABILITY_DERIVED: &str = "cx.capability.derived";
-pub const CAPABILITY_GRANT: &str = "cx.capability.grant";
-pub const CAPABILITY_REVOKE: &str = "cx.capability.revoke";
+pub const AGENT_DRAFT_PROPOSE: &str = "ck.agent.draft.propose";
+pub const AGENT_ACTION_REQUEST: &str = "ck.agent.action_request";
+pub const AGENT_ACTION_APPROVE: &str = "ck.agent.action_approve";
+pub const AGENT_ACTION_REJECT: &str = "ck.agent.action_reject";
+pub const AGENT_PROTOCOL_SESSION_RESULT: &str = "ck.agent.protocol_session.result";
+pub const AGENT_PROTOCOL_SESSION_START: &str = "ck.agent.session.start";
+pub const AGENT_PROTOCOL_SESSION_STATUS: &str = "ck.agent.protocol_session.status";
+pub const APPLET_BRIDGE_ERROR: &str = "ck.applet.bridge_error";
+pub const APPLET_DISCOVERY: &str = "ck.applet.discovery";
+pub const APPLET_PROTOCOL_SESSION_START: &str = "ck.applet.protocol_session.start";
+pub const APPLET_PROTOCOL_SESSION_STATUS: &str = "ck.applet.protocol_session.status";
+pub const APPLET_REGISTRATION: &str = "ck.applet.registration";
+pub const ATTESTATION_RANGE_COMPLETENESS: &str = "ck.attestation.range_completeness";
+pub const AUDIT_ACCESSED: &str = "ck.audit.accessed";
+pub const AUDIT_EPOCH_KEY_DESTRUCTION: &str = "ck.audit.epoch_key_destruction";
+pub const AUDIT_ERASURE_RECEIPT: &str = "ck.audit.erasure_receipt";
+pub const AUDIT_RYW_RECEIPT: &str = "ck.audit.ryw_receipt";
+pub const CALL_RECORDING_START: &str = "ck.call.recording.start";
+pub const CALL_SIGNAL: &str = "ck.call.signal";
+pub const CALL_STATE: &str = "ck.call.state";
+pub const CAPABILITY_DELEGATE: &str = "ck.capability.delegate";
+pub const CAPABILITY_DERIVED: &str = "ck.capability.derived";
+pub const CAPABILITY_GRANT: &str = "ck.capability.grant";
+pub const CAPABILITY_REVOKE: &str = "ck.capability.revoke";
 // CXP-0007 (spec b7d35be) — Circle primitive event kinds. 7 active kinds
 // registered in `event-kind-registry.json` v2026-05-08.
-pub const CIRCLE_CREATE: &str = "cx.circle.create";
-pub const CIRCLE_UPDATE: &str = "cx.circle.update";
-pub const CIRCLE_ARCHIVE: &str = "cx.circle.archive";
-pub const CIRCLE_RESTORE: &str = "cx.circle.restore";
-pub const CIRCLE_TOMBSTONE: &str = "cx.circle.tombstone";
-pub const CIRCLE_MEMBER_STATE: &str = "cx.circle.member.state";
-pub const CIRCLE_ANCHOR_COMMIT: &str = "cx.circle.anchor_commit";
-pub const CONSENT_GRANT: &str = "cx.consent.grant";
-pub const CONSENT_REVOKE: &str = "cx.consent.revoke";
-pub const CONTAINER_MOVE_ITEM: &str = "cx.container.move_item";
-pub const CONTAINER_REBALANCE: &str = "cx.container.rebalance";
-pub const CROSS_SIGNING_PUBLISH: &str = "cx.cross_signing.publish";
-pub const CROSS_SIGNING_RESET: &str = "cx.cross_signing.reset";
-pub const DEVICE_AUTHORIZE: &str = "cx.device.authorize";
+pub const CIRCLE_CREATE: &str = "ck.circle.create";
+pub const CIRCLE_UPDATE: &str = "ck.circle.update";
+pub const CIRCLE_ARCHIVE: &str = "ck.circle.archive";
+pub const CIRCLE_RESTORE: &str = "ck.circle.restore";
+pub const CIRCLE_TOMBSTONE: &str = "ck.circle.tombstone";
+pub const CIRCLE_MEMBER_STATE: &str = "ck.circle.member.state";
+pub const CIRCLE_ANCHOR_COMMIT: &str = "ck.circle.anchor_commit";
+pub const CONSENT_GRANT: &str = "ck.consent.grant";
+pub const CONSENT_REVOKE: &str = "ck.consent.revoke";
+pub const CONTAINER_MOVE_ITEM: &str = "ck.container.move_item";
+pub const CONTAINER_REBALANCE: &str = "ck.container.rebalance";
+pub const CROSS_SIGNING_PUBLISH: &str = "ck.cross_signing.publish";
+pub const CROSS_SIGNING_RESET: &str = "ck.cross_signing.reset";
+pub const DEVICE_AUTHORIZE: &str = "ck.device.authorize";
 pub const DEVICE_AUTHORIZED: &str = DEVICE_AUTHORIZE;
-pub const DEVICE_LIST_UPDATE: &str = "cx.device.list_update";
-pub const DEVICE_PUSH_ROUTE: &str = "cx.device.push_route";
-pub const DEVICE_REVOKE: &str = "cx.device.revoke";
+pub const DEVICE_LIST_UPDATE: &str = "ck.device.list_update";
+pub const DEVICE_PUSH_ROUTE: &str = "ck.device.push_route";
+pub const DEVICE_REVOKE: &str = "ck.device.revoke";
 pub const DEVICE_REVOKED: &str = DEVICE_REVOKE;
-pub const DID_PROOF: &str = "cx.did.proof";
-pub const FLOW_ARCHIVE: &str = "cx.flow.archive";
-pub const FLOW_CREATE: &str = "cx.flow.create";
-pub const FLOW_MOVE: &str = "cx.flow.move";
-pub const FLOW_REORDER: &str = "cx.flow.reorder";
-pub const FLOW_RESTORE: &str = "cx.flow.restore";
-pub const FLOW_STAGE_SET: &str = "cx.flow.stage.set";
-pub const FLOW_TRACKS_UPDATE: &str = "cx.flow.tracks.update";
-pub const FLOW_UPDATE: &str = "cx.flow.update";
-pub const FLOW_WATCH_SET: &str = "cx.flow.watch.set";
-pub const HANDLE_DISCOVERY: &str = "cx.handle.discovery";
-pub const IDENTITY_ACCOUNTABILITY_GRANT: &str = "cx.identity.accountability_grant";
-pub const IDENTITY_DISCLOSURE_POLICY: &str = "cx.identity.disclosure_policy";
-pub const IDENTITY_DISCLOSURE_RECEIPT: &str = "cx.identity.disclosure_receipt";
-pub const IDENTITY_PRESENTATION_REQUEST: &str = "cx.identity.presentation_request";
-pub const IDENTITY_PRESENTATION_RESPONSE: &str = "cx.identity.presentation_response";
-pub const INVITE_ACCEPT: &str = "cx.invite.accept";
-pub const INVITE_CANCEL: &str = "cx.invite.cancel";
-pub const INVITE_CLAIM: &str = "cx.invite.claim";
-pub const INVITE_CREATE: &str = "cx.invite.create";
-pub const INVITE_REVOKE: &str = "cx.invite.revoke";
-pub const INVITE_THIRD_PARTY: &str = "cx.invite.third_party";
-pub const KEY_VERIFICATION_ACCEPT: &str = "cx.key.verification.accept";
-pub const KEY_VERIFICATION_CANCEL: &str = "cx.key.verification.cancel";
-pub const KEY_VERIFICATION_DONE: &str = "cx.key.verification.done";
-pub const KEY_VERIFICATION_KEY: &str = "cx.key.verification.key";
-pub const KEY_VERIFICATION_MAC: &str = "cx.key.verification.mac";
-pub const KEY_VERIFICATION_READY: &str = "cx.key.verification.ready";
-pub const KEY_VERIFICATION_REQUEST: &str = "cx.key.verification.request";
-pub const KEY_VERIFICATION_START: &str = "cx.key.verification.start";
-pub const MEMBER_IDENTITY_UPDATE: &str = "cx.member.identity.update";
-pub const MEMBER_STATE: &str = "cx.member.state";
-pub const MESSAGE_CREATE: &str = "cx.message.create";
-pub const MESSAGE_REDACT: &str = "cx.message.redact";
-pub const MESSAGE_REVISE: &str = "cx.message.revise";
-pub const MIMI_ROOM_BINDING: &str = "cx.mimi.room_binding";
-pub const MLS_COMMIT: &str = "cx.mls.commit";
-pub const MLS_COMMIT_FAILED: &str = "cx.mls.commit_failed";
-pub const MLS_GENESIS: &str = "cx.mls.genesis";
-pub const MLS_KEYPACKAGE: &str = "cx.mls.keypackage";
-pub const MLS_PROPOSAL: &str = "cx.mls.proposal";
-pub const MLS_WELCOME: &str = "cx.mls.welcome";
-pub const MODERATION_APPEAL_CLOSE: &str = "cx.moderation.appeal.close";
-pub const MODERATION_APPEAL_DECISION: &str = "cx.moderation.appeal.decision";
-pub const MODERATION_APPEAL_REVIEW: &str = "cx.moderation.appeal.review";
-pub const MODERATION_APPEAL_SUBMIT: &str = "cx.moderation.appeal.submit";
-pub const MODERATION_DECISION: &str = "cx.moderation.decision";
-pub const MODERATION_DECISION_LIFT: &str = "cx.moderation.decision.lift";
-pub const MODERATION_FRANKING_PROOF: &str = "cx.moderation.franking_proof";
+pub const DID_PROOF: &str = "ck.did.proof";
+pub const FLOW_ARCHIVE: &str = "ck.flow.archive";
+pub const FLOW_CREATE: &str = "ck.flow.create";
+pub const FLOW_MOVE: &str = "ck.flow.move";
+pub const FLOW_REORDER: &str = "ck.flow.reorder";
+pub const FLOW_RESTORE: &str = "ck.flow.restore";
+pub const FLOW_STAGE_SET: &str = "ck.flow.stage.set";
+pub const FLOW_TRACKS_UPDATE: &str = "ck.flow.tracks.update";
+pub const FLOW_UPDATE: &str = "ck.flow.update";
+pub const FLOW_WATCH_SET: &str = "ck.flow.watch.set";
+pub const HANDLE_DISCOVERY: &str = "ck.handle.discovery";
+pub const IDENTITY_ACCOUNTABILITY_GRANT: &str = "ck.identity.accountability_grant";
+pub const IDENTITY_DISCLOSURE_POLICY: &str = "ck.identity.disclosure_policy";
+pub const IDENTITY_DISCLOSURE_RECEIPT: &str = "ck.identity.disclosure_receipt";
+pub const IDENTITY_PRESENTATION_REQUEST: &str = "ck.identity.presentation_request";
+pub const IDENTITY_PRESENTATION_RESPONSE: &str = "ck.identity.presentation_response";
+pub const INVITE_ACCEPT: &str = "ck.invite.accept";
+pub const INVITE_CANCEL: &str = "ck.invite.cancel";
+pub const INVITE_CLAIM: &str = "ck.invite.claim";
+pub const INVITE_CREATE: &str = "ck.invite.create";
+pub const INVITE_REVOKE: &str = "ck.invite.revoke";
+pub const INVITE_THIRD_PARTY: &str = "ck.invite.third_party";
+pub const KEY_VERIFICATION_ACCEPT: &str = "ck.key.verification.accept";
+pub const KEY_VERIFICATION_CANCEL: &str = "ck.key.verification.cancel";
+pub const KEY_VERIFICATION_DONE: &str = "ck.key.verification.done";
+pub const KEY_VERIFICATION_KEY: &str = "ck.key.verification.key";
+pub const KEY_VERIFICATION_MAC: &str = "ck.key.verification.mac";
+pub const KEY_VERIFICATION_READY: &str = "ck.key.verification.ready";
+pub const KEY_VERIFICATION_REQUEST: &str = "ck.key.verification.request";
+pub const KEY_VERIFICATION_START: &str = "ck.key.verification.start";
+pub const MEMBER_IDENTITY_UPDATE: &str = "ck.member.identity.update";
+pub const MEMBER_STATE: &str = "ck.member.state";
+pub const MESSAGE_CREATE: &str = "ck.message.create";
+pub const MESSAGE_REDACT: &str = "ck.message.redact";
+pub const MESSAGE_REVISE: &str = "ck.message.revise";
+pub const MIMI_ROOM_BINDING: &str = "ck.mimi.room_binding";
+pub const MLS_COMMIT: &str = "ck.mls.commit";
+pub const MLS_COMMIT_FAILED: &str = "ck.mls.commit_failed";
+pub const MLS_GENESIS: &str = "ck.mls.genesis";
+pub const MLS_KEYPACKAGE: &str = "ck.mls.keypackage";
+pub const MLS_PROPOSAL: &str = "ck.mls.proposal";
+pub const MLS_WELCOME: &str = "ck.mls.welcome";
+pub const MODERATION_APPEAL_CLOSE: &str = "ck.moderation.appeal.close";
+pub const MODERATION_APPEAL_DECISION: &str = "ck.moderation.appeal.decision";
+pub const MODERATION_APPEAL_REVIEW: &str = "ck.moderation.appeal.review";
+pub const MODERATION_APPEAL_SUBMIT: &str = "ck.moderation.appeal.submit";
+pub const MODERATION_DECISION: &str = "ck.moderation.decision";
+pub const MODERATION_DECISION_LIFT: &str = "ck.moderation.decision.lift";
+pub const MODERATION_FRANKING_PROOF: &str = "ck.moderation.franking_proof";
 pub const MODERATION_FRANK: &str = MODERATION_FRANKING_PROOF;
-pub const MODERATION_REPORT: &str = "cx.moderation.report";
+pub const MODERATION_REPORT: &str = "ck.moderation.report";
 
 /// Object-only schema id — `cx.event_batch_receipt` is NOT an Event.kind.
 /// Returns `true` for kinds that may only appear as a separate object,
@@ -123,7 +123,7 @@ pub const RECEIPT_OBJECT_KINDS: &[&str] = &["cx.event_batch_receipt"];
 /// Round R2/R3 (2026-05-20). Items here MUST NOT be reduced into durable
 /// state, MUST NOT advance Anchor frontier or Move state_root, MUST NOT
 /// carry preconditions/effects/anchor_ref, and MUST NOT be submitted via
-/// `cx.events.submit`. See zh/sync/operations-sync.md §3.6 and
+/// `ck.events.submit`. See zh/sync/operations-sync.md §3.6 and
 /// schemas/ephemeral-envelope.schema.json (the 4 broadcast forms) and
 /// schemas/device-message.schema.json (the to-device key.verification forms).
 pub const EPHEMERAL_EVENT_KIND_PATTERNS: &[&str] = &[
@@ -131,7 +131,7 @@ pub const EPHEMERAL_EVENT_KIND_PATTERNS: &[&str] = &[
     PRESENCE,
     TYPING,
     RECEIPT_READ,
-    // cx.key.verification.* — point-to-point to-device family.
+    // ck.key.verification.* — point-to-point to-device family.
     KEY_VERIFICATION_ACCEPT,
     KEY_VERIFICATION_CANCEL,
     KEY_VERIFICATION_DONE,
@@ -143,11 +143,11 @@ pub const EPHEMERAL_EVENT_KIND_PATTERNS: &[&str] = &[
 ];
 
 /// True for the 12 wire-scope-ephemeral kinds — broadcast ephemerals
-/// (`cx.call.signal`, `cx.presence`, `cx.typing`, `cx.receipt.read`) plus
-/// the `cx.key.verification.*` to-device family. These MUST be rejected by
+/// (`ck.call.signal`, `cx.presence`, `cx.typing`, `ck.receipt.read`) plus
+/// the `ck.key.verification.*` to-device family. These MUST be rejected by
 /// reducers if delivered as a durable Event (event-envelope.schema.json `not` branch).
 pub fn is_ephemeral_kind(kind: &str) -> bool {
-    if kind.starts_with("cx.key.verification.") {
+    if kind.starts_with("ck.key.verification.") {
         return true;
     }
     EPHEMERAL_EVENT_KIND_PATTERNS.contains(&kind)
@@ -166,7 +166,7 @@ pub fn is_receipt_object_only(kind: &str) -> bool {
 /// for `kind`, or `None` when the SDK does not yet ship a typed payload
 /// schema ref (callers fall back to the generic event envelope check).
 ///
-/// R3.1 adds `cx.member.identity.update` →
+/// R3.1 adds `ck.member.identity.update` →
 /// `event-payload.schema.json#/$defs/member_identity_update_payload`.
 pub fn event_payload_schema_ref(kind: &str) -> Option<&'static str> {
     match kind {
@@ -180,7 +180,7 @@ pub fn event_payload_schema_ref(kind: &str) -> Option<&'static str> {
 /// Round R2/R3 (2026-05-20) — Realm lifecycle state classifier.
 ///
 /// Returned by [`is_terminal_realm_state`]. After a Realm has emitted
-/// `cx.realm.destroy`, no further state-changing events MUST be accepted
+/// `ck.realm.destroy`, no further state-changing events MUST be accepted
 /// (rejected as `realm_terminal_state`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -189,89 +189,89 @@ pub enum RealmLifecycleState {
     Frozen,
     Archived,
     Tombstoned,
-    /// `cx.realm.destroy` has been applied. Terminal.
+    /// `ck.realm.destroy` has been applied. Terminal.
     Destroyed,
 }
 
 /// Round R2/R3 — true once the Realm has reached the destroyed terminal
-/// state (`cx.realm.destroy` applied). Any subsequent state-changing
+/// state (`ck.realm.destroy` applied). Any subsequent state-changing
 /// event MUST be rejected as `ERROR_CODE_REALM_TERMINAL_STATE`.
 pub fn is_terminal_realm_state(state: RealmLifecycleState) -> bool {
     matches!(state, RealmLifecycleState::Destroyed)
 }
-pub const MORPH_ARCHIVE: &str = "cx.morph.archive";
-pub const MORPH_CREATE: &str = "cx.morph.create";
-pub const MORPH_RESTORE: &str = "cx.morph.restore";
-pub const MORPH_SCHEMA_MIGRATE: &str = "cx.morph.schema_migrate";
-pub const MORPH_STAGE_SET: &str = "cx.morph.stage.set";
-pub const MORPH_UPDATE: &str = "cx.morph.update";
-pub const ORGANIZATION_DISCOVERY: &str = "cx.organization.discovery";
-pub const ORGANIZATION_MODERATION_POLICY: &str = "cx.organization.moderation_policy";
+pub const MORPH_ARCHIVE: &str = "ck.morph.archive";
+pub const MORPH_CREATE: &str = "ck.morph.create";
+pub const MORPH_RESTORE: &str = "ck.morph.restore";
+pub const MORPH_SCHEMA_MIGRATE: &str = "ck.morph.schema_migrate";
+pub const MORPH_STAGE_SET: &str = "ck.morph.stage.set";
+pub const MORPH_UPDATE: &str = "ck.morph.update";
+pub const ORGANIZATION_DISCOVERY: &str = "ck.organization.discovery";
+pub const ORGANIZATION_MODERATION_POLICY: &str = "ck.organization.moderation_policy";
 // Realm event kinds (security boundary; spec 59ac1d4 Realm/Space inversion).
 // Top-level governance of the security boundary lives here.
-pub const REALM_ARCHIVE: &str = "cx.realm.archive";
-pub const REALM_ASSET_PRIVACY_POLICY: &str = "cx.realm.asset_privacy_policy";
-pub const REALM_AUDIT_POLICY_DOWNGRADE: &str = "cx.realm.audit_policy_downgrade";
-pub const REALM_CREATE: &str = "cx.realm.create";
-pub const REALM_DELIVERY_BINDING_POLICY: &str = "cx.realm.delivery_binding_policy";
-pub const REALM_DESTROY: &str = "cx.realm.destroy";
-pub const REALM_DISCOVERY: &str = "cx.realm.discovery";
-pub const REALM_FREEZE: &str = "cx.realm.freeze";
-pub const REALM_HISTORY_SHARING_POLICY: &str = "cx.realm.history_sharing_policy";
-pub const REALM_HISTORY_VISIBILITY: &str = "cx.realm.history_visibility";
-pub const REALM_INHERITANCE_POLICY: &str = "cx.realm.inheritance_policy";
-pub const REALM_KEY_SHARE: &str = "cx.realm_key.share";
-pub const REALM_KEY_SHARE_AUDIT: &str = "cx.realm_key.share_audit";
-pub const REALM_KEY_WITHHELD: &str = "cx.realm_key.withheld";
-pub const REALM_JOIN_RULE: &str = "cx.realm.join_rule";
-pub const REALM_LINK: &str = "cx.realm.link";
-pub const REALM_MEDIA_SERVICE: &str = "cx.realm.media_service";
-pub const REALM_MODERATION_POLICY: &str = "cx.realm.moderation_policy";
-pub const REALM_ORGANIZATION: &str = "cx.realm.organization";
-pub const REALM_PLAINTEXT_VISIBLE_SERVICES: &str = "cx.realm.plaintext_visible_services";
-pub const REALM_POLICY: &str = "cx.realm.policy";
-pub const REALM_POLICY_COMPONENTS: &str = "cx.realm.policy_components";
-pub const REALM_POLICY_SERVER: &str = "cx.realm.policy_server";
-pub const REALM_PREVIEW_POLICY: &str = "cx.realm.preview_policy";
-pub const REALM_READ_RECEIPT_POLICY: &str = "cx.realm.read_receipt_policy";
-pub const REALM_SCHEMA: &str = "cx.realm.schema";
-pub const REALM_TOMBSTONE: &str = "cx.realm.tombstone";
-pub const REALM_UPDATE: &str = "cx.realm.update";
-pub const REALM_UPGRADE: &str = "cx.realm.upgrade";
-pub const POLICY_ACTION: &str = "cx.policy.action";
-pub const POLICY_RULE: &str = "cx.policy.rule";
-pub const POLICY_SET: &str = "cx.policy.set";
+pub const REALM_ARCHIVE: &str = "ck.realm.archive";
+pub const REALM_ASSET_PRIVACY_POLICY: &str = "ck.realm.asset_privacy_policy";
+pub const REALM_AUDIT_POLICY_DOWNGRADE: &str = "ck.realm.audit_policy_downgrade";
+pub const REALM_CREATE: &str = "ck.realm.create";
+pub const REALM_DELIVERY_BINDING_POLICY: &str = "ck.realm.delivery_binding_policy";
+pub const REALM_DESTROY: &str = "ck.realm.destroy";
+pub const REALM_DISCOVERY: &str = "ck.realm.discovery";
+pub const REALM_FREEZE: &str = "ck.realm.freeze";
+pub const REALM_HISTORY_SHARING_POLICY: &str = "ck.realm.history_sharing_policy";
+pub const REALM_HISTORY_VISIBILITY: &str = "ck.realm.history_visibility";
+pub const REALM_INHERITANCE_POLICY: &str = "ck.realm.inheritance_policy";
+pub const REALM_KEY_SHARE: &str = "ck.realm_key.share";
+pub const REALM_KEY_SHARE_AUDIT: &str = "ck.realm_key.share_audit";
+pub const REALM_KEY_WITHHELD: &str = "ck.realm_key.withheld";
+pub const REALM_JOIN_RULE: &str = "ck.realm.join_rule";
+pub const REALM_LINK: &str = "ck.realm.link";
+pub const REALM_MEDIA_SERVICE: &str = "ck.realm.media_service";
+pub const REALM_MODERATION_POLICY: &str = "ck.realm.moderation_policy";
+pub const REALM_ORGANIZATION: &str = "ck.realm.organization";
+pub const REALM_PLAINTEXT_VISIBLE_SERVICES: &str = "ck.realm.plaintext_visible_services";
+pub const REALM_POLICY: &str = "ck.realm.policy";
+pub const REALM_POLICY_COMPONENTS: &str = "ck.realm.policy_components";
+pub const REALM_POLICY_SERVER: &str = "ck.realm.policy_server";
+pub const REALM_PREVIEW_POLICY: &str = "ck.realm.preview_policy";
+pub const REALM_READ_RECEIPT_POLICY: &str = "ck.realm.read_receipt_policy";
+pub const REALM_SCHEMA: &str = "ck.realm.schema";
+pub const REALM_TOMBSTONE: &str = "ck.realm.tombstone";
+pub const REALM_UPDATE: &str = "ck.realm.update";
+pub const REALM_UPGRADE: &str = "ck.realm.upgrade";
+pub const POLICY_ACTION: &str = "ck.policy.action";
+pub const POLICY_RULE: &str = "ck.policy.rule";
+pub const POLICY_SET: &str = "ck.policy.set";
 pub const PRESENCE: &str = "cx.presence";
-pub const PROFILE_CREATE: &str = "cx.profile.create";
-pub const PROFILE_SPACE_OVERRIDE: &str = "cx.profile.space_override";
-pub const PROFILE_UPDATE: &str = "cx.profile.update";
-pub const REACTION_ADD: &str = "cx.reaction.add";
-pub const REACTION_REMOVE: &str = "cx.reaction.remove";
-pub const READ_CURSOR_ADVANCE: &str = "cx.read_cursor.advance";
+pub const PROFILE_CREATE: &str = "ck.profile.create";
+pub const PROFILE_SPACE_OVERRIDE: &str = "ck.profile.space_override";
+pub const PROFILE_UPDATE: &str = "ck.profile.update";
+pub const REACTION_ADD: &str = "ck.reaction.add";
+pub const REACTION_REMOVE: &str = "ck.reaction.remove";
+pub const READ_CURSOR_ADVANCE: &str = "ck.read_cursor.advance";
 pub const READ_MARKER: &str = READ_CURSOR_ADVANCE;
-pub const RECEIPT_READ: &str = "cx.receipt.read";
+pub const RECEIPT_READ: &str = "ck.receipt.read";
 pub const REDACTION: &str = "cx.redaction";
-pub const RELATION_CREATE: &str = "cx.relation.create";
-pub const RELATION_TOMBSTONE: &str = "cx.relation.tombstone";
+pub const RELATION_CREATE: &str = "ck.relation.create";
+pub const RELATION_TOMBSTONE: &str = "ck.relation.tombstone";
 pub const RELATION_DELETE: &str = RELATION_TOMBSTONE;
-pub const RELATION_UPDATE: &str = "cx.relation.update";
-pub const SCHEMA_DEFINE: &str = "cx.schema.define";
-pub const SCHEMA_UPDATE: &str = "cx.schema.update";
-pub const SESSION_GRANT: &str = "cx.session.grant";
-pub const SOVEREIGN_DID_POLICY: &str = "cx.sovereign.did_policy";
+pub const RELATION_UPDATE: &str = "ck.relation.update";
+pub const SCHEMA_DEFINE: &str = "ck.schema.define";
+pub const SCHEMA_UPDATE: &str = "ck.schema.update";
+pub const SESSION_GRANT: &str = "ck.session.grant";
+pub const SOVEREIGN_DID_POLICY: &str = "ck.sovereign.did_policy";
 // Space event kinds (container; spec 59ac1d4 Realm/Space inversion).
 // Boards / lists / arbitrary nestable containers live here. Security
 // policies are NOT in this family — see REALM_* above.
-pub const SPACE_ARCHIVE: &str = "cx.space.archive";
-pub const SPACE_CREATE: &str = "cx.space.create";
-pub const SPACE_PARENT: &str = "cx.space.parent";
-pub const SPACE_RESTORE: &str = "cx.space.restore";
-pub const SPACE_TOMBSTONE: &str = "cx.space.tombstone";
-pub const SPACE_UPDATE: &str = "cx.space.update";
+pub const SPACE_ARCHIVE: &str = "ck.space.archive";
+pub const SPACE_CREATE: &str = "ck.space.create";
+pub const SPACE_PARENT: &str = "ck.space.parent";
+pub const SPACE_RESTORE: &str = "ck.space.restore";
+pub const SPACE_TOMBSTONE: &str = "ck.space.tombstone";
+pub const SPACE_UPDATE: &str = "ck.space.update";
 pub const TYPING: &str = "cx.typing";
-pub const VIEW_CREATE: &str = "cx.view.create";
-pub const VIEW_RECONCILE: &str = "cx.view.reconcile";
-pub const VIEW_UPDATE: &str = "cx.view.update";
+pub const VIEW_CREATE: &str = "ck.view.create";
+pub const VIEW_RECONCILE: &str = "ck.view.reconcile";
+pub const VIEW_UPDATE: &str = "ck.view.update";
 
 pub const STANDARD_EVENT_KINDS: &[&str] = &[
     ACCOUNT_BLOCKLIST,
@@ -455,7 +455,7 @@ pub const NON_REDUCER_EVENT_KINDS: &[&str] = &[
     AUDIT_ERASURE_RECEIPT,
     AUDIT_RYW_RECEIPT,
     CALL_SIGNAL,
-    // CXP-0007: cx.circle.anchor_commit is reducer-derived (sub-anchor
+    // CXP-0007: ck.circle.anchor_commit is reducer-derived (sub-anchor
     // commit emitted by the reducer on the Circle's profile cadence);
     // it is NOT a reducer-input event.
     CIRCLE_ANCHOR_COMMIT,

@@ -4,12 +4,12 @@
 //! These types model the three new wire payloads that compose the
 //! cross-Realm governance surface:
 //!
-//! - [`RealmLink`] — `cx.realm.link` payload. Typed link between two
+//! - [`RealmLink`] — `ck.realm.link` payload. Typed link between two
 //!   Realm boundaries, one of eight canonical [`RealmLinkKind`] values.
-//! - [`RealmInheritancePolicy`] — `cx.realm.inheritance_policy` payload.
+//! - [`RealmInheritancePolicy`] — `ck.realm.inheritance_policy` payload.
 //!   Declares which policy names + capability bundles a child Realm
 //!   inherits from a parent Realm, capped by `max_depth`.
-//! - [`CapabilityDerived`] — `cx.capability.derived` payload. Records a
+//! - [`CapabilityDerived`] — `ck.capability.derived` payload. Records a
 //!   capability that was derived by composing a parent Realm's grant
 //!   with a child Realm's inheritance declaration.
 //!
@@ -18,7 +18,7 @@
 
 use super::*;
 
-/// Canonical link_kind values for `cx.realm.link`. The eight values
+/// Canonical link_kind values for `ck.realm.link`. The eight values
 /// enumerate the typed cross-Realm relations the spec recognises post
 /// R1.2 (Realm/Space reversal); link payloads MUST carry exactly one of
 /// these. Wire form is snake_case.
@@ -34,7 +34,7 @@ pub enum RealmLinkKind {
     /// authenticated members.
     JoinGateFrom,
     /// Source Realm inherits policy from target Realm (paired with a
-    /// `cx.realm.inheritance_policy` declaration).
+    /// `ck.realm.inheritance_policy` declaration).
     InheritsPolicyFrom,
     /// Source Realm is a confidential extension (sub-Realm with stricter
     /// confidentiality envelope) of the target Realm.
@@ -94,7 +94,7 @@ impl RealmLinkKind {
     }
 }
 
-/// Lifecycle status of a `cx.realm.link`. The link cell is `or_set`-keyed
+/// Lifecycle status of a `ck.realm.link`. The link cell is `or_set`-keyed
 /// by `(source_realm_id, target_realm_id, link_kind)`; status flips this
 /// triple from `active` to `rejected` or `tombstoned` without producing
 /// a new key.
@@ -126,9 +126,9 @@ impl RealmLinkStatus {
     }
 }
 
-/// Typed payload for the `cx.realm.link` event.
+/// Typed payload for the `ck.realm.link` event.
 ///
-/// Cell family: `cx.component.realm.link.v1` (or_set lattice). Cell
+/// Cell family: `ck.component.realm.link.v1` (or_set lattice). Cell
 /// subject key: `(realm_id, target_realm_id, link_kind)`. The reducer
 /// resolves status flips by retaining the latest status per triple.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -179,9 +179,9 @@ impl RealmLinkDirection {
     }
 }
 
-/// Typed payload for the `cx.realm.inheritance_policy` event.
+/// Typed payload for the `ck.realm.inheritance_policy` event.
 ///
-/// Cell family: `cx.component.realm.inheritance_policy.v1` (cas-register).
+/// Cell family: `ck.component.realm.inheritance_policy.v1` (cas-register).
 /// Declares which policy names and capability bundles a Realm inherits
 /// from a parent (source) Realm. The reducer rejects payloads with
 /// `max_depth > 1` (the wire spec currently caps inheritance at depth 1).
@@ -228,9 +228,9 @@ impl RealmInheritancePolicy {
     }
 }
 
-/// Typed payload for the `cx.capability.derived` event.
+/// Typed payload for the `ck.capability.derived` event.
 ///
-/// Cell family: `cx.component.capability.derived.v1` (cas-register keyed
+/// Cell family: `ck.component.capability.derived.v1` (cas-register keyed
 /// by `capability_id`). Records a capability that was derived from
 /// composing a parent Realm grant (`source_grant_ref`) with a child
 /// Realm's inheritance declaration (`source_realm_inheritance_policy_ref`).

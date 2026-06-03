@@ -318,14 +318,14 @@ impl ProfileManager {
     }
 }
 
-// ─── S-9 (savfox SDK gap): cx.profile.create / cx.profile.update builder ──
+// ─── S-9 (savfox SDK gap): ck.profile.create / ck.profile.update builder ──
 
 /// Operation kind discriminant for [`ProfileCreateBuilder::build`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ProfileEventKind {
-    /// `cx.profile.create` — first appearance of an actor profile.
+    /// `ck.profile.create` — first appearance of an actor profile.
     Create,
-    /// `cx.profile.update` — subsequent revisions.
+    /// `ck.profile.update` — subsequent revisions.
     Update,
 }
 
@@ -333,13 +333,13 @@ impl ProfileEventKind {
     /// Wire string for `Event::kind`.
     pub fn as_str(self) -> &'static str {
         match self {
-            ProfileEventKind::Create => "cx.profile.create",
-            ProfileEventKind::Update => "cx.profile.update",
+            ProfileEventKind::Create => "ck.profile.create",
+            ProfileEventKind::Update => "ck.profile.update",
         }
     }
 }
 
-/// Build a `cx.profile.create` / `cx.profile.update` Event Envelope
+/// Build a `ck.profile.create` / `ck.profile.update` Event Envelope
 /// payload. Ghost-actor profiles (spec §9) MUST carry `actor_kind =
 /// "ghost"`, `managed_by_applet`, and `accountability` blocks; this
 /// builder stamps those slots so callers no longer drift between
@@ -360,8 +360,8 @@ pub struct ProfileCreateBuilder {
 }
 
 impl ProfileCreateBuilder {
-    /// Construct a new builder for a `cx.profile.create` Envelope.
-    /// Switch to `cx.profile.update` via [`Self::for_update`].
+    /// Construct a new builder for a `ck.profile.create` Envelope.
+    /// Switch to `ck.profile.update` via [`Self::for_update`].
     pub fn new(realm_id: crate::RealmId, actor_id: Did) -> Self {
         Self {
             realm_id,
@@ -429,7 +429,7 @@ impl ProfileCreateBuilder {
 
     /// Build the unsigned `Event` Envelope. Caller is responsible for
     /// `actor_seq` + `hlc` + (re-)signing via
-    /// [`contrix_signatures::sign_event`].
+    /// [`cokret_signatures::sign_event`].
     pub fn build(self, actor_seq: u64, hlc: crate::Hlc) -> Result<crate::Event> {
         let mut content = serde_json::Map::new();
         content.insert("actor_id".to_owned(), Value::String(self.actor_id.to_string()));
@@ -502,7 +502,7 @@ mod profile_builder_tests {
             .with_display_name("Alice")
             .build(1, hlc())
             .unwrap();
-        assert_eq!(event.kind, "cx.profile.create");
+        assert_eq!(event.kind, "ck.profile.create");
         assert_eq!(event.content["actor_id"], "did:web:alice.example");
         assert_eq!(event.content["display_name"], "Alice");
     }
@@ -514,7 +514,7 @@ mod profile_builder_tests {
             .with_display_name("Alice 2")
             .build(2, hlc())
             .unwrap();
-        assert_eq!(event.kind, "cx.profile.update");
+        assert_eq!(event.kind, "ck.profile.update");
     }
 
     #[test]

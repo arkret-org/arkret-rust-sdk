@@ -8,7 +8,7 @@ use std::{
     },
 };
 
-use contrix_core::{Error, Result};
+use cokret_core::{Error, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -384,7 +384,7 @@ mod tests {
             sink.emit(FfiEvent {
                 stream: handle,
                 sequence: 1,
-                event_kind: "cx.account.subscribe".to_owned(),
+                event_kind: "ck.account.subscribe".to_owned(),
                 payload: Value::Null,
             }),
             FfiCallbackResult::continue_stream()

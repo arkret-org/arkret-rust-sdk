@@ -16,12 +16,12 @@ fn schema_vectors_include_negative_security_extension_case() {
 #[test]
 fn event_payload_catalog_validates_known_payload_fields() {
     let catalog = event_payload_validator_catalog();
-    // Round 4 / Realm-Space inversion (spec a77b995): `cx.flow.move`
+    // Round 4 / Realm-Space inversion (spec a77b995): `ck.flow.move`
     // payload requires `board_space_id` (ck:space prefix) + `space_id`
     // (renamed from target_place_id).
     catalog
         .validate_payload(
-            "cx.flow.move",
+            "ck.flow.move",
             &json!({
                 "board_space_id": "ck:space:01904100-0000-7000-8000-111111111111",
                 "flow_id": "ck:flow:01904100-0000-7000-8000-6c663fa0205f",
@@ -32,7 +32,7 @@ fn event_payload_catalog_validates_known_payload_fields() {
         .unwrap();
     assert!(matches!(
         catalog.validate_payload(
-            "cx.flow.move",
+            "ck.flow.move",
             &json!({
                 "flow_id": "ck:flow:01904100-0000-7000-8000-6c663fa0205f",
                 "target_space_id": "ck:space:01904100-0000-7000-8000-222222222222",
@@ -73,7 +73,7 @@ fn artifact_payload_catalog_enforces_deep_schema_rules() {
         return;
     };
     let catalog = event_payload_validator_catalog_from_spec_artifacts(artifacts_dir).unwrap();
-    // Round 4 / Realm-Space inversion (spec a77b995): `cx.flow.move`
+    // Round 4 / Realm-Space inversion (spec a77b995): `ck.flow.move`
     // requires `board_space_id` and `space_id` (renamed from
     // board_place_id/target_place_id).
     catalog
@@ -124,28 +124,28 @@ fn artifact_payload_catalog_prefers_registered_specialized_defs_over_name_matche
     let catalog = event_payload_validator_catalog_from_spec_artifacts(artifacts_dir).unwrap();
 
     assert_eq!(
-        catalog.rules["cx.space.archive"].payload_schema_id,
+        catalog.rules["ck.space.archive"].payload_schema_id,
         format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/space_state_transition_payload")
     );
     assert_eq!(
-        catalog.rules["cx.space.restore"].payload_schema_id,
+        catalog.rules["ck.space.restore"].payload_schema_id,
         format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/space_state_transition_payload")
     );
     assert_eq!(
-        catalog.rules["cx.space.tombstone"].payload_schema_id,
+        catalog.rules["ck.space.tombstone"].payload_schema_id,
         format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/space_object_tombstone_payload")
     );
 
     catalog
         .validate_payload(
-            "cx.space.archive",
+            "ck.space.archive",
             &json!({
                 "space_id": "ck:space:01904100-0000-7000-8000-111111111111",
                 "reason": "done"
             }),
         )
         .unwrap();
-    assert!(catalog.validate_payload("cx.space.archive", &json!({ "archived": true })).is_err());
+    assert!(catalog.validate_payload("ck.space.archive", &json!({ "archived": true })).is_err());
 }
 
 #[test]
@@ -155,15 +155,15 @@ fn artifact_payload_catalog_maps_object_patch_event_family_to_object_patch_paylo
     };
     let catalog = event_payload_validator_catalog_from_spec_artifacts(artifacts_dir).unwrap();
     let object_patch_kinds = [
-        "cx.realm.update",
-        "cx.flow.update",
-        "cx.morph.update",
-        "cx.space.update",
-        "cx.profile.update",
-        "cx.profile.space_override",
+        "ck.realm.update",
+        "ck.flow.update",
+        "ck.morph.update",
+        "ck.space.update",
+        "ck.profile.update",
+        "ck.profile.space_override",
     ];
     for event_kind in object_patch_kinds {
-        let patch = if matches!(event_kind, "cx.flow.update" | "cx.morph.update") {
+        let patch = if matches!(event_kind, "ck.flow.update" | "ck.morph.update") {
             json!({ "metadata.title": { "$op": "set", "value": "Roadmap" } })
         } else {
             json!({ "title": { "$op": "set", "value": "Roadmap" } })
@@ -184,13 +184,13 @@ fn artifact_payload_catalog_maps_object_patch_event_family_to_object_patch_paylo
             .unwrap_or_else(|err| panic!("{event_kind} should accept object_patch_payload: {err}"));
     }
     assert_eq!(
-        catalog.rules["cx.flow.tracks.update"].payload_schema_id,
+        catalog.rules["ck.flow.tracks.update"].payload_schema_id,
         format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/generic_standard_payload"),
-        "cx.flow.tracks.update has dedicated track-table semantics and must not be folded into object_patch_payload"
+        "ck.flow.tracks.update has dedicated track-table semantics and must not be folded into object_patch_payload"
     );
     catalog
         .validate_payload(
-            "cx.flow.tracks.update",
+            "ck.flow.tracks.update",
             &json!({
                 "flow_id": "ck:flow:0196419b-0000-7000-8000-000000000001",
                 "tracks": {
@@ -198,18 +198,18 @@ fn artifact_payload_catalog_maps_object_patch_event_family_to_object_patch_paylo
                 }
             }),
         )
-        .unwrap_or_else(|err| panic!("cx.flow.tracks.update should accept track payloads: {err}"));
+        .unwrap_or_else(|err| panic!("ck.flow.tracks.update should accept track payloads: {err}"));
     assert!(
         catalog
             .validate_payload(
-                "cx.flow.tracks.update",
+                "ck.flow.tracks.update",
                 &json!({
-                    "type": "cx.flow.tracks.update",
+                    "type": "ck.flow.tracks.update",
                     "flow_id": "ck:flow:0196419b-0000-7000-8000-000000000001"
                 }),
             )
             .is_err(),
-        "cx.flow.tracks.update must still reject the retired type discriminator"
+        "ck.flow.tracks.update must still reject the retired type discriminator"
     );
 }
 
@@ -282,9 +282,9 @@ fn profile_requirement_drift_reports_missing_sdk_constants() {
     profile_requirements.insert(
         crate::PROFILE_DIRECTORY_SERVICE.to_owned(),
         json!({
-            "required_endpoints": ["cx.directory.search_realms", "cx.missing.operation"],
-            "required_event_kinds": ["cx.realm.discovery"],
-            "required_schemas": ["cx.schema.actor_profile.v1"]
+            "required_endpoints": ["ck.directory.search_realms", "cx.missing.operation"],
+            "required_event_kinds": ["ck.realm.discovery"],
+            "required_schemas": ["ck.schema.actor_profile.v1"]
         }),
     );
     let bundle = SpecArtifactBundle {
@@ -575,9 +575,9 @@ fn component_descriptor_resolves_canonical_and_alias_kinds() {
 
     // Canonical kind owns its slot — no alias_of.
     let canonical = bundle
-        .component("cx.capability.grant")
+        .component("ck.capability.grant")
         .unwrap()
-        .expect("cx.capability.grant should be registered");
+        .expect("ck.capability.grant should be registered");
     assert_eq!(canonical.criticality, Criticality::Required);
     assert!(canonical.component_type.starts_with("cx.component."));
     assert!(canonical.component_version >= 1);
@@ -585,13 +585,13 @@ fn component_descriptor_resolves_canonical_and_alias_kinds() {
 
     // Alias kind shares the canonical kind's slot.
     let alias = bundle
-        .component("cx.capability.revoke")
+        .component("ck.capability.revoke")
         .unwrap()
-        .expect("cx.capability.revoke should be registered");
+        .expect("ck.capability.revoke should be registered");
     assert_eq!(
         alias.component_slot_alias_of.as_deref(),
-        Some("cx.capability.grant"),
-        "cx.capability.revoke should slot-alias cx.capability.grant"
+        Some("ck.capability.grant"),
+        "ck.capability.revoke should slot-alias ck.capability.grant"
     );
     assert_eq!(alias.component_type, canonical.component_type);
     assert_eq!(alias.component_version, canonical.component_version);

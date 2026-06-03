@@ -31,7 +31,7 @@ pub const ERROR_CODE_CAS_CONFLICT: &str = "cas_conflict";
 pub const ERROR_CODE_CAUSAL_CONFLICT: &str = "causal_conflict";
 pub const ERROR_CODE_DEPENDENCY_MISSING: &str = "dependency_missing";
 pub const ERROR_CODE_DISCUSSION_TRACK_DISABLED: &str = "discussion_track_disabled";
-/// C14 / read-receipts §2.5: Sync Service drops `cx.receipt.read` events
+/// C14 / read-receipts §2.5: Sync Service drops `ck.receipt.read` events
 /// when the effective Space `disclosure="disabled"` policy is in force, and
 /// returns this code with `retry_after_ms=null` so the client knows it's a
 /// hard policy refusal (not a transient back-off).
@@ -376,7 +376,7 @@ pub const REASON_INCEPTION_UPGRADE_EVIDENCE_INSUFFICIENT: &str =
     "inception_upgrade_evidence_insufficient";
 
 // Tier-0 S6 — `attested_hardware` Audit Agent removal must be paired with
-// `cx.audit.epoch_key_destruction` (round C45 drops the `.v1` kind suffix;
+// `ck.audit.epoch_key_destruction` (round C45 drops the `.v1` kind suffix;
 // wire schema versioning now flows through `requirements.features`).
 pub const REASON_AUDIT_AGENT_KEY_DESTRUCTION_ATTESTATION_MISSING: &str =
     "audit_agent_key_destruction_attestation_missing";
@@ -389,7 +389,7 @@ pub const REASON_AUDIT_AGENT_DESTRUCTION_PROOF_NOT_ENCLAVE_SIGNED: &str =
 pub const REASON_AUDIT_AGENT_EPOCH_RANGE_INCOMPLETE: &str = "audit_agent_epoch_range_incomplete";
 pub const REASON_AUDIT_AGENT_ATTESTATION_MISMATCH: &str = "audit_agent_attestation_mismatch";
 
-// P-D4 — `cx.profile.e2ee_relaxed.v1` profile interactions.
+// P-D4 — `ck.profile.e2ee_relaxed.v1` profile interactions.
 pub const REASON_MLS_SEND_PAUSE_ADVISORY_REQUIRES_E2EE_RELAXED_PROFILE: &str =
     "mls_send_pause_advisory_requires_e2ee_relaxed_profile";
 pub const REASON_CONFLICTING_E2EE_PROFILES: &str = "conflicting_e2ee_profiles";
@@ -608,7 +608,7 @@ pub const REASON_CIRCLE_REALM_MISMATCH: &str = "circle_realm_mismatch";
 /// `failed_precondition` sub-reason: `scope_circle_id` points at a Circle
 /// whose state is `archived` or `tombstoned`.
 pub const REASON_CIRCLE_NOT_ACTIVE: &str = "circle_not_active";
-/// `failed_precondition` sub-reason on `cx.circle.member.state → active`
+/// `failed_precondition` sub-reason on `ck.circle.member.state → active`
 /// when the target actor is not yet an active member of the parent Realm.
 /// Reflects the strict-subset invariant
 /// `Circle.members ⊆ Realm.members`.
@@ -672,7 +672,7 @@ pub const KNOWN_REASON_CODES_ROUND_C44: &[&str] = &[
 // for the v1 Reaction target-scope invariants.
 // Spec: `error-code-registry.json#reason_codes` (commit 4d9438f).
 
-/// `schema_violation` sub-reason: a `cx.reaction.add` / `cx.reaction.remove`
+/// `schema_violation` sub-reason: a `ck.reaction.add` / `ck.reaction.remove`
 /// `target_ref` points at an object kind that the deployment does not allow
 /// reactions on. v1 core only allows `ck:message:` targets; profiles MAY
 /// register additional target kinds. See zh/models/flow-and-message.md §9.8.2.
@@ -869,11 +869,11 @@ pub enum Error {
     Protocol(String),
 }
 
-impl From<contrix_identifiers::IdentifierError> for Error {
-    fn from(error: contrix_identifiers::IdentifierError) -> Self {
+impl From<cokret_identifiers::IdentifierError> for Error {
+    fn from(error: cokret_identifiers::IdentifierError) -> Self {
         match error {
-            contrix_identifiers::IdentifierError::InvalidId(value) => Self::InvalidId(value),
-            contrix_identifiers::IdentifierError::Random(error) => Self::Crypto(error),
+            cokret_identifiers::IdentifierError::InvalidId(value) => Self::InvalidId(value),
+            cokret_identifiers::IdentifierError::Random(error) => Self::Crypto(error),
         }
     }
 }
@@ -922,7 +922,7 @@ pub enum ErrorCode {
     CausalConflict,
     DependencyMissing,
     DiscussionTrackDisabled,
-    /// C14 / read-receipts §2.5: Sync Service drops `cx.receipt.read` when
+    /// C14 / read-receipts §2.5: Sync Service drops `ck.receipt.read` when
     /// the effective Space `disclosure="disabled"` policy is in force.
     PolicyViolation,
     EpochMismatch,

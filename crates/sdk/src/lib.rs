@@ -28,7 +28,7 @@
 //! .with_content(json!({
 //!     "flow_id": "ck:flow:01904100-0000-7000-8000-6c663fa0205f",
 //!     "track_name": "main",
-//!     "content": {"kind": "cx.content.text", "body": "hello"}
+//!     "content": {"kind": "ck.content.text", "body": "hello"}
 //! }))
 //! .build(&OperationKindRegistry::default())?;
 //! let event = draft.into_event_envelope(OperationEventConversion::default())?;
@@ -68,46 +68,46 @@
 //! let did: cokret::Did = "did:web:alice.example";
 //! ```
 
-pub use contrix_contracts as api;
-pub use contrix_contracts::product::client as client_api;
-pub use contrix_core::events;
-pub use contrix_core::schema;
-pub use contrix_core::state;
-pub use contrix_core::*;
-pub use contrix_core::{
+pub use cokret_contracts as api;
+pub use cokret_contracts::product::client as client_api;
+pub use cokret_core::events;
+pub use cokret_core::schema;
+pub use cokret_core::state;
+pub use cokret_core::*;
+pub use cokret_core::{
     canonical, cursor, error, identifiers, keystore, model, push_rule_core, service, sync,
 };
 #[cfg(feature = "client")]
-pub use contrix_http_client as http_client;
+pub use cokret_http_client as http_client;
 // Platform-native KeyStore backends. The glob import above already
 // re-exports these symbols, but listing them explicitly keeps them
 // visible in `cargo doc` and signals the supported surface to
 // downstream crates that depend only on `cokret` (not `cokret-core`).
 #[cfg(feature = "full-surface")]
 pub use crate::store as store_contracts;
-pub use contrix_contracts::federation as federation_api;
-pub use contrix_contracts::identity as identity_api;
-pub use contrix_contracts::integration as integration_api;
-pub use contrix_contracts::principal as principal_api;
-pub use contrix_contracts::push as push_gateway_api;
-pub use contrix_core::lattice;
-pub use contrix_core::operations;
-pub use contrix_core::schema as schema_contracts;
-pub use contrix_core::state as state_res;
-pub use contrix_core::{
+pub use cokret_contracts::federation as federation_api;
+pub use cokret_contracts::identity as identity_api;
+pub use cokret_contracts::integration as integration_api;
+pub use cokret_contracts::principal as principal_api;
+pub use cokret_contracts::push as push_gateway_api;
+pub use cokret_core::lattice;
+pub use cokret_core::operations;
+pub use cokret_core::schema as schema_contracts;
+pub use cokret_core::state as state_res;
+pub use cokret_core::{
     InMemoryKeyStore, KeyStore, KeyStoreError, LinuxSecretServiceKeyStore, MacOsKeychainKeyStore,
     WindowsCredentialKeyStore, platform_default_keystore,
 };
-pub use contrix_crypto as crypto_protocol;
-pub use contrix_ffi as ffi;
-pub use contrix_html as html;
+pub use cokret_crypto as crypto_protocol;
+pub use cokret_ffi as ffi;
+pub use cokret_html as html;
 #[cfg(feature = "server")]
-pub use contrix_server as server;
-pub use contrix_signatures as signatures;
+pub use cokret_server as server;
+pub use cokret_signatures as signatures;
 #[cfg(feature = "signer")]
-pub use contrix_signatures::Ed25519MoveSigner;
+pub use cokret_signatures::Ed25519MoveSigner;
 #[cfg(feature = "testing")]
-pub use contrix_testing as testing;
+pub use cokret_testing as testing;
 #[cfg(feature = "full-surface")]
 pub mod account;
 #[cfg(feature = "full-surface")]
@@ -250,7 +250,7 @@ pub use applet_server::{AppletHandler, AppletService};
 pub use auth::{
     AccountAuthState, AccountRecoveryMethod, AccountRecoveryReqBody, AuthClaimKind, AuthManager,
     AuthRateLimitAction, AuthRateLimitContext, AuthRateLimitHook, AuthSession, AuthStateSnapshot,
-    CONTRIX_DEVICE_SCOPE_PREFIX, ClaimDisclosureRequirement, DidProofVerification,
+    COKRET_DEVICE_SCOPE_PREFIX, ClaimDisclosureRequirement, DidProofVerification,
     DidProofVerificationReqBody, DidProofVerifier, DisclosurePolicy,
     DisclosureProofAdapterBoundary, DisclosureProofFormat, MemorySessionGrantOutbox, MfaChallenge,
     OidcAuthReqBody, OidcCredential, OidcIssuerMetadata, OidcJwks, OidcVerificationReqBody,
@@ -262,7 +262,7 @@ pub use auth::{
     RejectedClaim, SessionGrant, SessionGrantNotificationKind, SessionGrantOutboxEntry,
     SessionGrantOutboxState, SessionGrantPayload, SessionGrantRecord, SessionGrantRetryPolicy,
     SessionGrantSigner, SessionGrantVerification, SessionGrantVerifier, SessionPrincipalBinding,
-    SessionRevocation, WebAuthnPasskeyResBody, contrix_device_scope, device_id_from_scope_token,
+    SessionRevocation, WebAuthnPasskeyResBody, cokret_device_scope, device_id_from_scope_token,
     issue_session_grant_with_signer, primary_device_id_from_scopes, validate_presentation,
     verify_session_grant_with_verifier,
 };

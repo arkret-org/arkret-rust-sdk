@@ -882,10 +882,10 @@ impl Timeline {
 
     fn apply_item_event(&mut self, event: &Event, order: TimelineOrderKey) {
         match event.kind.as_str() {
-            "cx.message.create" => self.upsert_message_item(event, order),
-            "cx.message.revise" => self.apply_message_revision(event, order),
-            "cx.message.redact" | "cx.redaction" => self.apply_message_redaction(event, order),
-            "cx.reaction.add" | "cx.reaction.remove" => self.apply_reaction(event),
+            "ck.message.create" => self.upsert_message_item(event, order),
+            "ck.message.revise" => self.apply_message_revision(event, order),
+            "ck.message.redact" | "cx.redaction" => self.apply_message_redaction(event, order),
+            "ck.reaction.add" | "ck.reaction.remove" => self.apply_reaction(event),
             _ if event.redacts.is_some() => self.apply_message_redaction(event, order),
             _ => self.upsert_generic_item(event, order),
         }
@@ -970,7 +970,7 @@ impl Timeline {
             return;
         };
 
-        let active = event.kind == "cx.reaction.add";
+        let active = event.kind == "ck.reaction.add";
         self.reaction_index
             .insert((item_id.clone(), event.actor_id.clone(), reaction_key.clone()), active);
         self.recompute_reaction_summary(&item_id, &reaction_key);
@@ -1244,16 +1244,16 @@ mod tests {
         let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let mut timeline = Timeline::new(space_id.clone(), base_client);
         let mut message = create_test_event(&space_id, 1);
-        message.kind = "cx.message.create".to_owned();
+        message.kind = "ck.message.create".to_owned();
         message.content = json!({"message_id":"m1","body":"hello"});
         let mut edit = create_test_event(&space_id, 2);
-        edit.kind = "cx.message.revise".to_owned();
+        edit.kind = "ck.message.revise".to_owned();
         edit.content = json!({"target_message_id":"m1","content":{"body":"hi"}});
         let mut reaction = create_test_event(&space_id, 3);
-        reaction.kind = "cx.reaction.add".to_owned();
+        reaction.kind = "ck.reaction.add".to_owned();
         reaction.content = json!({"message_id":"m1","reaction_key":"+1"});
         let mut redaction = create_test_event(&space_id, 4);
-        redaction.kind = "cx.message.redact".to_owned();
+        redaction.kind = "ck.message.redact".to_owned();
         redaction.content = json!({"target_message_id":"m1"});
 
         timeline.append_events(vec![message, edit, reaction]).unwrap();
@@ -1276,7 +1276,7 @@ mod tests {
         let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let mut timeline = Timeline::new(space_id.clone(), base_client);
         let mut message = create_test_event(&space_id, 1);
-        message.kind = "cx.message.create".to_owned();
+        message.kind = "ck.message.create".to_owned();
         message.content = json!({"message_id":"m1","body":"hello"});
         let event_id = message.event_id.clone();
         let actor = Did::new("did:web:alice.example.com").unwrap();

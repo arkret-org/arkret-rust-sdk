@@ -2,7 +2,7 @@
 //!
 //! Per [`identity/consent-model.md`](https://cokret.io/spec/v1/zh/identity/consent-model.md)
 //! §3, consent is a Move on the holder's principal-control-Space cell
-//! `ck:cell:cx.component.consent.grant.v1:<consent_id>` (or-set lattice).
+//! `ck:cell:ck.component.consent.grant.v1:<consent_id>` (or-set lattice).
 //!
 //! - `grant` = `add(tag, value)`, where
 //!   `tag = "grant:<consent_id>:<peer>:<scope>"` (deterministic so identical
@@ -23,7 +23,7 @@
 //! accept this kind of contact from that peer".
 
 use chrono::{DateTime, Utc};
-use contrix_core::{
+use cokret_core::{
     CellRef, Did, Effect, LatticeOp, LatticeOpType, Precondition, Predicate, PredicateOp,
     lattice::CellState,
 };
@@ -31,8 +31,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 /// Cell family for consent grants. Used as the prefix in cell ids of the
-/// form `ck:cell:cx.component.consent.grant.v1:<consent_id>`.
-pub const CONSENT_CELL_FAMILY: &str = "cx.component.consent.grant.v1";
+/// form `ck:cell:ck.component.consent.grant.v1:<consent_id>`.
+pub const CONSENT_CELL_FAMILY: &str = "ck.component.consent.grant.v1";
 
 /// Scope of the consent grant. See spec consent-model §4.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -78,13 +78,13 @@ impl Scope {
 /// Build the canonical consent cell id for a `consent_id`.
 ///
 /// Returns a `CellRef` with the canonical wire form
-/// `ck:cell:cx.component.consent.grant.v1:<consent_id>`.
-pub fn consent_cell_id(consent_id: &str) -> Result<CellRef, contrix_core::Error> {
+/// `ck:cell:ck.component.consent.grant.v1:<consent_id>`.
+pub fn consent_cell_id(consent_id: &str) -> Result<CellRef, cokret_core::Error> {
     if consent_id.is_empty() {
-        return Err(contrix_core::Error::Protocol("consent_id must not be empty".to_owned()));
+        return Err(cokret_core::Error::Protocol("consent_id must not be empty".to_owned()));
     }
     CellRef::new(format!("ck:cell:{CONSENT_CELL_FAMILY}:{consent_id}"))
-        .map_err(|e| contrix_core::Error::Protocol(format!("invalid consent cell id: {e}")))
+        .map_err(|e| cokret_core::Error::Protocol(format!("invalid consent cell id: {e}")))
 }
 
 /// Deterministic tag for a `(consent_id, peer, scope)` grant.
@@ -136,7 +136,7 @@ pub struct ConsentRevokeValue {
 
 /// Build the [`Effect`] that a consent.grant Move writes.
 ///
-/// Spec §3.2: cell = `ck:cell:cx.component.consent.grant.v1:<consent_id>`,
+/// Spec §3.2: cell = `ck:cell:ck.component.consent.grant.v1:<consent_id>`,
 /// op = `add(tag, value)`, tag = `grant:<consent_id>:<peer>:<scope>`,
 /// value = [`ConsentGrantValue`].
 pub fn grant_effect(
@@ -144,7 +144,7 @@ pub fn grant_effect(
     peer: Did,
     scope: Scope,
     options: &ConsentGrantOptions,
-) -> Result<Effect, contrix_core::Error> {
+) -> Result<Effect, cokret_core::Error> {
     let cell = consent_cell_id(consent_id)?;
     let tag = consent_tag(consent_id, &peer, scope);
     let value = ConsentGrantValue {
@@ -184,7 +184,7 @@ pub fn revoke_effect_with_precondition(
     peer: &Did,
     scope: Scope,
     revoke_value: ConsentRevokeValue,
-) -> Result<(Precondition, Effect), contrix_core::Error> {
+) -> Result<(Precondition, Effect), cokret_core::Error> {
     let cell = consent_cell_id(consent_id)?;
     let tag = consent_tag(consent_id, peer, scope);
 
@@ -218,7 +218,7 @@ pub fn revoke_effect_with_precondition(
 /// Walk the consent cell's or-set join value and decide whether
 /// `(peer, scope)` is currently consented at `now`.
 ///
-/// `cell_state` is what [`contrix_core::lattice::Lattice::join`] produced for the consent cell.
+/// `cell_state` is what [`cokret_core::lattice::Lattice::join`] produced for the consent cell.
 /// For an `or-set` Lattice, the `Value` form is a JSON array of
 /// `{tag, value}` objects. Bottom states (which or-set never produces)
 /// are treated as no-consent.
@@ -263,7 +263,7 @@ pub fn require_consent_precondition(
     consent_id: &str,
     peer: &Did,
     scope: Scope,
-) -> Result<Precondition, contrix_core::Error> {
+) -> Result<Precondition, cokret_core::Error> {
     let cell = consent_cell_id(consent_id)?;
     Ok(Precondition {
         cell,
@@ -280,7 +280,7 @@ pub fn require_consent_precondition(
 mod tests {
     use super::*;
     use chrono::TimeZone;
-    use contrix_core::lattice::{AnchoredOp, Lattice, OrSet};
+    use cokret_core::lattice::{AnchoredOp, Lattice, OrSet};
 
     fn ts(year: i32, month: u32, day: u32) -> DateTime<Utc> {
         Utc.with_ymd_and_hms(year, month, day, 0, 0, 0).unwrap()
@@ -294,14 +294,14 @@ mod tests {
         Did::new("did:web:bob.example").unwrap()
     }
 
-    fn move_id(byte: u8) -> contrix_core::MoveId {
-        contrix_core::MoveId::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
+    fn move_id(byte: u8) -> cokret_core::MoveId {
+        cokret_core::MoveId::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
     }
 
     #[test]
     fn cell_id_is_canonical() {
         let cell = consent_cell_id("cs-001").unwrap();
-        assert_eq!(cell.as_str(), "ck:cell:cx.component.consent.grant.v1:cs-001");
+        assert_eq!(cell.as_str(), "ck:cell:ck.component.consent.grant.v1:cs-001");
     }
 
     #[test]
@@ -443,7 +443,7 @@ mod tests {
     #[test]
     fn require_consent_precondition_round_trip() {
         let pre = require_consent_precondition("cs-001", &bob(), Scope::Invite).unwrap();
-        assert_eq!(pre.cell.as_str(), "ck:cell:cx.component.consent.grant.v1:cs-001");
+        assert_eq!(pre.cell.as_str(), "ck:cell:ck.component.consent.grant.v1:cs-001");
         assert_eq!(pre.predicate.op, PredicateOp::Contains);
         assert_eq!(
             pre.predicate.value.as_ref().unwrap(),

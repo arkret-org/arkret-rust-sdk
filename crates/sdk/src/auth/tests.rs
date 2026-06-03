@@ -411,9 +411,9 @@ fn session_grant_outbox_slot_accepts_memory_and_pg_like_backends() {
 }
 
 #[test]
-fn device_scope_helpers_accept_only_contrix_scope() {
+fn device_scope_helpers_accept_only_cokret_scope() {
     let device = device("phone");
-    let scope = contrix_device_scope(&device);
+    let scope = cokret_device_scope(&device);
     assert_eq!(device_id_from_scope_token(&scope).unwrap(), device);
     assert_eq!(primary_device_id_from_scopes(["openid", scope.as_str()]).unwrap(), device);
 

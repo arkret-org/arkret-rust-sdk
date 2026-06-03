@@ -461,8 +461,8 @@ state-bearing kind 在
 
 ```json
 {
-  "kind": "cx.member.state",
-  "cell_family": "cx.component.member.state.v1",
+  "kind": "ck.member.state",
+  "cell_family": "ck.component.member.state.v1",
   "cell_subject": { "form": "did", "field": "actor_id" },
   "lattice": {
     "type": "fsm",
@@ -535,7 +535,7 @@ soland 接线。
 - Move / Anchor wire schema 字段细节 →
   [`move.schema.json`](../../cokret-spec/spec/v1/artifacts/schemas/move.schema.json)
   / [`anchor.schema.json`](../../cokret-spec/spec/v1/artifacts/schemas/anchor.schema.json)。
-- HTTP binding（POST `/api/v1/moves`、`/api/v1/anchors`）→
+- HTTP binding（POST `/_cokret/self/moves`、`/_cokret/self/anchors`）→
   [`service-http-binding.md`](../../cokret-spec/spec/v1/zh/sync/service-http-binding.md)。
 - Federation Move 广播 + Anchor 拉取语义 →
   [`federation.md`](../../cokret-spec/spec/v1/zh/sync/federation.md)。

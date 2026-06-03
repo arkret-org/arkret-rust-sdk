@@ -10,7 +10,7 @@ use serde_json::Value;
 use tokio::time::sleep;
 use url::Url;
 
-use contrix_core::{
+use cokret_core::{
     AccountCursorRevokeReqBody, AccountCursorRevokeResBody, AccountSubscribeFrame,
     AppletActorResBody, AppletDescription, AppletPingResBody, AppletProtocolResBody,
     AppletRealmResBody, AppletTransactionReqBody, AppletTransactionResBody, AuthzCheckReqBody,
@@ -46,16 +46,16 @@ pub const HEADER_WAIT_FOR: &str = "X-Cokret-Wait-For";
 pub const HEADER_IDEMPOTENCY_KEY: &str = "Idempotency-Key";
 
 /// S-2 (savfox SDK gap): wire-shape session returned by
-/// `POST /auth/account/session-grants/submit`. Matches the SDK
+/// `POST /_cokret/gate/account/session-grants/submit`. Matches the SDK
 /// `AuthSession` struct field-for-field but lives here so the
 /// transport crate doesn't depend on `cokret` (the SDK reuses this
 /// or maps it to its own type).
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct AuthSessionWire {
     pub session_id: String,
-    pub user_id: contrix_core::Did,
-    pub principal_id: contrix_core::Did,
-    pub device_id: contrix_core::DeviceId,
+    pub user_id: cokret_core::Did,
+    pub principal_id: cokret_core::Did,
+    pub device_id: cokret_core::DeviceId,
     pub access_token: String,
     pub refresh_token: String,
     pub expires_at: chrono::DateTime<chrono::Utc>,
@@ -593,7 +593,7 @@ impl Client {
     }
 
     pub async fn describe(&self) -> Result<ServerDescription> {
-        self.get("/api/v1/server/describe").await
+        self.get("/_cokret/describe").await
     }
 
     pub async fn describe_and_verify(
@@ -606,14 +606,14 @@ impl Client {
     }
 
     pub async fn identity_describe(&self) -> Result<IdentityDescription> {
-        self.get("/api/v1/identity/describe").await
+        self.get("/_cokret/root/identity/describe").await
     }
 
     pub async fn identity_resolve(
         &self,
         request: &IdentityResolveReqBody,
     ) -> Result<IdentityResolveResBody> {
-        self.post("/api/v1/identity/resolve", request).await
+        self.post("/_cokret/root/identity/resolve", request).await
     }
 
     pub async fn identity_document(
@@ -622,7 +622,7 @@ impl Client {
         version: Option<&str>,
     ) -> Result<IdentityDocumentResBody> {
         let mut builder =
-            self.request(Method::GET, "/api/v1/identity/document")?.query(&[("did", did)]);
+            self.request(Method::GET, "/_cokret/root/identity/document")?.query(&[("did", did)]);
         if let Some(version) = version {
             builder = builder.query(&[("version", version)]);
         }
@@ -635,7 +635,7 @@ impl Client {
         cursor: Option<&str>,
         limit: Option<u32>,
     ) -> Result<IdentityLogResBody> {
-        let mut builder = self.request(Method::GET, "/api/v1/identity/log")?.query(&[("did", did)]);
+        let mut builder = self.request(Method::GET, "/_cokret/root/identity/log")?.query(&[("did", did)]);
         if let Some(cursor) = cursor {
             builder = builder.query(&[("cursor", cursor)]);
         }
@@ -649,7 +649,7 @@ impl Client {
         &self,
         request: &SubmitDidOperationReqBody,
     ) -> Result<SubmitDidOperationResBody> {
-        self.post("/api/v1/identity/submit-did-operation", request).await
+        self.post("/_cokret/root/identity/submit-did-operation", request).await
     }
 
     pub async fn identity_receipts(
@@ -658,35 +658,35 @@ impl Client {
         head: &str,
     ) -> Result<IdentityReceiptsResBody> {
         let builder = self
-            .request(Method::GET, "/api/v1/identity/receipts")?
+            .request(Method::GET, "/_cokret/root/identity/receipts")?
             .query(&[("did", did), ("head", head)]);
         self.send_json(builder).await
     }
 
-    /// S-2 (savfox SDK gap): `POST /auth/account/session-grants` step 1 —
-    /// request a `cx.did.proof` challenge bound to `(principal_id,
+    /// S-2 (savfox SDK gap): `POST /_cokret/gate/account/session-grants` step 1 —
+    /// request a `ck.did.proof` challenge bound to `(principal_id,
     /// device_id, audience)`. Spec `identity-did.md` §5.1.
     pub async fn auth_session_grant_challenge(
         &self,
         req: &SessionGrantChallengeReq,
     ) -> Result<SessionGrantChallenge> {
-        self.post("/api/v1/auth/account/session-grants/challenge", req).await
+        self.post("/_cokret/gate/account/session-grants/challenge", req).await
     }
 
-    /// S-2 (savfox SDK gap): `POST /auth/account/session-grants` step 2 —
-    /// submit the signed `cx.did.proof` and exchange it for a session
+    /// S-2 (savfox SDK gap): `POST /_cokret/gate/account/session-grants` step 2 —
+    /// submit the signed `ck.did.proof` and exchange it for a session
     /// grant. The returned [`AuthSession`] is opaque-token-shaped; the
     /// SDK never inspects the tokens.
     pub async fn auth_session_grant_submit(
         &self,
         req: &SessionGrantSubmitReq,
     ) -> Result<AuthSessionWire> {
-        self.post("/api/v1/auth/account/session-grants/submit", req).await
+        self.post("/_cokret/gate/account/session-grants/submit", req).await
     }
 
     pub async fn account_subscribe(&self, request: &SyncReqBody) -> Result<Response> {
         let mut builder = self
-            .request(Method::GET, "/api/v1/account/subscribe")?
+            .request(Method::GET, "/_cokret/self/account/subscribe")?
             .header("accept", "application/x-ndjson");
         if let Some(after) = request.after.as_deref() {
             builder = builder.query(&[("after", after)]);
@@ -756,18 +756,18 @@ impl Client {
     }
 
     pub async fn account_describe(&self) -> Result<SyncDescription> {
-        self.get("/api/v1/account/describe").await
+        self.get("/_cokret/self/account/describe").await
     }
 
     pub async fn account_cursor_revoke(
         &self,
         request: &AccountCursorRevokeReqBody,
     ) -> Result<AccountCursorRevokeResBody> {
-        self.post("/api/v1/account/cursor/revoke", request).await
+        self.post("/_cokret/self/account/cursor/revoke", request).await
     }
 
     /// Subscribe to the Event stream for one or more Spaces / actors via
-    /// `cx.events.subscribe` (`GET /api/v1/events/subscribe`). The selector is
+    /// `ck.events.subscribe` (`GET /_cokret/self/events/subscribe`). The selector is
     /// `spaces[]` ∪ `actors[]` repeated query args, and frames use top-level
     /// `kind` with explicit control variants.
     ///
@@ -781,7 +781,7 @@ impl Client {
         from: Option<&str>,
     ) -> Result<Response> {
         let mut builder = self
-            .request(Method::GET, "/api/v1/events/subscribe")?
+            .request(Method::GET, "/_cokret/self/events/subscribe")?
             .header("accept", "application/x-ndjson")
             .query(&[("spaces", space_id)]);
         if let Some(from) = from {
@@ -790,7 +790,7 @@ impl Client {
         self.send_response(builder).await
     }
 
-    /// Range-read Events via `cx.events.query` (`GET /api/v1/events`). Pass
+    /// Range-read Events via `ck.events.query` (`GET /_cokret/self/events/query`). Pass
     /// `direction=Some("backward")` for reverse traversal; `None` defaults to
     /// forward traversal.
     pub async fn events_query(
@@ -802,7 +802,7 @@ impl Client {
         limit: Option<u32>,
     ) -> Result<SyncBackfillResBody> {
         let mut builder =
-            self.request(Method::GET, "/api/v1/events")?.query(&[("spaces", space_id)]);
+            self.request(Method::GET, "/_cokret/self/events/query")?.query(&[("spaces", space_id)]);
         if let Some(from) = from {
             builder = builder.query(&[("from", from)]);
         }
@@ -818,31 +818,31 @@ impl Client {
         self.send_json(builder).await
     }
 
-    /// Submit a single signed Event Envelope via `cx.events.submit`
-    /// (`POST /api/v1/events`). Wire body is the bare envelope per the OpenAPI
+    /// Submit a single signed Event Envelope via `ck.events.submit`
+    /// (`POST /_cokret/self/events`). Wire body is the bare envelope per the OpenAPI
     /// `oneOf` first arm (`event-envelope.schema.json`).
     pub async fn events_submit(&self, event: &Event) -> Result<EventsSubmitResBody> {
-        self.post("/api/v1/events", event).await
+        self.post("/_cokret/self/events", event).await
     }
 
-    /// Submit a batch of signed Event Envelopes via `cx.events.submit`
-    /// (`POST /api/v1/events`) using the `EventsSubmitBatchRequest` body shape.
+    /// Submit a batch of signed Event Envelopes via `ck.events.submit`
+    /// (`POST /_cokret/self/events`) using the `EventsSubmitBatchRequest` body shape.
     pub async fn events_submit_batch(&self, events: &[Event]) -> Result<EventsSubmitResBody> {
         #[derive(serde::Serialize)]
         struct Batch<'a> {
             events: &'a [Event],
         }
-        self.post("/api/v1/events", &Batch { events }).await
+        self.post("/_cokret/self/events", &Batch { events }).await
     }
 
     pub async fn snapshot_head(&self, space_id: &str) -> Result<SyncSnapshotHeadResBody> {
         let builder =
-            self.request(Method::GET, "/api/v1/snapshot/head")?.query(&[("realm_id", space_id)]);
+            self.request(Method::GET, "/_cokret/self/snapshot/head")?.query(&[("realm_id", space_id)]);
         self.send_json(builder).await
     }
 
     pub async fn authz_check(&self, request: &AuthzCheckReqBody) -> Result<AuthzCheckResBody> {
-        self.post("/api/v1/authz/check", request).await
+        self.post("/_cokret/self/authz/check", request).await
     }
 
     pub async fn authz_effective_grants(
@@ -852,7 +852,7 @@ impl Client {
         at: Option<&str>,
     ) -> Result<EffectiveGrantsResBody> {
         let mut builder = self
-            .request(Method::GET, "/api/v1/authz/effective-grants")?
+            .request(Method::GET, "/_cokret/self/authz/effective-grants")?
             .query(&[("space_id", space_id), ("subject", subject)]);
         if let Some(at) = at {
             builder = builder.query(&[("at", at)]);
@@ -867,7 +867,7 @@ impl Client {
         cursor: Option<&str>,
     ) -> Result<AuthzInvitesResBody> {
         let mut builder =
-            self.request(Method::GET, "/api/v1/authz/invites")?.query(&[("subject", subject)]);
+            self.request(Method::GET, "/_cokret/self/authz/invites")?.query(&[("subject", subject)]);
         if let Some(space_id) = space_id {
             builder = builder.query(&[("space_id", space_id)]);
         }
@@ -879,20 +879,20 @@ impl Client {
 
     pub async fn blob_metadata(&self, blob_ref: &BlobRef) -> Result<BlobMetadata> {
         let builder = self
-            .request(Method::GET, "/api/v1/blob/get")?
+            .request(Method::GET, "/_cokret/self/blob/get")?
             .query(&[("blob_ref", blob_ref.as_str())]);
         self.send_json(builder).await
     }
 
     pub async fn blob_head(&self, blob_ref: &BlobRef) -> Result<HeaderMap> {
         let builder = self
-            .request(Method::HEAD, "/api/v1/blob/get")?
+            .request(Method::HEAD, "/_cokret/self/blob/get")?
             .query(&[("blob_ref", blob_ref.as_str())]);
         self.send_empty(builder).await
     }
 
     pub async fn blob_upload(&self, body: &BlobUploadMetadata) -> Result<BlobUploadResBody> {
-        self.post("/api/v1/blob/upload", body).await
+        self.post("/_cokret/self/blob/upload", body).await
     }
 
     pub async fn blob_upload_bytes(
@@ -901,7 +901,7 @@ impl Client {
         bytes: Vec<u8>,
     ) -> Result<BlobUploadResBody> {
         let mut builder = self
-            .request(Method::POST, "/api/v1/blob/upload")?
+            .request(Method::POST, "/_cokret/self/blob/upload")?
             .header("X-Cokret-Blob-Metadata", serde_json::to_string(metadata)?);
         if let Some(media_type) = &metadata.media_type {
             builder = builder.header("Content-Type", media_type);
@@ -918,7 +918,7 @@ impl Client {
 
     pub async fn blob_download(&self, blob_ref: &BlobRef, range: Option<&str>) -> Result<Vec<u8>> {
         let mut builder = self
-            .request(Method::GET, "/api/v1/blob/get")?
+            .request(Method::GET, "/_cokret/self/blob/get")?
             .query(&[("blob_ref", blob_ref.as_str())]);
         if let Some(range) = range {
             builder = builder.header("Range", range);
@@ -928,28 +928,28 @@ impl Client {
     }
 
     pub async fn keys_upload(&self, request: &KeysUploadReqBody) -> Result<KeysUploadResBody> {
-        self.post("/api/v1/keys/upload", request).await
+        self.post("/_cokret/self/keys/upload", request).await
     }
 
     pub async fn keys_query(&self, request: &KeysQueryReqBody) -> Result<KeysQueryResBody> {
-        self.post("/api/v1/keys/query", request).await
+        self.post("/_cokret/self/keys/query", request).await
     }
 
     pub async fn keys_claim(&self, request: &KeysClaimReqBody) -> Result<KeysClaimResBody> {
-        self.post("/api/v1/keys/claim", request).await
+        self.post("/_cokret/self/keys/claim", request).await
     }
 
     /// Upload (create or update) an encrypted [`KeyBackup`] envelope.
     /// Spec: `crypto-media/key-management.md` §7.2 +
     /// `sync/service-http-binding.md` §3 (PUT
-    /// `/api/v1/keys/backups/{backup_id}`). The envelope's
+    /// `/_cokret/self/keys/backups/{backup_id}`). The envelope's
     /// `ciphertext_digest` is the server-side idempotency / dedup key.
     pub async fn put_key_backup(
         &self,
         backup_id: &BackupId,
         body: &KeyBackup,
     ) -> Result<KeyBackupPutResBody> {
-        let path = format!("/api/v1/keys/backups/{}", backup_id.as_str());
+        let path = format!("/_cokret/self/keys/backups/{}", backup_id.as_str());
         self.put(&path, body).await
     }
 
@@ -960,13 +960,13 @@ impl Client {
         &self,
         query: &KeyBackupsListQuery,
     ) -> Result<KeyBackupsListResBody> {
-        let mut builder = self.request(Method::GET, "/api/v1/keys/backups")?;
+        let mut builder = self.request(Method::GET, "/_cokret/self/keys/backups")?;
         if let Some(class) = query.backup_class {
             let class_str = match class {
-                contrix_core::BackupClass::DidRecovery => "did_recovery",
-                contrix_core::BackupClass::SecretStorage => "secret_storage",
-                contrix_core::BackupClass::MlsHistory => "mls_history",
-                contrix_core::BackupClass::External => "external",
+                cokret_core::BackupClass::DidRecovery => "did_recovery",
+                cokret_core::BackupClass::SecretStorage => "secret_storage",
+                cokret_core::BackupClass::MlsHistory => "mls_history",
+                cokret_core::BackupClass::External => "external",
             };
             builder = builder.query(&[("backup_class", class_str)]);
         }
@@ -996,9 +996,9 @@ impl Client {
     /// decryption. The server never returns plaintext; decryption
     /// requires the passphrase + the envelope's KDF/AEAD parameters and
     /// is performed via [`crate`]-adjacent helpers
-    /// (`contrix_crypto::backup::decrypt_vault`).
+    /// (`cokret_crypto::backup::decrypt_vault`).
     pub async fn get_key_backup(&self, backup_id: &BackupId) -> Result<KeyBackup> {
-        let path = format!("/api/v1/keys/backups/{}", backup_id.as_str());
+        let path = format!("/_cokret/self/keys/backups/{}", backup_id.as_str());
         self.get(&path).await
     }
 
@@ -1011,7 +1011,7 @@ impl Client {
         backup_id: &BackupId,
         request: &KeyBackupDeleteReqBody,
     ) -> Result<KeyBackupDeleteResBody> {
-        let path = format!("/api/v1/keys/backups/{}", backup_id.as_str());
+        let path = format!("/_cokret/self/keys/backups/{}", backup_id.as_str());
         let builder = self.request(Method::DELETE, &path)?.json(request);
         self.send_json(builder).await
     }
@@ -1022,7 +1022,7 @@ impl Client {
         request: &DeviceMessagesSendReqBody,
     ) -> Result<DeviceMessagesSendResBody> {
         let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
-        self.post_with_options("/api/v1/device_messages", request, &options).await
+        self.post_with_options("/_cokret/self/device_messages", request, &options).await
     }
 
     pub async fn receive_device_messages(
@@ -1030,7 +1030,7 @@ impl Client {
         from: Option<&str>,
         limit: Option<u32>,
     ) -> Result<DeviceMessagesReceiveResBody> {
-        let mut builder = self.request(Method::GET, "/api/v1/device_messages")?;
+        let mut builder = self.request(Method::GET, "/_cokret/self/device_messages")?;
         if let Some(from) = from {
             builder = builder.query(&[("from", from)]);
         }
@@ -1041,55 +1041,55 @@ impl Client {
     }
 
     pub async fn directory_describe(&self) -> Result<DirectoryDescription> {
-        self.get("/api/v1/directory/describe").await
+        self.get("/_cokret/find/directory/describe").await
     }
 
     pub async fn directory_search_realms(
         &self,
         request: &DirectorySearchRealmsReqBody,
     ) -> Result<DirectorySearchRealmsResBody> {
-        self.post("/api/v1/directory/search-realms", request).await
+        self.post("/_cokret/find/directory/search-realms", request).await
     }
 
     pub async fn directory_resolve_realm(
         &self,
         request: &DirectoryResolveRealmReqBody,
     ) -> Result<DirectoryResolveRealmResBody> {
-        self.post("/api/v1/directory/resolve-realm", request).await
+        self.post("/_cokret/find/directory/resolve-realm", request).await
     }
 
-    /// R3.3 (CXP-0011, cokret-spec @ cced4b8) — `cx.directory.resolve_target`.
+    /// R3.3 (CXP-0011, cokret-spec @ cced4b8) — `ck.directory.resolve_target`.
     /// Resolve a client-agnostic shareable object address (Realm / Flow /
     /// Message) to a preview. The `address` and any `token` should be derived
-    /// from [`contrix_core::model::parse_address`]; invite and preview tokens
+    /// from [`cokret_core::model::parse_address`]; invite and preview tokens
     /// MUST be bound to the resolved object server-side via
-    /// [`contrix_core::model::verify_token_target`].
+    /// [`cokret_core::model::verify_token_target`].
     pub async fn directory_resolve_target(
         &self,
         request: &DirectoryResolveTargetReqBody,
     ) -> Result<DirectoryResolveTargetResBody> {
-        self.post("/api/v1/directory/resolve-target", request).await
+        self.post("/_cokret/find/directory/resolve-target", request).await
     }
 
     pub async fn directory_search_organizations(
         &self,
         request: &DirectorySearchOrganizationsReqBody,
     ) -> Result<DirectorySearchOrganizationsResBody> {
-        self.post("/api/v1/directory/search-organizations", request).await
+        self.post("/_cokret/find/directory/search-organizations", request).await
     }
 
     pub async fn directory_resolve_organization(
         &self,
         request: &DirectoryResolveOrganizationReqBody,
     ) -> Result<DirectoryResolveOrganizationResBody> {
-        self.post("/api/v1/directory/resolve-organization", request).await
+        self.post("/_cokret/find/directory/resolve-organization", request).await
     }
 
     pub async fn directory_search_actors(
         &self,
         request: &DirectorySearchActorsReqBody,
     ) -> Result<DirectorySearchActorsResBody> {
-        self.post("/api/v1/directory/search-actors", request).await
+        self.post("/_cokret/find/directory/search-actors", request).await
     }
 
     pub async fn directory_search_users(
@@ -1103,17 +1103,17 @@ impl Client {
             space_id: space_id.map(str::parse).transpose()?,
             limit,
         };
-        self.post("/api/v1/directory/search-users", &request).await
+        self.post("/_cokret/find/directory/search-users", &request).await
     }
 
     pub async fn directory_resolve_handle(
         &self,
         request: &DirectoryResolveHandleReqBody,
     ) -> Result<DirectoryResolveHandleResBody> {
-        self.post("/api/v1/directory/resolve-handle", request).await
+        self.post("/_cokret/find/directory/resolve-handle", request).await
     }
 
-    /// R3.2 (cokret-spec @ b56cab1) — `cx.directory.list_handles_for_subject`.
+    /// R3.2 (cokret-spec @ b56cab1) — `ck.directory.list_handles_for_subject`.
     /// Known holder/principal DID → current visible handle claims. The
     /// response invariant `claims[].subject == subject` is enforced via
     /// [`DirectoryListHandlesForSubjectResBody::validate`] before returning.
@@ -1122,7 +1122,7 @@ impl Client {
         request: &DirectoryListHandlesForSubjectReqBody,
     ) -> Result<DirectoryListHandlesForSubjectResBody> {
         let body: DirectoryListHandlesForSubjectResBody =
-            self.post("/api/v1/directory/list-handles-for-subject", request).await?;
+            self.post("/_cokret/find/directory/list-handles-for-subject", request).await?;
         body.validate()?;
         Ok(body)
     }
@@ -1131,43 +1131,43 @@ impl Client {
         &self,
         request: &PrivateContactDiscoveryReqBody,
     ) -> Result<PrivateContactDiscoveryResBody> {
-        self.post("/api/v1/directory/private-contact-discovery", request).await
+        self.post("/_cokret/find/directory/private-contact-discovery", request).await
     }
 
     pub async fn push_register_device(
         &self,
         request: &PushRegisterDeviceReqBody,
     ) -> Result<PushRegisterDeviceResBody> {
-        self.post("/api/v1/push/register-device", request).await
+        self.post("/_cokret/edge/push/register-device", request).await
     }
 
     pub async fn push_unregister_device(
         &self,
         request: &PushUnregisterDeviceReqBody,
     ) -> Result<OkResBody> {
-        self.post("/api/v1/push/unregister-device", request).await
+        self.post("/_cokret/edge/push/unregister-device", request).await
     }
 
     pub async fn push_notify(&self, request: &PushNotifyReqBody) -> Result<PushNotifyResBody> {
-        self.post("/api/v1/push/notify", request).await
+        self.post("/_cokret/edge/push/notify", request).await
     }
 
     pub async fn policy_check(&self, request: &PolicyCheckReqBody) -> Result<PolicyCheckResBody> {
-        self.post("/cokret/v1/check", request).await
+        self.post("/_cokret/self/policy/check", request).await
     }
 
     pub async fn media_ice_config(
         &self,
         request: &MediaIceConfigReqBody,
     ) -> Result<MediaIceConfigResBody> {
-        self.post("/cokret/v1/ice-config", request).await
+        self.post("/_cokret/self/rtc/ice-config", request).await
     }
 
     pub async fn moderation_report(
         &self,
         request: &ModerationReportReqBody,
     ) -> Result<ModerationReportResBody> {
-        self.post("/api/v1/moderation/report", request).await
+        self.post("/_cokret/self/moderation/report", request).await
     }
 
     pub async fn mimi_provider_directory(
@@ -1175,7 +1175,7 @@ impl Client {
         provider_id: Option<&str>,
         features: &[String],
     ) -> Result<MimiProviderDirectoryResBody> {
-        let mut builder = self.request(Method::GET, "/api/v1/mimi/provider-directory")?;
+        let mut builder = self.request(Method::GET, "/_cokret/open/mimi/provider-directory")?;
         if let Some(provider_id) = provider_id {
             builder = builder.query(&[("provider_id", provider_id)]);
         }
@@ -1189,15 +1189,15 @@ impl Client {
         &self,
         request: &MimiReportAbuseReqBody,
     ) -> Result<MimiReportAbuseResBody> {
-        self.post("/api/v1/mimi/report-abuse", request).await
+        self.post("/_cokret/open/mimi/report-abuse", request).await
     }
 
     pub async fn applet_ping(&self) -> Result<AppletPingResBody> {
-        self.get("/api/v1/applet/ping").await
+        self.get("/_cokret/edge/applet/ping").await
     }
 
     pub async fn applet_describe(&self) -> Result<AppletDescription> {
-        self.get("/api/v1/applet/describe").await
+        self.get("/_cokret/edge/applet/describe").await
     }
 
     pub async fn applet_transaction(
@@ -1206,35 +1206,35 @@ impl Client {
         request: &AppletTransactionReqBody,
     ) -> Result<AppletTransactionResBody> {
         let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
-        self.post_with_options("/api/v1/applet/transactions", request, &options).await
+        self.post_with_options("/_cokret/edge/applet/transactions", request, &options).await
     }
 
     pub async fn applet_actor(&self, actor_id: &str) -> Result<AppletActorResBody> {
         reject_path_segment(actor_id)?;
-        let path = format!("/api/v1/applet/actors/{actor_id}");
+        let path = format!("/_cokret/edge/applet/actors/{actor_id}");
         self.get(&path).await
     }
 
     pub async fn applet_realm(&self, realm_id_or_alias: &str) -> Result<AppletRealmResBody> {
         reject_path_segment(realm_id_or_alias)?;
-        let path = format!("/api/v1/applet/realms/{realm_id_or_alias}");
+        let path = format!("/_cokret/edge/applet/realms/{realm_id_or_alias}");
         self.get(&path).await
     }
 
     pub async fn applet_protocol(&self, protocol: &str) -> Result<AppletProtocolResBody> {
         reject_path_segment(protocol)?;
-        let path = format!("/api/v1/applet/protocols/{protocol}");
+        let path = format!("/_cokret/edge/applet/protocols/{protocol}");
         self.get(&path).await
     }
 
     /// Query third-party users for an applet.
     pub async fn applet_third_party_users(&self) -> Result<Value> {
-        self.get("/api/v1/applet/third_party/users").await
+        self.get("/_cokret/edge/applet/third_party/users").await
     }
 
     /// Query third-party locations for an applet.
     pub async fn applet_third_party_locations(&self) -> Result<Value> {
-        self.get("/api/v1/applet/third_party/locations").await
+        self.get("/_cokret/edge/applet/third_party/locations").await
     }
 
     pub async fn get<T: DeserializeOwned>(&self, path: &str) -> Result<T> {
@@ -1514,8 +1514,8 @@ mod tests {
     fn builds_relative_api_url() {
         let client = Client::new(Url::parse("https://alice.example/cokret/").unwrap()).unwrap();
         let request =
-            client.request(Method::GET, "/api/v1/server/describe").unwrap().build().unwrap();
-        assert_eq!(request.url().as_str(), "https://alice.example/cokret/api/v1/server/describe");
+            client.request(Method::GET, "/_cokret/describe").unwrap().build().unwrap();
+        assert_eq!(request.url().as_str(), "https://alice.example/cokret/_cokret/describe");
     }
 
     #[test]
@@ -1568,7 +1568,7 @@ mod tests {
             .idempotency_key("idem-1")
             .wait_for("ck:cursor:01");
         let request = client
-            .apply_request_options(client.request(Method::PUT, "/api/v1/events").unwrap(), &options)
+            .apply_request_options(client.request(Method::PUT, "/_cokret/self/events").unwrap(), &options)
             .unwrap()
             .build()
             .unwrap();
@@ -1586,7 +1586,7 @@ mod tests {
 
         let error = client
             .apply_request_options(
-                client.request(Method::GET, "/api/v1/server/describe").unwrap(),
+                client.request(Method::GET, "/_cokret/describe").unwrap(),
                 &options,
             )
             .unwrap_err();
@@ -1602,7 +1602,7 @@ mod tests {
 
         let client = Client::new(Url::parse("https://alice.example/cokret/").unwrap()).unwrap();
         let builder = client
-            .request(Method::GET, "/api/v1/events")
+            .request(Method::GET, "/_cokret/self/events/query")
             .unwrap()
             .query(&[("access_token", "secret")]);
 
@@ -1710,7 +1710,7 @@ mod tests {
     #[cfg(not(target_arch = "wasm32"))]
     mod events_submit_tests {
         use super::*;
-        use contrix_core::{Did, EventId, EventRequirements, FlowId, Hlc, RealmId};
+        use cokret_core::{Did, EventId, EventRequirements, FlowId, Hlc, RealmId};
         use serde_json::json;
         use std::collections::BTreeMap;
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -1724,7 +1724,7 @@ mod tests {
         fn fixture_event(content_body: &str) -> Event {
             Event {
                 event_id: EventId::new("ck:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
-                kind: "cx.message.create".to_owned(),
+                kind: "ck.message.create".to_owned(),
                 realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
                 actor_id: Did::new("did:web:alice.example").unwrap(),
                 actor_seq: 1,
@@ -1835,13 +1835,13 @@ mod tests {
             let event = fixture_event("hello");
             let response = client.events_submit(&event).await.unwrap();
 
-            assert!(matches!(response.status, contrix_core::EventsSubmitStatus::Accepted));
+            assert!(matches!(response.status, cokret_core::EventsSubmitStatus::Accepted));
             assert_eq!(response.accepted.len(), 1);
 
             let raw = capture.await.unwrap();
             let (request_line, _headers, body) = split_request(&raw);
             assert!(
-                request_line.starts_with("POST /api/v1/events "),
+                request_line.starts_with("POST /_cokret/self/events "),
                 "unexpected request line: {request_line}",
             );
             let parsed: Value = serde_json::from_slice(&body).unwrap();
@@ -1851,7 +1851,7 @@ mod tests {
                 parsed.get("events").is_none(),
                 "single-event POST must not wrap in events[]: {parsed}"
             );
-            assert_eq!(parsed["kind"], "cx.message.create");
+            assert_eq!(parsed["kind"], "ck.message.create");
             assert_eq!(parsed["payload"]["body"], "hello");
             assert_eq!(parsed["actor_id"], "did:web:alice.example");
         }
@@ -1863,11 +1863,11 @@ mod tests {
 
             let events = vec![fixture_event("first"), fixture_event("second")];
             let response = client.events_submit_batch(&events).await.unwrap();
-            assert!(matches!(response.status, contrix_core::EventsSubmitStatus::Accepted));
+            assert!(matches!(response.status, cokret_core::EventsSubmitStatus::Accepted));
 
             let raw = capture.await.unwrap();
             let (request_line, _headers, body) = split_request(&raw);
-            assert!(request_line.starts_with("POST /api/v1/events "));
+            assert!(request_line.starts_with("POST /_cokret/self/events "));
             let parsed: Value = serde_json::from_slice(&body).unwrap();
             let events_value = parsed.get("events").expect("batch body must carry events[]");
             let arr = events_value.as_array().expect("events must be an array");
@@ -1893,7 +1893,7 @@ mod tests {
             let raw = capture.await.unwrap();
             let (request_line, _headers, body) = split_request(&raw);
             assert!(
-                request_line.starts_with("POST /api/v1/directory/private-contact-discovery "),
+                request_line.starts_with("POST /_cokret/find/directory/private-contact-discovery "),
                 "unexpected request line: {request_line}",
             );
             let parsed: Value = serde_json::from_slice(&body).unwrap();
@@ -1913,7 +1913,7 @@ mod tests {
             let raw = capture.await.unwrap();
             let (request_line, _headers, _body) = split_request(&raw);
             assert!(
-                request_line.starts_with("GET /api/v1/mimi/provider-directory?"),
+                request_line.starts_with("GET /_cokret/open/mimi/provider-directory?"),
                 "unexpected request line: {request_line}",
             );
             assert!(request_line.contains("provider_id=provider-a"));
@@ -1940,7 +1940,7 @@ mod tests {
             let raw = capture.await.unwrap();
             let (request_line, _headers, body) = split_request(&raw);
             assert!(
-                request_line.starts_with("POST /api/v1/mimi/report-abuse "),
+                request_line.starts_with("POST /_cokret/open/mimi/report-abuse "),
                 "unexpected request line: {request_line}",
             );
             let parsed: Value = serde_json::from_slice(&body).unwrap();
@@ -1965,7 +1965,7 @@ mod tests {
                 .unwrap();
 
             assert!(
-                matches!(response.status, contrix_core::EventsSubmitStatus::Partial),
+                matches!(response.status, cokret_core::EventsSubmitStatus::Partial),
                 "expected Partial status, got {:?}",
                 response.status
             );

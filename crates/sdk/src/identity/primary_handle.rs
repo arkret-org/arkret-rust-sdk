@@ -9,8 +9,8 @@
 //! pure function of its inputs.
 
 use chrono::{DateTime, Utc};
-use contrix_core::canonical;
-use contrix_core::model::{Handle, HandleBindingState, HandleClaim};
+use cokret_core::canonical;
+use cokret_core::model::{Handle, HandleBindingState, HandleClaim};
 
 use crate::{Did, Error, Result};
 
@@ -262,7 +262,7 @@ fn truncate_did(did: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use contrix_core::model::Handle;
+    use cokret_core::model::Handle;
 
     fn issuer(s: &str) -> String {
         s.to_owned()

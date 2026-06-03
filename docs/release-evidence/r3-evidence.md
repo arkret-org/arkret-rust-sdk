@@ -11,7 +11,7 @@
 | Anchor | Value |
 |---|---|
 | cokret-spec source | `b47ff6ec` |
-| Local mirror | `D:/Works/cokret-dev/spec-synced-b47ff6ec17cb53b6d94a65fbb86385b1075d5e52/` |
+| Local mirror | `D:/Works/cokret/spec-synced-b47ff6ec17cb53b6d94a65fbb86385b1075d5e52/` |
 | SDK head at sync | `main` (no version bump) |
 
 No `git tag` is cut for R3. The CHANGELOG carries a dated R3 entry rather
@@ -28,8 +28,8 @@ than a version stamp — see [`CHANGELOG.md`](../../CHANGELOG.md).
 ### Core wire models (`crates/core/`)
 
 - `events/kinds.rs` — registered new agent event kinds
-  (`cx.agent.draft.propose`, `cx.agent.action_request`,
-  `cx.agent.action_approve`, `cx.agent.action_reject`) as actor-private
+  (`ck.agent.draft.propose`, `ck.agent.action_request`,
+  `ck.agent.action_approve`, `ck.agent.action_reject`) as actor-private
   events with `reducer_input = false`. Marked `cx.agent.{pause, resume,
   deactivate}` with `lattice = fsm, bottom = reject`.
 - `model/call_media.rs` — `MediaTokenResponse`, `ParticipantBinding`,
@@ -45,7 +45,7 @@ than a version stamp — see [`CHANGELOG.md`](../../CHANGELOG.md).
 - `cursor/` — default parser is now stateful `{v, purpose, t, x, h}`;
   stateless cursor (`{v, purpose, t, s, d?, target?, x, _mac/_sig,
   issuer_kid}`) is feature-gated under `stateless_cursor` and advertised via
-  `cx.profile.stateless_cursor.v1`.
+  `ck.profile.stateless_cursor.v1`.
 - `model/selector.rs` — `ResourceSelector::Circle(CircleId)`; `object_ref`
   union updated.
 - `model/account.rs` — `AccountDataSetPayload`, `AccountBlocklistPayload`
@@ -68,13 +68,13 @@ than a version stamp — see [`CHANGELOG.md`](../../CHANGELOG.md).
 
 - New helper `call_media_token_exchange(realm_id, call_id, actor_id,
   device_id, focus_id) -> MediaTokenResponse`.
-- `cx.agent.deactivate` HTTP path is now
+- `ck.agent.deactivate` HTTP path is now
   `POST /agents/{agent_principal_id}/deactivate`; the historical `/revoke`
   alias is gone. Grep gate in the completion checklist enforces this.
 
 ### Server (`crates/server/`)
 
-- Operation registry adds `cx.call.media.token_exchange`
+- Operation registry adds `ck.call.media.token_exchange`
   (`POST /rtc/token`, `CallMedia/TokenExchange`,
   `call.media.token_exchange`) to the `core_personal` surface tier.
 - Agent runtime tier surface declared:
@@ -107,10 +107,10 @@ relaxed validators would have let through.
   per-arm verifier table.
 - `crates/core/src/model/handle.rs::uts39_full_skeleton_table` — minimal
   confusable skeleton ships in R3; full UTS#39 table import deferred.
-- `crates/core/src/model/member_identity.rs` (R3.1) — `cx.member.identity.update`,
+- `crates/core/src/model/member_identity.rs` (R3.1) — `ck.member.identity.update`,
   `MemberIdentity` / `VerifiedHandle` shapes, effective-set computation,
   identity_state_digest helper. Tracked under R3.1 items HDLREN-* / MID-*
-  in `_contrix-rust-sdk_todos.md`.
+  in `_cokret-rust-sdk_todos.md`.
 - `crates/core/src/errors.rs::operations_error_mapping_table` —
   per-operation error-code mapping table (`operations-error-mapping.json`
   v2026-05-27) deferred; HTTP-status mapping updated for new codes.
@@ -120,13 +120,13 @@ relaxed validators would have let through.
 The `spec-drift` job in `.github/workflows/ci.yml` (informational; named
 `spec artifact drift report` and referred to as **`spec-drift-report`** in
 the plan docs) was extended to cover the new event kinds, the new
-`cx.call.media.token_exchange` operation, and the new profiles. See
+`ck.call.media.token_exchange` operation, and the new profiles. See
 [`docs/architecture.md`](../architecture.md#spec-drift-coverage-ci) for the
 coverage description and the "how to re-add this job" runbook.
 
 ## Completion gate snapshot
 
-The completion gate from `_contrix-rust-sdk_todos.md`:
+The completion gate from `_cokret-rust-sdk_todos.md`:
 
 - `cargo check --workspace` — passes.
 - `cargo clippy --workspace -- -D warnings` — passes.

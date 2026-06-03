@@ -52,7 +52,7 @@ pub struct DidContinuitySignatureLink {
     pub signature: String,
 }
 
-/// `cx.schema.did_continuity_proof.v1` payload profile for DID method upgrades
+/// `ck.schema.did_continuity_proof.v1` payload profile for DID method upgrades
 /// and account-binding continuity claims.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -75,7 +75,7 @@ pub struct DidContinuityProof {
 }
 
 impl DidContinuityProof {
-    pub const SCHEMA: &'static str = "cx.schema.did_continuity_proof.v1";
+    pub const SCHEMA: &'static str = "ck.schema.did_continuity_proof.v1";
 
     pub fn validate_minimal(&self) -> Result<()> {
         if self.schema != Self::SCHEMA {

@@ -1,11 +1,11 @@
 //! Print the SDK ↔ spec artifact drift report.
 //!
 //! Run with the sibling `cokret-spec` repo checked out alongside this one,
-//! or with `CONTRIX_SPEC_ARTIFACTS` pointing at any `artifacts/` directory:
+//! or with `COKRET_SPEC_ARTIFACTS` pointing at any `artifacts/` directory:
 //!
 //! ```sh
 //! cargo run --example spec_drift_report
-//! CONTRIX_SPEC_ARTIFACTS=/path/to/cokret-spec/spec/v1/artifacts \
+//! COKRET_SPEC_ARTIFACTS=/path/to/cokret-spec/spec/v1/artifacts \
 //!     cargo run --example spec_drift_report
 //! ```
 //!
@@ -21,9 +21,9 @@
 //!
 //! ```yaml
 //! - uses: actions/checkout@v4
-//!   with: { repository: cokret-dev/cokret-spec, path: cokret-spec }
+//!   with: { repository: cokret/cokret-spec, path: cokret-spec }
 //! - run: cargo run --example spec_drift_report
-//!   env: { CONTRIX_SPEC_ARTIFACTS: cokret-spec/spec/v1/artifacts }
+//!   env: { COKRET_SPEC_ARTIFACTS: cokret-spec/spec/v1/artifacts }
 //! ```
 
 use std::process::ExitCode;
@@ -35,7 +35,7 @@ fn main() -> ExitCode {
         Ok(Some(report)) => report,
         Ok(None) => {
             eprintln!(
-                "no spec artifact bundle found; set CONTRIX_SPEC_ARTIFACTS or check out \
+                "no spec artifact bundle found; set COKRET_SPEC_ARTIFACTS or check out \
                  ../cokret-spec/spec/v1/artifacts/ alongside this repo"
             );
             return ExitCode::from(2);

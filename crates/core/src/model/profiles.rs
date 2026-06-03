@@ -174,7 +174,7 @@ pub struct Morph {
     pub realm_id: RealmId,
     /// Round C47 (spec e10b6ad): authoritative schema set for Morph fields and
     /// transition validation. Reducers MUST validate Morph fields against
-    /// exactly these refs (set-equal compare on `cx.morph.schema_migrate`);
+    /// exactly these refs (set-equal compare on `ck.morph.schema_migrate`);
     /// `morph_type` / `facets` are not a replacement. Defaults to empty on
     /// the wire while existing fixtures are migrated; new producers MUST
     /// populate at least one entry. TODO(C47 Lane A4 / B-soland-deep): make
@@ -333,7 +333,7 @@ impl AccountStatus {
 }
 
 /// Service implementation profile IDs surfaced by discovery / requirements.
-pub const PROFILE_DIRECTORY_SERVICE: &str = "cx.profile.directory_service.v1";
+pub const PROFILE_DIRECTORY_SERVICE: &str = "ck.profile.directory_service.v1";
 
 /// Audit assurance class (encryption-and-audit.md §3.1; spec _todos A1–A9).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -345,15 +345,15 @@ pub enum AuditAssurance {
 }
 
 /// Profile id constants for audit profiles (spec _todos A1).
-pub const PROFILE_ATTESTED_AUDIT_E2EE: &str = "cx.profile.attested_audit.e2ee.v1";
-pub const PROFILE_DISCLOSED_AUDIT_E2EE: &str = "cx.profile.disclosed_audit.e2ee.v1";
+pub const PROFILE_ATTESTED_AUDIT_E2EE: &str = "ck.profile.attested_audit.e2ee.v1";
+pub const PROFILE_DISCLOSED_AUDIT_E2EE: &str = "ck.profile.disclosed_audit.e2ee.v1";
 
-/// Round R2/R3 (2026-05-20) — `cx.profile.e2ee_relaxed.v1`.
+/// Round R2/R3 (2026-05-20) — `ck.profile.e2ee_relaxed.v1`.
 ///
 /// Profile that permits temporarily widening the MLS send-pause window
 /// for advisory reasons. Round R2/R3 introduces an **absolute hard
 /// ceiling** of 5 minutes (300_000 ms) on the relaxed window.
-pub const PROFILE_E2EE_RELAXED: &str = "cx.profile.e2ee_relaxed.v1";
+pub const PROFILE_E2EE_RELAXED: &str = "ck.profile.e2ee_relaxed.v1";
 
 /// Compliance profiles that MUST NOT coexist with
 /// [`PROFILE_E2EE_RELAXED`]. Round R2/R3 — declaring both is rejected as
@@ -361,14 +361,14 @@ pub const PROFILE_E2EE_RELAXED: &str = "cx.profile.e2ee_relaxed.v1";
 pub const E2EE_RELAXED_INCOMPATIBLE_COMPLIANCE_PROFILES: &[&str] =
     &[PROFILE_ATTESTED_AUDIT_E2EE, PROFILE_DISCLOSED_AUDIT_E2EE];
 
-/// Absolute hard ceiling on the `cx.profile.e2ee_relaxed.v1` send-pause
+/// Absolute hard ceiling on the `ck.profile.e2ee_relaxed.v1` send-pause
 /// relaxation window, in milliseconds. Round R2/R3 (2026-05-20).
 /// Implementations MUST reject any `relaxed_window_ms` exceeding this
 /// value with `relaxed_window_exceeds_ceiling`.
 pub const ABSOLUTE_HARD_CEILING_MS: u32 = 300_000;
 
 /// Round R2/R3 — true when `active_profiles` is compatible with
-/// `cx.profile.e2ee_relaxed.v1`. False if any of the compliance audit
+/// `ck.profile.e2ee_relaxed.v1`. False if any of the compliance audit
 /// profiles is present (the two are mutually exclusive — declaring both
 /// MUST be rejected with
 /// `ERROR_CODE_E2EE_RELAXED_DISALLOWED_IN_COMPLIANCE_PROFILE`).
@@ -462,11 +462,11 @@ pub struct RywFrontier {
     pub actor_frontier: BTreeMap<Did, RywActorFrontierEntry>,
 }
 
-/// `cx.audit.ryw_receipt` event payload
+/// `ck.audit.ryw_receipt` event payload
 /// (`audit-ryw-receipt.schema.json`, spec _todos A10).
 ///
 /// Issued by an Events API node, witness, or peer Principal Server to
-/// confirm a `cx.audit.accessed` envelope reached `accepted`. The Audit
+/// confirm a `ck.audit.accessed` envelope reached `accepted`. The Audit
 /// Agent MUST gate plaintext release on receiving a receipt that meets
 /// the Space's declared `audit_assurance`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -492,9 +492,9 @@ pub struct AuditRywReceipt {
 }
 
 impl AuditRywReceipt {
-    /// Canonical schema id and event-kind constant for `cx.audit.ryw_receipt`.
-    pub const SCHEMA: &'static str = "cx.schema.audit_ryw_receipt.v1";
-    pub const EVENT_KIND: &'static str = "cx.audit.ryw_receipt";
+    /// Canonical schema id and event-kind constant for `ck.audit.ryw_receipt`.
+    pub const SCHEMA: &'static str = "ck.schema.audit_ryw_receipt.v1";
+    pub const EVENT_KIND: &'static str = "ck.audit.ryw_receipt";
 
     /// Validate independence vs the declared assurance class. Returns
     /// `Err` when an attested-mode receipt is single-source (which fails
@@ -560,12 +560,12 @@ pub struct IdentityLink {
 }
 
 impl IdentityLink {
-    pub const SCHEMA: &'static str = "cx.schema.identity_link.v1";
+    pub const SCHEMA: &'static str = "ck.schema.identity_link.v1";
 
     pub fn validate_minimal(&self) -> Result<()> {
         if self.schema != Self::SCHEMA {
             return Err(Error::Protocol(
-                "identity_link schema must be cx.schema.identity_link.v1".to_owned(),
+                "identity_link schema must be ck.schema.identity_link.v1".to_owned(),
             ));
         }
         if self.flow_id.is_some() && self.track.as_deref().is_none_or(str::is_empty) {
@@ -720,8 +720,8 @@ pub struct ErasureReceipt {
 }
 
 impl ErasureReceipt {
-    pub const SCHEMA: &'static str = "cx.schema.erasure_receipt.v1";
-    pub const EVENT_KIND: &'static str = "cx.audit.erasure_receipt";
+    pub const SCHEMA: &'static str = "ck.schema.erasure_receipt.v1";
+    pub const EVENT_KIND: &'static str = "ck.audit.erasure_receipt";
 
     pub fn validate_minimal(&self) -> Result<()> {
         if self.schema != Self::SCHEMA {

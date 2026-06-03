@@ -96,7 +96,7 @@ impl ProtocolServerFixture {
         for flow in &self.flows {
             for operation_id in fixture_operations(*flow) {
                 let route = routes_by_operation.get(operation_id).ok_or_else(|| {
-                    contrix_core::Error::Protocol(format!(
+                    cokret_core::Error::Protocol(format!(
                         "fixture operation '{operation_id}' is missing from service route registry"
                     ))
                 })?;
@@ -120,62 +120,62 @@ impl Default for ProtocolServerFixture {
 
 fn fixture_operations(flow: ProtocolFixtureFlow) -> &'static [&'static str] {
     match flow {
-        ProtocolFixtureFlow::Server => &["cx.server.describe"],
+        ProtocolFixtureFlow::Server => &["ck.server.describe"],
         ProtocolFixtureFlow::Identity => &[
-            "cx.identity.describe_registry",
-            "cx.identity.resolve",
-            "cx.identity.get_document",
-            "cx.identity.get_log",
-            "cx.identity.submit_did_operation",
-            "cx.identity.get_receipts",
+            "ck.identity.describe_registry",
+            "ck.identity.resolve",
+            "ck.identity.get_document",
+            "ck.identity.get_log",
+            "ck.identity.submit_did_operation",
+            "ck.identity.get_receipts",
         ],
         ProtocolFixtureFlow::Sync => &[
-            "cx.account.describe",
-            "cx.account.subscribe",
-            "cx.account.cursor_revoke",
-            "cx.events.describe",
-            "cx.events.submit",
-            "cx.events.get",
-            "cx.events.resolve",
-            "cx.events.frontier",
-            "cx.events.subscribe",
-            "cx.events.query",
-            "cx.snapshot.head",
+            "ck.account.describe",
+            "ck.account.subscribe",
+            "ck.account.cursor_revoke",
+            "ck.events.describe",
+            "ck.events.submit",
+            "ck.events.get",
+            "ck.events.resolve",
+            "ck.events.frontier",
+            "ck.events.subscribe",
+            "ck.events.query",
+            "ck.snapshot.head",
         ],
-        ProtocolFixtureFlow::Blob => &["cx.blob.upload", "cx.blob.head", "cx.blob.get"],
+        ProtocolFixtureFlow::Blob => &["ck.blob.upload", "ck.blob.head", "ck.blob.get"],
         ProtocolFixtureFlow::Authz => {
-            &["cx.authz.get_effective_grants", "cx.authz.get_invites", "cx.authz.check"]
+            &["ck.authz.get_effective_grants", "ck.authz.get_invites", "ck.authz.check"]
         }
         ProtocolFixtureFlow::Directory => &[
-            "cx.directory.describe",
-            "cx.directory.search_realms",
-            "cx.directory.resolve_realm",
-            "cx.directory.search_organizations",
-            "cx.directory.resolve_organization",
-            "cx.directory.search_actors",
-            "cx.directory.search_users",
-            "cx.directory.resolve_handle",
-            "cx.directory.push.register",
+            "ck.directory.describe",
+            "ck.directory.search_realms",
+            "ck.directory.resolve_realm",
+            "ck.directory.search_organizations",
+            "ck.directory.resolve_organization",
+            "ck.directory.search_actors",
+            "ck.directory.search_users",
+            "ck.directory.resolve_handle",
+            "ck.directory.push.register",
         ],
         ProtocolFixtureFlow::Push => {
-            &["cx.push.register_device", "cx.push.unregister_device", "cx.push.notify"]
+            &["ck.push.register_device", "ck.push.unregister_device", "ck.push.notify"]
         }
         ProtocolFixtureFlow::DeviceMessages => {
-            &["cx.device_messages.put", "cx.device_messages.get"]
+            &["ck.device_messages.put", "ck.device_messages.get"]
         }
-        ProtocolFixtureFlow::Keys => &["cx.keys.upload", "cx.keys.query", "cx.keys.claim"],
-        ProtocolFixtureFlow::Policy => &["cx.policy.check"],
-        ProtocolFixtureFlow::Media => &["cx.media.ice_config"],
-        ProtocolFixtureFlow::Moderation => &["cx.moderation.report"],
+        ProtocolFixtureFlow::Keys => &["ck.keys.upload", "ck.keys.query", "ck.keys.claim"],
+        ProtocolFixtureFlow::Policy => &["ck.policy.check"],
+        ProtocolFixtureFlow::Media => &["ck.media.ice_config"],
+        ProtocolFixtureFlow::Moderation => &["ck.moderation.report"],
         ProtocolFixtureFlow::Applet => &[
-            "cx.applet.ping",
-            "cx.applet.describe",
-            "cx.applet.transaction",
-            "cx.applet.resolve_actor",
-            "cx.applet.resolve_realm",
-            "cx.applet.protocol_metadata",
-            "cx.applet.third_party_users",
-            "cx.applet.third_party_locations",
+            "ck.applet.ping",
+            "ck.applet.describe",
+            "ck.applet.transaction",
+            "ck.applet.resolve_actor",
+            "ck.applet.resolve_realm",
+            "ck.applet.protocol_metadata",
+            "ck.applet.third_party_users",
+            "ck.applet.third_party_locations",
         ],
     }
 }

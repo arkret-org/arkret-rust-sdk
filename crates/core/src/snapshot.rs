@@ -25,9 +25,9 @@
 //!   that the proof signs.
 //!
 //! Wire shape (round 8): the snapshot manifest endpoint
-//! (`/api/v1/snapshot/head`) returns `chunk_count`, `merkle_root`,
+//! (`/_cokret/self/snapshot/head`) returns `chunk_count`, `merkle_root`,
 //! and `generator_proof`; the chunk endpoint
-//! (`/api/v1/snapshot/chunk?chunk_id=N`) returns the chunk bytes
+//! (`/_cokret/self/snapshot/chunk?chunk_id=N`) returns the chunk bytes
 //! plus the `audit_path[]` Merkle siblings. Receivers verify per-chunk.
 
 use serde::{Deserialize, Serialize};

@@ -178,7 +178,7 @@ mod tests {
     fn invalid_transition_with_details() {
         let b = Bottom {
             kind: BottomKind::InvalidTransition,
-            cells: vec![cell("ck:cell:cx.component.member.state.v1:did.web.alice.example")],
+            cells: vec![cell("ck:cell:ck.component.member.state.v1:did.web.alice.example")],
             move_ids: vec![],
             anchor_view: None,
             heads: vec![],
@@ -198,7 +198,7 @@ mod tests {
     fn anchorer_split_kind_carries_no_move_ids() {
         let b = Bottom::new(
             BottomKind::AnchorerSplit,
-            vec![cell("ck:cell:cx.component.anchorer.v1:cx.space.01js0sp00000000000000000aa")],
+            vec![cell("ck:cell:ck.component.anchorer.v1:cx.space.01js0sp00000000000000000aa")],
         );
         assert!(b.move_ids.is_empty());
         let r: Bottom = serde_json::from_str(&serde_json::to_string(&b).unwrap()).unwrap();
@@ -209,7 +209,7 @@ mod tests {
     fn deserialize_unknown_kind_is_rejected() {
         let raw = json!({
             "kind": "future_unknown_bottom",
-            "cells": ["ck:cell:cx.component.member.state.v1:did.web.alice.example"]
+            "cells": ["ck:cell:ck.component.member.state.v1:did.web.alice.example"]
         });
         let r: Result<Bottom, _> = serde_json::from_value(raw);
         assert!(r.is_err(), "unknown BottomKind must fail closed");

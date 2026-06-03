@@ -71,8 +71,8 @@ impl ServiceType {
                 "cx.admin.",
                 "cx.moderation.",
             ],
-            Self::IdentityRegistry => &["cx.identity.", "cx.directory.resolve_handle"],
-            Self::AuthServer => &["cx.account.", "cx.identity.resolve"],
+            Self::IdentityRegistry => &["cx.identity.", "ck.directory.resolve_handle"],
+            Self::AuthServer => &["cx.account.", "ck.identity.resolve"],
             Self::SyncNode => &["cx.sync.", "cx.events."],
             Self::BlobNode | Self::MediaService => &["cx.blob.", "cx.media."],
             Self::DirectoryService => &["cx.directory."],
@@ -83,8 +83,8 @@ impl ServiceType {
             Self::AppletService => &["cx.applet."],
             Self::AgentRuntime => &["cx.applet.", "cx.agent."],
             Self::SfuService => &["cx.media.", "cx.webrtc."],
-            Self::TurnService => &["cx.media.ice_config"],
-            Self::ModerationService => &["cx.moderation.", "cx.admin.get_moderation_queue"],
+            Self::TurnService => &["ck.media.ice_config"],
+            Self::ModerationService => &["cx.moderation.", "ck.admin.get_moderation_queue"],
         }
     }
 
@@ -384,7 +384,7 @@ mod tests {
             protocol_version: "1.0".to_owned(),
             supported_profiles: vec![crate::PROFILE_DIRECTORY_SERVICE.to_owned()],
             supported_features: vec![],
-            supported_operations: vec!["cx.directory.search_realms".to_owned()],
+            supported_operations: vec!["ck.directory.search_realms".to_owned()],
             supported_bindings: vec![],
             auth_metadata: Value::Null,
             limits: Value::Null,
@@ -399,7 +399,7 @@ mod tests {
             development_mode: false,
             rate_limit: Value::Null,
             egress_network_policy: Some(crate::EgressNetworkPolicy::deny_private_defaults()),
-            supported_reducer_profiles: vec!["cx.reducer.v1".to_owned()],
+            supported_reducer_profiles: vec!["ck.reducer.v1".to_owned()],
             supported_schema_profiles: vec!["cx.schema.core.v1".to_owned()],
             frontier: Vec::new(),
             snapshot_frontier: Vec::new(),
@@ -410,9 +410,9 @@ mod tests {
         ServiceRequirements::new()
             .service_type(ServiceType::DirectoryService)
             .profile(crate::PROFILE_DIRECTORY_SERVICE)
-            .reducer_profile("cx.reducer.v1")
+            .reducer_profile("ck.reducer.v1")
             .schema_profile("cx.schema.core.v1")
-            .operation("cx.directory.search_realms")
+            .operation("ck.directory.search_realms")
             .verify(&description)
             .unwrap();
     }
@@ -423,8 +423,8 @@ mod tests {
         let allowlist = ServiceDidAllowlist::new().allow(ServiceEndpointBinding {
             service_did: service_did.clone(),
             service_type: ServiceType::DirectoryService,
-            endpoint: "https://svc.example/api/v1/directory".to_owned(),
-            operations: vec!["cx.directory.search_realms".to_owned()],
+            endpoint: "https://svc.example/_cokret/find/directory".to_owned(),
+            operations: vec!["ck.directory.search_realms".to_owned()],
         });
         let description = ServerDescription {
             service_did,
@@ -433,7 +433,7 @@ mod tests {
             protocol_version: "1.0".to_owned(),
             supported_profiles: vec![],
             supported_features: vec![],
-            supported_operations: vec!["cx.directory.search_realms".to_owned()],
+            supported_operations: vec!["ck.directory.search_realms".to_owned()],
             supported_bindings: vec![],
             auth_metadata: Value::Null,
             limits: Value::Null,

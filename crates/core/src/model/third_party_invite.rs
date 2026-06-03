@@ -5,7 +5,7 @@ use super::*;
 // ── ThirdPartyInvite (3PID) ─────────────────────────────────────────────
 /// Round 4 — discriminator for the 3PID invite OOB mode.
 ///
-/// `cx.schema.invite.v1` carries a `oneOf` of:
+/// `ck.schema.invite.v1` carries a `oneOf` of:
 /// - `offline_token`: token_commitment + token_salt_id +
 ///   token_entropy_bits (>= 128).
 /// - `lookup`: lookup_table_ref + pepper_id, rate-limited (3 errors
@@ -20,7 +20,7 @@ pub enum ThirdPartyInviteOobKind {
 
     Lookup,
 }
-/// Round 4 — `cx.schema.invite.v1` third_party_invite (3PID) carrier.
+/// Round 4 — `ck.schema.invite.v1` third_party_invite (3PID) carrier.
 ///
 /// Two-mode `oneOf`:
 /// - `offline_token` requires `token_commitment` + `token_salt_id` +

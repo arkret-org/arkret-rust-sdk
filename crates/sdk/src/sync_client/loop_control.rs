@@ -114,10 +114,10 @@ where
     }
 }
 
-/// Async streaming transport abstraction for `cx.events.subscribe`
-/// (`/api/v1/events/subscribe`).
+/// Async streaming transport abstraction for `ck.events.subscribe`
+/// (`/_cokret/self/events/subscribe`).
 ///
-/// Opens the `cx.events.subscribe` stream. The transport accepts a single
+/// Opens the `ck.events.subscribe` stream. The transport accepts a single
 /// `space_id` selector; callers that need multi-space / actor selectors should
 /// use the lower-level HTTP client directly.
 pub trait EventsSubscribeTransport {

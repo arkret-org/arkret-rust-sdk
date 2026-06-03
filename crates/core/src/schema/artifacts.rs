@@ -67,8 +67,8 @@ pub enum Criticality {
 /// event-kind-registry.
 ///
 /// Returned by [`SpecArtifactBundle::component`]. Multiple event kinds MAY
-/// share a `component_type` (e.g. `cx.capability.grant` and
-/// `cx.capability.revoke`) — the alias entry will set
+/// share a `component_type` (e.g. `ck.capability.grant` and
+/// `ck.capability.revoke`) — the alias entry will set
 /// `component_slot_alias_of` to the canonical kind that owns the slot.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ComponentDescriptor {
@@ -314,8 +314,8 @@ impl SpecArtifactBundle {
         // in registry order that ships the same `(cell_family, cell_subject)`
         // — that's the canonical slot owner. If the current event is itself
         // that owner, return None; otherwise return the canonical owner's
-        // event_kind. Cell-model alias example: `cx.capability.revoke` shares
-        // `cx.component.capability.grant.v1` with `cx.capability.grant`, so
+        // event_kind. Cell-model alias example: `ck.capability.revoke` shares
+        // `ck.component.capability.grant.v1` with `ck.capability.grant`, so
         // revoke slot-aliases to grant.
         let component_slot_alias_of = entry
             .get("component_slot_alias_of")
@@ -431,63 +431,63 @@ impl ArtifactDriftReport {
 /// Update this constant whenever the SDK adds typed support for a new
 /// schema; the drift report will then enforce that the spec still ships it.
 pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
-    // Realm/Space inversion (spec 59ac1d4): `cx.schema.realm.v1` is the new
-    // security-boundary schema. `cx.schema.space.v1` is now the container
+    // Realm/Space inversion (spec 59ac1d4): `ck.schema.realm.v1` is the new
+    // security-boundary schema. `ck.schema.space.v1` is now the container
     // schema (former `cx.schema.place.v1` is removed).
-    "cx.schema.realm.v1",
+    "ck.schema.realm.v1",
     REALM_JOIN_CANDIDATE_SCHEMA,
-    "cx.schema.space.v1",
-    "cx.schema.actor_profile.v1",
-    "cx.schema.message.v1",
-    "cx.schema.morph.v1",
-    "cx.schema.morph.customer_risk.v1",
-    "cx.schema.relation.v1",
-    "cx.schema.policy.v1",
-    "cx.schema.invite.v1",
-    "cx.schema.event_batch_receipt.v1",
-    "cx.schema.patch.v1",
-    "cx.schema.range_completeness_attestation.v1",
-    "cx.schema.ice_config_response.v1",
-    "cx.schema.device_message.v1",
-    "cx.schema.blob.v1",
-    "cx.schema.media_metadata.v1",
-    "cx.schema.key_backup.v1",
-    "cx.schema.notification.v1",
-    "cx.schema.read_cursor.v1",
-    "cx.schema.read_receipt.v1",
-    "cx.schema.did_key_log_entry.v1",
-    "cx.schema.did_continuity_proof.v1",
-    "cx.schema.identity_receipt.v1",
-    "cx.schema.identity_link.v1",
-    "cx.schema.handle_claim.v1",
-    "cx.schema.member_delivery_binding_candidate.v1",
+    "ck.schema.space.v1",
+    "ck.schema.actor_profile.v1",
+    "ck.schema.message.v1",
+    "ck.schema.morph.v1",
+    "ck.schema.morph.customer_risk.v1",
+    "ck.schema.relation.v1",
+    "ck.schema.policy.v1",
+    "ck.schema.invite.v1",
+    "ck.schema.event_batch_receipt.v1",
+    "ck.schema.patch.v1",
+    "ck.schema.range_completeness_attestation.v1",
+    "ck.schema.ice_config_response.v1",
+    "ck.schema.device_message.v1",
+    "ck.schema.blob.v1",
+    "ck.schema.media_metadata.v1",
+    "ck.schema.key_backup.v1",
+    "ck.schema.notification.v1",
+    "ck.schema.read_cursor.v1",
+    "ck.schema.read_receipt.v1",
+    "ck.schema.did_key_log_entry.v1",
+    "ck.schema.did_continuity_proof.v1",
+    "ck.schema.identity_receipt.v1",
+    "ck.schema.identity_link.v1",
+    "ck.schema.handle_claim.v1",
+    "ck.schema.member_delivery_binding_candidate.v1",
     // R3.1 spec-sync (cokret-spec @ 7157ee8, 2026-05-27).
-    "cx.schema.member_identity.v1",
+    "ck.schema.member_identity.v1",
     // R3.2 spec-sync (cokret-spec @ b56cab1, 2026-05-28).
-    "cx.schema.list_handles_for_subject_response.v1",
-    "cx.schema.grant_constraint.v1",
-    "cx.schema.resource_selector.v1",
-    "cx.schema.mimi_interop.v1",
-    "cx.schema.moderation_report.v1",
-    "cx.schema.moderation_queue_item.v1",
-    "cx.schema.applet.v1",
-    "cx.schema.agent.v1",
-    "cx.schema.audit_ryw_receipt.v1",
-    "cx.schema.erasure_receipt.v1",
-    "cx.schema.erasure_verification_stub.v1",
-    "cx.schema.cross_signing_publish.v1",
-    "cx.schema.cross_signing_reset.v1",
+    "ck.schema.list_handles_for_subject_response.v1",
+    "ck.schema.grant_constraint.v1",
+    "ck.schema.resource_selector.v1",
+    "ck.schema.mimi_interop.v1",
+    "ck.schema.moderation_report.v1",
+    "ck.schema.moderation_queue_item.v1",
+    "ck.schema.applet.v1",
+    "ck.schema.agent.v1",
+    "ck.schema.audit_ryw_receipt.v1",
+    "ck.schema.erasure_receipt.v1",
+    "ck.schema.erasure_verification_stub.v1",
+    "ck.schema.cross_signing_publish.v1",
+    "ck.schema.cross_signing_reset.v1",
     // Round R2/R3 (2026-05-20) — broadcast ephemeral envelope, moderation
     // appeal payloads, structured attestation evidence.
-    "cx.schema.ephemeral_envelope.v1",
-    "cx.schema.moderation_appeal.v1",
-    "cx.schema.attestation_evidence.v1",
+    "ck.schema.ephemeral_envelope.v1",
+    "ck.schema.moderation_appeal.v1",
+    "ck.schema.attestation_evidence.v1",
     // CXP-0007 (spec b7d35be) — Circle primitive schema.
-    "cx.schema.circle.v1",
+    "ck.schema.circle.v1",
     // Key-backup hardening (B-C, spec head 37ce729) — recovery policy and
     // recovery receipt schemas.
-    "cx.schema.recovery_policy.v1",
-    "cx.schema.recovery_receipt.v1",
+    "ck.schema.recovery_policy.v1",
+    "ck.schema.recovery_receipt.v1",
     EVENT_SCHEMA,
     EVENT_PAYLOAD_SCHEMA,
     FLOW_SCHEMA,
@@ -565,7 +565,7 @@ pub const ARTIFACT_BACKED_SPECIAL_FORM_ID_KINDS: &[&str] =
     &["anchor", "blob", "cell", "cursor", "mls", "pseudonym", "trust_domain"];
 
 pub fn default_spec_artifacts_dir() -> Option<PathBuf> {
-    if let Ok(artifacts_dir) = std::env::var("CONTRIX_SPEC_ARTIFACTS") {
+    if let Ok(artifacts_dir) = std::env::var("COKRET_SPEC_ARTIFACTS") {
         return Some(PathBuf::from(artifacts_dir));
     }
     let spec_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))

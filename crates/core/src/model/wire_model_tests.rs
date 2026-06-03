@@ -48,7 +48,7 @@ mod session_and_identity {
         let now = Utc::now();
         assert!(
             EphemeralEnvelope::new(
-                "cx.message.create",
+                "ck.message.create",
                 realm(),
                 did(),
                 None,

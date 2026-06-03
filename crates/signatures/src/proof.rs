@@ -12,12 +12,12 @@
 //! their bespoke implementations with calls into this module.
 //!
 //! ```
-//! use contrix_signatures::proof::{EventProofBuilder, EventSigner};
+//! use cokret_signatures::proof::{EventProofBuilder, EventSigner};
 //! use serde_json::json;
 //!
 //! # #[cfg(feature = "signer")]
 //! # {
-//! use contrix_signatures::proof::Ed25519DetachedJwsSigner;
+//! use cokret_signatures::proof::Ed25519DetachedJwsSigner;
 //!
 //! let signer = Ed25519DetachedJwsSigner::from_seed(
 //!     [9u8; 32],
@@ -35,7 +35,7 @@ use std::fmt;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
-use contrix_core::{Error, Hash, Proof, Result, canonical, proof_kind};
+use cokret_core::{Error, Hash, Proof, Result, canonical, proof_kind};
 
 /// Wire-form public key material used by [`EventVerifier`] adapters.
 ///
@@ -248,7 +248,7 @@ impl EventProofBuilder {
     /// Strips `proofs` and `unsigned` so the bytes match what
     /// `Event::digest_payload` already produces. This wraps the same
     /// canonicalization rule callers would write by hand.
-    pub fn envelope_bytes(&self, event: &contrix_core::Event) -> Result<Vec<u8>> {
+    pub fn envelope_bytes(&self, event: &cokret_core::Event) -> Result<Vec<u8>> {
         let payload = event.digest_payload()?;
         canonical::canonical_json_bytes(&payload)
     }
@@ -403,7 +403,7 @@ mod ed25519_jws {
     use ed25519_dalek::{Signer as _, SigningKey, Verifier as _, VerifyingKey};
     use serde::Deserialize;
 
-    use contrix_core::{Audience, Hash, Proof, canonical, proof_kind};
+    use cokret_core::{Audience, Hash, Proof, canonical, proof_kind};
 
     use super::{
         EventProofBuilder, EventSigner, EventVerifier, ProofType, PublicKeyMaterial, SignerError,
@@ -442,7 +442,7 @@ mod ed25519_jws {
             value: &T,
             domain: Option<String>,
             audience: Option<Audience>,
-        ) -> contrix_core::Result<(Vec<u8>, Proof)> {
+        ) -> cokret_core::Result<(Vec<u8>, Proof)> {
             let builder = EventProofBuilder::new();
             let bytes = builder.canonical_bytes(value)?;
             let proof = self.build_proof(&bytes, domain, audience)?;
@@ -455,7 +455,7 @@ mod ed25519_jws {
             bytes: &[u8],
             domain: Option<String>,
             audience: Option<Audience>,
-        ) -> contrix_core::Result<Proof> {
+        ) -> cokret_core::Result<Proof> {
             let jws = detached_jws_over(&self.signing_key, bytes);
             let payload_digest = Hash::new(canonical::sha256_digest(bytes))?;
             Ok(Proof {
@@ -649,7 +649,7 @@ pub fn build_proof_envelope(
     verification_method: impl Into<String>,
     payload_digest: Hash,
     domain: Option<String>,
-    audience: Option<contrix_core::Audience>,
+    audience: Option<cokret_core::Audience>,
     jws: impl Into<String>,
 ) -> Proof {
     Proof {

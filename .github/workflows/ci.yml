@@ -139,8 +139,8 @@ jobs:
     # SDK has not yet declared coverage for. Fails only on *hard* drift —
     # entries the SDK declares but the spec no longer ships.
     # R3 sync (spec @ b47ff6ec): coverage extended to the new agent event
-    # kinds (cx.agent.draft.propose, cx.agent.action_request,
-    # cx.agent.action_{approve,reject}), the cx.call.media.token_exchange
+    # kinds (ck.agent.draft.propose, ck.agent.action_request,
+    # cx.agent.action_{approve,reject}), the ck.call.media.token_exchange
     # operation, and the new media-service-binding / accountable_to.strict_reject
     # profiles. See docs/architecture.md#spec-drift-coverage-ci for the runbook.
     continue-on-error: true
@@ -150,7 +150,7 @@ jobs:
           path: cokret-rust-sdk
       - uses: actions/checkout@v4
         with:
-          repository: cokret-dev/cokret-spec
+          repository: cokret/cokret-spec
           path: cokret-spec
           # Public spec repo; if private, set a PAT under
           # secrets.SPEC_READ_TOKEN and pass `token: ${{ secrets.SPEC_READ_TOKEN }}`.
@@ -165,5 +165,5 @@ jobs:
         if: hashFiles('cokret-spec/spec/v1/artifacts/registry/schema-registry.json') != ''
         working-directory: cokret-rust-sdk
         env:
-          CONTRIX_SPEC_ARTIFACTS: ${{ github.workspace }}/cokret-spec/spec/v1/artifacts
+          COKRET_SPEC_ARTIFACTS: ${{ github.workspace }}/cokret-spec/spec/v1/artifacts
         run: cargo run --example spec_drift_report

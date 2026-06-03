@@ -9,7 +9,7 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
 use crate::{Error, Result, canonical};
-pub use contrix_identifiers::{
+pub use cokret_identifiers::{
     AccountabilityGrantId, ActorProfileId, AgentDraftId, AgentKeyId, AgentSessionId, AppletId,
     BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId, CallId, CapabilityId, ChunkId,
     CircleId, ClaimId, Cursor, DeviceId, DeviceMessageId, Did, EventId, FilterId, FlowId, FrameId,

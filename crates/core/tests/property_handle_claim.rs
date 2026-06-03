@@ -15,8 +15,8 @@
 //!     `handle` + `audience` + `expires_at` MUST also be present.
 
 use chrono::{Duration, Utc};
-use contrix_core::Did;
-use contrix_core::model::{
+use cokret_core::Did;
+use cokret_core::model::{
     DeliveryBindingHint, Handle, HandleBindingState, HandleClaim, HandleHintBindingSource,
     RecipientServiceType,
 };

@@ -33,7 +33,7 @@ pub enum Resource {
     /// Actor resource (account-lifecycle, profile updates).
     Actor { actor_id: String },
     /// Circle resource.
-    Circle { circle_id: contrix_core::CircleId },
+    Circle { circle_id: cokret_core::CircleId },
 }
 
 impl Resource {
@@ -218,12 +218,12 @@ pub enum Constraint {
         denied_view_renderers: Vec<String>,
     },
     /// CXP-0007 (spec b7d35be) — narrow a Circle-management capability
-    /// (`cx.circle.manage`, `cx.circle.member.manage`,
-    /// `cx.circle.member.add.others`, `cx.circle.audit`) to a specific set
+    /// (`ck.circle.manage`, `ck.circle.member.manage`,
+    /// `ck.circle.member.add.others`, `ck.circle.audit`) to a specific set
     /// of Circle ids. Spec `capability-action-registry.json` declares
     /// `required_constraints=["allowed_circle_ids"]` on each gated action;
     /// unconstrained Realm-wide grants for these actions MUST be rejected.
-    AllowedCircleIds { allowed_circle_ids: std::collections::BTreeSet<contrix_core::CircleId> },
+    AllowedCircleIds { allowed_circle_ids: std::collections::BTreeSet<cokret_core::CircleId> },
 }
 
 /// Constraint effect.

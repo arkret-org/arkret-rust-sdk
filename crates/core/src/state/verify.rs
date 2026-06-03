@@ -61,12 +61,12 @@ impl From<StoreError> for MoveReject {
 pub fn reject_to_error_code(r: &MoveReject) -> &'static str {
     use crate as cx;
     match r {
-        MoveReject::SchemaViolation(_) => ck::ERROR_CODE_SCHEMA_VIOLATION,
-        MoveReject::InvalidSignature(_) => ck::ERROR_CODE_INVALID_SIGNATURE,
-        MoveReject::CapabilityDenied(_) => ck::ERROR_CODE_CAPABILITY_DENIED,
-        MoveReject::FailedPrecondition { .. } => ck::ERROR_CODE_STATE_MISMATCH,
+        MoveReject::SchemaViolation(_) => cx::ERROR_CODE_SCHEMA_VIOLATION,
+        MoveReject::InvalidSignature(_) => cx::ERROR_CODE_INVALID_SIGNATURE,
+        MoveReject::CapabilityDenied(_) => cx::ERROR_CODE_CAPABILITY_DENIED,
+        MoveReject::FailedPrecondition { .. } => cx::ERROR_CODE_STATE_MISMATCH,
         MoveReject::FailedBottom { .. } => "failed_bottom",
-        MoveReject::Registry(_) => ck::ERROR_CODE_INTERNAL_ERROR,
+        MoveReject::Registry(_) => cx::ERROR_CODE_INTERNAL_ERROR,
     }
 }
 
@@ -147,7 +147,7 @@ where
 }
 
 const AUTHORIZED_BY_ROLE: &str = "authorized_by";
-const CAPABILITY_GRANT_CELL_FAMILY: &str = "cx.component.capability.grant.v1";
+const CAPABILITY_GRANT_CELL_FAMILY: &str = "ck.component.capability.grant.v1";
 
 #[derive(Debug, Deserialize)]
 struct CapabilityGrantCellValue {
@@ -405,13 +405,13 @@ mod tests {
     }
 
     fn cell_member() -> CellRef {
-        CellRef::new("ck:cell:cx.component.member.state.v1:did.web.alice.example".to_owned())
+        CellRef::new("ck:cell:ck.component.member.state.v1:did.web.alice.example".to_owned())
             .unwrap()
     }
 
     fn cell_capability_grant() -> CellRef {
         CellRef::new(
-            "ck:cell:cx.component.capability.grant.v1:cx.grant.01js0gr0000000000000000000"
+            "ck:cell:ck.component.capability.grant.v1:cx.grant.01js0gr0000000000000000000"
                 .to_owned(),
         )
         .unwrap()
@@ -472,7 +472,7 @@ mod tests {
                     "id": grant_id,
                     "issuer": "did:web:owner.example",
                     "subject": subject,
-                    "actions": ["cx.member.state"],
+                    "actions": ["ck.member.state"],
                     "resources": [{"kind": "space", "space_id": space().as_str()}]
                 }
             }

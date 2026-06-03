@@ -245,7 +245,7 @@ pub fn capability_grants_from_space_state(
     let mut grants = Vec::new();
 
     for event in state.resolved_state.values() {
-        if !matches!(event.kind.as_str(), "cx.capability.grant" | "cx.capability.delegate") {
+        if !matches!(event.kind.as_str(), "ck.capability.grant" | "ck.capability.delegate") {
             continue;
         }
         grants.push(capability_grant_from_resolved_event(event, Some(state.space_id.clone()))?);
@@ -350,9 +350,9 @@ fn resource_selectors(value: Option<&Value>) -> Result<Option<Vec<ResourceSelect
     Ok(Some(selectors))
 }
 
-// ─── S-10 (savfox SDK gap): cx.capability.grant builder ───────────────────
+// ─── S-10 (savfox SDK gap): ck.capability.grant builder ───────────────────
 
-/// Build a `cx.capability.grant` Event Envelope content payload around
+/// Build a `ck.capability.grant` Event Envelope content payload around
 /// a [`CapabilityGrant`].
 ///
 /// Chain verification (subject ⇒ issuer narrowing, action / resource
@@ -420,7 +420,7 @@ impl CapabilityGrantBuilder {
         self
     }
 
-    /// Materialize the unsigned `cx.capability.grant` Envelope.
+    /// Materialize the unsigned `ck.capability.grant` Envelope.
     pub fn build(self, actor_seq: u64, hlc: crate::Hlc) -> Result<crate::Event> {
         if self.grant.issuer != self.actor_id {
             return Err(Error::Protocol(format!(
@@ -466,7 +466,7 @@ mod capability_grant_builder_tests {
             space_id: None,
             issuer: alice(),
             subject: bob(),
-            actions: vec!["cx.message.create".to_owned()],
+            actions: vec!["ck.message.create".to_owned()],
             resources: vec![ResourceSelector::Wildcard],
             constraints: Vec::new(),
             delegable: false,
@@ -509,7 +509,7 @@ mod capability_grant_builder_tests {
             parent_grant_id: Some(parent.id.clone()),
             issuer: bob(),
             subject: Did::new("did:web:carol.example").unwrap(),
-            actions: vec!["cx.message.create".to_owned()],
+            actions: vec!["ck.message.create".to_owned()],
             ..base_grant()
         };
         let validation = validate_capability_frontier(&[parent, child]).unwrap();

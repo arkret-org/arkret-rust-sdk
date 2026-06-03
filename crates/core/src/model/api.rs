@@ -116,7 +116,7 @@ pub struct ServerDescription {
     /// (empty means snapshot-assisted resolution is unavailable).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub snapshot_frontier: Vec<EventId>,
-    /// Active reducer profile (e.g. `cx.reducer.v1`).
+    /// Active reducer profile (e.g. `ck.reducer.v1`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reducer_profile: Option<String>,
     /// Wall-clock time of the most recent successful state
@@ -143,7 +143,7 @@ impl ServerDescription {
 }
 
 impl ServerDescription {
-    pub fn supports_contrix_v1(&self) -> bool {
+    pub fn supports_cokret_v1(&self) -> bool {
         self.protocol_version == PROTOCOL_VERSION
     }
 }
@@ -553,7 +553,7 @@ pub struct SyncReqBody {
 
 /// Folded account-aggregate delta used by SDK internals.
 ///
-/// Current wire delivery is `cx.account.subscribe`: an NDJSON stream of
+/// Current wire delivery is `ck.account.subscribe`: an NDJSON stream of
 /// [`AccountSubscribeFrame`] values. The SDK folds `delta` frames into this
 /// shape so existing reducers and UI code can consume a single account snapshot
 /// value without depending on transport streaming details.
@@ -601,7 +601,7 @@ impl SyncResBody {
         &self.spaces
     }
 
-    /// Fold a single `cx.account.subscribe` data frame into the SDK aggregate
+    /// Fold a single `ck.account.subscribe` data frame into the SDK aggregate
     /// snapshot shape. Control frames without data return `None`.
     pub fn from_account_subscribe_frame(frame: AccountSubscribeFrame) -> Option<Self> {
         if frame.kind != AccountSubscribeFrameKind::Delta {
@@ -639,7 +639,7 @@ impl SyncResBody {
     }
 }
 
-/// One NDJSON frame on `cx.account.subscribe`.
+/// One NDJSON frame on `ck.account.subscribe`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AccountSubscribeFrame {
@@ -1120,7 +1120,7 @@ pub enum RealmJoinCandidateSource {
     LocalCache,
 }
 
-/// `cx.schema.realm_join_candidate.v1`: time-bounded routing hint for
+/// `ck.schema.realm_join_candidate.v1`: time-bounded routing hint for
 /// submitting Realm join, invite-accept, knock, or restricted-join material.
 /// It is distinct from member delivery binding and does not authorize
 /// membership by itself.
@@ -1189,7 +1189,7 @@ pub enum TargetKind {
     Message,
 }
 
-/// R3.3 (CXP-0011) — request body for `cx.directory.resolve_target`.
+/// R3.3 (CXP-0011) — request body for `ck.directory.resolve_target`.
 ///
 /// `address` is a client-agnostic shareable object address in either the
 /// `web+cokret:` URI form or the HTTPS-landing fragment form (see
@@ -1208,7 +1208,7 @@ pub struct DirectoryResolveTargetReqBody {
     pub token: Option<String>,
 }
 
-/// R3.3 (CXP-0011) — response body for `cx.directory.resolve_target`.
+/// R3.3 (CXP-0011) — response body for `ck.directory.resolve_target`.
 ///
 /// Common §9.1 directory fields (`as_of`, `source_refs`, `join_candidates`,
 /// `policy_revision`, `stale`, `divergent`) mirror the other directory
@@ -1403,7 +1403,7 @@ pub struct DirectoryResolveHandleResBody {
 }
 
 /// R3.2 (cokret-spec @ b56cab1) — request body for
-/// `cx.directory.list_handles_for_subject`. Known holder/principal DID +
+/// `ck.directory.list_handles_for_subject`. Known holder/principal DID +
 /// context → current visible handle claims (inverse of `resolve_handle`).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -1428,8 +1428,8 @@ pub struct DirectoryListHandlesForSubjectReqBody {
     pub limit: Option<u32>,
 }
 
-/// R3.2 — response body for `cx.directory.list_handles_for_subject`.
-/// Schema `cx.schema.list_handles_for_subject_response.v1`. Every
+/// R3.2 — response body for `ck.directory.list_handles_for_subject`.
+/// Schema `ck.schema.list_handles_for_subject_response.v1`. Every
 /// `claims[].subject` MUST equal [`Self::subject`] (byte-equal); use
 /// [`Self::validate`] to enforce.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2187,7 +2187,7 @@ pub struct KeyBackupRetention {
 }
 
 /// Key-backup hardening (B-C, spec head 37ce729) — minimal Rust shape for
-/// `cx.schema.recovery_policy.v1`. Carries the policy lifecycle plus the
+/// `ck.schema.recovery_policy.v1`. Carries the policy lifecycle plus the
 /// commitment / KDF profile branches.
 ///
 /// The fields below mirror the spec's `policy_id` / `lifecycle` / `body`
@@ -2200,7 +2200,7 @@ pub struct KeyBackupRetention {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct RecoveryPolicy {
-    /// Schema id (`cx.schema.recovery_policy.v1`).
+    /// Schema id (`ck.schema.recovery_policy.v1`).
     pub schema: String,
     pub policy_id: String,
     pub lifecycle: RecoveryPolicyLifecycle,
@@ -2268,7 +2268,7 @@ impl RecoveryProofKind {
 }
 
 /// Key-backup hardening (B-C, spec head 37ce729) — minimal Rust shape for
-/// `cx.schema.recovery_receipt.v1`. Captures verification evidence + a
+/// `ck.schema.recovery_receipt.v1`. Captures verification evidence + a
 /// proof that binds the receipt to a specific recovery session.
 ///
 // TODO(P1): expand `evidence` into a tagged enum matching the spec's
@@ -2276,7 +2276,7 @@ impl RecoveryProofKind {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct RecoveryReceipt {
-    /// Schema id (`cx.schema.recovery_receipt.v1`).
+    /// Schema id (`ck.schema.recovery_receipt.v1`).
     pub schema: String,
     pub recovery_session_id: RecoverySessionId,
     pub policy_id: String,
@@ -2295,9 +2295,9 @@ pub struct RecoveryReceipt {
 
 // ─── S-2 (savfox SDK gap): DID-proof session grant flow ────────────────────
 //
-// Wire shapes for `POST /auth/account/session-grants` per spec
+// Wire shapes for `POST /_cokret/gate/account/session-grants` per spec
 // `identity-did.md` §5.1. Step 1 returns a `SessionGrantChallenge`; step 2
-// submits a signed `cx.did.proof` (envelope inside `SessionGrantSubmitReq`).
+// submits a signed `ck.did.proof` (envelope inside `SessionGrantSubmitReq`).
 
 /// Step 1 request: client asks for a challenge bound to a `(principal_id,
 /// device_id, audience)` tuple. Spec `identity-did.md` §5.1.
@@ -2307,16 +2307,16 @@ pub struct SessionGrantChallengeReq {
     pub principal_id: Did,
     pub device_id: DeviceId,
     /// DID of the Principal Server / service the grant is for. Bound
-    /// into the `cx.did.proof` audience.
+    /// into the `ck.did.proof` audience.
     pub audience: String,
     /// Optional origin hint (per spec §5.1 the proof carries `origin`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin: Option<String>,
 }
 
-/// Step 1 response: server-issued challenge for `cx.did.proof`.
+/// Step 1 response: server-issued challenge for `ck.did.proof`.
 ///
-/// `purpose` is always `cx.session.grant` (only purpose the SDK helper
+/// `purpose` is always `ck.session.grant` (only purpose the SDK helper
 /// drives today). `expires_at` bounds the challenge's freshness window.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -2331,16 +2331,16 @@ pub struct SessionGrantChallenge {
 }
 
 impl SessionGrantChallenge {
-    pub const PURPOSE_SESSION_GRANT: &'static str = "cx.session.grant";
+    pub const PURPOSE_SESSION_GRANT: &'static str = "ck.session.grant";
 
-    /// True iff `purpose == cx.session.grant`. Receivers MUST refuse
+    /// True iff `purpose == ck.session.grant`. Receivers MUST refuse
     /// any other purpose for the session-grant exchange.
     pub fn is_session_grant_purpose(&self) -> bool {
         self.purpose == Self::PURPOSE_SESSION_GRANT
     }
 }
 
-/// Step 2 request: client submits the signed `cx.did.proof` body.
+/// Step 2 request: client submits the signed `ck.did.proof` body.
 ///
 /// The proof payload (`SessionGrantDidProof`) is what the controller
 /// actually signed; `proof` is the detached-JWS `Proof` envelope
@@ -2355,7 +2355,7 @@ pub struct SessionGrantSubmitReq {
     pub proof: Proof,
 }
 
-/// Canonical body of the `cx.did.proof` payload spec
+/// Canonical body of the `ck.did.proof` payload spec
 /// `identity-did.md` §5.1. The signer commits to this object; the
 /// receiver re-derives canonical bytes and verifies.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -2373,10 +2373,10 @@ pub struct SessionGrantDidProof {
 }
 
 impl SessionGrantDidProof {
-    pub const KIND: &'static str = "cx.did.proof";
+    pub const KIND: &'static str = "ck.did.proof";
 
     /// Build the canonical proof payload for a given challenge. Stamps
-    /// `kind=cx.did.proof` so callers don't have to.
+    /// `kind=ck.did.proof` so callers don't have to.
     pub fn from_challenge(
         challenge: &SessionGrantChallenge,
         principal_id: Did,

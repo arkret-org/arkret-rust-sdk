@@ -1,12 +1,12 @@
-//! Typed key-backup HTTP client for `cx.keys.backups.*`.
+//! Typed key-backup HTTP client for `ck.keys.backups.*`.
 
 use serde::{Deserialize, Serialize};
 
-use contrix_http_client::Client;
+use cokret_http_client::Client;
 
 use crate::{ProtocolKeyBackup, Result as SdkResult};
 
-/// Response for `cx.keys.backups.put`.
+/// Response for `ck.keys.backups.put`.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct KeyBackupPutResBody {
     pub status: String,
@@ -14,7 +14,7 @@ pub struct KeyBackupPutResBody {
     pub ciphertext_digest: String,
 }
 
-/// Response for `cx.keys.backups.list`.
+/// Response for `ck.keys.backups.list`.
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct KeyBackupListResBody {
     pub backups: Vec<ProtocolKeyBackup>,
@@ -22,9 +22,9 @@ pub struct KeyBackupListResBody {
     pub next_cursor: Option<String>,
 }
 
-/// Typed key-backup HTTP client wrapping a [`contrix_http_client::Client`].
+/// Typed key-backup HTTP client wrapping a [`cokret_http_client::Client`].
 ///
-/// All methods return `Result<_, contrix_http_client::Error>` so the API and
+/// All methods return `Result<_, cokret_http_client::Error>` so the API and
 /// retry/backoff config flow through the underlying client builder. The
 /// caller is expected to construct the inner [`Client`] with the
 /// appropriate auth (Bearer / DeviceProof / ServiceSignature).
@@ -45,31 +45,31 @@ impl KeyBackupClient {
         &self.client
     }
 
-    /// `PUT /api/v1/keys/backups/{backup_id}`.
+    /// `PUT /_cokret/self/keys/backups/{backup_id}`.
     pub async fn put_key_backup(
         &self,
         backup_id: &str,
         record: &ProtocolKeyBackup,
     ) -> SdkResult<KeyBackupPutResBody> {
-        let path = format!("/api/v1/keys/backups/{backup_id}");
+        let path = format!("/_cokret/self/keys/backups/{backup_id}");
         self.client.put(&path, record).await
     }
 
-    /// `GET /api/v1/keys/backups/{backup_id}`.
+    /// `GET /_cokret/self/keys/backups/{backup_id}`.
     pub async fn get_key_backup(&self, backup_id: &str) -> SdkResult<ProtocolKeyBackup> {
-        let path = format!("/api/v1/keys/backups/{backup_id}");
+        let path = format!("/_cokret/self/keys/backups/{backup_id}");
         self.client.get(&path).await
     }
 
-    /// `GET /api/v1/keys/backups` (list current backups for the
+    /// `GET /_cokret/self/keys/backups` (list current backups for the
     /// authenticated principal).
     pub async fn list_key_backups(&self) -> SdkResult<KeyBackupListResBody> {
-        self.client.get("/api/v1/keys/backups").await
+        self.client.get("/_cokret/self/keys/backups").await
     }
 
-    /// `DELETE /api/v1/keys/backups/{backup_id}`.
+    /// `DELETE /_cokret/self/keys/backups/{backup_id}`.
     pub async fn delete_key_backup(&self, backup_id: &str) -> SdkResult<KeyBackupDeleteResBody> {
-        let path = format!("/api/v1/keys/backups/{backup_id}");
+        let path = format!("/_cokret/self/keys/backups/{backup_id}");
         self.client.delete(&path).await
     }
 }

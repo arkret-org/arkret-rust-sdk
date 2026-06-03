@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
-pub use contrix_crypto::{
+pub use cokret_crypto::{
     CrossSigningBinding, CrossSigningKeyKind, CrossSigningKeyRecord, CrossSigningPublishContent,
     CrossSigningResetContent, CrossSigningResetProof, DeviceBootstrapBinding,
     DeviceQuorumSignature, DeviceTrustBinding, DeviceTrustChainOutcome, SignedCrossSigningKey,
@@ -118,7 +118,7 @@ pub struct ToDeviceEnvelope {
     pub queued_at: DateTime<Utc>,
 }
 
-/// Spec-aligned device message envelope facade from `cx.schema.device_message.v1`.
+/// Spec-aligned device message envelope facade from `ck.schema.device_message.v1`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DeviceMessageEnvelope {
     pub kind: String,
@@ -136,7 +136,7 @@ pub struct DeviceMessageEnvelope {
     pub unsigned: Option<Value>,
 }
 
-/// Known `cx.key.verification.*` device message kinds.
+/// Known `ck.key.verification.*` device message kinds.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DeviceVerificationMessageKind {
@@ -153,14 +153,14 @@ pub enum DeviceVerificationMessageKind {
 impl DeviceVerificationMessageKind {
     pub fn as_event_kind(&self) -> &'static str {
         match self {
-            Self::Request => "cx.key.verification.request",
-            Self::Ready => "cx.key.verification.ready",
-            Self::Start => "cx.key.verification.start",
-            Self::Accept => "cx.key.verification.accept",
-            Self::Key => "cx.key.verification.key",
-            Self::Mac => "cx.key.verification.mac",
-            Self::Done => "cx.key.verification.done",
-            Self::Cancel => "cx.key.verification.cancel",
+            Self::Request => "ck.key.verification.request",
+            Self::Ready => "ck.key.verification.ready",
+            Self::Start => "ck.key.verification.start",
+            Self::Accept => "ck.key.verification.accept",
+            Self::Key => "ck.key.verification.key",
+            Self::Mac => "ck.key.verification.mac",
+            Self::Done => "ck.key.verification.done",
+            Self::Cancel => "ck.key.verification.cancel",
         }
     }
 }

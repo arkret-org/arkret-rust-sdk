@@ -160,14 +160,14 @@ fn resource_selector_parse_space_scoped_resources_with_colon_ids() {
 #[test]
 fn resource_selector_parse_and_match_circle() {
     let circle_id =
-        contrix_core::CircleId::new("ck:circle:01904100-0000-7000-8000-000000000000".to_owned())
+        cokret_core::CircleId::new("ck:circle:01904100-0000-7000-8000-000000000000".to_owned())
             .unwrap();
     let selector = ResourceSelector::parse("circle:01904100-0000-7000-8000-000000000000").unwrap();
     assert_eq!(selector, ResourceSelector::Circle { circle_id: circle_id.clone() });
     assert!(selector.matches(&Resource::Circle { circle_id: circle_id.clone() }));
     assert!(
         !selector.matches(&Resource::Circle {
-            circle_id: contrix_core::CircleId::new(
+            circle_id: cokret_core::CircleId::new(
                 "ck:circle:01904100-0000-7000-8000-000000000001".to_owned()
             )
             .unwrap()
@@ -185,7 +185,7 @@ fn resource_selector_wildcard_matches_all() {
     assert!(selector.matches(&morph_resource("test", "task", "ck:morph:test")));
     assert!(
         selector.matches(&Resource::Circle {
-            circle_id: contrix_core::CircleId::new(
+            circle_id: cokret_core::CircleId::new(
                 "ck:circle:01904100-0000-7000-8000-000000000000".to_owned()
             )
             .unwrap()
@@ -363,13 +363,13 @@ fn authz_engine_evaluates_grants_from_space_state() {
     );
     let grant = capability_event(
         "ck:event:01904100-0000-7000-8000-db6fcaf186ba",
-        "cx.capability.grant",
+        "ck.capability.grant",
         1,
         "01970e589d21-0004-a13f9c2e",
         json!({
             "capability_id": "cap-message-send",
             "subject": "did:web:alice.example.com",
-            "actions": ["cx.message.create"],
+            "actions": ["ck.message.create"],
             "resources": ["message:ck:space:01904100-0000-7000-8000-9b64700c6ee8"]
         }),
     );
@@ -377,7 +377,7 @@ fn authz_engine_evaluates_grants_from_space_state() {
 
     let ctx = ctx_at(
         "2026-04-29T01:00:00Z",
-        "cx.message.create",
+        "ck.message.create",
         message_resource(
             "ck:space:01904100-0000-7000-8000-9b64700c6ee8",
             "ck:message:01904100-0000-7000-8000-424c57fe6d8e",
@@ -396,19 +396,19 @@ fn authz_engine_denies_after_revoke_wins_in_space_state() {
     );
     let grant = capability_event(
         "ck:event:01904100-0000-7000-8000-4fe0190ae99f",
-        "cx.capability.grant",
+        "ck.capability.grant",
         1,
         "01970e589d21-0004-a13f9c2e",
         json!({
             "capability_id": "cap-message-send",
             "subject": "did:web:alice.example.com",
-            "actions": ["cx.message.create"],
+            "actions": ["ck.message.create"],
             "resources": ["message:ck:space:01904100-0000-7000-8000-9b64700c6ee8"]
         }),
     );
     let revoke = capability_event(
         "ck:event:01904100-0000-7000-8000-a85aaf6d56fc",
-        "cx.capability.revoke",
+        "ck.capability.revoke",
         2,
         "01970e589d22-0004-a13f9c2e",
         json!({ "target_capability_id": "cap-message-send" }),
@@ -417,7 +417,7 @@ fn authz_engine_denies_after_revoke_wins_in_space_state() {
 
     let ctx = ctx_at(
         "2026-04-29T01:00:00Z",
-        "cx.message.create",
+        "ck.message.create",
         message_resource(
             "ck:space:01904100-0000-7000-8000-9b64700c6ee8",
             "ck:message:01904100-0000-7000-8000-424c57fe6d8e",
@@ -436,14 +436,14 @@ fn authz_engine_denies_after_delegate_revoke_wins_in_space_state() {
     );
     let delegate = capability_event(
         "ck:event:01904100-0000-7000-8000-cadd1669a70a",
-        "cx.capability.delegate",
+        "ck.capability.delegate",
         1,
         "01970e589d21-0004-a13f9c2e",
         json!({
             "capability_id": "cap-message-delegate",
             "parent_grant_id": "cap-root",
             "subject": "did:web:alice.example.com",
-            "actions": ["cx.message.create"],
+            "actions": ["ck.message.create"],
             "resources": ["message:ck:space:01904100-0000-7000-8000-9b64700c6ee8"]
         }),
     );
@@ -451,7 +451,7 @@ fn authz_engine_denies_after_delegate_revoke_wins_in_space_state() {
 
     let ctx = ctx_at(
         "2026-04-29T01:00:00Z",
-        "cx.message.create",
+        "ck.message.create",
         message_resource(
             "ck:space:01904100-0000-7000-8000-9b64700c6ee8",
             "ck:message:01904100-0000-7000-8000-424c57fe6d8e",
@@ -463,7 +463,7 @@ fn authz_engine_denies_after_delegate_revoke_wins_in_space_state() {
 
     let revoke = capability_event(
         "ck:event:01904100-0000-7000-8000-738d5fbe3070",
-        "cx.capability.revoke",
+        "ck.capability.revoke",
         2,
         "01970e589d22-0004-a13f9c2e",
         json!({ "target_capability_id": "cap-message-delegate" }),
@@ -528,7 +528,7 @@ fn policy_server_denies_quarantines_and_reports_moderation_outcomes() {
     let grant =
         grant_for("post", message_selector("ck:space:01904100-0000-7000-8000-1a412919cd4b"));
     let policy = PolicyCheckResBody {
-        operation: "cx.policy.check".to_owned(),
+        operation: "ck.policy.check".to_owned(),
         effect: PolicyServerEffect::Quarantine,
         reason: "possible abuse".to_owned(),
         policy_id: Some("policy-abuse".to_owned()),
@@ -549,7 +549,7 @@ fn capability_frontier_rejects_cycles_widening_and_unknown_critical_constraints(
     let alice = Did::new("did:web:alice.example.com").unwrap();
     let bob = Did::new("did:web:bob.example.com").unwrap();
     let mut root = grant_for(
-        "cx.message.create",
+        "ck.message.create",
         ResourceSelector::Message {
             space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
             message_id: None,
@@ -564,7 +564,7 @@ fn capability_frontier_rejects_cycles_widening_and_unknown_critical_constraints(
         space_id: None,
         issuer: alice,
         subject: bob,
-        actions: vec!["cx.message.create".to_owned()],
+        actions: vec!["ck.message.create".to_owned()],
         resources: vec![ResourceSelector::Message {
             space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
             message_id: Some("message-1".to_owned()),
@@ -649,7 +649,7 @@ fn duration(value: u64, unit: &str) -> ConstraintDuration {
 fn redact_window_is_authoritative_and_denies_after_window() {
     let mut engine = AuthzEngine::new();
     let grant = edit_window_grant(
-        "cx.message.redact.own",
+        "ck.message.redact.own",
         Constraint::EditWindow {
             applies_to_actions: vec![],
             message_edit_window: None,
@@ -658,7 +658,7 @@ fn redact_window_is_authoritative_and_denies_after_window() {
         },
     );
     let ctx = edit_window_ctx(
-        "cx.message.redact.own",
+        "ck.message.redact.own",
         "2026-06-01T00:00:00Z",
         "2026-06-02T01:00:00Z", // 25h later
     );
@@ -669,7 +669,7 @@ fn redact_window_is_authoritative_and_denies_after_window() {
 fn redact_window_allows_within_window() {
     let mut engine = AuthzEngine::new();
     let grant = edit_window_grant(
-        "cx.message.redact.own",
+        "ck.message.redact.own",
         Constraint::EditWindow {
             applies_to_actions: vec![],
             message_edit_window: None,
@@ -678,7 +678,7 @@ fn redact_window_allows_within_window() {
         },
     );
     let ctx = edit_window_ctx(
-        "cx.message.redact.own",
+        "ck.message.redact.own",
         "2026-06-01T00:00:00Z",
         "2026-06-01T01:00:00Z", // 1h later
     );
@@ -691,7 +691,7 @@ fn redact_window_authoritative_ignores_allow_redact_after_window() {
     // allow_redact_after_window MUST NOT lift the redact verdict.
     let mut engine = AuthzEngine::new();
     let grant = edit_window_grant(
-        "cx.message.redact.own",
+        "ck.message.redact.own",
         Constraint::EditWindow {
             applies_to_actions: vec![],
             message_edit_window: Some(duration(15, "m")),
@@ -700,7 +700,7 @@ fn redact_window_authoritative_ignores_allow_redact_after_window() {
         },
     );
     let ctx = edit_window_ctx(
-        "cx.message.redact.own",
+        "ck.message.redact.own",
         "2026-06-01T00:00:00Z",
         "2026-06-02T01:00:00Z", // 25h later, past the 24h redact window
     );
@@ -713,7 +713,7 @@ fn redact_shares_edit_window_when_no_redact_window_declared() {
     // window when no separate redact window is declared.
     let mut engine = AuthzEngine::new();
     let grant = edit_window_grant(
-        "cx.message.redact.own",
+        "ck.message.redact.own",
         Constraint::EditWindow {
             applies_to_actions: vec![],
             message_edit_window: Some(duration(15, "m")),
@@ -722,7 +722,7 @@ fn redact_shares_edit_window_when_no_redact_window_declared() {
         },
     );
     let ctx = edit_window_ctx(
-        "cx.message.redact.own",
+        "ck.message.redact.own",
         "2026-06-01T00:00:00Z",
         "2026-06-01T00:16:00Z", // 16m later, past the 15m edit window
     );
@@ -733,7 +733,7 @@ fn redact_shares_edit_window_when_no_redact_window_declared() {
 fn allow_redact_after_window_lifts_edit_window_coupling() {
     let mut engine = AuthzEngine::new();
     let grant = edit_window_grant(
-        "cx.message.redact.own",
+        "ck.message.redact.own",
         Constraint::EditWindow {
             applies_to_actions: vec![],
             message_edit_window: Some(duration(15, "m")),
@@ -742,7 +742,7 @@ fn allow_redact_after_window_lifts_edit_window_coupling() {
         },
     );
     let ctx = edit_window_ctx(
-        "cx.message.redact.own",
+        "ck.message.redact.own",
         "2026-06-01T00:00:00Z",
         "2026-06-01T00:16:00Z", // 16m later: redact still allowed (unbounded recall)
     );
@@ -753,7 +753,7 @@ fn allow_redact_after_window_lifts_edit_window_coupling() {
 fn edit_window_denies_revise_after_window() {
     let mut engine = AuthzEngine::new();
     let grant = edit_window_grant(
-        "cx.message.revise.own",
+        "ck.message.revise.own",
         Constraint::EditWindow {
             applies_to_actions: vec![],
             message_edit_window: Some(duration(15, "m")),
@@ -762,7 +762,7 @@ fn edit_window_denies_revise_after_window() {
         },
     );
     let ctx = edit_window_ctx(
-        "cx.message.revise.own",
+        "ck.message.revise.own",
         "2026-06-01T00:00:00Z",
         "2026-06-01T00:16:00Z", // 16m later
     );
@@ -989,13 +989,13 @@ fn authz_engine_field_access_allow_is_fail_closed_and_cache_keys_fields() {
     };
     let mut allowed_ctx = AuthzContext::new(
         Did::new("did:web:alice.example.com").unwrap(),
-        "cx.flow.update".to_owned(),
+        "ck.flow.update".to_owned(),
         resource.clone(),
     );
     allowed_ctx.write_fields = vec!["title".to_owned()];
 
     let mut grant = grant_for(
-        "cx.flow.update",
+        "ck.flow.update",
         ResourceSelector::Flow {
             space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
             flow_id: None,
@@ -1011,7 +1011,7 @@ fn authz_engine_field_access_allow_is_fail_closed_and_cache_keys_fields() {
 
     let mut denied_ctx = AuthzContext::new(
         Did::new("did:web:alice.example.com").unwrap(),
-        "cx.flow.update".to_owned(),
+        "ck.flow.update".to_owned(),
         resource,
     );
     denied_ctx.write_fields = vec!["title".to_owned(), "status".to_owned()];

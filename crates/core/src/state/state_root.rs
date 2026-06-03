@@ -119,7 +119,7 @@ mod tests {
     fn single_cell_root_equals_leaf_hash() {
         let mut map = BTreeMap::new();
         map.insert(
-            cell("ck:cell:cx.component.member.state.v1:did.web.alice.example"),
+            cell("ck:cell:ck.component.member.state.v1:did.web.alice.example"),
             CellState::Value(json!("join")),
         );
         let root = compute_state_root(&map).unwrap();
@@ -127,7 +127,7 @@ mod tests {
         assert!(root.as_str().starts_with("sha256:"));
         // Single-leaf root MUST equal the leaf hash directly (per spec §4.2.2).
         let leaf = leaf_hash(
-            &cell("ck:cell:cx.component.member.state.v1:did.web.alice.example"),
+            &cell("ck:cell:ck.component.member.state.v1:did.web.alice.example"),
             &CellState::Value(json!("join")),
         )
         .unwrap();

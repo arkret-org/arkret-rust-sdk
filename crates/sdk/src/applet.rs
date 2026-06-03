@@ -155,7 +155,7 @@ impl SignedAppletRegistration {
     }
 }
 
-// ─── S-4 (savfox SDK gap): wire-format `cx.applet.registration` ────────────
+// ─── S-4 (savfox SDK gap): wire-format `ck.applet.registration` ────────────
 //
 // Spec `applet-schema.md` §1. Distinct from [`SignedAppletRegistration`]
 // (SDK-internal). Co-exists so existing callers don't break; new
@@ -178,7 +178,7 @@ pub struct AppletWireNamespaces {
 /// the inner shape Applet-defined.
 pub type WebhookAuth = Value;
 
-/// Wire-format `cx.applet.registration` Event content per spec
+/// Wire-format `ck.applet.registration` Event content per spec
 /// `applet-schema.md` §1.
 ///
 /// Distinct from [`SignedAppletRegistration`] — that one is an
@@ -187,7 +187,7 @@ pub type WebhookAuth = Value;
 /// See [`crate::KNOWN_GAPS`] for migration notes.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct WireAppletRegistration {
-    /// Always `"cx.applet.registration"`. Reducer rejects other values.
+    /// Always `"ck.applet.registration"`. Reducer rejects other values.
     pub kind: String,
     pub applet_id: String,
     pub service_did: Did,
@@ -214,7 +214,7 @@ pub struct WireAppletRegistration {
 }
 
 impl WireAppletRegistration {
-    pub const KIND: &'static str = "cx.applet.registration";
+    pub const KIND: &'static str = "ck.applet.registration";
 
     /// Build an unsigned registration. Caller MUST attach `proof` via
     /// [`sign_registration`].
@@ -259,8 +259,8 @@ impl WireAppletRegistration {
 
 /// Sign a [`WireAppletRegistration`] in-place: compute the canonical
 /// digest (with `proof` removed), sign it with the supplied
-/// [`contrix_core::MoveSigner`], and stamp `reg.proof`.
-pub fn sign_registration<S: contrix_core::MoveSigner + ?Sized>(
+/// [`cokret_core::MoveSigner`], and stamp `reg.proof`.
+pub fn sign_registration<S: cokret_core::MoveSigner + ?Sized>(
     reg: &mut WireAppletRegistration,
     signer: &S,
     verification_method: &str,
@@ -271,7 +271,7 @@ pub fn sign_registration<S: contrix_core::MoveSigner + ?Sized>(
     let payload_digest = crate::Hash::new(canonical::sha256_digest(&canonical_bytes))?;
     let sig = signer.sign_payload(&canonical_bytes)?;
     reg.proof = Some(crate::model::Proof {
-        kind: contrix_core::proof_kind::DETACHED_JWS.to_owned(),
+        kind: cokret_core::proof_kind::DETACHED_JWS.to_owned(),
         alg: sig.alg,
         verification_method: verification_method.to_owned(),
         payload_digest,
@@ -283,7 +283,7 @@ pub fn sign_registration<S: contrix_core::MoveSigner + ?Sized>(
     Ok(())
 }
 
-// ─── S-11 (savfox SDK gap): cx.applet.bridge_error builder ────────────────
+// ─── S-11 (savfox SDK gap): ck.applet.bridge_error builder ────────────────
 
 /// Severity hint for [`AppletBridgeErrorBuilder`]. Spec
 /// `applet-integration.md` §14 keeps the slot opaque, so we expose a
@@ -299,7 +299,7 @@ pub enum AppletBridgeErrorSeverity {
     Fatal,
 }
 
-/// Build a `cx.applet.bridge_error` Event Envelope per spec
+/// Build a `ck.applet.bridge_error` Event Envelope per spec
 /// `applet-integration.md` §14 + `applet-schema.md` §7.
 ///
 /// External Applets MUST emit this Event rather than silently dropping
@@ -380,7 +380,7 @@ impl AppletBridgeErrorBuilder {
         }
 
         let mut event = Event::new(
-            "cx.applet.bridge_error",
+            "ck.applet.bridge_error",
             self.realm_id,
             self.actor_id,
             actor_seq,
@@ -532,47 +532,47 @@ pub(crate) struct AppletEndpointRouteSet {
 #[cfg(test)]
 impl AppletEndpointRouteSet {
     /// Standard applet service routes from the Cokret service binding.
-    pub fn contrix_default() -> Self {
+    pub fn cokret_default() -> Self {
         Self {
             routes: vec![
                 AppletEndpointRoute {
                     method: "GET".to_owned(),
-                    path: "/api/v1/applet/ping".to_owned(),
+                    path: "/_cokret/edge/applet/ping".to_owned(),
                     description: "applet liveness and public metadata".to_owned(),
                 },
                 AppletEndpointRoute {
                     method: "GET".to_owned(),
-                    path: "/api/v1/applet/describe".to_owned(),
+                    path: "/_cokret/edge/applet/describe".to_owned(),
                     description: "applet capabilities and namespace metadata".to_owned(),
                 },
                 AppletEndpointRoute {
                     method: "POST".to_owned(),
-                    path: "/api/v1/applet/transactions".to_owned(),
+                    path: "/_cokret/edge/applet/transactions".to_owned(),
                     description: "receive applet transaction".to_owned(),
                 },
                 AppletEndpointRoute {
                     method: "GET".to_owned(),
-                    path: "/api/v1/applet/actors/{actor_id}".to_owned(),
+                    path: "/_cokret/edge/applet/actors/{actor_id}".to_owned(),
                     description: "query applet actor".to_owned(),
                 },
                 AppletEndpointRoute {
                     method: "GET".to_owned(),
-                    path: "/api/v1/applet/realms/{realm_id_or_alias}".to_owned(),
+                    path: "/_cokret/edge/applet/realms/{realm_id_or_alias}".to_owned(),
                     description: "query applet realm".to_owned(),
                 },
                 AppletEndpointRoute {
                     method: "GET".to_owned(),
-                    path: "/api/v1/applet/protocols/{protocol}".to_owned(),
+                    path: "/_cokret/edge/applet/protocols/{protocol}".to_owned(),
                     description: "query protocol metadata".to_owned(),
                 },
                 AppletEndpointRoute {
                     method: "GET".to_owned(),
-                    path: "/api/v1/applet/third_party/users".to_owned(),
+                    path: "/_cokret/edge/applet/third_party/users".to_owned(),
                     description: "query third-party user".to_owned(),
                 },
                 AppletEndpointRoute {
                     method: "GET".to_owned(),
-                    path: "/api/v1/applet/third_party/locations".to_owned(),
+                    path: "/_cokret/edge/applet/third_party/locations".to_owned(),
                     description: "query third-party location".to_owned(),
                 },
             ],
@@ -1067,7 +1067,7 @@ mod tests {
     fn applet_endpoint_routes_and_bridge_mappings_cover_queries() {
         let registration = AppletEndpointRegistration::new(did("svc"), "bridge");
         registration.validate().unwrap();
-        assert_eq!(AppletEndpointRouteSet::contrix_default().routes.len(), 8);
+        assert_eq!(AppletEndpointRouteSet::cokret_default().routes.len(), 8);
 
         let mut mappings = BridgeMappingStore::new();
         mappings.upsert_user(RemoteUserMapping {
@@ -1186,7 +1186,7 @@ mod tests {
     fn wire_registration_round_trips_through_json() {
         let reg = sample_wire_registration();
         let value = serde_json::to_value(&reg).unwrap();
-        assert_eq!(value["kind"], "cx.applet.registration");
+        assert_eq!(value["kind"], "ck.applet.registration");
         assert_eq!(value["applet_id"], reg.applet_id);
         assert_eq!(value["service_did"], reg.service_did.as_str());
         assert_eq!(value["controller_did"], reg.controller_did.as_str());
@@ -1244,7 +1244,7 @@ mod tests {
         .with_external_ref(serde_json::json!({"slack_response_code": 429}))
         .build(1, hlc())
         .unwrap();
-        assert_eq!(event.kind, "cx.applet.bridge_error");
+        assert_eq!(event.kind, "ck.applet.bridge_error");
         assert_eq!(event.content["code"], "upstream_rate_limited");
         assert_eq!(event.content["message"], "Slack returned 429");
         assert_eq!(event.content["severity"], "warning");
@@ -1260,7 +1260,7 @@ mod tests {
     fn sign_registration_attaches_proof_with_matching_digest() {
         use std::collections::BTreeMap;
 
-        use contrix_core::{
+        use cokret_core::{
             Did as CoreDid, Hash as CoreHash, MoveSignature, MoveSigner, Result as CoreResult,
             UnsignedMove, canonical, move_event::Move,
         };

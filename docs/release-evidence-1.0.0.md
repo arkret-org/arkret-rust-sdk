@@ -33,9 +33,9 @@ cotest local release gate against soland:
 - Passed: 28
 - Failed: 0
 - Summary:
-  `D:\Works\cokret-dev\cotest\artifacts\runs\20260525-055932\summary.md`
+  `D:\Works\cokret\cotest\artifacts\runs\20260525-055932\summary.md`
 - Release gate:
-  `D:\Works\cokret-dev\cotest\artifacts\runs\20260525-055932\release-gate.md`
+  `D:\Works\cokret\cotest\artifacts\runs\20260525-055932\release-gate.md`
 
 The gate covers protocol conformance fixtures, profile discovery, privacy
 boundary checks, push-rule consistency, account/session edges, federation

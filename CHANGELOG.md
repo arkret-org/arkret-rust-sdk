@@ -18,7 +18,7 @@ major-version bump.
 
 - **New operation**: `cx.directory.resolve_target` (`POST /api/v1/directory/resolve-target`, gRPC `Directory/ResolveTarget`, MQ `directory.resolve_target`). Pure ADD — operation count 100 → 101; `cx.directory.resolve_realm` is retained and NOT deprecated. No new event kinds, registered `cx.schema.*`, or wire/reducer changes.
 - **Wire types**: `DirectoryResolveTargetReqBody { address, requester, proofs, token }` + `DirectoryResolveTargetResBody { target_kind, realm_preview, object_preview, join_rule, as_of, source_refs, via_services, policy_revision, stale, divergent }` + `enum TargetKind { Realm, Flow, Message }`. http-client method `directory_resolve_target`.
-- **Object-addressing grammar** (`contrix_core::model::object_address`): client-agnostic shareable address pointing at a Realm / Flow / Message. `parse_address` accepts both the `web+cokret:` URI form and the HTTPS-landing fragment form (`https://<host>/#realm/...`), fixed hierarchy `realm` ⊃ `flow` ⊃ `m`; fails closed on unknown/misordered keyword, missing intermediate level, non-uuid flow/message segment, or a flow/message address missing `via`. `build_address` / `build_https_landing` re-serialize. `RealmRef { RealmId | Alias }` (UUIDv7-vs-alias rule); `enum LinkType { Reference, Invite }` (omitted/unknown/reserved `preview` → `Reference`); `enum AddressAction { View, Join, Reply }` (default `View`).
+- **Object-addressing grammar** (`cokret_core::model::object_address`): client-agnostic shareable address pointing at a Realm / Flow / Message. `parse_address` accepts both the `web+cokret:` URI form and the HTTPS-landing fragment form (`https://<host>/#realm/...`), fixed hierarchy `realm` ⊃ `flow` ⊃ `m`; fails closed on unknown/misordered keyword, missing intermediate level, non-uuid flow/message segment, or a flow/message address missing `via`. `build_address` / `build_https_landing` re-serialize. `RealmRef { RealmId | Alias }` (UUIDv7-vs-alias rule); `enum LinkType { Reference, Invite }` (omitted/unknown/reserved `preview` → `Reference`); `enum AddressAction { View, Join, Reply }` (default `View`).
 - **Invite-token target binding** (scope-confusion defence): `TargetDescriptor { realm_id, flow_id?, message_id?, link_type }` with absent hierarchy fields OMITTED (never `null`) and typed canonical id values (`ck:realm:` / `ck:flow:` / `ck:message:`). `target_digest` reuses the shared canonicalizer (`canonical::canonical_sha256`) and covers ONLY the identity tuple + `link_type` — never `via` / `action` / `tok` / `lt`. `verify_token_target` recomputes + compares the digest so a token minted for object A cannot be replayed onto a different object B (and fails closed when the realm is still an unresolved alias).
 
 > No version tag, no crates.io / Docker Hub / npm publish — git commit only.
@@ -125,7 +125,7 @@ Aggressive spec-sync round; no version bump, `git commit` only.
   (`validate_core_wire_shape`); stateless body remains accessible
   via the `cx.profile.stateless_cursor.v1` profile gate.
 - Profile ids `cx.profile.{accountable_principals.strict_reject,
-  media_service_binding[.livekit/.contrix_native]}.v1` already
+  media_service_binding[.livekit/.cokret_native]}.v1` already
   present in `crates/core/src/generated/profiles.rs`.
 
 #### Deferred (R3.1)
@@ -427,7 +427,7 @@ signatures, schema-id constants, and validation helpers. See cokret-spec
   decision out) so yougen and sodmin admin can pre-validate grant requests
   client-side before submission — the existing soland HTTP handler keeps
   the server-side enforcement contract unchanged via re-exports
-  (`pub use contrix_sdk::authz::delegation::{Grant, ...}`). Enforces
+  (`pub use cokret_sdk::authz::delegation::{Grant, ...}`). Enforces
   capabilities.md §10 (delegation MUST NOT widen actions, resources, or
   expiry; non-holder MUST NOT re-delegate; chain breaks on any
   revoked/expired ancestor) plus the BFS cascade contract.
@@ -446,7 +446,7 @@ signatures, schema-id constants, and validation helpers. See cokret-spec
 
 ### Added — `profile_requirements` codegen + validator (2026-05-18)
 
-- **`contrix_core::generated::profile_requirements`** — new generated
+- **`cokret_core::generated::profile_requirements`** — new generated
   module exposing per-profile `ProfileRequirements`
   (`required_operations` / `required_event_kinds` / `required_schemas`
   / `required_constraint_kinds`) as a `LazyLock<BTreeMap<&'static
@@ -1212,8 +1212,8 @@ legacy-form fallback in `Deserialize`.
   - `Client::send_device_messages(idempotency_key, request)` switches
     to `POST` and propagates the key via the `Idempotency-Key`
     request header.
-  - `ToDeviceMessage` (in both `contrix_core::model` and
-    `contrix_core::sync`) drops its `Option<String> txn_id` field —
+  - `ToDeviceMessage` (in both `cokret_core::model` and
+    `cokret_core::sync`) drops its `Option<String> txn_id` field —
     the wire envelope no longer carries it.
   - `OP_DEVICE_MESSAGES_PUT` required-fields list drops `txn_id`.
   - `DeviceMessageEnvelope` (`crates/sdk/src/devices.rs`) drops its
@@ -1252,7 +1252,7 @@ unchanged; this is an additive SDK API release.
   `keystore-linux` feature, wired to the `secret-service` crate's
   blocking client. Items are tagged with `service` + `account`
   attributes for namespaced enumeration. 5 unit tests gated on
-  `cfg(target_os = "linux")` plus `CONTRIX_TEST_LINUX_KEYSTORE=1` env
+  `cfg(target_os = "linux")` plus `COKRET_TEST_LINUX_KEYSTORE=1` env
   guard for runtime D-Bus access.
 - **`WindowsCredentialKeyStore` (Windows Credential Manager)** behind
   the new `keystore-windows` feature, wired to the `windows` crate's
@@ -1280,7 +1280,7 @@ unchanged; this is an additive SDK API release.
 ### Changed
 
 - Crate version `0.5.0 → 0.5.1` across the workspace; `v1` wire format
-  unchanged. Public re-export at `contrix_core::{KeyStoreError,
+  unchanged. Public re-export at `cokret_core::{KeyStoreError,
   platform_default_keystore}`.
 
 ## [0.5.0] – 2026-05-09 — Move/Anchor signer surface + EventsQuery typed wrappers

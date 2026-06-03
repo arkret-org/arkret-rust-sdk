@@ -192,9 +192,9 @@ impl TryFrom<KeyBackupEncryptionWire> for KeyBackupEncryption {
             .and_then(Value::as_object)
             .is_some_and(|params| {
                 params.keys().any(|key| {
-                    contrix_core::is_forbidden_in_context(
+                    cokret_core::is_forbidden_in_context(
                         key,
-                        contrix_core::WireContext::KeyBackupKdfParams,
+                        cokret_core::WireContext::KeyBackupKdfParams,
                     )
                 })
             })
@@ -231,7 +231,7 @@ pub struct KeyBackupContentItem {
     pub extra: Value,
 }
 
-/// Schema-aligned encrypted key backup facade from `cx.schema.key_backup.v1`.
+/// Schema-aligned encrypted key backup facade from `ck.schema.key_backup.v1`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProtocolKeyBackup {
     pub backup_id: String,

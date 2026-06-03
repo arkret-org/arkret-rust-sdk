@@ -158,13 +158,13 @@ impl KeyStore for LinuxSecretServiceKeyStore {
 mod tests {
     //! Skipped automatically off-Linux. On Linux CI without a running
     //! D-Bus Secret Service these tests fail at construction with
-    //! `KeyStoreError::Backend`; gate `CONTRIX_TEST_LINUX_KEYSTORE=1`
+    //! `KeyStoreError::Backend`; gate `COKRET_TEST_LINUX_KEYSTORE=1`
     //! before running.
 
     use super::*;
 
     fn enabled() -> bool {
-        std::env::var("CONTRIX_TEST_LINUX_KEYSTORE").as_deref() == Ok("1")
+        std::env::var("COKRET_TEST_LINUX_KEYSTORE").as_deref() == Ok("1")
     }
 
     fn unique_app_id() -> String {

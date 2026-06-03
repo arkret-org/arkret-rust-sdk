@@ -1,6 +1,6 @@
 use super::*;
 
-/// Schema-aligned constraint family from `cx.schema.grant_constraint.v1`.
+/// Schema-aligned constraint family from `ck.schema.grant_constraint.v1`.
 ///
 /// v1 uses 8 stable families plus the optional `subtype` field on
 /// [`ProtocolGrantConstraint`] for evaluator-specific refinements:
@@ -23,7 +23,7 @@ pub enum ProtocolGrantConstraintType {
     Confidentiality,
 }
 
-/// Schema-aligned constraint effect from `cx.schema.grant_constraint.v1`.
+/// Schema-aligned constraint effect from `ck.schema.grant_constraint.v1`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ProtocolGrantConstraintEffect {

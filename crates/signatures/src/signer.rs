@@ -6,8 +6,8 @@
 //! behind the `signer` feature.
 //!
 //! ```
-//! use contrix_signatures::Ed25519MoveSigner;
-//! use contrix_core::{Did, MoveSigner};
+//! use cokret_signatures::Ed25519MoveSigner;
+//! use cokret_core::{Did, MoveSigner};
 //!
 //! let seed = [0u8; 32];
 //! let did = Did::new("did:web:alice.example".to_owned()).unwrap();
@@ -21,9 +21,9 @@ use chrono::Utc;
 use ed25519_dalek::{Signer as _, SigningKey};
 use sha2::{Digest, Sha256};
 
-use contrix_core::canonical;
-use contrix_core::move_event::{Move, MoveSignature};
-use contrix_core::{Did, Error, Hash, MoveSigner, Result, UnsignedMove};
+use cokret_core::canonical;
+use cokret_core::move_event::{Move, MoveSignature};
+use cokret_core::{Did, Error, Hash, MoveSigner, Result, UnsignedMove};
 
 /// Ed25519 [`MoveSigner`] backend.
 ///
@@ -170,8 +170,8 @@ pub fn verify_ed25519_move_signature(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use contrix_core::move_event::{Effect, LatticeOp, LatticeOpType};
-    use contrix_core::{
+    use cokret_core::move_event::{Effect, LatticeOp, LatticeOpType};
+    use cokret_core::{
         Anchor, AnchorId, AnchorerSig, CellRef, Hlc, MoveId, SpaceId, UnsignedMove,
     };
     use serde_json::json;
@@ -207,7 +207,7 @@ mod tests {
             anchor_id(0xaa),
             vec![Effect {
                 cell: CellRef::new(
-                    "ck:cell:cx.component.member.state.v1:did.web.alice.example".to_owned(),
+                    "ck:cell:ck.component.member.state.v1:did.web.alice.example".to_owned(),
                 )
                 .unwrap(),
                 op: LatticeOp {

@@ -9,7 +9,7 @@
 //! ## Why this exists
 //!
 //! Prior to T0.5 there was nothing preventing e.g. yougen (a client SDK
-//! consumer) from declaring `cx.profile.push_gateway.v1` in its
+//! consumer) from declaring `ck.profile.push_gateway.v1` in its
 //! `supported_profiles` manifest, because the spec layer only documented the
 //! prohibition in prose. This module surfaces the partition in code so a
 //! mismatched claim becomes a structured `ProfileClaimError` instead of
@@ -41,13 +41,13 @@
 //! ## Example
 //!
 //! ```rust
-//! use contrix_core::{ProfileClaim, ProfileClaimKind, ProfileValidator, ServiceType};
+//! use cokret_core::{ProfileClaim, ProfileClaimKind, ProfileValidator, ServiceType};
 //!
 //! let validator = ProfileValidator::new(ServiceType::PushGateway);
 //! let claims = [
-//!     ProfileClaim::new("cx.profile.push_gateway.v1", ProfileClaimKind::CotestVerified),
+//!     ProfileClaim::new("ck.profile.push_gateway.v1", ProfileClaimKind::CotestVerified),
 //!     ProfileClaim::new(
-//!         "cx.profile.push_gateway.matrix_passthrough.v1",
+//!         "ck.profile.push_gateway.matrix_passthrough.v1",
 //!         ProfileClaimKind::CotestVerified,
 //!     ),
 //! ];
@@ -337,7 +337,7 @@ mod tests {
     fn client_validator_rejects_gateway_profile_claim() {
         let validator = ProfileValidator::for_client();
         let errors = validator
-            .validate(&[ProfileClaim::self_claimed("cx.profile.push_gateway.v1")])
+            .validate(&[ProfileClaim::self_claimed("ck.profile.push_gateway.v1")])
             .expect_err("client must not claim a gateway profile");
         assert_eq!(errors.len(), 1);
         match &errors[0] {
@@ -353,12 +353,12 @@ mod tests {
         let validator = ProfileValidator::for_client();
         validator
             .validate(&[
-                ProfileClaim::cotest_verified("cx.profile.chat_mvp.v1"),
-                ProfileClaim::cotest_verified("cx.profile.kanban_mvp.v1"),
+                ProfileClaim::cotest_verified("ck.profile.chat_mvp.v1"),
+                ProfileClaim::cotest_verified("ck.profile.kanban_mvp.v1"),
                 // Admin profiles (deployment posture) are allowed on the
                 // client because clients ship with a deployment stance.
-                ProfileClaim::self_claimed("cx.profile.personal_node.v1"),
-                ProfileClaim::cotest_verified("cx.profile.matrix_compat.v1"),
+                ProfileClaim::self_claimed("ck.profile.personal_node.v1"),
+                ProfileClaim::cotest_verified("ck.profile.matrix_compat.v1"),
             ])
             .expect("client + client_profile + admin + interop must validate");
     }
@@ -368,9 +368,9 @@ mod tests {
         let validator = ProfileValidator::new(ServiceType::PushGateway);
         validator
             .validate(&[
-                ProfileClaim::cotest_verified("cx.profile.push_gateway.v1"),
-                ProfileClaim::cotest_verified("cx.profile.push_gateway.blind_wakeup.v1"),
-                ProfileClaim::cotest_verified("cx.profile.push_gateway.matrix_passthrough.v1"),
+                ProfileClaim::cotest_verified("ck.profile.push_gateway.v1"),
+                ProfileClaim::cotest_verified("ck.profile.push_gateway.blind_wakeup.v1"),
+                ProfileClaim::cotest_verified("ck.profile.push_gateway.matrix_passthrough.v1"),
             ])
             .expect("push_gateway may claim gateway + interop");
     }
@@ -379,7 +379,7 @@ mod tests {
     fn directory_service_rejects_server_profile() {
         let validator = ProfileValidator::new(ServiceType::DirectoryService);
         let errors = validator
-            .validate(&[ProfileClaim::self_claimed("cx.profile.principal_server.v1")])
+            .validate(&[ProfileClaim::self_claimed("ck.profile.principal_server.v1")])
             .expect_err("directory service must not claim server profile");
         assert_eq!(errors.len(), 1);
     }
@@ -408,9 +408,9 @@ mod tests {
         let validator = ProfileValidator::for_client();
         let errors = validator
             .validate(&[
-                ProfileClaim::self_claimed("cx.profile.push_gateway.v1"),
-                ProfileClaim::self_claimed("cx.profile.directory_service.v1"),
-                ProfileClaim::self_claimed("cx.profile.principal_server.v1"),
+                ProfileClaim::self_claimed("ck.profile.push_gateway.v1"),
+                ProfileClaim::self_claimed("ck.profile.directory_service.v1"),
+                ProfileClaim::self_claimed("ck.profile.principal_server.v1"),
             ])
             .expect_err("three mismatched claims => three errors");
         assert_eq!(errors.len(), 3);

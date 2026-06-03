@@ -15,10 +15,10 @@ pub enum AppealVerdict {
     /// Original decision stands.
     Uphold,
     /// Original decision reversed; MUST be paired in the same Anchor batch
-    /// with `cx.moderation.decision.lift` referencing the original decision.
+    /// with `ck.moderation.decision.lift` referencing the original decision.
     Overturn,
     /// Original decision adjusted; `modify_decision_ref` MUST point to a new
-    /// `cx.moderation.decision` event in the same batch.
+    /// `ck.moderation.decision` event in the same batch.
     Modify,
 }
 
@@ -33,7 +33,7 @@ pub enum AppealEvidenceVisibility {
     RealmMembers,
 }
 
-/// `cx.moderation.appeal.submit` payload.
+/// `ck.moderation.appeal.submit` payload.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppealSubmitPayload {
@@ -50,7 +50,7 @@ pub struct AppealSubmitPayload {
     pub created_at: DateTime<Utc>,
 }
 
-/// `cx.moderation.appeal.review` payload.
+/// `ck.moderation.appeal.review` payload.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppealReviewPayload {
@@ -61,7 +61,7 @@ pub struct AppealReviewPayload {
     pub notes_ref: Option<String>,
 }
 
-/// `cx.moderation.appeal.decision` payload.
+/// `ck.moderation.appeal.decision` payload.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppealDecisionPayload {
@@ -75,7 +75,7 @@ pub struct AppealDecisionPayload {
     pub decided_at: DateTime<Utc>,
 }
 
-/// `cx.moderation.appeal.close` payload.
+/// `ck.moderation.appeal.close` payload.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppealClosePayload {
@@ -85,7 +85,7 @@ pub struct AppealClosePayload {
     pub auto_closed: bool,
 }
 
-/// `cx.schema.moderation_appeal.v1` payload — `oneOf` of the four variants.
+/// `ck.schema.moderation_appeal.v1` payload — `oneOf` of the four variants.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
@@ -97,7 +97,7 @@ pub enum ModerationAppealPayload {
 }
 
 impl ModerationAppealPayload {
-    pub const SCHEMA: &'static str = "cx.schema.moderation_appeal.v1";
+    pub const SCHEMA: &'static str = "ck.schema.moderation_appeal.v1";
 
     /// Companion event kind this payload variant is submitted on.
     pub fn event_kind(&self) -> &'static str {

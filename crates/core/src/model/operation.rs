@@ -723,7 +723,7 @@ pub struct MlsKeyPackageRecord {
 }
 
 impl MlsKeyPackageRecord {
-    /// Schema id for `cx.mls.keypackage` events / records.
+    /// Schema id for `ck.mls.keypackage` events / records.
     pub const SCHEMA: &'static str = "cx.schema.mls_keypackage.v1";
 
     /// Whether the record is currently usable for a Welcome.

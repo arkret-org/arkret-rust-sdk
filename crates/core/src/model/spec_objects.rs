@@ -27,8 +27,8 @@ use crate::Did;
 // Agent protocol envelope (agent.schema.json)
 // ---------------------------------------------------------------------------
 
-/// Lifecycle state shared by `cx.agent.protocol_session.status` events
-/// (and `cx.applet.protocol_session.status` — see [`AppletProtocolEnvelope`]).
+/// Lifecycle state shared by `ck.agent.protocol_session.status` events
+/// (and `ck.applet.protocol_session.status` — see [`AppletProtocolEnvelope`]).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
@@ -49,21 +49,21 @@ pub struct AgentProtocolEnvelope {
     /// Stable agent runtime identifier. Spec v1: this is a DID;
     /// `ck:agent:*` is not a registered typed-id kind.
     pub agent_id: Did,
-    /// HTTPS endpoint advertised by `cx.agent.endpoint` events.
+    /// HTTPS endpoint advertised by `ck.agent.endpoint` events.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub endpoint_url: Option<String>,
     /// Per-invocation correlation id used by `protocol_session.start /
     /// .status / .result` to pair request/response.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<String>,
-    /// Lifecycle state for `cx.agent.protocol_session.status` events.
+    /// Lifecycle state for `ck.agent.protocol_session.status` events.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub status: Option<ProtocolSessionStatus>,
     /// Caller-supplied parameters for `protocol_session.start`. Opaque
     /// to soland — agent runtimes interpret per agent manifest.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub params: Option<Value>,
-    /// Terminal payload for `cx.agent.protocol_session.result`.
+    /// Terminal payload for `ck.agent.protocol_session.result`.
     /// Free-form; agents document the shape.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub result: Option<Value>,
@@ -78,13 +78,13 @@ pub struct AgentProtocolEnvelope {
 }
 
 /// Signed audit binding emitted with the terminal
-/// `cx.agent.protocol_session.result` event so callers can prove the
+/// `ck.agent.protocol_session.result` event so callers can prove the
 /// agent runtime executed under a specific capability grant.
 ///
 /// This is the **wire envelope** that gets serialised onto the
 /// `audit_binding` field of [`AgentProtocolEnvelope`]. Verification and
 /// signing of these bindings lives in
-/// `contrix_sdk::agent_binding` (Ed25519 implementation).
+/// `cokret_sdk::agent_binding` (Ed25519 implementation).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AgentAuditBinding {
@@ -120,7 +120,7 @@ pub struct AppletProtocolEnvelope {
     /// .status` to pair request/response.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<String>,
-    /// Lifecycle state for `cx.applet.protocol_session.status` events.
+    /// Lifecycle state for `ck.applet.protocol_session.status` events.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub status: Option<ProtocolSessionStatus>,
     /// Caller-supplied parameters for `protocol_session.start`. Opaque
@@ -131,7 +131,7 @@ pub struct AppletProtocolEnvelope {
     /// context, bridge identifier, etc.).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub detail: Option<Value>,
-    /// Bridge-error context for `cx.applet.bridge_error` events.
+    /// Bridge-error context for `ck.applet.bridge_error` events.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<AppletErrorContext>,
     /// Applet manifest snapshot at registration time (capability
@@ -140,7 +140,7 @@ pub struct AppletProtocolEnvelope {
     pub manifest: Option<Value>,
 }
 
-/// Bridge-error context for `cx.applet.bridge_error` events.
+/// Bridge-error context for `ck.applet.bridge_error` events.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppletErrorContext {

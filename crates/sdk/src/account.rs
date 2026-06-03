@@ -15,9 +15,9 @@ use crate::{Did, Result, base::BaseClient};
 
 /// Standard account-data type for the personal blocklist
 /// (`moderation.md` §4.1).
-pub const ACCOUNT_DATA_BLOCKLIST: &str = "cx.account.blocklist";
+pub const ACCOUNT_DATA_BLOCKLIST: &str = "ck.account.blocklist";
 
-/// CXP R3 spec-sync (2026-05-27) — wire payload for `cx.account_data.set`.
+/// CXP R3 spec-sync (2026-05-27) — wire payload for `ck.account_data.set`.
 /// Mirrors the spec event payload `account-data-set.schema.json` shape:
 /// owner/key/body/encrypted_content/body_digest/tombstone/updated_at/
 /// expected_state_digest.
@@ -25,7 +25,7 @@ pub const ACCOUNT_DATA_BLOCKLIST: &str = "cx.account.blocklist";
 pub struct AccountDataSetPayload {
     /// Account owner DID. MUST equal the submitting actor.
     pub owner: Did,
-    /// Account-data type key (e.g. `cx.account.blocklist`,
+    /// Account-data type key (e.g. `ck.account.blocklist`,
     /// `m.push_rules`).
     pub key: String,
     /// Cleartext body. Mutually exclusive with `encrypted_content`.
@@ -46,7 +46,7 @@ pub struct AccountDataSetPayload {
     pub expected_state_digest: Option<String>,
 }
 
-/// CXP R3 spec-sync (2026-05-27) — `cx.account.blocklist` payload shape.
+/// CXP R3 spec-sync (2026-05-27) — `ck.account.blocklist` payload shape.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AccountBlocklistPayload {
     pub owner: Did,
@@ -107,12 +107,12 @@ impl BlocklistEntry {
     }
 }
 
-/// Personal blocklist (`cx.account.blocklist`) — actor-private filter list
+/// Personal blocklist (`ck.account.blocklist`) — actor-private filter list
 /// kept in account data.
 ///
 /// Storage rules per `moderation.md` §4.1:
 ///
-/// - Persisted only as `cx.account.blocklist` account data (not as a
+/// - Persisted only as `ck.account.blocklist` account data (not as a
 ///   shared Space state event).
 /// - MUST NOT be exfiltrated to federation peers, push gateways, or
 ///   directory services.

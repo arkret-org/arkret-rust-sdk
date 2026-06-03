@@ -127,7 +127,7 @@ mod tests {
     use crate::{LatticeOp, MoveId};
 
     fn cell() -> CellRef {
-        CellRef::new("ck:cell:cx.component.member.state.v1:did.web.alice.example".to_owned())
+        CellRef::new("ck:cell:ck.component.member.state.v1:did.web.alice.example".to_owned())
             .unwrap()
     }
 

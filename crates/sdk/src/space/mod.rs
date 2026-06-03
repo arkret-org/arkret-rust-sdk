@@ -374,7 +374,7 @@ impl Space {
     pub fn send_text(&self, body: impl Into<String>) -> Result<Operation> {
         let body = body.into();
         self.send_message(json!({
-            "kind": "cx.content.text",
+            "kind": "ck.content.text",
             "body": body,
         }))
     }

@@ -366,7 +366,7 @@ impl VerifiedHandleBinding {
         }
         handle_proof.validate()?;
 
-        let document_hash = sha256_hex(&contrix_core::canonical::canonical_json_bytes(document)?);
+        let document_hash = sha256_hex(&cokret_core::canonical::canonical_json_bytes(document)?);
 
         Ok(Self {
             handle: normalized,
@@ -568,7 +568,7 @@ pub fn handle_claim_proof(handle: &str, user_id: &Did, challenge: &str) -> Strin
 /// DNS TXT name that should contain the Cokret handle proof.
 pub fn handle_dns_txt_name(handle: &str) -> Result<String> {
     let (local, domain) = split_domain_handle(handle)?;
-    Ok(format!("_contrix-handle.{local}.{domain}"))
+    Ok(format!("_cokret-handle.{local}.{domain}"))
 }
 
 /// HTTPS well-known URL that should return the Cokret handle proof.

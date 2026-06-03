@@ -1,4 +1,4 @@
-//! MLS event payloads from `cx.schema.event_payload.v1`.
+//! MLS event payloads from `ck.schema.event_payload.v1`.
 
 use std::collections::BTreeSet;
 use std::sync::OnceLock;
@@ -441,7 +441,7 @@ mod tests {
         )
         .unwrap();
 
-        binding.clone().with_binding_profile("cx.profile.mls_governance_binding.full.v1").unwrap();
+        binding.clone().with_binding_profile("ck.profile.mls_governance_binding.full.v1").unwrap();
         assert!(binding.clone().with_binding_profile("mls.full").is_err());
         assert!(binding.with_reducer_profile("").is_err());
     }

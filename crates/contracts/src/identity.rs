@@ -3,12 +3,12 @@
 use std::collections::BTreeMap;
 
 use chrono::{DateTime, Utc};
-use contrix_core::{Did, DidDocumentRef, Hash, IdentityResolveResBody, Proof, Result};
+use cokret_core::{Did, DidDocumentRef, Hash, IdentityResolveResBody, Proof, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub mod protocol {
-    pub use contrix_core::{
+    pub use cokret_core::{
         DidDocumentRef, IdentityDescription, IdentityDocumentResBody, IdentityLogResBody,
         IdentityReceiptsResBody, IdentityResolveReqBody, IdentityResolveResBody,
         SubmitDidOperationReqBody, SubmitDidOperationResBody,
@@ -107,7 +107,7 @@ impl DidDocument {
 
     pub fn validate(&self) -> Result<()> {
         if self.verification_methods.is_empty() {
-            return Err(contrix_core::Error::Protocol(
+            return Err(cokret_core::Error::Protocol(
                 "did document has no verification methods".to_owned(),
             ));
         }

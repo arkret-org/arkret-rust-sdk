@@ -40,12 +40,12 @@
 
 use serde::{Deserialize, Serialize};
 
-use contrix_identifiers::is_lowercase_uuidv7;
+use cokret_identifiers::is_lowercase_uuidv7;
 
 use crate::{Error, Result, canonical};
 
 /// `web+cokret:` URI scheme prefix.
-pub const WEB_CONTRIX_SCHEME: &str = "web+cokret:";
+pub const WEB_COKRET_SCHEME: &str = "web+cokret:";
 
 /// Link type carried by an address. `reference` is the default and carries no
 /// authorization; `invite` carries membership/join material; `preview` carries
@@ -183,7 +183,7 @@ fn protocol_err(reason: &str) -> Error {
 /// landing form. Returns the raw path (no leading `/`) and the raw query (no
 /// leading `?`), both percent-encoded as received.
 fn strip_shell(input: &str) -> Result<(String, String)> {
-    let body = if let Some(rest) = input.strip_prefix(WEB_CONTRIX_SCHEME) {
+    let body = if let Some(rest) = input.strip_prefix(WEB_COKRET_SCHEME) {
         // `web+cokret:realm/...` — opaque-path URI, no `//` authority.
         rest.trim_start_matches('/').to_owned()
     } else if input.starts_with("https://") || input.starts_with("http://") {
@@ -375,7 +375,7 @@ pub fn parse_address(input: &str) -> Result<ParsedAddress> {
 /// only when non-default; `lt`/`tok` are emitted
 /// only for invite / preview links.
 pub fn build_address(parsed: &ParsedAddress) -> String {
-    let mut out = String::from(WEB_CONTRIX_SCHEME);
+    let mut out = String::from(WEB_COKRET_SCHEME);
     out.push_str("realm/");
     out.push_str(parsed.realm.path_segment());
     if let Some(flow) = &parsed.flow {
@@ -596,7 +596,7 @@ mod tests {
     // ── Round-trip equivalence ──────────────────────────────────────────────
 
     #[test]
-    fn web_contrix_roundtrip() {
+    fn web_cokret_roundtrip() {
         let parsed = parse_address(&format!("web+cokret:realm/{R}/flow/{F}/m/{M}")).unwrap();
         let rebuilt = build_address(&parsed);
         let reparsed = parse_address(&rebuilt).unwrap();

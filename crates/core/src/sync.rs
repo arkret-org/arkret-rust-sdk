@@ -13,7 +13,7 @@ use std::collections::{BTreeSet, HashMap};
 
 use crate::{Cursor, DeviceId, Did, Error, Event, EventId, Hlc, Result, SpaceId, canonical};
 
-/// Query parameters for `cx.account.subscribe`.
+/// Query parameters for `ck.account.subscribe`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncReqBody {
@@ -58,8 +58,8 @@ pub struct SyncSpace {
     pub unread: UnreadCounts,
     /// R3.1 — typed member roster projection (per
     /// `account-subscribe-frame.schema.json#/$defs/member_roster_entry`).
-    /// Entries are derived from effective `cx.member.state` plus the
-    /// effective set of `cx.member.identity.update` references; raw
+    /// Entries are derived from effective `ck.member.state` plus the
+    /// effective set of `ck.member.identity.update` references; raw
     /// handle / display fields MUST NOT be carried here.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub members: Vec<crate::model::MemberRosterEntry>,
@@ -972,7 +972,7 @@ mod tests {
             timeline_limit: Some(20),
             lazy_load_members: true,
             include_redundant_members: false,
-            event_types: vec!["cx.message.create".to_owned()],
+            event_types: vec!["ck.message.create".to_owned()],
             not_event_types: Vec::new(),
         };
         let filter_digest = sync_filter_digest(Some(&filter), None).unwrap();
@@ -1009,7 +1009,7 @@ mod tests {
         let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let actor = Did::new("did:web:alice.example").unwrap();
         let mut newer_hlc = Event::new(
-            "cx.message.create",
+            "ck.message.create",
             realm_id.clone(),
             actor.clone(),
             2,
@@ -1019,7 +1019,7 @@ mod tests {
         .unwrap();
         newer_hlc.event_id = EventId::new("ck:event:01904100-0000-7000-8000-233457bf6148").unwrap();
         let mut deeper = Event::new(
-            "cx.message.create",
+            "ck.message.create",
             realm_id,
             actor,
             1,
@@ -1065,7 +1065,7 @@ mod tests {
         let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let event = Event::new(
-            "cx.message.create",
+            "ck.message.create",
             realm_id,
             Did::new("did:web:alice.example").unwrap(),
             1,

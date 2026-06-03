@@ -1,5 +1,5 @@
 {
-  "_description": "Canonical JSON encoding vectors. Each entry's `canonical_bytes` MUST match contrix_signatures::EventProofBuilder::canonical_bytes(value) and `payload_digest` MUST match the sha256 of those bytes.",
+  "_description": "Canonical JSON encoding vectors. Each entry's `canonical_bytes` MUST match cokret_signatures::EventProofBuilder::canonical_bytes(value) and `payload_digest` MUST match the sha256 of those bytes.",
   "vectors": [
     {
       "name": "sorts_object_keys_lexicographically",

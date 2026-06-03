@@ -1,7 +1,7 @@
 use super::*;
 
-/// One frame off the `cx.events.subscribe` NDJSON stream
-/// (`GET /api/v1/events/subscribe`).
+/// One frame off the `ck.events.subscribe` NDJSON stream
+/// (`GET /_cokret/self/events/subscribe`).
 ///
 /// The contract uses `kind` as the top field and defines control kinds clients
 /// **MUST** handle explicitly:
@@ -128,8 +128,8 @@ impl EventsSubscribeFrame {
     }
 }
 
-/// Selector + range parameters for `cx.events.query` and
-/// `cx.events.subscribe`. Per spec C17, the selector is `spaces[]` ∪
+/// Selector + range parameters for `ck.events.query` and
+/// `ck.events.subscribe`. Per spec C17, the selector is `spaces[]` ∪
 /// `actors[]` (at least one element). Range parameters apply only to
 /// `query`; `subscribe` accepts `from` + `include_history`.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -164,7 +164,7 @@ impl EventsQuerySelector {
     }
 
     /// Render selector + range as the wire query string for
-    /// `GET /api/v1/events` or `GET /api/v1/events/subscribe`. Repeats
+    /// `GET /_cokret/self/events/query` or `GET /_cokret/self/events/subscribe`. Repeats
     /// `spaces` / `actors` query args per spec convention.
     pub fn to_query_pairs(&self) -> Vec<(&'static str, String)> {
         let mut pairs = Vec::new();
@@ -193,7 +193,7 @@ impl EventsQuerySelector {
     }
 }
 
-/// Direction parameter for `cx.events.query`. `forward` returns events
+/// Direction parameter for `ck.events.query`. `forward` returns events
 /// after `from` (default); `backward` returns events before `from`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
@@ -203,11 +203,11 @@ pub enum EventsQueryDirection {
     Backward,
 }
 
-/// Typed `cx.events.query` request body.
+/// Typed `ck.events.query` request body.
 ///
 /// This is the ergonomic typed surface downstream agents (coauth / soland /
 /// yougen) call against. It mirrors the wire shape soland accepts on
-/// `GET /api/v1/events`: the multi-selector is `spaces[] ∪ actors[]`,
+/// `GET /_cokret/self/events/query`: the multi-selector is `spaces[] ∪ actors[]`,
 /// `from` / `until` are HLC bounds, `direction` switches between forward
 /// (default) and backward iteration, and `limit` is the page cap.
 ///
@@ -294,13 +294,13 @@ impl EventsQueryReqBody {
     }
 
     /// Render the request as repeated `?spaces=...&actors=...&from=...`
-    /// query pairs for `GET /api/v1/events`.
+    /// query pairs for `GET /_cokret/self/events/query`.
     pub fn to_query_pairs(&self) -> Vec<(&'static str, String)> {
         self.as_selector().to_query_pairs()
     }
 }
 
-/// Typed `cx.events.query` response body.
+/// Typed `ck.events.query` response body.
 ///
 /// Downstream agents pattern-match on `events`, then resume with
 /// `next_cursor` (forward) / `prev_cursor` (backward). Server returns
@@ -321,8 +321,8 @@ fn is_false_default(v: &bool) -> bool {
     !*v
 }
 
-impl From<contrix_core::SyncBackfillResBody> for EventsQueryResBody {
-    fn from(r: contrix_core::SyncBackfillResBody) -> Self {
+impl From<cokret_core::SyncBackfillResBody> for EventsQueryResBody {
+    fn from(r: cokret_core::SyncBackfillResBody) -> Self {
         Self {
             events: r.events,
             next_cursor: r.next_cursor,
@@ -332,7 +332,7 @@ impl From<contrix_core::SyncBackfillResBody> for EventsQueryResBody {
     }
 }
 
-impl From<EventsQueryResBody> for contrix_core::SyncBackfillResBody {
+impl From<EventsQueryResBody> for cokret_core::SyncBackfillResBody {
     fn from(r: EventsQueryResBody) -> Self {
         Self {
             events: r.events,

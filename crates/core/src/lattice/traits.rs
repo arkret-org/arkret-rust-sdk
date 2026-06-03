@@ -42,61 +42,61 @@ impl LatticeKind {
     pub fn event_kinds(self) -> &'static [&'static str] {
         match self {
             Self::OrSet => &[
-                "cx.capability.grant",
-                "cx.capability.delegate",
-                "cx.capability.revoke",
-                "cx.capability.derived",
-                "cx.session.grant",
-                "cx.consent.grant",
-                "cx.consent.revoke",
-                "cx.device.authorize",
-                "cx.device.revoke",
-                "cx.device.list_update",
+                "ck.capability.grant",
+                "ck.capability.delegate",
+                "ck.capability.revoke",
+                "ck.capability.derived",
+                "ck.session.grant",
+                "ck.consent.grant",
+                "ck.consent.revoke",
+                "ck.device.authorize",
+                "ck.device.revoke",
+                "ck.device.list_update",
             ],
             Self::MvRegister => &[
-                "cx.view.create",
-                "cx.view.update",
-                "cx.view.reconcile",
-                "cx.profile.create",
-                "cx.profile.update",
-                "cx.mimi.room_binding",
+                "ck.view.create",
+                "ck.view.update",
+                "ck.view.reconcile",
+                "ck.profile.create",
+                "ck.profile.update",
+                "ck.mimi.room_binding",
             ],
             Self::CasRegister => &[
-                "cx.realm.upgrade",
-                "cx.realm.organization",
-                "cx.realm.policy",
-                "cx.realm.join_rule",
-                "cx.realm.history_visibility",
-                "cx.realm.discovery",
-                "cx.realm.policy_server",
-                "cx.realm.policy_components",
-                "cx.realm.history_sharing_policy",
-                "cx.realm.asset_privacy_policy",
-                "cx.realm.read_receipt_policy",
-                "cx.realm.moderation_policy",
-                "cx.realm.plaintext_visible_services",
-                "cx.realm.media_service",
-                "cx.realm.schema",
-                "cx.realm.inheritance_policy",
-                "cx.realm.archive",
-                "cx.realm.freeze",
-                "cx.realm.tombstone",
-                "cx.realm.destroy",
-                "cx.flow.move",
-                "cx.flow.reorder",
-                "cx.space.parent",
+                "ck.realm.upgrade",
+                "ck.realm.organization",
+                "ck.realm.policy",
+                "ck.realm.join_rule",
+                "ck.realm.history_visibility",
+                "ck.realm.discovery",
+                "ck.realm.policy_server",
+                "ck.realm.policy_components",
+                "ck.realm.history_sharing_policy",
+                "ck.realm.asset_privacy_policy",
+                "ck.realm.read_receipt_policy",
+                "ck.realm.moderation_policy",
+                "ck.realm.plaintext_visible_services",
+                "ck.realm.media_service",
+                "ck.realm.schema",
+                "ck.realm.inheritance_policy",
+                "ck.realm.archive",
+                "ck.realm.freeze",
+                "ck.realm.tombstone",
+                "ck.realm.destroy",
+                "ck.flow.move",
+                "ck.flow.reorder",
+                "ck.space.parent",
             ],
             Self::Fsm => &[
-                "cx.member.state",
+                "ck.member.state",
                 // CXP-0008 / CXP-0009 (R3 spec-sync 2026-05-27) — personal-agent
                 // lifecycle is an FSM with bottom=reject; deactivate is terminal.
-                "cx.agent.pause",
-                "cx.agent.resume",
-                "cx.agent.deactivate",
+                "ck.agent.pause",
+                "ck.agent.resume",
+                "ck.agent.deactivate",
             ],
             Self::Counter => &[],
             Self::OrderedLog => {
-                &["cx.space.create", "cx.space.child", "cx.policy.rule", "cx.account.status"]
+                &["ck.space.create", "cx.space.child", "ck.policy.rule", "ck.account.status"]
             }
         }
     }
@@ -193,30 +193,30 @@ mod kind_tests {
     #[test]
     fn or_set_handles_consent_and_capability() {
         let kinds = LatticeKind::OrSet.event_kinds();
-        assert!(kinds.contains(&"cx.consent.grant"));
-        assert!(kinds.contains(&"cx.consent.revoke"));
-        assert!(kinds.contains(&"cx.capability.grant"));
-        assert!(kinds.contains(&"cx.capability.revoke"));
+        assert!(kinds.contains(&"ck.consent.grant"));
+        assert!(kinds.contains(&"ck.consent.revoke"));
+        assert!(kinds.contains(&"ck.capability.grant"));
+        assert!(kinds.contains(&"ck.capability.revoke"));
     }
 
     #[test]
     fn cas_register_handles_mls_commit_and_creates() {
         let kinds = LatticeKind::CasRegister.event_kinds();
-        assert!(kinds.contains(&"cx.realm.policy"));
-        assert!(kinds.contains(&"cx.flow.move"));
-        assert!(kinds.contains(&"cx.space.parent"));
+        assert!(kinds.contains(&"ck.realm.policy"));
+        assert!(kinds.contains(&"ck.flow.move"));
+        assert!(kinds.contains(&"ck.space.parent"));
     }
 
     #[test]
     fn ordered_log_handles_registry_ordered_cells() {
         let kinds = LatticeKind::OrderedLog.event_kinds();
-        assert!(kinds.contains(&"cx.space.create"));
-        assert!(kinds.contains(&"cx.policy.rule"));
-        assert!(kinds.contains(&"cx.account.status"));
+        assert!(kinds.contains(&"ck.space.create"));
+        assert!(kinds.contains(&"ck.policy.rule"));
+        assert!(kinds.contains(&"ck.account.status"));
     }
 
     #[test]
     fn fsm_handles_member_state() {
-        assert!(LatticeKind::Fsm.event_kinds().contains(&"cx.member.state"));
+        assert!(LatticeKind::Fsm.event_kinds().contains(&"ck.member.state"));
     }
 }

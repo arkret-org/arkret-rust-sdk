@@ -719,7 +719,7 @@ mod tests {
             anchor_id(0xaa),
             vec![Effect {
                 cell: CellRef::new(
-                    "ck:cell:cx.component.member.state.v1:did.web.alice.example".to_owned(),
+                    "ck:cell:ck.component.member.state.v1:did.web.alice.example".to_owned(),
                 )
                 .unwrap(),
                 op: LatticeOp {

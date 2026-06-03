@@ -1,7 +1,7 @@
 //! Cross-signing reset payloads and helpers.
 
 use super::*;
-/// Round R2/R3 (2026-05-20) — typed payload for `cx.cross_signing.reset`.
+/// Round R2/R3 (2026-05-20) — typed payload for `ck.cross_signing.reset`.
 ///
 /// Wire-breaking: `trust_domain` and `reset_event_id` are now required.
 /// `trust_domain` enters every proof's canonical transcript so the same
@@ -30,5 +30,5 @@ pub struct CrossSigningResetPayload {
 }
 
 impl CrossSigningResetPayload {
-    pub const SCHEMA: &'static str = "cx.schema.cross_signing_reset.v1";
+    pub const SCHEMA: &'static str = "ck.schema.cross_signing_reset.v1";
 }

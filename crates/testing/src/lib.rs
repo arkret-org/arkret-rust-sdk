@@ -2,7 +2,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use contrix_core::{
+use cokret_core::{
     AnchorId, CellRef, Did, Error, Event, Hash, Hlc, Move, MoveId, RealmId, Result, SpaceId,
     canonical,
     events::{
@@ -151,7 +151,7 @@ pub fn conformance_report() -> Result<ConformanceReport> {
 /// Every vector cites its anchoring `conformance/conformance-vectors.md`
 /// section in the `vector_id`, e.g. `canonical-json/v1.3-basic`.
 pub fn canonical_json_vectors() -> Vec<CanonicalJsonVector> {
-    use contrix_core::canonical;
+    use cokret_core::canonical;
     let basic = json!({ "b": 2, "a": 1 });
     let basic_bytes = canonical::canonical_json_string(&basic).expect("canonical");
     let basic_digest = canonical::sha256_digest(basic_bytes.as_bytes());
@@ -194,9 +194,9 @@ pub fn canonical_json_vectors() -> Vec<CanonicalJsonVector> {
 pub fn redaction_vectors() -> Vec<RedactionVector> {
     vec![RedactionVector {
         vector_id: "redaction/v10-message".to_owned(),
-        kind: "cx.message.create".to_owned(),
+        kind: "ck.message.create".to_owned(),
         before: json!({
-            "kind": "cx.message.create",
+            "kind": "ck.message.create",
             "actor_seq": 7,
             "prev_refs": ["ck:event:01904100-0000-7000-8000-021bde4eea9d"],
             "refs": [{
@@ -223,13 +223,13 @@ pub fn capability_vectors() -> Vec<CapabilityVector> {
     vec![
         CapabilityVector {
             vector_id: "capability/cs-15.1-deny-short-circuits".to_owned(),
-            action: "cx.message.create".to_owned(),
+            action: "ck.message.create".to_owned(),
             expected_decision: "deny".to_owned(),
             short_circuit_on: Some("temporal_expired".to_owned()),
         },
         CapabilityVector {
             vector_id: "capability/cs-15.2-priority-orders-allow".to_owned(),
-            action: "cx.message.create".to_owned(),
+            action: "ck.message.create".to_owned(),
             expected_decision: "allow".to_owned(),
             short_circuit_on: None,
         },
@@ -258,7 +258,7 @@ pub fn sync_vectors() -> Vec<SyncVector> {
 
 pub fn endpoint_coverage_rows() -> Vec<EndpointCoverageRow> {
     let mut rows = Vec::new();
-    rows.extend(contrix_core::BUILT_IN_OPERATION_KINDS.iter().map(|operation_id| {
+    rows.extend(cokret_core::BUILT_IN_OPERATION_KINDS.iter().map(|operation_id| {
         EndpointCoverageRow {
             domain: operation_domain(operation_id),
             operation_id: (*operation_id).to_owned(),
@@ -527,7 +527,7 @@ pub fn event_taxonomy_vectors() -> Result<Vec<EventTaxonomyVector>> {
 
 pub fn state_resolution_vectors() -> Result<Vec<StateResolutionVector>> {
     let space_id = SpaceId::new("ck:space:0196419b-0000-7000-8000-00000000014a")?;
-    let cell = CellRef::new("ck:cell:cx.component.member.state.v1:did.web.bob.example".to_owned())
+    let cell = CellRef::new("ck:cell:ck.component.member.state.v1:did.web.bob.example".to_owned())
         .map_err(|e| Error::Protocol(format!("invalid cell ref: {e}")))?;
 
     // Build a Move that transitions Bob's membership cell from `invited` to `join`.
@@ -545,7 +545,7 @@ pub fn state_resolution_vectors() -> Result<Vec<StateResolutionVector>> {
     expected.insert(cell, CellState::Value(json!("join")));
     let expected_root = compute_state_root(&expected)?;
 
-    let empty_root = Hash::new(contrix_core::EMPTY_STATE_ROOT.to_owned())?;
+    let empty_root = Hash::new(cokret_core::EMPTY_STATE_ROOT.to_owned())?;
     let genesis = build_anchor(&space_id, &[], &[], &empty_root)?;
     apply_anchor(&genesis, &moves, &anchors, &cells, &registry, |_, _, _, _| Ok::<(), String>(()))
         .map_err(|e| Error::Protocol(format!("apply_genesis_anchor: {e}")))?;
@@ -614,9 +614,9 @@ fn build_anchor(
     predecessor_refs: &[AnchorId],
     frontier: &[MoveId],
     state_root: &Hash,
-) -> Result<contrix_core::Anchor> {
+) -> Result<cokret_core::Anchor> {
     use chrono::{TimeZone, Utc};
-    use contrix_core::{Anchor, AnchorerSig, MoveSignature};
+    use cokret_core::{Anchor, AnchorerSig, MoveSignature};
     let sig = MoveSignature {
         alg: "EdDSA".to_owned(),
         verification_method: "did:web:anchorer.example#k1".to_owned(),
@@ -638,7 +638,7 @@ fn build_anchor(
         anchored_at: Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
         hlc: Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned())
             .map_err(|e| Error::Protocol(format!("hlc: {e}")))?,
-        kind: contrix_core::AnchorKind::Normal,
+        kind: cokret_core::AnchorKind::Normal,
     };
     a.id = a.derive_id().map_err(|e| Error::Protocol(format!("derive: {e}")))?;
     Ok(a)
@@ -681,8 +681,8 @@ mod tests {
         ] {
             assert!(report.covers_domain(domain.clone()), "{domain:?}");
         }
-        assert!(report.operation_ids().contains("cx.events.submit"));
-        assert!(report.operation_ids().contains("cx.identity.resolve"));
+        assert!(report.operation_ids().contains("ck.events.submit"));
+        assert!(report.operation_ids().contains("ck.identity.resolve"));
         assert!(report.operation_ids().contains("cx.crypto.machine_request"));
         assert!(report.operation_ids().contains("cx.ui.timeline_projection"));
         assert!(report.operation_ids().contains("cx.ffi.wasm_runtime"));
@@ -693,24 +693,24 @@ mod tests {
 
     #[test]
     fn boundary_crate_smoke_contracts_validate() {
-        contrix_core::operations::operation_catalog().validate().unwrap();
-        assert!(!contrix_core::operations::negative_dag_vectors().is_empty());
-        contrix_core::schema::schema_catalog().validate().unwrap();
-        contrix_core::schema::validate_schema_vectors(
-            &contrix_core::schema::built_in_schema_vectors(),
+        cokret_core::operations::operation_catalog().validate().unwrap();
+        assert!(!cokret_core::operations::negative_dag_vectors().is_empty());
+        cokret_core::schema::schema_catalog().validate().unwrap();
+        cokret_core::schema::validate_schema_vectors(
+            &cokret_core::schema::built_in_schema_vectors(),
         )
         .unwrap();
-        contrix_html::RichTextDocument::normalize(
+        cokret_html::RichTextDocument::normalize(
             "Hello @alice <script>bad()</script>",
-            contrix_html::RichTextFormat::Html,
+            cokret_html::RichTextFormat::Html,
         )
         .unwrap();
-        contrix_ffi::WasmRuntimeContract::default().validate().unwrap();
+        cokret_ffi::WasmRuntimeContract::default().validate().unwrap();
 
-        let mut plan = contrix_crypto::CryptoMachinePlan::default();
+        let mut plan = cokret_crypto::CryptoMachinePlan::default();
         plan.push(
             "keys",
-            contrix_crypto::CryptoMachineReqBody::QueryDeviceKeys {
+            cokret_crypto::CryptoMachineReqBody::QueryDeviceKeys {
                 users: vec![Did::new("did:web:alice.example").unwrap()],
             },
         )

@@ -1,4 +1,4 @@
-//! T8.2 — property tests for `contrix_core::canonical`.
+//! T8.2 — property tests for `cokret_core::canonical`.
 //!
 //! Pins the *byte-stability* invariant of the canonical-JSON profile:
 //!
@@ -15,7 +15,7 @@
 //! `payload_digest` agreement: if two services serialise the same logical
 //! object via the SDK, they MUST get the same bytes.
 
-use contrix_core::canonical::{canonical_json_bytes, canonical_json_string, canonical_sha256};
+use cokret_core::canonical::{canonical_json_bytes, canonical_json_string, canonical_sha256};
 use proptest::prelude::*;
 use serde_json::{Map, Value, json};
 

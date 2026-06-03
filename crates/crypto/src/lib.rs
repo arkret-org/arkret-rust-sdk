@@ -4,7 +4,7 @@
 //!
 //! * `backup` — pulls in the [`backup`] module, which provides
 //!   client-side Argon2id KDF, XChaCha20-Poly1305 AEAD, a recovery-key
-//!   codec, and a typed [`contrix_core::KeyBackup`] envelope builder
+//!   codec, and a typed [`cokret_core::KeyBackup`] envelope builder
 //!   (spec: `crypto-media/key-management.md` §7). When the feature is
 //!   off, the bare types crate stays free of heavyweight crypto deps.
 
@@ -14,7 +14,7 @@ pub mod backup;
 use std::collections::{BTreeMap, VecDeque};
 
 use chrono::{DateTime, Utc};
-use contrix_core::{
+use cokret_core::{
     BlobRef, DeviceId, Did, EncryptedPayload, EncryptedPayloadScheme, Error, EventId, Hash, Result,
     SpaceId,
 };
@@ -22,19 +22,19 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
-pub use contrix_signatures::{DetachedSignature, DetachedSignatureBinding, DetachedVerifier};
+pub use cokret_signatures::{DetachedSignature, DetachedSignatureBinding, DetachedVerifier};
 
 /// Typed crypto-machine validation errors.
 ///
 /// Round 2 (post-improve): introduced so call sites can branch on the
 /// specific validation failure (bounds vs replay vs key mismatch)
 /// instead of inspecting the free-form `Error::Protocol` string. The
-/// `From<CryptoError> for contrix_core::Error` impl below preserves
+/// `From<CryptoError> for cokret_core::Error` impl below preserves
 /// the existing wire surface — every `CryptoError` still renders as
 /// `Error::Protocol(<message>)` for callers that haven't migrated.
 ///
 /// New code SHOULD return `CryptoError` directly; bridge to
-/// `contrix_core::Error` only at the protocol-boundary using `?` or
+/// `cokret_core::Error` only at the protocol-boundary using `?` or
 /// `Into::into`.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]
@@ -216,7 +216,7 @@ pub enum CrossSigningKeyKind {
     /// DID-control-rooted principal signing key. Rotation MUST enter DID
     /// method history / key log.
     PrincipalSigning,
-    /// Signs the principal's own devices (`cx.device.authorize` bindings).
+    /// Signs the principal's own devices (`ck.device.authorize` bindings).
     SelfSigning,
     /// Signs other principals' identity keys to express manual trust.
     UserSigning,
@@ -280,7 +280,7 @@ pub struct CrossSigningPublishContent {
     /// Mixed into the canonical `cx-cross-signing-bind-v1` signing input
     /// so a publish from deployment A cannot be replayed into deployment
     /// B. MUST match the receiver's accepted trust domain.
-    pub trust_domain: contrix_core::TypedTrustDomainId,
+    pub trust_domain: cokret_core::TypedTrustDomainId,
     pub principal_signing_key: CrossSigningKeyRecord,
     pub self_signing_key: SignedCrossSigningKey,
     pub user_signing_key: SignedCrossSigningKey,
@@ -296,7 +296,7 @@ pub struct CrossSigningPublishContent {
 }
 
 /// Round 4 (spec a77b995) — canonical cell_subject for the CAS-register
-/// guarding `cx.cross_signing.publish`. The wire form is the tuple
+/// guarding `ck.cross_signing.publish`. The wire form is the tuple
 /// `(principal_id, expected_previous_generation)` rendered as
 /// `<did>|<expected_previous_generation>` (the `|` is reserved in DID
 /// method-specific-ids by the round-4 DID regex tightening, so the boundary
@@ -378,7 +378,7 @@ pub struct CrossSigningResetContent {
     pub principal_id: Did,
     /// Deployment-scope trust domain — enters the reset proof transcript so a
     /// proof cannot be replayed across deployments (spec §14.1).
-    pub trust_domain: contrix_core::TypedTrustDomainId,
+    pub trust_domain: cokret_core::TypedTrustDomainId,
     /// Typed event_id of the enclosing Event Envelope; bound into the transcript
     /// so the same proof bytes cannot be wrapped into a different Event shell.
     pub reset_event_id: String,
@@ -545,7 +545,7 @@ impl CrossSigningResetContent {
         Ok(())
     }
 
-    /// Canonical signing input for a `cx.cross_signing.reset` proof
+    /// Canonical signing input for a `ck.cross_signing.reset` proof
     /// (`cx-cross-signing-reset-v1`, spec crypto-media/device-lifecycle.md §14.1).
     ///
     /// Binds the reset's principal + generation transition + reason so the proof
@@ -561,12 +561,12 @@ impl CrossSigningResetContent {
             "reset_reason": self.reset_reason,
         });
         let mut out = b"cx-cross-signing-reset-v1\n".to_vec();
-        out.extend_from_slice(&contrix_core::canonical::canonical_json_bytes(&body)?);
+        out.extend_from_slice(&cokret_core::canonical::canonical_json_bytes(&body)?);
         Ok(out)
     }
 }
 
-/// Per-device binding signed by SSK and embedded in `cx.device.authorize`
+/// Per-device binding signed by SSK and embedded in `ck.device.authorize`
 /// (spec §5.2 `content.cross_signing_binding`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeviceTrustBinding {
@@ -625,7 +625,7 @@ pub enum DeviceTrustChainOutcome {
 
 fn canonical_cross_signing_binding_input(
     principal_id: &Did,
-    trust_domain: &contrix_core::TypedTrustDomainId,
+    trust_domain: &cokret_core::TypedTrustDomainId,
     subordinate_kind: CrossSigningKeyKind,
     subordinate: &CrossSigningKeyRecord,
     generation: u64,
@@ -649,7 +649,7 @@ fn canonical_cross_signing_binding_input(
         "generation": generation,
     });
     let mut out = b"cx-cross-signing-bind-v1\n".to_vec();
-    out.extend_from_slice(&contrix_core::canonical::canonical_json_bytes(&body)?);
+    out.extend_from_slice(&cokret_core::canonical::canonical_json_bytes(&body)?);
     Ok(out)
 }
 
@@ -666,7 +666,7 @@ fn canonical_device_trust_binding_input(
         "ssk_generation": ssk_generation,
     });
     let mut out = b"cx-device-trust-bind-v1\n".to_vec();
-    out.extend_from_slice(&contrix_core::canonical::canonical_json_bytes(&body)?);
+    out.extend_from_slice(&cokret_core::canonical::canonical_json_bytes(&body)?);
     Ok(out)
 }
 
@@ -903,7 +903,7 @@ pub enum SecretBackupState {
 }
 
 /// Public descriptor of the principal's secret-storage backup
-/// (`cx.schema.key_backup.v1`).
+/// (`ck.schema.key_backup.v1`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SecretBackupDescriptor {
     pub backup_id: String,
@@ -1245,7 +1245,7 @@ pub(crate) fn session_key(space_id: &SpaceId, session_id: &str) -> String {
 //
 // These implementations mirror the existing inherent `validate()`
 // methods (when present) but return the typed `CryptoError` instead of
-// `contrix_core::Error::Protocol`. The inherent methods stay for
+// `cokret_core::Error::Protocol`. The inherent methods stay for
 // backward compatibility; new call sites should prefer the trait form
 // (`<T as Validate>::validate(&value)`).
 
@@ -1467,7 +1467,7 @@ mod tests {
                 space_id: space_id.clone(),
                 session_id: "sess1".to_owned(),
                 sender_key: "curve25519:def".to_owned(),
-                algorithm: "cx.mls.v1".to_owned(),
+                algorithm: "ck.mls.v1".to_owned(),
                 state: CryptoSessionState::Active,
                 created_at: Utc::now(),
                 last_used_at: Utc::now(),
@@ -1628,7 +1628,7 @@ mod tests {
             space_id: SpaceId::new("ck:space:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
             session_id: "sess-prop".to_owned(),
             sender_key: "curve25519:def".to_owned(),
-            algorithm: "cx.mls.v1".to_owned(),
+            algorithm: "ck.mls.v1".to_owned(),
             state: CryptoSessionState::Active,
             created_at: Utc::now(),
             last_used_at: Utc::now(),
@@ -1705,7 +1705,7 @@ mod tests {
     fn reset_signing_input_is_stable_and_binds_replay_fields() {
         let content = CrossSigningResetContent {
             principal_id: did("alice"),
-            trust_domain: contrix_core::TypedTrustDomainId::new("ck:trust_domain:example.net")
+            trust_domain: cokret_core::TypedTrustDomainId::new("ck:trust_domain:example.net")
                 .unwrap(),
             reset_event_id: "ck:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
             previous_generation: 1,
@@ -1730,7 +1730,7 @@ mod tests {
         // trust_domain is bound (cross-deployment replay protection).
         let mut domain_changed = content.clone();
         domain_changed.trust_domain =
-            contrix_core::TypedTrustDomainId::new("ck:trust_domain:other.net").unwrap();
+            cokret_core::TypedTrustDomainId::new("ck:trust_domain:other.net").unwrap();
         assert_ne!(base, domain_changed.reset_signing_input().unwrap());
         // reset_event_id is bound (event-shell replay protection).
         let mut event_changed = content.clone();
@@ -1742,7 +1742,7 @@ mod tests {
     fn cross_signing_reset_proof_threshold_zero_rejected() {
         let content = CrossSigningResetContent {
             principal_id: did("alice"),
-            trust_domain: contrix_core::TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
+            trust_domain: cokret_core::TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
             reset_event_id: "ck:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
             previous_generation: 1,
             new_generation: 2,
@@ -1773,7 +1773,7 @@ mod tests {
         // PrincipalSigning with whitespace-only `verification_method`.
         let blank_verification_method = CrossSigningResetContent {
             principal_id: did("alice"),
-            trust_domain: contrix_core::TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
+            trust_domain: cokret_core::TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
             reset_event_id: "ck:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
             previous_generation: 1,
             new_generation: 2,
@@ -1832,7 +1832,7 @@ mod tests {
     fn cross_signing_reset_proof_oversized_alg_rejected() {
         let content = CrossSigningResetContent {
             principal_id: did("alice"),
-            trust_domain: contrix_core::TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
+            trust_domain: cokret_core::TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
             reset_event_id: "ck:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
             previous_generation: 1,
             new_generation: 2,

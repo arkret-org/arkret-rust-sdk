@@ -21,10 +21,10 @@ use crate::{
     OperationId, RealmId, Result, ToDeviceMessage, canonical,
 };
 
-pub const CONTRIX_MLS_ALGORITHM: &str = "cx.mls.v1";
-pub const CONTRIX_MLS_CIPHERSUITE: Ciphersuite =
+pub const COKRET_MLS_ALGORITHM: &str = "ck.mls.v1";
+pub const COKRET_MLS_CIPHERSUITE: Ciphersuite =
     Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;
-const CONTRIX_OPENMLS_STATE_SNAPSHOT: &str = "cokret-openmls-provider-state-v1";
+const COKRET_OPENMLS_STATE_SNAPSHOT: &str = "cokret-openmls-provider-state-v1";
 
 pub struct CokretMlsIdentity {
     pub principal_id: Did,
@@ -50,7 +50,7 @@ pub struct MlsAddMemberResult {
 /// Unlike `MlsAddMemberResult`, Remove never produces a Welcome — surviving
 /// members simply apply the commit to advance the epoch. The list of
 /// `removed_leaves` makes the audit trail explicit so callers can correlate
-/// the result with the originating `cx.device.revoke` / `cx.member.state`
+/// the result with the originating `ck.device.revoke` / `ck.member.state`
 /// events.
 #[derive(Clone, Debug)]
 pub struct MlsRemoveMemberResult {
@@ -60,7 +60,7 @@ pub struct MlsRemoveMemberResult {
     pub removed_leaves: Vec<u32>,
     /// The principal DIDs whose leaves were removed (one per leaf, may
     /// contain duplicates if the principal had multiple leaves / devices in
-    /// the same group). Useful for downstream `cx.device.revoke` event
+    /// the same group). Useful for downstream `ck.device.revoke` event
     /// envelopes that index by principal.
     pub removed_principals: Vec<Did>,
 }
@@ -161,7 +161,7 @@ pub struct EncryptedMessage {
     pub payload: EncryptedPayload,
 }
 
-/// AAD event-id visibility discriminator for `cx.schema.encrypted_envelope.v1`.
+/// AAD event-id visibility discriminator for `ck.schema.encrypted_envelope.v1`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AadVisibility {
@@ -170,7 +170,7 @@ pub enum AadVisibility {
     OpaqueId,
 }
 
-/// Structured AAD for `cx.schema.encrypted_envelope.v1`. `realm_id` +
+/// Structured AAD for `ck.schema.encrypted_envelope.v1`. `realm_id` +
 /// `event_kind` are mandatory; the event-id fields are governed by
 /// [`AadVisibility`] and the schema discriminator (a `hidden` envelope MUST
 /// omit both `event_id` and `event_ref_digest`).
@@ -202,9 +202,9 @@ impl EncryptedEnvelopeAadV1 {
     }
 }
 
-/// `key_ref` for `cx.schema.encrypted_envelope.v1`. `algorithm` is the fixed
+/// `key_ref` for `ck.schema.encrypted_envelope.v1`. `algorithm` is the fixed
 /// const `"MLS"`; `group_state_ref` MUST point at an accepted
-/// `cx.mls.genesis` / winning `cx.mls.commit` event id (or equivalent group
+/// `ck.mls.genesis` / winning `ck.mls.commit` event id (or equivalent group
 /// state proof hash).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EnvelopeKeyRefV1 {
@@ -213,10 +213,10 @@ pub struct EnvelopeKeyRefV1 {
 }
 
 /// Wire-canonical encrypted payload envelope matching
-/// `cx.schema.encrypted_envelope.v1` — the single source of truth for the
+/// `ck.schema.encrypted_envelope.v1` — the single source of truth for the
 /// encrypted-message wire shape across produce / validate / consume. Build it
 /// from an [`EncryptedPayload`] (the MLS encrypt primitive output) plus the
-/// caller-supplied AAD context and the `cx.mls.commit` event id that bounds
+/// caller-supplied AAD context and the `ck.mls.commit` event id that bounds
 /// the group state.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EncryptedEnvelopeV1 {
@@ -245,7 +245,7 @@ impl EncryptedEnvelopeV1 {
     /// [`CokretMlsGroup::encrypt_payload_with_aad`] with AAD equal to
     /// `serde_json::to_value(&aad)` — the AAD is bound into `payload_digest`,
     /// so a mismatch would make the receiver's digest verification fail. We
-    /// fail closed if they disagree. `group_state_ref` is the `cx.mls.commit`
+    /// fail closed if they disagree. `group_state_ref` is the `ck.mls.commit`
     /// (or genesis) event id carrying the epoch this payload was encrypted
     /// under.
     pub fn from_payload(
@@ -294,7 +294,7 @@ impl EncryptedEnvelopeV1 {
             ciphertext: self.ciphertext.clone(),
             aad: Some(aad_value),
             payload_digest: Hash::new(self.payload_digest.clone())?,
-            key_ref: Some(contrix_core::KeyRefObject::mls_rfc9420(
+            key_ref: Some(cokret_core::KeyRefObject::mls_rfc9420(
                 self.group_id.clone(),
                 self.epoch,
             )),
@@ -425,7 +425,7 @@ impl MessageCrypto {
 impl CokretMlsIdentity {
     pub fn new_basic(principal_id: Did, device_id: DeviceId) -> Result<Self> {
         let provider = OpenMlsRustCrypto::default();
-        let signer = SignatureKeyPair::new(CONTRIX_MLS_CIPHERSUITE.signature_algorithm())
+        let signer = SignatureKeyPair::new(COKRET_MLS_CIPHERSUITE.signature_algorithm())
             .map_err(mls_error)?;
         signer.store(provider.storage()).map_err(mls_error)?;
         let credential = CredentialWithKey {
@@ -438,7 +438,7 @@ impl CokretMlsIdentity {
 
     pub fn key_package_record(&self) -> Result<MlsKeyPackageRecord> {
         let key_package = KeyPackage::builder()
-            .build(CONTRIX_MLS_CIPHERSUITE, &self.provider, &self.signer, self.credential.clone())
+            .build(COKRET_MLS_CIPHERSUITE, &self.provider, &self.signer, self.credential.clone())
             .map_err(mls_error)?;
         let key_package = key_package.key_package();
         let key_package_bytes = key_package.tls_serialize_detached().map_err(mls_error)?;
@@ -450,9 +450,9 @@ impl CokretMlsIdentity {
             device_id: self.device_id.clone(),
             key_package: encode(&key_package_bytes),
             keypackage_ref,
-            cipher_suites: vec![format!("{CONTRIX_MLS_CIPHERSUITE:?}")],
+            cipher_suites: vec![format!("{COKRET_MLS_CIPHERSUITE:?}")],
             capabilities: Vec::new(),
-            state: contrix_core::MlsKeyPackageState::Published,
+            state: cokret_core::MlsKeyPackageState::Published,
             claim_id: None,
             created_at: Utc::now(),
             expires_at: None,
@@ -473,7 +473,7 @@ impl CokretMlsIdentity {
 
     pub fn create_group(self, group_id: impl AsRef<[u8]>) -> Result<CokretMlsGroup> {
         let config = MlsGroupCreateConfig::builder()
-            .ciphersuite(CONTRIX_MLS_CIPHERSUITE)
+            .ciphersuite(COKRET_MLS_CIPHERSUITE)
             .use_ratchet_tree_extension(true)
             .build();
         let group = MlsGroup::new_with_group_id(
@@ -508,8 +508,8 @@ impl CokretMlsGroup {
     }
 
     /// Content hash of the group's current key schedule, suitable for use as
-    /// the `key_schedule_hash` field in `cx.component.key_schedule.v1` cell
-    /// values and in `cx.profile.mls_governance_binding.full.v1` binding
+    /// the `key_schedule_hash` field in `ck.component.key_schedule.v1` cell
+    /// values and in `ck.profile.mls_governance_binding.full.v1` binding
     /// payloads. Derived deterministically from the OpenMLS
     /// `epoch_authenticator()` — a value the spec binds to the current
     /// (post-commit) MLS epoch + group state, so two clients on the same
@@ -573,7 +573,7 @@ impl CokretMlsGroup {
 
     pub fn export_state_record(&self) -> Result<MlsGroupStateRecord> {
         let snapshot = OpenMlsStateSnapshot {
-            context: CONTRIX_OPENMLS_STATE_SNAPSHOT.to_owned(),
+            context: COKRET_OPENMLS_STATE_SNAPSHOT.to_owned(),
             group_id: self.group_id(),
             epoch: self.epoch(),
             principal_id: self.identity.principal_id.clone(),
@@ -599,7 +599,7 @@ impl CokretMlsGroup {
 
     pub fn restore_from_state_record(record: &MlsGroupStateRecord) -> Result<Self> {
         let snapshot: OpenMlsStateSnapshot = serde_json::from_slice(&record.serialized_state)?;
-        if snapshot.context != CONTRIX_OPENMLS_STATE_SNAPSHOT {
+        if snapshot.context != COKRET_OPENMLS_STATE_SNAPSHOT {
             return Err(Error::Protocol("unsupported OpenMLS state snapshot".to_owned()));
         }
         if snapshot.group_id != record.group_id
@@ -616,7 +616,7 @@ impl CokretMlsGroup {
         let signer = SignatureKeyPair::read(
             provider.storage(),
             &signer_public_key,
-            CONTRIX_MLS_CIPHERSUITE.signature_algorithm(),
+            COKRET_MLS_CIPHERSUITE.signature_algorithm(),
         )
         .ok_or_else(|| Error::Protocol("OpenMLS signer is missing from snapshot".to_owned()))?;
         let credential = CredentialWithKey {
@@ -917,7 +917,7 @@ impl CokretMlsGroup {
             ciphertext: encode(&message_bytes),
             aad,
             payload_digest,
-            key_ref: Some(contrix_core::KeyRefObject::mls_rfc9420(self.group_id(), epoch)),
+            key_ref: Some(cokret_core::KeyRefObject::mls_rfc9420(self.group_id(), epoch)),
         })
     }
 
@@ -1015,7 +1015,7 @@ fn decode_key_package(
 }
 
 pub fn revoke_key_package(record: &mut MlsKeyPackageRecord) -> MlsDeviceWorkflowStep {
-    record.state = contrix_core::MlsKeyPackageState::Revoked;
+    record.state = cokret_core::MlsKeyPackageState::Revoked;
     MlsDeviceWorkflowStep {
         action: MlsDeviceWorkflowAction::RevokeKeyPackage,
         principal_id: record.principal_id.clone(),
@@ -1440,7 +1440,7 @@ mod tests {
         let mut bob_group = CokretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
         let aad = serde_json::json!({
             "space_id": "ck:space:01904100-0000-7000-8000-65bef476aed3",
-            "event_kind": "cx.message.create",
+            "event_kind": "ck.message.create",
             "event_id": "ck:event:01904100-0000-7000-8000-d5afe7e3de96",
             "causal_refs": []
         });
@@ -1516,7 +1516,7 @@ mod tests {
         let charlie_key_package = charlie.key_package_record().unwrap();
         let mut revoked_package = charlie_key_package.clone();
         let revoke_step = revoke_key_package(&mut revoked_package);
-        assert_eq!(revoked_package.state, contrix_core::MlsKeyPackageState::Revoked);
+        assert_eq!(revoked_package.state, cokret_core::MlsKeyPackageState::Revoked);
         assert_eq!(revoke_step.action, MlsDeviceWorkflowAction::RevokeKeyPackage);
 
         let mut alice_group =
@@ -1823,7 +1823,7 @@ mod tests {
             alice.create_group(b"ck:space:01904100-0000-7000-8000-0abc0abc0abc").unwrap();
 
         let realm_id = "ck:realm:01904100-0000-7000-8000-0abc0abc0abc";
-        let aad = EncryptedEnvelopeAadV1::hidden(realm_id, "cx.message.create");
+        let aad = EncryptedEnvelopeAadV1::hidden(realm_id, "ck.message.create");
         let aad_value = serde_json::to_value(&aad).unwrap();
         let plaintext = br#"{"body":"hello encrypted discussion"}"#;
         let payload = group
@@ -1839,7 +1839,7 @@ mod tests {
             EncryptedEnvelopeV1::from_payload(&payload, aad, AadVisibility::Hidden, commit_ref)
                 .unwrap();
 
-        // Conformance with cx.schema.encrypted_envelope.v1: required fields,
+        // Conformance with ck.schema.encrypted_envelope.v1: required fields,
         // fixed consts, hidden-visibility AAD discipline, no forbidden extras.
         let json = serde_json::to_value(&envelope).unwrap();
         let obj = json.as_object().unwrap();
@@ -1864,7 +1864,7 @@ mod tests {
         assert_eq!(obj["key_ref"]["algorithm"], "MLS");
         assert_eq!(obj["key_ref"]["group_state_ref"], commit_ref);
         assert_eq!(obj["aad"]["realm_id"], realm_id);
-        assert_eq!(obj["aad"]["event_kind"], "cx.message.create");
+        assert_eq!(obj["aad"]["event_kind"], "ck.message.create");
         let aad_obj = obj["aad"].as_object().unwrap();
         assert!(!aad_obj.contains_key("event_id"));
         assert!(!aad_obj.contains_key("event_ref_digest"));
@@ -1885,7 +1885,7 @@ mod tests {
         // payload_digest at encryption time.
         let mismatch = EncryptedEnvelopeV1::from_payload(
             &payload,
-            EncryptedEnvelopeAadV1::hidden(realm_id, "cx.flow.update"),
+            EncryptedEnvelopeAadV1::hidden(realm_id, "ck.flow.update"),
             AadVisibility::Hidden,
             commit_ref,
         );

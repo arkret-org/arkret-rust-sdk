@@ -2,7 +2,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-pub use contrix_contracts::push::{PushPlatform, PushPriority, PushRule};
+pub use cokret_contracts::push::{PushPlatform, PushPriority, PushRule};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};

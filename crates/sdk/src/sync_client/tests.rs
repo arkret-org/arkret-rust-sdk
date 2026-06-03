@@ -222,7 +222,7 @@ fn processor_tracks_limited_timelines_and_to_device_ack() {
     let parsed_space_id = SpaceId::new(space_id).unwrap();
     let parsed_realm_id = RealmId::new(space_id.replacen("ck:space:", "ck:realm:", 1)).unwrap();
     let event = Event::new(
-        "cx.message.create",
+        "ck.message.create",
         parsed_realm_id,
         Did::new("did:web:alice.example").unwrap(),
         1,
@@ -591,7 +591,7 @@ fn events_query_response_round_trips_with_sync_backfill() {
     assert_eq!(resp.prev_cursor.as_deref(), Some("sx:prev:0"));
     assert!(resp.limited);
     // Round-trip via SyncBackfillResBody keeps cursors and flag.
-    let bf: contrix_core::SyncBackfillResBody = resp.clone().into();
+    let bf: cokret_core::SyncBackfillResBody = resp.clone().into();
     let back: EventsQueryResBody = bf.into();
     assert_eq!(back.next_cursor, resp.next_cursor);
     assert_eq!(back.prev_cursor, resp.prev_cursor);

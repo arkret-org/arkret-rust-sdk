@@ -76,16 +76,16 @@ mod tests {
         let value = json!({
             "contract": "cokret.rest.principal_bridge.v1",
             "version": "2026-05-12-oauth-introspection",
-            "api_base_path": "/api/v1",
+            "api_base_path": "/_cokret",
             "auth": {
-                "dev_login_path": "/api/v1/auth/dev-login",
-                "session_grant_exchange_path": "/api/v1/auth/session-grant/exchange",
+                "dev_login_path": "/_cokret/gate/auth/dev-login",
+                "session_grant_exchange_path": "/_cokret/gate/auth/session-grant/exchange",
                 "bearer_auth_scheme": "Authorization: Bearer <token>",
                 "principal_id_body_field": "principal_id"
             },
             "push": {
-                "register_device_path": "/api/v1/push/register-device",
-                "unregister_device_path": "/api/v1/push/unregister-device",
+                "register_device_path": "/_cokret/edge/push/register-device",
+                "unregister_device_path": "/_cokret/edge/push/unregister-device",
                 "session_grant_header": "X-Cokret-Session-Grant",
                 "principal_id_body_field": "principal_id",
                 "register_device_mode": "bearer_session_or_oauth_bearer_introspection"
@@ -99,8 +99,8 @@ mod tests {
 
         let describe: PrincipalAuthBridgeDescribeResponse =
             serde_json::from_value(value).expect("principal bridge decodes");
-        assert_eq!(describe.session_grant_exchange_path(), "/api/v1/auth/session-grant/exchange");
-        assert_eq!(describe.register_device_path(), "/api/v1/push/register-device");
+        assert_eq!(describe.session_grant_exchange_path(), "/_cokret/gate/auth/session-grant/exchange");
+        assert_eq!(describe.register_device_path(), "/_cokret/edge/push/register-device");
 
         let encoded = serde_json::to_value(describe).expect("principal bridge encodes");
         assert!(encoded.get("todos").is_none());

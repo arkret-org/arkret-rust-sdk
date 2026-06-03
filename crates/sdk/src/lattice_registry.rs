@@ -65,7 +65,7 @@ pub enum Criticality {
 
 /// Stable identification of the logical cell this [`LatticeKind`] drives.
 /// Multiple kinds operating on the same cell (paired kinds, e.g.
-/// `cx.capability.grant` + `cx.capability.revoke`) MUST share
+/// `ck.capability.grant` + `ck.capability.revoke`) MUST share
 /// `component_type` so the receiver treats them as supersedes on the
 /// same cell.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -351,78 +351,78 @@ macro_rules! per_subject_lattice {
 
 per_subject_lattice!(
     ConsentGrant,
-    "cx.component.consent.grant.v1",
+    "ck.component.consent.grant.v1",
     SdkLatticeKind::OrSet,
     BottomPolicy::Reject,
     Criticality::Required,
     "consent_id",
-    &["cx.consent.grant", "cx.consent.revoke"]
+    &["ck.consent.grant", "ck.consent.revoke"]
 );
 
 per_subject_lattice!(
     CapabilityGrant,
-    "cx.component.capability.grant.v1",
+    "ck.component.capability.grant.v1",
     SdkLatticeKind::OrSet,
     BottomPolicy::Reject,
     Criticality::Required,
     "capability_id",
-    &["cx.capability.grant", "cx.capability.revoke"]
+    &["ck.capability.grant", "ck.capability.revoke"]
 );
 
 per_subject_lattice!(
     CapabilityDelegate,
-    "cx.component.capability.delegate.v1",
+    "ck.component.capability.delegate.v1",
     SdkLatticeKind::OrSet,
     BottomPolicy::Reject,
     Criticality::Required,
     "capability_id",
-    &["cx.capability.delegate"]
+    &["ck.capability.delegate"]
 );
 
 per_subject_lattice!(
     CapabilityDerived,
-    "cx.component.capability.derived.v1",
+    "ck.component.capability.derived.v1",
     SdkLatticeKind::OrSet,
     BottomPolicy::Reject,
     Criticality::Required,
     "capability_id",
-    &["cx.capability.derived"]
+    &["ck.capability.derived"]
 );
 
 per_subject_lattice!(
     SessionGrant,
-    "cx.component.session.grant.v1",
+    "ck.component.session.grant.v1",
     SdkLatticeKind::OrSet,
     BottomPolicy::Reject,
     Criticality::Required,
     "session_id",
-    &["cx.session.grant"]
+    &["ck.session.grant"]
 );
 
 per_subject_lattice!(
     DeviceAuthorized,
-    "cx.component.device.authorization.v1",
+    "ck.component.device.authorization.v1",
     SdkLatticeKind::OrSet,
     BottomPolicy::Reject,
     Criticality::Required,
     "device_id",
-    &["cx.device.authorize", "cx.device.revoke"]
+    &["ck.device.authorize", "ck.device.revoke"]
 );
 
 per_subject_lattice!(
     DeviceListUpdate,
-    "cx.component.device.list_update.v1",
+    "ck.component.device.list_update.v1",
     SdkLatticeKind::OrSet,
     BottomPolicy::Reject,
     Criticality::Required,
     "owner_did",
-    &["cx.device.list_update"]
+    &["ck.device.list_update"]
 );
 
 pub struct AgentKey;
 impl LatticeKind for AgentKey {
     fn cell_family(&self) -> &'static str {
-        "cx.component.agent.key.v1"
+        "ck.component.agent.key.v1"
     }
     fn lattice(&self) -> SdkLatticeKind {
         SdkLatticeKind::OrSet
@@ -432,7 +432,7 @@ impl LatticeKind for AgentKey {
     }
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
-            component_type: "cx.component.agent.key.v1",
+            component_type: "ck.component.agent.key.v1",
             component_version: 1,
             criticality: Criticality::Required,
         }
@@ -445,19 +445,19 @@ impl LatticeKind for AgentKey {
             .get("agent_principal_id")
             .and_then(Value::as_str)
             .ok_or(LatticeKindError::MissingSubjectField {
-            cell_family: "cx.component.agent.key.v1",
+            cell_family: "ck.component.agent.key.v1",
             field: "agent_principal_id",
         })?;
         let key_id = effect_payload.get("key_id").and_then(Value::as_str).ok_or(
             LatticeKindError::MissingSubjectField {
-                cell_family: "cx.component.agent.key.v1",
+                cell_family: "ck.component.agent.key.v1",
                 field: "key_id",
             },
         )?;
         Ok(Some(format!("{agent_principal_id}::{key_id}")))
     }
     fn event_kinds(&self) -> &'static [&'static str] {
-        &["cx.agent.key.authorize", "cx.agent.key.revoke", "cx.agent.key.rotate"]
+        &["ck.agent.key.authorize", "ck.agent.key.revoke", "ck.agent.key.rotate"]
     }
 }
 
@@ -477,7 +477,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.policy"]
+    &["ck.realm.policy"]
 );
 
 singleton_lattice!(
@@ -486,7 +486,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.read_receipt_policy"]
+    &["ck.realm.read_receipt_policy"]
 );
 
 singleton_lattice!(
@@ -495,7 +495,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.history_visibility"]
+    &["ck.realm.history_visibility"]
 );
 
 singleton_lattice!(
@@ -504,7 +504,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.join_rule"]
+    &["ck.realm.join_rule"]
 );
 
 singleton_lattice!(
@@ -513,7 +513,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.discovery"]
+    &["ck.realm.discovery"]
 );
 
 singleton_lattice!(
@@ -522,7 +522,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.organization", "cx.realm.update"]
+    &["ck.realm.organization", "ck.realm.update"]
 );
 
 singleton_lattice!(
@@ -531,7 +531,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.upgrade"]
+    &["ck.realm.upgrade"]
 );
 
 singleton_lattice!(
@@ -540,7 +540,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.archive"]
+    &["ck.realm.archive"]
 );
 
 singleton_lattice!(
@@ -549,7 +549,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.freeze"]
+    &["ck.realm.freeze"]
 );
 
 singleton_lattice!(
@@ -558,7 +558,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.tombstone"]
+    &["ck.realm.tombstone"]
 );
 
 singleton_lattice!(
@@ -567,16 +567,16 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.destroy"]
+    &["ck.realm.destroy"]
 );
 
 singleton_lattice!(
     CircleTombstone,
-    "cx.component.circle.tombstone.v1",
+    "ck.component.circle.tombstone.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.circle.tombstone"]
+    &["ck.circle.tombstone"]
 );
 
 singleton_lattice!(
@@ -585,7 +585,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.moderation_policy"]
+    &["ck.realm.moderation_policy"]
 );
 
 singleton_lattice!(
@@ -594,7 +594,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.history_sharing_policy"]
+    &["ck.realm.history_sharing_policy"]
 );
 
 singleton_lattice!(
@@ -603,7 +603,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.asset_privacy_policy"]
+    &["ck.realm.asset_privacy_policy"]
 );
 
 singleton_lattice!(
@@ -612,7 +612,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.policy_components"]
+    &["ck.realm.policy_components"]
 );
 
 singleton_lattice!(
@@ -621,7 +621,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.policy_server"]
+    &["ck.realm.policy_server"]
 );
 
 singleton_lattice!(
@@ -630,7 +630,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.plaintext_visible_services"]
+    &["ck.realm.plaintext_visible_services"]
 );
 
 singleton_lattice!(
@@ -639,7 +639,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.media_service"]
+    &["ck.realm.media_service"]
 );
 
 singleton_lattice!(
@@ -648,7 +648,7 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.schema"]
+    &["ck.realm.schema"]
 );
 
 singleton_lattice!(
@@ -657,37 +657,37 @@ singleton_lattice!(
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.inheritance_policy"]
+    &["ck.realm.inheritance_policy"]
 );
 
 per_subject_lattice!(
     FlowPosition,
-    "cx.component.flow.position.v1",
+    "ck.component.flow.position.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
     "flow_id",
-    &["cx.flow.move", "cx.flow.reorder"]
+    &["ck.flow.move", "ck.flow.reorder"]
 );
 
 per_subject_lattice!(
     FlowStage,
-    "cx.component.flow.stage.v1",
+    "ck.component.flow.stage.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
     "flow_id",
-    &["cx.flow.stage.set"]
+    &["ck.flow.stage.set"]
 );
 
 per_subject_lattice!(
     MorphStage,
-    "cx.component.morph.stage.v1",
+    "ck.component.morph.stage.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
     "morph_id",
-    &["cx.morph.stage.set"]
+    &["ck.morph.stage.set"]
 );
 
 // Flow notification subscription cell, keyed by (flow_id, watcher_actor_id).
@@ -699,7 +699,7 @@ per_subject_lattice!(
 pub struct FlowWatch;
 impl LatticeKind for FlowWatch {
     fn cell_family(&self) -> &'static str {
-        "cx.component.flow.watch.v1"
+        "ck.component.flow.watch.v1"
     }
     fn lattice(&self) -> SdkLatticeKind {
         SdkLatticeKind::CasRegister
@@ -709,7 +709,7 @@ impl LatticeKind for FlowWatch {
     }
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
-            component_type: "cx.component.flow.watch.v1",
+            component_type: "ck.component.flow.watch.v1",
             component_version: 1,
             criticality: Criticality::Required,
         }
@@ -720,7 +720,7 @@ impl LatticeKind for FlowWatch {
     ) -> Result<Option<String>, LatticeKindError> {
         let flow_id = effect_payload.get("flow_id").and_then(Value::as_str).ok_or(
             LatticeKindError::MissingSubjectField {
-                cell_family: "cx.component.flow.watch.v1",
+                cell_family: "ck.component.flow.watch.v1",
                 field: "flow_id",
             },
         )?;
@@ -728,29 +728,29 @@ impl LatticeKind for FlowWatch {
             .get("watcher_actor_id")
             .and_then(Value::as_str)
             .ok_or(LatticeKindError::MissingSubjectField {
-                cell_family: "cx.component.flow.watch.v1",
+                cell_family: "ck.component.flow.watch.v1",
                 field: "watcher_actor_id",
             })?;
         Ok(Some(format!("{flow_id}::{watcher_actor_id}")))
     }
     fn event_kinds(&self) -> &'static [&'static str] {
-        &["cx.flow.watch.set"]
+        &["ck.flow.watch.set"]
     }
 }
 
 per_subject_lattice!(
     CrossSigningPublish,
-    "cx.component.cross_signing.publish.v1",
+    "ck.component.cross_signing.publish.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
     "principal_id",
-    &["cx.cross_signing.publish"]
+    &["ck.cross_signing.publish"]
 );
 
 singleton_lattice!(
     AnchorerCell,
-    "cx.component.anchorer.v1",
+    "ck.component.anchorer.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required
@@ -768,28 +768,28 @@ singleton_lattice!(
 
 per_subject_lattice!(
     MemberState,
-    "cx.component.member.state.v1",
+    "ck.component.member.state.v1",
     SdkLatticeKind::Fsm,
     BottomPolicy::Reject,
     Criticality::Required,
     "actor_id",
-    &["cx.member.state"]
+    &["ck.member.state"]
 );
 
 per_subject_lattice!(
     AgentStatus,
-    "cx.component.agent.status.v1",
+    "ck.component.agent.status.v1",
     SdkLatticeKind::Fsm,
     BottomPolicy::Reject,
     Criticality::Required,
     "agent_principal_id",
-    &["cx.agent.pause", "cx.agent.resume", "cx.agent.deactivate"]
+    &["ck.agent.pause", "ck.agent.resume", "ck.agent.deactivate"]
 );
 
 pub struct CircleMember;
 impl LatticeKind for CircleMember {
     fn cell_family(&self) -> &'static str {
-        "cx.component.circle.member.v1"
+        "ck.component.circle.member.v1"
     }
     fn lattice(&self) -> SdkLatticeKind {
         SdkLatticeKind::CasRegister
@@ -799,7 +799,7 @@ impl LatticeKind for CircleMember {
     }
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
-            component_type: "cx.component.circle.member.v1",
+            component_type: "ck.component.circle.member.v1",
             component_version: 1,
             criticality: Criticality::Required,
         }
@@ -810,20 +810,20 @@ impl LatticeKind for CircleMember {
     ) -> Result<Option<String>, LatticeKindError> {
         let circle_id = effect_payload.get("circle_id").and_then(Value::as_str).ok_or(
             LatticeKindError::MissingSubjectField {
-                cell_family: "cx.component.circle.member.v1",
+                cell_family: "ck.component.circle.member.v1",
                 field: "circle_id",
             },
         )?;
         let actor_id = effect_payload.get("actor_id").and_then(Value::as_str).ok_or(
             LatticeKindError::MissingSubjectField {
-                cell_family: "cx.component.circle.member.v1",
+                cell_family: "ck.component.circle.member.v1",
                 field: "actor_id",
             },
         )?;
         Ok(Some(format!("{circle_id}::{actor_id}")))
     }
     fn event_kinds(&self) -> &'static [&'static str] {
-        &["cx.circle.member.state"]
+        &["ck.circle.member.state"]
     }
 }
 
@@ -835,7 +835,7 @@ singleton_lattice!(
     SdkLatticeKind::OrderedLog,
     BottomPolicy::Expose,
     Criticality::Required,
-    &["cx.space.create"]
+    &["ck.space.create"]
 );
 
 singleton_lattice!(
@@ -849,61 +849,61 @@ singleton_lattice!(
 
 singleton_lattice!(
     CircleCreate,
-    "cx.component.circle.create.v1",
+    "ck.component.circle.create.v1",
     SdkLatticeKind::OrderedLog,
     BottomPolicy::Expose,
     Criticality::Required,
-    &["cx.circle.create"]
+    &["ck.circle.create"]
 );
 
-// R1.2 — spec event-kind registry declares `cx.component.space.parent.v1`
+// R1.2 — spec event-kind registry declares `ck.component.space.parent.v1`
 // as `cas-register/reject` keyed by `payload.space_id`. The legacy
 // `OrderedLog` declaration here predates the registry rev and was caught
 // by `artifact_cell_family_lattice_and_bottom_drift_test`.
 per_subject_lattice!(
     SpaceParent,
-    "cx.component.space.parent.v1",
+    "ck.component.space.parent.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
     "space_id",
-    &["cx.space.parent"]
+    &["ck.space.parent"]
 );
 
 per_subject_lattice!(
     AccountStatus,
-    "cx.component.account.status.v1",
+    "ck.component.account.status.v1",
     SdkLatticeKind::OrderedLog,
     BottomPolicy::Expose,
     Criticality::Required,
     "account_id",
-    &["cx.account.status"]
+    &["ck.account.status"]
 );
 
 per_subject_lattice!(
     PolicyRule,
-    "cx.component.policy.rule.v1",
+    "ck.component.policy.rule.v1",
     SdkLatticeKind::OrderedLog,
     BottomPolicy::Expose,
     Criticality::Required,
     "rule_id",
-    &["cx.policy.rule"]
+    &["ck.policy.rule"]
 );
 
 per_subject_lattice!(
     CrossSigningReset,
-    "cx.component.cross_signing.reset.v1",
+    "ck.component.cross_signing.reset.v1",
     SdkLatticeKind::OrderedLog,
     BottomPolicy::Reject,
     Criticality::Required,
     "principal_id",
-    &["cx.cross_signing.reset"]
+    &["ck.cross_signing.reset"]
 );
 
 pub struct MemberIdentity;
 impl LatticeKind for MemberIdentity {
     fn cell_family(&self) -> &'static str {
-        "cx.component.member.identity.v1"
+        "ck.component.member.identity.v1"
     }
     fn lattice(&self) -> SdkLatticeKind {
         SdkLatticeKind::OrderedLog
@@ -913,7 +913,7 @@ impl LatticeKind for MemberIdentity {
     }
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
-            component_type: "cx.component.member.identity.v1",
+            component_type: "ck.component.member.identity.v1",
             component_version: 1,
             criticality: Criticality::Required,
         }
@@ -924,26 +924,26 @@ impl LatticeKind for MemberIdentity {
     ) -> Result<Option<String>, LatticeKindError> {
         let realm_id = effect_payload.get("realm_id").and_then(Value::as_str).ok_or(
             LatticeKindError::MissingSubjectField {
-                cell_family: "cx.component.member.identity.v1",
+                cell_family: "ck.component.member.identity.v1",
                 field: "realm_id",
             },
         )?;
         let actor_id = effect_payload.get("actor_id").and_then(Value::as_str).ok_or(
             LatticeKindError::MissingSubjectField {
-                cell_family: "cx.component.member.identity.v1",
+                cell_family: "ck.component.member.identity.v1",
                 field: "actor_id",
             },
         )?;
         let segment = effect_payload.get("segment").and_then(Value::as_str).ok_or(
             LatticeKindError::MissingSubjectField {
-                cell_family: "cx.component.member.identity.v1",
+                cell_family: "ck.component.member.identity.v1",
                 field: "segment",
             },
         )?;
         Ok(Some(format!("{realm_id}::{actor_id}::{segment}")))
     }
     fn event_kinds(&self) -> &'static [&'static str] {
-        &["cx.member.identity.update"]
+        &["ck.member.identity.update"]
     }
 }
 
@@ -951,52 +951,52 @@ impl LatticeKind for MemberIdentity {
 
 per_subject_lattice!(
     ProfileCreate,
-    "cx.component.profile.create.v1",
+    "ck.component.profile.create.v1",
     SdkLatticeKind::MvRegister,
     BottomPolicy::Expose,
     Criticality::Required,
     "actor_id",
-    &["cx.profile.create", "cx.profile.update"]
+    &["ck.profile.create", "ck.profile.update"]
 );
 
 per_subject_lattice!(
     ViewCreate,
-    "cx.component.view.create.v1",
+    "ck.component.view.create.v1",
     SdkLatticeKind::MvRegister,
     BottomPolicy::Expose,
     Criticality::Required,
     "view_id",
-    &["cx.view.create"]
+    &["ck.view.create"]
 );
 
 per_subject_lattice!(
     ViewUpdate,
-    "cx.component.view.update.v1",
+    "ck.component.view.update.v1",
     SdkLatticeKind::MvRegister,
     BottomPolicy::Expose,
     Criticality::Required,
     "view_id",
-    &["cx.view.update"]
+    &["ck.view.update"]
 );
 
 per_subject_lattice!(
     ViewReconcile,
-    "cx.component.view.reconcile.v1",
+    "ck.component.view.reconcile.v1",
     SdkLatticeKind::MvRegister,
     BottomPolicy::Expose,
     Criticality::Required,
     "view_id",
-    &["cx.view.reconcile"]
+    &["ck.view.reconcile"]
 );
 
 per_subject_lattice!(
     MimiRoomBinding,
-    "cx.component.mimi.room_binding.v1",
+    "ck.component.mimi.room_binding.v1",
     SdkLatticeKind::MvRegister,
     BottomPolicy::Expose,
     Criticality::Required,
     "room_id",
-    &["cx.mimi.room_binding"]
+    &["ck.mimi.room_binding"]
 );
 
 // ─────────── Realm-rename + spec-new families (R1.2) ───────────
@@ -1004,9 +1004,9 @@ per_subject_lattice!(
 // The spec event-kind registry has renamed the realm-scoped policy /
 // lifecycle cell families from `cx.component.space.*` to
 // `cx.component.realm.*` (per `cokret-spec/spec/v1/zh/models/realm-and-space.md`).
-// Two brand-new flow-shape families (`cx.component.flow.metadata.v1`,
-// `cx.component.flow.tracks.v1`) and one cross-realm linking family
-// (`cx.component.realm.link.v1`) also landed in the same rev.
+// Two brand-new flow-shape families (`ck.component.flow.metadata.v1`,
+// `ck.component.flow.tracks.v1`) and one cross-realm linking family
+// (`ck.component.realm.link.v1`) also landed in the same rev.
 //
 // These impls are registered AFTER the legacy `Space*` impls in
 // `default_lattice_registry()` so the event_kind index — which is
@@ -1020,224 +1020,224 @@ per_subject_lattice!(
 
 singleton_lattice!(
     RealmPolicy,
-    "cx.component.realm.policy.v1",
+    "ck.component.realm.policy.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.policy"]
+    &["ck.realm.policy"]
 );
 
 singleton_lattice!(
     RealmReadReceiptPolicy,
-    "cx.component.realm.read_receipt_policy.v1",
+    "ck.component.realm.read_receipt_policy.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.read_receipt_policy"]
+    &["ck.realm.read_receipt_policy"]
 );
 
 singleton_lattice!(
     RealmHistoryVisibility,
-    "cx.component.realm.history_visibility.v1",
+    "ck.component.realm.history_visibility.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.history_visibility"]
+    &["ck.realm.history_visibility"]
 );
 
 singleton_lattice!(
     RealmJoinRule,
-    "cx.component.realm.join_rule.v1",
+    "ck.component.realm.join_rule.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.join_rule"]
+    &["ck.realm.join_rule"]
 );
 
 singleton_lattice!(
     RealmDiscovery,
-    "cx.component.realm.discovery.v1",
+    "ck.component.realm.discovery.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.discovery"]
+    &["ck.realm.discovery"]
 );
 
 singleton_lattice!(
     RealmOrganization,
-    "cx.component.realm.organization.v1",
+    "ck.component.realm.organization.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.organization"]
+    &["ck.realm.organization"]
 );
 
 singleton_lattice!(
     RealmArchive,
-    "cx.component.realm.archive.v1",
+    "ck.component.realm.archive.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.archive"]
+    &["ck.realm.archive"]
 );
 
 singleton_lattice!(
     RealmFreeze,
-    "cx.component.realm.freeze.v1",
+    "ck.component.realm.freeze.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.freeze"]
+    &["ck.realm.freeze"]
 );
 
 singleton_lattice!(
     RealmTombstone,
-    "cx.component.realm.tombstone.v1",
+    "ck.component.realm.tombstone.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.tombstone"]
+    &["ck.realm.tombstone"]
 );
 
 singleton_lattice!(
     RealmDestroy,
-    "cx.component.realm.destroy.v1",
+    "ck.component.realm.destroy.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.destroy"]
+    &["ck.realm.destroy"]
 );
 
 singleton_lattice!(
     RealmModerationPolicy,
-    "cx.component.realm.moderation_policy.v1",
+    "ck.component.realm.moderation_policy.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.moderation_policy"]
+    &["ck.realm.moderation_policy"]
 );
 
 singleton_lattice!(
     RealmHistorySharingPolicy,
-    "cx.component.realm.history_sharing_policy.v1",
+    "ck.component.realm.history_sharing_policy.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.history_sharing_policy"]
+    &["ck.realm.history_sharing_policy"]
 );
 
 singleton_lattice!(
     RealmPreviewPolicy,
-    "cx.component.realm.preview_policy.v1",
+    "ck.component.realm.preview_policy.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.preview_policy"]
+    &["ck.realm.preview_policy"]
 );
 
 singleton_lattice!(
     RealmAssetPrivacyPolicy,
-    "cx.component.realm.asset_privacy_policy.v1",
+    "ck.component.realm.asset_privacy_policy.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.asset_privacy_policy"]
+    &["ck.realm.asset_privacy_policy"]
 );
 
 singleton_lattice!(
     RealmPolicyComponents,
-    "cx.component.realm.policy_components.v1",
+    "ck.component.realm.policy_components.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.policy_components"]
+    &["ck.realm.policy_components"]
 );
 
 singleton_lattice!(
     RealmPolicyServer,
-    "cx.component.realm.policy_server.v1",
+    "ck.component.realm.policy_server.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.policy_server"]
+    &["ck.realm.policy_server"]
 );
 
 singleton_lattice!(
     RealmPlaintextVisibleServices,
-    "cx.component.realm.plaintext_visible_services.v1",
+    "ck.component.realm.plaintext_visible_services.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.plaintext_visible_services"]
+    &["ck.realm.plaintext_visible_services"]
 );
 
 singleton_lattice!(
     RealmMediaService,
-    "cx.component.realm.media_service.v1",
+    "ck.component.realm.media_service.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.media_service"]
+    &["ck.realm.media_service"]
 );
 
 singleton_lattice!(
     RealmSchema,
-    "cx.component.realm.schema.v1",
+    "ck.component.realm.schema.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.schema"]
+    &["ck.realm.schema"]
 );
 
 singleton_lattice!(
     RealmDeliveryBindingPolicy,
-    "cx.component.realm.delivery_binding_policy.v1",
+    "ck.component.realm.delivery_binding_policy.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
-    &["cx.realm.delivery_binding_policy"]
+    &["ck.realm.delivery_binding_policy"]
 );
 
 // ── Realm CasRegister/Reject per-subject families ──
 
 per_subject_lattice!(
     RealmInheritancePolicy,
-    "cx.component.realm.inheritance_policy.v1",
+    "ck.component.realm.inheritance_policy.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
     "source_realm_id",
-    &["cx.realm.inheritance_policy"]
+    &["ck.realm.inheritance_policy"]
 );
 
 per_subject_lattice!(
     RealmUpgrade,
-    "cx.component.realm.upgrade.v1",
+    "ck.component.realm.upgrade.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
     "target_reducer_profile",
-    &["cx.realm.upgrade"]
+    &["ck.realm.upgrade"]
 );
 
 // ── Realm OrderedLog/Expose families ──
 
 singleton_lattice!(
     RealmCreate,
-    "cx.component.realm.create.v1",
+    "ck.component.realm.create.v1",
     SdkLatticeKind::OrderedLog,
     BottomPolicy::Expose,
     Criticality::Required,
-    &["cx.realm.create"]
+    &["ck.realm.create"]
 );
 
 singleton_lattice!(
     RealmLink,
-    "cx.component.realm.link.v1",
+    "ck.component.realm.link.v1",
     SdkLatticeKind::OrderedLog,
     BottomPolicy::Expose,
     Criticality::Required,
-    &["cx.realm.link"]
+    &["ck.realm.link"]
 );
 
 // ── New Flow facet families (per-subject by Flow id) ──
@@ -1245,7 +1245,7 @@ singleton_lattice!(
 pub struct FlowMetadata;
 impl LatticeKind for FlowMetadata {
     fn cell_family(&self) -> &'static str {
-        "cx.component.flow.metadata.v1"
+        "ck.component.flow.metadata.v1"
     }
     fn lattice(&self) -> SdkLatticeKind {
         SdkLatticeKind::CasRegister
@@ -1255,7 +1255,7 @@ impl LatticeKind for FlowMetadata {
     }
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
-            component_type: "cx.component.flow.metadata.v1",
+            component_type: "ck.component.flow.metadata.v1",
             component_version: 1,
             criticality: Criticality::Required,
         }
@@ -1270,23 +1270,23 @@ impl LatticeKind for FlowMetadata {
             .and_then(Value::as_str)
             .map(|s| Some(s.to_owned()))
             .ok_or(LatticeKindError::MissingSubjectField {
-                cell_family: "cx.component.flow.metadata.v1",
+                cell_family: "ck.component.flow.metadata.v1",
                 field: "target_ref",
             })
     }
     fn event_kinds(&self) -> &'static [&'static str] {
-        &["cx.flow.update"]
+        &["ck.flow.update"]
     }
 }
 
 per_subject_lattice!(
     FlowTracks,
-    "cx.component.flow.tracks.v1",
+    "ck.component.flow.tracks.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
     "flow_id",
-    &["cx.flow.tracks.update"]
+    &["ck.flow.tracks.update"]
 );
 
 // ───────────────────────── Factory ─────────────────────────
@@ -1408,14 +1408,14 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
     let registry = default_lattice_registry();
     const FAMILIES: &[&str] = &[
         // OrSet
-        "cx.component.consent.grant.v1",
-        "cx.component.capability.grant.v1",
-        "cx.component.capability.delegate.v1",
-        "cx.component.capability.derived.v1",
-        "cx.component.session.grant.v1",
-        "cx.component.device.authorization.v1",
-        "cx.component.device.list_update.v1",
-        "cx.component.agent.key.v1",
+        "ck.component.consent.grant.v1",
+        "ck.component.capability.grant.v1",
+        "ck.component.capability.delegate.v1",
+        "ck.component.capability.derived.v1",
+        "ck.component.session.grant.v1",
+        "ck.component.device.authorization.v1",
+        "ck.component.device.list_update.v1",
+        "ck.component.agent.key.v1",
         "cx.component.mls.covered_frontier.v1",
         // CasRegister
         "cx.component.space.policy.v1",
@@ -1429,8 +1429,8 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "cx.component.space.freeze.v1",
         "cx.component.space.tombstone.v1",
         "cx.component.space.destroy.v1",
-        "cx.component.circle.tombstone.v1",
-        "cx.component.circle.member.v1",
+        "ck.component.circle.tombstone.v1",
+        "ck.component.circle.member.v1",
         "cx.component.space.moderation_policy.v1",
         "cx.component.space.history_sharing_policy.v1",
         "cx.component.space.asset_privacy_policy.v1",
@@ -1440,58 +1440,58 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "cx.component.space.media_service.v1",
         "cx.component.space.schema.v1",
         "cx.component.space.inheritance_policy.v1",
-        "cx.component.flow.position.v1",
-        "cx.component.flow.stage.v1",
-        "cx.component.morph.stage.v1",
-        "cx.component.flow.watch.v1",
-        "cx.component.cross_signing.publish.v1",
-        "cx.component.anchorer.v1",
+        "ck.component.flow.position.v1",
+        "ck.component.flow.stage.v1",
+        "ck.component.morph.stage.v1",
+        "ck.component.flow.watch.v1",
+        "ck.component.cross_signing.publish.v1",
+        "ck.component.anchorer.v1",
         "cx.component.mls.epoch.v1",
         // Fsm
-        "cx.component.member.state.v1",
-        "cx.component.agent.status.v1",
+        "ck.component.member.state.v1",
+        "ck.component.agent.status.v1",
         // OrderedLog
         "cx.component.space.create.v1",
         "cx.component.space.child.v1",
-        "cx.component.circle.create.v1",
-        "cx.component.space.parent.v1",
-        "cx.component.account.status.v1",
-        "cx.component.policy.rule.v1",
-        "cx.component.cross_signing.reset.v1",
-        "cx.component.member.identity.v1",
+        "ck.component.circle.create.v1",
+        "ck.component.space.parent.v1",
+        "ck.component.account.status.v1",
+        "ck.component.policy.rule.v1",
+        "ck.component.cross_signing.reset.v1",
+        "ck.component.member.identity.v1",
         // MvRegister
-        "cx.component.profile.create.v1",
-        "cx.component.view.create.v1",
-        "cx.component.view.update.v1",
-        "cx.component.view.reconcile.v1",
-        "cx.component.mimi.room_binding.v1",
+        "ck.component.profile.create.v1",
+        "ck.component.view.create.v1",
+        "ck.component.view.update.v1",
+        "ck.component.view.reconcile.v1",
+        "ck.component.mimi.room_binding.v1",
         // R1.2 — Realm-rename + spec-new flow facet families.
-        "cx.component.realm.policy.v1",
-        "cx.component.realm.read_receipt_policy.v1",
-        "cx.component.realm.history_visibility.v1",
-        "cx.component.realm.join_rule.v1",
-        "cx.component.realm.discovery.v1",
-        "cx.component.realm.organization.v1",
-        "cx.component.realm.archive.v1",
-        "cx.component.realm.freeze.v1",
-        "cx.component.realm.tombstone.v1",
-        "cx.component.realm.destroy.v1",
-        "cx.component.realm.moderation_policy.v1",
-        "cx.component.realm.history_sharing_policy.v1",
-        "cx.component.realm.preview_policy.v1",
-        "cx.component.realm.asset_privacy_policy.v1",
-        "cx.component.realm.policy_components.v1",
-        "cx.component.realm.policy_server.v1",
-        "cx.component.realm.plaintext_visible_services.v1",
-        "cx.component.realm.media_service.v1",
-        "cx.component.realm.schema.v1",
-        "cx.component.realm.delivery_binding_policy.v1",
-        "cx.component.realm.inheritance_policy.v1",
-        "cx.component.realm.upgrade.v1",
-        "cx.component.realm.create.v1",
-        "cx.component.realm.link.v1",
-        "cx.component.flow.metadata.v1",
-        "cx.component.flow.tracks.v1",
+        "ck.component.realm.policy.v1",
+        "ck.component.realm.read_receipt_policy.v1",
+        "ck.component.realm.history_visibility.v1",
+        "ck.component.realm.join_rule.v1",
+        "ck.component.realm.discovery.v1",
+        "ck.component.realm.organization.v1",
+        "ck.component.realm.archive.v1",
+        "ck.component.realm.freeze.v1",
+        "ck.component.realm.tombstone.v1",
+        "ck.component.realm.destroy.v1",
+        "ck.component.realm.moderation_policy.v1",
+        "ck.component.realm.history_sharing_policy.v1",
+        "ck.component.realm.preview_policy.v1",
+        "ck.component.realm.asset_privacy_policy.v1",
+        "ck.component.realm.policy_components.v1",
+        "ck.component.realm.policy_server.v1",
+        "ck.component.realm.plaintext_visible_services.v1",
+        "ck.component.realm.media_service.v1",
+        "ck.component.realm.schema.v1",
+        "ck.component.realm.delivery_binding_policy.v1",
+        "ck.component.realm.inheritance_policy.v1",
+        "ck.component.realm.upgrade.v1",
+        "ck.component.realm.create.v1",
+        "ck.component.realm.link.v1",
+        "ck.component.flow.metadata.v1",
+        "ck.component.flow.tracks.v1",
     ];
     FAMILIES
         .iter()
@@ -1522,7 +1522,7 @@ pub fn build_sdk_cell_registry() -> MemoryCellRegistry {
         sdk_registry.register(family, kind, bottom_mode);
     }
     sdk_registry.register_fsm(
-        "cx.component.member.state.v1",
+        "ck.component.member.state.v1",
         Some(json!("invite")),
         vec![
             (json!("invite"), json!("join")),
@@ -1539,7 +1539,7 @@ pub fn build_sdk_cell_registry() -> MemoryCellRegistry {
         BottomMode::Reject,
     );
     sdk_registry.register_fsm(
-        "cx.component.agent.status.v1",
+        "ck.component.agent.status.v1",
         None,
         vec![
             (json!("active"), json!("paused")),
@@ -1577,10 +1577,10 @@ mod tests {
         // Sanity-check that the move from soland preserved every
         // family. Bumped to 75 after R1.2 — the spec event-kind registry
         // renamed `cx.component.space.*` realm-policy families to
-        // `cx.component.realm.*` and added `cx.component.flow.metadata.v1`,
-        // `cx.component.flow.tracks.v1`, `cx.component.realm.link.v1`,
-        // `cx.component.realm.create.v1`, `cx.component.realm.destroy.v1`,
-        // `cx.component.realm.delivery_binding_policy.v1`. We keep the
+        // `cx.component.realm.*` and added `ck.component.flow.metadata.v1`,
+        // `ck.component.flow.tracks.v1`, `ck.component.realm.link.v1`,
+        // `ck.component.realm.create.v1`, `ck.component.realm.destroy.v1`,
+        // `ck.component.realm.delivery_binding_policy.v1`. We keep the
         // legacy `Space*` impls registered for reducer back-compat, so
         // 49 (legacy) + 28 (new realm/flow/morph/agent) - 4 withdrawn
         // agent extension vectors families, plus agent status, Circle, and
@@ -1594,7 +1594,7 @@ mod tests {
     #[test]
     fn consent_grant_has_or_set_lattice_and_consent_id_subject() {
         let registry = default_lattice_registry();
-        let kind = registry.lookup("cx.component.consent.grant.v1").unwrap();
+        let kind = registry.lookup("ck.component.consent.grant.v1").unwrap();
         assert_eq!(kind.lattice(), SdkLatticeKind::OrSet);
         assert_eq!(kind.bottom_policy(), BottomPolicy::Reject);
         let payload = json!({"consent_id": "cnt:01HXYZ"});
@@ -1605,7 +1605,7 @@ mod tests {
     #[test]
     fn member_state_uses_fsm_lattice_with_actor_subject() {
         let registry = default_lattice_registry();
-        let kind = registry.lookup("cx.component.member.state.v1").unwrap();
+        let kind = registry.lookup("ck.component.member.state.v1").unwrap();
         assert_eq!(kind.lattice(), SdkLatticeKind::Fsm);
         let payload = json!({"actor_id": "did:example:alice"});
         let subject = kind.subject_for_effect(&payload).unwrap();
@@ -1624,12 +1624,12 @@ mod tests {
     #[test]
     fn anchorer_cell_is_singleton_cas_register_and_required() {
         let registry = default_lattice_registry();
-        let kind = registry.lookup("cx.component.anchorer.v1").unwrap();
+        let kind = registry.lookup("ck.component.anchorer.v1").unwrap();
         assert_eq!(kind.lattice(), SdkLatticeKind::CasRegister);
         assert_eq!(kind.bottom_policy(), BottomPolicy::Reject);
         let comp = kind.component();
         assert_eq!(comp.criticality, Criticality::Required);
-        assert_eq!(comp.component_type, "cx.component.anchorer.v1");
+        assert_eq!(comp.component_type, "ck.component.anchorer.v1");
     }
 
     #[test]
@@ -1645,11 +1645,11 @@ mod tests {
     fn mv_register_families_have_expose_bottom() {
         let registry = default_lattice_registry();
         for family in [
-            "cx.component.profile.create.v1",
-            "cx.component.view.create.v1",
-            "cx.component.view.update.v1",
-            "cx.component.view.reconcile.v1",
-            "cx.component.mimi.room_binding.v1",
+            "ck.component.profile.create.v1",
+            "ck.component.view.create.v1",
+            "ck.component.view.update.v1",
+            "ck.component.view.reconcile.v1",
+            "ck.component.mimi.room_binding.v1",
         ] {
             let kind =
                 registry.lookup(family).unwrap_or_else(|| panic!("missing impl for {family}"));
@@ -1667,7 +1667,7 @@ mod tests {
         let registry = default_lattice_registry();
         let kind = registry.lookup("cx.component.space.create.v1").unwrap();
         assert_eq!(kind.lattice(), SdkLatticeKind::OrderedLog);
-        let kind = registry.lookup("cx.component.account.status.v1").unwrap();
+        let kind = registry.lookup("ck.component.account.status.v1").unwrap();
         assert_eq!(kind.lattice(), SdkLatticeKind::OrderedLog);
         let payload = json!({"account_id": "act:01HXYZ"});
         let subject = kind.subject_for_effect(&payload).unwrap();
@@ -1677,11 +1677,11 @@ mod tests {
     #[test]
     fn missing_subject_field_surfaces_typed_error() {
         let registry = default_lattice_registry();
-        let kind = registry.lookup("cx.component.flow.position.v1").unwrap();
+        let kind = registry.lookup("ck.component.flow.position.v1").unwrap();
         let err = kind.subject_for_effect(&json!({"unrelated": "x"})).unwrap_err();
         match err {
             LatticeKindError::MissingSubjectField { cell_family, field } => {
-                assert_eq!(cell_family, "cx.component.flow.position.v1");
+                assert_eq!(cell_family, "ck.component.flow.position.v1");
                 assert_eq!(field, "flow_id");
             }
             other => panic!("unexpected error: {other:?}"),
@@ -1692,23 +1692,23 @@ mod tests {
     fn event_kind_index_resolves_consent_grant_and_revoke() {
         let registry = default_lattice_registry();
         let grant = registry
-            .lookup_for_event_kind("cx.consent.grant")
-            .expect("cx.consent.grant should map to consent.grant.v1 cell");
-        assert_eq!(grant.cell_family(), "cx.component.consent.grant.v1");
+            .lookup_for_event_kind("ck.consent.grant")
+            .expect("ck.consent.grant should map to consent.grant.v1 cell");
+        assert_eq!(grant.cell_family(), "ck.component.consent.grant.v1");
         let revoke = registry
-            .lookup_for_event_kind("cx.consent.revoke")
-            .expect("cx.consent.revoke shares the consent.grant.v1 cell (or-set rm)");
-        assert_eq!(revoke.cell_family(), "cx.component.consent.grant.v1");
+            .lookup_for_event_kind("ck.consent.revoke")
+            .expect("ck.consent.revoke shares the consent.grant.v1 cell (or-set rm)");
+        assert_eq!(revoke.cell_family(), "ck.component.consent.grant.v1");
     }
 
     #[test]
     fn lattice_kind_error_display_is_stable() {
         let err = LatticeKindError::MissingSubjectField {
-            cell_family: "cx.component.flow.position.v1",
+            cell_family: "ck.component.flow.position.v1",
             field: "flow_id",
         };
         let msg = format!("{err}");
-        assert!(msg.contains("cx.component.flow.position.v1"));
+        assert!(msg.contains("ck.component.flow.position.v1"));
         assert!(msg.contains("flow_id"));
     }
 }

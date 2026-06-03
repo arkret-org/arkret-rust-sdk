@@ -13,7 +13,7 @@
 //! so forward-compatible non-critical extensions round-trip.
 
 use super::*;
-pub use contrix_identifiers::CircleId;
+pub use cokret_identifiers::CircleId;
 
 /// Canonical schema id for `Circle`.
 ///
@@ -144,7 +144,7 @@ pub struct CircleDisplay {
     pub symbol: CircleSymbol,
 }
 
-/// Canonical Circle object — `cx.schema.circle.v1` (CXP-0007).
+/// Canonical Circle object — `ck.schema.circle.v1` (CXP-0007).
 ///
 /// Field order/shape mirrors `spec/v1/artifacts/schemas/circle.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -165,7 +165,7 @@ pub struct Circle {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata_encryption_floor: Option<CircleMetadataEncryptionFloor>,
     pub encryption_profile: EncryptionProfile,
-    /// Reducer-derived; populated by `cx.circle.create` reducer once the
+    /// Reducer-derived; populated by `ck.circle.create` reducer once the
     /// independent MLS group is bound. NOT actor-supplied on wire.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mls_group_ref: Option<String>,
@@ -202,7 +202,7 @@ pub struct Circle {
 ///
 /// Reducers MUST keep these enums separate. In particular: never silently
 /// translate `Tombstoned ↔ Redacted` — Circle lifecycle events
-/// (`cx.circle.tombstone`) and per-object redaction events (`cx.redaction`)
+/// (`ck.circle.tombstone`) and per-object redaction events (`cx.redaction`)
 /// run on independent state machines.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -213,7 +213,7 @@ pub enum CircleState {
 }
 
 /// Per-actor Circle membership state. Mirrors CXP-0007 §3.6
-/// `cx.circle.member.state` `membership` enum.
+/// `ck.circle.member.state` `membership` enum.
 ///
 /// The transition table is encoded in [`validate_member_transition`];
 /// `Active` is the steady-state "this actor is currently in the Circle",
@@ -232,7 +232,7 @@ pub enum CircleMemberState {
 
 impl CircleMemberState {
     /// Wire identifier (snake_case) for this membership state. Mirrors the
-    /// canonical strings in `cx.circle.member.state` payloads.
+    /// canonical strings in `ck.circle.member.state` payloads.
     pub fn as_str(self) -> &'static str {
         match self {
             CircleMemberState::Active => "active",
@@ -244,7 +244,7 @@ impl CircleMemberState {
 }
 
 /// Reducer-pure validator: returns `Ok(())` iff `prev → next` is a legal
-/// `cx.circle.member.state` transition under the parent Circle's
+/// `ck.circle.member.state` transition under the parent Circle's
 /// [`CircleJoinRule`] (CXP-0007 §3.6).
 ///
 /// `prev = None` denotes the `none` pseudo-state — an actor who has never
@@ -561,10 +561,10 @@ pub enum CircleScopeError {
          (reducer reason=circle_member_must_be_realm_member, CXP-0007)"
     )]
     NotStrictSubset,
-    /// `cx.circle.member.state` transition rejected by the
+    /// `ck.circle.member.state` transition rejected by the
     /// [CXP-0007 §3.6 table][validate_member_transition].
     #[error(
-        "illegal cx.circle.member.state transition {from:?} → {to:?}: {reason} \
+        "illegal ck.circle.member.state transition {from:?} → {to:?}: {reason} \
          (CXP-0007 §3.6)"
     )]
     IllegalMemberTransition {

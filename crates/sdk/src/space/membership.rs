@@ -83,7 +83,7 @@ impl Space {
     /// Build an invite operation from a validated
     /// [`MemberDeliveryBindingCandidate`].
     ///
-    /// The candidate MUST come from `cx.directory.resolve_handle(intent="invite")`
+    /// The candidate MUST come from `ck.directory.resolve_handle(intent="invite")`
     /// or a trusted issuer's signed payload. Per `identity-handles.md` §3.7
     /// the SDK only accepts a candidate or an already-materialised
     /// [`MemberDeliveryBinding`] at this entry point. The candidate is
@@ -116,14 +116,14 @@ impl Space {
         Ok(Operation::create(operation_id, self.realm_id()?, OP_INVITE_CREATE, payload))
     }
 
-    /// Build a `member_add` (`cx.member.state{membership=join}`) operation
+    /// Build a `member_add` (`ck.member.state{membership=join}`) operation
     /// from a validated [`MemberDeliveryBindingCandidate`].
     ///
     /// Reducer-side Join Policy still applies (the candidate is *input*,
     /// not authority). On success the payload carries both the typed
     /// candidate (for audit / replay) and a fully constructed
     /// `delivery_binding` so the reducer can land it as
-    /// `cx.member.state{join}.delivery_binding` directly.
+    /// `ck.member.state{join}.delivery_binding` directly.
     pub fn member_add_with_candidate(
         &self,
         candidate: &MemberDeliveryBindingCandidate,
@@ -179,7 +179,7 @@ impl Space {
 
     /// Create a `routable` join operation that carries a concrete
     /// [`MemberDeliveryBinding`]. The binding is serialised onto the
-    /// `cx.member.state{join}` payload under `delivery_binding` per
+    /// `ck.member.state{join}` payload under `delivery_binding` per
     /// `event-payload.schema.json#/$defs/membership_payload`.
     pub fn create_join_with_binding(&self, binding: MemberDeliveryBinding) -> Result<Operation> {
         let session_meta = self

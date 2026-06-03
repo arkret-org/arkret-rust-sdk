@@ -21,11 +21,11 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::push::{PushPriority, PushRule, PushRuleSet, Pusher};
 use chrono::{DateTime, Utc};
-use contrix_core::{
+use cokret_core::{
     BlobRef, DeviceId, Did, EncryptedPayload, Error, EventId, Hash, Hlc, InviteId, Result, SpaceId,
 };
-use contrix_crypto::MediaEncryptionInfo;
-use contrix_html::RichTextDocument;
+use cokret_crypto::MediaEncryptionInfo;
+use cokret_html::RichTextDocument;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -1098,7 +1098,7 @@ impl CallSignalReqBody {
 }
 
 pub mod protocol {
-    pub use contrix_core::{
+    pub use cokret_core::{
         DeviceMessagesReceiveResBody, DeviceMessagesSendReqBody, DeviceMessagesSendResBody,
         KeysClaimReqBody, KeysClaimResBody, KeysQueryReqBody, KeysQueryResBody, KeysUploadReqBody,
         KeysUploadResBody, ModerationReportReqBody, ModerationReportResBody, SyncReqBody,
@@ -1224,7 +1224,7 @@ mod tests {
             rule: PushRule {
                 rule_id: "mention".to_owned(),
                 enabled: true,
-                event_kind: Some("cx.message.create".to_owned()),
+                event_kind: Some("ck.message.create".to_owned()),
                 priority: PushPriority::High,
                 redact_content: true,
             },

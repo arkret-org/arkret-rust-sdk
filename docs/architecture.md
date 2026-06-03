@@ -49,11 +49,11 @@ Transition matrix (informational — soland is canonical):
 
 Operations:
 
-- `cx.agent.pause` — `POST /agents/{agent_principal_id}/pause` — soft stop;
+- `ck.agent.pause` — `POST /agents/{agent_principal_id}/pause` — soft stop;
   outstanding tasks complete, no new tasks accepted.
-- `cx.agent.resume` — `POST /agents/{agent_principal_id}/resume` — reverse of
+- `ck.agent.resume` — `POST /agents/{agent_principal_id}/resume` — reverse of
   pause; rejected if state == Deactivated with `agent_deactivated`.
-- `cx.agent.deactivate` — `POST /agents/{agent_principal_id}/deactivate` —
+- `ck.agent.deactivate` — `POST /agents/{agent_principal_id}/deactivate` —
   terminal. The historical `/revoke` alias was dropped at R3. Validator
   ensures no callers reference `/revoke`.
 
@@ -61,7 +61,7 @@ Errors surfaced on this surface:
 
 - `agent_paused` — write attempted against a paused agent principal.
 - `agent_deactivated` — any write or resume against a deactivated agent.
-- `pairing_request_expired` — `cx.account.agent_key_pair` window elapsed.
+- `pairing_request_expired` — `ck.account.agent_key_pair` window elapsed.
 - `proof_invalid` — pairing proof bytes failed canonical-digest check.
 - `verification_method_principal_mismatch` — DID resolved to a different
   principal than the pairing payload claims.
@@ -70,12 +70,12 @@ Errors surfaced on this surface:
 - `sidecar_create_denied`, `approval_already_consumed` — sidecar thread /
   action-approval edge cases.
 
-The SDK exposes `cx.agent.draft.propose`, `cx.agent.action_request`,
-`cx.agent.action_approve`, `cx.agent.action_reject` as actor-private event
+The SDK exposes `ck.agent.draft.propose`, `ck.agent.action_request`,
+`ck.agent.action_approve`, `ck.agent.action_reject` as actor-private event
 kinds (`reducer_input = false`). These are *not* part of the FSM lattice; they
 ride on the agent's own actor stream.
 
-### Call media (`cx.call.media.token_exchange`)
+### Call media (`ck.call.media.token_exchange`)
 
 The call media surface lets a participant exchange a Cokret call grant for
 a backend-specific media token (LiveKit, Mediasoup, Janus, Cokret-native,
@@ -104,16 +104,16 @@ pub struct MediaTokenResponse {
 }
 ```
 
-`ParticipantBinding` (`scheme = "cx.media.participant_binding.v1"`) carries
+`ParticipantBinding` (`scheme = "ck.media.participant_binding.v1"`) carries
 `sig, issuer_kid, realm_id, call_id, focus_id, actor_id, device_id,
 participant_identity, expires_at`. Verification checks:
 
 1. `issuer_kid` resolves to a known media-token issuer (soland canonical,
-   floria proxying allowed only when `cx.profile.media_service_binding.v1`
+   floria proxying allowed only when `ck.profile.media_service_binding.v1`
    declares so).
 2. `expires_at <= now + 600s` (hard); SDK soft-warns if `> 300s`.
 3. `participant_identity` matches the canonical join string.
-4. `focus_id` is one of the foci advertised by `cx.realm.media_service`.
+4. `focus_id` is one of the foci advertised by `ck.realm.media_service`.
 
 Errors:
 
@@ -151,7 +151,7 @@ pub enum MediaBackendType {
 `Unknown(String)` is preserved on decode so logs are useful, but every
 operational call site invokes `MediaBackendType::reject_if_unknown()` before
 trusting the value. The `cx.profile.media_service_binding.{livekit,
-contrix_native}.v1` profile entries gate which arms a client will negotiate.
+cokret_native}.v1` profile entries gate which arms a client will negotiate.
 
 ### Recovery (policy + receipt)
 
@@ -210,12 +210,12 @@ Error surfaced specifically on this lane:
 
 ## Profiles wired in R3
 
-- `cx.profile.media_service_binding.v1` — generic media-service binding.
-- `cx.profile.media_service_binding.livekit.v1`
-- `cx.profile.media_service_binding.contrix_native.v1`
-- `cx.profile.accountable_principals.strict_reject.v1` — see soland runbook for
+- `ck.profile.media_service_binding.v1` — generic media-service binding.
+- `ck.profile.media_service_binding.livekit.v1`
+- `ck.profile.media_service_binding.cokret_native.v1`
+- `ck.profile.accountable_principals.strict_reject.v1` — see soland runbook for
   operational implications.
-- `cx.profile.stateless_cursor.v1` — feature-gated `stateless_cursor` cargo
+- `ck.profile.stateless_cursor.v1` — feature-gated `stateless_cursor` cargo
   feature; advertised separately from the stateful core wire path.
 
 ## Spec drift coverage (CI)
@@ -229,9 +229,9 @@ the SDK has not declared coverage for. It is informational
 (`continue-on-error: true`), failing only on *hard* drift (entries the SDK
 declares but the spec no longer ships).
 
-R3's new event kinds (`cx.agent.draft.propose`, `cx.agent.action_request`,
-`cx.agent.action_approve`, `cx.agent.action_reject`), new operation
-(`cx.call.media.token_exchange`), and new profiles are all in the SDK's
+R3's new event kinds (`ck.agent.draft.propose`, `ck.agent.action_request`,
+`ck.agent.action_approve`, `ck.agent.action_reject`), new operation
+(`ck.call.media.token_exchange`), and new profiles are all in the SDK's
 declared-coverage set, so the drift report runs clean against
 `cokret-spec @ b47ff6ec`.
 
@@ -240,8 +240,8 @@ runbook for adding it back is:
 
 1. Add a `spec-drift` job to `.github/workflows/ci.yml` with
    `continue-on-error: true` initially.
-2. Check out `cokret-dev/cokret-spec` at the SDK's pinned spec SHA into a
-   sibling path; set `CONTRIX_SPEC_ARTIFACTS` to its `spec/v1/artifacts`
+2. Check out `cokret/cokret-spec` at the SDK's pinned spec SHA into a
+   sibling path; set `COKRET_SPEC_ARTIFACTS` to its `spec/v1/artifacts`
    directory.
 3. Invoke `cargo run --example spec_drift_report`. The example crate iterates
    `event-kinds.json`, `operations.json`, `profiles.json` and compares

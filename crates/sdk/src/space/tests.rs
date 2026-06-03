@@ -189,7 +189,7 @@ fn space_queries_searches_and_aggregates_morphs() {
                             "space_id": space_id.as_str(),
                             "morph_type": "task",
                             "metadata": {"title": "Alpha task"},
-                            "content": {"kind": "cx.content.text", "body": "implement local search"},
+                            "content": {"kind": "ck.content.text", "body": "implement local search"},
                             "fields": {"status": "todo", "priority": 2},
                             "created_by": "did:web:alice.example.com",
                             "created_at": "2026-05-02T00:00:00.000Z"
@@ -419,33 +419,33 @@ fn space_provides_message_membership_and_media_convenience_helpers() {
     let bob = Did::new("did:web:bob.example.com").unwrap();
 
     let text = space.send_text("hello").unwrap();
-    assert_eq!(text.object_type, "cx.message.create");
+    assert_eq!(text.object_type, "ck.message.create");
     assert_eq!(text.payload["content"]["body"], "hello");
 
     let message_id = MessageId::new(text.payload["message_id"].as_str().unwrap()).unwrap();
     let edit = space.edit_message(message_id.clone(), json!({"body": "updated"})).unwrap();
-    assert_eq!(edit.object_type, "cx.message.revise");
+    assert_eq!(edit.object_type, "ck.message.revise");
     assert_eq!(edit.object_id, Some(message_id.as_str().to_owned()));
 
     let redact = space.redact_message(message_id, Some("cleanup".to_owned())).unwrap();
     assert_eq!(redact.operation_type, OperationType::Redact);
 
     let join = space.join_space().unwrap();
-    assert_eq!(join.object_type, "cx.member.state");
+    assert_eq!(join.object_type, "ck.member.state");
     assert_eq!(base_client.get_space(&space_id).unwrap().state, SpaceStateType::Joined);
 
     let leave = space.leave_space().unwrap();
-    assert_eq!(leave.object_type, "cx.member.state");
+    assert_eq!(leave.object_type, "ck.member.state");
     assert_eq!(base_client.get_space(&space_id).unwrap().state, SpaceStateType::Left);
 
     #[allow(deprecated)]
     let invite_op = space.invite(bob.clone(), Some("member".to_owned())).unwrap();
-    assert_eq!(invite_op.object_type, "cx.invite.create");
+    assert_eq!(invite_op.object_type, "ck.invite.create");
     assert_eq!(
         space.ban(bob.clone(), Some("spam".to_owned())).unwrap().object_type,
-        "cx.member.state"
+        "ck.member.state"
     );
-    assert_eq!(space.unban(bob).unwrap().object_type, "cx.member.state");
+    assert_eq!(space.unban(bob).unwrap().object_type, "ck.member.state");
 
     let media = space.upload_media(b"bytes", "text/plain", Some("note.txt".to_owned())).unwrap();
     assert_eq!(space.download_media(&media.blob_ref).unwrap(), b"bytes");
@@ -505,7 +505,7 @@ fn member_add_with_candidate_emits_routable_join_with_typed_binding() {
     };
 
     let op = space.member_add_with_candidate(&candidate).unwrap();
-    assert_eq!(op.object_type, "cx.member.state");
+    assert_eq!(op.object_type, "ck.member.state");
     let payload = &op.payload;
     assert_eq!(payload["actor_id"], serde_json::json!(subject));
     assert_eq!(payload["membership"], "join");

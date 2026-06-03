@@ -5,7 +5,7 @@
 //! canonical-JSON + detached-JWS pipelines per Envelope. This module is
 //! the single one-shot entry point: compute the canonical event bytes
 //! (with `proofs` / `unsigned` removed), sign them with the supplied
-//! [`contrix_core::MoveSigner`], and append a [`Proof`] to
+//! [`cokret_core::MoveSigner`], and append a [`Proof`] to
 //! `event.proofs`.
 //!
 //! Per spec `event-and-patch.md` §3 the signing transcript MUST cover,
@@ -19,7 +19,7 @@
 //! `executed_by` and `authorization_ref` are top-level Envelope fields,
 //! so they are already in the canonical event bytes whenever set. The
 //! produced [`Proof`]'s `payload_digest` therefore equals
-//! [`contrix_core::Event::event_digest`]; `domain` and `audience` are
+//! [`cokret_core::Event::event_digest`]; `domain` and `audience` are
 //! bound into the [`Proof`] envelope and validated by
 //! [`Proof::validate_binding`].
 //!
@@ -30,7 +30,7 @@
 
 use chrono::{DateTime, Utc};
 
-use contrix_core::{
+use cokret_core::{
     Audience, Error, Event, Hash, MoveSigner, Proof, Result, canonical, proof_kind,
 };
 
@@ -80,7 +80,7 @@ impl SignEventOptions {
 /// [`Proof::validate_binding`].
 ///
 /// The produced [`Proof::payload_digest`] equals
-/// [`contrix_core::Event::event_digest`].
+/// [`cokret_core::Event::event_digest`].
 ///
 /// Refuses to append if `event.proofs` already contains a [`Proof`]
 /// produced by a different `verification_method` — pass a fresh
@@ -144,7 +144,7 @@ mod tests {
     use chrono::{TimeZone, Utc};
     use serde_json::json;
 
-    use contrix_core::{
+    use cokret_core::{
         Audience, Did, Event, EventId, EventRequirements, Hash, Hlc, MoveSignature, MoveSigner,
         RealmId, Result, UnsignedMove, canonical, move_event::Move,
     };
@@ -168,7 +168,7 @@ mod tests {
     fn make_event() -> Event {
         Event {
             event_id: EventId::new("ck:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
-            kind: "cx.message.create".to_owned(),
+            kind: "ck.message.create".to_owned(),
             realm_id: realm(),
             actor_id: alice(),
             actor_seq: 1,

@@ -5,7 +5,7 @@ use super::*;
 // ── Space lifecycle payloads ────────────────────────────────────────────
 
 /// Round 4 (commit 369f544) — typed payload for
-/// `cx.space.archive` and `cx.space.restore`.
+/// `ck.space.archive` and `ck.space.restore`.
 ///
 /// Reducers MUST reject the legacy top-level `target_ref` form with
 /// `schema_violation` and consume this shape exclusively.
@@ -21,7 +21,7 @@ pub struct SpaceStateTransitionPayload {
     pub reason: Option<String>,
 }
 
-/// Round 4 — typed payload for `cx.space.tombstone`. Marks the Space
+/// Round 4 — typed payload for `ck.space.tombstone`. Marks the Space
 /// permanently deleted; receivers MUST surface the
 /// `tombstone_event_id` to the user before purging local state.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -34,12 +34,12 @@ pub struct SpaceObjectTombstonePayload {
     pub successor_space_id: Option<SpaceId>,
 }
 
-/// Cell family for `cx.flow.update` / `cx.flow.tracks.update`
+/// Cell family for `ck.flow.update` / `ck.flow.tracks.update`
 /// CAS-register cells. `bottom=reject` semantics — concurrent writes
 /// to the same cell are not joinable (CAS contention).
-pub const FLOW_FIELDS_CELL_FAMILY: &str = "cx.component.flow.metadata.v1";
+pub const FLOW_FIELDS_CELL_FAMILY: &str = "ck.component.flow.metadata.v1";
 
-/// Round 4 — build the cell_subject for `cx.flow.update`.
+/// Round 4 — build the cell_subject for `ck.flow.update`.
 /// `(family=FLOW_FIELDS_CELL_FAMILY, subject=flow_id)`, CAS-register
 /// semantics, bottom=reject.
 pub fn flow_update_cell_subject(flow_id: &FlowId) -> String {

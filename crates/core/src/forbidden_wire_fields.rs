@@ -510,7 +510,7 @@ mod tests {
     #[test]
     fn context_aware_patch_path_distinguishes_field_vs_path() {
         // `stage` as a JSON-Patch path on a Flow patch payload is
-        // forbidden (single-source via cx.flow.stage.set).
+        // forbidden (single-source via ck.flow.stage.set).
         assert!(is_forbidden_in_context("stage", WireContext::FlowPatchPath));
         assert!(is_forbidden_in_context("stage_changed_at", WireContext::FlowPatchPath));
         assert!(is_forbidden_in_context("stage", WireContext::MorphPatchPath));

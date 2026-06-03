@@ -16,7 +16,7 @@ pub struct Space {
     pub id: SpaceId,
     pub title: String,
     /// Round 4 (2026-05-20, spec a77b995) — REQUIRED trust domain binding.
-    /// Captured at create time (`cx.realm.create`) and immutable; any
+    /// Captured at create time (`ck.realm.create`) and immutable; any
     /// later event whose `trust_domain` mismatches MUST be rejected with
     /// `cross_domain_replay_rejected`. Mixed into the canonical signing
     /// transcript of high-risk proofs (cross-signing reset,
@@ -71,7 +71,7 @@ pub struct Space {
     /// after Space creation; this field is the **create-time hint** so
     /// servers can populate the anchorer cell without an extra round-trip.
     /// Subsequent anchorer changes flow through Move on the
-    /// `ck:cell:cx.component.anchorer.v1:<space_id>` cell.
+    /// `ck:cell:ck.component.anchorer.v1:<space_id>` cell.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub anchorer: Option<crate::anchorer::AnchorerValue>,
     /// Soft cap on how stale the latest Anchor leaf may be before clients
@@ -101,7 +101,7 @@ pub struct Space {
 /// Move/Anchor/Lattice).
 ///
 /// This is a **hint field on `Space`** — the live anchorer identity always
-/// lives in the `ck:cell:cx.component.anchorer.v1:<space_id>` cell. The
+/// lives in the `ck:cell:ck.component.anchorer.v1:<space_id>` cell. The
 /// hint exists so clients can pre-allocate state before observing the cell.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -155,7 +155,7 @@ pub enum CoWritePolicy {
 impl Space {
     /// Round 4 (2026-05-20, spec a77b995) — wire-breaking: `trust_domain`
     /// is REQUIRED. Constructors MUST now pass the deployment-scope
-    /// trust domain captured at `cx.realm.create` time.
+    /// trust domain captured at `ck.realm.create` time.
     pub fn new(
         id: SpaceId,
         title: impl Into<String>,
@@ -207,7 +207,7 @@ impl Space {
     }
 
     /// Builder: declare the initial anchorer cell value. Servers seed the
-    /// `ck:cell:cx.component.anchorer.v1:<space_id>` cell from this hint at
+    /// `ck:cell:ck.component.anchorer.v1:<space_id>` cell from this hint at
     /// Space creation time. Subsequent rotations flow through Move.
     pub fn with_anchorer(mut self, anchorer: crate::anchorer::AnchorerValue) -> Self {
         self.anchorer = Some(anchorer);
@@ -627,7 +627,7 @@ pub struct Relation {
 /// Relation cardinality declared by a `RelationProfile` (data-structures.md
 /// §relation-profile).
 ///
-/// Resolvers MUST refuse a `cx.relation.create` event whose
+/// Resolvers MUST refuse a `ck.relation.create` event whose
 /// `(from, relation_kind, to)` tuple would violate the declared
 /// cardinality of its profile.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

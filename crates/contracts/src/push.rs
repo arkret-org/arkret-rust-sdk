@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 use std::time::Duration;
 
-use contrix_core::{
+use cokret_core::{
     DeviceId, Did, EventId, PushNotifyReqBody, PushNotifyResBody, PushRegisterDeviceReqBody,
     SpaceId,
 };
@@ -15,7 +15,7 @@ fn list_contains_ignore_ascii_case(haystack: &[String], needle: &str) -> bool {
 }
 
 pub mod protocol {
-    pub use contrix_core::{
+    pub use cokret_core::{
         PushNotifyReqBody, PushNotifyResBody, PushRegisterDeviceReqBody, PushRegisterDeviceResBody,
         PushUnregisterDeviceReqBody,
     };
@@ -216,7 +216,7 @@ impl PushRuleSet {
 /// gateway responses pinned to a different revision.
 pub const EXPECTED_SPEC_VERSION: &str = "cokret-spec@2026-05-26";
 
-/// Response body for `GET /api/v1/push/bridge/describe`.
+/// Response body for `GET /_cokret/edge/push/bridge/describe`.
 ///
 /// This is a product-local push-gateway contract shared by the gateway
 /// implementation and clients that probe it before registration / notify
@@ -456,7 +456,7 @@ pub struct PushBridgeDescribeExamples {
     pub plaintext_visible_service_request: Value,
 }
 
-/// Response body for `GET /api/v1/integration/describe` on a push gateway.
+/// Response body for `GET /_cokret/edge/integration/describe` on a push gateway.
 ///
 /// Compatibility alias for the generic integration manifest contract.
 pub type PushGatewayIntegrationDescribeResponse = crate::integration::IntegrationDescribeResponse;
@@ -473,9 +473,9 @@ pub type PushGatewayIntegrationSurface = crate::integration::IntegrationSurfaceD
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[non_exhaustive]
 pub struct IntegrationView {
-    /// Service-level integration manifest (`/api/v1/integration/describe`).
+    /// Service-level integration manifest (`/_cokret/edge/integration/describe`).
     pub manifest: PushGatewayIntegrationDescribeResponse,
-    /// Active bridge contract (`/api/v1/push/bridge/describe`).
+    /// Active bridge contract (`/_cokret/edge/push/bridge/describe`).
     pub bridge: PushBridgeDescribeResponse,
 }
 
@@ -547,7 +547,7 @@ mod tests {
                 event_id: EventId::new("ck:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
                 user_id: did("alice"),
                 space_id: None,
-                event_kind: "cx.message.create".to_owned(),
+                event_kind: "ck.message.create".to_owned(),
                 content: json!({"body": "secret"}),
                 encrypted: true,
             },
@@ -596,8 +596,8 @@ mod tests {
     #[test]
     fn bridge_notify_descriptor_exposes_dedup_and_rate_limit_windows() {
         let descriptor = PushBridgeDescribeNotifyDescriptor {
-            notify_path: "/api/v1/push/notify".to_owned(),
-            operation_id: "cx.push.notify".to_owned(),
+            notify_path: "/_cokret/edge/push/notify".to_owned(),
+            operation_id: "ck.push.notify".to_owned(),
             request_id_header: "X-Cokret-Request-Id".to_owned(),
             idempotency_key_header: "X-Cokret-Idempotency-Key".to_owned(),
             origin_service_did_header: "X-Cokret-Origin-Service-Did".to_owned(),
@@ -658,11 +658,11 @@ mod tests {
         let json = serde_json::json!({
             "contract": "cx.push.bridge.v1",
             "version": "1.0.0",
-            "api_base_path": "/api/v1",
+            "api_base_path": "/_cokret/edge/push",
             "gateway": {},
             "notify": {
-                "notify_path": "/api/v1/push/notify",
-                "operation_id": "cx.push.notify",
+                "notify_path": "/_cokret/edge/push/notify",
+                "operation_id": "ck.push.notify",
                 "request_id_header": "X-Cokret-Request-Id",
                 "idempotency_key_header": "X-Cokret-Idempotency-Key",
                 "origin_service_did_header": "X-Cokret-Origin-Service-Did",
@@ -696,13 +696,13 @@ mod tests {
             version: "1.0.0".to_owned(),
             service: "push-gateway".to_owned(),
             service_kind: "push-gateway".to_owned(),
-            api_base_path: "/api/v1".to_owned(),
-            describe_path: "/api/v1/integration/describe".to_owned(),
+            api_base_path: "/_cokret/edge".to_owned(),
+            describe_path: "/_cokret/edge/integration/describe".to_owned(),
             dependencies: vec![PushGatewayIntegrationDependency {
                 service: "soland".to_owned(),
                 purpose: "register-device".to_owned(),
                 required_contract: "cx.auth.bridge.v1".to_owned(),
-                discovery_path: "/api/v1/auth/bridge/describe".to_owned(),
+                discovery_path: "/_cokret/gate/auth/bridge/describe".to_owned(),
                 mode: "required".to_owned(),
             }],
             surfaces: Vec::new(),

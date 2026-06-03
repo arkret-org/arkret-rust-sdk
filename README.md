@@ -98,7 +98,7 @@ Headline additions:
   (method segment lowercase alnum only).
 - **3 new error code constants**: `delivery_binding_stale` /
   `delivery_binding_handed_over` / `historical_only`.
-- **1 new capability action**: `cx.morph.create` (medium risk).
+- **1 new capability action**: `ck.morph.create` (medium risk).
 - **3 new federation header constants**: `Source-Trust-Domain` /
   `Destination-Trust-Domain` / `Request-Canonical-Digest` (entered into
   the HTTP-message-signature transcript).
@@ -106,7 +106,7 @@ Headline additions:
   `expected_previous_generation`; `compute_audit_policy_version_digest`
   takes 4 args (`realm_id, trust_domain, audit_disclosure,
   audit_assurance`).
-- **`cx.call.signal` (Round 4 wire revision)**: 13-value `signal_type`
+- **`ck.call.signal` (Round 4 wire revision)**: 13-value `signal_type`
   enum, required `proof`, monotonic `seq` validator.
 - **`Realm` / `ServiceDescribe` / `AuditRywReceipt`** gain required
   `trust_domain`; the revised `ServiceDescribe` carries 17 required fields.
@@ -158,5 +158,5 @@ Apache-2.0
 
 <!-- circle-rollout milestone pointer -->
 > **Active milestone tracking** (local-only, gitignored): see
-> `_contrix-rust-sdk_todos.md` in the parent `cokret-dev/` directory for the
+> `_cokret-rust-sdk_todos.md` in the parent `cokret/` directory for the
 > circle-rollout (CXP-0007) work item list and per-stage checkpoints.

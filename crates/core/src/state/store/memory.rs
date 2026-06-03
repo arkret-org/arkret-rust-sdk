@@ -403,7 +403,7 @@ impl Default for MemoryCellRegistry {
 
         // Membership FSM (per spec event-auth-state-resolution.md §5).
         bindings.insert(
-            "cx.component.member.state.v1".to_owned(),
+            "ck.component.member.state.v1".to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::Fsm,
                 bottom_mode: BottomMode::Reject,
@@ -420,7 +420,7 @@ impl Default for MemoryCellRegistry {
 
         // Capability grant or-set.
         bindings.insert(
-            "cx.component.capability.grant.v1".to_owned(),
+            "ck.component.capability.grant.v1".to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::OrSet,
                 bottom_mode: BottomMode::Reject,
@@ -429,9 +429,9 @@ impl Default for MemoryCellRegistry {
             },
         );
 
-        // Consent or-set (cx.component.consent.grant.v1) — spec consent-model §3.1.
+        // Consent or-set (ck.component.consent.grant.v1) — spec consent-model §3.1.
         bindings.insert(
-            "cx.component.consent.grant.v1".to_owned(),
+            "ck.component.consent.grant.v1".to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::OrSet,
                 bottom_mode: BottomMode::Reject,
@@ -442,7 +442,7 @@ impl Default for MemoryCellRegistry {
 
         // Anchorer cell — cas-register, bottom=reject.
         bindings.insert(
-            "cx.component.anchorer.v1".to_owned(),
+            "ck.component.anchorer.v1".to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::CasRegister,
                 bottom_mode: BottomMode::Reject,
@@ -498,7 +498,7 @@ impl Default for MemoryCellRegistry {
         // MLS commit Move target cells (spec §10).
         // mls_epoch: cas-register, bottom=reject (racing commits fail closed).
         bindings.insert(
-            "cx.component.mls_epoch.v1".to_owned(),
+            "ck.component.mls_epoch.v1".to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::CasRegister,
                 bottom_mode: BottomMode::Reject,
@@ -508,7 +508,7 @@ impl Default for MemoryCellRegistry {
         );
         // key_schedule: cas-register, bottom=reject (one schedule per epoch).
         bindings.insert(
-            "cx.component.key_schedule.v1".to_owned(),
+            "ck.component.key_schedule.v1".to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::CasRegister,
                 bottom_mode: BottomMode::Reject,
@@ -520,7 +520,7 @@ impl Default for MemoryCellRegistry {
         // accumulate; lag exposes multi-head to projection but doesn't
         // block governance Moves).
         bindings.insert(
-            "cx.component.covered_frontier.v1".to_owned(),
+            "ck.component.covered_frontier.v1".to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::OrSet,
                 bottom_mode: BottomMode::Expose,
@@ -621,7 +621,7 @@ mod tests {
     }
 
     fn cell_member() -> CellRef {
-        CellRef::new("ck:cell:cx.component.member.state.v1:did.web.alice.example".to_owned())
+        CellRef::new("ck:cell:ck.component.member.state.v1:did.web.alice.example".to_owned())
             .unwrap()
     }
 
@@ -903,7 +903,7 @@ mod tests {
     fn cell_registry_or_set_and_cas_lattices_resolve() {
         let reg = MemoryCellRegistry::new();
         let consent =
-            CellRef::new("ck:cell:cx.component.consent.grant.v1:cx.consent.x".to_owned()).unwrap();
+            CellRef::new("ck:cell:ck.component.consent.grant.v1:cx.consent.x".to_owned()).unwrap();
         assert_eq!(reg.resolve(&space(), &consent).unwrap().lattice.kind(), LatticeKind::OrSet);
 
         let policy =

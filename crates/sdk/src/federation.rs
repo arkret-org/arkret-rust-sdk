@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
-pub use contrix_contracts::federation::{
+pub use cokret_contracts::federation::{
     FederationBackfillAuthorization, FederationQuarantineKind, FederationQuarantineRecord,
     FederationReplayDecision, FederationReplayRecord, FederationTransactionEnvelope,
     HttpMessageSignature, HttpMessageSignatureInput, ServiceEndpointDescriptor,
@@ -649,7 +649,7 @@ mod tests {
         let request = manager.create_request(
             "a.example",
             "b.example",
-            "/_contrix/federation/state",
+            "/_cokret/federation/state",
             json!({"space":"ck:space:01904100-0000-7000-8000-fd3637e8361f"}),
             "shared-key",
         );
@@ -709,7 +709,7 @@ mod tests {
         let now = Utc::now();
         let input = HttpMessageSignatureInput {
             method: "post".to_owned(),
-            target_uri: "https://b.example/api/v1/federation/push-operations".to_owned(),
+            target_uri: "https://b.example/_cokret/peer/federation/push-operations".to_owned(),
             authority: "b.example".to_owned(),
             content_digest: content_digest_sha256(br#"{"ok":true}"#),
             origin_service_did: Did::new("did:web:a.example").unwrap(),
@@ -740,7 +740,7 @@ mod tests {
         let now = Utc::now();
         let mut input = HttpMessageSignatureInput {
             method: "post".to_owned(),
-            target_uri: "https://b.example/api/v1/federation/push-operations".to_owned(),
+            target_uri: "https://b.example/_cokret/peer/federation/push-operations".to_owned(),
             authority: "b.example".to_owned(),
             content_digest: content_digest_sha256(br#"{"ok":true}"#),
             origin_service_did: Did::new("did:web:a.example").unwrap(),
@@ -768,7 +768,7 @@ mod tests {
             "service": [{
                 "id": "did:web:a.example#cokret-federation",
                 "type": "CokretFederation",
-                "serviceEndpoint": "https://a.example/api/v1/federation"
+                "serviceEndpoint": "https://a.example/_cokret/peer/federation"
             }]
         });
 
@@ -776,13 +776,13 @@ mod tests {
             &document,
             &did,
             "CokretFederation",
-            "https://a.example/api/v1/federation"
+            "https://a.example/_cokret/peer/federation"
         ));
         assert!(!did_document_service_endpoint_matches(
             &document,
             &Did::new("did:web:b.example").unwrap(),
             "CokretFederation",
-            "https://a.example/api/v1/federation"
+            "https://a.example/_cokret/peer/federation"
         ));
     }
 

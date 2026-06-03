@@ -70,24 +70,24 @@ fn validate_fallback_payload_shape(event_kind: &str, payload: &Value) -> Result<
         return Ok(());
     };
     match event_kind {
-        "cx.flow.create" => validate_create_object_fallback_payload(
+        "ck.flow.create" => validate_create_object_fallback_payload(
             event_kind,
             object,
             crate::WireContext::FlowPayload,
         ),
-        "cx.morph.create" => validate_create_object_fallback_payload(
+        "ck.morph.create" => validate_create_object_fallback_payload(
             event_kind,
             object,
             crate::WireContext::MorphPayload,
         ),
-        "cx.realm.update" | "cx.flow.update" | "cx.morph.update" | "cx.space.update" => {
+        "ck.realm.update" | "ck.flow.update" | "ck.morph.update" | "ck.space.update" => {
             validate_known_fields(
                 event_kind,
                 object,
                 &["target_ref", "patch", "expected_state_digest"],
             )
         }
-        "cx.member.state" => validate_known_fields(
+        "ck.member.state" => validate_known_fields(
             event_kind,
             object,
             &[
@@ -101,7 +101,7 @@ fn validate_fallback_payload_shape(event_kind: &str, payload: &Value) -> Result<
                 "invite_ref",
             ],
         ),
-        "cx.message.create" => {
+        "ck.message.create" => {
             validate_known_fields(
                 event_kind,
                 object,
@@ -129,7 +129,7 @@ fn validate_fallback_payload_shape(event_kind: &str, payload: &Value) -> Result<
                 ))),
             }
         }
-        "cx.mls.commit" => validate_mls_commit_fallback_payload(event_kind, object),
+        "ck.mls.commit" => validate_mls_commit_fallback_payload(event_kind, object),
         _ => Ok(()),
     }
 }
@@ -382,26 +382,26 @@ pub fn event_payload_validator_catalog_from_spec_artifacts(
 
 fn fallback_event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
     let rules = [
-        ("cx.flow.create", EVENT_PAYLOAD_SCHEMA, &["object"][..]),
-        ("cx.morph.create", EVENT_PAYLOAD_SCHEMA, &["object"][..]),
-        ("cx.realm.update", EVENT_PAYLOAD_SCHEMA, &["target_ref", "patch"][..]),
-        ("cx.flow.update", EVENT_PAYLOAD_SCHEMA, &["target_ref", "patch"][..]),
-        ("cx.morph.update", EVENT_PAYLOAD_SCHEMA, &["target_ref", "patch"][..]),
-        ("cx.space.update", EVENT_PAYLOAD_SCHEMA, &["target_ref", "patch"][..]),
+        ("ck.flow.create", EVENT_PAYLOAD_SCHEMA, &["object"][..]),
+        ("ck.morph.create", EVENT_PAYLOAD_SCHEMA, &["object"][..]),
+        ("ck.realm.update", EVENT_PAYLOAD_SCHEMA, &["target_ref", "patch"][..]),
+        ("ck.flow.update", EVENT_PAYLOAD_SCHEMA, &["target_ref", "patch"][..]),
+        ("ck.morph.update", EVENT_PAYLOAD_SCHEMA, &["target_ref", "patch"][..]),
+        ("ck.space.update", EVENT_PAYLOAD_SCHEMA, &["target_ref", "patch"][..]),
         (
-            "cx.flow.move",
+            "ck.flow.move",
             EVENT_PAYLOAD_SCHEMA,
             &["board_space_id", "flow_id", "target_space_id", "rank"][..],
         ),
         (
-            "cx.flow.reorder",
+            "ck.flow.reorder",
             EVENT_PAYLOAD_SCHEMA,
             &["board_space_id", "flow_id", "space_id", "rank"][..],
         ),
-        ("cx.message.create", EVENT_PAYLOAD_SCHEMA, &["flow_id", "track_name"][..]),
-        ("cx.member.state", EVENT_PAYLOAD_SCHEMA, &["membership"][..]),
+        ("ck.message.create", EVENT_PAYLOAD_SCHEMA, &["flow_id", "track_name"][..]),
+        ("ck.member.state", EVENT_PAYLOAD_SCHEMA, &["membership"][..]),
         (
-            "cx.mls.commit",
+            "ck.mls.commit",
             EVENT_PAYLOAD_SCHEMA,
             &[
                 "mls_group_id",
@@ -414,7 +414,7 @@ fn fallback_event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
             ][..],
         ),
         (
-            "cx.capability.grant",
+            "ck.capability.grant",
             CAPABILITY_SCHEMA,
             &["grant_id", "subject", "actions", "resources"][..],
         ),
@@ -649,10 +649,10 @@ mod tests {
     fn fallback_catalog_accepts_flow_create_payload_wrapper() {
         let catalog = fallback_event_payload_validator_catalog();
 
-        assert_eq!(catalog.rules["cx.flow.create"].payload_schema_id, EVENT_PAYLOAD_SCHEMA);
+        assert_eq!(catalog.rules["ck.flow.create"].payload_schema_id, EVENT_PAYLOAD_SCHEMA);
         catalog
             .validate_payload(
-                "cx.flow.create",
+                "ck.flow.create",
                 &json!({
                     "object": {
                         "id": "ck:flow:0196419b-0000-7000-8000-000000000001",
@@ -675,7 +675,7 @@ mod tests {
 
         catalog
             .validate_payload(
-                "cx.morph.create",
+                "ck.morph.create",
                 &json!({
                     "object": {
                         "id": "ck:morph:0196419b-0000-7000-8000-000000000001",
@@ -700,7 +700,7 @@ mod tests {
 
         catalog
             .validate_payload(
-                "cx.flow.move",
+                "ck.flow.move",
                 &json!({
                     "board_space_id": "ck:space:0196419b-0000-7000-8000-000000000010",
                     "flow_id": "ck:flow:0196419b-0000-7000-8000-000000000001",
@@ -716,7 +716,7 @@ mod tests {
         let catalog = fallback_event_payload_validator_catalog();
 
         for event_kind in
-            ["cx.realm.update", "cx.flow.update", "cx.morph.update", "cx.space.update"]
+            ["ck.realm.update", "ck.flow.update", "ck.morph.update", "ck.space.update"]
         {
             catalog
                 .validate_payload(
@@ -736,15 +736,15 @@ mod tests {
     fn fallback_catalog_accepts_message_create_payload_not_event_envelope() {
         let catalog = fallback_event_payload_validator_catalog();
 
-        assert_eq!(catalog.rules["cx.message.create"].payload_schema_id, EVENT_PAYLOAD_SCHEMA);
+        assert_eq!(catalog.rules["ck.message.create"].payload_schema_id, EVENT_PAYLOAD_SCHEMA);
         catalog
             .validate_payload(
-                "cx.message.create",
+                "ck.message.create",
                 &json!({
                     "flow_id": "ck:flow:0196419b-0000-7000-8000-000000000001",
                     "track_name": "discussion",
                     "content": {
-                        "kind": "cx.content.text",
+                        "kind": "ck.content.text",
                         "body": "hello"
                     }
                 }),
@@ -754,9 +754,9 @@ mod tests {
         assert!(
             catalog
                 .validate_payload(
-                    "cx.message.create",
+                    "ck.message.create",
                     &json!({
-                        "kind": "cx.message.create",
+                        "kind": "ck.message.create",
                         "payload": {
                             "flow_id": "ck:flow:0196419b-0000-7000-8000-000000000001",
                             "track_name": "discussion"
@@ -771,10 +771,10 @@ mod tests {
     fn fallback_catalog_accepts_member_state_payload_not_event_envelope() {
         let catalog = fallback_event_payload_validator_catalog();
 
-        assert_eq!(catalog.rules["cx.member.state"].payload_schema_id, EVENT_PAYLOAD_SCHEMA);
+        assert_eq!(catalog.rules["ck.member.state"].payload_schema_id, EVENT_PAYLOAD_SCHEMA);
         catalog
             .validate_payload(
-                "cx.member.state",
+                "ck.member.state",
                 &json!({
                     "actor_id": "did:web:bob.example",
                     "membership": "invite",
@@ -786,10 +786,10 @@ mod tests {
         assert!(
             catalog
                 .validate_payload(
-                    "cx.member.state",
+                    "ck.member.state",
                     &json!({
                         "event_id": "ck:event:0196419b-0000-7000-8000-000000000001",
-                        "kind": "cx.member.state",
+                        "kind": "ck.member.state",
                         "actor_id": "did:web:bob.example"
                     }),
                 )
@@ -803,7 +803,7 @@ mod tests {
 
         catalog
             .validate_payload(
-                "cx.member.state",
+                "ck.member.state",
                 &json!({
                     "actor_id": "did:web:bob.example",
                     "membership": "join",
@@ -821,12 +821,12 @@ mod tests {
 
         catalog
             .validate_payload(
-                "cx.message.create",
+                "ck.message.create",
                 &json!({
                     "flow_id": "ck:flow:01904100-0000-7000-8000-000000000001",
                     "track_name": "discussion",
                     "content": {
-                        "kind": "cx.content.text",
+                        "kind": "ck.content.text",
                         "body": "hello"
                     }
                 }),
@@ -835,12 +835,12 @@ mod tests {
 
         let both_content_forms = catalog
             .validate_payload(
-                "cx.message.create",
+                "ck.message.create",
                 &json!({
                     "flow_id": "ck:flow:01904100-0000-7000-8000-000000000001",
                     "track_name": "discussion",
                     "content": {
-                        "kind": "cx.content.text",
+                        "kind": "ck.content.text",
                         "body": "[encrypted]"
                     },
                     "encrypted_content": {
@@ -858,7 +858,7 @@ mod tests {
 
         catalog
             .validate_payload(
-                "cx.mls.commit",
+                "ck.mls.commit",
                 &json!({
                     "mls_group_id": "ck:mls_group:test",
                     "base_epoch": 0,

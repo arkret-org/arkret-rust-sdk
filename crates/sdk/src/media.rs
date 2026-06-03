@@ -13,8 +13,8 @@ use crate::{
 // ─── CXP-0010 (R3 spec-sync 2026-05-27) — media token exchange ────────────
 
 /// Backend type for a call's media focus. Wire enum mirrors
-/// `cx.realm.media_service.foci[].type`. Receivers MUST fail closed with
-/// [`unknown_focus_type`](contrix_core::error::ERROR_CODE_UNKNOWN_FOCUS_TYPE)
+/// `ck.realm.media_service.foci[].type`. Receivers MUST fail closed with
+/// [`unknown_focus_type`](cokret_core::error::ERROR_CODE_UNKNOWN_FOCUS_TYPE)
 /// on unrecognized variants.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -43,16 +43,16 @@ impl MediaBackendType {
     }
 }
 
-/// Participant binding envelope per `cx.media.participant_binding.v1`.
+/// Participant binding envelope per `ck.media.participant_binding.v1`.
 ///
 /// Carried inside `MediaTokenResponse.participant_binding`. The token
 /// issuer signs the canonical body with its `service_signature.kid`
 /// equal to `issuer_kid`. Receivers MUST verify that `issuer_kid`
-/// resolves to the current `cx.realm.media_service.service_id` epoch
+/// resolves to the current `ck.realm.media_service.service_id` epoch
 /// and that all bound tuple fields match the call state.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ParticipantBinding {
-    /// Always `cx.media.participant_binding.v1`.
+    /// Always `ck.media.participant_binding.v1`.
     pub scheme: String,
     /// Detached signature over the canonical binding body.
     pub sig: String,
@@ -70,10 +70,10 @@ pub struct ParticipantBinding {
 }
 
 impl ParticipantBinding {
-    pub const SCHEME: &'static str = contrix_core::PARTICIPANT_BINDING_SCHEMA;
+    pub const SCHEME: &'static str = cokret_core::PARTICIPANT_BINDING_SCHEMA;
 }
 
-/// Response payload of `POST /rtc/token` (`cx.call.media.token_exchange`).
+/// Response payload of `POST /rtc/token` (`ck.call.media.token_exchange`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MediaTokenResponse {
     /// Opaque backend token (e.g. LiveKit JWT, Mediasoup ticket).
@@ -84,7 +84,7 @@ pub struct MediaTokenResponse {
     /// Token expiry (RFC 3339).
     pub expires_at: DateTime<Utc>,
     /// Service signature over the response body. Receivers MUST check
-    /// the `kid` matches the current `cx.realm.media_service.service_id`.
+    /// the `kid` matches the current `ck.realm.media_service.service_id`.
     pub service_signature: String,
     /// Optional websocket / SDP connect URL for backends that require
     /// out-of-band signalling.
@@ -93,7 +93,7 @@ pub struct MediaTokenResponse {
 }
 
 /// Validate that `expires_at - now` is within the spec TTL ceiling
-/// ([`MEDIA_TOKEN_TTL_MAX_SECS`](contrix_core::MEDIA_TOKEN_TTL_MAX_SECS)).
+/// ([`MEDIA_TOKEN_TTL_MAX_SECS`](cokret_core::MEDIA_TOKEN_TTL_MAX_SECS)).
 /// Returns [`Ok(())`] when the TTL is within bounds, otherwise a
 /// `participant_binding_invalid` protocol error.
 pub fn validate_token_ttl(now: DateTime<Utc>, expires_at: DateTime<Utc>) -> Result<()> {
@@ -103,7 +103,7 @@ pub fn validate_token_ttl(now: DateTime<Utc>, expires_at: DateTime<Utc>) -> Resu
             "participant_binding_invalid: token already expired".to_owned(),
         ));
     }
-    if (remaining as u64) > contrix_core::MEDIA_TOKEN_TTL_MAX_SECS {
+    if (remaining as u64) > cokret_core::MEDIA_TOKEN_TTL_MAX_SECS {
         return Err(Error::Protocol(
             "participant_binding_invalid: token TTL exceeds 600s ceiling".to_owned(),
         ));
@@ -111,7 +111,7 @@ pub fn validate_token_ttl(now: DateTime<Utc>, expires_at: DateTime<Utc>) -> Resu
     Ok(())
 }
 
-/// Request body for `POST /rtc/token` (`cx.call.media.token_exchange`).
+/// Request body for `POST /rtc/token` (`ck.call.media.token_exchange`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MediaTokenExchangeRequest {
     pub realm_id: RealmId,
@@ -122,17 +122,17 @@ pub struct MediaTokenExchangeRequest {
     pub focus_id: String,
 }
 
-/// Client helper that builds a `cx.call.media.token_exchange` request body.
+/// Client helper that builds a `ck.call.media.token_exchange` request body.
 ///
 /// Implementations using a concrete HTTP transport (e.g. [`reqwest`])
-/// POST the body to `/cokret/v1/rtc/token` and feed the JSON response
+/// POST the body to `/_cokret/self/rtc/token` and feed the JSON response
 /// to [`MediaTokenResponse`] / [`validate_token_ttl`]. This helper keeps
 /// the SDK transport-agnostic; downstream crates wrap it with their own
 /// HTTP client.
 ///
 /// Transport-backed clients MUST sign the request, perform the POST, validate
 /// the response `service_signature.kid` against the current
-/// `cx.realm.media_service.service_id`, call [`validate_token_ttl`], and
+/// `ck.realm.media_service.service_id`, call [`validate_token_ttl`], and
 /// reject unknown focus types via [`MediaBackendType::ensure_known`].
 pub fn call_media_token_exchange(
     realm_id: RealmId,

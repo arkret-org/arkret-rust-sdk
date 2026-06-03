@@ -52,13 +52,13 @@ fn server_description_checks_protocol_version() {
         reducer_profile: None,
         last_materialized_at: None,
     };
-    assert!(desc.supports_contrix_v1());
+    assert!(desc.supports_cokret_v1());
 }
 
 #[test]
 fn event_new_sets_required_event_id() {
     let event = Event::new(
-        "cx.message.create",
+        "ck.message.create",
         test_realm_id(),
         Did::new("did:web:alice.example").unwrap(),
         1,
@@ -74,7 +74,7 @@ fn event_new_sets_required_event_id() {
 fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
     let event = Event {
         event_id: EventId::new("ck:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
-        kind: "cx.message.create".to_owned(),
+        kind: "ck.message.create".to_owned(),
         realm_id: test_realm_id(),
         actor_id: Did::new("did:web:alice.example").unwrap(),
         actor_seq: 1,
@@ -124,7 +124,7 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
             .unwrap(),
         realm_id: test_realm_id(),
         actor_id: Did::new("did:web:alice.example").unwrap(),
-        kind: "cx.message.create".to_owned(),
+        kind: "ck.message.create".to_owned(),
         target_ref: Some("ck:thread:general".to_owned()),
         causal: CausalRef {
             deps: vec![
@@ -145,7 +145,7 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
 
     let encoded = serde_json::to_value(&envelope).unwrap();
     assert_eq!(encoded["actor_id"], "did:web:alice.example");
-    assert_eq!(encoded["kind"], "cx.message.create");
+    assert_eq!(encoded["kind"], "ck.message.create");
     assert_eq!(encoded["content"]["body"], "hello");
     assert!(encoded.get("actor").is_none());
     assert!(encoded.get("type").is_none());
@@ -203,7 +203,7 @@ fn operation_kind_registry_drives_envelope_semantics() {
         content: json!({
             "flow_id": "ck:flow:01904100-0000-7000-8000-6c663fa0205f",
             "track_name": "discussion",
-            "content": {"kind": "cx.content.text", "body": "hello"}
+            "content": {"kind": "ck.content.text", "body": "hello"}
         }),
         authz_ref: None,
         proofs: Vec::new(),
@@ -370,7 +370,7 @@ fn schema_registry_generates_runtime_validators_from_supported_schema_subset() {
         "event_id": "ck:event:01904100-0000-7000-8000-d408d6a2241c",
         "space_id": "ck:space:01904100-0000-7000-8000-fd3637e8361f",
         "actor_id": "did:web:alice.example",
-        "kind": "cx.message.create",
+        "kind": "ck.message.create",
         "actor_seq": 1,
         "created_at": "2026-05-02T00:00:00Z",
         "hlc": "01970e589d21-0000-a13f9c2e",
@@ -386,7 +386,7 @@ fn schema_registry_generates_runtime_validators_from_supported_schema_subset() {
         "event_id": "ck:event:01904100-0000-7000-8000-d408d6a2241c",
         "space_id": "ck:space:01904100-0000-7000-8000-fd3637e8361f",
         "actor_id": "did:web:alice.example",
-        "kind": "cx.message.create",
+        "kind": "ck.message.create",
         "actor_seq": 1,
         "created_at": "2026-05-02T00:00:00Z",
         "hlc": "01970e589d21-0000-a13f9c2e",
@@ -401,7 +401,7 @@ fn schema_registry_generates_runtime_validators_from_supported_schema_subset() {
         "event_id": "ck:event:01904100-0000-7000-8000-d408d6a2241c",
         "space_id": "ck:space:01904100-0000-7000-8000-fd3637e8361f",
         "actor_id": "did:web:alice.example",
-        "kind": "cx.message.create",
+        "kind": "ck.message.create",
         "actor_seq": 1,
         "created_at": "2026-05-02T00:00:00Z",
         "hlc": "01970e589d21-0000-a13f9c2e",
@@ -442,7 +442,7 @@ fn schema_registry_fails_closed_for_unknown_security_extensions() {
         "event_id": "ck:event:01904100-0000-7000-8000-d408d6a2241c",
         "space_id": "ck:space:01904100-0000-7000-8000-fd3637e8361f",
         "actor_id": "did:web:alice.example",
-        "kind": "cx.message.create",
+        "kind": "ck.message.create",
         "actor_seq": 1,
         "created_at": "2026-05-02T00:00:00Z",
         "hlc": "01970e589d21-0000-a13f9c2e",
@@ -461,7 +461,7 @@ fn schema_registry_fails_closed_for_unknown_security_extensions() {
         "event_id": "ck:event:01904100-0000-7000-8000-d408d6a2241c",
         "space_id": "ck:space:01904100-0000-7000-8000-fd3637e8361f",
         "actor_id": "did:web:alice.example",
-        "kind": "cx.message.create",
+        "kind": "ck.message.create",
         "actor_seq": 1,
         "created_at": "2026-05-02T00:00:00Z",
         "hlc": "01970e589d21-0000-a13f9c2e",
@@ -982,7 +982,7 @@ fn proof_validate_binding_rejects_excessive_time_drift() {
 #[test]
 fn event_validate_proof_bindings_checks_digest_match() {
     let event = Event::new(
-        "cx.message.create",
+        "ck.message.create",
         test_realm_id(),
         Did::new("did:web:alice.example").unwrap(),
         1,
@@ -1011,7 +1011,7 @@ fn event_validate_proof_bindings_checks_digest_match() {
 #[test]
 fn event_validate_proof_bindings_rejects_mismatched_digest() {
     let event = Event::new(
-        "cx.message.create",
+        "ck.message.create",
         test_realm_id(),
         Did::new("did:web:alice.example").unwrap(),
         1,
@@ -1042,7 +1042,7 @@ fn event_validate_proof_bindings_rejects_mismatched_digest() {
 #[test]
 fn event_digest_includes_profile_refs_features_and_critical_extensions() {
     let mut event = Event::new(
-        "cx.message.create",
+        "ck.message.create",
         test_realm_id(),
         Did::new("did:web:alice.example").unwrap(),
         1,
@@ -1058,7 +1058,7 @@ fn event_digest_includes_profile_refs_features_and_critical_extensions() {
     event.requirements.critical_extensions.push(CriticalExtension {
         id: "cx.feature.policy_gate.v1".to_owned(),
         scope: "authz".to_owned(),
-        schema_ref: Some("cx.schema.policy.v1".to_owned()),
+        schema_ref: Some("ck.schema.policy.v1".to_owned()),
         fail_closed: true,
     });
 
@@ -1086,7 +1086,7 @@ fn operation_draft_explicitly_materializes_event_envelope_without_signed_operati
     .with_content(json!({
         "flow_id": "ck:flow:01904100-0000-7000-8000-6c663fa0205f",
         "track_name": "discussion",
-        "content": {"kind": "cx.content.text", "body": "hello"}
+        "content": {"kind": "ck.content.text", "body": "hello"}
     }))
     .build(&OperationKindRegistry::default())
     .unwrap();
@@ -1099,7 +1099,7 @@ fn operation_draft_explicitly_materializes_event_envelope_without_signed_operati
         json!({
             "flow_id": "ck:flow:01904100-0000-7000-8000-6c663fa0205f",
             "track_name": "discussion",
-            "content": {"kind": "cx.content.text", "body": "hello"}
+            "content": {"kind": "ck.content.text", "body": "hello"}
         })
     );
     assert_eq!(

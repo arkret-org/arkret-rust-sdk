@@ -156,7 +156,7 @@ fn handle_external_proof_profiles_validate_dns_and_well_known_shapes() {
     let handle = "alice@example.com";
     let proof = handle_claim_proof(handle, &alice, challenge);
 
-    assert_eq!(handle_dns_txt_name(handle).unwrap(), "_contrix-handle.alice.example.com");
+    assert_eq!(handle_dns_txt_name(handle).unwrap(), "_cokret-handle.alice.example.com");
     assert_eq!(
         handle_well_known_url(handle).unwrap(),
         "https://example.com/.well-known/cokret/handle/alice.json"

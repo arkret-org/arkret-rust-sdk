@@ -1,5 +1,5 @@
 //! Build a series-chained `KeyBackup` envelope chain and walk recovery via
-//! the `?series_id=` listing shape exposed by `cx.keys.backups.list` (spec
+//! the `?series_id=` listing shape exposed by `ck.keys.backups.list` (spec
 //! head 37ce729 / key-management.md §7.4 "key-backup hardening").
 //!
 //! The chain semantics this example exercises:
@@ -177,10 +177,10 @@ fn main() -> cokret::Result<()> {
     validate_chain(&chain).expect("chain must be well-formed");
     println!("chain validates cleanly");
 
-    // The real recovery flow: GET /api/v1/keys/backups?series_id=<sid>,
+    // The real recovery flow: GET /_cokret/self/keys/backups?series_id=<sid>,
     // sort by series_seq, walk genesis → head verifying supersedes_digest
     // against the prior envelope's ciphertext_digest at each step.
-    let recovery_path = format!("/api/v1/keys/backups?series_id={}", series_id.as_str());
+    let recovery_path = format!("/_cokret/self/keys/backups?series_id={}", series_id.as_str());
     println!("recovery list path: {recovery_path}");
 
     let head = chain.last().expect("non-empty chain");

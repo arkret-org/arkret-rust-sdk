@@ -4,7 +4,7 @@
 //! Space `ReadReceiptPolicy` typed model (component cell
 //! `cx.component.space.read_receipt_policy.v1`) and the
 //! `ReadReceiptPreferences` actor-private account-data model
-//! (standard key `cx.read_receipt.preferences`). Together they implement
+//! (standard key `ck.read_receipt.preferences`). Together they implement
 //! the disclosure / preference rules from spec
 //! `discovery/read-receipts.md` §2.4-§2.5 and
 //! `discovery/client-preferences.md` §3.6.
@@ -210,26 +210,26 @@ impl ReceiptManager {
 
 // ─── Read Receipt disclosure policy (spec read-receipts.md §2.5) ────────
 
-/// `disclosure` field of `cx.realm.read_receipt_policy`. Soft policy —
+/// `disclosure` field of `ck.realm.read_receipt_policy`. Soft policy —
 /// not cryptographically enforceable. Compliant clients honor `Required`
 /// by sending and `Disabled` by suppressing; `Optional` defers to user
 /// [`ReadReceiptPreferences`].
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ReadReceiptDisclosure {
-    /// All compliant members SHOULD send `cx.receipt.read`. Client UI
+    /// All compliant members SHOULD send `ck.receipt.read`. Client UI
     /// MUST lock the per-scope `send=false` toggle.
     Required,
     /// User preference decides. Default.
     #[default]
     Optional,
     /// Compliant clients MUST NOT generate; Sync Service MUST drop
-    /// inbound `cx.receipt.read` for this scope.
+    /// inbound `ck.receipt.read` for this scope.
     Disabled,
 }
 
 /// `visibility` field of `ReadReceiptPolicy`. Controls who Sync Service
-/// fanouts `cx.receipt.read` to.
+/// fanouts `ck.receipt.read` to.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ReadReceiptVisibility {
@@ -274,7 +274,7 @@ impl ScopePref {
     }
 }
 
-/// Account-data value for `cx.read_receipt.preferences`.
+/// Account-data value for `ck.read_receipt.preferences`.
 ///
 /// Resolution order is (flow → space → default); the first non-`None`
 /// `send` field wins.
@@ -290,7 +290,7 @@ pub struct ReadReceiptPreferences {
 
 impl ReadReceiptPreferences {
     /// Standard account-data key.
-    pub const ACCOUNT_DATA_KEY: &'static str = "cx.read_receipt.preferences";
+    pub const ACCOUNT_DATA_KEY: &'static str = "ck.read_receipt.preferences";
 
     /// Effective `send` for a `(flow, space)` scope. If neither flow
     /// nor space declares an override, falls back to `default.send`,
@@ -339,7 +339,7 @@ impl ReceiptDecision {
     }
 }
 
-/// Compute whether to generate a `cx.receipt.read` for the given scope.
+/// Compute whether to generate a `ck.receipt.read` for the given scope.
 ///
 /// `policy` is the effective policy at the Space (or child Space)
 /// boundary. Pass `None` to represent "no policy declared" (treated as

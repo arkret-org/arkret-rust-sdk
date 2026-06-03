@@ -60,7 +60,7 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
             name: "flow minimal valid".to_owned(),
             schema_id: FLOW_SCHEMA.to_owned(),
             input: json!({
-                "schema": "cx.schema.flow.v1",
+                "schema": "ck.schema.flow.v1",
                 "id": "ck:flow:01904100-0000-7000-8000-b30c13414158",
                 "realm_id": "ck:realm:01904100-0000-7000-8000-65c7feb295d7",
                 "metadata": {"title": "Payment refactor"},
@@ -76,7 +76,7 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
             schema_id: EVENT_SCHEMA.to_owned(),
             input: json!({
                 "event_id": "ck:event:01904100-0000-7000-8000-a0086f45c575",
-                "kind": "cx.message.create",
+                "kind": "ck.message.create",
                 "space_id": "ck:space:01904100-0000-7000-8000-65c7feb295d7",
                 "actor_id": "did:web:alice.example",
                 "actor_seq": 1,
@@ -104,7 +104,7 @@ pub fn built_in_schema_vectors() -> Vec<SchemaValidationVector> {
                 "space_id": "ck:space:01904100-0000-7000-8000-65c7feb295d7",
                 "actor_id": "did:web:alice.example",
                 "actor_seq": 1,
-                "kind": "cx.message.create",
+                "kind": "ck.message.create",
                 "created_at": "2026-05-02T00:00:00Z",
                 "hlc": "01970e589d21-0000-a13f9c2e",
                 "prev_refs": [],

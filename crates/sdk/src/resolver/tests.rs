@@ -551,12 +551,12 @@ fn space_state_sorts_events_by_hlc() {
 #[test]
 fn member_state_conflict_prefers_ban_semantics() {
     let leave = event(
-        "cx.member.state",
+        "ck.member.state",
         4,
         json!({ "actor_id": "did:web:alice.example", "membership": "leave" }),
     );
     let mut ban = event(
-        "cx.member.state",
+        "ck.member.state",
         5,
         json!({ "actor_id": "did:web:alice.example", "membership": "ban" }),
     );
@@ -566,7 +566,7 @@ fn member_state_conflict_prefers_ban_semantics() {
     let mut state = SpaceState::new(space_id(), "1".to_owned());
     state.apply_events(&[leave, ban]).unwrap();
 
-    let resolved = state.resolved_state.get("cx.member.state|did:web:alice.example").unwrap();
+    let resolved = state.resolved_state.get("ck.member.state|did:web:alice.example").unwrap();
     assert_eq!(resolved.content["membership"], "ban");
     assert_eq!(state.conflict_records.len(), 1);
 }
@@ -574,14 +574,14 @@ fn member_state_conflict_prefers_ban_semantics() {
 #[test]
 fn capability_rebind_uses_deterministic_lww_order() {
     let revoke =
-        event("cx.capability.revoke", 1, json!({ "target_capability_id": "cap-chan-post" }));
+        event("ck.capability.revoke", 1, json!({ "target_capability_id": "cap-chan-post" }));
     let grant = event(
-        "cx.capability.grant",
+        "ck.capability.grant",
         2,
         json!({
             "capability_id": "cap-chan-post",
             "subject": "did:web:alice.example",
-            "actions": ["cx.message.create", "cx.reaction.add"]
+            "actions": ["ck.message.create", "ck.reaction.add"]
         }),
     );
 
@@ -589,22 +589,22 @@ fn capability_rebind_uses_deterministic_lww_order() {
     state.apply_events(&[revoke, grant]).unwrap();
 
     let resolved = state.resolved_state.get("cx.capability|cap-chan-post").unwrap();
-    assert_eq!(resolved.content["actions"][1], "cx.reaction.add");
-    assert!(state.capability_allows("cap-chan-post", "cx.reaction.add"));
+    assert_eq!(resolved.content["actions"][1], "ck.reaction.add");
+    assert!(state.capability_allows("cap-chan-post", "ck.reaction.add"));
     assert!(!state.capability_allows("cap-chan-post", "message.delete"));
 }
 
 #[test]
 fn message_revision_redaction_and_reaction_converge() {
-    let base = event("cx.message.create", 1, json!({ "message_id": "m1", "body": "hello" }));
+    let base = event("ck.message.create", 1, json!({ "message_id": "m1", "body": "hello" }));
     let mut revise = event(
-        "cx.message.revise",
+        "ck.message.revise",
         2,
         json!({ "target_message_id": "m1", "content": { "body": "edited" } }),
     );
     revise.prev_refs.push(base.event_id.clone());
     let mut reaction_add =
-        event("cx.reaction.add", 3, json!({ "message_id": "m1", "reaction_key": "+1" }));
+        event("ck.reaction.add", 3, json!({ "message_id": "m1", "reaction_key": "+1" }));
     reaction_add.prev_refs.push(revise.event_id.clone());
 
     let mut state = SpaceState::new(space_id(), "1".to_owned());

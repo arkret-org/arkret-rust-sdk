@@ -1,4 +1,4 @@
-//! Ed25519 `audit_binding` for the `cx.agent.protocol_session.result`
+//! Ed25519 `audit_binding` for the `ck.agent.protocol_session.result`
 //! envelope.
 //!
 //! An agent runtime proves that a result envelope came from a runtime
@@ -173,11 +173,11 @@ pub enum AuditBindingVerifyOutcome {
     Absent,
 }
 
-/// Verify a `cx.agent.protocol_session.result` payload's
+/// Verify a `ck.agent.protocol_session.result` payload's
 /// `audit_binding` block, dispatched by `binding_kind`.
 ///
 /// The `payload` is the projection event's `payload` field as
-/// returned by `/api/v1/events`. The dispatcher reads the binding
+/// returned by `/_cokret/self/events`. The dispatcher reads the binding
 /// plus the four canonical-subject inputs (`session_id`,
 /// `result.agent_principal_id`, `result.echo`, `audit_binding.actor_id`) and
 /// routes to the scheme-specific verifier:

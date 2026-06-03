@@ -71,7 +71,7 @@ pub struct Dot {
 
     pub actor_seq: u64,
 }
-/// Round 4 — typed `cx.consent.revoke` payload with REQUIRED
+/// Round 4 — typed `ck.consent.revoke` payload with REQUIRED
 /// `observed_dots`. Reducers MUST reject envelopes that omit this
 /// field with `schema_violation` (it would otherwise enable implicit
 /// cascade revoke).
@@ -95,7 +95,7 @@ impl ConsentRevokePayload {
     pub fn validate_minimal(&self) -> Result<()> {
         if self.observed_dots.is_empty() {
             return Err(Error::Protocol(format!(
-                "cx.consent.revoke MUST carry non-empty observed_dots ({})",
+                "ck.consent.revoke MUST carry non-empty observed_dots ({})",
                 crate::ERROR_CODE_SCHEMA_VIOLATION
             )));
         }

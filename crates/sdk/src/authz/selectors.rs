@@ -59,7 +59,7 @@ pub enum ResourceSelector {
     /// specific Circle by its `ck:circle:<uuid>` identifier. The Circle
     /// is scoped to its parent Realm; cross-Realm selectors MUST be
     /// rejected by the resolver (`circle_realm_mismatch`).
-    Circle { circle_id: contrix_core::CircleId },
+    Circle { circle_id: cokret_core::CircleId },
     /// Wildcard selector (all resources)
     Wildcard,
 }
@@ -322,7 +322,7 @@ impl ResourceSelector {
                 } else {
                     format!("ck:circle:{remainder}")
                 };
-                let circle_id = contrix_core::CircleId::new(raw)
+                let circle_id = cokret_core::CircleId::new(raw)
                     .map_err(|err| Error::Protocol(format!("invalid circle selector: {err}")))?;
                 Ok(Self::Circle { circle_id })
             }
@@ -332,7 +332,7 @@ impl ResourceSelector {
     }
 }
 
-/// Schema-aligned resource selector kind from `cx.schema.resource_selector.v1`.
+/// Schema-aligned resource selector kind from `ck.schema.resource_selector.v1`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ProtocolResourceSelectorKind {
@@ -356,7 +356,7 @@ pub enum ProtocolResourceSelectorKind {
     Wildcard,
 }
 
-/// Scope field from `cx.schema.resource_selector.v1`.
+/// Scope field from `ck.schema.resource_selector.v1`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ProtocolResourceSelectorScope {

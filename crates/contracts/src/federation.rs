@@ -3,16 +3,16 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{DateTime, Utc};
-use contrix_core::{
+use cokret_core::{
     BlobRef, Did, Error, EventId, FederationTransactionReqBody, Hash, Operation, OperationId,
     Result, SpaceId, TypedTrustDomainId, canonical,
 };
-pub use contrix_signatures::HttpMessageSignature;
+pub use cokret_signatures::HttpMessageSignature;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub mod protocol {
-    pub use contrix_core::{
+    pub use cokret_core::{
         FederationPullOperationsResBody, FederationPushOperationsReqBody,
         FederationPushOperationsResBody, FederationRealmMembersResBody,
         FederationTransactionReqBody, FederationTransactionResBody, FederationVerifyActorReqBody,

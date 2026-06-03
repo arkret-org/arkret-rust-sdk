@@ -5,7 +5,7 @@
 //! - Two concurrent `set` ops produce a `kind=conflict` Bottom (default
 //!   `bottom=reject`). Unlike `mv-register`, dependent Moves must fail
 //!   closed because this Lattice serves safety-critical state (e.g.
-//!   `cx.component.space.policy.v1`, `cx.component.anchorer.v1`).
+//!   `cx.component.space.policy.v1`, `ck.component.anchorer.v1`).
 //!
 //! Wire-shape and signature mirror `MvRegister`; the only behavioural
 //! difference is the implicit `bottom=reject` semantics enforced by

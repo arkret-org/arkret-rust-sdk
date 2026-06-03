@@ -1,7 +1,7 @@
 //! Production typed device-message API per `crypto-media/device-lifecycle.md`.
 //!
 //! Production-shape `DeviceMessage` struct + builder + signer-aware
-//! `verify()` against the SDK [`contrix_core::MoveSigner`] trait, built
+//! `verify()` against the SDK [`cokret_core::MoveSigner`] trait, built
 //! on top of [`crate::devices::DeviceMessageEnvelope`].
 //!
 //! Wire shape mirrors the spec contract — `recipient`, `sender`,
@@ -35,7 +35,7 @@ pub struct DeviceMessage {
     pub sender: Did,
     /// Sending device.
     pub sender_device_id: DeviceId,
-    /// Spec event-kind string, e.g. `cx.key.verification.start` or
+    /// Spec event-kind string, e.g. `ck.key.verification.start` or
     /// `cx.keys.room_key` (the latter is a Matrix/MIMI interop name
     /// retained on the wire for E2EE key share — the v1 concept is
     /// the Space).
@@ -284,7 +284,7 @@ mod tests {
     }
 
     impl MoveSigner for TestSigner {
-        fn sign_move(&self, _unsigned: &UnsignedMove) -> Result<contrix_core::Move> {
+        fn sign_move(&self, _unsigned: &UnsignedMove) -> Result<cokret_core::Move> {
             panic!(
                 "TestSigner::sign_move is test-only and intentionally unsupported; \
                  device-message tests call sign_payload directly"

@@ -803,7 +803,7 @@ impl AuthManager {
 }
 
 /// S-2 (savfox SDK gap): one-shot DID-proof login flow that drives
-/// `POST /auth/account/session-grants` end-to-end.
+/// `POST /_cokret/gate/account/session-grants` end-to-end.
 ///
 /// The helper is split off into its own impl block (gated on `client`
 /// and `signer`) so the in-process `AuthManager` core surface stays
@@ -814,11 +814,11 @@ impl AuthManager {
     /// internally using the supplied signer, then maps the wire
     /// `AuthSessionWire` into the SDK's [`AuthSession`].
     ///
-    /// Spec: `identity-did.md` §5.1 (`cx.did.proof` purpose
-    /// `cx.session.grant`).
+    /// Spec: `identity-did.md` §5.1 (`ck.did.proof` purpose
+    /// `ck.session.grant`).
     pub async fn login_did_proof<S>(
         &mut self,
-        client: &contrix_http_client::Client,
+        client: &cokret_http_client::Client,
         principal_id: Did,
         device_id: DeviceId,
         signer: &S,
@@ -826,7 +826,7 @@ impl AuthManager {
         audience: &str,
     ) -> Result<AuthSession>
     where
-        S: contrix_core::MoveSigner + ?Sized,
+        S: cokret_core::MoveSigner + ?Sized,
     {
         // Step 1: request the challenge.
         let challenge = client
@@ -841,7 +841,7 @@ impl AuthManager {
         // Fail-closed on expired / mismatched challenges before signing.
         if !challenge.is_session_grant_purpose() {
             return Err(Error::Protocol(format!(
-                "challenge purpose must be cx.session.grant, got '{}'",
+                "challenge purpose must be ck.session.grant, got '{}'",
                 challenge.purpose
             )));
         }
@@ -855,24 +855,24 @@ impl AuthManager {
             return Err(Error::Protocol("session grant challenge expired".to_owned()));
         }
 
-        // Step 2: build the cx.did.proof payload, sign it, and submit.
+        // Step 2: build the ck.did.proof payload, sign it, and submit.
         let proof_payload = crate::model::SessionGrantDidProof::from_challenge(
             &challenge,
             principal_id.clone(),
             device_id.clone(),
         );
-        let payload_bytes = contrix_core::canonical::canonical_json_bytes(&proof_payload)?;
+        let payload_bytes = cokret_core::canonical::canonical_json_bytes(&proof_payload)?;
         let move_sig = signer.sign_payload(&payload_bytes)?;
         let payload_digest =
-            crate::Hash::new(contrix_core::canonical::sha256_digest(&payload_bytes))?;
+            crate::Hash::new(cokret_core::canonical::sha256_digest(&payload_bytes))?;
         let proof = Proof {
-            kind: contrix_core::proof_kind::DETACHED_JWS.to_owned(),
+            kind: cokret_core::proof_kind::DETACHED_JWS.to_owned(),
             alg: move_sig.alg,
             verification_method: verification_method.to_owned(),
             payload_digest,
             created_at: Utc::now(),
             domain: None,
-            audience: Some(contrix_core::Audience::Single(audience.to_owned())),
+            audience: Some(cokret_core::Audience::Single(audience.to_owned())),
             jws: move_sig.jws,
         };
 

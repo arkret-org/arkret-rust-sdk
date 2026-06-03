@@ -204,9 +204,9 @@ pub struct SessionPrincipalBinding {
 /// (`key-management.md` §4.1). These events MUST be written into the
 /// principal's dedicated control space; resolvers and federation peers
 /// MUST refuse them in any other Space.
-pub const CX_DEVICE_AUTHORIZED: &str = "cx.device.authorize";
-pub const CX_DEVICE_REVOKED: &str = "cx.device.revoke";
-pub const CX_SESSION_GRANT: &str = "cx.session.grant";
+pub const CX_DEVICE_AUTHORIZED: &str = "ck.device.authorize";
+pub const CX_DEVICE_REVOKED: &str = "ck.device.revoke";
+pub const CX_SESSION_GRANT: &str = "ck.session.grant";
 
 /// Derive the canonical principal control space ID from a principal DID.
 ///
@@ -246,16 +246,16 @@ pub fn assert_control_space_pinning(
 }
 
 /// Canonical OAuth2 scope prefix for binding a Cokret client device to a session.
-pub const CONTRIX_DEVICE_SCOPE_PREFIX: &str = "urn:cokret:client:device:";
+pub const COKRET_DEVICE_SCOPE_PREFIX: &str = "urn:cokret:client:device:";
 
 /// Build the canonical Cokret device scope token for a device.
-pub fn contrix_device_scope(device_id: &DeviceId) -> String {
-    format!("{CONTRIX_DEVICE_SCOPE_PREFIX}{device_id}")
+pub fn cokret_device_scope(device_id: &DeviceId) -> String {
+    format!("{COKRET_DEVICE_SCOPE_PREFIX}{device_id}")
 }
 
 /// Extract a device ID from a canonical Cokret device scope token.
 pub fn device_id_from_scope_token(scope_token: &str) -> Option<DeviceId> {
-    let raw = scope_token.strip_prefix(CONTRIX_DEVICE_SCOPE_PREFIX)?;
+    let raw = scope_token.strip_prefix(COKRET_DEVICE_SCOPE_PREFIX)?;
     DeviceId::new(raw).ok()
 }
 

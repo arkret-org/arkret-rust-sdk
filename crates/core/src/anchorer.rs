@@ -1,6 +1,6 @@
 //! Anchorer cell typed value.
 //!
-//! The anchorer cell `ck:cell:cx.component.anchorer.v1:<space_id>` is a
+//! The anchorer cell `ck:cell:ck.component.anchorer.v1:<space_id>` is a
 //! cas-register (bottom=reject) holding the current authoritative value
 //! that says **who is allowed to sign Anchors for this Space**. The four
 //! profile variants:

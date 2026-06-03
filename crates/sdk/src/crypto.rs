@@ -236,7 +236,7 @@ pub fn redact_log_value(value: &Value) -> Value {
 /// derivation, and the AAD is mixed into the `info` parameter so the same
 /// key material under a different context produces an independent key. The
 /// key material is still expected to be high-entropy; low-entropy
-/// passphrases MUST be stretched with `contrix_crypto::backup::derive_vault_kek`
+/// passphrases MUST be stretched with `cokret_crypto::backup::derive_vault_kek`
 /// (Argon2id) before being passed here.
 fn derive_aead_key(key_material: &[u8], aad: &[u8]) -> Result<[u8; 32]> {
     let hkdf = Hkdf::<Sha256>::new(Some(AEAD_HKDF_SALT), key_material);
@@ -467,7 +467,7 @@ mod tests {
     fn encrypted_envelope_aad_digest_is_canonical() {
         let aad = EncryptedEnvelopeAad {
             space_id: "ck:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
-            event_kind: "cx.message.create".to_owned(),
+            event_kind: "ck.message.create".to_owned(),
             event_id: "ck:event:01904100-0000-7000-8000-51495aba0a08".to_owned(),
             causal_refs: vec!["ck:event:01904100-0000-7000-8000-2b39e7197b88".to_owned()],
         };
@@ -649,7 +649,7 @@ mod tests {
     fn canonical_digest_is_deterministic_for_same_input() {
         let aad = EncryptedEnvelopeAad {
             space_id: "ck:space:01904100-0000-7000-8000-cfc039892036".to_owned(),
-            event_kind: "cx.message.create".to_owned(),
+            event_kind: "ck.message.create".to_owned(),
             event_id: "ck:event:01904100-0000-7000-8000-b70714ca75c5".to_owned(),
             causal_refs: vec![],
         };
@@ -663,13 +663,13 @@ mod tests {
     fn canonical_digest_differs_for_different_inputs() {
         let aad1 = EncryptedEnvelopeAad {
             space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
-            event_kind: "cx.message.create".to_owned(),
+            event_kind: "ck.message.create".to_owned(),
             event_id: "ck:event:01904100-0000-7000-8000-0b94566027c1".to_owned(),
             causal_refs: vec![],
         };
         let aad2 = EncryptedEnvelopeAad {
             space_id: "ck:space:01904100-0000-7000-8000-2a9d538f2fcf".to_owned(),
-            event_kind: "cx.message.create".to_owned(),
+            event_kind: "ck.message.create".to_owned(),
             event_id: "ck:event:01904100-0000-7000-8000-0b94566027c1".to_owned(),
             causal_refs: vec![],
         };

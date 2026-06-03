@@ -85,12 +85,12 @@ pub struct AuthzContext {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub wip_over_limit: Option<bool>,
     /// CXP-0007 — Circle id when the operation targets a Circle-management
-    /// capability (`cx.circle.manage`, `cx.circle.member.manage`,
-    /// `cx.circle.member.add.others`, `cx.circle.audit`). Used by
+    /// capability (`ck.circle.manage`, `ck.circle.member.manage`,
+    /// `ck.circle.member.add.others`, `ck.circle.audit`). Used by
     /// [`Constraint::AllowedCircleIds`] to membership-test against the
     /// grant's allow-list.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub circle_id: Option<contrix_core::CircleId>,
+    pub circle_id: Option<cokret_core::CircleId>,
 }
 
 impl AuthzContext {
@@ -131,7 +131,7 @@ impl AuthzContext {
     /// Set the target Circle id for `AllowedCircleIds` constraint
     /// evaluation. Pass when the operation targets a Circle-management
     /// capability (`cx.circle.*`).
-    pub fn with_circle_id(mut self, circle_id: contrix_core::CircleId) -> Self {
+    pub fn with_circle_id(mut self, circle_id: cokret_core::CircleId) -> Self {
         self.circle_id = Some(circle_id);
         self
     }
@@ -185,7 +185,7 @@ impl AuthzContext {
     }
 }
 
-/// Policy-server response for `cx.policy.check`.
+/// Policy-server response for `ck.policy.check`.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum PolicyServerEffect {
@@ -205,7 +205,7 @@ pub struct PolicyCheckReqBody {
 
 impl PolicyCheckReqBody {
     pub fn new(context: AuthzContext) -> Self {
-        Self { operation: "cx.policy.check".to_owned(), context }
+        Self { operation: "ck.policy.check".to_owned(), context }
     }
 }
 
@@ -224,7 +224,7 @@ pub struct PolicyCheckResBody {
 impl PolicyCheckResBody {
     pub fn no_action() -> Self {
         Self {
-            operation: "cx.policy.check".to_owned(),
+            operation: "ck.policy.check".to_owned(),
             effect: PolicyServerEffect::NoAction,
             reason: "no policy restriction".to_owned(),
             policy_id: None,
@@ -1050,9 +1050,9 @@ impl AuthzEngine {
             // CXP-0007: gate Circle-management actions on a static
             // allow-list of Circle ids baked into the grant body. The
             // caller MUST set `ctx.circle_id` to the operation's target
-            // Circle for Circle-scoped actions (`cx.circle.manage`,
-            // `cx.circle.member.manage`, `cx.circle.member.add.others`,
-            // `cx.circle.audit`). Non-Circle-scoped operations leave
+            // Circle for Circle-scoped actions (`ck.circle.manage`,
+            // `ck.circle.member.manage`, `ck.circle.member.add.others`,
+            // `ck.circle.audit`). Non-Circle-scoped operations leave
             // `circle_id` unset; per the constraint's narrow scope it
             // does not apply and silently passes.
             Constraint::AllowedCircleIds { allowed_circle_ids } => {

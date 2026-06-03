@@ -1,8 +1,8 @@
 # SDK Design Review - 2026-05-12
 
-Scope: `D:\Works\cokret-dev\cokret-rust-sdk` checked against
-`D:\Works\cokret-dev\cokret-spec\spec\v1\zh` and
-`D:\Works\cokret-dev\cokret-spec\spec\v1\artifacts`.
+Scope: `D:\Works\cokret\cokret-rust-sdk` checked against
+`D:\Works\cokret\cokret-spec\spec\v1\zh` and
+`D:\Works\cokret\cokret-spec\spec\v1\artifacts`.
 
 ## Summary
 

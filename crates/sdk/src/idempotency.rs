@@ -18,7 +18,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use contrix_core::Hash;
+use cokret_core::Hash;
 
 /// Decision returned by [`IdempotencyWindow::check`].
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -123,7 +123,7 @@ impl IdempotencyWindow {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use contrix_core::canonical;
+    use cokret_core::canonical;
 
     fn hash_of(bytes: &[u8]) -> Hash {
         Hash::new(canonical::sha256_digest(bytes)).unwrap()

@@ -131,7 +131,7 @@ impl MemberDeliveryBinding {
     }
 }
 
-/// Membership delivery routability flag carried on `cx.member.state{join}`.
+/// Membership delivery routability flag carried on `ck.member.state{join}`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
@@ -140,7 +140,7 @@ pub enum DeliveryStatus {
     Unroutable,
 }
 
-/// Composite cell-subject key for `cx.device.push_route` events.
+/// Composite cell-subject key for `ck.device.push_route` events.
 ///
 /// Scope: `(recipient_service_did, principal_id, device_id, push_route)`.
 /// `push_target_id` MUST be derived against this scope; push registration
@@ -154,7 +154,7 @@ pub struct PushRouteScope {
     pub push_route: String,
 }
 
-/// Per-device push route binding payload (`cx.device.push_route`).
+/// Per-device push route binding payload (`ck.device.push_route`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DevicePushRoutePayload {

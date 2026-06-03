@@ -543,7 +543,7 @@ impl MembershipManager {
 // `FlowTrackMembership` / `FlowTrackMembershipManager`) was REMOVED in
 // cokret-spec revision `0a5ab85`. Track no longer carries independent
 // membership; access semantics inherit from the Flow's Space. Use
-// `cx.member.state` at the Space or child Space level instead.
+// `ck.member.state` at the Space or child Space level instead.
 //
 // See `cokret-spec/spec/v1/artifacts/registry/removed-event-kinds.json`.
 

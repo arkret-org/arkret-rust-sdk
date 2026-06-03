@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use chrono::{DateTime, Utc};
-use contrix_core::{
+use cokret_core::{
     DeviceId, Did, Error, Hash, IdentityLink, IdentityLinkStatus, RealmId, Result,
     compute_policy_frontier_digest,
 };
@@ -119,7 +119,7 @@ impl IdentityLinkCache {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use contrix_core::{Hash, IdentityLinkProof, TypedTrustDomainId};
+    use cokret_core::{Hash, IdentityLinkProof, TypedTrustDomainId};
 
     fn did(value: &str) -> Did {
         Did::new(value.to_owned()).unwrap()

@@ -15,7 +15,7 @@ pub struct DeviceManager {
     /// Latest accepted `cx.cross_signing.publish.v1` per principal.
     cross_signing_publishes: BTreeMap<Did, CrossSigningPublishContent>,
     /// Round 4 (spec a77b995) — generation lineage counter that survives
-    /// a `cx.cross_signing.reset`. The next accepted publish MUST carry
+    /// a `ck.cross_signing.reset`. The next accepted publish MUST carry
     /// `expected_previous_generation == cross_signing_generation_high_water` and
     /// `generation == cross_signing_generation_high_water + 1` for the CAS
     /// to succeed. After a reset, the high-water survives but the publish
@@ -771,7 +771,7 @@ pub fn device_verification_commitment(
     created_at: DateTime<Utc>,
 ) -> Result<String> {
     let payload = serde_json::json!({
-        "context": "cokret-device-verification-v1",
+        "context": "cokretice-verification-v1",
         "user_id": user_id,
         "device_id": device_id,
         "challenge": challenge,

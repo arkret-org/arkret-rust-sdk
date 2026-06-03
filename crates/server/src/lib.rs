@@ -8,16 +8,16 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-pub use contrix_contracts as api;
-pub use contrix_contracts::federation as federation_api;
-pub use contrix_contracts::identity as identity_api;
-pub use contrix_contracts::integration as integration_api;
-pub use contrix_contracts::principal as principal_api;
-pub use contrix_contracts::push as push_gateway_api;
-pub use contrix_core::{AccountSubscribeFrame, AccountSubscribeFrameKind, AccountSubscribeRealms};
-pub use contrix_signatures as signatures;
+pub use cokret_contracts as api;
+pub use cokret_contracts::federation as federation_api;
+pub use cokret_contracts::identity as identity_api;
+pub use cokret_contracts::integration as integration_api;
+pub use cokret_contracts::principal as principal_api;
+pub use cokret_contracts::push as push_gateway_api;
+pub use cokret_core::{AccountSubscribeFrame, AccountSubscribeFrameKind, AccountSubscribeRealms};
+pub use cokret_signatures as signatures;
 
-use contrix_core::{
+use cokret_core::{
     AccountCursorRevokeReqBody, AccountCursorRevokeResBody, AppletActorResBody, AppletDescription,
     AppletPingResBody, AppletProtocolResBody, AppletRealmResBody, AppletTransactionReqBody,
     AppletTransactionResBody, AuthzCheckReqBody, AuthzCheckResBody, AuthzInvitesResBody,

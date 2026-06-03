@@ -7,8 +7,8 @@
 //! ck:cell:<component>:<subject>
 //! ```
 //!
-//! - `<component>` is the cell family (e.g. `cx.component.member.state.v1`,
-//!   `cx.component.capability.grant.v1`, `cx.component.consent.v1`).
+//! - `<component>` is the cell family (e.g. `ck.component.member.state.v1`,
+//!   `ck.component.capability.grant.v1`, `cx.component.consent.v1`).
 //! - `<subject>` may be a flat identifier (`did.web.alice.example`,
 //!   `cx.grant.01js0gr0000000000000000000`) or a deterministic composite
 //!   subject when the spec event-kind-registry's `cell_subject` declares
@@ -70,7 +70,7 @@ impl CellId {
         Self::parse(value.as_str())
     }
 
-    /// The cell family / component portion (e.g. `cx.component.member.state.v1`).
+    /// The cell family / component portion (e.g. `ck.component.member.state.v1`).
     pub fn component(&self) -> &str {
         &self.component
     }
@@ -124,18 +124,18 @@ mod tests {
     #[test]
     fn parse_simple_cell_id() {
         let id =
-            CellId::parse("ck:cell:cx.component.member.state.v1:did.web.alice.example").unwrap();
-        assert_eq!(id.component(), "cx.component.member.state.v1");
+            CellId::parse("ck:cell:ck.component.member.state.v1:did.web.alice.example").unwrap();
+        assert_eq!(id.component(), "ck.component.member.state.v1");
         assert_eq!(id.subject(), "did.web.alice.example");
     }
 
     #[test]
     fn parse_composite_typed_id_subject() {
         let id = CellId::parse(
-            "ck:cell:cx.component.capability.grant.v1:cx.grant.01js0gr0000000000000000000",
+            "ck:cell:ck.component.capability.grant.v1:cx.grant.01js0gr0000000000000000000",
         )
         .unwrap();
-        assert_eq!(id.component(), "cx.component.capability.grant.v1");
+        assert_eq!(id.component(), "ck.component.capability.grant.v1");
         assert_eq!(id.subject(), "cx.grant.01js0gr0000000000000000000");
     }
 
@@ -169,7 +169,7 @@ mod tests {
 
     #[test]
     fn round_trip_wire_string() {
-        let original = "ck:cell:cx.component.member.state.v1:did.web.alice.example";
+        let original = "ck:cell:ck.component.member.state.v1:did.web.alice.example";
         let id = CellId::parse(original).unwrap();
         assert_eq!(id.to_wire(), original);
     }
@@ -219,10 +219,10 @@ mod tests {
     #[test]
     fn to_cell_ref_round_trips_through_ref_validator() {
         let id = CellId {
-            component: "cx.component.member.state.v1".to_owned(),
+            component: "ck.component.member.state.v1".to_owned(),
             subject: "did.web.alice.example".to_owned(),
         };
         let cref = id.to_cell_ref().unwrap();
-        assert_eq!(cref.as_str(), "ck:cell:cx.component.member.state.v1:did.web.alice.example");
+        assert_eq!(cref.as_str(), "ck:cell:ck.component.member.state.v1:did.web.alice.example");
     }
 }

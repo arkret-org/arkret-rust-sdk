@@ -1,4 +1,4 @@
-//! Client-side crypto for `cx.schema.key_backup.v1` envelopes.
+//! Client-side crypto for `ck.schema.key_backup.v1` envelopes.
 //!
 //! Spec: `crypto-media/key-management.md` §7 (Key Backup), §8 (Threshold
 //! Recovery) and `crypto-media/devices-and-auth.md` §4.1 (Encrypted Cloud
@@ -14,8 +14,8 @@
 //! application runtime and must not use this builder.
 //!
 //! ```no_run
-//! use contrix_crypto::backup::{derive_vault_kek, encrypt_vault, build_key_backup_envelope};
-//! use contrix_core::BackupClass;
+//! use cokret_crypto::backup::{derive_vault_kek, encrypt_vault, build_key_backup_envelope};
+//! use cokret_core::BackupClass;
 //!
 //! let kek = derive_vault_kek(b"correct horse battery staple")?;
 //! let ct = encrypt_vault(&kek, br#"{"recovery":"..."}"#)?;
@@ -46,7 +46,7 @@ use getrandom::fill;
 use serde_json::json;
 use sha2::{Digest, Sha256};
 
-use contrix_core::{
+use cokret_core::{
     BackupClass, BackupId, DeviceId, Did, KeyBackup, KeyBackupAead, KeyBackupContentItem,
     KeyBackupEncryption, KeyBackupKdf, KeyBackupRecipientMethod,
 };
@@ -340,7 +340,7 @@ pub fn build_key_backup_envelope(
     // envelope by minting a fresh series_id and seq=0; successors are built
     // with `build_key_backup_successor_envelope`.
     let series_id =
-        contrix_core::BackupSeriesId::new(contrix_core::new_prefixed_uuid7("ck:backup_series:"))
+        cokret_core::BackupSeriesId::new(cokret_core::new_prefixed_uuid7("ck:backup_series:"))
             .map_err(|err| anyhow!("failed to mint backup_series id: {err}"))?;
     Ok(KeyBackup {
         backup_id,

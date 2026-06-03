@@ -26,7 +26,7 @@ pub mod push;
 
 /// Protocol request/response types grouped behind the API boundary.
 pub mod protocol {
-    pub use contrix_core::{
+    pub use cokret_core::{
         AccountCursorRevokeReqBody, AccountCursorRevokeResBody, AccountSubscribeFrame,
         AccountSubscribeFrameKind, AccountSubscribeRealms, AppletActorResBody, AppletDescription,
         AppletPingResBody, AppletProtocolResBody, AppletRealmResBody, AppletTransactionReqBody,

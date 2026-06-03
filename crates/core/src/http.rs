@@ -18,7 +18,7 @@ use crate::*;
 pub struct ServerDescribeParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -29,7 +29,7 @@ pub struct ServerDescribeParams {
 pub struct IdentityDescribeParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -40,7 +40,7 @@ pub struct IdentityDescribeParams {
 pub struct IdentityResolveParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -57,7 +57,7 @@ pub struct IdentityGetDocumentParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -77,7 +77,7 @@ pub struct IdentityGetLogParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -88,7 +88,7 @@ pub struct IdentityGetLogParams {
 pub struct IdentitySubmitDidOperationParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -104,7 +104,7 @@ pub struct IdentityGetReceiptsParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -116,7 +116,7 @@ pub struct IdentityGetReceiptsParams {
 pub struct AccountSubscribeParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -127,7 +127,7 @@ pub struct AccountSubscribeParams {
 pub struct AccountDescribeParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -145,7 +145,7 @@ pub struct EventsDescribeParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -156,7 +156,7 @@ pub struct EventsDescribeParams {
 pub struct EventsSubmitParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -173,7 +173,7 @@ pub struct EventsGetParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -184,7 +184,7 @@ pub struct EventsGetParams {
 pub struct EventsResolveParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -202,7 +202,7 @@ pub struct EventsFrontierParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -226,7 +226,7 @@ pub struct EventsSubscribeParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -256,7 +256,7 @@ pub struct EventsQueryParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -270,7 +270,7 @@ pub struct SnapshotHeadParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -282,7 +282,7 @@ pub struct SnapshotHeadParams {
 pub struct EphemeralSendParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -300,7 +300,7 @@ pub struct ProjectionLifecycleParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -312,7 +312,7 @@ pub struct ProjectionLifecycleParams {
 pub struct DirectoryDescribeParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -323,7 +323,7 @@ pub struct DirectoryDescribeParams {
 pub struct DirectorySearchRealmsParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -334,7 +334,7 @@ pub struct DirectorySearchRealmsParams {
 pub struct DirectoryResolveRealmParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -345,7 +345,7 @@ pub struct DirectoryResolveRealmParams {
 pub struct DirectorySearchOrganizationsParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -356,7 +356,7 @@ pub struct DirectorySearchOrganizationsParams {
 pub struct DirectoryResolveOrganizationParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -367,7 +367,7 @@ pub struct DirectoryResolveOrganizationParams {
 pub struct DirectorySearchActorsParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -378,7 +378,7 @@ pub struct DirectorySearchActorsParams {
 pub struct DirectorySearchUsersParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -389,7 +389,7 @@ pub struct DirectorySearchUsersParams {
 pub struct DirectoryResolveHandleParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -400,7 +400,7 @@ pub struct DirectoryResolveHandleParams {
 pub struct PrivateContactDiscoveryParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -415,7 +415,7 @@ pub struct DirectoryAnnounceParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -430,7 +430,7 @@ pub struct DirectoryWithdrawParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -442,7 +442,7 @@ pub struct DirectoryWithdrawParams {
 pub struct BlobUploadParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Blob-Metadata")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Blob-Metadata", parameter(parameter_in = Header)))]
-    pub x_contrix_blob_metadata: Option<String>,
+    pub x_cokret_blob_metadata: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Content-Type")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Content-Type", parameter(parameter_in = Header)))]
     pub content_type: Option<String>,
@@ -455,7 +455,7 @@ pub struct BlobUploadParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -469,7 +469,7 @@ pub struct BlobHeadParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -486,7 +486,7 @@ pub struct BlobGetParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -498,7 +498,7 @@ pub struct BlobGetParams {
 pub struct PushRegisterDeviceParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -509,7 +509,7 @@ pub struct PushRegisterDeviceParams {
 pub struct PushUnregisterDeviceParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -520,7 +520,7 @@ pub struct PushUnregisterDeviceParams {
 pub struct PushNotifyParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -535,7 +535,7 @@ pub struct DeviceMessagesPutParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -553,7 +553,7 @@ pub struct DeviceMessagesGetParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -565,7 +565,7 @@ pub struct DeviceMessagesGetParams {
 pub struct KeysUploadParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -576,7 +576,7 @@ pub struct KeysUploadParams {
 pub struct KeysQueryParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -587,7 +587,7 @@ pub struct KeysQueryParams {
 pub struct KeysClaimParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -604,7 +604,7 @@ pub struct KeysBackupsPutParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -625,7 +625,7 @@ pub struct KeysBackupsListParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -639,7 +639,7 @@ pub struct KeysBackupsGetParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -656,7 +656,7 @@ pub struct KeysBackupsDeleteParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -667,7 +667,7 @@ pub struct KeysBackupsDeleteParams {
 pub struct KeyPackagesUploadParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -678,7 +678,7 @@ pub struct KeyPackagesUploadParams {
 pub struct KeyPackagesClaimParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -689,7 +689,7 @@ pub struct KeyPackagesClaimParams {
 pub struct KeyPackagesConsumeParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -700,7 +700,7 @@ pub struct KeyPackagesConsumeParams {
 pub struct KeyPackagesRevokeParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -720,7 +720,7 @@ pub struct AuthzEffectiveGrantsParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -740,7 +740,7 @@ pub struct AuthzInvitesParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -751,7 +751,7 @@ pub struct AuthzInvitesParams {
 pub struct AuthzCheckParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -762,7 +762,7 @@ pub struct AuthzCheckParams {
 pub struct PolicyCheckParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -773,7 +773,7 @@ pub struct PolicyCheckParams {
 pub struct MediaIceConfigParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -784,7 +784,7 @@ pub struct MediaIceConfigParams {
 pub struct ModerationReportParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -803,7 +803,7 @@ pub struct MimiProviderDirectoryParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -814,7 +814,7 @@ pub struct MimiProviderDirectoryParams {
 pub struct MimiKeyMaterialParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -828,7 +828,7 @@ pub struct MimiRoomUpdateParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -842,7 +842,7 @@ pub struct MimiNotifyParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -856,7 +856,7 @@ pub struct MimiSubmitMessageParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -876,7 +876,7 @@ pub struct MimiGroupInfoParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -887,7 +887,7 @@ pub struct MimiGroupInfoParams {
 pub struct MimiConsentParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -898,7 +898,7 @@ pub struct MimiConsentParams {
 pub struct MimiConsentUpdateParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -909,7 +909,7 @@ pub struct MimiConsentUpdateParams {
 pub struct MimiIdentifierQueryParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -920,7 +920,7 @@ pub struct MimiIdentifierQueryParams {
 pub struct MimiReportAbuseParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -931,7 +931,7 @@ pub struct MimiReportAbuseParams {
 pub struct MimiProxyDownloadParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -943,7 +943,7 @@ pub struct MimiProxyDownloadParams {
 pub struct AccountSessionGrantParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -954,7 +954,7 @@ pub struct AccountSessionGrantParams {
 pub struct AccountDevicePairParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -965,7 +965,7 @@ pub struct AccountDevicePairParams {
 pub struct AccountOidcCallbackParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -980,7 +980,7 @@ pub struct AdminServerStatusParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -994,7 +994,7 @@ pub struct AdminAccountStatusParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -1008,7 +1008,7 @@ pub struct AdminRevokeDeviceParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -1032,7 +1032,7 @@ pub struct AdminModerationQueueParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -1044,7 +1044,7 @@ pub struct AdminModerationQueueParams {
 pub struct AppletPingParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -1055,7 +1055,7 @@ pub struct AppletPingParams {
 pub struct AppletDescribeParams {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -1070,7 +1070,7 @@ pub struct AppletTransactionParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -1084,7 +1084,7 @@ pub struct AppletActorParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -1098,7 +1098,7 @@ pub struct AppletRealmParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -1112,7 +1112,7 @@ pub struct AppletProtocolParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -1129,7 +1129,7 @@ pub struct AppletThirdPartyUsersParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -1146,7 +1146,7 @@ pub struct AppletThirdPartyLocationsParams {
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
-    pub x_contrix_request_id: Option<String>,
+    pub x_cokret_request_id: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "Traceparent")]
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
@@ -1323,16 +1323,16 @@ pub struct ProjectionFlowRow {
     pub title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
-    /// Derived board Space id from `cx.component.flow.position.v1`.
+    /// Derived board Space id from `ck.component.flow.position.v1`.
     /// This is read-model state, not canonical Flow object state.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub board_space_id: Option<SpaceId>,
-    /// Derived list Space id from `cx.component.flow.position.v1`.
+    /// Derived list Space id from `ck.component.flow.position.v1`.
     /// This is read-model state, not canonical Flow object state.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub list_space_id: Option<SpaceId>,
     /// Derived rank inside `list_space_id` from
-    /// `cx.component.flow.position.v1`.
+    /// `ck.component.flow.position.v1`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rank: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -289,7 +289,7 @@ mod tests {
             "space_id": "ck:space:0196419b-0000-7000-8000-00000000014a",
             "preconditions": [
                 {
-                    "cell": "ck:cell:cx.component.member.state.v1:did.web.alice.example",
+                    "cell": "ck:cell:ck.component.member.state.v1:did.web.alice.example",
                     "predicate": {
                         "op": "head_eq",
                         "value": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
@@ -298,7 +298,7 @@ mod tests {
             ],
             "effects": [
                 {
-                    "cell": "ck:cell:cx.component.member.state.v1:did.web.alice.example",
+                    "cell": "ck:cell:ck.component.member.state.v1:did.web.alice.example",
                     "op": {
                         "kind": "transition",
                         "from": "join",
@@ -463,10 +463,10 @@ mod tests {
 
     #[test]
     fn cell_ref_validator_accepts_simple_and_composite() {
-        CellRef::new("ck:cell:cx.component.member.state.v1:did.web.alice.example".to_owned())
+        CellRef::new("ck:cell:ck.component.member.state.v1:did.web.alice.example".to_owned())
             .unwrap();
         CellRef::new(
-            "ck:cell:cx.component.capability.grant.v1:cx.grant.01js0gr0000000000000000000"
+            "ck:cell:ck.component.capability.grant.v1:cx.grant.01js0gr0000000000000000000"
                 .to_owned(),
         )
         .unwrap();

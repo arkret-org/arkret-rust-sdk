@@ -512,7 +512,7 @@ mod applet_routing_field_tests {
     fn base_event() -> Event {
         Event {
             event_id: EventId::new("ck:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
-            kind: "cx.message.create".to_owned(),
+            kind: "ck.message.create".to_owned(),
             realm_id: realm(),
             actor_id: alice(),
             actor_seq: 1,
@@ -582,7 +582,7 @@ mod applet_routing_field_tests {
     fn event_deserialize_rejects_forbidden_payload_fields() {
         let event = base_event();
         let mut value = serde_json::to_value(&event).unwrap();
-        value.as_object_mut().unwrap().insert("kind".to_owned(), json!("cx.flow.create"));
+        value.as_object_mut().unwrap().insert("kind".to_owned(), json!("ck.flow.create"));
         value
             .as_object_mut()
             .unwrap()

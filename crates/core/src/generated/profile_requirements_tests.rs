@@ -218,7 +218,7 @@ fn validate_profile_requirements_rejects_unknown_profile() {
 
 #[test]
 fn validate_profile_requirements_passes_when_caller_implements_everything() {
-    let req = requirements_for("cx.profile.core_event_store.v1")
+    let req = requirements_for("ck.profile.core_event_store.v1")
         .expect("core_event_store profile present");
     let ops: Vec<&str> = req.required_operations.to_vec();
     let kinds: Vec<&str> = req.required_event_kinds.to_vec();
@@ -229,7 +229,7 @@ fn validate_profile_requirements_passes_when_caller_implements_everything() {
 
 #[test]
 fn validate_profile_requirements_reports_structured_diff_when_incomplete() {
-    let req = requirements_for("cx.profile.core_event_store.v1")
+    let req = requirements_for("ck.profile.core_event_store.v1")
         .expect("core_event_store profile present");
     // Skip the first required op + first required event kind to force a diff.
     let ops: Vec<&str> = req.required_operations[1..].to_vec();
@@ -255,7 +255,7 @@ fn validate_profile_requirements_reports_structured_diff_when_incomplete() {
 
 #[test]
 fn profile_compliance_report_partitions_satisfied_and_missing() {
-    let req = requirements_for("cx.profile.chat_mvp.v1").expect("chat_mvp profile present");
+    let req = requirements_for("ck.profile.chat_mvp.v1").expect("chat_mvp profile present");
     let ops: Vec<&str> = req.required_operations[1..].to_vec();
     let kinds: Vec<&str> = req.required_event_kinds.to_vec();
     let schemas: Vec<&str> = req.required_schemas.to_vec();
@@ -271,7 +271,7 @@ fn profile_compliance_report_partitions_satisfied_and_missing() {
 
 #[test]
 fn profile_compliance_report_is_compliant_when_everything_implemented() {
-    let req = requirements_for("cx.profile.core_event_store.v1")
+    let req = requirements_for("ck.profile.core_event_store.v1")
         .expect("core_event_store profile present");
     let ops: Vec<&str> = req.required_operations.to_vec();
     let kinds: Vec<&str> = req.required_event_kinds.to_vec();

@@ -1,4 +1,4 @@
-//! `cx.schema.patch.v1` — canonical field-patch grammar.
+//! `ck.schema.patch.v1` — canonical field-patch grammar.
 //!
 //! Mirrors `cokret-spec/spec/v1/artifacts/schemas/patch.schema.json`. A
 //! patch is an object whose property names are dotted field paths
@@ -31,8 +31,8 @@ use crate::{Error, Hash, Result};
 
 /// Registered schema id for the field-patch wire format.
 ///
-/// The in-prose name `cx.patch.v1` resolves to this same artifact.
-pub const PATCH_SCHEMA: &str = "cx.schema.patch.v1";
+/// The in-prose name `ck.patch.v1` resolves to this same artifact.
+pub const PATCH_SCHEMA: &str = "ck.schema.patch.v1";
 
 /// Maximum patch-path length in bytes, per spec.
 pub const PATCH_PATH_MAX_BYTES: usize = 1024;
@@ -161,7 +161,7 @@ impl<'de> Deserialize<'de> for PatchOp {
     }
 }
 
-/// A field-patch (cx.schema.patch.v1). MUST contain at least one entry
+/// A field-patch (ck.schema.patch.v1). MUST contain at least one entry
 /// (`minProperties: 1` in the spec). Use [`Patch::insert`] /
 /// [`Patch::insert_op`] to build one programmatically.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -264,7 +264,7 @@ impl<'de> Deserialize<'de> for Patch {
         impl<'de> Visitor<'de> for PatchVisitor {
             type Value = Patch;
             fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                f.write_str("a cx.schema.patch.v1 object (path -> op)")
+                f.write_str("a ck.schema.patch.v1 object (path -> op)")
             }
             fn visit_map<A: MapAccess<'de>>(
                 self,
@@ -527,7 +527,7 @@ mod tests {
                 .unwrap();
 
         crate::schema::event_payload_validator_catalog()
-            .validate_payload("cx.flow.update", &payload)
+            .validate_payload("ck.flow.update", &payload)
             .unwrap();
     }
 

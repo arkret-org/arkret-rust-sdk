@@ -19,11 +19,11 @@ pub enum SendQueueItemKind {
 impl SendQueueItemKind {
     fn event_kind(&self) -> String {
         match self {
-            Self::Message => "cx.message.create".to_owned(),
-            Self::Edit { .. } => "cx.message.revise".to_owned(),
-            Self::Redaction { .. } => "cx.message.redact".to_owned(),
-            Self::Reaction { add, .. } if *add => "cx.reaction.add".to_owned(),
-            Self::Reaction { .. } => "cx.reaction.remove".to_owned(),
+            Self::Message => "ck.message.create".to_owned(),
+            Self::Edit { .. } => "ck.message.revise".to_owned(),
+            Self::Redaction { .. } => "ck.message.redact".to_owned(),
+            Self::Reaction { add, .. } if *add => "ck.reaction.add".to_owned(),
+            Self::Reaction { .. } => "ck.reaction.remove".to_owned(),
             Self::Custom { kind } => kind.clone(),
         }
     }

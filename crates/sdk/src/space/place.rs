@@ -23,7 +23,7 @@ pub struct PlaceUpdateMetadata {
 }
 
 impl Space {
-    /// Create a spec-shaped `cx.space.create` operation.
+    /// Create a spec-shaped `ck.space.create` operation.
     pub fn create_place_operation(
         &self,
         kind: impl Into<String>,
@@ -39,7 +39,7 @@ impl Space {
         )
     }
 
-    /// Create a spec-shaped `cx.space.create` operation with extended Place fields.
+    /// Create a spec-shaped `ck.space.create` operation with extended Place fields.
     pub fn create_place_operation_with_metadata(
         &self,
         kind: impl Into<String>,
@@ -93,7 +93,7 @@ impl Space {
         Ok(operation)
     }
 
-    /// Create a spec-shaped `cx.space.update` operation.
+    /// Create a spec-shaped `ck.space.update` operation.
     pub fn update_place_operation(
         &self,
         place_id: SpaceId,
@@ -107,7 +107,7 @@ impl Space {
         )
     }
 
-    /// Create a spec-shaped `cx.space.update` operation with extended Place fields.
+    /// Create a spec-shaped `ck.space.update` operation with extended Place fields.
     pub fn update_place_operation_with_metadata(
         &self,
         place_id: SpaceId,
@@ -156,7 +156,7 @@ impl Space {
         Ok(operation)
     }
 
-    /// Create a `cx.space.parent` operation.
+    /// Create a `ck.space.parent` operation.
     pub fn set_place_parent_operation(
         &self,
         place_id: SpaceId,
@@ -181,18 +181,18 @@ impl Space {
         Ok(operation)
     }
 
-    /// Create a `cx.space.archive` operation.
+    /// Create a `ck.space.archive` operation.
     pub fn archive_place_operation(&self, place_id: SpaceId) -> Result<Operation> {
         self.place_lifecycle_operation(place_id, crate::OP_SPACE_ARCHIVE, OperationType::Update)
     }
 
-    /// Create a `cx.space.restore` operation (`archived -> active`).
+    /// Create a `ck.space.restore` operation (`archived -> active`).
     /// Reducer rejects with `place_not_archived` when current state is not archived.
     pub fn restore_place_operation(&self, place_id: SpaceId) -> Result<Operation> {
         self.place_lifecycle_operation(place_id, crate::OP_SPACE_RESTORE, OperationType::Update)
     }
 
-    /// Create a `cx.space.tombstone` operation.
+    /// Create a `ck.space.tombstone` operation.
     pub fn tombstone_place_operation(&self, place_id: SpaceId) -> Result<Operation> {
         self.place_lifecycle_operation(place_id, crate::OP_SPACE_TOMBSTONE, OperationType::Delete)
     }

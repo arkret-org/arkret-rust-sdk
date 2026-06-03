@@ -125,10 +125,10 @@ pub enum AuditPurpose {
 
     InternalPolicyAudit,
 }
-/// `cx.schema.attestation_evidence.v1` structured evidence carrier.
+/// `ck.schema.attestation_evidence.v1` structured evidence carrier.
 ///
 /// Used at Audit Agent join time and by the reducer when validating
-/// `cx.audit.epoch_key_destruction`. See zh/crypto-media/audited-e2ee.md §2
+/// `ck.audit.epoch_key_destruction`. See zh/crypto-media/audited-e2ee.md §2
 /// (attested_hardware binding) and §3.1.1.2 (epoch key destruction).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -165,5 +165,5 @@ pub struct AttestationEvidence {
 }
 
 impl AttestationEvidence {
-    pub const SCHEMA: &'static str = "cx.schema.attestation_evidence.v1";
+    pub const SCHEMA: &'static str = "ck.schema.attestation_evidence.v1";
 }

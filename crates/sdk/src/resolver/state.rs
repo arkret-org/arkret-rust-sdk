@@ -203,51 +203,51 @@ impl SpaceState {
 
             // Realm lifecycle - generic state reduction. Container-level
             // (`cx.space.*`) lifecycle is covered by the OP_SPACE_* arms above.
-            "cx.realm.create"
-            | "cx.realm.update"
-            | "cx.realm.organization"
-            | "cx.realm.link"
-            | "cx.realm.inheritance_policy"
-            | "cx.realm.join_rule"
-            | "cx.realm.history_visibility"
-            | "cx.realm.discovery"
-            | "cx.realm.archive"
-            | "cx.realm.freeze"
-            | "cx.realm.destroy" => self.reduce_realm_lifecycle_event(event)?,
+            "ck.realm.create"
+            | "ck.realm.update"
+            | "ck.realm.organization"
+            | "ck.realm.link"
+            | "ck.realm.inheritance_policy"
+            | "ck.realm.join_rule"
+            | "ck.realm.history_visibility"
+            | "ck.realm.discovery"
+            | "ck.realm.archive"
+            | "ck.realm.freeze"
+            | "ck.realm.destroy" => self.reduce_realm_lifecycle_event(event)?,
 
             // Member / capability / invite / policy / read-marker state
-            "cx.member.state"
-            | "cx.capability.grant"
-            | "cx.capability.delegate"
-            | "cx.capability.revoke"
-            | "cx.realm.policy"
-            | "cx.policy.set"
-            | "cx.invite.create"
-            | "cx.invite.cancel"
-            | "cx.invite.accept"
-            | "cx.read_cursor.advance"
+            "ck.member.state"
+            | "ck.capability.grant"
+            | "ck.capability.delegate"
+            | "ck.capability.revoke"
+            | "ck.realm.policy"
+            | "ck.policy.set"
+            | "ck.invite.create"
+            | "ck.invite.cancel"
+            | "ck.invite.accept"
+            | "ck.read_cursor.advance"
             // Account lifecycle (account-lifecycle.md §3 +
             // event-auth-state-resolution.md). The cell subject is the
             // account DID; the latest event wins per HLC ordering.
-            | "cx.account.status"
+            | "ck.account.status"
             | "cx.account.deactivation"
             | "cx.account.erasure"
             // Moderation reports / franks (moderation.md §3).
             // Reports are state events keyed by `(target_ref, reporter)`;
             // franks bind a per-message receipt for E2EE accountability.
-            | "cx.moderation.report"
-            | "cx.moderation.franking_proof" => self.reduce_generic_state_event(event)?,
+            | "ck.moderation.report"
+            | "ck.moderation.franking_proof" => self.reduce_generic_state_event(event)?,
 
             // Message timeline
-            "cx.message.create" => self.create_message(event)?,
-            "cx.message.revise" => self.revise_message(event)?,
-            "cx.message.redact" => self.redact_message(event)?,
+            "ck.message.create" => self.create_message(event)?,
+            "ck.message.revise" => self.revise_message(event)?,
+            "ck.message.redact" => self.redact_message(event)?,
 
             // Reactions
-            "cx.reaction.add" | "cx.reaction.remove" => self.reduce_reaction(event)?,
+            "ck.reaction.add" | "ck.reaction.remove" => self.reduce_reaction(event)?,
 
             // Realm upgrade
-            "cx.realm.upgrade" => self.upgrade_space(event)?,
+            "ck.realm.upgrade" => self.upgrade_space(event)?,
 
             // Generic redaction. Round 11 (2026-05-16): also flips Flow /
             // Morph subject state to Redacted per spec common-fields.md
@@ -255,7 +255,7 @@ impl SpaceState {
             // to a `ck:flow:` / `ck:morph:` typed-id. State-machine guard
             // rejects already-terminal source with `<kind>_already_terminal`.
             // Space is excluded — spec note "Space has no redacted state" routes
-            // Space removal through `cx.space.tombstone` only.
+            // Space removal through `ck.space.tombstone` only.
             "cx.redaction" => {
                 self.redact_object_for_event(event)?;
                 if let Some(redacted_ref) = &event.redacts {
@@ -294,7 +294,7 @@ impl SpaceState {
             .unwrap_or(crate::ObjectState::Active);
 
         let scope_circle_id =
-            self.extract_optional_field::<contrix_core::CircleId>(object, "scope_circle_id");
+            self.extract_optional_field::<cokret_core::CircleId>(object, "scope_circle_id");
         let morph = Morph {
             schema: crate::MORPH_SCHEMA.to_owned(),
             id: morph_id_str.clone(),
@@ -430,7 +430,7 @@ impl SpaceState {
         Ok(())
     }
 
-    // Reducer for `cx.morph.archive`: validate current state == active per
+    // Reducer for `ck.morph.archive`: validate current state == active per
     // cokret-spec common-fields.md §5.1 canonical state-transition table.
     // Archived / Deleted / Redacted / unset MUST be rejected with
     // `morph_not_active`; unknown Morph is tolerated (causal / backfill).
@@ -445,7 +445,7 @@ impl SpaceState {
         self.set_morph_state(event, crate::ObjectState::Archived)
     }
 
-    // Reducer for `cx.morph.restore`: same state-machine contract as
+    // Reducer for `ck.morph.restore`: same state-machine contract as
     // `restore_flow` / `restore_place` — current state MUST == archived.
     // Active / Deleted / Redacted / unset → `morph_not_archived`. Unknown
     // Morph is tolerated for causal / backfill ordering. Morph has no
@@ -643,7 +643,7 @@ impl SpaceState {
         Ok(())
     }
 
-    // Reducer for `cx.space.archive`: validate current state == active per
+    // Reducer for `ck.space.archive`: validate current state == active per
     // cokret-spec common-fields.md §5.1 canonical state-transition table.
     // Archived / Tombstoned / unset MUST be rejected with `place_not_active`;
     // unknown Place is tolerated (causal / backfill).
@@ -658,7 +658,7 @@ impl SpaceState {
         self.set_place_state(event, crate::PlaceState::Archived)
     }
 
-    // Reducer for `cx.space.tombstone`: validate current state ∈
+    // Reducer for `ck.space.tombstone`: validate current state ∈
     // {Active, Archived} per cokret-spec common-fields.md §5.1. Tombstoned /
     // unset MUST be rejected with `place_already_terminal`; unknown Place is
     // tolerated (causal / backfill).
@@ -674,7 +674,7 @@ impl SpaceState {
         self.set_place_state(event, crate::PlaceState::Tombstoned)
     }
 
-    // Reducer for `cx.space.restore`: validate current state == archived per
+    // Reducer for `ck.space.restore`: validate current state == archived per
     // cokret-spec space-and-place.md §4.4. Active / Tombstoned / unset MUST
     // be rejected with `place_not_archived`; unknown Place is tolerated
     // (causal / backfill not yet caught up — mirrors set_place_state).
@@ -708,12 +708,12 @@ impl SpaceState {
         let rank = self.extract_optional_field(object, "rank");
         let fields = self.extract_fields(object)?;
         let scope_circle_id =
-            self.extract_optional_field::<contrix_core::CircleId>(object, "scope_circle_id");
+            self.extract_optional_field::<cokret_core::CircleId>(object, "scope_circle_id");
         let effective_scope =
-            self.extract_optional_field::<contrix_core::EffectiveScope>(object, "effective_scope");
+            self.extract_optional_field::<cokret_core::EffectiveScope>(object, "effective_scope");
 
         let relation = Relation {
-            schema: "cx.schema.relation.v1".to_owned(),
+            schema: "ck.schema.relation.v1".to_owned(),
             id: relation_id,
             realm_id: event.realm_id.clone(),
             scope_circle_id,
@@ -767,7 +767,7 @@ impl SpaceState {
         let encrypted_content = self.extract_optional_field(object, "encrypted_content");
         let encrypted_metadata = self.extract_optional_field(object, "encrypted_metadata");
         let scope_circle_id =
-            self.extract_optional_field::<contrix_core::CircleId>(object, "scope_circle_id");
+            self.extract_optional_field::<cokret_core::CircleId>(object, "scope_circle_id");
         let fields = metadata.fields.clone();
         let state = self
             .extract_optional_field::<String>(object, "state")
@@ -806,7 +806,7 @@ impl SpaceState {
         // Spec common-fields.md §5.1 final paragraph: update on a non-active
         // object MUST fail — otherwise an edit would silently revive an
         // archived / tombstoned / redacted Flow, conflicting with the
-        // `cx.flow.restore` semantic. Unknown Flow is tolerated below
+        // `ck.flow.restore` semantic. Unknown Flow is tolerated below
         // (extract step succeeds, lookup returns None, current code returns
         // Err with "flow not found" — this guard runs before that).
         if let Some(subject) = self.subjects.get(&flow_id_str)
@@ -899,7 +899,7 @@ impl SpaceState {
         Ok(())
     }
 
-    // Reducer for `cx.flow.archive`: validate current state == active per
+    // Reducer for `ck.flow.archive`: validate current state == active per
     // cokret-spec common-fields.md §5.1 canonical state-transition table.
     // Archived / Deleted / Redacted / unset MUST be rejected with
     // `flow_not_active`; unknown Flow is tolerated (causal / backfill not
@@ -915,7 +915,7 @@ impl SpaceState {
         self.set_flow_state(event, crate::ObjectState::Archived)
     }
 
-    // Reducer for `cx.flow.restore`: validate current state == archived per
+    // Reducer for `ck.flow.restore`: validate current state == archived per
     // cokret-spec common-fields.md §5 (`*.restore` is the canonical
     // archived -> active path; tombstoned / deleted / redacted MUST NOT be
     // restored). Active / Deleted / Redacted / unset MUST be rejected with
@@ -952,7 +952,7 @@ impl SpaceState {
         Ok(())
     }
 
-    /// Reducer for canonical `cx.flow.tracks.update`: merge a batch of
+    /// Reducer for canonical `ck.flow.tracks.update`: merge a batch of
     /// `FlowTrackConfig` entries into `Flow.tracks`. Accepts either a top-level
     /// `tracks` map or `patch.tracks`.
     fn update_flow_tracks(&mut self, event: &Event) -> Result<()> {
@@ -1034,13 +1034,13 @@ impl SpaceState {
     /// Reduce realm lifecycle events into resolved state.
     fn reduce_realm_lifecycle_event(&mut self, event: &Event) -> Result<()> {
         // Realm lifecycle events update the realm version and are stored as resolved state.
-        if (event.kind == "cx.realm.create" || event.kind == "cx.realm.update")
+        if (event.kind == "ck.realm.create" || event.kind == "ck.realm.update")
             && let Some(version) =
                 self.extract_optional_field::<String>(&event.content, "space_version")
         {
             self.space_version = version;
         }
-        if event.kind == "cx.realm.destroy" {
+        if event.kind == "ck.realm.destroy" {
             // Treat destroy as tombstone
             self.tombstone_event_id = Some(event.event_id.clone());
         }
@@ -1050,11 +1050,11 @@ impl SpaceState {
     fn reduce_generic_state_event(&mut self, event: &Event) -> Result<()> {
         let subject = self.subject_for_event(event)?;
         let family = match event.kind.as_str() {
-            "cx.capability.grant" | "cx.capability.delegate" | "cx.capability.revoke" => {
+            "ck.capability.grant" | "ck.capability.delegate" | "ck.capability.revoke" => {
                 "cx.capability"
             }
-            "cx.invite.create" | "cx.invite.cancel" | "cx.invite.accept" => "cx.invite",
-            "cx.realm.policy" | "cx.policy.set" => "cx.policy",
+            "ck.invite.create" | "ck.invite.cancel" | "ck.invite.accept" => "cx.invite",
+            "ck.realm.policy" | "ck.policy.set" => "cx.policy",
             other => other,
         };
         let map_key = format!("{}|{}", family, subject);
@@ -1171,7 +1171,7 @@ impl SpaceState {
             source_event_id: event.event_id.clone(),
             actor_seq: event.actor_seq,
             hlc: event.hlc.clone(),
-            active: event.kind == "cx.reaction.add",
+            active: event.kind == "ck.reaction.add",
         };
         match self.reactions.get(&key) {
             Some(existing) if !Self::reaction_candidate_wins(existing, &candidate) => {}
@@ -1227,7 +1227,7 @@ impl SpaceState {
     /// as restore guards). Returns `Ok(())` for redactions without
     /// `object_ref` (message-only path). Place is intentionally excluded
     /// because `PlaceState` has no `Redacted` variant — spec routes Place
-    /// removal through `cx.space.tombstone` instead.
+    /// removal through `ck.space.tombstone` instead.
     fn redact_object_for_event(&mut self, event: &Event) -> Result<()> {
         let Some(object_ref) = self.extract_optional_field::<String>(&event.content, "object_ref")
         else {
@@ -1259,7 +1259,7 @@ impl SpaceState {
         // hit here when `object_ref` is `ck:space:...` and Place is
         // unmaterialised; that's also fine because cx.redaction targeting
         // a Place is undefined per spec (no `Redacted` variant), and
-        // any place removal flow uses `cx.space.tombstone` directly.
+        // any place removal flow uses `ck.space.tombstone` directly.
         Ok(())
     }
 
@@ -1313,13 +1313,13 @@ impl SpaceState {
     fn is_maintenance_event(event: &Event) -> bool {
         matches!(
             event.kind.as_str(),
-            "cx.message.redact"
+            "ck.message.redact"
                 | "cx.realm.redact"
                 | "cx.realm.export"
                 | "cx.realm.legal_hold"
                 | "cx.realm.migration_proof"
-                | "cx.realm.upgrade"
-                | "cx.realm.destroy"
+                | "ck.realm.upgrade"
+                | "ck.realm.destroy"
                 | "cx.redaction"
         ) || event.redacts.is_some()
     }
@@ -1392,52 +1392,52 @@ impl SpaceState {
     /// per the spec event-kind-registry's `cell_subject` declaration.
     fn subject_for_event(&self, event: &Event) -> Result<String> {
         match event.kind.as_str() {
-            "cx.member.state" => self
+            "ck.member.state" => self
                 .extract_optional_field::<String>(&event.content, "actor_id")
                 .or_else(|| self.extract_optional_field::<String>(&event.content, "principal_id"))
                 .or_else(|| self.extract_optional_field::<String>(&event.content, "member_id"))
                 .ok_or_else(|| {
                     Error::Protocol("member state requires payload.actor_id".to_owned())
                 }),
-            "cx.capability.revoke" => self
+            "ck.capability.revoke" => self
                 .extract_optional_field::<String>(&event.content, "target_capability_id")
                 .or_else(|| self.extract_optional_field::<String>(&event.content, "id"))
                 .ok_or_else(|| {
                     Error::Protocol("capability revoke requires target_capability_id".to_owned())
                 }),
-            "cx.capability.grant" | "cx.capability.delegate" => self
+            "ck.capability.grant" | "ck.capability.delegate" => self
                 .extract_optional_field::<String>(&event.content, "capability_id")
                 .or_else(|| self.extract_optional_field::<String>(&event.content, "id"))
                 .ok_or_else(|| {
                     Error::Protocol("capability event requires capability_id or id".to_owned())
                 }),
-            "cx.realm.policy" | "cx.policy.set" => Ok(self
+            "ck.realm.policy" | "ck.policy.set" => Ok(self
                 .extract_optional_field::<String>(&event.content, "policy_id")
                 .unwrap_or_else(|| "space_policy".to_owned())),
-            "cx.invite.create" | "cx.invite.cancel" | "cx.invite.accept" => self
+            "ck.invite.create" | "ck.invite.cancel" | "ck.invite.accept" => self
                 .extract_optional_field::<String>(&event.content, "invite_id")
                 .or_else(|| self.extract_optional_field::<String>(&event.content, "id"))
                 .ok_or_else(|| Error::Protocol("invite event requires invite_id or id".to_owned())),
-            "cx.read_cursor.advance" => self
+            "ck.read_cursor.advance" => self
                 .extract_optional_field::<String>(&event.content, "scope")
                 .or_else(|| self.extract_optional_field::<String>(&event.content, "target_ref"))
                 .ok_or_else(|| {
                     Error::Protocol("read marker requires scope or target_ref".to_owned())
                 }),
             // Realm lifecycle events use the space_id as state key
-            "cx.realm.create"
-            | "cx.realm.update"
-            | "cx.realm.organization"
-            | "cx.realm.link"
-            | "cx.realm.inheritance_policy"
-            | "cx.realm.join_rule"
-            | "cx.realm.history_visibility"
-            | "cx.realm.discovery"
-            | "cx.realm.archive"
-            | "cx.realm.freeze"
-            | "cx.realm.destroy" => Ok(event.realm_id.as_str().to_owned()),
+            "ck.realm.create"
+            | "ck.realm.update"
+            | "ck.realm.organization"
+            | "ck.realm.link"
+            | "ck.realm.inheritance_policy"
+            | "ck.realm.join_rule"
+            | "ck.realm.history_visibility"
+            | "ck.realm.discovery"
+            | "ck.realm.archive"
+            | "ck.realm.freeze"
+            | "ck.realm.destroy" => Ok(event.realm_id.as_str().to_owned()),
             // View events use view_id as state key
-            "cx.view.create" | "cx.view.update" | "cx.view.reconcile" => self
+            "ck.view.create" | "ck.view.update" | "ck.view.reconcile" => self
                 .extract_optional_field::<String>(&event.content, "view_id")
                 .or_else(|| self.extract_optional_field::<String>(&event.content, "id"))
                 .ok_or_else(|| Error::Protocol("view event requires view_id or id".to_owned())),
@@ -1449,7 +1449,7 @@ impl SpaceState {
         existing: &ResolvedStateEvent,
         candidate: &ResolvedStateEvent,
     ) -> bool {
-        if candidate.kind == "cx.member.state" && existing.kind == "cx.member.state" {
+        if candidate.kind == "ck.member.state" && existing.kind == "ck.member.state" {
             let existing_rank = membership_rank(&existing.content);
             let candidate_rank = membership_rank(&candidate.content);
             if existing_rank != candidate_rank {
@@ -1510,7 +1510,7 @@ impl SpaceState {
 
     pub fn effective_capability(&self, capability_id: &str) -> Option<&ResolvedStateEvent> {
         self.resolved_state.get(&format!("cx.capability|{}", capability_id)).filter(|event| {
-            matches!(event.kind.as_str(), "cx.capability.grant" | "cx.capability.delegate")
+            matches!(event.kind.as_str(), "ck.capability.grant" | "ck.capability.delegate")
         })
     }
 

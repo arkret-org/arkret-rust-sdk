@@ -21,9 +21,9 @@ were stuffing them into `Event.unsigned` and tagging the line with
 
 As of this commit:
 
-- `contrix_core::Event::applet_id: Option<String>` is a first-class
+- `cokret_core::Event::applet_id: Option<String>` is a first-class
   field.
-- `contrix_core::Event::external_ref: Option<serde_json::Value>` is a
+- `cokret_core::Event::external_ref: Option<serde_json::Value>` is a
   first-class field.
 - Both are folded into `Event::event_digest()` (canonical event bytes)
   whenever set — no special-cased signing transcript wiring is needed.
@@ -31,17 +31,17 @@ As of this commit:
 
 **Action for integrators:** drop the `unsigned`-hosted shims and
 populate the top-level slots directly. Re-sign the Envelope via
-`contrix_signatures::sign_event` (S-1) afterwards so the proof binds the
+`cokret_signatures::sign_event` (S-1) afterwards so the proof binds the
 new bytes.
 
-## 2. `SignedAppletRegistration` vs wire `cx.applet.registration`
+## 2. `SignedAppletRegistration` vs wire `ck.applet.registration`
 
 **Status:** **Co-exists; new integrations MUST use `WireAppletRegistration` (S-4).**
 
 The legacy `cokret::SignedAppletRegistration`
 (`crates/sdk/src/applet.rs`) is an SDK-internal model whose field names
 (`registration_id`, `schema`, `namespaces: Vec<…Declaration>`) do not
-match the on-wire `cx.applet.registration` Event content shape spec'd
+match the on-wire `ck.applet.registration` Event content shape spec'd
 in `applet-schema.md` §1.
 
 The wire shape — `kind / applet_id / service_did / controller_did /

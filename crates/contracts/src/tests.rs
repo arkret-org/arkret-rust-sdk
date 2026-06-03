@@ -2,13 +2,13 @@ use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 use chrono::{Duration, Utc};
-use contrix_core::{Did, FederationTransactionReqBody, Hash};
+use cokret_core::{Did, FederationTransactionReqBody, Hash};
 use serde_json::json;
 
 #[test]
 fn builtin_operation_ids_are_unique() {
-    let ids = contrix_core::BUILT_IN_OPERATION_KINDS.iter().copied().collect::<BTreeSet<_>>();
-    assert_eq!(ids.len(), contrix_core::BUILT_IN_OPERATION_KINDS.len());
+    let ids = cokret_core::BUILT_IN_OPERATION_KINDS.iter().copied().collect::<BTreeSet<_>>();
+    assert_eq!(ids.len(), cokret_core::BUILT_IN_OPERATION_KINDS.len());
 }
 
 #[test]
@@ -33,7 +33,7 @@ fn core_registry_matches_spec_operation_registry_when_available() {
         })
         .collect::<BTreeSet<_>>();
     let builtin_ids =
-        contrix_core::BUILT_IN_OPERATION_KINDS.iter().copied().collect::<BTreeSet<_>>();
+        cokret_core::BUILT_IN_OPERATION_KINDS.iter().copied().collect::<BTreeSet<_>>();
 
     let missing_from_core = spec_ids.difference(&builtin_ids).copied().collect::<Vec<_>>();
     let extra_in_core = builtin_ids.difference(&spec_ids).copied().collect::<Vec<_>>();
@@ -53,7 +53,7 @@ fn push_bridge_describe_serde_shape_is_stable() {
     let value = json!({
         "contract": "cx.push.bridge.v1",
         "version": "1.0.0",
-        "api_base_path": "/api/v1",
+        "api_base_path": "/_cokret/edge/push",
         "spec_version": crate::push::EXPECTED_SPEC_VERSION,
         "gateway": {
             "service_did": "did:web:push.example",
@@ -62,8 +62,8 @@ fn push_bridge_describe_serde_shape_is_stable() {
             "auth_modes": ["http-message-signature"]
         },
         "notify": {
-            "notify_path": "/api/v1/push/notify",
-            "operation_id": "cx.push.notify",
+            "notify_path": "/_cokret/edge/push/notify",
+            "operation_id": "ck.push.notify",
             "request_id_header": "X-Cokret-Request-Id",
             "idempotency_key_header": "X-Cokret-Idempotency-Key",
             "origin_service_did_header": "X-Cokret-Origin-Service-Did",

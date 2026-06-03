@@ -14,7 +14,7 @@ version = "1.0.0"
 [features]
 default = []
 # Client-side key-backup helpers: Argon2id KDF + XChaCha20-Poly1305 AEAD +
-# typed `cx.schema.key_backup.v1` envelope builder + recovery-key codec.
+# typed `ck.schema.key_backup.v1` envelope builder + recovery-key codec.
 # Spec: crypto-media/key-management.md §7. Pulls in `argon2`,
 # `chacha20poly1305`, `base64`, `getrandom`, `anyhow` only when enabled
 # so the bare `cokret-crypto` types crate stays light.

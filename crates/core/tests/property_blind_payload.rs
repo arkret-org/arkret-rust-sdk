@@ -1,6 +1,6 @@
 //! T8.2 — property tests for the blind push-payload sanitizer.
 //!
-//! These tests exercise [`contrix_core::blind_payload_sanitizer`] with
+//! These tests exercise [`cokret_core::blind_payload_sanitizer`] with
 //! randomly-shaped JSON values and assert two core invariants:
 //!
 //!  1. **No forbidden field ever survives.** If the sanitizer returns
@@ -17,7 +17,7 @@
 //!
 //! All proptest blocks use 64 cases to keep CI fast.
 
-use contrix_core::blind_payload_sanitizer::{
+use cokret_core::blind_payload_sanitizer::{
     BlindPayloadReasonCode, MAX_COUNT_VALUE, is_forbidden_payload_key, sanitize_blind_payload,
     sanitize_blind_payload_strict,
 };

@@ -34,12 +34,12 @@ consolidates them into one pipeline. Migration steps:
 ## Quick example
 
 ```rust,no_run
-use contrix_signatures::{
+use cokret_signatures::{
     EventProofBuilder, EventSigner, EventVerifier, ProductionVerifier, PublicKeyMaterial,
 };
 # #[cfg(feature = "signer")]
 # {
-use contrix_signatures::{Ed25519DetachedJwsSigner, Ed25519DetachedJwsVerifier};
+use cokret_signatures::{Ed25519DetachedJwsSigner, Ed25519DetachedJwsVerifier};
 use serde_json::json;
 
 let signer = Ed25519DetachedJwsSigner::from_seed([1u8; 32], "did:web:alice.example#key-1");

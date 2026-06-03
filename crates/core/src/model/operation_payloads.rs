@@ -29,7 +29,7 @@ impl<T: Serialize> ObjectCreatePayload<T> {
     }
 }
 
-/// Current wire object carried by `cx.space.create`.
+/// Current wire object carried by `ck.space.create`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SpaceCreateObject {
     pub id: SpaceId,
@@ -109,7 +109,7 @@ impl SpaceCreateObject {
     }
 }
 
-/// Current wire object carried by `cx.flow.create`.
+/// Current wire object carried by `ck.flow.create`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FlowCreateObject {
     pub id: FlowId,
@@ -183,7 +183,7 @@ impl FlowCreateObject {
     }
 }
 
-/// Payload shared by `cx.flow.update` and `cx.flow.tracks.update`.
+/// Payload shared by `ck.flow.update` and `ck.flow.tracks.update`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FlowPatchPayload {
     pub flow_id: FlowId,
@@ -204,7 +204,7 @@ impl FlowPatchPayload {
     }
 }
 
-/// Current wire object carried by `cx.morph.create`.
+/// Current wire object carried by `ck.morph.create`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MorphCreateObject {
     pub id: MorphId,
@@ -349,7 +349,7 @@ impl ContentBlock {
     }
 
     pub fn text(body: impl Into<String>) -> Self {
-        Self::new("cx.content.text", body)
+        Self::new("ck.content.text", body)
     }
 
     pub fn with_field(mut self, key: impl Into<String>, value: Value) -> Self {
@@ -368,7 +368,7 @@ impl ContentBlock {
     }
 }
 
-/// Payload for `cx.message.create`.
+/// Payload for `ck.message.create`.
 ///
 /// Producers must choose exactly one of `content` or `encrypted_content`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -505,7 +505,7 @@ mod tests {
         )
         .to_value()
         .unwrap();
-        assert_eq!(payload["content"]["kind"], "cx.content.text");
+        assert_eq!(payload["content"]["kind"], "ck.content.text");
         assert!(payload.get("encrypted_content").is_none());
     }
 
@@ -515,7 +515,7 @@ mod tests {
         let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap();
         let morph_id = MorphId::new("ck:morph:01904100-0000-7000-8000-000000000003").unwrap();
         let mut morph = MorphCreateObject::new(morph_id, realm_id, "document", actor);
-        morph.content = Some(json!({"kind": "cx.content.text", "body": "hello"}));
+        morph.content = Some(json!({"kind": "ck.content.text", "body": "hello"}));
         morph.encrypted_content = Some(json!({"schema": ENCRYPTED_ENVELOPE_SCHEMA}));
 
         let err = morph.to_create_payload_value().unwrap_err();

@@ -19,7 +19,7 @@ fn umbrella_crate_builds_client_signs_event_and_verifies_binding() {
             "message_id": "ck:message:01904100-0000-7000-8000-000000000001",
             "flow_id": "ck:flow:01904100-0000-7000-8000-000000000001",
             "track_name": "discussion",
-            "content": {"kind": "cx.content.text", "body": "hello"}
+            "content": {"kind": "ck.content.text", "body": "hello"}
         }),
     )
     .unwrap();

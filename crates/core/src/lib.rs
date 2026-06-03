@@ -46,7 +46,7 @@ pub use blind_payload_sanitizer::{
 };
 pub use bottom::{AnchorView, Bottom, BottomKind};
 pub use cell::{CellId, composite_subject, composite_subject_pipe};
-pub use contrix_identifiers as identifiers;
+pub use cokret_identifiers as identifiers;
 pub use cursor::{Cursor, CursorPurpose, CursorTarget, SpacePosition, SyncPositions, SyncTracker};
 pub use error::{
     ERROR_CODE_AAD_DIGEST_MISMATCH, ERROR_CODE_ACCEPT_POLICY_DENIED,

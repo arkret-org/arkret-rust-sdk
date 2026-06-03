@@ -65,18 +65,18 @@ The allowlisted headers should match what the client SDK sends — see
 ## Request limits & rate limiting
 
 - **Body size**. Configure the chosen runtime's body size limit explicitly if
-  your callers upload large blobs through the `cx.blob.upload` path. Reject
+  your callers upload large blobs through the `ck.blob.upload` path. Reject
   oversized uploads with a 413 carrying the standard
   `cx.error.payload_too_large` error code.
 - **Rate limit metadata**. The SDK exposes `service::RateLimitMetadata` and
   `service::QuotaMetadata` so the server can advertise its limits in
-  `GET /api/v1/server/describe`. Use runtime middleware or a fronting tier
+  `GET /_cokret/describe`. Use runtime middleware or a fronting tier
   (e.g. nginx `limit_req_zone`) to enforce them. Match the advertised window
   to the enforcement.
 
 ## Health and readiness
 
-Operate the standard `GET /api/v1/server/describe` endpoint as the health
+Operate the standard `GET /_cokret/describe` endpoint as the health
 check — it returns the service identity and capability advertisement. For
 load balancers that require a tiny dedicated path, add a runtime-specific
 `/healthz` handler that returns 200 once the service has finished startup

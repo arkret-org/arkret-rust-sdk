@@ -11,13 +11,13 @@ use crate::ERROR_CODE_INVALID_PARAM;
 /// receivers (`invalid_param`)." Five minutes = 300_000 ms. Round R2/R3.
 pub const EPHEMERAL_ABSOLUTE_HARD_CEILING_MS: u32 = 300_000;
 
-/// Broadcast ephemeral envelope (`cx.schema.ephemeral_envelope.v1`).
+/// Broadcast ephemeral envelope (`ck.schema.ephemeral_envelope.v1`).
 ///
 /// Wire shape for the four broadcast ephemeral signal kinds — `cx.presence`,
-/// `cx.typing`, `cx.receipt.read`, `cx.call.signal`. Carried on dedicated
+/// `cx.typing`, `ck.receipt.read`, `ck.call.signal`. Carried on dedicated
 /// ephemeral channels (sync subscribe live stream, presence/typing fanout,
 /// call signaling channel) and dropped at TTL. Point-to-point to-device
-/// signals (`cx.key.verification.*`) use the device message schema instead.
+/// signals (`ck.key.verification.*`) use the device message schema instead.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct EphemeralEnvelope {
@@ -33,14 +33,14 @@ pub struct EphemeralEnvelope {
     /// producing module; MUST NOT carry mutable governance state.
     pub payload: Value,
     /// Optional detached signature over canonical envelope bytes
-    /// (excluding `proof` itself). REQUIRED for `cx.call.signal` in E2EE
-    /// Realms; RECOMMENDED for `cx.receipt.read`.
+    /// (excluding `proof` itself). REQUIRED for `ck.call.signal` in E2EE
+    /// Realms; RECOMMENDED for `ck.receipt.read`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proof: Option<Value>,
 }
 
 impl EphemeralEnvelope {
-    pub const SCHEMA: &'static str = "cx.schema.ephemeral_envelope.v1";
+    pub const SCHEMA: &'static str = "ck.schema.ephemeral_envelope.v1";
 
     /// Construct with validation. Rejects:
     /// - non-ephemeral `kind`
@@ -60,10 +60,10 @@ impl EphemeralEnvelope {
         let kind = kind.into();
         if !matches!(
             kind.as_str(),
-            "cx.call.signal" | "cx.presence" | "cx.typing" | "cx.receipt.read"
+            "ck.call.signal" | "cx.presence" | "cx.typing" | "ck.receipt.read"
         ) {
             return Err(Error::Protocol(format!(
-                "ephemeral envelope kind {kind:?} not in {{cx.call.signal, cx.presence, cx.typing, cx.receipt.read}}"
+                "ephemeral envelope kind {kind:?} not in {{ck.call.signal, cx.presence, cx.typing, ck.receipt.read}}"
             )));
         }
         if expires_at <= sent_at {
@@ -82,9 +82,9 @@ impl EphemeralEnvelope {
     }
 }
 
-// ── EphemeralEnvelope v2 / cx.call.signal ───────────────────────────────
+// ── EphemeralEnvelope v2 / ck.call.signal ───────────────────────────────
 
-/// Round 4 (commit 58c5926) — typed `cx.call.signal` envelope payload.
+/// Round 4 (commit 58c5926) — typed `ck.call.signal` envelope payload.
 ///
 /// The pre-round-4 envelope carried an open `Value` payload; the round-4
 /// wire requires the three fields `call_id` + `signal_type` + `seq` and
@@ -115,7 +115,7 @@ impl CallSignalPayload {
     pub fn validate_signal_type(&self) -> Result<()> {
         if !self.signal_type_is_canonical() {
             return Err(Error::Protocol(format!(
-                "cx.call.signal payload.signal_type {:?} not in canonical 13-value enum \
+                "ck.call.signal payload.signal_type {:?} not in canonical 13-value enum \
                  ({})",
                 self.signal_type,
                 crate::ERROR_CODE_SCHEMA_VIOLATION
@@ -125,7 +125,7 @@ impl CallSignalPayload {
     }
 }
 
-/// Round 4 — composite key for the `cx.call.signal` `seq` monotonicity
+/// Round 4 — composite key for the `ck.call.signal` `seq` monotonicity
 /// guard. Receivers maintain one `seq` per `(realm, call, actor,
 /// device)` tuple; rollback rejects the signal and the receiver SHOULD
 /// emit `hangup` for that call.
@@ -153,7 +153,7 @@ pub fn validate_signal_seq(prev: Option<u64>, next: u64) -> Result<()> {
         None => Ok(()),
         Some(prev) if next > prev => Ok(()),
         Some(prev) => Err(Error::Protocol(format!(
-            "cx.call.signal seq rollback prev={prev} next={next} ({})",
+            "ck.call.signal seq rollback prev={prev} next={next} ({})",
             crate::ERROR_CODE_SCHEMA_VIOLATION
         ))),
     }
@@ -187,31 +187,31 @@ impl CallSignalState {
     }
 }
 
-// ── EphemeralEnvelope v2 helpers (cx.call.signal required fields) ────
+// ── EphemeralEnvelope v2 helpers (ck.call.signal required fields) ────
 
-/// Round 4 — verify a `cx.call.signal` [`EphemeralEnvelope`] satisfies
+/// Round 4 — verify a `ck.call.signal` [`EphemeralEnvelope`] satisfies
 /// the v2 wire requirements: `device_id` + `proof` are REQUIRED, and
 /// the payload deserialises into a [`CallSignalPayload`] with a
 /// canonical `signal_type`.
 pub fn validate_call_signal_envelope(env: &EphemeralEnvelope) -> Result<CallSignalPayload> {
-    if env.kind != "cx.call.signal" {
-        return Err(Error::Protocol(format!("envelope kind {:?} is not cx.call.signal", env.kind)));
+    if env.kind != "ck.call.signal" {
+        return Err(Error::Protocol(format!("envelope kind {:?} is not ck.call.signal", env.kind)));
     }
     if env.device_id.is_none() {
         return Err(Error::Protocol(format!(
-            "cx.call.signal envelope MUST carry device_id ({})",
+            "ck.call.signal envelope MUST carry device_id ({})",
             crate::ERROR_CODE_SCHEMA_VIOLATION
         )));
     }
     if env.proof.is_none() {
         return Err(Error::Protocol(format!(
-            "cx.call.signal envelope MUST carry proof ({})",
+            "ck.call.signal envelope MUST carry proof ({})",
             crate::ERROR_CODE_SCHEMA_VIOLATION
         )));
     }
     let payload: CallSignalPayload = serde_json::from_value(env.payload.clone()).map_err(|e| {
         Error::Protocol(format!(
-            "cx.call.signal payload must carry {{call_id, signal_type, seq}}: {e} ({})",
+            "ck.call.signal payload must carry {{call_id, signal_type, seq}}: {e} ({})",
             crate::ERROR_CODE_SCHEMA_VIOLATION
         ))
     })?;

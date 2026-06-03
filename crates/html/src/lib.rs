@@ -2,7 +2,7 @@
 
 use std::collections::BTreeSet;
 
-use contrix_core::{Error, Result};
+use cokret_core::{Error, Result};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]

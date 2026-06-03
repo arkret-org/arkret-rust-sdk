@@ -29,21 +29,21 @@ use crate::model::{
 /// trait is object-safe for the `Arc<dyn AppletHandler>` wiring the
 /// router uses.
 pub trait AppletHandler: Send + Sync + 'static {
-    /// `GET /api/v1/applet/ping`
+    /// `GET /_cokret/edge/applet/ping`
     fn ping(&self) -> Result<AppletPingResBody>;
-    /// `GET /api/v1/applet/describe`
+    /// `GET /_cokret/edge/applet/describe`
     fn describe(&self) -> Result<AppletDescription>;
-    /// `POST /api/v1/applet/transactions`
+    /// `POST /_cokret/edge/applet/transactions`
     fn handle_transaction(
         &self,
         idempotency_key: Option<&str>,
         req: AppletTransactionReqBody,
     ) -> Result<AppletTransactionResBody>;
-    /// `GET /api/v1/applet/actors/{actor_id}`
+    /// `GET /_cokret/edge/applet/actors/{actor_id}`
     fn resolve_actor(&self, actor_id: &str) -> Result<AppletActorResBody>;
-    /// `GET /api/v1/applet/realms/{realm_id_or_alias}`
+    /// `GET /_cokret/edge/applet/realms/{realm_id_or_alias}`
     fn resolve_realm(&self, realm_id_or_alias: &str) -> Result<AppletRealmResBody>;
-    /// `GET /api/v1/applet/protocols/{protocol}`
+    /// `GET /_cokret/edge/applet/protocols/{protocol}`
     fn resolve_protocol(&self, protocol: &str) -> Result<AppletProtocolResBody>;
 }
 
