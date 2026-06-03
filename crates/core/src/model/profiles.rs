@@ -700,6 +700,58 @@ pub struct ErasureReceiptProof {
     pub extra: BTreeMap<String, Value>,
 }
 
+/// Cross-Principal-Server erasure-receipt fanout aggregate status tracked by
+/// the issuing server (mirrors `erasure-receipt.schema.json` `fanout_status`;
+/// models/realm-and-space.md §2.6.2). Replaces the dropped point-dotted pseudo
+/// kind `ck.audit.erasure_receipt.fanout_status`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum ErasureFanoutStatus {
+    /// Peers still within `erasure_propagation_window_ms` and not all
+    /// acknowledged.
+    Pending,
+    /// Every peer that ever held this Realm's content returned a receipt.
+    Complete,
+    /// At least one peer failed to acknowledge within
+    /// `erasure_propagation_window_ms`. The issuing server MUST surface this
+    /// to audit/UI and MUST NOT silently swallow it.
+    Incomplete,
+}
+
+/// Per-peer fanout acknowledgement status (mirrors `erasure-receipt.schema.json`
+/// `peer_receipts[].status`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum ErasurePeerStatus {
+    /// Awaiting this peer's feedback receipt.
+    Pending,
+    /// Peer returned a receipt (regardless of its outcome).
+    Acknowledged,
+    /// Peer reported a non-completed feedback outcome
+    /// (`partially_completed` / `blocked_by_legal_hold`).
+    Failed,
+    /// No feedback within `erasure_propagation_window_ms`.
+    TimedOut,
+}
+
+/// One per-peer fanout acknowledgement record maintained by the issuing server
+/// (mirrors `erasure-receipt.schema.json` `peer_receipts[]`). One entry per peer
+/// Principal Server that ever held this Realm's content.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ErasurePeerReceipt {
+    /// Peer Principal Server DID.
+    pub peer: Did,
+    pub status: ErasurePeerStatus,
+    /// The peer's own feedback receipt id, when received.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub receipt_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub acknowledged_at: Option<DateTime<Utc>>,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ErasureReceipt {
@@ -717,6 +769,13 @@ pub struct ErasureReceipt {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub issued_at: Option<DateTime<Utc>>,
     pub proofs: Vec<ErasureReceiptProof>,
+    /// Cross-Principal-Server erasure fanout aggregate status. Absent on
+    /// receipts that do not drive fanout tracking.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fanout_status: Option<ErasureFanoutStatus>,
+    /// Per-peer fanout acknowledgement records backing `fanout_status`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub peer_receipts: Vec<ErasurePeerReceipt>,
 }
 
 impl ErasureReceipt {

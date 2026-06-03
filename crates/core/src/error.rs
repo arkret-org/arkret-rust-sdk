@@ -374,6 +374,14 @@ pub const REASON_INCEPTION_UPGRADE_OLD_DOCUMENT_HASH_MISMATCH: &str =
     "inception_upgrade_old_document_hash_mismatch";
 pub const REASON_INCEPTION_UPGRADE_EVIDENCE_INSUFFICIENT: &str =
     "inception_upgrade_evidence_insufficient";
+/// Inception key age (computed independently by the receiver / Auth Server from
+/// the verifiable `did:webvh` bootstrap timestamp against the local clock)
+/// exceeds the 24h protocol hard cap. The receiver MUST reject the
+/// `ck.device.authorize` / `ck.session.grant` / long-lived capability / ordinary
+/// DID update signed by that inception key regardless of any longer
+/// `inception_key_max_online_window` self-reported by deployment policy
+/// (key-management.md §5). `applies_to`: event_envelope / auth_decision.
+pub const REASON_INCEPTION_KEY_WINDOW_EXCEEDED: &str = "inception_key_window_exceeded";
 
 // Tier-0 S6 — `attested_hardware` Audit Agent removal must be paired with
 // `ck.audit.epoch_key_destruction` (round C45 drops the `.v1` kind suffix;
@@ -653,6 +661,7 @@ pub const KNOWN_REASON_CODES_ROUND_C44: &[&str] = &[
     REASON_INCEPTION_UPGRADE_SIGNATURE_CHAIN_INVALID,
     REASON_INCEPTION_UPGRADE_OLD_DOCUMENT_HASH_MISMATCH,
     REASON_INCEPTION_UPGRADE_EVIDENCE_INSUFFICIENT,
+    REASON_INCEPTION_KEY_WINDOW_EXCEEDED,
     REASON_AUDIT_AGENT_KEY_DESTRUCTION_ATTESTATION_MISSING,
     REASON_AUDIT_AGENT_REMOVE_REQUIRES_PAIRED_DESTRUCTION_ATTESTATION,
     REASON_AUDIT_AGENT_DESTRUCTION_NOT_PAIRED_WITH_REMOVE,

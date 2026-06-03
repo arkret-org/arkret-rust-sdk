@@ -29,8 +29,6 @@ pub struct Space {
     pub summary: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub security_class: Option<SecurityClass>,
-    /// Spec rename (head 37ce729): `created_by_principal` → `created_by`.
-    pub created_by: Did,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub owning_organizations: Vec<Did>,
     pub schema_refs: Vec<String>,
@@ -50,6 +48,12 @@ pub struct Space {
     pub retention_policy_id: Option<PolicyId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_blob_ref: Option<BlobRef>,
+    /// Spec rename (head 37ce729): `created_by_principal` → `created_by`.
+    ///
+    /// Declaration order mirrors `spec/v1/artifacts/schemas/realm.schema.json`
+    /// (common-fields §3.2): `created_by` lives in the trailing audit cluster
+    /// `… avatar_blob_ref, created_by, created_at, updated_by, updated_at`.
+    pub created_by: Did,
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_at: Option<DateTime<Utc>>,
@@ -172,7 +176,6 @@ impl Space {
             trust_domain,
             summary: None,
             security_class: None,
-            created_by,
             owning_organizations: Vec::new(),
             schema_refs: vec![CORE_SCHEMA_PROFILE.to_owned()],
             policy_id: None,
@@ -185,6 +188,7 @@ impl Space {
             federation_policy: None,
             retention_policy_id: None,
             avatar_blob_ref: None,
+            created_by,
             created_at: Utc::now(),
             updated_at: None,
             labels: Vec::new(),
@@ -270,14 +274,17 @@ pub struct Place {
     pub space_id: RealmId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parent_space_id: Option<RealmId>,
+    // Declaration order mirrors `spec/v1/artifacts/schemas/space.schema.json`
+    // (common-fields §3.2): the discriminator cluster `kind, rank, schema_refs`
+    // precedes `title, summary`.
     pub kind: String,
-    pub title: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub summary: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rank: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub schema_refs: Vec<String>,
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub fields: BTreeMap<String, Value>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -360,10 +367,10 @@ impl Place {
             space_id,
             parent_space_id: None,
             kind: kind.into(),
-            title: title.into(),
-            summary: None,
             rank: None,
             schema_refs: Vec::new(),
+            title: title.into(),
+            summary: None,
             fields: BTreeMap::new(),
             labels: Vec::new(),
             avatar_blob_ref: None,
@@ -460,6 +467,17 @@ pub struct Flow {
     pub schema: String,
     pub id: String,
     pub realm_id: RealmId,
+    /// CXP-0007 (spec b7d35be) — optional Circle scope binding. When set, all
+    /// Flow tracks share the referenced Circle's MLS group, membership and
+    /// history visibility; when unset the Flow lives in the Realm-default
+    /// scope. Rebinding `scope_circle_id` is forbidden by default (reducer
+    /// reason `scope_rebind_forbidden`). The Circle's parent Realm MUST
+    /// equal the Flow's Realm.
+    ///
+    /// Declaration order mirrors `spec/v1/artifacts/schemas/flow.schema.json`
+    /// (common-fields §3.2): `id, schema, realm_id, scope_circle_id, …`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope_circle_id: Option<CircleId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata: Option<FlowMetadata>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -484,14 +502,6 @@ pub struct Flow {
     /// Active Flow tracks keyed by canonical track name.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub tracks: BTreeMap<String, FlowTrackConfig>,
-    /// CXP-0007 (spec b7d35be) — optional Circle scope binding. When set, all
-    /// Flow tracks share the referenced Circle's MLS group, membership and
-    /// history visibility; when unset the Flow lives in the Realm-default
-    /// scope. Rebinding `scope_circle_id` is forbidden by default (reducer
-    /// reason `scope_rebind_forbidden`). The Circle's parent Realm MUST
-    /// equal the Flow's Realm.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub scope_circle_id: Option<CircleId>,
     /// SDK-local compatibility cache. Not serialized; current wire path is
     /// `metadata.fields`.
     #[serde(skip)]
@@ -526,6 +536,7 @@ impl Flow {
             schema: FLOW_SCHEMA.to_owned(),
             id: id.into(),
             realm_id,
+            scope_circle_id: None,
             metadata: Some(FlowMetadata::with_title(title.clone())),
             encrypted_metadata: None,
             title,
@@ -534,7 +545,6 @@ impl Flow {
             encrypted_content: None,
             encrypted_payload: None,
             tracks,
-            scope_circle_id: None,
             fields: BTreeMap::new(),
             state: Some(ObjectState::Active),
             state_changed_at: None,
