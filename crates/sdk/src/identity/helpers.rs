@@ -15,7 +15,9 @@ pub(super) fn host_is_safe_for_outbound(host: &str) -> bool {
     if let Ok(ip) = candidate.parse::<IpAddr>() {
         return ip_is_public(ip);
     }
-    if candidate.eq_ignore_ascii_case("localhost") || candidate.to_ascii_lowercase().ends_with(".localhost") {
+    if candidate.eq_ignore_ascii_case("localhost")
+        || candidate.to_ascii_lowercase().ends_with(".localhost")
+    {
         return false;
     }
     true
@@ -23,7 +25,8 @@ pub(super) fn host_is_safe_for_outbound(host: &str) -> bool {
 
 fn ip_is_public(ip: IpAddr) -> bool {
     match ip {
-        IpAddr::V4(v4) => !(v4.is_private()
+        IpAddr::V4(v4) => {
+            !(v4.is_private()
             || v4.is_loopback()
             || v4.is_link_local()
             || v4.is_broadcast()
@@ -31,7 +34,8 @@ fn ip_is_public(ip: IpAddr) -> bool {
             || v4.is_unspecified()
             || v4.is_multicast()
             // Carrier-grade NAT shared range 100.64.0.0/10.
-            || (v4.octets()[0] == 100 && (v4.octets()[1] & 0xc0) == 64)),
+            || (v4.octets()[0] == 100 && (v4.octets()[1] & 0xc0) == 64))
+        }
         IpAddr::V6(v6) => {
             if let Some(mapped) = v6.to_ipv4_mapped() {
                 return ip_is_public(IpAddr::V4(mapped));
@@ -213,6 +217,54 @@ pub(crate) fn decode_base58btc(input: &str) -> Option<Vec<u8>> {
 pub(super) fn base58btc_value(byte: u8) -> Option<u32> {
     const ALPHABET: &[u8; 58] = b"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
     ALPHABET.iter().position(|candidate| *candidate == byte).map(|index| index as u32)
+}
+
+/// Encode `bytes` as a base58btc string (Bitcoin alphabet, no multibase
+/// `z` prefix). Inverse of [`decode_base58btc`]. Used by the `did:webvh`
+/// SCID / entry-hash derivation, which wraps a SHA-256 multihash in
+/// base58btc.
+pub(crate) fn encode_base58btc(bytes: &[u8]) -> String {
+    const ALPHABET: &[u8; 58] = b"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+    if bytes.is_empty() {
+        return String::new();
+    }
+    let leading_zeros = bytes.iter().take_while(|&&b| b == 0).count();
+    let mut input = bytes.to_vec();
+    let mut output = Vec::<u8>::with_capacity(bytes.len() * 138 / 100 + 1);
+    let mut start = leading_zeros;
+    while start < input.len() {
+        let mut remainder: u32 = 0;
+        for byte in input.iter_mut().skip(start) {
+            let acc = (remainder << 8) | u32::from(*byte);
+            *byte = (acc / 58) as u8;
+            remainder = acc % 58;
+        }
+        output.push(ALPHABET[remainder as usize]);
+        while start < input.len() && input[start] == 0 {
+            start += 1;
+        }
+    }
+    let mut s = String::with_capacity(leading_zeros + output.len());
+    for _ in 0..leading_zeros {
+        s.push('1');
+    }
+    for &b in output.iter().rev() {
+        s.push(b as char);
+    }
+    s
+}
+
+/// Wrap a SHA-256 digest of `canonical_bytes` in a multihash envelope
+/// (`0x12 0x20` = sha2-256 + 32-byte length) and return the
+/// **multibase** `z`-prefixed base58btc string. This is the form
+/// `did:webvh` v1.0 uses for both the SCID and per-entry hashes.
+pub(crate) fn webvh_multihash_base58(canonical_bytes: &[u8]) -> String {
+    let digest = Sha256::digest(canonical_bytes);
+    let mut envelope = Vec::with_capacity(2 + digest.len());
+    envelope.push(0x12); // sha2-256 multihash code
+    envelope.push(0x20); // 32-byte digest length
+    envelope.extend_from_slice(&digest);
+    format!("z{}", encode_base58btc(&envelope))
 }
 
 pub(super) fn is_supported_did_key_multicodec(bytes: &[u8]) -> bool {
