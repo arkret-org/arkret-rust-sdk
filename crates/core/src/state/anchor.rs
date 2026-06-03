@@ -3,7 +3,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{
-    Anchor, AnchorId, CellRef, Hash, Move, MoveId, SpaceId, canonical,
+    Anchor, AnchorId, CellRef, Hash, Move, MoveId, RealmId, canonical,
     lattice::{AnchoredOp, CellState},
 };
 use serde_json::Value;
@@ -161,7 +161,7 @@ where
 /// any Anchor object.
 pub fn effective_anchor_view(
     leaves: &[AnchorId],
-    space_id: &SpaceId,
+    space_id: &RealmId,
     anchors: &dyn AnchorStore,
     cells: &dyn CellStore,
     registry: &dyn CellRegistry,
@@ -221,7 +221,7 @@ pub fn union_predecessor_frontiers(
 /// reachability when DAG branches diverge.
 pub fn effective_state_at(
     _leaves: &[AnchorId],
-    space_id: &SpaceId,
+    space_id: &RealmId,
     cells: &dyn CellStore,
     registry: &dyn CellRegistry,
 ) -> Result<BTreeMap<CellRef, CellState>, AnchorReject> {
@@ -239,7 +239,7 @@ pub fn effective_state_at(
 /// fallback inside `apply_anchor` step 7 when the new Anchor isn't yet
 /// committed but its effects have already been appended.
 fn compute_post_state_direct(
-    space_id: &SpaceId,
+    space_id: &RealmId,
     cells: &dyn CellStore,
     registry: &dyn CellRegistry,
 ) -> BTreeMap<CellRef, CellState> {
@@ -298,8 +298,8 @@ mod tests {
         MemoryAnchorStore, MemoryCellRegistry, MemoryCellStore, MemoryMoveStore,
     };
 
-    fn space() -> SpaceId {
-        SpaceId::new("ck:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+    fn space() -> RealmId {
+        RealmId::new("ck:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn cell_member() -> CellRef {

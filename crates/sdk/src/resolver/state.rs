@@ -9,7 +9,7 @@ use crate::events::kinds::FLOW_TRACKS_UPDATE as OP_FLOW_TRACKS_UPDATE;
 #[derive(Clone, Debug)]
 pub struct SpaceState {
     /// Space ID
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     /// Current space version
     pub space_version: String,
     /// Current flows by ID
@@ -49,7 +49,7 @@ pub struct SpaceState {
 
 impl SpaceState {
     /// Create a new empty space state.
-    pub fn new(space_id: SpaceId, space_version: String) -> Self {
+    pub fn new(space_id: RealmId, space_version: String) -> Self {
         Self {
             space_id,
             space_version,
@@ -470,9 +470,9 @@ impl SpaceState {
         let place_id = self
             .extract_optional_field::<String>(object, "id")
             .ok_or_else(|| Error::Protocol("container object requires id".to_owned()))?;
-        let id = SpaceId::new(place_id.clone())?;
+        let id = RealmId::new(place_id.clone())?;
         let space_id = self.extract_optional_field(object, "space_id").unwrap_or_else(|| {
-            SpaceId::new(event.realm_id.to_string()).expect("validated realm id")
+            RealmId::new(event.realm_id.to_string()).expect("validated realm id")
         });
         let kind = self.extract_field::<String>(object, "kind")?;
         let title = self.extract_field::<String>(object, "title")?;
@@ -620,7 +620,7 @@ impl SpaceState {
             self.extract_optional_field::<String>(&event.content, "parent_space_id").ok_or_else(
                 || Error::Protocol("place parent event requires parent_space_id".to_owned()),
             )?;
-        let parent_space_id = SpaceId::new(parent_space_id_str)?;
+        let parent_space_id = RealmId::new(parent_space_id_str)?;
         let place = self
             .places
             .get_mut(&place_id)
@@ -1583,7 +1583,7 @@ impl SpaceState {
 
     pub fn restore_snapshot_or_replay(
         snapshot: Option<StateSnapshot>,
-        space_id: SpaceId,
+        space_id: RealmId,
         space_version: impl Into<String>,
         repo_events: &[Event],
     ) -> Result<SnapshotRestore> {

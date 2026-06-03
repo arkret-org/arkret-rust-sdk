@@ -32,8 +32,8 @@ impl SlidingWindow {
 /// Sliding Sync state for a space list.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct SlidingSync {
-    all_spaces: Vec<SpaceId>,
-    subscribed_spaces: BTreeSet<SpaceId>,
+    all_spaces: Vec<RealmId>,
+    subscribed_spaces: BTreeSet<RealmId>,
     windows: Vec<SlidingWindow>,
     batch_size: Option<u32>,
     timeline_filter: Option<TimelineFilter>,
@@ -46,7 +46,7 @@ impl SlidingSync {
     }
 
     /// Replace the known ordered space list.
-    pub fn set_space_list(&mut self, spaces: Vec<SpaceId>) {
+    pub fn set_space_list(&mut self, spaces: Vec<RealmId>) {
         self.all_spaces = spaces;
     }
 
@@ -66,7 +66,7 @@ impl SlidingSync {
     }
 
     /// Apply incremental insertions/removals to the ordered space list.
-    pub fn apply_delta(&mut self, removals: &[SpaceId], insertions: Vec<(usize, SpaceId)>) {
+    pub fn apply_delta(&mut self, removals: &[RealmId], insertions: Vec<(usize, RealmId)>) {
         let removal_set: BTreeSet<_> = removals.iter().cloned().collect();
         self.all_spaces.retain(|space_id| !removal_set.contains(space_id));
 
@@ -77,7 +77,7 @@ impl SlidingSync {
     }
 
     /// Spaces currently visible through all windows.
-    pub fn visible_spaces(&self) -> Vec<SpaceId> {
+    pub fn visible_spaces(&self) -> Vec<RealmId> {
         let mut visible = BTreeSet::new();
         for window in &self.windows {
             for space_id in self.all_spaces.iter().skip(window.start).take(window.len()) {
@@ -107,7 +107,7 @@ impl SlidingSync {
     }
 
     /// True if a space is part of the current visible subscription set.
-    pub fn is_subscribed(&self, space_id: &SpaceId) -> bool {
+    pub fn is_subscribed(&self, space_id: &RealmId) -> bool {
         self.subscribed_spaces.contains(space_id)
     }
 
@@ -171,7 +171,7 @@ impl SpaceListFilter {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SpaceListEntry {
     /// Space ID.
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     /// Display name.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
@@ -196,7 +196,7 @@ pub struct SpaceListEntry {
 
 impl SpaceListEntry {
     /// Create a list entry with default joined membership.
-    pub fn joined(space_id: SpaceId) -> Self {
+    pub fn joined(space_id: RealmId) -> Self {
         Self {
             space_id,
             name: None,
@@ -220,9 +220,9 @@ pub enum SpaceListChange {
     /// Existing visible entry changed in place.
     Updated { index: usize, entry: SpaceListEntry },
     /// Entry disappeared from the visible projection.
-    Removed { old_index: usize, space_id: SpaceId },
+    Removed { old_index: usize, space_id: RealmId },
     /// Existing entry moved after sorting/filtering.
-    Moved { old_index: usize, new_index: usize, space_id: SpaceId },
+    Moved { old_index: usize, new_index: usize, space_id: RealmId },
 }
 
 /// Result of applying one space-list mutation.
@@ -230,7 +230,7 @@ pub enum SpaceListChange {
 pub struct SpaceListUpdate {
     /// Ordered visible space IDs after the mutation.
     #[serde(default)]
-    pub ordered: Vec<SpaceId>,
+    pub ordered: Vec<RealmId>,
     /// Incremental changes suitable for UI bindings.
     #[serde(default)]
     pub changes: Vec<SpaceListChange>,
@@ -241,10 +241,10 @@ pub struct SpaceListUpdate {
 pub struct SpaceListSnapshot {
     /// Entries by space.
     #[serde(default)]
-    pub entries: BTreeMap<SpaceId, SpaceListEntry>,
+    pub entries: BTreeMap<RealmId, SpaceListEntry>,
     /// Visible ordered projection.
     #[serde(default)]
-    pub ordered: Vec<SpaceId>,
+    pub ordered: Vec<RealmId>,
     /// Current sort.
     pub sort: SpaceListSort,
     /// Current filter.
@@ -254,8 +254,8 @@ pub struct SpaceListSnapshot {
 /// Space list service with deterministic sorting, filtering and deltas.
 #[derive(Clone, Debug, Default)]
 pub struct SpaceListService {
-    entries: BTreeMap<SpaceId, SpaceListEntry>,
-    ordered: Vec<SpaceId>,
+    entries: BTreeMap<RealmId, SpaceListEntry>,
+    ordered: Vec<RealmId>,
     sort: SpaceListSort,
     filter: SpaceListFilter,
 }
@@ -313,7 +313,7 @@ impl SpaceListService {
     }
 
     /// Remove one entry.
-    pub fn remove(&mut self, space_id: &SpaceId) -> SpaceListUpdate {
+    pub fn remove(&mut self, space_id: &RealmId) -> SpaceListUpdate {
         let previous = self.visible_entries();
         self.entries.remove(space_id);
         self.rebuild_update(previous)

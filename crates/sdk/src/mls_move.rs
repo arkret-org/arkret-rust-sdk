@@ -30,7 +30,7 @@
 
 use cokret_core::{
     AnchorId, CellRef, Effect, Hash, LatticeOp, LatticeOpType, Precondition, Predicate,
-    PredicateOp, SpaceId,
+    PredicateOp, RealmId,
 };
 use serde_json::Value;
 
@@ -61,10 +61,9 @@ pub fn key_schedule_cell_id(group_id: &str) -> Result<CellRef, cokret_core::Erro
 
 /// `ck:cell:ck.component.covered_frontier.v1:<space_id>` — or-set listing
 /// the governance Anchor frontiers this MLS group is currently bound to.
-pub fn covered_frontier_cell_id(space_id: &SpaceId) -> Result<CellRef, cokret_core::Error> {
-    CellRef::new(format!("ck:cell:{COVERED_FRONTIER_CELL_FAMILY}:{}", space_id.as_str())).map_err(
-        |e| cokret_core::Error::Protocol(format!("invalid covered_frontier cell id: {e}")),
-    )
+pub fn covered_frontier_cell_id(space_id: &RealmId) -> Result<CellRef, cokret_core::Error> {
+    CellRef::new(format!("ck:cell:{COVERED_FRONTIER_CELL_FAMILY}:{}", space_id.as_str()))
+        .map_err(|e| cokret_core::Error::Protocol(format!("invalid covered_frontier cell id: {e}")))
 }
 
 /// Deterministic or-set tag for "this MLS commit attests Anchor X covers
@@ -85,7 +84,7 @@ pub fn governance_frontier_tag(anchor: &AnchorId) -> String {
 ///   covered by the Space's covered_frontier or-set.
 pub fn mls_commit_preconditions(
     group_id: &str,
-    space_id: &SpaceId,
+    space_id: &RealmId,
     prev_epoch: u64,
     required_governance_anchor: &AnchorId,
 ) -> Result<Vec<Precondition>, cokret_core::Error> {
@@ -121,7 +120,7 @@ pub fn mls_commit_preconditions(
 /// 3. `covered_frontier_cell` <- add(tag = attested governance Anchor id).
 pub fn mls_commit_effects(
     group_id: &str,
-    space_id: &SpaceId,
+    space_id: &RealmId,
     new_epoch: u64,
     new_schedule: &Hash,
     attested_governance_anchor: &AnchorId,
@@ -180,7 +179,7 @@ pub fn mls_commit_effects(
 /// this precondition is added to message / key-schedule Moves but
 /// **not** to governance / recovery Moves.
 pub fn e2ee_message_precondition(
-    space_id: &SpaceId,
+    space_id: &RealmId,
     governance_anchor: &AnchorId,
 ) -> Result<Precondition, cokret_core::Error> {
     let cell = covered_frontier_cell_id(space_id)?;
@@ -210,7 +209,7 @@ impl MlsCommitMoveSpec {
     /// Compose the spec from raw inputs.
     pub fn build(
         group_id: &str,
-        space_id: &SpaceId,
+        space_id: &RealmId,
         prev_epoch: u64,
         new_epoch: u64,
         new_schedule: &Hash,
@@ -260,8 +259,8 @@ mod tests {
         lattice::{AnchoredOp, CellState, Lattice, OrSet},
     };
 
-    fn space() -> SpaceId {
-        SpaceId::new("ck:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+    fn space() -> RealmId {
+        RealmId::new("ck:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn anchor(byte: u8) -> AnchorId {

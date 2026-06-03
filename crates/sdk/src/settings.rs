@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::{Did, SpaceId};
+use crate::{Did, RealmId};
 
 /// Client theme.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -27,7 +27,7 @@ pub struct NotificationPreferences {
     /// Enable email notifications.
     pub email_enabled: bool,
     /// Muted spaces.
-    pub muted_spaces: BTreeSet<SpaceId>,
+    pub muted_spaces: BTreeSet<RealmId>,
 }
 
 impl Default for NotificationPreferences {
@@ -138,7 +138,7 @@ impl SettingsManager {
     }
 
     /// Mute a space.
-    pub fn mute_space(&mut self, user_id: Did, space_id: SpaceId) {
+    pub fn mute_space(&mut self, user_id: Did, space_id: RealmId) {
         let settings = self.settings_mut(user_id);
         settings.notifications.muted_spaces.insert(space_id);
         settings.updated_at = Utc::now();
@@ -192,7 +192,7 @@ mod tests {
     #[test]
     fn settings_manage_theme_language_notifications_and_privacy() {
         let alice = did("alice");
-        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let mut manager = SettingsManager::new();
 
         manager.set_theme(alice.clone(), ThemeSetting::Dark);

@@ -3,7 +3,7 @@ use super::*;
 /// State snapshot at a specific point in time.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StateSnapshot {
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     pub space_version: String,
     pub frontier: Vec<EventId>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -28,7 +28,7 @@ pub struct StateSnapshot {
 pub struct ReducerSnapshotManifest {
     pub schema: String,
     pub reducer_profile: String,
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     pub space_version: String,
     pub frontier: Vec<EventId>,
     pub state_digest: String,
@@ -446,7 +446,7 @@ pub fn merkle_root(mut leaves: Vec<String>) -> Result<String> {
 }
 
 pub(super) struct StateHashInput<'a> {
-    pub(super) space_id: &'a SpaceId,
+    pub(super) space_id: &'a RealmId,
     pub(super) space_version: &'a str,
     pub(super) frontier: &'a [EventId],
     pub(super) subjects: &'a BTreeMap<String, Flow>,

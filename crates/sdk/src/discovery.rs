@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Did, SpaceId,
+    Did, RealmId,
     search::{SpaceSearchEntry, SpaceSearchIndex, SpaceSearchQuery},
 };
 
@@ -37,7 +37,7 @@ impl DirectoryUser {
 pub struct DirectoryService {
     users: BTreeMap<Did, DirectoryUser>,
     spaces: SpaceSearchIndex,
-    categories: BTreeMap<String, BTreeSet<SpaceId>>,
+    categories: BTreeMap<String, BTreeSet<RealmId>>,
 }
 
 impl DirectoryService {
@@ -99,7 +99,7 @@ impl DirectoryService {
     pub fn recommend_spaces(
         &self,
         preferred_tags: BTreeSet<String>,
-        already_joined: BTreeSet<SpaceId>,
+        already_joined: BTreeSet<RealmId>,
         limit: usize,
     ) -> Vec<&SpaceSearchEntry> {
         let mut results: Vec<_> = self
@@ -232,7 +232,7 @@ mod tests {
         assert!(directory.user_profile(&alice).is_some());
 
         let mut entry = SpaceSearchEntry::new(
-            SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+            RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             "Rust SDK",
         );
         entry.tags.insert("rust".to_owned());

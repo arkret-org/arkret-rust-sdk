@@ -130,7 +130,7 @@ fn sync_loop_can_reset_token_on_limited_timeline_gap() {
 
 #[test]
 fn sync_loop_includes_wait_for_frontier() {
-    let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
     let wait_for = WaitForFrontier {
         positions: vec![crate::sync::SyncStreamPosition {
             space_id,
@@ -205,7 +205,7 @@ fn processor_dispatches_all_update_categories() {
 
     let mut processor = SyncResponseProcessor::new();
     let updates = processor.process(response).unwrap();
-    let parsed_space_id = SpaceId::new(space_id).unwrap();
+    let parsed_space_id = RealmId::new(space_id).unwrap();
 
     assert_eq!(updates.space_updates.len(), 1);
     assert_eq!(processor.space(&parsed_space_id).unwrap().notification_count, 3);
@@ -219,7 +219,7 @@ fn processor_dispatches_all_update_categories() {
 #[test]
 fn processor_tracks_limited_timelines_and_to_device_ack() {
     let space_id = "ck:space:01904100-0000-7000-8000-9b64700c6ee8";
-    let parsed_space_id = SpaceId::new(space_id).unwrap();
+    let parsed_space_id = RealmId::new(space_id).unwrap();
     let parsed_realm_id = RealmId::new(space_id.replacen("ck:space:", "ck:realm:", 1)).unwrap();
     let event = Event::new(
         "ck.message.create",
@@ -260,7 +260,7 @@ fn processor_tracks_limited_timelines_and_to_device_ack() {
 
 #[test]
 fn send_queue_is_idempotent_orders_dependencies_and_snapshots() {
-    let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
     let mut queue = SendQueue::new();
     let message = queue
         .enqueue_message(Some("txn1".to_owned()), space_id.clone(), json!({"body":"hello"}))
@@ -294,7 +294,7 @@ fn send_queue_is_idempotent_orders_dependencies_and_snapshots() {
 
 #[test]
 fn send_queue_cancels_dependent_edit_redaction_and_reaction() {
-    let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
     let event_id = EventId::new("ck:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap();
     let mut queue = SendQueue::new();
     queue
@@ -329,10 +329,10 @@ fn send_queue_cancels_dependent_edit_redaction_and_reaction() {
 
 #[test]
 fn sliding_sync_builds_windowed_subscriptions_and_applies_deltas() {
-    let s1 = SpaceId::new("ck:space:01904100-0000-7000-8000-000000000001").unwrap();
-    let s2 = SpaceId::new("ck:space:01904100-0000-7000-8000-000000000002").unwrap();
-    let s3 = SpaceId::new("ck:space:01904100-0000-7000-8000-000000000003").unwrap();
-    let s4 = SpaceId::new("ck:space:01904100-0000-7000-8000-000000000004").unwrap();
+    let s1 = RealmId::new("ck:space:01904100-0000-7000-8000-000000000001").unwrap();
+    let s2 = RealmId::new("ck:space:01904100-0000-7000-8000-000000000002").unwrap();
+    let s3 = RealmId::new("ck:space:01904100-0000-7000-8000-000000000003").unwrap();
+    let s4 = RealmId::new("ck:space:01904100-0000-7000-8000-000000000004").unwrap();
 
     let mut sliding = SlidingSync::new();
     sliding.set_space_list(vec![s1.clone(), s2.clone(), s3]);
@@ -349,8 +349,8 @@ fn sliding_sync_builds_windowed_subscriptions_and_applies_deltas() {
 
 #[test]
 fn space_list_sorts_filters_and_reports_incremental_changes() {
-    let s1 = SpaceId::new("ck:space:01904100-0000-7000-8000-f949e0272316").unwrap();
-    let s2 = SpaceId::new("ck:space:01904100-0000-7000-8000-46f8537dc94e").unwrap();
+    let s1 = RealmId::new("ck:space:01904100-0000-7000-8000-f949e0272316").unwrap();
+    let s2 = RealmId::new("ck:space:01904100-0000-7000-8000-46f8537dc94e").unwrap();
     let mut list = SpaceListService::new();
     let mut alpha = SpaceListEntry::joined(s1);
     alpha.name = Some("Alpha".to_owned());
@@ -493,7 +493,7 @@ fn events_query_selector_validates_non_empty() {
     let empty = EventsQuerySelector::default();
     assert!(empty.validate_non_empty().is_err());
     let with_space = EventsQuerySelector {
-        spaces: vec![SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()],
+        spaces: vec![RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()],
         ..Default::default()
     };
     with_space.validate_non_empty().unwrap();
@@ -508,8 +508,8 @@ fn events_query_selector_validates_non_empty() {
 fn events_query_selector_renders_repeated_query_args() {
     let selector = EventsQuerySelector {
         spaces: vec![
-            SpaceId::new("ck:space:01904100-0000-7000-8000-f949e0272316").unwrap(),
-            SpaceId::new("ck:space:01904100-0000-7000-8000-46f8537dc94e").unwrap(),
+            RealmId::new("ck:space:01904100-0000-7000-8000-f949e0272316").unwrap(),
+            RealmId::new("ck:space:01904100-0000-7000-8000-46f8537dc94e").unwrap(),
         ],
         actors: vec!["did:web:alice.example".to_owned()],
         from: Some("sx:cursor:1".to_owned()),
@@ -554,7 +554,7 @@ fn events_query_request_validates_non_empty() {
     let empty = EventsQueryReqBody::new();
     assert!(empty.validate_non_empty().is_err());
     let with_space = EventsQueryReqBody::new()
-        .with_spaces(vec![SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()]);
+        .with_spaces(vec![RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()]);
     with_space.validate_non_empty().unwrap();
 }
 
@@ -562,8 +562,8 @@ fn events_query_request_validates_non_empty() {
 fn events_query_request_renders_query_pairs() {
     let req = EventsQueryReqBody::new()
         .with_spaces(vec![
-            SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
-            SpaceId::new("ck:space:01904100-0000-7000-8000-46f8537dc94e").unwrap(),
+            RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+            RealmId::new("ck:space:01904100-0000-7000-8000-46f8537dc94e").unwrap(),
         ])
         .with_actors(vec!["did:web:alice.example".to_owned()])
         .with_from("hlc:0189c4d2af00-0000-aabbccdd")

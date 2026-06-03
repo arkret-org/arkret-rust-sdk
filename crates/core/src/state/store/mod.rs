@@ -14,7 +14,7 @@
 pub mod memory;
 
 use crate::{
-    Anchor, AnchorId, CellRef, Hash, Move, MoveId, SpaceId,
+    Anchor, AnchorId, CellRef, Hash, Move, MoveId, RealmId,
     lattice::{AnchoredOp, CellState, Lattice},
 };
 use thiserror::Error;
@@ -57,7 +57,7 @@ pub trait MoveStore: Send + Sync {
     /// Pending Move list for the anchorer worker, oldest first.
     fn list_pending_for_anchorer(
         &self,
-        space_id: &SpaceId,
+        space_id: &RealmId,
         cursor: Option<&MoveId>,
         limit: usize,
     ) -> StoreResult<Vec<Move>>;
@@ -65,7 +65,7 @@ pub trait MoveStore: Send + Sync {
     /// Anchored Move list for federation backfill / audit replay.
     fn list_anchored(
         &self,
-        space_id: &SpaceId,
+        space_id: &RealmId,
         cursor: Option<&MoveId>,
         limit: usize,
     ) -> StoreResult<Vec<AnchoredMoveRecord>>;
@@ -78,13 +78,13 @@ pub trait AnchorStore: Send + Sync {
     fn get(&self, id: &AnchorId) -> StoreResult<Option<Anchor>>;
 
     /// Current leaf set for a Space (Anchors with no successor).
-    fn list_leaves(&self, space_id: &SpaceId) -> StoreResult<Vec<AnchorId>>;
+    fn list_leaves(&self, space_id: &RealmId) -> StoreResult<Vec<AnchorId>>;
 
     /// Whether all `refs` have been seen by this store.
     fn predecessors_known(&self, refs: &[AnchorId]) -> StoreResult<bool>;
 
     /// The Space's genesis Anchor, if any. Each Space has at most one.
-    fn genesis(&self, space_id: &SpaceId) -> StoreResult<Option<AnchorId>>;
+    fn genesis(&self, space_id: &RealmId) -> StoreResult<Option<AnchorId>>;
 
     /// Direct successors of `anchor_id` — every Anchor `S` for which
     /// `S.predecessor_refs.contains(anchor_id)`. Used by the MAL-11
@@ -93,7 +93,7 @@ pub trait AnchorStore: Send + Sync {
     /// `StoreError::Backend("unsupported")` so existing backends that
     /// haven't migrated still compile; production backends MUST override
     /// once they need compaction.
-    fn successors(&self, _space_id: &SpaceId, _anchor_id: &AnchorId) -> StoreResult<Vec<AnchorId>> {
+    fn successors(&self, _space_id: &RealmId, _anchor_id: &AnchorId) -> StoreResult<Vec<AnchorId>> {
         Err(StoreError::Backend(
             "AnchorStore::successors not implemented for this backend".to_owned(),
         ))
@@ -117,7 +117,7 @@ pub trait AnchorStore: Send + Sync {
     /// migrated still compile.
     fn prune_predecessor(
         &self,
-        _space_id: &SpaceId,
+        _space_id: &RealmId,
         _anchor_id: &AnchorId,
     ) -> StoreResult<Vec<AnchorId>> {
         Err(StoreError::Backend(
@@ -130,26 +130,26 @@ pub trait AnchorStore: Send + Sync {
 pub trait CellStore: Send + Sync {
     /// All cells with at least one effect in this Space. Used for
     /// `state_root` enumeration.
-    fn list_cells(&self, space_id: &SpaceId) -> StoreResult<Vec<CellRef>>;
+    fn list_cells(&self, space_id: &RealmId) -> StoreResult<Vec<CellRef>>;
 
     /// All anchored ops applying to this cell, in deterministic order.
     fn anchored_ops_for_cell(
         &self,
-        space_id: &SpaceId,
+        space_id: &RealmId,
         cell: &CellRef,
     ) -> StoreResult<Vec<AnchoredOp>>;
 
     /// Cached effective state. `None` means the runtime must recompute.
     fn cached_state(
         &self,
-        space_id: &SpaceId,
+        space_id: &RealmId,
         cell: &CellRef,
         view_hash: &Hash,
     ) -> StoreResult<Option<CellState>>;
 
     fn put_cached_state(
         &self,
-        space_id: &SpaceId,
+        space_id: &RealmId,
         cell: &CellRef,
         view_hash: &Hash,
         state: &CellState,
@@ -159,14 +159,14 @@ pub trait CellStore: Send + Sync {
     /// with one Anchor's worth of effects.
     fn append_anchored_effects(
         &self,
-        space_id: &SpaceId,
+        space_id: &RealmId,
         anchor: &AnchorId,
         new_ops: &[(CellRef, AnchoredOp)],
     ) -> StoreResult<()>;
 
     /// Roll back a previously-`append_anchored_effects` call when the
     /// computed state_root failed to match `Anchor.state_root`.
-    fn rollback_anchor(&self, space_id: &SpaceId, anchor: &AnchorId) -> StoreResult<()>;
+    fn rollback_anchor(&self, space_id: &RealmId, anchor: &AnchorId) -> StoreResult<()>;
 }
 
 /// Resolved Lattice binding for a cell: the Lattice impl + the cell's
@@ -193,5 +193,5 @@ pub enum BottomMode {
 
 /// `cell_family` → `Lattice` instance mapping.
 pub trait CellRegistry: Send + Sync {
-    fn resolve(&self, space_id: &SpaceId, cell: &CellRef) -> StoreResult<CellLatticeBinding>;
+    fn resolve(&self, space_id: &RealmId, cell: &CellRef) -> StoreResult<CellLatticeBinding>;
 }

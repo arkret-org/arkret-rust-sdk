@@ -856,7 +856,7 @@ pub struct AuthzCheckReqBody {
     pub action: String,
     pub resource: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<SpaceId>,
+    pub space_id: Option<RealmId>,
     #[serde(default)]
     pub proofs: Vec<Proof>,
 }
@@ -931,7 +931,7 @@ pub struct FederationTransactionResBody {
 pub struct FederationPushOperationsReqBody {
     pub origin: Did,
     pub destination: Did,
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     pub service_binding_ref: String,
     #[serde(default)]
     pub operations: Vec<Operation>,
@@ -990,7 +990,7 @@ pub struct FederationVerifyActorReqBody {
     pub signature: Value,
     pub purpose: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<SpaceId>,
+    pub space_id: Option<RealmId>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1040,7 +1040,7 @@ pub struct DirectorySearchRealmsReqBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub organization_did: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub parent_space_id: Option<SpaceId>,
+    pub parent_space_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub requester: Option<Did>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -1298,7 +1298,7 @@ pub struct DirectorySearchActorsReqBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub query: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<SpaceId>,
+    pub space_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub organization_did: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1332,7 +1332,7 @@ pub struct DirectorySearchUsersReqBody {
     #[serde(alias = "query")]
     pub q: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<SpaceId>,
+    pub space_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<u32>,
 }
@@ -1554,7 +1554,7 @@ pub struct PushNotifyResBody {
 pub struct PolicyCheckReqBody {
     pub request_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<SpaceId>,
+    pub space_id: Option<RealmId>,
     pub request_canonical_digest: Hash,
     pub action: String,
     pub actor: Did,
@@ -1581,7 +1581,7 @@ pub struct PolicyCheckResBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MediaIceConfigReqBody {
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     pub call_id: String,
     pub actor_id: Did,
     pub device_id: DeviceId,
@@ -1592,7 +1592,7 @@ pub struct MediaIceConfigReqBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MediaIceConfigResBody {
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     pub call_id: String,
     pub actor_id: Did,
     pub device_id: DeviceId,
@@ -1611,7 +1611,7 @@ pub struct MediaIceConfigResBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ModerationReportReqBody {
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     pub target_ref: String,
     pub reason: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -2145,7 +2145,7 @@ pub struct KeyBackupAead {
 pub struct KeyBackupContentItem {
     pub item_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<SpaceId>,
+    pub space_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mls_group_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use std::sync::Mutex;
 
 use crate::{
-    Anchor, AnchorId, CellRef, Hash, Move, MoveId, SpaceId,
+    Anchor, AnchorId, CellRef, Hash, Move, MoveId, RealmId,
     lattice::{
         AnchoredOp, CasRegister, CellState, Counter, Fsm, Lattice, LatticeKind, MvRegister, OrSet,
         OrderedLog,
@@ -64,7 +64,7 @@ impl MoveStore for MemoryMoveStore {
 
     fn list_pending_for_anchorer(
         &self,
-        space_id: &SpaceId,
+        space_id: &RealmId,
         cursor: Option<&MoveId>,
         limit: usize,
     ) -> StoreResult<Vec<Move>> {
@@ -94,7 +94,7 @@ impl MoveStore for MemoryMoveStore {
 
     fn list_anchored(
         &self,
-        space_id: &SpaceId,
+        space_id: &RealmId,
         cursor: Option<&MoveId>,
         limit: usize,
     ) -> StoreResult<Vec<AnchoredMoveRecord>> {
@@ -162,7 +162,7 @@ impl AnchorStore for MemoryAnchorStore {
         Ok(self.inner.lock().unwrap().anchors.get(id.as_str()).cloned())
     }
 
-    fn list_leaves(&self, space_id: &SpaceId) -> StoreResult<Vec<AnchorId>> {
+    fn list_leaves(&self, space_id: &RealmId) -> StoreResult<Vec<AnchorId>> {
         Ok(self.inner.lock().unwrap().leaves.get(space_id.as_str()).cloned().unwrap_or_default())
     }
 
@@ -171,11 +171,11 @@ impl AnchorStore for MemoryAnchorStore {
         Ok(refs.iter().all(|r| inner.anchors.contains_key(r.as_str())))
     }
 
-    fn genesis(&self, space_id: &SpaceId) -> StoreResult<Option<AnchorId>> {
+    fn genesis(&self, space_id: &RealmId) -> StoreResult<Option<AnchorId>> {
         Ok(self.inner.lock().unwrap().genesis.get(space_id.as_str()).cloned())
     }
 
-    fn successors(&self, space_id: &SpaceId, anchor_id: &AnchorId) -> StoreResult<Vec<AnchorId>> {
+    fn successors(&self, space_id: &RealmId, anchor_id: &AnchorId) -> StoreResult<Vec<AnchorId>> {
         let inner = self.inner.lock().unwrap();
         let mut out = Vec::new();
         for anchor in inner.anchors.values() {
@@ -192,7 +192,7 @@ impl AnchorStore for MemoryAnchorStore {
 
     fn prune_predecessor(
         &self,
-        space_id: &SpaceId,
+        space_id: &RealmId,
         anchor_id: &AnchorId,
     ) -> StoreResult<Vec<AnchorId>> {
         let mut inner = self.inner.lock().unwrap();
@@ -276,7 +276,7 @@ struct MemoryCellStoreInner {
 }
 
 impl CellStore for MemoryCellStore {
-    fn list_cells(&self, space_id: &SpaceId) -> StoreResult<Vec<CellRef>> {
+    fn list_cells(&self, space_id: &RealmId) -> StoreResult<Vec<CellRef>> {
         let inner = self.inner.lock().unwrap();
         let mut cells = Vec::new();
         for (space, cell) in inner.cell_log.keys() {
@@ -291,7 +291,7 @@ impl CellStore for MemoryCellStore {
 
     fn anchored_ops_for_cell(
         &self,
-        space_id: &SpaceId,
+        space_id: &RealmId,
         cell: &CellRef,
     ) -> StoreResult<Vec<AnchoredOp>> {
         let inner = self.inner.lock().unwrap();
@@ -304,7 +304,7 @@ impl CellStore for MemoryCellStore {
 
     fn cached_state(
         &self,
-        space_id: &SpaceId,
+        space_id: &RealmId,
         cell: &CellRef,
         view_hash: &Hash,
     ) -> StoreResult<Option<CellState>> {
@@ -321,7 +321,7 @@ impl CellStore for MemoryCellStore {
 
     fn put_cached_state(
         &self,
-        space_id: &SpaceId,
+        space_id: &RealmId,
         cell: &CellRef,
         view_hash: &Hash,
         state: &CellState,
@@ -336,7 +336,7 @@ impl CellStore for MemoryCellStore {
 
     fn append_anchored_effects(
         &self,
-        space_id: &SpaceId,
+        space_id: &RealmId,
         anchor: &AnchorId,
         new_ops: &[(CellRef, AnchoredOp)],
     ) -> StoreResult<()> {
@@ -357,7 +357,7 @@ impl CellStore for MemoryCellStore {
         Ok(())
     }
 
-    fn rollback_anchor(&self, space_id: &SpaceId, anchor: &AnchorId) -> StoreResult<()> {
+    fn rollback_anchor(&self, space_id: &RealmId, anchor: &AnchorId) -> StoreResult<()> {
         let mut inner = self.inner.lock().unwrap();
         let Some(applied) = inner.anchor_ops.remove(anchor.as_str()) else {
             return Ok(()); // no-op if nothing to roll back
@@ -571,7 +571,7 @@ impl MemoryCellRegistry {
 }
 
 impl CellRegistry for MemoryCellRegistry {
-    fn resolve(&self, _space_id: &SpaceId, cell: &CellRef) -> StoreResult<CellLatticeBinding> {
+    fn resolve(&self, _space_id: &RealmId, cell: &CellRef) -> StoreResult<CellLatticeBinding> {
         // Parse "ck:cell:<family>:<subject>" — family is between the 2nd and 3rd colons.
         let cell_id = crate::CellId::parse(cell.as_str())
             .map_err(|e| StoreError::Backend(format!("invalid cell ref: {e}")))?;
@@ -604,8 +604,8 @@ mod tests {
     use crate::{AnchorerSig, Hlc, LatticeOp, LatticeOpType, MoveSignature};
     use chrono::{TimeZone, Utc};
 
-    fn space() -> SpaceId {
-        SpaceId::new("ck:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+    fn space() -> RealmId {
+        RealmId::new("ck:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn move_id(byte: u8) -> MoveId {

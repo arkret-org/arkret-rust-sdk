@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use chrono::{DateTime, Utc};
 use cokret_core::{
     BlobRef, Did, Error, EventId, FederationTransactionReqBody, Hash, Operation, OperationId,
-    Result, SpaceId, TypedTrustDomainId, canonical,
+    RealmId, Result, TypedTrustDomainId, canonical,
 };
 pub use cokret_signatures::HttpMessageSignature;
 use serde::{Deserialize, Serialize};
@@ -186,7 +186,7 @@ pub struct FederationQuarantineRecord {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FederationBackfillAuthorization {
     pub requester_service_did: Did,
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     pub history_visible: bool,
     pub service_delegated: bool,
     pub plaintext_visible_to_service: bool,
@@ -224,7 +224,7 @@ pub struct VerifyActorChallengeSignature {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FederationBackfillQuery {
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub from_event_id: Option<EventId>,
     pub limit: u32,
@@ -257,7 +257,7 @@ pub struct FederationBackfillResBody {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FederationEventAuthQuery {
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     pub event_id: EventId,
 }
 
@@ -341,7 +341,7 @@ impl FederationMediaResBody {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FederationDeltaBatch {
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub operations: Vec<Operation>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -402,7 +402,7 @@ mod tests {
     fn backfill_authorization_requires_all_visibility_flags() {
         let auth = FederationBackfillAuthorization {
             requester_service_did: did("a"),
-            space_id: SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+            space_id: RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             history_visible: true,
             service_delegated: true,
             plaintext_visible_to_service: false,
@@ -414,7 +414,7 @@ mod tests {
     fn federation_backfill_keys_and_media_contracts_validate_fail_closed() {
         let authorized = FederationBackfillAuthorization {
             requester_service_did: did("a"),
-            space_id: SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+            space_id: RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             history_visible: true,
             service_delegated: true,
             plaintext_visible_to_service: true,
@@ -453,7 +453,7 @@ mod tests {
     #[test]
     fn delta_batch_serializes_operations_surface() {
         let batch = FederationDeltaBatch {
-            space_id: SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+            space_id: RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             operations: Vec::new(),
             accepted: Vec::new(),
             rejected: vec![json!({"reason": "bad_signature"})],

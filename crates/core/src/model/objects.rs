@@ -1,19 +1,20 @@
 use super::*;
 
-// Realm/Space inversion (spec 59ac1d4): the existing `Space` struct (below)
-// represents the **security boundary**, which is now renamed to **Realm**.
-// `Realm` is exposed as a type alias so downstream code can migrate
-// gradually. The container that used to be `Place` is the new `Space` —
-// see the `Place` struct further down (kept under its old name for
-// transitional compile-only compatibility; new code should refer to it
-// as Space via the alias `pub type Space = ...`).
-pub type Realm = Space;
-
+// Realm/Space inversion (spec 59ac1d4). The `Space` struct below carries the
+// **security-boundary** fields (`trust_domain` / `security_class` /
+// `federation_policy` / `history_visibility`; spec realm.schema.json) and the
+// `Place` struct further down carries the **container** fields (`kind` /
+// `parent_space_id` / `rank`; spec space.schema.json). The struct identifiers
+// have not yet been rotated to their spec names (`Space`→`Realm`,
+// `Place`→`Space`); that rotation is tracked separately because the `Space`
+// token is currently overloaded across the SDK client handle
+// (`sdk::space::Space`) and several protocol enum variants
+// (`EventClass::Space`, `Resource::Space`, …).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Space {
     pub schema: String,
-    pub id: SpaceId,
+    pub id: RealmId,
     pub title: String,
     /// Round 4 (2026-05-20, spec a77b995) — REQUIRED trust domain binding.
     /// Captured at create time (`ck.realm.create`) and immutable; any
@@ -157,7 +158,7 @@ impl Space {
     /// is REQUIRED. Constructors MUST now pass the deployment-scope
     /// trust domain captured at `ck.realm.create` time.
     pub fn new(
-        id: SpaceId,
+        id: RealmId,
         title: impl Into<String>,
         created_by: Did,
         trust_domain: TypedTrustDomainId,
@@ -265,10 +266,10 @@ impl Space {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Place {
     pub schema: String,
-    pub id: SpaceId,
-    pub space_id: SpaceId,
+    pub id: RealmId,
+    pub space_id: RealmId,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub parent_space_id: Option<SpaceId>,
+    pub parent_space_id: Option<RealmId>,
     pub kind: String,
     pub title: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -347,8 +348,8 @@ pub enum ChildScopePolicy {
 
 impl Place {
     pub fn new(
-        id: SpaceId,
-        space_id: SpaceId,
+        id: RealmId,
+        space_id: RealmId,
         kind: impl Into<String>,
         title: impl Into<String>,
         created_by: Did,

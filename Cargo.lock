@@ -426,6 +426,7 @@ dependencies = [
  "cokret-ffi",
  "cokret-html",
  "cokret-http-client",
+ "cokret-keystore",
  "cokret-server",
  "cokret-signatures",
  "cokret-testing",
@@ -481,14 +482,11 @@ dependencies = [
  "reqwest",
  "salvo",
  "salvo-oapi",
- "secret-service",
- "security-framework",
  "serde",
  "serde_json",
  "sha2 0.10.9",
  "thiserror",
  "url",
- "windows",
 ]
 
 [[package]]
@@ -555,6 +553,16 @@ dependencies = [
  "sha2 0.10.9",
  "thiserror",
  "uuid",
+]
+
+[[package]]
+name = "cokret-keystore"
+version = "1.0.0"
+dependencies = [
+ "cokret-core",
+ "secret-service",
+ "security-framework",
+ "windows",
 ]
 
 [[package]]

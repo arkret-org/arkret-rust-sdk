@@ -5,12 +5,12 @@ use std::collections::{BTreeMap, BTreeSet};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::{DeviceId, Did, SpaceId};
+use crate::{DeviceId, Did, RealmId};
 
 /// Typing notification.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TypingNotification {
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     pub user_id: Did,
     pub device_id: DeviceId,
     pub is_typing: bool,
@@ -21,8 +21,8 @@ pub struct TypingNotification {
 /// Typing manager with timeout, multi-device merge and debounce.
 #[derive(Clone, Debug)]
 pub struct TypingManager {
-    states: BTreeMap<(SpaceId, Did, DeviceId), TypingNotification>,
-    last_sent: BTreeMap<(SpaceId, Did, DeviceId), DateTime<Utc>>,
+    states: BTreeMap<(RealmId, Did, DeviceId), TypingNotification>,
+    last_sent: BTreeMap<(RealmId, Did, DeviceId), DateTime<Utc>>,
     debounce: Duration,
 }
 
@@ -35,7 +35,7 @@ impl TypingManager {
     /// Send/update a typing notification. Returns `None` when debounced.
     pub fn send_typing(
         &mut self,
-        space_id: SpaceId,
+        space_id: RealmId,
         user_id: Did,
         device_id: DeviceId,
         is_typing: bool,
@@ -86,7 +86,7 @@ impl TypingManager {
     }
 
     /// Active typing users in a space after merging devices.
-    pub fn active_typers(&self, space_id: &SpaceId) -> Vec<&Did> {
+    pub fn active_typers(&self, space_id: &RealmId) -> Vec<&Did> {
         let mut users = BTreeSet::new();
         for notification in self.states.values() {
             if &notification.space_id == space_id
@@ -100,7 +100,7 @@ impl TypingManager {
     }
 
     /// Active typing devices for a user in a space.
-    pub fn active_devices(&self, space_id: &SpaceId, user_id: &Did) -> Vec<&DeviceId> {
+    pub fn active_devices(&self, space_id: &RealmId, user_id: &Did) -> Vec<&DeviceId> {
         self.states
             .values()
             .filter(|notification| {
@@ -142,7 +142,7 @@ mod tests {
 
     #[test]
     fn typing_sends_processes_merges_devices_and_expires() {
-        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let mut manager = TypingManager::new(Duration::zero());
 
@@ -170,7 +170,7 @@ mod tests {
 
     #[test]
     fn typing_debounces_repeated_notifications_and_stops() {
-        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let mut manager = TypingManager::new(Duration::seconds(60));
 

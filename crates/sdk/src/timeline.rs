@@ -14,7 +14,7 @@ use std::{
 use crate::{
     Result,
     base::BaseClient,
-    model::{DeviceId, Did, Event, EventId, SpaceId},
+    model::{DeviceId, Did, Event, EventId, RealmId},
     receipts::{ReadReceipt, ReceiptVisibility},
     sync::{
         BackfillDirection, BackfillFrom, BackfillReqBody, SyncGapReason, SyncTimeline,
@@ -166,7 +166,7 @@ pub struct TimelineItem {
     /// Latest event ID after edits/redactions.
     pub latest_event_id: EventId,
     /// Space ID.
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     /// Sender of the original event.
     pub sender: Did,
     /// Item kind.
@@ -200,7 +200,7 @@ impl TimelineItem {
             item_id,
             event_id: event.event_id.clone(),
             latest_event_id: event.event_id.clone(),
-            space_id: SpaceId::new(event.realm_id.to_string()).expect("validated realm id"),
+            space_id: RealmId::new(event.realm_id.to_string()).expect("validated realm id"),
             sender: event.actor_id.clone(),
             kind,
             order: order.clone(),
@@ -285,8 +285,8 @@ pub struct EventCache {
     events: BTreeMap<EventId, CachedEvent>,
     digest_index: BTreeMap<String, EventId>,
     depths: BTreeMap<EventId, u64>,
-    processed_items: BTreeMap<SpaceId, BTreeMap<String, TimelineItem>>,
-    gaps: BTreeMap<SpaceId, Vec<TimelineGap>>,
+    processed_items: BTreeMap<RealmId, BTreeMap<String, TimelineItem>>,
+    gaps: BTreeMap<RealmId, Vec<TimelineGap>>,
 }
 
 impl EventCache {
@@ -327,7 +327,7 @@ impl EventCache {
     /// Apply a sync timeline section and record a limited gap when present.
     pub fn apply_sync_timeline(
         &mut self,
-        space_id: SpaceId,
+        space_id: RealmId,
         timeline: &SyncTimeline,
     ) -> Result<EventCacheUpdate> {
         let mut update = EventCacheUpdate::default();
@@ -368,7 +368,7 @@ impl EventCache {
     /// Apply backfilled events and clear the oldest persisted gap for the space.
     pub fn reconcile_backfill(
         &mut self,
-        space_id: SpaceId,
+        space_id: RealmId,
         events: Vec<Event>,
     ) -> Result<EventCacheUpdate> {
         let mut update = EventCacheUpdate::default();
@@ -394,7 +394,7 @@ impl EventCache {
     /// Store processed timeline items for later restoration.
     pub fn store_processed_items(
         &mut self,
-        space_id: SpaceId,
+        space_id: RealmId,
         items: impl IntoIterator<Item = TimelineItem>,
     ) {
         let entry = self.processed_items.entry(space_id).or_default();
@@ -404,7 +404,7 @@ impl EventCache {
     }
 
     /// Processed timeline items for a space.
-    pub fn processed_items(&self, space_id: &SpaceId) -> Vec<TimelineItem> {
+    pub fn processed_items(&self, space_id: &RealmId) -> Vec<TimelineItem> {
         self.processed_items
             .get(space_id)
             .map(|items| items.values().cloned().collect())
@@ -417,14 +417,14 @@ impl EventCache {
     }
 
     /// Persisted gaps for a space.
-    pub fn gaps(&self, space_id: &SpaceId) -> Vec<TimelineGap> {
+    pub fn gaps(&self, space_id: &RealmId) -> Vec<TimelineGap> {
         self.gaps.get(space_id).cloned().unwrap_or_default()
     }
 
     /// Create a backfill request for the next persisted gap.
     pub fn next_gap_backfill_request(
         &self,
-        space_id: &SpaceId,
+        space_id: &RealmId,
         limit: u32,
     ) -> Option<BackfillReqBody> {
         let gap = self.gaps.get(space_id)?.first()?;
@@ -450,7 +450,7 @@ impl EventCache {
 #[derive(Clone)]
 pub struct Timeline {
     /// Space ID
-    space_id: SpaceId,
+    space_id: RealmId,
     /// Base client reference
     _base_client: Arc<BaseClient>,
     /// Events in the timeline
@@ -481,7 +481,7 @@ pub struct Timeline {
 
 impl Timeline {
     /// Create a new timeline for a space.
-    pub fn new(space_id: SpaceId, base_client: Arc<BaseClient>) -> Self {
+    pub fn new(space_id: RealmId, base_client: Arc<BaseClient>) -> Self {
         Self {
             space_id,
             _base_client: base_client,
@@ -1077,7 +1077,7 @@ mod tests {
     use chrono::Duration;
     use serde_json::json;
 
-    fn create_test_event(space_id: &SpaceId, index: u32) -> Event {
+    fn create_test_event(space_id: &RealmId, index: u32) -> Event {
         Event {
             event_id: EventId::new(format!("ck:event:01904100-0000-7000-8000-{:012x}", index))
                 .unwrap(),
@@ -1119,7 +1119,7 @@ mod tests {
     #[test]
     fn timeline_starts_empty() {
         let base_client = Arc::new(BaseClient::new());
-        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let timeline = Timeline::new(space_id, base_client);
 
         assert!(timeline.is_empty());
@@ -1129,7 +1129,7 @@ mod tests {
     #[test]
     fn timeline_appends_events() {
         let base_client = Arc::new(BaseClient::new());
-        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let mut timeline = Timeline::new(space_id.clone(), base_client);
 
         let events = vec![
@@ -1147,7 +1147,7 @@ mod tests {
     #[test]
     fn timeline_prepends_events() {
         let base_client = Arc::new(BaseClient::new());
-        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let mut timeline = Timeline::new(space_id.clone(), base_client);
 
         // First append some events
@@ -1165,7 +1165,7 @@ mod tests {
     #[test]
     fn timeline_paginates_backward_from_latest() {
         let base_client = Arc::new(BaseClient::new());
-        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let mut timeline = Timeline::new(space_id.clone(), base_client);
 
         let events: Vec<Event> = (1..=10).map(|i| create_test_event(&space_id, i)).collect();
@@ -1188,7 +1188,7 @@ mod tests {
     #[test]
     fn timeline_paginates_from_event_id() {
         let base_client = Arc::new(BaseClient::new());
-        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let mut timeline = Timeline::new(space_id.clone(), base_client);
 
         let events: Vec<Event> = (1..=10).map(|i| create_test_event(&space_id, i)).collect();
@@ -1211,7 +1211,7 @@ mod tests {
     #[test]
     fn timeline_tracks_gaps() {
         let base_client = Arc::new(BaseClient::new());
-        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let mut timeline = Timeline::new(space_id, base_client);
 
         let prev_id = EventId::new("ck:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap();
@@ -1228,7 +1228,7 @@ mod tests {
     #[test]
     fn timeline_clears_gaps() {
         let base_client = Arc::new(BaseClient::new());
-        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let mut timeline = Timeline::new(space_id, base_client);
 
         timeline.record_gap(None, None, Some(10));
@@ -1241,7 +1241,7 @@ mod tests {
     #[test]
     fn timeline_builds_stable_items_and_aggregates_edits_redactions_and_reactions() {
         let base_client = Arc::new(BaseClient::new());
-        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let mut timeline = Timeline::new(space_id.clone(), base_client);
         let mut message = create_test_event(&space_id, 1);
         message.kind = "ck.message.create".to_owned();
@@ -1273,7 +1273,7 @@ mod tests {
     #[test]
     fn timeline_applies_read_receipts_typing_and_focused_loading() {
         let base_client = Arc::new(BaseClient::new());
-        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let mut timeline = Timeline::new(space_id.clone(), base_client);
         let mut message = create_test_event(&space_id, 1);
         message.kind = "ck.message.create".to_owned();
@@ -1309,7 +1309,7 @@ mod tests {
 
     #[test]
     fn event_cache_deduplicates_records_limited_gaps_and_reconciles_backfill() {
-        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let event = create_test_event(&space_id, 1);
         let raw = serde_json::to_value(&event).unwrap();
         let timeline_section =

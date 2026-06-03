@@ -3,8 +3,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use cokret_core::{
-    AnchorId, CellRef, Did, Error, Event, Hash, Hlc, Move, MoveId, RealmId, Result, SpaceId,
-    canonical,
+    AnchorId, CellRef, Did, Error, Event, Hash, Hlc, Move, MoveId, RealmId, Result, canonical,
     events::{
         AGENT_PROTOCOL_SESSION_STATUS, AnyEventContent, CALL_SIGNAL, EventClass,
         EventContentEnvelope, MESSAGE_CREATE, MLS_WELCOME, REACTION_ADD, classify_event_kind,
@@ -526,7 +525,7 @@ pub fn event_taxonomy_vectors() -> Result<Vec<EventTaxonomyVector>> {
 }
 
 pub fn state_resolution_vectors() -> Result<Vec<StateResolutionVector>> {
-    let space_id = SpaceId::new("ck:space:0196419b-0000-7000-8000-00000000014a")?;
+    let space_id = RealmId::new("ck:space:0196419b-0000-7000-8000-00000000014a")?;
     let cell = CellRef::new("ck:cell:ck.component.member.state.v1:did.web.bob.example".to_owned())
         .map_err(|e| Error::Protocol(format!("invalid cell ref: {e}")))?;
 
@@ -570,7 +569,7 @@ pub fn state_resolution_vectors() -> Result<Vec<StateResolutionVector>> {
     }])
 }
 
-fn build_membership_move(space_id: &SpaceId, cell: &CellRef, from: &str, to: &str) -> Result<Move> {
+fn build_membership_move(space_id: &RealmId, cell: &CellRef, from: &str, to: &str) -> Result<Move> {
     let body = json!({
         "issuer": "did:web:admin.example",
         "space_id": space_id.as_str(),
@@ -610,7 +609,7 @@ fn build_membership_move(space_id: &SpaceId, cell: &CellRef, from: &str, to: &st
 }
 
 fn build_anchor(
-    space_id: &SpaceId,
+    space_id: &RealmId,
     predecessor_refs: &[AnchorId],
     frontier: &[MoveId],
     state_root: &Hash,

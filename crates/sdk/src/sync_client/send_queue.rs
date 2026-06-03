@@ -53,7 +53,7 @@ pub struct LocalEcho {
     /// Stable local item ID for UI reconciliation.
     pub item_id: String,
     /// Space receiving the item.
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     /// Event kind represented by the echo.
     pub event_kind: String,
     /// Echo content.
@@ -70,7 +70,7 @@ pub struct SendQueueItem {
     /// Idempotent transaction ID.
     pub transaction_id: String,
     /// Target space.
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     /// Operation kind.
     pub kind: SendQueueItemKind,
     /// Event content.
@@ -163,7 +163,7 @@ impl SendQueue {
     pub fn enqueue_message(
         &mut self,
         transaction_id: Option<String>,
-        space_id: SpaceId,
+        space_id: RealmId,
         content: Value,
     ) -> Result<SendQueueItem> {
         self.enqueue(transaction_id, space_id, SendQueueItemKind::Message, content, Vec::new())
@@ -173,7 +173,7 @@ impl SendQueue {
     pub fn enqueue_edit(
         &mut self,
         transaction_id: Option<String>,
-        space_id: SpaceId,
+        space_id: RealmId,
         target_event_id: EventId,
         content: Value,
         depends_on: Vec<String>,
@@ -191,7 +191,7 @@ impl SendQueue {
     pub fn enqueue_redaction(
         &mut self,
         transaction_id: Option<String>,
-        space_id: SpaceId,
+        space_id: RealmId,
         target_event_id: EventId,
         reason: Option<String>,
         depends_on: Vec<String>,
@@ -211,7 +211,7 @@ impl SendQueue {
     pub fn enqueue_reaction(
         &mut self,
         transaction_id: Option<String>,
-        space_id: SpaceId,
+        space_id: RealmId,
         target_event_id: EventId,
         reaction_key: String,
         add: bool,
@@ -230,7 +230,7 @@ impl SendQueue {
     pub fn enqueue(
         &mut self,
         transaction_id: Option<String>,
-        space_id: SpaceId,
+        space_id: RealmId,
         kind: SendQueueItemKind,
         content: Value,
         depends_on: Vec<String>,
@@ -380,7 +380,7 @@ impl SendQueue {
 }
 
 fn queue_payload_digest(
-    space_id: &SpaceId,
+    space_id: &RealmId,
     kind: &SendQueueItemKind,
     content: &Value,
     depends_on: &[String],

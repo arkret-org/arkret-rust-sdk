@@ -6,9 +6,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::{
-    AEAD_ALGORITHM, BlobRef, CallId, DeviceId, Did, Error, RealmId, Result, SpaceId, crypto,
-};
+use crate::{AEAD_ALGORITHM, BlobRef, CallId, DeviceId, Did, Error, RealmId, Result, crypto};
 
 // ─── CXP-0010 (R3 spec-sync 2026-05-27) — media token exchange ────────────
 
@@ -172,7 +170,7 @@ pub struct MediaMetadata {
     /// Space anchor for download authorization and GC (B-23,
     /// `media-and-blob.md` §2). `None` only for global blobs.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<SpaceId>,
+    pub space_id: Option<RealmId>,
 }
 
 /// Thumbnail metadata.
@@ -310,7 +308,7 @@ impl MemoryBlobStore {
         media_type: impl Into<String>,
         filename: Option<String>,
         uploaded_by: Did,
-        space_id: Option<SpaceId>,
+        space_id: Option<RealmId>,
     ) -> Result<MediaMetadata> {
         let bytes = bytes.as_ref();
         let blob_ref = blob_ref_for(bytes)?;

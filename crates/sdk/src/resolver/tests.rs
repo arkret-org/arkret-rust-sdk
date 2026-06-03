@@ -3,8 +3,8 @@ use crate::events::kinds::FLOW_TRACKS_UPDATE as OP_FLOW_TRACKS_UPDATE;
 use crate::{EventRequirements, Hlc, RealmId};
 use serde_json::json;
 
-fn space_id() -> SpaceId {
-    SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
+fn space_id() -> RealmId {
+    RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
 }
 
 fn actor_id() -> Did {

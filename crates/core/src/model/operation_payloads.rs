@@ -32,7 +32,7 @@ impl<T: Serialize> ObjectCreatePayload<T> {
 /// Current wire object carried by `ck.space.create`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SpaceCreateObject {
-    pub id: SpaceId,
+    pub id: RealmId,
     pub schema: String,
     pub realm_id: RealmId,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -44,7 +44,7 @@ pub struct SpaceCreateObject {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub child_scope_policy: Option<ChildScopePolicy>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub parent_space_id: Option<SpaceId>,
+    pub parent_space_id: Option<RealmId>,
     pub kind: String,
     pub title: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -75,7 +75,7 @@ pub struct SpaceCreateObject {
 
 impl SpaceCreateObject {
     pub fn new(
-        id: SpaceId,
+        id: RealmId,
         realm_id: RealmId,
         kind: impl Into<String>,
         title: impl Into<String>,

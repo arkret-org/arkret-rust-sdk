@@ -33,7 +33,7 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::{Did, Error, Hash, MoveSignature, Result, SpaceId};
+use crate::{Did, Error, Hash, MoveSignature, RealmId, Result};
 
 /// Default chunk size in bytes (256 KiB). Picked so a 100 MB snapshot
 /// becomes ~400 chunks — small enough for HTTP delivery, large enough
@@ -293,7 +293,7 @@ pub struct GeneratorProof {
     /// `service_did`).
     pub generator_did: Did,
     /// Space whose state this snapshot covers.
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     /// Canonical state-root from `effective_anchor_view` at the snapshot
     /// frontier — what the snapshot claims to materialize.
     pub state_root: Hash,
@@ -317,7 +317,7 @@ pub struct GeneratorProof {
 #[derive(Serialize)]
 struct GeneratorProofBody<'a> {
     generator_did: &'a Did,
-    space_id: &'a SpaceId,
+    space_id: &'a RealmId,
     state_root: &'a Hash,
     merkle_root: &'a Hash,
     chunk_count: u32,
@@ -330,7 +330,7 @@ impl GeneratorProof {
     /// against `signature.payload_digest`.
     pub fn body_bytes(
         generator_did: &Did,
-        space_id: &SpaceId,
+        space_id: &RealmId,
         state_root: &Hash,
         merkle_root: &Hash,
         chunk_count: u32,
@@ -353,7 +353,7 @@ impl GeneratorProof {
     /// generators populating `signature.payload_digest`.
     pub fn body_digest(
         generator_did: &Did,
-        space_id: &SpaceId,
+        space_id: &RealmId,
         state_root: &Hash,
         merkle_root: &Hash,
         chunk_count: u32,
@@ -404,8 +404,8 @@ mod tests {
         Did::new("did:web:generator.example".to_owned()).unwrap()
     }
 
-    fn space() -> SpaceId {
-        SpaceId::new("ck:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+    fn space() -> RealmId {
+        RealmId::new("ck:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     // ── Chunker ───────────────────────────────────────────────────────

@@ -5,7 +5,7 @@ use super::*;
 pub struct CapabilityGrant {
     pub id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<SpaceId>,
+    pub space_id: Option<RealmId>,
     pub issuer: Did,
     pub subject: Did,
     pub actions: Vec<String>,
@@ -256,7 +256,7 @@ pub fn capability_grants_from_space_state(
 
 fn capability_grant_from_resolved_event(
     event: &crate::resolver::ResolvedStateEvent,
-    default_space_id: Option<SpaceId>,
+    default_space_id: Option<RealmId>,
 ) -> Result<CapabilityGrant> {
     let content = event
         .content
@@ -314,8 +314,8 @@ fn optional_did(content: &serde_json::Map<String, Value>, field: &str) -> Result
 fn optional_space_id(
     content: &serde_json::Map<String, Value>,
     field: &str,
-) -> Result<Option<SpaceId>> {
-    Ok(optional_string(content, field).map(SpaceId::new).transpose()?)
+) -> Result<Option<RealmId>> {
+    Ok(optional_string(content, field).map(RealmId::new).transpose()?)
 }
 
 fn optional_from_value<T: serde::de::DeserializeOwned>(value: Option<&Value>) -> Result<Option<T>> {
@@ -361,7 +361,7 @@ fn resource_selectors(value: Option<&Value>) -> Result<Option<Vec<ResourceSelect
 /// mints the Envelope that goes onto the wire.
 #[derive(Clone, Debug)]
 pub struct CapabilityGrantBuilder {
-    realm_id: crate::RealmId,
+    realm_id: RealmId,
     /// The Envelope `actor_id` (signer / issuer of the grant).
     actor_id: Did,
     grant: CapabilityGrant,
@@ -371,7 +371,7 @@ impl CapabilityGrantBuilder {
     /// Construct a new builder bound to the issuing Realm + actor.
     /// `grant.issuer` MUST equal `actor_id`; the builder enforces this
     /// at `build` time.
-    pub fn new(realm_id: crate::RealmId, actor_id: Did, grant: CapabilityGrant) -> Self {
+    pub fn new(realm_id: RealmId, actor_id: Did, grant: CapabilityGrant) -> Self {
         Self { realm_id, actor_id, grant }
     }
 

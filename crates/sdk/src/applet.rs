@@ -9,7 +9,7 @@ use serde_json::Value;
 #[cfg(test)]
 use crate::model::AppletTransactionResBody;
 use crate::{
-    Did, Error, Event, Result, SpaceId, canonical,
+    Did, Error, Event, RealmId, Result, canonical,
     model::{AppletActorResBody, AppletRealmResBody, AppletTransactionReqBody},
 };
 
@@ -307,7 +307,7 @@ pub enum AppletBridgeErrorSeverity {
 /// fails-closed in production).
 #[derive(Clone, Debug)]
 pub struct AppletBridgeErrorBuilder {
-    realm_id: crate::RealmId,
+    realm_id: RealmId,
     applet_id: String,
     actor_id: Did,
     target_ref: Option<String>,
@@ -322,7 +322,7 @@ impl AppletBridgeErrorBuilder {
     /// `applet_id` is the typed `ck:applet:<uuidv7>`; `actor_id` is
     /// the bot / system DID emitting the error.
     pub fn new(
-        realm_id: crate::RealmId,
+        realm_id: RealmId,
         applet_id: impl Into<String>,
         actor_id: Did,
         code: impl Into<String>,
@@ -715,7 +715,7 @@ pub struct RemoteUserMapping {
 pub struct RemoteSpaceMapping {
     pub protocol: String,
     pub remote_space_id: String,
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     pub portal_id: Option<String>,
     pub title: Option<String>,
     #[serde(default, skip_serializing_if = "Value::is_null")]
@@ -771,7 +771,7 @@ pub struct GhostActorAccountability {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PortalSpaceMapping {
     pub portal_id: String,
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     pub protocol: String,
     pub remote_space_id: String,
 }
@@ -788,7 +788,7 @@ pub enum PortalMode {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AppletPortal {
     pub portal_id: String,
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     pub mode: PortalMode,
     pub applets: BTreeSet<String>,
     pub ghost_actor: Option<Did>,
@@ -809,7 +809,7 @@ impl AppletPortalManager {
     }
 
     /// Create a portal.
-    pub fn create_portal(&mut self, space_id: SpaceId) -> AppletPortal {
+    pub fn create_portal(&mut self, space_id: RealmId) -> AppletPortal {
         let portal = AppletPortal {
             portal_id: format!("portal_{}", uuid::Uuid::now_v7()),
             space_id,
@@ -993,7 +993,7 @@ mod tests {
     fn applet_portal_manages_space_bridge_and_ghost_actor() {
         let mut manager = AppletPortalManager::new();
         let portal = manager
-            .create_portal(SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap());
+            .create_portal(RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap());
         manager.install_applet(&portal.portal_id, "todo").unwrap();
         manager.enable_bridge(&portal.portal_id).unwrap();
         manager.set_ghost_actor(&portal.portal_id, did("ghost")).unwrap();
@@ -1081,7 +1081,7 @@ mod tests {
         mappings.upsert_space(RemoteSpaceMapping {
             protocol: "slack".to_owned(),
             remote_space_id: "C1".to_owned(),
-            space_id: SpaceId::new("ck:space:01904100-0000-7000-8000-f949e0272316").unwrap(),
+            space_id: RealmId::new("ck:space:01904100-0000-7000-8000-f949e0272316").unwrap(),
             portal_id: Some("portal".to_owned()),
             title: Some("general".to_owned()),
             external_ref: Value::Null,

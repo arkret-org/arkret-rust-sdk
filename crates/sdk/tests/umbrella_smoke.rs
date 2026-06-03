@@ -7,7 +7,7 @@ fn did(name: &str) -> Did {
 
 #[test]
 fn umbrella_crate_builds_client_signs_event_and_verifies_binding() {
-    let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-000000000001").unwrap();
+    let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-000000000001").unwrap();
     let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap();
     let mut event = Event::new(
         OP_MESSAGE_CREATE,

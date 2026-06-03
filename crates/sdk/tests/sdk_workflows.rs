@@ -19,7 +19,7 @@ fn device(id: &str) -> DeviceId {
         .unwrap()
 }
 
-fn event(kind: &str, seq: u64, space_id: &SpaceId, content: serde_json::Value) -> Event {
+fn event(kind: &str, seq: u64, space_id: &RealmId, content: serde_json::Value) -> Event {
     Event {
         event_id: EventId::new(format!("ck:event:01904100-0000-7000-8000-{seq:012x}")).unwrap(),
         kind: kind.to_owned(),
@@ -47,7 +47,7 @@ fn event(kind: &str, seq: u64, space_id: &SpaceId, content: serde_json::Value) -
     }
 }
 
-fn realm_from_space_id(space_id: &SpaceId) -> RealmId {
+fn realm_from_space_id(space_id: &RealmId) -> RealmId {
     RealmId::new(space_id.as_str().replacen("ck:space:", "ck:realm:", 1)).unwrap()
 }
 
@@ -67,7 +67,7 @@ fn end_to_end_auth_session_space_query_and_notifications() {
     })
     .unwrap();
 
-    let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
     let morph_id = MorphId::new("ck:morph:01904100-0000-7000-8000-d48c478ecd0b").unwrap();
     base.process_events(
         &space_id,
@@ -108,7 +108,7 @@ fn end_to_end_auth_session_space_query_and_notifications() {
 
 #[test]
 fn error_boundary_and_concurrency_paths_are_covered() {
-    assert!(SpaceId::new("not-a-space").is_err());
+    assert!(RealmId::new("not-a-space").is_err());
 
     let mut auth = AuthManager::default();
     auth.register_password_user("alice", "secret", did("alice")).unwrap();
@@ -163,7 +163,7 @@ fn stress_smoke_processes_many_index_and_cache_entries() {
     let mut directory = DirectoryService::new();
     for index in 0..250 {
         let mut entry = SpaceSearchEntry::new(
-            SpaceId::new(format!("ck:space:01904100-0000-7000-8000-{index:012x}")).unwrap(),
+            RealmId::new(format!("ck:space:01904100-0000-7000-8000-{index:012x}")).unwrap(),
             format!("Space {index}"),
         );
         entry.tags.insert(if index % 2 == 0 { "even" } else { "odd" }.to_owned());

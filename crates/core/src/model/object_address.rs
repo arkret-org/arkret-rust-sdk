@@ -659,9 +659,7 @@ mod tests {
 
     #[test]
     fn non_uuid_flow_segment_fails_closed() {
-        assert!(
-            parse_address(&format!("web+cokret:realm/{R}/flow/not-a-uuid?via={VIA}")).is_err()
-        );
+        assert!(parse_address(&format!("web+cokret:realm/{R}/flow/not-a-uuid?via={VIA}")).is_err());
     }
 
     #[test]

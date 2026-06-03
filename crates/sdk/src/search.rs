@@ -4,14 +4,14 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Did, SpaceId};
+use crate::{Did, RealmId};
 
 /// Searchable space directory entry.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SpaceSearchEntry {
     /// Space ID.
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     /// Display name/title.
     pub name: String,
     /// Description/summary.
@@ -28,7 +28,7 @@ pub struct SpaceSearchEntry {
 
 impl SpaceSearchEntry {
     /// Create a searchable space entry.
-    pub fn new(space_id: SpaceId, name: impl Into<String>) -> Self {
+    pub fn new(space_id: RealmId, name: impl Into<String>) -> Self {
         Self {
             space_id,
             name: name.into(),
@@ -59,7 +59,7 @@ pub struct SpaceSearchQuery {
 /// In-memory space search index.
 #[derive(Clone, Debug, Default)]
 pub struct SpaceSearchIndex {
-    entries: BTreeMap<SpaceId, SpaceSearchEntry>,
+    entries: BTreeMap<RealmId, SpaceSearchEntry>,
 }
 
 impl SpaceSearchIndex {
@@ -74,7 +74,7 @@ impl SpaceSearchIndex {
     }
 
     /// Get an entry.
-    pub fn get(&self, space_id: &SpaceId) -> Option<&SpaceSearchEntry> {
+    pub fn get(&self, space_id: &RealmId) -> Option<&SpaceSearchEntry> {
         self.entries.get(space_id)
     }
 
@@ -163,7 +163,7 @@ mod tests {
         let alice = did("alice");
         let mut index = SpaceSearchIndex::new();
         let mut entry = SpaceSearchEntry::new(
-            SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+            RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             "Rust SDK",
         );
         entry.description = Some("Cokret development".to_owned());

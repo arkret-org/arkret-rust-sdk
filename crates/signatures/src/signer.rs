@@ -171,17 +171,15 @@ pub fn verify_ed25519_move_signature(
 mod tests {
     use super::*;
     use cokret_core::move_event::{Effect, LatticeOp, LatticeOpType};
-    use cokret_core::{
-        Anchor, AnchorId, AnchorerSig, CellRef, Hlc, MoveId, SpaceId, UnsignedMove,
-    };
+    use cokret_core::{Anchor, AnchorId, AnchorerSig, CellRef, Hlc, MoveId, RealmId, UnsignedMove};
     use serde_json::json;
 
     fn alice() -> Did {
         Did::new("did:web:alice.example".to_owned()).unwrap()
     }
 
-    fn space() -> SpaceId {
-        SpaceId::new("ck:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+    fn space() -> RealmId {
+        RealmId::new("ck:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn anchor_id(byte: u8) -> AnchorId {

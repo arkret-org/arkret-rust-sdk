@@ -25,7 +25,7 @@ use chrono::{DateTime, Utc};
 
 use crate::canonical;
 use crate::move_event::MoveSignature;
-use crate::{AnchorId, Did, Error, Hash, Hlc, MoveId, Result, SpaceId};
+use crate::{AnchorId, Did, Error, Hash, Hlc, MoveId, RealmId, Result};
 
 /// Allowed Anchor signature algorithms (see `anchor.schema.json` `signature.alg`).
 pub const ANCHOR_SIGNATURE_ALGS: &[&str] = &["EdDSA", "ES256", "ES384", "ES512"];
@@ -125,12 +125,10 @@ pub enum AnchorKind {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Anchor {
     pub id: AnchorId,
-    // NOTE: typed as `SpaceId` (which also accepts `ck:realm:` ids) rather
-    // than `RealmId` because the entire cell/store/state layer is keyed by
-    // `SpaceId`; tightening this to `RealmId` is part of the larger
-    // Realm/Space type inversion (see _code_review report 06 #2). Wire output
-    // is identical either way.
-    pub realm_id: SpaceId,
+    // The boundary key is `RealmId` (the merged boundary-key type, which also
+    // accepts the historical `ck:space:*` mirror form). The entire
+    // cell/store/state layer is keyed by `RealmId`.
+    pub realm_id: RealmId,
     /// Empty only for genesis Anchor. Otherwise must reference all
     /// predecessor leaves.
     pub predecessor_refs: Vec<AnchorId>,
@@ -170,7 +168,7 @@ impl AnchorKind {
 /// into pruning based on a forged compaction tag.
 #[derive(Serialize)]
 struct AnchorBody<'a> {
-    realm_id: &'a SpaceId,
+    realm_id: &'a RealmId,
     predecessor_refs: &'a [AnchorId],
     frontier: &'a [MoveId],
     state_root: &'a Hash,
@@ -323,8 +321,8 @@ mod tests {
     use chrono::TimeZone;
     use serde_json::{Value, json};
 
-    fn space() -> SpaceId {
-        SpaceId::new("ck:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+    fn space() -> RealmId {
+        RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn move_id(hex_byte: u8) -> MoveId {

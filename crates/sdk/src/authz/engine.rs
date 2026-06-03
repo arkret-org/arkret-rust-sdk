@@ -8,7 +8,7 @@ pub struct AuthzContext {
     /// Actor making the request
     pub actor_id: Did,
     /// Space context
-    pub space_id: Option<SpaceId>,
+    pub space_id: Option<RealmId>,
     /// Operation being performed
     pub action: String,
     /// Resource being accessed
@@ -137,7 +137,7 @@ impl AuthzContext {
     }
 
     /// Set the space ID.
-    pub fn with_space_id(mut self, space_id: SpaceId) -> Self {
+    pub fn with_space_id(mut self, space_id: RealmId) -> Self {
         self.space_id = Some(space_id);
         self
     }

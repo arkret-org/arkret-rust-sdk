@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::{
     AnchorId, BlobRef, DeviceId, Did, Effect, Error, Event, EventId, EventRef, Hlc, Precondition,
-    PresenceStatus, RealmId, Result, SpaceId,
+    PresenceStatus, RealmId, Result,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -769,7 +769,7 @@ pub struct TransientDeviceContent {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DirectSpacesContent {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub spaces_by_user: BTreeMap<Did, Vec<SpaceId>>,
+    pub spaces_by_user: BTreeMap<Did, Vec<RealmId>>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -794,7 +794,7 @@ pub struct DraftContent {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SpaceSettingsContent {
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub settings: BTreeMap<String, Value>,
 }
@@ -828,14 +828,14 @@ pub struct RoomKeyContent {
     pub algorithm: String,
     /// Matrix/MIMI compat name. The v1 concept is the Space —
     /// see [`Self::space_id`].
-    pub room_id: SpaceId,
+    pub room_id: RealmId,
     pub session_id: String,
     pub session_key: String,
 }
 
 impl RoomKeyContent {
     /// Native v1 accessor — the Space this key share applies to.
-    pub fn space_id(&self) -> &SpaceId {
+    pub fn space_id(&self) -> &RealmId {
         &self.room_id
     }
 }
@@ -845,7 +845,7 @@ pub struct ForwardedRoomKeyContent {
     pub algorithm: String,
     /// Matrix/MIMI compat name. The v1 concept is the Space —
     /// see [`Self::space_id`].
-    pub room_id: SpaceId,
+    pub room_id: RealmId,
     pub session_id: String,
     pub session_key: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -854,7 +854,7 @@ pub struct ForwardedRoomKeyContent {
 
 impl ForwardedRoomKeyContent {
     /// Native v1 accessor — the Space this forwarded key share applies to.
-    pub fn space_id(&self) -> &SpaceId {
+    pub fn space_id(&self) -> &RealmId {
         &self.room_id
     }
 }

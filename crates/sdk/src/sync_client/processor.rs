@@ -3,8 +3,8 @@ use super::*;
 /// Processed sync response cache and dispatcher.
 #[derive(Clone, Debug, Default)]
 pub struct SyncResponseProcessor {
-    spaces: BTreeMap<SpaceId, ProcessedSpace>,
-    limited_timelines: BTreeMap<SpaceId, LimitedTimelineState>,
+    spaces: BTreeMap<RealmId, ProcessedSpace>,
+    limited_timelines: BTreeMap<RealmId, LimitedTimelineState>,
     to_device: VecDeque<ToDeviceMessage>,
     to_device_acks: BTreeMap<String, ToDeviceAck>,
     changed_device_lists: BTreeSet<String>,
@@ -31,7 +31,7 @@ impl SyncResponseProcessor {
 
         let mut space_updates = Vec::new();
         for (raw_space_id, raw_sync_space) in response.spaces {
-            let space_id = SpaceId::new(raw_space_id)?;
+            let space_id = RealmId::new(raw_space_id)?;
             let sync_space: SyncSpace = serde_json::from_value(raw_sync_space).unwrap_or_default();
             let processed = self.spaces.entry(space_id.clone()).or_default();
             if let Some(timeline) = &sync_space.timeline {
@@ -98,7 +98,7 @@ impl SyncResponseProcessor {
     }
 
     /// Get cached data for a processed space.
-    pub fn space(&self, space_id: &SpaceId) -> Option<&ProcessedSpace> {
+    pub fn space(&self, space_id: &RealmId) -> Option<&ProcessedSpace> {
         self.spaces.get(space_id)
     }
 

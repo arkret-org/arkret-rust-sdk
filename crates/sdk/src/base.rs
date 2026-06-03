@@ -22,7 +22,7 @@ use crate::{
     Result,
     cursor::{SyncPositions, SyncTracker},
     media::{Attachment, MediaMetadata, MemoryBlobStore},
-    model::{BlobRef, DeviceId, Did, Event, SpaceId},
+    model::{BlobRef, DeviceId, Did, Event, RealmId},
     presence::Presence,
     profile::UserProfile,
     resolver::SpaceState,
@@ -69,7 +69,7 @@ pub struct SessionRestore {
 #[derive(Clone, Debug)]
 pub struct ClientSpace {
     /// Space ID
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     /// Current state (joined, left, invited)
     pub state: SpaceStateType,
     /// Resolved space state
@@ -145,7 +145,7 @@ pub struct BootstrapSequence {
     pub device_id: DeviceId,
     /// Optional target space.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<SpaceId>,
+    pub space_id: Option<RealmId>,
     /// Discovered sync service.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub service_id: Option<Did>,
@@ -158,7 +158,7 @@ pub struct BootstrapSequence {
 
 impl BootstrapSequence {
     /// Create a bootstrap sequence with the protocol-defined step order.
-    pub fn new(principal_id: Did, device_id: DeviceId, space_id: Option<SpaceId>) -> Self {
+    pub fn new(principal_id: Did, device_id: DeviceId, space_id: Option<RealmId>) -> Self {
         let now = Utc::now();
         let steps = [
             BootstrapStepKind::Resolve,
@@ -370,7 +370,7 @@ impl BaseClient {
     }
 
     /// Get a space by ID.
-    pub fn get_space(&self, space_id: &SpaceId) -> Option<ClientSpace> {
+    pub fn get_space(&self, space_id: &RealmId) -> Option<ClientSpace> {
         let spaces = self.spaces.read();
         spaces.get(space_id.as_str()).cloned()
     }
@@ -394,7 +394,7 @@ impl BaseClient {
     }
 
     /// Process events and update space states.
-    pub fn process_events(&self, space_id: &SpaceId, events: Vec<Event>) -> Result<()> {
+    pub fn process_events(&self, space_id: &RealmId, events: Vec<Event>) -> Result<()> {
         // Get or create the client space
         let mut spaces = self.spaces.write();
         let client_space = spaces.entry(space_id.as_str().to_owned()).or_insert_with(|| {
@@ -416,7 +416,7 @@ impl BaseClient {
     }
 
     /// Update space membership state.
-    pub fn update_space_state(&self, space_id: &SpaceId, state: SpaceStateType) -> Result<()> {
+    pub fn update_space_state(&self, space_id: &RealmId, state: SpaceStateType) -> Result<()> {
         let mut spaces = self.spaces.write();
         let client_space = spaces.entry(space_id.as_str().to_owned()).or_insert_with(|| {
             let space_state = SpaceState::new(space_id.clone(), "1".to_owned());
@@ -436,7 +436,7 @@ impl BaseClient {
     /// Update unread counts for a space.
     pub fn update_unread_counts(
         &self,
-        space_id: &SpaceId,
+        space_id: &RealmId,
         notification_count: u64,
         highlight_count: u64,
     ) -> Result<()> {
@@ -449,7 +449,7 @@ impl BaseClient {
     }
 
     /// Set the read marker for a space.
-    pub fn set_read_marker(&self, space_id: &SpaceId, marker: String) -> Result<()> {
+    pub fn set_read_marker(&self, space_id: &RealmId, marker: String) -> Result<()> {
         let mut spaces = self.spaces.write();
         if let Some(client_space) = spaces.get_mut(space_id.as_str()) {
             client_space.read_marker = Some(marker);
@@ -458,7 +458,7 @@ impl BaseClient {
     }
 
     /// Get the read marker for a space.
-    pub fn read_marker(&self, space_id: &SpaceId) -> Option<String> {
+    pub fn read_marker(&self, space_id: &RealmId) -> Option<String> {
         let spaces = self.spaces.read();
         spaces.get(space_id.as_str()).and_then(|s| s.read_marker.clone())
     }
@@ -596,13 +596,7 @@ impl BaseClient {
         bytes: impl AsRef<[u8]>,
     ) -> Result<Attachment> {
         let session = self.whoami()?;
-        self.media.write().upload_attachment(
-            id,
-            filename,
-            media_type,
-            bytes,
-            session.user_id,
-        )
+        self.media.write().upload_attachment(id, filename, media_type, bytes, session.user_id)
     }
 
     /// Upload an encrypted attachment into the local in-memory media store.
@@ -825,7 +819,7 @@ mod tests {
     #[test]
     fn base_client_tracks_space_state() {
         let client = BaseClient::new();
-        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
 
         client.update_space_state(&space_id, SpaceStateType::Joined).unwrap();
 
@@ -837,9 +831,9 @@ mod tests {
     #[test]
     fn base_client_filters_joined_spaces() {
         let client = BaseClient::new();
-        let space1 = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
-        let space2 = SpaceId::new("ck:space:01904100-0000-7000-8000-f949e0272316").unwrap();
-        let space3 = SpaceId::new("ck:space:01904100-0000-7000-8000-46f8537dc94e").unwrap();
+        let space1 = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space2 = RealmId::new("ck:space:01904100-0000-7000-8000-f949e0272316").unwrap();
+        let space3 = RealmId::new("ck:space:01904100-0000-7000-8000-46f8537dc94e").unwrap();
 
         client.update_space_state(&space1, SpaceStateType::Joined).unwrap();
         client.update_space_state(&space2, SpaceStateType::Left).unwrap();

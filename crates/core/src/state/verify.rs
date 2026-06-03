@@ -393,15 +393,15 @@ pub type MoveRejectMap = BTreeMap<MoveId, MoveReject>;
 mod tests {
     use super::*;
     use crate::{
-        CellRef, Effect, LatticeOp, LatticeOpType, Precondition, PredicateOp, SemanticRef, SpaceId,
+        CellRef, Effect, LatticeOp, LatticeOpType, Precondition, PredicateOp, RealmId, SemanticRef,
         lattice::CellState,
     };
     use serde_json::json;
 
     use crate::state::store::memory::MemoryCellRegistry;
 
-    fn space() -> SpaceId {
-        SpaceId::new("ck:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+    fn space() -> RealmId {
+        RealmId::new("ck:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn cell_member() -> CellRef {

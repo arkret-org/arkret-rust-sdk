@@ -99,7 +99,10 @@ mod tests {
 
         let describe: PrincipalAuthBridgeDescribeResponse =
             serde_json::from_value(value).expect("principal bridge decodes");
-        assert_eq!(describe.session_grant_exchange_path(), "/_cokret/gate/auth/session-grant/exchange");
+        assert_eq!(
+            describe.session_grant_exchange_path(),
+            "/_cokret/gate/auth/session-grant/exchange"
+        );
         assert_eq!(describe.register_device_path(), "/_cokret/edge/push/register-device");
 
         let encoded = serde_json::to_value(describe).expect("principal bridge encodes");

@@ -1,10 +1,10 @@
 use cokret::{
-    MemoryPersistenceStore, SpaceId, SpaceState, StateSnapshotStore,
+    MemoryPersistenceStore, RealmId, SpaceState, StateSnapshotStore,
     restore_space_state_from_persistence,
 };
 
 fn main() -> cokret::Result<()> {
-    let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8")?;
+    let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8")?;
     let state = SpaceState::new(space_id.clone(), "1".to_owned());
 
     let mut store = MemoryPersistenceStore::new();

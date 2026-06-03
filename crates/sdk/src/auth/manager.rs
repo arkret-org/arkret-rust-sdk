@@ -340,7 +340,8 @@ impl AuthManager {
 
     /// Issue an MFA challenge.
     pub fn issue_mfa(&mut self, user_id: Did) -> MfaChallenge {
-        let code = sha256_hex(format!("{}:{}", user_id, uuid::Uuid::now_v7()).as_bytes())[..6].to_owned();
+        let code =
+            sha256_hex(format!("{}:{}", user_id, uuid::Uuid::now_v7()).as_bytes())[..6].to_owned();
         let challenge = MfaChallenge {
             user_id: user_id.clone(),
             code,

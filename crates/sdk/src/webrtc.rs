@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::{Did, Result, SpaceId};
+use crate::{Did, RealmId, Result};
 
 /// SDP description type.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -44,7 +44,7 @@ pub enum WebRtcSignalKind {
 pub struct WebRtcSignalMessage {
     pub message_id: String,
     pub call_id: String,
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     pub sender: Did,
     pub recipient: Did,
     pub kind: WebRtcSignalKind,
@@ -58,7 +58,7 @@ pub struct WebRtcSignalMessage {
 impl WebRtcSignalMessage {
     /// Build an offer signaling message.
     pub fn offer(
-        space_id: SpaceId,
+        space_id: RealmId,
         call_id: impl Into<String>,
         sender: Did,
         recipient: Did,
@@ -75,7 +75,7 @@ impl WebRtcSignalMessage {
 
     /// Build an answer signaling message.
     pub fn answer(
-        space_id: SpaceId,
+        space_id: RealmId,
         call_id: impl Into<String>,
         sender: Did,
         recipient: Did,
@@ -92,7 +92,7 @@ impl WebRtcSignalMessage {
 
     /// Build an ICE-candidate signaling message.
     pub fn ice_candidate(
-        space_id: SpaceId,
+        space_id: RealmId,
         call_id: impl Into<String>,
         sender: Did,
         recipient: Did,
@@ -112,7 +112,7 @@ impl WebRtcSignalMessage {
     }
 
     fn with_session_description(
-        space_id: SpaceId,
+        space_id: RealmId,
         call_id: impl Into<String>,
         sender: Did,
         recipient: Did,
@@ -230,7 +230,7 @@ impl IceServer {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WebRtcCall {
     pub call_id: String,
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     pub caller: Did,
     pub callees: BTreeSet<Did>,
     pub state: CallState,
@@ -258,7 +258,7 @@ impl WebRtcManager {
     /// Create an offer call.
     pub fn create_offer(
         &mut self,
-        space_id: SpaceId,
+        space_id: RealmId,
         caller: Did,
         callees: BTreeSet<Did>,
         sdp: impl Into<String>,
@@ -372,8 +372,8 @@ mod tests {
         Did::new(format!("did:web:{name}.example")).unwrap()
     }
 
-    fn space() -> SpaceId {
-        SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
+    fn space() -> RealmId {
+        RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
     }
 
     #[test]

@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
-use crate::{AEAD_ALGORITHM, DeviceId, Did, Error, EventId, Result, SpaceId, crypto};
+use crate::{AEAD_ALGORITHM, DeviceId, Did, Error, EventId, RealmId, Result, crypto};
 
 pub const PUSH_ENCRYPTION_ALGORITHM: &str = AEAD_ALGORITHM;
 pub const CHIME_PUSH_REGISTRATION_VERSION: &str = "chime.push.registration.v1";
@@ -76,7 +76,7 @@ impl ChimePushRegistration {
 pub struct PushEvent {
     pub event_id: EventId,
     pub user_id: Did,
-    pub space_id: Option<SpaceId>,
+    pub space_id: Option<RealmId>,
     pub event_kind: String,
     pub content: Value,
     pub encrypted: bool,
@@ -359,7 +359,7 @@ mod tests {
         PushEvent {
             event_id: EventId::new("ck:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
             user_id: did("alice"),
-            space_id: Some(SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()),
+            space_id: Some(RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()),
             event_kind: "cx.message".to_owned(),
             content: json!({"body": "hello"}),
             encrypted,

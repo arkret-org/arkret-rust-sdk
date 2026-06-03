@@ -37,7 +37,11 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
     endpoint!("ck.identity.resolve", Post, "/_cokret/root/identity/resolve"),
     endpoint!("ck.identity.get_document", Get, "/_cokret/root/identity/document"),
     endpoint!("ck.identity.get_log", Get, "/_cokret/root/identity/log"),
-    endpoint!("ck.identity.submit_did_operation", Post, "/_cokret/root/identity/submit-did-operation"),
+    endpoint!(
+        "ck.identity.submit_did_operation",
+        Post,
+        "/_cokret/root/identity/submit-did-operation"
+    ),
     endpoint!("ck.identity.get_receipts", Get, "/_cokret/root/identity/receipts"),
     endpoint!("ck.account.describe", Get, "/_cokret/self/account/describe"),
     endpoint!("ck.account.subscribe", Get, "/_cokret/self/account/subscribe"),
@@ -56,8 +60,16 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
     // and MQ `directory.resolve_target` mirrors live in the spec
     // operation-registry; this HTTP route is the SDK-side binding.
     endpoint!("ck.directory.resolve_target", Post, "/_cokret/find/directory/resolve-target"),
-    endpoint!("ck.directory.search_organizations", Post, "/_cokret/find/directory/search-organizations"),
-    endpoint!("ck.directory.resolve_organization", Post, "/_cokret/find/directory/resolve-organization"),
+    endpoint!(
+        "ck.directory.search_organizations",
+        Post,
+        "/_cokret/find/directory/search-organizations"
+    ),
+    endpoint!(
+        "ck.directory.resolve_organization",
+        Post,
+        "/_cokret/find/directory/resolve-organization"
+    ),
     endpoint!("ck.directory.search_actors", Post, "/_cokret/find/directory/search-actors"),
     endpoint!("ck.directory.search_users", Post, "/_cokret/find/directory/search-users"),
     endpoint!("ck.directory.resolve_handle", Post, "/_cokret/find/directory/resolve-handle"),
@@ -114,7 +126,11 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
     // segment (`/_cokret/local/admin/*`), per cokret-spec
     // service-http-binding.md §2.1.
     endpoint!("ck.admin.get_server_status", Get, "/_cokret/local/admin/server/status"),
-    endpoint!("ck.admin.update_account_status", Post, "/_cokret/local/admin/accounts/{account_id}/status"),
+    endpoint!(
+        "ck.admin.update_account_status",
+        Post,
+        "/_cokret/local/admin/accounts/{account_id}/status"
+    ),
     endpoint!("ck.admin.revoke_device", Post, "/_cokret/local/admin/devices/{device_id}/revoke"),
     endpoint!("ck.admin.get_moderation_queue", Get, "/_cokret/local/admin/moderation/queue"),
     endpoint!("ck.applet.ping", Get, "/_cokret/edge/applet/ping"),

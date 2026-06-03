@@ -20,7 +20,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::{Did, EventId, FlowId, SpaceId};
+use crate::{Did, EventId, FlowId, RealmId};
 
 /// Read receipt visibility.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -36,7 +36,7 @@ pub enum ReceiptVisibility {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReadMarker {
     /// Space ID.
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     /// User DID.
     pub user_id: Did,
     /// Event ID considered read.
@@ -51,7 +51,7 @@ pub struct ReadMarker {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReadReceipt {
     /// Space ID.
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     /// User DID.
     pub user_id: Did,
     /// Event ID.
@@ -73,10 +73,10 @@ pub struct ReadReceipt {
 /// instead of producing a new one.
 #[derive(Clone, Debug)]
 pub struct ReceiptManager {
-    markers: BTreeMap<(SpaceId, Did, Option<String>), ReadMarker>,
-    receipts: BTreeMap<(SpaceId, EventId, Option<String>), Vec<ReadReceipt>>,
-    thread_index: BTreeSet<(SpaceId, Option<String>)>,
-    last_send_at: BTreeMap<(SpaceId, Did, Option<String>), DateTime<Utc>>,
+    markers: BTreeMap<(RealmId, Did, Option<String>), ReadMarker>,
+    receipts: BTreeMap<(RealmId, EventId, Option<String>), Vec<ReadReceipt>>,
+    thread_index: BTreeSet<(RealmId, Option<String>)>,
+    last_send_at: BTreeMap<(RealmId, Did, Option<String>), DateTime<Utc>>,
     dedup_window_ms: i64,
 }
 
@@ -108,7 +108,7 @@ impl ReceiptManager {
     /// Set a read marker.
     pub fn set_read_marker(
         &mut self,
-        space_id: SpaceId,
+        space_id: RealmId,
         user_id: Did,
         event_id: EventId,
         thread_id: Option<String>,
@@ -128,7 +128,7 @@ impl ReceiptManager {
     /// Get a read marker.
     pub fn read_marker(
         &self,
-        space_id: &SpaceId,
+        space_id: &RealmId,
         user_id: &Did,
         thread_id: Option<&str>,
     ) -> Option<&ReadMarker> {
@@ -144,7 +144,7 @@ impl ReceiptManager {
     /// to disable.
     pub fn send_receipt(
         &mut self,
-        space_id: SpaceId,
+        space_id: RealmId,
         user_id: Did,
         event_id: EventId,
         visibility: ReceiptVisibility,
@@ -188,7 +188,7 @@ impl ReceiptManager {
     /// Receipts for one event/thread.
     pub fn receipts_for_event(
         &self,
-        space_id: &SpaceId,
+        space_id: &RealmId,
         event_id: &EventId,
         thread_id: Option<&str>,
     ) -> Vec<&ReadReceipt> {
@@ -199,7 +199,7 @@ impl ReceiptManager {
     }
 
     /// Known thread positions for a space.
-    pub fn thread_positions(&self, space_id: &SpaceId) -> Vec<Option<String>> {
+    pub fn thread_positions(&self, space_id: &RealmId) -> Vec<Option<String>> {
         self.thread_index
             .iter()
             .filter(|(candidate, _)| candidate == space_id)
@@ -283,7 +283,7 @@ pub struct ReadReceiptPreferences {
     #[serde(default)]
     pub default: ScopePref,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub spaces: BTreeMap<SpaceId, ScopePref>,
+    pub spaces: BTreeMap<RealmId, ScopePref>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub flows: BTreeMap<FlowId, ScopePref>,
 }
@@ -296,7 +296,7 @@ impl ReadReceiptPreferences {
     /// nor space declares an override, falls back to `default.send`,
     /// then to the protocol-wide default `true` (from spec §2.4 the
     /// global default sends receipts unless the user opts out).
-    pub fn effective_send(&self, flow_id: Option<&FlowId>, space_id: Option<&SpaceId>) -> bool {
+    pub fn effective_send(&self, flow_id: Option<&FlowId>, space_id: Option<&RealmId>) -> bool {
         if let Some(fid) = flow_id
             && let Some(pref) = self.flows.get(fid)
             && let Some(send) = pref.send
@@ -348,7 +348,7 @@ pub fn should_send_receipt(
     prefs: &ReadReceiptPreferences,
     policy: Option<&ReadReceiptPolicy>,
     flow_id: Option<&FlowId>,
-    space_id: Option<&SpaceId>,
+    space_id: Option<&RealmId>,
 ) -> ReceiptDecision {
     let disclosure = policy.map(|p| p.disclosure).unwrap_or_default();
     match disclosure {
@@ -374,7 +374,7 @@ mod tests {
 
     #[test]
     fn receipts_manage_markers_public_private_and_threads() {
-        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let event = EventId::new("ck:event:01904100-0000-7000-8000-834e21b98552").unwrap();
         let mut manager = ReceiptManager::new();
@@ -406,8 +406,8 @@ mod tests {
         assert_eq!(manager.thread_positions(&space_id), vec![Some("t1".to_owned())]);
     }
 
-    fn space() -> SpaceId {
-        SpaceId::new("ck:space:01904100-0000-7000-8000-906bb8c30a80").unwrap()
+    fn space() -> RealmId {
+        RealmId::new("ck:space:01904100-0000-7000-8000-906bb8c30a80").unwrap()
     }
 
     fn flow() -> FlowId {
@@ -439,7 +439,7 @@ mod tests {
         // space overrides default when no flow override
         assert!(!prefs.effective_send(None, Some(&space())));
         // default applies when nothing else matches
-        let other_space = SpaceId::new("ck:space:01904100-0000-7000-8000-de7b2d3c4472").unwrap();
+        let other_space = RealmId::new("ck:space:01904100-0000-7000-8000-de7b2d3c4472").unwrap();
         assert!(prefs.effective_send(None, Some(&other_space)));
     }
 

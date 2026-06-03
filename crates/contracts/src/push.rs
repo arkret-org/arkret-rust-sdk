@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use cokret_core::{
     DeviceId, Did, EventId, PushNotifyReqBody, PushNotifyResBody, PushRegisterDeviceReqBody,
-    SpaceId,
+    RealmId,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -90,7 +90,7 @@ pub struct PushNotification {
     pub event_id: EventId,
     pub user_id: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<SpaceId>,
+    pub space_id: Option<RealmId>,
     pub event_kind: String,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, skip_serializing_if = "Value::is_null")]

@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::{Did, Error, InviteId, Operation, OperationId, RealmId, Result, SpaceId};
+use crate::{Did, Error, InviteId, Operation, OperationId, RealmId, Result};
 
 /// Generate a new UUIDv7-based wire ID with the given Cokret typed prefix
 /// (e.g. `ck:invite:`, `ck:operation:`). RFC 9562 §5.7 / `conformance/encoding.md` §4.
@@ -187,7 +187,7 @@ impl Invite {
 /// In-memory membership manager.
 #[derive(Clone, Debug)]
 pub struct MembershipManager {
-    space_id: SpaceId,
+    space_id: RealmId,
     current_user: Did,
     members: BTreeMap<Did, Member>,
     invites: BTreeMap<InviteId, Invite>,
@@ -196,7 +196,7 @@ pub struct MembershipManager {
 
 impl MembershipManager {
     /// Create a membership manager for one space.
-    pub fn new(space_id: SpaceId, current_user: Did) -> Self {
+    pub fn new(space_id: RealmId, current_user: Did) -> Self {
         Self {
             space_id,
             current_user,
@@ -557,7 +557,7 @@ mod tests {
 
     #[test]
     fn membership_transitions_cover_invite_join_leave_and_ban() {
-        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let mut manager = MembershipManager::new(space_id, alice.clone());
 
@@ -579,7 +579,7 @@ mod tests {
 
     #[test]
     fn membership_checks_role_capabilities() {
-        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let mut manager = MembershipManager::new(space_id, alice.clone());
         manager.upsert_member(alice, MembershipState::Joined, MemberRole::Admin, None);
@@ -591,7 +591,7 @@ mod tests {
 
     #[test]
     fn membership_manages_member_list_profiles_and_changes() {
-        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let bob = did("bob");
         let mut manager = MembershipManager::new(space_id, alice);
@@ -615,7 +615,7 @@ mod tests {
 
     #[test]
     fn membership_handles_did_and_third_party_invites() {
-        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let bob = did("bob");
         let mut manager = MembershipManager::new(space_id, alice.clone());
@@ -640,7 +640,7 @@ mod tests {
 
     #[test]
     fn invite_revocation_blocks_acceptance() {
-        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let bob = did("bob");
         let mut manager = MembershipManager::new(space_id, alice.clone());
@@ -658,7 +658,7 @@ mod tests {
 
     #[test]
     fn invite_cannot_revoke_accepted() {
-        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let bob = did("bob");
         let mut manager = MembershipManager::new(space_id, alice.clone());
@@ -670,7 +670,7 @@ mod tests {
 
     #[test]
     fn invite_expiration_marks_revoked() {
-        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let bob = did("bob");
         let mut manager = MembershipManager::new(space_id, alice.clone());
@@ -692,7 +692,7 @@ mod tests {
 
     #[test]
     fn invite_pending_invites_excludes_expired_and_revoked() {
-        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let bob = did("bob");
         let carol = did("carol");

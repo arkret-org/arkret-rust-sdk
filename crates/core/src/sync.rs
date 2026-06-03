@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeSet, HashMap};
 
-use crate::{Cursor, DeviceId, Did, Error, Event, EventId, Hlc, Result, SpaceId, canonical};
+use crate::{Cursor, DeviceId, Did, Error, Event, EventId, Hlc, RealmId, Result, canonical};
 
 /// Query parameters for `ck.account.subscribe`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -209,7 +209,7 @@ pub struct NotificationDelta {
 pub struct SyncFilter {
     /// Space IDs to sync
     #[serde(default)]
-    pub spaces: Vec<SpaceId>,
+    pub spaces: Vec<RealmId>,
     /// Per-Space timeline limit
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timeline_limit: Option<u32>,
@@ -246,7 +246,7 @@ pub struct SubscriptionConfig {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SpaceSubscription {
     /// Space ID
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     /// Timeline filter (lazy loading, etc.)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timeline_filter: Option<TimelineFilter>,
@@ -273,7 +273,7 @@ pub enum TimelineFilter {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct BackfillReqBody {
     /// Space ID to backfill
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     /// Starting point (cursor or event ID)
     pub from: BackfillFrom,
     /// Direction
@@ -365,7 +365,7 @@ impl TimelineOrderKey {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncStreamPosition {
     /// Space covered by this position.
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     /// Causal frontier event IDs.
     #[serde(default)]
     pub frontier: Vec<EventId>,
@@ -535,7 +535,7 @@ pub struct BucketedSpaceUpdate {
     /// Bucket name.
     pub bucket: MembershipBucket,
     /// Updated space ID.
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     /// Raw update payload.
     pub update: SyncSpace,
 }
@@ -558,7 +558,7 @@ pub enum SyncGapReason {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncGap {
     /// Space containing the gap.
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     /// Older edge event if known.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prev_event_id: Option<EventId>,
@@ -577,7 +577,7 @@ pub struct SyncGap {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct LimitedTimelineState {
     /// Space containing the limited timeline.
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     /// Whether the timeline was limited.
     pub limited: bool,
     /// Older-direction cursor for historical pagination.
@@ -590,7 +590,7 @@ pub struct LimitedTimelineState {
 
 impl LimitedTimelineState {
     /// Build limited timeline state from a sync timeline section.
-    pub fn from_timeline(space_id: SpaceId, timeline: &SyncTimeline) -> Self {
+    pub fn from_timeline(space_id: RealmId, timeline: &SyncTimeline) -> Self {
         let prev_event_id = timeline.events.first().and_then(event_id_from_value);
         let next_event_id = timeline.events.last().and_then(event_id_from_value);
         let gap = timeline.limited.then(|| SyncGap {
@@ -706,7 +706,7 @@ pub struct SyncClient {
     /// Device ID
     _device_id: String,
     /// Active subscriptions
-    subscriptions: HashMap<SpaceId, SpaceSubscription>,
+    subscriptions: HashMap<RealmId, SpaceSubscription>,
 }
 
 impl SyncClient {
@@ -766,7 +766,7 @@ impl SyncClient {
         // Extract updates
         let mut space_updates = Vec::new();
         for (raw_space_id, raw_sync_space) in response.spaces {
-            let Ok(space_id) = SpaceId::new(raw_space_id) else { continue };
+            let Ok(space_id) = RealmId::new(raw_space_id) else { continue };
             let sync_space: SyncSpace = serde_json::from_value(raw_sync_space).unwrap_or_default();
             space_updates.push(SpaceUpdate {
                 space_id,
@@ -793,7 +793,7 @@ impl SyncClient {
     }
 
     /// Unsubscribe from a space.
-    pub fn unsubscribe(&mut self, space_id: &SpaceId) {
+    pub fn unsubscribe(&mut self, space_id: &RealmId) {
         self.subscriptions.remove(space_id);
     }
 
@@ -836,7 +836,7 @@ pub struct SyncUpdates {
 /// Update for a single space.
 #[derive(Clone, Debug)]
 pub struct SpaceUpdate {
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     pub timeline: Option<SyncTimeline>,
     pub state: Vec<Value>,
     pub summary: Value,
@@ -934,7 +934,7 @@ mod tests {
     #[test]
     fn backfill_request_serializes_correctly() {
         let request = BackfillReqBody {
-            space_id: SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+            space_id: RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             from: BackfillFrom::Beginning,
             direction: BackfillDirection::Backward,
             limit: Some(100),
@@ -968,7 +968,7 @@ mod tests {
         let device = DeviceId::new("ck:device:01904100-0000-7000-8000-000000000005").unwrap();
         let service = Did::new("did:web:sync.example").unwrap();
         let filter = SyncFilter {
-            spaces: vec![SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()],
+            spaces: vec![RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()],
             timeline_limit: Some(20),
             lazy_load_members: true,
             include_redundant_members: false,
@@ -1039,7 +1039,7 @@ mod tests {
 
     #[test]
     fn wait_for_frontier_requires_covering_positions() {
-        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let event_id = EventId::new("ck:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap();
         let required = SyncStreamPosition {
             space_id: space_id.clone(),
@@ -1062,7 +1062,7 @@ mod tests {
 
     #[test]
     fn limited_timeline_creates_backfill_gap_and_request() {
-        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let event = Event::new(
             "ck.message.create",

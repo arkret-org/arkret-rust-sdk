@@ -15,8 +15,8 @@ use std::collections::{BTreeMap, VecDeque};
 
 use chrono::{DateTime, Utc};
 use cokret_core::{
-    BlobRef, DeviceId, Did, EncryptedPayload, EncryptedPayloadScheme, Error, EventId, Hash, Result,
-    SpaceId,
+    BlobRef, DeviceId, Did, EncryptedPayload, EncryptedPayloadScheme, Error, EventId, Hash,
+    RealmId, Result,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -775,7 +775,7 @@ pub enum CryptoSessionState {
 /// algorithm, current state and replay watermark.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CryptoSessionRecord {
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     pub session_id: String,
     pub sender_key: String,
     pub algorithm: String,
@@ -817,7 +817,7 @@ impl CryptoSessionRecord {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WithheldKeyRecord {
     /// Space the withheld session belongs to.
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     /// Session that the sender refused to share.
     pub session_id: String,
     /// Sending principal.
@@ -1015,7 +1015,7 @@ pub enum UnableToDecryptReason {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UnableToDecryptRecord {
     pub event_id: EventId,
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     pub sender: Did,
     pub reason: UnableToDecryptReason,
     pub encrypted_content: EncryptedPayload,
@@ -1033,7 +1033,7 @@ pub enum CryptoMachineReqBody {
     },
     ClaimOneTimeKeys(Vec<OneTimeKeyClaim>),
     EncryptEvent {
-        space_id: SpaceId,
+        space_id: RealmId,
         event_kind: String,
         content: Value,
     },
@@ -1045,7 +1045,7 @@ pub enum CryptoMachineReqBody {
     /// E2EE session key — the `ShareRoomKey` variant name maps to the
     /// `cx.keys.room_key` interop device-message kind.
     ShareRoomKey {
-        space_id: SpaceId,
+        space_id: RealmId,
         session_id: String,
         recipients: Vec<DeviceId>,
     },
@@ -1054,7 +1054,7 @@ pub enum CryptoMachineReqBody {
     /// device-message kind.
     RequestRoomKey {
         event_id: EventId,
-        space_id: SpaceId,
+        space_id: RealmId,
         session_id: String,
         requesting_device_id: DeviceId,
     },
@@ -1137,7 +1137,7 @@ pub enum CryptoMachineResBody {
     /// `DecryptEvent` could not decrypt — caller should display a placeholder.
     UnableToDecrypt(UnableToDecryptRecord),
     /// `ShareRoomKey` fanned out to this many recipients.
-    RoomKeyShared { space_id: SpaceId, session_id: String, recipients: usize },
+    RoomKeyShared { space_id: RealmId, session_id: String, recipients: usize },
     /// `RequestRoomKey` was emitted on the wire.
     RoomKeyRequested { event_id: EventId, session_id: String },
     /// `BackupSecrets` flushed this descriptor to storage.
@@ -1222,7 +1222,7 @@ impl CryptoStoreBinding {
 
     pub fn session_mut(
         &mut self,
-        space_id: &SpaceId,
+        space_id: &RealmId,
         session_id: &str,
     ) -> Option<&mut CryptoSessionRecord> {
         self.sessions.get_mut(&session_key(space_id, session_id))
@@ -1237,7 +1237,7 @@ impl CryptoStoreBinding {
     }
 }
 
-pub(crate) fn session_key(space_id: &SpaceId, session_id: &str) -> String {
+pub(crate) fn session_key(space_id: &RealmId, session_id: &str) -> String {
     format!("{}|{}", space_id.as_str(), session_id)
 }
 
@@ -1386,7 +1386,7 @@ mod tests {
         plan.push(
             "share",
             CryptoMachineReqBody::ShareRoomKey {
-                space_id: SpaceId::new("ck:space:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
+                space_id: RealmId::new("ck:space:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
                 session_id: "sess1".to_owned(),
                 recipients: vec![device()],
             },
@@ -1424,7 +1424,7 @@ mod tests {
         };
         binding.record_unable_to_decrypt(UnableToDecryptRecord {
             event_id: EventId::new("ck:event:01904100-0000-7000-8000-4e7fda181f9f").unwrap(),
-            space_id: SpaceId::new("ck:space:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
+            space_id: RealmId::new("ck:space:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
             sender: did("alice"),
             reason: UnableToDecryptReason::NoSession,
             encrypted_content: payload,
@@ -1461,7 +1461,7 @@ mod tests {
             Some(&DeviceTrustState::Verified)
         );
 
-        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-6c355fb9dada").unwrap();
+        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-6c355fb9dada").unwrap();
         binding
             .record_session(CryptoSessionRecord {
                 space_id: space_id.clone(),
@@ -1542,7 +1542,7 @@ mod tests {
 
     #[test]
     fn typed_validate_rejects_invalid_withheld_key_record() {
-        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-6c355fb9dada").unwrap();
+        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-6c355fb9dada").unwrap();
         let mut record = WithheldKeyRecord {
             space_id,
             session_id: String::new(),
@@ -1625,7 +1625,7 @@ mod tests {
 
     fn make_session() -> CryptoSessionRecord {
         CryptoSessionRecord {
-            space_id: SpaceId::new("ck:space:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
+            space_id: RealmId::new("ck:space:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
             session_id: "sess-prop".to_owned(),
             sender_key: "curve25519:def".to_owned(),
             algorithm: "ck.mls.v1".to_owned(),
@@ -1742,7 +1742,8 @@ mod tests {
     fn cross_signing_reset_proof_threshold_zero_rejected() {
         let content = CrossSigningResetContent {
             principal_id: did("alice"),
-            trust_domain: cokret_core::TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
+            trust_domain: cokret_core::TypedTrustDomainId::new("ck:trust_domain:example.net")
+                .unwrap(),
             reset_event_id: "ck:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
             previous_generation: 1,
             new_generation: 2,
@@ -1773,7 +1774,8 @@ mod tests {
         // PrincipalSigning with whitespace-only `verification_method`.
         let blank_verification_method = CrossSigningResetContent {
             principal_id: did("alice"),
-            trust_domain: cokret_core::TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
+            trust_domain: cokret_core::TypedTrustDomainId::new("ck:trust_domain:example.net")
+                .unwrap(),
             reset_event_id: "ck:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
             previous_generation: 1,
             new_generation: 2,
@@ -1832,7 +1834,8 @@ mod tests {
     fn cross_signing_reset_proof_oversized_alg_rejected() {
         let content = CrossSigningResetContent {
             principal_id: did("alice"),
-            trust_domain: cokret_core::TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
+            trust_domain: cokret_core::TypedTrustDomainId::new("ck:trust_domain:example.net")
+                .unwrap(),
             reset_event_id: "ck:event:01964137-0000-7000-8000-0000000000aa".to_owned(),
             previous_generation: 1,
             new_generation: 2,
@@ -1860,7 +1863,7 @@ mod tests {
     fn unable_to_decrypt_path_bad_ciphertext() {
         let mut binding = CryptoStoreBinding::default();
         let event_id = EventId::new("ck:event:01904100-0000-7000-8000-4e7fda181f9f").unwrap();
-        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-6c355fb9dada").unwrap();
+        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-6c355fb9dada").unwrap();
         let payload = EncryptedPayload {
             scheme: EncryptedPayloadScheme::MlsRfc9420,
             group_id: "group".to_owned(),

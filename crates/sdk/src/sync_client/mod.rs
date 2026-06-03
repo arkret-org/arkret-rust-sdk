@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
-    DeviceId, Error, Event, EventId, Result, SpaceId, SyncResBody, canonical,
+    DeviceId, Error, Event, EventId, RealmId, Result, SyncResBody, canonical,
     sync::{
         AccountData, DeviceListChanges, LimitedTimelineState, MembershipBucket, NotificationDelta,
         PresenceEvent, PresenceStatus, SpaceSubscription, SpaceUpdate, SubscriptionConfig,

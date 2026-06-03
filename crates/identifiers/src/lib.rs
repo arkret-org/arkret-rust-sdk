@@ -240,12 +240,16 @@ id_type!(BackupSeriesId, |value: &str| is_strict_typed_id(value, "ck:backup_seri
 id_type!(RecoverySessionId, |value: &str| is_strict_typed_id(value, "ck:recovery_session:"));
 id_type!(AnnounceId, |value: &str| is_strict_typed_id(value, "ck:announce:"));
 id_type!(AppletId, |value: &str| is_strict_typed_id(value, "ck:applet:"));
-// Historical SDK operation/reducer structs still name the scope field
-// `SpaceId`, but the protocol's security boundary is now Realm. Accept
-// `ck:realm:*` here so callers pass the canonical scope directly instead of
-// fabricating a `ck:space:*` mirror.
-id_type!(SpaceId, |value: &str| is_strict_typed_id(value, "ck:space:")
-    || is_strict_typed_id(value, "ck:realm:"));
+// `RealmId` is the protocol security-boundary key type (Realm/Space
+// inversion). It accepts the canonical `ck:realm:*` form and — for backward
+// compatibility with reducer/store layers that historically keyed boundary
+// state on a `ck:space:*` mirror — also the `ck:space:*` form. The narrower
+// `ck:realm:*`-only validation that the old standalone `RealmId` carried is
+// intentionally widened here so the single boundary-key type round-trips
+// every wire value that the former `SpaceId` accepted; no current wire field
+// is tightened by this merge.
+id_type!(RealmId, |value: &str| is_strict_typed_id(value, "ck:realm:")
+    || is_strict_typed_id(value, "ck:space:"));
 id_type!(BackupId, |value: &str| is_strict_typed_id(value, "ck:backup:"));
 id_type!(BatchId, |value: &str| is_strict_typed_id(value, "ck:batch:"));
 id_type!(BlobId, |value: &str| is_strict_typed_id(value, "ck:blob:"));
@@ -272,7 +276,6 @@ id_type!(TypedAppealId, |value: &str| is_strict_typed_id(value, "ck:appeal:"));
 // `[a-z0-9._:-]` max 128 chars. NOT a typed-UUIDv7 object id. Used to
 // prevent cross-deployment replay of high-risk proofs (cross-signing reset).
 id_type!(TypedTrustDomainId, is_trust_domain);
-id_type!(RealmId, |value: &str| is_strict_typed_id(value, "ck:realm:"));
 id_type!(MessageId, |value: &str| is_strict_typed_id(value, "ck:message:"));
 id_type!(RelationId, |value: &str| is_strict_typed_id(value, "ck:relation:"));
 id_type!(EventId, |value: &str| is_strict_typed_id(value, "ck:event:"));
@@ -287,7 +290,10 @@ id_type!(PresentationId, |value: &str| is_strict_typed_id(value, "ck:presentatio
 id_type!(ReceiptId, |value: &str| is_strict_typed_id(value, "ck:receipt:"));
 id_type!(ReportId, |value: &str| is_strict_typed_id(value, "ck:report:"));
 id_type!(ReadCursorId, |value: &str| is_strict_typed_id(value, "ck:read_cursor:"));
-id_type!(ModerationQueueItemId, |value: &str| is_strict_typed_id(value, "ck:moderation_queue_item:"));
+id_type!(ModerationQueueItemId, |value: &str| is_strict_typed_id(
+    value,
+    "ck:moderation_queue_item:"
+));
 id_type!(RequestId, |value: &str| is_strict_typed_id(value, "ck:request:"));
 id_type!(SnapshotId, |value: &str| is_strict_typed_id(value, "ck:snapshot:"));
 id_type!(TransactionId, |value: &str| is_strict_typed_id(value, "ck:transaction:"));
@@ -532,8 +538,10 @@ mod tests {
         assert_id!(ReadCursorId, "ck:read_cursor:");
         assert_id!(RequestId, "ck:request:");
         assert_id!(SnapshotId, "ck:snapshot:");
-        assert_id!(SpaceId, "ck:space:");
-        assert_id!(SpaceId, "ck:realm:");
+        // RealmId is the merged boundary-key type: it accepts both the
+        // canonical `ck:realm:*` form (asserted above) and the historical
+        // `ck:space:*` boundary mirror.
+        assert_id!(RealmId, "ck:space:");
         assert_id!(TransactionId, "ck:transaction:");
         assert_id!(ViewId, "ck:view:");
     }
@@ -572,8 +580,9 @@ mod tests {
         // Two consecutive calls produce different ids.
         let id2 = new_prefixed_uuid7("ck:space:");
         assert_ne!(id, id2);
-        // Resulting id is accepted by the SpaceId validator.
-        assert!(SpaceId::new(id).is_ok());
+        // Resulting id is accepted by the RealmId boundary-key validator
+        // (which accepts the `ck:space:*` mirror form).
+        assert!(RealmId::new(id).is_ok());
     }
 
     #[test]
@@ -595,7 +604,7 @@ mod tests {
     fn serde_deserialization_validates_identifier_values() {
         #[derive(Deserialize)]
         struct Envelope {
-            space_id: SpaceId,
+            space_id: RealmId,
             hlc: Hlc,
         }
 

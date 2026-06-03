@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{Did, Error, Result, SpaceId};
+use crate::{Did, Error, RealmId, Result};
 
 /// User profile state.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -117,7 +117,7 @@ impl SovereignDeploymentPolicy {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SpaceExportManifest {
     pub export_id: String,
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     pub exported_by: Did,
     pub source_service_did: Did,
     pub event_count: u64,
@@ -162,7 +162,7 @@ impl ServiceReplacementPlan {
 /// Validate a space import manifest against expected local constraints.
 pub fn validate_space_import(
     manifest: &SpaceExportManifest,
-    expected_space_id: Option<&SpaceId>,
+    expected_space_id: Option<&RealmId>,
     allowed_source_services: &BTreeSet<Did>,
 ) -> SpaceImportValidation {
     let mut errors = Vec::new();
@@ -346,7 +346,7 @@ impl ProfileEventKind {
 /// applets.
 #[derive(Clone, Debug)]
 pub struct ProfileCreateBuilder {
-    realm_id: crate::RealmId,
+    realm_id: RealmId,
     actor_id: Did,
     display_name: Option<String>,
     avatar_url: Option<String>,
@@ -362,7 +362,7 @@ pub struct ProfileCreateBuilder {
 impl ProfileCreateBuilder {
     /// Construct a new builder for a `ck.profile.create` Envelope.
     /// Switch to `ck.profile.update` via [`Self::for_update`].
-    pub fn new(realm_id: crate::RealmId, actor_id: Did) -> Self {
+    pub fn new(realm_id: RealmId, actor_id: Did) -> Self {
         Self {
             realm_id,
             actor_id,
@@ -583,7 +583,7 @@ mod tests {
 
         let manifest = SpaceExportManifest {
             export_id: "export1".to_owned(),
-            space_id: SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+            space_id: RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             exported_by: alice,
             source_service_did: service.clone(),
             event_count: 10,

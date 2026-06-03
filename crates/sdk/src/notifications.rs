@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{Did, EventId, SpaceId};
+use crate::{Did, EventId, RealmId};
 
 /// Notification action.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -41,7 +41,7 @@ pub struct NotificationItem {
     /// Notification ID.
     pub id: String,
     /// Space ID.
-    pub space_id: Option<SpaceId>,
+    pub space_id: Option<RealmId>,
     /// Event ID.
     pub event_id: EventId,
     /// Event sender.
@@ -72,7 +72,7 @@ pub struct NotificationCounts {
 pub struct NotificationManager {
     rules: BTreeMap<String, NotificationRule>,
     notifications: BTreeMap<String, NotificationItem>,
-    counts: BTreeMap<Option<SpaceId>, NotificationCounts>,
+    counts: BTreeMap<Option<RealmId>, NotificationCounts>,
 }
 
 impl NotificationManager {
@@ -113,7 +113,7 @@ impl NotificationManager {
     pub fn add_notification(
         &mut self,
         id: impl Into<String>,
-        space_id: Option<SpaceId>,
+        space_id: Option<RealmId>,
         event_id: EventId,
         sender: Did,
         event_kind: impl Into<String>,
@@ -142,7 +142,7 @@ impl NotificationManager {
     }
 
     /// Get counts for one space or global notifications.
-    pub fn counts(&self, space_id: Option<&SpaceId>) -> NotificationCounts {
+    pub fn counts(&self, space_id: Option<&RealmId>) -> NotificationCounts {
         self.counts.get(&space_id.cloned()).copied().unwrap_or_default()
     }
 
@@ -162,7 +162,7 @@ impl NotificationManager {
     }
 
     /// Clear all notifications in a space.
-    pub fn clear_space(&mut self, space_id: &SpaceId) -> usize {
+    pub fn clear_space(&mut self, space_id: &RealmId) -> usize {
         let ids: Vec<_> = self
             .notifications
             .values()
@@ -176,7 +176,7 @@ impl NotificationManager {
         cleared
     }
 
-    fn increment(&mut self, space_id: Option<SpaceId>, highlight: bool) {
+    fn increment(&mut self, space_id: Option<RealmId>, highlight: bool) {
         let counts = self.counts.entry(space_id).or_default();
         counts.notification_count += 1;
         if highlight {
@@ -184,7 +184,7 @@ impl NotificationManager {
         }
     }
 
-    fn decrement(&mut self, space_id: Option<SpaceId>, highlight: bool) {
+    fn decrement(&mut self, space_id: Option<RealmId>, highlight: bool) {
         let counts = self.counts.entry(space_id).or_default();
         counts.notification_count = counts.notification_count.saturating_sub(1);
         if highlight {
@@ -205,7 +205,7 @@ mod tests {
 
     #[test]
     fn notifications_apply_rules_counts_highlights_and_clear() {
-        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let mut manager = NotificationManager::new();
         manager.upsert_rule(NotificationRule {
@@ -236,7 +236,7 @@ mod tests {
 
     #[test]
     fn notifications_can_suppress_and_clear_space() {
-        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let mut manager = NotificationManager::new();
         manager.upsert_rule(NotificationRule {
             rule_id: "suppress".to_owned(),

@@ -12,8 +12,7 @@ fn service_route_operation_ids_are_unique() {
             // trust-circle name (self/gate/root/find/peer/open/edge/local),
             // per cokret-spec service-http-binding.md §2.1. Admin is the
             // deployment-local namespace at `/_cokret/local/admin/*`.
-            route.path.starts_with("/_cokret/")
-                || route.path.starts_with("/.well-known/"),
+            route.path.starts_with("/_cokret/") || route.path.starts_with("/.well-known/"),
             "unexpected route namespace: {} ({})",
             route.path,
             route.operation_id,
@@ -38,7 +37,10 @@ fn service_route_registry_matches_required_spec_operations() {
         ("ck.events.frontier", "/_cokret/self/events/frontier"),
         ("ck.events.subscribe", "/_cokret/self/events/subscribe"),
         ("ck.events.query", "/_cokret/self/events/query"),
-        ("ck.directory.private_contact_discovery", "/_cokret/find/directory/private-contact-discovery"),
+        (
+            "ck.directory.private_contact_discovery",
+            "/_cokret/find/directory/private-contact-discovery",
+        ),
         ("ck.blob.upload", "/_cokret/self/blob/upload"),
         ("ck.push.register_device", "/_cokret/edge/push/register-device"),
         ("ck.keys.keypackages.claim", "/_cokret/self/keys/keypackages/claim"),

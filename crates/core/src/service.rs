@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
-    DeviceId, Did, Error, ErrorEnvelope, OperationId, PROTOCOL_VERSION, Result, ServerDescription,
-    SpaceId,
+    DeviceId, Did, Error, ErrorEnvelope, OperationId, PROTOCOL_VERSION, RealmId, Result,
+    ServerDescription,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -226,7 +226,7 @@ pub struct HttpTraceMetadata {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<SpaceId>,
+    pub space_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub operation_id: Option<OperationId>,
 }
@@ -373,7 +373,7 @@ mod tests {
     use serde_json::Value;
 
     use super::*;
-    use crate::{Did, SpaceId};
+    use crate::{Did, RealmId};
 
     #[test]
     fn verifies_required_service_profile_and_operation() {
@@ -463,7 +463,7 @@ mod tests {
             request_id: Some("req_123".to_owned()),
             actor_id: Some(Did::new("did:web:alice.example").unwrap()),
             device_id: None,
-            space_id: Some(SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()),
+            space_id: Some(RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()),
             operation_id: None,
         };
         let not_found = privacy_preserving_not_found(Some(trace));

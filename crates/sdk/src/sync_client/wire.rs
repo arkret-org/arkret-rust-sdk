@@ -43,7 +43,7 @@ pub enum EventsSubscribeFrame {
     /// space.
     #[serde(rename = "epoch_rotation")]
     EpochRotation {
-        space_id: SpaceId,
+        space_id: RealmId,
         new_epoch: u64,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         previous_epoch: Option<u64>,
@@ -53,7 +53,7 @@ pub enum EventsSubscribeFrame {
     #[serde(rename = "unauthorized")]
     Unauthorized {
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        space_id: Option<SpaceId>,
+        space_id: Option<RealmId>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         actor_id: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -135,7 +135,7 @@ impl EventsSubscribeFrame {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EventsQuerySelector {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub spaces: Vec<SpaceId>,
+    pub spaces: Vec<RealmId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub actors: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -217,7 +217,7 @@ pub enum EventsQueryDirection {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EventsQueryReqBody {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub spaces: Vec<SpaceId>,
+    pub spaces: Vec<RealmId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub actors: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -237,7 +237,7 @@ impl EventsQueryReqBody {
         Self::default()
     }
 
-    pub fn with_spaces(mut self, spaces: Vec<SpaceId>) -> Self {
+    pub fn with_spaces(mut self, spaces: Vec<RealmId>) -> Self {
         self.spaces = spaces;
         self
     }

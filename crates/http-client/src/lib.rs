@@ -635,7 +635,8 @@ impl Client {
         cursor: Option<&str>,
         limit: Option<u32>,
     ) -> Result<IdentityLogResBody> {
-        let mut builder = self.request(Method::GET, "/_cokret/root/identity/log")?.query(&[("did", did)]);
+        let mut builder =
+            self.request(Method::GET, "/_cokret/root/identity/log")?.query(&[("did", did)]);
         if let Some(cursor) = cursor {
             builder = builder.query(&[("cursor", cursor)]);
         }
@@ -836,8 +837,9 @@ impl Client {
     }
 
     pub async fn snapshot_head(&self, space_id: &str) -> Result<SyncSnapshotHeadResBody> {
-        let builder =
-            self.request(Method::GET, "/_cokret/self/snapshot/head")?.query(&[("realm_id", space_id)]);
+        let builder = self
+            .request(Method::GET, "/_cokret/self/snapshot/head")?
+            .query(&[("realm_id", space_id)]);
         self.send_json(builder).await
     }
 
@@ -866,8 +868,9 @@ impl Client {
         space_id: Option<&str>,
         cursor: Option<&str>,
     ) -> Result<AuthzInvitesResBody> {
-        let mut builder =
-            self.request(Method::GET, "/_cokret/self/authz/invites")?.query(&[("subject", subject)]);
+        let mut builder = self
+            .request(Method::GET, "/_cokret/self/authz/invites")?
+            .query(&[("subject", subject)]);
         if let Some(space_id) = space_id {
             builder = builder.query(&[("space_id", space_id)]);
         }
@@ -1513,8 +1516,7 @@ mod tests {
     #[test]
     fn builds_relative_api_url() {
         let client = Client::new(Url::parse("https://alice.example/cokret/").unwrap()).unwrap();
-        let request =
-            client.request(Method::GET, "/_cokret/describe").unwrap().build().unwrap();
+        let request = client.request(Method::GET, "/_cokret/describe").unwrap().build().unwrap();
         assert_eq!(request.url().as_str(), "https://alice.example/cokret/_cokret/describe");
     }
 
@@ -1568,7 +1570,10 @@ mod tests {
             .idempotency_key("idem-1")
             .wait_for("ck:cursor:01");
         let request = client
-            .apply_request_options(client.request(Method::PUT, "/_cokret/self/events").unwrap(), &options)
+            .apply_request_options(
+                client.request(Method::PUT, "/_cokret/self/events").unwrap(),
+                &options,
+            )
             .unwrap()
             .build()
             .unwrap();

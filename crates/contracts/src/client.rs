@@ -22,7 +22,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::push::{PushPriority, PushRule, PushRuleSet, Pusher};
 use chrono::{DateTime, Utc};
 use cokret_core::{
-    BlobRef, DeviceId, Did, EncryptedPayload, Error, EventId, Hash, Hlc, InviteId, Result, SpaceId,
+    BlobRef, DeviceId, Did, EncryptedPayload, Error, EventId, Hash, Hlc, InviteId, RealmId, Result,
 };
 use cokret_crypto::MediaEncryptionInfo;
 use cokret_html::RichTextDocument;
@@ -359,7 +359,7 @@ impl SpaceCreateReqBody {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SpaceResBody {
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     pub name: String,
     pub visibility: SpaceVisibility,
     #[serde(default)]
@@ -370,13 +370,13 @@ pub struct SpaceResBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters))]
 pub struct SpacePreviewParams {
     #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Path)))]
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SpacePreviewResBody {
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     pub name: String,
     pub visibility: SpaceVisibility,
     pub member_count: u64,
@@ -401,7 +401,7 @@ pub enum MembershipAction {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters))]
 pub struct MembershipActionParams {
     #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Path)))]
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -440,7 +440,7 @@ pub struct MembershipActionResBody {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SubmitEventReqBody {
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     pub event_kind: String,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     pub content: Value,
@@ -541,7 +541,7 @@ pub struct ReadMarkerReqBody {
 pub struct MessageSearchReqBody {
     pub query: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub spaces: Vec<SpaceId>,
+    pub spaces: Vec<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<u32>,
 }
@@ -560,7 +560,7 @@ impl MessageSearchReqBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MessageSearchHit {
     pub event_id: EventId,
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     pub sender: Did,
     pub snippet: String,
     pub score: f32,
@@ -601,7 +601,7 @@ pub struct EventContextResBody {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct NearestTimestampReqBody {
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     pub timestamp: DateTime<Utc>,
 }
 
@@ -617,7 +617,7 @@ pub struct DirectorySearchReqBody {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectorySearchResult {
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     pub name: String,
     pub visibility: SpaceVisibility,
     pub member_count: u64,
@@ -642,14 +642,14 @@ pub struct DirectoryAliasParams {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryAliasResBody {
     pub alias: String,
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     pub servers: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct TimelineGapRepairReqBody {
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     pub from_event: EventId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<u32>,
@@ -896,7 +896,7 @@ pub struct NotificationSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub quiet_hours: Option<QuietHours>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub per_space: BTreeMap<SpaceId, SpaceNotificationSettings>,
+    pub per_space: BTreeMap<RealmId, SpaceNotificationSettings>,
 }
 
 impl Default for NotificationSettings {
@@ -932,7 +932,7 @@ pub struct NotificationCounts {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct NotificationCountsReqBody {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub spaces: Vec<SpaceId>,
+    pub spaces: Vec<RealmId>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -940,7 +940,7 @@ pub struct NotificationCountsReqBody {
 pub struct NotificationCountsResBody {
     pub global: NotificationCounts,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub spaces: BTreeMap<SpaceId, NotificationCounts>,
+    pub spaces: BTreeMap<RealmId, NotificationCounts>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -953,7 +953,7 @@ pub struct NotificationListReqBody {
     #[serde(default)]
     pub only_highlight: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub spaces: Vec<SpaceId>,
+    pub spaces: Vec<RealmId>,
 }
 
 impl NotificationListReqBody {
@@ -971,7 +971,7 @@ impl NotificationListReqBody {
 pub struct ClientNotification {
     pub notification_id: String,
     pub event_id: EventId,
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     pub sender: Did,
     pub event_kind: String,
     pub received_at: DateTime<Utc>,
@@ -996,7 +996,7 @@ pub struct NotificationListResBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MarkNotificationsReadReqBody {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<SpaceId>,
+    pub space_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub up_to_event_id: Option<EventId>,
 }
@@ -1022,7 +1022,7 @@ pub struct ReportReqBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user_id: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<SpaceId>,
+    pub space_id: Option<RealmId>,
     pub reason: String,
 }
 
@@ -1112,7 +1112,7 @@ pub struct ThirdPartyInviteReqBody {
     pub invite_id: InviteId,
     pub medium: String,
     pub address: String,
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1148,8 +1148,8 @@ mod tests {
         Did::new(format!("did:web:{name}.example")).unwrap()
     }
 
-    fn space() -> SpaceId {
-        SpaceId::new("ck:space:01904100-0000-7000-8000-a035cff9ef92").unwrap()
+    fn space() -> RealmId {
+        RealmId::new("ck:space:01904100-0000-7000-8000-a035cff9ef92").unwrap()
     }
 
     #[test]

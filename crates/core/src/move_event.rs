@@ -26,7 +26,7 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 use crate::canonical;
-use crate::{AnchorId, CellRef, Did, Error, Hash, Hlc, MoveId, Result, SpaceId};
+use crate::{AnchorId, CellRef, Did, Error, Hash, Hlc, MoveId, RealmId, Result};
 
 /// Allowed Move signature algorithms (must match `move.schema.json` `signature.alg`).
 pub const MOVE_SIGNATURE_ALGS: &[&str] = &["EdDSA", "ES256", "ES384", "ES512"];
@@ -37,7 +37,7 @@ pub const MOVE_SIGNATURE_ALGS: &[&str] = &["EdDSA", "ES256", "ES384", "ES512"];
 pub struct Move {
     pub id: MoveId,
     pub issuer: Did,
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     pub preconditions: Vec<Precondition>,
     pub effects: Vec<Effect>,
     pub anchor_ref: AnchorId,
@@ -179,7 +179,7 @@ pub struct MoveSignature {
 #[derive(Serialize)]
 struct MoveBody<'a> {
     issuer: &'a Did,
-    space_id: &'a SpaceId,
+    space_id: &'a RealmId,
     preconditions: &'a [Precondition],
     effects: &'a [Effect],
     anchor_ref: &'a AnchorId,

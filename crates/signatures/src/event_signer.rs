@@ -30,9 +30,7 @@
 
 use chrono::{DateTime, Utc};
 
-use cokret_core::{
-    Audience, Error, Event, Hash, MoveSigner, Proof, Result, canonical, proof_kind,
-};
+use cokret_core::{Audience, Error, Event, Hash, MoveSigner, Proof, Result, canonical, proof_kind};
 
 /// Options threaded into [`sign_event`].
 ///

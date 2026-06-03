@@ -12,11 +12,12 @@ use salvo::oapi::{
 use crate::{
     AccountabilityGrantId, ActorProfileId, AgentDraftId, AgentKeyId, AgentSessionId, AnchorId,
     AnnounceId, AppletId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId, CallId,
-    CapabilityId, CellRef, ChunkId, CircleId, ClaimId, Cursor, DeviceId, DeviceMessageId, Did, EventId,
-    FilterId, FlowId, FrameId, FrankingProofId, GrantId, Hash, Hlc, InviteId, KeyEventId, MessageId, ModerationQueueItemId,
-    MorphId, MoveId, NotificationId, OperationId, PolicyId, PresentationId, ReadCursorId, RealmId,
-    ReceiptId, RecoverySessionId, RelationId, ReportId, RequestId, SidecarCircleId, SnapshotId,
-    SpaceId, TransactionId, TypedAppealId, TypedTrustDomainId, ViewId,
+    CapabilityId, CellRef, ChunkId, CircleId, ClaimId, Cursor, DeviceId, DeviceMessageId, Did,
+    EventId, FilterId, FlowId, FrameId, FrankingProofId, GrantId, Hash, Hlc, InviteId, KeyEventId,
+    MessageId, ModerationQueueItemId, MorphId, MoveId, NotificationId, OperationId, PolicyId,
+    PresentationId, ReadCursorId, RealmId, ReceiptId, RecoverySessionId, RelationId, ReportId,
+    RequestId, SidecarCircleId, SnapshotId, TransactionId, TypedAppealId, TypedTrustDomainId,
+    ViewId,
 };
 
 fn string_schema(pattern: &str) -> RefOr<Schema> {
@@ -90,10 +91,6 @@ impl_string_schema!(
     r"^ck:applet:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
 impl_string_schema!(
-    SpaceId,
-    r"^ck:(space|realm):[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
-);
-impl_string_schema!(
     BackupId,
     r"^ck:backup:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
@@ -153,9 +150,12 @@ impl_string_schema!(
     MorphId,
     r"^ck:morph:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
+// `RealmId` is the merged boundary-key type. It accepts the canonical
+// `ck:realm:*` form and the historical `ck:space:*` boundary mirror, matching
+// the runtime validator in `lib.rs`.
 impl_string_schema!(
     RealmId,
-    r"^ck:realm:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    r"^ck:(space|realm):[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
 impl_string_schema!(
     MessageId,

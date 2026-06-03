@@ -18,7 +18,7 @@ use crate::canonical;
 use crate::move_event::{Effect, Move, MoveSignature, Precondition, SemanticRef};
 use crate::{
     Anchor, AnchorId, AnchorerSig, Did, Error, Hash, Hlc, MoveId, MultiSigKind, MultiSignature,
-    Result, SpaceId, ThresholdSigKind, ThresholdSignature,
+    RealmId, Result, ThresholdSigKind, ThresholdSignature,
 };
 
 /// Builder view of a Move that has not yet been hashed / signed.
@@ -29,7 +29,7 @@ use crate::{
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UnsignedMove {
     pub issuer: Did,
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     pub preconditions: Vec<Precondition>,
     pub effects: Vec<Effect>,
     pub anchor_ref: AnchorId,
@@ -40,7 +40,7 @@ pub struct UnsignedMove {
 impl UnsignedMove {
     pub fn new(
         issuer: Did,
-        space_id: SpaceId,
+        space_id: RealmId,
         anchor_ref: AnchorId,
         effects: Vec<Effect>,
         hlc: Hlc,
@@ -150,7 +150,7 @@ impl Anchor {
     /// Build + single-sign a normal Anchor (frontier-advance). Delegates to
     /// [`Anchor::sign_single_kind`] with `kind=Normal`.
     pub fn sign_single<S: MoveSigner + ?Sized>(
-        space_id: SpaceId,
+        space_id: RealmId,
         predecessor_refs: Vec<AnchorId>,
         frontier: Vec<MoveId>,
         state_root: Hash,
@@ -174,7 +174,7 @@ impl Anchor {
     /// frontier without accepting new moves.
     #[allow(clippy::too_many_arguments)]
     pub fn sign_single_kind<S: MoveSigner + ?Sized>(
-        space_id: SpaceId,
+        space_id: RealmId,
         predecessor_refs: Vec<AnchorId>,
         frontier: Vec<MoveId>,
         state_root: Hash,
@@ -217,7 +217,7 @@ impl Anchor {
     /// [`Anchor::sign_threshold_kind`] with `kind=Normal`.
     #[allow(clippy::too_many_arguments)]
     pub fn sign_threshold(
-        space_id: SpaceId,
+        space_id: RealmId,
         predecessor_refs: Vec<AnchorId>,
         frontier: Vec<MoveId>,
         state_root: Hash,
@@ -244,7 +244,7 @@ impl Anchor {
     /// kind semantics.
     #[allow(clippy::too_many_arguments)]
     pub fn sign_threshold_kind(
-        space_id: SpaceId,
+        space_id: RealmId,
         predecessor_refs: Vec<AnchorId>,
         frontier: Vec<MoveId>,
         state_root: Hash,
@@ -294,7 +294,7 @@ impl Anchor {
     /// Build + multi-sign a normal Anchor. Delegates to
     /// [`Anchor::sign_multi_kind`] with `kind=Normal`.
     pub fn sign_multi<S>(
-        space_id: SpaceId,
+        space_id: RealmId,
         predecessor_refs: Vec<AnchorId>,
         frontier: Vec<MoveId>,
         state_root: Hash,
@@ -320,7 +320,7 @@ impl Anchor {
     /// kind semantics.
     #[allow(clippy::too_many_arguments)]
     pub fn sign_multi_kind<S>(
-        space_id: SpaceId,
+        space_id: RealmId,
         predecessor_refs: Vec<AnchorId>,
         frontier: Vec<MoveId>,
         state_root: Hash,
@@ -585,7 +585,7 @@ impl Anchor {
     /// performs no further per-partial verification.
     #[allow(clippy::too_many_arguments)]
     pub fn sign_threshold_partial(
-        space_id: SpaceId,
+        space_id: RealmId,
         predecessor_refs: Vec<AnchorId>,
         frontier: Vec<MoveId>,
         state_root: Hash,
@@ -618,7 +618,7 @@ impl Anchor {
 /// fields MUST hash differently).
 #[derive(serde::Serialize)]
 struct AnchorBodyView<'a> {
-    realm_id: &'a SpaceId,
+    realm_id: &'a RealmId,
     predecessor_refs: &'a [AnchorId],
     frontier: &'a [MoveId],
     state_root: &'a Hash,
@@ -638,8 +638,8 @@ mod tests {
     use chrono::{TimeZone, Utc};
     use serde_json::json;
 
-    fn space() -> SpaceId {
-        SpaceId::new("ck:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+    fn space() -> RealmId {
+        RealmId::new("ck:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn alice() -> Did {

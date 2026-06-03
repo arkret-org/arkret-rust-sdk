@@ -18,7 +18,7 @@ use crate::{
         OP_MEMBER_STATE, OP_MESSAGE_CREATE, OP_MESSAGE_REDACT, OP_MESSAGE_REVISE, OP_MORPH_ARCHIVE,
         OP_MORPH_CREATE, OP_MORPH_UPDATE, OP_RELATION_CREATE, OP_RELATION_TOMBSTONE, ObjectState,
         Operation, OperationId, OperationType, Place, Relation, RelationId, RelationKind,
-        RelationState, SortDirection, SortSpec, SpaceId,
+        RelationState, SortDirection, SortSpec,
     },
     resolver::SpaceState,
 };
@@ -137,7 +137,7 @@ pub struct BatchUpdateMorph {
 #[derive(Clone)]
 pub struct Space {
     /// Space ID
-    pub space_id: SpaceId,
+    pub space_id: RealmId,
     /// Base client reference
     base_client: Arc<BaseClient>,
     /// Current space state
@@ -146,7 +146,7 @@ pub struct Space {
 
 impl Space {
     /// Create a new Space client.
-    pub fn new(space_id: SpaceId, base_client: Arc<BaseClient>) -> Self {
+    pub fn new(space_id: RealmId, base_client: Arc<BaseClient>) -> Self {
         // Try to get existing space state from base client
         let state = if let Some(client_space) = base_client.get_space(&space_id) {
             Arc::new(client_space.space_state)
@@ -158,7 +158,7 @@ impl Space {
     }
 
     /// Get the space ID.
-    pub fn id(&self) -> &SpaceId {
+    pub fn id(&self) -> &RealmId {
         &self.space_id
     }
 
@@ -247,7 +247,7 @@ impl Space {
     }
 
     /// Get a specific Place by ID.
-    pub fn get_place(&self, place_id: &SpaceId) -> Option<Place> {
+    pub fn get_place(&self, place_id: &RealmId) -> Option<Place> {
         self.state.places.get(place_id.as_str()).cloned()
     }
 

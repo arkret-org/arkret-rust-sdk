@@ -568,7 +568,7 @@ mod tests {
         crate::Move {
             id: MoveId::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
             issuer: Did::new("did:web:test").unwrap(),
-            space_id: crate::SpaceId::new(
+            space_id: crate::RealmId::new(
                 "ck:space:0196419b-0000-7000-8000-000000000000".to_owned(),
             )
             .unwrap(),

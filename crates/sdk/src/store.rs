@@ -13,7 +13,7 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 use crate::{
-    BlobRef, Did, Error, Event, EventId, Result, SpaceId,
+    BlobRef, Did, Error, Event, EventId, RealmId, Result,
     auth::AuthSession,
     crypto,
     e2ee::AuditEntry,
@@ -23,14 +23,14 @@ use crate::{
 
 pub trait StateSnapshotStore: Send + Sync {
     fn put_state_snapshot(&mut self, snapshot: StateSnapshot) -> Result<()>;
-    fn state_snapshot(&self, space_id: &SpaceId) -> Option<&StateSnapshot>;
-    fn remove_state_snapshot(&mut self, space_id: &SpaceId) -> Result<()>;
+    fn state_snapshot(&self, space_id: &RealmId) -> Option<&StateSnapshot>;
+    fn remove_state_snapshot(&mut self, space_id: &RealmId) -> Result<()>;
 }
 
 pub trait EventCacheStore: Send + Sync {
     fn put_event(&mut self, event: Event) -> Result<()>;
     fn event(&self, event_id: &EventId) -> Option<&Event>;
-    fn events_for_space(&self, space_id: &SpaceId) -> Vec<&Event>;
+    fn events_for_space(&self, space_id: &RealmId) -> Vec<&Event>;
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -106,9 +106,9 @@ impl StoreEncryptionKey {
 
 #[derive(Clone, Debug, Default)]
 pub struct MemoryPersistenceStore {
-    snapshots: BTreeMap<SpaceId, StateSnapshot>,
-    events: BTreeMap<SpaceId, BTreeMap<EventId, (String, Event)>>,
-    event_index: BTreeMap<EventId, SpaceId>,
+    snapshots: BTreeMap<RealmId, StateSnapshot>,
+    events: BTreeMap<RealmId, BTreeMap<EventId, (String, Event)>>,
+    event_index: BTreeMap<EventId, RealmId>,
     sessions: BTreeMap<String, AuthSession>,
     sessions_by_principal: BTreeMap<Did, Vec<String>>,
     account_data: BTreeMap<(Did, String), StoredAccountData>,
@@ -130,11 +130,11 @@ impl StateSnapshotStore for MemoryPersistenceStore {
         Ok(())
     }
 
-    fn state_snapshot(&self, space_id: &SpaceId) -> Option<&StateSnapshot> {
+    fn state_snapshot(&self, space_id: &RealmId) -> Option<&StateSnapshot> {
         self.snapshots.get(space_id)
     }
 
-    fn remove_state_snapshot(&mut self, space_id: &SpaceId) -> Result<()> {
+    fn remove_state_snapshot(&mut self, space_id: &RealmId) -> Result<()> {
         self.snapshots.remove(space_id);
         Ok(())
     }
@@ -155,7 +155,7 @@ impl EventCacheStore for MemoryPersistenceStore {
             };
         }
 
-        let realm_scope = SpaceId::new(event.realm_id.to_string())?;
+        let realm_scope = RealmId::new(event.realm_id.to_string())?;
         self.event_index.insert(event.event_id.clone(), realm_scope.clone());
         self.events.entry(realm_scope).or_default().insert(event.event_id.clone(), (digest, event));
         Ok(())
@@ -170,8 +170,8 @@ impl EventCacheStore for MemoryPersistenceStore {
         })
     }
 
-    fn events_for_space(&self, space_id: &SpaceId) -> Vec<&Event> {
-        let realm_scope = SpaceId::new(space_id.as_str().replacen("ck:space:", "ck:realm:", 1))
+    fn events_for_space(&self, space_id: &RealmId) -> Vec<&Event> {
+        let realm_scope = RealmId::new(space_id.as_str().replacen("ck:space:", "ck:realm:", 1))
             .unwrap_or_else(|_| space_id.clone());
         self.events
             .get(&realm_scope)
@@ -278,7 +278,7 @@ impl FederationReplayStore for MemoryPersistenceStore {
 
 pub fn rebuild_space_state_from_events<S>(
     store: &S,
-    space_id: &SpaceId,
+    space_id: &RealmId,
     space_version: impl Into<String>,
 ) -> Result<SpaceState>
 where
@@ -292,7 +292,7 @@ where
 
 pub fn restore_space_state_from_persistence<S>(
     store: &S,
-    space_id: &SpaceId,
+    space_id: &RealmId,
     space_version: impl Into<String>,
 ) -> Result<SnapshotRestore>
 where
@@ -367,7 +367,7 @@ mod tests {
     use super::*;
     use crate::{
         AuditAction, BLOB_SCHEMA, BlobRef, DeviceId, Did, EventId, Hlc, ObjectState, RealmId,
-        SpaceId, resolver::SnapshotRestoreSource,
+        resolver::SnapshotRestoreSource,
     };
 
     fn morph_event(event_id: &str, title: &str) -> Event {
@@ -425,7 +425,7 @@ mod tests {
 
     #[test]
     fn projection_rebuild_helpers_replay_event_cache_and_use_valid_snapshot() {
-        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let event = morph_event("ck:event:01904100-0000-7000-8000-ec26a4d295c0", "Stored task");
         let mut store = MemoryPersistenceStore::new();
         store.put_event(event.clone()).unwrap();

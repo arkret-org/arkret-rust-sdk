@@ -14,7 +14,7 @@ pub use cokret_contracts::federation::{
     VerifyActorChallenge, VerifyActorChallengeSignature, WellKnownCokretServer,
 };
 
-use crate::{Did, Error, Hash, Result, SpaceId};
+use crate::{Did, Error, Hash, RealmId, Result};
 
 /// Trust anchor for a federated domain.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -74,7 +74,7 @@ pub trait FederationReplayStore {
 pub struct FederationManager {
     trust_anchors: BTreeMap<String, TrustAnchor>,
     servers: BTreeMap<String, ServerInfo>,
-    events: BTreeMap<SpaceId, Vec<Value>>,
+    events: BTreeMap<RealmId, Vec<Value>>,
     deployment: Option<SovereignDeployment>,
     replay: BTreeMap<String, FederationReplayRecord>,
 }
@@ -197,17 +197,17 @@ impl FederationManager {
     }
 
     /// Forward a federation event into local space state.
-    pub fn forward_event(&mut self, space_id: SpaceId, event: Value) {
+    pub fn forward_event(&mut self, space_id: RealmId, event: Value) {
         self.events.entry(space_id).or_default().push(event);
     }
 
     /// Query known state/events for a space.
-    pub fn query_state(&self, space_id: &SpaceId) -> Vec<&Value> {
+    pub fn query_state(&self, space_id: &RealmId) -> Vec<&Value> {
         self.events.get(space_id).map(|events| events.iter().collect()).unwrap_or_default()
     }
 
     /// Backfill events from a starting offset.
-    pub fn backfill(&self, space_id: &SpaceId, from: usize, limit: usize) -> Vec<&Value> {
+    pub fn backfill(&self, space_id: &RealmId, from: usize, limit: usize) -> Vec<&Value> {
         self.events
             .get(space_id)
             .map(|events| events.iter().skip(from).take(limit).collect())
@@ -678,7 +678,7 @@ mod tests {
     #[test]
     fn federation_forwards_queries_and_backfills_events() {
         let mut manager = FederationManager::new();
-        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         manager.forward_event(space_id.clone(), json!({"event": 1}));
         manager.forward_event(space_id.clone(), json!({"event": 2}));
 
@@ -826,7 +826,7 @@ mod tests {
     fn backfill_and_verify_actor_helpers_fail_closed() {
         let authorization = FederationBackfillAuthorization {
             requester_service_did: Did::new("did:web:b.example").unwrap(),
-            space_id: SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+            space_id: RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             history_visible: true,
             service_delegated: false,
             plaintext_visible_to_service: true,

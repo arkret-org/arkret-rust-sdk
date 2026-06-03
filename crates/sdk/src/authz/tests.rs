@@ -358,7 +358,7 @@ fn authz_engine_deny_wrong_action() {
 #[test]
 fn authz_engine_evaluates_grants_from_space_state() {
     let mut state = SpaceState::new(
-        SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+        RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
         "1".to_owned(),
     );
     let grant = capability_event(
@@ -391,7 +391,7 @@ fn authz_engine_evaluates_grants_from_space_state() {
 #[test]
 fn authz_engine_denies_after_revoke_wins_in_space_state() {
     let mut state = SpaceState::new(
-        SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+        RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
         "1".to_owned(),
     );
     let grant = capability_event(
@@ -431,7 +431,7 @@ fn authz_engine_denies_after_revoke_wins_in_space_state() {
 #[test]
 fn authz_engine_denies_after_delegate_revoke_wins_in_space_state() {
     let mut state = SpaceState::new(
-        SpaceId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+        RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
         "1".to_owned(),
     );
     let delegate = capability_event(
@@ -620,10 +620,8 @@ fn authz_engine_temporal_constraint_expires() {
 // ── constraint-schema.md §14.2: message edit / redact window ──
 
 fn edit_window_grant(action: &str, constraint: Constraint) -> CapabilityGrant {
-    let mut grant = grant_for(
-        action,
-        message_selector("ck:space:01904100-0000-7000-8000-1a412919cd4b"),
-    );
+    let mut grant =
+        grant_for(action, message_selector("ck:space:01904100-0000-7000-8000-1a412919cd4b"));
     grant.constraints = vec![ConstraintEntry::new(constraint)];
     grant
 }
