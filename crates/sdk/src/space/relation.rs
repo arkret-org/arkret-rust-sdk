@@ -66,6 +66,6 @@ impl Space {
         let operation_id = OperationId::new(generate_id("cx:operation:"))?;
         let payload = json!({ "relation_id": relation_id.as_str() });
 
-        Ok(Operation::create(operation_id, self.realm_id()?, OP_RELATION_DELETE, payload))
+        Ok(Operation::create(operation_id, self.realm_id()?, OP_RELATION_TOMBSTONE, payload))
     }
 }

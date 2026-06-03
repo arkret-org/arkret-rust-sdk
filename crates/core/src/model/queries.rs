@@ -68,7 +68,7 @@ pub struct QueryConsistency {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct QueryReqBody {
-    pub space_ids: Vec<SpaceId>,
+    pub realm_ids: Vec<RealmId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub object_types: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -230,7 +230,7 @@ pub struct CollectionProjectionDiscussion {
 pub struct View {
     pub schema: String,
     pub id: ViewId,
-    pub space_id: SpaceId,
+    pub realm_id: RealmId,
     pub kind: ViewKind,
     /// Round C47 (spec e10b6ad): View sharing visibility. Private views are
     /// actor-private account data; shared views are canonical Space objects.

@@ -80,7 +80,7 @@ impl SovereignDeploymentPolicy {
     /// Create a closed-federation policy owned by a DID.
     pub fn closed(owner: Did, home_domain: impl Into<String>) -> Self {
         Self {
-            deployment_id: format!("deploy_{}", ulid::Ulid::new()),
+            deployment_id: format!("deploy_{}", uuid::Uuid::now_v7()),
             owner,
             home_domain: home_domain.into(),
             closed_federation: true,

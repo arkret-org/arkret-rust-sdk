@@ -109,11 +109,11 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         OP_FLOW_UPDATE => vec!["flow_id".to_owned(), "patch".to_owned()],
         OP_FLOW_ARCHIVE | OP_FLOW_RESTORE => vec!["flow_id".to_owned()],
         OP_FLOW_STAGE_SET => vec!["flow_id".to_owned(), "stage".to_owned()],
-        OP_FLOW_MOVE => ["board_place_id", "flow_id", "target_place_id", "rank"]
+        OP_FLOW_MOVE => ["board_space_id", "flow_id", "target_space_id", "rank"]
             .into_iter()
             .map(str::to_owned)
             .collect(),
-        OP_FLOW_REORDER => ["board_place_id", "flow_id", "place_id", "rank"]
+        OP_FLOW_REORDER => ["board_space_id", "flow_id", "space_id", "rank"]
             .into_iter()
             .map(str::to_owned)
             .collect(),
@@ -132,7 +132,7 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         }
         OP_APPLET_BRIDGE_ERROR => vec!["session_id".to_owned(), "errcode".to_owned()],
         OP_AGENT_ENDPOINT => vec!["agent_id".to_owned(), "endpoints".to_owned()],
-        OP_AGENT_KEY_AUTHORIZED => [
+        OP_AGENT_KEY_AUTHORIZE => [
             "agent_principal_id",
             "key_id",
             "verification_method",
@@ -146,13 +146,13 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         .into_iter()
         .map(str::to_owned)
         .collect(),
-        OP_AGENT_KEY_REVOKED => {
+        OP_AGENT_KEY_REVOKE => {
             ["agent_principal_id", "key_id", "revoked_at", "revoked_by", "revocation_frontier"]
                 .into_iter()
                 .map(str::to_owned)
                 .collect()
         }
-        OP_AGENT_KEY_ROTATED => [
+        OP_AGENT_KEY_ROTATE => [
             "agent_principal_id",
             "key_id",
             "replacement_key_id",
@@ -185,16 +185,15 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         OP_MORPH_UPDATE => vec!["morph_id".to_owned(), "patch".to_owned()],
         OP_MORPH_ARCHIVE | OP_MORPH_RESTORE => vec!["morph_id".to_owned()],
         OP_MORPH_STAGE_SET => vec!["morph_id".to_owned(), "stage".to_owned()],
-        // Container event kinds (Realm/Space inversion spec 59ac1d4).
-        // Field name `place_id` remains for now until container fields are
-        // renamed; the wire event-kind strings are `cx.space.*`.
+        // Container event kinds (Realm/Space inversion spec 59ac1d4). The
+        // container primary key is `space_id` (matching `parent_space_id`).
         OP_SPACE_CREATE => vec!["object".to_owned()],
-        OP_SPACE_UPDATE => vec!["place_id".to_owned(), "patch".to_owned()],
-        OP_SPACE_PARENT => vec!["place_id".to_owned(), "parent_space_id".to_owned()],
-        OP_SPACE_ARCHIVE | OP_SPACE_RESTORE | OP_SPACE_TOMBSTONE => vec!["place_id".to_owned()],
+        OP_SPACE_UPDATE => vec!["space_id".to_owned(), "patch".to_owned()],
+        OP_SPACE_PARENT => vec!["space_id".to_owned(), "parent_space_id".to_owned()],
+        OP_SPACE_ARCHIVE | OP_SPACE_RESTORE | OP_SPACE_TOMBSTONE => vec!["space_id".to_owned()],
         OP_RELATION_CREATE => vec!["object".to_owned()],
         OP_RELATION_UPDATE => vec!["relation_id".to_owned(), "patch".to_owned()],
-        OP_RELATION_DELETE => vec!["relation_id".to_owned()],
+        OP_RELATION_TOMBSTONE => vec!["relation_id".to_owned()],
         OP_CONTAINER_MOVE_ITEM => {
             ["scope_container_id", "relation_kind", "object_ref", "to_container_id", "rank"]
                 .into_iter()
@@ -259,7 +258,7 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
             vec!["query".to_owned()]
         }
         OP_DIRECTORY_SEARCH_USERS => vec!["q".to_owned()],
-        OP_DIRECTORY_SUBSCRIBE => {
+        OP_DIRECTORY_PUSH_REGISTER => {
             ["subscriber_did", "webhook_endpoint"].into_iter().map(str::to_owned).collect()
         }
         OP_IDENTITY_GET_DOCUMENT | OP_IDENTITY_GET_LOG | OP_IDENTITY_GET_RECEIPTS => {
@@ -997,9 +996,9 @@ impl Default for ProtocolSchemaRegistry {
             ),
         );
         registry.register(
-            ENCRYPTED_PAYLOAD_SCHEMA,
+            ENCRYPTED_ENVELOPE_SCHEMA,
             object_schema(
-                ENCRYPTED_PAYLOAD_SCHEMA,
+                ENCRYPTED_ENVELOPE_SCHEMA,
                 &["scheme", "group_id", "epoch", "content_type", "ciphertext", "payload_digest"],
                 &[
                     ("scheme", "string"),

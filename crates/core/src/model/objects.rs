@@ -163,7 +163,9 @@ impl Space {
         trust_domain: TypedTrustDomainId,
     ) -> Self {
         Self {
-            schema: SPACE_SCHEMA.to_owned(),
+            // `Space` is the security-boundary type (Realm/Space inversion),
+            // so it serializes the Realm schema id, not the container Space id.
+            schema: REALM_SCHEMA_ID.to_owned(),
             id,
             title: title.into(),
             trust_domain,
@@ -402,7 +404,7 @@ pub struct ActorProfile {
     pub schema: String,
     pub id: ActorProfileId,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<SpaceId>,
+    pub realm_id: Option<RealmId>,
     pub principal_id: Did,
     pub actor_kind: ActorKind,
     pub display_name: String,
@@ -456,7 +458,7 @@ pub struct MessageMetadata {
 pub struct Flow {
     pub schema: String,
     pub id: String,
-    pub space_id: SpaceId,
+    pub realm_id: RealmId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata: Option<FlowMetadata>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -512,7 +514,7 @@ pub struct Flow {
 impl Flow {
     pub fn new(
         id: impl Into<String>,
-        space_id: SpaceId,
+        realm_id: RealmId,
         title: impl Into<String>,
         created_by: Did,
     ) -> Self {
@@ -522,7 +524,7 @@ impl Flow {
         Self {
             schema: FLOW_SCHEMA.to_owned(),
             id: id.into(),
-            space_id,
+            realm_id,
             metadata: Some(FlowMetadata::with_title(title.clone())),
             encrypted_metadata: None,
             title,
@@ -564,11 +566,11 @@ impl Flow {
     /// Construct a Flow whose primary entry point is the `discussion` track.
     pub fn discussion(
         id: impl Into<String>,
-        space_id: SpaceId,
+        realm_id: RealmId,
         title: impl Into<String>,
         created_by: Did,
     ) -> Self {
-        let mut flow = Self::new(id, space_id, title, created_by);
+        let mut flow = Self::new(id, realm_id, title, created_by);
         let mut tracks = BTreeMap::new();
         tracks.insert(FLOW_TRACK_NAME_SYNTHESIS.to_owned(), FlowTrackConfig::synthesis());
         tracks.insert(FLOW_TRACK_NAME_DISCUSSION.to_owned(), FlowTrackConfig::discussion_primary());
@@ -602,7 +604,7 @@ impl Flow {
 pub struct Relation {
     pub schema: String,
     pub id: RelationId,
-    pub space_id: SpaceId,
+    pub realm_id: RealmId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scope_circle_id: Option<CircleId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

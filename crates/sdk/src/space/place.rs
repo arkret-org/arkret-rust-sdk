@@ -147,7 +147,7 @@ impl Space {
             self.realm_id()?,
             crate::OP_SPACE_UPDATE,
             json!({
-                "place_id": place_id.as_str(),
+                "space_id": place_id.as_str(),
                 "patch": Value::Object(patch),
             }),
         );
@@ -172,7 +172,7 @@ impl Space {
             self.realm_id()?,
             crate::OP_SPACE_PARENT,
             json!({
-                "place_id": place_id.as_str(),
+                "space_id": place_id.as_str(),
                 "parent_space_id": parent_space_id.into(),
             }),
         );
@@ -212,7 +212,7 @@ impl Space {
             operation_id,
             self.realm_id()?,
             kind,
-            json!({ "place_id": place_id.as_str() }),
+            json!({ "space_id": place_id.as_str() }),
         );
         operation.operation_type = operation_type;
         operation.object_id = Some(place_id.as_str().to_owned());

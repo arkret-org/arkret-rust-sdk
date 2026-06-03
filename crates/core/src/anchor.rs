@@ -125,6 +125,11 @@ pub enum AnchorKind {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Anchor {
     pub id: AnchorId,
+    // NOTE: typed as `SpaceId` (which also accepts `cx:realm:` ids) rather
+    // than `RealmId` because the entire cell/store/state layer is keyed by
+    // `SpaceId`; tightening this to `RealmId` is part of the larger
+    // Realm/Space type inversion (see _code_review report 06 #2). Wire output
+    // is identical either way.
     pub realm_id: SpaceId,
     /// Empty only for genesis Anchor. Otherwise must reference all
     /// predecessor leaves.

@@ -4,7 +4,7 @@ use crate::model::ErrorEnvelope;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-// ── Canonical error codes (mirror of `error-code-registry.json` v2026-05-09) ─
+// ── Canonical error codes (mirror of `error-code-registry.json` v2026-05-27) ─
 //
 // Use these constants when populating `ErrorEnvelope.code` so the wire form
 // stays in sync with the canonical registry. `error_code_http_status` returns

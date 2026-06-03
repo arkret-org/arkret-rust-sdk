@@ -1,4 +1,57 @@
+use std::net::{IpAddr, Ipv6Addr};
+
 use super::*;
+
+/// SSRF guard: reject hosts that resolve to non-public address space before
+/// the SDK makes an outbound `did:web` / `did:webvh` fetch.
+///
+/// DIDs may be supplied by untrusted peers (handshakes, invites, directory
+/// responses), so a host like `169.254.169.254` (cloud metadata),
+/// `127.0.0.1`, or `10.x.x.x` must never trigger an internal request. Bare
+/// `localhost` is also blocked. Registered domain names are allowed (DNS
+/// rebinding is out of scope for this static check).
+pub(super) fn host_is_safe_for_outbound(host: &str) -> bool {
+    let candidate = host.strip_prefix('[').and_then(|h| h.strip_suffix(']')).unwrap_or(host);
+    if let Ok(ip) = candidate.parse::<IpAddr>() {
+        return ip_is_public(ip);
+    }
+    if candidate.eq_ignore_ascii_case("localhost") || candidate.to_ascii_lowercase().ends_with(".localhost") {
+        return false;
+    }
+    true
+}
+
+fn ip_is_public(ip: IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(v4) => !(v4.is_private()
+            || v4.is_loopback()
+            || v4.is_link_local()
+            || v4.is_broadcast()
+            || v4.is_documentation()
+            || v4.is_unspecified()
+            || v4.is_multicast()
+            // Carrier-grade NAT shared range 100.64.0.0/10.
+            || (v4.octets()[0] == 100 && (v4.octets()[1] & 0xc0) == 64)),
+        IpAddr::V6(v6) => {
+            if let Some(mapped) = v6.to_ipv4_mapped() {
+                return ip_is_public(IpAddr::V4(mapped));
+            }
+            !(v6.is_loopback()
+                || v6.is_unspecified()
+                || v6.is_multicast()
+                || is_ipv6_unique_local(v6)
+                || is_ipv6_unicast_link_local(v6))
+        }
+    }
+}
+
+fn is_ipv6_unique_local(addr: Ipv6Addr) -> bool {
+    (addr.segments()[0] & 0xfe00) == 0xfc00
+}
+
+fn is_ipv6_unicast_link_local(addr: Ipv6Addr) -> bool {
+    (addr.segments()[0] & 0xffc0) == 0xfe80
+}
 
 pub(super) fn split_domain_handle(handle: &str) -> Result<(String, String)> {
     let normalized = normalize_handle(handle);
@@ -38,6 +91,9 @@ pub(super) fn did_web_document_url(did: &Did) -> Option<String> {
         .bytes()
         .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || matches!(b, b'.' | b'-'))
     {
+        return None;
+    }
+    if !host_is_safe_for_outbound(host) {
         return None;
     }
     if parts.len() == 1 {
@@ -104,6 +160,9 @@ pub(super) fn did_webvh_log_url(did: &Did) -> Option<String> {
 pub(super) fn did_webvh_url(did: &Did, leaf: &str) -> Option<String> {
     let (_, host, port, path) = did_webvh_parts(did)?;
     if !host.contains('.') {
+        return None;
+    }
+    if !host_is_safe_for_outbound(&host) {
         return None;
     }
     let authority = match port {

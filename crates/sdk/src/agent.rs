@@ -8,7 +8,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 #[cfg(test)]
-use ulid::Ulid;
 
 use crate::Did;
 #[cfg(test)]
@@ -111,7 +110,7 @@ impl AgentRunManager {
     pub fn start_run(&mut self, agent_id: Did, principal_id: Did, input: Value) -> AgentRun {
         let now = Utc::now();
         let run = AgentRun {
-            run_id: format!("run_{}", Ulid::new()),
+            run_id: format!("run_{}", uuid::Uuid::now_v7()),
             agent_id,
             principal_id,
             state: AgentRunState::Running,
@@ -217,7 +216,7 @@ impl AgentToolAuditLog {
         error: Option<String>,
     ) -> AgentToolAuditEntry {
         let entry = AgentToolAuditEntry {
-            entry_id: format!("tool_audit_{}", Ulid::new()),
+            entry_id: format!("tool_audit_{}", uuid::Uuid::now_v7()),
             run_id: run_id.into(),
             agent_id,
             tool_name: tool_name.into(),

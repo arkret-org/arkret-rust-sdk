@@ -207,16 +207,16 @@ impl Space {
     pub fn move_flow_operation(
         &self,
         flow_id: FlowId,
-        board_place_id: SpaceId,
-        target_place_id: SpaceId,
+        board_space_id: SpaceId,
+        target_space_id: SpaceId,
         rank: impl Into<String>,
         expected_position: Option<Value>,
     ) -> Result<Operation> {
         self.flow_position_operation(
             crate::OP_FLOW_MOVE,
             flow_id,
-            board_place_id,
-            ("target_place_id", target_place_id),
+            board_space_id,
+            ("target_space_id", target_space_id),
             rank,
             expected_position,
         )
@@ -226,16 +226,16 @@ impl Space {
     pub fn reorder_flow_operation(
         &self,
         flow_id: FlowId,
-        board_place_id: SpaceId,
-        place_id: SpaceId,
+        board_space_id: SpaceId,
+        space_id: SpaceId,
         rank: impl Into<String>,
         expected_position: Option<Value>,
     ) -> Result<Operation> {
         self.flow_position_operation(
             crate::OP_FLOW_REORDER,
             flow_id,
-            board_place_id,
-            ("place_id", place_id),
+            board_space_id,
+            ("space_id", space_id),
             rank,
             expected_position,
         )
@@ -245,7 +245,7 @@ impl Space {
         &self,
         kind: &str,
         flow_id: FlowId,
-        board_place_id: SpaceId,
+        board_space_id: SpaceId,
         place_field: (&str, SpaceId),
         rank: impl Into<String>,
         expected_position: Option<Value>,
@@ -257,7 +257,7 @@ impl Space {
         let operation_id = OperationId::new(generate_id("cx:operation:"))?;
         let mut payload = json!({
             "flow_id": flow_id.as_str(),
-            "board_place_id": board_place_id.as_str(),
+            "board_space_id": board_space_id.as_str(),
             "rank": rank.into(),
         });
         payload[place_field.0] = json!(place_field.1.as_str());

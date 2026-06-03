@@ -210,11 +210,28 @@ fn auth_models_account_recovery_methods() {
     assert!(request.request_id.starts_with("recovery_"));
     assert!(request.completed_at.is_none());
 
-    let completed = auth
-        .complete_recovery(&request.request_id, &sha256_hex(verification_method.as_bytes()))
-        .unwrap();
-    assert!(completed.completed_at.is_some());
+    // DID-proof recovery is a PUBLIC identifier, so the built-in
+    // `complete_recovery` MUST fail closed and force the caller through the
+    // signature-verifying `complete_recovery_with_did_verifier` path. The
+    // hash of the public verification method is no longer accepted as proof.
+    assert!(
+        auth.complete_recovery(&request.request_id, &sha256_hex(verification_method.as_bytes()))
+            .is_err()
+    );
     assert!(auth.complete_recovery(&request.request_id, "wrong").is_err());
+    // The request stays open for the verifier-backed completion path.
+    assert!(auth.complete_recovery(&request.request_id, "anything").is_err());
+}
+
+#[test]
+fn auth_password_hash_is_salted_argon2id() {
+    let mut auth = AuthManager::default();
+    let user = auth.register_password_user("alice", "secret", did("alice")).unwrap();
+    // Built-in hashing now produces a salted Argon2id PHC string, not a
+    // bare SHA-256 hex digest.
+    assert!(user.password_hash.starts_with("$argon2id$"));
+    assert!(auth.login_password("alice", "secret", device("desktop")).is_ok());
+    assert!(auth.login_password("alice", "wrong", device("desktop")).is_err());
 }
 
 #[test]

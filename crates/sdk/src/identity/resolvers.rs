@@ -297,6 +297,15 @@ impl DidWebvhResolver {
                     "did:webvh entry versions are not sequential".to_owned(),
                 ));
             }
+            // Every entry MUST carry at least one Data Integrity proof. An
+            // entry with no proof is trivially forgeable, so reject it
+            // outright (fail-closed) rather than accepting an unsigned
+            // history line.
+            if entry.proof.is_empty() {
+                return Err(Error::Protocol(
+                    "did:webvh entry is missing its proof".to_owned(),
+                ));
+            }
             // Optional `prevVersionId` field for >1 entries.
             if let Some(prev) = entry
                 .parameters
@@ -314,6 +323,17 @@ impl DidWebvhResolver {
         }
         if entries.is_empty() {
             return Err(Error::Protocol("did:webvh log is empty".to_owned()));
+        }
+        // Version-rollback protection: a re-ingested log MUST NOT be shorter
+        // than one we already accepted for this DID. This prevents an
+        // attacker who controls the host from serving a truncated history
+        // that rewinds to an earlier key state.
+        if let Some(existing) = self.logs.get(did)
+            && entries.len() < existing.len()
+        {
+            return Err(Error::Protocol(
+                "did:webvh log rolls back to an earlier version".to_owned(),
+            ));
         }
         self.logs.insert(did.clone(), entries.clone());
         Ok(entries)

@@ -209,7 +209,7 @@ pub fn profile_conformance_suites() -> Vec<ConformanceSuite> {
             ConformanceProfile::Security,
             "proof-policy-and-redaction-fail-closed",
             "Security-sensitive schema extensions, proof bindings and log payloads fail closed.",
-            Some(ENCRYPTED_PAYLOAD_SCHEMA),
+            Some(ENCRYPTED_ENVELOPE_SCHEMA),
             json!({"fail_closed_extensions": true, "proof_binding": true, "redact_secrets": true}),
         ),
     ]

@@ -193,7 +193,7 @@ impl SpaceState {
 
             // Relation lifecycle
             OP_RELATION_CREATE => self.create_relation(event)?,
-            OP_RELATION_DELETE => self.delete_relation(event)?,
+            OP_RELATION_TOMBSTONE => self.delete_relation(event)?,
             OP_CONTAINER_MOVE_ITEM => self.move_relation(event)?,
 
             // View operations
@@ -298,7 +298,7 @@ impl SpaceState {
         let morph = Morph {
             schema: crate::MORPH_SCHEMA.to_owned(),
             id: morph_id_str.clone(),
-            space_id: SpaceId::new(event.realm_id.to_string())?,
+            realm_id: event.realm_id.clone(),
             schema_refs: self.extract_optional_field(object, "schema_refs").unwrap_or_default(),
             morph_type,
             facets,
@@ -311,6 +311,10 @@ impl SpaceState {
             encrypted_payload: None,
             fields,
             state: Some(state),
+            stage: self
+                .extract_optional_field::<crate::ObjectStage>(object, "stage")
+                .unwrap_or(crate::ObjectStage::Draft),
+            stage_changed_at: self.extract_optional_field(object, "stage_changed_at"),
             scope_circle_id,
             created_by: event.actor_id.clone(),
             created_at: event.created_at,
@@ -460,7 +464,12 @@ impl SpaceState {
 
     fn create_place(&mut self, event: &Event) -> Result<()> {
         let object = event.content.get("object").unwrap_or(&event.content);
-        let place_id = self.extract_place_id(object)?;
+        // The container object's own id is the canonical `id` field; its
+        // `space_id` (read below) is the parent-container reference, not the
+        // object's own key.
+        let place_id = self
+            .extract_optional_field::<String>(object, "id")
+            .ok_or_else(|| Error::Protocol("container object requires id".to_owned()))?;
         let id = SpaceId::new(place_id.clone())?;
         let space_id = self.extract_optional_field(object, "space_id").unwrap_or_else(|| {
             SpaceId::new(event.realm_id.to_string()).expect("validated realm id")
@@ -706,7 +715,7 @@ impl SpaceState {
         let relation = Relation {
             schema: "cx.schema.relation.v1".to_owned(),
             id: relation_id,
-            space_id: SpaceId::new(event.realm_id.to_string())?,
+            realm_id: event.realm_id.clone(),
             scope_circle_id,
             effective_scope,
             relation_kind,
@@ -768,7 +777,7 @@ impl SpaceState {
         let subject = Flow {
             schema: crate::FLOW_SCHEMA.to_owned(),
             id: flow_id,
-            space_id: SpaceId::new(event.realm_id.to_string())?,
+            realm_id: event.realm_id.clone(),
             metadata: Some(metadata),
             encrypted_metadata,
             title,
@@ -1330,13 +1339,13 @@ impl SpaceState {
             .ok_or_else(|| Error::Protocol("flow event requires flow_id".to_owned()))
     }
 
-    /// Extract place_id from event content.
+    /// Extract the container `space_id` from event content.
     fn extract_place_id(&self, content: &Value) -> Result<String> {
-        self.extract_optional_field::<String>(content, "place_id")
+        self.extract_optional_field::<String>(content, "space_id")
             .or_else(|| self.extract_optional_field::<String>(content, "id"))
             .or_else(|| self.extract_optional_field::<String>(content, "target_ref"))
             .or_else(|| self.extract_optional_field::<String>(content, "object_ref"))
-            .ok_or_else(|| Error::Protocol("place event requires place_id".to_owned()))
+            .ok_or_else(|| Error::Protocol("container event requires space_id".to_owned()))
     }
 
     /// Extract relation_id from event content.

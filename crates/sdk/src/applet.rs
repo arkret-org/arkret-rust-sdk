@@ -5,7 +5,6 @@ use std::collections::{BTreeMap, BTreeSet};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use ulid::Ulid;
 
 #[cfg(test)]
 use crate::model::AppletTransactionResBody;
@@ -128,7 +127,7 @@ impl SignedAppletRegistration {
     ) -> Self {
         let applet_id = applet_id.into();
         Self {
-            registration_id: format!("applet_reg_{}", Ulid::new()),
+            registration_id: format!("applet_reg_{}", uuid::Uuid::now_v7()),
             applet_id,
             service_did,
             schema,
@@ -495,7 +494,7 @@ impl AppletEndpointRegistration {
     /// Create a registration with a generated id.
     pub fn new(service_did: Did, bot_localpart: impl Into<String>) -> Self {
         Self {
-            registration_id: format!("applet_ep_{}", Ulid::new()),
+            registration_id: format!("applet_ep_{}", uuid::Uuid::now_v7()),
             service_did,
             bot_localpart: bot_localpart.into(),
             namespaces: Vec::new(),
@@ -812,7 +811,7 @@ impl AppletPortalManager {
     /// Create a portal.
     pub fn create_portal(&mut self, space_id: SpaceId) -> AppletPortal {
         let portal = AppletPortal {
-            portal_id: format!("portal_{}", Ulid::new()),
+            portal_id: format!("portal_{}", uuid::Uuid::now_v7()),
             space_id,
             mode: PortalMode::Native,
             applets: BTreeSet::new(),

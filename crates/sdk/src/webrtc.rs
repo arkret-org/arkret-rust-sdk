@@ -4,7 +4,6 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use ulid::Ulid;
 
 use crate::{Did, Result, SpaceId};
 
@@ -100,7 +99,7 @@ impl WebRtcSignalMessage {
         ice_candidate: IceCandidate,
     ) -> Self {
         Self {
-            message_id: format!("webrtc_{}", Ulid::new()),
+            message_id: format!("webrtc_{}", uuid::Uuid::now_v7()),
             call_id: call_id.into(),
             space_id,
             sender,
@@ -124,7 +123,7 @@ impl WebRtcSignalMessage {
             SdpType::Answer => WebRtcSignalKind::Answer,
         };
         Self {
-            message_id: format!("webrtc_{}", Ulid::new()),
+            message_id: format!("webrtc_{}", uuid::Uuid::now_v7()),
             call_id: call_id.into(),
             space_id,
             sender,
@@ -264,7 +263,7 @@ impl WebRtcManager {
         callees: BTreeSet<Did>,
         sdp: impl Into<String>,
     ) -> WebRtcCall {
-        let call_id = format!("call_{}", Ulid::new());
+        let call_id = format!("call_{}", uuid::Uuid::now_v7());
         let call = WebRtcCall {
             call_id: call_id.clone(),
             space_id,

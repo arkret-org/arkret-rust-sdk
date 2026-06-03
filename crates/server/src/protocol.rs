@@ -71,7 +71,7 @@ pub enum ServerResBody {
     FederationTransaction(FederationTransactionResBody),
     FederationPushOperations(FederationPushOperationsResBody),
     FederationPullOperations(FederationPullOperationsResBody),
-    FederationSpaceMembers(FederationSpaceMembersResBody),
+    FederationSpaceMembers(FederationRealmMembersResBody),
     FederationVerifyActor(FederationVerifyActorResBody),
     DirectoryDescription(DirectoryDescription),
     DirectorySearchRealms(DirectorySearchRealmsResBody),

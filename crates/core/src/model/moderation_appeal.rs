@@ -10,7 +10,7 @@ use crate::events::{
 /// Verdict on a moderation appeal (decision payload).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 pub enum AppealVerdict {
     /// Original decision stands.
     Uphold,

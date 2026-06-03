@@ -14,7 +14,7 @@ use serde_json::Value;
 pub mod protocol {
     pub use contrix_core::{
         FederationPullOperationsResBody, FederationPushOperationsReqBody,
-        FederationPushOperationsResBody, FederationSpaceMembersResBody,
+        FederationPushOperationsResBody, FederationRealmMembersResBody,
         FederationTransactionReqBody, FederationTransactionResBody, FederationVerifyActorReqBody,
         FederationVerifyActorResBody,
     };

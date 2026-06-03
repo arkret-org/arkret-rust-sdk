@@ -8,12 +8,13 @@
 //! - Event processing and state resolution
 //! - Read markers and notifications
 
-use std::{
-    collections::BTreeMap,
-    sync::{Arc, RwLock},
-};
+use std::{collections::BTreeMap, sync::Arc};
 
 use chrono::{DateTime, Utc};
+// `parking_lot::RwLock` has no lock-poisoning, so a panic while holding a
+// guard can't cascade into `unwrap()` panics at every other access point the
+// way `std::sync::RwLock` does. Guards are returned directly (no `Result`).
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -251,12 +252,12 @@ impl BaseClient {
 
     /// Get the current session metadata.
     pub fn session_meta(&self) -> Option<SessionMeta> {
-        self.session.read().unwrap().as_ref().cloned()
+        self.session.read().as_ref().cloned()
     }
 
     /// Set the session metadata.
     pub fn set_session_meta(&self, meta: SessionMeta) -> Result<()> {
-        let mut session = self.session.write().unwrap();
+        let mut session = self.session.write();
         *session = Some(meta);
         Ok(())
     }
@@ -301,16 +302,16 @@ impl BaseClient {
 
     /// Clear the session (logout).
     pub fn clear_session(&self) -> Result<()> {
-        let mut session = self.session.write().unwrap();
+        let mut session = self.session.write();
         *session = None;
 
         // Clear sync state
-        let mut tracker = self.sync_tracker.write().unwrap();
+        let mut tracker = self.sync_tracker.write();
         tracker.clear();
         tracker.sync_tokens.clear();
 
         // Clear all spaces
-        let mut spaces = self.spaces.write().unwrap();
+        let mut spaces = self.spaces.write();
         spaces.clear();
 
         Ok(())
@@ -318,7 +319,7 @@ impl BaseClient {
 
     /// Check if the client has an active session.
     pub fn is_logged_in(&self) -> bool {
-        let session = self.session.read().unwrap();
+        let session = self.session.read();
         match session.as_ref() {
             Some(meta) => !meta.is_expired(),
             None => false,
@@ -327,30 +328,30 @@ impl BaseClient {
 
     /// Get the current sync token.
     pub fn sync_token(&self) -> Option<String> {
-        let tracker = self.sync_tracker.read().unwrap();
+        let tracker = self.sync_tracker.read();
         tracker.sync_tokens.get("default").cloned()
     }
 
     /// Set the default sync token.
     pub fn set_sync_token(&self, token: impl Into<String>) {
-        self.sync_tracker.write().unwrap().sync_tokens.insert("default".to_owned(), token.into());
+        self.sync_tracker.write().sync_tokens.insert("default".to_owned(), token.into());
     }
 
     /// Get the current cursor for resuming sync.
     pub fn current_cursor(&self) -> Result<crate::Cursor> {
-        let tracker = self.sync_tracker.read().unwrap();
+        let tracker = self.sync_tracker.read();
         tracker.current_cursor()
     }
 
     /// Persist sync positions in the local client state machine.
     pub fn save_sync_positions(&self, positions: SyncPositions) -> Result<()> {
-        self.sync_tracker.write().unwrap().positions = positions;
+        self.sync_tracker.write().positions = positions;
         Ok(())
     }
 
     /// Get the current sync positions.
     pub fn sync_positions(&self) -> SyncPositions {
-        self.sync_tracker.read().unwrap().positions.clone()
+        self.sync_tracker.read().positions.clone()
     }
 
     /// Bind a sync token to a service key.
@@ -359,43 +360,43 @@ impl BaseClient {
         service_key: impl Into<String>,
         token: impl Into<String>,
     ) -> Result<()> {
-        self.sync_tracker.write().unwrap().sync_tokens.insert(service_key.into(), token.into());
+        self.sync_tracker.write().sync_tokens.insert(service_key.into(), token.into());
         Ok(())
     }
 
     /// Get a sync token by service key.
     pub fn sync_token_for(&self, service_key: &str) -> Option<String> {
-        self.sync_tracker.read().unwrap().sync_tokens.get(service_key).cloned()
+        self.sync_tracker.read().sync_tokens.get(service_key).cloned()
     }
 
     /// Get a space by ID.
     pub fn get_space(&self, space_id: &SpaceId) -> Option<ClientSpace> {
-        let spaces = self.spaces.read().unwrap();
+        let spaces = self.spaces.read();
         spaces.get(space_id.as_str()).cloned()
     }
 
     /// Get all joined spaces.
     pub fn joined_spaces(&self) -> Vec<ClientSpace> {
-        let spaces = self.spaces.read().unwrap();
+        let spaces = self.spaces.read();
         spaces.values().filter(|s| s.state == SpaceStateType::Joined).cloned().collect()
     }
 
     /// Get all invited spaces.
     pub fn invited_spaces(&self) -> Vec<ClientSpace> {
-        let spaces = self.spaces.read().unwrap();
+        let spaces = self.spaces.read();
         spaces.values().filter(|s| s.state == SpaceStateType::Invited).cloned().collect()
     }
 
     /// Get all left spaces.
     pub fn left_spaces(&self) -> Vec<ClientSpace> {
-        let spaces = self.spaces.read().unwrap();
+        let spaces = self.spaces.read();
         spaces.values().filter(|s| s.state == SpaceStateType::Left).cloned().collect()
     }
 
     /// Process events and update space states.
     pub fn process_events(&self, space_id: &SpaceId, events: Vec<Event>) -> Result<()> {
         // Get or create the client space
-        let mut spaces = self.spaces.write().unwrap();
+        let mut spaces = self.spaces.write();
         let client_space = spaces.entry(space_id.as_str().to_owned()).or_insert_with(|| {
             let space_state = SpaceState::new(space_id.clone(), "1".to_owned());
             ClientSpace {
@@ -416,7 +417,7 @@ impl BaseClient {
 
     /// Update space membership state.
     pub fn update_space_state(&self, space_id: &SpaceId, state: SpaceStateType) -> Result<()> {
-        let mut spaces = self.spaces.write().unwrap();
+        let mut spaces = self.spaces.write();
         let client_space = spaces.entry(space_id.as_str().to_owned()).or_insert_with(|| {
             let space_state = SpaceState::new(space_id.clone(), "1".to_owned());
             ClientSpace {
@@ -439,7 +440,7 @@ impl BaseClient {
         notification_count: u64,
         highlight_count: u64,
     ) -> Result<()> {
-        let mut spaces = self.spaces.write().unwrap();
+        let mut spaces = self.spaces.write();
         if let Some(client_space) = spaces.get_mut(space_id.as_str()) {
             client_space.notification_count = notification_count;
             client_space.highlight_count = highlight_count;
@@ -449,7 +450,7 @@ impl BaseClient {
 
     /// Set the read marker for a space.
     pub fn set_read_marker(&self, space_id: &SpaceId, marker: String) -> Result<()> {
-        let mut spaces = self.spaces.write().unwrap();
+        let mut spaces = self.spaces.write();
         if let Some(client_space) = spaces.get_mut(space_id.as_str()) {
             client_space.read_marker = Some(marker);
         }
@@ -458,13 +459,13 @@ impl BaseClient {
 
     /// Get the read marker for a space.
     pub fn read_marker(&self, space_id: &SpaceId) -> Option<String> {
-        let spaces = self.spaces.read().unwrap();
+        let spaces = self.spaces.read();
         spaces.get(space_id.as_str()).and_then(|s| s.read_marker.clone())
     }
 
     /// Get a cached profile.
     pub fn profile(&self, user_id: &Did) -> Option<UserProfile> {
-        self.profiles.read().unwrap().get(user_id.as_str()).cloned()
+        self.profiles.read().get(user_id.as_str()).cloned()
     }
 
     /// Replace cached profile fields for the current user.
@@ -475,7 +476,7 @@ impl BaseClient {
         bio: Option<String>,
     ) -> Result<UserProfile> {
         let session = self.whoami()?;
-        let mut profiles = self.profiles.write().unwrap();
+        let mut profiles = self.profiles.write();
         let mut profile = profiles
             .remove(session.user_id.as_str())
             .unwrap_or_else(|| UserProfile::new(session.user_id.clone()));
@@ -501,7 +502,7 @@ impl BaseClient {
 
     /// Get cached presence for a user.
     pub fn presence(&self, user_id: &Did) -> Option<Presence> {
-        self.presence.read().unwrap().get(user_id.as_str()).cloned()
+        self.presence.read().get(user_id.as_str()).cloned()
     }
 
     /// Set cached presence for any user.
@@ -518,7 +519,7 @@ impl BaseClient {
             active_device: None,
             status_msg,
         };
-        self.presence.write().unwrap().insert(user_id.as_str().to_owned(), presence.clone());
+        self.presence.write().insert(user_id.as_str().to_owned(), presence.clone());
         Ok(presence)
     }
 
@@ -535,25 +536,24 @@ impl BaseClient {
     /// Store current-user account data by type.
     pub fn set_account_data(&self, data_type: impl Into<String>, content: Value) -> Result<()> {
         self.whoami()?;
-        self.account_data.write().unwrap().insert(data_type.into(), content);
+        self.account_data.write().insert(data_type.into(), content);
         Ok(())
     }
 
     /// Get current-user account data by type.
     pub fn account_data(&self, data_type: &str) -> Option<Value> {
-        self.account_data.read().unwrap().get(data_type).cloned()
+        self.account_data.read().get(data_type).cloned()
     }
 
     /// Get all current-user account data.
     pub fn all_account_data(&self) -> BTreeMap<String, Value> {
-        self.account_data.read().unwrap().clone()
+        self.account_data.read().clone()
     }
 
     /// Get cached settings for a user, returning defaults when no cache exists.
     pub fn settings(&self, user_id: &Did) -> ClientSettings {
         self.settings
             .read()
-            .unwrap()
             .get(user_id.as_str())
             .cloned()
             .unwrap_or_else(|| ClientSettings::new(user_id.clone()))
@@ -567,7 +567,7 @@ impl BaseClient {
 
     /// Replace cached settings for a user.
     pub fn update_settings(&self, settings: ClientSettings) -> Result<()> {
-        self.settings.write().unwrap().insert(settings.user_id.as_str().to_owned(), settings);
+        self.settings.write().insert(settings.user_id.as_str().to_owned(), settings);
         Ok(())
     }
 
@@ -579,12 +579,12 @@ impl BaseClient {
         filename: Option<String>,
     ) -> Result<MediaMetadata> {
         let session = self.whoami()?;
-        self.media.write().unwrap().upload(bytes, media_type, filename, session.user_id)
+        self.media.write().upload(bytes, media_type, filename, session.user_id)
     }
 
     /// Download media bytes from the local in-memory media store.
     pub fn download_media(&self, blob_ref: &BlobRef) -> Option<Vec<u8>> {
-        self.media.read().unwrap().download(blob_ref).map(<[u8]>::to_vec)
+        self.media.read().download(blob_ref).map(<[u8]>::to_vec)
     }
 
     /// Upload an attachment into the local in-memory media store.
@@ -596,7 +596,7 @@ impl BaseClient {
         bytes: impl AsRef<[u8]>,
     ) -> Result<Attachment> {
         let session = self.whoami()?;
-        self.media.write().unwrap().upload_attachment(
+        self.media.write().upload_attachment(
             id,
             filename,
             media_type,
@@ -615,7 +615,7 @@ impl BaseClient {
         key: &[u8],
     ) -> Result<Attachment> {
         let session = self.whoami()?;
-        self.media.write().unwrap().upload_encrypted_attachment(
+        self.media.write().upload_encrypted_attachment(
             id,
             filename,
             media_type,
@@ -627,7 +627,7 @@ impl BaseClient {
 
     /// Download and decrypt a local encrypted attachment.
     pub fn download_decrypted_attachment(&self, id: &str, key: &[u8]) -> Result<Vec<u8>> {
-        self.media.read().unwrap().download_decrypted_attachment(id, key)
+        self.media.read().download_decrypted_attachment(id, key)
     }
 }
 

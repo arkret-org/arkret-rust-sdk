@@ -25,7 +25,7 @@ pub enum FrontierPeerRole {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct EventsFrontierAccountClientResponse {
     pub peer_role: FrontierPeerRole,
-    pub frontier: BTreeMap<SpaceId, Vec<EventId>>,
+    pub frontier: BTreeMap<RealmId, Vec<EventId>>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub actor_seq_upper_bounds: BTreeMap<Did, u64>,
 }
@@ -37,7 +37,7 @@ pub struct EventsFrontierAccountClientResponse {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct EventsFrontierFederationPeerResponse {
     pub peer_role: FrontierPeerRole,
-    pub frontier: BTreeMap<SpaceId, Vec<EventId>>,
+    pub frontier: BTreeMap<RealmId, Vec<EventId>>,
     pub frontier_root: Hash,
     pub service_binding_ref: FederationServiceBindingRef,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

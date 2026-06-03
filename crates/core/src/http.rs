@@ -1495,7 +1495,7 @@ pub struct KeyPackagesUploadResBody {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rejected: Vec<Value>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub key_package_refs: Vec<KeyevtId>,
+    pub key_package_refs: Vec<KeyEventId>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1524,7 +1524,7 @@ pub struct KeyPackagesClaimResBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeyPackagesConsumeReqBody {
     #[serde(default)]
-    pub key_package_refs: Vec<KeyevtId>,
+    pub key_package_refs: Vec<KeyEventId>,
     pub consumer_device_id: DeviceId,
     pub signature: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1537,7 +1537,7 @@ pub struct KeyPackagesConsumeReqBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeyPackagesConsumeResBody {
     #[serde(default)]
-    pub consumed: Vec<KeyevtId>,
+    pub consumed: Vec<KeyEventId>,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub failures: Value,
 }
@@ -1546,7 +1546,7 @@ pub struct KeyPackagesConsumeResBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeyPackagesRevokeReqBody {
     #[serde(default)]
-    pub key_package_refs: Vec<KeyevtId>,
+    pub key_package_refs: Vec<KeyEventId>,
     pub device_id: DeviceId,
     pub signature: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1557,7 +1557,7 @@ pub struct KeyPackagesRevokeReqBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeyPackagesRevokeResBody {
     #[serde(default)]
-    pub revoked: Vec<KeyevtId>,
+    pub revoked: Vec<KeyEventId>,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub failures: Value,
 }

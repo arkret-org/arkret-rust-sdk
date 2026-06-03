@@ -30,7 +30,7 @@ use contrix_core::{
     DirectorySearchOrganizationsResBody, DirectorySearchRealmsReqBody,
     DirectorySearchRealmsResBody, DirectorySearchUsersReqBody, DirectorySearchUsersResBody,
     EffectiveGrantsResBody, FederationPullOperationsResBody, FederationPushOperationsReqBody,
-    FederationPushOperationsResBody, FederationSpaceMembersResBody, FederationTransactionReqBody,
+    FederationPushOperationsResBody, FederationRealmMembersResBody, FederationTransactionReqBody,
     FederationTransactionResBody, FederationVerifyActorReqBody, FederationVerifyActorResBody,
     IdentityDescription, IdentityDocumentResBody, IdentityLogResBody, IdentityReceiptsResBody,
     IdentityResolveReqBody, IdentityResolveResBody, KeysClaimReqBody, KeysClaimResBody,

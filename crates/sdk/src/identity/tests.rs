@@ -40,13 +40,15 @@ fn webvh_resolver_validates_url_shape_and_log_chain() {
         "versionId": "1-hashA",
         "versionTime": "2026-05-06T00:00:00Z",
         "parameters": {"scid": "zabc", "method": "did:webvh:1.0", "updateKeys": ["z6Mkkey"]},
-        "state": &document
+        "state": &document,
+        "proof": [{"type": "DataIntegrityProof", "proofValue": "z1"}]
     });
     let entry2 = serde_json::json!({
         "versionId": "2-hashB",
         "versionTime": "2026-05-07T00:00:00Z",
         "parameters": {"scid": "zabc", "prevVersionId": "1-hashA", "updateKeys": ["z6Mkkey"]},
-        "state": &document
+        "state": &document,
+        "proof": [{"type": "DataIntegrityProof", "proofValue": "z2"}]
     });
     let body = format!(
         "{}\n{}\n",
@@ -93,13 +95,15 @@ fn webvh_resolver_rejects_chain_break() {
         "versionId": "1-A",
         "versionTime": "2026-05-06T00:00:00Z",
         "parameters": {"scid": "zabc"},
-        "state": {}
+        "state": {},
+        "proof": [{"type": "DataIntegrityProof", "proofValue": "z1"}]
     });
     let entry2 = serde_json::json!({
         "versionId": "2-B",
         "versionTime": "2026-05-06T00:00:00Z",
         "parameters": {"scid": "zabc", "prevVersionId": "1-WRONG"},
-        "state": {}
+        "state": {},
+        "proof": [{"type": "DataIntegrityProof", "proofValue": "z2"}]
     });
     let body = format!(
         "{}\n{}\n",

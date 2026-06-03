@@ -1,4 +1,6 @@
-use super::helpers::{constant_time_eq, recovery_proof_matches, sha256_hex};
+use super::helpers::{
+    constant_time_eq, hash_password, recovery_proof_matches, sha256_hex, verify_password,
+};
 use super::*;
 
 /// Authenticated session.
@@ -83,7 +85,7 @@ impl AuthManager {
         password: &str,
         user_id: Did,
     ) -> Result<PasswordUser> {
-        self.register_password_hash(username, sha256_hex(password.as_bytes()), user_id)
+        self.register_password_hash(username, hash_password(password)?, user_id)
     }
 
     /// Register a username/password identity with an application-supplied password hash.
@@ -136,7 +138,7 @@ impl AuthManager {
             .password_users
             .get(username)
             .ok_or_else(|| Error::Protocol("user not found".to_owned()))?;
-        if !constant_time_eq(&user.password_hash, &sha256_hex(password.as_bytes())) {
+        if !verify_password(password, &user.password_hash) {
             return Err(Error::Protocol("invalid password".to_owned()));
         }
         if user.mfa_enabled
@@ -258,7 +260,7 @@ impl AuthManager {
     /// Start a passkey challenge.
     pub fn start_passkey(&mut self, user_id: Did) -> PasskeyChallenge {
         let challenge = PasskeyChallenge {
-            challenge: format!("passkey:{}", Ulid::new()),
+            challenge: format!("passkey:{}", uuid::Uuid::now_v7()),
             user_id: user_id.clone(),
             expires_at: Utc::now() + Duration::minutes(5),
         };
@@ -338,7 +340,7 @@ impl AuthManager {
 
     /// Issue an MFA challenge.
     pub fn issue_mfa(&mut self, user_id: Did) -> MfaChallenge {
-        let code = sha256_hex(format!("{}:{}", user_id, Ulid::new()).as_bytes())[..6].to_owned();
+        let code = sha256_hex(format!("{}:{}", user_id, uuid::Uuid::now_v7()).as_bytes())[..6].to_owned();
         let challenge = MfaChallenge {
             user_id: user_id.clone(),
             code,
@@ -377,9 +379,9 @@ impl AuthManager {
         self.ensure_account_active(&user_id)?;
         let now = Utc::now();
         let session = AuthSession {
-            session_id: format!("sess_{}", Ulid::new()),
-            access_token: format!("atk_{}", Ulid::new()),
-            refresh_token: format!("rtk_{}", Ulid::new()),
+            session_id: format!("sess_{}", uuid::Uuid::now_v7()),
+            access_token: format!("atk_{}", uuid::Uuid::now_v7()),
+            refresh_token: format!("rtk_{}", uuid::Uuid::now_v7()),
             expires_at: now + Duration::hours(1),
             revoked: false,
             created_at: now,
@@ -458,7 +460,7 @@ impl AuthManager {
             .sessions
             .get_mut(session_id)
             .ok_or_else(|| Error::Protocol("session not found".to_owned()))?;
-        session.access_token = format!("atk_{}", Ulid::new());
+        session.access_token = format!("atk_{}", uuid::Uuid::now_v7());
         if session.refresh_token == "<redacted>" {
             session.refresh_token = refresh_token.to_owned();
         }
@@ -660,7 +662,7 @@ impl AuthManager {
             now: Utc::now(),
         })?;
         let request = AccountRecoveryReqBody {
-            request_id: format!("recovery_{}", Ulid::new()),
+            request_id: format!("recovery_{}", uuid::Uuid::now_v7()),
             user_id,
             method,
             expires_at: Utc::now() + Duration::minutes(15),
@@ -692,6 +694,19 @@ impl AuthManager {
         }
         if request.completed_at.is_some() {
             return Err(Error::Protocol("recovery request already completed".to_owned()));
+        }
+        // DID-proof and passkey rebinding identifiers are PUBLIC values, so a
+        // proof derived from them is no proof at all. These methods MUST be
+        // completed through `complete_recovery_with_did_verifier` (or a
+        // WebAuthn verifier), which checks a real signature. Fail closed here.
+        if matches!(
+            request.method,
+            AccountRecoveryMethod::DidProof { .. }
+                | AccountRecoveryMethod::PasskeyWebAuthnRebinding { .. }
+        ) {
+            return Err(Error::Protocol(
+                "did/passkey recovery must use complete_recovery_with_did_verifier".to_owned(),
+            ));
         }
         if !recovery_proof_matches(&request.method, proof) {
             return Err(Error::Protocol("invalid recovery proof".to_owned()));

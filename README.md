@@ -19,10 +19,10 @@ centered on:
 - Operations as SDK builders and offline draft objects before Event Envelope wrapping
 - capability grants and policy checks
 - MLS RFC 9420 group E2EE based on OpenMLS
-- Principal Server, Events, Sync, Index, Blob, Directory and Authz service surfaces
+- Principal Server, Events, Index, Blob, Directory and Authz service surfaces
 
 The active v1 wire contract follows `contrix-spec/spec/v1/zh` plus `contrix-spec/spec/v1/artifacts`.
-All public SDK surfaces are expected to use `flow`, branch, relation and
+All public SDK surfaces are expected to use `flow`, `track`, relation and
 message semantics directly.
 
 ## Realm vs Space
@@ -34,9 +34,11 @@ After the Phase 1–4 terminology inversion (Round R1.x):
 - **Space:** navigation container — board, list, section, calendar bucket.
   Lives inside a Realm. Previously called `Place` on the wire.
 
-The 0.8 line uses the realm/space names directly; the 0.7 compile-time aliases
-are removed. See [`CHANGELOG.md`](CHANGELOG.md) for the wire-breaking rename
-notes.
+The wire layer uses the realm/space names directly. Note that the Rust type
+inversion is still in progress: the security-boundary struct is currently
+named `Space` (the container is `Place`), even though both serialize the
+realm/space wire shapes. See [`CHANGELOG.md`](CHANGELOG.md) for the
+wire-breaking rename notes.
 
 ## Entry Point
 
@@ -104,10 +106,10 @@ Headline additions:
   `expected_previous_generation`; `compute_audit_policy_version_digest`
   takes 4 args (`realm_id, trust_domain, audit_disclosure,
   audit_assurance`).
-- **`cx.call.signal` v2**: 13-value `signal_type` enum, required
-  `proof`, monotonic `seq` validator.
+- **`cx.call.signal` (Round 4 wire revision)**: 13-value `signal_type`
+  enum, required `proof`, monotonic `seq` validator.
 - **`Realm` / `ServiceDescribe` / `AuditRywReceipt`** gain required
-  `trust_domain`; `ServiceDescribe` v2 carries 17 required fields.
+  `trust_domain`; the revised `ServiceDescribe` carries 17 required fields.
 
 ## Project documents
 
@@ -135,8 +137,8 @@ The first Contrix crate currently includes:
 - Event Envelope digest payload calculation
 - HLC parsing and deterministic ordering
 - Proof signature-binding payload calculation
-- Policy, Invite, Read Marker, Notification, Blob Metadata and Encrypted Payload models
-- encrypted payload digest calculation over cleartext routing metadata plus ciphertext bytes
+- Policy, Invite, Read Cursor, Notification, Blob Metadata and Encrypted Envelope models
+- encrypted content digest calculation over cleartext routing metadata plus ciphertext bytes
 - MLS KeyPackage, Commit and Welcome envelopes
 - OpenMLS-backed group creation, member add, Welcome join, payload encryption and decryption
 - in-memory persistence helpers for event cache, verified state snapshots and account-local records

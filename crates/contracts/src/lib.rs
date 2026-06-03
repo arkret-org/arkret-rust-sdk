@@ -43,7 +43,7 @@ pub mod protocol {
         DirectorySearchRealmsReqBody, DirectorySearchRealmsResBody, DirectorySearchUsersReqBody,
         DirectorySearchUsersResBody, DirectoryWithdrawReqBody, DirectoryWithdrawResBody,
         EffectiveGrantsResBody, FederationPullOperationsResBody, FederationPushOperationsReqBody,
-        FederationPushOperationsResBody, FederationSpaceMembersResBody,
+        FederationPushOperationsResBody, FederationRealmMembersResBody,
         FederationTransactionReqBody, FederationTransactionResBody, FederationVerifyActorReqBody,
         FederationVerifyActorResBody, IdentityDescription, IdentityDocumentResBody,
         IdentityLogResBody, IdentityReceiptsResBody, IdentityResolveReqBody,

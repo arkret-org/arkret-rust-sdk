@@ -963,7 +963,7 @@ pub struct FederationPullOperationsResBody {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct FederationSpaceMembersResBody {
+pub struct FederationRealmMembersResBody {
     #[serde(default)]
     pub members: Vec<MemberRef>,
     pub membership_frontier: String,

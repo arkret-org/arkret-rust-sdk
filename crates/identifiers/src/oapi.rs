@@ -12,11 +12,11 @@ use salvo::oapi::{
 use crate::{
     AccountabilityGrantId, ActorProfileId, AgentDraftId, AgentKeyId, AgentSessionId, AnchorId,
     AnnounceId, AppletId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId, CallId,
-    CapabilityId, CellRef, ChunkId, CircleId, ClaimId, Cursor, DeviceId, DevmsgId, Did, EventId,
-    FilterId, FlowId, FrameId, FrankId, GrantId, Hash, Hlc, InviteId, KeyevtId, MessageId, ModqId,
-    MorphId, MoveId, NotifId, OperationId, PolicyId, PresentationId, ReadCursorId, RealmId,
-    ReceiptId, RecoverySessionId, RelationId, ReportId, ReqId, SidecarCircleId, SnapshotId,
-    SpaceId, TxnId, TypedAppealId, TypedTrustDomainId, ViewId,
+    CapabilityId, CellRef, ChunkId, CircleId, ClaimId, Cursor, DeviceId, DeviceMessageId, Did, EventId,
+    FilterId, FlowId, FrameId, FrankingProofId, GrantId, Hash, Hlc, InviteId, KeyEventId, MessageId, ModerationQueueItemId,
+    MorphId, MoveId, NotificationId, OperationId, PolicyId, PresentationId, ReadCursorId, RealmId,
+    ReceiptId, RecoverySessionId, RelationId, ReportId, RequestId, SidecarCircleId, SnapshotId,
+    SpaceId, TransactionId, TypedAppealId, TypedTrustDomainId, ViewId,
 };
 
 fn string_schema(pattern: &str) -> RefOr<Schema> {
@@ -130,7 +130,7 @@ impl_string_schema!(
     r"^cx:claim:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
 impl_string_schema!(
-    DevmsgId,
+    DeviceMessageId,
     r"^cx:device_message:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
 impl_string_schema!(
@@ -146,7 +146,7 @@ impl_string_schema!(
     r"^cx:frame:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
 impl_string_schema!(
-    FrankId,
+    FrankingProofId,
     r"^cx:franking_proof:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
 impl_string_schema!(
@@ -182,7 +182,7 @@ impl_string_schema!(
     r"^cx:invite:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
 impl_string_schema!(
-    KeyevtId,
+    KeyEventId,
     r"^cx:key_event:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
 impl_string_schema!(
@@ -190,7 +190,7 @@ impl_string_schema!(
     r"^cx:device:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
 impl_string_schema!(
-    NotifId,
+    NotificationId,
     r"^cx:notification:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
 impl_string_schema!(
@@ -214,11 +214,11 @@ impl_string_schema!(
     r"^cx:read_cursor:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
 impl_string_schema!(
-    ModqId,
+    ModerationQueueItemId,
     r"^cx:moderation_queue_item:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
 impl_string_schema!(
-    ReqId,
+    RequestId,
     r"^cx:request:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
 impl_string_schema!(
@@ -226,7 +226,7 @@ impl_string_schema!(
     r"^cx:snapshot:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
 impl_string_schema!(
-    TxnId,
+    TransactionId,
     r"^cx:transaction:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
 impl_string_schema!(

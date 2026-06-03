@@ -106,6 +106,7 @@ pub use contrix_server as server;
 pub use contrix_signatures as signatures;
 #[cfg(feature = "signer")]
 pub use contrix_signatures::Ed25519MoveSigner;
+#[cfg(feature = "testing")]
 pub use contrix_testing as testing;
 #[cfg(feature = "full-surface")]
 pub mod account;

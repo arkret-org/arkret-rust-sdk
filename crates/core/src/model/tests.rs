@@ -296,7 +296,7 @@ fn protocol_schema_registry_publishes_core_json_schemas() {
         VIEW_SCHEMA,
         EVENT_SCHEMA,
         CAPABILITY_SCHEMA,
-        ENCRYPTED_PAYLOAD_SCHEMA,
+        ENCRYPTED_ENVELOPE_SCHEMA,
         ACCOUNT_SUBSCRIBE_FRAME_SCHEMA,
     ] {
         assert!(registry.schema(schema_id).is_some());
@@ -707,7 +707,7 @@ fn relation_requires_exact_wire_endpoints() {
     let relation = Relation {
         schema: RELATION_SCHEMA.to_owned(),
         id: RelationId::new("cx:relation:01904100-0000-7000-8000-7b3bf7d6e46b").unwrap(),
-        space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
+        realm_id: RealmId::new("cx:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
         scope_circle_id: None,
         effective_scope: None,
         relation_kind: RelationKind::Mentions,
@@ -726,7 +726,7 @@ fn relation_requires_exact_wire_endpoints() {
 #[test]
 fn query_request_uses_protocol_filters_array() {
     let request = QueryReqBody {
-        space_ids: vec![SpaceId::new("cx:space:01904100-0000-7000-8000-fd3637e8361f").unwrap()],
+        realm_ids: vec![RealmId::new("cx:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap()],
         object_types: vec!["morph".to_owned()],
         morph_types: vec!["task".to_owned()],
         facets: vec![Facet::Stateful, Facet::Rankable],
@@ -746,7 +746,7 @@ fn query_request_uses_protocol_filters_array() {
     };
 
     let value = serde_json::to_value(request).unwrap();
-    assert!(value.get("space_ids").unwrap().is_array());
+    assert!(value.get("realm_ids").unwrap().is_array());
     assert!(value.get("filters").unwrap().is_array());
     assert_eq!(value["facets"], json!(["stateful", "rankable"]));
     assert!(value.get("renderer").is_none());
@@ -772,7 +772,7 @@ fn facets_accept_name_lists_and_config_maps() {
 #[test]
 fn view_supports_renderer_and_facet_config_facades() {
     let request = QueryReqBody {
-        space_ids: vec![SpaceId::new("cx:space:01904100-0000-7000-8000-fd3637e8361f").unwrap()],
+        realm_ids: vec![RealmId::new("cx:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap()],
         object_types: Vec::new(),
         morph_types: Vec::new(),
         facets: vec![Facet::Stateful, Facet::Rankable],
@@ -789,7 +789,7 @@ fn view_supports_renderer_and_facet_config_facades() {
     let view = View {
         schema: VIEW_SCHEMA.to_owned(),
         id: ViewId::new("cx:view:01904100-0000-7000-8000-848727f328fe").unwrap(),
-        space_id: SpaceId::new("cx:space:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
+        realm_id: RealmId::new("cx:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
         kind: ViewKind::Collection,
         visibility: None,
         renderer: Some(ViewRenderer::Board),
@@ -1131,7 +1131,7 @@ fn rank_helpers_generate_between_and_rebalance_assignments() {
 fn flow_constructor_sets_protocol_shape() {
     let mut subject = Flow::new(
         "cx:flow:01904100-0000-7000-8000-6c663fa0205f",
-        SpaceId::new("cx:space:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
+        RealmId::new("cx:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
         "Payment refactor",
         Did::new("did:web:alice.example").unwrap(),
     );
@@ -1152,7 +1152,7 @@ fn flow_constructor_sets_protocol_shape() {
 fn flow_discussion_constructor_sets_room_shape() {
     let flow = Flow::discussion(
         "cx:flow:01904100-0000-7000-8000-58754cf88c25",
-        SpaceId::new("cx:space:01904100-0000-7000-8000-2007b59d0dc4").unwrap(),
+        RealmId::new("cx:realm:01904100-0000-7000-8000-2007b59d0dc4").unwrap(),
         "Launch board discussion",
         Did::new("did:web:alice.example").unwrap(),
     );
@@ -1194,7 +1194,7 @@ fn read_scope_rejects_removed_track_kind_variants() {
 fn synthesis_flow_is_not_conversational() {
     let flow = Flow::new(
         "cx:flow:01904100-0000-7000-8000-58754cf88c25",
-        SpaceId::new("cx:space:01904100-0000-7000-8000-2007b59d0dc4").unwrap(),
+        RealmId::new("cx:realm:01904100-0000-7000-8000-2007b59d0dc4").unwrap(),
         "Launch board synthesis",
         Did::new("did:web:alice.example").unwrap(),
     );

@@ -1,3 +1,9 @@
+use argon2::{
+    Argon2,
+    password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
+};
+use subtle::ConstantTimeEq;
+
 use super::*;
 
 pub(super) fn default_true() -> bool {
@@ -65,31 +71,63 @@ pub(super) fn sha256_hex(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
 
-pub(super) fn constant_time_eq(left: &str, right: &str) -> bool {
-    let left = left.as_bytes();
-    let right = right.as_bytes();
-    let max_len = left.len().max(right.len());
-    let mut diff = left.len() ^ right.len();
-
-    for idx in 0..max_len {
-        let left_byte = left.get(idx).copied().unwrap_or(0);
-        let right_byte = right.get(idx).copied().unwrap_or(0);
-        diff |= (left_byte ^ right_byte) as usize;
-    }
-
-    diff == 0
+/// Hash a password with the built-in Argon2id helper, returning a salted
+/// PHC string (`$argon2id$...`) that carries its own random salt and
+/// parameters. This replaces the previous unsalted, work-factorless
+/// SHA-256 default so leaked hashes cannot be batch-reversed with rainbow
+/// tables / GPUs. Applications that run their own KDF should instead use
+/// [`super::manager::AuthManager::register_password_hash`] /
+/// `login_password_with_verifier`.
+pub(super) fn hash_password(password: &str) -> Result<String> {
+    let mut salt_bytes = [0u8; 16];
+    getrandom::fill(&mut salt_bytes)
+        .map_err(|error| Error::Crypto(format!("password salt rng: {error}")))?;
+    let salt = SaltString::encode_b64(&salt_bytes)
+        .map_err(|error| Error::Crypto(format!("password salt encode: {error}")))?;
+    let hash = Argon2::default()
+        .hash_password(password.as_bytes(), &salt)
+        .map_err(|error| Error::Crypto(format!("argon2 hash: {error}")))?;
+    Ok(hash.to_string())
 }
 
+/// Verify a password against a PHC string produced by [`hash_password`].
+/// Returns `false` for any malformed hash or mismatch (fail-closed). The
+/// Argon2 verification itself is constant-time.
+pub(super) fn verify_password(password: &str, phc: &str) -> bool {
+    let Ok(parsed) = PasswordHash::new(phc) else {
+        return false;
+    };
+    Argon2::default().verify_password(password.as_bytes(), &parsed).is_ok()
+}
+
+/// Constant-time string comparison backed by the audited `subtle` crate.
+///
+/// Both inputs are first hashed to a fixed-length (32-byte) SHA-256 digest
+/// so the comparison loop bound never depends on the secret's length, then
+/// compared with `subtle::ConstantTimeEq`. This removes the length
+/// side-channel of the previous hand-rolled byte-XOR loop.
+pub(super) fn constant_time_eq(left: &str, right: &str) -> bool {
+    let left = Sha256::digest(left.as_bytes());
+    let right = Sha256::digest(right.as_bytes());
+    left.ct_eq(right.as_slice()).into()
+}
+
+/// Verify a built-in account-recovery proof.
+///
+/// Only [`AccountRecoveryMethod::PasswordReset`] has a built-in proof: the
+/// caller presents the reset token whose hash was registered out of band,
+/// which is a real shared secret. `DidProof` and `PasskeyWebAuthnRebinding`
+/// MUST be completed through [`super::manager::AuthManager::complete_recovery_with_did_verifier`]
+/// (or an equivalent WebAuthn verifier) because their identifiers
+/// (`verification_method`, `credential_id`) are **public** values — deriving
+/// a "proof" from them would let anyone who knows the public identifier take
+/// over the account. We therefore fail closed here for those methods.
 pub(super) fn recovery_proof_matches(method: &AccountRecoveryMethod, proof: &str) -> bool {
     match method {
-        AccountRecoveryMethod::DidProof { verification_method } => {
-            constant_time_eq(proof, &sha256_hex(verification_method.as_bytes()))
-        }
         AccountRecoveryMethod::PasswordReset { reset_token_hash } => {
             constant_time_eq(proof, reset_token_hash)
         }
-        AccountRecoveryMethod::PasskeyWebAuthnRebinding { credential_id } => {
-            constant_time_eq(proof, &sha256_hex(credential_id.as_bytes()))
-        }
+        AccountRecoveryMethod::DidProof { .. }
+        | AccountRecoveryMethod::PasskeyWebAuthnRebinding { .. } => false,
     }
 }

@@ -28,7 +28,7 @@ pub enum OperationSurface {
     Policy,
     Push,
     Server,
-    Sync,
+    AccountStream,
     Custom(String),
 }
 
@@ -74,8 +74,8 @@ pub fn classify_operation_kind(kind: &str) -> OperationSurface {
         OP_APPLET_DESCRIBE
         | OP_APPLET_PING
         | OP_APPLET_PROTOCOL_METADATA
-        | OP_APPLET_QUERY_ACTOR
-        | OP_APPLET_QUERY_REALM
+        | OP_APPLET_RESOLVE_ACTOR
+        | OP_APPLET_RESOLVE_REALM
         | OP_APPLET_THIRD_PARTY_LOCATIONS
         | OP_APPLET_THIRD_PARTY_USERS
         | OP_APPLET_TRANSACTION => OperationSurface::Applet,
@@ -96,7 +96,7 @@ pub fn classify_operation_kind(kind: &str) -> OperationSurface {
         | OP_DIRECTORY_SEARCH_ORGANIZATIONS
         | OP_DIRECTORY_SEARCH_REALMS
         | OP_DIRECTORY_SEARCH_USERS
-        | OP_DIRECTORY_SUBSCRIBE
+        | OP_DIRECTORY_PUSH_REGISTER
         | OP_DIRECTORY_WITHDRAW => OperationSurface::Directory,
         OP_EVENTS_DESCRIBE | OP_EVENTS_FRONTIER | OP_EVENTS_GET | OP_EVENTS_QUERY
         | OP_EVENTS_RESOLVE | OP_EVENTS_SUBSCRIBE | OP_EVENTS_SUBMIT => OperationSurface::Events,
@@ -138,7 +138,7 @@ pub fn classify_operation_kind(kind: &str) -> OperationSurface {
         OP_ACCOUNT_DESCRIBE
         | OP_ACCOUNT_SUBSCRIBE
         | OP_ACCOUNT_CURSOR_REVOKE
-        | OP_SNAPSHOT_HEAD => OperationSurface::Sync,
+        | OP_SNAPSHOT_HEAD => OperationSurface::AccountStream,
         _ => OperationSurface::Custom(kind.to_owned()),
     }
 }
@@ -175,7 +175,7 @@ pub fn operation_catalog() -> OperationCatalogReport {
         OperationSurface::Policy,
         OperationSurface::Push,
         OperationSurface::Server,
-        OperationSurface::Sync,
+        OperationSurface::AccountStream,
     ];
     let missing_surfaces =
         required_surfaces.into_iter().filter(|surface| !covered.contains(surface)).collect();
@@ -445,7 +445,7 @@ fn mutation_for_kind(kind: &str) -> OperationMutation {
         OP_PUSH_REGISTER_DEVICE
         | OP_KEYS_BACKUPS_PUT
         | OP_KEYS_KEYPACKAGES_UPLOAD
-        | OP_DIRECTORY_SUBSCRIBE => OperationMutation::Create,
+        | OP_DIRECTORY_PUSH_REGISTER => OperationMutation::Create,
         OP_PUSH_UNREGISTER_DEVICE | OP_KEYS_BACKUPS_DELETE => OperationMutation::Delete,
         OP_SERVER_DESCRIBE
         | OP_ACCOUNT_DESCRIBE
@@ -519,7 +519,7 @@ fn target_id_for_operation(kind: &str, content: &Value) -> Option<String> {
         OP_KEYS_KEYPACKAGES_REVOKE => &["principal_id", "keypackage_ref"],
         OP_PUSH_REGISTER_DEVICE | OP_PUSH_UNREGISTER_DEVICE => &["device_id"],
         OP_DIRECTORY_RESOLVE_TARGET => &["address"],
-        OP_DIRECTORY_SUBSCRIBE => &["subscriber_did", "webhook_endpoint"],
+        OP_DIRECTORY_PUSH_REGISTER => &["subscriber_did", "webhook_endpoint"],
         OP_DEVICE_MESSAGES_PUT | OP_DEVICE_MESSAGES_GET => {
             &["recipient_principal_id", "recipient_device_id"]
         }

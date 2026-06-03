@@ -6,7 +6,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-use ulid::Ulid;
 
 pub use contrix_contracts::federation::{
     FederationBackfillAuthorization, FederationQuarantineKind, FederationQuarantineRecord,
@@ -99,7 +98,7 @@ impl FederationManager {
         events: Vec<Value>,
         signing_key: &str,
     ) -> FederationTransaction {
-        let transaction_id = format!("txn_{}", Ulid::new());
+        let transaction_id = format!("txn_{}", uuid::Uuid::now_v7());
         let origin = origin.into();
         let destination = destination.into();
         let signature = federation_signature(
@@ -138,7 +137,7 @@ impl FederationManager {
         payload: Value,
         signing_key: &str,
     ) -> FederationReqBody {
-        let request_id = format!("req_{}", Ulid::new());
+        let request_id = format!("req_{}", uuid::Uuid::now_v7());
         let origin = origin.into();
         let destination = destination.into();
         let path = path.into();

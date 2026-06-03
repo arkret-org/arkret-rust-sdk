@@ -410,12 +410,10 @@ pub struct CapabilityGrant {
 pub struct Policy {
     pub schema: String,
     pub id: PolicyId,
-    #[serde(rename = "type")]
-    pub object_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     pub policy_type: PolicyType,
-    pub rules: Vec<Value>,
+    pub rules: Vec<PolicyRule>,
     pub default_effect: PolicyEffect,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub priority: Option<i64>,
@@ -427,14 +425,77 @@ pub struct Policy {
     pub created_at: DateTime<Utc>,
 }
 
+/// Discriminator for a [`PolicyRule`] (mirrors `policy.schema.json`
+/// `$defs.policy_rule.kind`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum PolicyRuleKind {
+    Action,
+    Resource,
+    Server,
+    Actor,
+    Temporal,
+    RateLimit,
+    Crypto,
+    Moderation,
+    Extension,
+}
+
+/// A single typed policy rule (mirrors `policy.schema.json`
+/// `$defs.policy_rule`). `rule_id` / `kind` / `effect` are required; the
+/// kind-specific fields (e.g. `actions` for `kind=action`) ride in `extra`
+/// and are validated by [`PolicyRule::validate`]. This replaces the former
+/// untyped `Vec<Value>` so callers can no longer build a rule that is
+/// missing its required discriminators without the SDK noticing.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct PolicyRule {
+    pub rule_id: String,
+    pub kind: PolicyRuleKind,
+    pub effect: PolicyEffect,
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(flatten)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+impl PolicyRule {
+    /// Validate the kind-conditional required fields that
+    /// `policy.schema.json` enforces (e.g. `kind=action` MUST carry a
+    /// non-empty `actions` array). Returns `Err(Error::Protocol(...))` on
+    /// violation.
+    pub fn validate(&self) -> Result<()> {
+        if self.rule_id.trim().is_empty() {
+            return Err(Error::Protocol("policy rule rule_id must not be empty".to_owned()));
+        }
+        let require = |field: &str| -> Result<()> {
+            match self.extra.get(field) {
+                Some(Value::Array(items)) if !items.is_empty() => Ok(()),
+                Some(value) if !value.is_null() => Ok(()),
+                _ => Err(Error::Protocol(format!(
+                    "policy rule kind={:?} requires field '{field}'",
+                    self.kind
+                ))),
+            }
+        };
+        match self.kind {
+            PolicyRuleKind::Action => require("actions"),
+            PolicyRuleKind::Resource => require("resources"),
+            PolicyRuleKind::RateLimit => require("rate_limit"),
+            PolicyRuleKind::Temporal => require("temporal"),
+            // server / actor / crypto / moderation / extension have no
+            // additional unconditional required field beyond the base triple.
+            _ => Ok(()),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Invite {
     pub schema: String,
     pub id: InviteId,
-    #[serde(rename = "type")]
-    pub object_type: String,
-    pub space_id: SpaceId,
+    pub realm_id: RealmId,
     pub inviter: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub invitee: Option<Did>,
@@ -490,32 +551,12 @@ pub struct ReadReceipt {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct LegacyReadMarker {
-    pub schema: String,
-    pub id: String,
-    #[serde(rename = "type")]
-    pub object_type: String,
-    pub actor_id: Did,
-    pub space_id: SpaceId,
-    pub scope: ReadScope,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub scope_id: Option<String>,
-    pub event_id: EventId,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub timeline_order_key: Option<Value>,
-    pub updated_at: DateTime<Utc>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Notification {
     pub schema: String,
     pub id: String,
-    #[serde(rename = "type")]
-    pub object_type: String,
     pub actor_id: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<SpaceId>,
+    pub realm_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub flow_id: Option<FlowId>,
     #[serde(rename = "track_name", skip_serializing_if = "Option::is_none")]

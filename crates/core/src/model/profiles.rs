@@ -171,7 +171,7 @@ impl MorphMetadata {
 pub struct Morph {
     pub schema: String,
     pub id: String,
-    pub space_id: SpaceId,
+    pub realm_id: RealmId,
     /// Round C47 (spec e10b6ad): authoritative schema set for Morph fields and
     /// transition validation. Reducers MUST validate Morph fields against
     /// exactly these refs (set-equal compare on `cx.morph.schema_migrate`);
@@ -208,6 +208,13 @@ pub struct Morph {
     pub fields: BTreeMap<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state: Option<ObjectState>,
+    /// Business progress axis (spec `morph.schema.json` required `stage`).
+    /// Only Flow/Morph carry a `stage`. Distinct from `state` (lifecycle).
+    pub stage: ObjectStage,
+    /// Reducer-derived timestamp of the last `stage` transition; preserved on
+    /// deserialize, omitted by producers (servers populate it).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stage_changed_at: Option<DateTime<Utc>>,
     /// CXP-0007 (spec b7d35be) — optional Circle scope binding. Morphs that
     /// carry confidential synthesis fields can be bound to a Circle so their
     /// payload is encrypted inside that Circle's MLS group.
@@ -229,14 +236,14 @@ pub struct Morph {
 impl Morph {
     pub fn new(
         id: impl Into<String>,
-        space_id: SpaceId,
+        realm_id: RealmId,
         morph_type: impl Into<String>,
         created_by: Did,
     ) -> Self {
         Self {
             schema: MORPH_SCHEMA.to_owned(),
             id: id.into(),
-            space_id,
+            realm_id,
             schema_refs: Vec::new(),
             morph_type: morph_type.into(),
             facets: BTreeMap::new(),
@@ -249,6 +256,8 @@ impl Morph {
             encrypted_payload: None,
             fields: BTreeMap::new(),
             state: Some(ObjectState::Active),
+            stage: ObjectStage::Draft,
+            stage_changed_at: None,
             scope_circle_id: None,
             created_by,
             created_at: Utc::now(),

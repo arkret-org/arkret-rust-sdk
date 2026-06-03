@@ -98,10 +98,10 @@ pub use http::*;
 pub use identifiers::{
     AccountabilityGrantId, ActorProfileId, AgentDraftId, AgentKeyId, AgentSessionId, AnchorId,
     AnnounceId, AppletId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId, CallId,
-    CapabilityId, CellRef, ChunkId, CircleId, ClaimId, DeviceId, DevmsgId, Did, EventId, FilterId,
-    FlowId, FrameId, FrankId, GrantId, Hash, Hlc, InviteId, KeyevtId, MessageId, ModqId, MorphId,
-    MoveId, NotifId, OperationId, PolicyId, PresentationId, ReadCursorId, RealmId, ReceiptId,
-    RecoverySessionId, RelationId, ReportId, ReqId, SidecarCircleId, SnapshotId, SpaceId, TxnId,
+    CapabilityId, CellRef, ChunkId, CircleId, ClaimId, DeviceId, DeviceMessageId, Did, EventId, FilterId,
+    FlowId, FrameId, FrankingProofId, GrantId, Hash, Hlc, InviteId, KeyEventId, MessageId, ModerationQueueItemId, MorphId,
+    MoveId, NotificationId, OperationId, PolicyId, PresentationId, ReadCursorId, RealmId, ReceiptId,
+    RecoverySessionId, RelationId, ReportId, RequestId, SidecarCircleId, SnapshotId, SpaceId, TransactionId,
     TypedAppealId, TypedTrustDomainId, ViewId,
 };
 pub use keystore::{

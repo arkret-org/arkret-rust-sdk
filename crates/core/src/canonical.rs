@@ -89,10 +89,16 @@ pub fn encode_state_subject(parts: &[&str]) -> String {
 }
 
 /// Inverse of [`encode_state_subject`]. Returns each part as a decoded `String`.
+///
+/// The encoder preserves each part's raw UTF-8 bytes verbatim (only `%`/`|`
+/// are escaped), so the decoder accumulates raw and percent-decoded bytes
+/// into a byte buffer and interprets the whole part as UTF-8 at the end.
+/// Decoding byte-by-byte as `b as char` would mis-read every multi-byte
+/// UTF-8 sequence as Latin-1 and break the round-trip for non-ASCII parts.
 pub fn decode_state_subject_parts(encoded: &str) -> Result<Vec<String>> {
     let mut out = Vec::new();
     for raw in encoded.split('|') {
-        let mut decoded = String::with_capacity(raw.len());
+        let mut decoded = Vec::<u8>::with_capacity(raw.len());
         let mut bytes = raw.bytes();
         while let Some(b) = bytes.next() {
             if b == b'%' {
@@ -108,12 +114,15 @@ pub fn decode_state_subject_parts(encoded: &str) -> Result<Vec<String>> {
                             "state subject percent-encoding has non-hex digits".to_owned(),
                         )
                     })?;
-                decoded.push(code as char);
+                decoded.push(code);
             } else {
-                decoded.push(b as char);
+                decoded.push(b);
             }
         }
-        out.push(decoded);
+        let part = String::from_utf8(decoded).map_err(|_| {
+            Error::Protocol("state subject is not valid UTF-8 after decoding".to_owned())
+        })?;
+        out.push(part);
     }
     Ok(out)
 }
@@ -457,6 +466,16 @@ mod tests {
     fn state_subject_decode_rejects_truncated_percent() {
         assert!(decode_state_subject_parts("abc%2").is_err());
         assert!(decode_state_subject_parts("abc%").is_err());
+    }
+
+    #[test]
+    fn state_subject_encoding_roundtrips_non_ascii() {
+        // Subjects can carry user-controlled labels/names with multi-byte
+        // UTF-8 (CJK, emoji). The decoder must reproduce the exact bytes.
+        let parts = ["标签", "naïve|café", "🚀rocket", "100%🎉"];
+        let encoded = encode_state_subject(&parts);
+        let decoded = decode_state_subject_parts(&encoded).unwrap();
+        assert_eq!(decoded, parts);
     }
 
     #[test]

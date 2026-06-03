@@ -9,7 +9,6 @@ use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-use ulid::Ulid;
 
 use crate::{DeviceId, Did, Error, Result, identity::DidDocument, model::Proof};
 

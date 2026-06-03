@@ -12,10 +12,10 @@ use crate::{Error, Result, canonical};
 pub use contrix_identifiers::{
     AccountabilityGrantId, ActorProfileId, AgentDraftId, AgentKeyId, AgentSessionId, AppletId,
     BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId, CallId, CapabilityId, ChunkId,
-    CircleId, ClaimId, Cursor, DeviceId, DevmsgId, Did, EventId, FilterId, FlowId, FrameId,
-    FrankId, GrantId, Hash, Hlc, InviteId, KeyevtId, MessageId, ModqId, MorphId, NotifId,
+    CircleId, ClaimId, Cursor, DeviceId, DeviceMessageId, Did, EventId, FilterId, FlowId, FrameId,
+    FrankingProofId, GrantId, Hash, Hlc, InviteId, KeyEventId, MessageId, ModerationQueueItemId, MorphId, NotificationId,
     OperationId, PolicyId, PresentationId, ReadCursorId, RealmId, ReceiptId, RecoverySessionId,
-    RelationId, ReportId, ReqId, SidecarCircleId, SnapshotId, SpaceId, TxnId, TypedAppealId,
+    RelationId, ReportId, RequestId, SidecarCircleId, SnapshotId, SpaceId, TransactionId, TypedAppealId,
     TypedTrustDomainId, ViewId, new_prefixed_uuid7,
 };
 

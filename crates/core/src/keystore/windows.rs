@@ -10,10 +10,10 @@
 use std::ffi::OsString;
 use std::os::windows::ffi::{OsStrExt, OsStringExt};
 
-use windows::Win32::Foundation::{ERROR_NOT_FOUND, GetLastError, WIN32_ERROR};
+use windows::Win32::Foundation::ERROR_NOT_FOUND;
 use windows::Win32::Security::Credentials::{
-    CRED_PERSIST_LOCAL_MACHINE, CRED_TYPE_GENERIC, CREDENTIALW, CredDeleteW, CredEnumerateW,
-    CredFree, CredReadW, CredWriteW,
+    CRED_PERSIST_SESSION, CRED_TYPE_GENERIC, CREDENTIALW, CredDeleteW, CredEnumerateW, CredFree,
+    CredReadW, CredWriteW,
 };
 use windows::core::PCWSTR;
 
@@ -99,7 +99,11 @@ impl KeyStore for WindowsCredentialKeyStore {
             LastWritten: windows::Win32::Foundation::FILETIME::default(),
             CredentialBlobSize: blob.len() as u32,
             CredentialBlob: blob.as_mut_ptr(),
-            Persist: CRED_PERSIST_LOCAL_MACHINE,
+            // Least-privilege persistence: bind device/signing keys to the
+            // current interactive logon session rather than the whole
+            // machine. This narrows the residency/exposure window in
+            // multi-session / roaming-profile deployments.
+            Persist: CRED_PERSIST_SESSION,
             AttributeCount: 0,
             Attributes: std::ptr::null_mut(),
             TargetAlias: windows::core::PWSTR::null(),
@@ -200,15 +204,6 @@ unsafe fn read_pwstr(ptr: *const u16) -> String {
 #[allow(non_snake_case)]
 fn PWSTR_from_slice(buf: &[u16]) -> windows::core::PWSTR {
     windows::core::PWSTR(buf.as_ptr() as *mut u16)
-}
-
-// Suppress unused-import warning for GetLastError / WIN32_ERROR on
-// configurations where the `windows` crate version doesn't expose them at
-// these paths.
-#[allow(dead_code)]
-fn _unused() {
-    let _ = GetLastError;
-    let _: Option<WIN32_ERROR> = None;
 }
 
 #[cfg(test)]

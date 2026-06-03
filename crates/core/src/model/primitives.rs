@@ -634,8 +634,15 @@ pub enum RelationDirection {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(rename_all = "kebab-case")]
+// Deliberate exception to the crate-wide `snake_case` enum convention: the
+// `encrypted-envelope.schema.json` `scheme` const is the kebab-case token
+// `mls-rfc9420` (distinct from the `encryption_profile` enum value
+// `mls_rfc9420`). The exception is made explicit per-variant rather than via
+// `rename_all = "kebab-case"` so a future `snake_case` variant added by habit
+// doesn't silently produce a wire-incompatible token.
+#[serde(rename_all = "snake_case")]
 pub enum EncryptedPayloadScheme {
+    #[serde(rename = "mls-rfc9420")]
     MlsRfc9420,
 }
 

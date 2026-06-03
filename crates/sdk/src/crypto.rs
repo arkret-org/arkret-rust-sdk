@@ -4,13 +4,18 @@ use chacha20poly1305::{
     XChaCha20Poly1305,
     aead::{Aead, KeyInit, Payload},
 };
+use hkdf::Hkdf;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
+use subtle::ConstantTimeEq;
 
 use crate::{Error, Result};
 
-pub const AEAD_ALGORITHM: &str = "xchacha20poly1305-sha256-key-v1";
+pub const AEAD_ALGORITHM: &str = "xchacha20poly1305-hkdf-sha256-v1";
+/// HKDF salt that domain-separates the `seal`/`open` AEAD key derivation
+/// from any other use of the same key material.
+const AEAD_HKDF_SALT: &[u8] = b"contrix-aead-seal-hkdf-v1";
 pub const ENCRYPTED_ENVELOPE_AAD_CONTEXT: &str = "contrix-encrypted-envelope-aad-v1";
 pub const REDACTED_SECRET: &str = "<redacted>";
 const NONCE_LEN: usize = 24;
@@ -224,14 +229,32 @@ pub fn redact_log_value(value: &Value) -> Value {
     }
 }
 
+/// Derive the 32-byte AEAD key from caller key material with HKDF-SHA256.
+///
+/// HKDF (RFC 5869) replaces the previous bare `SHA-256(key_material)`: a
+/// fixed salt domain-separates this `seal`/`open` use from any other key
+/// derivation, and the AAD is mixed into the `info` parameter so the same
+/// key material under a different context produces an independent key. The
+/// key material is still expected to be high-entropy; low-entropy
+/// passphrases MUST be stretched with `contrix_crypto::backup::derive_vault_kek`
+/// (Argon2id) before being passed here.
+fn derive_aead_key(key_material: &[u8], aad: &[u8]) -> Result<[u8; 32]> {
+    let hkdf = Hkdf::<Sha256>::new(Some(AEAD_HKDF_SALT), key_material);
+    let mut key = [0u8; 32];
+    hkdf.expand(aad, &mut key)
+        .map_err(|_| Error::Crypto("AEAD key derivation failed".to_owned()))?;
+    Ok(key)
+}
+
 /// Encrypt plaintext with XChaCha20-Poly1305 using the given key material and AAD.
 ///
-/// The key material is hashed with SHA-256 before use. The output contains the
+/// The key material is stretched with HKDF-SHA256 (domain-separated by a
+/// fixed salt and bound to `aad`) before use. The output contains the
 /// 24-byte nonce followed by the AEAD ciphertext+tag.
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(plaintext_len = plaintext.len())))]
 pub fn seal(plaintext: &[u8], key_material: &[u8], aad: &[u8]) -> Result<Vec<u8>> {
-    let key = Sha256::digest(key_material);
-    let cipher = XChaCha20Poly1305::new_from_slice(key.as_ref())
+    let key = derive_aead_key(key_material, aad)?;
+    let cipher = XChaCha20Poly1305::new_from_slice(&key)
         .map_err(|_| Error::Crypto("AEAD key derivation failed".to_owned()))?;
     let mut nonce = [0u8; NONCE_LEN];
     getrandom::fill(&mut nonce).map_err(|error| Error::Crypto(error.to_string()))?;
@@ -251,8 +274,8 @@ pub fn open(envelope: &[u8], key_material: &[u8], aad: &[u8]) -> Result<Vec<u8>>
         return Err(Error::Crypto("AEAD envelope is shorter than nonce".to_owned()));
     }
     let (nonce, ciphertext) = envelope.split_at(NONCE_LEN);
-    let key = Sha256::digest(key_material);
-    let cipher = XChaCha20Poly1305::new_from_slice(key.as_ref())
+    let key = derive_aead_key(key_material, aad)?;
+    let cipher = XChaCha20Poly1305::new_from_slice(&key)
         .map_err(|_| Error::Crypto("AEAD key derivation failed".to_owned()))?;
     let nonce: [u8; NONCE_LEN] = nonce
         .try_into()
@@ -417,19 +440,15 @@ fn sha256_prefixed(bytes: &[u8]) -> String {
     format!("sha256:{:x}", Sha256::digest(bytes))
 }
 
+/// Constant-time string comparison backed by the audited `subtle` crate.
+///
+/// Both inputs are reduced to a fixed-length SHA-256 digest first so the
+/// comparison loop bound never depends on the secret's length, then
+/// compared with `subtle::ConstantTimeEq`.
 fn constant_time_eq(left: &str, right: &str) -> bool {
-    let left = left.as_bytes();
-    let right = right.as_bytes();
-    let max_len = left.len().max(right.len());
-    let mut diff = left.len() ^ right.len();
-
-    for idx in 0..max_len {
-        let left_byte = left.get(idx).copied().unwrap_or(0);
-        let right_byte = right.get(idx).copied().unwrap_or(0);
-        diff |= (left_byte ^ right_byte) as usize;
-    }
-
-    diff == 0
+    let left = Sha256::digest(left.as_bytes());
+    let right = Sha256::digest(right.as_bytes());
+    left.ct_eq(right.as_slice()).into()
 }
 
 #[cfg(test)]
