@@ -8,6 +8,7 @@ Cokret SDK uses additive Cargo features.
 | Client | `--features client` | Reqwest-based HTTP client for the Cokret v1 service binding. |
 | Server | `--features server` | Framework-independent server handler contracts, shared contract re-exports and endpoint fixture coverage. |
 | Salvo OAPI | `--features salvo` | Server feature plus Salvo OAPI derives on Cokret DTO and identifier types. |
+| Applet | `--features applet` | Convenience umbrella for Applet developers: `applet-runtime` + `client` + `server` + `salvo`. One flag turns on the applet wire surface (`AppletPackage`, `WireAppletRegistration`, install objects, bridge-error builder), the HTTP client, the `AppletHandler` contracts and the ready-made `applet_router` Salvo factory. |
 | MLS | `--features mls` | OpenMLS-backed group creation, Welcome/Commit envelopes and payload encryption/decryption. |
 | Default | `client,mls` | Application SDK default: HTTP client plus MLS crypto primitives. |
 | All features | `--all-features` | Release and conformance validation build. |

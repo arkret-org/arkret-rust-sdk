@@ -11,12 +11,12 @@ pub const AGENT_KEY_ROTATE: &str = "ck.agent.key.rotate";
 pub const AGENT_KEY_AUTHORIZED: &str = AGENT_KEY_AUTHORIZE;
 pub const AGENT_KEY_REVOKED: &str = AGENT_KEY_REVOKE;
 pub const AGENT_KEY_ROTATED: &str = AGENT_KEY_ROTATE;
-// CXP-0008 / CXP-0009 (spec head 37ce729) — personal-agent lifecycle event
+// CKP-0008 / CKP-0009 (spec head 37ce729) — personal-agent lifecycle event
 // kinds (durable, reducer-input).
 pub const AGENT_PAUSE: &str = "ck.agent.pause";
 pub const AGENT_RESUME: &str = "ck.agent.resume";
 pub const AGENT_DEACTIVATE: &str = "ck.agent.deactivate";
-// CXP-0008 / CXP-0009 — agent action / draft event kinds (actor_private).
+// CKP-0008 / CKP-0009 — agent action / draft event kinds (actor_private).
 pub const AGENT_DRAFT_PROPOSE: &str = "ck.agent.draft.propose";
 pub const AGENT_ACTION_REQUEST: &str = "ck.agent.action_request";
 pub const AGENT_ACTION_APPROVE: &str = "ck.agent.action_approve";
@@ -41,7 +41,7 @@ pub const CAPABILITY_DELEGATE: &str = "ck.capability.delegate";
 pub const CAPABILITY_DERIVED: &str = "ck.capability.derived";
 pub const CAPABILITY_GRANT: &str = "ck.capability.grant";
 pub const CAPABILITY_REVOKE: &str = "ck.capability.revoke";
-// CXP-0007 (spec b7d35be) — Circle primitive event kinds. 7 active kinds
+// CKP-0007 (spec b7d35be) — Circle primitive event kinds. 7 active kinds
 // registered in `event-kind-registry.json` v2026-05-08.
 pub const CIRCLE_CREATE: &str = "ck.circle.create";
 pub const CIRCLE_UPDATE: &str = "ck.circle.update";
@@ -455,7 +455,7 @@ pub const NON_REDUCER_EVENT_KINDS: &[&str] = &[
     AUDIT_ERASURE_RECEIPT,
     AUDIT_RYW_RECEIPT,
     CALL_SIGNAL,
-    // CXP-0007: ck.circle.anchor_commit is reducer-derived (sub-anchor
+    // CKP-0007: ck.circle.anchor_commit is reducer-derived (sub-anchor
     // commit emitted by the reducer on the Circle's profile cadence);
     // it is NOT a reducer-input event.
     CIRCLE_ANCHOR_COMMIT,
@@ -520,7 +520,7 @@ pub enum EventClass {
     Audit,
     Authz,
     Call,
-    /// CXP-0007 (spec b7d35be) — Circle lifecycle / membership events.
+    /// CKP-0007 (spec b7d35be) — Circle lifecycle / membership events.
     Circle,
     Consent,
     Device,

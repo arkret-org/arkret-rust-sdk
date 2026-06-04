@@ -481,7 +481,7 @@ pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     "ck.schema.ephemeral_envelope.v1",
     "ck.schema.moderation_appeal.v1",
     "ck.schema.attestation_evidence.v1",
-    // CXP-0007 (spec b7d35be) — Circle primitive schema.
+    // CKP-0007 (spec b7d35be) — Circle primitive schema.
     "ck.schema.circle.v1",
     // Key-backup hardening (B-C, spec head 37ce729) — recovery policy and
     // recovery receipt schemas.

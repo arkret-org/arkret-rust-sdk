@@ -3,7 +3,7 @@ use crate::{AnchorId, Effect, Precondition};
 
 pub const EVENT_REF_ROLE_AUTHORIZED_BY: &str = "authorized_by";
 
-/// CXP-0008 / CXP-0009 (spec head 37ce729) — runtime classifier stamped by
+/// CKP-0008 / CKP-0009 (spec head 37ce729) — runtime classifier stamped by
 /// the reducer on every Envelope. Distinct from the existing `ActorKind`
 /// enum (which classifies `ActorProfile.actor_kind` as user/org/team/...)
 /// — this 4-value classifier describes the runtime origin of the
@@ -92,7 +92,7 @@ pub struct Event {
     pub created_at: DateTime<Utc>,
     pub hlc: Hlc,
     pub prev_refs: Vec<EventId>,
-    /// CXP-0007 (spec b7d35be, schemas/event-envelope.schema.json
+    /// CKP-0007 (spec b7d35be, schemas/event-envelope.schema.json
     /// `$defs.effective_scope`) — reducer-stamped immutable scope binding.
     /// `Realm` for events emitted in Realm-default scope; `Circle` for
     /// events emitted in a Circle scope. SDK helpers that mint envelopes
@@ -115,7 +115,7 @@ pub struct Event {
     pub redacts: Option<EventId>,
     #[serde(rename = "payload")]
     pub content: Value,
-    /// CXP-0008 / CXP-0009 (spec head 37ce729) — DID of the runtime that
+    /// CKP-0008 / CKP-0009 (spec head 37ce729) — DID of the runtime that
     /// actually executed this envelope on behalf of `actor_id`. When
     /// present, the reducer MUST verify that the DID resolved from
     /// `proof.verification_method` equals `executed_by`. Signed; nested
@@ -125,13 +125,13 @@ pub struct Event {
     // reducer MUST verify `executed_by` == proof verification_method DID.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub executed_by: Option<Did>,
-    /// CXP-0008 / CXP-0009 — typed reference (e.g. `ck:grant:<uuidv7>` /
+    /// CKP-0008 / CKP-0009 — typed reference (e.g. `ck:grant:<uuidv7>` /
     /// `ck:accountability_grant:<uuidv7>`) to the authorization artifact
     /// that authorized this envelope. Conditional; when present, MUST be
     /// included in the canonical signing transcript.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorization_ref: Option<String>,
-    /// CXP-0008 / CXP-0009 — runtime-origin classifier. Reducer-stamped
+    /// CKP-0008 / CKP-0009 — runtime-origin classifier. Reducer-stamped
     /// projection; clients MUST NOT supply it. See
     /// [`EnvelopeActorKind`] for invariants.
     ///
@@ -234,7 +234,7 @@ impl TryFrom<EventWire> for Event {
     }
 }
 
-/// CXP-0007 (spec b7d35be, schemas/event-envelope.schema.json
+/// CKP-0007 (spec b7d35be, schemas/event-envelope.schema.json
 /// `$defs.effective_scope`) — reducer-stamped immutable scope binding on
 /// an [`Event`].
 ///

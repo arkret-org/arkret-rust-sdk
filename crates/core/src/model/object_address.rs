@@ -1,4 +1,4 @@
-//! R3.3 (CXP-0011, cokret-spec @ cced4b8) — client-agnostic shareable object
+//! R3.3 (CKP-0011, cokret-spec @ cced4b8) — client-agnostic shareable object
 //! addressing grammar + invite-token target binding.
 //!
 //! A shareable address points at a Realm, a Flow inside a Realm, or a Message

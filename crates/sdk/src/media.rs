@@ -8,7 +8,7 @@ use sha2::{Digest, Sha256};
 
 use crate::{AEAD_ALGORITHM, BlobRef, CallId, DeviceId, Did, Error, RealmId, Result, crypto};
 
-// ─── CXP-0010 (R3 spec-sync 2026-05-27) — media token exchange ────────────
+// ─── CKP-0010 (R3 spec-sync 2026-05-27) — media token exchange ────────────
 
 /// Backend type for a call's media focus. Wire enum mirrors
 /// `ck.realm.media_service.foci[].type`. Receivers MUST fail closed with

@@ -1061,7 +1061,7 @@ impl Client {
         self.post("/_cokret/find/directory/resolve-realm", request).await
     }
 
-    /// R3.3 (CXP-0011, cokret-spec @ cced4b8) — `ck.directory.resolve_target`.
+    /// R3.3 (CKP-0011, cokret-spec @ cced4b8) — `ck.directory.resolve_target`.
     /// Resolve a client-agnostic shareable object address (Realm / Flow /
     /// Message) to a preview. The `address` and any `token` should be derived
     /// from [`cokret_core::model::parse_address`]; invite and preview tokens

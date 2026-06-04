@@ -1,4 +1,4 @@
-# Circle integration guide (CXP-0007)
+# Circle integration guide (CKP-0007)
 
 > Spec baseline: `cokret-spec` 2b0d70d (`zh/models/circle.md`,
 > `artifacts/schemas/circle.schema.json`).
@@ -108,7 +108,7 @@ See `zh/models/circle.md` §7.2 for the canonical semantics.
 
 ## Capability surface
 
-CXP-0007 adds 6 capability action constants:
+CKP-0007 adds 6 capability action constants:
 
 | Constant                                | Action wire string             | Notes                                                    |
 |-----------------------------------------|--------------------------------|----------------------------------------------------------|
@@ -129,7 +129,7 @@ Receivers (soland, sodmin, yougen, …) integrating the SDK MUST:
 
 1. Hard-reject any payload that carries a top-level field listed in
    [`forbidden_wire_fields::FORBIDDEN_WIRE_FIELDS`](../crates/core/src/forbidden_wire_fields.rs).
-   The CXP-0007 entries are `discussion_realm_ref`, `discussion_space_ref`,
+   The CKP-0007 entries are `discussion_realm_ref`, `discussion_space_ref`,
    `parent_ref`, `default_realm_ref`, `scope_ref`, `default_scope_ref`,
    `retention_policy_ref`, `disclosure_policy_ref`,
    `rate_limit_policy_ref`.

@@ -55,7 +55,7 @@ impl_string_schema!(
     AgentSessionId,
     r"^ck:agent_session:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
-// CXP-0008 / CXP-0009 (spec head 37ce729) — personal agent auxiliary
+// CKP-0008 / CKP-0009 (spec head 37ce729) — personal agent auxiliary
 // typed ids + key-backup hardening typed ids. `agent_principal_id` uses
 // the DID schema above.
 impl_string_schema!(

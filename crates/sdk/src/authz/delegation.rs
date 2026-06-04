@@ -77,7 +77,7 @@ pub struct Grant {
 /// representation; this enum is the in-memory runtime projection that
 /// soland threads through `AuthzEngine::check`.
 ///
-/// CXP-0007 P1.3.4: the previous `{ constraint_type: String, value:
+/// CKP-0007 P1.3.4: the previous `{ constraint_type: String, value:
 /// serde_json::Value }` weakly-typed form has been removed (no backwards
 /// compat). All call sites construct one of these variants directly.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -120,7 +120,7 @@ pub enum GrantConstraint {
         #[serde(default, skip_serializing_if = "is_false")]
         allow_redact_after_window: bool,
     },
-    /// CXP-0007 (spec b7d35be) — narrow a Circle-management capability
+    /// CKP-0007 (spec b7d35be) — narrow a Circle-management capability
     /// (`ck.circle.manage`, `ck.circle.member.manage`,
     /// `ck.circle.member.add.others`, `ck.circle.audit`) to a specific set
     /// of Circle ids. Spec `capability-action-registry.json` declares

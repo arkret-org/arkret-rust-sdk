@@ -139,7 +139,7 @@ fn is_valid_localpart(s: &str) -> bool {
     })
 }
 
-/// CXP R3 spec-sync (2026-05-27) — wire-level handle normalize check.
+/// CKP R3 spec-sync (2026-05-27) — wire-level handle normalize check.
 ///
 /// Performs the operations that a registrar / claim reducer MUST run
 /// before accepting a candidate localpart:

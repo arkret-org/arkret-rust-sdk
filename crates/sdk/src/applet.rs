@@ -1,4 +1,7 @@
-//! Applet schema, OpenAPI binding and portal helpers.
+//! Applet wire objects: registration, package, install aggregate
+//! operations, namespace claims/matching, bridge-error events and
+//! portal / bridge-mapping helpers (spec `applet-schema.md` +
+//! `applet-integration.md`).
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -13,164 +16,112 @@ use crate::{
     model::{AppletActorResBody, AppletRealmResBody, AppletTransactionReqBody},
 };
 
-/// Applet permission.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct AppletPermission {
-    pub resource: String,
-    pub actions: BTreeSet<String>,
-}
-
-/// OpenAPI binding.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct OpenApiBinding {
-    pub base_url: String,
-    pub operations: BTreeMap<String, String>,
-}
-
-/// Applet schema.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct AppletSchema {
-    pub applet_id: String,
-    pub name: String,
-    pub version: String,
-    pub permissions: Vec<AppletPermission>,
-    pub openapi: Option<OpenApiBinding>,
-    pub schema: Value,
-}
-
-impl AppletSchema {
-    /// Validate required fields.
-    pub fn validate(&self) -> Result<()> {
-        if self.applet_id.is_empty() || self.name.is_empty() || self.version.is_empty() {
-            return Err(Error::Protocol("applet schema missing required fields".to_owned()));
-        }
-        Ok(())
-    }
-
-    /// Check permission.
-    pub fn allows(&self, resource: &str, action: &str) -> bool {
-        self.permissions.iter().any(|permission| {
-            permission.resource == resource && permission.actions.contains(action)
-        })
-    }
-}
-
-/// Namespace domain declared by an applet or applet service.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+/// Which namespace bucket a claim lives in. The wire model
+/// (`applet-schema.md` §1.namespaces) groups claims into exactly
+/// `actors` / `realms` / `handles`; the bucket — not a separate `kind`
+/// field — determines the segment separator set used for pattern
+/// matching (§2). Replaces the legacy `AppletNamespaceKind`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum AppletNamespaceKind {
-    Actor,
-    Space,
-    Handle,
-    Protocol,
-    Command,
+pub enum AppletNamespaceDomain {
+    /// Actor / DID namespace. Separator: `:` only; `#fragment` is ignored.
+    Actors,
+    /// Realm / portal namespace. Separators: `:` and `/`.
+    Realms,
+    /// Handle namespace. Separators: `:` and `/`.
+    Handles,
 }
 
-/// Namespace declaration for applet ownership and bridge routing.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct AppletNamespaceDeclaration {
-    pub kind: AppletNamespaceKind,
-    pub pattern: String,
-    #[serde(default)]
-    pub exclusive: bool,
-}
-
-impl AppletNamespaceDeclaration {
-    /// Create an exclusive namespace declaration.
-    pub fn exclusive(kind: AppletNamespaceKind, pattern: impl Into<String>) -> Self {
-        Self { kind, pattern: pattern.into(), exclusive: true }
-    }
-
-    /// Return whether two declarations conflict.
-    pub fn conflicts_with(&self, other: &Self) -> bool {
-        self.kind == other.kind
-            && (self.exclusive || other.exclusive)
-            && namespace_patterns_overlap(&self.pattern, &other.pattern)
-    }
-
-    /// True iff `candidate` matches this declaration's pattern.
-    pub fn matches(&self, candidate: &str) -> bool {
-        namespace_pattern_matches(&self.pattern, candidate)
+impl AppletNamespaceDomain {
+    /// Segment separators for this domain per `applet-schema.md` §2.
+    fn separators(self) -> &'static [u8] {
+        match self {
+            AppletNamespaceDomain::Actors => b":",
+            AppletNamespaceDomain::Realms | AppletNamespaceDomain::Handles => b":/",
+        }
     }
 }
 
-/// Namespace conflict detected during applet registration.
+/// Overlap between two exclusive namespace claims in the same domain
+/// (`applet-schema.md` §4.1). Surfaced in
+/// [`InstallPlan::namespace_conflicts`] and by
+/// [`AppletWireNamespaces::conflicts_with`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AppletNamespaceConflict {
-    pub kind: AppletNamespaceKind,
+    pub domain: AppletNamespaceDomain,
     pub pattern: String,
-    pub conflicting_applet_id: String,
     pub conflicting_pattern: String,
 }
 
-/// Signed applet registration with namespace declarations.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct SignedAppletRegistration {
-    pub registration_id: String,
-    pub applet_id: String,
-    pub service_did: Did,
-    pub schema: AppletSchema,
+// ─── wire-format `ck.applet.registration` (spec `applet-schema.md` §1) ─────
+
+/// A single namespace claim entry. Wire shape per `applet-schema.md`
+/// §2: an `{ exclusive, pattern }` object, NOT a bare pattern string.
+/// `exclusive` claims reject any later registrant whose pattern overlaps
+/// (see [`AppletWireNamespaces::conflicts_with`]); non-exclusive claims
+/// may coexist.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct AppletNamespaceEntry {
     #[serde(default)]
-    pub namespaces: Vec<AppletNamespaceDeclaration>,
-    pub signature: String,
-    pub created_at: DateTime<Utc>,
+    pub exclusive: bool,
+    pub pattern: String,
 }
 
-impl SignedAppletRegistration {
-    /// Build a new signed registration model.
-    pub fn new(
-        applet_id: impl Into<String>,
-        service_did: Did,
-        schema: AppletSchema,
-        namespaces: Vec<AppletNamespaceDeclaration>,
-        signature: impl Into<String>,
-    ) -> Self {
-        let applet_id = applet_id.into();
-        Self {
-            registration_id: format!("applet_reg_{}", uuid::Uuid::now_v7()),
-            applet_id,
-            service_did,
-            schema,
-            namespaces,
-            signature: signature.into(),
-            created_at: Utc::now(),
-        }
+impl AppletNamespaceEntry {
+    /// An exclusive claim over `pattern`.
+    pub fn exclusive(pattern: impl Into<String>) -> Self {
+        Self { exclusive: true, pattern: pattern.into() }
     }
 
-    /// Validate required registration fields.
-    pub fn validate(&self) -> Result<()> {
-        self.schema.validate()?;
-        if self.applet_id != self.schema.applet_id {
-            return Err(Error::Protocol("applet registration id mismatch".to_owned()));
-        }
-        if self.signature.is_empty() {
-            return Err(Error::Protocol("applet registration missing signature".to_owned()));
-        }
-        for namespace in &self.namespaces {
-            if namespace.pattern.is_empty() {
-                return Err(Error::Protocol("applet namespace pattern is empty".to_owned()));
-            }
-        }
-        Ok(())
+    /// A shared (non-exclusive) claim over `pattern`.
+    pub fn shared(pattern: impl Into<String>) -> Self {
+        Self { exclusive: false, pattern: pattern.into() }
     }
 }
-
-// ─── S-4 (savfox SDK gap): wire-format `ck.applet.registration` ────────────
-//
-// Spec `applet-schema.md` §1. Distinct from [`SignedAppletRegistration`]
-// (SDK-internal). Co-exists so existing callers don't break; new
-// integrations (savfox bridge, ghost-actor controllers) MUST use this.
 
 /// Per-domain namespaces an Applet claims on registration. Wire shape
-/// per `applet-schema.md` §1.namespaces.
+/// per `applet-schema.md` §1.namespaces / §2: each domain holds an array
+/// of `{ exclusive, pattern }` entries (S-13: was a bare `Vec<String>`,
+/// which could not express exclusivity and so could not round-trip the
+/// spec's object-form namespace entries).
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AppletWireNamespaces {
     #[serde(default)]
-    pub actors: Vec<String>,
+    pub actors: Vec<AppletNamespaceEntry>,
     #[serde(default)]
-    pub realms: Vec<String>,
+    pub realms: Vec<AppletNamespaceEntry>,
     #[serde(default)]
-    pub handles: Vec<String>,
+    pub handles: Vec<AppletNamespaceEntry>,
+}
+
+impl AppletWireNamespaces {
+    /// Find exclusive-claim overlaps between `self` and `other`, per
+    /// domain (`applet-schema.md` §4.1). Two entries conflict iff they
+    /// sit in the same domain, at least one is `exclusive`, and their
+    /// patterns overlap.
+    pub fn conflicts_with(&self, other: &AppletWireNamespaces) -> Vec<AppletNamespaceConflict> {
+        let mut conflicts = Vec::new();
+        for (domain, mine, theirs) in [
+            (AppletNamespaceDomain::Actors, &self.actors, &other.actors),
+            (AppletNamespaceDomain::Realms, &self.realms, &other.realms),
+            (AppletNamespaceDomain::Handles, &self.handles, &other.handles),
+        ] {
+            for a in mine {
+                for b in theirs {
+                    if (a.exclusive || b.exclusive)
+                        && namespace_patterns_overlap(domain, &a.pattern, &b.pattern)
+                    {
+                        conflicts.push(AppletNamespaceConflict {
+                            domain,
+                            pattern: a.pattern.clone(),
+                            conflicting_pattern: b.pattern.clone(),
+                        });
+                    }
+                }
+            }
+        }
+        conflicts
+    }
 }
 
 /// Optional inbound-webhook auth metadata. Open-shape (`Value`) so
@@ -179,12 +130,11 @@ pub struct AppletWireNamespaces {
 pub type WebhookAuth = Value;
 
 /// Wire-format `ck.applet.registration` Event content per spec
-/// `applet-schema.md` §1.
+/// `applet-schema.md` §1 (authoritative `applet_registration_payload`).
 ///
-/// Distinct from [`SignedAppletRegistration`] — that one is an
-/// SDK-internal model used by the in-process applet registry; this is
-/// the on-the-wire shape every external Applet implementation sends.
-/// See [`crate::KNOWN_GAPS`] for migration notes.
+/// This is the on-the-wire shape every external Applet implementation
+/// sends. Build it directly via [`WireAppletRegistration::new`] or derive
+/// it from an [`AppletPackage`] with [`AppletPackage::to_registration`].
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct WireAppletRegistration {
     /// Always `"ck.applet.registration"`. Reducer rejects other values.
@@ -206,8 +156,22 @@ pub struct WireAppletRegistration {
     pub rate_limited: bool,
     #[serde(default)]
     pub requested_scopes: Vec<String>,
+    /// Canonical security epoch hash (`sha256:<hex>`) over the derived
+    /// registration plus DID Document / signing-key / endpoint / auth
+    /// evidence. **Required** per `applet-schema.md` §1 and the
+    /// authoritative `applet_registration_payload`; delegated-agent
+    /// grants bind this epoch (`applet-integration.md` §11). The SDK
+    /// cannot synthesize the full evidence digest, so the caller MUST
+    /// supply it.
+    pub registration_epoch: crate::Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub webhook_auth: Option<WebhookAuth>,
+    /// Optional manifest snapshot (claimed profiles, limits, policies,
+    /// widget) per `applet_registration_payload.manifest`. Populated by
+    /// [`AppletPackage::to_registration`]; never a substitute for the
+    /// top-level required fields.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manifest: Option<Value>,
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proof: Option<crate::model::Proof>,
@@ -227,6 +191,7 @@ impl WireAppletRegistration {
         bot_actor_id: Did,
         protocols: Vec<String>,
         namespaces: AppletWireNamespaces,
+        registration_epoch: crate::Hash,
     ) -> Self {
         Self {
             kind: Self::KIND.to_owned(),
@@ -241,7 +206,9 @@ impl WireAppletRegistration {
             receive_ephemeral: false,
             rate_limited: false,
             requested_scopes: Vec::new(),
+            registration_epoch,
             webhook_auth: None,
+            manifest: None,
             created_at: Utc::now(),
             proof: None,
         }
@@ -283,78 +250,511 @@ pub fn sign_registration<S: cokret_core::MoveSigner + ?Sized>(
     Ok(())
 }
 
-// ─── S-11 (savfox SDK gap): ck.applet.bridge_error builder ────────────────
+// ─── S-13 (2026-06-04): Applet Package + install aggregate objects ────────
+//
+// Spec `applet-schema.md` §1a/§1b + `applet-integration.md` §4a/§4b. The
+// Package is a controller-signed *distribution* object: it is NOT Realm
+// history and NOT a grant. The Principal Server / authz service derives a
+// canonical `ck.applet.registration` and capability grants during
+// `ck.applet.install`.
 
-/// Severity hint for [`AppletBridgeErrorBuilder`]. Spec
-/// `applet-integration.md` §14 keeps the slot opaque, so we expose a
-/// closed enum that serializes as snake_case.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AppletBridgeErrorSeverity {
-    /// Recoverable upstream blip; retry SHOULD succeed.
-    Warning,
-    /// Single-attempt failure; downstream MAY surface.
-    Error,
-    /// Repeated / unrecoverable failure; downstream MUST surface.
-    Fatal,
+/// Controller-signed installable Applet package (`ck.schema.applet_package.v1`).
+///
+/// Build it unsigned via [`AppletPackage::new`], [`seal`](Self::seal) to
+/// stamp `package_digest`, then [`sign`](Self::sign) with the controller
+/// signer. [`to_registration`](Self::to_registration) performs the
+/// spec §1a Package→registration derivation.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct AppletPackage {
+    /// Always `ck.schema.applet_package.v1`.
+    pub schema: String,
+    /// Distribution identifier only — never a grant subject.
+    pub package_id: String,
+    /// DID or `ck:applet:<uuidv7>`.
+    pub applet_id: String,
+    pub service_did: Did,
+    pub controller_did: Did,
+    pub base_url: String,
+    /// Visible bot actor DID; MUST NOT carry a `#fragment`.
+    pub bot_actor_id: Did,
+    /// MUST contain at least `ck.profile.applet_service.v1`.
+    pub claimed_profiles: Vec<String>,
+    pub protocols: Vec<String>,
+    pub namespaces: AppletWireNamespaces,
+    /// Capability action request list —审批 UI only, never a grant.
+    pub requested_scopes: Vec<String>,
+    /// Supported Applet API endpoints + auth requirements (open shape).
+    pub endpoint_set: Value,
+    /// HTTP message signature key ref / accepted algorithms (open shape).
+    pub webhook_auth: Value,
+    pub receive_events: bool,
+    pub receive_ephemeral: bool,
+    pub rate_limited: bool,
+    /// Max transaction events / payload bytes / rate-limit hint.
+    pub limits: Value,
+    /// Ghost Actor support + accountability template.
+    pub ghost_policy: Value,
+    /// Delegated native-user acting request; defaults to disabled.
+    pub delegation_policy: Value,
+    /// MLS join request; defaults to disabled.
+    pub e2ee_policy: Value,
+    /// Widget origin / CSP / token scope / consent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub widget: Option<Value>,
+    /// Canonical package hash (excludes `package_digest` + `proof`).
+    /// `None` until [`seal`](Self::seal).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub package_digest: Option<crate::Hash>,
+    /// Canonical security epoch hash; copied verbatim to the derived
+    /// registration.
+    pub registration_epoch: crate::Hash,
+    pub created_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
+    /// Controller DID detached proof. `None` until [`sign`](Self::sign).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proof: Option<crate::model::Proof>,
 }
 
-/// Build a `ck.applet.bridge_error` Event Envelope per spec
-/// `applet-integration.md` §14 + `applet-schema.md` §7.
+impl AppletPackage {
+    pub const SCHEMA: &'static str = "ck.schema.applet_package.v1";
+    /// The base profile every Applet package MUST claim.
+    pub const BASE_PROFILE: &'static str = "ck.profile.applet_service.v1";
+
+    /// Build an unsigned, unsealed package. Caller MUST
+    /// [`seal`](Self::seal) then [`sign`](Self::sign) before publishing.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        package_id: impl Into<String>,
+        applet_id: impl Into<String>,
+        service_did: Did,
+        controller_did: Did,
+        base_url: impl Into<String>,
+        bot_actor_id: Did,
+        protocols: Vec<String>,
+        namespaces: AppletWireNamespaces,
+        registration_epoch: crate::Hash,
+    ) -> Self {
+        Self {
+            schema: Self::SCHEMA.to_owned(),
+            package_id: package_id.into(),
+            applet_id: applet_id.into(),
+            service_did,
+            controller_did,
+            base_url: base_url.into(),
+            bot_actor_id,
+            claimed_profiles: vec![Self::BASE_PROFILE.to_owned()],
+            protocols,
+            namespaces,
+            requested_scopes: Vec::new(),
+            endpoint_set: Value::Object(Default::default()),
+            webhook_auth: Value::Object(Default::default()),
+            receive_events: false,
+            receive_ephemeral: false,
+            rate_limited: true,
+            limits: Value::Object(Default::default()),
+            ghost_policy: Value::Object(Default::default()),
+            delegation_policy: Value::Object(Default::default()),
+            e2ee_policy: Value::Object(Default::default()),
+            widget: None,
+            package_digest: None,
+            registration_epoch,
+            created_at: Utc::now(),
+            expires_at: None,
+            proof: None,
+        }
+    }
+
+    /// Canonical SHA256 over the package with `package_digest` **and**
+    /// `proof` cleared, so the digest never depends on itself or the
+    /// signature.
+    pub fn compute_package_digest(&self) -> Result<crate::Hash> {
+        let mut bare = self.clone();
+        bare.package_digest = None;
+        bare.proof = None;
+        crate::Hash::new(canonical::canonical_sha256(&bare)?).map_err(Into::into)
+    }
+
+    /// Compute and stamp `package_digest`.
+    pub fn seal(&mut self) -> Result<()> {
+        self.package_digest = Some(self.compute_package_digest()?);
+        Ok(())
+    }
+
+    /// Sign the canonical package (with `proof` removed) using the
+    /// controller signer and stamp `proof`. Call [`seal`](Self::seal)
+    /// first so the digest is part of the signed bytes.
+    pub fn sign<S: cokret_core::MoveSigner + ?Sized>(
+        &mut self,
+        signer: &S,
+        verification_method: &str,
+    ) -> Result<()> {
+        let mut unsigned = self.clone();
+        unsigned.proof = None;
+        let canonical_bytes = canonical::canonical_json_bytes(&unsigned)?;
+        let payload_digest = crate::Hash::new(canonical::sha256_digest(&canonical_bytes))?;
+        let sig = signer.sign_payload(&canonical_bytes)?;
+        self.proof = Some(crate::model::Proof {
+            kind: cokret_core::proof_kind::DETACHED_JWS.to_owned(),
+            alg: sig.alg,
+            verification_method: verification_method.to_owned(),
+            payload_digest,
+            created_at: Utc::now(),
+            domain: None,
+            audience: None,
+            jws: sig.jws,
+        });
+        Ok(())
+    }
+
+    /// Validate the sealed, signed package against the spec §1a required
+    /// fields. Rejects a missing base profile, empty protocol /
+    /// requested-scope lists, and an unsealed or unsigned package.
+    pub fn validate(&self) -> Result<()> {
+        if self.schema != Self::SCHEMA {
+            return Err(Error::Protocol("applet package schema mismatch".to_owned()));
+        }
+        if self.package_id.is_empty() || self.applet_id.is_empty() || self.base_url.is_empty() {
+            return Err(Error::Protocol("applet package missing required fields".to_owned()));
+        }
+        if !self.claimed_profiles.iter().any(|profile| profile == Self::BASE_PROFILE) {
+            return Err(Error::Protocol(
+                "applet package MUST claim ck.profile.applet_service.v1".to_owned(),
+            ));
+        }
+        if self.protocols.is_empty() {
+            return Err(Error::Protocol("applet package protocols are empty".to_owned()));
+        }
+        if self.requested_scopes.is_empty() {
+            return Err(Error::Protocol("applet package requested_scopes are empty".to_owned()));
+        }
+        if self.package_digest.is_none() {
+            return Err(Error::Protocol("applet package is not sealed".to_owned()));
+        }
+        if self.proof.is_none() {
+            return Err(Error::Protocol("applet package is not signed".to_owned()));
+        }
+        Ok(())
+    }
+
+    /// Manifest snapshot folded into the derived registration's
+    /// `manifest` slot (spec §1a derivation row `manifest`).
+    pub fn manifest_snapshot(&self) -> Value {
+        let mut manifest = serde_json::Map::new();
+        manifest.insert(
+            "claimed_profiles".to_owned(),
+            Value::Array(self.claimed_profiles.iter().cloned().map(Value::String).collect()),
+        );
+        manifest.insert("limits".to_owned(), self.limits.clone());
+        manifest.insert("ghost_policy".to_owned(), self.ghost_policy.clone());
+        manifest.insert("delegation_policy".to_owned(), self.delegation_policy.clone());
+        manifest.insert("e2ee_policy".to_owned(), self.e2ee_policy.clone());
+        if let Some(widget) = &self.widget {
+            manifest.insert("widget".to_owned(), widget.clone());
+        }
+        Value::Object(manifest)
+    }
+
+    /// Derive the canonical `ck.applet.registration` payload per the
+    /// spec §1a mapping table. The package `proof` is carried over; the
+    /// authz service still re-verifies / re-signs the derived
+    /// registration before fan-out.
+    pub fn to_registration(&self) -> Result<WireAppletRegistration> {
+        self.validate()?;
+        let mut reg = WireAppletRegistration::new(
+            self.applet_id.clone(),
+            self.service_did.clone(),
+            self.controller_did.clone(),
+            self.base_url.clone(),
+            self.bot_actor_id.clone(),
+            self.protocols.clone(),
+            self.namespaces.clone(),
+            self.registration_epoch.clone(),
+        );
+        reg.receive_events = self.receive_events;
+        reg.receive_ephemeral = self.receive_ephemeral;
+        reg.rate_limited = self.rate_limited;
+        reg.requested_scopes = self.requested_scopes.clone();
+        reg.webhook_auth = Some(self.webhook_auth.clone());
+        reg.manifest = Some(self.manifest_snapshot());
+        reg.created_at = self.created_at;
+        reg.proof = self.proof.clone();
+        Ok(reg)
+    }
+}
+
+/// Single install target. `kind="realm"` is a Realm-wide grant;
+/// `kind="circle"` is bounded to one Circle. A single install operation
+/// MUST target exactly one scope (spec §1b / §4b).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum EffectiveScope {
+    Realm { realm_id: RealmId },
+    Circle { realm_id: RealmId, circle_id: crate::CircleId },
+}
+
+impl EffectiveScope {
+    /// The Realm both variants are anchored in.
+    pub fn realm_id(&self) -> &RealmId {
+        match self {
+            EffectiveScope::Realm { realm_id } | EffectiveScope::Circle { realm_id, .. } => realm_id,
+        }
+    }
+}
+
+/// Admin approval intent attached to an install preview (spec §1b). Not
+/// a grant; the commit step intersects it with package requested scopes
+/// and Realm/Circle policy.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ApprovalRequest {
+    #[serde(default)]
+    pub approve_actions: Vec<String>,
+    #[serde(default)]
+    pub allow_ghost_actors: bool,
+    #[serde(default)]
+    pub allow_delegated_native_actors: bool,
+    #[serde(default)]
+    pub allow_e2ee_join: bool,
+    #[serde(default)]
+    pub allow_widget: bool,
+}
+
+/// `POST /_cokret/self/applets/install/preview` request body.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct InstallPreviewRequest {
+    pub applet_package: AppletPackage,
+    pub effective_scope: EffectiveScope,
+    #[serde(default)]
+    pub approval_request: ApprovalRequest,
+}
+
+/// Approved capability scope (commit input). `actions` × `realm_ids`
+/// under optional `constraints`.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct ApprovedScope {
+    #[serde(default)]
+    pub actions: Vec<String>,
+    #[serde(default)]
+    pub realm_ids: Vec<RealmId>,
+    #[serde(default)]
+    pub constraints: Vec<Value>,
+}
+
+/// Read-only `InstallPlan` returned by install preview (spec §1b). The
+/// recomputed `plan_digest` is the anti-tamper anchor the commit step
+/// re-derives and compares (`applet_install_plan_mismatch`).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct InstallPlan {
+    pub plan_id: String,
+    pub applet_id: String,
+    pub package_digest: crate::Hash,
+    pub registration_epoch: crate::Hash,
+    pub effective_scope: EffectiveScope,
+    #[serde(default)]
+    pub requested_scopes: Vec<String>,
+    #[serde(default)]
+    pub approved_scopes: Vec<ApprovedScope>,
+    #[serde(default)]
+    pub denied_scopes: Vec<String>,
+    #[serde(default)]
+    pub events_to_submit: Vec<Value>,
+    #[serde(default)]
+    pub capability_constraints: Vec<Value>,
+    #[serde(default)]
+    pub namespace_conflicts: Vec<AppletNamespaceConflict>,
+    pub e2ee_effect: Value,
+    pub widget_effect: Value,
+    #[serde(default)]
+    pub warnings: Vec<String>,
+    /// `None` until [`seal`](Self::seal); canonical digest excludes
+    /// itself.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plan_digest: Option<crate::Hash>,
+}
+
+impl InstallPlan {
+    /// Canonical SHA256 over the plan with `plan_digest` cleared.
+    pub fn compute_plan_digest(&self) -> Result<crate::Hash> {
+        let mut bare = self.clone();
+        bare.plan_digest = None;
+        crate::Hash::new(canonical::canonical_sha256(&bare)?).map_err(Into::into)
+    }
+
+    /// Compute and stamp `plan_digest`.
+    pub fn seal(&mut self) -> Result<()> {
+        self.plan_digest = Some(self.compute_plan_digest()?);
+        Ok(())
+    }
+}
+
+/// Bot / ghost membership policy carried into the install commit.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ActorPolicy {
+    pub bot_membership: String,
+    pub ghost_actor_mode: String,
+}
+
+/// E2EE policy at install commit time.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstallE2eePolicy {
+    #[serde(default)]
+    pub allow_mls_join: bool,
+}
+
+/// Widget policy at install commit time.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WidgetPolicy {
+    #[serde(default)]
+    pub allow_widget: bool,
+}
+
+/// `POST /_cokret/self/applets/install` request body. MUST carry the
+/// preview `plan_digest`; the server fails closed on a mismatch.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct InstallCommitRequest {
+    pub plan_digest: crate::Hash,
+    pub applet_package: AppletPackage,
+    pub effective_scope: EffectiveScope,
+    #[serde(default)]
+    pub approved_scopes: Vec<ApprovedScope>,
+    pub actor_policy: ActorPolicy,
+    #[serde(default)]
+    pub e2ee_policy: InstallE2eePolicy,
+    #[serde(default)]
+    pub widget_policy: WidgetPolicy,
+}
+
+/// Install commit response (spec §1b). Carries the fan-out event refs
+/// (`ck.applet.registration`, `ck.capability.grant`, membership, E2EE
+/// authorization, widget policy).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct InstallCommitResponse {
+    pub ok: bool,
+    pub install_id: String,
+    pub applet_id: String,
+    pub registration_event_ref: String,
+    pub registration_epoch: crate::Hash,
+    pub bot_actor_id: Did,
+    #[serde(default)]
+    pub capability_grant_refs: Vec<String>,
+    #[serde(default)]
+    pub membership_event_refs: Vec<String>,
+    #[serde(default)]
+    pub e2ee_authorization_refs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub widget_policy_ref: Option<String>,
+    pub effective_status: String,
+    #[serde(default)]
+    pub rejected: Vec<Value>,
+}
+
+/// `POST /_cokret/self/applets/{applet_id}/revoke` request body. Revoke
+/// targets the active install bound to `applet_id` + `effective_scope` +
+/// `registration_epoch` (spec §4b): all active grants, widget scoped
+/// token, delegated session and (where required) bot/ghost membership.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct InstallRevokeRequest {
+    pub effective_scope: EffectiveScope,
+    pub registration_epoch: crate::Hash,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+// ─── S-11 / S-13: ck.applet.bridge_error builder ──────────────────────────
+
+/// Who MAY see a `ck.applet.bridge_error` Event. Spec `applet-schema.md`
+/// §7 makes `visibility_scope` a **required** enum; clients MUST restrict
+/// display accordingly and MUST NOT leak bridge-internal detail to
+/// unrelated members. Serializes as snake_case.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AppletBridgeErrorVisibility {
+    /// Realm administrators only.
+    RealmAdmins,
+    /// The Applet controller only.
+    AppletController,
+    /// All Realm members.
+    RealmMembers,
+}
+
+/// Build a `ck.applet.bridge_error` Event per spec `applet-schema.md` §7
+/// (authoritative `applet_bridge_error_payload`).
 ///
 /// External Applets MUST emit this Event rather than silently dropping
-/// upstream-network failures (savfox's current tracing-only path
-/// fails-closed in production).
+/// upstream-network failures. The payload MUST bind `realm_id`,
+/// `failed_transaction_ref`, `retriable` and `visibility_scope`; missing
+/// any required field is rejected as `schema_violation`. The builder
+/// takes all required fields up front so a bridge error can never be
+/// built without them.
+///
+/// S-13 (2026-06-04): replaces the prior `severity` / `target_ref` shape
+/// — the spec landed `error_class` / `retriable` / `visibility_scope` /
+/// `failed_transaction_ref` instead.
 #[derive(Clone, Debug)]
 pub struct AppletBridgeErrorBuilder {
     realm_id: RealmId,
     applet_id: String,
     actor_id: Did,
-    target_ref: Option<String>,
-    code: String,
-    message: String,
-    severity: AppletBridgeErrorSeverity,
+    failed_transaction_ref: String,
+    error_class: String,
+    error_code: String,
+    retriable: bool,
+    visibility_scope: AppletBridgeErrorVisibility,
+    message: Option<String>,
     external_ref: Option<Value>,
+    retry_after_ms: Option<u64>,
     extra: serde_json::Map<String, Value>,
 }
 
 impl AppletBridgeErrorBuilder {
-    /// `applet_id` is the typed `ck:applet:<uuidv7>`; `actor_id` is
-    /// the bot / system DID emitting the error.
+    /// `applet_id` is the typed `ck:applet:<uuidv7>` (or DID); `actor_id`
+    /// is the bot / system DID emitting the error. `failed_transaction_ref`
+    /// points at the failed transaction / source Event (e.g. a push
+    /// `event_id`) and MUST NOT inline unauthorized external plaintext.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         realm_id: RealmId,
         applet_id: impl Into<String>,
         actor_id: Did,
-        code: impl Into<String>,
-        message: impl Into<String>,
+        failed_transaction_ref: impl Into<String>,
+        error_class: impl Into<String>,
+        error_code: impl Into<String>,
+        retriable: bool,
+        visibility_scope: AppletBridgeErrorVisibility,
     ) -> Self {
         Self {
             realm_id,
             applet_id: applet_id.into(),
             actor_id,
-            target_ref: None,
-            code: code.into(),
-            message: message.into(),
-            severity: AppletBridgeErrorSeverity::Error,
+            failed_transaction_ref: failed_transaction_ref.into(),
+            error_class: error_class.into(),
+            error_code: error_code.into(),
+            retriable,
+            visibility_scope,
+            message: None,
             external_ref: None,
+            retry_after_ms: None,
             extra: serde_json::Map::new(),
         }
     }
 
-    /// Typed reference to the Object the failure relates to (e.g.
-    /// `ck:event:...`, `ck:morph:...`).
-    pub fn with_target_ref(mut self, target_ref: impl Into<String>) -> Self {
-        self.target_ref = Some(target_ref.into());
+    /// Human-readable summary. MUST NOT leak unauthorized external
+    /// plaintext.
+    pub fn with_message(mut self, message: impl Into<String>) -> Self {
+        self.message = Some(message.into());
         self
     }
 
-    pub fn with_severity(mut self, severity: AppletBridgeErrorSeverity) -> Self {
-        self.severity = severity;
-        self
-    }
-
+    /// External network reference (protocol / network id). MUST NOT
+    /// contain unauthorized external plaintext.
     pub fn with_external_ref(mut self, external_ref: Value) -> Self {
         self.external_ref = Some(external_ref);
+        self
+    }
+
+    /// Suggested retry delay; only meaningful when `retriable == true`.
+    pub fn with_retry_after_ms(mut self, retry_after_ms: u64) -> Self {
+        self.retry_after_ms = Some(retry_after_ms);
         self
     }
 
@@ -366,14 +766,28 @@ impl AppletBridgeErrorBuilder {
     pub fn build(self, actor_seq: u64, hlc: crate::Hlc) -> Result<Event> {
         let mut content = serde_json::Map::new();
         content.insert("applet_id".to_owned(), Value::String(self.applet_id.clone()));
-        content.insert("code".to_owned(), Value::String(self.code.clone()));
-        content.insert("message".to_owned(), Value::String(self.message.clone()));
+        content.insert("realm_id".to_owned(), Value::String(self.realm_id.as_str().to_owned()));
         content.insert(
-            "severity".to_owned(),
-            serde_json::to_value(self.severity).expect("severity is a closed enum"),
+            "failed_transaction_ref".to_owned(),
+            Value::String(self.failed_transaction_ref.clone()),
         );
-        if let Some(target_ref) = &self.target_ref {
-            content.insert("target_ref".to_owned(), Value::String(target_ref.clone()));
+        content.insert("error_class".to_owned(), Value::String(self.error_class.clone()));
+        content.insert("error_code".to_owned(), Value::String(self.error_code.clone()));
+        content.insert("retriable".to_owned(), Value::Bool(self.retriable));
+        content.insert(
+            "visibility_scope".to_owned(),
+            serde_json::to_value(self.visibility_scope).expect("visibility_scope is a closed enum"),
+        );
+        if let Some(message) = &self.message {
+            content.insert("message".to_owned(), Value::String(message.clone()));
+        }
+        if let Some(external_ref) = &self.external_ref {
+            content.insert("external_ref".to_owned(), external_ref.clone());
+        }
+        if self.retriable {
+            if let Some(retry_after_ms) = self.retry_after_ms {
+                content.insert("retry_after_ms".to_owned(), Value::from(retry_after_ms));
+            }
         }
         for (k, v) in &self.extra {
             content.insert(k.clone(), v.clone());
@@ -392,124 +806,6 @@ impl AppletBridgeErrorBuilder {
             event.external_ref = Some(external_ref);
         }
         Ok(event)
-    }
-}
-
-/// Applet registry.
-#[derive(Clone, Debug, Default)]
-#[cfg(test)]
-pub(crate) struct AppletRegistry {
-    applets: BTreeMap<String, AppletSchema>,
-    signed_registrations: BTreeMap<String, SignedAppletRegistration>,
-    namespaces: Vec<(String, AppletNamespaceDeclaration)>,
-}
-
-#[cfg(test)]
-impl AppletRegistry {
-    /// Create an empty registry.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Parse and register an applet schema from JSON.
-    pub fn register_from_value(&mut self, value: Value) -> Result<AppletSchema> {
-        let schema: AppletSchema = serde_json::from_value(value)?;
-        schema.validate()?;
-        self.applets.insert(schema.applet_id.clone(), schema.clone());
-        Ok(schema)
-    }
-
-    /// Register an applet schema.
-    pub fn register(&mut self, schema: AppletSchema) -> Result<()> {
-        schema.validate()?;
-        self.applets.insert(schema.applet_id.clone(), schema);
-        Ok(())
-    }
-
-    /// Get an applet.
-    pub fn get(&self, applet_id: &str) -> Option<&AppletSchema> {
-        self.applets.get(applet_id)
-    }
-
-    /// Register a signed applet and reject conflicting exclusive namespaces.
-    pub fn register_signed(&mut self, registration: SignedAppletRegistration) -> Result<()> {
-        registration.validate()?;
-        let conflicts = self.namespace_conflicts(&registration.namespaces);
-        if !conflicts.is_empty() {
-            return Err(Error::Protocol("applet namespace conflict".to_owned()));
-        }
-
-        self.register(registration.schema.clone())?;
-        for namespace in &registration.namespaces {
-            self.namespaces.push((registration.applet_id.clone(), namespace.clone()));
-        }
-        self.signed_registrations.insert(registration.registration_id.clone(), registration);
-        Ok(())
-    }
-
-    /// Find namespace conflicts for a proposed registration.
-    pub fn namespace_conflicts(
-        &self,
-        namespaces: &[AppletNamespaceDeclaration],
-    ) -> Vec<AppletNamespaceConflict> {
-        namespaces
-            .iter()
-            .flat_map(|candidate| {
-                self.namespaces.iter().filter_map(move |(applet_id, existing)| {
-                    if candidate.conflicts_with(existing) {
-                        Some(AppletNamespaceConflict {
-                            kind: candidate.kind.clone(),
-                            pattern: candidate.pattern.clone(),
-                            conflicting_applet_id: applet_id.clone(),
-                            conflicting_pattern: existing.pattern.clone(),
-                        })
-                    } else {
-                        None
-                    }
-                })
-            })
-            .collect()
-    }
-}
-
-/// Applet endpoint registration model.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg(test)]
-pub(crate) struct AppletEndpointRegistration {
-    pub registration_id: String,
-    pub service_did: Did,
-    pub bot_localpart: String,
-    #[serde(default)]
-    pub namespaces: Vec<AppletNamespaceDeclaration>,
-    #[serde(default)]
-    pub protocols: Vec<String>,
-    #[serde(default)]
-    pub receive_ephemeral: bool,
-    #[serde(default)]
-    pub rate_limited: bool,
-}
-
-#[cfg(test)]
-impl AppletEndpointRegistration {
-    /// Create a registration with a generated id.
-    pub fn new(service_did: Did, bot_localpart: impl Into<String>) -> Self {
-        Self {
-            registration_id: format!("applet_ep_{}", uuid::Uuid::now_v7()),
-            service_did,
-            bot_localpart: bot_localpart.into(),
-            namespaces: Vec::new(),
-            protocols: Vec::new(),
-            receive_ephemeral: false,
-            rate_limited: true,
-        }
-    }
-
-    /// Validate required fields.
-    pub fn validate(&self) -> Result<()> {
-        if self.bot_localpart.is_empty() {
-            return Err(Error::Protocol("applet endpoint bot localpart is empty".to_owned()));
-        }
-        Ok(())
     }
 }
 
@@ -857,37 +1153,55 @@ impl AppletPortalManager {
     }
 }
 
-fn namespace_patterns_overlap(left: &str, right: &str) -> bool {
-    if left == right || left == "*" || right == "*" {
+/// Strip the DID `#fragment` for actor-domain matching (`applet-schema.md`
+/// §2: `#fragment` does not participate). Other domains keep `#` literal.
+fn strip_fragment(domain: AppletNamespaceDomain, value: &str) -> &str {
+    if matches!(domain, AppletNamespaceDomain::Actors) {
+        value.split('#').next().unwrap_or(value)
+    } else {
+        value
+    }
+}
+
+/// Conservative overlap test between two exclusive namespace patterns.
+/// Conflict detection MUST NOT miss a real overlap, so this errs toward
+/// over-reporting: it strips a trailing `*` / `**` and tests prefix
+/// containment after fragment normalization.
+fn namespace_patterns_overlap(domain: AppletNamespaceDomain, left: &str, right: &str) -> bool {
+    let left = strip_fragment(domain, left);
+    let right = strip_fragment(domain, right);
+    if left == right {
         return true;
     }
-    let left_prefix = left.strip_suffix('*').unwrap_or(left);
-    let right_prefix = right.strip_suffix('*').unwrap_or(right);
+    let left_prefix = left.trim_end_matches('*');
+    let right_prefix = right.trim_end_matches('*');
     left_prefix.starts_with(right_prefix) || right_prefix.starts_with(left_prefix)
 }
 
-/// Test whether a candidate string matches an applet namespace pattern.
+/// Test whether `candidate` matches an applet namespace `pattern` in
+/// `domain`.
 ///
-/// Grammar (spec applet-schema.md §2):
-/// - `*` matches one path-like segment (i.e. one or more consecutive
-///   non-separator chars, where separators are `:`, `/`, `#`). Empty matches
-///   are not allowed.
-/// - `**` matches multiple segments — any chars, including separators. May
-///   match the empty string when consumed at the end of the pattern.
+/// Grammar (spec `applet-schema.md` §2):
+/// - `*` matches exactly one segment: one or more chars that are not a
+///   separator for `domain` (actor: `:`; realm / handle: `:` and `/`). It
+///   never crosses a separator and never matches an empty segment.
+/// - `**` matches one or more path-like segments: one or more chars that
+///   may include `/` but never `:`. It never matches empty.
 /// - Literal `*` is escaped as `\*`.
-/// - All other characters match literally.
-///
-/// An empty pattern never matches a non-empty candidate; an empty pattern
-/// matches only an empty candidate.
-pub fn namespace_pattern_matches(pattern: &str, candidate: &str) -> bool {
-    namespace_pattern_match_bytes(pattern.as_bytes(), candidate.as_bytes())
+/// - For the actor domain a DID `#fragment` is ignored on both sides.
+/// - An empty pattern matches only an empty candidate.
+pub fn namespace_pattern_matches(
+    domain: AppletNamespaceDomain,
+    pattern: &str,
+    candidate: &str,
+) -> bool {
+    let pattern = strip_fragment(domain, pattern);
+    let candidate = strip_fragment(domain, candidate);
+    namespace_pattern_match_bytes(domain.separators(), pattern.as_bytes(), candidate.as_bytes())
 }
 
-fn is_namespace_separator(byte: u8) -> bool {
-    matches!(byte, b':' | b'/' | b'#')
-}
-
-fn namespace_pattern_match_bytes(pattern: &[u8], candidate: &[u8]) -> bool {
+fn namespace_pattern_match_bytes(separators: &[u8], pattern: &[u8], candidate: &[u8]) -> bool {
+    let is_sep = |byte: u8| separators.contains(&byte);
     let mut pi = 0;
     let mut ci = 0;
 
@@ -902,37 +1216,34 @@ fn namespace_pattern_match_bytes(pattern: &[u8], candidate: &[u8]) -> bool {
                 ci += 1;
             }
             b'*' => {
-                // Detect `**` vs `*`.
                 if pi + 1 < pattern.len() && pattern[pi + 1] == b'*' {
-                    // `**`: any chars, including separators, possibly empty.
+                    // `**`: one or more chars, may cross `/` but never `:`.
                     let rest = &pattern[pi + 2..];
-                    if rest.is_empty() {
-                        // Trailing `**` consumes everything remaining.
-                        return true;
+                    if ci >= candidate.len() || candidate[ci] == b':' {
+                        return false;
                     }
-                    // Try every possible split point for the remainder of
-                    // the candidate.
-                    for split in ci..=candidate.len() {
-                        if namespace_pattern_match_bytes(rest, &candidate[split..]) {
+                    let mut split = ci + 1;
+                    loop {
+                        if namespace_pattern_match_bytes(separators, rest, &candidate[split..]) {
                             return true;
                         }
+                        if split >= candidate.len() || candidate[split] == b':' {
+                            return false;
+                        }
+                        split += 1;
                     }
-                    return false;
                 } else {
                     // `*`: one or more non-separator chars.
                     let rest = &pattern[pi + 1..];
-                    let mut split = ci + 1;
-                    // Must consume at least one non-separator char.
-                    if split > candidate.len() || is_namespace_separator(candidate[ci]) {
+                    if ci >= candidate.len() || is_sep(candidate[ci]) {
                         return false;
                     }
-                    // Greedy/backtracking walk: extend the consumed span as
-                    // long as we stay on non-separator chars.
+                    let mut split = ci + 1;
                     loop {
-                        if namespace_pattern_match_bytes(rest, &candidate[split..]) {
+                        if namespace_pattern_match_bytes(separators, rest, &candidate[split..]) {
                             return true;
                         }
-                        if split >= candidate.len() || is_namespace_separator(candidate[split]) {
+                        if split >= candidate.len() || is_sep(candidate[split]) {
                             return false;
                         }
                         split += 1;
@@ -968,28 +1279,6 @@ mod tests {
     }
 
     #[test]
-    fn applet_registry_parses_openapi_schema_and_permissions() {
-        let mut registry = AppletRegistry::new();
-        let schema = registry
-            .register_from_value(json!({
-                "applet_id": "todo",
-                "name": "Todo",
-                "version": "1.0.0",
-                "permissions": [{"resource": "task", "actions": ["read", "write"]}],
-                "openapi": {
-                    "base_url": "https://api.example",
-                    "operations": {"createTask": "POST /tasks"}
-                },
-                "schema": {"type": "object"}
-            }))
-            .unwrap();
-
-        assert!(schema.allows("task", "write"));
-        assert_eq!(schema.openapi.unwrap().operations["createTask"], "POST /tasks");
-        assert!(registry.get("todo").is_some());
-    }
-
-    #[test]
     fn applet_portal_manages_space_bridge_and_ghost_actor() {
         let mut manager = AppletPortalManager::new();
         let portal = manager
@@ -1005,34 +1294,39 @@ mod tests {
     }
 
     #[test]
-    fn signed_applet_registration_rejects_namespace_conflicts() {
-        let mut registry = AppletRegistry::new();
-        let schema = AppletSchema {
-            applet_id: "todo".to_owned(),
-            name: "Todo".to_owned(),
-            version: "1.0.0".to_owned(),
-            permissions: Vec::new(),
-            openapi: None,
-            schema: json!({"type": "object"}),
+    fn applet_wire_namespaces_detect_exclusive_conflicts() {
+        let a = AppletWireNamespaces {
+            actors: vec![AppletNamespaceEntry::exclusive("did:web:slack-bridge.example:ghost:*")],
+            ..Default::default()
         };
-        let registration = SignedAppletRegistration::new(
-            "todo",
-            did("svc"),
-            schema.clone(),
-            vec![AppletNamespaceDeclaration::exclusive(AppletNamespaceKind::Command, "!todo*")],
-            "sig",
-        );
-        registry.register_signed(registration).unwrap();
+        // Exclusive vs overlapping concrete claim in the same domain conflicts.
+        let b = AppletWireNamespaces {
+            actors: vec![AppletNamespaceEntry::exclusive(
+                "did:web:slack-bridge.example:ghost:u1",
+            )],
+            ..Default::default()
+        };
+        let conflicts = a.conflicts_with(&b);
+        assert_eq!(conflicts.len(), 1);
+        assert_eq!(conflicts[0].domain, Actors);
 
-        let conflict = SignedAppletRegistration::new(
-            "todo2",
-            did("svc2"),
-            AppletSchema { applet_id: "todo2".to_owned(), ..schema },
-            vec![AppletNamespaceDeclaration::exclusive(AppletNamespaceKind::Command, "!todo add")],
-            "sig",
-        );
-        assert!(registry.namespace_conflicts(&conflict.namespaces).len() == 1);
-        assert!(registry.register_signed(conflict).is_err());
+        // Two non-exclusive claims may coexist.
+        let c = AppletWireNamespaces {
+            actors: vec![AppletNamespaceEntry::shared("did:web:slack-bridge.example:ghost:*")],
+            ..Default::default()
+        };
+        let d = AppletWireNamespaces {
+            actors: vec![AppletNamespaceEntry::shared("did:web:slack-bridge.example:ghost:u1")],
+            ..Default::default()
+        };
+        assert!(c.conflicts_with(&d).is_empty());
+
+        // Claims in different domain buckets never conflict.
+        let realm_only = AppletWireNamespaces {
+            realms: vec![AppletNamespaceEntry::exclusive("slack:team:*")],
+            ..Default::default()
+        };
+        assert!(a.conflicts_with(&realm_only).is_empty());
     }
 
     #[test]
@@ -1065,8 +1359,6 @@ mod tests {
 
     #[test]
     fn applet_endpoint_routes_and_bridge_mappings_cover_queries() {
-        let registration = AppletEndpointRegistration::new(did("svc"), "bridge");
-        registration.validate().unwrap();
         assert_eq!(AppletEndpointRouteSet::cokret_default().routes.len(), 8);
 
         let mut mappings = BridgeMappingStore::new();
@@ -1091,33 +1383,49 @@ mod tests {
         assert!(mappings.space("slack", "C1").is_some());
     }
 
+    use AppletNamespaceDomain::{Actors, Realms};
+
     #[test]
     fn namespace_pattern_single_star_matches_one_segment() {
         assert!(namespace_pattern_matches(
-            "did:web:slack-bridge.example#ghost-*",
-            "did:web:slack-bridge.example#ghost-u123"
+            Actors,
+            "did:web:slack-bridge.example:ghost:*",
+            "did:web:slack-bridge.example:ghost:u123"
         ));
     }
 
     #[test]
     fn namespace_pattern_single_star_rejects_different_host() {
         assert!(!namespace_pattern_matches(
-            "did:web:slack-bridge.example#ghost-*",
-            "did:web:other.example#ghost-u123"
+            Actors,
+            "did:web:slack-bridge.example:ghost:*",
+            "did:web:other.example:ghost:u123"
         ));
     }
 
     #[test]
     fn namespace_pattern_single_star_rejects_missing_prefix() {
         assert!(!namespace_pattern_matches(
-            "did:web:slack-bridge.example#ghost-*",
-            "did:web:slack-bridge.example#bot"
+            Actors,
+            "did:web:slack-bridge.example:ghost:*",
+            "did:web:slack-bridge.example:bot"
+        ));
+    }
+
+    #[test]
+    fn namespace_pattern_actor_ignores_fragment() {
+        // `#fragment` does not participate in actor-domain matching.
+        assert!(namespace_pattern_matches(
+            Actors,
+            "did:web:slack-bridge.example:ghost:*",
+            "did:web:slack-bridge.example:ghost:u123#key-1"
         ));
     }
 
     #[test]
     fn namespace_pattern_multiple_single_stars_match_segments() {
         assert!(namespace_pattern_matches(
+            Realms,
             "slack:team:*:channel:*",
             "slack:team:T123:channel:C456"
         ));
@@ -1126,45 +1434,50 @@ mod tests {
     #[test]
     fn namespace_pattern_single_star_does_not_cross_separator() {
         assert!(!namespace_pattern_matches(
+            Realms,
             "slack:team:*:channel:*",
             "slack:team:T123:channel:C456:thread:1"
         ));
     }
 
     #[test]
-    fn namespace_pattern_double_star_matches_multiple_segments() {
+    fn namespace_pattern_double_star_crosses_slash_only() {
+        // `**` matches one or more `/`-separated segments...
         assert!(namespace_pattern_matches(
-            "slack:team:**",
-            "slack:team:T123:channel:C456:thread:1"
+            Realms,
+            "slack.acme.example/**",
+            "slack.acme.example/team/a/b"
         ));
+        // ...but never crosses `:`.
+        assert!(!namespace_pattern_matches(
+            Realms,
+            "slack:team:**",
+            "slack:team:T123:channel:C456"
+        ));
+        // ...and never matches an empty segment.
+        assert!(!namespace_pattern_matches(Realms, "slack.acme.example/**", "slack.acme.example/"));
     }
 
     #[test]
     fn namespace_pattern_escaped_star_matches_literal() {
-        assert!(namespace_pattern_matches("literal\\*pattern", "literal*pattern"));
+        assert!(namespace_pattern_matches(Realms, "literal\\*pattern", "literal*pattern"));
     }
 
     #[test]
     fn namespace_pattern_escaped_star_rejects_non_star() {
-        assert!(!namespace_pattern_matches("literal\\*pattern", "literalXpattern"));
+        assert!(!namespace_pattern_matches(Realms, "literal\\*pattern", "literalXpattern"));
     }
 
     #[test]
     fn namespace_pattern_empty_pattern_rejects_non_empty_candidate() {
-        assert!(!namespace_pattern_matches("", "did:web:anything.example"));
-    }
-
-    #[test]
-    fn namespace_declaration_matches_uses_pattern() {
-        let decl = AppletNamespaceDeclaration::exclusive(
-            AppletNamespaceKind::Actor,
-            "did:web:slack-bridge.example#ghost-*",
-        );
-        assert!(decl.matches("did:web:slack-bridge.example#ghost-u123"));
-        assert!(!decl.matches("did:web:slack-bridge.example#bot"));
+        assert!(!namespace_pattern_matches(Actors, "", "did:web:anything.example"));
     }
 
     // ─── S-4 (savfox SDK gap) tests ──────────────────────────────────
+
+    fn sample_epoch() -> crate::Hash {
+        crate::Hash::new(format!("sha256:{}", "bb".repeat(32))).unwrap()
+    }
 
     fn sample_wire_registration() -> WireAppletRegistration {
         WireAppletRegistration::new(
@@ -1175,10 +1488,13 @@ mod tests {
             did("bot"),
             vec!["ck.applet.v1".to_owned()],
             AppletWireNamespaces {
-                actors: vec!["did:web:slackbridge.example#ghost-*".to_owned()],
+                actors: vec![AppletNamespaceEntry::exclusive(
+                    "did:web:slackbridge.example#ghost-*",
+                )],
                 realms: vec![],
                 handles: vec![],
             },
+            sample_epoch(),
         )
     }
 
@@ -1236,24 +1552,148 @@ mod tests {
             realm(),
             "ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa",
             did("bot"),
-            "upstream_rate_limited",
-            "Slack returned 429",
+            "ck:event:01904100-0000-7000-8000-deadbeefdead",
+            "external_network",
+            "external_rate_limited",
+            true,
+            AppletBridgeErrorVisibility::RealmAdmins,
         )
-        .with_severity(AppletBridgeErrorSeverity::Warning)
-        .with_target_ref("ck:event:01904100-0000-7000-8000-deadbeefdead")
+        .with_message("external network rejected the message")
         .with_external_ref(serde_json::json!({"slack_response_code": 429}))
+        .with_retry_after_ms(1000)
         .build(1, hlc())
         .unwrap();
         assert_eq!(event.kind, "ck.applet.bridge_error");
-        assert_eq!(event.content["code"], "upstream_rate_limited");
-        assert_eq!(event.content["message"], "Slack returned 429");
-        assert_eq!(event.content["severity"], "warning");
-        assert_eq!(event.content["target_ref"], "ck:event:01904100-0000-7000-8000-deadbeefdead");
+        assert_eq!(event.content["realm_id"], realm().as_str());
+        assert_eq!(
+            event.content["failed_transaction_ref"],
+            "ck:event:01904100-0000-7000-8000-deadbeefdead"
+        );
+        assert_eq!(event.content["error_class"], "external_network");
+        assert_eq!(event.content["error_code"], "external_rate_limited");
+        assert_eq!(event.content["retriable"], true);
+        assert_eq!(event.content["visibility_scope"], "realm_admins");
+        assert_eq!(event.content["message"], "external network rejected the message");
+        assert_eq!(event.content["retry_after_ms"], 1000);
         assert_eq!(
             event.applet_id.as_deref(),
             Some("ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa")
         );
         assert_eq!(event.external_ref.as_ref().unwrap()["slack_response_code"], 429);
+    }
+
+    #[test]
+    fn wire_registration_serializes_registration_epoch() {
+        let reg = sample_wire_registration();
+        let value = serde_json::to_value(&reg).unwrap();
+        assert_eq!(value["registration_epoch"], reg.registration_epoch.as_str());
+        // namespace entries are object-form `{ exclusive, pattern }`.
+        assert_eq!(value["namespaces"]["actors"][0]["exclusive"], true);
+        assert_eq!(
+            value["namespaces"]["actors"][0]["pattern"],
+            "did:web:slackbridge.example#ghost-*"
+        );
+    }
+
+    #[test]
+    fn applet_package_derives_registration_and_round_trips() {
+        let mut package = AppletPackage::new(
+            "applet_pkg_todo",
+            "ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa",
+            did("slackbridge"),
+            did("alice"),
+            "https://applet.example/cx",
+            did("bot"),
+            vec!["slack".to_owned()],
+            AppletWireNamespaces {
+                actors: vec![AppletNamespaceEntry::exclusive(
+                    "did:web:slackbridge.example:ghost:*",
+                )],
+                realms: vec![],
+                handles: vec![],
+            },
+            sample_epoch(),
+        );
+        package.requested_scopes = vec!["ck.message.create".to_owned()];
+        package.webhook_auth = json!({"type": "http_message_signature"});
+
+        // Unsealed / unsigned package fails validation and derivation.
+        assert!(package.validate().is_err());
+        package.seal().unwrap();
+        package.proof = Some(crate::model::Proof {
+            kind: "detached_jws".to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method: "did:web:alice.example#key-1".to_owned(),
+            payload_digest: package.package_digest.clone().unwrap(),
+            created_at: Utc::now(),
+            domain: None,
+            audience: None,
+            jws: "header..sig".to_owned(),
+        });
+        package.validate().unwrap();
+
+        let reg = package.to_registration().unwrap();
+        assert_eq!(reg.applet_id, package.applet_id);
+        assert_eq!(reg.registration_epoch, package.registration_epoch);
+        assert_eq!(reg.requested_scopes, package.requested_scopes);
+        assert_eq!(reg.namespaces, package.namespaces);
+        assert!(reg.manifest.is_some());
+
+        // Package digest excludes itself and proof.
+        let recomputed = package.compute_package_digest().unwrap();
+        assert_eq!(recomputed, package.package_digest.clone().unwrap());
+
+        let back: AppletPackage =
+            serde_json::from_value(serde_json::to_value(&package).unwrap()).unwrap();
+        assert_eq!(back, package);
+    }
+
+    #[test]
+    fn applet_package_missing_base_profile_is_rejected() {
+        let mut package = AppletPackage::new(
+            "applet_pkg_todo",
+            "ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa",
+            did("slackbridge"),
+            did("alice"),
+            "https://applet.example/cx",
+            did("bot"),
+            vec!["slack".to_owned()],
+            AppletWireNamespaces::default(),
+            sample_epoch(),
+        );
+        package.claimed_profiles = vec!["ck.profile.applet_bridge.v1".to_owned()];
+        package.requested_scopes = vec!["ck.message.create".to_owned()];
+        package.seal().unwrap();
+        assert!(package.validate().is_err());
+    }
+
+    #[test]
+    fn install_plan_digest_excludes_itself_and_effective_scope_round_trips() {
+        let mut plan = InstallPlan {
+            plan_id: "plan_1".to_owned(),
+            applet_id: "ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
+            package_digest: sample_epoch(),
+            registration_epoch: sample_epoch(),
+            effective_scope: EffectiveScope::Realm { realm_id: realm() },
+            requested_scopes: vec!["ck.message.create".to_owned()],
+            approved_scopes: vec![],
+            denied_scopes: vec![],
+            events_to_submit: vec![],
+            capability_constraints: vec![],
+            namespace_conflicts: vec![],
+            e2ee_effect: json!({"allow_mls_join": false}),
+            widget_effect: json!({"allow_widget": false}),
+            warnings: vec![],
+            plan_digest: None,
+        };
+        let before = plan.compute_plan_digest().unwrap();
+        plan.seal().unwrap();
+        assert_eq!(plan.plan_digest.clone().unwrap(), before);
+
+        let value = serde_json::to_value(&plan).unwrap();
+        assert_eq!(value["effective_scope"]["kind"], "realm");
+        let back: InstallPlan = serde_json::from_value(value).unwrap();
+        assert_eq!(back.effective_scope.realm_id(), &realm());
     }
 
     #[test]

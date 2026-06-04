@@ -1,4 +1,4 @@
-//! Forbidden wire-field registry (CXP-0007 + earlier rounds).
+//! Forbidden wire-field registry (CKP-0007 + earlier rounds).
 //!
 //! Single source of truth for the spec's
 //! `artifacts/registry/forbidden-wire-fields.json` hard-reject set as it
@@ -25,7 +25,7 @@
 /// in `forbidden-wire-fields.json` collapsed into the categories the SDK
 /// actually consumes.
 ///
-/// CXP-0007 P1.6 — replaces the previous coarse top-level-only checker so
+/// CKP-0007 P1.6 — replaces the previous coarse top-level-only checker so
 /// callers can correctly distinguish e.g. `policy_ref` (forbidden on
 /// `handle_claim` and `member_delivery_binding`, legal as a generic
 /// reference name on a Policy object itself) and patch-path entries
@@ -149,7 +149,7 @@ pub enum WireContext {
 /// carries one of these keys at the matching context.
 ///
 /// Source of truth: `spec/v1/artifacts/registry/forbidden-wire-fields.json`
-/// (CXP-0007 spec floor 2b0d70d, plus earlier rounds carried forward).
+/// (CKP-0007 spec floor 2b0d70d, plus earlier rounds carried forward).
 ///
 /// Kept as a flat list for the coarse [`is_forbidden_wire_field`] check;
 /// the context-aware variant uses [`forbidden_entries`] below.
@@ -157,10 +157,10 @@ pub const FORBIDDEN_WIRE_FIELDS: &[&str] = &[
     // Legacy timeline / Realm/Space inversion.
     "branch",
     "room_kind",
-    // CXP-0007 Flow scope field — spec renamed to `scope_circle_id`.
+    // CKP-0007 Flow scope field — spec renamed to `scope_circle_id`.
     "discussion_realm_ref",
     "discussion_space_ref",
-    // CXP-0007 batch-renamed identifier fields.
+    // CKP-0007 batch-renamed identifier fields.
     "parent_ref",
     "default_realm_ref",
     "scope_ref",

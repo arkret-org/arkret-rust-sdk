@@ -39,7 +39,7 @@ pub const GRANT_CONSTRAINT_SCHEMA: &str = "ck.schema.grant_constraint.v1";
 pub const DEVICE_MESSAGE_SCHEMA: &str = "ck.schema.device_message.v1";
 pub const KEY_BACKUP_SCHEMA: &str = "ck.schema.key_backup.v1";
 pub const MORPH_SCHEMA: &str = "ck.schema.morph.v1";
-/// CXP-0007 (2026-05-08) — Circle object schema id. See spec
+/// CKP-0007 (2026-05-08) — Circle object schema id. See spec
 /// `artifacts/schemas/circle.schema.json`.
 pub const CIRCLE_SCHEMA_ID: &str = "ck.schema.circle.v1";
 pub const MORPH_CUSTOMER_RISK_SCHEMA: &str = "ck.schema.morph.customer_risk.v1";
@@ -68,7 +68,7 @@ pub const OP_FLOW_MOVE: &str = "ck.flow.move";
 pub const OP_FLOW_REORDER: &str = "ck.flow.reorder";
 pub const OP_FLOW_STAGE_SET: &str = "ck.flow.stage.set";
 
-/// CXP-0007 (spec b7d35be) — Circle event kinds. The 7th kind
+/// CKP-0007 (spec b7d35be) — Circle event kinds. The 7th kind
 /// (`ck.circle.anchor_commit`) is reducer-derived and MUST NOT be
 /// submitted by clients; it is exported for receiver-side dispatch only.
 pub const OP_CIRCLE_CREATE: &str = "ck.circle.create";
@@ -79,7 +79,7 @@ pub const OP_CIRCLE_TOMBSTONE: &str = "ck.circle.tombstone";
 pub const OP_CIRCLE_MEMBER_STATE: &str = "ck.circle.member.state";
 pub const OP_CIRCLE_ANCHOR_COMMIT: &str = "ck.circle.anchor_commit";
 
-/// CXP-0007 (spec b7d35be) — Circle capability action ids. Spec
+/// CKP-0007 (spec b7d35be) — Circle capability action ids. Spec
 /// `capability-action-registry.json`. `ck.circle.manage`,
 /// `ck.circle.member.manage`, `ck.circle.member.add.others`, and
 /// `ck.circle.audit` declare `required_constraints=["allowed_circle_ids"]`;
@@ -91,7 +91,7 @@ pub const CAP_ACTION_CIRCLE_MEMBER_MANAGE: &str = "ck.circle.member.manage";
 pub const CAP_ACTION_CIRCLE_MEMBER_ADD_OTHERS: &str = "ck.circle.member.add.others";
 pub const CAP_ACTION_CIRCLE_AUDIT: &str = "ck.circle.audit";
 
-/// CXP-0007 capability action list (6 actions). Useful for downstream
+/// CKP-0007 capability action list (6 actions). Useful for downstream
 /// services that want to iterate the Circle-management surface.
 pub const CIRCLE_CAPABILITY_ACTIONS: &[&str] = &[
     CAP_ACTION_CIRCLE_CREATE,
@@ -102,7 +102,7 @@ pub const CIRCLE_CAPABILITY_ACTIONS: &[&str] = &[
     CAP_ACTION_CIRCLE_AUDIT,
 ];
 
-/// CXP-0008 / CXP-0009 (spec head 37ce729) — personal-agent capability actions
+/// CKP-0008 / CKP-0009 (spec head 37ce729) — personal-agent capability actions
 /// registered in `capability-action-registry.json`. 14 actions: 8 lifecycle /
 /// runtime actions on the agent itself, plus 3 sidecar-thread actions, plus
 /// 3 aggregate actions that fan out to `target_event_kinds` (publish / write /
@@ -120,7 +120,7 @@ pub const CAP_ACTION_AGENT_SIDECAR_THREAD_ENSURE: &str = "ck.agent.sidecar_threa
 pub const CAP_ACTION_AGENT_SIDECAR_THREAD_WRITE: &str = "ck.agent.sidecar_thread.write";
 pub const CAP_ACTION_AGENT_SIDECAR_THREAD_PUBLISH: &str = "ck.agent.sidecar_thread.publish";
 
-/// CXP-0008 / CXP-0009 — full capability-action list (11 base + 3 aggregate
+/// CKP-0008 / CKP-0009 — full capability-action list (11 base + 3 aggregate
 /// = 14 entries per `_before_todos.md` §1.4).
 pub const AGENT_CAPABILITY_ACTIONS: &[&str] = &[
     CAP_ACTION_AGENT_PROVISION,
@@ -163,7 +163,7 @@ pub fn agent_capability_target_event_kinds(action: &str) -> &'static [&'static s
     }
 }
 
-/// CXP-0008 / CXP-0009 — personal-agent operation IDs (registered in
+/// CKP-0008 / CKP-0009 — personal-agent operation IDs (registered in
 /// `operation-registry.json`). Used by the RPC dispatch layer; reducer-input
 /// agent lifecycle events are registered separately under `AGENT_*`
 /// event-kind constants above.
@@ -179,7 +179,7 @@ pub const OP_AGENT_GRANT_ATTACH: &str = "ck.agent.grant.attach";
 pub const OP_AGENT_GRANT_DETACH: &str = "ck.agent.grant.detach";
 pub const OP_AGENT_SIDECAR_THREAD_ENSURE: &str = "ck.agent.sidecar_thread.ensure";
 
-/// CXP-0008 / CXP-0009 — controller-private account-data types. Reducer
+/// CKP-0008 / CKP-0009 — controller-private account-data types. Reducer
 /// MUST reject writes from non-controller actors.
 pub const ACCOUNT_DATA_TYPE_AGENT_DRAFT: &str = "ck.agent.draft.v1";
 pub const ACCOUNT_DATA_TYPE_AGENT_SIDECAR_PROJECTION: &str = "ck.agent.sidecar_projection.v1";
@@ -189,7 +189,7 @@ pub const ACCOUNT_DATA_TYPE_AGENT_SIDECAR_PROJECTION: &str = "ck.agent.sidecar_p
 pub const RECOVERY_POLICY_SCHEMA: &str = "ck.schema.recovery_policy.v1";
 pub const RECOVERY_RECEIPT_SCHEMA: &str = "ck.schema.recovery_receipt.v1";
 
-/// CXP-0008 / CXP-0009 — agent sidecar thread profile id.
+/// CKP-0008 / CKP-0009 — agent sidecar thread profile id.
 ///
 /// Per spec head 37ce729 §B-F, the default home policy for the
 /// agent sidecar thread is **"context realm preferred"**: the sidecar
@@ -482,7 +482,7 @@ pub const OP_DIRECTORY_RESOLVE_HANDLE: &str = "ck.directory.resolve_handle";
 pub const OP_DIRECTORY_LIST_HANDLES_FOR_SUBJECT: &str = "ck.directory.list_handles_for_subject";
 pub const OP_DIRECTORY_RESOLVE_ORGANIZATION: &str = "ck.directory.resolve_organization";
 pub const OP_DIRECTORY_RESOLVE_REALM: &str = "ck.directory.resolve_realm";
-/// R3.3 (CXP-0011, cokret-spec @ cced4b8) — resolve a client-agnostic
+/// R3.3 (CKP-0011, cokret-spec @ cced4b8) — resolve a client-agnostic
 /// shareable object address (Realm / Flow / Message) to a preview. Pure ADD;
 /// `resolve_realm` is retained and NOT deprecated.
 pub const OP_DIRECTORY_RESOLVE_TARGET: &str = "ck.directory.resolve_target";
@@ -553,7 +553,7 @@ pub const CAP_ACTION_MODERATION_APPEAL_REVIEW: &str = "ck.moderation.appeal.revi
 /// `capability-action-registry.json` declares `required_constraints=[morph_type_allow]`.
 pub const CAP_ACTION_MORPH_CREATE: &str = "ck.morph.create";
 
-/// CXP-0010 (R3 spec-sync 2026-05-27, cokret-spec b47ff6ec) — call /
+/// CKP-0010 (R3 spec-sync 2026-05-27, cokret-spec b47ff6ec) — call /
 /// media capability actions registered in
 /// `capability-action-registry.json`. Five actions gate the join,
 /// screen-share, recording, transcription, and moderation surfaces of
@@ -564,7 +564,7 @@ pub const CAP_ACTION_CALL_RECORD: &str = "ck.call.record";
 pub const CAP_ACTION_CALL_TRANSCRIBE: &str = "ck.call.transcribe";
 pub const CAP_ACTION_CALL_MODERATE: &str = "ck.call.moderate";
 
-/// CXP-0010 — full call/media capability-action list.
+/// CKP-0010 — full call/media capability-action list.
 pub const CALL_CAPABILITY_ACTIONS: &[&str] = &[
     CAP_ACTION_CALL_JOIN,
     CAP_ACTION_CALL_SCREEN_SHARE,
@@ -573,21 +573,21 @@ pub const CALL_CAPABILITY_ACTIONS: &[&str] = &[
     CAP_ACTION_CALL_MODERATE,
 ];
 
-/// CXP-0010 — `ck.call.media.token_exchange` operation id. HTTP route:
+/// CKP-0010 — `ck.call.media.token_exchange` operation id. HTTP route:
 /// `POST /rtc/token`. Surface tier `core_personal`. Registered in
 /// `operation-registry.json` v2026-05-27.
 pub const OP_CALL_MEDIA_TOKEN_EXCHANGE: &str = "ck.call.media.token_exchange";
 
-/// CXP-0010 — schema id for the participant_binding signing envelope.
+/// CKP-0010 — schema id for the participant_binding signing envelope.
 pub const PARTICIPANT_BINDING_SCHEMA: &str = "ck.media.participant_binding.v1";
 
-/// CXP-0010 — maximum TTL bound for media tokens (600 seconds). Tokens
+/// CKP-0010 — maximum TTL bound for media tokens (600 seconds). Tokens
 /// MUST be rejected when `expires_at - now > 600s`. SHOULD floor: 300s.
 pub const MEDIA_TOKEN_TTL_MAX_SECS: u64 = 600;
-/// CXP-0010 — SHOULD-bound (recommended) TTL for media tokens.
+/// CKP-0010 — SHOULD-bound (recommended) TTL for media tokens.
 pub const MEDIA_TOKEN_TTL_SHOULD_SECS: u64 = 300;
 
-/// CXP-0008 / CXP-0009 (R3 spec-sync 2026-05-27) — agent_runtime
+/// CKP-0008 / CKP-0009 (R3 spec-sync 2026-05-27) — agent_runtime
 /// surface tier: list of operations that live under the
 /// `ck.profile.agent_runtime.v1` server-profile surface.
 pub const AGENT_RUNTIME_SURFACE_OPERATIONS: &[&str] = &[

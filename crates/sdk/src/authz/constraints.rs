@@ -217,7 +217,7 @@ pub enum Constraint {
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         denied_view_renderers: Vec<String>,
     },
-    /// CXP-0007 (spec b7d35be) — narrow a Circle-management capability
+    /// CKP-0007 (spec b7d35be) — narrow a Circle-management capability
     /// (`ck.circle.manage`, `ck.circle.member.manage`,
     /// `ck.circle.member.add.others`, `ck.circle.audit`) to a specific set
     /// of Circle ids. Spec `capability-action-registry.json` declares
@@ -730,7 +730,7 @@ impl ConstraintEntry {
             Constraint::EditWindow { .. } => EvaluationClass::Stateless,
             Constraint::ContainerMove { .. } => EvaluationClass::RealmState,
             Constraint::ScopeLimitation { .. } => EvaluationClass::Stateless,
-            // CXP-0007: allowed_circle_ids is a static set baked into the
+            // CKP-0007: allowed_circle_ids is a static set baked into the
             // grant body. Evaluator only needs to membership-test against the
             // request's circle_id; no Realm state or external lookup.
             Constraint::AllowedCircleIds { .. } => EvaluationClass::GrantLocal,

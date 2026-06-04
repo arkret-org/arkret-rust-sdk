@@ -225,7 +225,7 @@ pub fn is_lowercase_uuidv7(value: &str) -> bool {
 id_type!(Did, is_did);
 // Protocol object IDs use typed prefixes with canonical RFC 9562 UUIDv7 payloads.
 id_type!(ActorProfileId, |value: &str| is_strict_typed_id(value, "ck:actor_profile:"));
-// CXP-0008/0009 (spec head 37ce729) — personal agent auxiliary typed ids.
+// CKP-0008/0009 (spec head 37ce729) — personal agent auxiliary typed ids.
 // `agent_principal_id` is a DID scalar, represented by `Did`.
 id_type!(AgentSessionId, |value: &str| is_strict_typed_id(value, "ck:agent_session:"));
 id_type!(AgentKeyId, |value: &str| is_strict_typed_id(value, "ck:agent_key:"));
@@ -257,7 +257,7 @@ id_type!(BlockId, |value: &str| is_strict_typed_id(value, "ck:block:"));
 id_type!(CallId, |value: &str| is_strict_typed_id(value, "ck:call:"));
 id_type!(CapabilityId, |value: &str| is_strict_typed_id(value, "ck:capability:"));
 id_type!(ChunkId, |value: &str| is_strict_typed_id(value, "ck:chunk:"));
-// CXP-0007 (2026-05-08) — Circle id-kind. Intra-Realm cryptographic
+// CKP-0007 (2026-05-08) — Circle id-kind. Intra-Realm cryptographic
 // sub-boundary; see spec artifacts/registry/id-kind-registry.json and
 // zh/models/circle.md.
 id_type!(CircleId, |value: &str| is_strict_typed_id(value, "ck:circle:"));

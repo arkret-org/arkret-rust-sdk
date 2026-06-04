@@ -7,7 +7,7 @@ pub struct FlowCreateMetadata {
     pub encrypted_content: Option<Value>,
     pub encrypted_metadata: Option<Value>,
     pub tracks: BTreeMap<String, crate::FlowTrackConfig>,
-    /// CXP-0007 — optional Circle that defines this Flow's encryption scope.
+    /// CKP-0007 — optional Circle that defines this Flow's encryption scope.
     pub scope_circle_id: Option<cokret_core::CircleId>,
 }
 

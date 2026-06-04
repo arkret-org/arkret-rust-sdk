@@ -45,6 +45,12 @@ tracing = ["dep:tracing"]
 testing = ["dep:cokret-testing"]
 salvo = ["server", "dep:salvo", "salvo/oapi", "cokret-server/salvo", "cokret-core/salvo"]
 applet-runtime = ["full-surface"]
+# Convenience umbrella for Applet developers: turns on the applet wire
+# surface (`applet` / `applet_server` modules), the reqwest HTTP client
+# (push transactions / query actors-realms), the framework-neutral
+# server handler contracts and the ready-made Salvo `Router` factory.
+# `cargo add cokret --features applet` is all an Applet service needs.
+applet = ["applet-runtime", "client", "server", "salvo"]
 device-runtime = ["full-surface"]
 sync-runtime = ["full-surface"]
 timeline-runtime = ["full-surface"]

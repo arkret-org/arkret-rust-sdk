@@ -55,7 +55,7 @@ pub enum ResourceSelector {
     Event { space_id: String, event_kind: Option<String>, event_id: Option<String> },
     /// Actor selector (e.g. account-lifecycle, profile updates).
     Actor { actor_id: String },
-    /// CXP-0007 (R3 spec-sync 2026-05-27) — Circle selector. Matches a
+    /// CKP-0007 (R3 spec-sync 2026-05-27) — Circle selector. Matches a
     /// specific Circle by its `ck:circle:<uuid>` identifier. The Circle
     /// is scoped to its parent Realm; cross-Realm selectors MUST be
     /// rejected by the resolver (`circle_realm_mismatch`).
@@ -351,7 +351,7 @@ pub enum ProtocolResourceSelectorKind {
     Notification,
     ReadCursor,
     Blob,
-    /// CXP-0007 (R3 spec-sync 2026-05-27).
+    /// CKP-0007 (R3 spec-sync 2026-05-27).
     Circle,
     Wildcard,
 }

@@ -176,8 +176,8 @@ pub const ERROR_CODE_UNSUPPORTED_AEAD_PROFILE: &str = "unsupported_aead_profile"
 pub const ERROR_CODE_ATTESTATION_MISSING: &str = "attestation_missing";
 
 // ── R3 spec-sync (2026-05-27, cokret-spec b47ff6ec) — 20 new wire-level
-// error codes spanning CXP-0008/0009 (personal-agent / pairing / sidecar),
-// CXP-0010 (call media token exchange / focus / e2ee / recording artifact
+// error codes spanning CKP-0008/0009 (personal-agent / pairing / sidecar),
+// CKP-0010 (call media token exchange / focus / e2ee / recording artifact
 // pipeline), recovery witness revoke lag, and the wire-level handle
 // homograph guard. Spec `error-code-registry.json` v2026-05-27.
 pub const ERROR_CODE_PAIRING_REQUEST_EXPIRED: &str = "pairing_request_expired";
@@ -605,7 +605,7 @@ pub const KNOWN_REASON_CODES_ROUND_C45: &[&str] = &[
     REASON_WITNESS_DISAGREEMENT,
 ];
 
-// ── CXP-0007 (spec b7d35be) — Circle primitive reason codes.
+// ── CKP-0007 (spec b7d35be) — Circle primitive reason codes.
 //
 // `failed_precondition` / `schema_violation` sub-codes for the Circle
 // invariants in zh/models/circle.md. Spec `error-code-registry.json`
@@ -639,12 +639,12 @@ pub const REASON_EFFECTIVE_SCOPE_REDUCER_MANAGED: &str = "effective_scope_reduce
 /// Realm, Circle, Space child-scope-policy, and object profile floors).
 pub const REASON_METADATA_ENCRYPTION_FLOOR_VIOLATION: &str = "metadata_encryption_floor_violation";
 
-/// CXP-0007 (spec b7d35be) — Circle reason codes registered under the
+/// CKP-0007 (spec b7d35be) — Circle reason codes registered under the
 /// `failed_precondition` / `schema_violation` wire-code families. The
-/// 6th CXP-0007 code is the top-level
+/// 6th CKP-0007 code is the top-level
 /// [`ERROR_CODE_DELIVERY_BINDING_HANDED_OVER`] already registered in
-/// round 4 (CXP-0006).
-pub const KNOWN_REASON_CODES_CXP_0007: &[&str] = &[
+/// round 4 (CKP-0006).
+pub const KNOWN_REASON_CODES_CKP_0007: &[&str] = &[
     REASON_CIRCLE_REALM_MISMATCH,
     REASON_CIRCLE_NOT_ACTIVE,
     REASON_CIRCLE_MEMBER_MUST_BE_REALM_MEMBER,

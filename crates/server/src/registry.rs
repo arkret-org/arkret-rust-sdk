@@ -56,7 +56,7 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
     endpoint!("ck.directory.describe", Get, "/_cokret/find/directory/describe"),
     endpoint!("ck.directory.search_realms", Post, "/_cokret/find/directory/search-realms"),
     endpoint!("ck.directory.resolve_realm", Post, "/_cokret/find/directory/resolve-realm"),
-    // R3.3 (CXP-0011, cokret-spec @ cced4b8). gRPC `Directory/ResolveTarget`
+    // R3.3 (CKP-0011, cokret-spec @ cced4b8). gRPC `Directory/ResolveTarget`
     // and MQ `directory.resolve_target` mirrors live in the spec
     // operation-registry; this HTTP route is the SDK-side binding.
     endpoint!("ck.directory.resolve_target", Post, "/_cokret/find/directory/resolve-target"),
@@ -105,7 +105,7 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
     endpoint!("ck.authz.check", Post, "/_cokret/self/authz/check"),
     endpoint!("ck.policy.check", Post, "/_cokret/self/policy/check"),
     endpoint!("ck.media.ice_config", Post, "/_cokret/self/rtc/ice-config"),
-    // CXP-0010 (R3 spec-sync 2026-05-27, cokret-spec b47ff6ec).
+    // CKP-0010 (R3 spec-sync 2026-05-27, cokret-spec b47ff6ec).
     endpoint!("ck.call.media.token_exchange", Post, "/_cokret/self/rtc/token"),
     endpoint!("ck.moderation.report", Post, "/_cokret/self/moderation/report"),
     endpoint!("ck.mimi.provider_directory", Get, "/_cokret/open/mimi/provider-directory"),

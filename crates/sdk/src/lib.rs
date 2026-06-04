@@ -239,12 +239,13 @@ pub use agent::{
 };
 #[cfg(all(feature = "full-surface", feature = "applet-runtime"))]
 pub use applet::{
-    AppletBridgeErrorBuilder, AppletBridgeErrorSeverity, AppletNamespaceConflict,
-    AppletNamespaceDeclaration, AppletNamespaceKind, AppletPermission, AppletPortal, AppletSchema,
-    AppletServiceIntent, AppletServiceTransaction, AppletWireNamespaces, GhostActorAccountability,
-    OpenApiBinding, PortalMode, PortalSpaceMapping, RemoteSpaceMapping, RemoteUserMapping,
-    SignedAppletRegistration, ThirdPartyLookupKind, ThirdPartyLookupReqBody,
-    ThirdPartyLookupResBody, VirtualActor, WebhookAuth, WireAppletRegistration,
+    ActorPolicy, AppletBridgeErrorBuilder, AppletBridgeErrorVisibility, AppletNamespaceConflict,
+    AppletNamespaceDomain, AppletNamespaceEntry, AppletPackage, AppletPortal, AppletServiceIntent,
+    AppletServiceTransaction, AppletWireNamespaces, ApprovalRequest, ApprovedScope, EffectiveScope,
+    GhostActorAccountability, InstallCommitRequest, InstallCommitResponse, InstallE2eePolicy,
+    InstallPlan, InstallPreviewRequest, InstallRevokeRequest, PortalMode, PortalSpaceMapping,
+    RemoteSpaceMapping, RemoteUserMapping, ThirdPartyLookupKind, ThirdPartyLookupReqBody,
+    ThirdPartyLookupResBody, VirtualActor, WebhookAuth, WidgetPolicy, WireAppletRegistration,
     namespace_pattern_matches, sign_registration,
 };
 #[cfg(all(feature = "full-surface", feature = "applet-runtime", feature = "salvo"))]

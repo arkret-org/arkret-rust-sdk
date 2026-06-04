@@ -8,13 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Starting with the local `1.0.0` freeze, breaking public API changes require a
 major-version bump.
 
+## R3.5 — Applet protocol sync 2026-06-04 (cokret-spec @ 653ffb2)
+
+- **New `applet` feature** (`applet-runtime` + `client` + `server` + `salvo`): one-flag umbrella so `cargo add cokret --features applet` pulls the full Applet developer surface.
+- **`registration_epoch` now required** on `ck.applet.registration`: `WireAppletRegistration` gained `registration_epoch: Hash`; `WireAppletRegistration::new(..)` takes it as the final argument. Registrations minted before this release are non-conformant.
+- **Namespace entries wire-breaking**: `AppletWireNamespaces.{actors,realms,handles}` is now `Vec<AppletNamespaceEntry>` (`{ exclusive, pattern }`) per `applet-schema.md` §2 — a bare `["pattern"]` array no longer deserializes.
+- **New `AppletPackage` (`ck.schema.applet_package.v1`)**: controller-signed distribution object with `seal()` / `sign()` / `to_registration()` (spec §1a Package→registration derivation) + optional `manifest` on `WireAppletRegistration`.
+- **New install aggregate objects**: `InstallPreviewRequest`, `InstallPlan` (`seal` / `compute_plan_digest`), `InstallCommitRequest`, `InstallCommitResponse`, `InstallRevokeRequest`, `EffectiveScope` (realm / circle), `ApprovalRequest`, `ApprovedScope`, `ActorPolicy`, `InstallE2eePolicy`, `WidgetPolicy`.
+- **`ck.applet.bridge_error` reshaped**: `AppletBridgeErrorBuilder` binds the spec §7 required fields (`realm_id`, `failed_transaction_ref`, `error_class`, `error_code`, `retriable`, `visibility_scope`); `severity` / `target_ref` and `AppletBridgeErrorSeverity` removed in favor of `AppletBridgeErrorVisibility`.
+- **Namespace matcher aligned to §2**: `namespace_pattern_matches` is now `(AppletNamespaceDomain, pattern, candidate)` — domain-dependent separators, `**` crosses `/` but never `:` and never matches an empty segment, DID `#fragment` ignored. Exclusive-overlap detection moved to `AppletWireNamespaces::conflicts_with` (`AppletNamespaceConflict` now `{ domain, pattern, conflicting_pattern }`).
+- **Legacy removed** (no compatibility shim): `SignedAppletRegistration`, `AppletSchema` / `AppletPermission` / `OpenApiBinding`, `AppletNamespaceDeclaration` / `AppletNamespaceKind`, and the test-only `AppletRegistry` / `AppletEndpointRegistration`.
+
+> No version tag, no crates.io / Docker Hub / npm publish — git commit only.
+
 ## R3.4 — Spec sync 2026-05-31 (cokret-spec @ c2848a4)
 
 - Synced protocol-facing names and fixtures to `c2848a4`: event envelope schema naming, `_ids` grant constraints, accountability principal vocabulary, `ck:rtc_participant:` media participants, agent session start fields, and key-backup signature algorithm naming where applicable.
 
 > No version tag, no crates.io / Docker Hub / npm publish — git commit only.
 
-## R3.3 — Spec sync 2026-05-28 (cokret-spec @ cced4b8, CXP-0011)
+## R3.3 — Spec sync 2026-05-28 (cokret-spec @ cced4b8, CKP-0011)
 
 - **New operation**: `cx.directory.resolve_target` (`POST /api/v1/directory/resolve-target`, gRPC `Directory/ResolveTarget`, MQ `directory.resolve_target`). Pure ADD — operation count 100 → 101; `cx.directory.resolve_realm` is retained and NOT deprecated. No new event kinds, registered `cx.schema.*`, or wire/reducer changes.
 - **Wire types**: `DirectoryResolveTargetReqBody { address, requester, proofs, token }` + `DirectoryResolveTargetResBody { target_kind, realm_preview, object_preview, join_rule, as_of, source_refs, via_services, policy_revision, stale, divergent }` + `enum TargetKind { Realm, Flow, Message }`. http-client method `directory_resolve_target`.
@@ -37,8 +50,8 @@ major-version bump.
 
 ## R3 — Spec sync 2026-05-27 (cokret-spec @ b47ff6ec)
 
-- Call / media (CXP-0010): client helper `call_media_token_exchange`, `MediaTokenResponse` / `ParticipantBinding` / `MediaBackendType` types, TTL gate `<=600s`, five new capability actions, op registry mirror at `cx.call.media.token_exchange`.
-- Agent (CXP-0008 / 0009): `cx.agent.deactivate` HTTP path canonicalised (no `/revoke`), draft / action_request / approve / reject event kinds wired, `pause/resume/deactivate` FSM lattice metadata, agent_runtime surface tier definition.
+- Call / media (CKP-0010): client helper `call_media_token_exchange`, `MediaTokenResponse` / `ParticipantBinding` / `MediaBackendType` types, TTL gate `<=600s`, five new capability actions, op registry mirror at `cx.call.media.token_exchange`.
+- Agent (CKP-0008 / 0009): `cx.agent.deactivate` HTTP path canonicalised (no `/revoke`), draft / action_request / approve / reject event kinds wired, `pause/resume/deactivate` FSM lattice metadata, agent_runtime surface tier definition.
 - Errors: 20 new error codes added to SDK `Error` / `ServiceError` (pairing, proof, agent lifecycle, media binding, focus, recording, recovery, handle homograph).
 - Recovery: `RecoveryPolicy`, `RecoveryReceipt`, `RecoveryProofKind`, `RecoverySession` id-kind + codec round-trip per the new schemas.
 - Profiles / cursor / selector / data: media-service-binding + `accountable_principals.strict_reject` profile entries, stateful core cursor enforcement, `ResourceSelector::Circle(CircleId)`, `AccountDataSet` / `AccountBlocklist` payloads, handle NFC + confusable skeleton helper.
@@ -51,7 +64,7 @@ major-version bump.
 
 Aggressive spec-sync round; no version bump, `git commit` only.
 
-#### CXP-0010 — Call / Media token exchange
+#### CKP-0010 — Call / Media token exchange
 
 - New op `cx.call.media.token_exchange` mounted at
   `POST /cokret/v1/rtc/token` with surface tier `core_personal`
@@ -73,7 +86,7 @@ Aggressive spec-sync round; no version bump, `git commit` only.
 - New capability actions: `cx.call.{join, screen_share, record,
   transcribe, moderate}` plus `CALL_CAPABILITY_ACTIONS` list.
 
-#### CXP-0008 / CXP-0009 — Personal agent
+#### CKP-0008 / CKP-0009 — Personal agent
 
 - `cx.agent.{pause, resume, deactivate}` declared as `Fsm` lattice
   kinds (`crates/core/src/lattice/traits.rs`).
@@ -134,7 +147,7 @@ Aggressive spec-sync round; no version bump, `git commit` only.
   proof validators, full UTS#39 confusable table, transport-backed
   `BaseClient::call_media_token_exchange`.
 
-### CXP-0007 follow-up — P1 closeout (wire-breaking, no release)
+### CKP-0007 follow-up — P1 closeout (wire-breaking, no release)
 
 #### Breaking
 
@@ -185,7 +198,7 @@ Aggressive spec-sync round; no version bump, `git commit` only.
   `crates/core/src/forbidden_wire_fields.rs` are both closed by this
   round.
 
-### CXP-0007 — Circle primitive rollout (wire-breaking, no release)
+### CKP-0007 — Circle primitive rollout (wire-breaking, no release)
 
 Tracks `cokret-spec` range `9cb47c1..2b0d70d` (21 commits). Version
 numbers are intentionally **not** bumped this round; this changelog
@@ -221,7 +234,7 @@ section will roll into the next published release.
   `CircleDirectoryVisibility`, `CircleMetadataEncryptionFloor`, and
   `CircleState` enums.
 - `Circle::assert_members_strict_subset` strict-subset member
-  validator covering the CXP-0007 `circle_member_must_be_realm_member`
+  validator covering the CKP-0007 `circle_member_must_be_realm_member`
   reducer invariant.
 - `Flow.scope_circle_id`, `Space.scope_circle_id` /
   `default_scope_circle_id` / `child_scope_policy`, `Morph.scope_circle_id`.
@@ -229,16 +242,16 @@ section will roll into the next published release.
   `spec/v1/artifacts/schemas/space.schema.json` 4-kind discriminator.
 - `EffectiveScope { Realm | Circle }` enum on `Event` envelope.
 - `RelationKind::ConfidentialDiscussionOf` for the
-  "wide synthesis + narrow discussion" CXP-0007 pattern.
+  "wide synthesis + narrow discussion" CKP-0007 pattern.
 - 7 `cx.circle.*` event-kind constants in `events::kinds`, classified
   into the new `EventClass::Circle` bucket. `cx.circle.anchor_commit`
   is recorded in `NON_REDUCER_EVENT_KINDS` (reducer-derived).
 - 6 `CAP_ACTION_CIRCLE_*` constants in `model::constants`, plus a
   `CIRCLE_CAPABILITY_ACTIONS` slice for iteration.
-- 5 CXP-0007 `REASON_*` constants (`circle_realm_mismatch`,
+- 5 CKP-0007 `REASON_*` constants (`circle_realm_mismatch`,
   `circle_not_active`, `circle_member_must_be_realm_member`,
   `scope_rebind_forbidden`, `metadata_encryption_floor_violation`)
-  registered in `KNOWN_REASON_CODES_CXP_0007`. The 6th CXP-0007 code
+  registered in `KNOWN_REASON_CODES_CKP_0007`. The 6th CKP-0007 code
   (`delivery_binding_handed_over`) was already shipped in round 4.
 - `cx.schema.circle.v1` added to `ARTIFACT_BACKED_SCHEMA_IDS` so the
   spec-drift gate covers the new schema.
@@ -247,11 +260,11 @@ section will roll into the next published release.
   `cokret::is_forbidden_wire_field`, plus the kind / capability /
   reason constants above.
 - `docs/circle-integration.md` integration guide.
-- `MIGRATING-FROM-0.7.md` § "CXP-0007 follow-up" migration cookbook.
+- `MIGRATING-FROM-0.7.md` § "CKP-0007 follow-up" migration cookbook.
 
 #### Fixed
 
-- Spec-drift gate now covers the CXP-0007 schemas / event kinds; the
+- Spec-drift gate now covers the CKP-0007 schemas / event kinds; the
   `spec_drift_report` example reports 0 hard drift against spec floor
   `2b0d70d` and `spec_artifact_registry_covers_key_local_schema_and_event_contracts`
   passes again.

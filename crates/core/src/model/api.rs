@@ -836,7 +836,7 @@ pub struct SyncBackfillResBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncSnapshotHeadResBody {
     /// Self-field on the snapshot manifest. Spec rename: `snapshot_ref` → `id`
-    /// (CXP spec head 37ce729). External references to a snapshot in other
+    /// (CKP spec head 37ce729). External references to a snapshot in other
     /// objects keep the `snapshot_ref` name; only the manifest's own self-id
     /// is renamed here.
     pub id: String,
@@ -1177,7 +1177,7 @@ pub struct DirectoryResolveRealmResBody {
     pub join_candidates: Vec<RealmJoinCandidate>,
 }
 
-/// R3.3 (CXP-0011, cokret-spec @ cced4b8) — the resolved object class of a
+/// R3.3 (CKP-0011, cokret-spec @ cced4b8) — the resolved object class of a
 /// shareable address. The address grammar (`crate::model::object_address`)
 /// fixes the hierarchy `realm` ⊃ `flow` ⊃ `m` (message).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1189,7 +1189,7 @@ pub enum TargetKind {
     Message,
 }
 
-/// R3.3 (CXP-0011) — request body for `ck.directory.resolve_target`.
+/// R3.3 (CKP-0011) — request body for `ck.directory.resolve_target`.
 ///
 /// `address` is a client-agnostic shareable object address in either the
 /// `web+cokret:` URI form or the HTTPS-landing fragment form (see
@@ -1208,7 +1208,7 @@ pub struct DirectoryResolveTargetReqBody {
     pub token: Option<String>,
 }
 
-/// R3.3 (CXP-0011) — response body for `ck.directory.resolve_target`.
+/// R3.3 (CKP-0011) — response body for `ck.directory.resolve_target`.
 ///
 /// Common §9.1 directory fields (`as_of`, `source_refs`, `join_candidates`,
 /// `policy_revision`, `stale`, `divergent`) mirror the other directory
@@ -2225,7 +2225,7 @@ pub enum RecoveryPolicyLifecycle {
     Retired,
 }
 
-/// CXP recovery policy proof-kind enum (R3 spec-sync 2026-05-27,
+/// CKP recovery policy proof-kind enum (R3 spec-sync 2026-05-27,
 /// cokret-spec b47ff6ec). Mirrors `recovery-policy.schema.json`
 /// `body.proof_kinds[]`. Validation of the proof internals is
 /// deferred to R3.1 (verifier implementation).

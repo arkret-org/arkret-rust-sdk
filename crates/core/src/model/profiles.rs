@@ -215,7 +215,7 @@ pub struct Morph {
     /// deserialize, omitted by producers (servers populate it).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stage_changed_at: Option<DateTime<Utc>>,
-    /// CXP-0007 (spec b7d35be) — optional Circle scope binding. Morphs that
+    /// CKP-0007 (spec b7d35be) — optional Circle scope binding. Morphs that
     /// carry confidential synthesis fields can be bound to a Circle so their
     /// payload is encrypted inside that Circle's MLS group.
     #[serde(skip_serializing_if = "Option::is_none")]
