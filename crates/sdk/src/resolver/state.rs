@@ -275,7 +275,7 @@ impl SpaceState {
         let object = event.content.get("object").unwrap_or(&event.content);
         reject_legacy_morph_metadata_fields(object)?;
         let morph_id_str = self.extract_morph_id(object)?;
-        MorphId::new(morph_id_str.clone())?;
+        let morph_id = MorphId::new(morph_id_str.clone())?;
         let morph_type = self.extract_field::<String>(object, "morph_type")?;
         let facets = self
             .extract_optional_field::<BTreeMap<String, Value>>(object, "facets")
@@ -296,9 +296,10 @@ impl SpaceState {
         let scope_circle_id =
             self.extract_optional_field::<cokret_core::CircleId>(object, "scope_circle_id");
         let morph = Morph {
+            id: morph_id,
             schema: crate::MORPH_SCHEMA.to_owned(),
-            id: morph_id_str.clone(),
             realm_id: event.realm_id.clone(),
+            scope_circle_id,
             schema_refs: self.extract_optional_field(object, "schema_refs").unwrap_or_default(),
             morph_type,
             facets,
@@ -311,11 +312,11 @@ impl SpaceState {
             encrypted_payload: None,
             fields,
             state: Some(state),
+            state_changed_at: self.extract_optional_field(object, "state_changed_at"),
             stage: self
                 .extract_optional_field::<crate::ObjectStage>(object, "stage")
                 .unwrap_or(crate::ObjectStage::Draft),
             stage_changed_at: self.extract_optional_field(object, "stage_changed_at"),
-            scope_circle_id,
             created_by: event.actor_id.clone(),
             created_at: event.created_at,
             updated_by: None,
@@ -727,6 +728,8 @@ impl SpaceState {
             state_changed_at: None,
             created_by: event.actor_id.clone(),
             created_at: event.created_at,
+            updated_by: None,
+            updated_at: None,
         };
 
         self.relations.insert(relation_id_str, relation);
@@ -745,8 +748,8 @@ impl SpaceState {
 
     fn create_flow(&mut self, event: &Event) -> Result<()> {
         let object = event.content.get("object").unwrap_or(&event.content);
-        let flow_id = self.extract_flow_id(object)?;
-        FlowId::new(flow_id.clone())?;
+        let flow_id_str = self.extract_flow_id(object)?;
+        let flow_id = FlowId::new(flow_id_str.clone())?;
         reject_legacy_flow_metadata_fields(object)?;
         let metadata = self
             .extract_optional_field::<crate::FlowMetadata>(object, "metadata")
@@ -775,9 +778,10 @@ impl SpaceState {
             .transpose()?
             .unwrap_or(crate::ObjectState::Active);
         let subject = Flow {
-            schema: crate::FLOW_SCHEMA.to_owned(),
             id: flow_id,
+            schema: crate::FLOW_SCHEMA.to_owned(),
             realm_id: event.realm_id.clone(),
+            scope_circle_id,
             metadata: Some(metadata),
             encrypted_metadata,
             title,
@@ -786,10 +790,13 @@ impl SpaceState {
             encrypted_content,
             encrypted_payload: None,
             tracks,
-            scope_circle_id,
             fields,
             state: Some(state),
             state_changed_at: None,
+            stage: self
+                .extract_optional_field::<crate::ObjectStage>(object, "stage")
+                .unwrap_or(crate::ObjectStage::Draft),
+            stage_changed_at: self.extract_optional_field(object, "stage_changed_at"),
             created_by: event.actor_id.clone(),
             created_at: event.created_at,
             updated_by: None,
@@ -797,7 +804,7 @@ impl SpaceState {
             extra: BTreeMap::new(),
         };
         subject.validate_title()?;
-        self.subjects.insert(subject.id.clone(), subject);
+        self.subjects.insert(flow_id_str, subject);
         Ok(())
     }
 

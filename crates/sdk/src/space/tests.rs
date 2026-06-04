@@ -233,7 +233,7 @@ fn space_queries_searches_and_aggregates_morphs() {
         limit: Some(10),
     });
     assert_eq!(results.len(), 1);
-    assert_eq!(results[0].id, task_id.as_str());
+    assert_eq!(results[0].id.as_str(), task_id.as_str());
 
     assert_eq!(space.search_morphs("LOCAL SEARCH").len(), 1);
 

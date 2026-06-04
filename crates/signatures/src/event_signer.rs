@@ -112,7 +112,7 @@ pub fn sign_event<S: MoveSigner + ?Sized>(
         kind: proof_kind::DETACHED_JWS.to_owned(),
         alg: signature.alg,
         verification_method: verification_method.to_owned(),
-        payload_digest: payload_digest.clone(),
+        event_digest: payload_digest.clone(),
         created_at,
         domain: options.domain,
         audience: options.audience,
@@ -241,7 +241,7 @@ mod tests {
         sign_event(&mut event, &signer, vm_alice(), SignEventOptions::new()).unwrap();
         assert_eq!(event.proofs.len(), 1);
         let digest = event.event_digest().unwrap();
-        assert_eq!(event.proofs[0].payload_digest.as_str(), digest);
+        assert_eq!(event.proofs[0].event_digest.as_str(), digest);
         assert_eq!(event.proofs[0].verification_method, vm_alice());
         assert_eq!(event.proofs[0].kind, proof_kind::DETACHED_JWS);
         assert_eq!(event.proofs[0].alg, "EdDSA");
@@ -262,7 +262,7 @@ mod tests {
         // The signing transcript MUST cover executed_by → the digests
         // and therefore the produced JWS must differ.
         assert_ne!(
-            without.proofs[0].payload_digest, with.proofs[0].payload_digest,
+            without.proofs[0].event_digest, with.proofs[0].event_digest,
             "executed_by must enter the signing transcript"
         );
         assert_ne!(without.proofs[0].jws, with.proofs[0].jws);
@@ -279,7 +279,7 @@ mod tests {
         sign_event(&mut with, &signer, vm_alice(), SignEventOptions::new()).unwrap();
 
         assert_ne!(
-            without.proofs[0].payload_digest, with.proofs[0].payload_digest,
+            without.proofs[0].event_digest, with.proofs[0].event_digest,
             "authorization_ref must enter the signing transcript"
         );
     }

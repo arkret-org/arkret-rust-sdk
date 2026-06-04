@@ -152,8 +152,8 @@ pub struct CircleDisplay {
 /// Field order/shape mirrors `spec/v1/artifacts/schemas/circle.schema.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Circle {
-    pub schema: String,
     pub id: CircleId,
+    pub schema: String,
     /// Parent Realm — create-locked. Circle never re-binds to another Realm.
     pub realm_id: RealmId,
     pub title: String,
@@ -632,8 +632,8 @@ impl Circle {
         created_by: Did,
     ) -> Self {
         Self {
-            schema: CIRCLE_SCHEMA.to_owned(),
             id,
+            schema: CIRCLE_SCHEMA.to_owned(),
             realm_id,
             title: title.into(),
             summary: None,

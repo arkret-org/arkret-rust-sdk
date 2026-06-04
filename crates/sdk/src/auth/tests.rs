@@ -539,7 +539,7 @@ fn auth_uses_provider_did_proof_verifier_for_recovery() {
         kind: "did-proof".to_owned(),
         alg: "EdDSA".to_owned(),
         verification_method: verification_method.to_owned(),
-        payload_digest: crate::Hash::new(format!("sha256:{}", sha256_hex(b"payload"))).unwrap(),
+        event_digest: crate::Hash::new(format!("sha256:{}", sha256_hex(b"payload"))).unwrap(),
         created_at: Utc::now(),
         domain: Some("cokret-auth".to_owned()),
         audience: None,

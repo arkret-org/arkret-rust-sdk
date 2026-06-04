@@ -107,7 +107,7 @@ impl DetachedSignature {
             kind: proof.kind,
             alg: proof.alg,
             verification_method: proof.verification_method,
-            payload_digest: proof.payload_digest,
+            payload_digest: proof.event_digest,
             created_at: proof.created_at,
             domain: proof.domain,
             audience: proof.audience,
@@ -120,7 +120,7 @@ impl DetachedSignature {
             kind: self.kind,
             alg: self.alg,
             verification_method: self.verification_method,
-            payload_digest: self.payload_digest,
+            event_digest: self.payload_digest,
             created_at: self.created_at,
             domain: self.domain,
             audience: self.audience,
@@ -222,9 +222,9 @@ where
     F: Fn(&VerificationMethodDocument, &Proof) -> Result<bool>,
 {
     proof.validate_production()?;
-    if proof.payload_digest != context.expected_payload_digest {
+    if proof.event_digest != context.expected_payload_digest {
         return Err(Error::Protocol(
-            "proof payload_digest does not match expected digest".to_owned(),
+            "proof event_digest does not match expected digest".to_owned(),
         ));
     }
     if proof.domain != context.domain {
@@ -350,7 +350,7 @@ mod tests {
             kind: "detached_jws".to_owned(),
             alg: "EdDSA".to_owned(),
             verification_method: "did:web:alice.example#key-1".to_owned(),
-            payload_digest: payload_digest.clone(),
+            event_digest: payload_digest.clone(),
             created_at: Utc::now(),
             domain: Some("api.example".to_owned()),
             audience: Some(Audience::Single("did:web:service.example".to_owned())),

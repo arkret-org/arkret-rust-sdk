@@ -83,7 +83,7 @@ pub struct AttestationKey {
 pub struct AttestationValidity {
     pub not_before: DateTime<Utc>,
 
-    pub not_after: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
 }
 /// Revocation check method for the attestation chain.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

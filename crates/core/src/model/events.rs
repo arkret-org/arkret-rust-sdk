@@ -355,17 +355,17 @@ impl Event {
 
     /// Validate that all proofs bind to this event's digest.
     ///
-    /// Checks each proof's `payload_digest` matches the canonical event digest,
+    /// Checks each proof's `event_digest` matches the canonical event digest,
     /// and that each proof is structurally valid.
     pub fn validate_proof_bindings(&self) -> Result<()> {
         let digest = self.event_digest()?;
         let expected_hash = Hash::new(digest)?;
         for proof in &self.proofs {
             proof.validate()?;
-            if proof.payload_digest != expected_hash {
+            if proof.event_digest != expected_hash {
                 return Err(Error::Protocol(format!(
-                    "event proof payload_digest '{}' does not match event digest '{}'",
-                    proof.payload_digest, expected_hash
+                    "event proof event_digest '{}' does not match event digest '{}'",
+                    proof.event_digest, expected_hash
                 )));
             }
         }

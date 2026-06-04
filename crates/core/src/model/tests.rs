@@ -110,7 +110,7 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
         verification_method: "did:web:alice.example#device-1".to_owned(),
-        payload_digest: Hash::new(
+        event_digest: Hash::new(
             "sha256:43258cff783fe7036d8a43033f830adfc60ec037382473548ac742b888292777",
         )
         .unwrap(),
@@ -546,7 +546,7 @@ fn signature_binding_payload_matches_canonical_vector() {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
         verification_method: "did:web:alice.example#device-1".to_owned(),
-        payload_digest: Hash::new(
+        event_digest: Hash::new(
             "sha256:43258cff783fe7036d8a43033f830adfc60ec037382473548ac742b888292777",
         )
         .unwrap(),
@@ -586,7 +586,7 @@ fn fact_chain_echo_validates_server_proof_binding() {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
         verification_method: "did:web:server.example#key-1".to_owned(),
-        payload_digest: digest,
+        event_digest: digest,
         created_at: echo.observed_at,
         domain: None,
         audience: None,
@@ -596,7 +596,7 @@ fn fact_chain_echo_validates_server_proof_binding() {
     echo.validate_server_proofs().unwrap();
 
     let mut tampered = echo;
-    tampered.proofs[0].payload_digest =
+    tampered.proofs[0].event_digest =
         Hash::new("sha256:3333333333333333333333333333333333333333333333333333333333333333")
             .unwrap();
     assert!(tampered.validate_server_proofs().is_err());
@@ -719,6 +719,8 @@ fn relation_requires_exact_wire_endpoints() {
         state_changed_at: None,
         created_by: Did::new("did:web:alice.example").unwrap(),
         created_at: Utc::now(),
+        updated_by: None,
+        updated_at: None,
     };
     relation.validate_endpoints().unwrap();
 }
@@ -850,7 +852,7 @@ fn valid_proof() -> Proof {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
         verification_method: "did:web:alice.example#key-1".to_owned(),
-        payload_digest: Hash::new(
+        event_digest: Hash::new(
             "sha256:0000000000000000000000000000000000000000000000000000000000000000",
         )
         .unwrap(),
@@ -1013,7 +1015,7 @@ fn event_validate_proof_bindings_checks_digest_match() {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
         verification_method: "did:web:alice.example#key-1".to_owned(),
-        payload_digest: Hash::new(digest).unwrap(),
+        event_digest: Hash::new(digest).unwrap(),
         created_at: Utc::now(),
         domain: None,
         audience: None,
@@ -1041,7 +1043,7 @@ fn event_validate_proof_bindings_rejects_mismatched_digest() {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
         verification_method: "did:web:alice.example#key-1".to_owned(),
-        payload_digest: Hash::new(
+        event_digest: Hash::new(
             "sha256:0000000000000000000000000000000000000000000000000000000000000000",
         )
         .unwrap(),
@@ -1147,7 +1149,7 @@ fn rank_helpers_generate_between_and_rebalance_assignments() {
 #[test]
 fn flow_constructor_sets_protocol_shape() {
     let mut subject = Flow::new(
-        "ck:flow:01904100-0000-7000-8000-6c663fa0205f",
+        FlowId::new("ck:flow:01904100-0000-7000-8000-6c663fa0205f").unwrap(),
         RealmId::new("ck:realm:01904100-0000-7000-8000-fd3637e8361f").unwrap(),
         "Payment refactor",
         Did::new("did:web:alice.example").unwrap(),
@@ -1168,7 +1170,7 @@ fn flow_constructor_sets_protocol_shape() {
 #[test]
 fn flow_discussion_constructor_sets_room_shape() {
     let flow = Flow::discussion(
-        "ck:flow:01904100-0000-7000-8000-58754cf88c25",
+        FlowId::new("ck:flow:01904100-0000-7000-8000-58754cf88c25").unwrap(),
         RealmId::new("ck:realm:01904100-0000-7000-8000-2007b59d0dc4").unwrap(),
         "Launch board discussion",
         Did::new("did:web:alice.example").unwrap(),
@@ -1210,7 +1212,7 @@ fn read_scope_rejects_removed_track_kind_variants() {
 #[test]
 fn synthesis_flow_is_not_conversational() {
     let flow = Flow::new(
-        "ck:flow:01904100-0000-7000-8000-58754cf88c25",
+        FlowId::new("ck:flow:01904100-0000-7000-8000-58754cf88c25").unwrap(),
         RealmId::new("ck:realm:01904100-0000-7000-8000-2007b59d0dc4").unwrap(),
         "Launch board synthesis",
         Did::new("did:web:alice.example").unwrap(),

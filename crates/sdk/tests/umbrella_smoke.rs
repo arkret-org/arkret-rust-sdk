@@ -28,7 +28,7 @@ fn umbrella_crate_builds_client_signs_event_and_verifies_binding() {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
         verification_method: "did:web:alice.example#device-1".to_owned(),
-        payload_digest: Hash::new(digest).unwrap(),
+        event_digest: Hash::new(digest).unwrap(),
         created_at: chrono::Utc::now(),
         domain: None,
         audience: None,

@@ -102,10 +102,10 @@ impl OperationEnvelope {
         let expected_hash = Hash::new(digest)?;
         for proof in &self.proofs {
             proof.validate()?;
-            if proof.payload_digest != expected_hash {
+            if proof.event_digest != expected_hash {
                 return Err(Error::Protocol(format!(
-                    "operation proof payload_digest '{}' does not match operation digest '{}'",
-                    proof.payload_digest, expected_hash
+                    "operation proof event_digest '{}' does not match operation digest '{}'",
+                    proof.event_digest, expected_hash
                 )));
             }
         }

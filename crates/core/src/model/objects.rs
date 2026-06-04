@@ -269,8 +269,8 @@ impl Space {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Place {
-    pub schema: String,
     pub id: RealmId,
+    pub schema: String,
     pub space_id: RealmId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parent_space_id: Option<RealmId>,
@@ -362,8 +362,8 @@ impl Place {
         created_by: Did,
     ) -> Self {
         Self {
-            schema: SPACE_SCHEMA.to_owned(),
             id,
+            schema: SPACE_SCHEMA.to_owned(),
             space_id,
             parent_space_id: None,
             kind: kind.into(),
@@ -464,8 +464,8 @@ pub struct MessageMetadata {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Flow {
+    pub id: FlowId,
     pub schema: String,
-    pub id: String,
     pub realm_id: RealmId,
     /// CKP-0007 (spec b7d35be) — optional Circle scope binding. When set, all
     /// Flow tracks share the referenced Circle's MLS group, membership and
@@ -511,6 +511,14 @@ pub struct Flow {
     pub state: Option<ObjectState>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state_changed_at: Option<DateTime<Utc>>,
+    /// Business-progression stage (spec `flow.schema.json` required `stage`).
+    /// Orthogonal to lifecycle `state`. Mutated only via `ck.flow.stage.set`;
+    /// constructors default to [`ObjectStage::Draft`], consistent with Morph.
+    pub stage: ObjectStage,
+    /// Reducer-derived timestamp of the most recent `stage` transition;
+    /// preserved on deserialize, omitted by producers (servers populate it).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stage_changed_at: Option<DateTime<Utc>>,
     pub created_by: Did,
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -523,18 +531,13 @@ pub struct Flow {
 }
 
 impl Flow {
-    pub fn new(
-        id: impl Into<String>,
-        realm_id: RealmId,
-        title: impl Into<String>,
-        created_by: Did,
-    ) -> Self {
+    pub fn new(id: FlowId, realm_id: RealmId, title: impl Into<String>, created_by: Did) -> Self {
         let title = title.into();
         let mut tracks = BTreeMap::new();
         tracks.insert(FLOW_TRACK_NAME_SYNTHESIS.to_owned(), FlowTrackConfig::synthesis());
         Self {
+            id,
             schema: FLOW_SCHEMA.to_owned(),
-            id: id.into(),
             realm_id,
             scope_circle_id: None,
             metadata: Some(FlowMetadata::with_title(title.clone())),
@@ -548,6 +551,8 @@ impl Flow {
             fields: BTreeMap::new(),
             state: Some(ObjectState::Active),
             state_changed_at: None,
+            stage: ObjectStage::Draft,
+            stage_changed_at: None,
             created_by,
             created_at: Utc::now(),
             updated_by: None,
@@ -576,7 +581,7 @@ impl Flow {
 
     /// Construct a Flow whose primary entry point is the `discussion` track.
     pub fn discussion(
-        id: impl Into<String>,
+        id: FlowId,
         realm_id: RealmId,
         title: impl Into<String>,
         created_by: Did,
@@ -633,6 +638,10 @@ pub struct Relation {
     pub state_changed_at: Option<DateTime<Utc>>,
     pub created_by: Did,
     pub created_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_by: Option<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
 }
 
 /// Relation cardinality declared by a `RelationProfile` (data-structures.md

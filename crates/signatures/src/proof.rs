@@ -424,12 +424,12 @@ mod ed25519_jws {
             audience: Option<Audience>,
         ) -> cokret_core::Result<Proof> {
             let jws = detached_jws_over(&self.signing_key, bytes);
-            let payload_digest = Hash::new(canonical::sha256_digest(bytes))?;
+            let event_digest = Hash::new(canonical::sha256_digest(bytes))?;
             Ok(Proof {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
                 alg: "EdDSA".to_owned(),
                 verification_method: self.verification_method.clone(),
-                payload_digest,
+                event_digest,
                 created_at: Utc::now(),
                 domain,
                 audience,
@@ -501,10 +501,10 @@ mod ed25519_jws {
             // fixed-length lowercase hex of a SHA-256 digest, so length is not secret;
             // `ct_eq` compares the bytes without an early-exit timing side channel.
             use subtle::ConstantTimeEq;
-            if !bool::from(proof.payload_digest.as_bytes().ct_eq(expected.as_bytes())) {
+            if !bool::from(proof.event_digest.as_str().as_bytes().ct_eq(expected.as_bytes())) {
                 return Err(VerifierError::Binding(format!(
-                    "proof payload_digest '{}' does not match canonical bytes '{}'",
-                    proof.payload_digest, expected
+                    "proof event_digest '{}' does not match canonical bytes '{}'",
+                    proof.event_digest, expected
                 )));
             }
             let parts: Vec<&str> = proof.jws.split('.').collect();
@@ -638,7 +638,7 @@ pub fn build_proof_envelope(
         kind: kind.into(),
         alg: algorithm.into(),
         verification_method: verification_method.into(),
-        payload_digest,
+        event_digest: payload_digest,
         created_at: Utc::now(),
         domain,
         audience,

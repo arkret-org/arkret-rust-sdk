@@ -870,7 +870,7 @@ impl AuthManager {
             kind: cokret_core::proof_kind::DETACHED_JWS.to_owned(),
             alg: move_sig.alg,
             verification_method: verification_method.to_owned(),
-            payload_digest,
+            event_digest: payload_digest,
             created_at: Utc::now(),
             domain: None,
             audience: Some(cokret_core::Audience::Single(audience.to_owned())),

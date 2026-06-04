@@ -241,7 +241,7 @@ pub fn sign_registration<S: cokret_core::MoveSigner + ?Sized>(
         kind: cokret_core::proof_kind::DETACHED_JWS.to_owned(),
         alg: sig.alg,
         verification_method: verification_method.to_owned(),
-        payload_digest,
+        event_digest: payload_digest,
         created_at: Utc::now(),
         domain: None,
         audience: None,
@@ -398,7 +398,7 @@ impl AppletPackage {
             kind: cokret_core::proof_kind::DETACHED_JWS.to_owned(),
             alg: sig.alg,
             verification_method: verification_method.to_owned(),
-            payload_digest,
+            event_digest: payload_digest,
             created_at: Utc::now(),
             domain: None,
             audience: None,
@@ -1523,7 +1523,7 @@ mod tests {
             kind: "detached_jws".to_owned(),
             alg: "EdDSA".to_owned(),
             verification_method: "did:web:alice.example#key-1".to_owned(),
-            payload_digest: digest_before.clone(),
+            event_digest: digest_before.clone(),
             created_at: Utc::now(),
             domain: None,
             audience: None,
@@ -1624,7 +1624,7 @@ mod tests {
             kind: "detached_jws".to_owned(),
             alg: "EdDSA".to_owned(),
             verification_method: "did:web:alice.example#key-1".to_owned(),
-            payload_digest: package.package_digest.clone().unwrap(),
+            event_digest: package.package_digest.clone().unwrap(),
             created_at: Utc::now(),
             domain: None,
             audience: None,
@@ -1740,7 +1740,7 @@ mod tests {
         let proof = reg.proof.as_ref().expect("proof must be attached");
         assert_eq!(proof.alg, "EdDSA");
         assert_eq!(proof.verification_method, "did:web:alice.example#key-1");
-        assert_eq!(proof.payload_digest, reg.payload_digest().unwrap());
+        assert_eq!(proof.event_digest, reg.payload_digest().unwrap());
 
         // Silence any unused warnings on the BTreeMap import — kept for symmetry.
         let _ = BTreeMap::<String, ()>::new();
