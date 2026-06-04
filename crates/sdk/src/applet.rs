@@ -497,7 +497,9 @@ impl EffectiveScope {
     /// The Realm both variants are anchored in.
     pub fn realm_id(&self) -> &RealmId {
         match self {
-            EffectiveScope::Realm { realm_id } | EffectiveScope::Circle { realm_id, .. } => realm_id,
+            EffectiveScope::Realm { realm_id } | EffectiveScope::Circle { realm_id, .. } => {
+                realm_id
+            }
         }
     }
 }
@@ -1301,9 +1303,7 @@ mod tests {
         };
         // Exclusive vs overlapping concrete claim in the same domain conflicts.
         let b = AppletWireNamespaces {
-            actors: vec![AppletNamespaceEntry::exclusive(
-                "did:web:slack-bridge.example:ghost:u1",
-            )],
+            actors: vec![AppletNamespaceEntry::exclusive("did:web:slack-bridge.example:ghost:u1")],
             ..Default::default()
         };
         let conflicts = a.conflicts_with(&b);

@@ -461,6 +461,47 @@ impl LatticeKind for AgentKey {
     }
 }
 
+pub struct KeyBackupActiveSeries;
+impl LatticeKind for KeyBackupActiveSeries {
+    fn cell_family(&self) -> &'static str {
+        "ck.component.key_backup.active_series.v1"
+    }
+    fn lattice(&self) -> SdkLatticeKind {
+        SdkLatticeKind::CasRegister
+    }
+    fn bottom_policy(&self) -> BottomPolicy {
+        BottomPolicy::Reject
+    }
+    fn component(&self) -> ComponentDescriptor {
+        ComponentDescriptor {
+            component_type: "ck.component.key_backup.active_series.v1",
+            component_version: 1,
+            criticality: Criticality::Required,
+        }
+    }
+    fn subject_for_effect(
+        &self,
+        effect_payload: &Value,
+    ) -> Result<Option<String>, LatticeKindError> {
+        let actor_id = effect_payload.get("actor_id").and_then(Value::as_str).ok_or(
+            LatticeKindError::MissingSubjectField {
+                cell_family: "ck.component.key_backup.active_series.v1",
+                field: "actor_id",
+            },
+        )?;
+        let backup_class = effect_payload.get("backup_class").and_then(Value::as_str).ok_or(
+            LatticeKindError::MissingSubjectField {
+                cell_family: "ck.component.key_backup.active_series.v1",
+                field: "backup_class",
+            },
+        )?;
+        Ok(Some(format!("{actor_id}::{backup_class}")))
+    }
+    fn event_kinds(&self) -> &'static [&'static str] {
+        &["ck.key_backup.active_series"]
+    }
+}
+
 singleton_lattice!(
     CoveredFrontier,
     "ck.component.mls.covered_frontier.v1",
@@ -1312,6 +1353,7 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(DeviceListUpdate);
     registry.register(AgentKey);
     registry.register(CoveredFrontier);
+    registry.register(KeyBackupActiveSeries);
 
     // CasRegister
     registry.register(SpacePolicy);
@@ -1417,6 +1459,7 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "ck.component.device.list_update.v1",
         "ck.component.agent.key.v1",
         "ck.component.mls.covered_frontier.v1",
+        "ck.component.key_backup.active_series.v1",
         // CasRegister
         "ck.component.space.policy.v1",
         "ck.component.space.read_receipt_policy.v1",
@@ -1584,11 +1627,12 @@ mod tests {
         // legacy `Space*` impls registered for reducer back-compat, so
         // 49 (legacy) + 28 (new realm/flow/morph/agent) - 4 withdrawn
         // agent extension vectors families, plus agent status, Circle, and
-        // member identity cells, plus preview policy = 79.
+        // member identity cells, preview policy, plus key-backup
+        // active-series = 80.
         // Bump this number deliberately when the spec event-kind
         // registry grows a new cell_family.
         let registry = default_lattice_registry();
-        assert_eq!(registry.len(), 79);
+        assert_eq!(registry.len(), 80);
     }
 
     #[test]

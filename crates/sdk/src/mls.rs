@@ -288,11 +288,7 @@ impl FrankingVerifierExporterSecret {
     /// Borrow the secret only while the window is live; `None` once expired so
     /// callers cannot keep deriving sender-commitment keys past the cap.
     pub fn secret(&self, now: chrono::DateTime<Utc>) -> Option<&[u8]> {
-        if self.is_expired(now) {
-            None
-        } else {
-            Some(self.secret.as_slice())
-        }
+        if self.is_expired(now) { None } else { Some(self.secret.as_slice()) }
     }
 
     /// Zeroize the held secret if the window has elapsed; returns `true` when it
