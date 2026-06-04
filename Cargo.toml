@@ -48,6 +48,7 @@ tls_codec = { version = "0.4.2", default-features = false, features = ["mls", "s
 uuid = { version = "1.10", default-features = false, features = ["std", "v7", "serde"] }
 tokio = { version = "1.48.0", default-features = false, features = ["sync"] }
 tracing = { version = "0.1.41", default-features = false, features = ["std", "attributes"] }
+unicode-normalization = { version = "0.1.24", default-features = false, features = ["std"] }
 url = { version = "2.5.7", default-features = false }
 # Platform KeyStore native backends. Each is brought in only by its target
 # OS via per-target [target.<cfg>.dependencies] in `crates/core/Cargo.toml`,

@@ -22,6 +22,70 @@ pub fn canonical_json_string<T: Serialize>(value: &T) -> Result<String> {
         .map_err(|err| Error::Protocol(format!("canonical JSON produced invalid UTF-8: {err}")))
 }
 
+/// Returns `true` if `s` is already in Unicode NFC (Normalization Form C).
+///
+/// `encoding.md` §2.1: every wire string MUST be NFC *before* it is written to
+/// canonical JSON, and a receiver MUST reject a non-NFC string rather than
+/// silently normalising it during verify — two visually identical strings that
+/// differ only in composition (precomposed vs decomposed) otherwise produce
+/// different digests, a hash/signature false-negative vector.
+pub fn is_nfc(s: &str) -> bool {
+    unicode_normalization::is_nfc(s)
+}
+
+/// Unified inbound canonical-JSON validation entry point (`encoding.md` §2 / §2.1).
+///
+/// Layers the receiver-side MUSTs that `serde_json::from_slice` does **not**
+/// enforce, so every inbound envelope / proof / cursor / receipt can validate
+/// through one call:
+/// - UTF-8 BOM / `U+FEFF` rejected (byte scan in [`parse_canonical_json`]);
+/// - duplicate object keys rejected at any depth ([`parse_canonical_json`]);
+/// - every string value / object key rejected if non-NFC or containing an
+///   (escaped) `U+FEFF`;
+/// - every JSON number rejected if it falls outside the canonical integer
+///   profile or the JSON safe-integer range (reuses [`write_number`]).
+///
+/// Object-key *ordering* is enforced for emitters by [`canonical_json_bytes`];
+/// a standalone ingress key-order check needs the raw key sequence (serde_json
+/// reorders into a map) and is tracked as a follow-up.
+pub fn validate_canonical_bytes(bytes: &[u8]) -> Result<()> {
+    let value = parse_canonical_json(bytes)?;
+    validate_canonical_value(&value)
+}
+
+fn validate_canonical_value(value: &Value) -> Result<()> {
+    match value {
+        Value::Null | Value::Bool(_) => Ok(()),
+        Value::String(s) => validate_canonical_string(s),
+        Value::Number(number) => {
+            let mut sink = Vec::new();
+            write_number(number, &mut sink)
+        }
+        Value::Array(items) => items.iter().try_for_each(validate_canonical_value),
+        Value::Object(map) => {
+            for (key, val) in map {
+                validate_canonical_string(key)?;
+                validate_canonical_value(val)?;
+            }
+            Ok(())
+        }
+    }
+}
+
+fn validate_canonical_string(s: &str) -> Result<()> {
+    // A raw U+FEFF is already rejected at the byte level, but an escaped
+    // `﻿` survives JSON string decoding — reject it here too.
+    if s.contains('\u{feff}') {
+        return Err(Error::NonCanonicalString("string value contains U+FEFF".to_owned()));
+    }
+    if !is_nfc(s) {
+        return Err(Error::NonCanonicalString(format!(
+            "string value is not Unicode NFC: {s:?}"
+        )));
+    }
+    Ok(())
+}
+
 /// Parse inbound JSON bytes into a [`Value`] with the canonical-JSON ingress
 /// rules that `serde_json::from_slice` does **not** enforce.
 ///
@@ -488,6 +552,40 @@ mod tests {
     fn canonical_json_rejects_float_zero() {
         let value = json!({ "n": 0.0 });
         assert!(matches!(canonical_json_string(&value), Err(Error::NonCanonicalNumber)));
+    }
+
+    #[test]
+    fn is_nfc_distinguishes_composition() {
+        assert!(is_nfc("caf\u{e9}")); // precomposed é
+        assert!(!is_nfc("cafe\u{301}")); // e + combining acute
+    }
+
+    #[test]
+    fn write_string_rejects_embedded_feff() {
+        let value = json!({ "x": "a\u{feff}b" });
+        assert!(matches!(canonical_json_bytes(&value), Err(Error::NonCanonicalString(_))));
+    }
+
+    #[test]
+    fn parse_canonical_json_rejects_leading_bom() {
+        let mut bytes = vec![0xEF, 0xBB, 0xBF];
+        bytes.extend_from_slice(br#"{"a":1}"#);
+        assert!(matches!(parse_canonical_json(&bytes), Err(Error::NonCanonicalString(_))));
+    }
+
+    #[test]
+    fn validate_canonical_bytes_rejects_non_nfc_string() {
+        let json = "{\"name\":\"cafe\u{301}\"}"; // decomposed é in a value
+        assert!(matches!(
+            validate_canonical_bytes(json.as_bytes()),
+            Err(Error::NonCanonicalString(_))
+        ));
+    }
+
+    #[test]
+    fn validate_canonical_bytes_accepts_nfc() {
+        let json = r#"{"a":1,"name":"abc"}"#;
+        assert!(validate_canonical_bytes(json.as_bytes()).is_ok());
     }
 
     #[test]
