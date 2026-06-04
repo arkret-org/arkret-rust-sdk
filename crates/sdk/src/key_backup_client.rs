@@ -92,7 +92,7 @@ mod tests {
             device_id: Some(
                 crate::DeviceId::new("ck:device:01964137-0000-7000-8000-000000000000").unwrap(),
             ),
-            backup_class: crate::KeyBackupClass::DidRecovery,
+            backup_class: crate::KeyBackupClass::SecretStorage,
             mixed_secret_storage: false,
             backup_version: "kb_1".to_owned(),
             created_at: Utc::now(),
@@ -137,7 +137,7 @@ mod tests {
         let record = backup_record();
         let json = serde_json::to_value(&record).unwrap();
         assert_eq!(json["backup_id"], record.backup_id);
-        assert_eq!(json["backup_class"], "did_recovery");
+        assert_eq!(json["backup_class"], "secret_storage");
         let back: ProtocolKeyBackup = serde_json::from_value(json).unwrap();
         assert_eq!(back.backup_id, record.backup_id);
         assert_eq!(back.backup_version, "kb_1");

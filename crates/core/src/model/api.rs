@@ -2059,11 +2059,8 @@ impl KeyBackup {
 #[serde(rename_all = "snake_case")]
 pub enum KeyBackupRecipientMethod {
     PassphraseKdf,
-    DeviceSnapshotSecret,
     RecoveryPublicKey,
     SecretStorageKey,
-    ThresholdRecovery,
-    HardwareWrappedKey,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2134,7 +2131,8 @@ impl TryFrom<KeyBackupKdfWire> for KeyBackupKdf {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeyBackupAead {
     pub name: String,
-    pub nonce: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nonce: Option<String>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
@@ -2168,6 +2166,8 @@ pub struct KeyBackupAuthData {
     pub verification_method: String,
     pub signature_algorithm: String,
     pub signature: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ssk_generation: Option<u64>,
     pub signed_fields: Vec<String>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
@@ -2400,10 +2400,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn key_backup_recipient_method_round_trips_device_snapshot_secret() {
-        let json = serde_json::to_value(KeyBackupRecipientMethod::DeviceSnapshotSecret).unwrap();
-        assert_eq!(json, serde_json::json!("device_snapshot_secret"));
-        let parsed: KeyBackupRecipientMethod = serde_json::from_value(json).unwrap();
-        assert_eq!(parsed, KeyBackupRecipientMethod::DeviceSnapshotSecret);
+    fn key_backup_recipient_method_rejects_removed_wire_values() {
+        for value in ["device_snapshot_secret", "threshold_recovery", "hardware_wrapped_key"] {
+            let parsed: std::result::Result<KeyBackupRecipientMethod, _> =
+                serde_json::from_value(serde_json::json!(value));
+            assert!(parsed.is_err(), "{value} must not be a key-backup recipient_method");
+        }
     }
 }

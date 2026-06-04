@@ -52,7 +52,7 @@ fn build_envelope(
         backup_id: BackupId::new(&backup_id_str).expect("valid backup_id"),
         actor_id: actor_id.clone(),
         device_id: Some(device_id.clone()),
-        backup_class: BackupClass::DidRecovery,
+        backup_class: BackupClass::SecretStorage,
         mixed_secret_storage: false,
         backup_version: "kb_1".to_owned(),
         created_at: chrono::Utc::now(),
@@ -70,7 +70,7 @@ fn build_envelope(
             }),
             aead: KeyBackupAead {
                 name: "xchacha20_poly1305".to_owned(),
-                nonce: format!("nonce-{seq}"),
+                nonce: Some(format!("nonce-{seq}")),
                 extra: BTreeMap::new(),
             },
             key_commitment: None,
@@ -94,6 +94,7 @@ fn build_envelope(
             verification_method: "did:web:alice.example#device-1".to_owned(),
             signature_algorithm: "ed25519".to_owned(),
             signature: format!("sig-{seq}"),
+            ssk_generation: Some(1),
             signed_fields: vec![
                 "backup_id".to_owned(),
                 "ciphertext_digest".to_owned(),

@@ -10,8 +10,9 @@
 //! target the SDK supports (native + wasm32).
 //!
 //! This module builds passphrase-KDF envelopes for recovery and secret
-//! storage. MLS history snapshots are device-secret wrapped by the
-//! application runtime and must not use this builder.
+//! storage. MLS history snapshots use `secret_storage_key` or
+//! `recovery_public_key` envelopes in the application runtime and must not use
+//! this passphrase builder.
 //!
 //! ```no_run
 //! use cokret_crypto::backup::{derive_vault_kek, encrypt_vault, build_key_backup_envelope};
@@ -289,7 +290,9 @@ pub fn build_key_backup_envelope(
     contents: &[(&str, Option<&str>)],
 ) -> Result<KeyBackup> {
     if backup_class == BackupClass::MlsHistory {
-        return Err(anyhow!("mls_history backups must use device_snapshot_secret envelopes"));
+        return Err(anyhow!(
+            "mls_history backups must use secret_storage_key or recovery_public_key envelopes"
+        ));
     }
     if !backup_version.starts_with("kb_") {
         return Err(anyhow!(
@@ -311,7 +314,7 @@ pub fn build_key_backup_envelope(
     };
     let aead = KeyBackupAead {
         name: "xchacha20_poly1305".to_owned(),
-        nonce: ciphertext.nonce_b64.clone(),
+        nonce: Some(ciphertext.nonce_b64.clone()),
         extra: Default::default(),
     };
     let encryption = KeyBackupEncryption {
@@ -613,6 +616,6 @@ mod tests {
             &[("mls_group_state", Some("snapshot"))],
         )
         .unwrap_err();
-        assert!(err.to_string().contains("device_snapshot_secret"));
+        assert!(err.to_string().contains("secret_storage_key"));
     }
 }
