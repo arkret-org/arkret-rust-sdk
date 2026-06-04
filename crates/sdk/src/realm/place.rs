@@ -1,8 +1,8 @@
 use super::*;
 
-/// Optional Place create metadata accepted by [`Space::create_place_operation_with_metadata`].
+/// Optional Space (container) create metadata accepted by [`Realm::create_place_operation_with_metadata`].
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct PlaceCreateMetadata {
+pub struct SpaceCreateMetadata {
     pub parent_space_id: Option<String>,
     pub summary: Option<String>,
     pub rank: Option<String>,
@@ -11,9 +11,9 @@ pub struct PlaceCreateMetadata {
     pub labels: Vec<String>,
 }
 
-/// Optional Place patch metadata accepted by [`Space::update_place_operation_with_metadata`].
+/// Optional Space (container) patch metadata accepted by [`Realm::update_place_operation_with_metadata`].
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct PlaceUpdateMetadata {
+pub struct SpaceUpdateMetadata {
     pub kind: Option<String>,
     pub summary: Option<String>,
     pub rank: Option<String>,
@@ -22,7 +22,7 @@ pub struct PlaceUpdateMetadata {
     pub labels: Option<Vec<String>>,
 }
 
-impl Space {
+impl Realm {
     /// Create a spec-shaped `ck.space.create` operation.
     pub fn create_place_operation(
         &self,
@@ -35,16 +35,16 @@ impl Space {
         self.create_place_operation_with_metadata(
             kind,
             title,
-            PlaceCreateMetadata { parent_space_id, rank, fields, ..Default::default() },
+            SpaceCreateMetadata { parent_space_id, rank, fields, ..Default::default() },
         )
     }
 
-    /// Create a spec-shaped `ck.space.create` operation with extended Place fields.
+    /// Create a spec-shaped `ck.space.create` operation with extended Space (container) fields.
     pub fn create_place_operation_with_metadata(
         &self,
         kind: impl Into<String>,
         title: impl Into<String>,
-        metadata: PlaceCreateMetadata,
+        metadata: SpaceCreateMetadata,
     ) -> Result<Operation> {
         let session_meta = self
             .base_client
@@ -103,16 +103,16 @@ impl Space {
         self.update_place_operation_with_metadata(
             place_id,
             title,
-            PlaceUpdateMetadata { fields, ..Default::default() },
+            SpaceUpdateMetadata { fields, ..Default::default() },
         )
     }
 
-    /// Create a spec-shaped `ck.space.update` operation with extended Place fields.
+    /// Create a spec-shaped `ck.space.update` operation with extended Space (container) fields.
     pub fn update_place_operation_with_metadata(
         &self,
         place_id: RealmId,
         title: Option<String>,
-        metadata: PlaceUpdateMetadata,
+        metadata: SpaceUpdateMetadata,
     ) -> Result<Operation> {
         self.base_client
             .session_meta()

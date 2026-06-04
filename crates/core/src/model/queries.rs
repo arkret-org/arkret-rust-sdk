@@ -146,7 +146,7 @@ pub struct CollectionProjectionResBody {
     /// the same baseline if they need to reproduce the exact rendering.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub frontier: Vec<String>,
-    /// Groups are typically Place(kind=list) cells in a kanban or
+    /// Groups are typically Space(kind=list) cells in a kanban or
     /// status-segmented columns in a table. Order is reducer-stable
     /// (rank ascending, then HLC tie-break per spec §10).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

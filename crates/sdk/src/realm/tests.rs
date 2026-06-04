@@ -60,7 +60,7 @@ fn space_checks_membership() {
 
     base_client.update_space_state(&space_id, SpaceStateType::Joined).unwrap();
 
-    let space = Space::new(space_id, base_client);
+    let space = Realm::new(space_id, base_client);
     assert!(space.is_joined());
     assert!(!space.is_invited());
     assert!(!space.is_left());
@@ -70,7 +70,7 @@ fn space_checks_membership() {
 fn space_creates_morph_operation() {
     let base_client = sessioned_base();
     let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
-    let space = Space::new(space_id.clone(), base_client);
+    let space = Realm::new(space_id.clone(), base_client);
 
     let op = space
         .create_morph_operation("task", Some("Test task".to_owned()), None, None, BTreeMap::new())
@@ -88,7 +88,7 @@ fn space_creates_morph_operation() {
 fn space_creates_relation_operation() {
     let base_client = sessioned_base();
     let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
-    let space = Space::new(space_id.clone(), base_client);
+    let space = Realm::new(space_id.clone(), base_client);
 
     let input = RelationOperationInput::new(
         RelationKind::DependsOn,
@@ -107,7 +107,7 @@ fn space_creates_relation_operation() {
 fn space_creates_flow_operations_and_reads_default_view_relations() {
     let base_client = sessioned_base();
     let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
-    let space = Space::new(space_id.clone(), base_client.clone());
+    let space = Realm::new(space_id.clone(), base_client.clone());
 
     let create = space
         .create_flow_operation(
@@ -163,7 +163,7 @@ fn space_creates_flow_operations_and_reads_default_view_relations() {
         )
         .unwrap();
 
-    let refreshed = Space::new(space_id, base_client);
+    let refreshed = Realm::new(space_id, base_client);
     assert_eq!(refreshed.flows().len(), 1);
     assert_eq!(refreshed.flow_default_views(&flow_id).len(), 1);
 }
@@ -216,7 +216,7 @@ fn space_queries_searches_and_aggregates_morphs() {
             ],
         )
         .unwrap();
-    let space = Space::new(space_id, base_client);
+    let space = Realm::new(space_id, base_client);
 
     let results = space.query_morphs(MorphQuery {
         morph_types: vec!["task".to_owned()],
@@ -293,7 +293,7 @@ fn space_traverses_relation_ref_graph_paths_and_cycles() {
             ],
         )
         .unwrap();
-    let space = Space::new(space_id, base_client);
+    let space = Realm::new(space_id, base_client);
 
     assert_eq!(
         space.traverse_relation_refs(
@@ -349,7 +349,7 @@ fn space_tracks_morph_versions_compares_and_rolls_back() {
             ],
         )
         .unwrap();
-    let space = Space::new(space_id, base_client);
+    let space = Realm::new(space_id, base_client);
 
     let versions = space.morph_versions(&morph_id);
     assert_eq!(versions.len(), 2);
@@ -370,7 +370,7 @@ fn space_tracks_morph_versions_compares_and_rolls_back() {
 fn space_creates_batch_morph_operations() {
     let base_client = sessioned_base();
     let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
-    let space = Space::new(space_id, base_client);
+    let space = Realm::new(space_id, base_client);
 
     let creates = space
         .batch_create_morph_operations(vec![
@@ -415,7 +415,7 @@ fn space_creates_batch_morph_operations() {
 fn space_provides_message_membership_and_media_convenience_helpers() {
     let base_client = sessioned_base();
     let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
-    let space = Space::new(space_id.clone(), base_client.clone());
+    let space = Realm::new(space_id.clone(), base_client.clone());
     let bob = Did::new("did:web:bob.example.com").unwrap();
 
     let text = space.send_text("hello").unwrap();
@@ -465,7 +465,7 @@ fn member_add_with_candidate_emits_routable_join_with_typed_binding() {
 
     let base_client = sessioned_base();
     let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-000000000300").unwrap();
-    let space = Space::new(space_id.clone(), base_client);
+    let space = Realm::new(space_id.clone(), base_client);
 
     let subject = Did::new("did:web:bob.example".to_owned()).unwrap();
     let principal = Did::new("did:web:principal.acme.example".to_owned()).unwrap();
@@ -524,7 +524,7 @@ fn member_add_with_candidate_rejects_audience_mismatch() {
 
     let base_client = sessioned_base();
     let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-000000000301").unwrap();
-    let space = Space::new(space_id, base_client);
+    let space = Realm::new(space_id, base_client);
 
     let principal = Did::new("did:web:principal.acme.example".to_owned()).unwrap();
     let mut modes = std::collections::BTreeSet::new();

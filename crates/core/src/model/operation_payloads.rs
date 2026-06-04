@@ -60,7 +60,7 @@ pub struct SpaceCreateObject {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_blob_ref: Option<BlobRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub state: Option<PlaceState>,
+    pub state: Option<SpaceState>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state_changed_at: Option<DateTime<Utc>>,
     pub created_by: Did,

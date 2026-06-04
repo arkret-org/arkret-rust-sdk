@@ -1,18 +1,18 @@
 use super::*;
 
-// Realm/Space inversion (spec 59ac1d4). The `Space` struct below carries the
-// **security-boundary** fields (`trust_domain` / `security_class` /
+// Realm/Space inversion (spec 59ac1d4) — COMPLETED. The `Realm` struct below
+// carries the **security-boundary** fields (`trust_domain` / `security_class` /
 // `federation_policy` / `history_visibility`; spec realm.schema.json) and the
-// `Place` struct further down carries the **container** fields (`kind` /
+// `Space` struct further down carries the **container** fields (`kind` /
 // `parent_space_id` / `rank`; spec space.schema.json). The struct identifiers
-// have not yet been rotated to their spec names (`Space`→`Realm`,
-// `Place`→`Space`); that rotation is tracked separately because the `Space`
-// token is currently overloaded across the SDK client handle
-// (`sdk::space::Space`) and several protocol enum variants
-// (`EventClass::Space`, `Resource::Space`, …).
+// have been rotated to their spec names (old `Space`→`Realm`, old
+// `Place`→`Space`). Protocol enum variants that carry the *container* semantics
+// (`EventClass::Space`, `Resource::Space`, `SPACE_*`, `ScopeLimitation::Space`,
+// `PerSpace`, wire `ck.space.*`) are already correct and are intentionally left
+// as-is.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct Space {
+pub struct Realm {
     pub schema: String,
     pub id: RealmId,
     pub title: String,
@@ -22,8 +22,8 @@ pub struct Space {
     /// `cross_domain_replay_rejected`. Mixed into the canonical signing
     /// transcript of high-risk proofs (cross-signing reset,
     /// audit_policy_version_digest). This field is `Realm`-scoped because
-    /// `Space` is the security-boundary type (Realm/Space inversion);
-    /// the container surface is `Place`.
+    /// `Realm` is the security-boundary type (Realm/Space inversion);
+    /// the container surface is `Space`.
     pub trust_domain: TypedTrustDomainId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
@@ -157,7 +157,7 @@ pub enum CoWritePolicy {
     CausalOnly,
 }
 
-impl Space {
+impl Realm {
     /// Round 4 (2026-05-20, spec a77b995) — wire-breaking: `trust_domain`
     /// is REQUIRED. Constructors MUST now pass the deployment-scope
     /// trust domain captured at `ck.realm.create` time.
@@ -168,7 +168,7 @@ impl Space {
         trust_domain: TypedTrustDomainId,
     ) -> Self {
         Self {
-            // `Space` is the security-boundary type (Realm/Space inversion),
+            // `Realm` is the security-boundary type (Realm/Space inversion),
             // so it serializes the Realm schema id, not the container Space id.
             schema: REALM_SCHEMA_ID.to_owned(),
             id,
@@ -253,7 +253,7 @@ impl Space {
         self.relation_profiles.iter().find(|profile| profile.relation_kind == relation_kind)
     }
 
-    /// Validate spec-level Space invariants.
+    /// Validate spec-level Realm invariants.
     pub fn validate_kind_invariants(&self) -> Result<()> {
         if matches!(self.security_class, Some(SecurityClass::HighAssurance))
             && matches!(self.federation_policy, Some(FederationPolicy::Open))
@@ -268,7 +268,7 @@ impl Space {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct Place {
+pub struct Space {
     pub id: RealmId,
     pub schema: String,
     pub space_id: RealmId,
@@ -292,7 +292,7 @@ pub struct Place {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_blob_ref: Option<BlobRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub state: Option<PlaceState>,
+    pub state: Option<SpaceState>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state_changed_at: Option<DateTime<Utc>>,
     /// CKP-0007 (spec b7d35be) — optional Circle scope binding on the Space
@@ -353,7 +353,7 @@ pub enum ChildScopePolicy {
     },
 }
 
-impl Place {
+impl Space {
     pub fn new(
         id: RealmId,
         space_id: RealmId,
@@ -374,7 +374,7 @@ impl Place {
             fields: BTreeMap::new(),
             labels: Vec::new(),
             avatar_blob_ref: None,
-            state: Some(PlaceState::Active),
+            state: Some(SpaceState::Active),
             state_changed_at: None,
             scope_circle_id: None,
             default_scope_circle_id: None,

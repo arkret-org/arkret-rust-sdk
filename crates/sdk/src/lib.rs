@@ -214,7 +214,7 @@ pub mod search;
 #[cfg(feature = "full-surface")]
 pub mod settings;
 #[cfg(feature = "full-surface")]
-pub mod space;
+pub mod realm;
 #[cfg(feature = "full-surface")]
 pub mod store;
 #[cfg(all(feature = "full-surface", feature = "sync-runtime"))]
@@ -436,9 +436,9 @@ pub use settings::{
     ClientSettings, NotificationPreferences, PrivacySettings, SettingsManager, ThemeSetting,
 };
 #[cfg(feature = "full-surface")]
-pub use space::{
+pub use realm::{
     BatchCreateMorph, BatchUpdateMorph, GraphTraversal, MorphAggregation, MorphQuery, MorphVersion,
-    MorphVersionDiff, RelationOperationInput, Space,
+    MorphVersionDiff, Realm, RelationOperationInput,
 };
 #[cfg(feature = "full-surface")]
 pub use store::{

@@ -1,7 +1,9 @@
-//! High-level space API for Cokret v1.
+//! High-level Realm API for Cokret v1.
 //!
-//! This module provides a high-level interface for working with spaces,
-//! including Morph management, relations, timeline operations, and membership.
+//! Realm/Space inversion (spec 59ac1d4): this module hosts the
+//! **security-boundary** client handle (`Realm`). It provides a high-level
+//! interface for working with realms and their contained Spaces, including
+//! Morph management, relations, timeline operations, and membership.
 
 use std::{cmp::Ordering, collections::BTreeMap, sync::Arc};
 
@@ -17,8 +19,8 @@ use crate::{
         MemberDeliveryBinding, MessageId, Morph, MorphId, NullsOrder, OP_INVITE_CREATE,
         OP_MEMBER_STATE, OP_MESSAGE_CREATE, OP_MESSAGE_REDACT, OP_MESSAGE_REVISE, OP_MORPH_ARCHIVE,
         OP_MORPH_CREATE, OP_MORPH_UPDATE, OP_RELATION_CREATE, OP_RELATION_TOMBSTONE, ObjectState,
-        Operation, OperationId, OperationType, Place, Relation, RelationId, RelationKind,
-        RelationState, SortDirection, SortSpec,
+        Operation, OperationId, OperationType, Relation, RelationId, RelationKind,
+        RelationState, Space, SortDirection, SortSpec,
     },
     resolver::SpaceState,
 };
@@ -35,7 +37,7 @@ mod relation;
 mod tests;
 
 pub use flow::{FlowCreateMetadata, FlowUpdateMetadata};
-pub use place::{PlaceCreateMetadata, PlaceUpdateMetadata};
+pub use place::{SpaceCreateMetadata, SpaceUpdateMetadata};
 pub use relation::RelationOperationInput;
 
 use helpers::*;
@@ -133,9 +135,14 @@ pub struct BatchUpdateMorph {
     pub fields: Option<BTreeMap<String, Value>>,
 }
 
-/// High-level Space client providing business logic operations.
+/// High-level Realm client providing business logic operations.
+///
+/// Realm/Space inversion (spec 59ac1d4): this client handle is the
+/// **security-boundary** surface, hence `Realm`. Its `*_place_operation*`
+/// helpers and `places()` accessors operate on the contained `Space`
+/// (container) objects.
 #[derive(Clone)]
-pub struct Space {
+pub struct Realm {
     /// Space ID
     pub space_id: RealmId,
     /// Base client reference
@@ -144,8 +151,8 @@ pub struct Space {
     state: Arc<SpaceState>,
 }
 
-impl Space {
-    /// Create a new Space client.
+impl Realm {
+    /// Create a new Realm client.
     pub fn new(space_id: RealmId, base_client: Arc<BaseClient>) -> Self {
         // Try to get existing space state from base client
         let state = if let Some(client_space) = base_client.get_space(&space_id) {
@@ -241,18 +248,18 @@ impl Space {
         self.state.morphs.clone()
     }
 
-    /// Get all Places in this space.
-    pub fn places(&self) -> BTreeMap<String, Place> {
+    /// Get all Spaces (containers) in this realm.
+    pub fn places(&self) -> BTreeMap<String, Space> {
         self.state.places.clone()
     }
 
-    /// Get a specific Place by ID.
-    pub fn get_place(&self, place_id: &RealmId) -> Option<Place> {
+    /// Get a specific Space (container) by ID.
+    pub fn get_place(&self, place_id: &RealmId) -> Option<Space> {
         self.state.places.get(place_id.as_str()).cloned()
     }
 
-    /// Find Places by kind.
-    pub fn find_places_by_kind(&self, kind: &str) -> Vec<Place> {
+    /// Find Spaces (containers) by kind.
+    pub fn find_places_by_kind(&self, kind: &str) -> Vec<Space> {
         self.state.places.values().filter(|place| place.kind == kind).cloned().collect()
     }
 

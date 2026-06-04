@@ -1,6 +1,6 @@
 use super::snapshot::{
     StateHashInput, canonicalize_flow_ref, membership_rank, object_state_from_str, patch_fields,
-    patch_state, patch_string, place_state_from_str, state_digest_payload, state_merkle_root,
+    patch_state, patch_string, space_state_from_str, state_digest_payload, state_merkle_root,
 };
 use super::*;
 use crate::events::kinds::FLOW_TRACKS_UPDATE as OP_FLOW_TRACKS_UPDATE;
@@ -16,8 +16,8 @@ pub struct SpaceState {
     pub subjects: BTreeMap<String, Flow>,
     /// Current Morph objects by ID.
     pub morphs: BTreeMap<String, Morph>,
-    /// Current Place objects by ID.
-    pub places: BTreeMap<String, Place>,
+    /// Current Space (container) objects by ID.
+    pub places: BTreeMap<String, Space>,
     /// Current relations by ID
     pub relations: BTreeMap<String, Relation>,
     /// Generic resolved state events keyed by `kind|subject` (spec Phase 1).
@@ -479,11 +479,11 @@ impl SpaceState {
         let title = self.extract_field::<String>(object, "title")?;
         let state = self
             .extract_optional_field::<String>(object, "state")
-            .map(|state| place_state_from_str(&state))
+            .map(|state| space_state_from_str(&state))
             .transpose()?
-            .unwrap_or(crate::PlaceState::Active);
+            .unwrap_or(crate::model::SpaceState::Active);
 
-        let place = Place {
+        let place = Space {
             schema: crate::SPACE_SCHEMA.to_owned(),
             id,
             space_id,
@@ -519,10 +519,10 @@ impl SpaceState {
     }
 
     fn update_place(&mut self, event: &Event) -> Result<()> {
-        let place_id = self.extract_place_id(&event.content)?;
+        let place_id = self.extract_space_id(&event.content)?;
         // Spec common-fields.md §5.1: update on non-active object MUST fail.
         if let Some(place) = self.places.get(&place_id)
-            && place.state != Some(crate::PlaceState::Active)
+            && place.state != Some(crate::model::SpaceState::Active)
         {
             return Err(Error::Protocol("place_not_active".to_owned()));
         }
@@ -574,7 +574,7 @@ impl SpaceState {
         let state = self
             .extract_optional_field::<String>(&event.content, "state")
             .or_else(|| patch_string(&patch, "state"))
-            .map(|state| place_state_from_str(&state))
+            .map(|state| space_state_from_str(&state))
             .transpose()?;
 
         let place = self
@@ -616,7 +616,7 @@ impl SpaceState {
     }
 
     fn set_place_parent(&mut self, event: &Event) -> Result<()> {
-        let place_id = self.extract_place_id(&event.content)?;
+        let place_id = self.extract_space_id(&event.content)?;
         let parent_space_id_str =
             self.extract_optional_field::<String>(&event.content, "parent_space_id").ok_or_else(
                 || Error::Protocol("place parent event requires parent_space_id".to_owned()),
@@ -633,8 +633,8 @@ impl SpaceState {
         Ok(())
     }
 
-    fn set_place_state(&mut self, event: &Event, state: crate::PlaceState) -> Result<()> {
-        let place_id = self.extract_place_id(&event.content)?;
+    fn set_space_state(&mut self, event: &Event, state: crate::model::SpaceState) -> Result<()> {
+        let place_id = self.extract_space_id(&event.content)?;
         if let Some(place) = self.places.get_mut(&place_id) {
             place.state = Some(state);
             place.state_changed_at = Some(event.created_at);
@@ -649,14 +649,14 @@ impl SpaceState {
     // Archived / Tombstoned / unset MUST be rejected with `place_not_active`;
     // unknown Place is tolerated (causal / backfill).
     fn archive_place(&mut self, event: &Event) -> Result<()> {
-        let place_id = self.extract_place_id(&event.content)?;
+        let place_id = self.extract_space_id(&event.content)?;
         let Some(place) = self.places.get(&place_id) else {
             return Ok(());
         };
-        if place.state != Some(crate::PlaceState::Active) {
+        if place.state != Some(crate::model::SpaceState::Active) {
             return Err(Error::Protocol("place_not_active".to_owned()));
         }
-        self.set_place_state(event, crate::PlaceState::Archived)
+        self.set_space_state(event, crate::model::SpaceState::Archived)
     }
 
     // Reducer for `ck.space.tombstone`: validate current state ∈
@@ -664,30 +664,30 @@ impl SpaceState {
     // unset MUST be rejected with `place_already_terminal`; unknown Place is
     // tolerated (causal / backfill).
     fn tombstone_place(&mut self, event: &Event) -> Result<()> {
-        let place_id = self.extract_place_id(&event.content)?;
+        let place_id = self.extract_space_id(&event.content)?;
         let Some(place) = self.places.get(&place_id) else {
             return Ok(());
         };
         match place.state {
-            Some(crate::PlaceState::Active) | Some(crate::PlaceState::Archived) => {}
+            Some(crate::model::SpaceState::Active) | Some(crate::model::SpaceState::Archived) => {}
             _ => return Err(Error::Protocol("place_already_terminal".to_owned())),
         }
-        self.set_place_state(event, crate::PlaceState::Tombstoned)
+        self.set_space_state(event, crate::model::SpaceState::Tombstoned)
     }
 
     // Reducer for `ck.space.restore`: validate current state == archived per
     // cokret-spec space-and-place.md §4.4. Active / Tombstoned / unset MUST
     // be rejected with `place_not_archived`; unknown Place is tolerated
-    // (causal / backfill not yet caught up — mirrors set_place_state).
+    // (causal / backfill not yet caught up — mirrors set_space_state).
     fn restore_place(&mut self, event: &Event) -> Result<()> {
-        let place_id = self.extract_place_id(&event.content)?;
+        let place_id = self.extract_space_id(&event.content)?;
         let Some(place) = self.places.get_mut(&place_id) else {
             return Ok(());
         };
-        if place.state != Some(crate::PlaceState::Archived) {
+        if place.state != Some(crate::model::SpaceState::Archived) {
             return Err(Error::Protocol("place_not_archived".to_owned()));
         }
-        place.state = Some(crate::PlaceState::Active);
+        place.state = Some(crate::model::SpaceState::Active);
         place.state_changed_at = Some(event.created_at);
         place.updated_by = Some(event.actor_id.clone());
         place.updated_at = Some(event.created_at);
@@ -1232,9 +1232,9 @@ impl SpaceState {
     /// `failed_precondition` with `<kind>_already_terminal`. Unknown
     /// subject is tolerated (causal / backfill window — same convention
     /// as restore guards). Returns `Ok(())` for redactions without
-    /// `object_ref` (message-only path). Place is intentionally excluded
-    /// because `PlaceState` has no `Redacted` variant — spec routes Place
-    /// removal through `ck.space.tombstone` instead.
+    /// `object_ref` (message-only path). Space (container) is intentionally
+    /// excluded because `SpaceState` has no `Redacted` variant — spec routes
+    /// Space removal through `ck.space.tombstone` instead.
     fn redact_object_for_event(&mut self, event: &Event) -> Result<()> {
         let Some(object_ref) = self.extract_optional_field::<String>(&event.content, "object_ref")
         else {
@@ -1347,7 +1347,7 @@ impl SpaceState {
     }
 
     /// Extract the container `space_id` from event content.
-    fn extract_place_id(&self, content: &Value) -> Result<String> {
+    fn extract_space_id(&self, content: &Value) -> Result<String> {
         self.extract_optional_field::<String>(content, "space_id")
             .or_else(|| self.extract_optional_field::<String>(content, "id"))
             .or_else(|| self.extract_optional_field::<String>(content, "target_ref"))

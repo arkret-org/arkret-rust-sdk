@@ -416,7 +416,7 @@ pub const REASON_CLAIM_FAILED: &str = "claim_failed";
 // recovery witness, sender commitment, range completeness, and deprecation
 // timeline. Spec: `error-code-registry.json#reason_codes`.
 
-// Lifecycle state-machine guards (Flow / Place / Morph / Message / Relation).
+// Lifecycle state-machine guards (Flow / Space / Morph / Message / Relation).
 pub const REASON_FLOW_NOT_ACTIVE: &str = "flow_not_active";
 pub const REASON_FLOW_NOT_ARCHIVED: &str = "flow_not_archived";
 pub const REASON_FLOW_ALREADY_TERMINAL: &str = "flow_already_terminal";

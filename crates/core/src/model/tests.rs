@@ -1249,7 +1249,7 @@ fn flow_track_typed_constructors() {
 fn space_anchor_fields_default_none_and_builders_apply() {
     use crate::anchorer::AnchorerValue;
 
-    let mut space = Space::new(
+    let mut space = Realm::new(
         RealmId::new("ck:space:0196419b-0000-7000-8000-000000000001").unwrap(),
         "Anchor Test",
         Did::new("did:web:alice.example").unwrap(),
@@ -1292,7 +1292,7 @@ fn space_anchor_fields_default_none_and_builders_apply() {
     assert_eq!(json["co_write_policy"], "causal_only");
     assert_eq!(json["cell_lattices"][0]["cell_family"], "ck.component.flow.track.v1");
 
-    let restored: Space = serde_json::from_value(json).unwrap();
+    let restored: Realm = serde_json::from_value(json).unwrap();
     assert_eq!(restored.anchor_profile, space.anchor_profile);
     assert_eq!(restored.max_anchor_staleness_ms, space.max_anchor_staleness_ms);
     assert_eq!(restored.co_write_policy, space.co_write_policy);
@@ -1302,7 +1302,7 @@ fn space_anchor_fields_default_none_and_builders_apply() {
 /// `None` (skip_serializing_if), so sparse fixtures stay clean.
 #[test]
 fn space_anchor_fields_omitted_when_none() {
-    let space = Space::new(
+    let space = Realm::new(
         RealmId::new("ck:space:0196419b-0000-7000-8000-000000000002").unwrap(),
         "No Anchor Hint",
         Did::new("did:web:alice.example").unwrap(),

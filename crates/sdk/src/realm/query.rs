@@ -1,7 +1,7 @@
 use super::*;
 
 /// Advanced Morph and relation operations.
-impl Space {
+impl Realm {
     /// Query Morph objects from local resolved state with filters, sorting and limit.
     pub fn query_morphs(&self, query: MorphQuery) -> Vec<Morph> {
         let mut morphs: Vec<Morph> = self

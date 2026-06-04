@@ -302,7 +302,7 @@ pub enum ObjectStage {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
-pub enum PlaceState {
+pub enum SpaceState {
     Active,
     Archived,
     Tombstoned,

@@ -122,7 +122,7 @@ fn place_events_create_update_parent_and_tombstone() {
     assert_eq!(place.parent_space_id.as_ref().map(|p| p.as_str()), Some(space_id().as_str()));
     assert_eq!(place.rank.as_deref(), Some("a0"));
     assert_eq!(place.fields["wip_limit"], 5);
-    assert_eq!(place.state, Some(crate::PlaceState::Tombstoned));
+    assert_eq!(place.state, Some(crate::model::SpaceState::Tombstoned));
 }
 
 fn place_create_event(seq: u64, place_id: &str) -> Event {
@@ -159,7 +159,7 @@ fn place_archive_then_restore_round_trip() {
     state.apply_events(&[create, archive, restore]).unwrap();
 
     let place = state.places.get(place_id).unwrap();
-    assert_eq!(place.state, Some(crate::PlaceState::Active));
+    assert_eq!(place.state, Some(crate::model::SpaceState::Active));
     assert_eq!(place.state_changed_at, Some(restore_at));
 }
 
@@ -176,7 +176,7 @@ fn place_restore_rejected_when_active() {
     assert!(err.to_string().contains("place_not_archived"), "unexpected error: {err}");
 
     let place = state.places.get(place_id).unwrap();
-    assert_eq!(place.state, Some(crate::PlaceState::Active));
+    assert_eq!(place.state, Some(crate::model::SpaceState::Active));
 }
 
 #[test]
@@ -196,7 +196,7 @@ fn place_restore_rejected_when_tombstoned() {
     assert!(err.to_string().contains("place_not_archived"), "unexpected error: {err}");
 
     let place = state.places.get(place_id).unwrap();
-    assert_eq!(place.state, Some(crate::PlaceState::Tombstoned));
+    assert_eq!(place.state, Some(crate::model::SpaceState::Tombstoned));
     assert_eq!(place.state_changed_at, Some(tombstone_at));
 }
 
@@ -318,7 +318,7 @@ fn place_archive_rejected_when_already_archived() {
     // First archive succeeded; second archive (the rejected one) must not
     // touch Place state.
     let place = state.places.get(place_id).unwrap();
-    assert_eq!(place.state, Some(crate::PlaceState::Archived));
+    assert_eq!(place.state, Some(crate::model::SpaceState::Archived));
 }
 
 #[test]
@@ -333,7 +333,7 @@ fn place_archive_rejected_when_tombstoned() {
     let mut state = SpaceState::new(space_id(), "1".to_owned());
     let err = state.apply_events(&[create, tombstone, archive]).unwrap_err();
     assert!(err.to_string().contains("place_not_active"), "unexpected error: {err}");
-    assert_eq!(state.places.get(place_id).unwrap().state, Some(crate::PlaceState::Tombstoned));
+    assert_eq!(state.places.get(place_id).unwrap().state, Some(crate::model::SpaceState::Tombstoned));
 }
 
 #[test]
@@ -348,7 +348,7 @@ fn place_tombstone_rejected_when_already_terminal() {
     let mut state = SpaceState::new(space_id(), "1".to_owned());
     let err = state.apply_events(&[create, tombstone1, tombstone2]).unwrap_err();
     assert!(err.to_string().contains("place_already_terminal"), "unexpected error: {err}");
-    assert_eq!(state.places.get(place_id).unwrap().state, Some(crate::PlaceState::Tombstoned));
+    assert_eq!(state.places.get(place_id).unwrap().state, Some(crate::model::SpaceState::Tombstoned));
 }
 
 #[test]

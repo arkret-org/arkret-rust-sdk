@@ -25,7 +25,7 @@ impl RelationOperationInput {
 }
 
 /// Relation operations within a space.
-impl Space {
+impl Realm {
     /// Create a relation creation operation.
     pub fn create_relation_operation(&self, input: RelationOperationInput) -> Result<Operation> {
         let _session_meta = self

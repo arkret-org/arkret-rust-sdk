@@ -3,7 +3,7 @@ use crate::model::{CandidateError, CandidateValidationContext, MemberDeliveryBin
 use super::*;
 
 /// Space membership operations.
-impl Space {
+impl Realm {
     /// Create a join operation and update local membership state to joined.
     ///
     /// Spec (commit 0a5ab85) requires `actor_id` + `delivery_status` on

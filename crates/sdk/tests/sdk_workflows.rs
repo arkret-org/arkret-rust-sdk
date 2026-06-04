@@ -91,7 +91,7 @@ fn end_to_end_auth_session_space_query_and_notifications() {
     )
     .unwrap();
 
-    let space = Space::new(space_id.clone(), base);
+    let space = Realm::new(space_id.clone(), base);
     assert_eq!(space.search_morphs("ship").len(), 1);
 
     let mut notifications = NotificationManager::new();

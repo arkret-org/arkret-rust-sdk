@@ -20,7 +20,7 @@ pub struct FlowUpdateMetadata {
     pub tracks: Option<BTreeMap<String, crate::FlowTrackConfig>>,
 }
 
-impl Space {
+impl Realm {
     /// Create a spec-shaped `ck.flow.create` operation.
     pub fn create_flow_operation(
         &self,

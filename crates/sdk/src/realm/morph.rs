@@ -1,7 +1,7 @@
 use super::*;
 
 /// Morph operations within a space.
-impl Space {
+impl Realm {
     /// Create a Morph creation operation.
     pub fn create_morph_operation(
         &self,

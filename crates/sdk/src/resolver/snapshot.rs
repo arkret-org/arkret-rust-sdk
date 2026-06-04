@@ -11,7 +11,7 @@ pub struct StateSnapshot {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub morphs: BTreeMap<String, Morph>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub places: BTreeMap<String, Place>,
+    pub places: BTreeMap<String, Space>,
     pub relations: BTreeMap<String, Relation>,
     pub resolved_state: BTreeMap<String, ResolvedStateEvent>,
     pub messages: BTreeMap<String, ResolvedMessage>,
@@ -171,11 +171,11 @@ pub(super) fn object_state_from_str(state: &str) -> Result<crate::ObjectState> {
     }
 }
 
-pub(super) fn place_state_from_str(state: &str) -> Result<crate::PlaceState> {
+pub(super) fn space_state_from_str(state: &str) -> Result<crate::model::SpaceState> {
     match state {
-        "active" => Ok(crate::PlaceState::Active),
-        "archived" => Ok(crate::PlaceState::Archived),
-        "tombstoned" => Ok(crate::PlaceState::Tombstoned),
+        "active" => Ok(crate::model::SpaceState::Active),
+        "archived" => Ok(crate::model::SpaceState::Archived),
+        "tombstoned" => Ok(crate::model::SpaceState::Tombstoned),
         _ => Err(Error::Protocol(format!("invalid place state: {}", state))),
     }
 }
@@ -451,7 +451,7 @@ pub(super) struct StateHashInput<'a> {
     pub(super) frontier: &'a [EventId],
     pub(super) subjects: &'a BTreeMap<String, Flow>,
     pub(super) morphs: &'a BTreeMap<String, Morph>,
-    pub(super) places: &'a BTreeMap<String, Place>,
+    pub(super) places: &'a BTreeMap<String, Space>,
     pub(super) relations: &'a BTreeMap<String, Relation>,
     pub(super) resolved_state: &'a BTreeMap<String, ResolvedStateEvent>,
     pub(super) messages: &'a BTreeMap<String, ResolvedMessage>,
