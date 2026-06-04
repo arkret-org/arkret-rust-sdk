@@ -678,7 +678,7 @@ impl CokretMlsGroup {
     /// Used for spec-defined key derivations layered on the group secret —
     /// e.g. the reaction routing tag (`encryption-and-audit.md` §2.9, label
     /// `cokret-reaction-routing-v1`, context = `realm_id`) and SFrame media
-    /// keys (`webrtc-signaling.md` §11). Callers MUST treat the returned
+    /// keys (`media-service-binding.md` §8.1). Callers MUST treat the returned
     /// bytes as secret key material (never log or persist them in the clear).
     pub fn export_secret(&self, label: &str, context: &[u8], length: usize) -> Result<Vec<u8>> {
         self.group

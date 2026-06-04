@@ -327,7 +327,7 @@ impl MlsCommitPayload {
 /// SEC-03 — one `purpose=media_plaintext` service entry covered by the
 /// governance-binding `discussion_metadata_digest`.
 ///
-/// Carries the SFU / MCU service DID that webrtc-signaling.md §10.5.1 rule 2
+/// Carries the SFU / MCU service DID that media-service-binding.md §8.2 rule 2
 /// requires to be listed in `plaintext_visible_services[]`. Only the fields a
 /// member can independently recompute from the MLS transcript are bound into
 /// the digest; transport-only metadata MUST NOT leak in here.
@@ -340,7 +340,7 @@ pub struct MediaPlaintextService {
 
 /// SEC-03 — the member-visible policy cell value covered by the governance
 /// binding `discussion_metadata_digest`, per
-/// `crypto-media/webrtc-signaling.md` §10.5.1 rules 1–3 and
+/// `crypto-media/media-service-binding.md` §8.2 rules 1–3 and
 /// `crypto-media/encryption-and-audit.md` §2.5 / §2.5.3.
 ///
 /// `media_service_decrypts=true` is **not** an SFU-self-reported toggle: the
@@ -383,7 +383,7 @@ impl MediaDecryptPolicyValue {
 /// + [`canonical::sha256_digest`]), so the result is byte-identical across
 /// every member and service. The fact `media_service_decrypts=true` is bound
 /// into the member-visible metadata covered by the MLS governance binding,
-/// satisfying `webrtc-signaling.md` §10.5.1 rule 5.
+/// satisfying `media-service-binding.md` §8.2 rule 5.
 ///
 /// The returned [`Hash`] is wire-form (`sha256:<hex>`) and can be passed
 /// straight to [`MlsGovernanceBindingPayload::with_discussion_metadata_digest`].
