@@ -21,12 +21,18 @@ use serde_json::{Map, Value, json};
 
 const PROPTEST_CASES: u32 = 64;
 
+/// JSON safe-integer bound (`2^53 - 1`) from `encoding.md` §2. Canonical JSON
+/// rejects integers outside `[-MAX_SAFE_INTEGER, MAX_SAFE_INTEGER]`, so the
+/// generator MUST stay inside this range — values that wide are carried as
+/// strings on the wire, not JSON numbers.
+const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
+
 /// Strategy: a primitive JSON leaf (no float — canonical rejects).
 fn arb_leaf() -> impl Strategy<Value = Value> {
     prop_oneof![
         Just(Value::Null),
         any::<bool>().prop_map(Value::Bool),
-        any::<i64>().prop_map(|n| json!(n)),
+        (-MAX_SAFE_INTEGER..=MAX_SAFE_INTEGER).prop_map(|n| json!(n)),
         // Allow most printable + a few emoji for unicode coverage.
         proptest::collection::vec(
             prop_oneof![

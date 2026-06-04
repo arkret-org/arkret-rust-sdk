@@ -849,6 +849,18 @@ pub enum Error {
     )]
     NonCanonicalNumber,
 
+    #[error(
+        "canonical JSON integer is outside the JSON safe-integer range \
+         [-9007199254740991, 9007199254740991] (encoding.md §2): values beyond this range \
+         MUST be encoded as an explicitly-formatted string, not a JSON number"
+    )]
+    NumberOutOfSafeRange,
+
+    #[error(
+        "canonical JSON object contains duplicate key {0:?} (encoding.md §2: duplicate keys MUST be rejected)"
+    )]
+    DuplicateObjectKey(String),
+
     #[error("canonical JSON serialization failed: {0}")]
     CanonicalJson(#[from] serde_json::Error),
 

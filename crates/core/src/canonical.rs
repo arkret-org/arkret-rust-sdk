@@ -22,6 +22,136 @@ pub fn canonical_json_string<T: Serialize>(value: &T) -> Result<String> {
         .map_err(|err| Error::Protocol(format!("canonical JSON produced invalid UTF-8: {err}")))
 }
 
+/// Parse inbound JSON bytes into a [`Value`] with the canonical-JSON ingress
+/// rules that `serde_json::from_slice` does **not** enforce.
+///
+/// Per `encoding.md` §2, a JSON object with a duplicate key MUST be rejected —
+/// last-wins / first-wins are both forbidden because they let an attacker craft
+/// two byte-different inputs that parse to the "same" object, a signature
+/// malleability vector. `serde_json` silently takes last-wins, so every inbound
+/// envelope / proof / cursor / receipt path MUST go through this entry point
+/// instead of a bare `serde_json::from_slice`.
+///
+/// This rejects duplicate keys at **any** nesting depth. It does not by itself
+/// re-canonicalize numbers or strings — pair it with [`canonical_json_bytes`]
+/// (which rejects floats and out-of-safe-range integers) when producing the
+/// bytes that feed a digest.
+pub fn parse_canonical_json(bytes: &[u8]) -> Result<Value> {
+    let mut de = serde_json::Deserializer::from_slice(bytes);
+    let value = serde::de::DeserializeSeed::deserialize(CanonicalValueSeed, &mut de)
+        .map_err(canonical_parse_error)?;
+    de.end().map_err(canonical_parse_error)?;
+    Ok(value)
+}
+
+/// Map a parser error into the right [`Error`] variant. A duplicate key is
+/// surfaced through serde's `custom` message with a stable prefix so the
+/// strongly-typed [`Error::DuplicateObjectKey`] survives the round-trip.
+fn canonical_parse_error(err: serde_json::Error) -> Error {
+    let message = err.to_string();
+    if let Some(rest) = message.strip_prefix(DUPLICATE_KEY_MARKER) {
+        let key = rest.split(" at ").next().unwrap_or(rest);
+        return Error::DuplicateObjectKey(key.to_owned());
+    }
+    Error::CanonicalJson(err)
+}
+
+const DUPLICATE_KEY_MARKER: &str = "cokret-duplicate-object-key:";
+
+/// `DeserializeSeed` that builds a [`Value`] while rejecting duplicate object
+/// keys at every depth. Mirrors `serde_json`'s own `Value` visitor but swaps
+/// the last-wins map insert for a duplicate-detecting one.
+struct CanonicalValueSeed;
+
+impl<'de> serde::de::DeserializeSeed<'de> for CanonicalValueSeed {
+    type Value = Value;
+
+    fn deserialize<D>(self, deserializer: D) -> std::result::Result<Self::Value, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        deserializer.deserialize_any(CanonicalValueVisitor)
+    }
+}
+
+struct CanonicalValueVisitor;
+
+impl<'de> serde::de::Visitor<'de> for CanonicalValueVisitor {
+    type Value = Value;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("any valid JSON value")
+    }
+
+    fn visit_bool<E>(self, value: bool) -> std::result::Result<Value, E> {
+        Ok(Value::Bool(value))
+    }
+
+    fn visit_i64<E>(self, value: i64) -> std::result::Result<Value, E> {
+        Ok(Value::Number(value.into()))
+    }
+
+    fn visit_u64<E>(self, value: u64) -> std::result::Result<Value, E> {
+        Ok(Value::Number(value.into()))
+    }
+
+    fn visit_f64<E>(self, value: f64) -> std::result::Result<Value, E> {
+        Ok(Number::from_f64(value).map_or(Value::Null, Value::Number))
+    }
+
+    fn visit_str<E>(self, value: &str) -> std::result::Result<Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(Value::String(value.to_owned()))
+    }
+
+    fn visit_string<E>(self, value: String) -> std::result::Result<Value, E> {
+        Ok(Value::String(value))
+    }
+
+    fn visit_none<E>(self) -> std::result::Result<Value, E> {
+        Ok(Value::Null)
+    }
+
+    fn visit_unit<E>(self) -> std::result::Result<Value, E> {
+        Ok(Value::Null)
+    }
+
+    fn visit_some<D>(self, deserializer: D) -> std::result::Result<Value, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        deserializer.deserialize_any(self)
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> std::result::Result<Value, A::Error>
+    where
+        A: serde::de::SeqAccess<'de>,
+    {
+        let mut items = Vec::new();
+        while let Some(item) = seq.next_element_seed(CanonicalValueSeed)? {
+            items.push(item);
+        }
+        Ok(Value::Array(items))
+    }
+
+    fn visit_map<A>(self, mut map: A) -> std::result::Result<Value, A::Error>
+    where
+        A: serde::de::MapAccess<'de>,
+    {
+        let mut object = Map::new();
+        while let Some(key) = map.next_key::<String>()? {
+            let value = map.next_value_seed(CanonicalValueSeed)?;
+            if object.contains_key(&key) {
+                return Err(serde::de::Error::custom(format!("{DUPLICATE_KEY_MARKER}{key}")));
+            }
+            object.insert(key, value);
+        }
+        Ok(Value::Object(object))
+    }
+}
+
 /// Compute the SHA-256 of `bytes` and return the **bare** 64-character
 /// lowercase hex digest (no `sha256:` prefix).
 ///
@@ -224,6 +354,13 @@ fn write_canonical_value(value: &Value, out: &mut Vec<u8>) -> Result<()> {
     Ok(())
 }
 
+/// JSON safe-integer bound per `encoding.md` §2 (`2^53 - 1`). Canonical JSON
+/// numbers MUST lie within `[-MAX_SAFE_INTEGER, MAX_SAFE_INTEGER]`; counters or
+/// offsets needing a wider range MUST be encoded as an explicitly-formatted
+/// string, never as a JSON number that would lose precision in a JS/browser
+/// verifier recomputing the digest.
+const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
+
 fn write_number(number: &Number, out: &mut Vec<u8>) -> Result<()> {
     // Reject any number that doesn't round-trip cleanly as i64 or u64.
     // Per `encoding.md` §3.2, the v1 number profile forbids floats —
@@ -232,10 +369,16 @@ fn write_number(number: &Number, out: &mut Vec<u8>) -> Result<()> {
         return Err(Error::NonCanonicalNumber);
     }
     if let Some(n) = number.as_i64() {
+        if n < -MAX_SAFE_INTEGER || n > MAX_SAFE_INTEGER {
+            return Err(Error::NumberOutOfSafeRange);
+        }
         let s = n.to_string();
         reject_leading_zeros(&s)?;
         out.extend_from_slice(s.as_bytes());
     } else if let Some(n) = number.as_u64() {
+        if n > MAX_SAFE_INTEGER as u64 {
+            return Err(Error::NumberOutOfSafeRange);
+        }
         let s = n.to_string();
         reject_leading_zeros(&s)?;
         out.extend_from_slice(s.as_bytes());
@@ -403,8 +546,57 @@ mod tests {
         assert_eq!(canonical_json_string(&json!(0)).unwrap(), "0");
         assert_eq!(canonical_json_string(&json!(1)).unwrap(), "1");
         assert_eq!(canonical_json_string(&json!(-1)).unwrap(), "-1");
-        assert_eq!(canonical_json_string(&json!(i64::MAX)).unwrap(), "9223372036854775807");
-        assert_eq!(canonical_json_string(&json!(i64::MIN)).unwrap(), "-9223372036854775808");
+        // The JSON safe-integer boundary `±(2^53 - 1)` MUST round-trip exactly.
+        assert_eq!(canonical_json_string(&json!(MAX_SAFE_INTEGER)).unwrap(), "9007199254740991");
+        assert_eq!(canonical_json_string(&json!(-MAX_SAFE_INTEGER)).unwrap(), "-9007199254740991");
+    }
+
+    #[test]
+    fn canonical_json_rejects_integers_outside_safe_range() {
+        // Per encoding.md §2, integers beyond ±(2^53 - 1) MUST be rejected;
+        // values that wide MUST be carried as explicitly-formatted strings so a
+        // JS/browser verifier recomputing the digest cannot lose precision.
+        assert!(matches!(
+            canonical_json_string(&json!(MAX_SAFE_INTEGER + 1)),
+            Err(Error::NumberOutOfSafeRange)
+        ));
+        assert!(matches!(
+            canonical_json_string(&json!(-MAX_SAFE_INTEGER - 1)),
+            Err(Error::NumberOutOfSafeRange)
+        ));
+        assert!(matches!(
+            canonical_json_string(&json!(i64::MAX)),
+            Err(Error::NumberOutOfSafeRange)
+        ));
+        assert!(matches!(
+            canonical_json_string(&json!(i64::MIN)),
+            Err(Error::NumberOutOfSafeRange)
+        ));
+        // u64 values above the safe-integer ceiling are rejected on the u64 arm.
+        assert!(matches!(
+            canonical_json_string(&json!(u64::MAX)),
+            Err(Error::NumberOutOfSafeRange)
+        ));
+    }
+
+    #[test]
+    fn parse_canonical_json_rejects_duplicate_keys() {
+        // serde_json's bare from_slice silently takes last-wins; the canonical
+        // ingress entry point MUST reject duplicate keys (signature malleability).
+        let err = parse_canonical_json(br#"{"a":1,"a":2}"#).unwrap_err();
+        assert!(matches!(err, Error::DuplicateObjectKey(ref k) if k == "a"));
+    }
+
+    #[test]
+    fn parse_canonical_json_rejects_nested_duplicate_keys() {
+        let err = parse_canonical_json(br#"{"outer":{"b":1,"b":2}}"#).unwrap_err();
+        assert!(matches!(err, Error::DuplicateObjectKey(ref k) if k == "b"));
+    }
+
+    #[test]
+    fn parse_canonical_json_accepts_distinct_keys() {
+        let value = parse_canonical_json(br#"{"a":1,"b":{"c":2},"d":[1,2,3]}"#).unwrap();
+        assert_eq!(value, json!({ "a": 1, "b": { "c": 2 }, "d": [1, 2, 3] }));
     }
 
     #[test]

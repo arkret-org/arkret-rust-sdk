@@ -696,7 +696,15 @@ pub struct CriticalExtension {
 }
 
 /// Allowed proof algorithms for production use.
-const PRODUCTION_ALGORITHMS: &[&str] = &["EdDSA", "ES256", "ES256K", "RS256", "PS256"];
+///
+/// MUST mirror the `active` rows of `artifacts/registry/signature-alg-registry.json`
+/// (`proof_alg` values), per `encoding.md` §6.1: schema-level signature algorithm
+/// enums MUST be sourced from the registry and MUST NOT introduce unregistered
+/// algorithms. The v1 active set is `EdDSA` (Ed25519, default-MUST), `ES256`
+/// (ECDSA P-256, profile-gated interop), and `ML-DSA-65` (FIPS 204 PQC,
+/// profile-gated). `ES256K` / `RS256` / `PS256` are NOT registered and MUST NOT
+/// be admitted here.
+const PRODUCTION_ALGORITHMS: &[&str] = &["EdDSA", "ES256", "ML-DSA-65"];
 
 /// Proof kinds that indicate development/test mode and are rejected in production.
 const DEV_PROOF_KINDS: &[&str] = &["dev", "test", "mock", "stub", "dummy"];

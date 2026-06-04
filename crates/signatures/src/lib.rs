@@ -40,7 +40,11 @@ use serde::{Deserialize, Serialize};
 
 pub use cokret_core::Proof as ProtocolProof;
 
-pub const PRODUCTION_ALGORITHMS: &[&str] = &["EdDSA", "ES256", "ES256K", "RS256", "PS256"];
+/// Production-grade proof algorithms, mirroring the `active` rows of
+/// `artifacts/registry/signature-alg-registry.json` (`proof_alg` values) per
+/// `encoding.md` §6.1. The v1 active set is `EdDSA` / `ES256` / `ML-DSA-65`;
+/// unregistered algorithms (`ES256K` / `RS256` / `PS256`) MUST NOT appear here.
+pub const PRODUCTION_ALGORITHMS: &[&str] = &["EdDSA", "ES256", "ML-DSA-65"];
 pub const HTTP_MESSAGE_SIGNATURE_PROFILE: &str = "ck.http-message-signature.v1";
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

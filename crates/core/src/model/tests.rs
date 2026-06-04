@@ -922,10 +922,27 @@ fn proof_validate_production_rejects_unsupported_algorithms() {
 
 #[test]
 fn proof_validate_production_accepts_known_algorithms() {
-    for alg in &["EdDSA", "ES256", "ES256K", "RS256", "PS256"] {
+    // The accepted set MUST equal the signature-alg-registry active rows
+    // (encoding.md §6.1): EdDSA / ES256 / ML-DSA-65.
+    for alg in &["EdDSA", "ES256", "ML-DSA-65"] {
         let mut proof = valid_proof();
         proof.alg = alg.to_string();
         assert!(proof.validate_production().is_ok(), "should accept algorithm: {alg}");
+    }
+}
+
+#[test]
+fn proof_validate_production_rejects_unregistered_algorithms() {
+    // ES256K / RS256 / PS256 are NOT in the signature-alg-registry active set
+    // and MUST be rejected — admitting them widens the SDK's security gate
+    // beyond the protocol-accepted algorithms (encoding.md §6.1).
+    for alg in &["ES256K", "RS256", "PS256"] {
+        let mut proof = valid_proof();
+        proof.alg = alg.to_string();
+        assert!(
+            proof.validate_production().is_err(),
+            "should reject unregistered algorithm: {alg}"
+        );
     }
 }
 
