@@ -37,6 +37,16 @@ pub fn canonical_json_string<T: Serialize>(value: &T) -> Result<String> {
 /// (which rejects floats and out-of-safe-range integers) when producing the
 /// bytes that feed a digest.
 pub fn parse_canonical_json(bytes: &[u8]) -> Result<Value> {
+    // encoding.md §2: reject any UTF-8 BOM / U+FEFF — at the stream start *or*
+    // embedded inside a string value. U+FEFF is `EF BB BF` in UTF-8 and the
+    // encoding is self-synchronising, so a raw byte-window scan catches every
+    // occurrence (escaped `﻿` is rejected separately by `write_string` on
+    // the canonical emit path).
+    if bytes.windows(3).any(|w| w == [0xEF, 0xBB, 0xBF]) {
+        return Err(Error::NonCanonicalString(
+            "input contains a UTF-8 BOM / U+FEFF".to_owned(),
+        ));
+    }
     let mut de = serde_json::Deserializer::from_slice(bytes);
     let value = serde::de::DeserializeSeed::deserialize(CanonicalValueSeed, &mut de)
         .map_err(canonical_parse_error)?;
@@ -337,7 +347,7 @@ fn write_canonical_value(value: &Value, out: &mut Vec<u8>) -> Result<()> {
         Value::Bool(true) => out.extend_from_slice(b"true"),
         Value::Bool(false) => out.extend_from_slice(b"false"),
         Value::Number(number) => write_number(number, out)?,
-        Value::String(string) => write_string(string, out),
+        Value::String(string) => write_string(string, out)?,
         Value::Array(items) => {
             out.push(b'[');
             for (idx, item) in items.iter().enumerate() {
@@ -397,10 +407,17 @@ fn reject_leading_zeros(s: &str) -> Result<()> {
     Ok(())
 }
 
-fn write_string(string: &str, out: &mut Vec<u8>) {
+fn write_string(string: &str, out: &mut Vec<u8>) -> Result<()> {
     out.push(b'"');
     for ch in string.chars() {
         match ch {
+            // encoding.md §2: any U+FEFF (BOM), whether at stream start or inside a
+            // string value, MUST be rejected as schema_violation — never emitted.
+            '\u{feff}' => {
+                return Err(Error::NonCanonicalString(
+                    "string value contains U+FEFF".to_owned(),
+                ));
+            }
             '"' => out.extend_from_slice(br#"\""#),
             '\\' => out.extend_from_slice(br#"\\"#),
             '\u{08}' => out.extend_from_slice(br#"\b"#),
@@ -418,6 +435,7 @@ fn write_string(string: &str, out: &mut Vec<u8>) {
         }
     }
     out.push(b'"');
+    Ok(())
 }
 
 fn write_object(map: &Map<String, Value>, out: &mut Vec<u8>) -> Result<()> {
@@ -430,7 +448,7 @@ fn write_object(map: &Map<String, Value>, out: &mut Vec<u8>) -> Result<()> {
         if idx > 0 {
             out.push(b',');
         }
-        write_string(key, out);
+        write_string(key, out)?;
         out.push(b':');
         write_canonical_value(&map[key], out)?;
     }

@@ -497,7 +497,11 @@ mod ed25519_jws {
                 )));
             }
             let expected = canonical::sha256_digest(canonical_bytes);
-            if proof.payload_digest.as_str() != expected {
+            // spec §6: the digest binding check MUST be constant-time. Both sides are
+            // fixed-length lowercase hex of a SHA-256 digest, so length is not secret;
+            // `ct_eq` compares the bytes without an early-exit timing side channel.
+            use subtle::ConstantTimeEq;
+            if !bool::from(proof.payload_digest.as_bytes().ct_eq(expected.as_bytes())) {
                 return Err(VerifierError::Binding(format!(
                     "proof payload_digest '{}' does not match canonical bytes '{}'",
                     proof.payload_digest, expected

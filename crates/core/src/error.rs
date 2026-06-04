@@ -861,6 +861,12 @@ pub enum Error {
     )]
     DuplicateObjectKey(String),
 
+    #[error(
+        "canonical JSON contains a forbidden U+FEFF / UTF-8 BOM (encoding.md §2: any U+FEFF, \
+         at stream start or inside a string value, MUST be rejected as schema_violation): {0}"
+    )]
+    NonCanonicalString(String),
+
     #[error("canonical JSON serialization failed: {0}")]
     CanonicalJson(#[from] serde_json::Error),
 
