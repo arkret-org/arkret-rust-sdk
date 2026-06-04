@@ -161,6 +161,27 @@ pub struct EncryptedMessage {
     pub payload: EncryptedPayload,
 }
 
+/// Profile id whose Realms are subject to the SEC-08 minimal-metadata
+/// hardening (epoch lifetime ≤ 1h MUST + `aad_visibility=hidden` MUST).
+pub const MINIMAL_METADATA_REALM_PROFILE: &str = "ck.profile.mls.minimal_metadata_realm.v1";
+
+/// SEC-08 — maximum MLS epoch lifetime for a `minimal_metadata_realm` Realm,
+/// per `crypto-media/encryption-and-audit.md` §2.9.
+///
+/// For Realms declaring [`MINIMAL_METADATA_REALM_PROFILE`] the §2.9 SHOULD on
+/// epoch lifetime is raised to a MUST: a commit MUST be forced at least every
+/// hour to bound within-epoch reaction-frequency observability. Stored as whole
+/// seconds (3600), matching the core crate's numeric-ceiling convention
+/// (`MEDIA_TOKEN_TTL_MAX_SECS`, `INCEPTION_KEY_MAX_ONLINE_WINDOW_SECS`). An
+/// implementation MAY declare a shorter lifetime, never a longer one.
+pub const MINIMAL_METADATA_MAX_EPOCH_LIFETIME_SECS: i64 = 3600;
+
+/// SEC-08 — [`MINIMAL_METADATA_MAX_EPOCH_LIFETIME_SECS`] as a
+/// [`chrono::Duration`] (1 hour).
+pub fn minimal_metadata_max_epoch_lifetime() -> chrono::Duration {
+    chrono::Duration::seconds(MINIMAL_METADATA_MAX_EPOCH_LIFETIME_SECS)
+}
+
 /// AAD event-id visibility discriminator for `ck.schema.encrypted_envelope.v1`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -168,6 +189,44 @@ pub enum AadVisibility {
     Hidden,
     RoutingDigest,
     OpaqueId,
+}
+
+/// SEC-08 — fail-closed enforcement that a `minimal_metadata_realm` Realm uses
+/// `aad_visibility=hidden`, per `crypto-media/encryption-and-audit.md` §2.9.
+///
+/// When `is_minimal_metadata_realm` is true the §2.9 SHOULD on hidden AAD is a
+/// MUST: any visibility other than [`AadVisibility::Hidden`] is rejected with a
+/// [`Error::Protocol`] so message-id exposure cannot widen reaction-frequency
+/// correlation from per-`target_ref` to per-message. Non-minimal Realms are
+/// unaffected (this helper returns `Ok(())`).
+pub fn enforce_minimal_metadata_aad(
+    visibility: &AadVisibility,
+    is_minimal_metadata_realm: bool,
+) -> Result<()> {
+    if is_minimal_metadata_realm && !matches!(visibility, AadVisibility::Hidden) {
+        return Err(Error::Protocol(format!(
+            "{MINIMAL_METADATA_REALM_PROFILE} Realm MUST use aad_visibility=hidden \
+             (encryption-and-audit.md §2.9); got {visibility:?}"
+        )));
+    }
+    Ok(())
+}
+
+/// SEC-08 — has a `minimal_metadata_realm` epoch outlived the 1h MUST cap, per
+/// `crypto-media/encryption-and-audit.md` §2.9.
+///
+/// Pure, non-mutating predicate: it takes the externally supplied epoch start
+/// timestamp and the current time and returns `true` once the epoch age exceeds
+/// [`minimal_metadata_max_epoch_lifetime`] (1h). When `true` the caller MUST
+/// force-advance the group with a fresh `ck.mls.commit`; this helper
+/// deliberately does **not** touch group state, leaving the commit decision to
+/// the caller (the least-invasive integration point). A `now` earlier than
+/// `epoch_started_at` (clock skew) is never reported as overdue.
+pub fn minimal_metadata_epoch_overdue(
+    epoch_started_at: chrono::DateTime<Utc>,
+    now: chrono::DateTime<Utc>,
+) -> bool {
+    now.signed_duration_since(epoch_started_at) > minimal_metadata_max_epoch_lifetime()
 }
 
 /// Structured AAD for `ck.schema.encrypted_envelope.v1`. `realm_id` +
@@ -1212,6 +1271,43 @@ fn mls_error(error: impl std::fmt::Debug) -> Error {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn minimal_metadata_max_epoch_lifetime_is_one_hour() {
+        assert_eq!(MINIMAL_METADATA_MAX_EPOCH_LIFETIME_SECS, 3600);
+        assert_eq!(minimal_metadata_max_epoch_lifetime(), chrono::Duration::hours(1));
+    }
+
+    #[test]
+    fn enforce_minimal_metadata_aad_rejects_non_hidden_in_minimal_realm() {
+        // Minimal-metadata Realm: only Hidden is allowed.
+        enforce_minimal_metadata_aad(&AadVisibility::Hidden, true).unwrap();
+        for v in [AadVisibility::RoutingDigest, AadVisibility::OpaqueId] {
+            let err = enforce_minimal_metadata_aad(&v, true).unwrap_err();
+            assert!(err.to_string().contains("aad_visibility=hidden"));
+        }
+        // Non-minimal Realm: any visibility is permitted by this helper.
+        enforce_minimal_metadata_aad(&AadVisibility::RoutingDigest, false).unwrap();
+        enforce_minimal_metadata_aad(&AadVisibility::OpaqueId, false).unwrap();
+    }
+
+    #[test]
+    fn minimal_metadata_epoch_overdue_after_one_hour() {
+        let started: chrono::DateTime<Utc> = "2026-06-04T00:00:00Z".parse().unwrap();
+        // 59m59s in — still within the cap.
+        assert!(!minimal_metadata_epoch_overdue(
+            started,
+            started + chrono::Duration::minutes(59) + chrono::Duration::seconds(59)
+        ));
+        // Exactly 1h is the boundary (strict `>`), one second past is overdue.
+        assert!(!minimal_metadata_epoch_overdue(started, started + chrono::Duration::hours(1)));
+        assert!(minimal_metadata_epoch_overdue(
+            started,
+            started + chrono::Duration::hours(1) + chrono::Duration::seconds(1)
+        ));
+        // Clock skew (now before epoch start) is never overdue.
+        assert!(!minimal_metadata_epoch_overdue(started, started - chrono::Duration::minutes(5)));
+    }
 
     #[test]
     fn schedule_hash_is_deterministic_and_changes_on_commit() {

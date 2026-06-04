@@ -6,8 +6,8 @@ use std::sync::OnceLock;
 use regex::Regex;
 
 use super::*;
-use crate::ERROR_CODE_SCHEMA_VIOLATION;
 use crate::events::MLS_COMMIT;
+use crate::{ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE, ERROR_CODE_SCHEMA_VIOLATION};
 
 pub const MLS_GOVERNANCE_BINDING_VERSION: u8 = 1;
 pub const MLS_GOVERNANCE_BINDING_ENCODING_PROFILE: &str = "cbor-deterministic-rfc8949-v1";
@@ -324,6 +324,98 @@ impl MlsCommitPayload {
     }
 }
 
+/// SEC-03 — one `purpose=media_plaintext` service entry covered by the
+/// governance-binding `discussion_metadata_digest`.
+///
+/// Carries the SFU / MCU service DID that webrtc-signaling.md §10.5.1 rule 2
+/// requires to be listed in `plaintext_visible_services[]`. Only the fields a
+/// member can independently recompute from the MLS transcript are bound into
+/// the digest; transport-only metadata MUST NOT leak in here.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct MediaPlaintextService {
+    /// Service DID authorised to decrypt media (`purpose=media_plaintext`).
+    pub service_did: Did,
+}
+
+/// SEC-03 — the member-visible policy cell value covered by the governance
+/// binding `discussion_metadata_digest`, per
+/// `crypto-media/webrtc-signaling.md` §10.5.1 rules 1–3 and
+/// `crypto-media/encryption-and-audit.md` §2.5 / §2.5.3.
+///
+/// `media_service_decrypts=true` is **not** an SFU-self-reported toggle: the
+/// fact MUST be derivable from the MLS transcript so any member can recompute
+/// it without trusting client UI. This struct is the canonical input to
+/// [`derive_media_decrypt_metadata_digest`]; it mirrors the policy cell value
+/// that §10.5.1 rules 1–3 already place under `policy_root` coverage.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct MediaDecryptPolicyValue {
+    /// `ck.realm.policy_components.media_service_decrypts` (§10.5.1 rule 1).
+    pub media_service_decrypts: bool,
+    /// `plaintext_visible_services[]` with `purpose=media_plaintext`
+    /// (§10.5.1 rule 2). Order is normalised before hashing so two members
+    /// holding the same set derive an identical digest.
+    pub plaintext_visible_services: Vec<MediaPlaintextService>,
+}
+
+impl MediaDecryptPolicyValue {
+    /// Canonical (deterministic) value used for digest derivation: the
+    /// `plaintext_visible_services` are sorted by DID so set-equal inputs
+    /// hash identically regardless of source ordering.
+    fn canonical_value(&self) -> Value {
+        let mut services: Vec<String> =
+            self.plaintext_visible_services.iter().map(|s| s.service_did.to_string()).collect();
+        services.sort_unstable();
+        services.dedup();
+        json!({
+            "media_service_decrypts": self.media_service_decrypts,
+            "plaintext_visible_services": services,
+        })
+    }
+}
+
+/// SEC-03 — deterministically derive the governance-binding
+/// `discussion_metadata_digest` from the §10.5.1 rule 1–3 policy cell value.
+///
+/// The digest is `sha256(canonical_json(value))` using the same canonical /
+/// hash primitives as every other Cokret digest ([`canonical::canonical_json_bytes`]
+/// + [`canonical::sha256_digest`]), so the result is byte-identical across
+/// every member and service. The fact `media_service_decrypts=true` is bound
+/// into the member-visible metadata covered by the MLS governance binding,
+/// satisfying `webrtc-signaling.md` §10.5.1 rule 5.
+///
+/// The returned [`Hash`] is wire-form (`sha256:<hex>`) and can be passed
+/// straight to [`MlsGovernanceBindingPayload::with_discussion_metadata_digest`].
+pub fn derive_media_decrypt_metadata_digest(value: &MediaDecryptPolicyValue) -> Result<Hash> {
+    let canonical_bytes = canonical::canonical_json_bytes(&value.canonical_value())?;
+    Ok(Hash::new(canonical::sha256_digest(canonical_bytes))?)
+}
+
+/// SEC-03 — member-side recomputation check for the media-decrypt fact.
+///
+/// `binding_covered_digest` is the `discussion_metadata_digest` carried by the
+/// accepted governance binding for the current epoch; `recomputed` is the
+/// member's local [`derive_media_decrypt_metadata_digest`] over its own view
+/// of the §10.5.1 rule 1–3 policy cell value. A mismatch means the member's
+/// local policy view disagrees with what the binding attests, so per
+/// §10.5.1 rule 5 the member MUST treat the binding as stale and refuse media
+/// negotiation. The mismatch returns [`Error::Protocol`] tagged with
+/// [`ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE`].
+pub fn verify_media_decrypt_metadata(
+    binding_covered_digest: &Hash,
+    recomputed: &Hash,
+) -> Result<()> {
+    if binding_covered_digest == recomputed {
+        Ok(())
+    } else {
+        Err(Error::Protocol(format!(
+            "media_service_decrypts metadata digest does not match governance binding; \
+             refusing media negotiation ({ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE})"
+        )))
+    }
+}
+
 fn object_ref_regex() -> &'static Regex {
     static OBJECT_REF: OnceLock<Regex> = OnceLock::new();
     OBJECT_REF.get_or_init(|| {
@@ -444,5 +536,51 @@ mod tests {
         binding.clone().with_binding_profile("ck.profile.mls_governance_binding.full.v1").unwrap();
         assert!(binding.clone().with_binding_profile("mls.full").is_err());
         assert!(binding.with_reducer_profile("").is_err());
+    }
+
+    fn media_service(host: &str) -> MediaPlaintextService {
+        MediaPlaintextService { service_did: Did::new(format!("did:web:{host}")).unwrap() }
+    }
+
+    fn media_value(decrypts: bool, hosts: &[&str]) -> MediaDecryptPolicyValue {
+        MediaDecryptPolicyValue {
+            media_service_decrypts: decrypts,
+            plaintext_visible_services: hosts.iter().map(|h| media_service(h)).collect(),
+        }
+    }
+
+    #[test]
+    fn media_decrypt_metadata_digest_is_deterministic() {
+        let value = media_value(true, &["sfu-a.example", "sfu-b.example"]);
+        let h1 = derive_media_decrypt_metadata_digest(&value).unwrap();
+        let h2 = derive_media_decrypt_metadata_digest(&value).unwrap();
+        assert_eq!(h1, h2);
+        // Set order MUST NOT change the digest (canonical sorting).
+        let reordered = media_value(true, &["sfu-b.example", "sfu-a.example"]);
+        assert_eq!(h1, derive_media_decrypt_metadata_digest(&reordered).unwrap());
+    }
+
+    #[test]
+    fn media_decrypt_metadata_digest_separates_on_toggle_and_services() {
+        let on =
+            derive_media_decrypt_metadata_digest(&media_value(true, &["sfu-a.example"])).unwrap();
+        let off =
+            derive_media_decrypt_metadata_digest(&media_value(false, &["sfu-a.example"])).unwrap();
+        assert_ne!(on, off, "media_service_decrypts toggle MUST change digest");
+        let other_service =
+            derive_media_decrypt_metadata_digest(&media_value(true, &["sfu-b.example"])).unwrap();
+        assert_ne!(on, other_service, "service set MUST change digest");
+    }
+
+    #[test]
+    fn verify_media_decrypt_metadata_accepts_match_rejects_stale() {
+        let value = media_value(true, &["sfu-a.example"]);
+        let digest = derive_media_decrypt_metadata_digest(&value).unwrap();
+        assert!(verify_media_decrypt_metadata(&digest, &digest).is_ok());
+
+        let recomputed =
+            derive_media_decrypt_metadata_digest(&media_value(false, &["sfu-a.example"])).unwrap();
+        let err = verify_media_decrypt_metadata(&digest, &recomputed).unwrap_err();
+        assert!(err.to_string().contains(ERROR_CODE_MLS_GOVERNANCE_BINDING_STALE));
     }
 }
