@@ -60,6 +60,7 @@ base64.workspace = true
 chacha20poly1305.workspace = true
 chrono = { workspace = true, features = ["serde"] }
 chrono-tz.workspace = true
+zeroize = "1"
 cokret-contracts.workspace = true
 cokret-http-client = { workspace = true, optional = true }
 cokret-core.workspace = true
