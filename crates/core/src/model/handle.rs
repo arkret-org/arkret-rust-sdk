@@ -341,9 +341,9 @@ pub enum HandleVisibility {
 #[serde(rename_all = "snake_case")]
 pub enum HandleBindingState {
     Pending,
-    Challenged,
     Verified,
     Revoked,
+    Expired,
 }
 
 /// Protocol kind of handle claim (`claim_kind` in the wire schema).
