@@ -352,7 +352,7 @@ wire-breaking list.
 - **Added** 3 new error code constants (`ERROR_CODE_DELIVERY_BINDING_STALE` /
   `_HANDED_OVER` / `_HISTORICAL_ONLY`) and 1 new capability action
   (`CAPABILITY_ACTION_MORPH_CREATE = "cx.morph.create"`, medium risk,
-  required-constraints `[morph_type_allow]`).
+  required-constraints `[allowed_morph_types]`).
 - **Added** `ck:space:<uuidv7>` accepted in `object_ref`; flow cell-metadata
   helpers `flow_update_cell_subject(flow_id)` / `flow_tracks_patch_cell_subject(flow_id)`
   (cell-family `cx.component.flow.fields.v1`, CAS-register, bottom=reject).

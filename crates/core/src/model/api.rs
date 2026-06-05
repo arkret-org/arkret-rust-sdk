@@ -156,11 +156,11 @@ pub struct EgressNetworkPolicy {
     #[serde(default)]
     pub protected_purposes: Vec<EgressProtectedPurpose>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub deny_cidrs: Vec<String>,
+    pub denied_cidrs: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub allow_cidrs: Vec<String>,
+    pub allowed_cidrs: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub allow_private_exceptions: Vec<EgressPrivateException>,
+    pub allowed_private_exceptions: Vec<EgressPrivateException>,
     pub dns_rebind_protection: bool,
     pub redirect_recheck: bool,
 }
@@ -172,9 +172,9 @@ impl EgressNetworkPolicy {
             version: 1,
             private_network_default: EgressPrivateNetworkDefault::Deny,
             protected_purposes: EgressProtectedPurpose::ALL.to_vec(),
-            deny_cidrs: Vec::new(),
-            allow_cidrs: Vec::new(),
-            allow_private_exceptions: Vec::new(),
+            denied_cidrs: Vec::new(),
+            allowed_cidrs: Vec::new(),
+            allowed_private_exceptions: Vec::new(),
             dns_rebind_protection: true,
             redirect_recheck: true,
         }
@@ -459,7 +459,7 @@ pub struct IdentityDescription {
 pub struct IdentityResolveReqBody {
     pub did: Did,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub include: Vec<String>,
+    pub requested_evidence_kinds: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

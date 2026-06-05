@@ -145,8 +145,8 @@ pub use sync::{
     AccountData, BackfillDirection, BackfillFrom, BackfillReqBody, BackfillResBody,
     BucketedRealmUpdate, DeviceListChanges, LimitedTimelineState, MembershipBucket,
     NotificationDelta, PresenceEvent, PresenceStatus, RealmSubscription, RealmUpdate,
-    SubscriptionConfig, SyncClient, SyncFilter, SyncGap, SyncGapReason, SyncMode, SyncReqBody,
-    SyncSemantics, SyncRealm, SyncStreamPosition, SyncTimeline, SyncTokenBinding, SyncUpdates,
+    SubscriptionConfig, SyncClient, SyncFilter, SyncGap, SyncGapReason, SyncMode, SyncRealm,
+    SyncReqBody, SyncSemantics, SyncStreamPosition, SyncTimeline, SyncTokenBinding, SyncUpdates,
     TimelineFilter, TimelineOrderKey, ToDeviceAck, ToDeviceAckStatus, ToDeviceMessage,
     WaitForFrontier, sync_filter_digest,
 };

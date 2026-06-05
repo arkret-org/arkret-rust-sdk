@@ -91,9 +91,8 @@ fn protocol_server_fixture_covers_core_flow_groups() {
         assert!(report.covers(flow));
     }
     assert!(
-        report.steps.iter().any(
-            |step| step.flow == ProtocolFixtureFlow::Blob && step.operation_id == "ck.self.blob.get"
-        )
+        report.steps.iter().any(|step| step.flow == ProtocolFixtureFlow::Blob
+            && step.operation_id == "ck.self.blob.get")
     );
     assert!(report.steps.iter().any(|step| {
         step.flow == ProtocolFixtureFlow::Sync && step.operation_id == "ck.self.events.submit"

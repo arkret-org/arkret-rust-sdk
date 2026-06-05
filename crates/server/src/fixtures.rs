@@ -142,10 +142,14 @@ fn fixture_operations(flow: ProtocolFixtureFlow) -> &'static [&'static str] {
             "ck.self.events.query",
             "ck.self.snapshot.head",
         ],
-        ProtocolFixtureFlow::Blob => &["ck.self.blob.upload", "ck.self.blob.head", "ck.self.blob.get"],
-        ProtocolFixtureFlow::Authz => {
-            &["ck.self.authz.get_effective_grants", "ck.self.authz.get_invites", "ck.self.authz.check"]
+        ProtocolFixtureFlow::Blob => {
+            &["ck.self.blob.upload", "ck.self.blob.head", "ck.self.blob.get"]
         }
+        ProtocolFixtureFlow::Authz => &[
+            "ck.self.authz.get_effective_grants",
+            "ck.self.authz.get_invites",
+            "ck.self.authz.check",
+        ],
         ProtocolFixtureFlow::Directory => &[
             "ck.find.directory.describe",
             "ck.find.directory.search_realms",
@@ -157,13 +161,17 @@ fn fixture_operations(flow: ProtocolFixtureFlow) -> &'static [&'static str] {
             "ck.find.directory.resolve_handle",
             "ck.find.directory.push.register",
         ],
-        ProtocolFixtureFlow::Push => {
-            &["ck.edge.push.register_device", "ck.edge.push.unregister_device", "ck.edge.push.notify"]
-        }
+        ProtocolFixtureFlow::Push => &[
+            "ck.edge.push.register_device",
+            "ck.edge.push.unregister_device",
+            "ck.edge.push.notify",
+        ],
         ProtocolFixtureFlow::DeviceMessages => {
             &["ck.self.device_messages.put", "ck.self.device_messages.get"]
         }
-        ProtocolFixtureFlow::Keys => &["ck.self.keys.upload", "ck.self.keys.query", "ck.self.keys.claim"],
+        ProtocolFixtureFlow::Keys => {
+            &["ck.self.keys.upload", "ck.self.keys.query", "ck.self.keys.claim"]
+        }
         ProtocolFixtureFlow::Policy => &["ck.self.policy.check"],
         ProtocolFixtureFlow::Media => &["ck.self.media.ice_config"],
         ProtocolFixtureFlow::Moderation => &["ck.self.moderation.report"],

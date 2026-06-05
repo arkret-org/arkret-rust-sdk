@@ -548,12 +548,12 @@ impl AuthzEngine {
                 AuthzDecision::Allow
             }
             Constraint::TypeRestriction {
-                object_type_allow,
-                object_type_deny,
-                morph_type_allow,
-                morph_type_deny,
-                facet_allow,
-                facet_deny,
+                allowed_object_types,
+                denied_object_types,
+                allowed_morph_types,
+                denied_morph_types,
+                allowed_facets,
+                denied_facets,
                 scope_limitation,
             } => {
                 if let Some(scope_limitation) = scope_limitation {
@@ -591,14 +591,14 @@ impl AuthzEngine {
                 };
 
                 if let Some(object_type) = object_type {
-                    if let Some(deny_list) = object_type_deny
+                    if let Some(deny_list) = denied_object_types
                         && deny_list.iter().any(|item| item == object_type)
                     {
                         return AuthzDecision::Deny {
                             reason: format!("object type denied: {}", object_type),
                         };
                     }
-                    if let Some(allow_list) = object_type_allow
+                    if let Some(allow_list) = allowed_object_types
                         && !allow_list.iter().any(|item| item == object_type)
                     {
                         return AuthzDecision::Deny {
@@ -608,14 +608,14 @@ impl AuthzEngine {
                 }
 
                 if let Some(morph_type) = morph_type {
-                    if let Some(deny_list) = morph_type_deny
+                    if let Some(deny_list) = denied_morph_types
                         && deny_list.iter().any(|item| item == morph_type)
                     {
                         return AuthzDecision::Deny {
                             reason: format!("morph type denied: {}", morph_type),
                         };
                     }
-                    if let Some(allow_list) = morph_type_allow
+                    if let Some(allow_list) = allowed_morph_types
                         && !allow_list.iter().any(|item| item == morph_type)
                     {
                         return AuthzDecision::Deny {
@@ -624,13 +624,14 @@ impl AuthzEngine {
                     }
                 }
 
-                if !facet_deny.is_empty()
-                    && let Some(facet) = facet_deny.iter().find(|facet| ctx.facets.contains(facet))
+                if !denied_facets.is_empty()
+                    && let Some(facet) =
+                        denied_facets.iter().find(|facet| ctx.facets.contains(facet))
                 {
                     return AuthzDecision::Deny { reason: format!("facet denied: {:?}", facet) };
                 }
-                if !facet_allow.is_empty() {
-                    let missing = facet_allow.iter().find(|facet| !ctx.facets.contains(facet));
+                if !allowed_facets.is_empty() {
+                    let missing = allowed_facets.iter().find(|facet| !ctx.facets.contains(facet));
                     if let Some(facet) = missing {
                         return AuthzDecision::Deny {
                             reason: format!("facet not allowed or unavailable: {:?}", facet),
@@ -814,14 +815,19 @@ impl AuthzEngine {
                     AuthzDecision::Allow
                 }
             }
-            Constraint::VisibilityControl { visibility_allow, visibility_deny, .. } => {
+            Constraint::VisibilityControl {
+                allowed_history_visibility_values,
+                denied_history_visibility_values,
+                ..
+            } => {
                 if let Some(level) = ctx.history_visibility.as_deref() {
-                    if visibility_deny.iter().any(|v| v == level) {
+                    if denied_history_visibility_values.iter().any(|v| v == level) {
                         return AuthzDecision::Deny {
                             reason: format!("visibility level '{}' is denied", level),
                         };
                     }
-                    if !visibility_allow.is_empty() && !visibility_allow.iter().any(|v| v == level)
+                    if !allowed_history_visibility_values.is_empty()
+                        && !allowed_history_visibility_values.iter().any(|v| v == level)
                     {
                         return AuthzDecision::Deny {
                             reason: format!("visibility level '{}' not in allow list", level),
@@ -931,15 +937,15 @@ impl AuthzEngine {
                 AuthzDecision::Allow
             }
             Constraint::ContainerMove {
-                relation_kind_allow,
+                allowed_relation_kinds,
                 allowed_view_ids,
                 allowed_from_container_refs,
                 allowed_to_container_refs,
                 wip_limit_override,
             } => {
-                if !relation_kind_allow.is_empty()
+                if !allowed_relation_kinds.is_empty()
                     && let Some(rk) = ctx.relation_kind.as_deref()
-                    && !relation_kind_allow.iter().any(|k| k == rk)
+                    && !allowed_relation_kinds.iter().any(|k| k == rk)
                 {
                     return AuthzDecision::Deny {
                         reason: format!("relation_kind '{}' not in allow list", rk),

@@ -113,8 +113,12 @@ fn main() -> cokret::Result<()> {
     let agent_principal_path = path_component(&agent_principal_id);
 
     // 3. ck.self.agent.list
-    let _list =
-        mock_send("ck.self.agent.list", "GET", "/agents?controller=did:web:alice.example", &Value::Null);
+    let _list = mock_send(
+        "ck.self.agent.list",
+        "GET",
+        "/agents?controller=did:web:alice.example",
+        &Value::Null,
+    );
 
     // 4. ck.self.agent.get
     let _get = mock_send(

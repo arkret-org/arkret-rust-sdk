@@ -137,10 +137,18 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
     endpoint!("ck.edge.applet.describe", Get, "/_cokret/edge/applet/describe"),
     endpoint!("ck.edge.applet.transaction", Post, "/_cokret/edge/applet/transactions"),
     endpoint!("ck.edge.applet.resolve_actor", Get, "/_cokret/edge/applet/actors/{actor_id}"),
-    endpoint!("ck.edge.applet.resolve_realm", Get, "/_cokret/edge/applet/realms/{realm_id_or_alias}"),
+    endpoint!(
+        "ck.edge.applet.resolve_realm",
+        Get,
+        "/_cokret/edge/applet/realms/{realm_id_or_alias}"
+    ),
     endpoint!("ck.edge.applet.protocol_metadata", Get, "/_cokret/edge/applet/protocols/{protocol}"),
     endpoint!("ck.edge.applet.third_party_users", Get, "/_cokret/edge/applet/third_party/users"),
-    endpoint!("ck.edge.applet.third_party_locations", Get, "/_cokret/edge/applet/third_party/locations"),
+    endpoint!(
+        "ck.edge.applet.third_party_locations",
+        Get,
+        "/_cokret/edge/applet/third_party/locations"
+    ),
     endpoint!("ck.self.account.cursor_revoke", Post, "/_cokret/self/account/cursor/revoke"),
 ];
 

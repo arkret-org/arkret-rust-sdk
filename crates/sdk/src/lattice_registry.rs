@@ -448,29 +448,25 @@ impl LatticeKind for DevicePushRoute {
                 cell_family: "ck.component.device.push_route.v1",
                 field: "recipient_service_did",
             })?;
-        let principal_id = effect_payload
-            .get("principal_id")
-            .and_then(Value::as_str)
-            .ok_or(LatticeKindError::MissingSubjectField {
+        let principal_id = effect_payload.get("principal_id").and_then(Value::as_str).ok_or(
+            LatticeKindError::MissingSubjectField {
                 cell_family: "ck.component.device.push_route.v1",
                 field: "principal_id",
-            })?;
+            },
+        )?;
         let device_id = effect_payload.get("device_id").and_then(Value::as_str).ok_or(
             LatticeKindError::MissingSubjectField {
                 cell_family: "ck.component.device.push_route.v1",
                 field: "device_id",
             },
         )?;
-        let push_route = effect_payload
-            .get("push_route")
-            .and_then(Value::as_str)
-            .ok_or(LatticeKindError::MissingSubjectField {
+        let push_route = effect_payload.get("push_route").and_then(Value::as_str).ok_or(
+            LatticeKindError::MissingSubjectField {
                 cell_family: "ck.component.device.push_route.v1",
                 field: "push_route",
-            })?;
-        Ok(Some(format!(
-            "{recipient_service_did}::{principal_id}::{device_id}::{push_route}"
-        )))
+            },
+        )?;
+        Ok(Some(format!("{recipient_service_did}::{principal_id}::{device_id}::{push_route}")))
     }
     fn event_kinds(&self) -> &'static [&'static str] {
         &["ck.device.push_route"]

@@ -13,7 +13,8 @@ impl Realm {
     /// Use [`Self::create_join_with_binding`] for the routable path.
     pub fn join_realm(&self) -> Result<Operation> {
         let operation = self.create_join_operation()?;
-        self.base_client.update_realm_membership_state(&self.realm_id, RealmMembershipState::Joined)?;
+        self.base_client
+            .update_realm_membership_state(&self.realm_id, RealmMembershipState::Joined)?;
         Ok(operation)
     }
 
@@ -23,14 +24,16 @@ impl Realm {
     pub fn join_realm_with_binding(&self, binding: MemberDeliveryBinding) -> Result<Operation> {
         binding.validate()?;
         let operation = self.create_join_with_binding(binding)?;
-        self.base_client.update_realm_membership_state(&self.realm_id, RealmMembershipState::Joined)?;
+        self.base_client
+            .update_realm_membership_state(&self.realm_id, RealmMembershipState::Joined)?;
         Ok(operation)
     }
 
     /// Create a leave operation and update local membership state to left.
     pub fn leave_realm(&self) -> Result<Operation> {
         let operation = self.create_leave_operation()?;
-        self.base_client.update_realm_membership_state(&self.realm_id, RealmMembershipState::Left)?;
+        self.base_client
+            .update_realm_membership_state(&self.realm_id, RealmMembershipState::Left)?;
         Ok(operation)
     }
 

@@ -82,17 +82,17 @@ pub enum Constraint {
     /// Type restriction constraint
     TypeRestriction {
         #[serde(skip_serializing_if = "Option::is_none")]
-        object_type_allow: Option<Vec<String>>,
+        allowed_object_types: Option<Vec<String>>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        object_type_deny: Option<Vec<String>>,
+        denied_object_types: Option<Vec<String>>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        morph_type_allow: Option<Vec<String>>,
+        allowed_morph_types: Option<Vec<String>>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        morph_type_deny: Option<Vec<String>>,
+        denied_morph_types: Option<Vec<String>>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
-        facet_allow: Vec<Facet>,
+        allowed_facets: Vec<Facet>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
-        facet_deny: Vec<Facet>,
+        denied_facets: Vec<Facet>,
         #[serde(skip_serializing_if = "Option::is_none")]
         scope_limitation: Option<ScopeLimitation>,
     },
@@ -154,9 +154,9 @@ pub enum Constraint {
     /// See `constraint-schema.md` §13.
     VisibilityControl {
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
-        visibility_allow: Vec<String>,
+        allowed_history_visibility_values: Vec<String>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
-        visibility_deny: Vec<String>,
+        denied_history_visibility_values: Vec<String>,
         #[serde(default = "default_false")]
         deny_redacted_history: bool,
     },
@@ -192,7 +192,7 @@ pub enum Constraint {
     /// See `constraint-schema.md` §6.3.
     ContainerMove {
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
-        relation_kind_allow: Vec<String>,
+        allowed_relation_kinds: Vec<String>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         allowed_view_ids: Vec<String>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]

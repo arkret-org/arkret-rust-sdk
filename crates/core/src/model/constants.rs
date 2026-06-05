@@ -271,7 +271,7 @@ pub const OP_MESSAGE_REDACT: &str = "ck.message.redact";
 pub const CAP_ACTION_MESSAGE_MENTION_BROADCAST: &str = "ck.message.mention.broadcast";
 
 /// Capability constraint shorthand from `capability-action-registry.json`.
-pub const CAP_CONSTRAINT_FIELDS_WRITE_ALLOW: &str = "fields_write_allow";
+pub const CAP_CONSTRAINT_ALLOWED_WRITE_FIELDS: &str = "allowed_write_fields";
 
 /// Capability-action IDs sampled in `_randmon.md` and promoted to SDK
 /// constants so downstream grant builders do not hard-code raw strings.
@@ -306,7 +306,7 @@ pub const CAP_ACTION_EVENT_READ_TARGET_EVENT_KINDS: &[&str] = &[];
 pub const CAP_ACTION_MODERATION_DECISION_LIFT_TARGET_EVENT_KINDS: &[&str] =
     &[CAP_ACTION_MODERATION_DECISION_LIFT];
 pub const CAP_ACTION_FLOW_UPDATE_REQUIRED_CONSTRAINTS: &[&str] =
-    &[CAP_CONSTRAINT_FIELDS_WRITE_ALLOW];
+    &[CAP_CONSTRAINT_ALLOWED_WRITE_FIELDS];
 pub const CAP_ACTION_FLOW_UPDATE_TARGET_EVENT_KINDS: &[&str] = &[OP_FLOW_UPDATE];
 pub const CAP_ACTION_APPROVAL_VOTE_TARGET_EVENT_KINDS: &[&str] = &[];
 pub const CAP_ACTION_AUDIT_ACCESSED_TARGET_EVENT_KINDS: &[&str] = &[CAP_ACTION_AUDIT_ACCESSED];
@@ -474,12 +474,14 @@ pub const OP_AGENT_PROTOCOL_SESSION_START: &str = "ck.agent.protocol_session.sta
 pub const OP_AGENT_PROTOCOL_SESSION_STATUS: &str = "ck.agent.protocol_session.status";
 
 /// Directory operations beyond the bare `describe`.
-pub const OP_DIRECTORY_PRIVATE_CONTACT_DISCOVERY: &str = "ck.find.directory.private_contact_discovery";
+pub const OP_DIRECTORY_PRIVATE_CONTACT_DISCOVERY: &str =
+    "ck.find.directory.private_contact_discovery";
 pub const OP_DIRECTORY_ANNOUNCE: &str = "ck.find.directory.announce";
 pub const OP_DIRECTORY_RESOLVE_HANDLE: &str = "ck.find.directory.resolve_handle";
 /// R3.2 (cokret-spec @ b56cab1) — subject/context → current visible
 /// handle claims; the inverse of `resolve_handle`.
-pub const OP_DIRECTORY_LIST_HANDLES_FOR_SUBJECT: &str = "ck.find.directory.list_handles_for_subject";
+pub const OP_DIRECTORY_LIST_HANDLES_FOR_SUBJECT: &str =
+    "ck.find.directory.list_handles_for_subject";
 pub const OP_DIRECTORY_RESOLVE_ORGANIZATION: &str = "ck.find.directory.resolve_organization";
 pub const OP_DIRECTORY_RESOLVE_REALM: &str = "ck.find.directory.resolve_realm";
 /// R3.3 (CKP-0011, cokret-spec @ cced4b8) — resolve a client-agnostic
@@ -550,7 +552,7 @@ pub const CAP_ACTION_MODERATION_APPEAL_REVIEW: &str = "ck.moderation.appeal.revi
 
 /// Round 4 (2026-05-20, spec a77b995) — capability action gating Morph
 /// creation. Medium risk; the spec
-/// `capability-action-registry.json` declares `required_constraints=[morph_type_allow]`.
+/// `capability-action-registry.json` declares `required_constraints=[allowed_morph_types]`.
 pub const CAP_ACTION_MORPH_CREATE: &str = "ck.morph.create";
 
 /// CKP-0010 (R3 spec-sync 2026-05-27, cokret-spec b47ff6ec) — call /
@@ -816,7 +818,7 @@ mod tests {
         assert_eq!(flow_update.risk_tier, CapabilityRiskTier::Medium);
         assert_eq!(
             capability_action_required_constraints(CAP_ACTION_FLOW_UPDATE),
-            &[CAP_CONSTRAINT_FIELDS_WRITE_ALLOW]
+            &[CAP_CONSTRAINT_ALLOWED_WRITE_FIELDS]
         );
         assert_eq!(capability_action_target_event_kinds(CAP_ACTION_FLOW_UPDATE), &[OP_FLOW_UPDATE]);
 

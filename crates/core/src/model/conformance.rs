@@ -170,7 +170,7 @@ pub fn profile_conformance_suites() -> Vec<ConformanceSuite> {
             "facet-aware-capability-frontier-validation",
             "Capability checks run at the causal frontier and can fail closed on allowed facets.",
             Some(CAPABILITY_SCHEMA),
-            json!({"fail_closed": true, "frontier_bound": true, "facet_allow": true}),
+            json!({"fail_closed": true, "frontier_bound": true, "allowed_facets": true}),
         ),
         conformance_suite(
             ConformanceProfile::Sync,

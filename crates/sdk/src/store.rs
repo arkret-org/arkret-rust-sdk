@@ -18,7 +18,7 @@ use crate::{
     crypto,
     e2ee::AuditEntry,
     model::BlobMetadata,
-    resolver::{SnapshotRestore, RealmState, StateSnapshot},
+    resolver::{RealmState, SnapshotRestore, StateSnapshot},
 };
 
 pub trait StateSnapshotStore: Send + Sync {
@@ -274,10 +274,7 @@ impl FederationReplayStore for MemoryPersistenceStore {
     }
 }
 
-pub fn rebuild_realm_state_from_events<S>(
-    store: &S,
-    realm_id: &RealmId,
-) -> Result<RealmState>
+pub fn rebuild_realm_state_from_events<S>(store: &S, realm_id: &RealmId) -> Result<RealmState>
 where
     S: EventCacheStore,
 {

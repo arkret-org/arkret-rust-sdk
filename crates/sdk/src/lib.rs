@@ -289,7 +289,7 @@ pub use authz::{
 #[cfg(feature = "full-surface")]
 pub use base::{
     BaseClient, BootstrapSequence, BootstrapStep, BootstrapStepKind, BootstrapStepStatus,
-    ClientRealm, SessionMeta, SessionRestore, RealmMembershipState,
+    ClientRealm, RealmMembershipState, SessionMeta, SessionRestore,
 };
 #[cfg(feature = "full-surface")]
 pub use crypto::{
@@ -402,8 +402,8 @@ pub use presence::{Presence, PresenceManager};
 pub use profile::{
     DataClassification, ExternalDeviceApprovalMode, PairwiseControlMessage,
     PairwiseControlMessageKind, ProfileCreateBuilder, ProfileEventKind, ProfileManager,
-    RealmExportManifest, RealmImportValidation, ServiceReplacementPlan,
-    SovereignDeploymentPolicy, TspTrustBinding, UserProfile, validate_realm_import,
+    RealmExportManifest, RealmImportValidation, ServiceReplacementPlan, SovereignDeploymentPolicy,
+    TspTrustBinding, UserProfile, validate_realm_import,
 };
 #[cfg(feature = "full-surface")]
 pub use push::{
@@ -423,9 +423,9 @@ pub use receipts::{
 };
 #[cfg(feature = "full-surface")]
 pub use resolver::{
-    REDUCER_SNAPSHOT_PROFILE, REDUCER_SNAPSHOT_SCHEMA, ReducerSnapshotManifest,
+    REDUCER_SNAPSHOT_PROFILE, REDUCER_SNAPSHOT_SCHEMA, RealmState, ReducerSnapshotManifest,
     SnapshotChunkManifest, SnapshotRestore, SnapshotRestoreSource, SnapshotSignature,
-    SnapshotSignatureBindingPayload, RealmState, StateSnapshot, merkle_root, state_merkle_root,
+    SnapshotSignatureBindingPayload, StateSnapshot, merkle_root, state_merkle_root,
     verify_snapshot_chunks,
 };
 #[cfg(feature = "full-surface")]
@@ -451,9 +451,9 @@ pub use sync_client::{
     AsyncSyncTransport, BackoffConfig, BackpressureConfig, BoxSyncFuture, CancellationToken,
     EventsQueryDirection, EventsQueryReqBody, EventsQueryResBody, EventsQuerySelector,
     EventsSubscribeFrame, EventsSubscribeTransport, ExponentialBackoff, LocalEcho, ProcessedRealm,
-    SendQueue, SendQueueItem, SendQueueItemKind, SendQueueSnapshot, SendQueueStatus, SlidingSync,
-    SlidingWindow, RealmListChange, RealmListEntry, RealmListFilter, RealmListService,
-    RealmListSnapshot, RealmListSort, SyncGapStrategy, SyncLoop, SyncLoopControl, SyncLoopSnapshot,
+    RealmListChange, RealmListEntry, RealmListFilter, RealmListService, RealmListSnapshot,
+    RealmListSort, SendQueue, SendQueueItem, SendQueueItemKind, SendQueueSnapshot, SendQueueStatus,
+    SlidingSync, SlidingWindow, SyncGapStrategy, SyncLoop, SyncLoopControl, SyncLoopSnapshot,
     SyncLoopStep, SyncResponseProcessor, SyncTransport,
 };
 #[cfg(all(feature = "full-surface", feature = "timeline-runtime"))]
