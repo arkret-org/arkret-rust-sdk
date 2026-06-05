@@ -80,9 +80,11 @@ pub enum ActorKind {
 #[serde(rename_all = "snake_case")]
 pub enum ActorStatus {
     Active,
+    SoftLoggedOut,
+    Locked,
     Suspended,
-    Deleted,
     Deactivated,
+    ErasurePending,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]

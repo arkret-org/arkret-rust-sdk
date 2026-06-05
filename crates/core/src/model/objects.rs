@@ -397,9 +397,10 @@ impl Space {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
 pub struct ActorProfile {
-    pub schema: String,
     pub id: ActorProfileId,
+    pub schema: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     pub principal_id: Did,
@@ -416,6 +417,8 @@ pub struct ActorProfile {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub profile_fields: BTreeMap<String, Value>,
     pub created_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_by: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_at: Option<DateTime<Utc>>,
 }

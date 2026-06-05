@@ -44,6 +44,7 @@ pub struct E2eeKeyRecord {
 
 /// Encrypted key backup bundle.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct E2eeKeyBackup {
     /// Backup ID.
     pub backup_id: String,
@@ -51,8 +52,8 @@ pub struct E2eeKeyBackup {
     pub version: u32,
     /// Backup algorithm.
     pub algorithm: String,
-    /// DID that created the backup.
-    pub sender: Did,
+    /// Actor DID that submitted the backup.
+    pub sender_actor_id: Did,
     /// Optional previous backup version for rotation chains.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub previous_backup_id: Option<String>,
@@ -72,6 +73,7 @@ pub struct E2eeKeyBackup {
 
 /// E2EE message envelope.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct E2eeMessage {
     /// Message ID for replay prevention.
     pub message_id: String,
@@ -79,8 +81,8 @@ pub struct E2eeMessage {
     pub group_id: String,
     /// Epoch used to encrypt.
     pub epoch: u64,
-    /// Sender DID.
-    pub sender: Did,
+    /// Sender actor DID.
+    pub sender_actor_id: Did,
     /// Ciphertext bytes.
     pub ciphertext: Vec<u8>,
     /// Integrity digest over envelope metadata and ciphertext.
@@ -125,11 +127,12 @@ struct E2eeKeyBackupPlaintext {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct E2eeKeyBackupAad {
     backup_id: String,
     version: u32,
     algorithm: String,
-    sender: Did,
+    sender_actor_id: Did,
     previous_backup_id: Option<String>,
     key_ids: Vec<String>,
 }
@@ -345,7 +348,7 @@ impl E2eeManager {
             backup_id: backup_id.clone(),
             version,
             algorithm: KEY_BACKUP_ALGORITHM.to_owned(),
-            sender: actor.clone(),
+            sender_actor_id: actor.clone(),
             previous_backup_id,
             key_ids: key_ids.clone(),
         };
@@ -355,7 +358,7 @@ impl E2eeManager {
             backup_id,
             version,
             algorithm: KEY_BACKUP_ALGORITHM.to_owned(),
-            sender: actor.clone(),
+            sender_actor_id: actor.clone(),
             previous_backup_id: aad.previous_backup_id,
             key_ids,
             ciphertext_sha256: sha256_hex(&ciphertext),
@@ -378,14 +381,15 @@ impl E2eeManager {
         }
     }
 
-    /// Restore usable key records from a backup and validate the expected backup sender.
+    /// Restore usable key records from a backup and validate the expected sender actor.
     pub fn restore_key_records_from_backup(
         &mut self,
         backup: &E2eeKeyBackup,
         backup_key: &[u8],
-        expected_sender: &Did,
+        expected_sender_actor_id: &Did,
     ) -> Result<Vec<E2eeKeyRecord>> {
-        let plaintext = self.open_backup_plaintext(backup, backup_key, Some(expected_sender))?;
+        let plaintext =
+            self.open_backup_plaintext(backup, backup_key, Some(expected_sender_actor_id))?;
         let bundle: E2eeKeyBackupPlaintext = serde_json::from_slice(&plaintext)?;
         if bundle.version != backup.version {
             return Err(Error::Protocol("key backup version mismatch".to_owned()));
@@ -400,7 +404,7 @@ impl E2eeManager {
         }
         self.log(
             AuditAction::KeyRestored,
-            Some(expected_sender.clone()),
+            Some(expected_sender_actor_id.clone()),
             None,
             "keys restored from backup",
         );
@@ -411,9 +415,9 @@ impl E2eeManager {
     pub fn validate_backup_authenticity(
         &self,
         backup: &E2eeKeyBackup,
-        expected_sender: &Did,
+        expected_sender_actor_id: &Did,
     ) -> Result<()> {
-        if &backup.sender != expected_sender {
+        if &backup.sender_actor_id != expected_sender_actor_id {
             return Err(Error::Protocol("key backup sender mismatch".to_owned()));
         }
         if backup.algorithm != KEY_BACKUP_ALGORITHM {
@@ -426,7 +430,7 @@ impl E2eeManager {
             backup_id: backup.backup_id.clone(),
             version: backup.version,
             algorithm: backup.algorithm.clone(),
-            sender: backup.sender.clone(),
+            sender_actor_id: backup.sender_actor_id.clone(),
             previous_backup_id: backup.previous_backup_id.clone(),
             key_ids: backup.key_ids.clone(),
         };
@@ -442,7 +446,7 @@ impl E2eeManager {
         &self,
         message_id: impl Into<String>,
         group_id: &str,
-        sender: Did,
+        sender_actor_id: Did,
         ciphertext: Vec<u8>,
     ) -> Result<E2eeMessage> {
         let group = self
@@ -450,18 +454,19 @@ impl E2eeManager {
             .get(group_id)
             .ok_or_else(|| Error::Protocol("group not found".to_owned()))?;
         let message_id = message_id.into();
-        let digest = message_digest(&message_id, group_id, group.epoch, &sender, &ciphertext);
+        let digest =
+            message_digest(&message_id, group_id, group.epoch, &sender_actor_id, &ciphertext);
         Ok(E2eeMessage {
             message_id,
             group_id: group_id.to_owned(),
             epoch: group.epoch,
-            sender,
+            sender_actor_id,
             ciphertext,
             digest,
         })
     }
 
-    /// Validate sender membership, epoch, integrity and replay.
+    /// Validate sender actor membership, epoch, integrity and replay.
     pub fn validate_message(&mut self, message: &E2eeMessage) -> Result<()> {
         match self.inspect_message(message) {
             E2eeMessageValidation::Valid => {}
@@ -472,7 +477,7 @@ impl E2eeManager {
         self.seen_messages.insert(message.message_id.clone());
         self.log(
             AuditAction::MessageValidated,
-            Some(message.sender.clone()),
+            Some(message.sender_actor_id.clone()),
             Some(message.group_id.clone()),
             "message validated",
         );
@@ -486,7 +491,7 @@ impl E2eeManager {
                 failure: E2eeMessageValidationFailure::UnknownGroup,
             };
         };
-        if !group.members.contains(&message.sender) {
+        if !group.members.contains(&message.sender_actor_id) {
             return E2eeMessageValidation::Invalid {
                 failure: E2eeMessageValidationFailure::WrongSender,
             };
@@ -503,7 +508,7 @@ impl E2eeManager {
             &message.message_id,
             &message.group_id,
             message.epoch,
-            &message.sender,
+            &message.sender_actor_id,
             &message.ciphertext,
         );
         if expected != message.digest {
@@ -540,17 +545,17 @@ impl E2eeManager {
         &self,
         message_id: impl Into<String>,
         group_id: &str,
-        sender: Did,
+        sender_actor_id: Did,
         device_id: &DeviceId,
         ciphertext: Vec<u8>,
     ) -> Result<E2eeMessage> {
-        if self.is_device_revoked(&sender, device_id) {
+        if self.is_device_revoked(&sender_actor_id, device_id) {
             return Err(Error::Protocol(format!(
                 "device {} is revoked; encrypted writes fail closed",
                 device_id.as_str()
             )));
         }
-        self.create_message(message_id, group_id, sender, ciphertext)
+        self.create_message(message_id, group_id, sender_actor_id, ciphertext)
     }
 
     /// Export audit entries.
@@ -571,10 +576,10 @@ impl E2eeManager {
         &self,
         backup: &E2eeKeyBackup,
         backup_key: &[u8],
-        expected_sender: Option<&Did>,
+        expected_sender_actor_id: Option<&Did>,
     ) -> Result<Vec<u8>> {
-        if let Some(expected_sender) = expected_sender {
-            self.validate_backup_authenticity(backup, expected_sender)?;
+        if let Some(expected_sender_actor_id) = expected_sender_actor_id {
+            self.validate_backup_authenticity(backup, expected_sender_actor_id)?;
         } else if sha256_hex(&backup.ciphertext) != backup.ciphertext_sha256 {
             return Err(Error::Protocol("key backup ciphertext digest mismatch".to_owned()));
         }
@@ -582,7 +587,7 @@ impl E2eeManager {
             backup_id: backup.backup_id.clone(),
             version: backup.version,
             algorithm: backup.algorithm.clone(),
-            sender: backup.sender.clone(),
+            sender_actor_id: backup.sender_actor_id.clone(),
             previous_backup_id: backup.previous_backup_id.clone(),
             key_ids: backup.key_ids.clone(),
         };
@@ -619,14 +624,14 @@ fn message_digest(
     message_id: &str,
     group_id: &str,
     epoch: u64,
-    sender: &Did,
+    sender_actor_id: &Did,
     ciphertext: &[u8],
 ) -> String {
     let mut hasher = Sha256::new();
     hasher.update(message_id.as_bytes());
     hasher.update(group_id.as_bytes());
     hasher.update(epoch.to_le_bytes());
-    hasher.update(sender.as_str().as_bytes());
+    hasher.update(sender_actor_id.as_str().as_bytes());
     hasher.update(ciphertext);
     format!("{:x}", hasher.finalize())
 }
@@ -677,6 +682,34 @@ mod tests {
         let restored = manager.restore_backup(&backup, b"backup-key").unwrap();
         assert!(serde_json::from_slice::<E2eeKeyBackupPlaintext>(&restored).is_ok());
         assert!(manager.restore_backup(&backup, b"wrong").is_err());
+    }
+
+    #[test]
+    fn e2ee_wire_uses_sender_actor_id_only() {
+        let alice = did("alice");
+        let mut manager = E2eeManager::new();
+        manager.create_group("g1", alice.clone(), BTreeSet::new());
+
+        let key = manager.rotate_key("g1", alice.clone(), b"secret-key".to_vec()).unwrap();
+        let backup =
+            manager.backup_keys("b1", vec![key.key_id], b"backup-key", alice.clone()).unwrap();
+        let backup_json = serde_json::to_value(&backup).unwrap();
+        assert_eq!(backup_json["sender_actor_id"], serde_json::json!(alice));
+        assert!(backup_json.get("sender").is_none());
+        let mut old_backup_json = backup_json;
+        old_backup_json["sender"] = old_backup_json["sender_actor_id"].clone();
+        old_backup_json.as_object_mut().unwrap().remove("sender_actor_id");
+        assert!(serde_json::from_value::<E2eeKeyBackup>(old_backup_json).is_err());
+
+        let message =
+            manager.create_message("m1", "g1", alice.clone(), b"ciphertext".to_vec()).unwrap();
+        let message_json = serde_json::to_value(&message).unwrap();
+        assert_eq!(message_json["sender_actor_id"], serde_json::json!(alice));
+        assert!(message_json.get("sender").is_none());
+        let mut old_message_json = message_json;
+        old_message_json["sender"] = old_message_json["sender_actor_id"].clone();
+        old_message_json.as_object_mut().unwrap().remove("sender_actor_id");
+        assert!(serde_json::from_value::<E2eeMessage>(old_message_json).is_err());
     }
 
     #[test]
@@ -750,7 +783,7 @@ mod tests {
                 b"ciphertext".to_vec(),
             )
             .unwrap();
-        assert_eq!(msg.sender, alice);
+        assert_eq!(msg.sender_actor_id, alice);
 
         // Revoke the device.
         manager.revoke_device(&alice, &device_id);

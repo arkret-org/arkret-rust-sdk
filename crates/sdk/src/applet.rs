@@ -12,7 +12,9 @@ use serde_json::Value;
 #[cfg(test)]
 use crate::model::AppletTransactionResBody;
 use crate::{
-    Did, Error, Event, RealmId, Result, canonical,
+    ACTOR_PROFILE_SCHEMA, ActorKind, ActorProfile, ActorProfileId, AppletId, BlobRef, Did, Error,
+    Event, Hlc, ObjectCreatePayload, Proof, RealmId, Result, canonical,
+    events::kinds::IDENTITY_ACCOUNTABILITY_GRANT,
     model::{AppletActorResBody, AppletRealmResBody, AppletTransactionReqBody},
 };
 
@@ -174,7 +176,7 @@ pub struct WireAppletRegistration {
     pub manifest: Option<Value>,
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub proof: Option<crate::model::Proof>,
+    pub proof: Option<Proof>,
 }
 
 impl WireAppletRegistration {
@@ -237,7 +239,7 @@ pub fn sign_registration<S: cokret_core::MoveSigner + ?Sized>(
     let canonical_bytes = canonical::canonical_json_bytes(&unsigned)?;
     let payload_digest = crate::Hash::new(canonical::sha256_digest(&canonical_bytes))?;
     let sig = signer.sign_payload(&canonical_bytes)?;
-    reg.proof = Some(crate::model::Proof {
+    reg.proof = Some(Proof {
         kind: cokret_core::proof_kind::DETACHED_JWS.to_owned(),
         alg: sig.alg,
         verification_method: verification_method.to_owned(),
@@ -313,7 +315,7 @@ pub struct AppletPackage {
     pub expires_at: Option<DateTime<Utc>>,
     /// Controller DID detached proof. `None` until [`sign`](Self::sign).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub proof: Option<crate::model::Proof>,
+    pub proof: Option<Proof>,
 }
 
 impl AppletPackage {
@@ -394,7 +396,7 @@ impl AppletPackage {
         let canonical_bytes = canonical::canonical_json_bytes(&unsigned)?;
         let payload_digest = crate::Hash::new(canonical::sha256_digest(&canonical_bytes))?;
         let sig = signer.sign_payload(&canonical_bytes)?;
-        self.proof = Some(crate::model::Proof {
+        self.proof = Some(Proof {
             kind: cokret_core::proof_kind::DETACHED_JWS.to_owned(),
             alg: sig.alg,
             verification_method: verification_method.to_owned(),
@@ -765,7 +767,7 @@ impl AppletBridgeErrorBuilder {
         self
     }
 
-    pub fn build(self, actor_seq: u64, hlc: crate::Hlc) -> Result<Event> {
+    pub fn build(self, actor_seq: u64, hlc: Hlc) -> Result<Event> {
         let mut content = serde_json::Map::new();
         content.insert("applet_id".to_owned(), Value::String(self.applet_id.clone()));
         content.insert("realm_id".to_owned(), Value::String(self.realm_id.as_str().to_owned()));
@@ -1056,13 +1058,308 @@ impl BridgeMappingStore {
     }
 }
 
-/// Accountability metadata for a ghost actor.
+/// Applet delegation fields required when an applet or delegated agent signs
+/// on behalf of another actor.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppletDelegatedEventAuthorization {
+    pub executed_by: Did,
+    pub authorization_ref: String,
+    pub applet_id: AppletId,
+}
+
+impl AppletDelegatedEventAuthorization {
+    pub fn new(
+        executed_by: Did,
+        authorization_ref: impl Into<String>,
+        applet_id: AppletId,
+    ) -> Self {
+        Self { executed_by, authorization_ref: authorization_ref.into(), applet_id }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.authorization_ref.trim().is_empty() {
+            return Err(Error::Protocol("authorization_ref must not be empty".to_owned()));
+        }
+        Ok(())
+    }
+
+    pub fn apply_to_event(&self, event: &mut Event) -> Result<()> {
+        self.validate()?;
+        event.executed_by = Some(self.executed_by.clone());
+        event.authorization_ref = Some(self.authorization_ref.clone());
+        event.applet_id = Some(self.applet_id.to_string());
+        Ok(())
+    }
+}
+
+/// Typed `profile_fields` payload for an Applet-managed Ghost Actor.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct GhostActorAccountability {
-    pub ghost_actor: Did,
-    pub service_did: Did,
+#[serde(deny_unknown_fields)]
+pub struct GhostActorProfileFields {
+    pub managed_by_applet: AppletId,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    pub external_ref: Value,
+}
+
+impl GhostActorProfileFields {
+    pub fn new(managed_by_applet: AppletId) -> Self {
+        Self { managed_by_applet, external_ref: Value::Null }
+    }
+}
+
+/// SDK request object for constructing the schema-legal Ghost Actor profile
+/// used by `ck.profile.create`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GhostActorProfileRequest {
+    pub id: ActorProfileId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub realm_id: Option<RealmId>,
+    pub principal_id: Did,
+    pub actor_kind: ActorKind,
+    pub display_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub handle: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avatar_blob_ref: Option<BlobRef>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub accountable_principal_ids: Vec<Did>,
-    pub reason: String,
+    pub profile_fields: GhostActorProfileFields,
+    pub created_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_by: Option<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+impl GhostActorProfileRequest {
+    pub fn new(
+        id: ActorProfileId,
+        principal_id: Did,
+        display_name: impl Into<String>,
+        managed_by_applet: AppletId,
+    ) -> Self {
+        Self {
+            id,
+            realm_id: None,
+            principal_id,
+            actor_kind: ActorKind::Integration,
+            display_name: display_name.into(),
+            handle: None,
+            avatar_blob_ref: None,
+            accountable_principal_ids: Vec::new(),
+            profile_fields: GhostActorProfileFields::new(managed_by_applet),
+            created_at: Utc::now(),
+            updated_by: None,
+            updated_at: None,
+        }
+    }
+
+    pub fn with_realm_id(mut self, realm_id: RealmId) -> Self {
+        self.realm_id = Some(realm_id);
+        self
+    }
+
+    pub fn with_handle(mut self, handle: impl Into<String>) -> Self {
+        self.handle = Some(handle.into());
+        self
+    }
+
+    pub fn with_avatar_blob_ref(mut self, avatar_blob_ref: BlobRef) -> Self {
+        self.avatar_blob_ref = Some(avatar_blob_ref);
+        self
+    }
+
+    pub fn with_accountable_principal_ids(mut self, accountable_principal_ids: Vec<Did>) -> Self {
+        self.accountable_principal_ids = accountable_principal_ids;
+        self
+    }
+
+    pub fn with_external_ref(mut self, external_ref: Value) -> Self {
+        self.profile_fields.external_ref = external_ref;
+        self
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.actor_kind != ActorKind::Integration {
+            return Err(Error::Protocol(
+                "ghost actor profile requires actor_kind=integration".to_owned(),
+            ));
+        }
+        if self.display_name.trim().is_empty() {
+            return Err(Error::Protocol("ghost actor display_name must not be empty".to_owned()));
+        }
+        if self.display_name.chars().count() > 128 {
+            return Err(Error::Protocol(
+                "ghost actor display_name must not exceed 128 chars".to_owned(),
+            ));
+        }
+        if self.accountable_principal_ids.is_empty() {
+            return Err(Error::Protocol(
+                "ghost actor profile requires accountable_principal_ids".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn to_actor_profile(&self) -> Result<ActorProfile> {
+        self.validate()?;
+        let mut profile_fields = BTreeMap::from([(
+            "managed_by_applet".to_owned(),
+            Value::String(self.profile_fields.managed_by_applet.to_string()),
+        )]);
+        if !self.profile_fields.external_ref.is_null() {
+            profile_fields
+                .insert("external_ref".to_owned(), self.profile_fields.external_ref.clone());
+        }
+        Ok(ActorProfile {
+            id: self.id.clone(),
+            schema: ACTOR_PROFILE_SCHEMA.to_owned(),
+            realm_id: self.realm_id.clone(),
+            principal_id: self.principal_id.clone(),
+            actor_kind: ActorKind::Integration,
+            display_name: self.display_name.clone(),
+            handle: self.handle.clone(),
+            avatar_blob_ref: self.avatar_blob_ref.clone(),
+            status: None,
+            accountable_principal_ids: self.accountable_principal_ids.clone(),
+            profile_fields,
+            created_at: self.created_at,
+            updated_by: self.updated_by.clone(),
+            updated_at: self.updated_at,
+        })
+    }
+
+    pub fn profile_create_payload(&self) -> Result<Value> {
+        ObjectCreatePayload::new(self.to_actor_profile()?).to_value()
+    }
+
+    pub fn profile_create_event(
+        &self,
+        realm_id: RealmId,
+        actor_seq: u64,
+        hlc: Hlc,
+        authorization: Option<&AppletDelegatedEventAuthorization>,
+    ) -> Result<Event> {
+        let mut event = Event::new(
+            "ck.profile.create",
+            realm_id,
+            self.principal_id.clone(),
+            actor_seq,
+            hlc,
+            self.profile_create_payload()?,
+        )?;
+        if let Some(authorization) = authorization {
+            authorization.apply_to_event(&mut event)?;
+        }
+        Ok(event)
+    }
+}
+
+/// `ck.identity.accountability_grant.grant_status`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AccountabilityGrantStatus {
+    Active,
+    Revoked,
+}
+
+/// `ck.identity.accountability_grant.accountability_scope`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum AccountabilityScope {
+    Single(String),
+    Multiple(Vec<String>),
+}
+
+/// Payload for durable `ck.identity.accountability_grant` events.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AccountabilityGrantPayload {
+    pub issuer: Did,
+    pub subject: Did,
+    pub accountability_scope: AccountabilityScope,
+    pub not_before: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+    pub grant_status: AccountabilityGrantStatus,
+    pub proof: Proof,
+}
+
+impl AccountabilityGrantPayload {
+    pub fn new(
+        issuer: Did,
+        subject: Did,
+        accountability_scope: AccountabilityScope,
+        not_before: DateTime<Utc>,
+        expires_at: DateTime<Utc>,
+        proof: Proof,
+    ) -> Self {
+        Self {
+            issuer,
+            subject,
+            accountability_scope,
+            not_before,
+            expires_at,
+            grant_status: AccountabilityGrantStatus::Active,
+            proof,
+        }
+    }
+
+    pub fn validate_lifecycle_at(&self, now: DateTime<Utc>) -> Result<()> {
+        if self.not_before >= self.expires_at {
+            return Err(Error::Protocol(
+                "accountability_grant not_before must be before expires_at".to_owned(),
+            ));
+        }
+        if self.grant_status != AccountabilityGrantStatus::Active {
+            return Err(Error::Protocol("accountability_grant is not active".to_owned()));
+        }
+        if now < self.not_before {
+            return Err(Error::Protocol("accountability_grant is not yet active".to_owned()));
+        }
+        if now > self.expires_at {
+            return Err(Error::Protocol("accountability_grant has expired".to_owned()));
+        }
+        self.proof.validate_production()
+    }
+
+    pub fn validate_for_profile(&self, profile: &ActorProfile, now: DateTime<Utc>) -> Result<()> {
+        self.validate_lifecycle_at(now)?;
+        if self.subject != profile.principal_id {
+            return Err(Error::Protocol(
+                "accountability_grant subject does not match actor profile principal_id".to_owned(),
+            ));
+        }
+        if !profile.accountable_principal_ids.iter().any(|did| did == &self.issuer) {
+            return Err(Error::Protocol(
+                "accountability_grant issuer is not in actor profile accountable_principal_ids"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn to_event(
+        &self,
+        realm_id: RealmId,
+        actor_seq: u64,
+        hlc: Hlc,
+        authorization: Option<&AppletDelegatedEventAuthorization>,
+    ) -> Result<Event> {
+        let mut event = Event::new(
+            IDENTITY_ACCOUNTABILITY_GRANT,
+            realm_id,
+            self.issuer.clone(),
+            actor_seq,
+            hlc,
+            serde_json::to_value(self)?,
+        )?;
+        if let Some(authorization) = authorization {
+            authorization.apply_to_event(&mut event)?;
+        }
+        Ok(event)
+    }
 }
 
 /// Mapping between an applet portal and a bridged remote location.
@@ -1272,6 +1569,7 @@ fn remote_key(protocol: &str, remote_id: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use chrono::Duration;
     use serde_json::json;
 
     use super::*;
@@ -1280,11 +1578,134 @@ mod tests {
         Did::new(format!("did:web:{name}.example")).unwrap()
     }
 
+    fn ghost_test_realm() -> RealmId {
+        RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
+    }
+
+    fn profile_id() -> ActorProfileId {
+        ActorProfileId::new("ck:actor_profile:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap()
+    }
+
+    fn applet_id() -> AppletId {
+        AppletId::new("ck:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap()
+    }
+
+    fn ghost_test_hlc() -> Hlc {
+        Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()
+    }
+
+    fn production_proof(issuer: &Did, now: DateTime<Utc>) -> Proof {
+        Proof {
+            kind: "detached_jws".to_owned(),
+            alg: "EdDSA".to_owned(),
+            verification_method: format!("{issuer}#key-1"),
+            event_digest: crate::Hash::new(
+                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            )
+            .unwrap(),
+            created_at: now,
+            domain: None,
+            audience: None,
+            jws: "eyJhbGciOiJFZERTQSJ9..c2ln".to_owned(),
+        }
+    }
+
+    #[test]
+    fn ghost_actor_profile_request_emits_schema_legal_shape() {
+        let owner = did("owner");
+        let request = GhostActorProfileRequest::new(
+            profile_id(),
+            did("ghost"),
+            "Alice on Slack",
+            applet_id(),
+        )
+        .with_realm_id(ghost_test_realm())
+        .with_accountable_principal_ids(vec![owner.clone()])
+        .with_external_ref(json!({"protocol": "slack", "user_id": "U123"}));
+
+        let profile = request.to_actor_profile().unwrap();
+        assert_eq!(profile.actor_kind, ActorKind::Integration);
+        assert_eq!(profile.accountable_principal_ids, vec![owner]);
+        assert_eq!(
+            profile.profile_fields["managed_by_applet"],
+            "ck:applet:01904100-0000-7000-8000-bbbbbbbbbbbb"
+        );
+        assert_eq!(profile.profile_fields["external_ref"]["user_id"], "U123");
+
+        let wire = serde_json::to_value(&profile).unwrap();
+        assert!(wire.get("accountability").is_none());
+        assert!(wire.get("managed_by_applet").is_none());
+        assert_eq!(
+            wire["profile_fields"]["managed_by_applet"],
+            profile.profile_fields["managed_by_applet"]
+        );
+    }
+
+    #[test]
+    fn ghost_actor_profile_event_carries_delegated_authorization_fields() {
+        let request = GhostActorProfileRequest::new(
+            profile_id(),
+            did("ghost"),
+            "Alice on Slack",
+            applet_id(),
+        )
+        .with_accountable_principal_ids(vec![did("owner")]);
+        let authorization = AppletDelegatedEventAuthorization::new(
+            did("bridge"),
+            "ck:grant:01904100-0000-7000-8000-cccccccccccc",
+            applet_id(),
+        );
+
+        let event = request
+            .profile_create_event(ghost_test_realm(), 1, ghost_test_hlc(), Some(&authorization))
+            .unwrap();
+        assert_eq!(event.kind, "ck.profile.create");
+        assert_eq!(event.executed_by.as_ref().unwrap(), &did("bridge"));
+        assert_eq!(
+            event.authorization_ref.as_deref(),
+            Some("ck:grant:01904100-0000-7000-8000-cccccccccccc")
+        );
+        assert_eq!(
+            event.content["object"]["profile_fields"]["managed_by_applet"],
+            "ck:applet:01904100-0000-7000-8000-bbbbbbbbbbbb"
+        );
+    }
+
+    #[test]
+    fn accountability_grant_validates_profile_binding_and_builds_event() {
+        let now = Utc::now();
+        let owner = did("owner");
+        let subject = did("ghost");
+        let profile = GhostActorProfileRequest::new(
+            profile_id(),
+            subject.clone(),
+            "Alice on Slack",
+            applet_id(),
+        )
+        .with_accountable_principal_ids(vec![owner.clone()])
+        .to_actor_profile()
+        .unwrap();
+        let grant = AccountabilityGrantPayload::new(
+            owner.clone(),
+            subject,
+            AccountabilityScope::Single("contracted_service".to_owned()),
+            now - Duration::minutes(1),
+            now + Duration::minutes(10),
+            production_proof(&owner, now),
+        );
+
+        grant.validate_for_profile(&profile, now).unwrap();
+        let event = grant.to_event(ghost_test_realm(), 2, ghost_test_hlc(), None).unwrap();
+        assert_eq!(event.kind, IDENTITY_ACCOUNTABILITY_GRANT);
+        assert_eq!(event.actor_id, owner);
+        assert_eq!(event.content["grant_status"], "active");
+        assert_eq!(event.content["accountability_scope"], "contracted_service");
+    }
+
     #[test]
     fn applet_portal_manages_space_bridge_and_ghost_actor() {
         let mut manager = AppletPortalManager::new();
-        let portal = manager
-            .create_portal(RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap());
+        let portal = manager.create_portal(ghost_test_realm());
         manager.install_applet(&portal.portal_id, "todo").unwrap();
         manager.enable_bridge(&portal.portal_id).unwrap();
         manager.set_ghost_actor(&portal.portal_id, did("ghost")).unwrap();
@@ -1519,7 +1940,7 @@ mod tests {
         let digest_before = reg.payload_digest().unwrap();
 
         let mut with_proof = reg;
-        with_proof.proof = Some(crate::model::Proof {
+        with_proof.proof = Some(Proof {
             kind: "detached_jws".to_owned(),
             alg: "EdDSA".to_owned(),
             verification_method: "did:web:alice.example#key-1".to_owned(),
@@ -1538,12 +1959,12 @@ mod tests {
 
     // ─── S-11 (savfox SDK gap) tests ─────────────────────────────────
 
-    fn realm() -> crate::RealmId {
-        crate::RealmId::new("ck:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
+    fn realm() -> RealmId {
+        RealmId::new("ck:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
     }
 
-    fn hlc() -> crate::Hlc {
-        crate::Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()
+    fn hlc() -> Hlc {
+        Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()
     }
 
     #[test]
@@ -1620,7 +2041,7 @@ mod tests {
         // Unsealed / unsigned package fails validation and derivation.
         assert!(package.validate().is_err());
         package.seal().unwrap();
-        package.proof = Some(crate::model::Proof {
+        package.proof = Some(Proof {
             kind: "detached_jws".to_owned(),
             alg: "EdDSA".to_owned(),
             verification_method: "did:web:alice.example#key-1".to_owned(),

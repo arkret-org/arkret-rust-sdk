@@ -239,10 +239,12 @@ pub use agent::{
 };
 #[cfg(all(feature = "full-surface", feature = "applet-runtime"))]
 pub use applet::{
-    ActorPolicy, AppletBridgeErrorBuilder, AppletBridgeErrorVisibility, AppletNamespaceConflict,
-    AppletNamespaceDomain, AppletNamespaceEntry, AppletPackage, AppletPortal, AppletServiceIntent,
-    AppletServiceTransaction, AppletWireNamespaces, ApprovalRequest, ApprovedScope, EffectiveScope,
-    GhostActorAccountability, InstallCommitRequest, InstallCommitResponse, InstallE2eePolicy,
+    AccountabilityGrantPayload, AccountabilityGrantStatus, AccountabilityScope, ActorPolicy,
+    AppletBridgeErrorBuilder, AppletBridgeErrorVisibility, AppletDelegatedEventAuthorization,
+    AppletNamespaceConflict, AppletNamespaceDomain, AppletNamespaceEntry, AppletPackage,
+    AppletPortal, AppletServiceIntent, AppletServiceTransaction, AppletWireNamespaces,
+    ApprovalRequest, ApprovedScope, EffectiveScope, GhostActorProfileFields,
+    GhostActorProfileRequest, InstallCommitRequest, InstallCommitResponse, InstallE2eePolicy,
     InstallPlan, InstallPreviewRequest, InstallRevokeRequest, PortalMode, PortalRealmMapping,
     RemoteRealmMapping, RemoteUserMapping, ThirdPartyLookupKind, ThirdPartyLookupReqBody,
     ThirdPartyLookupResBody, VirtualActor, WebhookAuth, WidgetPolicy, WireAppletRegistration,
@@ -270,7 +272,7 @@ pub use auth::{
     SessionGrantSigner, SessionGrantVerification, SessionGrantVerifier, SessionPrincipalBinding,
     SessionRevocation, WebAuthnPasskeyResBody, cokret_device_scope, device_id_from_scope_token,
     issue_session_grant_with_signer, primary_device_id_from_scopes, validate_presentation,
-    verify_session_grant_with_verifier,
+    verify_presentation_with_adapter, verify_session_grant_with_verifier,
 };
 #[cfg(feature = "full-surface")]
 pub use authz::{
@@ -351,14 +353,18 @@ pub use http_did_resolver::{
 pub use idempotency::{IdempotencyDecision, IdempotencyWindow};
 #[cfg(feature = "full-surface")]
 pub use identity::{
-    CompositeDidResolver, DID_WEB_MAX_DOCUMENT_BYTES, DidDocument, DidKeriResolver, DidKeyLogEntry,
-    DidKeyLogOperation, DidKeyResolver, DidMigration, DidRegistryReceipt, DidResolver,
-    DidVisibility, DidWebDocumentResBody, DidWebResolver, ExternalHandleProof, HandleAttestation,
-    HandleClaim, HandleProofProfile, IdentityManager, InMemoryStaridRegistryAdapter,
-    PairwiseDidBinding, PairwiseDidResolutionProof, PairwiseDidStore, StaridControlProofReqBody,
-    StaridControlProofVerification, StaridRegistryAdapter, StaridRegistryRecord, VerifiedDidKeyLog,
-    did_key_log_proof, did_registry_receipt_signature, handle_claim_proof, handle_dns_txt_name,
-    handle_well_known_url, pairwise_resolution_proof, starid_control_proof, verify_did_key_log,
+    CompositeDidResolver, DID_WEB_MAX_DOCUMENT_BYTES, DidDocument,
+    DidDocumentVerificationMethodResolver, DidKeriResolver, DidKeyLogEntry, DidKeyLogOperation,
+    DidKeyResolver, DidMigration, DidRegistryReceipt, DidResolver, DidVisibility,
+    DidWebDocumentResBody, DidWebResolver, ExternalHandleProof, HandleAttestation, HandleClaim,
+    HandleProofProfile, IdentityManager, InMemoryStaridRegistryAdapter, PairwiseDidBinding,
+    PairwiseDidResolutionProof, PairwiseDidStore, ResolvedVerificationMethodKey,
+    StaridControlProofReqBody, StaridControlProofVerification, StaridRegistryAdapter,
+    StaridRegistryRecord, VerifiedDidKeyLog, did_key_log_proof, did_registry_receipt_signature,
+    handle_claim_proof, handle_dns_txt_name, handle_well_known_url, pairwise_resolution_proof,
+    resolve_verification_method_key, resolve_verification_method_key_from_document,
+    starid_control_proof, verification_method_did, verify_canonical_proof_with_did_resolver,
+    verify_did_key_log, verify_event_proof_with_did_resolver,
 };
 #[cfg(feature = "full-surface")]
 pub use identity_link::{IdentityLinkCache, IdentityLinkCacheEntry};

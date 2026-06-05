@@ -482,7 +482,7 @@ fn auth_validates_progressive_disclosure_claims_fail_closed() {
 
     let accepted = validate_presentation(
         &request,
-        &[handle.clone(), membership, guardian_controller],
+        &[handle.clone(), membership.clone(), guardian_controller.clone()],
         &BTreeSet::new(),
         Utc::now(),
     );
@@ -509,6 +509,35 @@ fn auth_validates_progressive_disclosure_claims_fail_closed() {
         encoded_presentation: "compact.sd-jwt".to_owned(),
     };
     boundary.validate_request_binding(&request, Some("cokret-auth")).unwrap();
+    let verified = verify_presentation_with_adapter(
+        &request,
+        &boundary,
+        &[handle.clone(), membership.clone(), guardian_controller.clone()],
+        &BTreeSet::new(),
+        Utc::now(),
+        Some("cokret-auth"),
+        |proof| {
+            if proof.encoded_presentation == "compact.sd-jwt" {
+                Ok(())
+            } else {
+                Err(Error::Protocol("unexpected presentation".to_owned()))
+            }
+        },
+    )
+    .unwrap();
+    assert!(verified.accepted);
+    assert!(
+        verify_presentation_with_adapter(
+            &request,
+            &boundary,
+            &[handle.clone(), membership, guardian_controller],
+            &BTreeSet::new(),
+            Utc::now(),
+            Some("cokret-auth"),
+            |_| Err(Error::Protocol("bad proof".to_owned())),
+        )
+        .is_err()
+    );
     let mut wrong_audience = boundary;
     wrong_audience.audience = "other-audience".to_owned();
     assert!(wrong_audience.validate_request_binding(&request, Some("cokret-auth")).is_err());

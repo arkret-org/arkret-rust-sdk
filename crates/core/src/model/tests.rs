@@ -24,6 +24,39 @@ fn device_id_accepts_protocol_device_forms() {
 }
 
 #[test]
+fn actor_profile_rejects_unknown_fields_and_accepts_schema_statuses() {
+    let value = json!({
+        "id": "ck:actor_profile:01904100-0000-7000-8000-aaaaaaaaaaaa",
+        "schema": ACTOR_PROFILE_SCHEMA,
+        "principal_id": "did:web:ghost.example",
+        "actor_kind": "integration",
+        "display_name": "Ghost",
+        "status": "locked",
+        "accountable_principal_ids": ["did:web:owner.example"],
+        "profile_fields": {
+            "managed_by_applet": "ck:applet:01904100-0000-7000-8000-bbbbbbbbbbbb"
+        },
+        "created_at": "2026-04-30T00:00:00Z",
+        "updated_by": "did:web:owner.example",
+        "updated_at": "2026-04-30T00:01:00Z"
+    });
+    let profile: ActorProfile = serde_json::from_value(value).unwrap();
+    assert_eq!(profile.status, Some(ActorStatus::Locked));
+    assert_eq!(profile.actor_kind, ActorKind::Integration);
+
+    let bad = json!({
+        "id": "ck:actor_profile:01904100-0000-7000-8000-aaaaaaaaaaaa",
+        "schema": ACTOR_PROFILE_SCHEMA,
+        "principal_id": "did:web:ghost.example",
+        "actor_kind": "integration",
+        "display_name": "Ghost",
+        "created_at": "2026-04-30T00:00:00Z",
+        "managed_by_applet": "ck:applet:01904100-0000-7000-8000-bbbbbbbbbbbb"
+    });
+    assert!(serde_json::from_value::<ActorProfile>(bad).is_err());
+}
+
+#[test]
 fn server_description_checks_protocol_version() {
     let desc = ServerDescription {
         service_did: Did::new("did:web:svc.example").unwrap(),

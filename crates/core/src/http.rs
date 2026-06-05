@@ -1599,6 +1599,7 @@ pub struct MimiKeyMaterialResBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MimiRoomUpdateReqBody {
     pub mls_group_id: String,
@@ -1606,9 +1607,9 @@ pub struct MimiRoomUpdateReqBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub epoch: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub transcript_hash: Option<Hash>,
+    pub confirmed_transcript_hash: Option<Hash>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sender: Option<Did>,
+    pub sender_actor_id: Option<Did>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1640,9 +1641,10 @@ pub struct MimiNotifyResBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MimiSubmitMessageReqBody {
-    pub sender: Did,
+    pub sender_actor_id: Did,
     pub device_id: DeviceId,
     pub ciphertext: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -2088,4 +2090,86 @@ pub struct AppletDescribeResBody(pub AppletDescription);
 
 fn is_false(value: &bool) -> bool {
     !*value
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    fn did(name: &str) -> Did {
+        Did::new(format!("did:web:{name}.example")).unwrap()
+    }
+
+    fn device_id() -> DeviceId {
+        DeviceId::new("ck:device:01904100-0000-7000-8000-000000000001").unwrap()
+    }
+
+    #[test]
+    fn mimi_room_update_wire_uses_sender_actor_id_only() {
+        let actor = did("alice");
+        let body = MimiRoomUpdateReqBody {
+            mls_group_id: "group-1".to_owned(),
+            update: json!({"kind": "room_update", "payload": {}}),
+            epoch: Some(7),
+            confirmed_transcript_hash: Some(
+                Hash::new(
+                    "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                )
+                .unwrap(),
+            ),
+            sender_actor_id: Some(actor.clone()),
+        };
+        let value = serde_json::to_value(&body).unwrap();
+        assert_eq!(value["sender_actor_id"], json!(actor));
+        assert!(value.get("sender").is_none());
+        assert!(value.get("confirmed_transcript_hash").is_some());
+        assert!(value.get("transcript_hash").is_none());
+
+        let old_sender = json!({
+            "mls_group_id": "group-1",
+            "update": {"kind": "room_update", "payload": {}},
+            "sender": "did:web:alice.example"
+        });
+        assert!(serde_json::from_value::<MimiRoomUpdateReqBody>(old_sender).is_err());
+
+        let old_transcript_hash = json!({
+            "mls_group_id": "group-1",
+            "update": {"kind": "room_update", "payload": {}},
+            "transcript_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        });
+        assert!(serde_json::from_value::<MimiRoomUpdateReqBody>(old_transcript_hash).is_err());
+    }
+
+    #[test]
+    fn mimi_submit_message_wire_uses_sender_actor_id_only() {
+        let actor = did("alice");
+        let body = MimiSubmitMessageReqBody {
+            sender_actor_id: actor.clone(),
+            device_id: device_id(),
+            ciphertext: json!({
+                "content_type": "application/cokret",
+                "ciphertext_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "payload": "AA"
+            }),
+            mls_group_id: Some("group-1".to_owned()),
+            epoch: Some(7),
+            associated_data: json!({}),
+        };
+        let value = serde_json::to_value(&body).unwrap();
+        assert_eq!(value["sender_actor_id"], json!(actor));
+        assert!(value.get("sender").is_none());
+
+        let old_sender = json!({
+            "sender": "did:web:alice.example",
+            "device_id": "ck:device:01904100-0000-7000-8000-000000000001",
+            "ciphertext": {
+                "content_type": "application/cokret",
+                "ciphertext_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "payload": "AA"
+            }
+        });
+        assert!(serde_json::from_value::<MimiSubmitMessageReqBody>(old_sender).is_err());
+    }
 }

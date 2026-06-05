@@ -6,7 +6,10 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{Did, Error, RealmId, Result};
+use crate::{
+    ACTOR_PROFILE_SCHEMA, ActorKind, ActorProfile, ActorProfileId, ActorStatus, AppletId, BlobRef,
+    Did, Error, Hash, Hlc, ObjectCreatePayload, ObjectPatchPayload, Patch, RealmId, Result,
+};
 
 /// User profile state.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -340,23 +343,33 @@ impl ProfileEventKind {
 }
 
 /// Build a `ck.profile.create` / `ck.profile.update` Event Envelope
-/// payload. Ghost-actor profiles (spec §9) MUST carry `actor_kind =
-/// "ghost"`, `managed_by_applet`, and `accountability` blocks; this
-/// builder stamps those slots so callers no longer drift between
-/// applets.
+/// payload using the spec wire shapes:
+///
+/// - create: `{ "object": ActorProfile }`
+/// - update: `object_patch_payload` with `target_ref`
+///
+/// Applet-managed Ghost Actor profiles use `actor_kind = "integration"`;
+/// `managed_by_applet` and `external_ref` live under
+/// `ActorProfile.profile_fields`, and accountability is represented only
+/// by top-level `accountable_principal_ids`.
 #[derive(Clone, Debug)]
 pub struct ProfileCreateBuilder {
     realm_id: RealmId,
     actor_id: Did,
+    profile_id: ActorProfileId,
     display_name: Option<String>,
-    avatar_url: Option<String>,
-    bio: Option<String>,
-    actor_kind: Option<String>,
-    managed_by_applet: Option<String>,
-    accountable_principal_id: Option<Did>,
-    external_ref: Option<Value>,
+    handle: Option<String>,
+    avatar_blob_ref: Option<BlobRef>,
+    actor_kind: Option<ActorKind>,
+    status: Option<ActorStatus>,
+    accountable_principal_ids: Vec<Did>,
+    profile_fields: BTreeMap<String, Value>,
     kind: ProfileEventKind,
-    extra: serde_json::Map<String, Value>,
+    authorization_ref: Option<String>,
+    executed_by: Option<Did>,
+    applet_id: Option<AppletId>,
+    event_external_ref: Option<Value>,
+    expected_state_digest: Option<Hash>,
 }
 
 impl ProfileCreateBuilder {
@@ -366,20 +379,31 @@ impl ProfileCreateBuilder {
         Self {
             realm_id,
             actor_id,
+            profile_id: new_actor_profile_id(),
             display_name: None,
-            avatar_url: None,
-            bio: None,
+            handle: None,
+            avatar_blob_ref: None,
             actor_kind: None,
-            managed_by_applet: None,
-            accountable_principal_id: None,
-            external_ref: None,
+            status: None,
+            accountable_principal_ids: Vec::new(),
+            profile_fields: BTreeMap::new(),
             kind: ProfileEventKind::Create,
-            extra: serde_json::Map::new(),
+            authorization_ref: None,
+            executed_by: None,
+            applet_id: None,
+            event_external_ref: None,
+            expected_state_digest: None,
         }
     }
 
-    pub fn for_update(mut self) -> Self {
+    pub fn for_update(mut self, profile_id: ActorProfileId) -> Self {
         self.kind = ProfileEventKind::Update;
+        self.profile_id = profile_id;
+        self
+    }
+
+    pub fn with_actor_profile_id(mut self, profile_id: ActorProfileId) -> Self {
+        self.profile_id = profile_id;
         self
     }
 
@@ -388,100 +412,219 @@ impl ProfileCreateBuilder {
         self
     }
 
-    pub fn with_avatar_url(mut self, avatar_url: impl Into<String>) -> Self {
-        self.avatar_url = Some(avatar_url.into());
+    pub fn with_handle(mut self, handle: impl Into<String>) -> Self {
+        self.handle = Some(handle.into());
+        self
+    }
+
+    pub fn with_avatar_blob_ref(mut self, avatar_blob_ref: BlobRef) -> Self {
+        self.avatar_blob_ref = Some(avatar_blob_ref);
         self
     }
 
     pub fn with_bio(mut self, bio: impl Into<String>) -> Self {
-        self.bio = Some(bio.into());
+        self.profile_fields.insert("bio".to_owned(), Value::String(bio.into()));
         self
     }
 
-    /// Stamp this profile as an Applet-managed integration actor. Sets
-    /// `actor_kind = "integration"`, `managed_by_applet = <applet_id>`,
-    /// and `accountability.accountable_principal_ids[]`.
-    pub fn with_ghost_kind(
+    pub fn with_actor_kind(mut self, actor_kind: ActorKind) -> Self {
+        self.actor_kind = Some(actor_kind);
+        self
+    }
+
+    pub fn with_status(mut self, status: ActorStatus) -> Self {
+        self.status = Some(status);
+        self
+    }
+
+    pub fn with_accountable_principal_ids(mut self, accountable_principal_ids: Vec<Did>) -> Self {
+        self.accountable_principal_ids = accountable_principal_ids;
+        self
+    }
+
+    /// Stamp this profile as an Applet-managed Ghost Actor. This emits the
+    /// schema-legal shape from `applet-integration.md` §9:
+    /// `actor_kind = "integration"`, `profile_fields.managed_by_applet`,
+    /// and top-level `accountable_principal_ids`.
+    pub fn with_ghost_actor_profile(
         mut self,
-        applet_id: impl Into<String>,
-        accountable_principal_id: Did,
+        applet_id: AppletId,
+        accountable_principal_ids: Vec<Did>,
     ) -> Self {
-        self.actor_kind = Some("integration".to_owned());
-        self.managed_by_applet = Some(applet_id.into());
-        self.accountable_principal_id = Some(accountable_principal_id);
+        self.actor_kind = Some(ActorKind::Integration);
+        self.profile_fields
+            .insert("managed_by_applet".to_owned(), Value::String(applet_id.to_string()));
+        self.accountable_principal_ids = accountable_principal_ids;
         self
     }
 
     /// Attach the bridge-side external reference (e.g. `{"slack_user_id":
-    /// "U12345"}`) so receivers can dedupe across bridges.
+    /// "U12345"}`) as `profile_fields.external_ref`.
     pub fn with_external_ref(mut self, external_ref: Value) -> Self {
-        self.external_ref = Some(external_ref);
+        self.profile_fields.insert("external_ref".to_owned(), external_ref);
         self
     }
 
-    /// Open-shape: stash future / spec-deferred keys into the
-    /// payload's content object. Use sparingly — keyed fields should
-    /// land in spec-mirroring methods above instead.
-    pub fn with_extra(mut self, key: impl Into<String>, value: Value) -> Self {
-        self.extra.insert(key.into(), value);
+    pub fn with_profile_field(mut self, key: impl Into<String>, value: Value) -> Self {
+        self.profile_fields.insert(key.into(), value);
+        self
+    }
+
+    pub fn with_authorization_ref(mut self, authorization_ref: impl Into<String>) -> Self {
+        self.authorization_ref = Some(authorization_ref.into());
+        self
+    }
+
+    pub fn with_executed_by(mut self, executed_by: Did) -> Self {
+        self.executed_by = Some(executed_by);
+        self
+    }
+
+    pub fn with_applet_id(mut self, applet_id: AppletId) -> Self {
+        self.applet_id = Some(applet_id);
+        self
+    }
+
+    pub fn with_event_external_ref(mut self, external_ref: Value) -> Self {
+        self.event_external_ref = Some(external_ref);
+        self
+    }
+
+    pub fn with_expected_state_digest(mut self, expected_state_digest: Hash) -> Self {
+        self.expected_state_digest = Some(expected_state_digest);
         self
     }
 
     /// Build the unsigned `Event` Envelope. Caller is responsible for
     /// `actor_seq` + `hlc` + (re-)signing via
     /// [`cokret_signatures::sign_event`].
-    pub fn build(self, actor_seq: u64, hlc: crate::Hlc) -> Result<crate::Event> {
-        let mut content = serde_json::Map::new();
-        content.insert("actor_id".to_owned(), Value::String(self.actor_id.to_string()));
-        if let Some(display_name) = &self.display_name {
-            content.insert("display_name".to_owned(), Value::String(display_name.clone()));
-        }
-        if let Some(avatar_url) = &self.avatar_url {
-            content.insert("avatar_url".to_owned(), Value::String(avatar_url.clone()));
-        }
-        if let Some(bio) = &self.bio {
-            content.insert("bio".to_owned(), Value::String(bio.clone()));
-        }
-        if let Some(actor_kind) = &self.actor_kind {
-            content.insert("actor_kind".to_owned(), Value::String(actor_kind.clone()));
-        }
-        if let Some(applet_id) = &self.managed_by_applet {
-            content.insert("managed_by_applet".to_owned(), Value::String(applet_id.clone()));
-        }
-        if let Some(accountable_principal_id) = &self.accountable_principal_id {
-            let mut accountability = serde_json::Map::new();
-            accountability.insert(
-                "accountable_principal_ids".to_owned(),
-                Value::Array(vec![Value::String(accountable_principal_id.to_string())]),
-            );
-            content.insert("accountability".to_owned(), Value::Object(accountability));
-        }
-        for (k, v) in &self.extra {
-            content.insert(k.clone(), v.clone());
-        }
+    pub fn build(self, actor_seq: u64, hlc: Hlc) -> Result<crate::Event> {
+        self.validate_authorization_fields()?;
+        let content = match self.kind {
+            ProfileEventKind::Create => self.create_payload()?,
+            ProfileEventKind::Update => self.update_payload()?,
+        };
 
         let mut event = crate::Event::new(
             self.kind.as_str(),
-            self.realm_id,
-            self.actor_id,
+            self.realm_id.clone(),
+            self.actor_id.clone(),
             actor_seq,
             hlc,
-            Value::Object(content),
+            content,
         )?;
-        // S-7: stash external_ref on the top-level slot, not in `content`.
-        if let Some(external_ref) = self.external_ref {
-            event.external_ref = Some(external_ref);
-        }
+        event.authorization_ref = self.authorization_ref;
+        event.executed_by = self.executed_by;
+        event.applet_id = self.applet_id.map(|id| id.to_string());
+        event.external_ref = self.event_external_ref;
         Ok(event)
     }
+
+    fn create_payload(&self) -> Result<Value> {
+        let display_name = self.display_name.clone().ok_or_else(|| {
+            Error::Protocol("actor_profile.create requires display_name".to_owned())
+        })?;
+        if display_name.trim().is_empty() {
+            return Err(Error::Protocol("actor_profile.display_name must not be empty".to_owned()));
+        }
+        if display_name.chars().count() > 128 {
+            return Err(Error::Protocol(
+                "actor_profile.display_name must not exceed 128 chars".to_owned(),
+            ));
+        }
+
+        let profile = ActorProfile {
+            id: self.profile_id.clone(),
+            schema: ACTOR_PROFILE_SCHEMA.to_owned(),
+            realm_id: Some(self.realm_id.clone()),
+            principal_id: self.actor_id.clone(),
+            actor_kind: self.actor_kind.clone().unwrap_or(ActorKind::User),
+            display_name,
+            handle: self.handle.clone(),
+            avatar_blob_ref: self.avatar_blob_ref.clone(),
+            status: self.status.clone(),
+            accountable_principal_ids: self.accountable_principal_ids.clone(),
+            profile_fields: self.profile_fields.clone(),
+            created_at: Utc::now(),
+            updated_by: None,
+            updated_at: None,
+        };
+        ObjectCreatePayload::new(profile).to_value()
+    }
+
+    fn update_payload(&self) -> Result<Value> {
+        let mut patch = Patch::new();
+        if let Some(display_name) = &self.display_name {
+            patch.insert("display_name", Value::String(display_name.clone()))?;
+        }
+        if let Some(handle) = &self.handle {
+            patch.insert("handle", Value::String(handle.clone()))?;
+        }
+        if let Some(avatar_blob_ref) = &self.avatar_blob_ref {
+            patch.insert("avatar_blob_ref", Value::String(avatar_blob_ref.to_string()))?;
+        }
+        if let Some(actor_kind) = &self.actor_kind {
+            patch.insert("actor_kind", serde_json::to_value(actor_kind)?)?;
+        }
+        if let Some(status) = &self.status {
+            patch.insert("status", serde_json::to_value(status)?)?;
+        }
+        if !self.accountable_principal_ids.is_empty() {
+            patch.insert(
+                "accountable_principal_ids",
+                Value::Array(
+                    self.accountable_principal_ids
+                        .iter()
+                        .map(|did| Value::String(did.to_string()))
+                        .collect(),
+                ),
+            )?;
+        }
+        for (key, value) in &self.profile_fields {
+            patch.insert(format!("profile_fields.{key}"), value.clone())?;
+        }
+        let payload =
+            ObjectPatchPayload::for_target(self.profile_id.to_string(), patch).map(|payload| {
+                if let Some(expected_state_digest) = &self.expected_state_digest {
+                    payload.with_expected_state_digest(expected_state_digest.clone())
+                } else {
+                    payload
+                }
+            })?;
+        payload.to_value()
+    }
+
+    fn validate_authorization_fields(&self) -> Result<()> {
+        if let Some(authorization_ref) = &self.authorization_ref
+            && authorization_ref.trim().is_empty()
+        {
+            return Err(Error::Protocol("authorization_ref must not be empty".to_owned()));
+        }
+        if self.executed_by.is_some() && self.authorization_ref.is_none() {
+            return Err(Error::Protocol(
+                "executed_by requires authorization_ref on profile event".to_owned(),
+            ));
+        }
+        if self.applet_id.is_some() && self.authorization_ref.is_none() {
+            return Err(Error::Protocol(
+                "applet_id requires authorization_ref on profile event".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn new_actor_profile_id() -> ActorProfileId {
+    ActorProfileId::new(format!("ck:actor_profile:{}", uuid::Uuid::now_v7()))
+        .expect("uuid v7 produces a valid actor_profile id")
 }
 
 #[cfg(test)]
 mod profile_builder_tests {
     use super::*;
 
-    fn realm() -> crate::RealmId {
-        crate::RealmId::new("ck:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
+    fn realm() -> RealmId {
+        RealmId::new("ck:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap()
     }
 
     fn alice() -> Did {
@@ -492,8 +635,16 @@ mod profile_builder_tests {
         Did::new("did:web:owner.example").unwrap()
     }
 
-    fn hlc() -> crate::Hlc {
-        crate::Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()
+    fn profile_id() -> ActorProfileId {
+        ActorProfileId::new("ck:actor_profile:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap()
+    }
+
+    fn applet_id() -> AppletId {
+        AppletId::new("ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap()
+    }
+
+    fn hlc() -> Hlc {
+        Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()
     }
 
     #[test]
@@ -503,37 +654,44 @@ mod profile_builder_tests {
             .build(1, hlc())
             .unwrap();
         assert_eq!(event.kind, "ck.profile.create");
-        assert_eq!(event.content["actor_id"], "did:web:alice.example");
-        assert_eq!(event.content["display_name"], "Alice");
+        assert_eq!(event.content["object"]["principal_id"], "did:web:alice.example");
+        assert_eq!(event.content["object"]["actor_kind"], "user");
+        assert_eq!(event.content["object"]["display_name"], "Alice");
     }
 
     #[test]
     fn profile_update_switches_event_kind() {
         let event = ProfileCreateBuilder::new(realm(), alice())
-            .for_update()
+            .for_update(profile_id())
             .with_display_name("Alice 2")
             .build(2, hlc())
             .unwrap();
         assert_eq!(event.kind, "ck.profile.update");
+        assert_eq!(
+            event.content["target_ref"],
+            "ck:actor_profile:01904100-0000-7000-8000-aaaaaaaaaaaa"
+        );
+        assert_eq!(event.content["patch"]["display_name"], "Alice 2");
     }
 
     #[test]
     fn profile_ghost_kind_stamps_required_fields() {
         let event = ProfileCreateBuilder::new(realm(), alice())
-            .with_ghost_kind("ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa", applet_owner())
+            .with_ghost_actor_profile(applet_id(), vec![applet_owner()])
+            .with_display_name("Alice on Slack")
             .with_external_ref(serde_json::json!({"slack_user_id": "U12345"}))
             .build(1, hlc())
             .unwrap();
-        assert_eq!(event.content["actor_kind"], "integration");
+        let object = &event.content["object"];
+        assert_eq!(object["actor_kind"], "integration");
         assert_eq!(
-            event.content["managed_by_applet"],
+            object["profile_fields"]["managed_by_applet"],
             "ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa"
         );
-        assert_eq!(
-            event.content["accountability"]["accountable_principal_ids"][0],
-            "did:web:owner.example"
-        );
-        assert_eq!(event.external_ref.as_ref().unwrap()["slack_user_id"], "U12345");
+        assert_eq!(object["accountable_principal_ids"][0], "did:web:owner.example");
+        assert_eq!(object["profile_fields"]["external_ref"]["slack_user_id"], "U12345");
+        assert!(object.get("accountability").is_none());
+        assert!(object.get("managed_by_applet").is_none());
     }
 }
 

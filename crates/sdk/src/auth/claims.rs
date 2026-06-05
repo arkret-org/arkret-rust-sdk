@@ -435,3 +435,25 @@ pub fn validate_presentation(
         missing_required.is_empty() && (!request.policy.fail_closed || rejected_claims.is_empty());
     PresentationValidation { accepted, disclosed_claims, missing_required, rejected_claims }
 }
+
+/// Verify a presentation end-to-end through a host-provided proof adapter.
+///
+/// The SDK owns the protocol binding and disclosure-policy checks; the caller
+/// supplies the format-specific cryptographic verifier for SD-JWT, BBS, or a
+/// deployment-specific proof format.
+pub fn verify_presentation_with_adapter<F>(
+    request: &PresentationReqBody,
+    proof: &DisclosureProofAdapterBoundary,
+    claims: &[PresentedClaim],
+    revoked_claim_ids: &BTreeSet<String>,
+    now: DateTime<Utc>,
+    expected_domain: Option<&str>,
+    verify_proof: F,
+) -> Result<PresentationValidation>
+where
+    F: FnOnce(&DisclosureProofAdapterBoundary) -> Result<()>,
+{
+    proof.validate_request_binding(request, expected_domain)?;
+    verify_proof(proof)?;
+    Ok(validate_presentation(request, claims, revoked_claim_ids, now))
+}

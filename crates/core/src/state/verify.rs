@@ -59,7 +59,6 @@ impl From<StoreError> for MoveReject {
 /// Map a [`MoveReject`] variant to its wire-level `error_code` constant
 /// (from `cokret-spec` `error-code-registry.json`).
 pub fn reject_to_error_code(r: &MoveReject) -> &'static str {
-    use crate as cx;
     match r {
         MoveReject::SchemaViolation(_) => crate::ERROR_CODE_SCHEMA_VIOLATION,
         MoveReject::InvalidSignature(_) => crate::ERROR_CODE_INVALID_SIGNATURE,

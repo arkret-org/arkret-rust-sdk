@@ -134,6 +134,31 @@ pub enum SignaturePolicyError {
     Expired,
 }
 
+/// End-to-end raw HTTP message verification failures.
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum HttpMessageVerificationError {
+    /// A required HTTP header is absent after case-insensitive lookup.
+    #[error("required HTTP message signature header `{0}` is missing")]
+    MissingHeader(&'static str),
+    /// RFC 9421 / RFC 9530 parsing, canonicalization or signature math failed.
+    #[error(transparent)]
+    Signature(#[from] SignatureError),
+    /// Cokret profile policy rejected the otherwise parseable signature input.
+    #[error(transparent)]
+    Policy(#[from] SignaturePolicyError),
+}
+
+/// Successful raw HTTP message signature verification result.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VerifiedHttpMessageSignature {
+    /// Parsed `Signature-Input` parameters that were verified.
+    pub signature_input: SignatureInput,
+    /// Parsed and body-verified `Content-Digest`, when supplied.
+    pub content_digest: Option<ContentDigest>,
+    /// Exact RFC 9421 canonical bytes that were verified.
+    pub canonical_message: Vec<u8>,
+}
+
 // =====================================================================
 // SignatureInput — parsed `Signature-Input` header
 // =====================================================================
@@ -602,6 +627,90 @@ pub fn verify_content_digest(parsed: &ContentDigest, body: &[u8]) -> Result<(), 
     Ok(())
 }
 
+/// Verify a raw HTTP message signature from framework-extracted request data.
+///
+/// This is the high-level verifier downstream services should use when they
+/// already have the raw body bytes and request headers. It performs, in order:
+///
+/// 1. `Signature-Input` / `Signature` header extraction.
+/// 2. `Content-Digest` parsing and raw-body verification, when present.
+/// 3. Cokret policy validation (`required_components`, digest requirement and
+///    created/expires window).
+/// 4. RFC 9421 canonical message construction.
+/// 5. Ed25519 verification against the supplied public key.
+pub fn verify_signed_http_message<I, N, V>(
+    method: &str,
+    target_uri: &str,
+    authority: &str,
+    path: &str,
+    headers: I,
+    body: &[u8],
+    public_key: &Ed25519PublicKey,
+    policy: &SignatureVerificationPolicy,
+    now_unix_seconds: i64,
+) -> Result<VerifiedHttpMessageSignature, HttpMessageVerificationError>
+where
+    I: IntoIterator<Item = (N, V)>,
+    N: AsRef<str>,
+    V: AsRef<str>,
+{
+    let mut request = SignedRequestParts {
+        method: method.to_owned(),
+        target_uri: target_uri.to_owned(),
+        authority: authority.to_owned(),
+        path: path.to_owned(),
+        headers: headers
+            .into_iter()
+            .map(|(name, value)| {
+                (name.as_ref().to_ascii_lowercase(), value.as_ref().trim().to_owned())
+            })
+            .collect(),
+        body_digest: None,
+    };
+
+    let signature_input_header = request
+        .header("signature-input")
+        .ok_or(HttpMessageVerificationError::MissingHeader("Signature-Input"))?;
+    let signature_header = request
+        .header("signature")
+        .ok_or(HttpMessageVerificationError::MissingHeader("Signature"))?;
+
+    let signature_input = parse_signature_input(&signature_input_header)?;
+    if signature_input.algorithm != "ed25519" {
+        return Err(SignatureError::UnsupportedAlgorithm(signature_input.algorithm.clone()).into());
+    }
+
+    let content_digest = match request.header("content-digest") {
+        Some(value) => {
+            let parsed = ContentDigest::parse(&value)?;
+            verify_content_digest(&parsed, body)?;
+            request.body_digest = Some(parsed.wire_value.clone());
+            Some(parsed)
+        }
+        None => None,
+    };
+
+    policy.validate(
+        &signature_input,
+        content_digest.as_ref().map(|digest| digest.wire_value.as_str()),
+        now_unix_seconds,
+    )?;
+
+    let canonical_message = canonical_message(&request, &signature_input)?;
+    let signature_bytes = parse_signature_header(&signature_header, &signature_input.label)?;
+    if signature_bytes.len() != 64 {
+        return Err(SignatureError::InvalidSignatureLength.into());
+    }
+    let mut signature_array = [0u8; 64];
+    signature_array.copy_from_slice(&signature_bytes);
+    let signature = Signature::from_bytes(&signature_array);
+    public_key
+        .verify(&canonical_message, &signature)
+        .map_err(|_| SignatureError::InvalidSignature)?;
+
+    Ok(VerifiedHttpMessageSignature { signature_input, content_digest, canonical_message })
+}
+
 // =====================================================================
 // Canonical message construction (RFC 9421 §2.5)
 // =====================================================================
@@ -904,6 +1013,73 @@ mod tests {
     }
 
     #[test]
+    fn verify_signed_http_message_checks_headers_body_and_signature() {
+        let signing_key = signing_key_from_seed(&TEST_SEED);
+        let public_key = signing_key.verifying_key();
+        let now = 1_715_990_010;
+        let input_header = floria_signature_input(now - 1, now + 30);
+        let signature_input = parse_signature_input(&input_header).unwrap();
+        let body = br#"{"op":"notify"}"#;
+        let digest = ContentDigest::compute(body, ContentDigestAlgorithm::Sha256);
+        let req = SignedRequestParts {
+            method: "POST".to_owned(),
+            target_uri: "https://push.example/_cokret/edge/push/notify".to_owned(),
+            authority: "push.example".to_owned(),
+            path: "/_cokret/edge/push/notify".to_owned(),
+            headers: vec![
+                ("x-cokret-origin-service-did".to_owned(), "did:web:sync.example.com".to_owned()),
+                (
+                    "x-cokret-destination-service-did".to_owned(),
+                    "did:web:push.example.com".to_owned(),
+                ),
+            ],
+            body_digest: Some(digest.wire_value.clone()),
+        };
+        let message = canonical_message(&req, &signature_input).unwrap();
+        let signature = sign_message(&message, &signing_key);
+        let signature_header = format!("sig1=:{signature}:");
+        let headers = vec![
+            ("Signature-Input", input_header.as_str()),
+            ("Signature", signature_header.as_str()),
+            ("Content-Digest", digest.wire_value.as_str()),
+            ("X-Cokret-Origin-Service-Did", "did:web:sync.example.com"),
+            ("X-Cokret-Destination-Service-Did", "did:web:push.example.com"),
+        ];
+
+        let verified = verify_signed_http_message(
+            "POST",
+            "https://push.example/_cokret/edge/push/notify",
+            "push.example",
+            "/_cokret/edge/push/notify",
+            headers.clone(),
+            body,
+            &public_key,
+            &SignatureVerificationPolicy::service_ingest(),
+            now,
+        )
+        .unwrap();
+        assert_eq!(verified.signature_input.key_id, "did:web:sync.example.com#push");
+        assert_eq!(verified.content_digest.unwrap().wire_value, digest.wire_value);
+
+        let err = verify_signed_http_message(
+            "POST",
+            "https://push.example/_cokret/edge/push/notify",
+            "push.example",
+            "/_cokret/edge/push/notify",
+            headers,
+            br#"{"op":"tampered"}"#,
+            &public_key,
+            &SignatureVerificationPolicy::service_ingest(),
+            now,
+        )
+        .unwrap_err();
+        assert_eq!(
+            err,
+            HttpMessageVerificationError::Signature(SignatureError::ContentDigestMismatch)
+        );
+    }
+
+    #[test]
     fn tampered_signature_is_rejected() {
         let signing_key = signing_key_from_seed(&TEST_SEED);
         let public_key = signing_key.verifying_key();
@@ -995,7 +1171,7 @@ mod tests {
 
     #[test]
     fn parse_signature_header_finds_label_among_multiple() {
-        let raw = cokret_core::base64_standard_encode([0xABu8; 64]);
+        let raw = base64_standard_encode([0xABu8; 64]);
         let header = format!("sigA=:{raw}:, sigB=:{raw}:");
         let bytes = parse_signature_header(&header, "sigB").unwrap();
         assert_eq!(bytes.len(), 64);

@@ -22,11 +22,16 @@ pub use event_signer::{SignEventOptions, sign_event};
 // (federation)、chime 全部消费这一套(此前下沉前位于 `sdk::http_signature`);
 // `sdk` 现以 `pub use cokret_signatures::http_signature` re-export。
 pub mod http_signature;
+pub mod jwt;
+
+pub use jwt::{
+    JwtVerificationError, JwtVerificationPolicy, VerifiedJwt, verify_eddsa_jwt_with_jwks,
+};
 
 pub use proof::{
     EventProofBuilder, EventSigner, EventVerifier, ProductionVerifier, ProofType,
     PublicKeyMaterial, SignedPayload, SignerError, VerifierError, build_proof_envelope,
-    detached_jws_kind,
+    detached_jws_kind, verify_eddsa_detached_jws_proof,
 };
 
 #[cfg(feature = "signer")]

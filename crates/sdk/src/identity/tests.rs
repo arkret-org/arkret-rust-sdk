@@ -8,6 +8,14 @@ fn pairwise_did(name: &str) -> Did {
     Did::new(format!("did:key:z{name}")).unwrap()
 }
 
+fn realm() -> crate::RealmId {
+    crate::RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
+}
+
+fn hlc() -> crate::Hlc {
+    crate::Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()
+}
+
 // ---------------------------------------------------------------------------
 // did:webvh cryptographic test-vector builder.
 //
@@ -444,6 +452,78 @@ fn did_resolver_adapters_resolve_web_key_and_keri() {
             .contains_key("did:key:z6MkeTG3bFFSLYVU7VqhgZxqr6YzpaGrQtFMh1uvqGy1vDnP#z6MkeTG3bFFSLYVU7VqhgZxqr6YzpaGrQtFMh1uvqGy1vDnP")
     );
     assert!(DidKeyResolver::new().resolve_did(&Did::new("did:key:z1111").unwrap()).is_err());
+}
+
+#[test]
+fn did_resolver_verifies_event_proof_from_did_document_key() {
+    let signing_key = SigningKey::from_bytes(&[11u8; 32]);
+    let actor = did("alice");
+    let verification_method = format!("{actor}#key-1");
+    let mut resolver = DidWebResolver::new();
+    resolver
+        .insert(DidDocument::new(
+            actor.clone(),
+            verification_method.clone(),
+            vector_update_key(&signing_key),
+        ))
+        .unwrap();
+
+    let event =
+        crate::Event::new("ck.test.event", realm(), actor, 1, hlc(), json!({"ok": true})).unwrap();
+    let builder = cokret_signatures::EventProofBuilder::new();
+    let canonical_bytes = builder.envelope_bytes(&event).unwrap();
+    let proof = crate::Proof {
+        kind: "detached_jws".to_owned(),
+        alg: "EdDSA".to_owned(),
+        verification_method,
+        event_digest: crate::Hash::new(cokret_core::canonical::sha256_digest(&canonical_bytes))
+            .unwrap(),
+        created_at: Utc::now(),
+        domain: None,
+        audience: None,
+        jws: crate::jws::sign_jws_ed25519(&canonical_bytes, &signing_key).unwrap(),
+    };
+
+    let verified = verify_event_proof_with_did_resolver(&event, &proof, &resolver).unwrap();
+    assert!(verified.valid);
+}
+
+#[test]
+fn did_resolver_binds_event_proof_to_executed_by_when_present() {
+    let signing_key = SigningKey::from_bytes(&[12u8; 32]);
+    let controller = did("controller");
+    let bridge = did("bridge");
+    let verification_method = format!("{bridge}#key-1");
+    let mut resolver = DidWebResolver::new();
+    resolver
+        .insert(DidDocument::new(
+            bridge.clone(),
+            verification_method.clone(),
+            vector_update_key(&signing_key),
+        ))
+        .unwrap();
+
+    let mut event =
+        crate::Event::new("ck.test.event", realm(), controller, 1, hlc(), json!({"ok": true}))
+            .unwrap();
+    event.executed_by = Some(bridge);
+    event.authorization_ref = Some("ck:grant:01904100-0000-7000-8000-cccccccccccc".to_owned());
+    let builder = cokret_signatures::EventProofBuilder::new();
+    let canonical_bytes = builder.envelope_bytes(&event).unwrap();
+    let proof = crate::Proof {
+        kind: "detached_jws".to_owned(),
+        alg: "EdDSA".to_owned(),
+        verification_method,
+        event_digest: crate::Hash::new(cokret_core::canonical::sha256_digest(&canonical_bytes))
+            .unwrap(),
+        created_at: Utc::now(),
+        domain: None,
+        audience: None,
+        jws: crate::jws::sign_jws_ed25519(&canonical_bytes, &signing_key).unwrap(),
+    };
+
+    let verified = verify_event_proof_with_did_resolver(&event, &proof, &resolver).unwrap();
+    assert!(verified.valid);
 }
 
 #[test]

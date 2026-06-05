@@ -35,7 +35,9 @@ use std::fmt;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
-use cokret_core::{Error, Hash, Proof, Result, canonical, proof_kind};
+use cokret_core::{
+    Error, Hash, Proof, Result, base64url_decode, base64url_encode, canonical, proof_kind,
+};
 
 /// Wire-form public key material used by [`EventVerifier`] adapters.
 ///
@@ -122,7 +124,106 @@ fn decode_jwk_ed25519(value: &serde_json::Value) -> Result<Vec<u8>> {
         .get("x")
         .and_then(|v| v.as_str())
         .ok_or_else(|| Error::Protocol("Ed25519 JWK missing 'x' parameter".to_owned()))?;
-    cokret_core::base64url_decode(x)
+    base64url_decode(x)
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DetachedJwsProtectedHeader {
+    alg: String,
+    #[serde(default)]
+    typ: Option<String>,
+    #[serde(default)]
+    crit: Option<serde_json::Value>,
+}
+
+/// Verify an EdDSA detached-JWS [`Proof`] against canonical bytes and a
+/// resolver-supplied public key.
+///
+/// This is intentionally not gated behind the `signer` feature: production
+/// receivers need verification even when they never hold signing material.
+pub fn verify_eddsa_detached_jws_proof(
+    proof: &Proof,
+    canonical_bytes: &[u8],
+    public_key: &PublicKeyMaterial,
+) -> std::result::Result<(), VerifierError> {
+    if canonical_bytes.is_empty() {
+        return Err(VerifierError::Encoding("canonical bytes must not be empty".to_owned()));
+    }
+    if proof.alg != "EdDSA" {
+        return Err(VerifierError::Backend(format!(
+            "Ed25519 verifier received non-EdDSA alg '{}'",
+            proof.alg
+        )));
+    }
+    let expected = canonical::sha256_digest(canonical_bytes);
+    use subtle::ConstantTimeEq;
+    if !bool::from(proof.event_digest.as_str().as_bytes().ct_eq(expected.as_bytes())) {
+        return Err(VerifierError::Binding(format!(
+            "proof event_digest '{}' does not match canonical bytes '{}'",
+            proof.event_digest, expected
+        )));
+    }
+
+    let parts: Vec<&str> = proof.jws.split('.').collect();
+    if parts.len() != 3 || !parts[1].is_empty() {
+        return Err(VerifierError::Encoding(
+            "detached JWS must be header..signature with empty payload segment".to_owned(),
+        ));
+    }
+    let header_bytes = base64url_decode(parts[0])
+        .map_err(|err| VerifierError::Encoding(format!("invalid header base64: {err}")))?;
+    let header: DetachedJwsProtectedHeader = canonical::from_canonical_json_slice(&header_bytes)
+        .map_err(|err| VerifierError::Encoding(format!("invalid protected header: {err}")))?;
+    if header.alg != proof.alg {
+        return Err(VerifierError::Binding(format!(
+            "protected header alg '{}' does not match proof alg '{}'",
+            header.alg, proof.alg
+        )));
+    }
+    if header.alg != "EdDSA" {
+        return Err(VerifierError::Backend(format!(
+            "Ed25519 verifier received non-EdDSA protected alg '{}'",
+            header.alg
+        )));
+    }
+    if header.crit.is_some() {
+        return Err(VerifierError::Encoding(
+            "detached JWS declares unsupported `crit` extensions".to_owned(),
+        ));
+    }
+    if let Some(typ) = header.typ.as_deref()
+        && typ != "JWT"
+    {
+        return Err(VerifierError::Encoding(format!("unsupported detached JWS typ '{typ}'")));
+    }
+    let sig_bytes = base64url_decode(parts[2])
+        .map_err(|err| VerifierError::Encoding(format!("invalid sig base64: {err}")))?;
+    let signing_input = format!("{}.{}", parts[0], base64url_encode(canonical_bytes));
+    verify_eddsa_signing_input(&signing_input, &sig_bytes, public_key)
+}
+
+fn verify_eddsa_signing_input(
+    signing_input: &str,
+    signature: &[u8],
+    public_key: &PublicKeyMaterial,
+) -> std::result::Result<(), VerifierError> {
+    let key_bytes =
+        public_key.ed25519_bytes().map_err(|err| VerifierError::UnsupportedKey(err.to_string()))?;
+    let verifying = ed25519_dalek::VerifyingKey::from_bytes(&key_bytes)
+        .map_err(|err| VerifierError::UnsupportedKey(err.to_string()))?;
+    if signature.len() != 64 {
+        return Err(VerifierError::Encoding(format!(
+            "Ed25519 signature must be 64 bytes, got {}",
+            signature.len()
+        )));
+    }
+    let mut sig_arr = [0u8; 64];
+    sig_arr.copy_from_slice(signature);
+    let sig = ed25519_dalek::Signature::from_bytes(&sig_arr);
+    verifying
+        .verify_strict(signing_input.as_bytes(), &sig)
+        .map_err(|err| VerifierError::Backend(format!("Ed25519 verification failed: {err}")))
 }
 
 /// Error raised by [`EventSigner`] backends.
