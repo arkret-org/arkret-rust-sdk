@@ -28,14 +28,14 @@ storage and service-level interoperability tests.
 
 ## Conformance Profile Coverage
 
-This table mirrors `cx.profile.*.vN` IDs the SDK 1.0 line implements. New
+This table mirrors `ck.profile.*.vN` IDs the SDK 1.0 line implements. New
 profiles introduced in P5 (spec head 37ce729) are listed first; the
 remainder of the catalog is covered by the generated drift test
 `generated::profile_requirements_tests::generated_profile_requirements_match_artifact`.
 
 | Profile ID | SDK 1.0 | Notes |
 | --- | --- | --- |
-| `ck.profile.personal_agent_provisioning.v1` | ✓ implemented | Full `ck.gate.account.agent_key_pair` + `cx.agent.*` (provision / list / get / pause / resume / rotate-key / grant.attach / grant.detach / sidecar_thread.ensure / deactivate) wiring; example: `personal_agent_provision.rs`. |
+| `ck.profile.personal_agent_provisioning.v1` | ✓ implemented | Full `ck.gate.account.agent_key_pair` + `ck.agent.*` (provision / list / get / pause / resume / rotate-key / grant.attach / grant.detach / sidecar_thread.ensure / deactivate) wiring; example: `personal_agent_provision.rs`. |
 | `ck.profile.agent_auth.v1` | ✓ implemented | S-1 signing-key + S-2 session-key binding via `agent_binding::{sign,verify}_ed25519_audit_binding`; controller-grant verification on every agent envelope. |
 | `ck.profile.agent_delegation_policy.v1` | ✓ implemented | Delegation grants gated by `ck.profile.agent_delegation_policy.v1` via `authz::delegation`; controller can revoke without rotating the agent key. |
 | `ck.profile.agent_sidecar_thread.v1` | ✓ implemented | `SidecarCircleId`-bounded sidecar threads with isolated audit logs and parent-Circle membership cross-check. |

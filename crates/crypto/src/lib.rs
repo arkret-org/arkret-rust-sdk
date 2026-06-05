@@ -246,7 +246,7 @@ fn default_key_format() -> String {
 /// Canonical signing input (spec §5.1):
 ///
 /// ```text
-/// "cx-cross-signing-bind-v1\n"
+/// "ck-cross-signing-bind-v1\n"
 ///   + canonical_json({
 ///       "principal_id": <did>,
 ///       "subordinate_key_kind": "self_signing" | "user_signing",
@@ -277,7 +277,7 @@ pub struct CrossSigningBinding {
 pub struct CrossSigningPublishContent {
     pub principal_id: Did,
     /// Round 4 (spec a77b995) — REQUIRED deployment-scope trust domain.
-    /// Mixed into the canonical `cx-cross-signing-bind-v1` signing input
+    /// Mixed into the canonical `ck-cross-signing-bind-v1` signing input
     /// so a publish from deployment A cannot be replayed into deployment
     /// B. MUST match the receiver's accepted trust domain.
     pub trust_domain: cokret_core::TypedTrustDomainId,
@@ -546,7 +546,7 @@ impl CrossSigningResetContent {
     }
 
     /// Canonical signing input for a `ck.cross_signing.reset` proof
-    /// (`cx-cross-signing-reset-v1`, spec crypto-media/device-lifecycle.md §14.1).
+    /// (`ck-cross-signing-reset-v1`, spec crypto-media/device-lifecycle.md §14.1).
     ///
     /// Binds the reset's principal + generation transition + reason so the proof
     /// cannot be replayed onto a different reset. Both the proving client and the
@@ -560,7 +560,7 @@ impl CrossSigningResetContent {
             "new_generation": self.new_generation,
             "reset_reason": self.reset_reason,
         });
-        let mut out = b"cx-cross-signing-reset-v1\n".to_vec();
+        let mut out = b"ck-cross-signing-reset-v1\n".to_vec();
         out.extend_from_slice(&cokret_core::canonical::canonical_json_bytes(&body)?);
         Ok(out)
     }
@@ -577,7 +577,7 @@ pub struct DeviceTrustBinding {
 }
 
 impl DeviceTrustBinding {
-    /// Canonical signing input for `cx-device-trust-bind-v1`.
+    /// Canonical signing input for `ck-device-trust-bind-v1`.
     pub fn canonical_input(
         principal_id: &Did,
         device_id: &DeviceId,
@@ -648,7 +648,7 @@ fn canonical_cross_signing_binding_input(
         "subordinate_public_key": subordinate.public_key,
         "generation": generation,
     });
-    let mut out = b"cx-cross-signing-bind-v1\n".to_vec();
+    let mut out = b"ck-cross-signing-bind-v1\n".to_vec();
     out.extend_from_slice(&cokret_core::canonical::canonical_json_bytes(&body)?);
     Ok(out)
 }
@@ -665,7 +665,7 @@ fn canonical_device_trust_binding_input(
         "device_public_key": device_public_key,
         "ssk_generation": ssk_generation,
     });
-    let mut out = b"cx-device-trust-bind-v1\n".to_vec();
+    let mut out = b"ck-device-trust-bind-v1\n".to_vec();
     out.extend_from_slice(&cokret_core::canonical::canonical_json_bytes(&body)?);
     Ok(out)
 }
@@ -1719,7 +1719,7 @@ mod tests {
             issued_at: Utc::now(),
         };
         let base = content.reset_signing_input().unwrap();
-        assert!(base.starts_with(b"cx-cross-signing-reset-v1\n"));
+        assert!(base.starts_with(b"ck-cross-signing-reset-v1\n"));
         // Deterministic.
         assert_eq!(base, content.reset_signing_input().unwrap());
         // Generation transition is bound.

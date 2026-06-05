@@ -30,7 +30,7 @@ than a version stamp — see [`CHANGELOG.md`](../../CHANGELOG.md).
 - `events/kinds.rs` — registered new agent event kinds
   (`ck.agent.draft.propose`, `ck.agent.action_request`,
   `ck.agent.action_approve`, `ck.agent.action_reject`) as actor-private
-  events with `reducer_input = false`. Marked `cx.agent.{pause, resume,
+  events with `reducer_input = false`. Marked `ck.agent.{pause, resume,
   deactivate}` with `lattice = fsm, bottom = reject`.
 - `model/call_media.rs` — `MediaTokenResponse`, `ParticipantBinding`,
   `MediaBackendType` (with `Unknown(String)` arm), TTL gate helper, and

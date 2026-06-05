@@ -29,7 +29,7 @@ major-version bump.
 
 ## R3.3 — Spec sync 2026-05-28 (cokret-spec @ cced4b8, CKP-0011)
 
-- **New operation**: `cx.directory.resolve_target` (`POST /api/v1/directory/resolve-target`, gRPC `Directory/ResolveTarget`, MQ `directory.resolve_target`). Pure ADD — operation count 100 → 101; `cx.directory.resolve_realm` is retained and NOT deprecated. No new event kinds, registered `cx.schema.*`, or wire/reducer changes.
+- **New operation**: `ck.directory.resolve_target` (`POST /api/v1/directory/resolve-target`, gRPC `Directory/ResolveTarget`, MQ `directory.resolve_target`). Pure ADD — operation count 100 → 101; `ck.directory.resolve_realm` is retained and NOT deprecated. No new event kinds, registered `ck.schema.*`, or wire/reducer changes.
 - **Wire types**: `DirectoryResolveTargetReqBody { address, requester, proofs, token }` + `DirectoryResolveTargetResBody { target_kind, realm_preview, object_preview, join_rule, as_of, source_refs, via_services, policy_revision, stale, divergent }` + `enum TargetKind { Realm, Flow, Message }`. http-client method `directory_resolve_target`.
 - **Object-addressing grammar** (`cokret_core::model::object_address`): client-agnostic shareable address pointing at a Realm / Flow / Message. `parse_address` accepts both the `web+cokret:` URI form and the HTTPS-landing fragment form (`https://<host>/#realm/...`), fixed hierarchy `realm` ⊃ `flow` ⊃ `m`; fails closed on unknown/misordered keyword, missing intermediate level, non-uuid flow/message segment, or a flow/message address missing `via`. `build_address` / `build_https_landing` re-serialize. `RealmRef { RealmId | Alias }` (UUIDv7-vs-alias rule); `enum LinkType { Reference, Invite }` (omitted/unknown/reserved `preview` → `Reference`); `enum AddressAction { View, Join, Reply }` (default `View`).
 - **Invite-token target binding** (scope-confusion defence): `TargetDescriptor { realm_id, flow_id?, message_id?, link_type }` with absent hierarchy fields OMITTED (never `null`) and typed canonical id values (`ck:realm:` / `ck:flow:` / `ck:message:`). `target_digest` reuses the shared canonicalizer (`canonical::canonical_sha256`) and covers ONLY the identity tuple + `link_type` — never `via` / `action` / `tok` / `lt`. `verify_token_target` recomputes + compares the digest so a token minted for object A cannot be replayed onto a different object B (and fails closed when the realm is still an unresolved alias).
@@ -38,20 +38,20 @@ major-version bump.
 
 ## R3.2 — Spec sync 2026-05-28 (cokret-spec @ b56cab1)
 
-- **MemberIdentity wire-breaking**: `MemberIdentity` no longer carries `primary_handle` / `handles[]`; `VerifiedHandle` removed. Handle lifecycle is governed solely by `cx.schema.handle_claim.v1`. This object discloses `subject_id` + `display_profile` only.
+- **MemberIdentity wire-breaking**: `MemberIdentity` no longer carries `primary_handle` / `handles[]`; `VerifiedHandle` removed. Handle lifecycle is governed solely by `ck.schema.handle_claim.v1`. This object discloses `subject_id` + `display_profile` only.
 - **Digest renames**: payload `identity_state_digest` → `identity_payload_digest`; roster `identity_state_digest` → `member_display_state_digest` (now folds the visible handle-claim digest set). New `member_identity_effective_set_digest` helper backs `expected_state_digest`.
 - **Mention shape v2**: `Mention` field `subject` → `subject_id` (sole authoritative field); `handle` → `handle_at_time`, `display_snapshot` → `display_name_at_time`, new `mention_text_original`; all handle/name fields are audit metadata only.
 - **HandleClaim**: `claim_type=service_handle` removed (`HandleClass::ServiceHandle` deleted); `validate_handle_claim_subject` rejects `ck:actor:` / `ck:account:` / non-DID subjects.
 - **Roster v2**: `MemberRosterEntry` gains `subject_id` + `handle_claim_digests` + `handle_claims` + `handle_claims_limited` with dependentRequired enforcement (`validate`).
-- **New operation**: `cx.directory.list_handles_for_subject` (`POST /api/v1/directory/list-handles-for-subject`, `Directory/ListHandlesForSubject`, `directory.list_handles_for_subject`) + `DirectoryListHandlesForSubject{Req,Res}Body` + http-client method with `claims[].subject == subject` validation. New schema `cx.schema.list_handles_for_subject_response.v1`.
+- **New operation**: `ck.directory.list_handles_for_subject` (`POST /api/v1/directory/list-handles-for-subject`, `Directory/ListHandlesForSubject`, `directory.list_handles_for_subject`) + `DirectoryListHandlesForSubject{Req,Res}Body` + http-client method with `claims[].subject == subject` validation. New schema `ck.schema.list_handles_for_subject_response.v1`.
 - **§3.2.1 primary handle selection**: `select_primary_handle` (6-tuple deterministic algorithm), `claim_digest` (semantic-projection canonical digest, stable under hint mutation), `DidDocumentSnapshotResolver` hook. **§3.8.2 mention render**: `render_mention` + `MentionRender` fallback tiers.
 
 > No version tag, no crates.io / Docker Hub / npm publish — git commit only.
 
 ## R3 — Spec sync 2026-05-27 (cokret-spec @ b47ff6ec)
 
-- Call / media (CKP-0010): client helper `call_media_token_exchange`, `MediaTokenResponse` / `ParticipantBinding` / `MediaBackendType` types, TTL gate `<=600s`, five new capability actions, op registry mirror at `cx.call.media.token_exchange`.
-- Agent (CKP-0008 / 0009): `cx.agent.deactivate` HTTP path canonicalised (no `/revoke`), draft / action_request / approve / reject event kinds wired, `pause/resume/deactivate` FSM lattice metadata, agent_runtime surface tier definition.
+- Call / media (CKP-0010): client helper `call_media_token_exchange`, `MediaTokenResponse` / `ParticipantBinding` / `MediaBackendType` types, TTL gate `<=600s`, five new capability actions, op registry mirror at `ck.call.media.token_exchange`.
+- Agent (CKP-0008 / 0009): `ck.agent.deactivate` HTTP path canonicalised (no `/revoke`), draft / action_request / approve / reject event kinds wired, `pause/resume/deactivate` FSM lattice metadata, agent_runtime surface tier definition.
 - Errors: 20 new error codes added to SDK `Error` / `ServiceError` (pairing, proof, agent lifecycle, media binding, focus, recording, recovery, handle homograph).
 - Recovery: `RecoveryPolicy`, `RecoveryReceipt`, `RecoveryProofKind`, `RecoverySession` id-kind + codec round-trip per the new schemas.
 - Profiles / cursor / selector / data: media-service-binding + `accountable_principals.strict_reject` profile entries, stateful core cursor enforcement, `ResourceSelector::Circle(CircleId)`, `AccountDataSet` / `AccountBlocklist` payloads, handle NFC + confusable skeleton helper.
@@ -66,7 +66,7 @@ Aggressive spec-sync round; no version bump, `git commit` only.
 
 #### CKP-0010 — Call / Media token exchange
 
-- New op `cx.call.media.token_exchange` mounted at
+- New op `ck.call.media.token_exchange` mounted at
   `POST /cokret/v1/rtc/token` with surface tier `core_personal`
   (`crates/core/src/model/constants.rs`,
   `crates/server/src/registry.rs`).
@@ -83,16 +83,16 @@ Aggressive spec-sync round; no version bump, `git commit` only.
     in R3.1).
   - `validate_token_ttl()` enforcing ≤ 600 s ceiling
     (`MEDIA_TOKEN_TTL_MAX_SECS`, SHOULD ≤ 300 s).
-- New capability actions: `cx.call.{join, screen_share, record,
+- New capability actions: `ck.call.{join, screen_share, record,
   transcribe, moderate}` plus `CALL_CAPABILITY_ACTIONS` list.
 
 #### CKP-0008 / CKP-0009 — Personal agent
 
-- `cx.agent.{pause, resume, deactivate}` declared as `Fsm` lattice
+- `ck.agent.{pause, resume, deactivate}` declared as `Fsm` lattice
   kinds (`crates/core/src/lattice/traits.rs`).
 - `AGENT_RUNTIME_SURFACE_OPERATIONS` exported in
   `model::constants` listing the 11 ops under
-  `cx.profile.agent_runtime.v1`.
+  `ck.profile.agent_runtime.v1`.
 - HTTP path already canonical at `/agents/{id}/deactivate`
   (no `/revoke` references remain in the SDK).
 
@@ -136,8 +136,8 @@ Aggressive spec-sync round; no version bump, `git commit` only.
   skeleton (full UTS#39 table → R3.1).
 - Cursor parser already defaults to stateful `{v,purpose,t,x,h}`
   (`validate_core_wire_shape`); stateless body remains accessible
-  via the `cx.profile.stateless_cursor.v1` profile gate.
-- Profile ids `cx.profile.{accountable_principals.strict_reject,
+  via the `ck.profile.stateless_cursor.v1` profile gate.
+- Profile ids `ck.profile.{accountable_principals.strict_reject,
   media_service_binding[.livekit/.cokret_native]}.v1` already
   present in `crates/core/src/generated/profiles.rs`.
 
@@ -156,7 +156,7 @@ Aggressive spec-sync round; no version bump, `git commit` only.
   `DelegationControl`) instead of the previous
   `{ constraint_type: String, value: serde_json::Value }` stringly-typed
   struct. No serde alias, no compat shim. Soland's `AuthzEngine`
-  callers, the `cx.authz.create_grant` HTTP handler, and every grant
+  callers, the `ck.authz.create_grant` HTTP handler, and every grant
   test pick up the typed variants directly (`Constraint::Decision {
   decision: GrantDecisionVerdict::Allow }` etc.). New public type
   `GrantDecisionVerdict` mirrors the spec's `effect` enum.
@@ -169,7 +169,7 @@ Aggressive spec-sync round; no version bump, `git commit` only.
   `identifier_suffix_ref_to_id_batch` hard-reject batch — concrete
   single-object identifiers use `_id`; `_ref` is reserved for causal /
   proof / polymorphic / content-addressed reference material. SDK
-  `cx.space.create` / `cx.space.parent` operation builders, resolver,
+  `ck.space.create` / `ck.space.parent` operation builders, resolver,
   registry schema, and HTTP DTOs all rename to `parent_space_id`.
 
 #### Added
@@ -243,8 +243,8 @@ section will roll into the next published release.
 - `EffectiveScope { Realm | Circle }` enum on `Event` envelope.
 - `RelationKind::ConfidentialDiscussionOf` for the
   "wide synthesis + narrow discussion" CKP-0007 pattern.
-- 7 `cx.circle.*` event-kind constants in `events::kinds`, classified
-  into the new `EventClass::Circle` bucket. `cx.circle.anchor_commit`
+- 7 `ck.circle.*` event-kind constants in `events::kinds`, classified
+  into the new `EventClass::Circle` bucket. `ck.circle.anchor_commit`
   is recorded in `NON_REDUCER_EVENT_KINDS` (reducer-derived).
 - 6 `CAP_ACTION_CIRCLE_*` constants in `model::constants`, plus a
   `CIRCLE_CAPABILITY_ACTIONS` slice for iteration.
@@ -253,7 +253,7 @@ section will roll into the next published release.
   `scope_rebind_forbidden`, `metadata_encryption_floor_violation`)
   registered in `KNOWN_REASON_CODES_CKP_0007`. The 6th CKP-0007 code
   (`delivery_binding_handed_over`) was already shipped in round 4.
-- `cx.schema.circle.v1` added to `ARTIFACT_BACKED_SCHEMA_IDS` so the
+- `ck.schema.circle.v1` added to `ARTIFACT_BACKED_SCHEMA_IDS` so the
   spec-drift gate covers the new schema.
 - Public re-exports: `cokret::Circle`, `cokret::CircleId`,
   `cokret::CIRCLE_SCHEMA_ID`, `cokret::FORBIDDEN_WIRE_FIELDS`,
@@ -324,12 +324,12 @@ wire-breaking list.
   segment no longer accepts `.` / `-` / `_` / `:`). Applied across all DID
   parsers, newtype validators, signature `kid` parsers, and schema-validation
   hooks. All fixtures swept.
-- **BREAKING** `cx.call.signal` ephemeral envelope: `proof` is now required;
+- **BREAKING** `ck.call.signal` ephemeral envelope: `proof` is now required;
   `signal_type` enum widened from 6 to 13 values (adds `reject`, `mute_state`,
   `media_state`, `speaking`, `focus_join`, `focus_leave`, `error`); new helper
   `validate_signal_seq(prev, next, key=(realm,call,actor,device))` enforces
   per-(realm,call,actor,device) monotonic `seq`.
-- **BREAKING** `cx.cross_signing.publish` CAS: `CrossSigningPublishPayload`
+- **BREAKING** `ck.cross_signing.publish` CAS: `CrossSigningPublishPayload`
   gains required `expected_previous_generation: u64`; new
   `cross_signing_publish_cell_subject(principal_id, expected_previous_generation)
    -> CellSubject::Tuple`.
@@ -355,7 +355,7 @@ wire-breaking list.
   required-constraints `[allowed_morph_types]`).
 - **Added** `ck:space:<uuidv7>` accepted in `object_ref`; flow cell-metadata
   helpers `flow_update_cell_subject(flow_id)` / `flow_tracks_patch_cell_subject(flow_id)`
-  (cell-family `cx.component.flow.fields.v1`, CAS-register, bottom=reject).
+  (cell-family `ck.component.flow.fields.v1`, CAS-register, bottom=reject).
 
 ### Added — Round R2/R3 spec round 2+3 cleanup (wire-breaking) (2026-05-20)
 
@@ -364,17 +364,17 @@ cleanup`). All 17 new normative requirements landed in the SDK as type
 signatures, schema-id constants, and validation helpers. See cokret-spec
 `CHANGELOG.md` Round R2/R3 entries for the normative source.
 
-- **Event kinds**: 4 new active `durable_event` kinds — `cx.moderation.appeal.submit`
+- **Event kinds**: 4 new active `durable_event` kinds — `ck.moderation.appeal.submit`
   / `.review` / `.decision` / `.close` — extending the moderation flow.
   Helpers `is_ephemeral_kind` (recognises the 12 ephemeral wire kinds:
-  `cx.call.signal`, `cx.presence`, `cx.typing`, `cx.receipt.read`, and the
-  `cx.key.verification.*` family) and `is_receipt_object_only`
-  (`cx.event_batch_receipt`).
+  `ck.call.signal`, `ck.presence`, `ck.typing`, `ck.receipt.read`, and the
+  `ck.key.verification.*` family) and `is_receipt_object_only`
+  (`ck.event_batch_receipt`).
 - **Typed IDs**: `TypedAppealId` (`ck:appeal:<uuidv7>`) and
   `TypedTrustDomainId` (`ck:trust_domain:<scope>` with lowercase `[a-z0-9._:-]`
   max-128 scope validator).
-- **Schemas**: `cx.schema.ephemeral_envelope.v1`,
-  `cx.schema.moderation_appeal.v1`, `cx.schema.attestation_evidence.v1` added
+- **Schemas**: `ck.schema.ephemeral_envelope.v1`,
+  `ck.schema.moderation_appeal.v1`, `ck.schema.attestation_evidence.v1` added
   to `ARTIFACT_BACKED_SCHEMA_IDS`. The SDK reads the JSON Schema bodies
   directly from the spec artifacts directory at runtime; no in-source copy.
   `cursor.schema.json` (h.minLength=22), `cross-signing-reset.schema.json`
@@ -407,7 +407,7 @@ signatures, schema-id constants, and validation helpers. See cokret-spec
 - **Capability actions**: `CAP_ACTION_MODERATION_APPEAL_SUBMIT` (low risk;
   any member may appeal) and `CAP_ACTION_MODERATION_APPEAL_REVIEW` (medium
   risk; gates the review / decision / close transitions).
-- **`cx.profile.e2ee_relaxed.v1`**: `PROFILE_E2EE_RELAXED` constant +
+- **`ck.profile.e2ee_relaxed.v1`**: `PROFILE_E2EE_RELAXED` constant +
   `ABSOLUTE_HARD_CEILING_MS = 300_000`; helpers
   `is_e2ee_relaxed_compatible_with_compliance` (rejects coexistence with
   attested or disclosed audit profiles) and `validate_relaxed_window_ms`.
@@ -415,7 +415,7 @@ signatures, schema-id constants, and validation helpers. See cokret-spec
   (128-bit handle); `validate_cursor_handle` minLength raised to 22 per
   schema.
 - **Realm lifecycle**: `is_terminal_realm_state(state) -> bool` returns
-  `true` once `cx.realm.destroy` has been applied.
+  `true` once `ck.realm.destroy` has been applied.
 
 ### Changed — Realm/Space terminology inversion (wire-breaking) (Round R1.x)
 
@@ -423,8 +423,8 @@ signatures, schema-id constants, and validation helpers. See cokret-spec
   **Space**. SDK public types, builders, and resolver paths are renamed
   end-to-end; legacy names remain reachable as serde aliases on incoming
   events for back-compat with older servers. New typed cells
-  `cx.realm.link`, `cx.realm.inheritance_policy`, and
-  `cx.capability.derived` model the boundary graph.
+  `ck.realm.link`, `ck.realm.inheritance_policy`, and
+  `ck.capability.derived` model the boundary graph.
 
 ### Added — `authz::delegation` module (capability delegation chain check) (2026-05-18)
 
@@ -495,7 +495,7 @@ signatures, schema-id constants, and validation helpers. See cokret-spec
     `Result<(), BindingError>` entry point. Checks payload-non-empty,
     public-key / signature length, expected-subject-substring, and
     Ed25519 verify. No I/O, no DID-doc resolve — composes under
-    higher-level envelopes (e.g. coauth's `cx.did_binding.control_proof.v1`
+    higher-level envelopes (e.g. coauth's `ck.did_binding.control_proof.v1`
     JWT) which extract `(payload, signature, public_key)` and delegate
     the final crypto check.
   - `derive_ed25519_from_seed(&[u8; 32]) -> SigningKey` — pure RFC 8032
@@ -565,7 +565,7 @@ signatures, schema-id constants, and validation helpers. See cokret-spec
 ### Added — `agent_binding::verify_audit_binding_by_kind` dispatcher (2026-05-18)
 
 - **`cokret::agent_binding::verify_audit_binding_by_kind`** — single
-  SDK entry point for verifying `cx.agent.protocol_session.result`
+  SDK entry point for verifying `ck.agent.protocol_session.result`
   `audit_binding` blocks, dispatched by `binding_kind` so consumers
   don't have to re-implement the scheme switch. Routes `ed25519_v1`
   through the existing `verify_ed25519_audit_binding`; future schemes
@@ -662,8 +662,8 @@ signatures, schema-id constants, and validation helpers. See cokret-spec
 ### Added — Applet / Agent protocol-session OP constants + registry (2026-05-16)
 
 Round 13. Mirror of soland round 14f wire validator. The 9 sub-events
-of the applet (`cx.applet.{registration,discovery,protocol_session.{start,status},bridge_error}`)
-and agent (`cx.agent.{endpoint,protocol_session.{start,status,result}}`)
+of the applet (`ck.applet.{registration,discovery,protocol_session.{start,status},bridge_error}`)
+and agent (`ck.agent.{endpoint,protocol_session.{start,status,result}}`)
 families were registered as event kinds in `crates/core/src/events/kinds.rs`
 but had no `OP_*` aliases or `required_fields_for_operation_kind` entries
 in `crates/core/src/model/`. This round adds both so downstream consumers
@@ -717,9 +717,9 @@ abstraction as the rest of the reducer-input event family.
     state living at the applet / agent endpoint itself. If spec adds
     canonical session state tracking, SDK reducer can mirror that.
 
-### Added — `cx.flow.track.*` reducer handlers (2026-05-16)
+### Added — `ck.flow.track.*` reducer handlers (2026-05-16)
 
-Round 12. SDK previously declared the four `cx.flow.track.*` event-kind
+Round 12. SDK previously declared the four `ck.flow.track.*` event-kind
 constants (`FLOW_TRACK_DISABLE` / `FLOW_TRACK_ENABLE` /
 `FLOW_TRACK_SET_PRIMARY` / `FLOW_TRACK_UPDATE`) in
 `crates/core/src/events/kinds.rs` but had no `OP_*` operation constants,
@@ -777,7 +777,7 @@ state machines correctly maintain `Flow.tracks` from the event log.
     `flow_track_event_rejected_when_flow_archived`.
 
 - **Spec references**:
-  - Spec event-kind-registry: `cx.flow.track.{enable,disable,update,set_primary}`
+  - Spec event-kind-registry: `ck.flow.track.{enable,disable,update,set_primary}`
     (`category: flow`, `wire_scope: durable_event`, `reducer_input: true`).
   - `common-fields.md §5.1` final paragraph — update on non-active
     object MUST fail.
@@ -785,17 +785,17 @@ state machines correctly maintain `Flow.tracks` from the event log.
 - **Out of scope (follow-up)**:
   - **soland canonical registry + wire validator** — soland's
     server-side admission (`event_log::submit_event`) currently treats
-    `cx.flow.track.*` as opaque envelopes (canonical-kind registry
+    `ck.flow.track.*` as opaque envelopes (canonical-kind registry
     doesn't recognise them). soland round 14d adds the canonical
     registration + state-machine preflight in parallel with this round.
   - **Place tracks** — Place doesn't have a `tracks` field; Flow is
     the only canonical object with sub-event-managed track membership.
 
-### Tightened — `cx.redaction` flips Flow / Morph subject state (2026-05-16)
+### Tightened — `ck.redaction` flips Flow / Morph subject state (2026-05-16)
 
 Completes spec `common-fields.md §5.1` redaction row for Flow / Morph.
 Round 10 closed the archive / tombstone / update source-state matrix;
-this round (round 11) extends `cx.redaction` so that targeting a Flow /
+this round (round 11) extends `ck.redaction` so that targeting a Flow /
 Morph object via the event content's `object_ref` field flips the
 subject's projection state to `ObjectState::Redacted` (terminal). Until
 this round, `redact_event` only cleared the target event's content while
@@ -813,12 +813,12 @@ spec rule, and SDK was the divergent side. Now the two are symmetric.
     with `flow_already_terminal` / `morph_already_terminal`. Unknown
     subject is tolerated (causal / backfill ordering — same convention
     as `restore_*` and `archive_*` guards).
-  - `process_event_content` `cx.redaction` arm now invokes
+  - `process_event_content` `ck.redaction` arm now invokes
     `redact_object_for_event` BEFORE `redact_event` clears the target
     event content. The state-machine guard runs first so a rejected
     redaction cannot leave the event partially redacted.
   - Place is intentionally excluded — `PlaceState` has no `Redacted`
-    variant; spec routes Place removal through `cx.place.tombstone`
+    variant; spec routes Place removal through `ck.place.tombstone`
     only. Redactions naming a Place subject fall through to the
     "unknown subject" tolerance branch silently (Place isn't kept in
     `subjects` / `morphs`).
@@ -831,21 +831,21 @@ spec rule, and SDK was the divergent side. Now the two are symmetric.
     reducer write left no side effects.
 
 - **Spec references**:
-  - `common-fields.md §5.1` redaction row — `cx.<kind>.redact` /
-    `cx.redaction` source MUST be `active|archived`, target `redacted`,
+  - `common-fields.md §5.1` redaction row — `ck.<kind>.redact` /
+    `ck.redaction` source MUST be `active|archived`, target `redacted`,
     reject with `<kind>_already_terminal`.
   - `common-fields.md §5.1` "终态等价" — `tombstoned` / `deleted` /
     `redacted` are equivalent unrecoverable terminals.
   - Spec note "Place 没有 redacted" — Place removal goes through
-    `cx.place.tombstone` instead of `cx.redaction`.
+    `ck.place.tombstone` instead of `ck.redaction`.
 
 - **Out of scope (follow-up)**:
-  - **un-redaction for Flow / Morph** — `cx.message.redact` supports
+  - **un-redaction for Flow / Morph** — `ck.message.redact` supports
     a `redaction_value: null` un-redact path for messages. Flow /
     Morph `Redacted` is a terminal state by spec, so the current
     behaviour (no un-redact path) is correct; no SDK change needed.
-  - **Place redaction via `cx.redaction`** — see above. Future spec
-    tightening may add a dedicated `cx.place.redact` path; not in v1.
+  - **Place redaction via `ck.redaction`** — see above. Future spec
+    tightening may add a dedicated `ck.place.redact` path; not in v1.
 
 ### Tightened — Archive / tombstone / update source-state guards (2026-05-16)
 
@@ -871,7 +871,7 @@ with `*.restore` semantics).
     source; unknown object tolerated. The dispatcher
     (`process_event_content`) now routes through the named helpers.
   - `tombstone_place` is a new helper (previously inlined
-    `set_place_state(Tombstoned)`). Per §5.1, `cx.<kind>.tombstone` is
+    `set_place_state(Tombstoned)`). Per §5.1, `ck.<kind>.tombstone` is
     legal from `active` OR `archived`; reject `tombstoned` (terminal
     self-transition) with `place_already_terminal`. Note that `*.tombstone`
     events exist for Place only in the spec registry; Flow / Morph
@@ -904,17 +904,17 @@ with `*.restore` semantics).
     only state checks on materialised objects run.
 
 - **Out of scope (follow-up)**:
-  - `cx.redaction` source-state guard for Flow / Morph / Message — spec
-    §5.1 also covers `cx.<kind>.redact` / `cx.redaction` with the same
+  - `ck.redaction` source-state guard for Flow / Morph / Message — spec
+    §5.1 also covers `ck.<kind>.redact` / `ck.redaction` with the same
     `<kind>_already_terminal` semantics, but the redaction reducer path
     lives in a different code surface than the lifecycle dispatcher.
 
 ### Tightened — Flow / Morph restore state-machine guards (2026-05-15)
 
 Completes the spec `common-fields.md §5` symmetry across all three lifecycle
-families (Flow / Morph / Place). Prior to this round, only `cx.place.restore`
-validated source state (added in the cx.place.restore round); `cx.flow.restore`
-and `cx.morph.restore` unconditionally flipped state to Active regardless of
+families (Flow / Morph / Place). Prior to this round, only `ck.place.restore`
+validated source state (added in the cx.place.restore round); `ck.flow.restore`
+and `ck.morph.restore` unconditionally flipped state to Active regardless of
 source. Spec is explicit: `*.restore` is the canonical `archived → active`
 path, and `tombstoned` / `deleted` / `redacted` MUST NOT be restored. This
 round pins that invariant in the reducer for Flow and Morph as well.
@@ -954,17 +954,17 @@ round pins that invariant in the reducer for Flow and Morph as well.
   emit restore only after archive, which still works.
 
 - **Out of scope (follow-up)**:
-  - `cx.flow.archive` / `cx.morph.archive` / `cx.place.archive` /
-    `cx.*.tombstone` themselves still don't validate source state. Spec
+  - `ck.flow.archive` / `ck.morph.archive` / `ck.place.archive` /
+    `ck.*.tombstone` themselves still don't validate source state. Spec
     doesn't have explicit MUST for those transitions — likely needs spec
     work first to nail down (e.g. is archive-of-tombstoned a
     `failed_precondition` or an idempotent no-op?). Separate PR.
 
-### Added — `cx.place.restore` (2026-05-15)
+### Added — `ck.place.restore` (2026-05-15)
 
-Mirror the new `cx.place.restore` event kind landed in `../cokret-spec`
-(Unreleased changelog entry "新增 `cx.place.restore` 修正 Place 生命周期对称性").
-Previously the SDK had `cx.place.archive` / `cx.place.tombstone` but no way to
+Mirror the new `ck.place.restore` event kind landed in `../cokret-spec`
+(Unreleased changelog entry "新增 `ck.place.restore` 修正 Place 生命周期对称性").
+Previously the SDK had `ck.place.archive` / `ck.place.tombstone` but no way to
 reverse archive — clients had no wire-legal path to unarchive a board / list,
 and reducers had no spec-aligned state-machine entry. With this round the SDK
 implements the canonical `archived -> active` transition end-to-end.
@@ -985,7 +985,7 @@ implements the canonical `archived -> active` transition end-to-end.
 
 - **`cokret` (sdk)**:
   - `Space::restore_place_operation(place_id)` constructs the spec-shaped
-    `cx.place.restore` operation, mirroring `archive_place_operation`
+    `ck.place.restore` operation, mirroring `archive_place_operation`
     (same `OperationType::Update`, same `{ "place_id": ... }` payload).
   - Resolver `SpaceState::process_event_content` adds an `OP_PLACE_RESTORE`
     branch backed by a new `restore_place` reducer in
@@ -1005,22 +1005,22 @@ implements the canonical `archived -> active` transition end-to-end.
 
 - **Spec references**:
   - `cokret-spec` event_kind_registry / capability_action_registry now
-    list `cx.place.restore`.
+    list `ck.place.restore`.
   - `space-and-place.md §4.4` "Restore Place" subsection is the normative
     source for the reducer guard above.
   - `conformance-vectors.md §6.2-6.4` are the wire-level conformance
     vectors this SDK round satisfies.
 
 - **Migration**: writers that previously had no wire path for unarchiving
-  Places (or were emitting `cx.place.update` with a top-level `state`
-  patch as a workaround) MUST switch to `cx.place.restore`. The reducer
+  Places (or were emitting `ck.place.update` with a top-level `state`
+  patch as a workaround) MUST switch to `ck.place.restore`. The reducer
   here enforces the new guard; downstream impls (soland, yougen) need to
   catch up separately — tracked in their own `_todos.md` files.
 
 - **Out of scope (follow-up)**:
-  - `cx.place.archive` / `cx.place.tombstone` themselves still don't
+  - `ck.place.archive` / `ck.place.tombstone` themselves still don't
     validate the source state (a pre-existing gap not introduced here);
-    same is true for `cx.flow.restore` / `cx.morph.restore`. Addressing
+    same is true for `ck.flow.restore` / `ck.morph.restore`. Addressing
     that surface is a separate PR.
 
 ### Added — round 8 (2026-05-15): MAL-11 + snapshot v2 + per-admin signing
@@ -1219,7 +1219,7 @@ legacy-form fallback in `Deserialize`.
     inserting `FlowTrackConfig::synthesis()` and
     `FlowTrackConfig::discussion_primary()` under the canonical names.
 - **`/device_messages` is now `POST` + `Idempotency-Key` header**.
-  - Endpoint registry: `cx.device_messages.put` is `POST
+  - Endpoint registry: `ck.device_messages.put` is `POST
     /api/v1/device_messages` (was `PUT
     /api/v1/device_messages/{txn_id}`).
   - `Client::send_device_messages(idempotency_key, request)` switches
@@ -1233,15 +1233,15 @@ legacy-form fallback in `Deserialize`.
     `txn_id` field to match
     `device-message.schema.json`.
 - **`/applet/transactions` is now `POST` + `Idempotency-Key` header**.
-  - Endpoint registry: `cx.applet.transaction` is `POST
+  - Endpoint registry: `ck.applet.transaction` is `POST
     /api/v1/applet/transactions` (was `PUT
     /api/v1/applet/transactions/{txn_id}`).
   - `Client::applet_transaction(idempotency_key, request)` switches to
     `POST` + `Idempotency-Key` header.
   - Server route table, OpenAPI document, conformance vectors, and
     Salvo router debug strings updated to the new shape.
-- API endpoint headers list: both `cx.device_messages.put` and
-  `cx.applet.transaction` declare a required `Idempotency-Key` header.
+- API endpoint headers list: both `ck.device_messages.put` and
+  `ck.applet.transaction` declare a required `Idempotency-Key` header.
 
 ### Changed
 
@@ -1301,7 +1301,7 @@ unchanged; this is an additive SDK API release.
 This release completes round 21 of the SDK: the public Move/Anchor signer
 trait, an Ed25519 backend for production signing, the `EventsQueryRequest`
 / `EventsQueryResponse` typed wrappers downstream agents (coauth / soland /
-yougen) need for `cx.events.query`, and the workspace bump to 0.5.0
+yougen) need for `ck.events.query`, and the workspace bump to 0.5.0
 (folds C19.B follow-ups + completes signer surface). v1 wire is unchanged
 from 0.4.0; this is an additive SDK API release.
 
@@ -1324,7 +1324,7 @@ from 0.4.0; this is an additive SDK API release.
 - Re-exported at the top-level `cokret` crate root behind the
   `cokret/signer = ["cokret-signatures/signer"]` feature flag.
 - **`cokret::EventsQueryRequest` / `EventsQueryResponse`** typed
-  wrappers in `sync_client.rs` for `cx.events.query`. Multi-selector
+  wrappers in `sync_client.rs` for `ck.events.query`. Multi-selector
   (`spaces[] ∪ actors[]`), `from` / `until` HLC bounds, `direction`
   (forward/backward), `limit`. `EventsQueryResponse` carries `events`,
   `next_cursor`, `prev_cursor`, `limited`. From/Into impls bridge with
@@ -1357,7 +1357,7 @@ from 0.4.0; this is an additive SDK API release.
 
 This release rebases the SDK onto the Move/Anchor/Lattice three-primitive
 state-convergence model introduced by `cokret-spec` 2026-05-08. The
-v1 wire surface is **incompatible** with 0.1.0: `cx.consent.*` events,
+v1 wire surface is **incompatible** with 0.1.0: `ck.consent.*` events,
 the legacy `StateReducer` API, and the host-endorsement / writer-model
 typed model are all gone. v1 was unreleased; no compat shim is provided.
 
@@ -1395,14 +1395,14 @@ typed model are all gone. v1 was unreleased; no compat shim is provided.
   consent-model §3:
   `grant_effect` / `revoke_effect_with_precondition` /
   `evaluate_consent` / `require_consent_precondition`. Cell family
-  `cx.component.consent.grant.v1`. Tag form
+  `ck.component.consent.grant.v1`. Tag form
   `grant:<consent_id>:<peer>:<scope>` for deterministic dedupe.
 - **`cokret::mls_move`** new module — MLS commit Move helpers per
   spec §10: `mls_commit_preconditions` / `mls_commit_effects` /
   `e2ee_message_precondition` / `covered_frontier_contains` plus
-  cell families `cx.component.mls_epoch.v1` (cas-register, reject) /
-  `cx.component.key_schedule.v1` (cas-register, reject) /
-  `cx.component.covered_frontier.v1` (or-set, **expose**).
+  cell families `ck.component.mls_epoch.v1` (cas-register, reject) /
+  `ck.component.key_schedule.v1` (cas-register, reject) /
+  `ck.component.covered_frontier.v1` (or-set, **expose**).
 - `docs/move-anchor-runtime.md` — SDK-internal runtime architecture
   design (≈540 lines): module split, store trait contracts, verifier
   pipeline, `apply_anchor` walk-through, caching strategy (L0/L1/L2),
@@ -1470,7 +1470,7 @@ Downstream consumers MUST:
 1. Replace `StateReducer::new(...).apply_events(events)` with
    `apply_anchor(anchor, &move_store, &anchor_store, &cell_store,
    &registry, verify_jws_closure)`.
-2. Stop emitting `cx.consent.grant` / `cx.consent.revoke` event
+2. Stop emitting `ck.consent.grant` / `ck.consent.revoke` event
    envelopes; build Moves whose effects come from
    `consent::grant_effect` / `consent::revoke_effect_with_precondition`
    instead.

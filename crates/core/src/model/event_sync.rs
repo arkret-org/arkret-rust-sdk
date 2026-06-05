@@ -85,7 +85,7 @@ pub enum EventsFrontierResponse {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct FederationServiceBindingRef {
     pub realm_id: RealmId,
-    pub space_policy_hash: Hash,
+    pub realm_policy_digest: Hash,
     pub membership_frontier: Vec<EventId>,
     pub delivery_binding_frontier: Vec<EventId>,
     pub destination_service_type: String,

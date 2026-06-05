@@ -14,9 +14,9 @@ operator-facing API mapping see [`api-and-errors.md`](api-and-errors.md).
 R3 introduced three coupled wire surfaces that the SDK now exposes as
 first-class typed builders. They share three common invariants:
 
-1. **All three are protected by an FSM lattice** — `cx.agent.{pause,resume,
+1. **All three are protected by an FSM lattice** — `ck.agent.{pause,resume,
    deactivate}` carry `lattice = fsm, bottom = reject`; recovery completion is
-   driven by an idempotent `cx.recovery.session.complete` reducer; media tokens
+   driven by an idempotent `ck.recovery.session.complete` reducer; media tokens
    are bounded by a TTL gate (see [§Call media](#call-media-cxcallmediatoken_exchange)).
 2. **All three reject on unknown enums** — `MediaBackendType::Unknown(_)`,
    `RecoveryProofKind` enum, agent state enum all use the canonical
@@ -28,7 +28,7 @@ first-class typed builders. They share three common invariants:
 
 ### Agent FSM (active / paused / deactivated)
 
-The agent FSM is owned by soland's runtime cell `cx.component.agent_state.v1`.
+The agent FSM is owned by soland's runtime cell `ck.component.agent_state.v1`.
 The SDK models it as:
 
 ```rust
@@ -150,7 +150,7 @@ pub enum MediaBackendType {
 
 `Unknown(String)` is preserved on decode so logs are useful, but every
 operational call site invokes `MediaBackendType::reject_if_unknown()` before
-trusting the value. The `cx.profile.media_service_binding.{livekit,
+trusting the value. The `ck.profile.media_service_binding.{livekit,
 cokret_native}.v1` profile entries gate which arms a client will negotiate.
 
 ### Recovery (policy + receipt)

@@ -42,17 +42,17 @@ The Cokret SDK ships the full three-key hierarchy as typed records, not as a sin
 | Tier | SDK type | Notes |
 | --- | --- | --- |
 | `principal_signing_key` (PSK) | [`CrossSigningKeyRecord` + `CrossSigningPublishContent.principal_signing_key`](../crates/crypto/src/lib.rs) | DID-method-rooted; rotation MUST enter the DID key log. |
-| `self_signing_key` (SSK) | [`SignedCrossSigningKey`](../crates/crypto/src/lib.rs) under `self_signing_key`, bound to PSK via [`CrossSigningBinding`](../crates/crypto/src/lib.rs) | SSK is the only signer on per-device trust bindings; canonical bytes are `cx-cross-signing-bind-v1\n` + canonical JSON. |
+| `self_signing_key` (SSK) | [`SignedCrossSigningKey`](../crates/crypto/src/lib.rs) under `self_signing_key`, bound to PSK via [`CrossSigningBinding`](../crates/crypto/src/lib.rs) | SSK is the only signer on per-device trust bindings; canonical bytes are `ck-cross-signing-bind-v1\n` + canonical JSON. |
 | `user_signing_key` (USK) | Same envelope as SSK, distinct `public_key` | Signs other principals' identity keys; manual trust only — does NOT promote the other principal's device set. |
-| Wire envelope: `cx.cross_signing.publish.v1` | [`CrossSigningPublishContent`](../crates/crypto/src/lib.rs) + [`DeviceManager::record_cross_signing_publish`](../crates/sdk/src/devices/manager.rs) | `generation` is monotonic; stale publishes are rejected; advancing the generation drops every accepted device binding to `NeedsReverification`. |
-| Wire envelope: `cx.cross_signing.reset.v1` | [`CrossSigningResetContent` + `CrossSigningResetProof`](../crates/crypto/src/lib.rs) + [`DeviceManager::record_cross_signing_reset`](../crates/sdk/src/devices/manager.rs) | Requires `principal_signing` / `recovery_unlock` / `device_quorum` / `trusted_recovery_service` proof; cancels in-flight SAS / QR transactions for the principal. |
+| Wire envelope: `ck.cross_signing.publish.v1` | [`CrossSigningPublishContent`](../crates/crypto/src/lib.rs) + [`DeviceManager::record_cross_signing_publish`](../crates/sdk/src/devices/manager.rs) | `generation` is monotonic; stale publishes are rejected; advancing the generation drops every accepted device binding to `NeedsReverification`. |
+| Wire envelope: `ck.cross_signing.reset.v1` | [`CrossSigningResetContent` + `CrossSigningResetProof`](../crates/crypto/src/lib.rs) + [`DeviceManager::record_cross_signing_reset`](../crates/sdk/src/devices/manager.rs) | Requires `principal_signing` / `recovery_unlock` / `device_quorum` / `trusted_recovery_service` proof; cancels in-flight SAS / QR transactions for the principal. |
 
 ### Per-device trust binding (spec §5.2)
 
-`cx.device.authorize.content.cross_signing_binding` is a typed
+`ck.device.authorize.content.cross_signing_binding` is a typed
 [`DeviceTrustBinding`](../crates/crypto/src/lib.rs) on the SDK side, with `ssk_generation` so the verifier can detect stale bindings without re-fetching the publish stream:
 
-- [`DeviceTrustBinding::canonical_input`](../crates/crypto/src/lib.rs) returns the spec-canonical `cx-device-trust-bind-v1\n + canonical_json({principal_id, device_id, device_public_key, ssk_generation})` bytes.
+- [`DeviceTrustBinding::canonical_input`](../crates/crypto/src/lib.rs) returns the spec-canonical `ck-device-trust-bind-v1\n + canonical_json({principal_id, device_id, device_public_key, ssk_generation})` bytes.
 - [`DeviceManager::evaluate_trust_chain`](../crates/sdk/src/devices/manager.rs) implements spec §5.2.1 step-by-step and returns one of `CrossSigned` / `NeedsReverification` / `AwaitingPublish` / `Bootstrap` / `Unverified` / `Invalid` so callers can render the right UI without re-implementing the algorithm.
 - [`DeviceManager::propagate_trust`](../crates/sdk/src/devices/manager.rs) now requires the TARGET device to already carry a binding under the current generation — sibling trust isn't transitive in the protocol, unlike Matrix's "if any of my devices verified you, all do" shortcut.
 
@@ -71,7 +71,7 @@ Both `crypto::DeviceTrustState` and `core::model::api::DeviceVerificationState` 
 ### What's still spec-only, not yet in SDK
 
 - **PSK-signature verification glue**: `evaluate_trust_chain` takes a `verify_signature` closure so the SDK doesn't pull a DID-method resolver into `cokret-crypto`. Production adapters need to wire that closure to the same Ed25519 / EdDSA verifier used by [`cokret-signatures::verify_ed25519_move_signature`](../crates/signatures/src/signer.rs) plus the DID key-log resolver. The SDK ships the state machine; it does not ship a one-call "set up cross-signing end-to-end with my DID document" helper.
-- **`ck.device.authorize` payload schema**: the SDK's `ck.device.authorize` event still uses the JSON `Value` payload shape; a typed `cx.schema.device_authorize.v1` envelope mirroring `CrossSigningPublishContent` is the next layer.
+- **`ck.device.authorize` payload schema**: the SDK's `ck.device.authorize` event still uses the JSON `Value` payload shape; a typed `ck.schema.device_authorize.v1` envelope mirroring `CrossSigningPublishContent` is the next layer.
 - **MLS leaf re-key after reset**: spec §14.2 step 3 says senders SHOULD issue an Empty Commit after a reset so the new SSK generation is covered by transcript hashes. The SDK exposes the MLS commit primitives but doesn't auto-trigger this; downstream apps (yougen / soland) wire it.
 
 ## Matrix concepts intentionally NOT mirrored
@@ -79,9 +79,9 @@ Both `crypto::DeviceTrustState` and `core::model::api::DeviceVerificationState` 
 These come straight from `matrix-core-differences.md` §4.5.7–§4.5.9; the SDK does not implement them under their Matrix names:
 
 - **Single "master key"**: replaced by DID-method-rooted PSK (the master signature is the DID-method history entry, not a homeserver-stored key).
-- **`m.cross_signing.master`/`self_signing`/`user_signing` keys-API records**: replaced by the `cx.cross_signing.publish.v1` event envelope on the principal control stream.
+- **`m.cross_signing.master`/`self_signing`/`user_signing` keys-API records**: replaced by the `ck.cross_signing.publish.v1` event envelope on the principal control stream.
 - **"Cross-signing trust propagates through cross-signed devices automatically"**: explicitly rejected (see [`DeviceManager::propagate_trust`](../crates/sdk/src/devices/manager.rs)). Every device needs its own SSK signature.
-- **`m.cross_signing.upgrade` reset event without proof material**: replaced by `cx.cross_signing.reset.v1` with four enumerated proof kinds.
+- **`m.cross_signing.upgrade` reset event without proof material**: replaced by `ck.cross_signing.reset.v1` with four enumerated proof kinds.
 
 ## Remaining Non-Goals / Future Work
 

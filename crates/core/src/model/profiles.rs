@@ -574,8 +574,8 @@ impl IdentityLink {
             proof.remove("signature");
         }
         let canonical = canonical::canonical_json_bytes(&value)?;
-        let mut input = Vec::with_capacity(b"cx-identity-link-v1\n".len() + canonical.len());
-        input.extend_from_slice(b"cx-identity-link-v1\n");
+        let mut input = Vec::with_capacity(b"ck-identity-link-v1\n".len() + canonical.len());
+        input.extend_from_slice(b"ck-identity-link-v1\n");
         input.extend_from_slice(&canonical);
         Ok(input)
     }

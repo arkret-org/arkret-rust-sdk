@@ -170,7 +170,7 @@ becomes the canonical history.
 on the home soland before any `recovery_policy` can accept a binding. SDK
 callers see this as `Error::Protocol("first_backup_required")` from the
 recovery client; the spec layer codifies it as the
-`first_backup_required` failure mode on `cx.account.recovery.*` operations.
+`first_backup_required` failure mode on `ck.account.recovery.*` operations.
 Operators MUST NOT disable this gate in production.
 
 ### DID format regex

@@ -61,12 +61,12 @@ impl From<StoreError> for MoveReject {
 pub fn reject_to_error_code(r: &MoveReject) -> &'static str {
     use crate as cx;
     match r {
-        MoveReject::SchemaViolation(_) => cx::ERROR_CODE_SCHEMA_VIOLATION,
-        MoveReject::InvalidSignature(_) => cx::ERROR_CODE_INVALID_SIGNATURE,
-        MoveReject::CapabilityDenied(_) => cx::ERROR_CODE_CAPABILITY_DENIED,
-        MoveReject::FailedPrecondition { .. } => cx::ERROR_CODE_STATE_MISMATCH,
+        MoveReject::SchemaViolation(_) => crate::ERROR_CODE_SCHEMA_VIOLATION,
+        MoveReject::InvalidSignature(_) => crate::ERROR_CODE_INVALID_SIGNATURE,
+        MoveReject::CapabilityDenied(_) => crate::ERROR_CODE_CAPABILITY_DENIED,
+        MoveReject::FailedPrecondition { .. } => crate::ERROR_CODE_STATE_MISMATCH,
         MoveReject::FailedBottom { .. } => "failed_bottom",
-        MoveReject::Registry(_) => cx::ERROR_CODE_INTERNAL_ERROR,
+        MoveReject::Registry(_) => crate::ERROR_CODE_INTERNAL_ERROR,
     }
 }
 

@@ -1495,7 +1495,7 @@ mod tests {
             alice_group.export_secret("cokret-reaction-routing-v1", other_realm, 32).unwrap()
         );
         // Different label MUST diverge.
-        assert_ne!(a, alice_group.export_secret("cx-rtc-frame-key/v1", realm, 32).unwrap());
+        assert_ne!(a, alice_group.export_secret("ck-rtc-frame-key/v1", realm, 32).unwrap());
     }
 
     #[test]
