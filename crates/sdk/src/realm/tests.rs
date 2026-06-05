@@ -438,9 +438,6 @@ fn space_provides_message_membership_and_media_convenience_helpers() {
     assert_eq!(leave.object_type, "ck.member.state");
     assert_eq!(base_client.get_space(&space_id).unwrap().state, SpaceStateType::Left);
 
-    #[allow(deprecated)]
-    let invite_op = space.invite(bob.clone(), Some("member".to_owned())).unwrap();
-    assert_eq!(invite_op.object_type, "ck.invite.create");
     assert_eq!(
         space.ban(bob.clone(), Some("spam".to_owned())).unwrap().object_type,
         "ck.member.state"

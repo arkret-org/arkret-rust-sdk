@@ -34,52 +34,6 @@ impl Realm {
         Ok(operation)
     }
 
-    /// Create an invite operation from a raw DID and role string.
-    ///
-    /// **Deprecated**: this builder bypasses the
-    /// [`MemberDeliveryBindingCandidate`] validation surface defined in
-    /// `identity-handles.md` §3.7. Callers MUST migrate to
-    /// [`Self::invite_with_candidate`] or [`Self::member_add_with_candidate`]
-    /// so that handle resolution / directory proofs / audience / expiry are
-    /// enforced before the payload reaches the wire. The string-based path
-    /// remains available for legacy fixtures and one-shot tooling but emits
-    /// `delivery_status=unroutable`-shaped intent only.
-    #[deprecated(
-        since = "0.7.0",
-        note = "use Space::invite_with_candidate / Space::member_add_with_candidate; \
-                raw-DID invite skips MemberDeliveryBindingCandidate validation \
-                (identity-handles.md §3.7)"
-    )]
-    pub fn invite(&self, user_id: Did, role: Option<String>) -> Result<Operation> {
-        #[allow(deprecated)]
-        self.create_invite_operation(user_id, role)
-    }
-
-    /// Create an invite operation for a user to join this space.
-    ///
-    /// **Deprecated**: see [`Self::invite`].
-    #[deprecated(
-        since = "0.7.0",
-        note = "use Space::invite_with_candidate; raw-DID invite skips \
-                MemberDeliveryBindingCandidate validation (identity-handles.md §3.7)"
-    )]
-    pub fn create_invite_operation(&self, user_id: Did, role: Option<String>) -> Result<Operation> {
-        let session_meta = self
-            .base_client
-            .session_meta()
-            .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
-
-        let operation_id = OperationId::new(generate_id("ck:operation:"))?;
-        let payload = json!({
-            "actor_id": user_id,
-            "role": role,
-            "space_id": self.space_id.as_str(),
-            "issuer": session_meta.user_id.as_str(),
-        });
-
-        Ok(Operation::create(operation_id, self.realm_id()?, OP_INVITE_CREATE, payload))
-    }
-
     /// Build an invite operation from a validated
     /// [`MemberDeliveryBindingCandidate`].
     ///

@@ -147,23 +147,11 @@ pub fn resolve_primary_track<'a>(
     Ok(None)
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct MorphMetadata {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub title: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub summary: Option<String>,
-    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
-    #[serde(flatten)]
-    pub extra: BTreeMap<String, Value>,
-}
-
-impl MorphMetadata {
-    pub fn with_title(title: impl Into<String>) -> Self {
-        Self { title: Some(title.into()), ..Self::default() }
-    }
-}
+/// Morph `metadata` shape — shares [`ObjectMetadata`] with Flow. Morph carries
+/// its data in the top-level `Morph.fields`, so `metadata.fields` stays empty
+/// and is omitted from the wire (preserving the prior `MorphMetadata` shape of
+/// `{title?, summary?, ...extra}`).
+pub type MorphMetadata = ObjectMetadata;
 
 /// Morph object (data-structures.md §7).
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -196,22 +184,10 @@ pub struct Morph {
     pub metadata: Option<MorphMetadata>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub encrypted_metadata: Option<Value>,
-    /// SDK-local compatibility cache. Not serialized; current wire path is
-    /// `metadata.title`.
-    #[serde(skip)]
-    pub title: Option<String>,
-    /// SDK-local compatibility cache. Not serialized; current wire path is
-    /// `metadata.summary`.
-    #[serde(skip)]
-    pub summary: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub encrypted_content: Option<Value>,
-    /// SDK-local compatibility cache. Not serialized; current wire path is
-    /// `encrypted_content`.
-    #[serde(skip)]
-    pub encrypted_payload: Option<Value>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub fields: BTreeMap<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -257,11 +233,8 @@ impl Morph {
             facets: BTreeMap::new(),
             metadata: None,
             encrypted_metadata: None,
-            title: None,
-            summary: None,
             content: None,
             encrypted_content: None,
-            encrypted_payload: None,
             fields: BTreeMap::new(),
             state: Some(ObjectState::Active),
             state_changed_at: None,
@@ -277,24 +250,16 @@ impl Morph {
     }
 
     pub fn with_metadata_title(mut self, title: impl Into<String>) -> Self {
-        let title = title.into();
-        self.title = Some(title.clone());
-        self.metadata.get_or_insert_with(MorphMetadata::default).title = Some(title);
+        self.metadata.get_or_insert_with(MorphMetadata::default).title = Some(title.into());
         self
     }
 
     pub fn metadata_title(&self) -> Option<&str> {
-        self.metadata
-            .as_ref()
-            .and_then(|metadata| metadata.title.as_deref())
-            .or(self.title.as_deref())
+        self.metadata.as_ref().and_then(|metadata| metadata.title.as_deref())
     }
 
     pub fn metadata_summary(&self) -> Option<&str> {
-        self.metadata
-            .as_ref()
-            .and_then(|metadata| metadata.summary.as_deref())
-            .or(self.summary.as_deref())
+        self.metadata.as_ref().and_then(|metadata| metadata.summary.as_deref())
     }
 
     /// Validate that `morph_type` does not use the reserved `ck.` prefix

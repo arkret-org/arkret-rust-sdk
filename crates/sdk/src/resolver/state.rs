@@ -282,8 +282,6 @@ impl SpaceState {
             .unwrap_or_default();
         let metadata = self.extract_optional_field::<crate::MorphMetadata>(object, "metadata");
         let encrypted_metadata = self.extract_optional_field(object, "encrypted_metadata");
-        let title = metadata.as_ref().and_then(|metadata| metadata.title.clone());
-        let summary = metadata.as_ref().and_then(|metadata| metadata.summary.clone());
         let content = self.extract_optional_field(object, "content");
         let encrypted_content = self.extract_optional_field(object, "encrypted_content");
         let fields = self.extract_fields(object)?;
@@ -305,11 +303,8 @@ impl SpaceState {
             facets,
             metadata,
             encrypted_metadata,
-            title,
-            summary,
             content,
             encrypted_content,
-            encrypted_payload: None,
             fields,
             state: Some(state),
             state_changed_at: self.extract_optional_field(object, "state_changed_at"),
@@ -379,19 +374,13 @@ impl SpaceState {
             .get_mut(&morph_id_str)
             .ok_or_else(|| Error::Protocol(format!("morph not found: {}", morph_id_str)))?;
         if let Some(metadata) = metadata {
-            morph.title = metadata.title.clone();
-            morph.summary = metadata.summary.clone();
             morph.metadata = Some(metadata);
         }
         if let Some(title) = title {
-            morph.title = Some(title);
-            morph.metadata.get_or_insert_with(crate::MorphMetadata::default).title =
-                morph.title.clone();
+            morph.metadata.get_or_insert_with(crate::MorphMetadata::default).title = Some(title);
         }
         if let Some(summary) = summary {
-            morph.summary = Some(summary);
-            morph.metadata.get_or_insert_with(crate::MorphMetadata::default).summary =
-                morph.summary.clone();
+            morph.metadata.get_or_insert_with(crate::MorphMetadata::default).summary = Some(summary);
         }
         if let Some(encrypted_metadata) = encrypted_metadata {
             morph.encrypted_metadata = Some(encrypted_metadata);
@@ -400,11 +389,9 @@ impl SpaceState {
         if let Some(content) = content {
             morph.content = Some(content);
             morph.encrypted_content = None;
-            morph.encrypted_payload = None;
         }
         if let Some(encrypted_content) = encrypted_content {
             morph.encrypted_content = Some(encrypted_content);
-            morph.encrypted_payload = None;
             morph.content = None;
         }
         if let Some(fields) = fields {
@@ -859,24 +846,16 @@ impl SpaceState {
             .ok_or_else(|| Error::Protocol(format!("flow not found: {}", flow_id_str)))?;
 
         if let Some(metadata) = metadata {
-            if let Some(title) = metadata.title.clone() {
-                subject.title = title;
-            }
-            subject.summary = metadata.summary.clone();
-            subject.fields = metadata.fields.clone();
             subject.metadata = Some(metadata);
         }
         if let Some(title) = patch_metadata_string(&patch, "title") {
-            subject.title = title.clone();
             subject.metadata.get_or_insert_with(crate::FlowMetadata::default).title = Some(title);
         }
         if let Some(summary) = patch_metadata_string(&patch, "summary") {
-            subject.summary = Some(summary.clone());
             subject.metadata.get_or_insert_with(crate::FlowMetadata::default).summary =
                 Some(summary);
         }
         if let Some(fields) = fields.or_else(|| patch_metadata_fields(&patch)) {
-            subject.fields = fields.clone();
             subject.metadata.get_or_insert_with(crate::FlowMetadata::default).fields = fields;
         }
         if let Some(encrypted_metadata) = encrypted_metadata {
@@ -886,11 +865,9 @@ impl SpaceState {
         if let Some(body) = body.or(patched_body) {
             subject.body = Some(body);
             subject.encrypted_content = None;
-            subject.encrypted_payload = None;
         }
         if let Some(encrypted_content) = encrypted_content.or(patched_encrypted_content) {
             subject.encrypted_content = Some(encrypted_content);
-            subject.encrypted_payload = None;
             subject.body = None;
         }
         if let Some(tracks) = tracks {
