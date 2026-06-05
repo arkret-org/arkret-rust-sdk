@@ -116,8 +116,8 @@ pub(super) fn compare_json_values(left: &Value, right: &Value) -> Option<Orderin
 pub(super) fn morph_field_value(morph: &Morph, field: &str) -> Option<Value> {
     match field {
         "id" => Some(json!(morph.id.as_str())),
-        "title" => morph.title.as_ref().map(|title| json!(title)),
-        "summary" => morph.summary.as_ref().map(|summary| json!(summary)),
+        "title" => morph.metadata_title().map(|title| json!(title)),
+        "summary" => morph.metadata_summary().map(|summary| json!(summary)),
         "morph_type" => Some(json!(morph.morph_type)),
         "state" => morph.state.as_ref().and_then(|state| serde_json::to_value(state).ok()),
         "created_at" => Some(json!(morph.created_at.to_rfc3339())),
@@ -143,11 +143,11 @@ pub(super) fn value_at_path(value: &Value, path: &str) -> Option<Value> {
 
 pub(super) fn morph_search_text(morph: &Morph) -> String {
     let mut text = String::new();
-    if let Some(title) = &morph.title {
+    if let Some(title) = morph.metadata_title() {
         text.push_str(title);
         text.push(' ');
     }
-    if let Some(summary) = &morph.summary {
+    if let Some(summary) = morph.metadata_summary() {
         text.push_str(summary);
         text.push(' ');
     }

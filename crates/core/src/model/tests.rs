@@ -1154,7 +1154,6 @@ fn flow_constructor_sets_protocol_shape() {
         "Payment refactor",
         Did::new("did:web:alice.example").unwrap(),
     );
-    subject.summary = Some("Unify payment flows".to_owned());
 
     assert_eq!(subject.schema, FLOW_SCHEMA);
     assert!(serde_json::to_value(&subject).unwrap().get("type").is_none());

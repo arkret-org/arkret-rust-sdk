@@ -741,7 +741,6 @@ impl SpaceState {
         let metadata = self
             .extract_optional_field::<crate::FlowMetadata>(object, "metadata")
             .unwrap_or_default();
-        let title = metadata.title.clone().unwrap_or_default();
         let tracks = self
             .extract_optional_field::<BTreeMap<String, crate::FlowTrackConfig>>(object, "tracks")
             .unwrap_or_else(|| {
@@ -752,13 +751,11 @@ impl SpaceState {
                 );
                 tracks
             });
-        let summary = metadata.summary.clone();
         let body = self.extract_optional_field(object, "content");
         let encrypted_content = self.extract_optional_field(object, "encrypted_content");
         let encrypted_metadata = self.extract_optional_field(object, "encrypted_metadata");
         let scope_circle_id =
             self.extract_optional_field::<cokret_core::CircleId>(object, "scope_circle_id");
-        let fields = metadata.fields.clone();
         let state = self
             .extract_optional_field::<String>(object, "state")
             .map(|state| object_state_from_str(&state))
@@ -771,13 +768,9 @@ impl SpaceState {
             scope_circle_id,
             metadata: Some(metadata),
             encrypted_metadata,
-            title,
-            summary,
             body,
             encrypted_content,
-            encrypted_payload: None,
             tracks,
-            fields,
             state: Some(state),
             state_changed_at: None,
             stage: self

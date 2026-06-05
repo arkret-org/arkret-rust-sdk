@@ -414,7 +414,7 @@ fn flow_update_rejected_when_archived() {
     let mut state = SpaceState::new(space_id(), "1".to_owned());
     let err = state.apply_events(&[create, archive, update]).unwrap_err();
     assert!(err.to_string().contains("flow_not_active"), "unexpected error: {err}");
-    assert_eq!(state.subjects.get(flow_id).unwrap().title, "Payment refactor");
+    assert_eq!(state.subjects.get(flow_id).unwrap().metadata_title(), Some("Payment refactor"));
 }
 
 #[test]
@@ -433,7 +433,7 @@ fn morph_update_rejected_when_archived() {
     let mut state = SpaceState::new(space_id(), "1".to_owned());
     let err = state.apply_events(&[create, archive, update]).unwrap_err();
     assert!(err.to_string().contains("morph_not_active"), "unexpected error: {err}");
-    assert_eq!(state.morphs.get(morph_id).unwrap().title.as_deref(), Some("Original Title"));
+    assert_eq!(state.morphs.get(morph_id).unwrap().metadata_title(), Some("Original Title"));
 }
 
 #[test]
@@ -508,9 +508,9 @@ fn flow_events_create_update_and_default_view_relation() {
     state.apply_events(&[relation, update, create]).unwrap();
 
     let flow = state.subjects.get(flow_id).unwrap();
-    assert_eq!(flow.title, "Payment refactor");
-    assert_eq!(flow.summary.as_deref(), Some("Risk, refunds and callbacks are tracked together."));
-    assert_eq!(flow.fields["priority"], "high");
+    assert_eq!(flow.metadata_title(), Some("Payment refactor"));
+    assert_eq!(flow.metadata_summary(), Some("Risk, refunds and callbacks are tracked together."));
+    assert_eq!(flow.metadata_fields().unwrap()["priority"], "high");
 
     let relation = state.relations.get("ck:relation:01904100-0000-7000-8000-4da53c8b9e89").unwrap();
     assert_eq!(relation.relation_kind, crate::RelationKind::HasDefaultView);
@@ -705,7 +705,7 @@ fn reducer_convergence_is_order_independent() {
     assert_eq!(state_a.morphs.len(), state_b.morphs.len());
     for (id, morph_a) in &state_a.morphs {
         let morph_b = state_b.morphs.get(id).unwrap();
-        assert_eq!(morph_a.title, morph_b.title);
+        assert_eq!(morph_a.metadata_title(), morph_b.metadata_title());
         assert_eq!(morph_a.state, morph_b.state);
     }
     assert_eq!(state_a.frontier, state_b.frontier);
