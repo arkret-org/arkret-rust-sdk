@@ -52,8 +52,8 @@ pub struct LocalEcho {
     pub transaction_id: String,
     /// Stable local item ID for UI reconciliation.
     pub item_id: String,
-    /// Space receiving the item.
-    pub space_id: RealmId,
+    /// Realm receiving the item.
+    pub realm_id: RealmId,
     /// Event kind represented by the echo.
     pub event_kind: String,
     /// Echo content.
@@ -69,8 +69,8 @@ pub struct LocalEcho {
 pub struct SendQueueItem {
     /// Idempotent transaction ID.
     pub transaction_id: String,
-    /// Target space.
-    pub space_id: RealmId,
+    /// Target Realm.
+    pub realm_id: RealmId,
     /// Operation kind.
     pub kind: SendQueueItemKind,
     /// Event content.
@@ -163,24 +163,24 @@ impl SendQueue {
     pub fn enqueue_message(
         &mut self,
         transaction_id: Option<String>,
-        space_id: RealmId,
+        realm_id: RealmId,
         content: Value,
     ) -> Result<SendQueueItem> {
-        self.enqueue(transaction_id, space_id, SendQueueItemKind::Message, content, Vec::new())
+        self.enqueue(transaction_id, realm_id, SendQueueItemKind::Message, content, Vec::new())
     }
 
     /// Enqueue a message edit.
     pub fn enqueue_edit(
         &mut self,
         transaction_id: Option<String>,
-        space_id: RealmId,
+        realm_id: RealmId,
         target_event_id: EventId,
         content: Value,
         depends_on: Vec<String>,
     ) -> Result<SendQueueItem> {
         self.enqueue(
             transaction_id,
-            space_id,
+            realm_id,
             SendQueueItemKind::Edit { target_event_id },
             content,
             depends_on,
@@ -191,7 +191,7 @@ impl SendQueue {
     pub fn enqueue_redaction(
         &mut self,
         transaction_id: Option<String>,
-        space_id: RealmId,
+        realm_id: RealmId,
         target_event_id: EventId,
         reason: Option<String>,
         depends_on: Vec<String>,
@@ -200,7 +200,7 @@ impl SendQueue {
             reason.map(|reason| serde_json::json!({ "reason": reason })).unwrap_or(Value::Null);
         self.enqueue(
             transaction_id,
-            space_id,
+            realm_id,
             SendQueueItemKind::Redaction { target_event_id },
             content,
             depends_on,
@@ -211,7 +211,7 @@ impl SendQueue {
     pub fn enqueue_reaction(
         &mut self,
         transaction_id: Option<String>,
-        space_id: RealmId,
+        realm_id: RealmId,
         target_event_id: EventId,
         reaction_key: String,
         add: bool,
@@ -219,7 +219,7 @@ impl SendQueue {
     ) -> Result<SendQueueItem> {
         self.enqueue(
             transaction_id,
-            space_id,
+            realm_id,
             SendQueueItemKind::Reaction { target_event_id, reaction_key, add },
             Value::Null,
             depends_on,
@@ -230,12 +230,12 @@ impl SendQueue {
     pub fn enqueue(
         &mut self,
         transaction_id: Option<String>,
-        space_id: RealmId,
+        realm_id: RealmId,
         kind: SendQueueItemKind,
         content: Value,
         depends_on: Vec<String>,
     ) -> Result<SendQueueItem> {
-        let payload_digest = queue_payload_digest(&space_id, &kind, &content, &depends_on)?;
+        let payload_digest = queue_payload_digest(&realm_id, &kind, &content, &depends_on)?;
         let transaction_id = transaction_id
             .unwrap_or_else(|| format!("txn_{}", payload_digest.trim_start_matches("sha256:")));
 
@@ -253,7 +253,7 @@ impl SendQueue {
         let local_echo = LocalEcho {
             transaction_id: transaction_id.clone(),
             item_id: format!("local:{}", transaction_id),
-            space_id: space_id.clone(),
+            realm_id: realm_id.clone(),
             event_kind,
             content: content.clone(),
             created_at: now,
@@ -261,7 +261,7 @@ impl SendQueue {
         };
         let item = SendQueueItem {
             transaction_id: transaction_id.clone(),
-            space_id,
+            realm_id,
             kind,
             content,
             payload_digest,
@@ -380,13 +380,13 @@ impl SendQueue {
 }
 
 fn queue_payload_digest(
-    space_id: &RealmId,
+    realm_id: &RealmId,
     kind: &SendQueueItemKind,
     content: &Value,
     depends_on: &[String],
 ) -> Result<String> {
     canonical::canonical_sha256(&serde_json::json!({
-        "space_id": space_id,
+        "realm_id": realm_id,
         "kind": kind,
         "content": content,
         "depends_on": depends_on,

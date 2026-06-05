@@ -3,7 +3,7 @@ use super::*;
 /// Processed sync response cache and dispatcher.
 #[derive(Clone, Debug, Default)]
 pub struct SyncResponseProcessor {
-    spaces: BTreeMap<RealmId, ProcessedSpace>,
+    realms: BTreeMap<RealmId, ProcessedRealm>,
     limited_timelines: BTreeMap<RealmId, LimitedTimelineState>,
     to_device: VecDeque<ToDeviceMessage>,
     to_device_acks: BTreeMap<String, ToDeviceAck>,
@@ -29,33 +29,33 @@ impl SyncResponseProcessor {
     pub fn process(&mut self, response: SyncResBody) -> Result<SyncUpdates> {
         self.last_token = Some(response.cursor);
 
-        let mut space_updates = Vec::new();
-        for (raw_space_id, raw_sync_space) in response.spaces {
-            let space_id = RealmId::new(raw_space_id)?;
-            let sync_space: SyncSpace = serde_json::from_value(raw_sync_space).unwrap_or_default();
-            let processed = self.spaces.entry(space_id.clone()).or_default();
-            if let Some(timeline) = &sync_space.timeline {
+        let mut realm_updates = Vec::new();
+        for (raw_realm_id, raw_sync_realm) in response.realms {
+            let realm_id = RealmId::new(raw_realm_id)?;
+            let sync_realm: SyncRealm = serde_json::from_value(raw_sync_realm).unwrap_or_default();
+            let processed = self.realms.entry(realm_id.clone()).or_default();
+            if let Some(timeline) = &sync_realm.timeline {
                 processed.timeline_events += timeline.events.len();
                 processed.last_timeline = Some(timeline.clone());
                 processed.last_limited = timeline.limited;
                 processed.last_prev_cursor = timeline.prev_cursor.clone();
                 if timeline.limited {
-                    let limited = LimitedTimelineState::from_timeline(space_id.clone(), timeline);
+                    let limited = LimitedTimelineState::from_timeline(realm_id.clone(), timeline);
                     processed.limited_timeline_count += 1;
                     processed.pending_gap = limited.gap.clone();
-                    self.limited_timelines.insert(space_id.clone(), limited);
+                    self.limited_timelines.insert(realm_id.clone(), limited);
                 }
             }
-            processed.state_events += sync_space.state.len();
-            processed.summary = sync_space.summary.clone();
-            processed.notification_count = sync_space.unread.notification_count;
-            processed.highlight_count = sync_space.unread.highlight_count;
+            processed.state_events += sync_realm.state.len();
+            processed.summary = sync_realm.summary.clone();
+            processed.notification_count = sync_realm.unread.notification_count;
+            processed.highlight_count = sync_realm.unread.highlight_count;
 
-            space_updates.push(SpaceUpdate {
-                space_id,
-                timeline: sync_space.timeline,
-                state: sync_space.state,
-                summary: sync_space.summary,
+            realm_updates.push(RealmUpdate {
+                realm_id,
+                timeline: sync_realm.timeline,
+                state: sync_realm.state,
+                summary: sync_realm.summary,
             });
         }
 
@@ -87,7 +87,7 @@ impl SyncResponseProcessor {
         }
 
         Ok(SyncUpdates {
-            space_updates,
+            realm_updates,
             to_device,
             device_lists,
             presence,
@@ -97,9 +97,9 @@ impl SyncResponseProcessor {
         })
     }
 
-    /// Get cached data for a processed space.
-    pub fn space(&self, space_id: &RealmId) -> Option<&ProcessedSpace> {
-        self.spaces.get(space_id)
+    /// Get cached data for a processed Realm.
+    pub fn realm(&self, realm_id: &RealmId) -> Option<&ProcessedRealm> {
+        self.realms.get(realm_id)
     }
 
     /// Drain queued to-device messages in receive order.
@@ -169,10 +169,10 @@ impl SyncResponseProcessor {
     }
 }
 
-/// Cached state for one processed space.
+/// Cached state for one processed Realm.
 #[derive(Clone, Debug, Default)]
-pub struct ProcessedSpace {
-    /// Last timeline section received for this space.
+pub struct ProcessedRealm {
+    /// Last timeline section received for this Realm.
     pub last_timeline: Option<SyncTimeline>,
     /// Total timeline events processed.
     pub timeline_events: usize,

@@ -76,7 +76,7 @@ impl ChimePushRegistration {
 pub struct PushEvent {
     pub event_id: EventId,
     pub user_id: Did,
-    pub space_id: Option<RealmId>,
+    pub realm_id: Option<RealmId>,
     pub event_kind: String,
     pub content: Value,
     pub encrypted: bool,
@@ -108,12 +108,12 @@ pub struct EncryptedPushPayload {
 /// credentials. By default
 /// any payload whose body or data fields contain a `did:` substring is
 /// rejected. Callers MAY whitelist services they have explicitly listed
-/// under `Space.policy.plaintext_visible_services` by adding their service
+/// under `ck.realm.plaintext_visible_services` by adding their service
 /// DID to `allow_plaintext_for_services`.
 #[derive(Clone, Debug, Default)]
 pub struct PushPrivacyPolicy {
     /// Service DIDs explicitly authorised to receive plaintext (e.g. listed
-    /// under Space `plaintext_visible_services`). Anything not on this list
+    /// under Realm `plaintext_visible_services`). Anything not on this list
     /// MUST receive minimal-metadata or encrypted payloads.
     pub allow_plaintext_for_services: BTreeSet<Did>,
     /// When `true` (default), the validator rejects payloads whose `body`,
@@ -141,7 +141,7 @@ impl PushPrivacyPolicy {
         // gateway already correlates this token to a stable identity.
         if payload.token.contains("did:") {
             return Err(Error::Protocol(
-                "push token contains a raw did: substring; use a Space-scoped pairwise pseudonym (B-14)"
+                "push token contains a raw did: substring; use a Realm-scoped pairwise pseudonym (B-14)"
                     .to_owned(),
             ));
         }
@@ -291,7 +291,7 @@ impl PushGateway {
             priority: rule.priority,
             data: json!({
                 "event_id": event.event_id.as_str(),
-                "space_id": event.space_id.as_ref().map(|space_id| space_id.as_str()),
+                "realm_id": event.realm_id.as_ref().map(|realm_id| realm_id.as_str()),
                 "event_kind": event.event_kind,
                 "platform": format!("{:?}", token.platform).to_lowercase(),
             }),
@@ -359,7 +359,7 @@ mod tests {
         PushEvent {
             event_id: EventId::new("ck:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
             user_id: did("alice"),
-            space_id: Some(RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()),
+            realm_id: Some(RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()),
             event_kind: "ck.message".to_owned(),
             content: json!({"body": "hello"}),
             encrypted,

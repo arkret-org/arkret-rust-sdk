@@ -41,7 +41,7 @@ fn move_signer_and_event_proof_signer_share_one_jws_header_and_signature() {
     let move_signer = Ed25519MoveSigner::from_did_key_seed(seed, did.clone(), vm);
     let unsigned = UnsignedMove::new(
         did.clone(),
-        RealmId::new("ck:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap(),
+        RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap(),
         AnchorId::new(format!("ck:anchor:sha256:{}", "aa".repeat(32))).unwrap(),
         vec![Effect {
             cell: CellRef::new(

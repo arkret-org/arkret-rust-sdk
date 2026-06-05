@@ -16,16 +16,16 @@
 //! - **OrSet** (causal add/remove): consent.grant, capability.grant /
 //!   delegate / derived, session.grant, device.authorized,
 //!   device.list_update, agent.key, covered_frontier (MLS).
-//! - **CasRegister** (last-writer-wins, conflict→Bottom): space.policy,
-//!   space.read_receipt_policy, space.history_visibility,
-//!   space.join_rule, space.discovery, space.organization,
+//! - **CasRegister** (last-writer-wins, conflict→Bottom): realm.policy,
+//!   realm.read_receipt_policy, realm.history_visibility,
+//!   realm.join_rule, realm.discovery, realm.organization,
 //!   realm.upgrade, flow.position, flow.stage, morph.stage, space.parent,
-//!   anchorer (Move/Anchor authority cell), mls_epoch.
+//!   device.push_route, anchorer (Move/Anchor authority cell), mls_epoch.
 //! - **Fsm** (legal transitions only): member.state, agent.status.
 //!   
-//! - **OrderedLog** (per-issuer monotonic append): space.create,
-//!   space.child, space.parent, account.status, policy.rule,
-//!   cross_signing.reset.
+//! - **OrderedLog** (per-issuer monotonic append): account.status,
+//!   policy.rule, cross_signing.reset, contact.fact_log,
+//!   direct_conversation.binding.
 //! - **MvRegister** (concurrent multi-value): profile.create,
 //!   view.create / update / reconcile, mimi.room_binding.
 
@@ -419,6 +419,64 @@ per_subject_lattice!(
     &["ck.device.list_update"]
 );
 
+pub struct DevicePushRoute;
+impl LatticeKind for DevicePushRoute {
+    fn cell_family(&self) -> &'static str {
+        "ck.component.device.push_route.v1"
+    }
+    fn lattice(&self) -> SdkLatticeKind {
+        SdkLatticeKind::CasRegister
+    }
+    fn bottom_policy(&self) -> BottomPolicy {
+        BottomPolicy::Reject
+    }
+    fn component(&self) -> ComponentDescriptor {
+        ComponentDescriptor {
+            component_type: "ck.component.device.push_route.v1",
+            component_version: 1,
+            criticality: Criticality::Required,
+        }
+    }
+    fn subject_for_effect(
+        &self,
+        effect_payload: &Value,
+    ) -> Result<Option<String>, LatticeKindError> {
+        let recipient_service_did = effect_payload
+            .get("recipient_service_did")
+            .and_then(Value::as_str)
+            .ok_or(LatticeKindError::MissingSubjectField {
+                cell_family: "ck.component.device.push_route.v1",
+                field: "recipient_service_did",
+            })?;
+        let principal_id = effect_payload
+            .get("principal_id")
+            .and_then(Value::as_str)
+            .ok_or(LatticeKindError::MissingSubjectField {
+                cell_family: "ck.component.device.push_route.v1",
+                field: "principal_id",
+            })?;
+        let device_id = effect_payload.get("device_id").and_then(Value::as_str).ok_or(
+            LatticeKindError::MissingSubjectField {
+                cell_family: "ck.component.device.push_route.v1",
+                field: "device_id",
+            },
+        )?;
+        let push_route = effect_payload
+            .get("push_route")
+            .and_then(Value::as_str)
+            .ok_or(LatticeKindError::MissingSubjectField {
+                cell_family: "ck.component.device.push_route.v1",
+                field: "push_route",
+            })?;
+        Ok(Some(format!(
+            "{recipient_service_did}::{principal_id}::{device_id}::{push_route}"
+        )))
+    }
+    fn event_kinds(&self) -> &'static [&'static str] {
+        &["ck.device.push_route"]
+    }
+}
+
 pub struct AgentKey;
 impl LatticeKind for AgentKey {
     fn cell_family(&self) -> &'static str {
@@ -513,192 +571,12 @@ singleton_lattice!(
 // ────────────────────────── CasRegister families ──────────────────────────
 
 singleton_lattice!(
-    SpacePolicy,
-    "ck.component.space.policy.v1",
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
-    Criticality::Required,
-    &["ck.realm.policy"]
-);
-
-singleton_lattice!(
-    SpaceReadReceiptPolicyLattice,
-    "ck.component.space.read_receipt_policy.v1",
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
-    Criticality::Required,
-    &["ck.realm.read_receipt_policy"]
-);
-
-singleton_lattice!(
-    SpaceHistoryVisibility,
-    "ck.component.space.history_visibility.v1",
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
-    Criticality::Required,
-    &["ck.realm.history_visibility"]
-);
-
-singleton_lattice!(
-    SpaceJoinRule,
-    "ck.component.space.join_rule.v1",
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
-    Criticality::Required,
-    &["ck.realm.join_rule"]
-);
-
-singleton_lattice!(
-    SpaceDiscovery,
-    "ck.component.space.discovery.v1",
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
-    Criticality::Required,
-    &["ck.realm.discovery"]
-);
-
-singleton_lattice!(
-    SpaceOrganization,
-    "ck.component.space.organization.v1",
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
-    Criticality::Required,
-    &["ck.realm.organization", "ck.realm.update"]
-);
-
-singleton_lattice!(
-    SpaceUpgrade,
-    "ck.component.space.upgrade.v1",
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
-    Criticality::Required,
-    &["ck.realm.upgrade"]
-);
-
-singleton_lattice!(
-    SpaceArchive,
-    "ck.component.space.archive.v1",
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
-    Criticality::Required,
-    &["ck.realm.archive"]
-);
-
-singleton_lattice!(
-    SpaceFreeze,
-    "ck.component.space.freeze.v1",
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
-    Criticality::Required,
-    &["ck.realm.freeze"]
-);
-
-singleton_lattice!(
-    SpaceTombstone,
-    "ck.component.space.tombstone.v1",
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
-    Criticality::Required,
-    &["ck.realm.tombstone"]
-);
-
-singleton_lattice!(
-    SpaceDestroy,
-    "ck.component.space.destroy.v1",
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
-    Criticality::Required,
-    &["ck.realm.destroy"]
-);
-
-singleton_lattice!(
     CircleTombstone,
     "ck.component.circle.tombstone.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required,
     &["ck.circle.tombstone"]
-);
-
-singleton_lattice!(
-    SpaceModerationPolicy,
-    "ck.component.space.moderation_policy.v1",
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
-    Criticality::Required,
-    &["ck.realm.moderation_policy"]
-);
-
-singleton_lattice!(
-    SpaceHistorySharingPolicy,
-    "ck.component.space.history_sharing_policy.v1",
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
-    Criticality::Required,
-    &["ck.realm.history_sharing_policy"]
-);
-
-singleton_lattice!(
-    SpaceAssetPrivacyPolicy,
-    "ck.component.space.asset_privacy_policy.v1",
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
-    Criticality::Required,
-    &["ck.realm.asset_privacy_policy"]
-);
-
-singleton_lattice!(
-    SpacePolicyComponents,
-    "ck.component.space.policy_components.v1",
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
-    Criticality::Required,
-    &["ck.realm.policy_components"]
-);
-
-singleton_lattice!(
-    SpacePolicyServer,
-    "ck.component.space.policy_server.v1",
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
-    Criticality::Required,
-    &["ck.realm.policy_server"]
-);
-
-singleton_lattice!(
-    SpacePlaintextVisibleServices,
-    "ck.component.space.plaintext_visible_services.v1",
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
-    Criticality::Required,
-    &["ck.realm.plaintext_visible_services"]
-);
-
-singleton_lattice!(
-    SpaceMediaService,
-    "ck.component.space.media_service.v1",
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
-    Criticality::Required,
-    &["ck.realm.media_service"]
-);
-
-singleton_lattice!(
-    SpaceSchema,
-    "ck.component.space.schema.v1",
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
-    Criticality::Required,
-    &["ck.realm.schema"]
-);
-
-singleton_lattice!(
-    SpaceInheritancePolicy,
-    "ck.component.space.inheritance_policy.v1",
-    SdkLatticeKind::CasRegister,
-    BottomPolicy::Reject,
-    Criticality::Required,
-    &["ck.realm.inheritance_policy"]
 );
 
 per_subject_lattice!(
@@ -871,24 +749,6 @@ impl LatticeKind for CircleMember {
 // ────────────────────────── OrderedLog families ──────────────────────────
 
 singleton_lattice!(
-    SpaceCreate,
-    "ck.component.space.create.v1",
-    SdkLatticeKind::OrderedLog,
-    BottomPolicy::Expose,
-    Criticality::Required,
-    &["ck.space.create"]
-);
-
-singleton_lattice!(
-    SpaceChild,
-    "ck.component.space.child.v1",
-    SdkLatticeKind::OrderedLog,
-    BottomPolicy::Expose,
-    Criticality::Required,
-    &["ck.space.child"]
-);
-
-singleton_lattice!(
     CircleCreate,
     "ck.component.circle.create.v1",
     SdkLatticeKind::OrderedLog,
@@ -988,6 +848,59 @@ impl LatticeKind for MemberIdentity {
     }
 }
 
+pub struct ContactFactLog;
+impl LatticeKind for ContactFactLog {
+    fn cell_family(&self) -> &'static str {
+        "ck.component.contact.fact_log.v1"
+    }
+    fn lattice(&self) -> SdkLatticeKind {
+        SdkLatticeKind::OrderedLog
+    }
+    fn bottom_policy(&self) -> BottomPolicy {
+        BottomPolicy::Expose
+    }
+    fn component(&self) -> ComponentDescriptor {
+        ComponentDescriptor {
+            component_type: "ck.component.contact.fact_log.v1",
+            component_version: 1,
+            criticality: Criticality::Required,
+        }
+    }
+    fn subject_for_effect(
+        &self,
+        effect_payload: &Value,
+    ) -> Result<Option<String>, LatticeKindError> {
+        effect_payload
+            .get("target")
+            .or_else(|| effect_payload.get("requester"))
+            .or_else(|| effect_payload.get("peer"))
+            .and_then(Value::as_str)
+            .map(|s| Some(s.to_owned()))
+            .ok_or(LatticeKindError::MissingSubjectField {
+                cell_family: "ck.component.contact.fact_log.v1",
+                field: "target/requester/peer",
+            })
+    }
+    fn event_kinds(&self) -> &'static [&'static str] {
+        &[
+            "ck.contact.requested",
+            "ck.contact.accepted",
+            "ck.contact.rejected",
+            "ck.contact.tombstoned",
+        ]
+    }
+}
+
+per_subject_lattice!(
+    DirectConversationBinding,
+    "ck.component.direct_conversation.binding.v1",
+    SdkLatticeKind::OrderedLog,
+    BottomPolicy::Expose,
+    Criticality::Required,
+    "pair_key",
+    &["ck.direct_conversation.bound"]
+);
+
 // ────────────────────────── MvRegister families ──────────────────────────
 
 per_subject_lattice!(
@@ -1040,22 +953,7 @@ per_subject_lattice!(
     &["ck.mimi.room_binding"]
 );
 
-// ─────────── Realm-rename + spec-new families (R1.2) ───────────
-//
-// The spec event-kind registry has renamed the realm-scoped policy /
-// lifecycle cell families from `ck.component.space.*` to
-// `ck.component.realm.*` (per `cokret-spec/spec/v1/zh/models/realm-and-space.md`).
-// Two brand-new flow-shape families (`ck.component.flow.metadata.v1`,
-// `ck.component.flow.tracks.v1`) and one cross-realm linking family
-// (`ck.component.realm.link.v1`) also landed in the same rev.
-//
-// These impls are registered AFTER the legacy `Space*` impls in
-// `default_lattice_registry()` so the event_kind index — which is
-// last-write-wins — resolves `ck.realm.<facet>` to the new
-// `ck.component.realm.<facet>.v1` family. The old `Space*` impls stay
-// registered for back-compat with existing soland reducer cell IDs
-// (`ck:cell:ck.component.space.policy.v1:<space_id>` etc.) until those
-// reducer paths follow the rename.
+// ─────────── Realm families ───────────
 
 // ── Realm CasRegister/Reject singleton families ──
 
@@ -1351,33 +1249,14 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(SessionGrant);
     registry.register(DeviceAuthorized);
     registry.register(DeviceListUpdate);
+    registry.register(DevicePushRoute);
     registry.register(AgentKey);
     registry.register(CoveredFrontier);
     registry.register(KeyBackupActiveSeries);
 
     // CasRegister
-    registry.register(SpacePolicy);
-    registry.register(SpaceReadReceiptPolicyLattice);
-    registry.register(SpaceHistoryVisibility);
-    registry.register(SpaceJoinRule);
-    registry.register(SpaceDiscovery);
-    registry.register(SpaceOrganization);
-    registry.register(SpaceUpgrade);
-    registry.register(SpaceArchive);
-    registry.register(SpaceFreeze);
-    registry.register(SpaceTombstone);
-    registry.register(SpaceDestroy);
     registry.register(CircleTombstone);
     registry.register(CircleMember);
-    registry.register(SpaceModerationPolicy);
-    registry.register(SpaceHistorySharingPolicy);
-    registry.register(SpaceAssetPrivacyPolicy);
-    registry.register(SpacePolicyComponents);
-    registry.register(SpacePolicyServer);
-    registry.register(SpacePlaintextVisibleServices);
-    registry.register(SpaceMediaService);
-    registry.register(SpaceSchema);
-    registry.register(SpaceInheritancePolicy);
     registry.register(FlowPosition);
     registry.register(FlowStage);
     registry.register(MorphStage);
@@ -1391,14 +1270,14 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(AgentStatus);
 
     // OrderedLog
-    registry.register(SpaceCreate);
-    registry.register(SpaceChild);
     registry.register(CircleCreate);
     registry.register(SpaceParent);
     registry.register(AccountStatus);
     registry.register(PolicyRule);
     registry.register(CrossSigningReset);
     registry.register(MemberIdentity);
+    registry.register(ContactFactLog);
+    registry.register(DirectConversationBinding);
 
     // MvRegister
     registry.register(ProfileCreate);
@@ -1407,10 +1286,6 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(ViewReconcile);
     registry.register(MimiRoomBinding);
 
-    // R1.2 — Realm-rename families. Registered after the legacy `Space*`
-    // impls so the event_kind index (last-write-wins) resolves
-    // `ck.realm.<facet>` events to the new `ck.component.realm.<facet>.v1`
-    // families per the spec event-kind-registry.
     registry.register(RealmPolicy);
     registry.register(RealmReadReceiptPolicy);
     registry.register(RealmHistoryVisibility);
@@ -1457,32 +1332,13 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "ck.component.session.grant.v1",
         "ck.component.device.authorization.v1",
         "ck.component.device.list_update.v1",
+        "ck.component.device.push_route.v1",
         "ck.component.agent.key.v1",
         "ck.component.mls.covered_frontier.v1",
         "ck.component.key_backup.active_series.v1",
         // CasRegister
-        "ck.component.space.policy.v1",
-        "ck.component.space.read_receipt_policy.v1",
-        "ck.component.space.history_visibility.v1",
-        "ck.component.space.join_rule.v1",
-        "ck.component.space.discovery.v1",
-        "ck.component.space.organization.v1",
-        "ck.component.space.upgrade.v1",
-        "ck.component.space.archive.v1",
-        "ck.component.space.freeze.v1",
-        "ck.component.space.tombstone.v1",
-        "ck.component.space.destroy.v1",
         "ck.component.circle.tombstone.v1",
         "ck.component.circle.member.v1",
-        "ck.component.space.moderation_policy.v1",
-        "ck.component.space.history_sharing_policy.v1",
-        "ck.component.space.asset_privacy_policy.v1",
-        "ck.component.space.policy_components.v1",
-        "ck.component.space.policy_server.v1",
-        "ck.component.space.plaintext_visible_services.v1",
-        "ck.component.space.media_service.v1",
-        "ck.component.space.schema.v1",
-        "ck.component.space.inheritance_policy.v1",
         "ck.component.flow.position.v1",
         "ck.component.flow.stage.v1",
         "ck.component.morph.stage.v1",
@@ -1494,21 +1350,21 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "ck.component.member.state.v1",
         "ck.component.agent.status.v1",
         // OrderedLog
-        "ck.component.space.create.v1",
-        "ck.component.space.child.v1",
         "ck.component.circle.create.v1",
         "ck.component.space.parent.v1",
         "ck.component.account.status.v1",
         "ck.component.policy.rule.v1",
         "ck.component.cross_signing.reset.v1",
         "ck.component.member.identity.v1",
+        "ck.component.contact.fact_log.v1",
+        "ck.component.direct_conversation.binding.v1",
         // MvRegister
         "ck.component.profile.create.v1",
         "ck.component.view.create.v1",
         "ck.component.view.update.v1",
         "ck.component.view.reconcile.v1",
         "ck.component.mimi.room_binding.v1",
-        // R1.2 — Realm-rename + spec-new flow facet families.
+        // Realm + spec-new flow facet families.
         "ck.component.realm.policy.v1",
         "ck.component.realm.read_receipt_policy.v1",
         "ck.component.realm.history_visibility.v1",
@@ -1617,22 +1473,11 @@ mod tests {
 
     #[test]
     fn default_registry_kind_count_matches_expected_total() {
-        // Sanity-check that the move from soland preserved every
-        // family. Bumped to 75 after R1.2 — the spec event-kind registry
-        // renamed `ck.component.space.*` realm-policy families to
-        // `ck.component.realm.*` and added `ck.component.flow.metadata.v1`,
-        // `ck.component.flow.tracks.v1`, `ck.component.realm.link.v1`,
-        // `ck.component.realm.create.v1`, `ck.component.realm.destroy.v1`,
-        // `ck.component.realm.delivery_binding_policy.v1`. We keep the
-        // legacy `Space*` impls registered for reducer back-compat, so
-        // 49 (legacy) + 28 (new realm/flow/morph/agent) - 4 withdrawn
-        // agent extension vectors families, plus agent status, Circle, and
-        // member identity cells, preview policy, plus key-backup
-        // active-series = 80.
-        // Bump this number deliberately when the spec event-kind
-        // registry grows a new cell_family.
+        // The registry covers the 58 cell families declared by
+        // event-kind-registry plus the three reducer-local anchor/MLS
+        // families (`anchorer`, `mls.epoch`, `mls.covered_frontier`).
         let registry = default_lattice_registry();
-        assert_eq!(registry.len(), 80);
+        assert_eq!(registry.len(), 61);
     }
 
     #[test]
@@ -1657,9 +1502,9 @@ mod tests {
     }
 
     #[test]
-    fn space_policy_is_singleton_cas_register() {
+    fn realm_policy_is_singleton_cas_register() {
         let registry = default_lattice_registry();
-        let kind = registry.lookup("ck.component.space.policy.v1").unwrap();
+        let kind = registry.lookup("ck.component.realm.policy.v1").unwrap();
         assert_eq!(kind.lattice(), SdkLatticeKind::CasRegister);
         let subject = kind.subject_for_effect(&json!({})).unwrap();
         assert!(subject.is_none());
@@ -1709,7 +1554,7 @@ mod tests {
     #[test]
     fn ordered_log_families_have_per_issuer_subject_or_singleton() {
         let registry = default_lattice_registry();
-        let kind = registry.lookup("ck.component.space.create.v1").unwrap();
+        let kind = registry.lookup("ck.component.realm.create.v1").unwrap();
         assert_eq!(kind.lattice(), SdkLatticeKind::OrderedLog);
         let kind = registry.lookup("ck.component.account.status.v1").unwrap();
         assert_eq!(kind.lattice(), SdkLatticeKind::OrderedLog);

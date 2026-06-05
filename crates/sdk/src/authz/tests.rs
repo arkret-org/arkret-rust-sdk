@@ -1,12 +1,12 @@
 use super::*;
-use crate::{Event, EventId, EventRequirements, Hlc, RealmId, SpaceState};
+use crate::{Event, EventId, EventRequirements, Hlc, RealmId, RealmState};
 use serde_json::json;
 use std::collections::BTreeMap;
 
 fn grant_for(action: &str, resource: ResourceSelector) -> CapabilityGrant {
     CapabilityGrant {
         id: "grant-1".to_owned(),
-        space_id: None,
+        realm_id: None,
         issuer: Did::new("did:web:authority.example.com").unwrap(),
         subject: Did::new("did:web:alice.example.com").unwrap(),
         actions: vec![action.to_owned()],
@@ -356,11 +356,8 @@ fn authz_engine_deny_wrong_action() {
 }
 
 #[test]
-fn authz_engine_evaluates_grants_from_space_state() {
-    let mut state = SpaceState::new(
-        RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
-        "1".to_owned(),
-    );
+fn authz_engine_evaluates_grants_from_realm_state() {
+    let mut state = RealmState::new(RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap());
     let grant = capability_event(
         "ck:event:01904100-0000-7000-8000-db6fcaf186ba",
         "ck.capability.grant",
@@ -385,15 +382,12 @@ fn authz_engine_evaluates_grants_from_space_state() {
     );
 
     let mut engine = AuthzEngine::new();
-    assert!(engine.check_authorization_from_space_state(&ctx, &state).is_allowed());
+    assert!(engine.check_authorization_from_realm_state(&ctx, &state).is_allowed());
 }
 
 #[test]
-fn authz_engine_denies_after_revoke_wins_in_space_state() {
-    let mut state = SpaceState::new(
-        RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
-        "1".to_owned(),
-    );
+fn authz_engine_denies_after_revoke_wins_in_realm_state() {
+    let mut state = RealmState::new(RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap());
     let grant = capability_event(
         "ck:event:01904100-0000-7000-8000-4fe0190ae99f",
         "ck.capability.grant",
@@ -425,15 +419,12 @@ fn authz_engine_denies_after_revoke_wins_in_space_state() {
     );
 
     let mut engine = AuthzEngine::new();
-    assert!(!engine.check_authorization_from_space_state(&ctx, &state).is_allowed());
+    assert!(!engine.check_authorization_from_realm_state(&ctx, &state).is_allowed());
 }
 
 #[test]
-fn authz_engine_denies_after_delegate_revoke_wins_in_space_state() {
-    let mut state = SpaceState::new(
-        RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
-        "1".to_owned(),
-    );
+fn authz_engine_denies_after_delegate_revoke_wins_in_realm_state() {
+    let mut state = RealmState::new(RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap());
     let delegate = capability_event(
         "ck:event:01904100-0000-7000-8000-cadd1669a70a",
         "ck.capability.delegate",
@@ -459,7 +450,7 @@ fn authz_engine_denies_after_delegate_revoke_wins_in_space_state() {
     );
 
     let mut engine = AuthzEngine::new();
-    assert!(engine.check_authorization_from_space_state(&ctx, &state).is_allowed());
+    assert!(engine.check_authorization_from_realm_state(&ctx, &state).is_allowed());
 
     let revoke = capability_event(
         "ck:event:01904100-0000-7000-8000-738d5fbe3070",
@@ -470,7 +461,7 @@ fn authz_engine_denies_after_delegate_revoke_wins_in_space_state() {
     );
     state.apply_events(&[revoke]).unwrap();
 
-    assert!(!engine.check_authorization_from_space_state(&ctx, &state).is_allowed());
+    assert!(!engine.check_authorization_from_realm_state(&ctx, &state).is_allowed());
 }
 
 #[test]
@@ -561,7 +552,7 @@ fn capability_frontier_rejects_cycles_widening_and_unknown_critical_constraints(
     root.delegable = true;
     let child = CapabilityGrant {
         id: "child".to_owned(),
-        space_id: None,
+        realm_id: None,
         issuer: alice,
         subject: bob,
         actions: vec!["ck.message.create".to_owned()],

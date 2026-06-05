@@ -48,9 +48,9 @@ pub struct Cursor {
     pub purpose: CursorPurpose,
     /// Cursor generation timestamp (RFC 3339).
     pub t: String,
-    /// Space positions map.
+    /// Realm positions map.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub s: BTreeMap<String, SpacePosition>,
+    pub s: BTreeMap<String, RealmPosition>,
     /// Device positions map (optional).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub d: Option<BTreeMap<String, String>>,
@@ -94,13 +94,13 @@ pub struct CursorTarget {
     pub event_id: String,
     pub event_digest: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<String>,
+    pub realm_id: Option<String>,
 }
 
-/// Position information for a single Space.
+/// Position information for a single Realm.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SpacePosition {
+pub struct RealmPosition {
     /// Causal frontier (event IDs).
     pub p: Vec<String>,
     /// Timeline order HLC.
@@ -165,13 +165,13 @@ impl Cursor {
         }
     }
 
-    /// Set a space position in the cursor.
-    pub fn with_space_position(
+    /// Set a Realm position in the cursor.
+    pub fn with_realm_position(
         mut self,
-        space_id: impl Into<String>,
-        position: SpacePosition,
+        realm_id: impl Into<String>,
+        position: RealmPosition,
     ) -> Self {
-        self.s.insert(space_id.into(), position);
+        self.s.insert(realm_id.into(), position);
         self
     }
 
@@ -226,13 +226,13 @@ impl Cursor {
         mut self,
         event_id: impl Into<String>,
         event_digest: impl Into<String>,
-        space_id: Option<String>,
+        realm_id: Option<String>,
     ) -> Self {
         self.purpose = CursorPurpose::Barrier;
         self.target = Some(CursorTarget {
             event_id: event_id.into(),
             event_digest: event_digest.into(),
-            space_id,
+            realm_id,
         });
         self
     }
@@ -307,10 +307,10 @@ impl Cursor {
             return Err(Error::Protocol("cursor has expired".to_owned()));
         }
 
-        // Validate space positions
-        for (space_id, pos) in &self.s {
-            Self::validate_space_id(space_id)?;
-            Self::validate_space_position(pos)?;
+        // Validate Realm positions
+        for (realm_id, pos) in &self.s {
+            Self::validate_realm_id(realm_id)?;
+            Self::validate_realm_position(pos)?;
         }
 
         // Validate device positions
@@ -325,8 +325,8 @@ impl Cursor {
             if !is_digest(&target.event_digest) {
                 return Err(Error::InvalidId(target.event_digest.clone()));
             }
-            if let Some(space_id) = &target.space_id {
-                Self::validate_space_id(space_id)?;
+            if let Some(realm_id) = &target.realm_id {
+                Self::validate_realm_id(realm_id)?;
             }
         }
 
@@ -342,15 +342,14 @@ impl Cursor {
         Ok(())
     }
 
-    fn validate_space_id(space_id: &str) -> Result<()> {
-        if !has_prefixed_uuid7(space_id, "ck:realm:") && !has_prefixed_uuid7(space_id, "ck:space:")
-        {
-            return Err(Error::InvalidId(space_id.to_owned()));
+    fn validate_realm_id(realm_id: &str) -> Result<()> {
+        if !has_prefixed_uuid7(realm_id, "ck:realm:") {
+            return Err(Error::InvalidId(realm_id.to_owned()));
         }
         Ok(())
     }
 
-    fn validate_space_position(pos: &SpacePosition) -> Result<()> {
+    fn validate_realm_position(pos: &RealmPosition) -> Result<()> {
         // Validate HLC format
         Hlc::new(&pos.order)?;
 
@@ -439,12 +438,12 @@ impl Cursor {
 
     /// Extract sync positions from the cursor.
     pub fn to_positions(&self) -> Result<SyncPositions> {
-        let mut spaces = BTreeMap::new();
+        let mut realms = BTreeMap::new();
 
-        for (space_id, pos) in &self.s {
-            spaces.insert(
-                space_id.clone(),
-                SpaceSyncPosition {
+        for (realm_id, pos) in &self.s {
+            realms.insert(
+                realm_id.clone(),
+                RealmSyncPosition {
                     frontier: pos.p.clone(),
                     timeline_order: pos.order.clone(),
                     state_digest: pos.h.clone(),
@@ -460,7 +459,7 @@ impl Cursor {
             map
         });
 
-        Ok(SyncPositions { spaces, devices })
+        Ok(SyncPositions { realms, devices })
     }
 
     /// Check if the cursor is expired.
@@ -538,15 +537,15 @@ fn is_digest(value: &str) -> bool {
 /// Sync positions extracted from a cursor.
 #[derive(Clone, Debug, Default)]
 pub struct SyncPositions {
-    /// Space positions by space ID.
-    pub spaces: BTreeMap<String, SpaceSyncPosition>,
+    /// Realm positions by Realm ID.
+    pub realms: BTreeMap<String, RealmSyncPosition>,
     /// Device positions by device ID.
     pub devices: Option<BTreeMap<String, String>>,
 }
 
-/// Sync position for a single Space.
+/// Sync position for a single Realm.
 #[derive(Clone, Debug)]
-pub struct SpaceSyncPosition {
+pub struct RealmSyncPosition {
     /// Causal frontier (event IDs).
     pub frontier: Vec<String>,
     /// Timeline order HLC.
@@ -568,7 +567,7 @@ impl SyncTracker {
     /// Create a new sync tracker.
     pub fn new() -> Self {
         Self {
-            positions: SyncPositions { spaces: BTreeMap::new(), devices: None },
+            positions: SyncPositions { realms: BTreeMap::new(), devices: None },
             sync_tokens: HashMap::new(),
         }
     }
@@ -579,7 +578,7 @@ impl SyncTracker {
         self.sync_tokens.insert("default".to_owned(), response.cursor.clone());
 
         // Update positions from the response
-        // (Implementation would parse the response and update spaces/devices)
+        // (Implementation would parse the response and update realms/devices)
 
         Ok(())
     }
@@ -591,7 +590,7 @@ impl SyncTracker {
 
     /// Clear all tracked positions.
     pub fn clear(&mut self) {
-        self.positions.spaces.clear();
+        self.positions.realms.clear();
         self.positions.devices = None;
     }
 }
@@ -638,9 +637,9 @@ mod tests {
     #[test]
     fn core_cursor_rejects_inline_positions() {
         let mut cursor = Cursor::new().unwrap();
-        cursor = cursor.with_space_position(
+        cursor = cursor.with_realm_position(
             "ck:realm:01904100-0000-7000-8000-9b64700c6ee8",
-            SpacePosition {
+            RealmPosition {
                 p: vec![],
                 order: "invalid-hlc".to_owned(),
                 h: "sha256:abc123...".to_owned(),
@@ -663,9 +662,9 @@ mod tests {
     #[test]
     fn sync_positions_are_server_side_for_core_cursor() {
         let positions = SyncPositions {
-            spaces: BTreeMap::from([(
+            realms: BTreeMap::from([(
                 "ck:realm:0196419b-0000-7000-8000-000000000000".to_owned(),
-                SpaceSyncPosition {
+                RealmSyncPosition {
                     frontier: vec!["ck:event:0196419b-0000-7000-8000-000000000001".to_owned()],
                     timeline_order: "01970e589d21-0004-a13f9c2e".to_owned(),
                     state_digest:

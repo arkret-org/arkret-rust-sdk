@@ -91,11 +91,11 @@ pub enum CryptoMachineRequestKind {
     QueryDeviceKeys,
     /// `ck.keys.claim_one_time_keys` — claim peers' one-time keys.
     ClaimOneTimeKeys,
-    /// `ck.event.encrypt` — encrypt an event into a Space session.
+    /// `ck.event.encrypt` — encrypt an event into a Realm session.
     EncryptEvent,
     /// `ck.event.decrypt` — decrypt a received encrypted event.
     DecryptEvent,
-    /// `ck.keys.share_room_key` — distribute a Space session key.
+    /// `ck.keys.share_room_key` — distribute a Realm session key.
     ShareRoomKey,
     /// `ck.keys.request_room_key` — request a missing session key.
     RequestRoomKey,
@@ -755,7 +755,7 @@ impl DeviceVerificationFlow {
     }
 }
 
-/// Lifecycle state of a Space E2EE session key tracked locally.
+/// Lifecycle state of a Realm E2EE session key tracked locally.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CryptoSessionState {
@@ -771,11 +771,11 @@ pub enum CryptoSessionState {
     Revoked,
 }
 
-/// Local record of a single Space session — key id, sender device key,
+/// Local record of a single Realm session — key id, sender device key,
 /// algorithm, current state and replay watermark.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CryptoSessionRecord {
-    pub space_id: RealmId,
+    pub realm_id: RealmId,
     pub session_id: String,
     pub sender_key: String,
     pub algorithm: String,
@@ -812,12 +812,12 @@ impl CryptoSessionRecord {
     }
 }
 
-/// Sender-explicit refusal to share a Space session key with this
+/// Sender-explicit refusal to share a Realm session key with this
 /// device (e.g. via `m.blacklisted` or recipient-not-trusted).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WithheldKeyRecord {
-    /// Space the withheld session belongs to.
-    pub space_id: RealmId,
+    /// Realm the withheld session belongs to.
+    pub realm_id: RealmId,
     /// Session that the sender refused to share.
     pub session_id: String,
     /// Sending principal.
@@ -1015,7 +1015,7 @@ pub enum UnableToDecryptReason {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UnableToDecryptRecord {
     pub event_id: EventId,
-    pub space_id: RealmId,
+    pub realm_id: RealmId,
     pub sender: Did,
     pub reason: UnableToDecryptReason,
     pub encrypted_content: EncryptedPayload,
@@ -1033,7 +1033,7 @@ pub enum CryptoMachineReqBody {
     },
     ClaimOneTimeKeys(Vec<OneTimeKeyClaim>),
     EncryptEvent {
-        space_id: RealmId,
+        realm_id: RealmId,
         event_kind: String,
         content: Value,
     },
@@ -1041,20 +1041,20 @@ pub enum CryptoMachineReqBody {
         event_id: EventId,
         payload: EncryptedPayload,
     },
-    /// Matrix/MIMI compat name. The v1 concept is sharing a Space
+    /// Matrix/MIMI compat name. The v1 concept is sharing a Realm
     /// E2EE session key — the `ShareRoomKey` variant name maps to the
     /// `ck.keys.room_key` interop device-message kind.
     ShareRoomKey {
-        space_id: RealmId,
+        realm_id: RealmId,
         session_id: String,
         recipients: Vec<DeviceId>,
     },
-    /// Matrix/MIMI compat name. Requests a Space E2EE session key
+    /// Matrix/MIMI compat name. Requests a Realm E2EE session key
     /// re-share from peers; maps to the interop `ck.keys.room_key`
     /// device-message kind.
     RequestRoomKey {
         event_id: EventId,
-        space_id: RealmId,
+        realm_id: RealmId,
         session_id: String,
         requesting_device_id: DeviceId,
     },
@@ -1137,7 +1137,7 @@ pub enum CryptoMachineResBody {
     /// `DecryptEvent` could not decrypt — caller should display a placeholder.
     UnableToDecrypt(UnableToDecryptRecord),
     /// `ShareRoomKey` fanned out to this many recipients.
-    RoomKeyShared { space_id: RealmId, session_id: String, recipients: usize },
+    RoomKeyShared { realm_id: RealmId, session_id: String, recipients: usize },
     /// `RequestRoomKey` was emitted on the wire.
     RoomKeyRequested { event_id: EventId, session_id: String },
     /// `BackupSecrets` flushed this descriptor to storage.
@@ -1216,20 +1216,20 @@ impl CryptoStoreBinding {
 
     pub fn record_session(&mut self, session: CryptoSessionRecord) -> Result<()> {
         session.validate()?;
-        self.sessions.insert(session_key(&session.space_id, &session.session_id), session);
+        self.sessions.insert(session_key(&session.realm_id, &session.session_id), session);
         Ok(())
     }
 
     pub fn session_mut(
         &mut self,
-        space_id: &RealmId,
+        realm_id: &RealmId,
         session_id: &str,
     ) -> Option<&mut CryptoSessionRecord> {
-        self.sessions.get_mut(&session_key(space_id, session_id))
+        self.sessions.get_mut(&session_key(realm_id, session_id))
     }
 
     pub fn record_withheld_key(&mut self, record: WithheldKeyRecord) {
-        self.withheld_keys.insert(session_key(&record.space_id, &record.session_id), record);
+        self.withheld_keys.insert(session_key(&record.realm_id, &record.session_id), record);
     }
 
     pub fn record_unable_to_decrypt(&mut self, record: UnableToDecryptRecord) {
@@ -1237,8 +1237,8 @@ impl CryptoStoreBinding {
     }
 }
 
-pub(crate) fn session_key(space_id: &RealmId, session_id: &str) -> String {
-    format!("{}|{}", space_id.as_str(), session_id)
+pub(crate) fn session_key(realm_id: &RealmId, session_id: &str) -> String {
+    format!("{}|{}", realm_id.as_str(), session_id)
 }
 
 // ── Round-2 typed `Validate` trait impls ────────────────────────────────
@@ -1386,7 +1386,7 @@ mod tests {
         plan.push(
             "share",
             CryptoMachineReqBody::ShareRoomKey {
-                space_id: RealmId::new("ck:space:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
+                realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
                 session_id: "sess1".to_owned(),
                 recipients: vec![device()],
             },
@@ -1424,7 +1424,7 @@ mod tests {
         };
         binding.record_unable_to_decrypt(UnableToDecryptRecord {
             event_id: EventId::new("ck:event:01904100-0000-7000-8000-4e7fda181f9f").unwrap(),
-            space_id: RealmId::new("ck:space:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
+            realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
             sender: did("alice"),
             reason: UnableToDecryptReason::NoSession,
             encrypted_content: payload,
@@ -1461,10 +1461,10 @@ mod tests {
             Some(&DeviceTrustState::Verified)
         );
 
-        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-6c355fb9dada").unwrap();
+        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-6c355fb9dada").unwrap();
         binding
             .record_session(CryptoSessionRecord {
-                space_id: space_id.clone(),
+                realm_id: realm_id.clone(),
                 session_id: "sess1".to_owned(),
                 sender_key: "curve25519:def".to_owned(),
                 algorithm: "ck.mls.v1".to_owned(),
@@ -1474,12 +1474,12 @@ mod tests {
                 message_index_high_watermark: None,
             })
             .unwrap();
-        let session = binding.session_mut(&space_id, "sess1").unwrap();
+        let session = binding.session_mut(&realm_id, "sess1").unwrap();
         session.accept_message_index(7, Utc::now()).unwrap();
         assert!(matches!(session.accept_message_index(7, Utc::now()), Err(Error::Protocol(_))));
 
         binding.record_withheld_key(WithheldKeyRecord {
-            space_id,
+            realm_id,
             session_id: "sess1".to_owned(),
             sender: did("alice"),
             code: "m.blacklisted".to_owned(),
@@ -1542,9 +1542,9 @@ mod tests {
 
     #[test]
     fn typed_validate_rejects_invalid_withheld_key_record() {
-        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-6c355fb9dada").unwrap();
+        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-6c355fb9dada").unwrap();
         let mut record = WithheldKeyRecord {
-            space_id,
+            realm_id,
             session_id: String::new(),
             sender: did("alice"),
             code: "m.blacklisted".to_owned(),
@@ -1625,7 +1625,7 @@ mod tests {
 
     fn make_session() -> CryptoSessionRecord {
         CryptoSessionRecord {
-            space_id: RealmId::new("ck:space:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
+            realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
             session_id: "sess-prop".to_owned(),
             sender_key: "curve25519:def".to_owned(),
             algorithm: "ck.mls.v1".to_owned(),
@@ -1863,7 +1863,7 @@ mod tests {
     fn unable_to_decrypt_path_bad_ciphertext() {
         let mut binding = CryptoStoreBinding::default();
         let event_id = EventId::new("ck:event:01904100-0000-7000-8000-4e7fda181f9f").unwrap();
-        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-6c355fb9dada").unwrap();
+        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-6c355fb9dada").unwrap();
         let payload = EncryptedPayload {
             scheme: EncryptedPayloadScheme::MlsRfc9420,
             group_id: "group".to_owned(),
@@ -1877,7 +1877,7 @@ mod tests {
         };
         let record = UnableToDecryptRecord {
             event_id: event_id.clone(),
-            space_id: space_id.clone(),
+            realm_id: realm_id.clone(),
             sender: did("alice"),
             reason: UnableToDecryptReason::BadCiphertext,
             encrypted_content: payload.clone(),
@@ -1893,7 +1893,7 @@ mod tests {
         // the keyed event id is stable so the second observation wins.
         binding.record_unable_to_decrypt(UnableToDecryptRecord {
             event_id: event_id.clone(),
-            space_id,
+            realm_id,
             sender: did("alice"),
             reason: UnableToDecryptReason::NoSession,
             encrypted_content: payload,

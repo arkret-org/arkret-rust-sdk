@@ -23,8 +23,8 @@ use crate::{
     DeviceId, Error, Event, EventId, RealmId, Result, SyncResBody, canonical,
     sync::{
         AccountData, DeviceListChanges, LimitedTimelineState, MembershipBucket, NotificationDelta,
-        PresenceEvent, PresenceStatus, SpaceSubscription, SpaceUpdate, SubscriptionConfig,
-        SyncFilter, SyncReqBody, SyncSpace, SyncTimeline, SyncUpdates, TimelineFilter,
+        PresenceEvent, PresenceStatus, RealmSubscription, RealmUpdate, SubscriptionConfig,
+        SyncFilter, SyncReqBody, SyncRealm, SyncTimeline, SyncUpdates, TimelineFilter,
         TimelineOrderKey, ToDeviceAck, ToDeviceAckStatus, ToDeviceMessage, WaitForFrontier,
         project_typed_vec, project_typed_vec_from_value,
     },
@@ -33,7 +33,7 @@ use crate::{
 mod loop_control;
 mod processor;
 mod send_queue;
-mod space_list;
+mod realm_list;
 #[cfg(test)]
 mod tests;
 mod wire;
@@ -41,5 +41,5 @@ mod wire;
 pub use loop_control::*;
 pub use processor::*;
 pub use send_queue::*;
-pub use space_list::*;
+pub use realm_list::*;
 pub use wire::*;

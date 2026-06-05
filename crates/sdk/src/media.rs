@@ -144,11 +144,11 @@ pub fn call_media_token_exchange(
 
 /// Stored media metadata.
 ///
-/// `space_id` is the Space anchor used by `media-and-blob.md` §5 to scope
-/// download authorization and garbage-collect blobs when a Space is
+/// `realm_id` is the Realm anchor used by `media-and-blob.md` §5 to scope
+/// download authorization and garbage-collect blobs when a Realm is
 /// dissolved or migrated. It is `None` only for genuinely global blobs
 /// (e.g. a public organization avatar) — those callers MUST guarantee the
-/// blob does not contain Space-private content.
+/// blob does not contain Realm-private content.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MediaMetadata {
     /// Blob reference.
@@ -167,10 +167,10 @@ pub struct MediaMetadata {
     pub uploaded_by: Did,
     /// Upload time.
     pub uploaded_at: DateTime<Utc>,
-    /// Space anchor for download authorization and GC (B-23,
+    /// Realm anchor for download authorization and GC (B-23,
     /// `media-and-blob.md` §2). `None` only for global blobs.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<RealmId>,
+    pub realm_id: Option<RealmId>,
 }
 
 /// Thumbnail metadata.
@@ -297,18 +297,18 @@ impl MemoryBlobStore {
         filename: Option<String>,
         uploaded_by: Did,
     ) -> Result<MediaMetadata> {
-        self.upload_in_space(bytes, media_type, filename, uploaded_by, None)
+        self.upload_in_realm(bytes, media_type, filename, uploaded_by, None)
     }
 
-    /// Upload bytes scoped to a Space — preferred when the blob is private
-    /// to that Space so it can be GC'd on Space migration / dissolution.
-    pub fn upload_in_space(
+    /// Upload bytes scoped to a Realm — preferred when the blob is private
+    /// to that Realm so it can be GC'd on Realm migration / dissolution.
+    pub fn upload_in_realm(
         &mut self,
         bytes: impl AsRef<[u8]>,
         media_type: impl Into<String>,
         filename: Option<String>,
         uploaded_by: Did,
-        space_id: Option<RealmId>,
+        realm_id: Option<RealmId>,
     ) -> Result<MediaMetadata> {
         let bytes = bytes.as_ref();
         let blob_ref = blob_ref_for(bytes)?;
@@ -320,7 +320,7 @@ impl MemoryBlobStore {
             filename,
             uploaded_by,
             uploaded_at: Utc::now(),
-            space_id,
+            realm_id,
         };
         self.blobs.insert(blob_ref.clone(), bytes.to_vec());
         self.metadata.insert(blob_ref, metadata.clone());

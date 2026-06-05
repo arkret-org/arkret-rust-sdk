@@ -77,9 +77,9 @@ impl ResourceSelector {
             // Flow selector
             (
                 Self::Flow { space_id, flow_id },
-                Resource::Flow { space_id: target_space, flow_id: target_id },
+                Resource::Flow { space_id: target_realm, flow_id: target_id },
             ) => {
-                let space_match = space_id == target_space || space_id == "*";
+                let space_match = space_id == target_realm || space_id == "*";
                 let id_match = flow_id.as_ref().is_none_or(|id| id == target_id);
                 space_match && id_match
             }
@@ -88,9 +88,9 @@ impl ResourceSelector {
             // Object selector
             (
                 Self::Object { space_id, object_type, object_ref },
-                Resource::Flow { space_id: target_space, flow_id: target_id },
+                Resource::Flow { space_id: target_realm, flow_id: target_id },
             ) => {
-                let space_match = space_id == target_space || space_id == "*";
+                let space_match = space_id == target_realm || space_id == "*";
                 let type_match = object_type.as_ref().is_none_or(|t| t == "flow");
                 let ref_match = object_ref.as_ref().is_none_or(|id| id == target_id);
                 space_match && type_match && ref_match
@@ -98,12 +98,12 @@ impl ResourceSelector {
             (
                 Self::Object { space_id, object_type, object_ref },
                 Resource::Morph {
-                    space_id: target_space,
+                    space_id: target_realm,
                     morph_id: target_id,
                     morph_type: target_type,
                 },
             ) => {
-                let space_match = space_id == target_space || space_id == "*";
+                let space_match = space_id == target_realm || space_id == "*";
                 let type_match = object_type.as_ref().is_none_or(|t| t == target_type);
                 let ref_match = object_ref.as_ref().is_none_or(|id| id == target_id);
                 space_match && type_match && ref_match
@@ -113,9 +113,9 @@ impl ResourceSelector {
             // Message selector
             (
                 Self::Message { space_id, message_id },
-                Resource::Message { space_id: target_space, message_id: target_id },
+                Resource::Message { space_id: target_realm, message_id: target_id },
             ) => {
-                let space_match = space_id == target_space || space_id == "*";
+                let space_match = space_id == target_realm || space_id == "*";
                 space_match && message_id.as_ref().is_none_or(|id| id == target_id)
             }
             (Self::Message { .. }, _) => false,
@@ -123,9 +123,9 @@ impl ResourceSelector {
             // Relation selector
             (
                 Self::Relation { space_id, relation_kind },
-                Resource::Relation { space_id: target_space, relation_kind: target_kind },
+                Resource::Relation { space_id: target_realm, relation_kind: target_kind },
             ) => {
-                let space_match = space_id == target_space || space_id == "*";
+                let space_match = space_id == target_realm || space_id == "*";
                 space_match && relation_kind == target_kind
             }
             (Self::Relation { .. }, _) => false,
@@ -133,9 +133,9 @@ impl ResourceSelector {
             // View selector
             (
                 Self::View { space_id, view_id },
-                Resource::View { space_id: target_space, view_id: target_id },
+                Resource::View { space_id: target_realm, view_id: target_id },
             ) => {
-                let space_match = space_id == target_space || space_id == "*";
+                let space_match = space_id == target_realm || space_id == "*";
                 let id_match = view_id.as_ref().is_none_or(|id| id == target_id);
                 space_match && id_match
             }
@@ -144,9 +144,9 @@ impl ResourceSelector {
             // Schema selector
             (
                 Self::Schema { space_id, schema_id },
-                Resource::Schema { space_id: target_space, schema_id: target_id },
+                Resource::Schema { space_id: target_realm, schema_id: target_id },
             ) => {
-                let space_match = space_id == target_space || space_id == "*";
+                let space_match = space_id == target_realm || space_id == "*";
                 space_match && schema_id.as_ref().is_none_or(|id| id == target_id)
             }
             (Self::Schema { .. }, _) => false,
@@ -154,9 +154,9 @@ impl ResourceSelector {
             // Policy selector
             (
                 Self::Policy { space_id, policy_id },
-                Resource::Policy { space_id: target_space, policy_id: target_id },
+                Resource::Policy { space_id: target_realm, policy_id: target_id },
             ) => {
-                let space_match = space_id == target_space || space_id == "*";
+                let space_match = space_id == target_realm || space_id == "*";
                 space_match && policy_id.as_ref().is_none_or(|id| id == target_id)
             }
             (Self::Policy { .. }, _) => false,
@@ -164,16 +164,16 @@ impl ResourceSelector {
             // Invite selector
             (
                 Self::Invite { space_id, invite_id },
-                Resource::Invite { space_id: target_space, invite_id: target_id },
+                Resource::Invite { space_id: target_realm, invite_id: target_id },
             ) => {
-                let space_match = space_id == target_space || space_id == "*";
+                let space_match = space_id == target_realm || space_id == "*";
                 space_match && invite_id.as_ref().is_none_or(|id| id == target_id)
             }
             (Self::Invite { .. }, _) => false,
 
             // Read marker selector
-            (Self::ReadCursor { space_id }, Resource::ReadCursor { space_id: target_space }) => {
-                space_id == target_space || space_id == "*"
+            (Self::ReadCursor { space_id }, Resource::ReadCursor { space_id: target_realm }) => {
+                space_id == target_realm || space_id == "*"
             }
             (Self::ReadCursor { .. }, _) => false,
 
@@ -181,12 +181,12 @@ impl ResourceSelector {
             (
                 Self::Morph { space_id, morph_id, morph_type },
                 Resource::Morph {
-                    space_id: target_space,
+                    space_id: target_realm,
                     morph_id: target_id,
                     morph_type: target_type,
                 },
             ) => {
-                let space_match = space_id == target_space || space_id == "*";
+                let space_match = space_id == target_realm || space_id == "*";
                 let id_match = morph_id.as_ref().is_none_or(|id| id == target_id);
                 let type_match = morph_type.as_ref().is_none_or(|t| t == target_type);
                 space_match && id_match && type_match
@@ -207,9 +207,9 @@ impl ResourceSelector {
             // Blob selector
             (
                 Self::Blob { space_id, blob_id },
-                Resource::Blob { space_id: target_space, blob_id: target_id },
+                Resource::Blob { space_id: target_realm, blob_id: target_id },
             ) => {
-                let space_match = space_id == target_space || space_id == "*";
+                let space_match = space_id == target_realm || space_id == "*";
                 let id_match = blob_id.as_ref().is_none_or(|id| id == target_id);
                 space_match && id_match
             }
@@ -219,12 +219,12 @@ impl ResourceSelector {
             (
                 Self::Event { space_id, event_kind, event_id },
                 Resource::Event {
-                    space_id: target_space,
+                    space_id: target_realm,
                     event_kind: target_kind,
                     event_id: target_id,
                 },
             ) => {
-                let space_match = space_id == target_space || space_id == "*";
+                let space_match = space_id == target_realm || space_id == "*";
                 let kind_match = event_kind.as_ref().is_none_or(|k| k == target_kind);
                 let id_match = event_id.as_ref().is_none_or(|id| id == target_id);
                 space_match && kind_match && id_match

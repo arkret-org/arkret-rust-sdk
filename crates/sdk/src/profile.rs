@@ -58,7 +58,7 @@ pub enum DataClassification {
     Restricted,
 }
 
-/// Sovereign deployment policy primitives for profiles and spaces.
+/// Sovereign deployment policy primitives for profiles and realms.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SovereignDeploymentPolicy {
     pub deployment_id: String,
@@ -113,11 +113,11 @@ impl SovereignDeploymentPolicy {
     }
 }
 
-/// Space export manifest used for validation before import.
+/// Realm export manifest used for validation before import.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SpaceExportManifest {
+pub struct RealmExportManifest {
     pub export_id: String,
-    pub space_id: RealmId,
+    pub realm_id: RealmId,
     pub exported_by: Did,
     pub source_service_did: Did,
     pub event_count: u64,
@@ -127,7 +127,7 @@ pub struct SpaceExportManifest {
 
 /// Result of validating an import manifest.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SpaceImportValidation {
+pub struct RealmImportValidation {
     pub accepted: bool,
     pub errors: Vec<String>,
 }
@@ -159,17 +159,17 @@ impl ServiceReplacementPlan {
     }
 }
 
-/// Validate a space import manifest against expected local constraints.
-pub fn validate_space_import(
-    manifest: &SpaceExportManifest,
-    expected_space_id: Option<&RealmId>,
+/// Validate a Realm import manifest against expected local constraints.
+pub fn validate_realm_import(
+    manifest: &RealmExportManifest,
+    expected_realm_id: Option<&RealmId>,
     allowed_source_services: &BTreeSet<Did>,
-) -> SpaceImportValidation {
+) -> RealmImportValidation {
     let mut errors = Vec::new();
-    if let Some(expected_space_id) = expected_space_id
-        && &manifest.space_id != expected_space_id
+    if let Some(expected_realm_id) = expected_realm_id
+        && &manifest.realm_id != expected_realm_id
     {
-        errors.push("space id mismatch".to_owned());
+        errors.push("Realm id mismatch".to_owned());
     }
     if manifest.event_count == 0 {
         errors.push("export contains no events".to_owned());
@@ -183,7 +183,7 @@ pub fn validate_space_import(
         errors.push("source service is not allowed".to_owned());
     }
 
-    SpaceImportValidation { accepted: errors.is_empty(), errors }
+    RealmImportValidation { accepted: errors.is_empty(), errors }
 }
 
 /// Optional TSP trust binding.
@@ -577,13 +577,13 @@ mod tests {
         assert!(!policy.is_domain_allowed("remote.example"));
         policy.allow_domain("remote.example");
         policy.pin_resolver("web", "https://resolver.example");
-        policy.classify("space:private", DataClassification::Restricted);
+        policy.classify("Realm:private", DataClassification::Restricted);
         assert!(policy.is_domain_allowed("remote.example"));
         assert_eq!(policy.resolver_pins["web"], "https://resolver.example");
 
-        let manifest = SpaceExportManifest {
+        let manifest = RealmExportManifest {
             export_id: "export1".to_owned(),
-            space_id: RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+            realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             exported_by: alice,
             source_service_did: service.clone(),
             event_count: 10,
@@ -592,7 +592,7 @@ mod tests {
             created_at: Utc::now(),
         };
         let validation =
-            validate_space_import(&manifest, Some(&manifest.space_id), &BTreeSet::from([service]));
+            validate_realm_import(&manifest, Some(&manifest.realm_id), &BTreeSet::from([service]));
         assert!(validation.accepted);
     }
 

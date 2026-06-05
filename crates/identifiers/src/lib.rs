@@ -240,16 +240,8 @@ id_type!(BackupSeriesId, |value: &str| is_strict_typed_id(value, "ck:backup_seri
 id_type!(RecoverySessionId, |value: &str| is_strict_typed_id(value, "ck:recovery_session:"));
 id_type!(AnnounceId, |value: &str| is_strict_typed_id(value, "ck:announce:"));
 id_type!(AppletId, |value: &str| is_strict_typed_id(value, "ck:applet:"));
-// `RealmId` is the protocol security-boundary key type (Realm/Space
-// inversion). It accepts the canonical `ck:realm:*` form and — for backward
-// compatibility with reducer/store layers that historically keyed boundary
-// state on a `ck:space:*` mirror — also the `ck:space:*` form. The narrower
-// `ck:realm:*`-only validation that the old standalone `RealmId` carried is
-// intentionally widened here so the single boundary-key type round-trips
-// every wire value that the former `SpaceId` accepted; no current wire field
-// is tightened by this merge.
-id_type!(RealmId, |value: &str| is_strict_typed_id(value, "ck:realm:")
-    || is_strict_typed_id(value, "ck:space:"));
+id_type!(RealmId, |value: &str| is_strict_typed_id(value, "ck:realm:"));
+id_type!(SpaceId, |value: &str| is_strict_typed_id(value, "ck:space:"));
 id_type!(BackupId, |value: &str| is_strict_typed_id(value, "ck:backup:"));
 id_type!(BatchId, |value: &str| is_strict_typed_id(value, "ck:batch:"));
 id_type!(BlobId, |value: &str| is_strict_typed_id(value, "ck:blob:"));
@@ -530,6 +522,7 @@ mod tests {
         assert_id!(MorphId, "ck:morph:");
         assert_id!(NotificationId, "ck:notification:");
         assert_id!(RealmId, "ck:realm:");
+        assert_id!(SpaceId, "ck:space:");
         assert_id!(PolicyId, "ck:policy:");
         assert_id!(PresentationId, "ck:presentation:");
         assert_id!(ReceiptId, "ck:receipt:");
@@ -538,10 +531,6 @@ mod tests {
         assert_id!(ReadCursorId, "ck:read_cursor:");
         assert_id!(RequestId, "ck:request:");
         assert_id!(SnapshotId, "ck:snapshot:");
-        // RealmId is the merged boundary-key type: it accepts both the
-        // canonical `ck:realm:*` form (asserted above) and the historical
-        // `ck:space:*` boundary mirror.
-        assert_id!(RealmId, "ck:space:");
         assert_id!(TransactionId, "ck:transaction:");
         assert_id!(ViewId, "ck:view:");
     }
@@ -580,9 +569,7 @@ mod tests {
         // Two consecutive calls produce different ids.
         let id2 = new_prefixed_uuid7("ck:space:");
         assert_ne!(id, id2);
-        // Resulting id is accepted by the RealmId boundary-key validator
-        // (which accepts the `ck:space:*` mirror form).
-        assert!(RealmId::new(id).is_ok());
+        assert!(SpaceId::new(id).is_ok());
     }
 
     #[test]
@@ -604,7 +591,7 @@ mod tests {
     fn serde_deserialization_validates_identifier_values() {
         #[derive(Deserialize)]
         struct Envelope {
-            space_id: RealmId,
+            space_id: SpaceId,
             hlc: Hlc,
         }
 

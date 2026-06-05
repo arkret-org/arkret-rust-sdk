@@ -14,7 +14,7 @@
 //!   with a child Realm's inheritance declaration.
 //!
 //! All three are wire-shape-only typed structs at this stage; the full
-//! derive evaluation lives in the reducer's audit pipeline (TODO(realm-rework)).
+//! derive evaluation lives in the reducer's audit pipeline.
 
 use super::*;
 
@@ -237,9 +237,8 @@ impl RealmInheritancePolicy {
 ///
 /// The full derive evaluation (verify the source grant, replay the
 /// inheritance policy, project the resulting bundle) lives in the
-/// reducer's audit pipeline and is currently TODO(realm-rework). At
-/// schema level the soland reducer accepts the payload + projects the
-/// cell so downstream consumers can introspect it.
+/// reducer's audit pipeline. At schema level the soland reducer accepts
+/// the payload + projects the cell so downstream consumers can introspect it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct CapabilityDerived {

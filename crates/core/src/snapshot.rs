@@ -292,8 +292,8 @@ pub struct GeneratorProof {
     /// DID of the snapshot generator (typically the principal server's
     /// `service_did`).
     pub generator_did: Did,
-    /// Space whose state this snapshot covers.
-    pub space_id: RealmId,
+    /// Realm whose state this snapshot covers.
+    pub realm_id: RealmId,
     /// Canonical state-root from `effective_anchor_view` at the snapshot
     /// frontier — what the snapshot claims to materialize.
     pub state_root: Hash,
@@ -317,7 +317,7 @@ pub struct GeneratorProof {
 #[derive(Serialize)]
 struct GeneratorProofBody<'a> {
     generator_did: &'a Did,
-    space_id: &'a RealmId,
+    realm_id: &'a RealmId,
     state_root: &'a Hash,
     merkle_root: &'a Hash,
     chunk_count: u32,
@@ -330,7 +330,7 @@ impl GeneratorProof {
     /// against `signature.payload_digest`.
     pub fn body_bytes(
         generator_did: &Did,
-        space_id: &RealmId,
+        realm_id: &RealmId,
         state_root: &Hash,
         merkle_root: &Hash,
         chunk_count: u32,
@@ -339,7 +339,7 @@ impl GeneratorProof {
     ) -> Result<Vec<u8>> {
         let body = GeneratorProofBody {
             generator_did,
-            space_id,
+            realm_id,
             state_root,
             merkle_root,
             chunk_count,
@@ -353,7 +353,7 @@ impl GeneratorProof {
     /// generators populating `signature.payload_digest`.
     pub fn body_digest(
         generator_did: &Did,
-        space_id: &RealmId,
+        realm_id: &RealmId,
         state_root: &Hash,
         merkle_root: &Hash,
         chunk_count: u32,
@@ -362,7 +362,7 @@ impl GeneratorProof {
     ) -> Result<Hash> {
         let bytes = Self::body_bytes(
             generator_did,
-            space_id,
+            realm_id,
             state_root,
             merkle_root,
             chunk_count,
@@ -379,7 +379,7 @@ impl GeneratorProof {
     pub fn verify_payload_digest(&self) -> Result<()> {
         let derived = Self::body_digest(
             &self.generator_did,
-            &self.space_id,
+            &self.realm_id,
             &self.state_root,
             &self.merkle_root,
             self.chunk_count,
@@ -404,8 +404,8 @@ mod tests {
         Did::new("did:web:generator.example".to_owned()).unwrap()
     }
 
-    fn space() -> RealmId {
-        RealmId::new("ck:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+    fn realm() -> RealmId {
+        RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     // ── Chunker ───────────────────────────────────────────────────────
@@ -562,12 +562,12 @@ mod tests {
         let state_root = Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap();
         let merkle_root = Hash::new(format!("sha256:{}", "cd".repeat(32))).unwrap();
         let digest =
-            GeneratorProof::body_digest(&did(), &space(), &state_root, &merkle_root, 42, 1024, 256)
+            GeneratorProof::body_digest(&did(), &realm(), &state_root, &merkle_root, 42, 1024, 256)
                 .unwrap();
 
         let proof = GeneratorProof {
             generator_did: did(),
-            space_id: space(),
+            realm_id: realm(),
             state_root,
             merkle_root,
             chunk_count: 42,
@@ -585,7 +585,7 @@ mod tests {
         let wrong = Hash::new(format!("sha256:{}", "ee".repeat(32))).unwrap();
         let proof = GeneratorProof {
             generator_did: did(),
-            space_id: space(),
+            realm_id: realm(),
             state_root,
             merkle_root,
             chunk_count: 1,
@@ -601,9 +601,9 @@ mod tests {
     fn generator_proof_changing_chunk_count_changes_digest() {
         let state_root = Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap();
         let merkle_root = Hash::new(format!("sha256:{}", "cd".repeat(32))).unwrap();
-        let d1 = GeneratorProof::body_digest(&did(), &space(), &state_root, &merkle_root, 1, 4, 4)
+        let d1 = GeneratorProof::body_digest(&did(), &realm(), &state_root, &merkle_root, 1, 4, 4)
             .unwrap();
-        let d2 = GeneratorProof::body_digest(&did(), &space(), &state_root, &merkle_root, 2, 4, 4)
+        let d2 = GeneratorProof::body_digest(&did(), &realm(), &state_root, &merkle_root, 2, 4, 4)
             .unwrap();
         assert_ne!(d1, d2, "chunk_count must be in the canonical bytes");
     }
@@ -613,11 +613,11 @@ mod tests {
         let state_root = Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap();
         let merkle_root = Hash::new(format!("sha256:{}", "cd".repeat(32))).unwrap();
         let digest =
-            GeneratorProof::body_digest(&did(), &space(), &state_root, &merkle_root, 3, 12, 4)
+            GeneratorProof::body_digest(&did(), &realm(), &state_root, &merkle_root, 3, 12, 4)
                 .unwrap();
         let proof = GeneratorProof {
             generator_did: did(),
-            space_id: space(),
+            realm_id: realm(),
             state_root,
             merkle_root,
             chunk_count: 3,
@@ -628,7 +628,7 @@ mod tests {
         let v: serde_json::Value = serde_json::to_value(&proof).unwrap();
         for f in [
             "generator_did",
-            "space_id",
+            "realm_id",
             "state_root",
             "merkle_root",
             "chunk_count",

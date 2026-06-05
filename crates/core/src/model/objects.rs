@@ -269,11 +269,13 @@ impl Realm {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Space {
-    pub id: RealmId,
+    pub id: SpaceId,
     pub schema: String,
-    pub space_id: RealmId,
+    pub realm_id: RealmId,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub parent_space_id: Option<RealmId>,
+    pub default_realm_id: Option<RealmId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent_space_id: Option<SpaceId>,
     // Declaration order mirrors `spec/v1/artifacts/schemas/space.schema.json`
     // (common-fields §3.2): the discriminator cluster `kind, rank, schema_refs`
     // precedes `title, summary`.
@@ -355,8 +357,8 @@ pub enum ChildScopePolicy {
 
 impl Space {
     pub fn new(
-        id: RealmId,
-        space_id: RealmId,
+        id: SpaceId,
+        realm_id: RealmId,
         kind: impl Into<String>,
         title: impl Into<String>,
         created_by: Did,
@@ -364,7 +366,8 @@ impl Space {
         Self {
             id,
             schema: SPACE_SCHEMA.to_owned(),
-            space_id,
+            realm_id,
+            default_realm_id: None,
             parent_space_id: None,
             kind: kind.into(),
             rank: None,
@@ -389,18 +392,10 @@ impl Space {
 
     pub fn validate(&self) -> Result<()> {
         if self.kind.trim().is_empty() {
-            return Err(Error::Protocol("place kind must not be empty".to_owned()));
+            return Err(Error::Protocol("space kind must not be empty".to_owned()));
         }
         if self.title.trim().is_empty() {
-            return Err(Error::Protocol("place title must not be empty".to_owned()));
-        }
-        if let Some(parent_space_id) = &self.parent_space_id
-            && !parent_space_id.as_ref().starts_with("ck:space:")
-            && !parent_space_id.as_ref().starts_with("ck:realm:")
-        {
-            return Err(Error::Protocol(
-                "place parent_space_id must be a typed Space/Realm id".to_owned(),
-            ));
+            return Err(Error::Protocol("space title must not be empty".to_owned()));
         }
         Ok(())
     }

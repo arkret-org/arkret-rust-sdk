@@ -141,7 +141,7 @@ pub struct EventsDescribeParams {
     pub actor_id: Option<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
-    pub space_id: Option<RealmId>,
+    pub realm_id: Option<RealmId>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
@@ -195,7 +195,7 @@ pub struct EventsResolveParams {
 pub struct EventsFrontierParams {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query, style = Form, explode)))]
-    pub spaces: Vec<RealmId>,
+    pub realms: Vec<RealmId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query, style = Form, explode)))]
     pub actors: Vec<Did>,
@@ -213,7 +213,7 @@ pub struct EventsFrontierParams {
 pub struct EventsSubscribeParams {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query, style = Form, explode)))]
-    pub spaces: Vec<RealmId>,
+    pub realms: Vec<RealmId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query, style = Form, explode)))]
     pub actors: Vec<Did>,
@@ -237,7 +237,7 @@ pub struct EventsSubscribeParams {
 pub struct EventsQueryParams {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query, style = Form, explode)))]
-    pub spaces: Vec<RealmId>,
+    pub realms: Vec<RealmId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query, style = Form, explode)))]
     pub actors: Vec<Did>,
@@ -711,7 +711,7 @@ pub struct KeyPackagesRevokeParams {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters, salvo::oapi::ToSchema))]
 pub struct AuthzEffectiveGrantsParams {
     #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
-    pub space_id: RealmId,
+    pub realm_id: RealmId,
     #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
     pub subject: Did,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -733,7 +733,7 @@ pub struct AuthzInvitesParams {
     pub subject: Did,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
-    pub space_id: Option<RealmId>,
+    pub realm_id: Option<RealmId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
     pub cursor: Option<Cursor>,
@@ -1019,7 +1019,7 @@ pub struct AdminRevokeDeviceParams {
 pub struct AdminModerationQueueParams {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
-    pub space_id: Option<RealmId>,
+    pub realm_id: Option<RealmId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
     pub status: Option<String>,
@@ -1285,12 +1285,12 @@ pub enum ProjectionObjectState {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ProjectionSpaceRow {
-    pub space_id: RealmId,
+    pub space_id: SpaceId,
     pub realm_id: RealmId,
     pub kind: String,
     pub title: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub parent_space_id: Option<RealmId>,
+    pub parent_space_id: Option<SpaceId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rank: Option<String>,
     pub state: ProjectionSpaceState,
@@ -1326,11 +1326,11 @@ pub struct ProjectionFlowRow {
     /// Derived board Space id from `ck.component.flow.position.v1`.
     /// This is read-model state, not canonical Flow object state.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub board_space_id: Option<RealmId>,
+    pub board_space_id: Option<SpaceId>,
     /// Derived list Space id from `ck.component.flow.position.v1`.
     /// This is read-model state, not canonical Flow object state.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub list_space_id: Option<RealmId>,
+    pub list_space_id: Option<SpaceId>,
     /// Derived rank inside `list_space_id` from
     /// `ck.component.flow.position.v1`.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1401,7 +1401,7 @@ pub enum EventsSubscribeFrameKind {
 pub struct EventsSubscribeFrame {
     pub kind: EventsSubscribeFrameKind,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<RealmId>,
+    pub realm_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cursor: Option<Cursor>,
     #[serde(default, skip_serializing_if = "Value::is_null")]
@@ -1959,7 +1959,7 @@ pub struct AppletThirdPartyUsersResBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AppletThirdPartyLocationsResBody {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<RealmId>,
+    pub realm_id: Option<RealmId>,
     pub exists: bool,
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub external_ref: Value,

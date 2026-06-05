@@ -125,9 +125,8 @@ pub enum AnchorKind {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Anchor {
     pub id: AnchorId,
-    // The boundary key is `RealmId` (the merged boundary-key type, which also
-    // accepts the historical `ck:space:*` mirror form). The entire
-    // cell/store/state layer is keyed by `RealmId`.
+    // The boundary key is `RealmId`; container Space ids are separate
+    // `SpaceId` values and never key the anchor state layer.
     pub realm_id: RealmId,
     /// Empty only for genesis Anchor. Otherwise must reference all
     /// predecessor leaves.

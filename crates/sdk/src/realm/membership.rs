@@ -2,7 +2,7 @@ use crate::model::{CandidateError, CandidateValidationContext, MemberDeliveryBin
 
 use super::*;
 
-/// Space membership operations.
+/// Realm membership operations.
 impl Realm {
     /// Create a join operation and update local membership state to joined.
     ///
@@ -11,26 +11,26 @@ impl Realm {
     /// `delivery_status=routable`. This convenience helper builds an
     /// unroutable join (membership without a concrete delivery target).
     /// Use [`Self::create_join_with_binding`] for the routable path.
-    pub fn join_space(&self) -> Result<Operation> {
+    pub fn join_realm(&self) -> Result<Operation> {
         let operation = self.create_join_operation()?;
-        self.base_client.update_space_state(&self.space_id, SpaceStateType::Joined)?;
+        self.base_client.update_realm_membership_state(&self.realm_id, RealmMembershipState::Joined)?;
         Ok(operation)
     }
 
     /// Create a routable join operation that carries a concrete
     /// `member_delivery_binding`. Returns an error if the binding is
     /// internally inconsistent (see [`MemberDeliveryBinding::validate`]).
-    pub fn join_space_with_binding(&self, binding: MemberDeliveryBinding) -> Result<Operation> {
+    pub fn join_realm_with_binding(&self, binding: MemberDeliveryBinding) -> Result<Operation> {
         binding.validate()?;
         let operation = self.create_join_with_binding(binding)?;
-        self.base_client.update_space_state(&self.space_id, SpaceStateType::Joined)?;
+        self.base_client.update_realm_membership_state(&self.realm_id, RealmMembershipState::Joined)?;
         Ok(operation)
     }
 
     /// Create a leave operation and update local membership state to left.
-    pub fn leave_space(&self) -> Result<Operation> {
+    pub fn leave_realm(&self) -> Result<Operation> {
         let operation = self.create_leave_operation()?;
-        self.base_client.update_space_state(&self.space_id, SpaceStateType::Left)?;
+        self.base_client.update_realm_membership_state(&self.realm_id, RealmMembershipState::Left)?;
         Ok(operation)
     }
 
@@ -41,7 +41,7 @@ impl Realm {
     /// or a trusted issuer's signed payload. Per `identity-handles.md` §3.7
     /// the SDK only accepts a candidate or an already-materialised
     /// [`MemberDeliveryBinding`] at this entry point. The candidate is
-    /// re-validated against `audience = target space id` and `now` before
+    /// re-validated against `audience = target Realm id` and `now` before
     /// the operation is emitted; reducer-side Join Policy still applies
     /// independently.
     pub fn invite_with_candidate(
@@ -49,7 +49,7 @@ impl Realm {
         candidate: &MemberDeliveryBindingCandidate,
         role: Option<String>,
     ) -> Result<Operation> {
-        let ctx = CandidateValidationContext::new(self.space_id.as_str().to_owned());
+        let ctx = CandidateValidationContext::new(self.realm_id.as_str().to_owned());
         candidate.validate(&ctx).map_err(map_candidate_err)?;
 
         let session_meta = self
@@ -61,7 +61,7 @@ impl Realm {
         let payload = json!({
             "actor_id": candidate.subject_id,
             "role": role,
-            "space_id": self.space_id.as_str(),
+            "realm_id": self.realm_id.as_str(),
             "issuer": session_meta.user_id.as_str(),
             "handle": candidate.handle.canonical(),
             "delivery_binding_candidate": candidate,
@@ -82,7 +82,7 @@ impl Realm {
         &self,
         candidate: &MemberDeliveryBindingCandidate,
     ) -> Result<Operation> {
-        let ctx = CandidateValidationContext::new(self.space_id.as_str().to_owned());
+        let ctx = CandidateValidationContext::new(self.realm_id.as_str().to_owned());
         candidate.validate(&ctx).map_err(map_candidate_err)?;
 
         let binding = candidate_to_delivery_binding(candidate);
@@ -95,7 +95,7 @@ impl Realm {
 
         let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         let payload = json!({
-            "space_id": self.space_id.as_str(),
+            "realm_id": self.realm_id.as_str(),
             "actor_id": candidate.subject_id,
             "issuer": session_meta.user_id.as_str(),
             "membership": "join",
@@ -108,12 +108,12 @@ impl Realm {
         Ok(Operation::create(operation_id, self.realm_id()?, OP_MEMBER_STATE, payload))
     }
 
-    /// Create a join operation for the current user to join this space.
+    /// Create a join operation for the current user to join this Realm.
     ///
     /// Produces an `unroutable` join — used when the current actor does
-    /// not yet have an admissible delivery binding for this Space. The
+    /// not yet have an admissible delivery binding for this Realm. The
     /// reducer is expected to accept the membership but suppress
-    /// Space-scoped delivery until a rebind (`routable`) is issued.
+    /// Realm-scoped delivery until a rebind (`routable`) is issued.
     pub fn create_join_operation(&self) -> Result<Operation> {
         let session_meta = self
             .base_client
@@ -122,7 +122,7 @@ impl Realm {
 
         let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         let payload = json!({
-            "space_id": self.space_id.as_str(),
+            "realm_id": self.realm_id.as_str(),
             "actor_id": session_meta.user_id.as_str(),
             "membership": "join",
             "delivery_status": DeliveryStatus::Unroutable,
@@ -143,7 +143,7 @@ impl Realm {
 
         let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         let payload = json!({
-            "space_id": self.space_id.as_str(),
+            "realm_id": self.realm_id.as_str(),
             "actor_id": session_meta.user_id.as_str(),
             "membership": "join",
             "delivery_status": DeliveryStatus::Routable,
@@ -153,7 +153,7 @@ impl Realm {
         Ok(Operation::create(operation_id, self.realm_id()?, OP_MEMBER_STATE, payload))
     }
 
-    /// Create a leave operation for the current user to leave this space.
+    /// Create a leave operation for the current user to leave this Realm.
     pub fn create_leave_operation(&self) -> Result<Operation> {
         let session_meta = self
             .base_client
@@ -162,7 +162,7 @@ impl Realm {
 
         let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         let payload = json!({
-            "space_id": self.space_id.as_str(),
+            "realm_id": self.realm_id.as_str(),
             "actor_id": session_meta.user_id.as_str(),
             "membership": "leave",
         });
@@ -170,7 +170,7 @@ impl Realm {
         Ok(Operation::create(operation_id, self.realm_id()?, OP_MEMBER_STATE, payload))
     }
 
-    /// Create a ban operation for a user in this space.
+    /// Create a ban operation for a user in this Realm.
     pub fn ban(&self, user_id: Did, reason: Option<String>) -> Result<Operation> {
         let session_meta = self
             .base_client
@@ -180,7 +180,7 @@ impl Realm {
         let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         let mut payload = json!({
             "actor_id": user_id.as_str(),
-            "space_id": self.space_id.as_str(),
+            "realm_id": self.realm_id.as_str(),
             "issuer": session_meta.user_id.as_str(),
             "membership": "ban",
         });
@@ -191,7 +191,7 @@ impl Realm {
         Ok(Operation::create(operation_id, self.realm_id()?, OP_MEMBER_STATE, payload))
     }
 
-    /// Create an unban operation for a user in this space.
+    /// Create an unban operation for a user in this Realm.
     pub fn unban(&self, user_id: Did) -> Result<Operation> {
         let session_meta = self
             .base_client
@@ -201,7 +201,7 @@ impl Realm {
         let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         let payload = json!({
             "actor_id": user_id.as_str(),
-            "space_id": self.space_id.as_str(),
+            "realm_id": self.realm_id.as_str(),
             "issuer": session_meta.user_id.as_str(),
             "membership": "invite",
         });

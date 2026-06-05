@@ -3,8 +3,8 @@ use super::*;
 /// State snapshot at a specific point in time.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StateSnapshot {
-    pub space_id: RealmId,
-    pub space_version: String,
+    pub realm_id: RealmId,
+    pub reducer_profile: String,
     pub frontier: Vec<EventId>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub subjects: BTreeMap<String, Flow>,
@@ -28,8 +28,7 @@ pub struct StateSnapshot {
 pub struct ReducerSnapshotManifest {
     pub schema: String,
     pub reducer_profile: String,
-    pub space_id: RealmId,
-    pub space_version: String,
+    pub realm_id: RealmId,
     pub frontier: Vec<EventId>,
     pub state_digest: String,
     pub merkle_root: String,
@@ -97,7 +96,7 @@ pub enum SnapshotRestoreSource {
 
 #[derive(Clone, Debug)]
 pub struct SnapshotRestore {
-    pub state: SpaceState,
+    pub state: RealmState,
     pub source: SnapshotRestoreSource,
     pub snapshot_error: Option<String>,
 }
@@ -242,9 +241,8 @@ impl StateSnapshot {
             .unwrap_or_else(|_| sha256_digest(format!("{:?}", self.frontier)));
         ReducerSnapshotManifest {
             schema: REDUCER_SNAPSHOT_SCHEMA.to_owned(),
-            reducer_profile: REDUCER_SNAPSHOT_PROFILE.to_owned(),
-            space_id: self.space_id.clone(),
-            space_version: self.space_version.clone(),
+            reducer_profile: self.reducer_profile.clone(),
+            realm_id: self.realm_id.clone(),
             frontier: self.frontier.clone(),
             state_digest: self.state_digest.clone(),
             merkle_root,
@@ -276,8 +274,8 @@ impl StateSnapshot {
 
     fn state_payload(&self) -> Value {
         state_digest_payload(StateHashInput {
-            space_id: &self.space_id,
-            space_version: &self.space_version,
+            realm_id: &self.realm_id,
+            reducer_profile: &self.reducer_profile,
             frontier: &self.frontier,
             subjects: &self.subjects,
             morphs: &self.morphs,
@@ -303,8 +301,8 @@ impl ReducerSnapshotManifest {
         if self.reducer_profile != REDUCER_SNAPSHOT_PROFILE {
             return Err(Error::Protocol("snapshot manifest reducer profile mismatch".to_owned()));
         }
-        if self.space_id != snapshot.space_id
-            || self.space_version != snapshot.space_version
+        if self.realm_id != snapshot.realm_id
+            || self.reducer_profile != snapshot.reducer_profile
             || self.frontier != snapshot.frontier
             || self.state_digest != snapshot.state_digest
         {
@@ -446,8 +444,8 @@ pub fn merkle_root(mut leaves: Vec<String>) -> Result<String> {
 }
 
 pub(super) struct StateHashInput<'a> {
-    pub(super) space_id: &'a RealmId,
-    pub(super) space_version: &'a str,
+    pub(super) realm_id: &'a RealmId,
+    pub(super) reducer_profile: &'a str,
     pub(super) frontier: &'a [EventId],
     pub(super) subjects: &'a BTreeMap<String, Flow>,
     pub(super) morphs: &'a BTreeMap<String, Morph>,
@@ -461,8 +459,8 @@ pub(super) struct StateHashInput<'a> {
 
 pub(super) fn state_digest_payload(input: StateHashInput<'_>) -> Value {
     serde_json::json!({
-        "space_id": input.space_id,
-        "space_version": input.space_version,
+        "realm_id": input.realm_id,
+        "reducer_profile": input.reducer_profile,
         "frontier": input.frontier,
         "subjects": input.subjects,
         "morphs": input.morphs,

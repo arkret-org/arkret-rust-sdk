@@ -18,19 +18,19 @@ use crate::{
     crypto,
     e2ee::AuditEntry,
     model::BlobMetadata,
-    resolver::{SnapshotRestore, SpaceState, StateSnapshot},
+    resolver::{SnapshotRestore, RealmState, StateSnapshot},
 };
 
 pub trait StateSnapshotStore: Send + Sync {
     fn put_state_snapshot(&mut self, snapshot: StateSnapshot) -> Result<()>;
-    fn state_snapshot(&self, space_id: &RealmId) -> Option<&StateSnapshot>;
-    fn remove_state_snapshot(&mut self, space_id: &RealmId) -> Result<()>;
+    fn state_snapshot(&self, realm_id: &RealmId) -> Option<&StateSnapshot>;
+    fn remove_state_snapshot(&mut self, realm_id: &RealmId) -> Result<()>;
 }
 
 pub trait EventCacheStore: Send + Sync {
     fn put_event(&mut self, event: Event) -> Result<()>;
     fn event(&self, event_id: &EventId) -> Option<&Event>;
-    fn events_for_space(&self, space_id: &RealmId) -> Vec<&Event>;
+    fn events_for_realm(&self, realm_id: &RealmId) -> Vec<&Event>;
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -126,16 +126,16 @@ impl MemoryPersistenceStore {
 impl StateSnapshotStore for MemoryPersistenceStore {
     fn put_state_snapshot(&mut self, snapshot: StateSnapshot) -> Result<()> {
         snapshot.verify()?;
-        self.snapshots.insert(snapshot.space_id.clone(), snapshot);
+        self.snapshots.insert(snapshot.realm_id.clone(), snapshot);
         Ok(())
     }
 
-    fn state_snapshot(&self, space_id: &RealmId) -> Option<&StateSnapshot> {
-        self.snapshots.get(space_id)
+    fn state_snapshot(&self, realm_id: &RealmId) -> Option<&StateSnapshot> {
+        self.snapshots.get(realm_id)
     }
 
-    fn remove_state_snapshot(&mut self, space_id: &RealmId) -> Result<()> {
-        self.snapshots.remove(space_id);
+    fn remove_state_snapshot(&mut self, realm_id: &RealmId) -> Result<()> {
+        self.snapshots.remove(realm_id);
         Ok(())
     }
 }
@@ -143,10 +143,10 @@ impl StateSnapshotStore for MemoryPersistenceStore {
 impl EventCacheStore for MemoryPersistenceStore {
     fn put_event(&mut self, event: Event) -> Result<()> {
         let digest = event.event_digest()?;
-        if let Some(existing_space_id) = self.event_index.get(&event.event_id) {
+        if let Some(existing_realm_id) = self.event_index.get(&event.event_id) {
             let existing_digest = self
                 .events
-                .get(existing_space_id)
+                .get(existing_realm_id)
                 .and_then(|events| events.get(&event.event_id))
                 .map(|(existing_digest, _)| existing_digest);
             return match existing_digest {
@@ -162,19 +162,17 @@ impl EventCacheStore for MemoryPersistenceStore {
     }
 
     fn event(&self, event_id: &EventId) -> Option<&Event> {
-        self.event_index.get(event_id).and_then(|space_id| {
+        self.event_index.get(event_id).and_then(|realm_id| {
             self.events
-                .get(space_id)
+                .get(realm_id)
                 .and_then(|events| events.get(event_id))
                 .map(|(_, event)| event)
         })
     }
 
-    fn events_for_space(&self, space_id: &RealmId) -> Vec<&Event> {
-        let realm_scope = RealmId::new(space_id.as_str().replacen("ck:space:", "ck:realm:", 1))
-            .unwrap_or_else(|_| space_id.clone());
+    fn events_for_realm(&self, realm_id: &RealmId) -> Vec<&Event> {
         self.events
-            .get(&realm_scope)
+            .get(realm_id)
             .map(|events| events.values().map(|(_, event)| event).collect())
             .unwrap_or_default()
     }
@@ -276,33 +274,30 @@ impl FederationReplayStore for MemoryPersistenceStore {
     }
 }
 
-pub fn rebuild_space_state_from_events<S>(
+pub fn rebuild_realm_state_from_events<S>(
     store: &S,
-    space_id: &RealmId,
-    space_version: impl Into<String>,
-) -> Result<SpaceState>
+    realm_id: &RealmId,
+) -> Result<RealmState>
 where
     S: EventCacheStore,
 {
-    let events: Vec<Event> = store.events_for_space(space_id).into_iter().cloned().collect();
-    let mut state = SpaceState::new(space_id.clone(), space_version.into());
+    let events: Vec<Event> = store.events_for_realm(realm_id).into_iter().cloned().collect();
+    let mut state = RealmState::new(realm_id.clone());
     state.apply_events(&events)?;
     Ok(state)
 }
 
-pub fn restore_space_state_from_persistence<S>(
+pub fn restore_realm_state_from_persistence<S>(
     store: &S,
-    space_id: &RealmId,
-    space_version: impl Into<String>,
+    realm_id: &RealmId,
 ) -> Result<SnapshotRestore>
 where
     S: EventCacheStore + StateSnapshotStore,
 {
-    let events: Vec<Event> = store.events_for_space(space_id).into_iter().cloned().collect();
-    SpaceState::restore_snapshot_or_replay(
-        store.state_snapshot(space_id).cloned(),
-        space_id.clone(),
-        space_version,
+    let events: Vec<Event> = store.events_for_realm(realm_id).into_iter().cloned().collect();
+    RealmState::restore_snapshot_or_replay(
+        store.state_snapshot(realm_id).cloned(),
+        realm_id.clone(),
         &events,
     )
 }
@@ -425,7 +420,7 @@ mod tests {
 
     #[test]
     fn projection_rebuild_helpers_replay_event_cache_and_use_valid_snapshot() {
-        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let event = morph_event("ck:event:01904100-0000-7000-8000-ec26a4d295c0", "Stored task");
         let mut store = MemoryPersistenceStore::new();
         store.put_event(event.clone()).unwrap();
@@ -445,7 +440,7 @@ mod tests {
         });
         assert!(matches!(store.put_event(conflicting), Err(Error::IdempotencyConflict(_))));
 
-        let state = rebuild_space_state_from_events(&store, &space_id, "1").unwrap();
+        let state = rebuild_realm_state_from_events(&store, &realm_id).unwrap();
         assert_eq!(state.morphs.len(), 1);
         assert_eq!(
             state.morphs.get("ck:morph:01904100-0000-7000-8000-b7a4e10c8c77").unwrap().state,
@@ -453,7 +448,7 @@ mod tests {
         );
 
         store.put_state_snapshot(state.snapshot()).unwrap();
-        let restored = restore_space_state_from_persistence(&store, &space_id, "1").unwrap();
+        let restored = restore_realm_state_from_persistence(&store, &realm_id).unwrap();
         assert_eq!(restored.source, SnapshotRestoreSource::Snapshot);
         assert_eq!(restored.state.morphs.len(), 1);
     }

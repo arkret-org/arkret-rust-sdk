@@ -1098,12 +1098,12 @@ impl Client {
     pub async fn directory_search_users(
         &self,
         q: &str,
-        space_id: Option<&str>,
+        realm_id: Option<&str>,
         limit: Option<u32>,
     ) -> Result<DirectorySearchUsersResBody> {
         let request = DirectorySearchUsersReqBody {
             q: q.to_owned(),
-            space_id: space_id.map(str::parse).transpose()?,
+            realm_id: realm_id.map(str::parse).transpose()?,
             limit,
         };
         self.post("/_cokret/find/directory/search-users", &request).await

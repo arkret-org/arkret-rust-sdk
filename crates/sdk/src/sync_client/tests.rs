@@ -3,14 +3,14 @@ use std::collections::BTreeMap;
 use serde_json::{Value, json};
 
 use super::*;
-use crate::sync::{SyncSpace, UnreadCounts};
+use crate::sync::{SyncRealm, UnreadCounts};
 use crate::{Did, RealmId};
 
 fn sync_response(cursor: &str) -> SyncResBody {
     SyncResBody {
         cursor: cursor.to_owned(),
-        spaces: BTreeMap::new(),
-        left_spaces: Vec::new(),
+        realms: BTreeMap::new(),
+        left_realms: Vec::new(),
         to_device: Vec::new(),
         device_lists: Value::Null,
         account_data: Vec::new(),
@@ -105,9 +105,9 @@ fn sync_loop_control_applies_backpressure() {
 
 #[test]
 fn sync_loop_can_reset_token_on_limited_timeline_gap() {
-    let space_id = "ck:space:01904100-0000-7000-8000-9b64700c6ee8";
+    let realm_id = "ck:realm:01904100-0000-7000-8000-9b64700c6ee8";
     let mut response = sync_response("gap-token");
-    let sync_space = SyncSpace {
+    let sync_realm = SyncRealm {
         timeline: Some(SyncTimeline {
             events: Vec::new(),
             limited: true,
@@ -119,7 +119,7 @@ fn sync_loop_can_reset_token_on_limited_timeline_gap() {
         unread: UnreadCounts::default(),
         ..Default::default()
     };
-    response.spaces.insert(space_id.to_owned(), serde_json::to_value(sync_space).unwrap());
+    response.realms.insert(realm_id.to_owned(), serde_json::to_value(sync_realm).unwrap());
     let mut transport = |_request: SyncReqBody| Ok(response.clone());
     let mut sync_loop =
         SyncLoop::new().with_gap_strategy(SyncGapStrategy::ResetTokenOnLimitedTimeline);
@@ -130,10 +130,10 @@ fn sync_loop_can_reset_token_on_limited_timeline_gap() {
 
 #[test]
 fn sync_loop_includes_wait_for_frontier() {
-    let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
     let wait_for = WaitForFrontier {
         positions: vec![crate::sync::SyncStreamPosition {
-            space_id,
+            realm_id,
             frontier: Vec::new(),
             timeline_order: crate::Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),
             state_digest: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -149,17 +149,17 @@ fn sync_loop_includes_wait_for_frontier() {
 
 #[test]
 fn processor_dispatches_all_update_categories() {
-    let space_id = "ck:space:01904100-0000-7000-8000-9b64700c6ee8";
+    let realm_id = "ck:realm:01904100-0000-7000-8000-9b64700c6ee8";
     let mut response = sync_response("s2");
-    let sync_space = SyncSpace {
+    let sync_realm = SyncRealm {
         timeline: None,
         state: vec![json!({"kind":"state"})],
-        summary: json!({"name":"space"}),
+        summary: json!({"name":"realm"}),
         ephemeral: Vec::new(),
         unread: UnreadCounts { notification_count: 3, highlight_count: 1 },
         ..Default::default()
     };
-    response.spaces.insert(space_id.to_owned(), serde_json::to_value(sync_space).unwrap());
+    response.realms.insert(realm_id.to_owned(), serde_json::to_value(sync_realm).unwrap());
     response.to_device.push(
         serde_json::to_value(ToDeviceMessage {
             message_type: "m.test".to_owned(),
@@ -205,10 +205,10 @@ fn processor_dispatches_all_update_categories() {
 
     let mut processor = SyncResponseProcessor::new();
     let updates = processor.process(response).unwrap();
-    let parsed_space_id = RealmId::new(space_id).unwrap();
+    let parsed_realm_id = RealmId::new(realm_id).unwrap();
 
-    assert_eq!(updates.space_updates.len(), 1);
-    assert_eq!(processor.space(&parsed_space_id).unwrap().notification_count, 3);
+    assert_eq!(updates.realm_updates.len(), 1);
+    assert_eq!(processor.realm(&parsed_realm_id).unwrap().notification_count, 3);
     assert_eq!(processor.drain_to_device().len(), 1);
     assert!(processor.presence("did:web:alice.example").is_some());
     assert!(processor.account_data("ck.settings").is_some());
@@ -218,9 +218,9 @@ fn processor_dispatches_all_update_categories() {
 
 #[test]
 fn processor_tracks_limited_timelines_and_to_device_ack() {
-    let space_id = "ck:space:01904100-0000-7000-8000-9b64700c6ee8";
-    let parsed_space_id = RealmId::new(space_id).unwrap();
-    let parsed_realm_id = RealmId::new(space_id.replacen("ck:space:", "ck:realm:", 1)).unwrap();
+    let realm_id = "ck:realm:01904100-0000-7000-8000-9b64700c6ee8";
+    let parsed_realm_id = RealmId::new(realm_id).unwrap();
+    let parsed_realm_id = parsed_realm_id.clone();
     let event = Event::new(
         "ck.message.create",
         parsed_realm_id,
@@ -231,7 +231,7 @@ fn processor_tracks_limited_timelines_and_to_device_ack() {
     )
     .unwrap();
     let mut response = sync_response("s3");
-    let sync_space = SyncSpace {
+    let sync_realm = SyncRealm {
         timeline: Some(SyncTimeline {
             events: vec![serde_json::to_value(event).unwrap()],
             limited: true,
@@ -243,7 +243,7 @@ fn processor_tracks_limited_timelines_and_to_device_ack() {
         unread: UnreadCounts::default(),
         ..Default::default()
     };
-    response.spaces.insert(space_id.to_owned(), serde_json::to_value(sync_space).unwrap());
+    response.realms.insert(realm_id.to_owned(), serde_json::to_value(sync_realm).unwrap());
 
     let mut processor = SyncResponseProcessor::new();
     processor.process(response).unwrap();
@@ -253,25 +253,25 @@ fn processor_tracks_limited_timelines_and_to_device_ack() {
         ToDeviceAckStatus::Processed,
     );
 
-    assert_eq!(processor.space(&parsed_space_id).unwrap().limited_timeline_count, 1);
+    assert_eq!(processor.realm(&parsed_realm_id).unwrap().limited_timeline_count, 1);
     assert_eq!(processor.limited_timelines().len(), 1);
     assert_eq!(processor.to_device_ack("devmsg1"), Some(&ack));
 }
 
 #[test]
 fn send_queue_is_idempotent_orders_dependencies_and_snapshots() {
-    let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
     let mut queue = SendQueue::new();
     let message = queue
-        .enqueue_message(Some("txn1".to_owned()), space_id.clone(), json!({"body":"hello"}))
+        .enqueue_message(Some("txn1".to_owned()), realm_id.clone(), json!({"body":"hello"}))
         .unwrap();
     let duplicate = queue
-        .enqueue_message(Some("txn1".to_owned()), space_id.clone(), json!({"body":"hello"}))
+        .enqueue_message(Some("txn1".to_owned()), realm_id.clone(), json!({"body":"hello"}))
         .unwrap();
     let edit = queue
         .enqueue_edit(
             Some("txn2".to_owned()),
-            space_id,
+            realm_id,
             EventId::new("ck:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap(),
             json!({"content":{"body":"hi"}}),
             vec!["txn1".to_owned()],
@@ -294,16 +294,16 @@ fn send_queue_is_idempotent_orders_dependencies_and_snapshots() {
 
 #[test]
 fn send_queue_cancels_dependent_edit_redaction_and_reaction() {
-    let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
     let event_id = EventId::new("ck:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap();
     let mut queue = SendQueue::new();
     queue
-        .enqueue_message(Some("txn1".to_owned()), space_id.clone(), json!({"body":"hello"}))
+        .enqueue_message(Some("txn1".to_owned()), realm_id.clone(), json!({"body":"hello"}))
         .unwrap();
     queue
         .enqueue_redaction(
             Some("txn2".to_owned()),
-            space_id.clone(),
+            realm_id.clone(),
             event_id.clone(),
             None,
             vec!["txn1".to_owned()],
@@ -312,7 +312,7 @@ fn send_queue_cancels_dependent_edit_redaction_and_reaction() {
     queue
         .enqueue_reaction(
             Some("txn3".to_owned()),
-            space_id,
+            realm_id,
             event_id,
             "+1".to_owned(),
             true,
@@ -329,52 +329,52 @@ fn send_queue_cancels_dependent_edit_redaction_and_reaction() {
 
 #[test]
 fn sliding_sync_builds_windowed_subscriptions_and_applies_deltas() {
-    let s1 = RealmId::new("ck:space:01904100-0000-7000-8000-000000000001").unwrap();
-    let s2 = RealmId::new("ck:space:01904100-0000-7000-8000-000000000002").unwrap();
-    let s3 = RealmId::new("ck:space:01904100-0000-7000-8000-000000000003").unwrap();
-    let s4 = RealmId::new("ck:space:01904100-0000-7000-8000-000000000004").unwrap();
+    let s1 = RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap();
+    let s2 = RealmId::new("ck:realm:01904100-0000-7000-8000-000000000002").unwrap();
+    let s3 = RealmId::new("ck:realm:01904100-0000-7000-8000-000000000003").unwrap();
+    let s4 = RealmId::new("ck:realm:01904100-0000-7000-8000-000000000004").unwrap();
 
     let mut sliding = SlidingSync::new();
-    sliding.set_space_list(vec![s1.clone(), s2.clone(), s3]);
+    sliding.set_realm_list(vec![s1.clone(), s2.clone(), s3]);
     sliding.set_windows(vec![SlidingWindow::new(0, 2).unwrap()]);
     sliding.apply_delta(&[s1], vec![(1, s4.clone())]);
 
     let config = sliding.subscription_config();
 
     assert_eq!(config.subscriptions.len(), 2);
-    assert_eq!(config.subscriptions[0].space_id, s2);
-    assert_eq!(config.subscriptions[1].space_id, s4);
+    assert_eq!(config.subscriptions[0].realm_id, s2);
+    assert_eq!(config.subscriptions[1].realm_id, s4);
     assert!(sliding.is_subscribed(&s4));
 }
 
 #[test]
-fn space_list_sorts_filters_and_reports_incremental_changes() {
-    let s1 = RealmId::new("ck:space:01904100-0000-7000-8000-f949e0272316").unwrap();
-    let s2 = RealmId::new("ck:space:01904100-0000-7000-8000-46f8537dc94e").unwrap();
-    let mut list = SpaceListService::new();
-    let mut alpha = SpaceListEntry::joined(s1);
+fn realm_list_sorts_filters_and_reports_incremental_changes() {
+    let s1 = RealmId::new("ck:realm:01904100-0000-7000-8000-f949e0272316").unwrap();
+    let s2 = RealmId::new("ck:realm:01904100-0000-7000-8000-46f8537dc94e").unwrap();
+    let mut list = RealmListService::new();
+    let mut alpha = RealmListEntry::joined(s1);
     alpha.name = Some("Alpha".to_owned());
     alpha.unread_count = 1;
-    let mut beta = SpaceListEntry::joined(s2.clone());
+    let mut beta = RealmListEntry::joined(s2.clone());
     beta.name = Some("Beta".to_owned());
     beta.favorite = true;
     beta.unread_count = 5;
 
     let first = list.upsert(alpha);
     let second = list.upsert(beta);
-    let sorted = list.set_sort(SpaceListSort::Unread);
+    let sorted = list.set_sort(RealmListSort::Unread);
     let filtered =
-        list.set_filter(SpaceListFilter { unread_only: true, ..SpaceListFilter::default() });
+        list.set_filter(RealmListFilter { unread_only: true, ..RealmListFilter::default() });
 
-    assert!(matches!(first.changes[0], SpaceListChange::Inserted { .. }));
-    assert!(second.changes.iter().any(|change| matches!(change, SpaceListChange::Inserted { .. })));
+    assert!(matches!(first.changes[0], RealmListChange::Inserted { .. }));
+    assert!(second.changes.iter().any(|change| matches!(change, RealmListChange::Inserted { .. })));
     assert_eq!(sorted.ordered[0], s2);
     assert_eq!(filtered.ordered.len(), 2);
 
     let snapshot = list.snapshot();
-    let restored = SpaceListService::from_snapshot(snapshot);
+    let restored = RealmListService::from_snapshot(snapshot);
     assert_eq!(restored.entries().len(), 2);
-    assert_eq!(restored.entries()[0].space_id, s2);
+    assert_eq!(restored.entries()[0].realm_id, s2);
 }
 
 // ─── C17 typed EventsSubscribeFrame tests ─────────────────────────────
@@ -427,12 +427,12 @@ fn frame_resync_required_carries_frontier() {
 }
 
 #[test]
-fn frame_epoch_rotation_parses_space_and_epoch() {
-    let line = r#"{"kind":"epoch_rotation","space_id":"ck:space:01904100-0000-7000-8000-9b64700c6ee8","new_epoch":7,"previous_epoch":6}"#;
+fn frame_epoch_rotation_parses_realm_and_epoch() {
+    let line = r#"{"kind":"epoch_rotation","realm_id":"ck:realm:01904100-0000-7000-8000-9b64700c6ee8","new_epoch":7,"previous_epoch":6}"#;
     let frame = EventsSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
     match &frame {
-        EventsSubscribeFrame::EpochRotation { space_id, new_epoch, previous_epoch } => {
-            assert_eq!(space_id.as_str(), "ck:space:01904100-0000-7000-8000-9b64700c6ee8");
+        EventsSubscribeFrame::EpochRotation { realm_id, new_epoch, previous_epoch } => {
+            assert_eq!(realm_id.as_str(), "ck:realm:01904100-0000-7000-8000-9b64700c6ee8");
             assert_eq!(*new_epoch, 7);
             assert_eq!(*previous_epoch, Some(6));
         }
@@ -477,8 +477,8 @@ fn frame_unauthorized_with_actor_only() {
     let line = r#"{"kind":"unauthorized","actor_id":"did:web:alice.example","reason":"revoked"}"#;
     let frame = EventsSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();
     match &frame {
-        EventsSubscribeFrame::Unauthorized { space_id, actor_id, reason } => {
-            assert!(space_id.is_none());
+        EventsSubscribeFrame::Unauthorized { realm_id, actor_id, reason } => {
+            assert!(realm_id.is_none());
             assert_eq!(actor_id.as_deref(), Some("did:web:alice.example"));
             assert_eq!(reason.as_deref(), Some("revoked"));
         }
@@ -493,7 +493,7 @@ fn events_query_selector_validates_non_empty() {
     let empty = EventsQuerySelector::default();
     assert!(empty.validate_non_empty().is_err());
     let with_space = EventsQuerySelector {
-        spaces: vec![RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()],
+        realms: vec![RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()],
         ..Default::default()
     };
     with_space.validate_non_empty().unwrap();
@@ -507,9 +507,9 @@ fn events_query_selector_validates_non_empty() {
 #[test]
 fn events_query_selector_renders_repeated_query_args() {
     let selector = EventsQuerySelector {
-        spaces: vec![
-            RealmId::new("ck:space:01904100-0000-7000-8000-f949e0272316").unwrap(),
-            RealmId::new("ck:space:01904100-0000-7000-8000-46f8537dc94e").unwrap(),
+        realms: vec![
+            RealmId::new("ck:realm:01904100-0000-7000-8000-f949e0272316").unwrap(),
+            RealmId::new("ck:realm:01904100-0000-7000-8000-46f8537dc94e").unwrap(),
         ],
         actors: vec!["did:web:alice.example".to_owned()],
         from: Some("sx:cursor:1".to_owned()),
@@ -518,7 +518,7 @@ fn events_query_selector_renders_repeated_query_args() {
         ..Default::default()
     };
     let pairs = selector.to_query_pairs();
-    assert_eq!(pairs.iter().filter(|(k, _)| *k == "spaces").count(), 2);
+    assert_eq!(pairs.iter().filter(|(k, _)| *k == "realms").count(), 2);
     assert_eq!(pairs.iter().filter(|(k, _)| *k == "actors").count(), 1);
     assert!(pairs.iter().any(|(k, v)| *k == "direction" && v == "backward"));
     assert!(pairs.iter().any(|(k, v)| *k == "limit" && v == "50"));
@@ -554,16 +554,16 @@ fn events_query_request_validates_non_empty() {
     let empty = EventsQueryReqBody::new();
     assert!(empty.validate_non_empty().is_err());
     let with_space = EventsQueryReqBody::new()
-        .with_spaces(vec![RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()]);
+        .with_realms(vec![RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()]);
     with_space.validate_non_empty().unwrap();
 }
 
 #[test]
 fn events_query_request_renders_query_pairs() {
     let req = EventsQueryReqBody::new()
-        .with_spaces(vec![
-            RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
-            RealmId::new("ck:space:01904100-0000-7000-8000-46f8537dc94e").unwrap(),
+        .with_realms(vec![
+            RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+            RealmId::new("ck:realm:01904100-0000-7000-8000-46f8537dc94e").unwrap(),
         ])
         .with_actors(vec!["did:web:alice.example".to_owned()])
         .with_from("hlc:0189c4d2af00-0000-aabbccdd")
@@ -571,7 +571,7 @@ fn events_query_request_renders_query_pairs() {
         .with_direction(EventsQueryDirection::Backward)
         .with_limit(50);
     let pairs = req.to_query_pairs();
-    assert_eq!(pairs.iter().filter(|(k, _)| *k == "spaces").count(), 2);
+    assert_eq!(pairs.iter().filter(|(k, _)| *k == "realms").count(), 2);
     assert_eq!(pairs.iter().filter(|(k, _)| *k == "actors").count(), 1);
     assert!(pairs.iter().any(|(k, v)| *k == "direction" && v == "backward"));
     assert!(pairs.iter().any(|(k, v)| *k == "limit" && v == "50"));

@@ -26,8 +26,8 @@ pub struct NotificationPreferences {
     pub push_enabled: bool,
     /// Enable email notifications.
     pub email_enabled: bool,
-    /// Muted spaces.
-    pub muted_spaces: BTreeSet<RealmId>,
+    /// Muted Realms.
+    pub muted_realms: BTreeSet<RealmId>,
 }
 
 impl Default for NotificationPreferences {
@@ -36,7 +36,7 @@ impl Default for NotificationPreferences {
             enabled: true,
             push_enabled: true,
             email_enabled: false,
-            muted_spaces: BTreeSet::new(),
+            muted_realms: BTreeSet::new(),
         }
     }
 }
@@ -137,10 +137,10 @@ impl SettingsManager {
         settings.updated_at = Utc::now();
     }
 
-    /// Mute a space.
-    pub fn mute_space(&mut self, user_id: Did, space_id: RealmId) {
+    /// Mute a Realm.
+    pub fn mute_realm(&mut self, user_id: Did, realm_id: RealmId) {
         let settings = self.settings_mut(user_id);
-        settings.notifications.muted_spaces.insert(space_id);
+        settings.notifications.muted_realms.insert(realm_id);
         settings.updated_at = Utc::now();
     }
 
@@ -192,12 +192,12 @@ mod tests {
     #[test]
     fn settings_manage_theme_language_notifications_and_privacy() {
         let alice = did("alice");
-        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let mut manager = SettingsManager::new();
 
         manager.set_theme(alice.clone(), ThemeSetting::Dark);
         manager.set_language(alice.clone(), "zh-CN");
-        manager.mute_space(alice.clone(), space_id.clone());
+        manager.mute_realm(alice.clone(), realm_id.clone());
         manager.set_privacy_settings(
             alice.clone(),
             PrivacySettings {
@@ -210,7 +210,7 @@ mod tests {
         let settings = manager.settings(&alice).unwrap();
         assert_eq!(settings.theme, ThemeSetting::Dark);
         assert_eq!(settings.language, "zh-CN");
-        assert!(settings.notifications.muted_spaces.contains(&space_id));
+        assert!(settings.notifications.muted_realms.contains(&realm_id));
         assert!(!settings.privacy.profile_discoverable);
     }
 

@@ -52,7 +52,7 @@ pub use blind_payload_sanitizer::{
 pub use bottom::{AnchorView, Bottom, BottomKind};
 pub use cell::{CellId, composite_subject, composite_subject_pipe};
 pub use cokret_identifiers as identifiers;
-pub use cursor::{Cursor, CursorPurpose, CursorTarget, SpacePosition, SyncPositions, SyncTracker};
+pub use cursor::{Cursor, CursorPurpose, CursorTarget, RealmPosition, SyncPositions, SyncTracker};
 pub use error::{
     ERROR_CODE_AAD_DIGEST_MISMATCH, ERROR_CODE_ACCEPT_POLICY_DENIED,
     ERROR_CODE_ANCHORER_RECOVERY_MISSING, ERROR_CODE_APPEAL_OVERTURN_MISSING_LIFT,
@@ -107,8 +107,8 @@ pub use identifiers::{
     FilterId, FlowId, FrameId, FrankingProofId, GrantId, Hash, Hlc, InviteId, KeyEventId,
     MessageId, ModerationQueueItemId, MorphId, MoveId, NotificationId, OperationId, PolicyId,
     PresentationId, ReadCursorId, RealmId, ReceiptId, RecoverySessionId, RelationId, ReportId,
-    RequestId, SidecarCircleId, SnapshotId, TransactionId, TypedAppealId, TypedTrustDomainId,
-    ViewId,
+    RequestId, SidecarCircleId, SnapshotId, SpaceId, TransactionId, TypedAppealId,
+    TypedTrustDomainId, ViewId,
 };
 pub use keystore::{InMemoryKeyStore, KeyStore, KeyStoreError};
 pub use model::*;
@@ -143,15 +143,15 @@ pub use state::{
 };
 pub use sync::{
     AccountData, BackfillDirection, BackfillFrom, BackfillReqBody, BackfillResBody,
-    BucketedSpaceUpdate, DeviceListChanges, LimitedTimelineState, MembershipBucket,
-    NotificationDelta, PresenceEvent, PresenceStatus, SpaceSubscription, SpaceUpdate,
+    BucketedRealmUpdate, DeviceListChanges, LimitedTimelineState, MembershipBucket,
+    NotificationDelta, PresenceEvent, PresenceStatus, RealmSubscription, RealmUpdate,
     SubscriptionConfig, SyncClient, SyncFilter, SyncGap, SyncGapReason, SyncMode, SyncReqBody,
-    SyncSemantics, SyncSpace, SyncStreamPosition, SyncTimeline, SyncTokenBinding, SyncUpdates,
+    SyncSemantics, SyncRealm, SyncStreamPosition, SyncTimeline, SyncTokenBinding, SyncUpdates,
     TimelineFilter, TimelineOrderKey, ToDeviceAck, ToDeviceAckStatus, ToDeviceMessage,
     WaitForFrontier, sync_filter_digest,
 };
 // `SyncResBody` is the wire-shape projection in [`model::api`]; the typed
-// per-event helpers above (SyncSpace, ToDeviceMessage, AccountData,
+// per-event helpers above (SyncRealm, ToDeviceMessage, AccountData,
 // NotificationDelta, PresenceEvent, DeviceListChanges, UnreadCounts,
 // SyncTimeline) are typed views that consumers parse per-field from the
 // loose `BTreeMap<String, Value>` / `Vec<Value>` carried by the wire

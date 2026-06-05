@@ -120,7 +120,7 @@ where
         // bottom=reject cells fail closed.
         if let CellState::Bottom(b) = &cell_state {
             let binding = registry
-                .resolve(&m.space_id, &pre.cell)
+                .resolve(&m.realm_id, &pre.cell)
                 .map_err(|e| MoveReject::Registry(e.to_string()))?;
             if binding.bottom_mode == BottomMode::Reject {
                 return Err(MoveReject::FailedBottom {
@@ -135,7 +135,7 @@ where
     // Step 5: effect-shape
     for effect in &m.effects {
         let binding = registry
-            .resolve(&m.space_id, &effect.cell)
+            .resolve(&m.realm_id, &effect.cell)
             .map_err(|e| MoveReject::Registry(e.to_string()))?;
         let core_op: LatticeOp = effect.op.clone();
         binding.lattice.validate_op(&core_op).map_err(|e| {
@@ -400,8 +400,8 @@ mod tests {
 
     use crate::state::store::memory::MemoryCellRegistry;
 
-    fn space() -> RealmId {
-        RealmId::new("ck:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+    fn Realm() -> RealmId {
+        RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn cell_member() -> CellRef {
@@ -428,7 +428,7 @@ mod tests {
     ) -> Move {
         let body = json!({
             "issuer": "did:web:admin.example",
-            "space_id": space().as_str(),
+            "realm_id": Realm().as_str(),
             "preconditions": preconditions,
             "effects": effects,
             "anchor_ref": format!("ck:anchor:sha256:{}", "aa".repeat(32)),
@@ -473,7 +473,7 @@ mod tests {
                     "issuer": "did:web:owner.example",
                     "subject": subject,
                     "actions": ["ck.member.state"],
-                    "resources": [{"kind": "space", "space_id": space().as_str()}]
+                    "resources": [{"kind": "Realm", "realm_id": Realm().as_str()}]
                 }
             }
         ]))

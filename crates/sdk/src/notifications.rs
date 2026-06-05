@@ -40,8 +40,8 @@ pub struct NotificationRule {
 pub struct NotificationItem {
     /// Notification ID.
     pub id: String,
-    /// Space ID.
-    pub space_id: Option<RealmId>,
+    /// Realm ID.
+    pub realm_id: Option<RealmId>,
     /// Event ID.
     pub event_id: EventId,
     /// Event sender.
@@ -113,7 +113,7 @@ impl NotificationManager {
     pub fn add_notification(
         &mut self,
         id: impl Into<String>,
-        space_id: Option<RealmId>,
+        realm_id: Option<RealmId>,
         event_id: EventId,
         sender: Did,
         event_kind: impl Into<String>,
@@ -127,7 +127,7 @@ impl NotificationManager {
 
         let item = NotificationItem {
             id: id.into(),
-            space_id: space_id.clone(),
+            realm_id: realm_id.clone(),
             event_id,
             sender,
             event_kind,
@@ -136,14 +136,14 @@ impl NotificationManager {
             cleared: false,
             created_at: Utc::now(),
         };
-        self.increment(space_id, item.highlight);
+        self.increment(realm_id, item.highlight);
         self.notifications.insert(item.id.clone(), item.clone());
         Some(item)
     }
 
-    /// Get counts for one space or global notifications.
-    pub fn counts(&self, space_id: Option<&RealmId>) -> NotificationCounts {
-        self.counts.get(&space_id.cloned()).copied().unwrap_or_default()
+    /// Get counts for one Realm or global notifications.
+    pub fn counts(&self, realm_id: Option<&RealmId>) -> NotificationCounts {
+        self.counts.get(&realm_id.cloned()).copied().unwrap_or_default()
     }
 
     /// Clear one notification and decrement counts.
@@ -155,18 +155,18 @@ impl NotificationManager {
             return false;
         }
         item.cleared = true;
-        let space_id = item.space_id.clone();
+        let realm_id = item.realm_id.clone();
         let highlight = item.highlight;
-        self.decrement(space_id, highlight);
+        self.decrement(realm_id, highlight);
         true
     }
 
-    /// Clear all notifications in a space.
-    pub fn clear_space(&mut self, space_id: &RealmId) -> usize {
+    /// Clear all notifications in a Realm.
+    pub fn clear_realm(&mut self, realm_id: &RealmId) -> usize {
         let ids: Vec<_> = self
             .notifications
             .values()
-            .filter(|item| item.space_id.as_ref() == Some(space_id) && !item.cleared)
+            .filter(|item| item.realm_id.as_ref() == Some(realm_id) && !item.cleared)
             .map(|item| item.id.clone())
             .collect();
         let cleared = ids.len();
@@ -176,16 +176,16 @@ impl NotificationManager {
         cleared
     }
 
-    fn increment(&mut self, space_id: Option<RealmId>, highlight: bool) {
-        let counts = self.counts.entry(space_id).or_default();
+    fn increment(&mut self, realm_id: Option<RealmId>, highlight: bool) {
+        let counts = self.counts.entry(realm_id).or_default();
         counts.notification_count += 1;
         if highlight {
             counts.highlight_count += 1;
         }
     }
 
-    fn decrement(&mut self, space_id: Option<RealmId>, highlight: bool) {
-        let counts = self.counts.entry(space_id).or_default();
+    fn decrement(&mut self, realm_id: Option<RealmId>, highlight: bool) {
+        let counts = self.counts.entry(realm_id).or_default();
         counts.notification_count = counts.notification_count.saturating_sub(1);
         if highlight {
             counts.highlight_count = counts.highlight_count.saturating_sub(1);
@@ -205,7 +205,7 @@ mod tests {
 
     #[test]
     fn notifications_apply_rules_counts_highlights_and_clear() {
-        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let mut manager = NotificationManager::new();
         manager.upsert_rule(NotificationRule {
@@ -219,7 +219,7 @@ mod tests {
         let item = manager
             .add_notification(
                 "n1",
-                Some(space_id.clone()),
+                Some(realm_id.clone()),
                 EventId::new("ck:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
                 alice,
                 "ck.mention",
@@ -227,16 +227,16 @@ mod tests {
             )
             .unwrap();
         assert!(item.highlight);
-        assert_eq!(manager.counts(Some(&space_id)).notification_count, 1);
-        assert_eq!(manager.counts(Some(&space_id)).highlight_count, 1);
+        assert_eq!(manager.counts(Some(&realm_id)).notification_count, 1);
+        assert_eq!(manager.counts(Some(&realm_id)).highlight_count, 1);
 
         assert!(manager.clear_notification("n1"));
-        assert_eq!(manager.counts(Some(&space_id)).notification_count, 0);
+        assert_eq!(manager.counts(Some(&realm_id)).notification_count, 0);
     }
 
     #[test]
-    fn notifications_can_suppress_and_clear_space() {
-        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    fn notifications_can_suppress_and_clear_realm() {
+        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let mut manager = NotificationManager::new();
         manager.upsert_rule(NotificationRule {
             rule_id: "suppress".to_owned(),
@@ -250,7 +250,7 @@ mod tests {
             manager
                 .add_notification(
                     "n0",
-                    Some(space_id.clone()),
+                    Some(realm_id.clone()),
                     EventId::new("ck:event:01904100-0000-7000-8000-155d51e9508a").unwrap(),
                     did("alice"),
                     "ck.noisy",
@@ -261,7 +261,7 @@ mod tests {
 
         manager.add_notification(
             "n1",
-            Some(space_id.clone()),
+            Some(realm_id.clone()),
             EventId::new("ck:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
             did("bob"),
             "ck.message",
@@ -269,14 +269,14 @@ mod tests {
         );
         manager.add_notification(
             "n2",
-            Some(space_id.clone()),
+            Some(realm_id.clone()),
             EventId::new("ck:event:01904100-0000-7000-8000-6008ddd67225").unwrap(),
             did("carol"),
             "ck.message",
             None,
         );
 
-        assert_eq!(manager.clear_space(&space_id), 2);
-        assert_eq!(manager.counts(Some(&space_id)).notification_count, 0);
+        assert_eq!(manager.clear_realm(&realm_id), 2);
+        assert_eq!(manager.counts(Some(&realm_id)).notification_count, 0);
     }
 }

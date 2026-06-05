@@ -64,7 +64,7 @@ impl MoveStore for MemoryMoveStore {
 
     fn list_pending_for_anchorer(
         &self,
-        space_id: &RealmId,
+        realm_id: &RealmId,
         cursor: Option<&MoveId>,
         limit: usize,
     ) -> StoreResult<Vec<Move>> {
@@ -80,7 +80,7 @@ impl MoveStore for MemoryMoveStore {
                 continue;
             }
             if let Some(m) = inner.moves.get(id)
-                && m.space_id == *space_id
+                && m.realm_id == *realm_id
                 && !inner.anchored.contains_key(id)
             {
                 out.push(m.clone());
@@ -94,7 +94,7 @@ impl MoveStore for MemoryMoveStore {
 
     fn list_anchored(
         &self,
-        space_id: &RealmId,
+        realm_id: &RealmId,
         cursor: Option<&MoveId>,
         limit: usize,
     ) -> StoreResult<Vec<AnchoredMoveRecord>> {
@@ -110,7 +110,7 @@ impl MoveStore for MemoryMoveStore {
                 continue;
             }
             if let (Some(m), Some(a)) = (inner.moves.get(id), inner.anchored.get(id))
-                && m.space_id == *space_id
+                && m.realm_id == *realm_id
             {
                 out.push(AnchoredMoveRecord { move_value: m.clone(), anchor: a.clone() });
                 if out.len() >= limit {
@@ -131,26 +131,26 @@ pub struct MemoryAnchorStore {
 #[derive(Default)]
 struct MemoryAnchorStoreInner {
     anchors: BTreeMap<String, Anchor>,
-    /// space_id → leaves (anchors with no successor)
+    /// realm_id → leaves (anchors with no successor)
     leaves: BTreeMap<String, Vec<AnchorId>>,
-    /// space_id → genesis anchor (first put with empty predecessors)
+    /// realm_id → genesis anchor (first put with empty predecessors)
     genesis: BTreeMap<String, AnchorId>,
 }
 
 impl AnchorStore for MemoryAnchorStore {
     fn put(&self, a: &Anchor) -> StoreResult<()> {
         let mut inner = self.inner.lock().unwrap();
-        let space = a.realm_id.as_str().to_owned();
+        let Realm = a.realm_id.as_str().to_owned();
         let id_str = a.id.as_str().to_owned();
         inner.anchors.insert(id_str, a.clone());
 
         // Genesis: first anchor with empty predecessors.
         if a.predecessor_refs.is_empty() {
-            inner.genesis.entry(space.clone()).or_insert_with(|| a.id.clone());
+            inner.genesis.entry(Realm.clone()).or_insert_with(|| a.id.clone());
         }
 
         // Leaf set: remove all of `a.predecessor_refs` from leaves; add `a` as a new leaf.
-        let leaves = inner.leaves.entry(space).or_default();
+        let leaves = inner.leaves.entry(Realm).or_default();
         leaves.retain(|leaf| !a.predecessor_refs.iter().any(|p| p == leaf));
         if !leaves.iter().any(|l| l == &a.id) {
             leaves.push(a.id.clone());
@@ -162,8 +162,8 @@ impl AnchorStore for MemoryAnchorStore {
         Ok(self.inner.lock().unwrap().anchors.get(id.as_str()).cloned())
     }
 
-    fn list_leaves(&self, space_id: &RealmId) -> StoreResult<Vec<AnchorId>> {
-        Ok(self.inner.lock().unwrap().leaves.get(space_id.as_str()).cloned().unwrap_or_default())
+    fn list_leaves(&self, realm_id: &RealmId) -> StoreResult<Vec<AnchorId>> {
+        Ok(self.inner.lock().unwrap().leaves.get(realm_id.as_str()).cloned().unwrap_or_default())
     }
 
     fn predecessors_known(&self, refs: &[AnchorId]) -> StoreResult<bool> {
@@ -171,15 +171,15 @@ impl AnchorStore for MemoryAnchorStore {
         Ok(refs.iter().all(|r| inner.anchors.contains_key(r.as_str())))
     }
 
-    fn genesis(&self, space_id: &RealmId) -> StoreResult<Option<AnchorId>> {
-        Ok(self.inner.lock().unwrap().genesis.get(space_id.as_str()).cloned())
+    fn genesis(&self, realm_id: &RealmId) -> StoreResult<Option<AnchorId>> {
+        Ok(self.inner.lock().unwrap().genesis.get(realm_id.as_str()).cloned())
     }
 
-    fn successors(&self, space_id: &RealmId, anchor_id: &AnchorId) -> StoreResult<Vec<AnchorId>> {
+    fn successors(&self, realm_id: &RealmId, anchor_id: &AnchorId) -> StoreResult<Vec<AnchorId>> {
         let inner = self.inner.lock().unwrap();
         let mut out = Vec::new();
         for anchor in inner.anchors.values() {
-            if anchor.realm_id.as_str() != space_id.as_str() {
+            if anchor.realm_id.as_str() != realm_id.as_str() {
                 continue;
             }
             if anchor.predecessor_refs.iter().any(|p| p == anchor_id) {
@@ -192,7 +192,7 @@ impl AnchorStore for MemoryAnchorStore {
 
     fn prune_predecessor(
         &self,
-        space_id: &RealmId,
+        realm_id: &RealmId,
         anchor_id: &AnchorId,
     ) -> StoreResult<Vec<AnchorId>> {
         let mut inner = self.inner.lock().unwrap();
@@ -208,7 +208,7 @@ impl AnchorStore for MemoryAnchorStore {
             .anchors
             .values()
             .filter(|a| {
-                a.realm_id.as_str() == space_id.as_str()
+                a.realm_id.as_str() == realm_id.as_str()
                     && a.predecessor_refs.iter().any(|p| p == anchor_id)
             })
             .map(|a| a.id.as_str().to_owned())
@@ -248,9 +248,9 @@ impl AnchorStore for MemoryAnchorStore {
         // Genesis: if we pruned the genesis (which only makes sense if a
         // child compaction replaces it), forget the genesis pointer — the
         // caller MUST set a new one explicitly when relevant.
-        let space = space_id.as_str();
-        if inner.genesis.get(space).is_some_and(|g| g.as_str() == anchor_id.as_str()) {
-            inner.genesis.remove(space);
+        let Realm = realm_id.as_str();
+        if inner.genesis.get(Realm).is_some_and(|g| g.as_str() == anchor_id.as_str()) {
+            inner.genesis.remove(Realm);
         }
 
         let rewired: Vec<AnchorId> =
@@ -267,20 +267,20 @@ pub struct MemoryCellStore {
 
 #[derive(Default)]
 struct MemoryCellStoreInner {
-    /// (space, cell) → ordered AnchoredOp list
+    /// (Realm, cell) → ordered AnchoredOp list
     cell_log: BTreeMap<(String, String), Vec<AnchoredOp>>,
-    /// (space, cell, view_hash) → CellState
+    /// (Realm, cell, view_hash) → CellState
     cache: BTreeMap<(String, String, String), CellState>,
     /// anchor → ops it appended (used for rollback)
-    anchor_ops: BTreeMap<String, Vec<(String, AnchoredOp)>>, // (space, cell), op
+    anchor_ops: BTreeMap<String, Vec<(String, AnchoredOp)>>, // (Realm, cell), op
 }
 
 impl CellStore for MemoryCellStore {
-    fn list_cells(&self, space_id: &RealmId) -> StoreResult<Vec<CellRef>> {
+    fn list_cells(&self, realm_id: &RealmId) -> StoreResult<Vec<CellRef>> {
         let inner = self.inner.lock().unwrap();
         let mut cells = Vec::new();
-        for (space, cell) in inner.cell_log.keys() {
-            if space == space_id.as_str() {
+        for (Realm, cell) in inner.cell_log.keys() {
+            if Realm == realm_id.as_str() {
                 cells.push(
                     CellRef::new(cell.clone()).map_err(|e| StoreError::Backend(e.to_string()))?,
                 );
@@ -291,20 +291,20 @@ impl CellStore for MemoryCellStore {
 
     fn anchored_ops_for_cell(
         &self,
-        space_id: &RealmId,
+        realm_id: &RealmId,
         cell: &CellRef,
     ) -> StoreResult<Vec<AnchoredOp>> {
         let inner = self.inner.lock().unwrap();
         Ok(inner
             .cell_log
-            .get(&(space_id.as_str().to_owned(), cell.as_str().to_owned()))
+            .get(&(realm_id.as_str().to_owned(), cell.as_str().to_owned()))
             .cloned()
             .unwrap_or_default())
     }
 
     fn cached_state(
         &self,
-        space_id: &RealmId,
+        realm_id: &RealmId,
         cell: &CellRef,
         view_hash: &Hash,
     ) -> StoreResult<Option<CellState>> {
@@ -312,7 +312,7 @@ impl CellStore for MemoryCellStore {
         Ok(inner
             .cache
             .get(&(
-                space_id.as_str().to_owned(),
+                realm_id.as_str().to_owned(),
                 cell.as_str().to_owned(),
                 view_hash.as_str().to_owned(),
             ))
@@ -321,14 +321,14 @@ impl CellStore for MemoryCellStore {
 
     fn put_cached_state(
         &self,
-        space_id: &RealmId,
+        realm_id: &RealmId,
         cell: &CellRef,
         view_hash: &Hash,
         state: &CellState,
     ) -> StoreResult<()> {
         let mut inner = self.inner.lock().unwrap();
         inner.cache.insert(
-            (space_id.as_str().to_owned(), cell.as_str().to_owned(), view_hash.as_str().to_owned()),
+            (realm_id.as_str().to_owned(), cell.as_str().to_owned(), view_hash.as_str().to_owned()),
             state.clone(),
         );
         Ok(())
@@ -336,14 +336,14 @@ impl CellStore for MemoryCellStore {
 
     fn append_anchored_effects(
         &self,
-        space_id: &RealmId,
+        realm_id: &RealmId,
         anchor: &AnchorId,
         new_ops: &[(CellRef, AnchoredOp)],
     ) -> StoreResult<()> {
         let mut inner = self.inner.lock().unwrap();
         let mut applied: Vec<(String, AnchoredOp)> = Vec::with_capacity(new_ops.len());
         for (cell, op) in new_ops {
-            let key = (space_id.as_str().to_owned(), cell.as_str().to_owned());
+            let key = (realm_id.as_str().to_owned(), cell.as_str().to_owned());
             inner.cell_log.entry(key.clone()).or_default().push(op.clone());
             applied.push((cell.as_str().to_owned(), op.clone()));
         }
@@ -351,19 +351,19 @@ impl CellStore for MemoryCellStore {
         // Cache invalidation: clear cache entries for cells touched by this anchor.
         let touched: std::collections::BTreeSet<_> = new_ops
             .iter()
-            .map(|(c, _)| (space_id.as_str().to_owned(), c.as_str().to_owned()))
+            .map(|(c, _)| (realm_id.as_str().to_owned(), c.as_str().to_owned()))
             .collect();
         inner.cache.retain(|(s, c, _), _| !touched.contains(&(s.clone(), c.clone())));
         Ok(())
     }
 
-    fn rollback_anchor(&self, space_id: &RealmId, anchor: &AnchorId) -> StoreResult<()> {
+    fn rollback_anchor(&self, realm_id: &RealmId, anchor: &AnchorId) -> StoreResult<()> {
         let mut inner = self.inner.lock().unwrap();
         let Some(applied) = inner.anchor_ops.remove(anchor.as_str()) else {
             return Ok(()); // no-op if nothing to roll back
         };
         for (cell_str, op) in applied {
-            let key = (space_id.as_str().to_owned(), cell_str);
+            let key = (realm_id.as_str().to_owned(), cell_str);
             if let Some(log) = inner.cell_log.get_mut(&key) {
                 // Remove the op from the tail; if it's not at the tail (concurrent
                 // writes), search and remove the first match.
@@ -451,9 +451,9 @@ impl Default for MemoryCellRegistry {
             },
         );
 
-        // Generic Space policy — cas-register, bottom=reject (spec §5 example).
+        // Generic Realm policy — cas-register, bottom=reject (spec §5 example).
         bindings.insert(
-            "ck.component.space.policy.v1".to_owned(),
+            "ck.component.realm.policy.v1".to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::CasRegister,
                 bottom_mode: BottomMode::Reject,
@@ -464,7 +464,7 @@ impl Default for MemoryCellRegistry {
 
         // Soft display state — mv-register, bottom=expose.
         bindings.insert(
-            "ck.component.space.title.v1".to_owned(),
+            "ck.component.Realm.title.v1".to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::MvRegister,
                 bottom_mode: BottomMode::Expose,
@@ -538,7 +538,7 @@ impl MemoryCellRegistry {
         Self::default()
     }
 
-    /// Register an additional binding (test fixtures / Space-level overrides).
+    /// Register an additional binding (test fixtures / Realm-level overrides).
     pub fn register(
         &mut self,
         cell_family: impl Into<String>,
@@ -604,8 +604,8 @@ mod tests {
     use crate::{AnchorerSig, Hlc, LatticeOp, LatticeOpType, MoveSignature};
     use chrono::{TimeZone, Utc};
 
-    fn space() -> RealmId {
-        RealmId::new("ck:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+    fn Realm() -> RealmId {
+        RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn move_id(byte: u8) -> MoveId {
@@ -628,7 +628,7 @@ mod tests {
     fn dummy_move(id: MoveId) -> Move {
         let body = serde_json::json!({
             "issuer": "did:web:admin.example",
-            "space_id": space().as_str(),
+            "realm_id": Realm().as_str(),
             "preconditions": [],
             "effects": [{
                 "cell": cell_member().as_str(),
@@ -665,7 +665,7 @@ mod tests {
         };
         Anchor {
             id,
-            realm_id: space(),
+            realm_id: Realm(),
             predecessor_refs: predecessors,
             frontier,
             state_root: hash(0x77),
@@ -699,13 +699,13 @@ mod tests {
         store.put_pending(&m1).unwrap();
         store.put_pending(&m2).unwrap();
 
-        let pending = store.list_pending_for_anchorer(&space(), None, 10).unwrap();
+        let pending = store.list_pending_for_anchorer(&Realm(), None, 10).unwrap();
         assert_eq!(pending.len(), 2);
         assert_eq!(pending[0].id, m1.id);
         assert_eq!(pending[1].id, m2.id);
 
         store.mark_anchored(&m1.id, &anchor_id(0xaa)).unwrap();
-        let pending = store.list_pending_for_anchorer(&space(), None, 10).unwrap();
+        let pending = store.list_pending_for_anchorer(&Realm(), None, 10).unwrap();
         assert_eq!(pending.len(), 1);
         assert_eq!(pending[0].id, m2.id);
     }
@@ -715,12 +715,12 @@ mod tests {
         let store = MemoryAnchorStore::default();
         let g = dummy_anchor(anchor_id(0xa0), vec![], vec![move_id(0x01)]);
         store.put(&g).unwrap();
-        assert_eq!(store.genesis(&space()).unwrap().unwrap(), g.id);
-        assert_eq!(store.list_leaves(&space()).unwrap(), vec![g.id.clone()]);
+        assert_eq!(store.genesis(&Realm()).unwrap().unwrap(), g.id);
+        assert_eq!(store.list_leaves(&Realm()).unwrap(), vec![g.id.clone()]);
 
         let child = dummy_anchor(anchor_id(0xa1), vec![g.id], vec![move_id(0x02)]);
         store.put(&child).unwrap();
-        assert_eq!(store.list_leaves(&space()).unwrap(), vec![child.id]);
+        assert_eq!(store.list_leaves(&Realm()).unwrap(), vec![child.id]);
     }
 
     #[test]
@@ -739,13 +739,13 @@ mod tests {
         store.put(&leaf_x).unwrap();
 
         // genesis has two direct children.
-        let succ = store.successors(&space(), &g.id).unwrap();
+        let succ = store.successors(&Realm(), &g.id).unwrap();
         assert_eq!(succ.len(), 2);
         assert!(succ.contains(&child_a.id));
         assert!(succ.contains(&child_b.id));
 
         // child_b is a leaf — no successors.
-        assert!(store.successors(&space(), &child_b.id).unwrap().is_empty());
+        assert!(store.successors(&Realm(), &child_b.id).unwrap().is_empty());
     }
 
     #[test]
@@ -759,7 +759,7 @@ mod tests {
         store.put(&a).unwrap();
         store.put(&b).unwrap();
 
-        let rewired = store.prune_predecessor(&space(), &a.id).unwrap();
+        let rewired = store.prune_predecessor(&Realm(), &a.id).unwrap();
         assert_eq!(rewired, vec![b.id.clone()]);
 
         // `a` is gone.
@@ -775,7 +775,7 @@ mod tests {
         let g = dummy_anchor(anchor_id(0xc0), vec![], vec![move_id(0x01)]);
         store.put(&g).unwrap();
         // g is a leaf — can't prune.
-        let err = store.prune_predecessor(&space(), &g.id).unwrap_err();
+        let err = store.prune_predecessor(&Realm(), &g.id).unwrap_err();
         assert!(format!("{err}").contains("no successors"));
     }
 
@@ -791,7 +791,7 @@ mod tests {
         store.put(&a).unwrap();
         store.put(&c).unwrap();
 
-        store.prune_predecessor(&space(), &a.id).unwrap();
+        store.prune_predecessor(&Realm(), &a.id).unwrap();
         let c_after = store.get(&c.id).unwrap().unwrap();
         // c.predecessor_refs has just one entry: g.
         assert_eq!(c_after.predecessor_refs, vec![g.id]);
@@ -823,12 +823,12 @@ mod tests {
             },
         );
         store
-            .append_anchored_effects(&space(), &anchor_id(0xaa), &[(cell_member(), op.clone())])
+            .append_anchored_effects(&Realm(), &anchor_id(0xaa), &[(cell_member(), op.clone())])
             .unwrap();
 
-        let cells = store.list_cells(&space()).unwrap();
+        let cells = store.list_cells(&Realm()).unwrap();
         assert_eq!(cells.len(), 1);
-        let ops = store.anchored_ops_for_cell(&space(), &cell_member()).unwrap();
+        let ops = store.anchored_ops_for_cell(&Realm(), &cell_member()).unwrap();
         assert_eq!(ops.len(), 1);
         assert_eq!(ops[0], op);
     }
@@ -849,10 +849,10 @@ mod tests {
             },
         );
         let anchor = anchor_id(0xaa);
-        store.append_anchored_effects(&space(), &anchor, &[(cell_member(), op)]).unwrap();
-        store.rollback_anchor(&space(), &anchor).unwrap();
-        assert!(store.anchored_ops_for_cell(&space(), &cell_member()).unwrap().is_empty());
-        assert!(store.list_cells(&space()).unwrap().is_empty());
+        store.append_anchored_effects(&Realm(), &anchor, &[(cell_member(), op)]).unwrap();
+        store.rollback_anchor(&Realm(), &anchor).unwrap();
+        assert!(store.anchored_ops_for_cell(&Realm(), &cell_member()).unwrap().is_empty());
+        assert!(store.list_cells(&Realm()).unwrap().is_empty());
     }
 
     #[test]
@@ -860,10 +860,10 @@ mod tests {
         let store = MemoryCellStore::default();
         let view = hash(0x33);
         store
-            .put_cached_state(&space(), &cell_member(), &view, &CellState::Value(json!("x")))
+            .put_cached_state(&Realm(), &cell_member(), &view, &CellState::Value(json!("x")))
             .unwrap();
         assert_eq!(
-            store.cached_state(&space(), &cell_member(), &view).unwrap(),
+            store.cached_state(&Realm(), &cell_member(), &view).unwrap(),
             Some(CellState::Value(json!("x")))
         );
         // append should invalidate cache.
@@ -879,14 +879,14 @@ mod tests {
                 issuer_seq: None,
             },
         );
-        store.append_anchored_effects(&space(), &anchor_id(0xab), &[(cell_member(), op)]).unwrap();
-        assert!(store.cached_state(&space(), &cell_member(), &view).unwrap().is_none());
+        store.append_anchored_effects(&Realm(), &anchor_id(0xab), &[(cell_member(), op)]).unwrap();
+        assert!(store.cached_state(&Realm(), &cell_member(), &view).unwrap().is_none());
     }
 
     #[test]
     fn cell_registry_resolves_known_families() {
         let reg = MemoryCellRegistry::new();
-        let binding = reg.resolve(&space(), &cell_member()).unwrap();
+        let binding = reg.resolve(&Realm(), &cell_member()).unwrap();
         assert_eq!(binding.lattice.kind(), LatticeKind::Fsm);
         assert_eq!(binding.bottom_mode, BottomMode::Reject);
     }
@@ -895,7 +895,7 @@ mod tests {
     fn cell_registry_unknown_family_fails_closed() {
         let reg = MemoryCellRegistry::new();
         let weird = CellRef::new("ck:cell:ck.component.future.unknown.v1:x".to_owned()).unwrap();
-        let err = reg.resolve(&space(), &weird).unwrap_err();
+        let err = reg.resolve(&Realm(), &weird).unwrap_err();
         assert!(format!("{err}").contains("unknown cell family"));
     }
 
@@ -904,12 +904,12 @@ mod tests {
         let reg = MemoryCellRegistry::new();
         let consent =
             CellRef::new("ck:cell:ck.component.consent.grant.v1:ck.consent.x".to_owned()).unwrap();
-        assert_eq!(reg.resolve(&space(), &consent).unwrap().lattice.kind(), LatticeKind::OrSet);
+        assert_eq!(reg.resolve(&Realm(), &consent).unwrap().lattice.kind(), LatticeKind::OrSet);
 
         let policy =
-            CellRef::new("ck:cell:ck.component.space.policy.v1:ck.space.x".to_owned()).unwrap();
+            CellRef::new("ck:cell:ck.component.realm.policy.v1:ck.realm.x".to_owned()).unwrap();
         assert_eq!(
-            reg.resolve(&space(), &policy).unwrap().lattice.kind(),
+            reg.resolve(&Realm(), &policy).unwrap().lattice.kind(),
             LatticeKind::CasRegister
         );
     }

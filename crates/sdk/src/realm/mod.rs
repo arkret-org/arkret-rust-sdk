@@ -11,8 +11,8 @@ use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
 
 use crate::{
-    FlowId, RealmId, Result,
-    base::{BaseClient, SpaceStateType},
+    FlowId, RealmId, Result, SpaceId,
+    base::{BaseClient, RealmMembershipState},
     media::{Attachment, MediaMetadata},
     model::{
         BlobRef, DeliveryStatus, Did, EventId, FieldFilter, Filter, FilterOp, Flow,
@@ -22,7 +22,7 @@ use crate::{
         Operation, OperationId, OperationType, Relation, RelationId, RelationKind, RelationState,
         SortDirection, SortSpec, Space,
     },
-    resolver::SpaceState,
+    resolver::RealmState,
 };
 
 /// Generate a new UUIDv7-based wire ID with the given Cokret typed prefix.
@@ -143,107 +143,105 @@ pub struct BatchUpdateMorph {
 /// (container) objects.
 #[derive(Clone)]
 pub struct Realm {
-    /// Space ID
-    pub space_id: RealmId,
+    /// Realm ID
+    pub realm_id: RealmId,
     /// Base client reference
     base_client: Arc<BaseClient>,
-    /// Current space state
-    state: Arc<SpaceState>,
+    /// Current Realm reducer state.
+    state: Arc<RealmState>,
 }
 
 impl Realm {
     /// Create a new Realm client.
-    pub fn new(space_id: RealmId, base_client: Arc<BaseClient>) -> Self {
-        // Try to get existing space state from base client
-        let state = if let Some(client_space) = base_client.get_space(&space_id) {
-            Arc::new(client_space.space_state)
+    pub fn new(realm_id: RealmId, base_client: Arc<BaseClient>) -> Self {
+        let state = if let Some(client_realm) = base_client.get_realm(&realm_id) {
+            Arc::new(client_realm.realm_state)
         } else {
-            Arc::new(SpaceState::new(space_id.clone(), "1".to_owned()))
+            Arc::new(RealmState::new(realm_id.clone()))
         };
 
-        Self { space_id, base_client, state }
+        Self { realm_id, base_client, state }
     }
 
-    /// Get the space ID.
+    /// Get the Realm ID.
     pub fn id(&self) -> &RealmId {
-        &self.space_id
+        &self.realm_id
     }
 
     /// Canonical Realm scope for operations emitted by this client.
     pub fn realm_id(&self) -> Result<RealmId> {
-        RealmId::new(self.space_id.as_str().replacen("ck:space:", "ck:realm:", 1))
-            .map_err(Into::into)
+        Ok(self.realm_id.clone())
     }
 
-    /// Get the current space state.
-    pub fn state(&self) -> &SpaceState {
+    /// Get the current Realm state.
+    pub fn state(&self) -> &RealmState {
         &self.state
     }
 
-    /// Refresh the space state from the base client.
+    /// Refresh the Realm state from the base client.
     pub fn refresh_state(&mut self) -> Result<()> {
-        if let Some(client_space) = self.base_client.get_space(&self.space_id) {
-            self.state = Arc::new(client_space.space_state);
+        if let Some(client_realm) = self.base_client.get_realm(&self.realm_id) {
+            self.state = Arc::new(client_realm.realm_state);
         }
         Ok(())
     }
 
-    /// Check if the user is a member of this space.
+    /// Check if the user is a member of this Realm.
     pub fn is_joined(&self) -> bool {
-        if let Some(client_space) = self.base_client.get_space(&self.space_id) {
-            client_space.state == SpaceStateType::Joined
+        if let Some(client_realm) = self.base_client.get_realm(&self.realm_id) {
+            client_realm.state == RealmMembershipState::Joined
         } else {
             false
         }
     }
 
-    /// Check if the user has been invited to this space.
+    /// Check if the user has been invited to this Realm.
     pub fn is_invited(&self) -> bool {
-        if let Some(client_space) = self.base_client.get_space(&self.space_id) {
-            client_space.state == SpaceStateType::Invited
+        if let Some(client_realm) = self.base_client.get_realm(&self.realm_id) {
+            client_realm.state == RealmMembershipState::Invited
         } else {
             false
         }
     }
 
-    /// Check if the user has left this space.
+    /// Check if the user has left this Realm.
     pub fn is_left(&self) -> bool {
-        if let Some(client_space) = self.base_client.get_space(&self.space_id) {
-            client_space.state == SpaceStateType::Left
+        if let Some(client_realm) = self.base_client.get_realm(&self.realm_id) {
+            client_realm.state == RealmMembershipState::Left
         } else {
             false
         }
     }
 
-    /// Get notification count for this space.
+    /// Get notification count for this Realm.
     pub fn notification_count(&self) -> u64 {
-        if let Some(client_space) = self.base_client.get_space(&self.space_id) {
-            client_space.notification_count
+        if let Some(client_realm) = self.base_client.get_realm(&self.realm_id) {
+            client_realm.notification_count
         } else {
             0
         }
     }
 
-    /// Get highlight count for this space.
+    /// Get highlight count for this Realm.
     pub fn highlight_count(&self) -> u64 {
-        if let Some(client_space) = self.base_client.get_space(&self.space_id) {
-            client_space.highlight_count
+        if let Some(client_realm) = self.base_client.get_realm(&self.realm_id) {
+            client_realm.highlight_count
         } else {
             0
         }
     }
 
-    /// Get the read marker for this space.
+    /// Get the read marker for this Realm.
     pub fn read_marker(&self) -> Option<String> {
-        self.base_client.read_marker(&self.space_id)
+        self.base_client.read_marker(&self.realm_id)
     }
 
-    /// Set the read marker for this space.
+    /// Set the read marker for this Realm.
     pub fn set_read_marker(&self, marker: String) -> Result<()> {
-        self.base_client.set_read_marker(&self.space_id, marker)
+        self.base_client.set_read_marker(&self.realm_id, marker)
     }
 
-    /// Get all Morph objects in this space.
+    /// Get all Morph objects in this Realm.
     pub fn morphs(&self) -> BTreeMap<String, Morph> {
         self.state.morphs.clone()
     }
@@ -254,7 +252,7 @@ impl Realm {
     }
 
     /// Get a specific Space (container) by ID.
-    pub fn get_place(&self, place_id: &RealmId) -> Option<Space> {
+    pub fn get_place(&self, place_id: &SpaceId) -> Option<Space> {
         self.state.places.get(place_id.as_str()).cloned()
     }
 
@@ -361,7 +359,7 @@ impl Realm {
 
     /// Apply events to update the space state.
     pub fn apply_events(&self, events: Vec<crate::model::Event>) -> Result<()> {
-        self.base_client.process_events(&self.space_id, events)
+        self.base_client.process_events(&self.realm_id, events)
     }
 
     /// Create a local message send operation using a structured message content object.

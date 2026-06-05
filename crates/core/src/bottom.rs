@@ -138,7 +138,7 @@ mod tests {
     #[test]
     fn minimal_bottom_serializes_only_required_fields() {
         let b =
-            Bottom::new(BottomKind::Conflict, vec![cell("ck:cell:ck.component.space.policy.v1:x")]);
+            Bottom::new(BottomKind::Conflict, vec![cell("ck:cell:ck.component.realm.policy.v1:x")]);
         let s = serde_json::to_string(&b).unwrap();
         assert!(s.contains("\"kind\":\"conflict\""));
         assert!(s.contains("\"cells\""));
@@ -154,7 +154,7 @@ mod tests {
     fn conflict_bottom_with_heads_round_trips() {
         let b = Bottom {
             kind: BottomKind::Conflict,
-            cells: vec![cell("ck:cell:ck.component.space.policy.v1:x")],
+            cells: vec![cell("ck:cell:ck.component.realm.policy.v1:x")],
             move_ids: vec![
                 move_id("4444444444444444444444444444444444444444444444444444444444444444"),
                 move_id("5555555555555555555555555555555555555555555555555555555555555555"),

@@ -29,7 +29,7 @@ use crate::{
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UnsignedMove {
     pub issuer: Did,
-    pub space_id: RealmId,
+    pub realm_id: RealmId,
     pub preconditions: Vec<Precondition>,
     pub effects: Vec<Effect>,
     pub anchor_ref: AnchorId,
@@ -40,14 +40,14 @@ pub struct UnsignedMove {
 impl UnsignedMove {
     pub fn new(
         issuer: Did,
-        space_id: RealmId,
+        realm_id: RealmId,
         anchor_ref: AnchorId,
         effects: Vec<Effect>,
         hlc: Hlc,
     ) -> Self {
         Self {
             issuer,
-            space_id,
+            realm_id,
             preconditions: Vec::new(),
             effects,
             anchor_ref,
@@ -94,7 +94,7 @@ impl UnsignedMove {
         Ok(Move {
             id: placeholder_id,
             issuer: self.issuer.clone(),
-            space_id: self.space_id.clone(),
+            realm_id: self.realm_id.clone(),
             preconditions: self.preconditions.clone(),
             effects: self.effects.clone(),
             anchor_ref: self.anchor_ref.clone(),
@@ -150,7 +150,7 @@ impl Anchor {
     /// Build + single-sign a normal Anchor (frontier-advance). Delegates to
     /// [`Anchor::sign_single_kind`] with `kind=Normal`.
     pub fn sign_single<S: MoveSigner + ?Sized>(
-        space_id: RealmId,
+        realm_id: RealmId,
         predecessor_refs: Vec<AnchorId>,
         frontier: Vec<MoveId>,
         state_root: Hash,
@@ -158,7 +158,7 @@ impl Anchor {
         signer: &S,
     ) -> Result<Anchor> {
         Self::sign_single_kind(
-            space_id,
+            realm_id,
             predecessor_refs,
             frontier,
             state_root,
@@ -174,7 +174,7 @@ impl Anchor {
     /// frontier without accepting new moves.
     #[allow(clippy::too_many_arguments)]
     pub fn sign_single_kind<S: MoveSigner + ?Sized>(
-        space_id: RealmId,
+        realm_id: RealmId,
         predecessor_refs: Vec<AnchorId>,
         frontier: Vec<MoveId>,
         state_root: Hash,
@@ -187,7 +187,7 @@ impl Anchor {
         let previous_state_root = None;
         let previous_digest_algorithm = None;
         let body_bytes = canonical::canonical_json_bytes(&AnchorBodyView {
-            realm_id: &space_id,
+            realm_id: &realm_id,
             predecessor_refs: &predecessor_refs,
             frontier: &frontier,
             state_root: &state_root,
@@ -200,7 +200,7 @@ impl Anchor {
         let sig = signer.sign_payload(&body_bytes)?;
         Ok(Anchor {
             id,
-            realm_id: space_id,
+            realm_id: realm_id,
             predecessor_refs,
             frontier,
             state_root,
@@ -217,7 +217,7 @@ impl Anchor {
     /// [`Anchor::sign_threshold_kind`] with `kind=Normal`.
     #[allow(clippy::too_many_arguments)]
     pub fn sign_threshold(
-        space_id: RealmId,
+        realm_id: RealmId,
         predecessor_refs: Vec<AnchorId>,
         frontier: Vec<MoveId>,
         state_root: Hash,
@@ -227,7 +227,7 @@ impl Anchor {
         aggregated_proof: String,
     ) -> Result<Anchor> {
         Self::sign_threshold_kind(
-            space_id,
+            realm_id,
             predecessor_refs,
             frontier,
             state_root,
@@ -244,7 +244,7 @@ impl Anchor {
     /// kind semantics.
     #[allow(clippy::too_many_arguments)]
     pub fn sign_threshold_kind(
-        space_id: RealmId,
+        realm_id: RealmId,
         predecessor_refs: Vec<AnchorId>,
         frontier: Vec<MoveId>,
         state_root: Hash,
@@ -258,7 +258,7 @@ impl Anchor {
         let previous_state_root = None;
         let previous_digest_algorithm = None;
         let body_bytes = canonical::canonical_json_bytes(&AnchorBodyView {
-            realm_id: &space_id,
+            realm_id: &realm_id,
             predecessor_refs: &predecessor_refs,
             frontier: &frontier,
             state_root: &state_root,
@@ -276,7 +276,7 @@ impl Anchor {
         });
         let anchor = Anchor {
             id,
-            realm_id: space_id,
+            realm_id: realm_id,
             predecessor_refs,
             frontier,
             state_root,
@@ -294,7 +294,7 @@ impl Anchor {
     /// Build + multi-sign a normal Anchor. Delegates to
     /// [`Anchor::sign_multi_kind`] with `kind=Normal`.
     pub fn sign_multi<S>(
-        space_id: RealmId,
+        realm_id: RealmId,
         predecessor_refs: Vec<AnchorId>,
         frontier: Vec<MoveId>,
         state_root: Hash,
@@ -305,7 +305,7 @@ impl Anchor {
         S: MoveSigner + ?Sized,
     {
         Self::sign_multi_kind(
-            space_id,
+            realm_id,
             predecessor_refs,
             frontier,
             state_root,
@@ -320,7 +320,7 @@ impl Anchor {
     /// kind semantics.
     #[allow(clippy::too_many_arguments)]
     pub fn sign_multi_kind<S>(
-        space_id: RealmId,
+        realm_id: RealmId,
         predecessor_refs: Vec<AnchorId>,
         frontier: Vec<MoveId>,
         state_root: Hash,
@@ -340,7 +340,7 @@ impl Anchor {
         let previous_state_root = None;
         let previous_digest_algorithm = None;
         let body_bytes = canonical::canonical_json_bytes(&AnchorBodyView {
-            realm_id: &space_id,
+            realm_id: &realm_id,
             predecessor_refs: &predecessor_refs,
             frontier: &frontier,
             state_root: &state_root,
@@ -356,7 +356,7 @@ impl Anchor {
         }
         let anchor = Anchor {
             id,
-            realm_id: space_id,
+            realm_id: realm_id,
             predecessor_refs,
             frontier,
             state_root,
@@ -582,7 +582,7 @@ impl Anchor {
     /// performs no further per-partial verification.
     #[allow(clippy::too_many_arguments)]
     pub fn sign_threshold_partial(
-        space_id: RealmId,
+        realm_id: RealmId,
         predecessor_refs: Vec<AnchorId>,
         frontier: Vec<MoveId>,
         state_root: Hash,
@@ -592,7 +592,7 @@ impl Anchor {
         let proof = aggregator.aggregate_proof()?;
         let signers = aggregator.signers();
         Anchor::sign_threshold(
-            space_id,
+            realm_id,
             predecessor_refs,
             frontier,
             state_root,
@@ -635,8 +635,8 @@ mod tests {
     use chrono::{TimeZone, Utc};
     use serde_json::json;
 
-    fn space() -> RealmId {
-        RealmId::new("ck:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+    fn Realm() -> RealmId {
+        RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn alice() -> Did {
@@ -675,7 +675,7 @@ mod tests {
             Ok(Move {
                 id,
                 issuer: unsigned.issuer.clone(),
-                space_id: unsigned.space_id.clone(),
+                realm_id: unsigned.realm_id.clone(),
                 preconditions: unsigned.preconditions.clone(),
                 effects: unsigned.effects.clone(),
                 anchor_ref: unsigned.anchor_ref.clone(),
@@ -712,7 +712,7 @@ mod tests {
     fn unsigned_move() -> UnsignedMove {
         UnsignedMove::new(
             alice(),
-            space(),
+            Realm(),
             anchor_id(0xaa),
             vec![Effect {
                 cell: CellRef::new(
@@ -757,7 +757,7 @@ mod tests {
     fn anchor_sign_single_validates_id_and_structural() {
         let s = signer();
         let a = Anchor::sign_single(
-            space(),
+            Realm(),
             vec![anchor_id(0xaa)],
             vec![move_id(0x11)],
             hash(0x77),
@@ -776,7 +776,7 @@ mod tests {
     #[test]
     fn anchor_sign_threshold_round_trip() {
         let a = Anchor::sign_threshold(
-            space(),
+            Realm(),
             vec![anchor_id(0xaa)],
             vec![move_id(0x11)],
             hash(0x77),
@@ -801,7 +801,7 @@ mod tests {
     #[test]
     fn anchor_sign_threshold_rejects_threshold_above_signer_count() {
         let err = Anchor::sign_threshold(
-            space(),
+            Realm(),
             vec![anchor_id(0xaa)],
             vec![move_id(0x11)],
             hash(0x77),
@@ -823,7 +823,7 @@ mod tests {
         };
         let signers: &[&dyn MoveSigner] = &[&alice, &bob];
         let a = Anchor::sign_multi(
-            space(),
+            Realm(),
             vec![anchor_id(0xaa)],
             vec![move_id(0x11)],
             hash(0x77),
@@ -840,7 +840,7 @@ mod tests {
     #[test]
     fn anchor_sign_multi_rejects_empty_signer_set() {
         let err = Anchor::sign_multi::<dyn MoveSigner>(
-            space(),
+            Realm(),
             vec![anchor_id(0xaa)],
             vec![move_id(0x11)],
             hash(0x77),
@@ -963,7 +963,7 @@ mod tests {
             .unwrap();
 
         let a = Anchor::sign_threshold_partial(
-            space(),
+            Realm(),
             vec![anchor_id(0xaa)],
             vec![move_id(0x11)],
             hash(0x77),
@@ -990,7 +990,7 @@ mod tests {
         agg.add_partial(PartialSignature::new(alice(), vec![1u8; 64], "kid-1")).unwrap();
         agg.add_partial(PartialSignature::new(bob(), vec![2u8; 64], "kid-2")).unwrap();
         let err = Anchor::sign_threshold_partial(
-            space(),
+            Realm(),
             vec![anchor_id(0xaa)],
             vec![move_id(0x11)],
             hash(0x77),

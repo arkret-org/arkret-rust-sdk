@@ -44,7 +44,7 @@ pub enum WebRtcSignalKind {
 pub struct WebRtcSignalMessage {
     pub message_id: String,
     pub call_id: String,
-    pub space_id: RealmId,
+    pub realm_id: RealmId,
     pub sender: Did,
     pub recipient: Did,
     pub kind: WebRtcSignalKind,
@@ -58,14 +58,14 @@ pub struct WebRtcSignalMessage {
 impl WebRtcSignalMessage {
     /// Build an offer signaling message.
     pub fn offer(
-        space_id: RealmId,
+        realm_id: RealmId,
         call_id: impl Into<String>,
         sender: Did,
         recipient: Did,
         sdp: impl Into<String>,
     ) -> Self {
         Self::with_session_description(
-            space_id,
+            realm_id,
             call_id,
             sender,
             recipient,
@@ -75,14 +75,14 @@ impl WebRtcSignalMessage {
 
     /// Build an answer signaling message.
     pub fn answer(
-        space_id: RealmId,
+        realm_id: RealmId,
         call_id: impl Into<String>,
         sender: Did,
         recipient: Did,
         sdp: impl Into<String>,
     ) -> Self {
         Self::with_session_description(
-            space_id,
+            realm_id,
             call_id,
             sender,
             recipient,
@@ -92,7 +92,7 @@ impl WebRtcSignalMessage {
 
     /// Build an ICE-candidate signaling message.
     pub fn ice_candidate(
-        space_id: RealmId,
+        realm_id: RealmId,
         call_id: impl Into<String>,
         sender: Did,
         recipient: Did,
@@ -101,7 +101,7 @@ impl WebRtcSignalMessage {
         Self {
             message_id: format!("webrtc_{}", uuid::Uuid::now_v7()),
             call_id: call_id.into(),
-            space_id,
+            realm_id,
             sender,
             recipient,
             kind: WebRtcSignalKind::IceCandidate,
@@ -112,7 +112,7 @@ impl WebRtcSignalMessage {
     }
 
     fn with_session_description(
-        space_id: RealmId,
+        realm_id: RealmId,
         call_id: impl Into<String>,
         sender: Did,
         recipient: Did,
@@ -125,7 +125,7 @@ impl WebRtcSignalMessage {
         Self {
             message_id: format!("webrtc_{}", uuid::Uuid::now_v7()),
             call_id: call_id.into(),
-            space_id,
+            realm_id,
             sender,
             recipient,
             kind,
@@ -198,7 +198,7 @@ pub struct IceServer {
 
 impl IceServer {
     /// Reject TURN configurations whose `username` embeds a raw DID. The
-    /// TURN operator MUST NOT learn cross-Space stable identities; clients
+    /// TURN operator MUST NOT learn cross-Realm stable identities; clients
     /// SHOULD derive the username from a short-lived ephemeral identifier
     /// such as `<unix>:<random_b64>` instead.
     pub fn validate_credential_privacy(&self) -> Result<()> {
@@ -208,7 +208,7 @@ impl IceServer {
             for prefix in FORBIDDEN_PREFIXES {
                 if value.contains(prefix) {
                     return Err(crate::Error::Protocol(format!(
-                        "ICE server credential leaks DID prefix '{prefix}'; use a Space-scoped pairwise pseudonym (B-14)"
+                        "ICE server credential leaks DID prefix '{prefix}'; use a Realm-scoped pairwise pseudonym (B-14)"
                     )));
                 }
             }
@@ -230,7 +230,7 @@ impl IceServer {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WebRtcCall {
     pub call_id: String,
-    pub space_id: RealmId,
+    pub realm_id: RealmId,
     pub caller: Did,
     pub callees: BTreeSet<Did>,
     pub state: CallState,
@@ -258,7 +258,7 @@ impl WebRtcManager {
     /// Create an offer call.
     pub fn create_offer(
         &mut self,
-        space_id: RealmId,
+        realm_id: RealmId,
         caller: Did,
         callees: BTreeSet<Did>,
         sdp: impl Into<String>,
@@ -266,7 +266,7 @@ impl WebRtcManager {
         let call_id = format!("call_{}", uuid::Uuid::now_v7());
         let call = WebRtcCall {
             call_id: call_id.clone(),
-            space_id,
+            realm_id,
             caller,
             callees,
             state: CallState::Offering,
@@ -372,15 +372,15 @@ mod tests {
         Did::new(format!("did:web:{name}.example")).unwrap()
     }
 
-    fn space() -> RealmId {
-        RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
+    fn Realm() -> RealmId {
+        RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()
     }
 
     #[test]
     fn webrtc_exchanges_offer_answer_ice_and_state() {
         let mut manager = WebRtcManager::new();
         let call =
-            manager.create_offer(space(), did("alice"), BTreeSet::from([did("bob")]), "offer-sdp");
+            manager.create_offer(Realm(), did("alice"), BTreeSet::from([did("bob")]), "offer-sdp");
         manager.receive_answer(&call.call_id, "answer-sdp").unwrap();
         manager
             .add_ice_candidate(
@@ -403,7 +403,7 @@ mod tests {
     fn webrtc_joins_conference_and_controls_tracks() {
         let mut manager = WebRtcManager::new();
         let call =
-            manager.create_offer(space(), did("alice"), BTreeSet::from([did("bob")]), "offer");
+            manager.create_offer(Realm(), did("alice"), BTreeSet::from([did("bob")]), "offer");
         manager.join_conference(&call.call_id, "conf1", ConferenceMode::Sfu, did("alice")).unwrap();
         manager
             .set_track(
@@ -447,11 +447,11 @@ mod tests {
     #[test]
     fn webrtc_builds_to_device_signaling_messages() {
         let offer =
-            WebRtcSignalMessage::offer(space(), "call1", did("alice"), did("bob"), "offer-sdp");
+            WebRtcSignalMessage::offer(Realm(), "call1", did("alice"), did("bob"), "offer-sdp");
         let answer =
-            WebRtcSignalMessage::answer(space(), "call1", did("bob"), did("alice"), "answer-sdp");
+            WebRtcSignalMessage::answer(Realm(), "call1", did("bob"), did("alice"), "answer-sdp");
         let ice = WebRtcSignalMessage::ice_candidate(
-            space(),
+            Realm(),
             "call1",
             did("alice"),
             did("bob"),

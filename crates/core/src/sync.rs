@@ -29,7 +29,7 @@ pub struct SyncReqBody {
     /// Filter for selective sync
     #[serde(skip_serializing_if = "Option::is_none")]
     pub filter: Option<SyncFilter>,
-    /// Space subscriptions
+    /// Realm subscriptions.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub subscriptions: Option<SubscriptionConfig>,
     /// Optional frontier that the server should wait to observe before replying.
@@ -37,10 +37,10 @@ pub struct SyncReqBody {
     pub wait_for: Option<WaitForFrontier>,
 }
 
-/// Sync result for a single Space / Realm payload entry.
+/// Sync result for a single Realm payload entry.
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SyncSpace {
+pub struct SyncRealm {
     /// Timeline events
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timeline: Option<SyncTimeline>,
@@ -207,10 +207,10 @@ pub struct NotificationDelta {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncFilter {
-    /// Space IDs to sync
+    /// Realm IDs to sync.
     #[serde(default)]
-    pub spaces: Vec<RealmId>,
-    /// Per-Space timeline limit
+    pub realms: Vec<RealmId>,
+    /// Per-Realm timeline limit.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timeline_limit: Option<u32>,
     /// Whether member state may be lazy-loaded
@@ -227,12 +227,12 @@ pub struct SyncFilter {
     pub not_event_types: Vec<String>,
 }
 
-/// Subscription configuration for spaces.
+/// Subscription configuration for realms.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SubscriptionConfig {
-    /// Space subscriptions
-    pub subscriptions: Vec<SpaceSubscription>,
+    /// Realm subscriptions.
+    pub subscriptions: Vec<RealmSubscription>,
     /// Batch size for timeline
     #[serde(skip_serializing_if = "Option::is_none")]
     pub batch_size: Option<u32>,
@@ -241,12 +241,12 @@ pub struct SubscriptionConfig {
     pub timeline_filter: Option<Value>,
 }
 
-/// Space subscription.
+/// Realm subscription.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SpaceSubscription {
-    /// Space ID
-    pub space_id: RealmId,
+pub struct RealmSubscription {
+    /// Realm ID.
+    pub realm_id: RealmId,
     /// Timeline filter (lazy loading, etc.)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timeline_filter: Option<TimelineFilter>,
@@ -272,8 +272,8 @@ pub enum TimelineFilter {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct BackfillReqBody {
-    /// Space ID to backfill
-    pub space_id: RealmId,
+    /// Realm ID to backfill.
+    pub realm_id: RealmId,
     /// Starting point (cursor or event ID)
     pub from: BackfillFrom,
     /// Direction
@@ -360,16 +360,16 @@ impl TimelineOrderKey {
     }
 }
 
-/// Stream position for one space at a sync boundary.
+/// Stream position for one Realm at a sync boundary.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncStreamPosition {
-    /// Space covered by this position.
-    pub space_id: RealmId,
+    /// Realm covered by this position.
+    pub realm_id: RealmId,
     /// Causal frontier event IDs.
     #[serde(default)]
     pub frontier: Vec<EventId>,
-    /// Last deterministic timeline order key observed for this space.
+    /// Last deterministic timeline order key observed for this Realm.
     pub timeline_order: Hlc,
     /// State hash or Merkle root at this point.
     pub state_digest: String,
@@ -378,7 +378,7 @@ pub struct SyncStreamPosition {
 impl SyncStreamPosition {
     /// Return true when this position covers the required frontier.
     pub fn covers(&self, required: &Self) -> bool {
-        if self.space_id != required.space_id || self.timeline_order < required.timeline_order {
+        if self.realm_id != required.realm_id || self.timeline_order < required.timeline_order {
             return false;
         }
         if !required.state_digest.is_empty() && self.state_digest != required.state_digest {
@@ -513,31 +513,31 @@ impl SyncSemantics {
     }
 }
 
-/// Space membership bucket in sync responses and list projections.
+/// Realm membership bucket in sync responses and list projections.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum MembershipBucket {
-    /// Joined spaces.
+    /// Joined realms.
     Joined,
-    /// Invited spaces.
+    /// Invited realms.
     Invited,
-    /// Spaces where the user has knocked/requested access.
+    /// realms where the user has knocked/requested access.
     Knocked,
-    /// Left spaces.
+    /// Left realms.
     Left,
 }
 
 /// A sync update assigned to one membership bucket.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct BucketedSpaceUpdate {
+pub struct BucketedRealmUpdate {
     /// Bucket name.
     pub bucket: MembershipBucket,
-    /// Updated space ID.
-    pub space_id: RealmId,
+    /// Updated Realm ID.
+    pub realm_id: RealmId,
     /// Raw update payload.
-    pub update: SyncSpace,
+    pub update: SyncRealm,
 }
 
 /// Reason a timeline gap exists locally.
@@ -557,8 +557,8 @@ pub enum SyncGapReason {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncGap {
-    /// Space containing the gap.
-    pub space_id: RealmId,
+    /// Realm containing the gap.
+    pub realm_id: RealmId,
     /// Older edge event if known.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prev_event_id: Option<EventId>,
@@ -576,8 +576,8 @@ pub struct SyncGap {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct LimitedTimelineState {
-    /// Space containing the limited timeline.
-    pub space_id: RealmId,
+    /// Realm containing the limited timeline.
+    pub realm_id: RealmId,
     /// Whether the timeline was limited.
     pub limited: bool,
     /// Older-direction cursor for historical pagination.
@@ -590,25 +590,25 @@ pub struct LimitedTimelineState {
 
 impl LimitedTimelineState {
     /// Build limited timeline state from a sync timeline section.
-    pub fn from_timeline(space_id: RealmId, timeline: &SyncTimeline) -> Self {
+    pub fn from_timeline(realm_id: RealmId, timeline: &SyncTimeline) -> Self {
         let prev_event_id = timeline.events.first().and_then(event_id_from_value);
         let next_event_id = timeline.events.last().and_then(event_id_from_value);
         let gap = timeline.limited.then(|| SyncGap {
-            space_id: space_id.clone(),
+            realm_id: realm_id.clone(),
             prev_event_id,
             next_event_id,
             prev_cursor: timeline.prev_cursor.clone(),
             reason: SyncGapReason::Limited,
         });
 
-        Self { space_id, limited: timeline.limited, prev_cursor: timeline.prev_cursor.clone(), gap }
+        Self { realm_id, limited: timeline.limited, prev_cursor: timeline.prev_cursor.clone(), gap }
     }
 
     /// Convert this limited section into a backfill request, if one is needed.
     pub fn backfill_request(&self, limit: u32) -> Option<BackfillReqBody> {
         let gap = self.gap.as_ref()?;
         Some(BackfillReqBody {
-            space_id: self.space_id.clone(),
+            realm_id: self.realm_id.clone(),
             from: gap
                 .prev_cursor
                 .as_ref()
@@ -706,7 +706,7 @@ pub struct SyncClient {
     /// Device ID
     _device_id: String,
     /// Active subscriptions
-    subscriptions: HashMap<RealmId, SpaceSubscription>,
+    subscriptions: HashMap<RealmId, RealmSubscription>,
 }
 
 impl SyncClient {
@@ -756,7 +756,7 @@ impl SyncClient {
 
     /// Process a sync response and extract updates. The response is
     /// the wire-shape [`crate::model::SyncResBody`] — per-event
-    /// classes ([`SyncSpace`], [`ToDeviceMessage`], [`AccountData`],
+    /// classes ([`SyncRealm`], [`ToDeviceMessage`], [`AccountData`],
     /// …) are projected out of the loose `Value` shape on demand so
     /// the wire layer doesn't have to commit to the typed shape.
     pub fn process_response(&mut self, response: crate::model::SyncResBody) -> SyncUpdates {
@@ -764,20 +764,20 @@ impl SyncClient {
         self.current_token = Some(response.cursor);
 
         // Extract updates
-        let mut space_updates = Vec::new();
-        for (raw_space_id, raw_sync_space) in response.spaces {
-            let Ok(space_id) = RealmId::new(raw_space_id) else { continue };
-            let sync_space: SyncSpace = serde_json::from_value(raw_sync_space).unwrap_or_default();
-            space_updates.push(SpaceUpdate {
-                space_id,
-                timeline: sync_space.timeline,
-                state: sync_space.state,
-                summary: sync_space.summary,
+        let mut realm_updates = Vec::new();
+        for (raw_realm_id, raw_sync_realm) in response.realms {
+            let Ok(realm_id) = RealmId::new(raw_realm_id) else { continue };
+            let sync_realm: SyncRealm = serde_json::from_value(raw_sync_realm).unwrap_or_default();
+            realm_updates.push(RealmUpdate {
+                realm_id,
+                timeline: sync_realm.timeline,
+                state: sync_realm.state,
+                summary: sync_realm.summary,
             });
         }
 
         SyncUpdates {
-            space_updates,
+            realm_updates,
             to_device: project_typed_vec(response.to_device),
             device_lists: serde_json::from_value(response.device_lists).unwrap_or_default(),
             presence: project_typed_vec(response.presence),
@@ -787,18 +787,18 @@ impl SyncClient {
         }
     }
 
-    /// Subscribe to a space.
-    pub fn subscribe(&mut self, subscription: SpaceSubscription) {
-        self.subscriptions.insert(subscription.space_id.clone(), subscription);
+    /// Subscribe to a Realm.
+    pub fn subscribe(&mut self, subscription: RealmSubscription) {
+        self.subscriptions.insert(subscription.realm_id.clone(), subscription);
     }
 
-    /// Unsubscribe from a space.
-    pub fn unsubscribe(&mut self, space_id: &RealmId) {
-        self.subscriptions.remove(space_id);
+    /// Unsubscribe from a Realm.
+    pub fn unsubscribe(&mut self, realm_id: &RealmId) {
+        self.subscriptions.remove(realm_id);
     }
 
     /// Get active subscriptions.
-    pub fn subscriptions(&self) -> Vec<&SpaceSubscription> {
+    pub fn subscriptions(&self) -> Vec<&RealmSubscription> {
         self.subscriptions.values().collect()
     }
 
@@ -817,8 +817,8 @@ impl Default for SyncClient {
 /// Updates extracted from a sync response.
 #[derive(Clone, Debug)]
 pub struct SyncUpdates {
-    /// Space updates
-    pub space_updates: Vec<SpaceUpdate>,
+    /// Realm updates.
+    pub realm_updates: Vec<RealmUpdate>,
     /// To-device messages
     pub to_device: Vec<ToDeviceMessage>,
     /// Device list changes
@@ -833,10 +833,10 @@ pub struct SyncUpdates {
     pub partial: bool,
 }
 
-/// Update for a single space.
+/// Update for a single Realm.
 #[derive(Clone, Debug)]
-pub struct SpaceUpdate {
-    pub space_id: RealmId,
+pub struct RealmUpdate {
+    pub realm_id: RealmId,
     pub timeline: Option<SyncTimeline>,
     pub state: Vec<Value>,
     pub summary: Value,
@@ -868,8 +868,8 @@ mod tests {
     fn sync_response_deserializes_correctly() {
         let json = r#"{
             "cursor": "token456",
-            "spaces": {
-                "ck:space:01904100-0000-7000-8000-9b64700c6ee8": {
+            "realms": {
+                "ck:realm:01904100-0000-7000-8000-9b64700c6ee8": {
                     "timeline": {
                         "events": [],
                         "limited": false
@@ -896,7 +896,7 @@ mod tests {
 
         let response: crate::model::SyncResBody = serde_json::from_str(json).unwrap();
         assert_eq!(response.cursor, "token456");
-        assert_eq!(response.spaces.len(), 1);
+        assert_eq!(response.realms.len(), 1);
     }
 
     #[test]
@@ -917,8 +917,8 @@ mod tests {
 
         let response = crate::model::SyncResBody {
             cursor: "token456".to_owned(),
-            spaces: BTreeMap::new(),
-            left_spaces: Vec::new(),
+            realms: BTreeMap::new(),
+            left_realms: Vec::new(),
             to_device: Vec::new(),
             device_lists: Value::Null,
             account_data: Vec::new(),
@@ -934,14 +934,14 @@ mod tests {
     #[test]
     fn backfill_request_serializes_correctly() {
         let request = BackfillReqBody {
-            space_id: RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+            realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             from: BackfillFrom::Beginning,
             direction: BackfillDirection::Backward,
             limit: Some(100),
         };
 
         let json = serde_json::to_string(&request).unwrap();
-        assert!(json.contains("\"space_id\""));
+        assert!(json.contains("\"realm_id\""));
         assert!(json.contains("\"direction\":\"backward\""));
     }
 
@@ -968,7 +968,7 @@ mod tests {
         let device = DeviceId::new("ck:device:01904100-0000-7000-8000-000000000005").unwrap();
         let service = Did::new("did:web:sync.example").unwrap();
         let filter = SyncFilter {
-            spaces: vec![RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()],
+            realms: vec![RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()],
             timeline_limit: Some(20),
             lazy_load_members: true,
             include_redundant_members: false,
@@ -1039,10 +1039,10 @@ mod tests {
 
     #[test]
     fn wait_for_frontier_requires_covering_positions() {
-        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let event_id = EventId::new("ck:event:01904100-0000-7000-8000-ab84c4c0f437").unwrap();
         let required = SyncStreamPosition {
-            space_id: space_id.clone(),
+            realm_id: realm_id.clone(),
             frontier: vec![event_id.clone()],
             timeline_order: Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),
             state_digest: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -1050,7 +1050,7 @@ mod tests {
         };
         let wait_for = WaitForFrontier { positions: vec![required], timeout_ms: 1500 };
         let current = SyncStreamPosition {
-            space_id,
+            realm_id,
             frontier: vec![event_id],
             timeline_order: Hlc::new("01970e589d22-0000-a13f9c2e").unwrap(),
             state_digest: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -1062,7 +1062,7 @@ mod tests {
 
     #[test]
     fn limited_timeline_creates_backfill_gap_and_request() {
-        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let event = Event::new(
             "ck.message.create",
@@ -1079,7 +1079,7 @@ mod tests {
             prev_cursor: Some("backfill-token".to_owned()),
         };
 
-        let state = LimitedTimelineState::from_timeline(space_id, &timeline);
+        let state = LimitedTimelineState::from_timeline(realm_id, &timeline);
         let request = state.backfill_request(25).unwrap();
 
         assert!(state.gap.is_some());

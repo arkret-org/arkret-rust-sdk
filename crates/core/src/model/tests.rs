@@ -1249,7 +1249,7 @@ fn space_anchor_fields_default_none_and_builders_apply() {
     use crate::anchorer::AnchorerValue;
 
     let mut space = Realm::new(
-        RealmId::new("ck:space:0196419b-0000-7000-8000-000000000001").unwrap(),
+        RealmId::new("ck:realm:0196419b-0000-7000-8000-000000000001").unwrap(),
         "Anchor Test",
         Did::new("did:web:alice.example").unwrap(),
         TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
@@ -1302,7 +1302,7 @@ fn space_anchor_fields_default_none_and_builders_apply() {
 #[test]
 fn space_anchor_fields_omitted_when_none() {
     let space = Realm::new(
-        RealmId::new("ck:space:0196419b-0000-7000-8000-000000000002").unwrap(),
+        RealmId::new("ck:realm:0196419b-0000-7000-8000-000000000002").unwrap(),
         "No Anchor Hint",
         Did::new("did:web:alice.example").unwrap(),
         TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),

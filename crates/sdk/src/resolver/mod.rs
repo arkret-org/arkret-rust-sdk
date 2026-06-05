@@ -12,7 +12,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{
     Audience, Did, Error, Event, EventId, Flow, FlowId, Morph, MorphId, RealmId, Relation,
-    RelationId, Result, Space,
+    RelationId, Result, Space, SpaceId,
     canonical::{canonical_json_bytes, canonical_sha256, sha256_digest},
     model::{
         OP_CONTAINER_MOVE_ITEM, OP_FLOW_ARCHIVE, OP_FLOW_CREATE, OP_FLOW_MOVE, OP_FLOW_REORDER,

@@ -4,7 +4,7 @@
 //! It handles:
 //! - Session management
 //! - Sync token tracking
-//! - Space state management
+//! - Realm state management
 //! - Event processing and state resolution
 //! - Read markers and notifications
 
@@ -25,7 +25,7 @@ use crate::{
     model::{BlobRef, DeviceId, Did, Event, RealmId},
     presence::Presence,
     profile::UserProfile,
-    resolver::SpaceState,
+    resolver::RealmState,
     settings::ClientSettings,
     sync::PresenceStatus,
 };
@@ -65,16 +65,16 @@ pub struct SessionRestore {
     pub sync_token: Option<String>,
 }
 
-/// Space state in the client.
+/// Realm state in the client.
 #[derive(Clone, Debug)]
-pub struct ClientSpace {
-    /// Space ID
-    pub space_id: RealmId,
+pub struct ClientRealm {
+    /// Realm ID.
+    pub realm_id: RealmId,
     /// Current state (joined, left, invited)
-    pub state: SpaceStateType,
-    /// Resolved space state
-    pub space_state: SpaceState,
-    /// Read marker for this space
+    pub state: RealmMembershipState,
+    /// Resolved Realm state.
+    pub realm_state: RealmState,
+    /// Read marker for this Realm.
     pub read_marker: Option<String>,
     /// Notification count
     pub notification_count: u64,
@@ -82,14 +82,14 @@ pub struct ClientSpace {
     pub highlight_count: u64,
 }
 
-/// Space membership state.
+/// Realm membership state.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum SpaceStateType {
-    /// User is a member of the space
+pub enum RealmMembershipState {
+    /// User is a member of the Realm.
     Joined,
-    /// User has left the space
+    /// User has left the Realm.
     Left,
-    /// User is invited to the space
+    /// User is invited to the Realm.
     Invited,
 }
 
@@ -101,7 +101,7 @@ pub enum BootstrapStepKind {
     Resolve,
     /// Discover sync, events and snapshot services.
     DiscoverServices,
-    /// Fetch invites and grants needed to enter spaces.
+    /// Fetch invites and grants needed to enter realms.
     FetchInvitesAndGrants,
     /// Fetch and verify a reducer snapshot.
     FetchSnapshot,
@@ -143,9 +143,9 @@ pub struct BootstrapSequence {
     pub principal_id: Did,
     /// Device being bootstrapped.
     pub device_id: DeviceId,
-    /// Optional target space.
+    /// Optional target realm.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<RealmId>,
+    pub realm_id: Option<RealmId>,
     /// Discovered sync service.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub service_id: Option<Did>,
@@ -158,7 +158,7 @@ pub struct BootstrapSequence {
 
 impl BootstrapSequence {
     /// Create a bootstrap sequence with the protocol-defined step order.
-    pub fn new(principal_id: Did, device_id: DeviceId, space_id: Option<RealmId>) -> Self {
+    pub fn new(principal_id: Did, device_id: DeviceId, realm_id: Option<RealmId>) -> Self {
         let now = Utc::now();
         let steps = [
             BootstrapStepKind::Resolve,
@@ -173,7 +173,7 @@ impl BootstrapSequence {
         .map(|kind| BootstrapStep { kind, status: BootstrapStepStatus::Pending, updated_at: now })
         .collect();
 
-        Self { principal_id, device_id, space_id, service_id: None, steps, sync_token: None }
+        Self { principal_id, device_id, realm_id, service_id: None, steps, sync_token: None }
     }
 
     /// Mark a step as running.
@@ -214,15 +214,15 @@ impl BootstrapSequence {
 /// Base client state machine.
 ///
 /// This client manages all local state without performing IO operations.
-/// It processes sync responses and maintains the current state of spaces.
+/// It processes sync responses and maintains the current state of realms.
 #[derive(Clone)]
 pub struct BaseClient {
     /// Session metadata
     session: Arc<RwLock<Option<SessionMeta>>>,
     /// Current sync tracker
     sync_tracker: Arc<RwLock<SyncTracker>>,
-    /// Space states by space ID
-    spaces: Arc<RwLock<BTreeMap<String, ClientSpace>>>,
+    /// Realm states by Realm ID.
+    realms: Arc<RwLock<BTreeMap<String, ClientRealm>>>,
     /// Local profile cache.
     profiles: Arc<RwLock<BTreeMap<String, UserProfile>>>,
     /// Local presence cache.
@@ -241,7 +241,7 @@ impl BaseClient {
         Self {
             session: Arc::new(RwLock::new(None)),
             sync_tracker: Arc::new(RwLock::new(SyncTracker::new())),
-            spaces: Arc::new(RwLock::new(BTreeMap::new())),
+            realms: Arc::new(RwLock::new(BTreeMap::new())),
             profiles: Arc::new(RwLock::new(BTreeMap::new())),
             presence: Arc::new(RwLock::new(BTreeMap::new())),
             account_data: Arc::new(RwLock::new(BTreeMap::new())),
@@ -310,9 +310,9 @@ impl BaseClient {
         tracker.clear();
         tracker.sync_tokens.clear();
 
-        // Clear all spaces
-        let mut spaces = self.spaces.write();
-        spaces.clear();
+        // Clear all realms
+        let mut realms = self.realms.write();
+        realms.clear();
 
         Ok(())
     }
@@ -369,98 +369,100 @@ impl BaseClient {
         self.sync_tracker.read().sync_tokens.get(service_key).cloned()
     }
 
-    /// Get a space by ID.
-    pub fn get_space(&self, space_id: &RealmId) -> Option<ClientSpace> {
-        let spaces = self.spaces.read();
-        spaces.get(space_id.as_str()).cloned()
+    /// Get a Realm by ID.
+    pub fn get_realm(&self, realm_id: &RealmId) -> Option<ClientRealm> {
+        let realms = self.realms.read();
+        realms.get(realm_id.as_str()).cloned()
     }
 
-    /// Get all joined spaces.
-    pub fn joined_spaces(&self) -> Vec<ClientSpace> {
-        let spaces = self.spaces.read();
-        spaces.values().filter(|s| s.state == SpaceStateType::Joined).cloned().collect()
+    /// Get all joined realms.
+    pub fn joined_realms(&self) -> Vec<ClientRealm> {
+        let realms = self.realms.read();
+        realms.values().filter(|s| s.state == RealmMembershipState::Joined).cloned().collect()
     }
 
-    /// Get all invited spaces.
-    pub fn invited_spaces(&self) -> Vec<ClientSpace> {
-        let spaces = self.spaces.read();
-        spaces.values().filter(|s| s.state == SpaceStateType::Invited).cloned().collect()
+    /// Get all invited realms.
+    pub fn invited_realms(&self) -> Vec<ClientRealm> {
+        let realms = self.realms.read();
+        realms.values().filter(|s| s.state == RealmMembershipState::Invited).cloned().collect()
     }
 
-    /// Get all left spaces.
-    pub fn left_spaces(&self) -> Vec<ClientSpace> {
-        let spaces = self.spaces.read();
-        spaces.values().filter(|s| s.state == SpaceStateType::Left).cloned().collect()
+    /// Get all left realms.
+    pub fn left_realms(&self) -> Vec<ClientRealm> {
+        let realms = self.realms.read();
+        realms.values().filter(|s| s.state == RealmMembershipState::Left).cloned().collect()
     }
 
-    /// Process events and update space states.
-    pub fn process_events(&self, space_id: &RealmId, events: Vec<Event>) -> Result<()> {
-        // Get or create the client space
-        let mut spaces = self.spaces.write();
-        let client_space = spaces.entry(space_id.as_str().to_owned()).or_insert_with(|| {
-            let space_state = SpaceState::new(space_id.clone(), "1".to_owned());
-            ClientSpace {
-                space_id: space_id.clone(),
-                state: SpaceStateType::Joined,
-                space_state,
+    /// Process events and update Realm states.
+    pub fn process_events(&self, realm_id: &RealmId, events: Vec<Event>) -> Result<()> {
+        let mut realms = self.realms.write();
+        let client_realm = realms.entry(realm_id.as_str().to_owned()).or_insert_with(|| {
+            let realm_state = RealmState::new(realm_id.clone());
+            ClientRealm {
+                realm_id: realm_id.clone(),
+                state: RealmMembershipState::Joined,
+                realm_state,
                 read_marker: None,
                 notification_count: 0,
                 highlight_count: 0,
             }
         });
 
-        // Apply events to the space state
-        client_space.space_state.apply_events(&events)?;
+        client_realm.realm_state.apply_events(&events)?;
 
         Ok(())
     }
 
-    /// Update space membership state.
-    pub fn update_space_state(&self, space_id: &RealmId, state: SpaceStateType) -> Result<()> {
-        let mut spaces = self.spaces.write();
-        let client_space = spaces.entry(space_id.as_str().to_owned()).or_insert_with(|| {
-            let space_state = SpaceState::new(space_id.clone(), "1".to_owned());
-            ClientSpace {
-                space_id: space_id.clone(),
+    /// Update Realm membership state.
+    pub fn update_realm_membership_state(
+        &self,
+        realm_id: &RealmId,
+        state: RealmMembershipState,
+    ) -> Result<()> {
+        let mut realms = self.realms.write();
+        let client_realm = realms.entry(realm_id.as_str().to_owned()).or_insert_with(|| {
+            let realm_state = RealmState::new(realm_id.clone());
+            ClientRealm {
+                realm_id: realm_id.clone(),
                 state,
-                space_state,
+                realm_state,
                 read_marker: None,
                 notification_count: 0,
                 highlight_count: 0,
             }
         });
-        client_space.state = state;
+        client_realm.state = state;
         Ok(())
     }
 
-    /// Update unread counts for a space.
+    /// Update unread counts for a Realm.
     pub fn update_unread_counts(
         &self,
-        space_id: &RealmId,
+        realm_id: &RealmId,
         notification_count: u64,
         highlight_count: u64,
     ) -> Result<()> {
-        let mut spaces = self.spaces.write();
-        if let Some(client_space) = spaces.get_mut(space_id.as_str()) {
-            client_space.notification_count = notification_count;
-            client_space.highlight_count = highlight_count;
+        let mut realms = self.realms.write();
+        if let Some(client_realm) = realms.get_mut(realm_id.as_str()) {
+            client_realm.notification_count = notification_count;
+            client_realm.highlight_count = highlight_count;
         }
         Ok(())
     }
 
-    /// Set the read marker for a space.
-    pub fn set_read_marker(&self, space_id: &RealmId, marker: String) -> Result<()> {
-        let mut spaces = self.spaces.write();
-        if let Some(client_space) = spaces.get_mut(space_id.as_str()) {
-            client_space.read_marker = Some(marker);
+    /// Set the read marker for a Realm.
+    pub fn set_read_marker(&self, realm_id: &RealmId, marker: String) -> Result<()> {
+        let mut realms = self.realms.write();
+        if let Some(client_realm) = realms.get_mut(realm_id.as_str()) {
+            client_realm.read_marker = Some(marker);
         }
         Ok(())
     }
 
-    /// Get the read marker for a space.
-    pub fn read_marker(&self, space_id: &RealmId) -> Option<String> {
-        let spaces = self.spaces.read();
-        spaces.get(space_id.as_str()).and_then(|s| s.read_marker.clone())
+    /// Get the read marker for a Realm.
+    pub fn read_marker(&self, realm_id: &RealmId) -> Option<String> {
+        let realms = self.realms.read();
+        realms.get(realm_id.as_str()).and_then(|s| s.read_marker.clone())
     }
 
     /// Get a cached profile.
@@ -728,9 +730,9 @@ mod tests {
     fn base_client_persists_sync_positions_and_service_tokens() {
         let client = BaseClient::new();
         let positions = SyncPositions {
-            spaces: BTreeMap::from([(
-                "ck:space:0196419b-0000-7000-8000-000000000000".to_owned(),
-                crate::cursor::SpaceSyncPosition {
+            realms: BTreeMap::from([(
+                "ck:realm:0196419b-0000-7000-8000-000000000000".to_owned(),
+                crate::cursor::RealmSyncPosition {
                     frontier: vec!["ck:event:019640ed-8000-7000-8000-000000000000".to_owned()],
                     timeline_order: "01970e589d21-0004-a13f9c2e".to_owned(),
                     state_digest:
@@ -744,7 +746,7 @@ mod tests {
         client.save_sync_positions(positions).unwrap();
         client.bind_sync_token("did:web:sync.example", "sync-token").unwrap();
 
-        assert_eq!(client.sync_positions().spaces.len(), 1);
+        assert_eq!(client.sync_positions().realms.len(), 1);
         let current_cursor = client.current_cursor().unwrap();
         assert!(current_cursor.h.is_some());
         assert!(current_cursor.s.is_empty());
@@ -817,38 +819,38 @@ mod tests {
     }
 
     #[test]
-    fn base_client_tracks_space_state() {
+    fn base_client_tracks_realm_state() {
         let client = BaseClient::new();
-        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
 
-        client.update_space_state(&space_id, SpaceStateType::Joined).unwrap();
+        client.update_realm_membership_state(&realm_id, RealmMembershipState::Joined).unwrap();
 
-        let space = client.get_space(&space_id);
-        assert!(space.is_some());
-        assert_eq!(space.unwrap().state, SpaceStateType::Joined);
+        let realm = client.get_realm(&realm_id);
+        assert!(realm.is_some());
+        assert_eq!(realm.unwrap().state, RealmMembershipState::Joined);
     }
 
     #[test]
-    fn base_client_filters_joined_spaces() {
+    fn base_client_filters_joined_realms() {
         let client = BaseClient::new();
-        let space1 = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
-        let space2 = RealmId::new("ck:space:01904100-0000-7000-8000-f949e0272316").unwrap();
-        let space3 = RealmId::new("ck:space:01904100-0000-7000-8000-46f8537dc94e").unwrap();
+        let realm1 = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm2 = RealmId::new("ck:realm:01904100-0000-7000-8000-f949e0272316").unwrap();
+        let realm3 = RealmId::new("ck:realm:01904100-0000-7000-8000-46f8537dc94e").unwrap();
 
-        client.update_space_state(&space1, SpaceStateType::Joined).unwrap();
-        client.update_space_state(&space2, SpaceStateType::Left).unwrap();
-        client.update_space_state(&space3, SpaceStateType::Invited).unwrap();
+        client.update_realm_membership_state(&realm1, RealmMembershipState::Joined).unwrap();
+        client.update_realm_membership_state(&realm2, RealmMembershipState::Left).unwrap();
+        client.update_realm_membership_state(&realm3, RealmMembershipState::Invited).unwrap();
 
-        let joined = client.joined_spaces();
+        let joined = client.joined_realms();
         assert_eq!(joined.len(), 1);
-        assert_eq!(joined[0].space_id, space1);
+        assert_eq!(joined[0].realm_id, realm1);
 
-        let left = client.left_spaces();
+        let left = client.left_realms();
         assert_eq!(left.len(), 1);
-        assert_eq!(left[0].space_id, space2);
+        assert_eq!(left[0].realm_id, realm2);
 
-        let invited = client.invited_spaces();
+        let invited = client.invited_realms();
         assert_eq!(invited.len(), 1);
-        assert_eq!(invited[0].space_id, space3);
+        assert_eq!(invited[0].realm_id, realm3);
     }
 }

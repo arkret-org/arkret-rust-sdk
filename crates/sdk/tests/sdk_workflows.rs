@@ -19,11 +19,11 @@ fn device(id: &str) -> DeviceId {
         .unwrap()
 }
 
-fn event(kind: &str, seq: u64, space_id: &RealmId, content: serde_json::Value) -> Event {
+fn event(kind: &str, seq: u64, realm_id: &RealmId, content: serde_json::Value) -> Event {
     Event {
         event_id: EventId::new(format!("ck:event:01904100-0000-7000-8000-{seq:012x}")).unwrap(),
         kind: kind.to_owned(),
-        realm_id: realm_from_space_id(space_id),
+        realm_id: realm_id.clone(),
         actor_id: did("alice"),
         actor_seq: seq,
         created_at: chrono::Utc::now(),
@@ -47,12 +47,8 @@ fn event(kind: &str, seq: u64, space_id: &RealmId, content: serde_json::Value) -
     }
 }
 
-fn realm_from_space_id(space_id: &RealmId) -> RealmId {
-    RealmId::new(space_id.as_str().replacen("ck:space:", "ck:realm:", 1)).unwrap()
-}
-
 #[test]
-fn end_to_end_auth_session_space_query_and_notifications() {
+fn end_to_end_auth_session_realm_query_and_notifications() {
     let alice = did("alice");
     let mut auth = AuthManager::default();
     auth.register_password_user("alice", "secret", alice.clone()).unwrap();
@@ -67,19 +63,19 @@ fn end_to_end_auth_session_space_query_and_notifications() {
     })
     .unwrap();
 
-    let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
     let morph_id = MorphId::new("ck:morph:01904100-0000-7000-8000-d48c478ecd0b").unwrap();
     base.process_events(
-        &space_id,
+        &realm_id,
         vec![event(
             OP_MORPH_CREATE,
             1,
-            &space_id,
+            &realm_id,
             json!({
                 "object": {
                     "id": morph_id.as_str(),
                     "schema": MORPH_SCHEMA,
-                    "space_id": space_id.as_str(),
+                    "realm_id": realm_id.as_str(),
                     "morph_type": "task",
                     "metadata": {"title": "Ship SDK"},
                     "fields": {"status": "todo"},
@@ -91,24 +87,24 @@ fn end_to_end_auth_session_space_query_and_notifications() {
     )
     .unwrap();
 
-    let space = Realm::new(space_id.clone(), base);
-    assert_eq!(space.search_morphs("ship").len(), 1);
+    let realm = Realm::new(realm_id.clone(), base);
+    assert_eq!(realm.search_morphs("ship").len(), 1);
 
     let mut notifications = NotificationManager::new();
     notifications.add_notification(
         "n1",
-        Some(space_id.clone()),
+        Some(realm_id.clone()),
         EventId::new("ck:event:01904100-0000-7000-8000-b2b79cd5161d").unwrap(),
         alice,
         "ck.message",
         Some(json!({"body": "hello"})),
     );
-    assert_eq!(notifications.counts(Some(&space_id)).notification_count, 1);
+    assert_eq!(notifications.counts(Some(&realm_id)).notification_count, 1);
 }
 
 #[test]
 fn error_boundary_and_concurrency_paths_are_covered() {
-    assert!(RealmId::new("not-a-space").is_err());
+    assert!(RealmId::new("not-a-realm").is_err());
 
     let mut auth = AuthManager::default();
     auth.register_password_user("alice", "secret", did("alice")).unwrap();
@@ -136,15 +132,15 @@ fn protocol_conformance_vectors_remain_stable() {
 
 #[test]
 fn interoperability_serialization_roundtrips() {
-    let mut spaces = BTreeMap::new();
-    spaces.insert(
-        "ck:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
-        serde_json::to_value(SyncSpace::default()).unwrap(),
+    let mut realms = BTreeMap::new();
+    realms.insert(
+        "ck:realm:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
+        serde_json::to_value(SyncRealm::default()).unwrap(),
     );
     let response = SyncResBody {
         cursor: "s1".to_owned(),
-        spaces,
-        left_spaces: Vec::new(),
+        realms,
+        left_realms: Vec::new(),
         to_device: Vec::new(),
         device_lists: serde_json::Value::Null,
         account_data: Vec::new(),
@@ -162,15 +158,15 @@ fn interoperability_serialization_roundtrips() {
 fn stress_smoke_processes_many_index_and_cache_entries() {
     let mut directory = DirectoryService::new();
     for index in 0..250 {
-        let mut entry = SpaceSearchEntry::new(
-            RealmId::new(format!("ck:space:01904100-0000-7000-8000-{index:012x}")).unwrap(),
-            format!("Space {index}"),
+        let mut entry = RealmSearchEntry::new(
+            RealmId::new(format!("ck:realm:01904100-0000-7000-8000-{index:012x}")).unwrap(),
+            format!("Realm {index}"),
         );
         entry.tags.insert(if index % 2 == 0 { "even" } else { "odd" }.to_owned());
-        directory.publish_space(entry);
+        directory.publish_realm(entry);
     }
     assert_eq!(
-        directory.recommend_spaces(BTreeSet::from(["even".to_owned()]), BTreeSet::new(), 10).len(),
+        directory.recommend_realms(BTreeSet::from(["even".to_owned()]), BTreeSet::new(), 10).len(),
         10
     );
 

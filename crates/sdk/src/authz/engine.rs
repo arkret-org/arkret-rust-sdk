@@ -7,8 +7,8 @@ pub struct AuthzContext {
     pub now: DateTime<Utc>,
     /// Actor making the request
     pub actor_id: Did,
-    /// Space context
-    pub space_id: Option<RealmId>,
+    /// Realm context.
+    pub realm_id: Option<RealmId>,
     /// Operation being performed
     pub action: String,
     /// Resource being accessed
@@ -99,7 +99,7 @@ impl AuthzContext {
         Self {
             now: Utc::now(),
             actor_id,
-            space_id: None,
+            realm_id: None,
             action,
             resource,
             facets: Vec::new(),
@@ -136,9 +136,9 @@ impl AuthzContext {
         self
     }
 
-    /// Set the space ID.
-    pub fn with_space_id(mut self, space_id: RealmId) -> Self {
-        self.space_id = Some(space_id);
+    /// Set the Realm ID.
+    pub fn with_realm_id(mut self, realm_id: RealmId) -> Self {
+        self.realm_id = Some(realm_id);
         self
     }
 
@@ -289,13 +289,13 @@ impl AuthzEngine {
         decision
     }
 
-    /// Check authorization against grants reduced into a `SpaceState` snapshot.
-    pub fn check_authorization_from_space_state(
+    /// Check authorization against grants reduced into a `RealmState` snapshot.
+    pub fn check_authorization_from_realm_state(
         &mut self,
         ctx: &AuthzContext,
-        state: &crate::SpaceState,
+        state: &crate::RealmState,
     ) -> AuthzDecision {
-        match capability_grants_from_space_state(state) {
+        match capability_grants_from_realm_state(state) {
             Ok(grants) => self.check_authorization(ctx, &grants),
             Err(err) => {
                 AuthzDecision::Deny { reason: format!("invalid capability state: {}", err) }

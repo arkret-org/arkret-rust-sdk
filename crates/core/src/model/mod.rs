@@ -16,7 +16,7 @@ pub use cokret_identifiers::{
     FrankingProofId, GrantId, Hash, Hlc, InviteId, KeyEventId, MessageId, ModerationQueueItemId,
     MorphId, NotificationId, OperationId, PolicyId, PresentationId, ReadCursorId, RealmId,
     ReceiptId, RecoverySessionId, RelationId, ReportId, RequestId, SidecarCircleId, SnapshotId,
-    TransactionId, TypedAppealId, TypedTrustDomainId, ViewId, new_prefixed_uuid7,
+    SpaceId, TransactionId, TypedAppealId, TypedTrustDomainId, ViewId, new_prefixed_uuid7,
 };
 
 mod api;

@@ -560,24 +560,24 @@ pub struct SyncReqBody {
 ///
 /// Per-realm bodies are kept as raw `Value` so consumers can introspect the
 /// bucket / inner shape without colliding with the typed SDK sync_client
-/// surface in [`crate::sync::SyncSpace`].
+/// surface in [`crate::sync::SyncRealm`].
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SyncResBody {
     /// Opaque stream cursor — clients MUST treat it as opaque and pass it back
     /// as `after` on the next `/account/subscribe` request.
     pub cursor: String,
-    /// Realm sync bodies keyed by `ck:space:*` / `ck:realm:*`. Kept as
-    /// `Value` so the HTTP layer doesn't constrain per-realm extra
+    /// Realm sync bodies keyed by `ck:realm:*`. Kept as `Value` so the HTTP
+    /// layer doesn't constrain per-realm extra
     /// fields (e.g. `state_after`, `flows`) that the spec leaves open.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub spaces: BTreeMap<String, Value>,
+    pub realms: BTreeMap<String, Value>,
     /// Realms the viewer no longer has access to after the supplied
     /// `after` cursor — left rooms, kicks, bans, server-side
-    /// deletions. Empty on full sync (omission from `spaces` is
+    /// deletions. Empty on full sync (omission from `realms` is
     /// authoritative there).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub left_spaces: Vec<String>,
+    pub left_realms: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub to_device: Vec<Value>,
     #[serde(default, skip_serializing_if = "Value::is_null")]
@@ -597,8 +597,8 @@ pub struct SyncResBody {
 
 impl SyncResBody {
     /// Realm sync map.
-    pub fn effective_spaces(&self) -> &BTreeMap<String, Value> {
-        &self.spaces
+    pub fn effective_realms(&self) -> &BTreeMap<String, Value> {
+        &self.realms
     }
 
     /// Fold a single `ck.account.subscribe` data frame into the SDK aggregate
@@ -608,15 +608,15 @@ impl SyncResBody {
             return None;
         }
         let cursor = frame.cursor?;
-        let mut spaces = BTreeMap::new();
-        if let Some(realms) = frame.realms {
-            spaces.extend(realms.entries);
+        let mut realms = BTreeMap::new();
+        if let Some(frame_realms) = frame.realms {
+            realms.extend(frame_realms.entries);
         }
 
         Some(Self {
             cursor,
-            spaces,
-            left_spaces: Vec::new(),
+            realms,
+            left_realms: Vec::new(),
             to_device: frame
                 .to_device
                 .and_then(|value| value.get("messages").cloned())
@@ -856,7 +856,7 @@ pub struct AuthzCheckReqBody {
     pub action: String,
     pub resource: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<RealmId>,
+    pub realm_id: Option<RealmId>,
     #[serde(default)]
     pub proofs: Vec<Proof>,
 }
@@ -931,7 +931,7 @@ pub struct FederationTransactionResBody {
 pub struct FederationPushOperationsReqBody {
     pub origin: Did,
     pub destination: Did,
-    pub space_id: RealmId,
+    pub realm_id: RealmId,
     pub service_binding_ref: String,
     #[serde(default)]
     pub operations: Vec<Operation>,
@@ -990,7 +990,7 @@ pub struct FederationVerifyActorReqBody {
     pub signature: Value,
     pub purpose: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<RealmId>,
+    pub realm_id: Option<RealmId>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1040,7 +1040,7 @@ pub struct DirectorySearchRealmsReqBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub organization_did: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub parent_space_id: Option<RealmId>,
+    pub parent_space_id: Option<SpaceId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub requester: Option<Did>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -1298,7 +1298,7 @@ pub struct DirectorySearchActorsReqBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub query: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<RealmId>,
+    pub realm_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub organization_did: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1332,7 +1332,7 @@ pub struct DirectorySearchUsersReqBody {
     #[serde(alias = "query")]
     pub q: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<RealmId>,
+    pub realm_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<u32>,
 }
@@ -1554,7 +1554,7 @@ pub struct PushNotifyResBody {
 pub struct PolicyCheckReqBody {
     pub request_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<RealmId>,
+    pub realm_id: Option<RealmId>,
     pub request_canonical_digest: Hash,
     pub action: String,
     pub actor: Did,
@@ -1581,7 +1581,7 @@ pub struct PolicyCheckResBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MediaIceConfigReqBody {
-    pub space_id: RealmId,
+    pub realm_id: RealmId,
     pub call_id: String,
     pub actor_id: Did,
     pub device_id: DeviceId,
@@ -1592,7 +1592,7 @@ pub struct MediaIceConfigReqBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MediaIceConfigResBody {
-    pub space_id: RealmId,
+    pub realm_id: RealmId,
     pub call_id: String,
     pub actor_id: Did,
     pub device_id: DeviceId,
@@ -1611,7 +1611,7 @@ pub struct MediaIceConfigResBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ModerationReportReqBody {
-    pub space_id: RealmId,
+    pub realm_id: RealmId,
     pub target_ref: String,
     pub reason: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1850,7 +1850,7 @@ pub struct DeviceMessagesReceiveResBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum DirectoryResourceKind {
-    Space,
+    Realm,
     Organization,
     Actor,
     Applet,
@@ -2143,7 +2143,7 @@ pub struct KeyBackupAead {
 pub struct KeyBackupContentItem {
     pub item_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<RealmId>,
+    pub realm_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mls_group_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

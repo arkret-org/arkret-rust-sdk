@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::Anchor;
 
-/// Compaction policy parameters. Tunable per Space; sensible defaults
+/// Compaction policy parameters. Tunable per Realm; sensible defaults
 /// are provided by [`CompactionPolicy::default`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -44,7 +44,7 @@ pub struct CompactionPolicy {
     pub min_compaction_witnesses: u32,
 
     /// Refuse to prune the genesis Anchor. Set `true` to enforce the
-    /// "Space always retains its genesis" property — useful for audit
+    /// "Realm always retains its genesis" property — useful for audit
     /// trails. Set `false` only when the operator explicitly accepts
     /// genesis prune (e.g. for ephemeral test Spaces).
     ///
@@ -119,7 +119,7 @@ pub struct PruneCandidate<'a> {
     pub compaction_witnesses: u32,
     /// Number of direct successors. Used by the fork-point check.
     pub successor_count: usize,
-    /// Whether the candidate is the Space's genesis Anchor.
+    /// Whether the candidate is the Realm's genesis Anchor.
     pub is_genesis: bool,
 }
 
@@ -168,7 +168,7 @@ mod tests {
         };
         Anchor {
             id: AnchorId::new(format!("ck:anchor:sha256:{}", "00".repeat(32))).unwrap(),
-            realm_id: RealmId::new("ck:space:0196419b-0000-7000-8000-00000000014a".to_owned())
+            realm_id: RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a".to_owned())
                 .unwrap(),
             predecessor_refs: vec![],
             frontier: vec![MoveId::new(format!("sha256:{}", "11".repeat(32))).unwrap()],

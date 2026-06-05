@@ -463,7 +463,7 @@ mod tests {
             request_id: Some("req_123".to_owned()),
             actor_id: Some(Did::new("did:web:alice.example").unwrap()),
             device_id: None,
-            space_id: Some(RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap()),
+            space_id: Some(RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()),
             operation_id: None,
         };
         let not_found = privacy_preserving_not_found(Some(trace));

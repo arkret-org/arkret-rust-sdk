@@ -329,7 +329,7 @@ impl PresenceSubscriptionReqBody {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
-pub enum SpaceVisibility {
+pub enum RealmVisibility {
     Private,
     Knockable,
     Public,
@@ -337,9 +337,9 @@ pub enum SpaceVisibility {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SpaceCreateReqBody {
+pub struct RealmCreateReqBody {
     pub name: String,
-    pub visibility: SpaceVisibility,
+    pub visibility: RealmVisibility,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub aliases: Vec<String>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
@@ -347,10 +347,10 @@ pub struct SpaceCreateReqBody {
     pub initial_state: BTreeMap<String, Value>,
 }
 
-impl SpaceCreateReqBody {
+impl RealmCreateReqBody {
     pub fn validate(&self) -> Result<()> {
         if self.name.trim().is_empty() {
-            return Err(Error::Protocol("space name must not be empty".to_owned()));
+            return Err(Error::Protocol("realm name must not be empty".to_owned()));
         }
         Ok(())
     }
@@ -358,27 +358,27 @@ impl SpaceCreateReqBody {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SpaceResBody {
-    pub space_id: RealmId,
+pub struct RealmResBody {
+    pub realm_id: RealmId,
     pub name: String,
-    pub visibility: SpaceVisibility,
+    pub visibility: RealmVisibility,
     #[serde(default)]
     pub aliases: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters))]
-pub struct SpacePreviewParams {
+pub struct RealmPreviewParams {
     #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Path)))]
-    pub space_id: RealmId,
+    pub realm_id: RealmId,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SpacePreviewResBody {
-    pub space_id: RealmId,
+pub struct RealmPreviewResBody {
+    pub realm_id: RealmId,
     pub name: String,
-    pub visibility: SpaceVisibility,
+    pub visibility: RealmVisibility,
     pub member_count: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub topic: Option<String>,
@@ -401,7 +401,7 @@ pub enum MembershipAction {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters))]
 pub struct MembershipActionParams {
     #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Path)))]
-    pub space_id: RealmId,
+    pub realm_id: RealmId,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -440,7 +440,7 @@ pub struct MembershipActionResBody {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SubmitEventReqBody {
-    pub space_id: RealmId,
+    pub realm_id: RealmId,
     pub event_kind: String,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     pub content: Value,
@@ -541,7 +541,7 @@ pub struct ReadMarkerReqBody {
 pub struct MessageSearchReqBody {
     pub query: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub spaces: Vec<RealmId>,
+    pub realms: Vec<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<u32>,
 }
@@ -560,7 +560,7 @@ impl MessageSearchReqBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MessageSearchHit {
     pub event_id: EventId,
-    pub space_id: RealmId,
+    pub realm_id: RealmId,
     pub sender: Did,
     pub snippet: String,
     pub score: f32,
@@ -601,7 +601,7 @@ pub struct EventContextResBody {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct NearestTimestampReqBody {
-    pub space_id: RealmId,
+    pub realm_id: RealmId,
     pub timestamp: DateTime<Utc>,
 }
 
@@ -609,7 +609,7 @@ pub struct NearestTimestampReqBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectorySearchReqBody {
     pub query: String,
-    pub visibility: Option<SpaceVisibility>,
+    pub visibility: Option<RealmVisibility>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<u32>,
 }
@@ -617,9 +617,9 @@ pub struct DirectorySearchReqBody {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectorySearchResult {
-    pub space_id: RealmId,
+    pub realm_id: RealmId,
     pub name: String,
-    pub visibility: SpaceVisibility,
+    pub visibility: RealmVisibility,
     pub member_count: u64,
 }
 
@@ -642,14 +642,14 @@ pub struct DirectoryAliasParams {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct DirectoryAliasResBody {
     pub alias: String,
-    pub space_id: RealmId,
+    pub realm_id: RealmId,
     pub servers: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct TimelineGapRepairReqBody {
-    pub space_id: RealmId,
+    pub realm_id: RealmId,
     pub from_event: EventId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<u32>,
@@ -876,7 +876,7 @@ impl QuietHours {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SpaceNotificationSettings {
+pub struct RealmNotificationSettings {
     #[serde(default)]
     pub muted: bool,
     #[serde(default)]
@@ -896,7 +896,7 @@ pub struct NotificationSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub quiet_hours: Option<QuietHours>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub per_space: BTreeMap<RealmId, SpaceNotificationSettings>,
+    pub per_realm: BTreeMap<RealmId, RealmNotificationSettings>,
 }
 
 impl Default for NotificationSettings {
@@ -906,7 +906,7 @@ impl Default for NotificationSettings {
             mention_only: false,
             default_priority: PushPriority::Normal,
             quiet_hours: None,
-            per_space: BTreeMap::new(),
+            per_realm: BTreeMap::new(),
         }
     }
 }
@@ -932,7 +932,7 @@ pub struct NotificationCounts {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct NotificationCountsReqBody {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub spaces: Vec<RealmId>,
+    pub realms: Vec<RealmId>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -940,7 +940,7 @@ pub struct NotificationCountsReqBody {
 pub struct NotificationCountsResBody {
     pub global: NotificationCounts,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub spaces: BTreeMap<RealmId, NotificationCounts>,
+    pub realms: BTreeMap<RealmId, NotificationCounts>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -953,7 +953,7 @@ pub struct NotificationListReqBody {
     #[serde(default)]
     pub only_highlight: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub spaces: Vec<RealmId>,
+    pub realms: Vec<RealmId>,
 }
 
 impl NotificationListReqBody {
@@ -971,7 +971,7 @@ impl NotificationListReqBody {
 pub struct ClientNotification {
     pub notification_id: String,
     pub event_id: EventId,
-    pub space_id: RealmId,
+    pub realm_id: RealmId,
     pub sender: Did,
     pub event_kind: String,
     pub received_at: DateTime<Utc>,
@@ -996,7 +996,7 @@ pub struct NotificationListResBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct MarkNotificationsReadReqBody {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<RealmId>,
+    pub realm_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub up_to_event_id: Option<EventId>,
 }
@@ -1022,13 +1022,13 @@ pub struct ReportReqBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user_id: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<RealmId>,
+    pub realm_id: Option<RealmId>,
     pub reason: String,
 }
 
 impl ReportReqBody {
     pub fn validate(&self) -> Result<()> {
-        if self.event_id.is_none() && self.user_id.is_none() && self.space_id.is_none() {
+        if self.event_id.is_none() && self.user_id.is_none() && self.realm_id.is_none() {
             return Err(Error::Protocol("moderation report needs a target".to_owned()));
         }
         if self.reason.trim().is_empty() {
@@ -1112,7 +1112,7 @@ pub struct ThirdPartyInviteReqBody {
     pub invite_id: InviteId,
     pub medium: String,
     pub address: String,
-    pub space_id: RealmId,
+    pub realm_id: RealmId,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1148,8 +1148,8 @@ mod tests {
         Did::new(format!("did:web:{name}.example")).unwrap()
     }
 
-    fn space() -> RealmId {
-        RealmId::new("ck:space:01904100-0000-7000-8000-a035cff9ef92").unwrap()
+    fn Realm() -> RealmId {
+        RealmId::new("ck:realm:01904100-0000-7000-8000-a035cff9ef92").unwrap()
     }
 
     #[test]
@@ -1197,7 +1197,7 @@ mod tests {
             category: AbuseCategory::Spam,
             event_id: None,
             user_id: Some(did("bad")),
-            space_id: None,
+            realm_id: None,
             reason: "spam".to_owned(),
         };
         report.validate().unwrap();
@@ -1248,7 +1248,7 @@ mod tests {
                 cursor: None,
                 limit: Some(0),
                 only_highlight: false,
-                spaces: Vec::new(),
+                realms: Vec::new(),
             }
             .validate(),
             Err(Error::Protocol(_))
@@ -1263,9 +1263,9 @@ mod tests {
 
     #[test]
     fn space_membership_and_search_contracts_validate() {
-        SpaceCreateReqBody {
+        RealmCreateReqBody {
             name: "Project".to_owned(),
-            visibility: SpaceVisibility::Private,
+            visibility: RealmVisibility::Private,
             aliases: vec!["project".to_owned()],
             initial_state: BTreeMap::new(),
         }
@@ -1280,7 +1280,7 @@ mod tests {
         .validate()
         .unwrap();
 
-        MessageSearchReqBody { query: "hello".to_owned(), spaces: vec![space()], limit: Some(10) }
+        MessageSearchReqBody { query: "hello".to_owned(), realms: vec![Realm()], limit: Some(10) }
             .validate()
             .unwrap();
 

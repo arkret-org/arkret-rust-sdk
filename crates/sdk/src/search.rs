@@ -1,4 +1,4 @@
-//! Space search indexes and filters.
+//! Realm search indexes and filters.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -6,12 +6,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Did, RealmId};
 
-/// Searchable space directory entry.
+/// Searchable Realm directory entry.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SpaceSearchEntry {
-    /// Space ID.
-    pub space_id: RealmId,
+pub struct RealmSearchEntry {
+    /// Realm ID.
+    pub realm_id: RealmId,
     /// Display name/title.
     pub name: String,
     /// Description/summary.
@@ -20,17 +20,17 @@ pub struct SpaceSearchEntry {
     pub tags: BTreeSet<String>,
     /// Known members.
     pub members: BTreeSet<Did>,
-    /// Whether the space is publicly listed.
+    /// Whether the Realm is publicly listed.
     pub public: bool,
     /// Optional category.
     pub category: Option<String>,
 }
 
-impl SpaceSearchEntry {
-    /// Create a searchable space entry.
-    pub fn new(space_id: RealmId, name: impl Into<String>) -> Self {
+impl RealmSearchEntry {
+    /// Create a searchable Realm entry.
+    pub fn new(realm_id: RealmId, name: impl Into<String>) -> Self {
         Self {
-            space_id,
+            realm_id,
             name: name.into(),
             description: None,
             tags: BTreeSet::new(),
@@ -41,61 +41,61 @@ impl SpaceSearchEntry {
     }
 }
 
-/// Space search query.
+/// Realm search query.
 #[derive(Clone, Debug, Default)]
-pub struct SpaceSearchQuery {
+pub struct RealmSearchQuery {
     /// Name/description text query.
     pub text: Option<String>,
     /// Required tags.
     pub tags: BTreeSet<String>,
     /// Required members.
     pub members: BTreeSet<Did>,
-    /// Restrict to public spaces.
+    /// Restrict to public realms.
     pub public_only: bool,
     /// Maximum results.
     pub limit: Option<usize>,
 }
 
-/// In-memory space search index.
+/// In-memory Realm search index.
 #[derive(Clone, Debug, Default)]
-pub struct SpaceSearchIndex {
-    entries: BTreeMap<RealmId, SpaceSearchEntry>,
+pub struct RealmSearchIndex {
+    entries: BTreeMap<RealmId, RealmSearchEntry>,
 }
 
-impl SpaceSearchIndex {
+impl RealmSearchIndex {
     /// Create an empty index.
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Add or replace a space entry.
-    pub fn upsert(&mut self, entry: SpaceSearchEntry) {
-        self.entries.insert(entry.space_id.clone(), entry);
+    /// Add or replace a Realm entry.
+    pub fn upsert(&mut self, entry: RealmSearchEntry) {
+        self.entries.insert(entry.realm_id.clone(), entry);
     }
 
     /// Get an entry.
-    pub fn get(&self, space_id: &RealmId) -> Option<&SpaceSearchEntry> {
-        self.entries.get(space_id)
+    pub fn get(&self, realm_id: &RealmId) -> Option<&RealmSearchEntry> {
+        self.entries.get(realm_id)
     }
 
     /// Search by name or description.
-    pub fn search_by_text(&self, query: &str) -> Vec<&SpaceSearchEntry> {
+    pub fn search_by_text(&self, query: &str) -> Vec<&RealmSearchEntry> {
         let query = query.to_lowercase();
-        self.entries.values().filter(|entry| space_text(entry).contains(&query)).collect()
+        self.entries.values().filter(|entry| realm_text(entry).contains(&query)).collect()
     }
 
     /// Search by tag.
-    pub fn search_by_tag(&self, tag: &str) -> Vec<&SpaceSearchEntry> {
+    pub fn search_by_tag(&self, tag: &str) -> Vec<&RealmSearchEntry> {
         self.entries.values().filter(|entry| entry.tags.contains(tag)).collect()
     }
 
     /// Search by member.
-    pub fn search_by_member(&self, member: &Did) -> Vec<&SpaceSearchEntry> {
+    pub fn search_by_member(&self, member: &Did) -> Vec<&RealmSearchEntry> {
         self.entries.values().filter(|entry| entry.members.contains(member)).collect()
     }
 
     /// Run a combined query.
-    pub fn search(&self, query: SpaceSearchQuery) -> Vec<&SpaceSearchEntry> {
+    pub fn search(&self, query: RealmSearchQuery) -> Vec<&RealmSearchEntry> {
         let mut scored: Vec<_> = self
             .entries
             .values()
@@ -104,12 +104,12 @@ impl SpaceSearchIndex {
                 query
                     .text
                     .as_ref()
-                    .map(|text| space_text(entry).contains(&text.to_lowercase()))
+                    .map(|text| realm_text(entry).contains(&text.to_lowercase()))
                     .unwrap_or(true)
             })
             .filter(|entry| query.tags.iter().all(|tag| entry.tags.contains(tag)))
             .filter(|entry| query.members.iter().all(|member| entry.members.contains(member)))
-            .map(|entry| (space_score(entry, &query), entry))
+            .map(|entry| (realm_score(entry, &query), entry))
             .collect();
 
         scored.sort_by(|(left_score, left), (right_score, right)| {
@@ -124,7 +124,7 @@ impl SpaceSearchIndex {
     }
 }
 
-fn space_text(entry: &SpaceSearchEntry) -> String {
+fn realm_text(entry: &RealmSearchEntry) -> String {
     format!(
         "{} {} {}",
         entry.name,
@@ -134,7 +134,7 @@ fn space_text(entry: &SpaceSearchEntry) -> String {
     .to_lowercase()
 }
 
-fn space_score(entry: &SpaceSearchEntry, query: &SpaceSearchQuery) -> usize {
+fn realm_score(entry: &RealmSearchEntry, query: &RealmSearchQuery) -> usize {
     let mut score = 0;
     if let Some(text) = &query.text {
         let text = text.to_lowercase();
@@ -159,11 +159,11 @@ mod tests {
     }
 
     #[test]
-    fn search_finds_spaces_by_text_tags_and_members() {
+    fn search_finds_realms_by_text_tags_and_members() {
         let alice = did("alice");
-        let mut index = SpaceSearchIndex::new();
-        let mut entry = SpaceSearchEntry::new(
-            RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+        let mut index = RealmSearchIndex::new();
+        let mut entry = RealmSearchEntry::new(
+            RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             "Rust SDK",
         );
         entry.description = Some("Cokret development".to_owned());
@@ -178,7 +178,7 @@ mod tests {
 
         let mut tags = BTreeSet::new();
         tags.insert("rust".to_owned());
-        let results = index.search(SpaceSearchQuery {
+        let results = index.search(RealmSearchQuery {
             text: Some("cokret".to_owned()),
             tags,
             members: BTreeSet::from([alice]),

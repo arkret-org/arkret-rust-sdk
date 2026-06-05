@@ -525,7 +525,7 @@ pub fn event_taxonomy_vectors() -> Result<Vec<EventTaxonomyVector>> {
 }
 
 pub fn state_resolution_vectors() -> Result<Vec<StateResolutionVector>> {
-    let space_id = RealmId::new("ck:space:0196419b-0000-7000-8000-00000000014a")?;
+    let space_id = RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a")?;
     let cell = CellRef::new("ck:cell:ck.component.member.state.v1:did.web.bob.example".to_owned())
         .map_err(|e| Error::Protocol(format!("invalid cell ref: {e}")))?;
 

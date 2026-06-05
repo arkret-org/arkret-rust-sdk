@@ -1,4 +1,4 @@
-//! Space membership management.
+//! Realm membership management.
 
 use std::collections::BTreeMap;
 
@@ -14,7 +14,7 @@ fn generate_id(prefix: &str) -> String {
     format!("{prefix}{}", uuid::Uuid::now_v7())
 }
 
-/// Membership state for a user in a space.
+/// Membership state for a user in a Realm.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MembershipState {
@@ -27,7 +27,7 @@ pub enum MembershipState {
     /// User is banned.
     Banned,
     /// User has knocked (requested entry to a `knock` / `knock_restricted`
-    /// Space). Resolves to `Invited` (admit) or `Left` (decline) per
+    /// Realm). Resolves to `Invited` (admit) or `Left` (decline) per
     /// `event-auth-state-resolution.md` §5.
     Knocked,
 }
@@ -79,11 +79,11 @@ pub enum MemberRole {
     Viewer,
     /// Regular participant.
     Member,
-    /// Space moderator.
+    /// Realm moderator.
     Moderator,
-    /// Space administrator.
+    /// Realm administrator.
     Admin,
-    /// Space owner.
+    /// Realm owner.
     Owner,
 }
 
@@ -116,7 +116,7 @@ pub struct Member {
     pub user_id: Did,
     /// Current membership state.
     pub state: MembershipState,
-    /// Role in the space.
+    /// Role in the Realm.
     pub role: MemberRole,
     /// Cached profile.
     pub profile: Option<MemberProfile>,
@@ -187,7 +187,7 @@ impl Invite {
 /// In-memory membership manager.
 #[derive(Clone, Debug)]
 pub struct MembershipManager {
-    space_id: RealmId,
+    realm_id: RealmId,
     current_user: Did,
     members: BTreeMap<Did, Member>,
     invites: BTreeMap<InviteId, Invite>,
@@ -195,10 +195,10 @@ pub struct MembershipManager {
 }
 
 impl MembershipManager {
-    /// Create a membership manager for one space.
-    pub fn new(space_id: RealmId, current_user: Did) -> Self {
+    /// Create a membership manager for one Realm.
+    pub fn new(realm_id: RealmId, current_user: Did) -> Self {
         Self {
-            space_id,
+            realm_id,
             current_user,
             members: BTreeMap::new(),
             invites: BTreeMap::new(),
@@ -229,7 +229,7 @@ impl MembershipManager {
         self.apply_transition(user_id, MembershipState::Joined)
     }
 
-    /// Leave a joined space.
+    /// Leave a joined Realm.
     pub fn leave(&mut self, user_id: &Did) -> Result<()> {
         match self.members.get(user_id).map(|member| member.state) {
             Some(MembershipState::Joined) => {
@@ -315,11 +315,11 @@ impl MembershipManager {
     /// Query a named capability using coarse role mapping.
     pub fn has_capability(&self, capability: &str) -> bool {
         let required = match capability {
-            "space.invite" | "space.kick" => MemberRole::Moderator,
-            "space.ban" | "space.settings" => MemberRole::Admin,
-            "space.delete" => MemberRole::Owner,
-            "space.read" => MemberRole::Viewer,
-            "space.write" => MemberRole::Member,
+            "ck.invite.create" | "ck.invite.cancel" => MemberRole::Moderator,
+            "ck.invite.revoke" | "ck.realm.policy" => MemberRole::Admin,
+            "ck.realm.destroy" => MemberRole::Owner,
+            "ck.event.read" => MemberRole::Viewer,
+            "ck.message.create" => MemberRole::Member,
             _ => return false,
         };
         self.current_user_can(required)
@@ -528,7 +528,7 @@ impl MembershipManager {
     ) -> Result<Operation> {
         Ok(Operation::create(
             OperationId::new(generate_id("ck:operation:"))?,
-            RealmId::new(self.space_id.to_string())?,
+            RealmId::new(self.realm_id.to_string())?,
             "membership",
             json!({
                 "actor_id": actor_id.as_str(),
@@ -542,8 +542,8 @@ impl MembershipManager {
 // Track-scoped membership (`ck.flow.track.member` and
 // `FlowTrackMembership` / `FlowTrackMembershipManager`) was REMOVED in
 // cokret-spec revision `0a5ab85`. Track no longer carries independent
-// membership; access semantics inherit from the Flow's Space. Use
-// `ck.member.state` at the Space or child Space level instead.
+// membership; access semantics inherit from the Flow's Realm. Use
+// `ck.member.state` at the Realm or child Realm level instead.
 //
 // See `cokret-spec/spec/v1/artifacts/registry/removed-event-kinds.json`.
 
@@ -557,9 +557,9 @@ mod tests {
 
     #[test]
     fn membership_transitions_cover_invite_join_leave_and_ban() {
-        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
-        let mut manager = MembershipManager::new(space_id, alice.clone());
+        let mut manager = MembershipManager::new(realm_id, alice.clone());
 
         manager.upsert_member(alice.clone(), MembershipState::Invited, MemberRole::Member, None);
         manager.join(&alice).unwrap();
@@ -579,22 +579,22 @@ mod tests {
 
     #[test]
     fn membership_checks_role_capabilities() {
-        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
-        let mut manager = MembershipManager::new(space_id, alice.clone());
+        let mut manager = MembershipManager::new(realm_id, alice.clone());
         manager.upsert_member(alice, MembershipState::Joined, MemberRole::Admin, None);
 
         assert!(manager.current_user_can(MemberRole::Moderator));
-        assert!(manager.has_capability("space.ban"));
-        assert!(!manager.has_capability("space.delete"));
+        assert!(manager.has_capability("ck.realm.policy"));
+        assert!(!manager.has_capability("ck.realm.destroy"));
     }
 
     #[test]
     fn membership_manages_member_list_profiles_and_changes() {
-        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let bob = did("bob");
-        let mut manager = MembershipManager::new(space_id, alice);
+        let mut manager = MembershipManager::new(realm_id, alice);
 
         manager.upsert_member(bob.clone(), MembershipState::Joined, MemberRole::Member, None);
         manager
@@ -615,10 +615,10 @@ mod tests {
 
     #[test]
     fn membership_handles_did_and_third_party_invites() {
-        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let bob = did("bob");
-        let mut manager = MembershipManager::new(space_id, alice.clone());
+        let mut manager = MembershipManager::new(realm_id, alice.clone());
 
         let invite = manager.send_invite(bob.clone(), alice.clone(), MemberRole::Member).unwrap();
         manager.accept_invite(&invite.invite_id, bob.clone()).unwrap();
@@ -640,10 +640,10 @@ mod tests {
 
     #[test]
     fn invite_revocation_blocks_acceptance() {
-        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let bob = did("bob");
-        let mut manager = MembershipManager::new(space_id, alice.clone());
+        let mut manager = MembershipManager::new(realm_id, alice.clone());
 
         let invite = manager.send_invite(bob.clone(), alice, MemberRole::Member).unwrap();
         manager.revoke_invite(&invite.invite_id).unwrap();
@@ -658,10 +658,10 @@ mod tests {
 
     #[test]
     fn invite_cannot_revoke_accepted() {
-        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let bob = did("bob");
-        let mut manager = MembershipManager::new(space_id, alice.clone());
+        let mut manager = MembershipManager::new(realm_id, alice.clone());
 
         let invite = manager.send_invite(bob.clone(), alice, MemberRole::Member).unwrap();
         manager.accept_invite(&invite.invite_id, bob).unwrap();
@@ -670,10 +670,10 @@ mod tests {
 
     #[test]
     fn invite_expiration_marks_revoked() {
-        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let bob = did("bob");
-        let mut manager = MembershipManager::new(space_id, alice.clone());
+        let mut manager = MembershipManager::new(realm_id, alice.clone());
 
         // Invite that already expired
         let past = "2020-01-01T00:00:00Z".parse().unwrap();
@@ -692,11 +692,11 @@ mod tests {
 
     #[test]
     fn invite_pending_invites_excludes_expired_and_revoked() {
-        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let alice = did("alice");
         let bob = did("bob");
         let carol = did("carol");
-        let mut manager = MembershipManager::new(space_id, alice.clone());
+        let mut manager = MembershipManager::new(realm_id, alice.clone());
 
         // Pending invite
         let invite1 = manager.send_invite(bob, alice.clone(), MemberRole::Member).unwrap();

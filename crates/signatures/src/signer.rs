@@ -176,7 +176,7 @@ mod tests {
     }
 
     fn space() -> RealmId {
-        RealmId::new("ck:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+        RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn anchor_id(byte: u8) -> AnchorId {

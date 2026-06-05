@@ -5,13 +5,13 @@ use super::snapshot::{
 use super::*;
 use crate::events::kinds::FLOW_TRACKS_UPDATE as OP_FLOW_TRACKS_UPDATE;
 
-/// Current state of a Space.
+/// Current reducer state of a Realm.
 #[derive(Clone, Debug)]
-pub struct SpaceState {
-    /// Space ID
-    pub space_id: RealmId,
-    /// Current space version
-    pub space_version: String,
+pub struct RealmState {
+    /// Realm ID.
+    pub realm_id: RealmId,
+    /// Reducer profile used for this state.
+    pub reducer_profile: String,
     /// Current flows by ID
     pub subjects: BTreeMap<String, Flow>,
     /// Current Morph objects by ID.
@@ -30,7 +30,7 @@ pub struct SpaceState {
     pub conflict_records: Vec<ConflictRecord>,
     /// Causal frontier (most recent event IDs)
     pub frontier: Vec<EventId>,
-    /// Space state events
+    /// Realm state events.
     pub state_events: Vec<Event>,
     /// True when one or more events were marked `soft_failed` because
     /// their authorization refs were not yet materialized at apply time.
@@ -47,12 +47,12 @@ pub struct SpaceState {
     tombstone_event_id: Option<EventId>,
 }
 
-impl SpaceState {
-    /// Create a new empty space state.
-    pub fn new(space_id: RealmId, space_version: String) -> Self {
+impl RealmState {
+    /// Create a new empty Realm state.
+    pub fn new(realm_id: RealmId) -> Self {
         Self {
-            space_id,
-            space_version,
+            realm_id,
+            reducer_profile: REDUCER_SNAPSHOT_PROFILE.to_owned(),
             subjects: BTreeMap::new(),
             morphs: BTreeMap::new(),
             places: BTreeMap::new(),
@@ -83,7 +83,7 @@ impl SpaceState {
     /// Callers SHOULD invoke this when an inbound event references
     /// `refs[role=authorized_by]` that have not yet been pulled. Once the missing
     /// dependency materialises, callers may invoke
-    /// [`SpaceState::clear_soft_failed`] to retry reduction.
+    /// [`RealmState::clear_soft_failed`] to retry reduction.
     pub fn mark_soft_failed(&mut self, event_id: EventId) {
         if !self.soft_failed.iter().any(|id| id == &event_id) {
             self.soft_failed.push(event_id);
@@ -142,7 +142,7 @@ impl SpaceState {
         }
 
         if self.tombstone_event_id.is_some() && !Self::is_maintenance_event(event) {
-            return Err(Error::Protocol("space is tombstoned".to_owned()));
+            return Err(Error::Protocol("realm is destroyed".to_owned()));
         }
 
         // Check for redaction
@@ -247,7 +247,7 @@ impl SpaceState {
             "ck.reaction.add" | "ck.reaction.remove" => self.reduce_reaction(event)?,
 
             // Realm upgrade
-            "ck.realm.upgrade" => self.upgrade_space(event)?,
+            "ck.realm.upgrade" => self.upgrade_realm(event)?,
 
             // Generic redaction. Round 11 (2026-05-16): also flips Flow /
             // Morph subject state to Redacted per spec common-fields.md
@@ -453,16 +453,11 @@ impl SpaceState {
 
     fn create_place(&mut self, event: &Event) -> Result<()> {
         let object = event.content.get("object").unwrap_or(&event.content);
-        // The container object's own id is the canonical `id` field; its
-        // `space_id` (read below) is the parent-container reference, not the
-        // object's own key.
         let place_id = self
             .extract_optional_field::<String>(object, "id")
             .ok_or_else(|| Error::Protocol("container object requires id".to_owned()))?;
-        let id = RealmId::new(place_id.clone())?;
-        let space_id = self.extract_optional_field(object, "space_id").unwrap_or_else(|| {
-            RealmId::new(event.realm_id.to_string()).expect("validated realm id")
-        });
+        let id = SpaceId::new(place_id.clone())?;
+        let realm_id = self.extract_field::<RealmId>(object, "realm_id")?;
         let kind = self.extract_field::<String>(object, "kind")?;
         let title = self.extract_field::<String>(object, "title")?;
         let state = self
@@ -474,7 +469,8 @@ impl SpaceState {
         let place = Space {
             schema: crate::SPACE_SCHEMA.to_owned(),
             id,
-            space_id,
+            realm_id,
+            default_realm_id: self.extract_optional_field(object, "default_realm_id"),
             parent_space_id: self.extract_optional_field(object, "parent_space_id"),
             kind,
             title,
@@ -609,7 +605,7 @@ impl SpaceState {
             self.extract_optional_field::<String>(&event.content, "parent_space_id").ok_or_else(
                 || Error::Protocol("place parent event requires parent_space_id".to_owned()),
             )?;
-        let parent_space_id = RealmId::new(parent_space_id_str)?;
+        let parent_space_id = SpaceId::new(parent_space_id_str)?;
         let place = self
             .places
             .get_mut(&place_id)
@@ -1011,15 +1007,7 @@ impl SpaceState {
 
     /// Reduce realm lifecycle events into resolved state.
     fn reduce_realm_lifecycle_event(&mut self, event: &Event) -> Result<()> {
-        // Realm lifecycle events update the realm version and are stored as resolved state.
-        if (event.kind == "ck.realm.create" || event.kind == "ck.realm.update")
-            && let Some(version) =
-                self.extract_optional_field::<String>(&event.content, "space_version")
-        {
-            self.space_version = version;
-        }
         if event.kind == "ck.realm.destroy" {
-            // Treat destroy as tombstone
             self.tombstone_event_id = Some(event.event_id.clone());
         }
         self.reduce_generic_state_event(event)
@@ -1160,15 +1148,9 @@ impl SpaceState {
         Ok(())
     }
 
-    /// Upgrade space schema.
-    fn upgrade_space(&mut self, event: &Event) -> Result<()> {
-        // Extract upgrade parameters
-        if let Some(target_version) =
-            self.extract_optional_field::<String>(&event.content, "target_schema_profile")
-        {
-            self.space_version = target_version;
-        }
-        Ok(())
+    /// Reduce a Realm schema/profile upgrade event.
+    fn upgrade_realm(&mut self, event: &Event) -> Result<()> {
+        self.reduce_generic_state_event(event)
     }
 
     /// Redact an event.
@@ -1402,7 +1384,7 @@ impl SpaceState {
                 .ok_or_else(|| {
                     Error::Protocol("read marker requires scope or target_ref".to_owned())
                 }),
-            // Realm lifecycle events use the space_id as state key
+            // Realm lifecycle events use the realm_id as state key.
             "ck.realm.create"
             | "ck.realm.update"
             | "ck.realm.organization"
@@ -1413,7 +1395,8 @@ impl SpaceState {
             | "ck.realm.discovery"
             | "ck.realm.archive"
             | "ck.realm.freeze"
-            | "ck.realm.destroy" => Ok(event.realm_id.as_str().to_owned()),
+            | "ck.realm.destroy"
+            | "ck.realm.upgrade" => Ok(event.realm_id.as_str().to_owned()),
             // View events use view_id as state key
             "ck.view.create" | "ck.view.update" | "ck.view.reconcile" => self
                 .extract_optional_field::<String>(&event.content, "view_id")
@@ -1467,8 +1450,8 @@ impl SpaceState {
     /// Create a state snapshot at the current point.
     pub fn snapshot(&self) -> StateSnapshot {
         let mut snapshot = StateSnapshot {
-            space_id: self.space_id.clone(),
-            space_version: self.space_version.clone(),
+            realm_id: self.realm_id.clone(),
+            reducer_profile: self.reducer_profile.clone(),
             frontier: self.frontier.clone(),
             subjects: self.subjects.clone(),
             morphs: self.morphs.clone(),
@@ -1506,8 +1489,8 @@ impl SpaceState {
     /// Compute state hash for verification.
     pub fn compute_state_digest(&self) -> String {
         canonical_sha256(&state_digest_payload(StateHashInput {
-            space_id: &self.space_id,
-            space_version: &self.space_version,
+            realm_id: &self.realm_id,
+            reducer_profile: &self.reducer_profile,
             frontier: &self.frontier,
             subjects: &self.subjects,
             morphs: &self.morphs,
@@ -1523,8 +1506,8 @@ impl SpaceState {
 
     pub fn state_merkle_root(&self) -> Result<String> {
         state_merkle_root(&state_digest_payload(StateHashInput {
-            space_id: &self.space_id,
-            space_version: &self.space_version,
+            realm_id: &self.realm_id,
+            reducer_profile: &self.reducer_profile,
             frontier: &self.frontier,
             subjects: &self.subjects,
             morphs: &self.morphs,
@@ -1539,8 +1522,8 @@ impl SpaceState {
 
     fn from_snapshot(snapshot: StateSnapshot) -> Self {
         Self {
-            space_id: snapshot.space_id,
-            space_version: snapshot.space_version,
+            realm_id: snapshot.realm_id,
+            reducer_profile: snapshot.reducer_profile,
             subjects: snapshot.subjects,
             morphs: snapshot.morphs,
             places: snapshot.places,
@@ -1561,8 +1544,7 @@ impl SpaceState {
 
     pub fn restore_snapshot_or_replay(
         snapshot: Option<StateSnapshot>,
-        space_id: RealmId,
-        space_version: impl Into<String>,
+        realm_id: RealmId,
         repo_events: &[Event],
     ) -> Result<SnapshotRestore> {
         if let Some(snapshot) = snapshot {
@@ -1575,7 +1557,7 @@ impl SpaceState {
                     });
                 }
                 Err(err) => {
-                    let mut state = Self::new(space_id, space_version.into());
+                    let mut state = Self::new(realm_id);
                     state.apply_events(repo_events)?;
                     return Ok(SnapshotRestore {
                         state,
@@ -1586,7 +1568,7 @@ impl SpaceState {
             }
         }
 
-        let mut state = Self::new(space_id, space_version.into());
+        let mut state = Self::new(realm_id);
         state.apply_events(repo_events)?;
         Ok(SnapshotRestore {
             state,

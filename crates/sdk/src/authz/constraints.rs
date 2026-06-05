@@ -707,7 +707,7 @@ impl ConstraintEntry {
     /// - `Stateless` — pure inputs (clock, calendar). Safe to cache.
     /// - `GrantLocal` — inputs from the grant itself. Safe to cache as long
     ///   as the cache key binds the grant id and the constraint priority.
-    /// - `SpaceState` — depends on Space membership/policy/capability state.
+    /// - `RealmState` — depends on Realm membership/policy/capability state.
     ///   MUST be re-evaluated on every frontier change.
     /// - `External` — depends on out-of-band signals (policy server, claim
     ///   issuer, presentation). MUST NOT be cached without explicit TTL.
@@ -725,7 +725,7 @@ impl ConstraintEntry {
             Constraint::EncryptionRequirement { .. } => EvaluationClass::RealmState,
             Constraint::VisibilityControl { .. } => EvaluationClass::RealmState,
             // single-call blob_max_bytes is stateless; per-scope total is external.
-            // Default to SpaceState because the SDK can't tell at type-level.
+            // Default to RealmState because the SDK can't tell at type-level.
             Constraint::ResourceLimit { .. } => EvaluationClass::RealmState,
             Constraint::EditWindow { .. } => EvaluationClass::Stateless,
             Constraint::ContainerMove { .. } => EvaluationClass::RealmState,

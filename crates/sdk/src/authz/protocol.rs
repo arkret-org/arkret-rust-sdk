@@ -82,7 +82,7 @@ pub struct ProtocolGrantConstraint {
     pub effect: ProtocolGrantConstraintEffect,
     /// Evaluation class per `constraint-schema.md` §2.1 / §2.3 — gates how
     /// aggressively the result may be cached. `Stateless` and `GrantLocal`
-    /// constraints are safe for fast-path caching; `SpaceState` requires
+    /// constraints are safe for fast-path caching; `RealmState` requires
     /// re-evaluation on every frontier change; `External` (claim, policy
     /// server) MUST NOT be cached without an explicit TTL bound.
     #[serde(default, skip_serializing_if = "Option::is_none")]

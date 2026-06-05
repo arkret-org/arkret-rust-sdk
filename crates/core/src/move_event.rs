@@ -37,7 +37,7 @@ pub const MOVE_SIGNATURE_ALGS: &[&str] = &["EdDSA", "ES256", "ES384", "ES512"];
 pub struct Move {
     pub id: MoveId,
     pub issuer: Did,
-    pub space_id: RealmId,
+    pub realm_id: RealmId,
     pub preconditions: Vec<Precondition>,
     pub effects: Vec<Effect>,
     pub anchor_ref: AnchorId,
@@ -179,7 +179,7 @@ pub struct MoveSignature {
 #[derive(Serialize)]
 struct MoveBody<'a> {
     issuer: &'a Did,
-    space_id: &'a RealmId,
+    realm_id: &'a RealmId,
     preconditions: &'a [Precondition],
     effects: &'a [Effect],
     anchor_ref: &'a AnchorId,
@@ -195,7 +195,7 @@ impl Move {
     pub fn canonical_bytes_for_id(&self) -> Result<Vec<u8>> {
         let body = MoveBody {
             issuer: &self.issuer,
-            space_id: &self.space_id,
+            realm_id: &self.realm_id,
             preconditions: &self.preconditions,
             effects: &self.effects,
             anchor_ref: &self.anchor_ref,
@@ -286,7 +286,7 @@ mod tests {
     fn sample_move_body_json() -> Value {
         json!({
             "issuer": "did:web:admin.example",
-            "space_id": "ck:space:0196419b-0000-7000-8000-00000000014a",
+            "realm_id": "ck:realm:0196419b-0000-7000-8000-00000000014a",
             "preconditions": [
                 {
                     "cell": "ck:cell:ck.component.member.state.v1:did.web.alice.example",

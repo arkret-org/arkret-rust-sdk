@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     Did, RealmId,
-    search::{SpaceSearchEntry, SpaceSearchIndex, SpaceSearchQuery},
+    search::{RealmSearchEntry, RealmSearchIndex, RealmSearchQuery},
 };
 
 /// Public user directory entry.
@@ -32,11 +32,11 @@ impl DirectoryUser {
     }
 }
 
-/// Directory service for users and public spaces.
+/// Directory service for users and public realms.
 #[derive(Clone, Debug, Default)]
 pub struct DirectoryService {
     users: BTreeMap<Did, DirectoryUser>,
-    spaces: SpaceSearchIndex,
+    realms: RealmSearchIndex,
     categories: BTreeMap<String, BTreeSet<RealmId>>,
 }
 
@@ -66,46 +66,46 @@ impl DirectoryService {
         self.users.get(user_id).filter(|user| user.discoverable)
     }
 
-    /// Publish a public space entry.
-    pub fn publish_space(&mut self, mut entry: SpaceSearchEntry) {
+    /// Publish a public Realm entry.
+    pub fn publish_realm(&mut self, mut entry: RealmSearchEntry) {
         entry.public = true;
         if let Some(category) = &entry.category {
-            self.categories.entry(category.clone()).or_default().insert(entry.space_id.clone());
+            self.categories.entry(category.clone()).or_default().insert(entry.realm_id.clone());
         }
-        self.spaces.upsert(entry);
+        self.realms.upsert(entry);
     }
 
-    /// Search spaces through the directory index.
-    pub fn search_spaces(&self, query: SpaceSearchQuery) -> Vec<&SpaceSearchEntry> {
-        self.spaces.search(query)
+    /// Search realms through the directory index.
+    pub fn search_realms(&self, query: RealmSearchQuery) -> Vec<&RealmSearchEntry> {
+        self.realms.search(query)
     }
 
-    /// List public spaces.
-    pub fn public_spaces(&self) -> Vec<&SpaceSearchEntry> {
-        self.spaces.search(SpaceSearchQuery { public_only: true, ..SpaceSearchQuery::default() })
+    /// List public realms.
+    pub fn public_realms(&self) -> Vec<&RealmSearchEntry> {
+        self.realms.search(RealmSearchQuery { public_only: true, ..RealmSearchQuery::default() })
     }
 
-    /// List spaces in a category.
-    pub fn spaces_in_category(&self, category: &str) -> Vec<&SpaceSearchEntry> {
+    /// List realms in a category.
+    pub fn realms_in_category(&self, category: &str) -> Vec<&RealmSearchEntry> {
         self.categories
             .get(category)
-            .map(|space_ids| {
-                space_ids.iter().filter_map(|space_id| self.spaces.get(space_id)).collect()
+            .map(|realm_ids| {
+                realm_ids.iter().filter_map(|realm_id| self.realms.get(realm_id)).collect()
             })
             .unwrap_or_default()
     }
 
-    /// Recommend public spaces based on desired tags and existing memberships.
-    pub fn recommend_spaces(
+    /// Recommend public realms based on desired tags and existing memberships.
+    pub fn recommend_realms(
         &self,
         preferred_tags: BTreeSet<String>,
         already_joined: BTreeSet<RealmId>,
         limit: usize,
-    ) -> Vec<&SpaceSearchEntry> {
+    ) -> Vec<&RealmSearchEntry> {
         let mut results: Vec<_> = self
-            .public_spaces()
+            .public_realms()
             .into_iter()
-            .filter(|entry| !already_joined.contains(&entry.space_id))
+            .filter(|entry| !already_joined.contains(&entry.realm_id))
             .map(|entry| {
                 let score = entry.tags.iter().filter(|tag| preferred_tags.contains(*tag)).count();
                 (score, entry)
@@ -220,7 +220,7 @@ mod tests {
     }
 
     #[test]
-    fn directory_searches_users_public_spaces_categories_and_recommendations() {
+    fn directory_searches_users_public_realms_categories_and_recommendations() {
         let alice = did("alice");
         let mut directory = DirectoryService::new();
         let mut user = DirectoryUser::new(alice.clone());
@@ -231,19 +231,19 @@ mod tests {
         assert_eq!(directory.search_users("alice").len(), 1);
         assert!(directory.user_profile(&alice).is_some());
 
-        let mut entry = SpaceSearchEntry::new(
-            RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+        let mut entry = RealmSearchEntry::new(
+            RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             "Rust SDK",
         );
         entry.tags.insert("rust".to_owned());
         entry.category = Some("engineering".to_owned());
-        directory.publish_space(entry);
+        directory.publish_realm(entry);
 
-        assert_eq!(directory.public_spaces().len(), 1);
-        assert_eq!(directory.spaces_in_category("engineering").len(), 1);
+        assert_eq!(directory.public_realms().len(), 1);
+        assert_eq!(directory.realms_in_category("engineering").len(), 1);
         assert_eq!(
             directory
-                .recommend_spaces(BTreeSet::from(["rust".to_owned()]), BTreeSet::new(), 5)
+                .recommend_realms(BTreeSet::from(["rust".to_owned()]), BTreeSet::new(), 5)
                 .len(),
             1
         );

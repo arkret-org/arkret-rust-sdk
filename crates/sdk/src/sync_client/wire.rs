@@ -38,12 +38,12 @@ pub enum EventsSubscribeFrame {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         reconnect_after_ms: Option<u64>,
     },
-    /// E2EE epoch advanced for `space_id`. Plaintext readers MUST refresh
-    /// MLS group state before consuming subsequent encrypted events on this
-    /// space.
+    /// E2EE epoch advanced for `realm_id`. Plaintext readers MUST refresh
+    /// MLS group state before consuming subsequent encrypted events in this
+    /// Realm.
     #[serde(rename = "epoch_rotation")]
     EpochRotation {
-        space_id: RealmId,
+        realm_id: RealmId,
         new_epoch: u64,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         previous_epoch: Option<u64>,
@@ -53,7 +53,7 @@ pub enum EventsSubscribeFrame {
     #[serde(rename = "unauthorized")]
     Unauthorized {
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        space_id: Option<RealmId>,
+        realm_id: Option<RealmId>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         actor_id: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -129,13 +129,13 @@ impl EventsSubscribeFrame {
 }
 
 /// Selector + range parameters for `ck.events.query` and
-/// `ck.events.subscribe`. Per spec C17, the selector is `spaces[]` ∪
+/// `ck.events.subscribe`. Per spec C17, the selector is `realms[]` ∪
 /// `actors[]` (at least one element). Range parameters apply only to
 /// `query`; `subscribe` accepts `from` + `include_history`.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EventsQuerySelector {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub spaces: Vec<RealmId>,
+    pub realms: Vec<RealmId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub actors: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -151,12 +151,12 @@ pub struct EventsQuerySelector {
 }
 
 impl EventsQuerySelector {
-    /// Validate that the selector has at least one space or actor element
+    /// Validate that the selector has at least one Realm or actor element
     /// (spec MUST). Returns `Err` if both are empty.
     pub fn validate_non_empty(&self) -> Result<()> {
-        if self.spaces.is_empty() && self.actors.is_empty() {
+        if self.realms.is_empty() && self.actors.is_empty() {
             return Err(Error::Protocol(
-                "events.query/subscribe selector requires at least one of spaces[] / actors[]"
+                "events.query/subscribe selector requires at least one of realms[] / actors[]"
                     .to_owned(),
             ));
         }
@@ -165,11 +165,11 @@ impl EventsQuerySelector {
 
     /// Render selector + range as the wire query string for
     /// `GET /_cokret/self/events/query` or `GET /_cokret/self/events/subscribe`. Repeats
-    /// `spaces` / `actors` query args per spec convention.
+    /// `realms` / `actors` query args per spec convention.
     pub fn to_query_pairs(&self) -> Vec<(&'static str, String)> {
         let mut pairs = Vec::new();
-        for space in &self.spaces {
-            pairs.push(("spaces", space.as_str().to_owned()));
+        for realm in &self.realms {
+            pairs.push(("realms", realm.as_str().to_owned()));
         }
         for actor in &self.actors {
             pairs.push(("actors", actor.clone()));
@@ -207,7 +207,7 @@ pub enum EventsQueryDirection {
 ///
 /// This is the ergonomic typed surface downstream agents (coauth / soland /
 /// yougen) call against. It mirrors the wire shape soland accepts on
-/// `GET /_cokret/self/events/query`: the multi-selector is `spaces[] ∪ actors[]`,
+/// `GET /_cokret/self/events/query`: the multi-selector is `realms[] ∪ actors[]`,
 /// `from` / `until` are HLC bounds, `direction` switches between forward
 /// (default) and backward iteration, and `limit` is the page cap.
 ///
@@ -217,7 +217,7 @@ pub enum EventsQueryDirection {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EventsQueryReqBody {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub spaces: Vec<RealmId>,
+    pub realms: Vec<RealmId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub actors: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -231,14 +231,14 @@ pub struct EventsQueryReqBody {
 }
 
 impl EventsQueryReqBody {
-    /// Construct an empty request. Caller MUST add at least one space or
+    /// Construct an empty request. Caller MUST add at least one Realm or
     /// actor before issuing or [`Self::validate_non_empty`] will fail.
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn with_spaces(mut self, spaces: Vec<RealmId>) -> Self {
-        self.spaces = spaces;
+    pub fn with_realms(mut self, realms: Vec<RealmId>) -> Self {
+        self.realms = realms;
         self
     }
 
@@ -267,12 +267,12 @@ impl EventsQueryReqBody {
         self
     }
 
-    /// Validate that the selector has at least one space or actor element
+    /// Validate that the selector has at least one Realm or actor element
     /// (spec MUST). Returns `Err` if both are empty.
     pub fn validate_non_empty(&self) -> Result<()> {
-        if self.spaces.is_empty() && self.actors.is_empty() {
+        if self.realms.is_empty() && self.actors.is_empty() {
             return Err(Error::Protocol(
-                "events.query request requires at least one of spaces[] / actors[]".to_owned(),
+                "events.query request requires at least one of realms[] / actors[]".to_owned(),
             ));
         }
         Ok(())
@@ -283,7 +283,7 @@ impl EventsQueryReqBody {
     /// shape; this request type is the `events.query`-only narrow view.
     pub fn as_selector(&self) -> EventsQuerySelector {
         EventsQuerySelector {
-            spaces: self.spaces.clone(),
+            realms: self.realms.clone(),
             actors: self.actors.clone(),
             from: self.from.clone(),
             until: self.until.clone(),
@@ -293,7 +293,7 @@ impl EventsQueryReqBody {
         }
     }
 
-    /// Render the request as repeated `?spaces=...&actors=...&from=...`
+    /// Render the request as repeated `?realms=...&actors=...&from=...`
     /// query pairs for `GET /_cokret/self/events/query`.
     pub fn to_query_pairs(&self) -> Vec<(&'static str, String)> {
         self.as_selector().to_query_pairs()

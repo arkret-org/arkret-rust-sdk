@@ -47,8 +47,8 @@
 //! let mut transport = |_request: SyncReqBody| {
 //!     Ok(SyncResBody {
 //!         cursor: "s1".to_owned(),
-//!         spaces: Default::default(),
-//!         left_spaces: Vec::new(),
+//!         realms: Default::default(),
+//!         left_realms: Vec::new(),
 //!         to_device: Vec::new(),
 //!         device_lists: Default::default(),
 //!         presence: Vec::new(),
@@ -243,8 +243,8 @@ pub use applet::{
     AppletNamespaceDomain, AppletNamespaceEntry, AppletPackage, AppletPortal, AppletServiceIntent,
     AppletServiceTransaction, AppletWireNamespaces, ApprovalRequest, ApprovedScope, EffectiveScope,
     GhostActorAccountability, InstallCommitRequest, InstallCommitResponse, InstallE2eePolicy,
-    InstallPlan, InstallPreviewRequest, InstallRevokeRequest, PortalMode, PortalSpaceMapping,
-    RemoteSpaceMapping, RemoteUserMapping, ThirdPartyLookupKind, ThirdPartyLookupReqBody,
+    InstallPlan, InstallPreviewRequest, InstallRevokeRequest, PortalMode, PortalRealmMapping,
+    RemoteRealmMapping, RemoteUserMapping, ThirdPartyLookupKind, ThirdPartyLookupReqBody,
     ThirdPartyLookupResBody, VirtualActor, WebhookAuth, WidgetPolicy, WireAppletRegistration,
     namespace_pattern_matches, sign_registration,
 };
@@ -282,14 +282,14 @@ pub use authz::{
     ProtocolGrantConstraint, ProtocolGrantConstraintEffect, ProtocolGrantConstraintTrack,
     ProtocolGrantConstraintType, ProtocolResourceSelector, ProtocolResourceSelectorKind,
     ProtocolResourceSelectorScope, RateLimitScope, Recurrence, Resource, ResourceSelector,
-    ScopeLimitation, VerifiedClaim, apply_policy_response, capability_grants_from_space_state,
+    ScopeLimitation, VerifiedClaim, apply_policy_response, capability_grants_from_realm_state,
     grant_requires_approval, moderation_report_for_policy_outcome,
     reject_unknown_critical_constraints, validate_capability_frontier,
 };
 #[cfg(feature = "full-surface")]
 pub use base::{
     BaseClient, BootstrapSequence, BootstrapStep, BootstrapStepKind, BootstrapStepStatus,
-    ClientSpace, SessionMeta, SessionRestore, SpaceStateType,
+    ClientRealm, SessionMeta, SessionRestore, RealmMembershipState,
 };
 #[cfg(feature = "full-surface")]
 pub use crypto::{
@@ -402,8 +402,8 @@ pub use presence::{Presence, PresenceManager};
 pub use profile::{
     DataClassification, ExternalDeviceApprovalMode, PairwiseControlMessage,
     PairwiseControlMessageKind, ProfileCreateBuilder, ProfileEventKind, ProfileManager,
-    ServiceReplacementPlan, SovereignDeploymentPolicy, SpaceExportManifest, SpaceImportValidation,
-    TspTrustBinding, UserProfile, validate_space_import,
+    RealmExportManifest, RealmImportValidation, ServiceReplacementPlan,
+    SovereignDeploymentPolicy, TspTrustBinding, UserProfile, validate_realm_import,
 };
 #[cfg(feature = "full-surface")]
 pub use push::{
@@ -425,11 +425,11 @@ pub use receipts::{
 pub use resolver::{
     REDUCER_SNAPSHOT_PROFILE, REDUCER_SNAPSHOT_SCHEMA, ReducerSnapshotManifest,
     SnapshotChunkManifest, SnapshotRestore, SnapshotRestoreSource, SnapshotSignature,
-    SnapshotSignatureBindingPayload, SpaceState, StateSnapshot, merkle_root, state_merkle_root,
+    SnapshotSignatureBindingPayload, RealmState, StateSnapshot, merkle_root, state_merkle_root,
     verify_snapshot_chunks,
 };
 #[cfg(feature = "full-surface")]
-pub use search::{SpaceSearchEntry, SpaceSearchIndex, SpaceSearchQuery};
+pub use search::{RealmSearchEntry, RealmSearchIndex, RealmSearchQuery};
 #[cfg(all(feature = "full-surface", feature = "server"))]
 pub use server::{
     EndpointHandler, ProtocolFixtureFlow, ProtocolFixtureReport, ProtocolFixtureStep,
@@ -444,16 +444,16 @@ pub use settings::{
 pub use store::{
     AccountSessionStore, AuditLogStore, BlobMetadataStore, EventCacheStore, MemoryPersistenceStore,
     StateSnapshotStore, StoreCache, StoreEncryptionKey, StoredAccountData,
-    rebuild_space_state_from_events, restore_space_state_from_persistence,
+    rebuild_realm_state_from_events, restore_realm_state_from_persistence,
 };
 #[cfg(all(feature = "full-surface", feature = "sync-runtime"))]
 pub use sync_client::{
     AsyncSyncTransport, BackoffConfig, BackpressureConfig, BoxSyncFuture, CancellationToken,
     EventsQueryDirection, EventsQueryReqBody, EventsQueryResBody, EventsQuerySelector,
-    EventsSubscribeFrame, EventsSubscribeTransport, ExponentialBackoff, LocalEcho, ProcessedSpace,
+    EventsSubscribeFrame, EventsSubscribeTransport, ExponentialBackoff, LocalEcho, ProcessedRealm,
     SendQueue, SendQueueItem, SendQueueItemKind, SendQueueSnapshot, SendQueueStatus, SlidingSync,
-    SlidingWindow, SpaceListChange, SpaceListEntry, SpaceListFilter, SpaceListService,
-    SpaceListSnapshot, SpaceListSort, SyncGapStrategy, SyncLoop, SyncLoopControl, SyncLoopSnapshot,
+    SlidingWindow, RealmListChange, RealmListEntry, RealmListFilter, RealmListService,
+    RealmListSnapshot, RealmListSort, SyncGapStrategy, SyncLoop, SyncLoopControl, SyncLoopSnapshot,
     SyncLoopStep, SyncResponseProcessor, SyncTransport,
 };
 #[cfg(all(feature = "full-surface", feature = "timeline-runtime"))]

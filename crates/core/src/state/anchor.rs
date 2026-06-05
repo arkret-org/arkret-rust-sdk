@@ -161,7 +161,7 @@ where
 /// any Anchor object.
 pub fn effective_anchor_view(
     leaves: &[AnchorId],
-    space_id: &RealmId,
+    realm_id: &RealmId,
     anchors: &dyn AnchorStore,
     cells: &dyn CellStore,
     registry: &dyn CellRegistry,
@@ -180,7 +180,7 @@ pub fn effective_anchor_view(
     }
     let frontier: Vec<MoveId> = frontier_set.into_iter().collect();
 
-    let post_state = effective_state_at(&sorted, space_id, cells, registry)?;
+    let post_state = effective_state_at(&sorted, realm_id, cells, registry)?;
     let state_root = compute_state_root(&post_state)
         .map_err(|e| AnchorReject::Store(format!("state_root: {e}")))?;
 
@@ -221,14 +221,14 @@ pub fn union_predecessor_frontiers(
 /// reachability when DAG branches diverge.
 pub fn effective_state_at(
     _leaves: &[AnchorId],
-    space_id: &RealmId,
+    realm_id: &RealmId,
     cells: &dyn CellStore,
     registry: &dyn CellRegistry,
 ) -> Result<BTreeMap<CellRef, CellState>, AnchorReject> {
     let mut out = BTreeMap::new();
-    for cell in cells.list_cells(space_id)? {
-        let ops = cells.anchored_ops_for_cell(space_id, &cell)?;
-        let binding = registry.resolve(space_id, &cell)?;
+    for cell in cells.list_cells(realm_id)? {
+        let ops = cells.anchored_ops_for_cell(realm_id, &cell)?;
+        let binding = registry.resolve(realm_id, &cell)?;
         let state = binding.lattice.join(&cell, &ops);
         out.insert(cell, state);
     }
@@ -239,19 +239,19 @@ pub fn effective_state_at(
 /// fallback inside `apply_anchor` step 7 when the new Anchor isn't yet
 /// committed but its effects have already been appended.
 fn compute_post_state_direct(
-    space_id: &RealmId,
+    realm_id: &RealmId,
     cells: &dyn CellStore,
     registry: &dyn CellRegistry,
 ) -> BTreeMap<CellRef, CellState> {
     let mut out = BTreeMap::new();
-    let Ok(cell_list) = cells.list_cells(space_id) else {
+    let Ok(cell_list) = cells.list_cells(realm_id) else {
         return out;
     };
     for cell in cell_list {
-        let Ok(ops) = cells.anchored_ops_for_cell(space_id, &cell) else {
+        let Ok(ops) = cells.anchored_ops_for_cell(realm_id, &cell) else {
             continue;
         };
-        let Ok(binding) = registry.resolve(space_id, &cell) else {
+        let Ok(binding) = registry.resolve(realm_id, &cell) else {
             continue;
         };
         out.insert(cell.clone(), binding.lattice.join(&cell, &ops));
@@ -298,8 +298,8 @@ mod tests {
         MemoryAnchorStore, MemoryCellRegistry, MemoryCellStore, MemoryMoveStore,
     };
 
-    fn space() -> RealmId {
-        RealmId::new("ck:space:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
+    fn Realm() -> RealmId {
+        RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
     fn cell_member() -> CellRef {
@@ -310,7 +310,7 @@ mod tests {
     fn build_move(from: &str, to: &str) -> Move {
         let body = json!({
             "issuer": "did:web:admin.example",
-            "space_id": space().as_str(),
+            "realm_id": Realm().as_str(),
             "preconditions": [],
             "effects": [{
                 "cell": cell_member().as_str(),
@@ -353,7 +353,7 @@ mod tests {
         };
         let mut a = Anchor {
             id: AnchorId::new(format!("ck:anchor:sha256:{}", "00".repeat(32))).unwrap(),
-            realm_id: space(),
+            realm_id: Realm(),
             predecessor_refs: predecessors,
             frontier,
             state_root,
@@ -434,7 +434,7 @@ mod tests {
         assert_eq!(effect.accepted_move_ids, vec![m.id]);
         assert!(effect.rejected_moves.is_empty());
         assert_eq!(effect.post_state_root, expected_root);
-        assert_eq!(anchors.list_leaves(&space()).unwrap(), vec![a.id]);
+        assert_eq!(anchors.list_leaves(&Realm()).unwrap(), vec![a.id]);
     }
 
     #[test]
@@ -498,7 +498,7 @@ mod tests {
             other => panic!("expected StateRootMismatch, got {other:?}"),
         }
         // Cell store rolled back to the genesis-empty baseline.
-        assert!(cells.list_cells(&space()).unwrap().is_empty());
+        assert!(cells.list_cells(&Realm()).unwrap().is_empty());
     }
 
     #[test]
@@ -532,7 +532,7 @@ mod tests {
 
         let view = effective_anchor_view(
             &[a2.id.clone(), a1.id.clone()],
-            &space(),
+            &Realm(),
             &anchors,
             &cells,
             &registry,

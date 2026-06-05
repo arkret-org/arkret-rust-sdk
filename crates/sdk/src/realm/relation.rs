@@ -39,7 +39,7 @@ impl Realm {
         let mut relation = json!({
             "id": relation_id.as_str(),
             "schema": crate::RELATION_SCHEMA,
-            "space_id": self.space_id.as_str(),
+            "realm_id": self.realm_id.as_str(),
             "relation_kind": serde_json::to_value(input.relation_kind)?,
             "from_ref": input.from_ref,
             "to_ref": input.to_ref,

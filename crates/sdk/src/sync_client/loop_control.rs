@@ -118,7 +118,7 @@ where
 /// (`/_cokret/self/events/subscribe`).
 ///
 /// Opens the `ck.events.subscribe` stream. The transport accepts a single
-/// `space_id` selector; callers that need multi-space / actor selectors should
+/// `realm_id` selector; callers that need multi-Realm / actor selectors should
 /// use the lower-level HTTP client directly.
 pub trait EventsSubscribeTransport {
     /// Streaming response type chosen by the concrete HTTP backend.
@@ -127,7 +127,7 @@ pub trait EventsSubscribeTransport {
     /// Open a server-side events subscription stream from an optional cursor.
     fn events_subscribe<'a>(
         &'a self,
-        space_id: &'a str,
+        realm_id: &'a str,
         from: Option<&'a str>,
     ) -> BoxSyncFuture<'a, Self::StreamResponse>;
 }
@@ -153,10 +153,10 @@ impl EventsSubscribeTransport for crate::Client {
 
     fn events_subscribe<'a>(
         &'a self,
-        space_id: &'a str,
+        realm_id: &'a str,
         from: Option<&'a str>,
     ) -> BoxSyncFuture<'a, Self::StreamResponse> {
-        Box::pin(async move { self.events_subscribe_stream(space_id, from).await })
+        Box::pin(async move { self.events_subscribe_stream(realm_id, from).await })
     }
 }
 
@@ -404,7 +404,7 @@ impl SyncLoop {
         match self.processor.process(response) {
             Ok(updates) => {
                 if self.gap_strategy == SyncGapStrategy::ResetTokenOnLimitedTimeline
-                    && updates.space_updates.iter().any(|update| {
+                    && updates.realm_updates.iter().any(|update| {
                         update.timeline.as_ref().is_some_and(|timeline| timeline.limited)
                     })
                 {

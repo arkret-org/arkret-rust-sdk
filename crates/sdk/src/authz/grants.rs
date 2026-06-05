@@ -5,7 +5,7 @@ use super::*;
 pub struct CapabilityGrant {
     pub id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<RealmId>,
+    pub realm_id: Option<RealmId>,
     pub issuer: Did,
     pub subject: Did,
     pub actions: Vec<String>,
@@ -238,9 +238,9 @@ fn option_narrowed(child: Option<&String>, parent: Option<&String>) -> bool {
     }
 }
 
-/// Extract active grant/delegate capability events from a resolved space state.
-pub fn capability_grants_from_space_state(
-    state: &crate::SpaceState,
+/// Extract active grant/delegate capability events from a resolved Realm state.
+pub fn capability_grants_from_realm_state(
+    state: &crate::RealmState,
 ) -> Result<Vec<CapabilityGrant>> {
     let mut grants = Vec::new();
 
@@ -248,7 +248,7 @@ pub fn capability_grants_from_space_state(
         if !matches!(event.kind.as_str(), "ck.capability.grant" | "ck.capability.delegate") {
             continue;
         }
-        grants.push(capability_grant_from_resolved_event(event, Some(state.space_id.clone()))?);
+        grants.push(capability_grant_from_resolved_event(event, Some(state.realm_id.clone()))?);
     }
 
     Ok(grants)
@@ -256,7 +256,7 @@ pub fn capability_grants_from_space_state(
 
 fn capability_grant_from_resolved_event(
     event: &crate::resolver::ResolvedStateEvent,
-    default_space_id: Option<RealmId>,
+    default_realm_id: Option<RealmId>,
 ) -> Result<CapabilityGrant> {
     let content = event
         .content
@@ -275,10 +275,10 @@ fn capability_grant_from_resolved_event(
     let resources =
         resource_selectors(content.get("resources").or_else(|| content.get("resource_selectors")))?
             .unwrap_or_else(|| {
-                default_space_id
+                default_realm_id
                     .as_ref()
-                    .map(|space_id| {
-                        vec![ResourceSelector::Space { space_id: space_id.as_str().to_owned() }]
+                    .map(|realm_id| {
+                        vec![ResourceSelector::Space { space_id: realm_id.as_str().to_owned() }]
                     })
                     .unwrap_or_default()
             });
@@ -288,7 +288,7 @@ fn capability_grant_from_resolved_event(
 
     Ok(CapabilityGrant {
         id,
-        space_id: optional_space_id(content, "space_id")?.or(default_space_id),
+        realm_id: optional_realm_id(content, "realm_id")?.or(default_realm_id),
         issuer,
         subject,
         actions,
@@ -311,7 +311,7 @@ fn optional_did(content: &serde_json::Map<String, Value>, field: &str) -> Result
     Ok(optional_string(content, field).map(Did::new).transpose()?)
 }
 
-fn optional_space_id(
+fn optional_realm_id(
     content: &serde_json::Map<String, Value>,
     field: &str,
 ) -> Result<Option<RealmId>> {
@@ -463,7 +463,7 @@ mod capability_grant_builder_tests {
     fn base_grant() -> CapabilityGrant {
         CapabilityGrant {
             id: "ck:grant:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
-            space_id: None,
+            realm_id: None,
             issuer: alice(),
             subject: bob(),
             actions: vec!["ck.message.create".to_owned()],

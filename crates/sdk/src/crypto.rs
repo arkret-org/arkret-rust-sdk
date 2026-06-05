@@ -23,7 +23,7 @@ const NONCE_LEN: usize = 24;
 /// Canonical AAD shape for encrypted timeline and operation envelopes.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EncryptedEnvelopeAad {
-    pub space_id: String,
+    pub realm_id: String,
     /// Canonical event kind (`ck.<category>.<verb>`).
     #[serde(rename = "event_kind")]
     pub event_kind: String,
@@ -466,7 +466,7 @@ mod tests {
     #[test]
     fn encrypted_envelope_aad_digest_is_canonical() {
         let aad = EncryptedEnvelopeAad {
-            space_id: "ck:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
+            realm_id: "ck:realm:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
             event_kind: "ck.message.create".to_owned(),
             event_id: "ck:event:01904100-0000-7000-8000-51495aba0a08".to_owned(),
             causal_refs: vec!["ck:event:01904100-0000-7000-8000-2b39e7197b88".to_owned()],
@@ -648,7 +648,7 @@ mod tests {
     #[test]
     fn canonical_digest_is_deterministic_for_same_input() {
         let aad = EncryptedEnvelopeAad {
-            space_id: "ck:space:01904100-0000-7000-8000-cfc039892036".to_owned(),
+            realm_id: "ck:realm:01904100-0000-7000-8000-cfc039892036".to_owned(),
             event_kind: "ck.message.create".to_owned(),
             event_id: "ck:event:01904100-0000-7000-8000-b70714ca75c5".to_owned(),
             causal_refs: vec![],
@@ -662,13 +662,13 @@ mod tests {
     #[test]
     fn canonical_digest_differs_for_different_inputs() {
         let aad1 = EncryptedEnvelopeAad {
-            space_id: "ck:space:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
+            realm_id: "ck:realm:01904100-0000-7000-8000-1a412919cd4b".to_owned(),
             event_kind: "ck.message.create".to_owned(),
             event_id: "ck:event:01904100-0000-7000-8000-0b94566027c1".to_owned(),
             causal_refs: vec![],
         };
         let aad2 = EncryptedEnvelopeAad {
-            space_id: "ck:space:01904100-0000-7000-8000-2a9d538f2fcf".to_owned(),
+            realm_id: "ck:realm:01904100-0000-7000-8000-2a9d538f2fcf".to_owned(),
             event_kind: "ck.message.create".to_owned(),
             event_id: "ck:event:01904100-0000-7000-8000-0b94566027c1".to_owned(),
             causal_refs: vec![],

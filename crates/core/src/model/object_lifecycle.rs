@@ -12,7 +12,7 @@ use super::*;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SpaceStateTransitionPayload {
-    pub space_id: RealmId,
+    pub space_id: SpaceId,
     /// New ObjectState; reducers reject any transition not in the
     /// allowed FSM (see `model::primitives::ObjectState`).
     pub new_state: ObjectState,
@@ -27,11 +27,11 @@ pub struct SpaceStateTransitionPayload {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SpaceObjectTombstonePayload {
-    pub space_id: RealmId,
+    pub space_id: SpaceId,
     pub tombstone_reason: String,
     /// Optional successor space id, if migration is offered.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub successor_space_id: Option<RealmId>,
+    pub successor_space_id: Option<SpaceId>,
 }
 
 /// Cell family for `ck.flow.update` / `ck.flow.tracks.update`

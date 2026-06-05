@@ -79,7 +79,7 @@ impl IdentityLinkCache {
         self.entries.remove(&(realm_id.clone(), pairwise_did.clone()));
     }
 
-    pub fn invalidate_space(&mut self, realm_id: &RealmId) {
+    pub fn invalidate_realm(&mut self, realm_id: &RealmId) {
         self.entries.retain(|(realm, _), _| realm != realm_id);
     }
 

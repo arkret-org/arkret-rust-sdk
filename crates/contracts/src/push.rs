@@ -90,7 +90,7 @@ pub struct PushNotification {
     pub event_id: EventId,
     pub user_id: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<RealmId>,
+    pub realm_id: Option<RealmId>,
     pub event_kind: String,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, skip_serializing_if = "Value::is_null")]
@@ -155,7 +155,7 @@ pub fn format_push_payload(
         priority: rule.priority,
         data: json!({
             "event_id": notification.event_id.as_str(),
-            "space_id": notification.space_id.as_ref().map(|space_id| space_id.as_str()),
+            "realm_id": notification.realm_id.as_ref().map(|realm_id| realm_id.as_str()),
             "event_kind": notification.event_kind,
         }),
     }
@@ -546,7 +546,7 @@ mod tests {
             &PushNotification {
                 event_id: EventId::new("ck:event:01904100-0000-7000-8000-834e21b98552").unwrap(),
                 user_id: did("alice"),
-                space_id: None,
+                realm_id: None,
                 event_kind: "ck.message.create".to_owned(),
                 content: json!({"body": "secret"}),
                 encrypted: true,

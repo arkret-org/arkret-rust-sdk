@@ -196,20 +196,20 @@ impl FederationManager {
             .unwrap_or(false)
     }
 
-    /// Forward a federation event into local space state.
-    pub fn forward_event(&mut self, space_id: RealmId, event: Value) {
-        self.events.entry(space_id).or_default().push(event);
+    /// Forward a federation event into local Realm state.
+    pub fn forward_event(&mut self, realm_id: RealmId, event: Value) {
+        self.events.entry(realm_id).or_default().push(event);
     }
 
-    /// Query known state/events for a space.
-    pub fn query_state(&self, space_id: &RealmId) -> Vec<&Value> {
-        self.events.get(space_id).map(|events| events.iter().collect()).unwrap_or_default()
+    /// Query known state/events for a Realm.
+    pub fn query_state(&self, realm_id: &RealmId) -> Vec<&Value> {
+        self.events.get(realm_id).map(|events| events.iter().collect()).unwrap_or_default()
     }
 
     /// Backfill events from a starting offset.
-    pub fn backfill(&self, space_id: &RealmId, from: usize, limit: usize) -> Vec<&Value> {
+    pub fn backfill(&self, realm_id: &RealmId, from: usize, limit: usize) -> Vec<&Value> {
         self.events
-            .get(space_id)
+            .get(realm_id)
             .map(|events| events.iter().skip(from).take(limit).collect())
             .unwrap_or_default()
     }
@@ -542,7 +542,7 @@ mod tests {
             "a.example",
             "b.example",
             "/_cokret/federation/state",
-            json!({"space":"ck:space:01904100-0000-7000-8000-fd3637e8361f"}),
+            json!({"realm":"ck:realm:01904100-0000-7000-8000-fd3637e8361f"}),
             "shared-key",
         );
         assert_eq!(request.origin, "a.example");
@@ -570,12 +570,12 @@ mod tests {
     #[test]
     fn federation_forwards_queries_and_backfills_events() {
         let mut manager = FederationManager::new();
-        let space_id = RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
-        manager.forward_event(space_id.clone(), json!({"event": 1}));
-        manager.forward_event(space_id.clone(), json!({"event": 2}));
+        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+        manager.forward_event(realm_id.clone(), json!({"event": 1}));
+        manager.forward_event(realm_id.clone(), json!({"event": 2}));
 
-        assert_eq!(manager.query_state(&space_id).len(), 2);
-        assert_eq!(manager.backfill(&space_id, 1, 10), vec![&json!({"event": 2})]);
+        assert_eq!(manager.query_state(&realm_id).len(), 2);
+        assert_eq!(manager.backfill(&realm_id, 1, 10), vec![&json!({"event": 2})]);
     }
 
     #[test]
@@ -674,7 +674,7 @@ mod tests {
     fn backfill_and_verify_actor_helpers_fail_closed() {
         let authorization = FederationBackfillAuthorization {
             requester_service_did: Did::new("did:web:b.example").unwrap(),
-            space_id: RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
+            realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             history_visible: true,
             service_delegated: false,
             plaintext_visible_to_service: true,

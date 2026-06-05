@@ -67,7 +67,7 @@ impl Realm {
         let mut object = json!({
             "id": flow_id.as_str(),
             "schema": crate::FLOW_SCHEMA,
-            "space_id": self.space_id.as_str(),
+            "realm_id": self.realm_id.as_str(),
             "metadata": Value::Object(flow_metadata),
             "tracks": tracks,
             "created_by": session_meta.user_id.as_str(),
@@ -207,8 +207,8 @@ impl Realm {
     pub fn move_flow_operation(
         &self,
         flow_id: FlowId,
-        board_space_id: RealmId,
-        target_space_id: RealmId,
+        board_space_id: SpaceId,
+        target_realm_id: SpaceId,
         rank: impl Into<String>,
         expected_position: Option<Value>,
     ) -> Result<Operation> {
@@ -216,7 +216,7 @@ impl Realm {
             crate::OP_FLOW_MOVE,
             flow_id,
             board_space_id,
-            ("target_space_id", target_space_id),
+            ("target_realm_id", target_realm_id),
             rank,
             expected_position,
         )
@@ -226,8 +226,8 @@ impl Realm {
     pub fn reorder_flow_operation(
         &self,
         flow_id: FlowId,
-        board_space_id: RealmId,
-        space_id: RealmId,
+        board_space_id: SpaceId,
+        space_id: SpaceId,
         rank: impl Into<String>,
         expected_position: Option<Value>,
     ) -> Result<Operation> {
@@ -245,8 +245,8 @@ impl Realm {
         &self,
         kind: &str,
         flow_id: FlowId,
-        board_space_id: RealmId,
-        place_field: (&str, RealmId),
+        board_space_id: SpaceId,
+        place_field: (&str, SpaceId),
         rank: impl Into<String>,
         expected_position: Option<Value>,
     ) -> Result<Operation> {

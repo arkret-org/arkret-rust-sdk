@@ -1008,12 +1008,12 @@ pub struct RemoteUserMapping {
     pub external_ref: Value,
 }
 
-/// Bridge mapping from a remote location to a Cokret space.
+/// Bridge mapping from a remote location to a Cokret Realm.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct RemoteSpaceMapping {
+pub struct RemoteRealmMapping {
     pub protocol: String,
     pub remote_space_id: String,
-    pub space_id: RealmId,
+    pub realm_id: RealmId,
     pub portal_id: Option<String>,
     pub title: Option<String>,
     #[serde(default, skip_serializing_if = "Value::is_null")]
@@ -1025,7 +1025,7 @@ pub struct RemoteSpaceMapping {
 #[cfg(test)]
 pub(crate) struct BridgeMappingStore {
     users: BTreeMap<String, RemoteUserMapping>,
-    spaces: BTreeMap<String, RemoteSpaceMapping>,
+    realms: BTreeMap<String, RemoteRealmMapping>,
 }
 
 #[cfg(test)]
@@ -1040,9 +1040,9 @@ impl BridgeMappingStore {
         self.users.insert(remote_key(&mapping.protocol, &mapping.remote_user_id), mapping);
     }
 
-    /// Store or replace a remote space mapping.
-    pub fn upsert_space(&mut self, mapping: RemoteSpaceMapping) {
-        self.spaces.insert(remote_key(&mapping.protocol, &mapping.remote_space_id), mapping);
+    /// Store or replace a remote location mapping.
+    pub fn upsert_realm(&mut self, mapping: RemoteRealmMapping) {
+        self.realms.insert(remote_key(&mapping.protocol, &mapping.remote_space_id), mapping);
     }
 
     /// Resolve a remote user mapping.
@@ -1050,9 +1050,9 @@ impl BridgeMappingStore {
         self.users.get(&remote_key(protocol, remote_user_id))
     }
 
-    /// Resolve a remote space mapping.
-    pub fn space(&self, protocol: &str, remote_space_id: &str) -> Option<&RemoteSpaceMapping> {
-        self.spaces.get(&remote_key(protocol, remote_space_id))
+    /// Resolve a remote location mapping.
+    pub fn realm(&self, protocol: &str, remote_space_id: &str) -> Option<&RemoteRealmMapping> {
+        self.realms.get(&remote_key(protocol, remote_space_id))
     }
 }
 
@@ -1065,11 +1065,11 @@ pub struct GhostActorAccountability {
     pub reason: String,
 }
 
-/// Mapping between an applet portal and a bridged remote space.
+/// Mapping between an applet portal and a bridged remote location.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct PortalSpaceMapping {
+pub struct PortalRealmMapping {
     pub portal_id: String,
-    pub space_id: RealmId,
+    pub realm_id: RealmId,
     pub protocol: String,
     pub remote_space_id: String,
 }
@@ -1082,11 +1082,11 @@ pub enum PortalMode {
     Bridge,
 }
 
-/// Applet portal space.
+/// Applet portal Realm.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AppletPortal {
     pub portal_id: String,
-    pub space_id: RealmId,
+    pub realm_id: RealmId,
     pub mode: PortalMode,
     pub applets: BTreeSet<String>,
     pub ghost_actor: Option<Did>,
@@ -1107,10 +1107,10 @@ impl AppletPortalManager {
     }
 
     /// Create a portal.
-    pub fn create_portal(&mut self, space_id: RealmId) -> AppletPortal {
+    pub fn create_portal(&mut self, realm_id: RealmId) -> AppletPortal {
         let portal = AppletPortal {
             portal_id: format!("portal_{}", uuid::Uuid::now_v7()),
-            space_id,
+            realm_id,
             mode: PortalMode::Native,
             applets: BTreeSet::new(),
             ghost_actor: None,
@@ -1284,7 +1284,7 @@ mod tests {
     fn applet_portal_manages_space_bridge_and_ghost_actor() {
         let mut manager = AppletPortalManager::new();
         let portal = manager
-            .create_portal(RealmId::new("ck:space:01904100-0000-7000-8000-9b64700c6ee8").unwrap());
+            .create_portal(RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap());
         manager.install_applet(&portal.portal_id, "todo").unwrap();
         manager.enable_bridge(&portal.portal_id).unwrap();
         manager.set_ghost_actor(&portal.portal_id, did("ghost")).unwrap();
@@ -1370,17 +1370,17 @@ mod tests {
             display_name: Some("User One".to_owned()),
             external_ref: json!({"team": "T1"}),
         });
-        mappings.upsert_space(RemoteSpaceMapping {
+        mappings.upsert_realm(RemoteRealmMapping {
             protocol: "slack".to_owned(),
             remote_space_id: "C1".to_owned(),
-            space_id: RealmId::new("ck:space:01904100-0000-7000-8000-f949e0272316").unwrap(),
+            realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-f949e0272316").unwrap(),
             portal_id: Some("portal".to_owned()),
             title: Some("general".to_owned()),
             external_ref: Value::Null,
         });
 
         assert_eq!(mappings.user("slack", "U1").unwrap().display_name, Some("User One".to_owned()));
-        assert!(mappings.space("slack", "C1").is_some());
+        assert!(mappings.realm("slack", "C1").is_some());
     }
 
     use AppletNamespaceDomain::{Actors, Realms};
