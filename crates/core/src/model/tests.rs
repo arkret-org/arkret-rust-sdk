@@ -1415,3 +1415,131 @@ fn collection_projection_discussion_lazy_link_defaults_false() {
     assert_eq!(d.visibility, "readable");
     assert!(!d.lazy_link);
 }
+
+// ── §3.2 字段簇顺序守护(从 origin 71c0e0d 移植,适配本地 inversion 命名)──
+// `top_level_keys` 按字符串位置提取声明序顶层 key(本仓 serde_json 未开
+// preserve_order,Value 会重排无法用);`assert_field_order` 按 wire key 名断言
+// common-fields.md §3.2 的机器可校验硬规则。两者均与 Rust 标识符命名无关。
+
+fn top_level_keys(json: &str) -> Vec<String> {
+    let mut keys = Vec::new();
+    let bytes = json.as_bytes();
+    let mut depth: i32 = 0;
+    let mut i = 0;
+    let mut in_string = false;
+    let mut current = String::new();
+    let mut expecting_key = false;
+    while i < bytes.len() {
+        let c = bytes[i] as char;
+        if in_string {
+            if c == '\\' {
+                if expecting_key {
+                    current.push(c);
+                    if i + 1 < bytes.len() {
+                        current.push(bytes[i + 1] as char);
+                    }
+                }
+                i += 2;
+                continue;
+            }
+            if c == '"' {
+                in_string = false;
+                i += 1;
+                continue;
+            }
+            if expecting_key {
+                current.push(c);
+            }
+            i += 1;
+            continue;
+        }
+        match c {
+            '"' => {
+                in_string = true;
+                expecting_key = depth == 1;
+                if expecting_key {
+                    current.clear();
+                }
+            }
+            ':' if depth == 1 && !current.is_empty() => {
+                keys.push(std::mem::take(&mut current));
+            }
+            '{' | '[' => depth += 1,
+            '}' | ']' => depth -= 1,
+            _ => {}
+        }
+        i += 1;
+    }
+    keys
+}
+
+fn assert_field_order(object: &str, keys: &[String]) {
+    let pos = |name: &str| keys.iter().position(|k| k == name);
+    if let (Some(id), Some(schema)) = (pos("id"), pos("schema")) {
+        assert!(id < schema, "{object}: `id` MUST precede `schema` (§3.2 identity cluster)");
+    }
+    if let (Some(cb), Some(ca)) = (pos("created_by"), pos("created_at")) {
+        assert!(cb < ca, "{object}: `created_by` MUST precede `created_at` (§3.2)");
+    }
+    if let (Some(ub), Some(ua)) = (pos("updated_by"), pos("updated_at")) {
+        assert!(ub < ua, "{object}: `updated_by` MUST precede `updated_at` (§3.2)");
+    }
+    if let (Some(ca), Some(ua)) = (pos("created_at"), pos("updated_at")) {
+        assert!(ca < ua, "{object}: `created_at` MUST precede `updated_at` (§3.2)");
+    }
+    if let (Some(s), Some(sca)) = (pos("state"), pos("state_changed_at")) {
+        assert_eq!(sca, s + 1, "{object}: `state_changed_at` MUST immediately follow `state` (§3.2)");
+    }
+    if let (Some(st), Some(stca)) = (pos("stage"), pos("stage_changed_at")) {
+        assert_eq!(stca, st + 1, "{object}: `stage_changed_at` MUST immediately follow `stage` (§3.2)");
+    }
+    let audit_start = pos("created_by").or_else(|| pos("created_at"));
+    if let Some(audit) = audit_start {
+        for container in ["metadata", "fields"] {
+            if let Some(c) = pos(container) {
+                assert!(
+                    c < audit,
+                    "{object}: `{container}` MUST be in the content/config cluster, before the audit cluster (§3.2)"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
+    let created_by = Did::new("did:web:alice.example").unwrap();
+    let updated_by = Did::new("did:web:bob.example").unwrap();
+    let now = chrono::Utc::now();
+
+    // Flow — id, schema, …, state, state_changed_at, stage, stage_changed_at, audit.
+    let mut flow = Flow::new(
+        FlowId::new("ck:flow:01904100-0000-7000-8000-0000000000f0").unwrap(),
+        RealmId::new("ck:realm:01904100-0000-7000-8000-0000000000f1").unwrap(),
+        "Order guard flow",
+        created_by.clone(),
+    );
+    flow.state_changed_at = Some(now);
+    flow.stage_changed_at = Some(now);
+    flow.updated_by = Some(updated_by.clone());
+    flow.updated_at = Some(now);
+    assert_field_order("Flow", &top_level_keys(&serde_json::to_string(&flow).unwrap()));
+
+    // Morph — scope/container cluster `scope_circle_id` precedes lifecycle `state`.
+    let mut morph = Morph::new(
+        MorphId::new("ck:morph:01904100-0000-7000-8000-0000000000a0").unwrap(),
+        RealmId::new("ck:realm:01904100-0000-7000-8000-0000000000a1").unwrap(),
+        "ck.demo.morph",
+        created_by.clone(),
+    )
+    .with_metadata_title("Demo morph");
+    morph.state_changed_at = Some(now);
+    let morph_keys = top_level_keys(&serde_json::to_string(&morph).unwrap());
+    assert_field_order("Morph", &morph_keys);
+    if let (Some(scope), Some(state)) = (
+        morph_keys.iter().position(|k| k == "scope_circle_id"),
+        morph_keys.iter().position(|k| k == "state"),
+    ) {
+        assert!(scope < state, "Morph: `scope_circle_id` MUST precede `state` (§3.2 scope/container cluster)");
+    }
+}
