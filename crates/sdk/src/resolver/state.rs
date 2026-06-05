@@ -380,7 +380,8 @@ impl SpaceState {
             morph.metadata.get_or_insert_with(crate::MorphMetadata::default).title = Some(title);
         }
         if let Some(summary) = summary {
-            morph.metadata.get_or_insert_with(crate::MorphMetadata::default).summary = Some(summary);
+            morph.metadata.get_or_insert_with(crate::MorphMetadata::default).summary =
+                Some(summary);
         }
         if let Some(encrypted_metadata) = encrypted_metadata {
             morph.encrypted_metadata = Some(encrypted_metadata);

@@ -1488,10 +1488,18 @@ fn assert_field_order(object: &str, keys: &[String]) {
         assert!(ca < ua, "{object}: `created_at` MUST precede `updated_at` (§3.2)");
     }
     if let (Some(s), Some(sca)) = (pos("state"), pos("state_changed_at")) {
-        assert_eq!(sca, s + 1, "{object}: `state_changed_at` MUST immediately follow `state` (§3.2)");
+        assert_eq!(
+            sca,
+            s + 1,
+            "{object}: `state_changed_at` MUST immediately follow `state` (§3.2)"
+        );
     }
     if let (Some(st), Some(stca)) = (pos("stage"), pos("stage_changed_at")) {
-        assert_eq!(stca, st + 1, "{object}: `stage_changed_at` MUST immediately follow `stage` (§3.2)");
+        assert_eq!(
+            stca,
+            st + 1,
+            "{object}: `stage_changed_at` MUST immediately follow `stage` (§3.2)"
+        );
     }
     let audit_start = pos("created_by").or_else(|| pos("created_at"));
     if let Some(audit) = audit_start {
@@ -1540,6 +1548,9 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
         morph_keys.iter().position(|k| k == "scope_circle_id"),
         morph_keys.iter().position(|k| k == "state"),
     ) {
-        assert!(scope < state, "Morph: `scope_circle_id` MUST precede `state` (§3.2 scope/container cluster)");
+        assert!(
+            scope < state,
+            "Morph: `scope_circle_id` MUST precede `state` (§3.2 scope/container cluster)"
+        );
     }
 }

@@ -206,6 +206,8 @@ pub mod profile;
 #[cfg(feature = "full-surface")]
 pub mod push;
 #[cfg(feature = "full-surface")]
+pub mod realm;
+#[cfg(feature = "full-surface")]
 pub mod receipts;
 #[cfg(feature = "full-surface")]
 pub mod resolver;
@@ -213,8 +215,6 @@ pub mod resolver;
 pub mod search;
 #[cfg(feature = "full-surface")]
 pub mod settings;
-#[cfg(feature = "full-surface")]
-pub mod realm;
 #[cfg(feature = "full-surface")]
 pub mod store;
 #[cfg(all(feature = "full-surface", feature = "sync-runtime"))]
@@ -411,6 +411,11 @@ pub use push::{
     PushGateway, PushPayload, PushPlatform, PushPriority, PushPrivacyPolicy, PushRule, PushToken,
 };
 #[cfg(feature = "full-surface")]
+pub use realm::{
+    BatchCreateMorph, BatchUpdateMorph, GraphTraversal, MorphAggregation, MorphQuery, MorphVersion,
+    MorphVersionDiff, Realm, RelationOperationInput,
+};
+#[cfg(feature = "full-surface")]
 pub use receipts::{
     ReadMarker, ReadReceipt, ReadReceiptDisclosure, ReadReceiptPolicy, ReadReceiptPreferences,
     ReadReceiptVisibility, ReceiptDecision, ReceiptManager, ReceiptVisibility, ScopePref,
@@ -434,11 +439,6 @@ pub use server::{
 #[cfg(feature = "full-surface")]
 pub use settings::{
     ClientSettings, NotificationPreferences, PrivacySettings, SettingsManager, ThemeSetting,
-};
-#[cfg(feature = "full-surface")]
-pub use realm::{
-    BatchCreateMorph, BatchUpdateMorph, GraphTraversal, MorphAggregation, MorphQuery, MorphVersion,
-    MorphVersionDiff, Realm, RelationOperationInput,
 };
 #[cfg(feature = "full-surface")]
 pub use store::{

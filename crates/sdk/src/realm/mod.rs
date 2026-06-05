@@ -19,8 +19,8 @@ use crate::{
         MemberDeliveryBinding, MessageId, Morph, MorphId, NullsOrder, OP_INVITE_CREATE,
         OP_MEMBER_STATE, OP_MESSAGE_CREATE, OP_MESSAGE_REDACT, OP_MESSAGE_REVISE, OP_MORPH_ARCHIVE,
         OP_MORPH_CREATE, OP_MORPH_UPDATE, OP_RELATION_CREATE, OP_RELATION_TOMBSTONE, ObjectState,
-        Operation, OperationId, OperationType, Relation, RelationId, RelationKind,
-        RelationState, Space, SortDirection, SortSpec,
+        Operation, OperationId, OperationType, Relation, RelationId, RelationKind, RelationState,
+        SortDirection, SortSpec, Space,
     },
     resolver::SpaceState,
 };

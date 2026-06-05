@@ -79,9 +79,7 @@ fn validate_canonical_string(s: &str) -> Result<()> {
         return Err(Error::NonCanonicalString("string value contains U+FEFF".to_owned()));
     }
     if !is_nfc(s) {
-        return Err(Error::NonCanonicalString(format!(
-            "string value is not Unicode NFC: {s:?}"
-        )));
+        return Err(Error::NonCanonicalString(format!("string value is not Unicode NFC: {s:?}")));
     }
     Ok(())
 }
@@ -107,9 +105,7 @@ pub fn parse_canonical_json(bytes: &[u8]) -> Result<Value> {
     // occurrence (escaped `﻿` is rejected separately by `write_string` on
     // the canonical emit path).
     if bytes.windows(3).any(|w| w == [0xEF, 0xBB, 0xBF]) {
-        return Err(Error::NonCanonicalString(
-            "input contains a UTF-8 BOM / U+FEFF".to_owned(),
-        ));
+        return Err(Error::NonCanonicalString("input contains a UTF-8 BOM / U+FEFF".to_owned()));
     }
     let mut de = serde_json::Deserializer::from_slice(bytes);
     let value = serde::de::DeserializeSeed::deserialize(CanonicalValueSeed, &mut de)
@@ -478,9 +474,7 @@ fn write_string(string: &str, out: &mut Vec<u8>) -> Result<()> {
             // encoding.md §2: any U+FEFF (BOM), whether at stream start or inside a
             // string value, MUST be rejected as schema_violation — never emitted.
             '\u{feff}' => {
-                return Err(Error::NonCanonicalString(
-                    "string value contains U+FEFF".to_owned(),
-                ));
+                return Err(Error::NonCanonicalString("string value contains U+FEFF".to_owned()));
             }
             '"' => out.extend_from_slice(br#"\""#),
             '\\' => out.extend_from_slice(br#"\\"#),

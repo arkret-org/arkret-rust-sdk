@@ -43,7 +43,14 @@ tracing = ["dep:tracing"]
 # Re-export the conformance/test-fixture crate. Opt-in so it never lands in
 # downstream production builds of the umbrella `cokret` crate.
 testing = ["dep:cokret-testing"]
-salvo = ["server", "dep:salvo", "salvo/oapi", "cokret-server/salvo", "cokret-core/salvo"]
+salvo = [
+    "server",
+    "dep:salvo",
+    "salvo/oapi",
+    "cokret-contracts/salvo",
+    "cokret-server/salvo",
+    "cokret-core/salvo",
+]
 applet-runtime = ["full-surface"]
 # Convenience umbrella for Applet developers: turns on the applet wire
 # surface (`applet` / `applet_server` modules), the reqwest HTTP client

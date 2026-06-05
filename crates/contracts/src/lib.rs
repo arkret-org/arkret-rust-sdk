@@ -21,6 +21,7 @@ pub mod product {
 pub mod federation;
 pub mod identity;
 pub mod integration;
+pub mod ops;
 pub mod principal;
 pub mod push;
 
