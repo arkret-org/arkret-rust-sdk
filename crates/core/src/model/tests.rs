@@ -839,13 +839,9 @@ fn operation_serializes_protocol_field_names() {
     assert_eq!(value["schema"], OPERATION_SCHEMA);
 }
 
-// `sync_response_uses_native_spaces_only` removed: the previous
-// SyncResBody had a `cursor` / `spaces` / `timeline` shape that no
-// longer exists. The new SyncResBody (in `model/api.rs`) carries
-// `cursor` / `left_spaces` / `notifications`; the corresponding wire
-// invariant (native space ids only, no Matrix room id leakage) is
-// enforced by the cursor + space-id types themselves and exercised by
-// the typed-ID validation tests above.
+// SyncResBody carries `cursor` / `realms` / `left_realms` /
+// `notifications`. Realm ids and product Space ids are validated by their
+// typed-id constructors and exercised by the typed-ID tests above.
 
 fn valid_proof() -> Proof {
     Proof {

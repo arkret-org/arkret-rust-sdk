@@ -1,8 +1,8 @@
 use super::*;
 
-/// Per-Space binding of a member to a concrete delivery target service.
+/// Per-Realm binding of a member to a concrete delivery target service.
 ///
-/// Authoritative source for Space-scoped event / sync / to-device / push /
+/// Authoritative source for Realm-scoped event / sync / to-device / push /
 /// key-package delivery. Senders MUST NOT consult the actor's DID Document
 /// service entry as an alternative resolution path when this binding is
 /// present. Pairwise / unlinkability use-cases are orthogonal - see
@@ -50,9 +50,8 @@ pub enum RecipientServiceType {
     PrincipalServer,
 }
 
-/// Realm/Space inversion (spec 59ac1d4): the binding is scoped to the
-/// security boundary, which is now the **Realm** (formerly named Space).
-/// The wire value is the canonical token `"realm"`.
+/// The binding is scoped to the Realm security boundary. The wire value is
+/// the canonical token `"realm"`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
@@ -236,12 +235,9 @@ mod tests {
         assert!(b.validate().is_err());
     }
 
-    /// R4.3 strict assertion: after the Realm/Space inversion (spec
-    /// 59ac1d4) the only legal `binding_scope` wire value is "realm". The
-    /// pre-inversion value "space" MUST be rejected at deserialisation —
-    /// the enum has a single variant `Realm` (serialised as "realm"), so
-    /// any other token (including the old "space") fails the serde tag
-    /// match.
+    /// The only legal `binding_scope` wire value is "realm". The enum has a
+    /// single variant `Realm` (serialised as "realm"), so any other token
+    /// fails the serde tag match.
     #[test]
     fn binding_scope_only_accepts_realm() {
         // Positive: "realm" deserialises.
@@ -249,12 +245,12 @@ mod tests {
             .expect("realm MUST deserialise");
         assert_eq!(ok, BindingScope::Realm);
 
-        // Negative: the pre-inversion "space" wire value MUST be rejected.
+        // Negative: "space" is not a legal Realm binding scope.
         let err: std::result::Result<BindingScope, _> =
             serde_json::from_value(serde_json::json!("space"));
         assert!(
             err.is_err(),
-            "pre-inversion BindingScope value 'space' MUST be rejected, got {err:?}"
+            "BindingScope value 'space' MUST be rejected, got {err:?}"
         );
 
         // Defensive: arbitrary tokens MUST also be rejected.
@@ -265,9 +261,8 @@ mod tests {
         }
     }
 
-    /// R4.3 strict assertion: the full member-delivery-binding payload
-    /// MUST reject the legacy "space" binding_scope at the envelope
-    /// level too (i.e., the field-level rejection above propagates).
+    /// The full member-delivery-binding payload MUST reject "space"
+    /// binding_scope at the envelope level too.
     #[test]
     fn member_delivery_binding_rejects_space_binding_scope() {
         let payload = serde_json::json!({
@@ -285,7 +280,7 @@ mod tests {
         let parsed: std::result::Result<MemberDeliveryBinding, _> = serde_json::from_value(payload);
         assert!(
             parsed.is_err(),
-            "pre-inversion binding_scope=space MUST be rejected at MemberDeliveryBinding deserialisation"
+            "binding_scope=space MUST be rejected at MemberDeliveryBinding deserialisation"
         );
     }
 

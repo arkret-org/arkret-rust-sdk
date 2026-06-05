@@ -33,7 +33,7 @@ pub enum CandidateIntent {
 }
 
 /// Context carried by the verifier when validating a candidate. The
-/// `expected_audience` MUST be the target Space DID or inviting service
+/// `expected_audience` MUST be the target Realm DID or inviting service
 /// DID for the current invocation; `now` lets callers freeze the time
 /// baseline (test fixtures, signed receipts replayed for audit, etc.).
 #[derive(Clone, Debug)]
@@ -256,7 +256,7 @@ mod tests {
             handle_aliases: vec!["acct:alice@acme.example".to_owned()],
             member_delivery_binding: sample_hint(&rs),
             issuer_service_did: fake_did("principal"),
-            audience: "ck:space:0196419b-0000-7000-8000-000000000000".to_owned(),
+            audience: "ck:realm:0196419b-0000-7000-8000-000000000000".to_owned(),
             expires_at: Utc::now() + chrono::Duration::hours(1),
             issued_at: Some(Utc::now()),
             source_refs: vec!["ck:event:01890000-0000-7000-8000-0000000000ff".to_owned()],
@@ -266,7 +266,7 @@ mod tests {
                 "verification_method": "did:web:principal.example#key-1",
                 "payload_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "created_at": "2026-05-19T00:00:00Z",
-                "audience": "ck:space:0196419b-0000-7000-8000-000000000000",
+                "audience": "ck:realm:0196419b-0000-7000-8000-000000000000",
                 "jws": "aaa.bbb.ccc"
             })],
             claim_digest: Some(
@@ -310,7 +310,7 @@ mod tests {
     #[test]
     fn negative_audience_mismatch() {
         let c = sample_candidate();
-        let ctx = CandidateValidationContext::new("ck:space:other-target".to_owned());
+        let ctx = CandidateValidationContext::new("ck:realm:other-target".to_owned());
         match c.validate(&ctx).unwrap_err() {
             CandidateError::AudienceMismatch { .. } => {}
             other => panic!("expected AudienceMismatch, got {other:?}"),

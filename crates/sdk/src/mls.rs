@@ -1440,7 +1440,7 @@ mod tests {
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group =
-            alice.create_group(b"ck:space:01904100-0000-7000-8000-1ad6479d4a40").unwrap();
+            alice.create_group(b"ck:realm:01904100-0000-7000-8000-1ad6479d4a40").unwrap();
         let hash_pre = alice_group.schedule_hash();
         assert!(
             hash_pre.as_str().starts_with("sha256:"),
@@ -1478,7 +1478,7 @@ mod tests {
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group =
-            alice.create_group(b"ck:space:01904100-0000-7000-8000-1ad6479d4a41").unwrap();
+            alice.create_group(b"ck:realm:01904100-0000-7000-8000-1ad6479d4a41").unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let bob_group = CokretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
 
@@ -1515,7 +1515,7 @@ mod tests {
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group =
-            alice.create_group(b"ck:space:01904100-0000-7000-8000-1ad6479d4a41").unwrap();
+            alice.create_group(b"ck:realm:01904100-0000-7000-8000-1ad6479d4a41").unwrap();
         assert_eq!(
             alice_group.member_principal_ids(),
             vec![Did::new("did:web:alice.example").unwrap()],
@@ -1548,7 +1548,7 @@ mod tests {
         )
         .unwrap();
         let mut group =
-            alice.create_group(b"ck:space:01904100-0000-7000-8000-555555555555").unwrap();
+            alice.create_group(b"ck:realm:01904100-0000-7000-8000-555555555555").unwrap();
         let pre_epoch = group.epoch();
         let pre_group_id = group.group_id();
         let envelope = group.self_update_commit().expect("self_update succeeds");
@@ -1584,7 +1584,7 @@ mod tests {
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group =
-            alice.create_group(b"ck:space:01904100-0000-7000-8000-d652c78259d9").unwrap();
+            alice.create_group(b"ck:realm:01904100-0000-7000-8000-d652c78259d9").unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let mut bob_group = CokretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
 
@@ -1613,7 +1613,7 @@ mod tests {
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group =
-            alice.create_group(b"ck:space:01904100-0000-7000-8000-f2f103987ef3").unwrap();
+            alice.create_group(b"ck:realm:01904100-0000-7000-8000-f2f103987ef3").unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let mut bob_group = CokretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
 
@@ -1645,11 +1645,11 @@ mod tests {
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group =
-            alice.create_group(b"ck:space:01904100-0000-7000-8000-65bef476aed3").unwrap();
+            alice.create_group(b"ck:realm:01904100-0000-7000-8000-65bef476aed3").unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let mut bob_group = CokretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
         let aad = serde_json::json!({
-            "space_id": "ck:space:01904100-0000-7000-8000-65bef476aed3",
+            "realm_id": "ck:realm:01904100-0000-7000-8000-65bef476aed3",
             "event_kind": "ck.message.create",
             "event_id": "ck:event:01904100-0000-7000-8000-d5afe7e3de96",
             "causal_refs": []
@@ -1686,7 +1686,7 @@ mod tests {
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group =
-            alice.create_group(b"ck:space:01904100-0000-7000-8000-1ad6479d4a3f").unwrap();
+            alice.create_group(b"ck:realm:01904100-0000-7000-8000-1ad6479d4a3f").unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let bob_group = CokretMlsGroup::join_from_welcome(bob, &add_result.welcome).unwrap();
         let mut store = crate::MemoryCryptoStore::new();
@@ -1730,7 +1730,7 @@ mod tests {
         assert_eq!(revoke_step.action, MlsDeviceWorkflowAction::RevokeKeyPackage);
 
         let mut alice_group =
-            alice.create_group(b"ck:space:01904100-0000-7000-8000-877788250807").unwrap();
+            alice.create_group(b"ck:realm:01904100-0000-7000-8000-877788250807").unwrap();
         let bob_add = alice_group.add_member(&bob_key_package).unwrap();
         let mut bob_group = CokretMlsGroup::join_from_welcome(bob, &bob_add.welcome).unwrap();
         let charlie_add = alice_group.add_member(&charlie_key_package).unwrap();
@@ -1764,7 +1764,7 @@ mod tests {
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group =
-            alice.create_group(b"ck:space:01904100-0000-7000-8000-4ecefcf31ad2").unwrap();
+            alice.create_group(b"ck:realm:01904100-0000-7000-8000-4ecefcf31ad2").unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let operation = add_result
             .commit_operation(
@@ -1790,7 +1790,7 @@ mod tests {
         )
         .unwrap();
         let mut alice_group =
-            alice.create_group(b"ck:space:01904100-0000-7000-8000-f2f103987ef3").unwrap();
+            alice.create_group(b"ck:realm:01904100-0000-7000-8000-f2f103987ef3").unwrap();
         let encrypted = MessageCrypto::encrypt(
             &mut alice_group,
             "ck:message:02",
@@ -1827,7 +1827,7 @@ mod tests {
         let bob_key_package = bob.key_package_record().unwrap();
 
         let mut alice_group =
-            alice.create_group(b"ck:space:01904100-0000-7000-8000-469a459e1b8f").unwrap();
+            alice.create_group(b"ck:realm:01904100-0000-7000-8000-469a459e1b8f").unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let encrypted = MessageCrypto::encrypt(
             &mut alice_group,
@@ -1868,7 +1868,7 @@ mod tests {
 
         // Alice creates group and adds Bob and Charlie.
         let mut alice_group =
-            alice.create_group(b"ck:space:01904100-0000-7000-8000-4cc289f6471e").unwrap();
+            alice.create_group(b"ck:realm:01904100-0000-7000-8000-4cc289f6471e").unwrap();
         let bob_add = alice_group.add_member(&bob_kp).unwrap();
         let mut bob_group = CokretMlsGroup::join_from_welcome(bob, &bob_add.welcome).unwrap();
         let charlie_add = alice_group.add_member(&charlie_kp).unwrap();
@@ -1949,7 +1949,7 @@ mod tests {
 
         let bob_key_package = bob.key_package_record().unwrap();
         let mut alice_group =
-            alice.create_group(b"ck:space:01904100-0000-7000-8000-d652c78259d9").unwrap();
+            alice.create_group(b"ck:realm:01904100-0000-7000-8000-d652c78259d9").unwrap();
         let add_result = alice_group.add_member(&bob_key_package).unwrap();
         let Err(error) = CokretMlsGroup::join_from_welcome(mallory, &add_result.welcome) else {
             panic!("Mallory should not be able to consume Bob's Welcome");
@@ -1982,7 +1982,7 @@ mod tests {
         let charlie_kp = charlie.key_package_record().unwrap();
 
         let mut alice_group =
-            alice.create_group(b"ck:space:01904100-0000-7000-8000-a78a8b504d40").unwrap();
+            alice.create_group(b"ck:realm:01904100-0000-7000-8000-a78a8b504d40").unwrap();
         let add_bob = alice_group.add_member(&bob_kp).unwrap();
         let _bob_group = CokretMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
         let add_charlie = alice_group.add_member(&charlie_kp).unwrap();
@@ -2015,7 +2015,7 @@ mod tests {
         )
         .unwrap();
         let mut alice_group =
-            alice.create_group(b"ck:space:01904100-0000-7000-8000-3cf34eced3c3").unwrap();
+            alice.create_group(b"ck:realm:01904100-0000-7000-8000-3cf34eced3c3").unwrap();
 
         let absent = Did::new("did:web:nobody.example").unwrap();
         let err = alice_group.remove_member_by_principal(&absent);
@@ -2030,7 +2030,7 @@ mod tests {
         )
         .unwrap();
         let mut group =
-            alice.create_group(b"ck:space:01904100-0000-7000-8000-0abc0abc0abc").unwrap();
+            alice.create_group(b"ck:realm:01904100-0000-7000-8000-0abc0abc0abc").unwrap();
 
         let realm_id = "ck:realm:01904100-0000-7000-8000-0abc0abc0abc";
         let aad = EncryptedEnvelopeAadV1::hidden(realm_id, "ck.message.create");
@@ -2121,7 +2121,7 @@ mod tests {
         let bob_kp = bob.key_package_record().unwrap();
 
         let mut alice_group =
-            alice.create_group(b"ck:space:01904100-0000-7000-8000-89444e193497").unwrap();
+            alice.create_group(b"ck:realm:01904100-0000-7000-8000-89444e193497").unwrap();
         let add_bob = alice_group.add_member(&bob_kp).unwrap();
         let _bob_group = CokretMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
 
@@ -2149,7 +2149,7 @@ mod tests {
         let bob_kp = bob.key_package_record().unwrap();
 
         let mut alice_group =
-            alice.create_group(b"ck:space:01904100-0000-7000-8000-bd49dfdbc804").unwrap();
+            alice.create_group(b"ck:realm:01904100-0000-7000-8000-bd49dfdbc804").unwrap();
         let add_bob = alice_group.add_member(&bob_kp).unwrap();
         let _bob_group = CokretMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
         let result = alice_group
