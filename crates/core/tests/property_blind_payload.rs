@@ -35,12 +35,8 @@ const FORBIDDEN_NAMES: &[&str] = &[
     "event_id",
     "message_id",
     "flow_id",
-    // Realm/Space inversion (spec 59ac1d4): the security-boundary identifier
-    // is `realm_id`; the renamed container identifier continues to use
-    // `space_id`; pre-inversion `place_id` is retained as forbidden alias.
     "realm_id",
     "space_id",
-    "place_id",
     "thread_id",
     "correlation_id",
     "request_id",
@@ -362,12 +358,11 @@ proptest! {
         );
     }
 
-    /// Property 6a — Realm/Space inversion strict assertions.
+    /// Property 6a — Realm/Space strict assertions.
     ///
-    /// Both `realm_id` (post-inversion security boundary) and `space_id`
-    /// (post-inversion container) MUST be rejected as forbidden keys; the
-    /// pre-inversion alias `place_id` is also rejected. Case-insensitive
-    /// variants MUST also lose (the sanitizer lowercases before matching).
+    /// Both `realm_id` (security boundary) and `space_id` (container) MUST be
+    /// rejected as forbidden keys. Case-insensitive variants MUST also lose
+    /// (the sanitizer lowercases before matching).
     /// Camel-case fused variants like `RealmId` are NOT classified as the
     /// underscored token but the closed allow-list still rejects them as
     /// unknown keys — the payload-level assertion below pins that.
@@ -376,7 +371,7 @@ proptest! {
         leaf in arb_leaf(),
         case in 0u8..3u8,
     ) {
-        for raw in &["realm_id", "space_id", "place_id"] {
+        for raw in &["realm_id", "space_id"] {
             // is_forbidden_payload_key is the source of truth for the
             // canonical token + case-insensitive form.
             prop_assert!(
@@ -417,7 +412,7 @@ proptest! {
             let payload = json!({ "notification": notif });
             prop_assert!(
                 sanitize_blind_payload(&payload).is_err(),
-                "sanitizer MUST reject blind payload carrying `{key}` (Realm/Space inversion)"
+                "sanitizer MUST reject blind payload carrying `{key}` (Realm/Space boundary)"
             );
         }
     }

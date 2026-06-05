@@ -220,10 +220,9 @@ fn processor_dispatches_all_update_categories() {
 fn processor_tracks_limited_timelines_and_to_device_ack() {
     let realm_id = "ck:realm:01904100-0000-7000-8000-9b64700c6ee8";
     let parsed_realm_id = RealmId::new(realm_id).unwrap();
-    let parsed_realm_id = parsed_realm_id.clone();
     let event = Event::new(
         "ck.message.create",
-        parsed_realm_id,
+        parsed_realm_id.clone(),
         Did::new("did:web:alice.example").unwrap(),
         1,
         crate::Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),

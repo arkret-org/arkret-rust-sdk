@@ -1,9 +1,9 @@
 //! High-level Realm API for Cokret v1.
 //!
-//! Realm/Space inversion (spec 59ac1d4): this module hosts the
-//! **security-boundary** client handle (`Realm`). It provides a high-level
-//! interface for working with realms and their contained Spaces, including
-//! Morph management, relations, timeline operations, and membership.
+//! This module hosts the security-boundary client handle (`Realm`). It
+//! provides a high-level interface for working with Realms and their contained
+//! Spaces, including Morph management, relations, timeline operations, and
+//! membership.
 
 use std::{cmp::Ordering, collections::BTreeMap, sync::Arc};
 
@@ -30,15 +30,15 @@ mod flow;
 mod helpers;
 mod membership;
 mod morph;
-mod place;
 mod query;
 mod relation;
+mod space;
 #[cfg(test)]
 mod tests;
 
 pub use flow::{FlowCreateMetadata, FlowUpdateMetadata};
-pub use place::{SpaceCreateMetadata, SpaceUpdateMetadata};
 pub use relation::RelationOperationInput;
+pub use space::{SpaceCreateMetadata, SpaceUpdateMetadata};
 
 use helpers::*;
 
@@ -137,10 +137,9 @@ pub struct BatchUpdateMorph {
 
 /// High-level Realm client providing business logic operations.
 ///
-/// Realm/Space inversion (spec 59ac1d4): this client handle is the
-/// **security-boundary** surface, hence `Realm`. Its `*_place_operation*`
-/// helpers and `places()` accessors operate on the contained `Space`
-/// (container) objects.
+/// This client handle is the security-boundary surface. Its
+/// `*_space_operation*` helpers and `spaces()` accessors operate on contained
+/// Space container objects.
 #[derive(Clone)]
 pub struct Realm {
     /// Realm ID
@@ -247,18 +246,18 @@ impl Realm {
     }
 
     /// Get all Spaces (containers) in this realm.
-    pub fn places(&self) -> BTreeMap<String, Space> {
-        self.state.places.clone()
+    pub fn spaces(&self) -> BTreeMap<String, Space> {
+        self.state.spaces.clone()
     }
 
     /// Get a specific Space (container) by ID.
-    pub fn get_place(&self, place_id: &SpaceId) -> Option<Space> {
-        self.state.places.get(place_id.as_str()).cloned()
+    pub fn get_space(&self, space_id: &SpaceId) -> Option<Space> {
+        self.state.spaces.get(space_id.as_str()).cloned()
     }
 
     /// Find Spaces (containers) by kind.
-    pub fn find_places_by_kind(&self, kind: &str) -> Vec<Space> {
-        self.state.places.values().filter(|place| place.kind == kind).cloned().collect()
+    pub fn find_spaces_by_kind(&self, kind: &str) -> Vec<Space> {
+        self.state.spaces.values().filter(|space| space.kind == kind).cloned().collect()
     }
 
     /// Get all flows in this space.

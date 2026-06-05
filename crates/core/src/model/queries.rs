@@ -189,13 +189,11 @@ pub struct CollectionProjectionItem {
     /// in this group, and at what rank.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub position: Option<CollectionProjectionPosition>,
-    /// Card-vs-discussion visibility split per yougen claude-design's
-    /// `card-vs-room-visibility` block (the block id retains the legacy
-    /// Matrix-style name; the v1 concept is the locked discussion
-    /// child Space). When `Some`, indicates the item has a discussion
-    /// child Space; when the discussion is locked (visibility !=
-    /// "readable"), `lazy_link=true` MUST hold and no discussion
-    /// metadata beyond opaque hash MAY be exposed.
+    /// Card-vs-discussion visibility split. When `Some`, indicates the
+    /// item has a Circle-scoped private discussion Flow linked by
+    /// `confidential_discussion_of`; when the discussion is locked
+    /// (visibility != "readable"), `lazy_link=true` MUST hold and no
+    /// discussion metadata beyond opaque hash MAY be exposed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub discussion: Option<CollectionProjectionDiscussion>,
 }

@@ -1,15 +1,9 @@
 use super::*;
 
-// Realm/Space inversion (spec 59ac1d4) — COMPLETED. The `Realm` struct below
-// carries the **security-boundary** fields (`trust_domain` / `security_class` /
-// `federation_policy` / `history_visibility`; spec realm.schema.json) and the
-// `Space` struct further down carries the **container** fields (`kind` /
-// `parent_space_id` / `rank`; spec space.schema.json). The struct identifiers
-// have been rotated to their spec names (old `Space`→`Realm`, old
-// `Place`→`Space`). Protocol enum variants that carry the *container* semantics
-// (`EventClass::Space`, `Resource::Space`, `SPACE_*`, `ScopeLimitation::Space`,
-// `PerSpace`, wire `ck.space.*`) are already correct and are intentionally left
-// as-is.
+// Realm carries the security-boundary fields (`trust_domain` /
+// `security_class` / `federation_policy` / `history_visibility`; spec
+// realm.schema.json). Space carries the product container fields (`kind` /
+// `parent_space_id` / `rank`; spec space.schema.json).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct Realm {
@@ -22,8 +16,8 @@ pub struct Realm {
     /// `cross_domain_replay_rejected`. Mixed into the canonical signing
     /// transcript of high-risk proofs (cross-signing reset,
     /// audit_policy_version_digest). This field is `Realm`-scoped because
-    /// `Realm` is the security-boundary type (Realm/Space inversion);
-    /// the container surface is `Space`.
+    /// `Realm` is the security-boundary type; the container surface is
+    /// `Space`.
     pub trust_domain: TypedTrustDomainId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
@@ -168,8 +162,8 @@ impl Realm {
         trust_domain: TypedTrustDomainId,
     ) -> Self {
         Self {
-            // `Realm` is the security-boundary type (Realm/Space inversion),
-            // so it serializes the Realm schema id, not the container Space id.
+            // `Realm` is the security-boundary type, so it serializes the
+            // Realm schema id, not the container Space id.
             schema: REALM_SCHEMA_ID.to_owned(),
             id,
             title: title.into(),
@@ -259,7 +253,7 @@ impl Realm {
             && matches!(self.federation_policy, Some(FederationPolicy::Open))
         {
             return Err(Error::Protocol(
-                "space.security_class=high_assurance forbids federation_policy=open".to_owned(),
+                "realm.security_class=high_assurance forbids federation_policy=open".to_owned(),
             ));
         }
         Ok(())

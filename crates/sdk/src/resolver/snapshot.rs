@@ -11,7 +11,7 @@ pub struct StateSnapshot {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub morphs: BTreeMap<String, Morph>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub places: BTreeMap<String, Space>,
+    pub spaces: BTreeMap<String, Space>,
     pub relations: BTreeMap<String, Relation>,
     pub resolved_state: BTreeMap<String, ResolvedStateEvent>,
     pub messages: BTreeMap<String, ResolvedMessage>,
@@ -175,7 +175,7 @@ pub(super) fn space_state_from_str(state: &str) -> Result<crate::model::SpaceSta
         "active" => Ok(crate::model::SpaceState::Active),
         "archived" => Ok(crate::model::SpaceState::Archived),
         "tombstoned" => Ok(crate::model::SpaceState::Tombstoned),
-        _ => Err(Error::Protocol(format!("invalid place state: {}", state))),
+        _ => Err(Error::Protocol(format!("invalid space state: {}", state))),
     }
 }
 
@@ -279,7 +279,7 @@ impl StateSnapshot {
             frontier: &self.frontier,
             subjects: &self.subjects,
             morphs: &self.morphs,
-            places: &self.places,
+            spaces: &self.spaces,
             relations: &self.relations,
             resolved_state: &self.resolved_state,
             messages: &self.messages,
@@ -449,7 +449,7 @@ pub(super) struct StateHashInput<'a> {
     pub(super) frontier: &'a [EventId],
     pub(super) subjects: &'a BTreeMap<String, Flow>,
     pub(super) morphs: &'a BTreeMap<String, Morph>,
-    pub(super) places: &'a BTreeMap<String, Space>,
+    pub(super) spaces: &'a BTreeMap<String, Space>,
     pub(super) relations: &'a BTreeMap<String, Relation>,
     pub(super) resolved_state: &'a BTreeMap<String, ResolvedStateEvent>,
     pub(super) messages: &'a BTreeMap<String, ResolvedMessage>,
@@ -464,7 +464,7 @@ pub(super) fn state_digest_payload(input: StateHashInput<'_>) -> Value {
         "frontier": input.frontier,
         "subjects": input.subjects,
         "morphs": input.morphs,
-        "places": input.places,
+        "spaces": input.spaces,
         "relations": input.relations,
         "resolved_state": input.resolved_state,
         "messages": input.messages,

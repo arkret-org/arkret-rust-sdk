@@ -1238,25 +1238,25 @@ fn flow_track_typed_constructors() {
     validate_flow_track_name("review").unwrap();
 }
 
-/// Space anchor fields default to None (anchorer cell is the source
+/// Realm anchor fields default to None (anchorer cell is the source
 /// of truth) and the builders set them to expected values.
 #[test]
-fn space_anchor_fields_default_none_and_builders_apply() {
+fn realm_anchor_fields_default_none_and_builders_apply() {
     use crate::anchorer::AnchorerValue;
 
-    let mut space = Realm::new(
+    let mut realm = Realm::new(
         RealmId::new("ck:realm:0196419b-0000-7000-8000-000000000001").unwrap(),
         "Anchor Test",
         Did::new("did:web:alice.example").unwrap(),
         TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
     );
-    assert!(space.anchor_profile.is_none());
-    assert!(space.anchorer.is_none());
-    assert!(space.max_anchor_staleness_ms.is_none());
-    assert!(space.cell_lattices.is_empty());
-    assert!(space.co_write_policy.is_none());
+    assert!(realm.anchor_profile.is_none());
+    assert!(realm.anchorer.is_none());
+    assert!(realm.max_anchor_staleness_ms.is_none());
+    assert!(realm.cell_lattices.is_empty());
+    assert!(realm.co_write_policy.is_none());
 
-    space = space
+    realm = realm
         .with_anchor_profile(AnchorProfile::Threshold)
         .with_anchorer(AnchorerValue::Threshold {
             k: 2,
@@ -1271,39 +1271,39 @@ fn space_anchor_fields_default_none_and_builders_apply() {
         .with_cell_lattice("ck.component.flow.track.v1", "or_set", Some("reject".to_owned()))
         .with_co_write_policy(CoWritePolicy::CausalOnly);
 
-    assert_eq!(space.anchor_profile, Some(AnchorProfile::Threshold));
-    assert!(matches!(space.anchorer, Some(AnchorerValue::Threshold { k: 2, n: 3, .. })));
-    assert_eq!(space.max_anchor_staleness_ms, Some(60_000));
-    assert_eq!(space.cell_lattices.len(), 1);
-    assert_eq!(space.cell_lattices[0].cell_family, "ck.component.flow.track.v1");
-    assert_eq!(space.cell_lattices[0].lattice, "or_set");
-    assert_eq!(space.cell_lattices[0].bottom.as_deref(), Some("reject"));
-    assert_eq!(space.co_write_policy, Some(CoWritePolicy::CausalOnly));
+    assert_eq!(realm.anchor_profile, Some(AnchorProfile::Threshold));
+    assert!(matches!(realm.anchorer, Some(AnchorerValue::Threshold { k: 2, n: 3, .. })));
+    assert_eq!(realm.max_anchor_staleness_ms, Some(60_000));
+    assert_eq!(realm.cell_lattices.len(), 1);
+    assert_eq!(realm.cell_lattices[0].cell_family, "ck.component.flow.track.v1");
+    assert_eq!(realm.cell_lattices[0].lattice, "or_set");
+    assert_eq!(realm.cell_lattices[0].bottom.as_deref(), Some("reject"));
+    assert_eq!(realm.co_write_policy, Some(CoWritePolicy::CausalOnly));
 
     // Round-trip through serde to confirm wire shape.
-    let json = serde_json::to_value(&space).unwrap();
+    let json = serde_json::to_value(&realm).unwrap();
     assert_eq!(json["anchor_profile"], "threshold");
     assert_eq!(json["max_anchor_staleness_ms"], 60_000);
     assert_eq!(json["co_write_policy"], "causal_only");
     assert_eq!(json["cell_lattices"][0]["cell_family"], "ck.component.flow.track.v1");
 
     let restored: Realm = serde_json::from_value(json).unwrap();
-    assert_eq!(restored.anchor_profile, space.anchor_profile);
-    assert_eq!(restored.max_anchor_staleness_ms, space.max_anchor_staleness_ms);
-    assert_eq!(restored.co_write_policy, space.co_write_policy);
+    assert_eq!(restored.anchor_profile, realm.anchor_profile);
+    assert_eq!(restored.max_anchor_staleness_ms, realm.max_anchor_staleness_ms);
+    assert_eq!(restored.co_write_policy, realm.co_write_policy);
 }
 
-/// `Space::new` omits anchor fields from the wire when they're
+/// `Realm::new` omits anchor fields from the wire when they're
 /// `None` (skip_serializing_if), so sparse fixtures stay clean.
 #[test]
-fn space_anchor_fields_omitted_when_none() {
-    let space = Realm::new(
+fn realm_anchor_fields_omitted_when_none() {
+    let realm = Realm::new(
         RealmId::new("ck:realm:0196419b-0000-7000-8000-000000000002").unwrap(),
         "No Anchor Hint",
         Did::new("did:web:alice.example").unwrap(),
         TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
     );
-    let json = serde_json::to_value(&space).unwrap();
+    let json = serde_json::to_value(&realm).unwrap();
     let obj = json.as_object().unwrap();
     assert!(!obj.contains_key("anchor_profile"));
     assert!(!obj.contains_key("anchorer"));

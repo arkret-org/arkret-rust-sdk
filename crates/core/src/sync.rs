@@ -1063,10 +1063,9 @@ mod tests {
     #[test]
     fn limited_timeline_creates_backfill_gap_and_request() {
         let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
-        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let event = Event::new(
             "ck.message.create",
-            realm_id,
+            realm_id.clone(),
             Did::new("did:web:alice.example").unwrap(),
             1,
             Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),

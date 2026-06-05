@@ -1613,7 +1613,7 @@ pub struct MediaIceConfigResBody {
 pub struct ModerationReportReqBody {
     pub realm_id: RealmId,
     pub target_ref: String,
-    pub reason: String,
+    pub report_reason_code: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     pub reporter: Did,

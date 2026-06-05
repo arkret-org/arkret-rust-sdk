@@ -4,11 +4,9 @@ pub const CORE_REDUCER_PROFILE: &str = "ck.reducer.v1";
 pub const BUILT_IN_CONFORMANCE_FIXTURES_VERSION: &str = "cokret-sdk-builtin-v1";
 
 pub const CURSOR_SCHEMA: &str = "ck.schema.cursor.v1";
-// Realm/Space inversion (spec 59ac1d4):
-//   - `ck.schema.realm.v1` is the new security-boundary schema
-//     (formerly `ck.schema.space.v1`).
-//   - `ck.schema.space.v1` is now the container schema
-//     (formerly `ck.schema.place.v1`, which is deleted).
+// Realm/Space schema ids:
+//   - `ck.schema.realm.v1` is the security-boundary schema.
+//   - `ck.schema.space.v1` is the product container schema.
 pub const REALM_SCHEMA_ID: &str = "ck.schema.realm.v1";
 pub const REALM_JOIN_CANDIDATE_SCHEMA: &str = "ck.schema.realm_join_candidate.v1";
 pub const SPACE_SCHEMA: &str = "ck.schema.space.v1";
@@ -214,9 +212,8 @@ pub const OP_MORPH_ARCHIVE: &str = "ck.morph.archive";
 pub const OP_MORPH_RESTORE: &str = "ck.morph.restore";
 pub const OP_MORPH_STAGE_SET: &str = "ck.morph.stage.set";
 
-/// Space (container) event kinds. Realm/Space inversion (spec 59ac1d4):
-/// container events use `ck.space.*`; see the security boundary
-/// OP_REALM_* family for `ck.realm.*` events.
+/// Space (container) event kinds. Container events use `ck.space.*`; see the
+/// security-boundary OP_REALM_* family for `ck.realm.*` events.
 pub const OP_SPACE_CREATE: &str = "ck.space.create";
 pub const OP_SPACE_UPDATE: &str = "ck.space.update";
 pub const OP_SPACE_PARENT: &str = "ck.space.parent";
@@ -236,15 +233,14 @@ pub const OP_VIEW_CREATE: &str = "ck.view.create";
 pub const OP_VIEW_UPDATE: &str = "ck.view.update";
 pub const OP_VIEW_RECONCILE: &str = "ck.view.reconcile";
 
-/// Realm event kinds (security boundary; spec 59ac1d4 inversion). The
-/// container-level OP_SPACE_* family lives above.
+/// Realm event kinds (security boundary). The container-level OP_SPACE_* family
+/// lives above.
 pub const OP_REALM_CREATE: &str = "ck.realm.create";
 pub const OP_REALM_UPDATE: &str = "ck.realm.update";
 pub const OP_REALM_ORGANIZATION: &str = "ck.realm.organization";
 pub const OP_REALM_LINK: &str = "ck.realm.link";
-/// Round C45 (2026-05-19; spec 0a5ab85) + Realm/Space inversion — per-Realm
-/// governance of member `delivery_binding`: which `binding_source` values
-/// are admissible, which recipient services are allowed, whether DID
+/// Per-Realm governance of member `delivery_binding`: which `binding_source`
+/// values are admissible, which recipient services are allowed, whether DID
 /// Document fallback is permitted, who may sign rebind. cell_family
 /// `ck.component.realm.delivery_binding_policy.v1`, cas-register.
 pub const OP_REALM_DELIVERY_BINDING_POLICY: &str = "ck.realm.delivery_binding_policy";

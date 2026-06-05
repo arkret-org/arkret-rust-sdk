@@ -1,5 +1,5 @@
 //! Realm governance typed payloads introduced by the R1.2 Realm/Space
-//! reversal (spec rounds R2 / R3).
+//! boundary split (spec rounds R2 / R3).
 //!
 //! These types model the three new wire payloads that compose the
 //! cross-Realm governance surface:
@@ -19,8 +19,8 @@
 use super::*;
 
 /// Canonical link_kind values for `ck.realm.link`. The eight values
-/// enumerate the typed cross-Realm relations the spec recognises post
-/// R1.2 (Realm/Space reversal); link payloads MUST carry exactly one of
+/// enumerate the typed cross-Realm relations the spec recognises after the
+/// Realm/Space boundary split; link payloads MUST carry exactly one of
 /// these. Wire form is snake_case.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

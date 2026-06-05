@@ -17,7 +17,7 @@ pub struct RealmState {
     /// Current Morph objects by ID.
     pub morphs: BTreeMap<String, Morph>,
     /// Current Space (container) objects by ID.
-    pub places: BTreeMap<String, Space>,
+    pub spaces: BTreeMap<String, Space>,
     /// Current relations by ID
     pub relations: BTreeMap<String, Relation>,
     /// Generic resolved state events keyed by `kind|subject` (spec Phase 1).
@@ -55,7 +55,7 @@ impl RealmState {
             reducer_profile: REDUCER_SNAPSHOT_PROFILE.to_owned(),
             subjects: BTreeMap::new(),
             morphs: BTreeMap::new(),
-            places: BTreeMap::new(),
+            spaces: BTreeMap::new(),
             relations: BTreeMap::new(),
             resolved_state: BTreeMap::new(),
             messages: BTreeMap::new(),
@@ -184,12 +184,12 @@ impl RealmState {
             OP_MORPH_ARCHIVE => self.archive_morph(event)?,
             OP_MORPH_RESTORE => self.restore_morph(event)?,
 
-            OP_SPACE_CREATE => self.create_place(event)?,
-            OP_SPACE_UPDATE => self.update_place(event)?,
-            OP_SPACE_PARENT => self.set_place_parent(event)?,
-            OP_SPACE_ARCHIVE => self.archive_place(event)?,
-            OP_SPACE_RESTORE => self.restore_place(event)?,
-            OP_SPACE_TOMBSTONE => self.tombstone_place(event)?,
+            OP_SPACE_CREATE => self.create_space(event)?,
+            OP_SPACE_UPDATE => self.update_space(event)?,
+            OP_SPACE_PARENT => self.set_space_parent(event)?,
+            OP_SPACE_ARCHIVE => self.archive_space(event)?,
+            OP_SPACE_RESTORE => self.restore_space(event)?,
+            OP_SPACE_TOMBSTONE => self.tombstone_space(event)?,
 
             // Relation lifecycle
             OP_RELATION_CREATE => self.create_relation(event)?,
@@ -435,10 +435,10 @@ impl RealmState {
     }
 
     // Reducer for `ck.morph.restore`: same state-machine contract as
-    // `restore_flow` / `restore_place` — current state MUST == archived.
+    // `restore_flow` / `restore_space` — current state MUST == archived.
     // Active / Deleted / Redacted / unset → `morph_not_archived`. Unknown
     // Morph is tolerated for causal / backfill ordering. Morph has no
-    // `state_changed_at` field (unlike Flow / Place), so on success we
+    // `state_changed_at` field (unlike Flow / Space), so on success we
     // only flip `state` and updated_by/at — matching set_morph_state.
     fn restore_morph(&mut self, event: &Event) -> Result<()> {
         let morph_id_str = self.extract_morph_id(&event.content)?;
@@ -451,12 +451,12 @@ impl RealmState {
         self.set_morph_state(event, crate::ObjectState::Active)
     }
 
-    fn create_place(&mut self, event: &Event) -> Result<()> {
+    fn create_space(&mut self, event: &Event) -> Result<()> {
         let object = event.content.get("object").unwrap_or(&event.content);
-        let place_id = self
+        let space_id = self
             .extract_optional_field::<String>(object, "id")
             .ok_or_else(|| Error::Protocol("container object requires id".to_owned()))?;
-        let id = SpaceId::new(place_id.clone())?;
+        let id = SpaceId::new(space_id.clone())?;
         let realm_id = self.extract_field::<RealmId>(object, "realm_id")?;
         let kind = self.extract_field::<String>(object, "kind")?;
         let title = self.extract_field::<String>(object, "title")?;
@@ -466,7 +466,7 @@ impl RealmState {
             .transpose()?
             .unwrap_or(crate::model::SpaceState::Active);
 
-        let place = Space {
+        let space = Space {
             schema: crate::SPACE_SCHEMA.to_owned(),
             id,
             realm_id,
@@ -497,18 +497,18 @@ impl RealmState {
             updated_at: self.extract_optional_field(object, "updated_at"),
             extra: BTreeMap::new(),
         };
-        place.validate()?;
-        self.places.insert(place_id, place);
+        space.validate()?;
+        self.spaces.insert(space_id, space);
         Ok(())
     }
 
-    fn update_place(&mut self, event: &Event) -> Result<()> {
-        let place_id = self.extract_space_id(&event.content)?;
+    fn update_space(&mut self, event: &Event) -> Result<()> {
+        let space_id = self.extract_space_id(&event.content)?;
         // Spec common-fields.md §5.1: update on non-active object MUST fail.
-        if let Some(place) = self.places.get(&place_id)
-            && place.state != Some(crate::model::SpaceState::Active)
+        if let Some(space) = self.spaces.get(&space_id)
+            && space.state != Some(crate::model::SpaceState::Active)
         {
-            return Err(Error::Protocol("place_not_active".to_owned()));
+            return Err(Error::Protocol("space_not_active".to_owned()));
         }
         let patch = self.extract_optional_field::<BTreeMap<String, Value>>(&event.content, "patch");
 
@@ -561,120 +561,120 @@ impl RealmState {
             .map(|state| space_state_from_str(&state))
             .transpose()?;
 
-        let place = self
-            .places
-            .get_mut(&place_id)
-            .ok_or_else(|| Error::Protocol(format!("place not found: {}", place_id)))?;
+        let space = self
+            .spaces
+            .get_mut(&space_id)
+            .ok_or_else(|| Error::Protocol(format!("space not found: {}", space_id)))?;
         if let Some(title) = title {
-            place.title = title;
+            space.title = title;
         }
         if let Some(summary) = summary {
-            place.summary = Some(summary);
+            space.summary = Some(summary);
         }
         if let Some(kind) = kind {
-            place.kind = kind;
+            space.kind = kind;
         }
         if let Some(rank) = rank {
-            place.rank = Some(rank);
+            space.rank = Some(rank);
         }
         if let Some(fields) = fields {
-            place.fields = fields;
+            space.fields = fields;
         }
         if let Some(schema_refs) = schema_refs {
-            place.schema_refs = schema_refs;
+            space.schema_refs = schema_refs;
         }
         if let Some(labels) = labels {
-            place.labels = labels;
+            space.labels = labels;
         }
         if let Some(avatar_blob_ref) = avatar_blob_ref {
-            place.avatar_blob_ref = Some(avatar_blob_ref);
+            space.avatar_blob_ref = Some(avatar_blob_ref);
         }
         if let Some(state) = state {
-            place.state = Some(state);
-            place.state_changed_at = Some(event.created_at);
+            space.state = Some(state);
+            space.state_changed_at = Some(event.created_at);
         }
-        place.updated_by = Some(event.actor_id.clone());
-        place.updated_at = Some(event.created_at);
-        place.validate()?;
+        space.updated_by = Some(event.actor_id.clone());
+        space.updated_at = Some(event.created_at);
+        space.validate()?;
         Ok(())
     }
 
-    fn set_place_parent(&mut self, event: &Event) -> Result<()> {
-        let place_id = self.extract_space_id(&event.content)?;
+    fn set_space_parent(&mut self, event: &Event) -> Result<()> {
+        let space_id = self.extract_space_id(&event.content)?;
         let parent_space_id_str =
             self.extract_optional_field::<String>(&event.content, "parent_space_id").ok_or_else(
-                || Error::Protocol("place parent event requires parent_space_id".to_owned()),
+                || Error::Protocol("space parent event requires parent_space_id".to_owned()),
             )?;
         let parent_space_id = SpaceId::new(parent_space_id_str)?;
-        let place = self
-            .places
-            .get_mut(&place_id)
-            .ok_or_else(|| Error::Protocol(format!("place not found: {}", place_id)))?;
-        place.parent_space_id = Some(parent_space_id);
-        place.updated_by = Some(event.actor_id.clone());
-        place.updated_at = Some(event.created_at);
-        place.validate()?;
+        let space = self
+            .spaces
+            .get_mut(&space_id)
+            .ok_or_else(|| Error::Protocol(format!("space not found: {}", space_id)))?;
+        space.parent_space_id = Some(parent_space_id);
+        space.updated_by = Some(event.actor_id.clone());
+        space.updated_at = Some(event.created_at);
+        space.validate()?;
         Ok(())
     }
 
     fn set_space_state(&mut self, event: &Event, state: crate::model::SpaceState) -> Result<()> {
-        let place_id = self.extract_space_id(&event.content)?;
-        if let Some(place) = self.places.get_mut(&place_id) {
-            place.state = Some(state);
-            place.state_changed_at = Some(event.created_at);
-            place.updated_by = Some(event.actor_id.clone());
-            place.updated_at = Some(event.created_at);
+        let space_id = self.extract_space_id(&event.content)?;
+        if let Some(space) = self.spaces.get_mut(&space_id) {
+            space.state = Some(state);
+            space.state_changed_at = Some(event.created_at);
+            space.updated_by = Some(event.actor_id.clone());
+            space.updated_at = Some(event.created_at);
         }
         Ok(())
     }
 
     // Reducer for `ck.space.archive`: validate current state == active per
     // cokret-spec common-fields.md §5.1 canonical state-transition table.
-    // Archived / Tombstoned / unset MUST be rejected with `place_not_active`;
-    // unknown Place is tolerated (causal / backfill).
-    fn archive_place(&mut self, event: &Event) -> Result<()> {
-        let place_id = self.extract_space_id(&event.content)?;
-        let Some(place) = self.places.get(&place_id) else {
+    // Archived / Tombstoned / unset MUST be rejected with `space_not_active`;
+    // unknown Space is tolerated (causal / backfill).
+    fn archive_space(&mut self, event: &Event) -> Result<()> {
+        let space_id = self.extract_space_id(&event.content)?;
+        let Some(space) = self.spaces.get(&space_id) else {
             return Ok(());
         };
-        if place.state != Some(crate::model::SpaceState::Active) {
-            return Err(Error::Protocol("place_not_active".to_owned()));
+        if space.state != Some(crate::model::SpaceState::Active) {
+            return Err(Error::Protocol("space_not_active".to_owned()));
         }
         self.set_space_state(event, crate::model::SpaceState::Archived)
     }
 
     // Reducer for `ck.space.tombstone`: validate current state ∈
     // {Active, Archived} per cokret-spec common-fields.md §5.1. Tombstoned /
-    // unset MUST be rejected with `place_already_terminal`; unknown Place is
+    // unset MUST be rejected with `space_already_terminal`; unknown Space is
     // tolerated (causal / backfill).
-    fn tombstone_place(&mut self, event: &Event) -> Result<()> {
-        let place_id = self.extract_space_id(&event.content)?;
-        let Some(place) = self.places.get(&place_id) else {
+    fn tombstone_space(&mut self, event: &Event) -> Result<()> {
+        let space_id = self.extract_space_id(&event.content)?;
+        let Some(space) = self.spaces.get(&space_id) else {
             return Ok(());
         };
-        match place.state {
+        match space.state {
             Some(crate::model::SpaceState::Active) | Some(crate::model::SpaceState::Archived) => {}
-            _ => return Err(Error::Protocol("place_already_terminal".to_owned())),
+            _ => return Err(Error::Protocol("space_already_terminal".to_owned())),
         }
         self.set_space_state(event, crate::model::SpaceState::Tombstoned)
     }
 
     // Reducer for `ck.space.restore`: validate current state == archived per
-    // cokret-spec space-and-place.md §4.4. Active / Tombstoned / unset MUST
-    // be rejected with `place_not_archived`; unknown Place is tolerated
+    // cokret-spec space-and-space.md §4.4. Active / Tombstoned / unset MUST
+    // be rejected with `space_not_archived`; unknown Space is tolerated
     // (causal / backfill not yet caught up — mirrors set_space_state).
-    fn restore_place(&mut self, event: &Event) -> Result<()> {
-        let place_id = self.extract_space_id(&event.content)?;
-        let Some(place) = self.places.get_mut(&place_id) else {
+    fn restore_space(&mut self, event: &Event) -> Result<()> {
+        let space_id = self.extract_space_id(&event.content)?;
+        let Some(space) = self.spaces.get_mut(&space_id) else {
             return Ok(());
         };
-        if place.state != Some(crate::model::SpaceState::Archived) {
-            return Err(Error::Protocol("place_not_archived".to_owned()));
+        if space.state != Some(crate::model::SpaceState::Archived) {
+            return Err(Error::Protocol("space_not_archived".to_owned()));
         }
-        place.state = Some(crate::model::SpaceState::Active);
-        place.state_changed_at = Some(event.created_at);
-        place.updated_by = Some(event.actor_id.clone());
-        place.updated_at = Some(event.created_at);
+        space.state = Some(crate::model::SpaceState::Active);
+        space.state_changed_at = Some(event.created_at);
+        space.updated_by = Some(event.actor_id.clone());
+        space.updated_at = Some(event.created_at);
         Ok(())
     }
 
@@ -877,7 +877,7 @@ impl RealmState {
     // cokret-spec common-fields.md §5.1 canonical state-transition table.
     // Archived / Deleted / Redacted / unset MUST be rejected with
     // `flow_not_active`; unknown Flow is tolerated (causal / backfill not
-    // yet caught up — mirrors archive_morph / archive_place).
+    // yet caught up — mirrors archive_morph / archive_space).
     fn archive_flow(&mut self, event: &Event) -> Result<()> {
         let flow_id_str = self.extract_flow_id(&event.content)?;
         let Some(subject) = self.subjects.get(&flow_id_str) else {
@@ -894,7 +894,7 @@ impl RealmState {
     // archived -> active path; tombstoned / deleted / redacted MUST NOT be
     // restored). Active / Deleted / Redacted / unset MUST be rejected with
     // `flow_not_archived`; unknown Flow is tolerated (causal / backfill
-    // not yet caught up — mirrors restore_place).
+    // not yet caught up — mirrors restore_space).
     fn restore_flow(&mut self, event: &Event) -> Result<()> {
         let flow_id_str = self.extract_flow_id(&event.content)?;
         let Some(subject) = self.subjects.get(&flow_id_str) else {
@@ -1215,11 +1215,11 @@ impl RealmState {
             return Ok(());
         }
         // Unknown object — causal / backfill window. Tolerate silently
-        // (mirrors restore_*/archive_* guards). Note that Place is also
-        // hit here when `object_ref` is `ck:space:...` and Place is
+        // (mirrors restore_*/archive_* guards). Note that Space is also
+        // hit here when `object_ref` is `ck:space:...` and Space is
         // unmaterialised; that's also fine because ck.redaction targeting
-        // a Place is undefined per spec (no `Redacted` variant), and
-        // any place removal flow uses `ck.space.tombstone` directly.
+        // a Space is undefined per spec (no `Redacted` variant), and
+        // any space removal flow uses `ck.space.tombstone` directly.
         Ok(())
     }
 
@@ -1455,7 +1455,7 @@ impl RealmState {
             frontier: self.frontier.clone(),
             subjects: self.subjects.clone(),
             morphs: self.morphs.clone(),
-            places: self.places.clone(),
+            spaces: self.spaces.clone(),
             relations: self.relations.clone(),
             resolved_state: self.resolved_state.clone(),
             messages: self.messages.clone(),
@@ -1494,7 +1494,7 @@ impl RealmState {
             frontier: &self.frontier,
             subjects: &self.subjects,
             morphs: &self.morphs,
-            places: &self.places,
+            spaces: &self.spaces,
             relations: &self.relations,
             resolved_state: &self.resolved_state,
             messages: &self.messages,
@@ -1511,7 +1511,7 @@ impl RealmState {
             frontier: &self.frontier,
             subjects: &self.subjects,
             morphs: &self.morphs,
-            places: &self.places,
+            spaces: &self.spaces,
             relations: &self.relations,
             resolved_state: &self.resolved_state,
             messages: &self.messages,
@@ -1526,7 +1526,7 @@ impl RealmState {
             reducer_profile: snapshot.reducer_profile,
             subjects: snapshot.subjects,
             morphs: snapshot.morphs,
-            places: snapshot.places,
+            spaces: snapshot.spaces,
             relations: snapshot.relations,
             resolved_state: snapshot.resolved_state,
             messages: snapshot.messages,

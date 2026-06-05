@@ -20,14 +20,15 @@ base.set_session_meta(SessionMeta::new(
 # Ok::<(), cokret::Error>(())
 ```
 
-Process events and query a space:
+Process events and query a Realm-local Space container:
 
 ```rust
-use cokret::{EntityQuery, Space, SpaceId};
+use cokret::{Realm, RealmId, SpaceId};
 
+let realm_id = RealmId::new("ck:realm:01JS0RL000000000000000000")?;
 let space_id = SpaceId::new("ck:space:01JS0SP000000000000000000")?;
-let space = Space::new(space_id, base);
-let tasks = space.query_entities(EntityQuery::default());
+let realm = Realm::new(realm_id, base);
+let maybe_space = realm.get_space(&space_id);
 # Ok::<(), cokret::Error>(())
 ```
 

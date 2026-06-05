@@ -208,7 +208,7 @@ impl Realm {
         &self,
         flow_id: FlowId,
         board_space_id: SpaceId,
-        target_realm_id: SpaceId,
+        target_space_id: SpaceId,
         rank: impl Into<String>,
         expected_position: Option<Value>,
     ) -> Result<Operation> {
@@ -216,7 +216,7 @@ impl Realm {
             crate::OP_FLOW_MOVE,
             flow_id,
             board_space_id,
-            ("target_realm_id", target_realm_id),
+            ("target_space_id", target_space_id),
             rank,
             expected_position,
         )
@@ -246,7 +246,7 @@ impl Realm {
         kind: &str,
         flow_id: FlowId,
         board_space_id: SpaceId,
-        place_field: (&str, SpaceId),
+        space_field: (&str, SpaceId),
         rank: impl Into<String>,
         expected_position: Option<Value>,
     ) -> Result<Operation> {
@@ -260,7 +260,7 @@ impl Realm {
             "board_space_id": board_space_id.as_str(),
             "rank": rank.into(),
         });
-        payload[place_field.0] = json!(place_field.1.as_str());
+        payload[space_field.0] = json!(space_field.1.as_str());
         if let Some(expected_position) = expected_position {
             payload["expected_position"] = expected_position;
         }

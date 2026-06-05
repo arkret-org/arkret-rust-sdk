@@ -154,7 +154,7 @@ pub enum WireContext {
 /// Kept as a flat list for the coarse [`is_forbidden_wire_field`] check;
 /// the context-aware variant uses [`forbidden_entries`] below.
 pub const FORBIDDEN_WIRE_FIELDS: &[&str] = &[
-    // Legacy timeline / Realm/Space inversion.
+    // Removed timeline and scope fields.
     "branch",
     "room_kind",
     // CKP-0007 Flow scope field — spec renamed to `scope_circle_id`.

@@ -169,6 +169,25 @@ fn realm_creates_flow_operations_and_reads_default_view_relations() {
 }
 
 #[test]
+fn realm_flow_move_operation_uses_target_space_id() {
+    let base_client = sessioned_base();
+    let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
+    let realm = Realm::new(realm_id.clone(), base_client);
+    let flow_id = FlowId::new("ck:flow:01904100-0000-7000-8000-000000000010").unwrap();
+    let board_space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-000000000020").unwrap();
+    let target_space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-000000000030").unwrap();
+
+    let op =
+        realm.move_flow_operation(flow_id, board_space_id, target_space_id, "a0", None).unwrap();
+
+    assert_eq!(op.operation_type, OperationType::Update);
+    assert_eq!(op.realm_id.as_str(), realm_id.as_str());
+    assert_eq!(op.object_type, crate::OP_FLOW_MOVE);
+    assert_eq!(op.payload["target_space_id"], "ck:space:01904100-0000-7000-8000-000000000030");
+    assert!(op.payload.get("target_realm_id").is_none());
+}
+
+#[test]
 fn realm_queries_searches_and_aggregates_morphs() {
     let base_client = sessioned_base();
     let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();

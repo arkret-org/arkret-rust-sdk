@@ -27,18 +27,13 @@ message semantics directly.
 
 ## Realm vs Space
 
-After the Phase 1–4 terminology inversion (Round R1.x):
-
 - **Realm:** security boundary — membership, capability, E2EE, and federation
-  are governed at this level. Previously called `Space` on the wire.
+  are governed at this level.
 - **Space:** navigation container — board, list, section, calendar bucket.
-  Lives inside a Realm. Previously called `Place` on the wire.
+  Lives inside a Realm.
 
-The wire layer uses the realm/space names directly. Note that the Rust type
-inversion is still in progress: the security-boundary struct is currently
-named `Space` (the container is `Place`), even though both serialize the
-realm/space wire shapes. See [`CHANGELOG.md`](CHANGELOG.md) for the
-wire-breaking rename notes.
+The wire layer and Rust model types use the same names: `Realm` for the
+security boundary, `Space` for the product container.
 
 ## Entry Point
 

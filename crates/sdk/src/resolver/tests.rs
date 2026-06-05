@@ -61,21 +61,21 @@ fn morph_event(seq: u64, morph_id: &str, title: &str) -> Event {
 fn realm_state_creates_empty() {
     let state = RealmState::new(realm_id());
     assert_eq!(state.morphs.len(), 0);
-    assert_eq!(state.places.len(), 0);
+    assert_eq!(state.spaces.len(), 0);
     assert_eq!(state.subjects.len(), 0);
     assert_eq!(state.relations.len(), 0);
 }
 
 #[test]
-fn place_events_create_update_parent_and_tombstone() {
-    let place_id = "ck:space:01904100-0000-7000-8000-1fb50799ad3f";
-    let parent_place_id = "ck:space:01904100-0000-7000-8000-1fb50799ad40";
+fn space_events_create_update_parent_and_tombstone() {
+    let space_id = "ck:space:01904100-0000-7000-8000-1fb50799ad3f";
+    let parent_space_id = "ck:space:01904100-0000-7000-8000-1fb50799ad40";
     let create = event(
         OP_SPACE_CREATE,
         1,
         json!({
             "object": {
-                "id": place_id,
+                "id": space_id,
                 "schema": crate::SPACE_SCHEMA,
                 "realm_id": realm_id().as_str(),
                 "kind": "board",
@@ -89,7 +89,7 @@ fn place_events_create_update_parent_and_tombstone() {
         OP_SPACE_UPDATE,
         2,
         json!({
-            "space_id": place_id,
+            "space_id": space_id,
             "patch": {
                 "title": "Roadmap 2026",
                 "rank": "a0",
@@ -102,33 +102,33 @@ fn place_events_create_update_parent_and_tombstone() {
         OP_SPACE_PARENT,
         3,
         json!({
-            "space_id": place_id,
-            "parent_space_id": parent_place_id
+            "space_id": space_id,
+            "parent_space_id": parent_space_id
         }),
     );
     parent.prev_refs.push(update.event_id.clone());
-    let mut tombstone = event(OP_SPACE_TOMBSTONE, 4, json!({ "space_id": place_id }));
+    let mut tombstone = event(OP_SPACE_TOMBSTONE, 4, json!({ "space_id": space_id }));
     tombstone.prev_refs.push(parent.event_id.clone());
 
     let mut state = RealmState::new(realm_id());
     state.apply_events(&[tombstone, parent, update, create]).unwrap();
 
-    let place = state.places.get(place_id).unwrap();
-    assert_eq!(place.kind, "board");
-    assert_eq!(place.title, "Roadmap 2026");
-    assert_eq!(place.parent_space_id.as_ref().map(|p| p.as_str()), Some(parent_place_id));
-    assert_eq!(place.rank.as_deref(), Some("a0"));
-    assert_eq!(place.fields["wip_limit"], 5);
-    assert_eq!(place.state, Some(crate::model::SpaceState::Tombstoned));
+    let space = state.spaces.get(space_id).unwrap();
+    assert_eq!(space.kind, "board");
+    assert_eq!(space.title, "Roadmap 2026");
+    assert_eq!(space.parent_space_id.as_ref().map(|p| p.as_str()), Some(parent_space_id));
+    assert_eq!(space.rank.as_deref(), Some("a0"));
+    assert_eq!(space.fields["wip_limit"], 5);
+    assert_eq!(space.state, Some(crate::model::SpaceState::Tombstoned));
 }
 
-fn place_create_event(seq: u64, place_id: &str) -> Event {
+fn space_create_event(seq: u64, space_id: &str) -> Event {
     event(
         OP_SPACE_CREATE,
         seq,
         json!({
             "object": {
-                "id": place_id,
+                "id": space_id,
                 "schema": crate::SPACE_SCHEMA,
                 "realm_id": realm_id().as_str(),
                 "kind": "board",
@@ -141,60 +141,60 @@ fn place_create_event(seq: u64, place_id: &str) -> Event {
 }
 
 #[test]
-fn place_archive_then_restore_round_trip() {
-    let place_id = "ck:space:01904100-0000-7000-8000-1fb50799ad42";
-    let create = place_create_event(1, place_id);
+fn space_archive_then_restore_round_trip() {
+    let space_id = "ck:space:01904100-0000-7000-8000-1fb50799ad42";
+    let create = space_create_event(1, space_id);
 
-    let mut archive = event(OP_SPACE_ARCHIVE, 2, json!({ "space_id": place_id }));
+    let mut archive = event(OP_SPACE_ARCHIVE, 2, json!({ "space_id": space_id }));
     archive.prev_refs.push(create.event_id.clone());
 
-    let mut restore = event(OP_SPACE_RESTORE, 3, json!({ "space_id": place_id }));
+    let mut restore = event(OP_SPACE_RESTORE, 3, json!({ "space_id": space_id }));
     restore.prev_refs.push(archive.event_id.clone());
     let restore_at = restore.created_at;
 
     let mut state = RealmState::new(realm_id());
     state.apply_events(&[create, archive, restore]).unwrap();
 
-    let place = state.places.get(place_id).unwrap();
-    assert_eq!(place.state, Some(crate::model::SpaceState::Active));
-    assert_eq!(place.state_changed_at, Some(restore_at));
+    let space = state.spaces.get(space_id).unwrap();
+    assert_eq!(space.state, Some(crate::model::SpaceState::Active));
+    assert_eq!(space.state_changed_at, Some(restore_at));
 }
 
 #[test]
-fn place_restore_rejected_when_active() {
-    let place_id = "ck:space:01904100-0000-7000-8000-1fb50799ad43";
-    let create = place_create_event(1, place_id);
+fn space_restore_rejected_when_active() {
+    let space_id = "ck:space:01904100-0000-7000-8000-1fb50799ad43";
+    let create = space_create_event(1, space_id);
 
-    let mut restore = event(OP_SPACE_RESTORE, 2, json!({ "space_id": place_id }));
+    let mut restore = event(OP_SPACE_RESTORE, 2, json!({ "space_id": space_id }));
     restore.prev_refs.push(create.event_id.clone());
 
     let mut state = RealmState::new(realm_id());
     let err = state.apply_events(&[create, restore]).unwrap_err();
-    assert!(err.to_string().contains("place_not_archived"), "unexpected error: {err}");
+    assert!(err.to_string().contains("space_not_archived"), "unexpected error: {err}");
 
-    let place = state.places.get(place_id).unwrap();
-    assert_eq!(place.state, Some(crate::model::SpaceState::Active));
+    let space = state.spaces.get(space_id).unwrap();
+    assert_eq!(space.state, Some(crate::model::SpaceState::Active));
 }
 
 #[test]
-fn place_restore_rejected_when_tombstoned() {
-    let place_id = "ck:space:01904100-0000-7000-8000-1fb50799ad44";
-    let create = place_create_event(1, place_id);
+fn space_restore_rejected_when_tombstoned() {
+    let space_id = "ck:space:01904100-0000-7000-8000-1fb50799ad44";
+    let create = space_create_event(1, space_id);
 
-    let mut tombstone = event(OP_SPACE_TOMBSTONE, 2, json!({ "space_id": place_id }));
+    let mut tombstone = event(OP_SPACE_TOMBSTONE, 2, json!({ "space_id": space_id }));
     tombstone.prev_refs.push(create.event_id.clone());
     let tombstone_at = tombstone.created_at;
 
-    let mut restore = event(OP_SPACE_RESTORE, 3, json!({ "space_id": place_id }));
+    let mut restore = event(OP_SPACE_RESTORE, 3, json!({ "space_id": space_id }));
     restore.prev_refs.push(tombstone.event_id.clone());
 
     let mut state = RealmState::new(realm_id());
     let err = state.apply_events(&[create, tombstone, restore]).unwrap_err();
-    assert!(err.to_string().contains("place_not_archived"), "unexpected error: {err}");
+    assert!(err.to_string().contains("space_not_archived"), "unexpected error: {err}");
 
-    let place = state.places.get(place_id).unwrap();
-    assert_eq!(place.state, Some(crate::model::SpaceState::Tombstoned));
-    assert_eq!(place.state_changed_at, Some(tombstone_at));
+    let space = state.spaces.get(space_id).unwrap();
+    assert_eq!(space.state, Some(crate::model::SpaceState::Tombstoned));
+    assert_eq!(space.state_changed_at, Some(tombstone_at));
 }
 
 fn flow_create_event(seq: u64, flow_id: &str) -> Event {
@@ -300,56 +300,56 @@ fn morph_restore_rejected_when_active() {
 // the round 9 restore guards but for the rest of the transition matrix.
 
 #[test]
-fn place_archive_rejected_when_already_archived() {
-    let place_id = "ck:space:01904100-0000-7000-8000-2fb50799ad42";
-    let create = place_create_event(1, place_id);
-    let mut archive1 = event(OP_SPACE_ARCHIVE, 2, json!({ "space_id": place_id }));
+fn space_archive_rejected_when_already_archived() {
+    let space_id = "ck:space:01904100-0000-7000-8000-2fb50799ad42";
+    let create = space_create_event(1, space_id);
+    let mut archive1 = event(OP_SPACE_ARCHIVE, 2, json!({ "space_id": space_id }));
     archive1.prev_refs.push(create.event_id.clone());
-    let mut archive2 = event(OP_SPACE_ARCHIVE, 3, json!({ "space_id": place_id }));
+    let mut archive2 = event(OP_SPACE_ARCHIVE, 3, json!({ "space_id": space_id }));
     archive2.prev_refs.push(archive1.event_id.clone());
 
     let mut state = RealmState::new(realm_id());
     let err = state.apply_events(&[create, archive1, archive2]).unwrap_err();
-    assert!(err.to_string().contains("place_not_active"), "unexpected error: {err}");
+    assert!(err.to_string().contains("space_not_active"), "unexpected error: {err}");
 
     // First archive succeeded; second archive (the rejected one) must not
-    // touch Place state.
-    let place = state.places.get(place_id).unwrap();
-    assert_eq!(place.state, Some(crate::model::SpaceState::Archived));
+    // touch Space state.
+    let space = state.spaces.get(space_id).unwrap();
+    assert_eq!(space.state, Some(crate::model::SpaceState::Archived));
 }
 
 #[test]
-fn place_archive_rejected_when_tombstoned() {
-    let place_id = "ck:space:01904100-0000-7000-8000-2fb50799ad43";
-    let create = place_create_event(1, place_id);
-    let mut tombstone = event(OP_SPACE_TOMBSTONE, 2, json!({ "space_id": place_id }));
+fn space_archive_rejected_when_tombstoned() {
+    let space_id = "ck:space:01904100-0000-7000-8000-2fb50799ad43";
+    let create = space_create_event(1, space_id);
+    let mut tombstone = event(OP_SPACE_TOMBSTONE, 2, json!({ "space_id": space_id }));
     tombstone.prev_refs.push(create.event_id.clone());
-    let mut archive = event(OP_SPACE_ARCHIVE, 3, json!({ "space_id": place_id }));
+    let mut archive = event(OP_SPACE_ARCHIVE, 3, json!({ "space_id": space_id }));
     archive.prev_refs.push(tombstone.event_id.clone());
 
     let mut state = RealmState::new(realm_id());
     let err = state.apply_events(&[create, tombstone, archive]).unwrap_err();
-    assert!(err.to_string().contains("place_not_active"), "unexpected error: {err}");
+    assert!(err.to_string().contains("space_not_active"), "unexpected error: {err}");
     assert_eq!(
-        state.places.get(place_id).unwrap().state,
+        state.spaces.get(space_id).unwrap().state,
         Some(crate::model::SpaceState::Tombstoned)
     );
 }
 
 #[test]
-fn place_tombstone_rejected_when_already_terminal() {
-    let place_id = "ck:space:01904100-0000-7000-8000-2fb50799ad44";
-    let create = place_create_event(1, place_id);
-    let mut tombstone1 = event(OP_SPACE_TOMBSTONE, 2, json!({ "space_id": place_id }));
+fn space_tombstone_rejected_when_already_terminal() {
+    let space_id = "ck:space:01904100-0000-7000-8000-2fb50799ad44";
+    let create = space_create_event(1, space_id);
+    let mut tombstone1 = event(OP_SPACE_TOMBSTONE, 2, json!({ "space_id": space_id }));
     tombstone1.prev_refs.push(create.event_id.clone());
-    let mut tombstone2 = event(OP_SPACE_TOMBSTONE, 3, json!({ "space_id": place_id }));
+    let mut tombstone2 = event(OP_SPACE_TOMBSTONE, 3, json!({ "space_id": space_id }));
     tombstone2.prev_refs.push(tombstone1.event_id.clone());
 
     let mut state = RealmState::new(realm_id());
     let err = state.apply_events(&[create, tombstone1, tombstone2]).unwrap_err();
-    assert!(err.to_string().contains("place_already_terminal"), "unexpected error: {err}");
+    assert!(err.to_string().contains("space_already_terminal"), "unexpected error: {err}");
     assert_eq!(
-        state.places.get(place_id).unwrap().state,
+        state.spaces.get(space_id).unwrap().state,
         Some(crate::model::SpaceState::Tombstoned)
     );
 }
@@ -385,20 +385,20 @@ fn morph_archive_rejected_when_already_archived() {
 }
 
 #[test]
-fn place_update_rejected_when_archived() {
-    let place_id = "ck:space:01904100-0000-7000-8000-3fb50799ad42";
-    let create = place_create_event(1, place_id);
-    let mut archive = event(OP_SPACE_ARCHIVE, 2, json!({ "space_id": place_id }));
+fn space_update_rejected_when_archived() {
+    let space_id = "ck:space:01904100-0000-7000-8000-3fb50799ad42";
+    let create = space_create_event(1, space_id);
+    let mut archive = event(OP_SPACE_ARCHIVE, 2, json!({ "space_id": space_id }));
     archive.prev_refs.push(create.event_id.clone());
     let mut update =
-        event(OP_SPACE_UPDATE, 3, json!({ "space_id": place_id, "patch": { "title": "Renamed" } }));
+        event(OP_SPACE_UPDATE, 3, json!({ "space_id": space_id, "patch": { "title": "Renamed" } }));
     update.prev_refs.push(archive.event_id.clone());
 
     let mut state = RealmState::new(realm_id());
     let err = state.apply_events(&[create, archive, update]).unwrap_err();
-    assert!(err.to_string().contains("place_not_active"), "unexpected error: {err}");
+    assert!(err.to_string().contains("space_not_active"), "unexpected error: {err}");
     // Title must NOT have been changed.
-    assert_eq!(state.places.get(place_id).unwrap().title, "Roadmap");
+    assert_eq!(state.spaces.get(space_id).unwrap().title, "Roadmap");
 }
 
 #[test]
@@ -678,7 +678,7 @@ fn restore_snapshot_or_replay_falls_back_on_verification_failure() {
         "sha256:0000000000000000000000000000000000000000000000000000000000000000".to_owned();
 
     let restored =
-        RealmState::restore_snapshot_or_replay(Some(snapshot), realm_id(), "1", &[event]).unwrap();
+        RealmState::restore_snapshot_or_replay(Some(snapshot), realm_id(), &[event]).unwrap();
 
     assert_eq!(restored.source, SnapshotRestoreSource::RepoReplay);
     assert!(restored.snapshot_error.unwrap().contains("state hash mismatch"));

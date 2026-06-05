@@ -74,7 +74,7 @@ pub const ERROR_CODE_PROFILE_UNSUPPORTED: &str = "profile_unsupported";
 //
 // Spec: `error-code-registry.json` (dc01ad7..5ed365c).
 // `failed_precondition` carries the round-C45 state-machine reason families
-// (flow_not_active, place_not_archived, morph_already_terminal, ...). See the
+// (flow_not_active, space_not_archived, morph_already_terminal, ...). See the
 // `REASON_*` constants further below.
 pub const ERROR_CODE_CURSOR_INTEGRITY_INVALID: &str = "cursor_integrity_invalid";
 pub const ERROR_CODE_FAILED_PRECONDITION: &str = "failed_precondition";
@@ -420,11 +420,11 @@ pub const REASON_CLAIM_FAILED: &str = "claim_failed";
 pub const REASON_FLOW_NOT_ACTIVE: &str = "flow_not_active";
 pub const REASON_FLOW_NOT_ARCHIVED: &str = "flow_not_archived";
 pub const REASON_FLOW_ALREADY_TERMINAL: &str = "flow_already_terminal";
-pub const REASON_PLACE_NOT_ACTIVE: &str = "place_not_active";
-pub const REASON_PLACE_NOT_ARCHIVED: &str = "place_not_archived";
-pub const REASON_PLACE_ALREADY_TERMINAL: &str = "place_already_terminal";
-pub const REASON_PLACE_PARENT_CYCLE: &str = "place_parent_cycle";
-pub const REASON_PLACE_HAS_LIVE_DEPENDENTS: &str = "place_has_live_dependents";
+pub const REASON_SPACE_NOT_ACTIVE: &str = "space_not_active";
+pub const REASON_SPACE_NOT_ARCHIVED: &str = "space_not_archived";
+pub const REASON_SPACE_ALREADY_TERMINAL: &str = "space_already_terminal";
+pub const REASON_SPACE_PARENT_CYCLE: &str = "space_parent_cycle";
+pub const REASON_SPACE_HAS_LIVE_DEPENDENTS: &str = "space_has_live_dependents";
 pub const REASON_MORPH_NOT_ACTIVE: &str = "morph_not_active";
 pub const REASON_MORPH_NOT_ARCHIVED: &str = "morph_not_archived";
 pub const REASON_MORPH_ALREADY_TERMINAL: &str = "morph_already_terminal";
@@ -543,11 +543,11 @@ pub const KNOWN_REASON_CODES_ROUND_C45: &[&str] = &[
     REASON_FLOW_NOT_ACTIVE,
     REASON_FLOW_NOT_ARCHIVED,
     REASON_FLOW_ALREADY_TERMINAL,
-    REASON_PLACE_NOT_ACTIVE,
-    REASON_PLACE_NOT_ARCHIVED,
-    REASON_PLACE_ALREADY_TERMINAL,
-    REASON_PLACE_PARENT_CYCLE,
-    REASON_PLACE_HAS_LIVE_DEPENDENTS,
+    REASON_SPACE_NOT_ACTIVE,
+    REASON_SPACE_NOT_ARCHIVED,
+    REASON_SPACE_ALREADY_TERMINAL,
+    REASON_SPACE_PARENT_CYCLE,
+    REASON_SPACE_HAS_LIVE_DEPENDENTS,
     REASON_MORPH_NOT_ACTIVE,
     REASON_MORPH_NOT_ARCHIVED,
     REASON_MORPH_ALREADY_TERMINAL,

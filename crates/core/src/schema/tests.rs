@@ -16,9 +16,8 @@ fn schema_vectors_include_negative_security_extension_case() {
 #[test]
 fn event_payload_catalog_validates_known_payload_fields() {
     let catalog = event_payload_validator_catalog();
-    // Round 4 / Realm-Space inversion (spec a77b995): `ck.flow.move`
-    // payload requires `board_space_id` (ck:space prefix) + `space_id`
-    // (renamed from target_place_id).
+    // `ck.flow.move` payload requires Space container ids:
+    // `board_space_id` (ck:space prefix) + `target_space_id`.
     catalog
         .validate_payload(
             "ck.flow.move",
@@ -73,9 +72,8 @@ fn artifact_payload_catalog_enforces_deep_schema_rules() {
         return;
     };
     let catalog = event_payload_validator_catalog_from_spec_artifacts(artifacts_dir).unwrap();
-    // Round 4 / Realm-Space inversion (spec a77b995): `ck.flow.move`
-    // requires `board_space_id` and `space_id` (renamed from
-    // board_place_id/target_place_id).
+    // `ck.flow.move` requires current Space container ids:
+    // `board_space_id` and `target_space_id`.
     catalog
         .validate_payload(
             crate::events::FLOW_MOVE,

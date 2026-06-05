@@ -185,8 +185,8 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         OP_MORPH_UPDATE => vec!["morph_id".to_owned(), "patch".to_owned()],
         OP_MORPH_ARCHIVE | OP_MORPH_RESTORE => vec!["morph_id".to_owned()],
         OP_MORPH_STAGE_SET => vec!["morph_id".to_owned(), "stage".to_owned()],
-        // Container event kinds (Realm/Space inversion spec 59ac1d4). The
-        // container primary key is `space_id` (matching `parent_space_id`).
+        // Space container event kinds. The container primary key is `space_id`
+        // (matching `parent_space_id`).
         OP_SPACE_CREATE => vec!["object".to_owned()],
         OP_SPACE_UPDATE => vec!["space_id".to_owned(), "patch".to_owned()],
         OP_SPACE_PARENT => vec!["space_id".to_owned(), "parent_space_id".to_owned()],
@@ -940,7 +940,7 @@ impl Default for ProtocolSchemaRegistry {
         );
         registry.register(FLOW_SCHEMA, flow_schema_document());
         registry.register(MORPH_SCHEMA, morph_schema_document());
-        registry.register(SPACE_SCHEMA, place_schema_document());
+        registry.register(SPACE_SCHEMA, space_schema_document());
         registry.register(VIEW_SCHEMA, view_schema_document());
         registry.register(
             EVENT_PAYLOAD_SCHEMA,
@@ -1152,7 +1152,7 @@ fn morph_schema_document() -> Value {
     })
 }
 
-fn place_schema_document() -> Value {
+fn space_schema_document() -> Value {
     json!({
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": SPACE_SCHEMA,

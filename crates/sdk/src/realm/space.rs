@@ -1,6 +1,6 @@
 use super::*;
 
-/// Optional Space (container) create metadata accepted by [`Realm::create_place_operation_with_metadata`].
+/// Optional Space (container) create metadata accepted by [`Realm::create_space_operation_with_metadata`].
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct SpaceCreateMetadata {
     pub parent_space_id: Option<String>,
@@ -11,7 +11,7 @@ pub struct SpaceCreateMetadata {
     pub labels: Vec<String>,
 }
 
-/// Optional Space (container) patch metadata accepted by [`Realm::update_place_operation_with_metadata`].
+/// Optional Space (container) patch metadata accepted by [`Realm::update_space_operation_with_metadata`].
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct SpaceUpdateMetadata {
     pub kind: Option<String>,
@@ -24,7 +24,7 @@ pub struct SpaceUpdateMetadata {
 
 impl Realm {
     /// Create a spec-shaped `ck.space.create` operation.
-    pub fn create_place_operation(
+    pub fn create_space_operation(
         &self,
         kind: impl Into<String>,
         title: impl Into<String>,
@@ -32,7 +32,7 @@ impl Realm {
         rank: Option<String>,
         fields: BTreeMap<String, Value>,
     ) -> Result<Operation> {
-        self.create_place_operation_with_metadata(
+        self.create_space_operation_with_metadata(
             kind,
             title,
             SpaceCreateMetadata { parent_space_id, rank, fields, ..Default::default() },
@@ -40,7 +40,7 @@ impl Realm {
     }
 
     /// Create a spec-shaped `ck.space.create` operation with extended Space (container) fields.
-    pub fn create_place_operation_with_metadata(
+    pub fn create_space_operation_with_metadata(
         &self,
         kind: impl Into<String>,
         title: impl Into<String>,
@@ -51,11 +51,11 @@ impl Realm {
             .session_meta()
             .ok_or_else(|| crate::Error::Protocol("no session".to_owned()))?;
 
-        let place_id = SpaceId::new(generate_id("ck:space:"))?;
+        let space_id = SpaceId::new(generate_id("ck:space:"))?;
         let operation_id = OperationId::new(generate_id("ck:operation:"))?;
         let now = Utc::now();
         let mut object = json!({
-            "id": place_id.as_str(),
+            "id": space_id.as_str(),
             "schema": crate::SPACE_SCHEMA,
             "realm_id": self.realm_id()?.as_str(),
             "kind": kind.into(),
@@ -89,28 +89,28 @@ impl Realm {
             crate::OP_SPACE_CREATE,
             json!({ "object": object }),
         );
-        operation.object_id = Some(place_id.as_str().to_owned());
+        operation.object_id = Some(space_id.as_str().to_owned());
         Ok(operation)
     }
 
     /// Create a spec-shaped `ck.space.update` operation.
-    pub fn update_place_operation(
+    pub fn update_space_operation(
         &self,
-        place_id: SpaceId,
+        space_id: SpaceId,
         title: Option<String>,
         fields: Option<BTreeMap<String, Value>>,
     ) -> Result<Operation> {
-        self.update_place_operation_with_metadata(
-            place_id,
+        self.update_space_operation_with_metadata(
+            space_id,
             title,
             SpaceUpdateMetadata { fields, ..Default::default() },
         )
     }
 
     /// Create a spec-shaped `ck.space.update` operation with extended Space (container) fields.
-    pub fn update_place_operation_with_metadata(
+    pub fn update_space_operation_with_metadata(
         &self,
-        place_id: SpaceId,
+        space_id: SpaceId,
         title: Option<String>,
         metadata: SpaceUpdateMetadata,
     ) -> Result<Operation> {
@@ -147,19 +147,19 @@ impl Realm {
             self.realm_id()?,
             crate::OP_SPACE_UPDATE,
             json!({
-                "space_id": place_id.as_str(),
+                "space_id": space_id.as_str(),
                 "patch": Value::Object(patch),
             }),
         );
         operation.operation_type = OperationType::Update;
-        operation.object_id = Some(place_id.as_str().to_owned());
+        operation.object_id = Some(space_id.as_str().to_owned());
         Ok(operation)
     }
 
     /// Create a `ck.space.parent` operation.
-    pub fn set_place_parent_operation(
+    pub fn set_space_parent_operation(
         &self,
-        place_id: SpaceId,
+        space_id: SpaceId,
         parent_space_id: SpaceId,
     ) -> Result<Operation> {
         self.base_client
@@ -172,34 +172,34 @@ impl Realm {
             self.realm_id()?,
             crate::OP_SPACE_PARENT,
             json!({
-                "space_id": place_id.as_str(),
+                "space_id": space_id.as_str(),
                 "parent_space_id": parent_space_id.as_str(),
             }),
         );
         operation.operation_type = OperationType::Update;
-        operation.object_id = Some(place_id.as_str().to_owned());
+        operation.object_id = Some(space_id.as_str().to_owned());
         Ok(operation)
     }
 
     /// Create a `ck.space.archive` operation.
-    pub fn archive_place_operation(&self, place_id: SpaceId) -> Result<Operation> {
-        self.place_lifecycle_operation(place_id, crate::OP_SPACE_ARCHIVE, OperationType::Update)
+    pub fn archive_space_operation(&self, space_id: SpaceId) -> Result<Operation> {
+        self.space_lifecycle_operation(space_id, crate::OP_SPACE_ARCHIVE, OperationType::Update)
     }
 
     /// Create a `ck.space.restore` operation (`archived -> active`).
-    /// Reducer rejects with `place_not_archived` when current state is not archived.
-    pub fn restore_place_operation(&self, place_id: SpaceId) -> Result<Operation> {
-        self.place_lifecycle_operation(place_id, crate::OP_SPACE_RESTORE, OperationType::Update)
+    /// Reducer rejects with `space_not_archived` when current state is not archived.
+    pub fn restore_space_operation(&self, space_id: SpaceId) -> Result<Operation> {
+        self.space_lifecycle_operation(space_id, crate::OP_SPACE_RESTORE, OperationType::Update)
     }
 
     /// Create a `ck.space.tombstone` operation.
-    pub fn tombstone_place_operation(&self, place_id: SpaceId) -> Result<Operation> {
-        self.place_lifecycle_operation(place_id, crate::OP_SPACE_TOMBSTONE, OperationType::Delete)
+    pub fn tombstone_space_operation(&self, space_id: SpaceId) -> Result<Operation> {
+        self.space_lifecycle_operation(space_id, crate::OP_SPACE_TOMBSTONE, OperationType::Delete)
     }
 
-    fn place_lifecycle_operation(
+    fn space_lifecycle_operation(
         &self,
-        place_id: SpaceId,
+        space_id: SpaceId,
         kind: &str,
         operation_type: OperationType,
     ) -> Result<Operation> {
@@ -212,10 +212,10 @@ impl Realm {
             operation_id,
             self.realm_id()?,
             kind,
-            json!({ "space_id": place_id.as_str() }),
+            json!({ "space_id": space_id.as_str() }),
         );
         operation.operation_type = operation_type;
-        operation.object_id = Some(place_id.as_str().to_owned());
+        operation.object_id = Some(space_id.as_str().to_owned());
         Ok(operation)
     }
 }

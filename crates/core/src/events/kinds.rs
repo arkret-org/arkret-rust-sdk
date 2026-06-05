@@ -207,7 +207,7 @@ pub const MORPH_STAGE_SET: &str = "ck.morph.stage.set";
 pub const MORPH_UPDATE: &str = "ck.morph.update";
 pub const ORGANIZATION_DISCOVERY: &str = "ck.organization.discovery";
 pub const ORGANIZATION_MODERATION_POLICY: &str = "ck.organization.moderation_policy";
-// Realm event kinds (security boundary; spec 59ac1d4 Realm/Space inversion).
+// Realm event kinds (security boundary).
 // Top-level governance of the security boundary lives here.
 pub const REALM_ARCHIVE: &str = "ck.realm.archive";
 pub const REALM_ASSET_PRIVACY_POLICY: &str = "ck.realm.asset_privacy_policy";
@@ -259,7 +259,7 @@ pub const SCHEMA_DEFINE: &str = "ck.schema.define";
 pub const SCHEMA_UPDATE: &str = "ck.schema.update";
 pub const SESSION_GRANT: &str = "ck.session.grant";
 pub const SOVEREIGN_DID_POLICY: &str = "ck.sovereign.did_policy";
-// Space event kinds (container; spec 59ac1d4 Realm/Space inversion).
+// Space event kinds (product container).
 // Boards / lists / arbitrary nestable containers live here. Security
 // policies are NOT in this family — see REALM_* above.
 pub const SPACE_ARCHIVE: &str = "ck.space.archive";

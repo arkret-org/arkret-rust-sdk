@@ -431,9 +431,8 @@ impl ArtifactDriftReport {
 /// Update this constant whenever the SDK adds typed support for a new
 /// schema; the drift report will then enforce that the spec still ships it.
 pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
-    // Realm/Space inversion (spec 59ac1d4): `ck.schema.realm.v1` is the new
-    // security-boundary schema. `ck.schema.space.v1` is now the container
-    // schema (former `ck.schema.place.v1` is removed).
+    // Realm/Space schemas: `ck.schema.realm.v1` is the security-boundary
+    // schema; `ck.schema.space.v1` is the product container schema.
     "ck.schema.realm.v1",
     REALM_JOIN_CANDIDATE_SCHEMA,
     "ck.schema.actor_profile.v1",
