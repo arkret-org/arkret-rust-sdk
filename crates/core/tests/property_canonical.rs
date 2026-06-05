@@ -15,7 +15,9 @@
 //! `payload_digest` agreement: if two services serialise the same logical
 //! object via the SDK, they MUST get the same bytes.
 
-use cokret_core::canonical::{canonical_json_bytes, canonical_json_string, canonical_sha256};
+use cokret_core::canonical::{
+    canonical_json_bytes, canonical_json_string, canonical_sha256, is_nfc,
+};
 use proptest::prelude::*;
 use serde_json::{Map, Value, json};
 
@@ -45,7 +47,9 @@ fn arb_leaf() -> impl Strategy<Value = Value> {
             ],
             0..16,
         )
-        .prop_map(|chars| Value::String(chars.into_iter().collect())),
+        .prop_map(|chars| chars.into_iter().collect::<String>())
+        .prop_filter("canonical JSON strings must be NFC", |s| is_nfc(s))
+        .prop_map(Value::String),
     ]
 }
 
@@ -121,7 +125,9 @@ proptest! {
                 proptest::char::range('\u{1F300}', '\u{1F9FF}'),
             ],
             0..32,
-        ).prop_map(|chars| chars.into_iter().collect::<String>())
+        )
+        .prop_map(|chars| chars.into_iter().collect::<String>())
+        .prop_filter("canonical JSON strings must be NFC", |s| is_nfc(s))
     ) {
         let value = json!({ "k": s });
         let bytes = canonical_json_bytes(&value).expect("encode unicode");

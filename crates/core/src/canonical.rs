@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Serialize, de::DeserializeOwned};
 use serde_json::{Map, Number, Value};
 use sha2::{Digest, Sha256};
 use std::io::Write as _;
@@ -51,6 +51,25 @@ pub fn is_nfc(s: &str) -> bool {
 pub fn validate_canonical_bytes(bytes: &[u8]) -> Result<()> {
     let value = parse_canonical_json(bytes)?;
     validate_canonical_value(&value)
+}
+
+/// Deserialize typed inbound canonical JSON after applying the receiver-side
+/// canonical profile checks.
+pub fn from_canonical_json_slice<T>(bytes: &[u8]) -> Result<T>
+where
+    T: DeserializeOwned,
+{
+    let value = parse_canonical_json(bytes)?;
+    validate_canonical_value(&value)?;
+    serde_json::from_value(value).map_err(Error::from)
+}
+
+/// UTF-8 string overload of [`from_canonical_json_slice`].
+pub fn from_canonical_json_str<T>(s: &str) -> Result<T>
+where
+    T: DeserializeOwned,
+{
+    from_canonical_json_slice(s.as_bytes())
 }
 
 fn validate_canonical_value(value: &Value) -> Result<()> {
@@ -468,6 +487,7 @@ fn reject_leading_zeros(s: &str) -> Result<()> {
 }
 
 fn write_string(string: &str, out: &mut Vec<u8>) -> Result<()> {
+    validate_canonical_string(string)?;
     out.push(b'"');
     for ch in string.chars() {
         match ch {
@@ -558,6 +578,19 @@ mod tests {
     fn write_string_rejects_embedded_feff() {
         let value = json!({ "x": "a\u{feff}b" });
         assert!(matches!(canonical_json_bytes(&value), Err(Error::NonCanonicalString(_))));
+    }
+
+    #[test]
+    fn canonical_json_rejects_non_nfc_string() {
+        let value = json!({ "name": "cafe\u{301}" }); // decomposed e + acute
+        assert!(matches!(canonical_json_bytes(&value), Err(Error::NonCanonicalString(_))));
+    }
+
+    #[test]
+    fn from_canonical_json_slice_rejects_non_nfc_string() {
+        let json = "{\"name\":\"cafe\u{301}\"}";
+        let err = from_canonical_json_slice::<Value>(json.as_bytes()).unwrap_err();
+        assert!(matches!(err, Error::NonCanonicalString(_)));
     }
 
     #[test]

@@ -32,6 +32,7 @@ impl Realm {
             "id": morph_id.as_str(),
             "schema": crate::MORPH_SCHEMA,
             "realm_id": self.realm_id.as_str(),
+            "schema_refs": [crate::MORPH_SCHEMA],
             "morph_type": morph_type.into(),
             "created_by": session_meta.user_id.as_str(),
             "created_at": now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),

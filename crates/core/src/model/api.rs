@@ -692,7 +692,7 @@ impl AccountSubscribeFrame {
         if trimmed.is_empty() {
             return Ok(None);
         }
-        let frame: Self = serde_json::from_str(trimmed).map_err(Error::from)?;
+        let frame: Self = canonical::from_canonical_json_str(trimmed)?;
         Ok(Some(frame))
     }
 
@@ -786,6 +786,18 @@ mod account_subscribe_frame_tests {
     fn account_subscribe_frame_from_ndjson_line_empty_returns_none() {
         assert!(AccountSubscribeFrame::from_ndjson_line("").unwrap().is_none());
         assert!(AccountSubscribeFrame::from_ndjson_line("   \n  ").unwrap().is_none());
+    }
+
+    #[test]
+    fn account_subscribe_frame_rejects_non_nfc_string() {
+        let line = "{\"kind\":\"dropped\",\"reason\":\"cafe\u{301}\"}";
+        assert!(AccountSubscribeFrame::from_ndjson_line(line).is_err());
+    }
+
+    #[test]
+    fn account_subscribe_frame_rejects_duplicate_key() {
+        let line = r#"{"kind":"heartbeat","kind":"heartbeat"}"#;
+        assert!(AccountSubscribeFrame::from_ndjson_line(line).is_err());
     }
 
     #[test]

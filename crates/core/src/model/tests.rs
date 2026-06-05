@@ -1511,10 +1511,57 @@ fn assert_field_order(object: &str, keys: &[String]) {
 }
 
 #[test]
+fn morph_schema_refs_are_required_non_empty_and_unique() {
+    let morph = Morph::new(
+        MorphId::new("ck:morph:01904100-0000-7000-8000-0000000000b0").unwrap(),
+        RealmId::new("ck:realm:01904100-0000-7000-8000-0000000000b1").unwrap(),
+        "ck.demo.morph",
+        Did::new("did:web:alice.example").unwrap(),
+    );
+    let value = serde_json::to_value(&morph).unwrap();
+    assert_eq!(value["schema_refs"], json!([MORPH_SCHEMA]));
+
+    let mut missing = value.clone();
+    missing.as_object_mut().unwrap().remove("schema_refs");
+    assert!(serde_json::from_value::<Morph>(missing).is_err());
+
+    let mut empty = value.clone();
+    empty["schema_refs"] = json!([]);
+    assert!(serde_json::from_value::<Morph>(empty).is_err());
+
+    let mut duplicate = value;
+    duplicate["schema_refs"] = json!([MORPH_SCHEMA, MORPH_SCHEMA]);
+    assert!(serde_json::from_value::<Morph>(duplicate).is_err());
+}
+
+#[test]
+fn morph_labels_are_sdk_local_not_wire() {
+    let mut morph = Morph::new(
+        MorphId::new("ck:morph:01904100-0000-7000-8000-0000000000c0").unwrap(),
+        RealmId::new("ck:realm:01904100-0000-7000-8000-0000000000c1").unwrap(),
+        "ck.demo.morph",
+        Did::new("did:web:alice.example").unwrap(),
+    );
+    morph.labels.push("urgent".to_owned());
+
+    let value = serde_json::to_value(&morph).unwrap();
+    assert!(
+        value.get("labels").is_none(),
+        "Morph.labels is SDK-local until morph.schema.json defines a wire field"
+    );
+
+    let mut inbound = value;
+    inbound["labels"] = json!(["wire-label"]);
+    let parsed: Morph = serde_json::from_value(inbound).unwrap();
+    assert!(parsed.labels.is_empty());
+    assert_eq!(parsed.extra.get("labels"), Some(&json!(["wire-label"])));
+}
+
+#[test]
 fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
     let created_by = Did::new("did:web:alice.example").unwrap();
     let updated_by = Did::new("did:web:bob.example").unwrap();
-    let now = chrono::Utc::now();
+    let now = Utc::now();
 
     // Flow — id, schema, …, state, state_changed_at, stage, stage_changed_at, audit.
     let mut flow = Flow::new(

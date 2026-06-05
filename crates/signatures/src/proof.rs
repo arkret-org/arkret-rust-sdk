@@ -515,8 +515,8 @@ mod ed25519_jws {
             }
             let header_bytes = base64url_decode(parts[0])
                 .map_err(|err| VerifierError::Encoding(format!("invalid header base64: {err}")))?;
-            let header: JwsProtectedHeader =
-                serde_json::from_slice(&header_bytes).map_err(|err| {
+            let header: JwsProtectedHeader = canonical::from_canonical_json_slice(&header_bytes)
+                .map_err(|err| {
                     VerifierError::Encoding(format!("invalid protected header: {err}"))
                 })?;
             if header.alg != proof.alg {

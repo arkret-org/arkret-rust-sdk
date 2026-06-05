@@ -153,6 +153,44 @@ pub fn resolve_primary_track<'a>(
 /// `{title?, summary?, ...extra}`).
 pub type MorphMetadata = ObjectMetadata;
 
+fn serialize_non_empty_schema_refs<S>(
+    schema_refs: &[String],
+    serializer: S,
+) -> std::result::Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    if schema_refs.is_empty() {
+        return Err(serde::ser::Error::custom(
+            "Morph.schema_refs must contain at least one schema ref",
+        ));
+    }
+    schema_refs.serialize(serializer)
+}
+
+fn deserialize_non_empty_schema_refs<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Vec<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let schema_refs = Vec::<String>::deserialize(deserializer)?;
+    if schema_refs.is_empty() {
+        return Err(serde::de::Error::custom(
+            "Morph.schema_refs must contain at least one schema ref",
+        ));
+    }
+    let mut seen = BTreeSet::new();
+    for schema_ref in &schema_refs {
+        if !seen.insert(schema_ref) {
+            return Err(serde::de::Error::custom(format!(
+                "Morph.schema_refs contains duplicate schema ref `{schema_ref}`"
+            )));
+        }
+    }
+    Ok(schema_refs)
+}
+
 /// Morph object (data-structures.md §7).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -171,11 +209,11 @@ pub struct Morph {
     /// Round C47 (spec e10b6ad): authoritative schema set for Morph fields and
     /// transition validation. Reducers MUST validate Morph fields against
     /// exactly these refs (set-equal compare on `ck.morph.schema_migrate`);
-    /// `morph_type` / `facets` are not a replacement. Defaults to empty on
-    /// the wire while existing fixtures are migrated; new producers MUST
-    /// populate at least one entry. TODO(C47 Lane A4 / B-soland-deep): make
-    /// this non-empty + enforce set-equal compare.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    /// `morph_type` / `facets` are not a replacement.
+    #[serde(
+        serialize_with = "serialize_non_empty_schema_refs",
+        deserialize_with = "deserialize_non_empty_schema_refs"
+    )]
     pub schema_refs: Vec<String>,
     pub morph_type: String,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -209,7 +247,10 @@ pub struct Morph {
     pub updated_by: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_at: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    /// SDK-local compatibility cache only. `morph.schema.json` does not define
+    /// a `labels` field; inbound wire labels remain in `extra` and this field
+    /// is never serialized.
+    #[serde(skip)]
     pub labels: Vec<String>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(flatten)]
@@ -228,7 +269,7 @@ impl Morph {
             schema: MORPH_SCHEMA.to_owned(),
             realm_id,
             scope_circle_id: None,
-            schema_refs: Vec::new(),
+            schema_refs: vec![MORPH_SCHEMA.to_owned()],
             morph_type: morph_type.into(),
             facets: BTreeMap::new(),
             metadata: None,

@@ -226,6 +226,13 @@ mod protocol_wire {
     }
 
     #[test]
+    fn audit_policy_access_late_recovery_uses_e2ee_wire_spelling() {
+        let encoded = serde_json::to_value(AccessKind::E2EELateRecovery).unwrap();
+
+        assert_eq!(encoded, json!("e2ee_late_recovery"));
+    }
+
+    #[test]
     fn consent_revoke_requires_observed_dots() {
         let payload = ConsentRevokePayload {
             consent_id: "cid".to_owned(),

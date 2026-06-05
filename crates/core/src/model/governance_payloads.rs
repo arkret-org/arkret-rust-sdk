@@ -19,6 +19,7 @@ pub enum AccessKind {
     Backup,
     /// Round 4 — late-key-recovery path. Carried alongside
     /// `late_recovery_original_event_id` on the payload.
+    #[serde(rename = "e2ee_late_recovery")]
     E2EELateRecovery,
 }
 /// Round 4 — typed `ck.audit.policy_access` payload.

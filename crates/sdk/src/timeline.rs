@@ -1100,6 +1100,7 @@ mod tests {
                     "id": format!("ck:morph:01904100-0000-7000-8000-{:012x}", index),
                     "schema": crate::MORPH_SCHEMA,
                     "realm_id": realm_id.as_str(),
+                    "schema_refs": [crate::MORPH_SCHEMA],
                     "morph_type": "task",
                     "created_by": "did:web:alice.example.com",
                     "created_at": "2026-05-02T00:00:00.000Z"

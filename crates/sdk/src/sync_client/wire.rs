@@ -106,7 +106,7 @@ impl EventsSubscribeFrame {
         if trimmed.is_empty() {
             return Ok(None);
         }
-        let frame: Self = serde_json::from_str(trimmed).map_err(Error::from)?;
+        let frame: Self = canonical::from_canonical_json_str(trimmed)?;
         Ok(Some(frame))
     }
 

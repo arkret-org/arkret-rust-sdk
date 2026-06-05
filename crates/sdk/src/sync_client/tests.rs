@@ -472,6 +472,18 @@ fn frame_blank_line_returns_none() {
 }
 
 #[test]
+fn frame_rejects_non_nfc_string() {
+    let line = "{\"kind\":\"dropped\",\"reason\":\"cafe\u{301}\"}";
+    assert!(EventsSubscribeFrame::from_ndjson_line(line).is_err());
+}
+
+#[test]
+fn frame_rejects_duplicate_key() {
+    let line = r#"{"kind":"heartbeat","kind":"heartbeat"}"#;
+    assert!(EventsSubscribeFrame::from_ndjson_line(line).is_err());
+}
+
+#[test]
 fn frame_unauthorized_with_actor_only() {
     let line = r#"{"kind":"unauthorized","actor_id":"did:web:alice.example","reason":"revoked"}"#;
     let frame = EventsSubscribeFrame::from_ndjson_line(line).unwrap().unwrap();

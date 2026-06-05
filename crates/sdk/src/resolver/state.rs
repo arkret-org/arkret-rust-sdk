@@ -293,12 +293,14 @@ impl RealmState {
 
         let scope_circle_id =
             self.extract_optional_field::<cokret_core::CircleId>(object, "scope_circle_id");
+        let schema_refs = self.extract_field::<Vec<String>>(object, "schema_refs")?;
+        validate_morph_schema_refs(&schema_refs)?;
         let morph = Morph {
             id: morph_id,
             schema: crate::MORPH_SCHEMA.to_owned(),
             realm_id: event.realm_id.clone(),
             scope_circle_id,
-            schema_refs: self.extract_optional_field(object, "schema_refs").unwrap_or_default(),
+            schema_refs,
             morph_type,
             facets,
             metadata,
@@ -1650,6 +1652,21 @@ fn reject_legacy_morph_patch_fields(patch: &Option<BTreeMap<String, Value>>) -> 
         return Err(Error::Protocol(
             "morph patch must not carry both metadata and encrypted_metadata".to_owned(),
         ));
+    }
+    Ok(())
+}
+
+fn validate_morph_schema_refs(schema_refs: &[String]) -> Result<()> {
+    if schema_refs.is_empty() {
+        return Err(Error::Protocol("morph object requires non-empty schema_refs".to_owned()));
+    }
+    let mut seen = BTreeSet::new();
+    for schema_ref in schema_refs {
+        if !seen.insert(schema_ref) {
+            return Err(Error::Protocol(format!(
+                "morph object schema_refs contains duplicate schema ref `{schema_ref}`"
+            )));
+        }
     }
     Ok(())
 }

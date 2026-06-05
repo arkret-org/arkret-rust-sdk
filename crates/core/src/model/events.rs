@@ -269,6 +269,12 @@ impl EffectiveScope {
 }
 
 impl Event {
+    /// Deserialize an inbound Event Envelope after canonical JSON ingress
+    /// checks (NFC strings, duplicate keys, number profile).
+    pub fn from_canonical_json_slice(bytes: &[u8]) -> Result<Self> {
+        canonical::from_canonical_json_slice(bytes)
+    }
+
     pub fn digest_payload(&self) -> Result<Value> {
         let mut value = serde_json::to_value(self)?;
         if let Value::Object(map) = &mut value {

@@ -524,6 +524,13 @@ pub struct ReadCursor {
     pub updated_at: DateTime<Utc>,
 }
 
+impl ReadCursor {
+    /// Deserialize an inbound read cursor after canonical JSON ingress checks.
+    pub fn from_canonical_json_slice(bytes: &[u8]) -> Result<Self> {
+        canonical::from_canonical_json_slice(bytes)
+    }
+}
+
 pub type ReadMarker = ReadCursor;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -547,6 +554,13 @@ pub struct ReadReceipt {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hlc: Option<Hlc>,
     pub created_at: DateTime<Utc>,
+}
+
+impl ReadReceipt {
+    /// Deserialize an inbound read receipt after canonical JSON ingress checks.
+    pub fn from_canonical_json_slice(bytes: &[u8]) -> Result<Self> {
+        canonical::from_canonical_json_slice(bytes)
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

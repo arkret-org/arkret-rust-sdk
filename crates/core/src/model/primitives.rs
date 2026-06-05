@@ -709,7 +709,19 @@ const PRODUCTION_ALGORITHMS: &[&str] = &["EdDSA", "ES256", "ML-DSA-65"];
 /// Proof kinds that indicate development/test mode and are rejected in production.
 const DEV_PROOF_KINDS: &[&str] = &["dev", "test", "mock", "stub", "dummy"];
 
+/// Hard replay/freshness tolerance for matching a proof to its expected
+/// binding payload. This is the same hard ceiling as the default HLC future
+/// skew guard in encoding.md §7.2, but proof binding only has a binary
+/// accept/reject result, not the HLC soft-fail layer.
+const PROOF_CREATED_AT_HARD_SKEW_MINUTES: i64 = 5;
+
 impl Proof {
+    /// Deserialize an inbound Proof after canonical JSON ingress checks
+    /// (NFC strings, duplicate keys, number profile).
+    pub fn from_canonical_json_slice(bytes: &[u8]) -> Result<Self> {
+        canonical::from_canonical_json_slice(bytes)
+    }
+
     pub fn binding_payload(&self, actor_id: &Did) -> SignatureBindingPayload {
         SignatureBindingPayload {
             payload_digest: self.event_digest.clone(),
@@ -781,16 +793,18 @@ impl Proof {
                 "proof event_digest does not match expected digest".to_owned(),
             ));
         }
-        // Allow 5-minute clock skew tolerance for created_at
         let diff = if self.created_at > expected.created_at {
             self.created_at - expected.created_at
         } else {
             expected.created_at - self.created_at
         };
-        if diff.num_minutes() > 5 {
+        if diff > chrono::Duration::minutes(PROOF_CREATED_AT_HARD_SKEW_MINUTES) {
             return Err(Error::Protocol(format!(
-                "proof created_at differs from expected by {} minutes (max 5)",
-                diff.num_minutes()
+                "proof created_at differs from expected by {} seconds (max {} seconds)",
+                diff.num_seconds(),
+                PROOF_CREATED_AT_HARD_SKEW_MINUTES
+                    .checked_mul(60)
+                    .expect("proof skew constant fits seconds")
             )));
         }
         if self.domain != expected.domain {

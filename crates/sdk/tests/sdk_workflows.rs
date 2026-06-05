@@ -76,6 +76,7 @@ fn end_to_end_auth_session_realm_query_and_notifications() {
                     "id": morph_id.as_str(),
                     "schema": MORPH_SCHEMA,
                     "realm_id": realm_id.as_str(),
+                    "schema_refs": [MORPH_SCHEMA],
                     "morph_type": "task",
                     "metadata": {"title": "Ship SDK"},
                     "fields": {"status": "todo"},

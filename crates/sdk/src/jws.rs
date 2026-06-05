@@ -45,7 +45,7 @@
 //! 4xx responses.
 
 use chrono::{DateTime, Duration, Utc};
-use cokret_core::{base64url_decode, base64url_encode};
+use cokret_core::{base64url_decode, base64url_encode, canonical};
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 
 use crate::identity::DidResolver;
@@ -128,7 +128,7 @@ pub fn verify_jws_ed25519(
     // any `crit` extensions (RFC 7515 §4.1.11 — Cokret v1 understands none).
     let header_bytes =
         base64url_decode(protected_b64).map_err(|e| format!("JWS header is not base64url: {e}"))?;
-    let header: serde_json::Value = serde_json::from_slice(&header_bytes)
+    let header: serde_json::Value = canonical::from_canonical_json_slice(&header_bytes)
         .map_err(|e| format!("JWS header is not JSON: {e}"))?;
     let alg = header.get("alg").and_then(serde_json::Value::as_str).unwrap_or("");
     if alg != "EdDSA" {
@@ -636,6 +636,23 @@ mod tests {
         let signing = SigningKey::from_bytes(&[2u8; 32]);
         let err = sign_jws_ed25519(b"", &signing).unwrap_err();
         assert!(err.contains("empty canonical bytes"), "got `{err}`");
+    }
+
+    #[test]
+    fn verify_jws_ed25519_rejects_duplicate_protected_header_key() {
+        let signing = SigningKey::from_bytes(&[2u8; 32]);
+        let did = Did::new("did:web:duplicate-header.example".to_owned()).unwrap();
+        let resolver = StubResolver {
+            did: did.clone(),
+            multibase: encode_ed25519_multibase(&signing.verifying_key()),
+        };
+        let header = base64url_encode(br#"{"alg":"EdDSA","alg":"EdDSA"}"#);
+        let signature = base64url_encode([1u8; 64]);
+        let jws = format!("{header}..{signature}");
+
+        let err = verify_jws_ed25519(b"{}", &jws, &format!("{did}#k1"), did.as_str(), &resolver)
+            .unwrap_err();
+        assert!(err.contains("duplicate key") || err.contains("canonical JSON"), "got `{err}`");
     }
 
     #[test]

@@ -283,7 +283,7 @@ impl Cursor {
         let json = crate::base64url::base64url_decode(encoded)
             .map_err(|_| Error::Protocol("invalid Base64URL encoding".to_owned()))?;
 
-        let cursor: Cursor = serde_json::from_slice(&json)
+        let cursor: Cursor = crate::canonical::from_canonical_json_slice(&json)
             .map_err(|_| Error::Protocol("invalid cursor JSON".to_owned()))?;
 
         cursor.validate()?;
@@ -632,6 +632,20 @@ mod tests {
 
         let encoded = cursor.encode().unwrap();
         assert!(Cursor::decode(&encoded).is_err());
+    }
+
+    #[test]
+    fn cursor_decode_rejects_non_nfc_json_string() {
+        let json = "{\"v\":\"1\",\"purpose\":\"stream\",\"t\":\"cafe\u{301}\",\"s\":{},\"x\":4102444800000,\"h\":\"ABCDEFGHIJKLMNOPQRSTUV\"}";
+        let encoded = format!("ck:cursor:{}", crate::base64url_encode(json.as_bytes()));
+        assert!(matches!(Cursor::decode(&encoded), Err(Error::Protocol(_))));
+    }
+
+    #[test]
+    fn cursor_decode_rejects_duplicate_json_key() {
+        let json = br#"{"v":"1","v":"1","purpose":"stream","t":"2026-06-06T00:00:00Z","s":{},"x":4102444800000,"h":"ABCDEFGHIJKLMNOPQRSTUV"}"#;
+        let encoded = format!("ck:cursor:{}", crate::base64url_encode(json));
+        assert!(matches!(Cursor::decode(&encoded), Err(Error::Protocol(_))));
     }
 
     #[test]
