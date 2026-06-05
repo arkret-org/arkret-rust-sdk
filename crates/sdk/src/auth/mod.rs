@@ -237,7 +237,7 @@ pub fn principal_control_realm_id(principal_id: &Did) -> String {
 }
 
 /// Returns `true` when `event_kind` MUST be pinned to a principal
-/// control space per `key-management.md` §4.1.
+/// control Realm per `key-management.md` §4.1.
 pub fn is_principal_control_event(event_kind: &str) -> bool {
     matches!(event_kind, CX_DEVICE_AUTHORIZED | CX_DEVICE_REVOKED | CX_SESSION_GRANT)
 }

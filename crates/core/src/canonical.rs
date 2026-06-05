@@ -265,7 +265,7 @@ pub fn canonical_sha256<T: Serialize>(value: &T) -> Result<String> {
 /// spec event-kind-registry's `cell_subject` (composite form). This
 /// helper preserves percent-encoding (`%` → `%25`, `|` → `%7C`) so
 /// callers building a reducer-internal projection key
-/// (`(space_id, kind, subject)`) get an unambiguous round-trip.
+/// (`(realm_id, kind, subject)`) get an unambiguous round-trip.
 ///
 /// Wire-canonical composite subject is base64url(sha256(canonical_json([...])))
 /// per `encoding.md` §9.5; this `|`-joined form is reducer-internal only.

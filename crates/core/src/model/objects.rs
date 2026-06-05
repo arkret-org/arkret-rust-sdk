@@ -73,10 +73,10 @@ pub struct Realm {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub anchor_profile: Option<AnchorProfile>,
     /// Initial anchorer cell value (data-structures.md §4). Reducer-derived
-    /// after Space creation; this field is the **create-time hint** so
+    /// after Realm creation; this field is the **create-time hint** so
     /// servers can populate the anchorer cell without an extra round-trip.
     /// Subsequent anchorer changes flow through Move on the
-    /// `ck:cell:ck.component.anchorer.v1:<space_id>` cell.
+    /// `ck:cell:ck.component.anchorer.v1:<realm_id>` cell.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub anchorer: Option<crate::anchorer::AnchorerValue>,
     /// Soft cap on how stale the latest Anchor leaf may be before clients
@@ -85,7 +85,7 @@ pub struct Realm {
     /// passing a value at create time is a hint only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_anchor_staleness_ms: Option<u64>,
-    /// Lattice declarations per cell_family used in this Space. Reducer-
+    /// Lattice declarations per cell_family used in this Realm. Reducer-
     /// derived; this field exists so clients can render bottom diagnostics
     /// before observing any Move. Empty means "use the cell registry
     /// defaults from contract-catalog".
@@ -102,11 +102,11 @@ pub struct Realm {
     pub extra: BTreeMap<String, Value>,
 }
 
-/// Anchor deployment profile for a Space (data-structures.md §4 —
+/// Anchor deployment profile for a Realm (data-structures.md §4 —
 /// Move/Anchor/Lattice).
 ///
-/// This is a **hint field on `Space`** — the live anchorer identity always
-/// lives in the `ck:cell:ck.component.anchorer.v1:<space_id>` cell. The
+/// This is a **hint field on `Realm`** — the live anchorer identity always
+/// lives in the `ck:cell:ck.component.anchorer.v1:<realm_id>` cell. The
 /// hint exists so clients can pre-allocate state before observing the cell.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -126,8 +126,8 @@ pub enum AnchorProfile {
     Mixed,
 }
 
-/// Per-cell-family lattice declaration carried on `Space` (Move/Anchor/Lattice
-/// data-structures.md §4). Maps a cell family used in this Space to its
+/// Per-cell-family lattice declaration carried on `Realm` (Move/Anchor/Lattice
+/// data-structures.md §4). Maps a cell family used in this Realm to its
 /// declared lattice + bottom shape. Reducer-derived in practice; this is a
 /// **hint** so clients can set up bottom diagnostics surfaces upfront.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -143,7 +143,7 @@ pub struct CellLatticeDeclaration {
     pub bottom: Option<String>,
 }
 
-/// Co-write policy declaration on `Space` (Move/Anchor/Lattice). Governs
+/// Co-write policy declaration on `Realm` (Move/Anchor/Lattice). Governs
 /// how concurrent Moves are ordered before reaching an Anchor.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -212,8 +212,8 @@ impl Realm {
     }
 
     /// Builder: declare the initial anchorer cell value. Servers seed the
-    /// `ck:cell:ck.component.anchorer.v1:<space_id>` cell from this hint at
-    /// Space creation time. Subsequent rotations flow through Move.
+    /// `ck:cell:ck.component.anchorer.v1:<realm_id>` cell from this hint at
+    /// Realm creation time. Subsequent rotations flow through Move.
     pub fn with_anchorer(mut self, anchorer: crate::anchorer::AnchorerValue) -> Self {
         self.anchorer = Some(anchorer);
         self

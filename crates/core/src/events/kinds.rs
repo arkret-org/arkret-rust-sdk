@@ -243,7 +243,7 @@ pub const POLICY_RULE: &str = "ck.policy.rule";
 pub const POLICY_SET: &str = "ck.policy.set";
 pub const PRESENCE: &str = "ck.presence";
 pub const PROFILE_CREATE: &str = "ck.profile.create";
-pub const PROFILE_SPACE_OVERRIDE: &str = "ck.profile.space_override";
+pub const PROFILE_REALM_OVERRIDE: &str = "ck.profile.realm_override";
 pub const PROFILE_UPDATE: &str = "ck.profile.update";
 pub const REACTION_ADD: &str = "ck.reaction.add";
 pub const REACTION_REMOVE: &str = "ck.reaction.remove";
@@ -389,7 +389,7 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     POLICY_SET,
     PRESENCE,
     PROFILE_CREATE,
-    PROFILE_SPACE_OVERRIDE,
+    PROFILE_REALM_OVERRIDE,
     PROFILE_UPDATE,
     REACTION_ADD,
     REACTION_REMOVE,
@@ -639,7 +639,7 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
         | MORPH_UPDATE => EventClass::Morph,
         ORGANIZATION_DISCOVERY | ORGANIZATION_MODERATION_POLICY => EventClass::Organization,
         POLICY_ACTION | POLICY_RULE | POLICY_SET => EventClass::Policy,
-        PROFILE_CREATE | PROFILE_SPACE_OVERRIDE | PROFILE_UPDATE => EventClass::Profile,
+        PROFILE_CREATE | PROFILE_REALM_OVERRIDE | PROFILE_UPDATE => EventClass::Profile,
         READ_MARKER | RECEIPT_READ => EventClass::Read,
         REALM_ARCHIVE
         | REALM_ASSET_PRIVACY_POLICY

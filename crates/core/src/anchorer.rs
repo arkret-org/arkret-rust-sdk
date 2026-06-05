@@ -1,8 +1,8 @@
 //! Anchorer cell typed value.
 //!
-//! The anchorer cell `ck:cell:ck.component.anchorer.v1:<space_id>` is a
+//! The anchorer cell `ck:cell:ck.component.anchorer.v1:<realm_id>` is a
 //! cas-register (bottom=reject) holding the current authoritative value
-//! that says **who is allowed to sign Anchors for this Space**. The four
+//! that says **who is allowed to sign Anchors for this Realm**. The four
 //! profile variants:
 //!
 //! - **SingleDid** — one DID is the anchorer (typical principal control).

@@ -135,7 +135,7 @@ impl RealmLinkStatus {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct RealmLinkPayload {
     /// Target Realm id (the link's "to" side). `source_realm_id` is the
-    /// envelope `space_id` and is therefore implicit.
+    /// envelope `realm_id` and is therefore implicit.
     pub target_realm_id: RealmId,
     pub link_kind: RealmLinkKind,
     #[serde(default = "default_link_status")]

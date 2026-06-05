@@ -480,8 +480,8 @@ fn payload_def_candidates(event_kind: &str) -> Vec<String> {
         ["space", "create"] => candidates.push("space_create_payload".to_owned()),
         ["space", "child"] => candidates.push("space_child_payload".to_owned()),
         ["space", "parent"] => candidates.push("space_parent_payload".to_owned()),
-        ["space", "inheritance_policy"] => {
-            candidates.push("space_inheritance_policy_payload".to_owned());
+        ["realm", "inheritance_policy"] => {
+            candidates.push("realm_inheritance_policy_payload".to_owned());
         }
         ["space", "freeze"] => candidates.push("space_freeze_payload".to_owned()),
         ["space", "destroy"] => candidates.push("space_destroy_payload".to_owned()),
@@ -556,7 +556,7 @@ fn payload_def_candidates(event_kind: &str) -> Vec<String> {
             candidates.push("call_payload".to_owned());
         }
         ["invite", ..] => candidates.push("invite_payload".to_owned()),
-        ["profile", "update" | "space_override"] => {
+        ["profile", "update" | "realm_override"] => {
             candidates.push("object_patch_payload".to_owned());
         }
         ["space", ..]

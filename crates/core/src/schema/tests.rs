@@ -160,7 +160,7 @@ fn artifact_payload_catalog_maps_object_patch_event_family_to_object_patch_paylo
         "ck.morph.update",
         "ck.space.update",
         "ck.profile.update",
-        "ck.profile.space_override",
+        "ck.profile.realm_override",
     ];
     for event_kind in object_patch_kinds {
         let patch = if matches!(event_kind, "ck.flow.update" | "ck.morph.update") {

@@ -507,7 +507,7 @@ fn mutation_for_kind(kind: &str) -> OperationMutation {
 fn target_id_for_operation(kind: &str, content: &Value) -> Option<String> {
     let fields: &[&str] = match kind {
         OP_EVENTS_GET | OP_EVENTS_RESOLVE => &["event_id"],
-        OP_EVENTS_FRONTIER | OP_SNAPSHOT_HEAD | OP_AUTHZ_GET_INVITES => &["space_id"],
+        OP_EVENTS_FRONTIER | OP_SNAPSHOT_HEAD | OP_AUTHZ_GET_INVITES => &["realm_id"],
         OP_IDENTITY_RESOLVE
         | OP_IDENTITY_GET_DOCUMENT
         | OP_IDENTITY_GET_LOG

@@ -287,10 +287,10 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         OP_MODERATION_REPORT => ["target_ref", "reason"].into_iter().map(str::to_owned).collect(),
         OP_POLICY_CHECK => vec!["resource".to_owned()],
         OP_AUTHZ_GET_EFFECTIVE_GRANTS => vec!["actor_id".to_owned()],
-        OP_AUTHZ_GET_INVITES => vec!["space_id".to_owned()],
+        OP_AUTHZ_GET_INVITES => vec!["realm_id".to_owned()],
         OP_EVENTS_GET | OP_EVENTS_RESOLVE => vec!["event_id".to_owned()],
-        OP_EVENTS_FRONTIER => vec!["space_id".to_owned()],
-        OP_EVENTS_QUERY => Vec::new(), // selector = spaces[]?+actors[]? — neither is strictly required
+        OP_EVENTS_FRONTIER => vec!["realm_id".to_owned()],
+        OP_EVENTS_QUERY => Vec::new(), // selector = realms[]?+actors[]? — neither is strictly required
         OP_EVENTS_SUBSCRIBE => Vec::new(), // selector arrays may be empty for "all reachable"; subscription
         OP_EVENTS_SUBMIT => vec!["events".to_owned()],
         OP_ACCOUNT_SUBSCRIBE => Vec::new(),
@@ -950,10 +950,10 @@ impl Default for ProtocolSchemaRegistry {
             ANCHOR_SCHEMA,
             object_schema(
                 ANCHOR_SCHEMA,
-                &["id", "space_id", "frontier", "state_root"],
+                &["id", "realm_id", "frontier", "state_root"],
                 &[
                     ("id", "string"),
-                    ("space_id", "string"),
+                    ("realm_id", "string"),
                     ("frontier", "array"),
                     ("state_root", "string"),
                 ],
@@ -971,10 +971,10 @@ impl Default for ProtocolSchemaRegistry {
             SNAPSHOT_SCHEMA,
             object_schema(
                 SNAPSHOT_SCHEMA,
-                &["snapshot_id", "space_id", "frontier", "state_root"],
+                &["snapshot_id", "realm_id", "frontier", "state_root"],
                 &[
                     ("snapshot_id", "string"),
-                    ("space_id", "string"),
+                    ("realm_id", "string"),
                     ("frontier", "array"),
                     ("state_root", "string"),
                 ],

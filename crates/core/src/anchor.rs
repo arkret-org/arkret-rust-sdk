@@ -6,7 +6,7 @@
 //! from Move effects whose ids are in `frontier`. The anchorer signs the
 //! commitment in one of three forms:
 //!
-//! - **Single** — single DID anchorer (typical for principal control Spaces).
+//! - **Single** — single DID anchorer (typical for principal control Realms).
 //! - **Multi** — explicit multi-sig (every listed signer must sign).
 //! - **Threshold** — `k`-of-`n` threshold; the `proof` field carries the
 //!   threshold-scheme-specific aggregated proof bytes.
