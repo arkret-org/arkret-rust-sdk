@@ -616,7 +616,7 @@ mod tests {
             "service": [{
                 "id": "did:web:a.example#cokret-federation",
                 "type": "CokretFederation",
-                "serviceEndpoint": "https://a.example/_cokret/peer/federation"
+                "serviceEndpoint": "https://a.example/_cokret/peer/events"
             }]
         });
 
@@ -624,13 +624,13 @@ mod tests {
             &document,
             &did,
             "CokretFederation",
-            "https://a.example/_cokret/peer/federation"
+            "https://a.example/_cokret/peer/events"
         ));
         assert!(!did_document_service_endpoint_matches(
             &document,
             &Did::new("did:web:b.example").unwrap(),
             "CokretFederation",
-            "https://a.example/_cokret/peer/federation"
+            "https://a.example/_cokret/peer/events"
         ));
     }
 

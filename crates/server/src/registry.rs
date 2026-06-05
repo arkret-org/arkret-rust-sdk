@@ -221,7 +221,7 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
         WireConformanceVector {
             name: "encoded_path_separator_rejected".to_owned(),
             method: "PUT".to_owned(),
-            path: "/_cokret/peer/federation/transactions/txn_%2Fescape".to_owned(),
+            path: "/_cokret/peer/events/resolve%2Fescape".to_owned(),
             query: BTreeMap::new(),
             headers: BTreeMap::new(),
             body: json!({}),
@@ -261,10 +261,10 @@ pub fn wire_negative_vectors() -> Vec<WireConformanceVector> {
         WireConformanceVector {
             name: "stale_cursor_rejected".to_owned(),
             method: "GET".to_owned(),
-            path: "/_cokret/peer/federation/pull-operations".to_owned(),
+            path: "/_cokret/peer/events".to_owned(),
             query: BTreeMap::from([
-                ("space_id".to_owned(), "ck:space:01904100-0000-7000-8000-9b64700c6ee8".to_owned()),
-                ("after_cursor".to_owned(), "ck:cursor:expired".to_owned()),
+                ("realms".to_owned(), "ck:realm:01904100-0000-7000-8000-9b64700c6ee8".to_owned()),
+                ("after".to_owned(), "ck:cursor:expired".to_owned()),
             ]),
             headers: BTreeMap::new(),
             body: Value::Null,
