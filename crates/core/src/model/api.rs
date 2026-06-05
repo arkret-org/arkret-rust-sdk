@@ -553,7 +553,7 @@ pub struct SyncReqBody {
 
 /// Folded account-aggregate delta used by SDK internals.
 ///
-/// Current wire delivery is `ck.account.subscribe`: an NDJSON stream of
+/// Current wire delivery is `ck.self.account.subscribe`: an NDJSON stream of
 /// [`AccountSubscribeFrame`] values. The SDK folds `delta` frames into this
 /// shape so existing reducers and UI code can consume a single account snapshot
 /// value without depending on transport streaming details.
@@ -601,7 +601,7 @@ impl SyncResBody {
         &self.realms
     }
 
-    /// Fold a single `ck.account.subscribe` data frame into the SDK aggregate
+    /// Fold a single `ck.self.account.subscribe` data frame into the SDK aggregate
     /// snapshot shape. Control frames without data return `None`.
     pub fn from_account_subscribe_frame(frame: AccountSubscribeFrame) -> Option<Self> {
         if frame.kind != AccountSubscribeFrameKind::Delta {
@@ -639,7 +639,7 @@ impl SyncResBody {
     }
 }
 
-/// One NDJSON frame on `ck.account.subscribe`.
+/// One NDJSON frame on `ck.self.account.subscribe`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AccountSubscribeFrame {
@@ -1189,7 +1189,7 @@ pub enum TargetKind {
     Message,
 }
 
-/// R3.3 (CKP-0011) — request body for `ck.directory.resolve_target`.
+/// R3.3 (CKP-0011) — request body for `ck.find.directory.resolve_target`.
 ///
 /// `address` is a client-agnostic shareable object address in either the
 /// `web+cokret:` URI form or the HTTPS-landing fragment form (see
@@ -1208,7 +1208,7 @@ pub struct DirectoryResolveTargetReqBody {
     pub token: Option<String>,
 }
 
-/// R3.3 (CKP-0011) — response body for `ck.directory.resolve_target`.
+/// R3.3 (CKP-0011) — response body for `ck.find.directory.resolve_target`.
 ///
 /// Common §9.1 directory fields (`as_of`, `source_refs`, `join_candidates`,
 /// `policy_revision`, `stale`, `divergent`) mirror the other directory
@@ -1403,7 +1403,7 @@ pub struct DirectoryResolveHandleResBody {
 }
 
 /// R3.2 (cokret-spec @ b56cab1) — request body for
-/// `ck.directory.list_handles_for_subject`. Known holder/principal DID +
+/// `ck.find.directory.list_handles_for_subject`. Known holder/principal DID +
 /// context → current visible handle claims (inverse of `resolve_handle`).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -1428,7 +1428,7 @@ pub struct DirectoryListHandlesForSubjectReqBody {
     pub limit: Option<u32>,
 }
 
-/// R3.2 — response body for `ck.directory.list_handles_for_subject`.
+/// R3.2 — response body for `ck.find.directory.list_handles_for_subject`.
 /// Schema `ck.schema.list_handles_for_subject_response.v1`. Every
 /// `claims[].subject` MUST equal [`Self::subject`] (byte-equal); use
 /// [`Self::validate`] to enforce.

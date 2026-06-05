@@ -235,7 +235,7 @@ impl RealmState {
             // Moderation reports / franks (moderation.md §3).
             // Reports are state events keyed by `(target_ref, reporter)`;
             // franks bind a per-message receipt for E2EE accountability.
-            | "ck.moderation.report"
+            | "ck.self.moderation.report"
             | "ck.moderation.franking_proof" => self.reduce_generic_state_event(event)?,
 
             // Message timeline

@@ -65,7 +65,7 @@ The allowlisted headers should match what the client SDK sends — see
 ## Request limits & rate limiting
 
 - **Body size**. Configure the chosen runtime's body size limit explicitly if
-  your callers upload large blobs through the `ck.blob.upload` path. Reject
+  your callers upload large blobs through the `ck.self.blob.upload` path. Reject
   oversized uploads with a 413 carrying the standard
   `cx.error.payload_too_large` error code.
 - **Rate limit metadata**. The SDK exposes `service::RateLimitMetadata` and

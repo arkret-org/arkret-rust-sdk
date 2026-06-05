@@ -767,9 +767,9 @@ impl Client {
         self.post("/_cokret/self/account/cursor/revoke", request).await
     }
 
-    /// Subscribe to the Event stream for one or more Spaces / actors via
-    /// `ck.events.subscribe` (`GET /_cokret/self/events/subscribe`). The selector is
-    /// `spaces[]` ∪ `actors[]` repeated query args, and frames use top-level
+    /// Subscribe to the Event stream for one or more Realms / actors via
+    /// `ck.self.events.subscribe` (`GET /_cokret/self/events/subscribe`). The selector is
+    /// `realms[]` ∪ `actors[]` repeated query args, and frames use top-level
     /// `kind` with explicit control variants.
     ///
     /// Round C47 (spec e10b6ad): the response Content-Type is now
@@ -778,32 +778,32 @@ impl Client {
     /// up front instead of streaming a shape we cannot parse.
     pub async fn events_subscribe_stream(
         &self,
-        space_id: &str,
+        realm_id: &str,
         from: Option<&str>,
     ) -> Result<Response> {
         let mut builder = self
             .request(Method::GET, "/_cokret/self/events/subscribe")?
             .header("accept", "application/x-ndjson")
-            .query(&[("spaces", space_id)]);
+            .query(&[("realms", realm_id)]);
         if let Some(from) = from {
             builder = builder.query(&[("from", from)]);
         }
         self.send_response(builder).await
     }
 
-    /// Range-read Events via `ck.events.query` (`GET /_cokret/self/events/query`). Pass
+    /// Range-read Events via `ck.self.events.query` (`GET /_cokret/self/events/query`). Pass
     /// `direction=Some("backward")` for reverse traversal; `None` defaults to
     /// forward traversal.
     pub async fn events_query(
         &self,
-        space_id: &str,
+        realm_id: &str,
         from: Option<&str>,
         until: Option<&str>,
         direction: Option<&str>,
         limit: Option<u32>,
     ) -> Result<SyncBackfillResBody> {
         let mut builder =
-            self.request(Method::GET, "/_cokret/self/events/query")?.query(&[("spaces", space_id)]);
+            self.request(Method::GET, "/_cokret/self/events/query")?.query(&[("realms", realm_id)]);
         if let Some(from) = from {
             builder = builder.query(&[("from", from)]);
         }
@@ -819,14 +819,14 @@ impl Client {
         self.send_json(builder).await
     }
 
-    /// Submit a single signed Event Envelope via `ck.events.submit`
+    /// Submit a single signed Event Envelope via `ck.self.events.submit`
     /// (`POST /_cokret/self/events`). Wire body is the bare envelope per the OpenAPI
     /// `oneOf` first arm (`event-envelope.schema.json`).
     pub async fn events_submit(&self, event: &Event) -> Result<EventsSubmitResBody> {
         self.post("/_cokret/self/events", event).await
     }
 
-    /// Submit a batch of signed Event Envelopes via `ck.events.submit`
+    /// Submit a batch of signed Event Envelopes via `ck.self.events.submit`
     /// (`POST /_cokret/self/events`) using the `EventsSubmitBatchRequest` body shape.
     pub async fn events_submit_batch(&self, events: &[Event]) -> Result<EventsSubmitResBody> {
         #[derive(serde::Serialize)]
@@ -836,10 +836,10 @@ impl Client {
         self.post("/_cokret/self/events", &Batch { events }).await
     }
 
-    pub async fn snapshot_head(&self, space_id: &str) -> Result<SyncSnapshotHeadResBody> {
+    pub async fn snapshot_head(&self, realm_id: &str) -> Result<SyncSnapshotHeadResBody> {
         let builder = self
             .request(Method::GET, "/_cokret/self/snapshot/head")?
-            .query(&[("realm_id", space_id)]);
+            .query(&[("realm_id", realm_id)]);
         self.send_json(builder).await
     }
 
@@ -849,13 +849,13 @@ impl Client {
 
     pub async fn authz_effective_grants(
         &self,
-        space_id: &str,
+        realm_id: &str,
         subject: &str,
         at: Option<&str>,
     ) -> Result<EffectiveGrantsResBody> {
         let mut builder = self
             .request(Method::GET, "/_cokret/self/authz/effective-grants")?
-            .query(&[("space_id", space_id), ("subject", subject)]);
+            .query(&[("realm_id", realm_id), ("subject", subject)]);
         if let Some(at) = at {
             builder = builder.query(&[("at", at)]);
         }
@@ -865,14 +865,14 @@ impl Client {
     pub async fn authz_invites(
         &self,
         subject: &str,
-        space_id: Option<&str>,
+        realm_id: Option<&str>,
         cursor: Option<&str>,
     ) -> Result<AuthzInvitesResBody> {
         let mut builder = self
             .request(Method::GET, "/_cokret/self/authz/invites")?
             .query(&[("subject", subject)]);
-        if let Some(space_id) = space_id {
-            builder = builder.query(&[("space_id", space_id)]);
+        if let Some(realm_id) = realm_id {
+            builder = builder.query(&[("realm_id", realm_id)]);
         }
         if let Some(cursor) = cursor {
             builder = builder.query(&[("cursor", cursor)]);
@@ -1061,7 +1061,7 @@ impl Client {
         self.post("/_cokret/find/directory/resolve-realm", request).await
     }
 
-    /// R3.3 (CKP-0011, cokret-spec @ cced4b8) — `ck.directory.resolve_target`.
+    /// R3.3 (CKP-0011, cokret-spec @ cced4b8) — `ck.find.directory.resolve_target`.
     /// Resolve a client-agnostic shareable object address (Realm / Flow /
     /// Message) to a preview. The `address` and any `token` should be derived
     /// from [`cokret_core::model::parse_address`]; invite and preview tokens
@@ -1116,7 +1116,7 @@ impl Client {
         self.post("/_cokret/find/directory/resolve-handle", request).await
     }
 
-    /// R3.2 (cokret-spec @ b56cab1) — `ck.directory.list_handles_for_subject`.
+    /// R3.2 (cokret-spec @ b56cab1) — `ck.find.directory.list_handles_for_subject`.
     /// Known holder/principal DID → current visible handle claims. The
     /// response invariant `claims[].subject == subject` is enforced via
     /// [`DirectoryListHandlesForSubjectResBody::validate`] before returning.

@@ -6,7 +6,7 @@ use cokret_http_client::Client;
 
 use crate::{ProtocolKeyBackup, Result as SdkResult};
 
-/// Response for `ck.keys.backups.put`.
+/// Response for `ck.self.keys.backups.put`.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct KeyBackupPutResBody {
     pub status: String,
@@ -14,7 +14,7 @@ pub struct KeyBackupPutResBody {
     pub ciphertext_digest: String,
 }
 
-/// Response for `ck.keys.backups.list`.
+/// Response for `ck.self.keys.backups.list`.
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct KeyBackupListResBody {
     pub backups: Vec<ProtocolKeyBackup>,
@@ -115,7 +115,7 @@ mod tests {
             },
             contents: vec![crate::KeyBackupContentItem {
                 item_type: "recovery_secret".to_owned(),
-                space_id: None,
+                realm_id: None,
                 mls_group_id: None,
                 epoch: None,
                 first_event_id: None,

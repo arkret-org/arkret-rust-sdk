@@ -140,17 +140,17 @@ struct MemoryAnchorStoreInner {
 impl AnchorStore for MemoryAnchorStore {
     fn put(&self, a: &Anchor) -> StoreResult<()> {
         let mut inner = self.inner.lock().unwrap();
-        let Realm = a.realm_id.as_str().to_owned();
+        let realm = a.realm_id.as_str().to_owned();
         let id_str = a.id.as_str().to_owned();
         inner.anchors.insert(id_str, a.clone());
 
         // Genesis: first anchor with empty predecessors.
         if a.predecessor_refs.is_empty() {
-            inner.genesis.entry(Realm.clone()).or_insert_with(|| a.id.clone());
+            inner.genesis.entry(realm.clone()).or_insert_with(|| a.id.clone());
         }
 
         // Leaf set: remove all of `a.predecessor_refs` from leaves; add `a` as a new leaf.
-        let leaves = inner.leaves.entry(Realm).or_default();
+        let leaves = inner.leaves.entry(realm).or_default();
         leaves.retain(|leaf| !a.predecessor_refs.iter().any(|p| p == leaf));
         if !leaves.iter().any(|l| l == &a.id) {
             leaves.push(a.id.clone());
@@ -248,9 +248,9 @@ impl AnchorStore for MemoryAnchorStore {
         // Genesis: if we pruned the genesis (which only makes sense if a
         // child compaction replaces it), forget the genesis pointer — the
         // caller MUST set a new one explicitly when relevant.
-        let Realm = realm_id.as_str();
-        if inner.genesis.get(Realm).is_some_and(|g| g.as_str() == anchor_id.as_str()) {
-            inner.genesis.remove(Realm);
+        let realm = realm_id.as_str();
+        if inner.genesis.get(realm).is_some_and(|g| g.as_str() == anchor_id.as_str()) {
+            inner.genesis.remove(realm);
         }
 
         let rewired: Vec<AnchorId> =
@@ -267,20 +267,20 @@ pub struct MemoryCellStore {
 
 #[derive(Default)]
 struct MemoryCellStoreInner {
-    /// (Realm, cell) → ordered AnchoredOp list
+    /// (realm, cell) -> ordered AnchoredOp list
     cell_log: BTreeMap<(String, String), Vec<AnchoredOp>>,
-    /// (Realm, cell, view_hash) → CellState
+    /// (realm, cell, view_hash) -> CellState
     cache: BTreeMap<(String, String, String), CellState>,
     /// anchor → ops it appended (used for rollback)
-    anchor_ops: BTreeMap<String, Vec<(String, AnchoredOp)>>, // (Realm, cell), op
+    anchor_ops: BTreeMap<String, Vec<(String, AnchoredOp)>>, // (realm, cell), op
 }
 
 impl CellStore for MemoryCellStore {
     fn list_cells(&self, realm_id: &RealmId) -> StoreResult<Vec<CellRef>> {
         let inner = self.inner.lock().unwrap();
         let mut cells = Vec::new();
-        for (Realm, cell) in inner.cell_log.keys() {
-            if Realm == realm_id.as_str() {
+        for (realm, cell) in inner.cell_log.keys() {
+            if realm == realm_id.as_str() {
                 cells.push(
                     CellRef::new(cell.clone()).map_err(|e| StoreError::Backend(e.to_string()))?,
                 );
@@ -571,7 +571,7 @@ impl MemoryCellRegistry {
 }
 
 impl CellRegistry for MemoryCellRegistry {
-    fn resolve(&self, _space_id: &RealmId, cell: &CellRef) -> StoreResult<CellLatticeBinding> {
+    fn resolve(&self, _realm_id: &RealmId, cell: &CellRef) -> StoreResult<CellLatticeBinding> {
         // Parse "ck:cell:<family>:<subject>" — family is between the 2nd and 3rd colons.
         let cell_id = crate::CellId::parse(cell.as_str())
             .map_err(|e| StoreError::Backend(format!("invalid cell ref: {e}")))?;

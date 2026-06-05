@@ -441,7 +441,7 @@ pub struct RywFrontier {
 /// Issued by an Events API node, witness, or peer Principal Server to
 /// confirm a `ck.audit.accessed` envelope reached `accepted`. The Audit
 /// Agent MUST gate plaintext release on receiving a receipt that meets
-/// the Space's declared `audit_assurance`.
+/// the Realm's declared `audit_assurance`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AuditRywReceipt {
@@ -451,7 +451,7 @@ pub struct AuditRywReceipt {
     pub issuer_role: RywIssuerRole,
     pub audit_event_id: EventId,
     pub audit_event_digest: Hash,
-    pub space_id: RealmId,
+    pub realm_id: RealmId,
     /// Round 4 (2026-05-20, spec a77b995) — REQUIRED trust domain
     /// binding. Mixed into the canonical `audit_policy_version_digest`
     /// 4-tuple so receipts cannot be replayed across deployments.
@@ -653,7 +653,7 @@ pub struct ErasureSubject {
 pub struct ErasureScope {
     pub storage_boundary: ErasureStorageBoundary,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<RealmId>,
+    pub realm_id: Option<RealmId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub target_refs: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

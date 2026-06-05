@@ -329,7 +329,7 @@ pub fn build_key_backup_envelope(
         .iter()
         .map(|(item_type, secret_id)| KeyBackupContentItem {
             item_type: (*item_type).to_owned(),
-            space_id: None,
+            realm_id: None,
             mls_group_id: None,
             epoch: None,
             first_event_id: None,

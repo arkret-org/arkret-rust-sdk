@@ -122,60 +122,60 @@ fn fixture_operations(flow: ProtocolFixtureFlow) -> &'static [&'static str] {
     match flow {
         ProtocolFixtureFlow::Server => &["ck.server.describe"],
         ProtocolFixtureFlow::Identity => &[
-            "ck.identity.describe_registry",
-            "ck.identity.resolve",
-            "ck.identity.get_document",
-            "ck.identity.get_log",
-            "ck.identity.submit_did_operation",
-            "ck.identity.get_receipts",
+            "ck.root.identity.describe_registry",
+            "ck.root.identity.resolve",
+            "ck.root.identity.get_document",
+            "ck.root.identity.get_log",
+            "ck.root.identity.submit_did_operation",
+            "ck.root.identity.get_receipts",
         ],
         ProtocolFixtureFlow::Sync => &[
-            "ck.account.describe",
-            "ck.account.subscribe",
-            "ck.account.cursor_revoke",
-            "ck.events.describe",
-            "ck.events.submit",
-            "ck.events.get",
-            "ck.events.resolve",
-            "ck.events.frontier",
-            "ck.events.subscribe",
-            "ck.events.query",
-            "ck.snapshot.head",
+            "ck.self.account.describe",
+            "ck.self.account.subscribe",
+            "ck.self.account.cursor_revoke",
+            "ck.self.events.describe",
+            "ck.self.events.submit",
+            "ck.self.events.get",
+            "ck.self.events.resolve",
+            "ck.self.events.frontier",
+            "ck.self.events.subscribe",
+            "ck.self.events.query",
+            "ck.self.snapshot.head",
         ],
-        ProtocolFixtureFlow::Blob => &["ck.blob.upload", "ck.blob.head", "ck.blob.get"],
+        ProtocolFixtureFlow::Blob => &["ck.self.blob.upload", "ck.self.blob.head", "ck.self.blob.get"],
         ProtocolFixtureFlow::Authz => {
-            &["ck.authz.get_effective_grants", "ck.authz.get_invites", "ck.authz.check"]
+            &["ck.self.authz.get_effective_grants", "ck.self.authz.get_invites", "ck.self.authz.check"]
         }
         ProtocolFixtureFlow::Directory => &[
-            "ck.directory.describe",
-            "ck.directory.search_realms",
-            "ck.directory.resolve_realm",
-            "ck.directory.search_organizations",
-            "ck.directory.resolve_organization",
-            "ck.directory.search_actors",
-            "ck.directory.search_users",
-            "ck.directory.resolve_handle",
-            "ck.directory.push.register",
+            "ck.find.directory.describe",
+            "ck.find.directory.search_realms",
+            "ck.find.directory.resolve_realm",
+            "ck.find.directory.search_organizations",
+            "ck.find.directory.resolve_organization",
+            "ck.find.directory.search_actors",
+            "ck.find.directory.search_users",
+            "ck.find.directory.resolve_handle",
+            "ck.find.directory.push.register",
         ],
         ProtocolFixtureFlow::Push => {
-            &["ck.push.register_device", "ck.push.unregister_device", "ck.push.notify"]
+            &["ck.edge.push.register_device", "ck.edge.push.unregister_device", "ck.edge.push.notify"]
         }
         ProtocolFixtureFlow::DeviceMessages => {
-            &["ck.device_messages.put", "ck.device_messages.get"]
+            &["ck.self.device_messages.put", "ck.self.device_messages.get"]
         }
-        ProtocolFixtureFlow::Keys => &["ck.keys.upload", "ck.keys.query", "ck.keys.claim"],
-        ProtocolFixtureFlow::Policy => &["ck.policy.check"],
-        ProtocolFixtureFlow::Media => &["ck.media.ice_config"],
-        ProtocolFixtureFlow::Moderation => &["ck.moderation.report"],
+        ProtocolFixtureFlow::Keys => &["ck.self.keys.upload", "ck.self.keys.query", "ck.self.keys.claim"],
+        ProtocolFixtureFlow::Policy => &["ck.self.policy.check"],
+        ProtocolFixtureFlow::Media => &["ck.self.media.ice_config"],
+        ProtocolFixtureFlow::Moderation => &["ck.self.moderation.report"],
         ProtocolFixtureFlow::Applet => &[
-            "ck.applet.ping",
-            "ck.applet.describe",
-            "ck.applet.transaction",
-            "ck.applet.resolve_actor",
-            "ck.applet.resolve_realm",
-            "ck.applet.protocol_metadata",
-            "ck.applet.third_party_users",
-            "ck.applet.third_party_locations",
+            "ck.edge.applet.ping",
+            "ck.edge.applet.describe",
+            "ck.edge.applet.transaction",
+            "ck.edge.applet.resolve_actor",
+            "ck.edge.applet.resolve_realm",
+            "ck.edge.applet.protocol_metadata",
+            "ck.edge.applet.third_party_users",
+            "ck.edge.applet.third_party_locations",
         ],
     }
 }

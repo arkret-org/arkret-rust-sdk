@@ -77,7 +77,7 @@ impl MoveSigner for Ed25519MoveSigner {
         Ok(Move {
             id,
             issuer: unsigned.issuer.clone(),
-            space_id: unsigned.space_id.clone(),
+            realm_id: unsigned.realm_id.clone(),
             preconditions: unsigned.preconditions.clone(),
             effects: unsigned.effects.clone(),
             anchor_ref: unsigned.anchor_ref.clone(),

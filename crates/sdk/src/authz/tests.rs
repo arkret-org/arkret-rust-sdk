@@ -519,7 +519,7 @@ fn policy_server_denies_quarantines_and_reports_moderation_outcomes() {
     let grant =
         grant_for("post", message_selector("ck:space:01904100-0000-7000-8000-1a412919cd4b"));
     let policy = PolicyCheckResBody {
-        operation: "ck.policy.check".to_owned(),
+        operation: "ck.self.policy.check".to_owned(),
         effect: PolicyServerEffect::Quarantine,
         reason: "possible abuse".to_owned(),
         policy_id: Some("policy-abuse".to_owned()),

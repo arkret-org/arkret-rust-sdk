@@ -78,7 +78,7 @@ pub enum EventsFrontierResponse {
 
 /// Round 4 (commit 7446832) — typed binding reference for federation
 /// transport. All six fields REQUIRED. Carried inside
-/// `ck.events.submit` (federation variant) and the
+/// `ck.self.events.submit` (federation variant) and the
 /// `events/frontier` federation-peer response so a receiver can verify
 /// the request is bound to the sender's current reducer state.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

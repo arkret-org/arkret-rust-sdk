@@ -525,12 +525,12 @@ pub fn event_taxonomy_vectors() -> Result<Vec<EventTaxonomyVector>> {
 }
 
 pub fn state_resolution_vectors() -> Result<Vec<StateResolutionVector>> {
-    let space_id = RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a")?;
+    let realm_id = RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a")?;
     let cell = CellRef::new("ck:cell:ck.component.member.state.v1:did.web.bob.example".to_owned())
         .map_err(|e| Error::Protocol(format!("invalid cell ref: {e}")))?;
 
     // Build a Move that transitions Bob's membership cell from `invited` to `join`.
-    let move_obj = build_membership_move(&space_id, &cell, "invited", "join")?;
+    let move_obj = build_membership_move(&realm_id, &cell, "invited", "join")?;
 
     let moves = MemoryMoveStore::default();
     let anchors = MemoryAnchorStore::default();
@@ -545,12 +545,12 @@ pub fn state_resolution_vectors() -> Result<Vec<StateResolutionVector>> {
     let expected_root = compute_state_root(&expected)?;
 
     let empty_root = Hash::new(cokret_core::EMPTY_STATE_ROOT.to_owned())?;
-    let genesis = build_anchor(&space_id, &[], &[], &empty_root)?;
+    let genesis = build_anchor(&realm_id, &[], &[], &empty_root)?;
     apply_anchor(&genesis, &moves, &anchors, &cells, &registry, |_, _, _, _| Ok::<(), String>(()))
         .map_err(|e| Error::Protocol(format!("apply_genesis_anchor: {e}")))?;
 
     let anchor = build_anchor(
-        &space_id,
+        &realm_id,
         std::slice::from_ref(&genesis.id),
         std::slice::from_ref(&move_obj.id),
         &expected_root,
@@ -569,10 +569,10 @@ pub fn state_resolution_vectors() -> Result<Vec<StateResolutionVector>> {
     }])
 }
 
-fn build_membership_move(space_id: &RealmId, cell: &CellRef, from: &str, to: &str) -> Result<Move> {
+fn build_membership_move(realm_id: &RealmId, cell: &CellRef, from: &str, to: &str) -> Result<Move> {
     let body = json!({
         "issuer": "did:web:admin.example",
-        "space_id": space_id.as_str(),
+        "realm_id": realm_id.as_str(),
         "preconditions": [],
         "effects": [{
             "cell": cell.as_str(),
@@ -609,7 +609,7 @@ fn build_membership_move(space_id: &RealmId, cell: &CellRef, from: &str, to: &st
 }
 
 fn build_anchor(
-    space_id: &RealmId,
+    realm_id: &RealmId,
     predecessor_refs: &[AnchorId],
     frontier: &[MoveId],
     state_root: &Hash,
@@ -627,7 +627,7 @@ fn build_anchor(
     let mut a = Anchor {
         id: AnchorId::new(format!("ck:anchor:sha256:{}", "00".repeat(32)))
             .map_err(|e| Error::Protocol(format!("anchor id: {e}")))?,
-        realm_id: space_id.clone(),
+        realm_id: realm_id.clone(),
         predecessor_refs: predecessor_refs.to_vec(),
         frontier: frontier.to_vec(),
         state_root: state_root.clone(),
@@ -680,8 +680,8 @@ mod tests {
         ] {
             assert!(report.covers_domain(domain.clone()), "{domain:?}");
         }
-        assert!(report.operation_ids().contains("ck.events.submit"));
-        assert!(report.operation_ids().contains("ck.identity.resolve"));
+        assert!(report.operation_ids().contains("ck.self.events.submit"));
+        assert!(report.operation_ids().contains("ck.root.identity.resolve"));
         assert!(report.operation_ids().contains("ck.crypto.machine_request"));
         assert!(report.operation_ids().contains("ck.ui.timeline_projection"));
         assert!(report.operation_ids().contains("ck.ffi.wasm_runtime"));

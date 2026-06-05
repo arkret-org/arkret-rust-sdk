@@ -68,13 +68,13 @@ than a version stamp — see [`CHANGELOG.md`](../../CHANGELOG.md).
 
 - New helper `call_media_token_exchange(realm_id, call_id, actor_id,
   device_id, focus_id) -> MediaTokenResponse`.
-- `ck.agent.deactivate` HTTP path is now
+- `ck.self.agent.deactivate` HTTP path is now
   `POST /agents/{agent_principal_id}/deactivate`; the historical `/revoke`
   alias is gone. Grep gate in the completion checklist enforces this.
 
 ### Server (`crates/server/`)
 
-- Operation registry adds `ck.call.media.token_exchange`
+- Operation registry adds `ck.self.call.media.token_exchange`
   (`POST /rtc/token`, `CallMedia/TokenExchange`,
   `call.media.token_exchange`) to the `core_personal` surface tier.
 - Agent runtime tier surface declared:
@@ -120,7 +120,7 @@ relaxed validators would have let through.
 The `spec-drift` job in `.github/workflows/ci.yml` (informational; named
 `spec artifact drift report` and referred to as **`spec-drift-report`** in
 the plan docs) was extended to cover the new event kinds, the new
-`ck.call.media.token_exchange` operation, and the new profiles. See
+`ck.self.call.media.token_exchange` operation, and the new profiles. See
 [`docs/architecture.md`](../architecture.md#spec-drift-coverage-ci) for the
 coverage description and the "how to re-add this job" runbook.
 

@@ -200,21 +200,40 @@ pub struct SessionPrincipalBinding {
     pub expires_at: DateTime<Utc>,
 }
 
-/// Canonical event kinds for the principal control space
+/// Canonical event kinds for the principal control Realm
 /// (`key-management.md` §4.1). These events MUST be written into the
-/// principal's dedicated control space; resolvers and federation peers
-/// MUST refuse them in any other Space.
+/// principal's dedicated control Realm; resolvers and federation peers
+/// MUST refuse them in any other Realm.
 pub const CX_DEVICE_AUTHORIZED: &str = "ck.device.authorize";
 pub const CX_DEVICE_REVOKED: &str = "ck.device.revoke";
 pub const CX_SESSION_GRANT: &str = "ck.session.grant";
 
-/// Derive the canonical principal control space ID from a principal DID.
+/// Derive the canonical principal control Realm ID from a principal DID.
 ///
-/// The format is `ck:space:control:<did>`; downstream code MUST treat
-/// this as opaque. This space holds the principal's device ledger, key
+/// The format is deterministic under the `ck:realm:` namespace; downstream code MUST treat
+/// this as opaque. This Realm holds the principal's device ledger, key
 /// log, and session grants.
-pub fn principal_control_space_id(principal_id: &Did) -> String {
-    format!("ck:space:control:{}", principal_id.as_str())
+pub fn principal_control_realm_id(principal_id: &Did) -> String {
+    use sha2::{Digest, Sha256};
+
+    let mut hasher = Sha256::new();
+    hasher.update(b"ck:realm:principal-control:v1:");
+    hasher.update(principal_id.as_str().as_bytes());
+    let digest = hasher.finalize();
+    let mut bytes = [0u8; 16];
+    bytes.copy_from_slice(&digest[..16]);
+    bytes[6] = (bytes[6] & 0x0F) | 0x70;
+    bytes[8] = (bytes[8] & 0x3F) | 0x80;
+    let group =
+        |slice: &[u8]| -> String { slice.iter().map(|b| format!("{b:02x}")).collect::<String>() };
+    format!(
+        "ck:realm:{}-{}-{}-{}-{}",
+        group(&bytes[0..4]),
+        group(&bytes[4..6]),
+        group(&bytes[6..8]),
+        group(&bytes[8..10]),
+        group(&bytes[10..16])
+    )
 }
 
 /// Returns `true` when `event_kind` MUST be pinned to a principal
@@ -224,23 +243,23 @@ pub fn is_principal_control_event(event_kind: &str) -> bool {
 }
 
 /// Validate that a control event is being submitted under the correct
-/// space. Returns `Err(Error::Protocol("control_space_mismatch"))` when
-/// `event_kind` MUST live in the principal control space but the
-/// `space_id` does not match.
-pub fn assert_control_space_pinning(
+/// Realm. Returns `Err(Error::Protocol("principal_control_realm_mismatch"))` when
+/// `event_kind` MUST live in the principal control Realm but the
+/// `realm_id` does not match.
+pub fn assert_control_realm_pinning(
     event_kind: &str,
     principal_id: &Did,
-    space_id: &str,
+    realm_id: &str,
 ) -> Result<()> {
     if !is_principal_control_event(event_kind) {
         return Ok(());
     }
-    let expected = principal_control_space_id(principal_id);
-    if space_id == expected {
+    let expected = principal_control_realm_id(principal_id);
+    if realm_id == expected {
         Ok(())
     } else {
         Err(Error::Protocol(format!(
-            "control_space_mismatch: '{event_kind}' must be pinned to '{expected}', got '{space_id}'"
+            "principal_control_realm_mismatch: '{event_kind}' must be pinned to '{expected}', got '{realm_id}'"
         )))
     }
 }

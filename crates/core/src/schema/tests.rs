@@ -282,7 +282,7 @@ fn profile_requirement_drift_reports_missing_sdk_constants() {
     profile_requirements.insert(
         crate::PROFILE_DIRECTORY_SERVICE.to_owned(),
         json!({
-            "required_endpoints": ["ck.directory.search_realms", "ck.missing.operation"],
+            "required_endpoints": ["ck.find.directory.search_realms", "ck.missing.operation"],
             "required_event_kinds": ["ck.realm.discovery"],
             "required_schemas": ["ck.schema.actor_profile.v1"]
         }),

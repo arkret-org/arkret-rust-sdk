@@ -4,32 +4,34 @@ use super::*;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Resource {
-    /// Space resource
+    /// Realm resource.
+    Realm { realm_id: String },
+    /// Space resource.
     Space { space_id: String },
     /// Flow resource
-    Flow { space_id: String, flow_id: String },
+    Flow { realm_id: String, flow_id: String },
     /// Message resource.
-    Message { space_id: String, message_id: String },
+    Message { realm_id: String, message_id: String },
     /// Relation resource
-    Relation { space_id: String, relation_kind: String },
+    Relation { realm_id: String, relation_kind: String },
     /// View resource
-    View { space_id: String, view_id: String },
+    View { realm_id: String, view_id: String },
     /// Schema resource
-    Schema { space_id: String, schema_id: String },
+    Schema { realm_id: String, schema_id: String },
     /// Policy resource
-    Policy { space_id: String, policy_id: String },
+    Policy { realm_id: String, policy_id: String },
     /// Invite resource
-    Invite { space_id: String, invite_id: String },
+    Invite { realm_id: String, invite_id: String },
     /// Read marker resource
-    ReadCursor { space_id: String },
+    ReadCursor { realm_id: String },
     /// Morph resource (canonical open-typed object).
-    Morph { space_id: String, morph_id: String, morph_type: String },
+    Morph { realm_id: String, morph_id: String, morph_type: String },
     /// Notification resource (per-actor private channel).
     Notification { actor_id: String, notification_id: String },
-    /// Blob resource. `space_id` may be `*` for global blobs.
-    Blob { space_id: String, blob_id: String },
+    /// Blob resource. `realm_id` may be `*` for global blobs.
+    Blob { realm_id: String, blob_id: String },
     /// Event resource (audit / redaction / state-resolution targets).
-    Event { space_id: String, event_kind: String, event_id: String },
+    Event { realm_id: String, event_kind: String, event_id: String },
     /// Actor resource (account-lifecycle, profile updates).
     Actor { actor_id: String },
     /// Circle resource.
@@ -37,24 +39,27 @@ pub enum Resource {
 }
 
 impl Resource {
-    /// Get the space ID for this resource. Returns the wildcard string for
-    /// non-Space-bound resources (Notification, Actor) so callers retain a
+    /// Get the Realm ID for this resource. Returns the wildcard string for
+    /// non-Realm-bound resources (Space, Notification, Actor) so callers retain a
     /// consistent shape.
-    pub fn space_id(&self) -> &str {
+    pub fn realm_id(&self) -> &str {
         match self {
-            Self::Space { space_id } => space_id,
-            Self::Flow { space_id, .. } => space_id,
-            Self::Message { space_id, .. } => space_id,
-            Self::Relation { space_id, .. } => space_id,
-            Self::View { space_id, .. } => space_id,
-            Self::Schema { space_id, .. } => space_id,
-            Self::Policy { space_id, .. } => space_id,
-            Self::Invite { space_id, .. } => space_id,
-            Self::ReadCursor { space_id } => space_id,
-            Self::Morph { space_id, .. } => space_id,
-            Self::Blob { space_id, .. } => space_id,
-            Self::Event { space_id, .. } => space_id,
-            Self::Notification { .. } | Self::Actor { .. } | Self::Circle { .. } => "*",
+            Self::Realm { realm_id } => realm_id,
+            Self::Flow { realm_id, .. } => realm_id,
+            Self::Message { realm_id, .. } => realm_id,
+            Self::Relation { realm_id, .. } => realm_id,
+            Self::View { realm_id, .. } => realm_id,
+            Self::Schema { realm_id, .. } => realm_id,
+            Self::Policy { realm_id, .. } => realm_id,
+            Self::Invite { realm_id, .. } => realm_id,
+            Self::ReadCursor { realm_id } => realm_id,
+            Self::Morph { realm_id, .. } => realm_id,
+            Self::Blob { realm_id, .. } => realm_id,
+            Self::Event { realm_id, .. } => realm_id,
+            Self::Space { .. }
+            | Self::Notification { .. }
+            | Self::Actor { .. }
+            | Self::Circle { .. } => "*",
         }
     }
 }

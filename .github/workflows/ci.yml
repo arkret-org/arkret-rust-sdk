@@ -140,7 +140,7 @@ jobs:
     # entries the SDK declares but the spec no longer ships.
     # R3 sync (spec @ b47ff6ec): coverage extended to the new agent event
     # kinds (ck.agent.draft.propose, ck.agent.action_request,
-    # cx.agent.action_{approve,reject}), the ck.call.media.token_exchange
+    # cx.agent.action_{approve,reject}), the ck.self.call.media.token_exchange
     # operation, and the new media-service-binding / accountable_to.strict_reject
     # profiles. See docs/architecture.md#spec-drift-coverage-ci for the runbook.
     continue-on-error: true

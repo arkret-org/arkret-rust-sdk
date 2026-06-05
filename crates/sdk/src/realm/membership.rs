@@ -37,7 +37,7 @@ impl Realm {
     /// Build an invite operation from a validated
     /// [`MemberDeliveryBindingCandidate`].
     ///
-    /// The candidate MUST come from `ck.directory.resolve_handle(intent="invite")`
+    /// The candidate MUST come from `ck.find.directory.resolve_handle(intent="invite")`
     /// or a trusted issuer's signed payload. Per `identity-handles.md` §3.7
     /// the SDK only accepts a candidate or an already-materialised
     /// [`MemberDeliveryBinding`] at this entry point. The candidate is

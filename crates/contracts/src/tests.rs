@@ -63,7 +63,7 @@ fn push_bridge_describe_serde_shape_is_stable() {
         },
         "notify": {
             "notify_path": "/_cokret/edge/push/notify",
-            "operation_id": "ck.push.notify",
+            "operation_id": "ck.edge.push.notify",
             "request_id_header": "X-Cokret-Request-Id",
             "idempotency_key_header": "X-Cokret-Idempotency-Key",
             "origin_service_did_header": "X-Cokret-Origin-Service-Did",

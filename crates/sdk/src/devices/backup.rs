@@ -216,7 +216,7 @@ impl TryFrom<KeyBackupEncryptionWire> for KeyBackupEncryption {
 pub struct KeyBackupContentItem {
     pub item_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<String>,
+    pub realm_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mls_group_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

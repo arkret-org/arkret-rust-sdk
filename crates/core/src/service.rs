@@ -71,8 +71,8 @@ impl ServiceType {
                 "ck.admin.",
                 "ck.moderation.",
             ],
-            Self::IdentityRegistry => &["ck.identity.", "ck.directory.resolve_handle"],
-            Self::AuthServer => &["ck.account.", "ck.identity.resolve"],
+            Self::IdentityRegistry => &["ck.identity.", "ck.find.directory.resolve_handle"],
+            Self::AuthServer => &["ck.account.", "ck.root.identity.resolve"],
             Self::SyncNode => &["ck.sync.", "ck.events."],
             Self::BlobNode | Self::MediaService => &["ck.blob.", "ck.media."],
             Self::DirectoryService => &["ck.directory."],
@@ -83,7 +83,7 @@ impl ServiceType {
             Self::AppletService => &["ck.applet."],
             Self::AgentRuntime => &["ck.applet.", "ck.agent."],
             Self::SfuService => &["ck.media.", "ck.webrtc."],
-            Self::TurnService => &["ck.media.ice_config"],
+            Self::TurnService => &["ck.self.media.ice_config"],
             Self::ModerationService => &["ck.moderation.", "ck.admin.get_moderation_queue"],
         }
     }
@@ -226,7 +226,7 @@ pub struct HttpTraceMetadata {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_id: Option<RealmId>,
+    pub realm_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub operation_id: Option<OperationId>,
 }
@@ -384,7 +384,7 @@ mod tests {
             protocol_version: "1.0".to_owned(),
             supported_profiles: vec![crate::PROFILE_DIRECTORY_SERVICE.to_owned()],
             supported_features: vec![],
-            supported_operations: vec!["ck.directory.search_realms".to_owned()],
+            supported_operations: vec!["ck.find.directory.search_realms".to_owned()],
             supported_bindings: vec![],
             auth_metadata: Value::Null,
             limits: Value::Null,
@@ -412,7 +412,7 @@ mod tests {
             .profile(crate::PROFILE_DIRECTORY_SERVICE)
             .reducer_profile("ck.reducer.v1")
             .schema_profile("ck.schema.core.v1")
-            .operation("ck.directory.search_realms")
+            .operation("ck.find.directory.search_realms")
             .verify(&description)
             .unwrap();
     }
@@ -424,7 +424,7 @@ mod tests {
             service_did: service_did.clone(),
             service_type: ServiceType::DirectoryService,
             endpoint: "https://svc.example/_cokret/find/directory".to_owned(),
-            operations: vec!["ck.directory.search_realms".to_owned()],
+            operations: vec!["ck.find.directory.search_realms".to_owned()],
         });
         let description = ServerDescription {
             service_did,
@@ -433,7 +433,7 @@ mod tests {
             protocol_version: "1.0".to_owned(),
             supported_profiles: vec![],
             supported_features: vec![],
-            supported_operations: vec!["ck.directory.search_realms".to_owned()],
+            supported_operations: vec!["ck.find.directory.search_realms".to_owned()],
             supported_bindings: vec![],
             auth_metadata: Value::Null,
             limits: Value::Null,
@@ -463,7 +463,7 @@ mod tests {
             request_id: Some("req_123".to_owned()),
             actor_id: Some(Did::new("did:web:alice.example").unwrap()),
             device_id: None,
-            space_id: Some(RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()),
+            realm_id: Some(RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap()),
             operation_id: None,
         };
         let not_found = privacy_preserving_not_found(Some(trace));

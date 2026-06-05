@@ -702,7 +702,7 @@ per_subject_lattice!(
     BottomPolicy::Reject,
     Criticality::Required,
     "agent_principal_id",
-    &["ck.agent.pause", "ck.agent.resume", "ck.agent.deactivate"]
+    &["ck.self.agent.pause", "ck.self.agent.resume", "ck.self.agent.deactivate"]
 );
 
 pub struct CircleMember;

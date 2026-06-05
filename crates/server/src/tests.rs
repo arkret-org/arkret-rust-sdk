@@ -27,29 +27,29 @@ fn service_route_registry_matches_required_spec_operations() {
         .map(|route| (route.operation_id, route.path))
         .collect::<BTreeMap<_, _>>();
     for (operation_id, path) in [
-        ("ck.identity.resolve", "/_cokret/root/identity/resolve"),
-        ("ck.account.subscribe", "/_cokret/self/account/subscribe"),
-        ("ck.account.describe", "/_cokret/self/account/describe"),
-        ("ck.events.describe", "/_cokret/self/events/describe"),
-        ("ck.events.submit", "/_cokret/self/events"),
-        ("ck.events.get", "/_cokret/self/events/{event_id}"),
-        ("ck.events.resolve", "/_cokret/self/events/resolve"),
-        ("ck.events.frontier", "/_cokret/self/events/frontier"),
-        ("ck.events.subscribe", "/_cokret/self/events/subscribe"),
-        ("ck.events.query", "/_cokret/self/events/query"),
+        ("ck.root.identity.resolve", "/_cokret/root/identity/resolve"),
+        ("ck.self.account.subscribe", "/_cokret/self/account/subscribe"),
+        ("ck.self.account.describe", "/_cokret/self/account/describe"),
+        ("ck.self.events.describe", "/_cokret/self/events/describe"),
+        ("ck.self.events.submit", "/_cokret/self/events"),
+        ("ck.self.events.get", "/_cokret/self/events/{event_id}"),
+        ("ck.self.events.resolve", "/_cokret/self/events/resolve"),
+        ("ck.self.events.frontier", "/_cokret/self/events/frontier"),
+        ("ck.self.events.subscribe", "/_cokret/self/events/subscribe"),
+        ("ck.self.events.query", "/_cokret/self/events/query"),
         (
-            "ck.directory.private_contact_discovery",
+            "ck.find.directory.private_contact_discovery",
             "/_cokret/find/directory/private-contact-discovery",
         ),
-        ("ck.blob.upload", "/_cokret/self/blob/upload"),
-        ("ck.push.register_device", "/_cokret/edge/push/register-device"),
-        ("ck.keys.keypackages.claim", "/_cokret/self/keys/keypackages/claim"),
-        ("ck.authz.check", "/_cokret/self/authz/check"),
-        ("ck.policy.check", "/_cokret/self/policy/check"),
-        ("ck.mimi.room_update", "/_cokret/open/mimi/flows/{flow_id}/update"),
-        ("ck.account.issue_session_grant", "/_cokret/gate/account/session-grants"),
+        ("ck.self.blob.upload", "/_cokret/self/blob/upload"),
+        ("ck.edge.push.register_device", "/_cokret/edge/push/register-device"),
+        ("ck.self.keys.keypackages.claim", "/_cokret/self/keys/keypackages/claim"),
+        ("ck.self.authz.check", "/_cokret/self/authz/check"),
+        ("ck.self.policy.check", "/_cokret/self/policy/check"),
+        ("ck.open.mimi.room_update", "/_cokret/open/mimi/flows/{flow_id}/update"),
+        ("ck.gate.account.issue_session_grant", "/_cokret/gate/account/session-grants"),
         ("ck.admin.revoke_device", "/_cokret/local/admin/devices/{device_id}/revoke"),
-        ("ck.applet.transaction", "/_cokret/edge/applet/transactions"),
+        ("ck.edge.applet.transaction", "/_cokret/edge/applet/transactions"),
     ] {
         assert_eq!(actual.get(operation_id), Some(&path), "{operation_id}");
     }
@@ -92,11 +92,11 @@ fn protocol_server_fixture_covers_core_flow_groups() {
     }
     assert!(
         report.steps.iter().any(
-            |step| step.flow == ProtocolFixtureFlow::Blob && step.operation_id == "ck.blob.get"
+            |step| step.flow == ProtocolFixtureFlow::Blob && step.operation_id == "ck.self.blob.get"
         )
     );
     assert!(report.steps.iter().any(|step| {
-        step.flow == ProtocolFixtureFlow::Sync && step.operation_id == "ck.events.submit"
+        step.flow == ProtocolFixtureFlow::Sync && step.operation_id == "ck.self.events.submit"
     }));
 }
 
@@ -154,5 +154,5 @@ fn framework_independent_handler_shape_can_be_mocked() {
     let ServerResBody::ServerDescription(description) = response else {
         panic!("unexpected response");
     };
-    assert!(description.supported_operations.contains(&"ck.account.subscribe".to_owned()));
+    assert!(description.supported_operations.contains(&"ck.self.account.subscribe".to_owned()));
 }

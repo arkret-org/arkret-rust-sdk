@@ -13,9 +13,9 @@ pub const AGENT_KEY_REVOKED: &str = AGENT_KEY_REVOKE;
 pub const AGENT_KEY_ROTATED: &str = AGENT_KEY_ROTATE;
 // CKP-0008 / CKP-0009 (spec head 37ce729) — personal-agent lifecycle event
 // kinds (durable, reducer-input).
-pub const AGENT_PAUSE: &str = "ck.agent.pause";
-pub const AGENT_RESUME: &str = "ck.agent.resume";
-pub const AGENT_DEACTIVATE: &str = "ck.agent.deactivate";
+pub const AGENT_PAUSE: &str = "ck.self.agent.pause";
+pub const AGENT_RESUME: &str = "ck.self.agent.resume";
+pub const AGENT_DEACTIVATE: &str = "ck.self.agent.deactivate";
 // CKP-0008 / CKP-0009 — agent action / draft event kinds (actor_private).
 pub const AGENT_DRAFT_PROPOSE: &str = "ck.agent.draft.propose";
 pub const AGENT_ACTION_REQUEST: &str = "ck.agent.action_request";
@@ -112,7 +112,7 @@ pub const MODERATION_DECISION: &str = "ck.moderation.decision";
 pub const MODERATION_DECISION_LIFT: &str = "ck.moderation.decision.lift";
 pub const MODERATION_FRANKING_PROOF: &str = "ck.moderation.franking_proof";
 pub const MODERATION_FRANK: &str = MODERATION_FRANKING_PROOF;
-pub const MODERATION_REPORT: &str = "ck.moderation.report";
+pub const MODERATION_REPORT: &str = "ck.self.moderation.report";
 
 /// Object-only schema id — `ck.event_batch_receipt` is NOT an Event.kind.
 /// Returns `true` for kinds that may only appear as a separate object,
@@ -123,7 +123,7 @@ pub const RECEIPT_OBJECT_KINDS: &[&str] = &["ck.event_batch_receipt"];
 /// Round R2/R3 (2026-05-20). Items here MUST NOT be reduced into durable
 /// state, MUST NOT advance Anchor frontier or Move state_root, MUST NOT
 /// carry preconditions/effects/anchor_ref, and MUST NOT be submitted via
-/// `ck.events.submit`. See zh/sync/operations-sync.md §3.6 and
+/// `ck.self.events.submit`. See zh/sync/operations-sync.md §3.6 and
 /// schemas/ephemeral-envelope.schema.json (the 4 broadcast forms) and
 /// schemas/device-message.schema.json (the to-device key.verification forms).
 pub const EPHEMERAL_EVENT_KIND_PATTERNS: &[&str] = &[

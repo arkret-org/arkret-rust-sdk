@@ -90,9 +90,9 @@ impl LatticeKind {
                 "ck.member.state",
                 // CKP-0008 / CKP-0009 (R3 spec-sync 2026-05-27) — personal-agent
                 // lifecycle is an FSM with bottom=reject; deactivate is terminal.
-                "ck.agent.pause",
-                "ck.agent.resume",
-                "ck.agent.deactivate",
+                "ck.self.agent.pause",
+                "ck.self.agent.resume",
+                "ck.self.agent.deactivate",
             ],
             Self::Counter => &[],
             Self::OrderedLog => {

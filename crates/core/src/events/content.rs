@@ -131,11 +131,11 @@ pub enum KnownEventContent {
     ReadMarker(ReadMarkerContent),
     Presence(PresenceContent),
     TransientDevice(TransientDeviceContent),
-    DirectSpaces(DirectSpacesContent),
+    DirectRealms(DirectRealmsContent),
     IgnoredUsers(IgnoredUsersContent),
     RecentEmoji(RecentEmojiContent),
     Draft(DraftContent),
-    SpaceSettings(SpaceSettingsContent),
+    RealmSettings(RealmSettingsContent),
     Encrypted(EncryptedContent),
     RoomKey(RoomKeyContent),
     ForwardedRoomKey(ForwardedRoomKeyContent),
@@ -767,9 +767,9 @@ pub struct TransientDeviceContent {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DirectSpacesContent {
+pub struct DirectRealmsContent {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub spaces_by_user: BTreeMap<Did, Vec<RealmId>>,
+    pub realms_by_user: BTreeMap<Did, Vec<RealmId>>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -793,8 +793,8 @@ pub struct DraftContent {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct SpaceSettingsContent {
-    pub space_id: RealmId,
+pub struct RealmSettingsContent {
+    pub realm_id: RealmId,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub settings: BTreeMap<String, Value>,
 }
@@ -815,10 +815,10 @@ pub struct EncryptedContent {
 // `RoomKeyContent` / `ForwardedRoomKeyContent` model the Matrix-shaped
 // `ck.keys.room_key` / `ck.keys.forwarded_room_key` device-message
 // payloads. These exist purely as a compat surface for clients bridging
-// to Matrix / MIMI E2EE sessions — the v1 native concept is the Space,
+// to Matrix / MIMI E2EE sessions — the v1 native concept is the Realm,
 // not a Room. The `room_id` field name is retained verbatim because the
 // wire schema is fixed by the interop binding; new code SHOULD use the
-// Space-typed accessor via `RoomKeyContent::space_id`. See
+// Realm-typed accessor via `RoomKeyContent::realm_id`. See
 // `cokret-spec/spec/v1/artifacts/registry/forbidden-model-terms.json`
 // "Room" entry (interop allow-listed) and
 // `crypto-media/device-lifecycle.md` for the device-message transport.
@@ -826,16 +826,16 @@ pub struct EncryptedContent {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RoomKeyContent {
     pub algorithm: String,
-    /// Matrix/MIMI compat name. The v1 concept is the Space —
-    /// see [`Self::space_id`].
+    /// Matrix/MIMI compat name. The v1 concept is the Realm —
+    /// see [`Self::realm_id`].
     pub room_id: RealmId,
     pub session_id: String,
     pub session_key: String,
 }
 
 impl RoomKeyContent {
-    /// Native v1 accessor — the Space this key share applies to.
-    pub fn space_id(&self) -> &RealmId {
+    /// Native v1 accessor — the Realm this key share applies to.
+    pub fn realm_id(&self) -> &RealmId {
         &self.room_id
     }
 }
@@ -843,8 +843,8 @@ impl RoomKeyContent {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ForwardedRoomKeyContent {
     pub algorithm: String,
-    /// Matrix/MIMI compat name. The v1 concept is the Space —
-    /// see [`Self::space_id`].
+    /// Matrix/MIMI compat name. The v1 concept is the Realm —
+    /// see [`Self::realm_id`].
     pub room_id: RealmId,
     pub session_id: String,
     pub session_key: String,
@@ -853,8 +853,8 @@ pub struct ForwardedRoomKeyContent {
 }
 
 impl ForwardedRoomKeyContent {
-    /// Native v1 accessor — the Space this forwarded key share applies to.
-    pub fn space_id(&self) -> &RealmId {
+    /// Native v1 accessor — the Realm this forwarded key share applies to.
+    pub fn realm_id(&self) -> &RealmId {
         &self.room_id
     }
 }

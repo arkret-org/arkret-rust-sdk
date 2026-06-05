@@ -50,7 +50,7 @@ pub struct IdentityLinkCacheEntry {
 
     pub device_id: DeviceId,
 
-    pub space_id: RealmId,
+    pub realm_id: RealmId,
 
     pub mls_epoch: u64,
     /// SHA-256 of canonical JSON over the four policy-frontier inputs.

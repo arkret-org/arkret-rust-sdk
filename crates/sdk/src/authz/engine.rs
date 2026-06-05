@@ -185,7 +185,7 @@ impl AuthzContext {
     }
 }
 
-/// Policy-server response for `ck.policy.check`.
+/// Policy-server response for `ck.self.policy.check`.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum PolicyServerEffect {
@@ -205,7 +205,7 @@ pub struct PolicyCheckReqBody {
 
 impl PolicyCheckReqBody {
     pub fn new(context: AuthzContext) -> Self {
-        Self { operation: "ck.policy.check".to_owned(), context }
+        Self { operation: "ck.self.policy.check".to_owned(), context }
     }
 }
 
@@ -224,7 +224,7 @@ pub struct PolicyCheckResBody {
 impl PolicyCheckResBody {
     pub fn no_action() -> Self {
         Self {
-            operation: "ck.policy.check".to_owned(),
+            operation: "ck.self.policy.check".to_owned(),
             effect: PolicyServerEffect::NoAction,
             reason: "no policy restriction".to_owned(),
             policy_id: None,
@@ -1092,7 +1092,7 @@ impl AuthzEngine {
             crate::canonical::canonical_sha256(&(&ctx.verified_claims, &ctx.revoked_claim_ids))
                 .unwrap_or_else(|_| format!("claim-count:{}", ctx.verified_claims.len()));
         let resource_digest = crate::canonical::canonical_sha256(&ctx.resource)
-            .unwrap_or_else(|_| ctx.resource.space_id().to_owned());
+            .unwrap_or_else(|_| ctx.resource.realm_id().to_owned());
         let facets_digest = crate::canonical::canonical_sha256(&ctx.facets)
             .unwrap_or_else(|_| format!("facet-count:{}", ctx.facets.len()));
         let field_digest =

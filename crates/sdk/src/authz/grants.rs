@@ -180,54 +180,58 @@ fn resource_is_narrowed(child: &ResourceSelector, parent: &ResourceSelector) -> 
     }
     match (child, parent) {
         (
-            ResourceSelector::Flow { space_id, flow_id },
-            ResourceSelector::Flow { space_id: parent_space, flow_id: parent_id },
+            ResourceSelector::Flow { realm_id, flow_id },
+            ResourceSelector::Flow { realm_id: parent_realm, flow_id: parent_id },
         ) => {
-            space_narrowed(space_id, parent_space)
+            realm_narrowed(realm_id, parent_realm)
                 && option_narrowed(flow_id.as_ref(), parent_id.as_ref())
         }
         (
-            ResourceSelector::Object { space_id, object_type, object_ref },
+            ResourceSelector::Object { realm_id, object_type, object_ref },
             ResourceSelector::Object {
-                space_id: parent_space,
+                realm_id: parent_realm,
                 object_type: parent_type,
                 object_ref: parent_id,
             },
         ) => {
-            space_narrowed(space_id, parent_space)
+            realm_narrowed(realm_id, parent_realm)
                 && option_narrowed(object_type.as_ref(), parent_type.as_ref())
                 && option_narrowed(object_ref.as_ref(), parent_id.as_ref())
         }
         (
-            ResourceSelector::Message { space_id, message_id },
-            ResourceSelector::Message { space_id: parent_space, message_id: parent_id },
+            ResourceSelector::Message { realm_id, message_id },
+            ResourceSelector::Message { realm_id: parent_realm, message_id: parent_id },
         ) => {
-            space_narrowed(space_id, parent_space)
+            realm_narrowed(realm_id, parent_realm)
                 && option_narrowed(message_id.as_ref(), parent_id.as_ref())
         }
         (
-            ResourceSelector::Policy { space_id, policy_id },
-            ResourceSelector::Policy { space_id: parent_space, policy_id: parent_id },
+            ResourceSelector::Policy { realm_id, policy_id },
+            ResourceSelector::Policy { realm_id: parent_realm, policy_id: parent_id },
         ) => {
-            space_narrowed(space_id, parent_space)
+            realm_narrowed(realm_id, parent_realm)
                 && option_narrowed(policy_id.as_ref(), parent_id.as_ref())
         }
         (
-            ResourceSelector::Invite { space_id, invite_id },
-            ResourceSelector::Invite { space_id: parent_space, invite_id: parent_id },
+            ResourceSelector::Invite { realm_id, invite_id },
+            ResourceSelector::Invite { realm_id: parent_realm, invite_id: parent_id },
         ) => {
-            space_narrowed(space_id, parent_space)
+            realm_narrowed(realm_id, parent_realm)
                 && option_narrowed(invite_id.as_ref(), parent_id.as_ref())
         }
         (
+            ResourceSelector::Realm { realm_id },
+            ResourceSelector::Realm { realm_id: parent_realm },
+        ) => realm_narrowed(realm_id, parent_realm),
+        (
             ResourceSelector::Space { space_id },
             ResourceSelector::Space { space_id: parent_space },
-        ) => space_narrowed(space_id, parent_space),
+        ) => realm_narrowed(space_id, parent_space),
         _ => false,
     }
 }
 
-fn space_narrowed(child: &str, parent: &str) -> bool {
+fn realm_narrowed(child: &str, parent: &str) -> bool {
     parent == "*" || child == parent
 }
 
@@ -278,7 +282,7 @@ fn capability_grant_from_resolved_event(
                 default_realm_id
                     .as_ref()
                     .map(|realm_id| {
-                        vec![ResourceSelector::Space { space_id: realm_id.as_str().to_owned() }]
+                        vec![ResourceSelector::Realm { realm_id: realm_id.as_str().to_owned() }]
                     })
                     .unwrap_or_default()
             });

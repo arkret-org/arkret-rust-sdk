@@ -1,6 +1,6 @@
 use super::*;
 
-/// One frame off the `ck.events.subscribe` NDJSON stream
+/// One frame off the `ck.self.events.subscribe` NDJSON stream
 /// (`GET /_cokret/self/events/subscribe`).
 ///
 /// The contract uses `kind` as the top field and defines control kinds clients
@@ -128,8 +128,8 @@ impl EventsSubscribeFrame {
     }
 }
 
-/// Selector + range parameters for `ck.events.query` and
-/// `ck.events.subscribe`. Per spec C17, the selector is `realms[]` ∪
+/// Selector + range parameters for `ck.self.events.query` and
+/// `ck.self.events.subscribe`. Per spec C17, the selector is `realms[]` ∪
 /// `actors[]` (at least one element). Range parameters apply only to
 /// `query`; `subscribe` accepts `from` + `include_history`.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -193,7 +193,7 @@ impl EventsQuerySelector {
     }
 }
 
-/// Direction parameter for `ck.events.query`. `forward` returns events
+/// Direction parameter for `ck.self.events.query`. `forward` returns events
 /// after `from` (default); `backward` returns events before `from`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
@@ -203,7 +203,7 @@ pub enum EventsQueryDirection {
     Backward,
 }
 
-/// Typed `ck.events.query` request body.
+/// Typed `ck.self.events.query` request body.
 ///
 /// This is the ergonomic typed surface downstream agents (coauth / soland /
 /// yougen) call against. It mirrors the wire shape soland accepts on
@@ -300,7 +300,7 @@ impl EventsQueryReqBody {
     }
 }
 
-/// Typed `ck.events.query` response body.
+/// Typed `ck.self.events.query` response body.
 ///
 /// Downstream agents pattern-match on `events`, then resume with
 /// `next_cursor` (forward) / `prev_cursor` (backward). Server returns

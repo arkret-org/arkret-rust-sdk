@@ -1,5 +1,5 @@
 //! Build a series-chained `KeyBackup` envelope chain and walk recovery via
-//! the `?series_id=` listing shape exposed by `ck.keys.backups.list` (spec
+//! the `?series_id=` listing shape exposed by `ck.self.keys.backups.list` (spec
 //! head 37ce729 / key-management.md §7.4 "key-backup hardening").
 //!
 //! The chain semantics this example exercises:
@@ -78,7 +78,7 @@ fn build_envelope(
         },
         contents: vec![KeyBackupContentItem {
             item_type: "recovery_secret".to_owned(),
-            space_id: None,
+            realm_id: None,
             mls_group_id: None,
             epoch: Some(seq),
             first_event_id: None,

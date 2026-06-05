@@ -71,7 +71,7 @@ impl ParticipantBinding {
     pub const SCHEME: &'static str = cokret_core::PARTICIPANT_BINDING_SCHEMA;
 }
 
-/// Response payload of `POST /rtc/token` (`ck.call.media.token_exchange`).
+/// Response payload of `POST /rtc/token` (`ck.self.call.media.token_exchange`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MediaTokenResponse {
     /// Opaque backend token (e.g. LiveKit JWT, Mediasoup ticket).
@@ -109,7 +109,7 @@ pub fn validate_token_ttl(now: DateTime<Utc>, expires_at: DateTime<Utc>) -> Resu
     Ok(())
 }
 
-/// Request body for `POST /rtc/token` (`ck.call.media.token_exchange`).
+/// Request body for `POST /rtc/token` (`ck.self.call.media.token_exchange`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MediaTokenExchangeRequest {
     pub realm_id: RealmId,
@@ -120,7 +120,7 @@ pub struct MediaTokenExchangeRequest {
     pub focus_id: String,
 }
 
-/// Client helper that builds a `ck.call.media.token_exchange` request body.
+/// Client helper that builds a `ck.self.call.media.token_exchange` request body.
 ///
 /// Implementations using a concrete HTTP transport (e.g. [`reqwest`])
 /// POST the body to `/_cokret/self/rtc/token` and feed the JSON response
