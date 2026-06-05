@@ -757,10 +757,7 @@ singleton_lattice!(
     &["ck.circle.create"]
 );
 
-// R1.2 — spec event-kind registry declares `ck.component.space.parent.v1`
-// as `cas-register/reject` keyed by `payload.space_id`. The legacy
-// `OrderedLog` declaration here predates the registry rev and was caught
-// by `artifact_cell_family_lattice_and_bottom_drift_test`.
+// `ck.space.parent` is a CAS register keyed by the child Space ID.
 per_subject_lattice!(
     SpaceParent,
     "ck.component.space.parent.v1",

@@ -1012,7 +1012,7 @@ pub struct RemoteUserMapping {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RemoteRealmMapping {
     pub protocol: String,
-    pub remote_space_id: String,
+    pub remote_realm_id: String,
     pub realm_id: RealmId,
     pub portal_id: Option<String>,
     pub title: Option<String>,
@@ -1042,7 +1042,7 @@ impl BridgeMappingStore {
 
     /// Store or replace a remote location mapping.
     pub fn upsert_realm(&mut self, mapping: RemoteRealmMapping) {
-        self.realms.insert(remote_key(&mapping.protocol, &mapping.remote_space_id), mapping);
+        self.realms.insert(remote_key(&mapping.protocol, &mapping.remote_realm_id), mapping);
     }
 
     /// Resolve a remote user mapping.
@@ -1051,8 +1051,8 @@ impl BridgeMappingStore {
     }
 
     /// Resolve a remote location mapping.
-    pub fn realm(&self, protocol: &str, remote_space_id: &str) -> Option<&RemoteRealmMapping> {
-        self.realms.get(&remote_key(protocol, remote_space_id))
+    pub fn realm(&self, protocol: &str, remote_realm_id: &str) -> Option<&RemoteRealmMapping> {
+        self.realms.get(&remote_key(protocol, remote_realm_id))
     }
 }
 
@@ -1071,7 +1071,7 @@ pub struct PortalRealmMapping {
     pub portal_id: String,
     pub realm_id: RealmId,
     pub protocol: String,
-    pub remote_space_id: String,
+    pub remote_realm_id: String,
 }
 
 /// Portal mode.
@@ -1372,7 +1372,7 @@ mod tests {
         });
         mappings.upsert_realm(RemoteRealmMapping {
             protocol: "slack".to_owned(),
-            remote_space_id: "C1".to_owned(),
+            remote_realm_id: "C1".to_owned(),
             realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-f949e0272316").unwrap(),
             portal_id: Some("portal".to_owned()),
             title: Some("general".to_owned()),
