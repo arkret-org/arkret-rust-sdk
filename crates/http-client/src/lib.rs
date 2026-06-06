@@ -11,39 +11,38 @@ use tokio::time::sleep;
 use url::Url;
 
 use cokret_core::{
-    AccountCursorRevokeReqBody, AccountCursorRevokeResBody, AccountSubscribeFrame,
-    AppletActorResBody, AppletDescription, AppletPingResBody, AppletProtocolResBody,
-    AppletRealmResBody, AppletTransactionReqBody, AppletTransactionResBody, AuthzCheckReqBody,
-    AuthzCheckResBody, AuthzInvitesResBody, BackupId, BlobMetadata, BlobRef, BlobUploadMetadata,
-    BlobUploadResBody, ContactListResponse, ContactRequestRequest, ContactRequestResponse,
-    ContactRespondRequest, ContactRespondResponse, ContactTombstoneRequest,
-    ContactTombstoneResponse, DeviceMessagesReceiveResBody, DeviceMessagesSendReqBody,
-    DeviceMessagesSendResBody, DirectConversationResolveRequest, DirectConversationResolveResponse,
-    DirectoryDescription, DirectoryListHandlesForSubjectReqBody,
-    DirectoryListHandlesForSubjectResBody, DirectoryResolveHandleReqBody,
-    DirectoryResolveHandleResBody, DirectoryResolveOrganizationReqBody,
-    DirectoryResolveOrganizationResBody, DirectoryResolveRealmReqBody,
-    DirectoryResolveRealmResBody, DirectoryResolveTargetReqBody, DirectoryResolveTargetResBody,
-    DirectorySearchActorsReqBody, DirectorySearchActorsResBody,
-    DirectorySearchOrganizationsReqBody, DirectorySearchOrganizationsResBody,
-    DirectorySearchRealmsReqBody, DirectorySearchRealmsResBody, DirectorySearchUsersReqBody,
-    DirectorySearchUsersResBody, EffectiveGrantsResBody, Error, ErrorEnvelope, Event,
-    EventsSubmitResBody, IdentityDescription, IdentityDocumentResBody, IdentityLogResBody,
-    IdentityReceiptsResBody, IdentityResolveReqBody, IdentityResolveResBody, KeyBackup,
-    KeyBackupDeleteReqBody, KeyBackupDeleteResBody, KeyBackupPutResBody, KeyBackupSummary,
-    KeyBackupsListQuery, KeyBackupsListResBody, KeysClaimReqBody, KeysClaimResBody,
-    KeysQueryReqBody, KeysQueryResBody, KeysUploadReqBody, KeysUploadResBody,
-    MediaIceConfigReqBody, MediaIceConfigResBody, MimiProviderDirectoryResBody,
-    MimiReportAbuseReqBody, MimiReportAbuseResBody, ModerationReportReqBody,
-    ModerationReportResBody, OkResBody, PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST,
-    PATH_SELF_CONTACTS_RESPOND, PATH_SELF_CONTACTS_TOMBSTONE,
-    PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE, PolicyCheckReqBody, PolicyCheckResBody,
-    PrivateContactDiscoveryReqBody, PrivateContactDiscoveryResBody, PushNotifyReqBody,
-    PushNotifyResBody, PushRegisterDeviceReqBody, PushRegisterDeviceResBody,
-    PushUnregisterDeviceReqBody, Result, ServerDescription, ServiceRequirements,
-    SessionGrantChallenge, SessionGrantChallengeReq, SessionGrantSubmitReq,
-    SubmitDidOperationReqBody, SubmitDidOperationResBody, SyncBackfillResBody, SyncDescription,
-    SyncReqBody, SyncResBody, SyncSnapshotHeadResBody,
+    AccountCursorRevokeOutcome, AccountCursorRevokeRequestBody, AccountSubscribeFrame,
+    AppletActorView, AppletDescription, AppletPingOutcome, AppletProtocolMetadata, AppletRealmView,
+    AppletTransactionOutcome, AppletTransactionRequestBody, AuthzCheckOutcome,
+    AuthzCheckRequestBody, AuthzInviteList, BackupId, BlobMetadata, BlobRef, BlobUploadMetadata,
+    BlobUploadOutcome, ContactList, ContactRequestOutcome, ContactRequestRequestBody,
+    ContactRespondOutcome, ContactRespondRequestBody, ContactTombstone,
+    ContactTombstoneRequestBody, DeviceMessagesGetOutcome, DeviceMessagesPutOutcome,
+    DeviceMessagesPutRequestBody, DidOperationSubmitOutcome, DidOperationSubmitRequestBody,
+    DirectConversationResolveOutcome, DirectConversationResolveRequestBody,
+    DirectoryActorSearchOutcome, DirectoryDescription, DirectoryHandleResolutionOutcome,
+    DirectoryListHandlesForSubjectRequestBody, DirectoryOrganizationResolutionOutcome,
+    DirectoryOrganizationSearchOutcome, DirectoryPrivateContactDiscoveryOutcome,
+    DirectoryPrivateContactDiscoveryRequestBody, DirectoryRealmResolutionOutcome,
+    DirectoryRealmSearchOutcome, DirectoryResolveHandleRequestBody,
+    DirectoryResolveOrganizationRequestBody, DirectoryResolveRealmRequestBody,
+    DirectoryResolveTargetRequestBody, DirectorySearchActorsRequestBody,
+    DirectorySearchOrganizationsRequestBody, DirectorySearchRealmsRequestBody,
+    DirectorySearchUsersRequestBody, DirectorySubjectHandleList, DirectoryTargetResolutionOutcome,
+    DirectoryUserSearchOutcome, Error, ErrorEnvelope, Event, EventsSubmitOutcome, GrantList,
+    IdentityDescription, IdentityDocumentView, IdentityLogOutcome, IdentityReceiptsOutcome,
+    IdentityResolveOutcome, IdentityResolveRequestBody, KeyBackup, KeyBackupSummary,
+    KeyBackupsListQuery, KeysBackupsDeleteOutcome, KeysBackupsDeleteRequestBody, KeysBackupsList,
+    KeysBackupsPutOutcome, KeysClaimOutcome, KeysClaimRequestBody, KeysQueryOutcome,
+    KeysQueryRequestBody, KeysUploadOutcome, KeysUploadRequestBody, MediaIceConfigOutcome,
+    MediaIceConfigRequestBody, MimiProviderDirectory, MimiReportAbuseOutcome,
+    MimiReportAbuseRequestBody, ModerationReportOutcome, ModerationReportRequestBody, OkOutcome,
+    PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST, PATH_SELF_CONTACTS_RESPOND,
+    PATH_SELF_CONTACTS_TOMBSTONE, PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE, PolicyCheckOutcome,
+    PolicyCheckRequestBody, PushNotifyOutcome, PushNotifyRequestBody, PushRegisterDeviceOutcome,
+    PushRegisterDeviceRequestBody, PushUnregisterDeviceRequestBody, Result, ServerDescription,
+    ServiceRequirements, SessionGrantChallenge, SessionGrantChallengeReq, SessionGrantSubmitReq,
+    SnapshotHeadState, SyncBackfillOutcome, SyncDescription, SyncOutcome, SyncRequestBody,
 };
 
 pub const HEADER_REQUEST_ID: &str = "X-Cokret-Request-Id";
@@ -616,8 +615,8 @@ impl Client {
 
     pub async fn identity_resolve(
         &self,
-        request: &IdentityResolveReqBody,
-    ) -> Result<IdentityResolveResBody> {
+        request: &IdentityResolveRequestBody,
+    ) -> Result<IdentityResolveOutcome> {
         self.post("/_cokret/root/identity/resolve", request).await
     }
 
@@ -625,7 +624,7 @@ impl Client {
         &self,
         did: &str,
         version: Option<&str>,
-    ) -> Result<IdentityDocumentResBody> {
+    ) -> Result<IdentityDocumentView> {
         let mut builder =
             self.request(Method::GET, "/_cokret/root/identity/document")?.query(&[("did", did)]);
         if let Some(version) = version {
@@ -639,7 +638,7 @@ impl Client {
         did: &str,
         cursor: Option<&str>,
         limit: Option<u32>,
-    ) -> Result<IdentityLogResBody> {
+    ) -> Result<IdentityLogOutcome> {
         let mut builder =
             self.request(Method::GET, "/_cokret/root/identity/log")?.query(&[("did", did)]);
         if let Some(cursor) = cursor {
@@ -653,8 +652,8 @@ impl Client {
 
     pub async fn identity_submit_did_operation(
         &self,
-        request: &SubmitDidOperationReqBody,
-    ) -> Result<SubmitDidOperationResBody> {
+        request: &DidOperationSubmitRequestBody,
+    ) -> Result<DidOperationSubmitOutcome> {
         self.post("/_cokret/root/identity/submit-did-operation", request).await
     }
 
@@ -662,7 +661,7 @@ impl Client {
         &self,
         did: &str,
         head: &str,
-    ) -> Result<IdentityReceiptsResBody> {
+    ) -> Result<IdentityReceiptsOutcome> {
         let builder = self
             .request(Method::GET, "/_cokret/root/identity/receipts")?
             .query(&[("did", did), ("head", head)]);
@@ -690,7 +689,7 @@ impl Client {
         self.post("/_cokret/gate/account/session-grants/submit", req).await
     }
 
-    pub async fn account_subscribe(&self, request: &SyncReqBody) -> Result<Response> {
+    pub async fn account_subscribe(&self, request: &SyncRequestBody) -> Result<Response> {
         let mut builder = self
             .request(Method::GET, "/_cokret/self/account/subscribe")?
             .header("accept", "application/x-ndjson");
@@ -706,7 +705,7 @@ impl Client {
         self.send_response(builder).await
     }
 
-    pub async fn account_subscribe_once(&self, request: &SyncReqBody) -> Result<SyncResBody> {
+    pub async fn account_subscribe_once(&self, request: &SyncRequestBody) -> Result<SyncOutcome> {
         let response = self.account_subscribe(request).await?;
         let bytes = response.bytes().await.map_err(Error::Http)?;
         for line in bytes.split(|byte| *byte == b'\n') {
@@ -716,7 +715,7 @@ impl Client {
             }
             let frame: AccountSubscribeFrame = serde_json::from_slice(trimmed)
                 .map_err(|error| Error::Protocol(error.to_string()))?;
-            if let Some(sync) = SyncResBody::from_account_subscribe_frame(frame) {
+            if let Some(sync) = SyncOutcome::from_account_subscribe_frame(frame) {
                 return Ok(sync);
             }
         }
@@ -734,7 +733,7 @@ impl Client {
     #[cfg(not(target_arch = "wasm32"))]
     pub async fn account_subscribe_frames(
         &self,
-        request: &SyncReqBody,
+        request: &SyncRequestBody,
     ) -> Result<
         std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<AccountSubscribeFrame>> + Send>>,
     > {
@@ -767,40 +766,40 @@ impl Client {
 
     pub async fn account_cursor_revoke(
         &self,
-        request: &AccountCursorRevokeReqBody,
-    ) -> Result<AccountCursorRevokeResBody> {
+        request: &AccountCursorRevokeRequestBody,
+    ) -> Result<AccountCursorRevokeOutcome> {
         self.post("/_cokret/self/account/cursor/revoke", request).await
     }
 
     pub async fn contacts_request(
         &self,
-        request: &ContactRequestRequest,
-    ) -> Result<ContactRequestResponse> {
+        request: &ContactRequestRequestBody,
+    ) -> Result<ContactRequestOutcome> {
         self.post(PATH_SELF_CONTACTS_REQUEST, request).await
     }
 
     pub async fn contacts_respond(
         &self,
-        request: &ContactRespondRequest,
-    ) -> Result<ContactRespondResponse> {
+        request: &ContactRespondRequestBody,
+    ) -> Result<ContactRespondOutcome> {
         self.post(PATH_SELF_CONTACTS_RESPOND, request).await
     }
 
-    pub async fn contacts_list(&self) -> Result<ContactListResponse> {
+    pub async fn contacts_list(&self) -> Result<ContactList> {
         self.get(PATH_SELF_CONTACTS).await
     }
 
     pub async fn contacts_tombstone(
         &self,
-        request: &ContactTombstoneRequest,
-    ) -> Result<ContactTombstoneResponse> {
+        request: &ContactTombstoneRequestBody,
+    ) -> Result<ContactTombstone> {
         self.post(PATH_SELF_CONTACTS_TOMBSTONE, request).await
     }
 
     pub async fn direct_conversation_resolve(
         &self,
-        request: &DirectConversationResolveRequest,
-    ) -> Result<DirectConversationResolveResponse> {
+        request: &DirectConversationResolveRequestBody,
+    ) -> Result<DirectConversationResolveOutcome> {
         self.post(PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE, request).await
     }
 
@@ -838,7 +837,7 @@ impl Client {
         after: Option<&str>,
         order: Option<&str>,
         limit: Option<u32>,
-    ) -> Result<SyncBackfillResBody> {
+    ) -> Result<SyncBackfillOutcome> {
         let mut builder =
             self.request(Method::GET, "/_cokret/self/events")?.query(&[("realms", realm_id)]);
         if let Some(before) = before {
@@ -859,13 +858,13 @@ impl Client {
     /// Submit a single signed Event Envelope via `ck.self.events.submit`
     /// (`POST /_cokret/self/events`). Wire body is the bare envelope per the OpenAPI
     /// `oneOf` first arm (`event-envelope.schema.json`).
-    pub async fn events_submit(&self, event: &Event) -> Result<EventsSubmitResBody> {
+    pub async fn events_submit(&self, event: &Event) -> Result<EventsSubmitOutcome> {
         self.post("/_cokret/self/events", event).await
     }
 
     /// Submit a batch of signed Event Envelopes via `ck.self.events.submit`
-    /// (`POST /_cokret/self/events`) using the `EventsSubmitBatchRequest` body shape.
-    pub async fn events_submit_batch(&self, events: &[Event]) -> Result<EventsSubmitResBody> {
+    /// (`POST /_cokret/self/events`) using the `EventsSubmitBatchRequestBody` body shape.
+    pub async fn events_submit_batch(&self, events: &[Event]) -> Result<EventsSubmitOutcome> {
         #[derive(serde::Serialize)]
         struct Batch<'a> {
             events: &'a [Event],
@@ -873,14 +872,14 @@ impl Client {
         self.post("/_cokret/self/events", &Batch { events }).await
     }
 
-    pub async fn snapshot_head(&self, realm_id: &str) -> Result<SyncSnapshotHeadResBody> {
+    pub async fn snapshot_head(&self, realm_id: &str) -> Result<SnapshotHeadState> {
         let builder = self
             .request(Method::GET, "/_cokret/self/snapshot/head")?
             .query(&[("realm_id", realm_id)]);
         self.send_json(builder).await
     }
 
-    pub async fn authz_check(&self, request: &AuthzCheckReqBody) -> Result<AuthzCheckResBody> {
+    pub async fn authz_check(&self, request: &AuthzCheckRequestBody) -> Result<AuthzCheckOutcome> {
         self.post("/_cokret/self/authz/check", request).await
     }
 
@@ -889,7 +888,7 @@ impl Client {
         realm_id: &str,
         subject: &str,
         at: Option<&str>,
-    ) -> Result<EffectiveGrantsResBody> {
+    ) -> Result<GrantList> {
         let mut builder = self
             .request(Method::GET, "/_cokret/self/authz/effective-grants")?
             .query(&[("realm_id", realm_id), ("subject", subject)]);
@@ -904,7 +903,7 @@ impl Client {
         subject: &str,
         realm_id: Option<&str>,
         cursor: Option<&str>,
-    ) -> Result<AuthzInvitesResBody> {
+    ) -> Result<AuthzInviteList> {
         let mut builder = self
             .request(Method::GET, "/_cokret/self/authz/invites")?
             .query(&[("subject", subject)]);
@@ -931,7 +930,7 @@ impl Client {
         self.send_empty(builder).await
     }
 
-    pub async fn blob_upload(&self, body: &BlobUploadMetadata) -> Result<BlobUploadResBody> {
+    pub async fn blob_upload(&self, body: &BlobUploadMetadata) -> Result<BlobUploadOutcome> {
         self.post("/_cokret/self/blob/upload", body).await
     }
 
@@ -939,7 +938,7 @@ impl Client {
         &self,
         metadata: &BlobUploadMetadata,
         bytes: Vec<u8>,
-    ) -> Result<BlobUploadResBody> {
+    ) -> Result<BlobUploadOutcome> {
         let mut builder = self
             .request(Method::POST, "/_cokret/self/blob/upload")?
             .header("X-Cokret-Blob-Metadata", serde_json::to_string(metadata)?);
@@ -967,15 +966,15 @@ impl Client {
         Ok(response.bytes().await?.to_vec())
     }
 
-    pub async fn keys_upload(&self, request: &KeysUploadReqBody) -> Result<KeysUploadResBody> {
+    pub async fn keys_upload(&self, request: &KeysUploadRequestBody) -> Result<KeysUploadOutcome> {
         self.post("/_cokret/self/keys/upload", request).await
     }
 
-    pub async fn keys_query(&self, request: &KeysQueryReqBody) -> Result<KeysQueryResBody> {
+    pub async fn keys_query(&self, request: &KeysQueryRequestBody) -> Result<KeysQueryOutcome> {
         self.post("/_cokret/self/keys/query", request).await
     }
 
-    pub async fn keys_claim(&self, request: &KeysClaimReqBody) -> Result<KeysClaimResBody> {
+    pub async fn keys_claim(&self, request: &KeysClaimRequestBody) -> Result<KeysClaimOutcome> {
         self.post("/_cokret/self/keys/claim", request).await
     }
 
@@ -988,7 +987,7 @@ impl Client {
         &self,
         backup_id: &BackupId,
         body: &KeyBackup,
-    ) -> Result<KeyBackupPutResBody> {
+    ) -> Result<KeysBackupsPutOutcome> {
         let path = format!("/_cokret/self/keys/backups/{}", backup_id.as_str());
         self.put(&path, body).await
     }
@@ -996,10 +995,7 @@ impl Client {
     /// List existing key backups for the authorized actor. Honors the
     /// `backup_class` / `cursor` / `limit` filters from
     /// [`KeyBackupsListQuery`] (key-management.md §7.5).
-    pub async fn list_key_backups(
-        &self,
-        query: &KeyBackupsListQuery,
-    ) -> Result<KeyBackupsListResBody> {
+    pub async fn list_key_backups(&self, query: &KeyBackupsListQuery) -> Result<KeysBackupsList> {
         let mut builder = self.request(Method::GET, "/_cokret/self/keys/backups")?;
         if let Some(class) = query.backup_class {
             let class_str = match class {
@@ -1022,7 +1018,7 @@ impl Client {
     /// Convenience variant that returns just the summary list. Equivalent to
     /// [`list_key_backups`](Self::list_key_backups) with default query.
     pub async fn list_all_key_backups(&self) -> Result<Vec<KeyBackupSummary>> {
-        let response: KeyBackupsListResBody = self
+        let response: KeysBackupsList = self
             .list_key_backups(&KeyBackupsListQuery {
                 backup_class: None,
                 cursor: None,
@@ -1044,13 +1040,13 @@ impl Client {
 
     /// Delete an existing key backup envelope. Spec §7.4 marks this as a
     /// high-risk operation; the caller must supply the typed
-    /// [`KeyBackupDeleteReqBody`] with a valid proof and (optionally) a
+    /// [`KeysBackupsDeleteRequestBody`] with a valid proof and (optionally) a
     /// human-readable reason.
     pub async fn delete_key_backup(
         &self,
         backup_id: &BackupId,
-        request: &KeyBackupDeleteReqBody,
-    ) -> Result<KeyBackupDeleteResBody> {
+        request: &KeysBackupsDeleteRequestBody,
+    ) -> Result<KeysBackupsDeleteOutcome> {
         let path = format!("/_cokret/self/keys/backups/{}", backup_id.as_str());
         let builder = self.request(Method::DELETE, &path)?.json(request);
         self.send_json(builder).await
@@ -1059,8 +1055,8 @@ impl Client {
     pub async fn send_device_messages(
         &self,
         idempotency_key: &str,
-        request: &DeviceMessagesSendReqBody,
-    ) -> Result<DeviceMessagesSendResBody> {
+        request: &DeviceMessagesPutRequestBody,
+    ) -> Result<DeviceMessagesPutOutcome> {
         let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
         self.post_with_options("/_cokret/self/device_messages", request, &options).await
     }
@@ -1069,7 +1065,7 @@ impl Client {
         &self,
         from: Option<&str>,
         limit: Option<u32>,
-    ) -> Result<DeviceMessagesReceiveResBody> {
+    ) -> Result<DeviceMessagesGetOutcome> {
         let mut builder = self.request(Method::GET, "/_cokret/self/device_messages")?;
         if let Some(from) = from {
             builder = builder.query(&[("from", from)]);
@@ -1086,15 +1082,15 @@ impl Client {
 
     pub async fn directory_search_realms(
         &self,
-        request: &DirectorySearchRealmsReqBody,
-    ) -> Result<DirectorySearchRealmsResBody> {
+        request: &DirectorySearchRealmsRequestBody,
+    ) -> Result<DirectoryRealmSearchOutcome> {
         self.post("/_cokret/find/directory/search-realms", request).await
     }
 
     pub async fn directory_resolve_realm(
         &self,
-        request: &DirectoryResolveRealmReqBody,
-    ) -> Result<DirectoryResolveRealmResBody> {
+        request: &DirectoryResolveRealmRequestBody,
+    ) -> Result<DirectoryRealmResolutionOutcome> {
         self.post("/_cokret/find/directory/resolve-realm", request).await
     }
 
@@ -1106,29 +1102,29 @@ impl Client {
     /// [`cokret_core::model::verify_token_target`].
     pub async fn directory_resolve_target(
         &self,
-        request: &DirectoryResolveTargetReqBody,
-    ) -> Result<DirectoryResolveTargetResBody> {
+        request: &DirectoryResolveTargetRequestBody,
+    ) -> Result<DirectoryTargetResolutionOutcome> {
         self.post("/_cokret/find/directory/resolve-target", request).await
     }
 
     pub async fn directory_search_organizations(
         &self,
-        request: &DirectorySearchOrganizationsReqBody,
-    ) -> Result<DirectorySearchOrganizationsResBody> {
+        request: &DirectorySearchOrganizationsRequestBody,
+    ) -> Result<DirectoryOrganizationSearchOutcome> {
         self.post("/_cokret/find/directory/search-organizations", request).await
     }
 
     pub async fn directory_resolve_organization(
         &self,
-        request: &DirectoryResolveOrganizationReqBody,
-    ) -> Result<DirectoryResolveOrganizationResBody> {
+        request: &DirectoryResolveOrganizationRequestBody,
+    ) -> Result<DirectoryOrganizationResolutionOutcome> {
         self.post("/_cokret/find/directory/resolve-organization", request).await
     }
 
     pub async fn directory_search_actors(
         &self,
-        request: &DirectorySearchActorsReqBody,
-    ) -> Result<DirectorySearchActorsResBody> {
+        request: &DirectorySearchActorsRequestBody,
+    ) -> Result<DirectoryActorSearchOutcome> {
         self.post("/_cokret/find/directory/search-actors", request).await
     }
 
@@ -1137,8 +1133,8 @@ impl Client {
         q: &str,
         realm_id: Option<&str>,
         limit: Option<u32>,
-    ) -> Result<DirectorySearchUsersResBody> {
-        let request = DirectorySearchUsersReqBody {
+    ) -> Result<DirectoryUserSearchOutcome> {
+        let request = DirectorySearchUsersRequestBody {
             q: q.to_owned(),
             realm_id: realm_id.map(str::parse).transpose()?,
             limit,
@@ -1148,20 +1144,20 @@ impl Client {
 
     pub async fn directory_resolve_handle(
         &self,
-        request: &DirectoryResolveHandleReqBody,
-    ) -> Result<DirectoryResolveHandleResBody> {
+        request: &DirectoryResolveHandleRequestBody,
+    ) -> Result<DirectoryHandleResolutionOutcome> {
         self.post("/_cokret/find/directory/resolve-handle", request).await
     }
 
     /// R3.2 (cokret-spec @ b56cab1) — `ck.find.directory.list_handles_for_subject`.
     /// Known holder/principal DID → current visible handle claims. The
     /// response invariant `claims[].subject == subject` is enforced via
-    /// [`DirectoryListHandlesForSubjectResBody::validate`] before returning.
+    /// [`DirectorySubjectHandleList::validate`] before returning.
     pub async fn directory_list_handles_for_subject(
         &self,
-        request: &DirectoryListHandlesForSubjectReqBody,
-    ) -> Result<DirectoryListHandlesForSubjectResBody> {
-        let body: DirectoryListHandlesForSubjectResBody =
+        request: &DirectoryListHandlesForSubjectRequestBody,
+    ) -> Result<DirectorySubjectHandleList> {
+        let body: DirectorySubjectHandleList =
             self.post("/_cokret/find/directory/list-handles-for-subject", request).await?;
         body.validate()?;
         Ok(body)
@@ -1169,44 +1165,47 @@ impl Client {
 
     pub async fn directory_private_contact_discovery(
         &self,
-        request: &PrivateContactDiscoveryReqBody,
-    ) -> Result<PrivateContactDiscoveryResBody> {
+        request: &DirectoryPrivateContactDiscoveryRequestBody,
+    ) -> Result<DirectoryPrivateContactDiscoveryOutcome> {
         self.post("/_cokret/find/directory/private-contact-discovery", request).await
     }
 
     pub async fn push_register_device(
         &self,
-        request: &PushRegisterDeviceReqBody,
-    ) -> Result<PushRegisterDeviceResBody> {
+        request: &PushRegisterDeviceRequestBody,
+    ) -> Result<PushRegisterDeviceOutcome> {
         self.post("/_cokret/edge/push/register-device", request).await
     }
 
     pub async fn push_unregister_device(
         &self,
-        request: &PushUnregisterDeviceReqBody,
-    ) -> Result<OkResBody> {
+        request: &PushUnregisterDeviceRequestBody,
+    ) -> Result<OkOutcome> {
         self.post("/_cokret/edge/push/unregister-device", request).await
     }
 
-    pub async fn push_notify(&self, request: &PushNotifyReqBody) -> Result<PushNotifyResBody> {
+    pub async fn push_notify(&self, request: &PushNotifyRequestBody) -> Result<PushNotifyOutcome> {
         self.post("/_cokret/edge/push/notify", request).await
     }
 
-    pub async fn policy_check(&self, request: &PolicyCheckReqBody) -> Result<PolicyCheckResBody> {
+    pub async fn policy_check(
+        &self,
+        request: &PolicyCheckRequestBody,
+    ) -> Result<PolicyCheckOutcome> {
         self.post("/_cokret/self/policy/check", request).await
     }
 
     pub async fn media_ice_config(
         &self,
-        request: &MediaIceConfigReqBody,
-    ) -> Result<MediaIceConfigResBody> {
+        request: &MediaIceConfigRequestBody,
+    ) -> Result<MediaIceConfigOutcome> {
         self.post("/_cokret/self/rtc/ice-config", request).await
     }
 
     pub async fn moderation_report(
         &self,
-        request: &ModerationReportReqBody,
-    ) -> Result<ModerationReportResBody> {
+        request: &ModerationReportRequestBody,
+    ) -> Result<ModerationReportOutcome> {
         self.post("/_cokret/self/moderation/report", request).await
     }
 
@@ -1214,7 +1213,7 @@ impl Client {
         &self,
         provider_id: Option<&str>,
         features: &[String],
-    ) -> Result<MimiProviderDirectoryResBody> {
+    ) -> Result<MimiProviderDirectory> {
         let mut builder = self.request(Method::GET, "/_cokret/open/mimi/provider-directory")?;
         if let Some(provider_id) = provider_id {
             builder = builder.query(&[("provider_id", provider_id)]);
@@ -1227,12 +1226,12 @@ impl Client {
 
     pub async fn mimi_report_abuse(
         &self,
-        request: &MimiReportAbuseReqBody,
-    ) -> Result<MimiReportAbuseResBody> {
+        request: &MimiReportAbuseRequestBody,
+    ) -> Result<MimiReportAbuseOutcome> {
         self.post("/_cokret/open/mimi/report-abuse", request).await
     }
 
-    pub async fn applet_ping(&self) -> Result<AppletPingResBody> {
+    pub async fn applet_ping(&self) -> Result<AppletPingOutcome> {
         self.get("/_cokret/edge/applet/ping").await
     }
 
@@ -1243,25 +1242,25 @@ impl Client {
     pub async fn applet_transaction(
         &self,
         idempotency_key: &str,
-        request: &AppletTransactionReqBody,
-    ) -> Result<AppletTransactionResBody> {
+        request: &AppletTransactionRequestBody,
+    ) -> Result<AppletTransactionOutcome> {
         let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
         self.post_with_options("/_cokret/edge/applet/transactions", request, &options).await
     }
 
-    pub async fn applet_actor(&self, actor_id: &str) -> Result<AppletActorResBody> {
+    pub async fn applet_actor(&self, actor_id: &str) -> Result<AppletActorView> {
         reject_path_segment(actor_id)?;
         let path = format!("/_cokret/edge/applet/actors/{actor_id}");
         self.get(&path).await
     }
 
-    pub async fn applet_realm(&self, realm_id_or_alias: &str) -> Result<AppletRealmResBody> {
+    pub async fn applet_realm(&self, realm_id_or_alias: &str) -> Result<AppletRealmView> {
         reject_path_segment(realm_id_or_alias)?;
         let path = format!("/_cokret/edge/applet/realms/{realm_id_or_alias}");
         self.get(&path).await
     }
 
-    pub async fn applet_protocol(&self, protocol: &str) -> Result<AppletProtocolResBody> {
+    pub async fn applet_protocol(&self, protocol: &str) -> Result<AppletProtocolMetadata> {
         reject_path_segment(protocol)?;
         let path = format!("/_cokret/edge/applet/protocols/{protocol}");
         self.get(&path).await
@@ -1952,7 +1951,7 @@ mod tests {
         #[tokio::test]
         async fn directory_private_contact_discovery_posts_canonical_path() {
             let (client, capture) = spawn_capture_server(r#"{"matches":[],"proofs":[]}"#).await;
-            let request = PrivateContactDiscoveryReqBody {
+            let request = DirectoryPrivateContactDiscoveryRequestBody {
                 requester: Did::new("did:web:alice.example").unwrap(),
                 contacts: vec![json!({"contact_digest": "sha256:contact"})],
                 proofs: Vec::new(),
@@ -2001,7 +2000,7 @@ mod tests {
                 "created":false
             }"#;
             let (client, capture) = spawn_capture_server(canned).await;
-            let request = DirectConversationResolveRequest {
+            let request = DirectConversationResolveRequestBody {
                 peer: Did::new("did:web:bob.example").unwrap(),
                 create: true,
                 idempotency_key: Some("dm-alice-bob".to_owned()),
@@ -2050,7 +2049,7 @@ mod tests {
         #[tokio::test]
         async fn mimi_report_abuse_posts_canonical_path() {
             let (client, capture) = spawn_capture_server(r#"{"ok":true}"#).await;
-            let request = MimiReportAbuseReqBody {
+            let request = MimiReportAbuseRequestBody {
                 flow_id: FlowId::new("ck:flow:01904100-0000-7000-8000-f571eead1fc4").unwrap(),
                 target_ref: "mimi://provider/rooms/room-1/messages/msg-1".to_owned(),
                 reporter: Did::new("did:web:alice.example").unwrap(),
@@ -2158,7 +2157,7 @@ mod tests {
             ];
             let client = spawn_chunked_ndjson_server(parts).await;
             let mut stream = client
-                .account_subscribe_frames(&SyncReqBody {
+                .account_subscribe_frames(&SyncRequestBody {
                     after: None,
                     catchup: None,
                     set_presence: None,

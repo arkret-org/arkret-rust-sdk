@@ -6,8 +6,8 @@ use super::*;
 use crate::sync::{SyncRealm, UnreadCounts};
 use crate::{Did, RealmId};
 
-fn sync_response(cursor: &str) -> SyncResBody {
-    SyncResBody {
+fn sync_response(cursor: &str) -> SyncOutcome {
+    SyncOutcome {
         cursor: cursor.to_owned(),
         realms: BTreeMap::new(),
         left_realms: Vec::new(),
@@ -38,7 +38,7 @@ fn backoff_grows_until_capped() {
 #[test]
 fn sync_loop_recovers_after_failure() {
     let mut calls = 0;
-    let mut transport = |request: SyncReqBody| {
+    let mut transport = |request: SyncRequestBody| {
         calls += 1;
         if calls == 1 {
             assert_eq!(request.catchup, Some(true));
@@ -58,7 +58,7 @@ fn sync_loop_recovers_after_failure() {
 
 #[tokio::test]
 async fn async_sync_loop_uses_transport_and_persists_token() {
-    let transport = |request: SyncReqBody| async move {
+    let transport = |request: SyncRequestBody| async move {
         assert_eq!(request.catchup, Some(true));
         assert!(request.after.is_none());
         Ok(sync_response("async1"))
@@ -75,7 +75,7 @@ async fn async_sync_loop_uses_transport_and_persists_token() {
 
 #[tokio::test]
 async fn async_sync_loop_honors_cancellation() {
-    let transport = |_request: SyncReqBody| async { Ok(sync_response("unused")) };
+    let transport = |_request: SyncRequestBody| async { Ok(sync_response("unused")) };
     let control = SyncLoopControl::new();
     control.cancel();
 
@@ -120,7 +120,7 @@ fn sync_loop_can_reset_token_on_limited_timeline_gap() {
         ..Default::default()
     };
     response.realms.insert(realm_id.to_owned(), serde_json::to_value(sync_realm).unwrap());
-    let mut transport = |_request: SyncReqBody| Ok(response.clone());
+    let mut transport = |_request: SyncRequestBody| Ok(response.clone());
     let mut sync_loop =
         SyncLoop::new().with_gap_strategy(SyncGapStrategy::ResetTokenOnLimitedTimeline);
 
@@ -558,7 +558,7 @@ fn frame_frontier_advance_round_trip() {
     assert!(!frame.requires_resubscribe());
 }
 
-// ─── EventsQueryReqBody / EventsQueryResBody tests ─────────────
+// ─── EventsQueryReqBody / EventsQueryOutcome tests ─────────────
 
 #[test]
 fn events_query_request_validates_non_empty() {
@@ -598,13 +598,13 @@ fn events_query_response_round_trips_with_sync_backfill() {
         "prev_cursor": "sx:prev:0",
         "limited": true,
     });
-    let resp: EventsQueryResBody = serde_json::from_value(body).unwrap();
+    let resp: EventsQueryOutcome = serde_json::from_value(body).unwrap();
     assert_eq!(resp.next_cursor.as_deref(), Some("sx:next:1"));
     assert_eq!(resp.prev_cursor.as_deref(), Some("sx:prev:0"));
     assert!(resp.limited);
-    // Round-trip via SyncBackfillResBody keeps cursors and flag.
-    let bf: cokret_core::SyncBackfillResBody = resp.clone().into();
-    let back: EventsQueryResBody = bf.into();
+    // Round-trip via SyncBackfillOutcome keeps cursors and flag.
+    let bf: cokret_core::SyncBackfillOutcome = resp.clone().into();
+    let back: EventsQueryOutcome = bf.into();
     assert_eq!(back.next_cursor, resp.next_cursor);
     assert_eq!(back.prev_cursor, resp.prev_cursor);
     assert_eq!(back.limited, resp.limited);

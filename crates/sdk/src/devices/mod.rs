@@ -118,17 +118,16 @@ pub struct ToDeviceEnvelope {
     pub queued_at: DateTime<Utc>,
 }
 
-/// Spec-aligned device message envelope facade from `ck.schema.device_message.v1`.
+/// Runtime queued protocol device message used by the device manager.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct DeviceMessageEnvelope {
+pub struct ProtocolDeviceMessageEnvelope {
     pub kind: String,
     pub sender_principal_id: Did,
     pub sender_device_id: DeviceId,
     pub recipient_principal_id: Did,
     pub recipient_device_id: DeviceId,
     pub sent_at: DateTime<Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<DateTime<Utc>>,
+    pub expires_at: DateTime<Utc>,
     pub content: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub device_proof: Option<Value>,

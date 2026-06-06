@@ -16,7 +16,7 @@ use crate::{Cursor, DeviceId, Did, Error, Event, EventId, Hlc, RealmId, Result, 
 /// Query parameters for `ck.self.account.subscribe`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct SyncReqBody {
+pub struct SyncRequestBody {
     /// Exclusive stream cursor used to resume account-aggregate delivery.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub after: Option<String>,
@@ -271,7 +271,7 @@ pub enum TimelineFilter {
 /// Backfill request for historical events.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct BackfillReqBody {
+pub struct BackfillRequestBody {
     /// Realm ID to backfill.
     pub realm_id: RealmId,
     /// Starting point (cursor or event ID)
@@ -314,7 +314,7 @@ pub enum BackfillDirection {
 /// Backfill response.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct BackfillResBody {
+pub struct BackfillOutcome {
     /// Events in reverse chronological order
     pub events: Vec<Value>,
     /// Count of total events available
@@ -502,7 +502,7 @@ pub struct SyncSemantics {
 
 impl SyncSemantics {
     /// Derive semantics from a request.
-    pub fn from_request(request: &SyncReqBody) -> Self {
+    pub fn from_request(request: &SyncRequestBody) -> Self {
         let mode = if request.after.is_some() { SyncMode::Incremental } else { SyncMode::Initial };
         Self {
             mode,
@@ -605,9 +605,9 @@ impl LimitedTimelineState {
     }
 
     /// Convert this limited section into a backfill request, if one is needed.
-    pub fn backfill_request(&self, limit: u32) -> Option<BackfillReqBody> {
+    pub fn backfill_request(&self, limit: u32) -> Option<BackfillRequestBody> {
         let gap = self.gap.as_ref()?;
-        Some(BackfillReqBody {
+        Some(BackfillRequestBody {
             realm_id: self.realm_id.clone(),
             from: gap
                 .prev_cursor
@@ -676,7 +676,7 @@ fn event_id_from_value(value: &Value) -> Option<EventId> {
     serde_json::from_value::<Event>(value.clone()).ok().map(|event| event.event_id)
 }
 
-/// Project a `Vec<Value>` from the wire `SyncResBody` into typed
+/// Project a `Vec<Value>` from the wire `SyncOutcome` into typed
 /// entries (e.g. [`ToDeviceMessage`], [`AccountData`]); items that
 /// fail to parse are dropped silently. Callers that need strict
 /// validation should walk the wire `Vec<Value>` directly.
@@ -726,8 +726,8 @@ impl SyncClient {
     }
 
     /// Create a sync request with current token.
-    pub fn create_request(&self) -> SyncReqBody {
-        SyncReqBody {
+    pub fn create_request(&self) -> SyncRequestBody {
+        SyncRequestBody {
             after: self.current_token.clone(),
             catchup: Some(true),
             set_presence: Some(PresenceStatus::Online),
@@ -743,8 +743,8 @@ impl SyncClient {
         catchup: Option<bool>,
         filter: Option<SyncFilter>,
         subscriptions: Option<SubscriptionConfig>,
-    ) -> SyncReqBody {
-        SyncReqBody {
+    ) -> SyncRequestBody {
+        SyncRequestBody {
             after: self.current_token.clone(),
             catchup,
             set_presence: Some(PresenceStatus::Online),
@@ -755,11 +755,11 @@ impl SyncClient {
     }
 
     /// Process a sync response and extract updates. The response is
-    /// the wire-shape [`crate::model::SyncResBody`] — per-event
+    /// the wire-shape [`crate::model::SyncOutcome`] — per-event
     /// classes ([`SyncRealm`], [`ToDeviceMessage`], [`AccountData`],
     /// …) are projected out of the loose `Value` shape on demand so
     /// the wire layer doesn't have to commit to the typed shape.
-    pub fn process_response(&mut self, response: crate::model::SyncResBody) -> SyncUpdates {
+    pub fn process_response(&mut self, response: crate::model::SyncOutcome) -> SyncUpdates {
         // Update token
         self.current_token = Some(response.cursor);
 
@@ -850,7 +850,7 @@ mod tests {
 
     #[test]
     fn sync_request_serializes_correctly() {
-        let request = SyncReqBody {
+        let request = SyncRequestBody {
             after: Some("token123".to_owned()),
             catchup: Some(true),
             set_presence: Some(PresenceStatus::Online),
@@ -894,7 +894,7 @@ mod tests {
             "partial": false
         }"#;
 
-        let response: crate::model::SyncResBody = serde_json::from_str(json).unwrap();
+        let response: crate::model::SyncOutcome = serde_json::from_str(json).unwrap();
         assert_eq!(response.cursor, "token456");
         assert_eq!(response.realms.len(), 1);
     }
@@ -915,7 +915,7 @@ mod tests {
     fn sync_client_processes_response() {
         let mut client = SyncClient::new("device1".to_owned());
 
-        let response = crate::model::SyncResBody {
+        let response = crate::model::SyncOutcome {
             cursor: "token456".to_owned(),
             realms: BTreeMap::new(),
             left_realms: Vec::new(),
@@ -933,7 +933,7 @@ mod tests {
 
     #[test]
     fn backfill_request_serializes_correctly() {
-        let request = BackfillReqBody {
+        let request = BackfillRequestBody {
             realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             from: BackfillFrom::Beginning,
             direction: BackfillDirection::Backward,

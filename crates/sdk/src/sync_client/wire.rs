@@ -306,7 +306,7 @@ impl EventsQueryReqBody {
 /// `next_cursor` (forward) / `prev_cursor` (backward). Server returns
 /// `limited=true` when the page hit `limit` and more events remain.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct EventsQueryResBody {
+pub struct EventsQueryOutcome {
     #[serde(default)]
     pub events: Vec<Event>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -321,8 +321,8 @@ fn is_false_default(v: &bool) -> bool {
     !*v
 }
 
-impl From<cokret_core::SyncBackfillResBody> for EventsQueryResBody {
-    fn from(r: cokret_core::SyncBackfillResBody) -> Self {
+impl From<cokret_core::SyncBackfillOutcome> for EventsQueryOutcome {
+    fn from(r: cokret_core::SyncBackfillOutcome) -> Self {
         Self {
             events: r.events,
             next_cursor: r.next_cursor,
@@ -332,8 +332,8 @@ impl From<cokret_core::SyncBackfillResBody> for EventsQueryResBody {
     }
 }
 
-impl From<EventsQueryResBody> for cokret_core::SyncBackfillResBody {
-    fn from(r: EventsQueryResBody) -> Self {
+impl From<EventsQueryOutcome> for cokret_core::SyncBackfillOutcome {
+    fn from(r: EventsQueryOutcome) -> Self {
         Self {
             events: r.events,
             next_cursor: r.next_cursor,

@@ -17,8 +17,8 @@ use std::sync::Arc;
 use crate::Result;
 use crate::idempotency::IdempotencyWindow;
 use crate::model::{
-    AppletActorResBody, AppletDescription, AppletPingResBody, AppletProtocolResBody,
-    AppletRealmResBody, AppletTransactionReqBody, AppletTransactionResBody,
+    AppletActorView, AppletDescription, AppletPingOutcome, AppletProtocolMetadata, AppletRealmView,
+    AppletTransactionOutcome, AppletTransactionRequestBody,
 };
 
 /// Application-owned trait the [`router`] factory dispatches to.
@@ -30,21 +30,21 @@ use crate::model::{
 /// router uses.
 pub trait AppletHandler: Send + Sync + 'static {
     /// `GET /_cokret/edge/applet/ping`
-    fn ping(&self) -> Result<AppletPingResBody>;
+    fn ping(&self) -> Result<AppletPingOutcome>;
     /// `GET /_cokret/edge/applet/describe`
     fn describe(&self) -> Result<AppletDescription>;
     /// `POST /_cokret/edge/applet/transactions`
     fn handle_transaction(
         &self,
         idempotency_key: Option<&str>,
-        req: AppletTransactionReqBody,
-    ) -> Result<AppletTransactionResBody>;
+        req: AppletTransactionRequestBody,
+    ) -> Result<AppletTransactionOutcome>;
     /// `GET /_cokret/edge/applet/actors/{actor_id}`
-    fn resolve_actor(&self, actor_id: &str) -> Result<AppletActorResBody>;
+    fn resolve_actor(&self, actor_id: &str) -> Result<AppletActorView>;
     /// `GET /_cokret/edge/applet/realms/{realm_id_or_alias}`
-    fn resolve_realm(&self, realm_id_or_alias: &str) -> Result<AppletRealmResBody>;
+    fn resolve_realm(&self, realm_id_or_alias: &str) -> Result<AppletRealmView>;
     /// `GET /_cokret/edge/applet/protocols/{protocol}`
-    fn resolve_protocol(&self, protocol: &str) -> Result<AppletProtocolResBody>;
+    fn resolve_protocol(&self, protocol: &str) -> Result<AppletProtocolMetadata>;
 }
 
 /// Wrap an [`AppletHandler`] together with an idempotency window the
@@ -125,7 +125,7 @@ mod salvo_router {
             .header::<String>("Idempotency-Key")
             .map(|key| key.trim().to_owned())
             .filter(|key| !key.is_empty());
-        let body: AppletTransactionReqBody = match req.parse_json().await {
+        let body: AppletTransactionRequestBody = match req.parse_json().await {
             Ok(body) => body,
             Err(err) => {
                 res.render(StatusError::bad_request().brief(err.to_string()));
@@ -172,14 +172,14 @@ pub use salvo_router::router;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::AppletPingResBody;
+    use crate::model::AppletPingOutcome;
     use std::time::Duration;
 
     struct StubHandler;
 
     impl AppletHandler for StubHandler {
-        fn ping(&self) -> Result<AppletPingResBody> {
-            Ok(AppletPingResBody {
+        fn ping(&self) -> Result<AppletPingOutcome> {
+            Ok(AppletPingOutcome {
                 ok: true,
                 applet_id: "ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned(),
                 service_did: crate::Did::new("did:web:svc.example").unwrap(),
@@ -199,28 +199,28 @@ mod tests {
         fn handle_transaction(
             &self,
             _idempotency_key: Option<&str>,
-            _req: AppletTransactionReqBody,
-        ) -> Result<AppletTransactionResBody> {
-            Ok(AppletTransactionResBody { ok: true, rejected: vec![], retry_after_ms: None })
+            _req: AppletTransactionRequestBody,
+        ) -> Result<AppletTransactionOutcome> {
+            Ok(AppletTransactionOutcome { ok: true, rejected: vec![], retry_after_ms: None })
         }
-        fn resolve_actor(&self, _actor_id: &str) -> Result<AppletActorResBody> {
-            Ok(AppletActorResBody {
+        fn resolve_actor(&self, _actor_id: &str) -> Result<AppletActorView> {
+            Ok(AppletActorView {
                 exists: false,
                 actor_id: None,
                 display_name: None,
                 external_ref: serde_json::Value::Null,
             })
         }
-        fn resolve_realm(&self, _: &str) -> Result<AppletRealmResBody> {
-            Ok(AppletRealmResBody {
+        fn resolve_realm(&self, _: &str) -> Result<AppletRealmView> {
+            Ok(AppletRealmView {
                 exists: false,
                 realm_id: None,
                 title: None,
                 external_ref: serde_json::Value::Null,
             })
         }
-        fn resolve_protocol(&self, _: &str) -> Result<AppletProtocolResBody> {
-            Ok(AppletProtocolResBody {
+        fn resolve_protocol(&self, _: &str) -> Result<AppletProtocolMetadata> {
+            Ok(AppletProtocolMetadata {
                 protocol: "ck.unknown".to_owned(),
                 display_name: "Unknown".to_owned(),
                 icon_blob_ref: None,

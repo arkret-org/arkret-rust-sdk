@@ -22,11 +22,11 @@ impl SyncResponseProcessor {
     }
 
     /// Process a full sync response into a delta and update local
-    /// caches. `response` is the wire-shape [`SyncResBody`]; per-event
+    /// caches. `response` is the wire-shape [`SyncOutcome`]; per-event
     /// classes are projected out of the loose `Value` shape via the
     /// `project_typed_*` helpers so the wire layer doesn't have to
     /// commit to typed shapes that real servers may not emit.
-    pub fn process(&mut self, response: SyncResBody) -> Result<SyncUpdates> {
+    pub fn process(&mut self, response: SyncOutcome) -> Result<SyncUpdates> {
         self.last_token = Some(response.cursor);
 
         let mut realm_updates = Vec::new();

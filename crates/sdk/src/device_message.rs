@@ -2,7 +2,7 @@
 //!
 //! Production-shape `DeviceMessage` struct + builder + signer-aware
 //! `verify()` against the SDK [`cokret_core::MoveSigner`] trait, built
-//! on top of [`crate::devices::DeviceMessageEnvelope`].
+//! on top of [`crate::devices::ProtocolDeviceMessageEnvelope`].
 //!
 //! Wire shape mirrors the spec contract — `recipient`, `sender`,
 //! `message_type`, `body`, `hlc`, `sig` — with canonical bytes covering

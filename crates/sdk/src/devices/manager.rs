@@ -8,7 +8,7 @@ pub struct DeviceManager {
     changes: Vec<DeviceChange>,
     to_device_queue: VecDeque<ToDeviceEnvelope>,
     key_backups: BTreeMap<String, KeyBackup>,
-    protocol_device_messages: VecDeque<DeviceMessageEnvelope>,
+    protocol_device_messages: VecDeque<ProtocolDeviceMessageEnvelope>,
     protocol_key_backups: BTreeMap<String, ProtocolKeyBackup>,
     verification_challenges: BTreeMap<String, DeviceVerificationChallenge>,
     revoked_devices: BTreeMap<Did, BTreeMap<DeviceId, DateTime<Utc>>>,
@@ -138,12 +138,12 @@ impl DeviceManager {
     }
 
     /// Queue a schema-aligned device message envelope.
-    pub fn queue_protocol_device_message(&mut self, message: DeviceMessageEnvelope) {
+    pub fn queue_protocol_device_message(&mut self, message: ProtocolDeviceMessageEnvelope) {
         self.protocol_device_messages.push_back(message);
     }
 
     /// Drain schema-aligned device message envelopes.
-    pub fn drain_protocol_device_messages(&mut self) -> Vec<DeviceMessageEnvelope> {
+    pub fn drain_protocol_device_messages(&mut self) -> Vec<ProtocolDeviceMessageEnvelope> {
         self.protocol_device_messages.drain(..).collect()
     }
 

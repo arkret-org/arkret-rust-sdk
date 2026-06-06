@@ -24,6 +24,7 @@ pub mod model;
 pub mod move_event;
 pub mod multibase;
 pub mod operations;
+pub mod platform;
 pub mod profile_claim;
 pub mod push_rule_core;
 pub mod schema;
@@ -122,6 +123,7 @@ pub use multibase::{
     decode_multicodec_varint, ed25519_pubkey_to_did_key_multibase, encode_base58btc,
     encode_multibase_base58btc,
 };
+pub use platform::{WasmHttpRequestBody, WasmHttpResponseBody};
 pub use profile_claim::{ProfileClaim, ProfileClaimError, ProfileClaimKind, ProfileValidator};
 pub use service::{
     ApiConventionMetadata, HttpTraceMetadata, NotFoundPrivacy, QuotaKind, QuotaMetadata,
@@ -143,17 +145,17 @@ pub use state::{
     union_predecessor_frontiers, verify_move, view_hash,
 };
 pub use sync::{
-    AccountData, BackfillDirection, BackfillFrom, BackfillReqBody, BackfillResBody,
+    AccountData, BackfillDirection, BackfillFrom, BackfillOutcome, BackfillRequestBody,
     BucketedRealmUpdate, DeviceListChanges, LimitedTimelineState, MembershipBucket,
     NotificationDelta, PresenceEvent, PresenceStatus, RealmSubscription, RealmUpdate,
     SubscriptionConfig, SyncClient, SyncFilter, SyncGap, SyncGapReason, SyncMode, SyncRealm,
-    SyncReqBody, SyncSemantics, SyncStreamPosition, SyncTimeline, SyncTokenBinding, SyncUpdates,
-    TimelineFilter, TimelineOrderKey, ToDeviceAck, ToDeviceAckStatus, ToDeviceMessage,
+    SyncRequestBody, SyncSemantics, SyncStreamPosition, SyncTimeline, SyncTokenBinding,
+    SyncUpdates, TimelineFilter, TimelineOrderKey, ToDeviceAck, ToDeviceAckStatus, ToDeviceMessage,
     WaitForFrontier, sync_filter_digest,
 };
-// `SyncResBody` is the wire-shape projection in [`model::api`]; the typed
+// `SyncOutcome` is the wire-shape projection in [`model::api`]; the typed
 // per-event helpers above (SyncRealm, ToDeviceMessage, AccountData,
 // NotificationDelta, PresenceEvent, DeviceListChanges, UnreadCounts,
 // SyncTimeline) are typed views that consumers parse per-field from the
 // loose `BTreeMap<String, Value>` / `Vec<Value>` carried by the wire
-// type. `pub use model::*;` re-exports `SyncResBody` at the crate root.
+// type. `pub use model::*;` re-exports `SyncOutcome` at the crate root.

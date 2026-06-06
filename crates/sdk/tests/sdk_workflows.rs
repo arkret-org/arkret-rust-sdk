@@ -138,7 +138,7 @@ fn interoperability_serialization_roundtrips() {
         "ck:realm:01904100-0000-7000-8000-9b64700c6ee8".to_owned(),
         serde_json::to_value(SyncRealm::default()).unwrap(),
     );
-    let response = SyncResBody {
+    let response = SyncOutcome {
         cursor: "s1".to_owned(),
         realms,
         left_realms: Vec::new(),
@@ -151,7 +151,7 @@ fn interoperability_serialization_roundtrips() {
     };
 
     let json = serde_json::to_string(&response).unwrap();
-    let decoded: SyncResBody = serde_json::from_str(&json).unwrap();
+    let decoded: SyncOutcome = serde_json::from_str(&json).unwrap();
     assert_eq!(decoded.cursor, "s1");
 }
 

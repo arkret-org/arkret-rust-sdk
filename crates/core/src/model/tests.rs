@@ -872,7 +872,7 @@ fn operation_serializes_protocol_field_names() {
     assert_eq!(value["schema"], OPERATION_SCHEMA);
 }
 
-// SyncResBody carries `cursor` / `realms` / `left_realms` /
+// SyncOutcome carries `cursor` / `realms` / `left_realms` /
 // `notifications`. Realm ids and product Space ids are validated by their
 // typed-id constructors and exercised by the typed-ID tests above.
 

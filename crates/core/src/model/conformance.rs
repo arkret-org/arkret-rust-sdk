@@ -38,7 +38,7 @@ pub struct ConformanceSuite {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct ConformanceCaseResult {
+pub struct ConformanceCaseOutcome {
     pub profile: ConformanceProfile,
     pub case_id: String,
     pub passed: bool,
@@ -60,7 +60,7 @@ pub struct ConformanceReport {
     pub fixture_version: String,
     pub passed: bool,
     pub coverage: Vec<ConformanceProfileCoverage>,
-    pub results: Vec<ConformanceCaseResult>,
+    pub results: Vec<ConformanceCaseOutcome>,
 }
 
 /// Loadable conformance fixture set used by SDK and external fixtures.
@@ -252,7 +252,7 @@ fn run_conformance_suites(
         for case in &suite.cases {
             let error =
                 validate_conformance_case(registry, case).err().map(|error| error.to_string());
-            results.push(ConformanceCaseResult {
+            results.push(ConformanceCaseOutcome {
                 profile: suite.profile,
                 case_id: case.case_id.clone(),
                 passed: error.is_none(),

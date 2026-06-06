@@ -23,7 +23,7 @@ pub enum FrontierPeerRole {
 /// or transport signatures here (client UI does not need them).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct EventsFrontierAccountClientResponse {
+pub struct EventsFrontierAccountClientState {
     pub peer_role: FrontierPeerRole,
     pub frontier: BTreeMap<RealmId, Vec<EventId>>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -35,7 +35,7 @@ pub struct EventsFrontierAccountClientResponse {
 /// remote peer can verify the response binds to the producing service.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct EventsFrontierFederationPeerResponse {
+pub struct EventsFrontierFederationPeerState {
     pub peer_role: FrontierPeerRole,
     pub frontier: BTreeMap<RealmId, Vec<EventId>>,
     pub frontier_root: Hash,
@@ -68,9 +68,9 @@ pub struct EventsFrontierAnonymousHealthResponse {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(untagged)]
 #[allow(clippy::large_enum_variant)]
-pub enum EventsFrontierResponse {
-    AccountClient(EventsFrontierAccountClientResponse),
-    FederationPeer(EventsFrontierFederationPeerResponse),
+pub enum EventsFrontierState {
+    AccountClient(EventsFrontierAccountClientState),
+    FederationPeer(EventsFrontierFederationPeerState),
     AnonymousHealth(EventsFrontierAnonymousHealthResponse),
 }
 
@@ -100,7 +100,7 @@ pub struct FederationServiceBindingRef {
 /// rejected list.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct EventsSubmitBatchRequest {
+pub struct EventsSubmitBatchRequestBody {
     pub events: Vec<Value>,
     /// Optional idempotency key for the entire batch.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -113,7 +113,7 @@ pub struct EventsSubmitBatchRequest {
 /// origin reducer state.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct EventsSubmitFederationRequest {
+pub struct EventsSubmitFederationRequestBody {
     pub service_binding_ref: FederationServiceBindingRef,
     pub events: Vec<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

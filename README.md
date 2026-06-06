@@ -83,10 +83,10 @@ wire-breaking list.
 Headline additions:
 
 - **Types**: `EventsSubscribeFrame` (8-kind enum), `SnapshotBootstrap`,
-  `EventsFrontierResponse` oneOf (`AccountClient` / `FederationPeer` /
-  `AnonymousHealth`), `PolicyCheckRequest` / `PolicyCheckResponse`,
+  `EventsFrontierState` oneOf (`AccountClient` / `FederationPeer` /
+  `AnonymousHealth`), `PolicyCheckRequestBody` / `PolicyCheckOutcome`,
   `FederationServiceBindingRef` (6 required fields),
-  `EventsSubmitBatchRequest` / `EventsSubmitFederationRequest`,
+  `EventsSubmitBatchRequestBody` / `EventsSubmitFederationRequestBody`,
   `ThirdPartyInvite{oob_code_kind}`, `SpaceStateTransitionPayload` /
   `SpaceObjectTombstonePayload`, `AppletId` enum.
 - **DID method-name regex** tightened to `^did:[a-z0-9]+:[^\s]+$`

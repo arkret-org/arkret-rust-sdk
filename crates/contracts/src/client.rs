@@ -1099,10 +1099,10 @@ impl CallSignalReqBody {
 
 pub mod protocol {
     pub use cokret_core::{
-        DeviceMessagesReceiveResBody, DeviceMessagesSendReqBody, DeviceMessagesSendResBody,
-        KeysClaimReqBody, KeysClaimResBody, KeysQueryReqBody, KeysQueryResBody, KeysUploadReqBody,
-        KeysUploadResBody, ModerationReportReqBody, ModerationReportResBody, SyncReqBody,
-        SyncResBody,
+        DeviceMessagesGetOutcome, DeviceMessagesPutOutcome, DeviceMessagesPutRequestBody,
+        KeysClaimOutcome, KeysClaimRequestBody, KeysQueryOutcome, KeysQueryRequestBody,
+        KeysUploadOutcome, KeysUploadRequestBody, ModerationReportOutcome,
+        ModerationReportRequestBody, SyncOutcome, SyncRequestBody,
     };
 }
 

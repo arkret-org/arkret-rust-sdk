@@ -81,7 +81,7 @@ pub trait Validate {
 }
 
 /// Discriminator for the request variants the crypto-machine plan
-/// queue dispatches on. One variant per `CryptoMachineReqBody` arm.
+/// queue dispatches on. One variant per `CryptoMachineRequestBody` arm.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CryptoMachineRequestKind {
@@ -1026,7 +1026,7 @@ pub struct UnableToDecryptRecord {
 /// variant corresponds 1:1 with a [`CryptoMachineRequestKind`].
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
-pub enum CryptoMachineReqBody {
+pub enum CryptoMachineRequestBody {
     UploadDeviceKeys(DeviceKeyBundle),
     QueryDeviceKeys {
         users: Vec<Did>,
@@ -1064,7 +1064,7 @@ pub enum CryptoMachineReqBody {
     },
 }
 
-impl CryptoMachineReqBody {
+impl CryptoMachineRequestBody {
     pub fn kind(&self) -> CryptoMachineRequestKind {
         match self {
             Self::UploadDeviceKeys(_) => CryptoMachineRequestKind::UploadDeviceKeys,
@@ -1121,7 +1121,7 @@ impl CryptoMachineReqBody {
 /// Response body the crypto-machine plan returns once a request is
 /// processed (or queued for processing).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub enum CryptoMachineResBody {
+pub enum CryptoMachineResponseBody {
     /// Request accepted and queued for asynchronous processing.
     Queued { request_id: String, kind: CryptoMachineRequestKind },
     /// `UploadDeviceKeys` accepted.
@@ -1149,15 +1149,15 @@ pub enum CryptoMachineResBody {
 /// In-memory FIFO queue of pending crypto-machine requests.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct CryptoMachinePlan {
-    queue: VecDeque<(String, CryptoMachineReqBody)>,
+    queue: VecDeque<(String, CryptoMachineRequestBody)>,
 }
 
 impl CryptoMachinePlan {
     pub fn push(
         &mut self,
         request_id: impl Into<String>,
-        request: CryptoMachineReqBody,
-    ) -> Result<CryptoMachineResBody> {
+        request: CryptoMachineRequestBody,
+    ) -> Result<CryptoMachineResponseBody> {
         request.validate()?;
         let request_id = request_id.into();
         if request_id.trim().is_empty() {
@@ -1165,10 +1165,10 @@ impl CryptoMachinePlan {
         }
         let kind = request.kind();
         self.queue.push_back((request_id.clone(), request));
-        Ok(CryptoMachineResBody::Queued { request_id, kind })
+        Ok(CryptoMachineResponseBody::Queued { request_id, kind })
     }
 
-    pub fn pop(&mut self) -> Option<(String, CryptoMachineReqBody)> {
+    pub fn pop(&mut self) -> Option<(String, CryptoMachineRequestBody)> {
         self.queue.pop_front()
     }
 
@@ -1369,23 +1369,23 @@ mod tests {
     fn crypto_machine_plan_validates_and_orders_requests() {
         let mut plan = CryptoMachinePlan::default();
         let queued = plan
-            .push("r1", CryptoMachineReqBody::QueryDeviceKeys { users: vec![did("alice")] })
+            .push("r1", CryptoMachineRequestBody::QueryDeviceKeys { users: vec![did("alice")] })
             .unwrap();
         assert_eq!(
             queued,
-            CryptoMachineResBody::Queued {
+            CryptoMachineResponseBody::Queued {
                 request_id: "r1".to_owned(),
                 kind: CryptoMachineRequestKind::QueryDeviceKeys
             }
         );
         assert_eq!(plan.pending_kinds(), vec![CryptoMachineRequestKind::QueryDeviceKeys]);
         assert!(matches!(
-            plan.push("bad", CryptoMachineReqBody::QueryDeviceKeys { users: Vec::new() }),
+            plan.push("bad", CryptoMachineRequestBody::QueryDeviceKeys { users: Vec::new() }),
             Err(Error::Protocol(_))
         ));
         plan.push(
             "share",
-            CryptoMachineReqBody::ShareRoomKey {
+            CryptoMachineRequestBody::ShareRoomKey {
                 realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-6c355fb9dada").unwrap(),
                 session_id: "sess1".to_owned(),
                 recipients: vec![device()],

@@ -40,12 +40,12 @@
 //! Run one in-memory sync-loop step:
 //!
 //! ```rust
-//! use cokret::{SyncLoop, SyncLoopStep, SyncReqBody, SyncResBody};
+//! use cokret::{SyncLoop, SyncLoopStep, SyncRequestBody, SyncOutcome};
 //!
 //! # fn main() {
 //! let mut sync_loop = SyncLoop::new();
-//! let mut transport = |_request: SyncReqBody| {
-//!     Ok(SyncResBody {
+//! let mut transport = |_request: SyncRequestBody| {
+//!     Ok(SyncOutcome {
 //!         cursor: "s1".to_owned(),
 //!         realms: Default::default(),
 //!         left_realms: Vec::new(),
@@ -279,8 +279,8 @@ pub use authz::{
     ApprovalFlowManager, ApprovalMode, AuthzContext, AuthzDecision, AuthzEngine,
     CapabilityFrontierValidation, CapabilityGrant, CapabilityGrantBuilder, ClaimRequirement,
     Constraint, ConstraintDuration, ConstraintEffect, ConstraintEntry, FieldScope, GrantProposal,
-    ModerationReport, PolicyCheckReqBody, PolicyCheckResBody, PolicyServerEffect, ProposalApproval,
-    ProposalStatus, ProtocolGrantApprovalRelation, ProtocolGrantClaimRequirement,
+    ModerationReport, PolicyEvaluationRequest, PolicyEvaluationResult, PolicyServerEffect,
+    ProposalApproval, ProposalStatus, ProtocolGrantApprovalRelation, ProtocolGrantClaimRequirement,
     ProtocolGrantConstraint, ProtocolGrantConstraintEffect, ProtocolGrantConstraintTrack,
     ProtocolGrantConstraintType, ProtocolResourceSelector, ProtocolResourceSelectorKind,
     ProtocolResourceSelectorScope, RateLimitScope, Recurrence, Resource, ResourceSelector,
@@ -314,10 +314,10 @@ pub use device_message::{DeviceMessage, DeviceMessageBuilder, DeviceMessageRecei
 pub use devices::{
     CrossSigningBinding, CrossSigningKeyKind, CrossSigningKeyRecord, CrossSigningPublishContent,
     CrossSigningResetContent, CrossSigningResetProof, Device, DeviceBootstrapBinding, DeviceChange,
-    DeviceManager, DeviceMessageEnvelope, DeviceMetadata, DeviceQuorumSignature,
-    DeviceTrustBinding, DeviceTrustChainOutcome, DeviceVerificationChallenge,
-    DeviceVerificationMessageContent, DeviceVerificationMessageKind, KeyBackup, KeyBackupClass,
-    KeyBackupContentItem, KeyBackupEncryption, ProtocolKeyBackup, QrVerificationPayload,
+    DeviceManager, DeviceMetadata, DeviceQuorumSignature, DeviceTrustBinding,
+    DeviceTrustChainOutcome, DeviceVerificationChallenge, DeviceVerificationMessageContent,
+    DeviceVerificationMessageKind, KeyBackup, KeyBackupClass, KeyBackupContentItem,
+    KeyBackupEncryption, ProtocolDeviceMessageEnvelope, ProtocolKeyBackup, QrVerificationPayload,
     SignedCrossSigningKey, ToDeviceEnvelope, cross_signing_publish_cell_subject,
     device_verification_commitment,
 };
@@ -370,7 +370,7 @@ pub use identity::{
 pub use identity_link::{IdentityLinkCache, IdentityLinkCacheEntry};
 #[cfg(all(feature = "full-surface", feature = "device-runtime", feature = "client"))]
 pub use key_backup_client::{
-    KeyBackupClient, KeyBackupDeleteResBody, KeyBackupListResBody, KeyBackupPutResBody,
+    KeyBackupClient, KeyBackupListResBody, KeysBackupsDeleteOutcome, KeysBackupsPutOutcome,
 };
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub use key_verification::{
@@ -399,7 +399,7 @@ pub use notifications::{
 pub use platform::{
     FfiCallbackAction, FfiCallbackResult, FfiCancellationHandle, FfiError, FfiErrorCode, FfiEvent,
     FfiEventSink, FfiHandle, FfiHandleKind, IndexedDbStoreDescriptor, IndexedDbStoreKind,
-    WasmBrowserHttpTransport, WasmHttpReqBody, WasmHttpResBody, WasmRuntimeContract,
+    WasmBrowserHttpTransport, WasmHttpRequestBody, WasmHttpResponseBody, WasmRuntimeContract,
     WebCryptoKeyHandle, WebCryptoOperation,
 };
 #[cfg(feature = "full-surface")]
@@ -455,7 +455,7 @@ pub use store::{
 #[cfg(all(feature = "full-surface", feature = "sync-runtime"))]
 pub use sync_client::{
     AsyncSyncTransport, BackoffConfig, BackpressureConfig, BoxSyncFuture, CancellationToken,
-    EventsQueryOrder, EventsQueryReqBody, EventsQueryResBody, EventsQuerySelector,
+    EventsQueryOrder, EventsQueryOutcome, EventsQueryReqBody, EventsQuerySelector,
     EventsSubscribeFrame, EventsSubscribeTransport, ExponentialBackoff, LocalEcho, ProcessedRealm,
     RealmListChange, RealmListEntry, RealmListFilter, RealmListService, RealmListSnapshot,
     RealmListSort, SendQueue, SendQueueItem, SendQueueItemKind, SendQueueSnapshot, SendQueueStatus,

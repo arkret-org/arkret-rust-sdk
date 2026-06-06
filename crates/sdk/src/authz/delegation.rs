@@ -159,7 +159,7 @@ pub enum GrantDecisionVerdict {
 
 /// A request to issue a delegated grant. See [`create_delegated_grant`].
 #[derive(Clone, Debug)]
-pub struct GrantReqBody {
+pub struct GrantRequestDraft {
     pub realm_id: String,
     pub issuer: String,
     pub subject: String,
@@ -304,7 +304,7 @@ where
 /// - resource MUST NOT widen parent's scope
 pub fn create_delegated_grant(
     parent_id: &str,
-    requested: &GrantReqBody,
+    requested: &GrantRequestDraft,
     parents: &[Grant],
     now: DateTime<Utc>,
 ) -> Result<Grant, DelegationError> {
@@ -496,7 +496,7 @@ mod tests {
         let mut root = root_grant("g1", &["read", "send"], "ck:realm:1");
         root.expires_at = Some(now + Duration::hours(1));
         let parents = vec![root];
-        let req = GrantReqBody {
+        let req = GrantRequestDraft {
             realm_id: "ck:realm:1".to_owned(),
             issuer: "did:web:bob".to_owned(),
             subject: "did:web:carol".to_owned(),
@@ -517,7 +517,7 @@ mod tests {
         let mut root = root_grant("g1", &["read"], "ck:realm:1");
         root.expires_at = Some(now + Duration::hours(1));
         let parents = vec![root];
-        let req = GrantReqBody {
+        let req = GrantRequestDraft {
             realm_id: "ck:realm:1".to_owned(),
             issuer: "did:web:bob".to_owned(),
             subject: "did:web:carol".to_owned(),
@@ -533,7 +533,7 @@ mod tests {
         ));
 
         // Also reject when child has no expiry but parent does.
-        let req_none = GrantReqBody { expires_at: None, ..req };
+        let req_none = GrantRequestDraft { expires_at: None, ..req };
         assert!(matches!(
             create_delegated_grant("g1", &req_none, &parents, now),
             Err(DelegationError::OverExpire)
@@ -545,7 +545,7 @@ mod tests {
         let now = Utc::now();
         let root = root_grant("g1", &["read"], "ck:realm:1");
         let parents = vec![root];
-        let req = GrantReqBody {
+        let req = GrantRequestDraft {
             realm_id: "ck:realm:1".to_owned(),
             issuer: "did:web:bob".to_owned(),
             subject: "did:web:carol".to_owned(),
@@ -569,7 +569,7 @@ mod tests {
         let now = Utc::now();
         let root = root_grant("g1", &["read"], "ck:realm:1");
         let parents = vec![root];
-        let req = GrantReqBody {
+        let req = GrantRequestDraft {
             realm_id: "ck:realm:2".to_owned(),
             issuer: "did:web:bob".to_owned(),
             subject: "did:web:carol".to_owned(),
@@ -590,7 +590,7 @@ mod tests {
         let now = Utc::now();
         let root = root_grant("g1", &["read"], "ck:realm:1");
         let parents = vec![root];
-        let req = GrantReqBody {
+        let req = GrantRequestDraft {
             realm_id: "ck:realm:1".to_owned(),
             // Bob is the parent's subject; Eve trying to delegate is not.
             issuer: "did:web:eve".to_owned(),
@@ -668,7 +668,7 @@ mod tests {
     fn parent_not_found_returns_specific_error() {
         let now = Utc::now();
         let parents: Vec<Grant> = Vec::new();
-        let req = GrantReqBody {
+        let req = GrantRequestDraft {
             realm_id: "ck:realm:1".to_owned(),
             issuer: "did:web:bob".to_owned(),
             subject: "did:web:carol".to_owned(),

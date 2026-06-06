@@ -17,7 +17,7 @@ use crate::{
     model::{DeviceId, Did, Event, EventId, RealmId},
     receipts::{ReadReceipt, ReceiptVisibility},
     sync::{
-        BackfillDirection, BackfillFrom, BackfillReqBody, SyncGapReason, SyncTimeline,
+        BackfillDirection, BackfillFrom, BackfillRequestBody, SyncGapReason, SyncTimeline,
         TimelineOrderKey,
     },
     typing::TypingNotification,
@@ -234,7 +234,7 @@ pub struct FocusedTimeline {
     pub gaps: Vec<TimelineGap>,
     /// Suggested backfill request when the target or surrounding context is missing.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub backfill_request: Option<BackfillReqBody>,
+    pub backfill_request: Option<BackfillRequestBody>,
 }
 
 /// Event cache insertion result.
@@ -426,9 +426,9 @@ impl EventCache {
         &self,
         realm_id: &RealmId,
         limit: u32,
-    ) -> Option<BackfillReqBody> {
+    ) -> Option<BackfillRequestBody> {
         let gap = self.gaps.get(realm_id)?.first()?;
-        Some(BackfillReqBody {
+        Some(BackfillRequestBody {
             realm_id: realm_id.clone(),
             from: gap
                 .prev_cursor
@@ -642,7 +642,7 @@ impl Timeline {
     }
 
     /// Create a backfill request based on timeline gaps.
-    pub fn create_backfill_request(&self, limit: u32) -> Option<BackfillReqBody> {
+    pub fn create_backfill_request(&self, limit: u32) -> Option<BackfillRequestBody> {
         // Find the oldest gap or the beginning
         let from = if let Some(gap) = self.gaps.first() {
             if let Some(prev_cursor) = &gap.prev_cursor {
@@ -658,7 +658,7 @@ impl Timeline {
             BackfillFrom::Beginning
         };
 
-        Some(BackfillReqBody {
+        Some(BackfillRequestBody {
             realm_id: self.realm_id.clone(),
             from,
             direction: BackfillDirection::Backward,
@@ -776,7 +776,7 @@ impl Timeline {
                 target: None,
                 after: Vec::new(),
                 gaps: self.gaps.clone(),
-                backfill_request: Some(BackfillReqBody {
+                backfill_request: Some(BackfillRequestBody {
                     realm_id: self.realm_id.clone(),
                     from: BackfillFrom::EventId { event_id: target_event_id },
                     direction: BackfillDirection::Both,
@@ -813,7 +813,7 @@ impl Timeline {
             target: self.items.get(&item_id).cloned(),
             after: after_items,
             gaps: self.gaps.clone(),
-            backfill_request: needs_backfill.then(|| BackfillReqBody {
+            backfill_request: needs_backfill.then(|| BackfillRequestBody {
                 realm_id: self.realm_id.clone(),
                 from: BackfillFrom::EventId {
                     event_id: self.items.get(&item_id).unwrap().event_id.clone(),

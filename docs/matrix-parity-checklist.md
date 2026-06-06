@@ -31,8 +31,8 @@ The spec-side comparison is in [`cokret-spec/spec/v1/zh/overview/matrix-core-dif
 | --- | --- | --- |
 | Ed25519 fingerprint key | [`DeviceKeyBundle.signing_key`](../crates/crypto/src/lib.rs) | Implemented |
 | Curve25519 identity key | [`DeviceKeyBundle.identity_key`](../crates/crypto/src/lib.rs) | Implemented |
-| One-time keys (Curve25519) | `KeysUploadRequest.one_time_keys` ([crates/core/src/model/api.rs](../crates/core/src/model/api.rs)) | Wire shape implemented; consumed by Olm-style bootstraps where applicable. MLS bootstrapping uses MLS KeyPackages instead — see below. |
-| Fallback key | `KeysUploadRequest.fallback_keys` | Wire shape implemented; SHOULD rotate after first use (spec §8). |
+| One-time keys (Curve25519) | `KeysUploadRequestBody.one_time_keys` ([crates/core/src/model/api.rs](../crates/core/src/model/api.rs)) | Wire shape implemented; consumed by Olm-style bootstraps where applicable. MLS bootstrapping uses MLS KeyPackages instead — see below. |
+| Fallback key | `KeysUploadRequestBody.fallback_keys` | Wire shape implemented; SHOULD rotate after first use (spec §8). |
 | Device verify_key on the device record | [`Device.device_public_key`](../crates/sdk/src/devices/mod.rs) | Implemented in v0.7 (was missing in earlier revisions). |
 
 ### Three-tier cross-signing (spec §5)

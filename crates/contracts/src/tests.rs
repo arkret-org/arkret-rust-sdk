@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 use chrono::{Duration, Utc};
-use cokret_core::{Did, FederationTransactionReqBody, Hash};
+use cokret_core::{Did, FederationTransactionRequestBody, Hash};
 use serde_json::json;
 
 #[test]
@@ -110,7 +110,7 @@ fn identity_resolve_keeps_did_document_wire_names() {
 fn federation_envelope_serde_shape_uses_contract_hashes() {
     let origin = Did::new("did:web:a.example").unwrap();
     let destination = Did::new("did:web:b.example").unwrap();
-    let payload = FederationTransactionReqBody {
+    let payload = FederationTransactionRequestBody {
         origin: origin.clone(),
         destination: destination.clone(),
         service_binding_ref: "svc".to_owned(),

@@ -3,15 +3,15 @@
 use std::collections::BTreeMap;
 
 use chrono::{DateTime, Utc};
-use cokret_core::{Did, DidDocumentRef, Hash, IdentityResolveResBody, Proof, Result};
+use cokret_core::{Did, DidDocumentRef, Hash, IdentityResolveOutcome, Proof, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub mod protocol {
     pub use cokret_core::{
-        DidDocumentRef, IdentityDescription, IdentityDocumentResBody, IdentityLogResBody,
-        IdentityReceiptsResBody, IdentityResolveReqBody, IdentityResolveResBody,
-        SubmitDidOperationReqBody, SubmitDidOperationResBody,
+        DidDocumentRef, DidOperationSubmitOutcome, DidOperationSubmitRequestBody,
+        IdentityDescription, IdentityDocumentView, IdentityLogOutcome, IdentityReceiptsOutcome,
+        IdentityResolveOutcome, IdentityResolveRequestBody,
     };
 }
 
@@ -21,7 +21,7 @@ pub const DID_WEB_MAX_DOCUMENT_BYTES: usize = 64 * 1024;
 ///
 /// This is intentionally a product/shared contract, not the normative DID
 /// data model for `cokret-core`. Core keeps the protocol response envelope
-/// (`DidDocumentRef`, `IdentityResolveResBody`) while this type provides the
+/// (`DidDocumentRef`, `IdentityResolveOutcome`) while this type provides the
 /// serde shape and convenience helpers used by identity resolvers.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DidDocument {
@@ -213,8 +213,8 @@ pub struct KeyLogHead {
 pub fn resolve_response_from_document(
     document: DidDocument,
     key_log_head: Option<KeyLogHead>,
-) -> IdentityResolveResBody {
-    IdentityResolveResBody {
+) -> IdentityResolveOutcome {
+    IdentityResolveOutcome {
         did_document: document.to_ref(),
         key_log_head: key_log_head.as_ref().map(|head| head.head_event_digest.clone()),
         seq: key_log_head.as_ref().map(|head| head.seq),

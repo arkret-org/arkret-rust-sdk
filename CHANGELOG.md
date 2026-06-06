@@ -30,7 +30,7 @@ major-version bump.
 ## R3.3 — Spec sync 2026-05-28 (cokret-spec @ cced4b8, CKP-0011)
 
 - **New operation**: `ck.directory.resolve_target` (`POST /api/v1/directory/resolve-target`, gRPC `Directory/ResolveTarget`, MQ `directory.resolve_target`). Pure ADD — operation count 100 → 101; `ck.directory.resolve_realm` is retained and NOT deprecated. No new event kinds, registered `ck.schema.*`, or wire/reducer changes.
-- **Wire types**: `DirectoryResolveTargetReqBody { address, requester, proofs, token }` + `DirectoryResolveTargetResBody { target_kind, realm_preview, object_preview, join_rule, as_of, source_refs, via_services, policy_revision, stale, divergent }` + `enum TargetKind { Realm, Flow, Message }`. http-client method `directory_resolve_target`.
+- **Wire types**: `DirectoryResolveTargetRequestBody { address, requester, proofs, token }` + `DirectoryTargetResolutionOutcome { target_kind, realm_preview, object_preview, join_rule, as_of, source_refs, via_services, policy_revision, stale, divergent }` + `enum TargetKind { Realm, Flow, Message }`. http-client method `directory_resolve_target`.
 - **Object-addressing grammar** (`cokret_core::model::object_address`): client-agnostic shareable address pointing at a Realm / Flow / Message. `parse_address` accepts both the `web+cokret:` URI form and the HTTPS-landing fragment form (`https://<host>/#realm/...`), fixed hierarchy `realm` ⊃ `flow` ⊃ `m`; fails closed on unknown/misordered keyword, missing intermediate level, non-uuid flow/message segment, or a flow/message address missing `via`. `build_address` / `build_https_landing` re-serialize. `RealmRef { RealmId | Alias }` (UUIDv7-vs-alias rule); `enum LinkType { Reference, Invite }` (omitted/unknown/reserved `preview` → `Reference`); `enum AddressAction { View, Join, Reply }` (default `View`).
 - **Invite-token target binding** (scope-confusion defence): `TargetDescriptor { realm_id, flow_id?, message_id?, link_type }` with absent hierarchy fields OMITTED (never `null`) and typed canonical id values (`ck:realm:` / `ck:flow:` / `ck:message:`). `target_digest` reuses the shared canonicalizer (`canonical::canonical_sha256`) and covers ONLY the identity tuple + `link_type` — never `via` / `action` / `tok` / `lt`. `verify_token_target` recomputes + compares the digest so a token minted for object A cannot be replayed onto a different object B (and fails closed when the realm is still an unresolved alias).
 
@@ -311,12 +311,12 @@ wire-breaking list.
   validation helpers (re-exported from the umbrella `cokret` crate).
 - **Added** types: `EventsSubscribeFrame` (8-kind enum: `event` / `frontier` /
   `heartbeat` / `catchup_complete` / `epoch_rotation` / `dropped{cursor}` /
-  `resync_required` / `unauthorized`), `SnapshotBootstrap`, `EventsFrontierResponse`
+  `resync_required` / `unauthorized`), `SnapshotBootstrap`, `EventsFrontierState`
   oneOf (`AccountClient` / `FederationPeer` / `AnonymousHealth` — the last
-  forbids `receipts` / `signatures` at the type level), `PolicyCheckRequest` /
-  `PolicyCheckResponse{bound_to{realm_id,actor,action,request_canonical_digest,
+  forbids `receipts` / `signatures` at the type level), `PolicyCheckRequestBody` /
+  `PolicyCheckOutcome{bound_to{realm_id,actor,action,request_canonical_digest,
   policy_server_id}, signature}`, `FederationServiceBindingRef` (6 required
-  fields), `EventsSubmitBatchRequest` / `EventsSubmitFederationRequest`,
+  fields), `EventsSubmitBatchRequestBody` / `EventsSubmitFederationRequestBody`,
   `ThirdPartyInvite{oob_code_kind ∈ OfflineToken|Lookup}`,
   `SpaceStateTransitionPayload` / `SpaceObjectTombstonePayload`,
   `AppletId = enum { Did | Cx }`.
@@ -1300,7 +1300,7 @@ unchanged; this is an additive SDK API release.
 
 This release completes round 21 of the SDK: the public Move/Anchor signer
 trait, an Ed25519 backend for production signing, the `EventsQueryRequest`
-/ `EventsQueryResponse` typed wrappers downstream agents (coauth / soland /
+/ `EventsQueryOutcome` typed wrappers downstream agents (coauth / soland /
 yougen) need for `ck.events.query`, and the workspace bump to 0.5.0
 (folds C19.B follow-ups + completes signer surface). v1 wire is unchanged
 from 0.4.0; this is an additive SDK API release.
@@ -1323,10 +1323,10 @@ from 0.4.0; this is an additive SDK API release.
   unit tests.
 - Re-exported at the top-level `cokret` crate root behind the
   `cokret/signer = ["cokret-signatures/signer"]` feature flag.
-- **`cokret::EventsQueryRequest` / `EventsQueryResponse`** typed
+- **`cokret::EventsQueryRequest` / `EventsQueryOutcome`** typed
   wrappers in `sync_client.rs` for `ck.events.query`. Multi-selector
   (`spaces[] ∪ actors[]`), `from` / `until` HLC bounds, `direction`
-  (forward/backward), `limit`. `EventsQueryResponse` carries `events`,
+  (forward/backward), `limit`. `EventsQueryOutcome` carries `events`,
   `next_cursor`, `prev_cursor`, `limited`. From/Into impls bridge with
   the existing `SyncBackfillResponse` wire shape soland accepts. 4 new
   unit tests.

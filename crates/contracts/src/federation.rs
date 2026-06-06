@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{DateTime, Utc};
 use cokret_core::{
-    BlobRef, Did, Error, EventId, FederationTransactionReqBody, Hash, Operation, OperationId,
+    BlobRef, Did, Error, EventId, FederationTransactionRequestBody, Hash, Operation, OperationId,
     RealmId, Result, TypedTrustDomainId, canonical,
 };
 pub use cokret_signatures::HttpMessageSignature;
@@ -13,10 +13,10 @@ use serde_json::Value;
 
 pub mod protocol {
     pub use cokret_core::{
-        FederationPullOperationsResBody, FederationPushOperationsReqBody,
-        FederationPushOperationsResBody, FederationRealmMembersResBody,
-        FederationTransactionReqBody, FederationTransactionResBody, FederationVerifyActorReqBody,
-        FederationVerifyActorResBody,
+        FederationPullOperationsOutcome, FederationPushOperationsOutcome,
+        FederationPushOperationsRequestBody, FederationRealmMemberList,
+        FederationTransactionOutcome, FederationTransactionRequestBody,
+        FederationVerifyActorOutcome, FederationVerifyActorRequestBody,
     };
 }
 
@@ -62,7 +62,7 @@ pub struct HttpMessageSignatureInput {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct FederationTransactionEnvelope<T = FederationTransactionReqBody> {
+pub struct FederationTransactionEnvelope<T = FederationTransactionRequestBody> {
     pub transaction_id: String,
     pub origin: Did,
     pub destination: Did,
@@ -363,7 +363,7 @@ mod tests {
 
     #[test]
     fn transaction_envelope_validates_digest() {
-        let payload = FederationTransactionReqBody {
+        let payload = FederationTransactionRequestBody {
             origin: did("a"),
             destination: did("b"),
             service_binding_ref: "svc".to_owned(),

@@ -36,7 +36,7 @@ pub fn compute_audit_policy_version_digest(
 
 // ── PolicyCheck v2 ──────────────────────────────────────────────────────
 
-/// Round 4 — `source` discriminator for [`PolicyCheckRequest`].
+/// Round 4 — `source` discriminator for [`PolicyCheckRequestBody`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct PolicyCheckSource {
@@ -46,12 +46,10 @@ pub struct PolicyCheckSource {
 
 /// Round 4 (commit 7446832) — typed `/policy/check` request body.
 ///
-/// Wire-breaking: replaces the pre-round-4 `PolicyCheckReqBody` (kept
-/// in `model::api` only for transport-layer salvo compatibility while
-/// upstream consumers migrate).
+/// Wire-breaking: replaces the pre-round-4 `PolicyCheckRequestBody`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct PolicyCheckRequest {
+pub struct PolicyCheckRequestBody {
     pub request_id: String,
     pub realm_id: RealmId,
     pub actor: Did,
@@ -71,7 +69,7 @@ pub struct PolicyCheckRequest {
     pub auth_context: Value,
 }
 
-/// Round 4 — `bound_to` binding inside [`PolicyCheckResponse`].
+/// Round 4 — `bound_to` binding inside [`PolicyCheckOutcome`].
 ///
 /// MUST include all five fields so the response can be verified against
 /// the request transcript without trusting the policy server.
@@ -85,7 +83,7 @@ pub struct PolicyCheckBoundTo {
     pub policy_server_id: Did,
 }
 
-/// Round 4 — signature carrier for [`PolicyCheckResponse`].
+/// Round 4 — signature carrier for [`PolicyCheckOutcome`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct PolicyCheckSignature {
@@ -99,7 +97,7 @@ pub struct PolicyCheckSignature {
 /// binding transcript.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct PolicyCheckResponse {
+pub struct PolicyCheckOutcome {
     pub decision: AuthzDecision,
     pub bound_to: PolicyCheckBoundTo,
     pub auth_state_digest: Hash,

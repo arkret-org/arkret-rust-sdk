@@ -359,8 +359,8 @@ pub fn boundary_coverage_rows() -> Vec<EndpointCoverageRow> {
             operation_id: "ck.crypto.machine_request".to_owned(),
             method: "CONTRACT".to_owned(),
             path: "cokret-crypto://machine".to_owned(),
-            request_schema: "CryptoMachineReqBody".to_owned(),
-            response_schema: "CryptoMachineResBody".to_owned(),
+            request_schema: "CryptoMachineRequestBody".to_owned(),
+            response_schema: "CryptoMachineResponseBody".to_owned(),
         },
         EndpointCoverageRow {
             domain: ConformanceDomain::Crypto,
@@ -709,7 +709,7 @@ mod tests {
         let mut plan = cokret_crypto::CryptoMachinePlan::default();
         plan.push(
             "keys",
-            cokret_crypto::CryptoMachineReqBody::QueryDeviceKeys {
+            cokret_crypto::CryptoMachineRequestBody::QueryDeviceKeys {
                 users: vec![Did::new("did:web:alice.example").unwrap()],
             },
         )

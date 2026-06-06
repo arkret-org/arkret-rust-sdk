@@ -4,12 +4,9 @@
 //! integrations can implement directly: HTTP transport, IndexedDB-like durable
 //! storage descriptors, WebCrypto key handles and opaque FFI callback shapes.
 
-use std::{
-    collections::BTreeMap,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
 };
 
 use serde::{Deserialize, Serialize};
@@ -17,47 +14,18 @@ use serde_json::Value;
 
 use crate::{Error, Result};
 
-/// Browser HTTP request shape for WASM transports.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WasmHttpReqBody {
-    pub method: String,
-    pub url: String,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub headers: BTreeMap<String, String>,
-    pub body: Vec<u8>,
-}
-
-impl WasmHttpReqBody {
-    pub fn validate(&self) -> Result<()> {
-        if self.method.trim().is_empty() {
-            return Err(Error::Protocol("WASM HTTP method must not be empty".to_owned()));
-        }
-        if !(self.url.starts_with("https://") || self.url.starts_with("http://localhost")) {
-            return Err(Error::Protocol("WASM HTTP URL must be HTTPS or localhost".to_owned()));
-        }
-        Ok(())
-    }
-}
-
-/// Browser HTTP response shape returned by WASM transports.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WasmHttpResBody {
-    pub status: u16,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub headers: BTreeMap<String, String>,
-    pub body: Vec<u8>,
-}
+pub use cokret_core::{WasmHttpRequestBody, WasmHttpResponseBody};
 
 /// Host-provided browser transport boundary.
 pub trait WasmBrowserHttpTransport {
-    fn send_wasm_http(&self, request: WasmHttpReqBody) -> Result<WasmHttpResBody>;
+    fn send_wasm_http(&self, request: WasmHttpRequestBody) -> Result<WasmHttpResponseBody>;
 }
 
 impl<F> WasmBrowserHttpTransport for F
 where
-    F: Fn(WasmHttpReqBody) -> Result<WasmHttpResBody>,
+    F: Fn(WasmHttpRequestBody) -> Result<WasmHttpResponseBody>,
 {
-    fn send_wasm_http(&self, request: WasmHttpReqBody) -> Result<WasmHttpResBody> {
+    fn send_wasm_http(&self, request: WasmHttpRequestBody) -> Result<WasmHttpResponseBody> {
         self(request)
     }
 }
@@ -341,6 +309,8 @@ impl FfiCancellationHandle {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
     use serde_json::json;
 
     use super::*;
@@ -387,9 +357,9 @@ mod tests {
         assert_eq!(contract.crypto_store.kind, IndexedDbStoreKind::Crypto);
         assert!(!contract.webcrypto_key.extractable);
 
-        let transport = |request: WasmHttpReqBody| {
+        let transport = |request: WasmHttpRequestBody| {
             request.validate()?;
-            Ok(WasmHttpResBody {
+            Ok(WasmHttpResponseBody {
                 status: 200,
                 headers: BTreeMap::from([(
                     "content-type".to_owned(),
@@ -399,7 +369,7 @@ mod tests {
             })
         };
         let response = transport
-            .send_wasm_http(WasmHttpReqBody {
+            .send_wasm_http(WasmHttpRequestBody {
                 method: "POST".to_owned(),
                 url: "https://sync.example/_cokret/self/account/subscribe".to_owned(),
                 headers: BTreeMap::new(),

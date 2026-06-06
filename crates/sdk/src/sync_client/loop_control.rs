@@ -84,14 +84,14 @@ pub enum SyncLoopStep {
 /// Minimal transport abstraction used by [`SyncLoop`].
 pub trait SyncTransport {
     /// Execute one sync request.
-    fn sync(&mut self, request: SyncReqBody) -> Result<SyncResBody>;
+    fn sync(&mut self, request: SyncRequestBody) -> Result<SyncOutcome>;
 }
 
 impl<F> SyncTransport for F
 where
-    F: FnMut(SyncReqBody) -> Result<SyncResBody>,
+    F: FnMut(SyncRequestBody) -> Result<SyncOutcome>,
 {
-    fn sync(&mut self, request: SyncReqBody) -> Result<SyncResBody> {
+    fn sync(&mut self, request: SyncRequestBody) -> Result<SyncOutcome> {
         self(request)
     }
 }
@@ -101,15 +101,15 @@ pub type BoxSyncFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + Send + 
 /// Async transport abstraction used by [`SyncLoop::step_async`].
 pub trait AsyncSyncTransport {
     /// Execute one async sync request.
-    fn sync_async<'a>(&'a self, request: SyncReqBody) -> BoxSyncFuture<'a, SyncResBody>;
+    fn sync_async<'a>(&'a self, request: SyncRequestBody) -> BoxSyncFuture<'a, SyncOutcome>;
 }
 
 impl<F, Fut> AsyncSyncTransport for F
 where
-    F: Fn(SyncReqBody) -> Fut + Send + Sync,
-    Fut: Future<Output = Result<SyncResBody>> + Send + 'static,
+    F: Fn(SyncRequestBody) -> Fut + Send + Sync,
+    Fut: Future<Output = Result<SyncOutcome>> + Send + 'static,
 {
-    fn sync_async<'a>(&'a self, request: SyncReqBody) -> BoxSyncFuture<'a, SyncResBody> {
+    fn sync_async<'a>(&'a self, request: SyncRequestBody) -> BoxSyncFuture<'a, SyncOutcome> {
         Box::pin(self(request))
     }
 }
@@ -142,7 +142,7 @@ pub trait EventsSubscribeTransport {
 // for downstream impls.
 #[cfg(all(feature = "client", not(target_arch = "wasm32")))]
 impl AsyncSyncTransport for crate::Client {
-    fn sync_async<'a>(&'a self, request: SyncReqBody) -> BoxSyncFuture<'a, SyncResBody> {
+    fn sync_async<'a>(&'a self, request: SyncRequestBody) -> BoxSyncFuture<'a, SyncOutcome> {
         Box::pin(async move { self.account_subscribe_once(&request).await })
     }
 }
@@ -386,9 +386,9 @@ impl SyncLoop {
     }
 
     /// Build the next long-poll request.
-    pub fn next_request(&self) -> SyncReqBody {
+    pub fn next_request(&self) -> SyncRequestBody {
         let _timeout_ms = self.timeout.as_millis().min(u128::from(u64::MAX)) as u64;
-        SyncReqBody {
+        SyncRequestBody {
             after: self.token.clone(),
             catchup: Some(true),
             set_presence: self.presence.clone(),
@@ -398,7 +398,7 @@ impl SyncLoop {
         }
     }
 
-    fn handle_response(&mut self, response: SyncResBody) -> SyncLoopStep {
+    fn handle_response(&mut self, response: SyncOutcome) -> SyncLoopStep {
         self.backoff.reset();
         self.token = Some(response.cursor.clone());
         match self.processor.process(response) {

@@ -396,10 +396,18 @@ pub enum HandleHintBindingSource {
 }
 
 /// Canonical handle claim shape — matches `handle-claim.schema.json`.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub const HANDLE_CLAIM_SCHEMA: &str = "ck.schema.handle_claim.v1";
+
+fn default_handle_claim_schema() -> String {
+    HANDLE_CLAIM_SCHEMA.to_owned()
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct HandleClaim {
+    #[serde(default = "default_handle_claim_schema")]
+    pub schema: String,
     /// Canonical handle `<localpart>:<domain>`. R3.1 wire rename from
     /// the prior `handle_uri` field name (cokret-spec @ 7157ee8).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -438,6 +446,32 @@ pub struct HandleClaim {
     pub source_refs: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub proofs: Vec<Value>,
+}
+
+impl Default for HandleClaim {
+    fn default() -> Self {
+        Self {
+            schema: default_handle_claim_schema(),
+            handle: None,
+            handle_aliases: Vec::new(),
+            subject: None,
+            issuer: None,
+            issuer_service_did: None,
+            binding_state: None,
+            claim_kind: None,
+            visibility: None,
+            audience: None,
+            challenge: None,
+            claim_scope: BTreeMap::new(),
+            member_delivery_binding: None,
+            claims: Vec::new(),
+            created_at: None,
+            expires_at: None,
+            verified_at: None,
+            source_refs: Vec::new(),
+            proofs: Vec::new(),
+        }
+    }
 }
 
 impl HandleClaim {

@@ -4,8 +4,8 @@ use std::collections::BTreeMap;
 use std::time::Duration;
 
 use cokret_core::{
-    DeviceId, Did, EventId, PushNotifyReqBody, PushNotifyResBody, PushRegisterDeviceReqBody,
-    RealmId,
+    DeviceId, Did, EventId, PushNotifyOutcome, PushNotifyRequestBody,
+    PushRegisterDeviceRequestBody, RealmId,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -16,8 +16,8 @@ fn list_contains_ignore_ascii_case(haystack: &[String], needle: &str) -> bool {
 
 pub mod protocol {
     pub use cokret_core::{
-        PushNotifyReqBody, PushNotifyResBody, PushRegisterDeviceReqBody, PushRegisterDeviceResBody,
-        PushUnregisterDeviceReqBody,
+        PushNotifyOutcome, PushNotifyRequestBody, PushRegisterDeviceOutcome,
+        PushRegisterDeviceRequestBody, PushUnregisterDeviceRequestBody,
     };
 }
 
@@ -55,7 +55,7 @@ pub struct Pusher {
 }
 
 impl Pusher {
-    pub fn from_register(user_id: Did, request: PushRegisterDeviceReqBody) -> Self {
+    pub fn from_register(user_id: Did, request: PushRegisterDeviceRequestBody) -> Self {
         Self {
             user_id,
             device_id: request.device_id,
@@ -161,14 +161,16 @@ pub fn format_push_payload(
     }
 }
 
-pub fn notification_from_gateway_request(request: PushNotifyReqBody) -> Option<PushNotification> {
+pub fn notification_from_gateway_request(
+    request: PushNotifyRequestBody,
+) -> Option<PushNotification> {
     serde_json::from_value(request.notification).ok()
 }
 
 pub fn rejected_response(
     receipts: impl IntoIterator<Item = PushDeliveryReceipt>,
-) -> PushNotifyResBody {
-    PushNotifyResBody {
+) -> PushNotifyOutcome {
+    PushNotifyOutcome {
         rejected: receipts
             .into_iter()
             .filter(|receipt| !receipt.accepted)
@@ -510,7 +512,7 @@ mod tests {
 
     #[test]
     fn pusher_builds_from_register_request() {
-        let request = PushRegisterDeviceReqBody {
+        let request = PushRegisterDeviceRequestBody {
             device_id: DeviceId::new("ck:device:01904100-0000-7000-8000-000000000001").unwrap(),
             push_gateway: "https://push.example".to_owned(),
             push_key: "token".to_owned(),

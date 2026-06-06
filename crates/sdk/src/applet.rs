@@ -10,12 +10,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 #[cfg(test)]
-use crate::model::AppletTransactionResBody;
+use crate::model::AppletTransactionOutcome;
 use crate::{
     ACTOR_PROFILE_SCHEMA, ActorKind, ActorProfile, ActorProfileId, AppletId, BlobRef, Did, Error,
     Event, Hlc, ObjectCreatePayload, Proof, RealmId, Result, canonical,
     events::kinds::IDENTITY_ACCOUNTABILITY_GRANT,
-    model::{AppletActorResBody, AppletRealmResBody, AppletTransactionReqBody},
+    model::{AppletActorView, AppletRealmView, AppletTransactionRequestBody},
 };
 
 /// Which namespace bucket a claim lives in. The wire model
@@ -884,22 +884,22 @@ impl AppletEndpointRouteSet {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppletServiceTransaction {
     pub idempotency_key: String,
-    pub request: AppletTransactionReqBody,
+    pub request: AppletTransactionRequestBody,
 }
 
 /// Result of recording an idempotent transaction.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg(test)]
 pub(crate) enum AppletServiceTransactionRecord {
-    New(AppletTransactionResBody),
-    Duplicate(AppletTransactionResBody),
+    New(AppletTransactionOutcome),
+    Duplicate(AppletTransactionOutcome),
 }
 
 /// In-memory idempotent applet service transaction store.
 #[derive(Clone, Debug, Default)]
 #[cfg(test)]
 pub(crate) struct AppletServiceTransactionStore {
-    transactions: BTreeMap<String, (String, AppletTransactionResBody)>,
+    transactions: BTreeMap<String, (String, AppletTransactionOutcome)>,
 }
 
 #[cfg(test)]
@@ -913,7 +913,7 @@ impl AppletServiceTransactionStore {
     pub fn record(
         &mut self,
         transaction: &AppletServiceTransaction,
-        response: AppletTransactionResBody,
+        response: AppletTransactionOutcome,
     ) -> Result<AppletServiceTransactionRecord> {
         let digest = canonical::canonical_sha256(&transaction.request)?;
         if let Some((existing_digest, existing_response)) =
@@ -965,7 +965,7 @@ impl AppletServiceIntent {
     ) -> AppletServiceTransaction {
         AppletServiceTransaction {
             idempotency_key: format!("{}:{}", self.idempotency_prefix, idempotency_key.as_ref()),
-            request: AppletTransactionReqBody {
+            request: AppletTransactionRequestBody {
                 source_service_did: self.service_did.clone(),
                 events,
                 ephemeral: Value::Null,
@@ -994,8 +994,8 @@ pub struct ThirdPartyLookupReqBody {
 /// Third-party lookup response.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ThirdPartyLookupResBody {
-    User(AppletActorResBody),
-    Location(AppletRealmResBody),
+    User(AppletActorView),
+    Location(AppletRealmView),
 }
 
 /// Bridge mapping from a remote user to a Cokret virtual actor.
@@ -1755,7 +1755,7 @@ mod tests {
         let intent = AppletServiceIntent::new(did("svc"), did("ghost"));
         let transaction = intent.transaction("k1", Vec::new());
         let response =
-            AppletTransactionResBody { ok: true, rejected: Vec::new(), retry_after_ms: None };
+            AppletTransactionOutcome { ok: true, rejected: Vec::new(), retry_after_ms: None };
         let mut store = AppletServiceTransactionStore::new();
 
         assert!(matches!(
@@ -1772,7 +1772,7 @@ mod tests {
         assert!(matches!(
             store.record(
                 &changed,
-                AppletTransactionResBody { ok: true, rejected: Vec::new(), retry_after_ms: None },
+                AppletTransactionOutcome { ok: true, rejected: Vec::new(), retry_after_ms: None },
             ),
             Err(Error::IdempotencyConflict(_))
         ));

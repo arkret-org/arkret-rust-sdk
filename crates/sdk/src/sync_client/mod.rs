@@ -20,11 +20,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
-    DeviceId, Error, Event, EventId, RealmId, Result, SyncResBody, canonical,
+    DeviceId, Error, Event, EventId, RealmId, Result, SyncOutcome, canonical,
     sync::{
         AccountData, DeviceListChanges, LimitedTimelineState, MembershipBucket, NotificationDelta,
         PresenceEvent, PresenceStatus, RealmSubscription, RealmUpdate, SubscriptionConfig,
-        SyncFilter, SyncRealm, SyncReqBody, SyncTimeline, SyncUpdates, TimelineFilter,
+        SyncFilter, SyncRealm, SyncRequestBody, SyncTimeline, SyncUpdates, TimelineFilter,
         TimelineOrderKey, ToDeviceAck, ToDeviceAckStatus, ToDeviceMessage, WaitForFrontier,
         project_typed_vec, project_typed_vec_from_value,
     },

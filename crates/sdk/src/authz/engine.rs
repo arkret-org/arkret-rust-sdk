@@ -196,22 +196,22 @@ pub enum PolicyServerEffect {
     RequireReview,
 }
 
-/// Interoperable request model for policy checks.
+/// Internal request model for local policy evaluation.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PolicyCheckReqBody {
+pub struct PolicyEvaluationRequest {
     pub operation: String,
     pub context: AuthzContext,
 }
 
-impl PolicyCheckReqBody {
+impl PolicyEvaluationRequest {
     pub fn new(context: AuthzContext) -> Self {
         Self { operation: "ck.self.policy.check".to_owned(), context }
     }
 }
 
-/// Interoperable response model for policy checks.
+/// Internal response model for local policy evaluation.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct PolicyCheckResBody {
+pub struct PolicyEvaluationResult {
     pub operation: String,
     pub effect: PolicyServerEffect,
     pub reason: String,
@@ -221,7 +221,7 @@ pub struct PolicyCheckResBody {
     pub moderation_report_id: Option<String>,
 }
 
-impl PolicyCheckResBody {
+impl PolicyEvaluationResult {
     pub fn no_action() -> Self {
         Self {
             operation: "ck.self.policy.check".to_owned(),
@@ -311,7 +311,7 @@ impl AuthzEngine {
         &mut self,
         ctx: &AuthzContext,
         grants: &[CapabilityGrant],
-        policy: &PolicyCheckResBody,
+        policy: &PolicyEvaluationResult,
     ) -> AuthzDecision {
         apply_policy_response(self.check_authorization(ctx, grants), policy)
     }
@@ -1186,7 +1186,7 @@ impl Default for AuthzEngine {
 
 pub fn apply_policy_response(
     capability_decision: AuthzDecision,
-    policy: &PolicyCheckResBody,
+    policy: &PolicyEvaluationResult,
 ) -> AuthzDecision {
     match policy.effect {
         PolicyServerEffect::NoAction => capability_decision,
@@ -1209,7 +1209,7 @@ pub fn grant_requires_approval(grant: &CapabilityGrant) -> bool {
 
 pub fn moderation_report_for_policy_outcome(
     ctx: &AuthzContext,
-    policy: &PolicyCheckResBody,
+    policy: &PolicyEvaluationResult,
     now: DateTime<Utc>,
 ) -> Option<ModerationReport> {
     if policy.effect == PolicyServerEffect::NoAction {

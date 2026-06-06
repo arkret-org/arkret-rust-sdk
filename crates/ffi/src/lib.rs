@@ -9,6 +9,7 @@ use std::{
 };
 
 use cokret_core::{Error, Result};
+pub use cokret_core::{WasmHttpRequestBody, WasmHttpResponseBody};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -188,44 +189,15 @@ impl FfiCancellationHandle {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WasmHttpReqBody {
-    pub method: String,
-    pub url: String,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub headers: BTreeMap<String, String>,
-    pub body: Vec<u8>,
-}
-
-impl WasmHttpReqBody {
-    pub fn validate(&self) -> Result<()> {
-        if self.method.trim().is_empty() {
-            return Err(Error::Protocol("WASM HTTP method must not be empty".to_owned()));
-        }
-        if !(self.url.starts_with("https://") || self.url.starts_with("http://localhost")) {
-            return Err(Error::Protocol("WASM HTTP URL must be HTTPS or localhost".to_owned()));
-        }
-        Ok(())
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WasmHttpResBody {
-    pub status: u16,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub headers: BTreeMap<String, String>,
-    pub body: Vec<u8>,
-}
-
 pub trait WasmBrowserHttpTransport {
-    fn send_wasm_http(&self, request: WasmHttpReqBody) -> Result<WasmHttpResBody>;
+    fn send_wasm_http(&self, request: WasmHttpRequestBody) -> Result<WasmHttpResponseBody>;
 }
 
 impl<F> WasmBrowserHttpTransport for F
 where
-    F: Fn(WasmHttpReqBody) -> Result<WasmHttpResBody>,
+    F: Fn(WasmHttpRequestBody) -> Result<WasmHttpResponseBody>,
 {
-    fn send_wasm_http(&self, request: WasmHttpReqBody) -> Result<WasmHttpResBody> {
+    fn send_wasm_http(&self, request: WasmHttpRequestBody) -> Result<WasmHttpResponseBody> {
         self(request)
     }
 }

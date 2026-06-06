@@ -573,7 +573,7 @@ impl SyncTracker {
     }
 
     /// Update the tracker with a sync response.
-    pub fn update(&mut self, response: &crate::SyncResBody) -> Result<()> {
+    pub fn update(&mut self, response: &crate::SyncOutcome) -> Result<()> {
         // Update the sync token
         self.sync_tokens.insert("default".to_owned(), response.cursor.clone());
 
