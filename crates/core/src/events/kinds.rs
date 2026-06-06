@@ -173,6 +173,14 @@ pub fn event_payload_schema_ref(kind: &str) -> Option<&'static str> {
         MEMBER_IDENTITY_UPDATE => {
             Some("event-payload.schema.json#/$defs/member_identity_update_payload")
         }
+        PIN_ADD => Some("event-payload.schema.json#/$defs/pin_add_payload"),
+        PIN_REMOVE => Some("event-payload.schema.json#/$defs/pin_remove_payload"),
+        PIN_REORDER => Some("event-payload.schema.json#/$defs/pin_reorder_payload"),
+        REALM_DISAPPEARING_POLICY => {
+            Some("event-payload.schema.json#/$defs/realm_disappearing_policy_payload")
+        }
+        REALM_SEARCH_POLICY => Some("event-payload.schema.json#/$defs/realm_search_policy_payload"),
+        RSVP_SET => Some("event-payload.schema.json#/$defs/rsvp_set_payload"),
         _ => None,
     }
 }
@@ -207,6 +215,9 @@ pub const MORPH_STAGE_SET: &str = "ck.morph.stage.set";
 pub const MORPH_UPDATE: &str = "ck.morph.update";
 pub const ORGANIZATION_DISCOVERY: &str = "ck.organization.discovery";
 pub const ORGANIZATION_MODERATION_POLICY: &str = "ck.organization.moderation_policy";
+pub const PIN_ADD: &str = "ck.pin.add";
+pub const PIN_REMOVE: &str = "ck.pin.remove";
+pub const PIN_REORDER: &str = "ck.pin.reorder";
 // Realm event kinds (security boundary).
 // Top-level governance of the security boundary lives here.
 pub const REALM_ARCHIVE: &str = "ck.realm.archive";
@@ -214,6 +225,7 @@ pub const REALM_ASSET_PRIVACY_POLICY: &str = "ck.realm.asset_privacy_policy";
 pub const REALM_AUDIT_POLICY_DOWNGRADE: &str = "ck.realm.audit_policy_downgrade";
 pub const REALM_CREATE: &str = "ck.realm.create";
 pub const REALM_DELIVERY_BINDING_POLICY: &str = "ck.realm.delivery_binding_policy";
+pub const REALM_DISAPPEARING_POLICY: &str = "ck.realm.disappearing_policy";
 pub const REALM_DESTROY: &str = "ck.realm.destroy";
 pub const REALM_DISCOVERY: &str = "ck.realm.discovery";
 pub const REALM_FREEZE: &str = "ck.realm.freeze";
@@ -235,6 +247,7 @@ pub const REALM_POLICY_SERVER: &str = "ck.realm.policy_server";
 pub const REALM_PREVIEW_POLICY: &str = "ck.realm.preview_policy";
 pub const REALM_READ_RECEIPT_POLICY: &str = "ck.realm.read_receipt_policy";
 pub const REALM_SCHEMA: &str = "ck.realm.schema";
+pub const REALM_SEARCH_POLICY: &str = "ck.realm.search_policy";
 pub const REALM_TOMBSTONE: &str = "ck.realm.tombstone";
 pub const REALM_UPDATE: &str = "ck.realm.update";
 pub const REALM_UPGRADE: &str = "ck.realm.upgrade";
@@ -255,6 +268,7 @@ pub const RELATION_CREATE: &str = "ck.relation.create";
 pub const RELATION_TOMBSTONE: &str = "ck.relation.tombstone";
 pub const RELATION_DELETE: &str = RELATION_TOMBSTONE;
 pub const RELATION_UPDATE: &str = "ck.relation.update";
+pub const RSVP_SET: &str = "ck.rsvp.set";
 pub const SCHEMA_DEFINE: &str = "ck.schema.define";
 pub const SCHEMA_UPDATE: &str = "ck.schema.update";
 pub const SESSION_GRANT: &str = "ck.session.grant";
@@ -281,17 +295,14 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     AGENT_ACTION_APPROVE,
     AGENT_ACTION_REJECT,
     AGENT_ACTION_REQUEST,
-    AGENT_DEACTIVATE,
     AGENT_DRAFT_PROPOSE,
     AGENT_ENDPOINT,
     AGENT_KEY_AUTHORIZED,
     AGENT_KEY_REVOKED,
     AGENT_KEY_ROTATED,
-    AGENT_PAUSE,
     AGENT_PROTOCOL_SESSION_RESULT,
     AGENT_PROTOCOL_SESSION_START,
     AGENT_PROTOCOL_SESSION_STATUS,
-    AGENT_RESUME,
     APPLET_BRIDGE_ERROR,
     APPLET_DISCOVERY,
     APPLET_PROTOCOL_SESSION_START,
@@ -375,7 +386,6 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     MODERATION_DECISION,
     MODERATION_DECISION_LIFT,
     MODERATION_FRANK,
-    MODERATION_REPORT,
     MORPH_ARCHIVE,
     MORPH_CREATE,
     MORPH_RESTORE,
@@ -384,6 +394,9 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     MORPH_UPDATE,
     ORGANIZATION_DISCOVERY,
     ORGANIZATION_MODERATION_POLICY,
+    PIN_ADD,
+    PIN_REMOVE,
+    PIN_REORDER,
     POLICY_ACTION,
     POLICY_RULE,
     POLICY_SET,
@@ -400,6 +413,7 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     REALM_CREATE,
     REALM_DELIVERY_BINDING_POLICY,
     REALM_DESTROY,
+    REALM_DISAPPEARING_POLICY,
     REALM_DISCOVERY,
     REALM_FREEZE,
     REALM_HISTORY_SHARING_POLICY,
@@ -417,6 +431,7 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     REALM_PREVIEW_POLICY,
     REALM_READ_RECEIPT_POLICY,
     REALM_SCHEMA,
+    REALM_SEARCH_POLICY,
     REALM_TOMBSTONE,
     REALM_UPDATE,
     REALM_UPGRADE,
@@ -428,8 +443,13 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     RELATION_CREATE,
     RELATION_DELETE,
     RELATION_UPDATE,
+    RSVP_SET,
     SCHEMA_DEFINE,
     SCHEMA_UPDATE,
+    AGENT_DEACTIVATE,
+    AGENT_PAUSE,
+    AGENT_RESUME,
+    MODERATION_REPORT,
     SESSION_GRANT,
     SOVEREIGN_DID_POLICY,
     SPACE_ARCHIVE,
@@ -535,6 +555,7 @@ pub enum EventClass {
     Moderation,
     Morph,
     Organization,
+    Pin,
     Policy,
     Profile,
     Read,
@@ -638,6 +659,7 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
         MORPH_ARCHIVE | MORPH_CREATE | MORPH_RESTORE | MORPH_SCHEMA_MIGRATE | MORPH_STAGE_SET
         | MORPH_UPDATE => EventClass::Morph,
         ORGANIZATION_DISCOVERY | ORGANIZATION_MODERATION_POLICY => EventClass::Organization,
+        PIN_ADD | PIN_REMOVE | PIN_REORDER => EventClass::Pin,
         POLICY_ACTION | POLICY_RULE | POLICY_SET => EventClass::Policy,
         PROFILE_CREATE | PROFILE_REALM_OVERRIDE | PROFILE_UPDATE => EventClass::Profile,
         READ_MARKER | RECEIPT_READ => EventClass::Read,
@@ -645,6 +667,7 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
         | REALM_ASSET_PRIVACY_POLICY
         | REALM_CREATE
         | REALM_DELIVERY_BINDING_POLICY
+        | REALM_DISAPPEARING_POLICY
         | REALM_DESTROY
         | REALM_DISCOVERY
         | REALM_FREEZE
@@ -663,11 +686,13 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
         | REALM_PREVIEW_POLICY
         | REALM_READ_RECEIPT_POLICY
         | REALM_SCHEMA
+        | REALM_SEARCH_POLICY
         | REALM_TOMBSTONE
         | REALM_UPDATE
         | REALM_UPGRADE => EventClass::Realm,
         CONTAINER_MOVE_ITEM | CONTAINER_REBALANCE | RELATION_CREATE | RELATION_DELETE
         | RELATION_UPDATE => EventClass::Relation,
+        RSVP_SET => EventClass::Flow,
         SCHEMA_DEFINE | SCHEMA_UPDATE => EventClass::Schema,
         SOVEREIGN_DID_POLICY => EventClass::Sovereign,
         SPACE_ARCHIVE | SPACE_CREATE | SPACE_PARENT | SPACE_RESTORE | SPACE_TOMBSTONE

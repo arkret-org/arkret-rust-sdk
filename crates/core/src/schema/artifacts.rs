@@ -473,6 +473,11 @@ pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     "ck.schema.audit_ryw_receipt.v1",
     "ck.schema.erasure_receipt.v1",
     "ck.schema.erasure_verification_stub.v1",
+    PERSONAL_PRODUCTIVITY_SCHEMA,
+    DRAFT_SYNC_SCHEMA,
+    CALENDAR_EVENT_SCHEMA,
+    DISAPPEARING_MESSAGES_SCHEMA,
+    SEARCH_SERVICE_SCHEMA,
     "ck.schema.cross_signing_publish.v1",
     "ck.schema.cross_signing_reset.v1",
     // Round R2/R3 (2026-05-20) — broadcast ephemeral envelope, moderation

@@ -18,7 +18,7 @@
 //!
 //! - `push_target_id` — opaque pseudonym token (see [`is_valid_push_target_id`]).
 //! - `wakeup_kind` — closed enum (`message`, `mention`, `reaction`,
-//!   `call_invite`).
+//!   `call_invite`, `reminder`, `scheduled_send`, `expiry_invalidation`).
 //! - `badge`, `unread_count`, `count`, `unread` — small non-negative
 //!   integers (≤ `MAX_COUNT_VALUE`). May be carried inside a `counts` object.
 //! - `push_hint` — closed enum (`new_message`, `incoming_call`,
@@ -41,7 +41,9 @@
 //! - Content / preview: `body`, `content`, `text`, `message`, `title`,
 //!   `subtitle`, `preview`, `summary`, `alert`, `notification_body`,
 //!   `notification_title`, `formatted_body`, `template`, `template_vars`,
-//!   `reaction`, `reaction_value`.
+//!   `reaction`, `reaction_value`, productivity/search plaintext such as
+//!   `target_ref`, `collection_title`, `message_payload`, `blind_tokens`,
+//!   `shard_key`.
 //! - Attachment metadata: `filename`, `file_name`, `attachment_name`,
 //!   `attachment_filename`, `attachment_preview`, `mime_type`, `media_url`.
 //! - Space / flow / room names: `space_name`, `flow_name`, `room_name`,
@@ -72,7 +74,15 @@ pub const MAX_COUNT_VALUE: u64 = 9_999;
 
 /// Closed enum of wakeup_kind values accepted in blind wakeups.
 ///
-pub const ALLOWED_WAKEUP_KINDS: &[&str] = &["message", "mention", "reaction", "call_invite"];
+pub const ALLOWED_WAKEUP_KINDS: &[&str] = &[
+    "message",
+    "mention",
+    "reaction",
+    "call_invite",
+    "reminder",
+    "scheduled_send",
+    "expiry_invalidation",
+];
 
 /// Closed enum of `push_hint` values accepted in blind wakeups.
 ///
@@ -292,7 +302,7 @@ fn validate_allowed_field(key: &str, value: &Value) -> Result<(), BlindPayloadEr
             Some(raw) if is_valid_wakeup_kind(raw) => Ok(()),
             Some(_) => Err(BlindPayloadError::invalid(
                 key,
-                "wakeup_kind must be one of message/mention/reaction/call_invite",
+                "wakeup_kind must be one of message/mention/reaction/call_invite/reminder/scheduled_send/expiry_invalidation",
             )),
             None => Err(BlindPayloadError::invalid(key, "wakeup_kind must be a string")),
         },
@@ -444,6 +454,8 @@ pub fn is_forbidden_payload_key(key: &str) -> bool {
             | "formatted_body"
             | "notification_body"
             | "message"
+            | "message_payload"
+            | "message_payload_digest"
             | "message_text"
             | "text"
             | "plaintext"
@@ -458,6 +470,17 @@ pub fn is_forbidden_payload_key(key: &str) -> bool {
             | "template_vars"
             | "reaction"
             | "reaction_value"
+            | "target_ref"
+            | "target_key"
+            | "collection_title"
+            | "collection_key"
+            | "reminder_note"
+            | "note"
+            | "draft_slot"
+            | "origin_device_id"
+            | "realm_key"
+            | "blind_tokens"
+            | "shard_key"
             // Attachment metadata.
             | "filename"
             | "file_name"
@@ -599,6 +622,18 @@ mod tests {
     }
 
     #[test]
+    fn accepts_productivity_wakeup_kinds() {
+        for kind in ["reminder", "scheduled_send", "expiry_invalidation"] {
+            sanitize_blind_payload(&json!({
+                "push_target_id": "ck:pseudonym:push:01HYZ8Z000000000000000",
+                "wakeup_kind": kind,
+            }))
+            .unwrap();
+            assert!(is_valid_wakeup_kind(kind), "{kind} should be in wakeup enum");
+        }
+    }
+
+    #[test]
     fn rejects_title_anywhere() {
         let mut v = ok_notification();
         v["notification"]["title"] = json!("Secret");
@@ -626,6 +661,31 @@ mod tests {
         ] {
             let mut v = ok_notification();
             v["notification"][field] = json!("flow_engaged");
+            let err = sanitize_blind_payload(&v).unwrap_err();
+            assert_eq!(err.reason_code, BlindPayloadReasonCode::ForbiddenField);
+            assert_eq!(err.field_path, field);
+        }
+    }
+
+    #[test]
+    fn rejects_productivity_and_search_plaintext_leaks() {
+        for field in [
+            "target_ref",
+            "target_key",
+            "collection_title",
+            "collection_key",
+            "reminder_note",
+            "note",
+            "message_payload",
+            "message_payload_digest",
+            "draft_slot",
+            "origin_device_id",
+            "realm_key",
+            "blind_tokens",
+            "shard_key",
+        ] {
+            let mut v = ok_notification();
+            v["notification"][field] = json!("leaked-value");
             let err = sanitize_blind_payload(&v).unwrap_err();
             assert_eq!(err.reason_code, BlindPayloadReasonCode::ForbiddenField);
             assert_eq!(err.field_path, field);

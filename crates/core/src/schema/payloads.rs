@@ -115,6 +115,7 @@ fn validate_fallback_payload_shape(event_kind: &str, payload: &Value) -> Result<
                     "encrypted_metadata",
                     "blob_refs",
                     "reply_to",
+                    "expiry",
                 ],
             )?;
             let has_content = object.contains_key("content");
@@ -130,6 +131,44 @@ fn validate_fallback_payload_shape(event_kind: &str, payload: &Value) -> Result<
             }
         }
         "ck.mls.commit" => validate_mls_commit_fallback_payload(event_kind, object),
+        "ck.rsvp.set" => validate_known_fields(
+            event_kind,
+            object,
+            &["event_ref", "status", "occurrence", "comment"],
+        ),
+        "ck.pin.add" => {
+            validate_known_fields(event_kind, object, &["pin_scope", "target_ref", "rank", "note"])
+        }
+        "ck.pin.remove" => {
+            validate_known_fields(event_kind, object, &["pin_scope", "target_ref", "expected_rank"])
+        }
+        "ck.pin.reorder" => validate_known_fields(
+            event_kind,
+            object,
+            &["pin_scope", "target_ref", "rank", "expected_rank"],
+        ),
+        "ck.realm.disappearing_policy" => validate_known_fields(
+            event_kind,
+            object,
+            &[
+                "enabled",
+                "max_ttl_ms",
+                "allowed_triggers",
+                "default_grace_ms",
+                "allow_plaintext_realms",
+            ],
+        ),
+        "ck.realm.search_policy" => validate_known_fields(
+            event_kind,
+            object,
+            &[
+                "enabled_profile_refs",
+                "allowed_service_dids",
+                "data_classes",
+                "index_retention_ms",
+                "revocation_behavior",
+            ],
+        ),
         _ => Ok(()),
     }
 }
@@ -399,6 +438,20 @@ fn fallback_event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
             &["board_space_id", "flow_id", "space_id", "rank"][..],
         ),
         ("ck.message.create", EVENT_PAYLOAD_SCHEMA, &["flow_id", "track_name"][..]),
+        ("ck.rsvp.set", EVENT_PAYLOAD_SCHEMA, &["event_ref", "status", "occurrence"][..]),
+        ("ck.pin.add", EVENT_PAYLOAD_SCHEMA, &["pin_scope", "target_ref", "rank"][..]),
+        ("ck.pin.remove", EVENT_PAYLOAD_SCHEMA, &["pin_scope", "target_ref"][..]),
+        ("ck.pin.reorder", EVENT_PAYLOAD_SCHEMA, &["pin_scope", "target_ref", "rank"][..]),
+        (
+            "ck.realm.disappearing_policy",
+            EVENT_PAYLOAD_SCHEMA,
+            &["enabled", "max_ttl_ms", "allowed_triggers"][..],
+        ),
+        (
+            "ck.realm.search_policy",
+            EVENT_PAYLOAD_SCHEMA,
+            &["enabled_profile_refs", "allowed_service_dids", "data_classes"][..],
+        ),
         ("ck.member.state", EVENT_PAYLOAD_SCHEMA, &["membership"][..]),
         (
             "ck.mls.commit",
@@ -483,6 +536,12 @@ fn payload_def_candidates(event_kind: &str) -> Vec<String> {
         ["realm", "inheritance_policy"] => {
             candidates.push("realm_inheritance_policy_payload".to_owned());
         }
+        ["realm", "disappearing_policy"] => {
+            candidates.push("realm_disappearing_policy_payload".to_owned());
+        }
+        ["realm", "search_policy"] => {
+            candidates.push("realm_search_policy_payload".to_owned());
+        }
         ["space", "freeze"] => candidates.push("space_freeze_payload".to_owned()),
         ["space", "destroy"] => candidates.push("space_destroy_payload".to_owned()),
         ["space", "update"] => candidates.push("object_patch_payload".to_owned()),
@@ -504,6 +563,10 @@ fn payload_def_candidates(event_kind: &str) -> Vec<String> {
             candidates.push("message_redact_payload".to_owned());
         }
         ["reaction", "add" | "remove"] => candidates.push("reaction_payload".to_owned()),
+        ["rsvp", "set"] => candidates.push("rsvp_set_payload".to_owned()),
+        ["pin", "add"] => candidates.push("pin_add_payload".to_owned()),
+        ["pin", "remove"] => candidates.push("pin_remove_payload".to_owned()),
+        ["pin", "reorder"] => candidates.push("pin_reorder_payload".to_owned()),
         ["member", "state"] => candidates.push("membership_payload".to_owned()),
         ["morph", "create"] => candidates.push("morph_create_payload".to_owned()),
         ["morph", "update"] => candidates.push("object_patch_payload".to_owned()),

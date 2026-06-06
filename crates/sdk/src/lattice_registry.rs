@@ -1130,6 +1130,24 @@ singleton_lattice!(
     &["ck.realm.delivery_binding_policy"]
 );
 
+singleton_lattice!(
+    RealmDisappearingPolicy,
+    "ck.component.realm.disappearing_policy.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    &["ck.realm.disappearing_policy"]
+);
+
+singleton_lattice!(
+    RealmSearchPolicy,
+    "ck.component.realm.search_policy.v1",
+    SdkLatticeKind::CasRegister,
+    BottomPolicy::Reject,
+    Criticality::Required,
+    &["ck.realm.search_policy"]
+);
+
 // ── Realm CasRegister/Reject per-subject families ──
 
 per_subject_lattice!(
@@ -1299,6 +1317,8 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(RealmMediaService);
     registry.register(RealmSchema);
     registry.register(RealmDeliveryBindingPolicy);
+    registry.register(RealmDisappearingPolicy);
+    registry.register(RealmSearchPolicy);
     registry.register(RealmInheritancePolicy);
     registry.register(RealmUpgrade);
     registry.register(RealmCreate);
@@ -1378,6 +1398,8 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "ck.component.realm.media_service.v1",
         "ck.component.realm.schema.v1",
         "ck.component.realm.delivery_binding_policy.v1",
+        "ck.component.realm.disappearing_policy.v1",
+        "ck.component.realm.search_policy.v1",
         "ck.component.realm.inheritance_policy.v1",
         "ck.component.realm.upgrade.v1",
         "ck.component.realm.create.v1",
@@ -1466,11 +1488,11 @@ mod tests {
 
     #[test]
     fn default_registry_kind_count_matches_expected_total() {
-        // The registry covers the 58 cell families declared by
+        // The registry covers the 60 cell families declared by
         // event-kind-registry plus the three reducer-local anchor/MLS
         // families (`anchorer`, `mls.epoch`, `mls.covered_frontier`).
         let registry = default_lattice_registry();
-        assert_eq!(registry.len(), 61);
+        assert_eq!(registry.len(), 63);
     }
 
     #[test]

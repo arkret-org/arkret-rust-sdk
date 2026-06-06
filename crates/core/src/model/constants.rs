@@ -48,6 +48,11 @@ pub const DID_CONTINUITY_PROOF_SCHEMA: &str = "ck.schema.did_continuity_proof.v1
 pub const IDENTITY_LINK_SCHEMA: &str = "ck.schema.identity_link.v1";
 pub const ERASURE_RECEIPT_SCHEMA: &str = "ck.schema.erasure_receipt.v1";
 pub const ERASURE_VERIFICATION_STUB_SCHEMA: &str = "ck.schema.erasure_verification_stub.v1";
+pub const PERSONAL_PRODUCTIVITY_SCHEMA: &str = "ck.schema.personal_productivity.v1";
+pub const DRAFT_SYNC_SCHEMA: &str = "ck.schema.draft_sync.v1";
+pub const CALENDAR_EVENT_SCHEMA: &str = "ck.schema.calendar_event.v1";
+pub const DISAPPEARING_MESSAGES_SCHEMA: &str = "ck.schema.disappearing_messages.v1";
+pub const SEARCH_SERVICE_SCHEMA: &str = "ck.schema.search_service.v1";
 
 // Round R2/R3 (2026-05-20) — new schema ids for the moderation appeal flow,
 // the broadcast ephemeral envelope, and structured attestation evidence.
@@ -181,6 +186,12 @@ pub const OP_AGENT_SIDECAR_THREAD_ENSURE: &str = "ck.self.agent.sidecar_thread.e
 /// MUST reject writes from non-controller actors.
 pub const ACCOUNT_DATA_TYPE_AGENT_DRAFT: &str = "ck.agent.draft.v1";
 pub const ACCOUNT_DATA_TYPE_AGENT_SIDECAR_PROJECTION: &str = "ck.agent.sidecar_projection.v1";
+pub const ACCOUNT_DATA_TYPE_REMINDER: &str = "ck.reminders.v1";
+pub const ACCOUNT_DATA_TYPE_SCHEDULED_SEND: &str = "ck.scheduled_send.v1";
+pub const ACCOUNT_DATA_TYPE_SNOOZE: &str = "ck.snooze.v1";
+pub const ACCOUNT_DATA_TYPE_SAVED: &str = "ck.saved.v1";
+pub const ACCOUNT_DATA_TYPE_DRAFT: &str = "ck.draft.v1";
+pub const ACCOUNT_DATA_TYPE_SEARCH_INDEX_MANIFEST: &str = "ck.search.index_manifest.v1";
 
 /// Key-backup hardening (B-C) — new schema ids registered in
 /// `schema-registry.json` for recovery policy and recovery receipts.
@@ -244,10 +255,12 @@ pub const OP_REALM_LINK: &str = "ck.realm.link";
 /// Document fallback is permitted, who may sign rebind. cell_family
 /// `ck.component.realm.delivery_binding_policy.v1`, cas-register.
 pub const OP_REALM_DELIVERY_BINDING_POLICY: &str = "ck.realm.delivery_binding_policy";
+pub const OP_REALM_DISAPPEARING_POLICY: &str = "ck.realm.disappearing_policy";
 pub const OP_REALM_INHERITANCE_POLICY: &str = "ck.realm.inheritance_policy";
 pub const OP_REALM_AUDIT_POLICY_DOWNGRADE: &str = "ck.realm.audit_policy_downgrade";
 pub const OP_REALM_PREVIEW_POLICY: &str = "ck.realm.preview_policy";
 pub const OP_CAPABILITY_DERIVED: &str = "ck.capability.derived";
+pub const OP_REALM_SEARCH_POLICY: &str = "ck.realm.search_policy";
 
 /// Device event kinds.
 ///
@@ -261,10 +274,20 @@ pub const OP_DEVICE_PUSH_ROUTE: &str = "ck.device.push_route";
 pub const OP_MESSAGE_CREATE: &str = "ck.message.create";
 pub const OP_MESSAGE_REVISE: &str = "ck.message.revise";
 pub const OP_MESSAGE_REDACT: &str = "ck.message.redact";
+pub const OP_RSVP_SET: &str = "ck.rsvp.set";
+pub const OP_PIN_ADD: &str = "ck.pin.add";
+pub const OP_PIN_REMOVE: &str = "ck.pin.remove";
+pub const OP_PIN_REORDER: &str = "ck.pin.reorder";
 /// High-risk capability required in addition to `ck.message.create` or
 /// `ck.message.revise` whenever a Message introduces an `audience_mention`
 /// node such as `@all` or v1 `@here` (`audience="flow_engaged"`).
 pub const CAP_ACTION_MESSAGE_MENTION_BROADCAST: &str = "ck.message.mention.broadcast";
+pub const CAP_ACTION_RSVP_SET: &str = "ck.rsvp.set";
+pub const CAP_ACTION_PIN_ADD: &str = "ck.pin.add";
+pub const CAP_ACTION_PIN_REMOVE: &str = "ck.pin.remove";
+pub const CAP_ACTION_PIN_REORDER: &str = "ck.pin.reorder";
+pub const CAP_ACTION_REALM_DISAPPEARING_POLICY: &str = "ck.realm.disappearing_policy";
+pub const CAP_ACTION_REALM_SEARCH_POLICY: &str = "ck.realm.search_policy";
 
 /// Capability constraint shorthand from `capability-action-registry.json`.
 pub const CAP_CONSTRAINT_ALLOWED_WRITE_FIELDS: &str = "allowed_write_fields";

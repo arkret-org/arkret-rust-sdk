@@ -996,6 +996,59 @@ impl Default for ProtocolSchemaRegistry {
             ),
         );
         registry.register(
+            PERSONAL_PRODUCTIVITY_SCHEMA,
+            object_schema(PERSONAL_PRODUCTIVITY_SCHEMA, &["kind"], &[("kind", "string")]),
+        );
+        registry.register(
+            DRAFT_SYNC_SCHEMA,
+            object_schema(
+                DRAFT_SYNC_SCHEMA,
+                &[
+                    "target_ref",
+                    "kind",
+                    "draft_slot",
+                    "content",
+                    "updated_hlc",
+                    "origin_device_id",
+                    "retention_expires_at",
+                ],
+                &[
+                    ("target_ref", "string"),
+                    ("kind", "string"),
+                    ("draft_slot", "string"),
+                    ("content", "object"),
+                    ("updated_hlc", "string"),
+                    ("origin_device_id", "string"),
+                    ("retention_expires_at", "string"),
+                ],
+            ),
+        );
+        registry.register(
+            CALENDAR_EVENT_SCHEMA,
+            object_schema(
+                CALENDAR_EVENT_SCHEMA,
+                &["start", "end", "timezone", "all_day"],
+                &[
+                    ("start", "string"),
+                    ("end", "string"),
+                    ("timezone", "string"),
+                    ("all_day", "boolean"),
+                    ("recurrence", "object"),
+                    ("location", "object"),
+                    ("call_id", "string"),
+                    ("attendees", "array"),
+                ],
+            ),
+        );
+        registry.register(
+            DISAPPEARING_MESSAGES_SCHEMA,
+            object_schema(DISAPPEARING_MESSAGES_SCHEMA, &[], &[("enabled", "boolean")]),
+        );
+        registry.register(
+            SEARCH_SERVICE_SCHEMA,
+            object_schema(SEARCH_SERVICE_SCHEMA, &[], &[("realm_id", "string")]),
+        );
+        registry.register(
             ENCRYPTED_ENVELOPE_SCHEMA,
             object_schema(
                 ENCRYPTED_ENVELOPE_SCHEMA,
