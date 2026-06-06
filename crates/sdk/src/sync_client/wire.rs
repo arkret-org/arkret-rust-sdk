@@ -131,7 +131,7 @@ impl EventsSubscribeFrame {
 /// Selector + range parameters for `ck.self.events.query` and
 /// `ck.self.events.subscribe`. Per spec C17, the selector is `realms[]` ∪
 /// `actors[]` (at least one element). Range parameters apply only to
-/// `query`; `subscribe` accepts `from` + `include_history`.
+/// `query`; `subscribe` accepts `after` + `catchup`.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EventsQuerySelector {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -139,15 +139,15 @@ pub struct EventsQuerySelector {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub actors: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub from: Option<String>,
+    pub before: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub until: Option<String>,
+    pub after: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub direction: Option<EventsQueryDirection>,
+    pub order: Option<EventsQueryOrder>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub limit: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub include_history: Option<bool>,
+    pub catchup: Option<bool>,
 }
 
 impl EventsQuerySelector {
@@ -164,7 +164,7 @@ impl EventsQuerySelector {
     }
 
     /// Render selector + range as the wire query string for
-    /// `GET /_cokret/self/events/query` or `GET /_cokret/self/events/subscribe`. Repeats
+    /// `GET /_cokret/self/events` or `GET /_cokret/self/events/subscribe`. Repeats
     /// `realms` / `actors` query args per spec convention.
     pub fn to_query_pairs(&self) -> Vec<(&'static str, String)> {
         let mut pairs = Vec::new();
@@ -174,42 +174,42 @@ impl EventsQuerySelector {
         for actor in &self.actors {
             pairs.push(("actors", actor.clone()));
         }
-        if let Some(from) = &self.from {
-            pairs.push(("from", from.clone()));
+        if let Some(before) = &self.before {
+            pairs.push(("before", before.clone()));
         }
-        if let Some(until) = &self.until {
-            pairs.push(("until", until.clone()));
+        if let Some(after) = &self.after {
+            pairs.push(("after", after.clone()));
         }
-        if let Some(direction) = &self.direction {
-            pairs.push(("direction", direction.as_str().to_owned()));
+        if let Some(order) = &self.order {
+            pairs.push(("order", order.as_str().to_owned()));
         }
         if let Some(limit) = self.limit {
             pairs.push(("limit", limit.to_string()));
         }
-        if let Some(include_history) = self.include_history {
-            pairs.push(("include_history", include_history.to_string()));
+        if let Some(catchup) = self.catchup {
+            pairs.push(("catchup", catchup.to_string()));
         }
         pairs
     }
 }
 
-/// Direction parameter for `ck.self.events.query`. `forward` returns events
-/// after `from` (default); `backward` returns events before `from`.
+/// Ordering parameter for `ck.self.events.query`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
-pub enum EventsQueryDirection {
+pub enum EventsQueryOrder {
     #[default]
-    Forward,
-    Backward,
+    Default,
+    Ascending,
+    Descending,
 }
 
 /// Typed `ck.self.events.query` request body.
 ///
 /// This is the ergonomic typed surface downstream agents (coauth / soland /
 /// yougen) call against. It mirrors the wire shape soland accepts on
-/// `GET /_cokret/self/events/query`: the multi-selector is `realms[] ∪ actors[]`,
-/// `from` / `until` are HLC bounds, `direction` switches between forward
-/// (default) and backward iteration, and `limit` is the page cap.
+/// `GET /_cokret/self/events`: the multi-selector is `realms[] ∪ actors[]`,
+/// `before` / `after` are exclusive cursor bounds, `order` controls batch
+/// ordering, and `limit` is the page cap.
 ///
 /// Construct one with [`Self::new`] / fluent with-setters; render the
 /// query string with [`Self::to_query_pairs`] (delegated to the inner
@@ -221,11 +221,11 @@ pub struct EventsQueryReqBody {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub actors: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub from: Option<String>,
+    pub before: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub until: Option<String>,
+    pub after: Option<String>,
     #[serde(default)]
-    pub direction: EventsQueryDirection,
+    pub order: EventsQueryOrder,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub limit: Option<u32>,
 }
@@ -247,18 +247,18 @@ impl EventsQueryReqBody {
         self
     }
 
-    pub fn with_from(mut self, from: impl Into<String>) -> Self {
-        self.from = Some(from.into());
+    pub fn with_before(mut self, before: impl Into<String>) -> Self {
+        self.before = Some(before.into());
         self
     }
 
-    pub fn with_until(mut self, until: impl Into<String>) -> Self {
-        self.until = Some(until.into());
+    pub fn with_after(mut self, after: impl Into<String>) -> Self {
+        self.after = Some(after.into());
         self
     }
 
-    pub fn with_direction(mut self, direction: EventsQueryDirection) -> Self {
-        self.direction = direction;
+    pub fn with_order(mut self, order: EventsQueryOrder) -> Self {
+        self.order = order;
         self
     }
 
@@ -285,16 +285,16 @@ impl EventsQueryReqBody {
         EventsQuerySelector {
             realms: self.realms.clone(),
             actors: self.actors.clone(),
-            from: self.from.clone(),
-            until: self.until.clone(),
-            direction: Some(self.direction),
+            before: self.before.clone(),
+            after: self.after.clone(),
+            order: Some(self.order),
             limit: self.limit,
-            include_history: None,
+            catchup: None,
         }
     }
 
-    /// Render the request as repeated `?realms=...&actors=...&from=...`
-    /// query pairs for `GET /_cokret/self/events/query`.
+    /// Render the request as repeated `?realms=...&actors=...&before=...`
+    /// query pairs for `GET /_cokret/self/events`.
     pub fn to_query_pairs(&self) -> Vec<(&'static str, String)> {
         self.as_selector().to_query_pairs()
     }
@@ -343,11 +343,12 @@ impl From<EventsQueryResBody> for cokret_core::SyncBackfillResBody {
     }
 }
 
-impl EventsQueryDirection {
+impl EventsQueryOrder {
     pub fn as_str(self) -> &'static str {
         match self {
-            Self::Forward => "forward",
-            Self::Backward => "backward",
+            Self::Default => "default",
+            Self::Ascending => "ascending",
+            Self::Descending => "descending",
         }
     }
 }

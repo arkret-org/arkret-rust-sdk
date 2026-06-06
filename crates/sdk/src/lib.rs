@@ -455,7 +455,7 @@ pub use store::{
 #[cfg(all(feature = "full-surface", feature = "sync-runtime"))]
 pub use sync_client::{
     AsyncSyncTransport, BackoffConfig, BackpressureConfig, BoxSyncFuture, CancellationToken,
-    EventsQueryDirection, EventsQueryReqBody, EventsQueryResBody, EventsQuerySelector,
+    EventsQueryOrder, EventsQueryReqBody, EventsQueryResBody, EventsQuerySelector,
     EventsSubscribeFrame, EventsSubscribeTransport, ExponentialBackoff, LocalEcho, ProcessedRealm,
     RealmListChange, RealmListEntry, RealmListFilter, RealmListService, RealmListSnapshot,
     RealmListSort, SendQueue, SendQueueItem, SendQueueItemKind, SendQueueSnapshot, SendQueueStatus,

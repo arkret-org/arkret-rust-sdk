@@ -779,39 +779,39 @@ impl Client {
     pub async fn events_subscribe_stream(
         &self,
         realm_id: &str,
-        from: Option<&str>,
+        after: Option<&str>,
     ) -> Result<Response> {
         let mut builder = self
             .request(Method::GET, "/_cokret/self/events/subscribe")?
             .header("accept", "application/x-ndjson")
             .query(&[("realms", realm_id)]);
-        if let Some(from) = from {
-            builder = builder.query(&[("from", from)]);
+        if let Some(after) = after {
+            builder = builder.query(&[("after", after)]);
         }
         self.send_response(builder).await
     }
 
-    /// Range-read Events via `ck.self.events.query` (`GET /_cokret/self/events/query`). Pass
-    /// `direction=Some("backward")` for reverse traversal; `None` defaults to
-    /// forward traversal.
+    /// Range-read Events via `ck.self.events.query` (`GET /_cokret/self/events`). Pass
+    /// `before` to walk older history, `after` to catch up toward newer events,
+    /// and `order` to override the default proximity-to-anchor ordering.
     pub async fn events_query(
         &self,
         realm_id: &str,
-        from: Option<&str>,
-        until: Option<&str>,
-        direction: Option<&str>,
+        before: Option<&str>,
+        after: Option<&str>,
+        order: Option<&str>,
         limit: Option<u32>,
     ) -> Result<SyncBackfillResBody> {
         let mut builder =
-            self.request(Method::GET, "/_cokret/self/events/query")?.query(&[("realms", realm_id)]);
-        if let Some(from) = from {
-            builder = builder.query(&[("from", from)]);
+            self.request(Method::GET, "/_cokret/self/events")?.query(&[("realms", realm_id)]);
+        if let Some(before) = before {
+            builder = builder.query(&[("before", before)]);
         }
-        if let Some(until) = until {
-            builder = builder.query(&[("until", until)]);
+        if let Some(after) = after {
+            builder = builder.query(&[("after", after)]);
         }
-        if let Some(direction) = direction {
-            builder = builder.query(&[("direction", direction)]);
+        if let Some(order) = order {
+            builder = builder.query(&[("order", order)]);
         }
         if let Some(limit) = limit {
             builder = builder.query(&[("limit", limit)]);
@@ -1607,7 +1607,7 @@ mod tests {
 
         let client = Client::new(Url::parse("https://alice.example/cokret/").unwrap()).unwrap();
         let builder = client
-            .request(Method::GET, "/_cokret/self/events/query")
+            .request(Method::GET, "/_cokret/self/events")
             .unwrap()
             .query(&[("access_token", "secret")]);
 
@@ -1879,6 +1879,37 @@ mod tests {
             assert_eq!(arr.len(), 2);
             assert_eq!(arr[0]["payload"]["body"], "first");
             assert_eq!(arr[1]["payload"]["body"], "second");
+        }
+
+        #[tokio::test]
+        async fn events_query_gets_canonical_events_collection() {
+            let canned = r#"{"events":[],"prev_cursor":null,"next_cursor":null,"limited":false}"#;
+            let (client, capture) = spawn_capture_server(canned).await;
+
+            let response = client
+                .events_query(
+                    "ck:realm:test",
+                    Some("ck:cursor:older"),
+                    Some("ck:cursor:newer"),
+                    Some("descending"),
+                    Some(20),
+                )
+                .await
+                .unwrap();
+            assert!(response.events.is_empty());
+
+            let raw = capture.await.unwrap();
+            let (request_line, _headers, _body) = split_request(&raw);
+            assert!(
+                request_line.starts_with("GET /_cokret/self/events?"),
+                "unexpected request line: {request_line}",
+            );
+            assert!(!request_line.contains("/_cokret/self/events/query?"));
+            assert!(request_line.contains("realms=ck%3Arealm%3Atest"));
+            assert!(request_line.contains("before=ck%3Acursor%3Aolder"));
+            assert!(request_line.contains("after=ck%3Acursor%3Anewer"));
+            assert!(request_line.contains("order=descending"));
+            assert!(request_line.contains("limit=20"));
         }
 
         #[tokio::test]

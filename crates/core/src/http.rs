@@ -219,10 +219,10 @@ pub struct EventsSubscribeParams {
     pub actors: Vec<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
-    pub from: Option<Cursor>,
+    pub after: Option<Cursor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
-    pub include_history: Option<bool>,
+    pub catchup: Option<bool>,
 
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "X-Cokret-Request-Id")]
     #[cfg_attr(feature = "salvo", salvo(rename = "X-Cokret-Request-Id", parameter(parameter_in = Header)))]
@@ -243,13 +243,13 @@ pub struct EventsQueryParams {
     pub actors: Vec<Did>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
-    pub from: Option<Cursor>,
+    pub before: Option<Cursor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
-    pub until: Option<Cursor>,
+    pub after: Option<Cursor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
-    pub direction: Option<EventsQueryDirection>,
+    pub order: Option<EventsQueryOrder>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
     pub limit: Option<u32>,
@@ -1156,9 +1156,10 @@ pub struct AppletThirdPartyLocationsParams {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
-pub enum EventsQueryDirection {
-    Forward,
-    Backward,
+pub enum EventsQueryOrder {
+    Default,
+    Ascending,
+    Descending,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

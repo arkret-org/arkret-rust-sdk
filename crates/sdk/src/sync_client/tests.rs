@@ -523,27 +523,27 @@ fn events_query_selector_renders_repeated_query_args() {
             RealmId::new("ck:realm:01904100-0000-7000-8000-46f8537dc94e").unwrap(),
         ],
         actors: vec!["did:web:alice.example".to_owned()],
-        from: Some("sx:cursor:1".to_owned()),
-        direction: Some(EventsQueryDirection::Backward),
+        before: Some("ck:cursor:1".to_owned()),
+        order: Some(EventsQueryOrder::Descending),
         limit: Some(50),
         ..Default::default()
     };
     let pairs = selector.to_query_pairs();
     assert_eq!(pairs.iter().filter(|(k, _)| *k == "realms").count(), 2);
     assert_eq!(pairs.iter().filter(|(k, _)| *k == "actors").count(), 1);
-    assert!(pairs.iter().any(|(k, v)| *k == "direction" && v == "backward"));
+    assert!(pairs.iter().any(|(k, v)| *k == "order" && v == "descending"));
     assert!(pairs.iter().any(|(k, v)| *k == "limit" && v == "50"));
-    assert!(pairs.iter().any(|(k, v)| *k == "from" && v == "sx:cursor:1"));
+    assert!(pairs.iter().any(|(k, v)| *k == "before" && v == "ck:cursor:1"));
 }
 
 #[test]
-fn events_query_direction_serde_round_trip() {
-    let forward = serde_json::to_string(&EventsQueryDirection::Forward).unwrap();
-    let backward = serde_json::to_string(&EventsQueryDirection::Backward).unwrap();
-    assert_eq!(forward, "\"forward\"");
-    assert_eq!(backward, "\"backward\"");
-    let parsed: EventsQueryDirection = serde_json::from_str("\"backward\"").unwrap();
-    assert_eq!(parsed, EventsQueryDirection::Backward);
+fn events_query_order_serde_round_trip() {
+    let default = serde_json::to_string(&EventsQueryOrder::Default).unwrap();
+    let descending = serde_json::to_string(&EventsQueryOrder::Descending).unwrap();
+    assert_eq!(default, "\"default\"");
+    assert_eq!(descending, "\"descending\"");
+    let parsed: EventsQueryOrder = serde_json::from_str("\"descending\"").unwrap();
+    assert_eq!(parsed, EventsQueryOrder::Descending);
 }
 
 #[test]
@@ -577,16 +577,17 @@ fn events_query_request_renders_query_pairs() {
             RealmId::new("ck:realm:01904100-0000-7000-8000-46f8537dc94e").unwrap(),
         ])
         .with_actors(vec!["did:web:alice.example".to_owned()])
-        .with_from("hlc:0189c4d2af00-0000-aabbccdd")
-        .with_until("hlc:0189c4d2af01-0000-aabbccdd")
-        .with_direction(EventsQueryDirection::Backward)
+        .with_before("ck:cursor:older")
+        .with_after("ck:cursor:newer")
+        .with_order(EventsQueryOrder::Descending)
         .with_limit(50);
     let pairs = req.to_query_pairs();
     assert_eq!(pairs.iter().filter(|(k, _)| *k == "realms").count(), 2);
     assert_eq!(pairs.iter().filter(|(k, _)| *k == "actors").count(), 1);
-    assert!(pairs.iter().any(|(k, v)| *k == "direction" && v == "backward"));
+    assert!(pairs.iter().any(|(k, v)| *k == "order" && v == "descending"));
     assert!(pairs.iter().any(|(k, v)| *k == "limit" && v == "50"));
-    assert!(pairs.iter().any(|(k, v)| *k == "until" && v.starts_with("hlc:")));
+    assert!(pairs.iter().any(|(k, v)| *k == "before" && v == "ck:cursor:older"));
+    assert!(pairs.iter().any(|(k, v)| *k == "after" && v == "ck:cursor:newer"));
 }
 
 #[test]
@@ -610,7 +611,7 @@ fn events_query_response_round_trips_with_sync_backfill() {
 }
 
 #[test]
-fn events_query_request_default_direction_is_forward() {
+fn events_query_request_default_order_is_default() {
     let req = EventsQueryReqBody::new();
-    assert_eq!(req.direction, EventsQueryDirection::Forward);
+    assert_eq!(req.order, EventsQueryOrder::Default);
 }

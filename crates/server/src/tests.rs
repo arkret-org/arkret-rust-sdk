@@ -36,7 +36,8 @@ fn service_route_registry_matches_required_spec_operations() {
         ("ck.self.events.resolve", "/_cokret/self/events/resolve"),
         ("ck.self.events.frontier", "/_cokret/self/events/frontier"),
         ("ck.self.events.subscribe", "/_cokret/self/events/subscribe"),
-        ("ck.self.events.query", "/_cokret/self/events/query"),
+        ("ck.self.events.query", "/_cokret/self/events"),
+        ("ck.self.events.query_post", "/_cokret/self/events/query"),
         (
             "ck.find.directory.private_contact_discovery",
             "/_cokret/find/directory/private-contact-discovery",
