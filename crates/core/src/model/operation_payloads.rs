@@ -29,6 +29,10 @@ impl<T: Serialize> ObjectCreatePayload<T> {
     }
 }
 
+fn now_utc_seconds() -> DateTime<Utc> {
+    DateTime::<Utc>::from_timestamp(Utc::now().timestamp(), 0).unwrap_or_else(Utc::now)
+}
+
 /// Current wire object carried by `ck.space.create`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SpaceCreateObject {
@@ -101,7 +105,7 @@ impl SpaceCreateObject {
             state: None,
             state_changed_at: None,
             created_by,
-            created_at: Utc::now(),
+            created_at: now_utc_seconds(),
             updated_by: None,
             updated_at: None,
             extra: BTreeMap::new(),
@@ -155,7 +159,7 @@ impl FlowCreateObject {
             tracks: BTreeMap::new(),
             scope_circle_id: None,
             created_by,
-            created_at: Utc::now(),
+            created_at: now_utc_seconds(),
             updated_by: None,
             updated_at: None,
             extra: BTreeMap::new(),
@@ -262,7 +266,7 @@ impl MorphCreateObject {
             state: None,
             stage: ObjectStage::Draft,
             created_by,
-            created_at: Utc::now(),
+            created_at: now_utc_seconds(),
             updated_by: None,
             updated_at: None,
             extra: BTreeMap::new(),
@@ -475,6 +479,19 @@ mod tests {
         assert_eq!(payload["object"]["schema"], FLOW_SCHEMA);
         assert_eq!(payload["object"]["stage"], "draft");
         assert_eq!(payload["object"]["metadata"]["title"], "Incident");
+        canonical::validate_timestamp_canonical(payload["object"]["created_at"].as_str().unwrap())
+            .unwrap();
+    }
+
+    #[test]
+    fn space_create_object_uses_canonical_timestamp() {
+        let actor = Did::new("did:web:alice.example".to_owned()).unwrap();
+        let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-000000000001").unwrap();
+        let space_id = SpaceId::new("ck:space:01904100-0000-7000-8000-000000000002").unwrap();
+        let space = SpaceCreateObject::new(space_id, realm_id, "board", "Board", actor);
+        let payload = ObjectCreatePayload::new(space).to_value().unwrap();
+        canonical::validate_timestamp_canonical(payload["object"]["created_at"].as_str().unwrap())
+            .unwrap();
     }
 
     #[test]
@@ -490,6 +507,8 @@ mod tests {
         assert_eq!(payload["object"]["metadata"]["title"], "Spec");
         assert_eq!(payload["object"]["metadata"]["summary"], "Draft");
         assert_eq!(payload["object"]["encrypted_content"]["version"], 1);
+        canonical::validate_timestamp_canonical(payload["object"]["created_at"].as_str().unwrap())
+            .unwrap();
         assert!(payload["object"].get("title").is_none());
         assert!(payload["object"].get("summary").is_none());
         assert!(payload["object"].get("encrypted_payload").is_none());

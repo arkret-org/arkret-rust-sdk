@@ -1,5 +1,9 @@
 use super::*;
 
+fn now_utc_seconds() -> DateTime<Utc> {
+    DateTime::<Utc>::from_timestamp(Utc::now().timestamp(), 0).unwrap_or_else(Utc::now)
+}
+
 /// Standard track profile names.
 pub const FLOW_TRACK_NAME_SYNTHESIS: &str = "synthesis";
 pub const FLOW_TRACK_NAME_DISCUSSION: &str = "discussion";
@@ -282,7 +286,7 @@ impl Morph {
             stage: ObjectStage::Draft,
             stage_changed_at: None,
             created_by,
-            created_at: Utc::now(),
+            created_at: now_utc_seconds(),
             updated_by: None,
             updated_at: None,
             labels: Vec::new(),
@@ -911,7 +915,7 @@ impl ModerationReport {
             reporter,
             evidence_refs: Vec::new(),
             franking_proof: None,
-            created_at: Utc::now(),
+            created_at: now_utc_seconds(),
         }
     }
 }
