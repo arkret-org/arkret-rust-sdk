@@ -54,6 +54,7 @@ mod realm_governance;
 mod registry;
 mod runtime_identity;
 mod spec_objects;
+mod spec_schema_types;
 #[cfg(test)]
 mod tests;
 mod third_party_invite;
@@ -96,4 +97,5 @@ pub use realm_governance::*;
 pub use registry::*;
 pub use runtime_identity::*;
 pub use spec_objects::*;
+pub use spec_schema_types::*;
 pub use third_party_invite::*;

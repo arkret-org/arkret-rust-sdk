@@ -1019,6 +1019,26 @@ pub struct SyncBackfillOutcome {
     pub limited: bool,
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct EventsQueryPostRequestBody {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub realms: Vec<RealmId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub actors: Vec<ActorDid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub before: Option<Cursor>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub after: Option<Cursor>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub order: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filters: Option<Value>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SnapshotHeadState {
@@ -2356,6 +2376,29 @@ pub struct BlobUploadOutcome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct BlobPresignRequestBody {
+    pub blob_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub realm_id: Option<RealmId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_age_seconds: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub purpose: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct BlobPresignOutcome {
+    pub url: String,
+    pub expires_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub purpose: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct PushRegisterDeviceRequestBody {
     pub device_id: DeviceId,
     pub push_gateway: String,
@@ -2702,6 +2745,31 @@ pub struct AgentProvisionOutcome {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pairing_code: Option<String>,
     pub expires_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AgentStatus {
+    PendingRuntimeKey,
+    Active,
+    PairingExpired,
+    Paused,
+    Deactivated,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AgentProjection {
+    pub agent_principal_id: Did,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    pub status: AgentStatus,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
