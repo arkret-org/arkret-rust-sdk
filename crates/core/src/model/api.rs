@@ -331,6 +331,43 @@ pub struct CompatSurfaceEntry {
     pub extra: BTreeMap<String, Value>,
 }
 
+impl CompatSurfaceEntry {
+    pub fn new(name: impl Into<String>, kind: CompatSurfaceKind) -> Self {
+        Self { name: name.into(), kind, since: None, notes: None, extra: BTreeMap::new() }
+    }
+
+    pub fn matrix_passthrough(name: impl Into<String>) -> Self {
+        Self::new(name, CompatSurfaceKind::MatrixPassthrough)
+    }
+
+    pub fn mimi_passthrough(name: impl Into<String>) -> Self {
+        Self::new(name, CompatSurfaceKind::MimiPassthrough)
+    }
+
+    pub fn external_interop(name: impl Into<String>) -> Self {
+        Self::new(name, CompatSurfaceKind::ExternalInterop)
+    }
+
+    pub fn with_since(mut self, since: impl Into<String>) -> Self {
+        self.since = Some(since.into());
+        self
+    }
+
+    pub fn with_notes(mut self, notes: impl Into<String>) -> Self {
+        self.notes = Some(notes.into());
+        self
+    }
+
+    pub fn with_extra(mut self, key: impl Into<String>, value: Value) -> Self {
+        self.extra.insert(key.into(), value);
+        self
+    }
+
+    pub fn with_extra_string(self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.with_extra(key, Value::String(value.into()))
+    }
+}
+
 /// Round 4 — closed enum of compat-surface kinds the spec recognises.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -338,9 +375,7 @@ pub struct CompatSurfaceEntry {
 pub enum CompatSurfaceKind {
     MatrixPassthrough,
     MimiPassthrough,
-    LegacyAlias,
     ExternalInterop,
-    DeprecatedAlias,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -2410,6 +2445,31 @@ impl SessionGrantDidProof {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn compat_surface_entry_serializes_schema_shape() {
+        let surface = CompatSurfaceEntry::external_interop("soland_private_local_routes")
+            .with_notes("local compatibility surface")
+            .with_extra_string("base_path", "/_soland")
+            .with_extra_string("status", "soland_private_local");
+
+        let value = serde_json::to_value(surface).unwrap();
+
+        assert_eq!(value["name"], "soland_private_local_routes");
+        assert_eq!(value["kind"], "external_interop");
+        assert_eq!(value["notes"], "local compatibility surface");
+        assert_eq!(value["base_path"], "/_soland");
+        assert_eq!(value["status"], "soland_private_local");
+    }
+
+    #[test]
+    fn compat_surface_kind_rejects_removed_wire_values() {
+        for value in ["legacy_alias", "deprecated_alias"] {
+            let parsed: std::result::Result<CompatSurfaceKind, _> =
+                serde_json::from_value(serde_json::json!(value));
+            assert!(parsed.is_err(), "{value} is not a v1 compat_surface kind");
+        }
+    }
 
     #[test]
     fn key_backup_recipient_method_rejects_removed_wire_values() {
