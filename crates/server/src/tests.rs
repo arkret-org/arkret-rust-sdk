@@ -38,6 +38,11 @@ fn service_route_registry_matches_required_spec_operations() {
         ("ck.self.events.subscribe", "/_cokret/self/events/subscribe"),
         ("ck.self.events.query", "/_cokret/self/events"),
         ("ck.self.events.query_post", "/_cokret/self/events/query"),
+        ("ck.self.contact.request", "/_cokret/self/contacts/request"),
+        ("ck.self.contact.respond", "/_cokret/self/contacts/respond"),
+        ("ck.self.contact.list", "/_cokret/self/contacts"),
+        ("ck.self.contact.tombstone", "/_cokret/self/contacts/tombstone"),
+        ("ck.self.direct_conversation.resolve", "/_cokret/self/direct-conversations/resolve"),
         (
             "ck.find.directory.private_contact_discovery",
             "/_cokret/find/directory/private-contact-discovery",

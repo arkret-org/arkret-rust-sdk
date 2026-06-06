@@ -13,6 +13,13 @@ use serde_json::Value;
 
 use crate::*;
 
+pub const PATH_SELF_CONTACTS_REQUEST: &str = "/_cokret/self/contacts/request";
+pub const PATH_SELF_CONTACTS_RESPOND: &str = "/_cokret/self/contacts/respond";
+pub const PATH_SELF_CONTACTS: &str = "/_cokret/self/contacts";
+pub const PATH_SELF_CONTACTS_TOMBSTONE: &str = "/_cokret/self/contacts/tombstone";
+pub const PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE: &str =
+    "/_cokret/self/direct-conversations/resolve";
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters, salvo::oapi::ToSchema))]
 pub struct ServerDescribeParams {
@@ -1448,6 +1455,196 @@ pub struct BlobHeadResBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[cfg_attr(feature = "salvo", salvo(schema(value_type = String, format = Binary)))]
 pub struct BlobGetResBody(pub Vec<u8>);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum ContactState {
+    PendingOutgoing,
+    PendingIncoming,
+    Accepted,
+    Rejected,
+    Tombstoned,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum DirectConversationBindingState {
+    Active,
+    Retired,
+    Duplicate,
+    NonCanonical,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum DirectConversationResolveState {
+    Found,
+    Created,
+    NotFound,
+    Retired,
+    NonCanonical,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct DirectConversationSummary {
+    pub realm_id: RealmId,
+    pub main_flow_id: FlowId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub binding_event_ref: Option<EventId>,
+    pub state: DirectConversationBindingState,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ContactListRow {
+    pub peer: Did,
+    pub state: ContactState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request_event_ref: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub response_event_ref: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tombstone_event_ref: Option<EventId>,
+    #[serde(default)]
+    pub granted_by_me: Vec<String>,
+    #[serde(default)]
+    pub granted_to_me: Vec<String>,
+    #[serde(default)]
+    pub bidirectional_scopes: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub effective_scopes: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub direct_conversation: Option<DirectConversationSummary>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ContactRequestRequest {
+    pub target: Did,
+    pub requested_scopes: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub idempotency_key: Option<String>,
+}
+
+pub type ContactRequestReqBody = ContactRequestRequest;
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ContactRequestResponse {
+    pub request_event_ref: EventId,
+    #[serde(default)]
+    pub requester_consent_refs: Vec<EventId>,
+    pub state: ContactState,
+}
+
+pub type ContactRequestResBody = ContactRequestResponse;
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ContactRespondRequest {
+    pub request_id: EventId,
+    pub requester: Did,
+    pub action: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub granted_scopes: Vec<String>,
+}
+
+pub type ContactRespondReqBody = ContactRespondRequest;
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ContactRespondResponse {
+    pub response_event_ref: EventId,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub consent_grant_refs: Vec<EventId>,
+    pub state: ContactState,
+}
+
+pub type ContactRespondResBody = ContactRespondResponse;
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters, salvo::oapi::ToSchema))]
+pub struct ContactListQuery {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
+    pub state: Option<ContactState>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
+    pub cursor: Option<Cursor>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "salvo", salvo(parameter(parameter_in = Query)))]
+    pub limit: Option<u32>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ContactListResponse {
+    #[serde(default)]
+    pub contacts: Vec<ContactListRow>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub next_cursor: Option<Cursor>,
+    #[serde(default)]
+    pub has_more: bool,
+}
+
+pub type ContactListResBody = ContactListResponse;
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ContactTombstoneRequest {
+    pub contact: Did,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub revoke_scopes: Vec<String>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub full_peer_revoke: bool,
+}
+
+pub type ContactTombstoneReqBody = ContactTombstoneRequest;
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ContactTombstoneResponse {
+    pub tombstone_event_ref: EventId,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub consent_revoke_refs: Vec<EventId>,
+    pub state: ContactState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub partial_revoke: Option<bool>,
+}
+
+pub type ContactTombstoneResBody = ContactTombstoneResponse;
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct DirectConversationResolveRequest {
+    pub peer: Did,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub create: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub idempotency_key: Option<String>,
+}
+
+pub type DirectConversationResolveReqBody = DirectConversationResolveRequest;
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct DirectConversationResolveResponse {
+    pub state: DirectConversationResolveState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub realm_id: Option<RealmId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub main_flow_id: Option<FlowId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub binding_event_ref: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub created: Option<bool>,
+}
+
+pub type DirectConversationResolveResBody = DirectConversationResolveResponse;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

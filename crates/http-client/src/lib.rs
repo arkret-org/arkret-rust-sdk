@@ -15,8 +15,11 @@ use cokret_core::{
     AppletActorResBody, AppletDescription, AppletPingResBody, AppletProtocolResBody,
     AppletRealmResBody, AppletTransactionReqBody, AppletTransactionResBody, AuthzCheckReqBody,
     AuthzCheckResBody, AuthzInvitesResBody, BackupId, BlobMetadata, BlobRef, BlobUploadMetadata,
-    BlobUploadResBody, DeviceMessagesReceiveResBody, DeviceMessagesSendReqBody,
-    DeviceMessagesSendResBody, DirectoryDescription, DirectoryListHandlesForSubjectReqBody,
+    BlobUploadResBody, ContactListResponse, ContactRequestRequest, ContactRequestResponse,
+    ContactRespondRequest, ContactRespondResponse, ContactTombstoneRequest,
+    ContactTombstoneResponse, DeviceMessagesReceiveResBody, DeviceMessagesSendReqBody,
+    DeviceMessagesSendResBody, DirectConversationResolveRequest, DirectConversationResolveResponse,
+    DirectoryDescription, DirectoryListHandlesForSubjectReqBody,
     DirectoryListHandlesForSubjectResBody, DirectoryResolveHandleReqBody,
     DirectoryResolveHandleResBody, DirectoryResolveOrganizationReqBody,
     DirectoryResolveOrganizationResBody, DirectoryResolveRealmReqBody,
@@ -32,7 +35,9 @@ use cokret_core::{
     KeysQueryReqBody, KeysQueryResBody, KeysUploadReqBody, KeysUploadResBody,
     MediaIceConfigReqBody, MediaIceConfigResBody, MimiProviderDirectoryResBody,
     MimiReportAbuseReqBody, MimiReportAbuseResBody, ModerationReportReqBody,
-    ModerationReportResBody, OkResBody, PolicyCheckReqBody, PolicyCheckResBody,
+    ModerationReportResBody, OkResBody, PATH_SELF_CONTACTS, PATH_SELF_CONTACTS_REQUEST,
+    PATH_SELF_CONTACTS_RESPOND, PATH_SELF_CONTACTS_TOMBSTONE,
+    PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE, PolicyCheckReqBody, PolicyCheckResBody,
     PrivateContactDiscoveryReqBody, PrivateContactDiscoveryResBody, PushNotifyReqBody,
     PushNotifyResBody, PushRegisterDeviceReqBody, PushRegisterDeviceResBody,
     PushUnregisterDeviceReqBody, Result, ServerDescription, ServiceRequirements,
@@ -765,6 +770,38 @@ impl Client {
         request: &AccountCursorRevokeReqBody,
     ) -> Result<AccountCursorRevokeResBody> {
         self.post("/_cokret/self/account/cursor/revoke", request).await
+    }
+
+    pub async fn contacts_request(
+        &self,
+        request: &ContactRequestRequest,
+    ) -> Result<ContactRequestResponse> {
+        self.post(PATH_SELF_CONTACTS_REQUEST, request).await
+    }
+
+    pub async fn contacts_respond(
+        &self,
+        request: &ContactRespondRequest,
+    ) -> Result<ContactRespondResponse> {
+        self.post(PATH_SELF_CONTACTS_RESPOND, request).await
+    }
+
+    pub async fn contacts_list(&self) -> Result<ContactListResponse> {
+        self.get(PATH_SELF_CONTACTS).await
+    }
+
+    pub async fn contacts_tombstone(
+        &self,
+        request: &ContactTombstoneRequest,
+    ) -> Result<ContactTombstoneResponse> {
+        self.post(PATH_SELF_CONTACTS_TOMBSTONE, request).await
+    }
+
+    pub async fn direct_conversation_resolve(
+        &self,
+        request: &DirectConversationResolveRequest,
+    ) -> Result<DirectConversationResolveResponse> {
+        self.post(PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE, request).await
     }
 
     /// Subscribe to the Event stream for one or more Realms / actors via
@@ -1935,6 +1972,59 @@ mod tests {
             let parsed: Value = serde_json::from_slice(&body).unwrap();
             assert_eq!(parsed["requester"], "did:web:alice.example");
             assert_eq!(parsed["privacy_profile"], "psi-v1");
+        }
+
+        #[tokio::test]
+        async fn contacts_list_gets_spec_path() {
+            let (client, capture) =
+                spawn_capture_server(r#"{"contacts":[],"has_more":false}"#).await;
+
+            let response = client.contacts_list().await.unwrap();
+            assert!(response.contacts.is_empty());
+            assert!(!response.has_more);
+
+            let raw = capture.await.unwrap();
+            let (request_line, _headers, _body) = split_request(&raw);
+            assert!(
+                request_line.starts_with("GET /_cokret/self/contacts "),
+                "unexpected request line: {request_line}",
+            );
+        }
+
+        #[tokio::test]
+        async fn direct_conversation_resolve_posts_spec_path_and_current_shape() {
+            let canned = r#"{
+                "state":"found",
+                "realm_id":"ck:realm:01904100-0000-7000-8000-d10000000001",
+                "main_flow_id":"ck:flow:01904100-0000-7000-8000-d10000000002",
+                "binding_event_ref":"ck:event:01904100-0000-7000-8000-d10000000003",
+                "created":false
+            }"#;
+            let (client, capture) = spawn_capture_server(canned).await;
+            let request = DirectConversationResolveRequest {
+                peer: Did::new("did:web:bob.example").unwrap(),
+                create: true,
+                idempotency_key: Some("dm-alice-bob".to_owned()),
+            };
+
+            let response = client.direct_conversation_resolve(&request).await.unwrap();
+            assert_eq!(response.state, cokret_core::DirectConversationResolveState::Found);
+            assert_eq!(
+                response.binding_event_ref.as_ref().map(|id| id.as_str()),
+                Some("ck:event:01904100-0000-7000-8000-d10000000003")
+            );
+            assert_eq!(response.created, Some(false));
+
+            let raw = capture.await.unwrap();
+            let (request_line, _headers, body) = split_request(&raw);
+            assert!(
+                request_line.starts_with("POST /_cokret/self/direct-conversations/resolve "),
+                "unexpected request line: {request_line}",
+            );
+            let parsed: Value = serde_json::from_slice(&body).unwrap();
+            assert_eq!(parsed["peer"], "did:web:bob.example");
+            assert_eq!(parsed["create"], true);
+            assert_eq!(parsed["idempotency_key"], "dm-alice-bob");
         }
 
         #[tokio::test]

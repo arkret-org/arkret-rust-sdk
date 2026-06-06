@@ -531,6 +531,13 @@ pub const OP_EVENTS_SUBSCRIBE: &str = "ck.self.events.subscribe";
 pub const OP_EVENTS_SUBMIT: &str = "ck.self.events.submit";
 pub const OP_EPHEMERAL_SEND: &str = "ck.self.ephemeral.send";
 
+/// Contact and direct-conversation operations.
+pub const OP_CONTACT_REQUEST: &str = "ck.self.contact.request";
+pub const OP_CONTACT_RESPOND: &str = "ck.self.contact.respond";
+pub const OP_CONTACT_LIST: &str = "ck.self.contact.list";
+pub const OP_CONTACT_TOMBSTONE: &str = "ck.self.contact.tombstone";
+pub const OP_DIRECT_CONVERSATION_RESOLVE: &str = "ck.self.direct_conversation.resolve";
+
 /// Projection read-model operations.
 pub const OP_PROJECTION_SPACES: &str = "ck.self.projection.spaces";
 pub const OP_PROJECTION_FLOWS: &str = "ck.self.projection.flows";

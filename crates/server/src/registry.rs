@@ -54,6 +54,15 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
     endpoint!("ck.self.events.query", Get, "/_cokret/self/events"),
     endpoint!("ck.self.events.query_post", Post, "/_cokret/self/events/query"),
     endpoint!("ck.self.snapshot.head", Get, "/_cokret/self/snapshot/head"),
+    endpoint!("ck.self.contact.request", Post, "/_cokret/self/contacts/request"),
+    endpoint!("ck.self.contact.respond", Post, "/_cokret/self/contacts/respond"),
+    endpoint!("ck.self.contact.list", Get, "/_cokret/self/contacts"),
+    endpoint!("ck.self.contact.tombstone", Post, "/_cokret/self/contacts/tombstone"),
+    endpoint!(
+        "ck.self.direct_conversation.resolve",
+        Post,
+        "/_cokret/self/direct-conversations/resolve"
+    ),
     endpoint!("ck.find.directory.describe", Get, "/_cokret/find/directory/describe"),
     endpoint!("ck.find.directory.search_realms", Post, "/_cokret/find/directory/search-realms"),
     endpoint!("ck.find.directory.resolve_realm", Post, "/_cokret/find/directory/resolve-realm"),

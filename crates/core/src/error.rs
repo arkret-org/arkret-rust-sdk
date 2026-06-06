@@ -696,6 +696,11 @@ pub const REASON_REACTION_SCOPE_MISMATCH: &str = "reaction_scope_mismatch";
 pub const KNOWN_REASON_CODES_REACTION: &[&str] =
     &[REASON_REACTION_TARGET_UNSUPPORTED, REASON_REACTION_SCOPE_MISMATCH];
 
+pub const REASON_CONTACT_NOT_ACCEPTED: &str = "contact_not_accepted";
+pub const REASON_CONTACT_CONSENT_MISSING: &str = "contact_consent_missing";
+pub const KNOWN_REASON_CODES_CONTACT_DIRECT_CONVERSATION: &[&str] =
+    &[REASON_CONTACT_NOT_ACCEPTED, REASON_CONTACT_CONSENT_MISSING];
+
 /// Return `true` when `code` is a registered canonical error code.
 pub fn is_known_error_code(code: &str) -> bool {
     KNOWN_ERROR_CODES.contains(&code)
