@@ -192,6 +192,8 @@ pub const ACCOUNT_DATA_TYPE_SNOOZE: &str = "ck.snooze.v1";
 pub const ACCOUNT_DATA_TYPE_SAVED: &str = "ck.saved.v1";
 pub const ACCOUNT_DATA_TYPE_DRAFT: &str = "ck.draft.v1";
 pub const ACCOUNT_DATA_TYPE_SEARCH_INDEX_MANIFEST: &str = "ck.search.index_manifest.v1";
+pub const ACCOUNT_DATA_TYPE_CONTACTS_ACTOR: &str = "ck.contacts.actor";
+pub const ACCOUNT_DATA_TYPE_CONTACTS_REALM: &str = "ck.contacts.realm";
 
 /// Key-backup hardening (B-C) — new schema ids registered in
 /// `schema-registry.json` for recovery policy and recovery receipts.
