@@ -279,7 +279,7 @@ pub fn endpoint_coverage_rows() -> Vec<EndpointCoverageRow> {
 fn operation_domain(operation_id: &str) -> ConformanceDomain {
     if operation_id.starts_with("ck.applet.") {
         ConformanceDomain::Applet
-    } else if operation_id.starts_with("ck.push.") {
+    } else if operation_id.starts_with("ck.edge.push.") {
         ConformanceDomain::PushGateway
     } else if operation_id.starts_with("ck.identity.") {
         ConformanceDomain::Identity
@@ -688,6 +688,15 @@ mod tests {
         assert!(report.operation_ids().contains("ck.operations.catalog"));
         assert!(report.operation_ids().contains("ck.schema.catalog"));
         assert!(report.operation_ids().contains("ck.html.normalize"));
+    }
+
+    #[test]
+    fn edge_push_operations_are_push_gateway_domain() {
+        assert_eq!(operation_domain("ck.edge.push.notify"), ConformanceDomain::PushGateway);
+        assert_eq!(
+            operation_domain("ck.edge.push.register_device"),
+            ConformanceDomain::PushGateway
+        );
     }
 
     #[test]

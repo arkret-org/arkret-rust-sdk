@@ -79,7 +79,7 @@ impl ServiceType {
             Self::DeviceKeyService => &["ck.keys.", "ck.device_messages."],
             Self::AuthzService => &["ck.authz.", "ck.policy."],
             Self::PolicyServer => &["ck.policy."],
-            Self::PushGateway => &["ck.push."],
+            Self::PushGateway => &["ck.edge.push."],
             Self::AppletService => &["ck.applet."],
             Self::AgentRuntime => &["ck.applet.", "ck.agent."],
             Self::SfuService => &["ck.media.", "ck.webrtc."],
@@ -455,6 +455,15 @@ mod tests {
         };
 
         allowlist.verify_description(&description).unwrap();
+    }
+
+    #[test]
+    fn push_gateway_permits_current_edge_push_operations() {
+        let service_type = ServiceType::PushGateway;
+        assert!(service_type.permits_operation("ck.edge.push.register_device"));
+        assert!(service_type.permits_operation("ck.edge.push.unregister_device"));
+        assert!(service_type.permits_operation("ck.edge.push.notify"));
+        assert!(!service_type.permits_operation("ck.push.notify"));
     }
 
     #[test]
