@@ -456,7 +456,13 @@ fn fallback_event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
         (
             "ck.invite.create",
             EVENT_PAYLOAD_SCHEMA,
-            &["invitee", "invite_delivery_target", "introduction_evidence_digest"][..],
+            &[
+                "invite_id",
+                "invitee",
+                "invite_delivery_target",
+                "introduction_evidence_digest",
+                "expires_at",
+            ][..],
         ),
         (
             "ck.mls.commit",
@@ -670,9 +676,13 @@ fn required_fields_for_event_kind(
     let mut required_fields =
         required_fields_for_schema_ref(registry, schema_ref).unwrap_or_default();
     if event_kind == crate::events::INVITE_CREATE {
-        for field in
-            ["invite_id", "invitee", "invite_delivery_target", "introduction_evidence_digest"]
-        {
+        for field in [
+            "invite_id",
+            "invitee",
+            "invite_delivery_target",
+            "introduction_evidence_digest",
+            "expires_at",
+        ] {
             if !required_fields.iter().any(|existing| existing == field) {
                 required_fields.push(field.to_owned());
             }

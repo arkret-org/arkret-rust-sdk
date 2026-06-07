@@ -244,11 +244,18 @@ fn artifact_payload_catalog_enforces_invite_create_payload_shape() {
         .validate_payload(crate::events::INVITE_CREATE, &payload)
         .unwrap_or_else(|err| panic!("ck.invite.create should accept directed invite: {err}"));
 
-    let mut missing_invite_id = payload;
+    let mut missing_invite_id = payload.clone();
     missing_invite_id.as_object_mut().unwrap().remove("invite_id");
     assert!(
         catalog.validate_payload(crate::events::INVITE_CREATE, &missing_invite_id).is_err(),
         "ck.invite.create must reject directed invite payloads without invite_id"
+    );
+
+    let mut missing_expires_at = payload;
+    missing_expires_at.as_object_mut().unwrap().remove("expires_at");
+    assert!(
+        catalog.validate_payload(crate::events::INVITE_CREATE, &missing_expires_at).is_err(),
+        "ck.invite.create must reject directed invite payloads without expires_at"
     );
 }
 
