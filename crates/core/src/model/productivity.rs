@@ -5,6 +5,7 @@ use unicode_normalization::UnicodeNormalization;
 pub const PROFILE_CALENDAR_EVENT: &str = "ck.profile.calendar_event.v1";
 pub const PROFILE_PERSONAL_PRODUCTIVITY: &str = "ck.profile.personal_productivity.v1";
 pub const PROFILE_DRAFT_SYNC: &str = "ck.profile.draft_sync.v1";
+pub const PROFILE_FILE_TRANSFER: &str = "ck.profile.file_transfer.v1";
 pub const PROFILE_PINNED_ITEMS: &str = "ck.profile.pinned_items.v1";
 pub const PROFILE_DISAPPEARING_MESSAGES: &str = "ck.profile.disappearing_messages.v1";
 pub const PROFILE_SEARCH_CLIENT_INDEX: &str = "ck.profile.search.client_index.v1";
@@ -592,6 +593,14 @@ pub fn search_index_manifest_account_data_key(
     ))
 }
 
+pub fn file_transfer_account_data_key(namespace_key: &[u8], transfer_id: &str) -> Result<String> {
+    validate_file_transfer_id(transfer_id)?;
+    Ok(format!(
+        "{ACCOUNT_DATA_TYPE_FILE_TRANSFER}:{}",
+        base64url_encode(hmac_sha256(namespace_key, transfer_id.as_bytes()))
+    ))
+}
+
 pub fn target_key(namespace_key: &[u8], target_ref: &str) -> Result<String> {
     validate_object_ref_string("target_ref", target_ref)?;
     Ok(base64url_encode(hmac_sha256(namespace_key, &canonical::canonical_json_bytes(&target_ref)?)))
@@ -668,6 +677,13 @@ pub fn validate_private_account_data_key(key: &str) -> Result<()> {
     if let Some(realm_key) = key.strip_prefix("ck.search.index_manifest.v1:") {
         return if looks_derived_key(realm_key) { Ok(()) } else { private_key_error() };
     }
+    if let Some(transfer_key) = key.strip_prefix("ck.file_transfer.v1:") {
+        return if looks_derived_key(transfer_key) && !contains_raw_object_ref(transfer_key) {
+            Ok(())
+        } else {
+            private_key_error()
+        };
+    }
     private_key_error()
 }
 
@@ -728,6 +744,20 @@ fn validate_key_segment(field: &str, value: &str) -> Result<()> {
         Err(Error::Protocol(format!("{field} must be an opaque key segment")))
     } else {
         Ok(())
+    }
+}
+
+fn validate_file_transfer_id(value: &str) -> Result<()> {
+    let valid = (22..=128).contains(&value.len())
+        && value.bytes().all(|byte| {
+            byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'~' | b'=' | b'-')
+        });
+    if valid {
+        Ok(())
+    } else {
+        Err(Error::Protocol(
+            "transfer_id must be 22-128 chars from the ck.file_transfer.v1 alphabet".to_owned(),
+        ))
     }
 }
 
@@ -812,6 +842,12 @@ mod tests {
         assert!(!saved.contains("Inbox"));
         assert!(!saved.contains(target_ref));
         validate_private_account_data_key(&saved).unwrap();
+
+        let transfer_id = "0123456789abcdefghijkl";
+        let transfer = file_transfer_account_data_key(ns, transfer_id).unwrap();
+        assert!(transfer.starts_with("ck.file_transfer.v1:"));
+        assert!(!transfer.contains(transfer_id));
+        validate_private_account_data_key(&transfer).unwrap();
     }
 
     #[test]
@@ -821,6 +857,11 @@ mod tests {
         )
         .unwrap_err();
         assert!(err.to_string().contains("must not leak raw typed refs"));
+
+        assert!(file_transfer_account_data_key(b"ns", "short-transfer").is_err());
+        assert!(
+            validate_private_account_data_key("ck.file_transfer.v1:ck:blob:sha256:abc").is_err()
+        );
     }
 
     #[test]
