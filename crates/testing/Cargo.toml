@@ -1,4 +1,4 @@
-[package]
+﻿[package]
 authors = ["Chris Young <chris@sonc.ai>"]
 description = "Cokret v1 reusable conformance fixtures and catalog coverage helpers."
 edition = "2024"
@@ -9,7 +9,7 @@ name = "cokret-testing"
 readme = "README.md"
 repository = "https://github.com/cokret/cokret-rust-sdk"
 rust-version = "1.92"
-version = "1.0.0"
+version = "0.3.0"
 
 [features]
 default = []

@@ -216,6 +216,73 @@ pub const ERROR_CODE_MEMBER_IDENTITY_REPLACEMENT_DIGEST_MISMATCH: &str =
     "member_identity_replacement_digest_mismatch";
 pub const ERROR_CODE_MEMBER_IDENTITY_UNKNOWN_SEGMENT: &str = "member_identity_unknown_segment";
 
+// ── Registry backfill (2026-06-08) — top-level wire codes present in
+// `error-code-registry.json` with HTTP bindings, previously missing from the
+// SDK mirror.
+pub const ERROR_CODE_POLICY_DENIED: &str = "policy_denied";
+pub const ERROR_CODE_CURSOR_UNRECOGNIZED: &str = "cursor_unrecognized";
+pub const ERROR_CODE_ACTOR_SEQ_INVALID: &str = "actor_seq_invalid";
+pub const ERROR_CODE_ANCHOR_REF_STALE: &str = "anchor_ref_stale";
+pub const ERROR_CODE_ANCHOR_REF_UNKNOWN: &str = "anchor_ref_unknown";
+pub const ERROR_CODE_AUDIENCE_UNKNOWN: &str = "audience_unknown";
+pub const ERROR_CODE_BLOB_DIGEST_MISMATCH: &str = "blob_digest_mismatch";
+pub const ERROR_CODE_BLOB_EXPIRED: &str = "blob_expired";
+pub const ERROR_CODE_BLOB_PRESIGN_INVALID: &str = "blob_presign_invalid";
+pub const ERROR_CODE_BLOB_QUOTA_EXCEEDED: &str = "blob_quota_exceeded";
+pub const ERROR_CODE_CURSOR_INVALID: &str = "cursor_invalid";
+pub const ERROR_CODE_DEVICE_UNKNOWN: &str = "device_unknown";
+pub const ERROR_CODE_DID_ALREADY_EXISTS: &str = "did_already_exists";
+pub const ERROR_CODE_DID_NOT_FOUND: &str = "did_not_found";
+pub const ERROR_CODE_DID_REVOKED: &str = "did_revoked";
+pub const ERROR_CODE_FRONTIER_UNAVAILABLE: &str = "frontier_unavailable";
+pub const ERROR_CODE_HANDLE_UNVERIFIED: &str = "handle_unverified";
+pub const ERROR_CODE_KEY_REPLAY: &str = "key_replay";
+pub const ERROR_CODE_KEYPACKAGE_ALREADY_CONSUMED: &str = "keypackage_already_consumed";
+pub const ERROR_CODE_KEYPACKAGE_UNKNOWN: &str = "keypackage_unknown";
+pub const ERROR_CODE_ONE_TIME_KEYS_EXHAUSTED: &str = "one_time_keys_exhausted";
+pub const ERROR_CODE_POLICY_STALE: &str = "policy_stale";
+pub const ERROR_CODE_POLICY_UNAVAILABLE: &str = "policy_unavailable";
+pub const ERROR_CODE_PRINCIPAL_UNKNOWN: &str = "principal_unknown";
+pub const ERROR_CODE_PUSH_GATEWAY_UNREACHABLE: &str = "push_gateway_unreachable";
+pub const ERROR_CODE_PUSH_PAYLOAD_TOO_LARGE: &str = "push_payload_too_large";
+pub const ERROR_CODE_PUSH_TARGET_UNKNOWN: &str = "push_target_unknown";
+pub const ERROR_CODE_PUSH_TOKEN_INVALID: &str = "push_token_invalid";
+pub const ERROR_CODE_PUSH_TOKEN_UNKNOWN: &str = "push_token_unknown";
+pub const ERROR_CODE_QUARANTINE: &str = "quarantine";
+pub const ERROR_CODE_SNAPSHOT_AUTHORITY_UNVERIFIED: &str = "snapshot_authority_unverified";
+pub const ERROR_CODE_SNAPSHOT_UNAVAILABLE: &str = "snapshot_unavailable";
+pub const ERROR_CODE_STREAM_DROPPED: &str = "stream_dropped";
+pub const ERROR_CODE_STREAM_RESYNC_REQUIRED: &str = "stream_resync_required";
+pub const ERROR_CODE_TOO_LARGE: &str = "too_large";
+pub const ERROR_CODE_UNSUPPORTED_DID_METHOD: &str = "unsupported_did_method";
+pub const ERROR_CODE_UNSUPPORTED_MEDIA_POLICY: &str = "unsupported_media_policy";
+pub const ERROR_CODE_NOT_IMPLEMENTED: &str = "not_implemented";
+pub const ERROR_CODE_SERVICE_UNAVAILABLE: &str = "service_unavailable";
+pub const ERROR_CODE_UNSUPPORTED_JOIN_RULE: &str = "unsupported_join_rule";
+pub const ERROR_CODE_CONTACT_NOT_ACCEPTED: &str = "contact_not_accepted";
+pub const ERROR_CODE_CONTACT_CONSENT_MISSING: &str = "contact_consent_missing";
+pub const ERROR_CODE_DELIVERY_BINDING_UNRESOLVABLE: &str = "delivery_binding_unresolvable";
+pub const ERROR_CODE_APPLET_REGISTRATION_UNAUTHORIZED: &str = "applet_registration_unauthorized";
+pub const ERROR_CODE_APPLET_INSTALL_PLAN_MISMATCH: &str = "applet_install_plan_mismatch";
+pub const ERROR_CODE_APPLET_E2EE_JOIN_UNAUTHORIZED: &str = "applet_e2ee_join_unauthorized";
+pub const ERROR_CODE_APPLET_REVOKED: &str = "applet_revoked";
+pub const ERROR_CODE_INVALID_AVATAR_BLOB_REF: &str = "invalid_avatar_blob_ref";
+pub const ERROR_CODE_UNSUPPORTED_PROFILE_PATCH_PATH: &str = "unsupported_profile_patch_path";
+pub const ERROR_CODE_SESSION_GRANT_NOT_FOUND: &str = "session_grant_not_found";
+pub const ERROR_CODE_SESSION_REVOKE_SELECTOR_CONFLICT: &str = "session_revoke_selector_conflict";
+pub const ERROR_CODE_REVIEWER_CAPABILITY_REVOKED: &str = "reviewer_capability_revoked";
+pub const ERROR_CODE_NOT_MEMBER: &str = "not_member";
+pub const ERROR_CODE_CALL_NOT_FOUND: &str = "call_not_found";
+pub const ERROR_CODE_CALL_EXPIRED: &str = "call_expired";
+pub const ERROR_CODE_CALL_ALREADY_ANSWERED: &str = "call_already_answered";
+pub const ERROR_CODE_MEDIA_PERMISSION_DENIED: &str = "media_permission_denied";
+pub const ERROR_CODE_ICE_CONFIG_DENIED: &str = "ice_config_denied";
+pub const ERROR_CODE_SFU_NOT_ALLOWED: &str = "sfu_not_allowed";
+pub const ERROR_CODE_E2EE_REQUIRED: &str = "e2ee_required";
+pub const ERROR_CODE_RECORDING_DENIED: &str = "recording_denied";
+pub const ERROR_CODE_MORPH_PROFILE_WIDENS_SCHEMA_REF: &str = "morph_profile_widens_schema_ref";
+pub const ERROR_CODE_MORPH_TYPE_IMMUTABLE: &str = "morph_type_immutable";
+
 /// All canonical error codes recognised by the registry. The order matches
 /// `error-code-registry.json`. Use [`is_known_error_code`] before populating
 /// `ErrorEnvelope.code` from arbitrary input.
@@ -355,6 +422,70 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
     ERROR_CODE_MEMBER_IDENTITY_PROOF_INVALID,
     ERROR_CODE_MEMBER_IDENTITY_REPLACEMENT_DIGEST_MISMATCH,
     ERROR_CODE_MEMBER_IDENTITY_UNKNOWN_SEGMENT,
+    // Registry backfill (2026-06-08).
+    ERROR_CODE_POLICY_DENIED,
+    ERROR_CODE_CURSOR_UNRECOGNIZED,
+    ERROR_CODE_ACTOR_SEQ_INVALID,
+    ERROR_CODE_ANCHOR_REF_STALE,
+    ERROR_CODE_ANCHOR_REF_UNKNOWN,
+    ERROR_CODE_AUDIENCE_UNKNOWN,
+    ERROR_CODE_BLOB_DIGEST_MISMATCH,
+    ERROR_CODE_BLOB_EXPIRED,
+    ERROR_CODE_BLOB_PRESIGN_INVALID,
+    ERROR_CODE_BLOB_QUOTA_EXCEEDED,
+    ERROR_CODE_CURSOR_INVALID,
+    ERROR_CODE_DEVICE_UNKNOWN,
+    ERROR_CODE_DID_ALREADY_EXISTS,
+    ERROR_CODE_DID_NOT_FOUND,
+    ERROR_CODE_DID_REVOKED,
+    ERROR_CODE_FRONTIER_UNAVAILABLE,
+    ERROR_CODE_HANDLE_UNVERIFIED,
+    ERROR_CODE_KEY_REPLAY,
+    ERROR_CODE_KEYPACKAGE_ALREADY_CONSUMED,
+    ERROR_CODE_KEYPACKAGE_UNKNOWN,
+    ERROR_CODE_ONE_TIME_KEYS_EXHAUSTED,
+    ERROR_CODE_POLICY_STALE,
+    ERROR_CODE_POLICY_UNAVAILABLE,
+    ERROR_CODE_PRINCIPAL_UNKNOWN,
+    ERROR_CODE_PUSH_GATEWAY_UNREACHABLE,
+    ERROR_CODE_PUSH_PAYLOAD_TOO_LARGE,
+    ERROR_CODE_PUSH_TARGET_UNKNOWN,
+    ERROR_CODE_PUSH_TOKEN_INVALID,
+    ERROR_CODE_PUSH_TOKEN_UNKNOWN,
+    ERROR_CODE_QUARANTINE,
+    ERROR_CODE_SNAPSHOT_AUTHORITY_UNVERIFIED,
+    ERROR_CODE_SNAPSHOT_UNAVAILABLE,
+    ERROR_CODE_STREAM_DROPPED,
+    ERROR_CODE_STREAM_RESYNC_REQUIRED,
+    ERROR_CODE_TOO_LARGE,
+    ERROR_CODE_UNSUPPORTED_DID_METHOD,
+    ERROR_CODE_UNSUPPORTED_MEDIA_POLICY,
+    ERROR_CODE_NOT_IMPLEMENTED,
+    ERROR_CODE_SERVICE_UNAVAILABLE,
+    ERROR_CODE_UNSUPPORTED_JOIN_RULE,
+    ERROR_CODE_CONTACT_NOT_ACCEPTED,
+    ERROR_CODE_CONTACT_CONSENT_MISSING,
+    ERROR_CODE_DELIVERY_BINDING_UNRESOLVABLE,
+    ERROR_CODE_APPLET_REGISTRATION_UNAUTHORIZED,
+    ERROR_CODE_APPLET_INSTALL_PLAN_MISMATCH,
+    ERROR_CODE_APPLET_E2EE_JOIN_UNAUTHORIZED,
+    ERROR_CODE_APPLET_REVOKED,
+    ERROR_CODE_INVALID_AVATAR_BLOB_REF,
+    ERROR_CODE_UNSUPPORTED_PROFILE_PATCH_PATH,
+    ERROR_CODE_SESSION_GRANT_NOT_FOUND,
+    ERROR_CODE_SESSION_REVOKE_SELECTOR_CONFLICT,
+    ERROR_CODE_REVIEWER_CAPABILITY_REVOKED,
+    ERROR_CODE_NOT_MEMBER,
+    ERROR_CODE_CALL_NOT_FOUND,
+    ERROR_CODE_CALL_EXPIRED,
+    ERROR_CODE_CALL_ALREADY_ANSWERED,
+    ERROR_CODE_MEDIA_PERMISSION_DENIED,
+    ERROR_CODE_ICE_CONFIG_DENIED,
+    ERROR_CODE_SFU_NOT_ALLOWED,
+    ERROR_CODE_E2EE_REQUIRED,
+    ERROR_CODE_RECORDING_DENIED,
+    ERROR_CODE_MORPH_PROFILE_WIDENS_SCHEMA_REF,
+    ERROR_CODE_MORPH_TYPE_IMMUTABLE,
 ];
 
 // ── Failed-precondition reason codes (sub-codes inside `failed_precondition`)
@@ -724,7 +855,11 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_SOURCE_REFS_UNVERIFIABLE
         | ERROR_CODE_GOVERNANCE_KEY_INVALID
         | ERROR_CODE_TTL_OUT_OF_RANGE
-        | ERROR_CODE_EPHEMERAL_TTL_OUT_OF_RANGE => 400,
+        | ERROR_CODE_EPHEMERAL_TTL_OUT_OF_RANGE
+        | ERROR_CODE_CURSOR_UNRECOGNIZED
+        | ERROR_CODE_BLOB_PRESIGN_INVALID
+        | ERROR_CODE_CURSOR_INVALID
+        | ERROR_CODE_PUSH_TOKEN_INVALID => 400,
         ERROR_CODE_UNAUTHENTICATED
         | ERROR_CODE_AUTH_EXPIRED
         | ERROR_CODE_SOFT_LOGGED_OUT
@@ -757,8 +892,33 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_RECORDING_ARTIFACT_PIPELINE_BYPASSED
         | ERROR_CODE_HISTORY_NOT_VISIBLE
         | ERROR_CODE_PREVIEW_POLICY_DENIED
-        | ERROR_CODE_HANDLE_HOMOGRAPH_FORBIDDEN => 403,
-        ERROR_CODE_NOT_FOUND | ERROR_CODE_UNRECOGNIZED_ENDPOINT => 404,
+        | ERROR_CODE_HANDLE_HOMOGRAPH_FORBIDDEN
+        | ERROR_CODE_POLICY_DENIED
+        | ERROR_CODE_BLOB_QUOTA_EXCEEDED
+        | ERROR_CODE_HANDLE_UNVERIFIED
+        | ERROR_CODE_SNAPSHOT_AUTHORITY_UNVERIFIED
+        | ERROR_CODE_APPLET_REGISTRATION_UNAUTHORIZED
+        | ERROR_CODE_APPLET_E2EE_JOIN_UNAUTHORIZED
+        | ERROR_CODE_APPLET_REVOKED
+        | ERROR_CODE_REVIEWER_CAPABILITY_REVOKED
+        | ERROR_CODE_NOT_MEMBER
+        | ERROR_CODE_MEDIA_PERMISSION_DENIED
+        | ERROR_CODE_ICE_CONFIG_DENIED
+        | ERROR_CODE_SFU_NOT_ALLOWED
+        | ERROR_CODE_E2EE_REQUIRED
+        | ERROR_CODE_RECORDING_DENIED => 403,
+        ERROR_CODE_NOT_FOUND
+        | ERROR_CODE_UNRECOGNIZED_ENDPOINT
+        | ERROR_CODE_ANCHOR_REF_UNKNOWN
+        | ERROR_CODE_AUDIENCE_UNKNOWN
+        | ERROR_CODE_DEVICE_UNKNOWN
+        | ERROR_CODE_DID_NOT_FOUND
+        | ERROR_CODE_KEYPACKAGE_UNKNOWN
+        | ERROR_CODE_PRINCIPAL_UNKNOWN
+        | ERROR_CODE_PUSH_TARGET_UNKNOWN
+        | ERROR_CODE_PUSH_TOKEN_UNKNOWN
+        | ERROR_CODE_SESSION_GRANT_NOT_FOUND
+        | ERROR_CODE_CALL_NOT_FOUND => 404,
         ERROR_CODE_METHOD_NOT_ALLOWED => 405,
         ERROR_CODE_CONFLICT
         | ERROR_CODE_CAS_CONFLICT
@@ -802,10 +962,31 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_FOCUS_UNAVAILABLE_FOR_CLIENT
         | ERROR_CODE_RECOVERY_WITNESS_REVOKE_LAGGING
         | ERROR_CODE_MEMBER_IDENTITY_STATE_MISMATCH
-        | ERROR_CODE_MEMBER_IDENTITY_REPLACEMENT_DIGEST_MISMATCH => 409,
+        | ERROR_CODE_MEMBER_IDENTITY_REPLACEMENT_DIGEST_MISMATCH
+        | ERROR_CODE_ACTOR_SEQ_INVALID
+        | ERROR_CODE_ANCHOR_REF_STALE
+        | ERROR_CODE_DID_ALREADY_EXISTS
+        | ERROR_CODE_KEY_REPLAY
+        | ERROR_CODE_KEYPACKAGE_ALREADY_CONSUMED
+        | ERROR_CODE_ONE_TIME_KEYS_EXHAUSTED
+        | ERROR_CODE_POLICY_STALE
+        | ERROR_CODE_QUARANTINE
+        | ERROR_CODE_STREAM_DROPPED
+        | ERROR_CODE_STREAM_RESYNC_REQUIRED
+        | ERROR_CODE_CONTACT_NOT_ACCEPTED
+        | ERROR_CODE_CONTACT_CONSENT_MISSING
+        | ERROR_CODE_DELIVERY_BINDING_UNRESOLVABLE
+        | ERROR_CODE_APPLET_INSTALL_PLAN_MISMATCH
+        | ERROR_CODE_CALL_ALREADY_ANSWERED => 409,
         ERROR_CODE_HISTORICAL_ONLY => 200,
-        ERROR_CODE_CURSOR_EXPIRED | ERROR_CODE_CURSOR_REVOKED => 410,
-        ERROR_CODE_PAYLOAD_TOO_LARGE => 413,
+        ERROR_CODE_CURSOR_EXPIRED
+        | ERROR_CODE_CURSOR_REVOKED
+        | ERROR_CODE_BLOB_EXPIRED
+        | ERROR_CODE_DID_REVOKED
+        | ERROR_CODE_CALL_EXPIRED => 410,
+        ERROR_CODE_PAYLOAD_TOO_LARGE | ERROR_CODE_PUSH_PAYLOAD_TOO_LARGE | ERROR_CODE_TOO_LARGE => {
+            413
+        }
         ERROR_CODE_SCHEMA_VIOLATION
         | ERROR_CODE_DIGEST_MISMATCH
         | ERROR_CODE_AAD_DIGEST_MISMATCH
@@ -824,18 +1005,33 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_UNKNOWN_FOCUS_TYPE
         | ERROR_CODE_PARTICIPANT_BINDING_INVALID
         | ERROR_CODE_PARTICIPANT_IDENTITY_UNRECOGNISED
-        | ERROR_CODE_MEMBER_IDENTITY_UNKNOWN_SEGMENT => 422,
+        | ERROR_CODE_MEMBER_IDENTITY_UNKNOWN_SEGMENT
+        | ERROR_CODE_PROFILE_UNSUPPORTED
+        | ERROR_CODE_BLOB_DIGEST_MISMATCH
+        | ERROR_CODE_UNSUPPORTED_DID_METHOD
+        | ERROR_CODE_UNSUPPORTED_MEDIA_POLICY
+        | ERROR_CODE_UNSUPPORTED_JOIN_RULE
+        | ERROR_CODE_INVALID_AVATAR_BLOB_REF
+        | ERROR_CODE_UNSUPPORTED_PROFILE_PATCH_PATH
+        | ERROR_CODE_SESSION_REVOKE_SELECTOR_CONFLICT
+        | ERROR_CODE_MORPH_PROFILE_WIDENS_SCHEMA_REF
+        | ERROR_CODE_MORPH_TYPE_IMMUTABLE => 422,
         ERROR_CODE_RATE_LIMITED => 429,
         ERROR_CODE_INTERNAL_ERROR => 500,
         ERROR_CODE_HLC_LOGICAL_OVERFLOW
         | ERROR_CODE_TEMPORARILY_UNAVAILABLE
         | ERROR_CODE_FRANKING_PROOF_UNAVAILABLE
-        | ERROR_CODE_EPHEMERAL_CHANNEL_UNAVAILABLE => 503,
+        | ERROR_CODE_EPHEMERAL_CHANNEL_UNAVAILABLE
+        | ERROR_CODE_FRONTIER_UNAVAILABLE
+        | ERROR_CODE_POLICY_UNAVAILABLE
+        | ERROR_CODE_PUSH_GATEWAY_UNREACHABLE
+        | ERROR_CODE_SNAPSHOT_UNAVAILABLE
+        | ERROR_CODE_SERVICE_UNAVAILABLE => 503,
         ERROR_CODE_TIMEOUT => 504,
         ERROR_CODE_UNSUPPORTED_FEATURE
         | ERROR_CODE_UNSUPPORTED_EVENT_KIND
         | ERROR_CODE_UNSUPPORTED_AEAD_PROFILE
-        | ERROR_CODE_PROFILE_UNSUPPORTED => 501,
+        | ERROR_CODE_NOT_IMPLEMENTED => 501,
         _ => return None,
     })
 }
@@ -1070,6 +1266,70 @@ pub enum ErrorCode {
     MemberIdentityProofInvalid,
     MemberIdentityReplacementDigestMismatch,
     MemberIdentityUnknownSegment,
+    // ── Registry backfill (2026-06-08).
+    PolicyDenied,
+    CursorUnrecognized,
+    ActorSeqInvalid,
+    AnchorRefStale,
+    AnchorRefUnknown,
+    AudienceUnknown,
+    BlobDigestMismatch,
+    BlobExpired,
+    BlobPresignInvalid,
+    BlobQuotaExceeded,
+    CursorInvalid,
+    DeviceUnknown,
+    DidAlreadyExists,
+    DidNotFound,
+    DidRevoked,
+    FrontierUnavailable,
+    HandleUnverified,
+    KeyReplay,
+    KeypackageAlreadyConsumed,
+    KeypackageUnknown,
+    OneTimeKeysExhausted,
+    PolicyStale,
+    PolicyUnavailable,
+    PrincipalUnknown,
+    PushGatewayUnreachable,
+    PushPayloadTooLarge,
+    PushTargetUnknown,
+    PushTokenInvalid,
+    PushTokenUnknown,
+    Quarantine,
+    SnapshotAuthorityUnverified,
+    SnapshotUnavailable,
+    StreamDropped,
+    StreamResyncRequired,
+    TooLarge,
+    UnsupportedDidMethod,
+    UnsupportedMediaPolicy,
+    NotImplemented,
+    ServiceUnavailable,
+    UnsupportedJoinRule,
+    ContactNotAccepted,
+    ContactConsentMissing,
+    DeliveryBindingUnresolvable,
+    AppletRegistrationUnauthorized,
+    AppletInstallPlanMismatch,
+    AppletE2eeJoinUnauthorized,
+    AppletRevoked,
+    InvalidAvatarBlobRef,
+    UnsupportedProfilePatchPath,
+    SessionGrantNotFound,
+    SessionRevokeSelectorConflict,
+    ReviewerCapabilityRevoked,
+    NotMember,
+    CallNotFound,
+    CallExpired,
+    CallAlreadyAnswered,
+    MediaPermissionDenied,
+    IceConfigDenied,
+    SfuNotAllowed,
+    E2eeRequired,
+    RecordingDenied,
+    MorphProfileWidensSchemaRef,
+    MorphTypeImmutable,
 }
 
 impl ErrorCode {
@@ -1205,6 +1465,70 @@ impl ErrorCode {
         Self::MemberIdentityProofInvalid,
         Self::MemberIdentityReplacementDigestMismatch,
         Self::MemberIdentityUnknownSegment,
+        // ── Registry backfill (2026-06-08).
+        Self::PolicyDenied,
+        Self::CursorUnrecognized,
+        Self::ActorSeqInvalid,
+        Self::AnchorRefStale,
+        Self::AnchorRefUnknown,
+        Self::AudienceUnknown,
+        Self::BlobDigestMismatch,
+        Self::BlobExpired,
+        Self::BlobPresignInvalid,
+        Self::BlobQuotaExceeded,
+        Self::CursorInvalid,
+        Self::DeviceUnknown,
+        Self::DidAlreadyExists,
+        Self::DidNotFound,
+        Self::DidRevoked,
+        Self::FrontierUnavailable,
+        Self::HandleUnverified,
+        Self::KeyReplay,
+        Self::KeypackageAlreadyConsumed,
+        Self::KeypackageUnknown,
+        Self::OneTimeKeysExhausted,
+        Self::PolicyStale,
+        Self::PolicyUnavailable,
+        Self::PrincipalUnknown,
+        Self::PushGatewayUnreachable,
+        Self::PushPayloadTooLarge,
+        Self::PushTargetUnknown,
+        Self::PushTokenInvalid,
+        Self::PushTokenUnknown,
+        Self::Quarantine,
+        Self::SnapshotAuthorityUnverified,
+        Self::SnapshotUnavailable,
+        Self::StreamDropped,
+        Self::StreamResyncRequired,
+        Self::TooLarge,
+        Self::UnsupportedDidMethod,
+        Self::UnsupportedMediaPolicy,
+        Self::NotImplemented,
+        Self::ServiceUnavailable,
+        Self::UnsupportedJoinRule,
+        Self::ContactNotAccepted,
+        Self::ContactConsentMissing,
+        Self::DeliveryBindingUnresolvable,
+        Self::AppletRegistrationUnauthorized,
+        Self::AppletInstallPlanMismatch,
+        Self::AppletE2eeJoinUnauthorized,
+        Self::AppletRevoked,
+        Self::InvalidAvatarBlobRef,
+        Self::UnsupportedProfilePatchPath,
+        Self::SessionGrantNotFound,
+        Self::SessionRevokeSelectorConflict,
+        Self::ReviewerCapabilityRevoked,
+        Self::NotMember,
+        Self::CallNotFound,
+        Self::CallExpired,
+        Self::CallAlreadyAnswered,
+        Self::MediaPermissionDenied,
+        Self::IceConfigDenied,
+        Self::SfuNotAllowed,
+        Self::E2eeRequired,
+        Self::RecordingDenied,
+        Self::MorphProfileWidensSchemaRef,
+        Self::MorphTypeImmutable,
     ];
 
     /// Canonical wire-form code (snake_case string).
@@ -1356,6 +1680,70 @@ impl ErrorCode {
                 ERROR_CODE_MEMBER_IDENTITY_REPLACEMENT_DIGEST_MISMATCH
             }
             Self::MemberIdentityUnknownSegment => ERROR_CODE_MEMBER_IDENTITY_UNKNOWN_SEGMENT,
+            // ── Registry backfill (2026-06-08).
+            Self::PolicyDenied => ERROR_CODE_POLICY_DENIED,
+            Self::CursorUnrecognized => ERROR_CODE_CURSOR_UNRECOGNIZED,
+            Self::ActorSeqInvalid => ERROR_CODE_ACTOR_SEQ_INVALID,
+            Self::AnchorRefStale => ERROR_CODE_ANCHOR_REF_STALE,
+            Self::AnchorRefUnknown => ERROR_CODE_ANCHOR_REF_UNKNOWN,
+            Self::AudienceUnknown => ERROR_CODE_AUDIENCE_UNKNOWN,
+            Self::BlobDigestMismatch => ERROR_CODE_BLOB_DIGEST_MISMATCH,
+            Self::BlobExpired => ERROR_CODE_BLOB_EXPIRED,
+            Self::BlobPresignInvalid => ERROR_CODE_BLOB_PRESIGN_INVALID,
+            Self::BlobQuotaExceeded => ERROR_CODE_BLOB_QUOTA_EXCEEDED,
+            Self::CursorInvalid => ERROR_CODE_CURSOR_INVALID,
+            Self::DeviceUnknown => ERROR_CODE_DEVICE_UNKNOWN,
+            Self::DidAlreadyExists => ERROR_CODE_DID_ALREADY_EXISTS,
+            Self::DidNotFound => ERROR_CODE_DID_NOT_FOUND,
+            Self::DidRevoked => ERROR_CODE_DID_REVOKED,
+            Self::FrontierUnavailable => ERROR_CODE_FRONTIER_UNAVAILABLE,
+            Self::HandleUnverified => ERROR_CODE_HANDLE_UNVERIFIED,
+            Self::KeyReplay => ERROR_CODE_KEY_REPLAY,
+            Self::KeypackageAlreadyConsumed => ERROR_CODE_KEYPACKAGE_ALREADY_CONSUMED,
+            Self::KeypackageUnknown => ERROR_CODE_KEYPACKAGE_UNKNOWN,
+            Self::OneTimeKeysExhausted => ERROR_CODE_ONE_TIME_KEYS_EXHAUSTED,
+            Self::PolicyStale => ERROR_CODE_POLICY_STALE,
+            Self::PolicyUnavailable => ERROR_CODE_POLICY_UNAVAILABLE,
+            Self::PrincipalUnknown => ERROR_CODE_PRINCIPAL_UNKNOWN,
+            Self::PushGatewayUnreachable => ERROR_CODE_PUSH_GATEWAY_UNREACHABLE,
+            Self::PushPayloadTooLarge => ERROR_CODE_PUSH_PAYLOAD_TOO_LARGE,
+            Self::PushTargetUnknown => ERROR_CODE_PUSH_TARGET_UNKNOWN,
+            Self::PushTokenInvalid => ERROR_CODE_PUSH_TOKEN_INVALID,
+            Self::PushTokenUnknown => ERROR_CODE_PUSH_TOKEN_UNKNOWN,
+            Self::Quarantine => ERROR_CODE_QUARANTINE,
+            Self::SnapshotAuthorityUnverified => ERROR_CODE_SNAPSHOT_AUTHORITY_UNVERIFIED,
+            Self::SnapshotUnavailable => ERROR_CODE_SNAPSHOT_UNAVAILABLE,
+            Self::StreamDropped => ERROR_CODE_STREAM_DROPPED,
+            Self::StreamResyncRequired => ERROR_CODE_STREAM_RESYNC_REQUIRED,
+            Self::TooLarge => ERROR_CODE_TOO_LARGE,
+            Self::UnsupportedDidMethod => ERROR_CODE_UNSUPPORTED_DID_METHOD,
+            Self::UnsupportedMediaPolicy => ERROR_CODE_UNSUPPORTED_MEDIA_POLICY,
+            Self::NotImplemented => ERROR_CODE_NOT_IMPLEMENTED,
+            Self::ServiceUnavailable => ERROR_CODE_SERVICE_UNAVAILABLE,
+            Self::UnsupportedJoinRule => ERROR_CODE_UNSUPPORTED_JOIN_RULE,
+            Self::ContactNotAccepted => ERROR_CODE_CONTACT_NOT_ACCEPTED,
+            Self::ContactConsentMissing => ERROR_CODE_CONTACT_CONSENT_MISSING,
+            Self::DeliveryBindingUnresolvable => ERROR_CODE_DELIVERY_BINDING_UNRESOLVABLE,
+            Self::AppletRegistrationUnauthorized => ERROR_CODE_APPLET_REGISTRATION_UNAUTHORIZED,
+            Self::AppletInstallPlanMismatch => ERROR_CODE_APPLET_INSTALL_PLAN_MISMATCH,
+            Self::AppletE2eeJoinUnauthorized => ERROR_CODE_APPLET_E2EE_JOIN_UNAUTHORIZED,
+            Self::AppletRevoked => ERROR_CODE_APPLET_REVOKED,
+            Self::InvalidAvatarBlobRef => ERROR_CODE_INVALID_AVATAR_BLOB_REF,
+            Self::UnsupportedProfilePatchPath => ERROR_CODE_UNSUPPORTED_PROFILE_PATCH_PATH,
+            Self::SessionGrantNotFound => ERROR_CODE_SESSION_GRANT_NOT_FOUND,
+            Self::SessionRevokeSelectorConflict => ERROR_CODE_SESSION_REVOKE_SELECTOR_CONFLICT,
+            Self::ReviewerCapabilityRevoked => ERROR_CODE_REVIEWER_CAPABILITY_REVOKED,
+            Self::NotMember => ERROR_CODE_NOT_MEMBER,
+            Self::CallNotFound => ERROR_CODE_CALL_NOT_FOUND,
+            Self::CallExpired => ERROR_CODE_CALL_EXPIRED,
+            Self::CallAlreadyAnswered => ERROR_CODE_CALL_ALREADY_ANSWERED,
+            Self::MediaPermissionDenied => ERROR_CODE_MEDIA_PERMISSION_DENIED,
+            Self::IceConfigDenied => ERROR_CODE_ICE_CONFIG_DENIED,
+            Self::SfuNotAllowed => ERROR_CODE_SFU_NOT_ALLOWED,
+            Self::E2eeRequired => ERROR_CODE_E2EE_REQUIRED,
+            Self::RecordingDenied => ERROR_CODE_RECORDING_DENIED,
+            Self::MorphProfileWidensSchemaRef => ERROR_CODE_MORPH_PROFILE_WIDENS_SCHEMA_REF,
+            Self::MorphTypeImmutable => ERROR_CODE_MORPH_TYPE_IMMUTABLE,
         }
     }
 
@@ -1383,26 +1771,39 @@ impl std::fmt::Display for ErrorCode {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::BTreeSet;
+    use std::collections::{BTreeMap, BTreeSet};
+
+    fn spec_registry_error_codes() -> BTreeMap<String, u16> {
+        let raw = include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../../cokret-spec/spec/v1/artifacts/registry/error-code-registry.json"
+        ));
+        let registry: serde_json::Value =
+            serde_json::from_str(raw).expect("error-code-registry.json parses");
+        let codes = registry
+            .get("codes")
+            .and_then(serde_json::Value::as_array)
+            .expect("registry codes is an array");
+        codes
+            .iter()
+            .filter_map(|entry| {
+                let code = entry.get("code")?.as_str()?;
+                let status = entry.get("http_status")?.as_u64()?;
+                Some((code.to_owned(), status as u16))
+            })
+            .collect()
+    }
 
     #[test]
     fn known_error_codes_match_current_registry_shape() {
         let codes = KNOWN_ERROR_CODES.iter().copied().collect::<BTreeSet<_>>();
+        let registry_codes = spec_registry_error_codes();
 
         assert_eq!(codes.len(), KNOWN_ERROR_CODES.len(), "duplicate error code");
-        // Registry v2026-05-18 main (round C47, spec e10b6ad): C44's 47 + 6 C45
-        // wire codes (cursor_integrity_invalid / failed_precondition /
-        // unsupported_digest_algorithm / anchor_incomplete / franking_proof_unavailable /
-        // turn_credential_expired) + 1 C47 wire code (stale_peer) +
-        // 15 Round R2/R3 wire codes (relaxed_window_exceeds_ceiling, ...) +
-        // 3 Round 4 wire codes (delivery_binding_stale, delivery_binding_handed_over,
-        // historical_only) + 10 directory ingest wire codes + 8 spec-main
-        // cursor / ephemeral / grant / device-recovery wire codes +
-        // 11 key-backup hardening codes (B-C, spec head 37ce729) +
-        // 3 history/preview-policy denial codes (2026-05-31 sync) +
-        // 20 R3 spec-sync codes (2026-05-27, cokret-spec b47ff6ec) +
-        // 4 R3.1 MemberIdentity codes (2026-05-27, cokret-spec 7157ee8).
-        assert_eq!(KNOWN_ERROR_CODES.len(), 128);
+        assert!(
+            KNOWN_ERROR_CODES.len() >= registry_codes.len(),
+            "SDK known-code mirror must cover all top-level registry codes",
+        );
         assert!(codes.contains(ERROR_CODE_CURSOR_EXPIRED));
         assert!(codes.contains(ERROR_CODE_POLICY_COMBINATION_INVALID));
         assert!(codes.contains(ERROR_CODE_HISTORY_SHARING_POLICY_MISSING));
@@ -1428,6 +1829,32 @@ mod tests {
         assert!(codes.contains(ERROR_CODE_EPHEMERAL_KIND_NOT_PERMITTED));
         assert!(codes.contains(ERROR_CODE_AUTHORIZED_GRANT_REVOKED));
         assert!(codes.contains(ERROR_CODE_CURSOR_REVOKED));
+    }
+
+    #[test]
+    fn known_error_codes_cover_spec_registry_http_statuses() {
+        let codes = KNOWN_ERROR_CODES.iter().copied().collect::<BTreeSet<_>>();
+        for (code, status) in spec_registry_error_codes() {
+            assert!(
+                codes.contains(code.as_str()),
+                "spec registry code {code:?} missing from KNOWN_ERROR_CODES",
+            );
+            assert_eq!(
+                error_code_http_status(&code),
+                Some(status),
+                "HTTP status drift for spec registry code {code:?}",
+            );
+        }
+    }
+
+    #[test]
+    fn every_known_error_code_has_http_status() {
+        for code in KNOWN_ERROR_CODES {
+            assert!(
+                error_code_http_status(code).is_some(),
+                "known error code {code:?} has no HTTP status mapping",
+            );
+        }
     }
 
     #[test]

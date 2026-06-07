@@ -4,8 +4,8 @@ use std::collections::BTreeMap;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 
+use crate::canonical::sha256_hex;
 use crate::{AEAD_ALGORITHM, BlobRef, CallId, DeviceId, Did, Error, RealmId, Result, crypto};
 
 // ─── CKP-0010 (R3 spec-sync 2026-05-27) — media token exchange ────────────
@@ -595,10 +595,6 @@ pub fn safe_content_disposition(filename: &str) -> String {
 
 fn blob_ref_for(bytes: &[u8]) -> Result<BlobRef> {
     Ok(BlobRef::new(format!("sha256:{}", sha256_hex(bytes)))?)
-}
-
-fn sha256_hex(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
 }
 
 #[cfg(test)]

@@ -5,6 +5,7 @@ use argon2::{
 use subtle::ConstantTimeEq;
 
 use super::*;
+pub(super) use crate::canonical::sha256_hex;
 
 pub(super) fn default_true() -> bool {
     true
@@ -67,10 +68,6 @@ pub(super) fn disclose_claim(claim: &PresentedClaim, reveal_fields: &[String]) -
     disclosed
 }
 
-pub(super) fn sha256_hex(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
-}
-
 /// Hash a password with the built-in Argon2id helper, returning a salted
 /// PHC string (`$argon2id$...`) that carries its own random salt and
 /// parameters. This replaces the previous unsalted, work-factorless
@@ -109,7 +106,7 @@ pub(super) fn verify_password(password: &str, phc: &str) -> bool {
 pub(super) fn constant_time_eq(left: &str, right: &str) -> bool {
     let left = Sha256::digest(left.as_bytes());
     let right = Sha256::digest(right.as_bytes());
-    left.ct_eq(right.as_slice()).into()
+    left.ct_eq(&right).into()
 }
 
 /// Verify a built-in account-recovery proof.

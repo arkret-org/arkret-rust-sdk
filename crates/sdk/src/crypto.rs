@@ -448,7 +448,7 @@ fn sha256_prefixed(bytes: &[u8]) -> String {
 fn constant_time_eq(left: &str, right: &str) -> bool {
     let left = Sha256::digest(left.as_bytes());
     let right = Sha256::digest(right.as_bytes());
-    left.ct_eq(right.as_slice()).into()
+    left.ct_eq(&right).into()
 }
 
 #[cfg(test)]

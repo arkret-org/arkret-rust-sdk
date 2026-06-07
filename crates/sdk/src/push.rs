@@ -5,8 +5,8 @@ use std::collections::{BTreeMap, BTreeSet};
 pub use cokret_contracts::push::{PushPlatform, PushPriority, PushRule};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use sha2::{Digest, Sha256};
 
+use crate::canonical::sha256_hex;
 use crate::{AEAD_ALGORITHM, DeviceId, Did, Error, EventId, RealmId, Result, crypto};
 
 pub const PUSH_ENCRYPTION_ALGORITHM: &str = AEAD_ALGORITHM;
@@ -329,10 +329,6 @@ impl PushGateway {
 
 fn truncate(value: &str, max: usize) -> String {
     if value.chars().count() <= max { value.to_owned() } else { value.chars().take(max).collect() }
-}
-
-fn sha256_hex(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
 }
 
 #[cfg(test)]

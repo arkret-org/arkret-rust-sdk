@@ -252,9 +252,7 @@ fn build_levels(leaves: &[Hash]) -> Result<Vec<Vec<Hash>>> {
 }
 
 fn sha256_digest(bytes: &[u8]) -> Hash {
-    let digest = Sha256::digest(bytes);
-    let hex: String = digest.iter().map(|b| format!("{b:02x}")).collect();
-    Hash::new(format!("sha256:{hex}")).expect("sha256 wire form")
+    Hash::new(crate::canonical::sha256_digest(bytes)).expect("sha256 wire form")
 }
 
 fn parse_sha256(hash: &Hash) -> Option<[u8; 32]> {

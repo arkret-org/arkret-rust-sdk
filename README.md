@@ -133,7 +133,7 @@ The first Cokret crate currently includes:
 - HLC parsing and deterministic ordering
 - Proof signature-binding payload calculation
 - Policy, Invite, Read Cursor, Notification, Blob Metadata and Encrypted Envelope models
-- encrypted content digest calculation over cleartext routing metadata plus ciphertext bytes
+- encrypted content digest calculation over plaintext routing metadata plus ciphertext bytes
 - MLS KeyPackage, Commit and Welcome envelopes
 - OpenMLS-backed group creation, member add, Welcome join, payload encryption and decryption
 - in-memory persistence helpers for event cache, verified state snapshots and account-local records

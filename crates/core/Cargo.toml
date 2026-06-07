@@ -1,4 +1,4 @@
-[package]
+﻿[package]
 authors = ["Chris Young <chris@sonc.ai>"]
 categories = ["api-bindings", "data-structures", "encoding"]
 description = "Core Cokret v1 protocol types, canonical JSON, cursors, sync models, and service metadata."
@@ -10,7 +10,7 @@ name = "cokret-core"
 readme = "README.md"
 repository = "https://github.com/cokret/cokret-rust-sdk"
 rust-version = "1.92"
-version = "1.0.0"
+version = "0.3.0"
 
 [package.metadata.docs.rs]
 all-features = true

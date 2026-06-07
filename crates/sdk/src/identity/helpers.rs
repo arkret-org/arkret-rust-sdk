@@ -1,6 +1,7 @@
 use std::net::{IpAddr, Ipv6Addr};
 
 use super::*;
+pub(super) use crate::canonical::sha256_hex;
 
 /// SSRF guard: reject hosts that resolve to non-public address space before
 /// the SDK makes an outbound `did:web` / `did:webvh` fetch.
@@ -299,8 +300,4 @@ pub(super) fn verify_did_key_log_proof(
         return Err(Error::Protocol("invalid DID key log proof".to_owned()));
     }
     Ok(())
-}
-
-pub(super) fn sha256_hex(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
 }

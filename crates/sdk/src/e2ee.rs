@@ -6,6 +6,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+use crate::canonical::sha256_hex;
 use crate::{AEAD_ALGORITHM, DeviceId, Did, Error, Result, crypto};
 
 pub const KEY_BACKUP_ALGORITHM: &str = AEAD_ALGORITHM;
@@ -634,10 +635,6 @@ fn message_digest(
     hasher.update(sender_actor_id.as_str().as_bytes());
     hasher.update(ciphertext);
     format!("{:x}", hasher.finalize())
-}
-
-fn sha256_hex(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
 }
 
 #[cfg(test)]
