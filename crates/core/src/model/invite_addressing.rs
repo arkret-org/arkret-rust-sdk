@@ -10,6 +10,88 @@ pub const PRINCIPAL_LOCATOR_SCHEMA: &str = "ck.schema.principal_locator.v1";
 pub const INVITE_DELIVERY_REQUEST_SCHEMA: &str = "ck.schema.invite_delivery_request.v1";
 pub const INVITE_RECEIVE_POLICY_SCHEMA: &str = "ck.schema.invite_receive_policy.v1";
 pub const INVITE_RECIPIENT_SERVICE_TYPE_PRINCIPAL_SERVER: &str = "principal_server";
+pub const INVITE_LOCATOR_RESOLVE_PATH: &str = "_cokret/open/invite-locators/resolve";
+
+fn serialize_canonical_timestamp<S>(
+    value: &DateTime<Utc>,
+    serializer: S,
+) -> std::result::Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    serializer.serialize_str(&canonical::format_timestamp_canonical(value.to_owned()))
+}
+
+fn deserialize_canonical_timestamp<'de, D>(
+    deserializer: D,
+) -> std::result::Result<DateTime<Utc>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = String::deserialize(deserializer)?;
+    canonical::validate_timestamp_canonical(&value).map_err(serde::de::Error::custom)?;
+    DateTime::parse_from_rfc3339(&value)
+        .map(|parsed| parsed.with_timezone(&Utc))
+        .map_err(serde::de::Error::custom)
+}
+
+fn serialize_optional_canonical_timestamp<S>(
+    value: &Option<DateTime<Utc>>,
+    serializer: S,
+) -> std::result::Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    match value {
+        Some(value) => {
+            serializer.serialize_some(&canonical::format_timestamp_canonical(value.to_owned()))
+        }
+        None => serializer.serialize_none(),
+    }
+}
+
+fn deserialize_optional_canonical_timestamp<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<DateTime<Utc>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let Some(value) = Option::<String>::deserialize(deserializer)? else {
+        return Ok(None);
+    };
+    canonical::validate_timestamp_canonical(&value).map_err(serde::de::Error::custom)?;
+    DateTime::parse_from_rfc3339(&value)
+        .map(|parsed| Some(parsed.with_timezone(&Utc)))
+        .map_err(serde::de::Error::custom)
+}
+
+fn validate_locator_token_shape(value: &str) -> bool {
+    (22..=512).contains(&value.len())
+        && value.bytes().all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct InviteLocatorResolveRequestBody {
+    pub locator_token: String,
+}
+
+impl InviteLocatorResolveRequestBody {
+    pub fn new(locator_token: impl Into<String>) -> Self {
+        Self { locator_token: locator_token.into() }
+    }
+
+    pub fn validate_minimal(&self) -> Result<()> {
+        if !validate_locator_token_shape(self.locator_token.trim()) {
+            return Err(Error::Protocol(
+                "invite locator token must be base64url and carry at least 128-bit entropy"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -52,6 +134,13 @@ impl InviteDeliveryTarget {
         Self { recipient_service_did, recipient_service_type: None }
     }
 
+    pub fn from_invite_address(address: &InviteAddress) -> Self {
+        Self {
+            recipient_service_did: address.recipient_service_did.clone(),
+            recipient_service_type: address.recipient_service_type.clone(),
+        }
+    }
+
     pub fn validate(&self) -> Result<()> {
         if let Some(service_type) = &self.recipient_service_type
             && service_type != INVITE_RECIPIENT_SERVICE_TYPE_PRINCIPAL_SERVER
@@ -73,7 +162,15 @@ pub struct PrincipalLocator {
     pub recipient_service_did: Did,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recipient_service_type: Option<String>,
+    #[serde(
+        serialize_with = "serialize_canonical_timestamp",
+        deserialize_with = "deserialize_canonical_timestamp"
+    )]
     pub issued_at: DateTime<Utc>,
+    #[serde(
+        serialize_with = "serialize_canonical_timestamp",
+        deserialize_with = "deserialize_canonical_timestamp"
+    )]
     pub expires_at: DateTime<Utc>,
     pub locator_ref_digest: Hash,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -84,6 +181,21 @@ pub struct PrincipalLocator {
 }
 
 impl PrincipalLocator {
+    pub fn invite_address(&self) -> InviteAddress {
+        InviteAddress {
+            subject_id: self.subject_id.clone(),
+            recipient_service_did: self.recipient_service_did.clone(),
+            recipient_service_type: self.recipient_service_type.clone(),
+        }
+    }
+
+    pub fn invite_delivery_target(&self) -> InviteDeliveryTarget {
+        InviteDeliveryTarget {
+            recipient_service_did: self.recipient_service_did.clone(),
+            recipient_service_type: self.recipient_service_type.clone(),
+        }
+    }
+
     pub fn validate_minimal(&self) -> Result<()> {
         if self.schema != PRINCIPAL_LOCATOR_SCHEMA {
             return Err(Error::Protocol("principal_locator.schema mismatch".to_owned()));
@@ -145,6 +257,10 @@ pub struct DetachedPayloadProof {
     pub verification_method: String,
     pub alg: String,
     pub payload_digest: Hash,
+    #[serde(
+        serialize_with = "serialize_canonical_timestamp",
+        deserialize_with = "deserialize_canonical_timestamp"
+    )]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub domain: Option<String>,
@@ -228,7 +344,12 @@ pub enum InviteDeliveryOutcomeStatus {
 #[serde(deny_unknown_fields)]
 pub struct InviteDeliveryOutcome {
     pub status: InviteDeliveryOutcomeStatus,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "serialize_optional_canonical_timestamp",
+        deserialize_with = "deserialize_optional_canonical_timestamp"
+    )]
     pub received_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after_ms: Option<u64>,
@@ -266,4 +387,73 @@ pub struct InviteReceivePolicy {
     pub trusted_principal_services: Vec<Did>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub blocked_principal_services: Vec<Did>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_time() -> DateTime<Utc> {
+        DateTime::parse_from_rfc3339("2026-06-07T10:00:00.123Z").unwrap().with_timezone(&Utc)
+    }
+
+    #[test]
+    fn invite_locator_resolve_body_validates_body_only_token_shape() {
+        let token = "a".repeat(22);
+        let body = InviteLocatorResolveRequestBody::new(token);
+        body.validate_minimal().expect("valid base64url token shape");
+        assert!(InviteLocatorResolveRequestBody::new("short").validate_minimal().is_err());
+        assert!(
+            InviteLocatorResolveRequestBody::new("aaaaaaaaaaaaaaaaaaaaa+")
+                .validate_minimal()
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn principal_locator_serializes_canonical_timestamps() {
+        let issued_at = test_time();
+        let expires_at = issued_at + chrono::Duration::minutes(15);
+        let locator = PrincipalLocator {
+            schema: PRINCIPAL_LOCATOR_SCHEMA.to_owned(),
+            subject_id: Did::new("did:web:bob.example").unwrap(),
+            recipient_service_did: Did::new("did:web:ps.bob.example").unwrap(),
+            recipient_service_type: None,
+            issued_at,
+            expires_at,
+            locator_ref_digest: Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
+            delivery_modes: Vec::new(),
+            display_hint: None,
+            proofs: vec![PrincipalLocatorProof {
+                proof_purpose: PrincipalLocatorProofPurpose::RecipientServiceAcceptance,
+                proof: DetachedPayloadProof {
+                    kind: "detached_jws".to_owned(),
+                    verification_method: "did:web:ps.bob.example#server-key-1".to_owned(),
+                    alg: "EdDSA".to_owned(),
+                    payload_digest: Hash::new(format!("sha256:{}", "2".repeat(64))).unwrap(),
+                    created_at: issued_at,
+                    domain: None,
+                    audience: None,
+                    jws: "header..sig".to_owned(),
+                },
+            }],
+        };
+
+        let value = serde_json::to_value(&locator).expect("serialize locator");
+        assert_eq!(value["issued_at"], "2026-06-07T10:00:00Z");
+        assert_eq!(value["expires_at"], "2026-06-07T10:15:00Z");
+        assert_eq!(value["proofs"][0]["proof"]["created_at"], "2026-06-07T10:00:00Z");
+        assert!(serde_json::from_value::<PrincipalLocator>(value).is_ok());
+    }
+
+    #[test]
+    fn invite_delivery_outcome_serializes_canonical_received_at() {
+        let outcome = InviteDeliveryOutcome {
+            status: InviteDeliveryOutcomeStatus::Accepted,
+            received_at: Some(test_time()),
+            retry_after_ms: None,
+        };
+        let value = serde_json::to_value(outcome).expect("serialize outcome");
+        assert_eq!(value["received_at"], "2026-06-07T10:00:00Z");
+    }
 }
