@@ -1319,6 +1319,8 @@ pub struct ProjectionFlowRow {
     pub realm_id: RealmId,
     pub state: ProjectionObjectState,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub state_changed_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
@@ -1334,14 +1336,17 @@ pub struct ProjectionFlowRow {
     /// `ck.component.flow.position.v1`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rank: Option<String>,
+    /// Derived current assignee Actor DIDs from visible active
+    /// `assigned_to` Relations. Empty means the Flow is unassigned for
+    /// this projection caller.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub assigned_actor_ids: Vec<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created_by: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_at: Option<DateTime<Utc>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub state_changed_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

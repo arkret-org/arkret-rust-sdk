@@ -262,6 +262,13 @@ const FORBIDDEN_ENTRIES: &[ForbiddenEntry] = &[
     ForbiddenEntry { field: "metadata.fields.stage_note", context: WireContext::FlowPayload },
     ForbiddenEntry { field: "metadata.fields.lifecycle", context: WireContext::FlowPayload },
     ForbiddenEntry { field: "metadata.fields.progress_state", context: WireContext::FlowPayload },
+    ForbiddenEntry { field: "metadata.fields.assignee", context: WireContext::FlowPayload },
+    ForbiddenEntry { field: "metadata.fields.assignees", context: WireContext::FlowPayload },
+    ForbiddenEntry { field: "metadata.fields.assigned_to", context: WireContext::FlowPayload },
+    ForbiddenEntry {
+        field: "metadata.fields.assigned_actor_ids",
+        context: WireContext::FlowPayload,
+    },
     ForbiddenEntry { field: "fields.stage", context: WireContext::MorphPayload },
     ForbiddenEntry { field: "fields.stage_changed_at", context: WireContext::MorphPayload },
     ForbiddenEntry { field: "fields.stage_reason", context: WireContext::MorphPayload },
@@ -276,6 +283,17 @@ const FORBIDDEN_ENTRIES: &[ForbiddenEntry] = &[
     // Patch-path guards
     ForbiddenEntry { field: "stage", context: WireContext::FlowPatchPath },
     ForbiddenEntry { field: "stage_changed_at", context: WireContext::FlowPatchPath },
+    ForbiddenEntry { field: "metadata.fields.assignee", context: WireContext::FlowPatchPath },
+    ForbiddenEntry { field: "metadata.fields.assignees", context: WireContext::FlowPatchPath },
+    ForbiddenEntry { field: "metadata.fields.assigned_to", context: WireContext::FlowPatchPath },
+    ForbiddenEntry {
+        field: "metadata.fields.assigned_actor_ids",
+        context: WireContext::FlowPatchPath,
+    },
+    ForbiddenEntry { field: "fields.assignee", context: WireContext::FlowPatchPath },
+    ForbiddenEntry { field: "fields.assignees", context: WireContext::FlowPatchPath },
+    ForbiddenEntry { field: "fields.assigned_to", context: WireContext::FlowPatchPath },
+    ForbiddenEntry { field: "fields.assigned_actor_ids", context: WireContext::FlowPatchPath },
     ForbiddenEntry { field: "stage", context: WireContext::MorphPatchPath },
     ForbiddenEntry { field: "stage_changed_at", context: WireContext::MorphPatchPath },
     // Identifier rename batch (post-2026-05-25): single concrete object ids
@@ -526,6 +544,10 @@ mod tests {
             "metadata.fields.stage_changed_at",
             WireContext::FlowPayload
         ));
+        assert!(is_forbidden_in_context("metadata.fields.assignee", WireContext::FlowPayload));
+        assert!(is_forbidden_in_context("metadata.fields.assigned_to", WireContext::FlowPayload));
+        assert!(is_forbidden_in_context("metadata.fields.assignee", WireContext::FlowPatchPath));
+        assert!(is_forbidden_in_context("fields.assignee", WireContext::FlowPatchPath));
         // Not flagged on unrelated payload contexts.
         assert!(!is_forbidden_in_context("fields.stage", WireContext::SpacePayload));
     }

@@ -333,6 +333,11 @@ impl Event {
             if let Some(patch) = self.content.get("patch") {
                 validate_forbidden_object_keys("Event.payload.patch", patch, context)?;
             }
+            if let Some(patch_context) = patch_context_for_event_kind(&self.kind)
+                && let Some(patch) = self.content.get("patch")
+            {
+                validate_forbidden_patch_paths("Event.payload.patch", patch, patch_context)?;
+            }
         }
         validate_forbidden_id_prefixes("Event.payload", &self.content)
     }
@@ -401,6 +406,151 @@ fn payload_context_for_event_kind(kind: &str) -> Option<crate::WireContext> {
         "realm" if suffix == "realm.freeze" => Some(crate::WireContext::RealmFreezePayload),
         _ => None,
     }
+}
+
+fn patch_context_for_event_kind(kind: &str) -> Option<crate::WireContext> {
+    let suffix = kind.strip_prefix("ck.").unwrap_or(kind);
+    match suffix {
+        "flow.update" | "flow.tracks.update" => Some(crate::WireContext::FlowPatchPath),
+        "morph.update" | "morph.schema_migrate" => Some(crate::WireContext::MorphPatchPath),
+        _ => None,
+    }
+}
+
+fn validate_forbidden_patch_paths(
+    label: &str,
+    value: &Value,
+    context: crate::WireContext,
+) -> Result<()> {
+    let Some(object) = value.as_object() else {
+        return Ok(());
+    };
+    for (key, patch_op) in object {
+        if let Some(forbidden_path) = forbidden_patch_path_match(key, context) {
+            return Err(Error::Protocol(format!(
+                "{label} contains forbidden patch path '{key}' matching '{forbidden_path}' in context {context:?}"
+            )));
+        }
+        validate_forbidden_patch_value(label, key, patch_op, context)?;
+    }
+    Ok(())
+}
+
+fn forbidden_patch_path_match<'a>(path: &'a str, context: crate::WireContext) -> Option<&'a str> {
+    if let Some(entry) = forbidden_patch_path_prefixes(context)
+        .iter()
+        .find(|entry| path == **entry || path.starts_with(&format!("{entry}.")))
+    {
+        return Some(entry);
+    }
+    crate::is_forbidden_in_context(path, context).then_some(path)
+}
+
+fn forbidden_patch_path_prefixes(context: crate::WireContext) -> &'static [&'static str] {
+    match context {
+        crate::WireContext::FlowPatchPath => &[
+            "stage",
+            "stage_changed_at",
+            "metadata.fields.assignee",
+            "metadata.fields.assignees",
+            "metadata.fields.assigned_to",
+            "metadata.fields.assigned_actor_ids",
+            "fields.assignee",
+            "fields.assignees",
+            "fields.assigned_to",
+            "fields.assigned_actor_ids",
+        ],
+        crate::WireContext::MorphPatchPath => &["stage", "stage_changed_at"],
+        _ => &[],
+    }
+}
+
+fn validate_forbidden_patch_value(
+    label: &str,
+    path: &str,
+    patch_op: &Value,
+    context: crate::WireContext,
+) -> Result<()> {
+    let patch_value =
+        patch_op.get("value").filter(|_| patch_op.get("$op").is_some()).unwrap_or(patch_op);
+    match context {
+        crate::WireContext::FlowPatchPath => {
+            validate_flow_patch_parent_value(label, path, patch_value)?;
+        }
+        crate::WireContext::MorphPatchPath => {
+            validate_morph_patch_parent_value(label, path, patch_value)?;
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+fn validate_flow_patch_parent_value(label: &str, path: &str, value: &Value) -> Result<()> {
+    match path {
+        "metadata.fields" => validate_forbidden_map_value_keys(
+            label,
+            path,
+            value,
+            "metadata.fields",
+            crate::WireContext::FlowPayload,
+        ),
+        "fields" => validate_forbidden_map_value_keys(
+            label,
+            path,
+            value,
+            "fields",
+            crate::WireContext::FlowPatchPath,
+        ),
+        "metadata" => {
+            if let Some(fields) = value.get("fields") {
+                validate_forbidden_map_value_keys(
+                    label,
+                    "metadata.fields",
+                    fields,
+                    "metadata.fields",
+                    crate::WireContext::FlowPayload,
+                )?;
+            }
+            Ok(())
+        }
+        _ => Ok(()),
+    }
+}
+
+fn validate_morph_patch_parent_value(label: &str, path: &str, value: &Value) -> Result<()> {
+    match path {
+        "fields" => validate_forbidden_map_value_keys(
+            label,
+            path,
+            value,
+            "fields",
+            crate::WireContext::MorphPayload,
+        ),
+        _ => Ok(()),
+    }
+}
+
+fn validate_forbidden_map_value_keys(
+    label: &str,
+    path: &str,
+    value: &Value,
+    key_prefix: &str,
+    context: crate::WireContext,
+) -> Result<()> {
+    let Some(object) = value.as_object() else {
+        return Ok(());
+    };
+    for nested_key in object.keys() {
+        let nested = format!("{key_prefix}.{nested_key}");
+        if crate::is_forbidden_in_context(&nested, context)
+            || forbidden_patch_path_match(&nested, context).is_some()
+        {
+            return Err(Error::Protocol(format!(
+                "{label}.{path} value contains forbidden wire field '{nested}' in context {context:?}"
+            )));
+        }
+    }
+    Ok(())
 }
 
 fn validate_forbidden_object_keys(
@@ -557,6 +707,54 @@ mod event_wire_surface_tests {
 
         let err = serde_json::from_value::<Event>(value).unwrap_err();
         assert!(err.to_string().contains("forbidden wire field"));
+    }
+
+    #[test]
+    fn flow_update_rejects_forbidden_patch_paths() {
+        for path in [
+            "stage",
+            "metadata.fields.assignee",
+            "metadata.fields.assignee.name",
+            "fields.assignee",
+        ] {
+            let mut event = base_event();
+            event.kind = "ck.flow.update".to_owned();
+            let mut patch = serde_json::Map::new();
+            patch.insert(path.to_owned(), json!({ "$op": "set", "value": "did:web:bob.example" }));
+            event.content = json!({
+                "target_ref": "ck:flow:01904100-0000-7000-8000-000000000001",
+                "patch": Value::Object(patch)
+            });
+
+            let err = event.validate_forbidden_wire_surface().unwrap_err();
+            assert!(
+                err.to_string().contains("forbidden patch path")
+                    || err.to_string().contains("forbidden wire field"),
+                "unexpected error for {path}: {err}"
+            );
+        }
+
+        for (path, value) in [
+            ("metadata.fields", json!({"assignee": "did:web:bob.example"})),
+            ("metadata", json!({"fields": {"assignee": "did:web:bob.example"}})),
+            ("fields", json!({"assignee": "did:web:bob.example"})),
+        ] {
+            let mut event = base_event();
+            event.kind = "ck.flow.update".to_owned();
+            let mut patch = serde_json::Map::new();
+            patch.insert(path.to_owned(), json!({ "$op": "set", "value": value }));
+            event.content = json!({
+                "target_ref": "ck:flow:01904100-0000-7000-8000-000000000001",
+                "patch": Value::Object(patch)
+            });
+
+            let err = event.validate_forbidden_wire_surface().unwrap_err();
+            assert!(
+                err.to_string().contains("forbidden wire field")
+                    || err.to_string().contains("forbidden patch path"),
+                "unexpected error for {path}: {err}"
+            );
+        }
     }
 
     #[test]
