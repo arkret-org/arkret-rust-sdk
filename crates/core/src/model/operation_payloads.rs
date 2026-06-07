@@ -120,6 +120,8 @@ pub struct FlowCreateObject {
     pub schema: String,
     pub realm_id: RealmId,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope_circle_id: Option<CircleId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<FlowMetadata>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub encrypted_metadata: Option<Value>,
@@ -127,13 +129,11 @@ pub struct FlowCreateObject {
     pub content: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub encrypted_content: Option<Value>,
+    #[serde(default)]
+    pub tracks: BTreeMap<String, FlowTrackConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state: Option<ObjectState>,
     pub stage: ObjectStage,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub tracks: BTreeMap<String, FlowTrackConfig>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub scope_circle_id: Option<CircleId>,
     pub created_by: Did,
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -150,14 +150,14 @@ impl FlowCreateObject {
             id,
             schema: FLOW_SCHEMA.to_owned(),
             realm_id,
+            scope_circle_id: None,
             metadata: None,
             encrypted_metadata: None,
             content: None,
             encrypted_content: None,
+            tracks: BTreeMap::new(),
             state: None,
             stage: ObjectStage::Draft,
-            tracks: BTreeMap::new(),
-            scope_circle_id: None,
             created_by,
             created_at: now_utc_seconds(),
             updated_by: None,

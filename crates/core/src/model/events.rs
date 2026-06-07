@@ -3,10 +3,10 @@ use crate::{AnchorId, Effect, Precondition};
 
 pub const EVENT_REF_ROLE_AUTHORIZED_BY: &str = "authorized_by";
 
-/// CKP-0008 / CKP-0009 (spec head 37ce729) — runtime classifier stamped by
+/// CKP-0008 / CKP-0009 (spec head 37ce729) â€” runtime classifier stamped by
 /// the reducer on every Envelope. Distinct from the existing `ActorKind`
 /// enum (which classifies `ActorProfile.actor_kind` as user/org/team/...)
-/// — this 4-value classifier describes the runtime origin of the
+/// â€” this 4-value classifier describes the runtime origin of the
 /// envelope itself: native devices, applet-bound ghost actors, service
 /// principals, and personal agent runtimes.
 ///
@@ -48,8 +48,8 @@ impl EventRef {
         Self { id: id.into(), role: role.into(), critical: true, proof: None }
     }
 
-    pub fn authorized_by(event_id: EventId) -> Self {
-        Self::new(event_id.to_string(), EVENT_REF_ROLE_AUTHORIZED_BY)
+    pub fn authorized_by_grant(grant_id: GrantId) -> Self {
+        Self::new(grant_id.to_string(), EVENT_REF_ROLE_AUTHORIZED_BY)
     }
 }
 
@@ -93,7 +93,7 @@ pub struct Event {
     pub hlc: Hlc,
     pub prev_refs: Vec<EventId>,
     /// CKP-0007 (spec b7d35be, schemas/event-envelope.schema.json
-    /// `$defs.effective_scope`) — reducer-stamped immutable scope binding.
+    /// `$defs.effective_scope`) â€” reducer-stamped immutable scope binding.
     /// `Realm` for events emitted in Realm-default scope; `Circle` for
     /// events emitted in a Circle scope. SDK helpers that mint envelopes
     /// for a Flow / Morph / Space carrying `scope_circle_id` MUST set the
@@ -115,7 +115,7 @@ pub struct Event {
     pub redacts: Option<EventId>,
     #[serde(rename = "payload")]
     pub content: Value,
-    /// CKP-0008 / CKP-0009 (spec head 37ce729) — DID of the runtime that
+    /// CKP-0008 / CKP-0009 (spec head 37ce729) â€” DID of the runtime that
     /// actually executed this envelope on behalf of `actor_id`. When
     /// present, the reducer MUST verify that the DID resolved from
     /// `proof.verification_method` equals `executed_by`. Signed; nested
@@ -125,13 +125,13 @@ pub struct Event {
     // reducer MUST verify `executed_by` == proof verification_method DID.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub executed_by: Option<Did>,
-    /// CKP-0008 / CKP-0009 — typed reference (e.g. `ck:grant:<uuidv7>` /
+    /// CKP-0008 / CKP-0009 â€” typed reference (e.g. `ck:grant:<uuidv7>` /
     /// `ck:accountability_grant:<uuidv7>`) to the authorization artifact
     /// that authorized this envelope. Conditional; when present, MUST be
     /// included in the canonical signing transcript.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorization_ref: Option<String>,
-    /// CKP-0008 / CKP-0009 — runtime-origin classifier. Reducer-stamped
+    /// CKP-0008 / CKP-0009 â€” runtime-origin classifier. Reducer-stamped
     /// projection; clients MUST NOT supply it. See
     /// [`EnvelopeActorKind`] for invariants.
     ///
@@ -139,20 +139,8 @@ pub struct Event {
     // wire-form rejection code `actor_kind_self_stamped`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub actor_kind: Option<EnvelopeActorKind>,
-    /// S-7 (savfox SDK gap, 2026-05-27) — when set, the typed Applet
-    /// id (`ck:applet:<uuidv7>`) that produced this Envelope. First-class
-    /// per `applet-integration.md` §8; included in the canonical
-    /// signing transcript (folds naturally because top-level fields
-    /// land in the canonical event bytes when present).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub applet_id: Option<String>,
-    /// S-7 (savfox SDK gap, 2026-05-27) — when set, opaque external
-    /// reference for bridge-routed Envelopes (e.g. upstream message id,
-    /// bridge correlation token). First-class per
-    /// `applet-integration.md` §8; included in the canonical signing
-    /// transcript via canonical event bytes when present.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub external_ref: Option<Value>,
+    /// Reducer/client-local extension data that is not part of the signed
+    /// canonical Event Envelope transcript.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub unsigned: BTreeMap<String, Value>,
     pub proofs: Vec<Proof>,
@@ -192,10 +180,6 @@ struct EventWire {
     #[serde(default)]
     pub actor_kind: Option<EnvelopeActorKind>,
     #[serde(default)]
-    pub applet_id: Option<String>,
-    #[serde(default)]
-    pub external_ref: Option<Value>,
-    #[serde(default)]
     pub unsigned: BTreeMap<String, Value>,
     pub proofs: Vec<Proof>,
 }
@@ -224,8 +208,6 @@ impl TryFrom<EventWire> for Event {
             executed_by: wire.executed_by,
             authorization_ref: wire.authorization_ref,
             actor_kind: wire.actor_kind,
-            applet_id: wire.applet_id,
-            external_ref: wire.external_ref,
             unsigned: wire.unsigned,
             proofs: wire.proofs,
         };
@@ -235,7 +217,7 @@ impl TryFrom<EventWire> for Event {
 }
 
 /// CKP-0007 (spec b7d35be, schemas/event-envelope.schema.json
-/// `$defs.effective_scope`) — reducer-stamped immutable scope binding on
+/// `$defs.effective_scope`) â€” reducer-stamped immutable scope binding on
 /// an [`Event`].
 ///
 /// The wire form is an internally-tagged JSON object on `kind`:
@@ -352,11 +334,7 @@ impl Event {
                 validate_forbidden_object_keys("Event.payload.patch", patch, context)?;
             }
         }
-        validate_forbidden_id_prefixes("Event.payload", &self.content)?;
-        validate_forbidden_id_prefixes(
-            "Event.external_ref",
-            self.external_ref.as_ref().unwrap_or(&Value::Null),
-        )
+        validate_forbidden_id_prefixes("Event.payload", &self.content)
     }
 
     /// Validate that all proofs bind to this event's digest.
@@ -406,8 +384,6 @@ impl Event {
             executed_by: None,
             authorization_ref: None,
             actor_kind: None,
-            applet_id: None,
-            external_ref: None,
             unsigned: BTreeMap::new(),
             proofs: Vec::new(),
         })
@@ -500,9 +476,8 @@ fn validate_forbidden_id_prefixes(label: &str, value: &Value) -> Result<()> {
 pub type EventEnvelope = Event;
 
 #[cfg(test)]
-mod applet_routing_field_tests {
-    //! S-7 (savfox SDK gap, 2026-05-27) — guard the `applet_id` /
-    //! `external_ref` top-level slots against accidental wire drift.
+mod event_wire_surface_tests {
+    //! Guard the Event Envelope wire surface against legacy non-spec fields.
 
     use super::*;
     use serde_json::json;
@@ -536,52 +511,38 @@ mod applet_routing_field_tests {
             executed_by: None,
             authorization_ref: None,
             actor_kind: None,
-            applet_id: None,
-            external_ref: None,
             unsigned: BTreeMap::new(),
             proofs: Vec::new(),
         }
     }
 
     #[test]
-    fn event_digest_unchanged_when_applet_id_and_external_ref_absent() {
+    fn event_serialization_omits_legacy_applet_surface() {
         let event = base_event();
-        // Spec absence-symmetric: omitting both fields MUST be
-        // serialization-equivalent to the legacy event.
         let serialized = serde_json::to_value(&event).unwrap();
         assert!(serialized.get("applet_id").is_none());
         assert!(serialized.get("external_ref").is_none());
     }
 
     #[test]
-    fn event_digest_changes_when_applet_id_is_set() {
-        let baseline = base_event().event_digest().unwrap();
-        let mut event = base_event();
-        event.applet_id = Some("ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa".to_owned());
-        let with = event.event_digest().unwrap();
-        assert_ne!(baseline, with, "applet_id must enter the canonical event bytes");
-    }
-
-    #[test]
-    fn event_digest_changes_when_external_ref_is_set() {
-        let baseline = base_event().event_digest().unwrap();
-        let mut event = base_event();
-        event.external_ref = Some(json!({"upstream_id": "slack:msg:12345"}));
-        let with = event.event_digest().unwrap();
-        assert_ne!(baseline, with, "external_ref must enter the canonical event bytes");
-    }
-
-    #[test]
-    fn event_round_trips_applet_id_and_external_ref() {
-        let mut event = base_event();
-        event.applet_id = Some("ck:applet:01904100-0000-7000-8000-bbbbbbbbbbbb".to_owned());
-        event.external_ref = Some(json!({"slack_msg_id": "1234567890.0001"}));
+    fn event_deserialize_rejects_legacy_top_level_applet_surface() {
+        let event = base_event();
         let value = serde_json::to_value(&event).unwrap();
-        assert_eq!(value["applet_id"], "ck:applet:01904100-0000-7000-8000-bbbbbbbbbbbb");
-        assert_eq!(value["external_ref"]["slack_msg_id"], "1234567890.0001");
-        let back: Event = serde_json::from_value(value).unwrap();
-        assert_eq!(back.applet_id.as_deref(), event.applet_id.as_deref());
-        assert_eq!(back.external_ref, event.external_ref);
+        let mut applet_value = value.clone();
+        applet_value.as_object_mut().unwrap().insert(
+            "applet_id".to_owned(),
+            json!("ck:applet:01904100-0000-7000-8000-bbbbbbbbbbbb"),
+        );
+        let applet_err = serde_json::from_value::<Event>(applet_value).unwrap_err();
+        assert!(applet_err.to_string().contains("unknown field"));
+
+        let mut external_ref_value = value;
+        external_ref_value
+            .as_object_mut()
+            .unwrap()
+            .insert("external_ref".to_owned(), json!({"slack_msg_id": "1234567890.0001"}));
+        let external_ref_err = serde_json::from_value::<Event>(external_ref_value).unwrap_err();
+        assert!(external_ref_err.to_string().contains("unknown field"));
     }
 
     #[test]

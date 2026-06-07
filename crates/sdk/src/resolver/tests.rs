@@ -32,8 +32,6 @@ fn event(kind: &str, seq: u64, content: Value) -> Event {
         executed_by: None,
         authorization_ref: None,
         actor_kind: None,
-        applet_id: None,
-        external_ref: None,
         unsigned: BTreeMap::new(),
         proofs: vec![],
     }

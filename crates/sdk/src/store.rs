@@ -394,8 +394,6 @@ mod tests {
             executed_by: None,
             authorization_ref: None,
             actor_kind: None,
-            applet_id: None,
-            external_ref: None,
             unsigned: BTreeMap::new(),
             proofs: vec![],
         }
@@ -404,15 +402,18 @@ mod tests {
     fn blob_metadata(blob_ref: BlobRef, size_bytes: u64) -> BlobMetadata {
         BlobMetadata {
             schema: BLOB_SCHEMA.to_owned(),
+            realm_id: None,
             blob_ref,
             content_digest:
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned(),
             size_bytes,
             media_type: "text/plain".to_owned(),
             filename: Some("note.txt".to_owned()),
-            encryption: json!({"scheme": "none"}),
+            encryption: Some(json!({"scheme": "none"})),
             created_by: Did::new("did:web:alice.example").unwrap(),
             created_at: Utc::now(),
+            updated_by: None,
+            updated_at: None,
         }
     }
 

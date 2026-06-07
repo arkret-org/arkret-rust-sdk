@@ -1783,8 +1783,6 @@ mod tests {
                 executed_by: None,
                 authorization_ref: None,
                 actor_kind: None,
-                applet_id: None,
-                external_ref: None,
                 unsigned: BTreeMap::new(),
                 proofs: Vec::new(),
             }

@@ -797,19 +797,14 @@ impl AppletBridgeErrorBuilder {
             content.insert(k.clone(), v.clone());
         }
 
-        let mut event = Event::new(
+        Event::new(
             "ck.applet.bridge_error",
             self.realm_id,
             self.actor_id,
             actor_seq,
             hlc,
             Value::Object(content),
-        )?;
-        event.applet_id = Some(self.applet_id);
-        if let Some(external_ref) = self.external_ref {
-            event.external_ref = Some(external_ref);
-        }
-        Ok(event)
+        )
     }
 }
 
@@ -1088,7 +1083,6 @@ impl AppletDelegatedEventAuthorization {
         self.validate()?;
         event.executed_by = Some(self.executed_by.clone());
         event.authorization_ref = Some(self.authorization_ref.clone());
-        event.applet_id = Some(self.applet_id.to_string());
         Ok(())
     }
 }
@@ -1996,11 +1990,8 @@ mod tests {
         assert_eq!(event.content["visibility_scope"], "realm_admins");
         assert_eq!(event.content["message"], "external network rejected the message");
         assert_eq!(event.content["retry_after_ms"], 1000);
-        assert_eq!(
-            event.applet_id.as_deref(),
-            Some("ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa")
-        );
-        assert_eq!(event.external_ref.as_ref().unwrap()["slack_response_code"], 429);
+        assert_eq!(event.content["applet_id"], "ck:applet:01904100-0000-7000-8000-aaaaaaaaaaaa");
+        assert_eq!(event.content["external_ref"]["slack_response_code"], 429);
     }
 
     #[test]

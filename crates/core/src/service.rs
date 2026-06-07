@@ -56,35 +56,40 @@ impl ServiceType {
     /// Operation-kind prefixes a service of this type is allowed to
     /// advertise (T3-10 / `service-surface.md` capability matrix).
     ///
-    /// `ck.applet.*` for applet services, `ck.events.*` / `ck.sync.*` for
-    /// sync nodes, etc. An empty slice means "no allow-list constraint".
+    /// `ck.edge.applet.*` for applet services, `ck.self.events.*` for
+    /// principal sync/event surfaces, etc. An empty slice means "no
+    /// allow-list constraint".
     pub fn allowed_operation_prefixes(&self) -> &'static [&'static str] {
         match self {
             Self::PrincipalServer => &[
-                "ck.events.",
-                "ck.sync.",
-                "ck.account.",
+                "ck.self.account.",
+                "ck.self.authz.",
+                "ck.self.blob.",
+                "ck.self.call.",
+                "ck.self.events.",
+                "ck.self.keys.",
+                "ck.self.moderation.",
+                "ck.self.policy.",
+                "ck.self.snapshot.",
                 "ck.policy.",
-                "ck.authz.",
                 "ck.identity.",
-                "ck.server.",
-                "ck.admin.",
-                "ck.moderation.",
+                "ck.account_data.",
             ],
-            Self::IdentityRegistry => &["ck.identity.", "ck.find.directory.resolve_handle"],
-            Self::AuthServer => &["ck.account.", "ck.root.identity.resolve"],
-            Self::SyncNode => &["ck.sync.", "ck.events."],
-            Self::BlobNode | Self::MediaService => &["ck.blob.", "ck.media."],
-            Self::DirectoryService => &["ck.directory."],
-            Self::DeviceKeyService => &["ck.keys.", "ck.device_messages."],
-            Self::AuthzService => &["ck.authz.", "ck.policy."],
-            Self::PolicyServer => &["ck.policy."],
+            Self::IdentityRegistry => &["ck.root.identity.", "ck.identity."],
+            Self::AuthServer => &["ck.gate.account.", "ck.self.policy.check"],
+            Self::SyncNode => &["ck.self.events.", "ck.self.account.", "ck.self.snapshot."],
+            Self::BlobNode => &["ck.self.blob."],
+            Self::MediaService => &["ck.self.media.", "ck.self.call.media."],
+            Self::DirectoryService => &["ck.find.directory."],
+            Self::DeviceKeyService => &["ck.self.keys."],
+            Self::AuthzService => &["ck.self.authz.", "ck.self.policy.", "ck.policy."],
+            Self::PolicyServer => &["ck.self.policy.", "ck.policy."],
             Self::PushGateway => &["ck.edge.push."],
-            Self::AppletService => &["ck.applet."],
-            Self::AgentRuntime => &["ck.applet.", "ck.agent."],
-            Self::SfuService => &["ck.media.", "ck.webrtc."],
+            Self::AppletService => &["ck.edge.applet."],
+            Self::AgentRuntime => &["ck.self.agent.", "ck.gate.account.agent_key_pair"],
+            Self::SfuService => &["ck.self.call.media.", "ck.self.media."],
             Self::TurnService => &["ck.self.media.ice_config"],
-            Self::ModerationService => &["ck.moderation.", "ck.admin.get_moderation_queue"],
+            Self::ModerationService => &["ck.self.moderation."],
         }
     }
 

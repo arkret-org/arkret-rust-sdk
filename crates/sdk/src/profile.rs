@@ -368,7 +368,6 @@ pub struct ProfileCreateBuilder {
     authorization_ref: Option<String>,
     executed_by: Option<Did>,
     applet_id: Option<AppletId>,
-    event_external_ref: Option<Value>,
     expected_state_digest: Option<Hash>,
 }
 
@@ -391,7 +390,6 @@ impl ProfileCreateBuilder {
             authorization_ref: None,
             executed_by: None,
             applet_id: None,
-            event_external_ref: None,
             expected_state_digest: None,
         }
     }
@@ -486,7 +484,7 @@ impl ProfileCreateBuilder {
     }
 
     pub fn with_event_external_ref(mut self, external_ref: Value) -> Self {
-        self.event_external_ref = Some(external_ref);
+        self.profile_fields.insert("external_ref".to_owned(), external_ref);
         self
     }
 
@@ -515,8 +513,6 @@ impl ProfileCreateBuilder {
         )?;
         event.authorization_ref = self.authorization_ref;
         event.executed_by = self.executed_by;
-        event.applet_id = self.applet_id.map(|id| id.to_string());
-        event.external_ref = self.event_external_ref;
         Ok(event)
     }
 

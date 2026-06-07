@@ -180,8 +180,8 @@ impl OperationEventConversion {
         self
     }
 
-    pub fn with_authorized_by_ref(mut self, event_id: EventId) -> Self {
-        self.refs.push(EventRef::authorized_by(event_id));
+    pub fn with_authorized_by_ref(mut self, grant_id: GrantId) -> Self {
+        self.refs.push(EventRef::authorized_by_grant(grant_id));
         self
     }
 
@@ -377,10 +377,8 @@ pub enum CapabilitySubject {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct CapabilityGrant {
-    pub schema: String,
     pub id: GrantId,
-    #[serde(rename = "type")]
-    pub object_type: String,
+    pub schema: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     pub issuer: Did,
@@ -389,19 +387,21 @@ pub struct CapabilityGrant {
     pub resources: Vec<Value>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub constraints: Vec<Value>,
-    #[serde(default)]
-    pub delegable: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parent_grant_id: Option<GrantId>,
+    pub issued_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub not_before: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_by: Option<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub revoked_by: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub revoked_at: Option<DateTime<Utc>>,
-    pub created_at: DateTime<Utc>,
     pub proofs: Vec<Proof>,
 }
 
@@ -590,6 +590,8 @@ pub struct Notification {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct BlobMetadata {
     pub schema: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub realm_id: Option<RealmId>,
     pub blob_ref: BlobRef,
     pub content_digest: String,
     /// Spec rename (head 37ce729): `size` → `size_bytes` on blob/media metadata.
@@ -597,9 +599,14 @@ pub struct BlobMetadata {
     pub media_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub filename: Option<String>,
-    pub encryption: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub encryption: Option<Value>,
     pub created_by: Did,
     pub created_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_by: Option<Did>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
