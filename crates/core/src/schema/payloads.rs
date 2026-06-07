@@ -454,6 +454,11 @@ fn fallback_event_payload_validator_catalog() -> EventPayloadValidatorCatalog {
         ),
         ("ck.member.state", EVENT_PAYLOAD_SCHEMA, &["membership"][..]),
         (
+            "ck.invite.create",
+            EVENT_PAYLOAD_SCHEMA,
+            &["invitee", "invite_delivery_target", "introduction_evidence_digest"][..],
+        ),
+        (
             "ck.mls.commit",
             EVENT_PAYLOAD_SCHEMA,
             &[

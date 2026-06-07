@@ -411,6 +411,8 @@ pub const OP_INVITE_CREATE: &str = "ck.invite.create";
 
 /// Server and account/snapshot operations.
 pub const OP_SERVER_DESCRIBE: &str = "ck.server.describe";
+pub const OP_OPEN_INVITE_LOCATOR_RESOLVE: &str = "ck.open.invite_locator.resolve";
+pub const OP_PEER_INVITES_SUBMIT: &str = "ck.peer.invites.submit";
 pub const OP_IDENTITY_RESOLVE: &str = "ck.root.identity.resolve";
 pub const OP_ACCOUNT_DESCRIBE: &str = "ck.self.account.describe";
 pub const OP_ACCOUNT_CURSOR_REVOKE: &str = "ck.self.account.cursor_revoke";
@@ -807,6 +809,8 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_MIMI_SUBMIT_MESSAGE,
     OP_MIMI_UPDATE_CONSENT,
     OP_MODERATION_REPORT,
+    OP_OPEN_INVITE_LOCATOR_RESOLVE,
+    OP_PEER_INVITES_SUBMIT,
     OP_POLICY_CHECK,
     OP_PUSH_NOTIFY,
     OP_PUSH_REGISTER_DEVICE,

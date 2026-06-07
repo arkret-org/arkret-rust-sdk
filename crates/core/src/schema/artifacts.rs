@@ -1,7 +1,8 @@
 use super::*;
 use crate::events::STANDARD_EVENT_KINDS;
 use crate::{
-    BUILT_IN_OPERATION_KINDS, PROFILE_ATTESTED_AUDIT_E2EE, PROFILE_DIRECTORY_SERVICE,
+    BUILT_IN_OPERATION_KINDS, INVITE_DELIVERY_REQUEST_SCHEMA, INVITE_RECEIVE_POLICY_SCHEMA,
+    PRINCIPAL_LOCATOR_SCHEMA, PROFILE_ATTESTED_AUDIT_E2EE, PROFILE_DIRECTORY_SERVICE,
     PROFILE_DISCLOSED_AUDIT_E2EE,
 };
 
@@ -442,6 +443,9 @@ pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     "ck.schema.relation.v1",
     "ck.schema.policy.v1",
     "ck.schema.invite.v1",
+    PRINCIPAL_LOCATOR_SCHEMA,
+    INVITE_DELIVERY_REQUEST_SCHEMA,
+    INVITE_RECEIVE_POLICY_SCHEMA,
     "ck.schema.event_batch_receipt.v1",
     "ck.schema.patch.v1",
     "ck.schema.range_completeness_attestation.v1",

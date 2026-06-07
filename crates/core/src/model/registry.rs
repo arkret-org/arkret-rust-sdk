@@ -288,6 +288,13 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         OP_POLICY_CHECK => vec!["resource".to_owned()],
         OP_AUTHZ_GET_EFFECTIVE_GRANTS => vec!["actor_id".to_owned()],
         OP_AUTHZ_GET_INVITES => vec!["realm_id".to_owned()],
+        OP_OPEN_INVITE_LOCATOR_RESOLVE => vec!["locator_token".to_owned()],
+        OP_PEER_INVITES_SUBMIT => {
+            ["schema", "invite_event", "invite_address", "introduction_evidence", "idempotency_key"]
+                .into_iter()
+                .map(str::to_owned)
+                .collect()
+        }
         OP_EVENTS_GET | OP_EVENTS_RESOLVE => vec!["event_id".to_owned()],
         OP_EVENTS_FRONTIER => vec!["realm_id".to_owned()],
         OP_EVENTS_QUERY => Vec::new(), // selector = realms[]?+actors[]? — neither is strictly required

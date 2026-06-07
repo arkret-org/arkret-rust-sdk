@@ -475,6 +475,7 @@ fn mutation_for_kind(kind: &str) -> OperationMutation {
         | OP_DIRECTORY_SEARCH_USERS
         | OP_AUTHZ_GET_EFFECTIVE_GRANTS
         | OP_AUTHZ_GET_INVITES
+        | OP_OPEN_INVITE_LOCATOR_RESOLVE
         | OP_KEYS_BACKUPS_LIST
         | OP_KEYS_BACKUPS_GET
         | OP_KEYS_QUERY
@@ -499,6 +500,7 @@ fn mutation_for_kind(kind: &str) -> OperationMutation {
         | OP_MIMI_NOTIFY
         | OP_MIMI_REPORT_ABUSE
         | OP_MIMI_PROXY_DOWNLOAD
+        | OP_PEER_INVITES_SUBMIT
         | OP_POLICY_CHECK => OperationMutation::External,
         _ => OperationMutation::Update,
     }
@@ -526,6 +528,8 @@ fn target_id_for_operation(kind: &str, content: &Value) -> Option<String> {
         OP_ADMIN_REVOKE_DEVICE | OP_ADMIN_UPDATE_ACCOUNT_STATUS => &["principal_id"],
         OP_ACCOUNT_DEVICE_PAIR | OP_ACCOUNT_ISSUE_SESSION_GRANT => &["principal_id"],
         OP_MODERATION_REPORT => &["target_ref"],
+        OP_OPEN_INVITE_LOCATOR_RESOLVE => &["locator_token"],
+        OP_PEER_INVITES_SUBMIT => &["idempotency_key"],
         OP_POLICY_CHECK => &["resource"],
         _ => &[],
     };
