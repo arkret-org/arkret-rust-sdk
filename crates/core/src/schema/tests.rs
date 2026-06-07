@@ -212,6 +212,47 @@ fn artifact_payload_catalog_maps_object_patch_event_family_to_object_patch_paylo
 }
 
 #[test]
+fn artifact_payload_catalog_enforces_invite_create_payload_shape() {
+    let Some(artifacts_dir) = default_spec_artifacts_dir() else {
+        return;
+    };
+    let catalog = event_payload_validator_catalog_from_spec_artifacts(artifacts_dir).unwrap();
+    let payload = json!({
+        "invite_id": "ck:invite:01904100-0000-7000-8000-000000000001",
+        "invitee": "did:web:bob.example",
+        "invite_delivery_target": {
+            "recipient_service_did": "did:web:server.example",
+            "recipient_service_type": "principal_server"
+        },
+        "introduction_evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "expires_at": "2026-06-14T10:00:00Z",
+        "x_role": "member"
+    });
+
+    assert_eq!(
+        catalog.rules[crate::events::INVITE_CREATE].payload_schema_id,
+        format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/invite_payload")
+    );
+    assert!(
+        catalog.rules[crate::events::INVITE_CREATE]
+            .required_fields
+            .iter()
+            .any(|field| field == "invite_id"),
+        "ck.invite.create must require invite_id"
+    );
+    catalog
+        .validate_payload(crate::events::INVITE_CREATE, &payload)
+        .unwrap_or_else(|err| panic!("ck.invite.create should accept directed invite: {err}"));
+
+    let mut missing_invite_id = payload;
+    missing_invite_id.as_object_mut().unwrap().remove("invite_id");
+    assert!(
+        catalog.validate_payload(crate::events::INVITE_CREATE, &missing_invite_id).is_err(),
+        "ck.invite.create must reject directed invite payloads without invite_id"
+    );
+}
+
+#[test]
 fn artifact_payload_catalog_enforces_external_schema_refs_and_enums() {
     let Some(artifacts_dir) = default_spec_artifacts_dir() else {
         return;

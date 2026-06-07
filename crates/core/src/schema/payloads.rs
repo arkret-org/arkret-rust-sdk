@@ -406,7 +406,7 @@ pub fn event_payload_validator_catalog_from_spec_artifacts(
             continue;
         };
         let required_fields =
-            required_fields_for_schema_ref(&registry, &payload_schema_id).unwrap_or_default();
+            required_fields_for_event_kind(event_kind, &registry, &payload_schema_id);
         rules.insert(
             event_kind.to_owned(),
             EventPayloadSchemaRule {
@@ -660,6 +660,25 @@ fn required_fields_for_schema_ref(
             .map(str::to_owned)
             .collect(),
     )
+}
+
+fn required_fields_for_event_kind(
+    event_kind: &str,
+    registry: &ProtocolSchemaRegistry,
+    schema_ref: &str,
+) -> Vec<String> {
+    let mut required_fields =
+        required_fields_for_schema_ref(registry, schema_ref).unwrap_or_default();
+    if event_kind == crate::events::INVITE_CREATE {
+        for field in
+            ["invite_id", "invitee", "invite_delivery_target", "introduction_evidence_digest"]
+        {
+            if !required_fields.iter().any(|existing| existing == field) {
+                required_fields.push(field.to_owned());
+            }
+        }
+    }
+    required_fields
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
