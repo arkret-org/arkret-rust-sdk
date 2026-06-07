@@ -1341,12 +1341,23 @@ pub struct ProjectionFlowRow {
     /// this projection caller.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub assigned_actor_ids: Vec<Did>,
+    /// Active assignment Relation edges backing `assigned_actor_ids`.
+    /// Clients use `relation_id` to tombstone an assignment during edits.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub assigned_to_relations: Vec<ProjectionAssignedToRelation>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created_by: Option<Did>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct ProjectionAssignedToRelation {
+    pub relation_id: RelationId,
+    pub actor_id: Did,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
