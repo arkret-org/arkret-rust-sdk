@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 
 use chrono::{DateTime, Utc};
+use cokret_core::CallMediaTokenExchangeRequestBody;
 use serde::{Deserialize, Serialize};
 
 use crate::canonical::sha256_hex;
@@ -41,55 +42,6 @@ impl MediaBackendType {
     }
 }
 
-/// Participant binding envelope per `ck.media.participant_binding.v1`.
-///
-/// Carried inside `MediaTokenResponse.participant_binding`. The token
-/// issuer signs the canonical body with its `service_signature.kid`
-/// equal to `issuer_kid`. Receivers MUST verify that `issuer_kid`
-/// resolves to the current `ck.realm.media_service.service_id` epoch
-/// and that all bound tuple fields match the call state.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ParticipantBinding {
-    /// Always `ck.media.participant_binding.v1`.
-    pub scheme: String,
-    /// Detached signature over the canonical binding body.
-    pub sig: String,
-    /// Key identifier of the signing media-service key.
-    pub issuer_kid: String,
-    pub realm_id: RealmId,
-    pub call_id: CallId,
-    pub focus_id: String,
-    pub actor_id: Did,
-    pub device_id: DeviceId,
-    /// Opaque per-participant identity assigned by the focus backend.
-    pub participant_identity: String,
-    /// Token expiry (RFC 3339).
-    pub expires_at: DateTime<Utc>,
-}
-
-impl ParticipantBinding {
-    pub const SCHEME: &'static str = cokret_core::PARTICIPANT_BINDING_SCHEMA;
-}
-
-/// Response payload of `POST /rtc/token` (`ck.self.call.media.token_exchange`).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MediaTokenResponse {
-    /// Opaque backend token (e.g. LiveKit JWT, Mediasoup ticket).
-    pub backend_token: String,
-    /// Backend-issued participant identifier.
-    pub participant_identity: String,
-    pub participant_binding: ParticipantBinding,
-    /// Token expiry (RFC 3339).
-    pub expires_at: DateTime<Utc>,
-    /// Service signature over the response body. Receivers MUST check
-    /// the `kid` matches the current `ck.realm.media_service.service_id`.
-    pub service_signature: String,
-    /// Optional websocket / SDP connect URL for backends that require
-    /// out-of-band signalling.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub connect_url: Option<String>,
-}
-
 /// Validate that `expires_at - now` is within the spec TTL ceiling
 /// ([`MEDIA_TOKEN_TTL_MAX_SECS`](cokret_core::MEDIA_TOKEN_TTL_MAX_SECS)).
 /// Returns [`Ok(())`] when the TTL is within bounds, otherwise a
@@ -109,22 +61,11 @@ pub fn validate_token_ttl(now: DateTime<Utc>, expires_at: DateTime<Utc>) -> Resu
     Ok(())
 }
 
-/// Request body for `POST /rtc/token` (`ck.self.call.media.token_exchange`).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MediaTokenExchangeRequest {
-    pub realm_id: RealmId,
-    pub call_id: CallId,
-    pub actor_id: Did,
-    pub device_id: DeviceId,
-    /// Focus id chosen by the client (oldest-membership-wins per spec).
-    pub focus_id: String,
-}
-
 /// Client helper that builds a `ck.self.call.media.token_exchange` request body.
 ///
 /// Implementations using a concrete HTTP transport (e.g. [`reqwest`])
 /// POST the body to `/_cokret/self/rtc/token` and feed the JSON response
-/// to [`MediaTokenResponse`] / [`validate_token_ttl`]. This helper keeps
+/// to [`crate::CallMediaTokenExchangeOutcome`] / [`validate_token_ttl`]. This helper keeps
 /// the SDK transport-agnostic; downstream crates wrap it with their own
 /// HTTP client.
 ///
@@ -138,8 +79,16 @@ pub fn call_media_token_exchange(
     actor_id: Did,
     device_id: DeviceId,
     focus_id: impl Into<String>,
-) -> MediaTokenExchangeRequest {
-    MediaTokenExchangeRequest { realm_id, call_id, actor_id, device_id, focus_id: focus_id.into() }
+) -> CallMediaTokenExchangeRequestBody {
+    CallMediaTokenExchangeRequestBody {
+        realm_id,
+        call_id,
+        actor_id,
+        device_id,
+        focus_id: focus_id.into(),
+        capability_refs: Vec::new(),
+        desired_media: None,
+    }
 }
 
 /// Stored media metadata.

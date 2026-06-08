@@ -244,11 +244,11 @@ pub use applet::{
     AppletNamespaceConflict, AppletNamespaceDomain, AppletNamespaceEntry, AppletPackage,
     AppletPortal, AppletServiceIntent, AppletServiceTransaction, AppletWireNamespaces,
     ApprovalRequest, ApprovedScope, EffectiveScope, GhostActorProfileFields,
-    GhostActorProfileRequest, InstallCommitRequest, InstallCommitResponse, InstallE2eePolicy,
-    InstallPlan, InstallPreviewRequest, InstallRevokeRequest, PortalMode, PortalRealmMapping,
-    RemoteRealmMapping, RemoteUserMapping, ThirdPartyLookupKind, ThirdPartyLookupReqBody,
-    ThirdPartyLookupResBody, VirtualActor, WebhookAuth, WidgetPolicy, WireAppletRegistration,
-    namespace_pattern_matches, sign_registration,
+    GhostActorProfileRequest, InstallCommitOutcome, InstallCommitRequestBody, InstallE2eePolicy,
+    InstallPlan, InstallPreviewRequestBody, InstallRevokeRequestBody, PortalMode,
+    PortalRealmMapping, RemoteRealmMapping, RemoteUserMapping, ThirdPartyLookupKind,
+    ThirdPartyLookupReqBody, ThirdPartyLookupResBody, VirtualActor, WebhookAuth, WidgetPolicy,
+    WireAppletRegistration, namespace_pattern_matches, sign_registration,
 };
 #[cfg(all(feature = "full-surface", feature = "applet-runtime", feature = "salvo"))]
 pub use applet_server::router as applet_router;
@@ -380,8 +380,7 @@ pub use key_verification::{
 #[cfg(feature = "full-surface")]
 pub use media::{
     Attachment, AuthenticatedDownloadGrant, DownloadGrantScope, EncryptedAttachment,
-    MediaBackendType, MediaMetadata, MediaTokenExchangeRequest, MediaTokenResponse,
-    MemoryBlobStore, ParticipantBinding, Thumbnail, call_media_token_exchange,
+    MediaBackendType, MediaMetadata, MemoryBlobStore, Thumbnail, call_media_token_exchange,
     safe_content_disposition, safe_content_type, validate_token_ttl,
 };
 #[cfg(feature = "full-surface")]

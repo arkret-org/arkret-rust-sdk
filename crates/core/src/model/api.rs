@@ -2927,6 +2927,10 @@ pub struct CallMediaParticipantBinding {
     pub expires_at: DateTime<Utc>,
 }
 
+impl CallMediaParticipantBinding {
+    pub const SCHEME: &'static str = PARTICIPANT_BINDING_SCHEMA;
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct CallMediaTokenExchangeOutcome {

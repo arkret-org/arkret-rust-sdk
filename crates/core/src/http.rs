@@ -522,6 +522,7 @@ pub struct PushUnregisterDeviceParams {
     #[cfg_attr(feature = "salvo", salvo(rename = "Traceparent", parameter(parameter_in = Header)))]
     pub traceparent: Option<String>,
 }
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToParameters, salvo::oapi::ToSchema))]
 pub struct PushNotifyParams {
@@ -1188,8 +1189,8 @@ pub struct EventsDescribeOutcome {
 #[serde(rename_all = "snake_case")]
 pub enum EventsSubmitStatus {
     Accepted,
+    Duplicate,
     Partial,
-    Rejected,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1216,7 +1217,7 @@ pub struct EventsSubmitOutcome {
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub realm_frontier: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub cursor: Option<Cursor>,
+    pub cursor: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1435,9 +1436,9 @@ pub struct EventsQueryOutcome {
     #[serde(default)]
     pub events: Vec<Event>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub next_cursor: Option<Cursor>,
+    pub next_cursor: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub prev_cursor: Option<Cursor>,
+    pub prev_cursor: Option<String>,
     #[serde(default, skip_serializing_if = "is_false")]
     pub has_more: bool,
 }
@@ -1532,6 +1533,7 @@ pub struct ContactListRow {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct ContactRequestRequestBody {
     pub target: Did,
+    #[serde(default)]
     pub requested_scopes: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub idempotency_key: Option<String>,
@@ -2214,11 +2216,6 @@ pub struct DirectoryDescribeOutcome(pub DirectoryDescription);
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[cfg_attr(feature = "salvo", salvo(schema(value_type = BlobUploadMetadata)))]
 pub struct BlobUploadRequestBody(pub BlobUploadMetadata);
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[cfg_attr(feature = "salvo", salvo(schema(value_type = OkOutcome)))]
-pub struct PushUnregisterDeviceOutcome(pub OkOutcome);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]

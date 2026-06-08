@@ -9,7 +9,7 @@ use serde_json::Value;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct PrincipalAuthBridgeDescribeResponse {
+pub struct PrincipalAuthBridgeDescribeOutcome {
     pub contract: String,
     pub version: String,
     pub api_base_path: String,
@@ -22,7 +22,7 @@ pub struct PrincipalAuthBridgeDescribeResponse {
     pub todos: Vec<String>,
 }
 
-impl PrincipalAuthBridgeDescribeResponse {
+impl PrincipalAuthBridgeDescribeOutcome {
     pub fn session_grant_exchange_path(&self) -> &str {
         &self.auth.session_grant_exchange_path
     }
@@ -97,7 +97,7 @@ mod tests {
             }
         });
 
-        let describe: PrincipalAuthBridgeDescribeResponse =
+        let describe: PrincipalAuthBridgeDescribeOutcome =
             serde_json::from_value(value).expect("principal bridge decodes");
         assert_eq!(
             describe.session_grant_exchange_path(),

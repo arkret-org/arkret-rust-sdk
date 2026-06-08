@@ -78,7 +78,7 @@ fn push_bridge_describe_serde_shape_is_stable() {
         }
     });
 
-    let response: crate::push::PushBridgeDescribeResponse =
+    let response: crate::push::PushBridgeDescribeOutcome =
         serde_json::from_value(value).expect("push bridge shape decodes");
     assert!(response.warn_on_spec_version_mismatch());
     assert!(response.gateway.supports_auth_mode("HTTP-Message-Signature"));
@@ -153,9 +153,9 @@ fn federation_envelope_serde_shape_uses_contract_hashes() {
 fn push_contracts_keep_salvo_schema_feature_gate() {
     fn assert_schema<T: salvo::oapi::ToSchema>() {}
 
-    assert_schema::<crate::integration::IntegrationDescribeResponse>();
-    assert_schema::<crate::principal::PrincipalAuthBridgeDescribeResponse>();
-    assert_schema::<crate::push::PushBridgeDescribeResponse>();
+    assert_schema::<crate::integration::IntegrationDescribeOutcome>();
+    assert_schema::<crate::principal::PrincipalAuthBridgeDescribeOutcome>();
+    assert_schema::<crate::push::PushBridgeDescribeOutcome>();
     assert_schema::<crate::push::ProviderCapabilityDescriptor>();
 }
 

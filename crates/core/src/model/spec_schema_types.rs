@@ -780,7 +780,7 @@ pub type FlowTrack = Value;
 pub type MetadataFields = BTreeMap<String, Value>;
 
 /// Counterpart for `spec/v1/artifacts/schemas/ice-config-response.schema.json`.
-pub type IceConfigResponse = MediaIceConfigOutcome;
+pub type IceConfigOutcome = MediaIceConfigOutcome;
 
 /// Counterpart for `spec/v1/artifacts/schemas/identity-receipt.schema.json`.
 pub type IdentityReceipt = Value;
@@ -849,7 +849,7 @@ pub type PrincipalDeviceKeyRecords = BTreeMap<String, DeviceKeyRecords>;
 pub type QueryDeviceMap = BTreeMap<String, Vec<DeviceId>>;
 
 /// Counterpart for `spec/v1/artifacts/schemas/list-handles-for-subject-response.schema.json`.
-pub type ListHandlesForSubjectResponse = DirectorySubjectHandleList;
+pub type ListHandlesForSubjectOutcome = DirectorySubjectHandleList;
 
 /// Counterpart for `spec/v1/artifacts/schemas/media-operations.schema.json`.
 pub type MediaOperations = Value;

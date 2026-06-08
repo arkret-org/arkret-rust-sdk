@@ -10,7 +10,7 @@ use serde_json::Value;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct IntegrationDescribeResponse {
+pub struct IntegrationDescribeOutcome {
     pub contract: String,
     pub version: String,
     pub service: String,
@@ -28,7 +28,7 @@ pub struct IntegrationDescribeResponse {
     pub todos: Vec<String>,
 }
 
-impl IntegrationDescribeResponse {
+impl IntegrationDescribeOutcome {
     pub fn surface(&self, name: &str) -> Option<&IntegrationSurfaceDescriptor> {
         self.surfaces.iter().find(|surface| surface.name == name)
     }
@@ -40,7 +40,7 @@ impl IntegrationDescribeResponse {
 
 /// Compatibility alias for services/docs that call this an integration
 /// manifest rather than a describe response.
-pub type IntegrationManifest = IntegrationDescribeResponse;
+pub type IntegrationManifest = IntegrationDescribeOutcome;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
@@ -96,7 +96,7 @@ mod tests {
             "examples": {"compose_flow": {"step_1": {"service": "soland"}}}
         });
 
-        let manifest: IntegrationDescribeResponse =
+        let manifest: IntegrationDescribeOutcome =
             serde_json::from_value(value).expect("integration manifest decodes");
         assert!(manifest.requires("soland", "principal_outbound_push_delivery"));
         assert_eq!(manifest.surface("push_bridge").unwrap().method, "GET");

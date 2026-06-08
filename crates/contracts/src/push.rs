@@ -214,7 +214,7 @@ impl PushRuleSet {
 }
 
 /// B.5 #6 — spec revision chime was compiled against. Used by
-/// [`PushBridgeDescribeResponse::warn_on_spec_version_mismatch`] to flag
+/// [`PushBridgeDescribeOutcome::warn_on_spec_version_mismatch`] to flag
 /// gateway responses pinned to a different revision.
 pub const EXPECTED_SPEC_VERSION: &str = "cokret-spec@2026-05-26";
 
@@ -226,7 +226,7 @@ pub const EXPECTED_SPEC_VERSION: &str = "cokret-spec@2026-05-26";
 /// services so bridge producers and consumers cannot drift silently.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct PushBridgeDescribeResponse {
+pub struct PushBridgeDescribeOutcome {
     pub contract: String,
     pub version: String,
     pub api_base_path: String,
@@ -248,7 +248,7 @@ pub struct PushBridgeDescribeResponse {
     pub todos: Vec<String>,
 }
 
-impl PushBridgeDescribeResponse {
+impl PushBridgeDescribeOutcome {
     /// Emit a warning when the gateway's advertised `spec_version` does not
     /// match the SDK's compiled-in [`EXPECTED_SPEC_VERSION`].
     ///
@@ -461,7 +461,7 @@ pub struct PushBridgeDescribeExamples {
 /// Response body for `GET /_cokret/edge/integration/describe` on a push gateway.
 ///
 /// Compatibility alias for the generic integration manifest contract.
-pub type PushGatewayIntegrationDescribeResponse = crate::integration::IntegrationDescribeResponse;
+pub type PushGatewayIntegrationDescribeOutcome = crate::integration::IntegrationDescribeOutcome;
 
 /// Compatibility alias for a generic integration dependency descriptor.
 pub type PushGatewayIntegrationDependency = crate::integration::IntegrationDependencyDescriptor;
@@ -476,16 +476,16 @@ pub type PushGatewayIntegrationSurface = crate::integration::IntegrationSurfaceD
 #[non_exhaustive]
 pub struct IntegrationView {
     /// Service-level integration manifest (`/_cokret/edge/integration/describe`).
-    pub manifest: PushGatewayIntegrationDescribeResponse,
+    pub manifest: PushGatewayIntegrationDescribeOutcome,
     /// Active bridge contract (`/_cokret/edge/push/bridge/describe`).
-    pub bridge: PushBridgeDescribeResponse,
+    pub bridge: PushBridgeDescribeOutcome,
 }
 
 impl IntegrationView {
     /// Construct an integration view from the two describe responses.
     pub fn new(
-        manifest: PushGatewayIntegrationDescribeResponse,
-        bridge: PushBridgeDescribeResponse,
+        manifest: PushGatewayIntegrationDescribeOutcome,
+        bridge: PushBridgeDescribeOutcome,
     ) -> Self {
         Self { manifest, bridge }
     }
@@ -677,7 +677,7 @@ mod tests {
             },
         });
 
-        let response: PushBridgeDescribeResponse =
+        let response: PushBridgeDescribeOutcome =
             serde_json::from_value(json).expect("decode response");
         assert!(response.provider_capabilities_version.is_none());
         assert!(response.provider_capabilities.is_empty());
@@ -693,7 +693,7 @@ mod tests {
 
     #[test]
     fn integration_view_exposes_manifest_dependency_lookup() {
-        let manifest = PushGatewayIntegrationDescribeResponse {
+        let manifest = PushGatewayIntegrationDescribeOutcome {
             contract: "ck.integration.push_gateway.v1".to_owned(),
             version: "1.0.0".to_owned(),
             service: "push-gateway".to_owned(),
@@ -711,7 +711,7 @@ mod tests {
             examples: Value::Null,
             todos: Vec::new(),
         };
-        let bridge = PushBridgeDescribeResponse {
+        let bridge = PushBridgeDescribeOutcome {
             contract: "ck.push.bridge.v1".to_owned(),
             ..Default::default()
         };

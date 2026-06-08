@@ -122,14 +122,14 @@ where
 /// use the lower-level HTTP client directly.
 pub trait EventsSubscribeTransport {
     /// Streaming response type chosen by the concrete HTTP backend.
-    type StreamResponse;
+    type EventStream;
 
     /// Open a server-side events subscription stream from an optional cursor.
     fn events_subscribe<'a>(
         &'a self,
         realm_id: &'a str,
         from: Option<&'a str>,
-    ) -> BoxSyncFuture<'a, Self::StreamResponse>;
+    ) -> BoxSyncFuture<'a, Self::EventStream>;
 }
 
 // `BoxSyncFuture` requires `Send`, but on wasm32 reqwest's `Response`
@@ -149,13 +149,13 @@ impl AsyncSyncTransport for crate::Client {
 
 #[cfg(all(feature = "client", not(target_arch = "wasm32")))]
 impl EventsSubscribeTransport for crate::Client {
-    type StreamResponse = reqwest::Response;
+    type EventStream = reqwest::Response;
 
     fn events_subscribe<'a>(
         &'a self,
         realm_id: &'a str,
         from: Option<&'a str>,
-    ) -> BoxSyncFuture<'a, Self::StreamResponse> {
+    ) -> BoxSyncFuture<'a, Self::EventStream> {
         Box::pin(async move { self.events_subscribe_stream(realm_id, from).await })
     }
 }

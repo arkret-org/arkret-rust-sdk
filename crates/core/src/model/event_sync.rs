@@ -54,7 +54,7 @@ pub struct EventsFrontierFederationPeerState {
 /// enforces this (no such fields).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct EventsFrontierAnonymousHealthResponse {
+pub struct EventsFrontierAnonymousHealthState {
     pub peer_role: FrontierPeerRole,
     pub service_did: Did,
     pub healthy: bool,
@@ -71,7 +71,7 @@ pub struct EventsFrontierAnonymousHealthResponse {
 pub enum EventsFrontierState {
     AccountClient(EventsFrontierAccountClientState),
     FederationPeer(EventsFrontierFederationPeerState),
-    AnonymousHealth(EventsFrontierAnonymousHealthResponse),
+    AnonymousHealth(EventsFrontierAnonymousHealthState),
 }
 
 // ── FederationServiceBindingRef ─────────────────────────────────────────

@@ -525,7 +525,7 @@ pub struct ApprovalRequest {
 
 /// `POST /_cokret/self/applets/install/preview` request body.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct InstallPreviewRequest {
+pub struct InstallPreviewRequestBody {
     pub applet_package: AppletPackage,
     pub effective_scope: EffectiveScope,
     #[serde(default)]
@@ -615,7 +615,7 @@ pub struct WidgetPolicy {
 /// `POST /_cokret/self/applets/install` request body. MUST carry the
 /// preview `plan_digest`; the server fails closed on a mismatch.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct InstallCommitRequest {
+pub struct InstallCommitRequestBody {
     pub plan_digest: crate::Hash,
     pub applet_package: AppletPackage,
     pub effective_scope: EffectiveScope,
@@ -632,7 +632,7 @@ pub struct InstallCommitRequest {
 /// (`ck.applet.registration`, `ck.capability.grant`, membership, E2EE
 /// authorization, widget policy).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct InstallCommitResponse {
+pub struct InstallCommitOutcome {
     pub ok: bool,
     pub install_id: String,
     pub applet_id: String,
@@ -657,7 +657,7 @@ pub struct InstallCommitResponse {
 /// `registration_epoch` (spec §4b): all active grants, widget scoped
 /// token, delegated session and (where required) bot/ghost membership.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct InstallRevokeRequest {
+pub struct InstallRevokeRequestBody {
     pub effective_scope: EffectiveScope,
     pub registration_epoch: crate::Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
