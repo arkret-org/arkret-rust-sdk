@@ -35,7 +35,7 @@ pub struct Realm {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content_encryption_floor: Option<ContentEncryptionFloor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub metadata_encryption_profile: Option<CircleMetadataEncryptionFloor>,
+    pub metadata_encryption_floor: Option<CircleMetadataEncryptionFloor>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub federation_policy: Option<FederationPolicy>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -178,7 +178,7 @@ impl Realm {
             history_visibility: HistoryVisibility::Joined,
             encryption_profile: EncryptionProfile::None,
             content_encryption_floor: Some(ContentEncryptionFloor::AllowPlaintext),
-            metadata_encryption_profile: Some(CircleMetadataEncryptionFloor::ContentOnly),
+            metadata_encryption_floor: Some(CircleMetadataEncryptionFloor::AllowPlaintext),
             federation_policy: None,
             retention_policy_id: None,
             avatar_blob_ref: None,

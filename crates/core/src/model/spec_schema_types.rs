@@ -1070,8 +1070,8 @@ pub type ServiceOperationDtos = Value;
 /// Counterpart for `spec/v1/artifacts/schemas/snapshot.schema.json`.
 pub type Snapshot = Value;
 
-/// Counterpart for `spec/v1/artifacts/schemas/space.schema.json#/$defs/metadata_encryption_profile`.
-pub type MetadataEncryptionProfile = String;
+/// Counterpart for `spec/v1/artifacts/schemas/space.schema.json#/$defs/metadata_encryption_floor`.
+pub type MetadataEncryptionFloor = String;
 
 /// Counterpart for `spec/v1/artifacts/schemas/view.schema.json#/$defs/collection_config`.
 pub type CollectionConfig = Value;

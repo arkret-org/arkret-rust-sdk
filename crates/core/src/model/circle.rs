@@ -48,15 +48,17 @@ pub enum CircleJoinRule {
 }
 
 /// Optional Circle-local metadata encryption floor (spec
-/// circle.schema.json `metadata_encryption_floor` enum). MAY only
-/// tighten parent Realm floor; reducer enforces.
+/// circle.schema.json `metadata_encryption_floor` enum). Binary and
+/// symmetric with `content_encryption_floor`: `allow_plaintext` means
+/// metadata MAY be wire-plaintext, `e2ee_required` means user-readable
+/// metadata MUST move into `encrypted_metadata`. MAY only tighten parent
+/// Realm floor; reducer enforces.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum CircleMetadataEncryptionFloor {
-    ContentOnly,
-    MinimalEncrypted,
-    FullEncrypted,
+    AllowPlaintext,
+    E2eeRequired,
 }
 
 /// Realm-wide content encryption floor (spec realm.schema.json
@@ -163,6 +165,13 @@ pub struct Circle {
     pub directory_visibility: CircleDirectoryVisibility,
     pub join_rule: CircleJoinRule,
     pub history_visibility: HistoryVisibility,
+    /// Optional Circle-local content-encryption floor. When omitted the
+    /// Circle inherits the parent Realm `content_encryption_floor`; effective
+    /// floor = max(parent Realm, Circle). MAY only tighten parent Realm floor
+    /// and the effective floor is a one-way ratchet; `e2ee_required` is only
+    /// valid when `encryption_profile = mls_rfc9420`. Reducer enforces.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content_encryption_floor: Option<ContentEncryptionFloor>,
     /// Optional tightening of metadata-encryption floor inherited from
     /// parent Realm.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -410,14 +419,13 @@ pub fn compute_effective_history_visibility(
 /// larger rank.
 fn metadata_floor_rank(floor: CircleMetadataEncryptionFloor) -> u8 {
     match floor {
-        CircleMetadataEncryptionFloor::ContentOnly => 0,
-        CircleMetadataEncryptionFloor::MinimalEncrypted => 1,
-        CircleMetadataEncryptionFloor::FullEncrypted => 2,
+        CircleMetadataEncryptionFloor::AllowPlaintext => 0,
+        CircleMetadataEncryptionFloor::E2eeRequired => 1,
     }
 }
 
 /// Reducer-pure validator: a Circle MAY only tighten its parent Realm's
-/// `metadata_encryption_profile` floor, never loosen it
+/// `metadata_encryption_floor` floor, never loosen it
 /// (CKP-0007 §3.4.1). Returns `Ok(())` when
 /// `rank(circle_floor) >= rank(realm_floor)`; otherwise
 /// [`CircleScopeError::MetadataEncryptionFloorViolation`] (wire reason
@@ -641,6 +649,7 @@ impl Circle {
             directory_visibility: CircleDirectoryVisibility::Members,
             join_rule: CircleJoinRule::Invite,
             history_visibility: HistoryVisibility::Joined,
+            content_encryption_floor: None,
             metadata_encryption_floor: None,
             encryption_profile: EncryptionProfile::None,
             mls_group_ref: None,
@@ -849,26 +858,16 @@ mod tests {
     #[test]
     fn metadata_floor_accepts_tightening() {
         use CircleMetadataEncryptionFloor::*;
-        validate_metadata_floor_tightens(ContentOnly, ContentOnly).unwrap();
-        validate_metadata_floor_tightens(ContentOnly, MinimalEncrypted).unwrap();
-        validate_metadata_floor_tightens(ContentOnly, FullEncrypted).unwrap();
-        validate_metadata_floor_tightens(MinimalEncrypted, FullEncrypted).unwrap();
-        validate_metadata_floor_tightens(FullEncrypted, FullEncrypted).unwrap();
+        validate_metadata_floor_tightens(AllowPlaintext, AllowPlaintext).unwrap();
+        validate_metadata_floor_tightens(AllowPlaintext, E2eeRequired).unwrap();
+        validate_metadata_floor_tightens(E2eeRequired, E2eeRequired).unwrap();
     }
 
     #[test]
     fn metadata_floor_rejects_loosening() {
         use CircleMetadataEncryptionFloor::*;
         assert!(matches!(
-            validate_metadata_floor_tightens(MinimalEncrypted, ContentOnly),
-            Err(CircleScopeError::MetadataEncryptionFloorViolation { .. })
-        ));
-        assert!(matches!(
-            validate_metadata_floor_tightens(FullEncrypted, ContentOnly),
-            Err(CircleScopeError::MetadataEncryptionFloorViolation { .. })
-        ));
-        assert!(matches!(
-            validate_metadata_floor_tightens(FullEncrypted, MinimalEncrypted),
+            validate_metadata_floor_tightens(E2eeRequired, AllowPlaintext),
             Err(CircleScopeError::MetadataEncryptionFloorViolation { .. })
         ));
     }

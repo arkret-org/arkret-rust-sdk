@@ -766,9 +766,20 @@ pub const REASON_SCOPE_REBIND_FORBIDDEN: &str = "scope_rebind_forbidden";
 /// reducer-managed `effective_scope` field directly.
 pub const REASON_EFFECTIVE_SCOPE_REDUCER_MANAGED: &str = "effective_scope_reducer_managed";
 /// `failed_precondition` sub-reason: a write would expose metadata below
-/// the effective `metadata_encryption_profile` floor (max of parent
+/// the effective `metadata_encryption_floor` floor (max of parent
 /// Realm, Circle, Space child-scope-policy, and object profile floors).
 pub const REASON_METADATA_ENCRYPTION_FLOOR_VIOLATION: &str = "metadata_encryption_floor_violation";
+/// `failed_precondition` sub-reason: a `ck.realm.policy_components` /
+/// `ck.circle.update` would lower a scope's effective
+/// `content_encryption_floor` from `e2ee_required` back to `allow_plaintext`.
+/// The effective content floor is a one-way ratchet (monotonically
+/// non-decreasing); tightening is allowed, lowering is rejected.
+pub const REASON_CONTENT_ENCRYPTION_FLOOR_DOWNGRADE: &str = "content_encryption_floor_downgrade";
+/// `failed_precondition` sub-reason: a `ck.realm.policy_components` /
+/// `ck.circle.update` would lower a scope's effective metadata encryption
+/// floor to a lower level (`allow_plaintext < e2ee_required`).
+/// The effective metadata floor is a one-way ratchet.
+pub const REASON_METADATA_ENCRYPTION_FLOOR_DOWNGRADE: &str = "metadata_encryption_floor_downgrade";
 
 /// CKP-0007 (spec b7d35be) — Circle reason codes registered under the
 /// `failed_precondition` / `schema_violation` wire-code families. The
@@ -784,6 +795,8 @@ pub const KNOWN_REASON_CODES_CKP_0007: &[&str] = &[
     REASON_SCOPE_REBIND_FORBIDDEN,
     REASON_EFFECTIVE_SCOPE_REDUCER_MANAGED,
     REASON_METADATA_ENCRYPTION_FLOOR_VIOLATION,
+    REASON_CONTENT_ENCRYPTION_FLOOR_DOWNGRADE,
+    REASON_METADATA_ENCRYPTION_FLOOR_DOWNGRADE,
 ];
 
 /// Known `failed_precondition` reason codes registered in round C44.
