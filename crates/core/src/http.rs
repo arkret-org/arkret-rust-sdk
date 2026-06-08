@@ -1626,6 +1626,15 @@ pub struct ContactTombstoneRequestBody {
     pub full_peer_revoke: bool,
     #[serde(default)]
     pub block_peer: bool,
+    /// Cross-Principal-Server addressing (spec contact-and-direct-conversation.md
+    /// §4.1): when `contact` (the peer) is hosted on a different Principal
+    /// Server, the holder supplies the peer's home service DID so the
+    /// `ck.contact.tombstoned` fact is federated to the peer's server via
+    /// `ck.peer.contacts.submit`. Omit for same-server tombstones; when absent
+    /// the issuer falls back to the peer's recorded `peer_service_did` on the
+    /// stored contact row.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub peer_service_did: Option<Did>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
