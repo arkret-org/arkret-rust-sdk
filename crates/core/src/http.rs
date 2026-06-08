@@ -1526,6 +1526,14 @@ pub struct ContactListRow {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub effective_scopes: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub invite_consent_grant_ref: Option<EventId>,
+    /// Principal Server service DID hosting the peer, when known (e.g. learned
+    /// from a cross-Principal-Server contact delivery). Lets the holder address
+    /// responses/invites to the peer's home server. Omitted for
+    /// same-Principal-Server contacts (spec contact-operations.schema.json).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub peer_service_did: Option<Did>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub direct_conversation: Option<DirectConversationSummary>,
 }
 
@@ -1536,7 +1544,16 @@ pub struct ContactRequestRequestBody {
     #[serde(default)]
     pub requested_scopes: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub idempotency_key: Option<String>,
+    /// Cross-Principal-Server addressing (spec contact-and-direct-conversation.md
+    /// §4.1): when `target` is hosted on a different Principal Server, the
+    /// requester MUST supply the target's home service DID so the issuer-side
+    /// server can federate the signed `ck.contact.requested` fact via
+    /// `ck.peer.contacts.submit`. Omit for same-server requests.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recipient_service_did: Option<Did>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1556,6 +1573,13 @@ pub struct ContactRespondRequestBody {
     pub action: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub granted_scopes: Vec<String>,
+    /// Cross-Principal-Server addressing (spec §4.1): when the original
+    /// `requester` is hosted on a different Principal Server, the responder
+    /// supplies the requester's home service DID so the accept / reject fact
+    /// is federated back via `ck.peer.contacts.submit`. Omit for same-server
+    /// responses.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub requester_service_did: Option<Did>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1600,6 +1624,8 @@ pub struct ContactTombstoneRequestBody {
     pub revoke_scopes: Vec<String>,
     #[serde(default, skip_serializing_if = "is_false")]
     pub full_peer_revoke: bool,
+    #[serde(default)]
+    pub block_peer: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

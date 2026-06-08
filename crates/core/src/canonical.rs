@@ -33,6 +33,19 @@ pub fn is_nfc(s: &str) -> bool {
     unicode_normalization::is_nfc(s)
 }
 
+/// Normalize a string to Unicode NFC. Producers MAY call this before
+/// placing free-text fields (e.g. `contact_requested_payload.message`)
+/// into canonical JSON, since the receiver-side validators reject non-NFC
+/// input rather than normalizing it. Already-NFC input is returned
+/// unchanged (cheap fast path).
+pub fn to_nfc(s: &str) -> String {
+    if unicode_normalization::is_nfc(s) {
+        return s.to_owned();
+    }
+    use unicode_normalization::UnicodeNormalization as _;
+    s.nfc().collect()
+}
+
 /// Unified inbound canonical-JSON validation entry point (`encoding.md` §2 / §2.1).
 ///
 /// Layers the receiver-side MUSTs that `serde_json::from_slice` does **not**

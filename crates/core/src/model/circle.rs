@@ -596,10 +596,7 @@ pub enum CircleScopeError {
         "reason=metadata_encryption_floor_violation: circle_floor={circle_floor:?} is \
          laxer than realm_floor={realm_floor:?} (CKP-0007 §3.4.1)"
     )]
-    MetadataEncryptionFloorViolation {
-        realm_floor: EncryptionFloor,
-        circle_floor: EncryptionFloor,
-    },
+    MetadataEncryptionFloorViolation { realm_floor: EncryptionFloor, circle_floor: EncryptionFloor },
     /// Circle encryption profile would be weaker than the Realm content floor.
     #[error(
         "reason=circle_encryption_below_realm_floor: circle_encryption_profile={circle_encryption_profile:?} is below realm_encryption_profile={realm_encryption_profile:?} / content_encryption_floor={content_encryption_floor:?}"

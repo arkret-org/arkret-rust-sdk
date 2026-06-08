@@ -273,8 +273,19 @@ pub struct DetachedPayloadProof {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum IntroductionEvidence {
-    LocatorRef { principal_locator: PrincipalLocator },
-    SharedRealm { realm_id: RealmId, inviter_member_ref: EventId, invitee_member_ref: EventId },
+    LocatorRef {
+        principal_locator: PrincipalLocator,
+    },
+    ConsentGrant {
+        consent_grant_ref: EventId,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        consent_id: Option<String>,
+    },
+    SharedRealm {
+        realm_id: RealmId,
+        inviter_member_ref: EventId,
+        invitee_member_ref: EventId,
+    },
     SamePrincipalServer,
     ExplicitAddress,
 }
@@ -283,6 +294,7 @@ impl IntroductionEvidence {
     pub fn kind(&self) -> &'static str {
         match self {
             Self::LocatorRef { .. } => "locator_ref",
+            Self::ConsentGrant { .. } => "consent_grant",
             Self::SharedRealm { .. } => "shared_realm",
             Self::SamePrincipalServer => "same_principal_server",
             Self::ExplicitAddress => "explicit_address",
@@ -344,6 +356,8 @@ pub enum InviteDeliveryOutcomeStatus {
 #[serde(deny_unknown_fields)]
 pub struct InviteDeliveryOutcome {
     pub status: InviteDeliveryOutcomeStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub disclosed_outcome: Option<DisclosedOutcome>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -353,6 +367,15 @@ pub struct InviteDeliveryOutcome {
     pub received_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after_ms: Option<u64>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum DisclosedOutcome {
+    Delivered,
+    Blocked,
+    Quarantined,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -387,6 +410,28 @@ pub struct InviteReceivePolicy {
     pub trusted_principal_services: Vec<Did>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub blocked_principal_services: Vec<Did>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub blocked_subjects: Vec<Did>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub disclosure: Option<DisclosurePolicy>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum DisclosureLevel {
+    Opaque,
+    Outcome,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct DisclosurePolicy {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub high_trust: Option<DisclosureLevel>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub low_trust: Option<DisclosureLevel>,
 }
 
 #[cfg(test)]
@@ -450,10 +495,72 @@ mod tests {
     fn invite_delivery_outcome_serializes_canonical_received_at() {
         let outcome = InviteDeliveryOutcome {
             status: InviteDeliveryOutcomeStatus::Accepted,
+            disclosed_outcome: None,
             received_at: Some(test_time()),
             retry_after_ms: None,
         };
         let value = serde_json::to_value(outcome).expect("serialize outcome");
         assert_eq!(value["received_at"], "2026-06-07T10:00:00Z");
+        assert!(value.get("disclosed_outcome").is_none());
+    }
+
+    #[test]
+    fn introduction_evidence_consent_grant_roundtrips_wire_kind() {
+        let evidence = IntroductionEvidence::ConsentGrant {
+            consent_grant_ref: EventId::new("ck:event:01904100-0000-7000-8000-79a90338768b")
+                .unwrap(),
+            consent_id: None,
+        };
+        assert_eq!(evidence.kind(), "consent_grant");
+        let value = serde_json::to_value(&evidence).expect("serialize consent_grant evidence");
+        assert_eq!(value["kind"], "consent_grant");
+        assert!(value.get("consent_id").is_none());
+        let parsed: IntroductionEvidence =
+            serde_json::from_value(value).expect("deserialize consent_grant evidence");
+        assert_eq!(parsed, evidence);
+    }
+
+    #[test]
+    fn invite_delivery_outcome_serializes_disclosed_outcome() {
+        let outcome = InviteDeliveryOutcome {
+            status: InviteDeliveryOutcomeStatus::Accepted,
+            disclosed_outcome: Some(DisclosedOutcome::Quarantined),
+            received_at: None,
+            retry_after_ms: None,
+        };
+        let value = serde_json::to_value(outcome).expect("serialize outcome");
+        assert_eq!(value["disclosed_outcome"], "quarantined");
+    }
+
+    #[test]
+    fn invite_receive_policy_skips_empty_disclosure_fields() {
+        let policy = InviteReceivePolicy {
+            schema: INVITE_RECEIVE_POLICY_SCHEMA.to_owned(),
+            subject_id: Did::new("did:web:bob.example").unwrap(),
+            allowed_introduction_kinds: vec!["consent_grant".to_owned()],
+            explicit_address_behavior: InviteReceiveAction::Quarantine,
+            unknown_invites: UnknownInviteAction::Drop,
+            trusted_realm_ids: Vec::new(),
+            trusted_principal_services: Vec::new(),
+            blocked_principal_services: Vec::new(),
+            blocked_subjects: Vec::new(),
+            disclosure: None,
+        };
+        let value = serde_json::to_value(&policy).expect("serialize policy");
+        assert!(value.get("blocked_subjects").is_none());
+        assert!(value.get("disclosure").is_none());
+
+        let policy = InviteReceivePolicy {
+            blocked_subjects: vec![Did::new("did:web:mallory.example").unwrap()],
+            disclosure: Some(DisclosurePolicy {
+                high_trust: Some(DisclosureLevel::Outcome),
+                low_trust: Some(DisclosureLevel::Opaque),
+            }),
+            ..policy
+        };
+        let value = serde_json::to_value(&policy).expect("serialize policy");
+        assert_eq!(value["disclosure"]["high_trust"], "outcome");
+        assert_eq!(value["disclosure"]["low_trust"], "opaque");
+        assert!(serde_json::from_value::<InviteReceivePolicy>(value).is_ok());
     }
 }
