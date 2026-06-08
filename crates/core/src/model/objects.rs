@@ -33,9 +33,9 @@ pub struct Realm {
     pub history_visibility: HistoryVisibility,
     pub encryption_profile: EncryptionProfile,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub content_encryption_floor: Option<ContentEncryptionFloor>,
+    pub content_encryption_floor: Option<EncryptionFloor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub metadata_encryption_floor: Option<CircleMetadataEncryptionFloor>,
+    pub metadata_encryption_floor: Option<EncryptionFloor>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub federation_policy: Option<FederationPolicy>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -177,8 +177,8 @@ impl Realm {
             default_join_rule: JoinRule::Invite,
             history_visibility: HistoryVisibility::Joined,
             encryption_profile: EncryptionProfile::None,
-            content_encryption_floor: Some(ContentEncryptionFloor::AllowPlaintext),
-            metadata_encryption_floor: Some(CircleMetadataEncryptionFloor::AllowPlaintext),
+            content_encryption_floor: Some(EncryptionFloor::AllowPlaintext),
+            metadata_encryption_floor: Some(EncryptionFloor::AllowPlaintext),
             federation_policy: None,
             retention_policy_id: None,
             avatar_blob_ref: None,
@@ -328,24 +328,24 @@ pub enum ChildScopePolicy {
     /// Any scope is accepted, including unscoped.
     AllowAny {
         #[serde(skip_serializing_if = "Option::is_none")]
-        metadata_encryption_floor: Option<CircleMetadataEncryptionFloor>,
+        metadata_encryption_floor: Option<EncryptionFloor>,
     },
     /// Child resources MUST live in an E2EE scope (any Circle or the
     /// Realm-default E2EE scope).
     RequireE2ee {
         #[serde(skip_serializing_if = "Option::is_none")]
-        metadata_encryption_floor: Option<CircleMetadataEncryptionFloor>,
+        metadata_encryption_floor: Option<EncryptionFloor>,
     },
     /// Child resources MUST share the parent Space's `scope_circle_id`.
     RequireSameScope {
         #[serde(skip_serializing_if = "Option::is_none")]
-        metadata_encryption_floor: Option<CircleMetadataEncryptionFloor>,
+        metadata_encryption_floor: Option<EncryptionFloor>,
     },
     /// Child resources MUST set `scope_circle_id` to the named Circle.
     RequireScopeCircleId {
         scope_circle_id: CircleId,
         #[serde(skip_serializing_if = "Option::is_none")]
-        metadata_encryption_floor: Option<CircleMetadataEncryptionFloor>,
+        metadata_encryption_floor: Option<EncryptionFloor>,
     },
 }
 

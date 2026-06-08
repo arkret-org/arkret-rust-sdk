@@ -47,26 +47,18 @@ pub enum CircleJoinRule {
     Open,
 }
 
-/// Optional Circle-local metadata encryption floor (spec
-/// circle.schema.json `metadata_encryption_floor` enum). Binary and
-/// symmetric with `content_encryption_floor`: `allow_plaintext` means
-/// metadata MAY be wire-plaintext, `e2ee_required` means user-readable
-/// metadata MUST move into `encrypted_metadata`. MAY only tighten parent
-/// Realm floor; reducer enforces.
+/// Binary encryption floor, shared by `content_encryption_floor` and
+/// `metadata_encryption_floor` on both Realm and Circle (spec
+/// realm.schema.json / circle.schema.json). `allow_plaintext` lets the
+/// covered field stay wire-plaintext; `e2ee_required` forces it into
+/// E2EE — `encrypted_metadata` for the metadata floor, MLS-backed
+/// `effective_scope` for the content floor. Comparison order
+/// `allow_plaintext < e2ee_required`; the effective floor MAY only
+/// tighten, never widen, and is a one-way ratchet (reducer enforces).
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
-pub enum CircleMetadataEncryptionFloor {
-    AllowPlaintext,
-    E2eeRequired,
-}
-
-/// Realm-wide content encryption floor (spec realm.schema.json
-/// `content_encryption_floor`).
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-#[serde(rename_all = "snake_case")]
-pub enum ContentEncryptionFloor {
+pub enum EncryptionFloor {
     AllowPlaintext,
     E2eeRequired,
 }
@@ -171,11 +163,11 @@ pub struct Circle {
     /// and the effective floor is a one-way ratchet; `e2ee_required` is only
     /// valid when `encryption_profile = mls_rfc9420`. Reducer enforces.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub content_encryption_floor: Option<ContentEncryptionFloor>,
+    pub content_encryption_floor: Option<EncryptionFloor>,
     /// Optional tightening of metadata-encryption floor inherited from
     /// parent Realm.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub metadata_encryption_floor: Option<CircleMetadataEncryptionFloor>,
+    pub metadata_encryption_floor: Option<EncryptionFloor>,
     pub encryption_profile: EncryptionProfile,
     /// Reducer-derived; populated by `ck.circle.create` reducer once the
     /// independent MLS group is bound. NOT actor-supplied on wire.
@@ -415,12 +407,12 @@ pub fn compute_effective_history_visibility(
     Ok(if r >= c { realm_floor } else { circle_setting })
 }
 
-/// Strictness rank for [`CircleMetadataEncryptionFloor`]: stricter →
+/// Strictness rank for [`EncryptionFloor`]: stricter →
 /// larger rank.
-fn metadata_floor_rank(floor: CircleMetadataEncryptionFloor) -> u8 {
+fn metadata_floor_rank(floor: EncryptionFloor) -> u8 {
     match floor {
-        CircleMetadataEncryptionFloor::AllowPlaintext => 0,
-        CircleMetadataEncryptionFloor::E2eeRequired => 1,
+        EncryptionFloor::AllowPlaintext => 0,
+        EncryptionFloor::E2eeRequired => 1,
     }
 }
 
@@ -431,8 +423,8 @@ fn metadata_floor_rank(floor: CircleMetadataEncryptionFloor) -> u8 {
 /// [`CircleScopeError::MetadataEncryptionFloorViolation`] (wire reason
 /// [`crate::error::REASON_METADATA_ENCRYPTION_FLOOR_VIOLATION`]).
 pub fn validate_metadata_floor_tightens(
-    realm_floor: CircleMetadataEncryptionFloor,
-    circle_floor: CircleMetadataEncryptionFloor,
+    realm_floor: EncryptionFloor,
+    circle_floor: EncryptionFloor,
 ) -> std::result::Result<(), CircleScopeError> {
     if metadata_floor_rank(circle_floor) >= metadata_floor_rank(realm_floor) {
         Ok(())
@@ -445,11 +437,11 @@ pub fn validate_metadata_floor_tightens(
 /// parent Realm or effective content encryption floor.
 pub fn validate_circle_encryption_floor(
     realm_encryption_profile: &EncryptionProfile,
-    content_encryption_floor: ContentEncryptionFloor,
+    content_encryption_floor: EncryptionFloor,
     circle_encryption_profile: &EncryptionProfile,
 ) -> std::result::Result<(), CircleScopeError> {
     let requires_mls = matches!(realm_encryption_profile, EncryptionProfile::MlsRfc9420)
-        || matches!(content_encryption_floor, ContentEncryptionFloor::E2eeRequired);
+        || matches!(content_encryption_floor, EncryptionFloor::E2eeRequired);
     if requires_mls && !matches!(circle_encryption_profile, EncryptionProfile::MlsRfc9420) {
         Err(CircleScopeError::CircleEncryptionBelowRealmFloor {
             realm_encryption_profile: realm_encryption_profile.clone(),
@@ -464,11 +456,11 @@ pub fn validate_circle_encryption_floor(
 /// Reducer-pure validator for Flow / Message / Morph / Blob content writes
 /// under `Realm.content_encryption_floor`.
 pub fn validate_content_encryption_floor(
-    content_encryption_floor: ContentEncryptionFloor,
+    content_encryption_floor: EncryptionFloor,
     realm_encryption_profile: &EncryptionProfile,
     circle_encryption_profile: Option<&EncryptionProfile>,
 ) -> std::result::Result<(), CircleScopeError> {
-    if !matches!(content_encryption_floor, ContentEncryptionFloor::E2eeRequired) {
+    if !matches!(content_encryption_floor, EncryptionFloor::E2eeRequired) {
         return Ok(());
     }
     let mls_backed = match circle_encryption_profile {
@@ -605,8 +597,8 @@ pub enum CircleScopeError {
          laxer than realm_floor={realm_floor:?} (CKP-0007 §3.4.1)"
     )]
     MetadataEncryptionFloorViolation {
-        realm_floor: CircleMetadataEncryptionFloor,
-        circle_floor: CircleMetadataEncryptionFloor,
+        realm_floor: EncryptionFloor,
+        circle_floor: EncryptionFloor,
     },
     /// Circle encryption profile would be weaker than the Realm content floor.
     #[error(
@@ -614,7 +606,7 @@ pub enum CircleScopeError {
     )]
     CircleEncryptionBelowRealmFloor {
         realm_encryption_profile: EncryptionProfile,
-        content_encryption_floor: ContentEncryptionFloor,
+        content_encryption_floor: EncryptionFloor,
         circle_encryption_profile: EncryptionProfile,
     },
     /// Plaintext content write under `content_encryption_floor=e2ee_required`.
@@ -857,7 +849,7 @@ mod tests {
 
     #[test]
     fn metadata_floor_accepts_tightening() {
-        use CircleMetadataEncryptionFloor::*;
+        use EncryptionFloor::*;
         validate_metadata_floor_tightens(AllowPlaintext, AllowPlaintext).unwrap();
         validate_metadata_floor_tightens(AllowPlaintext, E2eeRequired).unwrap();
         validate_metadata_floor_tightens(E2eeRequired, E2eeRequired).unwrap();
@@ -865,7 +857,7 @@ mod tests {
 
     #[test]
     fn metadata_floor_rejects_loosening() {
-        use CircleMetadataEncryptionFloor::*;
+        use EncryptionFloor::*;
         assert!(matches!(
             validate_metadata_floor_tightens(E2eeRequired, AllowPlaintext),
             Err(CircleScopeError::MetadataEncryptionFloorViolation { .. })
