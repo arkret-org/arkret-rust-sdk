@@ -41,7 +41,7 @@ url = { workspace = true, optional = true }
 
 [dev-dependencies]
 serde_json.workspace = true
-# T8.2 — property tests for blind payload sanitizer / canonical JSON.
+# T8.2 ï¿½ property tests for blind payload sanitizer / canonical JSON.
 proptest = { version = "1", default-features = false, features = ["std"] }
 
 [lints]
