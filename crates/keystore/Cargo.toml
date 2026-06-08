@@ -1,4 +1,4 @@
-﻿[package]
+[package]
 authors = ["Chris Young <chris@sonc.ai>"]
 categories = ["api-bindings", "cryptography", "os"]
 description = "Platform-native KeyStore backends (macOS Keychain, Linux Secret Service, Windows Credential Manager) for the Cokret v1 SDK."
@@ -9,7 +9,7 @@ license = "Apache-2.0"
 name = "cokret-keystore"
 readme = "README.md"
 repository = "https://github.com/cokret/cokret-rust-sdk"
-rust-version = "1.92"
+rust-version.workspace = true
 version.workspace = true
 
 [package.metadata.docs.rs]

@@ -1,4 +1,4 @@
-﻿[package]
+[package]
 authors = ["Chris Young <chris@sonc.ai>"]
 categories = ["api-bindings", "data-structures", "encoding"]
 description = "Core Cokret v1 protocol types, canonical JSON, cursors, sync models, and service metadata."
@@ -9,7 +9,7 @@ license = "Apache-2.0"
 name = "cokret-core"
 readme = "README.md"
 repository = "https://github.com/cokret/cokret-rust-sdk"
-rust-version = "1.92"
+rust-version.workspace = true
 version.workspace = true
 
 [package.metadata.docs.rs]
@@ -41,7 +41,7 @@ url = { workspace = true, optional = true }
 
 [dev-dependencies]
 serde_json.workspace = true
-# T8.2 — property tests for blind payload sanitizer / canonical JSON.
+# T8.2 � property tests for blind payload sanitizer / canonical JSON.
 proptest = { version = "1", default-features = false, features = ["std"] }
 
 [lints]

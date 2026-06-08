@@ -1,4 +1,4 @@
-﻿[package]
+[package]
 authors = ["Chris Young <chris@sonc.ai>"]
 description = "Cokret v1 shared wire contracts, product surface DTOs, and helper models."
 edition = "2024"
@@ -8,7 +8,7 @@ license = "Apache-2.0"
 name = "cokret-contracts"
 readme = "README.md"
 repository = "https://github.com/cokret/cokret-rust-sdk"
-rust-version = "1.92"
+rust-version.workspace = true
 version.workspace = true
 
 [features]

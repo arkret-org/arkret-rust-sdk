@@ -1,4 +1,4 @@
-﻿[package]
+[package]
 authors = ["Chris Young <chris@sonc.ai>"]
 categories = ["api-bindings", "network-programming", "web-programming::http-server"]
 description = "Framework-independent Cokret v1 server protocol contracts."
@@ -9,7 +9,7 @@ license = "Apache-2.0"
 name = "cokret-server"
 readme = "README.md"
 repository = "https://github.com/cokret/cokret-rust-sdk"
-rust-version = "1.92"
+rust-version.workspace = true
 version.workspace = true
 
 [package.metadata.docs.rs]
