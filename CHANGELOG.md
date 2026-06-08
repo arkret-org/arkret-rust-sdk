@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Starting with the local `1.0.0` freeze, breaking public API changes require a
 major-version bump.
 
+## R4.1 — Encryption floor binarization & `EncryptionFloor` merge 2026-06-08
+
+- **`metadata_encryption_profile` → `metadata_encryption_floor`**: the Realm-side field is renamed to match the Circle field. The same concept previously carried two names (`_profile` on Realm, `_floor` on Circle).
+- **Metadata floor collapsed from three tiers to binary**: `metadata_encryption_floor` is now `allow_plaintext` / `e2ee_required` (was `content_only` / `minimal_encrypted` / `full_encrypted`), fully symmetric with `content_encryption_floor`. The server-visibility axis that `minimal` vs `full` used to express now lives solely in `plaintext_visible_services`. Supersedes the three-tier form introduced in R4.0.
+- **`ContentEncryptionFloor` + `CircleMetadataEncryptionFloor` merged into `cokret_core::EncryptionFloor`**: identical value sets and semantics (`AllowPlaintext` / `E2eeRequired`); the content and metadata floors now share one type. The `CircleMetadataEncryptionFloor` name referenced under R4.0 no longer exists. The `ContentEncryptionFloorViolation` error variant name is retained (content-side semantics).
+
 ## R3.5 — Applet protocol sync 2026-06-04 (cokret-spec @ 653ffb2)
 
 - **New `applet` feature** (`applet-runtime` + `client` + `server` + `salvo`): one-flag umbrella so `cargo add cokret --features applet` pulls the full Applet developer surface.
