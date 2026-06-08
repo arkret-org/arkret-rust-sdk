@@ -9,7 +9,7 @@ name = "cokret-crypto"
 readme = "README.md"
 repository = "https://github.com/cokret/cokret-rust-sdk"
 rust-version = "1.92"
-version = "0.3.0"
+version.workspace = true
 
 [features]
 default = []
