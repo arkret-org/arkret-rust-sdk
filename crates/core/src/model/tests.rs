@@ -107,7 +107,7 @@ fn event_new_sets_required_event_id() {
 fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
     let event = Event {
         event_id: EventId::new("ck:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
-        kind: "ck.message.create".to_owned(),
+        kind: "ck.message.create".into(),
         realm_id: test_realm_id(),
         actor_id: Did::new("did:web:alice.example").unwrap(),
         actor_seq: 1,

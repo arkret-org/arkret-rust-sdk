@@ -1,4 +1,5 @@
 use super::*;
+use crate::events::kinds::EventKind;
 use crate::{AnchorId, Effect, Precondition};
 
 pub const EVENT_REF_ROLE_AUTHORIZED_BY: &str = "authorized_by";
@@ -85,7 +86,7 @@ impl EventRequirements {
 #[serde(try_from = "EventWire")]
 pub struct Event {
     pub event_id: EventId,
-    pub kind: String,
+    pub kind: EventKind,
     pub realm_id: RealmId,
     pub actor_id: Did,
     pub actor_seq: u64,
@@ -190,7 +191,7 @@ impl TryFrom<EventWire> for Event {
     fn try_from(wire: EventWire) -> std::result::Result<Self, Self::Error> {
         let event = Self {
             event_id: wire.event_id,
-            kind: wire.kind,
+            kind: EventKind::from_wire(&wire.kind),
             realm_id: wire.realm_id,
             actor_id: wire.actor_id,
             actor_seq: wire.actor_seq,
@@ -288,7 +289,7 @@ impl Event {
                 "event critical extensions must declare fail_closed=true".to_owned(),
             ));
         }
-        if crate::events::is_reducer_input_event_kind(&self.kind) {
+        if self.kind.is_reducer_input() {
             if self.anchor_ref.is_none() {
                 return Err(Error::Protocol(
                     "reducer-input events must carry anchor_ref".to_owned(),
@@ -325,7 +326,7 @@ impl Event {
             &self.content,
             crate::WireContext::EventEnvelopeOrPayloadTopLevel,
         )?;
-        if let Some(context) = payload_context_for_event_kind(&self.kind) {
+        if let Some(context) = payload_context_for_event_kind(self.kind.as_str()) {
             validate_forbidden_object_keys("Event.payload", &self.content, context)?;
             if let Some(object) = self.content.get("object") {
                 validate_forbidden_object_keys("Event.payload.object", object, context)?;
@@ -333,7 +334,7 @@ impl Event {
             if let Some(patch) = self.content.get("patch") {
                 validate_forbidden_object_keys("Event.payload.patch", patch, context)?;
             }
-            if let Some(patch_context) = patch_context_for_event_kind(&self.kind)
+            if let Some(patch_context) = patch_context_for_event_kind(self.kind.as_str())
                 && let Some(patch) = self.content.get("patch")
             {
                 validate_forbidden_patch_paths("Event.payload.patch", patch, patch_context)?;
@@ -371,7 +372,7 @@ impl Event {
     ) -> Result<Self> {
         Ok(Self {
             event_id: EventId::new(new_prefixed_uuid7("ck:event:"))?,
-            kind: kind.into(),
+            kind: EventKind::from_wire(&kind.into()),
             realm_id,
             actor_id,
             actor_seq,
@@ -643,7 +644,7 @@ mod event_wire_surface_tests {
     fn base_event() -> Event {
         Event {
             event_id: EventId::new("ck:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
-            kind: "ck.message.create".to_owned(),
+            kind: "ck.message.create".into(),
             realm_id: realm(),
             actor_id: alice(),
             actor_seq: 1,
@@ -718,7 +719,7 @@ mod event_wire_surface_tests {
             "fields.assignee",
         ] {
             let mut event = base_event();
-            event.kind = "ck.flow.update".to_owned();
+            event.kind = "ck.flow.update".into();
             let mut patch = serde_json::Map::new();
             patch.insert(path.to_owned(), json!({ "$op": "set", "value": "did:web:bob.example" }));
             event.content = json!({
@@ -740,7 +741,7 @@ mod event_wire_surface_tests {
             ("fields", json!({"assignee": "did:web:bob.example"})),
         ] {
             let mut event = base_event();
-            event.kind = "ck.flow.update".to_owned();
+            event.kind = "ck.flow.update".into();
             let mut patch = serde_json::Map::new();
             patch.insert(path.to_owned(), json!({ "$op": "set", "value": value }));
             event.content = json!({

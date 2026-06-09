@@ -513,7 +513,7 @@ pub fn event_taxonomy_vectors() -> Result<Vec<EventTaxonomyVector>> {
         },
         EventTaxonomyVector {
             name: "custom event raw preservation".to_owned(),
-            kind: custom.kind,
+            kind: custom.kind.as_str().to_owned(),
             expected_class: custom_envelope.class,
             input: match custom_envelope.content {
                 AnyEventContent::Custom { content } => content.raw,

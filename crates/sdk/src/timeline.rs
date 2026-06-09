@@ -1081,7 +1081,7 @@ mod tests {
         Event {
             event_id: EventId::new(format!("ck:event:01904100-0000-7000-8000-{:012x}", index))
                 .unwrap(),
-            kind: crate::OP_MORPH_CREATE.to_owned(),
+            kind: crate::OP_MORPH_CREATE.into(),
             realm_id: realm_id.clone(),
             actor_id: Did::new("did:web:alice.example.com").unwrap(),
             actor_seq: index as u64,
@@ -1242,16 +1242,16 @@ mod tests {
         let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let mut timeline = Timeline::new(realm_id.clone(), base_client);
         let mut message = create_test_event(&realm_id, 1);
-        message.kind = "ck.message.create".to_owned();
+        message.kind = "ck.message.create".into();
         message.content = json!({"message_id":"m1","body":"hello"});
         let mut edit = create_test_event(&realm_id, 2);
-        edit.kind = "ck.message.revise".to_owned();
+        edit.kind = "ck.message.revise".into();
         edit.content = json!({"target_message_id":"m1","content":{"body":"hi"}});
         let mut reaction = create_test_event(&realm_id, 3);
-        reaction.kind = "ck.reaction.add".to_owned();
+        reaction.kind = "ck.reaction.add".into();
         reaction.content = json!({"message_id":"m1","reaction_key":"+1"});
         let mut redaction = create_test_event(&realm_id, 4);
-        redaction.kind = "ck.message.redact".to_owned();
+        redaction.kind = "ck.message.redact".into();
         redaction.content = json!({"target_message_id":"m1"});
 
         timeline.append_events(vec![message, edit, reaction]).unwrap();
@@ -1274,7 +1274,7 @@ mod tests {
         let realm_id = RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap();
         let mut timeline = Timeline::new(realm_id.clone(), base_client);
         let mut message = create_test_event(&realm_id, 1);
-        message.kind = "ck.message.create".to_owned();
+        message.kind = "ck.message.create".into();
         message.content = json!({"message_id":"m1","body":"hello"});
         let event_id = message.event_id.clone();
         let actor = Did::new("did:web:alice.example.com").unwrap();

@@ -841,6 +841,18 @@ impl From<&str> for EventKind {
     }
 }
 
+impl From<String> for EventKind {
+    fn from(value: String) -> Self {
+        Self::from_wire(&value)
+    }
+}
+
+impl From<&String> for EventKind {
+    fn from(value: &String) -> Self {
+        Self::from_wire(value)
+    }
+}
+
 impl PartialEq<str> for EventKind {
     fn eq(&self, other: &str) -> bool {
         self.as_str() == other
