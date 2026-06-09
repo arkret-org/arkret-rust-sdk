@@ -37,7 +37,8 @@
 //!   `sender_actor_display_name`, `sender_display_name`, `sender_name`,
 //!   `user_name`, `display_name`, `from`, `to`, `target_did`.
 //! - Device identity: `device_did`, `device_url`, `device_id`,
-//!   `device_name`.
+//!   `device_name`. (`device_did` 在协议层已不存在,但仍作为禁止字段
+//!   保留作防御纵深。)
 //! - Content / preview: `body`, `content`, `text`, `message`, `title`,
 //!   `subtitle`, `preview`, `summary`, `alert`, `notification_body`,
 //!   `notification_title`, `formatted_body`, `template`, `template_vars`,
@@ -442,7 +443,10 @@ pub fn is_forbidden_payload_key(key: &str) -> bool {
             | "watcher_count"
             | "participant_count"
             | "engaged_count"
-            // Device identity.
+            // Device identity. 注:协议层 device 已无 DID(设备非独立主体,
+            // 标识为 device_id = ck:device:<uuid>),但 `device_did` 仍列入
+            // 禁止字段作为防御纵深 —— blind push payload MUST 拒绝任何遗留 /
+            // 恶意客户端塞入的 device_did,避免泄露可链接身份。
             | "device_did"
             | "device_url"
             | "device_id"

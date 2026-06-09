@@ -470,6 +470,7 @@ const FORBIDDEN_ENTRIES: &[ForbiddenEntry] = &[
     ForbiddenEntry { field: "actor_kind=ghost", context: WireContext::ActorKindValue },
     ForbiddenEntry { field: "actor_kind=agent_native", context: WireContext::ActorKindValue },
     ForbiddenEntry { field: "actor_kind=agent_ghost", context: WireContext::ActorKindValue },
+    ForbiddenEntry { field: "actor_kind=device", context: WireContext::ActorKindValue },
 ];
 
 /// Returns `true` when `field` is forbidden in the given `context` per the
