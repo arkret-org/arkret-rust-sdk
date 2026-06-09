@@ -605,8 +605,11 @@ pub type HistoryVisibilityValue = String;
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/inheritance_policy_status`.
 pub type InheritancePolicyStatus = String;
 
-/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/invite_payload`.
-pub type InvitePayload = Value;
+// `invite_payload` anyOf branches now have strong types in
+// `model::operation_payloads`: `InviteCreatePayload` (directed-create) and
+// `InviteRefPayload` (invite_id ref, for accept/cancel). The full union is
+// not modeled as one type (the remaining anyOf branches — `invite`,
+// `third_party_id`, claim-proof — are not constructed by the client wire).
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/join_policy_payload`.
 pub type JoinPolicyPayload = Value;
@@ -617,8 +620,11 @@ pub type KeyBackupActiveSeriesPayload = Value;
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/list_reorder_payload`.
 pub type ListReorderPayload = Value;
 
-/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/membership_payload`.
-pub type MembershipPayload = Value;
+// `membership_payload` now has a strong type:
+// `model::operation_payloads::MembershipPayload` (replaces the former
+// `= Value` alias as part of the wire strong-type migration; carries the
+// `MembershipPayloadState` enum and enforces the join/routable conditional
+// required fields).
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/message_metadata_fields`.
 pub type MessageMetadataFields = BTreeMap<String, Value>;

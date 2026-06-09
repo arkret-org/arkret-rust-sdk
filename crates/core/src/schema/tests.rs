@@ -67,6 +67,80 @@ fn relation_create_payload_strong_type_passes_spec_validator() {
 }
 
 #[test]
+fn membership_payload_strong_type_passes_spec_validator() {
+    use crate::model::{DeliveryStatus, MembershipPayload, MembershipPayloadState};
+    let catalog = event_payload_validator_catalog();
+
+    // invite transition (non-join): only `membership` is structurally required.
+    let invite = MembershipPayload::transition(
+        MembershipPayloadState::Invite,
+        crate::model::Did::new("did:web:bob.example").unwrap(),
+        "space_create",
+    );
+    catalog
+        .validate_payload("ck.member.state", &invite.to_value().unwrap())
+        .unwrap();
+
+    // join transition (unroutable): realm_id + actor_id + delivery_status
+    // required, but delivery_binding only when routable.
+    let join = MembershipPayload::join(
+        crate::model::RealmId::new("ck:realm:01904100-0000-7000-8000-111111111111").unwrap(),
+        crate::model::Did::new("did:web:bob.example").unwrap(),
+        DeliveryStatus::Unroutable,
+        "invite_accept",
+    )
+    .with_invite_ref("ck:event:01904100-0000-7000-8000-222222222222");
+    catalog
+        .validate_payload("ck.member.state", &join.to_value().unwrap())
+        .unwrap();
+
+    // join missing delivery_status is rejected by to_value (conditional req).
+    let mut bad = join.clone();
+    bad.delivery_status = None;
+    assert!(matches!(bad.to_value(), Err(Error::Protocol(_))));
+
+    // deny_unknown_fields: the legacy illegal `handle` key would be rejected
+    // by the spec validator (membership_payload is additionalProperties:false).
+    let mut leaky = invite.to_value().unwrap();
+    leaky["handle"] = json!("bob:example.com");
+    assert!(matches!(
+        catalog.validate_payload("ck.member.state", &leaky),
+        Err(Error::Protocol(_))
+    ));
+}
+
+#[test]
+fn invite_payload_strong_types_pass_spec_validator() {
+    use crate::model::{
+        Did, Hash, InviteCreatePayload, InviteDeliveryTarget, InviteId, InviteRefPayload,
+    };
+    let catalog = event_payload_validator_catalog();
+
+    // Directed-create (anyOf branch: invitee + invite_delivery_target +
+    // introduction_evidence_digest + expires_at), with an `x_role` extension.
+    let create = InviteCreatePayload::new(
+        InviteId::new("ck:invite:01904100-0000-7000-8000-111111111111").unwrap(),
+        Did::new("did:web:bob.example").unwrap(),
+        InviteDeliveryTarget::principal_server(Did::new("did:web:ps.example").unwrap()),
+        Hash::new("sha256:".to_owned() + &"a".repeat(64)).unwrap(),
+        chrono::Utc::now() + chrono::Duration::days(7),
+    )
+    .with_extension("role", json!("member"));
+    let create_value = create.to_value().unwrap();
+    assert_eq!(create_value["x_role"], "member");
+    catalog.validate_payload("ck.invite.create", &create_value).unwrap();
+
+    // invite_id ref form (accept / cancel).
+    let cancel = InviteRefPayload::new(
+        InviteId::new("ck:invite:01904100-0000-7000-8000-222222222222").unwrap(),
+    )
+    .with_reason("withdrawn");
+    catalog
+        .validate_payload("ck.invite.cancel", &cancel.to_value().unwrap())
+        .unwrap();
+}
+
+#[test]
 fn artifact_payload_catalog_covers_active_durable_event_kinds() {
     let Some(artifacts_dir) = default_spec_artifacts_dir() else {
         return;
