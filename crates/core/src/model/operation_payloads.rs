@@ -361,7 +361,11 @@ pub struct MembershipPayload {
 
 impl MembershipPayload {
     /// Build a non-`join` transition payload (`invite`/`knock`/`leave`/`ban`).
-    pub fn transition(membership: MembershipPayloadState, actor_id: Did, reason: impl Into<String>) -> Self {
+    pub fn transition(
+        membership: MembershipPayloadState,
+        actor_id: Did,
+        reason: impl Into<String>,
+    ) -> Self {
         Self {
             membership,
             flow_id: None,
@@ -416,7 +420,8 @@ impl MembershipPayload {
     /// Validate the schema-level conditional required fields, then serialize.
     pub fn to_value(&self) -> Result<Value> {
         if self.membership == MembershipPayloadState::Join {
-            if self.realm_id.is_none() || self.actor_id.is_none() || self.delivery_status.is_none() {
+            if self.realm_id.is_none() || self.actor_id.is_none() || self.delivery_status.is_none()
+            {
                 return Err(Error::Protocol(
                     "membership_payload{join} requires realm_id, actor_id, delivery_status"
                         .to_owned(),
@@ -759,13 +764,7 @@ impl FlowReorderPayload {
         space_id: SpaceId,
         rank: impl Into<String>,
     ) -> Self {
-        Self {
-            board_space_id,
-            flow_id,
-            space_id,
-            rank: rank.into(),
-            expected_position: None,
-        }
+        Self { board_space_id, flow_id, space_id, rank: rank.into(), expected_position: None }
     }
 
     pub fn with_expected_position(mut self, expected: FlowReorderExpectedPosition) -> Self {
@@ -840,25 +839,13 @@ impl FlowWatchSetPayload {
         level: FlowWatchLevel,
         level_public: Option<bool>,
     ) -> Self {
-        Self {
-            flow_id,
-            watcher_actor_id,
-            level: Some(level),
-            level_public,
-            expected_value: None,
-        }
+        Self { flow_id, watcher_actor_id, level: Some(level), level_public, expected_value: None }
     }
 
     /// Clear the watch cell (`level: null`). Per the schema `allOf`,
     /// `level_public` is forced off on this path.
     pub fn clear(flow_id: FlowId, watcher_actor_id: Did) -> Self {
-        Self {
-            flow_id,
-            watcher_actor_id,
-            level: None,
-            level_public: None,
-            expected_value: None,
-        }
+        Self { flow_id, watcher_actor_id, level: None, level_public: None, expected_value: None }
     }
 
     pub fn with_expected_value(mut self, expected: Option<FlowWatchExpectedValue>) -> Self {
@@ -900,12 +887,7 @@ pub struct ObjectLifecyclePayload {
 
 impl ObjectLifecyclePayload {
     pub fn new(target_ref: impl Into<ObjectRef>) -> Self {
-        Self {
-            target_ref: target_ref.into(),
-            target_state: None,
-            reason: None,
-            effective_at: None,
-        }
+        Self { target_ref: target_ref.into(), target_state: None, reason: None, effective_at: None }
     }
 
     pub fn with_target_state(mut self, target_state: impl Into<String>) -> Self {
@@ -971,16 +953,13 @@ impl HistoryVisibilityPayload {
     }
 
     pub fn to_value(&self) -> Result<Value> {
-        if self.value == HistoryVisibility::Restricted
-            && self.restricted_policy_digest.is_none()
-        {
+        if self.value == HistoryVisibility::Restricted && self.restricted_policy_digest.is_none() {
             return Err(Error::Protocol(
                 "history_visibility=restricted requires restricted_policy_digest".to_owned(),
             ));
         }
-        serde_json::to_value(self).map_err(|err| {
-            Error::Protocol(format!("history visibility payload serialize: {err}"))
-        })
+        serde_json::to_value(self)
+            .map_err(|err| Error::Protocol(format!("history visibility payload serialize: {err}")))
     }
 }
 

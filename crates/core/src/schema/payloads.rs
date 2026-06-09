@@ -598,17 +598,11 @@ fn payload_def_candidates(event_kind: &str) -> Vec<String> {
         }
         ["view", "create" | "update" | "reconcile"] => candidates.push("view_payload".to_owned()),
         ["agent", "endpoint"] => candidates.push("agent_endpoint_payload".to_owned()),
-        ["agent", "session", "start"] => {
-            candidates.push("agent_session_start_payload".to_owned());
-        }
-        ["agent", "protocol_session", "status"] => {
-            candidates.push("agent_session_status_payload".to_owned());
-        }
-        ["agent", "protocol_session", "result"] => {
-            candidates.push("agent_session_result_payload".to_owned());
-        }
-        ["applet", "registration" | "discovery"]
-        | ["applet", "protocol_session", "start" | "status" | "result"] => {
+        // Agent/applet interop-session events resolve through the `exact`
+        // candidate above (agent_interop_session_*_payload /
+        // applet_interop_session_*_payload), which the spec event-payload
+        // schema defines directly. No family override needed.
+        ["applet", "registration" | "discovery"] => {
             candidates.push("generic_standard_payload".to_owned());
         }
         ["capability", "grant" | "delegate" | "derived"] => {

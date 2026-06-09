@@ -13,7 +13,6 @@ pub use crate::{CausalRef, Operation, OperationSignature, OperationType};
 #[serde(rename_all = "snake_case")]
 pub enum OperationSurface {
     Account,
-    Admin,
     Applet,
     Authz,
     Blob,
@@ -64,13 +63,13 @@ impl OperationCatalogReport {
 
 pub fn classify_operation_kind(kind: &str) -> OperationSurface {
     match kind {
-        OP_ACCOUNT_DEVICE_PAIR | OP_ACCOUNT_ISSUE_SESSION_GRANT | OP_ACCOUNT_OIDC_CALLBACK => {
-            OperationSurface::Account
-        }
-        OP_ADMIN_GET_MODERATION_QUEUE
-        | OP_ADMIN_GET_SERVER_STATUS
-        | OP_ADMIN_REVOKE_DEVICE
-        | OP_ADMIN_UPDATE_ACCOUNT_STATUS => OperationSurface::Admin,
+        OP_ACCOUNT_DEVICE_PAIR
+        | OP_ACCOUNT_ISSUE_SESSION_GRANT
+        | OP_ACCOUNT_OIDC_CALLBACK
+        | OP_ACCOUNT_REGISTER
+        | OP_ACCOUNT_SESSION_REVOKE
+        | OP_ACCOUNT_UPDATE_PROFILE
+        | OP_ACCOUNT_VIEWER => OperationSurface::Account,
         OP_APPLET_DESCRIBE
         | OP_APPLET_PING
         | OP_APPLET_PROTOCOL_METADATA
@@ -78,7 +77,10 @@ pub fn classify_operation_kind(kind: &str) -> OperationSurface {
         | OP_APPLET_RESOLVE_REALM
         | OP_APPLET_THIRD_PARTY_LOCATIONS
         | OP_APPLET_THIRD_PARTY_USERS
-        | OP_APPLET_TRANSACTION => OperationSurface::Applet,
+        | OP_APPLET_TRANSACTION
+        | OP_APPLET_INSTALL
+        | OP_APPLET_INSTALL_PREVIEW
+        | OP_APPLET_REVOKE => OperationSurface::Applet,
         OP_AUTHZ_CHECK | OP_AUTHZ_GET_EFFECTIVE_GRANTS | OP_AUTHZ_GET_INVITES => {
             OperationSurface::Authz
         }
@@ -98,14 +100,29 @@ pub fn classify_operation_kind(kind: &str) -> OperationSurface {
         | OP_DIRECTORY_SEARCH_USERS
         | OP_DIRECTORY_PUSH_REGISTER
         | OP_DIRECTORY_WITHDRAW => OperationSurface::Directory,
-        OP_EVENTS_DESCRIBE | OP_EVENTS_FRONTIER | OP_EVENTS_GET | OP_EVENTS_QUERY
-        | OP_EVENTS_RESOLVE | OP_EVENTS_SUBSCRIBE | OP_EVENTS_SUBMIT => OperationSurface::Events,
+        OP_EVENTS_DESCRIBE
+        | OP_EVENTS_FRONTIER
+        | OP_EVENTS_GET
+        | OP_EVENTS_QUERY
+        | OP_EVENTS_RESOLVE
+        | OP_EVENTS_SUBSCRIBE
+        | OP_EVENTS_SUBMIT
+        | OP_PEER_EVENTS_DESCRIBE
+        | OP_PEER_EVENTS_FRONTIER
+        | OP_PEER_EVENTS_QUERY
+        | OP_PEER_EVENTS_QUERY_POST
+        | OP_PEER_EVENTS_RESOLVE
+        | OP_PEER_EVENTS_SUBMIT => OperationSurface::Events,
         OP_IDENTITY_DESCRIBE_REGISTRY
         | OP_IDENTITY_GET_DOCUMENT
         | OP_IDENTITY_GET_LOG
         | OP_IDENTITY_GET_RECEIPTS
         | OP_IDENTITY_RESOLVE
-        | OP_IDENTITY_SUBMIT_DID_OPERATION => OperationSurface::Identity,
+        | OP_IDENTITY_SUBMIT_DID_OPERATION
+        | OP_RECOVERY_SESSION_CREATE
+        | OP_RECOVERY_SESSION_GET
+        | OP_RECOVERY_SESSION_SUBMIT_PROOF
+        | OP_RECOVERY_SESSION_COMPLETE => OperationSurface::Identity,
         OP_KEYS_UPLOAD
         | OP_KEYS_QUERY
         | OP_KEYS_CLAIM
@@ -138,7 +155,8 @@ pub fn classify_operation_kind(kind: &str) -> OperationSurface {
         OP_ACCOUNT_DESCRIBE
         | OP_ACCOUNT_SUBSCRIBE
         | OP_ACCOUNT_CURSOR_REVOKE
-        | OP_SNAPSHOT_HEAD => OperationSurface::AccountStream,
+        | OP_SNAPSHOT_HEAD
+        | OP_PEER_SNAPSHOT_HEAD => OperationSurface::AccountStream,
         _ => OperationSurface::Custom(kind.to_owned()),
     }
 }
@@ -160,7 +178,6 @@ pub fn operation_catalog() -> OperationCatalogReport {
     let covered = rows.iter().map(|row| row.surface.clone()).collect::<BTreeSet<_>>();
     let required_surfaces = [
         OperationSurface::Account,
-        OperationSurface::Admin,
         OperationSurface::Applet,
         OperationSurface::Keys,
         OperationSurface::DeviceMessages,
@@ -525,7 +542,6 @@ fn target_id_for_operation(kind: &str, content: &Value) -> Option<String> {
         OP_DEVICE_MESSAGES_PUT | OP_DEVICE_MESSAGES_GET => {
             &["recipient_principal_id", "recipient_device_id"]
         }
-        OP_ADMIN_REVOKE_DEVICE | OP_ADMIN_UPDATE_ACCOUNT_STATUS => &["principal_id"],
         OP_ACCOUNT_DEVICE_PAIR | OP_ACCOUNT_ISSUE_SESSION_GRANT => &["principal_id"],
         OP_MODERATION_REPORT => &["target_ref"],
         OP_OPEN_INVITE_LOCATOR_RESOLVE => &["locator_token"],

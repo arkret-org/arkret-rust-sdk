@@ -124,10 +124,10 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
             vec!["service_did".to_owned(), "namespace".to_owned()]
         }
         OP_APPLET_DISCOVERY => vec!["service_did".to_owned(), "manifest".to_owned()],
-        OP_APPLET_PROTOCOL_SESSION_START => {
+        OP_APPLET_INTEROP_SESSION_START => {
             vec!["applet_id".to_owned(), "session_id".to_owned()]
         }
-        OP_APPLET_PROTOCOL_SESSION_STATUS => {
+        OP_APPLET_INTEROP_SESSION_STATUS => {
             vec!["session_id".to_owned(), "status".to_owned()]
         }
         OP_APPLET_BRIDGE_ERROR => vec!["session_id".to_owned(), "errcode".to_owned()],
@@ -167,7 +167,7 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         .into_iter()
         .map(str::to_owned)
         .collect(),
-        OP_AGENT_PROTOCOL_SESSION_START => {
+        OP_AGENT_INTEROP_SESSION_START => {
             vec![
                 "session_id".to_owned(),
                 "counterparty_agent".to_owned(),
@@ -175,10 +175,10 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
                 "capability_grant".to_owned(),
             ]
         }
-        OP_AGENT_PROTOCOL_SESSION_STATUS => {
+        OP_AGENT_INTEROP_SESSION_STATUS => {
             vec!["session_id".to_owned(), "status".to_owned()]
         }
-        OP_AGENT_PROTOCOL_SESSION_RESULT => {
+        OP_AGENT_INTEROP_SESSION_RESULT => {
             vec!["session_id".to_owned(), "result".to_owned(), "audit_binding".to_owned()]
         }
         OP_MORPH_CREATE => vec!["object".to_owned()],
@@ -266,12 +266,6 @@ pub(super) fn required_fields_for_operation_kind(kind: &str) -> Vec<String> {
         }
         OP_IDENTITY_SUBMIT_DID_OPERATION => {
             ["did", "operation"].into_iter().map(str::to_owned).collect()
-        }
-        OP_ADMIN_REVOKE_DEVICE => {
-            ["principal_id", "device_id"].into_iter().map(str::to_owned).collect()
-        }
-        OP_ADMIN_UPDATE_ACCOUNT_STATUS => {
-            ["principal_id", "status"].into_iter().map(str::to_owned).collect()
         }
         OP_ACCOUNT_DEVICE_PAIR => {
             ["principal_id", "device_id"].into_iter().map(str::to_owned).collect()

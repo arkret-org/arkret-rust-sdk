@@ -51,9 +51,7 @@ fn relation_create_payload_strong_type_passes_spec_validator() {
         "ck:flow:01904100-0000-7000-8000-222222222222",
     )
     .with_rank("U");
-    catalog
-        .validate_payload("ck.relation.create", &payload.to_value().unwrap())
-        .unwrap();
+    catalog.validate_payload("ck.relation.create", &payload.to_value().unwrap()).unwrap();
 
     // deny_unknown_fields: the legacy illegal keys (relation_id / fields /
     // scope_circle_id) are not representable and would be rejected by the
@@ -77,9 +75,7 @@ fn membership_payload_strong_type_passes_spec_validator() {
         crate::model::Did::new("did:web:bob.example").unwrap(),
         "space_create",
     );
-    catalog
-        .validate_payload("ck.member.state", &invite.to_value().unwrap())
-        .unwrap();
+    catalog.validate_payload("ck.member.state", &invite.to_value().unwrap()).unwrap();
 
     // join transition (unroutable): realm_id + actor_id + delivery_status
     // required, but delivery_binding only when routable.
@@ -90,9 +86,7 @@ fn membership_payload_strong_type_passes_spec_validator() {
         "invite_accept",
     )
     .with_invite_ref("ck:event:01904100-0000-7000-8000-222222222222");
-    catalog
-        .validate_payload("ck.member.state", &join.to_value().unwrap())
-        .unwrap();
+    catalog.validate_payload("ck.member.state", &join.to_value().unwrap()).unwrap();
 
     // join missing delivery_status is rejected by to_value (conditional req).
     let mut bad = join.clone();
@@ -103,10 +97,7 @@ fn membership_payload_strong_type_passes_spec_validator() {
     // by the spec validator (membership_payload is additionalProperties:false).
     let mut leaky = invite.to_value().unwrap();
     leaky["handle"] = json!("bob:example.com");
-    assert!(matches!(
-        catalog.validate_payload("ck.member.state", &leaky),
-        Err(Error::Protocol(_))
-    ));
+    assert!(matches!(catalog.validate_payload("ck.member.state", &leaky), Err(Error::Protocol(_))));
 }
 
 #[test]
@@ -135,9 +126,7 @@ fn invite_payload_strong_types_pass_spec_validator() {
         InviteId::new("ck:invite:01904100-0000-7000-8000-222222222222").unwrap(),
     )
     .with_reason("withdrawn");
-    catalog
-        .validate_payload("ck.invite.cancel", &cancel.to_value().unwrap())
-        .unwrap();
+    catalog.validate_payload("ck.invite.cancel", &cancel.to_value().unwrap()).unwrap();
 }
 
 #[test]
@@ -147,14 +136,9 @@ fn realm_lifecycle_payloads_strong_types_pass_spec_validator() {
 
     // ck.realm.archive: reversible boolean register; `archived:false` un-archives.
     let archive = RealmArchivePayload::new(true).with_reason("retiring legacy realm");
+    catalog.validate_payload("ck.realm.archive", &archive.to_value().unwrap()).unwrap();
     catalog
-        .validate_payload("ck.realm.archive", &archive.to_value().unwrap())
-        .unwrap();
-    catalog
-        .validate_payload(
-            "ck.realm.archive",
-            &RealmArchivePayload::new(false).to_value().unwrap(),
-        )
+        .validate_payload("ck.realm.archive", &RealmArchivePayload::new(false).to_value().unwrap())
         .unwrap();
 
     // ck.realm.tombstone: reason + successor_realm_id both required by spec.
@@ -162,16 +146,12 @@ fn realm_lifecycle_payloads_strong_types_pass_spec_validator() {
         RealmId::new("ck:realm:01904100-0000-7000-8000-333333333333").unwrap(),
         "migrated to successor",
     );
-    catalog
-        .validate_payload("ck.realm.tombstone", &tombstone.to_value().unwrap())
-        .unwrap();
+    catalog.validate_payload("ck.realm.tombstone", &tombstone.to_value().unwrap()).unwrap();
 
     // ck.realm.destroy: reason required; verification_stub_required omitted so
     // the reducer applies its default (true).
     let destroy = RealmDestroyPayload::new("permanent retirement");
-    catalog
-        .validate_payload("ck.realm.destroy", &destroy.to_value().unwrap())
-        .unwrap();
+    catalog.validate_payload("ck.realm.destroy", &destroy.to_value().unwrap()).unwrap();
 
     // deny_unknown_fields: an illegal key on any of these is rejected by the
     // spec validator (all three defs are additionalProperties:false).
@@ -209,11 +189,9 @@ fn flow_lifecycle_payloads_strong_types_pass_spec_validator() {
     catalog.validate_payload("ck.flow.move", &mv.to_value().unwrap()).unwrap();
 
     // ck.flow.reorder — single List Space (`space_id`); no destination field.
-    let reorder = FlowReorderPayload::new(board(), flow(), target(), "V")
-        .with_expected_position(FlowReorderExpectedPosition {
-            rank: Some("U".to_owned()),
-            relation_id: None,
-        });
+    let reorder = FlowReorderPayload::new(board(), flow(), target(), "V").with_expected_position(
+        FlowReorderExpectedPosition { rank: Some("U".to_owned()), relation_id: None },
+    );
     catalog.validate_payload("ck.flow.reorder", &reorder.to_value().unwrap()).unwrap();
 
     // ck.flow.watch.set — concrete level + clear (level:null) + CAS guard.
@@ -240,10 +218,9 @@ fn flow_lifecycle_payloads_strong_types_pass_spec_validator() {
 
     // ck.flow.archive / ck.flow.restore — object_lifecycle_payload, single
     // truth source `target_ref`.
-    let archive =
-        ObjectLifecyclePayload::new("ck:flow:01904100-0000-7000-8000-6c663fa0205f")
-            .with_target_state("archived")
-            .with_reason("season closed");
+    let archive = ObjectLifecyclePayload::new("ck:flow:01904100-0000-7000-8000-6c663fa0205f")
+        .with_target_state("archived")
+        .with_reason("season closed");
     catalog.validate_payload("ck.flow.archive", &archive.to_value().unwrap()).unwrap();
     catalog
         .validate_payload(
@@ -258,10 +235,7 @@ fn flow_lifecycle_payloads_strong_types_pass_spec_validator() {
     // (additionalProperties:false on flow_move_payload).
     let mut leaky = mv.to_value().unwrap();
     leaky["list_space_id"] = json!("ck:space:01904100-0000-7000-8000-222222222222");
-    assert!(matches!(
-        catalog.validate_payload("ck.flow.move", &leaky),
-        Err(Error::Protocol(_))
-    ));
+    assert!(matches!(catalog.validate_payload("ck.flow.move", &leaky), Err(Error::Protocol(_))));
 }
 
 #[test]
@@ -279,8 +253,7 @@ fn realm_state_payloads_strong_types_match_named_spec_defs() {
     };
     let registry = schema_registry_from_spec_artifacts(artifacts_dir).unwrap();
     let history_ref = format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/history_visibility_payload");
-    let services_ref =
-        format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/plaintext_visible_services_payload");
+    let services_ref = format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/plaintext_visible_services_payload");
 
     // history_visibility: non-restricted value carries just `{value}`.
     let shared = HistoryVisibilityPayload::new(HistoryVisibility::Shared);
@@ -288,8 +261,7 @@ fn realm_state_payloads_strong_types_match_named_spec_defs() {
     // restricted requires restricted_policy_digest (schema allOf); to_value
     // refuses to emit a non-conformant restricted payload.
     assert!(HistoryVisibilityPayload::new(HistoryVisibility::Restricted).to_value().is_err());
-    let restricted =
-        HistoryVisibilityPayload::restricted("sha256:".to_owned() + &"a".repeat(64));
+    let restricted = HistoryVisibilityPayload::restricted("sha256:".to_owned() + &"a".repeat(64));
     registry.validate_value(&history_ref, &restricted.to_value().unwrap()).unwrap();
     // deny_unknown_fields: an unknown key is rejected by the named def
     // (additionalProperties:false).
@@ -433,7 +405,6 @@ fn artifact_payload_catalog_maps_object_patch_event_family_to_object_patch_paylo
         "ck.morph.update",
         "ck.space.update",
         "ck.profile.update",
-        "ck.profile.realm_override",
     ];
     for event_kind in object_patch_kinds {
         let patch = if matches!(event_kind, "ck.flow.update" | "ck.morph.update") {
@@ -456,6 +427,27 @@ fn artifact_payload_catalog_maps_object_patch_event_family_to_object_patch_paylo
             )
             .unwrap_or_else(|err| panic!("{event_kind} should accept object_patch_payload: {err}"));
     }
+    // ck.profile.realm_override carries a Realm-scoped override and needs
+    // target_realm_id in addition to target_ref+patch, so the spec gives it a
+    // dedicated profile_realm_override_payload def rather than folding it into
+    // the generic object_patch_payload.
+    assert_eq!(
+        catalog.rules["ck.profile.realm_override"].payload_schema_id,
+        format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/profile_realm_override_payload"),
+        "ck.profile.realm_override must use the dedicated profile_realm_override_payload schema"
+    );
+    catalog
+        .validate_payload(
+            "ck.profile.realm_override",
+            &json!({
+                "target_ref": "ck:actor_profile:0196419b-0000-7000-8000-000000000001",
+                "target_realm_id": "ck:realm:0196419b-0000-7000-8000-000000000002",
+                "patch": { "title": { "$op": "set", "value": "Roadmap" } }
+            }),
+        )
+        .unwrap_or_else(|err| {
+            panic!("ck.profile.realm_override should accept profile_realm_override_payload: {err}")
+        });
     assert_eq!(
         catalog.rules["ck.flow.tracks.update"].payload_schema_id,
         format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/generic_standard_payload"),

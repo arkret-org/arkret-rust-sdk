@@ -509,6 +509,35 @@ pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     ENCRYPTED_ENVELOPE_SCHEMA,
     ACCOUNT_SUBSCRIBE_FRAME_SCHEMA,
     VIEW_SCHEMA,
+    // Spec-sync (schema-registry.json) — service-operation DTO schemas and
+    // newer feature schemas the registry ships that the SDK had not yet
+    // declared coverage for.
+    "ck.schema.account_operations.v1",
+    "ck.schema.agent_operations.v1",
+    "ck.schema.applet_edge_operations.v1",
+    "ck.schema.applet_install_operations.v1",
+    "ck.schema.applet_install_plan.v1",
+    "ck.schema.applet_package.v1",
+    "ck.schema.authz_operations.v1",
+    "ck.schema.blob_operations.v1",
+    "ck.schema.common_ids.v1",
+    "ck.schema.contact_operations.v1",
+    "ck.schema.delivery_binding_stale.v1",
+    "ck.schema.directory_operations.v1",
+    "ck.schema.file_transfer.v1",
+    "ck.schema.key_backup_active_series.v1",
+    "ck.schema.key_backup_plaintext.v1",
+    "ck.schema.key_backup_unlock_proof.v1",
+    "ck.schema.keypackage_operations.v1",
+    "ck.schema.keys_operations.v1",
+    "ck.schema.media_operations.v1",
+    "ck.schema.mimi_operations.v1",
+    "ck.schema.peer_contact_delivery_request.v1",
+    "ck.schema.pin.v1",
+    "ck.schema.push_operations.v1",
+    "ck.schema.query.v1",
+    "ck.schema.rsvp.v1",
+    "ck.schema.service_operation_dtos.v1",
 ];
 
 /// Active event kinds the SDK recognises from the spec registry.
@@ -524,7 +553,7 @@ pub const ARTIFACT_BACKED_PROFILE_IDS: &[&str] =
 
 pub const ARTIFACT_BACKED_ID_KINDS: &[&str] = &[
     "actor_profile",
-    "agent_session",
+    "agent_interop_session",
     "announce",
     "appeal",
     "applet",
@@ -563,6 +592,17 @@ pub const ARTIFACT_BACKED_ID_KINDS: &[&str] = &[
     "space",
     "transaction",
     "view",
+    // Spec-sync (id-kind-registry.json) — typed id kinds the registry ships
+    // that the SDK had not yet declared. audit_* back the audit release session
+    // model; recovery_session/backup_series back key-backup recovery;
+    // rtc_participant backs realtime call participants; circle backs CKP-0007.
+    "audit_binding",
+    "audit_release",
+    "audit_session",
+    "backup_series",
+    "circle",
+    "recovery_session",
+    "rtc_participant",
 ];
 
 /// Special-form id kinds (non-UUIDv7) the SDK declares coverage for from

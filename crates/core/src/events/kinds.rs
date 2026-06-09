@@ -21,19 +21,29 @@ pub const AGENT_DRAFT_PROPOSE: &str = "ck.agent.draft.propose";
 pub const AGENT_ACTION_REQUEST: &str = "ck.agent.action_request";
 pub const AGENT_ACTION_APPROVE: &str = "ck.agent.action_approve";
 pub const AGENT_ACTION_REJECT: &str = "ck.agent.action_reject";
-pub const AGENT_PROTOCOL_SESSION_RESULT: &str = "ck.agent.protocol_session.result";
-pub const AGENT_PROTOCOL_SESSION_START: &str = "ck.agent.protocol_session.start";
-pub const AGENT_PROTOCOL_SESSION_STATUS: &str = "ck.agent.protocol_session.status";
+pub const AGENT_INTEROP_SESSION_RESULT: &str = "ck.agent.interop_session.result";
+pub const AGENT_INTEROP_SESSION_START: &str = "ck.agent.interop_session.start";
+pub const AGENT_INTEROP_SESSION_STATUS: &str = "ck.agent.interop_session.status";
 pub const APPLET_BRIDGE_ERROR: &str = "ck.applet.bridge_error";
 pub const APPLET_DISCOVERY: &str = "ck.applet.discovery";
-pub const APPLET_PROTOCOL_SESSION_START: &str = "ck.applet.protocol_session.start";
-pub const APPLET_PROTOCOL_SESSION_STATUS: &str = "ck.applet.protocol_session.status";
+pub const APPLET_INTEROP_SESSION_START: &str = "ck.applet.interop_session.start";
+pub const APPLET_INTEROP_SESSION_STATUS: &str = "ck.applet.interop_session.status";
 pub const APPLET_REGISTRATION: &str = "ck.applet.registration";
 pub const ATTESTATION_RANGE_COMPLETENESS: &str = "ck.attestation.range_completeness";
 pub const AUDIT_ACCESSED: &str = "ck.audit.accessed";
-pub const AUDIT_EPOCH_KEY_DESTRUCTION: &str = "ck.audit.epoch_key_destruction";
+// Audit release session model (spec @ 2026-06-04): audit applets bind via
+// ck.audit.applet_binding and stage sealed historical releases through the
+// session lifecycle (request/authorize/notice/release/close). Replaces the
+// retired standing audit-member events ck.audit.epoch_key_destruction and
+// ck.realm.audit_policy_downgrade.
+pub const AUDIT_APPLET_BINDING: &str = "ck.audit.applet_binding";
 pub const AUDIT_ERASURE_RECEIPT: &str = "ck.audit.erasure_receipt";
+pub const AUDIT_RELEASE: &str = "ck.audit.release";
 pub const AUDIT_RYW_RECEIPT: &str = "ck.audit.ryw_receipt";
+pub const AUDIT_SESSION_AUTHORIZE: &str = "ck.audit.session.authorize";
+pub const AUDIT_SESSION_CLOSE: &str = "ck.audit.session.close";
+pub const AUDIT_SESSION_NOTICE: &str = "ck.audit.session.notice";
+pub const AUDIT_SESSION_REQUEST: &str = "ck.audit.session.request";
 pub const CALL_RECORDING_START: &str = "ck.call.recording.start";
 pub const CALL_SIGNAL: &str = "ck.call.signal";
 pub const CALL_STATE: &str = "ck.call.state";
@@ -52,6 +62,12 @@ pub const CIRCLE_MEMBER_STATE: &str = "ck.circle.member.state";
 pub const CIRCLE_ANCHOR_COMMIT: &str = "ck.circle.anchor_commit";
 pub const CONSENT_GRANT: &str = "ck.consent.grant";
 pub const CONSENT_REVOKE: &str = "ck.consent.revoke";
+// CKP-0015 contact enhancement — durable, reducer-input contact-request
+// lifecycle and the direct-conversation Realm binding it produces.
+pub const CONTACT_ACCEPTED: &str = "ck.contact.accepted";
+pub const CONTACT_REJECTED: &str = "ck.contact.rejected";
+pub const CONTACT_REQUESTED: &str = "ck.contact.requested";
+pub const CONTACT_TOMBSTONED: &str = "ck.contact.tombstoned";
 pub const CONTAINER_MOVE_ITEM: &str = "ck.container.move_item";
 pub const CONTAINER_REBALANCE: &str = "ck.container.rebalance";
 pub const CROSS_SIGNING_PUBLISH: &str = "ck.cross_signing.publish";
@@ -63,6 +79,9 @@ pub const DEVICE_PUSH_ROUTE: &str = "ck.device.push_route";
 pub const DEVICE_REVOKE: &str = "ck.device.revoke";
 pub const DEVICE_REVOKED: &str = DEVICE_REVOKE;
 pub const DID_PROOF: &str = "ck.did.proof";
+// CKP-0015 contact enhancement — direct-conversation Realm binding emitted
+// when a contact request is accepted (category `contact`).
+pub const DIRECT_CONVERSATION_BOUND: &str = "ck.direct_conversation.bound";
 pub const FLOW_ARCHIVE: &str = "ck.flow.archive";
 pub const FLOW_CREATE: &str = "ck.flow.create";
 pub const FLOW_MOVE: &str = "ck.flow.move";
@@ -84,6 +103,8 @@ pub const INVITE_CLAIM: &str = "ck.invite.claim";
 pub const INVITE_CREATE: &str = "ck.invite.create";
 pub const INVITE_REVOKE: &str = "ck.invite.revoke";
 pub const INVITE_THIRD_PARTY: &str = "ck.invite.third_party";
+// Key-backup active-series pointer (durable, reducer-input; category `device`).
+pub const KEY_BACKUP_ACTIVE_SERIES: &str = "ck.key_backup.active_series";
 pub const KEY_VERIFICATION_ACCEPT: &str = "ck.key.verification.accept";
 pub const KEY_VERIFICATION_CANCEL: &str = "ck.key.verification.cancel";
 pub const KEY_VERIFICATION_DONE: &str = "ck.key.verification.done";
@@ -222,7 +243,6 @@ pub const PIN_REORDER: &str = "ck.pin.reorder";
 // Top-level governance of the security boundary lives here.
 pub const REALM_ARCHIVE: &str = "ck.realm.archive";
 pub const REALM_ASSET_PRIVACY_POLICY: &str = "ck.realm.asset_privacy_policy";
-pub const REALM_AUDIT_POLICY_DOWNGRADE: &str = "ck.realm.audit_policy_downgrade";
 pub const REALM_CREATE: &str = "ck.realm.create";
 pub const REALM_DELIVERY_BINDING_POLICY: &str = "ck.realm.delivery_binding_policy";
 pub const REALM_DISAPPEARING_POLICY: &str = "ck.realm.disappearing_policy";
@@ -297,22 +317,27 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     AGENT_ACTION_REQUEST,
     AGENT_DRAFT_PROPOSE,
     AGENT_ENDPOINT,
+    AGENT_INTEROP_SESSION_RESULT,
+    AGENT_INTEROP_SESSION_START,
+    AGENT_INTEROP_SESSION_STATUS,
     AGENT_KEY_AUTHORIZED,
     AGENT_KEY_REVOKED,
     AGENT_KEY_ROTATED,
-    AGENT_PROTOCOL_SESSION_RESULT,
-    AGENT_PROTOCOL_SESSION_START,
-    AGENT_PROTOCOL_SESSION_STATUS,
     APPLET_BRIDGE_ERROR,
     APPLET_DISCOVERY,
-    APPLET_PROTOCOL_SESSION_START,
-    APPLET_PROTOCOL_SESSION_STATUS,
+    APPLET_INTEROP_SESSION_START,
+    APPLET_INTEROP_SESSION_STATUS,
     APPLET_REGISTRATION,
     ATTESTATION_RANGE_COMPLETENESS,
     AUDIT_ACCESSED,
-    AUDIT_EPOCH_KEY_DESTRUCTION,
+    AUDIT_APPLET_BINDING,
     AUDIT_ERASURE_RECEIPT,
+    AUDIT_RELEASE,
     AUDIT_RYW_RECEIPT,
+    AUDIT_SESSION_AUTHORIZE,
+    AUDIT_SESSION_CLOSE,
+    AUDIT_SESSION_NOTICE,
+    AUDIT_SESSION_REQUEST,
     CALL_RECORDING_START,
     CALL_SIGNAL,
     CALL_STATE,
@@ -329,6 +354,10 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     CIRCLE_UPDATE,
     CONSENT_GRANT,
     CONSENT_REVOKE,
+    CONTACT_ACCEPTED,
+    CONTACT_REJECTED,
+    CONTACT_REQUESTED,
+    CONTACT_TOMBSTONED,
     CONTAINER_MOVE_ITEM,
     CONTAINER_REBALANCE,
     CROSS_SIGNING_PUBLISH,
@@ -338,6 +367,7 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     DEVICE_PUSH_ROUTE,
     DEVICE_REVOKED,
     DID_PROOF,
+    DIRECT_CONVERSATION_BOUND,
     FLOW_ARCHIVE,
     FLOW_CREATE,
     FLOW_MOVE,
@@ -367,6 +397,7 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     KEY_VERIFICATION_READY,
     KEY_VERIFICATION_REQUEST,
     KEY_VERIFICATION_START,
+    KEY_BACKUP_ACTIVE_SERIES,
     MEMBER_IDENTITY_UPDATE,
     MEMBER_STATE,
     MESSAGE_CREATE,
@@ -409,7 +440,6 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     READ_MARKER,
     REALM_ARCHIVE,
     REALM_ASSET_PRIVACY_POLICY,
-    REALM_AUDIT_POLICY_DOWNGRADE,
     REALM_CREATE,
     REALM_DELIVERY_BINDING_POLICY,
     REALM_DESTROY,
@@ -543,6 +573,9 @@ pub enum EventClass {
     /// CKP-0007 (spec b7d35be) — Circle lifecycle / membership events.
     Circle,
     Consent,
+    /// CKP-0015 contact enhancement — contact-request lifecycle and the
+    /// direct-conversation Realm binding it produces.
+    Contact,
     Device,
     E2ee,
     Flow,
@@ -589,33 +622,43 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
         | AGENT_KEY_REVOKED
         | AGENT_KEY_ROTATED
         | AGENT_PAUSE
-        | AGENT_PROTOCOL_SESSION_RESULT
-        | AGENT_PROTOCOL_SESSION_START
-        | AGENT_PROTOCOL_SESSION_STATUS
+        | AGENT_INTEROP_SESSION_RESULT
+        | AGENT_INTEROP_SESSION_START
+        | AGENT_INTEROP_SESSION_STATUS
         | AGENT_RESUME => EventClass::Agent,
         APPLET_BRIDGE_ERROR
         | APPLET_DISCOVERY
-        | APPLET_PROTOCOL_SESSION_START
-        | APPLET_PROTOCOL_SESSION_STATUS
+        | APPLET_INTEROP_SESSION_START
+        | APPLET_INTEROP_SESSION_STATUS
         | APPLET_REGISTRATION => EventClass::Applet,
         ATTESTATION_RANGE_COMPLETENESS
         | AUDIT_ACCESSED
-        | AUDIT_EPOCH_KEY_DESTRUCTION
+        | AUDIT_APPLET_BINDING
         | AUDIT_ERASURE_RECEIPT
+        | AUDIT_RELEASE
         | AUDIT_RYW_RECEIPT
-        | REALM_AUDIT_POLICY_DOWNGRADE => EventClass::Audit,
+        | AUDIT_SESSION_AUTHORIZE
+        | AUDIT_SESSION_CLOSE
+        | AUDIT_SESSION_NOTICE
+        | AUDIT_SESSION_REQUEST => EventClass::Audit,
         CAPABILITY_DELEGATE | CAPABILITY_DERIVED | CAPABILITY_GRANT | CAPABILITY_REVOKE
         | SESSION_GRANT => EventClass::Authz,
         CALL_RECORDING_START | CALL_SIGNAL | CALL_STATE => EventClass::Call,
         CIRCLE_CREATE | CIRCLE_UPDATE | CIRCLE_ARCHIVE | CIRCLE_RESTORE | CIRCLE_TOMBSTONE
         | CIRCLE_MEMBER_STATE | CIRCLE_ANCHOR_COMMIT => EventClass::Circle,
         CONSENT_GRANT | CONSENT_REVOKE => EventClass::Consent,
+        CONTACT_REQUESTED
+        | CONTACT_ACCEPTED
+        | CONTACT_REJECTED
+        | CONTACT_TOMBSTONED
+        | DIRECT_CONVERSATION_BOUND => EventClass::Contact,
         DEVICE_AUTHORIZED
         | CROSS_SIGNING_PUBLISH
         | CROSS_SIGNING_RESET
         | DEVICE_LIST_UPDATE
         | DEVICE_PUSH_ROUTE
         | DEVICE_REVOKED
+        | KEY_BACKUP_ACTIVE_SERIES
         | KEY_VERIFICATION_ACCEPT
         | KEY_VERIFICATION_CANCEL
         | KEY_VERIFICATION_DONE
@@ -746,7 +789,7 @@ mod tests {
         assert_eq!(classify_event_kind(MESSAGE_CREATE), EventClass::Message);
         assert_eq!(classify_event_kind(REALM_CREATE), EventClass::Realm);
         assert_eq!(classify_event_kind(SPACE_CREATE), EventClass::Space);
-        assert_eq!(classify_event_kind(AGENT_PROTOCOL_SESSION_STATUS), EventClass::Agent);
+        assert_eq!(classify_event_kind(AGENT_INTEROP_SESSION_STATUS), EventClass::Agent);
         assert_eq!(classify_event_kind(CALL_SIGNAL), EventClass::Call);
         assert_eq!(
             classify_event_kind("vendor.example.widget"),

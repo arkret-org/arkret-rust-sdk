@@ -261,7 +261,6 @@ pub const OP_REALM_LINK: &str = "ck.realm.link";
 pub const OP_REALM_DELIVERY_BINDING_POLICY: &str = "ck.realm.delivery_binding_policy";
 pub const OP_REALM_DISAPPEARING_POLICY: &str = "ck.realm.disappearing_policy";
 pub const OP_REALM_INHERITANCE_POLICY: &str = "ck.realm.inheritance_policy";
-pub const OP_REALM_AUDIT_POLICY_DOWNGRADE: &str = "ck.realm.audit_policy_downgrade";
 pub const OP_REALM_PREVIEW_POLICY: &str = "ck.realm.preview_policy";
 pub const OP_CAPABILITY_DERIVED: &str = "ck.capability.derived";
 pub const OP_REALM_SEARCH_POLICY: &str = "ck.realm.search_policy";
@@ -458,11 +457,12 @@ pub const OP_ACCOUNT_DEVICE_PAIR: &str = "ck.gate.account.device_pair";
 pub const OP_ACCOUNT_ISSUE_SESSION_GRANT: &str = "ck.gate.account.issue_session_grant";
 pub const OP_ACCOUNT_OIDC_CALLBACK: &str = "ck.gate.account.oidc_callback";
 
-/// Admin / moderation-queue operations.
-pub const OP_ADMIN_GET_MODERATION_QUEUE: &str = "ck.admin.get_moderation_queue";
-pub const OP_ADMIN_GET_SERVER_STATUS: &str = "ck.admin.get_server_status";
-pub const OP_ADMIN_REVOKE_DEVICE: &str = "ck.admin.revoke_device";
-pub const OP_ADMIN_UPDATE_ACCOUNT_STATUS: &str = "ck.admin.update_account_status";
+// Admin / operator APIs (moderation queue, server status, device revocation,
+// account status) are product-local per spec @ 2026-06-04 and MUST NOT be
+// registered under the Cokret protocol namespace; servers expose them on
+// their own negative-space root such as /_soland/admin/*. They were removed
+// from the operation registry (see migration/removed-operation-ids.json) and
+// therefore carry no `OP_ADMIN_*` protocol constants here.
 
 /// Applet / bridge operations.
 pub const OP_APPLET_DESCRIBE: &str = "ck.edge.applet.describe";
@@ -483,8 +483,8 @@ pub const OP_APPLET_TRANSACTION: &str = "ck.edge.applet.transaction";
 /// carry the required-fields shapes for downstream submit validation.
 pub const OP_APPLET_BRIDGE_ERROR: &str = "ck.applet.bridge_error";
 pub const OP_APPLET_DISCOVERY: &str = "ck.applet.discovery";
-pub const OP_APPLET_PROTOCOL_SESSION_START: &str = "ck.applet.protocol_session.start";
-pub const OP_APPLET_PROTOCOL_SESSION_STATUS: &str = "ck.applet.protocol_session.status";
+pub const OP_APPLET_INTEROP_SESSION_START: &str = "ck.applet.interop_session.start";
+pub const OP_APPLET_INTEROP_SESSION_STATUS: &str = "ck.applet.interop_session.status";
 pub const OP_APPLET_REGISTRATION: &str = "ck.applet.registration";
 
 /// Agent protocol-session sub-events (round 13). Same shape as the
@@ -494,9 +494,9 @@ pub const OP_AGENT_ENDPOINT: &str = "ck.agent.endpoint";
 pub const OP_AGENT_KEY_AUTHORIZE: &str = "ck.agent.key.authorize";
 pub const OP_AGENT_KEY_REVOKE: &str = "ck.agent.key.revoke";
 pub const OP_AGENT_KEY_ROTATE: &str = "ck.agent.key.rotate";
-pub const OP_AGENT_PROTOCOL_SESSION_RESULT: &str = "ck.agent.protocol_session.result";
-pub const OP_AGENT_PROTOCOL_SESSION_START: &str = "ck.agent.protocol_session.start";
-pub const OP_AGENT_PROTOCOL_SESSION_STATUS: &str = "ck.agent.protocol_session.status";
+pub const OP_AGENT_INTEROP_SESSION_RESULT: &str = "ck.agent.interop_session.result";
+pub const OP_AGENT_INTEROP_SESSION_START: &str = "ck.agent.interop_session.start";
+pub const OP_AGENT_INTEROP_SESSION_STATUS: &str = "ck.agent.interop_session.status";
 
 /// Directory operations beyond the bare `describe`.
 pub const OP_DIRECTORY_PRIVATE_CONTACT_DISCOVERY: &str =
@@ -700,6 +700,35 @@ pub const OP_PUSH_UNREGISTER_DEVICE: &str = "ck.edge.push.unregister_device";
 pub const OP_ACCOUNT_SUBSCRIBE: &str = "ck.self.account.subscribe";
 pub const OP_SNAPSHOT_HEAD: &str = "ck.self.snapshot.head";
 
+// Spec-sync (operation-registry.json) — service operations the registry ships
+// that the SDK had not yet enumerated. Trust-surface segments: `gate` =
+// pre-auth account onboarding, `self` = authenticated account-scoped surface,
+// `peer` = inter-principal-server federation surface, `root` = identity-root
+// recovery surface.
+pub const OP_ACCOUNT_REGISTER: &str = "ck.gate.account.register";
+pub const OP_ACCOUNT_SESSION_REVOKE: &str = "ck.gate.account.session_revoke";
+pub const OP_ACCOUNT_UPDATE_PROFILE: &str = "ck.self.account.update_profile";
+pub const OP_ACCOUNT_VIEWER: &str = "ck.self.account.viewer";
+pub const OP_AGENT_PARTICIPATION_GET: &str = "ck.self.agent.participation.get";
+pub const OP_AGENT_PARTICIPATION_SET: &str = "ck.self.agent.participation.set";
+pub const OP_APPLET_INSTALL: &str = "ck.self.applet.install";
+pub const OP_APPLET_INSTALL_PREVIEW: &str = "ck.self.applet.install.preview";
+pub const OP_APPLET_REVOKE: &str = "ck.self.applet.revoke";
+pub const OP_INVITE_RECEIVE_POLICY_GET: &str = "ck.self.invite_receive_policy.get";
+pub const OP_INVITE_RECEIVE_POLICY_SET: &str = "ck.self.invite_receive_policy.set";
+pub const OP_PEER_CONTACTS_SUBMIT: &str = "ck.peer.contacts.submit";
+pub const OP_PEER_EVENTS_DESCRIBE: &str = "ck.peer.events.describe";
+pub const OP_PEER_EVENTS_FRONTIER: &str = "ck.peer.events.frontier";
+pub const OP_PEER_EVENTS_QUERY: &str = "ck.peer.events.query";
+pub const OP_PEER_EVENTS_QUERY_POST: &str = "ck.peer.events.query_post";
+pub const OP_PEER_EVENTS_RESOLVE: &str = "ck.peer.events.resolve";
+pub const OP_PEER_EVENTS_SUBMIT: &str = "ck.peer.events.submit";
+pub const OP_PEER_SNAPSHOT_HEAD: &str = "ck.peer.snapshot.head";
+pub const OP_RECOVERY_SESSION_COMPLETE: &str = "ck.root.identity.recovery_session.complete";
+pub const OP_RECOVERY_SESSION_CREATE: &str = "ck.root.identity.recovery_session.create";
+pub const OP_RECOVERY_SESSION_GET: &str = "ck.root.identity.recovery_session.get";
+pub const OP_RECOVERY_SESSION_SUBMIT_PROOF: &str = "ck.root.identity.recovery_session.submit_proof";
+
 /// Canonical service operation IDs built into this SDK.
 ///
 /// Event kinds live in `crate::events`; this list mirrors the spec
@@ -722,10 +751,6 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_AGENT_RESUME,
     OP_AGENT_ROTATE_KEY,
     OP_AGENT_SIDECAR_THREAD_ENSURE,
-    OP_ADMIN_GET_MODERATION_QUEUE,
-    OP_ADMIN_GET_SERVER_STATUS,
-    OP_ADMIN_REVOKE_DEVICE,
-    OP_ADMIN_UPDATE_ACCOUNT_STATUS,
     OP_APPLET_DESCRIBE,
     OP_APPLET_PING,
     OP_APPLET_PROTOCOL_METADATA,
@@ -734,7 +759,7 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_APPLET_THIRD_PARTY_LOCATIONS,
     OP_APPLET_THIRD_PARTY_USERS,
     OP_APPLET_TRANSACTION,
-    // Note: OP_APPLET_REGISTRATION / OP_APPLET_DISCOVERY / OP_APPLET_PROTOCOL_SESSION_*
+    // Note: OP_APPLET_REGISTRATION / OP_APPLET_DISCOVERY / OP_APPLET_INTEROP_SESSION_*
     // / OP_APPLET_BRIDGE_ERROR and OP_AGENT_* are reducer-input EVENTS
     // (registered in spec `event-kind-registry.json`), not service RPC
     // operations. They follow the same `OP_*` const naming for
@@ -818,6 +843,35 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_PUSH_REGISTER_DEVICE,
     OP_PUSH_UNREGISTER_DEVICE,
     OP_SNAPSHOT_HEAD,
+    // Spec-sync (operation-registry.json) additions.
+    OP_ACCOUNT_REGISTER,
+    OP_ACCOUNT_SESSION_REVOKE,
+    OP_ACCOUNT_UPDATE_PROFILE,
+    OP_ACCOUNT_VIEWER,
+    OP_AGENT_PARTICIPATION_GET,
+    OP_AGENT_PARTICIPATION_SET,
+    OP_APPLET_INSTALL,
+    OP_APPLET_INSTALL_PREVIEW,
+    OP_APPLET_REVOKE,
+    OP_CONTACT_LIST,
+    OP_CONTACT_REQUEST,
+    OP_CONTACT_RESPOND,
+    OP_CONTACT_TOMBSTONE,
+    OP_DIRECT_CONVERSATION_RESOLVE,
+    OP_INVITE_RECEIVE_POLICY_GET,
+    OP_INVITE_RECEIVE_POLICY_SET,
+    OP_PEER_CONTACTS_SUBMIT,
+    OP_PEER_EVENTS_DESCRIBE,
+    OP_PEER_EVENTS_FRONTIER,
+    OP_PEER_EVENTS_QUERY,
+    OP_PEER_EVENTS_QUERY_POST,
+    OP_PEER_EVENTS_RESOLVE,
+    OP_PEER_EVENTS_SUBMIT,
+    OP_PEER_SNAPSHOT_HEAD,
+    OP_RECOVERY_SESSION_COMPLETE,
+    OP_RECOVERY_SESSION_CREATE,
+    OP_RECOVERY_SESSION_GET,
+    OP_RECOVERY_SESSION_SUBMIT_PROOF,
 ];
 
 #[cfg(test)]

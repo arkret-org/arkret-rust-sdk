@@ -3,8 +3,8 @@
 //! Each struct here mirrors a JSON schema in
 //! `cokret-spec/spec/v1/artifacts/schemas/`:
 //!
-//! - `agent.schema.json` → [`AgentProtocolEnvelope`] + [`AgentAuditBinding`]
-//! - `applet.schema.json` → [`AppletProtocolEnvelope`] + [`AppletErrorContext`]
+//! - `agent.schema.json` → [`AgentInteropEnvelope`] + [`AgentAuditBinding`]
+//! - `applet.schema.json` → [`AppletInteropEnvelope`] + [`AppletErrorContext`]
 //! - `moderation-queue-item.schema.json` → [`ModerationQueueItem`]
 //!   + [`ModerationQueueStatus`] + [`ModerationQueuePriority`]
 //!   + [`ModerationQueueVisibility`] + [`ModerationEvidencePolicy`]
@@ -24,15 +24,15 @@ use serde_json::Value;
 use crate::Did;
 
 // ---------------------------------------------------------------------------
-// Agent protocol envelope (agent.schema.json)
+// Agent interop envelope (agent.schema.json)
 // ---------------------------------------------------------------------------
 
-/// Lifecycle state shared by `ck.agent.protocol_session.status` events
-/// (and `ck.applet.protocol_session.status` — see [`AppletProtocolEnvelope`]).
+/// Lifecycle state shared by `ck.agent.interop_session.status` events
+/// (and `ck.applet.interop_session.status` — see [`AppletInteropEnvelope`]).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
-pub enum ProtocolSessionStatus {
+pub enum InteropSessionStatus {
     Pending,
     Running,
     Completed,
@@ -45,25 +45,25 @@ pub enum ProtocolSessionStatus {
 /// in a `*.result` event carrying [`AgentAuditBinding`].
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AgentProtocolEnvelope {
+pub struct AgentInteropEnvelope {
     /// Stable agent runtime identifier. Spec v1: this is a DID;
     /// `ck:agent:*` is not a registered typed-id kind.
     pub agent_id: Did,
     /// HTTPS endpoint advertised by `ck.agent.endpoint` events.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub endpoint_url: Option<String>,
-    /// Per-invocation correlation id used by `protocol_session.start /
+    /// Per-invocation correlation id used by `interop_session.start /
     /// .status / .result` to pair request/response.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<String>,
-    /// Lifecycle state for `ck.agent.protocol_session.status` events.
+    /// Lifecycle state for `ck.agent.interop_session.status` events.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub status: Option<ProtocolSessionStatus>,
-    /// Caller-supplied parameters for `protocol_session.start`. Opaque
+    pub status: Option<InteropSessionStatus>,
+    /// Caller-supplied parameters for `interop_session.start`. Opaque
     /// to soland — agent runtimes interpret per agent manifest.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub params: Option<Value>,
-    /// Terminal payload for `ck.agent.protocol_session.result`.
+    /// Terminal payload for `ck.agent.interop_session.result`.
     /// Free-form; agents document the shape.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub result: Option<Value>,
@@ -78,11 +78,11 @@ pub struct AgentProtocolEnvelope {
 }
 
 /// Signed audit binding emitted with the terminal
-/// `ck.agent.protocol_session.result` event so callers can prove the
+/// `ck.agent.interop_session.result` event so callers can prove the
 /// agent runtime executed under a specific capability grant.
 ///
 /// This is the **wire envelope** that gets serialised onto the
-/// `audit_binding` field of [`AgentProtocolEnvelope`]. Verification and
+/// `audit_binding` field of [`AgentInteropEnvelope`]. Verification and
 /// signing of these bindings lives in
 /// `cokret_sdk::agent_binding` (Ed25519 implementation).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -98,15 +98,15 @@ pub struct AgentAuditBinding {
 }
 
 // ---------------------------------------------------------------------------
-// Applet protocol envelope (applet.schema.json)
+// Applet interop envelope (applet.schema.json)
 // ---------------------------------------------------------------------------
 
 /// Wire shape for the `ck.applet.*` event family
 /// (`applet.schema.json`): registration, discovery,
-/// `protocol_session.start`, `.status`, and `bridge_error`.
+/// `interop_session.start`, `.status`, and `bridge_error`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AppletProtocolEnvelope {
+pub struct AppletInteropEnvelope {
     /// Stable applet identifier. Either a DID or the registered
     /// typed-id form `ck:applet:<uuidv7>`. Arbitrary opaque strings
     /// are NOT valid wire identifiers — bridge-specific aliases
@@ -116,14 +116,14 @@ pub struct AppletProtocolEnvelope {
     /// registration / discovery).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub service_did: Option<Did>,
-    /// Per-invocation correlation id used by `protocol_session.start /
+    /// Per-invocation correlation id used by `interop_session.start /
     /// .status` to pair request/response.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<String>,
-    /// Lifecycle state for `ck.applet.protocol_session.status` events.
+    /// Lifecycle state for `ck.applet.interop_session.status` events.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub status: Option<ProtocolSessionStatus>,
-    /// Caller-supplied parameters for `protocol_session.start`. Opaque
+    pub status: Option<InteropSessionStatus>,
+    /// Caller-supplied parameters for `interop_session.start`. Opaque
     /// to soland — bridge implementations interpret per applet manifest.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub params: Option<Value>,
@@ -238,7 +238,7 @@ mod tests {
 
     #[test]
     fn agent_envelope_round_trips_minimal() {
-        let env = AgentProtocolEnvelope {
+        let env = AgentInteropEnvelope {
             agent_id: Did::new("did:web:agent.example.com".to_owned()).unwrap(),
             endpoint_url: None,
             session_id: None,
@@ -250,17 +250,17 @@ mod tests {
         };
         let json_text = serde_json::to_string(&env).unwrap();
         assert_eq!(json_text, r#"{"agent_id":"did:web:agent.example.com"}"#);
-        let parsed: AgentProtocolEnvelope = serde_json::from_str(&json_text).unwrap();
+        let parsed: AgentInteropEnvelope = serde_json::from_str(&json_text).unwrap();
         assert_eq!(parsed, env);
     }
 
     #[test]
     fn agent_envelope_status_round_trips() {
-        let env = AgentProtocolEnvelope {
+        let env = AgentInteropEnvelope {
             agent_id: Did::new("did:web:agent.example.com".to_owned()).unwrap(),
             endpoint_url: None,
             session_id: Some("session-1".to_owned()),
-            status: Some(ProtocolSessionStatus::Running),
+            status: Some(InteropSessionStatus::Running),
             params: Some(json!({"input": "hello"})),
             result: None,
             detail: None,
@@ -268,24 +268,24 @@ mod tests {
         };
         let json_text = serde_json::to_string(&env).unwrap();
         assert!(json_text.contains(r#""status":"running""#));
-        let parsed: AgentProtocolEnvelope = serde_json::from_str(&json_text).unwrap();
+        let parsed: AgentInteropEnvelope = serde_json::from_str(&json_text).unwrap();
         assert_eq!(parsed, env);
     }
 
     #[test]
     fn applet_envelope_round_trips() {
-        let env = AppletProtocolEnvelope {
+        let env = AppletInteropEnvelope {
             applet_id: "ck:applet:01970e58-9d21-7000-8000-aaaaaaaaaaaa".to_owned(),
             service_did: Some(Did::new("did:web:bridge.example.com".to_owned()).unwrap()),
             session_id: Some("sess-1".to_owned()),
-            status: Some(ProtocolSessionStatus::Completed),
+            status: Some(InteropSessionStatus::Completed),
             params: None,
             detail: Some(json!({"bridge": "matrix"})),
             error: None,
             manifest: None,
         };
         let json_text = serde_json::to_string(&env).unwrap();
-        let parsed: AppletProtocolEnvelope = serde_json::from_str(&json_text).unwrap();
+        let parsed: AppletInteropEnvelope = serde_json::from_str(&json_text).unwrap();
         assert_eq!(parsed, env);
     }
 

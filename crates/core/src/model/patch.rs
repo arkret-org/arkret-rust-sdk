@@ -380,7 +380,7 @@ fn validate_object_patch_ref(field: &str, value: &str) -> Result<()> {
     static OBJECT_REF: OnceLock<regex::Regex> = OnceLock::new();
     let object_ref = OBJECT_REF.get_or_init(|| {
         regex::Regex::new(
-            r"^(ck:(realm|space|actor_profile|flow|message|morph|relation|view|policy|grant|invite|call|agent_session|blob|snapshot|event|frank|report):[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|ck:blob:sha256:[0-9a-f]{64}|did:[^\s]+|sha256:[0-9a-f]{64})$",
+            r"^(ck:(realm|space|actor_profile|flow|message|morph|relation|view|policy|grant|invite|call|agent_interop_session|blob|snapshot|event|frank|report):[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|ck:blob:sha256:[0-9a-f]{64}|did:[^\s]+|sha256:[0-9a-f]{64})$",
         )
         .expect("object_ref regex compiles")
     });

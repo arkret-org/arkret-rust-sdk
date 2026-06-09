@@ -1,4 +1,4 @@
-//! Ed25519 `audit_binding` for the `ck.agent.protocol_session.result`
+//! Ed25519 `audit_binding` for the `ck.agent.interop_session.result`
 //! envelope.
 //!
 //! An agent runtime proves that a result envelope came from a runtime
@@ -173,7 +173,7 @@ pub enum AuditBindingVerifyOutcome {
     Absent,
 }
 
-/// Verify a `ck.agent.protocol_session.result` payload's
+/// Verify a `ck.agent.interop_session.result` payload's
 /// `audit_binding` block, dispatched by `binding_kind`.
 ///
 /// The `payload` is the projection event's `payload` field as

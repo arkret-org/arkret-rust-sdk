@@ -10,13 +10,13 @@ use salvo::oapi::{
 };
 
 use crate::{
-    AccountabilityGrantId, ActorProfileId, AgentDraftId, AgentKeyId, AgentSessionId, AnchorId,
-    AnnounceId, AppletId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId, CallId,
-    CapabilityId, CellRef, ChunkId, CircleId, ClaimId, Cursor, DeviceId, DeviceMessageId, Did,
-    EventId, FilterId, FlowId, FrameId, FrankingProofId, GrantId, Hash, Hlc, InviteId, KeyEventId,
-    MessageId, ModerationQueueItemId, MorphId, MoveId, NotificationId, OperationId, PolicyId,
-    PresentationId, ReadCursorId, RealmId, ReceiptId, RecoverySessionId, RelationId, ReportId,
-    RequestId, SidecarCircleId, SnapshotId, SpaceId, TransactionId, TypedAppealId,
+    AccountabilityGrantId, ActorProfileId, AgentDraftId, AgentInteropSessionId, AgentKeyId,
+    AnchorId, AnnounceId, AppletId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId,
+    CallId, CapabilityId, CellRef, ChunkId, CircleId, ClaimId, Cursor, DeviceId, DeviceMessageId,
+    Did, EventId, FilterId, FlowId, FrameId, FrankingProofId, GrantId, Hash, Hlc, InviteId,
+    KeyEventId, MessageId, ModerationQueueItemId, MorphId, MoveId, NotificationId, OperationId,
+    PolicyId, PresentationId, ReadCursorId, RealmId, ReceiptId, RecoverySessionId, RelationId,
+    ReportId, RequestId, SidecarCircleId, SnapshotId, SpaceId, TransactionId, TypedAppealId,
     TypedTrustDomainId, ViewId,
 };
 
@@ -52,8 +52,8 @@ impl_string_schema!(
     r"^ck:actor_profile:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
 impl_string_schema!(
-    AgentSessionId,
-    r"^ck:agent_session:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    AgentInteropSessionId,
+    r"^ck:agent_interop_session:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 );
 // CKP-0008 / CKP-0009 (spec head 37ce729) — personal agent auxiliary
 // typed ids + key-backup hardening typed ids. `agent_principal_id` uses

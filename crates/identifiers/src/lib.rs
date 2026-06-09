@@ -227,7 +227,10 @@ id_type!(Did, is_did);
 id_type!(ActorProfileId, |value: &str| is_strict_typed_id(value, "ck:actor_profile:"));
 // CKP-0008/0009 (spec head 37ce729) — personal agent auxiliary typed ids.
 // `agent_principal_id` is a DID scalar, represented by `Did`.
-id_type!(AgentSessionId, |value: &str| is_strict_typed_id(value, "ck:agent_session:"));
+id_type!(AgentInteropSessionId, |value: &str| is_strict_typed_id(
+    value,
+    "ck:agent_interop_session:"
+));
 id_type!(AgentKeyId, |value: &str| is_strict_typed_id(value, "ck:agent_key:"));
 id_type!(AgentDraftId, |value: &str| is_strict_typed_id(value, "ck:agent_draft:"));
 id_type!(AccountabilityGrantId, |value: &str| is_strict_typed_id(
@@ -490,7 +493,7 @@ mod tests {
         }
 
         assert_id!(ActorProfileId, "ck:actor_profile:");
-        assert_id!(AgentSessionId, "ck:agent_session:");
+        assert_id!(AgentInteropSessionId, "ck:agent_interop_session:");
         assert_id!(AgentKeyId, "ck:agent_key:");
         assert_id!(AgentDraftId, "ck:agent_draft:");
         assert_id!(AccountabilityGrantId, "ck:accountability_grant:");

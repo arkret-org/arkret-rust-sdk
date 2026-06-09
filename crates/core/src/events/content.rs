@@ -1075,7 +1075,7 @@ mod tests {
         for (kind, class) in [
             (REACTION_ADD, EventClass::Message),
             (CALL_SIGNAL, EventClass::Call),
-            (AGENT_PROTOCOL_SESSION_STATUS, EventClass::Agent),
+            (AGENT_INTEROP_SESSION_STATUS, EventClass::Agent),
             (MLS_WELCOME, EventClass::E2ee),
         ] {
             let content =

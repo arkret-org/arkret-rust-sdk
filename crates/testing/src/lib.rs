@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use cokret_core::{
     AnchorId, CellRef, Did, Error, Event, Hash, Hlc, Move, MoveId, RealmId, Result, canonical,
     events::{
-        AGENT_PROTOCOL_SESSION_STATUS, AnyEventContent, CALL_SIGNAL, EventClass,
+        AGENT_INTEROP_SESSION_STATUS, AnyEventContent, CALL_SIGNAL, EventClass,
         EventContentEnvelope, MESSAGE_CREATE, MLS_WELCOME, REACTION_ADD, classify_event_kind,
         parse_event_content,
     },
@@ -277,11 +277,15 @@ pub fn endpoint_coverage_rows() -> Vec<EndpointCoverageRow> {
 }
 
 fn operation_domain(operation_id: &str) -> ConformanceDomain {
-    if operation_id.starts_with("ck.applet.") {
+    // Operation ids carry a trust-surface segment (`ck.<surface>.<service>.*`):
+    // applet RPC lives under `ck.edge.applet.*`, applet install/revoke under
+    // `ck.self.applet.*`; push under `ck.edge.push.*`; identity-root operations
+    // under `ck.root.identity.*`.
+    if operation_id.starts_with("ck.edge.applet.") || operation_id.starts_with("ck.self.applet.") {
         ConformanceDomain::Applet
     } else if operation_id.starts_with("ck.edge.push.") {
         ConformanceDomain::PushGateway
-    } else if operation_id.starts_with("ck.identity.") {
+    } else if operation_id.starts_with("ck.root.identity.") {
         ConformanceDomain::Identity
     } else {
         ConformanceDomain::ClientServer
@@ -462,7 +466,7 @@ pub fn event_taxonomy_vectors() -> Result<Vec<EventTaxonomyVector>> {
         "activity": "viewing",
         "observed_at": "2026-05-01T00:00:00Z"
     });
-    parse_event_content(AGENT_PROTOCOL_SESSION_STATUS, activity_beacon.clone())?;
+    parse_event_content(AGENT_INTEROP_SESSION_STATUS, activity_beacon.clone())?;
 
     let secret_send = json!({
         "request_id": "req-1",
@@ -499,8 +503,8 @@ pub fn event_taxonomy_vectors() -> Result<Vec<EventTaxonomyVector>> {
         },
         EventTaxonomyVector {
             name: "collaboration activity beacon content".to_owned(),
-            kind: AGENT_PROTOCOL_SESSION_STATUS.to_owned(),
-            expected_class: classify_event_kind(AGENT_PROTOCOL_SESSION_STATUS),
+            kind: AGENT_INTEROP_SESSION_STATUS.to_owned(),
+            expected_class: classify_event_kind(AGENT_INTEROP_SESSION_STATUS),
             input: activity_beacon,
             preserves_unknown: false,
         },
