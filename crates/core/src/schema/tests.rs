@@ -43,6 +43,30 @@ fn event_payload_catalog_validates_known_payload_fields() {
 }
 
 #[test]
+fn relation_create_payload_strong_type_passes_spec_validator() {
+    let catalog = event_payload_validator_catalog();
+    let payload = crate::model::RelationCreatePayload::new(
+        "ck.relation.parent_of",
+        "ck:flow:01904100-0000-7000-8000-111111111111",
+        "ck:flow:01904100-0000-7000-8000-222222222222",
+    )
+    .with_rank("U");
+    catalog
+        .validate_payload("ck.relation.create", &payload.to_value().unwrap())
+        .unwrap();
+
+    // deny_unknown_fields: the legacy illegal keys (relation_id / fields /
+    // scope_circle_id) are not representable and would be rejected by the
+    // spec validator if injected.
+    let mut leaky = payload.to_value().unwrap();
+    leaky["fields"] = json!({"role": "x"});
+    assert!(matches!(
+        catalog.validate_payload("ck.relation.create", &leaky),
+        Err(Error::Protocol(_))
+    ));
+}
+
+#[test]
 fn artifact_payload_catalog_covers_active_durable_event_kinds() {
     let Some(artifacts_dir) = default_spec_artifacts_dir() else {
         return;

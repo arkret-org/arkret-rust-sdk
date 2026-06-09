@@ -749,8 +749,9 @@ pub type RealmSearchPolicyPayload = Value;
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_tombstone_payload`.
 pub type RealmTombstonePayload = Value;
 
-/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/relation_create_payload`.
-pub type RelationCreatePayload = Value;
+// `relation_create_payload` now has a strong type:
+// `model::operation_payloads::RelationCreatePayload` (replaces the former
+// `= Value` alias as part of the wire strong-type migration).
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/relation_update_payload`.
 pub type RelationUpdatePayload = Value;

@@ -208,6 +208,50 @@ impl FlowPatchPayload {
     }
 }
 
+/// Flat-form payload for `ck.relation.create`
+/// (`#/$defs/relation_create_payload`).
+///
+/// The spec `anyOf` allows either an embedded `{relation: <object_snapshot>}`
+/// or the flat `{kind, from_ref, to_ref}` triple; this strong type models the
+/// flat form (the only shape yougen constructs). `additionalProperties:false`
+/// — so the legacy `relation_id` / `scope_circle_id` / `fields` keys that
+/// older call sites tried to emit are intentionally NOT representable here;
+/// the relation id is routed via the operation `target_ref`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RelationCreatePayload {
+    /// Registered `relation_kind` (e.g. `ck.relation.parent_of`).
+    pub kind: String,
+    /// Source endpoint `object_ref` (canonical typed id / did / digest).
+    pub from_ref: ObjectRef,
+    /// Target endpoint `object_ref`.
+    pub to_ref: ObjectRef,
+    /// Optional lexical ordering rank.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rank: Option<String>,
+}
+
+impl RelationCreatePayload {
+    pub fn new(
+        kind: impl Into<String>,
+        from_ref: impl Into<ObjectRef>,
+        to_ref: impl Into<ObjectRef>,
+    ) -> Self {
+        Self { kind: kind.into(), from_ref: from_ref.into(), to_ref: to_ref.into(), rank: None }
+    }
+
+    pub fn with_rank(mut self, rank: impl Into<String>) -> Self {
+        self.rank = Some(rank.into());
+        self
+    }
+
+    pub fn to_value(&self) -> Result<Value> {
+        serde_json::to_value(self)
+            .map_err(|err| Error::Protocol(format!("relation create payload serialize: {err}")))
+    }
+}
+
 /// Current wire object carried by `ck.morph.create`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MorphCreateObject {
