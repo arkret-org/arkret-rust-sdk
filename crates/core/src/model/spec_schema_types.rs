@@ -719,14 +719,16 @@ pub type ReactionPayload = Value;
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/read_receipt_policy_payload`.
 pub type ReadReceiptPolicyPayload = Value;
 
-/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_archive_payload`.
-pub type RealmArchivePayload = Value;
+// `realm_archive_payload` now has a strong type:
+// `model::operation_payloads::RealmArchivePayload` (replaces the former
+// `= Value` alias as part of the wire strong-type migration).
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_create_payload`.
 pub type RealmCreatePayload = Value;
 
-/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_destroy_payload`.
-pub type RealmDestroyPayload = Value;
+// `realm_destroy_payload` now has a strong type:
+// `model::operation_payloads::RealmDestroyPayload` (replaces the former
+// `= Value` alias as part of the wire strong-type migration).
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_disappearing_policy_payload`.
 pub type RealmDisappearingPolicyPayload = Value;
@@ -752,8 +754,9 @@ pub type RealmKeyWithheldPayload = Value;
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_search_policy_payload`.
 pub type RealmSearchPolicyPayload = Value;
 
-/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_tombstone_payload`.
-pub type RealmTombstonePayload = Value;
+// `realm_tombstone_payload` now has a strong type:
+// `model::operation_payloads::RealmTombstonePayload` (replaces the former
+// `= Value` alias as part of the wire strong-type migration).
 
 // `relation_create_payload` now has a strong type:
 // `model::operation_payloads::RelationCreatePayload` (replaces the former

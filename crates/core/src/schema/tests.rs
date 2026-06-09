@@ -141,6 +141,49 @@ fn invite_payload_strong_types_pass_spec_validator() {
 }
 
 #[test]
+fn realm_lifecycle_payloads_strong_types_pass_spec_validator() {
+    use crate::model::{RealmArchivePayload, RealmDestroyPayload, RealmId, RealmTombstonePayload};
+    let catalog = event_payload_validator_catalog();
+
+    // ck.realm.archive: reversible boolean register; `archived:false` un-archives.
+    let archive = RealmArchivePayload::new(true).with_reason("retiring legacy realm");
+    catalog
+        .validate_payload("ck.realm.archive", &archive.to_value().unwrap())
+        .unwrap();
+    catalog
+        .validate_payload(
+            "ck.realm.archive",
+            &RealmArchivePayload::new(false).to_value().unwrap(),
+        )
+        .unwrap();
+
+    // ck.realm.tombstone: reason + successor_realm_id both required by spec.
+    let tombstone = RealmTombstonePayload::new(
+        RealmId::new("ck:realm:01904100-0000-7000-8000-333333333333").unwrap(),
+        "migrated to successor",
+    );
+    catalog
+        .validate_payload("ck.realm.tombstone", &tombstone.to_value().unwrap())
+        .unwrap();
+
+    // ck.realm.destroy: reason required; verification_stub_required omitted so
+    // the reducer applies its default (true).
+    let destroy = RealmDestroyPayload::new("permanent retirement");
+    catalog
+        .validate_payload("ck.realm.destroy", &destroy.to_value().unwrap())
+        .unwrap();
+
+    // deny_unknown_fields: an illegal key on any of these is rejected by the
+    // spec validator (all three defs are additionalProperties:false).
+    let mut leaky = archive.to_value().unwrap();
+    leaky["successor_realm_id"] = json!("ck:realm:01904100-0000-7000-8000-444444444444");
+    assert!(matches!(
+        catalog.validate_payload("ck.realm.archive", &leaky),
+        Err(Error::Protocol(_))
+    ));
+}
+
+#[test]
 fn artifact_payload_catalog_covers_active_durable_event_kinds() {
     let Some(artifacts_dir) = default_spec_artifacts_dir() else {
         return;

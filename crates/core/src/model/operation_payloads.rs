@@ -43,6 +43,19 @@ where
     serializer.serialize_str(&canonical::format_timestamp_canonical(value.to_owned()))
 }
 
+fn serialize_optional_canonical_timestamp<S>(
+    value: &Option<DateTime<Utc>>,
+    serializer: S,
+) -> std::result::Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    match value {
+        Some(ts) => serializer.serialize_str(&canonical::format_timestamp_canonical(ts.to_owned())),
+        None => serializer.serialize_none(),
+    }
+}
+
 fn deserialize_canonical_timestamp<'de, D>(
     deserializer: D,
 ) -> std::result::Result<DateTime<Utc>, D::Error>
@@ -507,6 +520,126 @@ impl InviteRefPayload {
     pub fn to_value(&self) -> Result<Value> {
         serde_json::to_value(self)
             .map_err(|err| Error::Protocol(format!("invite ref payload serialize: {err}")))
+    }
+}
+
+/// Strong type for `ck.realm.archive` payloads
+/// (`event-payload.schema.json#/$defs/realm_archive_payload`).
+///
+/// Reversible boolean register (there is no separate `ck.realm.restore`):
+/// `archived:false` un-archives. `additionalProperties:false`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RealmArchivePayload {
+    pub archived: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    /// Canonical `Z`-suffixed timestamp; the reducer treats absence as "now".
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "serialize_optional_canonical_timestamp"
+    )]
+    pub effective_at: Option<DateTime<Utc>>,
+}
+
+impl RealmArchivePayload {
+    pub fn new(archived: bool) -> Self {
+        Self { archived, reason: None, effective_at: None }
+    }
+
+    pub fn with_reason(mut self, reason: impl Into<String>) -> Self {
+        let reason = reason.into();
+        if !reason.trim().is_empty() {
+            self.reason = Some(reason);
+        }
+        self
+    }
+
+    pub fn to_value(&self) -> Result<Value> {
+        serde_json::to_value(self)
+            .map_err(|err| Error::Protocol(format!("realm archive payload serialize: {err}")))
+    }
+}
+
+/// Strong type for `ck.realm.tombstone` payloads
+/// (`event-payload.schema.json#/$defs/realm_tombstone_payload`).
+///
+/// Terminal lifecycle event pointing at a successor Realm. `reason` and
+/// `successor_realm_id` are both required by spec; callers without a successor
+/// must use [`RealmDestroyPayload`] instead. `additionalProperties:false`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RealmTombstonePayload {
+    pub reason: String,
+    pub successor_realm_id: RealmId,
+    /// Optional `event_ref` (`^ck:event:` typed id) of the replacing event;
+    /// carried as a bare string per the spec wire shape.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub replacement_event: Option<ObjectRef>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "serialize_optional_canonical_timestamp"
+    )]
+    pub effective_at: Option<DateTime<Utc>>,
+}
+
+impl RealmTombstonePayload {
+    pub fn new(successor_realm_id: RealmId, reason: impl Into<String>) -> Self {
+        Self {
+            reason: reason.into(),
+            successor_realm_id,
+            replacement_event: None,
+            effective_at: None,
+        }
+    }
+
+    pub fn to_value(&self) -> Result<Value> {
+        serde_json::to_value(self)
+            .map_err(|err| Error::Protocol(format!("realm tombstone payload serialize: {err}")))
+    }
+}
+
+/// Strong type for `ck.realm.destroy` payloads
+/// (`event-payload.schema.json#/$defs/realm_destroy_payload`).
+///
+/// Terminal lifecycle event with no successor. `reason` is required;
+/// `verification_stub_required` defaults to `true` (omitted on the wire when
+/// unset so the reducer applies its default). `additionalProperties:false`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct RealmDestroyPayload {
+    pub reason: String,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "serialize_optional_canonical_timestamp"
+    )]
+    pub effective_at: Option<DateTime<Utc>>,
+    /// Optional retention-policy `object_ref` (bare string per spec wire shape).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retention_policy_id: Option<ObjectRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verification_stub_required: Option<bool>,
+}
+
+impl RealmDestroyPayload {
+    pub fn new(reason: impl Into<String>) -> Self {
+        Self {
+            reason: reason.into(),
+            effective_at: None,
+            retention_policy_id: None,
+            verification_stub_required: None,
+        }
+    }
+
+    pub fn to_value(&self) -> Result<Value> {
+        serde_json::to_value(self)
+            .map_err(|err| Error::Protocol(format!("realm destroy payload serialize: {err}")))
     }
 }
 
