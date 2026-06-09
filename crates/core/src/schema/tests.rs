@@ -265,6 +265,59 @@ fn flow_lifecycle_payloads_strong_types_pass_spec_validator() {
 }
 
 #[test]
+fn realm_state_payloads_strong_types_match_named_spec_defs() {
+    // The kind→def resolver routes these realm-state kinds to the lenient
+    // `generic_standard_payload`, so we validate the strong types DIRECTLY
+    // against their named `$defs/*_payload` schema_ref (the shape these defs
+    // describe) rather than via `validate_payload(kind, …)`.
+    use crate::model::{
+        Did, HistoryVisibility, HistoryVisibilityPayload, PlaintextDataClassKind,
+        PlaintextServiceVisibility, PlaintextVisibleService, PlaintextVisibleServicesPayload,
+    };
+    let Some(artifacts_dir) = default_spec_artifacts_dir() else {
+        return;
+    };
+    let registry = schema_registry_from_spec_artifacts(artifacts_dir).unwrap();
+    let history_ref = format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/history_visibility_payload");
+    let services_ref =
+        format!("{EVENT_PAYLOAD_SCHEMA}#/$defs/plaintext_visible_services_payload");
+
+    // history_visibility: non-restricted value carries just `{value}`.
+    let shared = HistoryVisibilityPayload::new(HistoryVisibility::Shared);
+    registry.validate_value(&history_ref, &shared.to_value().unwrap()).unwrap();
+    // restricted requires restricted_policy_digest (schema allOf); to_value
+    // refuses to emit a non-conformant restricted payload.
+    assert!(HistoryVisibilityPayload::new(HistoryVisibility::Restricted).to_value().is_err());
+    let restricted =
+        HistoryVisibilityPayload::restricted("sha256:".to_owned() + &"a".repeat(64));
+    registry.validate_value(&history_ref, &restricted.to_value().unwrap()).unwrap();
+    // deny_unknown_fields: an unknown key is rejected by the named def
+    // (additionalProperties:false).
+    let mut leaky = shared.to_value().unwrap();
+    leaky["unexpected"] = json!(true);
+    assert!(registry.validate_value(&history_ref, &leaky).is_err());
+
+    // plaintext_visible_services: required item fields strongly typed.
+    let services = PlaintextVisibleServicesPayload::new(vec![PlaintextVisibleService::new(
+        Did::new("did:web:index.example").unwrap(),
+        "principal_server",
+        vec![
+            PlaintextDataClassKind::MessageContent,
+            PlaintextDataClassKind::FullTextIndex,
+            PlaintextDataClassKind::NotificationSummary,
+            PlaintextDataClassKind::InboxPreview,
+        ],
+        vec!["message_index".to_owned(), "notification_fanout".to_owned()],
+        PlaintextServiceVisibility::PrivatePlaintext,
+    )]);
+    registry.validate_value(&services_ref, &services.to_value().unwrap()).unwrap();
+    // top-level additionalProperties:false on the payload.
+    let mut leaky_services = services.to_value().unwrap();
+    leaky_services["unexpected"] = json!(true);
+    assert!(registry.validate_value(&services_ref, &leaky_services).is_err());
+}
+
+#[test]
 fn artifact_payload_catalog_covers_active_durable_event_kinds() {
     let Some(artifacts_dir) = default_spec_artifacts_dir() else {
         return;

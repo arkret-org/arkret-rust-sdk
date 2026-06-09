@@ -461,6 +461,7 @@ pub struct InviteCreatePayload {
     pub reason: Option<String>,
     /// `x_*` extension properties (key is stored WITHOUT the `x_` prefix; the
     /// prefix is re-applied on serialize). e.g. `role` => wire `x_role`.
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(flatten, default, with = "x_prefixed_map")]
     pub extensions: BTreeMap<String, Value>,
 }
@@ -920,6 +921,172 @@ impl ObjectLifecyclePayload {
     pub fn to_value(&self) -> Result<Value> {
         serde_json::to_value(self)
             .map_err(|err| Error::Protocol(format!("object lifecycle payload serialize: {err}")))
+    }
+}
+
+/// Strong type for `ck.realm.history_visibility` payloads
+/// (`event-payload.schema.json#/$defs/history_visibility_payload`).
+///
+/// `{ value, restricted_policy_digest?, reason? }`, `additionalProperties
+/// :false`. Per the schema `allOf`, `restricted_policy_digest` is required
+/// when `value == restricted`; [`HistoryVisibilityPayload::to_value`] enforces
+/// that conditional.
+///
+/// Note: the SDK event-payload validator currently resolves
+/// `ck.realm.history_visibility` to the lenient `generic_standard_payload`
+/// (the kind→def resolver has no `realm.history_visibility` arm and there is no
+/// `realm_history_visibility_payload` def). This strong type still gives yougen
+/// compile-time field safety and `additionalProperties:false` at serialize
+/// time; a guard test validates it directly against the named def schema_ref.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct HistoryVisibilityPayload {
+    pub value: HistoryVisibility,
+    /// Digest of the effective `ck.realm.history_sharing_policy` value;
+    /// required when `value == restricted`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub restricted_policy_digest: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+impl HistoryVisibilityPayload {
+    pub fn new(value: HistoryVisibility) -> Self {
+        Self { value, restricted_policy_digest: None, reason: None }
+    }
+
+    /// Build a `restricted` payload with its mandatory policy digest.
+    pub fn restricted(restricted_policy_digest: impl Into<String>) -> Self {
+        Self {
+            value: HistoryVisibility::Restricted,
+            restricted_policy_digest: Some(restricted_policy_digest.into()),
+            reason: None,
+        }
+    }
+
+    pub fn with_reason(mut self, reason: impl Into<String>) -> Self {
+        self.reason = Some(reason.into());
+        self
+    }
+
+    pub fn to_value(&self) -> Result<Value> {
+        if self.value == HistoryVisibility::Restricted
+            && self.restricted_policy_digest.is_none()
+        {
+            return Err(Error::Protocol(
+                "history_visibility=restricted requires restricted_policy_digest".to_owned(),
+            ));
+        }
+        serde_json::to_value(self).map_err(|err| {
+            Error::Protocol(format!("history visibility payload serialize: {err}"))
+        })
+    }
+}
+
+/// Closed machine-checkable class of plaintext / reversible-derived content a
+/// service may receive
+/// (`event-payload.schema.json#/$defs/plaintext_data_class`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum PlaintextDataClassKind {
+    MessageContent,
+    FlowContent,
+    AttachmentPlaintext,
+    AttachmentPreview,
+    Thumbnail,
+    FullTextIndex,
+    SearchSnippet,
+    Embedding,
+    NotificationSummary,
+    InboxPreview,
+    HistoryPreview,
+    PublicHistoryExport,
+    MediaPlaintext,
+    DerivedPlaintext,
+    AccountPrivateState,
+    ProfilePrivateField,
+}
+
+/// Plaintext exposure level for a declared service
+/// (`plaintext_visible_services_payload` item `visibility`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum PlaintextServiceVisibility {
+    PrivatePlaintext,
+    DerivedPlaintext,
+}
+
+/// One declared plaintext-visible service
+/// (`plaintext_visible_services_payload` `services[]` item).
+///
+/// The spec item is `additionalProperties:true`, so this struct does NOT use
+/// `deny_unknown_fields`; the required fields are strongly typed and any future
+/// extension keys remain wire-compatible.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct PlaintextVisibleService {
+    pub service_did: Did,
+    pub service_type: String,
+    pub data_classes: Vec<PlaintextDataClassKind>,
+    pub purposes: Vec<String>,
+    pub visibility: PlaintextServiceVisibility,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "serialize_optional_canonical_timestamp"
+    )]
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
+impl PlaintextVisibleService {
+    pub fn new(
+        service_did: Did,
+        service_type: impl Into<String>,
+        data_classes: Vec<PlaintextDataClassKind>,
+        purposes: Vec<String>,
+        visibility: PlaintextServiceVisibility,
+    ) -> Self {
+        Self {
+            service_did,
+            service_type: service_type.into(),
+            data_classes,
+            purposes,
+            visibility,
+            expires_at: None,
+        }
+    }
+}
+
+/// Strong type for `ck.realm.plaintext_visible_services` payloads
+/// (`event-payload.schema.json#/$defs/plaintext_visible_services_payload`).
+///
+/// `{ services: [...] }`, top-level `additionalProperties:false`. Declares the
+/// services allowed to receive plaintext / reversible-derived content outside
+/// the E2EE boundary.
+///
+/// Note: like [`HistoryVisibilityPayload`], the SDK kind→def resolver currently
+/// routes `ck.realm.plaintext_visible_services` to `generic_standard_payload`;
+/// this type still gives compile-time field safety, and the guard test
+/// validates directly against the named def schema_ref.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct PlaintextVisibleServicesPayload {
+    pub services: Vec<PlaintextVisibleService>,
+}
+
+impl PlaintextVisibleServicesPayload {
+    pub fn new(services: Vec<PlaintextVisibleService>) -> Self {
+        Self { services }
+    }
+
+    pub fn to_value(&self) -> Result<Value> {
+        serde_json::to_value(self).map_err(|err| {
+            Error::Protocol(format!("plaintext visible services payload serialize: {err}"))
+        })
     }
 }
 

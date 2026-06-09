@@ -602,8 +602,13 @@ pub type HistorySharingPolicyPayload = Value;
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/history_sharing_restricted_rule`.
 pub type HistorySharingRestrictedRule = Value;
 
-/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/history_visibility_payload`.
-pub type HistoryVisibilityPayload = Value;
+// `history_visibility_payload` now has a strong type:
+// `model::operation_payloads::HistoryVisibilityPayload` (`{value,
+// restricted_policy_digest?, reason?}`, deny_unknown_fields, with the
+// `value==restricted ⇒ restricted_policy_digest` conditional enforced by
+// `to_value`). NB: the kind→def resolver still routes
+// `ck.realm.history_visibility` to `generic_standard_payload` (no resolver arm
+// / no `realm_history_visibility_payload` def) — see the type's doc comment.
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/history_visibility_value`.
 pub type HistoryVisibilityValue = String;
@@ -709,8 +714,12 @@ pub type PatchValue = Value;
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/plaintext_data_class`.
 pub type PlaintextDataClass = String;
 
-/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/plaintext_visible_services_payload`.
-pub type PlaintextVisibleServicesPayload = Value;
+// `plaintext_visible_services_payload` now has a strong type:
+// `model::operation_payloads::PlaintextVisibleServicesPayload` (`{services:
+// [PlaintextVisibleService]}`, top-level deny_unknown_fields; item required
+// fields strongly typed with `PlaintextDataClassKind` / `PlaintextServiceVisibility`
+// enums, item kept open per spec additionalProperties:true). Resolver routes
+// the kind to `generic_standard_payload` — see the type's doc comment.
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/preview_policy_payload`.
 pub type PreviewPolicyPayload = Value;
