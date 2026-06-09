@@ -90,12 +90,20 @@ fn validate_fallback_payload_shape(event_kind: &str, payload: &Value) -> Result<
         "ck.member.state" => validate_known_fields(
             event_kind,
             object,
+            // Must mirror the `membership_payload` property set in
+            // `event-payload.schema.json` (additionalProperties:false). The
+            // strong schema makes `realm_id` REQUIRED whenever
+            // `membership == "join"`, so the fallback allowlist MUST permit it
+            // (and `gate_proofs`) or registry-absent clients (wasm) reject
+            // their own well-formed invite-accept events.
             &[
                 "flow_id",
+                "realm_id",
                 "actor_id",
                 "membership",
                 "delivery_status",
                 "delivery_binding",
+                "gate_proofs",
                 "via_service_dids",
                 "reason",
                 "invite_ref",
@@ -898,10 +906,16 @@ mod tests {
     fn fallback_catalog_accepts_member_state_invite_ref() {
         let catalog = fallback_event_payload_validator_catalog();
 
+        // Mirrors the exact wire shape yougen emits for invite-accept: a
+        // `membership == "join"` payload carrying `realm_id` (REQUIRED by the
+        // strong `membership_payload` schema for join). Registry-absent
+        // clients validate against this fallback, so `realm_id` MUST be
+        // accepted here.
         catalog
             .validate_payload(
                 "ck.member.state",
                 &json!({
+                    "realm_id": "ck:realm:0196419b-0000-7000-8000-000000000010",
                     "actor_id": "did:web:bob.example",
                     "membership": "join",
                     "reason": "invite_accept",
