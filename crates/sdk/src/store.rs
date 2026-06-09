@@ -365,7 +365,7 @@ mod tests {
     fn morph_event(event_id: &str, title: &str) -> Event {
         Event {
             event_id: EventId::new(event_id).unwrap(),
-            kind: crate::OP_MORPH_CREATE.to_owned(),
+            kind: crate::OP_MORPH_CREATE.into(),
             realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-9b64700c6ee8").unwrap(),
             actor_id: Did::new("did:web:alice.example.com").unwrap(),
             actor_seq: 1,

@@ -702,92 +702,37 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
     }
 }
 
-// ── Typed `EventKind` wrapper ──────────────────────────────────────────
+// ── Typed `EventKind` ──────────────────────────────────────────────────
 //
-// Lightweight newtype over a known event-kind string. Callers can
-// construct one only via [`EventKind::try_new`] (validated against
-// [`STANDARD_EVENT_KINDS`]) or from one of the `pub const *` strings via
-// [`EventKind::from_const`]; this keeps the wire form a `&'static str`
-// and avoids the maintenance overhead of an exhaustive 155-variant
-// enum while still giving function signatures a type-safe alternative
-// to bare `&str`.
+// The strongly-typed `EventKind` enum (one variant per active `ck.*` kind,
+// plus an `Unknown(String)` forward-compat catch-all) is generated from
+// `event-kind-registry.json` into `crate::generated::event_kinds`; see
+// `tools/generate-sdk-event-kinds.ps1`. It is re-exported here so callers
+// continue to reach it via `crate::events::kinds::EventKind`.
+pub use crate::generated::event_kinds::{EVENT_KIND_COUNT, EventKind};
 
-/// Validated wrapper around one of the canonical `ck.*` event kinds.
-///
-/// Use [`EventKind::try_new`] to parse an untrusted wire string, or
-/// [`EventKind::from_const`] when you have one of the `pub const *`
-/// kinds in scope (e.g. `EventKind::from_const(MESSAGE_CREATE)`).
-/// Both routes guarantee `as_str()` returns a member of
-/// [`STANDARD_EVENT_KINDS`].
-///
-/// Serialises / deserialises as the bare wire string, with the same
-/// membership check on the deserialise path.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct EventKind(&'static str);
-
-impl EventKind {
-    /// Parse an untrusted wire string into an [`EventKind`]. Returns
-    /// `None` if the value is not in [`STANDARD_EVENT_KINDS`]. Custom /
-    /// vendor kinds are deliberately *not* accepted here — they belong
-    /// in plain `String` fields, with [`is_standard_event_kind`] +
-    /// [`classify_event_kind`] for routing.
-    pub fn try_new(kind: &str) -> Option<Self> {
-        STANDARD_EVENT_KINDS.iter().copied().find(|k| *k == kind).map(EventKind)
-    }
-
-    /// Convenience constructor from one of the `pub const *: &str`
-    /// declarations in this module. Same membership check as
-    /// [`Self::try_new`] but accepts `&'static str` directly so the result
-    /// can be stored in `const` contexts that consume the wire string
-    /// via `.as_str()`.
-    pub fn from_const(kind: &'static str) -> Option<Self> {
-        Self::try_new(kind)
-    }
-
-    /// Canonical wire-form string. Always a member of
-    /// [`STANDARD_EVENT_KINDS`].
-    pub const fn as_str(&self) -> &'static str {
-        self.0
-    }
-
-    /// Class for routing / indexing.
-    pub fn class(&self) -> EventClass {
-        classify_event_kind(self.0)
-    }
-
-    /// Wire scope (durable / actor-private / ephemeral).
-    pub fn wire_scope(&self) -> EventWireScope {
-        event_wire_scope(self.0)
-    }
-
-    /// Whether this kind is a reducer-input event (the wire scope is
-    /// `durable_event` and the kind is not in `NON_REDUCER_EVENT_KINDS`).
-    pub fn is_reducer_input(&self) -> bool {
-        is_reducer_input_event_kind(self.0)
+// Hand-written OpenAPI schema: `EventKind` serialises as the bare wire
+// string, so expose it as a string schema carrying the registry kind
+// pattern rather than a derive-from-variants object.
+#[cfg(feature = "salvo")]
+impl salvo::oapi::ToSchema for EventKind {
+    fn to_schema(
+        _components: &mut salvo::oapi::Components,
+    ) -> salvo::oapi::RefOr<salvo::oapi::Schema> {
+        salvo::oapi::Object::new()
+            .schema_type(salvo::oapi::BasicType::String)
+            .pattern(r"^ck\.[a-z0-9_]+(\.[a-z0-9_]+)*$")
+            .into()
     }
 }
 
-impl std::fmt::Display for EventKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.0)
-    }
-}
-
-impl Serialize for EventKind {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(self.0)
-    }
-}
-
-impl<'de> Deserialize<'de> for EventKind {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        use serde::de::Error;
-        let raw = String::deserialize(deserializer)?;
-        Self::try_new(&raw).ok_or_else(|| {
-            D::Error::custom(format!(
-                "unknown Cokret event kind {raw:?} — not in STANDARD_EVENT_KINDS"
-            ))
-        })
+#[cfg(feature = "salvo")]
+impl salvo::oapi::ComposeSchema for EventKind {
+    fn compose(
+        components: &mut salvo::oapi::Components,
+        _generics: Vec<salvo::oapi::RefOr<salvo::oapi::Schema>>,
+    ) -> salvo::oapi::RefOr<salvo::oapi::Schema> {
+        <Self as salvo::oapi::ToSchema>::to_schema(components)
     }
 }
 
@@ -834,9 +779,16 @@ mod tests {
     }
 
     #[test]
-    fn event_kind_deserialise_rejects_unknown() {
-        let err = serde_json::from_str::<EventKind>(r#""vendor.example.widget""#).unwrap_err();
-        assert!(err.to_string().contains("unknown Cokret event kind"));
+    fn event_kind_deserialise_preserves_unknown() {
+        // Forward compatibility: an unrecognised kind deserialises into
+        // `Unknown(raw)` instead of failing the parse. Rejecting unknown
+        // standard kinds is the validation layer's job, not serde's.
+        let parsed: EventKind = serde_json::from_str(r#""ck.future.kind""#).unwrap();
+        assert_eq!(parsed, EventKind::Unknown("ck.future.kind".to_owned()));
+        assert_eq!(parsed.as_str(), "ck.future.kind");
+        assert!(!parsed.is_standard());
+        // Round-trips back to the same wire string.
+        assert_eq!(serde_json::to_string(&parsed).unwrap(), r#""ck.future.kind""#);
     }
 
     #[test]

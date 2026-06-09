@@ -41,8 +41,8 @@ impl EventContentEnvelope {
     pub fn from_event(event: &Event) -> Result<Self> {
         Ok(Self {
             event_id: event.event_id.clone(),
-            kind: event.kind.clone(),
-            class: classify_event_kind(&event.kind),
+            kind: event.kind.as_str().to_owned(),
+            class: classify_event_kind(event.kind.as_str()),
             realm_id: event.realm_id.clone(),
             actor_id: event.actor_id.clone(),
             created_at: event.created_at,
@@ -53,7 +53,7 @@ impl EventContentEnvelope {
             effects: event.effects.clone(),
             anchor_ref: event.anchor_ref.clone(),
             redacts: event.redacts.clone(),
-            content: parse_event_content(&event.kind, event.content.clone())?,
+            content: parse_event_content(event.kind.as_str(), event.content.clone())?,
             unsigned: event.unsigned.clone(),
         })
     }

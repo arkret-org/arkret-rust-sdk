@@ -14,7 +14,7 @@ fn actor_id() -> Did {
 fn event(kind: &str, seq: u64, content: Value) -> Event {
     Event {
         event_id: EventId::new(format!("ck:event:01904100-0000-7000-8000-{seq:012x}")).unwrap(),
-        kind: kind.to_owned(),
+        kind: kind.into(),
         realm_id: realm_id(),
         actor_id: actor_id(),
         actor_seq: seq,

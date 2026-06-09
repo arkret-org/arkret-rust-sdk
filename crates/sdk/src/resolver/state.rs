@@ -1027,7 +1027,7 @@ impl RealmState {
         };
         let map_key = format!("{}|{}", family, subject);
         let candidate = ResolvedStateEvent {
-            kind: event.kind.clone(),
+            kind: event.kind.as_str().to_owned(),
             subject,
             source_event_id: event.event_id.clone(),
             actor_id: event.actor_id.clone(),

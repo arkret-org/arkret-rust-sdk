@@ -1765,7 +1765,7 @@ mod tests {
         fn fixture_event(content_body: &str) -> Event {
             Event {
                 event_id: EventId::new("ck:event:01904100-0000-7000-8000-a0086f45c575").unwrap(),
-                kind: "ck.message.create".to_owned(),
+                kind: "ck.message.create".into(),
                 realm_id: RealmId::new("ck:realm:01904100-0000-7000-8000-65c7feb295d7").unwrap(),
                 actor_id: Did::new("did:web:alice.example").unwrap(),
                 actor_seq: 1,
