@@ -643,6 +643,286 @@ impl RealmDestroyPayload {
     }
 }
 
+/// Optional CAS guard carried on `ck.flow.move`
+/// (`event-payload.schema.json#/$defs/flow_move_payload` `expected_position`).
+///
+/// Compiles to a `head_eq` precondition against the current position cell.
+/// All three fields are optional in the spec sub-schema; `additionalProperties
+/// :false`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct FlowMoveExpectedPosition {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub space_id: Option<SpaceId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rank: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub relation_id: Option<RelationId>,
+}
+
+/// Strong type for `ck.flow.move` payloads
+/// (`event-payload.schema.json#/$defs/flow_move_payload`).
+///
+/// Moves a Flow between List Spaces. The destination is single-sourced by
+/// `target_space_id` — writers MUST NOT put `list_space_id` directly on the
+/// payload (`additionalProperties:false` enforces this; the reducer compiles
+/// `target_space_id` into the position cell). `from_space_id` is an optional
+/// hint the reducer can infer. Required: `board_space_id`, `flow_id`,
+/// `target_space_id`, `rank`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct FlowMovePayload {
+    pub board_space_id: SpaceId,
+    pub flow_id: FlowId,
+    pub target_space_id: SpaceId,
+    pub rank: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from_space_id: Option<SpaceId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expected_position: Option<FlowMoveExpectedPosition>,
+}
+
+impl FlowMovePayload {
+    pub fn new(
+        board_space_id: SpaceId,
+        flow_id: FlowId,
+        target_space_id: SpaceId,
+        rank: impl Into<String>,
+    ) -> Self {
+        Self {
+            board_space_id,
+            flow_id,
+            target_space_id,
+            rank: rank.into(),
+            from_space_id: None,
+            expected_position: None,
+        }
+    }
+
+    pub fn with_from_space_id(mut self, from_space_id: SpaceId) -> Self {
+        self.from_space_id = Some(from_space_id);
+        self
+    }
+
+    pub fn with_expected_position(mut self, expected: FlowMoveExpectedPosition) -> Self {
+        self.expected_position = Some(expected);
+        self
+    }
+
+    pub fn to_value(&self) -> Result<Value> {
+        serde_json::to_value(self)
+            .map_err(|err| Error::Protocol(format!("flow move payload serialize: {err}")))
+    }
+}
+
+/// Optional CAS guard carried on `ck.flow.reorder`
+/// (`event-payload.schema.json#/$defs/flow_reorder_payload` `expected_position`).
+///
+/// The reorder happens within a single List Space, so unlike
+/// [`FlowMoveExpectedPosition`] there is no `space_id` field here.
+/// `additionalProperties:false`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct FlowReorderExpectedPosition {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rank: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub relation_id: Option<RelationId>,
+}
+
+/// Strong type for `ck.flow.reorder` payloads
+/// (`event-payload.schema.json#/$defs/flow_reorder_payload`).
+///
+/// Re-ranks a Flow within a single List Space (`space_id`); the Space is not
+/// changed. Required: `board_space_id`, `flow_id`, `space_id`, `rank`.
+/// `additionalProperties:false`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct FlowReorderPayload {
+    pub board_space_id: SpaceId,
+    pub flow_id: FlowId,
+    pub space_id: SpaceId,
+    pub rank: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expected_position: Option<FlowReorderExpectedPosition>,
+}
+
+impl FlowReorderPayload {
+    pub fn new(
+        board_space_id: SpaceId,
+        flow_id: FlowId,
+        space_id: SpaceId,
+        rank: impl Into<String>,
+    ) -> Self {
+        Self {
+            board_space_id,
+            flow_id,
+            space_id,
+            rank: rank.into(),
+            expected_position: None,
+        }
+    }
+
+    pub fn with_expected_position(mut self, expected: FlowReorderExpectedPosition) -> Self {
+        self.expected_position = Some(expected);
+        self
+    }
+
+    pub fn to_value(&self) -> Result<Value> {
+        serde_json::to_value(self)
+            .map_err(|err| Error::Protocol(format!("flow reorder payload serialize: {err}")))
+    }
+}
+
+/// Watch level for `ck.flow.watch.set`
+/// (`event-payload.schema.json#/$defs/flow_watch_set_payload` `level`).
+///
+/// `null` on the wire (a cleared cell) is modeled as `None` on the
+/// [`FlowWatchSetPayload::level`] field rather than a variant here.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum FlowWatchLevel {
+    MentionsOnly,
+    Participating,
+    All,
+    Muted,
+}
+
+/// CAS guard for `ck.flow.watch.set`
+/// (`event-payload.schema.json#/$defs/flow_watch_set_payload` `expected_value`).
+///
+/// Carries the prior cell value `{ level, level_public? }` for a `head_eq`
+/// compare. `additionalProperties:false`; `level` is required when present.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct FlowWatchExpectedValue {
+    pub level: FlowWatchLevel,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub level_public: Option<bool>,
+}
+
+/// Strong type for `ck.flow.watch.set` payloads
+/// (`event-payload.schema.json#/$defs/flow_watch_set_payload`).
+///
+/// Sets or clears the `(flow_id, watcher_actor_id)` watch cell. Required:
+/// `flow_id`, `watcher_actor_id`, `level` (the last may be `null` to clear).
+/// Per the schema `allOf`, `level_public` MUST be omitted when `level` is
+/// `null`; [`FlowWatchSetPayload::clear`] enforces this and the constructors
+/// keep `level_public` separate from the clearing path.
+/// `additionalProperties:false`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct FlowWatchSetPayload {
+    pub flow_id: FlowId,
+    pub watcher_actor_id: Did,
+    /// `None` serializes as JSON `null`, clearing the cell.
+    pub level: Option<FlowWatchLevel>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub level_public: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expected_value: Option<Option<FlowWatchExpectedValue>>,
+}
+
+impl FlowWatchSetPayload {
+    /// Set a concrete watch level. `level_public` opts the level into
+    /// non-self projection (ignored for `muted` by the reducer).
+    pub fn set(
+        flow_id: FlowId,
+        watcher_actor_id: Did,
+        level: FlowWatchLevel,
+        level_public: Option<bool>,
+    ) -> Self {
+        Self {
+            flow_id,
+            watcher_actor_id,
+            level: Some(level),
+            level_public,
+            expected_value: None,
+        }
+    }
+
+    /// Clear the watch cell (`level: null`). Per the schema `allOf`,
+    /// `level_public` is forced off on this path.
+    pub fn clear(flow_id: FlowId, watcher_actor_id: Did) -> Self {
+        Self {
+            flow_id,
+            watcher_actor_id,
+            level: None,
+            level_public: None,
+            expected_value: None,
+        }
+    }
+
+    pub fn with_expected_value(mut self, expected: Option<FlowWatchExpectedValue>) -> Self {
+        self.expected_value = Some(expected);
+        self
+    }
+
+    pub fn to_value(&self) -> Result<Value> {
+        serde_json::to_value(self)
+            .map_err(|err| Error::Protocol(format!("flow watch set payload serialize: {err}")))
+    }
+}
+
+/// Strong type for `object_lifecycle_payload`
+/// (`event-payload.schema.json#/$defs/object_lifecycle_payload`).
+///
+/// Generic archive / restore / tombstone-style payload for Flow, Circle, and
+/// Morph lifecycle events (e.g. `ck.flow.archive` / `ck.flow.restore`). The
+/// target object is single-sourced by `target_ref`. Required: `target_ref`.
+/// `additionalProperties:false`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct ObjectLifecyclePayload {
+    pub target_ref: ObjectRef,
+    /// Intended lifecycle result (e.g. `archived` / `active`); descriptive
+    /// only — it cannot replace `target_ref`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_state: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "serialize_optional_canonical_timestamp"
+    )]
+    pub effective_at: Option<DateTime<Utc>>,
+}
+
+impl ObjectLifecyclePayload {
+    pub fn new(target_ref: impl Into<ObjectRef>) -> Self {
+        Self {
+            target_ref: target_ref.into(),
+            target_state: None,
+            reason: None,
+            effective_at: None,
+        }
+    }
+
+    pub fn with_target_state(mut self, target_state: impl Into<String>) -> Self {
+        self.target_state = Some(target_state.into());
+        self
+    }
+
+    pub fn with_reason(mut self, reason: impl Into<String>) -> Self {
+        self.reason = Some(reason.into());
+        self
+    }
+
+    pub fn to_value(&self) -> Result<Value> {
+        serde_json::to_value(self)
+            .map_err(|err| Error::Protocol(format!("object lifecycle payload serialize: {err}")))
+    }
+}
+
 /// serde adapter that maps a `BTreeMap<String, Value>` to/from wire keys
 /// carrying the mandatory `x_` extension prefix.
 mod x_prefixed_map {

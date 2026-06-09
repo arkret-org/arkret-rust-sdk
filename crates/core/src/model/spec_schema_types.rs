@@ -572,17 +572,23 @@ pub type ErasureReceiptPayload = ErasureReceipt;
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/flow_create_payload`.
 pub type FlowCreatePayload = Value;
 
-/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/flow_move_payload`.
-pub type FlowMovePayload = Value;
+// `flow_move_payload` now has a strong type:
+// `model::operation_payloads::FlowMovePayload` (replaces the former
+// `= Value` alias as part of the wire strong-type migration; flat
+// board/target Space ids + rank with an optional `expected_position`
+// CAS guard, `additionalProperties:false`).
 
-/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/flow_reorder_payload`.
-pub type FlowReorderPayload = Value;
+// `flow_reorder_payload` now has a strong type:
+// `model::operation_payloads::FlowReorderPayload` (single List-Space
+// re-rank; `additionalProperties:false`).
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/flow_stage_set_payload`.
 pub type FlowStageSetPayload = Value;
 
-/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/flow_watch_set_payload`.
-pub type FlowWatchSetPayload = Value;
+// `flow_watch_set_payload` now has a strong type:
+// `model::operation_payloads::FlowWatchSetPayload` (carries the
+// `FlowWatchLevel` enum / nullable `level` clear path and the
+// `level_public`/`expected_value` CAS fields; `additionalProperties:false`).
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/generic_standard_payload`.
 pub type GenericStandardPayload = BTreeMap<String, Value>;
@@ -680,8 +686,10 @@ pub type MorphStageSetPayload = Value;
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/nullable_timestamp`.
 pub type NullableTimestamp = Option<DateTime<Utc>>;
 
-/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/object_lifecycle_payload`.
-pub type ObjectLifecyclePayload = Value;
+// `object_lifecycle_payload` now has a strong type:
+// `model::operation_payloads::ObjectLifecyclePayload` (generic Flow / Circle /
+// Morph archive·restore·tombstone shape, single-sourced by `target_ref`;
+// `additionalProperties:false`).
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/object_snapshot`.
 pub type ObjectSnapshot = Value;

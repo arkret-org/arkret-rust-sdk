@@ -184,6 +184,87 @@ fn realm_lifecycle_payloads_strong_types_pass_spec_validator() {
 }
 
 #[test]
+fn flow_lifecycle_payloads_strong_types_pass_spec_validator() {
+    use crate::model::{
+        Did, FlowId, FlowMovePayload, FlowReorderExpectedPosition, FlowReorderPayload,
+        FlowWatchExpectedValue, FlowWatchLevel, FlowWatchSetPayload, ObjectLifecyclePayload,
+        SpaceId,
+    };
+    let catalog = event_payload_validator_catalog();
+    let board = || SpaceId::new("ck:space:01904100-0000-7000-8000-111111111111").unwrap();
+    let target = || SpaceId::new("ck:space:01904100-0000-7000-8000-222222222222").unwrap();
+    let flow = || FlowId::new("ck:flow:01904100-0000-7000-8000-6c663fa0205f").unwrap();
+    let actor = || Did::new("did:web:alice.example").unwrap();
+
+    // ck.flow.move — board/target Space ids + rank; from_space_id +
+    // expected_position optional. Destination is single-sourced by
+    // target_space_id (a stray `list_space_id` would be rejected).
+    let mv = FlowMovePayload::new(board(), flow(), target(), "U")
+        .with_from_space_id(board())
+        .with_expected_position(crate::model::FlowMoveExpectedPosition {
+            space_id: Some(board()),
+            rank: Some("T".to_owned()),
+            relation_id: None,
+        });
+    catalog.validate_payload("ck.flow.move", &mv.to_value().unwrap()).unwrap();
+
+    // ck.flow.reorder — single List Space (`space_id`); no destination field.
+    let reorder = FlowReorderPayload::new(board(), flow(), target(), "V")
+        .with_expected_position(FlowReorderExpectedPosition {
+            rank: Some("U".to_owned()),
+            relation_id: None,
+        });
+    catalog.validate_payload("ck.flow.reorder", &reorder.to_value().unwrap()).unwrap();
+
+    // ck.flow.watch.set — concrete level + clear (level:null) + CAS guard.
+    let set = FlowWatchSetPayload::set(flow(), actor(), FlowWatchLevel::All, Some(true));
+    catalog.validate_payload("ck.flow.watch.set", &set.to_value().unwrap()).unwrap();
+    let cleared = FlowWatchSetPayload::clear(flow(), actor());
+    let cleared_value = cleared.to_value().unwrap();
+    assert!(cleared_value["level"].is_null());
+    // allOf: level_public MUST be omitted when level is null.
+    assert!(cleared_value.get("level_public").is_none());
+    catalog.validate_payload("ck.flow.watch.set", &cleared_value).unwrap();
+    let guarded = FlowWatchSetPayload::set(flow(), actor(), FlowWatchLevel::Participating, None)
+        .with_expected_value(Some(FlowWatchExpectedValue {
+            level: FlowWatchLevel::Muted,
+            level_public: None,
+        }));
+    catalog.validate_payload("ck.flow.watch.set", &guarded.to_value().unwrap()).unwrap();
+    // expected_value may also assert "no prior cell" via null.
+    let guarded_null = FlowWatchSetPayload::set(flow(), actor(), FlowWatchLevel::All, None)
+        .with_expected_value(None);
+    let guarded_null_value = guarded_null.to_value().unwrap();
+    assert!(guarded_null_value["expected_value"].is_null());
+    catalog.validate_payload("ck.flow.watch.set", &guarded_null_value).unwrap();
+
+    // ck.flow.archive / ck.flow.restore — object_lifecycle_payload, single
+    // truth source `target_ref`.
+    let archive =
+        ObjectLifecyclePayload::new("ck:flow:01904100-0000-7000-8000-6c663fa0205f")
+            .with_target_state("archived")
+            .with_reason("season closed");
+    catalog.validate_payload("ck.flow.archive", &archive.to_value().unwrap()).unwrap();
+    catalog
+        .validate_payload(
+            "ck.flow.restore",
+            &ObjectLifecyclePayload::new("ck:flow:01904100-0000-7000-8000-6c663fa0205f")
+                .to_value()
+                .unwrap(),
+        )
+        .unwrap();
+
+    // deny_unknown_fields: a stray destination key on ck.flow.move is rejected
+    // (additionalProperties:false on flow_move_payload).
+    let mut leaky = mv.to_value().unwrap();
+    leaky["list_space_id"] = json!("ck:space:01904100-0000-7000-8000-222222222222");
+    assert!(matches!(
+        catalog.validate_payload("ck.flow.move", &leaky),
+        Err(Error::Protocol(_))
+    ));
+}
+
+#[test]
 fn artifact_payload_catalog_covers_active_durable_event_kinds() {
     let Some(artifacts_dir) = default_spec_artifacts_dir() else {
         return;
