@@ -19,6 +19,7 @@ pub use cokret_identifiers::{
     SpaceId, TransactionId, TypedAppealId, TypedTrustDomainId, ViewId, new_prefixed_uuid7,
 };
 
+mod agent_participation;
 mod api;
 mod attestation;
 mod circle;
@@ -62,6 +63,7 @@ mod third_party_invite;
 #[cfg(test)]
 mod wire_model_tests;
 
+pub use agent_participation::*;
 pub use api::*;
 pub use attestation::*;
 pub use circle::*;

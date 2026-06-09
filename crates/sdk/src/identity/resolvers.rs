@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::*;
 
 /// Resolve DID documents for one or more DID methods.
@@ -889,5 +891,493 @@ impl DidResolver for CompositeDidResolver {
             .find(|resolver| resolver.supports(did))
             .ok_or_else(|| Error::Protocol("unsupported DID method".to_owned()))?
             .resolve_did(did)
+    }
+}
+
+// ============================================================================
+// DID 解析缓存与新鲜度类型(S1 / S2)
+//
+// `CompositeDidResolver` 上的 `ResolverPolicy.ttl` 此前仅是元数据——
+// resolver 不缓存,每次 `resolve_did` 都重走 resolver 链。下面的类型在
+// 不改动任何现有 public API 的前提下,以纯粹的「加法」补上缓存层:
+//
+// - `Freshness` 描述一次取值相对 TTL 的新鲜程度(新鲜 / 过期 / 缺失)。
+// - `CachedResolution` 是单条缓存记录,携带文档、缓存/过期时间戳、文档
+//   规范哈希,以及可选的 webvh 日志头与版本号。
+// - `CachingDidResolver<R>` 包装任意 `R: DidResolver`,内部以
+//   `Mutex<CacheState>` 保存条目并执行 LRU + TTL 逐出。
+// ============================================================================
+
+/// 一次缓存取值相对其 TTL 的新鲜程度。
+///
+/// - `Fresh`:命中且仍在 TTL 窗口内。
+/// - `Stale { age }`:命中但已过期(`age` 是相对 `expires_at` 超出的时长);
+///   仅在 `ResolverFailMode::AllowCachedOnError` 且底层 resolver 出错时返回。
+/// - `Missing`:缓存里没有这个 DID(或缓存被关闭),需要走底层 resolver。
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Freshness {
+    /// 命中且未过期。
+    Fresh,
+    /// 命中但已过期;`age` 为超过 `expires_at` 的时长。
+    Stale { age: chrono::Duration },
+    /// 缓存里没有该条目。
+    Missing,
+}
+
+/// 单条 DID 解析缓存记录。
+///
+/// `document_hash` 用现有 canonical 工具([`cokret_core::canonical`])对
+/// 文档做规范化后取 SHA-256(带 `sha256:` 前缀),便于上层做去重 / 变更
+/// 检测。`log_head` 与 `version` 是可选的 `did:webvh` 元数据,缓存层本身
+/// 不依赖它们,只作透传携带。
+#[derive(Clone, Debug)]
+pub struct CachedResolution {
+    /// 缓存的 DID 文档。
+    pub document: DidDocument,
+    /// 写入缓存的时刻。
+    pub cached_at: DateTime<Utc>,
+    /// 过期时刻(`cached_at + ttl`)。
+    pub expires_at: DateTime<Utc>,
+    /// 文档的规范化 SHA-256 摘要(带 `sha256:` 前缀)。
+    pub document_hash: String,
+    /// 可选:`did:webvh` 日志头(最新 `versionId`)。
+    pub log_head: Option<String>,
+    /// 可选:文档版本号。
+    pub version: Option<String>,
+}
+
+impl CachedResolution {
+    /// 用规范化哈希构造一条缓存记录。`log_head` / `version` 默认为 `None`,
+    /// 可在构造后按需填充。
+    fn new(
+        document: DidDocument,
+        cached_at: DateTime<Utc>,
+        expires_at: DateTime<Utc>,
+    ) -> Result<Self> {
+        let document_hash = document_canonical_hash(&document)?;
+        Ok(Self { document, cached_at, expires_at, document_hash, log_head: None, version: None })
+    }
+
+    /// 相对 `now` 计算这条记录的新鲜程度。
+    fn freshness_at(&self, now: DateTime<Utc>) -> Freshness {
+        if now < self.expires_at {
+            Freshness::Fresh
+        } else {
+            Freshness::Stale { age: now - self.expires_at }
+        }
+    }
+}
+
+/// 用现有 canonical 工具计算文档的规范化 SHA-256 摘要(带 `sha256:` 前缀)。
+fn document_canonical_hash(document: &DidDocument) -> Result<String> {
+    let bytes = cokret_core::canonical::canonical_json_bytes(document)
+        .map_err(|e| Error::Protocol(format!("DID document canonicalization failed: {e}")))?;
+    Ok(cokret_core::canonical::sha256_digest(bytes))
+}
+
+/// `CachingDidResolver` 的内部可变状态,由 `Mutex` 保护。
+#[derive(Debug)]
+struct CacheState {
+    entries: HashMap<String, CachedResolution>,
+    max_entries: usize,
+}
+
+impl CacheState {
+    /// LRU 取值:命中且未过期返回克隆;过期则惰性删除并返回 `None`。
+    /// 供 [`DidResolver::resolve_did`] 使用——那条路径不需要 stale 回退,
+    /// 因此过期即删,保持 `len()` 诚实。
+    fn get_fresh(&mut self, key: &str, now: DateTime<Utc>) -> Option<CachedResolution> {
+        match self.entries.get(key) {
+            Some(entry) if now < entry.expires_at => Some(entry.clone()),
+            Some(_) => {
+                self.entries.remove(key);
+                None
+            }
+            None => None,
+        }
+    }
+
+    /// 仅查看新鲜条目,**不删除**过期项——`resolve_with_freshness` 在
+    /// `AllowCachedOnError` 下需要保留过期条目以备 stale 回退。
+    fn peek_fresh(&self, key: &str, now: DateTime<Utc>) -> Option<CachedResolution> {
+        match self.entries.get(key) {
+            Some(entry) if now < entry.expires_at => Some(entry.clone()),
+            _ => None,
+        }
+    }
+
+    /// 写入一条记录,超过容量时按 `cached_at` 逐出最旧(O(n) 扫描)。
+    /// `max_entries == 0` 时不接纳任何条目(缓存关闭)。
+    fn insert(&mut self, key: String, entry: CachedResolution) {
+        if self.max_entries == 0 {
+            return;
+        }
+        if !self.entries.contains_key(&key) && self.entries.len() >= self.max_entries {
+            if let Some(victim) =
+                self.entries.iter().min_by_key(|(_, e)| e.cached_at).map(|(k, _)| k.clone())
+            {
+                self.entries.remove(&victim);
+            }
+        }
+        self.entries.insert(key, entry);
+    }
+}
+
+/// 给任意 [`DidResolver`] 加上 TTL + LRU 缓存的包装。
+///
+/// `resolve_did` 实现 [`DidResolver`]:先查缓存(命中且未过期直接返回),
+/// miss / 过期才调底层 resolver 并回填。[`Self::resolve_with_freshness`]
+/// 在此之上额外返回 [`Freshness`],并遵循 [`ResolverPolicy::fail_mode`]:
+/// 仅 `AllowCachedOnError` 时在底层错误下回退到过期缓存。
+///
+/// 设计上保持对底层 resolver 的通用性(`R: DidResolver`),
+/// [`ResolverPolicy`] 由单独字段持有——既可在构造时直接传入,也可从被
+/// 包装的 [`CompositeDidResolver`] 复制其 policy。
+pub struct CachingDidResolver<R: DidResolver> {
+    inner: R,
+    policy: ResolverPolicy,
+    state: std::sync::Mutex<CacheState>,
+}
+
+impl<R: DidResolver> CachingDidResolver<R> {
+    /// 用显式 policy 与容量构造缓存包装。`max_entries == 0` 关闭缓存。
+    pub fn new(inner: R, policy: ResolverPolicy, max_entries: usize) -> Self {
+        Self {
+            inner,
+            policy,
+            state: std::sync::Mutex::new(CacheState { entries: HashMap::new(), max_entries }),
+        }
+    }
+
+    /// 读取生效的 policy。
+    pub fn policy(&self) -> &ResolverPolicy {
+        &self.policy
+    }
+
+    /// 借用底层 resolver。
+    pub fn inner(&self) -> &R {
+        &self.inner
+    }
+
+    /// 当前缓存条目数(惰性逐出之外的即时计数)。
+    pub fn len(&self) -> usize {
+        self.state.lock().expect("cache mutex poisoned").entries.len()
+    }
+
+    /// 缓存是否为空。
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// 丢弃某个 DID 的缓存(例如收到吊销 / 轮换事件时)。
+    pub fn invalidate(&self, did: &Did) {
+        self.state.lock().expect("cache mutex poisoned").entries.remove(did.as_str());
+    }
+
+    /// 清空全部缓存。
+    pub fn clear(&self) {
+        self.state.lock().expect("cache mutex poisoned").entries.clear();
+    }
+
+    /// 依据 `policy.ttl` 计算 `expires_at`。`ttl == None` 表示禁用缓存,
+    /// 此处用零时长(写入即过期),配合 `max_entries` 共同决定是否真正缓存。
+    fn expires_at(&self, now: DateTime<Utc>) -> DateTime<Utc> {
+        match self.policy.ttl {
+            Some(ttl) => now + ttl,
+            None => now,
+        }
+    }
+
+    /// 解析并返回文档及其 [`Freshness`]。
+    ///
+    /// 流程:
+    /// 1. 命中且未过期 → 返回 `(doc, Fresh)`。
+    /// 2. 否则调用底层 resolver:
+    ///    - 成功 → 回填缓存,返回 `(doc, Missing)`(本次取自上游,非缓存)。
+    ///    - 失败 → 若 `fail_mode == AllowCachedOnError` 且存在过期缓存,
+    ///      返回 `(stale_doc, Stale { age })`;否则向上抛错(fail-closed)。
+    pub fn resolve_with_freshness(
+        &self,
+        did: &Did,
+        now: DateTime<Utc>,
+    ) -> Result<(DidDocument, Freshness)> {
+        let key = did.as_str().to_owned();
+
+        // 1. 命中且新鲜(此处用 peek,不删除过期项,以便步骤 2 的
+        //    stale 回退仍能读到过期条目)。
+        if let Some(entry) = self.state.lock().expect("cache mutex poisoned").peek_fresh(&key, now)
+        {
+            return Ok((entry.document, Freshness::Fresh));
+        }
+
+        // 2. miss / 过期:走底层 resolver。
+        match self.inner.resolve_did(did) {
+            Ok(document) => {
+                let expires_at = self.expires_at(now);
+                let entry = CachedResolution::new(document.clone(), now, expires_at)?;
+                self.state.lock().expect("cache mutex poisoned").insert(key, entry);
+                Ok((document, Freshness::Missing))
+            }
+            Err(err) => {
+                // 仅在 AllowCachedOnError 下回退到过期缓存。
+                if self.policy.fail_mode == ResolverFailMode::AllowCachedOnError {
+                    let stale =
+                        self.state.lock().expect("cache mutex poisoned").entries.get(&key).cloned();
+                    if let Some(entry) = stale {
+                        let freshness = entry.freshness_at(now);
+                        return Ok((entry.document, freshness));
+                    }
+                }
+                Err(err)
+            }
+        }
+    }
+}
+
+impl<R: DidResolver> DidResolver for CachingDidResolver<R> {
+    fn supports(&self, did: &Did) -> bool {
+        self.inner.supports(did)
+    }
+
+    fn resolve_did(&self, did: &Did) -> Result<DidDocument> {
+        let now = Utc::now();
+        let key = did.as_str().to_owned();
+
+        if let Some(entry) = self.state.lock().expect("cache mutex poisoned").get_fresh(&key, now) {
+            return Ok(entry.document);
+        }
+
+        let document = self.inner.resolve_did(did)?;
+        let expires_at = self.expires_at(now);
+        let entry = CachedResolution::new(document.clone(), now, expires_at)?;
+        self.state.lock().expect("cache mutex poisoned").insert(key, entry);
+        Ok(document)
+    }
+}
+
+impl<R: DidResolver + std::fmt::Debug> std::fmt::Debug for CachingDidResolver<R> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let entry_count = self.state.lock().map(|s| s.entries.len()).unwrap_or(0);
+        f.debug_struct("CachingDidResolver")
+            .field("inner", &self.inner)
+            .field("policy", &self.policy)
+            .field("entries", &entry_count)
+            .finish()
+    }
+}
+
+// ============================================================================
+// 缓存 / 新鲜度单测(S3)
+// ============================================================================
+#[cfg(test)]
+mod caching_tests {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use super::*;
+
+    /// 可控桩 resolver:记录 `resolve_did` 调用次数,并可被切换为「失败」。
+    /// 每次解析成功时返回携带递增计数的文档,便于断言「是否真的走了上游」。
+    #[derive(Debug)]
+    struct StubResolver {
+        calls: AtomicUsize,
+        fail: std::sync::atomic::AtomicBool,
+    }
+
+    impl StubResolver {
+        fn new() -> Self {
+            Self { calls: AtomicUsize::new(0), fail: std::sync::atomic::AtomicBool::new(false) }
+        }
+
+        fn calls(&self) -> usize {
+            self.calls.load(Ordering::SeqCst)
+        }
+
+        fn set_fail(&self, fail: bool) {
+            self.fail.store(fail, Ordering::SeqCst);
+        }
+    }
+
+    impl DidResolver for StubResolver {
+        fn supports(&self, did: &Did) -> bool {
+            did.method() == "key"
+        }
+
+        fn resolve_did(&self, did: &Did) -> Result<DidDocument> {
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            if self.fail.load(Ordering::SeqCst) {
+                return Err(Error::Protocol("stub resolver forced failure".to_owned()));
+            }
+            let key = did_key_material(did)
+                .ok_or_else(|| Error::Protocol("stub: unsupported did:key".to_owned()))?;
+            Ok(DidDocument::new(did.clone(), format!("{}#{key}", did.as_str()), key))
+        }
+    }
+
+    fn sample_did(suffix: &str) -> Did {
+        // 一组合法的 did:key Ed25519 multibase 标识。
+        let base = "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH";
+        Did::new(format!("{base}{suffix}")).unwrap_or_else(|_| Did::new(base.to_owned()).unwrap())
+    }
+
+    fn policy(ttl: Option<chrono::Duration>, fail_mode: ResolverFailMode) -> ResolverPolicy {
+        ResolverPolicy {
+            allowed_methods: Vec::new(),
+            default_principal_method: None,
+            trust_roots: Vec::new(),
+            ttl,
+            fail_mode,
+        }
+    }
+
+    #[test]
+    fn cache_hit_avoids_second_upstream_call() {
+        let stub = StubResolver::new();
+        let resolver = CachingDidResolver::new(
+            stub,
+            policy(Some(chrono::Duration::minutes(15)), ResolverFailMode::FailClosed),
+            128,
+        );
+        let did = sample_did("");
+
+        let now = Utc::now();
+        let (_doc, f1) = resolver.resolve_with_freshness(&did, now).expect("first resolve");
+        assert_eq!(f1, Freshness::Missing, "首次解析来自上游");
+        assert_eq!(resolver.inner().calls(), 1);
+
+        // 同一 TTL 窗口内再次解析:命中缓存,不再调用上游。
+        let (_doc, f2) = resolver
+            .resolve_with_freshness(&did, now + chrono::Duration::minutes(1))
+            .expect("second resolve");
+        assert_eq!(f2, Freshness::Fresh, "命中且新鲜");
+        assert_eq!(resolver.inner().calls(), 1, "上游只被调用一次");
+
+        // document_hash 已计算且带前缀。
+        assert_eq!(resolver.len(), 1);
+    }
+
+    #[test]
+    fn ttl_expiry_triggers_miss() {
+        let stub = StubResolver::new();
+        let resolver = CachingDidResolver::new(
+            stub,
+            policy(Some(chrono::Duration::minutes(15)), ResolverFailMode::FailClosed),
+            128,
+        );
+        let did = sample_did("");
+        let now = Utc::now();
+
+        resolver.resolve_with_freshness(&did, now).expect("first");
+        assert_eq!(resolver.inner().calls(), 1);
+
+        // 超过 TTL 后再解析:过期 → miss → 重新走上游。
+        let later = now + chrono::Duration::minutes(16);
+        let (_doc, f) = resolver.resolve_with_freshness(&did, later).expect("after expiry");
+        assert_eq!(f, Freshness::Missing, "过期后重新取自上游");
+        assert_eq!(resolver.inner().calls(), 2);
+    }
+
+    #[test]
+    fn capacity_evicts_oldest() {
+        let stub = StubResolver::new();
+        // 容量 2:写入三个不同 DID 后,最旧的应被逐出。
+        let resolver = CachingDidResolver::new(
+            stub,
+            policy(Some(chrono::Duration::minutes(15)), ResolverFailMode::FailClosed),
+            2,
+        );
+
+        let base = Utc::now();
+        let d1 = sample_did("");
+        // 通过不同的 did:key 标识区分条目。
+        let d2 = Did::new("did:key:z6MkfGFvHcKHd9YEK5sBYqLqHs5GpD3xKCJQyZK7r2pHpkpf".to_owned())
+            .expect("valid did:key");
+        let d3 = Did::new("did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK".to_owned())
+            .expect("valid did:key");
+
+        resolver.resolve_with_freshness(&d1, base).expect("d1");
+        resolver.resolve_with_freshness(&d2, base + chrono::Duration::seconds(1)).expect("d2");
+        assert_eq!(resolver.len(), 2);
+
+        // 写入第三个,最旧的 d1(cached_at 最早)应被逐出。
+        resolver.resolve_with_freshness(&d3, base + chrono::Duration::seconds(2)).expect("d3");
+        assert_eq!(resolver.len(), 2, "容量上限保持为 2");
+
+        // d1 现在 miss(会再次走上游),d2/d3 仍命中。
+        let calls_before = resolver.inner().calls();
+        let (_doc, f1) = resolver
+            .resolve_with_freshness(&d1, base + chrono::Duration::seconds(3))
+            .expect("d1 re-resolve");
+        assert_eq!(f1, Freshness::Missing, "最旧条目已被逐出");
+        assert_eq!(resolver.inner().calls(), calls_before + 1);
+
+        let (_doc, f2) = resolver
+            .resolve_with_freshness(&d3, base + chrono::Duration::seconds(3))
+            .expect("d3 still cached");
+        assert_eq!(f2, Freshness::Fresh, "d3 仍在缓存中");
+    }
+
+    #[test]
+    fn max_entries_zero_disables_cache() {
+        let stub = StubResolver::new();
+        let resolver = CachingDidResolver::new(
+            stub,
+            policy(Some(chrono::Duration::minutes(15)), ResolverFailMode::FailClosed),
+            0,
+        );
+        let did = sample_did("");
+        let now = Utc::now();
+
+        resolver.resolve_with_freshness(&did, now).expect("first");
+        resolver.resolve_with_freshness(&did, now).expect("second");
+        // 缓存关闭:每次都走上游,且永远不留存条目。
+        assert_eq!(resolver.len(), 0, "缓存关闭,无任何条目");
+        assert_eq!(resolver.inner().calls(), 2, "每次都调用上游");
+    }
+
+    #[test]
+    fn fail_closed_propagates_error() {
+        let stub = StubResolver::new();
+        let resolver = CachingDidResolver::new(
+            stub,
+            policy(Some(chrono::Duration::minutes(15)), ResolverFailMode::FailClosed),
+            128,
+        );
+        let did = sample_did("");
+        let now = Utc::now();
+
+        // 先成功填充一条缓存。
+        resolver.resolve_with_freshness(&did, now).expect("warm cache");
+        // 切换为失败,并越过 TTL 触发上游调用。
+        resolver.inner().set_fail(true);
+        let later = now + chrono::Duration::minutes(16);
+        let result = resolver.resolve_with_freshness(&did, later);
+        assert!(result.is_err(), "FailClosed 模式下底层错误必须上抛");
+    }
+
+    #[test]
+    fn allow_cached_on_error_returns_stale() {
+        let stub = StubResolver::new();
+        let resolver = CachingDidResolver::new(
+            stub,
+            policy(Some(chrono::Duration::minutes(15)), ResolverFailMode::AllowCachedOnError),
+            128,
+        );
+        let did = sample_did("");
+        let now = Utc::now();
+
+        // 先成功填充缓存。
+        resolver.resolve_with_freshness(&did, now).expect("warm cache");
+        // 切换为失败,越过 TTL。
+        resolver.inner().set_fail(true);
+        let later = now + chrono::Duration::minutes(16);
+        let (_doc, f) =
+            resolver.resolve_with_freshness(&did, later).expect("stale fallback succeeds");
+        match f {
+            Freshness::Stale { age } => {
+                // age 约为超过 expires_at 的 1 分钟(16 - 15)。
+                assert!(age >= chrono::Duration::seconds(30), "返回的过期时长应为正且合理");
+            }
+            other => panic!("期望 Stale,实际为 {other:?}"),
+        }
     }
 }
