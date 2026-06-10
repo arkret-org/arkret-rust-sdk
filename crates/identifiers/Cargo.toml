@@ -19,9 +19,18 @@ rustdoc-args = ["--cfg", "docsrs"]
 [features]
 default = []
 salvo = ["dep:salvo", "salvo/oapi", "dep:salvo-oapi", "salvo-oapi/chrono"]
+# Server-only: PostgreSQL `uuid` ToSql/FromSql for the pure-uuid typed ids so
+# they persist as native `uuid` columns. `postgres_backend` gives the Pg type
+# + serialize/deserialize traits WITHOUT linking libpq, so this stays a pure
+# Rust dep suitable for the protocol crate. Never activated on wasm builds.
+diesel = ["dep:diesel"]
 
 [dependencies]
 getrandom.workspace = true
+diesel = { workspace = true, features = [
+    "postgres_backend",
+    "uuid",
+], optional = true }
 salvo = { workspace = true, optional = true, features = ["oapi"] }
 salvo-oapi = { workspace = true, optional = true }
 serde.workspace = true
@@ -39,7 +48,12 @@ uuid.workspace = true
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.3.4", features = ["wasm_js"] }
 getrandom_02 = { package = "getrandom", version = "0.2", features = ["js"] }
-uuid = { version = "1", default-features = false, features = ["std", "v7", "serde", "js"] }
+uuid = { version = "1", default-features = false, features = [
+    "std",
+    "v7",
+    "serde",
+    "js",
+] }
 
 [dev-dependencies]
 serde_json.workspace = true

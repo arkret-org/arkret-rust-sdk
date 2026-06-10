@@ -85,6 +85,74 @@ macro_rules! id_type {
     };
 }
 
+/// Like [`id_type!`] but for **pure uuidv7 typed ids** (`ck:<kind>:<uuidv7>`,
+/// single prefix, no hash alternative). In addition to the string-newtype API
+/// it exposes the at-rest bare-uuid form:
+///
+/// - [`uuid()`](#method.uuid) — the bare RFC 9562 UUIDv7 payload, the DB
+///   storage form. Wire / `Display` / `as_str` keep the canonical
+///   `ck:<kind>:<uuid>` string, so the protocol surface is unchanged.
+/// - [`from_uuid()`](#method.from_uuid) — rebuild the typed id from a bare DB
+///   uuid + this type's kind prefix.
+/// - feature `diesel`: `ToSql`/`FromSql` against PostgreSQL `uuid`, so these
+///   ids persist as native `uuid` columns (bare) and reload as the prefixed
+///   wire form. Gated so the wasm/protocol build never pulls diesel.
+///
+/// Hash-bearing or hybrid kinds (`OperationId`, `BlobRef`, `AnchorId`,
+/// `MoveId`, `Hash`), DIDs, cursors and `trust_domain` MUST stay on plain
+/// [`id_type!`] — they have no bare-uuid form.
+macro_rules! uuid_id_type {
+    ($name:ident, $prefix:literal) => {
+        id_type!($name, |value: &str| is_strict_typed_id(value, $prefix));
+
+        impl $name {
+            /// The `ck:<kind>:` wire prefix this id-kind validates against.
+            pub const KIND_PREFIX: &'static str = $prefix;
+
+            /// Bare RFC 9562 UUIDv7 payload — the database at-rest form.
+            /// Infallible: construction already validated the canonical
+            /// `ck:<kind>:<uuidv7>` shape.
+            pub fn uuid(&self) -> uuid::Uuid {
+                uuid::Uuid::parse_str(&self.0[$prefix.len()..])
+                    .expect("validated typed id carries a canonical uuidv7 payload")
+            }
+
+            /// Rebuild the canonical typed id from a bare DB uuid + this
+            /// kind's prefix. Used at the persistence read boundary.
+            pub fn from_uuid(value: uuid::Uuid) -> Self {
+                Self(format!("{}{}", $prefix, value))
+            }
+        }
+
+        #[cfg(feature = "diesel")]
+        impl diesel::serialize::ToSql<diesel::sql_types::Uuid, diesel::pg::Pg> for $name {
+            fn to_sql<'b>(
+                &'b self,
+                out: &mut diesel::serialize::Output<'b, '_, diesel::pg::Pg>,
+            ) -> diesel::serialize::Result {
+                let value = self.uuid();
+                <uuid::Uuid as diesel::serialize::ToSql<
+                    diesel::sql_types::Uuid,
+                    diesel::pg::Pg,
+                >>::to_sql(&value, &mut out.reborrow())
+            }
+        }
+
+        #[cfg(feature = "diesel")]
+        impl diesel::deserialize::FromSql<diesel::sql_types::Uuid, diesel::pg::Pg> for $name {
+            fn from_sql(
+                bytes: <diesel::pg::Pg as diesel::backend::Backend>::RawValue<'_>,
+            ) -> diesel::deserialize::Result<Self> {
+                let value = <uuid::Uuid as diesel::deserialize::FromSql<
+                    diesel::sql_types::Uuid,
+                    diesel::pg::Pg,
+                >>::from_sql(bytes)?;
+                Ok(Self::from_uuid(value))
+            }
+        }
+    };
+}
+
 /// Validate a DID scalar against the Round 4 tightened pattern. Method name
 /// MUST be lowercase ASCII alpha + digits only (no `.`/`-`/`_`/`:`);
 /// method-specific-id MUST be non-empty and contain no whitespace, fragment,
@@ -223,77 +291,72 @@ pub fn is_lowercase_uuidv7(value: &str) -> bool {
 }
 
 id_type!(Did, is_did);
-// Protocol object IDs use typed prefixes with canonical RFC 9562 UUIDv7 payloads.
-id_type!(ActorProfileId, |value: &str| is_strict_typed_id(value, "ck:actor_profile:"));
+// Protocol object IDs use typed prefixes with canonical RFC 9562 UUIDv7
+// payloads. Pure-uuid kinds use `uuid_id_type!` so they persist as native
+// `uuid` columns (bare) while keeping the `ck:<kind>:<uuid>` wire form.
+uuid_id_type!(ActorProfileId, "ck:actor_profile:");
 // CKP-0008/0009 (spec head 37ce729) — personal agent auxiliary typed ids.
 // `agent_principal_id` is a DID scalar, represented by `Did`.
-id_type!(AgentInteropSessionId, |value: &str| is_strict_typed_id(
-    value,
-    "ck:agent_interop_session:"
-));
-id_type!(AgentKeyId, |value: &str| is_strict_typed_id(value, "ck:agent_key:"));
-id_type!(AgentDraftId, |value: &str| is_strict_typed_id(value, "ck:agent_draft:"));
-id_type!(AccountabilityGrantId, |value: &str| is_strict_typed_id(
-    value,
-    "ck:accountability_grant:"
-));
-id_type!(SidecarCircleId, |value: &str| is_strict_typed_id(value, "ck:sidecar_circle:"));
+uuid_id_type!(AgentInteropSessionId, "ck:agent_interop_session:");
+uuid_id_type!(AgentKeyId, "ck:agent_key:");
+uuid_id_type!(AgentDraftId, "ck:agent_draft:");
+uuid_id_type!(AccountabilityGrantId, "ck:accountability_grant:");
+uuid_id_type!(SidecarCircleId, "ck:sidecar_circle:");
 // Key-backup hardening (B-C) typed ids.
-id_type!(BackupSeriesId, |value: &str| is_strict_typed_id(value, "ck:backup_series:"));
-id_type!(RecoverySessionId, |value: &str| is_strict_typed_id(value, "ck:recovery_session:"));
-id_type!(AnnounceId, |value: &str| is_strict_typed_id(value, "ck:announce:"));
-id_type!(AppletId, |value: &str| is_strict_typed_id(value, "ck:applet:"));
-id_type!(RealmId, |value: &str| is_strict_typed_id(value, "ck:realm:"));
-id_type!(SpaceId, |value: &str| is_strict_typed_id(value, "ck:space:"));
-id_type!(BackupId, |value: &str| is_strict_typed_id(value, "ck:backup:"));
-id_type!(BatchId, |value: &str| is_strict_typed_id(value, "ck:batch:"));
-id_type!(BlobId, |value: &str| is_strict_typed_id(value, "ck:blob:"));
-id_type!(BlockId, |value: &str| is_strict_typed_id(value, "ck:block:"));
-id_type!(CallId, |value: &str| is_strict_typed_id(value, "ck:call:"));
-id_type!(CapabilityId, |value: &str| is_strict_typed_id(value, "ck:capability:"));
-id_type!(ChunkId, |value: &str| is_strict_typed_id(value, "ck:chunk:"));
+uuid_id_type!(BackupSeriesId, "ck:backup_series:");
+uuid_id_type!(RecoverySessionId, "ck:recovery_session:");
+uuid_id_type!(AnnounceId, "ck:announce:");
+uuid_id_type!(AppletId, "ck:applet:");
+uuid_id_type!(RealmId, "ck:realm:");
+uuid_id_type!(SpaceId, "ck:space:");
+uuid_id_type!(BackupId, "ck:backup:");
+uuid_id_type!(BatchId, "ck:batch:");
+uuid_id_type!(BlobId, "ck:blob:");
+uuid_id_type!(BlockId, "ck:block:");
+uuid_id_type!(CallId, "ck:call:");
+uuid_id_type!(CapabilityId, "ck:capability:");
+uuid_id_type!(ChunkId, "ck:chunk:");
 // CKP-0007 (2026-05-08) — Circle id-kind. Intra-Realm cryptographic
 // sub-boundary; see spec artifacts/registry/id-kind-registry.json and
 // zh/models/circle.md.
-id_type!(CircleId, |value: &str| is_strict_typed_id(value, "ck:circle:"));
-id_type!(ClaimId, |value: &str| is_strict_typed_id(value, "ck:claim:"));
-id_type!(DeviceMessageId, |value: &str| is_strict_typed_id(value, "ck:device_message:"));
-id_type!(FlowId, |value: &str| is_strict_typed_id(value, "ck:flow:"));
-id_type!(FilterId, |value: &str| is_strict_typed_id(value, "ck:filter:"));
-id_type!(FrameId, |value: &str| is_strict_typed_id(value, "ck:frame:"));
-id_type!(FrankingProofId, |value: &str| is_strict_typed_id(value, "ck:franking_proof:"));
-id_type!(MorphId, |value: &str| is_strict_typed_id(value, "ck:morph:"));
+uuid_id_type!(CircleId, "ck:circle:");
+uuid_id_type!(ClaimId, "ck:claim:");
+uuid_id_type!(DeviceMessageId, "ck:device_message:");
+uuid_id_type!(FlowId, "ck:flow:");
+uuid_id_type!(FilterId, "ck:filter:");
+uuid_id_type!(FrameId, "ck:frame:");
+uuid_id_type!(FrankingProofId, "ck:franking_proof:");
+uuid_id_type!(MorphId, "ck:morph:");
 // Round R2/R3 (2026-05-20) — moderation appeal cell key (`ck:appeal:<uuidv7>`).
 // id-kind-registry kind=appeal; see schemas/moderation-appeal.schema.json.
-id_type!(TypedAppealId, |value: &str| is_strict_typed_id(value, "ck:appeal:"));
+uuid_id_type!(TypedAppealId, "ck:appeal:");
 // Round R2/R3 (2026-05-20) — deployment-scope trust domain identifier.
 // Wire form `ck:trust_domain:<scope>` where scope is lowercase
-// `[a-z0-9._:-]` max 128 chars. NOT a typed-UUIDv7 object id. Used to
-// prevent cross-deployment replay of high-risk proofs (cross-signing reset).
+// `[a-z0-9._:-]` max 128 chars. NOT a typed-UUIDv7 object id (stays text).
 id_type!(TypedTrustDomainId, is_trust_domain);
-id_type!(MessageId, |value: &str| is_strict_typed_id(value, "ck:message:"));
-id_type!(RelationId, |value: &str| is_strict_typed_id(value, "ck:relation:"));
-id_type!(EventId, |value: &str| is_strict_typed_id(value, "ck:event:"));
+uuid_id_type!(MessageId, "ck:message:");
+uuid_id_type!(RelationId, "ck:relation:");
+uuid_id_type!(EventId, "ck:event:");
+// OperationId is hybrid: `ck:operation:<uuidv7>` OR a content hash. No bare
+// uuid form, so it stays a text `id_type!`.
 id_type!(OperationId, |value: &str| is_strict_typed_id(value, "ck:operation:") || is_hash(value));
-id_type!(GrantId, |value: &str| is_strict_typed_id(value, "ck:grant:"));
-id_type!(InviteId, |value: &str| is_strict_typed_id(value, "ck:invite:"));
-id_type!(KeyEventId, |value: &str| is_strict_typed_id(value, "ck:key_event:"));
-id_type!(DeviceId, |value: &str| is_strict_typed_id(value, "ck:device:"));
-id_type!(NotificationId, |value: &str| is_strict_typed_id(value, "ck:notification:"));
-id_type!(PolicyId, |value: &str| is_strict_typed_id(value, "ck:policy:"));
-id_type!(PresentationId, |value: &str| is_strict_typed_id(value, "ck:presentation:"));
-id_type!(ReceiptId, |value: &str| is_strict_typed_id(value, "ck:receipt:"));
-id_type!(ReportId, |value: &str| is_strict_typed_id(value, "ck:report:"));
-id_type!(ReadCursorId, |value: &str| is_strict_typed_id(value, "ck:read_cursor:"));
-id_type!(ModerationQueueItemId, |value: &str| is_strict_typed_id(
-    value,
-    "ck:moderation_queue_item:"
-));
-id_type!(RequestId, |value: &str| is_strict_typed_id(value, "ck:request:"));
-id_type!(SnapshotId, |value: &str| is_strict_typed_id(value, "ck:snapshot:"));
-id_type!(TransactionId, |value: &str| is_strict_typed_id(value, "ck:transaction:"));
+uuid_id_type!(GrantId, "ck:grant:");
+uuid_id_type!(InviteId, "ck:invite:");
+uuid_id_type!(KeyEventId, "ck:key_event:");
+uuid_id_type!(DeviceId, "ck:device:");
+uuid_id_type!(NotificationId, "ck:notification:");
+uuid_id_type!(PolicyId, "ck:policy:");
+uuid_id_type!(PresentationId, "ck:presentation:");
+uuid_id_type!(ReceiptId, "ck:receipt:");
+uuid_id_type!(ReportId, "ck:report:");
+uuid_id_type!(ReadCursorId, "ck:read_cursor:");
+uuid_id_type!(ModerationQueueItemId, "ck:moderation_queue_item:");
+uuid_id_type!(RequestId, "ck:request:");
+uuid_id_type!(SnapshotId, "ck:snapshot:");
+uuid_id_type!(TransactionId, "ck:transaction:");
+// BlobRef is hybrid (hash or `ck:blob:` typed) — stays text.
 id_type!(BlobRef, is_blob_ref);
-id_type!(ViewId, |value: &str| is_strict_typed_id(value, "ck:view:"));
+uuid_id_type!(ViewId, "ck:view:");
 id_type!(Hash, is_hash);
 id_type!(Cursor, has_prefix("ck:cursor:"));
 
