@@ -664,6 +664,81 @@ pub struct InstallRevokeRequestBody {
     pub reason: Option<String>,
 }
 
+/// `POST /_cokret/self/applets/{applet_id}/ghosts/provision` request body.
+///
+/// An Applet service / bridge asks the Principal Server to provision (or
+/// re-validate) an Applet-managed Ghost Actor profile plus accountability
+/// grant for one external user. Built by the bridge side and parsed by the
+/// authz service; the server still re-checks `applet_id`/`service_did`/
+/// `realm_id` against the installed package before minting anything.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct GhostActorProvisionRequestBody {
+    /// Always [`GhostActorProvisionRequestBody::SCHEMA`].
+    pub schema: String,
+    pub applet_id: AppletId,
+    pub service_did: Did,
+    pub ghost_actor_id: Did,
+    pub protocol: String,
+    pub tenant: String,
+    pub external_user_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    pub realm_id: RealmId,
+    pub external_ref: Value,
+}
+
+impl GhostActorProvisionRequestBody {
+    pub const SCHEMA: &'static str = "ck.applet.ghost_actor.provision_request.v1";
+
+    /// Build a request body with `schema` stamped and no `display_name`.
+    /// Add a display name with [`with_display_name`](Self::with_display_name).
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        applet_id: AppletId,
+        service_did: Did,
+        ghost_actor_id: Did,
+        protocol: impl Into<String>,
+        tenant: impl Into<String>,
+        external_user_id: impl Into<String>,
+        realm_id: RealmId,
+        external_ref: Value,
+    ) -> Self {
+        Self {
+            schema: Self::SCHEMA.to_owned(),
+            applet_id,
+            service_did,
+            ghost_actor_id,
+            protocol: protocol.into(),
+            tenant: tenant.into(),
+            external_user_id: external_user_id.into(),
+            display_name: None,
+            realm_id,
+            external_ref,
+        }
+    }
+
+    pub fn with_display_name(mut self, display_name: impl Into<String>) -> Self {
+        self.display_name = Some(display_name.into());
+        self
+    }
+}
+
+/// `POST /_cokret/self/applets/{applet_id}/ghosts/provision` response.
+///
+/// Carries the durable event refs the Principal Server minted: the Ghost
+/// Actor `ck.profile.create` ref, the `ck.identity.accountability_grant` ref
+/// (also surfaced as the delegated `authorization_ref` for subsequent ghost
+/// events).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct GhostActorProvisionOutcome {
+    pub ghost_actor_id: Did,
+    pub profile_event_ref: String,
+    pub accountability_grant_ref: String,
+    pub authorization_ref: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+}
+
 // ─── S-11 / S-13: ck.applet.bridge_error builder ──────────────────────────
 
 /// Who MAY see a `ck.applet.bridge_error` Event. Spec `applet-schema.md`
