@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Starting with the local `1.0.0` freeze, breaking public API changes require a
 major-version bump.
 
+## R4.2 — Policy check `actor` → `actor_id` 2026-06-10 (cokret-spec @ fb4c970)
+
+- **Wire-breaking rename**: `PolicyCheckRequestBody.actor` → `actor_id` and `PolicyCheckOutcome.bound_to.actor` → `actor_id` (spec `did_id_suffix` rule: responsibility subjects use the `_id` suffix even when the value is a DID). No compatibility shim — payloads carrying the bare `actor` field no longer deserialize.
+- **Forbidden-wire-fields mirror**: new `WireContext::PolicyCheckBoundTo` + hard-reject entry `bound_to.actor`. The bare token `actor` stays a legitimate enum value / prose noun and is NOT added to the coarse flat list.
+
+> No version tag, no crates.io / Docker Hub / npm publish — git commit only.
+
 ## R4.1 — Encryption floor binarization & `EncryptionFloor` merge 2026-06-08
 
 - **`metadata_encryption_profile` → `metadata_encryption_floor`**: the Realm-side field is renamed to match the Circle field. The same concept previously carried two names (`_profile` on Realm, `_floor` on Circle).

@@ -52,7 +52,7 @@ pub struct PolicyCheckSource {
 pub struct PolicyCheckRequestBody {
     pub request_id: String,
     pub realm_id: RealmId,
-    pub actor: Did,
+    pub actor_id: Did,
     pub action: String,
     pub request_canonical_digest: Hash,
     pub source: PolicyCheckSource,
@@ -77,7 +77,7 @@ pub struct PolicyCheckRequestBody {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct PolicyCheckBoundTo {
     pub realm_id: RealmId,
-    pub actor: Did,
+    pub actor_id: Did,
     pub action: String,
     pub request_canonical_digest: Hash,
     pub policy_server_id: Did,

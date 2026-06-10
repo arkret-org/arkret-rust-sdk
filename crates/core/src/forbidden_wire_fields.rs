@@ -142,6 +142,8 @@ pub enum WireContext {
     GrantConstraint,
     /// Key backup `encryption.kdf.params` object property.
     KeyBackupKdfParams,
+    /// PolicyCheck `bound_to` binding object property.
+    PolicyCheckBoundTo,
 }
 
 /// Spec `forbidden-wire-fields.json` entries that name a single
@@ -471,6 +473,11 @@ const FORBIDDEN_ENTRIES: &[ForbiddenEntry] = &[
     ForbiddenEntry { field: "actor_kind=agent_native", context: WireContext::ActorKindValue },
     ForbiddenEntry { field: "actor_kind=agent_ghost", context: WireContext::ActorKindValue },
     ForbiddenEntry { field: "actor_kind=device", context: WireContext::ActorKindValue },
+    // 2026-06-10: policy check chain bare `actor` → `actor_id`
+    // (did_id_suffix rule). Registered under the dotted bound_to.actor
+    // path — the bare token `actor` remains a legitimate enum value and
+    // prose noun, so it MUST NOT enter the coarse flat list.
+    ForbiddenEntry { field: "bound_to.actor", context: WireContext::PolicyCheckBoundTo },
 ];
 
 /// Returns `true` when `field` is forbidden in the given `context` per the
