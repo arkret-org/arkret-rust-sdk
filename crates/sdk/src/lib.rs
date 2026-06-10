@@ -97,7 +97,7 @@ pub use cokret_core::state as state_res;
 // The pure KeyStore contract (trait + in-memory backend + error type) lives
 // in `cokret-core`; the OS-native backends and the platform-default
 // constructor now live in the dedicated `cokret-keystore` crate.
-pub use cokret_core::{InMemoryKeyStore, KeyStore, KeyStoreError};
+pub use cokret_core::{InMemoryKeyStore, KeyRefObject, KeyStore, KeyStoreError};
 pub use cokret_crypto as crypto_protocol;
 pub use cokret_ffi as ffi;
 pub use cokret_html as html;

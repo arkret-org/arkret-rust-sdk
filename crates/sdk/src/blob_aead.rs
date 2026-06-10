@@ -42,6 +42,8 @@ use chacha20poly1305::{
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
+use cokret_core::KeyRefObject;
+
 use crate::base64url::{base64url_decode, base64url_encode};
 use crate::canonical::{canonical_json_bytes, sha256_hex};
 use crate::{Error, Result};
@@ -89,8 +91,9 @@ pub struct EncryptedAttachmentEnvelope {
     pub scheme: String,
     /// AEAD algorithm id.
     pub alg: String,
-    /// Opaque caller-supplied key reference (schema: string, minLength 1).
-    pub key_ref: String,
+    /// MLS group-binding key reference (`{algorithm, group_state_ref}`),
+    /// identical to `encrypted-envelope.schema.json#/properties/key_ref`.
+    pub key_ref: KeyRefObject,
     /// Key epoch.
     pub epoch: u64,
     /// `<algo>:<lowercase_hex>` digest over the concatenated ciphertext.
@@ -118,8 +121,8 @@ pub struct EncryptedAttachmentEnvelope {
 /// Parameters for [`encrypt_stream`].
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StreamEncryptParams {
-    /// Opaque key reference bound into the AAD.
-    pub key_ref: String,
+    /// MLS group-binding key reference bound into the AAD.
+    pub key_ref: KeyRefObject,
     /// Key epoch recorded in the envelope.
     pub epoch: u64,
     /// Declared media type.
@@ -131,7 +134,10 @@ pub struct StreamEncryptParams {
 impl Default for StreamEncryptParams {
     fn default() -> Self {
         Self {
-            key_ref: String::new(),
+            key_ref: KeyRefObject {
+                algorithm: String::new(),
+                group_state_ref: String::new(),
+            },
             epoch: 0,
             media_type: "application/octet-stream".to_owned(),
             segment_size: DEFAULT_SEGMENT_SIZE,
@@ -161,7 +167,7 @@ fn segment_nonce(nonce_prefix: &[u8; NONCE_PREFIX_LEN], segment_index: u32, last
 
 /// Canonical per-segment AAD (§3.3.3). Keys are sorted by `canonical_json_bytes`.
 fn stream_segment_aad(
-    key_ref: &str,
+    key_ref: &KeyRefObject,
     nonce_prefix_b64: &str,
     segment_index: u32,
     last: bool,
@@ -184,7 +190,7 @@ fn stream_segment_aad(
 
 /// Canonical whole-file AAD (§3.3.3 whole-file binding).
 fn whole_file_aad(
-    key_ref: &str,
+    key_ref: &KeyRefObject,
     nonce_b64: &str,
     media_type: &str,
     size_bytes: u64,
@@ -291,7 +297,7 @@ struct StreamContext {
     cipher: XChaCha20Poly1305,
     nonce_prefix: [u8; NONCE_PREFIX_LEN],
     nonce_prefix_b64: String,
-    key_ref: String,
+    key_ref: KeyRefObject,
     media_type: String,
     size_bytes: u64,
     segment_size: u32,
@@ -569,7 +575,7 @@ pub fn decrypt_stream(
 pub fn encrypt_whole_file(
     plaintext: &[u8],
     content_key: &[u8; 32],
-    key_ref: String,
+    key_ref: KeyRefObject,
     epoch: u64,
     media_type: String,
 ) -> Result<(Vec<u8>, EncryptedAttachmentEnvelope)> {
@@ -654,9 +660,16 @@ mod tests {
         k
     }
 
+    fn test_key_ref() -> KeyRefObject {
+        KeyRefObject {
+            algorithm: "MLS".to_owned(),
+            group_state_ref: "ck:event:01964148-0000-7000-8000-000000000000".to_owned(),
+        }
+    }
+
     fn params(segment_size: u32) -> StreamEncryptParams {
         StreamEncryptParams {
-            key_ref: "ck:keyref:test".to_owned(),
+            key_ref: test_key_ref(),
             epoch: 42,
             media_type: "video/mp4".to_owned(),
             segment_size,
@@ -884,7 +897,7 @@ mod tests {
         let (ct, env) = encrypt_whole_file(
             &p,
             &key,
-            "ck:keyref:wf".to_owned(),
+            test_key_ref(),
             7,
             "text/plain".to_owned(),
         )
@@ -929,7 +942,7 @@ mod tests {
             "encrypted": true,
             "scheme": "ck.blob.stream_aead.v1",
             "alg": "mls_exporter_aead_xchacha20poly1305_stream",
-            "key_ref": "ck:keyref:test",
+            "key_ref": { "algorithm": "MLS", "group_state_ref": "ck:event:01964148-0000-7000-8000-000000000000" },
             "epoch": 42,
             "nonce_prefix": "AAAAAAAAAAAAAAAAAAAAAAAAAA",
             "segment_size": 262144,
@@ -954,7 +967,7 @@ mod tests {
         let (_ct, wf) = encrypt_whole_file(
             b"x",
             &key(),
-            "ck:keyref:wf".to_owned(),
+            test_key_ref(),
             1,
             "text/plain".to_owned(),
         )
