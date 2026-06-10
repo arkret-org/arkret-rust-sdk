@@ -170,8 +170,8 @@ pub type DetachedProof = Value;
 /// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/endpoint_entry`.
 pub type EndpointEntry = Value;
 
-/// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/endpoint_set`.
-pub type EndpointSet = Value;
+/// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/endpoint_policy`.
+pub type EndpointPolicy = Value;
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/ghost_policy`.
 pub type GhostPolicy = Value;

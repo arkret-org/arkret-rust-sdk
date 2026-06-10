@@ -286,7 +286,9 @@ pub struct AppletPackage {
     /// Capability action request list —审批 UI only, never a grant.
     pub requested_scopes: Vec<String>,
     /// Supported Applet API endpoints + auth requirements (open shape).
-    pub endpoint_set: Value,
+    /// Renamed `endpoint_set` → `endpoint_policy` (2026-06-10, hard_reject;
+    /// `normative-language.md` §7 forbids `*_set` wire suffixes).
+    pub endpoint_policy: Value,
     /// HTTP message signature key ref / accepted algorithms (open shape).
     pub webhook_auth: Value,
     pub receive_events: bool,
@@ -349,7 +351,7 @@ impl AppletPackage {
             protocols,
             namespaces,
             requested_scopes: Vec::new(),
-            endpoint_set: Value::Object(Default::default()),
+            endpoint_policy: Value::Object(Default::default()),
             webhook_auth: Value::Object(Default::default()),
             receive_events: false,
             receive_ephemeral: false,

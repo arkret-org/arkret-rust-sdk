@@ -45,10 +45,10 @@
 //!
 //! let validator = ProfileValidator::new(ServiceType::PushGateway);
 //! let claims = [
-//!     ProfileClaim::new("ck.profile.push_gateway.v1", ProfileClaimKind::CotestVerified),
+//!     ProfileClaim::new("ck.profile.push_gateway.v1", ProfileClaimKind::ConformanceVerified),
 //!     ProfileClaim::new(
 //!         "ck.profile.push_gateway.matrix_passthrough.v1",
-//!         ProfileClaimKind::CotestVerified,
+//!         ProfileClaimKind::ConformanceVerified,
 //!     ),
 //! ];
 //! validator.validate(&claims).expect("push_gateway may claim gateway + interop");
@@ -70,9 +70,10 @@ pub enum ProfileClaimKind {
     /// Implementor self-claims the profile. Weakest signal; must still pass
     /// role partitioning + spec presence checks.
     SelfClaimed,
-    /// Verified by a successful `cotest` run against the artifact registry.
-    /// Strongest in-band signal.
-    CotestVerified,
+    /// Verified by a successful Conformance Verifier run against the
+    /// artifact registry. Strongest in-band signal. (2026-06-10 neutralized
+    /// the tool-specific name: wire value is `conformance_verified`.)
+    ConformanceVerified,
     /// Profile id is intentionally outside the v1 catalogue (e.g. private
     /// extension, prototype). Role validation still applies if the id is in
     /// the spec table; otherwise the claim is allowed but flagged.
@@ -83,7 +84,7 @@ impl ProfileClaimKind {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::SelfClaimed => "self_claimed",
-            Self::CotestVerified => "cotest_verified",
+            Self::ConformanceVerified => "conformance_verified",
             Self::Experimental => "experimental",
         }
     }
@@ -111,8 +112,8 @@ impl ProfileClaim {
         Self::new(profile_id, ProfileClaimKind::SelfClaimed)
     }
 
-    pub fn cotest_verified(profile_id: impl Into<String>) -> Self {
-        Self::new(profile_id, ProfileClaimKind::CotestVerified)
+    pub fn conformance_verified(profile_id: impl Into<String>) -> Self {
+        Self::new(profile_id, ProfileClaimKind::ConformanceVerified)
     }
 
     pub fn experimental(profile_id: impl Into<String>) -> Self {
@@ -132,7 +133,7 @@ impl ProfileClaim {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ProfileClaimError {
     /// The profile id is not present in the spec catalogue. This blocks
-    /// `SelfClaimed` / `CotestVerified` provenance, but `Experimental` claims
+    /// `SelfClaimed` / `ConformanceVerified` provenance, but `Experimental` claims
     /// are surfaced as [`Self::ExperimentalUnknownProfile`] instead so they
     /// can be allow-listed by the caller.
     UnknownProfile { profile_id: String, kind: ProfileClaimKind },
@@ -318,7 +319,7 @@ impl ProfileValidator {
                         Ok(())
                     }
                 }
-                ProfileClaimKind::SelfClaimed | ProfileClaimKind::CotestVerified => {
+                ProfileClaimKind::SelfClaimed | ProfileClaimKind::ConformanceVerified => {
                     Err(ProfileClaimError::UnknownProfile {
                         profile_id: claim.profile_id.clone(),
                         kind: claim.kind,
@@ -353,12 +354,12 @@ mod tests {
         let validator = ProfileValidator::for_client();
         validator
             .validate(&[
-                ProfileClaim::cotest_verified("ck.profile.chat_mvp.v1"),
-                ProfileClaim::cotest_verified("ck.profile.kanban_mvp.v1"),
+                ProfileClaim::conformance_verified("ck.profile.chat_mvp.v1"),
+                ProfileClaim::conformance_verified("ck.profile.kanban_mvp.v1"),
                 // Admin profiles (deployment posture) are allowed on the
                 // client because clients ship with a deployment stance.
                 ProfileClaim::self_claimed("ck.profile.personal_node.v1"),
-                ProfileClaim::cotest_verified("ck.profile.matrix_compat.v1"),
+                ProfileClaim::conformance_verified("ck.profile.matrix_compat.v1"),
             ])
             .expect("client + client_profile + admin + interop must validate");
     }
@@ -368,9 +369,9 @@ mod tests {
         let validator = ProfileValidator::new(ServiceType::PushGateway);
         validator
             .validate(&[
-                ProfileClaim::cotest_verified("ck.profile.push_gateway.v1"),
-                ProfileClaim::cotest_verified("ck.profile.push_gateway.blind_wakeup.v1"),
-                ProfileClaim::cotest_verified("ck.profile.push_gateway.matrix_passthrough.v1"),
+                ProfileClaim::conformance_verified("ck.profile.push_gateway.v1"),
+                ProfileClaim::conformance_verified("ck.profile.push_gateway.blind_wakeup.v1"),
+                ProfileClaim::conformance_verified("ck.profile.push_gateway.matrix_passthrough.v1"),
             ])
             .expect("push_gateway may claim gateway + interop");
     }
@@ -388,7 +389,7 @@ mod tests {
     fn unknown_profile_is_unknown_unless_experimental() {
         let validator = ProfileValidator::for_client();
         let errors = validator
-            .validate(&[ProfileClaim::cotest_verified("ck.profile.not_in_spec.v1")])
+            .validate(&[ProfileClaim::conformance_verified("ck.profile.not_in_spec.v1")])
             .expect_err("unknown profile must fail closed");
         assert!(matches!(errors[0], ProfileClaimError::UnknownProfile { .. }));
 

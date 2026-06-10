@@ -294,18 +294,18 @@ pub enum SelfClaimedKind {
 /// Round 4 — wire-level entry in
 /// [`ServerDescription::verified_profiles`]. Mirrors
 /// `service-describe.schema.json#/properties/verified_profiles/items`:
-/// requires a cotest run id, artifact hash, artifact reference, issuer DID,
-/// issuer signature, and timestamp so consumers can pin the claim to an
-/// auditable run.
+/// requires a verification run id, artifact hash, artifact reference,
+/// verifier DID, issuer signature, and timestamp so consumers can pin the
+/// claim to an auditable run.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct VerifiedProfileEntry {
     pub profile_id: String,
-    pub claim_kind: CotestVerifiedKind,
-    pub cotest_run_id: String,
+    pub claim_kind: ConformanceVerifiedKind,
+    pub verification_run_id: String,
     pub artifact_digest: String,
     pub artifact_ref: String,
-    pub cotest_issuer_did: Did,
+    pub verifier_did: Did,
     pub signature: String,
     pub timestamp: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -315,13 +315,14 @@ pub struct VerifiedProfileEntry {
     pub extra: BTreeMap<String, Value>,
 }
 
-/// Round 4 — `claim_kind` discriminant for
-/// [`VerifiedProfileEntry`].
+/// `claim_kind` discriminant for [`VerifiedProfileEntry`]. Conformance
+/// Verifier neutralization (2026-06-10) renamed `cotest_verified` →
+/// `conformance_verified`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
-pub enum CotestVerifiedKind {
-    CotestVerified,
+pub enum ConformanceVerifiedKind {
+    ConformanceVerified,
 }
 
 /// Round 4 — wire-level entry in
@@ -1039,16 +1040,38 @@ pub struct EventsQueryPostRequestBody {
     pub filters: Option<Value>,
 }
 
+/// Result of `ck.self.snapshot.head` — a signed snapshot pointer for fast
+/// bootstrap. Mirrors
+/// `service-operation-dtos.schema.json#/$defs/SnapshotHeadState`
+/// (closed schema, 8 required fields). `snapshot_ref` is an external pointer
+/// that MUST equal the Snapshot manifest id; `created_by` / `created_at` /
+/// `authority_binding` are part of the signed manifest transcript and MUST
+/// be returned to verifiers.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct SnapshotHeadState {
-    /// Self-field on the snapshot manifest. Spec rename: `snapshot_ref` → `id`
-    /// (CKP spec head 37ce729). External references to a snapshot in other
-    /// objects keep the `snapshot_ref` name; only the manifest's own self-id
-    /// is renamed here.
-    pub id: String,
+    /// External pointer to the Snapshot manifest; MUST equal the manifest id.
+    pub snapshot_ref: String,
     pub state_digest: Hash,
-    pub frontier: String,
+    /// Snapshot frontier (object — event-set / causal frontier descriptor).
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub frontier: Value,
+    /// Commitment over the snapshot's event set (object).
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub event_set_commitment: Value,
+    /// Optional verifier hints (object).
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verification_hints: Option<Value>,
+    /// DID of the snapshot issuer; bound by the manifest signature transcript.
+    pub created_by: Did,
+    /// RFC 3339 UTC timestamp (`Z`) when the manifest was sealed.
+    pub created_at: DateTime<Utc>,
+    /// Snapshot issuer authority evidence (object); bound by the transcript.
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
+    pub authority_binding: Value,
+    /// Detached proof of the snapshot manifest.
+    #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     pub signature: Value,
 }
 
@@ -2498,8 +2521,13 @@ pub struct ModerationReportRequestBody {
 pub struct ModerationReportOutcome {
     pub report_id: String,
     pub status: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub routed_to: Option<String>,
+    /// DIDs the report was routed to. Per
+    /// `service-operation-dtos.schema.json#/$defs/ModerationReportOutcome`
+    /// this is an array of DID strings (the schema is closed), matching the
+    /// `routed_to | did[]` shape in `content-moderation.md` /
+    /// `service-http-binding.md`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub routed_to: Vec<Did>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -3350,6 +3378,18 @@ impl TryFrom<KeyBackupKdfWire> for KeyBackupKdf {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct KeyBackupAead {
     pub name: String,
+    /// AEAD profile selector binding algorithm version, nonce/tag/key lengths
+    /// and AAD construction (key-management.md §7.2). Receivers MUST fail
+    /// closed on an unsupported profile.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub aead_profile: Option<String>,
+    /// Producer-generated random value (>=128 bits) mixed into the
+    /// deterministic nonce derivation transcript for `passphrase_kdf`
+    /// envelopes (key-management.md §7.2). REQUIRED on `passphrase_kdf`
+    /// envelopes; receivers MUST reject a missing `nonce_salt` as
+    /// `schema_violation`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nonce_salt: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub nonce: Option<String>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]

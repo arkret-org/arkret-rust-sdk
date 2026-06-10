@@ -103,9 +103,15 @@ where
 
 /// Verify a Cokret [`Proof`] over caller-supplied canonical bytes by
 /// resolving `proof.verification_method` through a DID document.
+///
+/// `binding_actor_id` is the `actor_id` folded into the canonical proof
+/// binding object (`encoding.md` §6) — for Event proofs this is the Event
+/// envelope's `actor_id` field, which may differ from the controller actor
+/// (`executed_by`) used for the verification-method binding check.
 pub fn verify_canonical_proof_with_did_resolver<R>(
     canonical_bytes: &[u8],
     proof: &crate::Proof,
+    binding_actor_id: &cokret_core::Did,
     context: &cokret_signatures::ProofVerificationContext,
     resolver: &R,
 ) -> Result<cokret_signatures::SignatureVerification>
@@ -115,8 +121,13 @@ where
     let adapter = DidDocumentVerificationMethodResolver::new(resolver);
     cokret_signatures::verify_proof_with_resolver(proof, context, &adapter, |method, proof| {
         let public_key = public_key_material_from_did_document_value(&method.public_key_multibase)?;
-        cokret_signatures::verify_eddsa_detached_jws_proof(proof, canonical_bytes, &public_key)
-            .map_err(Error::from)?;
+        cokret_signatures::verify_eddsa_detached_jws_proof(
+            proof,
+            canonical_bytes,
+            binding_actor_id,
+            &public_key,
+        )
+        .map_err(Error::from)?;
         Ok(true)
     })
 }
@@ -139,7 +150,15 @@ where
         crate::Hash::new(cokret_core::canonical::sha256_digest(&canonical_bytes))?;
     let signing_actor = event.executed_by.clone().unwrap_or_else(|| event.actor_id.clone());
     let context = cokret_signatures::ProofVerificationContext::new(signing_actor, expected_digest);
-    verify_canonical_proof_with_did_resolver(&canonical_bytes, proof, &context, resolver)
+    // Binding object `actor_id` is the Event envelope's `actor_id` (spec §6
+    // L201), independent of the controller actor (`executed_by`) above.
+    verify_canonical_proof_with_did_resolver(
+        &canonical_bytes,
+        proof,
+        &event.actor_id,
+        &context,
+        resolver,
+    )
 }
 
 fn lookup_verification_method_value(

@@ -684,7 +684,11 @@ pub struct Proof {
 
 /// Canonical proof kind constants.
 pub mod proof_kind {
-    /// Standard actor / device / service signature over canonical event bytes.
+    /// Standard actor / device / service detached JWS. Per `encoding.md` §6
+    /// the signed bytes are the canonical **proof binding object**
+    /// (`{event_digest, actor_id, verification_method, created_at, domain?,
+    /// audience?}`), NOT the raw canonical event bytes — see
+    /// [`super::Proof::canonical_binding_bytes`].
     pub const DETACHED_JWS: &str = "detached_jws";
 }
 
@@ -735,6 +739,48 @@ impl Proof {
             domain: self.domain.clone(),
             audience: self.audience.clone(),
         }
+    }
+
+    /// Build the canonical **proof binding object** that the detached JWS
+    /// signs (encoding.md §6 / event-and-patch.md §3): a canonical-JSON
+    /// object over `{event_digest, actor_id, verification_method,
+    /// created_at, domain?, audience?}`.
+    ///
+    /// The detached-JWS payload MUST be these bytes — **not** the raw
+    /// canonical Event bytes — so that `created_at`, `domain`, `audience`
+    /// and `verification_method` are cryptographically covered by the
+    /// signature, not just compared as plaintext. `created_at` is emitted
+    /// in canonical UTC `YYYY-MM-DDTHH:MM:SSZ` form so producers and
+    /// verifiers reconstruct byte-identical transcripts.
+    pub fn canonical_binding_bytes(&self, actor_id: &Did) -> Result<Vec<u8>> {
+        canonical::canonical_json_bytes(&self.binding_object(actor_id))
+    }
+
+    /// The proof binding object as a [`serde_json::Value`] (key order is
+    /// irrelevant — canonical JSON re-sorts by JCS). Shared by signer and
+    /// verifier so both derive identical transcripts.
+    pub fn binding_object(&self, actor_id: &Did) -> Value {
+        let mut obj = serde_json::Map::new();
+        obj.insert("event_digest".to_owned(), Value::String(self.event_digest.as_str().to_owned()));
+        obj.insert("actor_id".to_owned(), Value::String(actor_id.as_str().to_owned()));
+        obj.insert(
+            "verification_method".to_owned(),
+            Value::String(self.verification_method.clone()),
+        );
+        obj.insert(
+            "created_at".to_owned(),
+            Value::String(canonical::format_timestamp_canonical(self.created_at)),
+        );
+        if let Some(domain) = &self.domain {
+            obj.insert("domain".to_owned(), Value::String(domain.clone()));
+        }
+        if let Some(audience) = &self.audience {
+            obj.insert(
+                "audience".to_owned(),
+                serde_json::to_value(audience).unwrap_or(Value::Null),
+            );
+        }
+        Value::Object(obj)
     }
 
     /// Validate proof structural requirements.

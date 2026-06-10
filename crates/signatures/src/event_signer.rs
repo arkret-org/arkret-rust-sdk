@@ -8,25 +8,25 @@
 //! [`cokret_core::MoveSigner`], and append a [`Proof`] to
 //! `event.proofs`.
 //!
-//! Per spec `event-and-patch.md` §3 the signing transcript MUST cover,
-//! in order:
-//!   1. canonical event bytes (proofs + unsigned removed)
-//!   2. `executed_by` (when set)
-//!   3. `authorization_ref` (when set)
-//!   4. `domain`
-//!   5. `audience`
+//! Per spec `encoding.md` §6 / `event-and-patch.md` §3 the detached JWS
+//! MUST sign the canonical **proof binding object**, NOT the raw canonical
+//! event bytes:
 //!
-//! `executed_by` and `authorization_ref` are top-level Envelope fields,
-//! so they are already in the canonical event bytes whenever set. The
-//! produced [`Proof`]'s `payload_digest` therefore equals
-//! [`cokret_core::Event::event_digest`]; `domain` and `audience` are
-//! bound into the [`Proof`] envelope and validated by
-//! [`Proof::validate_binding`].
+//! ```text
+//! { event_digest, actor_id, verification_method, created_at, domain?, audience? }
+//! ```
 //!
-//! The companion verification path lives in
-//! [`Proof::validate_binding`] (`crates/core/src/model/primitives.rs`)
-//! and the round-tripping verifier
-//! `Ed25519DetachedJwsVerifier::verify_proof` (`crates/signatures/src/proof.rs`).
+//! where `event_digest = sha256(canonical event bytes with proofs/unsigned
+//! removed)` and `actor_id` is the Event envelope's `actor_id` field. This
+//! is what cryptographically covers `created_at`, `domain`, `audience` and
+//! `verification_method` — plaintext-only comparison of those fields would
+//! leave them tamperable. `executed_by` / `authorization_ref` are covered
+//! transitively via `event_digest` (they are top-level Envelope fields).
+//!
+//! The companion verification path is
+//! [`cokret_signatures::verify_eddsa_detached_jws_proof`]
+//! (`crates/signatures/src/proof.rs`), which rebuilds the same binding
+//! object via [`cokret_core::Proof::canonical_binding_bytes`].
 
 use chrono::{DateTime, Utc};
 
@@ -105,19 +105,29 @@ pub fn sign_event<S: MoveSigner + ?Sized>(
     let canonical_bytes = canonical::canonical_json_bytes(&event.digest_payload()?)?;
     let payload_digest = Hash::new(canonical::sha256_digest(&canonical_bytes))?;
 
-    let signature = signer.sign_payload(&canonical_bytes)?;
-
     let created_at = options.created_at.unwrap_or_else(Utc::now);
-    let proof = Proof {
+
+    // Per `encoding.md` §6 / `event-and-patch.md` §3 the detached JWS MUST
+    // sign the canonical **proof binding object** — NOT the raw canonical
+    // event bytes — so that `created_at`, `domain`, `audience` and
+    // `verification_method` are cryptographically covered, not merely
+    // compared as plaintext. `actor_id` in the binding object is the
+    // Event envelope's `actor_id` field (spec §6 L201). The binding object
+    // does not include `alg`/`jws`, so it can be built before signing.
+    let mut proof = Proof {
         kind: proof_kind::DETACHED_JWS.to_owned(),
-        alg: signature.alg,
+        alg: "EdDSA".to_owned(),
         verification_method: verification_method.to_owned(),
         event_digest: payload_digest.clone(),
         created_at,
         domain: options.domain,
         audience: options.audience,
-        jws: signature.jws,
+        jws: String::new(),
     };
+    let binding_bytes = proof.canonical_binding_bytes(&event.actor_id)?;
+    let signature = signer.sign_payload(&binding_bytes)?;
+    proof.alg = signature.alg;
+    proof.jws = signature.jws;
 
     // Idempotent: replace any existing proof from the same verification
     // method (e.g. a re-sign with a refreshed `created_at`).

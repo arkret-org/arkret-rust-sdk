@@ -9,9 +9,8 @@ fn service_route_operation_ids_are_unique() {
         assert!(
             // All HTTP/JSON binding paths live under the negative-space root
             // `/_cokret/` with no version segment; the first segment is a
-            // trust-circle name (self/gate/root/find/peer/open/edge/local),
-            // per cokret-spec service-http-binding.md §2.1. Admin is the
-            // deployment-local namespace at `/_cokret/local/admin/*`.
+            // trust-circle name (self/gate/root/find/peer/open/edge),
+            // per cokret-spec service-http-binding.md §2.1.
             route.path.starts_with("/_cokret/") || route.path.starts_with("/.well-known/"),
             "unexpected route namespace: {} ({})",
             route.path,
@@ -54,7 +53,6 @@ fn service_route_registry_matches_required_spec_operations() {
         ("ck.self.policy.check", "/_cokret/self/policy/check"),
         ("ck.open.mimi.room_update", "/_cokret/open/mimi/flows/{flow_id}/update"),
         ("ck.gate.account.issue_session_grant", "/_cokret/gate/account/session-grants"),
-        ("ck.admin.revoke_device", "/_cokret/local/admin/devices/{device_id}/revoke"),
         ("ck.edge.applet.transaction", "/_cokret/edge/applet/transactions"),
     ] {
         assert_eq!(actual.get(operation_id), Some(&path), "{operation_id}");

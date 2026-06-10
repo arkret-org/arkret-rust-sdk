@@ -185,9 +185,11 @@ fn is_hash(value: &str) -> bool {
     let Some((algorithm, digest)) = value.split_once(':') else {
         return false;
     };
+    // Only the digest-suite-registry *active* suites are valid on the wire
+    // (`sha256`, `blake3`). Unregistered suites (`sha3_256`, `sha512`, …) in a
+    // critical field MUST fail closed — `digest-suite-registry.json`.
     let expected_len = match algorithm {
-        "sha256" | "sha3_256" | "blake3" => 64,
-        "sha512" => 128,
+        "sha256" | "blake3" => 64,
         _ => return false,
     };
     digest.len() == expected_len
@@ -606,16 +608,18 @@ mod tests {
         let digest64 = "0".repeat(64);
         let digest128 = "0".repeat(128);
 
+        // Only digest-suite-registry active suites (`sha256`, `blake3`) are
+        // accepted; unregistered suites MUST fail closed.
         assert!(Hash::new(format!("sha256:{digest64}")).is_ok());
-        assert!(Hash::new(format!("sha3_256:{digest64}")).is_ok());
         assert!(Hash::new(format!("blake3:{digest64}")).is_ok());
-        assert!(Hash::new(format!("sha512:{digest128}")).is_ok());
-        assert!(BlobRef::new(format!("ck:blob:sha3_256:{digest64}")).is_ok());
+        assert!(Hash::new(format!("sha3_256:{digest64}")).is_err());
+        assert!(Hash::new(format!("sha512:{digest128}")).is_err());
+        assert!(BlobRef::new(format!("ck:blob:sha3_256:{digest64}")).is_err());
         // event_digest (C47 / spec e10b6ad): bare hash, no `ck:move:` prefix.
         assert!(MoveId::new(format!("blake3:{digest64}")).is_ok());
         assert!(MoveId::new(format!("sha256:{digest64}")).is_ok());
-        assert!(MoveId::new(format!("sha512:{digest128}")).is_ok());
-        assert!(AnchorId::new(format!("ck:anchor:sha512:{digest128}")).is_ok());
+        assert!(MoveId::new(format!("sha512:{digest128}")).is_err());
+        assert!(AnchorId::new(format!("ck:anchor:sha512:{digest128}")).is_err());
     }
 
     #[test]

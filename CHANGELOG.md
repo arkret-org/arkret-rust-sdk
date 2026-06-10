@@ -73,6 +73,14 @@ major-version bump.
 
 ## [Unreleased]
 
+### Tooling
+
+- **MSRV bump 1.92 → 1.96.** The workspace `Cargo.toml` already declared
+  `rust-version = "1.96"`, but every CI job pinned `dtolnay/rust-toolchain`
+  to `1.92`, which made `cargo check/test/clippy` fail the built-in
+  `rust-version` gate. All seven CI toolchain pins are now `1.96`, matching
+  the declared MSRV.
+
 ### R3 — Spec sync 2026-05-27 (cokret-spec b47ff6ec, no release)
 
 Aggressive spec-sync round; no version bump, `git commit` only.

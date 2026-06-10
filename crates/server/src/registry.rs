@@ -132,17 +132,11 @@ const SERVICE_ROUTES: &[ServiceRoute] = &[
     endpoint!("ck.gate.account.issue_session_grant", Post, "/_cokret/gate/account/session-grants"),
     endpoint!("ck.gate.account.device_pair", Post, "/_cokret/gate/account/device-pair"),
     endpoint!("ck.gate.account.oidc_callback", Post, "/_cokret/gate/account/oidc/callback"),
-    // Admin is a deployment-local namespace served under the `local` trust
-    // segment (`/_cokret/local/admin/*`), per cokret-spec
-    // service-http-binding.md §2.1.
-    endpoint!("ck.admin.get_server_status", Get, "/_cokret/local/admin/server/status"),
-    endpoint!(
-        "ck.admin.update_account_status",
-        Post,
-        "/_cokret/local/admin/accounts/{account_id}/status"
-    ),
-    endpoint!("ck.admin.revoke_device", Post, "/_cokret/local/admin/devices/{device_id}/revoke"),
-    endpoint!("ck.admin.get_moderation_queue", Get, "/_cokret/local/admin/moderation/queue"),
+    // NB: the four `ck.admin.*` operations were removed from the operation
+    // registry on 2026-06-04 (hard_reject) — admin/operator APIs are
+    // product-local and MUST NOT live under the Cokret protocol namespace.
+    // They belong in the product (soland) under its own negative-space root
+    // (e.g. `/_soland/admin/*`), not here.
     endpoint!("ck.edge.applet.ping", Get, "/_cokret/edge/applet/ping"),
     endpoint!("ck.edge.applet.describe", Get, "/_cokret/edge/applet/describe"),
     endpoint!("ck.edge.applet.transaction", Post, "/_cokret/edge/applet/transactions"),

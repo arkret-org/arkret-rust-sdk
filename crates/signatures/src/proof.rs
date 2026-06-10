@@ -137,14 +137,24 @@ struct DetachedJwsProtectedHeader {
     crit: Option<serde_json::Value>,
 }
 
-/// Verify an EdDSA detached-JWS [`Proof`] against canonical bytes and a
-/// resolver-supplied public key.
+/// Verify an EdDSA detached-JWS [`Proof`] against canonical event bytes,
+/// the signing `actor_id`, and a resolver-supplied public key.
+///
+/// Per `encoding.md` §6 the verifier sequence is fixed:
+///   1. strip `proofs`/`unsigned` from the Event, canonicalize, compute
+///      `event_digest`, and constant-time compare it to `proof.event_digest`
+///      (`canonical_bytes` here is exactly those stripped canonical bytes);
+///   2. construct the canonical **proof binding object**
+///      `{event_digest, actor_id, verification_method, created_at, domain?,
+///      audience?}` and verify the detached JWS signs *those* bytes — NOT the
+///      raw event bytes. `actor_id` is the Event envelope's `actor_id` field.
 ///
 /// This is intentionally not gated behind the `signer` feature: production
 /// receivers need verification even when they never hold signing material.
 pub fn verify_eddsa_detached_jws_proof(
     proof: &Proof,
     canonical_bytes: &[u8],
+    actor_id: &cokret_core::Did,
     public_key: &PublicKeyMaterial,
 ) -> std::result::Result<(), VerifierError> {
     if canonical_bytes.is_empty() {
@@ -164,6 +174,9 @@ pub fn verify_eddsa_detached_jws_proof(
             proof.event_digest, expected
         )));
     }
+    let binding_bytes = proof
+        .canonical_binding_bytes(actor_id)
+        .map_err(|err| VerifierError::Encoding(format!("proof binding object: {err}")))?;
 
     let parts: Vec<&str> = proof.jws.split('.').collect();
     if parts.len() != 3 || !parts[1].is_empty() {
@@ -199,7 +212,7 @@ pub fn verify_eddsa_detached_jws_proof(
     }
     let sig_bytes = base64url_decode(parts[2])
         .map_err(|err| VerifierError::Encoding(format!("invalid sig base64: {err}")))?;
-    let signing_input = format!("{}.{}", parts[0], base64url_encode(canonical_bytes));
+    let signing_input = format!("{}.{}", parts[0], base64url_encode(&binding_bytes));
     verify_eddsa_signing_input(&signing_input, &sig_bytes, public_key)
 }
 
@@ -583,8 +596,16 @@ mod ed25519_jws {
             Self
         }
 
-        /// Verify a full Cokret [`Proof`] against the canonical bytes
-        /// it should be bound to.
+        /// Verify a detached-JWS [`Proof`] whose signature covers exactly
+        /// `canonical_bytes` (the JWS signing input is
+        /// `b64u(header).b64u(canonical_bytes)`).
+        ///
+        /// This is a **generic** detached-JWS-over-payload primitive: the
+        /// caller decides what `canonical_bytes` are. For Cokret **Event
+        /// proofs**, the signed bytes are the canonical proof *binding
+        /// object* (not the raw event bytes) — use the top-level
+        /// [`super::verify_eddsa_detached_jws_proof`], which constructs that
+        /// binding object from `proof` + `actor_id` per `encoding.md` §6.
         pub fn verify_proof(
             &self,
             proof: &Proof,
@@ -674,7 +695,11 @@ mod ed25519_jws {
             let mut sig_arr = [0u8; 64];
             sig_arr.copy_from_slice(signature);
             let sig = ed25519_dalek::Signature::from_bytes(&sig_arr);
-            verifying.verify(signing_input.as_bytes(), &sig).map_err(|err| {
+            // `verify_strict` (ed25519-dalek's protocol-recommended path)
+            // rejects signature malleability and small-order/non-canonical
+            // R, matching `verify_eddsa_signing_input` so both detached-JWS
+            // verifiers agree on validity (encoding.md §2.1 determinism).
+            verifying.verify_strict(signing_input.as_bytes(), &sig).map_err(|err| {
                 VerifierError::Backend(format!("Ed25519 verification failed: {err}"))
             })?;
             Ok(())

@@ -127,9 +127,12 @@ pub enum AuditPurpose {
 }
 /// `ck.schema.attestation_evidence.v1` structured evidence carrier.
 ///
-/// Used at Audit Agent join time and by the reducer when validating
-/// `ck.audit.epoch_key_destruction`. See zh/crypto-media/audited-e2ee.md §2
-/// (attested_hardware binding) and §3.1.1.2 (epoch key destruction).
+/// Used at Audit Agent join time and by the reducer when validating the
+/// current audit release-session model (`ck.audit.applet_binding` + audit
+/// session lifecycle). The former `ck.audit.epoch_key_destruction` standing
+/// audit kind was removed (`removed-event-kinds.json`) and replaced by that
+/// model — see `crates/core/src/events/kinds.rs` and
+/// zh/crypto-media/audited-e2ee.md §2 (attested_hardware binding).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 pub struct AttestationEvidence {

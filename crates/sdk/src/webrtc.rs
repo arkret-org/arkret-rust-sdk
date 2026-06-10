@@ -27,7 +27,9 @@ pub struct SessionDescription {
 pub struct IceCandidate {
     pub candidate: String,
     pub sdp_mid: Option<String>,
-    pub sdp_mline_index: Option<u32>,
+    /// Per `webrtc-signaling.md` §(L313/L320) the browser-native
+    /// `sdpMLineIndex` MUST map to wire field `sdp_m_line_index`.
+    pub sdp_m_line_index: Option<u32>,
 }
 
 /// To-device WebRTC signaling message kind.
@@ -388,7 +390,7 @@ mod tests {
                 IceCandidate {
                     candidate: "candidate".to_owned(),
                     sdp_mid: Some("0".to_owned()),
-                    sdp_mline_index: Some(0),
+                    sdp_m_line_index: Some(0),
                 },
             )
             .unwrap();
@@ -458,7 +460,7 @@ mod tests {
             IceCandidate {
                 candidate: "candidate".to_owned(),
                 sdp_mid: Some("0".to_owned()),
-                sdp_mline_index: Some(0),
+                sdp_m_line_index: Some(0),
             },
         );
 

@@ -117,6 +117,15 @@ impl Cursor {
     /// Maximum cursor size after encoding (4KB).
     pub const MAX_ENCODED_SIZE: usize = 4096;
 
+    /// §8.3 rule 12 TTL hard upper bound for `barrier` cursors: 1 hour.
+    pub const BARRIER_TTL_MAX_MS: i64 = 3_600_000;
+
+    /// §8.3 rule 12 TTL hard upper bound for `stream` cursors: 7 days.
+    pub const STREAM_TTL_MAX_MS: i64 = 604_800_000;
+
+    /// §8.3 rule 5/12 clock-skew tolerance for `t`/`x` future checks.
+    pub const CLOCK_SKEW_TOLERANCE_MS: i64 = 5 * 60 * 1000;
+
     /// SDK-local placeholder constants retained for profile-specific
     /// stateless cursor tests. v1 core emits stateful `h` handles by default.
     pub const DEV_TEST_MAC: &'static str =
@@ -125,16 +134,26 @@ impl Cursor {
 
     /// Create a new cursor with current timestamp and default expiration.
     pub fn new() -> Result<Self> {
-        let now = unix_time_millis()?;
+        let now = chrono::Utc::now();
+        // `cursor.schema.json` `$defs.timestamp` / encoding.md §8.2 require
+        // `t` to be a canonical RFC 3339 UTC timestamp ending in `Z`.
+        // chrono's `to_rfc3339()` emits a `+00:00` offset with sub-second
+        // digits, which the schema (and our own `validate_timestamp_canonical`)
+        // would reject — use the canonical formatter (whole-second `Z`) instead.
+        let t = crate::canonical::format_timestamp_canonical(now);
+        // Base `x` on the *floored* `t` (whole seconds) so the nominal TTL
+        // `x - t_ms` is exactly `DEFAULT_EXPIRATION_MS` and never overshoots
+        // the §8.3 rule-12 hard cap by the sub-second remainder of `now`.
+        let t_ms = now.timestamp() * 1000;
 
         Ok(Self {
             v: "1".to_owned(),
             purpose: CursorPurpose::Stream,
-            t: chrono::Utc::now().to_rfc3339(),
+            t,
             s: BTreeMap::new(),
             d: None,
             target: None,
-            x: now + Self::DEFAULT_EXPIRATION_MS,
+            x: t_ms + Self::DEFAULT_EXPIRATION_MS,
             h: Some(generate_cursor_handle()?),
             issuer_kid: None,
             mac: None,
@@ -222,6 +241,11 @@ impl Cursor {
     }
 
     /// Convert this stream cursor into a barrier cursor for one target event.
+    ///
+    /// Re-clamps `x` so the barrier TTL (`x - t`) does not exceed the §8.3
+    /// rule-12 hard cap (1 hour) — a barrier cursor carrying the default
+    /// 7-day stream expiry would otherwise be rejected by any conformant
+    /// receiver.
     pub fn with_barrier_target(
         mut self,
         event_id: impl Into<String>,
@@ -229,6 +253,13 @@ impl Cursor {
         realm_id: Option<String>,
     ) -> Self {
         self.purpose = CursorPurpose::Barrier;
+        if let Ok(t_ms) = chrono::DateTime::parse_from_rfc3339(&self.t).map(|t| t.timestamp_millis())
+        {
+            let max_x = t_ms + Self::BARRIER_TTL_MAX_MS;
+            if self.x > max_x {
+                self.x = max_x;
+            }
+        }
         self.target = Some(CursorTarget {
             event_id: event_id.into(),
             event_digest: event_digest.into(),
@@ -300,12 +331,15 @@ impl Cursor {
 
         self.validate_core_wire_shape()?;
 
-        // Check expiration
-        let now_ms = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as i64;
+        let now_ms = unix_time_millis()?;
 
+        // §8.3 rule 5: `x` MUST NOT be in the past (TTL expiry).
         if self.x < now_ms {
             return Err(Error::Protocol("cursor has expired".to_owned()));
         }
+
+        // §8.3 rule 12: `t` well-formedness + TTL hard upper bound.
+        self.validate_ttl_bound(now_ms)?;
 
         // Validate Realm positions
         for (realm_id, pos) in &self.s {
@@ -339,6 +373,48 @@ impl Cursor {
             return Err(Error::Protocol("cursor _sig must not be empty".to_owned()));
         }
 
+        Ok(())
+    }
+
+    /// §8.3 rule 12 (TTL hard upper bound). `now_ms` is the receiver's
+    /// current Unix-ms clock.
+    ///
+    /// Order matters: validate `t` well-formedness (canonical UTC `Z` form)
+    /// first, then `t_ms <= x`, then `t` not in the future (5-min skew),
+    /// then `x - t_ms <= per-purpose cap`. Any failure maps to
+    /// `invalid_param` (here `Error::Protocol`), preventing a corrupt or
+    /// malicious cursor from bypassing the cap via a negative/overflowing
+    /// or future-stamped `t`.
+    fn validate_ttl_bound(&self, now_ms: i64) -> Result<()> {
+        crate::canonical::validate_timestamp_canonical(&self.t).map_err(|_| {
+            Error::Protocol(format!("cursor `t` is not a canonical UTC `Z` timestamp: {}", self.t))
+        })?;
+        let t_ms = chrono::DateTime::parse_from_rfc3339(&self.t)
+            .map_err(|err| Error::Protocol(format!("cursor `t` is unparseable: {err}")))?
+            .timestamp_millis();
+
+        if t_ms > self.x {
+            return Err(Error::Protocol(
+                "cursor `t` is after `x` (negative TTL); invalid_param".to_owned(),
+            ));
+        }
+        if t_ms > now_ms + Self::CLOCK_SKEW_TOLERANCE_MS {
+            return Err(Error::Protocol(
+                "cursor `t` is in the future beyond clock-skew tolerance; invalid_param".to_owned(),
+            ));
+        }
+
+        let ttl = self.x - t_ms;
+        let cap = match self.purpose {
+            CursorPurpose::Barrier => Self::BARRIER_TTL_MAX_MS,
+            CursorPurpose::Stream => Self::STREAM_TTL_MAX_MS,
+        };
+        if ttl > cap {
+            return Err(Error::Protocol(format!(
+                "cursor TTL {ttl} ms exceeds the {:?} hard upper bound {cap} ms; invalid_param",
+                self.purpose
+            )));
+        }
         Ok(())
     }
 
@@ -525,9 +601,10 @@ fn is_digest(value: &str) -> bool {
     let Some((algorithm, digest)) = value.split_once(':') else {
         return false;
     };
+    // Only digest-suite-registry *active* suites (`sha256`, `blake3`) are
+    // valid; unregistered suites MUST fail closed in critical fields.
     let expected_len = match algorithm {
-        "sha256" | "sha3_256" | "blake3" => 64,
-        "sha512" => 128,
+        "sha256" | "blake3" => 64,
         _ => return false,
     };
     digest.len() == expected_len

@@ -472,7 +472,7 @@ fn did_resolver_verifies_event_proof_from_did_document_key() {
         crate::Event::new("ck.test.event", realm(), actor, 1, hlc(), json!({"ok": true})).unwrap();
     let builder = cokret_signatures::EventProofBuilder::new();
     let canonical_bytes = builder.envelope_bytes(&event).unwrap();
-    let proof = crate::Proof {
+    let mut proof = crate::Proof {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
         verification_method,
@@ -481,8 +481,12 @@ fn did_resolver_verifies_event_proof_from_did_document_key() {
         created_at: Utc::now(),
         domain: None,
         audience: None,
-        jws: crate::jws::sign_jws_ed25519(&canonical_bytes, &signing_key).unwrap(),
+        jws: String::new(),
     };
+    // Spec §6: the detached JWS signs the canonical proof binding object,
+    // not the raw event bytes. `actor_id` is the Event envelope actor.
+    let binding_bytes = proof.canonical_binding_bytes(&event.actor_id).unwrap();
+    proof.jws = crate::jws::sign_jws_ed25519(&binding_bytes, &signing_key).unwrap();
 
     let verified = verify_event_proof_with_did_resolver(&event, &proof, &resolver).unwrap();
     assert!(verified.valid);
@@ -510,7 +514,7 @@ fn did_resolver_binds_event_proof_to_executed_by_when_present() {
     event.authorization_ref = Some("ck:grant:01904100-0000-7000-8000-cccccccccccc".to_owned());
     let builder = cokret_signatures::EventProofBuilder::new();
     let canonical_bytes = builder.envelope_bytes(&event).unwrap();
-    let proof = crate::Proof {
+    let mut proof = crate::Proof {
         kind: "detached_jws".to_owned(),
         alg: "EdDSA".to_owned(),
         verification_method,
@@ -519,8 +523,12 @@ fn did_resolver_binds_event_proof_to_executed_by_when_present() {
         created_at: Utc::now(),
         domain: None,
         audience: None,
-        jws: crate::jws::sign_jws_ed25519(&canonical_bytes, &signing_key).unwrap(),
+        jws: String::new(),
     };
+    // Binding object actor_id is the Event envelope `actor_id` (here
+    // `controller`), even though the controller binding uses `executed_by`.
+    let binding_bytes = proof.canonical_binding_bytes(&event.actor_id).unwrap();
+    proof.jws = crate::jws::sign_jws_ed25519(&binding_bytes, &signing_key).unwrap();
 
     let verified = verify_event_proof_with_did_resolver(&event, &proof, &resolver).unwrap();
     assert!(verified.valid);
