@@ -133,6 +133,10 @@ pub mod auth;
 pub mod authz;
 #[cfg(feature = "full-surface")]
 pub mod base;
+/// Canonical encrypted attachment codec (`ck.blob.stream_aead.v1` /
+/// `ck.blob.whole_file_aead.v1`, `media-and-blob.md` §3.2/§3.3).
+#[cfg(feature = "full-surface")]
+pub mod blob_aead;
 #[cfg(feature = "full-surface")]
 pub mod consent;
 #[cfg(feature = "full-surface")]
@@ -295,6 +299,12 @@ pub use authz::{
 pub use base::{
     BaseClient, BootstrapSequence, BootstrapStep, BootstrapStepKind, BootstrapStepStatus,
     ClientRealm, RealmMembershipState, SessionMeta, SessionRestore,
+};
+#[cfg(feature = "full-surface")]
+pub use blob_aead::{
+    ALG_STREAM_XCHACHA, ALG_WHOLE_FILE_XCHACHA, DEFAULT_SEGMENT_SIZE, EncryptedAttachmentEnvelope,
+    SCHEME_STREAM, SCHEME_WHOLE_FILE, StreamDecryptor, StreamEncryptParams, decrypt_stream,
+    decrypt_whole_file, encrypt_stream, encrypt_whole_file,
 };
 #[cfg(feature = "full-surface")]
 pub use crypto::{
