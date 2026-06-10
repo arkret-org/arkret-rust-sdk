@@ -6,12 +6,13 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::events::kinds::{
-    EventClass, EventWireScope, classify_event_kind, event_wire_scope, is_reducer_input_event_kind,
+    EventClass, EventWireScope, classify_event_kind, event_wire_scope,
+    is_reducer_input_event_kind,
 };
 
 /// Count of standard ck.* event kinds the registry declares active.
 /// Excludes the [EventKind::Unknown] catch-all.
-pub const EVENT_KIND_COUNT: usize = 184;
+pub const EVENT_KIND_COUNT: usize = 186;
 
 /// Strongly-typed Cokret event kind. One variant per active ck.* kind in
 /// `event-kind-registry.json`, plus [EventKind::Unknown] which preserves
@@ -358,6 +359,10 @@ pub enum EventKind {
     SchemaDefine,
     /// `ck.schema.update`
     SchemaUpdate,
+    /// `ck.secret.request`
+    SecretRequest,
+    /// `ck.secret.send`
+    SecretSend,
     /// `ck.self.agent.deactivate`
     SelfAgentDeactivate,
     /// `ck.self.agent.pause`
@@ -567,6 +572,8 @@ impl EventKind {
             Self::RsvpSet => "ck.rsvp.set",
             Self::SchemaDefine => "ck.schema.define",
             Self::SchemaUpdate => "ck.schema.update",
+            Self::SecretRequest => "ck.secret.request",
+            Self::SecretSend => "ck.secret.send",
             Self::SelfAgentDeactivate => "ck.self.agent.deactivate",
             Self::SelfAgentPause => "ck.self.agent.pause",
             Self::SelfAgentResume => "ck.self.agent.resume",
@@ -759,6 +766,8 @@ impl EventKind {
             "ck.rsvp.set" => Self::RsvpSet,
             "ck.schema.define" => Self::SchemaDefine,
             "ck.schema.update" => Self::SchemaUpdate,
+            "ck.secret.request" => Self::SecretRequest,
+            "ck.secret.send" => Self::SecretSend,
             "ck.self.agent.deactivate" => Self::SelfAgentDeactivate,
             "ck.self.agent.pause" => Self::SelfAgentPause,
             "ck.self.agent.resume" => Self::SelfAgentResume,

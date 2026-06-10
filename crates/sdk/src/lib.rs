@@ -182,6 +182,8 @@ pub mod jws;
 pub mod key_backup_client;
 #[cfg(all(feature = "full-surface", feature = "device-runtime"))]
 pub mod key_verification;
+#[cfg(all(feature = "full-surface", feature = "device-runtime"))]
+pub mod secret_share;
 // `lattice_registry` is intentionally NOT feature-gated: yougen Move
 // pre-check + cotest fixtures need the spec-normative cell-family
 // registry independently of the higher-level full-surface client
@@ -435,6 +437,11 @@ pub use resolver::{
 };
 #[cfg(feature = "full-surface")]
 pub use search::{RealmSearchEntry, RealmSearchIndex, RealmSearchQuery};
+#[cfg(all(feature = "full-surface", feature = "device-runtime"))]
+pub use secret_share::{
+    HPKE_SECRET_SHARE_SCHEME, SECRET_ID_MLS_ACCOUNT, SECRET_REQUEST_KIND, SECRET_SEND_KIND,
+    SecretShareRequestContent, SecretShareSendContent,
+};
 #[cfg(all(feature = "full-surface", feature = "server"))]
 pub use server::{
     EndpointHandler, ProtocolFixtureFlow, ProtocolFixtureReport, ProtocolFixtureStep,
