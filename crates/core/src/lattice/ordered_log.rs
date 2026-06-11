@@ -8,7 +8,7 @@
 //!   `[{issuer, issuer_seq, value}, ...]`.
 //!
 //! Since the deduplication key includes the issuer DID, this Lattice
-//! requires the AnchoredOp to expose the Move's `issuer`. Move
+//! requires the SealedOp to expose the Move's `issuer`. Move
 //! preconditions / capability checks (which look at the issuer) live at
 //! the Move verifier; the lattice receives the joined ops post-verify.
 
@@ -16,17 +16,17 @@ use std::collections::BTreeMap;
 
 use serde_json::{Value, json};
 
-use super::{AnchoredOp, CellState, Lattice, LatticeKind, OpError};
+use super::{CellState, Lattice, LatticeKind, OpError, SealedOp};
 use crate::{CellRef, Did, LatticeOp, LatticeOpType};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct OrderedLog;
 
-/// An anchored op carrying issuer DID, used by [`OrderedLog::join_with_issuers`].
+/// An sealed op carrying issuer DID, used by [`OrderedLog::join_with_issuers`].
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IssuedOp {
     pub issuer: Did,
-    pub op: AnchoredOp,
+    pub op: SealedOp,
 }
 
 impl OrderedLog {
@@ -39,7 +39,7 @@ impl OrderedLog {
     /// across issuers.
     pub fn join_with_issuers(&self, _cell: &CellRef, ops: &[IssuedOp]) -> CellState {
         // Dedup by (issuer, issuer_seq), keeping the first entry seen.
-        // Anchored order is the canonical input order, so "first" is
+        // Sealed order is the canonical input order, so "first" is
         // deterministic.
         let mut entries: BTreeMap<(String, u64), Value> = BTreeMap::new();
         for entry in ops {
@@ -101,9 +101,9 @@ impl Lattice for OrderedLog {
 
     /// Plain join treats every op as anonymous (issuer=`did:unknown:_`).
     /// Real runtime should use [`OrderedLog::join_with_issuers`].
-    fn join(&self, cell: &CellRef, anchored_ops: &[AnchoredOp]) -> CellState {
+    fn join(&self, cell: &CellRef, sealed_ops: &[SealedOp]) -> CellState {
         let unknown = Did::new("did:unknown:_".to_owned()).unwrap();
-        let issued: Vec<IssuedOp> = anchored_ops
+        let issued: Vec<IssuedOp> = sealed_ops
             .iter()
             .cloned()
             .map(|op| IssuedOp {
@@ -146,7 +146,7 @@ mod tests {
     fn issued(issuer_str: &str, seq: u64, value: Value, mid: u8) -> IssuedOp {
         IssuedOp {
             issuer: Did::new(issuer_str.to_owned()).unwrap(),
-            op: AnchoredOp::new(move_id(mid), append(seq, value)),
+            op: SealedOp::new(move_id(mid), append(seq, value)),
         }
     }
 
@@ -245,11 +245,11 @@ mod tests {
     #[test]
     fn plain_join_collapses_under_unknown_issuer() {
         let ops = vec![
-            AnchoredOp::new(move_id(1), append(1, json!("e1"))),
-            AnchoredOp::new(move_id(2), append(1, json!("e1-dup"))), /* same seq, same
-                                                                      * issuer=unknown ->
-                                                                      * dropped */
-            AnchoredOp::new(move_id(3), append(2, json!("e2"))),
+            SealedOp::new(move_id(1), append(1, json!("e1"))),
+            SealedOp::new(move_id(2), append(1, json!("e1-dup"))), /* same seq, same
+                                                                    * issuer=unknown ->
+                                                                    * dropped */
+            SealedOp::new(move_id(3), append(2, json!("e2"))),
         ];
         let state = OrderedLog.join(&cell(), &ops);
         match state {
@@ -268,7 +268,7 @@ mod tests {
             // invalid: missing issuer_seq -> filtered
             IssuedOp {
                 issuer: Did::new("did:web:alice.example".to_owned()).unwrap(),
-                op: AnchoredOp::new(
+                op: SealedOp::new(
                     move_id(2),
                     LatticeOp {
                         op_type: LatticeOpType::Append,

@@ -17,7 +17,7 @@ use std::collections::BTreeMap;
 
 use serde_json::{Number, Value, json};
 
-use super::{AnchoredOp, CellState, Lattice, LatticeKind, OpError};
+use super::{CellState, Lattice, LatticeKind, OpError, SealedOp};
 use crate::{CellRef, LatticeOp, LatticeOpType};
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -56,13 +56,13 @@ impl Lattice for Counter {
         }
     }
 
-    fn join(&self, _cell: &CellRef, anchored_ops: &[AnchoredOp]) -> CellState {
+    fn join(&self, _cell: &CellRef, sealed_ops: &[SealedOp]) -> CellState {
         // Tagged dimensions go into a sorted map; un-tagged go into the
         // empty-string bucket. We return either an integer (single
         // un-tagged dim) or an object (when any tagged dim exists).
         let mut totals: BTreeMap<String, i64> = BTreeMap::new();
         let mut any_tagged = false;
-        for entry in anchored_ops {
+        for entry in sealed_ops {
             if self.validate_op(&entry.op).is_err() {
                 continue;
             }
@@ -187,9 +187,9 @@ mod tests {
     #[test]
     fn untagged_inc_dec_sums_deterministically() {
         let ops = vec![
-            AnchoredOp::new(move_id(1), inc(5)),
-            AnchoredOp::new(move_id(2), inc(3)),
-            AnchoredOp::new(move_id(3), dec(2)),
+            SealedOp::new(move_id(1), inc(5)),
+            SealedOp::new(move_id(2), inc(3)),
+            SealedOp::new(move_id(3), dec(2)),
         ];
         assert_eq!(Counter.join(&cell(), &ops), CellState::Value(json!(6)));
     }
@@ -202,9 +202,9 @@ mod tests {
     #[test]
     fn tagged_dimensions_returns_object() {
         let ops = vec![
-            AnchoredOp::new(move_id(1), inc_tag("approve", 3)),
-            AnchoredOp::new(move_id(2), inc_tag("reject", 1)),
-            AnchoredOp::new(move_id(3), inc_tag("approve", 2)),
+            SealedOp::new(move_id(1), inc_tag("approve", 3)),
+            SealedOp::new(move_id(2), inc_tag("reject", 1)),
+            SealedOp::new(move_id(3), inc_tag("approve", 2)),
         ];
         let state = Counter.join(&cell(), &ops);
         match state {
@@ -219,8 +219,8 @@ mod tests {
     #[test]
     fn mixed_tagged_and_untagged_uses_object_with_default_bucket() {
         let ops = vec![
-            AnchoredOp::new(move_id(1), inc(10)),
-            AnchoredOp::new(move_id(2), inc_tag("voted", 3)),
+            SealedOp::new(move_id(1), inc(10)),
+            SealedOp::new(move_id(2), inc_tag("voted", 3)),
         ];
         let state = Counter.join(&cell(), &ops);
         match state {
@@ -234,7 +234,7 @@ mod tests {
 
     #[test]
     fn dec_can_drive_total_negative() {
-        let ops = vec![AnchoredOp::new(move_id(1), dec(5))];
+        let ops = vec![SealedOp::new(move_id(1), dec(5))];
         assert_eq!(Counter.join(&cell(), &ops), CellState::Value(json!(-5)));
     }
 
@@ -263,8 +263,8 @@ mod tests {
     #[test]
     fn invalid_ops_skipped() {
         let ops = vec![
-            AnchoredOp::new(move_id(1), inc(-3)), // invalid
-            AnchoredOp::new(move_id(2), inc(7)),
+            SealedOp::new(move_id(1), inc(-3)), // invalid
+            SealedOp::new(move_id(2), inc(7)),
         ];
         // Invalid op skipped; result is just inc(7) = 7.
         assert_eq!(Counter.join(&cell(), &ops), CellState::Value(json!(7)));

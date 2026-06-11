@@ -109,7 +109,7 @@ an `AppletPackage` via `package.to_registration()`.
   spec lands.
 - MLS / E2EE Ghost actor encryption path: spec §12 defines it but
   savfox Phase 6 explicitly defers.
-- Federation anchor verification + cursor-revoke auto-recovery: tracked
+- Federation seal verification + cursor-revoke auto-recovery: tracked
   separately; not part of the S-1..S-11 deliverable.
 
 ---

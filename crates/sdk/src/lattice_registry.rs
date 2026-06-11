@@ -14,10 +14,10 @@
 //!
 //! Coverage (mirrors soland `reducer::lattice_kinds`):
 //! - **OrSet** (causal add/remove): consent.grant, capability.grant / delegate / derived,
-//!   session.grant, device.authorized, device.list_update, agent.key, covered_frontier (MLS).
+//!   session.grant, device.authorized, device.list_update, agent.key, covered_seals (MLS).
 //! - **CasRegister** (last-writer-wins, conflict→Bottom): realm.policy, realm.read_receipt_policy,
 //!   realm.history_visibility, realm.join_rule, realm.discovery, realm.organization, realm.upgrade,
-//!   flow.position, flow.stage, morph.stage, space.parent, device.push_route, anchorer (Move/Anchor
+//!   flow.position, flow.stage, morph.stage, space.parent, device.push_route, notary (Move/Seal
 //!   authority cell), mls_epoch.
 //! - **Fsm** (legal transitions only): member.state, agent.status.
 //! - **OrderedLog** (per-issuer monotonic append): account.status, policy.rule,
@@ -79,7 +79,7 @@ pub struct ComponentDescriptor {
 /// - `Reject`: when the Lattice's `join` returns a structured `Bottom`, the receiver MUST
 ///   quarantine the resolved cell and emit `bottom_diagnostics` events. Lattice queries on this
 ///   cell return `bottom` rather than choosing a winner. This is the v1 default for safety-critical
-///   cells (capability, consent, anchorer).
+///   cells (capability, consent, notary).
 /// - `Expose`: callers are expected to render the multi-value set directly (e.g. UI shows "two
 ///   concurrent edits, please reconcile" rather than blocking). Suitable for advisory cells (Flow
 ///   titles, user profile fields).
@@ -98,7 +98,7 @@ impl BottomPolicy {
     }
 
     /// Translate to the SDK state-res `BottomMode` that the
-    /// `CellRegistry` uses to drive Move/Anchor receive-pipeline
+    /// `CellRegistry` uses to drive Move/Seal receive-pipeline
     /// bottom handling. The two are 1:1 by design.
     pub fn to_sdk_bottom_mode(self) -> BottomMode {
         match self {
@@ -152,7 +152,7 @@ impl std::error::Error for LatticeKindError {}
 /// declares the lattice algebra that resolves it (one of the six
 /// spec-normative lattices from [`crate::lattice::LatticeKind`]), and
 /// exposes subject-derivation + post-resolution validation hooks.
-/// Move/Anchor receive pipeline iterates anchored Moves, groups effects
+/// Move/Seal receive pipeline iterates sealed Moves, groups effects
 /// by `(cell_family, cell_subject)`, and dispatches to the matching
 /// `LatticeKind` for per-cell `Lattice::join`.
 pub trait LatticeKind: Send + Sync {
@@ -579,7 +579,7 @@ impl LatticeKind for KeyBackupActiveSeries {
 
 singleton_lattice!(
     CoveredFrontier,
-    "ck.component.mls.covered_frontier.v1",
+    "ck.component.mls.covered_seals.v1",
     SdkLatticeKind::OrSet,
     BottomPolicy::Reject,
     Criticality::Required
@@ -686,8 +686,8 @@ per_subject_lattice!(
 );
 
 singleton_lattice!(
-    AnchorerCell,
-    "ck.component.anchorer.v1",
+    NotaryCell,
+    "ck.component.notary.v1",
     SdkLatticeKind::CasRegister,
     BottomPolicy::Reject,
     Criticality::Required
@@ -1276,7 +1276,7 @@ per_subject_lattice!(
 // ───────────────────────── Factory ─────────────────────────
 
 /// Build a [`LatticeRegistry`] pre-populated with every spec-normative
-/// cell family covered by this module. Downstream Move/Anchor receive
+/// cell family covered by this module. Downstream Move/Seal receive
 /// pipelines call this once at boot. Lifted from soland so all
 /// consumers (soland, yougen Move pre-check, cotest fixtures) share
 /// one canonical registry.
@@ -1307,7 +1307,7 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(MorphStage);
     registry.register(FlowWatch);
     registry.register(CrossSigningPublish);
-    registry.register(AnchorerCell);
+    registry.register(NotaryCell);
     registry.register(MlsEpoch);
 
     // Fsm
@@ -1365,7 +1365,7 @@ pub fn default_lattice_registry() -> LatticeRegistry {
 
 /// One-shot list of `(cell_family, sdk_lattice_kind, sdk_bottom_mode)`
 /// used to bulk-register the SDK's [`MemoryCellRegistry`] so the
-/// Move/Anchor receive pipeline (`apply_anchor` / `verify_move`)
+/// Move/Seal receive pipeline (`apply_seal` / `verify_move`)
 /// resolves every spec-declared cell family correctly. The list mirrors
 /// [`default_lattice_registry`] one-to-one.
 pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind, BottomMode)> {
@@ -1381,7 +1381,7 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "ck.component.device.list_update.v1",
         "ck.component.device.push_route.v1",
         "ck.component.agent.key.v1",
-        "ck.component.mls.covered_frontier.v1",
+        "ck.component.mls.covered_seals.v1",
         "ck.component.key_backup.active_series.v1",
         // CasRegister
         "ck.component.circle.tombstone.v1",
@@ -1391,7 +1391,7 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
         "ck.component.morph.stage.v1",
         "ck.component.flow.watch.v1",
         "ck.component.cross_signing.publish.v1",
-        "ck.component.anchorer.v1",
+        "ck.component.notary.v1",
         "ck.component.mls.epoch.v1",
         // Fsm
         "ck.component.member.state.v1",
@@ -1457,8 +1457,8 @@ pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind,
 }
 
 /// Build a fresh [`MemoryCellRegistry`] populated with every
-/// spec-declared cell family. Move/Anchor receive pipeline
-/// (`verify_move` / `apply_anchor`) uses this to resolve
+/// spec-declared cell family. Move/Seal receive pipeline
+/// (`verify_move` / `apply_seal`) uses this to resolve
 /// `(family → Lattice)` for every effect.
 ///
 /// FSM families need their transition tables set via `register_fsm`; the
@@ -1527,8 +1527,8 @@ mod tests {
     #[test]
     fn default_registry_kind_count_matches_expected_total() {
         // The registry covers the 60 cell families declared by
-        // event-kind-registry plus the three reducer-local anchor/MLS
-        // families (`anchorer`, `mls.epoch`, `mls.covered_frontier`).
+        // event-kind-registry plus the three reducer-local seal/MLS
+        // families (`notary`, `mls.epoch`, `mls.covered_seals`).
         let registry = default_lattice_registry();
         assert_eq!(registry.len(), 63);
     }
@@ -1564,21 +1564,21 @@ mod tests {
     }
 
     #[test]
-    fn anchorer_cell_is_singleton_cas_register_and_required() {
+    fn notary_cell_is_singleton_cas_register_and_required() {
         let registry = default_lattice_registry();
-        let kind = registry.lookup("ck.component.anchorer.v1").unwrap();
+        let kind = registry.lookup("ck.component.notary.v1").unwrap();
         assert_eq!(kind.lattice(), SdkLatticeKind::CasRegister);
         assert_eq!(kind.bottom_policy(), BottomPolicy::Reject);
         let comp = kind.component();
         assert_eq!(comp.criticality, Criticality::Required);
-        assert_eq!(comp.component_type, "ck.component.anchorer.v1");
+        assert_eq!(comp.component_type, "ck.component.notary.v1");
     }
 
     #[test]
-    fn covered_frontier_is_singleton_or_set() {
+    fn covered_seals_is_singleton_or_set() {
         let registry = default_lattice_registry();
         let kind = registry
-            .lookup("ck.component.mls.covered_frontier.v1")
+            .lookup("ck.component.mls.covered_seals.v1")
             .unwrap();
         assert_eq!(kind.lattice(), SdkLatticeKind::OrSet);
         let subject = kind.subject_for_effect(&json!({})).unwrap();

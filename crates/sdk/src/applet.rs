@@ -532,7 +532,7 @@ pub enum EffectiveScope {
 }
 
 impl EffectiveScope {
-    /// The Realm both variants are anchored in.
+    /// The Realm both variants are sealed in.
     pub fn realm_id(&self) -> &RealmId {
         match self {
             EffectiveScope::Realm { realm_id } | EffectiveScope::Circle { realm_id, .. } => {
@@ -581,7 +581,7 @@ pub struct ApprovedScope {
 }
 
 /// Read-only `InstallPlan` returned by install preview (spec §1b). The
-/// recomputed `plan_digest` is the anti-tamper anchor the commit step
+/// recomputed `plan_digest` is the anti-tamper seal the commit step
 /// re-derives and compares (`applet_install_plan_mismatch`).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct InstallPlan {

@@ -4,7 +4,7 @@
 //! - `set(value)` writes the cell.
 //! - Two concurrent `set` ops produce a `kind=conflict` Bottom (default `bottom=reject`). Unlike
 //!   `mv-register`, dependent Moves must fail closed because this Lattice serves safety-critical
-//!   state (e.g. `ck.component.realm.policy.v1`, `ck.component.anchorer.v1`).
+//!   state (e.g. `ck.component.realm.policy.v1`, `ck.component.notary.v1`).
 //!
 //! Wire-shape and signature mirror `MvRegister`; the only behavioural
 //! difference is the implicit `bottom=reject` semantics enforced by
@@ -14,7 +14,7 @@
 
 use serde_json::Value;
 
-use super::{AnchoredOp, CellState, Lattice, LatticeKind, OpError};
+use super::{CellState, Lattice, LatticeKind, OpError, SealedOp};
 use crate::{Bottom, BottomKind, CellRef, LatticeOp, LatticeOpType};
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -43,8 +43,8 @@ impl Lattice for CasRegister {
         }
     }
 
-    fn join(&self, cell: &CellRef, anchored_ops: &[AnchoredOp]) -> CellState {
-        let valid_ops: Vec<&AnchoredOp> = anchored_ops
+    fn join(&self, cell: &CellRef, sealed_ops: &[SealedOp]) -> CellState {
+        let valid_ops: Vec<&SealedOp> = sealed_ops
             .iter()
             .filter(|e| self.validate_op(&e.op).is_ok())
             .collect();
@@ -98,10 +98,7 @@ mod tests {
 
     #[test]
     fn single_set_value_resolved() {
-        let ops = vec![AnchoredOp::new(
-            move_id(1),
-            set_op(json!({"policy": "open"})),
-        )];
+        let ops = vec![SealedOp::new(move_id(1), set_op(json!({"policy": "open"})))];
         assert_eq!(
             CasRegister.join(&cell(), &ops),
             CellState::Value(json!({"policy": "open"}))
@@ -111,8 +108,8 @@ mod tests {
     #[test]
     fn two_concurrent_sets_yields_conflict_bottom() {
         let ops = vec![
-            AnchoredOp::new(move_id(1), set_op(json!({"policy": "open"}))),
-            AnchoredOp::new(move_id(2), set_op(json!({"policy": "closed"}))),
+            SealedOp::new(move_id(1), set_op(json!({"policy": "open"}))),
+            SealedOp::new(move_id(2), set_op(json!({"policy": "closed"}))),
         ];
         match CasRegister.join(&cell(), &ops) {
             CellState::Bottom(b) => {

@@ -114,7 +114,7 @@ pub enum CircleGlyph {
     Diamond,
     Flame,
     Leaf,
-    Anchor,
+    Seal,
     Compass,
     Atom,
     Bolt,

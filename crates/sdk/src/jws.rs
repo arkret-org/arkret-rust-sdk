@@ -30,7 +30,7 @@
 //! - `verify_replay_window` / `verify_replay_window_at` — bound the freshness of an [`Hlc`] against
 //!   wall-clock now (or an injected time for tests).
 //! - `verify_replay_window_for_move` / `verify_replay_window_for_move_at` — same, but with
-//!   per-cell-family overrides so authority-cell Moves (e.g. `ck.component.anchorer.v1`) can have
+//!   per-cell-family overrides so authority-cell Moves (e.g. `ck.component.notary.v1`) can have
 //!   tighter freshness windows than ordinary message Moves.
 //! - `effective_window_for_move` — exposed for inspection / tests.
 //! - `physical_millis_from_hlc` — extract the physical-ms prefix of an HLC string for low-level
@@ -75,7 +75,7 @@ const PROTECTED_HEADER_EDDSA: &[u8] = br#"{"alg":"EdDSA"}"#;
 /// of producing a JWS that won't verify.
 ///
 /// Callers are responsible for choosing the `verification_method`
-/// they advertise alongside this JWS (e.g. `<service_did>#anchorer-key`);
+/// they advertise alongside this JWS (e.g. `<service_did>#notary-key`);
 /// the SDK doesn't bake the kid into the protected header to keep the
 /// signing input byte-stable per RFC 7515 §4.1.4 (kid is not required
 /// to be in the protected header for detached use cases).
@@ -253,9 +253,9 @@ pub fn verify_replay_window(hlc: &Hlc, window_seconds: u64) -> Result<(), String
 /// across all touched cells; falls back to `default_window` if no
 /// overrides apply. Returns the same shape as [`verify_replay_window`].
 ///
-/// Rationale: some authority cells (anchorer, mls.epoch) have much
+/// Rationale: some authority cells (notary, mls.epoch) have much
 /// tighter freshness requirements than ordinary message events. Picking
-/// the min ensures a Move with effects on BOTH anchorer (60s) and an
+/// the min ensures a Move with effects on BOTH notary (60s) and an
 /// ordinary cell (300s) honors the tighter 60s window.
 pub fn verify_replay_window_for_move(
     move_obj: &crate::Move,
@@ -525,7 +525,7 @@ mod tests {
     // -- Per-family override tests --
 
     fn build_test_move_touching(cell_id: &str, hlc_ms: u64) -> crate::Move {
-        use crate::{CellRef, Hash, MoveId, MoveSignature};
+        use crate::{CellRef, Hash, MoveId, MoveSignature, SealBasis};
         crate::Move {
             id: MoveId::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
             issuer: Did::new("did:web:test").unwrap(),
@@ -546,8 +546,13 @@ mod tests {
                     issuer_seq: None,
                 },
             }],
-            anchor_ref: crate::AnchorId::new(format!("ck:anchor:sha256:{}", "00".repeat(32)))
-                .unwrap(),
+            seal_basis: SealBasis {
+                leaves: vec![
+                    crate::SealId::new(format!("ck:seal:sha256:{}", "00".repeat(32))).unwrap(),
+                ],
+                control_event_set_root: Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap(),
+                state_root: Hash::new(format!("sha256:{}", "33".repeat(32))).unwrap(),
+            },
             refs: vec![],
             hlc: Hlc::new(format!("{hlc_ms:012x}-0000-aabbccdd")).unwrap(),
             sig: MoveSignature {
@@ -568,20 +573,20 @@ mod tests {
     }
 
     #[test]
-    fn effective_window_uses_anchorer_override_when_anchorer_cell_touched() {
-        let m = build_test_move_touching("ck:cell:ck.component.anchorer.v1:ck.realm.x", 0);
+    fn effective_window_uses_notary_override_when_notary_cell_touched() {
+        let m = build_test_move_touching("ck:cell:ck.component.notary.v1:ck.realm.x", 0);
         let mut overrides = BTreeMap::new();
-        overrides.insert("ck.component.anchorer.v1", 60u64);
-        // Default 300, anchorer override 60 -> effective 60.
+        overrides.insert("ck.component.notary.v1", 60u64);
+        // Default 300, notary override 60 -> effective 60.
         assert_eq!(effective_window_for_move(&m, 300, &overrides), 60);
     }
 
     #[test]
     fn effective_window_takes_minimum_when_default_tighter_than_override() {
-        let m = build_test_move_touching("ck:cell:ck.component.anchorer.v1:ck.realm.x", 0);
+        let m = build_test_move_touching("ck:cell:ck.component.notary.v1:ck.realm.x", 0);
         let mut overrides = BTreeMap::new();
-        overrides.insert("ck.component.anchorer.v1", 600u64); // looser than default
-        // Default 300, anchorer override 600 -> min = 300 (default wins because tighter).
+        overrides.insert("ck.component.notary.v1", 600u64); // looser than default
+        // Default 300, notary override 600 -> min = 300 (default wins because tighter).
         assert_eq!(effective_window_for_move(&m, 300, &overrides), 300);
     }
 
@@ -589,26 +594,24 @@ mod tests {
     fn effective_window_zero_default_with_override_uses_override() {
         // Test config has window=0 but spec-critical cells should still
         // be window-checked. The override "wins" in this case.
-        let m = build_test_move_touching("ck:cell:ck.component.anchorer.v1:ck.realm.x", 0);
+        let m = build_test_move_touching("ck:cell:ck.component.notary.v1:ck.realm.x", 0);
         let mut overrides = BTreeMap::new();
-        overrides.insert("ck.component.anchorer.v1", 60u64);
+        overrides.insert("ck.component.notary.v1", 60u64);
         assert_eq!(effective_window_for_move(&m, 0, &overrides), 60);
     }
 
     #[test]
-    fn anchorer_cell_with_60s_override_rejects_2min_old_hlc() {
+    fn notary_cell_with_60s_override_rejects_2min_old_hlc() {
         let now = Utc::now();
         let two_min_ago_ms = (now - Duration::minutes(2)).timestamp_millis() as u64;
-        let m = build_test_move_touching(
-            "ck:cell:ck.component.anchorer.v1:ck.realm.x",
-            two_min_ago_ms,
-        );
+        let m =
+            build_test_move_touching("ck:cell:ck.component.notary.v1:ck.realm.x", two_min_ago_ms);
         let mut overrides = BTreeMap::new();
-        overrides.insert("ck.component.anchorer.v1", 60u64);
+        overrides.insert("ck.component.notary.v1", 60u64);
         let err = verify_replay_window_for_move_at(&m, 300, &overrides, now).unwrap_err();
         assert!(
             err.contains("too old"),
-            "anchorer cell with 60s override should reject 2min-old hlc (got `{err}`)"
+            "notary cell with 60s override should reject 2min-old hlc (got `{err}`)"
         );
     }
 
@@ -622,7 +625,7 @@ mod tests {
         );
         // Default 300s, no override for message family -> 2min = 120s < 300s -> accept.
         let mut overrides = BTreeMap::new();
-        overrides.insert("ck.component.anchorer.v1", 60u64);
+        overrides.insert("ck.component.notary.v1", 60u64);
         verify_replay_window_for_move_at(&m, 300, &overrides, now).unwrap();
     }
 

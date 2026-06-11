@@ -30,7 +30,7 @@ pub const NOTIFICATION_SCHEMA: &str = "ck.schema.notification.v1";
 /// schema and must be materialized as Event envelopes before submission.
 pub const OPERATION_SCHEMA: &str = "ck.local.operation_draft.v1";
 pub const BLOB_SCHEMA: &str = "ck.schema.blob.v1";
-pub const ANCHOR_SCHEMA: &str = "ck.schema.anchor.v1";
+pub const ANCHOR_SCHEMA: &str = "ck.schema.seal.v1";
 pub const BOTTOM_SCHEMA: &str = "ck.schema.bottom.v1";
 pub const SNAPSHOT_SCHEMA: &str = "ck.schema.snapshot.v1";
 pub const ENCRYPTED_ENVELOPE_SCHEMA: &str = "ck.schema.encrypted_envelope.v1";
@@ -76,7 +76,7 @@ pub const OP_FLOW_REORDER: &str = "ck.flow.reorder";
 pub const OP_FLOW_STAGE_SET: &str = "ck.flow.stage.set";
 
 /// CKP-0007 (spec b7d35be) — Circle event kinds. The 7th kind
-/// (`ck.circle.anchor_commit`) is reducer-derived and MUST NOT be
+/// (`ck.circle.seal_commit`) is reducer-derived and MUST NOT be
 /// submitted by clients; it is exported for receiver-side dispatch only.
 pub const OP_CIRCLE_CREATE: &str = "ck.circle.create";
 pub const OP_CIRCLE_UPDATE: &str = "ck.circle.update";
@@ -84,7 +84,7 @@ pub const OP_CIRCLE_ARCHIVE: &str = "ck.circle.archive";
 pub const OP_CIRCLE_RESTORE: &str = "ck.circle.restore";
 pub const OP_CIRCLE_TOMBSTONE: &str = "ck.circle.tombstone";
 pub const OP_CIRCLE_MEMBER_STATE: &str = "ck.circle.member.state";
-pub const OP_CIRCLE_ANCHOR_COMMIT: &str = "ck.circle.anchor_commit";
+pub const OP_CIRCLE_SEAL_COMMIT: &str = "ck.circle.seal_commit";
 
 /// CKP-0007 (spec b7d35be) — Circle capability action ids. Spec
 /// `capability-action-registry.json`. `ck.circle.manage`,
@@ -516,6 +516,7 @@ pub const OP_AGENT_INTEROP_SESSION_STATUS: &str = "ck.agent.interop_session.stat
 pub const OP_DIRECTORY_PRIVATE_CONTACT_DISCOVERY: &str =
     "ck.find.directory.private_contact_discovery";
 pub const OP_DIRECTORY_ANNOUNCE: &str = "ck.find.directory.announce";
+pub const OP_DIRECTORY_RESOLVE_AGENT_SELECTOR: &str = "ck.find.directory.resolve_agent_selector";
 pub const OP_DIRECTORY_RESOLVE_HANDLE: &str = "ck.find.directory.resolve_handle";
 /// R3.2 (cokret-spec @ b56cab1) — subject/context → current visible
 /// handle claims; the inverse of `resolve_handle`.
@@ -801,6 +802,7 @@ pub const BUILT_IN_OPERATION_KINDS: &[&str] = &[
     OP_SERVER_DESCRIBE,
     OP_DIRECTORY_DESCRIBE,
     OP_DIRECTORY_PRIVATE_CONTACT_DISCOVERY,
+    OP_DIRECTORY_RESOLVE_AGENT_SELECTOR,
     OP_DIRECTORY_RESOLVE_HANDLE,
     OP_DIRECTORY_LIST_HANDLES_FOR_SUBJECT,
     OP_DIRECTORY_RESOLVE_ORGANIZATION,

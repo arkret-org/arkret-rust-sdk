@@ -166,7 +166,7 @@ pub fn inception_key_max_online_window() -> chrono::Duration {
 /// SEC-04 — receiver-side independent age check for an inception key, per
 /// `identity/key-management.md` §5.0.1 step 5 ("接收端独立 enforce").
 ///
-/// The receiver / Auth Server anchors on the verifiable bootstrap timestamp
+/// The receiver / Auth Server seals on the verifiable bootstrap timestamp
 /// (`did:webvh` entry-0 / continuity proof) and computes the inception key age
 /// against its **own local clock** (`now`), exactly like the §5.0.5
 /// evidence-age comparison — an RFC3339 wall-clock subtraction with no added
@@ -185,7 +185,7 @@ pub fn inception_key_max_online_window() -> chrono::Duration {
 /// `true` — rather than admitting the key. Do not substitute `now` or a default
 /// timestamp to "pass" the check.
 ///
-/// A `bootstrap_ts` in the future (negative age, e.g. anchor clock ahead of the
+/// A `bootstrap_ts` in the future (negative age, e.g. seal clock ahead of the
 /// receiver) is *not* treated as exceeded by this function; such anomalies are
 /// a separate validity concern for the caller and are intentionally left to the
 /// bootstrap-evidence validator rather than conflated with the age cap.

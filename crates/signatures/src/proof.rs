@@ -500,8 +500,8 @@ mod ed25519_jws {
 
     /// SDK-canonical detached-JWS protected header (`{"alg":"EdDSA"}`).
     ///
-    /// 这是全生态(spec fixtures、soland `move_anchor_wire`、cotest、teabay
-    /// `sdk::jws`)统一的 detached JWS header 字节;Move/Anchor/event-proof
+    /// 这是全生态(spec fixtures、soland `move_seal_wire`、cotest、teabay
+    /// `sdk::jws`)统一的 detached JWS header 字节;Move/Seal/event-proof
     /// 三类签名共用同一 header,使 signing input 字节唯一,跨实现可互验。
     /// **不含** `typ`(spec §6 default proof 不声明 `typ`)。
     pub(super) const PROTECTED_HEADER_EDDSA: &str = r#"{"alg":"EdDSA"}"#;

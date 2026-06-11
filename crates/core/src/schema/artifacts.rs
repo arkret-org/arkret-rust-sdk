@@ -465,6 +465,7 @@ pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     PRINCIPAL_LOCATOR_SCHEMA,
     INVITE_DELIVERY_REQUEST_SCHEMA,
     INVITE_RECEIVE_POLICY_SCHEMA,
+    "ck.schema.availability_receipt.v1",
     "ck.schema.event_batch_receipt.v1",
     "ck.schema.patch.v1",
     "ck.schema.range_completeness_attestation.v1",
@@ -493,6 +494,7 @@ pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     "ck.schema.moderation_queue_item.v1",
     "ck.schema.applet.v1",
     "ck.schema.agent.v1",
+    "ck.schema.agent_selector_claim.v1",
     "ck.schema.audit_ryw_receipt.v1",
     "ck.schema.erasure_receipt.v1",
     "ck.schema.erasure_verification_stub.v1",
@@ -503,6 +505,9 @@ pub const ARTIFACT_BACKED_SCHEMA_IDS: &[&str] = &[
     SEARCH_SERVICE_SCHEMA,
     "ck.schema.cross_signing_publish.v1",
     "ck.schema.cross_signing_reset.v1",
+    "ck.schema.inclusion_list.v1",
+    "ck.schema.key_view_proof.v1",
+    "ck.schema.seal_transparency.v1",
     // Round R2/R3 (2026-05-20) — broadcast ephemeral envelope, moderation
     // appeal payloads, structured attestation evidence.
     "ck.schema.ephemeral_envelope.v1",
@@ -634,7 +639,7 @@ pub const ARTIFACT_BACKED_ID_KINDS: &[&str] = &[
 /// separately from `ARTIFACT_BACKED_ID_KINDS` because the spec lists them
 /// under `special_forms`, not `id_kinds`.
 pub const ARTIFACT_BACKED_SPECIAL_FORM_ID_KINDS: &[&str] = &[
-    "anchor",
+    "seal",
     "blob",
     "cell",
     "cursor",

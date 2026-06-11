@@ -63,7 +63,7 @@ pub const ERROR_CODE_POLICY_COMBINATION_INVALID: &str = "policy_combination_inva
 pub const ERROR_CODE_HISTORY_SHARING_POLICY_MISSING: &str = "history_sharing_policy_missing";
 pub const ERROR_CODE_HISTORY_NOT_VISIBLE: &str = "history_not_visible";
 pub const ERROR_CODE_PREVIEW_POLICY_DENIED: &str = "preview_policy_denied";
-pub const ERROR_CODE_ANCHORER_RECOVERY_MISSING: &str = "anchorer_recovery_missing";
+pub const ERROR_CODE_NOTARY_RECOVERY_MISSING: &str = "notary_recovery_missing";
 pub const ERROR_CODE_UNSUPPORTED_LATTICE_TYPE: &str = "unsupported_lattice_type";
 /// Round C44 (2026-05-18) — registry add: peer or ServiceDescribe advertises a
 /// `ck.profile.*` ID this implementation does not support. Wire-level top
@@ -80,7 +80,7 @@ pub const ERROR_CODE_PROFILE_UNSUPPORTED: &str = "profile_unsupported";
 pub const ERROR_CODE_CURSOR_INTEGRITY_INVALID: &str = "cursor_integrity_invalid";
 pub const ERROR_CODE_FAILED_PRECONDITION: &str = "failed_precondition";
 pub const ERROR_CODE_UNSUPPORTED_HASH: &str = "unsupported_digest_algorithm";
-pub const ERROR_CODE_ANCHOR_INCOMPLETE: &str = "anchor_incomplete";
+pub const ERROR_CODE_SEAL_INCOMPLETE: &str = "seal_incomplete";
 pub const ERROR_CODE_FRANKING_PROOF_UNAVAILABLE: &str = "franking_proof_unavailable";
 pub const ERROR_CODE_FRANK_UNAVAILABLE: &str = ERROR_CODE_FRANKING_PROOF_UNAVAILABLE;
 pub const ERROR_CODE_TURN_CREDENTIAL_EXPIRED: &str = "turn_credential_expired";
@@ -212,8 +212,8 @@ pub const ERROR_CODE_HANDLE_HOMOGRAPH_FORBIDDEN: &str = "handle_homograph_forbid
 pub const ERROR_CODE_POLICY_DENIED: &str = "policy_denied";
 pub const ERROR_CODE_CURSOR_UNRECOGNIZED: &str = "cursor_unrecognized";
 pub const ERROR_CODE_ACTOR_SEQ_INVALID: &str = "actor_seq_invalid";
-pub const ERROR_CODE_ANCHOR_REF_STALE: &str = "anchor_ref_stale";
-pub const ERROR_CODE_ANCHOR_REF_UNKNOWN: &str = "anchor_ref_unknown";
+pub const ERROR_CODE_STALE_SEAL_REF: &str = "stale_seal_ref";
+pub const ERROR_CODE_SEAL_REF_UNKNOWN: &str = "seal_ref_unknown";
 pub const ERROR_CODE_AUDIENCE_UNKNOWN: &str = "audience_unknown";
 pub const ERROR_CODE_BLOB_DIGEST_MISMATCH: &str = "blob_digest_mismatch";
 pub const ERROR_CODE_BLOB_EXPIRED: &str = "blob_expired";
@@ -328,13 +328,13 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
     ERROR_CODE_HISTORY_SHARING_POLICY_MISSING,
     ERROR_CODE_HISTORY_NOT_VISIBLE,
     ERROR_CODE_PREVIEW_POLICY_DENIED,
-    ERROR_CODE_ANCHORER_RECOVERY_MISSING,
+    ERROR_CODE_NOTARY_RECOVERY_MISSING,
     ERROR_CODE_UNSUPPORTED_LATTICE_TYPE,
     ERROR_CODE_PROFILE_UNSUPPORTED,
     ERROR_CODE_CURSOR_INTEGRITY_INVALID,
     ERROR_CODE_FAILED_PRECONDITION,
     ERROR_CODE_UNSUPPORTED_HASH,
-    ERROR_CODE_ANCHOR_INCOMPLETE,
+    ERROR_CODE_SEAL_INCOMPLETE,
     ERROR_CODE_FRANKING_PROOF_UNAVAILABLE,
     ERROR_CODE_TURN_CREDENTIAL_EXPIRED,
     ERROR_CODE_STALE_PEER,
@@ -376,10 +376,6 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
     ERROR_CODE_AUTHORIZED_GRANT_REVOKED,
     ERROR_CODE_DEVICE_RECOVERY_SSK_GENERATION_MISMATCH,
     ERROR_CODE_CURSOR_REVOKED,
-    ERROR_CODE_MEMBER_IDENTITY_STATE_MISMATCH,
-    ERROR_CODE_MEMBER_IDENTITY_PROOF_INVALID,
-    ERROR_CODE_MEMBER_IDENTITY_REPLACEMENT_DIGEST_MISMATCH,
-    ERROR_CODE_MEMBER_IDENTITY_UNKNOWN_SEGMENT,
     // Key-backup hardening (B-C, spec head 37ce729) — 11 codes.
     ERROR_CODE_SERIES_CHAIN_BROKEN,
     ERROR_CODE_SERIES_SEQ_NOT_MONOTONIC,
@@ -415,8 +411,8 @@ pub const KNOWN_ERROR_CODES: &[&str] = &[
     ERROR_CODE_POLICY_DENIED,
     ERROR_CODE_CURSOR_UNRECOGNIZED,
     ERROR_CODE_ACTOR_SEQ_INVALID,
-    ERROR_CODE_ANCHOR_REF_STALE,
-    ERROR_CODE_ANCHOR_REF_UNKNOWN,
+    ERROR_CODE_STALE_SEAL_REF,
+    ERROR_CODE_SEAL_REF_UNKNOWN,
     ERROR_CODE_AUDIENCE_UNKNOWN,
     ERROR_CODE_BLOB_DIGEST_MISMATCH,
     ERROR_CODE_BLOB_EXPIRED,
@@ -587,7 +583,7 @@ pub const REASON_DELEGATION_EXPIRY_WIDENING: &str = "delegation_expiry_widening"
 pub const REASON_RECOVERY_WITNESS_MISSING: &str = "recovery_witness_missing";
 pub const REASON_RECOVERY_WITNESS_INVALID: &str = "recovery_witness_invalid";
 pub const REASON_RECOVERY_WITNESS_POST_CONFLICT: &str = "recovery_witness_post_conflict";
-pub const REASON_RECOVERY_CAPABILITY_NOT_ANCHORED: &str = "recovery_capability_not_anchored";
+pub const REASON_RECOVERY_CAPABILITY_NOT_SEALED: &str = "recovery_capability_not_sealed";
 
 // Policy server runtime challenge (zh/authz/policy-server.md §4).
 pub const REASON_CHALLENGE_PROOF_INVALID: &str = "challenge_proof_invalid";
@@ -698,7 +694,7 @@ pub const KNOWN_REASON_CODES_ROUND_C45: &[&str] = &[
     REASON_RECOVERY_WITNESS_MISSING,
     REASON_RECOVERY_WITNESS_INVALID,
     REASON_RECOVERY_WITNESS_POST_CONFLICT,
-    REASON_RECOVERY_CAPABILITY_NOT_ANCHORED,
+    REASON_RECOVERY_CAPABILITY_NOT_SEALED,
     REASON_CHALLENGE_PROOF_INVALID,
     REASON_AUDIT_CAPABILITY_INCOMPLETE,
     REASON_WATCH_MUST_BE_SELF,
@@ -899,7 +895,7 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_RECORDING_DENIED => 403,
         ERROR_CODE_NOT_FOUND
         | ERROR_CODE_UNRECOGNIZED_ENDPOINT
-        | ERROR_CODE_ANCHOR_REF_UNKNOWN
+        | ERROR_CODE_SEAL_REF_UNKNOWN
         | ERROR_CODE_AUDIENCE_UNKNOWN
         | ERROR_CODE_DEVICE_UNKNOWN
         | ERROR_CODE_DID_NOT_FOUND
@@ -924,7 +920,7 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_STALE_FRONTIER
         | ERROR_CODE_PROJECTION_INCOMPLETE
         | ERROR_CODE_FAILED_PRECONDITION
-        | ERROR_CODE_ANCHOR_INCOMPLETE
+        | ERROR_CODE_SEAL_INCOMPLETE
         | ERROR_CODE_STALE_PEER
         | ERROR_CODE_CROSS_DOMAIN_REPLAY_REJECTED
         | ERROR_CODE_APPEAL_OVERTURN_MISSING_LIFT
@@ -950,7 +946,7 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_FOCUS_UNAVAILABLE_FOR_CLIENT
         | ERROR_CODE_RECOVERY_WITNESS_REVOKE_LAGGING
         | ERROR_CODE_ACTOR_SEQ_INVALID
-        | ERROR_CODE_ANCHOR_REF_STALE
+        | ERROR_CODE_STALE_SEAL_REF
         | ERROR_CODE_DID_ALREADY_EXISTS
         | ERROR_CODE_KEY_REPLAY
         | ERROR_CODE_KEYPACKAGE_ALREADY_CONSUMED
@@ -983,7 +979,7 @@ pub fn error_code_http_status(code: &str) -> Option<u16> {
         | ERROR_CODE_UNKNOWN_DID
         | ERROR_CODE_POLICY_COMBINATION_INVALID
         | ERROR_CODE_HISTORY_SHARING_POLICY_MISSING
-        | ERROR_CODE_ANCHORER_RECOVERY_MISSING
+        | ERROR_CODE_NOTARY_RECOVERY_MISSING
         | ERROR_CODE_UNSUPPORTED_LATTICE_TYPE
         | ERROR_CODE_UNSUPPORTED_HASH
         | ERROR_CODE_SHARE_COMMITMENT_MISMATCH
@@ -1175,13 +1171,13 @@ pub enum ErrorCode {
     HistorySharingPolicyMissing,
     HistoryNotVisible,
     PreviewPolicyDenied,
-    AnchorerRecoveryMissing,
+    NotaryRecoveryMissing,
     UnsupportedLatticeType,
     ProfileUnsupported,
     CursorIntegrityInvalid,
     FailedPrecondition,
     UnsupportedHash,
-    AnchorIncomplete,
+    SealIncomplete,
     FrankingProofUnavailable,
     TurnCredentialExpired,
     StalePeer,
@@ -1258,8 +1254,8 @@ pub enum ErrorCode {
     PolicyDenied,
     CursorUnrecognized,
     ActorSeqInvalid,
-    AnchorRefStale,
-    AnchorRefUnknown,
+    StaleSealRef,
+    SealRefUnknown,
     AudienceUnknown,
     BlobDigestMismatch,
     BlobExpired,
@@ -1374,13 +1370,13 @@ impl ErrorCode {
         Self::HistorySharingPolicyMissing,
         Self::HistoryNotVisible,
         Self::PreviewPolicyDenied,
-        Self::AnchorerRecoveryMissing,
+        Self::NotaryRecoveryMissing,
         Self::UnsupportedLatticeType,
         Self::ProfileUnsupported,
         Self::CursorIntegrityInvalid,
         Self::FailedPrecondition,
         Self::UnsupportedHash,
-        Self::AnchorIncomplete,
+        Self::SealIncomplete,
         Self::FrankingProofUnavailable,
         Self::TurnCredentialExpired,
         Self::StalePeer,
@@ -1452,8 +1448,8 @@ impl ErrorCode {
         Self::PolicyDenied,
         Self::CursorUnrecognized,
         Self::ActorSeqInvalid,
-        Self::AnchorRefStale,
-        Self::AnchorRefUnknown,
+        Self::StaleSealRef,
+        Self::SealRefUnknown,
         Self::AudienceUnknown,
         Self::BlobDigestMismatch,
         Self::BlobExpired,
@@ -1568,13 +1564,13 @@ impl ErrorCode {
             Self::HistorySharingPolicyMissing => ERROR_CODE_HISTORY_SHARING_POLICY_MISSING,
             Self::HistoryNotVisible => ERROR_CODE_HISTORY_NOT_VISIBLE,
             Self::PreviewPolicyDenied => ERROR_CODE_PREVIEW_POLICY_DENIED,
-            Self::AnchorerRecoveryMissing => ERROR_CODE_ANCHORER_RECOVERY_MISSING,
+            Self::NotaryRecoveryMissing => ERROR_CODE_NOTARY_RECOVERY_MISSING,
             Self::UnsupportedLatticeType => ERROR_CODE_UNSUPPORTED_LATTICE_TYPE,
             Self::ProfileUnsupported => ERROR_CODE_PROFILE_UNSUPPORTED,
             Self::CursorIntegrityInvalid => ERROR_CODE_CURSOR_INTEGRITY_INVALID,
             Self::FailedPrecondition => ERROR_CODE_FAILED_PRECONDITION,
             Self::UnsupportedHash => ERROR_CODE_UNSUPPORTED_HASH,
-            Self::AnchorIncomplete => ERROR_CODE_ANCHOR_INCOMPLETE,
+            Self::SealIncomplete => ERROR_CODE_SEAL_INCOMPLETE,
             Self::FrankingProofUnavailable => ERROR_CODE_FRANKING_PROOF_UNAVAILABLE,
             Self::TurnCredentialExpired => ERROR_CODE_TURN_CREDENTIAL_EXPIRED,
             Self::StalePeer => ERROR_CODE_STALE_PEER,
@@ -1658,8 +1654,8 @@ impl ErrorCode {
             Self::PolicyDenied => ERROR_CODE_POLICY_DENIED,
             Self::CursorUnrecognized => ERROR_CODE_CURSOR_UNRECOGNIZED,
             Self::ActorSeqInvalid => ERROR_CODE_ACTOR_SEQ_INVALID,
-            Self::AnchorRefStale => ERROR_CODE_ANCHOR_REF_STALE,
-            Self::AnchorRefUnknown => ERROR_CODE_ANCHOR_REF_UNKNOWN,
+            Self::StaleSealRef => ERROR_CODE_STALE_SEAL_REF,
+            Self::SealRefUnknown => ERROR_CODE_SEAL_REF_UNKNOWN,
             Self::AudienceUnknown => ERROR_CODE_AUDIENCE_UNKNOWN,
             Self::BlobDigestMismatch => ERROR_CODE_BLOB_DIGEST_MISMATCH,
             Self::BlobExpired => ERROR_CODE_BLOB_EXPIRED,
@@ -1786,13 +1782,13 @@ mod tests {
         assert!(codes.contains(ERROR_CODE_HISTORY_SHARING_POLICY_MISSING));
         assert!(codes.contains(ERROR_CODE_HISTORY_NOT_VISIBLE));
         assert!(codes.contains(ERROR_CODE_PREVIEW_POLICY_DENIED));
-        assert!(codes.contains(ERROR_CODE_ANCHORER_RECOVERY_MISSING));
+        assert!(codes.contains(ERROR_CODE_NOTARY_RECOVERY_MISSING));
         assert!(codes.contains(ERROR_CODE_UNSUPPORTED_LATTICE_TYPE));
         assert!(codes.contains(ERROR_CODE_PROFILE_UNSUPPORTED));
         assert!(codes.contains(ERROR_CODE_CURSOR_INTEGRITY_INVALID));
         assert!(codes.contains(ERROR_CODE_FAILED_PRECONDITION));
         assert!(codes.contains(ERROR_CODE_UNSUPPORTED_HASH));
-        assert!(codes.contains(ERROR_CODE_ANCHOR_INCOMPLETE));
+        assert!(codes.contains(ERROR_CODE_SEAL_INCOMPLETE));
         assert!(codes.contains(ERROR_CODE_FRANKING_PROOF_UNAVAILABLE));
         assert!(codes.contains(ERROR_CODE_TURN_CREDENTIAL_EXPIRED));
         assert!(codes.contains(ERROR_CODE_RELAXED_WINDOW_EXCEEDS_CEILING));

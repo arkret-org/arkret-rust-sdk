@@ -76,7 +76,7 @@ pub struct ViewQuery {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub facets: Vec<Facet>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub anchor_ref: Option<String>,
+    pub seal_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub filters: Vec<Filter>,
     #[serde(skip_serializing_if = "Option::is_none")]

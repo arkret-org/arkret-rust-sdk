@@ -59,7 +59,7 @@ pub const CIRCLE_ARCHIVE: &str = "ck.circle.archive";
 pub const CIRCLE_RESTORE: &str = "ck.circle.restore";
 pub const CIRCLE_TOMBSTONE: &str = "ck.circle.tombstone";
 pub const CIRCLE_MEMBER_STATE: &str = "ck.circle.member.state";
-pub const CIRCLE_ANCHOR_COMMIT: &str = "ck.circle.anchor_commit";
+pub const CIRCLE_SEAL_COMMIT: &str = "ck.circle.seal_commit";
 pub const CONSENT_GRANT: &str = "ck.consent.grant";
 pub const CONSENT_REVOKE: &str = "ck.consent.revoke";
 // CKP-0015 contact enhancement — durable, reducer-input contact-request
@@ -134,6 +134,8 @@ pub const MODERATION_DECISION_LIFT: &str = "ck.moderation.decision.lift";
 pub const MODERATION_FRANKING_PROOF: &str = "ck.moderation.franking_proof";
 pub const MODERATION_FRANK: &str = MODERATION_FRANKING_PROOF;
 pub const MODERATION_REPORT: &str = "ck.self.moderation.report";
+pub const NOTARY_FAULT_CENSORSHIP: &str = "ck.notary.fault.censorship";
+pub const NOTARY_FAULT_EQUIVOCATION: &str = "ck.notary.fault.equivocation";
 
 /// Object-only schema id — `ck.event_batch_receipt` is NOT an Event.kind.
 /// Returns `true` for kinds that may only appear as a separate object,
@@ -142,8 +144,8 @@ pub const RECEIPT_OBJECT_KINDS: &[&str] = &["ck.event_batch_receipt"];
 
 /// Broadcast ephemeral signal kinds + the to-device key-verification family.
 /// Round R2/R3 (2026-05-20). Items here MUST NOT be reduced into durable
-/// state, MUST NOT advance Anchor frontier or Move state_root, MUST NOT
-/// carry preconditions/effects/anchor_ref, and MUST NOT be submitted via
+/// state, MUST NOT advance Seal frontier or Move state_root, MUST NOT
+/// carry preconditions/effects/seal_ref, and MUST NOT be submitted via
 /// `ck.self.events.submit`. See zh/sync/operations-sync.md §3.6 and
 /// schemas/ephemeral-envelope.schema.json (the 4 broadcast forms) and
 /// schemas/device-message.schema.json (the to-device key.verification forms).
@@ -349,11 +351,11 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     CAPABILITY_DERIVED,
     CAPABILITY_GRANT,
     CAPABILITY_REVOKE,
-    CIRCLE_ANCHOR_COMMIT,
     CIRCLE_ARCHIVE,
     CIRCLE_CREATE,
     CIRCLE_MEMBER_STATE,
     CIRCLE_RESTORE,
+    CIRCLE_SEAL_COMMIT,
     CIRCLE_TOMBSTONE,
     CIRCLE_UPDATE,
     CONSENT_GRANT,
@@ -427,6 +429,8 @@ pub const STANDARD_EVENT_KINDS: &[&str] = &[
     MORPH_SCHEMA_MIGRATE,
     MORPH_STAGE_SET,
     MORPH_UPDATE,
+    NOTARY_FAULT_CENSORSHIP,
+    NOTARY_FAULT_EQUIVOCATION,
     ORGANIZATION_DISCOVERY,
     ORGANIZATION_MODERATION_POLICY,
     PIN_ADD,
@@ -511,10 +515,10 @@ pub const NON_REDUCER_EVENT_KINDS: &[&str] = &[
     AUDIT_ERASURE_RECEIPT,
     AUDIT_RYW_RECEIPT,
     CALL_SIGNAL,
-    // CKP-0007: ck.circle.anchor_commit is reducer-derived (sub-anchor
+    // CKP-0007: ck.circle.seal_commit is reducer-derived (sub-seal
     // commit emitted by the reducer on the Circle's profile cadence);
     // it is NOT a reducer-input event.
-    CIRCLE_ANCHOR_COMMIT,
+    CIRCLE_SEAL_COMMIT,
     KEY_VERIFICATION_ACCEPT,
     KEY_VERIFICATION_CANCEL,
     KEY_VERIFICATION_DONE,
@@ -653,7 +657,7 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
         | SESSION_GRANT => EventClass::Authz,
         CALL_RECORDING_START | CALL_SIGNAL | CALL_STATE => EventClass::Call,
         CIRCLE_CREATE | CIRCLE_UPDATE | CIRCLE_ARCHIVE | CIRCLE_RESTORE | CIRCLE_TOMBSTONE
-        | CIRCLE_MEMBER_STATE | CIRCLE_ANCHOR_COMMIT => EventClass::Circle,
+        | CIRCLE_MEMBER_STATE | CIRCLE_SEAL_COMMIT => EventClass::Circle,
         CONSENT_GRANT | CONSENT_REVOKE => EventClass::Consent,
         CONTACT_REQUESTED
         | CONTACT_ACCEPTED
@@ -742,7 +746,9 @@ pub fn classify_event_kind(kind: &str) -> EventClass {
         | REALM_SEARCH_POLICY
         | REALM_TOMBSTONE
         | REALM_UPDATE
-        | REALM_UPGRADE => EventClass::Realm,
+        | REALM_UPGRADE
+        | NOTARY_FAULT_CENSORSHIP
+        | NOTARY_FAULT_EQUIVOCATION => EventClass::Realm,
         CONTAINER_MOVE_ITEM | CONTAINER_REBALANCE | RELATION_CREATE | RELATION_DELETE
         | RELATION_UPDATE => EventClass::Relation,
         RSVP_SET => EventClass::Flow,

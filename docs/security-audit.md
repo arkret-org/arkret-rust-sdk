@@ -63,7 +63,7 @@ This SDK audit checklist is intended for release review.
 
 ## Federation
 
-- Federation transactions require configured trust anchors.
+- Federation transactions require configured trust seals.
 - Server version and capability negotiation must pass before using optional
   federation features.
 - Sovereign deployments should restrict allowed domains explicitly.
@@ -182,7 +182,7 @@ ACL keys. The risk is silent acceptance of malformed input that later
 collides with a legitimate DID.
 
 *Mitigations.* The strict DID regex
-(`^did:[a-z0-9]+:[A-Za-z0-9._:%-]+$`, anchored, no query / fragment) is
+(`^did:[a-z0-9]+:[A-Za-z0-9._:%-]+$`, sealed, no query / fragment) is
 applied at every entry point: `Did::new`, sync ingestion, capability
 resolvers, and the federation transport. Method-specific extensions
 (e.g. `did:key` log entries, `did:keri` log proofs) layer their own

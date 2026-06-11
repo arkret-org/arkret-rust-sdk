@@ -6,8 +6,8 @@ use serde_json::Value;
 
 use super::kinds::*;
 use crate::{
-    AnchorId, BlobRef, DeviceId, Did, Effect, Error, Event, EventId, EventRef, Hlc, Precondition,
-    PresenceStatus, RealmId, Result,
+    BlobRef, DeviceId, Did, Effect, Error, Event, EventId, EventRef, Hlc, Precondition,
+    PresenceStatus, RealmId, Result, SealId,
 };
 
 /// A typed view of a raw event envelope.
@@ -29,7 +29,7 @@ pub struct EventContentEnvelope {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub effects: Vec<Effect>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub anchor_ref: Option<AnchorId>,
+    pub seal_ref: Option<SealId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub redacts: Option<EventId>,
     pub content: AnyEventContent,
@@ -51,7 +51,7 @@ impl EventContentEnvelope {
             refs: event.refs.clone(),
             preconditions: event.preconditions.clone(),
             effects: event.effects.clone(),
-            anchor_ref: event.anchor_ref.clone(),
+            seal_ref: event.seal_ref.clone(),
             redacts: event.redacts.clone(),
             content: parse_event_content(event.kind.as_str(), event.content.clone())?,
             unsigned: event.unsigned.clone(),

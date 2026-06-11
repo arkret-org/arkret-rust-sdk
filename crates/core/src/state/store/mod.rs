@@ -1,10 +1,10 @@
-//! Store trait contracts for the Move/Anchor/Lattice runtime.
+//! Store trait contracts for the Move/Seal/Lattice runtime.
 //!
 //! Four traits cleanly partitioned by what they own:
 //!
-//! - [`MoveStore`] — pending + anchored Move log, addressed by `MoveId`.
-//! - [`AnchorStore`] — Anchor DAG, addressed by `AnchorId`, plus leaf-set queries.
-//! - [`CellStore`] — per-cell anchored op log + per-view effective state cache.
+//! - [`MoveStore`] — pending + sealed Move log, addressed by `MoveId`.
+//! - [`SealStore`] — Seal DAG, addressed by `SealId`, plus leaf-set queries.
+//! - [`CellStore`] — per-cell sealed op log + per-view effective state cache.
 //! - [`CellRegistry`] — `cell_family` → `Lattice` instance + `bottom` mode mapping.
 //!
 //! All four ship with [`memory`] backends used by tests / SDK harness.
@@ -15,8 +15,8 @@ pub mod memory;
 
 use thiserror::Error;
 
-use crate::lattice::{AnchoredOp, CellState, Lattice};
-use crate::{Anchor, AnchorId, CellRef, Hash, Move, MoveId, RealmId};
+use crate::lattice::{CellState, Lattice, SealedOp};
+use crate::{CellRef, Hash, Move, MoveId, RealmId, Seal, SealId};
 
 pub type StoreResult<T> = Result<T, StoreError>;
 
@@ -32,80 +32,80 @@ pub enum StoreError {
     Conflict(String),
 }
 
-/// Anchored Move record: a Move that has been included in some
-/// Anchor.frontier. Carries the Anchor id back-reference for audit and
+/// Sealed Move record: a Move that has been included in some
+/// Seal.frontier. Carries the Seal id back-reference for audit and
 /// deterministic ordering.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct AnchoredMoveRecord {
+pub struct SealedMoveRecord {
     pub move_value: Move,
-    pub anchor: AnchorId,
+    pub seal: SealId,
 }
 
-/// Pending + anchored Move log.
+/// Pending + sealed Move log.
 pub trait MoveStore: Send + Sync {
     /// Stash a Move that passed local format / signature pre-check.
     /// Re-`put_pending` of the same id MUST be idempotent.
     fn put_pending(&self, m: &Move) -> StoreResult<()>;
 
-    /// Promote a previously-pending Move to anchored under `anchor`.
-    /// Re-anchoring the same Move under the same Anchor id is idempotent.
-    fn mark_anchored(&self, id: &MoveId, anchor: &AnchorId) -> StoreResult<()>;
+    /// Promote a previously-pending Move to sealed under `seal`.
+    /// Re-anchoring the same Move under the same Seal id is idempotent.
+    fn mark_sealed(&self, id: &MoveId, seal: &SealId) -> StoreResult<()>;
 
     fn get(&self, id: &MoveId) -> StoreResult<Option<Move>>;
 
-    /// Pending Move list for the anchorer worker, oldest first.
-    fn list_pending_for_anchorer(
+    /// Pending Move list for the notary worker, oldest first.
+    fn list_pending_for_notary(
         &self,
         realm_id: &RealmId,
         cursor: Option<&MoveId>,
         limit: usize,
     ) -> StoreResult<Vec<Move>>;
 
-    /// Anchored Move list for federation backfill / audit replay.
-    fn list_anchored(
+    /// Sealed Move list for federation backfill / audit replay.
+    fn list_sealed(
         &self,
         realm_id: &RealmId,
         cursor: Option<&MoveId>,
         limit: usize,
-    ) -> StoreResult<Vec<AnchoredMoveRecord>>;
+    ) -> StoreResult<Vec<SealedMoveRecord>>;
 }
 
-/// Anchor DAG.
-pub trait AnchorStore: Send + Sync {
-    fn put(&self, a: &Anchor) -> StoreResult<()>;
+/// Seal DAG.
+pub trait SealStore: Send + Sync {
+    fn put(&self, a: &Seal) -> StoreResult<()>;
 
-    fn get(&self, id: &AnchorId) -> StoreResult<Option<Anchor>>;
+    fn get(&self, id: &SealId) -> StoreResult<Option<Seal>>;
 
-    /// Current leaf set for a Realm (Anchors with no successor).
-    fn list_leaves(&self, realm_id: &RealmId) -> StoreResult<Vec<AnchorId>>;
+    /// Current leaf set for a Realm (Seals with no successor).
+    fn list_leaves(&self, realm_id: &RealmId) -> StoreResult<Vec<SealId>>;
 
     /// Whether all `refs` have been seen by this store.
-    fn predecessors_known(&self, refs: &[AnchorId]) -> StoreResult<bool>;
+    fn predecessors_known(&self, refs: &[SealId]) -> StoreResult<bool>;
 
-    /// The Realm's genesis Anchor, if any. Each Realm has at most one.
-    fn genesis(&self, realm_id: &RealmId) -> StoreResult<Option<AnchorId>>;
+    /// The Realm's genesis Seal, if any. Each Realm has at most one.
+    fn genesis(&self, realm_id: &RealmId) -> StoreResult<Option<SealId>>;
 
-    /// Direct successors of `anchor_id` — every Anchor `S` for which
-    /// `S.predecessor_refs.contains(anchor_id)`. Used by the MAL-11
+    /// Direct successors of `seal_id` — every Seal `S` for which
+    /// `S.predecessor_refs.contains(seal_id)`. Used by the MAL-11
     /// compaction pipeline to find what to rewire when pruning a
-    /// historical Anchor. Default implementation returns
+    /// historical Seal. Default implementation returns
     /// `StoreError::Backend("unsupported")` so existing backends that
     /// haven't migrated still compile; production backends MUST override
     /// once they need compaction.
-    fn successors(&self, _realm_id: &RealmId, _anchor_id: &AnchorId) -> StoreResult<Vec<AnchorId>> {
+    fn successors(&self, _realm_id: &RealmId, _seal_id: &SealId) -> StoreResult<Vec<SealId>> {
         Err(StoreError::Backend(
-            "AnchorStore::successors not implemented for this backend".to_owned(),
+            "SealStore::successors not implemented for this backend".to_owned(),
         ))
     }
 
-    /// MAL-11: drop `anchor_id` from the DAG and rewire its direct
+    /// MAL-11: drop `seal_id` from the DAG and rewire its direct
     /// successors so their `predecessor_refs` point through to
-    /// `anchor_id`'s parents instead. The caller MUST have validated that
-    /// pruning is safe (downstream witnessed by a compaction Anchor,
+    /// `seal_id`'s parents instead. The caller MUST have validated that
+    /// pruning is safe (downstream witnessed by a compaction Seal,
     /// `CompactionPolicy` accepts the candidate, etc.) — the trait only
     /// performs the structural rewrite.
     ///
-    /// Returns the list of successor Anchor ids that were rewired so the
+    /// Returns the list of successor Seal ids that were rewired so the
     /// caller can re-derive their `id` if the receiver wants
     /// content-addressed correctness (in practice MAL-11 keeps the
     /// successor ids stable because rewriting `predecessor_refs` would
@@ -117,26 +117,23 @@ pub trait AnchorStore: Send + Sync {
     fn prune_predecessor(
         &self,
         _realm_id: &RealmId,
-        _anchor_id: &AnchorId,
-    ) -> StoreResult<Vec<AnchorId>> {
+        _seal_id: &SealId,
+    ) -> StoreResult<Vec<SealId>> {
         Err(StoreError::Backend(
-            "AnchorStore::prune_predecessor not implemented for this backend".to_owned(),
+            "SealStore::prune_predecessor not implemented for this backend".to_owned(),
         ))
     }
 }
 
-/// Per-cell anchored op log + per-view effective-state cache.
+/// Per-cell sealed op log + per-view effective-state cache.
 pub trait CellStore: Send + Sync {
     /// All cells with at least one effect in this Realm. Used for
     /// `state_root` enumeration.
     fn list_cells(&self, realm_id: &RealmId) -> StoreResult<Vec<CellRef>>;
 
-    /// All anchored ops applying to this cell, in deterministic order.
-    fn anchored_ops_for_cell(
-        &self,
-        realm_id: &RealmId,
-        cell: &CellRef,
-    ) -> StoreResult<Vec<AnchoredOp>>;
+    /// All sealed ops applying to this cell, in deterministic order.
+    fn sealed_ops_for_cell(&self, realm_id: &RealmId, cell: &CellRef)
+    -> StoreResult<Vec<SealedOp>>;
 
     /// Cached effective state. `None` means the runtime must recompute.
     fn cached_state(
@@ -154,18 +151,18 @@ pub trait CellStore: Send + Sync {
         state: &CellState,
     ) -> StoreResult<()>;
 
-    /// `apply_anchor` write-back: extend the per-cell op log atomically
-    /// with one Anchor's worth of effects.
-    fn append_anchored_effects(
+    /// `apply_seal` write-back: extend the per-cell op log atomically
+    /// with one Seal's worth of effects.
+    fn append_sealed_effects(
         &self,
         realm_id: &RealmId,
-        anchor: &AnchorId,
-        new_ops: &[(CellRef, AnchoredOp)],
+        seal: &SealId,
+        new_ops: &[(CellRef, SealedOp)],
     ) -> StoreResult<()>;
 
-    /// Roll back a previously-`append_anchored_effects` call when the
-    /// computed state_root failed to match `Anchor.state_root`.
-    fn rollback_anchor(&self, realm_id: &RealmId, anchor: &AnchorId) -> StoreResult<()>;
+    /// Roll back a previously-`append_sealed_effects` call when the
+    /// computed state_root failed to match `Seal.state_root`.
+    fn rollback_seal(&self, realm_id: &RealmId, seal: &SealId) -> StoreResult<()>;
 }
 
 /// Resolved Lattice binding for a cell: the Lattice impl + the cell's

@@ -418,10 +418,10 @@ signatures, schema-id constants, and validation helpers. See cokret-spec
   32-byte `policy_frontier_digest`; helper
   `compute_policy_frontier_digest(disclosure_policy, history_visibility,
   identity_disclosure_profile, minimal_metadata_mode)`.
-- **Anchor canonical bytes**: free-function shims `anchor_canonical_bytes`
-  and `compute_anchor_id` exposing the existing body canonicalisation
+- **Seal canonical bytes**: free-function shims `seal_canonical_bytes`
+  and `compute_seal_id` exposing the existing body canonicalisation
   (excludes `id` and `anchorer_sig`); new
-  `Anchor::validate_frontier_format` rejects the dropped
+  `Seal::validate_frontier_format` rejects the dropped
   `ck:event:<uuid>` frontier form (only `sha256:<hex>` etc are accepted).
 - **Error codes** (15 new wire-level top codes): `relaxed_window_exceeds_ceiling`,
   `e2ee_relaxed_disallowed_in_compliance_profile`, `cross_domain_replay_rejected`,
@@ -569,8 +569,8 @@ signatures, schema-id constants, and validation helpers. See cokret-spec
   shape (3 segments, empty payload segment, exact header bytes,
   64-byte signature), empty-payload rejection, ed25519 sign
   determinism, sign-then-verify round trip through a single-key stub
-  resolver, and tampered-payload verify rejection. Soland's anchorer
-  (`src/anchorer.rs::signature_for`) drops its inline JWS
+  resolver, and tampered-payload verify rejection. Soland's notary
+  (`src/notary.rs::signature_for`) drops its inline JWS
   construction in favor of this helper so the wire bytes are produced
   by exactly one implementation. SDK-1 sign side; pairs with the
   earlier verify-side landing. Closes the SO-2 dependency from
@@ -582,11 +582,11 @@ signatures, schema-id constants, and validation helpers. See cokret-spec
   already-canonicalized JSON bytes (e.g. produced via
   `canonical_json_bytes`) and returns the wire-form
   `sha256:<lowercase-hex>` digest used in event envelopes
-  (`canonical_digest` field), anchors, and policy-check payloads
+  (`canonical_digest` field), seals, and policy-check payloads
   (`request_canonical_digest`). Thin alias for `sha256_digest` kept
   distinct so the call-site intent ("this is the wire-form canonical
   digest") is self-documenting. Downstream services (soland
-  `wire.rs:560,793,816` Move/Anchor `canonical_hash` and
+  `wire.rs:560,793,816` Move/Seal `canonical_hash` and
   `request_canonical_digest` fields, plus yougen / floria / chime as
   they migrate) call this so the same canonical bytes produce
   byte-identical digest strings everywhere. SDK-2.
@@ -613,7 +613,7 @@ signatures, schema-id constants, and validation helpers. See cokret-spec
   / `build_sdk_cell_registry` / `lattice_bindings_for_sdk_registry`
   factories. Lifted wholesale from `soland/src/reducer/{registry,
   lattice_kinds}.rs` so yougen Move pre-check and cotest fixtures share
-  one canonical registry with soland's Move/Anchor receive pipeline (49
+  one canonical registry with soland's Move/Seal receive pipeline (49
   spec-declared cell families covered). Soland's two modules become
   thin re-export shims; existing call sites
   (`crate::reducer::registry::LatticeKind`,
@@ -1056,26 +1056,26 @@ implements the canonical `archived -> active` transition end-to-end.
 
 Three new SDK surfaces requested by the soland principal server.
 
-- **MAL-11 anchor compaction primitives** in `cokret-core`:
-  - New `AnchorKind` enum (`Normal` / `Compaction`) added to the
-    `Anchor` struct as a `#[serde(default)]` field — `Normal` is
+- **MAL-11 seal compaction primitives** in `cokret-core`:
+  - New `SealKind` enum (`Normal` / `Compaction`) added to the
+    `Seal` struct as a `#[serde(default)]` field — `Normal` is
     omitted from the wire, so pre-MAL-11 envelopes deserialize as
     `Normal` and serialize byte-identically. `Compaction` participates
     in the canonical-bytes-for-id hash, so an attacker can't relabel a
-    normal anchor as compaction without invalidating its id.
-  - `Anchor::sign_single_kind` / `sign_threshold_kind` /
+    normal seal as compaction without invalidating its id.
+  - `Seal::sign_single_kind` / `sign_threshold_kind` /
     `sign_multi_kind` companion methods accept an explicit
-    `AnchorKind`. The non-`_kind` shortcuts default to `Normal` and
+    `SealKind`. The non-`_kind` shortcuts default to `Normal` and
     remain source-compatible.
-  - `AnchorStore::successors(space_id, anchor_id)` returns direct
+  - `SealStore::successors(space_id, anchor_id)` returns direct
     children — used by the compaction pipeline to find what to rewire
     when pruning.
-  - `AnchorStore::prune_predecessor(space_id, anchor_id)` drops the
-    named anchor and rewires its direct successors' `predecessor_refs`
+  - `SealStore::prune_predecessor(space_id, anchor_id)` drops the
+    named seal and rewires its direct successors' `predecessor_refs`
     to bypass it (deduped against grandparents). Refuses to prune a
-    leaf; refuses to prune if the anchor isn't in the store. Returns
+    leaf; refuses to prune if the seal isn't in the store. Returns
     the list of rewired successor ids.
-  - `MemoryAnchorStore` implements both new trait methods. Other
+  - `MemorySealStore` implements both new trait methods. Other
     backends inherit `Err(Backend("not implemented"))` defaults so
     they compile but fail-closed.
   - New `CompactionPolicy` + `PruneCandidate` + `PruneEligibility`
@@ -1117,10 +1117,10 @@ Three new SDK surfaces requested by the soland principal server.
 
 `cokret-core` lib tests: **298 → 342 passed** (rounds 6/7 baseline →
 round 8, +44 new). Highlights:
-- 6 new tests for `AnchorKind` (default, wire omission, canonical-id
+- 6 new tests for `SealKind` (default, wire omission, canonical-id
   forgery defense, JSON round-trip, missing-field default).
-- 4 new tests for `AnchorStore::successors` /
-  `AnchorStore::prune_predecessor` (rewire, leaf rejection, dedup).
+- 4 new tests for `SealStore::successors` /
+  `SealStore::prune_predecessor` (rewire, leaf rejection, dedup).
 - 10 new tests for `CompactionPolicy` (per-flag rejection, eligibility
   composition, serde round-trip).
 - 17 new tests for snapshot v2 (chunker determinism, Merkle round-trip
@@ -1132,8 +1132,8 @@ round 8, +44 new). Highlights:
 
 ### Compat notes
 
-- `Anchor` struct gained one required field (`kind: AnchorKind`).
-  Source-compat: callers must initialize it (`AnchorKind::Normal`
+- `Seal` struct gained one required field (`kind: SealKind`).
+  Source-compat: callers must initialize it (`SealKind::Normal`
   preserves prior behavior). Wire-compat: `Normal` round-trips
   byte-identically because of `skip_serializing_if`.
 - All three new modules are additive; no other public API is changed.
@@ -1325,9 +1325,9 @@ unchanged; this is an additive SDK API release.
   unchanged. Public re-export at `cokret_core::{KeyStoreError,
   platform_default_keystore}`.
 
-## [0.5.0] – 2026-05-09 — Move/Anchor signer surface + EventsQuery typed wrappers
+## [0.5.0] – 2026-05-09 — Move/Seal signer surface + EventsQuery typed wrappers
 
-This release completes round 21 of the SDK: the public Move/Anchor signer
+This release completes round 21 of the SDK: the public Move/Seal signer
 trait, an Ed25519 backend for production signing, the `EventsQueryRequest`
 / `EventsQueryOutcome` typed wrappers downstream agents (coauth / soland /
 yougen) need for `ck.events.query`, and the workspace bump to 0.5.0
@@ -1337,12 +1337,12 @@ from 0.4.0; this is an additive SDK API release.
 ### Added
 
 - **`cokret-core::MoveSigner` trait + `UnsignedMove` builder** — public
-  signer abstraction for Move/Anchor signing. `Move::sign(&unsigned, &signer)`
+  signer abstraction for Move/Seal signing. `Move::sign(&unsigned, &signer)`
   produces a fully-signed Move whose `id` matches canonical bytes hash
   and `sig.payload_digest` matches the same canonical bytes. 8 unit tests.
-- **`Anchor::sign_single` / `Anchor::sign_threshold` / `Anchor::sign_multi`**
+- **`Seal::sign_single` / `Seal::sign_threshold` / `Seal::sign_multi`**
   constructors that take a [`MoveSigner`] (or threshold proof bytes) +
-  predecessor refs + frontier and produce a fully-signed [`Anchor`]
+  predecessor refs + frontier and produce a fully-signed [`Seal`]
   with `id` derived from canonical bytes.
 - **`cokret-signatures::Ed25519MoveSigner`** behind the new `signer`
   feature: wraps `ed25519_dalek::SigningKey`, exposes
@@ -1382,9 +1382,9 @@ from 0.4.0; this is an additive SDK API release.
   / 0 ignored** (was 704 in 0.4.0; +24 new tests covering signer trait,
   Ed25519 backend, EventsQuery typed wrappers, and Frontier frame).
 
-## [0.2.0] – 2026-05-08 — Move / Anchor / Lattice rebase ⚠ wire-breaking
+## [0.2.0] – 2026-05-08 — Move / Seal / Lattice rebase ⚠ wire-breaking
 
-This release rebases the SDK onto the Move/Anchor/Lattice three-primitive
+This release rebases the SDK onto the Move/Seal/Lattice three-primitive
 state-convergence model introduced by `cokret-spec` 2026-05-08. The
 v1 wire surface is **incompatible** with 0.1.0: `ck.consent.*` events,
 the legacy `StateReducer` API, and the host-endorsement / writer-model
@@ -1395,29 +1395,29 @@ typed model are all gone. v1 was unreleased; no compat shim is provided.
 - **`cokret-lattice` crate** — new independent crate providing the
   closed `Lattice` trait and six normative implementations
   (`or-set` / `mv-register` / `cas-register` / `fsm` / `counter` /
-  `ordered-log`) plus `AnchoredOp` / `CellState` types. 55 unit tests.
+  `ordered-log`) plus `SealedOp` / `CellState` types. 55 unit tests.
 - **`cokret-core::Move`** typed model with canonical-bytes id derivation
   (spec §3); 13 unit tests covering id round-trip / signature payload
   hash / SemanticRef default-skip / snake-case op enums.
-- **`cokret-core::Anchor`** typed model with three signature shapes
+- **`cokret-core::Seal`** typed model with three signature shapes
   (`Single` / `Multi` / `Threshold`); 13 unit tests covering id
   round-trip + threshold below-quorum reject + wire `kind`
   discriminator.
 - **`cokret-core::Bottom`** structured diagnostic typed model with six
   `BottomKind` variants matching `bottom.schema.json`.
-- **`cokret-core::AnchorerValue`** four-variant typed enum
+- **`cokret-core::NotaryValue`** four-variant typed enum
   (`SingleDid` / `Threshold` / `OpenSet` / `Mixed`); validates the
-  anchorer cell's cas-register value shape per spec §4.4.
+  notary cell's cas-register value shape per spec §4.4.
 - **`cokret-core::CellId`** parser + `composite_subject` (base64url +
   sha256 hash form per encoding.md §9.5) + `composite_subject_pipe`
   diagnostic form.
-- New typed identifiers: `MoveId` (`ck:move:sha256:<hex>`), `AnchorId`
-  (`ck:anchor:sha256:<hex>`), `CellRef` (`ck:cell:<component>:<subject>`)
+- New typed identifiers: `MoveId` (`ck:move:sha256:<hex>`), `SealId`
+  (`ck:seal:sha256:<hex>`), `CellRef` (`ck:cell:<component>:<subject>`)
   with OpenAPI schemas.
-- **`cokret-state-res` rewrite** — `MoveStore` / `AnchorStore` /
+- **`cokret-state-res` rewrite** — `MoveStore` / `SealStore` /
   `CellStore` / `CellRegistry` trait contracts + Memory backends +
-  `verify_move` five-step pipeline + `apply_anchor` eight-step
-  algorithm + `effective_anchor_view` pure function +
+  `verify_move` five-step pipeline + `apply_seal` eight-step
+  algorithm + `effective_seal_view` pure function +
   `compute_state_root` (RFC 6962 Merkle, empty-list root locked to
   spec §4.2). 32 unit tests.
 - **`cokret::consent`** rewritten as or-set Move builder per spec
@@ -1428,13 +1428,13 @@ typed model are all gone. v1 was unreleased; no compat shim is provided.
   `grant:<consent_id>:<peer>:<scope>` for deterministic dedupe.
 - **`cokret::mls_move`** new module — MLS commit Move helpers per
   spec §10: `mls_commit_preconditions` / `mls_commit_effects` /
-  `e2ee_message_precondition` / `covered_frontier_contains` plus
+  `e2ee_message_precondition` / `covered_seals_contains` plus
   cell families `ck.component.mls_epoch.v1` (cas-register, reject) /
   `ck.component.key_schedule.v1` (cas-register, reject) /
-  `ck.component.covered_frontier.v1` (or-set, **expose**).
-- `docs/move-anchor-runtime.md` — SDK-internal runtime architecture
+  `ck.component.covered_seals.v1` (or-set, **expose**).
+- `docs/move-seal-runtime.md` — SDK-internal runtime architecture
   design (≈540 lines): module split, store trait contracts, verifier
-  pipeline, `apply_anchor` walk-through, caching strategy (L0/L1/L2),
+  pipeline, `apply_seal` walk-through, caching strategy (L0/L1/L2),
   user-facing projection vs cell effective state separation,
   CellRegistry loading, migration roadmap.
 
@@ -1448,12 +1448,12 @@ typed model are all gone. v1 was unreleased; no compat shim is provided.
   primitives.
 - **Old `Proof` extensions**: `Proof::host_did`, `Proof::endorsed_at`,
   `proof_kind::HOST_ENDORSEMENT`. Move signatures use detached JWS
-  exclusively now (signatures are anchorer-side concerns for
+  exclusively now (signatures are notary-side concerns for
   multi/threshold flows, not Move-issuer concerns).
 - **`SpaceWriterModel`** enum + `Space.space_writer_model` /
   `Space.space_host` fields + `derived_writer_model()` /
-  `validate_writer_model()` helpers. Anchor authority is determined
-  by the anchorer cell value, not a per-Space typed enum.
+  `validate_writer_model()` helpers. Seal authority is determined
+  by the notary cell value, not a per-Space typed enum.
 - **`crates/sdk/src/space_host.rs`** module deleted in entirety
   (`SpaceHostPayload` / `SpaceHostTransferPayload`).
 - **Old `consent::ConsentState`** enum (`Granted` / `Revoked` /
@@ -1468,16 +1468,16 @@ typed model are all gone. v1 was unreleased; no compat shim is provided.
 - `cokret-state-res` Cargo.toml gains `cokret-lattice`, `sha2`,
   `thiserror` deps to support the new runtime.
 - `cokret-testing::state_resolution_vectors` rewritten to drive
-  `apply_anchor` end-to-end. `StateResolutionVector` struct fields
+  `apply_seal` end-to-end. `StateResolutionVector` struct fields
   changed from `{name, winner_event_id, conflict_count}` to
-  `{name, anchor, accepted_count, rejected_count, post_state_root}`
+  `{name, seal, accepted_count, rejected_count, post_state_root}`
   to reflect the new "no per-cell winner" semantics.
 - `MemoryCellRegistry` ships built-in bindings for nine cell
   families: `member.state` (FSM with membership transitions),
-  `capability.grant` / `consent.grant` (or-set), `anchorer` /
+  `capability.grant` / `consent.grant` (or-set), `notary` /
   `space.policy` / `mls_epoch` / `key_schedule` (cas-register),
   `space.title` (mv-register, expose), `metric.counter` (counter),
-  `audit.log` (ordered-log), `covered_frontier` (or-set, expose).
+  `audit.log` (ordered-log), `covered_seals` (or-set, expose).
 - 23-crate workspace bumped from `0.1.0` to `0.2.0`.
 
 ### Test baseline
@@ -1487,7 +1487,7 @@ typed model are all gone. v1 was unreleased; no compat shim is provided.
   spec workspace at a specific path; unrelated to this rebase).
 - Net test delta vs 0.1.0: −≈35 (old state-res / consent /
   space-host tests removed) + 99 new (Move 13, Cell 10, Bottom 6,
-  Anchor 13, AnchorerValue 10, Lattice 55, state-res 32, consent
+  Seal 13, NotaryValue 10, Lattice 55, state-res 32, consent
   16, mls_move 11) = **+64 unit tests**.
 - `cargo clippy --workspace --all-features --tests -- -D warnings`:
   clean.
@@ -1497,19 +1497,19 @@ typed model are all gone. v1 was unreleased; no compat shim is provided.
 Downstream consumers MUST:
 
 1. Replace `StateReducer::new(...).apply_events(events)` with
-   `apply_anchor(anchor, &move_store, &anchor_store, &cell_store,
+   `apply_seal(seal, &move_store, &anchor_store, &cell_store,
    &registry, verify_jws_closure)`.
 2. Stop emitting `ck.consent.grant` / `ck.consent.revoke` event
    envelopes; build Moves whose effects come from
    `consent::grant_effect` / `consent::revoke_effect_with_precondition`
    instead.
 3. Remove all references to `SpaceWriterModel` / `Space.space_host`.
-   Anchor authority lookup goes through the anchorer cell.
+   Seal authority lookup goes through the notary cell.
 4. For E2EE Spaces, attach `mls_move::e2ee_message_precondition` to
    message Moves; build MLS commit Moves with
    `mls_move::MlsCommitMoveSpec::build`.
 
-See `docs/move-anchor-runtime.md` for the full architecture.
+See `docs/move-seal-runtime.md` for the full architecture.
 
 ## [0.1.0-prep] (rolling work toward 0.2.0)
 

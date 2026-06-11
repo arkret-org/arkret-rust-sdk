@@ -93,7 +93,7 @@ pub fn call_media_token_exchange(
 
 /// Stored media metadata.
 ///
-/// `realm_id` is the Realm anchor used by `media-and-blob.md` §5 to scope
+/// `realm_id` is the Realm seal used by `media-and-blob.md` §5 to scope
 /// download authorization and garbage-collect blobs when a Realm is
 /// dissolved or migrated. It is `None` only for genuinely global blobs
 /// (e.g. a public organization avatar) — those callers MUST guarantee the
@@ -116,7 +116,7 @@ pub struct MediaMetadata {
     pub uploaded_by: Did,
     /// Upload time.
     pub uploaded_at: DateTime<Utc>,
-    /// Realm anchor for download authorization and GC (B-23,
+    /// Realm seal for download authorization and GC (B-23,
     /// `media-and-blob.md` §2). `None` only for global blobs.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,

@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use super::{AnchoredOp, CellState};
+use super::{CellState, SealedOp};
 use crate::{CellRef, LatticeOp};
 
 /// Closed set of normative Lattice kinds.
@@ -135,29 +135,29 @@ pub enum OpError {
 
 /// Per-cell Lattice trait.
 ///
-/// Implementations are stateless — `join` takes the full anchored op list
+/// Implementations are stateless — `join` takes the full sealed op list
 /// each call and returns the deterministic resolved state. This matches
-/// the spec model where state is a pure function of (Anchor view,
+/// the spec model where state is a pure function of (Seal view,
 /// frontier, cell schema) and the runtime caches it for performance.
 ///
 /// `cell` is passed so multi-cell-aware diagnostics (multi-cell Move
-/// failures, anchorer cell ⊥) can populate `Bottom.cells`.
+/// failures, notary cell ⊥) can populate `Bottom.cells`.
 pub trait Lattice {
     fn kind(&self) -> LatticeKind;
 
     /// Validate that `op` has the right shape for this Lattice.
     ///
-    /// Run before the op enters Anchor frontier — failure produces a
+    /// Run before the op enters Seal frontier — failure produces a
     /// Move-level `schema_violation` rather than a cell-level Bottom.
     fn validate_op(&self, op: &LatticeOp) -> Result<(), OpError>;
 
-    /// Deterministic join of `anchored_ops` to a `CellState`.
+    /// Deterministic join of `sealed_ops` to a `CellState`.
     ///
-    /// The order of `anchored_ops` is the deterministic per-Anchor-view
-    /// order (e.g. by `(Anchor.hlc, Move.id)`). Implementations MUST be
+    /// The order of `sealed_ops` is the deterministic per-Seal-view
+    /// order (e.g. by `(Seal.hlc, Move.id)`). Implementations MUST be
     /// associative and commutative w.r.t. this order so receivers
     /// converge.
-    fn join(&self, cell: &CellRef, anchored_ops: &[AnchoredOp]) -> CellState;
+    fn join(&self, cell: &CellRef, sealed_ops: &[SealedOp]) -> CellState;
 }
 
 #[cfg(test)]

@@ -8,7 +8,7 @@
 //!   required fields populated);
 //! - `Value` — the resolved value type after `join()`;
 //! - `validate_op` — schema-level validity of a single op against this Lattice's rules;
-//! - `join` — deterministic merge of an ordered list of anchored ops to produce either `Value` or
+//! - `join` — deterministic merge of an ordered list of sealed ops to produce either `Value` or
 //!   `Bottom`.
 //!
 //! The 6 normative Lattice types:
@@ -26,8 +26,8 @@
 //! [`LatticeKind`] variant — receivers MUST fail closed on unknown kinds.
 //! See spec §5.4.
 //!
-//! This module is intentionally pure. State store, network, anchorer
-//! orchestration, and the apply-Anchor algorithm live elsewhere
+//! This module is intentionally pure. State store, network, notary
+//! orchestration, and the apply-Seal algorithm live elsewhere
 //! (`crate::state`, server runtime).
 
 pub mod cas_register;
@@ -49,17 +49,17 @@ pub use traits::{Lattice, LatticeKind, OpError};
 
 use crate::{Bottom, BottomKind, CellRef, LatticeOp, MoveId};
 
-/// A single anchored op input to [`Lattice::join`].
+/// A single sealed op input to [`Lattice::join`].
 ///
-/// Each AnchoredOp carries the underlying [`LatticeOp`] plus the Move id
+/// Each SealedOp carries the underlying [`LatticeOp`] plus the Move id
 /// it came from (used to populate `Bottom::move_ids` on conflict).
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct AnchoredOp {
+pub struct SealedOp {
     pub move_id: MoveId,
     pub op: LatticeOp,
 }
 
-impl AnchoredOp {
+impl SealedOp {
     pub fn new(move_id: MoveId, op: LatticeOp) -> Self {
         Self { move_id, op }
     }

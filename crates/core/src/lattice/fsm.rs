@@ -5,8 +5,8 @@
 //!   its schema.
 //! - `transition(from, to)` op is valid only if `(from, to)` is in `allowed_transitions`. The op
 //!   also requires that the cell's current value equals `from` at the moment the op is applied
-//!   (this is checked per Anchor batch by the runtime; the join here just walks anchored ops in
-//!   order and surfaces ⊥ on illegal transitions).
+//!   (this is checked per Seal batch by the runtime; the join here just walks sealed ops in order
+//!   and surfaces ⊥ on illegal transitions).
 //! - Concurrent valid transitions from the same `from` to different `to` produce a
 //!   `kind=invalid_transition` Bottom (the cell's safety contract — e.g. membership state machine —
 //!   requires a single resolved next state).
@@ -15,7 +15,7 @@
 
 use serde_json::{Value, json};
 
-use super::{AnchoredOp, CellState, Lattice, LatticeKind, OpError};
+use super::{CellState, Lattice, LatticeKind, OpError, SealedOp};
 use crate::{Bottom, BottomKind, CellRef, LatticeOp, LatticeOpType};
 
 /// FSM Lattice instance with declared `allowed_transitions` and an
@@ -86,9 +86,9 @@ impl Lattice for Fsm {
         }
     }
 
-    fn join(&self, cell: &CellRef, anchored_ops: &[AnchoredOp]) -> CellState {
+    fn join(&self, cell: &CellRef, sealed_ops: &[SealedOp]) -> CellState {
         let mut current: Option<Value> = self.initial_state.clone();
-        for entry in anchored_ops {
+        for entry in sealed_ops {
             let op = &entry.op;
             // Skip ops that don't pass shape (defensive — same rule as
             // OrSet etc.).
@@ -186,9 +186,9 @@ mod tests {
     fn join_walks_through_to_final_state() {
         let f = membership_fsm();
         let ops = vec![
-            AnchoredOp::new(move_id(1), transition(json!("invited"), json!("join"))),
-            AnchoredOp::new(move_id(2), transition(json!("join"), json!("leave"))),
-            AnchoredOp::new(move_id(3), transition(json!("leave"), json!("join"))),
+            SealedOp::new(move_id(1), transition(json!("invited"), json!("join"))),
+            SealedOp::new(move_id(2), transition(json!("join"), json!("leave"))),
+            SealedOp::new(move_id(3), transition(json!("leave"), json!("join"))),
         ];
         assert_eq!(f.join(&cell(), &ops), CellState::Value(json!("join")));
     }
@@ -198,8 +198,8 @@ mod tests {
         let f = membership_fsm();
         // After this sequence current=join. Next op claims from=leave -> mismatch.
         let ops = vec![
-            AnchoredOp::new(move_id(1), transition(json!("invited"), json!("join"))),
-            AnchoredOp::new(move_id(2), transition(json!("leave"), json!("join"))),
+            SealedOp::new(move_id(1), transition(json!("invited"), json!("join"))),
+            SealedOp::new(move_id(2), transition(json!("leave"), json!("join"))),
         ];
         let state = f.join(&cell(), &ops);
         match state {
@@ -215,7 +215,7 @@ mod tests {
     fn join_with_undeclared_transition_yields_bottom() {
         let f = membership_fsm();
         // invited -> ban is not declared.
-        let ops = vec![AnchoredOp::new(
+        let ops = vec![SealedOp::new(
             move_id(1),
             transition(json!("invited"), json!("ban")),
         )];

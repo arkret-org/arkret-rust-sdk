@@ -3,9 +3,9 @@
 //! 这些向量锁定收敛后的不可漂移字节:
 //!
 //! 1. detached JWS 的 protected header 字节在 **整个生态** 唯一为 `{"alg":"EdDSA"}`(base64url =
-//!    `eyJhbGciOiJFZERTQSJ9`),与 spec §6、 soland `move_anchor_wire`、cotest、teabay `sdk::jws`
+//!    `eyJhbGciOiJFZERTQSJ9`),与 spec §6、 soland `move_seal_wire`、cotest、teabay `sdk::jws`
 //!    完全一致;
-//! 2. `Ed25519MoveSigner`(Move/Anchor 签名)与 `Ed25519DetachedJwsSigner` (event-proof 签名)对同一
+//! 2. `Ed25519MoveSigner`(Move/Seal 签名)与 `Ed25519DetachedJwsSigner` (event-proof 签名)对同一
 //!    canonical bytes 产出**同一 signing input 与同一 64 字节签名** —— 证明两条历史分叉的 JWS
 //!    实现已收敛为一套;
 //! 3. base58btc(`core::multibase`,bs58 后端)对 `did:key` Ed25519 多编码栈 的固定向量稳定;
@@ -33,7 +33,7 @@ fn detached_jws_protected_header_is_alg_eddsa_only() {
 #[test]
 fn move_signer_and_event_proof_signer_share_one_jws_header_and_signature() {
     use cokret_core::move_event::{Effect, LatticeOp, LatticeOpType};
-    use cokret_core::{AnchorId, CellRef, Did, Hlc, MoveSigner, RealmId, UnsignedMove};
+    use cokret_core::{CellRef, Did, Hlc, MoveSigner, RealmId, SealId, UnsignedMove};
     use cokret_signatures::Ed25519MoveSigner;
     use cokret_signatures::proof::{Ed25519DetachedJwsSigner, EventSigner};
 
@@ -46,7 +46,7 @@ fn move_signer_and_event_proof_signer_share_one_jws_header_and_signature() {
     let unsigned = UnsignedMove::new(
         did.clone(),
         RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap(),
-        AnchorId::new(format!("ck:anchor:sha256:{}", "aa".repeat(32))).unwrap(),
+        SealId::new(format!("ck:seal:sha256:{}", "aa".repeat(32))).unwrap(),
         vec![Effect {
             cell: CellRef::new(
                 "ck:cell:ck.component.member.state.v1:did.web.alice.example".to_owned(),

@@ -6,14 +6,14 @@
 //!   concurrent value (default `bottom=expose`).
 //!
 //! "Concurrent" here means there is no causal ordering provided by the
-//! Anchor — two `set` ops in the same Anchor frontier with no causal
-//! refs are concurrent. The runtime that builds `anchored_ops` is
+//! Seal — two `set` ops in the same Seal frontier with no causal
+//! refs are concurrent. The runtime that builds `sealed_ops` is
 //! responsible for collapsing causally-ordered chains; this trait method
 //! sees only the surviving heads.
 
 use serde_json::Value;
 
-use super::{AnchoredOp, CellState, Lattice, LatticeKind, OpError};
+use super::{CellState, Lattice, LatticeKind, OpError, SealedOp};
 use crate::{Bottom, BottomKind, CellRef, LatticeOp, LatticeOpType};
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -42,8 +42,8 @@ impl Lattice for MvRegister {
         }
     }
 
-    fn join(&self, cell: &CellRef, anchored_ops: &[AnchoredOp]) -> CellState {
-        let valid_ops: Vec<&AnchoredOp> = anchored_ops
+    fn join(&self, cell: &CellRef, sealed_ops: &[SealedOp]) -> CellState {
+        let valid_ops: Vec<&SealedOp> = sealed_ops
             .iter()
             .filter(|e| self.validate_op(&e.op).is_ok())
             .collect();
@@ -134,7 +134,7 @@ mod tests {
 
     #[test]
     fn single_set_returns_value() {
-        let ops = vec![AnchoredOp::new(move_id(1), set_op(json!("hello")))];
+        let ops = vec![SealedOp::new(move_id(1), set_op(json!("hello")))];
         assert_eq!(
             MvRegister.join(&cell(), &ops),
             CellState::Value(json!("hello"))
@@ -144,8 +144,8 @@ mod tests {
     #[test]
     fn two_concurrent_sets_yields_conflict_bottom() {
         let ops = vec![
-            AnchoredOp::new(move_id(1), set_op(json!("a"))),
-            AnchoredOp::new(move_id(2), set_op(json!("b"))),
+            SealedOp::new(move_id(1), set_op(json!("a"))),
+            SealedOp::new(move_id(2), set_op(json!("b"))),
         ];
         match MvRegister.join(&cell(), &ops) {
             CellState::Bottom(b) => {
@@ -161,9 +161,9 @@ mod tests {
     #[test]
     fn three_concurrent_sets_all_in_heads() {
         let ops = vec![
-            AnchoredOp::new(move_id(1), set_op(json!(1))),
-            AnchoredOp::new(move_id(2), set_op(json!(2))),
-            AnchoredOp::new(move_id(3), set_op(json!(3))),
+            SealedOp::new(move_id(1), set_op(json!(1))),
+            SealedOp::new(move_id(2), set_op(json!(2))),
+            SealedOp::new(move_id(3), set_op(json!(3))),
         ];
         match MvRegister.join(&cell(), &ops) {
             CellState::Bottom(b) => {
@@ -177,7 +177,7 @@ mod tests {
     #[test]
     fn invalid_ops_filtered_before_count() {
         let ops = vec![
-            AnchoredOp::new(
+            SealedOp::new(
                 move_id(1),
                 LatticeOp {
                     op_type: LatticeOpType::Add,
@@ -189,7 +189,7 @@ mod tests {
                     issuer_seq: None,
                 },
             ),
-            AnchoredOp::new(move_id(2), set_op(json!("only valid"))),
+            SealedOp::new(move_id(2), set_op(json!("only valid"))),
         ];
         // Only one valid op -> single value, no Bottom.
         assert_eq!(

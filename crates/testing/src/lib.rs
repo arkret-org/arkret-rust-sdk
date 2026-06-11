@@ -8,11 +8,11 @@ use cokret_core::events::{
 };
 use cokret_core::lattice::CellState;
 use cokret_core::state::{
-    MemoryAnchorStore, MemoryCellRegistry, MemoryCellStore, MemoryMoveStore, MoveStore,
-    apply_anchor, compute_state_root,
+    MemoryCellRegistry, MemoryCellStore, MemoryMoveStore, MemorySealStore, MoveStore, apply_seal,
+    compute_state_root,
 };
 use cokret_core::{
-    AnchorId, CellRef, Did, Error, Event, Hash, Hlc, Move, MoveId, RealmId, Result, canonical,
+    CellRef, Did, Error, Event, Hash, Hlc, Move, MoveId, RealmId, Result, SealId, canonical,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -86,22 +86,22 @@ pub struct EventTaxonomyVector {
     pub preserves_unknown: bool,
 }
 
-/// Reference vector exercising the Move/Anchor/Lattice runtime end-to-end.
+/// Reference vector exercising the Move/Seal/Lattice runtime end-to-end.
 ///
 /// Under v1 there is no per-cell winner; cell convergence is decided by
-/// Lattice join. The vector captures (a) the Anchor that committed the batch,
+/// Lattice join. The vector captures (a) the Seal that committed the batch,
 /// (b) how many Moves were accepted vs rejected, and (c) the post-state_root.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StateResolutionVector {
     pub name: String,
-    pub anchor: AnchorId,
+    pub seal: SealId,
     pub accepted_count: usize,
     pub rejected_count: usize,
     pub post_state_root: Hash,
 }
 
 /// Reference vector for canonical-JSON encoding round-trips.
-/// Anchored in `conformance/conformance-vectors.md` §1.3–§1.5.
+/// Sealed in `conformance/conformance-vectors.md` §1.3–§1.5.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CanonicalJsonVector {
     pub vector_id: String,
@@ -112,7 +112,7 @@ pub struct CanonicalJsonVector {
 }
 
 /// Reference vector for redaction.
-/// Anchored in `event-auth-state-resolution.md` §10.
+/// Sealed in `event-auth-state-resolution.md` §10.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RedactionVector {
     pub vector_id: String,
@@ -136,7 +136,7 @@ pub struct CapabilityVector {
 }
 
 /// Reference vector for sync (cursor / filter binding).
-/// Anchored in `operations-sync.md` §11 + M-15/M-16.
+/// Sealed in `operations-sync.md` §11 + M-15/M-16.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SyncVector {
     pub vector_id: String,
@@ -550,7 +550,7 @@ pub fn state_resolution_vectors() -> Result<Vec<StateResolutionVector>> {
     let move_obj = build_membership_move(&realm_id, &cell, "invited", "join")?;
 
     let moves = MemoryMoveStore::default();
-    let anchors = MemoryAnchorStore::default();
+    let seals = MemorySealStore::default();
     let cells = MemoryCellStore::default();
     let registry = MemoryCellRegistry::new();
 
@@ -565,35 +565,25 @@ pub fn state_resolution_vectors() -> Result<Vec<StateResolutionVector>> {
 
     let empty_root = Hash::new(cokret_core::EMPTY_STATE_ROOT.to_owned())?;
     let genesis = build_anchor(&realm_id, &[], &[], &empty_root)?;
-    apply_anchor(
-        &genesis,
-        &moves,
-        &anchors,
-        &cells,
-        &registry,
-        |_, _, _, _| Ok::<(), String>(()),
-    )
+    apply_seal(&genesis, &moves, &seals, &cells, &registry, |_, _, _, _| {
+        Ok::<(), String>(())
+    })
     .map_err(|e| Error::Protocol(format!("apply_genesis_anchor: {e}")))?;
 
-    let anchor = build_anchor(
+    let seal = build_anchor(
         &realm_id,
         std::slice::from_ref(&genesis.id),
         std::slice::from_ref(&move_obj.id),
         &expected_root,
     )?;
-    let effect = apply_anchor(
-        &anchor,
-        &moves,
-        &anchors,
-        &cells,
-        &registry,
-        |_, _, _, _| Ok::<(), String>(()),
-    )
-    .map_err(|e| Error::Protocol(format!("apply_anchor: {e}")))?;
+    let effect = apply_seal(&seal, &moves, &seals, &cells, &registry, |_, _, _, _| {
+        Ok::<(), String>(())
+    })
+    .map_err(|e| Error::Protocol(format!("apply_seal: {e}")))?;
 
     Ok(vec![StateResolutionVector {
-        name: "membership invited→join Move accepts under genesis Anchor".to_owned(),
-        anchor: effect.anchor,
+        name: "membership invited→join Move accepts under genesis Seal".to_owned(),
+        seal: effect.seal,
         accepted_count: effect.accepted_move_ids.len(),
         rejected_count: effect.rejected_moves.len(),
         post_state_root: effect.post_state_root,
@@ -609,7 +599,11 @@ fn build_membership_move(realm_id: &RealmId, cell: &CellRef, from: &str, to: &st
             "cell": cell.as_str(),
             "op": { "kind": "transition", "from": from, "to": to }
         }],
-        "anchor_ref": format!("ck:anchor:sha256:{}", "aa".repeat(32)),
+        "seal_basis": {
+            "leaves": [format!("ck:seal:sha256:{}", "aa".repeat(32))],
+            "control_event_set_root": format!("sha256:{}", "22".repeat(32)),
+            "state_root": format!("sha256:{}", "33".repeat(32))
+        },
         "refs": [],
         "hlc": "0189c4d2af00-0000-aabbccdd"
     });
@@ -641,34 +635,44 @@ fn build_membership_move(realm_id: &RealmId, cell: &CellRef, from: &str, to: &st
 
 fn build_anchor(
     realm_id: &RealmId,
-    predecessor_refs: &[AnchorId],
-    frontier: &[MoveId],
+    predecessor_refs: &[SealId],
+    delta: &[MoveId],
     state_root: &Hash,
-) -> Result<cokret_core::Anchor> {
+) -> Result<cokret_core::Seal> {
     use chrono::{TimeZone, Utc};
-    use cokret_core::{Anchor, AnchorerSig, MoveSignature};
+    use cokret_core::{MoveSignature, NotarySig, Seal};
     let sig = MoveSignature {
         alg: "EdDSA".to_owned(),
-        verification_method: "did:web:anchorer.example#k1".to_owned(),
+        verification_method: "did:web:notary.example#k1".to_owned(),
         payload_digest: Hash::new(format!("sha256:{}", "ff".repeat(32)))
             .map_err(|e| Error::Protocol(format!("hash: {e}")))?,
         created_at: Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
         jws: "AAAA.BBBB.CCCC".to_owned(),
     };
-    let mut a = Anchor {
-        id: AnchorId::new(format!("ck:anchor:sha256:{}", "00".repeat(32)))
-            .map_err(|e| Error::Protocol(format!("anchor id: {e}")))?,
+    let mut a = Seal {
+        id: SealId::new(format!("ck:seal:sha256:{}", "00".repeat(32)))
+            .map_err(|e| Error::Protocol(format!("seal id: {e}")))?,
         realm_id: realm_id.clone(),
         predecessor_refs: predecessor_refs.to_vec(),
-        frontier: frontier.to_vec(),
+        delta: delta.to_vec(),
+        control_event_set_root: Hash::new(format!("sha256:{}", "22".repeat(32)))
+            .map_err(|e| Error::Protocol(format!("hash: {e}")))?,
         state_root: state_root.clone(),
+        completeness_root: Hash::new(format!("sha256:{}", "33".repeat(32)))
+            .map_err(|e| Error::Protocol(format!("hash: {e}")))?,
+        notary_seq: 0,
+        data_view_root: None,
+        data_event_set_root: None,
+        availability_root: None,
+        coverage_scope: None,
+        covered_event_digests: Vec::new(),
         previous_state_root: None,
         previous_digest_algorithm: None,
-        anchorer_signature: AnchorerSig::Single(sig),
-        anchored_at: Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
+        notary_signature: NotarySig::Single(sig),
+        sealed_at: Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
         hlc: Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned())
             .map_err(|e| Error::Protocol(format!("hlc: {e}")))?,
-        kind: cokret_core::AnchorKind::Normal,
+        kind: cokret_core::SealKind::Normal,
     };
     a.id = a
         .derive_id()
@@ -780,10 +784,10 @@ mod tests {
     }
 
     #[test]
-    fn state_vector_exercises_apply_anchor_round_trip() {
+    fn state_vector_exercises_apply_seal_round_trip() {
         let vectors = state_resolution_vectors().unwrap();
         assert_eq!(vectors.len(), 1);
-        // The single membership Move must accept under genesis Anchor with no rejects.
+        // The single membership Move must accept under genesis Seal with no rejects.
         assert_eq!(vectors[0].accepted_count, 1);
         assert_eq!(vectors[0].rejected_count, 0);
         // post_state_root MUST start with the canonical sha256: prefix.

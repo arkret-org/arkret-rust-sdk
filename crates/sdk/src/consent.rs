@@ -285,7 +285,7 @@ pub fn require_consent_precondition(
 #[cfg(test)]
 mod tests {
     use chrono::TimeZone;
-    use cokret_core::lattice::{AnchoredOp, Lattice, OrSet};
+    use cokret_core::lattice::{Lattice, OrSet, SealedOp};
 
     use super::*;
 
@@ -381,7 +381,7 @@ mod tests {
         // Build a consent or-set state by joining a single grant op.
         let opts = ConsentGrantOptions::default();
         let grant = grant_effect("cs-001", bob(), Scope::Invite, &opts).unwrap();
-        let aop = AnchoredOp::new(move_id(0x11), grant.op);
+        let aop = SealedOp::new(move_id(0x11), grant.op);
         let state = OrSet.join(&consent_cell_id("cs-001").unwrap(), &[aop]);
         assert!(evaluate_consent(
             &state,
@@ -413,7 +413,7 @@ mod tests {
             ..Default::default()
         };
         let grant = grant_effect("cs-001", bob(), Scope::Invite, &opts).unwrap();
-        let aop = AnchoredOp::new(move_id(0x11), grant.op);
+        let aop = SealedOp::new(move_id(0x11), grant.op);
         let state = OrSet.join(&consent_cell_id("cs-001").unwrap(), &[aop]);
         assert!(evaluate_consent(
             &state,
@@ -450,8 +450,8 @@ mod tests {
         .unwrap();
         let cell = consent_cell_id("cs-001").unwrap();
         let aops = vec![
-            AnchoredOp::new(move_id(0x11), grant.op),
-            AnchoredOp::new(move_id(0x22), revoke.op),
+            SealedOp::new(move_id(0x11), grant.op),
+            SealedOp::new(move_id(0x22), revoke.op),
         ];
         let state = OrSet.join(&cell, &aops);
         assert!(!evaluate_consent(
@@ -466,7 +466,7 @@ mod tests {
     fn scope_any_grants_every_concrete_scope() {
         let opts = ConsentGrantOptions::default();
         let grant = grant_effect("cs-any", bob(), Scope::Any, &opts).unwrap();
-        let aop = AnchoredOp::new(move_id(0x11), grant.op);
+        let aop = SealedOp::new(move_id(0x11), grant.op);
         let state = OrSet.join(&consent_cell_id("cs-any").unwrap(), &[aop]);
         assert!(evaluate_consent(
             &state,
@@ -498,8 +498,8 @@ mod tests {
         assert_eq!(g1.op.tag, g2.op.tag);
         let cell = consent_cell_id("cs-001").unwrap();
         let aops = vec![
-            AnchoredOp::new(move_id(0x11), g1.op),
-            AnchoredOp::new(move_id(0x22), g2.op),
+            SealedOp::new(move_id(0x11), g1.op),
+            SealedOp::new(move_id(0x22), g2.op),
         ];
         let state = OrSet.join(&cell, &aops);
         // Join produced exactly one tag.

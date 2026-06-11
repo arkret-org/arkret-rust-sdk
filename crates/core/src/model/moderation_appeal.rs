@@ -14,7 +14,7 @@ use crate::events::{
 pub enum AppealVerdict {
     /// Original decision stands.
     Uphold,
-    /// Original decision reversed; MUST be paired in the same Anchor batch
+    /// Original decision reversed; MUST be paired in the same Seal batch
     /// with `ck.moderation.decision.lift` referencing the original decision.
     Overturn,
     /// Original decision adjusted; `modify_decision_ref` MUST point to a new

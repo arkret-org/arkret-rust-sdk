@@ -11,7 +11,7 @@ use crate::events::kinds::{
 
 /// Count of standard ck.* event kinds the registry declares active.
 /// Excludes the [EventKind::Unknown] catch-all.
-pub const EVENT_KIND_COUNT: usize = 186;
+pub const EVENT_KIND_COUNT: usize = 188;
 
 /// Strongly-typed Cokret event kind. One variant per active ck.* kind in
 /// `event-kind-registry.json`, plus [EventKind::Unknown] which preserves
@@ -96,8 +96,6 @@ pub enum EventKind {
     CapabilityGrant,
     /// `ck.capability.revoke`
     CapabilityRevoke,
-    /// `ck.circle.anchor_commit`
-    CircleAnchorCommit,
     /// `ck.circle.archive`
     CircleArchive,
     /// `ck.circle.create`
@@ -106,6 +104,8 @@ pub enum EventKind {
     CircleMemberState,
     /// `ck.circle.restore`
     CircleRestore,
+    /// `ck.circle.seal_commit`
+    CircleSealCommit,
     /// `ck.circle.tombstone`
     CircleTombstone,
     /// `ck.circle.update`
@@ -252,6 +252,10 @@ pub enum EventKind {
     MorphStageSet,
     /// `ck.morph.update`
     MorphUpdate,
+    /// `ck.notary.fault.censorship`
+    NotaryFaultCensorship,
+    /// `ck.notary.fault.equivocation`
+    NotaryFaultEquivocation,
     /// `ck.organization.discovery`
     OrganizationDiscovery,
     /// `ck.organization.moderation_policy`
@@ -440,11 +444,11 @@ impl EventKind {
             Self::CapabilityDerived => "ck.capability.derived",
             Self::CapabilityGrant => "ck.capability.grant",
             Self::CapabilityRevoke => "ck.capability.revoke",
-            Self::CircleAnchorCommit => "ck.circle.anchor_commit",
             Self::CircleArchive => "ck.circle.archive",
             Self::CircleCreate => "ck.circle.create",
             Self::CircleMemberState => "ck.circle.member.state",
             Self::CircleRestore => "ck.circle.restore",
+            Self::CircleSealCommit => "ck.circle.seal_commit",
             Self::CircleTombstone => "ck.circle.tombstone",
             Self::CircleUpdate => "ck.circle.update",
             Self::ConsentGrant => "ck.consent.grant",
@@ -518,6 +522,8 @@ impl EventKind {
             Self::MorphSchemaMigrate => "ck.morph.schema_migrate",
             Self::MorphStageSet => "ck.morph.stage.set",
             Self::MorphUpdate => "ck.morph.update",
+            Self::NotaryFaultCensorship => "ck.notary.fault.censorship",
+            Self::NotaryFaultEquivocation => "ck.notary.fault.equivocation",
             Self::OrganizationDiscovery => "ck.organization.discovery",
             Self::OrganizationModerationPolicy => "ck.organization.moderation_policy",
             Self::PinAdd => "ck.pin.add",
@@ -634,11 +640,11 @@ impl EventKind {
             "ck.capability.derived" => Self::CapabilityDerived,
             "ck.capability.grant" => Self::CapabilityGrant,
             "ck.capability.revoke" => Self::CapabilityRevoke,
-            "ck.circle.anchor_commit" => Self::CircleAnchorCommit,
             "ck.circle.archive" => Self::CircleArchive,
             "ck.circle.create" => Self::CircleCreate,
             "ck.circle.member.state" => Self::CircleMemberState,
             "ck.circle.restore" => Self::CircleRestore,
+            "ck.circle.seal_commit" => Self::CircleSealCommit,
             "ck.circle.tombstone" => Self::CircleTombstone,
             "ck.circle.update" => Self::CircleUpdate,
             "ck.consent.grant" => Self::ConsentGrant,
@@ -712,6 +718,8 @@ impl EventKind {
             "ck.morph.schema_migrate" => Self::MorphSchemaMigrate,
             "ck.morph.stage.set" => Self::MorphStageSet,
             "ck.morph.update" => Self::MorphUpdate,
+            "ck.notary.fault.censorship" => Self::NotaryFaultCensorship,
+            "ck.notary.fault.equivocation" => Self::NotaryFaultEquivocation,
             "ck.organization.discovery" => Self::OrganizationDiscovery,
             "ck.organization.moderation_policy" => Self::OrganizationModerationPolicy,
             "ck.pin.add" => Self::PinAdd,

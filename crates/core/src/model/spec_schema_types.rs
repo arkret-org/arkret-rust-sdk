@@ -119,13 +119,13 @@ pub type SidecarExposureAck = AgentSidecarExposureAck;
 /// Counterpart for `spec/v1/artifacts/schemas/agent.schema.json`.
 pub type Agent = Value;
 
-/// Counterpart for `spec/v1/artifacts/schemas/anchor.schema.json#/$defs/anchor_ref`.
-pub type AnchorRef = String;
+/// Counterpart for `spec/v1/artifacts/schemas/seal.schema.json#/$defs/seal_ref`.
+pub type SealRef = String;
 
-/// Counterpart for `spec/v1/artifacts/schemas/anchor.schema.json#/$defs/event_digest`.
+/// Counterpart for `spec/v1/artifacts/schemas/seal.schema.json#/$defs/event_digest`.
 pub type EventDigest = Hash;
 
-/// Counterpart for `spec/v1/artifacts/schemas/anchor.schema.json#/$defs/signature`.
+/// Counterpart for `spec/v1/artifacts/schemas/seal.schema.json#/$defs/signature`.
 pub type Signature = Value;
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-edge-operations.schema.json`.
@@ -513,8 +513,8 @@ pub type AgentResumePayload = Value;
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_sidecar_exposure_ack`.
 pub type AgentSidecarExposureAck = Value;
 
-/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/anchor_frontier`.
-pub type AnchorFrontier = Vec<Hash>;
+/// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/seal_frontier`.
+pub type SealFrontier = Vec<Hash>;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/applet_bridge_error_payload`.
@@ -596,8 +596,8 @@ pub type CapabilityGrantPayload = Value;
 pub type CapabilityRevokePayload = Value;
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/circle_anchor_commit_payload`.
-pub type CircleAnchorCommitPayload = Value;
+/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/circle_seal_commit_payload`.
+pub type CircleSealCommitPayload = Value;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/circle_create_payload`.

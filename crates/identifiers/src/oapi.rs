@@ -10,13 +10,13 @@ use salvo::oapi::{
 };
 
 use crate::{
-    ActorProfileId, AgentInteropSessionId, AnchorId, AnnounceId, AppletId, AttestationId,
-    AuditBindingId, AuditReleaseId, AuditSessionId, BackupId, BackupSeriesId, BatchId, BlobId,
-    BlobRef, BlockId, CallId, CapabilityId, CellRef, ChunkId, CircleId, ClaimId, Cursor, DeviceId,
-    DeviceMessageId, Did, EventId, FilterId, FlowId, FrameId, FrankingProofId, GrantId, Hash, Hlc,
-    InviteId, KeyEventId, MessageId, ModerationQueueItemId, MorphId, MoveId, NotificationId,
-    OperationId, PolicyId, PresentationId, ReadCursorId, RealmId, ReceiptId, RecoverySessionId,
-    RelationId, ReportId, RequestId, RtcParticipantId, SnapshotId, SpaceId, TransactionId,
+    ActorProfileId, AgentInteropSessionId, AnnounceId, AppletId, AttestationId, AuditBindingId,
+    AuditReleaseId, AuditSessionId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId,
+    CallId, CapabilityId, CellRef, ChunkId, CircleId, ClaimId, Cursor, DeviceId, DeviceMessageId,
+    Did, EventId, FilterId, FlowId, FrameId, FrankingProofId, GrantId, Hash, Hlc, InviteId,
+    KeyEventId, MessageId, ModerationQueueItemId, MorphId, MoveId, NotificationId, OperationId,
+    PolicyId, PresentationId, ReadCursorId, RealmId, ReceiptId, RecoverySessionId, RelationId,
+    ReportId, RequestId, RtcParticipantId, SealId, SnapshotId, SpaceId, TransactionId,
     TypedAppealId, TypedTrustDomainId, ViewId,
 };
 
@@ -244,10 +244,10 @@ impl_string_schema!(
 );
 impl_string_schema!(Hash, r"^(?:sha256|blake3):[0-9a-f]{64}$");
 impl_string_schema!(Cursor, r"^ck:cursor:.+$");
-// Anchor frontier event_digest: bare `<algo>:<hex>` hash (spec e10b6ad
+// Seal frontier event_digest: bare `<algo>:<hex>` hash (spec e10b6ad
 // dropped the `ck:move:` typed-id prefix). Same hex shape as `Hash` above.
 impl_string_schema!(MoveId, r"^(?:sha256|blake3):[0-9a-f]{64}$");
-impl_string_schema!(AnchorId, r"^ck:anchor:(?:sha256|blake3):[0-9a-f]{64}$");
+impl_string_schema!(SealId, r"^ck:seal:(?:sha256|blake3):[0-9a-f]{64}$");
 impl_string_schema!(
     CellRef,
     r"^ck:cell:[A-Za-z0-9._~=-]+(?::[A-Za-z0-9._~=-]+)*$"

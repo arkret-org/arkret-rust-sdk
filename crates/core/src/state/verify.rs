@@ -1,6 +1,6 @@
 //! Move verifier pipeline.
 //!
-//! Per `cokret-rust-sdk/docs/move-anchor-runtime.md` §4 and spec §3-§4.
+//! Per `cokret-rust-sdk/docs/move-seal-runtime.md` §4 and spec §3-§4.
 //! Five steps; failure at any step rejects the Move with a typed reason
 //! that maps onto a wire `error_code`:
 //!
@@ -69,9 +69,9 @@ pub fn reject_to_error_code(r: &MoveReject) -> &'static str {
 
 /// Verify a Move against a pre-state map.
 ///
-/// `pre_state` MUST be the joined-state of the Move's `anchor_ref`
-/// predecessor view (or the Anchor batch's predecessor view in
-/// `apply_anchor`). Cells absent from the map are treated as
+/// `pre_state` MUST be the joined-state of the Move's `seal_ref`
+/// predecessor view (or the Seal batch's predecessor view in
+/// `apply_seal`). Cells absent from the map are treated as
 /// `CellState::Value(Value::Null)`.
 ///
 /// `verify_jws` is a caller-supplied closure so this crate stays free
@@ -452,7 +452,11 @@ mod tests {
             "realm_id": Realm().as_str(),
             "preconditions": preconditions,
             "effects": effects,
-            "anchor_ref": format!("ck:anchor:sha256:{}", "aa".repeat(32)),
+            "seal_basis": {
+                "leaves": [format!("ck:seal:sha256:{}", "aa".repeat(32))],
+                "control_event_set_root": format!("sha256:{}", "22".repeat(32)),
+                "state_root": format!("sha256:{}", "33".repeat(32))
+            },
             "refs": refs,
             "hlc": "0189c4d2af00-0000-aabbccdd"
         });

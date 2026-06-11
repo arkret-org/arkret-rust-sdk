@@ -282,7 +282,7 @@ pub fn sha256_digest(bytes: impl AsRef<[u8]>) -> String {
 /// Downstream services that have already produced canonical JSON bytes
 /// (e.g. via [`canonical_json_bytes`]) call this to derive the wire-form
 /// `canonical_digest` / `request_canonical_digest` value used in event
-/// envelopes, anchors, and policy-check payloads.
+/// envelopes, seals, and policy-check payloads.
 ///
 /// The output format is `sha256:<lowercase-hex>` and is byte-stable for
 /// a given input. All downstream services (soland, yougen, floria, chime)
@@ -872,7 +872,7 @@ mod tests {
     fn canonical_digest_is_byte_stable_for_fixed_input() {
         // The empty-input digest is the canonical sha256(b"") value;
         // any drift here is a backwards-incompatible change downstream
-        // (soland event_log, anchorer, policy hashing).
+        // (soland event_log, notary, policy hashing).
         assert_eq!(
             canonical_digest(b""),
             "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"

@@ -3,16 +3,16 @@
 //! Per [cokret-spec event-auth-state-resolution.md §4.2](
 //! ../../cokret-spec/spec/v1/zh/authz/event-auth-state-resolution.md):
 //!
-//! 1. For each cell with at least one effect under the current Anchor view, build a leaf:
-//!    `leaf_input = canonical_json({"cell": "<wire>", "state": <state_object>})` `leaf_hash =
+//! 1. For each cell with at least one effect under the current Seal view, build a leaf: `leaf_input
+//!    = canonical_json({"cell": "<wire>", "state": <state_object>})` `leaf_hash =
 //!    sha256(leaf_input)`.
 //! 2. Sort `(cell_wire, leaf_hash)` by `cell_wire` ascending.
 //! 3. Combine leaf_hash list via RFC 6962-style binary Merkle tree (odd leaf promotes, no
 //!    duplication). Empty list → `sha256("")`.
 //! 4. Wire form: `state_root = "sha256:" + lower_hex(root)`.
 //!
-//! `bottom.anchor_view` MUST be omitted from `<state_object>` — that's
-//! handled automatically because `Bottom::anchor_view` is
+//! `bottom.seal_view` MUST be omitted from `<state_object>` — that's
+//! handled automatically because `Bottom::seal_view` is
 //! `#[serde(skip_serializing_if = "Option::is_none")]` and we set it to
 //! `None` before serializing.
 
@@ -31,7 +31,7 @@ pub const EMPTY_STATE_ROOT: &str =
 /// Compute the canonical Merkle root for a cell-state map.
 ///
 /// `cells` is the full list of cells with at least one effect under the
-/// current Anchor view; values are resolved via
+/// current Seal view; values are resolved via
 /// [`crate::lattice::Lattice::join`].
 /// Empty input returns [`EMPTY_STATE_ROOT`].
 pub fn compute_state_root(cells: &BTreeMap<CellRef, CellState>) -> Result<Hash, crate::Error> {
@@ -78,9 +78,9 @@ pub fn leaf_hash(cell: &CellRef, state: &CellState) -> Result<[u8; 32], crate::E
     let state_object = match state {
         CellState::Value(v) => json!({ "value": v }),
         CellState::Bottom(b) => {
-            // Strip `anchor_view` to prevent self-recursion (spec §4.2.1).
+            // Strip `seal_view` to prevent self-recursion (spec §4.2.1).
             let mut stripped: Bottom = b.clone();
-            stripped.anchor_view = None;
+            stripped.seal_view = None;
             json!({ "bottom": stripped })
         }
     };
@@ -105,7 +105,7 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use crate::{AnchorView, BottomKind};
+    use crate::{BottomKind, SealView};
 
     fn cell(s: &str) -> CellRef {
         CellRef::new(s.to_owned()).unwrap()
@@ -165,19 +165,19 @@ mod tests {
     }
 
     #[test]
-    fn bottom_state_serializes_without_anchor_view() {
-        // Two Bottoms differing only in anchor_view MUST yield the same leaf.
+    fn bottom_state_serializes_without_seal_view() {
+        // Two Bottoms differing only in seal_view MUST yield the same leaf.
         let mut bottom_a = Bottom::new(BottomKind::Conflict, vec![cell("ck:cell:ck.x:1")]);
-        bottom_a.anchor_view = Some(AnchorView {
+        bottom_a.seal_view = Some(SealView {
             leaves: vec![],
             state_root: None,
         });
         let mut bottom_b = bottom_a.clone();
-        bottom_b.anchor_view = None;
+        bottom_b.seal_view = None;
 
         let h_a = leaf_hash(&cell("ck:cell:ck.x:1"), &CellState::Bottom(bottom_a)).unwrap();
         let h_b = leaf_hash(&cell("ck:cell:ck.x:1"), &CellState::Bottom(bottom_b)).unwrap();
-        assert_eq!(h_a, h_b, "anchor_view must be stripped before hashing");
+        assert_eq!(h_a, h_b, "seal_view must be stripped before hashing");
     }
 
     #[test]

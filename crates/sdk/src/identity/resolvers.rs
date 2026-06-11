@@ -626,7 +626,7 @@ impl DidResolver for DidWebvhResolver {
 /// Any failure is fatal: the function returns `Err` and the caller MUST
 /// reject the whole log (fail-closed).
 fn verify_webvh_log(scid: &str, entries: &[DidWebvhLogEntry], raw_entries: &[Value]) -> Result<()> {
-    // SCID derivation check, anchored on the first entry.
+    // SCID derivation check, sealed on the first entry.
     let derived = derive_webvh_scid(scid, &raw_entries[0])?;
     if derived != scid {
         return Err(Error::Protocol(

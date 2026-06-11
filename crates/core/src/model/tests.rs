@@ -119,7 +119,9 @@ fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
         refs: Vec::new(),
         preconditions: Vec::new(),
         effects: Vec::new(),
-        anchor_ref: None,
+        seal_ref: None,
+        auth_context: None,
+        seal_basis: None,
         requirements: EventRequirements::default(),
         redacts: None,
         content: json!({ "body": "hello" }),
@@ -798,7 +800,7 @@ fn query_request_uses_protocol_filters_array() {
         object_types: vec!["morph".to_owned()],
         morph_types: vec!["task".to_owned()],
         facets: vec![Facet::Stateful, Facet::Rankable],
-        anchor_ref: None,
+        seal_ref: None,
         filters: vec![Filter::Predicate(FieldFilter {
             field: "fields.status".to_owned(),
             op: FilterOp::Eq,
@@ -847,7 +849,7 @@ fn view_supports_renderer_and_facet_config_facades() {
         object_types: Vec::new(),
         morph_types: Vec::new(),
         facets: vec![Facet::Stateful, Facet::Rankable],
-        anchor_ref: None,
+        seal_ref: None,
         filters: Vec::new(),
         relation: None,
         context: None,
@@ -1356,27 +1358,27 @@ fn flow_track_typed_constructors() {
     validate_flow_track_name("review").unwrap();
 }
 
-/// Realm anchor fields default to None (anchorer cell is the source
+/// Realm seal fields default to None (notary cell is the source
 /// of truth) and the builders set them to expected values.
 #[test]
 fn realm_anchor_fields_default_none_and_builders_apply() {
-    use crate::anchorer::AnchorerValue;
+    use crate::notary::NotaryValue;
 
     let mut realm = Realm::new(
         RealmId::new("ck:realm:0196419b-0000-7000-8000-000000000001").unwrap(),
-        "Anchor Test",
+        "Seal Test",
         Did::new("did:web:alice.example").unwrap(),
         TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
     );
-    assert!(realm.anchor_profile.is_none());
-    assert!(realm.anchorer.is_none());
-    assert!(realm.max_anchor_staleness_ms.is_none());
+    assert!(realm.notary_profile.is_none());
+    assert!(realm.notary.is_none());
+    assert!(realm.revocation_freshness_window_ms.is_none());
     assert!(realm.cell_lattices.is_empty());
     assert!(realm.co_write_policy.is_none());
 
     realm = realm
-        .with_anchor_profile(AnchorProfile::Threshold)
-        .with_anchorer(AnchorerValue::Threshold {
+        .with_notary_profile(NotaryProfile::Threshold)
+        .with_notary(NotaryValue::Threshold {
             k: 2,
             n: 3,
             members: vec![
@@ -1385,7 +1387,7 @@ fn realm_anchor_fields_default_none_and_builders_apply() {
                 Did::new("did:web:c.example").unwrap(),
             ],
         })
-        .with_max_anchor_staleness(60_000)
+        .with_revocation_freshness_window(60_000)
         .with_cell_lattice(
             "ck.component.flow.track.v1",
             "or_set",
@@ -1393,12 +1395,12 @@ fn realm_anchor_fields_default_none_and_builders_apply() {
         )
         .with_co_write_policy(CoWritePolicy::CausalOnly);
 
-    assert_eq!(realm.anchor_profile, Some(AnchorProfile::Threshold));
+    assert_eq!(realm.notary_profile, Some(NotaryProfile::Threshold));
     assert!(matches!(
-        realm.anchorer,
-        Some(AnchorerValue::Threshold { k: 2, n: 3, .. })
+        realm.notary,
+        Some(NotaryValue::Threshold { k: 2, n: 3, .. })
     ));
-    assert_eq!(realm.max_anchor_staleness_ms, Some(60_000));
+    assert_eq!(realm.revocation_freshness_window_ms, Some(60_000));
     assert_eq!(realm.cell_lattices.len(), 1);
     assert_eq!(
         realm.cell_lattices[0].cell_family,
@@ -1410,8 +1412,8 @@ fn realm_anchor_fields_default_none_and_builders_apply() {
 
     // Round-trip through serde to confirm wire shape.
     let json = serde_json::to_value(&realm).unwrap();
-    assert_eq!(json["anchor_profile"], "threshold");
-    assert_eq!(json["max_anchor_staleness_ms"], 60_000);
+    assert_eq!(json["notary_profile"], "threshold");
+    assert_eq!(json["revocation_freshness_window_ms"], 60_000);
     assert_eq!(json["co_write_policy"], "causal_only");
     assert_eq!(
         json["cell_lattices"][0]["cell_family"],
@@ -1419,29 +1421,29 @@ fn realm_anchor_fields_default_none_and_builders_apply() {
     );
 
     let restored: Realm = serde_json::from_value(json).unwrap();
-    assert_eq!(restored.anchor_profile, realm.anchor_profile);
+    assert_eq!(restored.notary_profile, realm.notary_profile);
     assert_eq!(
-        restored.max_anchor_staleness_ms,
-        realm.max_anchor_staleness_ms
+        restored.revocation_freshness_window_ms,
+        realm.revocation_freshness_window_ms
     );
     assert_eq!(restored.co_write_policy, realm.co_write_policy);
 }
 
-/// `Realm::new` omits anchor fields from the wire when they're
+/// `Realm::new` omits seal fields from the wire when they're
 /// `None` (skip_serializing_if), so sparse fixtures stay clean.
 #[test]
 fn realm_anchor_fields_omitted_when_none() {
     let realm = Realm::new(
         RealmId::new("ck:realm:0196419b-0000-7000-8000-000000000002").unwrap(),
-        "No Anchor Hint",
+        "No Seal Hint",
         Did::new("did:web:alice.example").unwrap(),
         TypedTrustDomainId::new("ck:trust_domain:example.net").unwrap(),
     );
     let json = serde_json::to_value(&realm).unwrap();
     let obj = json.as_object().unwrap();
-    assert!(!obj.contains_key("anchor_profile"));
-    assert!(!obj.contains_key("anchorer"));
-    assert!(!obj.contains_key("max_anchor_staleness_ms"));
+    assert!(!obj.contains_key("notary_profile"));
+    assert!(!obj.contains_key("notary"));
+    assert!(!obj.contains_key("revocation_freshness_window_ms"));
     assert!(!obj.contains_key("cell_lattices"));
     assert!(!obj.contains_key("co_write_policy"));
 }

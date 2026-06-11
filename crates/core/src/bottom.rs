@@ -2,7 +2,7 @@
 //!
 //! See spec `spec/v1/zh/authz/event-auth-state-resolution.md` §5.1 and
 //! schema `bottom.schema.json`. A cell's effective Lattice value resolves
-//! to bottom when the join under the current Anchor view produces no valid
+//! to bottom when the join under the current Seal view produces no valid
 //! single value (or violates the cell's declared safety rules). Bottom is
 //! either rejected (`bottom=reject` cells, e.g. capability / membership
 //! safety-critical) or exposed to projections (`bottom=expose` cells, e.g.
@@ -10,14 +10,14 @@
 //!
 //! Wire diagnostic surfaced on `/account/subscribe`, `/events`, and state-query
 //! responses so clients (and admin UIs) can show structured "this cell is
-//! ⊥, here are the candidate heads, here is the Anchor view it was
+//! ⊥, here are the candidate heads, here is the Seal view it was
 //! observed under" without re-implementing the conflict semantics.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{AnchorId, CellRef, Hash, MoveId};
+use crate::{CellRef, Hash, MoveId, SealId};
 
 /// Why the join produced bottom.
 ///
@@ -38,19 +38,19 @@ pub enum BottomKind {
     /// surfaced as a cell-level diagnostic when the unauthorized op
     /// would otherwise have left the cell in an undefined state).
     Unauthorized,
-    /// Multiple anchorer cell Anchor leaves diverge on next-batch authority.
-    AnchorerSplit,
+    /// Multiple notary cell Seal leaves diverge on next-batch authority.
+    NotarySplit,
     /// Lattice op or value violates the declared cell schema.
     SchemaError,
 }
 
-/// Anchor leaves and (optional) state_root that pin where the bottom was
+/// Seal leaves and (optional) state_root that pin where the bottom was
 /// observed. Diagnostics MUST include this so the receiver can reproduce
 /// the join without ambiguity.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct AnchorView {
-    pub leaves: Vec<AnchorId>,
+pub struct SealView {
+    pub leaves: Vec<SealId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state_root: Option<Hash>,
 }
@@ -63,14 +63,14 @@ pub struct Bottom {
     /// Cell ids participating in this bottom. Multi-cell when an atomic
     /// multi-cell Move failed across linked cells.
     pub cells: Vec<CellRef>,
-    /// Anchored Move ids whose effects (or precondition checks) produced
-    /// this bottom. Empty for structural bottoms (e.g. anchorer cell
+    /// Sealed Move ids whose effects (or precondition checks) produced
+    /// this bottom. Empty for structural bottoms (e.g. notary cell
     /// schema_error) not tied to a specific Move.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub move_ids: Vec<MoveId>,
-    /// Anchor view the bottom was observed under.
+    /// Seal view the bottom was observed under.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub anchor_view: Option<AnchorView>,
+    pub seal_view: Option<SealView>,
     /// Candidate heads for `kind=conflict` only. Receivers MUST NOT pick
     /// a winner from this array; UI / audit display only.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -94,7 +94,7 @@ impl Bottom {
             kind,
             cells,
             move_ids: Vec::new(),
-            anchor_view: None,
+            seal_view: None,
             heads: Vec::new(),
             details: None,
             escalated_at: None,
@@ -116,8 +116,8 @@ mod tests {
         MoveId::new(format!("sha256:{hex}")).unwrap()
     }
 
-    fn anchor_id(hex: &str) -> AnchorId {
-        AnchorId::new(format!("ck:anchor:sha256:{hex}")).unwrap()
+    fn seal_id(hex: &str) -> SealId {
+        SealId::new(format!("ck:seal:sha256:{hex}")).unwrap()
     }
 
     #[test]
@@ -127,7 +127,7 @@ mod tests {
             (BottomKind::InvalidTransition, "invalid_transition"),
             (BottomKind::MissingDependency, "missing_dependency"),
             (BottomKind::Unauthorized, "unauthorized"),
-            (BottomKind::AnchorerSplit, "anchorer_split"),
+            (BottomKind::NotarySplit, "notary_split"),
             (BottomKind::SchemaError, "schema_error"),
         ];
         for (k, expected) in kinds {
@@ -147,7 +147,7 @@ mod tests {
         assert!(s.contains("\"cells\""));
         // Empty / None fields should be skipped.
         assert!(!s.contains("\"move_ids\""));
-        assert!(!s.contains("\"anchor_view\""));
+        assert!(!s.contains("\"seal_view\""));
         assert!(!s.contains("\"heads\""));
         assert!(!s.contains("\"details\""));
         assert!(!s.contains("\"escalated_at\""));
@@ -162,8 +162,8 @@ mod tests {
                 move_id("4444444444444444444444444444444444444444444444444444444444444444"),
                 move_id("5555555555555555555555555555555555555555555555555555555555555555"),
             ],
-            anchor_view: Some(AnchorView {
-                leaves: vec![anchor_id(
+            seal_view: Some(SealView {
+                leaves: vec![seal_id(
                     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 )],
                 state_root: None,
@@ -185,7 +185,7 @@ mod tests {
                 "ck:cell:ck.component.member.state.v1:did.web.alice.example",
             )],
             move_ids: vec![],
-            anchor_view: None,
+            seal_view: None,
             heads: vec![],
             details: Some(json!({
                 "from": "leave",
@@ -200,16 +200,16 @@ mod tests {
     }
 
     #[test]
-    fn anchorer_split_kind_carries_no_move_ids() {
+    fn notary_split_kind_carries_no_move_ids() {
         let b = Bottom::new(
-            BottomKind::AnchorerSplit,
+            BottomKind::NotarySplit,
             vec![cell(
-                "ck:cell:ck.component.anchorer.v1:ck.space.01js0sp00000000000000000aa",
+                "ck:cell:ck.component.notary.v1:ck.space.01js0sp00000000000000000aa",
             )],
         );
         assert!(b.move_ids.is_empty());
         let r: Bottom = serde_json::from_str(&serde_json::to_string(&b).unwrap()).unwrap();
-        assert_eq!(r.kind, BottomKind::AnchorerSplit);
+        assert_eq!(r.kind, BottomKind::NotarySplit);
     }
 
     #[test]

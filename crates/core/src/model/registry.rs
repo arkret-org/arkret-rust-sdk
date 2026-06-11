@@ -1018,7 +1018,7 @@ impl Default for ProtocolSchemaRegistry {
                     ("refs", "array"),
                     ("preconditions", "array"),
                     ("effects", "array"),
-                    ("anchor_ref", "string"),
+                    ("seal_ref", "string"),
                     ("requirements", "object"),
                     ("redacts", "string"),
                     ("payload", "object"),

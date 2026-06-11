@@ -4,7 +4,7 @@
 //! - `add(tag, value?)` adds a tagged element.
 //! - `remove(tag, reason?)` removes the element bearing that tag.
 //! - Remove of a tag added in the **same join** wins iff the remove op is causally later (its
-//!   anchored order is later). Removing a never-added tag is a no-op (this lattice is monotonic).
+//!   sealed order is later). Removing a never-added tag is a no-op (this lattice is monotonic).
 //!
 //! Output value is a JSON array of `{tag, value?}` objects sorted by
 //! `tag` ascending so the resolved state is canonical.
@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 
 use serde_json::{Value, json};
 
-use super::{AnchoredOp, CellState, Lattice, LatticeKind, OpError};
+use super::{CellState, Lattice, LatticeKind, OpError, SealedOp};
 use crate::{CellRef, LatticeOp, LatticeOpType};
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -51,11 +51,11 @@ impl Lattice for OrSet {
         }
     }
 
-    fn join(&self, _cell: &CellRef, anchored_ops: &[AnchoredOp]) -> CellState {
-        // Deterministic walk over the anchored order; later remove on a
+    fn join(&self, _cell: &CellRef, sealed_ops: &[SealedOp]) -> CellState {
+        // Deterministic walk over the sealed order; later remove on a
         // tag wipes the prior add(s).
         let mut state: BTreeMap<String, Option<Value>> = BTreeMap::new();
-        for entry in anchored_ops {
+        for entry in sealed_ops {
             // Skip ops that fail validate_op (defensive — runtime should
             // have rejected at submit time, but join is pure so it stays
             // safe).
@@ -170,8 +170,8 @@ mod tests {
     #[test]
     fn add_then_remove_same_tag_in_order_yields_empty() {
         let ops = vec![
-            AnchoredOp::new(move_id(1), add_op("t1", Some(json!("v1")))),
-            AnchoredOp::new(move_id(2), remove_op("t1")),
+            SealedOp::new(move_id(1), add_op("t1", Some(json!("v1")))),
+            SealedOp::new(move_id(2), remove_op("t1")),
         ];
         let state = OrSet.join(&cell(), &ops);
         assert_eq!(state, CellState::Value(json!([])));
@@ -180,8 +180,8 @@ mod tests {
     #[test]
     fn remove_before_add_is_overwritten_by_add() {
         let ops = vec![
-            AnchoredOp::new(move_id(1), remove_op("t1")),
-            AnchoredOp::new(move_id(2), add_op("t1", Some(json!("v1")))),
+            SealedOp::new(move_id(1), remove_op("t1")),
+            SealedOp::new(move_id(2), add_op("t1", Some(json!("v1")))),
         ];
         let state = OrSet.join(&cell(), &ops);
         assert_eq!(
@@ -193,9 +193,9 @@ mod tests {
     #[test]
     fn deterministic_output_is_sorted_by_tag() {
         let ops = vec![
-            AnchoredOp::new(move_id(1), add_op("zeta", None)),
-            AnchoredOp::new(move_id(2), add_op("alpha", None)),
-            AnchoredOp::new(move_id(3), add_op("middle", None)),
+            SealedOp::new(move_id(1), add_op("zeta", None)),
+            SealedOp::new(move_id(2), add_op("alpha", None)),
+            SealedOp::new(move_id(3), add_op("middle", None)),
         ];
         let state = OrSet.join(&cell(), &ops);
         match state {
@@ -214,8 +214,8 @@ mod tests {
     #[test]
     fn add_value_optional_serializes_only_when_present() {
         let ops = vec![
-            AnchoredOp::new(move_id(1), add_op("plain", None)),
-            AnchoredOp::new(move_id(2), add_op("with-val", Some(json!(42)))),
+            SealedOp::new(move_id(1), add_op("plain", None)),
+            SealedOp::new(move_id(2), add_op("with-val", Some(json!(42)))),
         ];
         let state = OrSet.join(&cell(), &ops);
         let CellState::Value(v) = state else {
@@ -236,7 +236,7 @@ mod tests {
 
     #[test]
     fn remove_of_never_added_tag_is_noop() {
-        let ops = vec![AnchoredOp::new(move_id(1), remove_op("nonexistent"))];
+        let ops = vec![SealedOp::new(move_id(1), remove_op("nonexistent"))];
         let state = OrSet.join(&cell(), &ops);
         assert_eq!(state, CellState::Value(json!([])));
     }
@@ -244,8 +244,8 @@ mod tests {
     #[test]
     fn multiple_adds_same_tag_last_wins() {
         let ops = vec![
-            AnchoredOp::new(move_id(1), add_op("t1", Some(json!("v1")))),
-            AnchoredOp::new(move_id(2), add_op("t1", Some(json!("v2")))),
+            SealedOp::new(move_id(1), add_op("t1", Some(json!("v1")))),
+            SealedOp::new(move_id(2), add_op("t1", Some(json!("v2")))),
         ];
         let state = OrSet.join(&cell(), &ops);
         assert_eq!(
@@ -258,7 +258,7 @@ mod tests {
     fn invalid_ops_skipped_during_join() {
         // Op missing tag should be skipped (defensive).
         let ops = vec![
-            AnchoredOp::new(
+            SealedOp::new(
                 move_id(1),
                 LatticeOp {
                     op_type: LatticeOpType::Add,
@@ -270,7 +270,7 @@ mod tests {
                     issuer_seq: None,
                 },
             ),
-            AnchoredOp::new(move_id(2), add_op("valid", Some(json!("v")))),
+            SealedOp::new(move_id(2), add_op("valid", Some(json!("v")))),
         ];
         let state = OrSet.join(&cell(), &ops);
         assert_eq!(

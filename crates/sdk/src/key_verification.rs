@@ -189,7 +189,7 @@ pub const SAS_EMOJI_TABLE: [(&str, &str); 64] = [
     ("\u{1F382}", "Cake"),
     ("\u{1F36D}", "Lollipop"),
     ("\u{1F37C}", "Bottle"),
-    ("\u{2693}", "Anchor"),
+    ("\u{2693}", "Seal"),
     ("\u{1F3A7}", "Headphones"),
     ("\u{1F4D6}", "Book"),
     ("\u{1F4BB}", "Computer"),

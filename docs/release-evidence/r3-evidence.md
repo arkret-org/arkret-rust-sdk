@@ -8,7 +8,7 @@
 
 ## SHA range
 
-| Anchor | Value |
+| Seal | Value |
 |---|---|
 | cokret-spec source | `b47ff6ec` |
 | Local mirror | `D:/Works/cokret/spec-synced-b47ff6ec17cb53b6d94a65fbb86385b1075d5e52/` |

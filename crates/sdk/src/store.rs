@@ -395,7 +395,9 @@ mod tests {
             refs: vec![],
             preconditions: vec![],
             effects: vec![],
-            anchor_ref: None,
+            seal_ref: None,
+            auth_context: None,
+            seal_basis: None,
             requirements: crate::EventRequirements::default(),
             redacts: None,
             content: json!({

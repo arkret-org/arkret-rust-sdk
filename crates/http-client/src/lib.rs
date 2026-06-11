@@ -930,7 +930,7 @@ impl Client {
 
     /// Range-read Events via `ck.self.events.query` (`GET /_cokret/self/events`). Pass
     /// `before` to walk older history, `after` to catch up toward newer events,
-    /// and `order` to override the default proximity-to-anchor ordering.
+    /// and `order` to override the default proximity-to-seal ordering.
     pub async fn events_query(
         &self,
         realm_id: &str,
@@ -2090,7 +2090,9 @@ mod tests {
                 refs: Vec::new(),
                 preconditions: Vec::new(),
                 effects: Vec::new(),
-                anchor_ref: None,
+                seal_ref: None,
+                auth_context: None,
+                seal_basis: None,
                 requirements: EventRequirements::default(),
                 redacts: None,
                 content: json!({ "body": content_body }),

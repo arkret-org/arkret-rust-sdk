@@ -24,7 +24,7 @@
 //!
 //! Backends namespace credentials under `"cokret.<application_id>"` so
 //! multiple Cokret-using apps on the same host (yougen, sodmin, soland
-//! anchorer, …) don't trample each other's keychain items. The
+//! notary, …) don't trample each other's keychain items. The
 //! `application_id` is supplied at construction time and SHOULD be a stable
 //! reverse-DNS-like identifier for the host application
 //! (e.g. `"chat.acroidea.yougen"`).

@@ -177,8 +177,8 @@ pub enum WireContext {
     AttestationEvidence,
     /// Agent lifecycle payload property.
     AgentLifecyclePayload,
-    /// Anchor object property.
-    Anchor,
+    /// Seal object property.
+    Seal,
     /// DID continuity proof `transfer_evidence` property.
     DidContinuityProofTransferEvidence,
     /// DID continuity proof `signature_chain[]` entry property.
@@ -257,7 +257,7 @@ pub const FORBIDDEN_WIRE_FIELDS: &[&str] = &[
     "accountable_to",
     "thumbnail_ref",
     "claim_type",
-    "anchorer_sig",
+    "notary_sig",
     "track",
     "inception_pubkey_fingerprint",
     "commitment_b64",
@@ -929,7 +929,7 @@ const FORBIDDEN_ENTRIES: &[ForbiddenEntry] = &[
         context: WireContext::HandleClaimTopLevel,
     },
     ForbiddenEntry {
-        field: "anchorer_sig",
+        field: "notary_sig",
         context: WireContext::WireSchemaOrPayload,
     },
     ForbiddenEntry {
@@ -1052,8 +1052,8 @@ const FORBIDDEN_ENTRIES: &[ForbiddenEntry] = &[
         context: WireContext::AgentLifecyclePayload,
     },
     ForbiddenEntry {
-        field: "anchorer_sig",
-        context: WireContext::Anchor,
+        field: "notary_sig",
+        context: WireContext::Seal,
     },
     ForbiddenEntry {
         field: "inception_pubkey_fingerprint",
@@ -1298,7 +1298,7 @@ mod tests {
             "agent_key_payload" => &[AgentKeyPayload],
             "attestation_evidence" => &[AttestationEvidence],
             "agent_lifecycle_payload" => &[AgentLifecyclePayload],
-            "anchor" => &[Anchor],
+            "seal" => &[Seal],
             "did_continuity_proof.transfer_evidence" => &[DidContinuityProofTransferEvidence],
             "did_continuity_proof.signature_chain" => &[DidContinuityProofSignatureChain],
             "recovery_policy.share_commitment" => &[RecoveryPolicyShareCommitment],

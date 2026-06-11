@@ -4,15 +4,15 @@
 //! introduced by spec 2026-05-08 (`spec/v1/zh/authz/event-auth-state-resolution.md`
 //! §3, schema `move.schema.json`). Each Move:
 //!
-//! - is single-signed by its `issuer` (committee / multi-sig / threshold are anchorer-side
-//!   concerns, not Move-side);
-//! - declares ordered `preconditions[]` over cell ids — the Anchor batch pre-state must satisfy all
+//! - is single-signed by its `issuer` (committee / multi-sig / threshold are notary-side concerns,
+//!   not Move-side);
+//! - declares ordered `preconditions[]` over cell ids — the Seal batch pre-state must satisfy all
 //!   of them or the Move fails as a whole;
 //! - carries `effects[]` with `lattice_op` shapes whose validity depends on the target cell's
 //!   declared Lattice type;
-//! - references an `anchor_ref` so the receiver knows which Anchor view the issuer was working
-//!   from, plus optional `refs[]` for `authorized_by` / `recovery_capability` / `parent_move` /
-//!   `after` semantic dependencies.
+//! - references `seal_basis` so the receiver knows which Seal view the issuer signed against, plus
+//!   optional `refs[]` for `authorized_by` / `recovery_capability` / `parent_move` / `after`
+//!   semantic dependencies.
 //!
 //! `Move::id` is content-addressed: `sha256:<hex>` derived from
 //! [`Move::canonical_bytes_for_id`] (everything **except** `id` and `sig`).
@@ -25,7 +25,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
-use crate::{AnchorId, CellRef, Did, Error, Hash, Hlc, MoveId, RealmId, Result, canonical};
+use crate::{CellRef, Did, Error, Hash, Hlc, MoveId, RealmId, Result, SealId, canonical};
 
 /// Allowed Move signature algorithms (must match `move.schema.json` `signature.alg`).
 pub const MOVE_SIGNATURE_ALGS: &[&str] = &["EdDSA", "ES256", "ES384", "ES512"];
@@ -39,11 +39,19 @@ pub struct Move {
     pub realm_id: RealmId,
     pub preconditions: Vec<Precondition>,
     pub effects: Vec<Effect>,
-    pub anchor_ref: AnchorId,
+    pub seal_basis: SealBasis,
     #[serde(default)]
     pub refs: Vec<SemanticRef>,
     pub hlc: Hlc,
     pub sig: MoveSignature,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+pub struct SealBasis {
+    pub leaves: Vec<SealId>,
+    pub control_event_set_root: Hash,
+    pub state_root: Hash,
 }
 
 /// Single precondition: a cell + a predicate. Combined with AND across the Move.
@@ -184,7 +192,7 @@ struct MoveBody<'a> {
     realm_id: &'a RealmId,
     preconditions: &'a [Precondition],
     effects: &'a [Effect],
-    anchor_ref: &'a AnchorId,
+    seal_basis: &'a SealBasis,
     refs: &'a [SemanticRef],
     hlc: &'a Hlc,
 }
@@ -200,7 +208,7 @@ impl Move {
             realm_id: &self.realm_id,
             preconditions: &self.preconditions,
             effects: &self.effects,
-            anchor_ref: &self.anchor_ref,
+            seal_basis: &self.seal_basis,
             refs: &self.refs,
             hlc: &self.hlc,
         };
@@ -312,7 +320,11 @@ mod tests {
                     }
                 }
             ],
-            "anchor_ref": "ck:anchor:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "seal_basis": {
+                "leaves": ["ck:seal:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+                "control_event_set_root": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "state_root": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+            },
             "refs": [],
             "hlc": "0189c4d2af00-0000-aabbccdd"
         })
@@ -468,12 +480,12 @@ mod tests {
     }
 
     #[test]
-    fn anchor_id_validator_accepts_valid() {
-        AnchorId::new(
-            "ck:anchor:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    fn seal_id_validator_accepts_valid() {
+        SealId::new(
+            "ck:seal:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                 .to_owned(),
         )
-        .expect("valid anchor id");
+        .expect("valid seal id");
     }
 
     #[test]

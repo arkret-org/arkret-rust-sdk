@@ -1,8 +1,8 @@
 //! Per-admin signing key + session-grant introspection helpers.
 //!
-//! Admin operations (anchorer reconfiguration, compaction submission,
+//! Admin operations (notary reconfiguration, compaction submission,
 //! bottom repair, etc.) are signed today by the service identity — the
-//! same key the AnchorerWorker uses to sign normal anchors. This module
+//! same key the NotaryWorker uses to sign normal seals. This module
 //! provides the SDK primitives that let principal servers move to a
 //! **per-admin** signing model:
 //!
@@ -19,7 +19,7 @@
 //! Together: the principal server receives a session grant, introspects
 //! it to learn `(admin_did, admin_scopes)`, loads the per-admin signing
 //! key via `AdminKeyStore::load_admin_key(admin_did)`, and signs the
-//! admin operation with that key. The Anchor's `verification_method`
+//! admin operation with that key. The Seal's `verification_method`
 //! reflects the admin's DID, not the service signer's DID — giving
 //! per-admin attribution in the audit chain.
 
@@ -33,14 +33,14 @@ use crate::{Did, KeyStore, Result};
 /// custom scopes; the introspection helper does not enforce a closed
 /// set.
 pub mod admin_scopes {
-    /// Submit a Move that reconfigures a Space's anchorer cell.
-    pub const ANCHORER_RECONFIGURE: &str = "anchorer.reconfigure";
-    /// Rotate the anchorer signing key for a Space.
-    pub const ANCHORER_ROTATE_SIGNING_KEY: &str = "anchorer.rotate_signing_key";
-    /// Trigger a compaction anchor (MAL-11).
-    pub const ANCHOR_COMPACT: &str = "anchor.compact";
-    /// Prune historical anchors via `AnchorStore::prune_predecessor`.
-    pub const ANCHOR_PRUNE: &str = "anchor.prune";
+    /// Submit a Move that reconfigures a Space's notary cell.
+    pub const NOTARY_RECONFIGURE: &str = "notary.reconfigure";
+    /// Rotate the notary signing key for a Space.
+    pub const NOTARY_ROTATE_SIGNING_KEY: &str = "notary.rotate_signing_key";
+    /// Trigger a compaction seal (MAL-11).
+    pub const SEAL_COMPACT: &str = "seal.compact";
+    /// Prune historical seals via `SealStore::prune_predecessor`.
+    pub const SEAL_PRUNE: &str = "seal.prune";
     /// Submit a manual repair Move for a bottom cell.
     pub const BOTTOM_REPAIR: &str = "bottom.repair";
     /// Read admin-scoped collection surfaces (accounts, spaces, etc.).
@@ -146,7 +146,7 @@ pub struct SessionGrantIntrospection {
     /// `org.cokret.principal_id` (or `sub`) on the IdP side.
     pub principal_id: Did,
     /// Granted admin scopes — e.g.
-    /// [`admin_scopes::ANCHORER_RECONFIGURE`]. Receivers gate
+    /// [`admin_scopes::NOTARY_RECONFIGURE`]. Receivers gate
     /// individual admin operations on whether the relevant scope is
     /// present here.
     #[serde(default)]
@@ -177,7 +177,7 @@ impl SessionGrantIntrospection {
     }
 
     /// True iff the grant lists `scope`. Note: this is **exact match**;
-    /// hierarchical scopes (`anchor.*` covering `anchor.compact`) MUST
+    /// hierarchical scopes (`seal.*` covering `seal.compact`) MUST
     /// be expanded by the IdP before introspection.
     pub fn has_admin_scope(&self, scope: &str) -> bool {
         self.admin_scopes.iter().any(|s| s == scope)
@@ -307,24 +307,22 @@ mod tests {
 
     #[test]
     fn has_admin_scope_exact_match() {
-        let g = grant_active(&[admin_scopes::ANCHORER_RECONFIGURE]);
-        assert!(g.has_admin_scope(admin_scopes::ANCHORER_RECONFIGURE));
-        assert!(!g.has_admin_scope(admin_scopes::ANCHOR_COMPACT));
+        let g = grant_active(&[admin_scopes::NOTARY_RECONFIGURE]);
+        assert!(g.has_admin_scope(admin_scopes::NOTARY_RECONFIGURE));
+        assert!(!g.has_admin_scope(admin_scopes::SEAL_COMPACT));
     }
 
     #[test]
     fn require_admin_scope_rejects_missing() {
         let g = grant_active(&[admin_scopes::ADMIN_READ]);
-        let err = g
-            .require_admin_scope(admin_scopes::ANCHOR_PRUNE)
-            .unwrap_err();
-        assert!(format!("{err}").contains("anchor.prune"));
+        let err = g.require_admin_scope(admin_scopes::SEAL_PRUNE).unwrap_err();
+        assert!(format!("{err}").contains("seal.prune"));
     }
 
     #[test]
     fn require_admin_scope_ok_when_present() {
-        let g = grant_active(&[admin_scopes::ANCHORER_RECONFIGURE]);
-        g.require_admin_scope(admin_scopes::ANCHORER_RECONFIGURE)
+        let g = grant_active(&[admin_scopes::NOTARY_RECONFIGURE]);
+        g.require_admin_scope(admin_scopes::NOTARY_RECONFIGURE)
             .unwrap();
     }
 

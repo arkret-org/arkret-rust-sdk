@@ -1,6 +1,6 @@
 use super::*;
 use crate::events::kinds::EventKind;
-use crate::{AnchorId, Effect, Precondition};
+use crate::{Effect, Precondition, SealBasis, SealId};
 
 pub const EVENT_REF_ROLE_AUTHORIZED_BY: &str = "authorized_by";
 
@@ -76,6 +76,18 @@ pub struct EventRequirements {
     pub critical_extensions: Vec<CriticalExtension>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+pub struct AuthContext {
+    pub did: Did,
+    pub key_id: String,
+    pub key_epoch: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub credential_epoch: Option<u64>,
+    pub capability_refs: Vec<String>,
+}
+
 impl EventRequirements {
     pub fn is_empty(&self) -> bool {
         self.schema_profile_refs.is_empty()
@@ -113,7 +125,11 @@ pub struct Event {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub effects: Vec<Effect>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub anchor_ref: Option<AnchorId>,
+    pub seal_ref: Option<SealId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auth_context: Option<AuthContext>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seal_basis: Option<SealBasis>,
     #[serde(default, skip_serializing_if = "EventRequirements::is_empty")]
     pub requirements: EventRequirements,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -174,7 +190,11 @@ struct EventWire {
     #[serde(default)]
     pub effects: Vec<Effect>,
     #[serde(default)]
-    pub anchor_ref: Option<AnchorId>,
+    pub seal_ref: Option<SealId>,
+    #[serde(default)]
+    pub auth_context: Option<AuthContext>,
+    #[serde(default)]
+    pub seal_basis: Option<SealBasis>,
     #[serde(default)]
     pub requirements: EventRequirements,
     #[serde(default)]
@@ -209,7 +229,9 @@ impl TryFrom<EventWire> for Event {
             refs: wire.refs,
             preconditions: wire.preconditions,
             effects: wire.effects,
-            anchor_ref: wire.anchor_ref,
+            seal_ref: wire.seal_ref,
+            auth_context: wire.auth_context,
+            seal_basis: wire.seal_basis,
             requirements: wire.requirements,
             redacts: wire.redacts,
             content: wire.content,
@@ -311,23 +333,31 @@ impl Event {
             ));
         }
         if self.kind.is_reducer_input() {
-            if self.anchor_ref.is_none() {
-                return Err(Error::Protocol(
-                    "reducer-input events must carry anchor_ref".to_owned(),
-                ));
-            }
             if self.effects.is_empty() {
                 return Err(Error::Protocol(
                     "reducer-input events must carry at least one effect".to_owned(),
                 ));
             }
-        } else if self.anchor_ref.is_some()
+            let is_data_event = self.seal_ref.is_some()
+                && self.auth_context.is_some()
+                && self.seal_basis.is_none()
+                && self.preconditions.is_empty();
+            let is_control_move =
+                self.seal_ref.is_none() && self.auth_context.is_none() && self.seal_basis.is_some();
+            if !is_data_event && !is_control_move {
+                return Err(Error::Protocol(
+                    "reducer-input events must be either DataEvent(seal_ref+auth_context) or Control Move(seal_basis)"
+                        .to_owned(),
+                ));
+            }
+        } else if self.seal_ref.is_some()
+            || self.auth_context.is_some()
+            || self.seal_basis.is_some()
             || !self.preconditions.is_empty()
             || !self.effects.is_empty()
         {
             return Err(Error::Protocol(
-                "non-reducer events must not carry preconditions, effects, or anchor_ref"
-                    .to_owned(),
+                "non-reducer events must not carry CBA reducer fields".to_owned(),
             ));
         }
         Ok(())
@@ -404,7 +434,9 @@ impl Event {
             refs: Vec::new(),
             preconditions: Vec::new(),
             effects: Vec::new(),
-            anchor_ref: None,
+            seal_ref: None,
+            auth_context: None,
+            seal_basis: None,
             requirements: EventRequirements::default(),
             redacts: None,
             content,
@@ -679,7 +711,9 @@ mod event_wire_surface_tests {
             refs: Vec::new(),
             preconditions: Vec::new(),
             effects: Vec::new(),
-            anchor_ref: None,
+            seal_ref: None,
+            auth_context: None,
+            seal_basis: None,
             requirements: EventRequirements::default(),
             redacts: None,
             content: json!({ "body": "hello" }),

@@ -1,8 +1,8 @@
 //! Ed25519 backend for the [`MoveSigner`] trait.
 //!
-//! Round 21 (2026-05-09): production Move/Anchor signer. Wraps an
+//! Round 21 (2026-05-09): production Move/Seal signer. Wraps an
 //! `ed25519_dalek::SigningKey` and produces detached JWS strings whose
-//! payload is the canonical bytes of the Move/Anchor body. Available
+//! payload is the canonical bytes of the Move/Seal body. Available
 //! behind the `signer` feature.
 //!
 //! ```
@@ -26,7 +26,7 @@ use ed25519_dalek::{Signer as _, SigningKey};
 /// Ed25519 [`MoveSigner`] backend.
 ///
 /// `signing_key` holds the raw 32-byte ed25519 secret; `did` is the issuer
-/// DID published as `Move.issuer` (or one of the anchorer set members);
+/// DID published as `Move.issuer` (or one of the notary set members);
 /// `kid` is the verification method id (`<did>#<fragment>`) that goes into
 /// `MoveSignature.verification_method`.
 pub struct Ed25519MoveSigner {
@@ -83,7 +83,7 @@ impl MoveSigner for Ed25519MoveSigner {
             realm_id: unsigned.realm_id.clone(),
             preconditions: unsigned.preconditions.clone(),
             effects: unsigned.effects.clone(),
-            anchor_ref: unsigned.anchor_ref.clone(),
+            seal_basis: unsigned.seal_basis.clone(),
             refs: unsigned.refs.clone(),
             hlc: unsigned.hlc.clone(),
             sig,
@@ -174,7 +174,7 @@ pub fn verify_ed25519_move_signature(
 #[cfg(test)]
 mod tests {
     use cokret_core::move_event::{Effect, LatticeOp, LatticeOpType};
-    use cokret_core::{Anchor, AnchorId, AnchorerSig, CellRef, Hlc, MoveId, RealmId, UnsignedMove};
+    use cokret_core::{CellRef, Hlc, MoveId, NotarySig, RealmId, Seal, SealId, UnsignedMove};
     use serde_json::json;
 
     use super::*;
@@ -187,9 +187,9 @@ mod tests {
         RealmId::new("ck:realm:0196419b-0000-7000-8000-00000000014a".to_owned()).unwrap()
     }
 
-    fn anchor_id(byte: u8) -> AnchorId {
-        AnchorId::new(format!(
-            "ck:anchor:sha256:{}",
+    fn seal_id(byte: u8) -> SealId {
+        SealId::new(format!(
+            "ck:seal:sha256:{}",
             format!("{byte:02x}").repeat(32)
         ))
         .unwrap()
@@ -207,11 +207,19 @@ mod tests {
         Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap()
     }
 
+    fn seal_basis(byte: u8) -> cokret_core::SealBasis {
+        cokret_core::SealBasis {
+            leaves: vec![seal_id(byte)],
+            control_event_set_root: hash(0xbb),
+            state_root: hash(0xcc),
+        }
+    }
+
     fn sample_unsigned() -> UnsignedMove {
         UnsignedMove::new(
             alice(),
             space(),
-            anchor_id(0xaa),
+            seal_basis(0xaa),
             vec![Effect {
                 cell: CellRef::new(
                     "ck:cell:ck.component.member.state.v1:did.web.alice.example".to_owned(),
@@ -258,9 +266,9 @@ mod tests {
     fn ed25519_signer_signs_anchor_single() {
         let signer =
             Ed25519MoveSigner::from_did_key_seed([9u8; 32], alice(), "did:web:alice.example#key-1");
-        let a = Anchor::sign_single(
+        let a = Seal::sign_single(
             space(),
-            vec![anchor_id(0xaa)],
+            vec![seal_id(0xaa)],
             vec![move_id(0x11)],
             hash(0x77),
             hlc(),
@@ -269,8 +277,8 @@ mod tests {
         .unwrap();
         a.validate_id().unwrap();
         a.validate_structural().unwrap();
-        match &a.anchorer_signature {
-            AnchorerSig::Single(sig) => {
+        match &a.notary_signature {
+            NotarySig::Single(sig) => {
                 assert_eq!(sig.alg, "EdDSA");
                 let bytes = a.canonical_bytes_for_id().unwrap();
                 verify_ed25519_move_signature(&bytes, sig, &signer.verifying_key()).unwrap();

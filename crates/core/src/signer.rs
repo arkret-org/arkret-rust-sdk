@@ -1,9 +1,9 @@
-//! Move / Anchor signer trait + builder helpers.
+//! Move / Seal signer trait + builder helpers.
 //!
-//! Round 21 (2026-05-09): the protocol's content-addressed Move/Anchor objects
-//! must be signed at the issuer / anchorer boundary. The SDK exposes a tiny
-//! signer trait so downstream code (coauth `anchor_pending_move`, soland
-//! anchor reconfig + bottom repair, yougen real-key signing) can plug
+//! Round 21 (2026-05-09): the protocol's content-addressed Move/Seal objects
+//! must be signed at the issuer / notary boundary. The SDK exposes a tiny
+//! signer trait so downstream code (coauth pending Move sealing, soland
+//! seal reconfig + bottom repair, yougen real-key signing) can plug
 //! production keys in without re-implementing canonical bytes / id / payload
 //! hash plumbing.
 //!
@@ -12,12 +12,14 @@
 //! feature, and other backends (HSM, threshold scheme) can layer on the
 //! same trait.
 
+use std::collections::BTreeSet;
+
 use chrono::Utc;
 
-use crate::move_event::{Effect, Move, MoveSignature, Precondition, SemanticRef};
+use crate::move_event::{Effect, Move, MoveSignature, Precondition, SealBasis, SemanticRef};
 use crate::{
-    Anchor, AnchorId, AnchorerSig, Did, Error, Hash, Hlc, MoveId, MultiSigKind, MultiSignature,
-    RealmId, Result, ThresholdSigKind, ThresholdSignature, canonical,
+    Did, Error, Hash, Hlc, MoveId, MultiSigKind, MultiSignature, NotarySig, RealmId, Result, Seal,
+    SealId, ThresholdSigKind, ThresholdSignature, canonical,
 };
 
 /// Builder view of a Move that has not yet been hashed / signed.
@@ -31,7 +33,7 @@ pub struct UnsignedMove {
     pub realm_id: RealmId,
     pub preconditions: Vec<Precondition>,
     pub effects: Vec<Effect>,
-    pub anchor_ref: AnchorId,
+    pub seal_basis: SealBasis,
     pub refs: Vec<SemanticRef>,
     pub hlc: Hlc,
 }
@@ -40,7 +42,7 @@ impl UnsignedMove {
     pub fn new(
         issuer: Did,
         realm_id: RealmId,
-        anchor_ref: AnchorId,
+        seal_basis: SealBasis,
         effects: Vec<Effect>,
         hlc: Hlc,
     ) -> Self {
@@ -49,7 +51,7 @@ impl UnsignedMove {
             realm_id,
             preconditions: Vec::new(),
             effects,
-            anchor_ref,
+            seal_basis,
             refs: Vec::new(),
             hlc,
         }
@@ -96,7 +98,7 @@ impl UnsignedMove {
             realm_id: self.realm_id.clone(),
             preconditions: self.preconditions.clone(),
             effects: self.effects.clone(),
-            anchor_ref: self.anchor_ref.clone(),
+            seal_basis: self.seal_basis.clone(),
             refs: self.refs.clone(),
             hlc: self.hlc.clone(),
             sig: placeholder_sig,
@@ -104,7 +106,7 @@ impl UnsignedMove {
     }
 }
 
-/// Trait implemented by Move/Anchor signers (Ed25519 keypair, HSM, threshold
+/// Trait implemented by Move/Seal signers (Ed25519 keypair, HSM, threshold
 /// scheme, etc.).
 ///
 /// `sign_move` MUST:
@@ -117,7 +119,7 @@ pub trait MoveSigner {
     fn sign_move(&self, unsigned: &UnsignedMove) -> Result<Move>;
 
     /// DID of the signing identity. MUST match `unsigned.issuer` when used
-    /// to sign Moves; for Anchors this is one of the anchorer-set members.
+    /// to sign Moves; for Seals this is one of the notary-set members.
     fn signer_did(&self) -> &Did;
 
     /// The verification method id (e.g. `did:web:alice.example#key-1`)
@@ -126,8 +128,8 @@ pub trait MoveSigner {
 
     /// Sign arbitrary canonical bytes with the signer's key, producing a
     /// detached JWS string. Implementations of `sign_move` typically use
-    /// this internally; helpers like [`Anchor::sign_single`] also reuse
-    /// it for the Anchor body.
+    /// this internally; helpers like [`Seal::sign_single`] also reuse
+    /// it for the Seal body.
     fn sign_payload(&self, canonical_bytes: &[u8]) -> Result<MoveSignature>;
 }
 
@@ -145,233 +147,281 @@ impl Move {
     }
 }
 
-impl Anchor {
-    /// Build + single-sign a normal Anchor (frontier-advance). Delegates to
-    /// [`Anchor::sign_single_kind`] with `kind=Normal`.
+impl Seal {
+    /// Build + single-sign a normal Seal (delta-accepting). Delegates to
+    /// [`Seal::sign_single_kind`] with `kind=Normal`.
     pub fn sign_single<S: MoveSigner + ?Sized>(
         realm_id: RealmId,
-        predecessor_refs: Vec<AnchorId>,
-        frontier: Vec<MoveId>,
+        predecessor_refs: Vec<SealId>,
+        delta: Vec<MoveId>,
         state_root: Hash,
         hlc: Hlc,
         signer: &S,
-    ) -> Result<Anchor> {
+    ) -> Result<Seal> {
         Self::sign_single_kind(
             realm_id,
             predecessor_refs,
-            frontier,
+            delta,
             state_root,
             hlc,
-            crate::AnchorKind::Normal,
+            crate::SealKind::Normal,
             signer,
         )
     }
 
-    /// MAL-11: build + single-sign an Anchor with an explicit
-    /// [`crate::AnchorKind`]. Use `Normal` for frontier-advance anchors and
-    /// `Compaction` for checkpoint anchors that re-state the existing
-    /// frontier without accepting new moves.
+    /// MAL-11: build + single-sign a Seal with an explicit
+    /// [`crate::SealKind`]. Use `Normal` for delta-accepting seals and
+    /// `Compaction` for checkpoint seals that re-state the existing
+    /// delta without accepting new moves.
     #[allow(clippy::too_many_arguments)]
     pub fn sign_single_kind<S: MoveSigner + ?Sized>(
         realm_id: RealmId,
-        predecessor_refs: Vec<AnchorId>,
-        frontier: Vec<MoveId>,
+        predecessor_refs: Vec<SealId>,
+        delta: Vec<MoveId>,
         state_root: Hash,
         hlc: Hlc,
-        kind: crate::AnchorKind,
+        kind: crate::SealKind,
         signer: &S,
-    ) -> Result<Anchor> {
-        // Compute canonical body bytes (excluding id + anchorer_signature).
-        let anchored_at = Utc::now();
+    ) -> Result<Seal> {
+        // Compute canonical body bytes (excluding id + notary_signature).
+        let sealed_at = Utc::now();
         let previous_state_root = None;
         let previous_digest_algorithm = None;
-        let body_bytes = canonical::canonical_json_bytes(&AnchorBodyView {
+        let control_event_set_root = delta_control_root(&delta)?;
+        let completeness_root = control_event_set_root.clone();
+        let notary_seq = 0;
+        let body_bytes = canonical::canonical_json_bytes(&SealBodyView {
             realm_id: &realm_id,
             predecessor_refs: &predecessor_refs,
-            frontier: &frontier,
+            delta: &delta,
+            control_event_set_root: &control_event_set_root,
             state_root: &state_root,
+            completeness_root: &completeness_root,
+            notary_seq,
             previous_state_root: &previous_state_root,
             previous_digest_algorithm: &previous_digest_algorithm,
-            anchored_at: &anchored_at,
+            sealed_at: &sealed_at,
             hlc: &hlc,
         })?;
-        let id = Anchor::id_from_canonical_bytes(&body_bytes)?;
+        let id = Seal::id_from_canonical_bytes(&body_bytes)?;
         let sig = signer.sign_payload(&body_bytes)?;
-        Ok(Anchor {
+        Ok(Seal {
             id,
             realm_id,
             predecessor_refs,
-            frontier,
+            delta,
+            control_event_set_root,
             state_root,
+            completeness_root,
+            notary_seq,
+            data_view_root: None,
+            data_event_set_root: None,
+            availability_root: None,
+            coverage_scope: None,
+            covered_event_digests: Vec::new(),
             previous_state_root,
             previous_digest_algorithm,
-            anchorer_signature: AnchorerSig::Single(sig),
-            anchored_at,
+            notary_signature: NotarySig::Single(sig),
+            sealed_at,
             hlc,
             kind,
         })
     }
 
-    /// Build + threshold-sign a normal Anchor. Delegates to
-    /// [`Anchor::sign_threshold_kind`] with `kind=Normal`.
+    /// Build + threshold-sign a normal Seal. Delegates to
+    /// [`Seal::sign_threshold_kind`] with `kind=Normal`.
     #[allow(clippy::too_many_arguments)]
     pub fn sign_threshold(
         realm_id: RealmId,
-        predecessor_refs: Vec<AnchorId>,
-        frontier: Vec<MoveId>,
+        predecessor_refs: Vec<SealId>,
+        delta: Vec<MoveId>,
         state_root: Hash,
         hlc: Hlc,
         threshold: u32,
         signers: Vec<Did>,
         aggregated_proof: String,
-    ) -> Result<Anchor> {
+    ) -> Result<Seal> {
         Self::sign_threshold_kind(
             realm_id,
             predecessor_refs,
-            frontier,
+            delta,
             state_root,
             hlc,
-            crate::AnchorKind::Normal,
+            crate::SealKind::Normal,
             threshold,
             signers,
             aggregated_proof,
         )
     }
 
-    /// MAL-11: build + threshold-sign an Anchor with an explicit
-    /// [`crate::AnchorKind`]. See [`Anchor::sign_single_kind`] for the
+    /// MAL-11: build + threshold-sign a Seal with an explicit
+    /// [`crate::SealKind`]. See [`Seal::sign_single_kind`] for the
     /// kind semantics.
     #[allow(clippy::too_many_arguments)]
     pub fn sign_threshold_kind(
         realm_id: RealmId,
-        predecessor_refs: Vec<AnchorId>,
-        frontier: Vec<MoveId>,
+        predecessor_refs: Vec<SealId>,
+        delta: Vec<MoveId>,
         state_root: Hash,
         hlc: Hlc,
-        kind: crate::AnchorKind,
+        kind: crate::SealKind,
         threshold: u32,
         signers: Vec<Did>,
         aggregated_proof: String,
-    ) -> Result<Anchor> {
-        let anchored_at = Utc::now();
+    ) -> Result<Seal> {
+        let sealed_at = Utc::now();
         let previous_state_root = None;
         let previous_digest_algorithm = None;
-        let body_bytes = canonical::canonical_json_bytes(&AnchorBodyView {
+        let control_event_set_root = delta_control_root(&delta)?;
+        let completeness_root = control_event_set_root.clone();
+        let notary_seq = 0;
+        let body_bytes = canonical::canonical_json_bytes(&SealBodyView {
             realm_id: &realm_id,
             predecessor_refs: &predecessor_refs,
-            frontier: &frontier,
+            delta: &delta,
+            control_event_set_root: &control_event_set_root,
             state_root: &state_root,
+            completeness_root: &completeness_root,
+            notary_seq,
             previous_state_root: &previous_state_root,
             previous_digest_algorithm: &previous_digest_algorithm,
-            anchored_at: &anchored_at,
+            sealed_at: &sealed_at,
             hlc: &hlc,
         })?;
-        let id = Anchor::id_from_canonical_bytes(&body_bytes)?;
-        let sig = AnchorerSig::Threshold(ThresholdSignature {
+        let id = Seal::id_from_canonical_bytes(&body_bytes)?;
+        let sig = NotarySig::Threshold(ThresholdSignature {
             kind: ThresholdSigKind::ThresholdSig,
             threshold,
             signers,
             proof: aggregated_proof,
         });
-        let anchor = Anchor {
+        let seal = Seal {
             id,
             realm_id,
             predecessor_refs,
-            frontier,
+            delta,
+            control_event_set_root,
             state_root,
+            completeness_root,
+            notary_seq,
+            data_view_root: None,
+            data_event_set_root: None,
+            availability_root: None,
+            coverage_scope: None,
+            covered_event_digests: Vec::new(),
             previous_state_root,
             previous_digest_algorithm,
-            anchorer_signature: sig,
-            anchored_at,
+            notary_signature: sig,
+            sealed_at,
             hlc,
             kind,
         };
-        anchor.validate_structural()?;
-        Ok(anchor)
+        seal.validate_structural()?;
+        Ok(seal)
     }
 
-    /// Build + multi-sign a normal Anchor. Delegates to
-    /// [`Anchor::sign_multi_kind`] with `kind=Normal`.
+    /// Build + multi-sign a normal Seal. Delegates to
+    /// [`Seal::sign_multi_kind`] with `kind=Normal`.
     pub fn sign_multi<S>(
         realm_id: RealmId,
-        predecessor_refs: Vec<AnchorId>,
-        frontier: Vec<MoveId>,
+        predecessor_refs: Vec<SealId>,
+        delta: Vec<MoveId>,
         state_root: Hash,
         hlc: Hlc,
         signers: &[&S],
-    ) -> Result<Anchor>
+    ) -> Result<Seal>
     where
         S: MoveSigner + ?Sized,
     {
         Self::sign_multi_kind(
             realm_id,
             predecessor_refs,
-            frontier,
+            delta,
             state_root,
             hlc,
-            crate::AnchorKind::Normal,
+            crate::SealKind::Normal,
             signers,
         )
     }
 
-    /// MAL-11: build + multi-sign an Anchor with an explicit
-    /// [`crate::AnchorKind`]. See [`Anchor::sign_single_kind`] for the
+    /// MAL-11: build + multi-sign a Seal with an explicit
+    /// [`crate::SealKind`]. See [`Seal::sign_single_kind`] for the
     /// kind semantics.
     #[allow(clippy::too_many_arguments)]
     pub fn sign_multi_kind<S>(
         realm_id: RealmId,
-        predecessor_refs: Vec<AnchorId>,
-        frontier: Vec<MoveId>,
+        predecessor_refs: Vec<SealId>,
+        delta: Vec<MoveId>,
         state_root: Hash,
         hlc: Hlc,
-        kind: crate::AnchorKind,
+        kind: crate::SealKind,
         signers: &[&S],
-    ) -> Result<Anchor>
+    ) -> Result<Seal>
     where
         S: MoveSigner + ?Sized,
     {
         if signers.is_empty() {
             return Err(Error::Protocol(
-                "Anchor::sign_multi requires at least one signer".to_owned(),
+                "Seal::sign_multi requires at least one signer".to_owned(),
             ));
         }
-        let anchored_at = Utc::now();
+        let sealed_at = Utc::now();
         let previous_state_root = None;
         let previous_digest_algorithm = None;
-        let body_bytes = canonical::canonical_json_bytes(&AnchorBodyView {
+        let control_event_set_root = delta_control_root(&delta)?;
+        let completeness_root = control_event_set_root.clone();
+        let notary_seq = 0;
+        let body_bytes = canonical::canonical_json_bytes(&SealBodyView {
             realm_id: &realm_id,
             predecessor_refs: &predecessor_refs,
-            frontier: &frontier,
+            delta: &delta,
+            control_event_set_root: &control_event_set_root,
             state_root: &state_root,
+            completeness_root: &completeness_root,
+            notary_seq,
             previous_state_root: &previous_state_root,
             previous_digest_algorithm: &previous_digest_algorithm,
-            anchored_at: &anchored_at,
+            sealed_at: &sealed_at,
             hlc: &hlc,
         })?;
-        let id = Anchor::id_from_canonical_bytes(&body_bytes)?;
+        let id = Seal::id_from_canonical_bytes(&body_bytes)?;
         let mut signatures = Vec::with_capacity(signers.len());
         for signer in signers {
             signatures.push(signer.sign_payload(&body_bytes)?);
         }
-        let anchor = Anchor {
+        let seal = Seal {
             id,
             realm_id,
             predecessor_refs,
-            frontier,
+            delta,
+            control_event_set_root,
             state_root,
+            completeness_root,
+            notary_seq,
+            data_view_root: None,
+            data_event_set_root: None,
+            availability_root: None,
+            coverage_scope: None,
+            covered_event_digests: Vec::new(),
             previous_state_root,
             previous_digest_algorithm,
-            anchorer_signature: AnchorerSig::Multi(MultiSignature {
+            notary_signature: NotarySig::Multi(MultiSignature {
                 kind: MultiSigKind::MultiSig,
                 signatures,
             }),
-            anchored_at,
+            sealed_at,
             hlc,
             kind,
         };
-        anchor.validate_structural()?;
-        Ok(anchor)
+        seal.validate_structural()?;
+        Ok(seal)
     }
+}
+
+fn delta_control_root(delta: &[MoveId]) -> Result<Hash> {
+    let covered: BTreeSet<MoveId> = delta.iter().cloned().collect();
+    crate::state::control_event_set_root(&covered)
+        .map_err(|e| Error::Protocol(format!("control_event_set_root: {e}")))
 }
 
 // ---------------------------------------------------------------------------
@@ -410,14 +460,14 @@ impl PartialSignature {
 ///
 /// Collects [`PartialSignature`]s contributed by `n` signers and produces an
 /// aggregated [`MultiSignature`] (or an opaque proof string suitable for
-/// [`AnchorerSig::Threshold`]) once the threshold `k` is met.
+/// [`NotarySig::Threshold`]) once the threshold `k` is met.
 ///
 /// This struct is scheme-agnostic: it does NOT know how to combine partials
 /// (BLS / FROST / Schnorr-musig all differ). Callers MUST supply a
 /// per-partial verifier via [`Self::add_partial_verified`] or call
 /// [`Self::add_partial`] only after externally verifying the partial. The
 /// final [`Self::aggregate`] step concatenates the per-partial signatures
-/// into a multi-shape `AnchorerSig::Multi` whose individual members the
+/// into a multi-shape `NotarySig::Multi` whose individual members the
 /// receiver re-checks against `signers`.
 ///
 /// For schemes that produce a single short aggregated proof (e.g. BLS), use
@@ -582,11 +632,11 @@ impl ThresholdAggregator {
     }
 }
 
-impl Anchor {
-    /// Construct + threshold-sign an Anchor from already-collected partials.
+impl Seal {
+    /// Construct + threshold-sign a Seal from already-collected partials.
     ///
     /// Calls [`ThresholdAggregator::aggregate_proof`] to derive the opaque
-    /// `proof` string for [`AnchorerSig::Threshold`], then runs
+    /// `proof` string for [`NotarySig::Threshold`], then runs
     /// `validate_structural` (k ≤ n, unique signers, etc.).
     ///
     /// The partial signatures MUST have been individually verified before
@@ -596,18 +646,18 @@ impl Anchor {
     #[allow(clippy::too_many_arguments)]
     pub fn sign_threshold_partial(
         realm_id: RealmId,
-        predecessor_refs: Vec<AnchorId>,
-        frontier: Vec<MoveId>,
+        predecessor_refs: Vec<SealId>,
+        delta: Vec<MoveId>,
         state_root: Hash,
         hlc: Hlc,
         aggregator: &ThresholdAggregator,
-    ) -> Result<Anchor> {
+    ) -> Result<Seal> {
         let proof = aggregator.aggregate_proof()?;
         let signers = aggregator.signers();
-        Anchor::sign_threshold(
+        Seal::sign_threshold(
             realm_id,
             predecessor_refs,
-            frontier,
+            delta,
             state_root,
             hlc,
             aggregator.threshold() as u32,
@@ -617,26 +667,29 @@ impl Anchor {
     }
 }
 
-/// Local clone of the AnchorBody view used for canonical-bytes derivation.
+/// Local clone of the Seal body view used for canonical-bytes derivation.
 ///
-/// `core::anchor::AnchorBody` is private to that module; we mirror it here
+/// `core::seal::SealBody` is private to that module; we mirror it here
 /// so the `sign_*` constructors don't need a public surface for the
 /// hashing-only struct.
 ///
 /// MAL-11 round 8: `kind` participates in the hashed bytes (forgery
-/// defense — Normal vs Compaction anchors with otherwise identical
+/// defense — Normal vs Compaction seals with otherwise identical
 /// fields MUST hash differently).
 #[derive(serde::Serialize)]
-struct AnchorBodyView<'a> {
+struct SealBodyView<'a> {
     realm_id: &'a RealmId,
-    predecessor_refs: &'a [AnchorId],
-    frontier: &'a [MoveId],
+    predecessor_refs: &'a [SealId],
+    delta: &'a [MoveId],
+    control_event_set_root: &'a Hash,
     state_root: &'a Hash,
+    completeness_root: &'a Hash,
+    notary_seq: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     previous_state_root: &'a Option<Hash>,
     #[serde(skip_serializing_if = "Option::is_none")]
     previous_digest_algorithm: &'a Option<String>,
-    anchored_at: &'a chrono::DateTime<Utc>,
+    sealed_at: &'a chrono::DateTime<Utc>,
     hlc: &'a Hlc,
 }
 
@@ -657,9 +710,9 @@ mod tests {
         Did::new("did:web:alice.example".to_owned()).unwrap()
     }
 
-    fn anchor_id(byte: u8) -> AnchorId {
-        AnchorId::new(format!(
-            "ck:anchor:sha256:{}",
+    fn seal_id(byte: u8) -> SealId {
+        SealId::new(format!(
+            "ck:seal:sha256:{}",
             format!("{byte:02x}").repeat(32)
         ))
         .unwrap()
@@ -671,6 +724,14 @@ mod tests {
 
     fn hash(byte: u8) -> Hash {
         Hash::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
+    }
+
+    fn seal_basis(byte: u8) -> SealBasis {
+        SealBasis {
+            leaves: vec![seal_id(byte)],
+            control_event_set_root: hash(0x33),
+            state_root: hash(0x44),
+        }
     }
 
     fn hlc() -> Hlc {
@@ -696,7 +757,7 @@ mod tests {
                 realm_id: unsigned.realm_id.clone(),
                 preconditions: unsigned.preconditions.clone(),
                 effects: unsigned.effects.clone(),
-                anchor_ref: unsigned.anchor_ref.clone(),
+                seal_basis: unsigned.seal_basis.clone(),
                 refs: unsigned.refs.clone(),
                 hlc: unsigned.hlc.clone(),
                 sig,
@@ -734,7 +795,7 @@ mod tests {
         UnsignedMove::new(
             alice(),
             Realm(),
-            anchor_id(0xaa),
+            seal_basis(0xaa),
             vec![Effect {
                 cell: CellRef::new(
                     "ck:cell:ck.component.member.state.v1:did.web.alice.example".to_owned(),
@@ -775,11 +836,11 @@ mod tests {
     }
 
     #[test]
-    fn anchor_sign_single_validates_id_and_structural() {
+    fn seal_sign_single_validates_id_and_structural() {
         let s = signer();
-        let a = Anchor::sign_single(
+        let a = Seal::sign_single(
             Realm(),
-            vec![anchor_id(0xaa)],
+            vec![seal_id(0xaa)],
             vec![move_id(0x11)],
             hash(0x77),
             hlc(),
@@ -788,17 +849,17 @@ mod tests {
         .unwrap();
         a.validate_id().unwrap();
         a.validate_structural().unwrap();
-        match &a.anchorer_signature {
-            AnchorerSig::Single(sig) => assert_eq!(sig.alg, "EdDSA"),
+        match &a.notary_signature {
+            NotarySig::Single(sig) => assert_eq!(sig.alg, "EdDSA"),
             other => panic!("expected single sig, got {other:?}"),
         }
     }
 
     #[test]
-    fn anchor_sign_threshold_round_trip() {
-        let a = Anchor::sign_threshold(
+    fn seal_sign_threshold_round_trip() {
+        let a = Seal::sign_threshold(
             Realm(),
-            vec![anchor_id(0xaa)],
+            vec![seal_id(0xaa)],
             vec![move_id(0x11)],
             hash(0x77),
             hlc(),
@@ -809,8 +870,8 @@ mod tests {
         .unwrap();
         a.validate_id().unwrap();
         a.validate_structural().unwrap();
-        match &a.anchorer_signature {
-            AnchorerSig::Threshold(t) => {
+        match &a.notary_signature {
+            NotarySig::Threshold(t) => {
                 assert_eq!(t.threshold, 2);
                 assert_eq!(t.signers.len(), 2);
                 assert_eq!(t.proof, "BLS_AGG");
@@ -820,10 +881,10 @@ mod tests {
     }
 
     #[test]
-    fn anchor_sign_threshold_rejects_threshold_above_signer_count() {
-        let err = Anchor::sign_threshold(
+    fn seal_sign_threshold_rejects_threshold_above_signer_count() {
+        let err = Seal::sign_threshold(
             Realm(),
-            vec![anchor_id(0xaa)],
+            vec![seal_id(0xaa)],
             vec![move_id(0x11)],
             hash(0x77),
             hlc(),
@@ -836,33 +897,33 @@ mod tests {
     }
 
     #[test]
-    fn anchor_sign_multi_collects_one_sig_per_signer() {
+    fn seal_sign_multi_collects_one_sig_per_signer() {
         let alice = signer();
         let bob = StubSigner {
             did: Did::new("did:web:bob.example".to_owned()).unwrap(),
             kid: "did:web:bob.example#key-1".to_owned(),
         };
         let signers: &[&dyn MoveSigner] = &[&alice, &bob];
-        let a = Anchor::sign_multi(
+        let a = Seal::sign_multi(
             Realm(),
-            vec![anchor_id(0xaa)],
+            vec![seal_id(0xaa)],
             vec![move_id(0x11)],
             hash(0x77),
             hlc(),
             signers,
         )
         .unwrap();
-        match &a.anchorer_signature {
-            AnchorerSig::Multi(m) => assert_eq!(m.signatures.len(), 2),
+        match &a.notary_signature {
+            NotarySig::Multi(m) => assert_eq!(m.signatures.len(), 2),
             other => panic!("expected multi, got {other:?}"),
         }
     }
 
     #[test]
-    fn anchor_sign_multi_rejects_empty_signer_set() {
-        let err = Anchor::sign_multi::<dyn MoveSigner>(
+    fn seal_sign_multi_rejects_empty_signer_set() {
+        let err = Seal::sign_multi::<dyn MoveSigner>(
             Realm(),
-            vec![anchor_id(0xaa)],
+            vec![seal_id(0xaa)],
             vec![move_id(0x11)],
             hash(0x77),
             hlc(),
@@ -895,7 +956,7 @@ mod tests {
     }
 
     fn fixture_canonical_bytes() -> Vec<u8> {
-        b"canonical-anchor-body".to_vec()
+        b"canonical-seal-body".to_vec()
     }
 
     #[test]
@@ -986,7 +1047,7 @@ mod tests {
     }
 
     #[test]
-    fn anchor_sign_threshold_partial_round_trip() {
+    fn seal_sign_threshold_partial_round_trip() {
         let mut agg = ThresholdAggregator::new(2).unwrap();
         agg.add_partial(PartialSignature::new(
             alice(),
@@ -1001,9 +1062,9 @@ mod tests {
         ))
         .unwrap();
 
-        let a = Anchor::sign_threshold_partial(
+        let a = Seal::sign_threshold_partial(
             Realm(),
-            vec![anchor_id(0xaa)],
+            vec![seal_id(0xaa)],
             vec![move_id(0x11)],
             hash(0x77),
             hlc(),
@@ -1013,8 +1074,8 @@ mod tests {
 
         a.validate_id().unwrap();
         a.validate_structural().unwrap();
-        match &a.anchorer_signature {
-            AnchorerSig::Threshold(t) => {
+        match &a.notary_signature {
+            NotarySig::Threshold(t) => {
                 assert_eq!(t.threshold, 2);
                 assert_eq!(t.signers.len(), 2);
                 assert!(!t.proof.is_empty());
@@ -1024,15 +1085,15 @@ mod tests {
     }
 
     #[test]
-    fn anchor_sign_threshold_partial_below_threshold_errors() {
+    fn seal_sign_threshold_partial_below_threshold_errors() {
         let mut agg = ThresholdAggregator::new(3).unwrap();
         agg.add_partial(PartialSignature::new(alice(), vec![1u8; 64], "kid-1"))
             .unwrap();
         agg.add_partial(PartialSignature::new(bob(), vec![2u8; 64], "kid-2"))
             .unwrap();
-        let err = Anchor::sign_threshold_partial(
+        let err = Seal::sign_threshold_partial(
             Realm(),
-            vec![anchor_id(0xaa)],
+            vec![seal_id(0xaa)],
             vec![move_id(0x11)],
             hash(0x77),
             hlc(),

@@ -200,7 +200,7 @@ impl SnapshotManifest {
         if !manifest_frontiers_match(self) {
             return Err(SnapshotValidationError::new(
                 SnapshotValidationCode::InclusionProofFailed,
-                "event_set_commitment.covered_frontier does not match frontier.event_ids",
+                "event_set_commitment.covered_seals does not match frontier.event_ids",
             ));
         }
 
@@ -284,7 +284,7 @@ pub struct EventSetCommitment {
     pub root: Hash,
     pub covered_event_count: u64,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub covered_frontier: Vec<EventId>,
+    pub covered_seals: Vec<EventId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub actor_seq_ranges: Vec<ActorSeqRangeCommitment>,
 }
@@ -708,14 +708,14 @@ pub fn snapshot_state_leaf_hash(item: &SnapshotMaterializedItem) -> Result<Hash>
 pub fn event_set_commitment(
     algorithm: EventSetCommitmentAlgorithm,
     entries: &[EventSetLeaf],
-    covered_frontier: Vec<EventId>,
+    covered_seals: Vec<EventId>,
 ) -> Result<EventSetCommitment> {
     let root = event_set_root(&algorithm, entries)?;
     Ok(EventSetCommitment {
         algorithm,
         root,
         covered_event_count: entries.len() as u64,
-        covered_frontier,
+        covered_seals,
         actor_seq_ranges: Vec::new(),
     })
 }
@@ -757,7 +757,7 @@ pub fn merkle_root_from_hashes(leaves: Vec<Hash>) -> Result<Hash> {
 pub fn manifest_frontiers_match(manifest: &SnapshotManifest) -> bool {
     event_id_sets_equal(
         &manifest.frontier.event_ids,
-        &manifest.event_set_commitment.covered_frontier,
+        &manifest.event_set_commitment.covered_seals,
     )
 }
 
@@ -1207,7 +1207,7 @@ pub struct GeneratorProof {
     pub generator_did: Did,
     /// Realm whose state this snapshot covers.
     pub realm_id: RealmId,
-    /// Canonical state-root from `effective_anchor_view` at the snapshot
+    /// Canonical state-root from `effective_seal_view` at the snapshot
     /// frontier — what the snapshot claims to materialize.
     pub state_root: Hash,
     /// Root of the chunk-digest Merkle tree.
@@ -1367,7 +1367,7 @@ mod tests {
                 algorithm: EventSetCommitmentAlgorithm::MerkleEventSetV1,
                 root: hash(9),
                 covered_event_count: 1,
-                covered_frontier: vec![snapshot_v1_event_id("000000000001")],
+                covered_seals: vec![snapshot_v1_event_id("000000000001")],
                 actor_seq_ranges: Vec::new(),
             },
             chunks: descriptors,
@@ -1422,9 +1422,9 @@ mod tests {
     }
 
     #[test]
-    fn snapshot_v1_covered_frontier_mismatch_rejects() {
+    fn snapshot_v1_covered_seals_mismatch_rejects() {
         let (mut manifest, payloads, _) = manifest_for_items(Vec::new());
-        manifest.event_set_commitment.covered_frontier = vec![snapshot_v1_event_id("000000000002")];
+        manifest.event_set_commitment.covered_seals = vec![snapshot_v1_event_id("000000000002")];
         manifest.signature.payload_digest = manifest.expected_signature_digest().unwrap();
         let err = verify_snapshot_manifest(
             &manifest,

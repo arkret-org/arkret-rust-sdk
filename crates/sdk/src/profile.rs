@@ -828,7 +828,7 @@ mod tests {
         let binding = TspTrustBinding {
             subject: old_service.clone(),
             tsp_endpoint: "https://tsp.example".to_owned(),
-            trust_anchor: "anchor".to_owned(),
+            trust_anchor: "seal".to_owned(),
             binding_proof: "proof".to_owned(),
             created_at: Utc::now(),
             expires_at: None,

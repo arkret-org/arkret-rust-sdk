@@ -45,34 +45,34 @@ pub struct Realm {
     pub metadata_encryption_floor: Option<EncryptionFloor>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub federation_policy: Option<FederationPolicy>,
-    /// Anchor profile (data-structures.md §4 — Move/Anchor/Lattice). Hub /
+    /// Seal profile (data-structures.md §4 — Move/Seal/Lattice). Hub /
     /// threshold / open-set / mixed deployment shape. `None` means "use the
-    /// `anchorer` cell value's runtime shape" (recommended default; the
-    /// `anchorer` cell is the source of truth — this hint is purely
+    /// `notary` cell value's runtime shape" (recommended default; the
+    /// `notary` cell is the source of truth — this hint is purely
     /// advertisement).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub anchor_profile: Option<AnchorProfile>,
-    /// Initial anchorer cell value (data-structures.md §4). Reducer-derived
+    pub notary_profile: Option<NotaryProfile>,
+    /// Initial notary cell value (data-structures.md §4). Reducer-derived
     /// after Realm creation; this field is the **create-time hint** so
-    /// servers can populate the anchorer cell without an extra round-trip.
-    /// Subsequent anchorer changes flow through Move on the
-    /// `ck:cell:ck.component.anchorer.v1:<realm_id>` cell.
+    /// servers can populate the notary cell without an extra round-trip.
+    /// Subsequent notary changes flow through Move on the
+    /// `ck:cell:ck.component.notary.v1:<realm_id>` cell.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub anchorer: Option<crate::anchorer::AnchorerValue>,
-    /// Soft cap on how stale the latest Anchor leaf may be before clients
+    pub notary: Option<crate::notary::NotaryValue>,
+    /// Soft cap on how stale the latest Seal leaf may be before clients
     /// SHOULD warn / re-fetch. `None` means "implementation default" (spec
     /// suggests 30s for hub, longer for threshold). Reducer-derived field;
     /// passing a value at create time is a hint only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_anchor_staleness_ms: Option<u64>,
+    pub revocation_freshness_window_ms: Option<u64>,
     /// Lattice declarations per cell_family used in this Realm. Reducer-
     /// derived; this field exists so clients can render bottom diagnostics
     /// before observing any Move. Empty means "use the cell registry
     /// defaults from contract-catalog".
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cell_lattices: Vec<CellLatticeDeclaration>,
-    /// Co-write policy (data-structures.md §4 — Move/Anchor/Lattice). How
-    /// the server orders concurrent Moves before they reach an Anchor.
+    /// Co-write policy (data-structures.md §4 — Move/Seal/Lattice). How
+    /// the server orders concurrent Moves before they reach an Seal.
     /// `None` means "implementation default" (spec suggests
     /// `deterministic_order` for hub, `causal_only` for threshold).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -99,31 +99,31 @@ pub struct Realm {
     pub extra: BTreeMap<String, Value>,
 }
 
-/// Anchor deployment profile for a Realm (data-structures.md §4 —
-/// Move/Anchor/Lattice).
+/// Seal deployment profile for a Realm (data-structures.md §4 —
+/// Move/Seal/Lattice).
 ///
-/// This is a **hint field on `Realm`** — the live anchorer identity always
-/// lives in the `ck:cell:ck.component.anchorer.v1:<realm_id>` cell. The
+/// This is a **hint field on `Realm`** — the live notary identity always
+/// lives in the `ck:cell:ck.component.notary.v1:<realm_id>` cell. The
 /// hint exists so clients can pre-allocate state before observing the cell.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
-pub enum AnchorProfile {
-    /// Single DID anchorer signs every Anchor. Lowest latency, single
+pub enum NotaryProfile {
+    /// Single DID notary signs every Seal. Lowest latency, single
     /// point of failure / governance.
     Hub,
-    /// k-of-n threshold signature on each Anchor. Higher governance,
+    /// k-of-n threshold signature on each Seal. Higher governance,
     /// higher latency.
     Threshold,
     /// Any member of an open set may sign; subsequent signers can replace
-    /// or extend prior commitments via the anchorer cell or-set semantics.
+    /// or extend prior commitments via the notary cell or-set semantics.
     OpenSet,
-    /// Primary single anchorer with a fallback recovery quorum that can
+    /// Primary single notary with a fallback recovery quorum that can
     /// rotate the primary via a recovery Move.
     Mixed,
 }
 
-/// Per-cell-family lattice declaration carried on `Realm` (Move/Anchor/Lattice
+/// Per-cell-family lattice declaration carried on `Realm` (Move/Seal/Lattice
 /// data-structures.md §4). Maps a cell family used in this Realm to its
 /// declared lattice + bottom shape. Reducer-derived in practice; this is a
 /// **hint** so clients can set up bottom diagnostics surfaces upfront.
@@ -140,14 +140,14 @@ pub struct CellLatticeDeclaration {
     pub bottom: Option<String>,
 }
 
-/// Co-write policy declaration on `Realm` (Move/Anchor/Lattice). Governs
-/// how concurrent Moves are ordered before reaching an Anchor.
+/// Co-write policy declaration on `Realm` (Move/Seal/Lattice). Governs
+/// how concurrent Moves are ordered before reaching an Seal.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum CoWritePolicy {
-    /// Anchorer applies a deterministic order (HLC → issuer → id) before
-    /// folding into the next Anchor. Best for hub deployments.
+    /// Notary applies a deterministic order (HLC → issuer → id) before
+    /// folding into the next Seal. Best for hub deployments.
     DeterministicOrder,
     /// Causal-only order; concurrent Moves on the same cell may produce
     /// `bottom`. Suitable for threshold / open-set deployments.
@@ -184,9 +184,9 @@ impl Realm {
             content_encryption_floor: Some(EncryptionFloor::AllowPlaintext),
             metadata_encryption_floor: Some(EncryptionFloor::AllowPlaintext),
             federation_policy: None,
-            anchor_profile: None,
-            anchorer: None,
-            max_anchor_staleness_ms: None,
+            notary_profile: None,
+            notary: None,
+            revocation_freshness_window_ms: None,
             cell_lattices: Vec::new(),
             co_write_policy: None,
             retention_policy_id: None,
@@ -200,26 +200,26 @@ impl Realm {
         }
     }
 
-    /// Builder: declare the Anchor deployment profile (data-structures.md §4).
-    /// `Hub` uses a single-DID anchorer; `Threshold` / `OpenSet` / `Mixed`
+    /// Builder: declare the Seal deployment profile (data-structures.md §4).
+    /// `Hub` uses a single-DID notary; `Threshold` / `OpenSet` / `Mixed`
     /// introduce multi-signer governance.
-    pub fn with_anchor_profile(mut self, profile: AnchorProfile) -> Self {
-        self.anchor_profile = Some(profile);
+    pub fn with_notary_profile(mut self, profile: NotaryProfile) -> Self {
+        self.notary_profile = Some(profile);
         self
     }
 
-    /// Builder: declare the initial anchorer cell value. Servers seed the
-    /// `ck:cell:ck.component.anchorer.v1:<realm_id>` cell from this hint at
+    /// Builder: declare the initial notary cell value. Servers seed the
+    /// `ck:cell:ck.component.notary.v1:<realm_id>` cell from this hint at
     /// Realm creation time. Subsequent rotations flow through Move.
-    pub fn with_anchorer(mut self, anchorer: crate::anchorer::AnchorerValue) -> Self {
-        self.anchorer = Some(anchorer);
+    pub fn with_notary(mut self, notary: crate::notary::NotaryValue) -> Self {
+        self.notary = Some(notary);
         self
     }
 
-    /// Builder: cap how stale the latest Anchor leaf may be before clients
+    /// Builder: cap how stale the latest Seal leaf may be before clients
     /// SHOULD warn / re-fetch.
-    pub fn with_max_anchor_staleness(mut self, max_ms: u64) -> Self {
-        self.max_anchor_staleness_ms = Some(max_ms);
+    pub fn with_revocation_freshness_window(mut self, max_ms: u64) -> Self {
+        self.revocation_freshness_window_ms = Some(max_ms);
         self
     }
 

@@ -12,7 +12,7 @@
 //!
 //! ## Normative grammar rules
 //! * PATH carries identity: keyword + bare uuid (the `ck:<kind>:` sigil is stripped). Hierarchy is
-//!   fixed `realm/<r>` ⊃ `flow/<f>` ⊃ `m/<msg>`. The message anchor keyword is exactly `m/`.
+//!   fixed `realm/<r>` ⊃ `flow/<f>` ⊃ `m/<msg>`. The message seal keyword is exactly `m/`.
 //! * The `<realm>` segment: a UUIDv7 textual form is a `realm_id`; otherwise it is an ALIAS
 //!   (domain-style). `<flow>` and `<msg>` segments accept ONLY a bare uuid.
 //! * Flow/Message addresses MUST carry `realm/<r>`. A global flow_id is never guessed. Retired
@@ -268,7 +268,7 @@ fn parse_path(path: &str) -> Result<(RealmRef, Option<String>, Option<String>)> 
         // `m/<msg>` without an intermediate `flow/` is a missing-level error.
         Some("m") => {
             return Err(protocol_err(
-                "message anchor 'm/' requires an intermediate 'flow/' level",
+                "message seal 'm/' requires an intermediate 'flow/' level",
             ));
         }
         Some(other) => {

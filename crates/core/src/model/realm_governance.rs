@@ -245,7 +245,7 @@ pub struct CapabilityDerived {
     pub source_grant_ref: EventRef,
     pub source_realm_inheritance_policy_ref: EventRef,
     /// Causal frontier (free-form string per spec event-kind-registry)
-    /// that the derived capability is anchored against. Reducer treats
+    /// that the derived capability is sealed against. Reducer treats
     /// this opaquely.
     pub causal_frontier: String,
     /// Optional declarative shape of the derived capability bundle.

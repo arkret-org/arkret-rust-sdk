@@ -1860,7 +1860,7 @@ pub enum CellQueryStatus {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
-pub struct CellQueryAnchorView {
+pub struct CellQuerySealView {
     pub leaves: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state_root: Option<Hash>,
@@ -1878,7 +1878,7 @@ pub struct CellQueryEnvelope {
     #[serde(default, skip_serializing_if = "Value::is_null")]
     pub bottom: BottomDiagnostic,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub anchor_view: Option<CellQueryAnchorView>,
+    pub seal_view: Option<CellQuerySealView>,
     #[cfg_attr(feature = "salvo", salvo(schema(value_type = serde_json::Value)))]
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
@@ -1888,12 +1888,12 @@ pub struct CellQueryEnvelope {
 #[cfg_attr(feature = "salvo", derive(salvo::oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum EventProtocolState {
-    PendingAnchor,
-    Effective,
+    PendingSeal,
+    Sealed,
     FailedPrecondition,
     FailedBottom,
-    RejectedAnchor,
-    AnchorerPaused,
+    RejectedSeal,
+    NotaryPaused,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1963,7 +1963,7 @@ pub struct RealmPreview {
 pub enum RealmJoinCandidateServiceType {
     PrincipalServer,
     SyncNode,
-    Anchorer,
+    Notary,
 }
 
 /// Routing role for a Realm join candidate. This is an ordering and
@@ -1974,7 +1974,7 @@ pub enum RealmJoinCandidateServiceType {
 pub enum RealmJoinCandidateRole {
     Primary,
     Mirror,
-    Anchorer,
+    Notary,
     Sync,
     FederationPeer,
     InviteOrigin,

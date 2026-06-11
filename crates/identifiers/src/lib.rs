@@ -100,7 +100,7 @@ macro_rules! id_type {
 ///   `uuid` columns (bare) and reload as the prefixed wire form. Gated so the wasm/protocol build
 ///   never pulls diesel.
 ///
-/// Hash-bearing or hybrid kinds (`OperationId`, `BlobRef`, `AnchorId`,
+/// Hash-bearing or hybrid kinds (`OperationId`, `BlobRef`, `SealId`,
 /// `MoveId`, `Hash`), DIDs, cursors and `trust_domain` MUST stay on plain
 /// [`id_type!`] — they have no bare-uuid form.
 macro_rules! uuid_id_type {
@@ -389,11 +389,11 @@ fn is_content_addressed<'a>(prefix: &'a str) -> impl Fn(&str) -> bool + 'a {
     move |value| value.strip_prefix(prefix).is_some_and(is_hash)
 }
 
-// Anchor frontier items are bare `<algo>:<hex>` hashes equal to the
+// Seal frontier items are bare `<algo>:<hex>` hashes equal to the
 // reducer-input event's `proof.payload_digest` (spec field name
 // `event_digest`).
 id_type!(MoveId, is_hash);
-id_type!(AnchorId, is_content_addressed("ck:anchor:"));
+id_type!(SealId, is_content_addressed("ck:seal:"));
 id_type!(CellRef, has_prefix("ck:cell:"));
 
 impl BlobRef {
@@ -643,7 +643,7 @@ mod tests {
         assert!(MoveId::new(format!("blake3:{digest64}")).is_ok());
         assert!(MoveId::new(format!("sha256:{digest64}")).is_ok());
         assert!(MoveId::new(format!("sha512:{digest128}")).is_err());
-        assert!(AnchorId::new(format!("ck:anchor:sha512:{digest128}")).is_err());
+        assert!(SealId::new(format!("ck:seal:sha512:{digest128}")).is_err());
     }
 
     #[test]
