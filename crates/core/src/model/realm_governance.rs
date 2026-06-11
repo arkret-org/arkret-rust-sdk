@@ -209,7 +209,8 @@ fn default_inheritance_max_depth() -> u32 {
 
 impl RealmInheritancePolicy {
     /// Cap on `max_depth` enforced by the wire validator + soland
-    /// reducer at this stage. Composite inheritance (depth>1) is TODO.
+    /// reducer at this stage. Composite inheritance (depth > 1) is outside
+    /// the current v1 cap.
     pub const MAX_DEPTH_CAP: u32 = 1;
 
     pub fn validate(&self) -> Result<()> {

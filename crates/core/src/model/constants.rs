@@ -431,7 +431,8 @@ pub const OP_BLOB_GET: &str = "ck.self.blob.get";
 /// Round C44 (2026-05-18; spec dc01ad7) — pre-signed blob URL surface.
 /// `POST /blob/presign` returns a short-lived put/get URL pair so very
 /// large blobs can be uploaded directly to object storage. Full signing
-/// path is a soland TODO; SDK only needs the constant for client routing.
+/// enforcement is a server responsibility; SDK only needs the constant for
+/// client routing.
 pub const OP_BLOB_PRESIGN: &str = "ck.self.blob.presign";
 
 /// Push and key operations.
