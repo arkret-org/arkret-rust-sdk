@@ -93,6 +93,22 @@ fn transport_error(error: reqwest::Error) -> Error {
     Error::Http(error.to_string())
 }
 
+#[cfg(feature = "tracing")]
+#[derive(Clone, Debug)]
+struct RequestTraceFields {
+    method: String,
+    path: String,
+}
+
+#[cfg(feature = "tracing")]
+fn request_trace_fields(builder: &RequestBuilder) -> Option<RequestTraceFields> {
+    let request = builder.try_clone()?.build().ok()?;
+    Some(RequestTraceFields {
+        method: request.method().as_str().to_owned(),
+        path: request.url().path().to_owned(),
+    })
+}
+
 fn trim_ascii(mut bytes: &[u8]) -> &[u8] {
     while bytes.first().is_some_and(u8::is_ascii_whitespace) {
         bytes = &bytes[1..];
@@ -600,7 +616,9 @@ impl ClientBuilder {
                 }
                 http
             }
-            None => self.transport.apply(reqwest::Client::builder()).build().map_err(transport_error)?,
+            None => {
+                self.transport.apply(reqwest::Client::builder()).build().map_err(transport_error)?
+            }
         };
         Ok(Client {
             base_url: self.base_url,
@@ -1482,12 +1500,43 @@ impl Client {
     #[cfg(not(target_arch = "wasm32"))]
     async fn execute(&self, builder: RequestBuilder) -> Result<Response> {
         validate_request_builder(&builder)?;
+        #[cfg(feature = "tracing")]
+        let trace = request_trace_fields(&builder);
+        #[cfg(feature = "tracing")]
+        if let Some(trace) = &trace {
+            tracing::debug!(
+                method = %trace.method,
+                path = %trace.path,
+                max_retries = self.retry.max_retries,
+                "sending Cokret HTTP request"
+            );
+        }
         if self.retry.max_retries == 0 {
-            return builder.send().await.map_err(transport_error);
+            let response = builder.send().await.map_err(transport_error)?;
+            #[cfg(feature = "tracing")]
+            if let Some(trace) = &trace {
+                tracing::debug!(
+                    method = %trace.method,
+                    path = %trace.path,
+                    status = response.status().as_u16(),
+                    "received Cokret HTTP response"
+                );
+            }
+            return Ok(response);
         }
 
         let Some(template) = builder.try_clone() else {
-            return builder.send().await.map_err(transport_error);
+            let response = builder.send().await.map_err(transport_error)?;
+            #[cfg(feature = "tracing")]
+            if let Some(trace) = &trace {
+                tracing::debug!(
+                    method = %trace.method,
+                    path = %trace.path,
+                    status = response.status().as_u16(),
+                    "received Cokret HTTP response"
+                );
+            }
+            return Ok(response);
         };
 
         // Blind resends of a non-idempotent request can duplicate a write
@@ -1524,23 +1573,77 @@ impl Client {
                         && self.retry.should_retry_status(response.status()) =>
                 {
                     attempts += 1;
+                    #[cfg(feature = "tracing")]
+                    if let Some(trace) = &trace {
+                        tracing::warn!(
+                            method = %trace.method,
+                            path = %trace.path,
+                            status = response.status().as_u16(),
+                            attempt = attempts,
+                            max_retries = self.retry.max_retries,
+                            "retrying Cokret HTTP request after retryable status"
+                        );
+                    }
                     sleep(self.retry.retry_delay_from_headers(response.headers(), attempts)).await;
                 }
-                Ok(response) => return Ok(response),
+                Ok(response) => {
+                    #[cfg(feature = "tracing")]
+                    if let Some(trace) = &trace {
+                        tracing::debug!(
+                            method = %trace.method,
+                            path = %trace.path,
+                            status = response.status().as_u16(),
+                            attempts = attempts + 1,
+                            "received Cokret HTTP response"
+                        );
+                    }
+                    return Ok(response);
+                }
                 Err(error)
                     if attempts < self.retry.max_retries && self.retry.retry_network_errors =>
                 {
                     attempts += 1;
                     // Timeouts may fire after the server received the
                     // request; only idempotent requests may resend then.
-                    let retryable =
-                        error.is_connect() || (idempotent && error.is_timeout());
+                    let retryable = error.is_connect() || (idempotent && error.is_timeout());
                     if !retryable {
+                        #[cfg(feature = "tracing")]
+                        if let Some(trace) = &trace {
+                            tracing::warn!(
+                                method = %trace.method,
+                                path = %trace.path,
+                                error = %error,
+                                "Cokret HTTP request failed without retry"
+                            );
+                        }
                         return Err(transport_error(error));
+                    }
+                    #[cfg(feature = "tracing")]
+                    if let Some(trace) = &trace {
+                        tracing::warn!(
+                            method = %trace.method,
+                            path = %trace.path,
+                            error = %error,
+                            attempt = attempts,
+                            max_retries = self.retry.max_retries,
+                            "retrying Cokret HTTP request after transport error"
+                        );
                     }
                     sleep(self.retry.retry_delay(attempts)).await;
                 }
-                Err(error) => return Err(transport_error(error)),
+                Err(error) => {
+                    #[cfg(feature = "tracing")]
+                    if let Some(trace) = &trace {
+                        tracing::warn!(
+                            method = %trace.method,
+                            path = %trace.path,
+                            error = %error,
+                            attempts = attempts + 1,
+                            "Cokret HTTP request failed"
+                        );
+                    }
+                    return Err(transport_error(error));
+                }
             }
         }
     }
@@ -1555,7 +1658,27 @@ impl Client {
     #[cfg(target_arch = "wasm32")]
     async fn execute(&self, builder: RequestBuilder) -> Result<Response> {
         validate_request_builder(&builder)?;
-        builder.send().await.map_err(transport_error)
+        #[cfg(feature = "tracing")]
+        let trace = request_trace_fields(&builder);
+        #[cfg(feature = "tracing")]
+        if let Some(trace) = &trace {
+            tracing::debug!(
+                method = %trace.method,
+                path = %trace.path,
+                "sending Cokret HTTP request"
+            );
+        }
+        let response = builder.send().await.map_err(transport_error)?;
+        #[cfg(feature = "tracing")]
+        if let Some(trace) = &trace {
+            tracing::debug!(
+                method = %trace.method,
+                path = %trace.path,
+                status = response.status().as_u16(),
+                "received Cokret HTTP response"
+            );
+        }
+        Ok(response)
     }
 }
 
