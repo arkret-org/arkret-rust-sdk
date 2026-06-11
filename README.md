@@ -4,11 +4,12 @@
 
 [![codecov](https://codecov.io/gh/cokret/cokret-rust-sdk/branch/main/graph/badge.svg)](https://codecov.io/gh/cokret/cokret-rust-sdk)
 
-Release status: local Cokret v1 SDK `1.0.0` freeze candidate. The SDK includes
-authenticated local encryption helpers based on XChaCha20-Poly1305, OpenMLS MLS
-group encryption, framework-independent server contracts, HTTP client bindings
-and conformance-oriented tests. The local security-review packet and cotest
-release-gate interoperability suite are recorded under `docs/`.
+Release status: active Cokret v1 development SDK, with workspace crates still at
+`0.3.0` until an explicit release cut. The SDK includes authenticated local
+encryption helpers based on XChaCha20-Poly1305, OpenMLS MLS group encryption,
+framework-independent server contracts, HTTP client bindings and
+conformance-oriented tests. Local security-review and cotest release-readiness
+evidence are recorded under `docs/`.
 
 This repository contains the Rust SDK for Cokret v1. The public SDK surface is
 centered on:

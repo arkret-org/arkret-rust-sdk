@@ -5,8 +5,9 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-Starting with the local `1.0.0` freeze, breaking public API changes require a
-major-version bump.
+Current workspace crates remain at `0.3.0` during active v1 development.
+Protocol-sync changes below are git-only unless an entry explicitly says a
+crate release was cut.
 
 ## R4.2 — Policy check `actor` → `actor_id` 2026-06-10 (cokret-spec @ fb4c970)
 
@@ -298,11 +299,12 @@ section will roll into the next published release.
   `TODO(circle-rollout-P1.5)` in `crates/core/src/forbidden_wire_fields.rs`
   (path-shaped + prefix-shaped forbidden entries).
 
-## [1.0.0] - 2026-05-25
+## [Local v1 readiness snapshot] - 2026-05-25
 
 ### Release Engineering
 
-- Bumped all 11 workspace crates to `1.0.0` for the local freeze.
+- Recorded local v1 readiness state for all 11 workspace crates without
+  changing their crate versions.
 - Recorded local interop evidence in `docs/release-evidence-1.0.0.md` using
   cotest release-gate run `artifacts/runs/20260525-055932` from the sibling
   `cotest` checkout.

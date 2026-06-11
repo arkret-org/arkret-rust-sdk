@@ -1,9 +1,10 @@
 # Cokret Rust SDK
 
-Release status: local Cokret v1 SDK `1.0.0` freeze candidate. The crate
-exposes protocol types, client/server bindings and authenticated local
-encryption helpers. Production deployments should still use platform key
-storage and run service-level conformance tests.
+Release status: active Cokret v1 development SDK, with workspace crates still at
+`0.3.0` until an explicit release cut. The crate exposes protocol types,
+client/server bindings and authenticated local encryption helpers. Production
+deployments should still use platform key storage and run service-level
+conformance tests.
 
 This crate is the Cokret v1 SDK entry point. It exposes the protocol model
 directly and re-exports the shared contracts crate as `cokret::api`:
