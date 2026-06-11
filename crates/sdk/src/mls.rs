@@ -229,86 +229,6 @@ pub fn minimal_metadata_epoch_overdue(
     now.signed_duration_since(epoch_started_at) > minimal_metadata_max_epoch_lifetime()
 }
 
-/// SEC-05 — protocol absolute upper bound (7 days, whole seconds) on how long a
-/// `ck.profile.franking.sender_commitment.v1` audit verifier MAY hold an MLS
-/// epoch exporter secret to re-derive sender-commitment keys, per
-/// `governance/content-moderation.md` §3.4.2. Matches the numeric-ceiling
-/// convention of [`MINIMAL_METADATA_MAX_EPOCH_LIFETIME_SECS`] /
-/// `INCEPTION_KEY_MAX_ONLINE_WINDOW_SECS`. A deployment MAY declare a shorter
-/// window, never a longer one.
-pub const FRANKING_VERIFIER_EXPORTER_SECRET_MAX_WINDOW_SECS: i64 = 7 * 24 * 60 * 60;
-
-/// SEC-05 — clamp a deployment-declared verifier exporter-secret holding window
-/// to the protocol absolute cap (≤ 7d) with a non-negative floor.
-pub fn franking_verifier_effective_window_secs(declared_window_secs: i64) -> i64 {
-    declared_window_secs.clamp(0, FRANKING_VERIFIER_EXPORTER_SECRET_MAX_WINDOW_SECS)
-}
-
-/// SEC-05 — an MLS epoch exporter secret held by a sender-commitment audit
-/// verifier, with a holding window capped at ≤ 7d
-/// ([`FRANKING_VERIFIER_EXPORTER_SECRET_MAX_WINDOW_SECS`]).
-///
-/// The secret bytes live in a [`zeroize::Zeroizing`] buffer (wiped on drop) and
-/// MUST be zeroized the moment the window elapses
-/// ([`Self::zeroize_if_expired`]). Past the window the commitment is treated as
-/// *unverifiable* (re-derivation impossible), never as forged — see §3.4.2 and
-/// the verification-receipt rule that preserves attribution beyond the window.
-pub struct FrankingVerifierExporterSecret {
-    secret: zeroize::Zeroizing<Vec<u8>>,
-    held_since: chrono::DateTime<Utc>,
-    window_secs: i64,
-}
-
-impl FrankingVerifierExporterSecret {
-    /// Hold `secret` from `held_since`, clamping `declared_window_secs` to the
-    /// protocol cap.
-    pub fn new(
-        secret: Vec<u8>,
-        held_since: chrono::DateTime<Utc>,
-        declared_window_secs: i64,
-    ) -> Self {
-        Self {
-            secret: zeroize::Zeroizing::new(secret),
-            held_since,
-            window_secs: franking_verifier_effective_window_secs(declared_window_secs),
-        }
-    }
-
-    /// Effective (clamped) holding window in seconds.
-    pub fn window_secs(&self) -> i64 {
-        self.window_secs
-    }
-
-    /// `true` once the holding window has elapsed (a `now` earlier than
-    /// `held_since`, i.e. clock skew, is never reported as expired).
-    pub fn is_expired(&self, now: chrono::DateTime<Utc>) -> bool {
-        now.signed_duration_since(self.held_since) > chrono::Duration::seconds(self.window_secs)
-    }
-
-    /// Borrow the secret only while the window is live; `None` once expired so
-    /// callers cannot keep deriving sender-commitment keys past the cap.
-    pub fn secret(&self, now: chrono::DateTime<Utc>) -> Option<&[u8]> {
-        if self.is_expired(now) {
-            None
-        } else {
-            Some(self.secret.as_slice())
-        }
-    }
-
-    /// Zeroize the held secret if the window has elapsed; returns `true` when it
-    /// did. After this the buffer is wiped and [`Self::secret`] keeps returning
-    /// `None`.
-    pub fn zeroize_if_expired(&mut self, now: chrono::DateTime<Utc>) -> bool {
-        use zeroize::Zeroize;
-        if self.is_expired(now) {
-            self.secret.zeroize();
-            true
-        } else {
-            false
-        }
-    }
-}
-
 /// Structured AAD for `ck.schema.encrypted_envelope.v1`. `realm_id` +
 /// `event_kind` are mandatory; the event-id fields are governed by
 /// [`AadVisibility`] and the schema discriminator (a `hidden` envelope MUST
@@ -1437,50 +1357,6 @@ mod tests {
             minimal_metadata_max_epoch_lifetime(),
             chrono::Duration::hours(1)
         );
-    }
-
-    // --- SEC-05: franking verifier exporter-secret holding window ---
-
-    #[test]
-    fn franking_verifier_window_clamps_to_7d() {
-        let seven_d = FRANKING_VERIFIER_EXPORTER_SECRET_MAX_WINDOW_SECS;
-        assert_eq!(seven_d, 7 * 24 * 3600);
-        // Deployment declaring > 7d is clamped down to 7d.
-        assert_eq!(
-            franking_verifier_effective_window_secs(10 * 24 * 3600),
-            seven_d
-        );
-        // A shorter declared window is honored.
-        assert_eq!(
-            franking_verifier_effective_window_secs(3 * 24 * 3600),
-            3 * 24 * 3600
-        );
-        // Negative / nonsense floors to 0.
-        assert_eq!(franking_verifier_effective_window_secs(-5), 0);
-    }
-
-    #[test]
-    fn franking_exporter_secret_expires_and_zeroizes() {
-        let held = chrono::DateTime::<Utc>::from_timestamp(1_900_000_000, 0).unwrap();
-        // Declared 10d clamps to the 7d protocol cap.
-        let mut sec = FrankingVerifierExporterSecret::new(vec![1, 2, 3, 4], held, 10 * 24 * 3600);
-        assert_eq!(
-            sec.window_secs(),
-            FRANKING_VERIFIER_EXPORTER_SECRET_MAX_WINDOW_SECS
-        );
-        // Within window: secret is borrowable.
-        let within = held + chrono::Duration::days(6);
-        assert!(!sec.is_expired(within));
-        assert_eq!(sec.secret(within), Some(&[1u8, 2, 3, 4][..]));
-        // Past the (clamped) window: unverifiable, secret withheld.
-        let past = held + chrono::Duration::days(8);
-        assert!(sec.is_expired(past));
-        assert_eq!(sec.secret(past), None);
-        // Expiry zeroizes the buffer.
-        assert!(sec.zeroize_if_expired(past));
-        assert_eq!(sec.secret(past), None);
-        // Clock skew (now < held_since) is never reported as expired.
-        assert!(!sec.is_expired(held - chrono::Duration::hours(1)));
     }
 
     #[test]

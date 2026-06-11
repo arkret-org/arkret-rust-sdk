@@ -514,8 +514,8 @@ pub const REASON_CLAIM_FAILED: &str = "claim_failed";
 //
 // `failed_precondition` sub-codes for lifecycle state machines, patch grammar,
 // AEAD nonce derivation, accountability_grant verification, delegation, fork
-// recovery witness, sender commitment, range completeness, and deprecation
-// timeline. Spec: `error-code-registry.json#reason_codes`.
+// recovery witness, range completeness, and deprecation timeline. Spec:
+// `error-code-registry.json#reason_codes`.
 
 // Lifecycle state-machine guards (Flow / Space / Morph / Message / Relation).
 pub const REASON_FLOW_NOT_ACTIVE: &str = "flow_not_active";
@@ -640,14 +640,6 @@ pub const REASON_MORPH_SCHEMA_REFS_TRANSFORMATION_UNSUPPORTED: &str =
     "morph_schema_refs_transformation_unsupported";
 pub const REASON_MORPH_SCHEMA_VERSION_BINDING_MISSING: &str =
     "morph_schema_version_binding_missing";
-
-// Sender commitment validation.
-pub const REASON_SENDER_COMMITMENT_INVALID: &str = "sender_commitment_invalid";
-pub const REASON_SENDER_COMMITMENT_MISSING: &str = "sender_commitment_missing";
-pub const REASON_SENDER_COMMITMENT_SEQ_REPLAY: &str = "sender_commitment_seq_replay";
-pub const REASON_SENDER_COMMITMENT_CIPHERTEXT_MISMATCH: &str =
-    "sender_commitment_ciphertext_mismatch";
-pub const REASON_SENDER_COMMITMENT_EPOCH_MISMATCH: &str = "sender_commitment_epoch_mismatch";
 
 // Range-completeness attestation (zh/sync/operations-sync.md §4.2.4).
 pub const REASON_RANGE_COMPLETENESS_ROOT_MISMATCH: &str = "range_completeness_root_mismatch";
